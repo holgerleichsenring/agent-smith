@@ -19,7 +19,7 @@ namespace AgentSmith.Tests.Architecture;
 /// <para>
 /// The readings are DEPRECATED, never deleted. The schema root is
 /// <c>additionalProperties: false</c>, so removing a property would not stop asking for it —
-/// it would start REFUSING it, and every context written before this phase would fail on its
+/// it would start REFUSING it, and every context written before this spec would fail on its
 /// first run, this repository's own included.
 /// </para>
 /// </summary>
@@ -30,7 +30,7 @@ public sealed class ContextFieldClassificationTests
     /// <summary>The blocks whose CHILDREN are the fields; the block itself is a container.</summary>
     private static readonly string[] Blocks = ["meta", "stack", "arch", "behavior", "quality"];
 
-    /// <summary>A context in the shape the writer emitted before this phase — every reading.</summary>
+    /// <summary>A context in the shape the writer emitted before this spec — every reading.</summary>
     private const string PreviousShape = """
         meta:
           workdir: "."
@@ -81,7 +81,7 @@ public sealed class ContextFieldClassificationTests
     }
 
     [Fact]
-    public void Schema_AContextWrittenBeforeThisPhase_StillValidates()
+    public void Schema_AContextWrittenBeforeThisSpec_StillValidates()
     {
         ContextSchemaFile.Validate(PreviousShape).Should().BeEmpty(
             "a reading is deprecated, not removed — the root refuses what it does not "
@@ -96,10 +96,10 @@ public sealed class ContextFieldClassificationTests
     {
         var readings = Fields().Where(field => Marker(field.Node, "READING")).ToList();
 
-        readings.Should().HaveCountGreaterThan(10, "the readings are the point of the phase");
+        readings.Should().HaveCountGreaterThan(10, "the readings are the point of the spec");
         readings.Should().OnlyContain(field => Marker(field.Node, "DEPRECATED"),
             "a reading says in the schema that it is deprecated, so a reader of the schema "
-            + "learns it without reading a phase spec");
+            + "learns it without reading a spec");
         ContextSchemaFile.Validate(PreviousShape).Should().BeEmpty(
             "deprecated means no longer written — never refused");
     }

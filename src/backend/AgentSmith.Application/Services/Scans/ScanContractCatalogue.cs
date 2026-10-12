@@ -6,7 +6,7 @@ namespace AgentSmith.Application.Services.Scans;
 /// <summary>
 /// p0429: the scan's contract, derived from the steps its preset really declares.
 /// <para>
-/// A coding run states its criteria in a phase spec. A scan had none at all, so a
+/// A coding run states its criteria in a spec. A scan had none at all, so a
 /// dependency audit that failed to restore left the run reporting "clean" — a MISS was
 /// indistinguishable from a NON-GOAL. Reading the criteria off the preset costs no
 /// tokens, cannot drift from what the run will actually do, and shrinks automatically

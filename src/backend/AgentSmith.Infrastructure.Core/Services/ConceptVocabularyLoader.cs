@@ -99,7 +99,7 @@ public sealed class ConceptVocabularyLoader(
         throw new InvalidOperationException(
             $"concept-vocabulary.yaml at {path} is in the legacy three-section shape (project_concepts/change_signals/run_context). " +
             "Migrate to the flat typed schema: concepts: [{name, type, description, enum_values?, int_range?, writers?}]. " +
-            "See p0125a phase spec for details.");
+            "See spec p0125a for details.");
     }
 
     private static Dictionary<string, ProjectConcept> BuildLookup(List<RawConcept> entries, string path)

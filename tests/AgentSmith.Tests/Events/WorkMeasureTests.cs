@@ -21,7 +21,7 @@ public sealed class WorkMeasureTests
     [Fact]
     public void EveryRecordedUnit_CarriesTheSameFiveMeasures()
     {
-        // p0423 decision: a run, a phase and a step are AGGREGATES — their sizes and
+        // p0423 decision: a run, a spec and a step are AGGREGATES — their sizes and
         // attempts are sums over the calls inside them, so they are derived (step 3),
         // never a second stored copy that can drift from its parts. A poll cycle is not
         // a unit of a run at all.

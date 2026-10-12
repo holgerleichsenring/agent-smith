@@ -7,7 +7,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 /// p0318 found the read half: a Bug keeps its body in
 /// <c>Microsoft.VSTS.TCM.ReproSteps</c> and its <c>System.Description</c> is empty, so reading
 /// Description alone handed the planner a title and it invented the scope. The write half is this
-/// phase's: a rewrite that put the amended text into Description while the Bug's body sits in
+/// spec's: a rewrite that put the amended text into Description while the Bug's body sits in
 /// ReproSteps would give the ticket a SECOND body, invisible to every reader — including the one
 /// that reads it back through <see cref="AzureDevOpsFieldMapper"/>, which prefers Description.
 /// </para>

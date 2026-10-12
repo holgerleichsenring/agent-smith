@@ -9,7 +9,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// in the pull request body, and beside a scan's findings.
 /// <para>
 /// The account has been taken since p0420 and read by the gate since p0421, but the only
-/// human who ever saw it was one opening a done-phase YAML. So a scan whose dependency
+/// human who ever saw it was one opening a done-spec YAML. So a scan whose dependency
 /// audit died read exactly like a scan that audited and found nothing: same finding list,
 /// same silence. Nothing new is computed here — what the gate judges is simply shown.
 /// </para>
@@ -27,7 +27,7 @@ public static class RunAccountSection
         return "\n\n" + SpecAccountRenderer.ToMarkdown(accounts, Heading(accounts)).TrimEnd();
     }
 
-    /// <summary>A scan's account is keyed "scan" by its accountant; a phase's is a repo.</summary>
+    /// <summary>A scan's account is keyed "scan" by its accountant; a spec's is a repo.</summary>
     private static string Heading(IReadOnlyList<SpecAccount> accounts) =>
         accounts.All(a => string.Equals(a.RepoKey, ScanCoverageAccountant.RepoKey, StringComparison.Ordinal))
             ? ScanHeading

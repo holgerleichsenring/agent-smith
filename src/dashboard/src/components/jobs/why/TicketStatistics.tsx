@@ -5,7 +5,7 @@ import type { RunAcceptance } from "@/types/hub-events";
 import { formatChars, formatMs } from "./callSeries";
 import { WorkBreakdown } from "./WorkBreakdown";
 
-// p0423b: what the ticket cost, read off the trail. Phases, criteria, duration per ticket,
+// p0423b: what the ticket cost, read off the trail. Specs, criteria, duration per ticket,
 // calls and their sizes — every one of them a fold over the recorded events, never a
 // counter kept beside them. A counter and the events it counts are two answers to one
 // question, and they drift.

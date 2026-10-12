@@ -29,7 +29,7 @@ import { ExpectationMetricsView } from "@/components/system/ExpectationMetricsVi
 // 2026-08-27-559e: the page is a row of three CARDS over a row of two PANELS,
 // inside a bounded column. Stacked full-width strips were the three thin pages
 // re-stacked, which is the complaint the page existed to answer. Every figure
-// is the one the sections already read — this phase moved them, it did not
+// is the one the sections already read — this spec moved them, it did not
 // recompute them.
 
 export function OverviewView() {

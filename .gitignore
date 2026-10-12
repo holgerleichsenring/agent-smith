@@ -55,7 +55,6 @@ deploy/docker-compose*.yml
 
 ## Claude Code
 .claude/
-!.claude/prompt.md
 !.claude/commands/
 !.claude/commands/**
 

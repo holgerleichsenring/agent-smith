@@ -6,7 +6,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// <summary>
 /// p0393a: case-insensitive JSON element access shared by the derivation parser.
 /// Models emit snake_case, camelCase and PascalCase interchangeably; the parser
-/// must not turn that into a lost phase.
+/// must not turn that into a lost spec.
 /// </summary>
 internal static class SpecJsonReader
 {
@@ -30,6 +30,10 @@ internal static class SpecJsonReader
     // reader fell back to its default.
     private static string Normalize(string name) =>
         name.Replace("_", string.Empty).Replace("-", string.Empty);
+
+    /// <summary>2026-10-12-967aa: the key a derivation reply lists its specs under — "phases", or
+    /// "specs", the key a later skill release asks for, when the reply carries no "phases".</summary>
+    public static string SpecsKey(JsonElement root) => TryGet(root, "phases", out _) ? "phases" : "specs";
 
     public static string ReadString(JsonElement obj, string name) =>
         TryGet(obj, name, out var el) && el.ValueKind == JsonValueKind.String

@@ -25,11 +25,11 @@ Pipeline: code
 ├── AnalyzeCode
 ├── DeriveSpec
 ├── SpecHandback
-├── PhaseSpecGate
+├── SpecGate
 ├── EnsurePrerequisites
 ├── ProbeTarget
 ├── MaterializeReferenceSets
-├── PhaseSequence
+├── SpecSequence
 ├── WriteRunResult
 ├── CommitAndPR
 └── PrCrossLink
@@ -39,7 +39,7 @@ Pipeline: code
 
 A preset is fixed, but a handler can splice further commands into the running pipeline, directly after itself. Two do:
 
-- `PhaseSequence` in `code` inserts one block per phase the run derived: `SelectPhase`, `CheckPhasePremises`, `AgenticMaster`, `MasterOpenQuestions`, `CommitPhaseWork`, `VerifyPhase`, `ReviewPhaseDiff`, `WritePhaseRecord`. How many blocks a ticket becomes is decided during the run. See [The code pipeline](../pipelines/fix-and-feature.md).
+- `SpecSequence` in `code` inserts one block per spec the run derived: `SelectSpec`, `CheckSpecPremises`, `AgenticMaster`, `MasterOpenQuestions`, `CommitSpecWork`, `VerifySpec`, `ReviewSpecDiff`, `WriteSpecRecord`. How many blocks a ticket becomes is decided during the run. See [The code pipeline](../pipelines/fix-and-feature.md).
 - `BootstrapDispatch` in `init-project` inserts one `BootstrapRound` per repository and discovered component.
 
 ## Pipeline presets

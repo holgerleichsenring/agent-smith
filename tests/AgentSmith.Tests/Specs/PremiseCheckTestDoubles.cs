@@ -21,18 +21,18 @@ namespace AgentSmith.Tests.Specs;
 /// </summary>
 internal static class PremiseCheckTestDoubles
 {
-    public const string PhaseId = "2026-09-17-1111";
+    public const string SpecId = "2026-09-17-1111";
 
-    /// <summary>A phase stating one fact, one assumption and one decision, as the design
+    /// <summary>A spec stating one fact, one assumption and one decision, as the design
     /// partner's contract now drafts them.</summary>
     public static PhaseDraft Draft(
         string fact = "OrderHandler validates the payload before dispatch",
         string assumption = "the bus client is registered as a singleton",
         string decision = "The sender stays in Api.Orders because OrderHandler.cs:34-41 already owns dispatch.",
         params string[] done) =>
-        new(PhaseId, "move the dispatch out of the handler",
+        new(SpecId, "move the dispatch out of the handler",
             $"""
-             spec: {PhaseId}
+             spec: {SpecId}
              goal: "move the dispatch out of the handler"
              decisions:
                - key: |
@@ -47,30 +47,30 @@ internal static class PremiseCheckTestDoubles
     /// <summary>A draft with no facts, no assumptions and no decisions — every spec the
     /// conversation drafted before the pinned master stated them.</summary>
     public static PhaseDraft DraftWithoutPremises() =>
-        new(PhaseId, "move the dispatch out of the handler", $"spec: {PhaseId}", [])
+        new(SpecId, "move the dispatch out of the handler", $"spec: {SpecId}", [])
         {
             Done = ["the dispatch no longer runs inside the handler"],
         };
 
-    /// <summary>A phase as the DERIVER renders it: no facts, no assumptions, and the one
-    /// decision the framework writes on every derived phase — which names a run artifact that
+    /// <summary>A spec as the DERIVER renders it: no facts, no assumptions, and the one
+    /// decision the framework writes on every derived spec — which names a run artifact that
     /// exists in no sandbox.</summary>
     public static PhaseDraft DerivedDraft() =>
-        new(PhaseId, "move the dispatch out of the handler",
+        new(SpecId, "move the dispatch out of the handler",
             $"""
-             spec: {PhaseId}
+             spec: {SpecId}
              goal: "move the dispatch out of the handler"
              decisions:
                - key: |
-                   {DerivedPhaseDecision.For("19106", $"{PhaseId}-move-the-dispatch.md")}
+                   {DerivedSpecDecision.For("19106", $"{SpecId}-move-the-dispatch.md")}
              """, [])
         {
             Done = ["the dispatch no longer runs inside the handler"],
         };
 
     public sealed record Harness(
-        CheckPhasePremisesHandler Handler,
-        CheckPhasePremisesContext Context,
+        CheckSpecPremisesHandler Handler,
+        CheckSpecPremisesContext Context,
         PipelineContext Pipeline,
         RecordingEventPublisher Events,
         RecordingTicketComments Ticket,
@@ -94,18 +94,18 @@ internal static class PremiseCheckTestDoubles
         var events = EventTestStubs.Recording();
         var ticket = new RecordingTicketComments();
         var decisions = new RecordingRunDecisions();
-        var handler = new CheckPhasePremisesHandler(
-            new PhasePremiseChecker(
+        var handler = new CheckSpecPremisesHandler(
+            new SpecPremiseChecker(
                 new CutReviewTestDoubles.CappingFactory(provider),
                 new Application.Services.Events.AsyncLocalRunContextAccessor(),
-                NullLogger<PhasePremiseChecker>.Instance),
+                NullLogger<SpecPremiseChecker>.Instance),
             Factory(),
-            new PhaseProgressRecorder(events),
+            new SpecProgressRecorder(events),
             new PremiseHandbackNotice(
                 ticket.Factory(), decisions, NullLogger<PremiseHandbackNotice>.Instance),
-            NullLogger<CheckPhasePremisesHandler>.Instance);
+            NullLogger<CheckSpecPremisesHandler>.Instance);
         return new Harness(
-            handler, new CheckPhasePremisesContext(new AgentConfig(), ticket.Tracker, pipeline),
+            handler, new CheckSpecPremisesContext(new AgentConfig(), ticket.Tracker, pipeline),
             pipeline, events, ticket, decisions, provider);
     }
 
@@ -131,7 +131,7 @@ internal static class PremiseCheckTestDoubles
         pipeline.Set(ContextKeys.SandboxDiscoveries,
             (IReadOnlyDictionary<string, RemoteContextDiscovery>)
             new Dictionary<string, RemoteContextDiscovery>());
-        pipeline.Set(ContextKeys.PhaseSpec, draft);
+        pipeline.Set(ContextKeys.CurrentSpec, draft);
         pipeline.Set(ContextKeys.Ticket, new AgentSmith.Domain.Entities.Ticket(
             new TicketId("42"), "A ticket", "Its description", null, "Open", "Stub"));
         pipeline.Set(ContextKeys.SpecSet, new SpecSet(
@@ -171,7 +171,7 @@ internal static class PremiseCheckTestDoubles
             return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, answer)));
         }
 
-        /// <summary>How many times the model was asked — one call per phase, never a second pass.</summary>
+        /// <summary>How many times the model was asked — one call per spec, never a second pass.</summary>
         public int Turns => _turn;
 
         public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(

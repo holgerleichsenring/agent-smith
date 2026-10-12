@@ -1,7 +1,7 @@
 namespace AgentSmith.Domain.Models;
 
 /// <summary>One run THIS FRAMEWORK made against a ticket.</summary>
-/// <param name="Phases">The phases it worked, in the order it worked them.</param>
+/// <param name="Phases">The specs it worked, in the order it worked them.</param>
 /// <param name="PullRequests">What it opened, as the run recorded it — which is not the same as
 /// what the board shows: a pull request opened by hand is invisible here.</param>
 public sealed record TicketRun(

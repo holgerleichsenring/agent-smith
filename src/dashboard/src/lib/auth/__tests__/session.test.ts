@@ -303,7 +303,7 @@ describe("restore", () => {
     expect(await module.currentAccessToken()).toBeNull();
 
     // And the attempt is still adopted when it lands, so the invisible sign-in
-    // the earlier phase promised still happens.
+    // the earlier spec promised still happens.
     land(live());
     await settle();
     expect(await module.currentAccessToken()).toBe("at-1");

@@ -5,7 +5,7 @@ namespace AgentSmith.Application.Services.Tools;
 
 /// <summary>
 /// Validates that a path is writable for the active skill phase. Read-scope check
-/// runs first via <see cref="IPathReadGuard"/>; then phase-gating: only Implementation
+/// runs first via <see cref="IPathReadGuard"/>; then the phase check: only Implementation
 /// and Bootstrap may write. Bootstrap is further restricted to the two bootstrap
 /// files under the round's per-context MetaDir
 /// (<c>.agentsmith/contexts/&lt;ContextName&gt;/{context.yaml,principles.md}</c>).

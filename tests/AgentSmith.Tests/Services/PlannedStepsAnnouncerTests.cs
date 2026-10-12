@@ -30,10 +30,10 @@ public sealed class PlannedStepsAnnouncerTests
         var steps = RunStoryJson.TryDeserialize<List<PlannedStepView>>(announced.StepsJson)!;
         steps.Select(s => s.StepIndex).Should().Equal(1, 2, 3);
         steps.Select(s => s.CommandName).Should().Equal(
-            CommandNames.FetchTicket, CommandNames.AgenticMaster, CommandNames.VerifyPhase);
+            CommandNames.FetchTicket, CommandNames.AgenticMaster, CommandNames.VerifySpec);
         steps[1].PhaseId.Should().Be("p19106a");
         steps[1].DisplayName.Should().NotStartWith("p19106a:",
-            "the phase rides in its own field, so the label does not repeat it");
+            "the spec rides in its own field, so the label does not repeat it");
     }
 
     [Fact]
@@ -59,7 +59,7 @@ public sealed class PlannedStepsAnnouncerTests
         var first = await sut.AnnounceChangedAsync(context, 1, Commands(), null, CancellationToken.None);
 
         var spliced = Commands().Append(
-            new PipelineCommand(CommandNames.WritePhaseRecord) { PhaseId = "p19106a" }).ToList();
+            new PipelineCommand(CommandNames.WriteSpecRecord) { SpecId = "p19106a" }).ToList();
         await sut.AnnounceChangedAsync(context, 1, spliced, first, CancellationToken.None);
 
         var latest = events.Events.OfType<PipelineStepsPlannedEvent>().Last();
@@ -88,7 +88,7 @@ public sealed class PlannedStepsAnnouncerTests
     private static List<PipelineCommand> Commands() =>
     [
         PipelineCommand.Simple(CommandNames.FetchTicket),
-        new PipelineCommand(CommandNames.AgenticMaster) { PhaseId = "p19106a" },
-        new PipelineCommand(CommandNames.VerifyPhase) { PhaseId = "p19106a" },
+        new PipelineCommand(CommandNames.AgenticMaster) { SpecId = "p19106a" },
+        new PipelineCommand(CommandNames.VerifySpec) { SpecId = "p19106a" },
     ];
 }

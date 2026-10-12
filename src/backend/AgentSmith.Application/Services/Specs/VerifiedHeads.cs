@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
-/// p0439: where each sandbox stood when a phase was verified — the commit, provided the
+/// p0439: where each sandbox stood when a spec was verified — the commit, provided the
 /// source tree was clean. A shortfall delivers exactly that state and nothing beyond it,
 /// so the state has to be named the moment it is verified.
 /// <para>

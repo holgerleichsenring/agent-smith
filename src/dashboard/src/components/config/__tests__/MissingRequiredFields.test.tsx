@@ -92,7 +92,7 @@ vi.mock("@/lib/configApi", () => {
             { key: "zeroMatchComment", label: "comment when nothing matched", required: false, kind: "bool" },
             { key: "pipelineFromLabel", label: "pipeline by label", required: false, kind: "map" },
             // 2026-09-16-a4d7: declared, and OPTIONAL — required would make every tracker
-            // configured before that phase unsaveable.
+            // configured before that spec unsaveable.
             { key: "defaultPipeline", label: "default pipeline", required: false, kind: "text" },
           ],
         },
@@ -260,7 +260,7 @@ describe("Config Studio shows what is missing (p0392)", () => {
     // 2026-09-16-a4d7: a tracker declaring neither a label map nor a fallback routes every
     // ticket to the hardcoded preset. The server says so; the form shows it ON the field it
     // is about — the tracker findings all said "type" before — and does NOT block the save,
-    // because every tracker configured before that phase is in exactly this state.
+    // because every tracker configured before that spec is in exactly this state.
     const api = await import("@/lib/configApi");
     vi.mocked(api.validateTrackerDraft).mockResolvedValue([
       {

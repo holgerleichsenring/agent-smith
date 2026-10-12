@@ -4,7 +4,7 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// p0423: whether a run records its CONVERSATION as well as its numbers — every model
 /// call's prompt and answer, and every tool result as the model received it.
 /// <para>
-/// Off by default: prompts grow from 145k to 4.1M characters within a single phase, so
+/// Off by default: prompts grow from 145k to 4.1M characters within a single spec, so
 /// this is a diagnostic instrument, not a default cost. On, it answers the question the
 /// numbers cannot — WHY a run did what it did.
 /// </para>

@@ -1,7 +1,7 @@
 using System.Text.Json;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
-using AgentSmith.Application.Services.PhaseExecution;
+using AgentSmith.Application.Services.SpecExecution;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using Contracts = AgentSmith.Contracts;
@@ -29,7 +29,7 @@ namespace AgentSmith.Tests.SpecDialog;
 
 /// <summary>
 /// 2026-09-17-042ej: what the conversation that filed work is served — ticket, then run, then
-/// PHASE — over a REAL SQLite store, the real session row and the real latest-filing writer.
+/// SPEC — over a REAL SQLite store, the real session row and the real latest-filing writer.
 /// </summary>
 [Collection(RelationalStoreCollection.Name)]
 public sealed class FiledWorkReadTests : IDisposable
@@ -71,19 +71,19 @@ public sealed class FiledWorkReadTests : IDisposable
     }
 
     [Fact]
-    public async Task FiledWork_RunWithFivePhases_ListsEachPhaseWithItsStanding()
+    public async Task FiledWork_RunWithFiveSpecs_ListsEachSpecWithItsStanding()
     {
         await FilingAsync(Filed(Work, "alpha"));
         await RunsAsync(Run("r-1", "alpha", Work, T));
-        await PhasesAsync(
-            Phase("r-1", "p1", 1, "done"), Phase("r-1", "p2", 2, "done"),
-            Phase("r-1", "p3", 3, "in_progress"), Phase("r-1", "p4", 4, "not_started"),
-            Phase("r-1", "p5", 5, "not_started"));
+        await SpecsAsync(
+            Spec("r-1", "p1", 1, "done"), Spec("r-1", "p2", 2, "done"),
+            Spec("r-1", "p3", 3, "in_progress"), Spec("r-1", "p4", 4, "not_started"),
+            Spec("r-1", "p5", 5, "not_started"));
 
-        var phases = (await ReadAsync()).Tickets.Single().Runs.Single().Specs;
+        var specs = (await ReadAsync()).Tickets.Single().Runs.Single().Specs;
 
-        phases.Select(p => p.SpecId).Should().Equal("p1", "p2", "p3", "p4", "p5");
-        phases.Select(p => p.Status).Should()
+        specs.Select(p => p.SpecId).Should().Equal("p1", "p2", "p3", "p4", "p5");
+        specs.Select(p => p.Status).Should()
             .Equal("done", "done", "in_progress", "not_started", "not_started");
     }
 
@@ -93,7 +93,7 @@ public sealed class FiledWorkReadTests : IDisposable
     {
         await FilingAsync(Filed(Work, "alpha"));
         await RunsAsync(Run("r-1", "alpha", Work, T));
-        await PhasesAsync(Phase("r-1", "p1", 1, "done"));
+        await SpecsAsync(Spec("r-1", "p1", 1, "done"));
 
         var run = (await ReadAsync()).Tickets.Single().Runs.Single();
         var json = JsonSerializer.Serialize(run, new JsonSerializerOptions(JsonSerializerDefaults.Web));
@@ -104,7 +104,7 @@ public sealed class FiledWorkReadTests : IDisposable
 
     /// <summary>
     /// 2026-09-22-b3d7: nothing writes this state any more, and every filing stored before this
-    /// phase still carries it. The enum is serialized BY NAME and an unreadable filing row is
+    /// spec still carries it. The enum is serialized BY NAME and an unreadable filing row is
     /// shown as ABSENT, so a member that went missing would not surface as a missing word but as
     /// the whole stored filing silently vanishing from the pane.
     /// </summary>
@@ -192,21 +192,21 @@ public sealed class FiledWorkReadTests : IDisposable
     }
 
     /// <summary>
-    /// The producer of a <c>failed</c> row is VerifyPhaseHandler, whose verdict is the failing
+    /// The producer of a <c>failed</c> row is VerifySpecHandler, whose verdict is the failing
     /// command. The read carries the verdict AND the status verbatim, because the status is
     /// what tells a red build from a false premise — the verdict text never is.
     /// </summary>
     [Fact]
-    public async Task FiledWork_PhaseFailedByARedBuild_CarriesItsVerdictAndSaysItFailed()
+    public async Task FiledWork_SpecFailedByARedBuild_CarriesItsVerdictAndSaysItFailed()
     {
         await FilingAsync(Filed(Work, "alpha"));
         await RunsAsync(Run("r-1", "alpha", Work, T));
-        await PhasesAsync(Phase("r-1", "p1", 1, "failed", "dotnet test exited 1"));
+        await SpecsAsync(Spec("r-1", "p1", 1, "failed", "dotnet test exited 1"));
 
-        var phase = (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single();
+        var spec = (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single();
 
-        phase.Verdict.Should().Be("dotnet test exited 1");
-        phase.Status.Should().Be("failed");
+        spec.Verdict.Should().Be("dotnet test exited 1");
+        spec.Status.Should().Be("failed");
     }
 
     /// <summary>
@@ -214,75 +214,75 @@ public sealed class FiledWorkReadTests : IDisposable
     /// evidence it recorded as the verdict reach the operator who has to amend the set.
     /// </summary>
     [Fact]
-    public async Task FiledWork_HandedBackPhase_IsTerminalAndCarriesThePremiseItRecorded()
+    public async Task FiledWork_HandedBackSpec_IsTerminalAndCarriesThePremiseItRecorded()
     {
         await FilingAsync(Filed(Work, "alpha"));
         await RunsAsync(Run("r-1", "alpha", Work, T));
-        await PhasesAsync(
-            Phase("r-1", "p1", 1, "handed_back", "the premise 'api has no cache' is false (P3)"));
+        await SpecsAsync(
+            Spec("r-1", "p1", 1, "handed_back", "the premise 'api has no cache' is false (P3)"));
 
-        var phase = (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single();
+        var spec = (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single();
 
-        phase.Status.Should().Be("handed_back");
-        phase.Verdict.Should().Be("the premise 'api has no cache' is false (P3)");
+        spec.Status.Should().Be("handed_back");
+        spec.Verdict.Should().Be("the premise 'api has no cache' is false (P3)");
     }
 
     /// <summary>
     /// A state this reader was never taught shows its verdict rather than hiding it: terminal
     /// is stated as "not running", so the next status appended upstream is not silently read
-    /// as a phase still going.
+    /// as a spec still going.
     /// </summary>
     [Fact]
-    public async Task FiledWork_PhaseInAStatusThisReadDoesNotKnow_StillShowsItsVerdict()
+    public async Task FiledWork_SpecInAStatusThisReadDoesNotKnow_StillShowsItsVerdict()
     {
         await FilingAsync(Filed(Work, "alpha"));
         await RunsAsync(Run("r-1", "alpha", Work, T));
-        await PhasesAsync(Phase("r-1", "p1", 1, "abandoned", "the sandbox vanished"));
+        await SpecsAsync(Spec("r-1", "p1", 1, "abandoned", "the sandbox vanished"));
 
         (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single()
             .Verdict.Should().Be("the sandbox vanished");
     }
 
     [Fact]
-    public async Task FiledWork_PhaseVerdict_IsReadNeverInferred()
+    public async Task FiledWork_SpecVerdict_IsReadNeverInferred()
     {
         await FilingAsync(Filed(Work, "alpha"));
         await RunsAsync(Run("r-1", "alpha", Work, T));
-        await PhasesAsync(Phase("r-1", "p1", 1, "done", "already satisfied on entry"));
+        await SpecsAsync(Spec("r-1", "p1", 1, "done", "already satisfied on entry"));
 
-        var phase = (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single();
+        var spec = (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single();
 
-        phase.Verdict.Should().Be("already satisfied on entry", "the row states it; nothing derives it");
+        spec.Verdict.Should().Be("already satisfied on entry", "the row states it; nothing derives it");
     }
 
     [Fact]
-    public async Task FiledWork_PhaseRerunAfterAnAmendment_DoesNotShowTheOldVerdict()
+    public async Task FiledWork_SpecRerunAfterAnAmendment_DoesNotShowTheOldVerdict()
     {
         await FilingAsync(Filed(Work, "alpha"));
         await RunsAsync(Run("r-1", "alpha", Work, T));
         // What the projection leaves behind: the verdict is kept, the status moved on.
-        await PhasesAsync(Phase("r-1", "p1", 1, "in_progress", "the premise was false"));
+        await SpecsAsync(Spec("r-1", "p1", 1, "in_progress", "the premise was false"));
 
-        var phase = (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single();
+        var spec = (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single();
 
-        phase.Verdict.Should().BeNull("a verdict belongs to a terminal row, not to a running one");
+        spec.Verdict.Should().BeNull("a verdict belongs to a terminal row, not to a running one");
     }
 
     [Fact]
-    public async Task FiledWork_RunningPhase_ShowsNoVerdict()
+    public async Task FiledWork_RunningSpec_ShowsNoVerdict()
     {
         await FilingAsync(Filed(Work, "alpha"));
         await RunsAsync(Run("r-1", "alpha", Work, T));
-        await PhasesAsync(Phase("r-1", "p1", 1, "in_progress"));
+        await SpecsAsync(Spec("r-1", "p1", 1, "in_progress"));
 
-        var phase = (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single();
+        var spec = (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single();
 
-        phase.Status.Should().Be("in_progress", "a running phase is shown as running");
-        phase.Verdict.Should().BeNull();
+        spec.Status.Should().Be("in_progress", "a running spec is shown as running");
+        spec.Verdict.Should().BeNull();
     }
 
     [Fact]
-    public async Task FiledWork_PhaseReviewArtifact_CarriesItsFindings()
+    public async Task FiledWork_SpecReviewArtifact_CarriesItsFindings()
     {
         await ReviewedAsync(
             """
@@ -298,12 +298,27 @@ public sealed class FiledWorkReadTests : IDisposable
         review.Findings.Single().Why.Should().Be("the catch body logs nothing");
     }
 
+    /// <summary>2026-10-12-967aa: a review a later release stored under <c>spec_review:</c> reads
+    /// exactly as one stored under <c>phase_review:</c>.</summary>
+    [Fact]
+    public async Task FiledWork_SpecReviewArtifactKind_CarriesItsFindings()
+    {
+        await ReviewedAsync(
+            """{"reviewed":true,"findings":[{"repository":"api","path":"src/A.cs","line":4,"rule":"r","why":"w"}]}""",
+            RunSpecProjection.AcceptedReviewKindPrefix);
+
+        var review = (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single().Review;
+
+        review!.Reviewed.Should().BeTrue();
+        review.Findings.Single().Path.Should().Be("src/A.cs");
+    }
+
     /// <summary>
     /// The distinction the artifact exists for: nobody was asked, and the reason travels. Read
     /// as a clean review this is the page reporting "nothing found" over a question nobody put.
     /// </summary>
     [Fact]
-    public async Task FiledWork_PhaseReviewNotTaken_SaysSoWithItsReason()
+    public async Task FiledWork_SpecReviewNotTaken_SaysSoWithItsReason()
     {
         await ReviewedAsync(
             """{"reviewed":false,"findings":[],"why":"the run's configured cost cap is exhausted"}""");
@@ -315,13 +330,13 @@ public sealed class FiledWorkReadTests : IDisposable
         review.Findings.Should().BeEmpty();
     }
 
-    /// <summary>A phase that never reached its review has no row, which is a third state again.</summary>
+    /// <summary>A spec that never reached its review has no row, which is a third state again.</summary>
     [Fact]
-    public async Task FiledWork_PhaseWithoutAReviewRow_CarriesNoReview()
+    public async Task FiledWork_SpecWithoutAReviewRow_CarriesNoReview()
     {
         await FilingAsync(Filed(Work, "alpha"));
         await RunsAsync(Run("r-1", "alpha", Work, T));
-        await PhasesAsync(Phase("r-1", "p1", 1, "in_progress"));
+        await SpecsAsync(Spec("r-1", "p1", 1, "in_progress"));
 
         (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single()
             .Review.Should().BeNull();
@@ -358,16 +373,16 @@ public sealed class FiledWorkReadTests : IDisposable
 
     /// <summary>
     /// A truncated row, or a payload written before the report became an object, must not read
-    /// as a phase nobody reviewed — that is 042eh's collapse, one state over.
+    /// as a spec nobody reviewed — that is 042eh's collapse, one state over.
     /// </summary>
     [Fact]
-    public async Task FiledWork_UnreadablePhaseReview_SaysSoRatherThanReadingAsAbsent()
+    public async Task FiledWork_UnreadableSpecReview_SaysSoRatherThanReadingAsAbsent()
     {
         await ReviewedAsync("[{\"repository\":\"api\",\"path\":\"src/A.cs\"}");
 
         var review = (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single().Review;
 
-        review.Should().NotBeNull("a row that exists is not a phase that was never reviewed");
+        review.Should().NotBeNull("a row that exists is not a spec that was never reviewed");
         review!.Unreadable.Should().BeTrue();
         review.Why.Should().Be(FiledWorkReviewView.CouldNotBeRead);
     }
@@ -378,7 +393,7 @@ public sealed class FiledWorkReadTests : IDisposable
     /// and findings recorded beside a not-taken review are still carried.
     /// </summary>
     [Fact]
-    public async Task FiledWork_PhaseReviewNotTakenWithoutAReason_StillSaysItWasNotTaken()
+    public async Task FiledWork_SpecReviewNotTakenWithoutAReason_StillSaysItWasNotTaken()
     {
         await ReviewedAsync(
             """
@@ -399,14 +414,14 @@ public sealed class FiledWorkReadTests : IDisposable
     /// publisher: whatever it serializes is what this reader deserializes.
     /// </summary>
     [Fact]
-    public async Task FiledWork_PhaseReviewWrittenByThePublisher_IsReadBackAsItWasRecorded()
+    public async Task FiledWork_SpecReviewWrittenByThePublisher_IsReadBackAsItWasRecorded()
     {
         var recorded = PhaseReviewReport.Taken(
             [new PhaseFinding("api", "src/A.cs", 4, "no silent catch", "logs nothing", "P1", "reverted")]);
         var events = new RecordingEventPublisher();
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.RunId, "r-1");
-        await new PhaseReviewPublisher(events).PublishAsync(pipeline, "p1", recorded, default);
+        await new SpecReviewPublisher(events).PublishAsync(pipeline, "p1", recorded, default);
 
         await ReviewedAsync(events.Published.OfType<PhaseReviewedEvent>().Single().ReportJson);
 
@@ -551,15 +566,15 @@ public sealed class FiledWorkReadTests : IDisposable
         }
     }
 
-    private async Task ReviewedAsync(string reviewJson)
+    private async Task ReviewedAsync(string reviewJson, string kindPrefix = RunSpecProjection.ReviewKindPrefix)
     {
         await FilingAsync(Filed(Work, "alpha"));
         await RunsAsync(Run("r-1", "alpha", Work, T));
-        await PhasesAsync(Phase("r-1", "p1", 1, "done"));
+        await SpecsAsync(Spec("r-1", "p1", 1, "done"));
         await AddAsync(new RunArtifact
         {
             RunId = "r-1",
-            Kind = RunSpecProjection.ReviewKindPrefix + "p1",
+            Kind = kindPrefix + "p1",
             Content = reviewJson,
         });
     }
@@ -601,12 +616,12 @@ public sealed class FiledWorkReadTests : IDisposable
             PullRequestsJson = pullRequests,
         };
 
-    private static RunSpec Phase(
-        string runId, string phaseId, int ordinal, string status, string? verdict = null) =>
+    private static RunSpec Spec(
+        string runId, string specId, int ordinal, string status, string? verdict = null) =>
         new()
         {
-            RunId = runId, SpecId = phaseId, Ordinal = ordinal, Status = status,
-            Title = $"Phase {phaseId}", StartedAt = T, Verdict = verdict,
+            RunId = runId, SpecId = specId, Ordinal = ordinal, Status = status,
+            Title = $"Spec {specId}", StartedAt = T, Verdict = verdict,
         };
 
     private async Task FilingAsync(params FiledTicket[] filed)
@@ -651,7 +666,7 @@ public sealed class FiledWorkReadTests : IDisposable
     }
 
     private Task RunsAsync(params Run[] runs) => AddAsync(runs);
-    private Task PhasesAsync(params RunSpec[] phases) => AddAsync(phases);
+    private Task SpecsAsync(params RunSpec[] specs) => AddAsync(specs);
 
     private async Task AddAsync<T>(params T[] rows) where T : class
     {
@@ -673,7 +688,7 @@ public sealed class FiledWorkReadTests : IDisposable
                 new SpecDialogSessionRepository(ctx), new SpecDialogTicketTextRepository(ctx)),
             new FiledWorkTrackerProjects(Config()),
             new FiledWorkRunsReader(
-                _scopes, new FiledWorkPhaseReviews(NullLogger<FiledWorkPhaseReviews>.Instance),
+                _scopes, new FiledWorkSpecReviews(NullLogger<FiledWorkSpecReviews>.Instance),
                 new DbRunCheckpointStore(_scopes), NullLogger<FiledWorkRunsReader>.Instance),
             new FiledWorkHandbacks(_scopes),
             // 2026-09-25-8e51d: these cases are about FILED work; an unbound conversation has no

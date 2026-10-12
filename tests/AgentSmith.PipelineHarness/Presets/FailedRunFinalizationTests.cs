@@ -16,7 +16,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// error path posted the failure (run 2026-09-07T20-43-51-b7bc). The partial work must
 /// still be committed; the ticket must never read as completed.
 /// <para>
-/// p0439: b7bc's own shape — a VERIFIED first phase, then the budget — is no longer a
+/// p0439: b7bc's own shape — a VERIFIED first spec, then the budget — is no longer a
 /// failed run but a delivered shortfall; ShortfallDeliveryTests owns it. A failed run is
 /// one with nothing verified to deliver, which is what this case scripts.
 /// </para>
@@ -28,13 +28,13 @@ public sealed class FailedRunFinalizationTests
         "per-pipeline cost budget exhausted: 15.02 USD of 15.00 USD spent";
 
     [Fact]
-    public async Task TwoPhaseDerivation_FirstMasterFails_TheTicketNeverReadsCompleted()
+    public async Task TwoSpecDerivation_FirstMasterFails_TheTicketNeverReadsCompleted()
     {
         var tickets = new RecordingTicketProvider();
         await using var harness = BuildHarness(tickets);
         harness.ChatClient
-            .EnqueueText(SpecDerivationFixture.TwoPhaseJson)
-            // phase 1: the master dies on the money fence before anything is verified
+            .EnqueueText(SpecDerivationFixture.TwoSpecJson)
+            // spec 1: the master dies on the money fence before anything is verified
             .EnqueueThrow(new MasterBudgetExhaustedException(BudgetReason));
 
         var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" };

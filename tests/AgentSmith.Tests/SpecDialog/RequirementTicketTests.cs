@@ -1,4 +1,4 @@
-using AgentSmith.Application.Services.PhaseExecution;
+using AgentSmith.Application.Services.SpecExecution;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Application.Services.Validation;
@@ -14,7 +14,7 @@ namespace AgentSmith.Tests.SpecDialog;
 /// 2026-09-22-b3d7: the slice-record renderer these were written against is gone with the
 /// records. The behaviour they pin is the REQUIREMENT BODY's, which the two surviving
 /// renderings still have, so they are repointed at those rather than deleted with it: the
-/// filed phase for the body's own shape, the cut's work ticket where a second renderer is
+/// filed spec for the body's own shape, the cut's work ticket where a second renderer is
 /// what makes the assertion worth making.
 /// </para>
 /// </summary>
@@ -41,7 +41,7 @@ public sealed class RequirementTicketTests
     // 2026-10-01-f5c3a: read, not constructed — the body lists the draft's done list, which
     // only the reader fills.
     private static readonly PhaseDraft Draft =
-        new PhaseDraftReader().Read(Yaml) with { Requires = ["p9000", "2026-09-17-042ea"] };
+        new SpecDraftReader().Read(Yaml) with { Requires = ["p9000", "2026-09-17-042ea"] };
 
     [Fact]
     public void RequirementBody_HasNoFencedBlock() =>
@@ -80,15 +80,15 @@ public sealed class RequirementTicketTests
     }
 
     /// <summary>
-    /// The edge checker only holds CHILDREN to siblings. A parent may require a phase outside the
+    /// The edge checker only holds CHILDREN to siblings. A parent may require a spec outside the
     /// epic, and that precondition is still true of the whole cut.
     /// </summary>
     [Fact]
-    public void RequirementTicket_EpicParent_KeepsAnOutsidePhaseIdRequirement()
+    public void RequirementTicket_EpicParent_KeepsAnOutsideSpecIdRequirement()
     {
         var parent = new PhaseDraft("p9000", "Widget platform", "spec: p9000\ngoal: Widget platform", ["p8000"]);
 
-        var body = new PhaseTicketRenderer().RenderEpicParent(parent, [Draft]).Body;
+        var body = new SpecTicketRenderer().RenderEpicParent(parent, [Draft]).Body;
 
         body.Should().Contain("## Preconditions\n- p8000");
     }
@@ -99,8 +99,8 @@ public sealed class RequirementTicketTests
     {
         const string yaml = "spec: p9000a\ngoal: Widget storage layer\ndone:\n  - |\n    the table exists\n    and the repository reads it\n";
 
-        var body = new PhaseTicketRenderer()
-            .RenderPhase(new PhaseDraftReader().Read(yaml)).Body;
+        var body = new SpecTicketRenderer()
+            .RenderSpec(new SpecDraftReader().Read(yaml)).Body;
 
         AcceptanceCriteriaSection.Read(body).Should().Equal("the table exists and the repository reads it");
     }
@@ -110,20 +110,20 @@ public sealed class RequirementTicketTests
     {
         var draft = Draft with { Requires = ["the widget database exists in every environment"] };
 
-        var body = new PhaseTicketRenderer().RenderPhase(draft).Body;
+        var body = new SpecTicketRenderer().RenderSpec(draft).Body;
 
         body.Should().Contain("## Preconditions\n- the widget database exists in every environment",
             "no label carries a free-text precondition, so the body is the only place it lives");
     }
 
     /// <summary>
-    /// 2026-09-17-0e79a: a filed phase is a REQUIREMENT with its acceptance criteria and its
+    /// 2026-09-17-0e79a: a filed spec is a REQUIREMENT with its acceptance criteria and its
     /// preconditions — no sibling set to subtract, so every requires: edge is a precondition.
     /// </summary>
     [Fact]
-    public void FiledPhaseBody_IsTheRequirementShape()
+    public void FiledSpecBody_IsTheRequirementShape()
     {
-        var body = new PhaseTicketRenderer().RenderPhase(Draft).Body;
+        var body = new SpecTicketRenderer().RenderSpec(Draft).Body;
 
         body.Should().Contain(AcceptanceCriteriaSection.Heading);
         body.Should().Contain("## Preconditions\n- p9000");
@@ -144,12 +144,12 @@ public sealed class RequirementTicketTests
     /// precedence would take over the record a person actually approved.
     /// </summary>
     [Fact]
-    public void FiledPhaseBody_CarriesNoYamlFence()
+    public void FiledSpecBody_CarriesNoYamlFence()
     {
-        var body = new PhaseTicketRenderer().RenderPhase(Draft, "session-7").Body;
+        var body = new SpecTicketRenderer().RenderSpec(Draft, "session-7").Body;
 
         body.Should().NotContain("```");
-        body.Should().Contain(PhaseTicketRenderer.SpecificationHeading)
+        body.Should().Contain(SpecTicketRenderer.SpecificationHeading)
             .And.Contain("session-7", "the body points at the conversation the set was approved in");
     }
 
@@ -160,13 +160,13 @@ public sealed class RequirementTicketTests
     /// description.
     /// </summary>
     [Fact]
-    public void FiledPhase_Labels_CarryTheApprovedSetStamp()
+    public void FiledSpec_Labels_CarryTheApprovedSetStamp()
     {
         FiledTicketLabels.CarriesApprovedSet(
             [FiledTicketLabels.ApprovedSetStamp, "bug"], TicketLabelVocabulary.Default).Should().BeTrue();
         FiledTicketLabels.CarriesApprovedSet(["phase"], TicketLabelVocabulary.Default).Should().BeFalse(
-            "a hand-written phase ticket is not held to a set nobody approved");
+            "a hand-written spec ticket is not held to a set nobody approved");
     }
 
-    private static string Render() => new PhaseTicketRenderer().RenderPhase(Draft).Body;
+    private static string Render() => new SpecTicketRenderer().RenderSpec(Draft).Body;
 }

@@ -85,7 +85,7 @@ public sealed class StepAttributionTests
     private PipelineStepRunner NewRunner() =>
         new(_executor.Object, _factory.Object, Mock.Of<IProgressReporter>(),
             new DataFlowReadGate(
-                new PhaseDataFlowResolver(Array.Empty<IPhaseDataFlow>()),
+                new StepDataFlowResolver(Array.Empty<IStepDataFlow>()),
                 Microsoft.Extensions.Options.Options.Create(new PipelineDataFlowConfig()),
                 NullLogger<DataFlowReadGate>.Instance),
             new PipelineCommandList(NullLogger<PipelineCommandList>.Instance),

@@ -11,7 +11,7 @@ namespace AgentSmith.Tests.Workers;
 /// asking the operator to "grant Claude access" to the repository paths so it could
 /// "execute all the changes directly". The answering model had slipped into being the
 /// agent — and every such answer is a round in which nothing happens, which is what a
-/// phase reading for four hours without a single write looks like from outside.
+/// spec reading for four hours without a single write looks like from outside.
 /// </para>
 /// </summary>
 public sealed class WorkerPromptSelfConfusionTests

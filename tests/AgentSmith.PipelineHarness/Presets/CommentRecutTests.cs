@@ -15,10 +15,10 @@ namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
 /// 2026-09-08-4aa9 fast-tier end-to-end, run a109's other half: the branch carries a
-/// two-phase set whose first phase ran, the marker moved the pointer to its own commit,
+/// two-spec set whose first spec ran, the marker moved the pointer to its own commit,
 /// the ticket text is unchanged, and the ticket comes back re-triggered. With an operator
 /// comment after our derivation-time comment, the derivation is called again with the
-/// set, keeps the executed phase, re-cuts the tail with the comment in view, only the
+/// set, keeps the executed spec, re-cuts the tail with the comment in view, only the
 /// tail runs, and the ticket is told. With no comment, the tail continues exactly as it
 /// was cut and nothing is derived.
 /// <para>
@@ -42,13 +42,13 @@ public sealed class CommentRecutTests
         """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled"}]}""";
 
     [Fact]
-    public async Task CommentRecut_ADonePhaseAndAnOperatorComment_RecutsTheTailAndSaysSo()
+    public async Task CommentRecut_ADoneSpecAndAnOperatorComment_RecutsTheTailAndSaysSo()
     {
         var tickets = new RecordingTicketProvider([OurCut(), OperatorObjection()]);
         await using var harness = BuildHarness(tickets, await PreviousAsync(tickets));
         await SeedPointerAsync(harness);
         harness.ChatClient
-            .EnqueueText(SpecDerivationFixture.TwoPhaseJson)
+            .EnqueueText(SpecDerivationFixture.TwoSpecJson)
             .EnqueueText("Planning: move the callers.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Callers.cs","content":"// moved"}""")
             .EnqueueText(GreenVerdict);
@@ -60,7 +60,7 @@ public sealed class CommentRecutTests
         var set = runner.LastContext!.Get<SpecSet>(ContextKeys.SpecSet);
         set.Current.Cause.Should().Be(SpecRevisionCause.Comment);
         set.Phases.Select(p => p.PhaseId).Should().Equal(HeadId, TailId);
-        set.Phases[0].Draft.Goal.Should().Be("Introduce the guard", "the executed phase is carried, not re-read from the reply");
+        set.Phases[0].Draft.Goal.Should().Be("Introduce the guard", "the executed spec is carried, not re-read from the reply");
         set.Phases[1].Draft.Goal.Should().Be("Move the existing callers onto the guard", "the tail is cut again with the comment in view");
         harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file");
         tickets.Commented.Should().ContainSingle(c => c.Comment.Contains(
@@ -68,7 +68,7 @@ public sealed class CommentRecutTests
     }
 
     [Fact]
-    public async Task CommentRecut_ADonePhaseAndNoComment_ContinuesTheTailWithoutTheModel()
+    public async Task CommentRecut_ADoneSpecAndNoComment_ContinuesTheTailWithoutTheModel()
     {
         var tickets = new RecordingTicketProvider([OurCut()]);
         await using var harness = BuildHarness(tickets, await PreviousAsync(tickets));
@@ -89,7 +89,7 @@ public sealed class CommentRecutTests
         tickets.Commented.Should().NotContain(c => c.Comment.Contains("was commented on"));
     }
 
-    // The set the previous run cut from the ticket as it still reads, its first phase run.
+    // The set the previous run cut from the ticket as it still reads, its first spec run.
     private static async Task<SpecSet> PreviousAsync(RecordingTicketProvider tickets)
     {
         var current = await tickets.GetTicketAsync(new TicketId("1"), CancellationToken.None);
@@ -98,7 +98,7 @@ public sealed class CommentRecutTests
 
     private static SpecSet Previous(string? fingerprint) => new(
         TicketKey.For("recording", "1").Value,
-        [Phase(HeadId, "Introduce the guard"), Phase(TailId, TailAsCut)],
+        [Spec(HeadId, "Introduce the guard"), Spec(TailId, TailAsCut)],
         SpecAccounting.Empty,
         [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow.AddHours(-3))],
         SpecSource.BranchArtifact,
@@ -106,12 +106,12 @@ public sealed class CommentRecutTests
         TicketFingerprint: fingerprint,
         Series: Series);
 
-    private static SpecPhase Phase(string id, string goal) => new(
+    private static SpecPhase Spec(string id, string goal) => new(
         new PhaseDraft(id, goal, $"spec: {id}\ngoal: \"{goal}\"\ndone:\n  - \"criterion 1\"\n", [])
         {
             Done = ["criterion 1"],
         },
-        PhaseIdFactory.Slug(goal), string.Empty, [1, 2, 3, 4, 5, 6]);
+        SpecIdFactory.Slug(goal), string.Empty, [1, 2, 3, 4, 5, 6]);
 
     // What the previous run posted when it cut the set, and what the operator said after.
     private static TicketComment OurCut() => new(
@@ -119,7 +119,7 @@ public sealed class CommentRecutTests
 
     private static TicketComment OperatorObjection() => new(
         "operator", DateTimeOffset.UtcNow.AddHours(-1),
-        "The second phase is wrong: the callers should be moved onto the guard, not rewritten.");
+        "The second spec is wrong: the callers should be moved onto the guard, not rewritten.");
 
     // The pointer as the marker left it: at its own commit, the last on the spec path.
     private static Task SeedPointerAsync(RealCompositionHarness harness) =>

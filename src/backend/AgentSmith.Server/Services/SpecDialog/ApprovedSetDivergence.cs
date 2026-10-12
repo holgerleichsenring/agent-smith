@@ -15,7 +15,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// </para>
 /// </summary>
 public sealed class ApprovedSetDivergence(
-    ApprovedPhaseSetRecorder approvals,
+    ApprovedSpecSetRecorder approvals,
     ILogger<ApprovedSetDivergence> logger)
 {
     /// <summary>
@@ -32,7 +32,7 @@ public sealed class ApprovedSetDivergence(
             return record is null
                 ? null
                 : TicketSetDivergence.Between(
-                    ticketText, [.. record.Set.Phases.Select(phase => phase.Draft.Goal)]);
+                    ticketText, [.. record.Set.Phases.Select(spec => spec.Draft.Goal)]);
         }
         // A store this turn could not reach says nothing about whether the two agree, and a turn
         // must still run: the conversation is the surface the operator is standing on.

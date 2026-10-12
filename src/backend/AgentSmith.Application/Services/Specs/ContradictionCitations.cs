@@ -4,7 +4,7 @@ namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
 /// 2026-10-12-3a36b: resolves the ids a CONTRADICTION hand-back cites against the evidence lines
-/// the framework minted for this derivation's looks — the same index a phase fact is resolved
+/// the framework minted for this derivation's looks — the same index a spec fact is resolved
 /// through. A contradiction is a claim about the repository; one that names no look this
 /// derivation took, or an id nobody minted, has nothing a checker could re-read, and the deriver
 /// asks for it again.

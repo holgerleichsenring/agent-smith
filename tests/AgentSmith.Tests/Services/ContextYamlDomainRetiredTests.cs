@@ -46,7 +46,7 @@ public sealed class ContextYamlDomainRetiredTests
               image: "python:3.12-bookworm"
             """).Should().BeEmpty(
             "deprecated means no longer written — never refused, or every context "
-            + "written before this phase would fail on its first run");
+            + "written before this spec would fail on its first run");
 
     [Fact]
     public void ContextYaml_AFileThatStillCarriesADomain_StillLoads()

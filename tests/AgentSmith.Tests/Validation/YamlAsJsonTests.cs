@@ -84,9 +84,9 @@ public sealed class YamlAsJsonTests
     }
 
     [Fact]
-    public void Validator_APhaseDraftWithANumberWhereAStringIsRequired_IsRejected()
+    public void Validator_ASpecDraftWithANumberWhereAStringIsRequired_IsRejected()
     {
-        var draft = new SpecDraftValidator(new PhaseSpecSchemaProvider()).ValidateYaml("""
+        var draft = new SpecDraftValidator(new SpecSchemaProvider()).ValidateYaml("""
             spec: p9999
             goal: 42
             steps:

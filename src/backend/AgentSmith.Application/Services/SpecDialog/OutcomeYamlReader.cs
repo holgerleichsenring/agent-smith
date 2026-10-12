@@ -6,7 +6,7 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// p0315e: shared YAML plumbing for the ```outcome block parsers — reads the
 /// block into a string-keyed map, pulls typed fields out of it, and turns a
 /// nested node back into standalone YAML (so each epic child validates
-/// against the phase-spec schema like any other draft). Pure transformation.
+/// against the spec schema like any other draft). Pure transformation.
 /// </summary>
 internal static class OutcomeYamlReader
 {

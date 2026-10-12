@@ -57,11 +57,11 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
     [Fact]
     public async Task View_AnAssistantTurnWithADraft_ShowsItsProseWithoutIt()
     {
-        await ConversationAsync((TranscriptRole.Assistant, "Here is the phase.\n\n" + Draft + "\n\nApprove it?"));
+        await ConversationAsync((TranscriptRole.Assistant, "Here is the spec.\n\n" + Draft + "\n\nApprove it?"));
 
         var view = await ReadAsync();
 
-        view.Transcript.Single().Text.Should().Be("Here is the phase.\n\nApprove it?");
+        view.Transcript.Single().Text.Should().Be("Here is the spec.\n\nApprove it?");
     }
 
     [Fact]
@@ -252,7 +252,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
             "a row nobody reviewed is not a review that found nothing wrong");
     }
 
-    private static PhaseOutcome Reviewed() => Proposal() with
+    private static SpecOutcome Reviewed() => Proposal() with
     {
         Findings =
         [
@@ -279,7 +279,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
                 new SpecDialogTicketTextRepository(_context), TestUploads.Over(_context))
             .ReadAsync(Dialog, CancellationToken.None)).Session!;
 
-    private static PhaseOutcome Proposal() => new(new PhaseDraft("p9999", "widget goal", DraftYaml, []));
+    private static SpecOutcome Proposal() => new(new PhaseDraft("p9999", "widget goal", DraftYaml, []));
 
     private SpecDialogOutcomeFlow Flow(string answer = "", bool timeout = false)
     {
@@ -315,7 +315,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider.Object);
         var filer = new OutcomeTicketFiler(
-            Loader().LoadConfig(string.Empty), factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
+            Loader().LoadConfig(string.Empty), factory.Object, new SpecTicketRenderer(), new BugTicketRenderer(),
             new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
             TestSupport.ApprovedSetDoubles.SetFiler(),
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);

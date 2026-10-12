@@ -6,7 +6,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// <summary>
 /// 2026-09-22-355b: the other shapes a proposal could take, named by the framework from the
 /// proposal's own KIND. The three kinds that reach a confirmation are a ladder by size — a
-/// fix-bug ticket, one phase, an epic of linked slices — and each one offers its neighbours,
+/// fix-bug ticket, one spec, an epic of linked slices — and each one offers its neighbours,
 /// so the middle kind offers two and the ends offer one.
 /// <para>
 /// The code decides nothing about the cut: a picked shape is fed into the edit door that
@@ -30,14 +30,14 @@ public static class OutcomeShapes
     /// </summary>
     public const int MaxLabelLength = 40;
 
-    private static readonly DialogChoice IntoSeveralPhases =
-        new("Cut into several phases", "too big for one phase");
-    private static readonly DialogChoice IntoOnePhase =
-        new("Make it one phase", "over-cut for the work");
-    private static readonly DialogChoice IntoAPhase =
-        new("Make it a phase", "bigger than a bug fix");
+    private static readonly DialogChoice IntoSeveralSpecs =
+        new("Cut into several specs", "too big for one spec");
+    private static readonly DialogChoice IntoOneSpec =
+        new("Make it one spec", "over-cut for the work");
+    private static readonly DialogChoice IntoASpec =
+        new("Make it a spec", "bigger than a bug fix");
     private static readonly DialogChoice IntoABugTicket =
-        new("Make it a bug ticket", "smaller than a phase");
+        new("Make it a bug ticket", "smaller than a spec");
 
     /// <summary>
     /// 2026-09-25-8e51e: not a size at all — the same cut, written onto the ticket this
@@ -50,7 +50,7 @@ public static class OutcomeShapes
 
     /// <summary>Every shape the framework offers, so a bound is taken over all of them at once.</summary>
     public static IReadOnlyList<DialogChoice> All { get; } =
-        [IntoSeveralPhases, IntoOnePhase, IntoAPhase, IntoABugTicket, AmendTheTicket];
+        [IntoSeveralSpecs, IntoOneSpec, IntoASpec, IntoABugTicket, AmendTheTicket];
 
     static OutcomeShapes()
     {
@@ -83,9 +83,9 @@ public static class OutcomeShapes
     public static IReadOnlyList<DialogChoice> For(OutcomeProposal proposal, bool ticketBound = false) =>
         proposal switch
         {
-            BugOutcome => [IntoAPhase],
-            PhaseOutcome => Amendable([IntoSeveralPhases, IntoABugTicket], ticketBound),
-            EpicOutcome => Amendable([IntoOnePhase], ticketBound),
+            BugOutcome => [IntoASpec],
+            SpecOutcome => Amendable([IntoSeveralSpecs, IntoABugTicket], ticketBound),
+            EpicOutcome => Amendable([IntoOneSpec], ticketBound),
             // An answer never reaches a confirmation, and a kind added later offers nothing until
             // it says what its neighbours are.
             _ => [],

@@ -4,7 +4,7 @@
 
 This one is generated from the pipeline definitions in the source, by a test that fails when the code and the picture disagree. So it is what the orchestrator really executes, in that order.
 
-Each box is one step. Green means a model runs there, and it names which one and what it is asked for. Grey is plain machinery with no model involved. Blue is a gate that speaks up only when it has something to report. The dashed frame is the part that repeats once per derived phase, and how many phases a ticket becomes is decided during the run.
+Each box is one step. Green means a model runs there, and it names which one and what it is asked for. Grey is plain machinery with no model involved. Blue is a gate that speaks up only when it has something to report. The dashed frame is the part that repeats once per derived spec, and how many specs a ticket becomes is decided during the run.
 
 ![The control flow of an agent-smith run, generated from the pipeline presets: the code pipeline's steps in order, the ones that call a model, a table of what each model call is asked for and what is expected back, one row per shipped pipeline with its master and step count, and a closing note on what the diagram cannot show.](../../assets/control-flow.svg)
 
@@ -18,7 +18,7 @@ Agent Smith ships eight pipeline presets. Each one is a fixed list of steps defi
 
 | Pipeline | Started by | What it does | Master |
 |----------|------------|--------------|--------|
-| **code** | `agent-smith code --ticket N --project P`, a ticket label, a PR comment | Ticket → phase specs → code → verified green → PR | `coding-agent-master` |
+| **code** | `agent-smith code --ticket N --project P`, a ticket label, a PR comment | Ticket → specs → code → verified green → PR | `coding-agent-master` |
 | **pr-review** | a PR being opened or updated, a PR comment | Reviews the PR diff and posts line-anchored comments | `pr-review-master` |
 | **security-scan** | `agent-smith security-scan --agent A`, a ticket label, the review label on a PR, a PR comment | Code security review with SARIF output | `security-master` |
 | **api-security-scan** | `agent-smith api-scan --swagger … --target …`, a ticket label | Nuclei, Spectral and ZAP against a running API, triaged by a master | `api-security-master` |
@@ -53,13 +53,13 @@ Pipeline: code
 ├── LoadMemoryIndex        → loads the project's recorded memory index
 ├── LoadContext            → loads .agentsmith/ context files
 ├── AnalyzeCode            → scout agent maps relevant files
-├── DeriveSpec             → derives the phase specs from the ticket
+├── DeriveSpec             → derives the specs from the ticket
 ├── SpecHandback           → hands the ticket back when it cannot be implemented as written
-├── PhaseSpecGate          → validates the phase specs before the master starts
+├── SpecGate               → validates the specs before the master starts
 ├── EnsurePrerequisites    → installs dependencies
 ├── ProbeTarget            → asks the target the questions its context declares
 ├── MaterializeReferenceSets → writes the websites the approval cites, outside the commit
-├── PhaseSequence          → splices one master → verify → record block per phase
+├── SpecSequence           → splices one master → verify → record block per spec
 ├── WriteRunResult         → writes result.md with cost/token data
 ├── CommitAndPR            → commits, pushes, opens PR (secret-scanned)
 └── PrCrossLink            → cross-links sibling PRs (multi-repo)
@@ -69,7 +69,7 @@ The per-pipeline pages list the steps of the other presets.
 
 ## Steps added while the run is going
 
-Two steps grow the pipeline at runtime. In **code**, `PhaseSequence` inserts one master, verify and record block for each derived phase, in order; a phase whose verification fails stops the pipeline there, and the finalizing steps still run. In **init-project**, `BootstrapDispatch` fans out one bootstrap round per repository component that `BootstrapDiscover` found.
+Two steps grow the pipeline at runtime. In **code**, `SpecSequence` inserts one master, verify and record block for each derived spec, in order; a spec whose verification fails stops the pipeline there, and the finalizing steps still run. In **init-project**, `BootstrapDispatch` fans out one bootstrap round per repository component that `BootstrapDiscover` found.
 
 The scan, review and discussion pipelines do not grow. Their master decides its own fan-out inside the `AgenticMaster` step, by delegating to sub-agents.
 

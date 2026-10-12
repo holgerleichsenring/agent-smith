@@ -97,12 +97,12 @@ public sealed class SandboxToolchainProbeTests
     [Fact]
     public void Probe_RunsAfterThePrerequisites_SoAGoodImageIsNeverAccused()
     {
-        // The probe runs at MASTER start, and the masters are spliced in by PhaseSequence.
+        // The probe runs at MASTER start, and the masters are spliced in by SpecSequence.
         // The prerequisite step installs the very tools the declared stages then use, so a
         // sweep ahead of it would report a binary the run installs a minute later.
         var code = PipelinePresets.Code;
 
-        code.ToList().IndexOf(CommandNames.PhaseSequence).Should()
+        code.ToList().IndexOf(CommandNames.SpecSequence).Should()
             .BeGreaterThan(code.ToList().IndexOf(CommandNames.EnsurePrerequisites));
     }
 

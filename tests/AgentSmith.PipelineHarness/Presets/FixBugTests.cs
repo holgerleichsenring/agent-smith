@@ -88,7 +88,7 @@ public sealed class FixBugTests
         // ProjectAnalyzer would drain the ScriptedChatClient FIFO at AnalyzeCode
         // and steal the master's queued write_file/run_command. Analyzer LLM
         // behaviour is a model-fitness concern, not a framework concern — the
-        // keystone is what this phase proves.
+        // keystone is what this spec proves.
         await using var harness = RealCompositionHarness.Build(
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
         harness.ChatClient

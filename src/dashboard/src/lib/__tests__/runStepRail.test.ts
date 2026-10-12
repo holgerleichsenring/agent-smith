@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
-import { composeTimeBadge, splitPhasePrefix, toRailNodes } from "../runStepRail";
+import { composeTimeBadge, splitSpecPrefix, toRailNodes } from "../runStepRail";
 import type { RunStepRow } from "../runStepsApi";
 
-// p0395: spliced phase steps carry their phase as structured data, never as a
+// p0395: spliced spec steps carry their spec as structured data, never as a
 // per-row label prefix. Current servers send RunStepView.phaseId with clean
 // names; payloads from older servers still carry the composed "p<id>: <label>"
 // names, so the rail splits the known prefix defensively.
@@ -16,47 +16,47 @@ function row(over: Partial<RunStepRow>): RunStepRow {
   };
 }
 
-describe("splitPhasePrefix", () => {
-  it("splits the known phase-qualified shape into phase and label", () => {
-    expect(splitPhasePrefix("p19106a: Generate plan"))
-      .toEqual({ phaseId: "p19106a", label: "Generate plan" });
+describe("splitSpecPrefix", () => {
+  it("splits the known spec-qualified shape into spec and label", () => {
+    expect(splitSpecPrefix("p19106a: Generate plan"))
+      .toEqual({ specId: "p19106a", label: "Generate plan" });
   });
 
   it("leaves labels without the shape untouched", () => {
-    expect(splitPhasePrefix("Fetch ticket")).toEqual({ phaseId: null, label: "Fetch ticket" });
-    expect(splitPhasePrefix("prod: deploy")).toEqual({ phaseId: null, label: "prod: deploy" });
+    expect(splitSpecPrefix("Fetch ticket")).toEqual({ specId: null, label: "Fetch ticket" });
+    expect(splitSpecPrefix("prod: deploy")).toEqual({ specId: null, label: "prod: deploy" });
   });
 
-  // p0507: a phase id is minted from a date and a four-hex random suffix. This split is
-  // the dashboard's OWN copy of RunStepsReader.PhaseQualifiedRegex — teaching only the
+  // p0507: a spec id is minted from a date and a four-hex random suffix. This split is
+  // the dashboard's OWN copy of RunStepsReader.SpecQualifiedRegex — teaching only the
   // backend leaves the raw prefix rendered here, in the rail the operator actually reads.
-  it("RunStepRail_DateMintedPhase_RendersWithoutTheRawPrefix", () => {
-    expect(splitPhasePrefix("2026-08-24-8a3f: Generate plan"))
-      .toEqual({ phaseId: "2026-08-24-8a3f", label: "Generate plan" });
+  it("RunStepRail_DateMintedSpec_RendersWithoutTheRawPrefix", () => {
+    expect(splitSpecPrefix("2026-08-24-8a3f: Generate plan"))
+      .toEqual({ specId: "2026-08-24-8a3f", label: "Generate plan" });
   });
 
-  // 2026-09-03-2f81: phases cut from one piece of work share a number and differ by a
+  // 2026-09-03-2f81: specs cut from one piece of work share a number and differ by a
   // trailing letter. Unwidened, the rail reads the id as ending at the hex and renders
   // the letter as the first character of the step label.
-  it("RunStepRail_SeriesMember_CarriesItsLetterIntoThePhaseId", () => {
-    expect(splitPhasePrefix("2026-08-24-8a3fb: Generate plan"))
-      .toEqual({ phaseId: "2026-08-24-8a3fb", label: "Generate plan" });
+  it("RunStepRail_SeriesMember_CarriesItsLetterIntoTheSpecId", () => {
+    expect(splitSpecPrefix("2026-08-24-8a3fb: Generate plan"))
+      .toEqual({ specId: "2026-08-24-8a3fb", label: "Generate plan" });
   });
 
   it("still leaves a date that is not a minted id alone", () => {
-    expect(splitPhasePrefix("2026-13-99-zzzz: nightly"))
-      .toEqual({ phaseId: null, label: "2026-13-99-zzzz: nightly" });
+    expect(splitSpecPrefix("2026-13-99-zzzz: nightly"))
+      .toEqual({ specId: null, label: "2026-13-99-zzzz: nightly" });
   });
 });
 
-describe("toRailNodes phase handling", () => {
-  it("prefers the server's structured phaseId and shows the clean label", () => {
+describe("toRailNodes spec handling", () => {
+  it("prefers the server's structured spec id and shows the clean label", () => {
     const nodes = toRailNodes([
       row({ stepIndex: 0, displayName: "Generate plan", phaseId: "p19106a" }),
     ]);
 
     expect(nodes[0].label).toBe("Generate plan");
-    expect(nodes[0].phaseId).toBe("p19106a");
+    expect(nodes[0].specId).toBe("p19106a");
   });
 
   it("splits a legacy prefixed label from an old server defensively", () => {
@@ -65,14 +65,14 @@ describe("toRailNodes phase handling", () => {
     ]);
 
     expect(nodes[0].label).toBe("Generate plan");
-    expect(nodes[0].phaseId).toBe("p19106a");
+    expect(nodes[0].specId).toBe("p19106a");
   });
 
-  it("carries no phase on an unspliced step", () => {
+  it("carries no spec on an unspliced step", () => {
     const nodes = toRailNodes([row({ stepIndex: 0, displayName: "Fetch ticket" })]);
 
     expect(nodes[0].label).toBe("Fetch ticket");
-    expect(nodes[0].phaseId).toBeNull();
+    expect(nodes[0].specId).toBeNull();
   });
 
   // p0398: the server's classification rides along; an old server without it
@@ -140,8 +140,8 @@ describe("composeTimeBadge", () => {
 });
 
 // p0405: the server delivers ONE ordered sequence — executed steps followed by
-// planned ones. The rail renders it as delivered: it does not compute the phase
-// block, multiply it by a phase count, or decide what a missing field means.
+// planned ones. The rail renders it as delivered: it does not compute the spec
+// block, multiply it by a spec count, or decide what a missing field means.
 describe("toRailNodes planned steps", () => {
   const plannedRow = (over: Partial<RunStepRow>): RunStepRow =>
     row({
@@ -152,14 +152,14 @@ describe("toRailNodes planned steps", () => {
   it("carries the planned marker through and reads the absent status as not-yet-run", () => {
     const nodes = toRailNodes([
       row({ stepIndex: 1, status: "success" }),
-      plannedRow({ stepIndex: 2, displayName: "Execute the phase", phaseId: "p19106a" }),
+      plannedRow({ stepIndex: 2, displayName: "Execute the spec", phaseId: "p19106a" }),
     ]);
 
     expect(nodes[0].planned).toBe(false);
     expect(nodes[1].planned).toBe(true);
     expect(nodes[1].status).toBe("wait");
-    expect(nodes[1].label).toBe("Execute the phase");
-    expect(nodes[1].phaseId).toBe("p19106a");
+    expect(nodes[1].label).toBe("Execute the spec");
+    expect(nodes[1].specId).toBe("p19106a");
   });
 
   it("shows a planned step no cost, no duration and no time split", () => {

@@ -6,9 +6,9 @@ namespace AgentSmith.Tests.Skills;
 /// <summary>
 /// 2026-10-01-aeb6d: the rules skills PR #205 put into the masters, read from the PINNED catalog.
 /// <para>
-/// The text is authored in agent-smith-skills (phases 2026-10-01-aeb6b, aeb6c, f5c3b, 7f7af and
+/// The text is authored in agent-smith-skills (specs 2026-10-01-aeb6b, aeb6c, f5c3b, 7f7af and
 /// 283dj); this repo holds it only through <c>SkillsCatalogVersion</c>. The framework sides of
-/// those phases — the document fence, the subject binding, scenario criteria, bug criteria,
+/// those specs — the document fence, the subject binding, scenario criteria, bug criteria,
 /// <c>design_read</c> and the reference renderer — each assume the master knows the rule. A
 /// release that drops one fails here rather than on a live run.
 /// </para>
@@ -32,7 +32,7 @@ public sealed class DesignReferenceRulesTests
 
         master.Should().Contain(
             "- **document** (the operator asks for a text to take elsewhere",
-            Because("a document is an outcome of its own, not a phase or an answer"));
+            Because("a document is an outcome of its own, not a spec or an answer"));
         master.Should().Contain(
             "A request for a document is not a request for work: it is answered with",
             Because("the discuss-first gate would otherwise spend a turn before the text"));

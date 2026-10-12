@@ -6,9 +6,9 @@ using FluentAssertions;
 namespace AgentSmith.Tests.Scans;
 
 /// <summary>
-/// p0429: one index, one matching rule, two sources of evidence. A phase brings the
+/// p0429: one index, one matching rule, two sources of evidence. A spec brings the
 /// branch diff; a scan brings the files it read. Cloning the rule for the second would
-/// let a scan finding and a phase account disagree about what "cited" means.
+/// let a scan finding and a spec account disagree about what "cited" means.
 /// </summary>
 public sealed class CitedFileIndexTests
 {

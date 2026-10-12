@@ -11,8 +11,8 @@ namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
 /// p0393a: find-or-create at the spec commit. Always a DRAFT — the run is still
-/// working and no phase has been verified yet; CommitAndPR finds this pull request,
-/// refreshes its body with the phase-status table and promotes it to ready ONLY when
+/// working and no spec has been verified yet; CommitAndPR finds this pull request,
+/// refreshes its body with the spec-status table and promotes it to ready ONLY when
 /// the whole sequence is through. Failure is logged and swallowed: the specs are on
 /// the branch either way, and the run must not die because a PR could not be opened.
 /// 2026-10-12-f5f7e: one per series repository, over that repository's sub-series. A repository

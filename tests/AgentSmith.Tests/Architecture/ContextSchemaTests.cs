@@ -79,7 +79,7 @@ public sealed class ContextSchemaTests
     /// <summary>
     /// 2026-08-26-04b6: the fullest document the writer can still emit. Its reading fields
     /// (project, version, runtime, frameworks, infra, testing, sdks) left the typed record
-    /// in that phase; the schema still declares them, deprecated, so nothing written before
+    /// in that spec; the schema still declares them, deprecated, so nothing written before
     /// is invalidated.
     /// </summary>
     [Fact]

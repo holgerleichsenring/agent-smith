@@ -43,7 +43,7 @@ internal static class MasterHandlerFixture
             new AgentSmith.Application.Services.ScanMasterPromptFactory(),
             BuildScanPasses(loop),
             new AgentSmith.Application.Services.SpecDialogPromptFactory(),
-            new AgentSmith.Application.Services.PhaseExecutionPromptFactory(),
+            new AgentSmith.Application.Services.SpecExecutionPromptFactory(),
             BuildOutcomeResolver(),
             new AgentSmith.Application.Services.SpecDialog.SpecDialogProposalRefusal(
                 loop, new AgentSmith.Application.Services.SpecDialogPromptFactory(),
@@ -190,8 +190,8 @@ internal static class MasterHandlerFixture
     private static AgentSmith.Application.Services.SpecDialog.OutcomeProposalResolver BuildOutcomeResolver()
     {
         var validator = new AgentSmith.Application.Services.SpecDialog.SpecDraftValidator(
-            new AgentSmith.Application.Services.Validation.PhaseSpecSchemaProvider());
-        var reader = new AgentSmith.Application.Services.SpecDialog.PhaseDraftReader();
+            new AgentSmith.Application.Services.Validation.SpecSchemaProvider());
+        var reader = new AgentSmith.Application.Services.SpecDialog.SpecDraftReader();
         return new AgentSmith.Application.Services.SpecDialog.OutcomeProposalResolver(
             validator, reader,
             new AgentSmith.Application.Services.SpecDialog.BugOutcomeParser(),

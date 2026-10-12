@@ -128,7 +128,7 @@ nav:
       - Pipeline system:             reference/concepts/pipeline-system.md
       - Ticket lifecycle:            reference/concepts/ticket-lifecycle.md
       - Branch persistence:          reference/concepts/branch-persistence.md
-      - Phases & runs:               reference/concepts/phases-and-runs.md
+      - Specs & runs:               reference/concepts/specs-and-runs.md
       - The context file:            reference/concepts/context-file.md
       - Self-documentation:          reference/concepts/self-documentation.md
       - Multi-agent orchestration:   reference/concepts/multi-agent-orchestration.md
@@ -167,7 +167,7 @@ nav:
       - Clean architecture: reference/architecture/layers.md
       - Project structure:  reference/architecture/project-structure.md
       - AI clients:         reference/architecture/ai-clients.md
-      - Phase workflow:     reference/architecture/phase-workflow.md
+      - Spec workflow:     reference/architecture/spec-workflow.md
       - Event schema policy: reference/architecture/event-schema-policy.md
       - Design system:      DESIGN.md
     - Skills operations:

@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
-// 2026-09-17-042ef: the phase's whole method is that this page BORROWS the Projects page's
+// 2026-09-17-042ef: the spec's whole method is that this page BORROWS the Projects page's
 // rules rather than owning a copy of them — the dialog's selector is added to the rule that
 // already draws the card, the mark, the field label, the entity name, the tab and the button.
 // Nothing tested that. Every component test would stay green if someone replaced the joins
@@ -230,7 +230,7 @@ describe("The composer's glyph controls", () => {
   });
 });
 
-// 2026-09-20-4b0ae: the acknowledgement an inspect leaves is DRAWN, or the phase shipped two
+// 2026-09-20-4b0ae: the acknowledgement an inspect leaves is DRAWN, or the spec shipped two
 // attributes nothing paints. Both rules live in this page's own block — a new name below the
 // marker is the one shape the two guards above allow — and the focus one must be a plain
 // :focus, because the focus it draws follows a mouse click on a control in another column and

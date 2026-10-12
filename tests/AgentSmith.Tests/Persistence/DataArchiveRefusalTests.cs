@@ -12,7 +12,7 @@ namespace AgentSmith.Tests.Persistence;
 
 /// <summary>
 /// 2026-08-28-2af6: what the import refuses, and that it refuses BEFORE it writes. A
-/// half-copied database is the failure this phase exists to prevent, so every refusal is
+/// half-copied database is the failure this spec exists to prevent, so every refusal is
 /// asserted together with the target still being empty afterwards.
 /// </summary>
 public sealed class DataArchiveRefusalTests : IDisposable

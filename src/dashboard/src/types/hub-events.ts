@@ -104,8 +104,8 @@ export interface StepStartedEvent extends RunEventBase {
   /** p0203: operator-facing label from CommandDisplayNames; null for
    *  pre-p0203 producers — consumers fall back to stepName. */
   displayName: string | null;
-  /** p0466: the derived phase this step belongs to, stated by the producer.
-   *  Null outside any phase and on pre-p0466 producers. */
+  /** p0466: the derived spec this step belongs to, stated by the producer.
+   *  Null outside any spec and on pre-p0466 producers. */
   phaseId?: string | null;
 }
 
@@ -123,8 +123,8 @@ export interface DecisionLoggedEvent extends RunEventBase {
   chose: string;
   over: string | null;
   reason: string;
-  /** p0466: the phase the decision was taken in, from the producer's ambient
-   *  step frame. Null outside any phase and on pre-p0466 producers. */
+  /** p0466: the spec the decision was taken in, from the producer's ambient
+   *  step frame. Null outside any spec and on pre-p0466 producers. */
   phaseId?: string | null;
 }
 
@@ -454,8 +454,8 @@ export interface RunBudgetResolvedEvent extends RunEventBase {
 /**
  * p0413: the SHAPE of the work as the scope classifier stated it — a
  * deterministic transformation, judgement, or mixed — with the one line that
- * says why. It decides how the ticket is CUT into phases, so the run view shows
- * it: an operator asking "why did this get three phases" reads the answer here.
+ * says why. It decides how the ticket is CUT into specs, so the run view shows
+ * it: an operator asking "why did this get three specs" reads the answer here.
  */
 export interface RunWorkShapeResolvedEvent extends RunEventBase {
   type: EventType.RunWorkShapeResolved;
@@ -489,9 +489,9 @@ export interface PipelineStepsPlannedEvent extends RunEventBase {
 }
 
 /**
- * p0466: a phase of the derived sequence changed standing — selected, through,
- * or stopped. The server projects it into the run's RunPhase row, which is what
- * makes a phase addressable once it has ended. `state` mirrors the C#
+ * p0466: a spec of the derived sequence changed standing — selected, through,
+ * or stopped. The server projects it into the run's RunSpec row, which is what
+ * makes a spec addressable once it has ended. `state` mirrors the C#
  * PhaseRunState enum (0 not started, 1 in progress, 2 done, 3 failed).
  */
 export interface PhaseStateChangedEvent extends RunEventBase {
@@ -504,8 +504,8 @@ export interface PhaseStateChangedEvent extends RunEventBase {
 }
 
 /**
- * p0466: the spec a phase actually executed, as WritePhaseRecord wrote it into
- * the working tree. The server keeps a copy so a finished phase can be opened
+ * p0466: the spec as it actually executed, as WriteSpecRecord wrote it into
+ * the working tree. The server keeps a copy so a finished spec can be opened
  * after the branch is merged and the sandbox is gone.
  */
 export interface PhaseRecordedEvent extends RunEventBase {
@@ -515,8 +515,8 @@ export interface PhaseRecordedEvent extends RunEventBase {
 }
 
 /**
- * 2026-09-17-042eh: what a fresh reviewer found in the phase's own diff. `reportJson` is a
- * serialised PhaseReviewReport — an OBJECT, not the bare array it was before that phase was
+ * 2026-09-17-042eh: what a fresh reviewer found in the spec's own diff. `reportJson` is a
+ * serialised PhaseReviewReport — an OBJECT, not the bare array it was before that spec was
  * reworked: `reviewed` false is NOT a clean review, it says nobody was asked, and `why` then
  * names which of the four reasons it was. 2026-09-17-042ej reads it back as data.
  */
@@ -647,7 +647,7 @@ export interface RunAcceptance {
 }
 
 /** 2026-10-12-6bfad: one account that judged no criterion. `repositories` is one repository
- *  key, or the comma-joined keys a phase-wide account spans. */
+ *  key, or the comma-joined keys a spec-wide account spans. */
 export interface UnmeasuredAccount {
   repositories: string;
   reason: string | null;
@@ -762,7 +762,7 @@ export interface RunSnapshot {
   budgetCapTokens?: number | null;
   /** p0413: the SHAPE the scope classifier stated for this ticket
    *  (deterministic / judgement / mixed) and the one line that says why — the
-   *  signal that decided how the ticket was cut into phases. Absent when no
+   *  signal that decided how the ticket was cut into specs. Absent when no
    *  shape was stated and on pre-p0413 rows. */
   workShape?: string | null;
   workShapeReason?: string | null;

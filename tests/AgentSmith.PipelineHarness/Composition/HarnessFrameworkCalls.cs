@@ -34,10 +34,10 @@ internal sealed class HarnessSpecCutReviewer : ISpecCutReviewer
     /// <summary>What the review asked about, in call order.</summary>
     internal List<ReviewAsked> Asked { get; } = [];
 
-    /// <summary>Every later review reports these findings, each against the phase it names —
-    /// a review of OTHER drafts is clean. A design session proposes several phases across its
+    /// <summary>Every later review reports these findings, each against the spec it names —
+    /// a review of OTHER drafts is clean. A design session proposes several specs across its
     /// turns, and findings that followed every later draft would report the first turn's fault
-    /// against a phase nobody reviewed.</summary>
+    /// against a spec nobody reviewed.</summary>
     internal HarnessSpecCutReviewer Finds(params CutFinding[] findings)
     {
         lock (_findings) _findings.AddRange(findings);
@@ -53,7 +53,7 @@ internal sealed class HarnessSpecCutReviewer : ISpecCutReviewer
         List<CutFinding> against;
         lock (_findings)
             against = [.. _findings.Where(f => drafts.Any(d =>
-                string.Equals(d.PhaseId, f.PhaseId, StringComparison.OrdinalIgnoreCase)))];
+                string.Equals(d.PhaseId, f.SpecId, StringComparison.OrdinalIgnoreCase)))];
         return Task.FromResult(against.Count == 0 ? SpecCutReview.Clean : new SpecCutReview(against));
     }
 }
@@ -69,26 +69,26 @@ internal sealed record ReviewAsked(
 /// shift the whole sequence by one. It reports every premise as holding unless a case says
 /// otherwise; the real checker is exercised by PremiseCheckTests over a real look.
 /// </summary>
-internal sealed class HarnessPhasePremiseChecker : IPhasePremiseChecker
+internal sealed class HarnessSpecPremiseChecker : ISpecPremiseChecker
 {
     private readonly List<PremiseFinding> _findings = [];
 
     private readonly Dictionary<int, PremiseFinding[]> _perCall = [];
 
-    /// <summary>What the check was asked about, in call order — the phase, the premises it was
-    /// handed and the phases it was told had already run.</summary>
+    /// <summary>What the check was asked about, in call order — the spec, the premises it was
+    /// handed and the specs it was told had already run.</summary>
     internal List<PremiseAsked> Asked { get; } = [];
 
-    /// <summary>The Nth check (1-based) reports these; every other phase's premises hold. Keyed
-    /// by call rather than by phase id, because a derived set's ids are minted in the run.</summary>
-    internal HarnessPhasePremiseChecker FindsOnCall(int call, params PremiseFinding[] findings)
+    /// <summary>The Nth check (1-based) reports these; every other spec's premises hold. Keyed
+    /// by call rather than by spec id, because a derived set's ids are minted in the run.</summary>
+    internal HarnessSpecPremiseChecker FindsOnCall(int call, params PremiseFinding[] findings)
     {
         lock (_perCall) _perCall[call] = findings;
         return this;
     }
 
     public Task<PremiseCheck> CheckAsync(
-        PhaseDraft draft, PhasePremises premises, DerivationLook look,
+        PhaseDraft draft, SpecPremises premises, DerivationLook look,
         IReadOnlyList<PhaseProgress> alreadyRan, string key, AgentConfig agent,
         PipelineCostTracker costTracker, CancellationToken cancellationToken)
     {
@@ -111,10 +111,10 @@ internal sealed class HarnessPhasePremiseChecker : IPhasePremiseChecker
     }
 }
 
-/// <summary>2026-09-17-0e79c: one premise check the framework asked for — the phase, the claims
-/// it was handed, the phases it was told had already run, and the repositories its look names.</summary>
+/// <summary>2026-09-17-0e79c: one premise check the framework asked for — the spec, the claims
+/// it was handed, the specs it was told had already run, and the repositories its look names.</summary>
 internal sealed record PremiseAsked(
-    string PhaseId, IReadOnlyList<string> Claims, IReadOnlyList<string> AlreadyRan,
+    string SpecId, IReadOnlyList<string> Claims, IReadOnlyList<string> AlreadyRan,
     IReadOnlyList<string> Repositories);
 
 /// <summary>
@@ -142,7 +142,7 @@ internal sealed class HarnessFindingRefuter : IFindingRefuter
 /// unreachable from a preset script. That is the branch the repair pass hangs off, and four
 /// defects have lived in it (p0341g, p0444, p0449) — every one found by a live run, because
 /// the harness's own stand-in had closed the only door to it. A case can now leave a named
-/// criterion outstanding for its first N accounts, which is what a phase that did not finish
+/// criterion outstanding for its first N accounts, which is what a spec that did not finish
 /// its work looks like.
 /// </para>
 /// </summary>
@@ -162,9 +162,9 @@ internal sealed class HarnessSpecAccountant : ISpecAccountant
     /// Leave <paramref name="criterion"/> outstanding on the first account that is ASKED
     /// about it, then satisfy it like any other.
     /// <para>
-    /// p0460 made the account per phase twice over — once on entry, once at the gate — so
+    /// p0460 made the account per spec twice over — once on entry, once at the gate — so
     /// a case that counted calls would be naming a different account than it meant. It
-    /// names the criterion instead, and each phase's criteria are its own.
+    /// names the criterion instead, and each spec's criteria are its own.
     /// </para>
     /// </summary>
     internal HarnessSpecAccountant LeaveOutstanding(string criterion)

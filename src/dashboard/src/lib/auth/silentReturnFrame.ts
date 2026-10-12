@@ -1,6 +1,6 @@
 // 2026-08-28-0f46: the hidden frame a silent sign-in loads is this whole
 // application. The library points that frame at the ordinary reply URL, and
-// this phase deliberately leaves it there — the alternatives each cost a second
+// this spec deliberately leaves it there — the alternatives each cost a second
 // redirect URI registered on the authority, which is an operator change.
 //
 // So the frame boots the dashboard, lives about a second and is then removed.

@@ -4,7 +4,7 @@ namespace AgentSmith.Application.Services.Prompts;
 
 /// <summary>
 /// 2026-09-08-1830: renders the contexts the scope call named as the list the
-/// derivation declares its phases against — every one is carried by a phase or listed
+/// derivation declares its specs against — every one is carried by a spec or listed
 /// as discarded with a reason, and the reader holds the cut to that. Empty when nothing
 /// was named, so the derivation reads exactly the prompt it read before.
 /// </summary>
@@ -19,7 +19,7 @@ public static class ScopeNamedContextsPromptSection
 
             ## Contexts the scope call named
             The scope call read this ticket as touching the contexts below{because}. Every one of
-            them is either carried by a phase — name it in that phase's "contexts", spelled as
+            them is either carried by a spec — name it in that spec's "contexts", spelled as
             listed — or listed under "discarded_contexts" with the reason it is outside this
             ticket's work. A cut that covers fewer contexts than named is refused.
             {listed}

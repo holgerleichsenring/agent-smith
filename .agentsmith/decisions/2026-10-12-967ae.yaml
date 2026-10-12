@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-967ae
+
+decisions:
+  - category: Scope
+    chose: "The dashboard rename table: every component, helper, local, test id and visible string meaning the spec"
+    reason: |
+      Files: components/jobs/why/PhaseAccount.tsx -> SpecAccount.tsx; new components/dialog/outcomeKind.ts
+      (+ its test).
+      Types and components: PhaseAccount/PhaseAccountProps -> SpecAccount/SpecAccountProps, PhaseNumbers ->
+      SpecNumbers, NavRail PhaseHeader -> SpecHeader, DialogProposalPanel's Phase -> Spec (prop phase -> spec,
+      also on Sections and RestsOn), RunPhaseStatistics -> RunSpecStatistics, SpecDialogPhaseProposal ->
+      SpecDraftProposal, SpecDialogPhaseFact -> SpecDraftFact (the inventory's collision choices).
+      Helpers: splitPhasePrefix -> splitSpecPrefix (returns {specId, label}), PHASE_PREFIX_RE -> SPEC_PREFIX_RE,
+      PHASE_STATUS -> SPEC_STATUS, phaseStatusWords -> specStatusWords, isPhaseTerminal -> isSpecTerminal;
+      tests: stoppedPhase -> stoppedSpec, phase() fixture -> draftSpec().
+      Local view-model members: ExecutionNodeProps.phaseId and RailSegment.phaseId -> specId (built in
+      runStepRail from the served RunStepRow.phaseId, which stays).
+      Test ids: phase-account -> spec-account, phase-verdict -> spec-verdict, phase-numbers -> spec-numbers,
+      data-phase -> data-spec, rail-phase-* -> rail-spec-*, dialog-proposal-phase-* -> dialog-proposal-spec-*,
+      dialog-approved-phase-* -> dialog-approved-spec-*, run-why-no-phases -> run-why-no-specs; React key
+      "unphased" -> "outside-any-spec". None is referenced outside src/dashboard/src (repo-wide grep; there is
+      no e2e/playwright directory).
+      Visible strings: "One phase" -> "One spec"; "File this phase? One ticket." -> "File this spec? One
+      ticket."; "Every model call of this phase, in call order." / "No model call was recorded for this
+      phase." / "This phase ran no sandbox command." / "…no phase to account for" -> spec; conversation row
+      "phase filed" -> "spec filed"; proposal card mark and aria-label "Inspect the phase proposal: …" ->
+      spec.
+      Comments, test names and fixture prose that meant the spec ("this phase" = the development increment,
+      step labels like "Execute the phase", yaml "phase: p9001" -> "spec: p9001").
+
+  - category: Implementation
+    chose: "The served outcome kind \"phase\" is compared as served and SHOWN as spec through one helper, outcomeKindWord"
+    over: "Rewriting the kind to \"spec\" when it arrives"
+    reason: |
+      acceptedNames (967aa) deliberately normalises a later server's "spec" back to "phase", and
+      conversationDelete, data-kind and the tests compare against the served value. Only the three places
+      that print a kind (conversation row, proposal card mark, its aria-label) needed the person's word, so
+      the mapping lives at render time. 967ab flips the served kind; 967ah deletes the mapping with the bridge.
+
+  - category: Scope
+    chose: "Served member names stay: phaseId, phases, phase, executedPhaseIds, kind \"phase\", the hub-events.ts names"
+    reason: |
+      They are the wire until 967ab, and hub-events.ts interface/enum names are compared against the C#
+      contracts by gen:hub-events. A type ALIAS that only the dashboard declares (RunSpecStatistics,
+      SpecDraftProposal) was renamed; its members were not. The FilterRail labels "PhaseStateChanged" etc.
+      are the EventType names themselves and stay with them. Comments that name a C# symbol
+      (RunStepView.PhaseId, RunStepsReader.PhaseQualifiedRegex, WritePhaseRecord, PhaseReviewReport,
+      PhaseRunState) keep the name this tree declares; 967ac renames them on its side.
+
+  - category: Scope
+    chose: "G2 stays: LLM/tool call phase, StoryPhase, maxSkillsPerPhase / \"Max skills per phase\", pipeline \"phase-execution\", tracker role key \"phase\" in configApi"
+    reason: "Execution stage, UI display state, persisted config key, retired pipeline alias the server rewrites, and the work_item_kinds key 967aa keeps reading for good."

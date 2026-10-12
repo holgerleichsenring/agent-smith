@@ -211,7 +211,7 @@ describe("RunSideRail", () => {
 
   // p0413: the shape that decided the process is readable on the run — with the
   // classifier's one line of reason, so "why did this ticket get this many
-  // phases" is answerable. A run with no stated shape shows no Shape block.
+  // specs" is answerable. A run with no stated shape shows no Shape block.
   it("RunSideRail_StatedWorkShape_ShowsTheShapeAndItsReason", () => {
     renderRail({
       workShape: "deterministic",

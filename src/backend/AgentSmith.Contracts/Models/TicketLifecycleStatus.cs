@@ -20,7 +20,7 @@ public enum TicketLifecycleStatus
     Waiting,
 
     /// <summary>
-    /// p0439: the run delivered the phases it verified and fell short of the rest. A done
+    /// p0439: the run delivered the specs it verified and fell short of the rest. A done
     /// that says so — never Failed, which has to keep meaning "this did not deliver".
     /// </summary>
     Shortfall

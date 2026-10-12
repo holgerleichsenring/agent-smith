@@ -1,4 +1,4 @@
-using AgentSmith.Application.Services.PhaseExecution;
+using AgentSmith.Application.Services.SpecExecution;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Application.Services.Validation;
@@ -86,7 +86,7 @@ public sealed class ApprovedSetPrecedenceTests
     }
 
     [Fact]
-    public void SpecSource_AHandWrittenPhaseTicket_DerivesFromItsText()
+    public void SpecSource_AHandWrittenSpecTicket_DerivesFromItsText()
     {
         var decision = _sut.Decide(
             SpecSetOnBranch.Nothing, Ticket(EmbeddedSpec, ["phase"]), null,
@@ -103,7 +103,7 @@ public sealed class ApprovedSetPrecedenceTests
     {
         var index = new SeriesManifest();
         var set = ApprovedSets.Set(
-            Key, [ApprovedSets.Phase("p0001a")], ApprovedSets.Approval(ApprovedSets.Noon, "session-9"))
+            Key, [ApprovedSets.Spec("p0001a")], ApprovedSets.Approval(ApprovedSets.Noon, "session-9"))
             with { Revisions = [new SpecRevision(1, "initial derivation", ApprovedSets.Noon)] };
 
         var read = index.ApprovalOf(index.Parse(index.Serialize(set))!);
@@ -115,7 +115,7 @@ public sealed class ApprovedSetPrecedenceTests
     public void SetYaml_ASetNobodyApproved_ReadsBackWithNoApproval()
     {
         var index = new SeriesManifest();
-        var set = ApprovedSets.Set(Key, [ApprovedSets.Phase("p0001a")], approval: null, SpecSource.Derived)
+        var set = ApprovedSets.Set(Key, [ApprovedSets.Spec("p0001a")], approval: null, SpecSource.Derived)
             with { Revisions = [new SpecRevision(1, "initial derivation", ApprovedSets.Noon)] };
 
         index.ApprovalOf(index.Parse(index.Serialize(set))!).Should().BeNull();
@@ -125,7 +125,7 @@ public sealed class ApprovedSetPrecedenceTests
     public void SpecMarkdown_ApprovedSource_NamesTheConversation()
     {
         var set = ApprovedSets.Set(
-            Key, [ApprovedSets.Phase("p0001a")], ApprovedSets.Approval(ApprovedSets.Noon, "session-42"))
+            Key, [ApprovedSets.Spec("p0001a")], ApprovedSets.Approval(ApprovedSets.Noon, "session-42"))
             with { Revisions = [new SpecRevision(1, "approved in design conversation session-42", ApprovedSets.Noon)] };
 
         SpecMarkdown.Render(set).Should().Contain("approved in design conversation session-42")
@@ -152,11 +152,11 @@ public sealed class ApprovedSetPrecedenceTests
     private static Ticket Ticket(string description, IReadOnlyList<string>? labels = null) =>
         new(new TicketId("19106"), "A ticket", description, null, "open", "azdo", labels ?? []);
 
-    private static SpecSetOnBranch Branch(DateTimeOffset approvedAt, IReadOnlyList<string> phaseIds) =>
+    private static SpecSetOnBranch Branch(DateTimeOffset approvedAt, IReadOnlyList<string> specIds) =>
         SpecSetOnBranch.Answered(new SpecSetReadResult(
             new SpecSet(
                 Key,
-                [.. phaseIds.Select(id => ApprovedSets.Phase(id, $"Goal {id} as it ran"))],
+                [.. specIds.Select(id => ApprovedSets.Spec(id, $"Goal {id} as it ran"))],
                 SpecAccounting.Empty,
                 [new SpecRevision(1, "initial derivation", ApprovedSets.Noon)],
                 SpecSource.BranchArtifact,

@@ -84,7 +84,7 @@ public sealed class SpecSourceResolver(
             var amend = SpecAmendmentRule.NeedsModel(cause, artifact.Set, foreignCommitSinceHandback);
             var expired = foreignCommitSinceHandback && artifact.Set.IsHandedBack;
             logger.LogInformation(
-                "Spec set {Key} came off the ticket branch ({Phases} phase(s)); {Mode}",
+                "Spec set {Key} came off the ticket branch ({Specs} spec(s)); {Mode}",
                 key, artifact.Set.Phases.Count,
                 amend ? "amending it with the new input" : "using it unchanged");
             return new Decision(

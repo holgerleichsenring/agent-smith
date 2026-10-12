@@ -23,7 +23,7 @@ public sealed class PresentedTokenRouteTests(EnforcingAuthorityFixture fixture)
 {
     private const string Route = "/api/auth/requirements";
 
-    /// <summary>The shape that motivated the phase: one directory, two access-token versions.</summary>
+    /// <summary>The shape that motivated the spec: one directory, two access-token versions.</summary>
     private string V1ShapedToken() => fixture.Issuer.Token(
         $"api://{AuthorityFixture.Audience}", extra: [new Claim("ver", "1.0")]);
 

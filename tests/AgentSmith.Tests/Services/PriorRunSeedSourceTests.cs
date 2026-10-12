@@ -11,7 +11,7 @@ namespace AgentSmith.Tests.Services;
 /// <summary>
 /// 2026-09-09-b26f: the resume seed is keyed on the project the run resolved,
 /// and a run with no resolved project reads nothing at all — the alternative,
-/// falling back to the ticket alone, is the defect this phase closed.
+/// falling back to the ticket alone, is the defect this spec closed.
 /// </summary>
 public sealed class PriorRunSeedSourceTests
 {

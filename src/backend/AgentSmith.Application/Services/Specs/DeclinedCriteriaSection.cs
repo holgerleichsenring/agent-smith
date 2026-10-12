@@ -42,5 +42,5 @@ public static class DeclinedCriteriaSection
 
     private static string Row(DeclinedCriterion declined) =>
         $"- [~] **{declined.Criterion}** — {declined.Reason}"
-        + (declined.PhaseId is null ? string.Empty : $" _(phase {declined.PhaseId})_");
+        + (declined.PhaseId is null ? string.Empty : $" _(spec {declined.PhaseId})_");
 }

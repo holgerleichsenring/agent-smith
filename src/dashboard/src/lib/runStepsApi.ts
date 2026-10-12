@@ -6,13 +6,14 @@
 
 import type { RunEvent, RunTimeSplit } from "@/types/hub-events";
 import { getJson } from "@/lib/apiResponse";
+import { acceptSpecNames } from "@/lib/acceptedNames";
 
 export interface RunStepRow {
   stepIndex: number;
   stepName: string;
   displayName: string | null;
   commandName: string | null;
-  /** p0395: the spliced phase (p0393a) this step belongs to, split off the step
+  /** p0395: the spliced spec (p0393a) this step belongs to, split off the step
    *  names server-side. Absent on payloads from servers that predate it — the
    *  rail then splits the known "p<id>: " prefix off the labels itself. */
   phaseId?: string | null;
@@ -70,8 +71,8 @@ export interface RunDecisionRow {
 }
 
 export async function fetchRunSteps(runId: string, signal?: AbortSignal): Promise<RunStepRow[]> {
-  const body = await getJson<{ steps?: RunStepRow[] }>(
-    `/api/runs/${encodeURIComponent(runId)}/steps`, signal);
+  const body = acceptSpecNames(await getJson<{ steps?: RunStepRow[] }>(
+    `/api/runs/${encodeURIComponent(runId)}/steps`, signal));
   return body.steps ?? [];
 }
 
@@ -120,17 +121,17 @@ async function getStepEvents(
   signal?: AbortSignal,
 ): Promise<StepEventsBody> {
   const params = new URLSearchParams(query ?? {}).toString();
-  return getJson<StepEventsBody>(
+  return acceptSpecNames(await getJson<StepEventsBody>(
     `/api/runs/${encodeURIComponent(runId)}/steps/${stepIndex}/events${params ? `?${params}` : ""}`,
     signal,
-  );
+  ));
 }
 
 export async function fetchRunDecisions(
   runId: string,
   signal?: AbortSignal,
 ): Promise<RunDecisionRow[]> {
-  const body = await getJson<{ decisions?: RunDecisionRow[] }>(
-    `/api/runs/${encodeURIComponent(runId)}/decisions`, signal);
+  const body = acceptSpecNames(await getJson<{ decisions?: RunDecisionRow[] }>(
+    `/api/runs/${encodeURIComponent(runId)}/decisions`, signal));
   return body.decisions ?? [];
 }

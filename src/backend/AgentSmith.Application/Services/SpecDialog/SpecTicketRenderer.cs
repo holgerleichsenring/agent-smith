@@ -1,0 +1,120 @@
+using System.Text;
+using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Tickets;
+
+namespace AgentSmith.Application.Services.SpecDialog;
+
+/// <summary>
+/// p0315c: composes a spec ticket from a schema-valid PhaseDraft. The body leads with a
+/// human-first markdown summary (goal / why / scope, read from the draft's own yaml).
+/// 2026-09-22-766b: the ticket carries ONE framework label, the approved-set stamp, and it is
+/// that stamp which binds a FILED ticket to spec execution.
+/// <para>
+/// 2026-09-17-0e79a: a filed spec carries NO fenced spec. The approved set is stored under the
+/// ticket's spec key and carried to the run, and a fence in the body would be a second truth —
+/// one that anyone with tracker access can edit, and one the source precedence would take. The
+/// body states what is wanted and points at the conversation the set was approved in.
+/// </para>
+/// </summary>
+public sealed class SpecTicketRenderer
+{
+    /// <summary>
+    /// 2026-09-22-766b: THE WORD A PERSON TYPES. No filing writes it — a filed ticket carries the
+    /// approved-set stamp alone, so no board gains a framework word nobody chose — and it is READ
+    /// all the same: it is a documented trigger an operator puts on a ticket deliberately, and
+    /// dropping it would take away a way of starting a run that nobody asked to lose. The
+    /// objection this spec answers is about words this framework WRITES; this is the opposite.
+    /// </summary>
+    public const string SpecLabel = "phase";
+
+    /// <summary>
+    /// 2026-09-13-a3f1: a RECORD, not work. It was filed with the phase label, which hard-binds
+    /// routing, so a run started on the summary of a cut and died at the spec gate. Framework-owned
+    /// and deliberately not "epic": an operator's own epic label must keep meaning what it means
+    /// to them.
+    /// <para>
+    /// 2026-09-22-b3d7: NOTHING THE FRAMEWORK FILES CARRIES THIS ANY MORE — an approved cut is one
+    /// work ticket and no records at all. The constant and its reader stay for the tickets that
+    /// ALREADY carry it, and there are two generations of them: the epic PARENT SUMMARIES filed
+    /// before 2026-09-17-0e79d widened the label's meaning, and the SLICE RECORDS filed from then
+    /// until this spec. Neither is deleted by this spec, both sit on a live board, and each is
+    /// refused by the incoming path on this label alone — so dropping the constant, renaming its
+    /// value or removing the reader would make every one of them an ordinary ticket overnight,
+    /// routable by tag, by area path or by repository, and then run.
+    /// </para>
+    /// <para>
+    /// 2026-09-22-766b: SO THIS READER IS PERMANENT. It has no writer and will get none back, and
+    /// it is not waiting on a later spec to tidy it away — it refuses two populations that are
+    /// already on a live board and that nothing deletes: the epic PARENT SUMMARIES and the SLICE
+    /// RECORDS. Both carry this label and nothing else, so the reader must outlive every writer.
+    /// </para>
+    /// </summary>
+    public const string EpicLabel = "phase-epic";
+
+    /// <summary>
+    /// A filed spec: the requirement, plus the link back to the approved specification the run
+    /// works from. The spec itself is not in the body — it is the approved record.
+    /// </summary>
+    /// <param name="conversation">The design conversation the set was approved in.</param>
+    /// <param name="labelNote">2026-09-18-d518: what the filer's labels bind.</param>
+    public SpecTicketContent RenderSpec(
+        PhaseDraft draft, string? conversation = null, string? labelNote = null) =>
+        new(Title(draft.PhaseId, draft.Goal), SpecTicketBody.Requirement(
+            draft, sb => AppendSpecification(sb, conversation), labelNote));
+
+    /// <summary>The heading the specification pointer is filed under.</summary>
+    public const string SpecificationHeading = "## Specification";
+
+    /// <summary>
+    /// The pointer every WORK ticket carries: the body is not the spec, the approved record is,
+    /// and this is where the run reads it from.
+    /// </summary>
+    private static void AppendSpecification(StringBuilder sb, string? conversation)
+    {
+        sb.AppendLine(SpecificationHeading);
+        sb.AppendLine(
+            "The approved specification is what the run works from; it is published to "
+            + "the ticket branch under `" + Contracts.Specs.SeriesPaths.Planned + "/`."
+            + (string.IsNullOrWhiteSpace(conversation)
+                ? string.Empty
+                : $" Approved in design conversation `{conversation}`."));
+        sb.AppendLine();
+    }
+
+    /// <summary>
+    /// The epic's WORK ticket (2026-09-17-0e79d): the requirement the whole cut answers, listing
+    /// its slices in order. One run works every slice from the set stored under this ticket's key,
+    /// so the "## Slices" section is what a reader opens the ticket for, not a routing instruction.
+    /// <para>
+    /// It carries the same specification pointer a single filed spec does: this is the one ticket
+    /// a run works from, and a reader who asks where its specification lives must not have to
+    /// know that an epic keeps it somewhere else.
+    /// </para>
+    /// </summary>
+    /// <param name="templates">
+    /// 2026-09-13-ed5a: the templates the analysis had open when it made this cut, and the
+    /// revision each stood at.
+    /// </param>
+    /// <param name="conversation">The design conversation the set was approved in.</param>
+    /// <param name="labelNote">2026-09-18-d518: what the filer's labels bind.</param>
+    /// <param name="series">2026-10-06-03c7c: the series' base id the title names; absent in a preview.</param>
+    public SpecTicketContent RenderEpicParent(
+        PhaseDraft parent, IReadOnlyList<PhaseDraft> children,
+        IReadOnlyList<TemplateProvenance>? templates = null, string? conversation = null,
+        string? labelNote = null, string? series = null) =>
+        new(Title(series ?? parent.PhaseId, parent.Goal), SpecTicketBody.Requirement(parent, sb =>
+        {
+            sb.AppendLine("## Slices");
+            foreach (var child in children)
+                sb.AppendLine($"- `{child.PhaseId}` {child.Goal}{FormatRequires(child)}");
+            sb.AppendLine();
+            TemplateProvenanceLines.Append(sb, templates);
+            AppendSpecification(sb, conversation);
+        }, labelNote));
+
+    // 2026-09-17-042eb: the goal is whole in the body; the title only has to be accepted.
+    private static string Title(string id, string goal) => TicketTitle.Fit($"{id}: {goal}");
+
+    private static string FormatRequires(PhaseDraft draft) =>
+        draft.Requires.Count == 0 ? string.Empty : $" (requires: {string.Join(", ", draft.Requires)})";
+}

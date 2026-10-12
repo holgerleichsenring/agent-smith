@@ -41,7 +41,7 @@ internal static class RunStepQueryEndpoints
     ///
     /// <para><c>sinceSeq=0</c> is deliberately NOT a forward read: a caller with
     /// no cursor holds nothing, and reading forward from nothing is exactly the
-    /// defect this phase removes — it hands back the FIRST page of a step that
+    /// defect this spec removes — it hands back the FIRST page of a step that
     /// has since produced thousands of rows. It reads as "the newest page".</para>
     ///
     /// <para>The response carries only the flag the direction established:

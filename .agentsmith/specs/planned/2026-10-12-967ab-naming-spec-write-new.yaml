@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-967ab
+goal: "Stored, queued and served data is written with spec names, and every row written before is rewritten once, on all four database providers."
+
+applies_to: "backend (persistence, events, contracts on the reachability list) and dashboard (hub-event mirror, API types)"
+
+requires: [2026-10-12-967aa, 2026-10-12-967ac]
+
+facts:
+  - claim: "The default migration assembly serves Sqlite, PostgreSQL and MySQL; SQL Server has its own."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Extensions/PersistenceOptionsExtensions.cs:29-33"
+  - claim: "Every caller that migrates goes through RunStoreMigrator, which runs a repair before MigrateAsync."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunStoreMigrator.cs:21-25"
+  - claim: "RunDecisions and RunSteps carry a PhaseId column; a table rename already shipped as a migration."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunDecision.cs:39, src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunStep.cs:33, src/backend/AgentSmith.Infrastructure.Persistence.SqlServer/Migrations/20261007085833_RenameRunPhasesToRunSpecs.cs:8"
+
+assumptions:
+  - "Operator-timed: deployed only once 967aa runs on every replica."
+
+scope:
+  in: >
+    Rename every type and member on 967aa's reachability list, the three EventType members (codes 79-81 kept),
+    the eight G1 *PhaseCommand names, TicketFilingRole.Phase, filing kind and labels written — using exactly the
+    new names fixed in decisions/2026-10-12-967aa.yaml; each [AcceptedName] flips to name the OLD form, and
+    CommandContextFactory resolves through CommandNames.Declared so operator presets naming the old commands still
+    run. COLUMNS cannot be read under two names (EF maps one column per property), so they expand too: add
+    RunSteps.SpecId and RunDecisions.SpecId by EF migration in both assemblies, write both, read SpecId ?? PhaseId,
+    backfill SpecId from PhaseId; the PhaseId columns are dropped in 967ah. Stored JSON, artifact kinds, event type names,
+    command names and checkpoint type names/keys rewritten in C# with JsonNode after MigrateAsync — including
+    the escaped copies nested in RunCheckpointed and RunStoryRecorded payloads — idempotent and scoped by row
+    type so the execution-stage Phase of LLM/tool events is untouched. Dashboard hub-events.ts, API types and
+    conversationDelete's kind compare follow in the same commit.
+  out: "Symbols not on the reachability list (967ac). Removing the phase readers (967ah)."
+
+decisions:
+  - key: "REWRITE IN C#, NOT SQL REPLACE: nested escaped JSON and assembly-qualified type names need parsing, and one SQL string cannot quote for four providers."
+
+steps:
+  - id: writers
+    action: "Renames on the reachability list; new names written."
+  - id: columns
+    action: "EF migration in both assemblies adding SpecId beside PhaseId, written both, backfilled."
+  - id: rewrite
+    action: "Idempotent JsonNode rewrite step in RunStoreMigrator, after MigrateAsync."
+  - id: dashboard
+    action: "Mirror and API types; pnpm test, gen:hub-events, build."
+
+tests:
+  - "StoreRewrite_OldShapeRows_ReadBackAsSpec (Sqlite; SqlServer when AGENTSMITH_TEST_DB_CONNSTR is set)"
+  - "StoreRewrite_RunTwice_ChangesNothing"
+  - "StoreRewrite_LlmEventPhase_Untouched"
+
+done:
+  - "A store seeded with every surface in the old shape holds only spec names after migration and reads back identically."
+  - "Full suite and dashboard tests green."

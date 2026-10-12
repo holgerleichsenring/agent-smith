@@ -1,4 +1,5 @@
 using AgentSmith.Domain.Models;
+using AgentSmith.Contracts.Commands;
 
 namespace AgentSmith.Application.Models;
 
@@ -9,8 +10,8 @@ namespace AgentSmith.Application.Models;
 /// domain record's constructor/immutability details and round-trips the full
 /// parameter set — the legacy "Name:skill:round" string encoding would drop
 /// RepoName/ContextName/Workdir on spliced follow-ups.
-/// 2026-09-03-3c07: PhaseId rides too — a resumed phase block came back with no phase,
-/// so what the resumed leg spliced (the re-engaged master) belonged to no phase either.
+/// 2026-09-03-3c07: PhaseId rides too — a resumed spec block came back with no spec,
+/// so what the resumed leg spliced (the re-engaged master) belonged to no spec either.
 /// </summary>
 public sealed record CheckpointCommand(
     string Name,
@@ -19,19 +20,20 @@ public sealed record CheckpointCommand(
     string? RepoName = null,
     string? ContextName = null,
     string? Workdir = null,
-    string? PhaseId = null)
+    [property: AcceptedName("SpecId")] string? PhaseId = null)
 {
     public static CheckpointCommand From(PipelineCommand command) => new(
         command.Name, command.SkillName, command.Round,
-        command.RepoName, command.ContextName, command.Workdir, command.PhaseId);
+        command.RepoName, command.ContextName, command.Workdir, command.SpecId);
 
-    public PipelineCommand ToPipelineCommand() => new(Name)
+    /// <summary>2026-10-12-967aa: a command name a later release writes resolves to the declared one.</summary>
+    public PipelineCommand ToPipelineCommand() => new(CommandNames.Declared(Name))
     {
         SkillName = SkillName,
         Round = Round,
         RepoName = RepoName,
         ContextName = ContextName,
         Workdir = Workdir,
-        PhaseId = PhaseId,
+        SpecId = PhaseId,
     };
 }

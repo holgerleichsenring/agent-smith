@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-967ad
+goal: "What the model and the tracker read calls a spec a spec: prompt and comment text, and the skills that quote it, change together, released and pinned."
+
+applies_to: "backend (prompt builders, tracker and PR prose, UI labels) and the agent-smith-skills repository"
+
+requires: [2026-10-12-967ac]
+
+facts:
+  - claim: "The coding agent's prompt is headed '## Phase {i} of {n}' and carries '## Phase contract'."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecPromptSection.cs:37, src/backend/AgentSmith.Application/Services/SpecExecutionPromptFactory.cs:62"
+  - claim: "The coding-agent-master's own steps are headed '## Phase 1' to '## Phase 4', so one prompt holds two different 'Phase 2' headings."
+    evidence: "observed: 2026-10-12, agent-smith-skills origin/main 99622f6, skills/_masters/coding-agent-master/SKILL.md:211, :303, :388, :448"
+  - claim: "The cut review asks for phase_id; its reader is backend-only."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecCutReviewPrompt.cs:50"
+  - claim: "The design dialog tells the model about an outcome kind phase."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/OutcomeProposalResolver.cs:65"
+
+scope:
+  in: >
+    BACKEND: prompt strings meaning the spec (25 files, inventory note) incl. headings '## Spec {i} of {n}', '## Spec
+    contract', '### This spec's design mock', PhaseQuotableText phase_id:, the outcome-kind hint, the cut-review
+    phase_id with its CutFindingWire; tracker/PR prose (SpecPrBody, SpecSetComment, SpecMarkdown) and UI labels
+    (CommandDisplayNames, CommandProgressLabels); recorded harness fixtures; the derivation template asks for
+    specs. SKILLS: spec-derivation-master (specs key, MaxSpecs input), coding-agent-master G1 lines,
+    design-partner-master:247, references memory-discipline and writing-documents; coding-agent-master's step
+    headings become names (Validate the plan, Execute, Build & test, Your verdict). Skills release, then the pin.
+  out: "Other masters' 'Phase N' headings and references/phase-discipline (G2). The parser keeps reading phases until 967ah, because an operator-pinned older catalog wins over the embedded one."
+
+decisions:
+  - key: "STEP HEADINGS BY NAME, NOT 'Step N': step is already the ledger/plan-step word and a YAML key on that page."
+
+steps:
+  - id: skills
+    action: "Skills PR (conventional title), release."
+  - id: backend
+    action: "Prose renames, pin bump, fixtures re-recorded."
+
+tests:
+  - "SpecCutReview_SpecIdAnswer_KeepsFindingIds"
+  - "Harness_CodingPrompt_HasOneHeadingPerMeaning"
+
+done:
+  - "No string sent to a model or a tracker says phase for a spec; the pinned skills and the backend agree (harness run)."

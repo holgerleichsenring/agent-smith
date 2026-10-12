@@ -19,7 +19,7 @@ public sealed partial class SpecDialogOutcomeTests
     public async Task Turn_FirstTurnProposes_IsRefusedAndAnswersInstead()
     {
         await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
-        harness.ChatClient.EnqueueText($"Here is the phase draft:\n{ValidDraft}").EnqueueText(Answer);
+        harness.ChatClient.EnqueueText($"Here is the spec draft:\n{ValidDraft}").EnqueueText(Answer);
 
         var result = await RunTurnAsync(harness, State("update the widgets") with { Platform = "dashboard" });
 
@@ -38,7 +38,7 @@ public sealed partial class SpecDialogOutcomeTests
     {
         await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
         harness.ChatClient.EnqueueText($"Draft:\n{ValidDraft}")
-            .EnqueueText($"{Answer}\n```yaml\nspec: not-a-valid-phase-id\n```");
+            .EnqueueText($"{Answer}\n```yaml\nspec: not-a-valid-spec-id\n```");
 
         var result = await RunTurnAsync(harness, State("update the widgets") with { Platform = "dashboard" });
 
@@ -60,7 +60,7 @@ public sealed partial class SpecDialogOutcomeTests
         var result = await RunTurnAsync(harness, state);
         await RunFlowAsync(harness, state, result.Outcome);
 
-        result.Reply.Should().Be("That is a one-line fix, not a phase.");
+        result.Reply.Should().Be("That is a one-line fix, not a spec.");
         result.Outcome.Should().BeOfType<AnswerOutcome>();
         adapter.Questions.Should().BeEmpty("a refused proposal is never put to the operator");
         sink.Accepted.Should().BeEmpty();
@@ -82,17 +82,17 @@ public sealed partial class SpecDialogOutcomeTests
     public async Task Turn_TwiceInvalidProposal_IsRecordedAsANotice()
     {
         await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
-        const string invalid = "Draft:\n```yaml\nspec: not-a-valid-phase-id\n```";
+        const string invalid = "Draft:\n```yaml\nspec: not-a-valid-spec-id\n```";
         harness.ChatClient.EnqueueText(invalid).EnqueueText(invalid);
 
-        var result = await RunTurnAsync(harness, Discussed("draft the widget phase now"));
+        var result = await RunTurnAsync(harness, Discussed("draft the widget spec now"));
 
         result.Reply.Should().Contain("did not pass validation");
         result.Kind.Should().Be(SpecDialogTurnKind.Notice);
     }
 
     [Fact]
-    public async Task CreatePhase_FilingNotice_IsRecordedAsAFiling()
+    public async Task CreateSpec_FilingNotice_IsRecordedAsAFiling()
     {
         await using var bed = await FilingBed.BuildAsync(autoAnswer: "approve");
         var state = await bed.OpenSessionAsync("th-filing-kind");

@@ -25,7 +25,7 @@ namespace AgentSmith.Tests.SpecDialog;
 
 /// <summary>
 /// 2026-09-22-b6ad: filing an approved specification writes it onto the ticket branch in the same
-/// act that files the ticket, so the specification exists before any run does. Until this phase
+/// act that files the ticket, so the specification exists before any run does. Until this spec
 /// the approved set was a database row between the approval and the first publish — nothing to
 /// open, nothing to review and nothing to edit.
 /// </summary>
@@ -38,7 +38,7 @@ public sealed class FiledSpecBranchTests
     private const string StoredBody = "<p>what the tracker stored, not what we sent</p>";
 
     [Fact]
-    public async Task Filing_APhaseApprovedInTheDialog_WritesTheSetToTheTicketBranch()
+    public async Task Filing_ASpecApprovedInTheDialog_WritesTheSetToTheTicketBranch()
     {
         var sources = new RecordingBranchSources();
 
@@ -56,7 +56,7 @@ public sealed class FiledSpecBranchTests
         var sources = new RecordingBranchSources();
         var store = ApprovedSetDoubles.Store();
 
-        await FileAsync(sources: sources, store: store, phases: [Draft("p9000a"), Draft("p9000b")]);
+        await FileAsync(sources: sources, store: store, specs: [Draft("p9000a"), Draft("p9000b")]);
 
         var (first, second) = await MembersAsync(store);
         var series = (await store.GetAsync("sample-tracker", Key, default))!.Set.Series!;
@@ -84,7 +84,7 @@ public sealed class FiledSpecBranchTests
         var parent = new PhaseDraft("p9000", "Move the billing stack", "spec: p9000", []);
 
         await FileAsync(sources: sources, store: store,
-            phases: [Draft("p9000a"), Draft("p9000b")], parent: parent);
+            specs: [Draft("p9000a"), Draft("p9000b")], parent: parent);
 
         var record = (await store.GetAsync("sample-tracker", Key, default))!;
         record.Set.Goal.Should().Be("Move the billing stack", "the row keeps the epic's goal");
@@ -107,7 +107,7 @@ public sealed class FiledSpecBranchTests
         var sources = new RecordingBranchSources();
         var store = ApprovedSetDoubles.Store();
 
-        await FileAsync(sources: sources, store: store, phases: [Draft("p9000a"), Draft("p9000b")]);
+        await FileAsync(sources: sources, store: store, specs: [Draft("p9000a"), Draft("p9000b")]);
 
         var written = sources.Writes[0];
         var record = (await store.GetAsync("sample-tracker", Key, default))!;
@@ -123,7 +123,7 @@ public sealed class FiledSpecBranchTests
         var sources = new RecordingBranchSources();
         var store = ApprovedSetDoubles.Store();
 
-        await FileAsync(sources: sources, store: store, phases: [Draft("p9000a"), Draft("p9000b")]);
+        await FileAsync(sources: sources, store: store, specs: [Draft("p9000a"), Draft("p9000b")]);
 
         sources.Writes[0].Paths.Should().NotContain(p => p.EndsWith(".md"));
         sources.Writes[0].Paths.Should().Contain(p => p.EndsWith("-do-the-thing.yaml"));
@@ -311,7 +311,7 @@ public sealed class FiledSpecBranchTests
     {
         var sources = new RecordingBranchSources();
         var record = Record("sample-api");
-        record = record with { Set = record.Set with { Phases = [Phase("p9000a", "sample-web")] } };
+        record = record with { Set = record.Set with { Phases = [Spec("p9000a", "sample-web")] } };
 
         var result = await ApprovedSetDoubles.Branch(sources).WriteAsync(
             Project(), record, new TicketId("1"), Stored(), default);
@@ -326,7 +326,7 @@ public sealed class FiledSpecBranchTests
     {
         var sources = new RecordingBranchSources();
         var record = Record(carrier: string.Empty, repositories: ["sample-web"]);
-        record = record with { Set = record.Set with { Phases = [Phase("p9000a", null)] } };
+        record = record with { Set = record.Set with { Phases = [Spec("p9000a", null)] } };
 
         var result = await ApprovedSetDoubles.Branch(sources).WriteAsync(
             Project(), record, new TicketId("1"), Stored(), default);
@@ -345,7 +345,7 @@ public sealed class FiledSpecBranchTests
         var record = Record("sample-api");
         record = record with
         {
-            Set = record.Set with { Phases = [Phase("2026-10-06-3d3da", "sample-web"), Phase("2026-10-06-3d3db", "sample-api")] },
+            Set = record.Set with { Phases = [Spec("2026-10-06-3d3da", "sample-web"), Spec("2026-10-06-3d3db", "sample-api")] },
         };
 
         var result = await ApprovedSetDoubles.Branch(sources, pointers).WriteAsync(
@@ -368,7 +368,7 @@ public sealed class FiledSpecBranchTests
         var store = ApprovedSetDoubles.Store();
 
         await FileAsync(store: store, scoped: ["sample-api", "sample-web"],
-            phases: [Draft("p9000a") with { Repos = ["sample-web"] }, Draft("p9000b")]);
+            specs: [Draft("p9000a") with { Repos = ["sample-web"] }, Draft("p9000b")]);
 
         var record = (await store.GetAsync("sample-tracker", Key, default))!;
         record.Tracker.Should().Be("sample-tracker");
@@ -415,7 +415,7 @@ public sealed class FiledSpecBranchTests
     {
         var sources = new RecordingBranchSources();
         var store = ApprovedSetDoubles.Store();
-        await FileAsync(sources: sources, store: store, phases: [Draft("p9000a"), Draft("p9000b")]);
+        await FileAsync(sources: sources, store: store, specs: [Draft("p9000a"), Draft("p9000b")]);
         var branch = new SpecBranchFiles { Key = Key };
         foreach (var file in sources.Writes[0].Files) branch.Seed(file.Path, file.Content);
 
@@ -497,7 +497,7 @@ public sealed class FiledSpecBranchTests
         var record = Record("sample-api");
         record = record with
         {
-            Set = record.Set with { Phases = [Phase("2026-10-06-3d3da", "sample-api"), Phase("2026-10-06-3d3db", "sample-web")] },
+            Set = record.Set with { Phases = [Spec("2026-10-06-3d3da", "sample-api"), Spec("2026-10-06-3d3db", "sample-web")] },
         };
 
         var result = await ApprovedSetDoubles.Branch(sources, pointers).WriteAsync(
@@ -530,21 +530,21 @@ public sealed class FiledSpecBranchTests
         RecordingBranchSources? sources = null, ISpecApprovalStore? store = null,
         ISpecSetPointerStore? pointers = null, JournallingProvider? provider = null,
         FiledWorkStarter? starter = null, bool mayStartRuns = false,
-        IReadOnlyList<PhaseDraft>? phases = null, IReadOnlyList<string>? scoped = null,
+        IReadOnlyList<PhaseDraft>? specs = null, IReadOnlyList<string>? scoped = null,
         AgentSmithConfig? config = null, PhaseDraft? parent = null)
     {
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
             .Returns(provider ?? new JournallingProvider());
         var filer = new OutcomeTicketFiler(
-            config ?? Config(), factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
+            config ?? Config(), factory.Object, new SpecTicketRenderer(), new BugTicketRenderer(),
             new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
             ApprovedSetDoubles.SetFiler(store, starter, sources ?? new RecordingBranchSources(), pointers),
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(),
             NullLogger<OutcomeTicketFiler>.Instance);
-        var set = phases ?? [Draft("p9000a")];
+        var set = specs ?? [Draft("p9000a")];
         OutcomeProposal proposal = set.Count == 1
-            ? new PhaseOutcome(set[0])
+            ? new SpecOutcome(set[0])
             : new EpicOutcome(parent ?? Draft("p9000"), set);
         return filer.FileAsync(State(scoped), proposal, mayStartRuns, CancellationToken.None);
     }
@@ -571,7 +571,7 @@ public sealed class FiledSpecBranchTests
         new(id, "Do the thing", $"spec: {id}\ngoal: \"Do the thing\"", [])
         { Done = ["It is done."], Repos = ["sample-api"] };
 
-    private static SpecPhase Phase(string id, string? repo) =>
+    private static SpecPhase Spec(string id, string? repo) =>
         new(Draft(id) with { Repos = repo is null ? [] : [repo] }, id, string.Empty, []);
 
     private static AgentSmithConfig Config() => new()

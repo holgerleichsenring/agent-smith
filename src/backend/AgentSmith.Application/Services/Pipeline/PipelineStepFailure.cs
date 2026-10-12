@@ -18,7 +18,7 @@ namespace AgentSmith.Application.Services.Pipeline;
 /// site, never parsed from text here.
 /// </para>
 /// <para>
-/// p0439: the tail may DELIVER the verified phases as a shortfall — then the run is a done
+/// p0439: the tail may DELIVER the verified specs as a shortfall — then the run is a done
 /// that says what it lacks, and the error path never runs (no failure comment, no failed
 /// status, no WIP persist, no MarkFailed).
 /// </para>

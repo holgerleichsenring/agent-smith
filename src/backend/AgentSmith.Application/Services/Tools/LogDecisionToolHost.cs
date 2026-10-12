@@ -9,7 +9,7 @@ namespace AgentSmith.Application.Services.Tools;
 
 /// <summary>
 /// Audit-sink host: exposes the LogDecision tool in every phase. The decision
-/// log is the cross-cutting trace of agent choices and is never phase-gated.
+/// log is the cross-cutting trace of agent choices and is never filtered by execution phase.
 /// <para>
 /// 2026-09-19-c511a: the repository is a FILE SURFACE, and there is no default for it. The parameter
 /// used to default to the sandbox mount "/work" as a host path, which is how every call site came to

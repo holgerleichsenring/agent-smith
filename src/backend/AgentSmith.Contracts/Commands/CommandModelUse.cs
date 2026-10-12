@@ -40,7 +40,7 @@ public static partial class CommandModelUse
     /// <summary>The declaration for a command; deterministic for anything unclassified,
     /// so a future command is never DRAWN as running a model it does not run.</summary>
     public static StepModel For(string commandName) =>
-        Steps.TryGetValue(commandName, out var step) ? step : new StepModel(ModelUse.None);
+        Steps.TryGetValue(CommandNames.Declared(commandName), out var step) ? step : new StepModel(ModelUse.None);
 
     /// <summary>False when a command carries no declaration at all — the condition the
     /// coverage test fails on, distinct from an explicit "no model here".</summary>

@@ -30,7 +30,7 @@ public sealed class UnusableAuthBlockTests(UnusableAuthorityFixture fixture)
         finding.Should().NotBeNull("a misspelled key must not be silence");
         finding!.Severity.Should().Be("advisory",
             "an installation with no authentication is the state every installation was in "
-            + "before this phase — it is not a broken one");
+            + "before this spec — it is not a broken one");
     }
 
     [Fact]

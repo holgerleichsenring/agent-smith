@@ -29,16 +29,16 @@ public interface IRunContextAccessor
     IDisposable BeginCallScope(string role, string phase, string? repoName = null);
 
     /// <summary>
-    /// p0466: the derived phase the executing step belongs to, or null outside any
-    /// phase. Producer knowledge, exactly as the step index is — the runner knows the
-    /// phase because it dispatches the command that carries it, and nothing downstream
+    /// p0466: the derived spec the executing step belongs to, or null outside any
+    /// spec. Producer knowledge, exactly as the step index is — the runner knows the
+    /// spec because it dispatches the command that carries it, and nothing downstream
     /// re-derives it from a label.
     /// </summary>
-    string? CurrentPhaseId { get; }
+    string? CurrentSpecId { get; }
 
     /// <summary>
     /// p0388a: opens the ambient step frame for <paramref name="stepIndex"/>.
-    /// p0466: <paramref name="phaseId"/> is the phase that step belongs to.
+    /// p0466: <paramref name="specId"/> is the spec that step belongs to.
     /// </summary>
-    IDisposable BeginStepScope(int stepIndex, string? phaseId = null);
+    IDisposable BeginStepScope(int stepIndex, string? specId = null);
 }

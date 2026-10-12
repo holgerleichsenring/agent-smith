@@ -13,7 +13,7 @@ namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
 /// p0393a: the one LLM call of DeriveSpec, and the only place JUDGEMENT lives —
-/// where the phase boundaries fall, which ticket segments are load-bearing, and
+/// where the spec boundaries fall, which ticket segments are load-bearing, and
 /// what may be discarded. The prompt is an EXTERNAL pinned skill so that judgement
 /// can be tuned without a release; everything the reply is turned into is computed
 /// in code, because a model that retypes a code template produces a plausible copy.
@@ -115,6 +115,6 @@ public sealed class SpecSetDeriver(
 
     private string RenderSystemPrompt() => prompts.Render(SkillName, new Dictionary<string, string>
     {
-        ["MaxPhases"] = SpecSet.MaxPhases.ToString(),
+        ["MaxPhases"] = SpecSet.MaxSpecs.ToString(), ["MaxSpecs"] = SpecSet.MaxSpecs.ToString(),
     });
 }

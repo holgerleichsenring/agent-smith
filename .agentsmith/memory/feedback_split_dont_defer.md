@@ -1,6 +1,6 @@
 ---
 name: feedback_split_dont_defer
-description: "Splitting phases is fine; deferring load-bearing wiring ('mach ich später') is NOT — it destroys the operator's testability"
+description: "Splitting specs is fine; deferring load-bearing wiring ('mach ich später') is NOT — it destroys the operator's testability"
 metadata:
   type: feedback
 status: proposed
@@ -10,9 +10,9 @@ status: proposed
 **Why:** A surface whose load-bearing data is "later" cannot be tested or judged — the operator has nothing to verify against what was discussed. Green builds + many files ≠ the thing we agreed. Deferring the hard wiring while shipping the easy shell inverts the value order, and heuristic placeholders (keyword-guessed beats) make it worse by looking like data.
 
 **How to apply:**
-- Splitting a too-big phase is ALWAYS fine: split VISIBLY (own p-numbers), work the slices sequentially, and use parallel agents in isolated worktrees to protect context.
+- Splitting a too-big spec is ALWAYS fine: split VISIBLY (own p-numbers), work the slices sequentially, and use parallel agents in isolated worktrees to protect context.
 - But every slice ships COMPLETE: UI + its real data + any migration/seed it needs, end to end. A slice boundary is a vertical cut, never "UI now, data later".
 - Never ship a component that renders placeholders or heuristics where its concept should be. If the data doesn't exist yet, build the data FIRST or don't ship the surface.
-- "Deferred" is only legitimate as a visible, agreed phase split — never as a quiet TODO inside a shipped surface.
+- "Deferred" is only legitimate as a visible, agreed spec split — never as a quiet TODO inside a shipped surface.
 
 Related: [[feedback_no_silent_defer]], [[feedback_finish_what_you_start]], [[feedback_no_heuristic_for_missing_data]] (the keyword-guessed beats were exactly that heuristic).

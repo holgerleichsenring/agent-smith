@@ -8,7 +8,7 @@ namespace AgentSmith.Tests.Skills;
 /// <summary>
 /// 2026-09-23-8d4d: the discovery skill's worked example is the SYSTEM half of the prompt
 /// 2026-09-23-7868a corrected the user half of. A bundle whose example pairs a root workdir
-/// with an entrypoint further down teaches the answer that phase exists to stop, and a pin
+/// with an entrypoint further down teaches the answer that spec exists to stop, and a pin
 /// that moves backwards would restore it silently — the catalog is verified by checksum, and
 /// a checksum says the bundle is the one named, not that the one named is right.
 /// </summary>

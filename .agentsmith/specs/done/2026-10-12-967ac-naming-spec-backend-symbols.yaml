@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-967ac
+goal: "Backend and test types, members, files, folders and log templates that say phase for a spec say spec; the execution-stage phase stays and dead phase types are gone."
+
+applies_to: "backend (Contracts, Domain, Application, Infrastructure, Server) and tests"
+
+requires: [2026-10-12-967aa]
+
+facts:
+  - claim: "About 150 declared types and the folder Services/PhaseExecution use phase for a spec; the list and the name collisions are in the inventory note."
+    evidence: ".agentsmith/notes/2026-10-12-967a-phase-inventory.md"
+  - claim: "SkillExecutionPhase is a per-skill execution stage, distinct from the spec."
+    evidence: "src/backend/AgentSmith.Application/Models/SkillExecutionPhase.cs:3-8"
+  - claim: "A blind rename of SpecPhase yields SpecSpec."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecPhase.cs"
+  - claim: "PipelinePhase and PhaseAssignment are declared and never used; ContextKeys.CurrentPhase has no reader."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Skills/PipelinePhase.cs:10, src/backend/AgentSmith.Contracts/Models/Skills/PhaseAssignment.cs:9, src/backend/AgentSmith.Contracts/Commands/ContextKeys.Skill.cs:20"
+  - claim: "IRunContextAccessor's spec scope sits beside the execution-stage call scope on one accessor."
+    evidence: "src/backend/AgentSmith.Application/Services/Events/AsyncLocalRunContextAccessor.cs:21"
+
+scope:
+  in: >
+    Phase→Spec over the remaining G1 identifiers, files and folders, collision table first (DerivedSpec, CurrentSpec,
+    SpecGate*, SpecProse, SpecDeliveryAccounting, SpecRunCommand*, SpecMocks, SpecDialogDraftView, SpecYamlFile,
+    VerifySpec). CurrentPhaseId/BeginStepScope(phaseId) → spec; BeginCallScope(role, phase) stays. Log
+    placeholders, test method names, architecture baselines and AGENTSMITH_WRITE_PHASE_BASELINE,
+    file-length-baseline paths. Delete PipelinePhase, PhaseAssignment, ContextKeys.CurrentPhase. *PhaseDataFlow*
+    (phase = pipeline step) → *StepDataFlow*.
+  out: "Anything on 967aa's reachability list and the served DTO members (967ab, a later release). Prompt string content (967ad). G2 symbols."
+
+decisions:
+  - key: "COLLISIONS RESOLVED BY NAME: each new name says what it is beside its existing neighbour."
+  - key: "VerifyPhase → VerifySpec while RunVerifyPhase stays: today two near-identical names mean different things."
+
+steps:
+  - id: collisions
+    action: "Colliding types first, one build."
+  - id: bulk
+    action: "Area by area, building after each."
+  - id: baselines
+    action: "Regenerate baselines."
+
+tests:
+  - "Existing suite, renamed; the guard is 967ag."
+
+done:
+  - "No identifier, file name or log template in src/backend and tests (migrations excluded) says phase outside the G2 allowlist; string content is 967ad's."
+  - "Full suite and architecture tests pass."

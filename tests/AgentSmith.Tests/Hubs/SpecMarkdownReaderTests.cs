@@ -20,7 +20,7 @@ public sealed class SpecMarkdownReaderTests
         var store = new InMemoryRunArtifactStore();
         await store.WriteSpecMarkdownAsync(
             ValidRunId,
-            "## Phases\n- **p19106a** — Rename\n  - done: Every call site is renamed.\n",
+            "## Specs\n- **p19106a** — Rename\n  - done: Every call site is renamed.\n",
             CancellationToken.None);
         var reader = new SpecMarkdownReader(store);
 
@@ -33,7 +33,7 @@ public sealed class SpecMarkdownReaderTests
     [Fact]
     public async Task ReadAsync_CleanCopy_PassesThroughUnchanged()
     {
-        var clean = "## Phases\n- **p19106a** — Rename\n  - Definition of done:\n    - Done.\n";
+        var clean = "## Specs\n- **p19106a** — Rename\n  - Definition of done:\n    - Done.\n";
         var store = new InMemoryRunArtifactStore();
         await store.WriteSpecMarkdownAsync(ValidRunId, clean, CancellationToken.None);
         var reader = new SpecMarkdownReader(store);

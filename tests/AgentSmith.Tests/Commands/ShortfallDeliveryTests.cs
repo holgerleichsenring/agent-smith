@@ -33,7 +33,7 @@ public sealed class ShortfallDeliveryTests
         NullLogger<ShortfallDelivery>.Instance);
 
     [Fact]
-    public async Task Prepare_NoVerifiedPhase_IsNull()
+    public async Task Prepare_NoVerifiedSpec_IsNull()
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.FailureReason, "budget");
@@ -44,7 +44,7 @@ public sealed class ShortfallDeliveryTests
     }
 
     [Fact]
-    public async Task Prepare_AVerifiedPhaseWithItsHeadRecorded_IsTheShortfall()
+    public async Task Prepare_AVerifiedSpecWithItsHeadRecorded_IsTheShortfall()
     {
         var pipeline = Pipeline(withHead: true);
 
@@ -70,7 +70,7 @@ public sealed class ShortfallDeliveryTests
     {
         var banner = _sut.PullRequestBanner(RunShortfall.Of(OneDoneOneOpen, "budget exhausted")!);
 
-        banner.Should().StartWith("> ✅ **Delivered with a shortfall** — 1 of 2 phase(s)")
+        banner.Should().StartWith("> ✅ **Delivered with a shortfall** — 1 of 2 spec(s)")
             .And.Contain("Not delivered").And.Contain("budget exhausted")
             .And.NotContain("Run failed").And.NotContain("do not merge");
     }
@@ -83,7 +83,7 @@ public sealed class ShortfallDeliveryTests
             [new OpenedPullRequest("primary", "https://stub.test/pulls/7", OpenStatus.Opened)]);
 
         result.IsSuccess.Should().BeTrue();
-        result.Message.Should().Contain("Delivered 1 of 2 phase(s)").And.Contain("p0001b")
+        result.Message.Should().Contain("Delivered 1 of 2 spec(s)").And.Contain("p0001b")
             .And.Contain("https://stub.test/pulls/7").And.NotContain("Run failed");
     }
 

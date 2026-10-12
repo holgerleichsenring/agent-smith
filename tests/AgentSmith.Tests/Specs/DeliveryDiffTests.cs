@@ -9,7 +9,7 @@ namespace AgentSmith.Tests.Specs;
 /// 2026-09-01-b467: a committed delivery is not an empty one.
 /// <para>
 /// The bundled demo produced the intended fix, committed it and then failed two of three
-/// acceptance criteria with "no files were changed". The phase commits its work before the
+/// acceptance criteria with "no files were changed". The spec commits its work before the
 /// gate reads it, so on a branch that IS the base — a local repository with no remote — the
 /// base rungs saw nothing and the HEAD rung means uncommitted work only. Every rung compared
 /// the delivery against itself.

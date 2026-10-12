@@ -398,7 +398,7 @@ export function useSpecDialog(): SpecDialogState {
   const listIsBehind = useCallback(() => {
     const row = listedHere.current;
     // 2026-09-21-f237b: an ABSENT row is worth exactly one CAPPED read per conversation, not one
-    // per reply. Until this phase a missing row answered "behind" for ever, which was harmless
+    // per reply. Until this spec a missing row answered "behind" for ever, which was harmless
     // while the only way to open a conversation was to click a row that was by definition listed.
     // The conversations page can open one the panel's read does not contain — the cap is taken by
     // id while the order is by activity, so a conversation resumed after a long silence falls
@@ -623,7 +623,7 @@ export function useSpecDialog(): SpecDialogState {
   // lived here it could only be the browser's own prompt; the surface now puts the warning to
   // the reader in a dialog it draws and calls this with a decision already taken. What did NOT
   // move is the rule that writes the warning — conversationDelete.ts, which has a test of its
-  // own since this phase — so the next surface to delete a conversation asks the same question.
+  // own since this spec — so the next surface to delete a conversation asks the same question.
   const remove = useCallback(
     async (sessionId: string) => {
       try {
@@ -742,8 +742,8 @@ function withoutCard(held: DialogEntry[], proposal: SpecDialogProposalPush): Dia
 
 /** The same draft, whichever moment it was stamped with — a push and a read stamp it differently. */
 function sameDraft(a: SpecDialogProposalPush, b: SpecDialogProposalPush): boolean {
-  const draft = ({ kind, bug, phase, parent, children }: SpecDialogProposalPush) =>
-    JSON.stringify({ kind, bug, phase, parent, children });
+  const draft = ({ kind, bug, phase: spec, parent, children }: SpecDialogProposalPush) =>
+    JSON.stringify({ kind, bug, spec, parent, children });
   return draft(a) === draft(b);
 }
 

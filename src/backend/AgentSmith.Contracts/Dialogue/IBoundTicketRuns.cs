@@ -5,7 +5,7 @@ namespace AgentSmith.Contracts.Dialogue;
 /// <summary>
 /// 2026-09-28-1da5d: the runs this framework made against THIS conversation's ticket.
 /// <para>
-/// The record exists — runs are stored by project and ticket, with their phases and the pull
+/// The record exists — runs are stored by project and ticket, with their specs and the pull
 /// requests they opened — and a design turn could not reach it: the reader that composes it is a
 /// PAGE read addressed by dialog id, and a turn's seeds carried no run record at all.
 /// </para>

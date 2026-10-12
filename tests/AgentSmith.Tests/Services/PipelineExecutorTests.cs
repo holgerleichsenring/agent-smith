@@ -153,7 +153,7 @@ public class PipelineExecutorTests
     [Fact]
     public async Task ExecuteAsync_StepFailsButTheTailDeliversAShortfall_EndsAsADoneRunWithoutAFailureComment()
     {
-        // p0439: the finalizer tail (here CommitAndPR) delivered the verified phases and left
+        // p0439: the finalizer tail (here CommitAndPR) delivered the verified specs and left
         // the delivery on the context. The run then ends with success — no failure comment,
         // no failed status, no WIP persist — and its result is the shortfall's summary.
         var h = new PipelineExecutorTestBuilder();
@@ -182,7 +182,7 @@ public class PipelineExecutorTests
         var result = await h.Sut.ExecuteAsync(commands, project, pipeline, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Message.Should().Contain("Delivered 1 of 2 phase(s)").And.Contain("p0001b");
+        result.Message.Should().Contain("Delivered 1 of 2 spec(s)").And.Contain("p0001b");
         ticketProviderMock.Verify(t => t.FinalizeAsync(
             It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()),
             Times.Never, "the delivery finalized the ticket in the tail; the error path never runs");

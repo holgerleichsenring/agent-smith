@@ -5,7 +5,7 @@ namespace AgentSmith.Tests.Prompts;
 
 /// <summary>
 /// p0412: run 1b4b ("update all dependencies", two repos) was cancelled at
-/// \$10.13 and 165 model calls, still on phase 1 of 3 — the master lifted
+/// \$10.13 and 165 model calls, still on spec 1 of 3 — the master lifted
 /// packages one at a time, building and re-reading between edits, while the
 /// toolchain ships a command that establishes the facts and applies the bulk in
 /// one pass. Nothing in its instructions told it to look for that command.

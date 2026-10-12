@@ -26,7 +26,7 @@ public sealed class ApprovedSetWordingTests
     {
         var body = SpecSetComment.Render(Set(approved: true), null);
 
-        body.Should().Contain("edit the phase specs on the ticket branch")
+        body.Should().Contain("edit the specs on the ticket branch")
             .And.Contain("will NOT change the specification");
         body.Should().NotContain("re-cuts the unstarted tail",
             "for an approved set that promise is false and contradicts the notice beside it");
@@ -150,7 +150,7 @@ public sealed class ApprovedSetWordingTests
 
     private static SpecSet Set(bool approved) => new(
         Key,
-        [ApprovedSets.Phase("p19106a")],
+        [ApprovedSets.Spec("p19106a")],
         SpecAccounting.Empty,
         [new SpecRevision(1, SpecRevisionCause.Initial, ApprovedSets.Noon)],
         approved ? SpecSource.Approved : SpecSource.Derived,

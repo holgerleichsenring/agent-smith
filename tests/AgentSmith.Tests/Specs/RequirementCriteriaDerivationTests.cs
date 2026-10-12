@@ -14,7 +14,7 @@ namespace AgentSmith.Tests.Specs;
 /// 2026-09-17-042eb: GitHub, GitLab and Jira have no acceptance field, so a requirement ticket
 /// states its criteria in its body. Both deriver paths read that section when the field is empty:
 /// the prompt's criteria line would otherwise say "None specified" above them, and the fallback
-/// would build a phase with no done list.
+/// would build a spec with no done list.
 /// </summary>
 public sealed class RequirementCriteriaDerivationTests
 {
@@ -26,8 +26,8 @@ public sealed class RequirementCriteriaDerivationTests
           - "the repository reads it back"
         """;
 
-    private static readonly string Body = new PhaseTicketRenderer()
-        .RenderPhase(new PhaseDraftReader().Read(Yaml)).Body;
+    private static readonly string Body = new SpecTicketRenderer()
+        .RenderSpec(new SpecDraftReader().Read(Yaml)).Body;
 
     [Fact]
     public void SpecPrompt_TicketWithoutAcceptanceField_ReadsTheBodySection()
@@ -45,8 +45,8 @@ public sealed class RequirementCriteriaDerivationTests
     public void SpecFallback_RequirementTicket_TakesDoneFromTheCriteriaSection()
     {
         var ticket = new Ticket(new TicketId("42"), "p9000a: Widget storage layer", Body, null, "open", "test");
-        var validator = new SpecDraftValidator(new PhaseSpecSchemaProvider());
-        var fallback = new SpecFallback(validator, new PhaseDraftReader(), new DerivedPhaseYamlRenderer());
+        var validator = new SpecDraftValidator(new SpecSchemaProvider());
+        var fallback = new SpecFallback(validator, new SpecDraftReader(), new DerivedSpecYamlRenderer());
 
         var set = fallback.Build("key", "2026-10-06-0a0a", ticket, TicketSegmenter.Segment(Body), [], SpecSource.Derived, []);
 

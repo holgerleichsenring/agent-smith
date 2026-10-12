@@ -6,17 +6,17 @@ The layout of the Agent Smith repository.
 agent-smith/
 ├── .agentsmith/                    # The repository's own spec-first meta-files
 │   ├── contexts/<name>/            # One directory per context (this repo has `default`)
-│   │   ├── context.yaml            #   architecture, stack, phase status
+│   │   ├── context.yaml            #   architecture, stack, spec status
 │   │   └── principles.md           #   code quality rules
 │   ├── specs/
-│   │   ├── planned/                # Upcoming phase specs
-│   │   ├── active/                 # The phase being implemented
-│   │   └── done/                   # Completed phases
-│   ├── decisions/                  # One decision YAML per phase
+│   │   ├── planned/                # Upcoming specs
+│   │   ├── active/                 # The spec being implemented
+│   │   └── done/                   # Completed specs
+│   ├── decisions/                  # One decision YAML per spec
 │   ├── memory/                     # Experiential memory (MEMORY.md index + one file per fact)
 │   ├── runs/                       # Run records written by pipeline runs
 │   ├── security/                   # Security-scan snapshots for trend analysis
-│   └── *.schema.json               # Schemas for context, phase spec and decision files
+│   └── *.schema.json               # Schemas for context, spec and decision files
 │
 ├── src/
 │   ├── backend/                    # The .NET solution's projects

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { startAuthSession } from "@/lib/auth/session";
 
 // 2026-08-25-2de1: where the authority returns to — the route redirectPath names,
-// which existed nowhere until this phase. The code exchange is the boot's own
+// which existed nowhere until this spec. The code exchange is the boot's own
 // work, so this page waits for the one loop rather than starting a second, then
 // puts the person back where the redirect took them from.
 //

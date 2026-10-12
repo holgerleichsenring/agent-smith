@@ -3,7 +3,7 @@
 import type { RunCommandPoint } from "@/lib/runStoryApi";
 import { formatChars, formatMs } from "./callSeries";
 
-// p0423b: the commands a phase ran, WITH their exit codes. "Verification failed" is a
+// p0423b: the commands a spec ran, WITH their exit codes. "Verification failed" is a
 // summary; `dotnet test` returning 1 after 9 seconds and producing 400k characters of
 // which 100k reached the model is the evidence — and the evidence is what a diagnosis
 // needs. The output itself is never here: sizes are safe to keep forever, content is not.
@@ -15,7 +15,7 @@ export function CommandTable({ commands }: { commands: RunCommandPoint[] }) {
   if (commands.length === 0) {
     return (
       <p className="hint" data-testid="command-table-empty">
-        This phase ran no sandbox command.
+        This spec ran no sandbox command.
       </p>
     );
   }

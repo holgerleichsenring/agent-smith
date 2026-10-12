@@ -11,7 +11,7 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// naming several is told to become an epic, one child per repository, because the dialog's
 /// way to cut one piece of work into several specs is the epic.
 /// </summary>
-public sealed class DialogDraftRepos(SpecReposRule rule, PhaseDraftReposWriter writer)
+public sealed class DialogDraftRepos(SpecReposRule rule, SpecDraftReposWriter writer)
 {
     /// <summary>How the dialog splits a spec that changes several repositories.</summary>
     public const string EpicSplit =
@@ -22,7 +22,7 @@ public sealed class DialogDraftRepos(SpecReposRule rule, PhaseDraftReposWriter w
     {
         ArgumentNullException.ThrowIfNull(scope);
         if (scope.Count == 0) return (yaml, null);
-        var stated = PhaseDraftLists.Strings(OutcomeYamlReader.ReadMap(yaml), "repos");
+        var stated = SpecDraftLists.Strings(OutcomeYamlReader.ReadMap(yaml), "repos");
         var resolution = rule.Resolve([stated], scope);
         if (resolution.NeedsSplit) return (null, $"{resolution.Error} — {EpicSplit}");
         if (resolution.Error is not null) return (null, resolution.Error);
@@ -39,7 +39,7 @@ public sealed class DialogDraftRepos(SpecReposRule rule, PhaseDraftReposWriter w
         ArgumentNullException.ThrowIfNull(scope);
         if (scope.Count == 0) return null;
         var stated = children
-            .Select(c => PhaseDraftLists.Strings(c.ToDictionary(e => e.Key.ToString() ?? string.Empty, e => e.Value), "repos"))
+            .Select(c => SpecDraftLists.Strings(c.ToDictionary(e => e.Key.ToString() ?? string.Empty, e => e.Value), "repos"))
             .ToList();
         var resolution = rule.Resolve(stated, scope);
         if (resolution.Error is not null) return $"epic children: {resolution.Error}";

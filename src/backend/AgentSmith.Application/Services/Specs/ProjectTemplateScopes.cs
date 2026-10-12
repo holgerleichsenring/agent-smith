@@ -13,7 +13,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// 2026-09-13-6f35: it was <c>DerivationTemplateScopes</c> while the derivation was the
 /// only look. The coding master opens the same templates from the same declarations, and
 /// one selection serving both is the point — two would disagree about which template a
-/// phase is built after the first time a context list changed.
+/// spec is built after the first time a context list changed.
 /// </para>
 /// <para>
 /// The binding is per CONTEXT (2026-09-13-5fa0), so a run selects the declarations whose
@@ -26,9 +26,9 @@ public sealed class ProjectTemplateScopes(
 {
     /// <param name="contexts">
     /// 2026-09-13-6f35: narrows the selection further to the contexts a caller is working
-    /// ON — the phase spec's own <c>contexts</c> list. Empty or null selects every
+    /// ON — the spec's own <c>contexts</c> list. Empty or null selects every
     /// discovered context, which is what the derivation wants: it is deciding which
-    /// contexts the phase touches, so it cannot be handed the answer.
+    /// contexts the spec touches, so it cannot be handed the answer.
     /// </param>
     public IReadOnlyDictionary<string, ISourceScopeSandbox> For(
         PipelineContext pipeline, IReadOnlyCollection<string>? contexts = null)

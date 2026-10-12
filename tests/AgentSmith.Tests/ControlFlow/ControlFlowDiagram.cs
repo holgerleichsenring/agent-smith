@@ -52,7 +52,7 @@ internal static class ControlFlowDiagram
     private static string Description(PresetFlow spine) =>
         $"Generated from the pipeline presets. The {spine.Name} pipeline runs {spine.Steps.Count} steps in a fixed order; "
         + $"{spine.ModelStepCount} of them call a model and the rest are deterministic machinery. "
-        + "A block of steps repeats once per derived phase spec. Every other preset is listed with its master, "
+        + "A block of steps repeats once per derived spec. Every other preset is listed with its master, "
         + "its step count and one tick per step.";
 
     private static double Title(SvgCanvas svg, IReadOnlyList<PresetFlow> flows)
@@ -82,7 +82,7 @@ internal static class ControlFlowDiagram
         var lines = new[]
         {
             "Inside a loop box the model drives tools until it is done — the number of iterations, the files it reads and the sub-agents it spawns are run-time decisions.",
-            "How many phase specs a ticket becomes, and therefore how often the phase block repeats, is decided by the derivation on the day.",
+            "How many specs a ticket becomes, and therefore how often the spec block repeats, is decided by the derivation on the day.",
             "Master bodies and their output schemas live in a separately versioned skills catalog the operator pins; this names the master a run loads, not what that master says.",
             "Steps can skip themselves at run time (no DAST configured, a single repo, nothing to park), and an operator's YAML may override a preset's step list.",
             "Fan-out steps create work that is not in the preset: init-project's dispatch runs one project-bootstrap round per discovered component, decided per repository.",

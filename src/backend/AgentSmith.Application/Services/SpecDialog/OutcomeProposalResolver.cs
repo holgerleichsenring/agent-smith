@@ -11,7 +11,7 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// </summary>
 public sealed class OutcomeProposalResolver(
     ISpecDraftValidator draftValidator,
-    PhaseDraftReader draftReader,
+    SpecDraftReader draftReader,
     BugOutcomeParser bugParser,
     EpicOutcomeParser epicParser,
     DialogDraftRepos draftRepos) : IOutcomeProposalResolver
@@ -27,31 +27,31 @@ public sealed class OutcomeProposalResolver(
                 $"the reply contains {blocks.Count} ```outcome blocks — emit exactly one");
         if (draftValidator.Validate(text) is not SpecDraftAbsent)
             return new OutcomeInvalid(
-                "the reply mixes an ```outcome block with a bare ```yaml block — a phase "
+                "the reply mixes an ```outcome block with a bare ```yaml block — a spec "
                 + "draft is the bare ```yaml block alone; bug and epic payloads live "
                 + "inside the single ```outcome block");
         return ResolveOutcomeBlock(blocks[0].Groups[1].Value, scope);
     }
 
     // No outcome block: the p0315b contract is unchanged — a bare ```yaml
-    // draft is a phase, no artifact is an answer.
+    // draft is a spec, no artifact is an answer.
     private OutcomeResolution ResolveFromDraft(string reply, IReadOnlyList<string> scope) =>
         draftValidator.Validate(reply) switch
         {
             SpecDraftAbsent => new OutcomeResolved(new AnswerOutcome()),
-            SpecDraftValid valid => ResolvePhase(valid.Yaml, scope),
+            SpecDraftValid valid => ResolveSpec(valid.Yaml, scope),
             SpecDraftInvalid invalid => new OutcomeInvalid(invalid.Error),
             var other => throw new InvalidOperationException(
                 $"Unknown SpecDraftOutcome '{other.GetType().Name}'."),
         };
 
     // 2026-10-12-3a36e: the lone spec names its repositories — stated in scope, or filled.
-    private OutcomeResolution ResolvePhase(string yaml, IReadOnlyList<string> scope)
+    private OutcomeResolution ResolveSpec(string yaml, IReadOnlyList<string> scope)
     {
         var (decided, error) = draftRepos.ForSpec(yaml, scope);
         return decided is null
             ? new OutcomeInvalid(error!)
-            : new OutcomeResolved(new PhaseOutcome(draftReader.Read(decided)));
+            : new OutcomeResolved(new SpecOutcome(draftReader.Read(decided)));
     }
 
     private OutcomeResolution ResolveOutcomeBlock(string yaml, IReadOnlyList<string> scope)
@@ -73,8 +73,8 @@ public sealed class OutcomeProposalResolver(
             "epic" => epicParser.Parse(map, scope),
             "answer" => new OutcomeInvalid(
                 "kind 'answer' needs no ```outcome block — reply with plain prose"),
-            "phase" => new OutcomeInvalid(
-                "kind 'phase' needs no ```outcome block — emit the phase spec as the bare ```yaml block"),
+            "phase" or "spec" => new OutcomeInvalid(
+                $"kind '{kind}' needs no ```outcome block — emit the spec as the bare ```yaml block"),
             null => new OutcomeInvalid("the ```outcome block is missing 'kind' (bug | epic)"),
             _ => new OutcomeInvalid($"unknown outcome kind '{kind}' — expected bug or epic"),
         };

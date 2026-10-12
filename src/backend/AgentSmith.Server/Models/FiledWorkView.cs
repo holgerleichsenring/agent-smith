@@ -9,8 +9,8 @@ namespace AgentSmith.Server.Models;
 
 /// <summary>
 /// 2026-09-17-042ej: what the conversation that filed work is now following — its latest
-/// filing, resolved to the runs working it. The rows are ticket, then run, then PHASE,
-/// because a phase is the unit an operator reasons in.
+/// filing, resolved to the runs working it. The rows are ticket, then run, then SPEC,
+/// because a spec is the unit an operator reasons in.
 /// </summary>
 /// <param name="Tickets">In filing order. Empty for a dialog id with no open session.</param>
 /// <param name="Approved">2026-09-25-8e51d: the specification a person approved for the ticket
@@ -31,7 +31,7 @@ public sealed record FiledWorkView(
 /// created ticket's url. A slice record (2026-09-17-0e79d) carries no run: nothing routes it.
 /// </summary>
 /// <param name="Start">What the ticket became at filing (2026-09-17-042eg), or NotFiled for a bound
-/// ticket. Null on a filing written before that phase, which reads as unknown.</param>
+/// ticket. Null on a filing written before that spec, which reads as unknown.</param>
 /// <param name="Handback">The hand-back case the spec set last recorded, or null.</param>
 public sealed record FiledWorkTicketView(
     string Reference, string? Key, string Title, string? TicketId, string? Project,
@@ -64,16 +64,16 @@ public sealed record FiledWorkRunView(
 /// PhaseRunState.HandedBack (2026-09-17-0e79c) — so <paramref name="Status"/> IS the
 /// discriminator and the page maps it, once, where the affordance lives. Inferring it from
 /// "failed with a verdict" would tell an operator whose build went red to approve the set
-/// again, which changes nothing: the only producer of a <c>failed</c> row is the phase's own
+/// again, which changes nothing: the only producer of a <c>failed</c> row is the spec's own
 /// verification, whose verdict is the failing command.
 /// </para>
 /// </summary>
 /// <param name="Status">Verbatim from the row, so the page can tell a red build from a false
 /// premise without parsing the verdict.</param>
 /// <param name="Verdict">Rendered only where <paramref name="Status"/> is terminal: the
-/// projection KEEPS the last verdict it saw, so a phase running again after a repair would
+/// projection KEEPS the last verdict it saw, so a spec running again after a repair would
 /// otherwise still show what stopped the previous attempt.</param>
-/// <param name="Review">Null when the phase never reached its review step.</param>
+/// <param name="Review">Null when the spec never reached its review step.</param>
 public sealed record FiledWorkSpecView(
     string SpecId,
     int Ordinal,
@@ -83,10 +83,10 @@ public sealed record FiledWorkSpecView(
     FiledWorkReviewView? Review);
 
 /// <summary>
-/// 2026-09-17-042eh's report for one phase, as the page has to tell its FOUR states apart:
+/// 2026-09-17-042eh's report for one spec, as the page has to tell its FOUR states apart:
 /// reviewed with an empty list is a fresh instance that read the whole diff and objected to
 /// nothing; NOT reviewed names which of the four reasons it was; a row that cannot be read
-/// says so; and no row at all — a null review — is a phase that never reached its review.
+/// says so; and no row at all — a null review — is a spec that never reached its review.
 /// Rendering any of the last three as the first is the defect 042eh's report exists to stop.
 /// </summary>
 /// <param name="Why">Why the review was not taken, or why the row could not be read. The
@@ -97,8 +97,8 @@ public sealed record FiledWorkSpecView(
 /// because a report can carry both. A finding carrying <c>Reverted</c> means the branch
 /// still holds the code the finding is about.</param>
 /// <param name="Unreadable">The artifact exists and could not be deserialized. A state of
-/// its own: read as "never reviewed" it would turn a phase whose review kept three findings
-/// into a phase nobody read.</param>
+/// its own: read as "never reviewed" it would turn a spec whose review kept three findings
+/// into a spec nobody read.</param>
 public sealed record FiledWorkReviewView(
     bool Reviewed, string? Why, IReadOnlyList<PhaseFinding> Findings, bool Unreadable = false)
 {
@@ -106,7 +106,7 @@ public sealed record FiledWorkReviewView(
     public const string NoReasonRecorded = "no reason was recorded";
 
     /// <summary>What a row nobody can deserialize says.</summary>
-    public const string CouldNotBeRead = "the review recorded for this phase could not be read";
+    public const string CouldNotBeRead = "the review recorded for this spec could not be read";
 }
 
 /// <summary>

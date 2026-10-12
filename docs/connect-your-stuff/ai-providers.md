@@ -19,7 +19,7 @@ Agent Smith uses different models at different points in a run. Each agent block
 | `scout` | Walks the codebase with tools, picks relevant files. High call volume. | Cheap. `gpt-4.1-mini`, `claude-haiku`, `gemini-flash`. |
 | `primary` | Writes the code, reviews, makes the actual changes. | The good one. `gpt-4.1`, `claude-sonnet`, `gemini-pro`. |
 | `planning` | Derives the spec from the ticket, drafts expectations, decides which repos a ticket touches. | Usually same as `primary`. |
-| `reasoning` | Judgement calls: accounting a delivery against its criteria, refuting scan findings, reviewing a phase diff, parsing a chat intent. Optional. | Same as `primary`. |
+| `reasoning` | Judgement calls: accounting a delivery against its criteria, refuting scan findings, reviewing a spec diff, parsing a chat intent. Optional. | Same as `primary`. |
 | `summarization` | Folds the older part of a long conversation into a summary (see [Context compaction](../reference/concepts/context-compaction.md)). | Cheap. `*-mini` / `*-haiku`. |
 | `code_map_generation` | Drives the repository analyzer, which explores the repo with tools and writes the code map. Optional. | Cheap. |
 | `context_generation` | Drives the two `init-project` rounds that read the repository through tools: discover its components, then write each `.agentsmith/contexts/<name>/context.yaml`. Optional. | The good one. Same as `primary`. |

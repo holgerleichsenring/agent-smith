@@ -9,8 +9,8 @@ namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
 /// p0393a through the REAL composition: an ORDINARY ticket — no hand-written spec
-/// anywhere — runs the `code` preset end to end because DeriveSpec turns it into phase
-/// specs first. This is the phase's headline claim, asserted against the wired pipeline
+/// anywhere — runs the `code` preset end to end because DeriveSpec turns it into spec
+/// specs first. This is the spec's headline claim, asserted against the wired pipeline
 /// rather than a handler with mocks.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
@@ -38,27 +38,27 @@ public sealed class DerivedSpecCodeTests
         var set = runner.LastContext!.Get<SpecSet>(ContextKeys.SpecSet);
         set.Phases.Should().ContainSingle();
         set.Source.Should().Be(SpecSource.Derived, "the ticket carried no spec of its own");
-        runner.LastContext!.Get<PhaseDraft>(ContextKeys.PhaseSpec).Done
-            .Should().NotBeEmpty("the phase's done-list is the run's acceptance contract");
+        runner.LastContext!.Get<PhaseDraft>(ContextKeys.CurrentSpec).Done
+            .Should().NotBeEmpty("the spec's done-list is the run's acceptance contract");
     }
 
     [Fact]
-    public async Task Harness_TwoPhaseDerivation_RunsOneMasterPassPerPhase()
+    public async Task Harness_TwoSpecDerivation_RunsOneMasterPassPerSpec()
     {
         await using var harness = RealCompositionHarness.Build(
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
-        // p0460: phase 2 is ENTERED over a branch that already carries phase 1's work, and
+        // p0460: spec 2 is ENTERED over a branch that already carries spec 1's work, and
         // the entry account is what decides whether it is worked at all. This case is about
-        // one master pass per phase, so it says plainly that phase 2 is not yet delivered.
+        // one master pass per spec, so it says plainly that spec 2 is not yet delivered.
         harness.Services.GetRequiredService<HarnessSpecAccountant>()
             .LeaveOutstanding("No caller builds its own empty-payload check.");
         harness.ChatClient
-            .EnqueueText(SpecDerivationFixture.TwoPhaseJson)
-            // phase 1: plan, master, verdict
+            .EnqueueText(SpecDerivationFixture.TwoSpecJson)
+            // spec 1: plan, master, verdict
             .EnqueueText("Planning: introduce the guard.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
             .EnqueueText(GreenVerdict)
-            // phase 2: its own plan, its own master pass, its own verdict
+            // spec 2: its own plan, its own master pass, its own verdict
             .EnqueueText("Planning: move the callers.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Callers.cs","content":"// moved"}""")
             .EnqueueText(GreenVerdict);
@@ -69,7 +69,7 @@ public sealed class DerivedSpecCodeTests
         var progress = runner.LastContext!.Get<SpecSequenceProgress>(ContextKeys.SpecSequenceProgress);
         progress.Phases.Should().HaveCount(2);
         progress.Phases.Should().OnlyContain(p => p.State == PhaseRunState.Done,
-            "each phase ends at its own VerifyPhase — that is where termination comes from");
+            "each spec ends at its own VerifySpec — that is where termination comes from");
         harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file", "write_file");
     }
 

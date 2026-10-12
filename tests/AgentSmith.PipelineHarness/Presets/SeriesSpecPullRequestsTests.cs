@@ -13,7 +13,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// <summary>
 /// 2026-10-12-f5f7e fast-tier end-to-end: a series over Server and Client, over a scope that also holds a
 /// worker. Each series repository gets its own draft spec pull request at derivation; the run then dies
-/// before any phase gained code, so both are spec-only — and both are still listed as opened, carry the
+/// before any spec gained code, so both are spec-only — and both are still listed as opened, carry the
 /// run's body and link each other. The worker, which no spec names, gets none.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
@@ -22,7 +22,7 @@ public sealed class SeriesSpecPullRequestsTests
     private const string ServerPr = "https://stub.test/sample-server/pull/1";
     private const string ClientPr = "https://stub.test/sample-client/pull/1";
 
-    private static readonly string OneSpecEach = SpecDerivationFixture.TwoPhaseJson
+    private static readonly string OneSpecEach = SpecDerivationFixture.TwoSpecJson
         .Replace("\"slug\": \"introduce-the-guard\",", "\"slug\": \"introduce-the-guard\", \"repos\": [\"sample-server\"],")
         .Replace("\"slug\": \"migrate-the-callers\",", "\"slug\": \"migrate-the-callers\", \"repos\": [\"sample-client\"],");
 

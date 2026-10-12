@@ -1,6 +1,7 @@
 "use client";
 
 import type { SpecDialogProposalPush } from "@/types/spec-dialog";
+import { outcomeKindWord } from "./outcomeKind";
 
 // 2026-09-17-c7aed: a turn that produced a proposal says so in the exchange — its kind, what it
 // is called and, for an epic, its slices — and the draft itself stays in the pane. The card
@@ -22,12 +23,12 @@ export function DialogProposalCard({
       className="ecard inert mt-2"
     >
       <div className="flex items-center gap-2.5 px-3 py-2">
-        <span className="ec-mark filed">{proposal.kind}</span>
+        <span className="ec-mark filed">{outcomeKindWord(proposal.kind)}</span>
         <span className="ec-name sans min-w-0 flex-1">{titleOf(proposal)}</span>
         <button
           type="button"
           data-testid="dialog-card-inspect"
-          aria-label={`Inspect the ${proposal.kind} proposal: ${titleOf(proposal)}`}
+          aria-label={`Inspect the ${outcomeKindWord(proposal.kind)} proposal: ${titleOf(proposal)}`}
           onClick={() => onInspect(proposal)}
           className="d-link whitespace-nowrap"
         >
@@ -49,5 +50,5 @@ export function DialogProposalCard({
 }
 
 function titleOf(proposal: SpecDialogProposalPush): string {
-  return proposal.bug?.title ?? proposal.parent?.goal ?? proposal.phase?.goal ?? proposal.kind;
+  return proposal.bug?.title ?? proposal.parent?.goal ?? proposal.phase?.goal ?? outcomeKindWord(proposal.kind);
 }

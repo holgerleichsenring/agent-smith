@@ -16,7 +16,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// Two contradictions in a row with no reply on the ticket between them end the loop,
 /// because a signal that fires forever teaches the operator to ignore it.
 /// <see cref="SpecHandbackRepeat"/> reads the thread. The loop ends as a FAILED step,
-/// not a continue: a hand-back carries no phases, and a run that continues past one
+/// not a continue: a hand-back carries no specs, and a run that continues past one
 /// reaches CommitAndPR with the spec draft already pushed, which closes the ticket as
 /// completed with nothing built (2026-09-07-bd7a).
 /// </para>

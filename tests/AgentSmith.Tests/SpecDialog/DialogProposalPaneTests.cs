@@ -45,14 +45,14 @@ public sealed class DialogProposalPaneTests : IDisposable
     }
 
     [Fact]
-    public async Task Flow_WithAPhaseProposal_PublishesTheTypedProposal()
+    public async Task Flow_WithASpecProposal_PublishesTheTypedProposal()
     {
         var flow = Flow(new OutcomeRejected());
 
-        await flow.HandleAsync(State(), new PhaseOutcome(Draft("p9001")), false, CancellationToken.None);
+        await flow.HandleAsync(State(), new SpecOutcome(Draft("p9001")), false, CancellationToken.None);
 
         var push = Proposals().Single();
-        push.Kind.Should().Be(SpecDialogProposalComposer.PhaseKind);
+        push.Kind.Should().Be(SpecDialogProposalComposer.SpecKind);
         push.Phase!.PhaseId.Should().Be("p9001");
         push.Phase.Goal.Should().Be("goal of p9001");
         push.Phase.Steps.Should().Equal("open the seam");
@@ -81,8 +81,8 @@ public sealed class DialogProposalPaneTests : IDisposable
         var state = State();
 
         var first = await flow.HandleAsync(
-            state, new PhaseOutcome(Draft("p9001")), false, CancellationToken.None);
-        await flow.HandleAsync(state, new PhaseOutcome(Draft("p9002")), false, CancellationToken.None);
+            state, new SpecOutcome(Draft("p9001")), false, CancellationToken.None);
+        await flow.HandleAsync(state, new SpecOutcome(Draft("p9002")), false, CancellationToken.None);
 
         first.Should().BeOfType<OutcomeFlowEditRequested>();
         Proposals().Select(push => push.Phase!.PhaseId).Should().Equal(["p9001", "p9002"],
@@ -94,7 +94,7 @@ public sealed class DialogProposalPaneTests : IDisposable
     {
         var flow = Flow(new OutcomeRejected());
 
-        await flow.HandleAsync(State(), new PhaseOutcome(Draft("p9001")), false, CancellationToken.None);
+        await flow.HandleAsync(State(), new SpecOutcome(Draft("p9001")), false, CancellationToken.None);
 
         _hub.Pushes.Should().OnlyContain(push => push.Group == HubGroups.SpecDialog(Dialog),
             "a design conversation is addressed to the one person holding it");
@@ -106,7 +106,7 @@ public sealed class DialogProposalPaneTests : IDisposable
         var channel = Channel();
 
         await channel.ProposeAsync(
-            State() with { Platform = "slack" }, new PhaseOutcome(Draft("p9001")),
+            State() with { Platform = "slack" }, new SpecOutcome(Draft("p9001")),
             CancellationToken.None);
 
         _hub.Pushes.Should().BeEmpty(
@@ -172,7 +172,7 @@ public sealed class DialogProposalPaneTests : IDisposable
         await Channel().FiledAsync(State(), report, CancellationToken.None);
 
         Filings().Single().Notes.Should().Equal(report.Notes);
-        new SpecDialogOutcomeComposer().ComposeFiled(new PhaseOutcome(new PhaseDraft("p9000a", "slice", "spec: p9000a", [])), report)
+        new SpecDialogOutcomeComposer().ComposeFiled(new SpecOutcome(new PhaseDraft("p9000a", "slice", "spec: p9000a", [])), report)
             .In(SpecDialogMarkup.For("slack")).Should().Contain("is not linked to its parent");
     }
 
@@ -180,14 +180,14 @@ public sealed class DialogProposalPaneTests : IDisposable
     public async Task Filed_AfterASuccessfulFiling_PublishesTheReferencesAndTitles()
     {
         var report = new FilingReport(
-            [new FiledTicket("https://tracker/7", "p9001: the phase")], Error: null);
+            [new FiledTicket("https://tracker/7", "p9001: the spec")], Error: null);
 
         await Channel().FiledAsync(State(), report, CancellationToken.None);
 
         var push = Filings().Single();
         push.Error.Should().BeNull();
         push.Filed.Single().Reference.Should().Be("https://tracker/7");
-        push.Filed.Single().Title.Should().Be("p9001: the phase");
+        push.Filed.Single().Title.Should().Be("p9001: the spec");
     }
 
     [Fact]
@@ -267,8 +267,8 @@ public sealed class DialogProposalPaneTests : IDisposable
         Mode = ConversationMode.SpecDialog,
     };
 
-    private static PhaseDraft Draft(string phaseId, IReadOnlyList<string>? requires = null) =>
-        new(phaseId, $"goal of {phaseId}", $"spec: {phaseId}", requires ?? [])
+    private static PhaseDraft Draft(string specId, IReadOnlyList<string>? requires = null) =>
+        new(specId, $"goal of {specId}", $"spec: {specId}", requires ?? [])
         {
             Steps = [new PhaseStep("seam", "open the seam", null)],
             Tests = ["Flow_Scenario_Expected"],

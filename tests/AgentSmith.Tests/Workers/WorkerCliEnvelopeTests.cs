@@ -98,7 +98,7 @@ public sealed class WorkerCliEnvelopeTests
     }
 
     /// <summary>
-    /// The failure this phase is bigger than it looks for. With a structured result stdout
+    /// The failure this spec is bigger than it looks for. With a structured result stdout
     /// is never empty, so an empty ANSWER would sail past the empty-turn check and be
     /// thrown as an unparseable reply — the exact shape that once threw away eleven minutes
     /// of verified work.

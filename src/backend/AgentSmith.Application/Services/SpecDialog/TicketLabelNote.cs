@@ -47,7 +47,7 @@ public static class TicketLabelNote
     /// <summary>
     /// 2026-09-25-c1f7: A HINT, NOT A WARNING. The note warned what removing the label costs
     /// because the label was load-bearing twice over: 2026-09-25-3c7aa moved the ROUTING bind onto
-    /// the server's approval record, and this phase moved DISCOVERY onto it as well — the poll
+    /// the server's approval record, and this spec moved DISCOVERY onto it as well — the poll
     /// names an approved ticket by its id beside the label guard on the two trackers that filter
     /// server-side, and the two that do not never read the guard at all. So the sentence now says
     /// what the label is FOR, which is a person reading the board.
@@ -60,7 +60,7 @@ public static class TicketLabelNote
     private static string StampSentence(string stamp) =>
         "The `" + stamp + "` label marks this ticket as one an approved specification exists for, "
         + "so a person scanning the board can see which tickets those are. It is a hint, not the "
-        + "binding: the approval the server recorded is what binds this ticket to phase execution, "
+        + "binding: the approval the server recorded is what binds this ticket to spec execution, "
         + "and it is what the poll and the routing both read.";
 
     /// <summary>

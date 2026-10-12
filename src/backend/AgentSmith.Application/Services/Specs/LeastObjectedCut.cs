@@ -7,8 +7,8 @@ namespace AgentSmith.Application.Services.Specs;
 /// p0447: the best cut the deriver saw across its attempts — fewest standing findings.
 /// <para>
 /// When the attempts run out this is what the run gets. A cut with an objection against
-/// one phase is strictly better than what it replaced: one phase carrying the whole
-/// ticket, with no boundary, no per-phase verdict and no repair pass. A cut that never
+/// one spec is strictly better than what it replaced: one spec carrying the whole
+/// ticket, with no boundary, no per-spec verdict and no repair pass. A cut that never
 /// PARSED never reaches here, so the fail-safe below it is untouched.
 /// </para>
 /// </summary>

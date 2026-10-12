@@ -6,7 +6,7 @@ namespace AgentSmith.Tests.TestHelpers;
 /// <summary>
 /// 2026-09-25-8e51e: a rewriter that keeps what it was handed, so a test can assert the REGION an
 /// amendment would write without a tracker. The answer is settable: a refusal is as much a case
-/// as a write, and Jira's is the one the phase is about.
+/// as a write, and Jira's is the one the spec is about.
 /// </summary>
 public sealed class RecordingTicketRewriter(TicketRewriteResult? answer = null) : ITicketRewriter
 {

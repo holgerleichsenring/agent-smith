@@ -11,7 +11,7 @@ public sealed record SubSeriesRead(string Repo, SubSeriesState State, string? Wh
 {
     public string Base { get; init; } = string.Empty;
     public SeriesManifestDocument? Document { get; init; }
-    public IReadOnlyList<SpecPhase> Phases { get; init; } = [];
+    public IReadOnlyList<SpecPhase> Specs { get; init; } = [];
     public IReadOnlyList<string> Executed { get; init; } = [];
     public string Sha { get; init; } = string.Empty;
     public DateTimeOffset? Stamp { get; init; }

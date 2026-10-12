@@ -1,3 +1,5 @@
+using AgentSmith.Domain.Models;
+
 namespace AgentSmith.Contracts.Runs;
 
 /// <summary>
@@ -5,6 +7,6 @@ namespace AgentSmith.Contracts.Runs;
 /// make true — with the evaluated meaning of not doing it, as the run detail serves it on
 /// <see cref="AcceptanceView.Declined"/>.
 /// </summary>
-/// <param name="Phase">The phase whose master declined it; null on a run judged by a
-/// negotiated expectation rather than a phase spec.</param>
-public sealed record DeclinedCriterionView(string Text, string Reason, string? Phase = null);
+/// <param name="Phase">The spec whose master declined it; null on a run judged by a
+/// negotiated expectation rather than a spec.</param>
+public sealed record DeclinedCriterionView(string Text, string Reason, [property: AcceptedName("Spec")] string? Phase = null);

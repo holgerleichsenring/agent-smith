@@ -15,8 +15,8 @@ public sealed class SeriesJoinOrder
         IReadOnlyList<SubSeriesRead> joined)
     {
         ArgumentNullException.ThrowIfNull(joined);
-        if (joined.Count == 1) return (joined[0].Phases, joined[0].Executed, null);
-        var ordered = joined.SelectMany(r => r.Phases).OrderBy(p => p.PhaseId, StringComparer.Ordinal).ToList();
+        if (joined.Count == 1) return (joined[0].Specs, joined[0].Executed, null);
+        var ordered = joined.SelectMany(r => r.Specs).OrderBy(p => p.PhaseId, StringComparer.Ordinal).ToList();
         var executed = joined.SelectMany(r => r.Executed).ToHashSet(StringComparer.Ordinal);
         var why = Duplicate(joined) ?? BackwardEdge(ordered) ?? Gap(ordered, executed);
         return why is not null
@@ -34,16 +34,16 @@ public sealed class SeriesJoinOrder
     {
         ArgumentNullException.ThrowIfNull(members);
         ArgumentNullException.ThrowIfNull(newest);
-        var ran = members.SelectMany(m => m.Phases.Where(p => m.Executed.Contains(p.PhaseId, StringComparer.Ordinal)))
+        var ran = members.SelectMany(m => m.Specs.Where(p => m.Executed.Contains(p.PhaseId, StringComparer.Ordinal)))
             .DistinctBy(p => p.PhaseId, StringComparer.Ordinal).OrderBy(p => p.PhaseId, StringComparer.Ordinal).ToList();
         var ids = ran.Select(p => p.PhaseId).ToHashSet(StringComparer.Ordinal);
-        var open = newest.SelectMany(m => m.Phases).Where(p => !ids.Contains(p.PhaseId))
+        var open = newest.SelectMany(m => m.Specs).Where(p => !ids.Contains(p.PhaseId))
             .OrderBy(p => p.PhaseId, StringComparer.Ordinal);
         return ([.. ran, .. open], [.. ids.Order(StringComparer.Ordinal)]);
     }
 
     private static string? Duplicate(IReadOnlyList<SubSeriesRead> joined) =>
-        joined.SelectMany(r => r.Phases.Select(p => (Id: p.PhaseId, r.Repo)))
+        joined.SelectMany(r => r.Specs.Select(p => (Id: p.PhaseId, r.Repo)))
             .GroupBy(x => x.Id, StringComparer.Ordinal)
             .FirstOrDefault(g => g.Count() > 1) is { } twice
             ? $"spec {twice.Key} lies in more than one repository: {string.Join(", ", twice.Select(x => x.Repo))}"

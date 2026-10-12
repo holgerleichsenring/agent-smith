@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using AgentSmith.Contracts.Json;
 
 namespace AgentSmith.Server.Services.SpecDialog;
 
@@ -23,7 +24,9 @@ public sealed class TolerantNullableEnumConverter<TEnum> : JsonConverter<TEnum?>
         var name = reader.GetString();
         var known = Enum.GetNames<TEnum>()
             .FirstOrDefault(candidate => string.Equals(candidate, name, StringComparison.OrdinalIgnoreCase));
-        return known is null ? null : Enum.Parse<TEnum>(known);
+        if (known is not null) return Enum.Parse<TEnum>(known);
+        // 2026-10-12-967aa: a member's accepted name (a rename a later release writes) reads as it.
+        return AcceptedNames.TryParseAccepted<TEnum>(name, ignoreCase: true, out var accepted) ? accepted : null;
     }
 
     public override void Write(Utf8JsonWriter writer, TEnum? value, JsonSerializerOptions options)

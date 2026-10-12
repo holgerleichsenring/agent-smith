@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Text.Json;
 using AgentSmith.Contracts.Events;
 using Microsoft.Extensions.Logging;
+using AgentSmith.Contracts.Json;
 
 namespace AgentSmith.Infrastructure.Services.Events;
 
@@ -23,7 +24,8 @@ public sealed class EventEnvelopeSerializer(ILogger<EventEnvelopeSerializer>? lo
 {
     private readonly JsonSerializerOptions Options = new()
     {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        TypeInfoResolver = AcceptedNames.Resolver,
     };
 
     // Instance-scoped, not static: the codec is a DI singleton on every path that
@@ -59,11 +61,11 @@ public sealed class EventEnvelopeSerializer(ILogger<EventEnvelopeSerializer>? lo
     public RunEvent? DeserializeRaw(string typeName, string? payloadJson)
     {
         if (string.IsNullOrEmpty(payloadJson)) return null;
-        if (!Enum.TryParse<EventType>(typeName, out var type))
+        if (!AcceptedNames.TryParse<EventType>(typeName, ignoreCase: false, out var type))
             return ReportUnresolved("trail", typeName);
         var concrete = EventTypeResolver.Resolve(type);
         if (concrete is null) return ReportUnresolved("trail", typeName);
-        return (RunEvent?)JsonSerializer.Deserialize(payloadJson, concrete);
+        return (RunEvent?)JsonSerializer.Deserialize(payloadJson, concrete, AcceptedNames.DefaultOptions);
     }
 
     // p0173a: parallel envelope path for SystemEvent. Same JSON shape

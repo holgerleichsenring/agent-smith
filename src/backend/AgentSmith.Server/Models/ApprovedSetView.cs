@@ -9,8 +9,8 @@ namespace AgentSmith.Server.Models;
 /// positional merge ahead. A reader must never take this for what the run is doing.
 /// </para>
 /// <para>
-/// The phases travel in the shape the PROPOSAL pane already draws, so the conversation shows an
-/// approved phase exactly as it shows a proposed one and there is one mirror to keep in step.
+/// The specs travel in the shape the PROPOSAL pane already draws, so the conversation shows an
+/// approved spec exactly as it shows a proposed one and there is one mirror to keep in step.
 /// </para>
 /// </summary>
 public sealed record ApprovedSetView(

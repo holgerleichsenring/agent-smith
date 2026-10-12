@@ -13,10 +13,10 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
-/// 2026-09-08-5cd2 fast-tier end-to-end, run a109's shape: the branch carries a two-phase
-/// set whose first phase ran (the marker's commit is the last on the spec path, so the
+/// 2026-09-08-5cd2 fast-tier end-to-end, run a109's shape: the branch carries a two-spec
+/// set whose first spec ran (the marker's commit is the last on the spec path, so the
 /// pointer's sha no longer matches) and the ticket comes back re-triggered. Edited since
-/// the cut, the derivation is called again with the set, keeps the executed phase, re-cuts
+/// the cut, the derivation is called again with the set, keeps the executed spec, re-cuts
 /// the tail from the current text, only the tail runs, and the ticket is told. Unchanged,
 /// the tail continues exactly as it was cut and nothing is derived.
 /// <para>
@@ -41,13 +41,13 @@ public sealed class TicketEditRecutTests
         """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled"}]}""";
 
     [Fact]
-    public async Task TicketEdit_ADonePhaseAndAnEditedDescription_RecutsTheTailAndSaysSo()
+    public async Task TicketEdit_ADoneSpecAndAnEditedDescription_RecutsTheTailAndSaysSo()
     {
         var tickets = new RecordingTicketProvider();
         await using var harness = BuildHarness(tickets, Previous(fingerprint: "the-text-before-the-edit"));
         await SeedPointerAsync(harness);
         harness.ChatClient
-            .EnqueueText(SpecDerivationFixture.TwoPhaseJson)
+            .EnqueueText(SpecDerivationFixture.TwoSpecJson)
             .EnqueueText("Planning: move the callers.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Callers.cs","content":"// moved"}""")
             .EnqueueText(GreenVerdict);
@@ -59,7 +59,7 @@ public sealed class TicketEditRecutTests
         var set = runner.LastContext!.Get<SpecSet>(ContextKeys.SpecSet);
         set.Current.Cause.Should().Be(SpecRevisionCause.TicketEdit);
         set.Phases.Select(p => p.PhaseId).Should().Equal(HeadId, TailId);
-        set.Phases[0].Draft.Goal.Should().Be("Introduce the guard", "the executed phase is carried, not re-read from the reply");
+        set.Phases[0].Draft.Goal.Should().Be("Introduce the guard", "the executed spec is carried, not re-read from the reply");
         set.Phases[1].Draft.Goal.Should().Be("Move the existing callers onto the guard", "the tail is cut again from the current text");
         harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file");
         tickets.Commented.Should().ContainSingle(c => c.Comment.Contains(
@@ -67,7 +67,7 @@ public sealed class TicketEditRecutTests
     }
 
     [Fact]
-    public async Task TicketEdit_ADonePhaseAndAnUnchangedDescription_ContinuesTheTailUnchanged()
+    public async Task TicketEdit_ADoneSpecAndAnUnchangedDescription_ContinuesTheTailUnchanged()
     {
         var tickets = new RecordingTicketProvider();
         var current = await tickets.GetTicketAsync(new TicketId("1"), CancellationToken.None);
@@ -91,7 +91,7 @@ public sealed class TicketEditRecutTests
 
     private static SpecSet Previous(string? fingerprint) => new(
         TicketKey.For("recording", "1").Value,
-        [Phase(HeadId, "Introduce the guard"), Phase(TailId, TailAsCut)],
+        [Spec(HeadId, "Introduce the guard"), Spec(TailId, TailAsCut)],
         SpecAccounting.Empty,
         [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow.AddHours(-2))],
         SpecSource.BranchArtifact,
@@ -99,12 +99,12 @@ public sealed class TicketEditRecutTests
         TicketFingerprint: fingerprint,
         Series: Series);
 
-    private static SpecPhase Phase(string id, string goal) => new(
+    private static SpecPhase Spec(string id, string goal) => new(
         new PhaseDraft(id, goal, $"spec: {id}\ngoal: \"{goal}\"\ndone:\n  - \"criterion 1\"\n", [])
         {
             Done = ["criterion 1"],
         },
-        PhaseIdFactory.Slug(goal), string.Empty, [1, 2, 3, 4, 5, 6]);
+        SpecIdFactory.Slug(goal), string.Empty, [1, 2, 3, 4, 5, 6]);
 
     // The pointer this system recorded at the derivation commit; the marker's commit
     // since moved the last sha on the spec path, which is what a109 saw.

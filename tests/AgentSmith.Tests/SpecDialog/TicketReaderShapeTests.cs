@@ -11,7 +11,7 @@ using Markdig;
 namespace AgentSmith.Tests.SpecDialog;
 
 /// <summary>
-/// 2026-10-01-f5c3b: a filed phase or epic ticket reads goal, Why, What changes, Acceptance
+/// 2026-10-01-f5c3b: a filed spec or epic ticket reads goal, Why, What changes, Acceptance
 /// criteria, Out of scope, Preconditions — and its criteria read back as PhaseDraft.Done from
 /// every encoding a tracker hands a body back in. A bug's criteria are list items too.
 /// </summary>
@@ -36,12 +36,12 @@ public sealed class TicketReaderShapeTests
             then: the same widget is returned
         """;
 
-    private static readonly PhaseDraft Draft = new PhaseDraftReader().Read(Yaml);
+    private static readonly PhaseDraft Draft = new SpecDraftReader().Read(Yaml);
 
     [Fact]
     public void RequirementBody_LeadsWithTheGoalThenWhyWhatChangesCriteriaOutOfScope()
     {
-        var body = new PhaseTicketRenderer().RenderPhase(Draft).Body;
+        var body = new SpecTicketRenderer().RenderSpec(Draft).Body;
 
         InOrder(body, "Widgets are stored and read back", "## Why", "## What changes",
             AcceptanceCriteriaSection.Heading, "## Out of scope", "## Preconditions");
@@ -51,18 +51,18 @@ public sealed class TicketReaderShapeTests
     [Fact]
     public void RenderEpicParent_LeadsWithTheGoal_ThenTheReaderSections_ThenSlices()
     {
-        var body = new PhaseTicketRenderer().RenderEpicParent(Draft, [Draft]).Body;
+        var body = new SpecTicketRenderer().RenderEpicParent(Draft, [Draft]).Body;
 
         InOrder(body, "Widgets are stored and read back", "## Why", "## What changes",
             AcceptanceCriteriaSection.Heading, "## Out of scope", "## Preconditions", "## Slices");
     }
 
     [Fact]
-    public void RequirementBody_ScenarioCriterion_ReadsBackAsPhaseDraftDone_Markdown() =>
+    public void RequirementBody_ScenarioCriterion_ReadsBackAsSpecDraftDone_Markdown() =>
         AcceptanceCriteriaSection.Read(Body()).Should().Equal(Draft.Done);
 
     [Fact]
-    public void RequirementBody_ScenarioCriterion_ReadsBackAsPhaseDraftDone_AzureDevOpsHtml()
+    public void RequirementBody_ScenarioCriterion_ReadsBackAsSpecDraftDone_AzureDevOpsHtml()
     {
         var html = Markdown.ToHtml(Body(), new MarkdownPipelineBuilder().UseAdvancedExtensions().Build());
 
@@ -70,7 +70,7 @@ public sealed class TicketReaderShapeTests
     }
 
     [Fact]
-    public void RequirementBody_ScenarioCriterion_ReadsBackAsPhaseDraftDone_JiraParagraphs()
+    public void RequirementBody_ScenarioCriterion_ReadsBackAsSpecDraftDone_JiraParagraphs()
     {
         using var document = JsonSerializer.SerializeToDocument(JiraAdfRenderer.FromMultilineText(Body()));
 
@@ -114,9 +114,9 @@ public sealed class TicketReaderShapeTests
 
     [Fact]
     public void Validate_TheSampleSpec_IsSchemaValid() =>
-        new SpecDraftValidator(new PhaseSpecSchemaProvider()).ValidateYaml(Yaml).Should().BeOfType<SpecDraftValid>();
+        new SpecDraftValidator(new SpecSchemaProvider()).ValidateYaml(Yaml).Should().BeOfType<SpecDraftValid>();
 
-    private static string Body() => new PhaseTicketRenderer().RenderPhase(Draft).Body;
+    private static string Body() => new SpecTicketRenderer().RenderSpec(Draft).Body;
 
     private static void InOrder(string body, params string[] parts)
     {

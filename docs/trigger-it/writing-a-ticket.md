@@ -1,6 +1,6 @@
 # Writing a ticket
 
-A ticket that Agent Smith works on is read as free text, so any ticket a person can understand will do. The shape below is the one the framework files itself when a design conversation is approved, and it's the one that reads best: for the team reviewing the ticket, and for the run that derives a phase spec from it.
+A ticket that Agent Smith works on is read as free text, so any ticket a person can understand will do. The shape below is the one the framework files itself when a design conversation is approved, and it's the one that reads best: for the team reviewing the ticket, and for the run that derives a spec from it.
 
 ## The template
 

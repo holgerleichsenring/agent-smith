@@ -107,7 +107,7 @@ public sealed class ExternalWorkerChatClientTests
     /// p0426 narrows p0416's rule rather than reversing it. Nothing is still not an
     /// answer — the process is asked again for one. What changed is the outcome when it
     /// stays silent: run 27 lost eleven minutes of VERIFIED work because one silent call
-    /// ended the phase, and silence is a measured, recurring behaviour of this transport.
+    /// ended the spec, and silence is a measured, recurring behaviour of this transport.
     /// An empty turn is a shape the loop already answers, with its own limits as the
     /// ceiling; an exception is not.
     /// </summary>

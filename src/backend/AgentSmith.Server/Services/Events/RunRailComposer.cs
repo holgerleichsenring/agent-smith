@@ -8,7 +8,7 @@ namespace AgentSmith.Server.Services.Events;
 /// followed by the ones the executor announced but has not reached. The client
 /// consumes this; it does not derive it. Splitting the derivation across two
 /// languages is what would make it unmaintainable, and a dashboard that
-/// multiplied a block by a phase count would be guessing at what the server knows.
+/// multiplied a block by a spec count would be guessing at what the server knows.
 /// </summary>
 public sealed class RunRailComposer
 {

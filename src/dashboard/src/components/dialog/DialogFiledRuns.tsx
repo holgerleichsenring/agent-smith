@@ -11,18 +11,18 @@ import type {
   FiledWorkRun,
 } from "@/types/spec-dialog";
 import {
-  isPhaseTerminal,
+  isSpecTerminal,
   markClass,
-  phaseStatusWords,
+  specStatusWords,
   pullRequestWords,
   runStatusTone,
 } from "./filedWorkStatus";
 
 // 2026-09-17-042ej: what became of one filed ticket — the runs that took it up, newest first,
-// and under each the PHASES, which is the unit an operator reasons in. A record has no run and
+// and under each the SPECS, which is the unit an operator reasons in. A record has no run and
 // renders nothing here.
 //
-// Three things are deliberately not softened. A phase's VERDICT is shown where the row is
+// Three things are deliberately not softened. A spec's VERDICT is shown where the row is
 // terminal, because the projection keeps the last verdict it saw — and what to DO about it is
 // read off the status, never off the verdict text: a `failed` row is a red build and is fixed
 // by working the code, while `handed_back` (2026-09-17-0e79c) is a false premise and is fixed
@@ -36,13 +36,13 @@ import {
 // 2026-09-17-042ef, found by looking at the rendered page: a run sits in a block one step deeper
 // than the card that holds it, and three things the markup said but the page did not show are
 // shown. A STATE is a mark, never a column value inline in prose — the five review states, the
-// five phase statuses and the run's own each carry one, and the two that mean NOBODY LOOKED are
+// five spec statuses and the run's own each carry one, and the two that mean NOBODY LOOKED are
 // the only ones an alarm tone, so a reader skimming the column sees the gap without reading it.
 // A FINDING gets a row of its own with the address it rests on set above the prose, because two
 // findings and a reverted fix pass arrived as one unbroken block and it is the densest and most
 // consequential text on this page. A PULL REQUEST says that it is one.
 
-/** RunSpecProjection.StatusOf's word for a phase handed back on a false premise. */
+/** RunSpecProjection.StatusOf's word for a spec handed back on a false premise. */
 const HANDED_BACK = "handed_back";
 
 export function DialogFiledRuns({
@@ -149,7 +149,7 @@ function PullRequest({ pr }: { pr: FiledWorkPullRequest }) {
 }
 
 function SpecRow({ spec }: { spec: FiledWorkSpec }) {
-  const status = phaseStatusWords(spec.status);
+  const status = specStatusWords(spec.status);
   return (
     <li data-testid={`dialog-filed-spec-${spec.specId}`} className="dsh-label">
       <div className="flex flex-wrap items-baseline gap-x-2">
@@ -170,7 +170,7 @@ function SpecRow({ spec }: { spec: FiledWorkSpec }) {
       <Review
         specId={spec.specId}
         review={spec.review}
-        stopped={isPhaseTerminal(spec.status)}
+        stopped={isSpecTerminal(spec.status)}
       />
     </li>
   );
@@ -183,13 +183,13 @@ function Review({
 }: {
   specId: string;
   review: FiledWorkReview | null;
-  /** Whether the phase has stopped: no review row on a stopped phase is a gap, not a not-yet. */
+  /** Whether the spec has stopped: no review row on a stopped spec is a gap, not a not-yet. */
   stopped: boolean;
 }) {
-  // No row at all is a phase that never reached its review — the fourth state, and it says so
+  // No row at all is a spec that never reached its review — the fourth state, and it says so
   // rather than staying silent, because silence is what a clean review would look like too.
-  // It covers TWO facts, though, and one word for both put a phase that FINISHED with no review
-  // beside "reviewed, nothing found" in the same calm grey. A phase still working has simply not
+  // It covers TWO facts, though, and one word for both put a spec that FINISHED with no review
+  // beside "reviewed, nothing found" in the same calm grey. A spec still working has simply not
   // got there; a stopped one has a hole where its evidence should be, and that is the third of
   // the three gaps this page marks.
   if (review === null) {
@@ -237,8 +237,8 @@ function Review({
   );
 }
 
-/** Where a finding rests, which is what makes it unique among its phase's findings — and what
- *  its revert note is keyed by, because two reverted findings under one phase shared one id. */
+/** Where a finding rests, which is what makes it unique among its spec's findings — and what
+ *  its revert note is keyed by, because two reverted findings under one spec shared one id. */
 function address(finding: FiledWorkFinding): string {
   return `${finding.repository}/${finding.path}:${finding.line}`;
 }

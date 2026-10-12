@@ -51,7 +51,7 @@ public sealed record DerivationLookTerms(
     public static DerivationLookTerms ProposalReview { get; } =
         CutReview with { Actor = "proposal review", EvidencePrefix = "P", MayRunAStage = false };
 
-    /// <summary>2026-09-17-0e79c: the check a phase's own stated premises are put to before
+    /// <summary>2026-09-17-0e79c: the check a spec's own stated premises are put to before
     /// its work starts. Its own letter M — L is the derivation's and P is the proposal
     /// review's — and the cut review's allowance, for the same reason: it checks the premises
     /// of a spec that exists rather than deciding what to build. Its rule differs in what a
@@ -73,20 +73,20 @@ public sealed record DerivationLookTerms(
         "a refutation you report cites that id in \"cites\", and one that cites none is discarded.",
         MayRunAStage: false);
 
-    /// <summary>2026-09-17-042eh: looks one phase review may take. Eight against the cut
+    /// <summary>2026-09-17-042eh: looks one spec review may take. Eight against the cut
     /// review's six: it judges a DIFF, so every file it reports on is a file it must open,
-    /// and a phase touching a handful of files exhausts six before it has read them all.</summary>
-    public const int PhaseReviewAllowance = 8;
+    /// and a spec touching a handful of files exhausts six before it has read them all.</summary>
+    public const int SpecReviewAllowance = 8;
 
     /// <summary>
-    /// 2026-09-17-042eh: the look a verified phase's own diff is reviewed with. Its own name,
+    /// 2026-09-17-042eh: the look a verified spec's own diff is reviewed with. Its own name,
     /// and the letter <see cref="ProposalReview"/> also mints under — which is safe only because
-    /// no conversation holds both: a proposal is reviewed inside a design turn and a phase diff
+    /// no conversation holds both: a proposal is reviewed inside a design turn and a spec diff
     /// inside a code run. What it must not share is the DERIVER's "L", whose ids travel back
     /// into the deriver's own history. Its reads are numbered, because a finding names a line.
     /// </summary>
-    public static DerivationLookTerms PhaseReview { get; } = new(
-        "phase review", PhaseReviewAllowance, "P",
+    public static DerivationLookTerms SpecReview { get; } = new(
+        "spec review", SpecReviewAllowance, "P",
         "Report only on the files you did read; say nothing about the rest.",
         "a finding you report cites that id in \"cites\", and one that cites none is discarded.",
         NumberedReads: true, MayRunAStage: false);

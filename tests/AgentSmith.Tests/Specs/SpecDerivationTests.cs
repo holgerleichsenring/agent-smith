@@ -35,28 +35,28 @@ public sealed class SpecDerivationTests
     private readonly SpecDerivationParser _parser = DerivationTestParsers.Real();
 
     [Fact]
-    public void DeriveSpec_MigrationTicketFixture_EmitsAnOrderedPhaseSet()
+    public void DeriveSpec_MigrationTicketFixture_EmitsAnOrderedSpecSet()
     {
         var segments = TicketSegmenter.Segment(MigrationTicket);
 
         var parsed = _parser.Parse(
-            TwoPhaseReply(segments), "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived);
+            TwoSpecReply(segments), "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived);
 
         parsed.Error.Should().BeNull();
         var set = parsed.Derivation!.Set;
-        set.Phases.Should().HaveCount(2, "an 800-line manual is a sequence, not one phase");
+        set.Phases.Should().HaveCount(2, "an 800-line manual is a sequence, not one spec");
         set.Phases[0].PhaseId.Should().Be("2026-10-06-9106a");
         set.Phases[1].PhaseId.Should().Be("2026-10-06-9106b");
         set.Phases[1].Draft.Requires.Should().Contain(
             "2026-10-06-9106a", "the sequence IS the requires-chain");
         set.Phases.Should().OnlyContain(
-            p => p.Draft.Done.Count > 0, "a phase that cannot end is not a phase");
+            p => p.Draft.Done.Count > 0, "a spec that cannot end is not a spec");
     }
 
     [Fact]
-    public void DeriveSpec_PhaseWithoutDoneCriteria_IsRejectedRatherThanDefaulted()
+    public void DeriveSpec_SpecWithoutDoneCriteria_IsRejectedRatherThanDefaulted()
     {
-        // p0421: the contract guards the CRITERIA now. A phase that cannot state what is
+        // p0421: the contract guards the CRITERIA now. A spec that cannot state what is
         // true when it is finished cannot be accounted for against the branch, and the
         // deriver's retry loop hands the rejection back to the model to answer.
         var segments = TicketSegmenter.Segment(MigrationTicket);
@@ -67,7 +67,7 @@ public sealed class SpecDerivationTests
 
         var parsed = _parser.Parse(reply, "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived);
 
-        parsed.Derivation.Should().BeNull("a phase that cannot state its completion is not ratifiable");
+        parsed.Derivation.Should().BeNull("a spec that cannot state its completion is not ratifiable");
         parsed.Error.Should().Contain("done-criteria",
             "the rejection has to name the missing declaration, because it is handed "
             + "straight back to the model as the correction prompt");
@@ -80,7 +80,7 @@ public sealed class SpecDerivationTests
         var template = segments.Single(s => s.Text.Contains("OrderServiceClient", StringComparison.Ordinal));
 
         var parsed = _parser.Parse(
-            TwoPhaseReply(segments), "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived);
+            TwoSpecReply(segments), "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived);
 
         var markdown = parsed.Derivation!.Set.Phases[0].Markdown;
         markdown.Should().Contain(template.Text,
@@ -91,12 +91,12 @@ public sealed class SpecDerivationTests
     }
 
     [Fact]
-    public void Accounting_EverySegment_IsCarriedBySomePhaseOrDiscardedWithAReason()
+    public void Accounting_EverySegment_IsCarriedBySomeSpecOrDiscardedWithAReason()
     {
         var segments = TicketSegmenter.Segment(MigrationTicket);
 
         var parsed = _parser.Parse(
-            TwoPhaseReply(segments), "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived);
+            TwoSpecReply(segments), "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived);
 
         var accounting = parsed.Derivation!.Set.Accounting;
         var signOff = segments[^1].Id;
@@ -113,7 +113,7 @@ public sealed class SpecDerivationTests
     {
         var segments = TicketSegmenter.Segment(MigrationTicket);
 
-        // The judgement forgot the last two segments entirely — no phase, no reason.
+        // The judgement forgot the last two segments entirely — no spec, no reason.
         var parsed = _parser.Parse(
             """
               {"phases": [{"slug": "rename", "goal": "Rename the clients",
@@ -127,14 +127,14 @@ public sealed class SpecDerivationTests
         parsed.Derivation.Set.Accounting.Unaccounted.Should().Contain(segments[^1].Id);
     }
 
-    // 2026-09-08-1830: a phase names the contexts it changes and the cut names the ones it
+    // 2026-09-08-1830: a spec names the contexts it changes and the cut names the ones it
     // leaves out; both are read out of the reply, rendered into the record, and read back
     // through the same reader — while the verbatim companion stays the ticket's own bytes.
     [Fact]
-    public void DeriveSpec_PhaseContextsAndDiscardedContexts_RoundTripThroughRecordAndIndex()
+    public void DeriveSpec_SpecContextsAndDiscardedContexts_RoundTripThroughRecordAndIndex()
     {
         var segments = TicketSegmenter.Segment(MigrationTicket);
-        var reply = TwoPhaseReply(segments)
+        var reply = TwoSpecReply(segments)
             .Replace("\"slug\": \"rename-the-clients\",", "\"slug\": \"rename-the-clients\", \"contexts\": [\"backend\", \"frontend\"],")
             .Replace("\"discarded\": [", "\"discarded_contexts\": [{\"context\": \"worker\", \"reason\": \"no client there\"}], \"discarded\": [");
 
@@ -144,16 +144,16 @@ public sealed class SpecDerivationTests
         var set = parsed.Derivation!.Set;
         set.Phases[0].Draft.Contexts.Should().Equal("backend", "frontend");
         set.Phases[0].Draft.Yaml.Should().Contain("contexts:").And.Contain("- backend");
-        set.Phases[1].Draft.Contexts.Should().BeEmpty("a phase that declares none has none");
+        set.Phases[1].Draft.Contexts.Should().BeEmpty("a spec that declares none has none");
         set.Phases[1].Draft.Yaml.Should().NotContain("contexts:");
         set.Accounting.DiscardedContexts.Should().ContainSingle()
             .Which.Should().Be(new DiscardedContext("worker", "no client there"));
         set.Phases[0].Markdown.Should().NotContain("backend", "the companion carries the ticket's bytes only");
-        new PhaseDraftReader().Read(set.Phases[0].Draft.Yaml).Contexts.Should().Equal("backend", "frontend");
+        new SpecDraftReader().Read(set.Phases[0].Draft.Yaml).Contexts.Should().Equal("backend", "frontend");
     }
 
     [Fact]
-    public void DeriveSpec_NotImplementable_ProducesAHandbackAndNoPhases()
+    public void DeriveSpec_NotImplementable_ProducesAHandbackAndNoSpecs()
     {
         var segments = TicketSegmenter.Segment(MigrationTicket);
 
@@ -256,7 +256,7 @@ public sealed class SpecDerivationTests
         var segments = TicketSegmenter.Segment(MigrationTicket);
 
         var parsed = _parser.Parse(
-            TwoPhaseReply(segments), "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived);
+            TwoSpecReply(segments), "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived);
 
         parsed.Derivation!.Set.IsHandedBack.Should().BeFalse();
         parsed.Derivation.Set.Handback.Should().BeNull();
@@ -273,7 +273,7 @@ public sealed class SpecDerivationTests
         """;
 
     [Fact]
-    public void DeriveSpec_PhaseWithoutDoneCriteria_IsRejectedBackToTheModel()
+    public void DeriveSpec_SpecWithoutDoneCriteria_IsRejectedBackToTheModel()
     {
         var segments = TicketSegmenter.Segment(MigrationTicket);
 
@@ -290,7 +290,7 @@ public sealed class SpecDerivationTests
     {
         var segments = TicketSegmenter.Segment(MigrationTicket);
         var original = _parser.Parse(
-            TwoPhaseReply(segments), "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived)
+            TwoSpecReply(segments), "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived)
             .Derivation!.Set;
         var executedHead = new[] { original.Phases[0] };
 
@@ -299,7 +299,7 @@ public sealed class SpecDerivationTests
         var recut = _parser.Parse(
             """
             {"phases": [
-               {"slug": "something-else-entirely", "goal": "A different first phase",
+               {"slug": "something-else-entirely", "goal": "A different first spec",
                 "done": ["Nobody asked for this."], "carries": [1]},
                {"slug": "split-a", "goal": "Forbid the legacy helper",
                 "done": ["LegacyHttpHelper appears in no new code."], "carries": [4]},
@@ -313,15 +313,15 @@ public sealed class SpecDerivationTests
 
         var set = recut.Derivation!.Set;
         set.Phases[0].Should().BeSameAs(original.Phases[0],
-            "an executed phase is APPEND-ONLY — a correction to it is a new phase, never an edit");
+            "an executed spec is APPEND-ONLY — a correction to it is a new spec, never an edit");
         set.Phases.Should().HaveCount(3, "the unexecuted tail was re-partitioned into two");
         set.Phases[1].PhaseId.Should().Be("2026-10-06-9106b");
         set.Phases[2].PhaseId.Should().Be("2026-10-06-9106c");
         set.Executed.Should().ContainSingle().Which.Should().Be("2026-10-06-9106a");
     }
 
-    // The judgement half, scripted: two phases, everything carried except the sign-off.
-    private static string TwoPhaseReply(IReadOnlyList<TicketSegment> segments)
+    // The judgement half, scripted: two specs, everything carried except the sign-off.
+    private static string TwoSpecReply(IReadOnlyList<TicketSegment> segments)
     {
         var last = segments[^1].Id;
         var head = string.Join(",", segments.SkipLast(1).Take(3).Select(s => s.Id));

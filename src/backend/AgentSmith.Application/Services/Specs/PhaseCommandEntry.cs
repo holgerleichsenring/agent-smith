@@ -4,7 +4,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// p0469: one command the agent ran, in the form the account is shown and the checkpoint
 /// stores. It is a public record because a parked run must restore what it recorded: the
 /// log used to hold its entries privately, so it serialised to <c>{}</c> and came back
-/// present-but-empty — which TryGet reports as a success and the reader reads as a phase
+/// present-but-empty — which TryGet reports as a success and the reader reads as a spec
 /// that ran nothing.
 /// </summary>
 /// <param name="Repo">The repository the command ran in, empty when there is only one.</param>

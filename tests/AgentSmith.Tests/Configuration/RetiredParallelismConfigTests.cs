@@ -9,7 +9,7 @@ namespace AgentSmith.Tests.Configuration;
 /// <summary>
 /// p0312d: <c>agent.parallelism.max_concurrent_skill_rounds</c> fanned out consecutive
 /// same-(Name, Round) skill rounds. p0312a removed the last batchable command family and
-/// this phase removed the batch path itself, so the knob has no reader left. It is gone
+/// this spec removed the batch path itself, so the knob has no reader left. It is gone
 /// from the model and from agentsmith.schema.json (ConfigSchemaCoverageTests keeps the two
 /// level), and a file that still sets it gets a retired-key advisory (RetiredConfigKeys).
 ///
@@ -42,7 +42,7 @@ public sealed class RetiredParallelismConfigTests : IDisposable
     [Fact]
     public void Config_MaxConcurrentSkillRounds_IsEitherReadOrAbsent()
     {
-        // Absent is the branch this phase took. Asserted over the whole configuration
+        // Absent is the branch this spec took. Asserted over the whole configuration
         // contract, not just AgentConfig, so re-introducing the knob anywhere in the
         // schema — under a different parent, under a different name for the same thing —
         // has to come here and state its reader.

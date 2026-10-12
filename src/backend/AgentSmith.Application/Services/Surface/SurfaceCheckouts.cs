@@ -10,7 +10,7 @@ namespace AgentSmith.Application.Services.Surface;
 /// <para>
 /// <see cref="For"/> answers null when ANY declared consumer has no checkout in this run.
 /// Reading the ones that happen to be present would compute the difference over a subset
-/// the operator did not choose — which is exactly the shape of answer this phase exists to
+/// the operator did not choose — which is exactly the shape of answer this spec exists to
 /// refuse — so the run reports the difference as not computed instead.
 /// </para>
 /// </summary>

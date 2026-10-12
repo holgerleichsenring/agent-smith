@@ -1,0 +1,218 @@
+#!/usr/bin/env python3
+"""Exercises what spec-gate.sh RECOGNISES as a spec commit (2026-09-09-8fce).
+
+Two things decide that: the MARKER the message carries, and the SHAPE of the
+command (2026-09-21-9ae2). Both tables live here — the forms that must gate and
+the forms that must not.
+
+Run it directly:  python3 .claude/hooks/test_spec_gate_marker.py
+
+The helpers come from test_commit_message.py, which owns the throwaway-repository
+and ledger fixtures. These cases live in their own file only so the marker work
+does not collide with uncommitted changes in that one; fold them in when it is
+free.
+
+A repository with no AgentSmith.sln and no skills validator makes the gate report
+"nothing to gate" — that line is the tell that it recognised the commit as a spec
+commit at all, without running a single .NET check.
+"""
+
+import importlib.util
+import os
+import pathlib
+import tempfile
+import traceback
+
+HOOKS_DIR = pathlib.Path(__file__).resolve().parent
+_spec = importlib.util.spec_from_file_location(
+    "gate_fixtures", HOOKS_DIR / "test_commit_message.py")
+_fixtures = importlib.util.module_from_spec(_spec)
+_spec.loader.exec_module(_fixtures)
+
+GATE_ENTERED = _fixtures.GATE_ENTERED
+_repository = _fixtures._repository
+_run_gate = _fixtures._run_gate
+_ledger = _fixtures._ledger
+
+TWO_IDS = "docs: two specs in one commit (2026-09-09-72fd, 2026-09-09-3d2a)"
+NO_MARKER = "docs: the set moves into specs for 2026-09-09-e1c8"
+
+
+def Gate_MarkerCarryingTwoIdsSeparatedByAComma_IsGated():
+    with _repository("seed") as repo:
+        completed = _run_gate(f'git commit -m "{TWO_IDS}"', repo)
+        assert completed.returncode == 0, completed
+        assert GATE_ENTERED in completed.stderr, completed.stderr
+
+
+def Gate_MarkerCarryingTwoIdsSeparatedByASpace_IsGated():
+    with _repository("seed") as repo:
+        completed = _run_gate('git commit -m "docs: both (p0508 2026-08-24-8a3f)"', repo)
+        assert completed.returncode == 0, completed
+        assert GATE_ENTERED in completed.stderr, completed.stderr
+
+
+def Gate_MarkerCarryingTwoIds_RecordsTheFirstInTheLedger():
+    with _repository("seed") as repo, tempfile.TemporaryDirectory() as elsewhere:
+        ledger = pathlib.Path(elsewhere) / "spec-gate.log"
+        _run_gate(f'git commit -m "{TWO_IDS}"', repo, ledger)
+        lines = _ledger(ledger)
+        assert [line[2] for line in lines] == ["2026-09-09-72fd"], lines
+
+
+def Gate_SubjectNamingASpecWithoutAMarker_IsRecordedAsNotGated():
+    with _repository("seed") as repo, tempfile.TemporaryDirectory() as elsewhere:
+        ledger = pathlib.Path(elsewhere) / "spec-gate.log"
+        _run_gate(f'git commit -m "{NO_MARKER}"', repo, ledger)
+        assert [line[1] for line in _ledger(ledger)] == ["not-gated"], _ledger(ledger)
+
+
+def Gate_SubjectNamingASpecWithoutAMarker_SaysSoOnStderr():
+    with _repository("seed") as repo:
+        completed = _run_gate(f'git commit -m "{NO_MARKER}"', repo)
+        assert completed.returncode == 0, completed
+        assert "no marker the gate reads" in completed.stderr, completed.stderr
+
+
+def Gate_SubjectNamingASpecWithoutAMarker_NamesTheSpecInTheLedger():
+    with _repository("seed") as repo, tempfile.TemporaryDirectory() as elsewhere:
+        ledger = pathlib.Path(elsewhere) / "spec-gate.log"
+        _run_gate(f'git commit -m "{NO_MARKER}"', repo, ledger)
+        assert [line[2] for line in _ledger(ledger)] == ["2026-09-09-e1c8"], _ledger(ledger)
+
+
+def Gate_MarkerCarryingASeriesId_IsGated():
+    """2026-09-03-2f81: the marker required a closing parenthesis straight after four hex
+    digits, so a series commit exited zero with no stderr line and no ledger row — the
+    dashboard build, the backend build, the suite and the harness presets all skipped,
+    and nothing recording that they had been."""
+    with _repository("seed") as repo:
+        completed = _run_gate(
+            'git commit -m "feat: the first slice (2026-08-24-8a3fa)"', repo)
+        assert completed.returncode == 0, completed
+        assert GATE_ENTERED in completed.stderr, completed.stderr
+
+
+def Gate_MarkerCarryingASeriesId_RecordsTheWholeIdInTheLedger():
+    with _repository("seed") as repo, tempfile.TemporaryDirectory() as elsewhere:
+        ledger = pathlib.Path(elsewhere) / "spec-gate.log"
+        _run_gate('git commit -m "feat: the first slice (2026-08-24-8a3fa)"', repo, ledger)
+        lines = _ledger(ledger)
+        assert [line[2] for line in lines] == ["2026-08-24-8a3fa"], lines
+
+
+def Gate_BodyNamingASpecWithAMarkerlessSubject_StaysSilent():
+    with _repository("seed") as repo:
+        completed = _run_gate(
+            'git commit -m "chore: tidy the hooks" -m "follows p0508"', repo)
+        assert completed.returncode == 0, completed
+        assert completed.stderr == "", completed.stderr
+
+
+def Gate_AShortPLikeTokenInTheSubject_StaysSilent():
+    with _repository("seed") as repo:
+        completed = _run_gate('git commit -m "chore: bump p12 to the new default"', repo)
+        assert completed.returncode == 0, completed
+        assert completed.stderr == "", completed.stderr
+
+
+def Gate_AMessageWithNoSpecAnywhere_StaysSilent():
+    with _repository("seed") as repo:
+        completed = _run_gate('git commit -m "chore: no spec here"', repo)
+        assert completed.returncode == 0, completed
+        assert completed.stderr == "", completed.stderr
+
+
+def Gate_AMalformedDateMintedMarker_StaysSilent():
+    with _repository("seed") as repo:
+        completed = _run_gate('git commit -m "chore: nightly (2026-13-99-zzzz)"', repo)
+        assert completed.returncode == 0, completed
+        assert completed.stderr == "", completed.stderr
+
+
+# The command-shape table (2026-09-21-9ae2). git's global options sit between the
+# program and the subcommand; a commit addressed with a path is the form an agent told
+# to use absolute paths writes, and it slipped the gate entirely — no checks, no ledger
+# line, nothing to tell the skip from a pass.
+SHAPED = "feat: the shape of the command (p9999)"
+
+
+def Gate_APlainCommit_IsStillGated():
+    with _repository("seed") as repo:
+        completed = _run_gate(f'git commit -m "{SHAPED}"', repo)
+        assert GATE_ENTERED in completed.stderr, completed.stderr
+
+
+def Gate_ACommitAddressedWithAPath_IsGated():
+    """`git -C <tree> commit` — and it gates THAT tree, not the session's: a gate that
+    recognises the commit but checks somewhere else reports numbers from code the commit
+    does not contain."""
+    with _repository("seed") as repo, tempfile.TemporaryDirectory() as elsewhere:
+        ledger = pathlib.Path(elsewhere) / "spec-gate.log"
+        completed = _run_gate(f'git -C {repo} commit -m "{SHAPED}"', elsewhere, ledger)
+        assert GATE_ENTERED in completed.stderr, completed.stderr
+        lines = _ledger(ledger)
+        assert len(lines) == 1, lines
+        assert os.path.realpath(lines[0][3]) == os.path.realpath(repo), lines
+
+
+def Gate_ACommitCarryingAConfigOption_IsGated():
+    with _repository("seed") as repo:
+        completed = _run_gate(
+            f'git -c user.name=Someone commit -m "{SHAPED}"', repo)
+        assert GATE_ENTERED in completed.stderr, completed.stderr
+
+
+def Gate_ACommitAfterALeadingChangeOfDirectory_IsStillGated():
+    with _repository("seed") as repo, tempfile.TemporaryDirectory() as elsewhere:
+        ledger = pathlib.Path(elsewhere) / "spec-gate.log"
+        completed = _run_gate(f'cd {repo} && git commit -m "{SHAPED}"', elsewhere, ledger)
+        assert GATE_ENTERED in completed.stderr, completed.stderr
+        lines = _ledger(ledger)
+        assert len(lines) == 1, lines
+        assert os.path.realpath(lines[0][3]) == os.path.realpath(repo), lines
+
+
+def Gate_ACommandThatOnlyMentionsACommit_IsStillNotGated():
+    """Accepting options must not become accepting anything: a command that merely
+    quotes the shape stays untouched, marker and all."""
+    with _repository("seed") as repo, tempfile.TemporaryDirectory() as elsewhere:
+        ledger = pathlib.Path(elsewhere) / "spec-gate.log"
+        completed = _run_gate(
+            f'echo "git -C {repo} commit -m \'{SHAPED}\'"', repo, ledger)
+        assert completed.returncode == 0, completed
+        assert completed.stderr == "", completed.stderr
+        assert _ledger(ledger) == [], _ledger(ledger)
+
+
+def Gate_AGitSubcommandThatIsNotCommit_IsStillNotGated():
+    """`commit-graph` begins with the word and is a different subcommand. The marker in
+    the trailing comment is what makes the case bite: were the subcommand allowed to run
+    on past `commit`, the whole command line would be read as the message and gate."""
+    with _repository("seed") as repo, tempfile.TemporaryDirectory() as elsewhere:
+        ledger = pathlib.Path(elsewhere) / "spec-gate.log"
+        completed = _run_gate(
+            f'git -C {repo} commit-graph write  # {SHAPED}', repo, ledger)
+        assert completed.returncode == 0, completed
+        assert completed.stderr == "", completed.stderr
+        assert _ledger(ledger) == [], _ledger(ledger)
+
+
+def main():
+    cases = [(name, case) for name, case in list(globals().items())
+             if callable(case) and name.startswith("Gate_")]
+    failed = []
+    for name, case in cases:
+        try:
+            case()
+            print(f"PASS {name}")
+        except Exception:
+            failed.append(name)
+            print(f"FAIL {name}")
+            traceback.print_exc()
+    print(f"\n{len(cases) - len(failed)}/{len(cases)} passed")
+    return 1 if failed else 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

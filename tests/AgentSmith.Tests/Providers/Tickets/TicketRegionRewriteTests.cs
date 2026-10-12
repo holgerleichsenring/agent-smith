@@ -32,22 +32,22 @@ public sealed class TicketRegionRewriteTests
             + "\nAnd this below it, with a @mention and a [link](https://example.test).";
 
         var rewritten = FramedTicketRegion.Replace(
-            body, FramedTicketRegion.Wrap("## Goal\nthe widget stops dropping, in two phases\n"));
+            body, FramedTicketRegion.Wrap("## Goal\nthe widget stops dropping, in two specs\n"));
 
         rewritten.Should().StartWith("A person wrote this above it.")
             .And.EndWith("with a @mention and a [link](https://example.test).");
-        rewritten.Should().Contain("in two phases").And.NotContain("stops dropping\n\n<!--",
+        rewritten.Should().Contain("in two specs").And.NotContain("stops dropping\n\n<!--",
             "the framework's own rendering is what was replaced");
     }
 
     /// <summary>
-    /// THE COMMON CASE. Every ticket filed before this phase carries a body the framework
+    /// THE COMMON CASE. Every ticket filed before this spec carries a body the framework
     /// rendered whole and no marker saying where its text ends — so nothing is written at all,
     /// and the operator is told why. Replacing the whole body would delete prose nobody can
     /// attribute; appending would leave the ticket saying two things at once.
     /// </summary>
     [Fact]
-    public void Amendment_ATicketThatPredatesTheMarkers_IsHandledAsThePhaseStates()
+    public void Amendment_ATicketThatPredatesTheMarkers_IsHandledAsTheSpecStates()
     {
         var filedBefore = "## Goal\nthe widget stops dropping\n\n## Scope\nIn: the widget.\n";
 
@@ -111,7 +111,7 @@ public sealed class TicketRegionRewriteTests
             .Should().Be(AzureDevOpsBodyField.Description);
 
     /// <summary>
-    /// The refusal is the phase's own decision, in code: a Jira description is stored as a
+    /// The refusal is the spec's own decision, in code: a Jira description is stored as a
     /// structured document and read back as text nodes only, so a read-modify-write would send
     /// back a description with the human half of it destroyed — and silently.
     /// </summary>
@@ -136,8 +136,8 @@ public sealed class TicketRegionRewriteTests
     [Fact]
     public void Filing_TheBodyItWrites_IsMarkedAsTheFrameworksOwnRegion()
     {
-        var body = new AgentSmith.Application.Services.SpecDialog.PhaseTicketRenderer()
-            .RenderPhase(new Contracts.Models.PhaseDraft(
+        var body = new AgentSmith.Application.Services.SpecDialog.SpecTicketRenderer()
+            .RenderSpec(new Contracts.Models.PhaseDraft(
                 "p9001", "the widget stops dropping", "spec: p9001", [])).Body;
 
         FramedTicketRegion.Marked(body).Should().BeTrue();
@@ -149,8 +149,8 @@ public sealed class TicketRegionRewriteTests
     [Fact]
     public void Filing_TheLabelNote_StillSitsInsideItsOwnPair()
     {
-        var body = new AgentSmith.Application.Services.SpecDialog.PhaseTicketRenderer()
-            .RenderPhase(
+        var body = new AgentSmith.Application.Services.SpecDialog.SpecTicketRenderer()
+            .RenderSpec(
                 new Contracts.Models.PhaseDraft("p9001", "goal", "spec: p9001", []), "job-1",
                 AgentSmith.Application.Services.SpecDialog.TicketLabelNote.For(
                     [AgentSmith.Application.Services.SpecDialog.FiledTicketLabels.ApprovedSetStamp],

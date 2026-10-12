@@ -11,13 +11,13 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
-/// p0422: asks a fresh instance which phases CANNOT BE DELIVERED as written, before the
+/// p0422: asks a fresh instance which specs CANNOT BE DELIVERED as written, before the
 /// first master token is spent on them.
 /// <para>
 /// The same shape as the delivery account and for the same reason: a fresh instance with
 /// no stake in the cut, asked adversarially, and every finding checked against something
-/// the framework can verify — here, that the quoted criterion really is in that phase.
-/// Ticket 19106 lost two hours to a phase whose criteria contradicted each other; this
+/// the framework can verify — here, that the quoted criterion really is in that spec.
+/// Ticket 19106 lost two hours to a spec whose criteria contradicted each other; this
 /// costs one call before any of them are spent.
 /// </para>
 /// </summary>
@@ -49,8 +49,8 @@ public sealed class SpecCutReviewer(
 
         var kept = new SpecCutAdmission(logger).Admit(drafts, answer, look);
         foreach (var finding in kept)
-            logger.LogWarning("Cut review — {Phase} cannot be delivered: {Problem} — {Why}",
-                finding.PhaseId, finding.Problem, finding.Why);
+            logger.LogWarning("Cut review — {Spec} cannot be delivered: {Problem} — {Why}",
+                finding.SpecId, finding.Problem, finding.Why);
         return new SpecCutReview(kept);
     }
 

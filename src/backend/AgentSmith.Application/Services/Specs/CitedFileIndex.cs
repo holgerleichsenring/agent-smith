@@ -9,9 +9,9 @@ namespace AgentSmith.Application.Services.Specs;
 /// which is what separates a citation from a fabrication.
 /// </para>
 /// <para>
-/// Two sources, one matching rule. A phase brings the branch diff — the files it
+/// Two sources, one matching rule. A spec brings the branch diff — the files it
 /// touched. A scan brings the file list it read — the files it looked at. Cloning the
-/// rule for the second one would let a scan finding and a phase account disagree about
+/// rule for the second one would let a scan finding and a spec account disagree about
 /// what "cited" means.
 /// </para>
 /// </summary>

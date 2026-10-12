@@ -7,7 +7,7 @@ namespace AgentSmith.Domain.Models;
 /// only where something was already the case — "every host that already configures X …" —
 /// has to be squeezed into "not satisfied" when the base never had that thing, which is
 /// not merely unhelpful but untrue: the outstanding list then goes back to the coding
-/// master as an instruction to BUILD what another criterion of the same phase forbids.
+/// master as an instruction to BUILD what another criterion of the same spec forbids.
 /// </para>
 /// <para>
 /// The declaration ORDER is the merge precedence across diff windows, and the members are

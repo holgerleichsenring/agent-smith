@@ -86,9 +86,9 @@ public sealed class SandboxStreamLagWarningTests
         public string? CurrentRunId => runId;
         public CallScope? CurrentCallScope => null;
         public int? CurrentStepIndex => null;
-        public string? CurrentPhaseId => null;
+        public string? CurrentSpecId => null;
         public IDisposable BeginScope(string id) => new NoOpScope();
-        public IDisposable BeginStepScope(int stepIndex, string? phaseId = null) => new NoOpScope();
+        public IDisposable BeginStepScope(int stepIndex, string? specId = null) => new NoOpScope();
         public IDisposable BeginCallScope(string role, string phase, string? repoName = null) => new NoOpScope();
         private sealed class NoOpScope : IDisposable { public void Dispose() { } }
     }

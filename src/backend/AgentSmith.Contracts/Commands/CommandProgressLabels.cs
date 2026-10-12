@@ -10,6 +10,7 @@ public static partial class CommandNames
 {
     public static string GetLabel(string commandName)
     {
+        commandName = Declared(commandName);
         if (Labels.TryGetValue(commandName, out var label))
             return label;
 
@@ -36,11 +37,11 @@ public static partial class CommandNames
         [LoadDesignSystem] = "Loading design system", // 2026-10-01-283dg
         [LoadContext] = "Loading project context",
         [AnalyzeCode] = "Analyzing codebase",
-        [DeriveSpec] = "Deriving the phase specs",
+        [DeriveSpec] = "Deriving the specs",
         [SpecHandback] = "Handing the ticket back",
-        [PhaseSequence] = "Planning the phase sequence",
-        [SelectPhase] = "Starting the phase",
-        [ReviewPhaseDiff] = "Reviewing the phase's diff",
+        [SpecSequence] = "Planning the spec sequence",
+        [SelectSpec] = "Starting the spec",
+        [ReviewSpecDiff] = "Reviewing the spec's diff",
         // p0394a: retired steps, kept by literal name so progress reporting of
         // run records persisted before the retirement keeps its labels.
         ["GeneratePlanCommand"] = "Generating plan",
@@ -51,9 +52,9 @@ public static partial class CommandNames
         [LoadCachedCodeMap] = "Loading cached code map",
         [GroundSpecDialog] = "Grounding the design conversation",
         [CollectSpecDialogReply] = "Collecting design reply",
-        [PhaseSpecGate] = "Validating phase spec",
+        [SpecGate] = "Validating the spec",
         [MasterOpenQuestions] = "Posting master open questions",
-        [WritePhaseRecord] = "Writing phase record",
+        [WriteSpecRecord] = "Writing spec record",
         [WriteRunResult] = "Writing run result",
         [CommitAndPR] = "Creating pull request",
         [InitCommit] = "Committing init files",
@@ -104,8 +105,8 @@ public static partial class CommandNames
         [PipelineNameInitializer] = "Publishing pipeline name",
         [BootstrapCheck] = "Checking bootstrap files",
         [RunVerifyPhase] = "Running verify phase",
-        [VerifyPhase] = "Building and running tests", // p0393
-        [CheckPhasePremises] = "Checking what the phase rests on", // 2026-09-17-0e79c
+        [VerifySpec] = "Building and running tests", // p0393
+        [CheckSpecPremises] = "Checking what the spec rests on", // 2026-09-17-0e79c
         [BootstrapGate] = "Verifying bootstrap files",
         [PublishProjectLanguage] = "Publishing project language",
         [BootstrapDispatch] = "Dispatching bootstrap skill",

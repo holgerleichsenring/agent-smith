@@ -1,13 +1,13 @@
 namespace AgentSmith.Domain.Models;
 
 /// <summary>
-/// p0420: the account a phase gives of itself — one row per ratified criterion, read off
+/// p0420: the account a spec gives of itself — one row per ratified criterion, read off
 /// the branch rather than off the run.
 /// <para>
 /// It replaces the question "did THIS run commit code", which judged a resumed branch
 /// with a complete delivery as FAILED: nine updated project files, an adapted call site,
 /// build and test green, and a verdict of failure. The subject is the delivery, so a
-/// phase that finds its work already done passes and says so.
+/// spec that finds its work already done passes and says so.
 /// </para>
 /// </summary>
 public sealed record SpecAccount(
@@ -15,7 +15,7 @@ public sealed record SpecAccount(
     IReadOnlyList<CriterionAccount> Criteria,
     string? Problem = null,
     // 2026-09-01-3653: what the run's master pass was given and how far it got. Trailing and
-    // optional, so every existing construction site keeps compiling; null on a phase account
+    // optional, so every existing construction site keeps compiling; null on a spec account
     // and on a scan whose master never ran, which OMITS the section rather than zeroing it.
     ScanPassMeasures? Measures = null)
 {
@@ -23,7 +23,7 @@ public sealed record SpecAccount(
     /// Nothing outstanding — and an account that could not be taken is not a pass.
     /// <para>
     /// 2026-08-25-9749: nor is an account that satisfied NOTHING, whatever it calls not
-    /// applicable. Without that clause the third disposition becomes a way to pass a phase
+    /// applicable. Without that clause the third disposition becomes a way to pass a spec
     /// having proven nothing at all.
     /// </para>
     /// </summary>

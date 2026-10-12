@@ -32,10 +32,10 @@ public sealed partial class SpecDialogOutcomeTests
     public async Task DialogTurn_Review_ReportsReviewing()
     {
         await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
-        harness.ChatClient.EnqueueText($"Here is the phase draft:\n{ValidDraft}");
+        harness.ChatClient.EnqueueText($"Here is the spec draft:\n{ValidDraft}");
         using var recorded = Observing(out var recorder);
 
-        await RunTurnAsync(harness, Discussed("draft the widget phase now"));
+        await RunTurnAsync(harness, Discussed("draft the widget spec now"));
 
         recorder.Lines.Should().Contain("reviewing", "the review is a model call the operator waits through");
     }

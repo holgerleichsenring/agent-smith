@@ -102,7 +102,7 @@ trackers:
     needs_clarification_status: Blocked
     work_item_kinds:
       work: User Story     # an approved cut's one work ticket
-      phase: User Story    # a single phase filed from a design conversation
+      spec: User Story     # a single spec filed from a design conversation (key phase still accepted)
       bug: Bug
       chat: Task           # "create a ticket" from chat
     polling:
@@ -152,7 +152,7 @@ projects:
 
 The explicit `azuredevops_trigger:` block works too and overrides the tracker field by field. Reach for it when one project needs its own `comment_keyword` or a different label map.
 
-`work_item_kinds` maps the roles Agent Smith files tickets under to your process's work-item types: `work` (the one work ticket an approved cut files), `phase` (a single phase filed from a design conversation), `bug` and `chat` (a ticket a chat request asked for). A role you don't map keeps the type it would have had anyway, and the filing states which type it used. Whatever type you pick, its workflow has to contain your lifecycle statuses (`done_status`, `failed_status`, `needs_clarification_status`); a work item whose type doesn't know them can't be moved, and the refusal names the type as the usual cause.
+`work_item_kinds` maps the roles Agent Smith files tickets under to your process's work-item types: `work` (the one work ticket an approved cut files), `spec` (a single spec filed from a design conversation; the key `phase` is still accepted), `bug` and `chat` (a ticket a chat request asked for). A role you don't map keeps the type it would have had anyway, and the filing states which type it used. Whatever type you pick, its workflow has to contain your lifecycle statuses (`done_status`, `failed_status`, `needs_clarification_status`); a work item whose type doesn't know them can't be moved, and the refusal names the type as the usual cause.
 
 ## Authentication
 

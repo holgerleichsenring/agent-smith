@@ -43,7 +43,7 @@ internal static class SpecDialogExtensions
         // tracker (renderer + filer), replacing the session-store default.
         services.AddTransient<SpecDialogOutcomeComposer>();
         services.AddTransient<SpecDialogOutcomeConfirmer>();
-        services.AddTransient<PhaseTicketRenderer>();
+        services.AddTransient<SpecTicketRenderer>();
         services.AddTransient<BugTicketRenderer>();
         // 2026-09-17-042eg: what makes a filed work ticket actually start, and what says why it did not.
         // 2026-09-20-2ba8: the tag that lets it resolve at all goes on in the same step.
@@ -51,9 +51,9 @@ internal static class SpecDialogExtensions
         services.AddScoped<FiledWorkStarter>();
         services.AddScoped<SpecDialogOutcomeStore>();
         services.AddScoped<SpecDialogLatestOutcomeStore>();
-        // 2026-09-17-0e79a: filing a phase stores the approved set under the ticket's spec key.
-        // 2026-09-22-b3d7: one path does that for a lone phase and for an approved cut alike.
-        services.AddScoped<ApprovedPhaseSetRecorder>();
+        // 2026-09-17-0e79a: filing a spec stores the approved set under the ticket's spec key.
+        // 2026-09-22-b3d7: one path does that for a lone spec and for an approved cut alike.
+        services.AddScoped<ApprovedSpecSetRecorder>();
         services.AddScoped<ApprovedSetTicketFiler>();
         // 2026-09-22-b6ad: the approved set reaches the ticket branch as the ticket is filed.
         services.AddScoped<FiledSpecBranchWrite>();
@@ -96,7 +96,7 @@ internal static class SpecDialogExtensions
         // a singleton because it holds CONNECTIONS, which outlive the scope that registered them.
         services.AddScoped<FiledWorkFiling>().AddScoped<FiledWorkBoundTicket>(); // 2026-09-25-c4a6
         services.AddTransient<FiledWorkTrackerProjects>();
-        services.AddTransient<FiledWorkPhaseReviews>();
+        services.AddTransient<FiledWorkSpecReviews>();
         services.AddTransient<FiledWorkRunsReader>();
         services.AddTransient<FiledWorkHandbacks>();
         services.AddScoped<FiledWorkReader>();

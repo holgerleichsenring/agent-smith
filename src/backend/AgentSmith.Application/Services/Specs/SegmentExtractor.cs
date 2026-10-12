@@ -5,7 +5,7 @@ namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
 /// p0393a: cuts the anchored segments out of the ticket byte-exact and writes one
-/// phase's markdown companion. Deterministic and independent of the loaded pin:
+/// spec's markdown companion. Deterministic and independent of the loaded pin:
 /// judgement is external, extraction is not. The model never reproduces a template,
 /// because text a model retypes is text that drifts — and a plausible copy of a
 /// naming contract is the failure mode this line of work started from.
@@ -13,13 +13,13 @@ namespace AgentSmith.Application.Services.Specs;
 public static class SegmentExtractor
 {
     public static string BuildMarkdown(
-        string phaseId, string goal,
+        string specId, string goal,
         IReadOnlyList<int> carriedSegmentIds,
         IReadOnlyList<TicketSegment> segments)
     {
         var byId = segments.ToDictionary(s => s.Id);
         var sb = new StringBuilder();
-        sb.Append("# ").Append(phaseId).Append(" — verbatim from the ticket\n\n");
+        sb.Append("# ").Append(specId).Append(" — verbatim from the ticket\n\n");
         sb.Append(goal).Append("\n\n");
         sb.Append(
             "Every block below is copied byte for byte out of the ticket. "
@@ -44,6 +44,6 @@ public static class SegmentExtractor
     /// exists to prevent.
     /// </summary>
     public static string BuildWholeTicketMarkdown(
-        string phaseId, string goal, IReadOnlyList<TicketSegment> segments) =>
-        BuildMarkdown(phaseId, goal, [.. segments.Select(s => s.Id)], segments);
+        string specId, string goal, IReadOnlyList<TicketSegment> segments) =>
+        BuildMarkdown(specId, goal, [.. segments.Select(s => s.Id)], segments);
 }

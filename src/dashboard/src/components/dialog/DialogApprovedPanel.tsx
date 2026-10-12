@@ -18,14 +18,14 @@ export function DialogApprovedPanel({ approved }: { approved: ApprovedSetView })
           : "Approved for this ticket. This is what a person ratified — not necessarily what a run is working now."}
       </p>
       <ul className="flex flex-col gap-3">
-        {approved.phases.map((phase) => (
-          <li key={phase.phaseId} data-testid={`dialog-approved-phase-${phase.phaseId}`}>
+        {approved.phases.map((spec) => (
+          <li key={spec.phaseId} data-testid={`dialog-approved-spec-${spec.phaseId}`}>
             <p className="dsh-body text-ink">
-              <span className="mono">{phase.phaseId}</span> — {phase.goal}
+              <span className="mono">{spec.phaseId}</span> — {spec.goal}
             </p>
-            {phase.done.length > 0 && (
+            {spec.done.length > 0 && (
               <ul className="dsh-body text-body ml-4 list-disc">
-                {phase.done.map((line) => (
+                {spec.done.map((line) => (
                   <li key={line}>{line}</li>
                 ))}
               </ul>

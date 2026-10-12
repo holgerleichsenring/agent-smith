@@ -35,8 +35,8 @@ public sealed class TargetProbeTests
         code.IndexOf(CommandNames.ProbeTarget).Should()
             .BeGreaterThan(code.IndexOf(CommandNames.EnsurePrerequisites),
                 "the prerequisite step installs the CLI the probe calls")
-            .And.BeLessThan(code.IndexOf(CommandNames.PhaseSequence),
-                "the masters are spliced in by PhaseSequence — a refusal must cost no token");
+            .And.BeLessThan(code.IndexOf(CommandNames.SpecSequence),
+                "the masters are spliced in by SpecSequence — a refusal must cost no token");
     }
 
     [Fact]

@@ -78,7 +78,8 @@ public sealed class TicketLabelVocabulary
     /// <summary>True when the stamp on this ticket is ours — configured or historical.</summary>
     public bool IsApprovedSetStamp(string label) =>
         string.Equals(label, ApprovedSetStamp, StringComparison.OrdinalIgnoreCase)
-        || string.Equals(label, TicketLabels.ApprovedSetStamp, StringComparison.OrdinalIgnoreCase);
+        || string.Equals(label, TicketLabels.ApprovedSetStamp, StringComparison.OrdinalIgnoreCase)
+        || string.Equals(label, TicketLabels.AcceptedApprovedSetStamp, StringComparison.OrdinalIgnoreCase);
 
     private static bool IsApprovedSetKey(string key) =>
         string.Equals(

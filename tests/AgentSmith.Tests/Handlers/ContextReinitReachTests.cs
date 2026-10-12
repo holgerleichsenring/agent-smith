@@ -22,7 +22,7 @@ namespace AgentSmith.Tests.Handlers;
 /// 2026-08-25-c9c7: the way back in for a repository that was initialised before the
 /// image rule existed — this one included, and the shipped demo with it.
 /// <para>
-/// The claim the phase was cut on is that discovery locks such a repository out: an
+/// The claim the spec was cut on is that discovery locks such a repository out: an
 /// initialised project never re-writes its context, so a write-path rule reaches new
 /// projects only. That is wrong. Discovery publishes
 /// <see cref="ContextKeys.DiscoveredComponents"/> for the repository's components and

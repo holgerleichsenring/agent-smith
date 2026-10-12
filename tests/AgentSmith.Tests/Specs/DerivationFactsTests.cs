@@ -98,7 +98,7 @@ public sealed class DerivationFactsTests
             """{"claim": "one direct package is affected", "cites": "L1"}, {"claim": "the rest are transitive", "cites": ""}"""),
             [Minted]);
 
-        var reread = new PhaseDraftReader().Read(set.Phases[0].Draft.Yaml);
+        var reread = new SpecDraftReader().Read(set.Phases[0].Draft.Yaml);
 
         reread.Facts.Should().BeEquivalentTo(set.Phases[0].Draft.Facts);
         reread.Assumptions.Should().Equal("the rest are transitive");

@@ -191,7 +191,7 @@ describe("ProjectCard wiring graph", () => {
   });
 
   it("ProjectCard_MatchesTheReferenceFile", () => {
-    // src/dashboard/design/mockups/project-card.html is the SUBJECT of this phase, not an
+    // src/dashboard/design/mockups/project-card.html is the SUBJECT of this spec, not an
     // illustration of it. Only what it marks CHANGES is normative — the rest is the running
     // app copied so the page renders — so this reads the changed block and asserts every
     // class it names is produced by the card.

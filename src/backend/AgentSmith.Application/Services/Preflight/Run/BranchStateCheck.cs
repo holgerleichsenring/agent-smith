@@ -12,7 +12,7 @@ namespace AgentSmith.Application.Services.Preflight.Run;
 /// p0428: says out loud whether the ticket branch already carries an earlier run's work.
 /// <para>
 /// One live run inherited a branch on which source files had been commented out
-/// wholesale; phases were treated as delivered, and the agent then read 76 files and
+/// wholesale; specs were treated as delivered, and the agent then read 76 files and
 /// wrote nothing for 50 minutes. The fact was visible in ten seconds of git history.
 /// </para>
 /// <para>
@@ -49,7 +49,7 @@ public sealed class BranchStateCheck(ILogger<BranchStateCheck> logger) : IRunPre
                 Name,
                 $"{BranchLabel(pipeline)} already carries commits from an earlier run "
                 + $"({string.Join(", ", carried)}, last {HistoryDepth} inspected) — that work counts as "
-                + "delivered, so those phases will be skipped. The base branch's newer commits are "
+                + "delivered, so those specs will be skipped. The base branch's newer commits are "
                 + "merged in on checkout (p0496); deleting the branch would discard the earlier "
                 + "run's work and close the pull request hanging off it");
     }

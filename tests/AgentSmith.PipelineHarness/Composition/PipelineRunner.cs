@@ -97,7 +97,7 @@ public sealed class PipelineRunner(IServiceProvider services)
     /// <summary>
     /// p0315d: mirrors the ContextKeys.NeedsClarificationStatus seed
     /// SpawnPipelineRunsUseCase performs from the trigger config, so a test driving a
-    /// phase can assert the clarification park moves the ticket into this native
+    /// spec can assert the clarification park moves the ticket into this native
     /// status. Unset → not seeded (production's "park not configured" degrade).
     /// </summary>
     public string? NeedsClarificationStatus { get; set; }

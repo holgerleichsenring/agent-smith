@@ -28,7 +28,7 @@ namespace AgentSmith.Contracts.Sandbox;
 /// REPOSITORY ROOT (2026-09-03-7bac). Null = nothing declared; the gate infers as before.
 /// <para>
 /// Every construction site passes this BY NAME. 2026-08-28-7b41 records what the
-/// positional tail of this record does to an optional field: the one that phase repaired
+/// positional tail of this record does to an optional field: the one that spec repaired
 /// was parsed and then dropped at both sites, and shipped green for two releases because
 /// every test built the record by hand.
 /// </para></param>

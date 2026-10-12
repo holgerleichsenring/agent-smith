@@ -2,7 +2,7 @@ using AgentSmith.Contracts.Reviews;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Activation;
 using AgentSmith.Application.Services.Builders;
-using AgentSmith.Application.Services.PhaseExecution;
+using AgentSmith.Application.Services.SpecExecution;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.Scans;
 using AgentSmith.Application.Services.SpecDialog;
@@ -85,14 +85,14 @@ public static class PipelineHandlersExtensions
         services.AddTransient<PrReviewCommentRenderer>();
         services.AddTransient<ICommandHandler<PostPrCommentsContext>, PostPrCommentsHandler>();
         services.AddTransient<ICommandHandler<EmptyPlanCheckContext>, EmptyPlanCheckHandler>();
-        // p0393a: turn the ticket into an ordered SET of phase specs after AnalyzeCode —
+        // p0393a: turn the ticket into an ordered SET of specs after AnalyzeCode —
         // deriver (the one LLM call, judgement only), deterministic segmenter/extractor,
         // reader + writer over the ticket branch, publisher (commit, pointer, draft PR),
-        // and the sequence that splices one block per phase.
+        // and the sequence that splices one block per spec.
         services.AddTransient<ICommandHandler<DeriveSpecContext>, DeriveSpecHandler>();
-        services.AddTransient<ICommandHandler<PhaseSequenceContext>, PhaseSequenceHandler>();
-        services.AddTransient<ICommandHandler<SelectPhaseContext>, SelectPhaseHandler>();
-        services.AddTransient<ICommandHandler<CheckPhasePremisesContext>, CheckPhasePremisesHandler>(); // 0e79c
+        services.AddTransient<ICommandHandler<SpecSequenceContext>, SpecSequenceHandler>();
+        services.AddTransient<ICommandHandler<SelectSpecContext>, SelectSpecHandler>();
+        services.AddTransient<ICommandHandler<CheckSpecPremisesContext>, CheckSpecPremisesHandler>(); // 0e79c
         services.AddTransient<ICommandHandler<SpecHandbackContext>, SpecHandbackHandler>();
         services.AddSpecDerivation();
         services.AddTransient<DiscoveryOutputParser>();
@@ -157,17 +157,17 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<CompileFindingsContext>, CompileFindingsHandler>();
         services.AddSingleton<IMasterOutputSchemaResolver, MasterOutputSchemaResolver>();
         services.AddSingleton<IScanMasterPromptFactory, ScanMasterPromptFactory>();
-        // p0315b: spec-dialog — transcript prompt, phase-spec draft gate, tier-1
+        // p0315b: spec-dialog — transcript prompt, spec draft gate, tier-1
         // cached code map, reply hand-back, lazy read-only source sandboxes.
         services.AddTransient<ISpecDialogPromptFactory, SpecDialogPromptFactory>();
-        services.AddSingleton<PhaseSpecSchemaProvider>();
+        services.AddSingleton<SpecSchemaProvider>();
         services.AddTransient<ISpecDraftValidator, SpecDraftValidator>();
-        // p0315e: typed terminal outcome (answer | bug | phase | epic) —
+        // p0315e: typed terminal outcome (answer | bug | spec | epic) —
         // resolver + per-kind parsers + epic requires-edge consistency.
-        services.AddTransient<PhaseDraftReader>();
-        services.AddTransient<PhaseDraftIdRewriter>().AddTransient<SeriesDraftIds>(); // 2026-10-06-03c7c
+        services.AddTransient<SpecDraftReader>();
+        services.AddTransient<SpecDraftIdRewriter>().AddTransient<SeriesDraftIds>(); // 2026-10-06-03c7c
         services.AddTransient<BugOutcomeParser>();
-        services.AddTransient<EpicOutcomeParser>().AddTransient<DialogDraftRepos>().AddTransient<PhaseDraftReposWriter>(); // 3a36e
+        services.AddTransient<EpicOutcomeParser>().AddTransient<DialogDraftRepos>().AddTransient<SpecDraftReposWriter>(); // 3a36e
         services.AddTransient<RequiresEdgeChecker>();
         services.AddTransient<IOutcomeProposalResolver, OutcomeProposalResolver>().AddTransient<SpecDialogProposalRefusal>().AddTransient<SpecDialogProposalReview>();
         // 2026-10-02-3f06c: the proposal's cited files, read before its model review.
@@ -176,8 +176,8 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<CollectSpecDialogReplyContext>, CollectSpecDialogReplyHandler>();
         // p0315d: phase-execution — spec gate, spec-first master prompt, mid-run clarification
         // park and the specs/done/ record. 2026-10-06-03c7d: no spec is read from a ticket's text.
-        services.AddTransient<IPhaseExecutionPromptFactory, PhaseExecutionPromptFactory>();
-        services.AddTransient<ICommandHandler<PhaseSpecGateContext>, PhaseSpecGateHandler>();
+        services.AddTransient<ISpecExecutionPromptFactory, SpecExecutionPromptFactory>();
+        services.AddTransient<ICommandHandler<SpecGateContext>, SpecGateHandler>();
         services.AddTransient<VerifyCommandRunner>(); // p0419
         // p0504: the image ordering and which commands verify a repo — each its own type.
         // 2026-08-25-014d: the registry boundary reads configuration (per decision, 6bfab), so it is a service.
@@ -194,12 +194,12 @@ public static class PipelineHandlersExtensions
         services.AddTransient<DeliveryDiff>();
         services.AddTransient<Specs.SpecAccountCall>().AddTransient<Specs.AccountCalls>();
         services.AddTransient<Specs.ISpecAccountant, Specs.SpecAccountant>();
-        services.AddTransient<Specs.PhaseAccounting>().AddTransient<Specs.PhaseEntryAccount>();
-        services.AddTransient<ICommandHandler<VerifyPhaseContext>, VerifyPhaseHandler>(); // p0393
-        services.AddTransient<ICommandHandler<ReviewPhaseDiffContext>, ReviewPhaseDiffHandler>(); // 042eh
+        services.AddTransient<Specs.SpecDeliveryAccounting>().AddTransient<Specs.SpecEntryAccount>();
+        services.AddTransient<ICommandHandler<VerifySpecContext>, VerifySpecHandler>(); // p0393
+        services.AddTransient<ICommandHandler<ReviewSpecDiffContext>, ReviewSpecDiffHandler>(); // 042eh
         services.AddMasterQuestionParking(); // p0453 checkpoint + 2026-09-03-3c07 answer intake
         services.AddTransient<ICommandHandler<MasterOpenQuestionsContext>, MasterOpenQuestionsHandler>();
-        services.AddPhaseExecution(); // 2026-08-26-31e5
+        services.AddSpecExecution(); // 2026-08-26-31e5
         services.AddSingleton<HttpProbeRunner>();
         return services.AddScanPipelines(); // p0429
     }

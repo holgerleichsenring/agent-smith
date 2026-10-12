@@ -8,7 +8,7 @@ namespace AgentSmith.Tests.TestSupport;
 /// <summary>
 /// 2026-09-25-3c7aa: the probe the routed paths ask whether an approved specification exists.
 /// Most tests want one that answers NO for everything — the state every ticket was in before this
-/// phase — so they say nothing and get exactly today's behaviour.
+/// spec — so they say nothing and get exactly today's behaviour.
 /// </summary>
 internal static class ApprovedRecordProbes
 {

@@ -9,17 +9,17 @@ namespace AgentSmith.Tests.Specs;
 /// <summary>
 /// p0446: the reviewer's three verdicts do not need the same evidence.
 /// <para>
-/// A CONTRADICTION is visible in the phases alone, and so is an UNCHECKABLE criterion.
+/// A CONTRADICTION is visible in the specs alone, and so is an UNCHECKABLE criterion.
 /// NOT IN THE TICKET is the only one that needs the ticket, and it needs ALL of it —
 /// "the ticket never asked for this" is not a claim a fragment can support.
 /// </para>
 /// <para>
 /// Live run 2552 is what this costs. A 44,302-character ticket was cut to the first
-/// 20,000 before the reviewer saw it, and it then rejected five criteria of phase d as
+/// 20,000 before the reviewer saw it, and it then rejected five criteria of spec d as
 /// not-in-ticket. All five are in the ticket — `dotnet test` with "All tests must be
 /// green" at character 39,840, the eight-point final-report list at 42,500, `ASB-6` at
 /// 30,373. The deriver spent its three attempts trying to satisfy an objection that
-/// could not be satisfied, gave up, and the run carried the whole ticket in one phase.
+/// could not be satisfied, gave up, and the run carried the whole ticket in one spec.
 /// </para>
 /// </summary>
 public sealed class SpecCutReviewEvidenceTests

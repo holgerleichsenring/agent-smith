@@ -62,13 +62,13 @@ public sealed class StagedRegistriesInWorkingStateTests
     public void TheFirstPrompt_CarriesTheStagedCredentials_NotOnlyTheReengagement()
     {
         // p0438: asserted against the BEHAVIOUR, not a file name. The block moved to
-        // PhaseExecutionPromptBlocks when the factory was split, and a test coupled to
+        // SpecExecutionPromptBlocks when the factory was split, and a test coupled to
         // where the code lives fails on a refactor that changed nothing about the prompt.
         var pipeline = new AgentSmith.Contracts.Commands.PipelineContext();
         pipeline.Set(AgentSmith.Contracts.Commands.ContextKeys.StagedRegistries,
             new List<string> { "/root/.nuget/NuGet/NuGet.Config — packages.example.test" });
 
-        var block = AgentSmith.Application.Services.PhaseExecutionPromptBlocks
+        var block = AgentSmith.Application.Services.SpecExecutionPromptBlocks
             .StagedRegistries(pipeline);
 
         block.Should().Contain("Package-feed credentials",

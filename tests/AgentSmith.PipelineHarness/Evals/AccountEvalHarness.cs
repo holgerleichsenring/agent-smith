@@ -13,13 +13,13 @@ namespace AgentSmith.PipelineHarness.Evals;
 /// <para>
 /// Everything between the fixture and the answer is production code: the evidence is
 /// gathered by <see cref="DeliveryEvidence"/>, the same gatherer a run gathers with, the
-/// repositories are combined into one account the way PhaseAccounting combines them, and the
+/// repositories are combined into one account the way SpecDeliveryAccounting combines them, and the
 /// search tool is handed the same live sandboxes and the same base refs. Only the model call
 /// and the sandbox implementation differ from a live run, and the second of those is what
 /// CLI mode already uses.
 /// </para>
 /// <para>
-/// 2026-08-28-c310: it gathered with a private copy of that loop until this phase, and the
+/// 2026-08-28-c310: it gathered with a private copy of that loop until this spec, and the
 /// copy threw the base ref away — so the account under test had no <c>search_base</c> and a
 /// baseline taken here would have certified a defect.
 /// </para>

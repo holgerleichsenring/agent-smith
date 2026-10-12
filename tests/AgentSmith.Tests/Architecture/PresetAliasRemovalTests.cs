@@ -50,7 +50,7 @@ public sealed class PresetAliasRemovalTests
     public void Presets_TheShippedSampleConfiguration_TeachesOnlyCurrentNames()
     {
         // The sample is what an operator copies, so a retired name in it is a configuration
-        // that fails at its first ticket — and the phase that deletes the name owns the sample.
+        // that fails at its first ticket — and the spec that deletes the name owns the sample.
         var sample = Path.Combine(ArchitectureSources.RepositoryRoot, "config", "agentsmith.example.yml");
         var offenders = File.ReadAllLines(sample)
             .Select((line, i) => (Line: line, Number: i + 1))

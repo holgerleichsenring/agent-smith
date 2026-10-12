@@ -4,7 +4,7 @@ import type { SpecDialogProposalFinding } from "@/types/spec-dialog";
 
 // 2026-09-17-042ed: what a fresh instance found wrong with the proposal being approved, listed
 // where the decision is made. Each finding shows the framework-minted evidence line it rests on;
-// a finding that cites nothing shows what the phase states instead, which is what it quoted.
+// a finding that cites nothing shows what the spec states instead, which is what it quoted.
 //
 // Nothing is shown for a clean review, and nothing for a review that could not be taken: neither
 // is a fault, and a line saying "no findings" would read as a clearance the review never gave.

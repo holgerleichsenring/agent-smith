@@ -22,7 +22,7 @@ namespace AgentSmith.Tests.Server;
 /// already existed and was readable nowhere — a version was visible exactly when it was
 /// WRONG, through a mismatch finding, and never when somebody simply wanted to know it.
 /// <para>
-/// The Finding_ cases below assert on detectors this phase deliberately did NOT rebuild.
+/// The Finding_ cases below assert on detectors this spec deliberately did NOT rebuild.
 /// A split release is already a finding: <see cref="BuildMismatchDetector"/> reports the
 /// caller's bundle against this server, and <see cref="PinnedAgentProbe"/> reports a
 /// project pinned away from this release. A second opinion on the same facts would be a

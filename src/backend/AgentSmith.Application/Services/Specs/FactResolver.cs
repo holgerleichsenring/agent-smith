@@ -19,7 +19,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 public sealed class FactResolver
 {
-    public PhaseFacts Resolve(
+    public SpecFacts Resolve(
         IReadOnlyList<FactLine> lines, IReadOnlyList<string>? evidence)
     {
         ArgumentNullException.ThrowIfNull(lines);
@@ -34,6 +34,6 @@ public sealed class FactResolver
             else
                 assumptions.Add(line.Claim);
         }
-        return new PhaseFacts(facts, assumptions);
+        return new SpecFacts(facts, assumptions);
     }
 }

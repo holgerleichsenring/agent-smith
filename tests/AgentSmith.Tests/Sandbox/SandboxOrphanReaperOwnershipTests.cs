@@ -61,7 +61,7 @@ public sealed class SandboxOrphanReaperOwnershipTests
     }
 
     [Fact]
-    public async Task UnownedContainer_FromABinaryBeforeThisPhase_IsSweptOnceThenNeverListedAgain()
+    public async Task UnownedContainer_FromABinaryBeforeThisSpec_IsSweptOnceThenNeverListedAgain()
     {
         var daemon = new FakeDockerDaemon(
             SandboxWithoutOwner("legacy-1", runId: "run-long-dead", age: PastTheAgeRail),
@@ -73,7 +73,7 @@ public sealed class SandboxOrphanReaperOwnershipTests
 
         daemon.Listed.Clear();
         await reaper.ScanOnceAsync(CancellationToken.None);
-        daemon.Listed.Should().NotContain("legacy-2", "the pre-phase sweep runs once per process");
+        daemon.Listed.Should().NotContain("legacy-2", "the pre-spec sweep runs once per process");
     }
 
     [Fact]

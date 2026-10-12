@@ -19,7 +19,7 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// </para>
 /// <para>
 /// A plain push is also the only form that can be REFUSED, and the refusal is the signal
-/// this phase needs: the remote, not this clone, decides who created the branch.
+/// this spec needs: the remote, not this clone, decides who created the branch.
 /// </para>
 /// </summary>
 public sealed class CreateOnlyBranchPush(ILogger<CreateOnlyBranchPush> logger)

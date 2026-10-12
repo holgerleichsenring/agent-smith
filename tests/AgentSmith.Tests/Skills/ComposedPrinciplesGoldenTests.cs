@@ -16,7 +16,7 @@ namespace AgentSmith.Tests.Skills;
 /// whole point: the catalog now makes <c>## Artefacts</c> mandatory on every delta, and the
 /// composer inlines a delta file verbatim — so without stripping, this test fails for all
 /// three stacks, including the two that declare nothing. It is the evidence for "every other
-/// stack composes byte-identically to before", which the phase's first draft asserted with
+/// stack composes byte-identically to before", which the spec's first draft asserted with
 /// nothing behind it.
 /// </para>
 /// <para>
@@ -118,7 +118,7 @@ public sealed class ComposedPrinciplesGoldenTests : IDisposable
         format.Should().Contain("## Writing artefacts",
             "the absence check below proves nothing against a document that lost its rules");
         format.Should().NotContain("editor configuration",
-            "the example list licensed the exact file this phase removed");
+            "the example list licensed the exact file this spec removed");
         format.Should().NotContain("build property file",
             "a build property file is the one artefact kind that cannot arrive green");
         format.Should().NotContain("ruleset",

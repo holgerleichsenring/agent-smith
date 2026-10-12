@@ -114,7 +114,7 @@ public sealed class VerifyDerivationTests : IDisposable
             .Contain(PipelineFile).And.Contain("no longer hash to what was recorded");
         notes.Findings.Should().BeEmpty("a moved source is a report, never a refusal");
         stages.Single().Stages.Select(stage => stage.Label).Should().Equal(["install", "test"],
-            "the declaration runs exactly as written — this phase reports drift, it does not "
+            "the declaration runs exactly as written — this spec reports drift, it does not "
             + "re-derive, and re-deriving is the operator's call");
     }
 

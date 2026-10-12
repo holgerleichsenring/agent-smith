@@ -34,7 +34,7 @@ public sealed class MasterQuestionResumeTests
         var writer = new RecordingWriter();
         var poster = new RecordingPoster();
         var context = Resumed(delivered: new DialogAnswer(
-            AskId, "15 minutes", null, DateTimeOffset.UtcNow, "dashboard-operator"), phaseId: "p0001");
+            AskId, "15 minutes", null, DateTimeOffset.UtcNow, "dashboard-operator"), specId: "p0001");
 
         var result = await Handler(writer, poster).ExecuteAsync(context, CancellationToken.None);
 
@@ -44,8 +44,8 @@ public sealed class MasterQuestionResumeTests
         result.InsertNext![0].Name.Should().Be(CommandNames.AgenticMaster);
         result.InsertNext[1].Name.Should().Be(CommandNames.MasterOpenQuestions,
             "a second question of the re-engaged master must park the same way");
-        result.InsertNext.Should().OnlyContain(c => c.PhaseId == "p0001",
-            "the re-engaged master belongs to the phase whose question it answers");
+        result.InsertNext.Should().OnlyContain(c => c.SpecId == "p0001",
+            "the re-engaged master belongs to the spec whose question it answers");
         writer.Questions.Should().BeEmpty("an answered question is not checkpointed again");
         poster.Posted.Should().Be(0, "an answered question is not re-posted to the ticket");
     }
@@ -62,7 +62,7 @@ public sealed class MasterQuestionResumeTests
 
         context.Pipeline.Get<Dictionary<string, string>>(ContextKeys.PlanAnswers)
             .Should().ContainKey("1").WhoseValue.Should().Be("15 minutes (the session must survive one refresh)",
-                "the phase prompt renders PlanAnswers as the operator's answers — the seam that already exists");
+                "the spec prompt renders PlanAnswers as the operator's answers — the seam that already exists");
         context.Pipeline.Has(ContextKeys.MasterOpenQuestions).Should().BeFalse("the question is answered");
         context.Pipeline.Has(ContextKeys.OpenQuestionsAwaitingAnswer).Should().BeFalse("the run is no longer parked");
         context.Pipeline.Has(ContextKeys.ResumedDialogueAnswer).Should().BeFalse("the answer is consumed exactly once");
@@ -114,7 +114,7 @@ public sealed class MasterQuestionResumeTests
 
     // The shape ResumeRequestReader leaves behind: the question restored from the checkpoint,
     // the parked ask staged, the operator's answer delivered.
-    private static MasterOpenQuestionsContext Resumed(DialogAnswer delivered, string? phaseId = null)
+    private static MasterOpenQuestionsContext Resumed(DialogAnswer delivered, string? specId = null)
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.RunId, "2026-09-08T13-28-32-a109");
@@ -127,7 +127,7 @@ public sealed class MasterQuestionResumeTests
             new Ticket(new TicketId("42"), "refresh", "the session drops", null, "Active", "test"),
             new TrackerConnection { Name = "tracker" },
             pipeline,
-            new PipelineCommand(CommandNames.MasterOpenQuestions) { PhaseId = phaseId });
+            new PipelineCommand(CommandNames.MasterOpenQuestions) { SpecId = specId });
     }
 
     private static MasterOpenQuestionsHandler Handler(

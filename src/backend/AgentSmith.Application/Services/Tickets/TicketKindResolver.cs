@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Tickets;
 using Microsoft.Extensions.Logging;
+using AgentSmith.Contracts.Json;
 
 namespace AgentSmith.Application.Services.Tickets;
 
@@ -43,7 +44,7 @@ public sealed class TicketKindResolver(ILogger<TicketKindResolver> logger)
         string? kind = null;
         foreach (var (key, configured) in tracker.WorkItemKinds)
         {
-            if (!Enum.TryParse<TicketFilingRole>(key, ignoreCase: true, out var configuredRole))
+            if (!AcceptedNames.TryParse<TicketFilingRole>(key, ignoreCase: true, out var configuredRole))
                 logger.LogWarning(
                     "Tracker '{Tracker}' work_item_kinds: unknown filing role '{Key}' ignored "
                     + "(known: {Roles})", tracker.Name, key, string.Join(", ", KnownRoles));

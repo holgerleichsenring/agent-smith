@@ -1,7 +1,7 @@
 namespace AgentSmith.Contracts.Runs;
 
 /// <summary>
-/// p0423b: ONE command a phase ran, with the exit code it ended on. A phase that "failed
+/// p0423b: ONE command a spec ran, with the exit code it ended on. A spec that "failed
 /// verification" is a sentence; the command that returned 1 and the size of the output it
 /// produced is the evidence, and the story view shows the evidence.
 /// </summary>

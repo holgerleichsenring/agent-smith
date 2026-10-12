@@ -101,7 +101,7 @@ public sealed class ScanTriageDegradationTests : IDisposable
         markdown.Should().StartWith("## Agent Smith Security Review")
             .And.NotContain(ScanTriageNotice.Headline);
         (await DeliverSarifAsync(pipeline)).Should().BeNull(
-            "a healthy run emits the document it emitted before this phase existed");
+            "a healthy run emits the document it emitted before this spec existed");
     }
 
     private static async Task<PipelineContext> MergeAsync(string answer, string schema)

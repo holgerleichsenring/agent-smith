@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/phase-gate.sh",
+            "command": "$CLAUDE_PROJECT_DIR/.claude/hooks/spec-gate.sh",
             "timeout": 900
           }
         ]

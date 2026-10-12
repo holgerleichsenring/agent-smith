@@ -32,9 +32,9 @@ public sealed class TicketAmendment(
     IServiceScopeFactory scopeFactory,
     FiledWorkTrackerProjects trackerProjects,
     Infrastructure.Persistence.Repositories.SpecDialogTicketTextRepository ticketText,
-    ApprovedPhaseSetRecorder approvals,
+    ApprovedSpecSetRecorder approvals,
     ITicketProviderFactory trackers,
-    PhaseTicketRenderer renderer, EpicChildOrderer orderer, FiledSeriesFactory seriesFiling,
+    SpecTicketRenderer renderer, EpicChildOrderer orderer, FiledSeriesFactory seriesFiling,
     FiledSpecBranch branches,
     ILogger<TicketAmendment> logger)
 {
@@ -97,11 +97,11 @@ public sealed class TicketAmendment(
         var branch = await branches.WriteAsync(
             project, record, id, await ReadBackAsync(project, id, ct), ct);
         logger.LogInformation(
-            "Ticket {Ticket} was amended from conversation {Session}: {Phases} phase(s), branch {State}",
+            "Ticket {Ticket} was amended from conversation {Session}: {Specs} spec(s), branch {State}",
             ticketId, state.JobId, amended.Set.Drafts.Count, branch.Written ? "written" : branch.Error);
         return branch.Written
             ? $"Ticket {ticketId} now says what this specification says, and the approved set "
-                + $"under it is the one you just approved ({amended.Set.Drafts.Count} phase(s))."
+                + $"under it is the one you just approved ({amended.Set.Drafts.Count} spec(s))."
             : $"Ticket {ticketId} now says what this specification says and the approved set "
                 + $"under it is the one you just approved, but the set is NOT on the ticket "
                 + $"branch ({branch.Error}). A run that claims this ticket works the set the "

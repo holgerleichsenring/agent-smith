@@ -111,7 +111,7 @@ public sealed class AnAnswerOnTheTicketReachesTheRunTests
 
         (await sut.TryCollectAnswerAsync(Checkpoint(), CancellationToken.None)).Should().BeFalse();
 
-        inbox.Delivered.Should().BeEmpty("only Azure DevOps is polled in this phase");
+        inbox.Delivered.Should().BeEmpty("only Azure DevOps is polled in this spec");
     }
 
     private static ParkedTicketDialogue Build(

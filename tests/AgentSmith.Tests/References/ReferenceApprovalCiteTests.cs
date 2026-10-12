@@ -44,11 +44,11 @@ public sealed class ReferenceApprovalCiteTests
     }
 
     [Fact]
-    public async Task ApprovedPhaseSetRecorder_Record_CitesTheConversationsSetsAtApproval()
+    public async Task ApprovedSpecSetRecorder_Record_CitesTheConversationsSetsAtApproval()
     {
         var references = new ReferenceSandboxFixture();
-        var recorder = new ApprovedPhaseSetRecorder(ApprovedSetDoubles.Store(), references, new SeriesRepos(),
-            TimeProvider.System, NullLogger<ApprovedPhaseSetRecorder>.Instance);
+        var recorder = new ApprovedSpecSetRecorder(ApprovedSetDoubles.Store(), references, new SeriesRepos(),
+            TimeProvider.System, NullLogger<ApprovedSpecSetRecorder>.Instance);
 
         var record = await recorder.RecordAsync(new ConversationState
         {
@@ -105,11 +105,11 @@ public sealed class ReferenceApprovalCiteTests
     }
 
     [Fact]
-    public async Task ApprovedPhaseSetRecorder_ConversationWithImage_CitesIt()
+    public async Task ApprovedSpecSetRecorder_ConversationWithImage_CitesIt()
     {
         var references = new WithImage();
-        var recorder = new ApprovedPhaseSetRecorder(ApprovedSetDoubles.Store(), references, new SeriesRepos(),
-            TimeProvider.System, NullLogger<ApprovedPhaseSetRecorder>.Instance);
+        var recorder = new ApprovedSpecSetRecorder(ApprovedSetDoubles.Store(), references, new SeriesRepos(),
+            TimeProvider.System, NullLogger<ApprovedSpecSetRecorder>.Instance);
 
         var record = await recorder.RecordAsync(new ConversationState
         {

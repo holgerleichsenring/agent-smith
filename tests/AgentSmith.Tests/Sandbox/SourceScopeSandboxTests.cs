@@ -260,7 +260,7 @@ public sealed class SourceScopeSandboxTests
         Name = "repo-a", Type = RepoType.GitHub, Url = "https://stub.test/repo-a",
     };
 
-    /// <summary>The specifications root a later phase declares; here only a prefix to test with.</summary>
+    /// <summary>The specifications root a later spec declares; here only a prefix to test with.</summary>
     private const string SpecsPrefix = ".agentsmith/specs";
 
     private static Step Step(StepKind kind) => new(

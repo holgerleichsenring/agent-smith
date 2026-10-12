@@ -12,7 +12,7 @@ namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
 /// 2026-10-12-3a36b: a SECOND READING of a contradiction hand-back, not a rule — whether the code
-/// says what the claim says is a model's to check. The shape of <see cref="PhasePremiseChecker"/>:
+/// says what the claim says is a model's to check. The shape of <see cref="SpecPremiseChecker"/>:
 /// a fresh instance with no stake in the claim, a look of its own, ONE call, and a verdict admitted
 /// only by an evidence id the framework minted for a look this check took and that ran. A
 /// refutation without one is discarded and the hand-back parks as it would have.

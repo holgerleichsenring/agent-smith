@@ -70,7 +70,7 @@ internal sealed class AccessTestHarness : IDisposable
             Store, Mapping, new CustomRoleRules(), new RoleRemovalGuard(Observed), Json);
         // 2026-09-14-2b7c: ONE buffer, shared by the removal and by whatever observes — a
         // test whose remover and resolver held different buffers could not see the defect
-        // this phase exists for, because the note that suppresses a return is in-memory.
+        // this spec exists for, because the note that suppresses a return is in-memory.
         Buffer = new CallerObservationBuffer(TimeProvider.System);
         Remover = new PersonRemover(Mapping, Observed, Buffer, Writer);
         Reader = new AccessSurfaceReader(

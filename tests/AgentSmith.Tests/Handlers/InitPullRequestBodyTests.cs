@@ -26,7 +26,7 @@ public sealed class InitPullRequestBodyTests
 
         body.Should().Contain("server", "the body names the context the round worked on");
         body.Should().Contain(".editorconfig", "an artefact the run wrote is named where it is ratified");
-        body.Should().NotBe($"{Literal}\n\n{Marker}", "that is the literal this phase replaced");
+        body.Should().NotBe($"{Literal}\n\n{Marker}", "that is the literal this spec replaced");
     }
 
     [Fact]

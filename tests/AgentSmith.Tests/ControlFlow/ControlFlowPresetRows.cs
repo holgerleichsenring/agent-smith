@@ -39,13 +39,13 @@ internal static class ControlFlowPresetRows
         for (var i = 0; i < flow.Steps.Count; i++)
             svg.Rect(StripX + i * TickPitch, y - 8, TickWidth, 18, TickClass(flow.Steps[i]), rx: 3);
 
-        var block = flow.Steps.Select((s, i) => (s, i)).Where(t => t.s.InPhaseBlock).ToList();
+        var block = flow.Steps.Select((s, i) => (s, i)).Where(t => t.s.InSpecBlock).ToList();
         if (block.Count == 0) return;
 
         var from = StripX + block[0].i * TickPitch;
         var to = StripX + (block[^1].i * TickPitch) + TickWidth;
         svg.Line(from, y + 16, to, y + 16, "cf-blockline");
-        svg.Text(to + 8, y + 20, "cf-accent", 9, "× one per phase");
+        svg.Text(to + 8, y + 20, "cf-accent", 9, "× one per spec");
     }
 
     private static string TickClass(StepFact step) =>

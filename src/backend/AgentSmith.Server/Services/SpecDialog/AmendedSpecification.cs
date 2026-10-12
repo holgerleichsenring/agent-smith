@@ -13,7 +13,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// filed ticket looks like, and the two would disagree the first time either changed.
 /// </para>
 /// </summary>
-/// <param name="Set">The phases to record under the ticket's key, in run order, re-id'd to the
+/// <param name="Set">The specs to record under the ticket's key, in run order, re-id'd to the
 /// ticket's series (2026-10-06-03c7c).</param>
 /// <param name="Region">The whole framework region, markers included.</param>
 /// <param name="Error">Why this proposal cannot amend anything; the others are then empty.</param>
@@ -30,8 +30,8 @@ internal sealed record AmendedSpecification(
         TicketLabelVocabulary vocabulary) =>
         proposal switch
         {
-            PhaseOutcome phase => FromPhase(
-                rendering.Series.Under(series, [phase.Draft]), conversation, rendering, Note(vocabulary)),
+            SpecOutcome spec => FromSpec(
+                rendering.Series.Under(series, [spec.Draft]), conversation, rendering, Note(vocabulary)),
             EpicOutcome epic => FromEpic(epic, series, conversation, rendering, Note(vocabulary)),
             // A bug ticket is filed from another renderer and carries no approved set, so there
             // is no region of ours on the bound ticket for it to replace.
@@ -43,9 +43,9 @@ internal sealed record AmendedSpecification(
     private static string? Note(TicketLabelVocabulary vocabulary) =>
         TicketLabelNote.For([vocabulary.ApprovedSetStamp], vocabulary.ApprovedSetStamp);
 
-    private static AmendedSpecification FromPhase(
+    private static AmendedSpecification FromSpec(
         FiledSeries set, string conversation, AmendmentRendering rendering, string? note) =>
-        new(set, rendering.Renderer.RenderPhase(set.Drafts[0], conversation, note).Body, null, set.Drafts[0].Goal);
+        new(set, rendering.Renderer.RenderSpec(set.Drafts[0], conversation, note).Body, null, set.Drafts[0].Goal);
 
     private static AmendedSpecification FromEpic(
         EpicOutcome epic, string series, string conversation, AmendmentRendering rendering, string? note)

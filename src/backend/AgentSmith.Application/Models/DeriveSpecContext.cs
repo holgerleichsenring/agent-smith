@@ -24,16 +24,16 @@ public sealed record SpecHandbackContext(
     IReadOnlyList<RepoConnection> Repos,
     PipelineContext Pipeline) : ICommandContext;
 
-/// <summary>p0393a: input for the phase-sequence splice and the per-phase selection.</summary>
-public sealed record PhaseSequenceContext(PipelineContext Pipeline) : ICommandContext;
+/// <summary>p0393a: input for the spec-sequence splice and the per-spec selection.</summary>
+public sealed record SpecSequenceContext(PipelineContext Pipeline) : ICommandContext;
 
-/// <summary>p0393a: input for SelectPhase — the phase id travels on the command.</summary>
-public sealed record SelectPhaseContext(string PhaseId, PipelineContext Pipeline) : ICommandContext;
+/// <summary>p0393a: input for SelectSpec — the spec id travels on the command.</summary>
+public sealed record SelectSpecContext(string SpecId, PipelineContext Pipeline) : ICommandContext;
 
 /// <summary>2026-09-17-0e79c: input for the premise check — the agent that asks, and the
-/// tracker the hand-back comments on. The phase itself is the CURRENT one, published by
-/// SelectPhase, because the check is about the phase the run is entering.</summary>
-public sealed record CheckPhasePremisesContext(
+/// tracker the hand-back comments on. The spec itself is the CURRENT one, published by
+/// SelectSpec, because the check is about the spec the run is entering.</summary>
+public sealed record CheckSpecPremisesContext(
     AgentConfig AgentConfig,
     TrackerConnection? Tracker,
     PipelineContext Pipeline) : ICommandContext;

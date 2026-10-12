@@ -1,14 +1,14 @@
 # The delivery account
 
-Every phase spec ends in a "done when" list. The delivery account is how a run decides whether the branch actually delivers it — one criterion at a time, against what the branch carries, by a reader that never saw how the work was done.
+Every spec ends in a "done when" list. The delivery account is how a run decides whether the branch actually delivers it — one criterion at a time, against what the branch carries, by a reader that never saw how the work was done.
 
 I built it this way because "the tests are green" and "the ticket is done" are two different claims. A master that wrote the code and then reports its own work as finished is one party grading itself. The account is the second opinion, and it is the only thing the run's verdict listens to.
 
 ## When it is taken
 
-The account is the second half of `VerifyPhase`. The first half runs the verify stages each repository declares in its context — build, test, lint, whatever the repo wrote down ([the `verify` block](../reference/concepts/context-file.md#verify-is-what-proves-a-change)). A red stage wins: an account taken over a tree that doesn't build would be an opinion about work nobody can ship, so the phase fails on the stage and names the command, the exit code and the directory it ran in.
+The account is the second half of `VerifySpec`. The first half runs the verify stages each repository declares in its context — build, test, lint, whatever the repo wrote down ([the `verify` block](../reference/concepts/context-file.md#verify-is-what-proves-a-change)). A red stage wins: an account taken over a tree that doesn't build would be an opinion about work nobody can ship, so the spec fails on the stage and names the command, the exit code and the directory it ran in.
 
-When the stages pass, the account is taken per repository, over the phase's ratified criteria. It is also taken first, when a phase is entered: a phase whose criteria the branch already satisfies is recorded as done and skipped.
+When the stages pass, the account is taken per repository, over the spec's ratified criteria. It is also taken first, when a spec is entered: a spec whose criteria the branch already satisfies is recorded as done and skipped.
 
 A run where no repository ran any verify command over a change it delivered fails, and says what was searched per repository. Nobody checked what shipped, and that isn't a pass.
 
@@ -40,9 +40,9 @@ Two follow-up questions exist, each asked once:
 
 ## What happens with the result
 
-All criteria met: the phase is verified and the next one starts.
+All criteria met: the spec is verified and the next one starts.
 
-Something outstanding: the list goes back to the master for one repair pass — it writes, the work is committed, the phase is verified again. One pass, not a loop. If the criterion is still outstanding afterwards, the phase fails. What that means for the run is on [Lifecycle](lifecycle.md#when-it-goes-wrong): a failure if nothing verified before it, a shortfall if earlier phases did.
+Something outstanding: the list goes back to the master for one repair pass — it writes, the work is committed, the spec is verified again. One pass, not a loop. If the criterion is still outstanding afterwards, the spec fails. What that means for the run is on [Lifecycle](lifecycle.md#when-it-goes-wrong): a failure if nothing verified before it, a shortfall if earlier specs did.
 
 ## Declined criteria
 
@@ -51,14 +51,14 @@ Sometimes a ticket asks for something no change inside this repository can make 
 ## Where you read it
 
 - The pull request body, under "What this run accounted for", itemised per repository.
-- `result.md` in the run record, and the phase record committed to the branch.
+- `result.md` in the run record, and the spec record committed to the branch.
 - The run detail in the [dashboard](../reference/operations/dashboard.md): the **Verify against acceptance** beat shows the card "Verify against the ratified acceptance", one row per criterion with its disposition, its citation and the reason. The badge reads "N of M proven" or "N of M · K failed". A hint above the rows says whose read you are looking at — the independent account the gate decided on, or, on runs that had none, the agent's report on its own work.
 
 ## When the verdict is wrong
 
 Next to each criterion there is a "this verdict is wrong" link. It opens a small form: pick what it actually was — "it was met", "it was not met", "it did not apply", "nothing measured it" — and write why. The reason is required. After you record it, the row shows "*your name* says: …" with the reason, and you can withdraw it later.
 
-Recording a judgement changes nothing about the run. It doesn't re-open the gate, re-run the phase, move the run's state or touch the PR. It is a labelled record of where the account got it wrong, so the account can be measured against people who know better. If you want the work redone, re-trigger the ticket.
+Recording a judgement changes nothing about the run. It doesn't re-open the gate, re-run the spec, move the run's state or touch the PR. It is a labelled record of where the account got it wrong, so the account can be measured against people who know better. If you want the work redone, re-trigger the ticket.
 
 ## Next
 

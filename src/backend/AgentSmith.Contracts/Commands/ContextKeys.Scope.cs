@@ -47,7 +47,7 @@ public static partial class ContextKeys
     /// <summary>p0413: the <see cref="Models.WorkShapeVerdict"/> the scope classifier
     /// stated for this ticket — the SHAPE of the work (deterministic transformation /
     /// judgement / mixed) with its one-line reason. Read by the spec derivation, which
-    /// cuts deterministic work into the fewest phases its deliverable allows. Absent
+    /// cuts deterministic work into the fewest specs its deliverable allows. Absent
     /// when no classification ran or the model stated no shape: the derivation is then
     /// told nothing and cuts exactly as it did before.</summary>
     public const string WorkShape = "WorkShape";

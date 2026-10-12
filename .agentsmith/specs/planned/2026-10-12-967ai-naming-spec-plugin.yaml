@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-967ai
+goal: "The spec-first plugin says spec outside its layout migration: the create-phase alias is gone and the example prompt and update-project speak of specs and spec/{id} branches."
+
+applies_to: "the specification-first-agentic-development plugin repository"
+
+requires: [2026-10-06-03c7a]
+
+facts:
+  - claim: "Plugin 2.5.0 already names the directories specs/, the key spec: and the branch spec/{id}; create-phase was kept as an alias for one release."
+    evidence: "observed: 2026-10-12, specification-first-agentic-development origin/main 965aa65, skills/create-phase/SKILL.md:2-3, skills/deliver-spec/SKILL.md:18"
+  - claim: "The remaining phase lines outside history are examples/agent-smith/prompt.md (14), skills/update-project/SKILL.md (17) and the layout-migration script, which names the old layout on purpose."
+    evidence: "observed: 2026-10-12, specification-first-agentic-development origin/main 965aa65, git grep -ic phase"
+
+scope:
+  in: >
+    Remove skills/create-phase (its one release is over). examples/agent-smith/prompt.md and context.yaml say spec.
+    update-project and deliver-spec keep naming the old layout and phase/{id} only where they describe migrating it.
+    Release 2.6.0 through the plugin's own PR.
+  out: "skills/update-project/scripts/migrate-specs-layout.py and its tests (they must name the old layout). The plugin's own specs/ and decisions/ (history)."
+
+tests:
+  - "skills/update-project/scripts/test_migrate_specs_layout.py and skills/review-spec/scripts/test_check_evidence.py green"
+
+done:
+  - "git grep -i phase outside history and the migration script and its prose returns nothing; 2.6.0 released."

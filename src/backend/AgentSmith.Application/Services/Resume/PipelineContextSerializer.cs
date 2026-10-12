@@ -2,6 +2,7 @@ using System.Text.Json;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
+using AgentSmith.Contracts.Json;
 
 namespace AgentSmith.Application.Services.Resume;
 
@@ -30,7 +31,7 @@ public sealed class PipelineContextSerializer(
         ContextKeys.SandboxRepos, ContextKeys.SandboxDiscoveries, ContextKeys.SandboxContexts,
         ContextKeys.Repository, ContextKeys.ProjectConfig, ContextKeys.ResolvedPipeline,
         ContextKeys.CatalogResolution, ContextKeys.ConceptVocabulary, ContextKeys.ConfigDir,
-        ContextKeys.SpecDialogReplySlot, ContextKeys.ActivePhaseStep, ContextKeys.SpecDialogDesignSources,
+        ContextKeys.SpecDialogReplySlot, ContextKeys.ActiveStep, ContextKeys.SpecDialogDesignSources,
         ContextKeys.SpecDialogProject,
         ContextKeys.RemainingCommands, ContextKeys.PipelineExecutionCount,
         ContextKeys.WaitingForInput, ContextKeys.OpenQuestionsAwaitingAnswer,
@@ -82,12 +83,12 @@ public sealed class PipelineContextSerializer(
 
     private bool TryRestoreEntry(SerializedEntry entry, PipelineContext into)
     {
-        if (ExcludedKeys.Contains(entry.K))
+        if (ExcludedKeys.Contains(CheckpointRenames.Key(entry.K)))
         {
             logger.LogInformation("Checkpointed entry '{Key}' is live state of the leg that parked — dropped", entry.K);
             return false;
         }
-        var type = Type.GetType(entry.T, throwOnError: false);
+        var type = CheckpointRenames.Resolve(entry.T);
         if (type is null)
         {
             logger.LogWarning("Checkpointed entry '{Key}' has unknown type '{Type}' — skipped", entry.K, entry.T);
@@ -95,9 +96,9 @@ public sealed class PipelineContextSerializer(
         }
         try
         {
-            var value = JsonSerializer.Deserialize(entry.V, type);
+            var value = JsonSerializer.Deserialize(entry.V, type, AcceptedNames.DefaultOptions);
             if (value is null) return false;
-            into.Set(entry.K, value);
+            into.Set(CheckpointRenames.Key(entry.K), value);
             return true;
         }
         // p0478: as forgiving as TrySerializeEntry, which has always caught these three and

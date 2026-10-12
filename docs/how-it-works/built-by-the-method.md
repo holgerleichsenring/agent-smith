@@ -11,7 +11,7 @@ with which machinery holding it together. Every number here comes out of the rep
 and the counting method is at the bottom, so you can check me.
 
 The short version is that Agent Smith bootstraps an `.agentsmith/` directory into
-your repo, with a context file, phase specs, a decision log and a memory of what
+your repo, with a context file, specs, a decision log and a memory of what
 it learned. That is the product. It is also how this repository got written, over
 seven months, by me and one model.
 
@@ -19,12 +19,12 @@ seven months, by me and one model.
 
 | | |
 |---|---|
-| **968** | completed phases, each specified before a line of code existed |
+| **968** | completed specs, each specified before a line of code existed |
 | **5,062** | recorded decisions, each naming the alternative it beat |
 | **432,267** | lines of C# across 4,803 files |
 | **7,038** | automated tests, gating every single commit |
 | **2,640** | commits, 659 merged PRs, 211 releases |
-| **~650 h** | of human time, roughly 40 minutes per completed phase |
+| **~650 h** | of human time, roughly 40 minutes per completed spec |
 
 That covers 18 February to 28 September 2026, so 222 calendar days. One human, one
 model.
@@ -35,9 +35,9 @@ written. And there is 0.75 of a line of test code for every line of production
 code. That second one is deliberate, and the section on architecture tests below
 is where it pays off.
 
-## The unit of work is the phase
+## The unit of work is the spec
 
-Work here arrives as a **phase**. It is a YAML file with a goal, some steps and a
+Work here arrives as a **spec**. It is a YAML file with a goal, some steps and a
 definition of done, and I write it before any code exists. It gets validated
 against `spec.schema.json`, and once it is complete I leave it alone. If
 the scope moves, a successor shows up (`p0169b`, then `p0169c`) and the original
@@ -47,7 +47,7 @@ That last bit matters more than it looks. A spec you can edit afterwards tells
 you what you wish you had decided, which is a pretty useless thing to read six
 months later.
 
-Phases landed at about 4.4 a day and commits at 11.9. Alongside them 211
+Specs landed at about 4.4 a day and commits at 11.9. Alongside them 211
 releases, roughly seven a week, all automated.
 
 ## Steering the model
@@ -61,13 +61,13 @@ gates do the heavy lifting.
 | `CLAUDE.md` | the read order for context files, the ten step workflow, the rules that always hold |
 | `.agentsmith/contexts/*/principles.md` | 245 lines of quality rules: max 20 lines per method, max 120 per class, one type per file |
 | `.agentsmith/specs/{planned,active,done}/` | the backlog as a state machine, 1,070 schema validated specs |
-| `.agentsmith/decisions/p{NNNN}.yaml` | one file per phase, every entry naming what got chosen, what it beat, and why |
+| `.agentsmith/decisions/p{NNNN}.yaml` | one file per spec, every entry naming what got chosen, what it beat, and why |
 | `.agentsmith/memory/` | 33 ratified behavioural rules, each traceable to a real correction |
-| spec-first plugin | the workflow as callable skills — `create-phase`, `review-spec`, `apply-spec`, `deliver-spec` — so it gets invoked rather than interpreted |
-| `.claude/hooks/phase-gate.sh` | the blocking commit gate |
+| spec-first plugin | the workflow as callable skills — `create-spec`, `review-spec`, `apply-spec`, `deliver-spec` — so it gets invoked rather than interpreted |
+| `.claude/hooks/spec-gate.sh` | the blocking commit gate |
 | `hooks/pre-commit` | a gate that lives outside the agent entirely |
 
-A hook intercepts every `git commit` whose message names a phase, and it lets the commit through once everything comes back
+A hook intercepts every `git commit` whose message names a spec, and it lets the commit through once everything comes back
 green: the gate's own tests, the dashboard's build and tests, the backend build,
 all 7,038 tests, four CLI dry runs, and every harness preset running crash free.
 
@@ -93,15 +93,15 @@ behind it, some concrete thing that had already gone wrong once.
 | `FileLengthRatchet` | max 120 lines per file | 187 files were already over, so they got ratcheted instead of a pass |
 | `NoStaticState` | Application and Infrastructure hold their state in DI | a static field is a dependency the composition root cannot see |
 | `NonDiCtor` | function classes are constructible only through DI | a manual `new` bypasses every setting the operator configured |
-| `ChatClientCallScope` | every model call sits inside a call scope | outside one, the cost event loses its role, phase and repository |
+| `ChatClientCallScope` | every model call sits inside a call scope | outside one, the cost event loses its role, spec and repository |
 | `ModelOutputParsing` | check a value's *kind* before you read it | one run died on a single line, and nineteen more sites were waiting |
 | `OneDeliveryGate` | exactly one method decides whether a run delivered | with two verdicts, a wrong verdict has two possible authors |
 | `GateOrder` | a gate runs *after* the thing it judges | finished work got reported as undelivered, on every single run |
 | `StartupThrowInventory` | every startup path throw is accounted for | p0391a ruled on it, and p0393 found the next one in a file p0391a had already probed |
 | `DependencyPinning` | a guard fires | `--frozen-lockfile \|\| pnpm install` guarantees it never can |
-| `PhaseRecord` | the phase record matches what the repository did | nine shipped phases were still sitting in `active/` |
-| `PhaseEvidence` | every fact of a planned phase cites a file that exists, with lines inside it, or a dated observation | review rounds kept finding citations one line too late, past the end of a file, or of a directory |
-| `PhaseFacts` | a new phase states what it read before it was written | specs written from the plan instead of the code were refused at the root, every time |
+| `SpecRecord` | the spec record matches what the repository did | nine shipped specs were still sitting in `active/` |
+| `SpecEvidence` | every fact of a planned spec cites a file that exists, with lines inside it, or a dated observation | review rounds kept finding citations one line too late, past the end of a file, or of a directory |
+| `SpecFacts` | a new spec states what it read before it was written | specs written from the plan instead of the code were refused at the root, every time |
 
 ### The ratchet
 
@@ -179,7 +179,7 @@ time and only the readout was wrong, so there was no failure to notice. It turne
 into a rule of its own. A stale declaration is a premise other decisions rest on,
 so fixing it reopens every one of them.
 
-**69 planned phases** are still open, sitting next to a `PARKED.md` of
+**69 planned specs** are still open, sitting next to a `PARKED.md` of
 architecture problems that outlived the slice that found them. One of the 33
 memory rules covers this: slice work openly and point at the named follow up,
 rather than letting scope disappear quietly.
@@ -198,7 +198,7 @@ correction I actually had to make. Ten of them travel beyond this repository.
 3. Skip the wrapper and adapter shims. The convenient path is a bridge class that
    keeps the old interface alive, and then the migration never finishes. Migrate
    the callers directly.
-4. Split, and finish each slice. Cutting a phase into pieces is healthy. Pushing
+4. Split, and finish each slice. Cutting a spec into pieces is healthy. Pushing
    load bearing wiring to "later" destroys testability for whoever has to look at
    it next, which is usually me.
 5. Unit tests with mocks bypass the composition root. Composition bugs surface
@@ -286,7 +286,7 @@ You should be able to reproduce all of this from a clone.
 - **Tests.** The count of `[Fact]` and `[Theory]` attributes, 6,860 plus 178. The
   number of executed cases runs higher, because Theory data rows expand.
 - **Decisions.** Entries across the 836 YAML files in `.agentsmith/decisions/`.
-- **Phases.** Files in `.agentsmith/specs/done/` (968) and `planned/` (102).
+- **Specs.** Files in `.agentsmith/specs/done/` (968) and `planned/` (102).
 - **Releases.** Version headings in `CHANGELOG.md`.
 - **Skills.** The number of `SKILL.md` files per commit in the
   `agent-smith-skills` catalog repository.

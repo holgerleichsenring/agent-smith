@@ -10,7 +10,7 @@ namespace AgentSmith.Tests.Server;
 /// 2026-08-25-e257: the operator records that a criterion's disposition was wrong.
 /// <para>
 /// A run that fails on a wrong criterion is indistinguishable from one that fails on a right
-/// one. Fourteen phases have tuned the delivery account, each on a single failed run, because
+/// one. Fourteen specs have tuned the delivery account, each on a single failed run, because
 /// the only failures that announce themselves are mechanical. This is the first place the
 /// other kind can be written down.
 /// </para>
@@ -62,7 +62,7 @@ public sealed class CriterionJudgementTests
     }
 
     /// <summary>
-    /// The criteria of a re-derived phase can reorder. A label keyed by position would move
+    /// The criteria of a re-derived spec can reorder. A label keyed by position would move
     /// to a different criterion, which is worse than no label at all.
     /// </summary>
     [Fact]

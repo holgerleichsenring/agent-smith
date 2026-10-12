@@ -39,7 +39,7 @@ internal static class NewestFirstFit
             if (length + text.Length > budget)
             {
                 // Everything after the first entry is dropped whole: a half-rendered comment reads
-                // like a complete one, which is the failure this phase exists to remove.
+                // like a complete one, which is the failure this spec exists to remove.
                 if (taken.Count > 0) { dropped++; continue; }
                 if (!mayOvershoot)
                 {

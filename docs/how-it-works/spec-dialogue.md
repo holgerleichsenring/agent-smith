@@ -26,10 +26,10 @@ The first reply to a new piece of work is always a discussion: what it found in 
 
 - **An answer.** Sometimes talking it through *is* the work. Nothing gets filed.
 - **A bug ticket.** Something's broken; a bug ticket lands in your tracker.
-- **A phase.** A schema-valid phase spec, the same YAML shape this project itself is built with.
-- **An epic.** A cut into several phases, in order, each with its `requires:` edges. It's still one piece of work: it files one ticket, and one run works the phases in order, a successor never starting before its predecessor verified.
+- **A spec.** A schema-valid spec, the same YAML shape this project itself is built with.
+- **An epic.** A cut into several specs, in order, each with its `requires:` edges. It's still one piece of work: it files one ticket, and one run works the specs in order, a successor never starting before its predecessor verified.
 
-A phase or epic proposal is reviewed inside the turn that made it, by a fresh instance reading the same repositories. What the review finds is shown next to the proposal when you're asked to approve it, with its evidence. A review that couldn't be taken blocks nothing.
+A spec or epic proposal is reviewed inside the turn that made it, by a fresh instance reading the same repositories. What the review finds is shown next to the proposal when you're asked to approve it, with its evidence. A review that couldn't be taken blocks nothing.
 
 Before that review, the framework checks every fact the proposal cites, without a model call: a cited file that isn't there, or a line past its end, becomes a finding *cited evidence does not resolve*. Paths are routed the way the agent's file tools route them, with or without the repository prefix. What can't be checked honestly stays unchecked rather than becoming a false finding — a repository the turn never opened, a path that exists in two repositories, a template or reference, a file over 1 MB. Later slices of an epic aren't checked, because they describe a state their predecessors haven't built yet. The proposal panel shows the facts with their evidence and the assumptions, so you see what the proposal rests on before you approve it.
 
@@ -39,17 +39,17 @@ Before anything is created you're asked, as Slack blocks, a Teams card, or a car
 
 - **approve** it, which files it;
 - **reject** it, which files nothing;
-- pick another shape. A bug offers **Make it a phase**; a phase offers **Cut into several phases** and **Make it a bug ticket**; an epic offers **Make it one phase**. In a conversation about an existing ticket, phases and epics also offer **Amend this ticket** (see [Work it out](work-it-out.md#talking-about-an-existing-ticket)). Picking a shape files nothing. It starts a new turn in that shape, and you approve the result;
+- pick another shape. A bug offers **Make it a spec**; a spec offers **Cut into several specs** and **Make it a bug ticket**; an epic offers **Make it one spec**. In a conversation about an existing ticket, specs and epics also offer **Amend this ticket** (see [Work it out](work-it-out.md#talking-about-an-existing-ticket)). Picking a shape files nothing. It starts a new turn in that shape, and you approve the result;
 - reply with anything else, which is taken as a note, and the proposal is revised with it.
 
 If the buttons can't be shown, a text reply in the thread still works. The question waits fifteen minutes; after that nothing is filed and your next message starts a fresh turn.
 
 ## What approval files
 
-Approval files exactly one ticket into the project's tracker, on all four trackers (GitHub, GitLab, Azure DevOps, Jira), and reports its key and URL. For a phase or an epic, in this order:
+Approval files exactly one ticket into the project's tracker, on all four trackers (GitHub, GitLab, Azure DevOps, Jira), and reports its key and URL. For a spec or an epic, in this order:
 
-1. **The ticket.** It carries one label, `phase-spec:approved` (a tracker can rename it, see [labels](../trigger-it/labels.md#labels-the-framework-writes)), and a short note in its body explaining what that label means. The note is removed before any model or pull request reads the ticket. Its work-item type comes from the tracker's `work_item_kinds` map, keyed by filing role: `phase` for a single phase, `work` for an epic's ticket, `bug` for a bug. Without a mapping the tracker's default type is used.
-2. **The approved set.** The server records the approved phases against the ticket, and writes them to the ticket's branch under `.agentsmith/specs/<provider>-<ticketId>/`, with a `set.yaml` index. If that branch write fails, the filing still stands and says so; the run that claims the ticket publishes the set from the stored record.
+1. **The ticket.** It carries one label, `phase-spec:approved` (a tracker can rename it, see [labels](../trigger-it/labels.md#labels-the-framework-writes)), and a short note in its body explaining what that label means. The note is removed before any model or pull request reads the ticket. Its work-item type comes from the tracker's `work_item_kinds` map, keyed by filing role: `spec` (or `phase`) for a single spec, `work` for an epic's ticket, `bug` for a bug. Without a mapping the tracker's default type is used.
+2. **The approved set.** The server records the approved specs against the ticket, and writes them to the ticket's branch under `.agentsmith/specs/<provider>-<ticketId>/`, with a `set.yaml` index. If that branch write fails, the filing still stands and says so; the run that claims the ticket publishes the set from the stored record.
 3. **The routing tag.** When the project resolves tickets by tag, that tag is added so the poller routes the ticket to this project. An empty value, or one the tracker's label syntax can't carry, is reported instead of sent.
 4. **The start.** If routing would claim the ticket, it's moved into the project's first trigger status, which starts the run. On the dashboard that move needs the `runs.control` permission. An approval from Slack or Teams never moves a ticket. Either way, a ticket created in a status that already triggers starts on its own. When the ticket isn't started, the filing says why and what would start it.
 
@@ -57,7 +57,7 @@ The ticket reads like one a person would write: the goal first, then **Why**, **
 
 A bug is filed the same way without labels and without an approved set: the ticket, the routing tag, the start. It runs the `code` pipeline from its own text.
 
-A run on a filed phase or epic works the approved set as it stands. It doesn't derive a spec of its own. If there's no set on the branch and no stored record, the ticket is parked, and the park names the path it looked at. A person can still type the `phase` label onto a ticket to route it the same way.
+A run on a filed spec or epic works the approved set as it stands. It doesn't derive a spec of its own. If there's no set on the branch and no stored record, the ticket is parked, and the park names the path it looked at. A person can still type the `spec` label (or `phase`) onto a ticket to route it the same way.
 
 ## Changing what was approved
 

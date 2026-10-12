@@ -11,7 +11,7 @@ The innermost layer: entities, value objects and exceptions, with no framework o
 | Kind | Examples |
 |------|----------|
 | Entities (`Entities/`) | `Ticket`, `TicketComment`, `Repository`, `Plan`, `PlanStep`, `PlanDecision`, `CodeChange`, `Diff`, `AttachmentRef` |
-| Value objects and results (`Models/`) | `TicketId`, `BranchName`, `FilePath`, `ProjectName`, `CommandResult`, `PipelineCommand`, the run and phase accounts (`RunAccounts`, `PhaseAccounts`, `SpecAccount`), the scan contract (`ScanContract`, `ScanCriterion`), PR-review models (`PrDiffAnalysis`, `PrReviewInlineComment`) |
+| Value objects and results (`Models/`) | `TicketId`, `BranchName`, `FilePath`, `ProjectName`, `CommandResult`, `PipelineCommand`, the run and spec accounts (`RunAccounts`, `PhaseAccounts`, `SpecAccount`), the scan contract (`ScanContract`, `ScanCriterion`), PR-review models (`PrDiffAnalysis`, `PrReviewInlineComment`) |
 | Exceptions (`Exceptions/`) | `AgentSmithException` (base), `ConfigurationException`, `ProviderException`, `TicketNotFoundException`, `CapacityExhaustedException`, `StaleConfigVersionException`, `DataArchiveException` |
 
 ---
@@ -64,7 +64,7 @@ The path is: webhook handler or poller → `TicketClaimService` → `IRedisJobQu
 
 ### Handlers
 
-`Services/Handlers/` holds one handler per pipeline step, each implementing `ICommandHandler<TContext>`. The ones that carry judgement are `AgenticMasterHandler`, which runs a pipeline's master skill, and `PhaseSequenceHandler`, which runs the `code` pipeline's per-phase loop. Which handlers a pipeline runs, and in what order, is on the [Pipelines](../pipelines/index.md) page.
+`Services/Handlers/` holds one handler per pipeline step, each implementing `ICommandHandler<TContext>`. The ones that carry judgement are `AgenticMasterHandler`, which runs a pipeline's master skill, and `SpecSequenceHandler`, which runs the `code` pipeline's per-spec loop. Which handlers a pipeline runs, and in what order, is on the [Pipelines](../pipelines/index.md) page.
 
 ---
 

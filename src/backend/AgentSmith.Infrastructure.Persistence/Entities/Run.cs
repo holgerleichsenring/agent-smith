@@ -73,7 +73,7 @@ public sealed class Run : EntityBase
     public long? BudgetCapTokens { get; set; }
     // p0413: the SHAPE the scope classifier stated for this ticket
     // (deterministic/judgement/mixed) and the one line that says why — the signal
-    // that decided how the ticket was cut into phases. Null on pre-p0413 rows and
+    // that decided how the ticket was cut into specs. Null on pre-p0413 rows and
     // on runs whose classifier stated no shape (the cut was then the default one).
     public string? WorkShape { get; set; }
     public string? WorkShapeReason { get; set; }

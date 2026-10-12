@@ -93,7 +93,7 @@ public sealed class PipelineExecutor(
         // p0405: the last sequence announced, so the run detail can say what is
         // still coming. Re-announced only when a handler splices into the list.
         string? announced = null;
-        // 2026-09-17-0e79e: PhaseSequence publishes a budget MID-RUN, so the number the
+        // 2026-09-17-0e79e: SpecSequence publishes a budget MID-RUN, so the number the
         // guard works to is not the number the start line named. Say so when it changes.
         var logged = StepBudget.From(context);
 
@@ -117,7 +117,7 @@ public sealed class PipelineExecutor(
                 await sandbox.EnsureSandboxesAsync(projectConfig, context, ct);
 
             // 2026-09-17-0e79e: exhaustion is reported the way a failing step is, so the
-            // finalizer tail runs and the phases that verified are still delivered.
+            // finalizer tail runs and the specs that verified are still delivered.
             if (executionCount - startExecutionCount + 1 > budget.Limit)
                 return await stepFailure.ReportExhaustedAsync(
                     current, commands, commandList, projectConfig, context, lifecycle,

@@ -7,7 +7,7 @@ namespace AgentSmith.Tests.Server;
 
 /// <summary>
 /// p0503c: CHARACTERIZATION, not a specification — these tests pin what the expansion
-/// refcount does today so a successor phase has a red starting point, and they are green
+/// refcount does today so a successor spec has a red starting point, and they are green
 /// on behaviour that is wrong.
 /// <para>
 /// The registry is a process-global singleton over a per-(run, repo) counter, and

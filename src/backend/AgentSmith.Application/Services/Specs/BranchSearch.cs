@@ -8,7 +8,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// <summary>
 /// p0483: a read-only search of the branch, for the delivery account to run ITSELF.
 /// <para>
-/// Five phases fixed the FORM of a fact copied into a budgeted list and back out; p0483
+/// Five specs fixed the FORM of a fact copied into a budgeted list and back out; p0483
 /// changed the posture instead — look. 2026-08-25-0eae extends the reach to the BASE.
 /// </para>
 /// <para>

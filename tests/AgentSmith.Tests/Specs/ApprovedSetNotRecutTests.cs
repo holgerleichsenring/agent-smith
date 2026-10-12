@@ -23,7 +23,7 @@ public sealed class ApprovedSetNotRecutTests
     public async Task ApprovedSet_CommentOnTheTicket_IsNotRecut()
     {
         var harness = Harness(approved: true);
-        harness.Comments = [OurCut(), Operator("phase b is wrong: the callers stay where they are")];
+        harness.Comments = [OurCut(), Operator("spec b is wrong: the callers stay where they are")];
 
         var result = await harness.Handler().ExecuteAsync(harness.Context(Ticket()), default);
 
@@ -45,11 +45,11 @@ public sealed class ApprovedSetNotRecutTests
     }
 
     /// <summary>
-    /// The most likely re-trigger there is: a run that died before its first phase. That state
+    /// The most likely re-trigger there is: a run that died before its first spec. That state
     /// re-cuts a set nobody approved, and must not re-cut one somebody did.
     /// </summary>
     [Fact]
-    public async Task ApprovedSet_RetriggerWithNoExecutedPhase_IsNotRecut()
+    public async Task ApprovedSet_RetriggerWithNoExecutedSpec_IsNotRecut()
     {
         var harness = Harness(approved: true);
 
@@ -62,7 +62,7 @@ public sealed class ApprovedSetNotRecutTests
 
     /// <summary>
     /// On run one there is no cut comment to measure from, so the WHOLE thread counts as an
-    /// answer. The rule this phase adds is asked of the set, not of the thread.
+    /// answer. The rule this spec adds is asked of the set, not of the thread.
     /// </summary>
     [Fact]
     public async Task ApprovedSet_FirstRunWithNoCutCommentAndAThread_IsStillNotRecut()
@@ -77,7 +77,7 @@ public sealed class ApprovedSetNotRecutTests
     }
 
     [Fact]
-    public async Task UnapprovedSet_RetriggerWithNoExecutedPhase_StillReCuts()
+    public async Task UnapprovedSet_RetriggerWithNoExecutedSpec_StillReCuts()
     {
         var harness = Harness(approved: false);
         harness.Deriver.Result = Derivation();
@@ -106,7 +106,7 @@ public sealed class ApprovedSetNotRecutTests
     {
         var harness = Harness(approved: true);
         harness.Tracker = harness.Notices.Tracker;
-        harness.Comments = [OurCut(), Operator("phase b is wrong")];
+        harness.Comments = [OurCut(), Operator("spec b is wrong")];
 
         await harness.Handler().ExecuteAsync(harness.Context(Ticket()), default);
 
@@ -191,7 +191,7 @@ public sealed class ApprovedSetNotRecutTests
     {
         var harness = Harness(approved: true);
         harness.Tracker = harness.Notices.Tracker;
-        var operatorComment = Operator("phase b is wrong");
+        var operatorComment = Operator("spec b is wrong");
         harness.Comments = [OurCut(), operatorComment];
 
         await harness.Handler().ExecuteAsync(harness.Context(Ticket()), default);
@@ -259,7 +259,7 @@ public sealed class ApprovedSetNotRecutTests
 
     /// <summary>
     /// 2026-09-22-6ad7: a record carrying a NEWER approval no longer reaches the set at all. The
-    /// branch answered, so it is the set — an edit to a phase that already ran is not merged, not
+    /// branch answered, so it is the set — an edit to a spec that already ran is not merged, not
     /// discarded-and-reported, and not compared: the record is never consulted.
     /// </summary>
     [Fact]
@@ -271,7 +271,7 @@ public sealed class ApprovedSetNotRecutTests
             Key,
             ApprovedSets.Set(
                 Key,
-                [ApprovedSets.Phase("p19106a", "Rewritten after it ran"), ApprovedSets.Phase("p19106b")],
+                [ApprovedSets.Spec("p19106a", "Rewritten after it ran"), ApprovedSets.Spec("p19106b")],
                 ApprovedSets.Approval(ApprovedSets.Noon.AddHours(2), "session-99")),
             [],
             ApprovedSets.Tracker);
@@ -312,8 +312,8 @@ public sealed class ApprovedSetNotRecutTests
             BranchYaml(fingerprint ?? TicketTextFingerprint.Of(Ticket()), approved, handback),
             new Dictionary<string, string>
             {
-                ["p19106a-first"] = PhaseYaml("p19106a"),
-                ["p19106b-second"] = PhaseYaml("p19106b"),
+                ["p19106a-first"] = SpecYaml("p19106a"),
+                ["p19106b-second"] = SpecYaml("p19106b"),
             }, executed);
         return harness;
     }
@@ -351,7 +351,7 @@ public sealed class ApprovedSetNotRecutTests
         return string.Join("\n", lines);
     }
 
-    private static string PhaseYaml(string id) => $"""
+    private static string SpecYaml(string id) => $"""
         spec: {id}
         goal: "Goal {id}"
         done:
@@ -365,7 +365,7 @@ public sealed class ApprovedSetNotRecutTests
         "agent-smith", DateTimeOffset.UtcNow.AddHours(-2),
         SpecSetComment.Render(
             new SpecSet(
-                Key, [ApprovedSets.Phase("p19106a")], SpecAccounting.Empty,
+                Key, [ApprovedSets.Spec("p19106a")], SpecAccounting.Empty,
                 [new SpecRevision(1, SpecRevisionCause.Initial, ApprovedSets.Noon)],
                 SpecSource.BranchArtifact),
             null));
@@ -376,11 +376,11 @@ public sealed class ApprovedSetNotRecutTests
     private static SpecDerivation Derivation()
     {
         var segments = TicketSegmenter.Segment(Text);
-        var phase = new SpecPhase(
-            ApprovedSets.Phase("p19106a").Draft, "p19106a", string.Empty, [.. segments.Select(s => s.Id)]);
+        var spec = new SpecPhase(
+            ApprovedSets.Spec("p19106a").Draft, "p19106a", string.Empty, [.. segments.Select(s => s.Id)]);
         return new SpecDerivation(
             new SpecSet(
-                Key, [phase], SpecAccountingBuilder.Build([phase], [], segments),
+                Key, [spec], SpecAccountingBuilder.Build([spec], [], segments),
                 [new SpecRevision(1, SpecRevisionCause.Initial, ApprovedSets.Noon)],
                 SpecSource.Derived),
             []);

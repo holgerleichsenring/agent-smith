@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using AgentSmith.Contracts.Json;
 
 namespace AgentSmith.Contracts.Runs;
 
@@ -90,6 +91,7 @@ public static class RunStoryJson
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         PropertyNameCaseInsensitive = true,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        TypeInfoResolver = AcceptedNames.Resolver,
     };
 
     public static string Serialize<T>(T value) => JsonSerializer.Serialize(value, Options);

@@ -9,7 +9,7 @@ namespace AgentSmith.Server.Security;
 /// Every name here was derived from the mapped routes, not invented.
 /// <see cref="IdentityRead"/> is the one exception and is deliberate: no route carries it
 /// yet, it is what the identity endpoint of *a token is validated against one authority*
-/// will need, and cataloguing it here means that phase adds a route instead of reopening
+/// will need, and cataloguing it here means that spec adds a route instead of reopening
 /// the catalog.
 /// </para>
 /// </summary>

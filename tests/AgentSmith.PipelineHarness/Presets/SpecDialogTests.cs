@@ -18,7 +18,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// composition — SpecDialogTurnRunner → ExecutePipelineUseCase →
 /// spec-dialog preset → AgenticMasterHandler — with the LLM scripted.
 /// Tier-1 (cached code map, no sandbox), tier-2 (lazy read-only source
-/// sandbox on the first content read), and the phase-spec draft gate
+/// sandbox on the first content read), and the spec draft gate
 /// (valid shown, invalid re-prompted and never surfaced raw).
 /// </summary>
 [Trait("Category", "PipelineHarness")]
@@ -81,12 +81,12 @@ public sealed class SpecDialogTests
     }
 
     [Fact]
-    public async Task DesignPartner_PhaseOutcome_ProducesSchemaValidDraft()
+    public async Task DesignPartner_SpecOutcome_ProducesSchemaValidDraft()
     {
         await using var harness = BuildHarness();
-        harness.ChatClient.EnqueueText($"Here is the phase draft:\n{ValidDraft}");
+        harness.ChatClient.EnqueueText($"Here is the spec draft:\n{ValidDraft}");
 
-        var reply = await RunTurnAsync(harness, Discussed("draft the widget phase now"));
+        var reply = await RunTurnAsync(harness, Discussed("draft the widget spec now"));
 
         reply.Should().Contain("spec: p9999", "a schema-valid draft is shown as-is");
         harness.ChatClient.InvocationCount.Should().Be(1, "a valid draft needs no re-prompt");
@@ -97,15 +97,15 @@ public sealed class SpecDialogTests
     {
         await using var harness = BuildHarness();
         harness.ChatClient
-            .EnqueueText("Draft:\n```yaml\nspec: not-a-valid-phase-id\n```")
+            .EnqueueText("Draft:\n```yaml\nspec: not-a-valid-spec-id\n```")
             .EnqueueText($"Corrected:\n{ValidDraft}");
 
-        var reply = await RunTurnAsync(harness, Discussed("draft the widget phase now"));
+        var reply = await RunTurnAsync(harness, Discussed("draft the widget spec now"));
 
         harness.ChatClient.InvocationCount.Should().Be(2,
             "the invalid draft re-prompts the master exactly once with the schema error");
         reply.Should().Contain("spec: p9999", "the corrected draft is what surfaces");
-        reply.Should().NotContain("not-a-valid-phase-id", "the invalid draft is never surfaced raw");
+        reply.Should().NotContain("not-a-valid-spec-id", "the invalid draft is never surfaced raw");
         FlattenPrompt(harness).Should().Contain("failed schema validation",
             "the re-prompt names the validation failure to the master");
     }

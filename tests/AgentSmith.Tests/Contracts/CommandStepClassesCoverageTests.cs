@@ -43,7 +43,7 @@ public sealed class CommandStepClassesCoverageTests
     {
         CommandStepClasses.Get($"{CommandNames.SkillRound}:architect:1")
             .Should().Be(CommandStepClasses.Milestone);
-        CommandStepClasses.Get($"{CommandNames.SelectPhase}:p19106a")
+        CommandStepClasses.Get($"{CommandNames.SelectSpec}:p19106a")
             .Should().Be(CommandStepClasses.Internal);
     }
 
@@ -60,7 +60,7 @@ public sealed class CommandStepClassesCoverageTests
         GateSilence.IsNoOpSummary(
             CommandNames.BootstrapGate, "Bootstrap files present in every repo.").Should().BeTrue();
         GateSilence.IsNoOpSummary(
-            CommandNames.PhaseSpecGate, "Phase spec p19106a validated: goal").Should().BeTrue();
+            CommandNames.SpecGate, "Spec p19106a validated: goal").Should().BeTrue();
         GateSilence.IsNoOpSummary(
             CommandNames.ScopeRepos, "Scoped run to 2 of 5 repos: api, worker").Should().BeFalse();
         GateSilence.IsNoOpSummary(

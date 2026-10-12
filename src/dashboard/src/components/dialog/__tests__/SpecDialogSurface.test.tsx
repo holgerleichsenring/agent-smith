@@ -9,7 +9,7 @@ import type {
   SpecDialogActivityPush,
   SpecDialogFilingPush,
   SpecDialogMessagePush,
-  SpecDialogPhaseProposal,
+  SpecDraftProposal,
   SpecDialogProposalPush,
   SpecDialogQuestionPush,
   SpecDialogReadingPush,
@@ -191,18 +191,18 @@ function question(overrides: Partial<SpecDialogQuestionPush> = {}): SpecDialogQu
   };
 }
 
-function phase(
-  phaseId: string,
-  overrides: Partial<SpecDialogPhaseProposal> = {},
-): SpecDialogPhaseProposal {
+function draftSpec(
+  specId: string,
+  overrides: Partial<SpecDraftProposal> = {},
+): SpecDraftProposal {
   return {
-    phaseId,
-    goal: `goal of ${phaseId}`,
-    steps: [`step of ${phaseId}`],
-    tests: [`Test_Of_${phaseId}`],
-    done: [`done of ${phaseId}`],
+    phaseId: specId,
+    goal: `goal of ${specId}`,
+    steps: [`step of ${specId}`],
+    tests: [`Test_Of_${specId}`],
+    done: [`done of ${specId}`],
     requires: [],
-    yaml: `phase: ${phaseId}`,
+    yaml: `spec: ${specId}`,
     facts: [],
     assumptions: [],
     ...overrides,
@@ -214,7 +214,7 @@ function proposal(overrides: Partial<SpecDialogProposalPush> = {}): SpecDialogPr
     dialogId: heldDialogId(),
     kind: "phase",
     bug: null,
-    phase: phase("p9001"),
+    phase: draftSpec("p9001"),
     parent: null,
     children: [],
     at: "2026-09-15T10:03:00Z",
@@ -244,7 +244,7 @@ function step(overrides: Partial<SpecDialogActivityPush> = {}): SpecDialogActivi
 function filing(overrides: Partial<SpecDialogFilingPush> = {}): SpecDialogFilingPush {
   return {
     dialogId: heldDialogId(),
-    filed: [{ reference: "https://tracker/7", title: "p9001: the phase" }],
+    filed: [{ reference: "https://tracker/7", title: "p9001: the spec" }],
     error: null,
     at: "2026-09-15T10:04:00Z",
     notes: [],
@@ -260,7 +260,7 @@ function filedWork(overrides: Partial<FiledWorkTicket> = {}): FiledWork {
       {
         reference: "https://tracker/7",
         key: "SAMPLE-412",
-        title: "p9001: the phase",
+        title: "p9001: the spec",
         ticketId: "7",
         project: "sample",
         start: { state: "Started", reason: "it already triggers" },
@@ -325,7 +325,7 @@ function filedWork(overrides: Partial<FiledWorkTicket> = {}): FiledWork {
                     // 2026-09-17-042ef: a second one, because one finding cannot show whether
                     // two run together — which on the rendered page they did.
                     // 2026-09-17-042ef: reverted too, because the revert note was keyed by
-                    // PHASE and two of them under one phase made getByTestId throw.
+                    // SPEC and two of them under one spec made getByTestId throw.
                     {
                       repository: "api",
                       path: "src/B.cs",
@@ -368,8 +368,8 @@ function filedWork(overrides: Partial<FiledWorkTicket> = {}): FiledWork {
   };
 }
 
-/** The same filing, whose one phase stopped in the given status with the verdict it recorded. */
-function stoppedPhase(status: string, verdict: string): FiledWork {
+/** The same filing, whose one spec stopped in the given status with the verdict it recorded. */
+function stoppedSpec(status: string, verdict: string): FiledWork {
   const work = filedWork();
   const run = work.tickets[0].runs[0];
   return {
@@ -388,7 +388,7 @@ function stoppedPhase(status: string, verdict: string): FiledWork {
   };
 }
 
-/** 2026-09-17-042ef: the same filing whose one phase carries the given review state. */
+/** 2026-09-17-042ef: the same filing whose one spec carries the given review state. */
 function reviewedBy(review: FiledWorkReview | null): FiledWork {
   const work = filedWork();
   const run = work.tickets[0].runs[0];
@@ -757,7 +757,7 @@ describe("SpecDialogSurface", () => {
   });
 
   it("SpecDialogSurface_ViewNotYetRead_SaysItIsLoading", async () => {
-    // A read that never answers. Before this phase the pending state and the answered-empty one
+    // A read that never answers. Before this spec the pending state and the answered-empty one
     // were the same empty list, and both drew a select with nothing in it.
     fetchSpecDialog.mockReturnValue(new Promise(() => {}));
     render(<SpecDialogSurface />);
@@ -1222,7 +1222,7 @@ describe("SpecDialogSurface", () => {
     expect(screen.queryByText("two replies ago")).not.toBeInTheDocument();
   });
 
-  // 2026-09-17-042em, found in review: the read this phase added is the EXPENSIVE one — every
+  // 2026-09-17-042em, found in review: the read this spec added is the EXPENSIVE one — every
   // listed transcript parsed, two further JSON documents per row, up to fifty rows — so paying it
   // on every reply for the life of a conversation buys nothing once the row already names it.
   it("SpecDialog_TheConversationList_IsNotReadWhileTheRowAlreadyNamesTheConversation", async () => {
@@ -1368,7 +1368,7 @@ describe("SpecDialogSurface", () => {
       .toHaveTextContent("Aktualisierung aller Projektbibliotheken"));
   });
 
-  // The defect this phase closes: the title of a conversation opened with a fenced block is null
+  // The defect this spec closes: the title of a conversation opened with a fenced block is null
   // for GOOD, so before this the page paid the expensive read on every reply for its whole life,
   // while the row beside it had been naming it since the first turn.
   it("SpecDialog_ATitlelessRowThatGainedASubject_TriggersNoFurtherListRead", async () => {
@@ -1497,16 +1497,16 @@ describe("SpecDialogSurface", () => {
   });
 
   // The three variants the removed spies asserted out of the browser prompt, now asserted out
-  // of the rendered dialog: a phase (and the epic parent) names a sentence in the ticket that
+  // of the rendered dialog: a spec (and the epic parent) names a sentence in the ticket that
   // stops resolving, a bug is not given a sentence it never had, and a filing whose kind is
   // gone falls back to the one true of every filing.
   it("SpecDialog_TheAsk_CarriesTheWarningForWhatThatConversationFiled", async () => {
-    const phase = await askedAbout({ kind: "phase", tickets: 1, partial: false });
-    expect(phase).toContain("Delete \u201Ca widget that reads the ledger\u201D?");
-    expect(phase).toContain("This cannot be undone");
-    expect(phase).toContain("The tickets it filed stay in the tracker");
-    expect(phase).toContain("the specification approved here stays with them");
-    expect(phase).toContain(
+    const spec = await askedAbout({ kind: "phase", tickets: 1, partial: false });
+    expect(spec).toContain("Delete \u201Ca widget that reads the ledger\u201D?");
+    expect(spec).toContain("This cannot be undone");
+    expect(spec).toContain("The tickets it filed stay in the tracker");
+    expect(spec).toContain("the specification approved here stays with them");
+    expect(spec).toContain(
       "the sentence in the ticket that names this conversation will stop resolving");
 
     const bug = await askedAbout({ kind: "bug", tickets: 1, partial: false });
@@ -1641,7 +1641,7 @@ describe("SpecDialogSurface", () => {
     expect(fetchSpecDialogConversations).toHaveBeenCalledTimes(listed);
 
     act(() => messages.emit({
-      dialogId: heldDialogId(), title: "Spec dialog", text: "Filed one phase:", at: new Date().toISOString(),
+      dialogId: heldDialogId(), title: "Spec dialog", text: "Filed one spec:", at: new Date().toISOString(),
     }));
 
     await waitFor(() =>
@@ -2249,7 +2249,7 @@ describe("SpecDialogSurface", () => {
     expect(await screen.findAllByTestId("dialog-turn-user")).toHaveLength(1);
   });
 
-  it("SpecDialog_APhaseProposal_RendersGoalStepsTestsAndDone", async () => {
+  it("SpecDialog_ASpecProposal_RendersGoalStepsTestsAndDone", async () => {
     await renderSurface();
 
     act(() => proposals.emit(proposal()));
@@ -2284,14 +2284,14 @@ describe("SpecDialogSurface", () => {
     act(() => proposals.emit(proposal({
       kind: "epic",
       phase: null,
-      parent: phase("p9000"),
+      parent: draftSpec("p9000"),
       // As the backend ordered them: the orderer the filer itself runs put b before a.
-      children: [phase("p9000b"), phase("p9000a", { requires: ["p9000b"] })],
+      children: [draftSpec("p9000b"), draftSpec("p9000a", { requires: ["p9000b"] })],
     })));
 
-    const parent = await screen.findByTestId("dialog-proposal-phase-p9000");
+    const parent = await screen.findByTestId("dialog-proposal-spec-p9000");
     expect(parent).toHaveTextContent("goal of p9000");
-    // 2026-09-17-0e79d: the parent draft is filed as the phase-labelled WORK ticket carrying the
+    // 2026-09-17-0e79d: the parent draft is filed as the spec-execution WORK ticket carrying the
     // whole approved set; calling it a record said the opposite of what the filer does.
     expect(parent).toHaveTextContent("The work ticket — one run works every slice");
     expect(parent).not.toHaveTextContent("a record, not work");
@@ -2327,7 +2327,7 @@ describe("SpecDialogSurface", () => {
     act(() => proposals.emit(proposal()));
     await screen.findByTestId("dialog-proposal");
 
-    act(() => proposals.emit(proposal({ phase: phase("p9002") })));
+    act(() => proposals.emit(proposal({ phase: draftSpec("p9002") })));
 
     const pane = await screen.findByTestId("dialog-proposal");
     expect(pane).toHaveTextContent("goal of p9002");
@@ -2341,7 +2341,7 @@ describe("SpecDialogSurface", () => {
     act(() => filings.emit(filing()));
 
     const pane = await screen.findByTestId("dialog-filed");
-    expect(pane).toHaveTextContent("p9001: the phase");
+    expect(pane).toHaveTextContent("p9001: the spec");
     expect(pane.querySelector("a")).toHaveAttribute("href", "https://tracker/7");
     expect(screen.queryByTestId("dialog-proposal")).not.toBeInTheDocument();
   });
@@ -2352,13 +2352,13 @@ describe("SpecDialogSurface", () => {
     await renderSurface();
 
     act(() => filings.emit(filing({
-      filed: [{ reference: "https://tracker/7", title: "p9001: the phase", key: "SAMPLE-412" }],
+      filed: [{ reference: "https://tracker/7", title: "p9001: the spec", key: "SAMPLE-412" }],
     })));
 
     const link = (await screen.findByTestId("dialog-filed")).querySelector("a")!;
     expect(link).toHaveAttribute("href", "https://tracker/7");
     expect(link).toHaveTextContent("SAMPLE-412");
-    expect(link).toHaveTextContent("p9001: the phase");
+    expect(link).toHaveTextContent("p9001: the spec");
     expect(link).not.toHaveTextContent("https://tracker/7");
   });
 
@@ -2369,7 +2369,7 @@ describe("SpecDialogSurface", () => {
 
     const link = (await screen.findByTestId("dialog-filed")).querySelector("a")!;
     expect(link).toHaveTextContent("https://tracker/7");
-    expect(link).toHaveTextContent("p9001: the phase");
+    expect(link).toHaveTextContent("p9001: the spec");
   });
 
   it("SpecDialog_APartialFailure_ShowsWhatWasCreatedBesideTheError", async () => {
@@ -2452,7 +2452,7 @@ describe("SpecDialogSurface", () => {
     await renderSurface();
     const filed = {
       reference: "https://tracker/7",
-      title: "p9001: the phase",
+      title: "p9001: the spec",
       ticketId: "7",
       project: "sample",
       key: "SAMPLE-412",
@@ -2476,14 +2476,14 @@ describe("SpecDialogSurface", () => {
         .toHaveTextContent("withdrawn — closed from the conversation that filed it"));
   });
 
-  // A filing written before that phase carries no start state; the panel says nothing about it
+  // A filing written before that spec carries no start state; the panel says nothing about it
   // rather than guessing, which is the claim the state exists to stop.
   it("SpecDialog_AFilingWithoutStartStates_RendersAsBefore", async () => {
     await renderSurface();
 
     act(() => filings.emit(filing()));
 
-    expect(await screen.findByTestId("dialog-filed")).toHaveTextContent("p9001: the phase");
+    expect(await screen.findByTestId("dialog-filed")).toHaveTextContent("p9001: the spec");
     expect(screen.queryByTestId("dialog-filed-start-https://tracker/7")).not.toBeInTheDocument();
   });
 
@@ -2494,7 +2494,7 @@ describe("SpecDialogSurface", () => {
 
     act(() => filings.emit(withoutNotes));
 
-    expect(await screen.findByTestId("dialog-filed")).toHaveTextContent("p9001: the phase");
+    expect(await screen.findByTestId("dialog-filed")).toHaveTextContent("p9001: the spec");
     expect(screen.queryByTestId("dialog-filed-notes")).not.toBeInTheDocument();
   });
 
@@ -2503,7 +2503,7 @@ describe("SpecDialogSurface", () => {
     act(() => filings.emit(filing()));
     await screen.findByTestId("dialog-filed");
 
-    act(() => proposals.emit(proposal({ phase: phase("p9002") })));
+    act(() => proposals.emit(proposal({ phase: draftSpec("p9002") })));
 
     expect(await screen.findByTestId("dialog-proposal")).toHaveTextContent("goal of p9002");
     expect(screen.queryByTestId("dialog-filed")).not.toBeInTheDocument();
@@ -2523,11 +2523,11 @@ describe("SpecDialogSurface", () => {
 
     render(<SpecDialogSurface />);
 
-    expect(await screen.findByTestId("dialog-filed")).toHaveTextContent("p9001: the phase");
+    expect(await screen.findByTestId("dialog-filed")).toHaveTextContent("p9001: the spec");
   });
 
   it("SpecDialog_AReloadWithAProposal_OffersItsRawForm", async () => {
-    reloadedWith({ proposal: proposal({ phase: phase("p9001", { yaml: "phase: p9001\ngoal: g" }) }) });
+    reloadedWith({ proposal: proposal({ phase: draftSpec("p9001", { yaml: "spec: p9001\ngoal: g" }) }) });
 
     render(<SpecDialogSurface />);
 
@@ -2536,7 +2536,7 @@ describe("SpecDialogSurface", () => {
 
   it("SpecDialog_AReloadWithAProposalNewerThanTheFiling_ShowsTheProposal", async () => {
     reloadedWith({
-      proposal: proposal({ phase: phase("p9002"), at: "2026-09-15T10:05:00Z" }),
+      proposal: proposal({ phase: draftSpec("p9002"), at: "2026-09-15T10:05:00Z" }),
       filing: filing({ at: "2026-09-15T10:04:00Z" }),
     });
 
@@ -2571,7 +2571,7 @@ describe("SpecDialogSurface", () => {
       dialogId: heldDialogId(), title: "Spec dialog", text: "", at: new Date().toISOString(),
     }));
     act(() => proposals.emit(proposal({
-      kind: "epic", phase: null, parent: phase("p9000"), children: [phase("p9000a"), phase("p9000b")],
+      kind: "epic", phase: null, parent: draftSpec("p9000"), children: [draftSpec("p9000a"), draftSpec("p9000b")],
     })));
 
     const live = await screen.findByTestId("dialog-turn-card");
@@ -2591,7 +2591,7 @@ describe("SpecDialogSurface", () => {
         { role: "user", text: "then draft it", at: "2026-09-15T10:03:00Z" },
         { role: "assistant", text: "", at: "2026-09-15T10:04:00Z" },
       ],
-      proposal: proposal({ phase: phase("p9001") }),
+      proposal: proposal({ phase: draftSpec("p9001") }),
       proposalTurn: 3,
     });
     render(<SpecDialogSurface />);
@@ -2686,8 +2686,8 @@ describe("SpecDialogSurface", () => {
   it("ApprovalCard_ACutProposal_SaysOneTicketAndCountsNoRecords", async () => {
     await renderSurface();
     act(() => proposals.emit(proposal({
-      kind: "epic", phase: null, parent: phase("p9000"),
-      children: [phase("p9000a"), phase("p9000b"), phase("p9000c")],
+      kind: "epic", phase: null, parent: draftSpec("p9000"),
+      children: [draftSpec("p9000a"), draftSpec("p9000b"), draftSpec("p9000c")],
     })));
 
     act(() => questions.emit(question({ text: "Proposed outcome: **epic** p9000" })));
@@ -2700,8 +2700,8 @@ describe("SpecDialogSurface", () => {
   it("SpecDialog_TheApprovalSurface_StatesOnlyWhatTheProposalCarries", async () => {
     await renderSurface();
     act(() => proposals.emit(proposal({
-      kind: "epic", phase: null, parent: phase("p9000"),
-      children: [phase("p9000a"), phase("p9000b", { requires: ["p9000a"] })],
+      kind: "epic", phase: null, parent: draftSpec("p9000"),
+      children: [draftSpec("p9000a"), draftSpec("p9000b", { requires: ["p9000a"] })],
     })));
 
     act(() => questions.emit(question({ text: "Proposed outcome: **epic** p9000" })));
@@ -2727,18 +2727,18 @@ describe("SpecDialogSurface", () => {
 
     act(() => questions.emit(question({
       text: "",
-      choices: [{ label: "Cut into several phases", description: "too big for one phase" }],
+      choices: [{ label: "Cut into several specs", description: "too big for one spec" }],
     })));
 
     const surface = await screen.findByTestId("dialog-question");
     expect(within(surface).getByTestId("dialog-answer-approve")).toHaveTextContent("Approve & file");
     expect(within(surface).getByTestId("dialog-answer-reject")).toBeInTheDocument();
-    const shape = within(surface).getByTestId("dialog-answer-Cut into several phases");
-    expect(shape).toHaveTextContent("Cut into several phases");
+    const shape = within(surface).getByTestId("dialog-answer-Cut into several specs");
+    expect(shape).toHaveTextContent("Cut into several specs");
     // The picked shape goes back as its own label, which the server reads as an edit note.
     fireEvent.click(shape);
     await waitFor(() =>
-      expect(postSpecDialogMessage.mock.calls.at(-1)![1]).toBe("Cut into several phases"));
+      expect(postSpecDialogMessage.mock.calls.at(-1)![1]).toBe("Cut into several specs"));
     // A button beside "Approve & file" that quietly spends a master loop is a surprise.
     expect(surface).toHaveTextContent("Picking a shape files nothing — it starts a new turn");
   });
@@ -2765,18 +2765,18 @@ describe("SpecDialogSurface", () => {
     act(() => questions.emit(question({
       text: "",
       choices: [
-        { label: "Cut into several phases", description: "too big for one phase" },
-        { label: "Make it a bug ticket", description: "smaller than a phase" },
+        { label: "Cut into several specs", description: "too big for one spec" },
+        { label: "Make it a bug ticket", description: "smaller than a spec" },
       ],
     })));
 
     const surface = await screen.findByTestId("dialog-question");
     expect(within(surface).getAllByTestId("dialog-shape-why").map((why) => why.textContent))
-      .toEqual(["too big for one phase", "smaller than a phase"]);
+      .toEqual(["too big for one spec", "smaller than a spec"]);
   });
 
   // A CHOICE question is a different question: it has no approve/reject pair to ride beside,
-  // and its own branch is untouched by this phase.
+  // and its own branch is untouched by this spec.
   it("DialogCard_AChoiceQuestion_IsUnchanged", async () => {
     await renderSurface();
 
@@ -2808,7 +2808,7 @@ describe("SpecDialogSurface", () => {
       ],
     })));
 
-    act(() => questions.emit(question({ text: "Proposed outcome: **one phase** p9001" })));
+    act(() => questions.emit(question({ text: "Proposed outcome: **one spec** p9001" })));
 
     const surface = await screen.findByTestId("dialog-question");
     const findings = within(surface).getAllByTestId("dialog-proposal-finding");
@@ -2823,7 +2823,7 @@ describe("SpecDialogSurface", () => {
     await renderSurface();
     act(() => proposals.emit(proposal()));
 
-    act(() => questions.emit(question({ text: "Proposed outcome: **one phase** p9001" })));
+    act(() => questions.emit(question({ text: "Proposed outcome: **one spec** p9001" })));
 
     await screen.findByTestId("dialog-question");
     expect(screen.queryByTestId("dialog-proposal-findings")).toBeNull();
@@ -2838,7 +2838,7 @@ describe("SpecDialogSurface", () => {
     delete (older as Partial<SpecDialogProposalPush>).findings;
     act(() => proposals.emit(older));
 
-    act(() => questions.emit(question({ text: "Proposed outcome: **one phase** p9001" })));
+    act(() => questions.emit(question({ text: "Proposed outcome: **one spec** p9001" })));
 
     const surface = await screen.findByTestId("dialog-question");
     expect(surface).toHaveTextContent("Proposed outcome");
@@ -2851,8 +2851,8 @@ describe("SpecDialogSurface", () => {
   it("SpecDialog_AnApprovalWithNoServerText_StillSaysWhatIsBeingApproved", async () => {
     await renderSurface();
     act(() => proposals.emit(proposal({
-      kind: "epic", phase: null, parent: phase("p9000"),
-      children: [phase("p9000a"), phase("p9000b")],
+      kind: "epic", phase: null, parent: draftSpec("p9000"),
+      children: [draftSpec("p9000a"), draftSpec("p9000b")],
       findings: [{
         phaseId: "p9000a", problem: "false premise", why: "the endpoint already exists",
         quote: null, evidence: "[P2] repo-a: read src/Api.cs exited 0",
@@ -2996,8 +2996,8 @@ describe("SpecDialogSurface", () => {
     const dialogId = heldDialogId();
 
     act(() => proposals.emit(proposal({
-      dialogId, kind: "epic", phase: null, parent: phase("p9000"),
-      children: [phase("p9000a"), phase("p9000b")],
+      dialogId, kind: "epic", phase: null, parent: draftSpec("p9000"),
+      children: [draftSpec("p9000a"), draftSpec("p9000b")],
     })));
     act(() => questions.emit(question({ dialogId })));
     const base = view({ dialogId });
@@ -3006,7 +3006,7 @@ describe("SpecDialogSurface", () => {
       session: {
         ...base.session!,
         transcript: [{ role: "user", text: "draft it", at: "2026-09-15T10:01:00Z" }],
-        proposal: proposal({ dialogId, phase: phase("p8000") }),
+        proposal: proposal({ dialogId, phase: draftSpec("p8000") }),
         proposalTurn: null,
       },
     }));
@@ -3070,7 +3070,7 @@ describe("SpecDialogSurface", () => {
     act(() => messages.emit({ dialogId: heldDialogId(), title: "Spec dialog", text: "a first cut", at: new Date().toISOString() }));
     act(() => proposals.emit(proposal()));
     act(() => messages.emit({ dialogId: heldDialogId(), title: "Spec dialog", text: "a second cut", at: new Date().toISOString() }));
-    act(() => proposals.emit(proposal({ phase: phase("p9002") })));
+    act(() => proposals.emit(proposal({ phase: draftSpec("p9002") })));
 
     await waitFor(() => expect(screen.getAllByTestId("dialog-card-inspect")).toHaveLength(2));
     expect(screen.getByTestId("dialog-pane")).toHaveTextContent("not filed yet");
@@ -3092,7 +3092,7 @@ describe("SpecDialogSurface", () => {
     const turn = await screen.findByTestId("dialog-turn-agent");
     expect(turn.querySelector(".sr-only")).toHaveTextContent("agent-smith:");
     expect(turn.querySelector("[aria-hidden='true']")).toHaveTextContent("AS");
-    expect(screen.getByRole("button", { name: "Inspect the phase proposal: goal of p9001" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Inspect the spec proposal: goal of p9001" })).toBeInTheDocument();
     const selected = screen.getByRole("tab", { selected: true });
     const panel = screen.getByRole("tabpanel");
     expect(selected).toHaveAttribute("aria-controls", panel.id);
@@ -3100,8 +3100,8 @@ describe("SpecDialogSurface", () => {
   });
 
   // 2026-09-17-042ej: THE CONVERSATION FOLLOWS WHAT IT FILED. The filing push names the ticket;
-  // the read beneath it says which phase the run is on, what it opened, and what the review left.
-  it("SpecDialog_TheFiledTab_ShowsTheRunARowPerPhaseItsPullRequestsAndFindings", async () => {
+  // the read beneath it says which spec the run is on, what it opened, and what the review left.
+  it("SpecDialog_TheFiledTab_ShowsTheRunARowPerSpecItsPullRequestsAndFindings", async () => {
     await renderSurface();
     fetchFiledWork.mockResolvedValue(filedWork());
 
@@ -3120,10 +3120,10 @@ describe("SpecDialogSurface", () => {
     expect(screen.queryByTestId("dialog-filed-reviewed-p9001b")).toBeNull();
   });
 
-  // 2026-09-18-e63d: the same class of text one tab over, and the reason this phase does not
+  // 2026-09-18-e63d: the same class of text one tab over, and the reason this spec does not
   // stop at marks. The repository a pull request is against is a flex item of the mark row, and
   // the project the run is in sits in the head line — both named by somebody else, both inside
-  // a card that clips. A phase id one row below is NOT given text: this page mints it, and it
+  // a card that clips. A spec id one row below is NOT given text: this page mints it, and it
   // keeps the plain field value.
   it("SpecDialog_TheFiledPanesGivenText_AsksToWrap", async () => {
     await renderSurface();
@@ -3142,13 +3142,13 @@ describe("SpecDialogSurface", () => {
       expect(repository.className.split(/\s+/), repository.textContent ?? "").toContain("given");
     }
 
-    const phaseId = screen.getByTestId("dialog-filed-spec-p9001a").querySelector(".fv") as HTMLElement;
-    expect(phaseId.className.split(/\s+/)).not.toContain("given");
+    const specId = screen.getByTestId("dialog-filed-spec-p9001a").querySelector(".fv") as HTMLElement;
+    expect(specId.className.split(/\s+/)).not.toContain("given");
   });
 
   // The third and fourth states of the review, and the one finding that says the branch still
-  // carries the code it is about — none of which the run/phase test above touches.
-  it("SpecDialog_TheFiledTab_TellsAnUnreviewedPhaseFromARevertedFinding", async () => {
+  // carries the code it is about — none of which the run/spec test above touches.
+  it("SpecDialog_TheFiledTab_TellsAnUnreviewedSpecFromARevertedFinding", async () => {
     await renderSurface();
     fetchFiledWork.mockResolvedValue(filedWork());
 
@@ -3157,18 +3157,18 @@ describe("SpecDialogSurface", () => {
     await waitFor(() =>
       expect(screen.getByTestId("dialog-filed-noreview-p9001c")).toBeInTheDocument());
     expect(screen.getByTestId("dialog-filed-noreview-p9001c")).toHaveTextContent("not reviewed yet");
-    // 2026-09-17-042ef: keyed per FINDING, because a phase may revert more than one.
+    // 2026-09-17-042ef: keyed per FINDING, because a spec may revert more than one.
     expect(screen.getByTestId("dialog-filed-reverted-p9001a-api/src/A.cs:4"))
       .toHaveTextContent("the fix pass was reverted: the suite stayed red");
     expect(screen.getByTestId("dialog-filed-reverted-p9001a-api/src/B.cs:9"))
       .toHaveTextContent("the fix pass was reverted: the build stayed red");
   });
 
-  // A failed phase shows the verdict its row carries and NOTHING else: the only producer of a
-  // failed row is the phase's own verification, so an amendment would change nothing.
-  it("SpecDialog_APhaseFailedByARedBuild_ShowsItsVerdictAndNoAmendmentInstruction", async () => {
+  // A failed spec shows the verdict its row carries and NOTHING else: the only producer of a
+  // failed row is the spec's own verification, so an amendment would change nothing.
+  it("SpecDialog_ASpecFailedByARedBuild_ShowsItsVerdictAndNoAmendmentInstruction", async () => {
     await renderSurface();
-    fetchFiledWork.mockResolvedValue(stoppedPhase("failed", "dotnet test exited 1"));
+    fetchFiledWork.mockResolvedValue(stoppedSpec("failed", "dotnet test exited 1"));
 
     act(() => filings.emit(filing()));
 
@@ -3180,10 +3180,10 @@ describe("SpecDialogSurface", () => {
 
   // Its twin, and the pair is the whole point: the two statuses ask opposite things of the
   // operator, so a page that collapsed them would send one of them to the wrong repair.
-  it("SpecDialog_APhaseHandedBackOnAPremise_AsksForTheAmendment", async () => {
+  it("SpecDialog_ASpecHandedBackOnAPremise_AsksForTheAmendment", async () => {
     await renderSurface();
     fetchFiledWork.mockResolvedValue(
-      stoppedPhase("handed_back", "the premise 'api has no cache' is false (P3)"));
+      stoppedSpec("handed_back", "the premise 'api has no cache' is false (P3)"));
 
     act(() => filings.emit(filing()));
 
@@ -3197,7 +3197,7 @@ describe("SpecDialogSurface", () => {
   // A state rendered as the column value the projection writes — "in_progress", "not_started" —
   // inline in the sentence around it, so it could not be told from prose. Every state is the
   // Projects page's mark now, and the words are English.
-  it("SpecDialog_APhaseAndItsRun_ShowTheirStateAsAWrittenMarkNotAColumnValue", async () => {
+  it("SpecDialog_ASpecAndItsRun_ShowTheirStateAsAWrittenMarkNotAColumnValue", async () => {
     await renderSurface();
     fetchFiledWork.mockResolvedValue(filedWork());
 
@@ -3215,10 +3215,10 @@ describe("SpecDialogSurface", () => {
 
   // The two stopped states ask opposite things of the operator, so they do not share a mark
   // any more than 042ej let them share a sentence.
-  it("SpecDialog_APhaseStoppedRed_AndOneHandedBack_CarryDifferentMarks", async () => {
+  it("SpecDialog_ASpecStoppedRed_AndOneHandedBack_CarryDifferentMarks", async () => {
     const markOf = async (status: string) => {
       await renderSurface();
-      fetchFiledWork.mockResolvedValue(stoppedPhase(status, "why it stopped"));
+      fetchFiledWork.mockResolvedValue(stoppedSpec(status, "why it stopped"));
       act(() => filings.emit(filing()));
       const row = await screen.findByTestId("dialog-filed-spec-p9001a");
       return row.querySelector(".ec-mark") as HTMLElement;
@@ -3237,7 +3237,7 @@ describe("SpecDialogSurface", () => {
   // Two findings, two addresses and a revert note arrived as one unbroken block. Each finding
   // is a row, and the address it rests on is set above the prose the way the reference sets a
   // mono name above its description.
-  it("SpecDialog_TwoFindingsUnderOnePhase_AreTwoRowsEachWithItsAddressSetApart", async () => {
+  it("SpecDialog_TwoFindingsUnderOneSpec_AreTwoRowsEachWithItsAddressSetApart", async () => {
     await renderSurface();
     fetchFiledWork.mockResolvedValue(filedWork());
 
@@ -3254,7 +3254,7 @@ describe("SpecDialogSurface", () => {
 
   // 2026-09-17-042eh exists to keep "nobody looked" apart from "looked and found nothing", and
   // on screen the separation was a word. The two states where nobody looked are the two that
-  // carry an alarm mark; a clean review and a phase that has not reached its review are calm.
+  // carry an alarm mark; a clean review and a spec that has not reached its review are calm.
   it("SpecDialog_AReviewNobodyTook_IsMarkedApartFromACleanOne", async () => {
     const markOf = async (review: FiledWorkReview | null, testId: string) => {
       await renderSurface();
@@ -3281,8 +3281,8 @@ describe("SpecDialogSurface", () => {
       { reviewed: true, why: null, findings: [], unreadable: false }, "dialog-filed-reviewed");
     expect(clean.className).toBe("ec-mark");
 
-    // The third gap. A phase that STOPPED and wrote no review row has a hole where its evidence
-    // should be, and read in the same calm grey as "reviewed, nothing found" beside it. A phase
+    // The third gap. A spec that STOPPED and wrote no review row has a hole where its evidence
+    // should be, and read in the same calm grey as "reviewed, nothing found" beside it. A spec
     // still working has simply not got there, and stays calm.
     again();
     const missing = await markOf(null, "dialog-filed-noreview");
@@ -3290,7 +3290,7 @@ describe("SpecDialogSurface", () => {
     expect(missing).toHaveTextContent("no review was recorded");
   });
 
-  it("SpecDialog_APhaseStillRunning_SaysItsReviewIsNotReachedWithoutRaisingAnAlarm", async () => {
+  it("SpecDialog_ASpecStillRunning_SaysItsReviewIsNotReachedWithoutRaisingAnAlarm", async () => {
     await renderSurface();
     fetchFiledWork.mockResolvedValue(filedWork());
 
@@ -3444,7 +3444,7 @@ describe("SpecDialogSurface", () => {
     expect(run.querySelector("a[href='https://git/pr/3']")).toHaveTextContent("api");
   });
 
-  // The rule this phase borrows is written one component above, in a comment: the state first,
+  // The rule this spec borrows is written one component above, in a comment: the state first,
   // then why. Both rows lead with their state now — and only the ticket's is weighted, because
   // weight belongs on a state and not on an identifier.
   it("SpecDialog_TheRunRowAndTheTicketLineAboveIt_LeadWithTheirStateAndOnlyTheTicketsIsWeighted", async () => {
@@ -3455,7 +3455,7 @@ describe("SpecDialogSurface", () => {
       filed: [
         {
           reference: "https://tracker/7",
-          title: "p9001: the phase",
+          title: "p9001: the spec",
           ticketId: "7",
           project: "sample",
           start: { state: "Started", reason: "it already triggers" },
@@ -3764,7 +3764,7 @@ describe("Inspecting reaches the pane", () => {
     expect(screen.getByTestId("dialog-pane")).toHaveAttribute("data-inspected", "true");
   });
 
-  // The case the whole phase exists for, and the one an earlier cut would have missed: the pane
+  // The case the whole spec exists for, and the one an earlier cut would have missed: the pane
   // is showing this very proposal already, so the click changes NOTHING inside it. The mark is
   // outside it — on the card's own element — which is why it still says the click landed.
   it("SpecDialog_InspectingTheProposalAlreadyShown_StillMarksThePane", async () => {
@@ -3805,7 +3805,7 @@ describe("Inspecting reaches the pane", () => {
 
   // The routes into the pane that are NOT an act the operator just performed. A push moves the
   // pane on its own, and yanking the viewport under someone who is reading is worse than the
-  // defect this phase fixes — so neither the proposal nor the filing that follows it scrolls or
+  // defect this spec fixes — so neither the proposal nor the filing that follows it scrolls or
   // marks anything.
   it("SpecDialog_ANewProposal_MovesThePaneWithoutScrollingToIt", async () => {
     await renderSurface();
@@ -3846,7 +3846,7 @@ describe("Inspecting reaches the pane", () => {
     }
   });
 
-  // Found by reviewing this phase's own diff: every test above asserts the mark ARRIVES, and a
+  // Found by reviewing this spec's own diff: every test above asserts the mark ARRIVES, and a
   // mark that never leaves would pass all of them while ringing the pane for the rest of the
   // session. It is an acknowledgement of one click, so it is over when the click is.
   it("SpecDialog_TheMark_ClearsItselfWithoutAnotherAct", async () => {
@@ -4369,7 +4369,7 @@ describe("The ticket search", () => {
     );
   });
 
-  it("SpecDialogScopePanel_AnUnboundConversation_IsUntouchedByThisPhase", async () => {
+  it("SpecDialogScopePanel_AnUnboundConversation_IsUntouchedByThisSpec", async () => {
     await renderSurface();
 
     fireEvent.click(screen.getByTestId("dialog-tab-scope"));
@@ -4492,7 +4492,7 @@ describe("The ticket search", () => {
 
   // 2026-09-27-481bd: the pane showed ONE project once a ticket resolved it — and went on saying
   // "no conversation is open on this page yet", which reads as though nothing had been chosen.
-  // The picked ticket was promised here by the phase's own step and was not delivered.
+  // The picked ticket was promised here by the spec's own step and was not delivered.
   it("SpecDialogScopePanel_APickedTicket_IsShownWithTheProject", async () => {
     searchTickets.mockResolvedValue(found([{ ...JIRA_HIT, kind: "Bug" }]));
     await renderSurface();

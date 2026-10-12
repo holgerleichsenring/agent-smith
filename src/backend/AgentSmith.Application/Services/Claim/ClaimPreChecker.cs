@@ -32,7 +32,7 @@ internal static class ClaimPreChecker
         var trigger = GetTrigger(project, platform);
         if (trigger is null) return false;
 
-        // p0315d: a bound phase ticket is hard-bound to a pipeline by ProjectResolver and
+        // p0315d: a bound spec ticket is hard-bound to a pipeline by ProjectResolver and
         // is in NOBODY's pipeline_from_label — the trigger existing for the platform is the
         // whole config-side requirement. 2026-09-25-e5b1: that bind target is `code` now, so
         // the exemption moved with it. It follows that a claim naming `code` is never refused

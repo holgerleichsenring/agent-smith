@@ -5,7 +5,7 @@ import type { StartupFinding, StartupFindings } from "@/lib/findingsApi";
 
 // 2026-08-25-8c97: the operator-visible half of "both halves say which build they are".
 // A difference between the two builds is advisory and the only action offered is a reload —
-// a hard failure here would recreate the blank page the previous phase abolished.
+// a hard failure here would recreate the blank page the previous spec abolished.
 const findingsRequest = vi.fn();
 vi.mock("@/lib/findingsApi", () => ({
   fetchFindings: () => findingsRequest(),

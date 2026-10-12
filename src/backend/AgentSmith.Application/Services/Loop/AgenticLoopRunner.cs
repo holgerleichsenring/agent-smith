@@ -56,9 +56,9 @@ public sealed class AgenticLoopRunner(
         };
 
         var role = request.Name ?? "agentic-executor";
-        var phase = SkillExecutionPhase.Implementation.ToString();
+        var spec = SkillExecutionPhase.Implementation.ToString();
         var sw = Stopwatch.StartNew();
-        using var scope = runContext.BeginCallScope(role, phase);
+        using var scope = runContext.BeginCallScope(role, spec);
         logger.LogDebug(
             "AgenticLoopRunner.RunAsync — role={Role} subAgentId={SubAgentId} parent={ParentSubAgentId}",
             role, request.SubAgentId, request.ParentSubAgentId);

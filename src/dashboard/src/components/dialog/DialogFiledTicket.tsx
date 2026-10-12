@@ -8,7 +8,7 @@ import { DialogFiledRuns } from "./DialogFiledRuns";
 // to a ticket it did not file has a row of its own, and both are drawn the same way.
 // 2026-09-17-042em: a ticket is named by its KEY, with its title beside it and the tracker's page
 // behind both — a column of web urls differing in their last few digits is the one part of them
-// nobody reads. A row with no key reads by its reference, as a filing written before that phase
+// nobody reads. A row with no key reads by its reference, as a filing written before that spec
 // always did, and a bound ticket reads by the tracker's own id.
 
 /** What a filing's push row and the read's own row both carry — enough to name the ticket. */

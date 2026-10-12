@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Resolves the message a `git commit` invocation will actually carry.
 
-phase-gate.sh looks for the phase marker in that message instead of in the raw
+spec-gate.sh looks for the spec marker in that message instead of in the raw
 command line, so `--amend --no-edit`, `-F <file>` and `-C <rev>` are gated like
 an explicit `-m`. Splitting the command in bash would mean `eval`, and `eval`
 would run the commit — hence python.
@@ -80,9 +80,13 @@ def work_directory(command: str, cwd: str) -> str:
 
 
 def _split(command: str) -> list[str] | None:
-    """Tokenise the command, or None when it cannot be split (heredocs, unbalanced quotes)."""
+    """Tokenise the command, or None when it cannot be split (heredocs, unbalanced quotes).
+    Operators become tokens of their own only OUTSIDE quotes — `cd wt; git commit` splits
+    at the `;`, while a `;` inside a quoted `-m` message stays part of the message."""
+    lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
+    lexer.whitespace_split = True
     try:
-        return shlex.split(command)
+        return list(lexer)
     except ValueError:
         return None
 
@@ -97,28 +101,14 @@ def _commit_segment(tokens: list[str]) -> list[str] | None:
 
 
 def _segments(tokens: list[str]) -> list[list[str]]:
-    """Command segments between separators. shlex keeps a `;` glued to its neighbour
-    (`cd wt; git commit` tokenises as `wt;`), so a token is split on `;` before the
-    separator test — otherwise the commit segment is never found and the gate lets
-    the commit through as an unresolvable message."""
+    """Command segments between separators."""
     segments: list[list[str]] = [[]]
     for token in tokens:
-        for part in _split_on_semicolon(token):
-            if part in SEPARATORS:
-                segments.append([])
-            elif part:
-                segments[-1].append(part)
+        if token in SEPARATORS:
+            segments.append([])
+        elif token:
+            segments[-1].append(token)
     return segments
-
-
-def _split_on_semicolon(token: str) -> list[str]:
-    if token in SEPARATORS or ";" not in token:
-        return [token]
-    parts: list[str] = []
-    for piece in token.split(";"):
-        parts.append(piece)
-        parts.append(";")
-    return parts[:-1]
 
 
 def _effective_directory(tokens: list[str], cwd: str) -> str:

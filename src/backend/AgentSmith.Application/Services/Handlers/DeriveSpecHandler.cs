@@ -10,15 +10,15 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// p0393a: turns any ticket into an ordered set of phase specs on the ticket branch, so
+/// p0393a: turns any ticket into an ordered set of specs on the ticket branch, so
 /// the `code` pipeline runs on ordinary tickets and not only on hand-written ones.
 /// It runs after AnalyzeCode: the contradiction hand-back is only findable once the
 /// repositories have been read. An unanswered question from the last run is pinned as
 /// the answer before the model runs, and the ticket is told which reading was taken.
 /// <para>
-/// The accounting is the safeguard: every ticket segment is carried by a named phase
+/// The accounting is the safeguard: every ticket segment is carried by a named spec
 /// or discarded with a reason. If it cannot be produced, the run does NOT split at
-/// all — one phase with the whole ticket, and a run event naming why. Fail safe means
+/// all — one spec with the whole ticket, and a run event naming why. Fail safe means
 /// falling back to a shape that is known to work, not partially applying one that
 /// is not.
 /// </para>
@@ -97,7 +97,7 @@ public sealed class DeriveSpecHandler(
         DeriveSpecContext context, SpecSourceResolver.Decision decision, string key, string series,
         IReadOnlyList<TicketSegment> segments, CancellationToken ct)
     {
-        // 2026-10-12-3a36e: the scope by its configured names — what every phase's repos names.
+        // 2026-10-12-3a36e: the scope by its configured names — what every spec's repos names.
         IReadOnlyList<string> scope = [.. context.Repos.Select(r => r.Name)];
         var (derivation, error) = await deriver.DeriveAsync(context.Ticket!, segments, decision.Set,
             series, decision.Cause!, scope, context.AgentConfig, context.Pipeline, ct);

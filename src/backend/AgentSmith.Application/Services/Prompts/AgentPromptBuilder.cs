@@ -90,10 +90,10 @@ public sealed class AgentPromptBuilder(IPromptCatalog prompts)
     }
 
     /// <summary>
-    /// p0161d: phase-spec applies_to renders as a single "Applies to: ..." line
+    /// p0161d: spec applies_to renders as a single "Applies to: ..." line
     /// near the top of the user prompt so the LLM knows which stack(s) the
-    /// active phase targets. Empty/missing value emits nothing — back-compat
-    /// for pipelines that don't carry a phase spec.
+    /// active spec targets. Empty/missing value emits nothing — back-compat
+    /// for pipelines that don't carry a spec.
     /// </summary>
     internal static string BuildAppliesToSection(string? appliesTo)
     {

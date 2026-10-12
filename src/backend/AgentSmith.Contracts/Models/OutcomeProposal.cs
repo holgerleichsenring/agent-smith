@@ -4,8 +4,8 @@ namespace AgentSmith.Contracts.Models;
 /// p0315e: the typed terminal outcome of a spec-dialog turn. PROPOSED to the
 /// human and confirmed in-thread before anything routes, so an LLM
 /// misclassification is caught, not executed. Discriminated union (mirrors
-/// the SpecDraftOutcome style): answer / bug / one phase / an epic of linked
-/// phases — the ceremony matches the work.
+/// the SpecDraftOutcome style): answer / bug / one spec / an epic of linked
+/// specs — the ceremony matches the work.
 /// </summary>
 public abstract record OutcomeProposal
 {
@@ -31,14 +31,14 @@ public abstract record OutcomeProposal
 /// <summary>A grounded answer — the turn ends with no artifact.</summary>
 public sealed record AnswerOutcome : OutcomeProposal;
 
-/// <summary>A small change worth a fix-bug ticket, not a phase.</summary>
+/// <summary>A small change worth a fix-bug ticket, not a spec.</summary>
 public sealed record BugOutcome(BugTicketDraft Ticket) : OutcomeProposal;
 
-/// <summary>One schema-valid phase spec draft.</summary>
-public sealed record PhaseOutcome(PhaseDraft Draft) : OutcomeProposal;
+/// <summary>One schema-valid spec draft.</summary>
+public sealed record SpecOutcome(PhaseDraft Draft) : OutcomeProposal;
 
 /// <summary>
-/// A feature too big for one phase: a parent phase plus ordered child phases
+/// A feature too big for one spec: a parent spec plus ordered child specs
 /// linked by requires: edges, each schema-valid on its own.
 /// </summary>
 public sealed record EpicOutcome(PhaseDraft Parent, IReadOnlyList<PhaseDraft> Children) : OutcomeProposal;

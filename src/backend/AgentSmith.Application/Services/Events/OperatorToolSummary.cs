@@ -19,7 +19,7 @@ namespace AgentSmith.Application.Services.Events;
 /// <para>
 /// A SEARCH PATTERN IS SHOWN AS IT WAS SEARCHED — neither host-reduced nor cut at a '?'. Both
 /// are regex, and a pattern the operator cannot read is not evidence of what the turn looked
-/// for. See the phase's decisions for what that means for what a line may carry.
+/// for. See the spec's decisions for what that means for what a line may carry.
 /// </para>
 /// </summary>
 internal static class OperatorToolSummary

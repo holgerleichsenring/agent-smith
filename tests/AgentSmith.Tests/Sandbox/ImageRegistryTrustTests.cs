@@ -43,7 +43,7 @@ public sealed class ImageRegistryTrustTests
     {
         // `a.host:5000/pwn:latest` cut at the FIRST colon leaves "a.host" — no slash,
         // so the shape rule would have called an arbitrary private registry an official
-        // library image. The boundary this phase moved into configuration is the same
+        // library image. The boundary this spec moved into configuration is the same
         // boundary it had to state correctly.
         Trust().Accepts("a.host:5000/pwn:latest").Should().BeFalse();
     }

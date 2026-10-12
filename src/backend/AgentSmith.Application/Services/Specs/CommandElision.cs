@@ -8,7 +8,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// Cutting a command at its END loses the paths it ran against, and reach is most of what an
 /// absence criterion is judged on. Run 0944 refused a Wolverine local-queue search the agent
 /// really had run, in both repositories, because the search's pattern sat inside the cap and
-/// the PATHS it searched sat past it. 21 of that phase's 106 commands were over the cap.
+/// the PATHS it searched sat past it. 21 of that spec's 106 commands were over the cap.
 /// </para>
 /// <para>
 /// The same cut also landed inside a shell literal, so the rendered line carried an
@@ -75,7 +75,7 @@ internal static class CommandElision
 
     /// <summary>The tail begins at a whole argument. Starting it mid-token would print half a
     /// path as though it were a path — evidence that is partly true, which is the failure this
-    /// phase exists to end. The HEAD is cut hard by contrast: a prefix reads as a prefix, and
+    /// spec exists to end. The HEAD is cut hard by contrast: a prefix reads as a prefix, and
     /// snapping it backwards could drop the citable share under the floor it was sized for.
     /// </summary>
     private static int TailStart(string text, int tail)

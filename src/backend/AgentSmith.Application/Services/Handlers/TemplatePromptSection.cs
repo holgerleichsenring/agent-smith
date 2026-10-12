@@ -36,7 +36,7 @@ internal static class TemplatePromptSection
             + bullets + "\n\n"
             + "A template answers HOW something here is built — the naming, the layering, "
             + "the shape a new file takes, and where one slice of work ends. It never "
-            + "answers WHAT to build: that is the phase spec, or the feature under "
+            + "answers WHAT to build: that is the spec, or the feature under "
             + "discussion, and a template that disagrees with it is out of date, not "
             + "authoritative. Follow the source order your instructions already state.\n";
     }

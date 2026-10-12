@@ -5,7 +5,7 @@ namespace AgentSmith.Application.Services.Prompts;
 /// <summary>
 /// Renders an unanswered question hand-back as the derivation's answer: both readings
 /// as the ticket listed them, and the taken one stated as confirmed. The derivation
-/// then cuts phases under it instead of asking the same question again.
+/// then cuts specs under it instead of asking the same question again.
 /// </summary>
 public static class UnansweredQuestionPromptSection
 {
@@ -21,7 +21,7 @@ public static class UnansweredQuestionPromptSection
             {readings}
 
             Nobody answered, and the ticket was re-triggered. Reading {unanswered.TakenLabel} is
-            therefore the answer: treat it as confirmed by the ticket author, cut phases under it,
+            therefore the answer: treat it as confirmed by the ticket author, cut specs under it,
             and state it as an assumption in the goal or done-list. Do not ask this question again.
             """;
     }

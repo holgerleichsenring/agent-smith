@@ -63,7 +63,7 @@ export default function ConfigPage({ params }: PageProps) {
 }
 
 // The two moved read-outs render exactly the DOM they rendered under /system — the same
-// parity page scope, so this phase changed where they live and nothing they show.
+// parity page scope, so this spec changed where they live and nothing they show.
 function DiagnosticPage({ children }: { children: React.ReactNode }) {
   return (
     <div className="mock-shell mock-system mock-diagnostic" data-testid="diagnostic-page">

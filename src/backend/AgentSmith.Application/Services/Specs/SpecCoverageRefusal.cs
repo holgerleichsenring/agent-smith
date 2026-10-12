@@ -6,7 +6,7 @@ namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
 /// 2026-09-17-0e79a: what a cut whose ACCOUNTING is incomplete becomes — the refusal is
-/// reported and the run falls back to one phase carrying the whole ticket.
+/// reported and the run falls back to one spec carrying the whole ticket.
 /// <para>
 /// It left DeriveSpecHandler because reporting an incomplete accounting and building the
 /// fallback from the refused cut is its own responsibility: the cut was refused for its
@@ -30,7 +30,7 @@ public sealed class SpecCoverageRefusal(SpecCutGate gate, SpecFallback fallback)
         await gate.RefusedAsync(
             pipeline, ticket.Id.Value,
             "segment(s) " + string.Join(", ", refused.Accounting.Unaccounted)
-            + " were neither carried by a phase nor discarded with a reason", cancellationToken);
+            + " were neither carried by a spec nor discarded with a reason", cancellationToken);
         return fallback.Build(
             key, series, ticket, segments,
             [.. refused.Phases.SelectMany(p => p.Draft.Done).Distinct(StringComparer.Ordinal)],

@@ -141,7 +141,7 @@ new DashboardOutcomeChannel(
         var draft = new PhaseDraft("p9999", "widget goal", "spec: p9999\ngoal: \"widget goal\"", []);
         _turnRunner.SetupSequence(r =>
                 r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(SpecDialogTurnResult.On(Platform, "draft reply", new PhaseOutcome(draft)))
+            .ReturnsAsync(SpecDialogTurnResult.On(Platform, "draft reply", new SpecOutcome(draft)))
             .ReturnsAsync(SpecDialogTurnResult.On(Platform, "revised reply", new AnswerOutcome()));
         _dialogueTransport.Setup(t => t.WaitForAnswerAsync(
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
@@ -149,7 +149,7 @@ new DashboardOutcomeChannel(
                 "q1", "split it into two slices", null, DateTimeOffset.UtcNow, "U1"));
 
         await _router.TryRouteAsync("/spec", "U1", Channel, "th-edit", Platform, false, CancellationToken.None);
-        await _router.TryRouteAsync("draft the phase", "U1", Channel, "th-edit", Platform, false, CancellationToken.None);
+        await _router.TryRouteAsync("draft the spec", "U1", Channel, "th-edit", Platform, false, CancellationToken.None);
 
         _turnRunner.Verify(r =>
                 r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()),
@@ -193,7 +193,7 @@ new DashboardOutcomeChannel(
             .Returns(async (ConversationState state, CancellationToken _) =>
             {
                 if (Interlocked.Increment(ref turns) == 1)
-                    return SpecDialogTurnResult.On(Platform, "draft reply", new PhaseOutcome(draft));
+                    return SpecDialogTurnResult.On(Platform, "draft reply", new SpecOutcome(draft));
                 reRun.TrySetResult(state);
                 await noteRouted.Task;
                 return SpecDialogTurnResult.On(Platform, "revised reply", new AnswerOutcome());
@@ -214,7 +214,7 @@ new DashboardOutcomeChannel(
         await _router.TryRouteAsync("/spec", "U1", Channel, "th-note", Platform, false, CancellationToken.None);
         var sessionId = (await _sessions.GetOpenByThreadAsync(Platform, "th-note", CancellationToken.None))!.JobId;
         var proposing = Task.Run(() => _router.TryRouteAsync(
-            "draft the phase", "U1", Channel, "th-note", Platform, false, CancellationToken.None));
+            "draft the spec", "U1", Channel, "th-note", Platform, false, CancellationToken.None));
         await TestWaits.UntilAsync(
             () => _pendingQuestions.TryPeek(sessionId, out _), "the proposal reaches the approval gate");
 
@@ -235,7 +235,7 @@ new DashboardOutcomeChannel(
     [Fact]
     public async Task Router_AShapePickedByButton_ReRunsOverATranscriptEndingInThatShape()
     {
-        const string shape = "Cut into several phases";
+        const string shape = "Cut into several specs";
         var draft = new PhaseDraft("p9999", "widget goal", "spec: p9999\ngoal: \"widget goal\"", []);
         ConversationState? reRun = null;
         var turns = 0;
@@ -244,7 +244,7 @@ new DashboardOutcomeChannel(
             {
                 if (Interlocked.Increment(ref turns) == 1)
                     return Task.FromResult(
-                        SpecDialogTurnResult.On(Platform, "draft reply", new PhaseOutcome(draft)));
+                        SpecDialogTurnResult.On(Platform, "draft reply", new SpecOutcome(draft)));
                 reRun = state;
                 return Task.FromResult(
                     SpecDialogTurnResult.On(Platform, "revised reply", new AnswerOutcome()));
@@ -257,13 +257,13 @@ new DashboardOutcomeChannel(
                 "q1", shape, null, DateTimeOffset.UtcNow, "U1"));
 
         await _router.TryRouteAsync("/spec", "U1", Channel, "th-shape", Platform, false, CancellationToken.None);
-        await _router.TryRouteAsync("draft the phase", "U1", Channel, "th-shape", Platform, false, CancellationToken.None);
+        await _router.TryRouteAsync("draft the spec", "U1", Channel, "th-shape", Platform, false, CancellationToken.None);
 
         reRun.Should().NotBeNull("the picked shape is an edit note, so the turn runs again");
         reRun!.Transcript[^1].Should().Match<TranscriptTurn>(
             turn => turn.Role == TranscriptRole.User && turn.Text == shape,
             "the master must read the chosen shape as the latest user turn");
-        reRun.Revising.Should().BeOfType<PhaseOutcome>("it knows what it is re-cutting");
+        reRun.Revising.Should().BeOfType<SpecOutcome>("it knows what it is re-cutting");
         var stored = await _sessions.GetOpenByThreadAsync(Platform, "th-shape", CancellationToken.None);
         stored!.Transcript.Count(t => t.Text == shape).Should().Be(1);
     }
@@ -281,7 +281,7 @@ new DashboardOutcomeChannel(
         _turnRunner.Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
             .Returns((ConversationState _, CancellationToken __) => Task.FromResult(
                 Interlocked.Increment(ref turns) == 1
-                    ? SpecDialogTurnResult.On(Platform, "draft reply", new PhaseOutcome(draft))
+                    ? SpecDialogTurnResult.On(Platform, "draft reply", new SpecOutcome(draft))
                     : SpecDialogTurnResult.On(Platform, "revised reply", new AnswerOutcome())));
         _dialogueTransport.Setup(t => t.WaitForAnswerAsync(
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
@@ -297,7 +297,7 @@ new DashboardOutcomeChannel(
         await _router.TryRouteAsync("/spec", "U1", Channel, "th-typed", Platform, false, CancellationToken.None);
         var sessionId = (await _sessions.GetOpenByThreadAsync(Platform, "th-typed", CancellationToken.None))!.JobId;
         var proposing = Task.Run(() => _router.TryRouteAsync(
-            "draft the phase", "U1", Channel, "th-typed", Platform, false, CancellationToken.None));
+            "draft the spec", "U1", Channel, "th-typed", Platform, false, CancellationToken.None));
         await TestWaits.UntilAsync(
             () => _pendingQuestions.TryPeek(sessionId, out _),
             "the proposal reaches the approval gate");

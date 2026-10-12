@@ -1,17 +1,17 @@
 # Self-documentation
 
-Agent Smith doesn't just run tasks, it records why it was built the way it was. Every feature has a phase. Every phase has a rationale. Every run has a cost.
+Agent Smith doesn't just run tasks, it records why it was built the way it was. Every feature has a spec. Every spec has a rationale. Every run has a cost.
 
 This is not documentation written after the fact. It is documentation produced as a side effect of the work itself.
 
 ## The three layers
 
-### Layer 1: Phases (the "what" and "why")
+### Layer 1: Specs (the "what" and "why")
 
-Every capability in Agent Smith originated in a phase spec. Phases are YAML files in `.agentsmith/specs/` and move through `planned/` → `active/` → `done/`. Each spec states:
+Every capability in Agent Smith originated in a spec. Specs are YAML files in `.agentsmith/specs/` and move through `planned/` → `active/` → `done/`. Each spec states:
 
 - The goal, in one sentence
-- Which part of the system it applies to, and which earlier phases it requires
+- Which part of the system it applies to, and which earlier specs it requires
 - The scope, the steps and the tests
 - The definition of done
 
@@ -28,9 +28,9 @@ Every capability in Agent Smith originated in a phase spec. Phases are YAML file
     └── ...
 ```
 
-The older phases carry counter ids like `p0064`; newer ones carry an id minted from the date, like `2026-09-27-481bf`. See [Phase workflow](../architecture/phase-workflow.md) for how ids are minted and how a phase moves through the directories.
+The older specs carry counter ids like `p0064`; newer ones carry an id minted from the date, like `2026-09-27-481bf`. See [Spec workflow](../architecture/spec-workflow.md) for how ids are minted and how a spec moves through the directories.
 
-The `code` pipeline keeps the same record in the repositories it works on: every phase a run executes is written to that repository's `.agentsmith/specs/done/` and indexed in its `context.yaml`, and ships with the pull request.
+The `code` pipeline keeps the same record in the repositories it works on: every spec a run executes is written to that repository's `.agentsmith/specs/done/` and indexed in its `context.yaml`, and ships with the pull request.
 
 ### Layer 2: Runs (the "how much" and "what happened")
 
@@ -59,7 +59,7 @@ Below the frontmatter it lists the changed files, the decisions, and the executi
 
 ### Layer 3: Decisions (the "why not")
 
-Decisions are YAML files in `.agentsmith/decisions/`, one per phase (`decisions/<phase-id>.yaml`) or per run (`decisions/<run-id>.yaml`). Each entry records what was chosen and, in the phase files, what it was chosen over and why:
+Decisions are YAML files in `.agentsmith/decisions/`, one per spec (`decisions/<spec-id>.yaml`) or per run (`decisions/<run-id>.yaml`). Each entry records what was chosen and, in the spec files, what it was chosen over and why:
 
 ```yaml
 spec: 2026-09-27-481bf
@@ -81,13 +81,13 @@ Agent Smith is an audit trail. Six months after a pipeline ran, you can answer:
 
 - **What did it change?** `result.md` lists the changed files
 - **What did it cost?** Token usage and USD in the frontmatter
-- **Why was it built that way?** The phase spec with its goal and scope
-- **What alternatives were considered?** The decision file for that phase or run
+- **Why was it built that way?** The spec with its goal and scope
+- **What alternatives were considered?** The decision file for that spec or run
 
 ## Exploring your project's history
 
 ```bash
-# See all phases
+# See all specs
 ls .agentsmith/specs/done/
 
 # See all runs
@@ -96,12 +96,12 @@ ls .agentsmith/runs/
 # Find when a decision was made
 grep -r "Repository" .agentsmith/decisions/
 
-# Read the decisions behind one phase
+# Read the decisions behind one spec
 cat .agentsmith/decisions/p0057a.yaml
 ```
 
 ## Related
 
-- [Phases & runs](phases-and-runs.md): the lifecycle and structure of phases and runs
+- [Specs & runs](specs-and-runs.md): the lifecycle and structure of specs and runs
 - [Decision logging](decisions.md): how the agent records its decisions during a run
 - [Cost tracking](cost-tracking.md): token usage and cost analysis

@@ -42,10 +42,10 @@ public static class SpecAccountPrompt
         var conditional = AccountEvidenceRules.NotApplicable(baseSearchable);
         var shape = AccountEvidenceRules.AnswerShape(baseSearchable);
         var ran = commandResults.Count == 0
-            ? "(no verification command ran for this phase)"
+            ? "(no verification command ran for this spec)"
             : string.Join("\n", commandResults.Select(r => "- " + r));
         return $$"""
-            A phase of automated work has finished. Below are the completion criteria that
+            A spec of automated work has finished. Below are the completion criteria that
             were ratified BEFORE the work started, and the diff the branch carries.
 
             Your job is to find what is MISSING. Go criterion by criterion and decide

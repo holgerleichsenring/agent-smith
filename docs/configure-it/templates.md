@@ -62,15 +62,15 @@ Context names are the one thing nothing checks at save time. Contexts live in th
 
 Three things open a template, and all three read it at the declared revision, through a read-only checkout of the other project's repository:
 
-- **The derivation**, when a `code` run cuts a ticket into phases. It gets its own allowance of looks into templates, separate from the one it has for the repositories it's changing, so a template never eats the budget for the real code. The resolved commit is recorded with the derivation, and so is what the template declares as its own proof (the `verify` stages of its `context.yaml`, or that it declares none). That last part is reported, not enforced.
-- **The coding master**, while it writes the code for a phase. The templates declared for the contexts the phase changes appear in its repository list with a `template:` prefix (`template:api`, or `template:todolist-api/api` when `context_repo` is set). It reads them with the same tools it reads a repository with. Writing into one, editing one or running a command in one is refused, and nothing in a template is ever committed or put in a pull request.
+- **The derivation**, when a `code` run cuts a ticket into specs. It gets its own allowance of looks into templates, separate from the one it has for the repositories it's changing, so a template never eats the budget for the real code. The resolved commit is recorded with the derivation, and so is what the template declares as its own proof (the `verify` stages of its `context.yaml`, or that it declares none). That last part is reported, not enforced.
+- **The coding master**, while it writes the code for a spec. The templates declared for the contexts the spec changes appear in its repository list with a `template:` prefix (`template:api`, or `template:todolist-api/api` when `context_repo` is set). It reads them with the same tools it reads a repository with. Writing into one, editing one or running a command in one is refused, and nothing in a template is ever committed or put in a pull request.
 - **The design partner**, when you work out a feature in a design conversation. Every template the project declares is available to it, cloned only when it is actually read and then held for the rest of the conversation. The ticket it files names the templates it had open and the commit each was read at.
 
 Scans don't open templates.
 
 ## When the template and the code disagree
 
-A template answers *how* something is built. It never answers *what* to build; that's the phase spec or the feature under discussion. When sources disagree, the masters follow one order:
+A template answers *how* something is built. It never answers *what* to build; that's the spec or the feature under discussion. When sources disagree, the masters follow one order:
 
 1. The project's principles win every collision.
 2. The template gives the form for what is **new**, structure that has no counterpart in the code being changed.
@@ -81,7 +81,7 @@ The test between 2 and 3 is simple: does a counterpart already exist in the targ
 
 ## When a template can't be opened
 
-A template that can't be opened stops the work rather than letting it go ahead without it. The derivation fails naming the template and the revision, and so does a template look refused because its allowance ran out. On the coding side the phase fails before the master starts. The failure says which of these it was:
+A template that can't be opened stops the work rather than letting it go ahead without it. The derivation fails naming the template and the revision, and so does a template look refused because its allowance ran out. On the coding side the spec fails before the master starts. The failure says which of these it was:
 
 - the revision doesn't exist
 - the revision exists but isn't reachable from any branch or tag the clone fetched (a commit only on a pull request ref or a deleted branch)

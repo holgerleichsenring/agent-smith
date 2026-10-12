@@ -13,6 +13,7 @@ public static partial class CommandBeats
 {
     public static bool TryGet(string commandName, out RunBeat beat)
     {
+        commandName = CommandNames.Declared(commandName);
         if (Beats.TryGetValue(commandName, out beat)) return true;
 
         var baseCommand = commandName.Contains(':')

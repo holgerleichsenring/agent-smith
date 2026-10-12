@@ -13,7 +13,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// p0391 fast-tier proof that the master's way OUT actually works on the ticket-triggered
 /// CODE presets, through the real composition.
 ///
-/// Before this phase ask_human resolved to <c>HumanToolHost</c> on every coding preset
+/// Before this spec ask_human resolved to <c>HumanToolHost</c> on every coding preset
 /// there then was. That host needs a dialogue transport AND a job id, and
 /// <c>ContextKeys.DialogueJobId</c> is set in exactly one place in the codebase
 /// (SpecDialogTurnRunner) — so a ticket-triggered coding run never had one and the tool

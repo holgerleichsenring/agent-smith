@@ -11,7 +11,7 @@ namespace AgentSmith.Server.Services.Adapters;
 /// action id after the LAST colon is the only part of a clicked button this platform sends
 /// back — the value is never read — which is why a shape label may never contain a colon.
 /// The four block shapes were folded onto one section/context/actions/button vocabulary in the
-/// same phase, so a file already over the length limit came back under it.
+/// same spec, so a file already over the length limit came back under it.
 /// </para>
 /// </summary>
 public sealed class SlackTypedQuestionBlockBuilder

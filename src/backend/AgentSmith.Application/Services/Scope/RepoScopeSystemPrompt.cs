@@ -74,7 +74,7 @@ internal static class RepoScopeSystemPrompt
         + "fill the other fields as usual. When there is nothing to object to, refusal is null.";
 
     /// <summary>p0413: the shape rules — the second half of the estimate. Size decides
-    /// what the run may spend, shape decides how it is cut into phases.</summary>
+    /// what the run may spend, shape decides how it is cut into specs.</summary>
     private const string Shape =
         "- shape is a different question from complexity: complexity is HOW MUCH, shape is "
         + "WHAT KIND. 'deterministic' = once the facts are gathered the change is mechanical "

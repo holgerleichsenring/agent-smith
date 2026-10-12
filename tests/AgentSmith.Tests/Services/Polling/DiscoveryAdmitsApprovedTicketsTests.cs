@@ -15,7 +15,7 @@ namespace AgentSmith.Tests.Services.Polling;
 
 /// <summary>
 /// 2026-09-25-c1f7: a ticket whose approval stamp somebody deleted is still FETCHED. Until this
-/// phase the two trackers that filter server-side pushed the label guard into JQL and WIQL, so
+/// spec the two trackers that filter server-side pushed the label guard into JQL and WIQL, so
 /// such a ticket was never fetched at all and nothing downstream — including the record-reading
 /// bind of 2026-09-25-3c7aa — ever saw it.
 /// </summary>
@@ -91,7 +91,7 @@ public sealed class DiscoveryAdmitsApprovedTicketsTests
         var query = await BuildAsync(await StoreWithAsync(("jira-dpg-1239", "DPG-1239")));
 
         query.AllTagLabelsOrNull().Should().BeEquivalentTo(["alpha-tag"],
-            "what those two providers read is the branch criterion, which this phase never touched");
+            "what those two providers read is the branch criterion, which this spec never touched");
     }
 
     /// <summary>

@@ -4,7 +4,7 @@ using FluentAssertions;
 namespace AgentSmith.Tests.Architecture;
 
 /// <summary>
-/// 2026-10-09-7f48: the phase gate runs this assembly as several processes, chosen by the
+/// 2026-10-09-7f48: the spec gate runs this assembly as several processes, chosen by the
 /// <c>TestProcess</c> trait, because a test filter sees traits and not collections.
 /// <para>
 /// A collection is what keeps a process-wide resource safe: the environment-mutating classes
@@ -40,7 +40,7 @@ public sealed class TestProcessTraitRuleTests
     [Fact]
     public void TestProcessTrait_TheValuesInUse_AreExactlyTheGatesFourProcesses()
     {
-        // phase-gate.sh names these four values in its filters; a fifth would run in the body
+        // spec-gate.sh names these four values in its filters; a fifth would run in the body
         // (the complement), and a value no class carries is a process the gate starts for nothing.
         var used = typeof(TestProcessTraitRuleTests).Assembly.GetTypes()
             .Where(t => t.DeclaringType != typeof(TestProcessTraitRuleTests))

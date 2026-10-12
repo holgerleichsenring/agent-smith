@@ -188,7 +188,7 @@ describe("ConfigStudio", () => {
   });
 
   it("ConfigStudio_ProjectDrawer_ThreadsTheInheritedSandboxValuesIntoTheSandboxTab", async () => {
-    // 2026-09-22-6968: before this phase the studio could see no resolved projection at
+    // 2026-09-22-6968: before this spec the studio could see no resolved projection at
     // all — it loaded a catalog of editable entities and nothing else. This is the thread
     // from the studio's own load down to the sixth tab's placeholders.
     render(<ConfigCatalogProvider><ConfigStudio section="projects" /></ConfigCatalogProvider>);

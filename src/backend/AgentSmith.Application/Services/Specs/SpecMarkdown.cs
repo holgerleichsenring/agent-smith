@@ -9,7 +9,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// run working toward, what was left out, and what changed it" without leaving the
 /// dashboard. The content of record is still the branch; this is the viewer's copy.
 /// <para>
-/// p0395: done-criteria render as a titled "Definition of done" list, and each phase's
+/// p0395: done-criteria render as a titled "Definition of done" list, and each spec's
 /// markdown companion is part of the copy; a missing one names the path looked up.
 /// </para>
 /// </summary>
@@ -23,8 +23,8 @@ public static class SpecMarkdown
         ArgumentNullException.ThrowIfNull(set);
         var sb = new StringBuilder();
         AppendHeader(sb, set);
-        AppendPhases(sb, set);
-        AppendPhaseDocuments(sb, set);
+        AppendSpecs(sb, set);
+        AppendSpecDocuments(sb, set);
         AppendAccounting(sb, set);
         AppendRevisions(sb, set);
         return sb.ToString();
@@ -49,47 +49,47 @@ public static class SpecMarkdown
         }
     }
 
-    private static void AppendPhases(StringBuilder sb, SpecSet set)
+    private static void AppendSpecs(StringBuilder sb, SpecSet set)
     {
         sb.AppendLine();
-        sb.AppendLine("## Phases");
-        foreach (var phase in set.Phases)
+        sb.AppendLine("## Specs");
+        foreach (var spec in set.Phases)
         {
-            var executed = set.Executed.Contains(phase.PhaseId, StringComparer.Ordinal)
+            var executed = set.Executed.Contains(spec.PhaseId, StringComparer.Ordinal)
                 ? " _(executed)_" : string.Empty;
-            sb.AppendLine($"- **{phase.PhaseId}** — {phase.Draft.Goal}{executed}");
-            if (phase.Draft.Done.Count == 0) continue;
+            sb.AppendLine($"- **{spec.PhaseId}** — {spec.Draft.Goal}{executed}");
+            if (spec.Draft.Done.Count == 0) continue;
             sb.AppendLine("  - Definition of done:");
-            foreach (var criterion in phase.Draft.Done)
+            foreach (var criterion in spec.Draft.Done)
                 sb.AppendLine($"    - {criterion}");
         }
     }
 
     // A blank companion is a failed spec commit (p0394) — unless a named conversation approved the set.
-    private static void AppendPhaseDocuments(StringBuilder sb, SpecSet set)
+    private static void AppendSpecDocuments(StringBuilder sb, SpecSet set)
     {
         sb.AppendLine();
-        sb.AppendLine("## Phase documents");
-        foreach (var phase in set.Phases)
+        sb.AppendLine("## Spec documents");
+        foreach (var spec in set.Phases)
         {
             sb.AppendLine();
-            sb.AppendLine($"### {phase.PhaseId} — `{phase.FileStem}.md`");
-            sb.AppendLine(DocumentOf(set, phase));
+            sb.AppendLine($"### {spec.PhaseId} — `{spec.FileStem}.md`");
+            sb.AppendLine(DocumentOf(set, spec));
         }
     }
 
-    private static string DocumentOf(SpecSet set, SpecPhase phase) =>
-        !string.IsNullOrWhiteSpace(phase.Markdown) ? phase.Markdown.TrimEnd()
+    private static string DocumentOf(SpecSet set, SpecPhase spec) =>
+        !string.IsNullOrWhiteSpace(spec.Markdown) ? spec.Markdown.TrimEnd()
         : set.Approval is { Conversation.Length: > 0 } ? NoCompanionByApproval
-        : $"_No phase document found — nothing was readable at "
-          + $"`{SeriesPaths.Companion(SeriesPaths.Planned, phase.FileStem)}` on the ticket branch._";
+        : $"_No spec document found — nothing was readable at "
+          + $"`{SeriesPaths.Companion(SeriesPaths.Planned, spec.FileStem)}` on the ticket branch._";
 
     private static void AppendAccounting(StringBuilder sb, SpecSet set)
     {
         sb.AppendLine();
         sb.AppendLine("## Discarded from the ticket");
         sb.AppendLine(set.TicketPinnedWhole
-            ? "_The accounting could not be produced — the whole ticket is carried by one phase._"
+            ? "_The accounting could not be produced — the whole ticket is carried by one spec._"
             : SpecAccountingBuilder.RenderDiscardedForPullRequest(set.Accounting));
     }
 

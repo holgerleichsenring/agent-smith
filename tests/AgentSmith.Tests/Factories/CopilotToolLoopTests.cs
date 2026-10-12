@@ -120,7 +120,7 @@ public sealed class CopilotToolLoopTests
     [Fact]
     public async Task ToolRoundTrip_EachModelCallIsItsOwnGetResponseAsync()
     {
-        // The property the whole phase exists for: two model calls, two responses — so two
+        // The property the whole spec exists for: two model calls, two responses — so two
         // rate-limit acquisitions, two LlmCall pairs and two trace entries.
         var runtime = new FakeCopilotRuntime();
         runtime.Script(
@@ -258,7 +258,7 @@ public sealed class CopilotToolLoopTests
     public void ADeclarationOnlyTool_IsNotSomethingTheRuntimeWillRun()
     {
         // The SDK decides by asking the declaration for an AIFunction: one that answers is invoked
-        // automatically, one that does not is left pending for us. This is the hinge of the phase.
+        // automatically, one that does not is left pending for us. This is the hinge of the spec.
         var real = AIFunctionFactory.Create(() => "ok", "read_file");
         var declared = CopilotToolProjection.From([real]).Single();
 

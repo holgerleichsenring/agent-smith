@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace AgentSmith.PipelineHarness.Evals;
 
 /// <summary>
-/// 2026-09-23-4722a: the one claim in this phase that the assembly cannot settle.
+/// 2026-09-23-4722a: the one claim in this spec that the assembly cannot settle.
 ///
 /// Verified offline, and pinned by the unit tests: a declaration with no AIFunction behind it is
 /// left PENDING by the runtime and surfaces as an external-tool request. NOT verifiable offline,

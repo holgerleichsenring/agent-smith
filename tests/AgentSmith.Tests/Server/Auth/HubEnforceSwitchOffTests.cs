@@ -8,7 +8,7 @@ namespace AgentSmith.Tests.Server.Auth;
 /// <summary>
 /// p0517: the acceptance criterion, pinned before anything else. The enforce default stays
 /// off until the dashboard has a way to sign in, and until then a hub invocation must cost
-/// exactly what it cost before this phase — no token, no refusal, on every method in the
+/// exactly what it cost before this spec — no token, no refusal, on every method in the
 /// table.
 /// <para>
 /// The assertion is that no completion names a PERMISSION, not that no completion carries

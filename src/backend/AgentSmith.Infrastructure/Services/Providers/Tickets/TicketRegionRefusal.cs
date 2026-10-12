@@ -7,7 +7,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 internal static class TicketRegionRefusal
 {
     /// <summary>
-    /// THE COMMON CASE, AND IT IS REFUSED. Every ticket filed before this phase carries a body
+    /// THE COMMON CASE, AND IT IS REFUSED. Every ticket filed before this spec carries a body
     /// the framework rendered whole, with no marker saying where its text ends and a person's
     /// begins. Replacing the whole body would delete prose nobody can attribute; appending a
     /// second rendering would leave the ticket saying two things at once. So nothing is written

@@ -59,7 +59,7 @@ public sealed class EmbeddedCatalogReferencesTests : IDisposable
     /// principles first, the template for what is NEW, existing code for an EXTENSION. That
     /// wording is the catalog's own shared <c>source-precedence</c> section (2026-09-13-ab17)
     /// and 2026-09-13-4072 moved the pin to the release that carries it. The assertion was gated
-    /// on the citation while the two phases were apart; the pin carries it now, so dropping
+    /// on the citation while the two specs were apart; the pin carries it now, so dropping
     /// the citation from a later release fails here instead of at the first run.
     /// </summary>
     [Fact]
@@ -129,7 +129,7 @@ public sealed class EmbeddedCatalogReferencesTests : IDisposable
         var master = Directory
             .GetFiles(Path.Combine(root, "skills", "_masters"), "SKILL.md", SearchOption.AllDirectories)
             .SingleOrDefault(f => Path.GetFileName(Path.GetDirectoryName(f)) == "spec-derivation-master");
-        master.Should().NotBeNull("the derivation is the skill that cuts one ticket into phases");
+        master.Should().NotBeNull("the derivation is the skill that cuts one ticket into specs");
 
         var rules = File.ReadAllText(master!);
         rules.Should().Contain("{{ref:source-precedence}}",

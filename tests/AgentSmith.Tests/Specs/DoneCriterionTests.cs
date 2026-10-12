@@ -1,6 +1,6 @@
 using AgentSmith.Application.Services;
 using AgentSmith.Tests.SpecDialog;
-using AgentSmith.Application.Services.PhaseExecution;
+using AgentSmith.Application.Services.SpecExecution;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Application.Services.Validation;
@@ -33,7 +33,7 @@ public sealed class DoneCriterionTests
     private const string GivenWhenThen =
         "GIVEN a stored widget WHEN the repository reads it back THEN the same widget is returned";
 
-    private static readonly SpecDraftValidator Validator = new(new PhaseSpecSchemaProvider());
+    private static readonly SpecDraftValidator Validator = new(new SpecSchemaProvider());
 
     [Fact]
     public void Line_AScenarioWithGiven_IsGivenWhenThenInPlainKeywords() =>
@@ -65,14 +65,14 @@ public sealed class DoneCriterionTests
     {
         Validator.ValidateYaml(Mixed).Should().BeOfType<SpecDraftValid>();
 
-        new PhaseDraftReader().Read(Mixed).Done.Should().Equal(
+        new SpecDraftReader().Read(Mixed).Done.Should().Equal(
             "the table exists", GivenWhenThen, "WHEN the table is empty THEN the read returns nothing");
     }
 
     [Fact]
     public void Parse_AnEpicChildWithOnlyScenarios_HasDone()
     {
-        var parser = new EpicOutcomeParser(Validator, new PhaseDraftReader(), new RequiresEdgeChecker(), DialogTestRepos.Real());
+        var parser = new EpicOutcomeParser(Validator, new SpecDraftReader(), new RequiresEdgeChecker(), DialogTestRepos.Real());
         var yaml = """
             kind: epic
             parent: { spec: p9000, goal: Widget platform }
@@ -93,13 +93,13 @@ public sealed class DoneCriterionTests
 
     [Fact]
     public void DoneCriteria_AScenario_RendersItsLineNotATypeName() =>
-        PhaseExecutionPromptBlocks.DoneCriteria(new PhaseDraftReader().Read(Mixed))
+        SpecExecutionPromptBlocks.DoneCriteria(new SpecDraftReader().Read(Mixed))
             .Should().Contain("- " + GivenWhenThen).And.NotContain("Dictionary");
 
     [Fact]
     public void RequirementBody_AScenarioCriterion_ListsItsLineNotATypeName()
     {
-        var body = new PhaseTicketRenderer().RenderPhase(new PhaseDraftReader().Read(Mixed)).Body;
+        var body = new SpecTicketRenderer().RenderSpec(new SpecDraftReader().Read(Mixed)).Body;
 
         body.Should().Contain("- " + GivenWhenThen).And.NotContain("Dictionary");
         AcceptanceCriteriaSection.Read(body).Should().Contain(GivenWhenThen);

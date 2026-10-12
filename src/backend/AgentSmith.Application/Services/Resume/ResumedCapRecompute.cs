@@ -30,7 +30,7 @@ public sealed class ResumedCapRecompute(
     /// Re-sizes the cap in the context when the run carries a tier. Runs at the one seam
     /// where the restore has landed and nothing has yet read the cap: the first
     /// PipelineCostTracker.GetOrCreate is still ahead. A run with no carried tier (or an
-    /// Unknown one, and every checkpoint written before this phase) is left exactly as the
+    /// Unknown one, and every checkpoint written before this spec) is left exactly as the
     /// launch seeded it.
     /// </summary>
     public async Task ApplyAsync(

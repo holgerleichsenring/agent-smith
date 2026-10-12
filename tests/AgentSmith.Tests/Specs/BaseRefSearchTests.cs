@@ -13,7 +13,7 @@ namespace AgentSmith.Tests.Specs;
 /// base — "where X was previously configured" and "no host gains a transport it did not have
 /// before" — and the account had no way to look there at all, so the default rule turned a
 /// vacuous conditional into a refusal. This is reach only: what a base search may CONCLUDE
-/// is its own phase.
+/// is its own spec.
 /// </para>
 /// </summary>
 public sealed class BaseRefSearchTests
@@ -64,7 +64,7 @@ public sealed class BaseRefSearchTests
     }
 
     /// <summary>A citation that cannot tell the two apart cannot carry a rule that depends on
-    /// which one ran — which is what every successor of this phase does.</summary>
+    /// which one ran — which is what every successor of this spec does.</summary>
     [Fact]
     public async Task BranchSearch_ABaseSearchEvidenceLine_NamesTheRefItRead()
     {
@@ -149,14 +149,14 @@ public sealed class BaseRefSearchTests
     /// diff taken against a base it is not searching.
     /// </summary>
     [Fact]
-    public async Task PhaseAccounting_TheResolvedBaseRef_ReachesTheSearch()
+    public async Task SpecAccounting_TheResolvedBaseRef_ReachesTheSearch()
     {
         var capturing = new CapturingAccountant();
-        var accounting = new AgentSmith.Application.Services.Specs.PhaseAccounting(
+        var accounting = new AgentSmith.Application.Services.Specs.SpecDeliveryAccounting(
             AgentSmith.Tests.TestHelpers.TestGit.Delivery,
             capturing,
             new AgentSmith.Application.Services.Handlers.SandboxTargets(),
-            NullLogger<AgentSmith.Application.Services.Specs.PhaseAccounting>.Instance);
+            NullLogger<AgentSmith.Application.Services.Specs.SpecDeliveryAccounting>.Instance);
 
         await accounting.TakeAsync(
             Pipeline(),
@@ -170,7 +170,7 @@ public sealed class BaseRefSearchTests
     private static AgentSmith.Contracts.Commands.PipelineContext Pipeline()
     {
         var pipeline = new AgentSmith.Contracts.Commands.PipelineContext();
-        pipeline.Set(AgentSmith.Contracts.Commands.ContextKeys.PhaseSpec,
+        pipeline.Set(AgentSmith.Contracts.Commands.ContextKeys.CurrentSpec,
             new AgentSmith.Contracts.Models.PhaseDraft("p1", "goal", "spec: p1", [])
             { Done = ["a criterion"] });
         pipeline.Set(AgentSmith.Contracts.Commands.ContextKeys.ResolvedPipeline,

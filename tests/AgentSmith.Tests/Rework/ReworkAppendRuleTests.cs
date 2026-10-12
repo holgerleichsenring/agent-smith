@@ -18,13 +18,13 @@ public sealed class ReworkAppendRuleTests
     private static readonly DateTimeOffset Now = DateTimeOffset.UtcNow;
     private static readonly SpecApproval Prior = new(Now.AddDays(-1), "conv-7", "alice");
 
-    private static SpecPhase Phase(string id) => new(
+    private static SpecPhase Spec(string id) => new(
         new PhaseDraft(id, $"Goal {id}", $"spec: {id}\ngoal: \"Goal {id}\"", []) { Done = [$"Done {id}."] }, id, string.Empty, []);
 
-    private static SpecSet Executed(int phases, SpecApproval? approval = null, string cause = SpecRevisionCause.Initial)
+    private static SpecSet Executed(int specs, SpecApproval? approval = null, string cause = SpecRevisionCause.Initial)
     {
-        var ids = Enumerable.Range(0, phases).Select(i => $"p{i}").ToList();
-        return new SpecSet("k", [.. ids.Select(Phase)], SpecAccounting.Empty, [new SpecRevision(1, cause, Now)],
+        var ids = Enumerable.Range(0, specs).Select(i => $"p{i}").ToList();
+        return new SpecSet("k", [.. ids.Select(Spec)], SpecAccounting.Empty, [new SpecRevision(1, cause, Now)],
             SpecSource.BranchArtifact, ExecutedPhaseIds: ids) { Approval = approval };
     }
 
@@ -58,8 +58,8 @@ public sealed class ReworkAppendRuleTests
     [Fact]
     public void NeedsModel_FullSetAtCap_False()
     {
-        SpecAmendmentRule.NeedsModel(SpecRevisionCause.Comment, Executed(SpecSet.MaxPhases)).Should().BeFalse();
-        SpecAmendmentRule.NeedsModel(SpecRevisionCause.Rework, Executed(SpecSet.MaxPhases)).Should().BeFalse();
+        SpecAmendmentRule.NeedsModel(SpecRevisionCause.Comment, Executed(SpecSet.MaxSpecs)).Should().BeFalse();
+        SpecAmendmentRule.NeedsModel(SpecRevisionCause.Rework, Executed(SpecSet.MaxSpecs)).Should().BeFalse();
     }
 
     [Fact]
@@ -81,7 +81,7 @@ public sealed class ReworkAppendRuleTests
     {
         var rendered = PreviousCutPromptSection.Render(Executed(3), SpecRevisionCause.TicketEdit);
 
-        rendered.Should().Contain("ADD new phases after them").And.Contain($"at most {SpecSet.MaxPhases - 3} new phase(s)");
+        rendered.Should().Contain("ADD new specs after them").And.Contain($"at most {SpecSet.MaxSpecs - 3} new spec(s)");
     }
 
     [Fact]
@@ -91,7 +91,7 @@ public sealed class ReworkAppendRuleTests
     [Fact]
     public void Notice_CommentAtCap_SaysFull()
     {
-        var set = Executed(SpecSet.MaxPhases) with
+        var set = Executed(SpecSet.MaxSpecs) with
         {
             Revisions = [new SpecRevision(1, SpecRevisionCause.Initial, Now), new SpecRevision(2, SpecRevisionCause.Comment, Now)],
         };

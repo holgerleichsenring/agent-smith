@@ -48,10 +48,10 @@ public sealed class ResumedCostCapTests
         _events.Events.Should().BeEmpty("nothing about this run's budget changed");
     }
 
-    // A checkpoint written before this phase carries no tier at all — the same shape as a
+    // A checkpoint written before this spec carries no tier at all — the same shape as a
     // run whose tier was Unknown, and the accepted limitation for runs parked before it.
     [Fact]
-    public async Task Checkpoint_ACheckpointWrittenBeforeThisPhase_ResumesOnTheConfiguredCap()
+    public async Task Checkpoint_ACheckpointWrittenBeforeThisSpec_ResumesOnTheConfiguredCap()
     {
         var pipeline = Parked(ComplexityTier.Unknown);
 

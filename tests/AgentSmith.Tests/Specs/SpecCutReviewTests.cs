@@ -17,8 +17,8 @@ namespace AgentSmith.Tests.Specs;
 /// <summary>
 /// p0422: the CUT is reviewed before a token is spent building it.
 /// <para>
-/// Ticket 19106 was cut into one phase carrying both the ticket's own "Step 1 —
-/// Inventory (before touching any code)" and its migration steps, so the phase demanded
+/// Ticket 19106 was cut into one spec carrying both the ticket's own "Step 1 —
+/// Inventory (before touching any code)" and its migration steps, so the spec demanded
 /// "no production source file is modified" AND "MediatR appears nowhere". Every shape
 /// rule passed. The master worked for two hours, found the contradiction itself and
 /// parked the run on a question the operator should never have had to answer.
@@ -33,7 +33,7 @@ public sealed class SpecCutReviewTests
         """;
 
     [Fact]
-    public async Task APhaseWhoseCriteriaContradict_IsReportedAsNotDeliverable()
+    public async Task ASpecWhoseCriteriaContradict_IsReportedAsNotDeliverable()
     {
         var review = await Review(Contradiction);
 
@@ -52,11 +52,11 @@ public sealed class SpecCutReviewTests
 
     /// <summary>
     /// The same anti-invention rule the delivery account has: a finding must quote a
-    /// criterion the phase really states. A reviewer that invents its objection blocks a
+    /// criterion the spec really states. A reviewer that invents its objection blocks a
     /// cut nobody can find the fault in, which is worse than no review at all.
     /// </summary>
     [Fact]
-    public async Task AFindingQuotingACriterionThePhaseNeverStated_IsDiscarded()
+    public async Task AFindingQuotingACriterionTheSpecNeverStated_IsDiscarded()
     {
         var review = await Review("""
             [{"phase_id":"p19106a","criterion":"the moon is a balloon",
@@ -69,7 +69,7 @@ public sealed class SpecCutReviewTests
     [Fact]
     public async Task AReviewThatCouldNotBeTaken_BlocksNothing()
     {
-        var review = await Review("I could not read the phases.");
+        var review = await Review("I could not read the specs.");
 
         review.Deliverable.Should().BeTrue(
             "a failed review is not evidence of a fault — it must not block a cut");

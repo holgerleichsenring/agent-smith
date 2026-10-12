@@ -5,11 +5,11 @@ using AgentSmith.Domain.Models;
 namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
-/// p0421: keeps every phase's account for the run's own gate.
+/// p0421: keeps every spec's account for the run's own gate.
 /// <para>
 /// The delivery question is asked once, at the end, about the whole run — so the answer
-/// each phase gave has to survive the next phase. Keyed by phase id, so a re-run of the
-/// same phase replaces its account instead of counting twice.
+/// each spec gave has to survive the next spec. Keyed by spec id, so a re-run of the
+/// same spec replaces its account instead of counting twice.
 /// </para>
 /// </summary>
 public static class RunAccountLedger
@@ -18,15 +18,15 @@ public static class RunAccountLedger
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         if (accounts is not { Count: > 0 }) return;
-        var phaseId = pipeline.TryGet<PhaseDraft>(ContextKeys.PhaseSpec, out var draft) && draft is not null
+        var specId = pipeline.TryGet<PhaseDraft>(ContextKeys.CurrentSpec, out var draft) && draft is not null
             ? draft.PhaseId
             : "run";
-        pipeline.Set(ContextKeys.RunAccounts, Current(pipeline).With(phaseId, accounts));
+        pipeline.Set(ContextKeys.RunAccounts, Current(pipeline).With(specId, accounts));
     }
 
     /// <summary>
-    /// A phase that could not be measured records WHY. A build that failed is the reason
-    /// the phase has no account, and the run's verdict must say so rather than report the
+    /// A spec that could not be measured records WHY. A build that failed is the reason
+    /// the spec has no account, and the run's verdict must say so rather than report the
     /// silence the failure caused.
     /// </summary>
     public static void RecordProblem(

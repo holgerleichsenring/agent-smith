@@ -4,7 +4,7 @@ namespace AgentSmith.Application.Services.Prompts;
 /// 2026-09-08-1830: the pin sent back into the derivation conversation when a
 /// deliverable cut covers fewer contexts than the scope call named. The model sees
 /// its own first cut and the looks it took; this names the gap and the two ways to
-/// close it — carry the context in a phase, or list it as discarded with the reason.
+/// close it — carry the context in a spec, or list it as discarded with the reason.
 /// </summary>
 public static class ScopedContextGapPromptSection
 {
@@ -19,7 +19,7 @@ public static class ScopedContextGapPromptSection
         return $"""
             ## Your cut does not cover every context the scope call named
             The scope call named {missing}; the cut carries {covered}. Either carry {missing} in a
-            phase and name it in that phase's "contexts", or list it under "discarded_contexts"
+            spec and name it in that spec's "contexts", or list it under "discarded_contexts"
             with the reason it is outside this ticket's work. A context that is neither carried
             nor discarded with a reason is work silently dropped.
             Respond again with ONLY the corrected JSON object.

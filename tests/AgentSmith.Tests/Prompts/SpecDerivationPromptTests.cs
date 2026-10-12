@@ -4,8 +4,8 @@ namespace AgentSmith.Tests.Prompts;
 
 /// <summary>
 /// p0400a: run b9b0 proved that documenting ships_code was not enough — the
-/// derivation omitted it on a pure-knowledge phase and the keystone failed a
-/// 7/7-done phase for lacking a diff it never promised. The prompt now states
+/// derivation omitted it on a pure-knowledge spec and the keystone failed a
+/// 7/7-done spec for lacking a diff it never promised. The prompt now states
 /// the obligation; this pins the load-bearing wording.
 /// <para>
 /// p0442: the prompt is served by the PINNED SKILLS CATALOG now, not by an embedded
@@ -17,9 +17,9 @@ public sealed class SpecDerivationPromptTests
 {
     /// <summary>
     /// p0421: the obligation moved from declaring a flag to WRITING CHECKABLE CRITERIA.
-    /// After the phase runs, a reader who did not do the work is handed the criteria and
+    /// After the spec runs, a reader who did not do the work is handed the criteria and
     /// the branch diff and has to tie each one to a file — so a criterion nobody can tie
-    /// to anything fails the phase that honoured it.
+    /// to anything fails the spec that honoured it.
     /// </summary>
     [Fact]
     public void DerivationPrompt_DemandsCriteriaThatCanBeCheckedAgainstTheRepository()
@@ -33,7 +33,7 @@ public sealed class SpecDerivationPromptTests
     }
 
     /// <summary>
-    /// p0413: run 1b4b cut a mechanical ticket into three phases, each with a full
+    /// p0413: run 1b4b cut a mechanical ticket into three specs, each with a full
     /// master loop, and burned $10 without finishing the first. The prompt must
     /// state the cut-sizing rule the classified shape feeds — as a RULE about the
     /// work, with no example that names an ecosystem, a tool or a language.
@@ -44,10 +44,10 @@ public sealed class SpecDerivationPromptTests
         var prompt = DerivationPrompt();
 
         prompt.Should().Contain("THE CUT IS SIZED TO THE SHAPE OF THE WORK");
-        prompt.Should().Contain("FEWEST phases its deliverable allows",
+        prompt.Should().Contain("FEWEST specs its deliverable allows",
             "deterministic work must be told to collapse, not merely allowed to");
         prompt.Should().Contain("a step per target turns one operation into one round of work",
-            "the measured failure was one model round trip per target, not the phase count alone");
+            "the measured failure was one model round trip per target, not the spec count alone");
         prompt.Should().Contain("No shape stated means cut as you otherwise would",
             "an unclassified ticket must reach the cut it always got");
     }
@@ -93,14 +93,14 @@ public sealed class SpecDerivationPromptTests
     /// <summary>
     /// 2026-09-08-1830: a dependency ticket naming two contexts was cut for one, every
     /// criterion was met, the run went green, and the other context was never touched. The
-    /// master now states per phase which of the named contexts it changes ("contexts") and
+    /// master now states per spec which of the named contexts it changes ("contexts") and
     /// accounts for every one it does not carry ("discarded_contexts" with a reason), so the
     /// system can compare the two lists and refuse a cut that leaves a context unspoken for.
     /// The "question" hand-back gains its worked example. Ships with the v5.2.0 pin (skills
     /// PR #182).
     /// </summary>
     [Fact]
-    public void SpecDerivationMaster_NamesTheContextsEachPhaseCarries()
+    public void SpecDerivationMaster_NamesTheContextsEachSpecCarries()
     {
         var prompt = DerivationPrompt();
 
@@ -108,7 +108,7 @@ public sealed class SpecDerivationPromptTests
         prompt.Should().Contain("\"discarded_contexts\"");
         prompt.Should().Contain("EVERY NAMED CONTEXT IS SPOKEN FOR");
         prompt.Should().Contain(
-            "either carried by at least one phase or listed in \"discarded_contexts\" with the reason it is outside the work",
+            "either carried by at least one spec or listed in \"discarded_contexts\" with the reason it is outside the work",
             "a context the ticket names must land in one list or the other, never in neither");
         prompt.Should().Contain("refuses a cut that leaves a named context unaccounted for",
             "the master must know the comparison is enforced, not advisory");

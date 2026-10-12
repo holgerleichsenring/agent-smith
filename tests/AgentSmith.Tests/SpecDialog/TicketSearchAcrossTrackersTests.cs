@@ -123,7 +123,7 @@ public sealed class TicketSearchAcrossTrackersTests
     }
 
     /// <summary>
-    /// 2026-09-27-481bb: through the ROUTE, not the service. Both halves of this phase's reporting
+    /// 2026-09-27-481bb: through the ROUTE, not the service. Both halves of this spec's reporting
     /// were asserted on the service and on a mocked page, and the wire between them carried neither
     /// — the list was computed, rendered, and never serialised. A shape assertion here is what
     /// makes the sentence reachable at all.

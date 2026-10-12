@@ -263,7 +263,7 @@ export function RunSideRail({
           </div>
         )}
 
-        {/* p0413: the SHAPE that decided the process — how many phases the ticket
+        {/* p0413: the SHAPE that decided the process — how many specs the ticket
             was cut into follows from this, so "why did this run look like this"
             is answerable on the run itself. The classifier's one-line reason is
             the title; absent when no shape was stated. */}

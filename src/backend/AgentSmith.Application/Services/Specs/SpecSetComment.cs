@@ -44,7 +44,7 @@ public static class SpecSetComment
         sb.AppendLine(SpecSetCommentPreamble.For(set));
         sb.AppendLine();
         sb.Append(SpecRecutNotice.Render(set));
-        sb.Append(RenderPhases(set));
+        sb.Append(RenderSpecs(set));
         sb.AppendLine();
         sb.Append(SpecPrBody.RenderDiscarded(set));
         sb.Append(RenderContextsLeftOut(set));
@@ -56,24 +56,24 @@ public static class SpecSetComment
         return sb.ToString();
     }
 
-    /// <summary>Each phase with its goal, the criteria it will be held to, the facts it
+    /// <summary>Each spec with its goal, the criteria it will be held to, the facts it
     /// rests on beside the look each one cites, and what it assumed without looking.</summary>
-    private static string RenderPhases(SpecSet set)
+    private static string RenderSpecs(SpecSet set)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("## Derived phases");
+        sb.AppendLine("## Derived specs");
         sb.AppendLine();
         if (set.Phases.Count == 0)
         {
-            sb.AppendLine("_No phase was derived._");
+            sb.AppendLine("_No spec was derived._");
             return sb.ToString();
         }
-        foreach (var phase in set.Phases) RenderPhase(sb, phase);
+        foreach (var spec in set.Phases) RenderSpec(sb, spec);
         return sb.ToString();
     }
 
     // 2026-09-08-1830: the contexts the cut left out, with reasons — shown whenever the
-    // cut declared contexts at all, so an author sees a context missing from every phase.
+    // cut declared contexts at all, so an author sees a context missing from every spec.
     private static string RenderContextsLeftOut(SpecSet set)
     {
         var declared = set.Phases.Any(p => p.Draft.Contexts.Count > 0);
@@ -83,34 +83,34 @@ public static class SpecSetComment
         sb.AppendLine("## Contexts left out");
         sb.AppendLine();
         sb.AppendLine(set.Accounting.DiscardedContexts.Count == 0
-            ? "_Every named context is carried by a phase._"
+            ? "_Every named context is carried by a spec._"
             : SpecAccountingBuilder.RenderDiscardedContexts(set.Accounting));
         return sb.ToString();
     }
 
-    private static void RenderPhase(StringBuilder sb, SpecPhase phase)
+    private static void RenderSpec(StringBuilder sb, SpecPhase spec)
     {
-        sb.AppendLine($"### {phase.PhaseId} — {phase.Draft.Goal}");
+        sb.AppendLine($"### {spec.PhaseId} — {spec.Draft.Goal}");
         sb.AppendLine();
-        if (phase.Draft.Contexts.Count > 0)
+        if (spec.Draft.Contexts.Count > 0)
         {
-            sb.AppendLine($"**Contexts:** {string.Join(", ", phase.Draft.Contexts)}");
+            sb.AppendLine($"**Contexts:** {string.Join(", ", spec.Draft.Contexts)}");
             sb.AppendLine();
         }
         sb.AppendLine("**Done when:**");
-        foreach (var criterion in phase.Draft.Done) sb.AppendLine($"- {criterion}");
-        if (phase.Draft.Facts.Count > 0)
+        foreach (var criterion in spec.Draft.Done) sb.AppendLine($"- {criterion}");
+        if (spec.Draft.Facts.Count > 0)
         {
             sb.AppendLine();
             sb.AppendLine("**Facts (each from a look I took):**");
-            foreach (var fact in phase.Draft.Facts)
+            foreach (var fact in spec.Draft.Facts)
                 sb.AppendLine($"- {fact.Claim}\n  - _{fact.Evidence}_");
         }
-        if (phase.Draft.Assumptions.Count > 0)
+        if (spec.Draft.Assumptions.Count > 0)
         {
             sb.AppendLine();
             sb.AppendLine("**Assumptions (stated without a look — correct me if wrong):**");
-            foreach (var assumption in phase.Draft.Assumptions) sb.AppendLine($"- {assumption}");
+            foreach (var assumption in spec.Draft.Assumptions) sb.AppendLine($"- {assumption}");
         }
         sb.AppendLine();
     }

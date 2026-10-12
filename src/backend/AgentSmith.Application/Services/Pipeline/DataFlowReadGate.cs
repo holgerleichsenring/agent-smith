@@ -8,7 +8,7 @@ using Microsoft.Extensions.Options;
 namespace AgentSmith.Application.Services.Pipeline;
 
 /// <summary>
-/// Scoped service that produces per-step read-gates against an IPhaseDataFlow.
+/// Scoped service that produces per-step read-gates against an IStepDataFlow.
 /// AttachToStep resolves the flow for the active pipeline and returns an
 /// IDisposable that attaches a per-step gate to the PipelineContext for the
 /// step's duration. Per-read check: looks up the active step's declared
@@ -18,12 +18,12 @@ namespace AgentSmith.Application.Services.Pipeline;
 /// </summary>
 public sealed class DataFlowReadGate
 {
-    private readonly IPhaseDataFlowResolver _resolver;
+    private readonly IStepDataFlowResolver _resolver;
     private readonly bool _enforce;
     private readonly ILogger<DataFlowReadGate> _logger;
 
     public DataFlowReadGate(
-        IPhaseDataFlowResolver resolver,
+        IStepDataFlowResolver resolver,
         IOptions<PipelineDataFlowConfig> options,
         ILogger<DataFlowReadGate> logger)
     {
@@ -48,12 +48,12 @@ public sealed class DataFlowReadGate
     private sealed class StepGate : IPipelineContextReadGate
     {
         private readonly string _activeStep;
-        private readonly IPhaseDataFlow _flow;
+        private readonly IStepDataFlow _flow;
         private readonly bool _enforce;
         private readonly ILogger _logger;
         private readonly HashSet<string> _alreadyWarned = new(StringComparer.Ordinal);
 
-        public StepGate(string activeStep, IPhaseDataFlow flow, bool enforce, ILogger logger)
+        public StepGate(string activeStep, IStepDataFlow flow, bool enforce, ILogger logger)
         {
             _activeStep = activeStep;
             _flow = flow;
@@ -82,24 +82,24 @@ public sealed class DataFlowReadGate
             {
                 if (!EdgeAppliesToActiveStep(edge)) continue;
                 if (EdgeCoversKey(edge, key))
-                    matches.Add(edge.FromPhaseStep);
+                    matches.Add(edge.FromStep);
             }
             return matches;
         }
 
-        private static bool EdgeCoversKey(PhaseDataFlowEdge edge, string key)
+        private static bool EdgeCoversKey(StepDataFlowEdge edge, string key)
             => edge.ContextKeys.Contains("*", StringComparer.Ordinal)
                 || edge.ContextKeys.Contains(key, StringComparer.Ordinal);
 
         private List<string> EnumerateAllDeclaredFromSteps()
             => _flow.Edges
                 .Where(EdgeAppliesToActiveStep)
-                .Select(e => e.FromPhaseStep)
+                .Select(e => e.FromStep)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
-        private bool EdgeAppliesToActiveStep(PhaseDataFlowEdge edge)
-            => edge.ToPhaseStep == "*"
-                || edge.ToPhaseStep.Equals(_activeStep, StringComparison.OrdinalIgnoreCase);
+        private bool EdgeAppliesToActiveStep(StepDataFlowEdge edge)
+            => edge.ToStep == "*"
+                || edge.ToStep.Equals(_activeStep, StringComparison.OrdinalIgnoreCase);
     }
 }

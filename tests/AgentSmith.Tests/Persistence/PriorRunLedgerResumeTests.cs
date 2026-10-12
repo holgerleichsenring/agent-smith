@@ -138,7 +138,7 @@ public sealed class PriorRunLedgerResumeTests : IDisposable
         prior.Should().BeNull();
     }
 
-    // 2026-09-09-b26f: the defect this phase closes. Two projects on one tracker
+    // 2026-09-09-b26f: the defect this spec closes. Two projects on one tracker
     // both carry ticket 4471; keyed on the ticket alone, the newer run's ledger
     // seeds the other project's checklist.
     [Fact]

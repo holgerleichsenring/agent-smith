@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-967ag
+goal: "A test fails when an identifier, file name, literal or test id says phase outside history and the allowlisted execution-stage, workflow-step and Kubernetes meanings."
+
+applies_to: "tests (architecture)"
+
+requires: [2026-10-12-967ac, 2026-10-12-967ae, 2026-10-12-967af]
+
+facts:
+  - claim: "The G2 allowlist is enumerated in the inventory note."
+    evidence: ".agentsmith/notes/2026-10-12-967a-phase-inventory.md"
+
+scope:
+  in: >
+    An architecture test over src, tests and src/dashboard: identifiers, file names, string literals and test ids,
+    against an allowlist of exact tokens each with its meaning — including the dual readers until 967ah and the
+    forwarder. Prose (comments, docs) is checked per file list, not by token: an exact token cannot tell the
+    G1 JSON key phases of RunStatisticsView from the G2 RunCostSummary.Phases. The skills repo gets the same check
+    in its own CI.
+  out: "History paths, migrations."
+
+tests:
+  - "SpecWord_PhaseOutsideAllowlist_Fails (fixture writing PhaseId)"
+  - "SpecWord_Tree_IsClean"
+
+done:
+  - "Green on main, red on a fixture that writes PhaseId."

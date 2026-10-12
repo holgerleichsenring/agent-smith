@@ -24,7 +24,7 @@ public sealed class FiledTicketKeyTests
     {
         var created = new CreatedTicket(new TicketId(id), "https://tracker.test/x");
 
-        var entry = FiledTicket.Of(created, "p9001: the phase", Project(tracker));
+        var entry = FiledTicket.Of(created, "p9001: the spec", Project(tracker));
 
         entry.Key.Should().Be(expected);
         entry.TicketId.Should().Be(id, "the key is formatted FROM the id, which stays on the report");
@@ -36,11 +36,11 @@ public sealed class FiledTicketKeyTests
         var notice = Notice(Filed("SAMPLE-412", "https://tracker.test/browse/SAMPLE-412"))
             .In(SpecDialogMarkup.CommonMark);
 
-        notice.Should().Contain("[SAMPLE-412](https://tracker.test/browse/SAMPLE-412) — p9001: the phase");
+        notice.Should().Contain("[SAMPLE-412](https://tracker.test/browse/SAMPLE-412) — p9001: the spec");
     }
 
     /// <summary>
-    /// A CHAT reader gets the key too. The phase claims filed tickets read as keys rather than raw
+    /// A CHAT reader gets the key too. The spec claims filed tickets read as keys rather than raw
     /// urls, and a claim that held on one channel only would be the wrong half of it; the link
     /// shape is the channel's, which is what SpecDialogMarkup.Link is for.
     /// </summary>
@@ -50,7 +50,7 @@ public sealed class FiledTicketKeyTests
         var notice = Notice(Filed("SAMPLE-412", "https://tracker.test/browse/SAMPLE-412"))
             .In(SpecDialogMarkup.ChatMrkdwn);
 
-        notice.Should().Contain("<https://tracker.test/browse/SAMPLE-412|SAMPLE-412> — p9001: the phase")
+        notice.Should().Contain("<https://tracker.test/browse/SAMPLE-412|SAMPLE-412> — p9001: the spec")
             .And.NotContain("[SAMPLE-412]", "a CommonMark link shape is not chat mrkdwn's");
     }
 
@@ -73,7 +73,7 @@ public sealed class FiledTicketKeyTests
         var notice = Notice(Filed("#412", "#412"))
             .In(onThePage ? SpecDialogMarkup.CommonMark : SpecDialogMarkup.ChatMrkdwn);
 
-        notice.Should().Contain("- #412 — p9001: the phase")
+        notice.Should().Contain("- #412 — p9001: the spec")
             .And.NotContain("](").And.NotContain("|#412>");
     }
 
@@ -83,11 +83,11 @@ public sealed class FiledTicketKeyTests
     {
         var notice = Notice(Filed("#412", "httpfoo://tracker.test/7")).In(SpecDialogMarkup.CommonMark);
 
-        notice.Should().Contain("- #412 — p9001: the phase").And.NotContain("](");
+        notice.Should().Contain("- #412 — p9001: the spec").And.NotContain("](");
     }
 
     /// <summary>
-    /// A filing stored before this phase has no key in its row. It must read back as ABSENT and
+    /// A filing stored before this spec has no key in its row. It must read back as ABSENT and
     /// fall back to the reference it always showed — a key invented from an id the row does not
     /// carry either would be a name that resolves to nothing.
     /// </summary>
@@ -95,7 +95,7 @@ public sealed class FiledTicketKeyTests
     public void LatestFiling_RowWithoutKey_ReadsAndFallsBackToTheReference()
     {
         const string stored =
-            """{"filed":[{"reference":"https://tracker.test/7","title":"p9001: the phase"}],"error":null,"at":"2026-09-17T10:00:00Z","kind":"phase","notes":[]}""";
+            """{"filed":[{"reference":"https://tracker.test/7","title":"p9001: the spec"}],"error":null,"at":"2026-09-17T10:00:00Z","kind":"phase","notes":[]}""";
 
         var filing = JsonSerializer.Deserialize<SpecDialogFiling>(
             stored, new JsonSerializerOptions(JsonSerializerDefaults.Web));
@@ -103,16 +103,16 @@ public sealed class FiledTicketKeyTests
         var ticket = filing!.Filed.Should().ContainSingle().Subject;
         ticket.Key.Should().BeNull();
         Notice(ticket).In(SpecDialogMarkup.CommonMark).Should()
-            .Contain("https://tracker.test/7 — p9001: the phase").And.NotContain("](");
+            .Contain("https://tracker.test/7 — p9001: the spec").And.NotContain("](");
     }
 
     private static ComposedReply Notice(FiledTicket ticket) =>
         new SpecDialogOutcomeComposer().ComposeFiled(
-            new PhaseOutcome(new PhaseDraft("p9001", "the phase", "spec: p9001", [])),
+            new SpecOutcome(new PhaseDraft("p9001", "the spec", "spec: p9001", [])),
             new FilingReport([ticket], Error: null));
 
     private static FiledTicket Filed(string key, string reference) =>
-        new(reference, "p9001: the phase") { Key = key, TicketId = key };
+        new(reference, "p9001: the spec") { Key = key, TicketId = key };
 
     private static ResolvedProject Project(TrackerType tracker) => new()
     {

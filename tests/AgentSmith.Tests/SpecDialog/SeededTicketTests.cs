@@ -34,7 +34,7 @@ public sealed class SeededTicketTests
     public void TicketGround_AConversationWithNoTicket_RendersNothingAtAll()
     {
         SeededTicketSection.Render(new PipelineContext()).Should().BeEmpty(
-            "an unbound conversation must get byte-for-byte the prompt it got before this phase");
+            "an unbound conversation must get byte-for-byte the prompt it got before this spec");
     }
 
     [Fact]

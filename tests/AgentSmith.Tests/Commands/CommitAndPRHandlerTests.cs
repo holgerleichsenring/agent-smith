@@ -65,14 +65,14 @@ public class CommitAndPRHandlerTests
             new SandboxGitOperations(new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
             new SecretPatternScanner(),
             new PullRequestOutcomePublisher(_events),
-            new TicketLifecycle(), new SandboxTargets(), new PhaseAccounting(
+            new TicketLifecycle(), new SandboxTargets(), new SpecDeliveryAccounting(
                 AgentSmith.Tests.TestHelpers.TestGit.Delivery,
                 new SpecAccountant(
                 new AgentSmith.Tests.TestHelpers.ScriptedChatClientFactory(),
                 new AccountCalls(new SpecAccountCall(new AgentSmith.Tests.TestHelpers.ScriptedChatClientFactory(), new AgentSmith.Application.Services.Events.AsyncLocalRunContextAccessor(), NullLogger<SpecAccountCall>.Instance)),
                     NullLogger<SpecAccountant>.Instance),
                 new SandboxTargets(),
-                NullLogger<PhaseAccounting>.Instance),
+                NullLogger<SpecDeliveryAccounting>.Instance),
             new FailedRunPersistence(new WipCommitMessage()),
             new SpecOnlyPullRequests(_sourceFactoryMock.Object, new PullRequestOutcomePublisher(_events), NullLogger<SpecOnlyPullRequests>.Instance),
             new ShortfallDelivery(
@@ -408,7 +408,7 @@ public class CommitAndPRHandlerTests
         var pipeline = NewPipelineWithSandbox();
         pipeline.Set(ContextKeys.PipelineName, "code");
         // Ratified criteria with no account behind them: nothing measured itself.
-        pipeline.Set(ContextKeys.PhaseSpec, PhaseWithOneCriterion());
+        pipeline.Set(ContextKeys.CurrentSpec, SpecWithOneCriterion());
         var context = CreateContext(pipeline) with { Changes = Array.Empty<CodeChange>() };
 
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
@@ -481,8 +481,8 @@ public class CommitAndPRHandlerTests
     [Fact]
     public async Task ExecuteAsync_ShortfallRun_OpensAReadyPrAndFinalizesTheTicketDone()
     {
-        // p0439: the tail reaches this handler after a LATER phase failed; the first phase
-        // is verified and its head is recorded. That phase is delivered: a ready PR whose
+        // p0439: the tail reaches this handler after a LATER spec failed; the first spec
+        // is verified and its head is recorded. That spec is delivered: a ready PR whose
         // body names what is missing, the ticket finalized with the done status, and the
         // delivery left on the context for the executor and the use case to read.
         string? capturedBody = null;
@@ -499,8 +499,8 @@ public class CommitAndPRHandlerTests
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Message.Should().Contain("Delivered 1 of 2 phase(s)").And.Contain("pull/42").And.NotContain("Run failed");
-        capturedDraft.Should().BeFalse("the delivered phase is verified — the PR is ready for review");
+        result.Message.Should().Contain("Delivered 1 of 2 spec(s)").And.Contain("pull/42").And.NotContain("Run failed");
+        capturedDraft.Should().BeFalse("the delivered spec is verified — the PR is ready for review");
         capturedBody.Should().StartWith("> ✅ **Delivered with a shortfall**")
             .And.Contain("## Not delivered").And.Contain("p0001b").And.Contain("cost budget exhausted");
         _ticketProviderMock.Verify(t => t.FinalizeAsync(
@@ -593,7 +593,7 @@ public class CommitAndPRHandlerTests
         pipeline.Set(ContextKeys.PipelineName, "code");
         pipeline.Set(ContextKeys.MasterVerification,
             new MasterVerification(VerificationStatus.Failed, true, false, true, false, "build failed"));
-        pipeline.Set(ContextKeys.PhaseSpec, PhaseWithOneCriterion());
+        pipeline.Set(ContextKeys.CurrentSpec, SpecWithOneCriterion());
         var context = CreateContext(pipeline);
 
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
@@ -615,7 +615,7 @@ public class CommitAndPRHandlerTests
         // build/test outcome is unknown, so the run cannot be a success.
         var pipeline = NewPipelineWithSandbox();
         pipeline.Set(ContextKeys.PipelineName, "code");
-        pipeline.Set(ContextKeys.PhaseSpec, PhaseWithOneCriterion());
+        pipeline.Set(ContextKeys.CurrentSpec, SpecWithOneCriterion());
         var context = CreateContext(pipeline);
 
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
@@ -733,6 +733,6 @@ public class CommitAndPRHandlerTests
 
     // p0421: the gate judges what was RATIFIED. A run that ratified nothing is not judged
     // at all — which is why these tests state a contract before expecting a verdict.
-    private static PhaseDraft PhaseWithOneCriterion() =>
+    private static PhaseDraft SpecWithOneCriterion() =>
         new("p0001", "the bug", "spec: p0001\n", []) { Done = ["the bug is fixed"] };
 }

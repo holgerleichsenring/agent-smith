@@ -11,7 +11,7 @@ import { useFindings } from "@/lib/useFindings";
  * two replicas each — coexistence is what an upgrade looks like from the inside, and the
  * server withholds this finding for as long as its own rollout could still be in flight.
  * The tab is also still running the bundle it downloaded, so refusing to render here would
- * recreate the blank page the previous phase abolished. It reports a DIFFERENCE: whether
+ * recreate the blank page the previous spec abolished. It reports a DIFFERENCE: whether
  * two builds can talk is a property of the contract between them, which nothing generates
  * from the server yet.
  */

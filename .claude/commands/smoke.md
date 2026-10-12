@@ -2,7 +2,7 @@
 description: Smoke-test the agent-smith CLI binary + docker-compose for api-scan / security-scan / code. Catches regressions that escape the unit test suite.
 ---
 
-You are running the agent-smith smoke suite. The goal is a fast, deterministic answer to **"does the binary actually work?"** — every phase merge should end with a green smoke before being declared done.
+You are running the agent-smith smoke suite. The goal is a fast, deterministic answer to **"does the binary actually work?"** — every spec merge should end with a green smoke before being declared done.
 
 ## How to run
 

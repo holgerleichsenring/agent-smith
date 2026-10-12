@@ -287,7 +287,7 @@ describe("RunStory", () => {
   const RED_BUILD = {
     criteria: [],
     outcome: "verbatim",
-    ratifiedBy: "the ratified phase spec",
+    ratifiedBy: "the ratified spec",
     source: "delivery_account" as const,
     unmeasured: [{ repositories: "default", reason: "/bin/sh: 1: sbt: not found" }],
   };

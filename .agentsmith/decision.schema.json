@@ -1,8 +1,8 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://github.com/holgerleichsenring/specification-first-agentic-development/decision.schema.json",
-  "title": "Phase Decisions",
-  "description": "All decisions attached to a single phase (or run). One YAML file per phase, decisions array inside. Filename = <phase-or-run-id>.yaml (e.g. p0042.yaml, r07.yaml).",
+  "title": "Spec Decisions",
+  "description": "All decisions attached to a single spec (or run). One YAML file per spec, decisions array inside. Filename = <spec-or-run-id>.yaml (e.g. p0042.yaml, r07.yaml).",
   "type": "object",
   "required": ["decisions"],
   "additionalProperties": false,
@@ -13,7 +13,7 @@
   "properties": {
     "spec": {
       "type": "string",
-      "description": "Phase identifier this file's decisions attach to \u2014 a counter id (e.g. p0042) or a date-minted id (e.g. 2026-08-24-8a3f), either of which may carry a series letter (p0057a, 2026-08-24-8a3fa). Must match the filename.",
+      "description": "Spec identifier this file's decisions attach to \u2014 a counter id (e.g. p0042) or a date-minted id (e.g. 2026-08-24-8a3f), either of which may carry a series letter (p0057a, 2026-08-24-8a3fa). Must match the filename.",
       "pattern": "^(?:p\\d{4,6}[a-z]?|\\d{4}-\\d{2}-\\d{2}-[0-9a-f]{4}[a-z]?)(?:-[a-z][a-z0-9-]*)?$"
     },
     "run": {
@@ -23,7 +23,7 @@
     },
     "decisions": {
       "type": "array",
-      "description": "All decisions made within this phase or run, in chronological order of recording.",
+      "description": "All decisions made within this spec or run, in chronological order of recording.",
       "minItems": 1,
       "items": {
         "type": "object",

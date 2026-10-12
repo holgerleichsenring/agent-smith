@@ -24,7 +24,7 @@ export function CallSizePlot({ calls }: { calls: RunCallPoint[] }) {
   if (calls.length === 0) {
     return (
       <p className="hint" data-testid="call-size-plot-empty">
-        No model call was recorded for this phase.
+        No model call was recorded for this spec.
       </p>
     );
   }

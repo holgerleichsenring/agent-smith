@@ -16,7 +16,7 @@ namespace AgentSmith.Server.Services.Sandbox;
 /// </para>
 /// <para>
 /// A scan whose candidates carry no conversation label reads nothing at all — neither
-/// the catalog nor the session store — which is what makes this phase cost nothing
+/// the catalog nor the session store — which is what makes this spec cost nothing
 /// until something is actually held.
 /// </para>
 /// </summary>

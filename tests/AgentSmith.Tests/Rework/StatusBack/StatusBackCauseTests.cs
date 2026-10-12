@@ -14,10 +14,10 @@ public sealed class StatusBackCauseTests
 {
     private static readonly DateTimeOffset Start = new(2026, 10, 8, 10, 0, 0, TimeSpan.Zero);
 
-    private static SpecPhase Phase(string id) => new(
+    private static SpecPhase Spec(string id) => new(
         new PhaseDraft(id, $"Goal {id}", $"spec: {id}\ngoal: \"Goal {id}\"", []) { Done = [$"Done {id}."] }, id, string.Empty, []);
 
-    private static SpecSet Set(int phases, int executed) => new("k", [.. Enumerable.Range(0, phases).Select(i => Phase($"p{i}"))],
+    private static SpecSet Set(int specs, int executed) => new("k", [.. Enumerable.Range(0, specs).Select(i => Spec($"p{i}"))],
         SpecAccounting.Empty, [new SpecRevision(1, SpecRevisionCause.Initial, Start)], SpecSource.BranchArtifact,
         ExecutedPhaseIds: [.. Enumerable.Range(0, executed).Select(i => $"p{i}")]);
 

@@ -1,6 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Persistence;
-using AgentSmith.Application.Services.PhaseExecution;
+using AgentSmith.Application.Services.SpecExecution;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
@@ -38,23 +38,23 @@ public sealed class SpecDoneOutcomeTests
     [Fact]
     public void SpecOutcomeBlock_MultiLineText_RendersAsParseableYaml()
     {
-        var yaml = SpecOutcomeBlock.Render("run-1", "## What this phase delivers\n\n- [x] it works\n", string.Empty);
+        var yaml = SpecOutcomeBlock.Render("run-1", "## What this spec delivers\n\n- [x] it works\n", string.Empty);
 
         var outcome = Outcome(yaml);
         outcome["run"].Should().Be("run-1");
-        outcome["delivered"].Should().Be("## What this phase delivers\n\n- [x] it works");
+        outcome["delivered"].Should().Be("## What this spec delivers\n\n- [x] it works");
         outcome.Should().NotContainKey("review", "an empty section is not written");
         yaml.Should().Contain("delivered: |-", "multi-line text is a literal block a person can read");
     }
 
     [Fact]
-    public void PhaseRecordBody_SpecAndOutcome_AreOneYamlDocument()
+    public void SpecRecordBody_SpecAndOutcome_AreOneYamlDocument()
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.RunId, "run-2");
-        PhaseReviewLedger.Record(pipeline, PhaseReviewReport.NotTaken("the review call failed"));
+        SpecReviewLedger.Record(pipeline, PhaseReviewReport.NotTaken("the review call failed"));
 
-        var body = PhaseRecordBody.For(Set().Phases[0].Draft, pipeline);
+        var body = SpecRecordBody.For(Set().Phases[0].Draft, pipeline);
 
         var doc = new DeserializerBuilder().Build().Deserialize<Dictionary<string, object>>(body);
         doc["spec"].Should().Be(A);
@@ -69,9 +69,9 @@ public sealed class SpecDoneOutcomeTests
         var mock = $"{SeriesPaths.Planned}/{A}-screen.html";
         var files = new Mock<ISandboxFileReader>();
         files.Setup(f => f.TryReadAsync(mock, It.IsAny<CancellationToken>())).ReturnsAsync("<html/>");
-        var phase = Set().Phases[0] with { MockPaths = [mock] };
+        var spec = Set().Phases[0] with { MockPaths = [mock] };
 
-        var move = await new SpecDoneFiles().WriteAsync(files.Object, phase, "spec: x\n", default);
+        var move = await new SpecDoneFiles().WriteAsync(files.Object, spec, "spec: x\n", default);
 
         move.Written.Should().Equal(
             $"{SeriesPaths.Done}/{A}-first.yaml", $"{SeriesPaths.Done}/{A}-first.md", $"{SeriesPaths.Done}/{A}-screen.html");
@@ -139,9 +139,9 @@ public sealed class SpecDoneOutcomeTests
     public async Task SpecDoneFiles_BlankCompanion_WritesNoDoneMarkdownAndNamesThePlannedOne()
     {
         var files = new Mock<ISandboxFileReader>();
-        var phase = Set().Phases[0] with { Markdown = string.Empty };
+        var spec = Set().Phases[0] with { Markdown = string.Empty };
 
-        var move = await new SpecDoneFiles().WriteAsync(files.Object, phase, "spec: x\n", default);
+        var move = await new SpecDoneFiles().WriteAsync(files.Object, spec, "spec: x\n", default);
 
         move.Written.Should().Equal($"{SeriesPaths.Done}/{A}-first.yaml");
         move.Planned.Should().Equal($"{SeriesPaths.Planned}/{A}-first.yaml", $"{SeriesPaths.Planned}/{A}-first.md");
@@ -156,12 +156,12 @@ public sealed class SpecDoneOutcomeTests
     }
 
     [Fact]
-    public async Task WritePhaseRecord_NoPhaseSpec_RecordsNothing()
+    public async Task WriteSpecRecord_NoSpec_RecordsNothing()
     {
         var factory = new Mock<ISandboxFileReaderFactory>();
         var handler = SeriesDoubles.RecordHandler(factory.Object, new InMemorySpecSetPointerStore());
 
-        var result = await handler.ExecuteAsync(new WritePhaseRecordContext(
+        var result = await handler.ExecuteAsync(new WriteSpecRecordContext(
             new Repository(new BranchName("main"), "/work"), new PipelineContext(), []), default);
 
         result.IsSuccess.Should().BeTrue();
@@ -174,12 +174,12 @@ public sealed class SpecDoneOutcomeTests
 
     private static SpecSet Set() => new(
         "azdo-8",
-        [Phase(A, "first"), Phase(B, "second")],
+        [Spec(A, "first"), Spec(B, "second")],
         SpecAccounting.Empty,
         [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow)],
         SpecSource.Derived,
         Series: Base);
 
-    private static SpecPhase Phase(string id, string label) => new(
+    private static SpecPhase Spec(string id, string label) => new(
         new PhaseDraft(id, $"Goal {id}", $"spec: {id}\ngoal: \"Goal {id}\"\n", []), label, $"# {label}\n", []);
 }

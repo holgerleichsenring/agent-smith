@@ -4,16 +4,16 @@ namespace AgentSmith.Infrastructure.Core.Services;
 
 /// <summary>
 /// p0380: resolves WHICH decision YAML a logged decision belongs to —
-/// decisions/&lt;phase&gt;.yaml when the source label is a phase id, else
+/// decisions/&lt;spec&gt;.yaml when the source label is a spec id, else
 /// decisions/&lt;runId&gt;.yaml for the active run (the revived `run:` slot of
-/// decision.schema.json, parallel to `spec:` decisions). No phase label and no
+/// decision.schema.json, parallel to `spec:` decisions). No spec label and no
 /// run scope =&gt; null (nothing schema-conformant to write).
 /// </summary>
 internal sealed partial record DecisionFileLabel(string FileName, string HeaderKey, string Id)
 {
     public static DecisionFileLabel? Resolve(string? sourceLabel, string? runId)
     {
-        if (sourceLabel is not null && PhasePattern().IsMatch(sourceLabel))
+        if (sourceLabel is not null && SpecPattern().IsMatch(sourceLabel))
             return new DecisionFileLabel($"{sourceLabel}.yaml", "spec", sourceLabel);
         if (!string.IsNullOrEmpty(runId))
             return new DecisionFileLabel($"{runId}.yaml", "run", runId);
@@ -26,5 +26,5 @@ internal sealed partial record DecisionFileLabel(string FileName, string HeaderK
     // counter namespace, or a p0507 date-minted id. The date branch cannot collide with
     // a run id — a run id carries a `T` and a time where this one carries the suffix.
     [GeneratedRegex(@"^(?:p\d{4,6}[a-z]?|\d{4}-\d{2}-\d{2}-[0-9a-f]{4}[a-z]?)(?:-[a-z][a-z0-9-]*)?$")]
-    private static partial Regex PhasePattern();
+    private static partial Regex SpecPattern();
 }

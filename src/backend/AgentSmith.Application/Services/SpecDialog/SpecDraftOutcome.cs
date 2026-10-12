@@ -6,10 +6,10 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// </summary>
 public abstract record SpecDraftOutcome;
 
-/// <summary>The reply carries no phase-spec draft — a plain grounded answer.</summary>
+/// <summary>The reply carries no spec draft — a plain grounded answer.</summary>
 public sealed record SpecDraftAbsent : SpecDraftOutcome;
 
-/// <summary>The reply's fenced yaml block validates against the phase-spec schema.</summary>
+/// <summary>The reply's fenced yaml block validates against the spec schema.</summary>
 public sealed record SpecDraftValid(string Yaml) : SpecDraftOutcome;
 
 /// <summary>The reply's draft failed validation; Error names exactly what.</summary>

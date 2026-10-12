@@ -7,7 +7,7 @@ namespace AgentSmith.Application.Services.Tools;
 /// <summary>
 /// 2026-08-27-3eb1: caps ONE tool result on an exploring surface, with a marker saying
 /// what was cut. The read tools bound their own shapes (list_files 1000 entries, grep
-/// 1000 lines, directory_tree 1000 entries since this phase) but read_file may still
+/// 1000 lines, directory_tree 1000 entries since this spec) but read_file may still
 /// return a megabyte, and on a sweep every result is appended to the SAME message list
 /// — so one oversized reply is spent for the rest of the conversation, not just once.
 /// The bound is per RESULT; keeping the whole conversation inside the model's window is

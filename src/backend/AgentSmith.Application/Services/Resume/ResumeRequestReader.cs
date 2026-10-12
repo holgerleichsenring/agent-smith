@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
+using AgentSmith.Contracts.Json;
 
 namespace AgentSmith.Application.Services.Resume;
 
@@ -25,7 +26,7 @@ public sealed class ResumeRequestReader(
         var payloadJson = ReadPayloadJson(pipeline);
         if (payloadJson is null) return null;
 
-        var payload = JsonSerializer.Deserialize<ResumePayload>(payloadJson)
+        var payload = JsonSerializer.Deserialize<ResumePayload>(payloadJson, AcceptedNames.DefaultOptions)
             ?? throw new InvalidOperationException("Resume payload deserialized to null.");
         if (payload.Commands.Count == 0)
             throw new InvalidOperationException("Resume payload carries no remaining commands.");

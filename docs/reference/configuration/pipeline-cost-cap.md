@@ -57,7 +57,7 @@ Once the budget is exhausted:
 
 - A skill call that hasn't started is skipped. It returns an `Incomplete` outcome with a `cost-cap-exhausted` observation, and the pipeline runs its compile and delivery steps with what it has, so you still see partial output.
 - The coding master's current pass stops, and it isn't re-engaged for another pass.
-- A phase whose premise check is skipped for money is marked unchecked, not passed.
+- A spec whose premise check is skipped for money is marked unchecked, not passed.
 
 Every one of these says the same sentence, naming the cap and what was spent in the units the cap compared:
 
@@ -71,6 +71,6 @@ A run that parks on a question and resumes later is one run for the budget. The 
 
 ## Operator response
 
-If a run stops on its cap and the partial output is unusable, the cap is too tight for that workload: raise the tier caps, the `default`, or the per-pipeline override. If runs hit the cap repeatedly without unusual workload, look at where the money went: the run's [Why this run did that](../operations/dashboard.md#why-this-run-did-that) view breaks the spend down by phase and call.
+If a run stops on its cap and the partial output is unusable, the cap is too tight for that workload: raise the tier caps, the `default`, or the per-pipeline override. If runs hit the cap repeatedly without unusual workload, look at where the money went: the run's [Why this run did that](../operations/dashboard.md#why-this-run-did-that) view breaks the spend down by spec and call.
 
 See [cost tracking](../concepts/cost-tracking.md) for how the spend is priced in the first place.

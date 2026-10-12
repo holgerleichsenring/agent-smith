@@ -2,9 +2,9 @@ namespace AgentSmith.Contracts.Commands;
 
 public static partial class ContextKeys
 {
-    /// <summary>p0393a: the ordered set of phase specs this run works through
-    /// (<see cref="Specs.SpecSet"/>), whatever its source. PhaseSpecGate publishes it;
-    /// the sequence splices one plan/master/verify block per phase out of it.</summary>
+    /// <summary>p0393a: the ordered set of specs this run works through
+    /// (<see cref="Specs.SpecSet"/>), whatever its source. SpecGate publishes it;
+    /// the sequence splices one plan/master/verify block per spec out of it.</summary>
     public const string SpecSet = "SpecSet";
 
     /// <summary>p0393a: the repo of the resolved scope that carries the spec set, so a
@@ -26,9 +26,9 @@ public static partial class ContextKeys
     /// question, or a person answered it.</summary>
     public const string SpecQuestionPin = "SpecQuestionPin";
 
-    /// <summary>p0393a: which phases of the sequence are through and which are not
+    /// <summary>p0393a: which specs of the sequence are through and which are not
     /// (<see cref="Specs.SpecSequenceProgress"/>). A stopped sequence leaves a
-    /// half-migrated repository, and the pull request must state it per phase.</summary>
+    /// half-migrated repository, and the pull request must state it per spec.</summary>
     public const string SpecSequenceProgress = "SpecSequenceProgress";
 
     /// <summary>
@@ -36,26 +36,26 @@ public static partial class ContextKeys
     /// branch delivers, with the file each satisfied criterion is satisfied by. The
     /// pull request renders it, so a reviewer refutes a claim instead of re-deriving it.
     /// </summary>
-    public const string PhaseAccounts = "PhaseAccounts";
+    public const string SpecAccounts = "PhaseAccounts";
 
-    /// <summary>p0438: the criteria a phase failed to satisfy, handed back to the master for
+    /// <summary>p0438: the criteria a spec failed to satisfy, handed back to the master for
     /// one repair pass. Present only while that pass is being prepared.</summary>
     public const string OutstandingCriteria = "OutstandingCriteria";
 
-    /// <summary>p0438: set once a phase has had its repair pass, so a second outstanding
+    /// <summary>p0438: set once a spec has had its repair pass, so a second outstanding
     /// verdict is final rather than a carousel.</summary>
-    public const string PhaseRepairAttempted = "PhaseRepairAttempted";
+    public const string SpecRepairAttempted = "PhaseRepairAttempted";
 
-    /// <summary>p0421: every phase's accounts, for the run's one delivery gate.</summary>
+    /// <summary>p0421: every spec's accounts, for the run's one delivery gate.</summary>
     public const string RunAccounts = "RunAccounts";
 
     /// <summary>p0439: the shortfall CommitAndPR delivered (<see cref="Specs.RunShortfall"/>):
-    /// the verified phases are on a ready pull request and the ticket is finalized. Absent
+    /// the verified specs are on a ready pull request and the ticket is finalized. Absent
     /// on every run that is not a delivered shortfall.</summary>
     public const string RunShortfall = "RunShortfall";
 
     /// <summary>p0439: sandbox key → the commit the sandbox stood at, with a clean source
-    /// tree, when the last phase was verified (IReadOnlyDictionary&lt;string, string&gt;).
+    /// tree, when the last spec was verified (IReadOnlyDictionary&lt;string, string&gt;).
     /// A shortfall delivers exactly that state and proves it against this.</summary>
     public const string VerifiedHeads = "VerifiedHeads";
 
@@ -68,7 +68,7 @@ public static partial class ContextKeys
 
     /// <summary>
     /// 2026-09-13-6f35: IReadOnlyList&lt;string&gt; — the template addresses the coding master
-    /// may read this phase, each one <c>template:&lt;context&gt;</c>. Its own key because the
+    /// may read this spec, each one <c>template:&lt;context&gt;</c>. Its own key because the
     /// repo-name section is built from ContextKeys.SandboxRepos: an entry added to the tool
     /// host alone is reachable and unnameable, and a template must never enter the sandbox map
     /// that CommitAndPR, the toolchain probe and the preflight checks iterate.

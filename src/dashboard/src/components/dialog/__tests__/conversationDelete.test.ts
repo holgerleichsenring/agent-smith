@@ -5,7 +5,7 @@ import type { SpecDialogSessionSummary } from "@/types/spec-dialog";
 
 // 2026-09-20-4b0ab: the rule that decides WHETHER a deletion is confirmed and WHAT it says had
 // no test of its own. Its only coverage was seven window.confirm spies on the surface, three of
-// which were the only assertions of the wording anywhere — and this phase removes all seven,
+// which were the only assertions of the wording anywhere — and this spec removes all seven,
 // because the asking moved into a dialog the page draws. The rule is a pure function of a
 // conversation summary and is pinned here as one, so the wording survives the next change to
 // HOW the asking is done.
@@ -19,9 +19,9 @@ function conversation(overrides: Partial<SpecDialogSessionSummary> = {}): SpecDi
 }
 
 describe("The deletion warning", () => {
-  // A filed phase — and an epic parent — carries a sentence in the tracker that names this
+  // A filed spec — and an epic parent — carries a sentence in the tracker that names this
   // conversation, so the warning says that sentence stops resolving.
-  it("DeletionWarning_APhaseFiling_SaysWhatSurvivesInTheTracker", () => {
+  it("DeletionWarning_ASpecFiling_SaysWhatSurvivesInTheTracker", () => {
     const said = deletionWarning(
       conversation({ outcome: { kind: "phase", tickets: 1, partial: false } }));
 

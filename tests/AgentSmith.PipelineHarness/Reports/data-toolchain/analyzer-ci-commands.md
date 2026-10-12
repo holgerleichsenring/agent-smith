@@ -3,7 +3,7 @@
 **NOT YET MEASURED.** This file is the eval's output path, and the eval has not run
 with credentials. It is committed empty of results rather than filled with a guess:
 what the analyzer emits for a data repository is the question, and inventing an
-answer here would defeat the phase.
+answer here would defeat the spec.
 
 `DataRepositoryAnalyzerEvalTests` is `[Trait("Category", "LiveLLM")]` and skips
 loudly without a key. It was executed on 2026-08-23 in an environment with no
@@ -30,5 +30,5 @@ the file exists. A split across the three runs is recorded as a split.
 Verify resolution consults declared ci commands FIRST, and those come from the
 analyzer fresh every run. If the analyzer draws any build command for a dbt
 repository, it wins and a profile's declared list is never reached — which would
-make the successor phase's profile inert on exactly the repositories it targets.
+make the successor spec's profile inert on exactly the repositories it targets.
 p0504 flagged that premise as unproven and it is still unproven.

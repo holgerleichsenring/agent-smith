@@ -42,8 +42,9 @@ public sealed class RunSpecsReader(IServiceScopeFactory scopeFactory, RunStepsRe
         if (spec is null) return null;
 
         using var scope = scopeFactory.CreateScope();
-        var record = await scope.ServiceProvider.GetRequiredService<RunArtifactRepository>()
-            .ReadAsync(runId, RunSpecProjection.RecordKindPrefix + specId, ct);
+        var artifacts = scope.ServiceProvider.GetRequiredService<RunArtifactRepository>();
+        var record = await artifacts.ReadAsync(runId, RunSpecProjection.RecordKindPrefix + specId, ct)
+            ?? await artifacts.ReadAsync(runId, RunSpecProjection.AcceptedRecordKindPrefix + specId, ct);
         return new RunSpecDetailView(spec, record);
     }
 
@@ -56,8 +57,8 @@ public sealed class RunSpecsReader(IServiceScopeFactory scopeFactory, RunStepsRe
             [.. decisions[spec.SpecId]],
             [.. rail.Where(s => s.PhaseId == spec.SpecId)]);
 
-    // A decision that names no phase belongs to no phase — it stays on the run's own
-    // decision list rather than being attached to whichever phase shares its step.
+    // A decision that names no spec belongs to no spec — it stays on the run's own
+    // decision list rather than being attached to whichever spec shares its step.
     private static async Task<ILookup<string, RunDecisionView>> ReadDecisionsAsync(
         IUnitOfWork uow, string runId, CancellationToken ct)
     {

@@ -15,7 +15,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// 2026-09-08-1830 fast-tier end-to-end: run 8688's shape. One repository with two
 /// contexts; the scope call names both; the first derivation cuts frontend only. Live,
 /// that run went green with backend untouched. Now the cut is pinned back once — a
-/// second cut carrying both contexts proceeds as two phases — and a gap that survives
+/// second cut carrying both contexts proceeds as two specs — and a gap that survives
 /// the pin parks the ticket with a question naming it.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
@@ -93,7 +93,7 @@ public sealed class ScopedContextCoverageTests
         harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file", "write_file");
         tickets.Finalized.Should().NotContain(f => f.Status == "needs-info");
         tickets.Commented.Should().Contain(c => c.Comment.Contains("**Contexts:** backend"),
-            "the author sees which context each phase changes");
+            "the author sees which context each spec changes");
     }
 
     [Fact]

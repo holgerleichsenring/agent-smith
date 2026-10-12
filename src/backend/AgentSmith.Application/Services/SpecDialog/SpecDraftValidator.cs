@@ -6,7 +6,7 @@ namespace AgentSmith.Application.Services.SpecDialog;
 
 /// <summary>
 /// p0315b: extracts the fenced ```yaml block from a design-partner reply and
-/// validates it against the embedded phase-spec schema (YAML → JSON → the
+/// validates it against the embedded spec schema (YAML → JSON → the
 /// same JsonSchema.Net evaluation the skill-output validators use). Pure
 /// transformation — the caller decides what a failure means (re-prompt).
 /// <para>
@@ -16,7 +16,7 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// rule in the schema unenforceable.
 /// </para>
 /// </summary>
-public sealed class SpecDraftValidator(PhaseSpecSchemaProvider schemaProvider)
+public sealed class SpecDraftValidator(SpecSchemaProvider schemaProvider)
     : ISpecDraftValidator
 {
     public SpecDraftOutcome Validate(string reply)
@@ -27,7 +27,7 @@ public sealed class SpecDraftValidator(PhaseSpecSchemaProvider schemaProvider)
         if (blocks.Count == 0) return new SpecDraftAbsent();
         if (blocks.Count > 1)
             return new SpecDraftInvalid(
-                $"the reply contains {blocks.Count} ```yaml blocks — emit exactly one phase-spec draft");
+                $"the reply contains {blocks.Count} ```yaml blocks — emit exactly one spec draft");
 
         return ValidateYaml(blocks[0].Groups[1].Value);
     }

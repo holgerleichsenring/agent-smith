@@ -2,7 +2,7 @@
   "$schema": "http://json-schema.org/draft-07/schema#",
   "$id": "https://github.com/holgerleichsenring/specification-first-agentic-development/spec.schema.json",
   "title": "Specification",
-  "description": "Compact YAML spec for a development phase. Used by AI agents to understand scope, deliverables, and completion criteria.",
+  "description": "Compact YAML spec for a development increment. Used by AI agents to understand scope, deliverables, and completion criteria.",
   "type": "object",
   "required": [
     "spec",
@@ -11,7 +11,7 @@
   "properties": {
     "spec": {
       "type": "string",
-      "description": "Phase identifier. Either a counter id (e.g. p0001, p0057a, p0131c-pre) of four to six digits \u2014 the closed namespace, six digits because PhaseIdFactory mints from a ticket number \u2014 or a date-minted id (e.g. 2026-08-24-8a3f): the UTC date plus a four-hex random suffix, whose fixed width marks where the id ends and the descriptive tail begins. Phases cut from one piece of work form a SERIES and append a lowercase letter to one shared number (2026-08-24-8a3fa, 2026-08-24-8a3fb): appended and not dashed, because a slug may itself begin with a one-letter word, so only position can tell a series letter from the first word of a tail. The base number of a series is not itself a phase, and a later addition mints its own number rather than extending someone else's.",
+      "description": "Spec identifier. Either a counter id (e.g. p0001, p0057a, p0131c-pre) of four to six digits \u2014 the closed namespace, six digits because SpecIdFactory mints from a ticket number \u2014 or a date-minted id (e.g. 2026-08-24-8a3f): the UTC date plus a four-hex random suffix, whose fixed width marks where the id ends and the descriptive tail begins. Specs cut from one piece of work form a SERIES and append a lowercase letter to one shared number (2026-08-24-8a3fa, 2026-08-24-8a3fb): appended and not dashed, because a slug may itself begin with a one-letter word, so only position can tell a series letter from the first word of a tail. The base number of a series is not itself a spec, and a later addition mints its own number rather than extending someone else's.",
       "pattern": "^(?:p\\d{4,6}[a-z]?|\\d{4}-\\d{2}-\\d{2}-[0-9a-f]{4}[a-z]?)(?:-[a-z][a-z0-9-]*)?$",
       "examples": [
         "p0001",
@@ -22,14 +22,14 @@
     },
     "goal": {
       "type": "string",
-      "description": "What is being built and why. Short paragraph; the One-Liner convention from earlier phases has been relaxed.",
+      "description": "What is being built and why. Short paragraph; the One-Liner convention from earlier specs has been relaxed.",
       "maxLength": 2000
     },
     "requires": {
       "oneOf": [
         {
           "type": "array",
-          "description": "Phase IDs or free-text preconditions",
+          "description": "Spec IDs or free-text preconditions",
           "items": {
             "type": "string"
           }
@@ -42,13 +42,13 @@
     },
     "applies_to": {
       "type": "string",
-      "description": "What the phase touches, in a line: the context, area or components it applies to. Written by the phase's author; the dominant context a reader opens first."
+      "description": "What the spec touches, in a line: the context, area or components it applies to. Written by the spec's author; the dominant context a reader opens first."
     },
     "contexts": {
       "oneOf": [
         {
           "type": "array",
-          "description": "The contexts this phase changes. Written by the derivation from the list the scope call named; a hand-written spec may declare them too.",
+          "description": "The contexts this spec changes. Written by the derivation from the list the scope call named; a hand-written spec may declare them too.",
           "items": {
             "type": "string"
           }
@@ -79,7 +79,7 @@
         "array",
         "null"
       ],
-      "description": "What the author LOOKED UP before writing, each claim beside the evidence it cites. Written by the derivation (evidence is the minted look line, e.g. '[L3] api: …'), by the design-partner master and by hand (a path with lines, or a dated observation). An empty list says the phase rests on no looked-up fact; null says nothing, as an absent key does.",
+      "description": "What the author LOOKED UP before writing, each claim beside the evidence it cites. Written by the derivation (evidence is the minted look line, e.g. '[L3] api: …'), by the design-partner master and by hand (a path with lines, or a dated observation). An empty list says the spec rests on no looked-up fact; null says nothing, as an absent key does.",
       "items": {
         "type": "object",
         "additionalProperties": false,
@@ -144,22 +144,22 @@
     },
     "scope": {
       "type": "object",
-      "description": "Explicit in/out boundaries for this phase. Use to record what is deliberately deferred or rejected.",
+      "description": "Explicit in/out boundaries for this spec. Use to record what is deliberately deferred or rejected.",
       "additionalProperties": false,
       "properties": {
         "in": {
           "type": "string",
-          "description": "What is in scope for this phase"
+          "description": "What is in scope for this spec"
         },
         "out": {
           "type": "string",
-          "description": "What is explicitly NOT in scope (deferred, rejected, or belonging to another phase)"
+          "description": "What is explicitly NOT in scope (deferred, rejected, or belonging to another spec)"
         }
       }
     },
     "decisions": {
       "type": "array",
-      "description": "Non-obvious choices made during this phase, with reasoning. Modern convention: each item is `{key: 'what — why'}`. Historical phases use `{<slug>: 'reasoning'}` where the slug itself names the decision, and the oldest write the reasoning as a bare line — all three shapes are accepted.",
+      "description": "Non-obvious choices made during this spec, with reasoning. Modern convention: each item is `{key: 'what — why'}`. Historical specs use `{<slug>: 'reasoning'}` where the slug itself names the decision, and the oldest write the reasoning as a bare line — all three shapes are accepted.",
       "items": {
         "oneOf": [
           {
@@ -174,14 +174,14 @@
           },
           {
             "type": "string",
-            "description": "The decision as a bare line, the shape 73 historical phases use"
+            "description": "The decision as a bare line, the shape 73 historical specs use"
           }
         ]
       }
     },
     "steps": {
       "type": "array",
-      "description": "Implementation steps, each a named unit of work. Historical phases occasionally include extra step fields (action_detail, new_files_tests, order, per-file) — accepted but not encouraged for new phases.",
+      "description": "Implementation steps, each a named unit of work. Historical specs occasionally include extra step fields (action_detail, new_files_tests, order, per-file) — accepted but not encouraged for new specs.",
       "items": {
         "type": "object",
         "required": [

@@ -46,7 +46,7 @@ public sealed record SpecHandback(
 
 /// <summary>
 /// p0393a: the enumerable hand-back cases. Unresolved points are recorded as
-/// ASSUMPTIONS inside the phase, not as a park signal — parking on anything
+/// ASSUMPTIONS inside the spec, not as a park signal — parking on anything
 /// unresolved would fire on nearly every ticket and teach the operator to ignore
 /// the signal. A CASE CODE, so a non-progressing loop can be recognised
 /// mechanically across runs instead of by diffing LLM-written prose.

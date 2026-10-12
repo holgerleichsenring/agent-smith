@@ -8,9 +8,9 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace AgentSmith.Tests.Specs;
 
 /// <summary>
-/// p0483: the tool is not the phase — the LOOP is. Asserting that search_branch reaches
+/// p0483: the tool is not the spec — the LOOP is. Asserting that search_branch reaches
 /// ChatOptions proves it was offered; this proves that a model which CALLS it gets an
-/// answer back and can decide on it. Without this the phase could ship inert, and the only
+/// answer back and can decide on it. Without this the spec could ship inert, and the only
 /// place that would show is a forty minute live run.
 /// </summary>
 public sealed class AccountSearchLoopTests

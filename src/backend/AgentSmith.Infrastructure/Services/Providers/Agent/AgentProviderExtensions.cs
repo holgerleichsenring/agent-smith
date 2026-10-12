@@ -16,7 +16,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Agent;
 /// IAgenticAnalyzerFactory and the entire AgentPromptBuilder / RepositoryToolDispatcher
 /// stack were deleted in p0119a. IChatClientFactory takes AgentConfig per-call (not via
 /// DI singleton); the factory itself + builders are all DI singletons. p0126a: per-skill
-/// loop limits — defaults match Phase B of the runtime design; composition roots that
+/// loop limits — defaults match Spec B of the runtime design; composition roots that
 /// load AgentSmithConfig may replace this registration with the YAML-bound instance.
 /// p0362: the legacy per-provider compactors (IContextCompactor / IOpenAiContextCompactor)
 /// were deleted — no production caller constructed them since the p0341d middleware took

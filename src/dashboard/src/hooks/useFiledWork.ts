@@ -16,7 +16,7 @@ import type { FiledWork, SpecDialogFilingPush } from "@/types/spec-dialog";
 // re-issued on RECONNECT for a harder reason: a reconnected connection has a fresh id and the
 // server-side registry is keyed by connection, so the old watch belongs to a connection that no
 // longer exists. The refetch goes with it, because every nudge sent during the drop is gone —
-// a run whose last phase finished while the socket was down would otherwise read as running
+// a run whose last spec finished while the socket was down would otherwise read as running
 // until somebody reloaded the page.
 
 // The run list's own window, for the same reason: a busy run nudges many times a second and

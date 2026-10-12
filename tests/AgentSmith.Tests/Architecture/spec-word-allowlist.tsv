@@ -1,0 +1,188 @@
+# 2026-10-12-967ag: every token that still says phase, with its category and why. Read by
+# SpecWordRuleTests. Columns: token, reach, category, reason (tab-separated).
+#   reach    anywhere = the token carries its meaning and may stand in any file;
+#            listed   = the token cannot tell its meanings apart and may stand only where
+#                       spec-word-files.tsv lists it, at most as often as it says.
+#   category G2 another meaning (execution stage, triage stage, skill workflow step, pod phase,
+#               UI state) and stays; STORED-967ab a stored or served name 967ab renames;
+#               ALIAS-967ah a reader of the old name 967ah removes; LABEL a tracker word or
+#               config key read for good; HISTORY a name that records history and never
+#               changes; MIXED a bare word whose meaning the file decides.
+# A row whose token occurs nowhere fails as stale: delete it.
+CutReviewAnswer_SpecIdKey_ReadsAsPhaseId	anywhere	ALIAS-967ah	tests of the readers that accept both names until 967ah
+Envelope_DecisionLoggedWithSpecId_ReadsAsPhaseId	anywhere	ALIAS-967ah	tests of the readers that accept both names until 967ah
+Envelope_StepStartedWithSpecId_ReadsAsPhaseId	anywhere	ALIAS-967ah	tests of the readers that accept both names until 967ah
+LatestFiling_SpecKind_ReadsAsPhaseKind	anywhere	ALIAS-967ah	tests of the readers that accept both names until 967ah
+MaxPhases	anywhere	ALIAS-967ah	derivation template token filled beside MaxSpecs until 967ah
+OutcomeKindWord_TheServedPhaseKind_ReadsAsSpec	anywhere	ALIAS-967ah	tests of the readers that accept both names until 967ah
+PHASE_GATE_	anywhere	ALIAS-967ah	gate variables honoured as the fallback until 967ah
+PHASE_GATE_CORES	anywhere	ALIAS-967ah	gate variables honoured as the fallback until 967ah
+PHASE_GATE_LOG	anywhere	ALIAS-967ah	gate variables honoured as the fallback until 967ah
+PHASE_GATE_SELFTEST	anywhere	ALIAS-967ah	gate variables honoured as the fallback until 967ah
+Serialize_StillWritesThePhaseNames	anywhere	ALIAS-967ah	tests of the readers that accept both names until 967ah
+Transcript_SpecProposalTurnKind_ReadsAsPhaseProposal	anywhere	ALIAS-967ah	tests of the readers that accept both names until 967ah
+fromPhases	anywhere	ALIAS-967ah	tests of the readers that accept both names until 967ah
+phase-gate	anywhere	ALIAS-967ah	the old gate path, kept as a forwarder until 967ah
+phase-named	anywhere	ALIAS-967ah	tests of the readers that accept both names until 967ah
+phaseProposal	anywhere	ALIAS-967ah	tests of the readers that accept both names until 967ah
+phase_id	listed	ALIAS-967ah	cut-review answer key the reader still accepts beside spec_id until 967ah
+AggregatePhase	anywhere	G2	cost per execution stage (RunCostSummary, result.md cost.phases)
+AppendPhaseRows	anywhere	G2	cost per execution stage (RunCostSummary, result.md cost.phases)
+AssertWritable_BootstrapPhase_ContextYamlPath_ReturnsOk	anywhere	G2	test name about the execution stage of a model call
+AssertWritable_BootstrapPhase_OtherPath_ReturnsErrorBootstrapFiles	anywhere	G2	test name about the execution stage of a model call
+AssertWritable_ImplementationPhase_PathInsideRepo_ReturnsOk	anywhere	G2	test name about the execution stage of a model call
+AssertWritable_PlanPhase_ReturnsErrorWriteForbidden	anywhere	G2	test name about the execution stage of a model call
+AssertWritable_VerifyPhase_ReturnsErrorWriteForbidden	anywhere	G2	test name about the execution stage of a model call
+BeginCallScope_OpensScope_CurrentCallScopeReflectsRolePhaseRepo	anywhere	G2	test name about the execution stage of a model call
+BeginCallWithRepoName_BuildSummary_GroupsRecordsByRepoAndPhase	anywhere	G2	test name about the execution stage of a model call
+Bootstrap-phase	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verify, Bootstrap, final)
+BuildSummary_MixedModels_PhaseCostsSumToHeadlineAccrual	anywhere	G2	test name about the execution stage of a model call
+CodingPresets_DoNotContainRunVerifyPhase_PostP0179b	anywhere	G2	test name about the execution stage of a model call
+ExecuteAsync_PlanPhase_UsesSkillToolCallCap	anywhere	G2	test name about the execution stage of a model call
+GetPhaseBreakdown	anywhere	G2	TokenUsageTracker: scout / planning / primary / compaction stages
+GetToolsFor_BootstrapPhase_IncludesWriteFileAndRunCommand	anywhere	G2	test name about the execution stage of a model call
+GetToolsFor_FixBugImplementationPhase_AllToolsAvailable	anywhere	G2	test name about the execution stage of a model call
+GetToolsFor_FixBugPlanPhase_ComposesAllHostsAndFilters	anywhere	G2	test name about the execution stage of a model call
+GetToolsFor_ImplementationPhase_ReturnsAllTools	anywhere	G2	test name about the execution stage of a model call
+GetToolsFor_InvestigatePhase_IncludesRunCommand	anywhere	G2	test name about the execution stage of a model call
+GetToolsFor_NullPhase_FallsBackToAllTools	anywhere	G2	test name about the execution stage of a model call
+GetToolsFor_PassesPhaseAndModeToEachHost	anywhere	G2	test name about the execution stage of a model call
+GetToolsFor_PlanPhase_IncludesRunCommandForRecon	anywhere	G2	test name about the execution stage of a model call
+GetToolsFor_VerifyPhase_IncludesRunCommandExcludesWriteFile	anywhere	G2	test name about the execution stage of a model call
+GetTools_AnyPhase_ReturnsAskHumanTool	anywhere	G2	test name about the execution stage of a model call
+GetTools_AnyPhase_ReturnsLogDecisionTool	anywhere	G2	test name about the execution stage of a model call
+GetTools_BootstrapPhase_IncludesWriteCapableSet	anywhere	G2	test name about the execution stage of a model call
+GetTools_EveryReadPhase_ExposesRunCommand	anywhere	G2	test name about the execution stage of a model call
+GetTools_ImplementationPhase_ReturnsAllTools	anywhere	G2	test name about the execution stage of a model call
+GetTools_PlanPhase_IncludesRunCommandForRecon	anywhere	G2	test name about the execution stage of a model call
+GetTools_VerifyPhase_IncludesRunCommandExcludesWriteFile	anywhere	G2	test name about the execution stage of a model call
+MaxSkillsPerPhase	anywhere	G2	skills per triage stage; persisted config key
+NonImplementationPresets_DoNotContainRunVerifyPhase	anywhere	G2	test name about the execution stage of a model call
+Per-phase	listed	G2	per execution stage (cost breakdown, tool filter)
+PhaseCost	anywhere	G2	cost per execution stage (RunCostSummary, result.md cost.phases)
+PhaseUsage	anywhere	G2	TokenUsageTracker: scout / planning / primary / compaction stages
+Plan-phase	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verify, Bootstrap, final)
+PlanPhaseUserPrompt	anywhere	G2	live skill probe prompts for the Plan and Review stages
+Review-phase	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verify, Bootstrap, final)
+ReviewPhaseUserPrompt	anywhere	G2	live skill probe prompts for the Plan and Review stages
+RunFinalPhase	anywhere	G2	triage / verify / final stage commands of the scan and review pipelines
+RunFinalPhaseCommand	anywhere	G2	triage / verify / final stage commands of the scan and review pipelines
+RunReviewPhase	anywhere	G2	triage / verify / final stage commands of the scan and review pipelines
+RunReviewPhaseCommand	anywhere	G2	triage / verify / final stage commands of the scan and review pipelines
+RunVerifyPhase	anywhere	G2	triage / verify / final stage commands of the scan and review pipelines
+RunVerifyPhaseCommand	anywhere	G2	triage / verify / final stage commands of the scan and review pipelines
+RunVerifyPhaseContext	anywhere	G2	triage / verify / final stage commands of the scan and review pipelines
+RunVerifyPhaseContextBuilder	anywhere	G2	triage / verify / final stage commands of the scan and review pipelines
+SetPhase	anywhere	G2	TokenUsageTracker: scout / planning / primary / compaction stages
+SkillExecutionPhase	anywhere	G2	SkillExecutionPhase: the execution stage of a model call
+StoryPhase	anywhere	G2	dashboard run-story display state (running / needsYou / relaunching)
+Track_CompactionPhase_AttributesInputAndOutputSeparately	anywhere	G2	test name about the execution stage of a model call
+Verify-phase	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verify, Bootstrap, final)
+WriteForbiddenInPhase	anywhere	G2	SkillExecutionPhase: the execution stage of a model call
+_currentPhase	anywhere	G2	TokenUsageTracker: scout / planning / primary / compaction stages
+_phases	anywhere	G2	TokenUsageTracker: scout / planning / primary / compaction stages
+_writePhase	anywhere	G2	SkillExecutionPhase: the execution stage of a model call
+beatPhase	anywhere	G2	dashboard run-story display state (running / needsYou / relaunching)
+final-phase	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verify, Bootstrap, final)
+lastPhase	anywhere	G2	Kubernetes pod phase
+maxSkillsPerPhase	anywhere	G2	skills per triage stage; persisted config key
+max_skills_per_phase	anywhere	G2	skills per triage stage; persisted config key
+per-phase	listed	G2	per execution stage (cost breakdown, tool filter)
+phase-based	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verify, Bootstrap, final)
+phase-discipline	anywhere	G2	skill reference document phase-discipline (skills repo)
+phase-matrix	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verify, Bootstrap, final)
+phase-only	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verify, Bootstrap, final)
+phaseUsage	anywhere	G2	TokenUsageTracker: scout / planning / primary / compaction stages
+plan-phase	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verify, Bootstrap, final)
+receivedPhase	anywhere	G2	SkillExecutionPhase: the execution stage of a model call
+review-phase	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verify, Bootstrap, final)
+storyPhase	anywhere	G2	dashboard run-story display state (running / needsYou / relaunching)
+unk-phase	anywhere	G2	dashboard test id of an LLM call whose role falls back to its stage
+verify-phase	anywhere	G2	skill workflow stage named in prose (Plan, Review, Verify, Bootstrap, final)
+writePhase	anywhere	G2	SkillExecutionPhase: the execution stage of a model call
+AddRunPhases	anywhere	HISTORY	EF migration names, which never change
+FiledWorkPhaseView	anywhere	HISTORY	a rename note naming the type or table as it was
+PhaseKeyed	anywhere	HISTORY	a spec file saying the retired key phase: is refused
+RenameRunPhasesToRunSpecs	anywhere	HISTORY	EF migration names, which never change
+RenameRunPhasesToRunSpecs_IsReversible	anywhere	HISTORY	EF migration names, which never change
+RenameRunPhasesToRunSpecs_StoredRow_IsKeptUnderTheNewNames	anywhere	HISTORY	EF migration names, which never change
+RunPhase	anywhere	HISTORY	a rename note naming the type or table as it was
+RunPhases	anywhere	HISTORY	EF migration names, which never change
+SpecDraftReader_PhaseKey_Refused	anywhere	HISTORY	a spec file saying the retired key phase: is refused
+VerifyPhase	anywhere	HISTORY	a class name as it was on the day of a memory's finding
+feedback_one_decision_yaml_per_phase	anywhere	HISTORY	memory slugs cited from history
+feedback_phase_specs_terse	anywhere	HISTORY	memory slugs cited from history
+feedback_phase_versioning	anywhere	HISTORY	memory slugs cited from history
+nphases	anywhere	HISTORY	the old set.yaml layout, read as absent
+phase-execution	anywhere	HISTORY	retired pipeline name the server still rewrites to code
+phase-slug-product-bound	anywhere	HISTORY	label of spec 2026-09-07-e9a2, a file name in the record
+DiscoveryLabelGuard_SpecAndPhaseLabels_BothRoute	anywhere	LABEL	test names about the phase word a person types on a ticket
+Filing_AFiledTicket_CarriesNoPhaseWord	anywhere	LABEL	test names about the phase word a person types on a ticket
+Routing_AHandTypedPhaseWord_BindsToSpecExecution	anywhere	LABEL	test names about the phase word a person types on a ticket
+phase-epic	anywhere	LABEL	tracker label read for good beside the spec form (boards we do not own)
+phase-parent	anywhere	LABEL	tracker label read for good beside the spec form (boards we do not own)
+phase-requires	anywhere	LABEL	a retired tracker stamp an old ticket may still carry
+phase-spec	anywhere	LABEL	tracker label read for good beside the spec form (boards we do not own)
+PHASE	listed	MIXED	the bare word: execution stage, triage stage, skill workflow step, pod phase, tracker label word, served or stored member, quoted history — the file decides which
+Phase	listed	MIXED	the bare word: execution stage, triage stage, skill workflow step, pod phase, tracker label word, served or stored member, quoted history — the file decides which
+Phases	listed	MIXED	the bare word: execution stage, triage stage, skill workflow step, pod phase, tracker label word, served or stored member, quoted history — the file decides which
+phase	listed	MIXED	the bare word: execution stage, triage stage, skill workflow step, pod phase, tracker label word, served or stored member, quoted history — the file decides which
+phases	listed	MIXED	the bare word: execution stage, triage stage, skill workflow step, pod phase, tracker label word, served or stored member, quoted history — the file decides which
+ActivePhaseStep	anywhere	STORED-967ab	context-key values stored in checkpoints until 967ab
+CheckPhasePremisesCommand	anywhere	STORED-967ab	command-name values stored in RunSteps and presets until 967ab
+CommitPhaseWorkCommand	anywhere	STORED-967ab	command-name values stored in RunSteps and presets until 967ab
+ExecutedPhaseIds	anywhere	STORED-967ab	served view and stored member names until 967ab
+PhaseAccounts	anywhere	STORED-967ab	type stored by name in checkpoints or events until 967ab (CheckpointRenames maps the pair)
+PhaseAccountsSnapshot	anywhere	STORED-967ab	context-key values stored in checkpoints until 967ab
+PhaseAppliesTo	anywhere	STORED-967ab	context-key values stored in checkpoints until 967ab
+PhaseCommandEntry	anywhere	STORED-967ab	type stored by name in checkpoints or events until 967ab (CheckpointRenames maps the pair)
+PhaseCommandLog	anywhere	STORED-967ab	type stored by name in checkpoints or events until 967ab (CheckpointRenames maps the pair)
+PhaseCommandLogTests	anywhere	STORED-967ab	tests of the class that keeps its stored name until 967ab
+PhaseCommandLog_AHeredocSizedCommand_IsStoredCapped	anywhere	STORED-967ab	test name of PhaseCommandLog, which keeps its stored name until 967ab
+PhaseCommandLog_ConcurrentRecordAndEvidence_DoNotTear	anywhere	STORED-967ab	test name of PhaseCommandLog, which keeps its stored name until 967ab
+PhaseCommandLog_Evidence_CarriesTheExitStatus	anywhere	STORED-967ab	test name of PhaseCommandLog, which keeps its stored name until 967ab
+PhaseCommandLog_MoreCommandsThanBudget_KeepsEveryCommandLine	anywhere	STORED-967ab	test name of PhaseCommandLog, which keeps its stored name until 967ab
+PhaseCommandLog_NothingLost_LeadsWithNoNotice	anywhere	STORED-967ab	test name of PhaseCommandLog, which keeps its stored name until 967ab
+PhaseCommandLog_RanCount_SurvivesTheTrimmingItDescribes	anywhere	STORED-967ab	test name of PhaseCommandLog, which keeps its stored name until 967ab
+PhaseCommandLog_RealisticPhase_TheEarlySearchIsStillPresent	anywhere	STORED-967ab	test name of PhaseCommandLog, which keeps its stored name until 967ab
+PhaseCommandLog_SomethingLost_LeadsWithRanAndShownCounts	anywhere	STORED-967ab	test name of PhaseCommandLog, which keeps its stored name until 967ab
+PhaseCommandLog_TrimmedTail_ReadsDifferentlyFromNoOutput	anywhere	STORED-967ab	test name of PhaseCommandLog, which keeps its stored name until 967ab
+PhaseCommandLog_UnderPressure_ShortensOlderOutputBeforeNewer	anywhere	STORED-967ab	test name of PhaseCommandLog, which keeps its stored name until 967ab
+PhaseCommands	anywhere	STORED-967ab	context-key values stored in checkpoints until 967ab
+PhaseCount	anywhere	STORED-967ab	served view and stored member names until 967ab
+PhaseDraft	anywhere	STORED-967ab	type stored by name in checkpoints or events until 967ab (CheckpointRenames maps the pair)
+PhaseFact	anywhere	STORED-967ab	type stored by name in checkpoints or events until 967ab (CheckpointRenames maps the pair)
+PhaseFinding	anywhere	STORED-967ab	type stored by name in checkpoints or events until 967ab (CheckpointRenames maps the pair)
+PhaseId	listed	STORED-967ab	the spec id under its stored and served name (columns RunSteps/RunDecisions.PhaseId, event and JSON members) until 967ab
+PhaseLifecycleEvents	anywhere	STORED-967ab	event type and EventType names stored in RunEvents.Type until 967ab
+PhaseProgress	anywhere	STORED-967ab	type stored by name in checkpoints or events until 967ab (CheckpointRenames maps the pair)
+PhaseProposal	anywhere	STORED-967ab	served view and stored member names until 967ab
+PhaseRecorded	anywhere	STORED-967ab	event type and EventType names stored in RunEvents.Type until 967ab
+PhaseRecordedEvent	anywhere	STORED-967ab	event type and EventType names stored in RunEvents.Type until 967ab
+PhaseRepairAttempted	anywhere	STORED-967ab	context-key values stored in checkpoints until 967ab
+PhaseReviewEntry	anywhere	STORED-967ab	type stored by name in checkpoints or events until 967ab (CheckpointRenames maps the pair)
+PhaseReviewFindings	anywhere	STORED-967ab	context-key values stored in checkpoints until 967ab
+PhaseReviewFixPass	anywhere	STORED-967ab	context-key values stored in checkpoints until 967ab
+PhaseReviewReport	anywhere	STORED-967ab	type stored by name in checkpoints or events until 967ab (CheckpointRenames maps the pair)
+PhaseReviewReverted	anywhere	STORED-967ab	context-key values stored in checkpoints until 967ab
+PhaseReviewed	anywhere	STORED-967ab	event type and EventType names stored in RunEvents.Type until 967ab
+PhaseReviewedEvent	anywhere	STORED-967ab	event type and EventType names stored in RunEvents.Type until 967ab
+PhaseRunState	anywhere	STORED-967ab	type stored by name in checkpoints or events until 967ab (CheckpointRenames maps the pair)
+PhaseSequenceCommand	anywhere	STORED-967ab	command-name values stored in RunSteps and presets until 967ab
+PhaseSpec	anywhere	STORED-967ab	context-key values stored in checkpoints until 967ab
+PhaseSpecGateCommand	anywhere	STORED-967ab	command-name values stored in RunSteps and presets until 967ab
+PhaseStartHeads	anywhere	STORED-967ab	context-key values stored in checkpoints until 967ab
+PhaseStateChanged	anywhere	STORED-967ab	event type and EventType names stored in RunEvents.Type until 967ab
+PhaseStateChangedEvent	anywhere	STORED-967ab	event type and EventType names stored in RunEvents.Type until 967ab
+PhaseStep	anywhere	STORED-967ab	type stored by name in checkpoints or events until 967ab (CheckpointRenames maps the pair)
+ReviewPhaseDiffCommand	anywhere	STORED-967ab	command-name values stored in RunSteps and presets until 967ab
+RunPhaseReviews	anywhere	STORED-967ab	type stored by name in checkpoints or events until 967ab (CheckpointRenames maps the pair)
+SelectPhaseCommand	anywhere	STORED-967ab	command-name values stored in RunSteps and presets until 967ab
+SpecDialogPhaseView	anywhere	STORED-967ab	served view and stored member names until 967ab
+SpecPhase	anywhere	STORED-967ab	type stored by name in checkpoints or events until 967ab (CheckpointRenames maps the pair)
+VerifyPhaseCommand	anywhere	STORED-967ab	command-name values stored in RunSteps and presets until 967ab
+WritePhaseRecordCommand	anywhere	STORED-967ab	command-name values stored in RunSteps and presets until 967ab
+executedPhaseIds	anywhere	STORED-967ab	served view and stored member names until 967ab
+phaseId	listed	STORED-967ab	the spec id under its stored and served name (columns RunSteps/RunDecisions.PhaseId, event and JSON members) until 967ab
+phase_record	anywhere	STORED-967ab	artifact kind prefixes stored in RunArtifacts.Kind until 967ab
+phase_review	anywhere	STORED-967ab	artifact kind prefixes stored in RunArtifacts.Kind until 967ab

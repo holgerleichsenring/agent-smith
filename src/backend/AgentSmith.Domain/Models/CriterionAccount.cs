@@ -5,7 +5,7 @@ namespace AgentSmith.Domain.Models;
 /// <para>
 /// <see cref="Citation"/> is a path the diff is claimed to satisfy it at. It is checked
 /// against the diff's own file list, so a criterion cannot be satisfied by a file the
-/// phase never touched. That check is about INVENTION, not semantics: a real path may
+/// spec never touched. That check is about INVENTION, not semantics: a real path may
 /// still fail to mean what the account claims, which is the reviewer's twenty seconds.
 /// </para>
 /// </summary>
@@ -33,7 +33,7 @@ public sealed record CriterionAccount(
     public bool IsSatisfied => Disposition is AccountDisposition.Satisfied;
 
     /// <summary>The criterion is still open — the only disposition that is a shortfall, is
-    /// handed back for repair, and fails a phase.</summary>
+    /// handed back for repair, and fails a spec.</summary>
     public bool IsOutstanding => Disposition is AccountDisposition.NotSatisfied;
 
     /// <summary>The account declined to judge it, because the base disproves what it

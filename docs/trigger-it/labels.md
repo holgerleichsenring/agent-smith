@@ -39,18 +39,18 @@ Two reasonable patterns for opting in with a map:
 
 Both work. Default-on gives you the volume but you'll see more `agent-smith:failed` labels when the agent can't figure out a ticket. Manual is friendlier when you're still learning the agent's strengths.
 
-## Phase tickets
+## Spec tickets
 
 A ticket that carries an approved specification runs the `code` pipeline and works that specification, whatever `pipeline_from_label` says. The check runs before the map. A ticket counts as one when any of these is true:
 
-- It carries `phase-spec:approved`, the stamp a [spec dialogue](../how-it-works/spec-dialogue.md) filing writes, or the name the tracker gives that stamp (see [Renaming them](#renaming-them)).
+- It carries `phase-spec:approved`, the stamp a [spec dialogue](../how-it-works/spec-dialogue.md) filing writes (`spec:approved` is read the same way), or the name the tracker gives that stamp (see [Renaming them](#renaming-them)).
 - The server holds an approval record for it. This still routes the ticket after someone removes the stamp; the stamp is a hint for people scanning the board, and the record is what binds. On Jira and Azure DevOps the poller also finds approved tickets by id, so a ticket whose stamp was removed is still picked up (up to 50 outstanding approvals per tracker; the rest wait, with a warning, until older ones are done or the stamp is put back).
-- A person typed the `phase` label onto it.
+- A person typed the `spec` label onto it (`phase` is still accepted).
 
 Two more labels come from an older shape of filing, where an epic was filed as a parent ticket and one child per slice. Nothing writes them any more, but they still mean something:
 
-- `phase-epic` marks a record ticket, not work. A ticket carrying it is never routed.
-- `phase-parent:<id>` names a ticket's epic parent. The run reads the parent ticket's text as background for the spec, cuts its branch from the parent's branch, and opens its pull request against it. See [Branch persistence](../reference/concepts/branch-persistence.md#parent-branches).
+- `spec-epic` (or `phase-epic`) marks a record ticket, not work. A ticket carrying it is never routed.
+- `spec-parent:<id>` (or `phase-parent:<id>`) names a ticket's epic parent. The run reads the parent ticket's text as background for the spec, cuts its branch from the parent's branch, and opens its pull request against it. See [Branch persistence](../reference/concepts/branch-persistence.md#parent-branches).
 
 ## Labels the framework writes
 
@@ -63,10 +63,10 @@ In addition to the trigger labels you set, Agent Smith writes a lifecycle label 
 | `agent-smith:in-progress` | The pipeline is running. |
 | `agent-smith:waiting` | The run is parked, waiting for a person to answer. |
 | `agent-smith:done` | Pipeline finished successfully. |
-| `agent-smith:shortfall` | The run delivered the phases it verified and fell short of the rest. The ticket counts as done, not failed. |
+| `agent-smith:shortfall` | The run delivered the specs it verified and fell short of the rest. The ticket counts as done, not failed. |
 | `agent-smith:failed` | Pipeline failed. Error posted as a comment on the ticket. |
 
-Filed phase tickets also carry the approved-set stamp, `phase-spec:approved` unless the tracker renames it (above).
+Filed spec tickets also carry the approved-set stamp, `phase-spec:approved` unless the tracker renames it (above).
 
 The framework owns these; don't set them by hand. Lifecycle labels are removed before the `pipeline_from_label` match runs, so an `agent-smith:done` label doesn't accidentally re-trigger. Other `agent-smith:` labels, like your trigger labels, are left alone.
 

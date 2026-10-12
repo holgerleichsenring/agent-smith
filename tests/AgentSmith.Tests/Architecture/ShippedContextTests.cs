@@ -49,7 +49,7 @@ public sealed class ShippedContextTests
 
     /// <summary>
     /// The anti-drift assertion: the enumeration is a discovery, so the two files this
-    /// phase fixed cannot be quietly dropped from it and a third one added later is
+    /// spec fixed cannot be quietly dropped from it and a third one added later is
     /// covered without anybody editing this test.
     /// </summary>
     [Fact]

@@ -62,14 +62,14 @@ public static partial class CommandNames
     public const string AnalyzeCode = "AnalyzeCodeCommand";
 
 
-    /// <summary>p0393a: turns any ticket into an ORDERED SET of phase specs on the ticket
+    /// <summary>p0393a: turns any ticket into an ORDERED SET of specs on the ticket
     /// branch — yaml for what and done, markdown for the verbatim code templates — so the
     /// `code` pipeline runs on ordinary tickets and not only on ones an operator hand-wrote.
     /// Runs after AnalyzeCode because one of its two hand-backs ("the requirement
     /// contradicts the repository") is only findable once the code has been read. Source
     /// precedence is fixed: branch artifact, then a spec embedded in the ticket
     /// DESCRIPTION, then derivation — a ticket COMMENT is never a source. Every ticket
-    /// segment is carried by a named phase or discarded with a reason; an accounting that
+    /// segment is carried by a named spec or discarded with a reason; an accounting that
     /// cannot be produced does not split at all.</summary>
     public const string DeriveSpec = "DeriveSpecCommand";
 
@@ -82,15 +82,15 @@ public static partial class CommandNames
     public const string SpecHandback = "SpecHandbackCommand";
 
     /// <summary>p0393a: splices one master → verify → record block per derived
-    /// phase, in order. The sequence is where termination comes from: each phase ends at
-    /// its own done-list and its own VerifyPhase, so stopping is structural instead of a
+    /// spec, in order. The sequence is where termination comes from: each spec ends at
+    /// its own done-list and its own VerifySpec, so stopping is structural instead of a
     /// judgement the model has to reach.</summary>
-    public const string PhaseSequence = "PhaseSequenceCommand";
+    public const string SpecSequence = "PhaseSequenceCommand";
 
-    /// <summary>p0393a: makes one phase of the derived sequence the current one. Everything
-    /// downstream reads ContextKeys.PhaseSpec, so this is the only wiring the sequence
+    /// <summary>p0393a: makes one spec of the derived sequence the current one. Everything
+    /// downstream reads ContextKeys.CurrentSpec, so this is the only wiring the sequence
     /// needs and no other handler learns that sequences exist.</summary>
-    public const string SelectPhase = "SelectPhaseCommand";
+    public const string SelectSpec = "SelectPhaseCommand";
 
     /// <summary>p0140e: post-Plan gate that decides "skip cleanly" when plan has zero steps.
     /// Emits agent_smith_pipeline_skipped_as_irrelevant_total with reason='empty_plan' and
@@ -122,9 +122,9 @@ public static partial class CommandNames
     public const string CollectSpecDialogReply = "CollectSpecDialogReplyCommand";
 
     /// <summary>p0315d, p0393a: asserts a validated spec set exists and publishes the
-    /// first phase as ContextKeys.PhaseSpec. Fails loud when the run carries no valid
+    /// first spec as ContextKeys.CurrentSpec. Fails loud when the run carries no valid
     /// spec — before any master tokens are spent.</summary>
-    public const string PhaseSpecGate = "PhaseSpecGateCommand";
+    public const string SpecGate = "PhaseSpecGateCommand";
 
     /// <summary>p0315d: posts a question the master captured mid-run (ask_human
     /// on a ticket-triggered run) as a p0318 open-questions ticket comment and

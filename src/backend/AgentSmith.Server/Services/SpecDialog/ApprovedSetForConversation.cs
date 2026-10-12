@@ -35,5 +35,5 @@ public sealed class ApprovedSetForConversation(
         record.Set.Approval?.Principal,
         record.Set.Approval?.Conversation,
         record.Repositories,
-        [.. record.Set.Phases.Select(phase => SpecDialogProposalComposer.View(phase.Draft))]);
+        [.. record.Set.Phases.Select(spec => SpecDialogProposalComposer.View(spec.Draft))]);
 }

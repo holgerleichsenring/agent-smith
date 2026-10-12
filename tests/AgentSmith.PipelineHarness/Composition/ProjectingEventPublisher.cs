@@ -24,7 +24,7 @@ public sealed class ProjectingEventPublisher(IServiceScopeFactory scopeFactory) 
     private readonly RunEventApplier _applier = new(
         checkpoints: new(), expectations: new(), queuedRuns: new(), sandboxes: new(new(), new()),
         steps: new(new()), pullRequests: new(), classification: new(), finalization: new(new()),
-        phases: new(), llmCalls: new(new(), new(), new()), decisions: new(new()));
+        specs: new(), llmCalls: new(new(), new(), new()), decisions: new(new()));
 
     private readonly ConcurrentDictionary<string, long> _seqByRun = new();
 

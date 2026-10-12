@@ -5,7 +5,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// command for — in the two kinds that are answered in different places.
 /// <para>
 /// A FINDING is a refusal: a declared stage that cannot fail, an entry point that is
-/// ambiguous or absent. It fails the run before the phase account is taken, because a
+/// ambiguous or absent. It fails the run before the spec account is taken, because a
 /// repository whose declaration is broken has nothing to be accounted against.
 /// </para>
 /// <para>
@@ -28,7 +28,7 @@ public sealed class VerifyResolutionNotes
     /// 2026-09-01-e14d: declarations whose derivation source has moved. Said ONCE, next to
     /// the verdict, and changing nothing about what runs: a hash that no longer matches is
     /// evidence the declaration may be out of date, never evidence that it is wrong. What
-    /// to do about it is the operator's call, and re-deriving is its own phase.
+    /// to do about it is the operator's call, and re-deriving is its own spec.
     /// </summary>
     public List<string> Stale { get; } = [];
 

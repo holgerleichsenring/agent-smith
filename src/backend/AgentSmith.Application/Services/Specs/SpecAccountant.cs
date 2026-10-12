@@ -17,7 +17,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// adversarially — "what is missing" — because "all done" is the cheap answer to the
 /// positive question and the expensive answer to the negative one. And every
 /// "satisfied" carries a citation that <see cref="CitedFileIndex"/> resolves against the
-/// diff, so a criterion cannot be satisfied by a file the phase never touched.
+/// diff, so a criterion cannot be satisfied by a file the spec never touched.
 /// </para>
 /// <para>
 /// What stays unverified: a real path may fail to mean what the account claims. No
@@ -43,7 +43,7 @@ public sealed class SpecAccountant(
     {
         ArgumentNullException.ThrowIfNull(criteria);
         if (criteria.Count == 0)
-            return new SpecAccount(repoKey, [], "the phase states no completion criteria");
+            return new SpecAccount(repoKey, [], "the spec states no completion criteria");
 
         // p0483: the account settles an absence by searching the branch itself, so the call
         // carries a tool and an iteration cap. Without a sandbox it falls back to the cited

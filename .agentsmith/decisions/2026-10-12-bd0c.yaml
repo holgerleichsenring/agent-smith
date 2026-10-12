@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-bd0c
+
+decisions:
+  - category: Implementation
+    chose: "shlex.shlex(posix=True, punctuation_chars=True) with whitespace_split, instead of shlex.split plus a split on ';'"
+    alternatives:
+      - "Keep shlex.split and split only tokens that were unquoted — shlex.split does not say which tokens were quoted"
+      - "A hand-written tokenizer"
+    reason: "The standard lexer already knows quoting and emits ;, &&, || and | as tokens of their own only outside quotes; the earlier glued-semicolon fix (63d1a0f46) is subsumed by it."

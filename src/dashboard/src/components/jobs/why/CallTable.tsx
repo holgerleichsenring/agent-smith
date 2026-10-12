@@ -17,7 +17,7 @@ export function CallTable({ calls }: { calls: RunCallPoint[] }) {
     <div style={{ maxHeight: 260, overflow: "auto" }} data-testid="call-table">
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "12px" }}>
         <caption className="hint" style={{ captionSide: "top", textAlign: "left" }}>
-          Every model call of this phase, in call order.
+          Every model call of this spec, in call order.
         </caption>
         <thead>
           <tr>

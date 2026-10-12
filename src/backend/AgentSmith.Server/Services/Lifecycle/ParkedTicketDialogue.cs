@@ -103,7 +103,7 @@ public sealed class ParkedTicketDialogue(
     }
 
     /// <summary>
-    /// Only Azure DevOps is polled this phase — that is where it was paid for. Another
+    /// Only Azure DevOps is polled this spec — that is where it was paid for. Another
     /// tracker joins by naming itself here, once its ticket comments are known to reach a
     /// checkpoint rather than merely spawn a fresh run.
     /// </summary>

@@ -1,6 +1,6 @@
 # Every assertion the booted-server tests made before the rig was made fast, one per line,
 # read out of the base commit. Speeding a suite up by asserting less is the one failure mode
-# this phase had, and a line that disappears from here is what that looks like. Adding an
+# this spec had, and a line that disappears from here is what that looks like. Adding an
 # assertion is fine; changing or dropping one listed here is not.
 # file (relative to tests/AgentSmith.Tests)	assertion
 Server/Auth/AdminGrantTests.cs	identity.Roles.Should().Equal(BuiltInRoles.Admin);

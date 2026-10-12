@@ -11,7 +11,7 @@ namespace AgentSmith.Application.Services.Scans;
 /// A rebuttal must QUOTE a line of the evidence the refuter was shown — the source for a
 /// repo claim, the recorded exchange for a live-target one. Anything else is the refuter
 /// inventing its objection, which would silence a real critical — the one failure this
-/// phase must not introduce. An unquoted rebuttal is discarded and the finding stands,
+/// spec must not introduce. An unquoted rebuttal is discarded and the finding stands,
 /// exactly as an unquoted cut-review finding is discarded and the cut stands.
 /// </para>
 /// </summary>

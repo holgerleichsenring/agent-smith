@@ -8,7 +8,7 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// specification HOLDS — one comparison, made in code, so the turn argues about a fact instead of
 /// producing one.
 /// <para>
-/// The comparison is deliberately coarse: a phase's GOAL is one sentence, and the filed body
+/// The comparison is deliberately coarse: a spec's GOAL is one sentence, and the filed body
 /// carries it verbatim under its own heading, so a goal the ticket text does not contain is a
 /// goal the ticket does not state. Nothing finer would survive the conversions a description
 /// makes on the way back — Azure DevOps hands back HTML, Jira a flattened document — and a

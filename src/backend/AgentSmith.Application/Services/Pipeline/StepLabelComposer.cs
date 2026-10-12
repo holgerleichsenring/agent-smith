@@ -18,16 +18,16 @@ public static class StepLabelComposer
     // operator-readable row per (repo, component) pair instead of N identical
     // "Producing bootstrap files" rows.
     public static string Label(PipelineCommand cmd) =>
-        WithScope(PhaseQualified(CommandNames.GetLabel(cmd.Name), cmd), cmd);
+        WithScope(SpecQualified(CommandNames.GetLabel(cmd.Name), cmd), cmd);
 
     // p0203: draws the base label from CommandDisplayNames (noun-phrase) instead
     // of CommandNames.GetLabel (present-continuous).
     public static string DisplayName(PipelineCommand cmd) =>
-        WithScope(PhaseQualified(CommandDisplayNames.Get(cmd.Name), cmd), cmd);
+        WithScope(SpecQualified(CommandDisplayNames.Get(cmd.Name), cmd), cmd);
 
-    // p0405: the same name WITHOUT the phase prefix, for surfaces that carry the
-    // phase as its own field. The prefix exists because the persisted step row has
-    // nowhere else to put the phase; a payload with a phase field does not need it,
+    // p0405: the same name WITHOUT the spec prefix, for surfaces that carry the
+    // spec as its own field. The prefix exists because the persisted step row has
+    // nowhere else to put the spec; a payload with a spec field does not need it,
     // and the read path would only split it off again.
     public static string PlainDisplayName(PipelineCommand cmd) =>
         WithScope(CommandDisplayNames.Get(cmd.Name), cmd);
@@ -42,9 +42,9 @@ public static class StepLabelComposer
         return label;
     }
 
-    // p0393a: a sequence runs the same steps once per derived phase. Without the
-    // phase id on the row the trail reads as the run repeating itself; with it,
-    // progress is readable per phase, which is the point of splitting the ticket.
-    private static string PhaseQualified(string label, PipelineCommand cmd) =>
-        string.IsNullOrEmpty(cmd.PhaseId) ? label : $"{cmd.PhaseId}: {label}";
+    // p0393a: a sequence runs the same steps once per derived spec. Without the
+    // spec id on the row the trail reads as the run repeating itself; with it,
+    // progress is readable per spec, which is the point of splitting the ticket.
+    private static string SpecQualified(string label, PipelineCommand cmd) =>
+        string.IsNullOrEmpty(cmd.SpecId) ? label : $"{cmd.SpecId}: {label}";
 }

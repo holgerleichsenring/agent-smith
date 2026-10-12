@@ -18,16 +18,16 @@ public sealed class SeriesRepos
         ArgumentNullException.ThrowIfNull(set);
         ArgumentNullException.ThrowIfNull(scope);
         if (set.Phases.Count == 0) return WithoutSpecs(set, scope);
-        var phases = new List<SpecPhase>(set.Phases.Count);
+        var specs = new List<SpecPhase>(set.Phases.Count);
         var members = new List<RepoConnection>();
-        foreach (var phase in set.Phases)
+        foreach (var spec in set.Phases)
         {
-            var (repo, why) = RepoOf(phase, scope);
+            var (repo, why) = RepoOf(spec, scope);
             if (repo is null) return SeriesPlacement.Refused(set, why!);
-            phases.Add(phase with { Draft = phase.Draft with { Repos = [repo.Name] } });
+            specs.Add(spec with { Draft = spec.Draft with { Repos = [repo.Name] } });
             if (!members.Any(m => Same(m.Name, repo.Name))) members.Add(repo);
         }
-        var placed = set with { Phases = phases, SeriesRepos = [.. members.Select(m => m.Name)] };
+        var placed = set with { Phases = specs, SeriesRepos = [.. members.Select(m => m.Name)] };
         return new SeriesPlacement(placed, members, members[0]);
     }
 
@@ -42,18 +42,18 @@ public sealed class SeriesRepos
                ?? (repositories is [var only] ? only : string.Empty);
     }
 
-    private static (RepoConnection? Repo, string? Why) RepoOf(SpecPhase phase, SeriesScope scope)
+    private static (RepoConnection? Repo, string? Why) RepoOf(SpecPhase spec, SeriesScope scope)
     {
-        var named = phase.Draft.Repos.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+        var named = spec.Draft.Repos.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         if (named.Count > 1)
-            return (null, $"spec {phase.PhaseId} names several repositories ({string.Join(", ", named)}); a spec is written into exactly one");
+            return (null, $"spec {spec.PhaseId} names several repositories ({string.Join(", ", named)}); a spec is written into exactly one");
         var name = named.Count == 1 ? named[0] : scope.LegacyRepo;
         if (string.IsNullOrWhiteSpace(name))
-            return (null, $"spec {phase.PhaseId} names no repository and the series records none it belongs to");
+            return (null, $"spec {spec.PhaseId} names no repository and the series records none it belongs to");
         var repo = scope.RunRepos.FirstOrDefault(r => Same(r.Name, name));
         return repo is not null
             ? (repo, null)
-            : (null, $"spec {phase.PhaseId} names repository '{name}', which is not checked out in this run");
+            : (null, $"spec {spec.PhaseId} names repository '{name}', which is not checked out in this run");
     }
 
     private static SeriesPlacement WithoutSpecs(SpecSet set, SeriesScope scope)

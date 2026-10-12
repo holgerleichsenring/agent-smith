@@ -17,8 +17,8 @@ public static class SpecDerivationRegistrations
     public static IServiceCollection AddSpecDerivation(this IServiceCollection services)
     {
     services.AddTransient<ISpecCutReviewer, SpecCutReviewer>(); // p0422: the cut is reviewed before it is built
-        // 2026-09-17-0e79c: and each phase's stated premises are checked before it is worked
-        services.AddTransient<IPhasePremiseChecker, PhasePremiseChecker>();
+        // 2026-09-17-0e79c: and each spec's stated premises are checked before it is worked
+        services.AddTransient<ISpecPremiseChecker, SpecPremiseChecker>();
         services.AddTransient<PremiseHandbackNotice>();
         // 2026-10-12-3a36b: a contradiction hand-back is read a second time before it parks
         services.AddTransient<IContradictionChecker, ContradictionChecker>();
@@ -42,7 +42,7 @@ public static class SpecDerivationRegistrations
     services.AddTransient<ISpecSetPublisher, SpecSetPublisher>();
     services.AddTransient<SpecSetPointerRecorder>(); // 2026-09-08-4aa9: the marker's commit moves the pointer too
     services.AddTransient<ISpecPullRequestOpener, SpecPullRequestOpener>();
-    services.AddTransient<DerivedPhaseYamlRenderer>();
+    services.AddTransient<DerivedSpecYamlRenderer>();
     services.AddTransient<SeriesManifest>();
     // 2026-09-22-b6ad: the files a series holds, for the run's publish and for the checkout-free
     // write filing makes onto the ticket branch.
@@ -50,11 +50,11 @@ public static class SpecDerivationRegistrations
     services.AddTransient<FiledSpecBranch>();
     services.AddTransient<SpecDerivationEnvelope>();
     services.AddTransient<SpecDerivationParser>();
-    services.AddTransient<SpecReposRule>().AddTransient<DerivedPhaseRepos>(); // 2026-10-12-3a36e
-    services.AddTransient<DerivedPhaseSequence>();
+    services.AddTransient<SpecReposRule>().AddTransient<DerivedSpecRepos>(); // 2026-10-12-3a36e
+    services.AddTransient<DerivedSpecSequence>();
     // 2026-09-07-b7e2: the derivation may look before it writes — its call, its tool
     // host over the run's sandboxes, and the resolver that decides a fact in code.
-    services.AddTransient<DerivedPhaseBuilder>();
+    services.AddTransient<DerivedSpecBuilder>();
     services.AddTransient<FactResolver>();
     services.AddTransient<SpecDerivationCall>();
     // 2026-09-13-9f84: what an opened template declares as its own proof, read and reported.
@@ -82,7 +82,7 @@ public static class SpecDerivationRegistrations
     services.AddTransient<SpecHandbackRepeat>(); // 2026-09-07-bd7a: the repeat guard reads the thread
     services.AddTransient<Handlers.SpecHandbackPark>(); // 2026-09-22-7c41b: reports what the tracker did
     services.AddTransient<SpecParkStatusResolver>();
-    services.AddTransient<IPhaseProgressRecorder, PhaseProgressRecorder>(); // p0466
+    services.AddTransient<ISpecProgressRecorder, SpecProgressRecorder>(); // p0466
     services.TryAddSingleton<ISpecSetPointerStore, Persistence.InMemorySpecSetPointerStore>();
     // 2026-09-17-0e79a: what a person approved in the design conversation — its store and the one
     // resolver both ScopeRepos and DeriveSpec ask. 2026-09-22-6ad7: the record no longer competes
@@ -102,12 +102,12 @@ public static class SpecDerivationRegistrations
     services.AddTransient<SpecCoverageRefusal>();
     // 2026-09-17-0e79b: an approved set is never re-cut — the input is reported instead.
     services.AddTransient<ApprovedSetKeptNotice>();
-    // 2026-09-17-042eh: the phase review's own collaborators — where a phase began, its
+    // 2026-09-17-042eh: the spec review's own collaborators — where a spec began, its
     // diff, the instance that reads it, and the undo of a fix pass that was not green.
-    services.AddTransient<PhaseStartHeads>();
-    services.AddTransient<PhaseDiffs>();
-    services.AddTransient<PhaseDiffReviewer>();
-    services.AddTransient<PhaseReviewRevert>();
+    services.AddTransient<SpecStartHeads>();
+    services.AddTransient<SpecDiffs>();
+    services.AddTransient<SpecDiffReviewer>();
+    services.AddTransient<SpecReviewRevert>();
         return services;
     }
 }

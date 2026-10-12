@@ -4,12 +4,12 @@ using AgentSmith.Contracts.Specs;
 namespace AgentSmith.Application.Services.SpecDialog;
 
 /// <summary>
-/// p0315e: parses a `kind: epic` outcome block — a parent phase plus ordered
-/// child phases — validating the parent and EVERY child against the
-/// phase-spec schema (each child is a filable phase in its own right) and
+/// p0315e: parses a `kind: epic` outcome block — a parent spec plus ordered
+/// child specs — validating the parent and EVERY child against the
+/// spec schema (each child is a filable spec in its own right) and
 /// the requires: edges for consistency before the shape is proposed.
 /// <para>
-/// 2026-09-17-0e79a: the phase CAP is checked here, on the proposal, before any ticket exists.
+/// 2026-09-17-0e79a: the spec CAP is checked here, on the proposal, before any ticket exists.
 /// The filers create and then store, so a refusal at store time would leave a filed ticket with
 /// no set; and a run that met an over-cap set could only refuse it or truncate it. A cut this
 /// long is a programme, and the place a person can split it is the conversation.
@@ -17,7 +17,7 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// </summary>
 public sealed class EpicOutcomeParser(
     ISpecDraftValidator draftValidator,
-    PhaseDraftReader draftReader,
+    SpecDraftReader draftReader,
     RequiresEdgeChecker edgeChecker,
     DialogDraftRepos draftRepos)
 {
@@ -31,12 +31,12 @@ public sealed class EpicOutcomeParser(
         if (childMaps is null || childMaps.Count < 2)
             return new OutcomeInvalid(
                 "epic outcome needs 'children' with at least two spec entries — "
-                + "a single slice is just a phase; emit the bare ```yaml draft instead");
+                + "a single slice is just a spec; emit the bare ```yaml draft instead");
 
-        if (childMaps.Count > SpecSet.MaxPhases)
+        if (childMaps.Count > SpecSet.MaxSpecs)
             return new OutcomeInvalid(
                 $"epic outcome has {childMaps.Count} children and one work ticket runs at most "
-                + $"{SpecSet.MaxPhases} phases — propose the first {SpecSet.MaxPhases} as this "
+                + $"{SpecSet.MaxSpecs} specs — propose the first {SpecSet.MaxSpecs} as this "
                 + "epic and the rest as a second one, cut after this one has delivered");
 
         var (parent, parentError) = ReadDraft(parentMap, "parent");

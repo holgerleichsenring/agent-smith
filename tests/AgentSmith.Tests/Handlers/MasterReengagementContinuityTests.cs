@@ -88,7 +88,7 @@ public sealed class MasterReengagementContinuityTests
             done:
               - the consumer registration is migrated
             """;
-        context.Pipeline.Set(ContextKeys.PhaseSpec,
+        context.Pipeline.Set(ContextKeys.CurrentSpec,
             new PhaseDraft("p1", "migrate the consumer registration", yaml, [])
             {
                 Done = ["the consumer registration is migrated"],

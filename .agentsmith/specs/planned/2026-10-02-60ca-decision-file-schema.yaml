@@ -14,7 +14,7 @@ facts:
   - claim: "The product writes four categories, all inside the enum."
     evidence: "src/backend/AgentSmith.Contracts/Decisions/IDecisionLogger.cs:24-30; src/backend/AgentSmith.Infrastructure.Core/Services/DecisionYamlFormatter.cs:12-13"
   - claim: "No test reads decision files; phase files are measured by PhaseSpecFileSchemaTests."
-    evidence: "tests/AgentSmith.Tests/Architecture/PhaseSpecFileSchemaTests.cs:30-40"
+    evidence: "tests/AgentSmith.Tests/Architecture/SpecYamlFileSchemaTests.cs:30-40"
 
 assumptions:
   - claim: "The record's categories are a vocabulary worth keeping rather than drift to normalise away."

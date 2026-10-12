@@ -79,7 +79,7 @@ In a design conversation `remember` has nowhere to write, because its sandboxes 
 - One fact per file. Check the index first and update an entry instead of adding a
   second one on the same subject.
 - Only what the code and git can't already tell. A convention the linter enforces or a
-  decision already recorded in a phase spec doesn't need a memory.
+  decision already recorded in a spec doesn't need a memory.
 - Delete a memory that turns out wrong. A stale memory is worse than none, because the
   next run acts on it.
 

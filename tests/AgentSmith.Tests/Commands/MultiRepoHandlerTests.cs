@@ -288,14 +288,14 @@ public sealed class MultiRepoHandlerTests
                 new SandboxGitOperations(new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
                 new SecretPatternScanner(),
                 new PullRequestOutcomePublisher(EventTestStubs.NoOp),
-                new TicketLifecycle(), new SandboxTargets(), new PhaseAccounting(
+                new TicketLifecycle(), new SandboxTargets(), new SpecDeliveryAccounting(
                 AgentSmith.Tests.TestHelpers.TestGit.Delivery,
                 new SpecAccountant(
                 new AgentSmith.Tests.TestHelpers.ScriptedChatClientFactory(),
                 new AccountCalls(new SpecAccountCall(new AgentSmith.Tests.TestHelpers.ScriptedChatClientFactory(), new AgentSmith.Application.Services.Events.AsyncLocalRunContextAccessor(), NullLogger<SpecAccountCall>.Instance)),
                     NullLogger<SpecAccountant>.Instance),
                 new SandboxTargets(),
-                NullLogger<PhaseAccounting>.Instance),
+                NullLogger<SpecDeliveryAccounting>.Instance),
             new FailedRunPersistence(new WipCommitMessage()),
             new SpecOnlyPullRequests(_sourceFactoryMock.Object, new PullRequestOutcomePublisher(EventTestStubs.NoOp), NullLogger<SpecOnlyPullRequests>.Instance),
             new ShortfallDelivery(

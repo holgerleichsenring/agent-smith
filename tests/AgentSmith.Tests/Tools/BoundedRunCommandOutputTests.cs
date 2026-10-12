@@ -95,7 +95,7 @@ public sealed class BoundedRunCommandOutputTests
     }
 
     [Fact]
-    public async Task Render_Bounded_ToolchainProbeAndPhaseLogStillParse()
+    public async Task Render_Bounded_ToolchainProbeAndSpecLogStillParse()
     {
         var stderr = Lines("noise", 300_000, "last noise");
         var text = await Run(new FakeSandbox(body: "git git version 2.43.0\n", stderr: stderr, exitCode: 2));

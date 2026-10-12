@@ -22,7 +22,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// <para>
 /// A cause names ONE input, and an edit outranks a comment. Both are reported: neither was acted
 /// on, and telling an operator about the edit while silently dropping their comment is the defect
-/// this notice exists to prevent. The DISCARDED edit — a re-approval's change to a phase that
+/// this notice exists to prevent. The DISCARDED edit — a re-approval's change to a spec that
 /// already ran — is reported here too, for the same reason.
 /// </para>
 /// </summary>
@@ -41,12 +41,12 @@ public static class ApprovedSetKept
 
     /// <summary>Where a change to an approved set is actually made TODAY. Not the design
     /// conversation: nothing re-opens an approved record from one yet, and a wording that sent an
-    /// operator there would be the promise this phase deleted, pointing somewhere else.</summary>
+    /// operator there would be the promise this spec deleted, pointing somewhere else.</summary>
     public const string WhereToChangeIt = OnTheBranch + " and open in the pull request this run "
         + "linked. " + TheEditRule;
 
     /// <summary>2026-09-17-0e79c: the same place, for a run that has NOT opened a pull request
-    /// yet. A hand-back on the FIRST phase of a set happens before any delivery, so naming a
+    /// yet. A hand-back on the FIRST spec of a set happens before any delivery, so naming a
     /// pull request there would send an operator to something that does not exist.</summary>
     public const string WhereToChangeItWithNoPullRequest = OnTheBranch + ". " + TheEditRule;
 
@@ -57,15 +57,15 @@ public static class ApprovedSetKept
     public const string TheDoor =
         "If you cannot reach the branch at all, there is one deliberate exception: write a comment "
         + "whose FIRST line says nothing but `" + SpecSetComment.RecutDemand + "`, and the next "
-        + "run cuts the unstarted phases again from the ticket, or adds phases after the ones that "
+        + "run cuts the unstarted specs again from the ticket, or adds specs after the ones that "
         + "ran when none is left. Any other first line is an "
         + "ordinary comment and changes nothing.";
 
     private const string OnTheBranch = "The specs are on the ticket branch under `" + SeriesPaths.Planned + "/`";
 
     private const string TheEditRule =
-        "Edit a phase that has NOT started there and the next run works your edit; a phase that "
-        + "already ran is never edited, so a correction to one becomes a new phase after it.";
+        "Edit a spec that has NOT started there and the next run works your edit; a spec that "
+        + "already ran is never edited, so a correction to one becomes a new spec after it.";
 
     // The input this run saw and kept, or null when nothing arrived that would have re-cut a set
     // nobody approved. Not public: the three questions callers actually ask are below.
@@ -87,7 +87,7 @@ public static class ApprovedSetKept
 
     /// <summary>
     /// The notice, or null when there is nothing to report. <paramref name="discarded"/> is the
-    /// merge's note about an edit to a phase that already ran; <paramref name="alsoCommented"/>
+    /// merge's note about an edit to a spec that already ran; <paramref name="alsoCommented"/>
     /// names a comment the cause could not, because an edit outranked it.
     /// </summary>
     public static string? Notice(

@@ -79,7 +79,7 @@ public sealed class PolyglotReferenceDockerTests(ITestOutputHelper output)
 
     /// <summary>
     /// A green run is not the criterion — the named stages are. This is the other half:
-    /// each defect is a source edit that reds ONE declared stage, and the phase's failing
+    /// each defect is a source edit that reds ONE declared stage, and the spec's failing
     /// command has to name that stage rather than a neighbour or a cascade.
     /// </summary>
     [Theory]
@@ -97,7 +97,7 @@ public sealed class PolyglotReferenceDockerTests(ITestOutputHelper output)
         run.Result.IsSuccess.Should().BeFalse(
             $"the {stage} defect must refuse the run: {run.Result.Message}");
         run.FailingCommand.Should().Contain($"{stage} '{command}' exited",
-            "the phase's failing command names the stage the repository declared, not a "
+            "the spec's failing command names the stage the repository declared, not a "
             + "stage behind it and not a generic build failure");
     }
 
@@ -122,7 +122,7 @@ public sealed class PolyglotReferenceDockerTests(ITestOutputHelper output)
 
     /// <param name="StageLines">The verify outcomes the run's delivery account was shown,
     /// one per stage that ran.</param>
-    /// <param name="FailingCommand">The phase's failing command, empty when none failed.</param>
+    /// <param name="FailingCommand">The spec's failing command, empty when none failed.</param>
     private sealed record Run(
         CommandResult Result, IReadOnlyList<string> StageLines, string FailingCommand);
 
@@ -155,7 +155,7 @@ public sealed class PolyglotReferenceDockerTests(ITestOutputHelper output)
                 File.ReadAllText(file)))];
     }
 
-    // PhaseEvidence renders a verify outcome as "{repo}: {stage} '{command}' exited {code}".
+    // SpecEvidence renders a verify outcome as "{repo}: {stage} '{command}' exited {code}".
     // The repository key is the harness session's, so the assertion is on what follows it.
     private static IReadOnlyList<string> StageLines(IReadOnlyList<string> shown) =>
         [.. shown
@@ -168,7 +168,7 @@ public sealed class PolyglotReferenceDockerTests(ITestOutputHelper output)
             || progress is null)
             return string.Empty;
         var failing = progress.Phases
-            .FirstOrDefault(phase => phase.State == PhaseRunState.Failed)?.FailingCommand
+            .FirstOrDefault(spec => spec.State == PhaseRunState.Failed)?.FailingCommand
             ?? string.Empty;
         if (failing.Length > 0) output.WriteLine("failing command: " + failing);
         return failing;

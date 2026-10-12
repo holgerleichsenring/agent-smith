@@ -6,7 +6,7 @@ namespace AgentSmith.Application.Services.Activation;
 /// Assigns a specificity score to an <c>activates_when</c> expression by
 /// counting comparison + identifier nodes in the parsed AST. Higher score
 /// means the expression has more constraints — used as a deterministic
-/// tie-breaker when the LLM picks more skills than the per-phase cap allows.
+/// tie-breaker when the LLM picks more skills than the per-spec cap allows.
 /// </summary>
 public sealed class ActivationSpecificityScorer(
     ActivationExpressionParser parser, ILogger<ActivationSpecificityScorer> logger)

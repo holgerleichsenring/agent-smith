@@ -34,9 +34,9 @@ public sealed class AgenticMasterReengageTests
     private static readonly IReadOnlyList<string> NoCriteria = System.Array.Empty<string>();
     private static readonly IReadOnlyList<CodeChange> NoChanges = System.Array.Empty<CodeChange>();
 
-    // p0421: a phase "ships code" because it CHANGED something, not because it declared it.
+    // p0421: a spec "ships code" because it CHANGED something, not because it declared it.
     private static readonly IReadOnlyList<CodeChange> SourceChanged =
-        [new CodeChange(new FilePath("src/Api/Program.cs"), "modified", "the phase edited it")];
+        [new CodeChange(new FilePath("src/Api/Program.cs"), "modified", "the spec edited it")];
 
     [Fact]
     public void ShouldReengage_GreenVerdictWithOpenLedgerItems_DoesNotReengage()
@@ -167,9 +167,9 @@ public sealed class AgenticMasterReengageTests
     }
 
     [Fact]
-    public void ShouldReengage_KnowledgePhase_DispositionsMet_NoBuildStatus_Stops()
+    public void ShouldReengage_KnowledgeSpec_DispositionsMet_NoBuildStatus_Stops()
     {
-        // p0406 (run fa8c): a ships_code:false phase — inventory, classification, a report —
+        // p0406 (run fa8c): a ships_code:false spec — inventory, classification, a report —
         // has no source change for a build to be green about. It reported every criterion
         // disposed; before p0406 the gate still demanded Green/NoTests, so the loop re-drove
         // the master until the budget died, twice running `dotnet build` to get there.
@@ -191,7 +191,7 @@ public sealed class AgenticMasterReengageTests
             "code", Ledger(ProgressStatus.Done, ProgressStatus.Done), verdict,
             budgetExhausted: false, criteria, SourceChanged, reengagePass: 1, verdictDemandedInPass: false)
             .Should().BeTrue(
-                "a phase that CHANGED source still owes a green build — p0421 reads that "
+                "a spec that CHANGED source still owes a green build — p0421 reads that "
                 + "from the run's changes instead of a ships_code declaration");
     }
 

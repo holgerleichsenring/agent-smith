@@ -23,7 +23,7 @@ namespace AgentSmith.Tests.Scans;
 /// These tests hold the two edges of that withdrawal. Nothing the removed batch added may
 /// come back by accident: a preset entry with no handler, or a master told to call a tool
 /// the backend no longer offers, is a worse state than either end. And the two honesty
-/// phases beside it — a lost triage that says so, a cut-off scanner that does not claim
+/// specs beside it — a lost triage that says so, a cut-off scanner that does not claim
 /// completion — behave exactly as they did, because neither needs a prompt, a tool or a
 /// model: both are facts the framework already holds.
 /// </para>

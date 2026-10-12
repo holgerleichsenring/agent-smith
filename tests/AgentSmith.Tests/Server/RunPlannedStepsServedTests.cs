@@ -54,7 +54,7 @@ public sealed class RunPlannedStepsServedTests : IDisposable
         rail.Take(2).Should().OnlyContain(s => !s.Planned);
         rail.Skip(2).Should().OnlyContain(s => s.Planned);
         rail[2].DisplayName.Should().Be(CommandDisplayNames.Get(CommandNames.AgenticMaster));
-        rail[2].PhaseId.Should().Be("p19106a", "planned rows are grouped by phase like executed ones");
+        rail[2].PhaseId.Should().Be("p19106a", "planned rows are grouped by spec like executed ones");
         rail.Last().PhaseId.Should().Be("p19106b");
     }
 
@@ -82,8 +82,8 @@ public sealed class RunPlannedStepsServedTests : IDisposable
 
         var rail = await ReadRailAsync();
 
-        rail.First(s => s.CommandName == CommandNames.VerifyPhase && s.Planned)
-            .StepClass.Should().Be(CommandStepClasses.Get(CommandNames.VerifyPhase));
+        rail.First(s => s.CommandName == CommandNames.VerifySpec && s.Planned)
+            .StepClass.Should().Be(CommandStepClasses.Get(CommandNames.VerifySpec));
     }
 
     [Fact]
@@ -110,7 +110,7 @@ public sealed class RunPlannedStepsServedTests : IDisposable
     }
 
     /// <summary>
-    /// A splice replaces the announcement wholesale: the phase block the executor
+    /// A splice replaces the announcement wholesale: the spec block the executor
     /// added is in the new one, and the old one is not partially valid.
     /// </summary>
     [Fact]
@@ -118,12 +118,12 @@ public sealed class RunPlannedStepsServedTests : IDisposable
     {
         await ApplyAsync(
             new RunStartedEvent(RunId, "ticket", "code", ["primary"], T, "claude", "42"),
-            Announce(1, [Planned(1, CommandNames.FetchTicket, null), Planned(2, CommandNames.PhaseSequence, null)]),
+            Announce(1, [Planned(1, CommandNames.FetchTicket, null), Planned(2, CommandNames.SpecSequence, null)]),
             new StepStartedEvent(RunId, 1, "Fetch ticket", 2, T, "Fetch ticket", CommandNames.FetchTicket),
             new StepFinishedEvent(RunId, 1, "success", 1000, T),
             Announce(1, [
                 Planned(1, CommandNames.FetchTicket, null),
-                Planned(2, CommandNames.PhaseSequence, null),
+                Planned(2, CommandNames.SpecSequence, null),
                 Planned(3, CommandNames.AgenticMaster, "p1"),
             ]));
 
@@ -134,29 +134,29 @@ public sealed class RunPlannedStepsServedTests : IDisposable
     }
 
     // Two of eight steps have run: the ticket was fetched and the sequence spliced
-    // two phases, whose blocks are the six steps still to come.
+    // two specs, whose blocks are the six steps still to come.
     private const int TotalSteps = 8;
 
     private Task SeedMidRunAsync() => ApplyAsync(
         new RunStartedEvent(RunId, "ticket", "code", ["primary"], T, "claude", "42"),
         new StepStartedEvent(RunId, 1, "Fetch ticket", 2, T, "Fetch ticket", CommandNames.FetchTicket),
         new StepFinishedEvent(RunId, 1, "success", 1000, T),
-        new StepStartedEvent(RunId, 2, "Work through the phases", 2, T, "Work through the phases",
-            CommandNames.PhaseSequence),
+        new StepStartedEvent(RunId, 2, "Work through the specs", 2, T, "Work through the specs",
+            CommandNames.SpecSequence),
         new StepFinishedEvent(RunId, 2, "success", 500, T),
         Announce(1, [
             Planned(1, CommandNames.FetchTicket, null),
-            Planned(2, CommandNames.PhaseSequence, null),
+            Planned(2, CommandNames.SpecSequence, null),
             Planned(3, CommandNames.AgenticMaster, "p19106a"),
-            Planned(4, CommandNames.VerifyPhase, "p19106a"),
-            Planned(5, CommandNames.WritePhaseRecord, "p19106a"),
+            Planned(4, CommandNames.VerifySpec, "p19106a"),
+            Planned(5, CommandNames.WriteSpecRecord, "p19106a"),
             Planned(6, CommandNames.AgenticMaster, "p19106b"),
-            Planned(7, CommandNames.VerifyPhase, "p19106b"),
-            Planned(8, CommandNames.WritePhaseRecord, "p19106b"),
+            Planned(7, CommandNames.VerifySpec, "p19106b"),
+            Planned(8, CommandNames.WriteSpecRecord, "p19106b"),
         ]));
 
-    private static PlannedStepView Planned(int index, string command, string? phaseId) =>
-        new(index, command, CommandDisplayNames.Get(command), phaseId);
+    private static PlannedStepView Planned(int index, string command, string? specId) =>
+        new(index, command, CommandDisplayNames.Get(command), specId);
 
     private static PipelineStepsPlannedEvent Announce(int firstStepIndex, PlannedStepView[] steps) =>
         new(RunId, firstStepIndex, RunStoryJson.Serialize(steps), T);

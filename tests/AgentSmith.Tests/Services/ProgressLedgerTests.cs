@@ -252,11 +252,11 @@ public sealed class ProgressLedgerTests
     }
 
     [Fact]
-    public void LedgerSeeder_FromPhaseDraft_SeedsStepsWithTargets()
+    public void LedgerSeeder_FromSpecDraft_SeedsStepsWithTargets()
     {
-        // p0394a: the ratified phase spec is the single planning artifact — the seed
+        // p0394a: the ratified spec is the single planning artifact — the seed
         // mirrors its parsed steps (spec-assigned ids, action, target) as pending.
-        var draft = new Application.Services.SpecDialog.PhaseDraftReader().Read("""
+        var draft = new Application.Services.SpecDialog.SpecDraftReader().Read("""
             spec: p0001
             goal: "Widgets exist"
             steps:

@@ -20,7 +20,7 @@ namespace AgentSmith.Tests.Specs;
 /// <summary>
 /// 2026-09-08-4aa9: a write that staged nothing reports the last commit ON THE SPEC
 /// PATH — the value the next run's reader compares the pointer against — never HEAD,
-/// which after a phase's work is a coding commit and would read as a reviewer's edit.
+/// which after a spec's work is a coding commit and would read as a reviewer's edit.
 /// </summary>
 public sealed class SpecSetWriterUnchangedTests
 {

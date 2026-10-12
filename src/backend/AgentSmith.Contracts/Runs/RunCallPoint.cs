@@ -7,7 +7,7 @@ namespace AgentSmith.Contracts.Runs;
 /// served as points and drawn, never summed.
 /// </summary>
 /// <param name="Index">Position in the run's call order, 1-based.</param>
-/// <param name="PhaseId">The spliced phase the call belongs to; null outside any phase.</param>
+/// <param name="PhaseId">The spliced spec the call belongs to; null outside any spec.</param>
 public sealed record RunCallPoint(
     int Index,
     string? PhaseId,

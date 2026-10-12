@@ -64,7 +64,7 @@ The home page is split into the same buckets as the rail, under a strip of count
 - **Queued** shows each run's place in line (`pos 3`) and the reason it's waiting. A parked run whose answer is in and whose relaunch is waiting for a slot moves here too and reads `resuming · pos 2`, instead of still claiming to need you.
 - **Finished** pages back through history with **Load more**. Its header carries **clear finished**, which deletes every finished, failed and cancelled run at once (see [Deleting runs](#deleting-runs)); it shows only while there is a finished run, and not to a signed-in caller without `runs.delete`.
 
-Finished runs say how they ended: done, done with a shortfall (the verified phases shipped and the rest is named as not delivered), failed, or cancelled, each distinct. Every row carries a delete button, which asks for a second click before it acts.
+Finished runs say how they ended: done, done with a shortfall (the verified specs shipped and the rest is named as not delivered), failed, or cancelled, each distinct. Every row carries a delete button, which asks for a second click before it acts.
 
 ### Run detail
 
@@ -74,7 +74,7 @@ One run reads as a story of five beats, ticket, plan, building, verify and outco
 
 - **The ticket** is the ticket body as fetched.
 - **The plan** is the run's `plan.md`.
-- **Building** shows the progress ledger, the latest decisions and changes, and a **Phases** panel. Each finished phase opens with its **Decisions**, its steps, and **The spec it executed**.
+- **Building** shows the progress ledger, the latest decisions and changes, and a **Specs** panel. Each finished spec opens with its **Decisions**, its steps, and **The spec it executed**.
 - **Verify against acceptance** shows the delivery account, one row per acceptance criterion with its disposition, the evidence it cites and the reason. When you think a disposition is wrong you can record your own judgement with a reason. That's a label for later measurement, it doesn't re-open anything. What the account is and how it's built is on [the delivery account](../../how-it-works/delivery-account.md).
 - **Outcome** renders `result.md`, with the PRs and the cost, wall-clock and LLM figures.
 
@@ -82,7 +82,7 @@ The rail beside the story is the run at a glance:
 
 - **State**, **Progress** (`x of y steps`) and **Compute**, the pods the run spawned with image and memory. Until the first pod lands it shows "calculating…" and the footprint reserved at admission.
 - **Cost**, next to the run's cost cap and budget tier when one was sized, with a bar that turns red at the cap.
-- **Shape**, the work shape the run was classified as, with the one-line reason. It's what decided how many phases the ticket was cut into.
+- **Shape**, the work shape the run was classified as, with the one-line reason. It's what decided how many specs the ticket was cut into.
 - **Started** as an absolute time, **Elapsed** with the number of LLM calls, and while the run works, a live **Sandbox** line with the command count and the last command.
 - **Time split**: where the elapsed time went, model, sandbox, scaffolding, and how much of it was spent throttled by the rate limiter.
 - The PRs the run opened, one link per repo, or a plain note that none was opened.
@@ -93,7 +93,7 @@ The header of the detail page carries **cancel** and **delete**, both with a con
 
 ### Why this run did that
 
-The live view answers "what is happening". **Why this run did that** (`/jobs/{id}/why`) answers the other question, after the fact. It shows what the ticket cost, broken down by pipeline steps and by sandbox commands with count and duration, then one account per phase: its calls plotted prompt size against answer size, the commands and how they ended, and the calls in full. The recorded conversation can be read from there too.
+The live view answers "what is happening". **Why this run did that** (`/jobs/{id}/why`) answers the other question, after the fact. It shows what the ticket cost, broken down by pipeline steps and by sandbox commands with count and duration, then one account per spec: its calls plotted prompt size against answer size, the commands and how they ended, and the calls in full. The recorded conversation can be read from there too.
 
 ### Deleting runs
 

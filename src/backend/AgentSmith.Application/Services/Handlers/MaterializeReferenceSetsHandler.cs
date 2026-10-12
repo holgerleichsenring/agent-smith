@@ -11,7 +11,7 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// 2026-10-01-283df: the step before PhaseSequence that hands the master the uploaded websites the
+/// 2026-10-01-283df: the step before SpecSequence that hands the master the uploaded websites the
 /// approval cites — written into the CARRYING repository's sandbox, outside the commit, and
 /// published on <see cref="ContextKeys.ReferenceSets"/> for the prompt and render_reference. An
 /// approval that cites none makes this step silent; one whose sets cannot be read fails the run.

@@ -1,6 +1,6 @@
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Handlers;
-using AgentSmith.Application.Services.PhaseExecution;
+using AgentSmith.Application.Services.SpecExecution;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Specs;
@@ -22,7 +22,7 @@ internal static class SeriesDoubles
     internal static SeriesReader Reader(ISandboxFileReaderFactory files, SandboxGitOperations? git = null) =>
         new(new SubSeriesReader(files, git ?? Git(files),
                 new SeriesManifestFinder(new SeriesManifest(), NullLogger<SeriesManifestFinder>.Instance),
-                new SeriesSpecFileReader(new PhaseDraftReader(), NullLogger<SeriesSpecFileReader>.Instance),
+                new SeriesSpecFileReader(new SpecDraftReader(), NullLogger<SeriesSpecFileReader>.Instance),
                 new SeriesManifest(), new SandboxTargets()),
             new SeriesJoin(new SeriesNewestManifest(), new SeriesJoinOrder()),
             new SeriesManifest(), NullLogger<SeriesReader>.Instance);
@@ -64,20 +64,20 @@ internal static class SeriesDoubles
     }
 
     /// <summary>2026-10-06-03c7e: the record step as production composes it.</summary>
-    internal static WritePhaseRecordHandler RecordHandler(
+    internal static WriteSpecRecordHandler RecordHandler(
         ISandboxFileReaderFactory files, ISpecSetPointerStore pointers, SandboxGitOperations? git = null,
         AgentSmith.Contracts.Events.IEventPublisher? events = null)
     {
         var targets = new SandboxTargets();
-        var indexWriter = new PhaseIndexWriter(
+        var indexWriter = new SpecIndexWriter(
             files, new ContextYamlStateDoneCodec(new ContextYamlBuilders()), targets,
-            NullLogger<PhaseIndexWriter>.Instance);
+            NullLogger<SpecIndexWriter>.Instance);
         var commit = new SeriesRecordCommit(files, git ?? Git(files),
             new SpecSetPointerRecorder(pointers, NullLogger<SpecSetPointerRecorder>.Instance));
         var recorder = new SpecDoneRecorder(files, targets, new SpecDoneFiles(), indexWriter,
             new SeriesFiles(new SeriesManifest()), commit, NullLogger<SpecDoneRecorder>.Instance);
-        return new WritePhaseRecordHandler(
-            new PhaseRecordPublisher(events ?? EventTestStubs.Recording()), new PhaseRecordIndexLine(), recorder,
+        return new WriteSpecRecordHandler(
+            new SpecRecordPublisher(events ?? EventTestStubs.Recording()), new SpecRecordIndexLine(), recorder,
             new SeriesRepos());
     }
 }

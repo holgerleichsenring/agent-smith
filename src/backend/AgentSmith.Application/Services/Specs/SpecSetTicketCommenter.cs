@@ -19,7 +19,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// <para>
 /// The comment is an OUTPUT, never an input: the next run reads the branch artifact, not
 /// this comment, or it would be feeding on its own echo. Its body is
-/// <see cref="SpecSetComment"/>'s — criteria, facts and assumptions per phase.
+/// <see cref="SpecSetComment"/>'s — criteria, facts and assumptions per spec.
 /// </para>
 /// </summary>
 public sealed class SpecSetTicketCommenter(
@@ -42,7 +42,7 @@ public sealed class SpecSetTicketCommenter(
             await ticketFactory.Create(tracker).UpdateStatusAsync(
                 ticket.Id, SpecSetComment.Render(set, SpecPullRequests.Of(pipeline)), ct);
             logger.LogInformation(
-                "Posted the derived cut of {Key} ({Phases} phase(s)) to ticket {Ticket}",
+                "Posted the derived cut of {Key} ({Specs} spec(s)) to ticket {Ticket}",
                 set.Key, set.Phases.Count, ticket.Id.Value);
             // 2026-10-08-e8b9c: a full set refused a pull-request act — the pull request is told too.
             await fullSetPrNotice.PostAsync(pipeline, set, ct);

@@ -6,7 +6,7 @@
 #
 # Runs the prompt through the agent CLI in the repository, once per run, and writes
 # each answer next to the prompt. No pipeline, no pin, no release: the loop that was
-# missing while four phases were built on an untested assumption.
+# missing while four specs were built on an untested assumption.
 #
 # Why it exists, and what it is for:
 #   - A prompt is a hypothesis. This is the cheapest way to falsify one.

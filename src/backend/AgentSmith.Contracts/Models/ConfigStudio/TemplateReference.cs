@@ -6,7 +6,7 @@ namespace AgentSmith.Contracts.Models.ConfigStudio;
 /// <para>
 /// It round-trips through YAML and the CLI and has no studio picker: contexts are
 /// discovered inside a run and no endpoint serves them, so a typed picker has no data.
-/// This is a dead form until 2026-09-13-84c0 consumes it, and that phase is named.
+/// This is a dead form until 2026-09-13-84c0 consumes it, and that spec is named.
 /// </para>
 /// </summary>
 public sealed record TemplateReference(

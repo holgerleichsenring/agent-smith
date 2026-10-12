@@ -26,7 +26,7 @@ namespace AgentSmith.Tests.Specs;
 /// 2026-10-12-3a36b: an approved set the branch carries as a CONTRADICTION hand-back is replayed
 /// without a model call — until somebody else commits to a scoped branch. Then it is derived again,
 /// the derived set stays approved, and a derivation that yields nothing keeps the stored hand-back
-/// rather than an approved one-phase guess.
+/// rather than an approved one-spec guess.
 /// </summary>
 public sealed class HandbackExpiryTests
 {
@@ -59,7 +59,7 @@ public sealed class HandbackExpiryTests
 
         deriver.Calls.Should().Be(1);
         published.Set!.IsHandedBack.Should().BeTrue("expiry never approves a guess");
-        published.Set.Phases.Should().BeEmpty("no one-phase fallback is created");
+        published.Set.Phases.Should().BeEmpty("no one-spec fallback is created");
     }
 
     [Fact]
@@ -84,8 +84,8 @@ public sealed class HandbackExpiryTests
                 Key, Repo, "spec-sha", 1, SpecHandbackCase.RequirementsContradictRepository, 1, Series,
                 HandbackHeads: new Dictionary<string, string> { [Repo] = "stored-sha" }), default)
             .GetAwaiter().GetResult();
-        var validator = new SpecDraftValidator(new PhaseSpecSchemaProvider());
-        var fallback = new SpecFallback(validator, new PhaseDraftReader(), new DerivedPhaseYamlRenderer());
+        var validator = new SpecDraftValidator(new SpecSchemaProvider());
+        var fallback = new SpecFallback(validator, new SpecDraftReader(), new DerivedSpecYamlRenderer());
         var gate = new SpecCutGate(new NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance);
         var tickets = new Mock<ITicketProviderFactory>();
         return new DeriveSpecHandler(
@@ -129,13 +129,13 @@ public sealed class HandbackExpiryTests
     {
         var segments = TicketSegmenter.Segment(Ticket().Description);
         var id = SeriesIdFactory.Member(Series, 0);
-        SpecPhase[] phases =
+        SpecPhase[] specs =
         [
             new(new PhaseDraft(id, "Send the id", $"spec: {id}", []) { Done = ["The id is sent."] },
                 id, string.Empty, [.. segments.Select(s => s.Id)]),
         ];
         return new SpecDerivation(
-            new SpecSet(Key, phases, SpecAccountingBuilder.Build(phases, [], segments),
+            new SpecSet(Key, specs, SpecAccountingBuilder.Build(specs, [], segments),
                 [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow)],
                 SpecSource.BranchArtifact, Series: Series),
             []);

@@ -18,7 +18,7 @@ namespace AgentSmith.Tests.SpecDialog;
 /// <summary>
 /// 2026-09-13-a72a: an epic is filed in DEPENDENCY order.
 /// <para>
-/// 2026-09-17-0e79d: the order is the SET's — one run works the slices in it, phase by phase.
+/// 2026-09-17-0e79d: the order is the SET's — one run works the slices in it, spec by spec.
 /// The label stamps that used to carry the order are gone with the N-children shape.
 /// </para>
 /// <para>
@@ -131,7 +131,7 @@ public sealed class EpicFilingOrderTests
     /// <summary>
     /// 2026-09-13-b7ba made the parent a REQUIREMENT body, so the count that must hold is ZERO
     /// fenced blocks, not one: the phase-execution extractor takes the single yaml block out of
-    /// a phase-labelled ticket, and the provenance is appended as plain lines for that reason.
+    /// a spec-labelled ticket, and the provenance is appended as plain lines for that reason.
     /// </summary>
     [Fact]
     public async Task OutcomeTicketFiler_EpicParentBody_StillOpensNoFence()
@@ -166,7 +166,7 @@ public sealed class EpicFilingOrderTests
             },
         };
         var filer = new OutcomeTicketFiler(
-            config, factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
+            config, factory.Object, new SpecTicketRenderer(), new BugTicketRenderer(),
             new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
             TestSupport.ApprovedSetDoubles.SetFiler(),
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);

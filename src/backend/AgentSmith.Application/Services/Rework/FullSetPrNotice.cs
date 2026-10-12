@@ -19,7 +19,7 @@ public sealed partial class FullSetPrNotice(ISourceProviderFactory sources, ILog
 
     public async Task PostAsync(PipelineContext pipeline, SpecSet set, CancellationToken cancellationToken)
     {
-        if (set.UnexecutedTail.Count > 0 || set.Executed.Count < SpecSet.MaxPhases) return;
+        if (set.UnexecutedTail.Count > 0 || set.Executed.Count < SpecSet.MaxSpecs) return;
         if (!pipeline.TryGet<ReworkAct>(ContextKeys.ReworkAct, out var act) || act?.Channel != ReworkChannel.PullRequest) return;
         if (!pipeline.TryGet<PreviousAttempt>(ContextKeys.PreviousAttempt, out var attempt) || attempt is null) return;
         var repos = pipeline.TryGet<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, out var r) ? r ?? [] : [];
@@ -33,7 +33,7 @@ public sealed partial class FullSetPrNotice(ISourceProviderFactory sources, ILog
         try
         {
             if (sources.Create(repo) is IPrCommentProvider comments)
-                await comments.PostCommentAsync(number, $"{Marker}\nAgent Smith — all {SpecSet.MaxPhases} phases of this "
+                await comments.PostCommentAsync(number, $"{Marker}\nAgent Smith — all {SpecSet.MaxSpecs} specs of this "
                     + "ticket's specification have run, the most one set can hold, so this review was not cut into it. "
                     + "File the feedback as a new ticket.", cancellationToken);
         }

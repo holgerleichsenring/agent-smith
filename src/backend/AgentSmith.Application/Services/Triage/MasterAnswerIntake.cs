@@ -14,7 +14,7 @@ namespace AgentSmith.Application.Services.Triage;
 /// step would have posted the same question again. This consumes the delivered answer by
 /// the same rule the gate applies (<see cref="ResumedAnswerPolicy"/>: the ask the run parked
 /// on, not any other), records it on the dialogue trail like the gate does, and publishes it
-/// under the key the phase prompt already renders as the operator's answers. No second inbox.
+/// under the key the spec prompt already renders as the operator's answers. No second inbox.
 /// </para>
 /// </summary>
 public sealed class MasterAnswerIntake(

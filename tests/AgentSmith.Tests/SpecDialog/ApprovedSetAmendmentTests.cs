@@ -62,9 +62,9 @@ public sealed class ApprovedSetAmendmentTests
         again.Set.Phases.Should().HaveCount(2, "the record is upserted in place, never duplicated");
     }
 
-    private static ApprovedPhaseSetRecorder Recorder(
+    private static ApprovedSpecSetRecorder Recorder(
         ISpecApprovalStore store, TimeProvider? time = null) =>
-        new(store, new NoReferenceSetReader(), new SeriesRepos(), time ?? TimeProvider.System, NullLogger<ApprovedPhaseSetRecorder>.Instance);
+        new(store, new NoReferenceSetReader(), new SeriesRepos(), time ?? TimeProvider.System, NullLogger<ApprovedSpecSetRecorder>.Instance);
 
     private static PhaseDraft Draft(string id) =>
         new(id, $"Do {id}", $"spec: {id}\ngoal: \"Do {id}\"", []) { Done = ["It is done."] };

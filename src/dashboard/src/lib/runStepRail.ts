@@ -9,17 +9,17 @@ import type { RunStepRow } from "@/lib/runStepsApi";
 
 const STEP_ID_PREFIX = "step-";
 
-// p0395: the shape the server splices for phase steps (p0393a) — "p19106a:
+// p0395: the shape the server splices for spec steps (p0393a) — "p19106a:
 // Generate plan". Current servers split it into RunStepView.PhaseId before it
 // reaches the client; this is the defensive split for payloads from servers
 // that predate that, so old runs still render the real step name.
 // p0507: both id shapes — the counter namespace and a date-minted id. This mirrors
-// RunStepsReader.PhaseQualifiedRegex; fixing only the backend leaves the raw prefix here.
-const PHASE_PREFIX_RE = /^((?:p\d+[a-z]?|\d{4}-\d{2}-\d{2}-[0-9a-f]{4}[a-z]?)): (.+)$/;
+// RunStepsReader.SpecQualifiedRegex; fixing only the backend leaves the raw prefix here.
+const SPEC_PREFIX_RE = /^((?:p\d+[a-z]?|\d{4}-\d{2}-\d{2}-[0-9a-f]{4}[a-z]?)): (.+)$/;
 
-export function splitPhasePrefix(label: string): { phaseId: string | null; label: string } {
-  const match = PHASE_PREFIX_RE.exec(label);
-  return match ? { phaseId: match[1], label: match[2] } : { phaseId: null, label };
+export function splitSpecPrefix(label: string): { specId: string | null; label: string } {
+  const match = SPEC_PREFIX_RE.exec(label);
+  return match ? { specId: match[1], label: match[2] } : { specId: null, label };
 }
 
 export function toRailNodes(steps: RunStepRow[]): ExecutionNodeProps[] {
@@ -29,11 +29,11 @@ export function toRailNodes(steps: RunStepRow[]): ExecutionNodeProps[] {
     const duration = s.durationSeconds ?? 0;
     const startSeconds = elapsed;
     elapsed += duration;
-    const split = splitPhasePrefix(s.displayName ?? s.stepName);
+    const split = splitSpecPrefix(s.displayName ?? s.stepName);
     return {
       id: stepNodeId(s.stepIndex),
       label: split.label,
-      phaseId: s.phaseId ?? split.phaseId,
+      specId: s.phaseId ?? split.specId,
       status: railStatus(s.status),
       depth: 0,
       startSeconds,

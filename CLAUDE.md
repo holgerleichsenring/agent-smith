@@ -2,10 +2,10 @@
 
 ## Context Files (read in this order)
 
-1. **Every** `.agentsmith/contexts/<name>/context.yaml` (glob `contexts/*/context.yaml`) — architecture, stack, integrations, phase status PER stack
+1. **Every** `.agentsmith/contexts/<name>/context.yaml` (glob `contexts/*/context.yaml`) — architecture, stack, integrations, spec status PER stack
 2. **Every** `.agentsmith/contexts/<name>/principles.md` — code quality rules per stack (ALWAYS follow)
 3. `.agentsmith/specs/active/*.yaml` — the spec being implemented (its `applies_to:` names the dominant context)
-4. `.agentsmith/decisions/*.yaml` — past decisions, one YAML per phase or run (read the active phase's file and its `requires:` chain)
+4. `.agentsmith/decisions/*.yaml` — past decisions, one YAML per spec or run (read the active spec's file and its `requires:` chain)
 5. `.agentsmith/memory/MEMORY.md` — the experiential-memory index, one line per recorded fact; recall detail from `.agentsmith/memory/<name>.md` on demand when a line touches your task
 
 ## Spec Directory Structure
@@ -38,9 +38,9 @@ one line per memory, content never in the index.
   memory records a transferable FACT or RULE. Never duplicate one into the
   other.
 
-## Minting a Phase Id
+## Minting a Spec Id
 
-A phase id is minted from the clock, never from a count: **today's UTC date plus four
+A spec id is minted from the clock, never from a count: **today's UTC date plus four
 random hex digits** — `{yyyy-MM-dd}-{xxxx}`, e.g. `2026-08-24-8a3f`. Read the date off
 the machine you are on and take the four digits at random. Nothing else is consulted.
 
@@ -48,27 +48,27 @@ Minting therefore needs no knowledge of what anyone else has taken. A worktree c
 morning, a sandboxed agent with no network, and two agents working in parallel all mint
 safely — the four hex digits give a 16-bit keyspace against a same-day collision.
 "What is the highest number so far?" is a question none of them can answer, and
-answering it wrongly is how two phases end up sharing one id.
+answering it wrongly is how two specs end up sharing one id.
 
 The suffix's **fixed width** marks where the id ends and the label begins:
-`.agentsmith/specs/planned/2026-08-24-8a3f-phase-id-offline-minting.yaml`.
+`.agentsmith/specs/planned/2026-08-24-8a3f-spec-id-offline-minting.yaml`.
 
-**Phases cut from one piece of work form a series.** They share ONE minted number and
+**Specs cut from one piece of work form a series.** They share ONE minted number and
 differ only by a trailing lowercase letter — `2026-08-24-8a3fa`, `2026-08-24-8a3fb`,
 `2026-08-24-8a3fc` — so a file listing shows the kinship that a shared date alone does
 not. Three rules keep that readable:
 
 - **The letter is appended, never dashed.** A slug may legitimately begin with a
-  one-letter word (`2026-08-24-8a3f-a-phase-id-can-be-minted-offline` is this
-  repository's own example), so in a dashed form nothing could tell a series letter from
+  one-letter word (`2026-08-24-8a3f-a-spec-id-can-be-minted-offline` is the example
+  `SpecSeriesIdTests` pins), so in a dashed form nothing could tell a series letter from
   the first word of a label. Appended, position decides: four hex digits, then either a
   dash or the letter.
-- **The base number is not itself a phase.** A series is `8a3fa` upward; plain `8a3f`
+- **The base number is not itself a spec.** A series is `8a3fa` upward; plain `8a3f`
   names nothing, so nothing has to decide whether it means the series or a member.
 - **A series is minted in one go, and a later addition mints anew.** Appending a fifth
   member means knowing that `a` through `d` are taken — exactly the coordination the
   date-minted shape removed, and two agents extending one series would both reach for
-  the same letter. A phase that turns up later gets its own number and says in prose
+  the same letter. A spec that turns up later gets its own number and says in prose
   what it follows.
 
 A series letter and a successor letter are the same mechanism and are not told apart;
@@ -80,21 +80,21 @@ only. Counter ids run four to six digits, six because ids minted from a ticket n
 (`p19106a`) live in the same namespace.
 
 **An id is frozen; a file name is a pointer.** Every `requires:` edge, every record line
-and every commit message cites the ID, which is why moving a phase file breaks nothing but
+and every commit message cites the ID, which is why moving a spec file breaks nothing but
 the `-> .agentsmith/specs/…` pointer in `context.yaml` — and that pointer moves with the
-file (`PhaseRecord_EveryPointer_ResolvesToAFile` proves every one resolves). Phases from
-p0400 upward and every date-minted phase were relabelled once, in 2026-09-07-4e6a; the
+file (`SpecRecord_EveryPointer_ResolvesToAFile` proves every one resolves). Specs from
+p0400 upward and every date-minted spec were relabelled once, in 2026-09-07-4e6a; the
 cut is where the measurement turned (mean slug words 4.0 over p0350–p0399, 5.8 over
-p0400–p0449, 8.2 over p05xx, 7.6 over the dated phases). That was a one-off migration
+p0400–p0449, 8.2 over p05xx, 7.6 over the dated specs). That was a one-off migration
 boundary, not a rule: the RULE is scoped by namespace and shape, never by an ordering,
 because a date-minted id sorts below every counter id as text.
 
 A deferred successor is named in prose by what it does — a random suffix cannot be
-reserved in advance, so `requires:` names only phases that already exist.
+reserved in advance, so `requires:` names only specs that already exist.
 
-## Naming a Phase
+## Naming a Spec
 
-A phase file is `{id}-{label}.yaml`. The label is a **topic label of 2 to 5 words**, at
+A spec file is `{id}-{label}.yaml`. The label is a **topic label of 2 to 5 words**, at
 most **50 characters**, and the `goal:` is one sentence of at most **200 characters**. The
 CLAIM lives in the goal — it already states it, with room, punctuation and grammar that a
 fifty-character slug has none of. The reasoning goes in `decisions:`.
@@ -106,42 +106,43 @@ directory listing groups them and `ls specs/done/account-*` finds them without a
 prefix. A label for a counter id must not begin with `pre`, which the id regex would swallow
 as a `-pre` tail.
 
-**Labels may repeat; the id is the identity.** Two phases on one topic may carry one label
+**Labels may repeat; the id is the identity.** Two specs on one topic may carry one label
 — the goal says which is which — so uniqueness is not enforced. A label is not a sentence:
 `the-diagram-cannot-lie` and `one-gate-not-two` were relabelled to
-`flow-diagram-evidence` and `gate-removed`. A relabel of a phase whose record entry is
+`flow-diagram-evidence` and `gate-removed`. A relabel of a spec whose record entry is
 already over the 400-character cap may not lengthen the entry — the pointer is part of it.
 
-`PhaseNameRuleTests` enforces the word ceiling and the character bound over the DATE-MINTED
+`SpecNameRuleTests` enforces the word ceiling and the character bound over the DATE-MINTED
 namespace; the closed counter namespace is out of scope by construction, and the scoping is
 a namespace rather than an ordering. The product still mints a sentence slug from the goal
-(`PhaseIdFactory.Slug`, and a second one in `WritePhaseRecordHandler`) — bounding it is
+(`SpecIdFactory.Slug`, and a second one in `WriteSpecRecordHandler`) — bounding it is
 `2026-09-07-e9a2` (phase-slug-product-bound).
 
-## Implementation Workflow (follow this order for every phase)
+## Implementation Workflow (follow this order for every spec)
 
-1. **Write phase spec first** — create `.agentsmith/specs/planned/{id}-label.yaml` (top-level key `spec: {id}`) with goal, `applies_to:`, steps, and definition of done BEFORE writing any code. No exceptions. Mint `{id}` per **Minting a phase id** below.
-2. **Move to active** — move the phase file from `planned/` to `active/` when starting work.
+1. **Write the spec first** — create `.agentsmith/specs/planned/{id}-label.yaml` (top-level key `spec: {id}`) with goal, `applies_to:`, steps, and definition of done BEFORE writing any code. No exceptions. Mint `{id}` per **Minting a Spec Id** above.
+2. **Move to active** — move the spec file from `planned/` to `active/` when starting work.
 3. **Plan first** — explore codebase, design approach, get user approval before coding.
 4. **Implement step by step** — contracts/models first, then implementation, then wiring, then tests.
 5. **Build after each step** — fix errors immediately, don't accumulate them.
 6. **Run the tests of what you changed** — while iterating, run the affected classes
    (`dotnet test --no-build --filter "FullyQualifiedName~…"`, `pnpm test <path>`), zero
-   failures before moving on. The full suite runs once, in the phase gate at the phase
+   failures before moving on. The full suite runs once, in the spec gate at the spec
    commit, and a red suite blocks that commit. When the gate cannot check the commit — it
    reports `not-gated` or passes it through (a bare commit, an editor amend, `-F -`,
    `-m "$(…)"`), or the commit is made outside the Bash tool — run the full
    `dotnet test AgentSmith.sln --filter "Category!=LiveLLM"` and the dashboard tests by hand
    before committing.
-7. **Log decisions** — one YAML per phase at `.agentsmith/decisions/{id}.yaml`; each entry: what was chosen, what alternatives existed, and why.
-8. **Update state** — move phase from `planned`/`active` to `done` in the relevant context's `context.yaml`. The `state.done` entry is an INDEX LINE, **max 400 characters** and enforced by `PhaseRecordLengthRatchetTests`: what shipped, in what area, and the `-> .agentsmith/specs/done/…` pointer. The reasoning goes in the spec the pointer names and in `decisions/{id}.yaml` — an entry that repeats its spec is a second copy that will disagree with the first.
-9. **Move to done** — move the phase file from `active/` to `done/`.
-10. **Commit** — one commit per phase, descriptive message.
+7. **Log decisions** — one YAML per spec at `.agentsmith/decisions/{id}.yaml`; each entry: what was chosen, what alternatives existed, and why.
+8. **Update state** — move the spec from `planned`/`active` to `done` in the relevant context's `context.yaml`. The `state.done` entry is an INDEX LINE, **max 400 characters** and enforced by `SpecRecordLengthRatchetTests`: what shipped, in what area, and the `-> .agentsmith/specs/done/…` pointer. The reasoning goes in the spec the pointer names and in `decisions/{id}.yaml` — an entry that repeats its spec is a second copy that will disagree with the first.
+9. **Move to done** — move the spec file from `active/` to `done/`.
+10. **Commit** — one commit per spec, descriptive message, on the work branch `spec/{id}`.
+   Work and integration branches are named `spec/{id}`, never `phase/{id}`.
 
-## Phase Gate — what it covers
+## Spec Gate — what it covers
 
-`.claude/hooks/phase-gate.sh` runs as a PreToolUse hook on every Bash call and gates a
-`git commit` whose message names a phase: the hook's own tests, the dashboard's build and
+`.claude/hooks/spec-gate.sh` runs as a PreToolUse hook on every Bash call and gates a
+`git commit` whose message names a spec: the hook's own tests, the dashboard's build and
 tests, the backend build, the full suite, CLI dry-runs and harness presets must be green,
 or the commit is blocked. Read this before a definition of done leans on it.
 
@@ -157,7 +158,7 @@ or the commit is blocked. Read this before a definition of done leans on it.
   line names every failed step, comma-separated. Below eight cores the gate is the old
   sequence — one `dotnet test` over the solution, the first failure blocks — because the
   split puts process-spawning tests beside timing-bounded ones on the same machine.
-  `PHASE_GATE_CORES` overrides the probe. Measured on a 12-core Mac: 84 s median against
+  `SPEC_GATE_CORES` overrides the probe. Measured on a 12-core Mac: 84 s median against
   360-530 s before.
 
 - **The gate proves itself.** `.claude/hooks/test_*.py` — the command detection and
@@ -166,7 +167,7 @@ or the commit is blocked. Read this before a definition of done leans on it.
   that changes the hook is proven by the hook it ships rather than by the copy the session
   started with. They cost about ten seconds. A gate they drive skips this step instead of
   running the tests that invoked it, and their ledger is redirected, so nothing they do
-  reaches `.claude/phase-gate.log`. A tree carrying no hook tests says so and moves on.
+  reaches `.claude/spec-gate.log`. A tree carrying no hook tests says so and moves on.
 
 - **The dashboard is always checked.** `pnpm install --frozen-lockfile`, `pnpm gen:hub-events`,
   `pnpm test` and `pnpm build` in `src/dashboard` — before any .NET check in the sequence,
@@ -193,6 +194,11 @@ or the commit is blocked. Read this before a definition of done leans on it.
   the tree the commit runs in, resolved from the call's `cwd`, a leading `cd` and git's
   own `-C` — one reading of the command decides both which tree is built and which
   message is read.
+- **The old name still works until 2026-10-12-967ah.** `.claude/hooks/phase-gate.sh` is a
+  forwarder that execs `spec-gate.sh` — a session snapshots its hook path at start, and a
+  missing hook exits 127, which does not block. `PHASE_GATE_LOG`, `PHASE_GATE_SELFTEST` and
+  `PHASE_GATE_CORES` are honoured when the `SPEC_GATE_*` name is unset. The first run moves
+  `.claude/phase-gate.log` to `.claude/spec-gate.log` when only the old file exists.
 - **Gated command shapes:** `git commit`, after a leading `cd` or a shell separator, and
   with git's global options in between — `git -C <tree> commit`, `git -c <name>=<value>
   commit`, `git --git-dir=<dir> commit`. Until 2026-09-21-9ae2 only `commit` straight
@@ -205,19 +211,19 @@ or the commit is blocked. Read this before a definition of done leans on it.
   `-F -`, and a message the shell builds from a command substitution such as
   `-m "$(cat message.txt)"` — its text never reaches the gate. Run the checks by hand.
 - **Not covered at all:** a commit made outside the Bash tool.
-- **Afterwards:** every recognised phase commit leaves one line in `.claude/phase-gate.log`
-  of the shared checkout — verdict (`passed`/`blocked`/`not-gated`), phase id, the tree, and
-  the commit's parent. A phase commit with no line never met the gate.
+- **Afterwards:** every recognised spec commit leaves one line in `.claude/spec-gate.log`
+  of the shared checkout — verdict (`passed`/`blocked`/`not-gated`), spec id, the tree, and
+  the commit's parent. A spec commit with no line never met the gate.
 - **Joining a line to a commit:** that last field is the tree's HEAD when the hook ran, not
   the resulting commit's parent. For an ordinary commit they are the same sha; for an
   `--amend` they are not — the amended commit's parent is one older. Any check that pairs
   ledger lines with commits has to allow for that, or it reports false alarms on every
-  amended phase commit.
+  amended spec commit.
 
 ## Key Rules
 
-- **English only** — all code, comments, docs, exceptions, logs, commit messages. Phase specs and repo docs are English even when the conversation is German.
+- **English only** — all code, comments, docs, exceptions, logs, commit messages. Specs and repo docs are English even when the conversation is German.
 - **No customer names** — never write customer, project, or target identifiers into any artifact in this repo (see `[[feedback_no_customer_names]]`).
-- **No over-engineering** — only build what the phase requires, nothing more.
+- **No over-engineering** — only build what the spec requires, nothing more.
 - **Tests** — every new public method gets at least one test.
 - **Follow each context's principles.md** — these are constraints, not suggestions.

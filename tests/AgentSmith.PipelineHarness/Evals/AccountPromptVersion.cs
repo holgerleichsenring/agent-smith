@@ -29,7 +29,7 @@ public static class AccountPromptVersion
     /// 2026-08-25-6f12: and the FULL-REACH ASK, which is appended to that prompt on the last
     /// call an account makes. It is instructions the account reads, so a change to it is a
     /// change to the thing under test — and left out of the key, the first measurement of
-    /// this phase overwrote its predecessor's committed baseline instead of standing beside
+    /// this spec overwrote its predecessor's committed baseline instead of standing beside
     /// it.
     /// </para>
     /// </summary>

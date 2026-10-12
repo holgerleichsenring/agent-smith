@@ -23,7 +23,7 @@ public sealed class DesignPartnerDialogRulesTests
 
     /// <summary>
     /// The conversation may be in any language; the artifacts it produces may not.
-    /// Both drafted artifacts are covered — the phase spec block and the fix-bug ticket.
+    /// Both drafted artifacts are covered — the spec block and the fix-bug ticket.
     /// </summary>
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_DraftsInEnglish()
@@ -33,7 +33,7 @@ public sealed class DesignPartnerDialogRulesTests
         master.Should().Contain(
             "ENGLISH ONLY, whatever language the conversation is in.",
             $"the pin is {PackagedMaster.Pin} and this rule ships from v{DialogRulesRelease}; "
-            + "a German phase draft is read later by a derivation, an executing agent and "
+            + "a German spec draft is read later by a derivation, an executing agent and "
             + "reviewers who did not sit in the chat");
 
         master.Should().Contain(

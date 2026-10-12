@@ -17,8 +17,8 @@ namespace AgentSmith.Application.Services.Specs;
 /// <para>
 /// What it settles is the tree AS IT STANDS, not what the gate will do: the gate skips a
 /// repository whose branch carries no source change, stops at the first non-zero exit, and
-/// re-reads an absent-path guard against a tree the phase's work may yet create. A stage may
-/// also WRITE into a tree the phase's own commit then stages wholesale.
+/// re-reads an absent-path guard against a tree the spec's work may yet create. A stage may
+/// also WRITE into a tree the spec's own commit then stages wholesale.
 /// </para>
 /// </summary>
 public sealed class VerifyStageRunTool(

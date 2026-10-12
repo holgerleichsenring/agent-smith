@@ -45,12 +45,12 @@ public sealed class AgenticMasterHandler(
     IScanMasterPromptFactory scanPromptFactory,
     ScanMasterPasses scanPasses, // 2026-09-01-7df4/0e80: the scan's follow-up passes
     ISpecDialogPromptFactory specDialogPromptFactory,
-    IPhaseExecutionPromptFactory phasePromptFactory,
+    ISpecExecutionPromptFactory specPromptFactory,
     IOutcomeProposalResolver outcomeResolver,
     SpecDialogProposalRefusal proposalRefusal, // 2026-09-17-042ec: no proposal before a discussion
     SpecDialogProposalReview proposalReview, // 2026-09-17-042ed: the turn reviews what it proposes
     ITicketDocumentMaterializer documentMaterializer,
-    MasterTemplateScopes templateScopes, // 2026-09-13-6f35: the templates this phase is built after
+    MasterTemplateScopes templateScopes, // 2026-09-13-6f35: the templates this spec is built after
     WebToolHost webToolHost,
     IEventPublisher eventPublisher, // p0356: mid-run ledger flushes
     Resume.PriorRunSeedSource priorRunSeed, // p0356: same-ticket resume seed
@@ -92,12 +92,12 @@ public sealed class AgenticMasterHandler(
         // deployed server, so the skill deliberately declares none.
         var isSpecDialog = string.Equals(
             pipelineName, PipelinePresets.SpecDialogName, StringComparison.OrdinalIgnoreCase);
-        // p0315d, p0393a: the phase-spec branch. It used to key on the pipeline name
+        // p0315d, p0393a: the spec branch. It used to key on the pipeline name
         // "phase-execution"; that name is now an ALIAS that resolves to `code`, and every
-        // code run carries a derived phase spec, so the presence of the SPEC is what
-        // selects this prompt. Same master (coding-agent-master), phase-specific user
+        // code run carries a derived spec, so the presence of the SPEC is what
+        // selects this prompt. Same master (coding-agent-master), spec-specific user
         // prompt + a ticket-parking ask_human instead of the live transport.
-        var isPhaseExecution = context.Pipeline.Has(ContextKeys.PhaseSpec);
+        var isSpecExecution = context.Pipeline.Has(ContextKeys.CurrentSpec);
         // p0244: give the master the per-run record dir so it writes plan.md /
         // decisions.md DIRECTLY into .agentsmith/runs/{runId}/ (the same dir the
         // framework writes result.md to + reads the plan back from), instead of a
@@ -107,10 +107,10 @@ public sealed class AgenticMasterHandler(
             ? RunRecordPaths.RelativeDir(rid!)
             : RunRecordPaths.AgentSmithDir;
 
-        // p0394a: the ratified phase spec is the run's single planning artifact —
+        // p0394a: the ratified spec is the run's single planning artifact —
         // it is rendered into the master body as the plan of record and seeds the
         // progress ledger below. Absent on non-code surfaces (scan, spec dialog).
-        var draft = context.Pipeline.TryGet<PhaseDraft>(ContextKeys.PhaseSpec, out var dr) ? dr : null;
+        var draft = context.Pipeline.TryGet<PhaseDraft>(ContextKeys.CurrentSpec, out var dr) ? dr : null;
         // p0278: a scan/review master (output_schema == observation) gets the scanner
         // findings + spec inline and a READ-ONLY surface. Keyed on the master's
         // declared schema, NOT pipeline name; computed HERE (p0356) because the
@@ -118,7 +118,7 @@ public sealed class AgenticMasterHandler(
         var isScanMaster = string.Equals(
             schemaResolver.Resolve(context.MasterSkillName), "observation", StringComparison.OrdinalIgnoreCase);
 
-        // p0341, p0394a: seed the durable progress ledger 1:1 from the phase spec's
+        // p0341, p0394a: seed the durable progress ledger 1:1 from the spec's
         // steps (stable spec-assigned ids + per-step target) so the master opens on
         // the checklist the keystone will verify. Also published to PipelineContext
         // (source of truth) for the re-drive nudges + the done-status diagnostic.
@@ -169,8 +169,8 @@ public sealed class AgenticMasterHandler(
         context.Pipeline.Set(ContextKeys.ProgressLedger, progress.GetLedger());
         if (!progress.GetLedger().IsEmpty && flusher is not null)
             await flusher.FlushAsync(progress.GetLedger());
-        // 2026-09-13-6f35: the templates this phase's contexts declare, materialised now so
-        // an unreachable one fails the phase before the first token, and addressable by name
+        // 2026-09-13-6f35: the templates this spec's contexts declare, materialised now so
+        // an unreachable one fails the spec before the first token, and addressable by name
         // for the rest of this method. They never enter ContextKeys.Sandboxes — see
         // MasterTemplateAttachment for why that map is the one they stay out of.
         await using var templates = await templateScopes.OpenAsync(
@@ -197,7 +197,7 @@ public sealed class AgenticMasterHandler(
             // token simply never contain the placeholder — Render's replace is a
             // no-op then, so old skills pins keep working unchanged.
             ["ExpectationSection"] = Expectations.ExpectationPromptSection.Build(context.Pipeline),
-            // p0393a: the CURRENT phase's markdown companion — the ticket spans this phase
+            // p0393a: the CURRENT spec's markdown companion — the ticket spans this spec
             // must honour, carried byte-identical. ADDITIONAL context, never a replacement
             // for the pinned ticket (p0357). 2026-08-28-489a removed the pre-v4.1 alias
             // that bound the same content twice: no master in the supported catalog uses it.
@@ -230,14 +230,14 @@ public sealed class AgenticMasterHandler(
         // constructed logger-less and we were BLIND to what the master actually
         // wrote — masking the "recorded N files changed but git diff is empty"
         // root cause (no real working-tree change vs wrong path vs no-op edit).
-        // p0469: the log is the PHASE's, opened here and published here — before the loop
+        // p0469: the log is the SPEC's, opened here and published here — before the loop
         // runs, so every exit path hands the account what the agent ran, and a spliced
         // repair pass records onto the first pass's list instead of replacing it.
         var fs = new FilesystemToolHost(
             sandboxes, defaultKey, context.Repository.LocalPath,
             runCommandTimeoutSeconds: runCommandTimeout, stepTimeoutCapSeconds: stepTimeoutCap,
             keyToRepo: keyToRepo, logger: logger)
-        { Commands = Specs.PhaseCommandScope.Open(context.Pipeline) };
+        { Commands = Specs.SpecRunCommandScope.Open(context.Pipeline) };
         templates.AttachTo(fs); // 2026-09-13-6f35: reachable by name, refused on write by kind
         // p0380 / 2026-10-12-f5f7c: decisions, recall and remember are backed per REPOSITORY,
         // resolved on every call so a repository ensure_repo_sandbox adds mid-run counts.
@@ -327,7 +327,7 @@ public sealed class AgenticMasterHandler(
         // p0317: the whole ticket reaches the master — conversation (delimited),
         // materialized documents + binary listing, and image content parts when
         // the model is vision-capable ("N images, not viewable" note otherwise).
-        // A spec-dialog turn has no ticket, so it composes nothing; a phase-
+        // A spec-dialog turn has no ticket, so it composes nothing; a spec-
         // execution run gets the SAME extras as the coding path — the hydrated
         // comment thread is exactly what a re-triggered run parked on a
         // clarification needs (closes the p0315d parked-while-answered residual).
@@ -343,11 +343,11 @@ public sealed class AgenticMasterHandler(
 
         var userPrompt = isSpecDialog
             ? specDialogPromptFactory.Build(context.Pipeline, dialog.Existing, dialog.Carried)
-            : isPhaseExecution
-                ? phasePromptFactory.Build(
+            : isSpecExecution
+                ? specPromptFactory.Build(
                     context.Pipeline,
                     ticket ?? throw new InvalidOperationException(
-                        "Phase-execution run has no ticket — FetchTicket must run before the master."),
+                        "Spec-execution run has no ticket — FetchTicket must run before the master."),
                     context.Repository, addressNames,
                     extras.Conversation, extras.Attachments)
                 : isScanMaster
@@ -482,14 +482,14 @@ public sealed class AgenticMasterHandler(
         }
 
         // p0315b/p0315e: a spec-dialog reply's typed terminal outcome (answer /
-        // bug / phase / epic) must resolve and validate BEFORE it is shown.
+        // bug / spec / epic) must resolve and validate BEFORE it is shown.
         // Invalid → re-prompt the master ONCE with the exact error; still
         // invalid → replace the reply with an honest failure notice. The raw
         // invalid output never reaches the thread.
         if (isSpecDialog)
             loopResult = await GateSpecOutcomeAsync(
                 context.Pipeline, request, userPrompt, loopResult, conversation, costTracker, cancellationToken);
-        // 2026-09-17-042ed: a phase or epic the gate ADMITTED is reviewed against the turn's repositories.
+        // 2026-09-17-042ed: a spec or epic the gate ADMITTED is reviewed against the turn's repositories.
         if (isSpecDialog)
             await proposalReview.ReviewAsync(context.Pipeline, context.AgentConfig, costTracker, cancellationToken);
 
@@ -554,7 +554,7 @@ public sealed class AgenticMasterHandler(
         // an unverified/red run is never reported as success (CommitAndPRHandler).
         var verification = MasterVerificationParser.TryParse(loopResult.Response.Text);
 
-        // p0263: the master changed source but emitted no parseable Phase 4 verdict — a
+        // p0263: the master changed source but emitted no parseable verdict ("Your verdict") — a
         // model-fitness miss (gpt-4.1-class models do the work yet skip the closing
         // artifact, sinking the run at the keystone). Sibling to the p0255 apply-drive:
         // when a verdict is EXPECTED (a green-tests pipeline) and none was parsed,
