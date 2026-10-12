@@ -46,13 +46,18 @@ public sealed class TicketSeriesRepository(IUnitOfWork unitOfWork)
             ? JsonSerializer.Serialize(heads)
             : null;
         row.RevisionShasJson = JsonSerializer.Serialize(pointer.ShaByRepo);
+        row.ExecutedIdsJson = pointer.ExecutedIds is { Count: > 0 } ids ? JsonSerializer.Serialize(ids) : null;
     }
 
     private static SpecSetPointer ToPointer(TicketSeries row) => new(
         row.TicketKey, row.CarryingRepo, row.RevisionSha, row.RevisionNumber,
         (SpecHandbackCase)row.LastHandbackCase, row.RepeatedHandbackCount,
         row.SeriesId.Length == 0 ? null : row.SeriesId, row.ExecutedThrough,
-        HeadsOf(row.HandbackHeads), ShasOf(row));
+        HeadsOf(row.HandbackHeads), ShasOf(row), IdsOf(row.ExecutedIdsJson));
+
+    // 2026-10-12-f5f7d: a row without ids is back-filled where the set is known (SpecSetPointer.ExecutedIdsOf).
+    private static IReadOnlyList<string>? IdsOf(string? json) =>
+        string.IsNullOrWhiteSpace(json) ? null : JsonSerializer.Deserialize<List<string>>(json);
 
     private static IReadOnlyDictionary<string, string>? HeadsOf(string? json) =>
         string.IsNullOrWhiteSpace(json)

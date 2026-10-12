@@ -77,7 +77,7 @@ internal sealed class ApprovedSetHarness
         var cuts = Cuts.Factory();
         return new DeriveSpecHandler(
             Deriver,
-            SeriesDoubles.Reader(factory.Object, gitOps),
+            SeriesDoubles.BranchRead(SeriesDoubles.Reader(factory.Object, gitOps), factory.Object),
             Publisher(),
             Pointers,
             new ApprovedSpecSetResolver(Approvals, NullLogger<ApprovedSpecSetResolver>.Instance),
@@ -103,6 +103,7 @@ internal sealed class ApprovedSetHarness
     /// <summary>The real publisher: the writer, the pointer recorder and the draft pull request.</summary>
     private ISpecSetPublisher Publisher() => new SpecSetPublisher(
         Writer,
+        new SeriesRepos(),
         new SpecSetPointerRecorder(Pointers, NullLogger<SpecSetPointerRecorder>.Instance),
         PullRequests,
         new SpecRefusalReporter(new NoOpEventPublisher(), NullLogger<SpecRefusalReporter>.Instance),
@@ -135,12 +136,13 @@ internal sealed class ApprovedSetHarness
         internal bool Fail { get; set; }
 
         public Task<SpecSetWriteResult> WriteAsync(
-            PipelineContext pipeline, RepoConnection carryingRepo, SpecSet set, CancellationToken ct)
+            PipelineContext pipeline, SeriesPlacement placement, CancellationToken ct)
         {
-            Written = set;
+            Written = placement.Set;
             return Task.FromResult(Fail
                 ? SpecSetWriteResult.Failed("the push was rejected")
-                : SpecSetWriteResult.Ok("revision-sha"));
+                : SpecSetWriteResult.Ok(
+                    placement.Names.ToDictionary(n => n, _ => "revision-sha"), "revision-sha"));
         }
     }
 
@@ -149,7 +151,7 @@ internal sealed class ApprovedSetHarness
         internal int Opened { get; private set; }
 
         public Task<string?> OpenAsync(
-            PipelineContext pipeline, RepoConnection carryingRepo, SpecSet set, CancellationToken ct)
+            PipelineContext pipeline, RepoConnection carryingRepo, SpecSet set, bool createIfMissing, CancellationToken ct)
         {
             Opened++;
             return Task.FromResult<string?>("https://example.invalid/pr/1");

@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Specs;
@@ -46,7 +47,7 @@ public sealed class ReferenceApprovalCiteTests
     public async Task ApprovedPhaseSetRecorder_Record_CitesTheConversationsSetsAtApproval()
     {
         var references = new ReferenceSandboxFixture();
-        var recorder = new ApprovedPhaseSetRecorder(ApprovedSetDoubles.Store(), references,
+        var recorder = new ApprovedPhaseSetRecorder(ApprovedSetDoubles.Store(), references, new SeriesRepos(),
             TimeProvider.System, NullLogger<ApprovedPhaseSetRecorder>.Instance);
 
         var record = await recorder.RecordAsync(new ConversationState
@@ -107,7 +108,7 @@ public sealed class ReferenceApprovalCiteTests
     public async Task ApprovedPhaseSetRecorder_ConversationWithImage_CitesIt()
     {
         var references = new WithImage();
-        var recorder = new ApprovedPhaseSetRecorder(ApprovedSetDoubles.Store(), references,
+        var recorder = new ApprovedPhaseSetRecorder(ApprovedSetDoubles.Store(), references, new SeriesRepos(),
             TimeProvider.System, NullLogger<ApprovedPhaseSetRecorder>.Instance);
 
         var record = await recorder.RecordAsync(new ConversationState

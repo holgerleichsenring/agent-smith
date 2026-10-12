@@ -64,17 +64,6 @@ public sealed class SpecDoneOutcomeTests
     }
 
     [Fact]
-    public void SpecCarryingRepoResolver_Named_TakesTheRecordedRepositoryElseTheFirst()
-    {
-        RepoConnection[] repos = [new() { Name = "api" }, new() { Name = "web" }];
-
-        SpecCarryingRepoResolver.Named(repos, "WEB")!.Name.Should().Be("web");
-        SpecCarryingRepoResolver.Named(repos, null)!.Name.Should().Be("api");
-        SpecCarryingRepoResolver.Named(repos, "gone")!.Name.Should().Be("api");
-        SpecCarryingRepoResolver.Named([], "web").Should().BeNull();
-    }
-
-    [Fact]
     public async Task SpecDoneFiles_ExecutedSpec_WritesDoneFilesAndNamesThePlannedOnes()
     {
         var mock = $"{SeriesPaths.Planned}/{A}-screen.html";
@@ -92,16 +81,18 @@ public sealed class SpecDoneOutcomeTests
     }
 
     [Fact]
-    public async Task SpecSetPointerRecorder_ExecutedThrough_ReadsTheRowElseZero()
+    public async Task SpecSetPointerRecorder_ExecutedIds_KeptByALaterCommit()
     {
         var store = new InMemorySpecSetPointerStore();
         var recorder = new SpecSetPointerRecorder(store, NullLogger<SpecSetPointerRecorder>.Instance);
-        (await recorder.ExecutedThroughAsync("p", "azdo-8", default)).Should().Be(0);
+        var api = new Dictionary<string, string> { ["api"] = "sha" };
 
-        await recorder.RecordAsync("p", new RepoConnection { Name = "api" }, Set(), "sha", default, executedThrough: 1);
-        await recorder.RecordAsync("p", new RepoConnection { Name = "api" }, Set(), "sha-2", default);
+        await recorder.RecordAsync("p", "api", Set() with { Executed = [A] }, api, default, executedIds: [A]);
+        await recorder.RecordAsync("p", "api", Set(), new Dictionary<string, string> { ["api"] = "sha-2" }, default);
 
-        (await recorder.ExecutedThroughAsync("p", "azdo-8", default)).Should().Be(1, "a later commit keeps the count");
+        var pointer = (await store.GetAsync("p", "azdo-8", default))!;
+        pointer.ExecutedIds.Should().Equal([A], "a later commit keeps the ids");
+        pointer.ExecutedThrough.Should().Be(1);
     }
 
     [Fact]

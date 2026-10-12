@@ -89,7 +89,7 @@ public sealed class HandbackExpiryTests
         var gate = new SpecCutGate(new NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance);
         var tickets = new Mock<ITicketProviderFactory>();
         return new DeriveSpecHandler(
-            deriver, new StubReader(), publisher, pointers,
+            deriver, SeriesDoubles.BranchRead(new StubReader()), publisher, pointers,
             new ApprovedSpecSetResolver(new InMemorySpecApprovalStore(), NullLogger<ApprovedSpecSetResolver>.Instance),
             new SpecSourceResolver(
                 new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance),
@@ -189,7 +189,7 @@ public sealed class HandbackExpiryTests
         public SpecSet? Set { get; private set; }
 
         public Task<CommandResult> PublishAsync(
-            PipelineContext pipeline, string project, RepoConnection carryingRepo, SpecSet set,
+            PipelineContext pipeline, string project, SeriesScope scope, SpecSet set,
             IReadOnlyList<IgnoredInstruction> ignoredInstructions, CancellationToken ct)
         {
             Set = set;

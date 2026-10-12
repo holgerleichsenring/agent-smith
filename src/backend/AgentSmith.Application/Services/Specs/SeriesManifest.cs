@@ -32,6 +32,7 @@ public sealed class SeriesManifest
             Goal = set.Goal,
             TicketPinnedWhole = set.TicketPinnedWhole,
             Specs = [.. set.Phases.Select(p => p.PhaseId)],
+            SeriesRepos = set.SeriesRepos is { Count: > 0 } members ? [.. members] : null, // 2026-10-12-f5f7d
             Revisions = [.. set.Revisions.Select(r => new SeriesRevisionEntry
             {
                 Number = r.Number, Cause = r.Cause, At = r.At.ToString("O", CultureInfo.InvariantCulture),

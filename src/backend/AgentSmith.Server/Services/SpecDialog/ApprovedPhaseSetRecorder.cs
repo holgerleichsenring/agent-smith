@@ -26,11 +26,10 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// a revision number.
 /// </para>
 /// <para>
-/// 2026-09-22-b6ad: it also chooses the CARRYING repository, in ONE spelling — the first of the
-/// project's configured repositories the approval named, which is the first element of the scoped
-/// list a run of that approval resolves. It is pinned here because filing needs a repository
-/// anyway, and because a glob-configured list is expanded in the discovery snapshot's order, so
-/// "the first one" can move between the approval and the first run.
+/// 2026-09-22-b6ad: it also records the CARRYING repository. 2026-10-12-f5f7d: no longer the first
+/// configured one the approval named — each spec is written where it names, and until the series'
+/// own pull requests exist the carrier is the earliest spec's repository, else the approval's only
+/// one, else none.
 /// </para>
 /// <para>
 /// 2026-09-17-0e79b: it is also the AMENDMENT ENTRY — the STORE side of it. Loading a filed
@@ -55,6 +54,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 public sealed class ApprovedPhaseSetRecorder(
     ISpecApprovalStore store,
     IReferenceSetReader references, // 2026-10-01-283df: the sets the approval cites
+    SeriesRepos placement, // 2026-10-12-f5f7d: the interim carrier is the earliest spec's repository
     TimeProvider time, ILogger<ApprovedPhaseSetRecorder> logger)
 {
     private readonly ApprovalCitations _citations = new(store, references); // 2026-10-08-e8b9g
@@ -78,7 +78,7 @@ public sealed class ApprovedPhaseSetRecorder(
         // 2026-09-25-c1f7: the ticket id as GIVEN (discovery names it in a tracker query; the key
         // re-spelled it). 2026-10-01-283df/e8b9k: the sets and images held NOW — the approval freezes them.
         var uncited = new SpecApprovalRecord(key.Value, set, repositories, project.Tracker.Name,
-            SpecCarryingRepoResolver.ChooseCarrier(project.Repos, repositories), ticketId ?? string.Empty);
+            placement.CarrierOf(series.Drafts, repositories), ticketId ?? string.Empty);
         var record = await _citations.SaveAsync(
             await _citations.CiteAsync(uncited, state.JobId, cancellationToken), state.JobId, cancellationToken);
         logger.LogInformation(

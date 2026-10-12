@@ -63,12 +63,15 @@ public interface ISpecSetReader
 /// before any source edit, and pushes it immediately — the reviewer must have
 /// something to edit while the run is still working. Git is the UI: diff, blame,
 /// history and the PR review need no new surface.
+/// <para>
+/// 2026-10-12-f5f7d: every member of the placement gets its own sub-series in ONE write — one
+/// revision time and one member list for all of them.
+/// </para>
 /// </summary>
 public interface ISpecSetWriter
 {
     Task<SpecSetWriteResult> WriteAsync(
-        PipelineContext pipeline, RepoConnection carryingRepo, SpecSet set,
-        CancellationToken cancellationToken);
+        PipelineContext pipeline, SeriesPlacement placement, CancellationToken cancellationToken);
 }
 
 /// <summary>
@@ -76,13 +79,17 @@ public interface ISpecSetWriter
 /// at that commit and publishes the set onto the run context. Split from the
 /// derivation handler because "produce the next revision" and "make it visible"
 /// are two reasons to change.
+/// <para>
+/// 2026-10-12-f5f7d: it places the set by the repositories its specs name within
+/// <c>scope</c> — no repository is picked by position.
+/// </para>
 /// </summary>
 public interface ISpecSetPublisher
 {
     Task<CommandResult> PublishAsync(
         PipelineContext pipeline,
         string project,
-        RepoConnection carryingRepo,
+        SeriesScope scope,
         SpecSet set,
         IReadOnlyList<IgnoredInstruction> ignoredInstructions,
         CancellationToken cancellationToken);
@@ -94,10 +101,14 @@ public interface ISpecSetPublisher
 /// the reviewer's edit arrives too late to change the outcome. Accepted
 /// consequence: a parked or not-implementable run leaves a PR containing only the
 /// spec set.
+/// <para>
+/// 2026-10-12-f5f7d: <c>createIfMissing</c> false only finds an open one — a set
+/// without specs opens no new pull request.
+/// </para>
 /// </summary>
 public interface ISpecPullRequestOpener
 {
     Task<string?> OpenAsync(
-        PipelineContext pipeline, RepoConnection carryingRepo, SpecSet set,
+        PipelineContext pipeline, RepoConnection carryingRepo, SpecSet set, bool createIfMissing,
         CancellationToken cancellationToken);
 }

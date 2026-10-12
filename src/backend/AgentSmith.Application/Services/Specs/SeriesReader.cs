@@ -67,10 +67,12 @@ public sealed class SeriesReader(
     }
 
     // The carrying repository is read even when the scope does not list it — the one-repository
-    // reader read nothing else; a repository listed twice is read once.
+    // reader read nothing else; a repository listed twice is read once. 2026-10-12-f5f7d: a series
+    // nothing records a carrier for names it with no name, and nothing is read for it.
     private static IReadOnlyList<RepoConnection> RunRepos(
         RepoConnection carryingRepo, IReadOnlyList<RepoConnection> repositories) =>
         [.. new[] { carryingRepo }.Concat(repositories ?? [])
+            .Where(r => !string.IsNullOrEmpty(r.Name))
             .DistinctBy(r => r.Name ?? string.Empty, StringComparer.Ordinal)];
 
     private SpecSet SetOf(

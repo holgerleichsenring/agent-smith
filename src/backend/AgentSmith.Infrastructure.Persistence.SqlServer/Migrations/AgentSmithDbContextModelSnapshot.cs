@@ -1818,6 +1818,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<string>("ExecutedIdsJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int>("ExecutedThrough")
                         .HasColumnType("int");
 

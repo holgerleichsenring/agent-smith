@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-f5f7d
+
+decisions:
+  - category: Architecture
+    chose: "SeriesRepos.Place turns a set and a SeriesScope (run repositories, legacy repository, members read, previous carrier) into a SeriesPlacement: the set with every spec naming exactly its repository and series_repos stamped, the members in series order, and the interim carrier"
+    over: "Passing a carrying repository and letting the writer split the set"
+    reason: |
+      The publish, the record and filing must place a spec by ONE rule, so the rule is one type and
+      the placed set travels with its members. Normalising each spec's repos in the placed set is what
+      lets the record step and SpecSet.OfRepository find a legacy spec's repository without the
+      pointer. A spec naming several, none without a legacy repository, or one outside the run's
+      repositories is refused with its id or name — the publish step then FAILS rather than continuing
+      in memory, because a set that cannot be placed would execute somewhere it does not belong.
+  - category: Architecture
+    chose: "The legacy repository is the pointer's CarryingRepo, else the approval's, else the run's only repository (SeriesScope.LegacyOf)"
+    over: "The spec's rule only (pointer, else approval), refusing every legacy spec on a first run without either"
+    reason: |
+      A single-repository run (the CLI, a one-repository project) cuts specs without repos (3a36e/f5f7a
+      fill nothing over one repository) and has no pointer on its first run. Its only repository is
+      not a positional pick; refusing would break every single-repository run. Over two or more
+      repositories with neither record, the spec is refused with its id.
+  - category: Architecture
+    chose: "SeriesBranchRead replaces the reader in DeriveSpecHandler: it resolves the legacy repository for the read, refuses a lagging read naming the repositories, puts the taken ids on the run and returns the SeriesScope the publish places in"
+    over: "Growing DeriveSpecHandler, which sits at its 143-line baseline"
+    reason: "The handler stays at 143 lines; the read, the lagging refusal and the taken ids change for one reason — what the branch says about where the next revision may go."
+  - category: Architecture
+    chose: "ISpecSetWriter.WriteAsync takes the placement; SeriesWriter checks every member's sandbox first (refusing the whole write naming one that is not checked out), then writes, stages and pushes each member's sub-series from the one placed set; the result carries a sha per repository and IsRefused"
+    over: "One commit spanning repositories, or writing members until one is missing"
+    reason: |
+      Every member's manifest is rendered from the same finalized set, so the revision time and
+      series_repos are identical by construction — SpecRevisionHeader needed no change. A refusal
+      before anything is written leaves no half; a push failure in a later member is still today's
+      failed write (logged, run continues) — the rollback is 2026-10-12-f5f7f.
+  - category: Implementation
+    chose: "SpecSetPointerRecorder.RecordAsync(project, carryingRepo?, set, shas, ct, executedIds?) merges every sha; a null carrier keeps the row's; RevisionSha is the carrier's sha else the row's"
+    over: "Keeping the one-repository signature and calling it per member"
+    reason: "The record step writes into the spec's repository and must not move CarryingRepo; filing and the publish write several repositories in one act and record them once."
+  - category: Implementation
+    chose: "Interim carrier: the earliest spec's repository in series order (publish, filing, ApprovedPhaseSetRecorder.CarryingRepo via SeriesRepos.CarrierOf); a set without specs keeps the previous carrier and the opener only FINDS an open pull request (createIfMissing false)"
+    over: "Skipping the opener entirely for a set without specs"
+    reason: "Finding keeps SpecPullRequestUrl for the hand-back park comment on a series that already has a PR, while no new PR is opened, as the spec states. 2026-10-12-f5f7e replaces this with one PR per repository."
+  - category: Implementation
+    chose: "TicketSeries.ExecutedIdsJson (nullable JSON array), carried as SpecSetPointer.ExecutedIds; SpecSetPointer.ExecutedIdsOf(stored) back-fills an empty list as Take(ExecutedThrough) of the stored set at read time; migration AddTicketSeriesExecutedIds generated in both assemblies by the pinned dotnet-ef 9.0.17 (--no-build, project = startup = the migrations assembly)"
+    over: "A SQL back-fill in the migration"
+    reason: "The stored set lives in git or the approval record, not in the row, so only a reader holding the set can back-fill; the record step's first write persists the ids."
+  - category: Implementation
+    chose: "Taken ids = every .yaml file name in done/ of every run repository plus the stored executed ids, put on the run as ContextKeys.SpecTakenIds; SeriesIdFactory.NextFree skips an id that is taken or that a taken file name belongs to; DerivedPhaseSequence hands each new phase the next free letter after the previous one"
+    over: "Parsing ids out of file names, or skipping by position in DerivedPhaseBuilder"
+    reason: "A file name belongs to an id by SeriesPaths.BelongsTo, the rule the reader already uses; the letter must advance monotonically across a skip or two phases would share one."
+  - category: Implementation
+    chose: "WritePhaseRecordHandler places the run's set with the same SeriesRepos rule (legacy = SpecRepo, else the run's only repository) and records into the spec's own repository; SpecDoneRecord.MultiRepo drops the ContextKeys.Sandbox fallback when the run holds several repositories"
+    over: "Reading the repository off ContextKeys.SpecRepo"
+    reason: "SpecRepo is the interim carrier — the earliest spec's repository — which is wrong for every later spec in another repository."
+  - category: Implementation
+    chose: "FiledSpecBranch drops its carrier parameter (both callers passed null); FiledSeriesWrite writes each member through its provider; SpecCarryingRepoResolver is deleted"
+    over: "Keeping Resolve/ChooseCarrier/Named for callers outside spec placement"
+    reason: "Every caller was spec placement; the done criterion's grep finds no positional pick there."
+  - category: Scope
+    chose: "SpecFallback's whole-ticket member id stays Member(series, 0)"
+    over: "Threading the taken ids into the fallback"
+    reason: "The fallback exists only for a scope of one repository (f5f7a) and is used only when the branch keeps nothing (KeptOnFailure wins otherwise); its 'a' could collide only with a done/ spec of a series the branch no longer carries."
+  - category: Scope
+    chose: "SpecSet.cs split: the SpecSource enum moved to its own file so SeriesRepos and OfRepository fit under 120 lines"
+    over: "Putting the sub-series projection in a separate service"
+    reason: "One type per file; the projection is a pure view of the record the writer, filing and the record step all need."

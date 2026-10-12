@@ -1754,6 +1754,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("ExecutedIdsJson")
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("ExecutedThrough")
                         .HasColumnType("INTEGER");
 

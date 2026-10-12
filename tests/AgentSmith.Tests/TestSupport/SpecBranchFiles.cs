@@ -15,6 +15,9 @@ internal sealed class SpecBranchFiles : ISandboxFileReader
 
     internal void Seed(string path, string content) => _files[path] = content;
 
+    /// <summary>2026-10-12-f5f7d: every path the branch holds.</summary>
+    internal IReadOnlyCollection<string> Paths => _files.Keys;
+
     /// <summary>2026-10-06-03c7d: seeds a manifest at series/{base}.yaml and one planned spec per stem.</summary>
     /// <param name="executed">2026-10-06-03c7e: ids of specs that ran — seeded into done/.</param>
     internal void SeedSeries(

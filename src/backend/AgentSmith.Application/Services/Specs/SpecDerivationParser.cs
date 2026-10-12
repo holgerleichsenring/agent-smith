@@ -33,10 +33,12 @@ public sealed class SpecDerivationParser(
     /// every fact line to an assumption and nothing else changes.
     /// </param>
     /// <param name="scope">2026-10-12-3a36e: the scope's repository names; see <see cref="SpecReposRule"/>.</param>
+    /// <param name="taken">2026-10-12-f5f7d: ids a new phase must not take; see <see cref="SeriesTakenIds"/>.</param>
     public Parsed Parse(
         string? reply, string key, string series, string ticketId, IReadOnlyList<TicketSegment> segments,
         SpecSource source, IReadOnlyList<SpecPhase>? executedHead = null,
-        IReadOnlyList<string>? evidence = null, IReadOnlyList<string>? scope = null)
+        IReadOnlyList<string>? evidence = null, IReadOnlyList<string>? scope = null,
+        IReadOnlyList<string>? taken = null)
     {
         if (string.IsNullOrWhiteSpace(reply))
             return new Parsed(null, "the reply was empty");
@@ -54,7 +56,7 @@ public sealed class SpecDerivationParser(
                     && !SpecJsonReader.TryGet(root, "handback", out _))
                     continue;
                 return Build(root, new SeriesOf(key, series), ticketId, segments, source, executedHead ?? [],
-                    new PhaseInputs(evidence, scope ?? []));
+                    new PhaseInputs(evidence, scope ?? [], taken ?? []));
             }
         }
         return new Parsed(null, "the reply contained no JSON object with a 'phases' array");
@@ -91,7 +93,7 @@ public sealed class SpecDerivationParser(
             return new Parsed(null,
                 $"the reply has {phaseElements.Count} phase(s) but {executedHead.Count} already ran — repeat them first");
         var (built, error) = phases.Build(
-            phaseElements, executedHead, owner.Series, ticketId, segments, inputs.Evidence, inputs.Scope);
+            phaseElements, executedHead, owner.Series, ticketId, segments, inputs.Evidence, inputs.Scope, inputs.Taken);
         if (built is null) return new Parsed(null, error);
 
         var accounting = SpecAccountingBuilder.Build(
@@ -109,7 +111,8 @@ public sealed class SpecDerivationParser(
     /// <summary>The ticket key and the series' base id the parsed set belongs to.</summary>
     private sealed record SeriesOf(string Key, string Series);
 
-    private sealed record PhaseInputs(IReadOnlyList<string>? Evidence, IReadOnlyList<string> Scope);
+    private sealed record PhaseInputs(
+        IReadOnlyList<string>? Evidence, IReadOnlyList<string> Scope, IReadOnlyList<string> Taken);
 
     private static SpecRevision Initial() =>
         new(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow);

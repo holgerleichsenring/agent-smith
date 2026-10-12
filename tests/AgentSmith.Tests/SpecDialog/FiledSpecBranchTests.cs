@@ -305,64 +305,88 @@ public sealed class FiledSpecBranchTests
         (await pointers.GetAsync("proj", Key, default)).Should().BeNull();
     }
 
+    // 2026-10-12-f5f7d: the repository is the one the SPEC names, not the approval's carrier.
     [Fact]
-    public async Task Filing_ARepositoryHandedToIt_IsTheOneTheBranchIsCutIn()
+    public async Task Filing_ASpecNamingARepository_IsWrittenIntoThatOne()
     {
         var sources = new RecordingBranchSources();
-        var handed = new RepoConnection { Name = "sample-web" };
+        var record = Record("sample-api");
+        record = record with { Set = record.Set with { Phases = [Phase("p9000a", "sample-web")] } };
 
         var result = await ApprovedSetDoubles.Branch(sources).WriteAsync(
-            Project(), Record(carrier: "sample-api"), new TicketId("1"), Stored(), handed, default);
+            Project(), record, new TicketId("1"), Stored(), default);
 
         result.Written.Should().BeTrue(result.Error);
-        sources.Writes[0].Repo.Should().Be("sample-web",
-            "the repository is an INPUT; a sibling phase gives the conversation that choice");
+        sources.Writes.Should().ContainSingle().Which.Repo.Should().Be("sample-web");
     }
 
+    // 2026-10-12-f5f7d: no first-configured guess — a spec naming none with no carrier is refused.
     [Fact]
-    public async Task Filing_NoRepositoryChosen_UsesTheFirstTheApprovalNamed()
+    public async Task Filing_ASpecNamingNoRepositoryAndNoCarrier_IsRefusedWithItsId()
     {
         var sources = new RecordingBranchSources();
+        var record = Record(carrier: string.Empty, repositories: ["sample-web"]);
+        record = record with { Set = record.Set with { Phases = [Phase("p9000a", null)] } };
 
-        await ApprovedSetDoubles.Branch(sources).WriteAsync(
-            Project(), Record(carrier: string.Empty, repositories: ["sample-web"]),
-            new TicketId("1"), Stored(), carrier: null, default);
+        var result = await ApprovedSetDoubles.Branch(sources).WriteAsync(
+            Project(), record, new TicketId("1"), Stored(), default);
 
-        sources.Writes[0].Repo.Should().Be("sample-web",
-            "the fallback is the run's own rule — the first scoped repository, not the first "
-            + "configured one");
+        result.Written.Should().BeFalse();
+        result.Error.Should().Contain("p9000a").And.Contain("names no repository");
+        sources.Writes.Should().BeEmpty();
     }
 
-    /// <summary>
-    /// The record carries the carrier AFTER the tracker name because the sole construction site is
-    /// positional and both are strings: inserted earlier it would compile in silence and write the
-    /// tracker name as the carrier.
-    /// </summary>
+    // 2026-10-12-f5f7d: specs of two repositories — one sub-series each, one stamp, one member list.
     [Fact]
-    public async Task ApprovalRecord_TheCarrier_IsTheFirstConfiguredRepositoryTheApprovalNamed()
+    public async Task Filing_SpecsOfTwoRepositories_OneSubSeriesEachWithOneStamp()
+    {
+        var sources = new RecordingBranchSources();
+        var pointers = new InMemorySpecSetPointerStore();
+        var record = Record("sample-api");
+        record = record with
+        {
+            Set = record.Set with { Phases = [Phase("2026-10-06-3d3da", "sample-web"), Phase("2026-10-06-3d3db", "sample-api")] },
+        };
+
+        var result = await ApprovedSetDoubles.Branch(sources, pointers).WriteAsync(
+            Project(), record, new TicketId("1"), Stored(), default);
+
+        result.Written.Should().BeTrue(result.Error);
+        sources.Writes.Select(w => w.Repo).Should().Equal("sample-web", "sample-api");
+        var manifests = sources.Writes.Select(w => new SeriesManifest().Parse(w.ContentOf(ManifestPath(w)))!).ToList();
+        manifests.Select(m => m.Specs.Single()).Should().Equal("2026-10-06-3d3da", "2026-10-06-3d3db");
+        manifests.Select(m => m.Revisions[^1].At).Distinct().Should().ContainSingle("one write, one stamp");
+        manifests.Should().AllSatisfy(m => m.SeriesRepos.Should().Equal("sample-web", "sample-api"));
+        var pointer = (await pointers.GetAsync("proj", Key, default))!;
+        pointer.CarryingRepo.Should().Be("sample-web", "until the series' own pull requests, the earliest spec's repository");
+        pointer.ShaByRepo.Keys.Should().BeEquivalentTo(["sample-web", "sample-api"]);
+    }
+
+    [Fact]
+    public async Task ApprovalRecord_TheCarrier_IsTheEarliestSpecsRepository()
     {
         var store = ApprovedSetDoubles.Store();
 
-        await FileAsync(store: store, scoped: ["sample-web", "sample-api"]);
+        await FileAsync(store: store, scoped: ["sample-api", "sample-web"],
+            phases: [Draft("p9000a") with { Repos = ["sample-web"] }, Draft("p9000b")]);
 
         var record = (await store.GetAsync("sample-tracker", Key, default))!;
         record.Tracker.Should().Be("sample-tracker");
-        record.CarryingRepo.Should().Be("sample-api",
-            "the carrier is the first of the PROJECT's repositories the approval named, which is "
-            + "the first element of the scoped list a run of that approval resolves");
+        record.CarryingRepo.Should().Be("sample-web",
+            "the earliest spec's repository, not the first configured one");
     }
 
     [Fact]
-    public void Run_TheCarrierTheApprovalChose_OutranksTheFirstScopedRepoAndYieldsToThePointer()
+    public void SeriesScope_LegacyRepository_PointerThenApprovalThenTheOnlyOne()
     {
         IReadOnlyList<RepoConnection> scoped =
             [new RepoConnection { Name = "sample-api" }, new RepoConnection { Name = "sample-web" }];
 
-        SpecCarryingRepoResolver.Resolve(scoped, pointer: null, approvedCarrier: "sample-web")!
-            .Name.Should().Be("sample-web");
-        SpecCarryingRepoResolver.Resolve(
-            scoped, new SpecSetPointer(Key, "sample-api", "sha", 2), approvedCarrier: "sample-web")!
-            .Name.Should().Be("sample-api", "the pointer is where this system last committed");
+        SeriesScope.LegacyOf(null, "sample-web", scoped).Should().Be("sample-web");
+        SeriesScope.LegacyOf(new SpecSetPointer(Key, "sample-api", "sha", 2), "sample-web", scoped)
+            .Should().Be("sample-api", "the pointer is where this system last committed");
+        SeriesScope.LegacyOf(null, null, scoped).Should().BeNull("two repositories and no record name none");
+        SeriesScope.LegacyOf(null, null, [scoped[1]]).Should().Be("sample-web");
     }
 
     /// <summary>
@@ -453,13 +477,35 @@ public sealed class FiledSpecBranchTests
         };
 
         var result = await ApprovedSetDoubles.Branch(sources, pointers).WriteAsync(
-            Project(), amended, new TicketId("1"), Stored(), carrier: null, default);
+            Project(), amended, new TicketId("1"), Stored(), default);
 
         result.Written.Should().BeTrue(result.Error);
         sources.Writes[0].Paths.Should().Contain($"{Planned}/2026-10-06-3d3db-second.yaml")
             .And.NotContain(p => p.Contains("2026-10-06-3d3da"), "the executed spec lies in done/ and stays there");
         Index(sources).Specs.Should().Equal(["2026-10-06-3d3da", "2026-10-06-3d3db"], "the series keeps its order");
         (await pointers.GetAsync("proj", Key, default))!.ExecutedThrough.Should().Be(1, "filing keeps the count");
+    }
+
+    // 2026-10-12-f5f7d: executed specs are read by id — not a leading count.
+    [Fact]
+    public async Task FiledSpecBranch_ExecutedById_StaysOutOfPlanned()
+    {
+        var sources = new RecordingBranchSources();
+        var pointers = new InMemorySpecSetPointerStore();
+        await pointers.SaveAsync("proj", new SpecSetPointer(Key, "sample-api", "record-sha", 1,
+            ExecutedIds: ["2026-10-06-3d3db"]), default);
+        var record = Record("sample-api");
+        record = record with
+        {
+            Set = record.Set with { Phases = [Phase("2026-10-06-3d3da", "sample-api"), Phase("2026-10-06-3d3db", "sample-web")] },
+        };
+
+        var result = await ApprovedSetDoubles.Branch(sources, pointers).WriteAsync(
+            Project(), record, new TicketId("1"), Stored(), default);
+
+        result.Written.Should().BeTrue(result.Error);
+        sources.Writes.SelectMany(w => w.Paths).Should().Contain($"{Planned}/2026-10-06-3d3da-2026-10-06-3d3da.yaml")
+            .And.NotContain(p => p.StartsWith($"{Planned}/2026-10-06-3d3db"), "the executed spec lies in done/");
     }
 
     private static SeriesManifestDocument Index(RecordingBranchSources sources) =>
@@ -520,9 +566,13 @@ public sealed class FiledSpecBranchTests
                 Series: "2026-10-06-3d3d"),
             repositories ?? ["sample-api", "sample-web"], "sample-tracker", carrier);
 
+    // 2026-10-12-f5f7d: a spec names its repository, as f5f7a requires over two.
     private static PhaseDraft Draft(string id) =>
         new(id, "Do the thing", $"spec: {id}\ngoal: \"Do the thing\"", [])
-        { Done = ["It is done."] };
+        { Done = ["It is done."], Repos = ["sample-api"] };
+
+    private static SpecPhase Phase(string id, string? repo) =>
+        new(Draft(id) with { Repos = repo is null ? [] : [repo] }, id, string.Empty, []);
 
     private static AgentSmithConfig Config() => new()
     {

@@ -64,7 +64,7 @@ public sealed class ApprovedSetAmendmentTests
 
     private static ApprovedPhaseSetRecorder Recorder(
         ISpecApprovalStore store, TimeProvider? time = null) =>
-        new(store, new NoReferenceSetReader(), time ?? TimeProvider.System, NullLogger<ApprovedPhaseSetRecorder>.Instance);
+        new(store, new NoReferenceSetReader(), new SeriesRepos(), time ?? TimeProvider.System, NullLogger<ApprovedPhaseSetRecorder>.Instance);
 
     private static PhaseDraft Draft(string id) =>
         new(id, $"Do {id}", $"spec: {id}\ngoal: \"Do {id}\"", []) { Done = ["It is done."] };
