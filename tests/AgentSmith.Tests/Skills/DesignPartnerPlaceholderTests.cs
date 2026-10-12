@@ -6,7 +6,7 @@ namespace AgentSmith.Tests.Skills;
 
 /// <summary>
 /// p0507: the design partner writes the first draft of a spec, so the placeholder it
-/// shows is the shape an operator copies. Until this phase it showed <c>pNNNN</c>, which
+/// shows is the shape an operator copies. Until this spec it showed <c>pNNNN</c>, which
 /// matches NEITHER id pattern — the master was teaching a shape the schema rejects.
 /// <para>
 /// 2026-08-28-3302: no longer armed at the pin. The pinned catalog carries the minted

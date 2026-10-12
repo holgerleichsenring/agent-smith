@@ -43,8 +43,8 @@ public static class SpecAmendmentRule
     {
         ArgumentNullException.ThrowIfNull(set);
         if (foreignCommitSinceHandback && set.IsHandedBack) return true;
-        // 2026-10-08-f114: a full, fully executed set has no room for an appended phase.
-        if (IsAppend(cause, set) && set.Executed.Count >= SpecSet.MaxPhases) return false;
+        // 2026-10-08-f114: a full, fully executed set has no room for an appended spec.
+        if (IsAppend(cause, set) && set.Executed.Count >= SpecSet.MaxSpecs) return false;
         if (string.Equals(cause, SpecRevisionCause.RecutDemand, StringComparison.Ordinal)
             || string.Equals(cause, SpecRevisionCause.Rework, StringComparison.Ordinal)) return true;
         // 2026-10-08-2123: a move back amends only by appending to a fully executed set.
@@ -59,7 +59,7 @@ public static class SpecAmendmentRule
     }
 
     /// <summary>2026-10-08-f114: an input that, on a set with nothing left to run, can only be
-    /// carried out as new phases after the executed head.</summary>
+    /// carried out as new specs after the executed head.</summary>
     public static bool IsAppend(string cause, SpecSet set) =>
         set.UnexecutedTail.Count == 0 && set.Executed.Count > 0
         && cause is SpecRevisionCause.Comment or SpecRevisionCause.TicketEdit

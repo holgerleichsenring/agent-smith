@@ -16,7 +16,7 @@ namespace AgentSmith.Tests.Skills;
 /// whole point: the catalog now makes <c>## Artefacts</c> mandatory on every delta, and the
 /// composer inlines a delta file verbatim — so without stripping, this test fails for all
 /// three stacks, including the two that declare nothing. It is the evidence for "every other
-/// stack composes byte-identically to before", which the phase's first draft asserted with
+/// stack composes byte-identically to before", which the spec's first draft asserted with
 /// nothing behind it.
 /// </para>
 /// <para>

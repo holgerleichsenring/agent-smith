@@ -27,11 +27,11 @@ public sealed record PipelineCommand
     /// "." only where that directory is the repository root.</summary>
     public string? Workdir { get; init; }
 
-    /// <summary>p0393a: names which phase of the derived sequence this command belongs
-    /// to. PhaseSequence splices one plan/master/verify block per phase and stamps each
-    /// spliced command with the id, so the run trail reads per phase instead of showing
+    /// <summary>p0393a: names which spec of the derived sequence this command belongs
+    /// to. SpecSequence splices one plan/master/verify block per spec and stamps each
+    /// spliced command with the id, so the run trail reads per spec instead of showing
     /// the same four labels N times. null on every command outside a sequence.</summary>
-    public string? PhaseId { get; init; }
+    public string? SpecId { get; init; }
 
     public PipelineCommand(string name)
     {

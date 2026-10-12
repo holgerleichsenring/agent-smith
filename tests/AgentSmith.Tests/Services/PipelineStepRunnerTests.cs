@@ -27,7 +27,7 @@ public sealed class PipelineStepRunnerTests
     public PipelineStepRunnerTests()
     {
         var dataFlowReadGate = new DataFlowReadGate(
-            new PhaseDataFlowResolver(Array.Empty<IPhaseDataFlow>()),
+            new StepDataFlowResolver(Array.Empty<IStepDataFlow>()),
             Microsoft.Extensions.Options.Options.Create(new PipelineDataFlowConfig()),
             NullLogger<DataFlowReadGate>.Instance);
         _sut = new PipelineStepRunner(

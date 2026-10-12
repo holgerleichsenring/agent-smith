@@ -23,7 +23,7 @@ namespace AgentSmith.Server.Security;
 /// </para>
 /// <para>
 /// Nothing here decides WHICH run a caller may watch. A permission on <c>SubscribeRun</c>
-/// says the caller may watch runs — the argument is a scope, and a different phase.
+/// says the caller may watch runs — the argument is a scope, and a different spec.
 /// </para>
 /// </summary>
 internal sealed class HubPermissionFilter(

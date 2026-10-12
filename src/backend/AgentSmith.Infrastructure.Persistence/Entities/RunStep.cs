@@ -10,7 +10,7 @@ public sealed class RunStep : EntityBase
     /// 2026-08-25-61f1: the trail position of the event that produced this row. The store
     /// holds at most one row per (RunId, EventSeq), so an event projected twice occupies
     /// one row instead of multiplying every total summed from this table. Null on rows
-    /// written before this phase — unattributed, never guessed.
+    /// written before this spec — unattributed, never guessed.
     /// </summary>
     public long? EventSeq { get; set; }
 
@@ -24,9 +24,9 @@ public sealed class RunStep : EntityBase
     public string? CommandName { get; set; }
 
     /// <summary>
-    /// p0466: the derived phase this step belongs to, written by the executing context
+    /// p0466: the derived spec this step belongs to, written by the executing context
     /// that also composes the "p19213a: " prefix on <see cref="StepName"/>. Null on
-    /// pre-p0466 rows and on steps that belong to no phase; those rows are NOT
+    /// pre-p0466 rows and on steps that belong to no spec; those rows are NOT
     /// backfilled — a parsed prefix is what this column replaces, and the read path
     /// keeps the regex as a fallback for them alone.
     /// </summary>

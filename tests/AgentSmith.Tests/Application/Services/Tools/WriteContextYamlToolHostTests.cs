@@ -121,7 +121,7 @@ public sealed class WriteContextYamlToolHostTests
         captured!.Content.Should().NotContain("value_kind", "arch/quality values must serialize as real content");
         captured.Content.Should().Contain("Generic Host", "a freeform arch key survives verbatim");
         // 2026-08-26-04b6: a freeform LIST too — arch.patterns was the list here until that
-        // phase classified it a reading, and the converter is what this test pins.
+        // spec classified it a reading, and the converter is what this test pins.
         captured.Content.Should().Contain("Outbox");
     }
 

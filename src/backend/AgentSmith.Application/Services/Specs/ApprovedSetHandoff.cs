@@ -27,7 +27,7 @@ public sealed class ApprovedSetHandoff(ILogger<ApprovedSetHandoff> logger)
         if (record is null) return null;
         logger.LogInformation(
             "Spec set {Key} comes from the approval given in conversation {Conversation} "
-            + "({Phases} phase(s)); the ticket branch carries none yet",
+            + "({Specs} spec(s)); the ticket branch carries none yet",
             key, Conversation(record), record.Set.Phases.Count);
         return new SpecSourceResolver.Decision(
             SpecSource.Approved,

@@ -1,7 +1,7 @@
 namespace AgentSmith.Domain.Models;
 
 /// <summary>
-/// 2026-09-17-042eh: one thing a fresh instance found wrong in the phase's own diff, named
+/// 2026-09-17-042eh: one thing a fresh instance found wrong in the spec's own diff, named
 /// where it can be opened.
 /// <para>
 /// A finding is kept only when it rests on a READ the reviewer itself took of exactly this
@@ -12,7 +12,7 @@ namespace AgentSmith.Domain.Models;
 /// </para>
 /// </summary>
 /// <param name="Repository">The sandbox key the path belongs to, as the diff lists it.</param>
-/// <param name="Path">The path inside that repository, as the phase diff spells it.</param>
+/// <param name="Path">The path inside that repository, as the spec diff spells it.</param>
 /// <param name="Line">The line the finding is about, one-based, within the read's numbering.</param>
 /// <param name="Rule">The principle or the spec passage the diff breaks, quoted.</param>
 /// <param name="Why">One sentence: what the code does that the rule does not allow.</param>

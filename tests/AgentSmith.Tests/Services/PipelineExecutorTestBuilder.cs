@@ -38,7 +38,7 @@ internal sealed class PipelineExecutorTestBuilder
     public Mock<IProgressReporter> ProgressReporterMock { get; } = new();
     public Mock<ISandboxLanguageResolver> SandboxLanguageResolverMock { get; } = new();
     public SandboxSpecBuilder SandboxSpecBuilder { get; }
-    public PhaseDataFlowResolver DataFlowResolver { get; } = new(Array.Empty<IPhaseDataFlow>());
+    public StepDataFlowResolver DataFlowResolver { get; } = new(Array.Empty<IStepDataFlow>());
     public AgentSmithConfig AgentSmithConfig { get; } = new();
 
     /// <summary>2026-09-17-0e79e: the executor's own log, for the lines a run is READ by.</summary>

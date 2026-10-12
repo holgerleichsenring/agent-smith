@@ -8,7 +8,7 @@ namespace AgentSmith.Tests.Validation;
 
 /// <summary>
 /// p0315e: the outcome protocol — plain prose is an answer, a bare yaml block
-/// is a phase (unchanged p0315b contract), one ```outcome block carries bug or
+/// is a spec (unchanged p0315b contract), one ```outcome block carries bug or
 /// epic, and every malformed shape fails with an error naming exactly what.
 /// </summary>
 public sealed class OutcomeProposalResolverTests
@@ -17,8 +17,8 @@ public sealed class OutcomeProposalResolverTests
 
     private static OutcomeProposalResolver BuildResolver()
     {
-        var validator = new SpecDraftValidator(new PhaseSpecSchemaProvider());
-        var reader = new PhaseDraftReader();
+        var validator = new SpecDraftValidator(new SpecSchemaProvider());
+        var reader = new SpecDraftReader();
         return new OutcomeProposalResolver(
             validator, reader, new BugOutcomeParser(),
             new EpicOutcomeParser(validator, reader, new RequiresEdgeChecker(), DialogTestRepos.Real()),
@@ -35,7 +35,7 @@ public sealed class OutcomeProposalResolverTests
     }
 
     [Fact]
-    public void Resolve_BareYamlDraft_ResolvesPhaseWithExtractedFields()
+    public void Resolve_BareYamlDraft_ResolvesSpecWithExtractedFields()
     {
         var resolution = _resolver.Resolve(
             """
@@ -47,11 +47,11 @@ public sealed class OutcomeProposalResolverTests
             ```
             """, []);
 
-        var phase = resolution.Should().BeOfType<OutcomeResolved>()
-            .Which.Proposal.Should().BeOfType<PhaseOutcome>().Subject;
-        phase.Draft.PhaseId.Should().Be("p9999");
-        phase.Draft.Goal.Should().Be("Add the widget endpoint");
-        phase.Draft.Requires.Should().Equal("p0100");
+        var spec = resolution.Should().BeOfType<OutcomeResolved>()
+            .Which.Proposal.Should().BeOfType<SpecOutcome>().Subject;
+        spec.Draft.PhaseId.Should().Be("p9999");
+        spec.Draft.Goal.Should().Be("Add the widget endpoint");
+        spec.Draft.Requires.Should().Equal("p0100");
     }
 
     [Fact]
@@ -137,9 +137,9 @@ public sealed class OutcomeProposalResolverTests
 
     /// <summary>
     /// 2026-09-22-b3d7: the FILING SHAPE changed — one ticket, no slice records — and the `epic`
-    /// KIND did not. Collapsing it into the phase outcome would have deleted checks, not tickets:
-    /// a phase outcome carries ONE draft, so a set of two or more has no representation on that
-    /// path at all, and the at-least-two rule, the phase cap, the per-child done list and the
+    /// KIND did not. Collapsing it into the spec outcome would have deleted checks, not tickets:
+    /// a spec outcome carries ONE draft, so a set of two or more has no representation on that
+    /// path at all, and the at-least-two rule, the spec cap, the per-child done list and the
     /// sibling and cycle edge checks live only here. The parent draft is the work ticket's own
     /// requirement text and has nowhere else to live.
     /// </summary>

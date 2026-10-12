@@ -25,7 +25,7 @@ internal static class ApprovedSetDoubles
     internal static SeriesIdFactory SeriesIds() => new(TimeProvider.System);
 
     /// <summary>2026-10-06-03c7c: the re-id of approved drafts onto their series.</summary>
-    internal static SeriesDraftIds DraftIds() => new(new PhaseDraftIdRewriter());
+    internal static SeriesDraftIds DraftIds() => new(new SpecDraftIdRewriter());
 
     /// <summary>2026-10-06-03c7c: what a filing and an amendment make their series with.</summary>
     internal static FiledSeriesFactory SeriesFiling() => new(SeriesIds(), DraftIds());
@@ -49,7 +49,7 @@ internal static class ApprovedSetDoubles
         NullLogger<ApprovedSetKeptNotice>.Instance);
 
     /// <summary>
-    /// 2026-09-22-b3d7: the ONE path a phase and an approved cut are both filed through — create,
+    /// 2026-09-22-b3d7: the ONE path a spec and an approved cut are both filed through — create,
     /// store, start. A test that reads the stored set, or that watches the starter, passes its own.
     /// </summary>
     internal static ApprovedSetTicketFiler SetFiler(
@@ -73,8 +73,8 @@ internal static class ApprovedSetDoubles
             NullLogger<FiledSpecBranch>.Instance);
     }
 
-    internal static ApprovedPhaseSetRecorder Recorder(ISpecApprovalStore? store = null) =>
-        new(store ?? Store(), new NoReferenceSetReader(), new SeriesRepos(), TimeProvider.System, NullLogger<ApprovedPhaseSetRecorder>.Instance);
+    internal static ApprovedSpecSetRecorder Recorder(ISpecApprovalStore? store = null) =>
+        new(store ?? Store(), new NoReferenceSetReader(), new SeriesRepos(), TimeProvider.System, NullLogger<ApprovedSpecSetRecorder>.Instance);
 
     /// <summary>2026-09-18-b4f0: the real resolver — a tracker that configures no kinds
     /// resolves none, which is what every test that does not set one expects.</summary>

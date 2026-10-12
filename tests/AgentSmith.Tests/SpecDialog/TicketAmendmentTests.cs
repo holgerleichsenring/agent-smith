@@ -98,7 +98,7 @@ public sealed class TicketAmendmentTests : IDisposable
 
     /// <summary>
     /// 2026-10-06-03c7c: an amended ticket keeps the series base its first approval minted, read
-    /// back through the record before anything renders — a second base would rename every phase,
+    /// back through the record before anything renders — a second base would rename every spec,
     /// and an executed head is kept by its ids.
     /// </summary>
     [Fact]
@@ -230,7 +230,7 @@ public sealed class TicketAmendmentTests : IDisposable
     /// A refused rewrite — Jira's by construction, and any ticket filed before the markers —
     /// leaves the ticket, the record AND the branch exactly as they were. That is the only state
     /// a refusal may leave behind: a record moved without the ticket is the incongruence this
-    /// phase exists to remove.
+    /// spec exists to remove.
     /// </summary>
     [Fact]
     public async Task Amendment_ARewriteTheTrackerRefuses_LeavesTheRecordAndTheBranchAlone()
@@ -322,7 +322,7 @@ public sealed class TicketAmendmentTests : IDisposable
     }
 
     private static OutcomeProposal Proposal(string goal) =>
-        new PhaseOutcome(new PhaseDraft("p9001", goal, $"spec: p9001\ngoal: {goal}", []));
+        new SpecOutcome(new PhaseDraft("p9001", goal, $"spec: p9001\ngoal: {goal}", []));
 
     /// <summary>The conversation as 8e51c leaves it: bound, with the ticket's text recorded.</summary>
     private async Task<FakeTracker> BoundAsync()
@@ -343,7 +343,7 @@ public sealed class TicketAmendmentTests : IDisposable
         FakeTracker tracker, RecordingBranchSources? sources = null, ISpecApprovalStore? store = null) =>
         new(Config(), Scopes(), new FiledWorkTrackerProjects(Config()),
             new SpecDialogTicketTextRepository(_context), ApprovedSetDoubles.Recorder(store),
-            tracker, new PhaseTicketRenderer(), new EpicChildOrderer(),
+            tracker, new SpecTicketRenderer(), new EpicChildOrderer(),
             ApprovedSetDoubles.SeriesFiling(),
             ApprovedSetDoubles.Branch(sources ?? new RecordingBranchSources()),
             NullLogger<TicketAmendment>.Instance);

@@ -8,9 +8,9 @@ namespace AgentSmith.Tests.ControlFlow;
 /// <param name="Beat">The run-story beat it belongs to.</param>
 /// <param name="Class">milestone / gate / internal, from the read-path classification.</param>
 /// <param name="Model">Whether a model runs, who answers, and what is expected back.</param>
-/// <param name="InPhaseBlock">True for the steps spliced once per derived phase spec.</param>
+/// <param name="InSpecBlock">True for the steps spliced once per derived spec.</param>
 internal sealed record StepFact(
-    string Command, string Label, RunBeat Beat, string Class, StepModel Model, bool InPhaseBlock);
+    string Command, string Label, RunBeat Beat, string Class, StepModel Model, bool InSpecBlock);
 
 /// <summary>One pipeline preset: its steps in execution order and the master it loads.</summary>
 internal sealed record PresetFlow(string Name, string Master, IReadOnlyList<StepFact> Steps)
@@ -31,7 +31,7 @@ internal sealed record PresetFlow(string Name, string Master, IReadOnlyList<Step
 
 /// <summary>
 /// p0408: reads the control flow out of the code that defines it —
-/// <see cref="PipelinePresets.Effective"/> (the per-phase block already spliced),
+/// <see cref="PipelinePresets.Effective"/> (the per-spec block already spliced),
 /// <see cref="CommandDisplayNames"/>, <see cref="CommandBeats"/>,
 /// <see cref="CommandStepClasses"/> and <see cref="CommandModelUse"/>. Nothing here
 /// restates the flow; it only assembles what those declarations already say.
@@ -47,8 +47,8 @@ internal static class ControlFlowFacts
     public static PresetFlow Of(string pipelineName)
     {
         var literal = PipelinePresets.TryResolve(pipelineName) ?? [];
-        var spliceAt = literal.ToList().IndexOf(CommandNames.PhaseSequence);
-        var blockEnd = spliceAt < 0 ? -1 : spliceAt + PipelinePresets.CodePhaseBlock.Count;
+        var spliceAt = literal.ToList().IndexOf(CommandNames.SpecSequence);
+        var blockEnd = spliceAt < 0 ? -1 : spliceAt + PipelinePresets.CodeSpecBlock.Count;
         var steps = PipelinePresets.Effective(pipelineName)
             .Select((c, i) => StepOf(c, i >= spliceAt && i < blockEnd));
         return new PresetFlow(pipelineName, PipelinePresets.MasterFor(pipelineName), [.. steps]);
@@ -61,11 +61,11 @@ internal static class ControlFlowFacts
             .Where(n => !string.Equals(n, SpineName, StringComparison.OrdinalIgnoreCase))
             .OrderBy(n => n, StringComparer.Ordinal)];
 
-    private static StepFact StepOf(string command, bool inPhaseBlock) =>
+    private static StepFact StepOf(string command, bool inSpecBlock) =>
         new(command,
             CommandDisplayNames.Get(command),
             CommandBeats.TryGet(command, out var beat) ? beat : RunBeat.Building,
             CommandStepClasses.Get(command),
             CommandModelUse.For(command),
-            inPhaseBlock);
+            inSpecBlock);
 }

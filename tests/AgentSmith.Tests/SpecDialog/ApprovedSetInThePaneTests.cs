@@ -41,7 +41,7 @@ public sealed class ApprovedSetInThePaneTests : IDisposable
     }
 
     [Fact]
-    public async Task TicketSpecs_ABoundTicketWithAnApprovedSet_ShowsItsPhasesAndItsApproval()
+    public async Task TicketSpecs_ABoundTicketWithAnApprovedSet_ShowsItsSpecsAndItsApproval()
     {
         await BindAsync("jira-1");
         await _approvals.SaveAsync(

@@ -221,7 +221,7 @@ public sealed class DialogueResumeSweeperTests : IDisposable
     /// 2026-09-22-7c41c: a parked run is outside the active set the broadcaster drains, so a
     /// published event would die there and nothing would tell an open surface to re-read. The
     /// card would keep demanding an answer that is already in until the run relaunched — which
-    /// is exactly when the status clears it anyway, so without this the phase delivers nothing.
+    /// is exactly when the status clears it anyway, so without this the spec delivers nothing.
     /// </summary>
     [Fact]
     public async Task Resume_AnEnqueuedRelaunch_NudgesTheRunList()

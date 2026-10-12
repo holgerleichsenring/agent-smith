@@ -8,8 +8,8 @@ namespace AgentSmith.Tests.Specs;
 
 /// <summary>
 /// 2026-09-08-5cd2: what the model and the author are told about an edited ticket —
-/// the prompt names the revision the change postdates and keeps the executed phases,
-/// the comment names the re-cut and the kept phases — and the index carries the
+/// the prompt names the revision the change postdates and keeps the executed specs,
+/// the comment names the re-cut and the kept specs — and the index carries the
 /// fingerprint the comparison reads.
 /// </summary>
 public sealed class TicketEditNoticeTests
@@ -36,7 +36,7 @@ public sealed class TicketEditNoticeTests
     }
 
     [Fact]
-    public void Comment_ATicketEditRevision_NamesTheRecutAndTheKeptPhases()
+    public void Comment_ATicketEditRevision_NamesTheRecutAndTheKeptSpecs()
     {
         var body = SpecSetComment.Render(Set(SpecRevisionCause.Initial, SpecRevisionCause.TicketEdit), null);
 
@@ -46,7 +46,7 @@ public sealed class TicketEditNoticeTests
     }
 
     [Fact]
-    public void Comment_ATicketEditBeforeAnyPhaseRan_SaysTheWholeSetWasCutAgain()
+    public void Comment_ATicketEditBeforeAnySpecRan_SaysTheWholeSetWasCutAgain()
     {
         var set = Set(SpecRevisionCause.Initial, SpecRevisionCause.TicketEdit) with { Executed = [] };
 
@@ -74,13 +74,13 @@ public sealed class TicketEditNoticeTests
 
     private static SpecSet Set(params string[] causes) => new(
         "azdo-1",
-        [Phase("p1a", "Introduce the guard"), Phase("p1b", "Move the callers")],
+        [Spec("p1a", "Introduce the guard"), Spec("p1b", "Move the callers")],
         SpecAccounting.Empty,
         [.. causes.Select((cause, i) => new SpecRevision(i + 1, cause, DateTimeOffset.UtcNow))],
         SpecSource.BranchArtifact,
         ExecutedPhaseIds: ["p1a"]);
 
-    private static SpecPhase Phase(string id, string goal) => new(
+    private static SpecPhase Spec(string id, string goal) => new(
         new PhaseDraft(id, goal, $"spec: {id}\ngoal: \"{goal}\"", []) { Done = [$"{goal} is done."] },
         id, string.Empty, []);
 }

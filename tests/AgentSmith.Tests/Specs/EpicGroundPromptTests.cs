@@ -57,7 +57,7 @@ public sealed class EpicGroundPromptTests
     [Fact]
     public void EpicGround_CarriesNoFencedBlock()
     {
-        var parent = new PhaseTicketRenderer().RenderEpicParent(
+        var parent = new SpecTicketRenderer().RenderEpicParent(
             new PhaseDraft("p9000", "One vocabulary for the widget service", Yaml, []),
             [new PhaseDraft("p9000a", "The storage layer", Yaml, [])]);
 

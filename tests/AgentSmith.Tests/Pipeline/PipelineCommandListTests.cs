@@ -7,8 +7,8 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace AgentSmith.Tests.Pipeline;
 
 /// <summary>
-/// p0460: a step may retire the steps its own phase no longer needs — and nothing beyond
-/// them. Eating the next phase's master would turn "this phase is already done" into
+/// p0460: a step may retire the steps its own spec no longer needs — and nothing beyond
+/// them. Eating the next spec's master would turn "this spec is already done" into
 /// "the rest of the migration is already done", which is the one failure mode of skipping.
 /// </summary>
 public sealed class PipelineCommandListTests
@@ -21,28 +21,28 @@ public sealed class PipelineCommandListTests
         List().DropAhead(first, commands, Drop());
 
         commands.Select(c => c.Name).Should().Equal(
-            CommandNames.SelectPhase, CommandNames.WritePhaseRecord,
-            CommandNames.SelectPhase, CommandNames.AgenticMaster, CommandNames.WritePhaseRecord);
+            CommandNames.SelectSpec, CommandNames.WriteSpecRecord,
+            CommandNames.SelectSpec, CommandNames.AgenticMaster, CommandNames.WriteSpecRecord);
     }
 
     [Fact]
-    public void ARetiredStep_NeverCrossesThePhaseBoundary()
+    public void ARetiredStep_NeverCrossesTheSpecBoundary()
     {
         var (commands, first) = Block();
 
         List().DropAhead(first, commands, Drop());
 
-        // The second phase has not been accounted for and keeps every step it was given.
-        commands.Where(c => c.PhaseId == "p2").Select(c => c.Name).Should().Equal(
-            [CommandNames.SelectPhase, CommandNames.AgenticMaster, CommandNames.WritePhaseRecord]);
+        // The second spec has not been accounted for and keeps every step it was given.
+        commands.Where(c => c.SpecId == "p2").Select(c => c.Name).Should().Equal(
+            [CommandNames.SelectSpec, CommandNames.AgenticMaster, CommandNames.WriteSpecRecord]);
     }
 
     [Fact]
-    public void AStepBelongingToNoPhase_RetiresNothing()
+    public void AStepBelongingToNoSpec_RetiresNothing()
     {
         var commands = new LinkedList<PipelineCommand>(
         [
-            new PipelineCommand(CommandNames.SelectPhase),
+            new PipelineCommand(CommandNames.SelectSpec),
             new PipelineCommand(CommandNames.AgenticMaster),
         ]);
 
@@ -61,13 +61,13 @@ public sealed class PipelineCommandListTests
     {
         var commands = new LinkedList<PipelineCommand>(
         [
-            .. Phase("p1"),
-            .. Phase("p2"),
+            .. Spec("p1"),
+            .. Spec("p2"),
         ]);
         return (commands, commands.First!);
     }
 
-    private static IEnumerable<PipelineCommand> Phase(string phaseId) =>
-        new[] { CommandNames.SelectPhase, CommandNames.AgenticMaster, CommandNames.WritePhaseRecord }
-            .Select(name => new PipelineCommand(name) { PhaseId = phaseId });
+    private static IEnumerable<PipelineCommand> Spec(string specId) =>
+        new[] { CommandNames.SelectSpec, CommandNames.AgenticMaster, CommandNames.WriteSpecRecord }
+            .Select(name => new PipelineCommand(name) { SpecId = specId });
 }

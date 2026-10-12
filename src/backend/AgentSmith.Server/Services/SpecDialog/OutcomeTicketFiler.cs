@@ -13,7 +13,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// <summary>
 /// p0315c: files a confirmed outcome into the ACTIVE SCOPE's tracker via the existing provider
 /// factory. Bug → the fix-bug ticket shape (title + body, no label — the same shape the
-/// create-ticket chat intent files). 2026-09-22-b3d7: a phase and an approved cut → ONE ticket
+/// create-ticket chat intent files). 2026-09-22-b3d7: a spec and an approved cut → ONE ticket
 /// each, carrying the approved-set stamp, through <see cref="ApprovedSetTicketFiler"/>; the orderer below
 /// still refuses a cut whose edges cannot be ordered, before any ticket exists. 2026-09-22-b6ad:
 /// the NOTES are created here and threaded into the filing arms, because that is where the ticket
@@ -22,7 +22,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 public sealed class OutcomeTicketFiler(
     AgentSmithConfig config,
     ITicketProviderFactory ticketFactory,
-    PhaseTicketRenderer renderer, BugTicketRenderer bugRenderer,
+    SpecTicketRenderer renderer, BugTicketRenderer bugRenderer,
     EpicChildOrderer orderer, FiledSeriesFactory seriesFiling,
     ApprovedSetTicketFiler sets, FiledWorkStarter starter, TicketKindResolver kinds,
     ILogger<OutcomeTicketFiler> logger)
@@ -42,8 +42,8 @@ public sealed class OutcomeTicketFiler(
                 BugOutcome bug => FileBugAsync(
                     provider, project, bug.Ticket, filed, mayStartRuns, cancellationToken),
                 // 2026-10-06-03c7c: the series is minted and re-id'd BEFORE anything renders.
-                PhaseOutcome phase => FilePhaseAsync(provider, state, project,
-                    seriesFiling.Mint([phase.Draft]), filed, notes, mayStartRuns, cancellationToken),
+                SpecOutcome spec => FileSpecAsync(provider, state, project,
+                    seriesFiling.Mint([spec.Draft]), filed, notes, mayStartRuns, cancellationToken),
                 EpicOutcome epic => FileEpicAsync(
                     provider, state, project, epic, filed, notes, mayStartRuns, cancellationToken),
                 _ => throw new InvalidOperationException(
@@ -85,19 +85,19 @@ public sealed class OutcomeTicketFiler(
         await starter.StampAsync(provider, project, created, [], mayStartRuns, filed, ct);
     }
 
-    private Task FilePhaseAsync(
+    private Task FileSpecAsync(
         ITicketProvider provider, ConversationState state, ResolvedProject project,
         FiledSeries series, List<FiledTicket> filed, List<string> notes, bool mayStartRuns,
         CancellationToken ct) =>
         sets.FileAsync(
             provider, state, project, TicketFilingRole.Phase,
-            note => renderer.RenderPhase(series.Drafts[0], state.JobId, note), series, series.Drafts[0].Goal,
+            note => renderer.RenderSpec(series.Drafts[0], state.JobId, note), series, series.Drafts[0].Goal,
             filed, notes, mayStartRuns, ct);
 
     /// <summary>
     /// 2026-09-17-0e79d: an approved cut is ONE piece of work — one work ticket from the parent
-    /// draft, carrying the whole ordered set: PhaseSequence splices one master-verify-record block
-    /// per unexecuted phase. 2026-10-06-03c7f: the parent's goal is the series' goal.
+    /// draft, carrying the whole ordered set: SpecSequence splices one master-verify-record block
+    /// per unexecuted spec. 2026-10-06-03c7f: the parent's goal is the series' goal.
     /// </summary>
     private Task FileEpicAsync(
         ITicketProvider provider, ConversationState state, ResolvedProject project,

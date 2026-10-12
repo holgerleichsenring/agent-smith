@@ -7,7 +7,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// one line a failure keeps of an exception.
 /// <para>
 /// Carved out of <see cref="CommitAndPRHandler"/>, which is over the file-length limit and
-/// may only get shorter: this phase and the shortfall work merged into it from two sides at
+/// may only get shorter: this spec and the shortfall work merged into it from two sides at
 /// once. Neither of these is a decision about committing or opening anything — they are how
 /// the result is worded.
 /// </para>

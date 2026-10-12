@@ -61,7 +61,7 @@ public sealed class SandboxOrphanReaperOwnershipTests
     }
 
     [Fact]
-    public async Task UnownedContainer_FromABinaryBeforeThisPhase_IsSweptOnceThenNeverListedAgain()
+    public async Task UnownedContainer_FromABinaryBeforeThisSpec_IsSweptOnceThenNeverListedAgain()
     {
         var daemon = new FakeDockerDaemon(
             SandboxWithoutOwner("legacy-1", runId: "run-long-dead", age: PastTheAgeRail),

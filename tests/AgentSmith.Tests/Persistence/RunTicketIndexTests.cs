@@ -35,7 +35,7 @@ public sealed class RunTicketIndexTests
     }
 
     /// <summary>
-    /// The claim this phase adds, and it is about CONTAINMENT rather than the head: the next
+    /// The claim this spec adds, and it is about CONTAINMENT rather than the head: the next
     /// migration anywhere moves the head, and a test that pinned it would go red for a change
     /// that has nothing to do with this index.
     /// </summary>

@@ -9,7 +9,7 @@ namespace AgentSmith.Application.Services.Resume;
 /// internal type — <c>&lt;&gt;z__ReadOnlySingleElementList&lt;T&gt;</c> for one element,
 /// <c>&lt;&gt;z__ReadOnlyArray&lt;T&gt;</c> for several. Each serialises happily as a JSON
 /// array and none of them can be READ back: System.Text.Json finds no constructor it can
-/// use. A live run parked at phase c, the operator answered, and the resume threw
+/// use. A live run parked at spec c, the operator answered, and the resume threw
 /// NotSupportedException on the way in, thirty-seven of fifty-five steps done.
 /// </para>
 /// <para>

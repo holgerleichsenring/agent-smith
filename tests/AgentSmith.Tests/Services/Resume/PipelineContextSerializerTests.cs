@@ -25,7 +25,7 @@ public sealed class PipelineContextSerializerTests
 
     // p0478: a collection expression with EXACTLY one element compiles to an internal
     // <>z__ReadOnlySingleElementList<T>. It serialises as an array and cannot be
-    // deserialised. A live run parked at phase c, the operator answered, and the resume threw
+    // deserialised. A live run parked at spec c, the operator answered, and the resume threw
     // NotSupportedException on the way back in — thirty-seven of fifty-five steps done.
     [Fact]
     public void Checkpoint_SingleElementCollectionExpression_RoundTrips()
@@ -103,15 +103,15 @@ public sealed class PipelineContextSerializerTests
     /// <summary>
     /// p0469: the log used to hold its entries privately, so it serialised to <c>{}</c> and
     /// restored present-but-empty — which TryGet reports as a success. Invisible while the
-    /// key was only set on terminal paths; the moment a completing phase publishes it, the
+    /// key was only set on terminal paths; the moment a completing spec publishes it, the
     /// shape p0452 was written for — master asks, run parks, operator answers, resume lands
-    /// past the master — restores a phase that looks like it ran no commands at all.
+    /// past the master — restores a spec that looks like it ran no commands at all.
     /// </summary>
     [Fact]
-    public void PhaseCommandLog_SerialisedAndRestored_KeepsWhatItHad()
+    public void SpecCommandLog_SerialisedAndRestored_KeepsWhatItHad()
     {
         var source = new PipelineContext();
-        var log = Application.Services.Specs.PhaseCommandScope.Open(source);
+        var log = Application.Services.Specs.SpecRunCommandScope.Open(source);
         log.Record("api", "grep -rn 'Sample' src", "exit_code: 1\n\nstdout:\n");
         for (var i = 0; i < 150; i++)
             log.Record("api", $"dotnet build src/backend/Sample.Module{i}/Sample.Module{i}.csproj",
@@ -120,7 +120,7 @@ public sealed class PipelineContextSerializerTests
         var target = new PipelineContext();
         _sut.Restore(_sut.Serialize(source), target);
 
-        var evidence = Application.Services.Specs.PhaseEvidence.From([], target);
+        var evidence = Application.Services.Specs.SpecEvidence.From([], target);
         evidence[0].Should().Contain("ran 151 commands",
             "the count of what ran is state of its own — rebuilt from the restored list it "
             + "would come back describing the list instead of the phase");
@@ -255,7 +255,7 @@ public sealed class PipelineContextSerializerTests
     {
         var spliced = PipelineCommand.SkillRound(
             "BootstrapRoundCommand", "bootstrap-csharp", 1,
-            repoName: "api", contextName: "server", workdir: "server/") with { PhaseId = "p0001" };
+            repoName: "api", contextName: "server", workdir: "server/") with { SpecId = "p0001" };
 
         var restored = AgentSmith.Application.Models.CheckpointCommand.From(spliced).ToPipelineCommand();
 
@@ -265,26 +265,26 @@ public sealed class PipelineContextSerializerTests
         restored.RepoName.Should().Be("api");
         restored.ContextName.Should().Be("server");
         restored.Workdir.Should().Be("server/");
-        restored.PhaseId.Should().Be("p0001",
+        restored.SpecId.Should().Be("p0001",
             "2026-09-03-3c07: a resumed phase block came back belonging to no phase");
     }
 
     /// <summary>
-    /// 2026-09-17-0e79e: the run's step budget is published mid-run by PhaseSequence, and a
+    /// 2026-09-17-0e79e: the run's step budget is published mid-run by SpecSequence, and a
     /// resume splices no sequence of its own — so if the checkpoint drops it, the resumed
-    /// segment silently falls back to the number this phase exists to replace.
+    /// segment silently falls back to the number this spec exists to replace.
     /// </summary>
     [Fact]
     public void PipelineContextSerializer_StepBudget_SurvivesARoundTrip()
     {
         var context = new PipelineContext();
-        context.Set(ContextKeys.StepBudget, AgentSmith.Contracts.Pipeline.StepBudget.ForPhases(8));
+        context.Set(ContextKeys.StepBudget, AgentSmith.Contracts.Pipeline.StepBudget.ForSpecs(8));
 
         var restored = new PipelineContext();
         _sut.Restore(_sut.Serialize(context), restored);
 
         AgentSmith.Contracts.Pipeline.StepBudget.From(restored)
-            .Should().Be(AgentSmith.Contracts.Pipeline.StepBudget.ForPhases(8));
+            .Should().Be(AgentSmith.Contracts.Pipeline.StepBudget.ForSpecs(8));
     }
 
     /// <summary>p0478: several parameterised constructors and no parameterless one — what

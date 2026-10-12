@@ -20,7 +20,7 @@ public sealed class ShortenedCommandCitationTests
         + "else echo 'No MassTransit references found in owned sources or projects'; fi";
 
     /// <summary>Built from what the log actually stores, never from a frozen literal: the
-    /// rendering this phase changes would otherwise be pinned by the test that proves it.
+    /// rendering this spec changes would otherwise be pinned by the test that proves it.
     /// </summary>
     private static string EvidenceLine()
     {
@@ -57,7 +57,7 @@ public sealed class ShortenedCommandCitationTests
     /// same family share their head by construction and differ only in the paths they ran
     /// against — run 0944 issued 21 over-cap commands of exactly that shape — so a head-only
     /// citation names both and closes a two-repository criterion with a one-repository
-    /// search. That is the refusal this phase exists to end, inverted into a false positive.
+    /// search. That is the refusal this spec exists to end, inverted into a false positive.
     /// </summary>
     [Fact]
     public void Citation_OnlyTheVisibleHeadOfAShortenedCommand_DoesNotResolve()

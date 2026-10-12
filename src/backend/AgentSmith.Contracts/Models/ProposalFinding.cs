@@ -12,10 +12,10 @@ namespace AgentSmith.Contracts.Models;
 /// gone by the time anyone reads this, and an id nobody can resolve is not evidence.
 /// </para>
 /// </summary>
-/// <param name="PhaseId">The phase of the proposal the finding is against.</param>
+/// <param name="PhaseId">The spec of the proposal the finding is against.</param>
 /// <param name="Problem">The verdict, in the reviewer's own vocabulary.</param>
 /// <param name="Why">What is wrong with it.</param>
-/// <param name="Quote">What the phase states, quoted by the reviewer; absent findings quote nothing.</param>
+/// <param name="Quote">What the spec states, quoted by the reviewer; absent findings quote nothing.</param>
 /// <param name="Evidence">
 /// The framework-minted line of the look the finding rests on, resolved from the id it cited.
 /// Null where the finding cites nothing — only a false premise does.

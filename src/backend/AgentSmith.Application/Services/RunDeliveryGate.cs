@@ -6,7 +6,7 @@ namespace AgentSmith.Application.Services;
 /// <summary>
 /// p0421: the ONE gate that decides whether a run delivered.
 /// <para>
-/// It reads the accounts every phase gave of itself against the branch (p0420) and
+/// It reads the accounts every spec gave of itself against the branch (p0420) and
 /// nothing else. Its predecessor asked whether THIS run had committed code and grew six
 /// signals teaching that question its exceptions — expectsCodeChanges, shipsCode,
 /// perRepoCommittedChange, expectedChangeRepos, the ledger, the changed paths — plus a
@@ -25,7 +25,7 @@ public static class RunDeliveryGate
     /// nobody stated is how the old gate came to fail runs that had delivered.
     /// <para>
     /// But criteria that were ratified and never accounted for are a GAP, not a pass:
-    /// silence there means no phase ever measured itself, which is the hollow success
+    /// silence there means no spec ever measured itself, which is the hollow success
     /// the gate exists to prevent.
     /// </para>
     /// </summary>
@@ -65,10 +65,10 @@ public static class RunDeliveryGate
 
     private static IReadOnlyList<string> Outstanding(RunAccounts accounts) =>
     [
-        .. accounts.Phases.SelectMany(phase =>
-            phase.Accounts.SelectMany(account =>
+        .. accounts.Phases.SelectMany(spec =>
+            spec.Accounts.SelectMany(account =>
                 account.Outstanding.Select(criterion =>
-                    $"{phase.PhaseId} / {account.RepoKey}: {criterion.Criterion}"
+                    $"{spec.PhaseId} / {account.RepoKey}: {criterion.Criterion}"
                     + (criterion.Note is null ? string.Empty : $" ({criterion.Note})"))))
     ];
 }

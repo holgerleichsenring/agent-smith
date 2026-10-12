@@ -8,9 +8,9 @@ using static AgentSmith.Tests.Specs.PremiseCheckTestDoubles;
 namespace AgentSmith.Tests.Specs;
 
 /// <summary>
-/// 2026-09-17-0e79c: what a false premise DOES. The step fails, the phase row is written —
-/// between SelectPhase and verification nothing else would write it — and the ticket is told,
-/// because a run that delivers its verified phases as a shortfall never reaches the error
+/// 2026-09-17-0e79c: what a false premise DOES. The step fails, the spec row is written —
+/// between SelectSpec and verification nothing else would write it — and the ticket is told,
+/// because a run that delivers its verified specs as a shortfall never reaches the error
 /// path's own failure comment.
 /// </summary>
 public sealed class PremiseHandbackTests
@@ -23,7 +23,7 @@ public sealed class PremiseHandbackTests
         """;
 
     [Fact]
-    public async Task PremiseCheck_FalsePremise_RecordsThePhaseFailedWithTheVerdictInOneArgument()
+    public async Task PremiseCheck_FalsePremise_RecordsTheSpecFailedWithTheVerdictInOneArgument()
     {
         var h = For(Draft(), Falsified, searches: (DerivationTestLooks.Repo, "Validate"));
 
@@ -45,10 +45,10 @@ public sealed class PremiseHandbackTests
         await h.RunAsync();
 
         var row = h.Pipeline.Get<SpecSequenceProgress>(ContextKeys.SpecSequenceProgress)
-            .Phases.Single(p => p.PhaseId == PhaseId);
+            .Phases.Single(p => p.PhaseId == SpecId);
         row.State.Should().Be(PhaseRunState.HandedBack,
-            "a step failing between SelectPhase and verification would leave it in progress forever");
-        row.FailingCommand.Should().Contain("False premise in " + PhaseId);
+            "a step failing between SelectSpec and verification would leave it in progress forever");
+        row.FailingCommand.Should().Contain("False premise in " + SpecId);
     }
 
     [Fact]
@@ -94,7 +94,7 @@ public sealed class PremiseHandbackTests
     [Fact]
     public async Task PremiseCheck_RetriggerWithTheSameFinding_DoesNotSayItAgain()
     {
-        // A phase is marked executed only at WritePhaseRecord, so every re-trigger re-enters it
+        // A spec is marked executed only at WriteSpecRecord, so every re-trigger re-enters it
         // and re-asks. Five re-triggers used to leave five identical comments.
         var h = For(Draft(), Falsified, searches: (DerivationTestLooks.Repo, "Validate"));
         await h.RunAsync();
@@ -141,7 +141,7 @@ public sealed class PremiseHandbackTests
     public void PremiseCheck_Verdict_IsOneLineEvenWhenThePremiseIsProse()
     {
         var verdict = PremiseHandback.Verdict(
-            PhaseId,
+            SpecId,
             new AgentSmith.Domain.Models.PremiseFinding(
                 "a premise\nover two lines", PremiseCheckPrompt.NoLongerHolds, "because\r\nso",
                 "M1", "[M1] Sample.Server: the premise check ran 'grep' exited 1"));

@@ -172,14 +172,14 @@ public sealed class ApprovedSetRecutOnDemandTests
     }
 
     /// <summary>
-    /// A phase that ran is never edited, and the demand can only reach the tail. That is ENFORCED
+    /// A spec that ran is never edited, and the demand can only reach the tail. That is ENFORCED
     /// rather than asked for: the model is handed the previous set, and SpecDerivationParser
     /// re-uses its executed head verbatim while discarding the model's entries for those
     /// positions (pinned by Recut_UnexecutedTail_IsRepartitionedWhileTheExecutedHeadKeepsItsIds).
     /// What this pins is the wiring — a demand really does put that head in front of the parser.
     /// </summary>
     [Fact]
-    public async Task RecutOnDemand_ThePhaseThatAlreadyRan_IsHandedToTheModelAsTheExecutedHead()
+    public async Task RecutOnDemand_TheSpecThatAlreadyRan_IsHandedToTheModelAsTheExecutedHead()
     {
         var harness = Harness(executed: "p19106a");
         harness.Comments = [OurCut(), Demand()];
@@ -216,8 +216,8 @@ public sealed class ApprovedSetRecutOnDemandTests
             BranchYaml(fingerprint ?? TicketTextFingerprint.Of(Ticket()), approvedAt ?? Approved),
             new Dictionary<string, string>
             {
-                ["p19106a-first"] = PhaseYaml("p19106a"),
-                ["p19106b-second"] = PhaseYaml("p19106b"),
+                ["p19106a-first"] = SpecYaml("p19106a"),
+                ["p19106b-second"] = SpecYaml("p19106b"),
             }, executed);
         return harness;
     }
@@ -242,7 +242,7 @@ public sealed class ApprovedSetRecutOnDemandTests
         return string.Join("\n", lines);
     }
 
-    private static string PhaseYaml(string id) => $"""
+    private static string SpecYaml(string id) => $"""
         spec: {id}
         goal: "Goal {id}"
         done:
@@ -262,17 +262,17 @@ public sealed class ApprovedSetRecutOnDemandTests
     private static TicketComment Ordinary(string body) =>
         new("sample.operator", Demanded, body);
 
-    // What the model answers a demand with: one phase that is not what the branch carried.
+    // What the model answers a demand with: one spec that is not what the branch carried.
     private static SpecDerivation Recut(SpecHandback? handback = null)
     {
         var segments = TicketSegmenter.Segment(Text);
-        var phase = new SpecPhase(
-            ApprovedSets.Phase("p19106z", "Cut again on demand").Draft, "p19106z", string.Empty,
+        var spec = new SpecPhase(
+            ApprovedSets.Spec("p19106z", "Cut again on demand").Draft, "p19106z", string.Empty,
             [.. segments.Select(s => s.Id)]);
         return new SpecDerivation(
             new SpecSet(
-                Key, handback is null ? [phase] : [],
-                handback is null ? SpecAccountingBuilder.Build([phase], [], segments) : SpecAccounting.Empty,
+                Key, handback is null ? [spec] : [],
+                handback is null ? SpecAccountingBuilder.Build([spec], [], segments) : SpecAccounting.Empty,
                 [new SpecRevision(1, SpecRevisionCause.Initial, Approved)],
                 SpecSource.BranchArtifact, handback),
             []);

@@ -10,7 +10,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace AgentSmith.Tests.Services;
 
 /// <summary>
-/// p0380 wrote decisions as per-phase / per-run YAML under .agentsmith/decisions/ —
+/// p0380 wrote decisions as per-spec / per-run YAML under .agentsmith/decisions/ —
 /// decision.schema.json, the IDE format — and those cases are kept here.
 /// <para>
 /// 2026-09-19-c511a: through the REPOSITORY's file surface. The predecessor took a PATH and gave it
@@ -70,7 +70,7 @@ public sealed class RepositoryDecisionLoggerTests
     }
 
     [Fact]
-    public async Task DecisionLog_PhaseLabelled_WritesDecisionsPhaseYaml()
+    public async Task DecisionLog_SpecLabelled_WritesDecisionsSpecYaml()
     {
         using var scope = _runContext.BeginScope(SampleRunId);
 
@@ -187,7 +187,7 @@ public sealed class RepositoryDecisionLoggerTests
     }
 
     [Fact]
-    public async Task DecisionLog_WithNoRunScopeAndNoPhaseLabel_WritesNothing()
+    public async Task DecisionLog_WithNoRunScopeAndNoSpecLabel_WritesNothing()
     {
         var outcome = await _sut.LogAsync(_repository, DecisionCategory.Architecture, "unscoped");
 
@@ -254,7 +254,7 @@ public sealed class RepositoryDecisionLoggerTests
     }
 
     [Fact]
-    public async Task DecisionLog_TicketHashLabel_IsNotAPhase_FallsBackToRunFile()
+    public async Task DecisionLog_TicketHashLabel_IsNotASpec_FallsBackToRunFile()
     {
         using var scope = _runContext.BeginScope(SampleRunId);
 

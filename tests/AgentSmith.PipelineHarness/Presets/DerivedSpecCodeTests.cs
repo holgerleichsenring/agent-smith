@@ -9,8 +9,8 @@ namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
 /// p0393a through the REAL composition: an ORDINARY ticket — no hand-written spec
-/// anywhere — runs the `code` preset end to end because DeriveSpec turns it into phase
-/// specs first. This is the phase's headline claim, asserted against the wired pipeline
+/// anywhere — runs the `code` preset end to end because DeriveSpec turns it into spec
+/// specs first. This is the spec's headline claim, asserted against the wired pipeline
 /// rather than a handler with mocks.
 /// </summary>
 [Trait("Category", "PipelineHarness")]
@@ -38,12 +38,12 @@ public sealed class DerivedSpecCodeTests
         var set = runner.LastContext!.Get<SpecSet>(ContextKeys.SpecSet);
         set.Phases.Should().ContainSingle();
         set.Source.Should().Be(SpecSource.Derived, "the ticket carried no spec of its own");
-        runner.LastContext!.Get<PhaseDraft>(ContextKeys.PhaseSpec).Done
+        runner.LastContext!.Get<PhaseDraft>(ContextKeys.CurrentSpec).Done
             .Should().NotBeEmpty("the phase's done-list is the run's acceptance contract");
     }
 
     [Fact]
-    public async Task Harness_TwoPhaseDerivation_RunsOneMasterPassPerPhase()
+    public async Task Harness_TwoSpecDerivation_RunsOneMasterPassPerSpec()
     {
         await using var harness = RealCompositionHarness.Build(
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
@@ -53,7 +53,7 @@ public sealed class DerivedSpecCodeTests
         harness.Services.GetRequiredService<HarnessSpecAccountant>()
             .LeaveOutstanding("No caller builds its own empty-payload check.");
         harness.ChatClient
-            .EnqueueText(SpecDerivationFixture.TwoPhaseJson)
+            .EnqueueText(SpecDerivationFixture.TwoSpecJson)
             // phase 1: plan, master, verdict
             .EnqueueText("Planning: introduce the guard.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
@@ -69,7 +69,7 @@ public sealed class DerivedSpecCodeTests
         var progress = runner.LastContext!.Get<SpecSequenceProgress>(ContextKeys.SpecSequenceProgress);
         progress.Phases.Should().HaveCount(2);
         progress.Phases.Should().OnlyContain(p => p.State == PhaseRunState.Done,
-            "each phase ends at its own VerifyPhase — that is where termination comes from");
+            "each phase ends at its own VerifySpec — that is where termination comes from");
         harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file", "write_file");
     }
 

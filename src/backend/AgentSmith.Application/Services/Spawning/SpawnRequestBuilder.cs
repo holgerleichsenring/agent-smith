@@ -18,7 +18,7 @@ namespace AgentSmith.Application.Services.Spawning;
 /// 2026-09-17-0e79a: both shapes carry the APPROVED RECORD when the ticket has one, so a run
 /// launched now and a run the pump launches later work from the same approved set. Stated
 /// consequence: it travels through the queue row and the Redis job payload — tens of kilobytes
-/// per phase.
+/// per spec.
 /// </para>
 /// </summary>
 internal static class SpawnRequestBuilder

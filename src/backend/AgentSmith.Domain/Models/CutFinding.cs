@@ -1,10 +1,10 @@
 namespace AgentSmith.Domain.Models;
 
 /// <summary>
-/// p0422: one reason a phase cannot be delivered as written.
+/// p0422: one reason a spec cannot be delivered as written.
 /// <para>
-/// <see cref="Criterion"/> is quoted verbatim from the phase, and the framework checks
-/// that the phase really states it — a reviewer that invents its objection is worse than
+/// <see cref="Criterion"/> is quoted verbatim from the spec, and the framework checks
+/// that the spec really states it — a reviewer that invents its objection is worse than
 /// none, because it blocks a cut nobody can find the fault in.
 /// </para>
 /// <para>
@@ -14,7 +14,7 @@ namespace AgentSmith.Domain.Models;
 /// </para>
 /// </summary>
 public sealed record CutFinding(
-    string PhaseId,
+    string SpecId,
     string Criterion,
     string Problem,
     string Why,

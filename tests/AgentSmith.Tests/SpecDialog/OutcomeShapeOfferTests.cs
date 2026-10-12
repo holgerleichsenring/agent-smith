@@ -50,9 +50,9 @@ public sealed class OutcomeShapeOfferTests : IDisposable
     }
 
     [Fact]
-    public async Task Confirmation_AOnePhaseProposal_OffersCuttingItIntoSeveral()
+    public async Task Confirmation_AOneSpecProposal_OffersCuttingItIntoSeveral()
     {
-        var asked = await AskedAsync(new PhaseOutcome(Draft("p9001")));
+        var asked = await AskedAsync(new SpecOutcome(Draft("p9001")));
 
         asked.Type.Should().Be(QuestionType.Approval,
             "the pair, the recorded decision and the pane's counted summary are keyed off the kind");
@@ -60,7 +60,7 @@ public sealed class OutcomeShapeOfferTests : IDisposable
     }
 
     [Fact]
-    public async Task Confirmation_AMultiPhaseProposal_OffersCuttingItIntoOne()
+    public async Task Confirmation_AMultiSpecProposal_OffersCuttingItIntoOne()
     {
         var asked = await AskedAsync(new EpicOutcome(Draft("p9000"), [Draft("p9000a")]));
 
@@ -69,7 +69,7 @@ public sealed class OutcomeShapeOfferTests : IDisposable
     }
 
     [Fact]
-    public async Task Confirmation_ABugProposal_OffersMakingItAPhase()
+    public async Task Confirmation_ABugProposal_OffersMakingItASpec()
     {
         var asked = await AskedAsync(
             new BugOutcome(new BugTicketDraft("Widget drops", "It drops.", "It stops.")));
@@ -128,7 +128,7 @@ public sealed class OutcomeShapeOfferTests : IDisposable
     [Fact]
     public async Task Confirmation_AReplyMatchingAnOfferedLabel_IsAnEditCarryingThatLabel()
     {
-        var proposal = new PhaseOutcome(Draft("p9001"));
+        var proposal = new SpecOutcome(Draft("p9001"));
         var label = OutcomeShapes.For(proposal)[0].Label;
 
         var result = await ConfirmAsync(proposal, label);
@@ -140,12 +140,12 @@ public sealed class OutcomeShapeOfferTests : IDisposable
 
     [Fact]
     public async Task Confirmation_AReplyMatchingAnApprovalWord_StillApproves() =>
-        (await ConfirmAsync(new PhaseOutcome(Draft("p9001")), "approve"))
+        (await ConfirmAsync(new SpecOutcome(Draft("p9001")), "approve"))
             .Should().BeOfType<OutcomeConfirmed>();
 
     [Fact]
     public async Task Confirmation_AnyOtherText_IsStillAnEditNote() =>
-        (await ConfirmAsync(new PhaseOutcome(Draft("p9001")), "drop the second slice"))
+        (await ConfirmAsync(new SpecOutcome(Draft("p9001")), "drop the second slice"))
             .Should().BeOfType<OutcomeEditRequested>()
             .Which.Note.Should().Be("drop the second slice");
 
@@ -153,7 +153,7 @@ public sealed class OutcomeShapeOfferTests : IDisposable
     public async Task OutcomeFlow_ATimedOutConfirmation_ClearsTheProposalAsItDoesToday()
     {
         var (flow, store, state) = await FlowAsync();
-        var proposal = new PhaseOutcome(Draft("p9001"));
+        var proposal = new SpecOutcome(Draft("p9001"));
         await store.SetProposalAsync(Platform, Thread, proposal, CancellationToken.None);
 
         var result = await flow.ApplyAsync(
@@ -174,7 +174,7 @@ public sealed class OutcomeShapeOfferTests : IDisposable
     public async Task OutcomeFlow_AnUnknownConfirmation_Throws()
     {
         var (flow, store, state) = await FlowAsync();
-        var proposal = new PhaseOutcome(Draft("p9001"));
+        var proposal = new SpecOutcome(Draft("p9001"));
         await store.SetProposalAsync(Platform, Thread, proposal, CancellationToken.None);
 
         var act = () => flow.ApplyAsync(
@@ -194,7 +194,7 @@ public sealed class OutcomeShapeOfferTests : IDisposable
     [Fact]
     public void OutcomeShapes_TheSizeLadder_IsUnchangedForEveryExistingKind()
     {
-        OutcomeShapes.For(new PhaseOutcome(Draft("p9001"))).Select(s => s.Label)
+        OutcomeShapes.For(new SpecOutcome(Draft("p9001"))).Select(s => s.Label)
             .Should().Equal("Cut into several phases", "Make it a bug ticket");
         OutcomeShapes.For(new EpicOutcome(Draft("p9000"), [Draft("p9000a")])).Select(s => s.Label)
             .Should().Equal("Make it one phase");
@@ -209,17 +209,17 @@ public sealed class OutcomeShapeOfferTests : IDisposable
     [Fact]
     public async Task Amendment_AConversationWithNoTicket_IsNeverOfferedTheAmend()
     {
-        var asked = await AskedAsync(new PhaseOutcome(Draft("p9001")));
+        var asked = await AskedAsync(new SpecOutcome(Draft("p9001")));
 
         asked.Choices!.Should().NotContain(OutcomeShapes.AmendTheTicket);
-        (await ConfirmAsync(new PhaseOutcome(Draft("p9001")), OutcomeShapes.AmendTheTicket.Label))
+        (await ConfirmAsync(new SpecOutcome(Draft("p9001")), OutcomeShapes.AmendTheTicket.Label))
             .Should().BeOfType<OutcomeEditRequested>();
     }
 
     [Fact]
     public async Task Amendment_AConversationThatBelongsToATicket_IsOfferedIt()
     {
-        var asked = await AskedAsync(new PhaseOutcome(Draft("p9001")), bound: true);
+        var asked = await AskedAsync(new SpecOutcome(Draft("p9001")), bound: true);
 
         asked.Type.Should().Be(QuestionType.Approval, "an amendment is still an approval");
         asked.Choices!.Should().Contain(OutcomeShapes.AmendTheTicket);
@@ -240,11 +240,11 @@ public sealed class OutcomeShapeOfferTests : IDisposable
     [Fact]
     public async Task Amendment_ThePickedAmendOnABoundConversation_IsItsOwnConfirmationResult()
     {
-        (await ConfirmAsync(new PhaseOutcome(Draft("p9001")), OutcomeShapes.AmendTheTicket.Label, bound: true))
+        (await ConfirmAsync(new SpecOutcome(Draft("p9001")), OutcomeShapes.AmendTheTicket.Label, bound: true))
             .Should().BeOfType<OutcomeAmendRequested>();
-        (await ConfirmAsync(new PhaseOutcome(Draft("p9001")), "approve", bound: true))
+        (await ConfirmAsync(new SpecOutcome(Draft("p9001")), "approve", bound: true))
             .Should().BeOfType<OutcomeConfirmed>("approving still FILES; the amendment is the other door");
-        (await ConfirmAsync(new PhaseOutcome(Draft("p9001")), "drop the second slice", bound: true))
+        (await ConfirmAsync(new SpecOutcome(Draft("p9001")), "drop the second slice", bound: true))
             .Should().BeOfType<OutcomeEditRequested>();
     }
 
@@ -255,7 +255,7 @@ public sealed class OutcomeShapeOfferTests : IDisposable
     {
         var sink = new RecordingAmendSink();
         var (flow, store, state) = await FlowAsync(sink);
-        var proposal = new PhaseOutcome(Draft("p9001"));
+        var proposal = new SpecOutcome(Draft("p9001"));
         await store.SetProposalAsync(Platform, Thread, proposal, CancellationToken.None);
 
         var result = await flow.ApplyAsync(
@@ -293,7 +293,7 @@ public sealed class OutcomeShapeOfferTests : IDisposable
     private static IEnumerable<OutcomeProposal> EveryConfirmedKind() =>
     [
         new BugOutcome(new BugTicketDraft("t", "d", null)),
-        new PhaseOutcome(Draft("p9001")),
+        new SpecOutcome(Draft("p9001")),
         new EpicOutcome(Draft("p9000"), [Draft("p9000a")]),
     ];
 
@@ -378,6 +378,6 @@ public sealed class OutcomeShapeOfferTests : IDisposable
         Mode = ConversationMode.SpecDialog,
     };
 
-    private static PhaseDraft Draft(string phaseId) =>
-        new(phaseId, $"goal of {phaseId}", $"spec: {phaseId}", []);
+    private static PhaseDraft Draft(string specId) =>
+        new(specId, $"goal of {specId}", $"spec: {specId}", []);
 }

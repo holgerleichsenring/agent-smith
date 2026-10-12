@@ -10,14 +10,14 @@ namespace AgentSmith.Application.Services.Specs;
 /// nobody can find the flaw in — so it is discarded and logged.
 /// <para>
 /// 2026-09-15-ffa7: two shapes. A contradiction, an uncheckable criterion or one the ticket
-/// never asked for quotes a criterion the phase states. A FALSE PREMISE cites an id minted
+/// never asked for quotes a criterion the spec states. A FALSE PREMISE cites an id minted
 /// in the reviewer's OWN evidence — the rule <see cref="FactResolver"/> states: a line is a
 /// fact when the framework minted the id it cites, never because the model labelled it. A
 /// path would not do: a reviewer asked for one produces a plausible path it never opened.
 /// </para>
 /// <para>
-/// 2026-09-15-a5a5: a quote is matched against <see cref="PhaseQuotableText"/> — the done-list,
-/// or the goal and step actions of a phase that states none — under a floor that a blank
+/// 2026-09-15-a5a5: a quote is matched against <see cref="SpecQuotableText"/> — the done-list,
+/// or the goal and step actions of a spec that states none — under a floor that a blank
 /// string and a bare step id cannot satisfy.
 /// </para>
 /// </summary>
@@ -36,24 +36,24 @@ internal sealed class SpecCutAdmission(ILogger logger)
     private bool Admitted(
         IReadOnlyList<PhaseDraft> drafts, CutFinding finding, IReadOnlySet<string> ran)
     {
-        var phase = drafts.FirstOrDefault(d =>
-            string.Equals(d.PhaseId, finding.PhaseId, StringComparison.OrdinalIgnoreCase));
-        if (IsFalsePremise(finding)) return Cited(finding, phase, ran);
-        if (phase is not null && PhaseQuotableText.Contains(phase, finding.Criterion)) return true;
+        var spec = drafts.FirstOrDefault(d =>
+            string.Equals(d.PhaseId, finding.SpecId, StringComparison.OrdinalIgnoreCase));
+        if (IsFalsePremise(finding)) return Cited(finding, spec, ran);
+        if (spec is not null && SpecQuotableText.Contains(spec, finding.Criterion)) return true;
 
         logger.LogWarning(
-            "Cut review quoted nothing {Phase} states — discarding the finding: {Criterion}",
-            finding.PhaseId, Shorten(finding.Criterion ?? string.Empty));
+            "Cut review quoted nothing {Spec} states — discarding the finding: {Criterion}",
+            finding.SpecId, Shorten(finding.Criterion ?? string.Empty));
         return false;
     }
 
-    private bool Cited(CutFinding finding, PhaseDraft? phase, IReadOnlySet<string> ran)
+    private bool Cited(CutFinding finding, PhaseDraft? spec, IReadOnlySet<string> ran)
     {
-        if (phase is not null && DerivationEvidence.CitationsIn(finding.Cites).Any(ran.Contains))
+        if (spec is not null && DerivationEvidence.CitationsIn(finding.Cites).Any(ran.Contains))
             return true;
         logger.LogWarning(
-            "Cut review reported a false premise in {Phase} citing {Cites}, and no such phase or no look of its own that ran minted that id — discarding the finding",
-            finding.PhaseId, finding.Cites ?? "nothing");
+            "Cut review reported a false premise in {Spec} citing {Cites}, and no such spec or no look of its own that ran minted that id — discarding the finding",
+            finding.SpecId, finding.Cites ?? "nothing");
         return false;
     }
 

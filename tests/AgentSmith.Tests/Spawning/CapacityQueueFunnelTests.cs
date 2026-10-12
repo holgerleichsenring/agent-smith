@@ -170,7 +170,7 @@ public sealed class CapacityQueueFunnelTests : IDisposable
     [Fact]
     public async Task Spawn_TheProbesOwnSentence_IsWhatReachesTheRunRowOnTheFirstEnqueue()
     {
-        // The row already carried A sentence before this phase, so this asserts WHICH one.
+        // The row already carried A sentence before this spec, so this asserts WHICH one.
         const string itsOwnWords = "4 running + 1 needed exceeds the concurrent-sandbox cap of 4 — waiting.";
         var harness = new Harness(_connection, fits: true, probe: CapacityTestDoubles.AlwaysDeny(itsOwnWords));
 

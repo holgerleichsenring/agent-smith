@@ -10,7 +10,7 @@ namespace AgentSmith.Tests.Services.Skills;
 
 /// <summary>
 /// p0514: an operator catalog ADDS to the resolved one instead of replacing it.
-/// Before this phase a configured directory became the catalog root wholesale and
+/// Before this spec a configured directory became the catalog root wholesale and
 /// the run lost every master the binary demands by name — these tests hold the
 /// layering, the per-file precedence, the loud refusals and the caching.
 /// </summary>
@@ -41,7 +41,7 @@ public sealed class SkillsOverlayMaterializerTests : IDisposable
     }
 
     // The masters the binary demands by literal name. A layered catalog that loses
-    // one of these is the "Prompt resource not found" failure this phase removes.
+    // one of these is the "Prompt resource not found" failure this spec removes.
     private static IReadOnlyList<string> OfficialMasters() =>
         [.. PromptOwnership.RequiredMasterSkills.Append(PipelinePresets.CodingMaster).Distinct()];
 

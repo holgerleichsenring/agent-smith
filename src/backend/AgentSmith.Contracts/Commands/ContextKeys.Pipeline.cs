@@ -3,7 +3,7 @@ namespace AgentSmith.Contracts.Commands;
 /// <summary>
 /// Pipeline-execution PipelineContext keys: run metadata + lifecycle markers
 /// (RunId — canonical UTC timestamp + suffix per pipeline run, RunStartedAt,
-/// ActivePhaseStep, FailedStepName, Sandbox), and the preset selectors
+/// ActiveStep, FailedStepName, Sandbox), and the preset selectors
 /// (PipelineTypeName, PipelineName). Plan/verify/skill keys live in dedicated
 /// partial files (Plan, Verify, Skill).
 /// </summary>
@@ -88,8 +88,8 @@ public static partial class ContextKeys
 
     // p0128c: name of the currently-executing pipeline step. PipelineExecutor sets
     // this before each step and clears it after; the gated context wrapper reads it
-    // to decide whether a Get<T>/TryGet<T> is permitted under the active IPhaseDataFlow.
-    public const string ActivePhaseStep = "ActivePhaseStep";
+    // to decide whether a Get<T>/TryGet<T> is permitted under the active IStepDataFlow.
+    public const string ActiveStep = "ActivePhaseStep";
 
     /// <summary>2026-09-13-a284: Dictionary&lt;string,string&gt; of repo name → the base
     /// branch that repository's work branch was actually cut from — 2026-09-13-5cdf's
@@ -102,7 +102,7 @@ public static partial class ContextKeys
 
     /// <summary>2026-09-17-0e79e: <see cref="Pipeline.StepBudget"/> — how many command
     /// executions this run's segment may spend before the executor calls it an insertion
-    /// loop. PhaseSequence publishes it for the tail it splices and nothing else publishes
+    /// loop. SpecSequence publishes it for the tail it splices and nothing else publishes
     /// one; with the key absent the executor uses the budget every preset always had.</summary>
     public const string StepBudget = "StepBudget";
 

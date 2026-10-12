@@ -9,7 +9,7 @@ namespace AgentSmith.Tests.Prompts;
 /// <para>
 /// Ticket 19106's thread had grown to 147,462 characters — 97% of a 152k user message,
 /// re-sent on every one of 115 rounds — and almost all of it was agent-smith's own
-/// announcements from twenty-four runs. That phase made 348 tool calls and wrote nothing
+/// announcements from twenty-four runs. That spec made 348 tool calls and wrote nothing
 /// in four hours: an agent reading its own past output as instruction spends its rounds
 /// reconciling versions of the task instead of doing it.
 /// </para>

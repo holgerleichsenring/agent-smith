@@ -30,53 +30,53 @@ public static partial class PipelinePresets
         HasStep(pipelineName, CommandNames.MasterOpenQuestions);
 
     /// <summary>
-    /// p0393a: the steps PhaseSequence splices per derived phase. They belong to the preset
+    /// p0393a: the steps SpecSequence splices per derived spec. They belong to the preset
     /// even though they are not in its literal list — the capability questions above are
     /// asked at CONFIGURATION time, long before a run splices anything, and answering them
     /// from the literal list alone would report a pipeline that parks mid-run as one that
     /// cannot park at all. That is exactly the silent degradation p0391 exists to prevent.
     /// </summary>
-    // p0394a: no plan step — the ratified phase spec IS the plan. The ledger seeds
+    // p0394a: no plan step — the ratified spec IS the plan. The ledger seeds
     // from the spec's steps and the master's plan section renders the spec, so the
-    // block goes straight from selecting the phase to executing it.
-    public static readonly IReadOnlyList<string> CodePhaseBlock =
+    // block goes straight from selecting the spec to executing it.
+    public static readonly IReadOnlyList<string> CodeSpecBlock =
     [
-        CommandNames.SelectPhase,
-        // 2026-09-17-0e79c: what the phase says it RESTS ON is checked against the code before
-        // a master token is spent on it. After SelectPhase, so a phase the branch already
+        CommandNames.SelectSpec,
+        // 2026-09-17-0e79c: what the spec says it RESTS ON is checked against the code before
+        // a master token is spent on it. After SelectSpec, so a spec the branch already
         // satisfies drops it with the rest of the work steps.
-        CommandNames.CheckPhasePremises,
+        CommandNames.CheckSpecPremises,
         CommandNames.AgenticMaster,
         CommandNames.MasterOpenQuestions,
         // p0437: the work reaches the branch BEFORE the gate reads it. Live on ticket
         // 19106 the verification called five satisfied criteria outstanding, because the
-        // run-level CommitAndPR runs once after all phases.
-        CommandNames.CommitPhaseWork,
-        CommandNames.VerifyPhase,
+        // run-level CommitAndPR runs once after all specs.
+        CommandNames.CommitSpecWork,
+        CommandNames.VerifySpec,
         // 2026-09-17-042eh: the review reads VERIFIED work, so it follows the gate that
-        // makes it verified and precedes the record that states what came of the phase.
-        CommandNames.ReviewPhaseDiff,
-        CommandNames.WritePhaseRecord,
+        // makes it verified and precedes the record that states what came of the spec.
+        CommandNames.ReviewSpecDiff,
+        CommandNames.WriteSpecRecord,
     ];
 
     /// <summary>
-    /// p0460: the steps of the block that DO and JUDGE the phase's work — everything
-    /// between selecting the phase and recording it. A phase whose ratified criteria the
+    /// p0460: the steps of the block that DO and JUDGE the spec's work — everything
+    /// between selecting the spec and recording it. A spec whose ratified criteria the
     /// branch already satisfies has nothing for them to do, so entering it retires them.
     /// <para>
     /// The record step is deliberately NOT among them: a skip nobody can read is
-    /// indistinguishable from a phase that never ran, and the record is where the branch
-    /// says which phases are through.
+    /// indistinguishable from a spec that never ran, and the record is where the branch
+    /// says which specs are through.
     /// </para>
     /// </summary>
-    public static readonly IReadOnlyList<string> PhaseWorkSteps =
+    public static readonly IReadOnlyList<string> SpecWorkSteps =
     [
-        .. CodePhaseBlock.Where(
-            c => c != CommandNames.SelectPhase && c != CommandNames.WritePhaseRecord),
+        .. CodeSpecBlock.Where(
+            c => c != CommandNames.SelectSpec && c != CommandNames.WriteSpecRecord),
     ];
 
     /// <summary>
-    /// p0393a: the preset's command list with PhaseSequence expanded into the block it
+    /// p0393a: the preset's command list with SpecSequence expanded into the block it
     /// splices. Everything that REASONS about a preset — capability checks, the run-rail
     /// beats, the data-flow contract — needs the steps a run will actually execute; only
     /// the EXECUTOR wants the literal list, because the number of blocks is not known
@@ -86,10 +86,10 @@ public static partial class PipelinePresets
     {
         var commands = TryResolve(pipelineName);
         if (commands is null) return [];
-        if (!commands.Contains(CommandNames.PhaseSequence, StringComparer.Ordinal))
+        if (!commands.Contains(CommandNames.SpecSequence, StringComparer.Ordinal))
             return commands;
         return [.. commands.SelectMany(
-            c => c == CommandNames.PhaseSequence ? CodePhaseBlock : [c])];
+            c => c == CommandNames.SpecSequence ? CodeSpecBlock : [c])];
     }
 
     private static bool HasStep(string pipelineName, string commandName) =>

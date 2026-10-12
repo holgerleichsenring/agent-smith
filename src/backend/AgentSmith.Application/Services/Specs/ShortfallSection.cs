@@ -5,7 +5,7 @@ namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
 /// p0439: the "Not delivered" section of a shortfall run — in the pull request body and in
-/// the ticket comment, the two places the outcome is read. It names every phase the run
+/// the ticket comment, the two places the outcome is read. It names every spec the run
 /// left, in the derivation's own words, and the one reason the run stopped, so a reader
 /// decides "merge what is here" or "send it back" without opening the run.
 /// </summary>
@@ -26,8 +26,8 @@ public static class ShortfallSection
             $"{shortfall.Delivered.Count} of {shortfall.PhaseCount} phase(s) are built, verified and on this "
             + $"branch; the run stopped before the rest: {shortfall.Reason}");
         sb.AppendLine();
-        foreach (var phase in shortfall.NotDelivered)
-            sb.AppendLine($"- **{phase.PhaseId}** — {phase.Goal} ({Standing(phase)})");
+        foreach (var spec in shortfall.NotDelivered)
+            sb.AppendLine($"- **{spec.PhaseId}** — {spec.Goal} ({Standing(spec)})");
         sb.AppendLine();
         sb.AppendLine(
             "_Nothing of these phases is on the branch: work the stopped phase had begun was "
@@ -35,11 +35,11 @@ public static class ShortfallSection
         return sb.ToString().TrimEnd();
     }
 
-    private static string Standing(PhaseProgress phase) => phase.State switch
+    private static string Standing(PhaseProgress spec) => spec.State switch
     {
-        PhaseRunState.Failed => $"failed: {phase.FailingCommand ?? "verification red"}",
+        PhaseRunState.Failed => $"failed: {spec.FailingCommand ?? "verification red"}",
         PhaseRunState.HandedBack =>
-            $"handed back, never built: {phase.FailingCommand ?? "a premise no longer holds"}",
+            $"handed back, never built: {spec.FailingCommand ?? "a premise no longer holds"}",
         PhaseRunState.InProgress => "started, not finished",
         _ => "not started",
     };

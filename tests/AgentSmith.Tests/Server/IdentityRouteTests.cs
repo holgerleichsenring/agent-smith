@@ -32,7 +32,7 @@ public sealed class IdentityRouteTests
 
     // The golden is regenerated deliberately (AGENTSMITH_WRITE_ROUTE_BASELINE=1) and the
     // diff IS the review — so the review is written down: p0503a left 77 rows, and this
-    // phase adds exactly one, stating identity.read like every other route.
+    // spec adds exactly one, stating identity.read like every other route.
     [Fact]
     public void RouteGuard_TheGolden_GainsExactlyTheIdentityRow()
     {

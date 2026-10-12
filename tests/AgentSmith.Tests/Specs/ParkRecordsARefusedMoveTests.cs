@@ -122,7 +122,7 @@ public sealed class ParkRecordsARefusedMoveTests
 
     // The checkpoint is what makes the question answerable in the dashboard. A refused park is
     // exactly the case where the fallback — a manual status move on the board — does not exist,
-    // so nothing this phase does may sit between the post and the checkpoint.
+    // so nothing this spec does may sit between the post and the checkpoint.
     [Fact]
     public async Task Park_AStatusMoveTheTrackerRefuses_StillWritesTheCheckpoint()
     {

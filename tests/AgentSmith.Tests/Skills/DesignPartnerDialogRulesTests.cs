@@ -23,7 +23,7 @@ public sealed class DesignPartnerDialogRulesTests
 
     /// <summary>
     /// The conversation may be in any language; the artifacts it produces may not.
-    /// Both drafted artifacts are covered — the phase spec block and the fix-bug ticket.
+    /// Both drafted artifacts are covered — the spec block and the fix-bug ticket.
     /// </summary>
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_DraftsInEnglish()

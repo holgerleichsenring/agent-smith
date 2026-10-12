@@ -22,7 +22,7 @@ namespace AgentSmith.Tests.Specs;
 /// 2026-09-18-d518: the note is stripped at the DOOR, so nothing downstream carries a strip of
 /// its own. These tests hold the readers the door protects — the prompts (the master, the scope
 /// classifier, the derivation, the unfenced cut review and the epic ground), the whole-ticket
-/// fallback that pins a description AS the ratified phase, the pull-request body, the ticket
+/// fallback that pins a description AS the ratified spec, the pull-request body, the ticket
 /// fingerprint and the acceptance-criteria scan.
 /// </summary>
 public sealed class TicketLabelNoteDownstreamTests
@@ -68,12 +68,12 @@ public sealed class TicketLabelNoteDownstreamTests
     [Fact]
     public void Fallback_TheWholeTicketSpec_DoesNotCarryTheNote()
     {
-        // The whole-ticket fallback pins the entire description AS the ratified phase markdown,
+        // The whole-ticket fallback pins the entire description AS the ratified spec markdown,
         // so a leak here is not a prompt hazard — it is the specification.
         var ticket = Fetched();
         var fallback = new SpecFallback(
-            new SpecDraftValidator(new PhaseSpecSchemaProvider()),
-            new PhaseDraftReader(), new DerivedPhaseYamlRenderer());
+            new SpecDraftValidator(new SpecSchemaProvider()),
+            new SpecDraftReader(), new DerivedSpecYamlRenderer());
 
         var set = fallback.Build(
             "key", "2026-10-06-0a0a", ticket, TicketSegmenter.Segment(ticket.Description), [], SpecSource.Derived, []);
@@ -114,7 +114,7 @@ public sealed class TicketLabelNoteDownstreamTests
     {
         // The scan breaks on any heading and takes only marker lines: the note's own heading
         // ends it, and bare prose under that heading cannot be mistaken for a criterion.
-        var filed = new PhaseTicketRenderer().RenderPhase(Draft(), "job-1", Note).Body;
+        var filed = new SpecTicketRenderer().RenderSpec(Draft(), "job-1", Note).Body;
 
         filed.Should().Contain(TicketLabelNote.Heading, "the note is on the ticket this reads");
         AcceptanceCriteriaSection.Read(filed).Should().Equal("the widget is stored");

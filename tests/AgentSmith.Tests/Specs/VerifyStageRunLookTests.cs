@@ -18,7 +18,7 @@ namespace AgentSmith.Tests.Specs;
 /// repository DECLARED, by label, so a premise about what a gate does is settled by producing
 /// its exit code. Every test here drives the FACTORY over a real pipeline carrying the
 /// per-sandbox context list: the look builds its own tools in its constructor, so a
-/// hand-built look would never carry the tool this phase adds.
+/// hand-built look would never carry the tool this spec adds.
 /// </summary>
 public sealed class VerifyStageRunLookTests
 {

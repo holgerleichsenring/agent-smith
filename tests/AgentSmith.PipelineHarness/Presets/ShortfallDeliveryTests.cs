@@ -14,8 +14,8 @@ using Microsoft.Extensions.DependencyInjection.Extensions;
 namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
-/// p0439 fast-tier end-to-end: the shape of run 2026-09-08T11-28-15-989e. A two-phase
-/// derivation, the first phase green, verified and recorded, the second phase's master
+/// p0439 fast-tier end-to-end: the shape of run 2026-09-08T11-28-15-989e. A two-spec
+/// derivation, the first spec green, verified and recorded, the second spec's master
 /// dying on the per-pipeline cost budget. The run built and verified half of its contract;
 /// that half is DELIVERED — a ready pull request naming what was left, the ticket finalized
 /// with the done status — instead of a failed run whose work nobody is pointed at.
@@ -30,7 +30,7 @@ public sealed class ShortfallDeliveryTests
         "per-pipeline cost budget exhausted: 8.02 USD of 8.00 USD spent";
 
     [Fact]
-    public async Task TwoPhaseDerivation_SecondMasterFailsOnTheBudget_TheFirstPhaseIsDelivered()
+    public async Task TwoSpecDerivation_SecondMasterFailsOnTheBudget_TheFirstSpecIsDelivered()
     {
         var tickets = new RecordingTicketProvider();
         var pullRequests = new RecordingSourceProvider();
@@ -40,7 +40,7 @@ public sealed class ShortfallDeliveryTests
         harness.Services.GetRequiredService<HarnessSpecAccountant>()
             .LeaveOutstanding("No caller builds its own empty-payload check.");
         harness.ChatClient
-            .EnqueueText(SpecDerivationFixture.TwoPhaseJson)
+            .EnqueueText(SpecDerivationFixture.TwoSpecJson)
             // phase 1: green, verified, accounted, recorded
             .EnqueueText("Planning: introduce the guard.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
@@ -80,7 +80,7 @@ public sealed class ShortfallDeliveryTests
     }
 
     [Fact]
-    public async Task TwoPhaseDerivation_FirstMasterFails_StaysAFailedRun()
+    public async Task TwoSpecDerivation_FirstMasterFails_StaysAFailedRun()
     {
         // The other half of the keystone: nothing was verified, so nothing is delivered —
         // the 2026-09-07-f420 shape is untouched. Draft PR with the failure banner, one
@@ -89,7 +89,7 @@ public sealed class ShortfallDeliveryTests
         var pullRequests = new RecordingSourceProvider();
         await using var harness = BuildHarness(tickets, pullRequests);
         harness.ChatClient
-            .EnqueueText(SpecDerivationFixture.TwoPhaseJson)
+            .EnqueueText(SpecDerivationFixture.TwoSpecJson)
             .EnqueueThrow(new MasterBudgetExhaustedException(BudgetReason));
 
         var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" };

@@ -69,10 +69,10 @@ internal static class CitationMatch
         if (!ran.StartsWith(cited, StringComparison.OrdinalIgnoreCase)) return false;
         // p0481: a SHORTENED command is named only in FULL. Its head is shared by
         // construction with every sibling that differs in the paths it ran against, and the
-        // run this phase comes from issued 21 over-cap commands of exactly that family: the
+        // run this spec comes from issued 21 over-cap commands of exactly that family: the
         // same pattern, the same flags, one repository each. A head-only citation names all
         // of them, which closes a two-repository absence criterion with a one-repository
-        // search — the refusal this phase exists to end, reborn as a false positive.
+        // search — the refusal this spec exists to end, reborn as a false positive.
         // Refusing it is LOUD: p0474's re-ask asks for the whole quoted span, which fits.
         return CommandElision.WasShortened(ran)
             ? cited.Length == ran.Length

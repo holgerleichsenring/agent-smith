@@ -1,7 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Events;
 using AgentSmith.Application.Services.Handlers;
-using AgentSmith.Application.Services.PhaseExecution;
+using AgentSmith.Application.Services.SpecExecution;
 using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Specs;
@@ -21,7 +21,7 @@ namespace AgentSmith.Tests.Specs;
 
 /// <summary>
 /// p0393a: the fail-safe. If the accounting cannot be produced the run does NOT split at
-/// all — one phase with the whole ticket pinned, and a run event naming why. Fail safe
+/// all — one spec with the whole ticket pinned, and a run event naming why. Fail safe
 /// means falling back to a shape that is known to work, not partially applying one that
 /// is not: degrading to too much context is cheap, degrading to a missing manual nobody
 /// noticed is the failure this whole line exists to prevent.
@@ -37,7 +37,7 @@ public sealed class DeriveSpecHandlerTests
         """;
 
     [Fact]
-    public async Task Accounting_Incomplete_EmitsOnePhaseWithTheFullTicketPinnedAndARunEvent()
+    public async Task Accounting_Incomplete_EmitsOneSpecWithTheFullTicketPinnedAndARunEvent()
     {
         var events = new RecordingEventPublisher();
         var published = new CapturingPublisher();
@@ -72,7 +72,7 @@ public sealed class DeriveSpecHandlerTests
     }
 
     [Fact]
-    public async Task DeriveSpec_ModelProducedNothingUsable_StillProducesOnePhaseAndSaysWhy()
+    public async Task DeriveSpec_ModelProducedNothingUsable_StillProducesOneSpecAndSaysWhy()
     {
         var events = new RecordingEventPublisher();
         var published = new CapturingPublisher();
@@ -187,8 +187,8 @@ public sealed class DeriveSpecHandlerTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((derivation, derivation is null ? "no parseable cut" : null));
 
-        var validator = new SpecDraftValidator(new PhaseSpecSchemaProvider());
-        var draftReader = new PhaseDraftReader();
+        var validator = new SpecDraftValidator(new SpecSchemaProvider());
+        var draftReader = new SpecDraftReader();
         return new DeriveSpecHandler(
             deriver.Object,
             SeriesDoubles.BranchRead(reader ?? EmptyBranch()),
@@ -200,10 +200,10 @@ public sealed class DeriveSpecHandlerTests
                 new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance),
                 new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
                 NullLogger<SpecSourceResolver>.Instance),
-            new SpecFallback(validator, draftReader, new DerivedPhaseYamlRenderer()),
+            new SpecFallback(validator, draftReader, new DerivedSpecYamlRenderer()),
             new SpecCoverageRefusal(
                 new SpecCutGate(events, NullLogger<SpecCutGate>.Instance),
-                new SpecFallback(validator, draftReader, new DerivedPhaseYamlRenderer())),
+                new SpecFallback(validator, draftReader, new DerivedSpecYamlRenderer())),
             new SpecSetTicketCommenter(
                 Mock.Of<ITicketProviderFactory>(), Moq.Mock.Of<AgentSmith.Contracts.Reviews.IFullSetPrNotice>(), NullLogger<SpecSetTicketCommenter>.Instance),
             ApprovedSetDoubles.KeptNotice(),
@@ -235,7 +235,7 @@ public sealed class DeriveSpecHandlerTests
         IReadOnlyList<int> carries, IReadOnlyList<DiscardedSegment> discarded)
     {
         var segments = TicketSegmenter.Segment(Ticket);
-        var phase = new SpecPhase(
+        var spec = new SpecPhase(
             new Contracts.Models.PhaseDraft("p19106a", "Rename the call sites", "spec: p19106a", [])
             {
                 Done = ["Every call site is renamed."],
@@ -245,8 +245,8 @@ public sealed class DeriveSpecHandlerTests
             carries);
         return new SpecDerivation(
             new SpecSet(
-                "azdo-19106", [phase],
-                SpecAccountingBuilder.Build([phase], discarded, segments),
+                "azdo-19106", [spec],
+                SpecAccountingBuilder.Build([spec], discarded, segments),
                 [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow)],
                 SpecSource.Derived),
             []);

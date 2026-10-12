@@ -7,7 +7,7 @@ namespace AgentSmith.Application.Services;
 /// 2026-09-03-3c07: the two halves of a master's mid-run question — the checkpoint that
 /// makes it answerable where it is shown (p0453), and the intake that hands the answer
 /// back to the master when the run resumes. Registered together because a park without
-/// its resume is the defect this phase closed.
+/// its resume is the defect this spec closed.
 /// </summary>
 public static class MasterQuestionParkingExtensions
 {

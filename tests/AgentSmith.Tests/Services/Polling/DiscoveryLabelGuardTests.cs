@@ -13,13 +13,13 @@ namespace AgentSmith.Tests.Services.Polling;
 public sealed class DiscoveryLabelGuardTests
 {
     [Fact]
-    public void For_ALabelGatedProject_NamesItsKeysAndEveryPhaseExecutionBinding()
+    public void For_ALabelGatedProject_NamesItsKeysAndEverySpecExecutionBinding()
     {
         var guard = DiscoveryLabelGuard.For([Trigger("bug")], Tracker());
 
         // 2026-10-12-967aa: the spec-named stamp and word bind too, so the guard names them.
         guard.Should().BeEquivalentTo(
-            ["bug", FiledTicketLabels.ApprovedSetStamp, PhaseTicketRenderer.PhaseLabel,
+            ["bug", FiledTicketLabels.ApprovedSetStamp, SpecTicketRenderer.SpecLabel,
                 TicketLabels.AcceptedApprovedSetStamp, TicketLabels.AcceptedSpecLabel]);
     }
 

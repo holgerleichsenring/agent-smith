@@ -7,7 +7,7 @@ namespace AgentSmith.Contracts.Providers;
 /// typed words — the one read a person drives by typing, rather than the framework by configuring.
 /// <para>
 /// A CAPABILITY PORT OF ITS OWN, for the reason <see cref="ITicketRewriter"/> already records and
-/// this phase measured again: every one of the four provider classes sits at its file-length
+/// this spec measured again: every one of the four provider classes sits at its file-length
 /// baseline and may only get shorter, so a member all four must implement could land only by
 /// splitting a type across files to get under a per-file limit. Four small implementations beside
 /// them cost nothing.

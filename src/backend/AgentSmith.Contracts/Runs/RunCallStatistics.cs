@@ -6,7 +6,7 @@ namespace AgentSmith.Contracts.Runs;
 /// p0423: the size and shape of a run's calls, DERIVED from its recorded units.
 /// <para>
 /// It is a fold over events, never a counter kept alongside them. A counter and the events
-/// it counts are two answers to one question, and they drift — which is why the phase
+/// it counts are two answers to one question, and they drift — which is why the spec
 /// asks for statistics that are queries. Group the events first (by phase, by role, by
 /// step) and fold each group to get the same numbers per slice.
 /// </para>

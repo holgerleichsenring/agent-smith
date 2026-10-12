@@ -7,7 +7,7 @@ namespace AgentSmith.Contracts.Runs;
 /// 2026-08-25-e257: one human judgement of one criterion's disposition, as it is served and
 /// as it is recorded.
 /// <para>
-/// It is a LABEL, not a control. It does not re-open the gate, re-run the phase or move the
+/// It is a LABEL, not a control. It does not re-open the gate, re-run the spec or move the
 /// run's state — a control that changed the outcome would be pressed to ship things, and the
 /// label would then measure impatience rather than correctness.
 /// </para>
@@ -33,7 +33,7 @@ public sealed record CriterionJudgementRequest(
 /// <summary>
 /// 2026-08-25-e257: how a judgement finds its criterion again.
 /// <para>
-/// A digest of the normalised text, never the position: the criteria of a re-derived phase
+/// A digest of the normalised text, never the position: the criteria of a re-derived spec
 /// can reorder, and a label that silently moved to a different criterion is worse than no
 /// label at all. Normalisation is whitespace only — two criteria differing in wording are
 /// two criteria, and deciding otherwise is a judgement no index should make.

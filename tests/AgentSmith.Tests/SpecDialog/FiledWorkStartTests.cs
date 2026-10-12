@@ -37,7 +37,7 @@ public sealed class FiledWorkStartTests
     {
         var provider = new StartProvider("To Do");
 
-        var report = await FileAsync(provider, Phase(), Routing(ByTag, "To Do"), mayStartRuns: true);
+        var report = await FileAsync(provider, Spec(), Routing(ByTag, "To Do"), mayStartRuns: true);
 
         Work(report).Start!.State.Should().Be(FiledStartState.Started,
             "the phase label IS the resolution tag, so the poller's own envelope routes it");
@@ -50,7 +50,7 @@ public sealed class FiledWorkStartTests
         var provider = new StartProvider("To Do");
 
         var report = await FileAsync(
-            provider, Phase(), Routing(null, "To Do", ResolutionStrategy.AreaPath, @"Area\Widgets"),
+            provider, Spec(), Routing(null, "To Do", ResolutionStrategy.AreaPath, @"Area\Widgets"),
             mayStartRuns: true);
 
         var start = Work(report).Start!;
@@ -72,7 +72,7 @@ public sealed class FiledWorkStartTests
         var provider = new StartProvider("To Do");
 
         var report = await FileAsync(
-            provider, Phase(), Routing(null, "To Do", ResolutionStrategy.AreaPath, @"Area\Widgets"),
+            provider, Spec(), Routing(null, "To Do", ResolutionStrategy.AreaPath, @"Area\Widgets"),
             mayStartRuns: true);
 
         Work(report).Start!.State.Should().Be(FiledStartState.NotStarted,
@@ -86,7 +86,7 @@ public sealed class FiledWorkStartTests
         var provider = new StartProvider("New");
 
         await FileAsync(
-            provider, Phase(), Routing(null, "To Do", ResolutionStrategy.AreaPath, @"Area\Widgets"),
+            provider, Spec(), Routing(null, "To Do", ResolutionStrategy.AreaPath, @"Area\Widgets"),
             mayStartRuns: true);
 
         provider.Moves.Should().BeEmpty(
@@ -103,7 +103,7 @@ public sealed class FiledWorkStartTests
             Project: "proj", Trigger: TriggerKinds.AzureDevOps));
 
         var report = await FileAsync(
-            provider, Phase(), Routing(ByTag, "To Do"), mayStartRuns: true, findings: findings);
+            provider, Spec(), Routing(ByTag, "To Do"), mayStartRuns: true, findings: findings);
 
         var start = Work(report).Start!;
         start.State.Should().Be(FiledStartState.NotStarted,
@@ -121,7 +121,7 @@ public sealed class FiledWorkStartTests
         var provider = new StartProvider("New");
 
         var report = await FileAsync(
-            provider, Phase(), Routing(ByTag, "To Do", noResolution: true), mayStartRuns: true);
+            provider, Spec(), Routing(ByTag, "To Do", noResolution: true), mayStartRuns: true);
 
         Work(report).Start!.Reason.Should().Contain("project_resolution")
             .And.NotContain("Tag '", "there is no resolution to name a tag from");
@@ -133,7 +133,7 @@ public sealed class FiledWorkStartTests
         var provider = new StartProvider("New");
 
         var report = await FileAsync(
-            provider, Phase(), Routing(ByTag, "To Do", noTrigger: true), mayStartRuns: true);
+            provider, Spec(), Routing(ByTag, "To Do", noTrigger: true), mayStartRuns: true);
 
         Work(report).Start!.Reason.Should().Contain("declares no azuredevops trigger at all");
     }
@@ -155,7 +155,7 @@ public sealed class FiledWorkStartTests
         var provider = new StartProvider("New");
 
         var report = await FileAsync(
-            provider, Phase(),
+            provider, Spec(),
             Routing(null, "To Do", ResolutionStrategy.AreaPath, @"Area\Widgets", otherProjectTag: ByTag),
             mayStartRuns: true);
 
@@ -203,7 +203,7 @@ public sealed class FiledWorkStartTests
         var provider = new StartProvider("To Do");
 
         var report = await FileAsync(
-            provider, Phase(), Routing("operator-tag", "To Do"), mayStartRuns: true);
+            provider, Spec(), Routing("operator-tag", "To Do"), mayStartRuns: true);
 
         provider.Labels.Should().Equal([("1", "operator-tag")],
             "the filers stamp framework labels only; the value the project resolves by is this");
@@ -213,7 +213,7 @@ public sealed class FiledWorkStartTests
     }
 
     /// <summary>
-    /// The ORDER is the phase: a resolution run before the tag is written answers what the poller
+    /// The ORDER is the spec: a resolution run before the tag is written answers what the poller
     /// would have answered yesterday, and the ticket is reported not started while carrying the
     /// very tag that routes it.
     /// </summary>
@@ -224,7 +224,7 @@ public sealed class FiledWorkStartTests
         var config = Routing("operator-tag", "To Do");
         var resolver = new LabelWatchingResolver(FiledWorkDoubles.Resolver(), () => provider.Labels.Count);
 
-        await FileAsync(provider, Phase(), config, mayStartRuns: true, resolver: resolver);
+        await FileAsync(provider, Spec(), config, mayStartRuns: true, resolver: resolver);
 
         resolver.LabelsWhenResolved.Should().Equal([1],
             "the tag is on the ticket before the envelope it is resolved from is built");
@@ -240,7 +240,7 @@ public sealed class FiledWorkStartTests
     {
         var provider = new StartProvider("To Do");
 
-        var report = await FileAsync(provider, Phase(), Routing("", "To Do"), mayStartRuns: true);
+        var report = await FileAsync(provider, Spec(), Routing("", "To Do"), mayStartRuns: true);
 
         provider.Labels.Should().BeEmpty();
         var start = Work(report).Start!;
@@ -263,7 +263,7 @@ public sealed class FiledWorkStartTests
         var provider = new StartProvider("To Do");
 
         var report = await FileAsync(
-            provider, Phase(), Routing(tag, "To Do", tracker: tracker), mayStartRuns: true);
+            provider, Spec(), Routing(tag, "To Do", tracker: tracker), mayStartRuns: true);
 
         provider.Labels.Should().BeEmpty("a refused write costs the filing, not just the start");
         var start = Work(report).Start!;
@@ -280,7 +280,7 @@ public sealed class FiledWorkStartTests
         };
 
         var report = await FileAsync(
-            provider, Phase(), Routing("operator-tag", "To Do"), mayStartRuns: true);
+            provider, Spec(), Routing("operator-tag", "To Do"), mayStartRuns: true);
 
         report.Error.Should().BeNull("the ticket exists; a tag that failed is a reason, not a failure");
         var start = Work(report).Start!;
@@ -300,7 +300,7 @@ public sealed class FiledWorkStartTests
         var provider = new StartProvider("New") { CanLabel = false };
 
         var report = await FileAsync(
-            provider, Phase(), Routing("operator-tag", "To Do"), mayStartRuns: true);
+            provider, Spec(), Routing("operator-tag", "To Do"), mayStartRuns: true);
 
         provider.Moves.Should().BeEmpty("nothing routes a ticket that never got the tag");
         var start = Work(report).Start!;
@@ -315,7 +315,7 @@ public sealed class FiledWorkStartTests
         var provider = new StartProvider("To Do");
 
         await FileAsync(
-            provider, Phase(), Routing(null, "To Do", ResolutionStrategy.AreaPath, @"Area\Widgets"),
+            provider, Spec(), Routing(null, "To Do", ResolutionStrategy.AreaPath, @"Area\Widgets"),
             mayStartRuns: true);
 
         provider.Labels.Should().BeEmpty("an area path is not something a label can carry");
@@ -327,7 +327,7 @@ public sealed class FiledWorkStartTests
         var provider = new StartProvider("To Do");
 
         await FileAsync(
-            provider, Phase(), Routing(ByTag, "To Do", noResolution: true), mayStartRuns: true);
+            provider, Spec(), Routing(ByTag, "To Do", noResolution: true), mayStartRuns: true);
 
         provider.Labels.Should().BeEmpty("there is no resolution to read a tag out of");
     }
@@ -337,7 +337,7 @@ public sealed class FiledWorkStartTests
     {
         var provider = new StartProvider("To Do");
 
-        var report = await FileAsync(provider, Phase(), Routing(ByTag, "To Do"), mayStartRuns: true);
+        var report = await FileAsync(provider, Spec(), Routing(ByTag, "To Do"), mayStartRuns: true);
 
         provider.Labels.Should().BeEmpty("the approval stamp IS the tag this project resolves by");
         Work(report).Start!.State.Should().Be(FiledStartState.Started);
@@ -399,7 +399,7 @@ public sealed class FiledWorkStartTests
     {
         var provider = new StartProvider("Anything At All");
 
-        var report = await FileAsync(provider, Phase(), Routing(ByTag), mayStartRuns: true);
+        var report = await FileAsync(provider, Spec(), Routing(ByTag), mayStartRuns: true);
 
         Work(report).Start!.State.Should().Be(FiledStartState.Started,
             "TrackerPoller allows any status when the operator named none");
@@ -412,7 +412,7 @@ public sealed class FiledWorkStartTests
         var provider = new StartProvider("New");
 
         var report = await FileAsync(
-            provider, Phase(), Routing(ByTag, "To Do", secondStatus: "Ready"), mayStartRuns: true);
+            provider, Spec(), Routing(ByTag, "To Do", secondStatus: "Ready"), mayStartRuns: true);
 
         provider.Moves.Should().Equal([("1", "To Do")], "the FIRST trigger status is the target");
         Work(report).Start!.State.Should().Be(FiledStartState.Started);
@@ -423,7 +423,7 @@ public sealed class FiledWorkStartTests
     {
         var provider = new StartProvider("New");
 
-        var report = await FileAsync(provider, Phase(), Routing(ByTag, "To Do"), mayStartRuns: false);
+        var report = await FileAsync(provider, Spec(), Routing(ByTag, "To Do"), mayStartRuns: false);
 
         provider.Moves.Should().BeEmpty("the move is what starts a run, and that needs runs.control");
         var reason = Work(report).Start!.Reason;
@@ -440,7 +440,7 @@ public sealed class FiledWorkStartTests
     {
         var provider = new StartProvider("New") { MoveTakesEffect = false };
 
-        var report = await FileAsync(provider, Phase(), Routing(ByTag, "To Do"), mayStartRuns: true);
+        var report = await FileAsync(provider, Spec(), Routing(ByTag, "To Do"), mayStartRuns: true);
 
         provider.Moves.Should().ContainSingle();
         var start = Work(report).Start!;
@@ -456,7 +456,7 @@ public sealed class FiledWorkStartTests
             MoveError = new InvalidOperationException("the workflow refused it"),
         };
 
-        var report = await FileAsync(provider, Phase(), Routing(ByTag, "To Do"), mayStartRuns: true);
+        var report = await FileAsync(provider, Spec(), Routing(ByTag, "To Do"), mayStartRuns: true);
 
         report.Error.Should().BeNull("the ticket exists; a move that failed is a reason, not a failure");
         Work(report).Start!.Reason.Should().Contain("the workflow refused it");
@@ -468,7 +468,7 @@ public sealed class FiledWorkStartTests
         var provider = new StartProvider("open");
 
         var report = await FileAsync(
-            provider, Phase(), Routing(ByTag, "triage", tracker: TrackerType.GitHub),
+            provider, Spec(), Routing(ByTag, "triage", tracker: TrackerType.GitHub),
             mayStartRuns: true);
 
         provider.Moves.Should().BeEmpty(
@@ -486,7 +486,7 @@ public sealed class FiledWorkStartTests
         var provider = new StartProvider("open");
 
         var report = await FileAsync(
-            provider, Phase(), Routing(ByTag, "triage", tracker: TrackerType.GitHub),
+            provider, Spec(), Routing(ByTag, "triage", tracker: TrackerType.GitHub),
             mayStartRuns: false);
 
         Work(report).Start!.Reason.Should().Contain("not a native GitHub state")
@@ -496,7 +496,7 @@ public sealed class FiledWorkStartTests
     /// <summary>
     /// 2026-09-20-2ba8: a bug is CREATED with no framework label — deliberately, so the project's
     /// own rules decide which pipeline claims it — and the starter then puts the routing tag on,
-    /// which is what makes the project claim it at all. Until this phase no tag-resolved project
+    /// which is what makes the project claim it at all. Until this spec no tag-resolved project
     /// could ever claim a bug this dialog filed, and the reason said so every time.
     /// </summary>
     [Fact]
@@ -592,7 +592,7 @@ public sealed class FiledWorkStartTests
             Error: null);
 
         var notice = new SpecDialogOutcomeComposer()
-            .ComposeFiled(Phase(), report).In(SpecDialogMarkup.For("slack"));
+            .ComposeFiled(Spec(), report).In(SpecDialogMarkup.For("slack"));
 
         notice.Should().Contain("not started").And.Contain("nothing would route it.");
     }
@@ -626,7 +626,7 @@ public sealed class FiledWorkStartTests
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider);
         var starter = FiledWorkDoubles.Starter(config, findings, resolver);
         var filer = new OutcomeTicketFiler(
-            config, factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
+            config, factory.Object, new SpecTicketRenderer(), new BugTicketRenderer(),
             new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
             ApprovedSetDoubles.SetFiler(store, starter),
             starter, ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
@@ -708,7 +708,7 @@ public sealed class FiledWorkStartTests
         ProjectResolution = trigger.ProjectResolution,
     };
 
-    private static PhaseOutcome Phase() => new(Draft("p9000a"));
+    private static SpecOutcome Spec() => new(Draft("p9000a"));
 
     private static BugOutcome Bug() =>
         new(new BugTicketDraft("the widget throws", "it throws on save", null));

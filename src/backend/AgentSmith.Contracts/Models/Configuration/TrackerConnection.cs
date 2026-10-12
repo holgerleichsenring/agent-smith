@@ -78,7 +78,7 @@ public sealed record TrackerConnection
 
     /// <summary>
     /// 2026-09-18-b4f0 (YAML key <c>work_item_kinds</c>): maps the ROLE a filing plays —
-    /// work / record / bug / phase / chat — to the native work-item type (Azure DevOps) or
+    /// work / record / bug / spec / chat — to the native work-item type (Azure DevOps) or
     /// issue type (Jira) that role is created as. One kind for the whole tracker would raise
     /// a slice record to the level of the work ticket it hangs under, so the choice is per
     /// role. An unmapped role creates what the provider created before this key existed;

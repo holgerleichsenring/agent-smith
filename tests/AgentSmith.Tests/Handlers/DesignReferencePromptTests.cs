@@ -20,12 +20,12 @@ public sealed class DesignReferencePromptTests
     private const string Rebuilt = "https://www.figma.com/design/AbCdEf123456?node-id=1-2";
 
     [Fact]
-    public async Task PhaseExecutionPrompt_TicketWithFigmaLink_CarriesTheSection()
+    public async Task SpecExecutionPrompt_TicketWithFigmaLink_CarriesTheSection()
     {
         var context = Context("coding-agent-master");
         context.Pipeline.Set(ContextKeys.ProjectConfig, new ResolvedProject
             { Name = "p", DesignSources = [new DesignSource("brand", DesignSourceVendor.Figma, "figma-token")] });
-        context.Pipeline.Set(ContextKeys.PhaseSpec,
+        context.Pipeline.Set(ContextKeys.CurrentSpec,
             new PhaseDraft("p1", "build the checkout", "spec: p1\ngoal: build the checkout\n", [])
             {
                 Done = ["the checkout is built"],

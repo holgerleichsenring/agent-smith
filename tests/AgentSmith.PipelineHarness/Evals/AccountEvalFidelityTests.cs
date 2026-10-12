@@ -90,7 +90,7 @@ public sealed class AccountEvalFidelityTests
             "a base tool that answers 'no base' for every call teaches the account to stop calling it");
     }
 
-    /// <summary>The defect this phase fixes, asserted directly: refs resolved and the tool
+    /// <summary>The defect this spec fixes, asserted directly: refs resolved and the tool
     /// absent is the shape that lowered a score without failing anything.</summary>
     [Fact]
     public void AccountToolParity_ABaseThatResolvedButNoBaseTool_Throws()

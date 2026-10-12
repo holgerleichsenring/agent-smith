@@ -104,8 +104,8 @@ public sealed class ModelCallActivityTests
         public CallScope? CurrentCallScope => null;
         public IDisposable BeginScope(string id) => new NoOp();
         public int? CurrentStepIndex => null;
-        public string? CurrentPhaseId => null;
-        public IDisposable BeginStepScope(int stepIndex, string? phaseId = null) => new NoOp();
+        public string? CurrentSpecId => null;
+        public IDisposable BeginStepScope(int stepIndex, string? specId = null) => new NoOp();
         public IDisposable BeginCallScope(string role, string phase, string? repoName = null) => new NoOp();
         private sealed class NoOp : IDisposable { public void Dispose() { } }
     }

@@ -10,11 +10,11 @@ namespace AgentSmith.Server.Services.Events;
 /// the run's lifetime — instead of the O(runtime) event log the dashboard used
 /// to fold client-side.
 /// <para>
-/// p0395: a spliced phase step (p0393a) is projected with the phase id composed
+/// p0395: a spliced spec step (p0393a) is projected with the spec id composed
 /// into its names ("p19106a: Generate plan"). The read path splits that back
-/// apart: <see cref="PhaseId"/> carries the phase, and StepName/DisplayName are
+/// apart: <see cref="PhaseId"/> carries the spec, and StepName/DisplayName are
 /// served clean — for old prefixed rows and new ones alike — so the dashboard
-/// can group by phase instead of truncating every row on the same prefix.
+/// can group by spec instead of truncating every row on the same prefix.
 /// </para>
 /// <para>
 /// p0398: <see cref="StepClass"/> is the command's static display class
@@ -32,7 +32,7 @@ namespace AgentSmith.Server.Services.Events;
 /// <para>
 /// p0405: the rail is ONE ordered sequence — the steps that ran, then the ones
 /// the executor has announced but not reached. A row with <see cref="Planned"/>
-/// carries its index, its phase and its display name and NOTHING else: no
+/// carries its index, its spec and its display name and NOTHING else: no
 /// status, no cost, no duration, because an unreached step has none. The nulls
 /// are the contract, not an omission — a skeleton borrowing the vocabulary of a
 /// finished step would invite the same confusion in the other direction.

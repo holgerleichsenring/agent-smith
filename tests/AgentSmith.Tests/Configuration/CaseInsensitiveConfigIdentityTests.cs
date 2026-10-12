@@ -209,7 +209,7 @@ public sealed class CaseInsensitiveConfigIdentityTests
     public void ValidateProject_ARefDifferingOnlyInCase_IsAccepted()
     {
         // The editor has to agree with the loader, or the studio saves a wiring the boot
-        // refuses — the split this phase exists to close.
+        // refuses — the split this spec exists to close.
         var catalog = Catalog(agent: "Claude-Default", tracker: "Board", repo: "Service.Api");
         var project = new ProjectEntity(
             "demo", "claude-default", "board", ["service.api"], null, []);

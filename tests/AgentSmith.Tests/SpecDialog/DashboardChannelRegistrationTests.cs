@@ -145,7 +145,7 @@ public sealed class DashboardChannelRegistrationTests
 
     /// <summary>
     /// The refusal itself is the shared route-permission machinery (p0503a/p0517), proven
-    /// by its own tests. What this phase has to state is the DECLARATION, and which roles
+    /// by its own tests. What this spec has to state is the DECLARATION, and which roles
     /// a dialog that files tickets is bundled into.
     /// </summary>
     [Fact]

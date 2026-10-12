@@ -192,7 +192,7 @@ public sealed class QueuedRunCancelTests : IDisposable
     /// <summary>
     /// 2026-08-24-ca23: the queued cancel is the SECOND entry point and never reaches
     /// CancelEnforcer. It publishes into a stream nobody drains — a queued run left the active
-    /// set at its own waiting event — so before this phase the row stayed unfinished and the
+    /// set at its own waiting event — so before this spec the row stayed unfinished and the
     /// enforcer re-selected it every scan. The row must be terminal when the call returns.
     /// </summary>
     [Fact]

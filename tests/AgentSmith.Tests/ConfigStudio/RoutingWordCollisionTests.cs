@@ -77,7 +77,7 @@ public sealed class RoutingWordCollisionTests : IDisposable
 
     /// <summary>
     /// A project resolving on a framework word matches EVERY framework-labelled ticket on that
-    /// tracker — here the approved-set stamp, which also short-circuits routing to phase
+    /// tracker — here the approved-set stamp, which also short-circuits routing to spec
     /// execution before the label map is consulted at all.
     /// </summary>
     [Fact]

@@ -19,12 +19,12 @@ public sealed class ScriptedChatClient : IChatClient
     private readonly Queue<object> _responses = new();
     private readonly List<ScriptedToolCall> _toolCalls = new();
     private readonly ScopeClassificationScript _scopeScript = new();
-    private readonly PhaseReviewScript _phaseReviewScript = new();
+    private readonly SpecReviewScript _specReviewScript = new();
     private int _toolCallCounter;
 
     public int InvocationCount { get; private set; }
     /// <summary>2026-09-17-042eh: private. A preset assertion wants the last call the preset
-    /// DROVE, and steps served from their own slots (scope classification, phase review) run
+    /// DROVE, and steps served from their own slots (scope classification, spec review) run
     /// after it — see <see cref="LastScriptedMessages"/>, which every reader now goes through.</summary>
     private IReadOnlyList<ChatMessage> LastMessages { get; set; } = Array.Empty<ChatMessage>();
     /// <summary>2026-09-08-805f: the message list of EVERY call, in order — what the
@@ -36,13 +36,13 @@ public sealed class ScriptedChatClient : IChatClient
     private readonly List<IReadOnlyList<ChatMessage>> _callMessages = new();
 
     /// <summary>
-    /// 2026-09-17-042eh: the most recent call that is not the PHASE REVIEW — which runs after
+    /// 2026-09-17-042eh: the most recent call that is not the SPEC REVIEW — which runs after
     /// everything a preset scripts, so "the last call" stopped being the last call a preset
     /// drove. The scope classification is not excluded: it is a PRELUDE, so a preset whose
     /// only call is that one still reads it here, exactly as it did before the review existed.
     /// </summary>
     public IReadOnlyList<ChatMessage> LastScriptedMessages =>
-        _callMessages.LastOrDefault(m => !PhaseReviewScript.Answers(m)) ?? Array.Empty<ChatMessage>();
+        _callMessages.LastOrDefault(m => !SpecReviewScript.Answers(m)) ?? Array.Empty<ChatMessage>();
 
     /// <summary>Each call's messages joined to one string, in order.</summary>
     public IReadOnlyList<string> PromptsSeen =>
@@ -68,12 +68,12 @@ public sealed class ScriptedChatClient : IChatClient
     }
 
     /// <summary>
-    /// 2026-09-17-042eh: scripts the phase review, which draws from its own slot
-    /// (see <see cref="PhaseReviewScript"/>) instead of the FIFO.
+    /// 2026-09-17-042eh: scripts the spec review, which draws from its own slot
+    /// (see <see cref="SpecReviewScript"/>) instead of the FIFO.
     /// </summary>
-    public ScriptedChatClient EnqueuePhaseReviewReply(string text)
+    public ScriptedChatClient EnqueueSpecReviewReply(string text)
     {
-        _phaseReviewScript.Enqueue(text);
+        _specReviewScript.Enqueue(text);
         return this;
     }
 
@@ -121,8 +121,8 @@ public sealed class ScriptedChatClient : IChatClient
         LastOptions = options;
         if (ScopeClassificationScript.Answers(LastMessages))
             return Task.FromResult(_scopeScript.Next());
-        if (PhaseReviewScript.Answers(LastMessages))
-            return Task.FromResult(_phaseReviewScript.Next());
+        if (SpecReviewScript.Answers(LastMessages))
+            return Task.FromResult(_specReviewScript.Next());
         if (_responses.Count == 0) return Task.FromResult(DefaultEmpty());
         var next = _responses.Dequeue();
         if (next is Func<ChatResponse> deferred)

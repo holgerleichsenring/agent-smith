@@ -55,25 +55,25 @@ public sealed class CommandModelUseCoverageTests
     /// <summary>
     /// p0433: the rule that would have caught the miss, named after the shape that caused
     /// it. A synthetic chain of concrete types proves nothing here — the walk only earns
-    /// its keep if it crosses the interface hop, so the case IS VerifyPhase.
+    /// its keep if it crosses the interface hop, so the case IS VerifySpec.
     /// </summary>
     [Fact]
-    public void ModelUse_TheRuleWouldHaveCaughtVerifyPhase()
+    public void ModelUse_TheRuleWouldHaveCaughtVerifySpec()
     {
-        var handler = typeof(VerifyPhaseHandler);
+        var handler = typeof(VerifySpecHandler);
 
         handler.GetConstructors().SelectMany(c => c.GetParameters())
             .Should().NotContain(p => p.ParameterType == typeof(IChatClientFactory),
                 "the point of this case is that the chat client is NOT on the handler");
         ReachesAChatClient(handler).Should().BeTrue(
-            "VerifyPhaseHandler -> PhaseAccounting -> ISpecAccountant -> SpecAccountant, "
+            "VerifySpecHandler -> SpecDeliveryAccounting -> ISpecAccountant -> SpecAccountant, "
             + "and the middle hop is an interface");
     }
 
     [Fact]
-    public void VerifyPhase_IsDeclaredAsAModelStep()
+    public void VerifySpec_IsDeclaredAsAModelStep()
     {
-        var step = CommandModelUse.For(CommandNames.VerifyPhase);
+        var step = CommandModelUse.For(CommandNames.VerifySpec);
 
         step.Use.Should().Be(ModelUse.Call,
             "the step that decides whether a run delivered asks a model to account for "
@@ -82,14 +82,14 @@ public sealed class CommandModelUseCoverageTests
     }
 
     /// <summary>
-    /// p0460: entering a phase takes the delivery account FIRST — so the step that used to
+    /// p0460: entering a spec takes the delivery account FIRST — so the step that used to
     /// be pure bookkeeping asks a model on any branch that already carries work, and the
     /// diagram must stop drawing it as machinery.
     /// </summary>
     [Fact]
-    public void SelectPhase_IsDeclaredAsAModelStep()
+    public void SelectSpec_IsDeclaredAsAModelStep()
     {
-        var step = CommandModelUse.For(CommandNames.SelectPhase);
+        var step = CommandModelUse.For(CommandNames.SelectSpec);
 
         step.Use.Should().Be(ModelUse.Call,
             "a phase is entered by asking whether the branch already satisfies it");
@@ -119,10 +119,10 @@ public sealed class CommandModelUseCoverageTests
     // p0433: handlers that can REACH a chat client, not only those holding one. p0408
     // stopped at the handler's own constructor because "services in between are out of
     // reach for a reflection check" — and the step that decides delivery then sat two
-    // hops away and was drawn as machinery on the website for two phases.
+    // hops away and was drawn as machinery on the website for two specs.
     //
     // The walk has to cross an INTERFACE at the hop that matters:
-    //   VerifyPhaseHandler(PhaseAccounting) -> PhaseAccounting(ISpecAccountant)
+    //   VerifySpecHandler(SpecDeliveryAccounting) -> SpecDeliveryAccounting(ISpecAccountant)
     //   -> SpecAccountant(IChatClientFactory)
     // An interface declares no constructor, so a walk over parameter types alone reaches
     // nothing and would report the step clean — a false negative wearing the evidence's

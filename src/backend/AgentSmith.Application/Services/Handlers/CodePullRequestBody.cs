@@ -9,8 +9,8 @@ namespace AgentSmith.Application.Services.Handlers;
 /// The body of a coding run's pull request, after the banner the caller chose.
 /// <para>
 /// p0328/p0393a: the acceptance contract renders as a reviewer checklist. p0393a adds the
-/// per-phase table and the discarded list — for a stopped sequence the table is the statement
-/// that the repository is half migrated, spelled out phase by phase instead of implied by a red
+/// per-spec table and the discarded list — for a stopped sequence the table is the statement
+/// that the repository is half migrated, spelled out spec by spec instead of implied by a red
 /// check. p0429a: and the account the gate judged the run by, itemised. 2026-09-06-3d81: and the
 /// criteria the master declined, with their reasons. 2026-09-24-b3c1: the pull-request body is
 /// markdown, and an Azure DevOps description is HTML — rendered raw, a reviewer read the tags.
@@ -27,6 +27,6 @@ internal static class CodePullRequestBody
         $"{banner}{TicketHtmlConverter.ToText(context.Ticket.Description)}"
         + $"{SpecPrBodySection.Build(context.Pipeline, progress, shortfall)}"
         + $"{RunAccountSection.Build(context.Pipeline)}"
-        + $"{PhaseReviewSection.Build(context.Pipeline)}"
+        + $"{SpecReviewSection.Build(context.Pipeline)}"
         + $"{DeclinedCriteriaSection.Build(context.Pipeline)}\n\n{Rework.ReworkRule.PrBodyLine}\n\n{SpecPrBody.SiblingMarker}";
 }

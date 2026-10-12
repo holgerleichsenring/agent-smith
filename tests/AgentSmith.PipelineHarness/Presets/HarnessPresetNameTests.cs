@@ -10,7 +10,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 ///
 /// <para>
 /// Sixteen suites used to ask for one of the four coding names p0393 retired into aliases
-/// of <c>code</c>. PipelineRunner throws on a name that does not resolve, so the phase
+/// of <c>code</c>. PipelineRunner throws on a name that does not resolve, so the spec
 /// that deletes the alias map would otherwise have produced a tree
 /// whose own gate could not go green. These tests hold the harness on the far side of that
 /// move: a suite added between now and the deletion fails HERE, in a test that names the

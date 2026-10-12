@@ -5,7 +5,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// <summary>
 /// p0422: turns a cut review into the correction the deriver is handed back.
 /// <para>
-/// It names the phase, quotes the criterion and says what is wrong with it — the same
+/// It names the spec, quotes the criterion and says what is wrong with it — the same
 /// rejection a parser error gets, because the deriver already knows how to answer one.
 /// </para>
 /// <para>
@@ -24,7 +24,7 @@ public static class SpecCutRejection
     }
 
     private static string Line(CutFinding finding, IReadOnlyDictionary<string, string> byId) =>
-        $"- {finding.PhaseId}: \"{finding.Criterion}\" — {finding.Problem}: {finding.Why}"
+        $"- {finding.SpecId}: \"{finding.Criterion}\" — {finding.Problem}: {finding.Why}"
         + (finding.ConflictsWith is null ? string.Empty : $" (conflicts with \"{finding.ConflictsWith}\")")
         + (DerivationEvidence.CitationsIn(finding.Cites).FirstOrDefault(byId.ContainsKey) is { } id
             ? $" (evidence: {byId[id]})"

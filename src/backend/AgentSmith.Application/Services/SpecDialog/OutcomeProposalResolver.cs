@@ -11,7 +11,7 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// </summary>
 public sealed class OutcomeProposalResolver(
     ISpecDraftValidator draftValidator,
-    PhaseDraftReader draftReader,
+    SpecDraftReader draftReader,
     BugOutcomeParser bugParser,
     EpicOutcomeParser epicParser,
     DialogDraftRepos draftRepos) : IOutcomeProposalResolver
@@ -34,24 +34,24 @@ public sealed class OutcomeProposalResolver(
     }
 
     // No outcome block: the p0315b contract is unchanged — a bare ```yaml
-    // draft is a phase, no artifact is an answer.
+    // draft is a spec, no artifact is an answer.
     private OutcomeResolution ResolveFromDraft(string reply, IReadOnlyList<string> scope) =>
         draftValidator.Validate(reply) switch
         {
             SpecDraftAbsent => new OutcomeResolved(new AnswerOutcome()),
-            SpecDraftValid valid => ResolvePhase(valid.Yaml, scope),
+            SpecDraftValid valid => ResolveSpec(valid.Yaml, scope),
             SpecDraftInvalid invalid => new OutcomeInvalid(invalid.Error),
             var other => throw new InvalidOperationException(
                 $"Unknown SpecDraftOutcome '{other.GetType().Name}'."),
         };
 
     // 2026-10-12-3a36e: the lone spec names its repositories — stated in scope, or filled.
-    private OutcomeResolution ResolvePhase(string yaml, IReadOnlyList<string> scope)
+    private OutcomeResolution ResolveSpec(string yaml, IReadOnlyList<string> scope)
     {
         var (decided, error) = draftRepos.ForSpec(yaml, scope);
         return decided is null
             ? new OutcomeInvalid(error!)
-            : new OutcomeResolved(new PhaseOutcome(draftReader.Read(decided)));
+            : new OutcomeResolved(new SpecOutcome(draftReader.Read(decided)));
     }
 
     private OutcomeResolution ResolveOutcomeBlock(string yaml, IReadOnlyList<string> scope)

@@ -5,7 +5,7 @@ namespace AgentSmith.Application.Services.Prompts;
 /// <summary>
 /// Renders an unanswered question hand-back as the derivation's answer: both readings
 /// as the ticket listed them, and the taken one stated as confirmed. The derivation
-/// then cuts phases under it instead of asking the same question again.
+/// then cuts specs under it instead of asking the same question again.
 /// </summary>
 public static class UnansweredQuestionPromptSection
 {

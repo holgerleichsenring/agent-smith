@@ -127,7 +127,7 @@ public sealed class TicketProviderCreateTests
     /// <summary>
     /// 2026-09-18-b4f0. The work-item TYPE is an argument to a call on a client the provider
     /// builds in its own constructor, so it was assertable nowhere: the incident that named
-    /// this phase — a Task filed into a project whose configured failed_status a Task does not
+    /// this spec — a Task filed into a project whose configured failed_status a Task does not
     /// have — could not be written as a test. The create takes that call as a delegate now.
     /// </summary>
     [Fact]
@@ -159,7 +159,7 @@ public sealed class TicketProviderCreateTests
     }
 
     /// <summary>
-    /// The promise this phase makes to every installation that configures nothing: the create
+    /// The promise this spec makes to every installation that configures nothing: the create
     /// is exactly the create it was. The default is a constant in each collaborator, applied in
     /// the one clause that reads the configured kind.
     /// </summary>

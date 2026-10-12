@@ -16,11 +16,11 @@ namespace AgentSmith.Application.Services.Specs;
 /// The step FAILS, and a failing step runs the finalizer tail: when the run delivers what
 /// verified as a shortfall, the error handler's own failure comment never runs. So the finding
 /// reaches the ticket only if this posts it. A tracker that refuses the comment must not change
-/// the verdict — the phase row and the run decision carry it either way.
+/// the verdict — the spec row and the run decision carry it either way.
 /// </para>
 /// <para>
-/// It does NOT say the same thing twice. A phase is marked executed only at WritePhaseRecord, so
-/// every re-trigger re-enters the phase and re-asks; without this guard five re-triggers leave
+/// It does NOT say the same thing twice. A spec is marked executed only at WriteSpecRecord, so
+/// every re-trigger re-enters the spec and re-asks; without this guard five re-triggers leave
 /// five identical comments and teach the operator to ignore the signal. The rule is 0e79b's and
 /// bd7a's: our own marker on the thread means it was said, unless somebody replied after it —
 /// a reply is a person engaging, and then saying it again is answering them.
@@ -51,7 +51,7 @@ public sealed class PremiseHandbackNotice(
         if (AlreadyTold(pipeline, draft.PhaseId))
         {
             logger.LogInformation(
-                "Ticket {Ticket} was already told that phase {Phase} rests on a premise that no "
+                "Ticket {Ticket} was already told that spec {Spec} rests on a premise that no "
                 + "longer holds, and nobody has replied — not saying it again",
                 ticket.Id.Value, draft.PhaseId);
             return false;
@@ -61,7 +61,7 @@ public sealed class PremiseHandbackNotice(
         {
             await ticketFactory.Create(tracker).UpdateStatusAsync(ticket.Id, body, ct);
             logger.LogInformation(
-                "Told ticket {Ticket} that phase {Phase} rests on a premise that no longer holds",
+                "Told ticket {Ticket} that spec {Spec} rests on a premise that no longer holds",
                 ticket.Id.Value, draft.PhaseId);
             return true;
         }
@@ -74,18 +74,18 @@ public sealed class PremiseHandbackNotice(
     }
 
     // Said before on this thread, and nobody has answered it since.
-    private static bool AlreadyTold(PipelineContext pipeline, string phaseId)
+    private static bool AlreadyTold(PipelineContext pipeline, string specId)
     {
         var comments = pipeline.TryGet<IReadOnlyList<TicketComment>>(
             ContextKeys.TicketComments, out var c) ? c : null;
-        var marker = PremiseHandback.Marker(phaseId);
+        var marker = PremiseHandback.Marker(specId);
         return comments is not null
             && comments.Any(comment => comment.Body?.Contains(marker, StringComparison.Ordinal) == true)
             && !OwnTicketComment.IsAnswered(comments, marker);
     }
 
     // The spec pull request exists only once the derivation published; a hand-back on the first
-    // phase of a set happens before any delivery, and must not send a reader to one.
+    // spec of a set happens before any delivery, and must not send a reader to one.
     private static bool HasPullRequest(PipelineContext pipeline) =>
         SpecPullRequests.Of(pipeline).Count > 0
         || (pipeline.TryGet<string>(ContextKeys.PullRequestUrl, out var pr)

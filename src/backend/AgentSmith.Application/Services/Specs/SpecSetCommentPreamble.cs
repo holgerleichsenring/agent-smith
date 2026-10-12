@@ -6,7 +6,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// 2026-09-17-0e79b: what the cut comment tells the author about changing the set — which is not
 /// the same sentence for a set a person approved.
 /// <para>
-/// The comment used to promise, on every run, that "the next run amends an unstarted phase or
+/// The comment used to promise, on every run, that "the next run amends an unstarted spec or
 /// re-cuts the unstarted tail". For an approved set that promise is FALSE and contradicts the
 /// notice the run posts beside it, so it branches on the approval mark and points at the place a
 /// change is actually made. What does not branch is <see cref="SpecSetComment.CutMarker"/> in the
@@ -15,10 +15,10 @@ namespace AgentSmith.Application.Services.Specs;
 /// <para>
 /// WHERE IT POINTS IS WHAT WORKS TODAY: the specs on the ticket branch, open in the draft pull
 /// request. A reviewer's edit there is read back by the next run and worked as it stands —
-/// unchanged by this phase, and the only route an operator can take right now. It deliberately
+/// unchanged by this spec, and the only route an operator can take right now. It deliberately
 /// does NOT send them to the design conversation: nothing re-opens an approved record from one
 /// yet (the store side exists, the dialog command does not), and pointing at an unreachable
-/// place would be the promise this phase deleted, moved somewhere else.
+/// place would be the promise this spec deleted, moved somewhere else.
 /// </para>
 /// <para>
 /// 2026-09-22-8b25: it no longer says NO run re-cuts an approved set, because one now does. The

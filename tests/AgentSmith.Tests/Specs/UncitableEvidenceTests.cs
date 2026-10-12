@@ -6,7 +6,7 @@ namespace AgentSmith.Tests.Specs;
 
 /// <summary>
 /// p0481: an evidence line that quotes no command names none. Found while reviewing this
-/// phase — the budget's own notice was citable, because it carries no apostrophe and the
+/// spec — the budget's own notice was citable, because it carries no apostrophe and the
 /// reading fell back to the whole line, so any sufficiently long prefix of the notice
 /// resolved as a command that ran. p0470 kept it out of the STEP reading and left this open.
 /// </summary>

@@ -5,10 +5,10 @@ namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
 /// p0399: an Azure DevOps ticket body arrives as HTML. Segments cut from it raw carry
-/// the bytes of the ENCODING, not of the content — a phase companion promising "copied
+/// the bytes of the ENCODING, not of the content — a spec companion promising "copied
 /// byte for byte out of the ticket" would hand the implementing agent
 /// entity-corrupted commands. Converted ONCE, at segment ingestion, so every
-/// downstream consumer (derivation prompt, phase companions, accounting, run viewer)
+/// downstream consumer (derivation prompt, spec companions, accounting, run viewer)
 /// reads the ticket's TEXT. A body already written as plain text or markdown passes
 /// through unchanged.
 /// </summary>

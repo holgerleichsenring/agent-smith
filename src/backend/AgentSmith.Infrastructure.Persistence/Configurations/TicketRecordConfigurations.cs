@@ -6,7 +6,7 @@ namespace AgentSmith.Infrastructure.Persistence.Configurations;
 /// 2026-09-25-b4d9: the tables keyed by a TICKET rather than by a run — what is queued for
 /// one, what spec set belongs to it, what a run could not move, and that this framework took
 /// it up and owes it a run. Lifted out of the context like RunChildConfiguration before it,
-/// which was at its length ceiling when this phase added the fourth of them.
+/// which was at its length ceiling when this spec added the fourth of them.
 /// </summary>
 public sealed class TicketRecordConfigurations
 {

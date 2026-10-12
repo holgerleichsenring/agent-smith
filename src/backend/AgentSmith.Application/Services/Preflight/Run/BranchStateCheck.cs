@@ -12,7 +12,7 @@ namespace AgentSmith.Application.Services.Preflight.Run;
 /// p0428: says out loud whether the ticket branch already carries an earlier run's work.
 /// <para>
 /// One live run inherited a branch on which source files had been commented out
-/// wholesale; phases were treated as delivered, and the agent then read 76 files and
+/// wholesale; specs were treated as delivered, and the agent then read 76 files and
 /// wrote nothing for 50 minutes. The fact was visible in ten seconds of git history.
 /// </para>
 /// <para>

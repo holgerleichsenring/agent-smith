@@ -2,7 +2,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Events;
 using AgentSmith.Application.Services.Handlers;
-using AgentSmith.Application.Services.PhaseExecution;
+using AgentSmith.Application.Services.SpecExecution;
 using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.SpecDialog;
@@ -64,8 +64,8 @@ internal sealed class ApprovedSetHarness
 
     internal DeriveSpecHandler Handler()
     {
-        var validator = new SpecDraftValidator(new PhaseSpecSchemaProvider());
-        var draftReader = new PhaseDraftReader();
+        var validator = new SpecDraftValidator(new SpecSchemaProvider());
+        var draftReader = new SpecDraftReader();
         var factory = new Mock<ISandboxFileReaderFactory>();
         factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(Branch);
         var gitOps = new SandboxGitOperations(
@@ -85,10 +85,10 @@ internal sealed class ApprovedSetHarness
                 new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance),
                 new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
                 NullLogger<SpecSourceResolver>.Instance),
-            new SpecFallback(validator, draftReader, new DerivedPhaseYamlRenderer()),
+            new SpecFallback(validator, draftReader, new DerivedSpecYamlRenderer()),
             new SpecCoverageRefusal(
                 new SpecCutGate(new NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
-                new SpecFallback(validator, draftReader, new DerivedPhaseYamlRenderer())),
+                new SpecFallback(validator, draftReader, new DerivedSpecYamlRenderer())),
             new SpecSetTicketCommenter(cuts, Moq.Mock.Of<AgentSmith.Contracts.Reviews.IFullSetPrNotice>(), NullLogger<SpecSetTicketCommenter>.Instance),
             new ApprovedSetKeptNotice(
                 Notices.Factory(), Decisions, NullLogger<ApprovedSetKeptNotice>.Instance),

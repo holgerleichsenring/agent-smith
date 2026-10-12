@@ -168,7 +168,7 @@ public sealed class CapacityProbeTests
     {
         // Stripping them must RELOCATE them: a cluster operator with three quotas in one
         // namespace has to be able to learn which one refused, and the probe wrote no line of
-        // its own before this phase.
+        // its own before this spec.
         var (probe, logger) = ProbeOverAnExhaustedQuota();
 
         await probe.HasCapacityAsync(Footprint(), CancellationToken.None);

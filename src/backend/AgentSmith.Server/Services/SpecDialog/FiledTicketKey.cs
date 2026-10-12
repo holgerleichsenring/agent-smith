@@ -36,7 +36,7 @@ internal static class FiledTicketKey
 
     /// <summary>
     /// How a composed filing notice names one ticket: the key, with the url behind it in whichever
-    /// link shape the channel renders. EVERY channel, not just the page — the phase's own claim is
+    /// link shape the channel renders. EVERY channel, not just the page — the spec's own claim is
     /// that filed tickets read as keys rather than raw urls, and a chat reader deserves the same
     /// sentence. A reference that is not a web url is not linked: a link to "#412" navigates
     /// nowhere and claims it does.
@@ -45,7 +45,7 @@ internal static class FiledTicketKey
     {
         ArgumentNullException.ThrowIfNull(ticket);
         ArgumentNullException.ThrowIfNull(markup);
-        // A filing written before this phase carries no key; its reference is what it always was.
+        // A filing written before this spec carries no key; its reference is what it always was.
         if (ticket.Key is null) return ticket.Reference;
         return IsWebUrl(ticket.Reference) ? markup.Link(ticket.Key, ticket.Reference) : ticket.Key;
     }

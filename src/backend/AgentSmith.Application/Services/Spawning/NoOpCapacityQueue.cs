@@ -7,7 +7,7 @@ namespace AgentSmith.Application.Services.Spawning;
 /// p0320c: the DB-free binding (CLI single-binary / in-process compositions):
 /// no persistent queue exists, so enqueue records nothing and the head is always
 /// empty — a capacity-deferred spawn stays the stateless defer-and-retry it was
-/// before this phase. Mirrors <see cref="Claim.NoOpActiveRunLease"/>.
+/// before this spec. Mirrors <see cref="Claim.NoOpActiveRunLease"/>.
 /// </summary>
 public sealed class NoOpCapacityQueue : ICapacityQueue
 {

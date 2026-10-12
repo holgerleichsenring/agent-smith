@@ -14,7 +14,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// A declared stage that cannot fail is worth what no declared stage is worth: the resolver
 /// falls through to discovery, and when that finds nothing the run reports a resolution
 /// failure instead of a build it never ran. Failing loudly is the point — p0420 already
-/// refuses to account for a phase over a tree that does not compile, and this stops the
+/// refuses to account for a spec over a tree that does not compile, and this stops the
 /// gate from asserting the opposite.
 /// </para>
 /// </summary>

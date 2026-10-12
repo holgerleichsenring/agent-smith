@@ -1,0 +1,79 @@
+using YamlDotNet.Serialization;
+
+namespace AgentSmith.Application.Services.Specs;
+
+/// <summary>
+/// p0393a: renders one derived spec as a schema-valid spec. The YAML is
+/// composed in CODE from the model's fields rather than written by the model:
+/// a spec that must pass SpecDraftValidator is a contract, and a contract
+/// the model formats is a contract that fails on a stray indent.
+/// </summary>
+public sealed class DerivedSpecYamlRenderer
+{
+    // 2026-10-02-3f06a: a string that reads as a number, a boolean or null is written quoted.
+    // The validator types plain scalars, and the schema now types facts, assumptions and
+    // contexts — an assumption "42" written plain would be refused as a number.
+    private readonly ISerializer _serializer = new SerializerBuilder().WithQuotingNecessaryStrings().Build();
+
+    public string Render(
+        string specId,
+        string goal,
+        IReadOnlyList<string> requires,
+        IReadOnlyList<(string Id, string Action)> steps,
+        IReadOnlyList<string> done,
+        string markdownFileName,
+        IReadOnlyList<int> carriedSegments,
+        string ticketId,
+        SpecFacts? facts = null,
+        IReadOnlyList<string>? contexts = null,
+        IReadOnlyList<string>? repos = null)
+    {
+        var document = new Dictionary<string, object?>
+        {
+            ["spec"] = specId,
+            ["goal"] = goal,
+        };
+        if (requires.Count > 0) document["requires"] = requires;
+        // 2026-10-12-3a36e: the repositories the spec changes, stated or filled from the scope.
+        // Absent when no scope was known, so a cut over no repository renders as it did.
+        if (repos is { Count: > 0 }) document["repos"] = repos;
+        document["scope"] = new Dictionary<string, object?>
+        {
+            ["in"] = carriedSegments.Count > 0
+                ? $"Ticket {ticketId}, segment(s) {string.Join(", ", carriedSegments)} — "
+                  + $"carried verbatim in {markdownFileName}"
+                : $"Ticket {ticketId}",
+        };
+        document["decisions"] = new[]
+        {
+            new Dictionary<string, object?>
+            {
+                // 2026-09-17-0e79c: written by ONE producer, so the premise check can exclude
+                // the one decision the spec did not state.
+                ["key"] = DerivedSpecDecision.For(ticketId, markdownFileName),
+            },
+        };
+        if (steps.Count > 0)
+            document["steps"] = steps
+                .Select(s => new Dictionary<string, object?> { ["id"] = s.Id, ["action"] = s.Action })
+                .ToList();
+        document["done"] = done;
+        // 2026-09-07-b7e2: two keys of the spec's own, admitted by the schema's open top
+        // level. Each fact carries the minted evidence line it cites, so the id a human
+        // reads resolves to the look it names. Absent when there is nothing to write, so
+        // a cut with no facts renders exactly as it did before this spec.
+        if (facts is { Facts.Count: > 0 })
+            document["facts"] = facts.Facts
+                .Select(f => new Dictionary<string, object?> { ["claim"] = f.Claim, ["evidence"] = f.Evidence })
+                .ToList();
+        if (facts is { Assumptions.Count: > 0 })
+            document["assumptions"] = facts.Assumptions;
+        // 2026-09-08-1830: the contexts this spec changes, declared from the list the
+        // scope call named. Absent when the model named none, so an old catalog's cut
+        // renders as it did.
+        if (contexts is { Count: > 0 })
+            document["contexts"] = contexts;
+
+        return _serializer.Serialize(document).TrimEnd() + "\n";
+    }
+}

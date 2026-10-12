@@ -94,7 +94,7 @@ public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
         : "This turn MAY NOT propose: the operator has not yet replied to a discussion of this "
           + "work. Draft no ```yaml or ```outcome block — it would be refused. " + FirstAnswer;
 
-    // p0315e: one nudge covers every typed terminal outcome — a phase draft
+    // p0315e: one nudge covers every typed terminal outcome — a spec draft
     // (```yaml) and a bug/epic payload (```outcome) fail the same gate.
     public string BuildOutcomeFixNudge(string originalUserPrompt, string validationError) =>
         "The terminal outcome in your previous reply failed schema validation and was "

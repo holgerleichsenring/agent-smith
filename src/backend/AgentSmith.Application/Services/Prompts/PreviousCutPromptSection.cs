@@ -5,14 +5,14 @@ using AgentSmith.Contracts.Specs;
 namespace AgentSmith.Application.Services.Prompts;
 
 /// <summary>
-/// p0393a: renders the previous cut for a re-entry — every phase with whether it already
+/// p0393a: renders the previous cut for a re-entry — every spec with whether it already
 /// executed, and the cause of the revision being written — so the derivation AMENDS
 /// the set instead of re-deriving it from the prose. A previous set that was a
 /// hand-back holds no cut to amend and renders nothing: the hand-back itself reaches
 /// the prompt through the conversation section, or the unanswered-question pin.
 /// <para>
 /// 2026-09-08-5cd2: an edited ticket says so, naming the revision the change postdates —
-/// the unstarted phases are cut from the current text, the executed ones stay.
+/// the unstarted specs are cut from the current text, the executed ones stay.
 /// 2026-09-08-4aa9: a comment says so the same way, pointing at the conversation section
 /// the comment is in.
 /// </para>
@@ -31,12 +31,12 @@ public static class PreviousCutPromptSection
         if (cause == SpecRevisionCause.Rework) sb.AppendLine(ReworkParagraph(previous));
         if (cause == SpecRevisionCause.StatusBack) sb.AppendLine(StatusBackParagraph(previous));
         if (SpecAmendmentRule.IsAppend(cause, previous)) sb.AppendLine(AppendParagraph(previous, cause));
-        foreach (var phase in previous.Phases)
+        foreach (var spec in previous.Phases)
         {
-            var executed = previous.Executed.Contains(phase.PhaseId, StringComparer.Ordinal);
+            var executed = previous.Executed.Contains(spec.PhaseId, StringComparer.Ordinal);
             sb.AppendLine(
-                $"- {phase.PhaseId} ({(executed ? "EXECUTED — keep exactly as it is" : "not started")}): "
-                + phase.Draft.Goal);
+                $"- {spec.PhaseId} ({(executed ? "EXECUTED — keep exactly as it is" : "not started")}): "
+                + spec.Draft.Goal);
         }
         sb.AppendLine();
         sb.AppendLine(
@@ -61,7 +61,7 @@ public static class PreviousCutPromptSection
     private static string AppendParagraph(SpecSet previous, string cause) =>
         $"Every phase above has executed. Repeat them unchanged and ADD new phases after them that carry out "
         + $"what {Source(cause)} "
-        + $"asks — at most {SpecSet.MaxPhases - previous.Executed.Count} new phase(s).";
+        + $"asks — at most {SpecSet.MaxSpecs - previous.Executed.Count} new phase(s).";
 
     private static string Source(string cause) => cause switch
     {

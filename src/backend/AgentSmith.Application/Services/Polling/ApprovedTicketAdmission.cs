@@ -47,7 +47,7 @@ public sealed class ApprovedTicketAdmission(
             return outstanding.TicketIds;
         }
         // A store this process cannot reach admits nothing: discovery falls back to exactly the
-        // label-guarded query it ran before this phase, rather than a poll that stops working.
+        // label-guarded query it ran before this spec, rather than a poll that stops working.
         catch (Exception ex)
             when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {

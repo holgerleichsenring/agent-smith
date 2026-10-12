@@ -4,5 +4,5 @@ namespace AgentSmith.Application.Services.Specs;
 public sealed class SeriesCarriedEntry
 {
     public int Segment { get; set; }
-    public string Phase { get; set; } = string.Empty;
+    public string Spec { get; set; } = string.Empty;
 }

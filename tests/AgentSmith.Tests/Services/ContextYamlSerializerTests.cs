@@ -9,7 +9,7 @@ namespace AgentSmith.Tests.Services;
 /// the central guarantee — what we accept on Serialize, we read back on
 /// Parse. Two real-world failure modes (npm '@scope/pkg' in a list and ': '
 /// inside list strings) are pinned because they are the exact bugs the
-/// operator hit in context.yaml files before this phase. 2026-08-26-04b6 moved
+/// operator hit in context.yaml files before this spec. 2026-08-26-04b6 moved
 /// both payloads off `stack.sdks` and `quality.principles` — both READINGS, no
 /// longer written — into the freeform block, where the quoting rule is the same.
 /// </summary>

@@ -24,10 +24,10 @@ public static partial class CommandStepClasses
         [CommandNames.Approval] = Milestone,
         [CommandNames.AgenticExecute] = Milestone,
         [CommandNames.AgenticMaster] = Milestone,
-        [CommandNames.CommitPhaseWork] = Milestone, // p0437
-        [CommandNames.CheckPhasePremises] = Milestone, // 2026-09-17-0e79c: it can stop a phase
-        [CommandNames.VerifyPhase] = Milestone,
-        [CommandNames.ReviewPhaseDiff] = Milestone,   // 2026-09-17-042eh: its findings are read
+        [CommandNames.CommitSpecWork] = Milestone, // p0437
+        [CommandNames.CheckSpecPremises] = Milestone, // 2026-09-17-0e79c: it can stop a spec
+        [CommandNames.VerifySpec] = Milestone,
+        [CommandNames.ReviewSpecDiff] = Milestone,   // 2026-09-17-042eh: its findings are read
         [CommandNames.CommitAndPR] = Milestone,
         [CommandNames.InitCommit] = Milestone,
         [CommandNames.GenerateTests] = Milestone,
@@ -67,7 +67,7 @@ public static partial class CommandStepClasses
         // --- Gates: visible only when they have a finding. ---
         [CommandNames.ScopeRepos] = Gate,          // speaks when it actually narrowed the repo set
         [CommandNames.SpecHandback] = Gate,        // speaks when the derivation handed the ticket back
-        [CommandNames.PhaseSpecGate] = Gate,       // ms validation — speaks only on a real problem
+        [CommandNames.SpecGate] = Gate,       // ms validation — speaks only on a real problem
         [CommandNames.MasterOpenQuestions] = Gate, // speaks when the master parked a question
         ["PlanOpenQuestionsCommand"] = Gate,       // retired p0394a; old records still classify
         [CommandNames.EmptyPlanCheck] = Gate,      // speaks when the run skipped on an empty plan
@@ -91,10 +91,10 @@ public static partial class CommandStepClasses
         [CommandNames.LoadCatalog] = Internal,
         [CommandNames.LoadRuns] = Internal,
         [CommandNames.LoadSwagger] = Internal,
-        [CommandNames.PhaseSequence] = Internal,         // splice mechanics
-        [CommandNames.SelectPhase] = Internal,           // the phase header already tells this
+        [CommandNames.SpecSequence] = Internal,         // splice mechanics
+        [CommandNames.SelectSpec] = Internal,           // the spec header already tells this
         [CommandNames.CollectSpecDialogReply] = Internal,
-        [CommandNames.WritePhaseRecord] = Internal,
+        [CommandNames.WriteSpecRecord] = Internal,
         [CommandNames.WriteRunResult] = Internal,        // run-artifact bookkeeping
         [CommandNames.PrCrossLink] = Internal,
         [CommandNames.InitComplete] = Internal,

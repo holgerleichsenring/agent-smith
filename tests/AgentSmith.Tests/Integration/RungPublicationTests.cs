@@ -22,7 +22,7 @@ namespace AgentSmith.Tests.Integration;
 /// <para>
 /// Asked of git rather than of an argument list, because the whole question is what the
 /// remote does with a push. A recorded refspec cannot tell a create from an overwrite, and
-/// overwriting is exactly the failure this phase exists to make impossible: the work-branch
+/// overwriting is exactly the failure this spec exists to make impossible: the work-branch
 /// pusher force-pushes with a lease and refreshes that lease with a fetch, which on a
 /// shared branch would delete every slice already merged into it.
 /// </para>

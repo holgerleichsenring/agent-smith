@@ -90,6 +90,6 @@ public sealed class MasterOpenQuestionsHandler(
     private static CommandResult Reengage(PipelineCommand step, DialogAnswer answer) =>
         CommandResult.OkAndContinueWith(
             $"operator answered: {answer.Answer} — re-engaging the master",
-            new PipelineCommand(CommandNames.AgenticMaster) { PhaseId = step.PhaseId },
-            new PipelineCommand(CommandNames.MasterOpenQuestions) { PhaseId = step.PhaseId });
+            new PipelineCommand(CommandNames.AgenticMaster) { SpecId = step.SpecId },
+            new PipelineCommand(CommandNames.MasterOpenQuestions) { SpecId = step.SpecId });
 }

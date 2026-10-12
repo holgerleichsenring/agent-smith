@@ -19,7 +19,7 @@ using Moq;
 namespace AgentSmith.Tests.Handlers;
 
 /// <summary>
-/// 2026-09-13-6f35: the coding master can read the template its phase is built after. The
+/// 2026-09-13-6f35: the coding master can read the template its spec is built after. The
 /// entry is addressable by name, refused on write and on command BY THE SANDBOX, and absent
 /// from the sandbox map every downstream handler iterates.
 /// </summary>
@@ -141,7 +141,7 @@ public sealed class CodingMasterTemplateTests
         var scope = new UnreachableScope();
 
         try { await Scopes(scope).OpenAsync(pipeline, Draft(), false, CancellationToken.None); }
-        catch (InvalidOperationException) { /* the phase fails; the clone must not leak */ }
+        catch (InvalidOperationException) { /* the spec fails; the clone must not leak */ }
 
         scope.Disposed.Should().BeTrue();
     }
@@ -159,7 +159,7 @@ public sealed class CodingMasterTemplateTests
     }
 
     [Fact]
-    public async Task CodingMaster_PhaseChangesAnotherContext_TemplateIsNotOpened()
+    public async Task CodingMaster_SpecChangesAnotherContext_TemplateIsNotOpened()
     {
         var pipeline = PipelineWithTemplate(out var scope);
 

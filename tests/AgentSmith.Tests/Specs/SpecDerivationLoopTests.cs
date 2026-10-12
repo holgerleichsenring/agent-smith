@@ -19,7 +19,7 @@ using static AgentSmith.Tests.Specs.DerivationTestLooks;
 namespace AgentSmith.Tests.Specs;
 
 /// <summary>
-/// 2026-09-07-b7e2: the tool is not the phase — the LOOP is. The real deriver, the real
+/// 2026-09-07-b7e2: the tool is not the spec — the LOOP is. The real deriver, the real
 /// call and the real function-invoking client over a recording sandbox: a model that
 /// keeps looking is refused once the budget is spent, answers in JSON, and the derivation
 /// completes with the facts it could cite.

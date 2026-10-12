@@ -26,7 +26,7 @@ namespace AgentSmith.Application.Services.Spawning;
 ///
 /// 2026-09-22-766b: the funnel no longer asks whether a ticket's predecessors have left the
 /// working set. Nothing the framework files has carried a predecessor stamp since
-/// 2026-09-17-0e79d — the order inside an approved cut is the sequence's, phase by phase, a
+/// 2026-09-17-0e79d — the order inside an approved cut is the sequence's, spec by spec, a
 /// successor held until its predecessor VERIFIED — and the gate could only ever HOLD a spawn,
 /// never refuse one. What that costs is stated rather than hidden: two legacy children of the
 /// withdrawn N-children shape may now run CONCURRENTLY and cut from the same parent rung.

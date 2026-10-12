@@ -171,8 +171,8 @@ public sealed class SpecDialogDashboardWordingTests
         Draft("p9000", "the parent goal"),
         [Draft("p9000a", "the first slice"), Draft("p9000b", "the second slice")]);
 
-    private static PhaseDraft Draft(string phaseId, string goal) =>
-        new(phaseId, goal, $"spec: {phaseId}", []);
+    private static PhaseDraft Draft(string specId, string goal) =>
+        new(specId, goal, $"spec: {specId}", []);
 
     private static ConversationState State() => new()
     {

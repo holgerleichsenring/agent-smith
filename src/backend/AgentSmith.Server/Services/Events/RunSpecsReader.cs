@@ -57,8 +57,8 @@ public sealed class RunSpecsReader(IServiceScopeFactory scopeFactory, RunStepsRe
             [.. decisions[spec.SpecId]],
             [.. rail.Where(s => s.PhaseId == spec.SpecId)]);
 
-    // A decision that names no phase belongs to no phase — it stays on the run's own
-    // decision list rather than being attached to whichever phase shares its step.
+    // A decision that names no spec belongs to no spec — it stays on the run's own
+    // decision list rather than being attached to whichever spec shares its step.
     private static async Task<ILookup<string, RunDecisionView>> ReadDecisionsAsync(
         IUnitOfWork uow, string runId, CancellationToken ct)
     {

@@ -43,7 +43,7 @@ internal static class EvidenceCommand
     /// p0481: minus the grammar's OWN closing quote, and minus the elision marker. A command
     /// shortened mid-literal leaves the rendered line an unbalanced quote, and run 0944's
     /// account closed it — 202 characters cited against the 201 the line showed, one
-    /// character too long to be a prefix, and a phase that had built, tested and pushed both
+    /// character too long to be a prefix, and a spec that had built, tested and pushed both
     /// repositories was refused for it. Trimming can only SHORTEN what is cited, so the
     /// one-directional prefix rule and its floor still decide every citation.
     /// </para></summary>

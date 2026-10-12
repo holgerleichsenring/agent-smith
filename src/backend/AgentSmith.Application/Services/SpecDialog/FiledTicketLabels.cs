@@ -9,19 +9,19 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// <para>
 /// 2026-09-22-766b: ONE KEY DOES BOTH JOBS ON A FILED TICKET. A filing writes
 /// <see cref="ApprovedSetStamp"/> and nothing else, and that one stamp both says THIS WAS
-/// APPROVED and binds the ticket to phase execution — because "somebody approved a specification
-/// for this ticket" and "this ticket is phase execution" are the same fact about the same ticket.
+/// APPROVED and binds the ticket to spec execution — because "somebody approved a specification
+/// for this ticket" and "this ticket is spec execution" are the same fact about the same ticket.
 /// The word that used to assert the second half travelled on every filing, and a word this
 /// framework writes onto somebody else's board and reads back itself is the redundancy; no
 /// filing writes it now. It is still READ, because a PERSON may type it — see
-/// <see cref="BindsPhaseExecution"/>.
+/// <see cref="BindsSpecExecution"/>.
 /// </para>
 /// <para>
 /// A RECORD is not work at all — it is refused before every other rule, because every other rule
 /// ends in something and one of them would otherwise claim it.
 /// 2026-09-22-b3d7: THE RECORD LABEL HAS NO WRITER LEFT. An approved cut files ONE work ticket
 /// and nothing beside it. <see cref="IsEpicRecord"/> stays PERMANENTLY, not until some later
-/// phase tidies it: the tickets that carry the label are on a live board and nothing deletes
+/// spec tidies it: the tickets that carry the label are on a live board and nothing deletes
 /// them, so the reader outlives every writer. Both generations carry it — the epic PARENT
 /// SUMMARIES filed before 2026-09-17-0e79d widened the label's meaning from "the summary of a
 /// cut" to "a record, not work", and the SLICE RECORDS filed from then until 2026-09-22-b3d7 —
@@ -53,7 +53,7 @@ public static class FiledTicketLabels
     /// the run".
     /// <para>
     /// 2026-09-22-766b: and it is also what ROUTES a filed ticket — see
-    /// <see cref="BindsPhaseExecution"/>.
+    /// <see cref="BindsSpecExecution"/>.
     /// </para>
     /// </summary>
     public const string ApprovedSetStamp = Contracts.Tickets.TicketLabels.ApprovedSetStamp;
@@ -64,7 +64,7 @@ public static class FiledTicketLabels
     /// refuses them on this alone.
     /// </summary>
     public static bool IsEpicRecord(IncomingTicketEnvelope envelope) =>
-        Carries(envelope, PhaseTicketRenderer.EpicLabel) || Carries(envelope, TicketLabels.AcceptedSpecEpicLabel);
+        Carries(envelope, SpecTicketRenderer.EpicLabel) || Carries(envelope, TicketLabels.AcceptedSpecEpicLabel);
 
     /// <summary>True when the framework filed this ticket from a set a person approved — the stamp
     /// read under THIS tracker's name for it and every name it has ever had, never another board's.</summary>
@@ -76,7 +76,7 @@ public static class FiledTicketLabels
     }
 
     /// <summary>
-    /// 2026-09-22-766b: the one question routing asks — does this ticket bind to phase execution?
+    /// 2026-09-22-766b: the one question routing asks — does this ticket bind to spec execution?
     /// 2026-09-25-3c7aa: THREE THINGS ANSWER IT and the first is not on the board — the approval
     /// RECORD, whose existence the envelope carries, read where it was built. The two labels stay
     /// as an OR and never as a fallback: a process binding the in-memory store answers no to every
@@ -88,8 +88,8 @@ public static class FiledTicketLabels
     /// a documented trigger an operator chooses, and dropping it would remove a way of starting a
     /// run that nobody asked to lose.
     /// </summary>
-    public static bool BindsPhaseExecution(IncomingTicketEnvelope envelope, TicketLabelVocabulary vocabulary) =>
-        CarriesApprovedSet(envelope.Labels, vocabulary) || Carries(envelope, PhaseTicketRenderer.PhaseLabel)
+    public static bool BindsSpecExecution(IncomingTicketEnvelope envelope, TicketLabelVocabulary vocabulary) =>
+        CarriesApprovedSet(envelope.Labels, vocabulary) || Carries(envelope, SpecTicketRenderer.SpecLabel)
         || Carries(envelope, TicketLabels.AcceptedSpecLabel) || envelope.HasApprovedRecord;
 
     /// <summary>

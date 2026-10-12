@@ -18,7 +18,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 public sealed class SpecCutGate(IEventPublisher events, ILogger<SpecCutGate> logger)
 {
-    /// <summary>The cut was thrown away; one phase carries the whole ticket.</summary>
+    /// <summary>The cut was thrown away; one spec carries the whole ticket.</summary>
     public Task RefusedAsync(
         PipelineContext pipeline, string ticketId, string reason, CancellationToken ct)
     {

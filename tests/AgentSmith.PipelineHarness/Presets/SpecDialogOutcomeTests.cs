@@ -139,7 +139,7 @@ public sealed partial class SpecDialogOutcomeTests
     }
 
     [Fact]
-    public async Task Outcome_Feature_ResolvesSinglePhase()
+    public async Task Outcome_Feature_ResolvesSingleSpec()
     {
         var (bridge, adapter, sink) = (new InMemoryDialogueBridge(),
             new RecordingChatAdapter { AutoAnswer = "approve" }, new RecordingOutcomeSink());
@@ -150,10 +150,10 @@ public sealed partial class SpecDialogOutcomeTests
         var result = await RunTurnAsync(harness, state);
         await RunFlowAsync(harness, state, result.Outcome);
 
-        var phase = result.Outcome.Should().BeOfType<PhaseOutcome>().Subject;
-        phase.Draft.PhaseId.Should().Be("p9999");
-        phase.Draft.Yaml.Should().Contain("goal:", "the full schema-valid spec travels with the proposal");
-        sink.Accepted.Should().ContainSingle().Which.Should().BeOfType<PhaseOutcome>();
+        var spec = result.Outcome.Should().BeOfType<SpecOutcome>().Subject;
+        spec.Draft.PhaseId.Should().Be("p9999");
+        spec.Draft.Yaml.Should().Contain("goal:", "the full schema-valid spec travels with the proposal");
+        sink.Accepted.Should().ContainSingle().Which.Should().BeOfType<SpecOutcome>();
     }
 
     [Fact]
@@ -166,7 +166,7 @@ public sealed partial class SpecDialogOutcomeTests
 
         var result = await RunTurnAsync(harness, Discussed("draft the widget phase now") with { Platform = "dashboard" });
 
-        result.Outcome.Should().BeOfType<PhaseOutcome>();
+        result.Outcome.Should().BeOfType<SpecOutcome>();
         result.Reply.Should().Contain("```yaml", "the transcript keeps what the master wrote");
         result.Shown.Should().Be("Here is the phase draft:", "the dashboard pane shows the draft");
     }
@@ -221,10 +221,10 @@ public sealed partial class SpecDialogOutcomeTests
         sink.Accepted.Should().ContainSingle("the approval releases the proposal to the sink");
     }
 
-    // ---- p0315c: /create-phase files confirmed outcomes as real tickets ----
+    // ---- p0315c: /create-spec files confirmed outcomes as real tickets ----
 
     [Fact]
-    public async Task CreatePhase_AnswerOutcome_FilesNothing()
+    public async Task CreateSpec_AnswerOutcome_FilesNothing()
     {
         await using var bed = await FilingBed.BuildAsync(autoAnswer: "approve");
         var state = await bed.OpenSessionAsync("th-answer");
@@ -237,7 +237,7 @@ public sealed partial class SpecDialogOutcomeTests
     }
 
     [Fact]
-    public async Task CreatePhase_BugOutcome_FilesFixBugTicket()
+    public async Task CreateSpec_BugOutcome_FilesFixBugTicket()
     {
         await using var bed = await FilingBed.BuildAsync(autoAnswer: "approve");
         var state = await bed.OpenSessionAsync("th-bug");
@@ -261,14 +261,14 @@ public sealed partial class SpecDialogOutcomeTests
     }
 
     [Fact]
-    public async Task CreatePhase_PhaseOutcome_FilesOneRequirementAndStoresTheApprovedSet()
+    public async Task CreateSpec_SpecOutcome_FilesOneRequirementAndStoresTheApprovedSet()
     {
         await using var bed = await FilingBed.BuildAsync(autoAnswer: "approve");
         var state = await bed.OpenSessionAsync("th-phase");
         var draft = new PhaseDraft(
             "p9999", "Add a widget endpoint to the sample service", ValidDraftYaml, []);
 
-        await RunFlowAsync(bed.Harness, state, new PhaseOutcome(draft));
+        await RunFlowAsync(bed.Harness, state, new SpecOutcome(draft));
 
         var created = bed.Tickets.Created.Should().ContainSingle().Subject;
         created.Labels.Should().Equal(FiledTicketLabels.ApprovedSetStamp);
@@ -300,7 +300,7 @@ public sealed partial class SpecDialogOutcomeTests
     /// links and a comment listing them — were a second copy of the work ticket's own slice list.
     /// </summary>
     [Fact]
-    public async Task CreatePhase_EpicOutcome_FilesOneWorkTicketAndNothingBesideIt()
+    public async Task CreateSpec_EpicOutcome_FilesOneWorkTicketAndNothingBesideIt()
     {
         await using var bed = await FilingBed.BuildAsync(autoAnswer: "approve");
         var state = await bed.OpenSessionAsync("th-epic");
@@ -324,7 +324,7 @@ public sealed partial class SpecDialogOutcomeTests
         // own spec key. 2026-09-22-b3d7: no ticket the framework files carries the record label.
         work.Labels.Should().Equal(FiledTicketLabels.ApprovedSetStamp);
         bed.Tickets.Created.SelectMany(t => t.Labels).Should()
-            .NotContain(PhaseTicketRenderer.EpicLabel);
+            .NotContain(SpecTicketRenderer.EpicLabel);
         bed.Tickets.Comments.Should().BeEmpty("there are no records to list on it");
         // 2026-09-22-b3d7: the slice list is the ONLY place a person reads a slice on its own, so
         // every id, every goal and every requires: edge has to be in it.
@@ -353,18 +353,18 @@ public sealed partial class SpecDialogOutcomeTests
     }
 
     [Fact]
-    public async Task PhaseTicketRenderer_FiledBody_IsAReadableRequirementAndCarriesNoSpec()
+    public async Task SpecTicketRenderer_FiledBody_IsAReadableRequirementAndCarriesNoSpec()
     {
         await using var bed = await FilingBed.BuildAsync(autoAnswer: null);
         // 2026-10-01-f5c3a: read, not constructed — the criteria are the draft's done list.
-        var draft = new PhaseDraftReader().Read(ValidDraftYaml);
+        var draft = new SpecDraftReader().Read(ValidDraftYaml);
 
-        var content = new PhaseTicketRenderer().RenderPhase(draft, "sess-outcome");
+        var content = new SpecTicketRenderer().RenderSpec(draft, "sess-outcome");
 
         content.Title.Should().Be("p9999: Add a widget endpoint to the sample service");
         content.Body.Should().Contain("Add a widget endpoint to the sample service").And.Contain(AcceptanceCriteriaSection.Heading,
             "a person reads what is wanted and what makes it finished");
-        content.Body.Should().Contain(PhaseTicketRenderer.SpecificationHeading)
+        content.Body.Should().Contain(SpecTicketRenderer.SpecificationHeading)
             .And.Contain("sess-outcome", "the body points at the conversation it was approved in");
         var validator = bed.Harness.Services.GetRequiredService<ISpecDraftValidator>();
         validator.Validate(content.Body).Should().BeOfType<SpecDraftAbsent>(
@@ -372,14 +372,14 @@ public sealed partial class SpecDialogOutcomeTests
     }
 
     [Fact]
-    public async Task CreatePhase_RejectReply_FilesNothingAndSaysSo()
+    public async Task CreateSpec_RejectReply_FilesNothingAndSaysSo()
     {
         await using var bed = await FilingBed.BuildAsync(autoAnswer: "reject");
         var state = await bed.OpenSessionAsync("th-reject");
         var draft = new PhaseDraft(
             "p9999", "Add a widget endpoint to the sample service", ValidDraftYaml, []);
 
-        var flowResult = await RunFlowAsync(bed.Harness, state, new PhaseOutcome(draft));
+        var flowResult = await RunFlowAsync(bed.Harness, state, new SpecOutcome(draft));
 
         flowResult.Should().BeOfType<OutcomeFlowCompleted>("a rejection ends the flow — no revision loop");
         bed.Tickets.Created.Should().BeEmpty("reject files nothing");
@@ -388,14 +388,14 @@ public sealed partial class SpecDialogOutcomeTests
     }
 
     [Fact]
-    public async Task CreatePhase_EditReply_RequestsRevisionAndFilesNothing()
+    public async Task CreateSpec_EditReply_RequestsRevisionAndFilesNothing()
     {
         await using var bed = await FilingBed.BuildAsync(autoAnswer: "split the storage slice in two");
         var state = await bed.OpenSessionAsync("th-edit");
         var draft = new PhaseDraft(
             "p9999", "Add a widget endpoint to the sample service", ValidDraftYaml, []);
 
-        var flowResult = await RunFlowAsync(bed.Harness, state, new PhaseOutcome(draft));
+        var flowResult = await RunFlowAsync(bed.Harness, state, new SpecOutcome(draft));
 
         flowResult.Should().BeOfType<OutcomeFlowEditRequested>()
             .Which.Note.Should().Be("split the storage slice in two");

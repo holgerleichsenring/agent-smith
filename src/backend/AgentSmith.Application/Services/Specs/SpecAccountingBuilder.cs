@@ -6,7 +6,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// p0393a: turns the derivation's claims into the accounting a reviewer checks in
 /// seconds — and finds the segments nobody spoke for.
 /// <para>
-/// The accounting spans the UNION of the phases: a segment is carried if any phase
+/// The accounting spans the UNION of the specs: a segment is carried if any spec
 /// carries it. It is a LIST, not a percentage: a percentage gets optimised against
 /// the moment it is measured.
 /// </para>
@@ -14,12 +14,12 @@ namespace AgentSmith.Application.Services.Specs;
 public static class SpecAccountingBuilder
 {
     public static SpecAccounting Build(
-        IReadOnlyList<SpecPhase> phases,
+        IReadOnlyList<SpecPhase> specs,
         IReadOnlyList<DiscardedSegment> discarded,
         IReadOnlyList<TicketSegment> segments,
         IReadOnlyList<DiscardedContext>? discardedContexts = null)
     {
-        var carried = phases
+        var carried = specs
             .SelectMany(p => p.CarriedSegments.Select(id => new CarriedSegment(id, p.PhaseId)))
             .Where(c => segments.Any(s => s.Id == c.SegmentId))
             .OrderBy(c => c.SegmentId)

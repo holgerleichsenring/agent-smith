@@ -42,7 +42,7 @@ public sealed class RunBeatsComputerTests
     [Fact]
     public void OldRunRecords_WithPlanSteps_StillRender()
     {
-        // p0394a retired GeneratePlan/PlanOpenQuestions from the phase path, but run
+        // p0394a retired GeneratePlan/PlanOpenQuestions from the spec path, but run
         // records persisted before the retirement still carry these steps — their
         // beats and trail labels must keep rendering, keyed by literal name.
         var run = TerminalRun("code", "success", Steps(
@@ -83,8 +83,8 @@ public sealed class RunBeatsComputerTests
             "the keystone proved every criterion even though the preset has no verify command");
     }
 
-    /// <summary>2026-10-12-6bfad: an earlier phase's met criteria do not prove a run whose
-    /// later phase could not be measured at all.</summary>
+    /// <summary>2026-10-12-6bfad: an earlier spec's met criteria do not prove a run whose
+    /// later spec could not be measured at all.</summary>
     [Fact]
     public void Beats_UnmeasuredAccount_AcceptanceNotProven()
     {
@@ -118,7 +118,7 @@ public sealed class RunBeatsComputerTests
         var beats = RunBeatsComputer.Compute(run)!;
 
         beats.Verify.Should().Be(BeatStates.Skipped,
-            "p0393 gave `code` a real VerifyPhase beat");
+            "p0393 gave `code` a real VerifySpec beat");
     }
 
     // p0344b spec test: Beats_FailedStep_MarksItsBeatFailed_LaterBeatsPending
@@ -135,7 +135,7 @@ public sealed class RunBeatsComputerTests
         beats.Ticket.Should().Be(BeatStates.Done);
         beats.Plan.Should().Be(BeatStates.Failed, "the failed step's beat is the failure point");
         beats.Building.Should().Be(BeatStates.Done, "AnalyzeCode completed before the plan failed — honest, not narrative-smoothed");
-        beats.Verify.Should().Be(BeatStates.Pending, "p0393 gave `code` a real VerifyPhase beat");
+        beats.Verify.Should().Be(BeatStates.Pending, "p0393 gave `code` a real VerifySpec beat");
         beats.Outcome.Should().Be(BeatStates.Pending, "the story stopped before shipping");
     }
 
@@ -197,7 +197,7 @@ public sealed class RunBeatsComputerTests
         beats.Ticket.Should().Be(BeatStates.Pending);
         beats.Plan.Should().Be(BeatStates.Pending);
         beats.Building.Should().Be(BeatStates.Pending);
-        beats.Verify.Should().Be(BeatStates.Pending, "p0393 gave `code` a real VerifyPhase beat");
+        beats.Verify.Should().Be(BeatStates.Pending, "p0393 gave `code` a real VerifySpec beat");
         beats.Outcome.Should().Be(BeatStates.Pending);
     }
 

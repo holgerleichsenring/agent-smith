@@ -18,7 +18,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// composition — SpecDialogTurnRunner → ExecutePipelineUseCase →
 /// spec-dialog preset → AgenticMasterHandler — with the LLM scripted.
 /// Tier-1 (cached code map, no sandbox), tier-2 (lazy read-only source
-/// sandbox on the first content read), and the phase-spec draft gate
+/// sandbox on the first content read), and the spec draft gate
 /// (valid shown, invalid re-prompted and never surfaced raw).
 /// </summary>
 [Trait("Category", "PipelineHarness")]
@@ -81,7 +81,7 @@ public sealed class SpecDialogTests
     }
 
     [Fact]
-    public async Task DesignPartner_PhaseOutcome_ProducesSchemaValidDraft()
+    public async Task DesignPartner_SpecOutcome_ProducesSchemaValidDraft()
     {
         await using var harness = BuildHarness();
         harness.ChatClient.EnqueueText($"Here is the phase draft:\n{ValidDraft}");

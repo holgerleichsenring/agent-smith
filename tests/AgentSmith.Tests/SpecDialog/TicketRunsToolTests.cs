@@ -10,7 +10,7 @@ namespace AgentSmith.Tests.SpecDialog;
 /// <para>
 /// The record existed and a design turn could not reach it: the reader that composes runs is a
 /// PAGE read addressed by a dialog id, and a turn's seeds carried no run record at all. The first
-/// cut of the phase beside this one assumed otherwise.
+/// cut of the spec beside this one assumed otherwise.
 /// </para>
 /// </summary>
 public sealed class TicketRunsToolTests
@@ -41,7 +41,7 @@ public sealed class TicketRunsToolTests
     }
 
     [Fact]
-    public void TicketRunsTool_ARunItRecorded_CarriesItsPhasesAndPullRequests()
+    public void TicketRunsTool_ARunItRecorded_CarriesItsSpecsAndPullRequests()
     {
         var run = new TicketRun(
             "r-1", "sample", "success", DateTimeOffset.UtcNow, ["2026-09-24-d4e1"], ["https://pr/9335"]);

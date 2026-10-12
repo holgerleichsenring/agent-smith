@@ -49,12 +49,12 @@ public sealed class PhaseCommandLogTests
 
         var line = log.Evidence().Single();
         line.Should().Contain("Build succeeded. 0 Error(s)");
-        line.Length.Should().BeLessThan(PhaseCommandBudget.TailChars + 200);
+        line.Length.Should().BeLessThan(SpecRunCommandBudget.TailChars + 200);
     }
 
     /// <summary>
     /// p0470: p0452 capped the list at forty entries and dropped the oldest, which is the
-    /// negation of this phase — the searches that prove an absence run early. A phase that
+    /// negation of this spec — the searches that prove an absence run early. A spec that
     /// ran more than the budget holds still hands over every command LINE; what gives way
     /// is output.
     /// </summary>
@@ -141,7 +141,7 @@ public sealed class PhaseCommandLogTests
     /// <summary>
     /// p0452 pins "no output" as the proof a search found nothing — the one reading that
     /// closes an absence criterion. A trimmed tail reusing that wording would claim the
-    /// command found nothing, which is this phase's defect one level down.
+    /// command found nothing, which is this spec's defect one level down.
     /// </summary>
     [Fact]
     public void PhaseCommandLog_TrimmedTail_ReadsDifferentlyFromNoOutput()
@@ -164,12 +164,12 @@ public sealed class PhaseCommandLogTests
         var log = new PhaseCommandLog();
         log.Record("api", "cat > src/Sample.cs <<'EOF'\n" + new string('y', 40_000) + "\nEOF", "ok");
 
-        log.Entries.Single().Command.Length.Should().BeLessThanOrEqualTo(PhaseCommandBudget.CommandChars + 1);
+        log.Entries.Single().Command.Length.Should().BeLessThanOrEqualTo(SpecRunCommandBudget.CommandChars + 1);
         log.Evidence().Single().Should().Contain("cat > src/Sample.cs");
     }
 
     /// <summary>
-    /// The observed case: a live migration phase issued 157 run_command calls, and the search
+    /// The observed case: a live migration spec issued 157 run_command calls, and the search
     /// that proves an absence is one of the first the agent runs. Built from short synthetic
     /// strings this test would pass at any budget, so the sizes here are the real ones.
     /// </summary>
@@ -186,11 +186,11 @@ public sealed class PhaseCommandLogTests
         evidence.Should().HaveCount(158, "157 commands and the notice");
         evidence[1].Should().Contain("grep -RIn 'LegacyAuth' --include='*.cs' src/backend")
             .And.Contain("exited 1", "the search that proves an absence exits non-zero");
-        evidence.Sum(l => l.Length).Should().BeLessThan(PhaseCommandBudget.MaxChars + 500,
+        evidence.Sum(l => l.Length).Should().BeLessThan(SpecRunCommandBudget.MaxChars + 500,
             "the point of a character budget is that it binds");
     }
 
-    /// <summary>Record trims under the same lock the reader takes, so a phase recording while
+    /// <summary>Record trims under the same lock the reader takes, so a spec recording while
     /// the account is being assembled cannot hand over a half-trimmed list.</summary>
     [Fact]
     public async Task PhaseCommandLog_ConcurrentRecordAndEvidence_DoNotTear()

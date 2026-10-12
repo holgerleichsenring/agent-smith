@@ -5,7 +5,7 @@ namespace AgentSmith.Application.Services.Scans;
 /// <summary>
 /// p0429: resolves a finding's citation by READING the file it names.
 /// <para>
-/// The mechanical half, exactly as a phase account's: we cannot check that a line MEANS
+/// The mechanical half, exactly as a spec account's: we cannot check that a line MEANS
 /// what the finding claims, but we can check that the file it names is a file the scan can
 /// read. A citation that resolves against nothing is a fabrication — this is the half that
 /// would have caught the nine false criticals before a model was ever asked.

@@ -22,7 +22,7 @@ public sealed class AgentSmithDbContext(DbContextOptions<AgentSmithDbContext> op
     public DbSet<RunStep> RunSteps => Set<RunStep>();
     public DbSet<RunEvent> RunEvents => Set<RunEvent>();
     public DbSet<RunDecision> RunDecisions => Set<RunDecision>();
-    public DbSet<RunSpec> RunSpecs => Set<RunSpec>(); // p0466: a phase as an addressable thing
+    public DbSet<RunSpec> RunSpecs => Set<RunSpec>(); // p0466: a spec as an addressable thing
     public DbSet<RunLlmCall> RunLlmCalls => Set<RunLlmCall>();
     public DbSet<RunArtifact> RunArtifacts => Set<RunArtifact>();
     public DbSet<RunSandbox> RunSandboxes => Set<RunSandbox>();

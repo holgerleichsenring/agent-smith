@@ -153,7 +153,7 @@ public class PipelineExecutorTests
     [Fact]
     public async Task ExecuteAsync_StepFailsButTheTailDeliversAShortfall_EndsAsADoneRunWithoutAFailureComment()
     {
-        // p0439: the finalizer tail (here CommitAndPR) delivered the verified phases and left
+        // p0439: the finalizer tail (here CommitAndPR) delivered the verified specs and left
         // the delivery on the context. The run then ends with success — no failure comment,
         // no failed status, no WIP persist — and its result is the shortfall's summary.
         var h = new PipelineExecutorTestBuilder();

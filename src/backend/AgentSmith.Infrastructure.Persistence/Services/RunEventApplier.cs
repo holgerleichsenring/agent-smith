@@ -13,7 +13,7 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// raw-event trail is the projector's concern; this applies only the events that
 /// carry structured run facts the dashboard reads.
 ///
-/// p0466: the terminal transition and the phase's standing are projections of
+/// p0466: the terminal transition and the spec's standing are projections of
 /// their own — see RunFinalizationProjection / RunSpecProjection.
 ///
 /// <para>2026-08-25-61f1: an event arrives with the position it holds in its run's trail,
@@ -29,7 +29,7 @@ public sealed class RunEventApplier(
     RunPullRequestProjection pullRequests,
     RunClassificationProjection classification,
     RunFinalizationProjection finalization,
-    RunSpecProjection phases,
+    RunSpecProjection specs,
     RunLlmCallProjection llmCalls,
     RunDecisionProjection decisions)
 {
@@ -89,11 +89,11 @@ public sealed class RunEventApplier(
             // p0357/p0413: the ticket's size (budget) and its shape (the cut it earned).
             case RunBudgetResolvedEvent e: await classification.ApplyBudgetAsync(uow, e, ct); break;
             case RunWorkShapeResolvedEvent e: await classification.ApplyShapeAsync(uow, e, ct); break;
-            // p0466: the phase's own row, the spec it executed and (2026-09-17-042eh) its
-            // review — the phase used to survive only as a prefix on a step name.
-            case PhaseStateChangedEvent e: await phases.ApplyStateAsync(uow, e, ct); break;
-            case PhaseRecordedEvent e: await phases.ApplyRecordAsync(uow, e, ct); break;
-            case PhaseReviewedEvent e: await phases.ApplyReviewAsync(uow, e, ct); break;
+            // p0466: the spec's own row, the spec it executed and (2026-09-17-042eh) its
+            // review — the spec used to survive only as a prefix on a step name.
+            case PhaseStateChangedEvent e: await specs.ApplyStateAsync(uow, e, ct); break;
+            case PhaseRecordedEvent e: await specs.ApplyRecordAsync(uow, e, ct); break;
+            case PhaseReviewedEvent e: await specs.ApplyReviewAsync(uow, e, ct); break;
             default: break; // trail-only event — the projector still persists the raw row
         }
     }

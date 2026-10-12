@@ -14,7 +14,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace AgentSmith.Tests.Tools;
 
 /// <summary>
-/// The tool is not the phase — the LOOP is. Run 2026-09-17T14-41-51-a3e2 proved both halves of that
+/// The tool is not the spec — the LOOP is. Run 2026-09-17T14-41-51-a3e2 proved both halves of that
 /// at once: log_decision wrote to the host's /work and threw, and because
 /// FunctionInvokingChatClient tolerates three consecutive tool errors and rethrows the fourth
 /// (Microsoft.Extensions.AI, MaximumConsecutiveErrorsPerRequest, default 3), the master survived

@@ -40,7 +40,7 @@ public sealed class FiledTicketKeyTests
     }
 
     /// <summary>
-    /// A CHAT reader gets the key too. The phase claims filed tickets read as keys rather than raw
+    /// A CHAT reader gets the key too. The spec claims filed tickets read as keys rather than raw
     /// urls, and a claim that held on one channel only would be the wrong half of it; the link
     /// shape is the channel's, which is what SpecDialogMarkup.Link is for.
     /// </summary>
@@ -87,7 +87,7 @@ public sealed class FiledTicketKeyTests
     }
 
     /// <summary>
-    /// A filing stored before this phase has no key in its row. It must read back as ABSENT and
+    /// A filing stored before this spec has no key in its row. It must read back as ABSENT and
     /// fall back to the reference it always showed — a key invented from an id the row does not
     /// carry either would be a name that resolves to nothing.
     /// </summary>
@@ -108,7 +108,7 @@ public sealed class FiledTicketKeyTests
 
     private static ComposedReply Notice(FiledTicket ticket) =>
         new SpecDialogOutcomeComposer().ComposeFiled(
-            new PhaseOutcome(new PhaseDraft("p9001", "the phase", "spec: p9001", [])),
+            new SpecOutcome(new PhaseDraft("p9001", "the phase", "spec: p9001", [])),
             new FilingReport([ticket], Error: null));
 
     private static FiledTicket Filed(string key, string reference) =>

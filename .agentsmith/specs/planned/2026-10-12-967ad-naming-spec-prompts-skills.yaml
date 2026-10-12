@@ -8,7 +8,7 @@ requires: [2026-10-12-967ac]
 
 facts:
   - claim: "The coding agent's prompt is headed '## Phase {i} of {n}' and carries '## Phase contract'."
-    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecPromptSection.cs:37, src/backend/AgentSmith.Application/Services/PhaseExecutionPromptFactory.cs:62"
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecPromptSection.cs:37, src/backend/AgentSmith.Application/Services/SpecExecutionPromptFactory.cs:62"
   - claim: "The coding-agent-master's own steps are headed '## Phase 1' to '## Phase 4', so one prompt holds two different 'Phase 2' headings."
     evidence: "observed: 2026-10-12, agent-smith-skills origin/main 99622f6, skills/_masters/coding-agent-master/SKILL.md:211, :303, :388, :448"
   - claim: "The cut review asks for phase_id; its reader is backend-only."

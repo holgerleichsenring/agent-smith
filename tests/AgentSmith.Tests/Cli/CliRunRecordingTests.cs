@@ -95,7 +95,7 @@ public sealed class CliRunRecordingTests
 
     /// <summary>
     /// The end of the story: build the CLI's real graph, publish what a run publishes,
-    /// and find it in the store afterwards. This is the criterion the phase exists for —
+    /// and find it in the store afterwards. This is the criterion the spec exists for —
     /// "the run database is not empty" — and it is checked against the composition root,
     /// not a hand-assembled projector.
     /// </summary>

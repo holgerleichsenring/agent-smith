@@ -19,7 +19,7 @@ public sealed class EpicParentRoutingTests
     [Fact]
     public void Resolve_EpicParent_NoPipelineFromLabel_IsNotRouted()
     {
-        var matches = Resolve(Config(pipelineFromLabel: null), Envelope(PhaseTicketRenderer.EpicLabel));
+        var matches = Resolve(Config(pipelineFromLabel: null), Envelope(SpecTicketRenderer.EpicLabel));
 
         matches.Should().BeEmpty(
             "without a label filter PipelineResolver falls back to DefaultPipeline, which would "
@@ -31,11 +31,11 @@ public sealed class EpicParentRoutingTests
     {
         var config = Config(pipelineFromLabel: new Dictionary<string, string> { ["bug"] = "code" });
 
-        Resolve(config, Envelope(PhaseTicketRenderer.EpicLabel)).Should().BeEmpty();
+        Resolve(config, Envelope(SpecTicketRenderer.EpicLabel)).Should().BeEmpty();
     }
 
     [Fact]
-    public void Resolve_AFiledTicket_StillRoutesToPhaseExecution()
+    public void Resolve_AFiledTicket_StillRoutesToSpecExecution()
     {
         var matches = Resolve(
             Config(pipelineFromLabel: null), Envelope(FiledTicketLabels.ApprovedSetStamp));

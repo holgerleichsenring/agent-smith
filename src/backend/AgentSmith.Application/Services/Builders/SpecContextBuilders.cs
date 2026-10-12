@@ -38,48 +38,48 @@ public sealed class SpecHandbackContextBuilder : IContextBuilder
 }
 
 /// <summary>p0393a: the sequence splice needs nothing but the run context.</summary>
-public sealed class PhaseSequenceContextBuilder : IContextBuilder
+public sealed class SpecSequenceContextBuilder : IContextBuilder
 {
     public ICommandContext Build(
         PipelineCommand command, ResolvedProject project, PipelineContext pipeline) =>
-        new PhaseSequenceContext(pipeline);
+        new SpecSequenceContext(pipeline);
 }
 
 /// <summary>
-/// p0393a: the phase id travels on the spliced COMMAND, not in the context — the
-/// sequence stamps each block with its phase and this is where that stamp is read.
+/// p0393a: the spec id travels on the spliced COMMAND, not in the context — the
+/// sequence stamps each block with its spec and this is where that stamp is read.
 /// </summary>
-public sealed class SelectPhaseContextBuilder : IContextBuilder
+public sealed class SelectSpecContextBuilder : IContextBuilder
 {
     public ICommandContext Build(
         PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         ArgumentNullException.ThrowIfNull(command);
-        return new SelectPhaseContext(command.PhaseId ?? string.Empty, pipeline);
+        return new SelectSpecContext(command.SpecId ?? string.Empty, pipeline);
     }
 }
 
 /// <summary>
-/// 2026-09-17-0e79c: the premise check reads the CURRENT phase off the pipeline, so all it
+/// 2026-09-17-0e79c: the premise check reads the CURRENT spec off the pipeline, so all it
 /// needs from the project is the agent that asks and the tracker the hand-back tells.
 /// </summary>
-public sealed class CheckPhasePremisesContextBuilder : IContextBuilder
+public sealed class CheckSpecPremisesContextBuilder : IContextBuilder
 {
     public ICommandContext Build(
         PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
         ArgumentNullException.ThrowIfNull(project);
-        return new CheckPhasePremisesContext(project.Agent, project.Tracker, pipeline);
+        return new CheckSpecPremisesContext(project.Agent, project.Tracker, pipeline);
     }
 }
 
 /// <summary>
-/// 2026-09-17-042eh: the phase review needs the agent config its call is made under; the
-/// phase, its start heads, its diff and its principles are all already in the bag.
+/// 2026-09-17-042eh: the spec review needs the agent config its call is made under; the
+/// spec, its start heads, its diff and its principles are all already in the bag.
 /// </summary>
-public sealed class ReviewPhaseDiffContextBuilder : IContextBuilder
+public sealed class ReviewSpecDiffContextBuilder : IContextBuilder
 {
     public ICommandContext Build(
         PipelineCommand command, ResolvedProject project, PipelineContext pipeline) =>
-        new ReviewPhaseDiffContext(pipeline.Resolved().Agent, pipeline);
+        new ReviewSpecDiffContext(pipeline.Resolved().Agent, pipeline);
 }

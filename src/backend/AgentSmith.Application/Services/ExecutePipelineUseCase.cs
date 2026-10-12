@@ -153,7 +153,7 @@ public sealed class ExecutePipelineUseCase(
             // "A task was canceled." the framework would otherwise record is
             // useless — name the active step and the levers so the operator can
             // actually act instead of guessing.
-            var step = pipeline.TryGet<string>(ContextKeys.ActivePhaseStep, out var s)
+            var step = pipeline.TryGet<string>(ContextKeys.ActiveStep, out var s)
                 && !string.IsNullOrWhiteSpace(s) ? s : "a step";
             var reason =
                 $"Cancelled during '{step}' by an internal timeout — a sandbox command "

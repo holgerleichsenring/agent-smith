@@ -39,7 +39,7 @@ public sealed class ProjectResolver(
         if (FiledTicketLabels.IsEpicRecord(envelope))
         {
             logger?.LogInformation("ProjectResolver: '{Label}' marks a record, not work",
-                PhaseTicketRenderer.EpicLabel);
+                SpecTicketRenderer.EpicLabel);
             return [];
         }
 
@@ -66,7 +66,7 @@ public sealed class ProjectResolver(
                 // FILING binds on the approval, a PERSON by typing the phase word; the stamp is
                 // read in THIS project's tracker's vocabulary, since a word renamed on one board
                 // may be an ordinary routing word on another.
-                var pipeline = FiledTicketLabels.BindsPhaseExecution(
+                var pipeline = FiledTicketLabels.BindsSpecExecution(
                         envelope, TicketLabelVocabulary.For(project.Tracker))
                     ? PipelinePresets.CodeName
                     : pipelineResolver.Resolve(

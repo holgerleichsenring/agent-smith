@@ -50,7 +50,7 @@ public sealed class FiledTicketSpecificationTests
     {
         var body = Render(conversation: null);
 
-        body.Should().Contain(PhaseTicketRenderer.SpecificationHeading)
+        body.Should().Contain(SpecTicketRenderer.SpecificationHeading)
             .And.Contain(SeriesPaths.Planned, "the run reads the set from the branch")
             .And.NotContain("Approved in design conversation",
                 "a ticket filed without a conversation never named one");
@@ -61,7 +61,7 @@ public sealed class FiledTicketSpecificationTests
     {
         var body = Render("sess-4d17");
 
-        body.IndexOf(PhaseTicketRenderer.SpecificationHeading, StringComparison.Ordinal)
+        body.IndexOf(SpecTicketRenderer.SpecificationHeading, StringComparison.Ordinal)
             .Should().BeGreaterThan(
                 body.IndexOf(AcceptanceCriteriaSection.Heading, StringComparison.Ordinal),
                 "the acceptance-criteria reader stops at the next heading, so the pointer must "
@@ -69,5 +69,5 @@ public sealed class FiledTicketSpecificationTests
     }
 
     private static string Render(string? conversation) =>
-        new PhaseTicketRenderer().RenderPhase(Draft, conversation).Body;
+        new SpecTicketRenderer().RenderSpec(Draft, conversation).Body;
 }

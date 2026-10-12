@@ -29,7 +29,7 @@ public static class SpecDialogProposalFindings
         var byId = new Dictionary<string, EvidenceLook>(StringComparer.Ordinal);
         foreach (var look in looks ?? []) byId.TryAdd(look.Id, look);
         return [.. review.Findings.Select(finding => new ProposalFinding(
-            finding.PhaseId, finding.Problem, finding.Why,
+            finding.SpecId, finding.Problem, finding.Why,
             string.IsNullOrWhiteSpace(finding.Criterion) ? null : finding.Criterion,
             Cited(finding.Cites, byId)?.Line))];
     }

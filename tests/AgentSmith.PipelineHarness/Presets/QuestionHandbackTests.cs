@@ -14,7 +14,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// <summary>
 /// 2026-09-07-c9d4 fast-tier end-to-end: a ticket that reads two ways parks as a
 /// question naming both readings and the one the run would take; re-triggered with
-/// nobody having answered, the derivation is pinned to that reading, cuts real phases,
+/// nobody having answered, the derivation is pinned to that reading, cuts real specs,
 /// and the ticket is told which reading the run proceeded on.
 /// <para>
 /// The second run reads the previous set through a seeded reader: the fast tier's

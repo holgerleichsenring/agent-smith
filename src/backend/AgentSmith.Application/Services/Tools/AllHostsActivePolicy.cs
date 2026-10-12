@@ -29,7 +29,7 @@ public sealed class AllHostsActivePolicy : IPipelineToolPolicy
         typeof(SpawnAgentToolHost),
         typeof(ReadSubAgentObservationsToolHost),
         // p0191: agent calls get_artifact_credentials on package-manager auth
-        // failures. Master + sub-agents both need it (any phase that runs
+        // failures. Master + sub-agents both need it (any spec that runs
         // toolchain commands may hit a private feed).
         typeof(GetArtifactCredentialsToolHost),
         // p0193: typed write path for context.yaml. write_file is rejected

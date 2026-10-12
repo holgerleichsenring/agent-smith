@@ -97,7 +97,7 @@ internal static class MasterReengagementPolicy
         // here is unfinished WORK — done steps the diff does not back, and unmet ratified
         // criteria — not an unticked box.
         if (ProgressLedgerCoverage.UnbackedDoneSteps(ledger, changes).Count > 0) return true;
-        // p0406: a phase that ran no build is judged by its dispositions, not by a build it
+        // p0406: a spec that ran no build is judged by its dispositions, not by a build it
         // never had reason to run — read from the verdict (p0421), not declared. And an
         // unsatisfied contract re-drives a SILENT master only once: "no verdict" never
         // becomes "satisfied", so it would otherwise re-drive forever.
@@ -111,7 +111,7 @@ internal static class MasterReengagementPolicy
 
     // p0341e: the ratified acceptance criteria for this run (empty when nothing was negotiated —
     // fix-bug self-planning, ticketless runs). Same source the keystone reads.
-    // p0393a: the current PHASE's done-list, falling back to a ratified expectation for
+    // p0393a: the current SPEC's done-list, falling back to a ratified expectation for
     // pipelines that still negotiate one. Same source the keystone reads.
     internal static IReadOnlyList<string> RatifiedCriteria(PipelineContext pipeline) =>
         Specs.AcceptanceCriteria.For(pipeline);

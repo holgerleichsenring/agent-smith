@@ -144,7 +144,7 @@ public sealed class RunDeleteTests : IDisposable
             Times.Once, "a running run's ticket is still in the trigger statuses when the lease goes");
     }
 
-    // The park this phase exists for: the dialogue ask gate parks WITHOUT touching the tracker,
+    // The park this spec exists for: the dialogue ask gate parks WITHOUT touching the tracker,
     // so nothing on the row tells it from the master-question park that does. The predicate is
     // "no result yet", with no exception.
     [Fact]

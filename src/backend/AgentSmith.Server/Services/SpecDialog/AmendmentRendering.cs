@@ -8,4 +8,4 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// ticket and a freshly filed one are the same body.
 /// </summary>
 internal sealed record AmendmentRendering(
-    PhaseTicketRenderer Renderer, EpicChildOrderer Orderer, FiledSeriesFactory Series);
+    SpecTicketRenderer Renderer, EpicChildOrderer Orderer, FiledSeriesFactory Series);

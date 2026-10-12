@@ -8,7 +8,7 @@ namespace AgentSmith.Tests.Scans;
 
 /// <summary>
 /// p0429a: the account has been taken since p0420 and judged by the gate since p0421, and
-/// the only human who ever saw it was one opening a done-phase YAML.
+/// the only human who ever saw it was one opening a done-spec YAML.
 /// <para>
 /// So a scan whose dependency audit died read exactly like a scan that audited and found
 /// nothing: same finding list, same silence. This is the section both the ticket comment

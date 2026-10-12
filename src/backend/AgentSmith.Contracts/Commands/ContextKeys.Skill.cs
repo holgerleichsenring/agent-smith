@@ -2,8 +2,8 @@ namespace AgentSmith.Contracts.Commands;
 
 /// <summary>
 /// Skill + triage + verify PipelineContext keys. Covers the active-skill slot,
-/// available-roles cache, skill outputs, the p0111c triage output + current-phase
-/// pointer, the p0129a Verify-phase counters/notes/observations, the concept
+/// available-roles cache, skill outputs, the p0111c triage output,
+/// the p0129a Verify-phase counters/notes/observations, the concept
 /// vocabulary + run-state concept values managed by IRunStateConcepts, and the
 /// SwitchSkill ping-pong breaker.
 /// </summary>
@@ -15,9 +15,8 @@ public static partial class ContextKeys
     public const string SkillOutputs = "SkillOutputs";
     public const string ConvergenceResult = "ConvergenceResult";
 
-    // p0111c: phase-based triage
+    // p0111c: triage
     public const string TriageOutput = "TriageOutput";
-    public const string CurrentPhase = "CurrentPhase";
     public const string ConceptVocabulary = "ConceptVocabulary";
 
     /// <summary>p0205: the <see cref="AgentSmith.Contracts.Models.CatalogResolution"/>

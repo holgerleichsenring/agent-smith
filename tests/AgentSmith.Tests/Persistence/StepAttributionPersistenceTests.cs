@@ -15,7 +15,7 @@ namespace AgentSmith.Tests.Persistence;
 
 /// <summary>
 /// p0388a: the producer's step stamp lands on the child projections, so per-step
-/// aggregates are one indexed query instead of a client-side fold. Pre-phase
+/// aggregates are one indexed query instead of a client-side fold. Pre-spec
 /// payloads carry no stamp and persist as unattributed — the applier never
 /// infers a step for them. Proven on a real SQLite engine.
 /// </summary>
@@ -86,17 +86,17 @@ public sealed class StepAttributionPersistenceTests : IDisposable
     }
 
     [Fact]
-    public async Task Applier_PrePhasePayloadWithoutStepIndex_PersistsNullWithoutFailing()
+    public async Task Applier_PreSpecPayloadWithoutStepIndex_PersistsNullWithoutFailing()
     {
         // A payload written by a pre-p0388a producer: no originStepIndex field at all.
-        const string prePhasePayload =
+        const string preSpecPayload =
             """
             {"RunId":"run-1","Model":"claude","Role":"coding-agent","TokensIn":100,
              "TokensOut":20,"CostUsd":0.01,"DurationMs":500,
              "Timestamp":"2026-07-29T09:00:00+00:00","Type":11}
             """;
         var replayed = new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer().DeserializeRaw(
-            nameof(EventType.LlmCallFinished), prePhasePayload);
+            nameof(EventType.LlmCallFinished), preSpecPayload);
         replayed.Should().NotBeNull();
 
         await ApplyAsync(replayed!);

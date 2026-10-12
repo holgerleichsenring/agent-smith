@@ -9,6 +9,6 @@ namespace AgentSmith.Contracts.Models;
 /// model would have to invent the comparison, and it would invent it differently every turn.
 /// </para>
 /// </summary>
-/// <param name="Phases">How many phases the approved specification holds.</param>
+/// <param name="Phases">How many specs the approved specification holds.</param>
 /// <param name="Unsaid">The approved goals the ticket's own text does not carry, verbatim.</param>
 public sealed record SetDivergence(int Phases, IReadOnlyList<string> Unsaid);

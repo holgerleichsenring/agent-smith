@@ -18,8 +18,8 @@ public sealed class SpecDialogDocumentTests
 
     private static OutcomeProposalResolver Resolver()
     {
-        var validator = new SpecDraftValidator(new PhaseSpecSchemaProvider());
-        var reader = new PhaseDraftReader();
+        var validator = new SpecDraftValidator(new SpecSchemaProvider());
+        var reader = new SpecDraftReader();
         return new OutcomeProposalResolver(
             validator, reader, new BugOutcomeParser(),
             new EpicOutcomeParser(validator, reader, new RequiresEdgeChecker(), DialogTestRepos.Real()),

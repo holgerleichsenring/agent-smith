@@ -264,7 +264,7 @@ public sealed class TrackerPollerTests
         public DiscoveryQuery? CapturedQuery { get; private set; }
 
         /// <summary>2026-09-25-3c7aa: the approval probe the poller asks per discovered ticket.
-        /// Unset means an empty store, which is what every ticket saw before this phase.</summary>
+        /// Unset means an empty store, which is what every ticket saw before this spec.</summary>
         public ApprovedRecordProbe? Approvals { get; set; }
 
         public Harness WithSharedTracker(TrackerType type)

@@ -58,7 +58,7 @@ public sealed class TrackerDiscoveryQueryBuilder(
 
         // 2026-09-25-c1f7: the tickets an approved record still expects work on, OR'd with the
         // whole query by the two builders that filter server-side. A process with no store (the
-        // CLI, a test) has no admission and the query is exactly what it was before this phase.
+        // CLI, a test) has no admission and the query is exactly what it was before this spec.
         var approved = admission is null
             ? []
             : await admission.OutstandingAsync(tracker, cancellationToken);

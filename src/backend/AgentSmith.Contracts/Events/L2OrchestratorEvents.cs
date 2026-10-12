@@ -3,9 +3,9 @@ using AgentSmith.Domain.Models;
 namespace AgentSmith.Contracts.Events;
 
 /// <summary>
-/// p0466: <see cref="DecisionLoggedEvent.PhaseId"/> is the phase the decision was taken
-/// in, read from the ambient step frame the runner opens. Null outside any phase and on
-/// pre-p0466 payloads — a decision with no phase is unattributed, never guessed.
+/// p0466: <see cref="DecisionLoggedEvent.PhaseId"/> is the spec the decision was taken
+/// in, read from the ambient step frame the runner opens. Null outside any spec and on
+/// pre-p0466 payloads — a decision with no spec is unattributed, never guessed.
 /// </summary>
 public sealed record DecisionLoggedEvent(
     string RunId,

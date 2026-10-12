@@ -46,5 +46,5 @@ public sealed class PlannedStepsAnnouncer(IEventPublisher eventPublisher)
             firstStepIndex + offset,
             cmd.Name,
             StepLabelComposer.PlainDisplayName(cmd),
-            string.IsNullOrEmpty(cmd.PhaseId) ? null : cmd.PhaseId))];
+            string.IsNullOrEmpty(cmd.SpecId) ? null : cmd.SpecId))];
 }

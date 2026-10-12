@@ -5,13 +5,13 @@ using FluentAssertions;
 namespace AgentSmith.Tests.Events;
 
 /// <summary>
-/// p0423b: the ticket's statistics — phases, duration per phase and per ticket, calls and
-/// their sizes — are a fold over the recorded trail, grouped by the phase each step
+/// p0423b: the ticket's statistics — specs, duration per spec and per ticket, calls and
+/// their sizes — are a fold over the recorded trail, grouped by the spec each step
 /// belonged to. No counter is kept while the run happens, so nothing can drift.
 /// </summary>
 public sealed class RunStatisticsFoldTests
 {
-    private static readonly RunStepFacts[] TwoPhases =
+    private static readonly RunStepFacts[] TwoSpecs =
     [
         new(1, "p1", 60_000),
         new(2, "p1", 30_000),
@@ -21,7 +21,7 @@ public sealed class RunStatisticsFoldTests
     [Fact]
     public void TicketStatistics_ComeFromTheTrail_NotFromCounters()
     {
-        var view = RunStatisticsFold.Fold(Trail(), TwoPhases);
+        var view = RunStatisticsFold.Fold(Trail(), TwoSpecs);
 
         view.Totals.Calls.Should().Be(3);
         view.TotalDurationMs.Should().Be(210_000, "the ticket lasts as long as its phases did");
@@ -35,9 +35,9 @@ public sealed class RunStatisticsFoldTests
     }
 
     [Fact]
-    public void APhase_ReportsTheCommandsThatCameBackNonZero()
+    public void ASpec_ReportsTheCommandsThatCameBackNonZero()
     {
-        var view = RunStatisticsFold.Fold(Trail(), TwoPhases);
+        var view = RunStatisticsFold.Fold(Trail(), TwoSpecs);
 
         view.Phases[0].Commands.Should().Be(1);
         view.Phases[0].FailedCommands.Should().Be(0);
@@ -48,12 +48,12 @@ public sealed class RunStatisticsFoldTests
 
     /// <summary>
     /// The shape that named the wall in run 26 must survive the fold as a SERIES: the
-    /// prompt grows while the answer shrinks, in call order, attributed to its phase.
+    /// prompt grows while the answer shrinks, in call order, attributed to its spec.
     /// </summary>
     [Fact]
     public void TheCallSeries_KeepsCallOrder_AndCarriesBothSizes()
     {
-        var view = RunStatisticsFold.Fold(Trail(), TwoPhases);
+        var view = RunStatisticsFold.Fold(Trail(), TwoSpecs);
 
         view.Calls.Select(c => c.Index).Should().Equal(1, 2, 3);
         view.Calls.Select(c => c.PromptChars).Should().Equal(151_040, 216_004, 356_632);
@@ -78,7 +78,7 @@ public sealed class RunStatisticsFoldTests
     }
 
     [Fact]
-    public void AStepThatBelongsToNoPhase_IsItsOwnGroup_NotDropped()
+    public void AStepThatBelongsToNoSpec_IsItsOwnGroup_NotDropped()
     {
         var view = RunStatisticsFold.Fold(
             [Call(1, 10, 10, 1)], [new RunStepFacts(1, null, 5_000)]);
@@ -122,7 +122,7 @@ public sealed class RunStatisticsFoldTests
     /// <summary>A step the run announced but never reached has no work to report.</summary>
     [Fact]
     public void AnUnnamedStep_ContributesNoRow()
-        => RunStatisticsFold.Fold(Trail(), TwoPhases).Work.Pipeline.Should().BeEmpty();
+        => RunStatisticsFold.Fold(Trail(), TwoSpecs).Work.Pipeline.Should().BeEmpty();
 
     private static readonly RunStepFacts[] NamedSteps =
     [

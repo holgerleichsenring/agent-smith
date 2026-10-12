@@ -8,7 +8,7 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// <summary>
 /// 2026-08-25-61f1: brings the run store up to date, repair first.
 /// <para>
-/// The order is the point. This phase's migration makes a run's recorded facts unique, and a
+/// The order is the point. This spec's migration makes a run's recorded facts unique, and a
 /// unique index cannot be created over rows that already violate it — the migration would
 /// fail on the operator's database, at deploy, with the server unable to migrate itself. So
 /// the rows the constraint would reject are removed first, on the schema the store is already

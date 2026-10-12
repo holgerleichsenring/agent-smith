@@ -7,7 +7,7 @@ namespace AgentSmith.Infrastructure.Persistence.Services.Repair;
 
 /// <summary>
 /// 2026-08-25-61f1: collapses the rows an earlier replay left behind, so the uniqueness this
-/// phase installs can exist at all — a unique index over a table that already violates it
+/// spec installs can exist at all — a unique index over a table that already violates it
 /// fails at migration time, on the operator's database, at deploy.
 /// <para>
 /// It runs BEFORE the migration and therefore on the schema the store is already on. Trail

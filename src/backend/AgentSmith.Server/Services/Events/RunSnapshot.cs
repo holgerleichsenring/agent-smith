@@ -108,7 +108,7 @@ public sealed record RunSnapshot(
     // a zero that reads as "no model time".
     RunTimeSplitView? TimeSplit = null,
     // p0413: the SHAPE the classifier stated (with the line saying why) — the signal
-    // that decided how this ticket was cut into phases. Null when none was stated.
+    // that decided how this ticket was cut into specs. Null when none was stated.
     string? WorkShape = null,
     string? WorkShapeReason = null)
 {

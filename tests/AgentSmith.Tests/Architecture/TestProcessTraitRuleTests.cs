@@ -4,7 +4,7 @@ using FluentAssertions;
 namespace AgentSmith.Tests.Architecture;
 
 /// <summary>
-/// 2026-10-09-7f48: the phase gate runs this assembly as several processes, chosen by the
+/// 2026-10-09-7f48: the spec gate runs this assembly as several processes, chosen by the
 /// <c>TestProcess</c> trait, because a test filter sees traits and not collections.
 /// <para>
 /// A collection is what keeps a process-wide resource safe: the environment-mutating classes

@@ -44,8 +44,8 @@ public sealed class AcceptanceCriteriaSectionTests
     public void SpecFallback_FieldCriteria_KeepLeadingDashesInsideTheText()
     {
         var ticket = new Ticket(new TicketId("42"), "Widget", "body", "- --dry-run exits 0\n- **the table** exists\n_No response_", "open", "test");
-        var validator = new SpecDraftValidator(new PhaseSpecSchemaProvider());
-        var fallback = new SpecFallback(validator, new PhaseDraftReader(), new DerivedPhaseYamlRenderer());
+        var validator = new SpecDraftValidator(new SpecSchemaProvider());
+        var fallback = new SpecFallback(validator, new SpecDraftReader(), new DerivedSpecYamlRenderer());
 
         var set = fallback.Build("key", "2026-10-06-0a0a", ticket, TicketSegmenter.Segment("body"), [], SpecSource.Derived, []);
 

@@ -5,7 +5,7 @@ namespace AgentSmith.Infrastructure.Services.Workers;
 /// <summary>
 /// p0419: re-asks a worker whose PROCESS died.
 /// <para>
-/// Run c96d had two phases verified green — build and test, both repositories — when a
+/// Run c96d had two specs verified green — build and test, both repositories — when a
 /// single <c>claude -p</c> exited 1 after 2.8 seconds. There was no retry anywhere on
 /// this path, so one hiccup in one call recorded the whole ticket as FAILED and threw
 /// away 45 minutes of correct work.

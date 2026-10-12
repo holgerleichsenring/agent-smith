@@ -10,13 +10,13 @@ namespace AgentSmith.Tests.Services;
 
 /// <summary>
 /// 2026-09-17-0e79c: the hand-back is a FAILING STEP, which is also how the work survives. A
-/// failing step runs the finalizer tail, so the phases that already verified reach their pull
+/// failing step runs the finalizer tail, so the specs that already verified reach their pull
 /// request as a shortfall instead of dying with the run.
 /// </summary>
 public sealed class PremiseCheckShortfallTests
 {
     [Fact]
-    public async Task PremiseCheck_FalsePremise_EarlierVerifiedPhasesStillDeliver()
+    public async Task PremiseCheck_FalsePremise_EarlierVerifiedSpecsStillDeliver()
     {
         var h = new PipelineExecutorTestBuilder();
         var ticket = new Mock<ITicketProvider>();
@@ -24,7 +24,7 @@ public sealed class PremiseCheckShortfallTests
         var project = new ResolvedProject();
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.TicketId, new TicketId("42"));
-        Arrange(h, CommandNames.CheckPhasePremises, project, pipeline,
+        Arrange(h, CommandNames.CheckSpecPremises, project, pipeline,
             CommandResult.Fail("False premise in p0001b: \"the bus is a singleton\" — [M1] …"));
         var commitAndPr = Arrange(h, CommandNames.CommitAndPR, project, pipeline, CommandResult.Ok("delivered"));
         h.ExecutorMock.Setup(e => e.ExecuteAsync(commitAndPr, It.IsAny<CancellationToken>()))
@@ -38,7 +38,7 @@ public sealed class PremiseCheckShortfallTests
             });
 
         var result = await h.Sut.ExecuteAsync(
-            [CommandNames.CheckPhasePremises, CommandNames.CommitAndPR],
+            [CommandNames.CheckSpecPremises, CommandNames.CommitAndPR],
             project, pipeline, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue("the phases that verified reached the pull request");

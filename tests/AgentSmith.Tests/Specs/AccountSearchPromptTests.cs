@@ -39,7 +39,7 @@ public sealed class AccountSearchPromptTests
             "an account with no sandbox falls back to what every account did before");
     }
 
-    /// <summary>The rules p0469 and p0481 put in this prompt are load-bearing and this phase
+    /// <summary>The rules p0469 and p0481 put in this prompt are load-bearing and this spec
     /// only adds to them.</summary>
     [Fact]
     public void SpecAccountPrompt_StillCarriesTheRulesItsPredecessorsPutThere()

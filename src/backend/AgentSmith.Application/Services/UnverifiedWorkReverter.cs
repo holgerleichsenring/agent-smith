@@ -7,10 +7,10 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services;
 
 /// <summary>
-/// p0439: brings a sandbox's source back to the state its last verified phase left, so a
+/// p0439: brings a sandbox's source back to the state its last verified spec left, so a
 /// shortfall delivers verified work and nothing else.
 /// <para>
-/// The phase that stopped the run may have left work on the branch — a checkpoint push,
+/// The spec that stopped the run may have left work on the branch — a checkpoint push,
 /// the pre-gate commit before a red verification, an edit the master made before it died.
 /// None of it was verified, and a ready pull request must not carry it. Every source path
 /// changed since the verified head is restored from that head or, when it did not exist

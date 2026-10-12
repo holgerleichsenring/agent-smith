@@ -8,7 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace AgentSmith.Tests.Specs;
 
 /// <summary>
-/// p0439: the state a phase verified is named the moment it is verified — the commit,
+/// p0439: the state a spec verified is named the moment it is verified — the commit,
 /// provided the source tree is clean. A dirty source tree names nothing.
 /// </summary>
 public sealed class VerifiedHeadsTests

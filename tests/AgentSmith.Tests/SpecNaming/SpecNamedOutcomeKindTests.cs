@@ -18,8 +18,8 @@ public sealed class SpecNamedOutcomeKindTests
     [InlineData("spec")]
     public void Resolve_AnOutcomeBlockOfTheSpecKind_IsToldToEmitTheBareYaml(string kind)
     {
-        var validator = new SpecDraftValidator(new PhaseSpecSchemaProvider());
-        var reader = new PhaseDraftReader();
+        var validator = new SpecDraftValidator(new SpecSchemaProvider());
+        var reader = new SpecDraftReader();
         var resolver = new OutcomeProposalResolver(
             validator, reader, new BugOutcomeParser(),
             new EpicOutcomeParser(validator, reader, new RequiresEdgeChecker(), DialogTestRepos.Real()),

@@ -9,7 +9,7 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.SpecDialog;
 
 /// <summary>
-/// 2026-09-17-042ed: reviews a design turn's phase or epic proposal INSIDE the turn, with a fresh
+/// 2026-09-17-042ed: reviews a design turn's spec or epic proposal INSIDE the turn, with a fresh
 /// instance reading the turn's own repositories.
 /// <para>
 /// Inside the turn because the read-only scopes are disposed in the runner's finally, so a review
@@ -84,11 +84,11 @@ public sealed class SpecDialogProposalReview(
         }
     }
 
-    /// <summary>The phases a proposal states. An answer states none, and a bug is not a plan —
+    /// <summary>The specs a proposal states. An answer states none, and a bug is not a plan —
     /// neither is reviewed against the code.</summary>
     private static IReadOnlyList<PhaseDraft> DraftsOf(OutcomeProposal proposal) => proposal switch
     {
-        PhaseOutcome phase => [phase.Draft],
+        SpecOutcome spec => [spec.Draft],
         EpicOutcome epic => [epic.Parent, .. epic.Children],
         _ => [],
     };

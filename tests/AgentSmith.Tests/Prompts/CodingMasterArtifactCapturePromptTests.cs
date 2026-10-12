@@ -69,10 +69,10 @@ public sealed class CodingMasterArtifactCapturePromptTests
         master.Should().Contain(RepoRelative);
     }
 
-    /// <summary>The new rule lands beside the artifact-phase paragraph, not in place of
+    /// <summary>The new rule lands beside the artifact-spec paragraph, not in place of
     /// it: the pin carries both.</summary>
     [Fact]
-    public void PackagedCodingMaster_TheArtifactPhaseParagraph_IsUnchanged()
+    public void PackagedCodingMaster_TheArtifactSpecParagraph_IsUnchanged()
     {
         Packaged().Should().Contain(
             "whose completion criteria are met by an inventory, a report or a decision",

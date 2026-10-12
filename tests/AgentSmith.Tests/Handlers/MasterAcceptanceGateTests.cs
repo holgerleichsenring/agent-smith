@@ -4,7 +4,7 @@ using FluentAssertions;
 
 namespace AgentSmith.Tests.Handlers;
 
-// p0406: the acceptance gate the open loop re-engages against. A knowledge phase
+// p0406: the acceptance gate the open loop re-engages against. A knowledge spec
 // (ships_code: false) ships no source, so it is judged by its dispositions alone —
 // run fa8c spent 41 minutes and $5.88 failing to reach a green build it had declared
 // it would never produce.

@@ -12,7 +12,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
 /// 2026-10-12-3a36c fast-tier end-to-end: a three-repository run whose first master dies
-/// before any phase did work. It used to push a result.md-only commit into every repository
+/// before any spec did work. It used to push a result.md-only commit into every repository
 /// — onto a reviewed PR, into a repository that had no branch, and a 'fix:' commit beside
 /// the spec — although it changed nothing anywhere. A failed run commits only work it did:
 /// the series commit at derivation, and nothing after it.
@@ -24,8 +24,8 @@ public sealed class FailedRunRepoWritesTests
         "per-pipeline cost budget exhausted: 15.02 USD of 15.00 USD spent";
 
     // 2026-10-12-f5f7a: over several repositories each spec names exactly one; a reply naming none
-    // is asked again, so the two-phase fixture states them.
-    private static readonly string TwoPhaseOneRepoEach = SpecDerivationFixture.TwoPhaseJson
+    // is asked again, so the two-spec fixture states them.
+    private static readonly string TwoSpecOneRepoEach = SpecDerivationFixture.TwoSpecJson
         .Replace("\"slug\": \"introduce-the-guard\",", "\"slug\": \"introduce-the-guard\", \"repos\": [\"sample-server\"],")
         .Replace("\"slug\": \"migrate-the-callers\",", "\"slug\": \"migrate-the-callers\", \"repos\": [\"sample-client\"],");
 
@@ -37,13 +37,13 @@ public sealed class FailedRunRepoWritesTests
     ];
 
     [Fact]
-    public async Task ThreeRepos_RunFailsBeforeAnyPhase_CommitsNothingAfterTheSeries()
+    public async Task ThreeRepos_RunFailsBeforeAnySpec_CommitsNothingAfterTheSeries()
     {
         var tickets = new RecordingTicketProvider();
         await using var harness = BuildHarness(tickets);
         harness.ChatClient
             .EnqueueScopeReply("no verdict") // unusable — the run keeps all three repos
-            .EnqueueText(TwoPhaseOneRepoEach)
+            .EnqueueText(TwoSpecOneRepoEach)
             .EnqueueThrow(new MasterBudgetExhaustedException(BudgetReason));
 
         var runner = new PipelineRunner(harness.Services)

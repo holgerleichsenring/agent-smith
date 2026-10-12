@@ -88,7 +88,7 @@ public sealed class SpecHandbackTests
             Pointer(SpecHandbackCase.NotImplementable), SpecHandbackCase.NotImplementable, PipelineWithThread([]))
         .Should().BeFalse();
 
-    // The loop ends as a FAILED step carrying the reason: a hand-back has no phases, and a
+    // The loop ends as a FAILED step carrying the reason: a hand-back has no specs, and a
     // run that continued past one reached CommitAndPR with the spec draft already pushed
     // and closed the ticket as completed with nothing built.
     [Fact]

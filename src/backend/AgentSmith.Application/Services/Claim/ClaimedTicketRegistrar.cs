@@ -13,7 +13,7 @@ internal sealed class ClaimedTicketRegistrar(IActiveRunLease lease, ITakenTicket
 {
     /// <summary>
     /// Takes the lease and — only when the index granted it — records the claim. The record
-    /// is written HERE rather than after the tracker transition: the crash window this phase
+    /// is written HERE rather than after the tracker transition: the crash window this spec
     /// closes is the one between taking the ticket and having somewhere durable that says so,
     /// and the narrowest that window gets is one local write after the INSERT that won.
     /// A record store that cannot be written to fails the claim; a ticket this framework

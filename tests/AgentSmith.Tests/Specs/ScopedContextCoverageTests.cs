@@ -9,7 +9,7 @@ namespace AgentSmith.Tests.Specs;
 /// 2026-09-08-1830: the reader decides coverage in code. Run 8688's scope call named
 /// two contexts and the cut carried one; nothing compared the two. The gap is named
 /// minus carried minus discarded, and the check is armed by the reply — a cut whose
-/// phases declare no contexts is an old catalog's cut and is read as before.
+/// specs declare no contexts is an old catalog's cut and is read as before.
 /// </summary>
 public sealed class ScopedContextCoverageTests
 {
@@ -22,7 +22,7 @@ public sealed class ScopedContextCoverageTests
     private readonly ScopedContextCoverage _coverage = new();
 
     [Fact]
-    public void Coverage_ANamedContextNoPhaseCarries_IsTheGap()
+    public void Coverage_ANamedContextNoSpecCarries_IsTheGap()
     {
         var set = Cut("""["frontend"]""", discardedContexts: "[]");
 
@@ -41,7 +41,7 @@ public sealed class ScopedContextCoverageTests
     }
 
     [Fact]
-    public void Coverage_NoPhaseDeclaresContexts_IsOff()
+    public void Coverage_NoSpecDeclaresContexts_IsOff()
     {
         // The field an old catalog never emits: the check must not fire on its absence.
         var set = Cut(contexts: null, discardedContexts: "[]");

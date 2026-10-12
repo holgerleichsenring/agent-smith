@@ -142,7 +142,7 @@ public sealed class RunTimeSplitServedTests : IDisposable
     }
 
     /// <summary>
-    /// The defect this phase exists to remove: a FINISHED run reported 0ms of model
+    /// The defect this spec exists to remove: a FINISHED run reported 0ms of model
     /// time forever, because the fold lived only on the volatile broadcaster snapshot.
     /// </summary>
     [Fact]

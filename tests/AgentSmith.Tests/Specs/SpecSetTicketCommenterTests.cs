@@ -47,7 +47,7 @@ public sealed class SpecSetTicketCommenterTests
         body.Should().Contain("https://example.test/pr/1");
     }
 
-    // 2026-09-08-1830: the author sees which contexts each phase changes and which named
+    // 2026-09-08-1830: the author sees which contexts each spec changes and which named
     // context the cut left out, with the reason — the part run 8688's author never saw.
     [Fact]
     public void Comment_TheDerivationTimeComment_CarriesContextsAndTheOnesLeftOut()
@@ -76,11 +76,11 @@ public sealed class SpecSetTicketCommenterTests
     public void SpecSetComment_AssumptionMap_RendersItsClaim()
     {
         var set = Set();
-        var read = new PhaseDraftReader().Read(
+        var read = new SpecDraftReader().Read(
             "spec: p19106a\ngoal: g\nassumptions:\n  - claim: \"the cache is warm\"\n    check: \"read it\"\n");
-        var phase = set.Phases[0] with { Draft = set.Phases[0].Draft with { Assumptions = read.Assumptions } };
+        var spec = set.Phases[0] with { Draft = set.Phases[0].Draft with { Assumptions = read.Assumptions } };
 
-        var body = SpecSetComment.Render(set with { Phases = [phase] }, null);
+        var body = SpecSetComment.Render(set with { Phases = [spec] }, null);
 
         body.Should().Contain("- the cache is warm").And.NotContain("System.Collections");
     }

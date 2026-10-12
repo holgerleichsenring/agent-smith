@@ -25,7 +25,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// 2026-09-01-85b2: the step's own answer says how many findings a refutation moved, so a
 /// run that checked everything and refuted nothing reads differently from one that was
 /// never asked. How many were ASKED is in the substantiator's log line — the coverage
-/// account has no field for a measure, and one is being added by another phase.
+/// account has no field for a measure, and one is being added by another spec.
 /// </para>
 /// </summary>
 public sealed class SubstantiateFindingsHandler(

@@ -88,7 +88,7 @@ public sealed class TicketTextBoundaryTests
     public void TicketConversation_ANewestCommentTooBigForItsCap_IsStillTakenWhole()
     {
         // The RUN path may overshoot: its cap bounds a prompt, not a column, and dropping the most
-        // recent thing anybody said would be worse than exceeding it. Unchanged by this phase.
+        // recent thing anybody said would be worse than exceeding it. Unchanged by this spec.
         var huge = new string('q', TicketConversationPromptSection.MaxChars + 5_000);
 
         var rendered = TicketConversationPromptSection.Render([Comment(1, huge)]);

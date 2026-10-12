@@ -8,9 +8,9 @@ using static AgentSmith.Tests.Specs.PremiseCheckTestDoubles;
 namespace AgentSmith.Tests.Specs;
 
 /// <summary>
-/// 2026-09-17-0e79c: a phase states what it rests on, and before it is worked a fresh instance
+/// 2026-09-17-0e79c: a spec states what it rests on, and before it is worked a fresh instance
 /// checks those premises against the repositories. A premise proven false on a look this check
-/// took stops the phase and is handed back; anything the framework cannot verify stops nothing.
+/// took stops the spec and is handed back; anything the framework cannot verify stops nothing.
 /// </summary>
 public sealed class PremiseCheckTests
 {
@@ -22,7 +22,7 @@ public sealed class PremiseCheckTests
         """;
 
     [Fact]
-    public async Task PremiseCheck_PhaseDraftedBeforeThePin_IsSkippedWithAReason()
+    public async Task PremiseCheck_SpecDraftedBeforeThePin_IsSkippedWithAReason()
     {
         var h = For(DraftWithoutPremises(), "[]");
 
@@ -34,7 +34,7 @@ public sealed class PremiseCheckTests
     }
 
     [Fact]
-    public async Task PremiseCheck_FactFalsifiedByItsOwnRead_FailsThePhaseWithTheEvidence()
+    public async Task PremiseCheck_FactFalsifiedByItsOwnRead_FailsTheSpecWithTheEvidence()
     {
         // The verdict has to carry the step a reader must judge: WHICH premise, WHAT was looked
         // at, and the framework's own minted line for that look. Without the middle one a
@@ -54,7 +54,7 @@ public sealed class PremiseCheckTests
     }
 
     [Fact]
-    public async Task PremiseCheck_PremiseThePhaseNeverStated_IsNotAdmittedHoweverItIsCited()
+    public async Task PremiseCheck_PremiseTheSpecNeverStated_IsNotAdmittedHoweverItIsCited()
     {
         // The attack this closes: look once at anything, then report a premise you made up.
         const string Invented =
@@ -90,9 +90,9 @@ public sealed class PremiseCheckTests
     }
 
     [Fact]
-    public async Task PremiseCheck_DerivedPhaseWhoseOnlyDecisionIsTheDerivers_IsSkippedAndCostsNothing()
+    public async Task PremiseCheck_DerivedSpecWhoseOnlyDecisionIsTheDerivers_IsSkippedAndCostsNothing()
     {
-        // Every derived phase carries that decision, and it names a RUN ARTIFACT that exists in
+        // Every derived spec carries that decision, and it names a RUN ARTIFACT that exists in
         // no sandbox — left in, it would be the one premise every derived run pays to check and
         // then fails to find.
         var h = For(DerivedDraft(), Falsified, searches: (DerivationTestLooks.Repo, "anything"));
@@ -149,7 +149,7 @@ public sealed class PremiseCheckTests
     [Fact]
     public async Task PremiseCheck_FindingCitingTheDeriversEvidenceId_IsNotAdmitted()
     {
-        // L is the derivation's letter and the phase's own facts carry L-ids. An answer that
+        // L is the derivation's letter and the spec's own facts carry L-ids. An answer that
         // cites one is citing the derivation's look, not a look this check took.
         var h = For(Draft(),
             Falsified.Replace("\"M1\"", "\"L2\"", StringComparison.Ordinal),
@@ -185,7 +185,7 @@ public sealed class PremiseCheckTests
     {
         // The discard is bounded to a VERBATIM restatement. This premise is a contiguous run of
         // the criterion's words covering most of it — exactly what the word-run matcher admits —
-        // and it is a fact the phase states, so it must still reach a verdict. A premise that
+        // and it is a fact the spec states, so it must still reach a verdict. A premise that
         // can never be reported, not even as unproven, is a blind spot nobody can see into.
         var draft = Draft(
             fact: "the outbox table has a dispatched_at column",
@@ -232,7 +232,7 @@ public sealed class PremiseCheckTests
         result.InsertNext.Should().BeNullOrEmpty("the check reports; it never splices work");
         result.DropAhead.Should().BeNullOrEmpty();
         h.Events.Events.OfType<Contracts.Events.PhaseStateChangedEvent>().Should().BeEmpty(
-            "a phase whose premises hold keeps the standing SelectPhase gave it");
+            "a phase whose premises hold keeps the standing SelectSpec gave it");
     }
 
     [Fact]
@@ -254,7 +254,7 @@ public sealed class PremiseCheckTests
 
         result.IsSuccess.Should().BeTrue();
         // 2026-09-22-7c41a: the skip NAMES the cap and the cache-weighted spend that crossed
-        // it — this reader lets the phase through UNCHECKED, so it must say on what.
+        // it — this reader lets the spec through UNCHECKED, so it must say on what.
         result.Message.Should().Contain("is exhausted")
             .And.Contain("10,000 cache-weighted tokens");
         h.Provider.Turns.Should().Be(0);
@@ -273,7 +273,7 @@ public sealed class PremiseCheckTests
     }
 
     [Fact]
-    public async Task PremiseCheck_OneCallPerPhase_NoSecondPass()
+    public async Task PremiseCheck_OneCallPerSpec_NoSecondPass()
     {
         var h = For(Draft(), Falsified, searches: (DerivationTestLooks.Repo, "Validate"));
 

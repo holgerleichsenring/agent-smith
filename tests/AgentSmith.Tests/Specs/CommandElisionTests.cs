@@ -60,7 +60,7 @@ public sealed class CommandElisionTests
     /// command: the agent runs one sandbox per repository and the log records the repository
     /// it ran in. Elision cannot take that away, and this pins it.</summary>
     [Fact]
-    public void PhaseCommandLog_TheSameSearchInTwoRepositories_NamesEachRepositoryItRanIn()
+    public void SpecCommandLog_TheSameSearchInTwoRepositories_NamesEachRepositoryItRanIn()
     {
         var log = new PhaseCommandLog();
         log.Record("Sample.Distribution.Server", WolverineSearch, "exit_code: 1\n\nstdout:\n");
@@ -157,7 +157,7 @@ public sealed class CommandElisionTests
     }
 
     /// <summary>Half a path printed as though it were a path is evidence that is partly true,
-    /// which is what this phase exists to end.</summary>
+    /// which is what this spec exists to end.</summary>
     [Fact]
     public void CommandElision_TheTail_BeginsAtAWholeArgument()
     {

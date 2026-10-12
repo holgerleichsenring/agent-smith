@@ -141,7 +141,7 @@ new DashboardOutcomeChannel(
         var draft = new PhaseDraft("p9999", "widget goal", "spec: p9999\ngoal: \"widget goal\"", []);
         _turnRunner.SetupSequence(r =>
                 r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(SpecDialogTurnResult.On(Platform, "draft reply", new PhaseOutcome(draft)))
+            .ReturnsAsync(SpecDialogTurnResult.On(Platform, "draft reply", new SpecOutcome(draft)))
             .ReturnsAsync(SpecDialogTurnResult.On(Platform, "revised reply", new AnswerOutcome()));
         _dialogueTransport.Setup(t => t.WaitForAnswerAsync(
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))
@@ -193,7 +193,7 @@ new DashboardOutcomeChannel(
             .Returns(async (ConversationState state, CancellationToken _) =>
             {
                 if (Interlocked.Increment(ref turns) == 1)
-                    return SpecDialogTurnResult.On(Platform, "draft reply", new PhaseOutcome(draft));
+                    return SpecDialogTurnResult.On(Platform, "draft reply", new SpecOutcome(draft));
                 reRun.TrySetResult(state);
                 await noteRouted.Task;
                 return SpecDialogTurnResult.On(Platform, "revised reply", new AnswerOutcome());
@@ -244,7 +244,7 @@ new DashboardOutcomeChannel(
             {
                 if (Interlocked.Increment(ref turns) == 1)
                     return Task.FromResult(
-                        SpecDialogTurnResult.On(Platform, "draft reply", new PhaseOutcome(draft)));
+                        SpecDialogTurnResult.On(Platform, "draft reply", new SpecOutcome(draft)));
                 reRun = state;
                 return Task.FromResult(
                     SpecDialogTurnResult.On(Platform, "revised reply", new AnswerOutcome()));
@@ -263,7 +263,7 @@ new DashboardOutcomeChannel(
         reRun!.Transcript[^1].Should().Match<TranscriptTurn>(
             turn => turn.Role == TranscriptRole.User && turn.Text == shape,
             "the master must read the chosen shape as the latest user turn");
-        reRun.Revising.Should().BeOfType<PhaseOutcome>("it knows what it is re-cutting");
+        reRun.Revising.Should().BeOfType<SpecOutcome>("it knows what it is re-cutting");
         var stored = await _sessions.GetOpenByThreadAsync(Platform, "th-shape", CancellationToken.None);
         stored!.Transcript.Count(t => t.Text == shape).Should().Be(1);
     }
@@ -281,7 +281,7 @@ new DashboardOutcomeChannel(
         _turnRunner.Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
             .Returns((ConversationState _, CancellationToken __) => Task.FromResult(
                 Interlocked.Increment(ref turns) == 1
-                    ? SpecDialogTurnResult.On(Platform, "draft reply", new PhaseOutcome(draft))
+                    ? SpecDialogTurnResult.On(Platform, "draft reply", new SpecOutcome(draft))
                     : SpecDialogTurnResult.On(Platform, "revised reply", new AnswerOutcome())));
         _dialogueTransport.Setup(t => t.WaitForAnswerAsync(
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>()))

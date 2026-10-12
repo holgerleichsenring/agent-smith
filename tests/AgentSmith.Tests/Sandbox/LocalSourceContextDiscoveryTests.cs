@@ -92,7 +92,7 @@ public sealed class LocalSourceContextDiscoveryTests : IDisposable
     }
 
     // Mirrors SourceProviderFactory.CreateLocal: a Local connection is served by a
-    // LocalSourceProvider rooted at its own Path — the routing this phase relies on.
+    // LocalSourceProvider rooted at its own Path — the routing this spec relies on.
     private static SandboxLanguageResolver NewResolver()
     {
         var factory = new Mock<ISourceProviderFactory>();

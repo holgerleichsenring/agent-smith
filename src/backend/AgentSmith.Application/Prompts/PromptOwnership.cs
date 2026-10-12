@@ -6,7 +6,7 @@ namespace AgentSmith.Application.Prompts;
 /// reads this table before it looks anywhere. Resolution ORDER decides nothing:
 /// a catalog-owned name never falls back to an embedded resource (p0205), and an
 /// embedded-owned name never consults the master catalog — which is what let a
-/// catalog master of the same name silently win before this phase.
+/// catalog master of the same name silently win before this spec.
 /// <para>
 /// A name that is NOT listed is a handler-passed master-skill name
 /// (security-master, pr-review-master, ...) and keeps the direct-master lookup.

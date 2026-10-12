@@ -35,11 +35,11 @@ public sealed class SubSeriesReader(
             return answer.State == SpecSetBranchState.Unreadable
                 ? SubSeriesRead.Failed(name, answer.Why ?? "the series did not read back")
                 : new SubSeriesRead(name, SubSeriesState.Nothing);
-        var phases = await ReadSpecsAsync(files, lookup.Document!, cancellationToken);
-        if (phases.Why is { } why) return SubSeriesRead.Failed(name, why);
+        var specs = await ReadSpecsAsync(files, lookup.Document!, cancellationToken);
+        if (specs.Why is { } why) return SubSeriesRead.Failed(name, why);
         return new SubSeriesRead(name, SubSeriesState.Found)
         {
-            Base = lookup.Base!, Document = lookup.Document, Phases = phases.Read, Executed = phases.Executed,
+            Base = lookup.Base!, Document = lookup.Document, Specs = specs.Read, Executed = specs.Executed,
             Sha = await gitOps.GetLastCommitForPathsAsync(sandbox, SeriesReader.RevisionPaths(lookup.Base!), cancellationToken),
             Stamp = manifest.CurrentRevisionTimeOf(lookup.Document!),
         };
@@ -54,9 +54,9 @@ public sealed class SubSeriesReader(
         foreach (var id in doc.Specs)
         {
             var spec = await specs.ReadAsync(files, listed, id, doc, ct);
-            if (spec.Phase is null) return ([], [], spec.Why);
-            read.Add(spec.Phase);
-            if (spec.Executed) executed.Add(spec.Phase.PhaseId);
+            if (spec.Spec is null) return ([], [], spec.Why);
+            read.Add(spec.Spec);
+            if (spec.Executed) executed.Add(spec.Spec.PhaseId);
         }
         return (read, executed, null);
     }

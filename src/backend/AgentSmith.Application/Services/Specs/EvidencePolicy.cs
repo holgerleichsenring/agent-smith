@@ -18,7 +18,7 @@ public sealed record EvidencePolicy(
     bool ObservedNeedsDate)
 {
     /// <summary>
-    /// This repository's rule. A plan is not evidence: a planned or active phase file moves when
+    /// This repository's rule. A plan is not evidence: a planned or active spec file moves when
     /// done and states what does not exist yet, so a fact about one cites a dated observation.
     /// </summary>
     public static EvidencePolicy Repository { get; } = new(

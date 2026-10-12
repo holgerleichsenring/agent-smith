@@ -7,15 +7,15 @@ namespace AgentSmith.Application.Services.Specs;
 /// building it.
 /// <para>
 /// Asked adversarially, like the delivery account: not "is this a good cut" — to which
-/// "yes" is the cheap answer — but "which phase cannot be delivered as written". And
-/// every finding must QUOTE what it is about, so the framework can check that the phase
+/// "yes" is the cheap answer — but "which spec cannot be delivered as written". And
+/// every finding must QUOTE what it is about, so the framework can check that the spec
 /// states it. A reviewer that invents its objection is worse than none.
 /// </para>
 /// <para>
 /// p0446: the verdicts do not need the same evidence. "The ticket never asked for this"
 /// needs ALL of the ticket, so it is only offered when the whole ticket is shown.
 /// 2026-09-15-ffa7: with a look, a FALSE PREMISE is offered too, cited by evidence id.
-/// 2026-09-15-a5a5: with no ticket at all, coverage is not offered, and a phase that states
+/// 2026-09-15-a5a5: with no ticket at all, coverage is not offered, and a spec that states
 /// no criteria is shown with its goal and steps as what may be quoted.
 /// </para>
 /// </summary>
@@ -30,7 +30,7 @@ public static class SpecCutReviewPrompt
     public static string For(IReadOnlyList<PhaseDraft> drafts, string? ticketText, DerivationLook? look)
     {
         ArgumentNullException.ThrowIfNull(drafts);
-        var phases = string.Join("\n\n", drafts.Select(PhaseQuotableText.Render));
+        var specs = string.Join("\n\n", drafts.Select(SpecQuotableText.Render));
         var ticket = StateOf(ticketText);
         var offered = SpecCutVerdicts.Offered(ticket, canLook: look is not null);
         return $$"""
@@ -54,7 +54,7 @@ public static class SpecCutReviewPrompt
             An empty array means every phase can be delivered as written.
             {{DerivationLookPromptSection.Render(look)}}
             PHASES
-            {{phases}}
+            {{specs}}
             {{Ticket(ticket, ticketText)}}
             """;
     }
@@ -65,8 +65,8 @@ public static class SpecCutReviewPrompt
         : ticketText.Length <= MaxTicketChars ? CutReviewTicket.Whole
         : CutReviewTicket.Truncated;
 
-    /// <summary>How the phases will be judged — against criteria only when every phase states them.</summary>
-    private static string Judged(IReadOnlyList<PhaseDraft> drafts) => drafts.All(PhaseQuotableText.StatesCriteria)
+    /// <summary>How the specs will be judged — against criteria only when every spec states them.</summary>
+    private static string Judged(IReadOnlyList<PhaseDraft> drafts) => drafts.All(SpecQuotableText.StatesCriteria)
         ? "Each phase will be built by an agent and then\n"
           + "judged against its completion criteria: after it runs, a reader is given those\n"
           + "criteria and the branch diff and has to tie each one to a file or to a command\n"

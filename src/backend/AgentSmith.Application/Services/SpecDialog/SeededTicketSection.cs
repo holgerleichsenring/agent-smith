@@ -18,7 +18,7 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// </para>
 /// <para>
 /// A conversation that belongs to no ticket renders nothing at all — byte for byte the prompt it
-/// rendered before this phase.
+/// rendered before this spec.
 /// </para>
 /// </summary>
 public static class SeededTicketSection

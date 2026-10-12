@@ -1,7 +1,7 @@
 namespace AgentSmith.Contracts.Commands;
 
 /// <summary>
-/// 2026-08-30: the outcome beat's own table. Split out when two phases each added one
+/// 2026-08-30: the outcome beat's own table. Split out when two specs each added one
 /// step and the combined map crossed the file-length rule — the rule says split the
 /// responsibilities rather than raise a baseline, and the outcome beat (ship the result)
 /// is the one group that reads as a subject of its own.
@@ -16,7 +16,7 @@ public static partial class CommandBeats
     private static Dictionary<string, RunBeat> OutcomeBeats() => new(StringComparer.Ordinal)
     {
         [CommandNames.WriteRunResult] = RunBeat.Outcome,
-        [CommandNames.WritePhaseRecord] = RunBeat.Outcome,
+        [CommandNames.WriteSpecRecord] = RunBeat.Outcome,
         [CommandNames.CommitAndPR] = RunBeat.Outcome,
         [CommandNames.InitCommit] = RunBeat.Outcome,
         [CommandNames.PrCrossLink] = RunBeat.Outcome,

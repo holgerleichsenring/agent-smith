@@ -138,7 +138,7 @@ public sealed class SpecRecutDemandTests
 
     private static SpecSet Set(bool approved) => new(
         Key,
-        [ApprovedSets.Phase("p19106a")],
+        [ApprovedSets.Spec("p19106a")],
         SpecAccounting.Empty,
         [new SpecRevision(1, SpecRevisionCause.Initial, Cut)],
         approved ? SpecSource.Approved : SpecSource.Derived,

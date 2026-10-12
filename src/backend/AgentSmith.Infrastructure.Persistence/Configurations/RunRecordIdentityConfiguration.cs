@@ -9,7 +9,7 @@ namespace AgentSmith.Infrastructure.Persistence.Configurations;
 /// on each table the applier inserts into — so a replayed event cannot multiply the sums
 /// the dashboard and the cost rollups read out of them.
 /// <para>
-/// Rows written before this phase carry no position, and SQL Server is the one provider
+/// Rows written before this spec carry no position, and SQL Server is the one provider
 /// that treats two NULLs as equal in a unique index. There the index is filtered to the
 /// rows that HAVE a position; everywhere else NULLs are already distinct. The provider is
 /// asked by name so neither model snapshot has to be told a lie about the other's.

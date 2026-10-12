@@ -15,7 +15,7 @@ public sealed class RunCallStatisticsTests
     /// the last call ends without producing anything at all.
     /// </summary>
     [Fact]
-    public void PhaseStatistics_AreDerivedFromUnits_NotFromCounters()
+    public void SpecStatistics_AreDerivedFromUnits_NotFromCounters()
     {
         var events = new RunEvent[]
         {

@@ -37,7 +37,7 @@ namespace AgentSmith.PipelineHarness.Composition;
 ///     scanner images against StubApiTargetHost (p0199f).
 ///   Progress / Dialogue: null transports (test ergonomics).
 ///
-/// Diverging this from production is the bug class this phase prevents;
+/// Diverging this from production is the bug class this spec prevents;
 /// every boundary swap is named and motivated.
 /// </summary>
 public sealed class RealCompositionHarness : IAsyncDisposable
@@ -185,10 +185,10 @@ public sealed class RealCompositionHarness : IAsyncDisposable
         services.AddSingleton<HarnessSpecCutReviewer>();
         services.AddSingleton<ISpecCutReviewer>(sp => sp.GetRequiredService<HarnessSpecCutReviewer>());
         // 2026-09-17-0e79c: the premise check is a framework call too, and stands down the same way.
-        services.RemoveAll<IPhasePremiseChecker>();
-        services.AddSingleton<HarnessPhasePremiseChecker>();
-        services.AddSingleton<IPhasePremiseChecker>(
-            sp => sp.GetRequiredService<HarnessPhasePremiseChecker>());
+        services.RemoveAll<ISpecPremiseChecker>();
+        services.AddSingleton<HarnessSpecPremiseChecker>();
+        services.AddSingleton<ISpecPremiseChecker>(
+            sp => sp.GetRequiredService<HarnessSpecPremiseChecker>());
         // 2026-10-12-3a36b: and so is the contradiction check.
         services.RemoveAll<IContradictionChecker>();
         services.AddSingleton<HarnessContradictionChecker>();

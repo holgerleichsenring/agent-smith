@@ -5,10 +5,10 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
-/// 2026-09-17-0e79c: decides which of the checker's findings may STOP a phase. This step can
-/// fail an honest phase, so every gate here is biased towards letting the work happen.
+/// 2026-09-17-0e79c: decides which of the checker's findings may STOP a spec. This step can
+/// fail an honest spec, so every gate here is biased towards letting the work happen.
 /// <para>
-/// Three things must hold together before a finding is FALSE. The PREMISE must be one the phase
+/// Three things must hold together before a finding is FALSE. The PREMISE must be one the spec
 /// states — resolved against its facts, assumptions and decisions prose and rewritten to the
 /// spec's own wording, so a paraphrase is admitted and an invention is not. The VERDICT must be
 /// the one that claims a contradiction. The CITATION must be an id the framework minted for a
@@ -23,16 +23,16 @@ namespace AgentSmith.Application.Services.Specs;
 /// semantic one no framework can decide; making it visible is what a reader needs.
 /// </para>
 /// <para>
-/// One kind is DISCARDED: a VERBATIM restatement of what the phase claims — a done criterion, its
+/// One kind is DISCARDED: a VERBATIM restatement of what the spec claims — a done criterion, its
 /// goal, one of its steps. That is the accountant's question, asked before and after the work by
-/// <see cref="PhaseEntryAccount"/> and VerifyPhase. Only verbatim, and only for the contradiction
+/// <see cref="SpecEntryAccount"/> and VerifySpec. Only verbatim, and only for the contradiction
 /// verdict: a premise that merely shares wording with the goal must still be reportable.
 /// </para>
 /// </summary>
 internal sealed class PremiseCheckAdmission(ILogger logger)
 {
     public PremiseCheck Admit(
-        PhaseDraft draft, PhasePremises premises, IReadOnlyList<PremiseFinding> answer,
+        PhaseDraft draft, SpecPremises premises, IReadOnlyList<PremiseFinding> answer,
         DerivationLook look)
     {
         ArgumentNullException.ThrowIfNull(draft);
@@ -46,7 +46,7 @@ internal sealed class PremiseCheckAdmission(ILogger logger)
         foreach (var finding in answer)
         {
             if (RestatesAClaim(draft, finding)) continue;
-            var stated = PhaseQuotableText.Resolve(premises.Claims, finding.Premise);
+            var stated = SpecQuotableText.Resolve(premises.Claims, finding.Premise);
             if (stated is null) unproven.Add(NotStated(finding));
             else if (Proven(finding with { Premise = stated }, looks) is { } proven)
                 falsified.Add(proven);
@@ -58,9 +58,9 @@ internal sealed class PremiseCheckAdmission(ILogger logger)
     private bool RestatesAClaim(PhaseDraft draft, PremiseFinding finding)
     {
         if (!IsContradiction(finding)
-            || !PhaseQuotableText.IsVerbatim(PhaseQuotableText.Of(draft), finding.Premise)) return false;
+            || !SpecQuotableText.IsVerbatim(SpecQuotableText.Of(draft), finding.Premise)) return false;
         logger.LogInformation(
-            "The premise check quoted what {Phase} CLAIMS rather than what it rests on — that is "
+            "The premise check quoted what {Spec} CLAIMS rather than what it rests on — that is "
             + "the account's question, not this one; discarding: {Premise}",
             draft.PhaseId, finding.Premise);
         return true;

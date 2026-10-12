@@ -11,7 +11,7 @@ namespace AgentSmith.Application.Services.Tools;
 /// stdout is the content and stderr an excerpt; each keeps its head and its tail (a build's
 /// verdict is at the end, p0419) around a marker naming the true total, and the header states
 /// both totals. The labels and the leading <c>exit_code:</c> are what the toolchain probe and
-/// the phase command log parse, so they keep their shape.
+/// the spec command log parse, so they keep their shape.
 /// </para>
 /// </summary>
 internal static class BoundedRunCommandOutput

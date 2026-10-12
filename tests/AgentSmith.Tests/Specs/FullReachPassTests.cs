@@ -348,8 +348,8 @@ public sealed class FullReachPassTests
         public AgentSmith.Contracts.Events.CallScope? CurrentCallScope => null;
         public IDisposable BeginScope(string runId) => new Scope();
         public int? CurrentStepIndex => null;
-        public string? CurrentPhaseId => null;
-        public IDisposable BeginStepScope(int stepIndex, string? phaseId = null) => new Scope();
+        public string? CurrentSpecId => null;
+        public IDisposable BeginStepScope(int stepIndex, string? specId = null) => new Scope();
         public IDisposable BeginCallScope(string role, string phase, string? repoName = null) => new Scope();
 
         private sealed class Scope : IDisposable { public void Dispose() { } }

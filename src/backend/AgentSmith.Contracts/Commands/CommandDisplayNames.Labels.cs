@@ -29,8 +29,8 @@ public static partial class CommandDisplayNames
         [CommandNames.AnalyzeCode] = "Analyze codebase",
         [CommandNames.DeriveSpec] = "Derive the phase specs",
         [CommandNames.SpecHandback] = "Hand the ticket back",
-        [CommandNames.PhaseSequence] = "Plan the phase sequence",
-        [CommandNames.SelectPhase] = "Start the phase",
+        [CommandNames.SpecSequence] = "Plan the phase sequence",
+        [CommandNames.SelectSpec] = "Start the phase",
         [CommandNames.EmptyPlanCheck] = "Check plan is non-empty",
         // p0394a: retired steps, kept by literal name so run records persisted
         // before the retirement still render their trail labels.
@@ -42,9 +42,9 @@ public static partial class CommandDisplayNames
         [CommandNames.LoadCachedCodeMap] = "Load cached code map",
         [CommandNames.GroundSpecDialog] = "Ground the design conversation",
         [CommandNames.CollectSpecDialogReply] = "Collect design reply",
-        [CommandNames.PhaseSpecGate] = "Validate phase spec",
+        [CommandNames.SpecGate] = "Validate phase spec",
         [CommandNames.MasterOpenQuestions] = "Post master open questions",
-        [CommandNames.WritePhaseRecord] = "Write phase record",
+        [CommandNames.WriteSpecRecord] = "Write phase record",
         [CommandNames.WriteRunResult] = "Write run result",
         [CommandNames.CommitAndPR] = "Create pull request",
         [CommandNames.InitCommit] = "Commit init files",
@@ -73,10 +73,10 @@ public static partial class CommandDisplayNames
         [CommandNames.PipelineNameInitializer] = "Publish pipeline name",
         [CommandNames.BootstrapCheck] = "Check bootstrap files",
         [CommandNames.RunVerifyPhase] = "Run verify phase",
-        [CommandNames.CommitPhaseWork] = "Commit the phase's work",
-        [CommandNames.CheckPhasePremises] = "Check the phase's premises", // 2026-09-17-0e79c
-        [CommandNames.VerifyPhase] = "Build and test", // p0393
-        [CommandNames.ReviewPhaseDiff] = "Review the phase's diff", // 2026-09-17-042eh
+        [CommandNames.CommitSpecWork] = "Commit the phase's work",
+        [CommandNames.CheckSpecPremises] = "Check the phase's premises", // 2026-09-17-0e79c
+        [CommandNames.VerifySpec] = "Build and test", // p0393
+        [CommandNames.ReviewSpecDiff] = "Review the phase's diff", // 2026-09-17-042eh
         [CommandNames.BootstrapGate] = "Verify bootstrap files",
         [CommandNames.PublishProjectLanguage] = "Publish project language",
         [CommandNames.BootstrapDispatch] = "Dispatch bootstrap skill",

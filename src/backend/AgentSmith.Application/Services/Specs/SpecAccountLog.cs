@@ -6,7 +6,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// <summary>
 /// What an account has to SAY about itself, as lines with the level they deserve.
 /// <para>
-/// Lifted out of <see cref="PhaseAccounting"/> in p0434, which needed the room to stop
+/// Lifted out of <see cref="SpecDeliveryAccounting"/> in p0434, which needed the room to stop
 /// losing a pull request to a provider blip. It composes lines and does not write them:
 /// a static that took the logger would be a service without a constructor, which the
 /// no-static-state rule refuses — and it is right to, because the caller already has one.

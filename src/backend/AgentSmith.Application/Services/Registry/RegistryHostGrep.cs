@@ -11,7 +11,7 @@ namespace AgentSmith.Application.Services.Registry;
 /// "uncovered" when it appears verbatim in some text file of the repo; the
 /// matching file paths ride along as context for the LLM stager. Deliberately
 /// NO manifest parsing and NO ecosystem inference — a per-manager detector
-/// would reintroduce exactly the bespoke-parser problem this phase abolishes.
+/// would reintroduce exactly the bespoke-parser problem this spec abolishes.
 /// </summary>
 public sealed class RegistryHostGrep(ILogger<RegistryHostGrep> logger)
 {

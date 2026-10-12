@@ -8,6 +8,6 @@ public static partial class CommandNames
 {
     /// <summary>2026-10-01-283df: writes every website set the approved record cites into the
     /// carrying repository's sandbox at .agentsmith/reference/&lt;setId&gt;/, outside the commit,
-    /// directly before PhaseSequence. A cited set this process cannot read fails the run naming it.</summary>
+    /// directly before SpecSequence. A cited set this process cannot read fails the run naming it.</summary>
     public const string MaterializeReferenceSets = "MaterializeReferenceSetsCommand";
 }

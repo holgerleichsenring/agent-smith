@@ -24,7 +24,7 @@ internal static class AcceptanceSnapshot
     /// The account the GATE decided on wins, where there is one.
     /// <para>
     /// The page used to be built only from a negotiated expectation and the master's own
-    /// dispositions, while the gate has refused runs on the phase spec's criteria since
+    /// dispositions, while the gate has refused runs on the spec's criteria since
     /// p0393a. A live run showed both at once: the failure named three ratified criteria
     /// and the card said "No ratified acceptance contract on this run yet". The negotiation
     /// is gone, so the gate's account is the one judge left; archived snapshots written from
@@ -59,22 +59,22 @@ internal static class AcceptanceSnapshot
         if (criteria.Count == 0 && unmeasured.Count == 0) return null;
 
         return new AcceptanceView(
-            criteria, ExpectationOutcomes.Verbatim, RatifiedByThePhaseSpec,
+            criteria, ExpectationOutcomes.Verbatim, RatifiedByTheSpec,
             AcceptanceSources.DeliveryAccount, Unmeasured: unmeasured);
     }
 
     /// <summary>A run that declined something and was judged by nothing else — it ended
     /// between the master's verdict and the account — still shows what it declined.</summary>
     private static AcceptanceView DeclinedOnly(IReadOnlyList<DeclinedCriterionView> declined) =>
-        new([], ExpectationOutcomes.Verbatim, RatifiedByThePhaseSpec, AcceptanceSources.MasterVerification, declined);
+        new([], ExpectationOutcomes.Verbatim, RatifiedByTheSpec, AcceptanceSources.MasterVerification, declined);
 
     private static IReadOnlyList<DeclinedCriterionView>? DeclinedViews(IReadOnlyList<DeclinedCriterion>? declined) =>
         declined is not { Count: > 0 } ? null
             : [.. declined.Select(d => new DeclinedCriterionView(d.Criterion, d.Reason, d.PhaseId))];
 
-    /// <summary>The phase spec IS the contract on this path — nobody edited it into one, so
+    /// <summary>The spec IS the contract on this path — nobody edited it into one, so
     /// there is no person to name and saying so is more honest than borrowing a name.</summary>
-    private const string RatifiedByThePhaseSpec = "the ratified phase spec";
+    private const string RatifiedByTheSpec = "the ratified phase spec";
 
     /// <summary>2026-08-25-9749: the account's third disposition reaches the page as the
     /// status the page already had a word for. The run detail has rendered not_applicable

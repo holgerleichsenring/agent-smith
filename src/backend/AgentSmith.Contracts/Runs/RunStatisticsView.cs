@@ -1,7 +1,7 @@
 namespace AgentSmith.Contracts.Runs;
 
 /// <summary>
-/// p0423b: everything the story view reads about one run — the ticket's totals, its phases,
+/// p0423b: everything the story view reads about one run — the ticket's totals, its specs,
 /// and the two series it draws: the calls in call order and the commands with their exit
 /// codes.
 /// <para>
@@ -14,7 +14,7 @@ namespace AgentSmith.Contracts.Runs;
 public sealed record RunStatisticsView(
     RunCallStatistics Totals,
     long TotalDurationMs,
-    IReadOnlyList<RunPhaseStatistics> Phases,
+    IReadOnlyList<RunSpecStatistics> Phases,
     IReadOnlyList<RunCallPoint> Calls,
     IReadOnlyList<RunCommandPoint> Commands,
     bool Truncated,

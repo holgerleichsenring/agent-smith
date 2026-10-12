@@ -28,7 +28,7 @@ public sealed class RunPreflightPresetTests
 
         code.IndexOf(CommandNames.AnalyzeCode).Should().BeGreaterThan(gate);
         code.IndexOf(CommandNames.DeriveSpec).Should().BeGreaterThan(gate);
-        code.IndexOf(CommandNames.PhaseSequence).Should().BeGreaterThan(gate);
+        code.IndexOf(CommandNames.SpecSequence).Should().BeGreaterThan(gate);
     }
 
     [Fact]

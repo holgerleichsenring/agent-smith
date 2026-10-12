@@ -10,7 +10,7 @@ namespace AgentSmith.Application.Services.Preflight.Run;
 /// <para>
 /// p0419's structural defect: the `run` verb built its DI container without the config
 /// path, so eight handlers received <c>AgentSmithConfig.Empty()</c>. Nothing said so.
-/// The run lost its private-feed credentials and spent a whole phase diagnosing a 401
+/// The run lost its private-feed credentials and spent a whole spec diagnosing a 401
 /// that was never real. The placeholder is indistinguishable from a real config by
 /// type — it is distinguishable by CONTENT, and one look is enough.
 /// </para>

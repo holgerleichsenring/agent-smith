@@ -7,7 +7,7 @@ namespace AgentSmith.Domain.Models;
 /// <para>
 /// <paramref name="AcceptedProperties"/> is what a caller may send (parameters and request
 /// body fields); <paramref name="ReturnedProperties"/> is what a caller may read from a
-/// success response. Both are names only: the difference this phase computes is over
+/// success response. Both are names only: the difference this spec computes is over
 /// names, and a type or a description would only make two descriptions of the same thing.
 /// </para>
 /// </summary>

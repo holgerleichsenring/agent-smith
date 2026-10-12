@@ -9,9 +9,9 @@ using FluentAssertions;
 namespace AgentSmith.Tests.Specs;
 
 /// <summary>
-/// 2026-10-12-3a36e: every phase a derivation cuts names the repositories it changes, held to
+/// 2026-10-12-3a36e: every spec a derivation cuts names the repositories it changes, held to
 /// the scope and to its own repo/context names; one repository in scope is filled and never
-/// re-asked. 2026-10-12-f5f7a: over several repositories each phase names EXACTLY ONE — none
+/// re-asked. 2026-10-12-f5f7a: over several repositories each spec names EXACTLY ONE — none
 /// stated is asked to state it, several to split; the whole-scope fill is gone.
 /// </summary>
 public sealed class SpecReposDerivationTests
@@ -36,7 +36,7 @@ public sealed class SpecReposDerivationTests
     }
 
     [Fact]
-    public void SpecDerivationParser_MultiRepoNoPhaseStatesRepos_IsReAsked()
+    public void SpecDerivationParser_MultiRepoNoSpecStatesRepos_IsReAsked()
     {
         var parsed = Parse(Reply(null, null), TwoRepos);
 
@@ -57,7 +57,7 @@ public sealed class SpecReposDerivationTests
     }
 
     [Fact]
-    public void SpecDerivationParser_PhaseNamingTwo_IsReAskedToSplit()
+    public void SpecDerivationParser_SpecNamingTwo_IsReAskedToSplit()
     {
         var parsed = Parse(Reply("""["Server"]""", """["Server", "BackgroundWorker"]"""), TwoRepos);
 
@@ -113,21 +113,21 @@ public sealed class SpecReposDerivationTests
     }
 
     [Fact]
-    public void PhaseDraftReader_Repos_RoundTripsThroughRenderer()
+    public void SpecDraftReader_Repos_RoundTripsThroughRenderer()
     {
-        var yaml = new DerivedPhaseYamlRenderer().Render(
+        var yaml = new DerivedSpecYamlRenderer().Render(
             "2026-10-12-0a0aa", "Move the retry policy", [], [], ["The server retries."], "x.md", [], "1",
             repos: ["Server", "BackgroundWorker"]);
 
-        new SpecDraftValidator(new PhaseSpecSchemaProvider()).ValidateYaml(yaml)
+        new SpecDraftValidator(new SpecSchemaProvider()).ValidateYaml(yaml)
             .Should().BeOfType<SpecDraftValid>("the schema declares repos");
-        new PhaseDraftReader().Read(yaml).Repos.Should().Equal("Server", "BackgroundWorker");
+        new SpecDraftReader().Read(yaml).Repos.Should().Equal("Server", "BackgroundWorker");
     }
 
     [Fact]
-    public void PhaseDraftReader_SpecWithoutRepos_ReadsNone()
+    public void SpecDraftReader_SpecWithoutRepos_ReadsNone()
     {
-        new PhaseDraftReader().Read("spec: p0001\ngoal: g\n").Repos.Should().BeEmpty();
+        new SpecDraftReader().Read("spec: p0001\ngoal: g\n").Repos.Should().BeEmpty();
     }
 
     [Fact]
@@ -175,7 +175,7 @@ public sealed class SpecReposDerivationTests
     private static SpecSet Fallback(IReadOnlyList<string> scope)
     {
         var fallback = new SpecFallback(
-            new SpecDraftValidator(new PhaseSpecSchemaProvider()), new PhaseDraftReader(), new DerivedPhaseYamlRenderer());
+            new SpecDraftValidator(new SpecSchemaProvider()), new SpecDraftReader(), new DerivedSpecYamlRenderer());
         var ticket = new Ticket(new TicketId("7"), "Move the retry policy", Ticket, null, "open", "test");
         return fallback.Build(
             "key", "2026-10-12-0a0a", ticket, TicketSegmenter.Segment(Ticket), ["done"], SpecSource.Derived, scope);

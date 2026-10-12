@@ -20,7 +20,7 @@ public sealed class SpecNamedStoredJsonReadTests
     [Fact]
     public void ApprovedSeries_SpecsJson_ReadsFullSet()
     {
-        var phases = new[] { ApprovedSets.Phase("s1a"), ApprovedSets.Phase("s1b") };
+        var phases = new[] { ApprovedSets.Spec("s1a"), ApprovedSets.Spec("s1b") };
         var accounting = new SpecAccounting([new CarriedSegment(1, "s1a")], [], []);
         var set = new SpecSet("k", phases, accounting, [new SpecRevision(1, "derived", ApprovedSets.Noon)], SpecSource.Approved,
             ExecutedPhaseIds: ["s1a"], Approval: ApprovedSets.Approval(ApprovedSets.Noon));
@@ -38,7 +38,7 @@ public sealed class SpecNamedStoredJsonReadTests
     [Fact]
     public void OutcomeProposalJson_SpecKind_Reads()
     {
-        var proposal = new PhaseOutcome(new PhaseDraft("s1", "Read both", "spec: s1", []))
+        var proposal = new SpecOutcome(new PhaseDraft("s1", "Read both", "spec: s1", []))
         {
             Findings = [new ProposalFinding("s1", "p", "w")],
         };
@@ -48,7 +48,7 @@ public sealed class SpecNamedStoredJsonReadTests
 
         var read = OutcomeProposalJson.Read(newShape);
 
-        read.Should().BeOfType<PhaseOutcome>().Which.Draft.PhaseId.Should().Be("s1");
+        read.Should().BeOfType<SpecOutcome>().Which.Draft.PhaseId.Should().Be("s1");
         read.Should().BeEquivalentTo(OutcomeProposalJson.Read(written));
     }
 
@@ -74,7 +74,7 @@ public sealed class SpecNamedStoredJsonReadTests
             LatestFilingJson = """{"filed":[{"reference":"R-1","title":"T"}],"error":null,"at":"2026-10-12T09:00:00Z","kind":"spec"}""",
         };
 
-        store.Of(session).Filing!.Kind.Should().Be(SpecDialogProposalComposer.PhaseKind);
+        store.Of(session).Filing!.Kind.Should().Be(SpecDialogProposalComposer.SpecKind);
     }
 
     [Fact]
@@ -95,6 +95,6 @@ public sealed class SpecNamedStoredJsonReadTests
     {
         var answer = """[{"spec_id": "s1", "criterion": "c", "problem": "p", "why": "w"}]""";
 
-        SpecCutAnswerReader.Read(answer)!.Single().PhaseId.Should().Be("s1");
+        SpecCutAnswerReader.Read(answer)!.Single().SpecId.Should().Be("s1");
     }
 }

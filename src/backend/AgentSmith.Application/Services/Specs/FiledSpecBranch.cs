@@ -87,7 +87,7 @@ public sealed class FiledSpecBranch(
         }
         await pointers.RecordAsync(project.Name, placement.Carrier?.Name, set, written.Shas, ct);
         logger.LogInformation(
-            "The approved set {Key} ({Phases} phase(s)) was written to the ticket branch of {Repos} as {Shas}",
+            "The approved set {Key} ({Specs} spec(s)) was written to the ticket branch of {Repos} as {Shas}",
             set.Key, set.Phases.Count, string.Join(", ", placement.Names), string.Join(", ", written.Shas.Values));
         return BranchWriteResult.Ok(written.CommitSha!);
     }

@@ -7,7 +7,7 @@ namespace AgentSmith.Contracts.Commands;
 /// Each preset's command list lives in its own partial file
 /// (PipelinePresets.FixBug.cs etc.) so adding/removing a step is a one-file change
 /// that doesn't touch any other preset. This file holds the resolver, the default-
-/// skills-path map, the pipeline-type map, and the single-phase classifier.
+/// skills-path map, the pipeline-type map, and the single-spec classifier.
 /// </summary>
 public static partial class PipelinePresets
 {
@@ -70,7 +70,7 @@ public static partial class PipelinePresets
 
     /// <summary>
     /// p0241: true when the preset is expected to modify source. p0421: this no longer
-    /// decides whether a run DELIVERED — that is read from the accounts every phase gives
+    /// decides whether a run DELIVERED — that is read from the accounts every spec gives
     /// against the branch, for every preset alike. What is left is what the answer is
     /// actually about: whether a run has a master loop to re-drive and needs a sandbox
     /// sized for building.
