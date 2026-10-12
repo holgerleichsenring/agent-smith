@@ -4,7 +4,7 @@ goal: "A contradiction hand-back parks only after a checker confirms it from the
 
 applies_to: "backend (spec derivation, hand-back)"
 
-requires: [2026-10-12-3a36a, 2026-10-12-3a36d]
+requires: [2026-10-12-3a36a]
 
 facts:
   - claim: "observed: run 10-10 (rework on PR 9476) derived with two spec-derivation calls and two greps in Server, no spec-cut-reviewer call, and handed back RequirementsContradictRepository: 'SubmitAssetsRequest contains only TruckPlate and TrailerPlate'."
@@ -63,9 +63,9 @@ steps:
     modify:
       - "SpecSetDeriver, DerivationLookTerms (ContradictionCheck: own prefix, CutReviewAllowance)"
   - id: heads
-    action: "Store origin/<branch> per scoped repo in 3a36d's HandbackJson at parking; clear on a non-hand-back revision."
+    action: "Store origin/<branch> per scoped repo as a JSON column HandbackHeads on TicketSeries at parking (migrations in both assemblies, carried on SpecSetPointer); clear on a non-hand-back revision."
     modify:
-      - "SpecHandbackHandler, the HandbackJson shape of 3a36d"
+      - "TicketSeries, TicketSeriesRepository, SpecSetPointer, Db/InMemory pointer stores, SpecSetPointerRecorder, SpecHandbackHandler"
   - id: expiry
     action: "In DeriveSpecHandler before Decide, when the branch set is handed back, probe each scoped repo with git rev-list --no-merges <stored>..HEAD --not <baseRef> (base via SandboxBaseLadder.ResolveAsync), authors other than SandboxGitIdentity.Email; pass the bool to NeedsModel and into ContextKeys; carry the approval only onto a derived set."
     new:
