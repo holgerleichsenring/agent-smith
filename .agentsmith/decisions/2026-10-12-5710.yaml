@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-5710
+
+decisions:
+  - category: Implementation
+    chose: "The skill paragraph repeats the tool's answers in the tool's own words and names no concrete tag shape."
+    over: "A worked example contrasting a composed tag with the published one."
+    reason: |
+      2026-08-25-014d removed tag-shape prose so the model does not choose an image by its name; an
+      example from one ecosystem invites copying it whole. The tool (50bdb) already lists the published
+      tags when it refuses, so the skill only needs to say how to read that answer.
+  - category: Implementation
+    chose: "Move inside the trusted registries only to an image carrying the whole toolchain."
+    over: "An unqualified 'prefer a trusted registry'."
+    reason: |
+      No Docker Hub official image ships sbt; an unqualified preference pushes the model to an image that
+      cannot build, the failure 50bda gates. The wording matches the tool's BoundaryInstruction.
+  - category: Scope
+    chose: "The 6bfac index line correction rides in its own chore commit, not in the 5710 commit."
+    over: "Folding it into this spec."
+    reason: |
+      A reviewer found the 6bfac state.done line still called the context-image-trust check a warning after
+      50bda made it a gate; it is a 6bfa-series fact, not this spec's.
