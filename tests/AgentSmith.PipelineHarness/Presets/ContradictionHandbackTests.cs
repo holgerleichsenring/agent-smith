@@ -164,8 +164,8 @@ public sealed class ContradictionHandbackTests
     private sealed class SeededSpecSetReader(SpecSet set, string sha) : ISpecSetReader
     {
         public Task<SpecSetOnBranch> ReadAsync(
-            PipelineContext pipeline, RepoConnection carryingRepo, TicketKey ticket,
-            CancellationToken cancellationToken) =>
+            PipelineContext pipeline, RepoConnection carryingRepo, IReadOnlyList<RepoConnection> repositories,
+            TicketKey ticket, CancellationToken cancellationToken) =>
             Task.FromResult(SpecSetOnBranch.Answered(new SpecSetReadResult(set, sha)));
     }
 }

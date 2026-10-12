@@ -165,7 +165,8 @@ public sealed class HandbackExpiryTests
     private sealed class StubReader : ISpecSetReader
     {
         public Task<SpecSetOnBranch> ReadAsync(
-            PipelineContext pipeline, RepoConnection carryingRepo, TicketKey ticket, CancellationToken ct) =>
+            PipelineContext pipeline, RepoConnection carryingRepo, IReadOnlyList<RepoConnection> repositories,
+            TicketKey ticket, CancellationToken ct) =>
             Task.FromResult(SpecSetOnBranch.Answered(new SpecSetReadResult(StoredHandback(), "spec-sha")));
     }
 

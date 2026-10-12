@@ -38,4 +38,8 @@ public sealed class TicketSeries : EntityBase
     /// <summary>2026-10-12-3a36b: <c>origin/&lt;branch&gt;</c> per scoped repository when a
     /// contradiction parked, as a JSON object of repository name to sha; null when none is stored.</summary>
     public string? HandbackHeads { get; set; }
+
+    /// <summary>2026-10-12-f5f7b: the last sha this system wrote per repository of the series, as a
+    /// JSON object; null on a row written before it, which reads as {CarryingRepo: RevisionSha}.</summary>
+    public string? RevisionShasJson { get; set; }
 }

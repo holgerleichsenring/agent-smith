@@ -1779,6 +1779,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("RevisionShasJson")
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("SeriesId")
                         .IsRequired()
                         .HasMaxLength(191)

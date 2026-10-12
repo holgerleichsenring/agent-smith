@@ -65,6 +65,10 @@ public sealed class SpecSourceResolver(
         ArgumentNullException.ThrowIfNull(ticket);
         ArgumentNullException.ThrowIfNull(branch);
         var cause = SpecRevisionCause.For(branch.Read, pointer, ticket, pipeline);
+        if (SeriesShaEdges.NotCompared(branch.Read, pointer) is { Count: > 0 } unreached)
+            logger.LogInformation(
+                "Spec set {Key}: the recorded sha of {Repos} was not compared — this read did not reach it",
+                key, string.Join(", ", unreached));
         if (branch.Read is { } artifact)
         {
             var amend = SpecAmendmentRule.NeedsModel(cause, artifact.Set, foreignCommitSinceHandback);

@@ -29,6 +29,9 @@ public static class SpecDerivationRegistrations
     // 2026-10-06-03c7d: a series is one manifest under series/ and its specs in specs/planned/.
     services.AddTransient<ISpecSetReader, SeriesReader>();
     services.AddTransient<SeriesManifestFinder>();
+    // 2026-10-12-f5f7b: every run repository's sub-series, joined into one set.
+    services.AddTransient<SubSeriesReader>().AddTransient<SeriesJoin>();
+    services.AddTransient<SeriesNewestManifest>().AddTransient<SeriesJoinOrder>();
     services.AddTransient<SeriesSpecFileReader>();
     services.AddTransient<ISpecSetWriter, SeriesWriter>();
     services.AddTransient<SeriesStaleFiles>();

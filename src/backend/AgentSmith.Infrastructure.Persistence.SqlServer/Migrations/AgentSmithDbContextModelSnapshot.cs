@@ -1843,6 +1843,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .HasMaxLength(191)
                         .HasColumnType("nvarchar(191)");
 
+                    b.Property<string>("RevisionShasJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<string>("SeriesId")
                         .IsRequired()
                         .HasMaxLength(191)

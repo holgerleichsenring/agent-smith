@@ -17,6 +17,10 @@ namespace AgentSmith.Application.Services.Specs;
 /// <para>
 /// 2026-10-06-03c7c: the row also caches the series' base id the set carries.
 /// </para>
+/// <para>
+/// 2026-10-12-f5f7b: the sha is merged into the per-repository map under the repository it was
+/// written in; the other repositories keep theirs, and CarryingRepo/RevisionSha are still written.
+/// </para>
 /// </summary>
 public sealed class SpecSetPointerRecorder(
     ISpecSetPointerStore pointers,
@@ -39,10 +43,19 @@ public sealed class SpecSetPointerRecorder(
             executedThrough ?? existing?.ExecutedThrough ?? 0,
             // 2026-10-12-3a36b: the stored heads belong to the hand-back the branch carries; a
             // revision that is not a hand-back ends it, and with it the reference.
-            set.IsHandedBack ? existing?.HandbackHeads : null), cancellationToken);
+            HandbackHeads: set.IsHandedBack ? existing?.HandbackHeads : null,
+            RevisionShas: Merged(existing, carryingRepo.Name ?? string.Empty, sha)), cancellationToken);
         logger.LogDebug(
             "Spec set {Key} pointer names {Sha} (revision {Revision})", set.Key, sha, set.Current.Number);
     }
+
+    private static IReadOnlyDictionary<string, string> Merged(SpecSetPointer? existing, string repo, string sha) =>
+        new Dictionary<string, string>(
+            (existing?.ShaByRepo ?? new Dictionary<string, string>()).Where(kv => kv.Key.Length > 0),
+            StringComparer.Ordinal)
+        {
+            [repo] = sha,
+        };
 
     /// <summary>2026-10-06-03c7e: how many leading specs of the ticket's series the record step
     /// moved to done/ — 0 when no pointer exists.</summary>

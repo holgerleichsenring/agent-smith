@@ -24,6 +24,12 @@ namespace AgentSmith.Contracts.Specs;
 /// against to tell whether somebody else committed since. Null once a revision that is not a
 /// hand-back is recorded.
 /// </para>
+/// <para>
+/// 2026-10-12-f5f7b: <see cref="RevisionShas"/> is the last sha this system wrote PER REPOSITORY
+/// of the series. A pointer without one — every row written before it — reads as
+/// <c>{CarryingRepo: RevisionSha}</c> (<see cref="ShaByRepo"/>), so no row reads as an edit for
+/// lack of the map.
+/// </para>
 /// </summary>
 public sealed record SpecSetPointer(
     string Key,
@@ -34,15 +40,35 @@ public sealed record SpecSetPointer(
     int RepeatedHandbackCount = 0,
     string? SeriesId = null,
     int ExecutedThrough = 0,
-    IReadOnlyDictionary<string, string>? HandbackHeads = null);
+    IReadOnlyDictionary<string, string>? HandbackHeads = null,
+    IReadOnlyDictionary<string, string>? RevisionShas = null)
+{
+    /// <summary>The per-repository shas, back-filled from the one carrying repository when absent.</summary>
+    public IReadOnlyDictionary<string, string> ShaByRepo =>
+        RevisionShas is { Count: > 0 } shas
+            ? shas
+            : new Dictionary<string, string>(StringComparer.Ordinal) { [CarryingRepo] = RevisionSha };
+}
 
 /// <summary>
 /// p0393a: a set found on the ticket branch, with the sha of the last commit that
 /// touched its directory. The caller compares that sha against the pointer this
 /// system recorded to tell its OWN last revision apart from a reviewer's edit —
 /// the cause the next revision names.
+/// <para>
+/// 2026-10-12-f5f7b: a set joined from several repositories' sub-series carries the last commit per
+/// repository it was read from (<see cref="RevisionShas"/>; <see cref="LastCommitSha"/> is the
+/// carrying repository's, else the newest manifest's), and the members whose sub-series lags the
+/// newest revision (<see cref="Lagging"/>) — read, named, and never joined.
+/// </para>
 /// </summary>
-public sealed record SpecSetReadResult(SpecSet Set, string LastCommitSha);
+public sealed record SpecSetReadResult(SpecSet Set, string LastCommitSha)
+{
+    public IReadOnlyDictionary<string, string> RevisionShas { get; init; } =
+        new Dictionary<string, string>(StringComparer.Ordinal);
+
+    public IReadOnlyList<string> Lagging { get; init; } = [];
+}
 
 /// <summary>
 /// p0393a: the outcome of committing one revision. A failed write leaves the run

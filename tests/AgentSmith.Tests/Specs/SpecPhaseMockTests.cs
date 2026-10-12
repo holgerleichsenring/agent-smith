@@ -87,6 +87,6 @@ public sealed class SpecPhaseMockTests
         pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
             ContextKeys.Sandboxes, new Dictionary<string, ISandbox> { ["primary"] = sandbox.Object });
         var reader = SeriesDoubles.Reader(readers.Object);
-        return await reader.ReadAsync(pipeline, new RepoConnection { Name = "primary" }, new TicketKey(Key), default);
+        return await reader.ReadAsync(pipeline, new RepoConnection { Name = "primary" }, [], new TicketKey(Key), default);
     }
 }

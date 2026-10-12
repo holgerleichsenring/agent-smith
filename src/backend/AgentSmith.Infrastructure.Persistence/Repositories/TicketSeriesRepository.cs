@@ -45,16 +45,25 @@ public sealed class TicketSeriesRepository(IUnitOfWork unitOfWork)
         row.HandbackHeads = pointer.HandbackHeads is { Count: > 0 } heads
             ? JsonSerializer.Serialize(heads)
             : null;
+        row.RevisionShasJson = JsonSerializer.Serialize(pointer.ShaByRepo);
     }
 
     private static SpecSetPointer ToPointer(TicketSeries row) => new(
         row.TicketKey, row.CarryingRepo, row.RevisionSha, row.RevisionNumber,
         (SpecHandbackCase)row.LastHandbackCase, row.RepeatedHandbackCount,
         row.SeriesId.Length == 0 ? null : row.SeriesId, row.ExecutedThrough,
-        HeadsOf(row.HandbackHeads));
+        HeadsOf(row.HandbackHeads), ShasOf(row));
 
     private static IReadOnlyDictionary<string, string>? HeadsOf(string? json) =>
         string.IsNullOrWhiteSpace(json)
             ? null
             : JsonSerializer.Deserialize<Dictionary<string, string>>(json);
+
+    // 2026-10-12-f5f7b: a row written before the map reads as {CarryingRepo: RevisionSha}.
+    private static IReadOnlyDictionary<string, string> ShasOf(TicketSeries row) =>
+        string.IsNullOrWhiteSpace(row.RevisionShasJson)
+            ? new Dictionary<string, string>(StringComparer.Ordinal) { [row.CarryingRepo] = row.RevisionSha }
+            : new Dictionary<string, string>(
+                JsonSerializer.Deserialize<Dictionary<string, string>>(row.RevisionShasJson) ?? [],
+                StringComparer.Ordinal);
 }
