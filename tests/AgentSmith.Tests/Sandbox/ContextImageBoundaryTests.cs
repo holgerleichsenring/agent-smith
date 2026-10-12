@@ -2,7 +2,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
 using FluentAssertions;
-using Microsoft.Extensions.Options;
+using AgentSmith.Application.Models.Sandbox;
 
 namespace AgentSmith.Tests.Sandbox;
 
@@ -15,7 +15,12 @@ public sealed class ContextImageBoundaryTests
     private const string UserNamespaceImage = "sbtscala/scala-sbt:eclipse-temurin-25_1.11.7_2.13.18";
 
     private static ContextImageBoundary Boundary(SandboxGlobalConfig? config = null) =>
-        new(new ImageRegistryTrust(Options.Create(config ?? new SandboxGlobalConfig())));
+        new(new FixedTrust(RegistryTrustBoundary.From(config ?? new SandboxGlobalConfig())));
+
+    private sealed class FixedTrust(RegistryTrustBoundary boundary) : IImageRegistryTrust
+    {
+        public RegistryTrustBoundary InForce() => boundary;
+    }
 
     [Fact]
     public void Judge_UserNamespaceImage_NamesImageBoundaryAndNamespacePrefix()

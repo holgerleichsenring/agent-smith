@@ -11,14 +11,14 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// later. The same verdict is now spoken where the image is written and where it is refused.
 /// </para>
 /// </summary>
-public sealed class ContextImageBoundary(ImageRegistryTrust trust)
+public sealed class ContextImageBoundary(IImageRegistryTrust trust)
 {
     private const string ProjectLever =
         "or name an image in the project's Sandbox tab (sandbox.images for the language, or "
         + "sandbox.toolchain_image)";
 
     private const string ListReplacesDefaults =
-        " (global sandbox configuration, applied when the server next reads it; naming any entry "
+        " (Settings > Sandbox > Trusted image registries, applied to the next sandbox; naming any entry "
         + "replaces the built-in defaults and turns off Docker Hub official images unless "
         + "sandbox.allow_docker_hub_library is set, so list everything still needed)";
 
@@ -26,11 +26,13 @@ public sealed class ContextImageBoundary(ImageRegistryTrust trust)
     public ContextImageRefusal? Judge(string? image)
     {
         var trimmed = image?.Trim();
-        if (string.IsNullOrEmpty(trimmed) || trust.Accepts(trimmed)) return null;
+        if (string.IsNullOrEmpty(trimmed)) return null;
+        var boundary = trust.InForce();
+        if (boundary.Accepts(trimmed)) return null;
         return new ContextImageRefusal(
             trimmed,
             $"stack.image '{trimmed}' is outside the trusted image registries "
-            + $"[{trust.Description}], so a sandbox will not run it",
+            + $"[{boundary.Description}], so a sandbox will not run it",
             Lever(trimmed));
     }
 
@@ -39,8 +41,8 @@ public sealed class ContextImageBoundary(ImageRegistryTrust trust)
         var repository = Repository(image);
         var slash = repository.LastIndexOf('/');
         if (slash < 0)
-            return "to use it, set sandbox.allow_docker_hub_library: true (global sandbox "
-                   + "configuration), " + ProjectLever;
+            return "to use it, set sandbox.allow_docker_hub_library: true (Settings > Sandbox > "
+                   + "Trusted image registries), " + ProjectLever;
         return $"to use it, add '{repository[..(slash + 1)]}' to sandbox.allowed_registries"
                + ListReplacesDefaults + ", " + ProjectLever;
     }

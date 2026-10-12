@@ -71,7 +71,7 @@ public sealed class ScopeReposCallFailureTests
         factory.Setup(f => f.Create(It.IsAny<AgentConfig>(), It.IsAny<TaskType>(), It.IsAny<int?>(), It.IsAny<MasterLoopHooks?>()))
             .Returns(chat.Object);
         var resolver = new Mock<ISandboxLanguageResolver>();
-        resolver.Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
+        resolver.Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([new RemoteContextDiscovery("default", ".", "csharp")]);
         return new ScopeReposHandler(
             TestSupport.ApprovedSetDoubles.Scope(),
