@@ -285,6 +285,9 @@ export interface ConfigCapabilities {
   permissions: string[];
   /** The role names the product ships. A custom bundle under one of these is ignored. */
   builtInRoles: string[];
+  /** 2026-10-12-6bfae: per lower-case agent type, the price-list providers whose ids that
+   *  type's API accepts as written. Absent from an older server: nothing is ranked first. */
+  agentProviderPriceLists?: Record<string, string[]>;
 }
 
 export async function fetchCapabilities(signal?: AbortSignal): Promise<ConfigCapabilities> {

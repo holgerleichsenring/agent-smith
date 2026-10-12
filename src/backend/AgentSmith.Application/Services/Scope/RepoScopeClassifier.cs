@@ -9,6 +9,7 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
+using AgentSmith.Domain.Exceptions;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
@@ -19,8 +20,10 @@ namespace AgentSmith.Application.Services.Scope;
 /// (ticket body + comments) against the per-repo remote context inventory
 /// (name / workdir / language / purpose) into the affected-repo subset.
 /// Standard chat plumbing (factory + call scope + cost tracking).
-/// Never throws: an LLM/transport failure returns an error string
-/// so the handler falls back to all repos, exactly like a parse failure.
+/// An LLM/transport failure returns an error string so the handler falls back
+/// to all repos, exactly like a parse failure. 2026-10-12-6bfae: the one
+/// exception is a rejected model id — a configuration fault every later call
+/// repeats — which propagates and fails the step with its explanation.
 /// <para>
 /// p0413a: the one call answers TWO questions — which repositories the ticket
 /// touches, and what the ticket is (size + shape). They are returned separately
@@ -59,11 +62,16 @@ public sealed class RepoScopeClassifier(
         {
             throw; // operator/watchdog cancel is not a classification failure
         }
+        catch (ModelIdRejectedException)
+        {
+            throw; // the configured id is refused; falling back would only fail the next step
+        }
         catch (Exception ex)
         {
             logger.LogWarning(ex, "Repo scope classification call failed — keeping all repos");
             return new ScopeClassificationResult(
-                null, ScopeEstimate.None, $"classifier call failed ({ex.GetType().Name}: {ex.Message})");
+                null, ScopeEstimate.None, $"classifier call failed ({ex.GetType().Name}: {ex.Message})",
+                CallFailed: true);
         }
 
         return Read(text);

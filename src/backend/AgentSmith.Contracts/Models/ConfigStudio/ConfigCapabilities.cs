@@ -29,6 +29,14 @@ public sealed record ConfigCapabilities(
 
     /// <summary>The role names the product ships. A custom bundle under one of them is ignored.</summary>
     public IReadOnlyList<string> BuiltInRoles { get; init; } = [];
+
+    /// <summary>
+    /// 2026-10-12-6bfae: per agent type (every name a builder answers to, aliases included),
+    /// the price list's provider names whose ids that type's API accepts unchanged — the model
+    /// picker offers those ids first. A type with no entry ranks nothing first.
+    /// </summary>
+    public IReadOnlyDictionary<string, IReadOnlyList<string>> AgentProviderPriceLists { get; init; } =
+        new Dictionary<string, IReadOnlyList<string>>();
 }
 
 /// <summary>

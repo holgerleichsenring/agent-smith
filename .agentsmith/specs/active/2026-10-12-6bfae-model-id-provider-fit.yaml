@@ -1,0 +1,112 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-6bfae
+goal: "The model-id picker offers ids that fit the agent's provider first, and a provider refusing the configured model id fails the run with a summary that names the role and the id."
+
+applies_to: "default (backend chat-client chain + scope step, dashboard agent model editor)"
+
+requires: [2026-09-30-62bab, 2026-08-27-3eb1]
+
+facts:
+  - claim: "observed: an agent of type anthropic picked 'anthropic.claude-sonnet-5-5' from the picker; the Anthropic API answered 404 not_found_error 'model: anthropic.claude-sonnet-5-5'; ScopeRepos reported 'skipped: single-repo run'; DeriveSpec failed; the run summary read only 'model: anthropic.claude-sonnet-5-5'."
+    evidence: "observed: 2026-10-12, operator run report"
+  - claim: "The picker shows the first MAX_MATCHES = 8 substring matches in list order and nothing else ranks them."
+    evidence: "src/dashboard/src/components/config/agent/ModelIdSearch.tsx:10, src/dashboard/src/components/config/agent/ModelIdSearch.tsx:24-27"
+  - claim: "17 bundled ids contain 'sonnet-5-5'; only 'claude-sonnet-5-5' has provider 'anthropic', the others are bedrock_converse, bedrock, bedrock_mantle, azure_ai, vertex_ai-anthropic_models, perplexity; the list is served sorted by id, so 'anthropic.claude-sonnet-5-5' comes first and 'claude-sonnet-5-5' 9th."
+    evidence: "src/backend/AgentSmith.Application/Resources/model-prices.json (python count), src/backend/AgentSmith.Application/Services/Pricing/BundledModelPriceList.cs:26"
+  - claim: "The provider field already exists end to end: the reader maps it, the record carries it, the endpoint serves the records, the dashboard type declares it."
+    evidence: "src/backend/AgentSmith.Application/Services/Pricing/ModelPriceSnapshotReader.cs:53-55, src/backend/AgentSmith.Contracts/Models/Configuration/BundledModelPrice.cs:8-10, src/backend/AgentSmith.Server/Extensions/ConfigCapabilityEndpoints.cs:36-38, src/dashboard/src/lib/configApi.ts:457-460"
+  - claim: "Nothing maps an agent type (claude, openai, azure_openai, gemini, ollama, copilot, external_worker) to the price list's provider names; the agent types are the registered builders' SupportedTypes, served as capabilities.agentProviders."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/IChatClientBuilder.cs:15, src/backend/AgentSmith.Server/Extensions/ConfigCapabilityEndpoints.cs:28-31"
+  - claim: "The model editor knows the provider the entry runs on: the entry's own providerType, else the agent's provider; it already receives capabilities."
+    evidence: "src/dashboard/src/components/config/agent/AgentModelEditor.tsx:40-49, src/dashboard/src/components/config/agent/AgentModelEditor.tsx:258-265, src/dashboard/src/lib/configApi.ts:500-502"
+  - claim: "Anthropic.SDK 5.10.0 turns a 404 into HttpRequestException(error.message, null, StatusCode) — the message is the bare 'model: <id>'; the status code is the structured field. The OpenAI/Azure SDKs raise ClientResultException with Status."
+    evidence: "decompiled Anthropic.SDK.EndpointBase.HandleErrorResponseAsync (5.10.0); src/backend/AgentSmith.Infrastructure/Services/RateLimiting/RetryWait.cs:61-62"
+  - claim: "A 4xx other than 408/429 is never retried, so the 404 reaches the chain above unchanged."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/TransientRetryChatClient.cs:78-81, src/backend/AgentSmith.Infrastructure/Services/RateLimiting/TransientRetryChatClient.cs:94"
+  - claim: "A handler exception becomes the step's failure message verbatim (ex.Message), which becomes the run summary."
+    evidence: "src/backend/AgentSmith.Application/Services/CommandExecutor.cs:78-82, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:597-602"
+  - claim: "The chain already has a precedent decorator that rewrites one provider refusal into an operator message naming role and model, placed innermost of the diagnostics."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs:163-167, src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/ContextLengthRefusalChatClient.cs:17-44"
+  - claim: "AgentConfig carries no name; the catalog name is recovered elsewhere only by reference equality against the config snapshot, which the chat-client factory has no access to."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/AgentConfig.cs:6-18, src/backend/AgentSmith.Contracts/Models/Configuration/ResolvedProject.cs:13-14"
+  - claim: "The factory holds the agent, so the role's studio key and the catalog entry it uses are reachable at the call site; the type names include aliases (anthropic, google) resolved case-insensitively."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/ModelRoleSlots.cs:12-27, src/backend/AgentSmith.Contracts/Models/Configuration/ModelRoleChain.cs:41-42, src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/ClaudeChatClientBuilder.cs:28, src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs:239-246"
+  - claim: "Of the bundled providers only anthropic, openai and vertex_ai-language-models carry ids the respective APIs accept unchanged; azure, ollama, github_copilot and most gemini ids carry a LiteLLM routing prefix, and every builder sends the id unchanged."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/OllamaChatClientBuilder.cs:23, src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/GeminiChatClientBuilder.cs:22, src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/OpenAiChatClientBuilder.cs:46"
+  - claim: "Every failed run summary passes HumanizeRunSummary; a summary carrying a JSON error payload is replaced by its 404 rule's ticket-not-found sentence."
+    evidence: "src/backend/AgentSmith.Application/Services/ErrorFormatter.cs:34-35, src/backend/AgentSmith.Application/Services/ErrorFormatter.cs:61-75"
+  - claim: "Pass-through chat decorators are listed by file name in an architecture rule."
+    evidence: "tests/AgentSmith.Tests/Architecture/ChatClientCallScopeRuleTests.cs:26-68"
+  - claim: "A failing sub-agent call becomes a failed result handed back to the master, not a step failure."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/SubAgentRunner.cs:58-62"
+  - claim: "The repo-scope call runs BEFORE the single-repo return; the classifier swallows every call exception into an error string, and the single-repo path ignores that error and returns 'Repo scoping skipped: …', which the gate classes as a silent no-op."
+    evidence: "src/backend/AgentSmith.Application/Services/Scope/RepoScopeClassifier.cs:62-67, src/backend/AgentSmith.Application/Services/Handlers/ScopeReposHandler.cs:72-85, src/backend/AgentSmith.Contracts/Commands/GateSilence.cs:19-33"
+  - claim: "A single-repo reply normally carries no repos array, so its Error is set on every healthy single-repo run — the error string cannot tell a failed call from a reply without a verdict."
+    evidence: "src/backend/AgentSmith.Application/Services/Scope/RepoScopeClassifier.cs:76-83, tests/AgentSmith.Tests/Handlers/ScopeReposHandlerTests.cs:229-240"
+  - claim: "The connection probe builds the bare client and reports ex.Message, so a rejected id reads the same bare text there."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs:66-90"
+
+scope:
+  in: >
+    PICKER: IChatClientBuilder gains PriceListProviders (default empty) — the price-list provider names whose ids the
+    builder's API accepts UNCHANGED (claude: anthropic; openai/azure_openai: openai; gemini: vertex_ai-language-models;
+    ollama, copilot, external_worker: none — their list ids carry a routing prefix the API refuses). The capabilities
+    descriptor carries them keyed by EVERY SupportedTypes name (aliases included; looked up case-insensitively) as an init property AgentProviderPriceLists, optional on the TypeScript side. The picker ranks matches: fitting provider first, then id prefix, then a match at a
+    word boundary, then any substring; ties by shorter id, then id. Each row shows the entry's provider. Ranking, not
+    filtering: an OpenAI-compatible endpoint legitimately runs other providers' ids, and free text stays. REJECTION:
+    ModelIdRejectionChatClient beside ContextLengthRefusalChatClient turns a 404 (HttpRequestException.StatusCode or
+    ClientResultException.Status anywhere in the chain) into ModelIdRejectedException (Domain, deriving AgentSmithException directly so no ConfigurationException catch takes
+    it) whose message names the role by its studio key (ModelRoleSlots), the catalog entry when the role uses one, the model id, the provider type, says the provider found no such model id, deployment or endpoint path (for
+    azure_openai the deployment leads), and points at the agent's model catalog in Config Studio. It never quotes a JSON
+    body (HumanizeRunSummary would replace it). One static Wrap(inner, agent, task, assignment, effectiveType) builds it for both factory call sites
+    (Create, ProbeAsync), so the factory grows by one line each. The decorator joins the pass-through list of ChatClientCallScopeRuleTests. The probe uses the same decorator. SCOPE: the classifier rethrows
+    ModelIdRejectedException (a configuration fault fails every later call too), so ScopeRepos fails with that message;
+    the "never throws" class comment is updated; ScopeClassificationResult gains CallFailed, and a single-repo run whose call failed for any other reason says so in a
+    sentence GateSilence.IsNoOpSummary does not class as a no-op.
+  out: >
+    Naming the agent: the name is recoverable only from the config snapshot by reference (the run-started event carries
+    it), which the chat-client factory cannot reach; the role key, id, provider type and catalog entry identify what to
+    fix inside the run's agent. Ranking ollama/copilot ids: needs the price list's aliases map (bare name -> prefixed id) served to the picker,
+    a follow-up phase of its own. Sub-agent calls: a rejected id there returns to the master as a failed sub-result; the
+    master's own call fails the step with the same message. Classifying the Gemini,
+    Ollama, Copilot and external-worker transports' own error types: they do not raise either status-carrying type; no
+    observed failure. Save-time validation of the id against the provider: the list is a price list, not a provider's
+    model catalog — but since saving already requires a listed id, an advisory draft finding "this id's provider does not
+    fit the agent type" is buildable from data; it is a follow-up, not this phase.
+
+decisions:
+  - key: "THE FIELD IS THE FIX: the provider each entry already carries ranks it; the builder declares which providers it serves. No id-shape regex."
+  - key: "RANK, DON'T FILTER: an openai-type agent on a compatible endpoint runs groq/together ids."
+  - key: "STATUS CODE, NOT TEXT: 404 on a chat call means the id, deployment or endpoint path is unknown to the provider; the message says all three."
+  - key: "FAIL AT SCOPE: a rejected id is deterministic; the all-repos fallback was meant for a doubtful verdict, not for a configuration that refuses every call."
+
+steps:
+  - id: contracts
+    action: "IChatClientBuilder.PriceListProviders (default []); ConfigCapabilities.AgentProviderPriceLists; ModelIdRejectedException in Domain/Exceptions; ScopeClassificationResult.CallFailed."
+  - id: builders
+    action: "Declare PriceListProviders on the five real builders; extension PriceListProvidersByType over the registered builders; endpoint serves it."
+  - id: rejection
+    action: "ModelIdRejectionChatClient; wired in ChatClientFactory.Create and ProbeAsync."
+  - id: scope
+    action: "RepoScopeClassifier rethrows ModelIdRejectedException and marks CallFailed; ScopeReposHandler reports a failed call on the single-repo path."
+  - id: dashboard
+    action: "rankModelMatches pure function; ModelIdSearch takes preferredProviders and shows provider per row; AgentModelEditor passes the effective provider's list; configApi type."
+  - id: tests
+    action: "Backend: decorator (Anthropic shape, OpenAI shape, unrelated error passes), probe, capabilities (declared set pinned per type), scope (rejection fails step; call failure on single repo speaks; healthy single repo still silent). Dashboard: ranking unit tests; AgentForm picks claude-sonnet-5-5 first for an anthropic agent."
+
+tests:
+  - "ModelIdRejection_AnthropicNotFound_NamesRoleIdAndConfig"
+  - "ModelIdRejection_ClientResult404_IsRecognised"
+  - "ModelIdRejection_OtherFailure_PassesThrough"
+  - "Probe_RejectedModelId_ReportsTheRejection"
+  - "PriceListProviders_PerBuilder_PinsTheDeclaredSet"
+  - "HumanizeRunSummary_ModelIdRejection_PassesThrough"
+  - "ScopeRepos_ModelIdRejected_FailsTheStepWithTheRejection"
+  - "ScopeRepos_SingleRepoCallFailed_SaysSoAndIsNotANoOp"
+  - "rankModelMatches: sonnet-5-5 on anthropic offers claude-sonnet-5-5 first"
+
+done:
+  - "Typing 'sonnet-5-5' in the model picker of an anthropic agent offers 'claude-sonnet-5-5' first (vitest)."
+  - "A 404 from the provider on a call the step itself makes fails the step with a message naming the role, the id and the agent model catalog (unit tests)."
+  - "A rejected id at ScopeRepos fails that step instead of reporting 'skipped: single-repo run'."
+  - "Backend and dashboard suites green through the phase gate."
