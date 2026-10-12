@@ -1,59 +1,64 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-06-8565a
-goal: "Each delta declares its size limits as one Limits fence with closed keys, and DELTA-FORMAT says an artefact is green on the day it is installed instead of forbidding enforcement."
+goal: "Each delta declares its size limits as one Limits fence with closed keys, and DELTA-FORMAT says a limit is green on the day it is installed: what exists is baselined, only worse fails."
 
-applies_to: "skills catalog (principles/DELTA-FORMAT.md, principles/deltas/*.md, scripts/validate-skills.sh)"
+applies_to: "skills catalog (principles/DELTA-FORMAT.md, principles/deltas/*.md, scripts/validate-skills.sh); a238 move in this repository"
 
 requires: [2026-10-03-24d4]
 
 facts:
-  - claim: "DELTA-FORMAT states 'An artefact MUST NOT change what the target compiles to' twice, in the Artefacts template and in Writing artefacts."
-    evidence: "agent-smith-skills:principles/DELTA-FORMAT.md:46-52,70-84"
+  - claim: "DELTA-FORMAT forbids an artefact to change what the target compiles to, in the Artefacts template (lowercase) and in Writing artefacts (capitalised)."
+    evidence: "observed: agent-smith-skills v5.10.0 principles/DELTA-FORMAT.md:46-52,70-84, read 2026-10-06"
   - claim: "The core says size limits are set by the delta and enforced; no delta carries machine-readable data."
-    evidence: "agent-smith-skills:principles/core.md:26-28; agent-smith-skills:principles/deltas/csharp.md:7-11; agent-smith-skills:principles/deltas/rust.md:14-20; agent-smith-skills:principles/deltas/typescript.md:15-19; agent-smith-skills:principles/deltas/scala.md:18-27"
+    evidence: "observed: agent-smith-skills v5.10.0 principles/core.md:26-28, principles/deltas/csharp.md:7-13, rust.md:14-20, typescript.md:15-19, scala.md:18-27, read 2026-10-06"
   - claim: "validate-skills requires Additions, Overrides and Artefacts per delta and checks nothing inside them."
-    evidence: "agent-smith-skills:scripts/validate-skills.sh:199-212"
-  - claim: "The composer renders a delta verbatim minus its Artefacts section, so a Limits fence reaches principles.md as written."
-    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Skills/CatalogPrinciplesTemplateSource.cs:49-54,81-118"
-  - claim: "A golden test forbids DELTA-FORMAT to name editor configuration, build property file, ruleset, 'arrives red' and 'where the stack's build already looks'."
-    evidence: "tests/AgentSmith.Tests/Skills/ComposedPrinciplesGoldenTests.cs:113-131"
-  - claim: "a238 matches written config artefacts to verify stages; no such artefact exists since the C# delta dropped them."
-    evidence: ".agentsmith/specs/planned/2026-09-15-a238-verify-stage-declares-coverage.yaml:4-24; agent-smith-skills:principles/deltas/csharp.md:103-107"
+    evidence: "observed: agent-smith-skills v5.10.0 scripts/validate-skills.sh:199-212, read 2026-10-06"
+  - claim: "The composer renders a delta verbatim minus the span from '## Artefacts' to the next '## ' line; overlays render only '## Rules'."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Skills/CatalogPrinciplesTemplateSource.cs:49-54,81-118; src/backend/AgentSmith.Infrastructure.Core/Services/Skills/DeltaArtefactSection.cs:31-44; src/backend/AgentSmith.Infrastructure.Core/Services/Skills/FrameworkOverlaySection.cs:20-23,46-57"
+  - claim: "Project Specifics is a '##' heading running to the end of the composed file."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Skills/CatalogPrinciplesTemplateSource.cs:114-116; src/backend/AgentSmith.Application/Services/ProjectSpecificsSection.cs:10-19"
+  - claim: "Format goldens read the embedded tarball, pinned at v5.10.0 until 8565c; template-content tests read an adjacent checkout."
+    evidence: "tests/AgentSmith.Tests/Skills/ComposedPrinciplesGoldenTests.cs:113-131,171-182; tests/AgentSmith.Tests/Skills/PrinciplesTemplateContentTests.cs:50,79; src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:53-55"
+  - claim: "a238 matches written config artefacts to verify stages; the C# delta declares none since 2026-09-20."
+    evidence: "observed: a238 goal and scope.in (planned since 2026-09-15), read 2026-10-06; observed: agent-smith-skills v5.10.0 principles/deltas/csharp.md:103-107, read 2026-10-06"
 
-assumptions:
-  - claim: "24d4's ratified numbers are physical lines of a unit's span."
-    check: "decisions/2026-10-03-24d4.yaml states the counting rule per number."
+assumptions: []
 
 scope:
   in: >
-    DELTA-FORMAT gains '## Limits': one yaml fence, keys function_lines, type_lines, types_per_file, file_lines,
-    positive integers, counted as physical lines of the unit's span; an absent key sets no limit; 'No limits —
-    ...' when none applies. Both artefact sentences become: "An artefact is green on the day it is installed.
-    What a delta's Limits declare is measured at init and recorded as the baseline; from then on only what
-    gets worse fails. A file that changes how the target builds becomes an artefact for a rule only once the
-    code holds that rule." Each delta's size prose cites its Limits; numbers are 24d4's. validate-skills
-    checks the heading, one fence, closed keys, positive integers. Release the catalog. a238 moves to done/
-    unimplemented, SUPERSEDED by this series.
+    DELTA-FORMAT gains a top-level '## Limits' section: one yaml fence, keys function_lines, type_lines,
+    types_per_file, file_lines, positive integers, physical lines from a declaration's first non-attribute line to its last, nested units
+    included, leading comments excluded; an absent key sets no limit;
+    a section holding 'No limits — ...' and no fence is valid. Its text: "A limit is green on the day it is
+    installed. What a delta's Limits declare is measured at init and recorded as the baseline; from then on only
+    what gets worse fails." A house limit is a '### Limits' heading with one yaml fence under Project Specifics
+    and overrides the delta key by key. Overlays carry no Limits. The artefact rule stays. Each delta's fence
+    restates 24d4's sourced prose numbers (C# function 55; Rust function 40; TypeScript function 50, file 300;
+    Scala 'No limits'); no delta declares types_per_file, so one type per file stays a prose rule.
+    validate-skills: heading present; zero fences only with 'No limits'; otherwise one fence, closed keys,
+    positive integers, each value stated as 'Max <n> lines' in the size prose (24d4's Source check covers the
+    source); no frameworks/*.md carries '## Limits'. Release the catalog. a238 to done/ unimplemented,
+    SUPERSEDED.
   out: >
-    Reading the fence — 8565b. The pin bump and goldens — 8565c.
+    Reading the fence — 8565b. Pin bump and goldens — 8565c. The numbers and their sources — 24d4.
 
 decisions:
-  - key: "ONE FENCE, CLOSED KEYS. The engine and the master read the same block; a key outside the set is a validator failure, not a silent no-op."
-  - key: "A NEUTRAL VOCABULARY. function, type, file — each language's grammar data maps its own nodes onto them."
+  - key: "ONE FENCE, CLOSED KEYS. The engine and the master read the same block; an unknown key fails the validator, never a silent no-op."
+  - key: "A LIMIT IS NOT AN ARTEFACT. Nothing is written into the target's build; the framework measures and judges. The artefact rule against changing what the target compiles to stands."
+  - key: "TASTE GOES TO PROJECT SPECIFICS. A house standard such as 20/120 is a '### Limits' fence there, surviving every refresh."
 
 steps:
   - id: format
-    action: "DELTA-FORMAT: Limits section, the new artefact wording in both places."
+    action: "DELTA-FORMAT: Limits section, house form, overlays carry none."
   - id: deltas
-    action: "Limits fence in csharp, rust, typescript, scala with 24d4's numbers; size prose points at it."
+    action: "Limits section in csharp, rust, typescript (fence) and scala (No limits); size prose points at it."
   - id: validate
-    action: "validate-skills checks the Limits section; a negative control proves each check fails."
+    action: "validate-skills Limits checks with a negative control per check."
   - id: supersede
-    action: "a238 to done/ with a SUPERSEDED line in context.yaml."
+    action: "a238 to done/ with a SUPERSEDED line in context.yaml (this repository)."
 
 tests:
-  - "validate-skills green; each of: missing heading, two fences, unknown key, zero value fails it"
-  - "ComposedPrinciplesGoldenTests DeltaFormat_LicensesNoneOfTheRemovedArtefactKinds green against the new text"
+  - "validate-skills green; missing heading, two fences, unknown key, zero value, a value absent from the prose, a fence beside No limits, and Limits in an overlay each fail it"
 
 done:
-  - "a skills release carries the Limits format and four deltas with ratified numbers"
+  - "a skills release carries the Limits format and four deltas with the ratified numbers"

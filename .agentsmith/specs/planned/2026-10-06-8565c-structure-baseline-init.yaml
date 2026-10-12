@@ -7,50 +7,59 @@ applies_to: "backend (bootstrap principles transfer, init PR body, skills pin)"
 requires: [2026-10-06-8565a, 2026-10-06-8565b]
 
 facts:
-  - claim: "The bootstrap round hands the transfer the sandbox, context name, workdir and principles path, then records the outcome for the init PR."
-    evidence: "src/backend/AgentSmith.Application/Services/Handlers/BootstrapRoundHandler.cs:66-75"
-  - claim: "The transfer preserves an existing file unless RefreshPrinciples is set, and otherwise writes the composed text with Project Specifics carried over."
-    evidence: "src/backend/AgentSmith.Application/Services/BootstrapPrinciplesTransfer.cs:40-104"
-  - claim: "BootstrapRoundHandler is 162 lines and BootstrapPrinciplesTransfer 105; the file-length ratchet forbids a listed file to grow and any file to pass 120."
-    evidence: "observed: wc -l, 2026-10-06; tests/AgentSmith.Tests/Architecture/FileLengthRatchetTests.cs:18-50"
-  - claim: "Per-context meta files live at .agentsmith/contexts/<name>/."
-    evidence: "src/backend/AgentSmith.Contracts/Services/ProjectMetaPaths.cs:14,24,50; src/backend/AgentSmith.Application/Services/BootstrapPromptFactory.cs:145-152"
-  - claim: "A handler runs git in a sandbox through RunStepAsync with a built step and reads OutputContent."
-    evidence: "src/backend/AgentSmith.Application/Services/SandboxGitOperations.cs:171-177"
-  - claim: "The init PR body writes one bullet per context from BootstrapRoundOutcome, per principles mode."
+  - claim: "The bootstrap round hands the transfer the sandbox, context name, workdir, principles path and the existing principles text, then records the outcome for the init PR."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/BootstrapRoundHandler.cs:66-75; src/backend/AgentSmith.Application/Services/BootstrapPrinciplesTransfer.cs:40-48,71-89"
+  - claim: "The bootstrap skill runs after the transfer and may write principles.md; it cannot write any other meta file."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/BootstrapRoundHandler.cs:76-80; src/backend/AgentSmith.Application/Services/Tools/PathWriteGuard.cs:29-50"
+  - claim: "The init commit stages everything with git add -A."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/InitCommitHandler.cs:90; src/backend/AgentSmith.Application/Services/SandboxGitOperations.cs:40-43"
+  - claim: "BootstrapRoundHandler is baselined at 194 lines; BootstrapPrinciplesTransfer is 105 and unlisted, so it may not pass 120."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:35; tests/AgentSmith.Tests/Architecture/FileLengthRatchetTests.cs:18-50"
+  - claim: "Stdout is captured line by line until 1,000,000 chars, a line never cut; a file read is one wire round trip, refused above 1 MB or for non-UTF-8 content."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Services/StepExecutor.cs:60-62,90; src/backend/AgentSmith.Application/Services/Sandbox/SandboxFileReader.cs:14,22-26; src/backend/AgentSmith.Sandbox.Agent/Services/FileStepHandler.cs:59,74-76"
+  - claim: "Rooted and escaping workdirs are already refused, and '.' normalised, by the overlay detector."
+    evidence: "src/backend/AgentSmith.Application/Services/FrameworkOverlayDetector.cs:31-40"
+  - claim: "The init PR body writes one bullet per context from BootstrapRoundOutcome."
     evidence: "src/backend/AgentSmith.Application/Services/Handlers/InitPullRequestBody.cs:35-101; src/backend/AgentSmith.Application/Models/BootstrapRoundOutcome.cs:18-25"
-  - claim: "The skills catalog is pinned by version and sha in Infrastructure.Core; goldens compose against the embedded tarball."
-    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:46-55; tests/AgentSmith.Tests/Skills/ComposedPrinciplesGoldenTests.cs:37-51,171-182"
+  - claim: "The catalog is pinned by version and sha; goldens compose against the embedded tarball."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:44-56; tests/AgentSmith.Tests/Skills/ComposedPrinciplesGoldenTests.cs:37-51,113-131"
 
 assumptions:
-  - claim: "git ls-files under the workdir lists the component's tracked sources without build output."
-    check: "Run it in a sandbox over a .NET and a Rust repository before building."
+  - claim: "git ls-files lists a component's sources without build output, within the output cap for the repositories we serve."
+    check: "Run it in a sandbox over a .NET and a Rust repository; record file counts, reads and elapsed time."
 
 scope:
   in: >
-    Pin the skills release carrying 8565a; regenerate the goldens. StructureBaseline (Application): lists tracked
-    files under the workdir with git ls-files, measures each the engine recognises, judges against the Limits of
-    the principles text the round ends with, and writes structure-baseline.tsv (path, unit, metric, value) beside
-    principles.md. No baseline yet: write it. Refresh: keep only entries still over their limit, each at
-    min(old, measured); nothing is added. Preserve without refresh: untouched. No Limits block: no file. The
-    outcome carries the entry count; the PR body says how many units already exceed the limits.
+    Pin the 8565a release; regenerate goldens; prove DeltaFormat_LicensesNoneOfTheRemovedArtefactKinds against
+    the new text. StructureBaseline (Application) runs after the bootstrap skill, so it measures against the
+    principles.md the round leaves: 'git ls-files -z --full-name -- <workdir>' at /work (rooted or escaping
+    workdir: none), output at or above the 1,000,000-char capture cap refused as incomplete, paths owned by a
+    longer-prefix component of the same init excluded, files the engine recognises read and measured, judged
+    (8565b), written to structure-baseline.tsv (path, key, metric, value) beside principles.md. Transferred,
+    Refreshed and Preserved without a baseline: write it. Refresh with one: entries still over their limit at
+    min(old, measured), matched by path+key+metric; nothing added. Preserved with one: untouched. No Limits: no
+    file. Unreadable or oversized files counted; incomplete listing, non-git source or an Unavailable grammar: no
+    baseline, said. The
+    round appends its outcome after the baseline, carrying entry and unreadable counts; the PR body names them,
+    and on refresh that a lowered limit surfaces at the gate.
   out: >
-    Judging changed files at commit time — 8565d. Removing a fixed entry between inits — the next refresh does it.
+    Judging changed files at commit time — 8565d. Dropping fixed entries between inits — the next refresh.
 
 decisions:
-  - key: "A REFRESH NEVER ADDS. A unit someone grew past a limit after init surfaces at the gate the first time the agent touches its file."
-  - key: "TRACKED FILES ONLY. Build output and generated directories are not in git; no exclusion list to maintain."
-  - key: "BESIDE principles.md. The baseline belongs to the context whose limits it measures."
+  - key: "A REFRESH NEVER ADDS. A unit grown past a limit after init surfaces at the gate the first time the agent touches its file."
+  - key: "TRACKED FILES, REPO-RELATIVE. The gate's diff paths are repo-relative; the baseline must match them without translation."
+  - key: "FAIL LOUD, NOT PARTIAL. An incomplete listing writes nothing; a partial baseline would tolerate nothing it missed."
+  - key: "AFTER THE SKILL. The skill may rewrite principles.md; the baseline measures the text the init commits."
 
 steps:
   - id: pin
-    action: "Bump SkillsCatalogVersion/Sha256 to the 8565a release; regenerate the principles goldens."
+    action: "Bump SkillsCatalogVersion/Sha256; regenerate goldens."
   - id: baseline
-    action: "StructureBaseline and StructureBaselineFile (read, write, shrink) in Application."
+    action: "StructureBaseline, StructureBaselineFile (read, write, shrink) in Application."
   - id: wire
-    action: "The transfer calls StructureBaseline after the principles decision; BootstrapRoundOutcome gains the count; no listed file grows."
+    action: "The round calls it after the skill and appends its outcome with the counts; the transfer is unchanged."
   - id: body
-    action: "InitPullRequestBody names the count per context."
+    action: "InitPullRequestBody names the counts per context."
   - id: tests
     action: "Tests below."
 
@@ -58,10 +67,15 @@ tests:
   - "StructureBaseline_FirstInit_WritesEveryUnitOverItsLimit"
   - "StructureBaseline_Refresh_DropsFixedAndLowersShrunkEntries"
   - "StructureBaseline_Refresh_AddsNoNewEntry"
-  - "StructureBaseline_PreservedWithoutRefresh_LeavesTheFile"
+  - "StructureBaseline_PreservedWithoutBaseline_WritesIt"
+  - "StructureBaseline_PreservedWithBaseline_LeavesIt"
+  - "StructureBaseline_ListingAtCaptureCap_WritesNothingAndSaysSo"
+  - "StructureBaseline_RootedWorkdir_WritesNothing"
   - "StructureBaseline_NoLimitsBlock_WritesNothing"
-  - "InitPullRequestBody_BaselineWritten_NamesTheCount"
+  - "StructureBaseline_PathOfNestedComponent_IsLeftToIt"
+  - "BootstrapRound_SkillRewritesPrinciples_BaselineMeasuresTheFinalText"
+  - "InitPullRequestBody_BaselineWritten_NamesTheCounts"
 
 done:
-  - "an init over a fixture repository with one oversized C# method writes a baseline naming it and a PR body naming one unit"
+  - "an integration test over the real ServiceProvider with a scripted sandbox runs a bootstrap round over one oversized C# method; the baseline names it and the PR body names one unit"
   - "build green, full suite green"

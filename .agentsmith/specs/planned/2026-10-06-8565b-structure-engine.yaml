@@ -1,70 +1,82 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-06-8565b
-goal: "A structure engine measures syntactic units — type, function, types per file — with tree-sitter and judges them against a principles file's Limits block, C# and Rust first."
+goal: "A structure engine measures syntactic units — type, function, file — with tree-sitter and judges them against a principles file's Limits fences, C# and Rust first."
 
-applies_to: "backend (Contracts port, Infrastructure engine, server image)"
+applies_to: "backend (Contracts port, Infrastructure engine, Application limits and judge, server and CLI images)"
 
 requires: [2026-10-06-8565a]
 
 facts:
-  - claim: "TreeSitter.DotNet 1.3.0 (2026-01-22, core 0.26.3, netstandard2.0, no dependencies) ships runtimes/<rid>/native grammars incl. c-sharp, rust, go, java, scala, python, typescript for linux-x64/arm64 and osx-arm64; no Kotlin, no Lua, no musl."
-    evidence: "observed: nuget.org TreeSitter.DotNet 1.3.0 nupkg unpacked, 2026-10-06"
-  - claim: "The binding exposes Language, Parser.Parse, Tree, Node and Query/QueryCursor.Execute."
-    evidence: "observed: TreeSitter.DotNet 1.3.0 lib/netstandard2.0/TreeSitter.xml, 2026-10-06"
-  - claim: "Core 0.26.x and 0.27.0 load grammars of ABI 13..15."
-    evidence: "observed: tree-sitter lib/include/tree_sitter/api.h:29,35 at v0.26.3 and v0.27.0, 2026-10-06"
-  - claim: "The server publishes framework-dependent without a RID on aspnet:10.0 (glibc), amd64 and arm64; runtimes/ assets travel this way today (SQLitePCLRaw e_sqlite3)."
-    evidence: "src/backend/AgentSmith.Server/Dockerfile:19,30,35; .github/workflows/docker-publish.yml:73,77; src/backend/AgentSmith.Infrastructure.Persistence/AgentSmith.Infrastructure.Persistence.csproj:22"
-  - claim: "A composed principles.md carries the delta's text verbatim except its Artefacts section."
-    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Skills/CatalogPrinciplesTemplateSource.cs:49-54,81-118"
-  - claim: "Neither the backend nor the catalog reads any machine-readable delta data today."
-    evidence: "observed: grep 'principles-delta' over src/backend, 2026-10-06; agent-smith-skills:principles/deltas/*.md"
+  - claim: "TreeSitter.DotNet 1.3.0 (2026-01-22, core 0.26.3, netstandard2.0, no dependencies) ships runtimes/<rid>/native for nine RIDs with 28 grammars, about 65 MB per RID, glibc only; no Kotlin, no Lua."
+    evidence: "observed: nuget.org TreeSitter.DotNet 1.3.0 nupkg unpacked and objdump'ed, 2026-10-06"
+  - claim: "The core is a DllImport('tree-sitter'); grammars load through the package's own loader from AppContext.BaseDirectory or runtimes/<os>-<arch>/native; Language also takes an IntPtr."
+    evidence: "observed: decompiled TreeSitter.dll 1.3.0 Native.cs, NativeLibrary.cs, Language.cs:384-409, 2026-10-06"
+  - claim: "The server and CLI images publish RID-less; the released CLI publishes single-file per RID with natives self-extracted."
+    evidence: "src/backend/AgentSmith.Server/Dockerfile:30,35; src/backend/AgentSmith.Cli/Dockerfile:30; .github/workflows/release-please.yml:56-62"
+  - claim: "Application references only Contracts and Domain; infrastructure services register in ServiceCollectionExtensions."
+    evidence: "src/backend/AgentSmith.Application/AgentSmith.Application.csproj:4-5; src/backend/AgentSmith.Infrastructure/Extensions/ServiceCollectionExtensions.cs"
+  - claim: "A static class holding non-generated state fails the static-state rule."
+    evidence: "tests/AgentSmith.Tests/Architecture/NoStaticStateRuleTests.cs:106-120"
+  - claim: "A composed principles.md carries the delta verbatim, then Project Specifics to the end of file."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Skills/CatalogPrinciplesTemplateSource.cs:81-118; src/backend/AgentSmith.Application/Services/ProjectSpecificsSection.cs:10-19"
 
 assumptions:
-  - claim: "Grammar node names suffice to tell types, functions and Rust #[cfg(test)] modules apart."
-    check: "Parse one C# and one Rust fixture and print the tree before writing the queries."
+  - claim: "Grammar node names tell types, functions, attributes and Rust #[cfg(test)] modules apart."
+    check: "Print the tree of one C# and one Rust fixture before writing the queries."
 
 scope:
   in: >
-    IStructureEngine (Contracts): Measure(path, content) returns the file's units — kind, name, start and end line,
-    physical lines — its type count and line count, or null for a language it has no grammar for. StructureLimits.Parse reads
-    every Limits fence of a principles text in order, a later key winning, so Project Specifics can set a house
-    limit (8565a's keys; an absent key sets no limit). StructureJudge compares a
-    measurement with the limits and returns findings (path, unit, metric, value, limit). Per language a data
-    file — extensions, grammar library, a query naming @type, @function and @test captures — is an embedded
-    resource; a new language is a resource, not code. Units inside @test are not measured.
+    IStructureEngine (Contracts): Measure(path, content) returns Measured (units, the file's line and type counts),
+    NotMeasured (unknown extension or excluded path) or Unavailable (grammar did not load, logged). A unit is kind (type or function), key and
+    span. The key is unique in its file: container chain plus name (a Rust impl contributes its full header, 'Trait for
+    Type') and, where the grammar has one, the parameter-type list; an ordinal only for identical signatures; a file-level metric's key is '<file>'. Lines are
+    physical, from the declaration's first non-attribute line to its last; leading comments are outside. Nested
+    and local functions are units and count inside their parent; lambdas are not units; a Rust impl is not a type.
+    Per language one embedded data file names extensions, grammar, query (@type, @function, @test) and exclude
+    globs for test and generated paths (C#: test projects, *.g.cs, *.Designer.cs, Migrations). Grammars load by
+    NativeLibrary.Load plus GetExport into Language(IntPtr). One structure-natives.targets, imported by Server, Cli,
+    AgentSmith.Tests and PipelineHarness, keeps natives by file stem (tree-sitter, tree-sitter-c-sharp,
+    tree-sitter-rust; lib prefix and extension ignored); a RID filter applies only when the Dockerfiles pass a
+    property for linux-x64 and linux-arm64. StructureLimits (instance) merges the '## Limits'
+    fence and a '### Limits' fence under Project Specifics, later key winning. StructureJudge returns findings
+    (path, key, metric, value, limit). Parser and cursor per call; Language and Query shared.
   out: >
-    Which files are measured and what is already tolerated — 8565c (init baseline) and 8565d (commit gate).
-    Kotlin and Lua need grammars TreeSitter.DotNet does not ship; a later spec builds them.
+    Which files are measured and what is tolerated — 8565c, 8565d. Kotlin, Lua and further languages — a later
+    spec adds a data file, a keep-list entry and, where the package lacks it, a grammar build.
 
 decisions:
-  - key: "PHYSICAL LINES OF THE NODE SPAN. What a reader sees; 24d4's numbers are measured the same way."
   - key: "TREESITTER.DOTNET, NOT THE LANGUAGE PACK. The pack downloads grammars at runtime and ships natives through runtime.json, which a RID-less publish does not restore."
-  - key: "TEST CODE IS A CAPTURE, NOT A PATH. Rust tests share the file; a path rule cannot see them."
+  - key: "OUR LOADER, NOT THE PACKAGE'S. NativeLibrary.Load follows deps.json and single-file extraction; the package's loader only sees the base directory."
+  - key: "TEST CODE: A CAPTURE WHERE IT SHARES THE FILE, A PATH WHERE IT DOES NOT. Rust keeps tests inline; C# keeps them in projects."
+  - key: "ATTRIBUTES OUT, NESTED IN. One counting rule for every language, independent of whether a grammar makes attributes children or siblings."
 
 steps:
   - id: contracts
     action: "IStructureEngine, StructureMeasurement, StructureUnit, StructureFinding in Contracts."
   - id: limits
-    action: "StructureLimits.Parse and StructureJudge (pure, Application)."
+    action: "StructureLimits and StructureJudge in Application."
   - id: engine
-    action: "TreeSitterStructureEngine (Infrastructure) over embedded language data; csharp and rust resources; registered as singleton."
-  - id: image
-    action: "Reference TreeSitter.DotNet 1.3.0; prove the grammar loads in the built server image on amd64."
+    action: "TreeSitterStructureEngine, grammar loader, csharp and rust data files in Infrastructure; singleton."
+  - id: packaging
+    action: "Native keep-list target; prove both images and the single-file CLI load both grammars."
   - id: tests
-    action: "Tests below with fixtures under tests/."
+    action: "Tests below with fixtures."
 
 tests:
-  - "Measure_CSharpClassWithTwoMethods_ReturnsTypeAndBothFunctionsWithSpans"
-  - "Measure_CSharpFileWithTwoTypes_CountsTwoTypes"
+  - "Measure_CSharpClassWithTwoMethods_ReturnsTypeAndFunctionsWithSpans"
+  - "Measure_CSharpOverloadInsertedAbove_KeepsTheOtherKey"
+  - "Measure_CSharpAttributeLines_AreNotCounted"
+  - "Measure_CSharpLocalFunction_IsAUnitInsideItsParent"
+  - "Measure_CSharpTestProjectPath_ReturnsNotMeasured"
   - "Measure_RustCfgTestModule_ExcludesItsFunctions"
-  - "Measure_UnknownExtension_ReturnsNull"
-  - "Parse_LimitsFence_ReadsEveryKey"
-  - "Parse_NoLimitsSection_SetsNoLimit"
-  - "Parse_ProjectSpecificsFence_OverridesTheDeltaKey"
+  - "Measure_RustTwoTraitImplsSameFn_KeysIndependentOfOrder"
+  - "Measure_UnknownExtension_ReturnsNotMeasured"
+  - "Measure_GrammarFailsToLoad_ReturnsUnavailable"
+  - "Limits_ProjectSpecificsFence_OverridesTheDeltaKey"
+  - "Limits_NoFence_SetsNoLimit"
   - "Judge_FunctionOverLimit_ReturnsOneFinding"
-  - "Judge_AbsentKey_JudgesNothingForThatMetric"
 
 done:
-  - "a C# and a Rust fixture are measured and judged on macOS and inside the built server image"
+  - "C# and Rust fixtures are measured in tests on macOS, in the built server image, and by a linux-x64 single-file CLI; a win-x64 single-file publish carries the three natives"
+  - "the server image grows by less than 15 MB"
   - "build green, full suite green"
