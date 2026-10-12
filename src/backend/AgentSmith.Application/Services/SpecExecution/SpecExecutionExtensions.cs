@@ -15,6 +15,8 @@ public static class SpecExecutionExtensions
     public static IServiceCollection AddSpecExecution(this IServiceCollection services)
     {
         services.AddTransient<ICommandHandler<CommitSpecWorkContext>, CommitSpecWorkHandler>(); // p0437
+        services.AddTransient<SpecFormatPlan>(); // 2026-10-12-fbbdb
+        services.AddTransient<SpecFormatRun>();
         // 2026-10-06-03c7e: the record moves the spec to done/ in one series commit.
         services.AddTransient<SpecDoneFiles>();
         services.AddTransient<SeriesRecordCommit>();

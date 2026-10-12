@@ -11,7 +11,7 @@ namespace AgentSmith.Tests.TestHelpers;
 /// so SandboxLanguageResolver picks a known language; CreatePullRequestAsync
 /// returns a fake URL. No real git, no network.
 /// </summary>
-internal sealed class StubSourceProvider : ISourceProvider
+internal sealed class StubSourceProvider(string? contextYaml = null) : ISourceProvider
 {
     // "Local" so CheckoutSourceHandler short-circuits the git-clone path:
     // local repos trust the sandbox bind-mount and skip the in-sandbox clone.
@@ -66,6 +66,8 @@ internal sealed class StubSourceProvider : ISourceProvider
 
     public Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken)
     {
+        if (path.EndsWith("context.yaml", StringComparison.Ordinal) && contextYaml is not null)
+            return Task.FromResult<string?>(contextYaml);
         if (path.EndsWith("context.yaml", StringComparison.Ordinal))
         {
             // prerequisites exercises the p0202/p0202a install wiring
@@ -119,9 +121,13 @@ internal sealed class StubSourceProviderFactory : ISourceProviderFactory
     /// <summary>2026-10-06-8565c: every provider handed out, so a test can read what it was asked.</summary>
     public List<StubSourceProvider> Created { get; } = [];
 
+    /// <summary>2026-10-12-fbbdb: the context.yaml every provider serves instead of the synthetic
+    /// default — null by default, so every run reads the context it always read.</summary>
+    public string? ContextYaml { get; set; }
+
     public ISourceProvider Create(RepoConnection config)
     {
-        var provider = new StubSourceProvider();
+        var provider = new StubSourceProvider(ContextYaml);
         Created.Add(provider);
         return provider;
     }

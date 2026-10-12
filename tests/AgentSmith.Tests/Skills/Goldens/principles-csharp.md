@@ -232,8 +232,14 @@ from; the core's defaults map 1:1.
 
 ## Limits
 
+Tolerance: 25 percent — a unit past its limit by at most a quarter is a
+divergence the pull request names; past that it is an excess the commit gate
+sends back. Source: the operator's ratification of 2026-10-12 ("a 123-line
+class is no problem, 150 neither, but it has to be solid").
+
 ```yaml
 function_lines: 55
+tolerance_percent: 25
 ```
 
 ---

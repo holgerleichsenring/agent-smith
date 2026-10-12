@@ -44,13 +44,17 @@ namespace AgentSmith.Contracts.Sandbox;
 /// synthetic default, why there was none to read: every branch passed over and the default
 /// branch's answer. The run's toolchain-image report quotes it. Null = not recorded. Passed BY
 /// NAME, for the reason above.</param>
+/// <param name="Format">2026-10-12-fbbdb: `format:` — the repository's own formatter, run by the
+/// spec commit over the files the spec changed under this context's workdir. Null = nothing is
+/// formatted. Passed BY NAME, for the reason above.</param>
 public sealed record RemoteContextDiscovery(
     string ContextName, string Workdir, string? Language, string? Prerequisites = null,
     string? ToolchainImage = null, ContextYamlStackResources? Resources = null,
     string? Purpose = null, IReadOnlyList<ContextYamlVerifyStage>? Verify = null,
     ContextYamlVerifyDerivation? VerifyDerivedFrom = null,
     ContextYamlTargetProbe? Probe = null,
-    string? Provenance = null)
+    string? Provenance = null,
+    ContextYamlFormat? Format = null)
 {
     /// <summary>
     /// The ONE mapping from a parsed context.yaml to a discovery. Both production
@@ -67,6 +71,6 @@ public sealed record RemoteContextDiscovery(
             contextName, summary.Workdir, summary.Language, summary.Prerequisites,
             summary.Image, summary.Resources, summary.Purpose,
             Verify: summary.Verify, VerifyDerivedFrom: summary.VerifyDerivedFrom,
-            Probe: summary.Probe, Provenance: provenance);
+            Probe: summary.Probe, Provenance: provenance, Format: summary.Format);
     }
 }
