@@ -36,7 +36,7 @@ public sealed class SpecDialogDiscussionPromptTests
         var prompt = new SpecDialogPromptFactory().Build(With(
             new SpecDialogTurn("user", "update everything"),
             new SpecDialogTurn("assistant", "found three libraries", SpecDialogTurnKind.Answer),
-            new SpecDialogTurn("user", "all three, one phase")), 0, 0);
+            new SpecDialogTurn("user", "all three, one spec")), 0, 0);
 
         prompt.Should().Contain("MAY propose").And.NotContain("MAY NOT propose");
     }

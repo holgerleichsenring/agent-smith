@@ -83,7 +83,7 @@ public sealed class SpecSequenceTests
             .ExecuteAsync(new SelectSpecContext("p0001b", pipeline), default);
 
         Application.Services.Specs.SpecEvidence.From([], pipeline).Should().BeEmpty(
-            "phase b is accounted for by what phase b ran");
+            "spec b is accounted for by what spec b ran");
     }
 
     [Fact]

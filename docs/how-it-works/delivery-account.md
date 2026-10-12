@@ -6,7 +6,7 @@ I built it this way because "the tests are green" and "the ticket is done" are t
 
 ## When it is taken
 
-The account is the second half of `VerifyPhase`. The first half runs the verify stages each repository declares in its context — build, test, lint, whatever the repo wrote down ([the `verify` block](../reference/concepts/context-file.md#verify-is-what-proves-a-change)). A red stage wins: an account taken over a tree that doesn't build would be an opinion about work nobody can ship, so the spec fails on the stage and names the command, the exit code and the directory it ran in.
+The account is the second half of `VerifySpec`. The first half runs the verify stages each repository declares in its context — build, test, lint, whatever the repo wrote down ([the `verify` block](../reference/concepts/context-file.md#verify-is-what-proves-a-change)). A red stage wins: an account taken over a tree that doesn't build would be an opinion about work nobody can ship, so the spec fails on the stage and names the command, the exit code and the directory it ran in.
 
 When the stages pass, the account is taken per repository, over the spec's ratified criteria. It is also taken first, when a spec is entered: a spec whose criteria the branch already satisfies is recorded as done and skipped.
 

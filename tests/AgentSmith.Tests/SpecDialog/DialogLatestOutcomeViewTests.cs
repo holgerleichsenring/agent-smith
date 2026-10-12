@@ -57,11 +57,11 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
     [Fact]
     public async Task View_AnAssistantTurnWithADraft_ShowsItsProseWithoutIt()
     {
-        await ConversationAsync((TranscriptRole.Assistant, "Here is the phase.\n\n" + Draft + "\n\nApprove it?"));
+        await ConversationAsync((TranscriptRole.Assistant, "Here is the spec.\n\n" + Draft + "\n\nApprove it?"));
 
         var view = await ReadAsync();
 
-        view.Transcript.Single().Text.Should().Be("Here is the phase.\n\nApprove it?");
+        view.Transcript.Single().Text.Should().Be("Here is the spec.\n\nApprove it?");
     }
 
     [Fact]

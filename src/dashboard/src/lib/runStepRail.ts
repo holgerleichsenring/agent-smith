@@ -14,7 +14,7 @@ const STEP_ID_PREFIX = "step-";
 // reaches the client; this is the defensive split for payloads from servers
 // that predate that, so old runs still render the real step name.
 // p0507: both id shapes — the counter namespace and a date-minted id. This mirrors
-// RunStepsReader.PhaseQualifiedRegex; fixing only the backend leaves the raw prefix here.
+// RunStepsReader.SpecQualifiedRegex; fixing only the backend leaves the raw prefix here.
 const SPEC_PREFIX_RE = /^((?:p\d+[a-z]?|\d{4}-\d{2}-\d{2}-[0-9a-f]{4}[a-z]?)): (.+)$/;
 
 export function splitSpecPrefix(label: string): { specId: string | null; label: string } {

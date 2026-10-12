@@ -46,7 +46,7 @@ public sealed class SpecEntryAccountTests
         result.DropAhead.Should().BeEquivalentTo(PipelinePresets.SpecWorkSteps,
             "the master pass, its questions, the commit and the gate all have nothing to do");
         result.DropAhead.Should().NotContain(CommandNames.WriteSpecRecord,
-            "the record is how the branch says this phase is through");
+            "the record is how the branch says this spec is through");
     }
 
     /// <summary>
@@ -64,7 +64,7 @@ public sealed class SpecEntryAccountTests
         var result = await Select(accountant, pipeline);
 
         result.IsSuccess.Should().BeTrue();
-        result.DropAhead.Should().BeNull("the phase still has to be worked");
+        result.DropAhead.Should().BeNull("the spec still has to be worked");
     }
 
     /// <summary>A skipped spec that leaves no trace is indistinguishable from one that
@@ -83,7 +83,7 @@ public sealed class SpecEntryAccountTests
         progress.Phases.Single(p => p.PhaseId == "p1").Note
             .Should().Be(SelectSpecHandler.AlreadySatisfiedNote);
         pipeline.Get<IReadOnlyList<SpecAccount>>(ContextKeys.SpecAccounts).Should().ContainSingle(
-            "the phase record renders the account it was skipped on");
+            "the spec record renders the account it was skipped on");
         RunAccountLedger.Current(pipeline).All.Should().NotBeEmpty(
             "the run's own delivery gate is judged on these accounts too");
     }
@@ -95,7 +95,7 @@ public sealed class SpecEntryAccountTests
 
         var result = await Select(new CountingAccountant(AccountDisposition.Satisfied, outstanding: "the tests pass"), pipeline);
 
-        result.DropAhead.Should().BeNull("one outstanding criterion is a phase with work left");
+        result.DropAhead.Should().BeNull("one outstanding criterion is a spec with work left");
         pipeline.Get<SpecSequenceProgress>(ContextKeys.SpecSequenceProgress)
             .Phases.Single(p => p.PhaseId == "p1").State.Should().Be(PhaseRunState.InProgress);
     }

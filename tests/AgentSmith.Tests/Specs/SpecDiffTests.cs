@@ -23,11 +23,11 @@ public sealed class SpecDiffTests
     {
         var sandbox = new DiffSandbox(
             Chunk("src/Api/Handler.cs") + Chunk(".agentsmith/runs/2026-09-17/result.md"));
-        var pipeline = WithStartHead("phase-start-sha");
+        var pipeline = WithStartHead("spec-start-sha");
 
         var diffs = await Diffs().TakeAsync(pipeline, Map(sandbox), CancellationToken.None);
 
-        sandbox.DiffArgs.Should().Equal("diff", "--no-color", "phase-start-sha");
+        sandbox.DiffArgs.Should().Equal("diff", "--no-color", "spec-start-sha");
         diffs.Should().ContainSingle();
         diffs[0].Paths.Should().Equal("src/Api/Handler.cs");
         diffs[0].From.Should().Contain("this spec started");
@@ -40,9 +40,9 @@ public sealed class SpecDiffTests
 
         var diffs = await Diffs().TakeAsync(new PipelineContext(), Map(sandbox), CancellationToken.None);
 
-        sandbox.DiffArgs.Should().NotContain("phase-start-sha");
+        sandbox.DiffArgs.Should().NotContain("spec-start-sha");
         diffs[0].From.Should().Contain("no head was recorded",
-            "a reviewer shown the whole branch must know some of it belongs to an earlier phase");
+            "a reviewer shown the whole branch must know some of it belongs to an earlier spec");
     }
 
     [Fact]
@@ -55,8 +55,8 @@ public sealed class SpecDiffTests
 
         files.Select(f => f.Path).Should().Equal(
             [".agentsmith/contexts/default/principles.md", "src/Api/Handler.cs"],
-            "only the per-run record is bookkeeping — an init phase's DELIVERABLE lives in "
-            + ".agentsmith/ too, and dropping it would show that phase as having changed nothing");
+            "only the per-run record is bookkeeping — an init spec's DELIVERABLE lives in "
+            + ".agentsmith/ too, and dropping it would show that spec as having changed nothing");
     }
 
     [Fact]

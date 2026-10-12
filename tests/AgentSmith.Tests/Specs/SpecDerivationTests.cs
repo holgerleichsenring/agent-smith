@@ -44,13 +44,13 @@ public sealed class SpecDerivationTests
 
         parsed.Error.Should().BeNull();
         var set = parsed.Derivation!.Set;
-        set.Phases.Should().HaveCount(2, "an 800-line manual is a sequence, not one phase");
+        set.Phases.Should().HaveCount(2, "an 800-line manual is a sequence, not one spec");
         set.Phases[0].PhaseId.Should().Be("2026-10-06-9106a");
         set.Phases[1].PhaseId.Should().Be("2026-10-06-9106b");
         set.Phases[1].Draft.Requires.Should().Contain(
             "2026-10-06-9106a", "the sequence IS the requires-chain");
         set.Phases.Should().OnlyContain(
-            p => p.Draft.Done.Count > 0, "a phase that cannot end is not a phase");
+            p => p.Draft.Done.Count > 0, "a spec that cannot end is not a spec");
     }
 
     [Fact]
@@ -67,7 +67,7 @@ public sealed class SpecDerivationTests
 
         var parsed = _parser.Parse(reply, "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived);
 
-        parsed.Derivation.Should().BeNull("a phase that cannot state its completion is not ratifiable");
+        parsed.Derivation.Should().BeNull("a spec that cannot state its completion is not ratifiable");
         parsed.Error.Should().Contain("done-criteria",
             "the rejection has to name the missing declaration, because it is handed "
             + "straight back to the model as the correction prompt");
@@ -144,7 +144,7 @@ public sealed class SpecDerivationTests
         var set = parsed.Derivation!.Set;
         set.Phases[0].Draft.Contexts.Should().Equal("backend", "frontend");
         set.Phases[0].Draft.Yaml.Should().Contain("contexts:").And.Contain("- backend");
-        set.Phases[1].Draft.Contexts.Should().BeEmpty("a phase that declares none has none");
+        set.Phases[1].Draft.Contexts.Should().BeEmpty("a spec that declares none has none");
         set.Phases[1].Draft.Yaml.Should().NotContain("contexts:");
         set.Accounting.DiscardedContexts.Should().ContainSingle()
             .Which.Should().Be(new DiscardedContext("worker", "no client there"));
@@ -299,7 +299,7 @@ public sealed class SpecDerivationTests
         var recut = _parser.Parse(
             """
             {"phases": [
-               {"slug": "something-else-entirely", "goal": "A different first phase",
+               {"slug": "something-else-entirely", "goal": "A different first spec",
                 "done": ["Nobody asked for this."], "carries": [1]},
                {"slug": "split-a", "goal": "Forbid the legacy helper",
                 "done": ["LegacyHttpHelper appears in no new code."], "carries": [4]},
@@ -313,7 +313,7 @@ public sealed class SpecDerivationTests
 
         var set = recut.Derivation!.Set;
         set.Phases[0].Should().BeSameAs(original.Phases[0],
-            "an executed phase is APPEND-ONLY — a correction to it is a new phase, never an edit");
+            "an executed spec is APPEND-ONLY — a correction to it is a new spec, never an edit");
         set.Phases.Should().HaveCount(3, "the unexecuted tail was re-partitioned into two");
         set.Phases[1].PhaseId.Should().Be("2026-10-06-9106b");
         set.Phases[2].PhaseId.Should().Be("2026-10-06-9106c");

@@ -25,9 +25,9 @@ namespace AgentSmith.Tests.Specs;
 public sealed class SpecIndexLineTests : IDisposable
 {
     private const string SpecId = "2026-08-26-31e5";
-    private const string Goal = "A finished phase is recorded in its context";
+    private const string Goal = "A finished spec is recorded in its context";
     private const string Pointer =
-        ".agentsmith/specs/done/2026-08-26-31e5-a-finished-phase-is-recorded-in-its-context.yaml";
+        ".agentsmith/specs/done/2026-08-26-31e5-a-finished-spec-is-recorded-in-its-context.yaml";
 
     private const string Seeded = """
         # yaml-language-server: $schema=../../context.schema.json
@@ -157,7 +157,7 @@ public sealed class SpecIndexLineTests : IDisposable
 
     private Target Repo(string name, string contextName, string yaml)
     {
-        var dir = Directory.CreateTempSubdirectory("phase-index-").FullName;
+        var dir = Directory.CreateTempSubdirectory("spec-index-").FullName;
         _dirs.Add(dir);
         Seed(dir, contextName, yaml);
         return new Target(name, contextName, dir);

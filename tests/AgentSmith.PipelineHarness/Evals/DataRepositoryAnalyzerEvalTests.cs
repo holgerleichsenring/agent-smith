@@ -17,7 +17,7 @@ namespace AgentSmith.PipelineHarness.Evals;
 /// analyzer fresh every run, so a profile's list is only ever reached if the
 /// analyzer draws nothing. That premise was unproven; this measures it.
 /// <para>
-/// The phase-gate hook runs <c>dotnet test AgentSmith.sln</c> with NO filter, so this
+/// The spec-gate hook runs <c>dotnet test AgentSmith.sln</c> with NO filter, so this
 /// test executes on every future spec commit on the operator's machine, where the
 /// credentials live. It therefore asserts what the other report-writing evals assert
 /// and nothing more — the entry count and that the file exists. No assertion about what

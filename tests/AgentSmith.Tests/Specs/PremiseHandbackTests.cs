@@ -77,7 +77,7 @@ public sealed class PremiseHandbackTests
         await h.RunAsync();
 
         h.Ticket.Comments.Single().Should().NotContain("open in the pull request",
-            "a hand-back on the first phase of a set happens before any delivery");
+            "a hand-back on the first spec of a set happens before any delivery");
     }
 
     [Fact]
@@ -107,7 +107,7 @@ public sealed class PremiseHandbackTests
 
         again.Ticket.Comments.Should().BeEmpty("the ticket was already told and nobody replied");
         result.IsSuccess.Should().BeFalse("it is still the verdict — only the comment is not repeated");
-        again.Verdict.Should().NotBeNull("and the phase row still carries it");
+        again.Verdict.Should().NotBeNull("and the spec row still carries it");
     }
 
     [Fact]

@@ -59,7 +59,7 @@ public sealed class HandbackExpiryTests
 
         deriver.Calls.Should().Be(1);
         published.Set!.IsHandedBack.Should().BeTrue("expiry never approves a guess");
-        published.Set.Phases.Should().BeEmpty("no one-phase fallback is created");
+        published.Set.Phases.Should().BeEmpty("no one-spec fallback is created");
     }
 
     [Fact]

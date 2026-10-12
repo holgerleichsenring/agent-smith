@@ -69,7 +69,7 @@ public sealed class CitationFormTests
     public void CitationResolver_CitationTakenFromCommandOutput_StillDoesNotResolve()
     {
         Resolve("PASS: no owned references found", ServerRan).IsSatisfied.Should().BeFalse(
-            "p0469 closed this and this phase does not reopen it");
+            "p0469 closed this and this spec does not reopen it");
     }
 
     [Fact]

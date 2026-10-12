@@ -55,11 +55,11 @@ Pipeline: code
 ├── AnalyzeCode            → scout agent maps relevant files
 ├── DeriveSpec             → derives the specs from the ticket
 ├── SpecHandback           → hands the ticket back when it cannot be implemented as written
-├── PhaseSpecGate          → validates the specs before the master starts
+├── SpecGate               → validates the specs before the master starts
 ├── EnsurePrerequisites    → installs dependencies
 ├── ProbeTarget            → asks the target the questions its context declares
 ├── MaterializeReferenceSets → writes the websites the approval cites, outside the commit
-├── PhaseSequence          → splices one master → verify → record block per spec
+├── SpecSequence           → splices one master → verify → record block per spec
 ├── WriteRunResult         → writes result.md with cost/token data
 ├── CommitAndPR            → commits, pushes, opens PR (secret-scanned)
 └── PrCrossLink            → cross-links sibling PRs (multi-repo)
@@ -69,7 +69,7 @@ The per-pipeline pages list the steps of the other presets.
 
 ## Steps added while the run is going
 
-Two steps grow the pipeline at runtime. In **code**, `PhaseSequence` inserts one master, verify and record block for each derived spec, in order; a spec whose verification fails stops the pipeline there, and the finalizing steps still run. In **init-project**, `BootstrapDispatch` fans out one bootstrap round per repository component that `BootstrapDiscover` found.
+Two steps grow the pipeline at runtime. In **code**, `SpecSequence` inserts one master, verify and record block for each derived spec, in order; a spec whose verification fails stops the pipeline there, and the finalizing steps still run. In **init-project**, `BootstrapDispatch` fans out one bootstrap round per repository component that `BootstrapDiscover` found.
 
 The scan, review and discussion pipelines do not grow. Their master decides its own fan-out inside the `AgenticMaster` step, by delegating to sub-agents.
 

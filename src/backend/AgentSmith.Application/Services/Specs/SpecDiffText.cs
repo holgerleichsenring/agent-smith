@@ -21,7 +21,7 @@ public static class SpecDiffText
     /// The diff's files, in the order git emitted them, minus what a review cannot be about:
     /// the run's own record under <c>.agentsmith/runs/</c>, and a hunk git reports as binary.
     /// <para>
-    /// The NARROW record check (p0322c), not the broad one: an init or bootstrap phase whose
+    /// The NARROW record check (p0322c), not the broad one: an init or bootstrap spec whose
     /// deliverable IS <c>.agentsmith/contexts/*/principles.md</c> would otherwise be shown as
     /// a spec that changed nothing, and every finding on its real work discarded. A binary
     /// hunk carries no line to cite, so no finding on it could ever be admitted — showing it

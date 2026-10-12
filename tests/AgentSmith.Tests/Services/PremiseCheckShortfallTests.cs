@@ -41,7 +41,7 @@ public sealed class PremiseCheckShortfallTests
             [CommandNames.CheckSpecPremises, CommandNames.CommitAndPR],
             project, pipeline, CancellationToken.None);
 
-        result.IsSuccess.Should().BeTrue("the phases that verified reached the pull request");
+        result.IsSuccess.Should().BeTrue("the specs that verified reached the pull request");
         result.Message.Should().Contain("Delivered 1 of 2 spec(s)").And.Contain("p0001b");
         pipeline.Get<string>(ContextKeys.FailureReason).Should().Contain("False premise in p0001b");
         h.LifecycleMock.Verify(l => l.MarkFailed(), Times.Never);

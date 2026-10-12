@@ -42,7 +42,7 @@ public sealed class ApprovedSetRecutOnDemandTests
     public async Task RevisionCause_AnApprovedSetAndAnOrdinaryComment_IsStillKept()
     {
         var harness = Harness();
-        harness.Comments = [OurCut(), Ordinary("phase b is wrong: the callers stay where they are")];
+        harness.Comments = [OurCut(), Ordinary("spec b is wrong: the callers stay where they are")];
 
         await harness.Handler().ExecuteAsync(harness.Context(Ticket()), default);
 
@@ -254,10 +254,10 @@ public sealed class ApprovedSetRecutOnDemandTests
 
     private static TicketComment OurCut() => new(
         "agent-smith", Approved.AddHours(1),
-        $"## Agent Smith — {SpecSetComment.CutMarker}\n\nthe phases follow");
+        $"## Agent Smith — {SpecSetComment.CutMarker}\n\nthe specs follow");
 
     private static TicketComment Demand() =>
-        new("sample.operator", Demanded, $"{SpecSetComment.RecutDemand}\n\nThe second phase is wrong.");
+        new("sample.operator", Demanded, $"{SpecSetComment.RecutDemand}\n\nThe second spec is wrong.");
 
     private static TicketComment Ordinary(string body) =>
         new("sample.operator", Demanded, body);

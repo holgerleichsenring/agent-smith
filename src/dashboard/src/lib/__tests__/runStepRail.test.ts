@@ -28,7 +28,7 @@ describe("splitSpecPrefix", () => {
   });
 
   // p0507: a spec id is minted from a date and a four-hex random suffix. This split is
-  // the dashboard's OWN copy of RunStepsReader.PhaseQualifiedRegex — teaching only the
+  // the dashboard's OWN copy of RunStepsReader.SpecQualifiedRegex — teaching only the
   // backend leaves the raw prefix rendered here, in the rail the operator actually reads.
   it("RunStepRail_DateMintedSpec_RendersWithoutTheRawPrefix", () => {
     expect(splitSpecPrefix("2026-08-24-8a3f: Generate plan"))

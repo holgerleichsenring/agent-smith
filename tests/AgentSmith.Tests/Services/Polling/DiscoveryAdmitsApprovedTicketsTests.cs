@@ -91,7 +91,7 @@ public sealed class DiscoveryAdmitsApprovedTicketsTests
         var query = await BuildAsync(await StoreWithAsync(("jira-dpg-1239", "DPG-1239")));
 
         query.AllTagLabelsOrNull().Should().BeEquivalentTo(["alpha-tag"],
-            "what those two providers read is the branch criterion, which this phase never touched");
+            "what those two providers read is the branch criterion, which this spec never touched");
     }
 
     /// <summary>

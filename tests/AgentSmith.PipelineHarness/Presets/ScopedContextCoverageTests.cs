@@ -93,7 +93,7 @@ public sealed class ScopedContextCoverageTests
         harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file", "write_file");
         tickets.Finalized.Should().NotContain(f => f.Status == "needs-info");
         tickets.Commented.Should().Contain(c => c.Comment.Contains("**Contexts:** backend"),
-            "the author sees which context each phase changes");
+            "the author sees which context each spec changes");
     }
 
     [Fact]

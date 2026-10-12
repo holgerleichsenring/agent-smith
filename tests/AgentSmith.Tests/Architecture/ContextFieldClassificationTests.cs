@@ -96,10 +96,10 @@ public sealed class ContextFieldClassificationTests
     {
         var readings = Fields().Where(field => Marker(field.Node, "READING")).ToList();
 
-        readings.Should().HaveCountGreaterThan(10, "the readings are the point of the phase");
+        readings.Should().HaveCountGreaterThan(10, "the readings are the point of the spec");
         readings.Should().OnlyContain(field => Marker(field.Node, "DEPRECATED"),
             "a reading says in the schema that it is deprecated, so a reader of the schema "
-            + "learns it without reading a phase spec");
+            + "learns it without reading a spec");
         ContextSchemaFile.Validate(PreviousShape).Should().BeEmpty(
             "deprecated means no longer written — never refused");
     }

@@ -31,7 +31,7 @@ public sealed class ShortfallSectionTests
             .And.Contain("per-pipeline cost budget exhausted")
             .And.Contain("- **p0001b** — Move the callers (failed: dotnet test exited 1)")
             .And.Contain("- **p0001c** — Retire the old check (not started)")
-            .And.NotContain("p0001a", "a delivered phase is not among the missing ones");
+            .And.NotContain("p0001a", "a delivered spec is not among the missing ones");
     }
 
     [Fact]

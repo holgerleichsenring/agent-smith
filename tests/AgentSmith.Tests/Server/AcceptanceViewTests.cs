@@ -20,7 +20,7 @@ public sealed class AcceptanceViewTests
                 new { text = "default", status = "unproven", reason = (string?)"sbt: not found" },
             },
             outcome = "verbatim",
-            ratifiedBy = "the ratified phase spec",
+            ratifiedBy = "the ratified spec",
             source = AcceptanceSources.DeliveryAccount,
         });
 

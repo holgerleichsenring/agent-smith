@@ -70,7 +70,7 @@ public sealed class CutReviewWithoutTicketTests
         var prompt = SpecCutReviewPrompt.For([DoneLess(), DoneLess() with { Steps = [] }], null, look: null);
 
         prompt.Should().NotContain("done:");
-        prompt.Should().NotContain("steps:\n\n", "a phase with no steps has no steps heading either");
+        prompt.Should().NotContain("steps:\n\n", "a spec with no steps has no steps heading either");
     }
 
     [Fact]

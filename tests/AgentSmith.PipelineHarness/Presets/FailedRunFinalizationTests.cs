@@ -34,7 +34,7 @@ public sealed class FailedRunFinalizationTests
         await using var harness = BuildHarness(tickets);
         harness.ChatClient
             .EnqueueText(SpecDerivationFixture.TwoSpecJson)
-            // phase 1: the master dies on the money fence before anything is verified
+            // spec 1: the master dies on the money fence before anything is verified
             .EnqueueThrow(new MasterBudgetExhaustedException(BudgetReason));
 
         var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" };

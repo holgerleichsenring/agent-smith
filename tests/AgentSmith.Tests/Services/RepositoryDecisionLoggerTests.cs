@@ -75,7 +75,7 @@ public sealed class RepositoryDecisionLoggerTests
         using var scope = _runContext.BeginScope(SampleRunId);
 
         await _sut.LogAsync(_repository, DecisionCategory.Implementation, "run-scoped choice");
-        await _sut.LogAsync(_repository, DecisionCategory.Tooling, "phase-scoped choice",
+        await _sut.LogAsync(_repository, DecisionCategory.Tooling, "spec-scoped choice",
             sourceLabel: "p0380");
 
         _repository.Files[RunFile].Should().StartWith($"run: {SampleRunId}");
@@ -193,7 +193,7 @@ public sealed class RepositoryDecisionLoggerTests
 
         outcome.Should().Be(DecisionLogOutcome.Recorded);
         _repository.Files.Should().BeEmpty(
-            "without a phase label or run scope there is no schema-conformant target");
+            "without a spec label or run scope there is no schema-conformant target");
     }
 
     [Fact]

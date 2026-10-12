@@ -92,7 +92,7 @@ public sealed class CommandModelUseCoverageTests
         var step = CommandModelUse.For(CommandNames.SelectSpec);
 
         step.Use.Should().Be(ModelUse.Call,
-            "a phase is entered by asking whether the branch already satisfies it");
+            "a spec is entered by asking whether the branch already satisfies it");
         step.Answer.Should().NotBeNullOrWhiteSpace();
     }
 

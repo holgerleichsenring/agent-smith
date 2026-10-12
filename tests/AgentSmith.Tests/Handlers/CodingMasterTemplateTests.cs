@@ -167,7 +167,7 @@ public sealed class CodingMasterTemplateTests
             pipeline, Draft("api"), readOnlySurface: false, CancellationToken.None);
 
         attachment.Names.Should().BeEmpty(
-            "a template declared for a context this phase never touches is a clone nobody asked for");
+            "a template declared for a context this spec never touches is a clone nobody asked for");
     }
 
     [Fact]
@@ -212,7 +212,7 @@ public sealed class CodingMasterTemplateTests
         var act = () => handler.ExecuteAsync(context, CancellationToken.None);
 
         await act.Should().ThrowAsync<InvalidOperationException>();
-        loop.SeenRequests.Should().BeEmpty("the phase fails before the master spends a token");
+        loop.SeenRequests.Should().BeEmpty("the spec fails before the master spends a token");
     }
 
     [Fact]

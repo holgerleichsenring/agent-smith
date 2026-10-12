@@ -83,7 +83,7 @@ public sealed class DeliveryAccountingTests : IAsyncLifetime
                 scripted, ["the greeting is localised"], extraRepo: second);
 
             account.Delivered.Should().BeTrue(
-                "one account is taken for the phase over every repository's diff at once");
+                "one account is taken for the spec over every repository's diff at once");
             scripted.InvocationCount.Should().Be(1, "and it costs one model call, not one per repo");
         }
         finally

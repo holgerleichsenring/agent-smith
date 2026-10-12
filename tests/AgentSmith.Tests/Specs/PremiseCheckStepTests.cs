@@ -17,7 +17,7 @@ public sealed class PremiseCheckStepTests
 
         block.IndexOf(CommandNames.CheckSpecPremises).Should().Be(
             block.IndexOf(CommandNames.SelectSpec) + 1,
-            "the phase must be current before its premises can be read");
+            "the spec must be current before its premises can be read");
         block.IndexOf(CommandNames.CheckSpecPremises).Should().BeLessThan(
             block.IndexOf(CommandNames.AgenticMaster),
             "the point is to stop before a master token is spent");
@@ -51,11 +51,11 @@ public sealed class PremiseCheckStepTests
         CommandStepClasses.All.Should().ContainKey(CommandNames.CheckSpecPremises);
         CommandBeats.TryGet(CommandNames.CheckSpecPremises, out var beat).Should().BeTrue();
         beat.Should().Be(RunBeat.Plan,
-            "it runs between SelectSpec and the master and decides whether the phase is built "
+            "it runs between SelectSpec and the master and decides whether the spec is built "
             + "at all — a Verify beat would light the rail's last beat before Building starts, "
             + "and a hand-back would read as a failed build");
         var model = CommandModelUse.For(CommandNames.CheckSpecPremises);
-        model.Use.Should().Be(ModelUse.Call, "a fresh instance is asked, once per phase");
+        model.Use.Should().Be(ModelUse.Call, "a fresh instance is asked, once per spec");
         model.Answer.Should().NotBeNullOrWhiteSpace();
         CommandDisplayNames.Get(CommandNames.CheckSpecPremises)
             .Should().Be("Check the spec's premises");

@@ -57,7 +57,7 @@ public sealed class DeriveSpecTicketEditTests
         deriver.PreviousSeen!.Executed.Should().Equal("p19106a");
         deriver.CauseSeen.Should().Be(SpecRevisionCause.TicketEdit);
         published.Set!.Phases.Select(p => p.PhaseId).Should().Equal("p19106a", "p19106b");
-        published.Set.Executed.Should().Equal(["p19106a"], "the executed phase is carried, never edited");
+        published.Set.Executed.Should().Equal(["p19106a"], "the executed spec is carried, never edited");
         published.Set.Current.Cause.Should().Be(SpecRevisionCause.TicketEdit);
     }
 
@@ -86,7 +86,7 @@ public sealed class DeriveSpecTicketEditTests
         deriver.Calls.Should().Be(0, "the text the set was cut from is the text on the ticket");
         published.Set!.Current.Cause.Should().Be(SpecRevisionCause.ReviewerEdit,
             "the pointer here still names the derivation commit, so the last commit on the spec path "
-            + "is a foreign one — a reviewer's edit after the phase ran; the marker itself moves the "
+            + "is a foreign one — a reviewer's edit after the spec ran; the marker itself moves the "
             + "pointer since 2026-09-08-4aa9");
         published.Set.TicketFingerprint.Should().Be(TicketTextFingerprint.Of(Ticket()));
     }

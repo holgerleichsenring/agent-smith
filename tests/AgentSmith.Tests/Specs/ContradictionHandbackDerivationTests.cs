@@ -37,7 +37,7 @@ public sealed class ContradictionHandbackDerivationTests
         var (derivation, error) = await Derive(provider, checker);
 
         error.Should().BeNull();
-        derivation!.Set.IsHandedBack.Should().BeFalse("the second answer cut phases");
+        derivation!.Set.IsHandedBack.Should().BeFalse("the second answer cut specs");
         provider.Prompts.Should().HaveCount(2);
         provider.Prompts[1].Should().Contain("cites no evidence");
         checker.Asked.Should().BeEmpty("an uncited contradiction is asked for again, never checked");
@@ -53,7 +53,7 @@ public sealed class ContradictionHandbackDerivationTests
         var (derivation, error) = await Derive(provider, checker);
 
         error.Should().BeNull();
-        derivation.Should().NotBeNull("an uncited contradiction parks unchecked, never the one-phase fallback");
+        derivation.Should().NotBeNull("an uncited contradiction parks unchecked, never the one-spec fallback");
         derivation!.Set.Handback!.Case.Should().Be(SpecHandbackCase.RequirementsContradictRepository);
         provider.Prompts[2].Should().Contain("L9").And.Contain("names no look");
         checker.Asked.Should().BeEmpty();
@@ -110,7 +110,7 @@ public sealed class ContradictionHandbackDerivationTests
         var (derivation, error) = await Derive(provider, checker);
 
         error.Should().BeNull();
-        derivation!.Set.IsHandedBack.Should().BeFalse("the refutation bought a fourth attempt, which cut phases");
+        derivation!.Set.IsHandedBack.Should().BeFalse("the refutation bought a fourth attempt, which cut specs");
     }
 
     private static async Task<(SpecDerivation? Derivation, string? Error)> Derive(

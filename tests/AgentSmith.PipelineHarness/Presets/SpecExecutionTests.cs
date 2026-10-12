@@ -106,7 +106,7 @@ public sealed class SpecExecutionTests
         promptText.Should().Contain("GET /widget returns the widget",
             "the master must be told exactly which done criteria to verify");
         promptText.Should().Contain("Ticket conversation",
-            "the hydrated comment thread must render into the phase prompt");
+            "the hydrated comment thread must render into the spec prompt");
         promptText.Should().Contain("use bearer-token auth for the widget endpoint",
             "an answer commented while the ticket was parked must reach the re-triggered run");
 
@@ -119,7 +119,7 @@ public sealed class SpecExecutionTests
                 && p.Contains(".agentsmith/specs/done/", StringComparison.Ordinal)
                 && p.EndsWith("2026-10-06-5e5ea-add-a-widget-endpoint-to-the-sample-service.yaml", StringComparison.Ordinal));
         wroteRecord.Should().BeTrue(
-            "the phase yaml must be written to .agentsmith/specs/done/ in the sandbox tree");
+            "the spec yaml must be written to .agentsmith/specs/done/ in the sandbox tree");
 
         harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file", "run_command", "update_progress");
 
@@ -127,7 +127,7 @@ public sealed class SpecExecutionTests
         // is in the block, so a preset that ships code asks this question once per spec.
         harness.ChatClient.PromptsSeen.Should().Contain(
             p => p.Contains(AgentSmith.PipelineHarness.Llm.SpecReviewScript.Marker, StringComparison.Ordinal),
-            "the phase review runs after the verification and before the record");
+            "the spec review runs after the verification and before the record");
     }
 
     [Fact]
@@ -161,7 +161,7 @@ public sealed class SpecExecutionTests
             .SelectMany(s => s.Sandbox.RanSteps)
             .Should().NotContain(s => s.Kind == AgentSmith.Sandbox.Wire.StepKind.WriteFile
                 && s.Path != null && s.Path.Contains(".agentsmith/specs/done/", StringComparison.Ordinal),
-                "a run parked for clarification must not record the phase as done");
+                "a run parked for clarification must not record the spec as done");
     }
 
     /// <summary>2026-10-06-03c7e: a run whose second spec fails verification leaves the first in

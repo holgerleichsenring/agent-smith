@@ -48,7 +48,7 @@ public sealed class PipelineCommandListTests
 
         List().DropAhead(commands.First!, commands, Drop());
 
-        commands.Should().HaveCount(2, "a step outside any phase has no phase to retire");
+        commands.Should().HaveCount(2, "a step outside any spec has no spec to retire");
     }
 
     private static PipelineCommandList List() =>

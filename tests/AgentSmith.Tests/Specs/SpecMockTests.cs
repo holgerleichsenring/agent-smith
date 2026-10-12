@@ -35,7 +35,7 @@ public sealed class SpecMockTests
             new Dictionary<string, string> { ["p19106a-the-new-goal"] = "spec: p19106a\ngoal: \"Goal\"\ndone:\n  - \"Done.\"\n" });
         branch.Seed($"{Dir}/p19106a-the-old-goal-mock.html", "<h1>mock</h1>");
         branch.Seed($"{Dir}/p19106a.html", "<h1>bare</h1>");
-        branch.Seed($"{Dir}/p19106ab-other.html", "<h1>another phase</h1>");
+        branch.Seed($"{Dir}/p19106ab-other.html", "<h1>another spec</h1>");
         branch.Seed($"{Dir}/p19106a-notes.md", "not a mock");
 
         var spec = (await ReadAsync(branch)).Read!.Set.Phases.Single();

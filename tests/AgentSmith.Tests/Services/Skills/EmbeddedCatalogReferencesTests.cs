@@ -129,7 +129,7 @@ public sealed class EmbeddedCatalogReferencesTests : IDisposable
         var master = Directory
             .GetFiles(Path.Combine(root, "skills", "_masters"), "SKILL.md", SearchOption.AllDirectories)
             .SingleOrDefault(f => Path.GetFileName(Path.GetDirectoryName(f)) == "spec-derivation-master");
-        master.Should().NotBeNull("the derivation is the skill that cuts one ticket into phases");
+        master.Should().NotBeNull("the derivation is the skill that cuts one ticket into specs");
 
         var rules = File.ReadAllText(master!);
         rules.Should().Contain("{{ref:source-precedence}}",

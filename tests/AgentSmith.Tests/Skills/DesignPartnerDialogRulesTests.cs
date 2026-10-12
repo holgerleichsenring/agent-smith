@@ -33,7 +33,7 @@ public sealed class DesignPartnerDialogRulesTests
         master.Should().Contain(
             "ENGLISH ONLY, whatever language the conversation is in.",
             $"the pin is {PackagedMaster.Pin} and this rule ships from v{DialogRulesRelease}; "
-            + "a German phase draft is read later by a derivation, an executing agent and "
+            + "a German spec draft is read later by a derivation, an executing agent and "
             + "reviewers who did not sit in the chat");
 
         master.Should().Contain(

@@ -4,7 +4,7 @@ namespace AgentSmith.Tests.Architecture;
 
 /// <summary>
 /// p0507: the record rules read a date-minted id in all three places they read a counter
-/// id — a spec's <c>phase:</c> field, a context key, a <c>requires:</c> entry.
+/// id — a spec's <c>spec:</c> field, a context key, a <c>requires:</c> entry.
 /// <para>
 /// An id a rule cannot read is an id nobody checks: the duplicate rule stops seeing the
 /// spec, the context key matches nothing, and a <c>requires:</c> naming it resolves to a

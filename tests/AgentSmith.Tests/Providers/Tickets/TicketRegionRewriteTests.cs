@@ -32,11 +32,11 @@ public sealed class TicketRegionRewriteTests
             + "\nAnd this below it, with a @mention and a [link](https://example.test).";
 
         var rewritten = FramedTicketRegion.Replace(
-            body, FramedTicketRegion.Wrap("## Goal\nthe widget stops dropping, in two phases\n"));
+            body, FramedTicketRegion.Wrap("## Goal\nthe widget stops dropping, in two specs\n"));
 
         rewritten.Should().StartWith("A person wrote this above it.")
             .And.EndWith("with a @mention and a [link](https://example.test).");
-        rewritten.Should().Contain("in two phases").And.NotContain("stops dropping\n\n<!--",
+        rewritten.Should().Contain("in two specs").And.NotContain("stops dropping\n\n<!--",
             "the framework's own rendering is what was replaced");
     }
 

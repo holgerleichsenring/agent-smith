@@ -54,7 +54,7 @@ public sealed class RunPlannedStepsServedTests : IDisposable
         rail.Take(2).Should().OnlyContain(s => !s.Planned);
         rail.Skip(2).Should().OnlyContain(s => s.Planned);
         rail[2].DisplayName.Should().Be(CommandDisplayNames.Get(CommandNames.AgenticMaster));
-        rail[2].PhaseId.Should().Be("p19106a", "planned rows are grouped by phase like executed ones");
+        rail[2].PhaseId.Should().Be("p19106a", "planned rows are grouped by spec like executed ones");
         rail.Last().PhaseId.Should().Be("p19106b");
     }
 
@@ -141,7 +141,7 @@ public sealed class RunPlannedStepsServedTests : IDisposable
         new RunStartedEvent(RunId, "ticket", "code", ["primary"], T, "claude", "42"),
         new StepStartedEvent(RunId, 1, "Fetch ticket", 2, T, "Fetch ticket", CommandNames.FetchTicket),
         new StepFinishedEvent(RunId, 1, "success", 1000, T),
-        new StepStartedEvent(RunId, 2, "Work through the phases", 2, T, "Work through the phases",
+        new StepStartedEvent(RunId, 2, "Work through the specs", 2, T, "Work through the specs",
             CommandNames.SpecSequence),
         new StepFinishedEvent(RunId, 2, "success", 500, T),
         Announce(1, [

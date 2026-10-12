@@ -70,7 +70,7 @@ public sealed class QuestionHandbackTests
         await runner.RunAsync("code");
 
         tickets.Finalized.Should().NotContain(f => f.Status == "needs-info", "nobody answered, so the run proceeds");
-        runner.LastContext!.Get<SpecSet>(ContextKeys.SpecSet).Phases.Should().ContainSingle("real phases, cut under the taken reading");
+        runner.LastContext!.Get<SpecSet>(ContextKeys.SpecSet).Phases.Should().ContainSingle("real specs, cut under the taken reading");
         harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file");
         var notice = tickets.Commented.Should().ContainSingle(c => c.Comment.Contains("proceeding on reading (a)")).Subject;
         notice.Comment.Should().Contain("> (a) " + ReadingA, "the reading is named from the question that was asked");

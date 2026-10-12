@@ -3164,7 +3164,7 @@ describe("SpecDialogSurface", () => {
       .toHaveTextContent("the fix pass was reverted: the build stayed red");
   });
 
-  // A failed phase shows the verdict its row carries and NOTHING else: the only producer of a
+  // A failed spec shows the verdict its row carries and NOTHING else: the only producer of a
   // failed row is the spec's own verification, so an amendment would change nothing.
   it("SpecDialog_ASpecFailedByARedBuild_ShowsItsVerdictAndNoAmendmentInstruction", async () => {
     await renderSurface();

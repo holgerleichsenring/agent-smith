@@ -60,7 +60,7 @@ public sealed class CommandStepClassesCoverageTests
         GateSilence.IsNoOpSummary(
             CommandNames.BootstrapGate, "Bootstrap files present in every repo.").Should().BeTrue();
         GateSilence.IsNoOpSummary(
-            CommandNames.SpecGate, "Phase spec p19106a validated: goal").Should().BeTrue();
+            CommandNames.SpecGate, "Spec p19106a validated: goal").Should().BeTrue();
         GateSilence.IsNoOpSummary(
             CommandNames.ScopeRepos, "Scoped run to 2 of 5 repos: api, worker").Should().BeFalse();
         GateSilence.IsNoOpSummary(

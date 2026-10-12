@@ -29,7 +29,7 @@ public sealed class SpecDialogFiledWorkContractTests
     [
         new("user", "update the three libraries"),
         new("assistant", "found three of them", SpecDialogTurnKind.Answer),
-        new("user", "all three, one phase"),
+        new("user", "all three, one spec"),
         new("assistant", "Filed WIDGET-1, WIDGET-2, WIDGET-3", kind),
     ];
 

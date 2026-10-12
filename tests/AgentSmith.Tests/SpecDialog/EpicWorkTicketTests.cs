@@ -67,7 +67,7 @@ public sealed class EpicWorkTicketTests
 
         provider.Created.Should().HaveCount(2).And.OnlyContain(
             c => !c.Labels.Contains("phase", StringComparer.OrdinalIgnoreCase),
-            "a cut's work ticket and a lone phase are filed with the same label set");
+            "a cut's work ticket and a lone spec are filed with the same label set");
     }
 
     /// <summary>
@@ -321,7 +321,7 @@ public sealed class EpicWorkTicketTests
 
         notice.Should().Contain("one work ticket (`p9000`)").And.Contain("carrying 2 slice(s)");
         notice.Should().NotContain("record", "nothing beside that ticket was filed");
-        notice.Should().NotContain("child phases", "no slice of a cut is picked up by a run of its own");
+        notice.Should().NotContain("child specs", "no slice of a cut is picked up by a run of its own");
     }
 
     /// <summary>
@@ -364,7 +364,7 @@ public sealed class EpicWorkTicketTests
         specReport.Error.Should().BeNull();
         bugs.Created.Should().ContainSingle().Which.Kind.Should().Be("Bug");
         specs.Created.Should().ContainSingle().Which.Kind.Should().Be("User Story",
-            "a lone phase is not an epic's work ticket, even though their labels are identical");
+            "a lone spec is not an epic's work ticket, even though their labels are identical");
     }
 
     private static Dictionary<string, string> Kinds(params (string Role, string Kind)[] entries) =>
@@ -418,11 +418,11 @@ public sealed class EpicWorkTicketTests
         provider.Created.Should().ContainSingle()
             .Which.Labels.Should().Equal(
                 [FiledTicketLabels.ApprovedSetStamp],
-                "a single approved phase is stamped exactly as an epic's work ticket is");
+                "a single approved spec is stamped exactly as an epic's work ticket is");
         provider.Comments.Should().BeEmpty("a filing posts no comment of its own");
         var record = await store.GetAsync("sample-tracker", TicketKey.For("azuredevops", "1").Value, default);
         record!.Set.Phases.Should().ContainSingle().Which.PhaseId.Should().Be(
-            SeriesIdFactory.Member(record.Set.Series!, 0), "a lone phase is the first member of its own series");
+            SeriesIdFactory.Member(record.Set.Series!, 0), "a lone spec is the first member of its own series");
     }
 
     private static async Task<FilingReport> FileAsync(

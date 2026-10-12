@@ -65,7 +65,7 @@ public sealed class TeamsCardBuilderTests
     [Fact]
     public void TeamsApproval_AShapeAction_CarriesItsLabelBackAsTheAnswer()
     {
-        const string label = "Cut into several phases";
+        const string label = "Cut into several specs";
         var question = CreateQuestion(QuestionType.Approval, choices: [label]);
 
         var card = new TeamsCardBuilder(new TeamsQuestionCardBuilder(), new TeamsStatusCardBuilder())

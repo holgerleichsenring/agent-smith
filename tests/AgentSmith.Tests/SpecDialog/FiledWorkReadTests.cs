@@ -277,7 +277,7 @@ public sealed class FiledWorkReadTests : IDisposable
 
         var spec = (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single();
 
-        spec.Status.Should().Be("in_progress", "a running phase is shown as running");
+        spec.Status.Should().Be("in_progress", "a running spec is shown as running");
         spec.Verdict.Should().BeNull();
     }
 
@@ -382,7 +382,7 @@ public sealed class FiledWorkReadTests : IDisposable
 
         var review = (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single().Review;
 
-        review.Should().NotBeNull("a row that exists is not a phase that was never reviewed");
+        review.Should().NotBeNull("a row that exists is not a spec that was never reviewed");
         review!.Unreadable.Should().BeTrue();
         review.Why.Should().Be(FiledWorkReviewView.CouldNotBeRead);
     }
@@ -621,7 +621,7 @@ public sealed class FiledWorkReadTests : IDisposable
         new()
         {
             RunId = runId, SpecId = specId, Ordinal = ordinal, Status = status,
-            Title = $"Phase {specId}", StartedAt = T, Verdict = verdict,
+            Title = $"Spec {specId}", StartedAt = T, Verdict = verdict,
         };
 
     private async Task FilingAsync(params FiledTicket[] filed)

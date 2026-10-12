@@ -78,7 +78,7 @@ public sealed class BuildIdentityServedTests : IDisposable
         var findings = Parse(await server.Client.GetStringAsync("/api/config/findings"));
 
         findings.Findings.Should().NotContain(f => f.Subsystem == StartupSubsystems.Build,
-            "a caller that names no build — every client written before this phase — is "
+            "a caller that names no build — every client written before this spec — is "
             + "told nothing about one");
     }
 

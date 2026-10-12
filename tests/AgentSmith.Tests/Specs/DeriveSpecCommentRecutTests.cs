@@ -51,7 +51,7 @@ public sealed class DeriveSpecCommentRecutTests
     {
         var deriver = new CapturingDeriver(RecutTail());
         var published = new CapturingPublisher();
-        var thread = new[] { OurCut(), Operator("phase b is wrong: the callers stay where they are") };
+        var thread = new[] { OurCut(), Operator("spec b is wrong: the callers stay where they are") };
 
         // a109's live shape: the pointer still names the derivation commit, not the marker's.
         var result = await Handler(deriver, published, pointerSha: DerivationSha).ExecuteAsync(Context(thread), default);
@@ -61,7 +61,7 @@ public sealed class DeriveSpecCommentRecutTests
         deriver.CauseSeen.Should().Be(SpecRevisionCause.Comment);
         deriver.PreviousSeen!.Executed.Should().Equal(HeadId);
         published.Set!.Phases.Select(p => p.PhaseId).Should().Equal(HeadId, TailId);
-        published.Set.Executed.Should().Equal([HeadId], "the executed phase is carried, never edited");
+        published.Set.Executed.Should().Equal([HeadId], "the executed spec is carried, never edited");
         published.Set.Current.Cause.Should().Be(SpecRevisionCause.Comment);
     }
 
@@ -88,7 +88,7 @@ public sealed class DeriveSpecCommentRecutTests
     {
         var deriver = new CapturingDeriver(RecutTail());
         var published = new CapturingPublisher();
-        var thread = new[] { OurCut(), Operator("phase b is wrong: the callers stay where they are") };
+        var thread = new[] { OurCut(), Operator("spec b is wrong: the callers stay where they are") };
 
         await Handler(deriver, published, pointerSha: DerivationSha).ExecuteAsync(Context(thread), default);
 
@@ -105,7 +105,7 @@ public sealed class DeriveSpecCommentRecutTests
     {
         var deriver = new CapturingDeriver(RecutTail());
         var published = new CapturingPublisher();
-        var thread = new[] { OurCut(), Operator("phase b is wrong: the callers stay where they are") };
+        var thread = new[] { OurCut(), Operator("spec b is wrong: the callers stay where they are") };
 
         await Handler(deriver, published, pointerSha: null).ExecuteAsync(Context(thread), default);
 

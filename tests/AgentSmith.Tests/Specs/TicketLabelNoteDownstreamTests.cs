@@ -60,7 +60,7 @@ public sealed class TicketLabelNoteDownstreamTests
         prompts.Should().HaveCount(5).And.OnlyContain(
             p => !p.Contains(TicketLabelNote.BeginIdentifier, StringComparison.Ordinal)
                 && !p.Contains(TicketLabelNote.Heading, StringComparison.Ordinal)
-                && !p.Contains("binds this ticket to phase execution", StringComparison.Ordinal));
+                && !p.Contains("binds this ticket to spec execution", StringComparison.Ordinal));
         prompts.Should().OnlyContain(p => p.Contains("widget", StringComparison.OrdinalIgnoreCase),
             "the ticket itself still reaches every one of them");
     }

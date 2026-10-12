@@ -11,7 +11,7 @@ namespace AgentSmith.Tests.Specs;
 
 /// <summary>
 /// 2026-09-17-042eh: where a remaining finding — and the ABSENCE of a review — is readable:
-/// the phase record's body, the phase_review artifact and the pull-request body. Three places
+/// the spec record's body, the phase_review artifact and the pull-request body. Three places
 /// because three readers: the person who opens the spec, the reader that wants the answer as
 /// data (2026-09-17-042ej), and the reviewer of the pull request who opens neither.
 /// </summary>
@@ -100,13 +100,13 @@ public sealed class SpecReviewRecordTests
     {
         var pipeline = WithSpec();
         SpecReviewLedger.Record(pipeline, PhaseReviewReport.Taken([Finding()]));
-        pipeline.Set(ContextKeys.CurrentSpec, new PhaseDraft("phase-b", "goal", "spec: b\n", []));
+        pipeline.Set(ContextKeys.CurrentSpec, new PhaseDraft("spec-b", "goal", "spec: b\n", []));
         SpecReviewLedger.Record(
             pipeline, PhaseReviewReport.Taken([Finding() with { Path = "src/Api/Other.cs" }]));
 
         var section = SpecReviewSection.Build(pipeline);
 
-        section.Should().Contain(SpecId).And.Contain("phase-b");
+        section.Should().Contain(SpecId).And.Contain("spec-b");
         section.Should().Contain("src/Api/Handler.cs:4").And.Contain("src/Api/Other.cs:4");
     }
 

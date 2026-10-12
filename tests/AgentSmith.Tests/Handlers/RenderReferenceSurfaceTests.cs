@@ -123,7 +123,7 @@ public sealed class RenderReferenceSurfaceTests
     {
         private const string OneTask = "[{\"name\":\"RepoScout\",\"activity\":\"read the sources\","
             + "\"task_description\":\"answer one question\",\"inherited_context\":"
-            + "{\"pipeline_goal\":\"cut the phase\",\"prior_context_slice\":\"the transcript\"}}]";
+            + "{\"pipeline_goal\":\"cut the spec\",\"prior_context_slice\":\"the transcript\"}}]";
 
         public IReadOnlyList<string> MasterTools { get; private set; } = [];
 

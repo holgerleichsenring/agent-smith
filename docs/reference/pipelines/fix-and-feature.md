@@ -19,9 +19,9 @@ Bugs, features, refactors and migrations all run through it. The ticket's label 
 | 9 | AnalyzeCode | Scout agent maps the relevant code |
 | 10 | DeriveSpec | Turns the ticket into an ordered set of specs on the ticket branch |
 | 11 | SpecHandback | Parks the ticket when the derivation handed it back |
-| 12 | PhaseSpecGate | Validates the spec before a single master token is spent |
+| 12 | SpecGate | Validates the spec before a single master token is spent |
 | 13 | EnsurePrerequisites / ProbeTarget / MaterializeReferenceSets | Installs what the work needs, checks the target answers, and writes the websites the approval cites |
-| 14 | PhaseSequence | Splices one block of steps per spec that hasn't run yet |
+| 14 | SpecSequence | Splices one block of steps per spec that hasn't run yet |
 | 15 | WriteRunResult | Writes `result.md` with the account, token usage and cost |
 | 16 | CommitAndPR / PrCrossLink | Commits, pushes, finalizes the PRs and cross-links them |
 
@@ -33,18 +33,18 @@ Bugs, features, refactors and migrations all run through it. The ticket's label 
 
 ### The per-spec block
 
-`PhaseSequence` expands into this block for every spec, in order:
+`SpecSequence` expands into this block for every spec, in order:
 
 | Command | What it does |
 |---------|-------------|
-| SelectPhase | Makes the spec current; a spec the branch already satisfies is recorded done and its work steps are skipped |
-| CheckPhasePremises | A fresh instance checks what the spec says it rests on; a false premise hands the spec back |
+| SelectSpec | Makes the spec current; a spec the branch already satisfies is recorded done and its work steps are skipped |
+| CheckSpecPremises | A fresh instance checks what the spec says it rests on; a false premise hands the spec back |
 | AgenticMaster | The coding master does the spec's work |
 | MasterOpenQuestions | Parks the run when the master asked a person something |
-| CommitPhaseWork | Puts the spec's work on the branch before it is judged |
-| VerifyPhase | Runs the declared verify stages, then takes the delivery account |
-| ReviewPhaseDiff | A fresh reviewer reads the spec diff; findings get one fix pass |
-| WritePhaseRecord | Commits the spec record under `.agentsmith/specs/done/` |
+| CommitSpecWork | Puts the spec's work on the branch before it is judged |
+| VerifySpec | Runs the declared verify stages, then takes the delivery account |
+| ReviewSpecDiff | A fresh reviewer reads the spec diff; findings get one fix pass |
+| WriteSpecRecord | Commits the spec record under `.agentsmith/specs/done/` |
 
 ```mermaid
 graph TD
@@ -53,9 +53,9 @@ graph TD
     Analyze --> Derive["DeriveSpec<br/>specs on the branch"]
     Derive -->|handed back| Park[ticket parked]
     Derive --> Spec["per spec:<br/>premises → master → commit"]
-    Spec --> Verify["VerifyPhase<br/>stages + delivery account"]
+    Spec --> Verify["VerifySpec<br/>stages + delivery account"]
     Verify -->|outstanding, once| Spec
-    Verify -->|green| Review[ReviewPhaseDiff]
+    Verify -->|green| Review[ReviewSpecDiff]
     Review -->|next spec| Spec
     Review --> PR[CommitAndPR]
 
@@ -88,7 +88,7 @@ When no park status can be resolved, the run fails rather than leave the ticket 
 
 `AgenticMaster` runs the `coding-agent-master` skill in an agentic loop: it calls tools, observes the results, and decides what to do next. Its file tools (`read_file`, `write_file`, `edit`, `multi_edit`, `grep_in_tree`, `find_files`, `list_directory`, …) and `run_command` dispatch to the right sandbox by the first path segment, so one conversation works across all repos in scope. Besides those it has `update_progress` for its progress ledger, `ask_human` for a question that parks the run, `log_decision`, and `ensure_repo_sandbox` for a repo it didn't start with.
 
-The master runs the repo's build and tests itself as it works; `VerifyPhase` then runs the declared stages again as the gate, and the [delivery account](../../how-it-works/delivery-account.md) judges the criteria. Long sessions are kept inside the model's window by compaction; see [Context compaction](../concepts/context-compaction.md).
+The master runs the repo's build and tests itself as it works; `VerifySpec` then runs the declared stages again as the gate, and the [delivery account](../../how-it-works/delivery-account.md) judges the criteria. Long sessions are kept inside the model's window by compaction; see [Context compaction](../concepts/context-compaction.md).
 
 !!! info "Tool execution"
     All tools run in the cloned repository's working directory. File paths are relative to the repo root. Shell commands execute with the repo root as the current directory.

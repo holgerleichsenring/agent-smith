@@ -38,11 +38,11 @@ public sealed class SpecDoneOutcomeTests
     [Fact]
     public void SpecOutcomeBlock_MultiLineText_RendersAsParseableYaml()
     {
-        var yaml = SpecOutcomeBlock.Render("run-1", "## What this phase delivers\n\n- [x] it works\n", string.Empty);
+        var yaml = SpecOutcomeBlock.Render("run-1", "## What this spec delivers\n\n- [x] it works\n", string.Empty);
 
         var outcome = Outcome(yaml);
         outcome["run"].Should().Be("run-1");
-        outcome["delivered"].Should().Be("## What this phase delivers\n\n- [x] it works");
+        outcome["delivered"].Should().Be("## What this spec delivers\n\n- [x] it works");
         outcome.Should().NotContainKey("review", "an empty section is not written");
         yaml.Should().Contain("delivered: |-", "multi-line text is a literal block a person can read");
     }

@@ -65,7 +65,7 @@ public sealed class SpecAccountingTests
             criteria: ["packages updated"]);
 
         account.Delivered.Should().BeFalse(
-            "a criterion cannot be satisfied by a file the phase never touched");
+            "a criterion cannot be satisfied by a file the spec never touched");
         account.Outstanding.Should().ContainSingle()
             .Which.Note.Should().Contain("neither a file the evidence covers nor a command that ran");
     }

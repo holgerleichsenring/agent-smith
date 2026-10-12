@@ -180,14 +180,14 @@ public sealed class DialogProposalPaneTests : IDisposable
     public async Task Filed_AfterASuccessfulFiling_PublishesTheReferencesAndTitles()
     {
         var report = new FilingReport(
-            [new FiledTicket("https://tracker/7", "p9001: the phase")], Error: null);
+            [new FiledTicket("https://tracker/7", "p9001: the spec")], Error: null);
 
         await Channel().FiledAsync(State(), report, CancellationToken.None);
 
         var push = Filings().Single();
         push.Error.Should().BeNull();
         push.Filed.Single().Reference.Should().Be("https://tracker/7");
-        push.Filed.Single().Title.Should().Be("p9001: the phase");
+        push.Filed.Single().Title.Should().Be("p9001: the spec");
     }
 
     [Fact]

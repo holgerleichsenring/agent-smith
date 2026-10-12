@@ -47,7 +47,7 @@ public sealed class SpecDerivationPromptTests
         prompt.Should().Contain("FEWEST specs its deliverable allows",
             "deterministic work must be told to collapse, not merely allowed to");
         prompt.Should().Contain("a step per target turns one operation into one round of work",
-            "the measured failure was one model round trip per target, not the phase count alone");
+            "the measured failure was one model round trip per target, not the spec count alone");
         prompt.Should().Contain("No shape stated means cut as you otherwise would",
             "an unclassified ticket must reach the cut it always got");
     }

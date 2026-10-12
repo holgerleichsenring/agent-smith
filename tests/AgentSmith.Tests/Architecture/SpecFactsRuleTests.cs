@@ -26,7 +26,7 @@ public sealed class SpecFactsRuleTests
             .ToList();
 
         offenders.Should().BeEmpty(
-            "a planned phase states the facts it rests on, each with evidence that resolves. "
+            "a planned spec states the facts it rests on, each with evidence that resolves. "
             + "Do not add a baseline row.\n  " + string.Join("\n  ", offenders));
     }
 
@@ -44,7 +44,7 @@ public sealed class SpecFactsRuleTests
         var counter = SpecYamlFile.All().Where(file => file.State == "planned" && !file.IsDateMinted).ToList();
 
         counter.Should().Contain(file => !file.StatesFacts,
-            "the closed namespace holds planned phases without facts, and none is ever rewritten");
+            "the closed namespace holds planned specs without facts, and none is ever rewritten");
         counter.Should().NotContain(file => IsJudged(file));
     }
 
@@ -54,10 +54,10 @@ public sealed class SpecFactsRuleTests
         var files = SpecYamlFile.All();
 
         Stale(SpecNameBaseline.Rows.Keys, files).Should().BeEmpty(
-            "a phase that now states facts, or left planned/ and active/, must leave "
+            "a spec that now states facts, or left planned/ and active/, must leave "
             + "spec-name-baseline.tsv");
         Stale([(SpecNameBaseline.FactsRequired, "2026-10-02-3f06f")], files).Should().ContainSingle(
-            "a row naming a done phase is stale");
+            "a row naming a done spec is stale");
     }
 
     private static bool IsJudged(SpecYamlFile file) => file.IsDateMinted && file.State == "planned";

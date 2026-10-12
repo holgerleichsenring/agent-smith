@@ -32,7 +32,7 @@ public sealed class DesignReferenceRulesTests
 
         master.Should().Contain(
             "- **document** (the operator asks for a text to take elsewhere",
-            Because("a document is an outcome of its own, not a phase or an answer"));
+            Because("a document is an outcome of its own, not a spec or an answer"));
         master.Should().Contain(
             "A request for a document is not a request for work: it is answered with",
             Because("the discuss-first gate would otherwise spend a turn before the text"));

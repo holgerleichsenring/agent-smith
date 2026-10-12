@@ -27,7 +27,7 @@ public sealed class SpecAlreadySatisfiedTests
     {
         await using var harness = RealCompositionHarness.Build(
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
-        // Only phase 1 is scripted. Phase 2 is entered over the branch phase 1 delivered,
+        // Only spec 1 is scripted. Spec 2 is entered over the branch spec 1 delivered,
         // and the entry account finds it satisfied — a second master pass would have to
         // draw from an empty script.
         harness.ChatClient
@@ -43,10 +43,10 @@ public sealed class SpecAlreadySatisfiedTests
         var second = progress.Phases[1];
         second.State.Should().Be(PhaseRunState.Done);
         second.Note.Should().Be(SelectSpecHandler.AlreadySatisfiedNote,
-            "only the entry account writes this note — the second phase was REACHED and "
+            "only the entry account writes this note — the second spec was REACHED and "
             + "accounted for, not silently dropped");
         harness.ChatClient.ToolCalls.Should().ContainSingle(
-            "one phase did work; the other was already delivered");
+            "one spec did work; the other was already delivered");
     }
 
     /// <summary>
@@ -71,6 +71,6 @@ public sealed class SpecAlreadySatisfiedTests
         var progress = runner.LastContext!.Get<SpecSequenceProgress>(ContextKeys.SpecSequenceProgress);
         progress.Phases.Should().ContainSingle();
         progress.Phases[0].Note.Should().BeNull("nothing on the branch could have satisfied it");
-        harness.ChatClient.ToolCalls.Should().ContainSingle("the phase was worked");
+        harness.ChatClient.ToolCalls.Should().ContainSingle("the spec was worked");
     }
 }

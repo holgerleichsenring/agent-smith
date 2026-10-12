@@ -51,7 +51,7 @@ public sealed class SpecNameRuleTests
         Offenders(SpecNameBaseline.SlugLength,
                 file => file.Slug.Length > MaxSlugChars, file => file.Slug.Length)
             .Should().BeEmpty(
-                $"a phase name fits a line — at most {MaxSlugChars} characters, which is "
+                $"a spec name fits a line — at most {MaxSlugChars} characters, which is "
                 + "what SpecIdFactory.Slug already mints. Do not add a baseline row.");
 
     /// <summary>
@@ -62,7 +62,7 @@ public sealed class SpecNameRuleTests
     public void SpecSlug_ADateMintedSpec_FitsTheWordCeiling() =>
         Offenders(rule: null, file => file.SlugWords > MaxSlugWords, file => file.SlugWords)
             .Should().BeEmpty(
-                $"a phase name is a topic label — at most {MaxSlugWords} words, area-first. "
+                $"a spec name is a topic label — at most {MaxSlugWords} words, area-first. "
                 + "The claim belongs in goal:, which already states it.");
 
     /// <summary>
@@ -155,7 +155,7 @@ public sealed class SpecNameRuleTests
             .ToList();
 
         grown.Should().BeEmpty(
-            "a phase already over a bound may only get shorter.\n  " + string.Join("\n  ", grown));
+            "a spec already over a bound may only get shorter.\n  " + string.Join("\n  ", grown));
     }
 
     [Fact]
@@ -169,7 +169,7 @@ public sealed class SpecNameRuleTests
             .ToList();
 
         stale.Should().BeEmpty(
-            "a phase that now fits its bound (or is gone) must leave spec-name-baseline.tsv, "
+            "a spec that now fits its bound (or is gone) must leave spec-name-baseline.tsv, "
             + "so the list keeps telling the truth.\n  " + string.Join("\n  ", stale));
     }
 

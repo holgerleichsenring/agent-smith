@@ -31,19 +31,19 @@ public sealed class SpecRecordRuleTests
     [Fact]
     public void SpecRecord_EverySpecId_ResolvesToOneFile() =>
         Assert("duplicate-id", Record.DuplicateIds(),
-            "a phase id that resolves to two files makes every `requires:` naming it "
+            "a spec id that resolves to two files makes every `requires:` naming it "
             + "ambiguous. Renumber the one that has not shipped.");
 
     [Fact]
     public void SpecRecord_EveryDoneSpec_IsRecordedInTheContext() =>
         Assert("unrecorded", Record.UnrecordedDoneSpecs(),
-            "a phase in done/ has shipped, and the context is where the next agent reads "
+            "a spec in done/ has shipped, and the context is where the next agent reads "
             + "what shipped. Add it to state.done in contexts/default/context.yaml.");
 
     [Fact]
     public void SpecRecord_EveryRequires_NamesASpecThatExists() =>
         Assert("dangling", Record.DanglingRequires(),
-            "a `requires:` naming a phase nobody wrote is a dependency on a document that "
+            "a `requires:` naming a spec nobody wrote is a dependency on a document that "
             + "does not exist. Write the spec, or drop the reference.");
 
     /// <summary>
@@ -60,7 +60,7 @@ public sealed class SpecRecordRuleTests
 
         unresolved.Should().BeEmpty(
             "a `-> .agentsmith/specs/…` pointer names a file the reader will open; a "
-            + "renamed or moved phase file takes its pointer with it.\n  "
+            + "renamed or moved spec file takes its pointer with it.\n  "
             + string.Join("\n  ", unresolved));
     }
 
@@ -81,7 +81,7 @@ public sealed class SpecRecordRuleTests
         // the overlap exists only in the join. A message that named a culprit would send
         // the reader hunting one side for a mistake that is not there.
         stale.Should().BeEmpty(
-            "a phase cannot be both shipped and upcoming. Both entries may be correct on "
+            "a spec cannot be both shipped and upcoming. Both entries may be correct on "
             + "their own branch — if this appeared in a merge, the shipped side wins and "
             + "the planned entry goes (additions merge, deletions win).\n  "
             + string.Join("\n  ", stale));

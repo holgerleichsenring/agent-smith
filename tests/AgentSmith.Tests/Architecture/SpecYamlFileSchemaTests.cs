@@ -36,7 +36,7 @@ public sealed class SpecYamlFileSchemaTests
             .ToList();
 
         failures.Should().BeEmpty(
-            "every phase file is measured against the schema this repository ships.\n  "
+            "every spec file is measured against the schema this repository ships.\n  "
             + string.Join("\n  ", failures));
     }
 
@@ -73,7 +73,7 @@ public sealed class SpecYamlFileSchemaTests
 
         title.Length.Should().BeGreaterThan(800, "the point is a title no convention allows");
         build.Should().NotThrow(
-            "the single-phase fallback has no second chance — an invalid document there is "
+            "the single-spec fallback has no second chance — an invalid document there is "
             + "an unrecoverable crash, not a re-prompt");
     }
 

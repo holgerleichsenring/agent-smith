@@ -339,7 +339,7 @@ public sealed class AgenticMasterHandlerTests
         result.IsSuccess.Should().BeTrue();
         AgentSmith.Application.Services.Specs.SpecEvidence.From([], ctx.Pipeline)
             .Should().ContainSingle().Which.Should().Contain("grep -rn 'Sample' src",
-                "a phase that finished normally hands the account every command the agent ran");
+                "a spec that finished normally hands the account every command the agent ran");
     }
 
     /// <summary>
@@ -361,7 +361,7 @@ public sealed class AgenticMasterHandlerTests
 
         var evidence = AgentSmith.Application.Services.Specs.SpecEvidence.From([], ctx.Pipeline);
         evidence.Should().HaveCount(2);
-        evidence[0].Should().Contain("grep -rn 'Sample' src", "the repair pass adds to the phase's evidence");
+        evidence[0].Should().Contain("grep -rn 'Sample' src", "the repair pass adds to the spec's evidence");
         evidence[1].Should().Contain("dotnet test");
     }
 

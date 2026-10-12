@@ -30,12 +30,12 @@ public sealed class GateOrderRuleTests
         var block = PipelinePresets.CodeSpecBlock;
         var verify = block.ToList().IndexOf(CommandNames.VerifySpec);
 
-        verify.Should().BeGreaterThan(-1, "the phase block is what splices per derived phase");
+        verify.Should().BeGreaterThan(-1, "the spec block is what splices per derived spec");
         var commitBefore = block.Take(verify).Any(CommittingSteps.Contains);
 
         commitBefore.Should().BeTrue(
-            "the phase verification reads the BRANCH (p0422), so the phase's work has to be "
-            + "on it first — otherwise a phase that delivered is accounted for as having "
+            "the spec verification reads the BRANCH (p0422), so the spec's work has to be "
+            + "on it first — otherwise a spec that delivered is accounted for as having "
             + "delivered nothing. Steps before the gate: "
             + string.Join(" -> ", block.Take(verify)));
     }

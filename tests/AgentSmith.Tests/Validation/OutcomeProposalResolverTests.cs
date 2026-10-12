@@ -225,7 +225,7 @@ public sealed class OutcomeProposalResolverTests
             children:
               - spec: p9000a
                 goal: "ok slice"
-              - spec: not-a-phase-id
+              - spec: not-a-spec-id
                 goal: "broken slice"
             ```
             """, []);

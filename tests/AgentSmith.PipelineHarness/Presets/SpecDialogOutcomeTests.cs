@@ -30,7 +30,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// terminal output into an OutcomeProposal; SpecDialogOutcomeFlow confirms it
 /// in-thread — the question renders through the platform adapter's generic
 /// approval blocks (p0058 surface) while a text reply travels the dialogue
-/// transport — and only a confirmed proposal reaches the sink. The CreatePhase_*
+/// transport — and only a confirmed proposal reaches the sink. The CreateSpec_*
 /// tests run the REAL TicketFilingOutcomeSink over a migrated SQLite session
 /// store with a recording ITicketProvider at the tracker-HTTP boundary; the
 /// resolution tests keep a recording sink at the p0315c seam.
@@ -63,7 +63,7 @@ public sealed partial class SpecDialogOutcomeTests
 
     private const string BugOutcomeReply =
         """
-        That is a one-line fix, not a phase.
+        That is a one-line fix, not a spec.
         ```outcome
         kind: bug
         title: "Add a null check to AppendTurnAsync"
@@ -73,7 +73,7 @@ public sealed partial class SpecDialogOutcomeTests
 
     private const string EpicOutcomeReply =
         """
-        This exceeds one phase — proposing an epic.
+        This exceeds one spec — proposing an epic.
         ```outcome
         kind: epic
         parent:
@@ -144,8 +144,8 @@ public sealed partial class SpecDialogOutcomeTests
         var (bridge, adapter, sink) = (new InMemoryDialogueBridge(),
             new RecordingChatAdapter { AutoAnswer = "approve" }, new RecordingOutcomeSink());
         await using var harness = BuildHarness(bridge, adapter, ReplaceSink(sink));
-        harness.ChatClient.EnqueueText($"Here is the phase draft:\n{ValidDraft}");
-        var state = Discussed("draft the widget phase now");
+        harness.ChatClient.EnqueueText($"Here is the spec draft:\n{ValidDraft}");
+        var state = Discussed("draft the widget spec now");
 
         var result = await RunTurnAsync(harness, state);
         await RunFlowAsync(harness, state, result.Outcome);
@@ -162,13 +162,13 @@ public sealed partial class SpecDialogOutcomeTests
         var (bridge, adapter, sink) =
             (new InMemoryDialogueBridge(), new RecordingChatAdapter(), new RecordingOutcomeSink());
         await using var harness = BuildHarness(bridge, adapter, ReplaceSink(sink));
-        harness.ChatClient.EnqueueText($"Here is the phase draft:\n{ValidDraft}");
+        harness.ChatClient.EnqueueText($"Here is the spec draft:\n{ValidDraft}");
 
-        var result = await RunTurnAsync(harness, Discussed("draft the widget phase now") with { Platform = "dashboard" });
+        var result = await RunTurnAsync(harness, Discussed("draft the widget spec now") with { Platform = "dashboard" });
 
         result.Outcome.Should().BeOfType<SpecOutcome>();
         result.Reply.Should().Contain("```yaml", "the transcript keeps what the master wrote");
-        result.Shown.Should().Be("Here is the phase draft:", "the dashboard pane shows the draft");
+        result.Shown.Should().Be("Here is the spec draft:", "the dashboard pane shows the draft");
     }
 
     [Fact]
@@ -201,7 +201,7 @@ public sealed partial class SpecDialogOutcomeTests
             (new InMemoryDialogueBridge(), new RecordingChatAdapter(), new RecordingOutcomeSink());
         await using var harness = BuildHarness(bridge, adapter, ReplaceSink(sink));
         harness.ChatClient.EnqueueText($"Draft:\n{ValidDraft}");
-        var state = Discussed("draft the widget phase now");
+        var state = Discussed("draft the widget spec now");
 
         var result = await RunTurnAsync(harness, state);
         var flow = RunFlowAsync(harness, state, result.Outcome);
@@ -264,7 +264,7 @@ public sealed partial class SpecDialogOutcomeTests
     public async Task CreateSpec_SpecOutcome_FilesOneRequirementAndStoresTheApprovedSet()
     {
         await using var bed = await FilingBed.BuildAsync(autoAnswer: "approve");
-        var state = await bed.OpenSessionAsync("th-phase");
+        var state = await bed.OpenSessionAsync("th-spec");
         var draft = new PhaseDraft(
             "p9999", "Add a widget endpoint to the sample service", ValidDraftYaml, []);
 

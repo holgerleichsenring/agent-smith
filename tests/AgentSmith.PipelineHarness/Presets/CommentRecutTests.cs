@@ -60,7 +60,7 @@ public sealed class CommentRecutTests
         var set = runner.LastContext!.Get<SpecSet>(ContextKeys.SpecSet);
         set.Current.Cause.Should().Be(SpecRevisionCause.Comment);
         set.Phases.Select(p => p.PhaseId).Should().Equal(HeadId, TailId);
-        set.Phases[0].Draft.Goal.Should().Be("Introduce the guard", "the executed phase is carried, not re-read from the reply");
+        set.Phases[0].Draft.Goal.Should().Be("Introduce the guard", "the executed spec is carried, not re-read from the reply");
         set.Phases[1].Draft.Goal.Should().Be("Move the existing callers onto the guard", "the tail is cut again with the comment in view");
         harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file");
         tickets.Commented.Should().ContainSingle(c => c.Comment.Contains(
@@ -119,7 +119,7 @@ public sealed class CommentRecutTests
 
     private static TicketComment OperatorObjection() => new(
         "operator", DateTimeOffset.UtcNow.AddHours(-1),
-        "The second phase is wrong: the callers should be moved onto the guard, not rewritten.");
+        "The second spec is wrong: the callers should be moved onto the guard, not rewritten.");
 
     // The pointer as the marker left it: at its own commit, the last on the spec path.
     private static Task SeedPointerAsync(RealCompositionHarness harness) =>

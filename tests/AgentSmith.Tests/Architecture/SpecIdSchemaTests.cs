@@ -30,7 +30,7 @@ public sealed class SpecIdSchemaTests
     public void Schema_DateMintedId_Validates()
     {
         SpecPattern().IsMatch(Minted).Should().BeTrue();
-        SpecPattern().IsMatch($"{Minted}-a-phase-id-can-be-minted-offline").Should().BeTrue(
+        SpecPattern().IsMatch($"{Minted}-a-spec-id-can-be-minted-offline").Should().BeTrue(
             "the fixed-width suffix marks where the id ends and the slug begins");
     }
 

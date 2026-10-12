@@ -170,8 +170,8 @@ public sealed class RunRailServedTests : IDisposable
         await ProjectAsync(
             new RunStartedEvent(RunId, "ticket", "code", ["primary"], T, "claude", "42"),
             new StepStartedEvent(
-                RunId, 0, "Validate phase spec", 3, T, "Validate phase spec", CommandNames.SpecGate),
-            new StepFinishedEvent(RunId, 0, "failed", 100, T, "Spec set carries no phase"),
+                RunId, 0, "Validate the spec", 3, T, "Validate the spec", CommandNames.SpecGate),
+            new StepFinishedEvent(RunId, 0, "failed", 100, T, "Spec set carries no spec"),
             new StepStartedEvent(
                 RunId, 1, "Hand the ticket back", 3, T, "Hand the ticket back", CommandNames.SpecHandback),
             new StepFinishedEvent(

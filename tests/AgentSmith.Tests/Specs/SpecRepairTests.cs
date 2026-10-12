@@ -88,7 +88,7 @@ public sealed class SpecRepairTests
         block.Should().Contain("REPAIR pass")
             .And.Contain("the inventory enumerates all MediatR handlers")
             .And.Contain("Close exactly these",
-                "widening the repair into the rest of the phase is scope it was not given");
+                "widening the repair into the rest of the spec is scope it was not given");
     }
 
     [Fact]

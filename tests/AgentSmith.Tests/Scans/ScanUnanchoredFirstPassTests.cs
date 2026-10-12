@@ -90,7 +90,7 @@ public sealed class ScanUnanchoredFirstPassTests
         context.Pipeline.TryGet<IReadOnlyDictionary<string, string>>(
             ContextKeys.ScanFindingOrigins, out var origins).Should().BeTrue(
             "if the unanchored pass produces nothing the anchored one would not have, "
-            + "this phase is refuted — and that can only be seen if the run says so");
+            + "this spec is refuted — and that can only be seen if the run says so");
         origins!.Values.Should().Contain(ScanMasterPasses.Unanchored)
             .And.Contain(ScanMasterPasses.Reconciliation);
     }

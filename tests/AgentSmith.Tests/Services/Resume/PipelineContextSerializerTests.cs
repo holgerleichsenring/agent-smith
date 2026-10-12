@@ -123,7 +123,7 @@ public sealed class PipelineContextSerializerTests
         var evidence = Application.Services.Specs.SpecEvidence.From([], target);
         evidence[0].Should().Contain("ran 151 commands",
             "the count of what ran is state of its own — rebuilt from the restored list it "
-            + "would come back describing the list instead of the phase");
+            + "would come back describing the list instead of the spec");
         evidence.Should().Contain(l => l.Contains("grep -rn 'Sample' src", StringComparison.Ordinal)
             && l.Contains("exited 1", StringComparison.Ordinal));
         evidence.Should().Contain(l => l.Contains("output not shown", StringComparison.Ordinal),
@@ -266,7 +266,7 @@ public sealed class PipelineContextSerializerTests
         restored.ContextName.Should().Be("server");
         restored.Workdir.Should().Be("server/");
         restored.SpecId.Should().Be("p0001",
-            "2026-09-03-3c07: a resumed phase block came back belonging to no phase");
+            "2026-09-03-3c07: a resumed spec block came back belonging to no spec");
     }
 
     /// <summary>

@@ -141,7 +141,7 @@ public sealed class RunSpecsServedTests : IDisposable
 
     /// <summary>
     /// 2026-09-17-042eh: the spec review's own artifact row, on the real engine and through
-    /// the real applier — upserted under <c>phase_review:&lt;id&gt;</c>, one row per phase,
+    /// the real applier — upserted under <c>phase_review:&lt;id&gt;</c>, one row per spec,
     /// replaced when a second review of the same spec reports.
     /// </summary>
     [Fact]
@@ -159,10 +159,10 @@ public sealed class RunSpecsServedTests : IDisposable
             .Where(a => a.RunId == RunId && a.Kind.StartsWith("phase_review:"))
             .ToList();
 
-        rows.Should().ContainSingle("a phase has one review row, replaced and never appended")
+        rows.Should().ContainSingle("a spec has one review row, replaced and never appended")
             .Which.Kind.Should().Be("phase_review:p19213a");
         rows[0].Content.Should().Be("""{"reviewed":true,"findings":[]}""",
-            "the second review of a phase replaces the first, as the record artifact does");
+            "the second review of a spec replaces the first, as the record artifact does");
     }
 
     /// <summary>The review row is its own kind, beside the record's — one spec, two artifacts,
@@ -268,10 +268,10 @@ public sealed class RunSpecsServedTests : IDisposable
         var specs = await ReadSpecsAsync();
 
         specs[1].Status.Should().Be("handed_back")
-            .And.NotBe(specs[0].Status, "a phase never built does not read like one built red");
+            .And.NotBe(specs[0].Status, "a spec never built does not read like one built red");
         new[] { "done", "in_progress", "not_started", "failed" }
             .Should().NotContain(specs[1].Status, "no existing status value may absorb it");
-        specs[1].EndedAt.Should().NotBeNull("the phase is over — terminal, not still running");
+        specs[1].EndedAt.Should().NotBeNull("the spec is over — terminal, not still running");
         specs[1].Verdict.Should().Contain("False premise");
     }
 

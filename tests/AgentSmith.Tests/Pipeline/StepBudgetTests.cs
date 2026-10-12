@@ -27,7 +27,7 @@ public sealed class StepBudgetTests
         var budget = StepBudget.ForSpecs(SpecSet.MaxSpecs);
 
         budget.Limit.Should().BeGreaterThan(StepBudget.Default,
-            "a set at the phase cap does not fit the number a sequence-less preset has");
+            "a set at the spec cap does not fit the number a sequence-less preset has");
         budget.Limit.Should().BeGreaterThan(102, "that is what today's arithmetic already needs");
         budget.Limit.Should().BeGreaterThanOrEqualTo(160, "the premise check and the review pass are coming");
         budget.Limit.Should().BeLessThan(StepBudget.AbsoluteCeiling,
@@ -45,14 +45,14 @@ public sealed class StepBudgetTests
         var budget = StepBudget.ForSpecs(1);
 
         budget.Limit.Should().BeLessThan(StepBudget.Default,
-            "a one-phase run is deliberately guarded tighter than the flat number was");
-        budget.Limit.Should().BeGreaterThan(39, "that is what one phase needs at worst");
+            "a one-spec run is deliberately guarded tighter than the flat number was");
+        budget.Limit.Should().BeGreaterThan(39, "that is what one spec needs at worst");
         StepBudget.ForSpecs(2).Limit.Should().BeLessThan(StepBudget.Default,
-            "two phases are narrowed too");
+            "two specs are narrowed too");
         StepBudget.ForSpecs(3).Limit.Should().Be(StepBudget.Default,
-            "three phases tie the old number exactly");
+            "three specs tie the old number exactly");
         StepBudget.ForSpecs(4).Limit.Should().BeGreaterThan(StepBudget.Default,
-            "four is the first phase count that gets MORE than the flat ceiling");
+            "four is the first spec count that gets MORE than the flat ceiling");
     }
 
     [Fact]

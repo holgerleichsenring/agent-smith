@@ -97,7 +97,7 @@ public sealed class PolyglotReferenceDockerTests(ITestOutputHelper output)
         run.Result.IsSuccess.Should().BeFalse(
             $"the {stage} defect must refuse the run: {run.Result.Message}");
         run.FailingCommand.Should().Contain($"{stage} '{command}' exited",
-            "the phase's failing command names the stage the repository declared, not a "
+            "the spec's failing command names the stage the repository declared, not a "
             + "stage behind it and not a generic build failure");
     }
 

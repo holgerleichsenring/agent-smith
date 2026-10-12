@@ -38,6 +38,6 @@ public sealed class AgentCommandEvidenceTests
 
         harness.Services.GetRequiredService<HarnessSpecAccountant>().CommandResultsShown
             .Should().Contain(line => line.Contains("the agent ran 'grep -rn Legacy src'"),
-                "the reader judging the phase is shown what the agent ran in it");
+                "the reader judging the spec is shown what the agent ran in it");
     }
 }

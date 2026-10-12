@@ -51,7 +51,7 @@ public sealed class SpecDraftValidatorTests
 
     [Fact]
     public void Validate_BadSpecIdPattern_IsInvalid() =>
-        _sut.Validate("```yaml\nspec: not-a-phase\ngoal: \"g\"\n```")
+        _sut.Validate("```yaml\nspec: not-a-spec\ngoal: \"g\"\n```")
             .Should().BeOfType<SpecDraftInvalid>();
 
     [Fact]

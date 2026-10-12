@@ -11,7 +11,7 @@ The pipeline's name picks the master:
 
 | Pipeline | Master |
 |---|---|
-| `code` | `coding-agent-master`, once per derived spec (each spec runs master, then `VerifyPhase`; see [Methodology](../../how-it-works/methodology.md)) |
+| `code` | `coding-agent-master`, once per derived spec (each spec runs master, then `VerifySpec`; see [Methodology](../../how-it-works/methodology.md)) |
 | `security-scan` | `security-master` |
 | `api-security-scan` | `api-security-master` |
 | `pr-review` | `pr-review-master` |

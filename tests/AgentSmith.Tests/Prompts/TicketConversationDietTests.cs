@@ -20,7 +20,7 @@ public sealed class TicketConversationDietTests
     public void OurOwnAnnouncements_AreNotFedBackAsInstruction()
     {
         var rendered = TicketConversationPromptSection.Render([
-            Comment("agent-smith", "## Agent Smith — this is how I understood the ticket\nphases…"),
+            Comment("agent-smith", "## Agent Smith — this is how I understood the ticket\nspecs…"),
             Comment("agent-smith", "<b>Agent Smith — Failed</b><br/>build red"),
             Comment("operator", "Please also cover the worker repository."),
         ]);

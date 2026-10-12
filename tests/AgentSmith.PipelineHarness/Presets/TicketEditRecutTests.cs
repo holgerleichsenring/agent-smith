@@ -59,7 +59,7 @@ public sealed class TicketEditRecutTests
         var set = runner.LastContext!.Get<SpecSet>(ContextKeys.SpecSet);
         set.Current.Cause.Should().Be(SpecRevisionCause.TicketEdit);
         set.Phases.Select(p => p.PhaseId).Should().Equal(HeadId, TailId);
-        set.Phases[0].Draft.Goal.Should().Be("Introduce the guard", "the executed phase is carried, not re-read from the reply");
+        set.Phases[0].Draft.Goal.Should().Be("Introduce the guard", "the executed spec is carried, not re-read from the reply");
         set.Phases[1].Draft.Goal.Should().Be("Move the existing callers onto the guard", "the tail is cut again from the current text");
         harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file");
         tickets.Commented.Should().ContainSingle(c => c.Comment.Contains(

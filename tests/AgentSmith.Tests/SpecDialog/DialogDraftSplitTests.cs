@@ -39,7 +39,7 @@ public sealed class DialogDraftSplitTests : IDisposable
 
     private const string Draft = "```yaml\nspec: p9999\ngoal: \"widget goal\"\n```";
     private const string ReplyWithDraft =
-        "Here is the phase.\n\n" + Draft + "\n\nApprove it when it reads right.";
+        "Here is the spec.\n\n" + Draft + "\n\nApprove it when it reads right.";
 
     private readonly SqliteConnection _connection;
     private readonly AgentSmithDbContext _context;
@@ -76,7 +76,7 @@ public sealed class DialogDraftSplitTests : IDisposable
     {
         await TurnAsync(Dashboard);
 
-        DashboardTexts().Last().Should().Be("Here is the phase.\n\nApprove it when it reads right.");
+        DashboardTexts().Last().Should().Be("Here is the spec.\n\nApprove it when it reads right.");
     }
 
     [Fact]
@@ -187,7 +187,7 @@ public sealed class DialogDraftSplitTests : IDisposable
     {
         await _sessions.OpenAsync(platform, "C1", Thread, "U1",
             new ActiveScope { Project = "sample", Repos = ["repo-a"] }, CancellationToken.None);
-        await _router.TryRouteAsync("draft the phase", "U1", "C1", Thread, platform, false, CancellationToken.None);
+        await _router.TryRouteAsync("draft the spec", "U1", "C1", Thread, platform, false, CancellationToken.None);
     }
 
     private void Replies(params (string Reply, OutcomeProposal Outcome)[] replies)

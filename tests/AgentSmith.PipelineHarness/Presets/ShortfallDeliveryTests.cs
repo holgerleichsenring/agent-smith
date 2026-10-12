@@ -36,16 +36,16 @@ public sealed class ShortfallDeliveryTests
         var pullRequests = new RecordingSourceProvider();
         await using var harness = BuildHarness(tickets, pullRequests);
         // The harness accountant cites the first file it sees for every criterion; withhold
-        // phase 2's so the phase is not found already satisfied on entry and its master runs.
+        // spec 2's so the spec is not found already satisfied on entry and its master runs.
         harness.Services.GetRequiredService<HarnessSpecAccountant>()
             .LeaveOutstanding("No caller builds its own empty-payload check.");
         harness.ChatClient
             .EnqueueText(SpecDerivationFixture.TwoSpecJson)
-            // phase 1: green, verified, accounted, recorded
+            // spec 1: green, verified, accounted, recorded
             .EnqueueText("Planning: introduce the guard.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
             .EnqueueText(GreenVerdict)
-            // phase 2: the master dies on the money fence before it does anything
+            // spec 2: the master dies on the money fence before it does anything
             .EnqueueThrow(new MasterBudgetExhaustedException(BudgetReason));
 
         var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" };
@@ -61,11 +61,11 @@ public sealed class ShortfallDeliveryTests
 
         var opened = runner.LastContext!.Get<IReadOnlyList<OpenedPullRequest>>(ContextKeys.OpenedPullRequests);
         var pr = opened.Should().ContainSingle(o => o.Status == OpenStatus.Opened).Subject;
-        pullRequests.Drafts.Should().NotContain(pr.Url!, "the delivered phase is verified: the PR is ready, not a draft");
+        pullRequests.Drafts.Should().NotContain(pr.Url!, "the delivered spec is verified: the PR is ready, not a draft");
         var bodies = runner.LastContext!.Get<IReadOnlyDictionary<string, string>>(ContextKeys.OpenedPullRequestBodies);
         bodies[pr.RepoName].Should().Contain("Not delivered")
             .And.Contain("cost budget")
-            .And.Contain("What this run accounted for", "the finished phase's account is the delivery's evidence")
+            .And.Contain("What this run accounted for", "the finished spec's account is the delivery's evidence")
             .And.NotContain("Run failed")
             .And.NotContain("DO NOT MERGE");
         finalized.Comment.Should().Contain(pr.Url!);
@@ -95,7 +95,7 @@ public sealed class ShortfallDeliveryTests
         var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" };
         var result = await runner.RunAsync("code");
 
-        result.IsSuccess.Should().BeFalse("no phase was verified, so nothing was delivered");
+        result.IsSuccess.Should().BeFalse("no spec was verified, so nothing was delivered");
         var last = tickets.Finalized.Should().ContainSingle().Subject;
         last.Status.Should().Be("failed");
         last.Comment.Should().Contain("Agent Smith — Failed");

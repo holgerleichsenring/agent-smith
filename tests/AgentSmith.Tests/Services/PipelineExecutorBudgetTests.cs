@@ -132,7 +132,7 @@ public sealed class PipelineExecutorBudgetTests
         var result = await h.Sut.ExecuteAsync(
             [Loop, CommandNames.CommitAndPR], project, pipeline, CancellationToken.None);
 
-        result.IsSuccess.Should().BeTrue("the verified phases reached the pull request");
+        result.IsSuccess.Should().BeTrue("the verified specs reached the pull request");
         result.Message.Should().Contain("Delivered 1 of 2 spec(s)").And.Contain("p0001b");
         h.LifecycleMock.Verify(l => l.MarkFailed(), Times.Never);
         ticket.Verify(t => t.FinalizeAsync(
@@ -210,7 +210,7 @@ public sealed class PipelineExecutorBudgetTests
 
         result.IsSuccess.Should().BeFalse();
         h.ExecutorMock.Verify(e => e.ExecuteAsync(looping, It.IsAny<CancellationToken>()),
-            Times.Exactly(100), "exactly the ceiling the executor had before this phase");
+            Times.Exactly(100), "exactly the ceiling the executor had before this spec");
     }
 
     [Fact]

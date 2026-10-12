@@ -133,7 +133,7 @@ public sealed class RunDeliveryGateTests
             ratifiedCriteria: 1);
 
         verdict.Satisfied.Should().BeTrue(
-            "delivery is a property of the branch, not of whether a phase ran in this run");
+            "delivery is a property of the branch, not of whether a spec ran in this run");
     }
 
     private static SpecAccount Account(string repo, params CriterionAccount[] criteria) =>

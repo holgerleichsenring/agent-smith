@@ -47,7 +47,7 @@ public sealed class ScopedContextCoverageTests
         var set = Cut(contexts: null, discardedContexts: "[]");
 
         _coverage.Gap(Named("frontend", "backend"), set).Should().BeEmpty(
-            "a reply that declares no contexts is read exactly as before this phase");
+            "a reply that declares no contexts is read exactly as before this spec");
     }
 
     [Fact]

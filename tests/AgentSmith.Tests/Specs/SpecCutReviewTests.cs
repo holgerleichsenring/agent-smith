@@ -69,7 +69,7 @@ public sealed class SpecCutReviewTests
     [Fact]
     public async Task AReviewThatCouldNotBeTaken_BlocksNothing()
     {
-        var review = await Review("I could not read the phases.");
+        var review = await Review("I could not read the specs.");
 
         review.Deliverable.Should().BeTrue(
             "a failed review is not evidence of a fault — it must not block a cut");

@@ -238,7 +238,7 @@ public sealed class SpecDialogSubAgentTests
         "[" + string.Join(",", names.Select(name =>
             "{\"name\":\"" + name + "\",\"activity\":\"read the sources\","
             + "\"task_description\":\"answer one question\",\"inherited_context\":"
-            + "{\"pipeline_goal\":\"cut the phase\",\"prior_context_slice\":\"the transcript\"}}")) + "]";
+            + "{\"pipeline_goal\":\"cut the spec\",\"prior_context_slice\":\"the transcript\"}}")) + "]";
 
     private static Task RunDesignTurnAsync(
         DesignLoopRunner loop, ISubAgentRunner? subAgents = null, LoopLimitsConfig? limits = null) =>

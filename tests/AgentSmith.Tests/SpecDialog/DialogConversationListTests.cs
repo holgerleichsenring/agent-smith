@@ -271,7 +271,7 @@ public sealed class DialogConversationListTests : IDisposable
         var store = new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance);
         await store.SetProposalAsync(Platform, "d-1", Spec(), CancellationToken.None);
         await store.SetFilingAsync(Platform, "d-1",
-            new FilingReport([new("https://tracker.test/1", "p1: the phase")], null), Spec(), CancellationToken.None);
+            new FilingReport([new("https://tracker.test/1", "p1: the spec")], null), Spec(), CancellationToken.None);
         var before = (await ListAsync()).Single().Outcome;
 
         await Flow(store).HandleAsync(state, new AnswerOutcome(), false, CancellationToken.None);
@@ -396,7 +396,7 @@ public sealed class DialogConversationListTests : IDisposable
             store, NullLogger<SpecDialogOutcomeFlow>.Instance);
     }
 
-    private static SpecOutcome Spec() => new(new PhaseDraft("p1", "the phase", "spec: p1", []));
+    private static SpecOutcome Spec() => new(new PhaseDraft("p1", "the spec", "spec: p1", []));
 
     private static EpicOutcome Epic() => new(
         new PhaseDraft("p1", "parent", "spec: p1", []),

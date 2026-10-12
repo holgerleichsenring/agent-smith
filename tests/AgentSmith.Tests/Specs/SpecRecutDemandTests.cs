@@ -22,7 +22,7 @@ public sealed class SpecRecutDemandTests
     public void RecutDemand_ThePhraseAsTheOpeningLine_IsADemand()
     {
         var demand = Foreign(
-            $"{SpecSetComment.RecutDemand}\n\nThe second phase has the wrong repository.", 1);
+            $"{SpecSetComment.RecutDemand}\n\nThe second spec has the wrong repository.", 1);
 
         SpecRecutDemand.In([OurCut(), demand], null).Should().BeSameAs(demand);
     }
@@ -131,7 +131,7 @@ public sealed class SpecRecutDemandTests
     }
 
     private static TicketComment OurCut() => new(
-        "agent-smith", Cut, $"## Agent Smith — {SpecSetComment.CutMarker}\n\nphases follow");
+        "agent-smith", Cut, $"## Agent Smith — {SpecSetComment.CutMarker}\n\nspecs follow");
 
     private static TicketComment Foreign(string body, int hoursAfterTheCut) =>
         new("sample.operator", Cut.AddHours(hoursAfterTheCut), body);

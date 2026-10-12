@@ -52,9 +52,9 @@ public sealed class DeriveSpecHandlerTests
         set.Phases.Should().ContainSingle("an unaccounted split does not split at all");
         set.TicketPinnedWhole.Should().BeTrue();
         set.Phases[0].Markdown.Should().Contain("`<Domain>ServiceClient`",
-            "the whole ticket is carried, verbatim, by the one phase");
+            "the whole ticket is carried, verbatim, by the one spec");
         events.Gates.Should().ContainSingle(g => g.Gate == "spec-accounting" && !g.Passed,
-            "an unaccounted ticket that quietly becomes one phase reads like a ticket that had one");
+            "an unaccounted ticket that quietly becomes one spec reads like a ticket that had one");
     }
 
     [Fact]

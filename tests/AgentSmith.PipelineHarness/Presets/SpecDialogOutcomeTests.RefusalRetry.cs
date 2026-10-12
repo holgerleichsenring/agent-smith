@@ -17,7 +17,7 @@ public sealed partial class SpecDialogOutcomeTests
         await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
         harness.ChatClient
             .EnqueueToolCall("read_file", $$"""{"path": "{{Repo}}/src/Router.cs"}""")
-            .EnqueueText($"Here is the phase draft:\n{ValidDraft}")
+            .EnqueueText($"Here is the spec draft:\n{ValidDraft}")
             .EnqueueText(Answer);
 
         var result = await RunTurnAsync(harness, State("update the widgets"));
@@ -28,7 +28,7 @@ public sealed partial class SpecDialogOutcomeTests
         retry.SelectMany(m => m.Contents).OfType<FunctionResultContent>()
             .Should().Contain(r => r.CallId == readCall, "the file the first pass read stays in the thread");
         string.Join("\n", retry.Select(m => m.Text)).Should()
-            .Contain("Here is the phase draft").And.Contain("proposed work before the operator had replied");
+            .Contain("Here is the spec draft").And.Contain("proposed work before the operator had replied");
         result.Reply.Should().Be(Answer);
     }
 

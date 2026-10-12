@@ -49,7 +49,7 @@ public sealed class SpecCutSurvivesReviewTests
         var (derivation, error) = await Derive(ValidCut(), Objecting);
 
         derivation.Should().NotBeNull(
-            "two phases with one objection beat one phase carrying the whole ticket");
+            "two specs with one objection beat one spec carrying the whole ticket");
         derivation!.Set.Phases.Should().HaveCount(2);
         error.Should().Contain("p19106b").And.Contain("not-in-ticket",
             "keeping the cut does not mean hiding what was found against it");

@@ -85,7 +85,7 @@ public sealed class SpecReviewAdmissionTests
         var id = look.Evidence.Remember(Read("src/Api/Untouched.cs", lines: 80));
 
         Admit(Finding(path: "src/Api/Untouched.cs", cites: id), look).Should().BeEmpty(
-            "a file this phase did not change is not this phase's to answer for");
+            "a file this spec did not change is not this spec's to answer for");
     }
 
     [Fact]
@@ -108,7 +108,7 @@ public sealed class SpecReviewAdmissionTests
         new SpecReviewAdmission(NullLogger.Instance).Admit([finding], [Diff()], look);
 
     private static SpecDiff Diff() =>
-        new(Repo, "diff --git a/" + Path + " b/" + Path, [Path], [], "the commit this phase started at");
+        new(Repo, "diff --git a/" + Path + " b/" + Path, [Path], [], "the commit this spec started at");
 
     private static PhaseFinding Finding(string? path = null, int line = 4, string? cites = "P1") =>
         new(Repo, path ?? Path, line, "files stay under 120 lines", "this one is 400", cites);

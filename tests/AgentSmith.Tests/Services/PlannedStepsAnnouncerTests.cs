@@ -33,7 +33,7 @@ public sealed class PlannedStepsAnnouncerTests
             CommandNames.FetchTicket, CommandNames.AgenticMaster, CommandNames.VerifySpec);
         steps[1].PhaseId.Should().Be("p19106a");
         steps[1].DisplayName.Should().NotStartWith("p19106a:",
-            "the phase rides in its own field, so the label does not repeat it");
+            "the spec rides in its own field, so the label does not repeat it");
     }
 
     [Fact]

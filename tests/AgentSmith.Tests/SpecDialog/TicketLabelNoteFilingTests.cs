@@ -42,7 +42,7 @@ public sealed class TicketLabelNoteFilingTests
             .And.Contain("It is a hint, not the binding",
                 "the record binds; the label is what a person scanning the board reads")
             .And.NotContain("Removing it costs",
-                "the cost the note warned of was paid by 3c7aa and this phase");
+                "the cost the note warned of was paid by 3c7aa and this spec");
     }
 
     [Fact]
@@ -109,7 +109,7 @@ public sealed class TicketLabelNoteFilingTests
     }
 
     private static PhaseDraft Draft(string id) =>
-        new(id, $"phase {id}",
+        new(id, $"spec {id}",
             $"spec: {id}\ngoal: \"phase {id}\"\ndone:\n  - \"{id} is finished\"",
             []) { Done = [$"{id} is finished"] };
 

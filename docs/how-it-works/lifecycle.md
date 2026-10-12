@@ -16,7 +16,7 @@ What happens between "ticket lands in the tracker" and "ticket gets set back to 
 
 **5. The master works one spec at a time.** For each spec in order: a fresh instance checks the premises the spec states against the code as it is now, then one agentic loop (`coding-agent-master`) does the work. One conversation, N sandboxes routed by path prefix — file tool calls dispatch by the first path segment (`todolist-api/src/Auth.cs` → the `todolist-api` sandbox). The master edits, builds and runs the repo's own tests itself; every command is visible in the run's timeline. Its work is committed to the branch as it goes.
 
-**6. Each spec is verified before the next one starts.** `VerifyPhase` runs the verify stages each repository declares in its context (build, test, lint, whatever you wrote down), then takes the [delivery account](delivery-account.md): every "done when" criterion, checked against the real branch by a reader that never saw the agent's reasoning. An outstanding criterion goes back to the master for one repair pass. After that, a fresh reviewer reads the spec's diff against it and the repository's principles; its findings get one fix pass, and a fix that doesn't verify is undone. Only then does the next spec start.
+**6. Each spec is verified before the next one starts.** `VerifySpec` runs the verify stages each repository declares in its context (build, test, lint, whatever you wrote down), then takes the [delivery account](delivery-account.md): every "done when" criterion, checked against the real branch by a reader that never saw the agent's reasoning. An outstanding criterion goes back to the master for one repair pass. After that, a fresh reviewer reads the spec's diff against it and the repository's principles; its findings get one fix pass, and a fix that doesn't verify is undone. Only then does the next spec start.
 
 **7. The PRs are finalized, the ticket gets resolved.** One PR per repo with changes, cross-linked to each other. Before anything is pushed, the staged diff is scanned for known secret patterns — a leaked key refuses the commit. The PR body carries the per-spec table, the delivery account, the review findings and any criteria the agent declined. A complete, verified run takes the PR out of draft. The ticket transitions to `done_status`, gets a comment with the PR URLs, and gets the `agent-smith:done` label.
 
@@ -24,16 +24,16 @@ What happens between "ticket lands in the tracker" and "ticket gets set back to 
 
 ```mermaid
 graph TD
-    Select["SelectPhase<br/>already satisfied? record and move on"] --> Premises[CheckPhasePremises]
+    Select["SelectSpec<br/>already satisfied? record and move on"] --> Premises[CheckSpecPremises]
     Premises -->|premise false| Handback["spec handed back<br/>(ticket comment)"]
     Premises -->|holds| Master["AgenticMaster<br/>edit · build · test"]
     Master --> Questions[MasterOpenQuestions]
     Questions -->|asked a human| Park["run parks, waiting"]
-    Questions --> Commit[CommitPhaseWork]
-    Commit --> Verify["VerifyPhase<br/>declared stages + delivery account"]
+    Questions --> Commit[CommitSpecWork]
+    Commit --> Verify["VerifySpec<br/>declared stages + delivery account"]
     Verify -->|criterion outstanding, first time| Master
-    Verify -->|green| Review[ReviewPhaseDiff]
-    Review --> Record[WritePhaseRecord]
+    Verify -->|green| Review[ReviewSpecDiff]
+    Review --> Record[WriteSpecRecord]
     Record --> Next[next spec]
 ```
 

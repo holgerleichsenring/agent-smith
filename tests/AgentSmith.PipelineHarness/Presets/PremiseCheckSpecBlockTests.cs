@@ -66,12 +66,12 @@ public sealed class PremiseCheckSpecBlockTests
 
         result.IsSuccess.Should().BeTrue();
         var asked = harness.Services.GetRequiredService<HarnessSpecPremiseChecker>().Asked;
-        asked.Should().HaveCount(2, "one call per phase, and no second pass");
+        asked.Should().HaveCount(2, "one call per spec, and no second pass");
         asked[0].Claims.Should().Contain(c => c.Contains("no request path validates an empty body"));
-        asked[0].AlreadyRan.Should().BeEmpty("the first phase of a set has no predecessor");
+        asked[0].AlreadyRan.Should().BeEmpty("the first spec of a set has no predecessor");
         asked[1].Claims.Should().Contain(c => c.Contains("three callers build their own"));
         asked[1].AlreadyRan.Should().Equal([asked[0].SpecId],
-            "phase 1's work is committed in the sandbox phase 2's premises are checked against");
+            "spec 1's work is committed in the sandbox spec 2's premises are checked against");
         asked[1].Repositories.Should().NotBeEmpty("a look it can address, or every call is refused");
     }
 
@@ -97,11 +97,11 @@ public sealed class PremiseCheckSpecBlockTests
         var runner = new PipelineRunner(harness.Services) { DoneStatus = "done", FailedStatus = "failed" };
         var result = await runner.RunAsync("code");
 
-        result.IsSuccess.Should().BeTrue("the phase that verified reached its pull request");
+        result.IsSuccess.Should().BeTrue("the spec that verified reached its pull request");
         var shortfall = Contracts.Specs.RunShortfall.DeliveredOn(runner.LastContext!);
         shortfall.Should().NotBeNull();
-        shortfall!.Delivered.Should().ContainSingle("phase 1 was built, verified and recorded");
-        shortfall.NotDelivered.Should().ContainSingle("phase 2 never spent a master token");
+        shortfall!.Delivered.Should().ContainSingle("spec 1 was built, verified and recorded");
+        shortfall.NotDelivered.Should().ContainSingle("spec 2 never spent a master token");
 
         var stopped = runner.LastContext!
             .Get<Contracts.Specs.SpecSequenceProgress>(ContextKeys.SpecSequenceProgress)

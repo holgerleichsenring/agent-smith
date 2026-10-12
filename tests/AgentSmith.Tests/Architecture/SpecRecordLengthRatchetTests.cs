@@ -43,7 +43,7 @@ public sealed class SpecRecordLengthRatchetTests
             .ToList();
 
         offenders.Should().BeEmpty(
-            $"a phase record entry is an index line, max {MaxChars} characters: what "
+            $"a spec record entry is an index line, max {MaxChars} characters: what "
             + "shipped, in what area, and the pointer into specs/done/. The reasoning "
             + "belongs in the spec the pointer names — do not add a baseline entry.\n  "
             + string.Join("\n  ", offenders));
@@ -61,7 +61,7 @@ public sealed class SpecRecordLengthRatchetTests
 
         grown.Should().BeEmpty(
             "an entry already over the cap may only get shorter. Whatever you were about "
-            + "to append belongs in its phase spec.\n  " + string.Join("\n  ", grown));
+            + "to append belongs in its spec.\n  " + string.Join("\n  ", grown));
     }
 
     [Fact]

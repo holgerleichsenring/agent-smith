@@ -85,7 +85,7 @@ public sealed class ApprovedRecordBindsTests
             SpecSetBranchState.Unreadable, TicketLabelVocabulary.Default);
 
         park!.Reason.Should().NotContain(FiledTicketLabels.ApprovedSetStamp,
-            "asserting a label this ticket does not carry is the sentence this phase removed");
+            "asserting a label this ticket does not carry is the sentence this spec removed");
         park.Reason.Should().Contain("recorded for it");
     }
 

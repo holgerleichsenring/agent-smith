@@ -39,7 +39,7 @@ public sealed class DerivedSpecCodeTests
         set.Phases.Should().ContainSingle();
         set.Source.Should().Be(SpecSource.Derived, "the ticket carried no spec of its own");
         runner.LastContext!.Get<PhaseDraft>(ContextKeys.CurrentSpec).Done
-            .Should().NotBeEmpty("the phase's done-list is the run's acceptance contract");
+            .Should().NotBeEmpty("the spec's done-list is the run's acceptance contract");
     }
 
     [Fact]
@@ -47,18 +47,18 @@ public sealed class DerivedSpecCodeTests
     {
         await using var harness = RealCompositionHarness.Build(
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
-        // p0460: phase 2 is ENTERED over a branch that already carries phase 1's work, and
+        // p0460: spec 2 is ENTERED over a branch that already carries spec 1's work, and
         // the entry account is what decides whether it is worked at all. This case is about
-        // one master pass per phase, so it says plainly that phase 2 is not yet delivered.
+        // one master pass per spec, so it says plainly that spec 2 is not yet delivered.
         harness.Services.GetRequiredService<HarnessSpecAccountant>()
             .LeaveOutstanding("No caller builds its own empty-payload check.");
         harness.ChatClient
             .EnqueueText(SpecDerivationFixture.TwoSpecJson)
-            // phase 1: plan, master, verdict
+            // spec 1: plan, master, verdict
             .EnqueueText("Planning: introduce the guard.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Guard.cs","content":"// guard"}""")
             .EnqueueText(GreenVerdict)
-            // phase 2: its own plan, its own master pass, its own verdict
+            // spec 2: its own plan, its own master pass, its own verdict
             .EnqueueText("Planning: move the callers.")
             .EnqueueToolCall("write_file", """{"path":"primary/src/Callers.cs","content":"// moved"}""")
             .EnqueueText(GreenVerdict);
@@ -69,7 +69,7 @@ public sealed class DerivedSpecCodeTests
         var progress = runner.LastContext!.Get<SpecSequenceProgress>(ContextKeys.SpecSequenceProgress);
         progress.Phases.Should().HaveCount(2);
         progress.Phases.Should().OnlyContain(p => p.State == PhaseRunState.Done,
-            "each phase ends at its own VerifySpec — that is where termination comes from");
+            "each spec ends at its own VerifySpec — that is where termination comes from");
         harness.ChatClient.ToolCalls.ShouldHaveCalledInOrder("write_file", "write_file");
     }
 

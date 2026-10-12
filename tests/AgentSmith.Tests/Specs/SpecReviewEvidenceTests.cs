@@ -13,7 +13,7 @@ public sealed class SpecReviewEvidenceTests
     [Fact]
     public void Evidence_EveryCaller_RecordsKindPathAndExit()
     {
-        var evidence = new DerivationEvidence("P", "the phase review");
+        var evidence = new DerivationEvidence("P", "the spec review");
 
         evidence.Remember(new EvidenceRecord("api", EvidenceRecord.Read, "read src/A.cs", 0, true, "src/A.cs", 40));
         evidence.Remember(new EvidenceRecord("api", EvidenceRecord.Search, "grep -E 'x' .", 1, true, "."));
@@ -31,12 +31,12 @@ public sealed class SpecReviewEvidenceTests
     [Fact]
     public void Evidence_TheMintedLine_IsUnchanged()
     {
-        var evidence = new DerivationEvidence("P", "the phase review");
+        var evidence = new DerivationEvidence("P", "the spec review");
 
         evidence.Remember(new EvidenceRecord("api", EvidenceRecord.Read, "read src/A.cs", 0, true, "src/A.cs", 40));
 
         evidence.Lines.Should().ContainSingle().Which
-            .Should().Be("[P1] api: the phase review ran 'read src/A.cs' exited 0");
+            .Should().Be("[P1] api: the spec review ran 'read src/A.cs' exited 0");
     }
 
     [Fact]

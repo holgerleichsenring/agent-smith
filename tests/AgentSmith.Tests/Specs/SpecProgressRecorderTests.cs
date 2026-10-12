@@ -30,7 +30,7 @@ public sealed class SpecProgressRecorderTests
             .Should().Be(PhaseRunState.InProgress);
         var announced = publisher.Events.OfType<PhaseStateChangedEvent>().Single();
         announced.PhaseId.Should().Be("p0001b");
-        announced.Ordinal.Should().Be(2, "the ordinal is the phase's place in the sequence");
+        announced.Ordinal.Should().Be(2, "the ordinal is the spec's place in the sequence");
         announced.Title.Should().Be("Goal of p0001b");
         announced.State.Should().Be(PhaseRunState.InProgress);
         announced.Verdict.Should().BeNull();

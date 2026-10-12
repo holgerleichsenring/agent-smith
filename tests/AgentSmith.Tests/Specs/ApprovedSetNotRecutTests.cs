@@ -23,7 +23,7 @@ public sealed class ApprovedSetNotRecutTests
     public async Task ApprovedSet_CommentOnTheTicket_IsNotRecut()
     {
         var harness = Harness(approved: true);
-        harness.Comments = [OurCut(), Operator("phase b is wrong: the callers stay where they are")];
+        harness.Comments = [OurCut(), Operator("spec b is wrong: the callers stay where they are")];
 
         var result = await harness.Handler().ExecuteAsync(harness.Context(Ticket()), default);
 
@@ -106,7 +106,7 @@ public sealed class ApprovedSetNotRecutTests
     {
         var harness = Harness(approved: true);
         harness.Tracker = harness.Notices.Tracker;
-        harness.Comments = [OurCut(), Operator("phase b is wrong")];
+        harness.Comments = [OurCut(), Operator("spec b is wrong")];
 
         await harness.Handler().ExecuteAsync(harness.Context(Ticket()), default);
 
@@ -191,7 +191,7 @@ public sealed class ApprovedSetNotRecutTests
     {
         var harness = Harness(approved: true);
         harness.Tracker = harness.Notices.Tracker;
-        var operatorComment = Operator("phase b is wrong");
+        var operatorComment = Operator("spec b is wrong");
         harness.Comments = [OurCut(), operatorComment];
 
         await harness.Handler().ExecuteAsync(harness.Context(Ticket()), default);

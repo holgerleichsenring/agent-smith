@@ -51,7 +51,7 @@ public sealed class DeriveSpecQuestionTests
         deriver.PinSeen.Should().Contain("Reading (a) is", "the pin is in place BEFORE the model runs");
         deriver.PinSeen.Should().Contain("(a) " + ReadingA).And.Contain("(b) " + ReadingB);
         published.Set!.IsHandedBack.Should().BeFalse();
-        published.Set.Phases.Should().ContainSingle("the run proceeds with real phases");
+        published.Set.Phases.Should().ContainSingle("the run proceeds with real specs");
         tickets.Verify(t => t.UpdateStatusAsync(
             It.IsAny<TicketId>(), It.Is<string>(c => c.Contains("proceeding on reading (a)")),
             It.IsAny<CancellationToken>()), Times.Once);

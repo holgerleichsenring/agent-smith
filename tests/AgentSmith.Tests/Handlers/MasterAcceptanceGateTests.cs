@@ -41,7 +41,7 @@ public sealed class MasterAcceptanceGateTests
         MasterAcceptanceGate.ObjectivelySatisfied(
             Verdict(VerificationStatus.Unknown, AcceptanceStatus.Met, AcceptanceStatus.Met),
             CriteriaOf(2), producedSourceChanges: false)
-            .Should().BeTrue("a phase that changed no source has no build for the verdict to be green about");
+            .Should().BeTrue("a spec that changed no source has no build for the verdict to be green about");
 
     [Fact]
     public void ObjectivelySatisfied_SourceChanged_SameVerdict_IsNotSatisfied() =>
@@ -49,7 +49,7 @@ public sealed class MasterAcceptanceGateTests
             Verdict(VerificationStatus.Unknown, AcceptanceStatus.Met, AcceptanceStatus.Met),
             CriteriaOf(2), producedSourceChanges: true)
             .Should().BeFalse(
-                "a phase that produced source still owes a green build — p0421 reads that from "
+                "a spec that produced source still owes a green build — p0421 reads that from "
                 + "the run's changes instead of a ships_code declaration, and an Unknown verdict "
                 + "over changed code is exactly the hollow success this gate exists for");
 

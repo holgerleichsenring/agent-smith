@@ -165,7 +165,7 @@ public sealed class RequirementTicketTests
         FiledTicketLabels.CarriesApprovedSet(
             [FiledTicketLabels.ApprovedSetStamp, "bug"], TicketLabelVocabulary.Default).Should().BeTrue();
         FiledTicketLabels.CarriesApprovedSet(["phase"], TicketLabelVocabulary.Default).Should().BeFalse(
-            "a hand-written phase ticket is not held to a set nobody approved");
+            "a hand-written spec ticket is not held to a set nobody approved");
     }
 
     private static string Render() => new SpecTicketRenderer().RenderSpec(Draft).Body;

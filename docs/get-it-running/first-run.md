@@ -119,7 +119,7 @@ In CLI mode the sandbox is in-process, so no Docker is required. The run goes th
 2. `CheckoutSource` creates the run branch, then `RunPreflight` proves the preconditions it can only check now that the branch and sandbox exist.
 3. `BootstrapCheck` and `BootstrapGate` refuse a repo without `.agentsmith/contexts/<name>/context.yaml`; run `init-project` first (see [Onboarding](../reference/setup/onboarding.md)). Then the principles, the memory index and the context are loaded.
 4. `AnalyzeCode` sweeps the repo, and `DeriveSpec` turns the ticket into one or more specs, each with a done-list. When the ticket contradicts what is in the repository, `SpecHandback` parks it with a question instead of guessing.
-5. For each spec: the coding master edits the code and runs the repo's own build and tests inside the sandbox, then `VerifyPhase` checks the result against the spec's done-list. A red verify stops the run there.
+5. For each spec: the coding master edits the code and runs the repo's own build and tests inside the sandbox, then `VerifySpec` checks the result against the spec's done-list. A red verify stops the run there.
 6. `WriteRunResult` writes the run record, and `CommitAndPR` opens the pull request.
 
 The spec is the run's acceptance contract. It drives what the master works on, what gets verified, and what the PR body says.
@@ -157,4 +157,4 @@ Server mode (Docker / k8s) always runs headless. There is no plan approval step 
 
 - Wire your tracker so tickets trigger runs automatically: [Webhooks](../trigger-it/webhooks.md), [Polling](../trigger-it/polling.md), [Labels](../trigger-it/labels.md).
 - Move from CLI to a long-lived host: [Docker Compose](../host-it/docker-compose.md), [Kubernetes](../host-it/kubernetes.md). Read [where configuration lives](../configure-it/index.md) first, because a server configures itself differently than the CLI does.
-- Read [Methodology](../how-it-works/methodology.md) if you want to know why the plan / review / verify phases exist in that order.
+- Read [Methodology](../how-it-works/methodology.md) if you want to know why the plan / review / verify steps exist in that order.

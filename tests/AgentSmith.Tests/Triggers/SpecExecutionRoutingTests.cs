@@ -144,7 +144,7 @@ public sealed class SpecExecutionRoutingTests
 
         matches.Should().BeEmpty(
             "a record is not work, and that refusal stays ahead of every other rule — including "
-            + "the one this phase added");
+            + "the one this spec added");
     }
 
     [Fact]

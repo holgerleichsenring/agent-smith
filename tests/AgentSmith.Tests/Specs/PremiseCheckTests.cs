@@ -66,7 +66,7 @@ public sealed class PremiseCheckTests
 
         var result = await h.RunAsync();
 
-        result.IsSuccess.Should().BeTrue("a premise the phase never stated cannot stop it");
+        result.IsSuccess.Should().BeTrue("a premise the spec never stated cannot stop it");
         result.Message.Should().Contain("could not be proven either way");
     }
 
@@ -101,7 +101,7 @@ public sealed class PremiseCheckTests
 
         result.IsSuccess.Should().BeTrue();
         result.Message.Should().Contain("states no premises of its own");
-        h.Provider.Turns.Should().Be(0, "a derived phase that states nothing of its own costs no call");
+        h.Provider.Turns.Should().Be(0, "a derived spec that states nothing of its own costs no call");
     }
 
     [Fact]
@@ -200,7 +200,7 @@ public sealed class PremiseCheckTests
 
         var result = await h.RunAsync();
 
-        result.IsSuccess.Should().BeFalse("it is a premise the phase states, not a criterion");
+        result.IsSuccess.Should().BeFalse("it is a premise the spec states, not a criterion");
         result.Message.Should().Contain("the outbox table has a dispatched_at column");
     }
 
@@ -232,7 +232,7 @@ public sealed class PremiseCheckTests
         result.InsertNext.Should().BeNullOrEmpty("the check reports; it never splices work");
         result.DropAhead.Should().BeNullOrEmpty();
         h.Events.Events.OfType<Contracts.Events.PhaseStateChangedEvent>().Should().BeEmpty(
-            "a phase whose premises hold keeps the standing SelectSpec gave it");
+            "a spec whose premises hold keeps the standing SelectSpec gave it");
     }
 
     [Fact]

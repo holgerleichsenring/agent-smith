@@ -24,7 +24,7 @@ public sealed class RunStatisticsFoldTests
         var view = RunStatisticsFold.Fold(Trail(), TwoSpecs);
 
         view.Totals.Calls.Should().Be(3);
-        view.TotalDurationMs.Should().Be(210_000, "the ticket lasts as long as its phases did");
+        view.TotalDurationMs.Should().Be(210_000, "the ticket lasts as long as its specs did");
         view.Phases.Should().HaveCount(2);
         view.Phases[0].PhaseId.Should().Be("p1");
         view.Phases[0].Steps.Should().Be(2);

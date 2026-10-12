@@ -72,7 +72,7 @@ public sealed class SpecSeriesIdTests
 
         deaf.Should().BeEmpty(
             "a reader that does not admit the series letter does not REFUSE a series id — "
-            + "it stops recognising it as a phase id at all, and the rules keyed on that "
+            + "it stops recognising it as a spec id at all, and the rules keyed on that "
             + "recognition go quiet.\n  " + string.Join("\n  ", deaf));
     }
 
@@ -94,10 +94,10 @@ public sealed class SpecSeriesIdTests
     [Fact]
     public void FileStem_ASlugBeginningWithAOneLetterWord_IsNotReadAsASeries()
     {
-        var file = SpecYamlFile.ForStem("2026-08-24-8a3f-a-phase-id-can-be-minted-offline");
+        var file = SpecYamlFile.ForStem("2026-08-24-8a3f-a-spec-id-can-be-minted-offline");
 
         file.SpecId.Should().Be("2026-08-24-8a3f");
-        file.Slug.Should().Be("a-phase-id-can-be-minted-offline");
+        file.Slug.Should().Be("a-spec-id-can-be-minted-offline");
     }
 
     [Fact]

@@ -113,7 +113,7 @@ public sealed class SlackTypedQuestionTests
     [Fact]
     public void SlackApproval_AShapeButton_CarriesItsLabelBackAsTheAnswer()
     {
-        const string label = "Cut into several phases";
+        const string label = "Cut into several specs";
         var question = CreateQuestion(
             QuestionType.Approval, questionId: "0123456789abcdef0123456789abcdef",
             choices: [label]);
@@ -143,7 +143,7 @@ public sealed class SlackTypedQuestionTests
     public void SlackApproval_WithShapes_SaysAPickBuysATurn()
     {
         var json = JsonSerializer.Serialize(new SlackTypedQuestionBlockBuilder()
-            .Build(CreateQuestion(QuestionType.Approval, choices: ["Cut into several phases"])));
+            .Build(CreateQuestion(QuestionType.Approval, choices: ["Cut into several specs"])));
 
         json.Should().Contain("starts a new turn and files nothing");
     }

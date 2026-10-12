@@ -25,7 +25,7 @@ There is one coding pipeline, `code`. Its shape is simple to say: the ticket bec
 
 **One master, real commands.** The `coding-agent-master` skill does the spec's work: it edits the code and runs the repo's own build and tests via real commands, visible in the run timeline.
 
-**Verification the master doesn't grade.** `VerifyPhase` runs the verify stages each repository declares, then takes the [delivery account](delivery-account.md): every criterion checked against the real branch, with citations that have to resolve, by a reader that never saw the master's reasoning. An outstanding criterion earns one repair pass. The run's verdict comes from these per-spec accounts and from nothing else.
+**Verification the master doesn't grade.** `VerifySpec` runs the verify stages each repository declares, then takes the [delivery account](delivery-account.md): every criterion checked against the real branch, with citations that have to resolve, by a reader that never saw the master's reasoning. An outstanding criterion earns one repair pass. The run's verdict comes from these per-spec accounts and from nothing else.
 
 **A review after green.** A fresh reviewer reads the spec's diff against it and the repository's principles. Its findings get one fix pass; a fix that doesn't verify is undone, and what the review still finds goes into the spec record, the `phase_review` artifact and the PR. The review never fails a spec that verified.
 

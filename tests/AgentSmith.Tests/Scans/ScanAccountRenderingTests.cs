@@ -45,7 +45,7 @@ public sealed class ScanAccountRenderingTests
     }
 
     [Fact]
-    public void RunAccount_ForAPhase_KeepsThePhaseWording()
+    public void RunAccount_ForASpec_KeepsTheSpecWording()
     {
         var pipeline = new PipelineContext();
         RunAccountLedger.Record(pipeline,

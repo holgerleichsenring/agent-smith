@@ -4,7 +4,7 @@ namespace AgentSmith.Domain.Models;
 /// p0421: every spec's account of itself, in the order the specs ran.
 /// <para>
 /// A run delivers when each of its specs does. One spec's accounts overwriting the
-/// last would make a three-phase run answerable by its final phase alone — which is the
+/// last would make a three-spec run answerable by its final spec alone — which is the
 /// same mistake as judging the branch by the last commit.
 /// </para>
 /// </summary>

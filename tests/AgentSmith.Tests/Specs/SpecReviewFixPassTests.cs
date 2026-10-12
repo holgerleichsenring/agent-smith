@@ -32,7 +32,7 @@ public sealed class SpecReviewFixPassTests
             CommandNames.AgenticMaster, CommandNames.MasterOpenQuestions,
             CommandNames.CommitSpecWork, CommandNames.VerifySpec, CommandNames.ReviewSpecDiff);
         decision.Steps.Should().OnlyContain(c => c.SpecId == SpecId,
-            "a repeated step belongs to the phase it repeats");
+            "a repeated step belongs to the spec it repeats");
     }
 
     [Fact]
@@ -100,7 +100,7 @@ public sealed class SpecReviewFixPassTests
             pipeline, CommandResult.Fail("Verification failed: api build exited 1"),
             CancellationToken.None);
 
-        result!.IsSuccess.Should().BeTrue("a verified phase is not failed by a fix that was not kept");
+        result!.IsSuccess.Should().BeTrue("a verified spec is not failed by a fix that was not kept");
         RunDeliveryGate.Evaluate(RunAccountLedger.Current(pipeline), 1).Satisfied.Should().BeTrue();
         SpecReviewLedger.ForThisSpec(pipeline).Findings.Should().OnlyContain(
             f => f.Reverted!.StartsWith("fix pass reverted", StringComparison.Ordinal));
@@ -115,7 +115,7 @@ public sealed class SpecReviewFixPassTests
         // and is exactly the case a build-only reading of "red" would have let through.
         var result = await TestSpecReview.Revert().TryRevertAsync(
             pipeline,
-            CommandResult.Fail("1 criterion(s) of the ratified phase are not satisfied by the branch"),
+            CommandResult.Fail("1 criterion(s) of the ratified spec are not satisfied by the branch"),
             CancellationToken.None);
 
         result!.IsSuccess.Should().BeTrue();
@@ -171,7 +171,7 @@ public sealed class SpecReviewFixPassTests
 
         result!.IsSuccess.Should().BeFalse(
             "a fix pass ran in SOME tree; 'reverted' over a map that no longer resolves would "
-            + "record the phase done over work nobody brought back");
+            + "record the spec done over work nobody brought back");
         result.Message.Should().Contain("no sandbox could be resolved");
     }
 
@@ -200,7 +200,7 @@ public sealed class SpecReviewFixPassTests
         var reverted = await TestSpecReview.Revert().TryRevertAsync(
             Verified(), CommandResult.Fail("Verification failed"), CancellationToken.None);
 
-        reverted.Should().BeNull("an ordinary red verification is still a verdict on the phase");
+        reverted.Should().BeNull("an ordinary red verification is still a verdict on the spec");
     }
 
     [Fact]
@@ -217,7 +217,7 @@ public sealed class SpecReviewFixPassTests
         pipeline.TryGet<IReadOnlyList<SpecAccount>>(ContextKeys.SpecAccountsSnapshot, out _)
             .Should().BeFalse();
         SpecReviewLedger.Current(pipeline).AllFindings.Should().ContainSingle(
-            "the RUN ledger is what the pull request reads — only the per-phase key clears");
+            "the RUN ledger is what the pull request reads — only the per-spec key clears");
     }
 
     [Fact]
@@ -251,7 +251,7 @@ public sealed class SpecReviewFixPassTests
             block.IndexOf(CommandNames.VerifySpec), "the review reads VERIFIED work");
         block.IndexOf(CommandNames.ReviewSpecDiff).Should().BeLessThan(
             block.IndexOf(CommandNames.WriteSpecRecord),
-            "the record states what came of the phase, findings included");
+            "the record states what came of the spec, findings included");
     }
 
     private static PhaseReviewReport Found() => PhaseReviewReport.Taken([Finding()]);

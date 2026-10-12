@@ -53,7 +53,7 @@ public sealed class OneDeliveryGateRuleTests
 
         parameters.Should().Equal([typeof(RunAccounts), typeof(int)],
             "what a run delivered is answered by its accounts, plus how many criteria were "
-            + "ratified so silence is a gap rather than a pass — a preset name, a phase-kind "
+            + "ratified so silence is a gap rather than a pass — a preset name, a spec-kind "
             + "flag, a master's self-report and a staged-file map are all things it used to need");
     }
 }

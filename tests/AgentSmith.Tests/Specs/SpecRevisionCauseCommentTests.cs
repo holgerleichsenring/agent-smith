@@ -78,7 +78,7 @@ public sealed class SpecRevisionCauseCommentTests
         new("agent-smith", at, SpecSetComment.Render(Previous().Set, null));
 
     private static TicketComment Operator(DateTimeOffset at) =>
-        new("operator", at, "phase b is wrong: the callers stay where they are");
+        new("operator", at, "spec b is wrong: the callers stay where they are");
 
     private static Ticket Ticket(string description) =>
         new(new TicketId("1"), "Token refresh drops the session", description, null, "open", "azdo", []);

@@ -45,7 +45,7 @@ public sealed class MasterQuestionResumeTests
         result.InsertNext[1].Name.Should().Be(CommandNames.MasterOpenQuestions,
             "a second question of the re-engaged master must park the same way");
         result.InsertNext.Should().OnlyContain(c => c.SpecId == "p0001",
-            "the re-engaged master belongs to the phase whose question it answers");
+            "the re-engaged master belongs to the spec whose question it answers");
         writer.Questions.Should().BeEmpty("an answered question is not checkpointed again");
         poster.Posted.Should().Be(0, "an answered question is not re-posted to the ticket");
     }
@@ -62,7 +62,7 @@ public sealed class MasterQuestionResumeTests
 
         context.Pipeline.Get<Dictionary<string, string>>(ContextKeys.PlanAnswers)
             .Should().ContainKey("1").WhoseValue.Should().Be("15 minutes (the session must survive one refresh)",
-                "the phase prompt renders PlanAnswers as the operator's answers — the seam that already exists");
+                "the spec prompt renders PlanAnswers as the operator's answers — the seam that already exists");
         context.Pipeline.Has(ContextKeys.MasterOpenQuestions).Should().BeFalse("the question is answered");
         context.Pipeline.Has(ContextKeys.OpenQuestionsAwaitingAnswer).Should().BeFalse("the run is no longer parked");
         context.Pipeline.Has(ContextKeys.ResumedDialogueAnswer).Should().BeFalse("the answer is consumed exactly once");

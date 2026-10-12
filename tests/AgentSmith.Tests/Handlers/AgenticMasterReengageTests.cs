@@ -36,7 +36,7 @@ public sealed class AgenticMasterReengageTests
 
     // p0421: a spec "ships code" because it CHANGED something, not because it declared it.
     private static readonly IReadOnlyList<CodeChange> SourceChanged =
-        [new CodeChange(new FilePath("src/Api/Program.cs"), "modified", "the phase edited it")];
+        [new CodeChange(new FilePath("src/Api/Program.cs"), "modified", "the spec edited it")];
 
     [Fact]
     public void ShouldReengage_GreenVerdictWithOpenLedgerItems_DoesNotReengage()
@@ -191,7 +191,7 @@ public sealed class AgenticMasterReengageTests
             "code", Ledger(ProgressStatus.Done, ProgressStatus.Done), verdict,
             budgetExhausted: false, criteria, SourceChanged, reengagePass: 1, verdictDemandedInPass: false)
             .Should().BeTrue(
-                "a phase that CHANGED source still owes a green build — p0421 reads that "
+                "a spec that CHANGED source still owes a green build — p0421 reads that "
                 + "from the run's changes instead of a ships_code declaration");
     }
 

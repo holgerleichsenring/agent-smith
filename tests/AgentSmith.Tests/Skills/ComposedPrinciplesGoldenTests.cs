@@ -118,7 +118,7 @@ public sealed class ComposedPrinciplesGoldenTests : IDisposable
         format.Should().Contain("## Writing artefacts",
             "the absence check below proves nothing against a document that lost its rules");
         format.Should().NotContain("editor configuration",
-            "the example list licensed the exact file this phase removed");
+            "the example list licensed the exact file this spec removed");
         format.Should().NotContain("build property file",
             "a build property file is the one artefact kind that cannot arrive green");
         format.Should().NotContain("ruleset",

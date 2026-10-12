@@ -504,7 +504,7 @@ export interface PhaseStateChangedEvent extends RunEventBase {
 }
 
 /**
- * p0466: the spec as it actually executed, as WritePhaseRecord wrote it into
+ * p0466: the spec as it actually executed, as WriteSpecRecord wrote it into
  * the working tree. The server keeps a copy so a finished spec can be opened
  * after the branch is merged and the sandbox is gone.
  */

@@ -59,7 +59,7 @@ differ only by a trailing lowercase letter — `2026-08-24-8a3fa`, `2026-08-24-8
 not. Three rules keep that readable:
 
 - **The letter is appended, never dashed.** A slug may legitimately begin with a
-  one-letter word (`2026-08-24-8a3f-a-phase-id-can-be-minted-offline` is the example
+  one-letter word (`2026-08-24-8a3f-a-spec-id-can-be-minted-offline` is the example
   `SpecSeriesIdTests` pins), so in a dashed form nothing could tell a series letter from
   the first word of a label. Appended, position decides: four hex digits, then either a
   dash or the letter.

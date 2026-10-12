@@ -1,0 +1,95 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-967ag
+
+decisions:
+  - category: Architecture
+    chose: "One tokenizer for every file, a token allowlist with a reach, and counted file rows for the tokens that cannot tell their meanings apart"
+    over: "Exact tokens for identifiers and literals plus a separate per-file list for comments and prose"
+    reason: |
+      A token is a run of letters, digits, underscores and hyphens containing phase, read from the
+      file's path and its text alike, so identifiers, file names, literals, test ids and prose are
+      judged by one rule. spec-word-allowlist.tsv gives every token a category and a reason. A token
+      that carries its meaning (SkillExecutionPhase, phase_review, PHASE_GATE_LOG, a G2 test name)
+      may stand anywhere. A token that cannot tell its meanings apart is "listed": the bare words
+      phase/phases/Phase/Phases/PHASE, PhaseId/phaseId (the spec id under its stored name, the
+      first thing a relapse writes), phase_id and per-phase. A listed token may stand only in the
+      files spec-word-files.tsv names, at most as often as it says. The spec's own split (tokens for
+      code, a file list for prose) needs a lexer that knows comments in C#, TS, Python, shell, YAML
+      and Markdown, and still cannot judge the bare word inside a string literal; the counted file
+      rows cover prose and code the same way, and stop a listed file gaining a new "this phase".
+    alternatives:
+      - "Comment-aware lexing per language — five lexers for a distinction the counted rows already make."
+      - "A global allowlist of PhaseId — the fixture that writes PhaseId would pass, which is the done criterion's red case."
+
+  - category: Implementation
+    chose: "The scope is what git lists — tracked and untracked, never ignored — filtered by path"
+    over: "Walking the filesystem with .gitignore patterns copied into the test"
+    reason: |
+      The shared checkout holds ignored operator files (local configs, build output, .next, TestResults)
+      that a copied pattern list misses the day a new one appears, and an ignored config may well say
+      work_item_kinds.phase. git ls-files --cached --others --exclude-standard is exact, and still reads
+      a file written a minute ago before it is staged. Starting git puts the class in
+      ExternalProcessCollection with the serial TestProcess trait, as SpecIndexLineTests does.
+      In scope: src (backend and dashboard), tests, docs, website/src, config, deploy, tools, hooks,
+      .github, .claude, CLAUDE.md, README.md, WORKER-MODE.md, DESIGN.md, the .agentsmith schemas,
+      principles, memory, security and top-level files. Out, as history: .agentsmith/specs, decisions,
+      notes and runs, every context.yaml (the record index), docs/reference/run-logs, CHANGELOG*,
+      EF Migrations folders, and the guard's own sources and data, which name every token they judge.
+
+  - category: Implementation
+    chose: "Both lists only shrink: a token that occurs nowhere and a file row whose token left the file fail as stale; a count may drop without the row being rewritten"
+    over: "Exact counts that must be rewritten on every drop"
+    reason: |
+      The stale check is what makes 967ab and 967ah delete rows instead of leaving them. A count above
+      the row fails (a listed file may not gain the word); a count below it is tolerated, the
+      FileLengthRatchetTests convention, so a meaning-preserving edit elsewhere in a file does not
+      force a data edit.
+
+  - category: Scope
+    chose: "Allowlist at installation: 177 tokens — G2 74, STORED-967ab 58, ALIAS-967ah 17, HISTORY 16, LABEL 7, MIXED 5 — and 592 counted file rows for the 10 listed tokens"
+    reason: |
+      Listed tokens: phase 178 files, PhaseId 155, Phases 121, phases 48, Phase 47, phaseId 27,
+      per-phase 8, phase_id 4, PHASE 2, Per-phase 2. MIXED is the bare word, whose meaning the file
+      decides; the per-file rows carry no category because one file often holds two meanings
+      (FiledTicketLabels: the label word and a stored member), and a category guessed per row would
+      be wrong as often as right. STORED-967ab rows are the names on 967aa's reachability list
+      (stored types, EventType names, command-name and context-key values, artifact prefixes, served
+      members); ALIAS-967ah are the dual readers, MaxPhases, phase_id, the phase-gate.sh forwarder and
+      PHASE_GATE_*; LABEL the tracker words read for good; HISTORY migration names, memory slugs, the
+      e9a2 label, rename notes, and phase-execution (a retired pipeline name the server rewrites).
+
+  - category: Implementation
+    chose: "Leftovers fixed: test assertion messages, comments and fixture prose that meant the spec"
+    reason: |
+      967ac and 967ad rewrote src/backend; the test sources kept "phase" in because-messages, comments
+      and scripted model/user text. A pass that rewrote only comments and string literals (lexer-scoped,
+      skipping exact literals, JSON and YAML keys, and lines naming a label, a kind, the phase word or a
+      G2 stage), then a review of every hunk, changed 133 test files; reverted where the text quotes
+      history (CodingPromptHeadingsTests' "## Phase 2 of 3"), names the retired phase: key
+      (DecisionFileKeyTests, SpecDraftReaderSpecKeyTests) or a label value (TicketProviderCreateTests).
+      Fixed by hand: fixtures that reproduced old product strings now say what the product writes
+      ("Validate the spec", "Spec set carries no spec", "Spec p19106a validated: goal", and
+      TicketLabelNoteDownstreamTests' filter "binds this ticket to spec execution", which had stopped
+      matching anything), RunAccount_ForASpec_KeepsTheSpecWording, the spec-gate hook comment in
+      DataRepositoryAnalyzerEvalTests, the example slug a-spec-id-can-be-minted-offline (CLAUDE.md and
+      the two tests citing it; no file carries it). src: RunAccounts, SpecDiffText and FilesystemToolHost
+      comments meant the spec; LogDecisionToolHost "phase-gated" and PathWriteGuard "phase-gating" were
+      the execution stage and now say so without a token that reads like the gate. Dashboard comments
+      named WritePhaseRecord and RunStepsReader.PhaseQualifiedRegex, which 967ac renamed.
+
+  - category: Scope
+    chose: "Docs name the spec-block steps by their CommandNames identifiers: SpecGate, SpecSequence, SelectSpec, CheckSpecPremises, CommitSpecWork, VerifySpec, ReviewSpecDiff, WriteSpecRecord"
+    over: "967af's choice to keep the command values (VerifyPhase, PhaseSequence, ...)"
+    reason: |
+      967ad changed the display labels a run shows ("Build and test", "Plan the spec sequence"), so the
+      old value names no longer match anything an operator sees; the identifiers are what the handler
+      classes and every other step row in those pages (AgenticMaster, MasterOpenQuestions) are named
+      by. The values still change in 967ab. Pages: lifecycle, methodology, delivery-account, first-run,
+      multi-agent-orchestration, pipeline-system, pipelines/index, pipelines/fix-and-feature.
+
+  - category: Scope
+    chose: "The skills repository's own check is not part of this slice"
+    reason: |
+      The spec's scope names the same check in the skills repo's CI. That is a change in another
+      repository with its own release and pin; this slice touches agent-smith only. It needs a spec of
+      its own in agent-smith-skills, which has not been minted.

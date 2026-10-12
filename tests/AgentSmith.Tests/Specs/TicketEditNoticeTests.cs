@@ -68,7 +68,7 @@ public sealed class TicketEditNoticeTests
 
         index.FingerprintOf(index.Parse(index.Serialize(stamped))!).Should().Be("abc123");
         index.Serialize(unstamped).Should().NotContain("ticket_fingerprint",
-            "a set without a fingerprint serializes exactly as before this phase");
+            "a set without a fingerprint serializes exactly as before this spec");
         index.FingerprintOf(index.Parse(index.Serialize(unstamped))!).Should().BeNull();
     }
 

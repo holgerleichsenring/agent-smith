@@ -149,7 +149,7 @@ new DashboardOutcomeChannel(
                 "q1", "split it into two slices", null, DateTimeOffset.UtcNow, "U1"));
 
         await _router.TryRouteAsync("/spec", "U1", Channel, "th-edit", Platform, false, CancellationToken.None);
-        await _router.TryRouteAsync("draft the phase", "U1", Channel, "th-edit", Platform, false, CancellationToken.None);
+        await _router.TryRouteAsync("draft the spec", "U1", Channel, "th-edit", Platform, false, CancellationToken.None);
 
         _turnRunner.Verify(r =>
                 r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()),
@@ -214,7 +214,7 @@ new DashboardOutcomeChannel(
         await _router.TryRouteAsync("/spec", "U1", Channel, "th-note", Platform, false, CancellationToken.None);
         var sessionId = (await _sessions.GetOpenByThreadAsync(Platform, "th-note", CancellationToken.None))!.JobId;
         var proposing = Task.Run(() => _router.TryRouteAsync(
-            "draft the phase", "U1", Channel, "th-note", Platform, false, CancellationToken.None));
+            "draft the spec", "U1", Channel, "th-note", Platform, false, CancellationToken.None));
         await TestWaits.UntilAsync(
             () => _pendingQuestions.TryPeek(sessionId, out _), "the proposal reaches the approval gate");
 
@@ -235,7 +235,7 @@ new DashboardOutcomeChannel(
     [Fact]
     public async Task Router_AShapePickedByButton_ReRunsOverATranscriptEndingInThatShape()
     {
-        const string shape = "Cut into several phases";
+        const string shape = "Cut into several specs";
         var draft = new PhaseDraft("p9999", "widget goal", "spec: p9999\ngoal: \"widget goal\"", []);
         ConversationState? reRun = null;
         var turns = 0;
@@ -257,7 +257,7 @@ new DashboardOutcomeChannel(
                 "q1", shape, null, DateTimeOffset.UtcNow, "U1"));
 
         await _router.TryRouteAsync("/spec", "U1", Channel, "th-shape", Platform, false, CancellationToken.None);
-        await _router.TryRouteAsync("draft the phase", "U1", Channel, "th-shape", Platform, false, CancellationToken.None);
+        await _router.TryRouteAsync("draft the spec", "U1", Channel, "th-shape", Platform, false, CancellationToken.None);
 
         reRun.Should().NotBeNull("the picked shape is an edit note, so the turn runs again");
         reRun!.Transcript[^1].Should().Match<TranscriptTurn>(
@@ -297,7 +297,7 @@ new DashboardOutcomeChannel(
         await _router.TryRouteAsync("/spec", "U1", Channel, "th-typed", Platform, false, CancellationToken.None);
         var sessionId = (await _sessions.GetOpenByThreadAsync(Platform, "th-typed", CancellationToken.None))!.JobId;
         var proposing = Task.Run(() => _router.TryRouteAsync(
-            "draft the phase", "U1", Channel, "th-typed", Platform, false, CancellationToken.None));
+            "draft the spec", "U1", Channel, "th-typed", Platform, false, CancellationToken.None));
         await TestWaits.UntilAsync(
             () => _pendingQuestions.TryPeek(sessionId, out _),
             "the proposal reaches the approval gate");

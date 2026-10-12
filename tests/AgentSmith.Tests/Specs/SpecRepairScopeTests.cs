@@ -27,15 +27,15 @@ public sealed class SpecRepairScopeTests
     public void EnteringASpec_LeavesNoRepairStateFromTheLastOne()
     {
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.OutstandingCriteria, new List<string> { "phase b's criterion" });
+        pipeline.Set(ContextKeys.OutstandingCriteria, new List<string> { "spec b's criterion" });
         pipeline.Set(ContextKeys.SpecRepairAttempted, true);
 
         SpecRepairScope.Reset(pipeline);
 
         pipeline.TryGet<List<string>>(ContextKeys.OutstandingCriteria, out _).Should().BeFalse(
-            "a fresh phase is not repairing anything yet");
+            "a fresh spec is not repairing anything yet");
         pipeline.TryGet<bool>(ContextKeys.SpecRepairAttempted, out _).Should().BeFalse(
-            "each phase gets its own single repair, not the remains of the last one's");
+            "each spec gets its own single repair, not the remains of the last one's");
     }
 
     /// <summary>The block is what the master reads; with the state gone it says nothing.</summary>
@@ -43,7 +43,7 @@ public sealed class SpecRepairScopeTests
     public void AFreshSpec_IsToldNothingAboutAnEarlierRepair()
     {
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.OutstandingCriteria, new List<string> { "phase b's criterion" });
+        pipeline.Set(ContextKeys.OutstandingCriteria, new List<string> { "spec b's criterion" });
         SpecExecutionPromptBlocks.OutstandingCriteria(pipeline).Should().Contain("REPAIR pass");
 
         SpecRepairScope.Reset(pipeline);

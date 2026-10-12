@@ -23,10 +23,10 @@ public sealed partial class SpecDialogOutcomeTests
         await using var harness = BuildHarness(new InMemoryDialogueBridge(), new RecordingChatAdapter());
         var reviewer = Reviewer(harness).Finds(new CutFinding(
             "p9999", "GET /widget returns the widget", "contradiction",
-            "the phase also forbids touching the service"));
-        harness.ChatClient.EnqueueText($"Here is the phase draft:\n{ValidDraft}");
+            "the spec also forbids touching the service"));
+        harness.ChatClient.EnqueueText($"Here is the spec draft:\n{ValidDraft}");
 
-        var result = await RunTurnAsync(harness, Discussed("draft the widget phase now"));
+        var result = await RunTurnAsync(harness, Discussed("draft the widget spec now"));
 
         var asked = reviewer.Asked.Should().ContainSingle().Subject;
         asked.Drafts.Should().ContainSingle().Which.PhaseId.Should().Be("p9999");
@@ -34,9 +34,9 @@ public sealed partial class SpecDialogOutcomeTests
         asked.Repositories.Should().Equal([Repo], "the review reads the turn's own repositories");
         var finding = result.Outcome.Should().BeOfType<SpecOutcome>()
             .Which.Findings.Should().ContainSingle().Subject;
-        finding.Why.Should().Be("the phase also forbids touching the service");
+        finding.Why.Should().Be("the spec also forbids touching the service");
         finding.Quote.Should().Be("GET /widget returns the widget");
-        finding.Evidence.Should().BeNull("a contradiction quotes the phase; it cites no look");
+        finding.Evidence.Should().BeNull("a contradiction quotes the spec; it cites no look");
         harness.ChatClient.InvocationCount.Should().Be(1, "the review is not drawn from the master's script");
     }
 
@@ -93,10 +93,10 @@ public sealed partial class SpecDialogOutcomeTests
             new AgentSmith.Contracts.Commands.PipelineContext());
 
         var asked = await reviewer.ReviewAsync(
-            [new PhaseDraft("p9999", "the widget phase", "spec: p9999", [])], "k", null, null,
+            [new PhaseDraft("p9999", "the widget spec", "spec: p9999", [])], "k", null, null,
             new AgentSmith.Contracts.Models.Configuration.AgentConfig(), tracker, CancellationToken.None);
         var other = await reviewer.ReviewAsync(
-            [new PhaseDraft("p8888", "another phase", "spec: p8888", [])], "k", null, null,
+            [new PhaseDraft("p8888", "another spec", "spec: p8888", [])], "k", null, null,
             new AgentSmith.Contracts.Models.Configuration.AgentConfig(), tracker, CancellationToken.None);
 
         asked.Findings.Should().ContainSingle().Which.SpecId.Should().Be("p9999");
@@ -115,9 +115,9 @@ public sealed partial class SpecDialogOutcomeTests
         harness.StubSandboxFactory!.MissingPaths.UnionWith(["src/Gone.cs", $"{Repo}/src/Gone.cs"]);
         harness.ChatClient
             .EnqueueToolCall("read_file", $$"""{"path": "{{Repo}}/src/Router.cs"}""")
-            .EnqueueText($"Here is the phase draft:\n{CitingDraft}");
+            .EnqueueText($"Here is the spec draft:\n{CitingDraft}");
 
-        var result = await RunTurnAsync(harness, Discussed("draft the widget phase now"));
+        var result = await RunTurnAsync(harness, Discussed("draft the widget spec now"));
 
         var finding = result.Outcome.Should().BeOfType<SpecOutcome>()
             .Which.Findings.Should().ContainSingle().Subject;

@@ -76,7 +76,7 @@ public sealed class ReviewSpecDiffHandlerTests
 
         var result = await Handler(factory).ExecuteAsync(Context(pipeline), CancellationToken.None);
 
-        result.IsSuccess.Should().BeTrue("a review that could not be taken never fails a phase");
+        result.IsSuccess.Should().BeTrue("a review that could not be taken never fails a spec");
         var report = SpecReviewLedger.ForThisSpec(pipeline);
         report.Reviewed.Should().BeFalse(
             "a call that failed and a call that objected to nothing are not the same answer");
@@ -201,7 +201,7 @@ public sealed class ReviewSpecDiffHandlerTests
             ContextKeys.SandboxDiscoveries, new Dictionary<string, RemoteContextDiscovery>());
         pipeline.Set<IReadOnlyDictionary<string, string>>(
             ContextKeys.SpecStartHeads,
-            new Dictionary<string, string>(StringComparer.Ordinal) { [Key] = "phase-start-sha" });
+            new Dictionary<string, string>(StringComparer.Ordinal) { [Key] = "spec-start-sha" });
         pipeline.Set<IReadOnlyDictionary<string, string>>(
             ContextKeys.VerifiedHeads,
             new Dictionary<string, string>(StringComparer.Ordinal) { [Key] = "verified-sha" });
