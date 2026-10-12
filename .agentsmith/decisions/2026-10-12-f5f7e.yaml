@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-f5f7e
+
+decisions:
+  - category: Architecture
+    chose: "ISpecPullRequestOpener.OpenAsync(pipeline, placement, scope) opens find-or-create a draft PR per placement member over that member's sub-series (SpecSet.OfRepository); a member whose sub-series holds no spec only finds one; a repository the scope read that the set no longer names is found only and recorded without an outcome event"
+    over: "One PR in the carrying repository (f5f7d's interim), or a second opener type beside the old one"
+    reason: |
+      The placement already names every series repository in series order, so the opener needs no rule
+      of its own. Keeping 'find only' for a member without specs preserves f5f7d's 'a set without specs
+      opens no new PR' per repository. A dropped repository's PR is listed in the ticket comment but is no
+      work of this run, so it gets no 'opened' outcome. SpecSetPublisher changes by one line.
+  - category: Architecture
+    chose: "ContextKeys.SpecPullRequestUrls holds a concrete Dictionary<string,string>; SpecPullRequests.Of reads it, else the legacy SpecPullRequestUrl as {SpecRepo: url}; SpecPullRequests.Record copies and adds; the legacy key is no longer written"
+    over: "Writing both keys, or an IReadOnlyDictionary value"
+    reason: "One source of truth; a concrete Dictionary round-trips through the checkpoint serializer by its type name, and a checkpoint written before this phase still resumes onto its spec PR (Resume_* tests)."
+  - category: Architecture
+    chose: "FailedRunSpecPullRequest renamed SpecOnlyPullRequests: on every run, each series repository (SpecSet.SeriesRepos; every map entry when the set carries none) whose outcome is SkippedNoChanges and that has a spec PR becomes Opened with it, is published, gets the run's body (CodePullRequestBody, sibling marker included) and is marked ready only when the run is (!isDraft && !failed)"
+    over: "Keeping the failed-run-only keeper and adding a second one for green runs"
+    reason: "Green and failed runs differ only in banner and readiness, which CommitAndPR already computes; the name had to change because the class no longer serves failed runs only. A repository with code is untouched — its spec PR is its code PR, found by OpenOneAsync."
+  - category: Implementation
+    chose: "CommitAndPRHandler: the banner choice became a private Banner(failureReason, shortfall, isDraft) used for code PRs and kept spec PRs; isDraft hoisted"
+    over: "Duplicating the banner switch"
+    reason: "The handler sits at a 436-line baseline; it is now 428."
+  - category: Implementation
+    chose: "SpecPrBody.SiblingMarker is the one definition; BuildInitial ends with it; CodePullRequestBody and PrCrossLinkHandler use it"
+    over: "A third private copy of the marker string"
+    reason: "The cross-link replaces exactly that string, so the spec PR body must carry the same one from its first write — parked runs included. InitCommitHandler keeps its own copy (out of scope)."
+  - category: Implementation
+    chose: "SpecSetComment.Render and SpecHandbackComment.Build take the URL map; SpecPullRequestLines renders one URL as the old sentence and several as a list by repository, a repository outside SeriesRepos listed as dropped and still open"
+    over: "Passing only the first URL"
+    reason: "The ticket author must see every repository's PR, and a dropped repository's open PR is left to people to close (scope out), so the comment names it."
+  - category: Implementation
+    chose: "MaterializeReferenceSets carries into the repository of the earliest spec of the placed set on the run, else the record's CarryingRepo, else the run's only repository; a named repository without a sandbox, or several repositories and none named, fails naming why"
+    over: "Falling back to the first sandbox"
+    reason: "Addresses stay run-unique because the sets are carried once; the master reads every sandbox by repository prefix. The run's only repository is not a positional pick (f5f7d's LegacyOf reasoning)."
+  - category: Scope
+    chose: "The done criterion's RealCompositionHarness test (SeriesSpecPullRequestsTests) runs a series over sample-server and sample-client that fails before any phase, with a per-repository PR provider; both spec-only PRs are opened and cross-linked, the worker gets none"
+    over: "A green two-repository run"
+    reason: "Deviation: a green multi-repository harness run needs a scripted master per phase and repository; the failed run exercises the same keep path (SpecOnlyPullRequests) through the real composition and the finalizer tail's PrCrossLink. The green path is pinned by CommitAndPR_GreenRunSpecOnlyRepo_KeepsSpecPrOpened."
+  - category: Implementation
+    chose: "The SpecPullRequestUrl/SpecPullRequestUrls keys moved to ContextKeys.SpecPullRequests.cs"
+    over: "Growing ContextKeys.Spec.cs"
+    reason: "That file would have passed the 120-line limit."

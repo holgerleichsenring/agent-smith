@@ -22,13 +22,11 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 internal static class CodePullRequestBody
 {
-    private const string SiblingMarker = "<!-- agentsmith:sibling-prs -->";
-
     public static string Compose(
         CommitAndPRContext context, string banner, SpecSequenceProgress? progress, RunShortfall? shortfall) =>
         $"{banner}{TicketHtmlConverter.ToText(context.Ticket.Description)}"
         + $"{SpecPrBodySection.Build(context.Pipeline, progress, shortfall)}"
         + $"{RunAccountSection.Build(context.Pipeline)}"
         + $"{PhaseReviewSection.Build(context.Pipeline)}"
-        + $"{DeclinedCriteriaSection.Build(context.Pipeline)}\n\n{Rework.ReworkRule.PrBodyLine}\n\n{SiblingMarker}";
+        + $"{DeclinedCriteriaSection.Build(context.Pipeline)}\n\n{Rework.ReworkRule.PrBodyLine}\n\n{SpecPrBody.SiblingMarker}";
 }

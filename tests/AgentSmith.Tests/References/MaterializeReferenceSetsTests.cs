@@ -67,6 +67,34 @@ public sealed class MaterializeReferenceSetsTests
         pipeline.Has(ContextKeys.ReferenceSets).Should().BeFalse();
     }
 
+    // 2026-10-12-f5f7e: carried once, into the repository of the series' earliest spec — never the first sandbox.
+    [Fact]
+    public async Task MaterializeReferenceSets_NoCarryingRepo_UsesEarliestSeriesSpecRepo()
+    {
+        _sets.Add("set-a", ("site/index.html", "<h1>A</h1>"));
+        var pipeline = Pipeline(["set-a"], carrying: "");
+        pipeline.Set(ContextKeys.SpecSet, Specs.MultiRepo.SeriesPerRepoWriteTests.Set(("a", "sample-api"), ("b", "sample-web")));
+
+        var result = await Handler(_sets).ExecuteAsync(new MaterializeReferenceSetsContext(pipeline), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue(result.Message);
+        Text(_repo, "/work/.agentsmith/reference/set-a/site/index.html").Should().Be("<h1>A</h1>");
+        _other.Files.Should().BeEmpty("sample-web is the first sandbox, not the earliest spec's repository");
+    }
+
+    [Fact]
+    public async Task MaterializeReferenceSets_SeveralReposAndNoneNamed_FailsInsteadOfPickingTheFirst()
+    {
+        _sets.Add("set-a", ("site/index.html", "<h1>A</h1>"));
+
+        var result = await Handler(_sets).ExecuteAsync(
+            new MaterializeReferenceSetsContext(Pipeline(["set-a"], carrying: "")), CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        _other.Files.Should().BeEmpty();
+        _repo.Files.Should().BeEmpty();
+    }
+
     [Fact]
     public void CodePreset_MaterializeReferenceSets_RunsDirectlyBeforePhaseSequence()
     {
@@ -118,13 +146,13 @@ public sealed class MaterializeReferenceSetsTests
             new UploadImageAttachments(), NullLogger<MaterializeReferenceSetsHandler>.Instance);
     }
 
-    private PipelineContext Pipeline(IReadOnlyList<string> cited, IReadOnlyList<string>? images = null)
+    private PipelineContext Pipeline(IReadOnlyList<string> cited, IReadOnlyList<string>? images = null, string carrying = "sample-api")
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.ApprovedSpecSet, SpecApprovalJson.Write(new SpecApprovalRecord("github-7",
             new SpecSet("github-7", [], SpecAccounting.Empty, [], SpecSource.Approved,
                 Approval: new SpecApproval(Noon, "s-1", "person")),
-            ["sample-web", "sample-api"], "gh", "sample-api", "7", cited, images)));
+            ["sample-web", "sample-api"], "gh", carrying, "7", cited, images)));
         pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes,
             new Dictionary<string, ISandbox> { ["sample-web"] = _other, ["sample-api"] = _repo });
         pipeline.Set<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxRepos,

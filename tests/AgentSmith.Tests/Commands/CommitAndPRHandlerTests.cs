@@ -74,7 +74,7 @@ public class CommitAndPRHandlerTests
                 new SandboxTargets(),
                 NullLogger<PhaseAccounting>.Instance),
             new FailedRunPersistence(new WipCommitMessage()),
-            new FailedRunSpecPullRequest(_sourceFactoryMock.Object, new PullRequestOutcomePublisher(_events), NullLogger<FailedRunSpecPullRequest>.Instance),
+            new SpecOnlyPullRequests(_sourceFactoryMock.Object, new PullRequestOutcomePublisher(_events), NullLogger<SpecOnlyPullRequests>.Instance),
             new ShortfallDelivery(
                 new UnverifiedWorkReverter(
                     new SandboxGitOperations(new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),

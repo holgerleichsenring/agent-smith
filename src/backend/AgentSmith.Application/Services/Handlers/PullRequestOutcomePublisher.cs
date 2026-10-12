@@ -9,8 +9,8 @@ namespace AgentSmith.Application.Services.Handlers;
 /// p0223: surfaces a structured per-repo pull-request outcome to the run detail, so the UI
 /// renders "no changes — no PR needed" / a clickable PR link / a real failure reason instead
 /// of the raw "git commit · exit 1" sandbox row. p0350: one repo at a time, the moment each
-/// outcome is known — batching lost PRs. 2026-10-12-3a36c: its own type, because a failed
-/// run's kept spec PR is published by <see cref="FailedRunSpecPullRequest"/> as well.
+/// outcome is known — batching lost PRs. 2026-10-12-3a36c: its own type, because a kept
+/// spec PR is published by <see cref="SpecOnlyPullRequests"/> as well.
 /// </summary>
 public sealed class PullRequestOutcomePublisher(IEventPublisher events)
 {

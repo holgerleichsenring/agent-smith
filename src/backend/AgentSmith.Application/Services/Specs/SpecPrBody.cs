@@ -15,6 +15,9 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 public static class SpecPrBody
 {
+    /// <summary>2026-10-12-f5f7e: where the cross-link puts the sibling pull requests — on a spec PR from the first write.</summary>
+    public const string SiblingMarker = "<!-- agentsmith:sibling-prs -->";
+
     public static string BuildInitial(SpecSet set)
     {
         ArgumentNullException.ThrowIfNull(set);
@@ -27,6 +30,7 @@ public static class SpecPrBody
         sb.AppendLine(RenderPhases(set));
         sb.AppendLine();
         sb.AppendLine(RenderDiscarded(set));
+        sb.AppendLine(SiblingMarker);
         return sb.ToString();
     }
 

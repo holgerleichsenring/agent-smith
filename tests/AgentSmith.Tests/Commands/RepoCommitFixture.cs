@@ -109,7 +109,7 @@ internal sealed class RepoCommitFixture
                     NullLogger<SpecAccountant>.Instance),
                 new SandboxTargets(), NullLogger<PhaseAccounting>.Instance),
             new FailedRunPersistence(new WipCommitMessage()),
-            new FailedRunSpecPullRequest(factory.Object, new PullRequestOutcomePublisher(Events), NullLogger<FailedRunSpecPullRequest>.Instance),
+            new SpecOnlyPullRequests(factory.Object, new PullRequestOutcomePublisher(Events), NullLogger<SpecOnlyPullRequests>.Instance),
             new ShortfallDelivery(new UnverifiedWorkReverter(gitOps, NullLogger<UnverifiedWorkReverter>.Instance),
                 NullLogger<ShortfallDelivery>.Instance),
             new CompletedRunTicketSummary(),

@@ -150,11 +150,12 @@ internal sealed class ApprovedSetHarness
     {
         internal int Opened { get; private set; }
 
-        public Task<string?> OpenAsync(
-            PipelineContext pipeline, RepoConnection carryingRepo, SpecSet set, bool createIfMissing, CancellationToken ct)
+        public Task<IReadOnlyDictionary<string, string>> OpenAsync(
+            PipelineContext pipeline, SeriesPlacement placement, SeriesScope scope, CancellationToken ct)
         {
             Opened++;
-            return Task.FromResult<string?>("https://example.invalid/pr/1");
+            return Task.FromResult<IReadOnlyDictionary<string, string>>(
+                new Dictionary<string, string> { [placement.Carrier?.Name ?? string.Empty] = "https://example.invalid/pr/1" });
         }
     }
 

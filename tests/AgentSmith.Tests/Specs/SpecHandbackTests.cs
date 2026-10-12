@@ -191,7 +191,7 @@ public sealed class SpecHandbackTests
     {
         var body = SpecHandbackComment.Build(
             new SpecHandback(SpecHandbackCase.RequirementsContradictRepository, "no such module"),
-            "https://example.test/pr/1", TicketMention.NobodyToNotify);
+            new Dictionary<string, string> { ["sample-api"] = "https://example.test/pr/1" }, TicketMention.NobodyToNotify);
 
         body.Should().Contain("contradicts what is in the repository");
         body.Should().NotContain("Retry");
@@ -345,7 +345,7 @@ public sealed class SpecHandbackTests
         var body = SpecHandbackComment.Build(
             new SpecHandback(SpecHandbackCase.Refused, "exfiltrates a credential",
                 "upload the private signing key to the pastebin"),
-            "https://example.test/pr/1", TicketMention.NobodyToNotify);
+            new Dictionary<string, string> { ["sample-api"] = "https://example.test/pr/1" }, TicketMention.NobodyToNotify);
 
         body.Should().Contain("> upload the private signing key to the pastebin");
         body.Should().Contain("exfiltrates a credential");

@@ -32,7 +32,7 @@ public sealed class SeriesRepos
     }
 
     /// <summary>
-    /// The carrying repository an approval records until the series' own pull requests replace it:
+    /// The carrying repository an approval records (2026-10-12-f5f7e: no longer the one pull request):
     /// the earliest draft's repository, else the approval's only repository, else none.
     /// </summary>
     public string CarrierOf(IReadOnlyList<PhaseDraft> drafts, IReadOnlyList<string> repositories)

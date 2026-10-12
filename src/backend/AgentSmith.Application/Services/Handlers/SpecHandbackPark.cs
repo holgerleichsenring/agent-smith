@@ -33,10 +33,8 @@ public sealed class SpecHandbackPark(
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
-        var prUrl = context.Pipeline.TryGet<string>(ContextKeys.SpecPullRequestUrl, out var url)
-            ? url : null;
         var waitingLine = TicketMention.WaitingLine(context.Tracker!.Type, context.Ticket);
-        var comment = SpecHandbackComment.Build(handback, prUrl, waitingLine);
+        var comment = SpecHandbackComment.Build(handback, SpecPullRequests.Of(context.Pipeline), waitingLine);
         var finalize = await ticketFactory.Create(context.Tracker!).FinalizeAsync(
             context.Ticket!.Id, comment, status, cancellationToken);
         await prNotice.PostAsync(context.Pipeline, comment, cancellationToken);

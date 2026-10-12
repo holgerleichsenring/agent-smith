@@ -27,9 +27,9 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// </para>
 /// <para>
 /// 2026-09-22-b6ad: it also records the CARRYING repository. 2026-10-12-f5f7d: no longer the first
-/// configured one the approval named — each spec is written where it names, and until the series'
-/// own pull requests exist the carrier is the earliest spec's repository, else the approval's only
-/// one, else none.
+/// configured one the approval named — each spec is written where it names, and the carrier is the
+/// earliest spec's repository, else the approval's only one, else none (2026-10-12-f5f7e: every series
+/// repository has its own spec pull request; the carrier is where the reference sets go).
 /// </para>
 /// <para>
 /// 2026-09-17-0e79b: it is also the AMENDMENT ENTRY — the STORE side of it. Loading a filed
@@ -54,7 +54,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 public sealed class ApprovedPhaseSetRecorder(
     ISpecApprovalStore store,
     IReferenceSetReader references, // 2026-10-01-283df: the sets the approval cites
-    SeriesRepos placement, // 2026-10-12-f5f7d: the interim carrier is the earliest spec's repository
+    SeriesRepos placement, // 2026-10-12-f5f7d: the carrier is the earliest spec's repository
     TimeProvider time, ILogger<ApprovedPhaseSetRecorder> logger)
 {
     private readonly ApprovalCitations _citations = new(store, references); // 2026-10-08-e8b9g

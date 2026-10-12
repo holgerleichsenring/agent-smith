@@ -54,7 +54,7 @@ public sealed class FailedRunFinalizationTests
         var opened = runner.LastContext!.Get<IReadOnlyList<OpenedPullRequest>>(ContextKeys.OpenedPullRequests);
         var pr = opened.Should().ContainSingle(o => o.Status == OpenStatus.Opened,
             "the spec PR is persisted as the failed run's draft").Subject;
-        pr.Url.Should().Be(runner.LastContext!.Get<string>(ContextKeys.SpecPullRequestUrl));
+        pr.Url.Should().Be(Application.Services.Specs.SpecPullRequests.Of(runner.LastContext!)[pr.RepoName]);
         last.Comment.Should().Contain(pr.Url!, "the failure comment says where the partial work went");
         var bodies = runner.LastContext!.Get<IReadOnlyDictionary<string, string>>(ContextKeys.OpenedPullRequestBodies);
         bodies[pr.RepoName].Should().Contain("Run failed").And.Contain("cost budget")

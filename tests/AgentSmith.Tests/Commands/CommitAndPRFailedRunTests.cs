@@ -101,6 +101,26 @@ public sealed class CommitAndPRFailedRunTests
             It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(), It.IsAny<bool>(), It.IsAny<BranchName?>()), Times.Once);
     }
 
+    // 2026-10-12-f5f7e: 3a36c's keep, generalised — a green run keeps a spec-only repository's spec PR too.
+    [Fact]
+    public async Task CommitAndPR_GreenRunSpecOnlyRepo_KeepsSpecPrOpened()
+    {
+        var f = new RepoCommitFixture()
+            .AddRepo("sample-server", "src/Server.cs", RepoCommitFixture.ResultMd)
+            .AddRepo("sample-client", RepoCommitFixture.ResultMd);
+        f.Pipeline.Set(ContextKeys.SpecPullRequestUrls, new Dictionary<string, string> { ["sample-client"] = SpecPr });
+
+        await f.RunAsync();
+
+        var opened = f.Pipeline.Get<IReadOnlyList<OpenedPullRequest>>(ContextKeys.OpenedPullRequests);
+        opened.Should().Contain(new OpenedPullRequest("sample-client", SpecPr, OpenStatus.Opened));
+        opened.Should().Contain(o => o.RepoName == "sample-server" && o.Status == OpenStatus.Opened);
+        f.Pipeline.Get<IReadOnlyDictionary<string, string>>(ContextKeys.OpenedPullRequestBodies)["sample-client"]
+            .Should().Contain(Application.Services.Specs.SpecPrBody.SiblingMarker, "the cross-link reaches it");
+        f.Provider.Verify(p => p.UpdatePullRequestBodyAsync(SpecPr, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+        f.CommitMessagesIn("sample-client").Should().BeEmpty("it gained no code");
+    }
+
     private static RepoCommitFixture ThreeReposWithoutCode() =>
         new RepoCommitFixture()
             .AddRepo("sample-server", RepoCommitFixture.ResultMd)

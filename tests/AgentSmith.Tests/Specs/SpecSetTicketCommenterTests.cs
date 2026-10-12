@@ -33,7 +33,7 @@ public sealed class SpecSetTicketCommenterTests
     {
         var set = Set();
 
-        var body = SpecSetComment.Render(set, "https://example.test/pr/1");
+        var body = SpecSetComment.Render(set, new Dictionary<string, string> { ["api"] = "https://example.test/pr/1" });
 
         body.Should().StartWith(SpecSetComment.Marker);
         body.Should().Contain("2026-10-06-9106a — Raise the direct package floors the audit names");
@@ -104,6 +104,36 @@ public sealed class SpecSetTicketCommenterTests
             It.Is<string>(c => c.Contains("Done when:") && c.Contains(Evidence)),
             It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    // 2026-10-12-f5f7e: every series repository has its own spec PR; a repository the set no longer
+    // names still has its open one, which the comment lists as dropped.
+    [Fact]
+    public async Task SpecSetTicketCommenter_TwoSpecPrs_ListsBoth()
+    {
+        var provider = new Mock<ITicketProvider>();
+        var factory = new Mock<ITicketProviderFactory>();
+        factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider.Object);
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.Ticket, new Ticket(
+            id: new TicketId("19106"), title: "upgrade", description: Ticket,
+            acceptanceCriteria: null, status: "open", source: "test"));
+        pipeline.Set(ContextKeys.SpecPullRequestUrls, new Dictionary<string, string>
+        {
+            ["Server"] = "https://x/server/pull/1", ["Client"] = "https://x/client/pull/2", ["Worker"] = "https://x/worker/pull/3",
+        });
+        var commenter = new SpecSetTicketCommenter(factory.Object, Moq.Mock.Of<AgentSmith.Contracts.Reviews.IFullSetPrNotice>(), NullLogger<SpecSetTicketCommenter>.Instance);
+
+        await commenter.PostAsync(pipeline, new TrackerConnection(), Set() with { SeriesRepos = ["Server", "Client"] }, CancellationToken.None);
+
+        provider.Verify(p => p.UpdateStatusAsync(It.IsAny<TicketId>(), It.Is<string>(c =>
+            c.Contains("- Server: https://x/server/pull/1") && c.Contains("- Client: https://x/client/pull/2")
+            && c.Contains("- Worker: https://x/worker/pull/3 — dropped from the series")), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public void SpecPullRequestLines_OneMember_IsTheSentenceItAlwaysWas() =>
+        SpecPullRequestLines.Render(new Dictionary<string, string> { ["Server"] = "https://x/pull/1" }, ["Server"], "Open")
+            .Should().Be("Open: https://x/pull/1");
 
     private static SpecSet Set(string contexts = "", string discardedContexts = "[]")
     {

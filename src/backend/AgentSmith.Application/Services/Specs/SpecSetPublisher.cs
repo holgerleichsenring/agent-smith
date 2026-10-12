@@ -14,9 +14,9 @@ namespace AgentSmith.Application.Services.Specs;
 /// <para>
 /// 2026-10-12-f5f7d: the set is PLACED first — each spec into the repository it names — and a
 /// placement or a write that cannot be made (a spec naming several repositories, a repository not
-/// checked out) fails the step with the name. Until the series' own pull requests exist the
-/// earliest spec's repository is the carrying one; a set without specs keeps the one it had and
-/// opens no new pull request.
+/// checked out) fails the step with the name. The earliest spec's repository is the carrying one; a
+/// set without specs keeps the one it had. 2026-10-12-f5f7e: every series repository gets its own
+/// draft spec pull request.
 /// </para>
 /// </summary>
 public sealed class SpecSetPublisher(
@@ -53,8 +53,7 @@ public sealed class SpecSetPublisher(
         }
         pipeline.Set(ContextKeys.SpecRevisionSha, write.CommitSha!);
         await pointer.RecordAsync(project, placement.Carrier?.Name, placement.Set, write.Shas, cancellationToken);
-        if (placement.Carrier is { } carrier)
-            await prOpener.OpenAsync(pipeline, carrier, placement.Set, set.Phases.Count > 0, cancellationToken);
+        await prOpener.OpenAsync(pipeline, placement, scope, cancellationToken);
         return CommandResult.Ok(Describe(placement.Set));
     }
 

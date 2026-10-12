@@ -297,7 +297,7 @@ public sealed class MultiRepoHandlerTests
                 new SandboxTargets(),
                 NullLogger<PhaseAccounting>.Instance),
             new FailedRunPersistence(new WipCommitMessage()),
-            new FailedRunSpecPullRequest(_sourceFactoryMock.Object, new PullRequestOutcomePublisher(EventTestStubs.NoOp), NullLogger<FailedRunSpecPullRequest>.Instance),
+            new SpecOnlyPullRequests(_sourceFactoryMock.Object, new PullRequestOutcomePublisher(EventTestStubs.NoOp), NullLogger<SpecOnlyPullRequests>.Instance),
             new ShortfallDelivery(
                 new UnverifiedWorkReverter(
                     new SandboxGitOperations(new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),

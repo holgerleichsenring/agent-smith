@@ -47,7 +47,9 @@ public sealed class PullRequestTargetTests
         var sut = new SpecPullRequestOpener(
             FactoryFor(provider).Object, EventTestStubs.NoOp, NullLogger<SpecPullRequestOpener>.Instance);
 
-        await sut.OpenAsync(pipeline, repo, EmptySet(), true, CancellationToken.None);
+        await sut.OpenAsync(pipeline,
+            new SeriesPlacement(Specs.MultiRepo.SeriesPerRepoWriteTests.Set(("a", repo.Name)), [repo], repo),
+            new SeriesScope([repo], null, [], null), CancellationToken.None);
 
         provider.Verify(p => p.CreatePullRequestAsync(
             It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
@@ -237,7 +239,7 @@ public sealed class PullRequestTargetTests
                 new SandboxTargets(),
                 NullLogger<PhaseAccounting>.Instance),
             new FailedRunPersistence(new WipCommitMessage()),
-            new FailedRunSpecPullRequest(sourceFactory, new PullRequestOutcomePublisher(EventTestStubs.NoOp), NullLogger<FailedRunSpecPullRequest>.Instance),
+            new SpecOnlyPullRequests(sourceFactory, new PullRequestOutcomePublisher(EventTestStubs.NoOp), NullLogger<SpecOnlyPullRequests>.Instance),
             new ShortfallDelivery(
                 new UnverifiedWorkReverter(GitOps(), NullLogger<UnverifiedWorkReverter>.Instance),
                 NullLogger<ShortfallDelivery>.Instance),
@@ -247,9 +249,4 @@ public sealed class PullRequestTargetTests
     private static SandboxGitOperations GitOps() =>
         new(new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance,
             new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance));
-
-    private static SpecSet EmptySet() =>
-        new("azdo-19107", [], SpecAccounting.Empty,
-            [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UnixEpoch)],
-            SpecSource.Derived);
 }

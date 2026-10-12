@@ -35,6 +35,22 @@ public sealed class PrCrossLinkHandlerTests
         harness.PatchedBodies.Values.Should().AllSatisfy(b => b.Should().NotContain("<!-- agentsmith:sibling-prs -->"));
     }
 
+    // 2026-10-12-f5f7e: a spec-only repository's PR carries the marker from its first write.
+    [Fact]
+    public async Task PrCrossLink_SpecOnlyPrAndCodePr_LinkEachOther()
+    {
+        var harness = new Harness()
+            .WithRepo("server", "https://x/server/pull/1", "code body <!-- agentsmith:sibling-prs -->")
+            .WithRepo("client", "https://x/client/pull/2",
+                Application.Services.Specs.SpecPrBody.BuildInitial(Specs.MultiRepo.SeriesPerRepoWriteTests.Set(("a", "client"))));
+
+        await harness.RunAsync();
+
+        harness.PatchedBodies["https://x/client/pull/2"].Should().Contain("https://x/server/pull/1")
+            .And.NotContain(Application.Services.Specs.SpecPrBody.SiblingMarker);
+        harness.PatchedBodies["https://x/server/pull/1"].Should().Contain("https://x/client/pull/2");
+    }
+
     [Fact]
     public async Task PrCrossLinks_SinglePrRun_SkipsPass2()
     {

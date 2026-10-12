@@ -51,10 +51,11 @@ public static class SpecHandbackComment
     /// AwaitsAnswer, which decides what the NEXT RUN reads back as the requirement,
     /// not who gets told.)
     /// </param>
-    public static string Build(SpecHandback handback, string? prUrl, string waitingLine)
+    public static string Build(SpecHandback handback, IReadOnlyDictionary<string, string>? prUrls, string waitingLine)
     {
         ArgumentNullException.ThrowIfNull(handback);
-        var spec = prUrl is null ? string.Empty : $"\n\nThe derived spec is open for review: {prUrl}";
+        var spec = prUrls is not { Count: > 0 } ? string.Empty
+            : $"\n\n{SpecPullRequestLines.Render(prUrls, null, "The derived spec is open for review")}";
         var waiting = $"\n\n{waitingLine}";
         return handback.Case switch
         {

@@ -102,13 +102,14 @@ public interface ISpecSetPublisher
 /// consequence: a parked or not-implementable run leaves a PR containing only the
 /// spec set.
 /// <para>
-/// 2026-10-12-f5f7d: <c>createIfMissing</c> false only finds an open one — a set
-/// without specs opens no new pull request.
+/// 2026-10-12-f5f7e: one draft pull request per series repository, each over its own
+/// sub-series. A repository whose sub-series holds no spec only finds an open one, as does a
+/// repository the scope read that the set no longer names (dropped). Returns repository → URL.
 /// </para>
 /// </summary>
 public interface ISpecPullRequestOpener
 {
-    Task<string?> OpenAsync(
-        PipelineContext pipeline, RepoConnection carryingRepo, SpecSet set, bool createIfMissing,
+    Task<IReadOnlyDictionary<string, string>> OpenAsync(
+        PipelineContext pipeline, SeriesPlacement placement, SeriesScope scope,
         CancellationToken cancellationToken);
 }

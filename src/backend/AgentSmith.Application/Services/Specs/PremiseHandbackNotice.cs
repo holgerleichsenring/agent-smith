@@ -87,8 +87,7 @@ public sealed class PremiseHandbackNotice(
     // The spec pull request exists only once the derivation published; a hand-back on the first
     // phase of a set happens before any delivery, and must not send a reader to one.
     private static bool HasPullRequest(PipelineContext pipeline) =>
-        (pipeline.TryGet<string>(ContextKeys.SpecPullRequestUrl, out var spec)
-         && !string.IsNullOrWhiteSpace(spec))
+        SpecPullRequests.Of(pipeline).Count > 0
         || (pipeline.TryGet<string>(ContextKeys.PullRequestUrl, out var pr)
             && !string.IsNullOrWhiteSpace(pr));
 }
