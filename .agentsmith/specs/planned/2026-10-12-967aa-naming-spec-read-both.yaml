@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-967aa
+goal: "Every reader of stored, queued, served or model-written data accepts the spec name beside the phase name, so a later release can write spec while older replicas still run."
+
+applies_to: "backend (persistence readers, events, resume, spec dialog, tickets, spec derivation) and dashboard (readers)"
+
+requires: [2026-10-06-03c7g]
+
+facts:
+  - claim: "Several servers run side by side; the store is migrated while older pods still serve, so a rename that is written before every reader knows it is lost to the older readers."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunStoreMigrator.cs:21-25"
+  - claim: "Stored events keep the EventType NAME, read back by Enum.TryParse; three names say Phase."
+    evidence: "src/backend/AgentSmith.Contracts/Events/EventType.cs:101-109, src/backend/AgentSmith.Infrastructure/Services/Events/EventEnvelopeSerializer.cs:62"
+  - claim: "Spec records and reviews are artifacts keyed by phase_record: and phase_review:."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSpecProjection.cs:21, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSpecProjection.cs:25"
+  - claim: "A stored dialog outcome is read by an exact switch on the kind string phase."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeProposalJson.cs:34, src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeProposalJson.cs:43"
+  - claim: "A stored approval is accepted when Set, Repositories and Key are present; the set's members are not checked."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecApprovalJson.cs:37"
+  - claim: "The transcript turn kind PhaseProposal is persisted by name."
+    evidence: "src/backend/AgentSmith.Contracts/Models/SpecDialogTurnKind.cs:13"
+  - claim: "Checkpointed commands carry PhaseId, and a checkpointed context entry whose type no longer resolves is skipped."
+    evidence: "src/backend/AgentSmith.Application/Models/CheckpointCommand.cs:16-23, src/backend/AgentSmith.Application/Services/Resume/PipelineContextSerializer.cs:93"
+  - claim: "The planned-steps view served to the dashboard carries PhaseId."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/PlannedStepView.cs:15-17"
+  - claim: "A retired command name is not resolved: the factory throws with the retirement hint."
+    evidence: "src/backend/AgentSmith.Application/Services/CommandContextFactory.cs:22-25"
+  - claim: "Tracker labels phase, phase-epic, phase-parent: and the stamp phase-spec:approved (written by every filing) route tickets; the stamp already has a per-board vocabulary with the historical value accepted."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/PhaseTicketRenderer.cs:28, src/backend/AgentSmith.Application/Services/SpecDialog/PhaseTicketRenderer.cs:52, src/backend/AgentSmith.Application/Services/SpecDialog/FiledTicketLabels.cs:47, src/backend/AgentSmith.Contracts/Tickets/TicketLabels.cs:14, src/backend/AgentSmith.Contracts/Tickets/TicketLabelVocabulary.cs:79-81, src/backend/AgentSmith.Application/Services/Polling/DiscoveryLabelGuard.cs:23-30"
+  - claim: "The config key work_item_kinds.phase is parsed by Enum.TryParse on TicketFilingRole; an unknown key is ignored."
+    evidence: "src/backend/AgentSmith.Contracts/Tickets/TicketFilingRole.cs:30, src/backend/AgentSmith.Application/Services/Tickets/TicketKindResolver.cs:46"
+  - claim: "The derivation reply is read from the key phases and its template is filled with MaxPhases; an operator's explicit skills.version wins over the embedded catalog."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecDerivationParser.cs:52, src/backend/AgentSmith.Application/Services/Specs/SpecDerivationParser.cs:75, src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:112, src/backend/AgentSmith.Application/Services/Handlers/LoadCatalogHandler.cs:25-27"
+
+assumptions:
+  - "DEFAULT (multi-replica is a requirement): expand/contract over a drain-and-recreate deploy. The alternative is one release that migrates with every replica stopped, which needs no dual readers."
+  - "RATIFIED 2026-10-12 (operator: change everything): the routing labels become spec, spec-epic, spec-parent:, spec:approved; the phase forms stay accepted on READ for good, because they sit on tickets in trackers we do not own."
+
+scope:
+  in: >
+    STEP ONE is mechanical: list every type and member reachable from a persisted, queued, Redis or checkpoint
+    root (RunEvents payloads incl. the escaped copies in RunCheckpointed and RunStoryRecorded, RunSteps,
+    RunDecisions, RunArtifacts, RunCheckpoint, Run.PlannedStepsJson and QueuedRequestJson,
+    QueuedTicket.InitialContextJson, ApprovedSeries.ContentJson, SpecDialogSession Latest/Confirmed/Filing JSON
+    and transcript, acceptance JSON, ConfigEntity) and the dashboard's readers of served JSON. That list is this
+    spec's and 967ab's scope; 967ac never touches it. READERS then accept both names: JSON property and enum
+    aliases, both artifact prefixes, both event type names, both outcome/filing kinds, checkpoint type-name and
+    context-key mapping old→new, both command names in stored rows (display/class lookup only), label vocabulary
+    and discovery guard with both label sets, TicketKindResolver with spec and phase, the derivation parser with
+    specs or phases and the template filled with MaxSpecs and MaxPhases. WRITERS are unchanged.
+  out: "Writing the new names and rewriting stored data (967ab). Removing the phase readers (967ah)."
+
+decisions:
+  - key: "READ BOTH BEFORE WRITING NEW: a rolling deploy runs old and new pods on one store and one Redis."
+  - key: "A RENAMED COMMAND IS NOT RETIRED: RetiredCommands throws; stored old names are mapped for display only."
+
+steps:
+  - id: reachability
+    action: "Generate the persisted-root reachability list into this spec's decisions file."
+  - id: readers
+    action: "Dual-name readers per surface, backend and dashboard."
+  - id: tests
+    action: "Every surface: a row in the NEW shape reads back under the code that still writes the old one."
+
+tests:
+  - "EventReplay_SpecStateChangedName_Resolves"
+  - "ApprovedSeries_SpecsJson_ReadsFullSet"
+  - "OutcomeProposalJson_SpecKind_Reads"
+  - "Checkpoint_RenamedTypeName_Restores"
+  - "DiscoveryLabelGuard_SpecAndPhaseLabels_BothRoute"
+  - "TicketKindResolver_ConfigKeySpec_MapsToSpecRole"
+  - "SpecDerivationParser_SpecsKey_Parses"
+
+done:
+  - "For every surface on the reachability list, data in the new shape reads back identically under this release (tests)."
+  - "Full suite green; nothing written by this release differs from the previous one."

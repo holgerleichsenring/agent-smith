@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-967af
+goal: "Repository instructions, docs and the commit gate say spec; the gate keeps gating across the rename and keeps its ledger."
+
+applies_to: "repository (CLAUDE.md, README, docs, website, schemas, principles, memory, tools, .claude hooks)"
+
+requires: [2026-10-12-967ac]
+
+facts:
+  - claim: "The gate hook is registered by path, and the path is pinned by an architecture test and the hook tests."
+    evidence: ".claude/settings.json:9, tests/AgentSmith.Tests/Architecture/PhaseSeriesIdTests.cs:41, .claude/hooks/test_commit_message.py:28"
+  - claim: "The ledger defaults to .claude/phase-gate.log; the env vars are PHASE_GATE_LOG, PHASE_GATE_SELFTEST, PHASE_GATE_CORES."
+    evidence: ".claude/hooks/phase-gate.sh:53, .claude/hooks/phase-gate.sh:206, .claude/hooks/phase-gate.sh:430"
+  - claim: "Two docs pages are named after phases and linked from mkdocs.yml."
+    evidence: "docs/mkdocs.yml:131, docs/mkdocs.yml:170"
+
+assumptions:
+  - "DEFAULT: a session snapshots its hooks at start and a missing hook exits 127, which does not block; so phase-gate.sh stays as `exec \"$(dirname \"$0\")/spec-gate.sh\" \"$@\"` until the operator says every session restarted, and is removed in 967ah."
+
+scope:
+  in: >
+    CLAUDE.md (Minting a Spec Id, Naming a Spec, Spec Gate; cites the renamed test classes; work branches are
+    spec/{id}, never phase/{id}), README, WORKER-MODE:162,
+    website, docs (page renames, mkdocs and inbound links, control-flow.svg, labels.md anchor), schema
+    descriptions, principles.md:202-211, memory BODIES (slugs stay: cited from history),
+    tools/audit-phases.py→audit-specs.py, .claude/prompt.md rewritten or deleted, smoke.md, deploy/k8s comment.
+    GATE: spec-gate.sh; SPEC_GATE_* read first, PHASE_GATE_* still honoured; ledger .claude/spec-gate.log, the old
+    one moved only when it exists and the new one does not; hook tests renamed.
+  out: "History (specs, decisions, notes, CHANGELOGs, state.done lines). G2 docs (cost stages, retired pipeline name)."
+
+steps:
+  - id: gate
+    action: "Hook, env vars, ledger move, tests, settings.json, architecture test path, forwarder."
+  - id: docs
+    action: "Docs, CLAUDE.md, README, website, schemas, principles, memory bodies, tools."
+
+tests:
+  - "Hook tests (renamed) green from the gated tree"
+  - "Gate_OldLedgerOnly_MovedOnce; Gate_BothLedgers_LeftAlone"
+
+done:
+  - "A phase commit through the renamed gate leaves a passed line in .claude/spec-gate.log after the old ledger's history."
+  - "No in-scope file says phase for a spec outside the G2 allowlist."

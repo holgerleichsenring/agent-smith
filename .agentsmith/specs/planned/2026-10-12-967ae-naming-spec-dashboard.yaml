@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-967ae
+goal: "The dashboard calls a spec a spec in its code, test ids and visible text; the execution-stage phase and StoryPhase stay."
+
+applies_to: "dashboard"
+
+requires: [2026-10-12-967ab]
+
+facts:
+  - claim: "About 611 of 706 dashboard matches mean the spec; the rest are the LLM call stage, StoryPhase and max_skills_per_phase."
+    evidence: ".agentsmith/notes/2026-10-12-967a-phase-inventory.md"
+  - claim: "The step rail splits a spec prefix with a regex mirroring the backend's RunStepsReader."
+    evidence: "src/dashboard/src/lib/runStepRail.ts:18-22"
+
+scope:
+  in: >
+    PhaseAccount.tsx→SpecAccount.tsx, NavRail PhaseHeader, DialogProposalPanel, DialogApprovedPanel; test ids
+    phase-*/data-phase; splitPhasePrefix, PHASE_STATUS and helpers; visible strings (One phase, File this phase?,
+    This phase ran no sandbox command, …); test names, fixtures and comments meaning the spec.
+  out: "Wire names (967aa/967ab). G2: llm-call phase, StoryPhase, maxSkillsPerPhase, retired pipeline name phase-execution."
+
+steps:
+  - id: rename
+    action: "By file; pnpm test and build green."
+
+tests:
+  - "Existing dashboard tests, renamed."
+
+done:
+  - "No identifier, test id or visible string in src/dashboard says phase outside the G2 allowlist; pnpm test and build green."

@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-967ah
+goal: "The phase readers for data we own are removed once every replica has rewritten its store; external labels and config keys keep reading phase."
+
+applies_to: "backend (readers added in 967aa), dashboard, .claude hooks"
+
+requires: [2026-10-12-967ab, 2026-10-12-967af]
+
+facts:
+  - claim: "The dual readers and the gate forwarder are listed by 967aa's reachability list and 967af."
+    evidence: ".agentsmith/notes/2026-10-12-967a-phase-inventory.md"
+
+assumptions:
+  - "Operator-timed: every replica runs 967ab, no parked run holds a pre-967ab checkpoint, and every session restarted since 967af."
+
+scope:
+  in: >
+    Remove the phase aliases for stored events, artifacts, approvals, dialog JSON, checkpoints, served JSON and the
+    derivation parser's phases key; remove phase-gate.sh and PHASE_GATE_* fallback; shrink the guard's allowlist.
+  out: "Read aliases for tracker labels and work_item_kinds.phase: they live in trackers and operator config we do not rewrite."
+
+tests:
+  - "Existing tests of 967aa's new-shape reads stay green; old-shape tests deleted."
+
+done:
+  - "No phase alias remains for data agent-smith owns; full suite and the guard green."
