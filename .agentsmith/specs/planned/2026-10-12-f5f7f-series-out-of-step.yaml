@@ -33,7 +33,7 @@ decisions:
   - key: "A RESUME ON A LAGGING READ HANDS BACK TOO: nothing works from a mixed state; only a re-cut demand ranks above."
   - key: "A PR COMMAND ON IT costs one run that hands back before any model call."
   - key: "NOT CHECKED OUT IS NOT OUT OF STEP: a named member outside the run's checkout fails the run naming it; widen the scope."
-  - key: "NO TRACKER, NO CONTINUE: in the CLI without a tracker the case fails the run, as Refused does."
+  - key: "NO TRACKER, NO CONTINUE: the case fails the run, as Refused does."
   - key: "THE DEMAND'S EXECUTED SET IS A PREFIX BY CONSTRUCTION: every member's done/ phases ordered by id, then the newest members' unexecuted specs."
 
 steps:
