@@ -137,7 +137,7 @@ public sealed class SpecReposDerivationTests
 
         set.Phases.Should().BeEmpty("the whole ticket in one repository's spec would be a guess");
         set.IsHandedBack.Should().BeTrue();
-        set.Handback!.Case.Should().Be(SpecHandbackCase.RequirementsContradictRepository);
+        set.Handback!.Case.Should().Be(SpecHandbackCase.ScopeUnassigned);
         set.Handback.Reason.Should().Contain("BackgroundWorker, Server");
         set.Series.Should().Be("2026-10-12-0a0a");
     }

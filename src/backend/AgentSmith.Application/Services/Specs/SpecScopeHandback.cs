@@ -6,9 +6,8 @@ namespace AgentSmith.Application.Services.Specs;
 /// 2026-10-12-f5f7a: what a cut that cannot be trusted becomes in a scope of several repositories —
 /// the ticket handed back, naming them. The whole-ticket fallback would put the whole ticket into a
 /// spec that names one repository, and any one is a guess; only a person can say how the work
-/// divides between them. A <see cref="SpecHandbackCase.RequirementsContradictRepository"/>: it parks
-/// where a person can answer and a re-trigger after a reply cuts again — not a verdict that blocks the
-/// retry, and not a question whose unanswered re-trigger would proceed on a taken reading.
+/// divides between them. 2026-10-12-d142: a <see cref="SpecHandbackCase.ScopeUnassigned"/> — it parks
+/// where a person can answer and a re-trigger after a reply cuts again; nothing contradicts the code.
 /// </summary>
 public static class SpecScopeHandback
 {
@@ -24,7 +23,7 @@ public static class SpecScopeHandback
             key, [], SpecAccounting.Empty,
             [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow)],
             source,
-            new SpecHandback(SpecHandbackCase.RequirementsContradictRepository, reason),
+            new SpecHandback(SpecHandbackCase.ScopeUnassigned, reason),
             Series: series);
     }
 }

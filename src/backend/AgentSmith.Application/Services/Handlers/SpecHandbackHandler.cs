@@ -104,10 +104,15 @@ public sealed class SpecHandbackHandler(
         _ => CommandResult.Ok($"awaiting_user_input: handed back ({handback.Case})"),
     };
 
-    private static CommandResult NoTracker(SpecHandback handback) =>
-        handback.Case == SpecHandbackCase.Refused
-            ? CommandResult.Fail(
-                $"Refused: {handback.Reason} — quoted: \"{handback.Quote}\" — "
-                + "and the run has no tracker to park the ticket on")
-            : CommandResult.Ok($"Derivation handed back ({handback.Case}) but the run has no tracker");
+    // 2026-10-12-d142: a scope nobody divided fails like a refusal — continuing would run checkout
+    // with no spec to work.
+    private static CommandResult NoTracker(SpecHandback handback) => handback.Case switch
+    {
+        SpecHandbackCase.Refused => CommandResult.Fail(
+            $"Refused: {handback.Reason} — quoted: \"{handback.Quote}\" — "
+            + "and the run has no tracker to park the ticket on"),
+        SpecHandbackCase.ScopeUnassigned => CommandResult.Fail(
+            $"{handback.Reason} — and the run has no tracker to park the ticket on"),
+        _ => CommandResult.Ok($"Derivation handed back ({handback.Case}) but the run has no tracker"),
+    };
 }
