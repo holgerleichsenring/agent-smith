@@ -1,3 +1,4 @@
+using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
@@ -62,7 +63,7 @@ internal static class CapacityTestDoubles
     {
         var calc = new Mock<IRunFootprintCalculator>();
         calc.Setup(c => c.CalculateAsync(
-                It.IsAny<ResolvedProject>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+                It.IsAny<ResolvedProject>(), It.IsAny<string?>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new RunFootprintBreakdown(
                 [], "1", "4Gi", 1_000_000_000, 4L * 1024 * 1024 * 1024, [], "stub footprint"));
         return calc.Object;

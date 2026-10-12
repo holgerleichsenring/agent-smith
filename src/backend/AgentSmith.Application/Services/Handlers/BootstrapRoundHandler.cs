@@ -68,11 +68,6 @@ public sealed class BootstrapRoundHandler(
             pipeline, sandbox, context.RepoName, context.ContextName, context.Workdir, projectMap,
             principlesPath, existing.Principles, cancellationToken);
         if (transfer.Error is not null) return CommandResult.Fail(transfer.Error);
-        // 2026-09-15-c6e9: the round's facts reach the init pull request, which is the one
-        // artefact a human opens. Appended, not set: one round per component.
-        pipeline.AppendBootstrapOutcome(new BootstrapRoundOutcome(
-            context.RepoName, context.ContextName, transfer.Mode, transfer.Artefacts, transfer.Overlays,
-            transfer.ProjectSpecificsKept));
         var (system, user) = BootstrapPromptFactory.Build(
             role, repo, projectMap, context.ContextName, context.Workdir, appliesTo,
             existing.ContextYaml, existing.Principles, transfer.Mode);
@@ -89,6 +84,12 @@ public sealed class BootstrapRoundHandler(
         // sandbox alone made a re-init whose every write was refused report green.
         var (ctxPath, _) = BootstrapPromptFactory.ResolveTargetPaths(context.ContextName);
         var outcome = bundle.GetContextWrite();
+        // 2026-09-15-c6e9: the round's facts reach the init pull request, which is the one
+        // artefact a human opens. Appended, not set: one round per component. 2026-10-12-6bfac:
+        // after the call, so a written stack.image the boundary refuses is among them.
+        pipeline.AppendBootstrapOutcome(new BootstrapRoundOutcome(
+            context.RepoName, context.ContextName, transfer.Mode, transfer.Artefacts, transfer.Overlays,
+            transfer.ProjectSpecificsKept, outcome.ImageRefusal));
         var onDisk = await metaFiles.ExistsAsync(sandbox, ctxPath, cancellationToken);
         logger.LogInformation(
             "{Emoji} {DisplayName} [Bootstrap]: {Count} file(s) written, {Decisions} decision(s), context.yaml written={CtxWritten} on-disk={OnDisk}",

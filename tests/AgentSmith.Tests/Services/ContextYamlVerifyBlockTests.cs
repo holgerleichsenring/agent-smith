@@ -1,3 +1,5 @@
+using AgentSmith.Tests.TestHelpers;
+using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Resume;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Commands;
@@ -49,10 +51,7 @@ public sealed class ContextYamlVerifyBlockTests
         var factory = new Mock<ISourceProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(source.Object);
         provider = source;
-        return new SandboxLanguageResolver(
-            factory.Object,
-            new ContextYamlParser(new ContextYamlSerializer(new ContextYamlBuilders())),
-            NullLogger<SandboxLanguageResolver>.Instance);
+        return TestSandboxLanguageResolver.Create(factory.Object, new ContextYamlParser(new ContextYamlSerializer(new ContextYamlBuilders())));
     }
 
     private static readonly RepoConnection Source = new() { Url = "https://example.invalid/repo.git" };
@@ -60,7 +59,7 @@ public sealed class ContextYamlVerifyBlockTests
     [Fact]
     public async Task ContextYaml_AVerifyBlock_ReachesTheDiscoveryFromRealYaml()
     {
-        var discoveries = await Resolver(out _).ResolveAllAsync(Source, CancellationToken.None);
+        var discoveries = await Resolver(out _).ResolveAllAsync(Source, ContextReadBranches.None, CancellationToken.None);
 
         var verify = discoveries.Should().ContainSingle().Which.Verify;
         verify.Should().NotBeNull(
@@ -81,7 +80,7 @@ public sealed class ContextYamlVerifyBlockTests
     public async Task ContextYaml_AVerifyBlock_ReachesTheExplicitContextPathToo()
     {
         var discoveries = await Resolver(out _)
-            .ResolveContextAsync(Source, "warehouse", CancellationToken.None);
+            .ResolveContextAsync(Source, "warehouse", ContextReadBranches.None, CancellationToken.None);
 
         discoveries.Should().ContainSingle().Which.Verify.Should().NotBeNull()
             .And.HaveCount(2, "the pinned-context path builds the same record");
@@ -138,7 +137,7 @@ public sealed class ContextYamlVerifyBlockTests
     [Fact]
     public async Task ContextYaml_AVerifyBlock_SurvivesTheResumeRoundTrip()
     {
-        var discoveries = await Resolver(out _).ResolveAllAsync(Source, CancellationToken.None);
+        var discoveries = await Resolver(out _).ResolveAllAsync(Source, ContextReadBranches.None, CancellationToken.None);
         var before = new PipelineContext();
         before.Set<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(
             ContextKeys.RemoteContextInventory,

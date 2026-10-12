@@ -312,3 +312,53 @@ describe("VerifySummary (event fallback, pre-p0344b runs)", () => {
     expect(badge.className).not.toContain("ok");
   });
 });
+
+describe("VerifySummary (an account nobody could take)", () => {
+  // 2026-10-12-6bfad: a red build is not a criterion. It used to render as one titled
+  // after the sandbox key, "0 of 1 proven", above the real criterion the agent declined.
+  const RED_BUILD: RunAcceptance = {
+    criteria: [],
+    outcome: "verbatim",
+    ratifiedBy: "the ratified phase spec",
+    source: "delivery_account",
+    unmeasured: [{ repositories: "default", reason: "default build 'sbt compile' exited 127" }],
+    declined: [{ text: "The service uses the new client", reason: "no work here can make it true" }],
+  };
+
+  it("VerifySummary_UnmeasuredAccount_RendersApartFromTheCriteria", () => {
+    render(<VerifySummary acceptance={RED_BUILD} fallback={fallback({})} />);
+    expect(screen.getByTestId("verify-unmeasured")).toHaveTextContent(
+      "Acceptance could not be measured",
+    );
+    expect(screen.getByTestId("verify-unmeasured-repositories")).toHaveTextContent("default");
+    expect(screen.getByTestId("verify-unmeasured-reason")).toHaveTextContent("exited 127");
+    expect(screen.queryByTestId("verify-criterion")).toBeNull();
+    expect(screen.queryByTestId("verify-empty")).toBeNull();
+    expect(screen.getByTestId("verify-declined-criterion")).toHaveTextContent(
+      "The service uses the new client",
+    );
+  });
+
+  it("VerifySummary_OnlyUnmeasured_BadgeSaysNotMeasuredNotACount", () => {
+    render(<VerifySummary acceptance={RED_BUILD} fallback={fallback({})} />);
+    const badge = screen.getByTestId("verify-outcome-badge");
+    expect(badge).toHaveTextContent("not measured");
+    expect(badge).not.toHaveTextContent("proven");
+    expect(badge).toHaveClass("bad");
+  });
+
+  it("VerifySummary_CriteriaAndUnmeasured_CountsOnlyTheCriteria", () => {
+    render(
+      <VerifySummary
+        acceptance={{
+          ...RED_BUILD,
+          criteria: [{ text: "Login authenticates the user", status: "met", reason: null }],
+        }}
+        fallback={fallback({})}
+      />,
+    );
+    const badge = screen.getByTestId("verify-outcome-badge");
+    expect(badge).toHaveTextContent("1 of 1 proven · not measured");
+    expect(badge).toHaveClass("bad");
+  });
+});

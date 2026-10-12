@@ -1,0 +1,91 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-50bda
+goal: "A code run never works in an image it did not ask for: a refused stack.image, or the generic image under declared verify stages, fails the run at preflight with the reason and the levers."
+
+applies_to: "backend (sandbox image chain, run preflight)"
+
+requires: [2026-10-12-6bfaa, 2026-10-12-6bfac]
+
+facts:
+  - claim: "observed: a Scala context declared a stack.image outside the trusted registries; the chain dropped it, the sandbox ran buildpack-deps:bookworm-scm, and the run failed at verify after ~25 minutes with 'sbt: not found'. Operator, 2026-10-12: automatically switching to a default image is not helpful."
+    evidence: "observed: 2026-10-12, operator report"
+  - claim: "The chain takes the context image only when the boundary accepts it; a refused one is logged and the chain continues to the catalog, then the generic image. Scala is not in the catalog."
+    evidence: "observed: 2026-10-12, before this phase at 64467753a SandboxImageChain.cs:45-58 and :102-119; src/backend/AgentSmith.Application/Services/Sandbox/ToolchainImageCatalog.cs:35-64"
+  - claim: "Every sandbox is created before RunPreflight: the executor ensures sandboxes before the first sandbox-requiring step, CheckoutSource is one, and RunPreflight follows it in the code preset."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineExecutor.cs:116-117, src/backend/AgentSmith.Application/Services/Sandbox/SandboxRequiringCommands.cs:12-16, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Code.cs:42-46"
+  - claim: "The chain's only production caller is SandboxSpecBuilder.Build, whose spec must carry an image; Build is called by the coordinator per discovery and by the browser and source-scope openers with no language and no context image."
+    evidence: "src/backend/AgentSmith.Application/Services/Builders/SandboxSpecBuilder.cs:39-44, src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs:100-103, src/backend/AgentSmith.Application/Services/Browser/BrowserSandboxOpener.cs:54, src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeOpener.cs:52"
+  - claim: "The spawn footprint does not call the chain; it groups by the raw declared image or language."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/RunFootprintCalculator.cs:34, src/backend/AgentSmith.Application/Services/Sandbox/RunFootprintCalculator.cs:61-62"
+  - claim: "The in-process backend runs on the host and records no image; only sandboxes implementing ISandboxToolchainImage are recorded in SandboxImages."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs:274-278, src/backend/AgentSmith.Infrastructure/Services/Sandbox/InProcessSandboxFactory.cs:6-26"
+  - claim: "A Fail finding stops the run at RunPreflight with each finding and its lever, and a lever is mandatory on Fail."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/RunPreflightHandler.cs:43-47, src/backend/AgentSmith.Application/Services/Handlers/RunPreflightHandler.cs:64-72, src/backend/AgentSmith.Contracts/Models/Preflight/RunPreflightFinding.cs:21-22"
+  - claim: "Both image checks only warn today; the trust check re-derives the chain's two operator links itself, the fallback check re-derives 'named on purpose'."
+    evidence: "observed: 2026-10-12, before this phase at 64467753a ContextImageTrustCheck.cs:36-38 and :59-68, ToolchainImageFallbackCheck.cs:41-46 and :53-60"
+  - claim: "A context DECLARES verify stages when its verify: block holds at least one stage with a label and a command (an empty block reads as null); the per-sandbox list is SandboxContexts."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/ContextYamlVerifyReader.cs:16-27, src/backend/AgentSmith.Application/Services/Handlers/ContextVerifyStagesResolver.cs:18-29, src/backend/AgentSmith.Application/Services/Handlers/SandboxContextList.cs:20-44"
+  - claim: "Without declared stages verification falls to the analyzer's ci commands, decided at AnalyzeCode — after preflight — or is skipped and reported."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifyStageResolver.cs:48-63, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Code.cs:46-52"
+  - claim: "Declared verify stages execute only in the code preset's phase block (VerifyPhase); pr-review, init-project and the scans carry no RunPreflight and no VerifyPhase."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Parking.cs:43-60, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.PrReview.cs:30-45, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.InitProject.cs:20-34"
+  - claim: "The refusal wording and lever (Settings > Sandbox > Trusted image registries, the project's Sandbox tab) already exist."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ContextImageBoundary.cs:16-48"
+
+scope:
+  in: >
+    CHAIN: SandboxImageChain gains Decide(project, lang, contextImage) -> SandboxImageDecision(Image, Link, RefusedContextImage)
+    — pure, no logging; SandboxImageLink names the deciding link (ProjectToolchainImage, LanguageImage, ContextImage, Catalog,
+    GenericFallback). A refused declared image is carried as RefusedContextImage beside the image the sandbox is started in.
+    Resolve keeps its string return and logs from the decision at the same levels (Warning for a refusal and for the
+    fall-through, SandboxImageChainSaysWhoChoseTests unchanged); the wording claims nothing about the run's outcome.
+    PREFLIGHT: ContextImageTrustCheck FAILS (was Warn) for every context of a sandbox with a recorded image whose decision
+    carries a RefusedContextImage different from its Image (a refused image the chain lands on anyway is no substitution) — reason
+    from ContextImageBoundary.Judge, its lever plus 'or declare a stack.image inside the boundary that carries the whole
+    toolchain'; when the boundary is the Closed one (settings unreadable) Judge's lever points at the settings, not the list; the operator-link re-derivation is
+    replaced by the chain's decision. ToolchainImageFallbackCheck takes the chain: per sandbox recorded on the generic image,
+    the contexts (SandboxContextList.InOr with the SandboxDiscoveries representative; none → warn as before) whose decision is Link=GenericFallback with no refusal fell through (a refused one is the trust check's);
+    FAIL when any of those declares verify stages (message: nothing it declares can run there; lever: stack.image /
+    sandbox.images.<lang> / sandbox.toolchain_image naming an image with the toolchain; to keep the generic image on purpose,
+    name it in sandbox.images.<lang> or sandbox.toolchain_image, which the boundary never judges),
+    else WARN as before. A stage gated by when_present counts even if its path is absent (strict, accepted). HARNESS:
+    StubSandbox always implements ISandboxToolchainImage and names its spec's image only when its factory sets NamesImages (null
+    otherwise, which RecordImage skips), so a harness run
+    records SandboxImages as a container backend does.
+  out: >
+    Throwing at sandbox creation (decision). pr-review, init-project, scans: unchanged (decision). A sandbox escalated
+    mid-run through ensure_repo_sandbox after preflight, and a run resumed from a dialogue checkpoint (the replay re-creates
+    sandboxes but does not re-run RunPreflight), are not judged — follow-up 'sandbox image verdict beyond preflight': the
+    escalation tool and the resume replay run the same two checks over the sandboxes they create. A no-context sandbox (synthetic default) declares no stages and keeps the warning.
+    WriteContextYamlToolHost (sister 2026-10-12-50bdb).
+
+decisions:
+  - key: "BLOCK AT PREFLIGHT, NOT AT CREATION: the chain still names an image for a refused declaration, because checkout precedes preflight, the spec needs an image, and the in-process backend runs none; the code run stops before any work in it."
+  - key: "DECLARES = at least one parsed verify stage in a fell-through context of that sandbox; analyzer-inferred commands come after preflight and do not count."
+  - key: "PREREQUISITES DO NOT EXEMPT: a context that installs its own toolchain on the generic image names that image in sandbox.images or sandbox.toolchain_image; the block cannot tell an apt-get from an npm install."
+  - key: "EVERY SANDBOX IS JUDGED, also one the ticket never touches (VerifyPhase skips unchanged ones): preflight runs before anything is changed, and scoping already sheds untouched contexts."
+  - key: "OTHER PIPELINES UNCHANGED: they run no declared verify stage; a refused image there keeps the chain's image and its WARN log."
+
+steps:
+  - id: chain
+    action: "SandboxImageLink enum + SandboxImageDecision record (Application/Models); SandboxImageChain.Decide; Resolve logs from it."
+  - id: checks
+    action: "ContextImageTrustCheck and ToolchainImageFallbackCheck take SandboxImageChain; Fail per the scope."
+  - id: harness
+    action: "StubSandbox implements ISandboxToolchainImage, naming the image only when its factory sets NamesImages."
+  - id: tests
+    action: "Chain decisions; both checks' fail/warn/pass cases; harness run blocked at preflight."
+
+tests:
+  - "Decide_RefusedContextImage_CarriesTheRefusalBesideTheImage"
+  - "Decide_OperatorLink_NeverConsultsTheContextImage"
+  - "ContextImageTrustCheck_RefusedImage_FailsWithLever"
+  - "ToolchainImageFallbackCheck_FellThroughWithVerifyStages_Fails"
+  - "ToolchainImageFallbackCheck_FellThroughWithoutStages_Warns"
+  - "ToolchainImageFallbackCheck_RefusedImageOnGeneric_LeavesItToTheTrustCheck"
+  - "Harness_RefusedContextImageWithVerifyStages_RunStopsAtPreflight"
+
+done:
+  - "A code run whose context declares 'sbtscala/scala-sbt:…' (refused) and verify stages fails at RunPreflight naming the image, the boundary and the levers; no master step runs (harness, red before)."
+  - "A sandbox on the generic image whose fell-through context declares verify stages fails preflight; one that declares none warns."
+  - "Full suite and architecture tests pass."

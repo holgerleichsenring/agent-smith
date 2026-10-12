@@ -1,3 +1,5 @@
+using AgentSmith.Tests.TestHelpers;
+using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -27,10 +29,7 @@ public sealed class SandboxLanguageResolverTests
     public SandboxLanguageResolverTests()
     {
         _sourceFactoryMock.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(_sourceProviderMock.Object);
-        _sut = new SandboxLanguageResolver(
-            _sourceFactoryMock.Object,
-            _parserMock.Object,
-            NullLogger<SandboxLanguageResolver>.Instance);
+        _sut = TestSandboxLanguageResolver.Create(_sourceFactoryMock.Object, _parserMock.Object);
     }
 
     [Fact]
@@ -42,14 +41,15 @@ public sealed class SandboxLanguageResolverTests
         SetupContextYaml("client", "src/Client", "typescript");
         SetupContextYaml("docs", "docs", "markdown");
 
-        var result = await _sut.ResolveAllAsync(_source, CancellationToken.None);
+        var result = await _sut.ResolveAllAsync(_source, ContextReadBranches.None, CancellationToken.None);
 
         result.Should().BeEquivalentTo(new[]
         {
             new RemoteContextDiscovery("server", "src/Server", "csharp"),
             new RemoteContextDiscovery("client", "src/Client", "typescript"),
             new RemoteContextDiscovery("docs", "docs", "markdown"),
-        });
+        }, o => o.Excluding(d => d.Provenance));
+        result[0].Provenance.Should().Be(".agentsmith/contexts/server/context.yaml read on the default branch");
     }
 
     [Fact]
@@ -66,10 +66,10 @@ public sealed class SandboxLanguageResolverTests
         _parserMock.Setup(p => p.Parse(yaml))
             .Returns(ContextYamlParseResult.Ok(new ContextYamlSummary("frontend", "node", "npm ci")));
 
-        var result = await _sut.ResolveAllAsync(_source, CancellationToken.None);
+        var result = await _sut.ResolveAllAsync(_source, ContextReadBranches.None, CancellationToken.None);
 
         result.Should().ContainSingle()
-            .Which.Should().Be(new RemoteContextDiscovery("node", "frontend", "node", "npm ci"));
+            .Which.Should().BeEquivalentTo(new RemoteContextDiscovery("node", "frontend", "node", "npm ci"), o => o.Excluding(d => d.Provenance));
     }
 
     [Fact]
@@ -78,10 +78,10 @@ public sealed class SandboxLanguageResolverTests
         _sourceProviderMock.Setup(p => p.ListDirectoryAsync(".agentsmith/contexts", It.IsAny<CancellationToken>()))
             .ReturnsAsync(Array.Empty<string>());
 
-        var result = await _sut.ResolveAllAsync(_source, CancellationToken.None);
+        var result = await _sut.ResolveAllAsync(_source, ContextReadBranches.None, CancellationToken.None);
 
         result.Should().ContainSingle()
-            .Which.Should().Be(new RemoteContextDiscovery("default", ".", null));
+            .Which.Should().BeEquivalentTo(new RemoteContextDiscovery("default", ".", null), o => o.Excluding(d => d.Provenance));
     }
 
     [Fact]
@@ -90,10 +90,10 @@ public sealed class SandboxLanguageResolverTests
         _sourceProviderMock.Setup(p => p.ListDirectoryAsync(".agentsmith/contexts", It.IsAny<CancellationToken>()))
             .ThrowsAsync(new HttpRequestException("connection refused"));
 
-        var result = await _sut.ResolveAllAsync(_source, CancellationToken.None);
+        var result = await _sut.ResolveAllAsync(_source, ContextReadBranches.None, CancellationToken.None);
 
         result.Should().ContainSingle()
-            .Which.Should().Be(new RemoteContextDiscovery("default", ".", null));
+            .Which.Should().BeEquivalentTo(new RemoteContextDiscovery("default", ".", null), o => o.Excluding(d => d.Provenance));
     }
 
     [Fact]
@@ -106,10 +106,10 @@ public sealed class SandboxLanguageResolverTests
         _parserMock.Setup(p => p.Parse("not-yaml"))
             .Returns(ContextYamlParseResult.Error("(Line: 1, Col: 1): mock parse failure"));
 
-        var result = await _sut.ResolveAllAsync(_source, CancellationToken.None);
+        var result = await _sut.ResolveAllAsync(_source, ContextReadBranches.None, CancellationToken.None);
 
         result.Should().ContainSingle()
-            .Which.Should().Be(new RemoteContextDiscovery("default", ".", null));
+            .Which.Should().BeEquivalentTo(new RemoteContextDiscovery("default", ".", null), o => o.Excluding(d => d.Provenance));
     }
 
     [Fact]
@@ -117,10 +117,10 @@ public sealed class SandboxLanguageResolverTests
     {
         var emptyRepo = new RepoConnection { Url = null };
 
-        var result = await _sut.ResolveAllAsync(emptyRepo, CancellationToken.None);
+        var result = await _sut.ResolveAllAsync(emptyRepo, ContextReadBranches.None, CancellationToken.None);
 
         result.Should().ContainSingle()
-            .Which.Should().Be(new RemoteContextDiscovery("default", ".", null));
+            .Which.Should().BeEquivalentTo(new RemoteContextDiscovery("default", ".", null), o => o.Excluding(d => d.Provenance));
     }
 
     [Fact]
@@ -133,7 +133,7 @@ public sealed class SandboxLanguageResolverTests
         _sourceProviderMock.Setup(p => p.ListDirectoryAsync(".agentsmith/contexts", It.IsAny<CancellationToken>()))
             .ThrowsAsync(new HttpRequestException("401 Unauthorized"));
 
-        var listing = await _sut.ListContextsAsync(_source, CancellationToken.None);
+        var listing = await _sut.ListContextsAsync(_source, ContextReadBranches.None, CancellationToken.None);
 
         listing.IsUnreadable.Should().BeTrue();
         listing.UnreadableReason.Should().Contain("401 Unauthorized");
@@ -146,7 +146,7 @@ public sealed class SandboxLanguageResolverTests
         _sourceProviderMock.Setup(p => p.ListDirectoryAsync(".agentsmith/contexts", It.IsAny<CancellationToken>()))
             .ReturnsAsync(Array.Empty<string>());
 
-        var listing = await _sut.ListContextsAsync(_source, CancellationToken.None);
+        var listing = await _sut.ListContextsAsync(_source, ContextReadBranches.None, CancellationToken.None);
 
         listing.IsUnreadable.Should().BeFalse();
         listing.Contexts.Should().BeEmpty();
@@ -164,7 +164,7 @@ public sealed class SandboxLanguageResolverTests
             .Returns(ContextYamlParseResult.Ok(new ContextYamlSummary(
                 "src/Api", "csharp", Verify: [new ContextYamlVerifyStage("build", "dotnet build")])));
 
-        var listing = await _sut.ListContextsAsync(_source, CancellationToken.None);
+        var listing = await _sut.ListContextsAsync(_source, ContextReadBranches.None, CancellationToken.None);
 
         listing.Contexts.Should().ContainSingle()
             .Which.Verify.Should().ContainSingle().Which.Label.Should().Be("build");
@@ -176,10 +176,10 @@ public sealed class SandboxLanguageResolverTests
         // p0261: `--context api` pins to exactly that context, reading its toolchain.
         SetupContextYaml("api", "src/Api", "csharp");
 
-        var result = await _sut.ResolveContextAsync(_source, "api", CancellationToken.None);
+        var result = await _sut.ResolveContextAsync(_source, "api", ContextReadBranches.None, CancellationToken.None);
 
         result.Should().ContainSingle()
-            .Which.Should().Be(new RemoteContextDiscovery("api", "src/Api", "csharp"));
+            .Which.Should().BeEquivalentTo(new RemoteContextDiscovery("api", "src/Api", "csharp"), o => o.Excluding(d => d.Provenance));
     }
 
     [Fact]
@@ -191,10 +191,10 @@ public sealed class SandboxLanguageResolverTests
                 ".agentsmith/contexts/api/context.yaml", It.IsAny<CancellationToken>()))
             .ReturnsAsync((string?)null);
 
-        var result = await _sut.ResolveContextAsync(_source, "api", CancellationToken.None);
+        var result = await _sut.ResolveContextAsync(_source, "api", ContextReadBranches.None, CancellationToken.None);
 
         result.Should().ContainSingle()
-            .Which.Should().Be(new RemoteContextDiscovery("api", ".", null));
+            .Which.Should().BeEquivalentTo(new RemoteContextDiscovery("api", ".", null), o => o.Excluding(d => d.Provenance));
     }
 
     [Fact]
@@ -207,10 +207,10 @@ public sealed class SandboxLanguageResolverTests
         var localSource = new RepoConnection { Url = null };
         SetupContextYaml("api", "src/Api", "csharp");
 
-        var result = await _sut.ResolveContextAsync(localSource, "api", CancellationToken.None);
+        var result = await _sut.ResolveContextAsync(localSource, "api", ContextReadBranches.None, CancellationToken.None);
 
         result.Should().ContainSingle()
-            .Which.Should().Be(new RemoteContextDiscovery("api", "src/Api", "csharp"));
+            .Which.Should().BeEquivalentTo(new RemoteContextDiscovery("api", "src/Api", "csharp"), o => o.Excluding(d => d.Provenance));
     }
 
     private void SetupContextYaml(string contextName, string workdir, string language)

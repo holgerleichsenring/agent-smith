@@ -11,6 +11,9 @@ public sealed class GeminiChatClientBuilder : IChatClientBuilder
 {
     public IReadOnlyList<string> SupportedTypes { get; } = new[] { "gemini", "google" };
 
+    // The list files the bare Gemini API ids under this provider; its "gemini" ids carry a "gemini/" prefix.
+    public IReadOnlyList<string> PriceListProviders { get; } = ["vertex_ai-language-models"];
+
     public bool AcceptsImageAfterToolResult => true;
 
     public IChatClient Build(AgentConfig agent, ModelAssignment assignment)

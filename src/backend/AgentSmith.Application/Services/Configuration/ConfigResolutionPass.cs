@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Sandbox;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Configuration.Resolved;
 using AgentSmith.Contracts.Sandbox;
@@ -40,7 +41,9 @@ public sealed class ConfigResolutionPass : IConfigResolver
         SandboxResources: ResolveResources(project),
         AgentImage: ResolvedValue<string>.From(_agentImageResolver.Resolve(project), IsAgentOverride(project)),
         ToolchainImage: ResolveToolchainImage(project),
-        CostCap: ResolveCostCap(project.Pipeline));
+        // 2026-10-12-006d: the cap a run of the code pipeline gets — a run reads its own
+        // pipeline's cap, and the project's pipeline field is not what any run is routed by.
+        CostCap: ResolveCostCap(PipelinePresets.CodeName));
 
     public ResolvedValue<CostCapValues> ResolveCostCap(string? pipelineName)
     {
@@ -92,10 +95,12 @@ public sealed class ConfigResolutionPass : IConfigResolver
             ? ResolvedValue<int>.Override(v)
             : ResolvedValue<int>.Global(_global.RunCommandTimeoutSeconds);
 
-    // p0320a: sized for the project's configured pipeline — the snapshot shows what a
-    // run of THAT pipeline would get (light profile when it is not code-changing).
+    // 2026-10-12-006d: sized for a run of the code pipeline. A run is sized by its OWN
+    // pipeline, chosen per run; the project's pipeline field decides nothing a run gets, and
+    // reading it showed the light profile under a global-default badge.
     private ResolvedValue<ResourceLimits> ResolveResources(ResolvedProject p) =>
-        ResolvedValue<ResourceLimits>.From(_resourceResolver.Resolve(p, p.Pipeline), p.Sandbox?.Resources is not null);
+        ResolvedValue<ResourceLimits>.From(
+            _resourceResolver.Resolve(p, PipelinePresets.CodeName), p.Sandbox?.Resources is not null);
 
     public ResolvedValue<string> ResolveToolchainImage(ResolvedProject p) =>
         string.IsNullOrEmpty(p.Sandbox?.ToolchainImage)

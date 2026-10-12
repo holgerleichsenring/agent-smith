@@ -12,6 +12,7 @@ import type {
 import { cn } from "@/lib/utils";
 import { DrawerSection, NumberField, SelectField, TextField } from "../formFields";
 import { ModelIdSearch } from "./ModelIdSearch";
+import { preferredProvidersFor } from "./modelIdRanking";
 import {
   activityLabel,
   findListed,
@@ -63,6 +64,8 @@ export function AgentModelEditor({
   const pricingPreview = withOverride(draft.pricing, entry.model, override);
   const preview = resolvePrice(entry.model, pricingPreview, list);
   const users = editing ? rolesUsing(editing, draft.models) : [];
+  // 2026-10-12-6bfae: the entry runs on its own provider when set, else on the agent's.
+  const preferred = preferredProvidersFor(capabilities?.agentProviderPriceLists, entry.providerType || draft.provider);
 
   const trimmed = name.trim();
   const nameTaken = trimmed !== editing && trimmed in catalog;
@@ -120,6 +123,7 @@ export function AgentModelEditor({
       <ModelIdSearch
         value={entry.model}
         list={list}
+        preferredProviders={preferred}
         onChange={(model) => {
           setEntry({ ...entry, model });
           if (!editing && (!name.trim() || name === entry.model)) setName(model);

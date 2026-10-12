@@ -339,6 +339,7 @@
 /* beat header — slim section rule, not a floating card */
 .mock-viewer .section-head { display: flex; align-items: center; gap: 11px; padding: 0 2px 13px; border-bottom: 1px solid var(--line); }
 .mock-viewer .section-head .bh-ic { width: 26px; height: 26px; border-radius: 8px; background: var(--accent-wash); color: var(--accent); display: grid; place-items: center; font-size: 14px; flex: none; }
+.mock-viewer .section-head .bh-ic.bad { background: var(--bad-wash); color: var(--bad); }
 .mock-viewer .section-head .bh-t { flex: 1; min-width: 0; }
 .mock-viewer .section-head .bh-t .n { font-size: 18px; font-weight: 670; letter-spacing: -0.02em; }
 .mock-viewer .section-head .bh-t .s { font-size: 12.5px; color: var(--ink-3); margin-top: 1px; }

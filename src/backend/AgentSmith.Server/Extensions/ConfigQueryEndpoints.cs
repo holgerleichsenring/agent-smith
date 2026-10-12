@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Configuration;
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Security;
@@ -32,6 +33,12 @@ internal static class ConfigQueryEndpoints
         // placeholder built from it would show the operator their own value back.
         app.MapGet("/api/config/inherited-sandbox", (IInheritedSandboxProjection projection) =>
             Results.Ok(InheritedSandboxMapper.ToResponse(projection)))
+           .Needs(Permissions.ConfigRead);
+
+        // 2026-10-12-6bfab: the sandbox image boundary the NEXT stack.image decision uses,
+        // read the way that decision reads it — so the Sandbox settings show one answer.
+        app.MapGet("/api/config/sandbox/image-trust", (IImageRegistryTrust trust) =>
+            Results.Ok(ImageTrustResponse.Map(trust.InForce())))
            .Needs(Permissions.ConfigRead);
         return app;
     }

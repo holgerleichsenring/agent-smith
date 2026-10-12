@@ -1,3 +1,5 @@
+using AgentSmith.Tests.TestHelpers;
+using AgentSmith.Application.Models;
 using System.Runtime.CompilerServices;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
@@ -33,7 +35,7 @@ public sealed class MonorepoMixedDiscoveryTests
             Path = FixturePath,
         };
 
-        var result = await sut.ResolveAllAsync(repo, CancellationToken.None);
+        var result = await sut.ResolveAllAsync(repo, ContextReadBranches.None, CancellationToken.None);
 
         result.Should().HaveCount(3);
         result.Should().ContainSingle(d => d.ContextName == "server")
@@ -55,7 +57,7 @@ public sealed class MonorepoMixedDiscoveryTests
             Path = FixturePath,
         };
 
-        var discoveries = await sut.ResolveAllAsync(repo, CancellationToken.None);
+        var discoveries = await sut.ResolveAllAsync(repo, ContextReadBranches.None, CancellationToken.None);
 
         // Single-repo monorepo → bare context-name per SandboxKeyComposer.
         var keys = discoveries
@@ -71,10 +73,7 @@ public sealed class MonorepoMixedDiscoveryTests
         var factory = new Mock<ISourceProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<RepoConnection>()))
             .Returns(new LocalSourceProvider(fixturePath));
-        return new SandboxLanguageResolver(
-            factory.Object,
-            new ContextYamlParser(new ContextYamlSerializer(new ContextYamlBuilders())),
-            NullLogger<SandboxLanguageResolver>.Instance);
+        return TestSandboxLanguageResolver.Create(factory.Object, new ContextYamlParser(new ContextYamlSerializer(new ContextYamlBuilders())));
     }
 
     private static string LocateFixture([CallerFilePath] string callerPath = "")

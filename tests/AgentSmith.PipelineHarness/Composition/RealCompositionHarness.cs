@@ -206,6 +206,11 @@ public sealed class RealCompositionHarness : IAsyncDisposable
 
         services.RemoveAll<IPromptCatalog>();
         services.AddSingleton<IPromptCatalog, StubPromptCatalog>();
+        // 2026-10-12-50bdb: write_context_yaml asks the image's registry; the harness never
+        // reaches the network, so every image exists.
+        services.RemoveAll<Application.Services.Sandbox.Registry.IImageReferenceCheck>();
+        services.AddSingleton<Application.Services.Sandbox.Registry.IImageReferenceCheck>(
+            new FixedImageReferenceCheck());
         services.RemoveAll<ISwaggerProvider>();
         services.AddSingleton<ISwaggerProvider, StubSwaggerProvider>();
 

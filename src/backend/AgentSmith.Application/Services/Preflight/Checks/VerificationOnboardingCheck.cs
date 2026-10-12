@@ -1,3 +1,4 @@
+using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Preflight;
@@ -68,7 +69,7 @@ public sealed class VerificationOnboardingCheck(
             return;
         }
 
-        var listing = await contextResolver.ListContextsAsync(repo, cancellationToken);
+        var listing = await contextResolver.ListContextsAsync(repo, ContextReadBranches.None, cancellationToken);
         if (listing.UnreadableReason is { } reason)
         {
             unreadable.Add($"{name}: contexts unreadable — {reason}");

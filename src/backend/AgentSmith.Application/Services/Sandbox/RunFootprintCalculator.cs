@@ -1,3 +1,4 @@
+using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Commands;
@@ -24,12 +25,12 @@ public sealed class RunFootprintCalculator(
     internal const string BrowserPodName = "browser";
 
     public async Task<RunFootprintBreakdown> CalculateAsync(
-        ResolvedProject project, string? pipelineName, CancellationToken ct)
+        ResolvedProject project, string? pipelineName, ContextReadBranches branches, CancellationToken ct)
     {
         var pods = new List<RunFootprintPod>();
         foreach (var repo in project.Repos)
         {
-            var discoveries = await languageResolver.ResolveAllAsync(repo, ct);
+            var discoveries = await languageResolver.ResolveAllAsync(repo, branches, ct);
             foreach (var group in discoveries.GroupBy(ImageOf, StringComparer.Ordinal))
                 pods.Add(PodForGroup(project, pipelineName, repo.Name ?? "?", group.ToList()));
         }

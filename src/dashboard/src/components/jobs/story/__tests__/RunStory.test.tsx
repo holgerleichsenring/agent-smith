@@ -281,4 +281,55 @@ describe("RunStory", () => {
     expect(screen.getByTestId("verify-summary")).toHaveAttribute("data-source", "acceptance");
     expect(screen.getByTestId("verify-criterion")).toHaveAttribute("data-status", "met");
   });
+
+  // 2026-10-12-6bfad: a red build that never ran is not "0 of 1 proven" under a criterion
+  // named after the sandbox key, and a failed verify beat does not carry a ✓.
+  const RED_BUILD = {
+    criteria: [],
+    outcome: "verbatim",
+    ratifiedBy: "the ratified phase spec",
+    source: "delivery_account" as const,
+    unmeasured: [{ repositories: "default", reason: "/bin/sh: 1: sbt: not found" }],
+  };
+
+  it("RunStory_UnmeasuredAccount_VerifySaysNotMeasuredAndTheIconFollowsTheFailure", () => {
+    render(
+      <RunStory
+        runId="r1"
+        snapshot={snap({
+          status: "failed",
+          beats: { ...BEATS, building: "done", verify: "failed" },
+          acceptance: RED_BUILD,
+        })}
+        events={[]}
+      />,
+    );
+    expect(screen.getByTestId("story-beat-verify-caption")).toHaveTextContent("Not measured");
+    expect(screen.getByTestId("story-beat-verify-caption")).not.toHaveTextContent("proven");
+    expect(screen.getByTestId("beat-section-badge")).toHaveTextContent("failed");
+    expect(screen.getByTestId("beat-section-icon")).toHaveTextContent("✗");
+    expect(screen.getByTestId("beat-section-icon")).toHaveClass("bad");
+    expect(screen.queryByTestId("verify-criterion")).toBeNull();
+  });
+
+  it("RunStory_CriteriaAndAnUnmeasuredAccount_CountsOnlyTheCriteria", () => {
+    render(
+      <RunStory
+        runId="r1"
+        snapshot={snap({
+          beats: { ...BEATS, building: "done", verify: "done" },
+          acceptance: {
+            ...RED_BUILD,
+            criteria: [{ text: "It works", status: "met", reason: null }],
+          },
+        })}
+        events={[]}
+      />,
+    );
+    expect(screen.getByTestId("story-beat-verify-caption")).toHaveTextContent(
+      "1 of 1 proven · not measured",
+    );
+    fireEvent.click(screen.getByTestId("story-beat-verify"));
+    expect(screen.getByTestId("beat-section-icon")).toHaveTextContent("✓");
+  });
 });

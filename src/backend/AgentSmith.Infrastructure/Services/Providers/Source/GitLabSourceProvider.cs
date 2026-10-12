@@ -32,6 +32,8 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, 
     private readonly DefaultBranchResolver _defaultBranch;
     // 2026-09-22-b6ad: putting files on a branch without a checkout, through this same client.
     private readonly GitLabBranchWrite _branchWrite;
+    // 2026-10-12-6bfaa: reading a named branch, the default-branch reads included.
+    private readonly GitLabBranchRead _branchRead;
 
     public string ProviderType => "GitLab";
 
@@ -54,6 +56,7 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, 
             connection.DefaultBranch, connection.ProjectPath, logger);
         _branchWrite = new GitLabBranchWrite(
             _baseUrl, _projectPath, _privateToken, httpClient, logger);
+        _branchRead = new GitLabBranchRead(_baseUrl, _projectPath, _privateToken, httpClient);
     }
 
     public async Task<BranchWriteResult> WriteFilesToBranchAsync(
@@ -322,53 +325,21 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, 
         string prUrl, BranchName sourceBranch, CancellationToken cancellationToken) =>
         _mergeRequests.CompleteAsync(prUrl, cancellationToken);
 
-    public async Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken)
-    {
-        var branch = await GetDefaultBranchAsync(cancellationToken);
-        // GitLab REST: /projects/:id/repository/files/<urlencoded-path>/raw?ref=<branch>.
-        // _projectPath is ALREADY url-escaped by the factory (namespace%2Fname), so it goes
-        // in raw — re-escaping double-encodes it (%252F) and 404s nested-subgroup projects.
-        // Only the file `path` segment is escaped here.
-        var encodedProject = _projectPath;
-        var encodedPath = Uri.EscapeDataString(path);
-        var url = $"{_baseUrl}/api/v4/projects/{encodedProject}/repository/files/{encodedPath}/raw?ref={Uri.EscapeDataString(branch)}";
+    public async Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken) =>
+        await _branchRead.TryReadFileAsync(path, await GetDefaultBranchAsync(cancellationToken), cancellationToken);
 
-        using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        request.Headers.Add("PRIVATE-TOKEN", _privateToken);
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
-        if (response.StatusCode == System.Net.HttpStatusCode.NotFound) return null;
-        response.EnsureSuccessStatusCode();
-        return await response.Content.ReadAsStringAsync(cancellationToken);
-    }
+    public async Task<IReadOnlyList<string>> ListDirectoryAsync(string path, CancellationToken cancellationToken) =>
+        await _branchRead.ListDirectoryAsync(path, await GetDefaultBranchAsync(cancellationToken), cancellationToken);
 
-    public async Task<IReadOnlyList<string>> ListDirectoryAsync(string path, CancellationToken cancellationToken)
-    {
-        var branch = await GetDefaultBranchAsync(cancellationToken);
-        // GitLab REST: /projects/:id/repository/tree?path=<dir>&ref=<branch>.
-        // Returns a JSON array of { id, name, type, path, mode }. We project name only.
-        // No pagination handling for now — the .agentsmith/contexts/ directory in
-        // realistic monorepos is small (sub-package count, dozens max).
-        var encodedProject = _projectPath;
-        var url = $"{_baseUrl}/api/v4/projects/{encodedProject}/repository/tree?path={Uri.EscapeDataString(path)}&ref={Uri.EscapeDataString(branch)}";
+    public Task<bool> BranchExistsAsync(BranchName branch, CancellationToken cancellationToken) =>
+        _branchRead.ExistsAsync(branch.Value, cancellationToken);
 
-        using var request = new HttpRequestMessage(HttpMethod.Get, url);
-        request.Headers.Add("PRIVATE-TOKEN", _privateToken);
-        using var response = await _httpClient.SendAsync(request, cancellationToken);
-        if (response.StatusCode == System.Net.HttpStatusCode.NotFound) return [];
-        response.EnsureSuccessStatusCode();
+    public Task<string?> TryReadFileAsync(string path, BranchName branch, CancellationToken cancellationToken) =>
+        _branchRead.TryReadFileAsync(path, branch.Value, cancellationToken);
 
-        using var json = await JsonDocument.ParseAsync(
-            await response.Content.ReadAsStreamAsync(cancellationToken),
-            cancellationToken: cancellationToken);
-
-        var names = new List<string>();
-        foreach (var item in json.RootElement.EnumerateArray())
-        {
-            if (item.TryGetProperty("name", out var name) && name.GetString() is { } n)
-                names.Add(n);
-        }
-        return names;
-    }
+    public Task<IReadOnlyList<string>> ListDirectoryAsync(
+        string path, BranchName branch, CancellationToken cancellationToken) =>
+        _branchRead.ListDirectoryAsync(path, branch.Value, cancellationToken);
 
     private Task<string> GetDefaultBranchAsync(CancellationToken cancellationToken) =>
         _defaultBranch.ResolveAsync(AskGitLabAsync, cancellationToken);

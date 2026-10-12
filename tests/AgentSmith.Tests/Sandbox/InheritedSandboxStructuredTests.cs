@@ -58,27 +58,32 @@ public sealed class InheritedSandboxStructuredTests
     }
 
     [Fact]
-    public void ResourceProjection_ANonCodeChangingPipeline_ReportsTheLightProfileAsTheAnswer()
+    public void ResourceProjection_ANonCodePipelineField_DoesNotDecideTheAnswer()
     {
         var projection = Build(("scanner", "security-scan"));
 
         var inherited = projection.ByProject()["scanner"].Resources;
 
-        // The light profile is FORCED on a pipeline that changes no code, whatever the
-        // global default holds — a control that showed the global numbers here would be
-        // naming a layer this project can never reach.
-        inherited.Layer.Should().Be(SandboxResourceLayer.LightProfile);
-        inherited.Values.Should().Be(ResourceLimits.LightProfile);
+        // 2026-10-12-006d: a ticket's labels or a trigger's default choose a run's pipeline,
+        // never this field — so the code-run answer stands beside the light profile a run
+        // that changes no code is held to, whatever the field says.
+        inherited.Layer.Should().Be(SandboxResourceLayer.GlobalDefault);
+        inherited.Values.Should().Be(new AgentSmith.Application.Models.SandboxOptions().ToResourceLimits());
+        inherited.NoCodeValues.Should().Be(ResourceLimits.LightProfile);
     }
 
     [Fact]
-    public void ResourceProjection_ADraftProjectWithNoPipeline_IsReportedAsTheLightProfileToo()
+    public void ResourceProjection_AProjectWithNoPipelineField_ReportsWhatACodeRunGets()
     {
-        var projection = Build();
+        // The observed defect: an empty field read as "changes no code", so the tab claimed
+        // the light profile for a project whose ticket runs are all `code`.
+        var projection = Build(("ticketed", ""));
 
-        // Build sizing must be asked for explicitly: an unknown pipeline is held to the
-        // light profile by the resolver, and the process-wide row says the same thing.
-        projection.ProcessWide().Resources.Layer.Should().Be(SandboxResourceLayer.LightProfile);
+        var inherited = projection.ByProject()["ticketed"].Resources;
+
+        inherited.Layer.Should().Be(SandboxResourceLayer.GlobalDefault);
+        inherited.Values.Should().NotBe(ResourceLimits.LightProfile);
+        projection.ProcessWide().Resources.Layer.Should().Be(SandboxResourceLayer.GlobalDefault);
     }
 
     [Fact]
@@ -108,14 +113,16 @@ public sealed class InheritedSandboxStructuredTests
     }
 
     [Fact]
-    public void ResourceProjection_OnTheWire_CarriesTheLayerNameBesideTheQuantities()
+    public void ResourceProjection_OnTheWire_CarriesTheLayerAndTheNoCodeValues()
     {
         var response = InheritedSandboxMapper.ToResponse(Build(("scanner", "security-scan")));
 
         var resources = response.Projects["scanner"].Resources;
 
-        resources.Layer.Should().Be("light-profile");
-        resources.Values.CpuLimit.Should().Be(ResourceLimits.LightProfile.CpuLimit);
+        resources.Layer.Should().Be("global-default");
+        resources.Values.CpuLimit.Should().Be(new AgentSmith.Application.Models.SandboxOptions().CpuLimit);
+        resources.NoCodeValues.CpuLimit.Should().Be(ResourceLimits.LightProfile.CpuLimit);
+        resources.NoCodeValues.MemoryLimit.Should().Be(ResourceLimits.LightProfile.MemoryLimit);
     }
 
     /// <summary>The global sandbox block has no secrets field, so there is nothing for the

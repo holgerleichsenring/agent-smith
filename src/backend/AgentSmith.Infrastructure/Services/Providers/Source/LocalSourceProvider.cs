@@ -17,6 +17,7 @@ public sealed class LocalSourceProvider(string basePath, string? defaultBranch =
 
     private readonly LocalBranchFastForward _fastForward = new();
     private readonly LocalBranchCommit _branchCommit = new();
+    private readonly LocalRepositoryRead _read = new(basePath);
 
     public string ProviderType => "Local";
 
@@ -60,25 +61,21 @@ public sealed class LocalSourceProvider(string basePath, string? defaultBranch =
         Repository repository, CancellationToken cancellationToken) =>
         Task.FromResult<string?>(null);
 
-    public async Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken)
-    {
-        var full = Path.Combine(basePath, path);
-        if (!File.Exists(full)) return null;
-        return await File.ReadAllTextAsync(full, cancellationToken);
-    }
+    public Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken) =>
+        _read.TryReadFileAsync(path, cancellationToken);
 
-    public Task<IReadOnlyList<string>> ListDirectoryAsync(string path, CancellationToken cancellationToken)
-    {
-        var full = Path.Combine(basePath, path);
-        if (!Directory.Exists(full))
-            return Task.FromResult<IReadOnlyList<string>>([]);
-        IReadOnlyList<string> names = Directory.EnumerateFileSystemEntries(full)
-            .Select(Path.GetFileName)
-            .Where(n => n is not null)
-            .Select(n => n!)
-            .ToList();
-        return Task.FromResult(names);
-    }
+    public Task<IReadOnlyList<string>> ListDirectoryAsync(string path, CancellationToken cancellationToken) =>
+        Task.FromResult(_read.ListDirectory(path));
+
+    public Task<bool> BranchExistsAsync(BranchName branch, CancellationToken cancellationToken) =>
+        _read.BranchExistsAsync(branch.Value, cancellationToken);
+
+    public Task<string?> TryReadFileAsync(string path, BranchName branch, CancellationToken cancellationToken) =>
+        _read.TryReadFileAsync(path, branch.Value, cancellationToken);
+
+    public Task<IReadOnlyList<string>> ListDirectoryAsync(
+        string path, BranchName branch, CancellationToken cancellationToken) =>
+        _read.ListDirectoryAsync(path, branch.Value, cancellationToken);
 
     public Task<bool> UpdatePullRequestBodyAsync(
         string prUrl, string newBody, CancellationToken cancellationToken) =>

@@ -66,13 +66,13 @@ public static class RunBeatsComputer
         });
     }
 
-    // p0376: the acceptance is "proven" when every ratified criterion the master
-    // dispositioned is met (not_applicable is neutral) and at least one was met — the
-    // keystone's per-criterion verdicts (persisted on run.AcceptanceJson at run end).
+    // p0376: "proven" = every persisted criterion met or n/a, at least one met. 2026-10-12-6bfad:
+    // and no account went unmeasured — a red build proved nothing, whatever earlier phases
+    // met. Read off run.AcceptanceJson, the keystone's per-criterion verdicts at run end.
     private static bool AcceptanceProven(string? acceptanceJson)
     {
         var view = RunStoryJson.TryDeserialize<AcceptanceView>(acceptanceJson);
-        if (view is null || view.Criteria.Count == 0) return false;
+        if (view is null || view.Criteria.Count == 0 || view.Unmeasured.Count > 0) return false;
         var anyMet = false;
         foreach (var criterion in view.Criteria)
         {

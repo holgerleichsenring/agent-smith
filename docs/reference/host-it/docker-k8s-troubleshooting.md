@@ -61,16 +61,26 @@ The checkout step says so by name when it doesn't. Name an image variant that sh
 in the context's `stack.image`, or in `projects.<name>.sandbox.toolchain_image` /
 `sandbox.images`.
 
-## The context's image is ignored
+## A code run stops at "Check preconditions" over its image
 
 ```
-context.yaml stack.image '…' is outside the trusted registries [...]. Falling back for lang=….
+Preflight failed — … context-image-trust: context '…': stack.image '…' is outside the trusted image registries […]
+Preflight failed — … toolchain-image: the generic image 'buildpack-deps:bookworm-scm' … declare verify stages it cannot run
 ```
 
-The image isn't under `sandbox.allowed_registries` (default `mcr.microsoft.com/` and
+A code run never works in an image it did not ask for. When the context's `stack.image` is
+refused, or the sandbox would land on the generic image (no language toolchain) while the
+context declares `verify` stages, the run stops at preflight instead of failing at verify half
+an hour later. Other pipelines (pr-review, scans, init-project) keep running in the substitute
+and log the refusal as a warning. A context that declares nothing to build only gets a warning.
+To keep the generic image on purpose, name it in `sandbox.images.<lang>` or
+`sandbox.toolchain_image`.
+
+For a refused image: the image isn't under `sandbox.allowed_registries` (default `mcr.microsoft.com/` and
 `ghcr.io/`), or it is a Docker Hub library image while a registry list is set and
 `allow_docker_hub_library` isn't. Widen the list, or name the image yourself in
-`toolchain_image` / `images`, which are not checked. See
+`toolchain_image` / `images`, which are not checked. The list is edited under Settings →
+Sandbox → Trusted image registries and applies without a restart. See
 [Kubernetes](../../host-it/kubernetes.md#which-registries-a-toolchain-image-may-come-from).
 
 ## A declared credential never arrives

@@ -41,6 +41,10 @@ public sealed class AzureReposSourceProvider(
     private readonly AzureReposBranchWrite _branchWrite = new(
         connection.Project, connection.RepoName, clientFactory,
         connection.OrganizationUrl.TrimEnd('/'), connection.PersonalAccessToken, logger);
+    // 2026-10-12-6bfaa: reading a named branch, the default-branch reads included.
+    private readonly AzureReposBranchRead _branchRead = new(
+        connection.Project, connection.RepoName, clientFactory,
+        connection.OrganizationUrl.TrimEnd('/'), connection.PersonalAccessToken, logger);
 
     public string ProviderType => "AzureRepos";
 
@@ -340,90 +344,21 @@ public sealed class AzureReposSourceProvider(
         string prUrl, BranchName sourceBranch, CancellationToken cancellationToken) =>
         _pullRequests.CompleteAsync(prUrl, cancellationToken);
 
-    public async Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken)
-    {
-        var client = CreateGitClient();
-        var branch = await GetDefaultBranchAsync(cancellationToken);
-        var descriptor = new GitVersionDescriptor
-        {
-            Version = branch,
-            VersionType = GitVersionType.Branch
-        };
-        try
-        {
-            using var stream = await client.GetItemContentAsync(
-                project: _project,
-                repositoryId: _repoName,
-                path: path,
-                versionDescriptor: descriptor,
-                cancellationToken: cancellationToken);
-            using var reader = new StreamReader(stream);
-            return await reader.ReadToEndAsync(cancellationToken);
-        }
-        catch (VssServiceException ex) when (ex.Message.Contains("could not be found", StringComparison.OrdinalIgnoreCase)
-                                          || ex.Message.Contains("does not exist", StringComparison.OrdinalIgnoreCase))
-        {
-            return null;
-        }
-    }
+    public async Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken) =>
+        await _branchRead.TryReadFileAsync(path, await GetDefaultBranchAsync(cancellationToken), cancellationToken);
 
-    public async Task<IReadOnlyList<string>> ListDirectoryAsync(string path, CancellationToken cancellationToken)
-    {
-        var client = CreateGitClient();
-        var branch = await GetDefaultBranchAsync(cancellationToken);
-        var descriptor = new GitVersionDescriptor
-        {
-            Version = branch,
-            VersionType = GitVersionType.Branch
-        };
-        try
-        {
-            // GetItemsAsync with scopePath + recursionLevel=OneLevel returns the
-            // directory itself plus immediate children. Filter out the directory
-            // itself; keep only the leaf names (last path segment).
-            // Azure DevOps returns GitItem.Path with a leading "/" — normalise
-            // both sides before the prefix match so multi-context monorepos
-            // are actually listed (regression: prior code dropped every item).
-            var items = await client.GetItemsAsync(
-                project: _project,
-                repositoryId: _repoName,
-                scopePath: path,
-                recursionLevel: VersionControlRecursionType.OneLevel,
-                versionDescriptor: descriptor,
-                cancellationToken: cancellationToken);
-            logger.LogInformation(
-                "ListDirectoryAsync raw: project={Project} repo={Repo} path={Path} branch={Branch} items={Count} sample=[{Sample}]",
-                _project, _repoName, path, branch, items?.Count ?? 0,
-                items is null
-                    ? ""
-                    : string.Join(", ", items.Take(8).Select(i => $"{i.Path}|folder={i.IsFolder}")));
-            if (items is null || items.Count == 0) return [];
+    public async Task<IReadOnlyList<string>> ListDirectoryAsync(string path, CancellationToken cancellationToken) =>
+        await _branchRead.ListDirectoryAsync(path, await GetDefaultBranchAsync(cancellationToken), cancellationToken);
 
-            var normPath = "/" + path.Trim('/');
-            var prefix = normPath + "/";
-            var result = new List<string>();
-            foreach (var item in items)
-            {
-                if (item.Path is null) continue;
-                var p = item.Path.StartsWith('/') ? item.Path : "/" + item.Path;
-                if (string.Equals(p, normPath, StringComparison.Ordinal)) continue;
-                string leaf;
-                if (p.StartsWith(prefix, StringComparison.Ordinal))
-                    leaf = p[prefix.Length..];
-                else
-                    leaf = p.TrimStart('/');
-                if (string.IsNullOrEmpty(leaf) || leaf.Contains('/')) continue;
-                if (item.IsFolder != true) continue;
-                result.Add(leaf);
-            }
-            return result;
-        }
-        catch (VssServiceException ex) when (ex.Message.Contains("could not be found", StringComparison.OrdinalIgnoreCase)
-                                          || ex.Message.Contains("does not exist", StringComparison.OrdinalIgnoreCase))
-        {
-            return [];
-        }
-    }
+    public Task<bool> BranchExistsAsync(BranchName branch, CancellationToken cancellationToken) =>
+        _branchRead.ExistsAsync(branch.Value, cancellationToken);
+
+    public Task<string?> TryReadFileAsync(string path, BranchName branch, CancellationToken cancellationToken) =>
+        _branchRead.TryReadFileAsync(path, branch.Value, cancellationToken);
+
+    public Task<IReadOnlyList<string>> ListDirectoryAsync(
+        string path, BranchName branch, CancellationToken cancellationToken) =>
+        _branchRead.ListDirectoryAsync(path, branch.Value, cancellationToken);
 
     // 2026-10-08-9e6e / 10b0: standing votes, open pull requests and their comments, read by collaborators.
     public Task<ChangedPage> ChangedSinceAsync(DateTimeOffset since, string? resume, int maxPages, CancellationToken ct) => new AzureReposChangedPullRequests(CreateConnectionAsync, _project, _repoName, _cloneUrl).ChangedSinceAsync(resume, maxPages, ct);

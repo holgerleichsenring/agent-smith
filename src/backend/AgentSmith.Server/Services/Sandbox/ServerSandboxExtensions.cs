@@ -1,5 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Preflight;
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
@@ -36,6 +37,9 @@ internal static class ServerSandboxExtensions
     internal static IServiceCollection AddSandboxGlobalConfig(this IServiceCollection services)
     {
         services.AddSingleton<IOptions<SandboxGlobalConfig>, LoadedSandboxGlobalConfig>(); // read on first use, 283df
+        // 2026-10-12-6bfab: the image boundary reads the store per decision, not these options.
+        services.RemoveAll<ISandboxSettingsReader>();
+        services.AddSingleton<ISandboxSettingsReader, StoredSandboxSettingsReader>();
         return services;
     }
 

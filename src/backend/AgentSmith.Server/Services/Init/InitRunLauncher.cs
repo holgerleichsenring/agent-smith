@@ -1,3 +1,4 @@
+using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
@@ -71,7 +72,8 @@ public sealed class InitRunLauncher(
         ResolvedProject project, InitLaunchRequest request, CancellationToken ct)
     {
         var runId = RunIdGenerator.Generate(timeProvider.GetUtcNow());
-        var decision = await admission.TryAdmitAsync(project, PipelineName, runId, ct);
+        var decision = await admission.TryAdmitAsync(
+            project, PipelineName, runId, ContextReadBranches.ForBranch(new(TicketBranchNamer.InitBranch)), ct);
         if (!decision.Admitted) return InitLaunchResult.NoCapacity(decision.Reason!);
 
         // The pre-start row makes the answered run id valid the moment the operator

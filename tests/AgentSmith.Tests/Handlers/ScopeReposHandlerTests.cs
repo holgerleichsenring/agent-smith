@@ -28,8 +28,8 @@ public sealed class ScopeReposHandlerTests
     public ScopeReposHandlerTests()
     {
         _resolverMock
-            .Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((RepoConnection repo, CancellationToken _) =>
+            .Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RepoConnection repo, ContextReadBranches _, CancellationToken _) =>
                 new[] { new RemoteContextDiscovery("default", ".", "csharp", Purpose: $"{repo.Name} service") });
     }
 
@@ -269,7 +269,7 @@ public sealed class ScopeReposHandlerTests
         // nothing narrowed. The claim is recorded before the single-repo return, and
         // scoping still stays out of it.
         _resolverMock
-            .Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[]
             {
                 new RemoteContextDiscovery("frontend", "frontend", "node"),

@@ -1,0 +1,110 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-6bfaa
+goal: "A sandbox's toolchain image is resolved from the context.yaml on the branch the run works on, and a run whose sandbox lands on the generic fallback image says so, why, and how to fix it."
+
+applies_to: "backend (pre-sandbox context discovery, source providers, run preflight)"
+
+requires: [2026-09-24-7e4b]
+
+facts:
+  - claim: "observed: a Scala project whose .agentsmith/contexts/ exists only on the ticket branch (init pull request not merged) got the generic fallback image on every run although sandbox.images.scala was configured; the master installed a JDK and sbt itself, VerifyPhase then ran bare 'sbt compile' and failed with exit 127 after 25 minutes. The fallback was only a server WARN."
+    evidence: "observed: 2026-10-12, production run, operator report"
+  - claim: "Pre-sandbox discovery lists .agentsmith/contexts and reads each context.yaml through the source provider, with no branch argument."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxLanguageResolver.cs:47-79, src/backend/AgentSmith.Application/Services/Sandbox/SandboxLanguageResolver.cs:108-117"
+  - claim: "The provider contract reads a file and lists a directory on the DEFAULT branch only."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ISourceProvider.cs:56-76"
+  - claim: "GitHub, GitLab and Azure Repos resolve the default branch first and pass it as the ref of the same API call, so a branch-taking read is the same call with a different ref."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubSourceProvider.cs:282-319, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabSourceProvider.cs:325-371, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposSourceProvider.cs:343-393"
+  - claim: "The local provider reads the working tree on disk, not a branch."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/LocalSourceProvider.cs:63-81"
+  - claim: "Branch existence is already asked per host in the branch writers: GitHub Git.Reference.Get, GitLab GET repository/branches/:branch, Azure Repos GetRefsAsync with a heads/ filter."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubBranchWrite.cs:72-76, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabBranchWrite.cs:78-86, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposBranchWrite.cs:86-92"
+  - claim: "The run's branch is decidable from the pipeline alone, before any sandbox: CheckoutBranch when handed in, else agent-smith/<ticket> composed from TicketId; the result also carries the parent ticket stamp."
+    evidence: "src/backend/AgentSmith.Application/Services/RunBranchResolver.cs:19-30, src/backend/AgentSmith.Application/Models/RunBranch.cs:23-24"
+  - claim: "TicketId and CheckoutBranch are set on the pipeline before its first handler runs."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:319-342"
+  - claim: "A branch that does not exist yet is cut in the sandbox from the parent's rung when the clone has it, else from the clone's base."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxBaseLadder.cs:40-71"
+  - claim: "The two pre-sandbox discovery callers inside a run are the ScopeRepos inventory and the coordinator's fallback when no inventory is cached; both hold the PipelineContext."
+    evidence: "src/backend/AgentSmith.Application/Services/Scope/RemoteContextInventoryBuilder.cs:29-36, src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs:82-88"
+  - claim: "The callers outside a run — the spawn footprint, the global onboarding preflight and the config studio's template lookup — hold no pipeline and no branch."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/RunFootprintCalculator.cs:26-39, src/backend/AgentSmith.Application/Services/Preflight/Checks/VerificationOnboardingCheck.cs:37-53, src/backend/AgentSmith.Server/Services/Config/TemplateContextLookup.cs:47-50"
+  - claim: "The image chain's last link logs a warning and returns the generic fallback; nothing reaches the run."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxImageChain.cs:45-58, src/backend/AgentSmith.Application/Services/Sandbox/SandboxImageChain.cs:75-86"
+  - claim: "The coordinator records per sandbox key the image the backend really pulled; the in-process backend records none."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs:116-123, src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs:270-277"
+  - claim: "RunPreflight runs after CheckoutSource in the code preset, and its warnings become the step result and the gate event."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Code.cs:40-46, src/backend/AgentSmith.Application/Services/Handlers/RunPreflightHandler.cs:50-61"
+
+scope:
+  in: >
+    PROVIDER: ISourceProvider gains a partial (BranchRead) — BranchExistsAsync(branch), TryReadFileAsync(path, branch),
+    ListDirectoryAsync(path, branch). Each host gets a *BranchRead collaborator beside its *BranchWrite (the providers
+    are far over the class limit): GitHub/GitLab/Azure Repos move their existing read call there with the ref as a
+    parameter, and the default-branch reads call it with the resolved default. Existence is false ONLY on a 404 /
+    NotFound; Azure Repos matches the exact ref name (its heads/ filter is a prefix match); any other failure throws,
+    so it is reported as unreadable. Local answers through git plumbing on the repository at basePath (rev-parse
+    --verify, show <branch>:<path>, ls-tree --name-only), reading stdout while waiting; a path that is not a git
+    repository has no branches. DISCOVERY: ISandboxLanguageResolver's three methods and IRunFootprintCalculator take a
+    ContextReadBranches — the ordered candidates: the run branch, then the parent's rung when the run is a slice; the
+    default branch is always the last resort and is not listed. The FIRST candidate that exists on the remote AND
+    lists at least one entry under .agentsmith/contexts is the branch every context.yaml is read on; a candidate that
+    is absent, empty or unreadable is passed over with its reason; none → the default branch, as before. Run callers
+    (inventory builder, coordinator) build it from the pipeline via RunBranchResolver; the spawn footprint from the
+    ticket's composed branch; InitRunAdmission.TryAdmitAsync takes the candidates from its caller — the init launcher
+    passes the init branch, the chat ticketless launcher the handed CheckoutBranch when its context carries one, else
+    None — so the reservation reads what the run will; the onboarding preflight and the config studio's template
+    lookup pass ContextReadBranches.None. A FIRST run's ticket branch does not exist yet and is cut from the default
+    branch, so discovery reads the default — exactly what the sandbox will hold — and the fallback, when it follows,
+    is reported with the merge lever rather than silently fixed from a branch the run will not see. The inventory also
+    feeds ScopeRepos' purpose classifier, which therefore reads the same branch. PROVENANCE: RemoteContextDiscovery
+    gains a nullable string Provenance (by name, carried through From(), JSON-safe for the checkpointed inventory) —
+    where its context.yaml was read, or for the synthetic default why there was none (each branch passed over and
+    why; the default branch's answer); the static synthetic becomes a per-call value. REPORT: a new run preflight
+    check 'toolchain-image' returns ONE finding aggregating every sandbox whose recorded image is the generic
+    fallback, unless that string was named by the operator (sandbox.toolchain_image, sandbox.images.<lang>) or by the
+    context's stack.image: which sandbox, why (the provenance, or the declared language no image is known for), and
+    the levers (merge the branch carrying .agentsmith/contexts/ into the default branch; stack.lang/stack.image in
+    context.yaml; sandbox.images.<lang>; sandbox.toolchain_image). RunPreflightFinding.Warn takes an optional lever.
+  out: >
+    Failing the run on the fallback: a docs-only repository legitimately has no language, and the goal is visibility.
+    Preflight in presets without RunPreflight (init-project, pr-review, scans). Changing how VerifyPhase finds tools
+    the master installed outside the image. The spawn footprint has no parent stamp (the ticket is not fetched yet),
+    so a slice's rung is not a footprint candidate there; the run reads it, the reservation reads the ticket branch or
+    the default.
+
+decisions:
+  - key: "FIRST EXISTING CANDIDATE THAT DECLARES, then the default branch. For a branch composed from the ticket this is what checkout lands on: an existing one gets the base merged in. A HANDED branch (PR head, scan, init) is checked out without a merge; when it declares nothing the default's contexts still pick a better image than none, and the provenance names the default."
+  - key: "BRANCH-TAKING OVERLOADS in a partial, not an optional ref on the existing reads: every implementer must answer for a branch, and the default reads stay untouched for the callers that mean the default."
+  - key: "WARN, NOT FAIL; reported from the image the backend recorded, so the in-process backend (host toolchain) never warns."
+
+steps:
+  - id: contract
+    action: "ISourceProvider.BranchRead partial; GitHubBranchRead, GitLabBranchRead, AzureReposBranchRead, LocalRepositoryRead (working tree + branch reads); test implementers StubSourceProvider, ScriptedSourceProvider, RecordingBranchSources, MultiContextSourceProvider, harness LocalGitSourceProvider, ShortfallDeliveryTests' recorder."
+  - id: candidates
+    action: "ContextReadBranches (Application/Models) with None, For(PipelineContext) and ForBranch(name)."
+  - id: discovery
+    action: "Branch selection extracted from SandboxLanguageResolver into ContextBranchLocator; the resolver reads on the located branch and stamps Provenance."
+  - id: callers
+    action: "Inventory builder and coordinator pass the run's candidates; spawn passes the ticket's branch to the footprint; InitRunAdmission takes candidates from InitRunLauncher (init branch) and ChatTicketlessRunLauncher (handed branch or None); onboarding and template lookup pass None. Footprint mocks gain the argument (CapacityTestDoubles, SpawnPipelineRunsUseCaseTests, InitRunLauncherTests, RunFootprintCalculatorTests)."
+  - id: report
+    action: "ToolchainImageFallbackCheck registered as a run preflight check, one aggregated finding; RunPreflightFinding.Warn takes an optional lever."
+  - id: tests
+    action: "Unit: locator, resolver on a branch, Local branch reads on a real git repository, the preflight check (seeded SandboxImages + SandboxDiscoveries). Update equality assertions on the synthetic default. Spawn passes the composed ticket branch to the footprint. Harness (own branch-aware provider via overrides): contexts only on the ticket branch → the spawned spec carries the configured image."
+
+tests:
+  - "ContextBranchLocator_TicketBranchDeclaresContexts_ReadsThere"
+  - "ContextBranchLocator_TicketBranchAbsent_FallsToDefault"
+  - "ContextBranchLocator_TicketBranchWithoutContexts_FallsToDefault"
+  - "SandboxLanguageResolver_ContextOnTicketBranchOnly_ResolvesItsLanguage"
+  - "SandboxLanguageResolver_NoContextsAnywhere_SyntheticNamesWhatWasSearched"
+  - "LocalBranchRead_ReadsTheCommittedBranch"
+  - "ToolchainImageFallbackCheck_FallbackImage_WarnsWithReasonAndLever"
+  - "ToolchainImageFallbackCheck_OperatorNamedFallback_Passes"
+  - "Harness_ContextsOnlyOnTicketBranch_SandboxGetsConfiguredImage"
+  - "Spawn_Footprint_ReadsTheComposedTicketBranch"
+
+done:
+  - "A run whose EXISTING ticket branch alone carries context.yaml (lang scala) and whose project configures sandbox.images.scala creates its sandbox with that image (harness, red before)."
+  - "A pipeline whose recorded sandbox image is the generic fallback gets a 'toolchain-image' preflight warning naming the branches searched and the levers (unit, seeded context keys)."
+  - "Full suite and architecture tests pass."

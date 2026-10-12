@@ -46,6 +46,9 @@ public sealed class ChatClientCallScopeRuleTests
         // the caller's own invocation; the scope flows via AsyncLocal.
         "ContextLengthRefusalChatClient.cs",
         "ContextPressureFinalizingChatClient.cs",
+        // 2026-10-12-6bfae: pass-through decorator that re-throws a provider "not found" with
+        // the role and the model id named; it delegates the caller's already-scoped call.
+        "ModelIdRejectionChatClient.cs",
         // p0191: pass-through decorator that mutates the message list before
         // delegating; the outer call's BeginCallScope is still live.
         "SensitiveToolHistoryScrubChatClient.cs",

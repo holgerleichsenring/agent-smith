@@ -1,3 +1,5 @@
+using AgentSmith.Tests.TestHelpers;
+using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -43,7 +45,7 @@ public sealed class LocalSourceContextDiscoveryTests : IDisposable
     {
         await WriteContextAsync("default", DeclaredYaml);
 
-        var result = await NewResolver().ResolveAllAsync(LocalSource(), CancellationToken.None);
+        var result = await NewResolver().ResolveAllAsync(LocalSource(), ContextReadBranches.None, CancellationToken.None);
 
         var discovery = result.Should().ContainSingle().Subject;
         discovery.ContextName.Should().Be("default");
@@ -58,10 +60,10 @@ public sealed class LocalSourceContextDiscoveryTests : IDisposable
     [Fact]
     public async Task Discovery_ALocalSourceWithNoContexts_StillFallsBackToTheSyntheticDefault()
     {
-        var result = await NewResolver().ResolveAllAsync(LocalSource(), CancellationToken.None);
+        var result = await NewResolver().ResolveAllAsync(LocalSource(), ContextReadBranches.None, CancellationToken.None);
 
         result.Should().ContainSingle()
-            .Which.Should().Be(new RemoteContextDiscovery("default", ".", null));
+            .Which.Should().BeEquivalentTo(new RemoteContextDiscovery("default", ".", null), o => o.Excluding(d => d.Provenance));
     }
 
     [Fact]
@@ -69,7 +71,7 @@ public sealed class LocalSourceContextDiscoveryTests : IDisposable
     {
         await WriteContextAsync("default", DeclaredYaml);
 
-        var listing = await NewResolver().ListContextsAsync(LocalSource(), CancellationToken.None);
+        var listing = await NewResolver().ListContextsAsync(LocalSource(), ContextReadBranches.None, CancellationToken.None);
 
         listing.IsUnreadable.Should().BeFalse();
         listing.Contexts.Should().ContainSingle().Which.Verify.Should().HaveCount(2);
@@ -96,10 +98,7 @@ public sealed class LocalSourceContextDiscoveryTests : IDisposable
         var factory = new Mock<ISourceProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<RepoConnection>()))
             .Returns((RepoConnection c) => new LocalSourceProvider(c.Path!, c.DefaultBranch));
-        return new SandboxLanguageResolver(
-            factory.Object,
-            new ContextYamlParser(new ContextYamlSerializer(new ContextYamlBuilders())),
-            NullLogger<SandboxLanguageResolver>.Instance);
+        return TestSandboxLanguageResolver.Create(factory.Object, new ContextYamlParser(new ContextYamlSerializer(new ContextYamlBuilders())));
     }
 
     public void Dispose()

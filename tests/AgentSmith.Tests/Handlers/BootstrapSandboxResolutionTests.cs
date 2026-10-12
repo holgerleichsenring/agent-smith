@@ -274,7 +274,7 @@ public sealed class BootstrapSandboxResolutionTests
             new PathReadGuard(new NullGitIgnoreResolver()),
             new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())),
             ContextGates.Serializer(),
-            ContextGates.Build(), ContextGates.Writer(), ContextGates.DerivationStamp()),
+            ContextGates.Build(), ContextGates.Writer(), ContextGates.DerivationStamp(), ContextGates.ImageReview()),
         // The real reader over the stub sandbox: what the round wrote is what the
         // round's own existence check then finds.
         BootstrapReaderStubs.MetaFilesOver(new SandboxFileReaderFactory()),

@@ -120,7 +120,6 @@
 131	AgentSmith.Server/Services/LlmIntentParser.cs
 129	AgentSmith.Infrastructure/Services/SensitiveToolHistoryScrubChatClient.cs
 128	AgentSmith.Application/Services/Handlers/TryCheckoutSourceHandler.cs
-128	AgentSmith.Contracts/Runs/RunStoryContracts.cs
 127	AgentSmith.Application/Services/Handlers/GenerateDocsHandler.cs
 127	AgentSmith.Application/Services/LlmIntentParser.cs
 126	AgentSmith.Application/Services/Handlers/GenerateTestsHandler.cs

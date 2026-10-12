@@ -38,7 +38,7 @@ internal static class MasterHandlerFixture
                 new AgentSmith.Infrastructure.Services.ContextYamlBuilders()),
             AgentSmith.Tests.TestHelpers.ContextGates.Build(),
             AgentSmith.Tests.TestHelpers.ContextGates.Writer(),
-            AgentSmith.Tests.TestHelpers.ContextGates.DerivationStamp(),
+            AgentSmith.Tests.TestHelpers.ContextGates.DerivationStamp(), AgentSmith.Tests.TestHelpers.ContextGates.ImageReview(),
             new StubSchemaResolver(masterSchema),
             new AgentSmith.Application.Services.ScanMasterPromptFactory(),
             BuildScanPasses(loop),

@@ -18,10 +18,19 @@ export interface TicketStatisticsProps {
   running?: boolean;
 }
 
+// 2026-10-12-6bfad: an account nobody could take is no criterion; with nothing else to count
+// it is what the figure says, rather than "none ratified".
+function criteriaNote(counted: number, unmeasured: number, running?: boolean): string {
+  if (counted > 0) return unmeasured > 0 ? "proven · not measured" : "proven";
+  if (unmeasured > 0) return "not measured";
+  return running ? "not accounted for yet" : "none ratified";
+}
+
 export function TicketStatistics({ statistics, acceptance, running }: TicketStatisticsProps) {
   const totals = statistics.totals;
   const criteria = acceptance?.criteria ?? [];
   const met = criteria.filter((c) => c.status === "met").length;
+  const unmeasured = acceptance?.unmeasured?.length ?? 0;
   const work = statistics.work;
 
   return (
@@ -52,9 +61,7 @@ export function TicketStatistics({ statistics, acceptance, running }: TicketStat
           <Metric
             label="Criteria"
             value={criteria.length > 0 ? `${met}/${criteria.length}` : "—"}
-            note={
-              criteria.length > 0 ? "proven" : running ? "not accounted for yet" : "none ratified"
-            }
+            note={criteriaNote(criteria.length, unmeasured, running)}
           />
           {/* p0341h: the sum of the steps is not the wall clock — sandboxes run in parallel,
               so on run a98c these were 39m against 65m of elapsed time. The run header owns

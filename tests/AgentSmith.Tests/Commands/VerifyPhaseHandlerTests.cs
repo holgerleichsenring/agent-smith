@@ -382,6 +382,24 @@ public sealed class VerifyPhaseHandlerTests
     }
 
     /// <summary>
+    /// 2026-10-12-6bfad: a run whose branch already had a draft pull request was told "No pull
+    /// request is opened for a red build". The pull request is CommitAndPR's to report.
+    /// </summary>
+    [Fact]
+    public async Task VerifyPhase_RedBuild_SaysThePhaseIsNotVerifiedAndNothingAboutAPullRequest()
+    {
+        var (context, sandbox) = Setup(
+            Map("csharp", new CiConfig(true, "dotnet build", null, null)));
+        sandbox.FailingCommand = "dotnet build";
+
+        var result = await Handler().ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Message.Should().Contain("The phase is not verified.")
+            .And.NotContain("pull request");
+    }
+
+    /// <summary>
     /// Two contexts resolving the same image collapse into ONE sandbox. The gate reads the
     /// per-sandbox CONTEXT LIST, so BOTH declarations run, each at its own workdir —
     /// reading the sandbox's representative discovery would make whose stages run depend

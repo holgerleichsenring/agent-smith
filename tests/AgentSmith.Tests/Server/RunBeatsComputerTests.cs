@@ -83,6 +83,24 @@ public sealed class RunBeatsComputerTests
             "the keystone proved every criterion even though the preset has no verify command");
     }
 
+    /// <summary>2026-10-12-6bfad: an earlier phase's met criteria do not prove a run whose
+    /// later phase could not be measured at all.</summary>
+    [Fact]
+    public void Beats_UnmeasuredAccount_AcceptanceNotProven()
+    {
+        var run = TerminalRun("code", "success", Steps(
+            ("s", CommandNames.LoadCatalog), ("s", CommandNames.AgenticMaster),
+            ("s", CommandNames.CommitAndPR)));
+        run.AcceptanceJson = RunStoryJson.Serialize(new AcceptanceView(
+            [new AcceptanceCriterionView("build green", AcceptanceCriterionStatuses.Met, null)],
+            Outcome: "verbatim", RatifiedBy: "spec", AcceptanceSources.DeliveryAccount,
+            Unmeasured: [new UnmeasuredAccountView("default", "the build exited 127")]));
+
+        var beats = RunBeatsComputer.Compute(run)!;
+
+        beats.Verify.Should().Be(BeatStates.Skipped);
+    }
+
     [Fact]
     public void FinishedRun_AcceptanceUnproven_VerifyStaysSkipped()
     {

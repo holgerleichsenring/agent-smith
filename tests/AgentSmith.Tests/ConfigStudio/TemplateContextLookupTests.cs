@@ -1,3 +1,4 @@
+using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
@@ -109,7 +110,7 @@ public sealed class TemplateContextLookupTests
     }
 
     private void Listing(RemoteContextListing listing) =>
-        _contexts.Setup(c => c.ListContextsAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
+        _contexts.Setup(c => c.ListContextsAsync(It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(listing);
 
     private static AgentSmithConfig ConfigWith(RepoConnection repo) => new()

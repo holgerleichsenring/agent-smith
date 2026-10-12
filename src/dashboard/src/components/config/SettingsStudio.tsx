@@ -95,6 +95,7 @@ export function SettingsStudio({ settingKey }: { settingKey: SettingKey }) {
               value={draft}
               onChange={setDraft}
               capabilities={capabilities}
+              persisted={value}
             />
           )}
         </div>

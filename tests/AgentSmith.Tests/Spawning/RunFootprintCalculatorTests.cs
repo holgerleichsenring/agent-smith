@@ -1,3 +1,4 @@
+using AgentSmith.Application.Models;
 using Microsoft.Extensions.Options;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
@@ -21,15 +22,15 @@ public sealed class RunFootprintCalculatorTests
     {
         var project = Project("server", "client", "api");
         var language = new Mock<ISandboxLanguageResolver>();
-        language.Setup(l => l.ResolveAllAsync(It.Is<RepoConnection>(r => r.Name == "server"), It.IsAny<CancellationToken>()))
+        language.Setup(l => l.ResolveAllAsync(It.Is<RepoConnection>(r => r.Name == "server"), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([Discovery("sdk8", image: "dotnet:8"), Discovery("sdk9", image: "dotnet:9")]);
-        language.Setup(l => l.ResolveAllAsync(It.Is<RepoConnection>(r => r.Name == "client"), It.IsAny<CancellationToken>()))
+        language.Setup(l => l.ResolveAllAsync(It.Is<RepoConnection>(r => r.Name == "client"), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([Discovery("default")]);
-        language.Setup(l => l.ResolveAllAsync(It.Is<RepoConnection>(r => r.Name == "api"), It.IsAny<CancellationToken>()))
+        language.Setup(l => l.ResolveAllAsync(It.Is<RepoConnection>(r => r.Name == "api"), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([Discovery("default")]);
 
         var footprint = await Calculator(language)
-            .CalculateAsync(project, "code", CancellationToken.None);
+            .CalculateAsync(project, "code", ContextReadBranches.None, CancellationToken.None);
 
         footprint.Pods.Should().HaveCount(4, "server splits sdk8 + sdk9 (distinct images); client + api one each");
         footprint.Pods.Select(p => p.Repo).Should().Equal("server", "server", "client", "api");
@@ -43,12 +44,12 @@ public sealed class RunFootprintCalculatorTests
     {
         var project = Project("server");
         var language = new Mock<ISandboxLanguageResolver>();
-        language.Setup(l => l.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
+        language.Setup(l => l.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([Discovery("api"), Discovery("encrypter"), Discovery("test-data-generator"),
                 Discovery("client-api-generator"), Discovery("okta")]);
 
         var footprint = await Calculator(language)
-            .CalculateAsync(project, "code", CancellationToken.None);
+            .CalculateAsync(project, "code", ContextReadBranches.None, CancellationToken.None);
 
         footprint.Pods.Should().ContainSingle("all five contexts share one toolchain image");
         footprint.Pods[0].Contexts.Should().HaveCount(5);
@@ -59,7 +60,7 @@ public sealed class RunFootprintCalculatorTests
     {
         var project = Project("server");
         var language = new Mock<ISandboxLanguageResolver>();
-        language.Setup(l => l.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
+        language.Setup(l => l.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([Discovery("light", memLimit: "3Gi"), Discovery("heavy", memLimit: "4Gi")]);
         // Resolver echoes each context's declared memory limit.
         var resource = new Mock<ISandboxResourceResolver>();
@@ -70,7 +71,7 @@ public sealed class RunFootprintCalculatorTests
             language.Object, resource.Object, NullLogger<RunFootprintCalculator>.Instance,
             Options.Create(new SandboxGlobalConfig()));
 
-        var footprint = await calc.CalculateAsync(project, "code", CancellationToken.None);
+        var footprint = await calc.CalculateAsync(project, "code", ContextReadBranches.None, CancellationToken.None);
 
         footprint.Pods.Should().ContainSingle();
         footprint.Pods[0].MemLimit.Should().Be("4Gi", "the merged pod is sized to the heaviest member");
@@ -81,10 +82,10 @@ public sealed class RunFootprintCalculatorTests
     {
         var project = Project("only");
         var language = new Mock<ISandboxLanguageResolver>();
-        language.Setup(l => l.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
+        language.Setup(l => l.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([Discovery("default")]);
 
-        var footprint = await Calculator(language).CalculateAsync(project, "code", CancellationToken.None);
+        var footprint = await Calculator(language).CalculateAsync(project, "code", ContextReadBranches.None, CancellationToken.None);
 
         footprint.Pods.Should().ContainSingle("the pipeline runs in the server; only the sandbox is a pod");
         footprint.Pods.Should().NotContain(p => p.Repo == "orchestrator");
@@ -101,10 +102,10 @@ public sealed class RunFootprintCalculatorTests
         var project = Project("only");
         project = project with { Sandbox = new SandboxConfig { Browser = new ProjectBrowserConfig { Enabled = enabled } } };
         var language = new Mock<ISandboxLanguageResolver>();
-        language.Setup(l => l.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
+        language.Setup(l => l.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync([Discovery("default")]);
 
-        var footprint = await Calculator(language).CalculateAsync(project, pipeline, CancellationToken.None);
+        var footprint = await Calculator(language).CalculateAsync(project, pipeline, ContextReadBranches.None, CancellationToken.None);
 
         footprint.Pods.Should().HaveCount(pods);
         if (pods == 2)

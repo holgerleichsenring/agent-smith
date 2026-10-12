@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-6bfae
+
+decisions:
+  - category: Architecture
+    chose: "Each chat-client builder declares the price-list providers whose ids its API accepts as written (IChatClientBuilder.PriceListProviders, default empty); the capabilities descriptor serves them keyed by every SupportedTypes name"
+    over: "Recognising foreign spellings in the dashboard by id shape (a 'bedrock/' or 'anthropic.' prefix regex), or a hard-coded type-to-provider table in TypeScript"
+    reason: |
+      Every price-list entry already carries its LiteLLM provider end to end (reader, record,
+      endpoint, TS type) — the field is the fix. What was missing is which providers an agent
+      type speaks, and that is the builder's fact: it is the one that sends the id unchanged.
+      Serving it from the registered builders keeps the studio from restating runtime truth.
+  - category: Architecture
+    chose: "anthropic for claude/anthropic, openai for openai/azure_openai, vertex_ai-language-models for gemini/google, none for ollama, copilot and external_worker"
+    over: "Mapping each type to its namesake list provider (azure, gemini, ollama, github_copilot)"
+    reason: |
+      The adversarial review counted the bundled ids: every azure, ollama and github_copilot id
+      and 39 of 43 gemini ids carry a LiteLLM routing prefix ('azure/…', 'ollama/…') that the
+      APIs refuse, because every builder sends the id unchanged. Ranking those first would
+      recreate the defect for every non-Anthropic type. A test pins each declared set and that
+      every declared provider offers bare ids. Ollama/Copilot need the list's aliases map
+      (bare -> prefixed) served to the picker; that is a follow-up phase, not this one.
+  - category: Implementation
+    chose: "Rank, not filter: fitting provider, then prefix, word-boundary, substring, then shorter id; each row shows its provider"
+    over: "Showing only the fitting provider's ids"
+    reason: |
+      An openai-type agent on an OpenAI-compatible endpoint legitimately runs other providers'
+      ids (the supplement carries a groq id for that), and the field stays free text. Ranking
+      puts the right id first without hiding a legitimate one; the provider label makes a
+      foreign spelling visible when it is picked anyway.
+  - category: Architecture
+    chose: "ModelIdRejectionChatClient beside ContextLengthRefusalChatClient, classifying on the 404 status (HttpRequestException.StatusCode, ClientResultException.Status) and throwing ModelIdRejectedException"
+    over: "Matching 'not_found_error' / 'model_not_found' in the provider text, or rewriting the summary in ErrorFormatter"
+    reason: |
+      Anthropic.SDK 5.10.0 raises HttpRequestException(error.message, null, StatusCode) — the
+      text is the bare 'model: <id>', the status is the structured field. The decorator is the
+      one place that knows the role, its catalog entry and the model id; ErrorFormatter only
+      sees a string. The message never quotes the provider body, because HumanizeRunSummary
+      replaces a summary carrying a JSON error payload with its ticket-not-found sentence. A
+      404 can also be a missing Azure deployment or a wrong endpoint path, so the message names
+      all three and leads with the deployment for azure_openai.
+  - category: Architecture
+    chose: "ModelIdRejectedException derives AgentSmithException directly"
+    over: "Deriving ConfigurationException"
+    reason: |
+      Several handlers catch ConfigurationException on the config-load path; a model-call
+      failure must not be taken by them.
+  - category: Scope
+    chose: "The message names the role key, the catalog entry, the model id and the provider type — not the agent's catalog name"
+    over: "Stamping a Name onto AgentConfig"
+    reason: |
+      The agent's name is recoverable only from the config snapshot by reference equality (the
+      run-started event carries it); the chat-client factory holds the AgentConfig alone.
+      Inside the run's agent, role + entry + id identify exactly what to edit.
+  - category: Implementation
+    chose: "RepoScopeClassifier rethrows ModelIdRejectedException so ScopeRepos fails; other call failures are marked CallFailed and a single-repo run says so in a sentence the gate does not file as silent"
+    over: "Keeping the all-repos fallback for every call failure, or matching the error string"
+    reason: |
+      The scope call runs before the single-repo return and its error was dropped there behind
+      'Repo scoping skipped:'. A rejected id is deterministic — every later call repeats it — so
+      failing at the first step names the fault where it first appears. The error string cannot
+      tell a failed call from a healthy single-repo reply without a repos array, so the result
+      gained a CallFailed field instead.
+  - category: Scope
+    chose: "Sub-agent calls and a save-time provider-fit advisory stay out"
+    over: "Including them"
+    reason: |
+      A rejected id in a sub-agent returns to the master as a failed sub-result (the master's own
+      call then fails the step with the same message). Since saving already requires a listed id,
+      an advisory draft finding 'this id's provider does not fit the agent type' is buildable
+      from the same data — a follow-up phase.

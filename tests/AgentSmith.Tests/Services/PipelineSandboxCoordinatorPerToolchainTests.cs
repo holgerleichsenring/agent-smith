@@ -1,3 +1,4 @@
+using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Builders;
 using AgentSmith.Application.Services.Sandbox;
@@ -30,7 +31,7 @@ public sealed class PipelineSandboxCoordinatorPerToolchainTests
     [Fact]
     public async Task FiveCsharpContextsOnOneRepo_CreatesOneSandbox()
     {
-        _resolverMock.Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
+        _resolverMock.Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[]
             {
                 new RemoteContextDiscovery("api", "src/Api", "csharp"),
@@ -56,7 +57,7 @@ public sealed class PipelineSandboxCoordinatorPerToolchainTests
     [Fact]
     public async Task FiveCsharpContextsOnOneRepo_RegistersAllFiveContextsInSandboxContexts()
     {
-        _resolverMock.Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
+        _resolverMock.Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[]
             {
                 new RemoteContextDiscovery("api", "src/Api", "csharp"),
@@ -86,7 +87,7 @@ public sealed class PipelineSandboxCoordinatorPerToolchainTests
     [Fact]
     public async Task MixedToolchainsOnOneRepo_CreatesOneSandboxPerGroup()
     {
-        _resolverMock.Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
+        _resolverMock.Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[]
             {
                 new RemoteContextDiscovery("api", "src/Api", "csharp"),
@@ -116,7 +117,7 @@ public sealed class PipelineSandboxCoordinatorPerToolchainTests
         // two groups. The old lang+size key hid the differing image and showed the
         // identical parts, colliding into the "-2" backstop ("csharp", "csharp-2").
         // Speaking keys carry each group's representative context name instead.
-        _resolverMock.Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
+        _resolverMock.Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[]
             {
                 new RemoteContextDiscovery("api", "src/Api", "csharp",

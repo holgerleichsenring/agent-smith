@@ -35,7 +35,7 @@ public sealed class ToolchainImageCatalogTests
     {
         // These are OUR curated values. An entry an operator's default trust would refuse is a
         // run that dies at image pull, for a reason nobody named in this table can see.
-        var trust = new ImageRegistryTrust();
+        var trust = new ImageRegistryTrust().InForce();
 
         foreach (var (language, image) in ToolchainImageCatalog.KnownLanguages)
             trust.Accepts(image).Should().BeTrue($"'{language}' resolves to '{image}'");

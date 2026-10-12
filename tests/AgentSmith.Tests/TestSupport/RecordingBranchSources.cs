@@ -71,6 +71,17 @@ internal sealed class RecordingBranchSources : ISourceProviderFactory
             Repository repository, CancellationToken cancellationToken) =>
             throw new NotSupportedException(Inert);
 
+        // 2026-10-12-6bfaa: no branch beyond the default exists here, so a read falls to the default reads.
+        public Task<bool> BranchExistsAsync(BranchName branch, CancellationToken cancellationToken) =>
+            Task.FromResult(false);
+
+        public Task<string?> TryReadFileAsync(string path, BranchName branch, CancellationToken cancellationToken) =>
+            Task.FromResult<string?>(null);
+
+        public Task<IReadOnlyList<string>> ListDirectoryAsync(
+            string path, BranchName branch, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<string>>([]);
+
         public Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken) =>
             throw new NotSupportedException(Inert);
 

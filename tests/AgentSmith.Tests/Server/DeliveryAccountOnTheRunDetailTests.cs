@@ -71,17 +71,32 @@ public sealed class DeliveryAccountOnTheRunDetailTests
     /// <summary>
     /// An account that could not be TAKEN and a criterion that failed are different facts. A
     /// red build leaves the first, and reporting it as unmet would blame the delivery for a
-    /// question nobody asked.
+    /// question nobody asked. 2026-10-12-6bfad: nor is it a criterion at all — it was shown as
+    /// one titled after the sandbox key and counted as "0 of 1 proven".
     /// </summary>
     [Fact]
-    public void RunStory_AnAccountThatCouldNotBeTaken_IsUnprovenAndSaysWhy()
+    public void RunStory_AnAccountThatCouldNotBeTaken_IsUnmeasuredNotACriterion()
     {
         var view = Deserialize(RunStorySnapshotBuilder.BuildAcceptanceJson(
-            RunAccounts.Empty.With("p1",
-                [new SpecAccount("Sample.Server", [], "the build exited 1")])));
+            RunAccounts.Empty
+                .With("p1", [new SpecAccount("Sample.Server", [
+                    new CriterionAccount("an earlier criterion", AccountDisposition.Satisfied, null, "found")])])
+                .With("p2", [new SpecAccount("default", [], "the build exited 127")])));
 
-        var criterion = view.Criteria.Should().ContainSingle().Subject;
-        criterion.Status.Should().Be(AcceptanceCriterionStatuses.Unproven);
-        criterion.Reason.Should().Be("the build exited 1");
+        view.Criteria.Should().ContainSingle().Which.Text.Should().Be("an earlier criterion");
+        view.Unmeasured.Should().Equal(new UnmeasuredAccountView("default", "the build exited 127"));
+    }
+
+    /// <summary>The production case: the red build was the only account. It still reaches the
+    /// page — dropping it would read as "no ratified contract".</summary>
+    [Fact]
+    public void RunStory_OnlyUnmeasuredAccounts_StillSnapshotted()
+    {
+        var view = Deserialize(RunStorySnapshotBuilder.BuildAcceptanceJson(
+            RunAccounts.Empty.With("p1", [new SpecAccount("default", [], "sbt: not found")])));
+
+        view.Criteria.Should().BeEmpty();
+        view.Unmeasured.Should().ContainSingle().Which.Reason.Should().Be("sbt: not found");
+        view.Source.Should().Be(AcceptanceSources.DeliveryAccount);
     }
 }

@@ -170,10 +170,10 @@ function ResolvedSection({ resolved }: { resolved: ConfigProject["resolved"] }) 
       <dl className="divide-y divide-stone-100">
         <ResolvedRow testId="resolved-step-timeout" label="step timeout" rv={resolved.stepTimeoutSeconds} format={(v) => `${v}s`} />
         <ResolvedRow testId="resolved-run-command-timeout" label="run_command timeout" rv={resolved.runCommandTimeoutSeconds} format={(v) => `${v}s`} />
-        <ResolvedRow testId="resolved-sandbox-resources" label="sandbox resources" rv={resolved.sandboxResources} format={formatResources} />
+        <ResolvedRow testId="resolved-sandbox-resources" label="sandbox resources · code run" rv={resolved.sandboxResources} format={formatResources} />
         <ResolvedRow testId="resolved-agent-image" label="agent image" rv={resolved.agentImage} format={(v) => v} />
         <ResolvedRow testId="resolved-toolchain-image" label="toolchain image" rv={resolved.toolchainImage} format={(v) => v} />
-        <ResolvedRow testId="resolved-cost-cap" label="cost cap / run" rv={resolved.costCap} format={(v) => `$${v.usd} · ${v.tokens.toLocaleString()} tok`} />
+        <ResolvedRow testId="resolved-cost-cap" label="cost cap / code run" rv={resolved.costCap} format={(v) => `$${v.usd} · ${v.tokens.toLocaleString()} tok`} />
       </dl>
       {resolved.resolutionError && (
         <p className="mt-3 rounded-md border border-rose-200 bg-rose-50 px-3 py-2 dsh-body text-rose-700" data-testid="resolution-error">

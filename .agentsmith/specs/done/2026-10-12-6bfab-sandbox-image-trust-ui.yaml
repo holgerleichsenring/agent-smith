@@ -1,0 +1,118 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-6bfab
+goal: "The operator sees and edits the sandbox image registry boundary in the Sandbox settings, sees the boundary in force, and a saved change applies to the next image decision without a restart."
+
+applies_to: "backend (image registry trust) + dashboard (Sandbox settings form)"
+
+requires: [2026-08-25-014d]
+
+facts:
+  - claim: "The boundary's two fields are global sandbox settings: AllowedRegistries (empty = built-in default) and AllowDockerHubLibrary (null follows the list)."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/SandboxGlobalConfig.cs:84, src/backend/AgentSmith.Contracts/Models/Configuration/SandboxGlobalConfig.cs:99"
+  - claim: "ImageRegistryTrust decides the boundary ONCE, in its constructor: named entries replace the default [mcr.microsoft.com/, ghcr.io/]; the library switch is AllowDockerHubLibrary ?? (no entries named)."
+    evidence: "observed: 2026-10-12, ImageRegistryTrust.cs:22-33 at ffc5cea6b (before this phase)"
+  - claim: "Matching is a raw ordinal prefix on the trimmed image string; entries get a trailing '/' appended. An image written without a registry host ('sbtscala/scala-sbt:x') never matches an entry 'docker.io/sbtscala/'."
+    evidence: "observed: 2026-10-12, ImageRegistryTrust.cs:36-42 and :50-54 at ffc5cea6b (before this phase)"
+  - claim: "ImageRegistryTrust and SandboxImageChain are singletons."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs:184-185"
+  - claim: "The server's IOptions<SandboxGlobalConfig> is a Lazy read of the loader on first use — never re-read, so a saved change does not reach ImageRegistryTrust until a restart."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/LoadedSandboxGlobalConfig.cs:16, src/backend/AgentSmith.Server/Services/Sandbox/ServerSandboxExtensions.cs:38"
+  - claim: "The code itself records that the config-epoch reloader refreshes neither the options nor AgentSmithConfig."
+    evidence: "src/backend/AgentSmith.Application/Services/Configuration/InheritedSandboxProjection.cs:16-23"
+  - claim: "The server's loader assembles the config from the document store's rows on every call, so a decision-time read sees a save at once, on every replica."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/DbConfigurationLoader.cs:39-63, src/backend/AgentSmith.Infrastructure.Persistence/Services/EfConfigDocumentStore.cs:17"
+  - claim: "Precedent: the Docker concurrent-sandbox bound and the hold window are read through IConfigurationLoader + ServerContext at decision time."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/DockerCapacityProbe.cs:87, src/backend/AgentSmith.Server/Services/Sandbox/SandboxHoldWindowResolver.cs:37-41"
+  - claim: "The CLI registers a placeholder IOptions<SandboxGlobalConfig> and, with a config path, a ServerContext and the file loader — so today the CLI never reads sandbox.allowed_registries from its file."
+    evidence: "src/backend/AgentSmith.Cli/ServiceProviderFactory.cs:60-76, src/backend/AgentSmith.Infrastructure/Extensions/SandboxServiceCollectionExtensions.cs:25-29"
+  - claim: "A refused stack.image is only a server-log WARN naming the boundary's Description."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxImageChain.cs:102-112"
+  - claim: "The sandbox settings doc is read and saved whole through /api/config/settings/sandbox; the PUT bumps the config epoch."
+    evidence: "src/backend/AgentSmith.Server/Extensions/ConfigSettingsEndpoints.cs:29-43, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigDocumentTaxonomy.cs:37"
+  - claim: "The dashboard's SandboxSetting type and SandboxForm carry neither field (the spread draft preserves them untouched on save)."
+    evidence: "src/dashboard/src/lib/configApi.ts:891-906, src/dashboard/src/components/config/SettingsForm.tsx:125-176"
+  - claim: "SettingsStudio hands the form the draft only, never the persisted value."
+    evidence: "src/dashboard/src/components/config/SettingsStudio.tsx:93-98"
+  - claim: "The database loader never throws: a failed read returns an empty config (the WIDE boundary); LastRead is one process-wide field, so concurrent reads cannot tell a degraded read apart."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/DbConfigurationLoader.cs:39-58, src/backend/AgentSmith.Contracts/Services/IConfigurationLoader.cs:17"
+  - claim: "The server's config store keeps its assembled document in memory; a save reloads it and the epoch watch reloads it on every replica; a failed reload leaves the old document."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/DbConfigStore.cs:110-113, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/DbConfigStore.cs:142-153, src/backend/AgentSmith.Server/Services/Hosting/ConfigStoreReloadHostedService.cs:35-46"
+  - claim: "The chain returns the trimmed image string as written; only the context stack.image is judged — toolchain_image, images and the catalog/generic fallbacks are not."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxImageChain.cs:44-57, src/backend/AgentSmith.Application/Services/Sandbox/SandboxImageChain.cs:102-117"
+  - claim: "The Settings studio test mocks @/lib/configApi wholesale and renders the sandbox form."
+    evidence: "src/dashboard/src/components/config/__tests__/SettingsStudio.test.tsx:27-34, src/dashboard/src/components/config/__tests__/SettingsStudio.test.tsx:51-64"
+  - claim: "Read routes for resolved config live in ConfigQueryEndpoints and every route is pinned in the permission baseline."
+    evidence: "src/backend/AgentSmith.Server/Extensions/ConfigQueryEndpoints.cs:33-35, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:34"
+
+scope:
+  in: >
+    BACKEND: a value object RegistryTrustBoundary (Application/Models) holds the boundary built from a
+    SandboxGlobalConfig — effective registries, whether they are the built-in default, the library switch
+    and whether it was set explicitly, Accepts(image), Description. Matching reads references the way Docker
+    does: an image or entry whose first segment is not a host (no '.', no ':', not 'localhost') is on
+    docker.io, a repository without a namespace is docker.io/library/…; both sides are canonicalized before the
+    prefix match. IImageRegistryTrust.InForce() reads the sandbox block through ISandboxSettingsReader at each
+    decision. The server's reader is the config store's sandbox setting (StoredSandboxSettingsReader, registered over
+    the Application default); the CLI's re-reads the file through the loader with a ServerContext, else the composed
+    options. A reader THROWS on failure; a failed read keeps the last boundary read, and with none the boundary is
+    CLOSED (trusts nothing — a refused stack.image only falls through to the catalog), and logs a warning: a database
+    blip never widens a narrowed boundary. SandboxImageChain reads InForce() ONCE per decision and uses that boundary
+    for both the verdict and the warning. Canonical forms are for MATCHING only; the chain still returns the trimmed
+    image as written. Canonical rule (Docker's): an entry is trimmed, given a trailing '/', THEN canonicalized; a
+    reference with no '/' is docker.io/library/<ref>; with a '/', a first segment containing '.' or ':' or equal to
+    'localhost' is a host, else docker.io/ is prepended; docker.io/<one segment> becomes docker.io/library/<segment>.
+    A bare docker.io/ entry trusts all of Docker Hub (help text says so). The library shape is
+    canonical docker.io/library/<name> with no further '/'. The CLI, given a config path, now honours the file's
+    boundary at each decision (it read a placeholder before). GET /api/config/sandbox/image-trust (config.read)
+    returns the in-force boundary plus the built-in default list. DASHBOARD: SandboxSetting gains
+    allowedRegistries + allowDockerHubLibrary; the Sandbox settings form gets a "Trusted image registries" section:
+    an add/remove row list (adding the FIRST entry seeds the built-in defaults as visible, removable rows, so
+    naming one registry does not silently drop mcr/ghcr), a three-way library select (follow the list / trust / refuse, with the
+    follow-the-list consequence stated beside it), a note on how entries
+    match, and an "in force now" panel from the new endpoint, refetched after a save and flagged when the draft
+    differs from what is saved. Help text: applies to the next stack.image decision without a restart; only the
+    context's stack.image is judged — operator-named images and the built-in fallbacks are not. Existing
+    SettingsStudio test mock and fixture extended. Docs (kubernetes.md, docker-k8s-troubleshooting.md) say either
+    Docker Hub entry form works and the boundary is edited in Settings > Sandbox, live; the kubernetes.md heading
+    (linked from context-file.md) is kept.
+  out: >
+    Making the other sandbox settings live (LoadedSandboxGlobalConfig stays Lazy; their help still says restart).
+    Surfacing a refused stack.image on the run (sister phase c). A per-project boundary (global by design, pinned by
+    ImageRegistryTrustTests). An "try an image" checker. index.docker.io aliases.
+
+decisions:
+  - key: "DECISION-TIME READ, NOT A LIVE OPTIONS: only this boundary is made live; widening LoadedSandboxGlobalConfig would silently change every sandbox field's restart semantics."
+  - key: "CANONICALIZE BOTH SIDES the way Docker resolves a reference, so 'sbtscala/' and 'docker.io/sbtscala/' mean the same thing."
+  - key: "THE BOUNDARY IN FORCE IS COMPUTED BY THE SERVER, not re-derived in TypeScript: one answer."
+  - key: "A FAILED READ KEEPS THE LAST BOUNDARY, ELSE CLOSED: read from the store (which throws), not the loader (which degrades to the wide default)."
+  - key: "THE CLI NOW HONOURS ITS FILE'S BOUNDARY: a side effect of the decision-time read, kept because the placeholder was a silent ignore."
+
+steps:
+  - id: boundary
+    action: "RegistryTrustBoundary value object with canonical matching; ImageRegistryTrust delegates to it."
+  - id: live
+    action: "ISandboxSettingsReader (loader default, store on the server) + IImageRegistryTrust.InForce(): failed read keeps the last boundary, else closed; SandboxImageChain reads it once per decision; migrate CompiledInToolImagesTests, ToolchainImageCatalogTests and ImageRegistryTrustTests to InForce()/RegistryTrustBoundary."
+  - id: endpoint
+    action: "GET /api/config/sandbox/image-trust + response record + mapper + permission baseline line."
+  - id: dashboard
+    action: "configApi types + fetchImageTrust; SandboxImageTrustFields (seeds defaults on first add) + ImageTrustInForce; SettingsStudio passes persisted; SettingsStudio.test mock + fixture."
+  - id: tests
+    action: "Backend: boundary canonical matching, live read after a config change, endpoint shape. Dashboard: fields emit the draft, select maps null/true/false, panel shows default + follows-the-list labels and refetches."
+
+tests:
+  - "RegistryTrustBoundaryTests: SbtscalaWithAndWithoutDockerIo_MatchEitherEntryForm"
+  - "RegistryTrustBoundaryTests: NamespaceEntry_DoesNotMatchALongerNamespace"
+  - "RegistryTrustBoundaryTests: DockerIoLibraryForms_AreTheLibraryShape (docker.io/node:20, docker.io/library/node:20, mcr.microsoft.com:latest follow the switch)"
+  - "RegistryTrustBoundaryTests: EntryWithoutTrailingSlash_DockerIoNamespace_IsANamespace (theory over four entry forms), BareDockerIoEntry_TrustsAllOfDockerHub"
+  - "RegistryTrustBoundaryTests: Resolve_TrustedViaDockerIoEntry_ReturnsTheTrimmedImageAsWritten"
+  - "ImageRegistryTrustTests (kept, on the boundary) + InForce_AfterTheStoredConfigChanges_UsesTheNewBoundary"
+  - "ImageRegistryTrustTests: InForce_ReadFails_KeepsTheLastBoundary, InForce_FirstReadFails_IsClosed"
+  - "StoredSandboxSettingsReaderTests: store read, store throw, server composition, response map"
+  - "LoaderSandboxSettingsReaderTests"
+  - "ConfigStudioApiSmokeTests: SandboxImageBoundary_SavedThenInForce (real DbConfigStore over SQLite, HTTP PUT)"
+  - "SandboxImageTrust.test.tsx"
+
+done:
+  - "In Settings > Sandbox the operator adds 'docker.io/sbtscala/' (or 'sbtscala/'), saves, and the in-force panel shows it beside mcr.microsoft.com/ and ghcr.io/, with the library switch shown as following the list unless set."
+  - "A saved change applies to the next stack.image decision with no restart (live smoke over the real store)."
+  - "dotnet build + affected tests green; pnpm test + pnpm build green; full suite via the phase gate."

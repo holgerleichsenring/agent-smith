@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
+using AgentSmith.Infrastructure.Extensions;
 using AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders;
 using AgentSmith.Server.Security;
 using AgentSmith.Server.Services.Config;
@@ -28,7 +29,13 @@ internal static class ConfigCapabilityEndpoints
             // 2026-08-25-1806: the closed permission catalog and the role names it is
             // already bundled under ride along, so the role-mapping form picks from them.
             Results.Ok(ConfigStudioCapabilities.Build(builders.SelectMany(b => b.SupportedTypes))
-                with { Permissions = Permissions.All, BuiltInRoles = [.. BuiltInRoles.All.Keys] }))
+                with
+                {
+                    Permissions = Permissions.All,
+                    BuiltInRoles = [.. BuiltInRoles.All.Keys],
+                    // 2026-10-12-6bfae: which price-list ids each agent type's API accepts as written.
+                    AgentProviderPriceLists = builders.PriceListProvidersByType(),
+                }))
            .Needs(Permissions.ConfigRead);
 
         // 2026-09-30-62baa: the bundled price list the base resolver prices from, with the

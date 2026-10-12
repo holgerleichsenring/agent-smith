@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import type { AcceptanceCriterion, RunAcceptance } from "@/types/hub-events";
 import type { VerifyFallbackView } from "./verifyFallback";
 import { CriterionJudgementControl } from "./CriterionJudgementControl";
+import { UnmeasuredAccounts } from "./UnmeasuredAccounts";
 import type { CriterionDisposition, CriterionJudgement } from "@/lib/judgementsApi";
 
 // p0344b: the Verify beat's surface. Preferred source is the run's PERSISTED
@@ -95,7 +96,18 @@ const CRIT_STAT: Record<AcceptanceCriterion["status"], string> = {
   unproven: "unproven",
 };
 
+// 2026-10-12-6bfad: an unmeasured account is never one of the N; it makes the badge bad
+// and says so after the count, or alone when there is nothing to count.
 function badgeFor(acceptance: RunAcceptance): { cls: string; label: string } {
+  const counted = criteriaBadge(acceptance);
+  if (!acceptance.unmeasured?.length) return counted;
+  return {
+    cls: "bad",
+    label: acceptance.criteria.length > 0 ? `${counted.label} · not measured` : "not measured",
+  };
+}
+
+function criteriaBadge(acceptance: RunAcceptance): { cls: string; label: string } {
   const total = acceptance.criteria.length;
   if (total === 0) return { cls: "neu", label: OUTCOME_LABEL[acceptance.outcome ?? "none"] ?? "no criteria" };
   const met = acceptance.criteria.filter((c) => c.status === "met").length;
@@ -119,6 +131,7 @@ function AcceptanceVerify({
   judgementBusy?: boolean;
 }) {
   const badge = badgeFor(acceptance);
+  const unmeasured = acceptance.unmeasured ?? [];
   return (
     <section className="card" data-testid="verify-summary" data-source="acceptance">
       <div className="card-h">
@@ -141,10 +154,13 @@ function AcceptanceVerify({
             </>
           )}
         </div>
+        {unmeasured.length > 0 && <UnmeasuredAccounts accounts={unmeasured} />}
         {acceptance.criteria.length === 0 ? (
-          <p className="hint" data-testid="verify-empty">
-            No acceptance criteria were recorded on this run — nothing has been proven green.
-          </p>
+          unmeasured.length === 0 && (
+            <p className="hint" data-testid="verify-empty">
+              No acceptance criteria were recorded on this run — nothing has been proven green.
+            </p>
+          )
         ) : (
           <div data-testid="verify-criteria">
             {acceptance.criteria.map((criterion, i) => {

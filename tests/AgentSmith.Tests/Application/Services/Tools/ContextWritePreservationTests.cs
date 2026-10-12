@@ -188,7 +188,7 @@ public sealed class ContextWritePreservationTests : IDisposable
             new ContextYamlSerializer(_builders),
             ContextGates.Build(),
             ContextGates.Writer(),
-            ContextGates.DerivationStamp());
+            ContextGates.DerivationStamp(), ContextGates.ImageReview());
         return await host.WriteContextYaml("repo", "default", JsonDocument.Parse(Document).RootElement);
     }
 

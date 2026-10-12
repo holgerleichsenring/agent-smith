@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-6bfac
+goal: "A context stack.image outside the trusted registries is named where it is written (tool result, init PR body) and on every run that refuses it (preflight finding with the fix)."
+
+applies_to: "backend (write_context_yaml, init PR body, run preflight)"
+
+requires: [2026-08-25-014d, 2026-09-15-c6e9]
+
+facts:
+  - claim: "observed: init-project wrote stack.image 'sbtscala/scala-sbt:eclipse-temurin-25_1.11.7_2.13.18' (a Docker Hub user namespace); the code run refused it with a server-log WARN only, ran in another image, and failed verify after ~25 minutes with 'sbt: not found'."
+    evidence: "observed: 2026-10-12, operator report"
+  - claim: "At run time the chain consults stack.image only when neither sandbox.toolchain_image nor sandbox.images[lang] is set, and an image outside ImageRegistryTrust is dropped with a LogWarning and the chain continues."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxImageChain.cs:45-58, src/backend/AgentSmith.Application/Services/Sandbox/SandboxImageChain.cs:102-113"
+  - claim: "The default boundary is mcr.microsoft.com/, ghcr.io/ and the Docker Hub official library shape; Description names it together with sandbox.allowed_registries / sandbox.allow_docker_hub_library."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ImageRegistryTrust.cs:22-48"
+  - claim: "ImageRegistryTrust is a DI singleton."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs:184"
+  - claim: "write_context_yaml's gate requires stack.image to be present but never judges where it comes from; a write that passes the gate returns the writer's 'context.yaml written:' sentence."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/ContextStackImageRule.cs:31-40, src/backend/AgentSmith.Application/Services/Tools/WriteContextYamlToolHost.cs:142-146"
+  - claim: "The tool host is built by new in two production sites: the bootstrap round's factory and the agentic master."
+    evidence: "src/backend/AgentSmith.Application/Services/BootstrapToolHostFactory.cs:58-66, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:305-307"
+  - claim: "The bootstrap round reads the tool's ContextWriteOutcome after the skill call, and appends its BootstrapRoundOutcome BEFORE the call; InitPullRequestBody renders those outcomes per context."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/BootstrapRoundHandler.cs:73-75, src/backend/AgentSmith.Application/Services/Handlers/BootstrapRoundHandler.cs:91, src/backend/AgentSmith.Application/Services/Handlers/InitPullRequestBody.cs:45-62"
+  - claim: "RunPreflight runs in the code preset after CheckoutSource; a Warn passes the step with 'Preflight reported: <check>: <message> — <lever>', which is not the gate's no-op sentence, so the step's HasFinding is true on the dashboard."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Code.cs:42-46, src/backend/AgentSmith.Application/Services/Handlers/RunPreflightHandler.cs:50-62, src/backend/AgentSmith.Contracts/Commands/CommandStepClasses.NoOpSummaries.cs:27-31, src/backend/AgentSmith.Server/Services/Events/RunStepsReader.cs:73-78"
+  - claim: "The sandbox coordinator publishes each sandbox's context discoveries (with the declared ToolchainImage and Language) and the ResolvedProject into the pipeline."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs:120-131, src/backend/AgentSmith.Contracts/Sandbox/RemoteContextDiscovery.cs:43-48"
+
+scope:
+  in: >
+    ContextImageBoundary (Application/Services/Sandbox, DI singleton): Judge(image) returns null when the image is
+    empty or inside ImageRegistryTrust, else a ContextImageRefusal (Application/Models) naming the image, the boundary
+    (Description) and the lever — add the image's prefix (the repository, digest and tag removed, up to and including
+    its last '/': 'sbtscala/', 'quay.io/org/') to sandbox.allowed_registries in the global sandbox configuration (no
+    form field promised: 6bfab adds it; applied when the server next reads it), noting that naming any entry replaces the built-in defaults and turns off Docker Hub
+    official images unless sandbox.allow_docker_hub_library is set (a refused namespace-free image is pointed at that
+    switch instead); or name an image in the project's Sandbox tab (sandbox.images[<lang>] / sandbox.toolchain_image).
+    WriteContextYamlToolHost (new required ctor parameter after the derivation stamp; both production sites and the
+    ContextGates test helper pass it): the write is ACCEPTED; a successful write whose stack.image is refused appends
+    the refusal and this instruction: keep the image unless an image inside the boundary carries this stack's whole
+    toolchain, never swap in one that lacks it, and name the boundary in the summary. ContextWriteOutcome.ImageRefusal
+    holds the last successful write's refusal (null when that write's image is inside). BootstrapRoundHandler appends
+    its BootstrapRoundOutcome after the skill call carrying it; InitPullRequestBody renders it under the context.
+    ContextImageTrustCheck (IRunPreflightCheck 'context-image-trust'): ONE finding over every sandbox that has a
+    recorded image (SandboxImages — the in-process backend records none and runs no image) whose contexts declare an
+    image the chain consults (no sandbox.toolchain_image, no sandbox.images[lang]) and the boundary refuses; Warn built
+    through the record constructor with the lever, listing each context and image.
+  out: >
+    Refusing the write (decision below). Failing the run on a refused image (the catalog link may still carry the
+    toolchain). Naming the boundary in the bootstrap prompt or the skills repo's SKILL.md (a follow-up the skills repo
+    owns; the tool result already tells the model). SandboxImageChain and RunPreflightFinding.Warn are untouched:
+    sister 2026-10-12-6bfaa owns the chain's fallback surfacing and Warn's lever overload, 6bfab the boundary's
+    matching and settings UI. Merge order is free; when both 6bfaa and this land, a refused image that falls to the
+    generic fallback carries both warnings, and this one names the cause. Pipelines without RunPreflight
+    (init-project, scans) get no runtime finding, nor does a sandbox escalated mid-run (ensure_repo_sandbox) after the
+    preflight.
+
+decisions:
+  - key: "ACCEPT AND SURFACE, NOT REFUSE: the operator may widen the boundary later, and a refusal pushes the model to a trusted image without the toolchain (eclipse-temurin has no sbt), a worse wrong."
+  - key: "WARN, NOT FAIL, at preflight: the chain falls through to the catalog, which may carry the toolchain; only 'unambiguously wrong' refuses a run (RegistryCredentialCheck's rule)."
+  - key: "The check repeats the chain's two operator links (toolchain_image, images[lang]) instead of calling the chain: Resolve logs, and the sister phase owns the chain's shape."
+
+steps:
+  - id: note
+    action: "ContextImageRefusal record + ContextImageBoundary, singleton in SkillRunHandlersExtensions (PipelineHandlersExtensions has one line of ratchet room)."
+  - id: tool
+    action: "WriteContextYamlToolHost appends the refusal on a successful write; ContextWriteOutcome.ImageRefusal. BootstrapToolHostFactory and AgenticMasterHandler gain the boundary; every direct test construction of the factory, the host and MasterHandlerFixture passes ContextGates.ImageBoundary()."
+  - id: initpr
+    action: "BootstrapRoundOutcome.ImageRefusal; BootstrapRoundHandler appends after the call; InitPullRequestBody renders it."
+  - id: preflight
+    action: "ContextImageTrustCheck registered in AddRunPreflight."
+  - id: tests
+    action: "Boundary judge, tool host, init PR body, check."
+
+tests:
+  - "Judge_UserNamespaceImage_NamesImageBoundaryAndNamespacePrefix"
+  - "Judge_TrustedImage_ReturnsNull"
+  - "Judge_LibraryImageRefusedByANamedList_PointsAtTheLibrarySwitch"
+  - "Judge_HostQualifiedImage_SuggestsPrefixThroughLastSlash"
+  - "WriteContextYaml_ImageOutsideBoundary_WritesAndSaysSo"
+  - "WriteContextYaml_TrustedImage_SaysNothingMore"
+  - "Compose_ImageOutsideBoundary_IsNamedUnderTheContext"
+  - "Bootstrap_ImageOutsideBoundary_ReachesTheInitPullRequestOutcome"
+  - "ContextImageTrustCheck_RefusedImage_WarnsWithLever"
+  - "ContextImageTrustCheck_OperatorImageConfigured_Passes"
+  - "ContextImageTrustCheck_TrustedImage_Passes"
+  - "ContextImageTrustCheck_HostBackendRecordsNoImage_Passes"
+  - "Cli_RunPreflight_CarriesTheContextImageTrustCheck"
+
+done:
+  - "write_context_yaml with stack.image 'sbtscala/scala-sbt:…' writes the file and its result names the image, the boundary, the 'sbtscala/' prefix and sandbox.allowed_registries."
+  - "The init PR body names that image under its context."
+  - "A code run whose context names that image reports a context-image-trust warning on the preflight step (HasFinding) naming image, boundary and fix."
+  - "Architecture tests and the full suite pass."

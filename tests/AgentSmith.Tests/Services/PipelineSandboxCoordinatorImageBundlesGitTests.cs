@@ -1,3 +1,4 @@
+using AgentSmith.Application.Models;
 using System.Text.RegularExpressions;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Builders;
@@ -44,7 +45,7 @@ public sealed class PipelineSandboxCoordinatorImageBundlesGitTests
             .ReturnsAsync(new Mock<ISandbox>().Object);
 
         var resolverMock = new Mock<ISandboxLanguageResolver>();
-        resolverMock.Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
+        resolverMock.Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[] { new RemoteContextDiscovery("default", ".", language) });
 
         var sut = new PipelineSandboxCoordinator(

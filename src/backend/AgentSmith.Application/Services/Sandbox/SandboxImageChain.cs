@@ -1,79 +1,86 @@
+using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Sandbox;
 
 /// <summary>
-/// p0504: picks the one toolchain image a sandbox runs in. Extracted from
-/// SandboxSpecBuilder so the ordering — which is operator policy, not building —
-/// lives in a type that can be read and tested on its own.
+/// p0504: picks the one toolchain image a sandbox runs in. Order, most authoritative first:
+/// sandbox.toolchain_image (operator, whole project), sandbox.images[lang] (operator, per
+/// language, p0245), context.yaml stack.image (p0265, inside the registry boundary), the
+/// language convention table, the generic git-bearing fallback.
 /// <para>
-/// Order, most authoritative first:
-///   1. sandbox.toolchain_image (operator, whole project) — wins outright
-///   2. sandbox.images[lang] (operator, per language, p0245)
-///   3. context.yaml stack.image (LLM-named, p0265) — a declared image is the
-///      image that gets used
-///   4. the language convention table
-///   5. the generic git-bearing fallback
+/// 2026-08-25-014d: the only thing an image is judged by here is where it comes from. What it
+/// CONTAINS is discovered where it is used — a sandbox clones into itself, so an image without
+/// git fails at the checkout, by name.
 /// </para>
 /// <para>
-/// 2026-08-25-014d: the only thing an image is judged by here is where it comes
-/// from. What it CONTAINS is discovered where it is used — a sandbox clones into
-/// itself, so an image without git fails at the checkout, by name. The tag
-/// pattern that used to guess at git could only downgrade to a different image,
-/// silently, and guessed wrong for every ecosystem it had never heard of.
+/// 2026-10-12-50bda: <see cref="Decide"/> reports a refused stack.image as part of the
+/// decision instead of dropping it, so the code run's preflight can stop on the substitution.
 /// </para>
 /// </summary>
 public sealed class SandboxImageChain(
-    ImageRegistryTrust? trust = null, ILogger<SandboxImageChain>? logger = null)
+    IImageRegistryTrust? trust = null, ILogger<SandboxImageChain>? logger = null)
 {
-    private readonly ImageRegistryTrust _trust = trust ?? new ImageRegistryTrust();
+    private readonly IImageRegistryTrust _trust = trust ?? new ImageRegistryTrust();
 
-    // Generic fallback when no language-specific image can be resolved.
-    //
-    // Requirements: glibc (the self-contained .NET 8 agent binary is glibc-linked
-    // via its carrier dotnet/runtime-deps base — musl toolchains crash exec with
-    // a misleading ENOENT) AND git on PATH (used by CheckoutSource).
-    //
-    // buildpack-deps:bookworm-scm is the Docker-official SCM toolbox image:
-    // Debian bookworm (glibc 2.36) + git + ca-certs + openssl + curl + wget.
-    // Public Docker Hub image — works on k8s without operator-side build steps.
-    // Operators with stricter base-image policies override via
+    // Generic fallback: glibc (the self-contained agent binary is glibc-linked; musl crashes
+    // exec with a misleading ENOENT) AND git on PATH (CheckoutSource). The Docker-official SCM
+    // toolbox: Debian bookworm + git + ca-certs + curl. Operators override it through
     // ResolvedProject.Sandbox.ToolchainImage.
     public const string GenericFallbackImage = "buildpack-deps:bookworm-scm";
 
-    public string Resolve(
+    /// <summary>The image and the link that chose it, without logging.</summary>
+    public SandboxImageDecision Decide(
         ResolvedProject projectConfig, string? language, string? contextImage)
     {
         ArgumentNullException.ThrowIfNull(projectConfig);
         var projectOverride = projectConfig.Sandbox?.ToolchainImage;
         if (!string.IsNullOrEmpty(projectOverride))
-            return Chose("sandbox.toolchain_image", projectOverride, language);
+            return new SandboxImageDecision(projectOverride, SandboxImageLink.ProjectToolchainImage);
         if (ConfiguredImage(projectConfig, language) is { } configured)
-            return Chose("sandbox.images", configured, language);
-        if (AcceptedContextImage(contextImage, language) is { } accepted) return accepted;
-        if (ToolchainImageCatalog.ForLanguage(language) is { } known)
-            return Chose("the language catalog", known, language);
-        return FellThrough(language);
+            return new SandboxImageDecision(configured, SandboxImageLink.LanguageImage);
+        var declared = contextImage?.Trim();
+        if (!string.IsNullOrEmpty(declared) && _trust.InForce().Accepts(declared))
+            return new SandboxImageDecision(declared, SandboxImageLink.ContextImage);
+        var refused = string.IsNullOrEmpty(declared) ? null : declared;
+        return ToolchainImageCatalog.ForLanguage(language) is { } known
+            ? new SandboxImageDecision(known, SandboxImageLink.Catalog, refused)
+            : new SandboxImageDecision(GenericFallbackImage, SandboxImageLink.GenericFallback, refused);
     }
 
-    // 2026-09-24-7e4b: every earlier link is a deliberate operator choice and was taken in
-    // silence, so an operator debugging a wrong image could not tell an override from a
-    // catalog hit from a refused context image. One line names the link that decided.
-    private string Chose(string link, string image, string? language)
+    /// <summary>The image a sandbox is started in; one log line names the deciding link.</summary>
+    public string Resolve(ResolvedProject projectConfig, string? language, string? contextImage)
     {
-        logger?.LogInformation(
-            "Toolchain image '{Image}' for lang={Lang}, chosen by {Link}.",
-            image, language ?? "null", link);
-        return image;
+        var decision = Decide(projectConfig, language, contextImage);
+        if (decision.RefusedContextImage is { } refused) LogRefused(refused, language);
+        if (decision.Link == SandboxImageLink.GenericFallback) LogFellThrough(language);
+        else
+            logger?.LogInformation(
+                "Toolchain image '{Image}' for lang={Lang}, chosen by {Link}.",
+                decision.Image, language ?? "null", LinkName(decision.Link));
+        return decision.Image;
     }
 
-    // The last link is not a choice, it is what is left when the language was not recognised —
-    // and what is left carries git and NO language toolchain at all. A run that lands here
-    // cannot build or test, and used to find that out as a command-not-found inside a sandbox,
-    // where it reads as the run's problem rather than the image's. It says so instead.
-    private string FellThrough(string? language)
+    private static string LinkName(SandboxImageLink link) => link switch
     {
+        SandboxImageLink.ProjectToolchainImage => "sandbox.toolchain_image",
+        SandboxImageLink.LanguageImage => "sandbox.images",
+        SandboxImageLink.ContextImage => "the context's stack.image",
+        _ => "the language catalog",
+    };
+
+    // Neutral on purpose: this runs for every pipeline and backend, and only the code run's
+    // preflight stops on the refusal.
+    private void LogRefused(string refused, string? language) =>
+        logger?.LogWarning(
+            "p0265: context.yaml stack.image '{Image}' is outside the trusted registries "
+            + "[{Trusted}], so the sandbox for lang={Lang} is not started in it.",
+            refused, _trust.InForce().Description, language ?? "null");
+
+    // 2026-09-24-7e4b: the last link is what is left when no image was named — git and no
+    // language toolchain at all, so it says so instead of surfacing as a command-not-found.
+    private void LogFellThrough(string? language) =>
         logger?.LogWarning(
             "No toolchain image is known for lang={Lang}, so this sandbox gets '{Image}' — "
             + "git and no language toolchain, so nothing can be built, tested or version-checked "
@@ -82,8 +89,6 @@ public sealed class SandboxImageChain(
             + "{Known}.",
             language ?? "null", GenericFallbackImage,
             string.Join(", ", ToolchainImageCatalog.KnownLanguages.Keys));
-        return GenericFallbackImage;
-    }
 
     // p0245: the operator's per-language image override, matched case-insensitively
     // like the code table. An empty value or missing key falls through (null).
@@ -94,26 +99,5 @@ public sealed class SandboxImageChain(
         return images.FirstOrDefault(kv =>
             string.Equals(kv.Key, language, StringComparison.OrdinalIgnoreCase)
             && !string.IsNullOrEmpty(kv.Value)).Value;
-    }
-
-    // p0265: judge an LLM-named stack.image against the operator's registry policy
-    // before trusting it as the sandbox toolchain. Returns the image when it is
-    // inside the boundary, else null (the chain continues) with a WARN.
-    private string? AcceptedContextImage(string? contextImage, string? language)
-    {
-        var trimmed = contextImage?.Trim();
-        if (string.IsNullOrEmpty(trimmed)) return null;
-        if (!_trust.Accepts(trimmed))
-        {
-            logger?.LogWarning(
-                "p0265: context.yaml stack.image '{Image}' is outside the trusted registries "
-                + "[{Trusted}]. Falling back for lang={Lang}.",
-                trimmed, _trust.Description, language ?? "null");
-            return null;
-        }
-        logger?.LogInformation(
-            "p0265: using LLM-named context.yaml stack.image '{Image}' (lang={Lang}).",
-            trimmed, language ?? "null");
-        return trimmed;
     }
 }

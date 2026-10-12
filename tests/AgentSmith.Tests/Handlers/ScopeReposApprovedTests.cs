@@ -31,8 +31,8 @@ public sealed class ScopeReposApprovedTests
 
     public ScopeReposApprovedTests() =>
         _resolver
-            .Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((RepoConnection repo, CancellationToken _) =>
+            .Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RepoConnection repo, ContextReadBranches _, CancellationToken _) =>
             {
                 _inventoried.Add(repo.Name);
                 return [new RemoteContextDiscovery("default", ".", "csharp", Purpose: $"{repo.Name} service")];

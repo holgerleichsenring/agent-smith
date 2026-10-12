@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Text.Json;
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
@@ -31,6 +32,8 @@ public sealed class WriteContextYamlToolHost : IToolHost
     private readonly SandboxContextYamlWriter _writer;
     // 2026-09-01-e14d: hashes the files a written verify block says it was derived from.
     private readonly VerifyDerivationStamp _derivation;
+    // 2026-10-12-6bfac / 2026-10-12-50bdb: a missing image is refused, a refused one said.
+    private readonly ContextImageReview _images;
     // 2026-08-25-c9c7: per-round, so a document the model cannot make valid stops
     // being re-invited instead of spending the loop's iteration cap.
     private readonly ContextWriteRejectionBudget _budget = new();
@@ -47,6 +50,7 @@ public sealed class WriteContextYamlToolHost : IToolHost
     private bool _written;
     private string? _lastRefusal;
     private string? _lastContext;
+    private ContextImageRefusal? _imageRefusal;
 
     public WriteContextYamlToolHost(
         IReadOnlyDictionary<string, ISandbox> sandboxes,
@@ -55,6 +59,7 @@ public sealed class WriteContextYamlToolHost : IToolHost
         ContextDocumentGate gate,
         SandboxContextYamlWriter writer,
         VerifyDerivationStamp derivation,
+        ContextImageReview imageReview,
         IReadOnlyDictionary<string, IReadOnlyList<string>>? discoveredContexts = null,
         string? defaultRepoName = null)
     {
@@ -64,13 +69,14 @@ public sealed class WriteContextYamlToolHost : IToolHost
         _gate = gate;
         _writer = writer;
         _derivation = derivation;
+        _images = imageReview;
         _nameGuard = new ContextNameGuard(discoveredContexts, defaultRepoName);
     }
 
     /// <summary>This round's write outcome — never a question about the disk.</summary>
     public ContextWriteOutcome Outcome => new(
         _written, _lastRefusal,
-        _lastContext is not null && _budget.IsExhausted(_lastContext));
+        _lastContext is not null && _budget.IsExhausted(_lastContext), _imageRefusal);
 
     public IEnumerable<AIFunction> GetTools(SkillExecutionPhase? phase, string? investigatorMode)
     {
@@ -139,11 +145,23 @@ public sealed class WriteContextYamlToolHost : IToolHost
         // 2026-09-23-72c7: the self-contradiction is reported ALONGSIDE the gate's defects,
         // for 2026-08-26-167c's reason — a round sent back twice for one document starts
         // guessing at the half it was not told about.
-        if (Refusal(_gate.Defect(typed), _workdirCommands.Defect(typed)) is { } defect)
+        var image = await _images.VerifyAsync(typed.Stack?.Image, ct);
+        if (Refusal(_gate.Defect(typed), _workdirCommands.Defect(typed), _images.Defect(image)) is { } defect)
             return _budget.Reject(context_name, defect);
         _budget.Accepted(context_name);
 
-        return await _writer.WriteAsync(sandbox!, repo, context_name, yaml, ct);
+        var written = await _writer.WriteAsync(sandbox!, repo, context_name, yaml, ct);
+        return written.StartsWith(SandboxContextYamlWriter.WrittenPrefix, StringComparison.Ordinal)
+            ? Answered(_images.Answer(written, typed.Stack?.Image, image))
+            : written;
+    }
+
+    // 2026-10-12-6bfac: a boundary refusal is accepted, not refused — the operator may widen
+    // the boundary; the outcome carries it to the init PR.
+    private string Answered(ContextImageAnswer answer)
+    {
+        _imageRefusal = answer.Refusal;
+        return answer.Text;
     }
 
     private static string? Refusal(params string?[] defects)

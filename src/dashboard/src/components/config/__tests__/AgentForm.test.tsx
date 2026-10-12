@@ -257,3 +257,42 @@ describe("AgentForm (2026-09-30-62bab)", () => {
     expect(within(screen.getByTestId("agent-model-card-main")).getByText("used by Coding")).toBeInTheDocument();
   });
 });
+
+describe("AgentForm model id ranking (2026-10-12-6bfae)", () => {
+  // An Anthropic agent was handed the Bedrock spelling: the list holds 17 "sonnet-5-5" ids and
+  // the one its API accepts was ninth, past the eight the picker showed.
+  const spelled = (id: string, provider: string) =>
+    ({ id, provider, inputPerMillion: 3, outputPerMillion: 15, cacheReadPerMillion: null, contextWindowTokens: null });
+  const SONNETS: ModelPriceList = {
+    source: "test",
+    fetchedAt: "2026-10-12T06:00:00Z",
+    models: [
+      ...["anthropic.", "apac.anthropic.", "au.anthropic.", "eu.anthropic.", "global.anthropic.", "jp.anthropic.", "us.anthropic."]
+        .map((p) => spelled(`${p}claude-sonnet-5-5`, "bedrock_converse")),
+      spelled("azure_ai/claude-sonnet-5-5", "azure_ai"),
+      spelled("claude-sonnet-5-5", "anthropic"),
+    ],
+  };
+  const ANTHROPIC: StudioAgent = { id: "claude", provider: "anthropic", keySecret: null, catalog: {}, models: {} };
+
+  it("AddModel_AnthropicAgent_OffersTheAnthropicSpellingFirst", async () => {
+    mockedPrices.mockResolvedValue(SONNETS);
+    render(
+      <AgentForm
+        draft={ANTHROPIC}
+        onChange={() => {}}
+        catalog={catalog}
+        capabilities={{ ...capabilities, agentProviderPriceLists: { anthropic: ["anthropic"] } }}
+      />,
+    );
+    await screen.findByText(/public price list/);
+    fireEvent.click(screen.getByTestId("agent-model-add"));
+
+    fireEvent.change(screen.getByTestId("agent-model-id"), { target: { value: "sonnet-5-5" } });
+
+    const offers = within(screen.getByTestId("agent-model-id-matches")).getAllByRole("option");
+    expect(offers).toHaveLength(8);
+    expect(offers[0]).toHaveAttribute("data-testid", "agent-model-id-match-claude-sonnet-5-5");
+    expect(screen.getByTestId("agent-model-id-match-provider-claude-sonnet-5-5")).toHaveTextContent("anthropic");
+  });
+});

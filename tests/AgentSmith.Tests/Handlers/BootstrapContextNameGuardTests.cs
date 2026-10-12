@@ -106,7 +106,7 @@ public sealed class BootstrapContextNameGuardTests
             new PathReadGuard(new NullGitIgnoreResolver()),
             new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())),
             ContextGates.Serializer(),
-            ContextGates.Build(), ContextGates.Writer(), ContextGates.DerivationStamp()),
+            ContextGates.Build(), ContextGates.Writer(), ContextGates.DerivationStamp(), ContextGates.ImageReview()),
         BootstrapReaderStubs.MetaFilesReturning(contextYaml: ExistingOnDisk, principles: null),
         PrinciplesTransferStubs.Composing("# Coding Principles\ncore + delta\n"),
         new BootstrapContextWriteVerdict(),

@@ -1,3 +1,4 @@
+using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Preflight.Checks;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
@@ -110,7 +111,7 @@ public sealed class VerificationOnboardingCheckTests
     {
         var resolver = new Mock<ISandboxLanguageResolver>();
         resolver
-            .Setup(r => r.ListContextsAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.ListContextsAsync(It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(listing);
         var config = new AgentSmithConfig
         {

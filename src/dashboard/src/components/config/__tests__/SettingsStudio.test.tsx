@@ -31,6 +31,8 @@ const FIXTURES: Record<string, unknown> = {
     runCommandTimeoutSeconds: 300,
     maxConcurrentSandboxes: 4,
     holdSeconds: null,
+    allowedRegistries: [],
+    allowDockerHubLibrary: null,
   },
   limits: {
     maxToolCallsPerSkill: 30,
@@ -49,9 +51,22 @@ const FIXTURES: Record<string, unknown> = {
 
 const saveSetting = vi.fn((_key: string, value: unknown) => Promise.resolve(value));
 
+// 2026-10-12-6bfab: the boundary in force, as the server reports it for an unset block.
+const fetchImageTrust = vi.fn(() =>
+  Promise.resolve({
+    registries: ["mcr.microsoft.com/", "ghcr.io/"],
+    registriesAreDefault: true,
+    dockerHubLibrary: true,
+    dockerHubLibraryIsExplicit: false,
+    defaultRegistries: ["mcr.microsoft.com/", "ghcr.io/"],
+    description: "mcr.microsoft.com/, ghcr.io/",
+  }),
+);
+
 vi.mock("@/lib/configApi", () => ({
   fetchSetting: vi.fn((key: string) => Promise.resolve(FIXTURES[key])),
   saveSetting: (key: string, value: unknown) => saveSetting(key, value),
+  fetchImageTrust: () => fetchImageTrust(),
   fetchCapabilities: vi.fn().mockResolvedValue({
     trackerTypes: [],
     connectionTypes: [],
@@ -263,5 +278,34 @@ describe("SettingsStudio", () => {
     fireEvent.click(screen.getByTestId("settings-save"));
     await waitFor(() => expect(saveSetting).toHaveBeenCalledTimes(1));
     expect(saveSetting).toHaveBeenCalledWith("trace", { enabled: true });
+  });
+
+  // 2026-10-12-6bfab: the image boundary is edited where the rest of the sandbox block is.
+  // The first entry starts from the built-in default, the save carries the list, and the
+  // panel asks the server again for the boundary in force once the saved value changes.
+  it("SandboxSettings_TrustedRegistries_FirstAddSeedsTheDefault_SaveCarriesTheList_PanelRefetches", async () => {
+    render(<SettingsStudio settingKey="sandbox" />);
+    expect(await screen.findByTestId("setting-sandbox-trust-inforce-registries")).toHaveTextContent(
+      /built-in default/,
+    );
+    expect(screen.getByTestId("setting-sandbox-trust-empty")).toHaveTextContent("mcr.microsoft.com/, ghcr.io/");
+
+    fireEvent.click(screen.getByTestId("setting-sandbox-trust-add"));
+    expect(screen.getByTestId("setting-sandbox-trust-0")).toHaveValue("mcr.microsoft.com/");
+    expect(screen.getByTestId("setting-sandbox-trust-1")).toHaveValue("ghcr.io/");
+    fireEvent.change(screen.getByTestId("setting-sandbox-trust-2"), { target: { value: "docker.io/sbtscala/" } });
+    expect(screen.getByTestId("setting-sandbox-trust-unsaved")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId("settings-save"));
+
+    await waitFor(() => expect(saveSetting).toHaveBeenCalledTimes(1));
+    expect(saveSetting).toHaveBeenCalledWith(
+      "sandbox",
+      expect.objectContaining({
+        allowedRegistries: ["mcr.microsoft.com/", "ghcr.io/", "docker.io/sbtscala/"],
+        allowDockerHubLibrary: null,
+      }),
+    );
+    await waitFor(() => expect(fetchImageTrust).toHaveBeenCalledTimes(2));
   });
 });

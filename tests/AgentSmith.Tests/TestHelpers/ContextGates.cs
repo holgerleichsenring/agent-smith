@@ -41,6 +41,18 @@ internal static class ContextGates
         new(new AgentSmith.Application.Services.VerifyDerivationDigest(
             new AgentSmith.Application.Services.Sandbox.SandboxFileReaderFactory()));
 
+    /// <summary>2026-10-12-6bfac: the boundary judge over the built-in default registries.</summary>
+    public static AgentSmith.Application.Services.Sandbox.ContextImageBoundary ImageBoundary() =>
+        new(new AgentSmith.Application.Services.Sandbox.ImageRegistryTrust());
+
+    /// <summary>
+    /// 2026-10-12-50bdb: the image review write_context_yaml takes, over the real boundary and a
+    /// registry that answers offline — every image exists unless <paramref name="check"/> says otherwise.
+    /// </summary>
+    public static ContextImageReview ImageReview(
+        AgentSmith.Application.Services.Sandbox.Registry.IImageReferenceCheck? check = null) =>
+        new(ImageBoundary(), check ?? new FixedImageReferenceCheck());
+
     /// <summary>
     /// The real emitter. A mock returns null YAML, which the write path used to put on
     /// disk unnoticed — a fixture that cannot produce a file cannot prove one survived.

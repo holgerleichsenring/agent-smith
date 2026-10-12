@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-50bda
+
+decisions:
+  - category: Architecture
+    chose: "Block at RunPreflight; the chain still names an image for a refused declaration and carries the refusal beside it (SandboxImageChain.Decide -> SandboxImageDecision)"
+    over: "The chain returning no image, or the coordinator throwing at sandbox creation"
+    reason: |
+      Every sandbox exists before preflight: the executor ensures sandboxes before the first
+      sandbox-requiring step and CheckoutSource precedes RunPreflight (PipelineExecutor.cs:116-117,
+      PipelinePresets.Code.cs:42-46), and SandboxSpec needs an image. A throw would also stop
+      pr-review, init-project, the scans and the in-process CLI backend — which runs no image at
+      all — over a gate that only matters where declared stages are verified. Preflight reads the
+      image the backend recorded, so the host backend is never judged, and the code run stops
+      seconds after checkout instead of 25 minutes later at verify. The decision is typed, so the
+      checks read the chain's own answer instead of re-deriving its operator links.
+  - category: Implementation
+    chose: "A refused image counts as a substitution only when it differs from the image the chain lands on"
+    over: "Failing on every refusal"
+    reason: |
+      With a named registry list, Docker Hub library images stop being trusted, so a context that
+      declared buildpack-deps:bookworm-scm on purpose is refused and lands on that very image —
+      nothing was substituted.
+  - category: Implementation
+    chose: "'Declares verify stages' = at least one parsed verify stage (label and command) in a context of that sandbox that fell through to the generic image; a when_present stage counts even if its path is absent"
+    over: "Counting analyzer-inferred ci commands; probing when_present paths at preflight"
+    reason: |
+      The verify: block is the only declaration known at preflight (ContextYamlVerifyReader drops
+      half stages; an empty block reads as null). Inferred commands come from AnalyzeCode, after
+      preflight. Strictness on when_present is accepted: a declaration that names a build intends
+      to build. A sandbox that declares nothing — a docs repository, the synthetic default when no
+      context.yaml exists — keeps the 6bfaa warning.
+  - category: Implementation
+    chose: "Prerequisites do not exempt a context from the block; keeping the generic image on purpose is done in sandbox.images or sandbox.toolchain_image"
+    over: "Downgrading to a warning when the context declares prerequisites"
+    reason: |
+      The check cannot tell a toolchain install from an npm install. The operator links are never
+      judged by the boundary, so they are the reliable way to name the generic image (a context's
+      stack.image of it is refused once a registry list is named).
+  - category: Implementation
+    chose: "An unreadable boundary (RegistryTrustBoundary.Closed) still fails, with a lever pointing at the settings store"
+    over: "Downgrading to a warning; telling the operator to widen allowed_registries"
+    reason: |
+      The sandbox still runs a substitute, which is what the rule forbids, but widening a list that
+      could not be read fixes nothing. A boundary changed between sandbox start and preflight
+      (seconds apart) is read live by both; that race is accepted.
+  - category: Scope
+    chose: "Every sandbox of the run is judged, including one the ticket never touches"
+    over: "Judging only sandboxes that will be verified"
+    reason: |
+      VerifyPhase skips unchanged sandboxes, but which ones change is unknown before the master
+      runs; ScopeRepos and context scoping already shed the untouched ones they can.
+  - category: Scope
+    chose: "pr-review, init-project, the scans, mad-discussion keep running in the chain's image after a refusal, with its Warning log"
+    over: "Blocking them too"
+    reason: |
+      Only the code preset carries RunPreflight and only its phase block runs VerifyPhase, so no
+      other pipeline executes a declared verify stage. init-project runs before any context exists,
+      so it declares no image to refuse.
+  - category: Scope
+    chose: "Mid-run escalation (ensure_repo_sandbox) and dialogue-checkpoint resume are not judged in this phase"
+    over: "Judging them here"
+    reason: |
+      Both create sandboxes after RunPreflight and run no preflight (EnsureRepoSandboxToolHost
+      SpawnAndCheckoutAsync; DialogueCheckpointWriter replays checkout without RunPreflight). Named
+      follow-up 'sandbox image verdict beyond preflight': the escalation tool and the resume replay
+      run the same two checks over the sandboxes they create and refuse the escalation / stop the
+      resumed run on a Fail.
