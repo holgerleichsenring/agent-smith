@@ -4,7 +4,7 @@ goal: "A spec write that fails in one repository is rolled back in the others an
 
 applies_to: "backend (spec publish, hand-back, series reader)"
 
-requires: [2026-10-12-f5f7d]
+requires: [2026-10-12-f5f7d, 2026-10-12-d142]
 
 facts:
   - claim: "A failed write is logged and the run continues from the in-memory set; the record later rewrites its repository's manifest with the publish stamp and pushes HEAD."
@@ -31,7 +31,7 @@ decisions:
   - key: "REVERT SHAS ARE RECORDED through a sha-map-only merge that keeps the stored revision, so the next run sees our own revert, not a reviewer's edit."
   - key: "SERIESOUTOFSTEP IS ITS OWN CASE with its own comment: name the lagging repositories; the way out is to write the re-cut demand phrase AND move the ticket back to a trigger status, or re-approve and re-file. It parks in the clarification status."
   - key: "A RESUME ON A LAGGING READ HANDS BACK TOO: nothing works from a mixed state; only a re-cut demand ranks above."
-  - key: "A PR COMMAND ON IT costs one run that hands back again before any model call — no loop runs by itself."
+  - key: "A PR COMMAND ON IT costs one run that hands back before any model call."
   - key: "NOT CHECKED OUT IS NOT OUT OF STEP: a named member outside the run's checkout fails the run naming it; widen the scope."
   - key: "NO TRACKER, NO CONTINUE: in the CLI without a tracker the case fails the run, as Refused does."
   - key: "THE DEMAND'S EXECUTED SET IS A PREFIX BY CONSTRUCTION: every member's done/ phases ordered by id, then the newest members' unexecuted specs."
@@ -42,7 +42,7 @@ steps:
     modify:
       - "SeriesWriter, SpecSetWriteResult (pushed flag per member), SpecSetPublisher, SandboxGitOperations (plain push + revert), SpecSetPointerRecorder (RecordShasAsync)"
   - id: case
-    action: "Append SpecHandbackCase.SeriesOutOfStep = 6 with its comment arm, clarification park and a NoTracker arm that fails."
+    action: "Append SpecHandbackCase.SeriesOutOfStep as the next free value after 2026-10-12-d142's ScopeUnassigned (7) with its comment arm, clarification park and a NoTracker arm that fails."
     modify:
       - "SpecHandback, SpecHandbackComment, SpecParkStatusResolver, SpecHandbackHandler"
   - id: route
