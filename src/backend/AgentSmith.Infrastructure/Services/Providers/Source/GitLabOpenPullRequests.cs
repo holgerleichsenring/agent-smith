@@ -54,7 +54,13 @@ public sealed class GitLabOpenPullRequests(string baseUrl, string projectPath, s
         mr.TryGetProperty("diff_refs", out var refs) && refs.ValueKind == JsonValueKind.Object ? Str(refs, "base_sha") : null,
         Str(mr, "source_branch"), mr.TryGetProperty("author", out var a) ? Str(a, "username") : null,
         mr.TryGetProperty("labels", out var l) && l.ValueKind == JsonValueKind.Array ? [.. l.EnumerateArray().Select(x => x.GetString() ?? "")] : [],
-        Time(mr, "created_at"), Time(mr, "updated_at"));
+        Time(mr, "created_at"), Time(mr, "updated_at"))
+    {
+        SameRepository = Id(mr, "source_project_id") is { } source && source == Id(mr, "target_project_id"),
+    };
+
+    private static long? Id(JsonElement e, string name) =>
+        e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Number ? v.GetInt64() : null;
 
     private static PrSweepComment Note(OpenPullRequest pr, JsonElement note)
     {

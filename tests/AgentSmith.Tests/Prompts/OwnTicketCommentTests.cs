@@ -1,4 +1,7 @@
 using AgentSmith.Application.Services.Prompts;
+using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Reviews;
+using AgentSmith.Contracts.Webhooks;
 using AgentSmith.Domain.Entities;
 using FluentAssertions;
 
@@ -47,4 +50,32 @@ public sealed class OwnTicketCommentTests
     [Fact]
     public void IsAnswered_OrdersByTime_NotByListPosition() =>
         OwnTicketComment.IsAnswered([Ours(5), Theirs(0)], Marker).Should().BeFalse();
+
+    private static PrReviewNote PrNote(int minute, string body = "use the shared module", bool ours = false) =>
+        new(new PrCommentAuthor("u", "r", "reviewer", "reviewer"), false, false, T0.AddMinutes(minute), body) { IsOurs = ours };
+
+    [Fact]
+    public void OwnTicketComment_TrustedPrReplyAfterHandback_IsForeign()
+    {
+        var foreign = OwnTicketComment.ForeignAfter([Ours(0)], Marker, [PrNote(5)]).ToList();
+
+        foreign.Should().ContainSingle().Which.Body.Should().Be("use the shared module");
+        OwnTicketComment.IsAnswered([Ours(0)], Marker, [PrNote(5)]).Should().BeTrue();
+    }
+
+    [Fact]
+    public void OwnTicketComment_PrNoteBeforeHandbackOrOurs_IsNotForeign() =>
+        OwnTicketComment.IsAnswered([Ours(10)], Marker, [PrNote(5), PrNote(15, "<!-- agentsmith:handback -->", ours: true)])
+            .Should().BeFalse();
+
+    [Fact]
+    public void PrNotes_ReadsEveryThreadOfTheFeedback()
+    {
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.PrReviewFeedback, (IReadOnlyList<PrReviewFeedback>)[
+            new PrReviewFeedback("api", "https://github.com/o/api/pull/4",
+                [new PrReviewThread(null, null, null, [PrNote(1)]), new PrReviewThread("a.cs", 2, false, [PrNote(2), PrNote(3)])])]);
+
+        OwnTicketComment.PrNotes(pipeline).Should().HaveCount(3);
+    }
 }

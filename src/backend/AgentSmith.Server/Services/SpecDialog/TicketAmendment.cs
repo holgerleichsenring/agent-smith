@@ -92,9 +92,10 @@ public sealed class TicketAmendment(
         // Read back AFTER the rewrite: the fingerprint the branch set carries is of the ticket as
         // the TRACKER stored it, and a stale one reads as a ticket edit on the next run — which
         // posts a notice telling the operator their edit was ignored, after every amendment, for
-        // ever. The read-back is also what proves the rewrite is on the ticket.
+        // ever. The read-back is also what proves the rewrite is on the ticket. 2026-10-12-f5f7d: each
+        // amended spec is written into the repository it names; what already ran stays out by id.
         var branch = await branches.WriteAsync(
-            project, record, id, await ReadBackAsync(project, id, ct), carrier: null, ct);
+            project, record, id, await ReadBackAsync(project, id, ct), ct);
         logger.LogInformation(
             "Ticket {Ticket} was amended from conversation {Session}: {Phases} phase(s), branch {State}",
             ticketId, state.JobId, amended.Set.Drafts.Count, branch.Written ? "written" : branch.Error);

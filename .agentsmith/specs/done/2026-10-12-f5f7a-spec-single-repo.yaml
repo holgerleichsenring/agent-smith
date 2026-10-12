@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-f5f7a
+goal: "In a multi-repository scope every new spec names exactly one repository; work in two is cut as two specs, and a cut that cannot name one is handed back instead of guessed."
+
+applies_to: "backend (spec derivation, design dialog) + skills"
+
+requires: [2026-10-12-3a36e]
+
+facts:
+  - claim: "3a36e added repos: as a list, armed by the reply, with a whole-scope fill when no spec states it, in derivation and dialog; its tests assert that fill."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecReposRule.cs:7-66, src/backend/AgentSmith.Application/Services/Specs/DerivedPhaseRepos.cs:1, src/backend/AgentSmith.Application/Services/SpecDialog/DialogDraftRepos.cs:19-40"
+  - claim: "The derivation prompt section listing the scope's repositories is appended to every derivation, looks or not; the dialog has no such section."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecDerivationMessages.cs:24-27, src/backend/AgentSmith.Application/Services/Specs/ScopeRepositoriesPromptSection.cs:1, src/backend/AgentSmith.Application/Services/SpecDialogPromptFactory.cs:1"
+  - claim: "The envelope reads repos only as an array; a string reads as nothing stated."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecDerivationEnvelope.cs:51-52, src/backend/AgentSmith.Application/Services/Specs/SpecJsonReader.cs:38-44"
+  - claim: "requires: is computed from position, not read from the reply; the deriver has one budget of three attempts for every rejection."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivedPhaseBuilder.cs:57-60, src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:45-62"
+  - claim: "The whole-ticket fallback copies the full ticket into its spec; the coverage refusal unions the refused cut's done lines."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecFallback.cs:21-49, src/backend/AgentSmith.Application/Services/Specs/SpecCoverageRefusal.cs:28-33, src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:102-125"
+  - claim: "A lone dialog spec is a bare yaml block; splitting it means an epic outcome; a rejected proposal gets one fix re-prompt."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/OutcomeProposalResolver.cs:38-73, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:690-711"
+  - claim: "observed: operator decisions — a spec lives in the one repository whose code it changes; 'the first repository' is always wrong."
+    evidence: "observed: 2026-10-12, session with the operator"
+
+assumptions: []
+
+scope:
+  in: "Exactly one in-scope repo per new spec when the scope has more than one, in derivation and dialog; both prompt sections ask for it; a string repos is accepted; the multi-repo fill retired; fallback and coverage refusal hand back in a multi-repo scope; the skills texts on the 3a36e branch rewritten."
+  out: "Where files go (f5f7b, f5f7d); single-repository scopes, which stay filled and keep today's fallback."
+
+decisions:
+  - key: "ONE SPEC, ONE REPO: placement follows a single name; a list would bring copies back."
+  - key: "THE BACKEND ASKS IN BOTH SURFACES: derivation and dialog prompt sections state the rule, so a binary ahead of the skills release asks too."
+  - key: "SPLIT IN ORDER: the dependent spec comes second; requires: follows position, as today."
+  - key: "NO GUESS ON FAILURE: in a multi-repo scope a failed cut or a coverage refusal hands the ticket back naming the repositories, instead of copying the whole ticket into one spec per repository or picking one."
+  - key: "THE DIALOG SPLITS AS AN EPIC: the fix nudge says 'propose it as an epic, one child per repository'."
+
+steps:
+  - id: rule
+    action: "Require exactly one in-scope repo per spec in a multi-repo scope; re-ask 'split it' or 'state it'; drop the multi-repo fill; read a string repos as one."
+    modify:
+      - "SpecReposRule, SpecReposResolution, DerivedPhaseRepos, DialogDraftRepos, SpecDerivationEnvelope"
+  - id: prompts
+    action: "State the rule in ScopeRepositoriesPromptSection and in a new dialog section via SpecDialogPromptFactory; the dialog fix nudge names the epic split."
+    modify:
+      - "ScopeRepositoriesPromptSection, SpecDialogPromptFactory, AgenticMasterHandler"
+  - id: no-guess
+    action: "In a multi-repo scope make the fallback and the coverage refusal a hand-back naming the repositories; single-repo scopes keep today's fallback."
+    modify:
+      - "DeriveSpecHandler, SpecFallback, SpecCoverageRefusal"
+  - id: skills
+    action: "Rewrite both masters' repos text on branch feat/2026-10-12-3a36e-repos-field (no fill, one repo per spec, epic split); commit, no release."
+
+tests:
+  - "SpecReposRule_MultiRepoScope_SpecNamingTwo_IsReAskedToSplit"
+  - "SpecReposRule_MultiRepoScope_NoneStated_IsReAsked"
+  - "SpecReposRule_SingleRepoScope_IsFilled"
+  - "SpecDerivationEnvelope_ReposAsString_ReadsOne"
+  - "DeriveSpecHandler_MultiRepoFallback_HandsBack"
+  - "SpecCoverageRefusal_MultiRepo_HandsBack"
+  - "DialogDraftRepos_LoneSpecNamingTwo_NudgesEpic"
+  - "replaced 3a36e fill tests: Resolve_NothingStated…, …NoPhaseStatesRepos_FilledFromScope, SpecFallback_WholeTicket_NamesScope, dialog *_IsFilledFromScope, Harness_ReplyWithoutRepos_IsFilledWithTheScope → multi-repo re-ask/hand-back"
+
+done:
+  - "A derivation over BackgroundWorker+Server for a change in both yields two specs, one per repository (RealCompositionHarness, scripted reply)."
+  - "A failed derivation over two repositories hands the ticket back; over one it falls back as today."

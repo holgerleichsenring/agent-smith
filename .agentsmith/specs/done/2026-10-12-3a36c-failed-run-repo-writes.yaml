@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-3a36c
+goal: "A failed run commits into a repository only work it did there: no run-record-only commit, no record-carrier PR, and a WIP subject instead of 'fix:'."
+
+applies_to: "backend (CommitAndPR failure path, failure persist)"
+
+requires: []
+
+facts:
+  - claim: "observed: runs 10-28 and 10-45 failed at the hand-back step, changed no source, and each still pushed to all three repos: a result.md-only '[wip]' commit to Server (onto the reviewed PR 9476) and to Client (which had no PR, creating its branch), and a spec revision plus a result.md-only 'fix: 2026-10-12-eff5a: …' commit to BackgroundWorker."
+    evidence: "observed: 2026-10-12, AzDO commits on agent-smith/19470 in the three repositories"
+  - claim: "observed: the manifest gained revisions 4, 6, 7 and 8, each 'comment on the ticket — the approved set was kept', with no other change."
+    evidence: "observed: 2026-10-12, .agentsmith/series/2026-10-12-eff5.yaml on BackgroundWorker"
+  - claim: "On a failed step the finalizer tail runs WriteRunResult then CommitAndPR before the error handler's PersistWorkBranch."
+    evidence: "src/backend/AgentSmith.Application/Services/Pipeline/PipelineStepFailure.cs:84-88, src/backend/AgentSmith.Application/Services/Pipeline/PipelineFinalizerTail.cs:22-27"
+  - claim: "CommitAndPR already excludes .agentsmith paths from 'code'; with no code anywhere the first repo becomes the record carrier (p0235: at least one PR with result.md), force-stages .agentsmith, commits 'fix: {title}' and finds-or-creates the PR."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:61-65, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:88, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:127-129, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:238, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:248, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:337"
+  - claim: "PersistWorkBranch then pushes any repo with working changes; the uncommitted run record counts as one."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PersistWorkBranchHandler.cs:54-83"
+  - claim: "Init already skips a commit whose staged files all lie under the runs directory."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/InitCommitHandler.cs:91-104, src/backend/AgentSmith.Application/Services/RunRecordPaths.cs:39-41"
+  - claim: "The WIP message is subject plus Run-Id, Pipeline and Failed-Step trailers; the PR sweep skips a head carrying the WIP marker."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PersistWorkBranchHandler.cs:149-160, src/backend/AgentSmith.Contracts/Models/Lifecycle/WipCommit.cs:4-11, src/backend/AgentSmith.Server/Services/Sweep/PrSweepPass.cs:66"
+  - claim: "CompileKnowledge enumerates .agentsmith/runs/ in the sandbox and drops only bootstrap-aborted runs; a failed run's record reaches it only through a merged branch. The branch-state preflight counts framework commits, so fewer commits only removes false 'earlier run's work' warnings."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CompileKnowledgeHandler.cs:129-137, src/backend/AgentSmith.Application/Services/Handlers/RunDirectoryReader.cs:1, src/backend/AgentSmith.Application/Services/Preflight/Run/BranchStateCheck.cs:93-95"
+  - claim: "The spec set is committed and its draft PR opened at derivation, which publishes an 'opened' outcome; the projection keeps the last outcome per repo."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetPublisher.cs:33-53, src/backend/AgentSmith.Application/Services/Specs/SpecPullRequestOpener.cs:41-42, src/backend/AgentSmith.Application/Services/Specs/SpecPullRequestOpener.cs:76-77, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunPullRequestProjection.cs:35-51"
+  - claim: "With no opened entry the step reports 'nothing to persist, no PR opened' and the ticket comment drops its partial-work line; the failure banner is written only inside OpenOneAsync."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/FailedRunPersistence.cs:37-45, src/backend/AgentSmith.Application/Services/FailureTicketComment.cs:49-50, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:302-307"
+  - claim: "FailedStepName is set by the error handler after the finalizer tail ran; only FailureReason is set before it."
+    evidence: "src/backend/AgentSmith.Application/Services/Pipeline/PipelineStepFailure.cs:83-88, src/backend/AgentSmith.Application/Services/PipelineErrorHandler.cs:97"
+  - claim: "A delivered shortfall carries a failureReason and is finalized as done."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:109-113, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:161-165"
+
+assumptions: []
+
+scope:
+  in: "No record carrier on a failed run (shortfall excluded), keeping the spec PR as its persisted work; PersistWorkBranch skips stages under the runs directory; one WIP message, with the failed step set before the finalizer tail."
+  out: "Green runs and delivered shortfalls keep the p0235 record PR and 'fix:'; WriteRunResult still writes into every sandbox (an uncommitted file costs nothing); the derivation-time series commit and spec PR (SpecSetPublisher) — the series placement program."
+
+decisions:
+  - key: "FIX AT COMMIT TIME, as Init already does: a file in a discarded sandbox costs nothing, only commits leak."
+  - key: "FAILED MEANS NOT DELIVERED: failureReason set and no shortfall; a delivered shortfall stays a delivery."
+  - key: "THE SPEC PR IS THE PERSISTED WORK: a failed run keeps its outcome 'opened', names it in the step result and ticket comment, and puts the failure banner on it."
+  - key: "NARROW TEST FOR PERSIST: RunRecordPaths.IsUnderRunsDir, as InitCommit; an uncommitted spec file after a failed write is still saved as WIP."
+  - key: "ONE WIP MESSAGE: the sweep then skips that head (af10), which is intended."
+
+steps:
+  - id: no-carrier-on-failure
+    action: "Make CommitAndPR's record carrier require not (failed and no shortfall); for the spec repo (ContextKeys.SpecRepo) with SpecPullRequestUrl and no Opened outcome from the loop, replace its SkippedNoChanges by Opened(SpecPullRequestUrl), publish that, and refresh its body once with the failure banner."
+    modify:
+      - "CommitAndPRHandler"
+  - id: persist-record-only
+    action: "After StageAllAsync, return NoChanges in PersistWorkBranch when every staged path IsUnderRunsDir."
+    modify:
+      - "PersistWorkBranchHandler"
+  - id: failed-message
+    action: "Set ContextKeys.FailedStepName before the finalizer tail in PipelineStepFailure and at the safety-cancel site in PipelineExecutor; move the WIP message into one builder used by PersistWorkBranch and by CommitAndPR on a failed run."
+    new:
+      - "WipCommitMessage: subject + Run-Id, Pipeline, Failed-Step trailers"
+    modify:
+      - "PipelineStepFailure, PipelineExecutor, PersistWorkBranchHandler, CommitAndPRHandler"
+
+tests:
+  - "CommitAndPR_FailedRunWithoutCode_OpensNoRecordPr"
+  - "CommitAndPR_FailedRun_FirstRepoWithoutPr_CreatesNoBranchOrPr"
+  - "CommitAndPR_FailedRunWithoutCode_KeepsSpecPrOutcomeOpened"
+  - "CommitAndPR_FailedRunWithCode_UsesWipMessageWithFailedStep"
+  - "CommitAndPR_SafetyCancelWithCode_WipMessageNamesStep"
+  - "CommitAndPR_DeliveredShortfall_KeepsFixMessage"
+  - "CommitAndPR_GreenRunWithoutCode_KeepsRecordPr"
+  - "PersistWorkBranch_OnlyRunRecordStaged_IsNoChanges"
+
+done:
+  - "A run failing before any phase records no git commit or push in any sandbox after derivation other than the series commit (RealCompositionHarness, Stub backend, ReposOverride of three repos)."
+  - "No 'fix:' commit exists for a failed run; a delivered shortfall still gets one."
+  - "A failed run's summary and ticket comment name the spec PR."

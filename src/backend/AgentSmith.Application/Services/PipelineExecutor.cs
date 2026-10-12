@@ -152,6 +152,7 @@ public sealed class PipelineExecutor(
                     context.Set(ContextKeys.FailureReason,
                         "Run was cancelled by a safety mechanism (wall-time or a vanished "
                         + "sandbox) — partial work preserved.");
+                    context.Set(ContextKeys.FailedStepName, Pipeline.StepLabelComposer.Label(current.Value));
                     await finalizerTail.RunAsync(
                         current, commands, projectConfig, context, executionCount, CancellationToken.None);
                 }

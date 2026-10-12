@@ -27,23 +27,25 @@ namespace AgentSmith.Application.Services.Specs;
 /// THE POINTER IS RECORDED WITH IT. A spec-path commit whose sha is not the one this system
 /// recorded is read as a REVIEWER'S EDIT, and an absent pointer reads the same way.
 /// </para>
+/// <para>
+/// 2026-10-12-f5f7d: each spec goes to the repository it names (<see cref="SeriesRepos"/>), every
+/// member its own sub-series with one stamp; a spec naming none belongs to the pointer's carrying
+/// repository, else the approval's. What already ran is read BY ID — a series over several
+/// repositories has no leading count — so an amendment never writes an executed spec back.
+/// </para>
 /// </summary>
 public sealed class FiledSpecBranch(
-    ISourceProviderFactory sources,
-    SeriesFiles files,
+    FiledSeriesWrite writes,
+    ISpecSetPointerStore stored,
+    SeriesRepos placer,
     SpecSetPointerRecorder pointers,
     ILogger<FiledSpecBranch> logger)
 {
-    /// <param name="carrier">
-    /// The repository to write into. Null means nobody handed one over, and the set goes to the
-    /// first of the project's configured repositories that the approval named — the same rule the
-    /// run's own resolver applies, and the one the record already recorded.
-    /// </param>
     /// <param name="ticket">The ticket as the TRACKER stored it, which is what the set is
     /// fingerprinted from — never the body we rendered.</param>
     public async Task<BranchWriteResult> WriteAsync(
         ResolvedProject project, SpecApprovalRecord record, TicketId ticketId, Ticket? ticket,
-        RepoConnection? carrier, CancellationToken cancellationToken)
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(record);
@@ -56,61 +58,49 @@ public sealed class FiledSpecBranch(
         if (ticket is null)
             return BranchWriteResult.Failed(
                 "the ticket could not be read back, so the set would carry no ticket fingerprint");
-        var chosen = Chosen(project, record, carrier);
-        if (chosen is null)
-            return BranchWriteResult.Failed(
-                $"the approval named no configured repository of project '{project.Name}' to carry the set");
-
-        var executed = await pointers.ExecutedThroughAsync(project.Name, record.Set.Key, cancellationToken);
-        var set = Published(record, ticket, executed);
+        var pointer = await stored.GetAsync(project.Name, record.Set.Key, cancellationToken);
+        var placement = placer.Place(Published(record, ticket, pointer?.ExecutedIdsOf(record.Set.Phases) ?? []),
+            new SeriesScope(project.Repos, SeriesScope.LegacyOf(pointer, record.CarryingRepo, project.Repos), [],
+                pointer?.CarryingRepo));
+        if (placement.Refusal is { } refused) return BranchWriteResult.Failed(refused);
         try
         {
-            var result = await sources.Create(chosen).WriteFilesToBranchAsync(
-                TicketBranchNamer.Compose(ticketId), Rendered(set), SeriesWriter.MessageFor(set),
-                cancellationToken);
-            if (!result.Written)
-            {
-                logger.LogWarning(
-                    "The approved set {Key} was not written to the ticket branch of {Repo}: {Error}",
-                    set.Key, chosen.Name, result.Error);
-                return result.Error is null ? BranchWriteResult.Failed("the write named no commit") : result;
-            }
-            await pointers.RecordAsync(project.Name, chosen, set, result.CommitSha!, cancellationToken);
-            logger.LogInformation(
-                "The approved set {Key} ({Phases} phase(s)) was written to the ticket branch of {Repo} as {Sha}",
-                set.Key, set.Phases.Count, chosen.Name, result.CommitSha);
-            return result;
+            return await WriteAsync(project, placement, ticketId, cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
-            logger.LogWarning(ex, "Writing the approved set {Key} to the ticket branch failed", set.Key);
+            logger.LogWarning(ex, "Writing the approved set {Key} to the ticket branch failed", record.Set.Key);
             return BranchWriteResult.Failed(ex.Message.Split('\n', 2)[0].Trim());
         }
     }
 
-    // 2026-10-06-03c7d: through the run's own renderer — the manifest and the planned specs.
-    private IReadOnlyList<RepoFile> Rendered(SpecSet set) =>
-        [.. files.Render(set).Select(f => new RepoFile(f.Path, f.Content))];
+    private async Task<BranchWriteResult> WriteAsync(
+        ResolvedProject project, SeriesPlacement placement, TicketId ticketId, CancellationToken ct)
+    {
+        var set = placement.Set;
+        var written = await writes.WriteAsync(placement, TicketBranchNamer.Compose(ticketId), ct);
+        if (!written.Written)
+        {
+            logger.LogWarning("The approved set {Key} was not written to the ticket branch of {Repos}: {Error}",
+                set.Key, string.Join(", ", placement.Names), written.Error);
+            return BranchWriteResult.Failed(written.Error ?? "the write named no commit");
+        }
+        await pointers.RecordAsync(project.Name, placement.Carrier?.Name, set, written.Shas, ct);
+        logger.LogInformation(
+            "The approved set {Key} ({Phases} phase(s)) was written to the ticket branch of {Repos} as {Shas}",
+            set.Key, set.Phases.Count, string.Join(", ", placement.Names), string.Join(", ", written.Shas.Values));
+        return BranchWriteResult.Ok(written.CommitSha!);
+    }
 
     // 2026-10-06-03c7f: the manifest's goal and approval are the stored row's, carried on its set
     // unchanged — the approval instant exactly as the record holds it.
-    // 2026-10-06-03c7e: the positions the record step already moved to done/ are executed, so an
-    // amendment renders only the specs after them into planned/.
-    private static SpecSet Published(SpecApprovalRecord record, Ticket ticket, int executedThrough) =>
+    // 2026-10-12-f5f7d: the specs the record step moved to done/ are executed by id, so an amendment
+    // renders only the others into planned/.
+    private static SpecSet Published(SpecApprovalRecord record, Ticket ticket, IReadOnlyList<string> executed) =>
         record.Set with
         {
             Revisions = [new SpecRevision(1, ApprovedSetHandoff.CauseOf(record), DateTimeOffset.UtcNow)],
             TicketFingerprint = TicketTextFingerprint.Of(ticket),
-            Executed = [.. record.Set.Phases.Take(executedThrough).Select(p => p.PhaseId)],
+            Executed = [.. executed],
         };
-
-    private static RepoConnection? Chosen(
-        ResolvedProject project, SpecApprovalRecord record, RepoConnection? carrier) =>
-        carrier
-        ?? Named(project, record.CarryingRepo)
-        ?? Named(project, SpecCarryingRepoResolver.ChooseCarrier(project.Repos, record.Repositories));
-
-    private static RepoConnection? Named(ResolvedProject project, string? name) =>
-        string.IsNullOrWhiteSpace(name) ? null : project.Repos.FirstOrDefault(
-            r => string.Equals(r.Name, name, StringComparison.OrdinalIgnoreCase));
 }

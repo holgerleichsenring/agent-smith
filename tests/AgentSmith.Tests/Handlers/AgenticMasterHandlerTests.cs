@@ -259,7 +259,7 @@ public sealed class AgenticMasterHandlerTests
     {
         var fs = new AgentSmith.Application.Services.Tools.FilesystemToolHost(new Mock<ISandbox>().Object);
         var log = new AgentSmith.Application.Services.Tools.LogDecisionToolHost(
-            new MasterHandlerFixture.NoOpDecisionLogger(), repositoryFiles: null);
+            new MasterHandlerFixture.NoOpDecisionLogger(), repositories: null);
 
         var tools = new AgentSmith.Application.Services.Tools.AgenticToolSurface().Review(fs, log)
             .OfType<AIFunction>().Select(t => t.Name).ToHashSet();

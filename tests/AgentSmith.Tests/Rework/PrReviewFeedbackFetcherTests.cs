@@ -99,4 +99,40 @@ public sealed class PrReviewFeedbackFetcherTests
 
         rendered.Should().Contain("new.cs:2").And.NotContain("an old thread").And.Contain("1 older review thread(s) omitted");
     }
+
+    private static PrReviewNote At(string who, string body, int minutes, bool ours = false) =>
+        new(new PrCommentAuthor("u", "r", who, who), false, false, Start.AddMinutes(minutes), body) { IsOurs = ours };
+
+    [Fact]
+    public async Task PrReviewFeedbackFetcher_ThreeCommentsThenBareCommand_FeedbackHoldsAllThree()
+    {
+        var (fetcher, _) = Fetcher([
+            new PrReviewThread("a.cs", 1, false, [At("alice", "rename the parser", 20)]),
+            new PrReviewThread("b.cs", 2, false, [At("alice", "drop the retry loop", 21)]),
+            new PrReviewThread(null, null, null, [At("alice", "the README is out of date", 22)]),
+            new PrReviewThread(null, null, null, [At("alice", "/agent-smith", 23)]),
+        ]);
+        var pipeline = Pipeline(new RepoConnection { Name = "api", Type = RepoType.GitHub });
+
+        await fetcher.FetchAsync(pipeline, CancellationToken.None);
+
+        PrReviewFeedbackPromptSection.Render(pipeline).Should().Contain("rename the parser")
+            .And.Contain("drop the retry loop").And.Contain("the README is out of date");
+        pipeline.Get<ReworkAct>(ContextKeys.ReworkAct).Should().Be(
+            new ReworkAct("alice", Start.AddMinutes(23), ReworkChannel.PullRequest), "the command is the act");
+    }
+
+    [Fact]
+    public async Task Fetcher_OurMarkedCommandOrUntrustedCommand_IsNoAct()
+    {
+        var (fetcher, _) = Fetcher([
+            new PrReviewThread(null, null, null, [At("bot", "<!-- agentsmith:handback -->\n/agent-smith", 20, ours: true)]),
+            new PrReviewThread(null, null, null, [At("mallory", "/agentsmith rework", 21)]),
+        ]);
+        var pipeline = Pipeline(new RepoConnection { Name = "api", Type = RepoType.GitHub });
+
+        await fetcher.FetchAsync(pipeline, CancellationToken.None);
+
+        pipeline.Has(ContextKeys.ReworkAct).Should().BeFalse();
+    }
 }

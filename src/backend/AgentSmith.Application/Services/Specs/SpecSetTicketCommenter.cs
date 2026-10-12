@@ -38,9 +38,9 @@ public sealed class SpecSetTicketCommenter(
 
         try
         {
-            var url = pipeline.TryGet<string>(ContextKeys.SpecPullRequestUrl, out var u) ? u : null;
+            // 2026-10-12-f5f7e: every series repository's spec pull request, and a dropped one's.
             await ticketFactory.Create(tracker).UpdateStatusAsync(
-                ticket.Id, SpecSetComment.Render(set, url), ct);
+                ticket.Id, SpecSetComment.Render(set, SpecPullRequests.Of(pipeline)), ct);
             logger.LogInformation(
                 "Posted the derived cut of {Key} ({Phases} phase(s)) to ticket {Ticket}",
                 set.Key, set.Phases.Count, ticket.Id.Value);

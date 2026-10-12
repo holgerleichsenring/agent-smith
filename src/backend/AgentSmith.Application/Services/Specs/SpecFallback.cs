@@ -12,6 +12,11 @@ namespace AgentSmith.Application.Services.Specs;
 /// applying one that is not. Degrading to too much context is cheap; degrading to a
 /// missing manual nobody noticed is the failure the accounting exists to prevent.
 /// </para>
+/// <para>
+/// 2026-10-12-f5f7a: a spec names exactly one repository, so the whole-ticket shape exists only
+/// for a scope of one (or none); over several repositories the fallback is a hand-back naming them
+/// (<see cref="SpecScopeHandback"/>), because which one would carry the whole ticket is a guess.
+/// </para>
 /// </summary>
 public sealed class SpecFallback(
     ISpecDraftValidator validator,
@@ -20,9 +25,19 @@ public sealed class SpecFallback(
 {
     public SpecSet Build(
         string key, string series, Ticket ticket, IReadOnlyList<TicketSegment> segments,
-        IReadOnlyList<string> doneCriteria, SpecSource source)
+        IReadOnlyList<string> doneCriteria, SpecSource source, IReadOnlyList<string> repos)
     {
         ArgumentNullException.ThrowIfNull(ticket);
+        ArgumentNullException.ThrowIfNull(repos);
+        return repos.Count > 1
+            ? SpecScopeHandback.For(key, series, source, repos)
+            : WholeTicket(key, series, ticket, segments, doneCriteria, source, repos);
+    }
+
+    private SpecSet WholeTicket(
+        string key, string series, Ticket ticket, IReadOnlyList<TicketSegment> segments,
+        IReadOnlyList<string> doneCriteria, SpecSource source, IReadOnlyList<string> repos)
+    {
         var phaseId = SeriesIdFactory.Member(series, 0);
         var goal = string.IsNullOrWhiteSpace(ticket.Title) ? $"Ticket {ticket.Id.Value}" : ticket.Title;
         var slug = PhaseIdFactory.Slug(goal);
@@ -31,7 +46,7 @@ public sealed class SpecFallback(
 
         var yaml = yamlRenderer.Render(
             phaseId, goal, [], [], done, $"{fileStem}.md",
-            [.. segments.Select(s => s.Id)], ticket.Id.Value);
+            [.. segments.Select(s => s.Id)], ticket.Id.Value, repos: repos);
         // A yaml this method composes and cannot validate is a composition bug, not a
         // model failure — the fallback has no second chance to fall back to.
         if (validator.ValidateYaml(yaml) is SpecDraftInvalid invalid)

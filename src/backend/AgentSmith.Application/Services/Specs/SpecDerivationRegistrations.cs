@@ -20,12 +20,24 @@ public static class SpecDerivationRegistrations
         // 2026-09-17-0e79c: and each phase's stated premises are checked before it is worked
         services.AddTransient<IPhasePremiseChecker, PhasePremiseChecker>();
         services.AddTransient<PremiseHandbackNotice>();
+        // 2026-10-12-3a36b: a contradiction hand-back is read a second time before it parks
+        services.AddTransient<IContradictionChecker, ContradictionChecker>();
+        services.AddTransient<ContradictionHandbackGate>();
+        services.AddTransient<ForeignCommitProbe>();
+        services.AddTransient<HandbackHeadsReader>();
         services.AddTransient<ISpecSetDeriver, SpecSetDeriver>();
     // 2026-10-06-03c7d: a series is one manifest under series/ and its specs in specs/planned/.
     services.AddTransient<ISpecSetReader, SeriesReader>();
     services.AddTransient<SeriesManifestFinder>();
+    // 2026-10-12-f5f7b: every run repository's sub-series, joined into one set.
+    services.AddTransient<SubSeriesReader>().AddTransient<SeriesJoin>();
+    services.AddTransient<SeriesNewestManifest>().AddTransient<SeriesJoinOrder>();
     services.AddTransient<SeriesSpecFileReader>();
     services.AddTransient<ISpecSetWriter, SeriesWriter>();
+    services.AddTransient<SeriesMemberCommit>().AddTransient<SeriesWriteRollback>(); // 2026-10-12-f5f7f
+    // 2026-10-12-f5f7d: each spec placed in the repository it names; read, ids, filing per member.
+    services.AddTransient<SeriesRepos>().AddTransient<SeriesTakenIds>().AddTransient<SeriesBranchRead>();
+    services.AddTransient<FiledSeriesWrite>();
     services.AddTransient<SeriesStaleFiles>();
     services.AddTransient<ISpecSetPublisher, SpecSetPublisher>();
     services.AddTransient<SpecSetPointerRecorder>(); // 2026-09-08-4aa9: the marker's commit moves the pointer too
@@ -38,6 +50,8 @@ public static class SpecDerivationRegistrations
     services.AddTransient<FiledSpecBranch>();
     services.AddTransient<SpecDerivationEnvelope>();
     services.AddTransient<SpecDerivationParser>();
+    services.AddTransient<SpecReposRule>().AddTransient<DerivedPhaseRepos>(); // 2026-10-12-3a36e
+    services.AddTransient<DerivedPhaseSequence>();
     // 2026-09-07-b7e2: the derivation may look before it writes — its call, its tool
     // host over the run's sandboxes, and the resolver that decides a fact in code.
     services.AddTransient<DerivedPhaseBuilder>();
@@ -62,6 +76,7 @@ public static class SpecDerivationRegistrations
     services.AddTransient<SpecRefusalReporter>();
     services.AddTransient<SpecSetTicketCommenter>();
     services.AddTransient<AgentSmith.Contracts.Reviews.IFullSetPrNotice, Rework.FullSetPrNotice>();
+    services.AddTransient<AgentSmith.Contracts.Reviews.IHandbackPrNotice, Rework.HandbackPrNotice>();
     services.AddTransient<UnansweredQuestionPin>();
     services.AddTransient<UnansweredQuestionNotice>();
     services.AddTransient<SpecHandbackRepeat>(); // 2026-09-07-bd7a: the repeat guard reads the thread

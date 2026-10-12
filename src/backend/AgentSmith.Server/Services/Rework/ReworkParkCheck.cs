@@ -11,13 +11,20 @@ namespace AgentSmith.Server.Services.Rework;
 /// 2026-10-08-e8b9b: reads the ticket's CURRENT status from the tracker — never a webhook payload's,
 /// which may be older than a move made since. Reworkable: in done_status or failed_status, held by an
 /// unmoved fact, or already in a trigger status (2026-10-08-e8b9c: a GitHub issue a successful run
-/// labelled stays open); a verdict park is none of these. A ticket is moved only out of a non-trigger
-/// status: Jira has no transition into the status a ticket is already in.
+/// labelled stays open); a verdict park is none of these — except for a pull-request act answering a
+/// hand-back, whose clarification or not-implementable status is reworkable. A ticket is moved only out
+/// of a non-trigger status: Jira has no transition into the status a ticket is already in.
 /// </summary>
 public sealed class ReworkParkCheck(
     ITicketProviderFactory tickets, IUnmovedTicketStore unmovedTickets) : IReworkParkCheck
 {
-    public async Task<ReworkPark> CheckAsync(ResolvedProject project, string ticketId, CancellationToken cancellationToken)
+    public Task<ReworkPark> CheckAsync(ResolvedProject project, string ticketId, CancellationToken cancellationToken) =>
+        CheckAsync(project, ticketId, handback: false, cancellationToken);
+
+    public Task<ReworkPark> CheckHandbackAsync(ResolvedProject project, string ticketId, CancellationToken cancellationToken) =>
+        CheckAsync(project, ticketId, handback: true, cancellationToken);
+
+    private async Task<ReworkPark> CheckAsync(ResolvedProject project, string ticketId, bool handback, CancellationToken cancellationToken)
     {
         var status = (await tickets.Create(project.Tracker).GetTicketAsync(new TicketId(ticketId), cancellationToken)).Status;
         var trigger = TriggerSelectionHelper.ByTrackerType(project, project.Tracker.Type);
@@ -25,9 +32,17 @@ public sealed class ReworkParkCheck(
         var claimable = trigger is not null && (statuses.Count == 0 || statuses.Contains(status, StringComparer.OrdinalIgnoreCase));
         var parked = claimable
             || trigger is not null && (Same(status, trigger.DoneStatus) || Same(status, trigger.FailedStatus))
+            || handback && IsHandbackPark(status, trigger, project.Tracker)
             || await unmovedTickets.FindStandingAsync(project.Name, ticketId, project.Tracker.Name, cancellationToken) is not null;
         return new ReworkPark(parked, parked && !claimable && statuses.Count > 0 ? statuses[0] : null);
     }
+
+    // The statuses a hand-back parks in: the trigger's own, else the tracker's (SpecParkStatusResolver's order).
+    private static bool IsHandbackPark(string? status, WebhookTriggerConfig? trigger, TrackerConnection tracker) =>
+        Same(status, Either(trigger?.NeedsClarificationStatus, tracker.NeedsClarificationStatus))
+        || Same(status, Either(trigger?.NotImplementableStatus, tracker.NotImplementableStatus));
+
+    private static string? Either(string? own, string? fallback) => string.IsNullOrWhiteSpace(own) ? fallback : own;
 
     public Task<bool> MoveAsync(ResolvedProject project, string ticketId, string status, CancellationToken cancellationToken) =>
         tickets.Create(project.Tracker).TransitionToAsync(new TicketId(ticketId), status, cancellationToken);

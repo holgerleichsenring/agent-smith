@@ -27,6 +27,12 @@ namespace AgentSmith.Application.Services.Specs;
 /// would be a contradiction that does not exist. It carries no anchor and no spec link: nothing
 /// was derived, and the answer is a push to the branch rather than a reply.
 /// </para>
+/// <para>
+/// 2026-10-12-d142: the SCOPE-UNASSIGNED case says the work could not be divided between the
+/// repositories — not that anything contradicts the code. Its heading carries
+/// <see cref="ScopeUnassignedMarker"/>, so the next run keeps it in view while it is unanswered.
+/// </para>
+/// <para>2026-10-12-f5f7f: the OUT-OF-STEP case is <see cref="SeriesOutOfStepComment"/>'s.</para>
 /// </summary>
 public static class SpecHandbackComment
 {
@@ -36,6 +42,9 @@ public static class SpecHandbackComment
     /// <summary>The phrase that marks a contradiction comment as still awaiting a reply.</summary>
     public const string ContradictionMarker = "the requirement contradicts what is in the repository";
 
+    /// <summary>The phrase that marks a scope-unassigned comment as still awaiting an answer.</summary>
+    public const string ScopeUnassignedMarker = "the work could not be divided between the repositories";
+
     /// <param name="waitingLine">
     /// p0454: who the hand-back waits for, in the platform's mention form. Every case
     /// waits for a person — the contradiction for an answer, the verdict for a Retry,
@@ -43,10 +52,11 @@ public static class SpecHandbackComment
     /// AwaitsAnswer, which decides what the NEXT RUN reads back as the requirement,
     /// not who gets told.)
     /// </param>
-    public static string Build(SpecHandback handback, string? prUrl, string waitingLine)
+    public static string Build(SpecHandback handback, IReadOnlyDictionary<string, string>? prUrls, string waitingLine)
     {
         ArgumentNullException.ThrowIfNull(handback);
-        var spec = prUrl is null ? string.Empty : $"\n\nThe derived spec is open for review: {prUrl}";
+        var spec = prUrls is not { Count: > 0 } ? string.Empty
+            : $"\n\n{SpecPullRequestLines.Render(prUrls, null, "The derived spec is open for review")}";
         var waiting = $"\n\n{waitingLine}";
         return handback.Case switch
         {
@@ -54,6 +64,8 @@ public static class SpecHandbackComment
             SpecHandbackCase.Refused => Refused(handback) + waiting,
             SpecHandbackCase.Question => Question(handback) + spec + waiting,
             SpecHandbackCase.SpecificationMissingFromBranch => Missing(handback) + waiting,
+            SpecHandbackCase.ScopeUnassigned => ScopeUnassigned(handback) + waiting,
+            SpecHandbackCase.SeriesOutOfStep => SeriesOutOfStepComment.Build(handback) + waiting,
             _ => Contradiction(handback) + spec + waiting,
         };
     }
@@ -72,6 +84,12 @@ public static class SpecHandbackComment
         + handback.Reason
         + "\n\nNothing was derived and nothing ran. Put the specification on the ticket branch "
         + "and move the ticket back to a trigger status; the next run works it from there.";
+
+    private static string ScopeUnassigned(SpecHandback handback) =>
+        $"## Agent Smith — {ScopeUnassignedMarker}\n\n"
+        + handback.Reason
+        + "\n\nNothing was derived. Reply with the repository each part belongs to, or split the "
+        + "ticket per repository, and move it back to a trigger status; the next run cuts again.";
 
     private static string Contradiction(SpecHandback handback) =>
         $"## Agent Smith — {ContradictionMarker}\n\n"

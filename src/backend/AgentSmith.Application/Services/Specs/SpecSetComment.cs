@@ -32,7 +32,9 @@ public static class SpecSetComment
     /// </summary>
     public const string RecutDemand = "cut this specification again";
 
-    public static string Render(SpecSet set, string? pullRequestUrl)
+    /// <param name="pullRequests">2026-10-12-f5f7e: repository → spec pull request; a repository the
+    /// set no longer names is listed as dropped.</param>
+    public static string Render(SpecSet set, IReadOnlyDictionary<string, string>? pullRequests)
     {
         ArgumentNullException.ThrowIfNull(set);
         var sb = new StringBuilder();
@@ -46,10 +48,10 @@ public static class SpecSetComment
         sb.AppendLine();
         sb.Append(SpecPrBody.RenderDiscarded(set));
         sb.Append(RenderContextsLeftOut(set));
-        if (!string.IsNullOrWhiteSpace(pullRequestUrl))
+        if (pullRequests is { Count: > 0 })
         {
             sb.AppendLine();
-            sb.AppendLine($"The specs are open for review: {pullRequestUrl}");
+            sb.AppendLine(SpecPullRequestLines.Render(pullRequests, set.SeriesRepos, "The specs are open for review"));
         }
         return sb.ToString();
     }

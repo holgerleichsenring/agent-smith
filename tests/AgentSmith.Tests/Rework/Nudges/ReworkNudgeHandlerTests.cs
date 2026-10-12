@@ -27,13 +27,16 @@ public sealed class ReworkNudgeHandlerTests : IDisposable
     private readonly Mock<IReworkPendingActs> _pending = new();
     private readonly Mock<IReworkEntry> _rework = new();
     private readonly Mock<ITicketProvider> _ticket = new();
+    private readonly Mock<IRunCheckpointStore> _checkpoints = new();
     private static readonly ResolvedProject Project = new() { Name = "p", Tracker = new TrackerConnection { Type = TrackerType.Jira } };
     private static readonly ClaimedReworkNudge Nudge = new("p", "7", ReworkNudgeOrigin.Ticket, null, "Ticket", 1, "tok", 0);
     private static readonly PendingReworkAct Act = new(new ReworkAct("alice", Start.AddMinutes(30)));
 
     public void Dispose() => _store.Dispose();
 
-    private ReworkNudgeHandler Handler()
+    private ReworkNudgeHandler Handler() => Handler(_rework.Object);
+
+    private ReworkNudgeHandler Handler(IReworkEntry rework)
     {
         var tickets = new Mock<ITicketProviderFactory>();
         tickets.Setup(t => t.Create(It.IsAny<TrackerConnection>())).Returns(_ticket.Object);
@@ -41,8 +44,8 @@ public sealed class ReworkNudgeHandlerTests : IDisposable
         var fallback = new ReworkFallbackSpawn(Mock.Of<IConfigurationLoader>(), new ServerContext("c.yml"), tickets.Object,
             new PolledTicketEnvelope(ApprovedRecordProbes.None()), Mock.Of<IEnvelopeProjectResolver>(),
             Mock.Of<ISpawnPipelineRunsUseCase>(), NullLogger<ReworkFallbackSpawn>.Instance);
-        return new ReworkNudgeHandler(_leases.Object, _attempts.Object, _pending.Object, _rework.Object, speech, fallback,
-            new ReworkWithheld(_store.ScopeFactory, speech));
+        return new ReworkNudgeHandler(_leases.Object, _attempts.Object, _pending.Object, rework, speech, fallback,
+            new ReworkWithheld(_store.ScopeFactory, speech), _checkpoints.Object);
     }
 
     private void Attempt(string status, bool finished, DateTimeOffset? readAt = null) =>
@@ -159,5 +162,58 @@ public sealed class ReworkNudgeHandlerTests : IDisposable
 
         (await Handle()).Should().Be(ReworkNudgeDisposition.Finish);
         _pending.VerifyNoOtherCalls();
+    }
+
+    private static readonly PendingReworkAct PrAct = new(new ReworkAct("alice", Start.AddMinutes(30), ReworkChannel.PullRequest),
+        new RepoConnection { Name = "app", Type = RepoType.GitHub }, "https://github.com/o/app/pull/4");
+
+    [Fact]
+    public async Task ReworkNudgeHandler_HandbackWaiting_PullRequestAct_ClosesRowWithoutWatermarkAndStarts()
+    {
+        Attempt("waiting_for_input", finished: false, readAt: Start.AddMinutes(1));
+        Pending(PrAct);
+        var parks = new Mock<IReworkParkCheck>();
+        parks.Setup(p => p.CheckHandbackAsync(Project, "7", It.IsAny<CancellationToken>())).ReturnsAsync(new ReworkPark(true, "To Do"));
+        parks.Setup(p => p.MoveAsync(Project, "7", "To Do", It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        var closer = new Mock<IWaitingRunCloser>();
+        var launch = new Mock<IReworkLaunch>();
+        launch.Setup(l => l.LaunchAsync("p", "7", "code", It.IsAny<CancellationToken>())).ReturnsAsync(ReworkOutcome.Started("run-2"));
+        var entry = new ReworkEntry(_leases.Object, _attempts.Object, parks.Object, Mock.Of<ITicketReopener>(), launch.Object,
+            closer.Object, NullLogger<ReworkEntry>.Instance);
+
+        (await Handler(entry).HandleAsync(Project, Nudge, CancellationToken.None)).Should().Be(ReworkNudgeDisposition.Finish);
+
+        closer.Verify(c => c.CloseSupersededAsync("run-1", It.IsAny<CancellationToken>()), Times.Once);
+        launch.Verify(l => l.LaunchAsync("p", "7", "code", It.IsAny<CancellationToken>()), Times.Once);
+        parks.Verify(p => p.CheckAsync(It.IsAny<ResolvedProject>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        using var ctx = _store.Context();
+        (await new ReworkLedgerRepository(ctx, new SqliteUniqueViolationTranslator()).WatermarkAsync("p", "7", CancellationToken.None))
+            .Should().BeNull("a superseded hand-back is no operator stop");
+    }
+
+    [Fact]
+    public async Task ReworkNudgeHandler_CheckpointedQuestion_PullRequestAct_KeepsWaiting()
+    {
+        Attempt("waiting_for_input", finished: false, readAt: Start.AddMinutes(1));
+        Pending(PrAct);
+        _checkpoints.Setup(c => c.GetByRunIdAsync("run-1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new RunCheckpointRecord("run-1", "p", "7", null, "code", "job", "q", "{}", "[]", "{}", 1, Start, Start.AddDays(1), null));
+
+        (await Handle()).Should().Be(ReworkNudgeDisposition.Reschedule, "the question's answer brings the run back");
+
+        _rework.Verify(r => r.AnswerHandbackAsync(It.IsAny<ResolvedProject>(), It.IsAny<string>(), It.IsAny<PreviousAttempt>(),
+            It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _rework.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task ReworkNudgeHandler_HandbackWaiting_TicketAct_KeepsWaiting()
+    {
+        Attempt("waiting_for_input", finished: false, readAt: Start.AddMinutes(1));
+        Pending(Act);
+
+        (await Handle()).Should().Be(ReworkNudgeDisposition.Reschedule, "only a pull-request act answers a hand-back");
+
+        _rework.VerifyNoOtherCalls();
     }
 }

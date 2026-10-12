@@ -10,6 +10,8 @@ namespace AgentSmith.Application.Services.PhaseExecution;
 /// index line staged, the planned files removed — and the pointer re-recorded at its sha with
 /// how many leading specs are executed. The pointer moves because the commit is this system's
 /// own on the series' paths; left behind, the next run would read it as a reviewer's edit.
+/// 2026-10-12-f5f7d: the pointer keeps the executed spec IDS — a series over several repositories
+/// has no leading count that says which ran.
 /// </summary>
 public sealed class SeriesRecordCommit(
     ISandboxFileReaderFactory readerFactory,
@@ -29,7 +31,9 @@ public sealed class SeriesRecordCommit(
         await gitOps.CommitAndPushStagedAsync(
             target.Sandbox, target.Branch, MessageFor(executed, record.Phase), record.Carrier, ct);
         var sha = await gitOps.GetHeadCommitAsync(target.Sandbox, ct);
-        await pointer.RecordAsync(target.Project, record.Carrier, executed, sha, ct, executed.ExecutedHead.Count);
+        // 2026-10-12-f5f7d: the carrying repository stays the row's; the sha lands under the spec's own.
+        await pointer.RecordAsync(target.Project, carryingRepo: null, executed,
+            new Dictionary<string, string>(StringComparer.Ordinal) { [record.Carrier.Name] = sha }, ct, executed.Executed);
         return sha;
     }
 

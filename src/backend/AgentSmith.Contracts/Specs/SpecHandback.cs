@@ -31,6 +31,12 @@ public sealed record SpecHandback(
     /// <summary>The readings a question offers; empty for every other case.</summary>
     public IReadOnlyList<string> Readings { get; init; } = Readings ?? [];
 
+    /// <summary>2026-10-12-3a36b: the framework-minted evidence lines a CONTRADICTION rests on,
+    /// resolved from the ids the model cited; empty for every other case and for a reply that
+    /// cited nothing. A contradiction is a claim about the code, and a claim nobody can trace
+    /// to a look is how a grep line became a park that later runs replayed.</summary>
+    public IReadOnlyList<string> Cites { get; init; } = [];
+
     /// <summary>The reading the run takes when nobody answers; null unless this is a question.</summary>
     public string? TakenReading =>
         Case == SpecHandbackCase.Question && Taken >= 0 && Taken < Readings.Count
@@ -84,4 +90,20 @@ public enum SpecHandbackCase
     /// they are there is the answer.
     /// </summary>
     SpecificationMissingFromBranch = 5,
+
+    /// <summary>
+    /// 2026-10-12-d142: the work could not be divided between the repositories in scope — no cut
+    /// names exactly one repository per spec. Nothing contradicts the code; only a person can say
+    /// where each part belongs. Raised by the framework only, never accepted from a model reply;
+    /// parks where a person can answer, and a re-trigger after the answer cuts again.
+    /// </summary>
+    ScopeUnassigned = 6,
+
+    /// <summary>
+    /// 2026-10-12-f5f7f: the series' repositories carry different revisions of it — a write that
+    /// landed in some of them only. Nothing is derived from or worked over a mixed state; only a
+    /// person can say which revision stands. Raised by the framework only; parks where a person can
+    /// answer, and a re-cut demand with a re-trigger, or a new approval filed again, is the way out.
+    /// </summary>
+    SeriesOutOfStep = 7,
 }

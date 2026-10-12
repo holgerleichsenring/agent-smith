@@ -12,7 +12,7 @@ namespace AgentSmith.Tests.Commands;
 /// </summary>
 public sealed class FailedRunPersistenceTests
 {
-    private readonly FailedRunPersistence _sut = new();
+    private readonly FailedRunPersistence _sut = new(new WipCommitMessage());
 
     [Fact]
     public void Reason_NoFailureOnTheContext_IsNull()
@@ -29,6 +29,15 @@ public sealed class FailedRunPersistenceTests
         pipeline.Set(ContextKeys.FailureReason, "per-pipeline cost budget exhausted");
 
         _sut.Reason(pipeline).Should().Be("per-pipeline cost budget exhausted");
+    }
+
+    [Fact]
+    public void CommitMessage_IsTheWipMessage_NeverFix()
+    {
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.RunId, "run-1");
+
+        _sut.CommitMessage(pipeline).Should().StartWith("[wip] agent-smith run run-1").And.NotContain("fix:");
     }
 
     [Fact]

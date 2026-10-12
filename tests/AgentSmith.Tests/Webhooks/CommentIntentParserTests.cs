@@ -32,15 +32,41 @@ public sealed class CommentIntentParserTests
     }
 
     [Fact]
-    public void Match_CommandOnTheFirstLine_TakesThatLineAsTail()
+    public void CommentIntentParser_MultiLineBody_TailKeepsAllLines()
     {
-        var match = _sut.Match("""
-            /agent-smith fix #99 in core
-            Some additional context here.
-            """);
+        var match = _sut.Match("/agentsmith fix #99 in core\nSome additional context here.\nAnd a third line.");
 
-        match.Tail.Should().Be("fix #99 in core");
+        match.Tail.Should().Be("fix #99 in core\nSome additional context here.\nAnd a third line.");
     }
+
+    [Fact]
+    public void CommentIntentParser_AgentsmithWithoutHyphen_Matches()
+    {
+        var match = _sut.Match("/agentsmith rework the parser");
+
+        match.Type.Should().Be(CommentIntentType.NewJob);
+        match.Tail.Should().Be("rework the parser");
+    }
+
+    [Theory]
+    [InlineData("/agent-smith")]
+    [InlineData("/agentsmith")]
+    [InlineData("/as  ")]
+    [InlineData("first remark\n/agent-smith")]
+    public void CommentIntentParser_BareCommand_MatchesWithEmptyTail(string body)
+    {
+        var match = _sut.Match(body);
+
+        match.Type.Should().Be(CommentIntentType.NewJob);
+        match.Tail.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData("/as-is this is fine")]
+    [InlineData("/assign @someone")]
+    [InlineData("/agentsmithy now")]
+    public void CommentIntentParser_AsIsAndAssign_DoNotMatch(string body) =>
+        _sut.Match(body).Type.Should().Be(CommentIntentType.Unknown);
 
     [Fact]
     public void Match_Help_IsStructural() =>

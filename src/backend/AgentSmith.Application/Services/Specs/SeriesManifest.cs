@@ -32,6 +32,7 @@ public sealed class SeriesManifest
             Goal = set.Goal,
             TicketPinnedWhole = set.TicketPinnedWhole,
             Specs = [.. set.Phases.Select(p => p.PhaseId)],
+            SeriesRepos = set.SeriesRepos is { Count: > 0 } members ? [.. members] : null, // 2026-10-12-f5f7d
             Revisions = [.. set.Revisions.Select(r => new SeriesRevisionEntry
             {
                 Number = r.Number, Cause = r.Cause, At = r.At.ToString("O", CultureInfo.InvariantCulture),
@@ -78,6 +79,12 @@ public sealed class SeriesManifest
                 r.Number, r.Cause,
                 DateTimeOffset.TryParse(r.At, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var at)
                     ? at : DateTimeOffset.UtcNow))];
+
+    /// <summary>2026-10-12-f5f7b: the current revision's time when it parses, null otherwise — a
+    /// manifest whose time is unparsed is never the newest one.</summary>
+    public DateTimeOffset? CurrentRevisionTimeOf(SeriesManifestDocument doc) =>
+        doc.Revisions.Count > 0 && DateTimeOffset.TryParse(doc.Revisions[^1].At, CultureInfo.InvariantCulture,
+            DateTimeStyles.RoundtripKind, out var at) ? at : null;
 
     public SpecHandback? HandbackOf(SeriesManifestDocument doc) =>
         Enum.TryParse<SpecHandbackCase>(doc.HandbackCase, ignoreCase: true, out var parsed)

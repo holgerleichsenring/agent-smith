@@ -34,12 +34,12 @@ public sealed class CutReviewPerAttemptTests
             new SpecDerivationCall(
                 new CappingFactory(new LookingProvider(Cut())), new AsyncLocalRunContextAccessor(), Proof()),
             Factory(), new FixedPrompt(), DerivationTestParsers.Real(), new ScopedContextCoverage(),
-            NullLogger<SpecSetDeriver>.Instance);
+            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Gate(), NullLogger<SpecSetDeriver>.Instance);
 
         await deriver.DeriveAsync(
             new Ticket(new TicketId("1"), "upgrade", Ticket, null, "open", "test"),
             TicketSegmenter.Segment(Ticket), previous: null, series: "2026-10-06-0a0a", cause: "initial derivation",
-            new AgentConfig(), Pipeline(), CancellationToken.None);
+            repositories: [], new AgentConfig(), Pipeline(), CancellationToken.None);
 
         reviewer.Taken.Should().HaveCount(3).And.OnlyContain(n => n == DerivationLookTerms.CutReviewAllowance,
             "an attempt that finds the allowance spent by the one before it could not look at all");
@@ -54,12 +54,12 @@ public sealed class CutReviewPerAttemptTests
             new CitingReviewer(),
             new SpecDerivationCall(new CappingFactory(provider), new AsyncLocalRunContextAccessor(), Proof()),
             Factory(), new FixedPrompt(), DerivationTestParsers.Real(), new ScopedContextCoverage(),
-            NullLogger<SpecSetDeriver>.Instance);
+            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Gate(), NullLogger<SpecSetDeriver>.Instance);
 
         await deriver.DeriveAsync(
             new Ticket(new TicketId("1"), "upgrade", Ticket, null, "open", "test"),
             TicketSegmenter.Segment(Ticket), previous: null, series: "2026-10-06-0a0a", cause: "initial derivation",
-            new AgentConfig(), Pipeline(), CancellationToken.None);
+            repositories: [], new AgentConfig(), Pipeline(), CancellationToken.None);
 
         provider.Prompts.Should().HaveCountGreaterThan(1);
         provider.Prompts[1].Should().Contain(
@@ -75,12 +75,12 @@ public sealed class CutReviewPerAttemptTests
             reviewer,
             new SpecDerivationCall(new CappingFactory(new LookingProvider(Cut())), new AsyncLocalRunContextAccessor(), Proof()),
             Factory(), new FixedPrompt(), DerivationTestParsers.Real(), new ScopedContextCoverage(),
-            NullLogger<SpecSetDeriver>.Instance);
+            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Gate(), NullLogger<SpecSetDeriver>.Instance);
 
         await deriver.DeriveAsync(
             new Ticket(new TicketId("1"), "Raise the package floors", Ticket, "The audit is clean", "open", "test"),
             TicketSegmenter.Segment(Ticket), previous: null, series: "2026-10-06-0a0a", cause: "initial derivation",
-            new AgentConfig(), Pipeline(), CancellationToken.None);
+            repositories: [], new AgentConfig(), Pipeline(), CancellationToken.None);
 
         reviewer.Tickets[0].Should().Be($"Raise the package floors\n\n{Ticket}\n\nThe audit is clean");
     }

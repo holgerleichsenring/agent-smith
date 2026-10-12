@@ -57,7 +57,7 @@ public sealed class AgenticMasterHandler(
     ISandboxToolchainProbe toolchainProbe, // p0356: probed capability line
     SandboxWorkingTreeReader workingTree, // p0411: the changed paths the state block carries
     RunWorkCheckpointer checkpointer, // p0360: mid-run work durability
-    ISandboxFileReaderFactory sandboxFileReaderFactory, // p0380: memory recall/remember hosts
+    Repositories.RunRepositoriesFactory runRepositories, // 2026-10-12-f5f7c: memory + decision files per repository
     IDialogueTransport? dialogueTransport,
     MasterToolComposition composition, // which tool surface this master gets
     ITurnActivityObserverAccessor turnActivity, // 2026-09-17-042ee: the turn's own steps
@@ -239,16 +239,12 @@ public sealed class AgenticMasterHandler(
             keyToRepo: keyToRepo, logger: logger)
         { Commands = Specs.PhaseCommandScope.Open(context.Pipeline) };
         templates.AttachTo(fs); // 2026-09-13-6f35: reachable by name, refused on write by kind
-        var log = new LogDecisionToolHost(
-            decisionLogger, sandboxFileReaderFactory.Create(sandboxes[defaultKey]));
-        // p0380: memory recall (a read, every surface) + remember (a proposal
-        // writing only run-record-class .agentsmith/memory/ paths). Backed by
-        // the default sandbox's file reader — the same seam the run-record and
-        // principles reads use.
-        var memoryStore = new Memory.MemoryStore(
-            sandboxFileReaderFactory.Create(sandboxes[defaultKey]), context.Repository.LocalPath, logger);
-        var recall = new MemoryRecallToolHost(memoryStore);
-        var remember = new MemoryWriteToolHost(memoryStore);
+        // p0380 / 2026-10-12-f5f7c: decisions, recall and remember are backed per REPOSITORY,
+        // resolved on every call so a repository ensure_repo_sandbox adds mid-run counts.
+        var repositories = runRepositories.For(context.Pipeline);
+        var log = new LogDecisionToolHost(decisionLogger, repositories);
+        var recall = new MemoryRecallToolHost(repositories, context.Repository.LocalPath, logger);
+        var remember = new MemoryWriteToolHost(repositories, context.Repository.LocalPath, logger);
         // p0315b: the dialogue job id (spec-dialog: the session id) makes ask_human
         // live — questions publish on job:{id}:out and the thread's answers come
         // back on job:{id}:in. Absent (run jobs today) → the tool reports itself
@@ -671,7 +667,9 @@ public sealed class AgenticMasterHandler(
         AgenticLoopResult loopResult, MasterConversation conversation, PipelineCostTracker costTracker, CancellationToken ct)
     {
         loopResult = await proposalRefusal.RefuseEarlyProposalAsync(pipeline, request, userPrompt, loopResult, conversation, costTracker, ct);
-        var resolution = outcomeResolver.Resolve(loopResult.Response.Text ?? string.Empty);
+        // 2026-10-12-3a36e: the turn's repositories, keyed by their configured names in the dialog.
+        IReadOnlyList<string> scope = [.. Specs.DerivationLookFactory.ProposalRepositories(pipeline)?.Keys ?? []];
+        var resolution = outcomeResolver.Resolve(loopResult.Response.Text ?? string.Empty, scope);
         if (resolution is OutcomeResolved first)
             return MasterOutcomes.PublishOutcome(pipeline, first.Proposal, loopResult);
         var invalid = (OutcomeInvalid)resolution;
@@ -699,7 +697,7 @@ public sealed class AgenticMasterHandler(
             return MasterOutcomes.FailOutcome(pipeline, loopResult, invalid.Error);
         }
 
-        var retryResolution = outcomeResolver.Resolve(retry.Response.Text ?? string.Empty);
+        var retryResolution = outcomeResolver.Resolve(retry.Response.Text ?? string.Empty, scope);
         if (retryResolution is OutcomeResolved second)
             return MasterOutcomes.PublishOutcome(pipeline, second.Proposal, retry);
 

@@ -85,14 +85,14 @@ public sealed class SpecCutSurvivesReviewTests
             new FixedPrompt(),
             DerivationTestParsers.Real(),
             new ScopedContextCoverage(),
-            NullLogger<SpecSetDeriver>.Instance);
+            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Gate(), NullLogger<SpecSetDeriver>.Instance);
 
         var ticket = new Ticket(
             id: new TicketId("19106"), title: "migrate", description: Ticket,
             acceptanceCriteria: null, status: "open", source: "test");
         return await deriver.DeriveAsync(
             ticket, TicketSegmenter.Segment(Ticket), previous: null, series: "2026-10-06-0a0a", cause: "initial derivation",
-            new AgentConfig(), new PipelineContext(), CancellationToken.None);
+            repositories: [], new AgentConfig(), new PipelineContext(), CancellationToken.None);
     }
 
     private static SpecCutReview Objecting =>

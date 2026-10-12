@@ -49,6 +49,7 @@ public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
             {RenderTranscript(transcript)}
             {SpecDialog.SeededTicketSection.Render(pipeline)}
             {SpecDialog.FrameworkFactsSection.Render(pipeline)}
+            {SpecDialog.DialogScopeRepositoriesSection.Render(pipeline)}
             {SpecDialogRevisionSection.Render(pipeline)}
 
             ## Your reply

@@ -287,7 +287,7 @@ public sealed class MultiRepoHandlerTests
                 _sourceFactoryMock.Object, _ticketFactoryMock.Object,
                 new SandboxGitOperations(new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
                 new SecretPatternScanner(),
-                EventTestStubs.NoOp,
+                new PullRequestOutcomePublisher(EventTestStubs.NoOp),
                 new TicketLifecycle(), new SandboxTargets(), new PhaseAccounting(
                 AgentSmith.Tests.TestHelpers.TestGit.Delivery,
                 new SpecAccountant(
@@ -296,7 +296,8 @@ public sealed class MultiRepoHandlerTests
                     NullLogger<SpecAccountant>.Instance),
                 new SandboxTargets(),
                 NullLogger<PhaseAccounting>.Instance),
-            new FailedRunPersistence(),
+            new FailedRunPersistence(new WipCommitMessage()),
+            new SpecOnlyPullRequests(_sourceFactoryMock.Object, new PullRequestOutcomePublisher(EventTestStubs.NoOp), NullLogger<SpecOnlyPullRequests>.Instance),
             new ShortfallDelivery(
                 new UnverifiedWorkReverter(
                     new SandboxGitOperations(new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),

@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Reviews;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Entities;
 
@@ -43,7 +44,7 @@ public static class SpecRecutDemand
         return In(
             pipeline.TryGet<IReadOnlyList<TicketComment>>(ContextKeys.TicketComments, out var c)
                 ? c : null,
-            set?.Approval);
+            set?.Approval, OwnTicketComment.PrNotes(pipeline));
     }
 
     /// <summary>
@@ -51,8 +52,9 @@ public static class SpecRecutDemand
     /// unapproved set has no approval to measure against and is cleared by the anchor alone, the
     /// way the plain comment cause is.
     /// </summary>
-    public static TicketComment? In(IReadOnlyList<TicketComment>? comments, SpecApproval? approval) =>
-        OwnTicketComment.ForeignAfter(comments, SpecSetComment.CutMarker)
+    public static TicketComment? In(
+        IReadOnlyList<TicketComment>? comments, SpecApproval? approval, IReadOnlyList<PrReviewNote>? prNotes = null) =>
+        OwnTicketComment.ForeignAfter(comments, SpecSetComment.CutMarker, prNotes)
             .Where(Demands)
             .LastOrDefault(c => approval is null || c.CreatedAt > approval.At);
 
@@ -80,6 +82,17 @@ public static class SpecRecutDemand
     /// </summary>
     public static SpecApproval? ApprovalOf(TicketComment? demand) =>
         demand is null ? null : new SpecApproval(demand.CreatedAt, string.Empty, demand.Author);
+
+    /// <summary>
+    /// 2026-10-12-f5f7f: the set a demand cuts from. A series out of step offers its executed prefix —
+    /// every member's done/ specs, then the newest members' open ones — rather than the newest members
+    /// alone, which would drop what ran in a lagging repository.
+    /// </summary>
+    public static SpecSet PreviousOf(SpecSetReadResult read)
+    {
+        ArgumentNullException.ThrowIfNull(read);
+        return read.Lagging.Count > 0 && read.OutOfStepPrevious is { } prefix ? prefix : read.Set;
+    }
 
     private static string? Opening(string? body) =>
         body?.Split('\n')

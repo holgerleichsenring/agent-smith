@@ -23,6 +23,12 @@ public enum SpecSetBranchState
     /// repository carrying it is not checked out in this run.
     /// </summary>
     Unreadable = 2,
+
+    /// <summary>
+    /// 2026-10-12-f5f7f: the newest manifest names a member this run did not check out. Not out of
+    /// step and not broken — the run's scope is narrower than the series; the run fails naming it.
+    /// </summary>
+    MemberNotCheckedOut = 3,
 }
 
 /// <summary>
@@ -30,7 +36,8 @@ public enum SpecSetBranchState
 /// </summary>
 /// <param name="State">Which of the three answers this is.</param>
 /// <param name="Read">The set and the commit it was last written at; null unless answered.</param>
-/// <param name="Why">What could not be read, in the operator's words; null unless unreadable.</param>
+/// <param name="Why">What could not be read, in the operator's words; null unless unreadable or a
+/// member is not checked out.</param>
 public sealed record SpecSetOnBranch(
     SpecSetBranchState State, SpecSetReadResult? Read, string? Why = null)
 {
@@ -40,6 +47,10 @@ public sealed record SpecSetOnBranch(
     /// <summary>Something is there and this run could not read it back as a set.</summary>
     public static SpecSetOnBranch Unreadable(string why) =>
         new(SpecSetBranchState.Unreadable, null, why);
+
+    /// <summary>2026-10-12-f5f7f: a member the series names is outside this run's checkout.</summary>
+    public static SpecSetOnBranch NotCheckedOut(string why) =>
+        new(SpecSetBranchState.MemberNotCheckedOut, null, why);
 
     /// <summary>The branch answered.</summary>
     public static SpecSetOnBranch Answered(SpecSetReadResult read) =>

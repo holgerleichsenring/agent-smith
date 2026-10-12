@@ -12,14 +12,14 @@ namespace AgentSmith.Application.Services.Specs;
 /// <para>
 /// A QUESTION hand-back carries its readings as a typed list and the taken one as
 /// an index. One with fewer than two readings, or a taken index outside them, is not
-/// a question anyone can answer — it is refused, and <see cref="HandbackRejection"/>
-/// says why so the retry names it.
+/// a question anyone can answer (<see cref="QuestionHandbackShape"/>) — it is refused, and
+/// <see cref="HandbackRejection"/> says why so the retry names it.
 /// </para>
+/// <para>2026-10-12-d142: <see cref="SpecHandbackCase.ScopeUnassigned"/> is raised by the code only;
+/// a reply naming it is refused the same way. 2026-10-12-f5f7f: so is <see cref="SpecHandbackCase.SeriesOutOfStep"/>.</para>
 /// </summary>
 public sealed class SpecDerivationEnvelope
 {
-    private const int MinReadings = 2;
-
     public IReadOnlyList<DiscardedSegment> Discarded(JsonElement root) =>
         [.. SpecJsonReader.ReadObjects(root, "discarded")
             .Select(e => new DiscardedSegment(
@@ -47,6 +47,15 @@ public sealed class SpecDerivationEnvelope
     public IReadOnlyList<string> Contexts(JsonElement phase) =>
         SpecJsonReader.ReadStrings(phase, "contexts");
 
+    /// <summary>2026-10-12-3a36e: the repositories a phase states it changes, as written.
+    /// 2026-10-12-f5f7a: a string names one — one repository per spec is the rule, so the
+    /// shape the rule asks for is not read as nothing stated.</summary>
+    public IReadOnlyList<string> Repos(JsonElement phase)
+    {
+        var single = SpecJsonReader.ReadString(phase, "repos");
+        return single.Length > 0 ? [single] : SpecJsonReader.ReadStrings(phase, "repos");
+    }
+
     /// <summary>2026-09-08-1830: the named contexts the model deliberately leaves out, each
     /// with its reason; one without a reason is not accounted for.</summary>
     public IReadOnlyList<DiscardedContext> DiscardedContexts(JsonElement root) =>
@@ -58,22 +67,45 @@ public sealed class SpecDerivationEnvelope
 
     public SpecHandback? Handback(JsonElement root)
     {
-        if (!TryReadCase(root, out var el, out var parsed)) return null;
+        if (!TryReadCase(root, out var el, out var parsed)
+            || parsed is SpecHandbackCase.ScopeUnassigned or SpecHandbackCase.SeriesOutOfStep) return null;
         if (parsed != SpecHandbackCase.Question)
             return new SpecHandback(parsed, SpecJsonReader.ReadString(el, "reason"));
         var readings = SpecJsonReader.ReadStrings(el, "readings");
         var taken = SpecJsonReader.ReadInt(el, "taken");
-        if (QuestionRejection(readings, taken) is not null) return null;
+        if (QuestionHandbackShape.Rejection(readings, taken) is not null) return null;
         return new SpecHandback(
             parsed, SpecJsonReader.ReadString(el, "reason"), Readings: readings, Taken: taken);
     }
 
+    /// <summary>2026-10-12-3a36b: the evidence ids a hand-back cites, as written — a string
+    /// (<c>"L2, L5"</c>) or a list; each folded to the id as minted. Empty when it cites nothing.</summary>
+    public IReadOnlyList<string> HandbackCites(JsonElement root)
+    {
+        if (!TryReadCase(root, out var el, out _) || !SpecJsonReader.TryGet(el, "cites", out var cites))
+            return [];
+        return cites.ValueKind switch
+        {
+            JsonValueKind.String => DerivationEvidence.CitationsIn(cites.GetString()),
+            JsonValueKind.Array => [.. cites.EnumerateArray()
+                .Where(e => e.ValueKind == JsonValueKind.String)
+                .SelectMany(e => DerivationEvidence.CitationsIn(e.GetString()))],
+            _ => [],
+        };
+    }
+
     /// <summary>Why a present hand-back object was refused; null when it was usable or absent.</summary>
     public string? HandbackRejection(JsonElement root) =>
-        TryReadCase(root, out var el, out var parsed) && parsed == SpecHandbackCase.Question
-            ? QuestionRejection(
-                SpecJsonReader.ReadStrings(el, "readings"), SpecJsonReader.ReadInt(el, "taken"))
-            : null;
+        !TryReadCase(root, out var el, out var parsed) ? null : parsed switch
+        {
+            SpecHandbackCase.Question => QuestionHandbackShape.Rejection(
+                SpecJsonReader.ReadStrings(el, "readings"), SpecJsonReader.ReadInt(el, "taken")),
+            SpecHandbackCase.ScopeUnassigned =>
+                "the scope_unassigned hand-back is raised by the framework, not by a reply — cut the ticket or name another case",
+            SpecHandbackCase.SeriesOutOfStep =>
+                "the series_out_of_step hand-back is raised by the framework, not by a reply — cut the ticket or name another case",
+            _ => null,
+        };
 
     private static bool TryReadCase(JsonElement root, out JsonElement el, out SpecHandbackCase parsed)
     {
@@ -82,15 +114,5 @@ public sealed class SpecDerivationEnvelope
             return false;
         var raw = SpecJsonReader.ReadString(el, "case").Replace("_", string.Empty);
         return Enum.TryParse(raw, ignoreCase: true, out parsed) && parsed != SpecHandbackCase.None;
-    }
-
-    private static string? QuestionRejection(IReadOnlyList<string> readings, int taken)
-    {
-        if (readings.Count < MinReadings)
-            return $"a question hand-back needs at least {MinReadings} readings — "
-                + $"{readings.Count} given; if there is only one reading, cut phases under it";
-        if (taken < 0 || taken >= readings.Count)
-            return $"the taken index {taken} names none of the {readings.Count} readings";
-        return null;
     }
 }

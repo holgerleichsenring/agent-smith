@@ -57,6 +57,13 @@ public sealed record PhaseDraft(
     /// check off.
     /// </summary>
     public IReadOnlyList<string> Contexts { get; init; } = [];
+
+    /// <summary>
+    /// 2026-10-12-3a36e: the repositories this spec CHANGES, by their configured names. Read
+    /// from the spec's <c>repos</c> key; stated by the model or filled from the scope when a
+    /// derivation or a design dialog cuts it; empty on a spec written before specs named them.
+    /// </summary>
+    public IReadOnlyList<string> Repos { get; init; } = [];
 }
 
 /// <summary>

@@ -16,9 +16,14 @@ internal sealed class StubSandboxFactory : ISandboxFactory
     /// backend does, so the run records SandboxImages and the image preflight checks judge it.</summary>
     public bool NamesImages { get; set; }
 
+    /// <summary>2026-10-12-f5f7c: when set, `git status --porcelain` lists what the sandbox was
+    /// written, as a real working tree does — off by default, so every other run keeps reading
+    /// a clean tree.</summary>
+    public bool ReportsWorkingTree { get; set; }
+
     public Task<ISandbox> CreateAsync(SandboxSpec spec, CancellationToken cancellationToken)
     {
-        var sandbox = new StubSandbox(MissingPaths, NamesImages ? spec.ToolchainImage : null);
+        var sandbox = new StubSandbox(MissingPaths, NamesImages ? spec.ToolchainImage : null, ReportsWorkingTree);
         Spawned.Add((spec, sandbox));
         return Task.FromResult<ISandbox>(sandbox);
     }

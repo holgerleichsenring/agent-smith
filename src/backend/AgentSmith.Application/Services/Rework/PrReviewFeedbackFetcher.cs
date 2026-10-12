@@ -13,7 +13,8 @@ namespace AgentSmith.Application.Services.Rework;
 /// (ours are kept for PrReviewSelection to judge), then the selection keeps what is feedback. A repo
 /// the run does not carry, or a provider without a reader, is skipped.
 /// <para>2026-10-08-e8b9c: the same pass reads a standing Request changes newer than the previous
-/// attempt — trusted, not a bot — as the run's pull-request act.</para>
+/// attempt — trusted, not a bot — as the run's pull-request act; a trusted comment command after it
+/// is one as well, and the newer of the two is the act.</para>
 /// </summary>
 public sealed class PrReviewFeedbackFetcher(
     ISourceProviderFactory sources, IPrReviewAuthorTrust trust, ILogger<PrReviewFeedbackFetcher> logger) : IPrReviewFeedbackFetcher
@@ -40,11 +41,15 @@ public sealed class PrReviewFeedbackFetcher(
         var provider = sources.Create(repo);
         try
         {
-            if (provider is IPrReviewActReader acts && await ActAsync(repo.Type, acts, url, attempt, cancellationToken) is { } act)
-                ReworkActReader.ApplyPullRequest(pipeline, act);
-            if (provider is not IPrReviewThreadReader reader) return null;
-            var threads = await reader.ListAsync(url, cancellationToken);
-            return PrReviewSelection.Select(await CountableAsync(repo.Type, threads, cancellationToken), attempt);
+            var vote = provider is IPrReviewActReader acts ? await _standing.NewestAsync(repo.Type, acts, url, attempt, cancellationToken) : null;
+            if (provider is not IPrReviewThreadReader reader)
+            {
+                ApplyAct(pipeline, vote, null);
+                return null;
+            }
+            var countable = await CountableAsync(repo.Type, await reader.ListAsync(url, cancellationToken), cancellationToken);
+            ApplyAct(pipeline, vote, PrStandingAct.NewestCommand(countable, attempt));
+            return PrReviewSelection.Select(countable, attempt);
         }
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
@@ -53,10 +58,10 @@ public sealed class PrReviewFeedbackFetcher(
         }
     }
 
-    private async Task<ReworkAct?> ActAsync(
-        RepoType host, IPrReviewActReader reader, string url, PreviousAttempt attempt, CancellationToken cancellationToken) =>
-        await _standing.NewestAsync(host, reader, url, attempt, cancellationToken) is { } note
-            ? PrStandingAct.Act(note) : null;
+    private static void ApplyAct(PipelineContext pipeline, PrReviewNote? vote, PrReviewNote? command)
+    {
+        if (PrStandingAct.Newer(vote, command) is { } act) ReworkActReader.ApplyPullRequest(pipeline, PrStandingAct.Act(act));
+    }
 
     private async Task<IReadOnlyList<PrReviewThread>> CountableAsync(
         RepoType host, IReadOnlyList<PrReviewThread> threads, CancellationToken cancellationToken)

@@ -86,7 +86,9 @@ internal static class MasterHandlerFixture
                     new AgentSmith.Application.Services.Handlers.SandboxTargets(),
                     NullLogger<AgentSmith.Application.Services.RepoWorkPusher>.Instance),
                 NullLogger<AgentSmith.Application.Services.RunWorkCheckpointer>.Instance),
-            new AgentSmith.Tests.TestHelpers.StubSandboxFileReaderFactory(),
+            new AgentSmith.Application.Services.Repositories.RunRepositoriesFactory(
+                new SandboxTargets(), new AgentSmith.Tests.TestHelpers.StubSandboxFileReaderFactory(),
+                new SandboxWorkingTreeReader(NullLogger<SandboxWorkingTreeReader>.Instance)),
             dialogueTransport: null,
             Composition(maxSubAgents, subAgents, limits, figma, render),
             AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
@@ -195,7 +197,9 @@ internal static class MasterHandlerFixture
             new AgentSmith.Application.Services.SpecDialog.BugOutcomeParser(),
             new AgentSmith.Application.Services.SpecDialog.EpicOutcomeParser(
                 validator, reader,
-                new AgentSmith.Application.Services.SpecDialog.RequiresEdgeChecker()));
+                new AgentSmith.Application.Services.SpecDialog.RequiresEdgeChecker(),
+                AgentSmith.Tests.SpecDialog.DialogTestRepos.Real()),
+            AgentSmith.Tests.SpecDialog.DialogTestRepos.Real());
     }
 
     internal sealed class StubPromptCatalog(string name, string body) : IPromptCatalog

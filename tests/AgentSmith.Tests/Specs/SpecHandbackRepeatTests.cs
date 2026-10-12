@@ -65,7 +65,7 @@ public sealed class SpecHandbackRepeatTests
         IReadOnlyList<TicketComment> thread, SpecSet set)
     {
         var pipeline = Pipeline(sandbox, [.. thread]);
-        await publisher.PublishAsync(pipeline, string.Empty, Repo, set, [], default);
+        await publisher.PublishAsync(pipeline, string.Empty, new SeriesScope([Repo], Repo.Name, [], null), set, [], default);
         return await handler.ExecuteAsync(
             new SpecHandbackContext(Ticket, Parkable(), [Repo], pipeline), default);
     }
@@ -101,7 +101,7 @@ public sealed class SpecHandbackRepeatTests
         readers.Setup(f => f.Create(sandbox)).Returns(files);
         var writer = AgentSmith.Tests.TestSupport.SeriesDoubles.Writer(readers.Object);
         return new SpecSetPublisher(
-            writer, new SpecSetPointerRecorder(pointers, NullLogger<SpecSetPointerRecorder>.Instance),
+            writer, new SeriesRepos(), new SpecSetPointerRecorder(pointers, NullLogger<SpecSetPointerRecorder>.Instance),
             Mock.Of<ISpecPullRequestOpener>(),
             new SpecRefusalReporter(Mock.Of<IEventPublisher>(), NullLogger<SpecRefusalReporter>.Instance),
             Mock.Of<IRunArtifactStore>(), NullLogger<SpecSetPublisher>.Instance);
@@ -117,11 +117,12 @@ public sealed class SpecHandbackRepeatTests
                 new Application.Services.Lifecycle.UnmovedTicketReport(
                     new Application.Services.Persistence.InMemoryUnmovedTicketStore(),
                     NullLogger<Application.Services.Lifecycle.UnmovedTicketReport>.Instance),
+                Mock.Of<AgentSmith.Contracts.Reviews.IHandbackPrNotice>(),
                 NullLogger<SpecHandbackPark>.Instance),
             new SpecParkStatusResolver(new ClarificationParkStatusResolver()),
             pointers,
             new SpecHandbackRepeat(NullLogger<SpecHandbackRepeat>.Instance),
-            NullLogger<SpecHandbackHandler>.Instance);
+            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Heads(), NullLogger<SpecHandbackHandler>.Instance);
     }
 
     private static TrackerConnection Parkable() => new()

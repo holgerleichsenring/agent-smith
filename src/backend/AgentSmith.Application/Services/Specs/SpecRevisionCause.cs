@@ -76,9 +76,8 @@ public static class SpecRevisionCause
         if (!resuming && StatusBackCause.Applies(previous.Set, ticket, pipeline)) return StatusBack;
         if (!resuming && IsEdited(previous.Set, ticket)) return TicketEdit;
         if (!resuming && IsCommented(pipeline)) return Comment;
-        if (pointer is null
-            || !string.Equals(pointer.RevisionSha, previous.LastCommitSha, StringComparison.Ordinal))
-            return ReviewerEdit;
+        // 2026-10-12-f5f7b: per repository of the series (SeriesShaEdges).
+        if (pointer is null || SeriesShaEdges.Moved(previous, pointer)) return ReviewerEdit;
         return resuming ? Resume : Retrigger;
     }
 

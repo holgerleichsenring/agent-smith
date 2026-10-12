@@ -15,8 +15,11 @@ public sealed class ReworkParkCheckTests
 {
     private static ResolvedProject Project(params string[] triggerStatuses) => new()
     {
-        Name = "p", Tracker = new TrackerConnection { Name = "jira", Type = TrackerType.Jira },
-        JiraTrigger = new JiraTriggerConfig { TriggerStatuses = [.. triggerStatuses], DoneStatus = "Done", FailedStatus = "Failed" },
+        Name = "p", Tracker = new TrackerConnection { Name = "jira", Type = TrackerType.Jira, NotImplementableStatus = "Not implementable" },
+        JiraTrigger = new JiraTriggerConfig
+        {
+            TriggerStatuses = [.. triggerStatuses], DoneStatus = "Done", FailedStatus = "Failed", NeedsClarificationStatus = "Clarify",
+        },
     };
 
     private static ReworkParkCheck Check(string status, bool unmoved = false)
@@ -56,5 +59,17 @@ public sealed class ReworkParkCheckTests
     [Fact]
     public async Task Check_VerdictParkStatus_NotParked() =>
         (await Check("Not implementable").CheckAsync(Project("To Do"), "T-1", CancellationToken.None))
+            .Parked.Should().BeFalse();
+
+    [Theory]
+    [InlineData("Clarify")]
+    [InlineData("Not implementable")]
+    public async Task CheckHandback_HandbackParkStatus_ParkedAndMoved(string status) =>
+        (await Check(status).CheckHandbackAsync(Project("To Do"), "T-1", CancellationToken.None))
+            .Should().Be(new ReworkPark(true, "To Do"));
+
+    [Fact]
+    public async Task Check_ClarificationStatus_NotParkedWithoutHandback() =>
+        (await Check("Clarify").CheckAsync(Project("To Do"), "T-1", CancellationToken.None))
             .Parked.Should().BeFalse();
 }

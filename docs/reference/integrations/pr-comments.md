@@ -7,7 +7,7 @@ Agent Smith can be started and answered from pull request comments, and a label 
 
 ## Start a new job
 
-Write a comment on a PR that starts with `/agent-smith` (or the short `/as`):
+Write a comment on a PR that starts with `/agent-smith` (or `/agentsmith`, or the short `/as`):
 
 ```
 /agent-smith review                      # PR review of this pull request
@@ -16,9 +16,9 @@ Write a comment on a PR that starts with `/agent-smith` (or the short `/as`):
 /as review
 ```
 
-Everything after the prefix is read as free text, in any language, and resolved to a pipeline and an optional ticket reference. A comment can start three pipelines: `code`, `security-scan` and `pr-review`. A comment that resolves to anything else is ignored.
+Everything after the prefix, every following line included, is read as free text, in any language, and resolved to a pipeline and an optional ticket reference. A comment can start three pipelines: `code`, `security-scan` and `pr-review`. A comment that resolves to anything else is ignored.
 
-`/agent-smith help` is recognized and logged, and posts nothing back. A comment that does not start with a prefix is ordinary conversation and is ignored.
+`/agent-smith help` is recognized and logged, and posts nothing back. A comment that does not start with a prefix is ordinary conversation and is ignored; so is `/as-is` or `/assign`. On a pull request agent-smith opened, a command starts a rework instead — see below. Anywhere else a bare `/agent-smith` asks for nothing and is ignored.
 
 ## Ask for a security scan with a label
 
@@ -68,7 +68,9 @@ A command that names a ticket (`/agent-smith fix #12`) is claimed like any other
 
 ## Request changes starts a rework
 
-Comments on a pull request agent-smith opened (head branch `agent-smith/<ticket>`) start nothing: they are collected, and the next attempt reads the unresolved threads and everything written since the previous attempt started. A rework starts only when a reviewer with write access chooses **Request changes** (GitHub) or votes **Wait for author** (Azure DevOps). The run then reads that act from the pull request itself, so it is served whichever trigger claims the ticket, and the pull request names the run. While a run is working on the ticket, a review is not picked up: the pull request says so, and you request changes again once that run ends — on Azure DevOps reset your vote first, since only a change of vote is sent.
+Comments on a pull request agent-smith opened (head branch `agent-smith/<ticket>`, in the same repository) start nothing on their own: they are collected, and the next attempt reads the unresolved threads and everything written since the previous attempt started. A rework starts when a reviewer with write access comments `/agent-smith` (or `/agentsmith`, `/as`) — bare, or followed by further instructions on as many lines as needed — or chooses **Request changes** (GitHub) or votes **Wait for author** (Azure DevOps). So: write your review comments, then one `/agent-smith`, and the rework works through all of them. The command is not handed to a model; on such a pull request it always means a rework.
+
+When the ticket's last run handed the ticket back (a question, a contradiction or a not-implementable verdict), the hand-back is posted on the pull request too. Answering there and commenting `/agent-smith` ends the waiting run and starts the rework; a reply on the pull request counts as a reply to the hand-back. Our own notes on the pull request never start anything. The run then reads that act from the pull request itself, so it is served whichever trigger claims the ticket, and the pull request names the run. While a run is working on the ticket, a review is not picked up: the pull request says so, and you request changes again once that run ends — on Azure DevOps reset your vote first, since only a change of vote is sent.
 
 The pull request's own author never counts as a reviewer. If the token agent-smith uses belongs to you, you are that author, and your own Request changes is ignored.
 

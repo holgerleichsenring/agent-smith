@@ -15,10 +15,6 @@ public static partial class ContextKeys
     /// republished for the run record and the viewer.</summary>
     public const string SpecRevisionSha = "SpecRevisionSha";
 
-    /// <summary>p0393a: URL of the draft pull request opened at the spec commit, so the
-    /// run surfaces it even when it later parks and never reaches CommitAndPR.</summary>
-    public const string SpecPullRequestUrl = "SpecPullRequestUrl";
-
     /// <summary>p0393a: the hand-back derivation returned (<see cref="Specs.SpecHandback"/>),
     /// if any. The hand-back step routes it: a clarification park for the contradiction
     /// case, a verdict park for not-implementable.</summary>

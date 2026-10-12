@@ -125,7 +125,7 @@ public sealed class SpecDerivationCoverageTests
             new FixedPrompt(),
             DerivationTestParsers.Real(),
             new ScopedContextCoverage(),
-            NullLogger<SpecSetDeriver>.Instance);
+            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Gate(), NullLogger<SpecSetDeriver>.Instance);
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.ScopeNamedContexts, named);
         var ticket = new Ticket(
@@ -133,7 +133,7 @@ public sealed class SpecDerivationCoverageTests
             acceptanceCriteria: null, status: "open", source: "test");
         return await deriver.DeriveAsync(
             ticket, TicketSegmenter.Segment(Ticket), previous: null, series: "2026-10-06-0a0a", cause: "initial derivation",
-            new AgentConfig(), pipeline, CancellationToken.None);
+            repositories: [], new AgentConfig(), pipeline, CancellationToken.None);
     }
 
     private static string Cut(params string[] contexts) => Cut(contexts, discarded: null);
