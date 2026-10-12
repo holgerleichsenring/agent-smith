@@ -1,5 +1,50 @@
 # Changelog
 
+## [0.159.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.158.0...v0.159.0) (2026-10-12)
+
+
+### Features
+
+* a ticket's specs are read as one set across repositories (2026-10-12-f5f7b) ([e0e586f](https://github.com/holgerleichsenring/agent-smith/commit/e0e586f5e510ee9a6814213f846ab809edf0f804))
+* an architecture test refuses the word phase outside history and a shrink-only allowlist (2026-10-12-967ag) ([980a7fb](https://github.com/holgerleichsenring/agent-smith/commit/980a7fb0dd190a60ca03e95309a292e07f8998e3))
+* backend and test symbols say spec for a spec; stored and served names wait for write-new (2026-10-12-967ac) ([6261529](https://github.com/holgerleichsenring/agent-smith/commit/62615291836da61bf733439919e1647acbc3cecd))
+* each spec is written into the repository it changes (2026-10-12-f5f7d) ([58c228a](https://github.com/holgerleichsenring/agent-smith/commit/58c228a89fd07d4cc5541be5aa3eb3588fec2341))
+* every new spec names exactly one repository; a cut that cannot is handed back (2026-10-12-f5f7a) ([b9412be](https://github.com/holgerleichsenring/agent-smith/commit/b9412be4e1c5d5354355c072ca812d9f8bf8d393))
+* every new spec names the repositories it changes (2026-10-12-3a36e) ([baab873](https://github.com/holgerleichsenring/agent-smith/commit/baab87355ec00ecbb3d4faa8042147911968abfb))
+* every reader of stored, queued, served and model-written data accepts the spec names beside the phase names (2026-10-12-967aa) ([e1b99d4](https://github.com/holgerleichsenring/agent-smith/commit/e1b99d422b9103798571fa3178823e5dca06099e))
+* every series repository gets its own spec PR (2026-10-12-f5f7e) ([82ff71f](https://github.com/holgerleichsenring/agent-smith/commit/82ff71ff14a8f431512e83158bb40f3d985cf76c))
+* memory and decisions live in the repository they are about (2026-10-12-f5f7c) ([7b3b5d3](https://github.com/holgerleichsenring/agent-smith/commit/7b3b5d3547db7526a20269ebad176be8eda95ca2))
+* PR comment rework, checked hand-backs, specs and memory per repository ([a7c8356](https://github.com/holgerleichsenring/agent-smith/commit/a7c8356c99a77a01fcc109fef63960a11ec3ddca))
+* project-bootstrap never composes an image tag and reads the registry checks; embedded skills pin moves to v5.12.0 (2026-10-12-5710) ([f7baf55](https://github.com/holgerleichsenring/agent-smith/commit/f7baf55ba265a2a5dbce7148d0963737559e4043))
+* project-bootstrap never composes an image tag; embedded skills pin v5.12.0 (2026-10-12-5710) ([34a06ca](https://github.com/holgerleichsenring/agent-smith/commit/34a06ca9207ab96e91e6d6c58444f7ddf1915e01))
+* repository instructions, docs and the commit gate say spec; the old gate path forwards (2026-10-12-967af) ([1201db6](https://github.com/holgerleichsenring/agent-smith/commit/1201db64db6fc345a028bfcda9fb85442bd5d056))
+* sandbox image registry boundary editable in Settings &gt; Sandbox, applied live (2026-10-12-6bfab) ([2f30d92](https://github.com/holgerleichsenring/agent-smith/commit/2f30d920ef01a6930af8b3ad24357dcf75326344))
+* stored, queued and served data is written with spec names and older rows are rewritten once (2026-10-12-967ab) ([66c0bdd](https://github.com/holgerleichsenring/agent-smith/commit/66c0bdd7973b23fac3377f7f75fe5f54ba0cf4fe))
+* stored, queued and served data is written with spec names, older rows rewritten once (2026-10-12-967ab) ([14b5c04](https://github.com/holgerleichsenring/agent-smith/commit/14b5c047999c1611a9ddbd93c8235be7559e5959))
+* the dashboard calls a spec a spec in its components, test ids and visible text (2026-10-12-967ae) ([e2d56a4](https://github.com/holgerleichsenring/agent-smith/commit/e2d56a4c2a8a98caa0fdd4a6ba6e354611a4624b))
+* the word phase for a spec becomes spec — readers, symbols, prompts, dashboard, docs, gate, guard (2026-10-12-967a) ([494cdf3](https://github.com/holgerleichsenring/agent-smith/commit/494cdf3e0dcf2fd2bc0455cb77b4e6d2ac866c86))
+* what the model and the tracker read calls a spec a spec; skills pin moves to v5.13.0 (2026-10-12-967ad) ([bb72d47](https://github.com/holgerleichsenring/agent-smith/commit/bb72d473f8045a515b07613520323edd213dcbcc))
+
+
+### Bug Fixes
+
+* a code run stops at preflight instead of working in a substituted sandbox image (2026-10-12-50bda) ([74576ec](https://github.com/holgerleichsenring/agent-smith/commit/74576ec7a87f2ce54d6850108ca950333527cb26))
+* a context stack.image outside the trusted registries is said where it is written and on the run that refuses it (2026-10-12-6bfac) ([54fa4b8](https://github.com/holgerleichsenring/agent-smith/commit/54fa4b81ba6e5e72f08dd8a2c37d09d1f20c8f4f))
+* a contradiction hand-back is checked against its evidence and expires on foreign commits (2026-10-12-3a36b) ([3548510](https://github.com/holgerleichsenring/agent-smith/commit/3548510076c68f5351060668eb1ff073e55f7b7d))
+* a failed run commits only the work it did (2026-10-12-3a36c) ([24b6af0](https://github.com/holgerleichsenring/agent-smith/commit/24b6af05b14364e4bcee4aac12ba90f02c0278f6))
+* a PR comment command starts a rework of every open review thread (2026-10-12-3a36a) ([b3cfc15](https://github.com/holgerleichsenring/agent-smith/commit/b3cfc150b76ecfc0941b76e91fd1415a1741757d))
+* a red build is acceptance not measured, not a criterion, and no longer claims no PR exists (2026-10-12-6bfad) ([49359f0](https://github.com/holgerleichsenring/agent-smith/commit/49359f0195d01e38fef42c74d779eec78528338e))
+* a semicolon inside a quoted commit message no longer cuts the message the gate reads (2026-10-12-bd0c) ([4f98546](https://github.com/holgerleichsenring/agent-smith/commit/4f9854631959a91901b4941b86bec7c38540e71a))
+* a spec write lands in every repository or none; an out-of-step series is handed back (2026-10-12-f5f7f) ([df77aec](https://github.com/holgerleichsenring/agent-smith/commit/df77aec66cc106ddc8a27fad1db779305bdadd5d))
+* a ticket that cannot be split by repository parks as its own case (2026-10-12-d142) ([c428cf4](https://github.com/holgerleichsenring/agent-smith/commit/c428cf4bd7b3f30332fe8fbffbfb0b4b9e3b8da1))
+* an image tag its registry does not have is refused by write_context_yaml with the closest published tags (2026-10-12-50bdb) ([096eafc](https://github.com/holgerleichsenring/agent-smith/commit/096eafc9ba272f21a153f0bb62373c48cf7a5921))
+* model picker ranks provider-fitting ids first, a rejected model id fails the run by name (2026-10-12-6bfae) ([9abe80f](https://github.com/holgerleichsenring/agent-smith/commit/9abe80f88944e1649fb39cd1841f532c0d41d822))
+* resolve the toolchain image from the run's branch and report a fallback image on the run (2026-10-12-6bfaa) ([7245d31](https://github.com/holgerleichsenring/agent-smith/commit/7245d310bfa8079ced4c71fa4b55bea77f0d2b2b))
+* sandbox cpu/memory explained per run pipeline, not from the project's pipeline field (2026-10-12-006d) ([a598762](https://github.com/holgerleichsenring/agent-smith/commit/a5987628a86c1c034b38949f06b0defc979747de))
+* sandbox toolchain image, registry trust UI, no silent image substitute, verify wording, model-id picker (2026-10-12-6bfa) ([34987b0](https://github.com/holgerleichsenring/agent-smith/commit/34987b012a3c5c3befa06b2a1abfbb2ae4071001))
+* the checkpointed members 967aa missed read their spec names too (2026-10-12-357a) ([a151c66](https://github.com/holgerleichsenring/agent-smith/commit/a151c66c62c6de8eeb504f1d996f110c00fde52e))
+* the checkpointed members 967aa missed read their spec names too (2026-10-12-357a) ([20d8363](https://github.com/holgerleichsenring/agent-smith/commit/20d8363e8bad8485305eef923671d2c6c1e99b7f))
+
 ## [0.158.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.157.0...v0.158.0) (2026-10-09)
 
 
