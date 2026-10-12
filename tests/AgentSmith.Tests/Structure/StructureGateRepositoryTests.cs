@@ -61,27 +61,6 @@ public sealed class StructureGateRepositoryTests
     }
 
     [Fact]
-    public async Task StructureGate_TwoSandboxesOfOneRepository_JudgesOnceInThePushedOneWithEveryContext()
-    {
-        var pushed = Changed("src/Api/A.cs");
-        var other = Changed("src/Api/A.cs");
-        var pipeline = PipelineOf(pushed, ("web", "src/Web"));
-        pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes,
-            new Dictionary<string, ISandbox>(StringComparer.Ordinal) { [Key] = pushed, ["repo-node"] = other });
-        pipeline.Set<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(ContextKeys.SandboxContexts,
-            new Dictionary<string, IReadOnlyList<RemoteContextDiscovery>>(StringComparer.Ordinal)
-            {
-                [Key] = [new RemoteContextDiscovery("web", "src/Web", "csharp")],
-                ["repo-node"] = [new RemoteContextDiscovery("api", "src/Api", "csharp")],
-            });
-
-        var verdict = await Gate().JudgeAsync(pipeline, CancellationToken.None);
-
-        verdict.Findings.Should().ContainSingle("the api context's terms judge the pushed tree once");
-        other.RanSteps.Should().BeEmpty("only the sandbox the checkpoint pushes is read");
-    }
-
-    [Fact]
     public async Task StructureGate_ContextOnlyInTheInventory_OwnsItsFiles()
     {
         var repo = Changed("src/Api/Worker/A.cs");

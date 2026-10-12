@@ -20,6 +20,7 @@ public static class StructureJudgingExtensions
         services.AddTransient<StructureGitReads>();
         services.AddTransient<StructureGateContexts>();
         services.AddTransient<StructureGateFiles>();
+        services.AddTransient<StructureRepoSandboxes>(); // 2026-10-13-e237
         services.AddTransient<StructureGate>();
         services.AddTransient<StructureGateOutcome>();
         services.AddTransient<StructureDivergencePublisher>(); // 2026-10-12-fbbda

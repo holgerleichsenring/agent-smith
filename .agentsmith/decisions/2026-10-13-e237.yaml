@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-e237
+
+decisions:
+  - category: Architecture
+    chose: "Limits and baselines are read once, at the merge-base of the pushed sandbox (owned[0]); every sandbox of the repository is then judged against those terms, each listing its changes against its own merge-base"
+    over: "Reading the terms again in every sandbox, or diffing every clone against the pushed sandbox's merge-base commit"
+    reason: |
+      Every clone of a repository is the same history, so the terms at the base are one answer; reading them
+      per sandbox only multiplies git calls and the chance of two disagreeing reads. The changed-path listing
+      stays per sandbox because it is what that clone's working tree holds; a secondary with no merge-base is
+      named in Skipped and does not stop the other sandboxes from being judged.
+  - category: Architecture
+    chose: "A new StructureRepoSandboxes judges a list of sandboxes against one set of terms; StructureGate decides which list (every sandbox at the spec commit, the pushed one at PR time)"
+    over: "A loop inside StructureGate"
+    reason: |
+      StructureGate already resolves the base and reads the terms; judging N clones and folding their
+      findings is a second responsibility and would have pushed the class past its size budget.
+  - category: Implementation
+    chose: "Findings are de-duplicated by (path, key, metric), first-seen order kept; within a group an excess outranks a divergence, then the larger value wins"
+    over: "Keeping the first occurrence regardless of severity"
+    reason: |
+      The same edit is visible in two clones when the agent wrote it in both; one unit is one finding. If the
+      clones differ, the worse one is what must be sent back — keeping the pushed sandbox's divergence would
+      hide a secondary's excess. A single sandbox has no duplicates, so its findings and order are unchanged.
+  - category: Implementation
+    chose: "JudgedContexts is the number of contexts with terms (once per repository); JudgedFiles sums the files measured in every sandbox"
+    over: "Summing JudgedContexts per sandbox"
+    reason: |
+      The contexts were read once, so counting them per sandbox would overstate what was judged; files are
+      measured per clone, and the count says how much measuring happened.
+  - category: Scope
+    chose: "DivergencesAsync (PR bodies) still judges only the pushed sandbox"
+    over: "Judging every sandbox at PR time too"
+    reason: |
+      CommitAndPRHandler consolidates the secondary sandboxes into the primary before the divergences are
+      published, so the primary already holds every edit; reading the secondaries again would double-count.

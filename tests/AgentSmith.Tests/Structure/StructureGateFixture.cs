@@ -16,11 +16,13 @@ internal static class StructureGateFixture
     public const string Limits = "## Limits\n\n```yaml\nfunction_lines: 4\n```\n";
 
     public static StructureGate Gate(bool missingGrammar = false) => new(
-        new SandboxTargets(), MergeBase(), StructureBaselineStubs.GitReads(), new StructureRepoContexts(),
+        new SandboxTargets(), MergeBase(), new StructureRepoContexts(),
         Contexts(NullLogger<StructureGateContexts>.Instance),
-        new StructureGateFiles(
-            missingGrammar ? StructureEngineFixture.MissingGrammar() : StructureEngineFixture.Engine(),
-            new StructureJudge(), new SandboxFileReaderFactory(), NullLogger<StructureGateFiles>.Instance),
+        new StructureRepoSandboxes(MergeBase(), StructureBaselineStubs.GitReads(),
+            new StructureGateFiles(
+                missingGrammar ? StructureEngineFixture.MissingGrammar() : StructureEngineFixture.Engine(),
+                new StructureJudge(), new SandboxFileReaderFactory(), NullLogger<StructureGateFiles>.Instance),
+            NullLogger<StructureRepoSandboxes>.Instance),
         NullLogger<StructureGate>.Instance);
 
     /// <summary>2026-10-13-2d0c: the merge-base resolution over the real ladder.</summary>
