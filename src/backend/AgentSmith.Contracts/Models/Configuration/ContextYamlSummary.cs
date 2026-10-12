@@ -42,9 +42,13 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// <param name="Probe">2026-09-01-379a: `probe:` — the command that asks this context's
 /// target environment whether it answers, run before the master at the repository root.
 /// Null/absent → nothing asks, and the record says so rather than reading as proven.</param>
+/// <param name="Format">2026-10-12-fbbdb: `format:` — the repository's own formatter in its
+/// rewriting form, run by the spec commit over the files the spec changed. Null/absent → the
+/// spec commit formats nothing.</param>
 public sealed record ContextYamlSummary(
     string Workdir, string? Language, string? Prerequisites = null, string? Image = null,
     ContextYamlStackResources? Resources = null, string? Purpose = null,
     IReadOnlyList<ContextYamlVerifyStage>? Verify = null,
     ContextYamlVerifyDerivation? VerifyDerivedFrom = null,
-    ContextYamlTargetProbe? Probe = null);
+    ContextYamlTargetProbe? Probe = null,
+    ContextYamlFormat? Format = null);

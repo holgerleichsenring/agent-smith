@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-fbbdb
+
+decisions:
+  - category: Architecture
+    chose: "SpecFormatRun runs before PushNowAsync inside CommitSpecWorkHandler, through VerifyCommandRunner at the repository root"
+    over: "A verify stage, or formatting after the push"
+    reason: |
+      The branch has to carry formatted code and the structure gate measures what is pushed. The verify
+      runner is the shell every declared command already uses, so a formatter means there what it means in CI.
+  - category: Implementation
+    chose: "Files are the spec's changes against SpecStartHeads.For(pipeline, key), owned by the declaring context's workdir via StructureWorkdir.Owner over every context of the repository"
+    over: "The branch diff against its base, or every file under the workdir"
+    reason: |
+      The branch diff carries earlier specs' files; the workdir carries untouched code. Ownership over the
+      repository's full context list keeps a nested context's files away from the formatter around it.
+  - category: Implementation
+    chose: "A non-zero exit (127 included) or a runner exception becomes a note prepended to the commit step's message; the step never fails"
+    over: "Failing the spec on a formatter error"
+    reason: |
+      Formatting is a courtesy of the repository's own tool, not a gate. A missing tool says so and leaves the work.
+  - category: Implementation
+    chose: "The note is an optional preface parameter on StructureGateOutcome.ResolveAsync"
+    over: "Rebuilding the CommandResult in the handler"
+    reason: |
+      CommandResult.Message has no setter, and rebuilding would have to copy InsertNext and every other
+      field. Every message the outcome builds gets the preface, pass, correction and failure alike.
+  - category: Implementation
+    chose: "The schema refuses a format command without {files} (pattern), the reader drops one, and the workdir-commands rule counts the format command"
+    over: "A dedicated refusal in the writer tool"
+    reason: |
+      The schema already judges every written document and names the pointer; a second check would word
+      the same refusal twice. The reader drop covers hand-written files the schema never saw.
+  - category: Implementation
+    chose: "VerifyDerivationStamp keeps verify_derived_from when a format is declared even without verify stages"
+    over: "Dropping a derivation with no stages, as before"
+    reason: |
+      A formatter-only context still names the file it read the formatter from; the hash makes that adoption auditable.
+  - category: Testing
+    chose: "The harness test asserts the format step is immediately followed by the checkpoint's git status --porcelain"
+    over: "Asserting a git commit after the format step in the harness"
+    reason: |
+      The shared StubSandbox answers git diff --cached --quiet with 0, so the harness checkpoint never commits.
+      The unit tests over FormatSandbox prove the commit itself follows the formatter.

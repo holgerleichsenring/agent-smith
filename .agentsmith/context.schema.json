@@ -514,6 +514,37 @@
         }
       }
     },
+    "format": {
+      "$comment": "MECHANISM \u2014 2026-10-12-fbbdb: the spec commit runs this over the files the spec changed, before the push. A non-zero exit is logged and noted, never failed.",
+      "type": "object",
+      "description": "The REWRITING form of the formatter this repository already runs \u2014 in its CI or its scripts \u2014 so layout is the repository's formatter's job, never a criterion or a gate. The spec commit runs it through /bin/sh -c at the REPOSITORY ROOT over the files the spec changed under this context's workdir, before the work is pushed. Name the file you read it from in verify_derived_from.files. A repository that runs no formatter omits the block \u2014 an invented formatter reformats code nobody asked to change.",
+      "required": [
+        "command"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "command": {
+          "type": "string",
+          "minLength": 2,
+          "pattern": "\\{files\\}",
+          "description": "The command line, carrying {files} where the changed paths go \u2014 replaced by the shell-quoted, repository-root-relative paths the spec changed under this context's workdir. A binary is addressed from the repository root. The rewriting form, never a check mode.",
+          "examples": [
+            "dotnet csharpier {files}",
+            "npx prettier --write {files}",
+            "ruff format {files}"
+          ]
+        },
+        "when_present": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Optional path, relative to the repository root, the formatter needs in order to mean anything. When it is absent the formatter is not run.",
+          "examples": [
+            ".config/dotnet-tools.json",
+            "package.json"
+          ]
+        }
+      }
+    },
     "arch": {
       "type": "object",
       "description": "Architecture and code organization",

@@ -39,7 +39,7 @@ existed gains the field the next time `init-project` runs.
 
 ## Where commands run
 
-Every command a context declares (`verify` stages, `prerequisites`, `probe`, and the
+Every command a context declares (`verify` stages, `prerequisites`, `probe`, `format`, and the
 path a `when_present` names) runs from the **repository root**. No field moves the
 working directory. A component that lives in a sub-tree says so in the command itself:
 
@@ -61,7 +61,7 @@ directory contradicts itself and is refused with both halves named.
 | Class | The test | Examples |
 | --- | --- | --- |
 | **Judgement** | Somebody DECIDED it, and no file in the repository states it. | `meta.purpose`, `quality.limits`, `behavior.*`, `integrations`, `data`, `state`, `decisions` |
-| **Mechanism** | The orchestrator ACTS on it — a run behaves differently because of its value. | `meta.workdir`, `stack.lang`, `stack.image`, `stack.resources`, `prerequisites`, `verify`, `probe`, `methodology`, `registry_auth` |
+| **Mechanism** | The orchestrator ACTS on it — a run behaves differently because of its value. | `meta.workdir`, `stack.lang`, `stack.image`, `stack.resources`, `prerequisites`, `verify`, `probe`, `format`, `methodology`, `registry_auth` |
 | **Reading** | A copy of something the repository still states for itself. | `stack.frameworks`, `stack.sdks`, `stack.testing`, `stack.ci`, `meta.version`, `arch.style`, `quality.principles` |
 
 A reading is worthless on the day it is written and wrong soon after. `sdks` names a
@@ -185,6 +185,28 @@ The record tells three states apart. The target answered; the target refused; no
 was declared. Only the first is silent. A sandbox backend that injects no credentials
 — docker, in-process — does not ask at all and says so, because a refusal there would
 be a fact about the backend rather than about the target.
+
+## `format` is the repository's own formatter
+
+Layout is the formatter's job, never a done criterion and never a gate. A context may
+declare the REWRITING form of the formatter its repository already runs — in its CI or
+its scripts — and the spec commit runs it over the files the spec changed, before the
+work is pushed:
+
+```yaml
+format:
+  command: dotnet csharpier {files}
+  when_present: .config/dotnet-tools.json   # optional; absent path, no run
+verify_derived_from:
+  files: [.github/workflows/ci.yml]
+```
+
+`{files}` is required and is replaced by the shell-quoted, repository-root-relative paths
+the spec changed (measured from where the spec started) under this context's workdir; run
+records are left out. No changed file, no run. Each distinct command line runs once per
+sandbox. A non-zero exit — a formatter that is not installed included — is logged and
+said in the step result; it never fails the spec, and the work is pushed as written.
+A repository that runs no formatter omits the block.
 
 ## `state.done` is written by the run
 

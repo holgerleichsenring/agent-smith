@@ -115,7 +115,8 @@ public sealed partial class ContextShorthandTests
     // The example is a template, not a document: "<...>" slots are instructions to the
     // model and the behavior line is prose inside braces. Both are filled in, and only
     // meta.version needs a real value — semver is the one slot whose shape the schema
-    // constrains beyond the open vocabulary.
+    // constrains beyond the open vocabulary. 2026-10-12-fbbdb: and format.command, whose
+    // pattern requires the {files} placeholder.
     private static string Materialise(string example)
     {
         var filled = Placeholder().Replace(example, "\"Sample\"");
@@ -123,6 +124,7 @@ public sealed partial class ContextShorthandTests
         filled = TrailingComma().Replace(filled, "$1");
         var document = JsonNode.Parse(filled)!;
         document["meta"]!["version"] = "1.0.0";
+        if (document["format"] is JsonObject format) format["command"] = "dotnet csharpier {files}";
         return document.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
     }
 

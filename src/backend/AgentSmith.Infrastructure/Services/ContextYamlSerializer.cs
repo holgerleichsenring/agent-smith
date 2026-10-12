@@ -66,7 +66,9 @@ public sealed class ContextYamlSerializer(ContextYamlBuilders builders) : IConte
                 // re-hash it and say when the declaration's source has moved.
                 ContextYamlVerifyReader.ReadDerivation(doc.VerifyDerivedFrom),
                 // 2026-09-01-379a: the declared target probe, asked before the master runs.
-                Probe: ContextYamlProbeReader.Read(doc.Probe)));
+                Probe: ContextYamlProbeReader.Read(doc.Probe),
+                // 2026-10-12-fbbdb: the formatter the spec commit runs over changed files.
+                Format: ContextYamlFormatReader.Read(doc.Format)));
     }
 
     // p0268: pass the raw four fields through UNPARSED. Trimming only; the

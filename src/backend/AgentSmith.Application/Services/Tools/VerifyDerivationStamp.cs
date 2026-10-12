@@ -13,9 +13,10 @@ namespace AgentSmith.Application.Services.Tools;
 /// would report drift on the very next run.
 /// </para>
 /// <para>
-/// A derivation with no stages derived from it is dropped: the record exists to make the
+/// A derivation with nothing derived from it is dropped: the record exists to make the
 /// stages auditable, and a source pointer attached to nothing is a claim about work that
-/// was never done.
+/// was never done. 2026-10-12-fbbdb: a declared format is derived too — a formatter-only
+/// context names the file it read the formatter from.
 /// </para>
 /// </summary>
 public sealed class VerifyDerivationStamp(VerifyDerivationDigest digest)
@@ -26,7 +27,7 @@ public sealed class VerifyDerivationStamp(VerifyDerivationDigest digest)
         ArgumentNullException.ThrowIfNull(document);
         if (document.VerifyDerivedFrom is not { Files.Count: > 0 } derivation)
             return document;
-        if (document.Verify is not { Count: > 0 })
+        if (document.Verify is not { Count: > 0 } && document.Format is null)
             return document with { VerifyDerivedFrom = null };
 
         var hash = await digest.ComputeAsync(sandbox, derivation.Files, ct);

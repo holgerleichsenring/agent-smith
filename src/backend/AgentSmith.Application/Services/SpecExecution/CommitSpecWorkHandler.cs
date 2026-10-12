@@ -26,8 +26,14 @@ namespace AgentSmith.Application.Services.SpecExecution;
 /// And this is where the framework holds the work to its Limits — after the
 /// push, so nothing is lost, and before VerifySpec, so a correction is still part of the spec.
 /// </para>
+/// <para>
+/// 2026-10-12-fbbdb: and before the push, each context's own formatter rewrites the files the
+/// spec changed, so the branch carries formatted code and the gate measures it. A formatter
+/// that fails is said in the step result, never a failure of the step.
+/// </para>
 /// </summary>
 public sealed class CommitSpecWorkHandler(
+    SpecFormatRun formatRun,
     RunWorkCheckpointer checkpointer,
     StructureGate structureGate,
     StructureGateOutcome structureOutcome,
@@ -38,9 +44,10 @@ public sealed class CommitSpecWorkHandler(
         CommitSpecWorkContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
+        var formatNote = await formatRun.RunAsync(context.Pipeline, cancellationToken);
         await checkpointer.PushNowAsync(context.Pipeline, cancellationToken);
         logger.LogInformation("Spec work committed — the gate now reads a branch that carries it.");
         var verdict = await structureGate.JudgeAsync(context.Pipeline, cancellationToken);
-        return await structureOutcome.ResolveAsync(context.Pipeline, verdict, cancellationToken);
+        return await structureOutcome.ResolveAsync(context.Pipeline, verdict, cancellationToken, formatNote);
     }
 }
