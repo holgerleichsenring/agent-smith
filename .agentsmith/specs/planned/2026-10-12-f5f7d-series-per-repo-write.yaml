@@ -25,7 +25,7 @@ facts:
 assumptions: []
 
 scope:
-  in: "SeriesRepos (the repositories the specs name; a set without specs: the members read, else every scoped repository); one write per publish stamping every member with the same revision time and the same series_repos; record writes its repository's manifest; executed ids on TicketSeries; filing per spec repository with one stamp, executed by id; interim CarryingRepo and SpecRepo; positional pickers deleted except the reference-set carrier."
+  in: "SeriesRepos (the repositories the specs name; a set without specs: the members read, else every scoped repository); one write per publish stamping every member with the same revision time and the same series_repos; record writes its repository's manifest; executed ids on TicketSeries; filing per spec repository with one stamp, executed by id; interim CarryingRepo and SpecRepo; positional pickers deleted; a lagging read refused until f5f7f."
   out: "Out of step, membership exit and scope (2026-10-12-f5f7f); spec PR per repository, URL map, cross-link, reference sets (2026-10-12-f5f7e); the sandbox within one repository stays matches[0]."
 
 decisions:
@@ -33,11 +33,15 @@ decisions:
   - key: "THE RECORD WRITES ITS MANIFEST from the run's set, with the publish stamp, as today."
   - key: "EXECUTED BY ID: TicketSeries stores executed spec ids; filing marks those; no new id ever reuses one found in a done/ directory."
   - key: "NAMED REPOSITORY NOT CHECKED OUT REFUSES the write with its name, CLI included."
+  - key: "NO LAGGING READ IS CONSUMED: until f5f7f hands it back, a read with lagging members fails DeriveSpec naming them — no model, no write, pointer untouched."
+  - key: "A SPEC WITHOUT A REPOSITORY (legacy, executed or not) belongs to the pointer's CarryingRepo, else the approval's; a spec naming several is refused with its id."
+  - key: "EXECUTED IDS BACK-FILLED: an empty list with ExecutedThrough > 0 reads as Take(ExecutedThrough) of the stored set; the first write persists the ids."
+  - key: "NO RE-MINT: taken ids are every run repository's done/ (member or not) plus the stored executed ids; the next letter skips past a taken one."
   - key: "INTERIM VALUES until f5f7e: CarryingRepo and SpecRepo hold the earliest spec's repository in series order; a set without specs keeps the previous value and opens no new PR."
 
 steps:
   - id: repos
-    action: "Add SeriesRepos; replace Resolve, ChooseCarrier and Named at every caller except MaterializeReferenceSetsHandler; drop SpecDoneRecorder's ContextKeys.Sandbox fallback when context.Repos > 1."
+    action: "Add SeriesRepos (with the legacy and multi-repo rules); replace Resolve, ChooseCarrier and Named at every caller; drop SpecDoneRecorder's ContextKeys.Sandbox fallback when context.Repos > 1; fail DeriveSpec on a lagging read naming the repositories."
     new:
       - "SeriesRepos"
     modify:
@@ -47,11 +51,11 @@ steps:
     modify:
       - "ISpecSetWriter, SpecSetWriteResult, SeriesWriter, SeriesFiles, SeriesStaleFiles, SpecSetPublisher, SpecPullRequestOpener, SpecSetPointerRecorder, SpecRevisionHeader"
   - id: record
-    action: "Move the spec to done/ with mocks and index line in its repository, rewrite that repository's manifest, record its sha and the executed id."
+    action: "Move the spec to done/ with mocks and index line in its repository, rewrite that repository's manifest, record its sha and the executed id; back-fill ids from ExecutedThrough."
     modify:
       - "SpecDoneRecorder, SpecDoneFiles, PhaseIndexWriter, SeriesRecordCommit, TicketSeries (ExecutedIds, migrations in both assemblies)"
   - id: ids
-    action: "Never mint a spec id that exists in any member's done/ directory."
+    action: "Never mint a spec id found in any run repository's done/ or in the stored executed ids; skip to the next free letter."
     modify:
       - "DerivedPhaseBuilder, SeriesIdFactory"
   - id: filing
@@ -66,6 +70,9 @@ tests:
   - "DerivedPhaseBuilder_IdInDone_NotReminted"
   - "SeriesWriter_NamedRepoNotCheckedOut_Refuses"
   - "FiledSpecBranch_ExecutedById_StaysOutOfPlanned"
+  - "DeriveSpecHandler_LaggingRead_FailsNamingRepos_NoModelNoWrite"
+  - "SeriesRepos_LegacySpecWithoutRepo_BelongsToCarrier"
+  - "TicketSeries_LegacyExecutedThrough_BackfillsIds"
 
 done:
   - "19470's shape (scope BackgroundWorker+Server, spec for Server) leaves the sub-series, done record and index line in Server only (RealCompositionHarness)."
