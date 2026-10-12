@@ -18,6 +18,9 @@ namespace AgentSmith.Application.Services.Specs;
 /// set without specs keeps the one it had. 2026-10-12-f5f7e: every series repository gets its own
 /// draft spec pull request.
 /// </para>
+/// <para>
+/// 2026-10-12-f5f7f: a write into several repositories that failed is rolled back and FAILS the step.
+/// </para>
 /// </summary>
 public sealed class SpecSetPublisher(
     ISpecSetWriter writer,
@@ -43,18 +46,25 @@ public sealed class SpecSetPublisher(
 
         var write = await writer.WriteAsync(pipeline, placement, cancellationToken);
         if (!write.Written)
-        {
-            logger.LogWarning(
-                "Spec set {Key} could not be committed: {Error}", set.Key, write.Error);
-            return write.IsRefused
-                ? CommandResult.Fail($"Spec {set.Key} cannot be written: {write.Error}")
-                : CommandResult.Ok(
-                    $"Spec derived but not committed ({write.Error}) — the run continues from it in-memory");
-        }
+            return await NotWrittenAsync(project, placement, write, cancellationToken);
         pipeline.Set(ContextKeys.SpecRevisionSha, write.CommitSha!);
         await pointer.RecordAsync(project, placement.Carrier?.Name, placement.Set, write.Shas, cancellationToken);
         await prOpener.OpenAsync(pipeline, placement, scope, cancellationToken);
         return CommandResult.Ok(Describe(placement.Set));
+    }
+
+    // 2026-10-12-f5f7f: a multi-repository series is never worked from memory — a half nobody can
+    // read back would be re-stamped and pushed by the record later. The revert shas are recorded so
+    // the next run reads our own revert, not a reviewer's edit.
+    private async Task<CommandResult> NotWrittenAsync(
+        string project, SeriesPlacement placement, SpecSetWriteResult write, CancellationToken ct)
+    {
+        var key = placement.Set.Key;
+        logger.LogWarning("Spec set {Key} could not be committed: {Error}", key, write.Error);
+        await pointer.RecordShasAsync(project, key, write.RevertShas, ct);
+        return write.IsRefused || write.IsRolledBack || placement.Members.Count > 1
+            ? CommandResult.Fail($"Spec {key} cannot be written: {write.Error}")
+            : CommandResult.Ok($"Spec derived but not committed ({write.Error}) — the run continues from it in-memory");
     }
 
     private static void PublishToContext(PipelineContext pipeline, SeriesPlacement placement)

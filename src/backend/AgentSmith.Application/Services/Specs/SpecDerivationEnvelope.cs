@@ -16,7 +16,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// <see cref="HandbackRejection"/> says why so the retry names it.
 /// </para>
 /// <para>2026-10-12-d142: <see cref="SpecHandbackCase.ScopeUnassigned"/> is raised by the code only;
-/// a reply naming it is refused the same way.</para>
+/// a reply naming it is refused the same way. 2026-10-12-f5f7f: so is <see cref="SpecHandbackCase.SeriesOutOfStep"/>.</para>
 /// </summary>
 public sealed class SpecDerivationEnvelope
 {
@@ -67,7 +67,8 @@ public sealed class SpecDerivationEnvelope
 
     public SpecHandback? Handback(JsonElement root)
     {
-        if (!TryReadCase(root, out var el, out var parsed) || parsed == SpecHandbackCase.ScopeUnassigned) return null;
+        if (!TryReadCase(root, out var el, out var parsed)
+            || parsed is SpecHandbackCase.ScopeUnassigned or SpecHandbackCase.SeriesOutOfStep) return null;
         if (parsed != SpecHandbackCase.Question)
             return new SpecHandback(parsed, SpecJsonReader.ReadString(el, "reason"));
         var readings = SpecJsonReader.ReadStrings(el, "readings");
@@ -101,6 +102,8 @@ public sealed class SpecDerivationEnvelope
                 SpecJsonReader.ReadStrings(el, "readings"), SpecJsonReader.ReadInt(el, "taken")),
             SpecHandbackCase.ScopeUnassigned =>
                 "the scope_unassigned hand-back is raised by the framework, not by a reply — cut the ticket or name another case",
+            SpecHandbackCase.SeriesOutOfStep =>
+                "the series_out_of_step hand-back is raised by the framework, not by a reply — cut the ticket or name another case",
             _ => null,
         };
 

@@ -63,7 +63,13 @@ public sealed class SeriesReader(
             "Series {Base} of {Ticket} read from {Repos}: {Phases} spec(s), revision {Revision}, lagging {Lagging}",
             newest.Base, set.Key, string.Join(", ", joined.Shas.Keys), set.Phases.Count, set.Current.Number,
             joined.Lagging.Count == 0 ? "none" : string.Join(", ", joined.Lagging));
-        return new SpecSetReadResult(set, sha) { RevisionShas = joined.Shas, Lagging = joined.Lagging };
+        return new SpecSetReadResult(set, sha)
+        {
+            RevisionShas = joined.Shas, Lagging = joined.Lagging,
+            // 2026-10-12-f5f7f: what a re-cut demand on an out-of-step series cuts from.
+            OutOfStepPrevious = joined.OutOfStep is var (phases, executed)
+                ? SetOf(ticket, newest.Base, newest.Document!, phases, executed) : null,
+        };
     }
 
     // The carrying repository is read even when the scope does not list it — the one-repository

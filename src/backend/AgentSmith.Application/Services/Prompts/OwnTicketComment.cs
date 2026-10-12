@@ -43,6 +43,7 @@ public static class OwnTicketComment
         Specs.SpecHandbackComment.QuestionMarker,
         Specs.SpecHandbackComment.ContradictionMarker,
         Specs.SpecHandbackComment.ScopeUnassignedMarker,
+        Specs.SeriesOutOfStepComment.Marker, // 2026-10-12-f5f7f
     ];
 
     public static bool IsOurs(TicketComment comment) => Carries(comment, Ours);

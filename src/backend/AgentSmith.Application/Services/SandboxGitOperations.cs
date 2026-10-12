@@ -219,9 +219,10 @@ public sealed class SandboxGitOperations(GitBranchPusher pusher, IGitTokenResolv
         return (result.OutputContent ?? string.Empty).Trim();
     }
 
+    /// <param name="plain">2026-10-12-f5f7f: push without force — a moved remote refuses it.</param>
     public async Task CommitAndPushStagedAsync(
         ISandbox sandbox, string branchName, string message,
-        RepoConnection repo, CancellationToken cancellationToken)
+        RepoConnection repo, CancellationToken cancellationToken, bool plain = false)
     {
         // p0394: the commit primitive owns the identity guarantee. The spec-set
         // writer commits in a fresh checkout sandbox before any staging method
@@ -245,7 +246,19 @@ public sealed class SandboxGitOperations(GitBranchPusher pusher, IGitTokenResolv
                 "Local repo has no 'origin' remote — commit recorded locally, push skipped (record-only)");
             return;
         }
-        await PushAsync(sandbox, branchName, repo, cancellationToken);
+        if (plain) await pusher.PushPlainAsync(sandbox, branchName, CredHelper, credentials.For(repo), cancellationToken);
+        else await PushAsync(sandbox, branchName, repo, cancellationToken);
+    }
+
+    // 2026-10-12-f5f7f: a rolled-back spec write — the undo of our own commit staged for a commit of
+    // its own, and a tree put back where it was (written files the index never held included).
+    public Task StageRevertAsync(ISandbox sandbox, string sha, CancellationToken ct) =>
+        Run(sandbox, "git", ["revert", "--no-commit", sha], ct);
+
+    public async Task ResetToAsync(ISandbox sandbox, string sha, IReadOnlyList<string> paths, CancellationToken ct)
+    {
+        await Run(sandbox, "git", ["reset", "-q", "--hard", sha], ct);
+        if (paths.Count > 0) await Run(sandbox, "git", ["clean", "-fdq", "--", .. paths], ct);
     }
 
     // p0326: `git remote` lists configured remotes, one per line; empty output on a

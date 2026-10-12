@@ -64,14 +64,14 @@ public sealed class DeriveSpecHandler(
         var segments = TicketSegmenter.Segment(context.Ticket.Description);
         context.Pipeline.Set(ContextKeys.TicketSegments, segments);
 
-        // 2026-10-12-f5f7d: no repository is picked by position; a lagging read goes no further.
+        // 2026-10-12-f5f7d: no repository is picked by position.
         var branch = await branchRead.ReadAsync(context.Pipeline, context.Repos, key, pointer, approval, cancellationToken);
-        if (branch.Refusal is { } outOfStep) return CommandResult.Fail(outOfStep);
         var onBranch = branch.OnBranch;
         var previous = onBranch.Read;
         var foreign = await expiry.ProbeAsync(context.Pipeline, context.Repos, previous?.Set, pointer, cancellationToken);
         var decision = sourceResolver.Decide(onBranch, context.Ticket, pointer, context.Pipeline, key.Value,
             Contracts.Tickets.TicketLabelVocabulary.ForOptional(context.Tracker), approval, foreign);
+        if (decision.Failure is { } failed) return CommandResult.Fail(failed); // 2026-10-12-f5f7f
         if (decision.Handback is { } missing) return MissingSpecPark.Apply(context.Pipeline, missing);
 
         var unanswered = questionPin.Pin(previous?.Set, context.Pipeline);

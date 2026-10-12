@@ -82,13 +82,14 @@ public sealed class SeriesMultiRepoReadTests
     }
 
     [Fact]
-    public async Task SeriesReader_NamedMemberNotCheckedOut_IsUnreadable()
+    public async Task SeriesReader_NamedMemberNotCheckedOut_IsItsOwnState()
     {
         _branches.SubSeries("Server", SeriesRepoBranches.T2, Both, [Id('a')]);
 
         var result = await _branches.ReadAsync("Server", Both);
 
-        result.State.Should().Be(SpecSetBranchState.Unreadable);
+        // 2026-10-12-f5f7f: not broken and not out of step — the run's scope is short.
+        result.State.Should().Be(SpecSetBranchState.MemberNotCheckedOut);
         result.Why.Should().Contain("'Client'").And.Contain("not checked out");
     }
 

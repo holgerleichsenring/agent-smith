@@ -26,6 +26,9 @@ namespace AgentSmith.Application.Services.Specs;
 /// carrying repository is the one the caller names, else the one the row holds. The record step
 /// stores the executed spec ids.
 /// </para>
+/// <para>
+/// 2026-10-12-f5f7f: a rolled-back write records only its revert shas (<see cref="RecordShasAsync"/>).
+/// </para>
 /// </summary>
 public sealed class SpecSetPointerRecorder(
     ISpecSetPointerStore pointers,
@@ -59,6 +62,29 @@ public sealed class SpecSetPointerRecorder(
         logger.LogDebug(
             "Spec set {Key} pointer names {Shas} (revision {Revision})", set.Key,
             string.Join(", ", shas.Select(kv => $"{kv.Key}={kv.Value}")), set.Current.Number);
+    }
+
+    /// <summary>
+    /// 2026-10-12-f5f7f: merges <paramref name="shas"/> into the map and keeps everything else the row
+    /// holds — the revision above all — so a rolled-back write's revert reads on the next run as this
+    /// system's own commit, not as a reviewer's edit. A ticket without a row has nothing to keep.
+    /// </summary>
+    public async Task RecordShasAsync(
+        string project, string key, IReadOnlyDictionary<string, string> shas, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(shas);
+        if (shas.Count == 0) return;
+        var existing = await pointers.GetAsync(project, key, cancellationToken);
+        if (existing is null)
+        {
+            logger.LogInformation("Spec set {Key} has no pointer to record {Count} revert sha(s) on", key, shas.Count);
+            return;
+        }
+        await pointers.SaveAsync(project, existing with
+        {
+            RevisionSha = shas.TryGetValue(existing.CarryingRepo, out var own) ? own : existing.RevisionSha,
+            RevisionShas = Merged(existing, shas),
+        }, cancellationToken);
     }
 
     private static IReadOnlyDictionary<string, string> Merged(

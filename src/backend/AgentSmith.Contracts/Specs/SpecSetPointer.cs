@@ -73,6 +73,11 @@ public sealed record SpecSetPointer(
 /// carrying repository's, else the newest manifest's), and the members whose sub-series lags the
 /// newest revision (<see cref="Lagging"/>) — read, named, and never joined.
 /// </para>
+/// <para>
+/// 2026-10-12-f5f7f: a lagging read also carries <see cref="OutOfStepPrevious"/> — every member's
+/// done/ specs in id order, then the newest members' unexecuted specs — the set a re-cut demand cuts
+/// from, so what already ran stays its executed prefix.
+/// </para>
 /// </summary>
 public sealed record SpecSetReadResult(SpecSet Set, string LastCommitSha)
 {
@@ -80,31 +85,6 @@ public sealed record SpecSetReadResult(SpecSet Set, string LastCommitSha)
         new Dictionary<string, string>(StringComparer.Ordinal);
 
     public IReadOnlyList<string> Lagging { get; init; } = [];
-}
 
-/// <summary>
-/// p0393a: the outcome of committing one revision. A failed write leaves the run
-/// working from the in-memory set: the artifacts are how a REVIEWER reads the
-/// derivation, and losing the reviewer's view must not lose the run.
-/// <para>
-/// 2026-10-12-f5f7d: one sha per repository written (<see cref="Shas"/>; <see cref="CommitSha"/> is
-/// the carrying repository's), and a REFUSED write — a repository the series names is not checked
-/// out — is told apart from one that failed on the way.
-/// </para>
-/// </summary>
-public sealed record SpecSetWriteResult(bool Written, string? CommitSha, string? Error)
-{
-    public IReadOnlyDictionary<string, string> Shas { get; init; } =
-        new Dictionary<string, string>(StringComparer.Ordinal);
-
-    public bool IsRefused { get; init; }
-
-    public static SpecSetWriteResult Ok(string sha) => new(true, sha, null);
-
-    public static SpecSetWriteResult Ok(IReadOnlyDictionary<string, string> shas, string sha) =>
-        new(true, sha, null) { Shas = shas };
-
-    public static SpecSetWriteResult Failed(string error) => new(false, null, error);
-
-    public static SpecSetWriteResult Refused(string error) => new(false, null, error) { IsRefused = true };
+    public SpecSet? OutOfStepPrevious { get; init; }
 }

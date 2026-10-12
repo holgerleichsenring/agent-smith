@@ -34,6 +34,7 @@ public static class SpecDerivationRegistrations
     services.AddTransient<SeriesNewestManifest>().AddTransient<SeriesJoinOrder>();
     services.AddTransient<SeriesSpecFileReader>();
     services.AddTransient<ISpecSetWriter, SeriesWriter>();
+    services.AddTransient<SeriesMemberCommit>().AddTransient<SeriesWriteRollback>(); // 2026-10-12-f5f7f
     // 2026-10-12-f5f7d: each spec placed in the repository it names; read, ids, filing per member.
     services.AddTransient<SeriesRepos>().AddTransient<SeriesTakenIds>().AddTransient<SeriesBranchRead>();
     services.AddTransient<FiledSeriesWrite>();

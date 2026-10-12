@@ -1,3 +1,5 @@
+using AgentSmith.Contracts.Specs;
+
 namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
@@ -6,6 +8,8 @@ namespace AgentSmith.Application.Services.Specs;
 /// nothing at the path. The newest manifest names the members; a member not checked out or holding
 /// nothing, or two bases among the members, is unreadable. A member on another revision time than
 /// the newest is LAGGING: named, never joined — the set is the members on the newest revision.
+/// 2026-10-12-f5f7f: a member outside the checkout is answered as such; a lagging join also carries the
+/// executed prefix a re-cut demand cuts from.
 /// </summary>
 public sealed class SeriesJoin(SeriesNewestManifest newestManifest, SeriesJoinOrder order)
 {
@@ -23,7 +27,7 @@ public sealed class SeriesJoin(SeriesNewestManifest newestManifest, SeriesJoinOr
         foreach (var name in newest.Members)
         {
             var read = reads.FirstOrDefault(r => string.Equals(r.Repo, name, StringComparison.Ordinal));
-            if (MissingMember(name, read) is { } missing) return SeriesJoined.Unreadable(missing);
+            if (MissingMember(name, read) is { } missing) return missing;
             members.Add(read!);
         }
         return Joined(newest, members);
@@ -42,14 +46,16 @@ public sealed class SeriesJoin(SeriesNewestManifest newestManifest, SeriesJoinOr
             Newest = newest, Phases = phases, Executed = executed,
             Shas = current.ToDictionary(m => m.Repo, m => m.Sha, StringComparer.Ordinal),
             Lagging = [.. members.Where(m => m.Stamp != newest.Stamp).Select(m => m.Repo)],
+            OutOfStep = current.Count == members.Count ? null : order.ExecutedPrefix(members, current),
         };
     }
 
-    private static string? MissingMember(string name, SubSeriesRead? read) => read?.State switch
+    // 2026-10-12-f5f7f: a member outside the checkout is its own answer — the run's scope is short.
+    private static SeriesJoined? MissingMember(string name, SubSeriesRead? read) => read?.State switch
     {
         SubSeriesState.Found => null,
-        SubSeriesState.Nothing => $"series member '{name}' carries no sub-series of the ticket",
-        _ => $"series member '{name}' is not checked out in this run",
+        SubSeriesState.Nothing => SeriesJoined.Unreadable($"series member '{name}' carries no sub-series of the ticket"),
+        _ => new SeriesJoined(SpecSetOnBranch.NotCheckedOut($"series member '{name}' is not checked out in this run")),
     };
 
     // The carrying repository not checked out keeps the one-repository answer: its path was never

@@ -14,6 +14,11 @@ namespace AgentSmith.Application.Services;
 /// then protects a state that does not exist, and the commit is simply lost. Run 16 lost
 /// its spec that way. One fetch, one retry; a genuinely contested branch still fails.
 /// </para>
+/// <para>
+/// 2026-10-12-f5f7f: <see cref="PushPlainAsync"/> forces nothing and never retries — a member of a
+/// multi-repository spec write, and the revert that undoes it, must be refused when somebody else
+/// pushed in between, as <c>CreateOnlyBranchPush</c> is.
+/// </para>
 /// </summary>
 public sealed class GitBranchPusher
 {
@@ -24,9 +29,7 @@ public sealed class GitBranchPusher
         GitCredential credential, CancellationToken ct)
     {
         // 2026-10-02-5f89g: the repo's own credential, resolved by the caller that holds the repo.
-        var env = credential.HasToken
-            ? (IReadOnlyDictionary<string, string>)new Dictionary<string, string> { ["GIT_TOKEN"] = credential.Token! }
-            : null;
+        var env = Env(credential);
 
         var result = await PushOnceAsync(sandbox, branch, credentialHelper, env, ct);
         if (result.ExitCode != 0 && Mentions(result, "stale info"))
@@ -39,6 +42,18 @@ public sealed class GitBranchPusher
             throw new InvalidOperationException(
                 $"git push failed (exit {result.ExitCode}): {result.ErrorMessage}");
     }
+
+    /// <summary>A fast-forward push of HEAD; a moved remote refuses it and nothing is overwritten.</summary>
+    public async Task PushPlainAsync(
+        ISandbox sandbox, string branch, string credentialHelper, GitCredential credential, CancellationToken ct)
+    {
+        var result = await Run(sandbox, ["-c", credentialHelper, "push", "origin", $"HEAD:{branch}"], Env(credential), ct);
+        if (result.ExitCode != 0)
+            throw new InvalidOperationException($"git push failed (exit {result.ExitCode}): {result.ErrorMessage}");
+    }
+
+    private static IReadOnlyDictionary<string, string>? Env(GitCredential credential) =>
+        credential.HasToken ? new Dictionary<string, string> { ["GIT_TOKEN"] = credential.Token! } : null;
 
     private static Task<StepResult> PushOnceAsync(
         ISandbox sandbox, string branch, string credentialHelper,

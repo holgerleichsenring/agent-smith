@@ -24,6 +24,24 @@ public sealed class SeriesJoinOrder
             : (ordered, [.. ordered.Select(p => p.PhaseId).Where(executed.Contains)], null);
     }
 
+    /// <summary>
+    /// 2026-10-12-f5f7f: the order a re-cut of an out-of-step series starts from — every member's
+    /// done/ specs by id, then the <paramref name="newest"/> members' unexecuted specs by id. A prefix
+    /// by construction: what ran comes first whichever revision its member is on.
+    /// </summary>
+    public (IReadOnlyList<SpecPhase> Phases, IReadOnlyList<string> Executed) ExecutedPrefix(
+        IReadOnlyList<SubSeriesRead> members, IReadOnlyList<SubSeriesRead> newest)
+    {
+        ArgumentNullException.ThrowIfNull(members);
+        ArgumentNullException.ThrowIfNull(newest);
+        var ran = members.SelectMany(m => m.Phases.Where(p => m.Executed.Contains(p.PhaseId, StringComparer.Ordinal)))
+            .DistinctBy(p => p.PhaseId, StringComparer.Ordinal).OrderBy(p => p.PhaseId, StringComparer.Ordinal).ToList();
+        var ids = ran.Select(p => p.PhaseId).ToHashSet(StringComparer.Ordinal);
+        var open = newest.SelectMany(m => m.Phases).Where(p => !ids.Contains(p.PhaseId))
+            .OrderBy(p => p.PhaseId, StringComparer.Ordinal);
+        return ([.. ran, .. open], [.. ids.Order(StringComparer.Ordinal)]);
+    }
+
     private static string? Duplicate(IReadOnlyList<SubSeriesRead> joined) =>
         joined.SelectMany(r => r.Phases.Select(p => (Id: p.PhaseId, r.Repo)))
             .GroupBy(x => x.Id, StringComparer.Ordinal)
