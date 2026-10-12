@@ -48,7 +48,14 @@ public sealed class SpecSourceResolver(
     /// the stored hand-back rather than a fallback.</param>
     public sealed record Decision(
         SpecSource Source, SpecSet? Set, bool NeedsModel, string? Cause = null,
-        SpecHandback? Handback = null, SpecApproval? Approval = null, bool Expired = false);
+        SpecHandback? Handback = null, SpecApproval? Approval = null, bool Expired = false)
+    {
+        /// <summary>The set a derivation that yields nothing keeps instead of a fresh fallback: one over an
+        /// executed head, whose record of work a fresh set would drop (2026-10-08-f114), or an expired
+        /// hand-back (2026-10-12-3a36b) — expiry never approves a guess. Null when nothing is kept.</summary>
+        public SpecSet? KeptOnFailure =>
+            Set is { } carried && (Expired || carried.ExecutedHead.Count > 0) ? carried : null;
+    }
 
     public Decision Decide(
         SpecSetOnBranch branch, Ticket ticket, SpecSetPointer? pointer, PipelineContext pipeline,

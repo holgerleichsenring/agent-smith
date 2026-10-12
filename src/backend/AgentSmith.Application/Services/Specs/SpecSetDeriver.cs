@@ -7,7 +7,6 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Entities;
-using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Specs;
@@ -107,10 +106,8 @@ public sealed class SpecSetDeriver(
             var gap = coverage.Gap(named, parsed.Derivation.Set);
             if (gap.Count == 0) return (parsed.Derivation, null);
             if (attempts.Pinned) return (ScopedContextQuestion.For(parsed.Derivation, gap, named!), null);
-            attempts.Pinned = true;
             logger.LogWarning("Spec cut leaves named context(s) {Gap} uncovered — pinned once", string.Join(", ", gap));
-            messages.Add(new ChatMessage(ChatRole.User,
-                ScopedContextGapPromptSection.Render(gap, ScopedContextCoverage.Carried(parsed.Derivation.Set))));
+            messages.Add(attempts.Pin(gap, parsed.Derivation.Set));
         }
         return attempts.Exhausted;
     }

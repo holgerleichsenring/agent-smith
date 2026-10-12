@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Contracts.Specs;
 using Microsoft.Extensions.AI;
 
@@ -14,7 +15,7 @@ internal sealed class DerivationAttempts(int max)
     private SpecDerivation? _uncitedHandback;
 
     /// <summary>Set once a cut left a named context uncovered and was pinned back.</summary>
-    public bool Pinned { get; set; }
+    public bool Pinned { get; private set; }
 
     /// <summary>Set once a contradiction hand-back was refuted by a second reading.</summary>
     public bool Refuted { get; private set; }
@@ -32,6 +33,15 @@ internal sealed class DerivationAttempts(int max)
     {
         LastError = error;
         return SpecDerivationMessages.Again(verdict, error);
+    }
+
+    /// <summary>2026-09-08-1830: pins a cut that left named contexts uncovered back once, with the
+    /// contexts it carried in view; the extra attempt this buys is part of <see cref="Bound"/>.</summary>
+    public ChatMessage Pin(IReadOnlyList<string> gap, SpecSet cut)
+    {
+        Pinned = true;
+        return new ChatMessage(ChatRole.User,
+            ScopedContextGapPromptSection.Render(gap, ScopedContextCoverage.Carried(cut)));
     }
 
     /// <summary>A contradiction the gate did not let park: asked again, or refuted.</summary>

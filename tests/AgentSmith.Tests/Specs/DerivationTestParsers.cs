@@ -12,10 +12,11 @@ internal static class DerivationTestParsers
     {
         var envelope = new SpecDerivationEnvelope();
         return new SpecDerivationParser(
-            new DerivedPhaseBuilder(
-                new SpecDraftValidator(new PhaseSpecSchemaProvider()), new PhaseDraftReader(),
-                new DerivedPhaseYamlRenderer(), envelope, new FactResolver()),
-            envelope,
-            new DerivedPhaseRepos(envelope, new SpecReposRule()));
+            new DerivedPhaseSequence(
+                new DerivedPhaseBuilder(
+                    new SpecDraftValidator(new PhaseSpecSchemaProvider()), new PhaseDraftReader(),
+                    new DerivedPhaseYamlRenderer(), envelope, new FactResolver()),
+                new DerivedPhaseRepos(envelope, new SpecReposRule())),
+            envelope);
     }
 }

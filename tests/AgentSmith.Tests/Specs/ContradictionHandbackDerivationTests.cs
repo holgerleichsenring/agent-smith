@@ -129,7 +129,7 @@ public sealed class ContradictionHandbackDerivationTests
         return await deriver.DeriveAsync(
             new Ticket(new TicketId("1"), "send the id", Ticket, null, "open", "test"),
             TicketSegmenter.Segment(Ticket), previous: null, series: "2026-10-12-0a0a",
-            cause: "initial derivation", new AgentConfig(), pipeline, CancellationToken.None);
+            cause: "initial derivation", repositories: [Repo], new AgentConfig(), pipeline, CancellationToken.None);
     }
 
     private static object Search(string pattern) => new FunctionCallContent(

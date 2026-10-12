@@ -44,6 +44,7 @@ public static class SpecDerivationRegistrations
     services.AddTransient<SpecDerivationEnvelope>();
     services.AddTransient<SpecDerivationParser>();
     services.AddTransient<SpecReposRule>().AddTransient<DerivedPhaseRepos>(); // 2026-10-12-3a36e
+    services.AddTransient<DerivedPhaseSequence>();
     // 2026-09-07-b7e2: the derivation may look before it writes — its call, its tool
     // host over the run's sandboxes, and the resolver that decides a fact in code.
     services.AddTransient<DerivedPhaseBuilder>();

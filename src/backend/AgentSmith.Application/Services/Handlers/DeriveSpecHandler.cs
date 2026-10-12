@@ -107,11 +107,9 @@ public sealed class DeriveSpecHandler(
             await gate.RefusedAsync(
                 context.Pipeline, context.Ticket!.Id.Value,
                 $"the derivation produced nothing usable ({error})", ct);
-            // 2026-10-08-f114: the fallback is a fresh one-phase set; over an executed head it would
-            // drop the record of work already on the branch, so the set the branch carries is kept —
-            // as is an expired hand-back (3a36b): expiry never approves a guess.
-            return (decision.Set is { } carried && (decision.Expired || carried.ExecutedHead.Count > 0) ? carried
-                : fallback.Build(key, series, context.Ticket!, segments, [], decision.Source, scope), []);
+            // The fallback is a fresh set; what the branch carries wins where a fresh set would lose it.
+            return (decision.KeptOnFailure
+                ?? fallback.Build(key, series, context.Ticket!, segments, [], decision.Source, scope), []);
         }
 
         // p0447: the deriver kept the least-objected cut instead of discarding it. The

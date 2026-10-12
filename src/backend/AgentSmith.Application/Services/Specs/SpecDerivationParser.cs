@@ -13,9 +13,8 @@ namespace AgentSmith.Application.Services.Specs;
 /// markdown companions.
 /// </summary>
 public sealed class SpecDerivationParser(
-    DerivedPhaseBuilder phaseBuilder,
-    SpecDerivationEnvelope envelope,
-    DerivedPhaseRepos phaseRepos)
+    DerivedPhaseSequence phases,
+    SpecDerivationEnvelope envelope)
 {
     /// <param name="Uncited">2026-10-12-3a36b: why a contradiction hand-back cites no look this derivation
     /// took; it is still parsed, and whether it is asked again or parks is the deriver's call.</param>
@@ -69,7 +68,7 @@ public sealed class SpecDerivationParser(
         var handback = envelope.Handback(root);
         if (handback is not null)
         {
-            var cited = ContradictionCitations.Resolve(handback, envelope.HandbackCites(root), evidence);
+            var cited = ContradictionCitations.Resolve(handback, envelope.HandbackCites(root), inputs.Evidence);
             return new Parsed(
                 new SpecDerivation(
                     new SpecSet(owner.Key, [], SpecAccounting.Empty, [Initial()], source,
@@ -91,17 +90,9 @@ public sealed class SpecDerivationParser(
         if (phaseElements.Count < executedHead.Count)
             return new Parsed(null,
                 $"the reply has {phaseElements.Count} phase(s) but {executedHead.Count} already ran — repeat them first");
-        var repos = phaseRepos.Decide(phaseElements[executedHead.Count..], inputs.Scope);
-        if (repos.Error is not null) return new Parsed(null, repos.Error);
-        var built = new List<SpecPhase>(executedHead);
-        for (var i = executedHead.Count; i < phaseElements.Count; i++)
-        {
-            var (phase, error) = phaseBuilder.Build(
-                phaseElements[i], i, owner.Series, ticketId, segments, built, inputs.Evidence,
-                repos.Repos[i - executedHead.Count]);
-            if (phase is null) return new Parsed(null, error);
-            built.Add(phase);
-        }
+        var (built, error) = phases.Build(
+            phaseElements, executedHead, owner.Series, ticketId, segments, inputs.Evidence, inputs.Scope);
+        if (built is null) return new Parsed(null, error);
 
         var accounting = SpecAccountingBuilder.Build(
             built, envelope.Discarded(root), segments, envelope.DiscardedContexts(root));
