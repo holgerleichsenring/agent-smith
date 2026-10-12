@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-fbbdd
+
+decisions:
+  - category: Architecture
+    chose: "AccountEvidenceRules.DiffReading holds only the shared hunk semantics; the account's judging rule is a second constant, DiffJudging, rendered on the same prompt line"
+    over: "One DiffReading carrying the account's '+'/'-' judging rule too"
+    reason: "The diff review renders DiffReading and adds its own sentence; folding the account rule in would hand the reviewer a rule about criteria it does not judge. One line keeps SpecAccountPrompt at 119 of 120 lines with no new local."
+  - category: Implementation
+    chose: "The rules sit after the body-or-search paragraph in the account prompt and after the line rule in the review prompt, both above the diff"
+    over: "Next to the DIFF heading"
+    reason: "DiffJudging defers a whole file's content to 'the rule above', which is true only when the body-or-search paragraph precedes it."
+  - category: Implementation
+    chose: "DiffWindows.Files reuses SpecDiffText.Boundaries, made internal"
+    over: "A second line-start matcher in DiffWindows"
+    reason: "One reading of where a file begins; the spec diff review and the account windows can no longer disagree."
+  - category: Implementation
+    chose: "CitedFileIndex.FromDiff scans lines with an in-hunk flag: set at '@@', cleared at a line starting 'diff --git '"
+    over: "Splitting by SpecDiffText.Boundaries and reading each chunk up to its first '@@'"
+    reason: "Same rule in one pass over the lines; every caller passes a git diff, so a file's header always follows a 'diff --git ' line."
