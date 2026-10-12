@@ -20,6 +20,10 @@ namespace AgentSmith.Application.Services.Specs;
 /// or the goal and step actions of a spec that states none — under a floor that a blank
 /// string and a bare step id cannot satisfy.
 /// </para>
+/// <para>
+/// A SHAPE RULE is admitted only when its quote is a done entry: a goal or a step that names
+/// a form is work to do, not a verdict a reader judges.
+/// </para>
 /// </summary>
 internal sealed class SpecCutAdmission(ILogger logger)
 {
@@ -39,6 +43,7 @@ internal sealed class SpecCutAdmission(ILogger logger)
         var spec = drafts.FirstOrDefault(d =>
             string.Equals(d.SpecId, finding.SpecId, StringComparison.OrdinalIgnoreCase));
         if (IsFalsePremise(finding)) return Cited(finding, spec, ran);
+        if (IsShapeRule(finding)) return QuotesADoneEntry(finding, spec);
         if (spec is not null && SpecQuotableText.Contains(spec, finding.Criterion)) return true;
 
         logger.LogWarning(
@@ -56,6 +61,18 @@ internal sealed class SpecCutAdmission(ILogger logger)
             finding.SpecId, finding.Cites ?? "nothing");
         return false;
     }
+
+    private bool QuotesADoneEntry(CutFinding finding, SpecDraft? spec)
+    {
+        if (spec is not null && SpecQuotableText.IsDoneEntry(spec, finding.Criterion)) return true;
+        logger.LogWarning(
+            "Cut review reported a shape rule in {Spec} quoting no done entry — discarding the finding: {Criterion}",
+            finding.SpecId, Shorten(finding.Criterion ?? string.Empty));
+        return false;
+    }
+
+    public static bool IsShapeRule(CutFinding finding) =>
+        string.Equals(finding.Problem?.Trim(), SpecCutVerdicts.ShapeRule, StringComparison.OrdinalIgnoreCase);
 
     public static bool IsFalsePremise(CutFinding finding) =>
         string.Equals(finding.Problem?.Trim(), SpecCutVerdicts.FalsePremise, StringComparison.OrdinalIgnoreCase);

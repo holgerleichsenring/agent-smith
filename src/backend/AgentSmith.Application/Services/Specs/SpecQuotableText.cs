@@ -36,6 +36,11 @@ public static class SpecQuotableText
     /// <summary>True when the quote is, or is most of, one of the spec's quotable texts.</summary>
     public static bool Contains(SpecDraft draft, string? quoted) => IsOneOf(Of(draft), quoted);
 
+    /// <summary>True when the quote is, or is most of, one of the spec's done entries —
+    /// never its goal or a step.</summary>
+    public static bool IsDoneEntry(SpecDraft draft, string? quoted) =>
+        IsOneOf([.. draft.Done.Where(d => !string.IsNullOrWhiteSpace(d))], quoted);
+
     /// <summary>
     /// 2026-09-17-0e79c: the same match against ANY corpus of stated texts. The premise check
     /// resolves a reported premise against what the spec says it RESTS ON, which is a different

@@ -12,6 +12,10 @@ namespace AgentSmith.Application.Services.Specs;
 /// 2026-09-15-a5a5: the ticket has three states, and the verdicts name what a spec STATES —
 /// a criterion, or its goal and steps where it lists none — rather than assuming a criterion.
 /// </para>
+/// <para>
+/// A shape rule is offered always and last: a done entry that measures the code's form is
+/// judged from a diff by a model, which is not where a size or a layout is measured.
+/// </para>
 /// </summary>
 public static class SpecCutVerdicts
 {
@@ -22,12 +26,16 @@ public static class SpecCutVerdicts
     /// <summary>The one verdict admitted by a citation instead of a quote.</summary>
     public const string FalsePremise = "false-premise";
 
+    /// <summary>The one verdict admitted only against a done entry.</summary>
+    public const string ShapeRule = "shape-rule";
+
     /// <summary>The problem keys on offer, in the order they are numbered.</summary>
     public static IReadOnlyList<string> Offered(CutReviewTicket ticket, bool canLook)
     {
         var offered = new List<string> { Contradiction, Uncheckable };
         if (ticket == CutReviewTicket.Whole) offered.Add(NotInTicket);
         if (canLook) offered.Add(FalsePremise);
+        offered.Add(ShapeRule);
         return offered;
     }
 
@@ -54,6 +62,7 @@ public static class SpecCutVerdicts
         2 => "two",
         3 => "three",
         4 => "four",
+        5 => "five",
         _ => count.ToString(System.Globalization.CultureInfo.InvariantCulture),
     };
 
@@ -73,6 +82,12 @@ public static class SpecCutVerdicts
             + "   so — a file, a type, a package, a version or a place it assumes — and a look you\n"
             + "   took shows otherwise. Quote what the spec states that rests on it, and cite the\n"
             + "   evidence id of the look that shows it.",
+        ShapeRule =>
+            "SHAPE RULE — a done entry that measures the code's form rather than an outcome,\n"
+            + "   however narrowly scoped: the size of functions, classes or files, line length,\n"
+            + "   operators per line, code layout (indentation, wrapping, braces) or naming\n"
+            + "   conventions. A visual design value or a named change (\"rename X to Y\") is not\n"
+            + "   one. Quote the done entry; nothing else a spec states is reported this way.",
         _ => throw new ArgumentOutOfRangeException(nameof(key), key, "not a cut-review verdict"),
     };
 }

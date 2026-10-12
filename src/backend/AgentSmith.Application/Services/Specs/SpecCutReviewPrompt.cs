@@ -40,8 +40,9 @@ public static class SpecCutReviewPrompt
 
             {{SpecCutVerdicts.Describe(offered, ticket)}}
 
-            Say nothing about style, ordering or how many specs there are. A cut that is
-            merely coarse is fine; a spec that cannot be delivered is not.
+            Say nothing about style, ordering or how many specs there are — except a shape
+            rule stated as a done entry, which is a way above. A cut that is merely coarse
+            is fine; a spec that cannot be delivered is not.
 
             Answer with JSON and nothing else. Quote VERBATIM what the spec states — its goal
             or a done criterion, or, for a spec that lists no done criteria, its goal or one of

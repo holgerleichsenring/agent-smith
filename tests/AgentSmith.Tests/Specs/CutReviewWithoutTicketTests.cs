@@ -14,13 +14,13 @@ public sealed class CutReviewWithoutTicketTests
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   \n")]
-    public void Prompt_WithNoTicket_OffersTwoVerdictsAndNeverNotInTheTicket(string? ticket)
+    public void Prompt_WithNoTicket_OffersThreeVerdictsAndNeverNotInTheTicket(string? ticket)
     {
         var prompt = SpecCutReviewPrompt.For(Criteria(), ticket, look: null);
 
         SpecCutReviewPrompt.StateOf(ticket).Should().Be(CutReviewTicket.Absent);
-        prompt.Should().Contain("There are two ways:")
-            .And.Contain("\"problem\": \"contradiction|uncheckable\"")
+        prompt.Should().Contain("There are three ways:")
+            .And.Contain("\"problem\": \"contradiction|uncheckable|shape-rule\"")
             .And.Contain("There is NO TICKET behind these specs")
             .And.NotContain("NOT IN THE TICKET")
             .And.NotContain("not-in-ticket")
@@ -34,9 +34,9 @@ public sealed class CutReviewWithoutTicketTests
 
         SpecCutReviewPrompt.StateOf(new string('x', 400_000)).Should().Be(CutReviewTicket.Truncated);
         prompt.Should().StartWith("A ticket has been cut into specs.")
-            .And.Contain("There are two ways:")
+            .And.Contain("There are three ways:")
             .And.Contain("TOO LONG TO SHOW")
-            .And.Contain("\"problem\": \"contradiction|uncheckable\"")
+            .And.Contain("\"problem\": \"contradiction|uncheckable|shape-rule\"")
             .And.Contain("\nTICKET\nxxx").And.EndWith("… ticket truncated")
             .And.NotContain("NOT IN THE TICKET");
     }
@@ -47,9 +47,9 @@ public sealed class CutReviewWithoutTicketTests
         var prompt = SpecCutReviewPrompt.For(Criteria(), "migrate the messaging library", look: null);
 
         prompt.Should().StartWith("A ticket has been cut into specs.")
-            .And.Contain("There are three ways:")
+            .And.Contain("There are four ways:")
             .And.Contain("3. NOT IN THE TICKET")
-            .And.Contain("\"problem\": \"contradiction|uncheckable|not-in-ticket\"")
+            .And.Contain("\"problem\": \"contradiction|uncheckable|not-in-ticket|shape-rule\"")
             .And.EndWith("\nTICKET\nmigrate the messaging library")
             .And.NotContain("TOO LONG TO SHOW").And.NotContain("NO TICKET");
     }

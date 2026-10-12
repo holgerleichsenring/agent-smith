@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-fbbdc
+
+decisions:
+  - category: Architecture
+    chose: "shape-rule is a fifth cut-review way, appended last and offered in every combination of ticket and look"
+    over: "Folding shape rules into UNCHECKABLE, or offering the way only when a ticket is shown"
+    reason: |
+      A shape rule is checkable — a gate can measure it — so calling it uncheckable would be a
+      false reason the reviewer has to defend. It needs neither the ticket nor a look: the done
+      entry alone shows it. Appending it last keeps every existing number in the prompt where it was.
+  - category: Architecture
+    chose: "A shape-rule finding is admitted only when its quote matches a done entry, through SpecQuotableText.IsDoneEntry over the same word matcher"
+    over: "Admitting it against SpecQuotableText.Of, which includes the goal always and the steps of a spec with no done list"
+    reason: |
+      Verify judges done entries only (AcceptanceCriteria). A goal or a step that names a form is
+      work to do, not a verdict a reader judges, so reporting it would block a cut over something
+      that cannot fail a run. One matcher keeps paraphrase admission the same as for the other ways.
+  - category: Implementation
+    chose: "The verdict text says 'done entry', never 'criterion'"
+    over: "Describing the way as 'a done criterion that is a shape rule'"
+    reason: |
+      The verdict list must not assume a criterion exists (Prompt_Verdicts_DoNotAssumeACriterionExists);
+      'done entry' names the same thing without that word, and also tells the reviewer what to quote.
+  - category: Scope
+    chose: "PackagedMaster_DesignPartner_KeepsShapeRulesOutOfDone is left to the skills pin bump"
+    over: "Writing it now against the current embedded pin"
+    reason: |
+      It reads the packaged master, which carries the rule only after the skills release; written now
+      it would fail or pin the old text.
