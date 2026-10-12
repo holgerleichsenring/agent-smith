@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-06-8565a
+
+decisions:
+  - category: Architecture
+    chose: "Limits are a fourth mandatory delta section whose fence restates the size prose; the validator requires every value to appear as '<n> lines' in Layout and size"
+    over: "A Source line per key inside the fence"
+    reason: |
+      24d4 already requires a Source line on every 'Max <n> lines' bullet. Two places holding a source would be
+      two places to disagree; the fence restates, the prose carries the evidence, the validator ties them.
+  - category: Architecture
+    chose: "The operator's 'green on the day it is installed' sentence lives in Writing limits; the artefact rule against changing what the target compiles to stays as it was"
+    over: "Replacing the artefact rule with a licence for build files once the code holds a rule"
+    reason: |
+      Review found the licence would put build-time enforcement back into the target's own pipeline, which the
+      operator ruled out. Build artefacts are a separate, later decision.
+  - category: Implementation
+    chose: "No delta declares types_per_file in this release; one type per file stays a prose rule"
+    over: "C# types_per_file: 1"
+    reason: |
+      Only the length numbers were ratified. A project that wants it sets it in its Project Specifics fence.
