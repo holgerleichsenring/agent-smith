@@ -1,60 +1,65 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-12-f5f7f
-goal: "A series whose repositories are out of step is handed back naming them, never re-cut or joined; a repository no longer named leaves the series; the scope keeps the members it knows."
+goal: "A spec write lands in all its repositories or in none; a series still found out of step is handed back as its own case, naming the repositories and the two real ways out."
 
-applies_to: "backend (revision cause, hand-back, spec write, scope)"
+applies_to: "backend (spec publish, series reader, hand-back, rework park)"
 
 requires: [2026-10-12-f5f7d]
 
 facts:
-  - claim: "The cause ranks Demand, Rework, StatusBack, TicketEdit and Comment before the sha check; an approved set under a Comment runs no model; every run appends a revision and writes the set it read."
-    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRevisionCause.cs:68-83, src/backend/AgentSmith.Application/Services/Specs/SpecAmendmentRule.cs:36-59, src/backend/AgentSmith.Application/Services/Specs/SpecRevisionHeader.cs:30-44"
-  - claim: "A failed write lets the run continue from the in-memory set."
-    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetPublisher.cs:34-39"
-  - claim: "A hand-back parks the ticket with a comment and a status; the provider cannot delete files."
-    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackPark.cs:28-45, src/backend/AgentSmith.Contracts/Providers/ISourceProvider.BranchWrite.cs:24-38"
-  - claim: "Scope is opened before any sandbox exists, from the approval or the configuration; Narrow narrows derived tickets; the CLI has no persistent pointer."
-    evidence: "src/backend/AgentSmith.Application/Services/Scope/ApprovedRepoScope.cs:20-89, src/backend/AgentSmith.Application/Services/Handlers/ScopeReposHandler.cs:94-98, src/backend/AgentSmith.Application/Services/Persistence/InMemorySpecSetPointerStore.cs:12-27"
-  - claim: "observed: a model re-cut on a lagging series cannot see the lagging repository's specs and would carry an approval nobody gave (round-4 review of 2026-10-12-f5f7d)."
-    evidence: "observed: 2026-10-12, spec review"
+  - claim: "A failed write is logged and the run continues from the in-memory set; the sandbox commits and pushes with git."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetPublisher.cs:23-53, src/backend/AgentSmith.Application/Services/SandboxGitOperations.cs:42-101"
+  - claim: "The hand-back cases are Contradiction, NotImplementable, Refused, Question and SpecificationMissingFromBranch; the comment's default arm posts the contradiction text; the repeat guard ends a second unanswered contradiction as a failed step; the park status is resolved per case."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecHandback.cs:50-86, src/backend/AgentSmith.Application/Services/Specs/SpecHandbackComment.cs:57-74, src/backend/AgentSmith.Application/Services/Specs/SpecHandbackRepeat.cs:33-44, src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs:55-79, src/backend/AgentSmith.Application/Services/Specs/SpecParkStatusResolver.cs:22-34"
+  - claim: "3a36a lets a PR command rework a ticket parked by a hand-back."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkParkCheck.cs:20-40"
+  - claim: "An Unreadable read on an unfiled ticket falls through to a fresh derivation; a resume skips the input causes; executed work reaches the model as previous.ExecutedHead built from read phases."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSourceResolver.cs:72-84, src/backend/AgentSmith.Application/Services/Specs/SpecRevisionCause.cs:72-82, src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:77, src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:57-58"
+  - claim: "Hand-back progress is recorded only when a TicketSeries row exists; the dashboard lists hand-backs by case."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs:77, src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkHandbacks.cs:38-45"
 
 assumptions: []
 
 scope:
-  in: "The lagging read (f5f7b) becomes a hand-back naming the lagging repositories, ranked above every cause but a re-cut demand, with no model and no approval carried; a repository no longer named gets an empty sub-series with the write's member list and leaves the pointer map; the server scope keeps the pointer map's repositories, the CLI relies on the reader's refusal."
-  out: "Automatic healing of a lagging series — a person re-runs after fixing what failed the push, or demands a re-cut."
+  in: "All-or-none publish (revert-push what this write already pushed when another member's push fails; pointer shas follow); a SeriesOutOfStep case with its own comment arm and a verdict-like park; the lagging read and a named member not checked out become that hand-back for every ticket, CLI included; a re-cut demand on it carries every member's done/ phases as the executed head; f5f7d's interim DeriveSpec failure replaced."
+  out: "Automatic healing beyond the rollback — a person demands a re-cut or re-approves and re-files."
 
 decisions:
-  - key: "OUT OF STEP HANDS BACK: no guess about which side is right; the comment names the lagging repositories and the failed push to fix. The operator owns the next step."
-  - key: "RANKED HIGH: out of step outranks Rework, StatusBack, TicketEdit and Comment; only a re-cut demand — a person's explicit choice — goes first, and its executed set is the stored executed ids plus every member's done/."
-  - key: "LEAVING IS A WRITE: the empty sub-series carries the same stamp and member list as the rest of the write, so the reader sees it as a non-member; through filing its planned files stay but are ignored."
-  - key: "SCOPE KEEPS WHAT IT KNOWS: the server keeps the pointer map's repositories; the CLI has none, and a member not checked out makes the read Unreadable, naming it."
+  - key: "ALL OR NONE: a member whose push failed makes the write revert the members it already pushed (git revert + push in their sandboxes); the run continues from memory as today, and no lag is left behind."
+  - key: "OUT OF STEP IS RARE AND NAMED: only a failed rollback or a person's edit leaves members on different stamps; it is handed back as SeriesOutOfStep, never joined, never re-cut by itself."
+  - key: "THE COMMENT GIVES THE REAL EXITS: write the re-cut demand phrase, or re-approve and re-file — 're-run' is not offered because nothing in a run heals it."
+  - key: "VERDICT-LIKE PARK: no repeat guard; a PR command is answered with the exits instead of a rework that would re-park."
+  - key: "RANKED HIGH, BELOW A DEMAND AND A RESUME: a demand is a person's choice; a resume continues work the checkpoint already holds."
+  - key: "THE DEMAND SEES EVERYTHING EXECUTED: the reader supplies every member's done/ phases, ordered by id, as the executed head; new ids skip them and the stored executed ids."
+  - key: "NO TICKETSERIES ROW, NO DASHBOARD ENTRY: the ticket comment is the record, as for other cases today."
 
 steps:
-  - id: cause
-    action: "Add the out-of-step cause for a read with lagging members, ranked as decided; hand back naming them; NeedsModel false, approval not carried."
+  - id: rollback
+    action: "In the series writer, on a failed member push revert-push the members already pushed in this write and restore their pointer shas; report the write as failed."
     modify:
-      - "SpecRevisionCause, SpecAmendmentRule, SpecSourceResolver, SpecHandbackPark, SpecHandbackComment"
+      - "SeriesWriter, SandboxGitOperations, SpecSetPointerRecorder"
+  - id: case
+    action: "Add SpecHandbackCase.SeriesOutOfStep with its comment arm, park status and repeat exemption; ReworkParkCheck answers a PR act on it with the exits."
+    modify:
+      - "SpecHandback, SpecHandbackComment, SpecParkStatusResolver, SpecHandbackRepeat, ReworkParkCheck, ReworkNudgeHandler"
+  - id: route
+    action: "Turn a lagging read or a named member not checked out into the SeriesOutOfStep hand-back, ranked as decided; replace f5f7d's DeriveSpec failure."
+    modify:
+      - "SpecSourceResolver, SpecRevisionCause, DeriveSpecHandler"
   - id: demand
-    action: "A re-cut demand on an out-of-step series takes its executed set from TicketSeries' executed ids and every member's done/."
+    action: "On a re-cut demand for an out-of-step series, read every member's done/ phases into the executed head."
     modify:
-      - "SpecRecutDemand, SpecSetDeriver"
-  - id: exit
-    action: "Write an empty sub-series with the write's stamp and member list into a repository no longer named; drop it from the pointer map after its push."
-    modify:
-      - "SeriesWriter, SpecSetPointerRecorder"
-  - id: scope
-    action: "Keep the pointer map's repositories in OpenAsync and Narrow on the server."
-    modify:
-      - "ApprovedRepoScope, ScopeReposHandler"
+      - "SeriesReader, SpecSetReadResult"
 
 tests:
-  - "SpecRevisionCause_LaggingMember_IsOutOfStepAboveComment"
-  - "SpecHandback_OutOfStep_NamesLaggingRepos_NoModel"
-  - "SpecRecutDemand_OutOfStep_KeepsExecutedFromIdsAndDone"
-  - "SeriesWriter_RepoNoLongerNamed_EmptySubSeriesThenLeavesMap"
-  - "ApprovedRepoScope_PointerMapRepo_Kept"
+  - "SeriesWriter_PushFailsInB_RevertsA_PointerRestored"
+  - "SpecSourceResolver_LaggingRead_HandsBackOutOfStep_NoModel"
+  - "SpecSourceResolver_NamedMemberNotCheckedOutInCli_HandsBack"
+  - "SpecHandbackComment_OutOfStep_NamesReposAndExits"
+  - "ReworkParkCheck_OutOfStep_PrCommandAnsweredWithExits"
+  - "SpecRecutDemand_OutOfStep_ExecutedHeadFromEveryMembersDone"
+  - "SpecRevisionCause_ResumeOnOutOfStep_Resumes"
 
 done:
-  - "After a push failing in one of two repositories, the next run hands the ticket back naming that repository and runs no model (RealCompositionHarness)."
-  - "In 19470's shape BackgroundWorker is not a member after the first write."
+  - "A push failing in one of two repositories leaves both on the previous revision and the next run proceeds normally (RealCompositionHarness)."
+  - "Two members on different stamps hand the ticket back as SeriesOutOfStep naming the lagging repository, with no model call."
