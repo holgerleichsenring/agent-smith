@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-f5f7e
+goal: "Every series repository gets its own draft spec PR, linked to the others like code PRs, and reference sets are carried once into every series repository."
+
+applies_to: "backend (spec PRs, cross-link, reference sets, resume)"
+
+requires: [2026-10-12-f5f7d]
+
+facts:
+  - claim: "The spec PR is opened once, on one repository; SpecPullRequestUrl holds one URL and has four readers, one of them 3a36c's failed-run spec PR beside the single SpecRepo."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecPullRequestOpener.cs:24-77, src/backend/AgentSmith.Application/Services/Specs/SpecSetTicketCommenter.cs:41, src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackPark.cs:33, src/backend/AgentSmith.Application/Services/Specs/PremiseHandbackNotice.cs:90, src/backend/AgentSmith.Application/Services/Handlers/FailedRunSpecPullRequest.cs:32-38"
+  - claim: "Both keys are saved in resume checkpoints."
+    evidence: "src/backend/AgentSmith.Application/Services/Resume/PipelineContextSerializer.cs:27-37"
+  - claim: "The cross-link patches every PR in OpenedPullRequests, which only CommitAndPR and InitCommit fill, and skips entries without a recorded body."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PrCrossLinkHandler.cs:25-86, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:152, src/backend/AgentSmith.Application/Services/Handlers/InitCommitHandler.cs:67"
+  - claim: "Reference sets are kept out of git and carried into the record's carrier sandbox; each carry overwrites ContextKeys.ReferenceSets and merges images again."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetCarrier.cs:9-11, src/backend/AgentSmith.Application/Services/Handlers/MaterializeReferenceSetsHandler.cs:35-86"
+
+assumptions: []
+
+scope:
+  in: "A draft spec PR per series repository; ContextKeys.SpecPullRequestUrls (repo → url) with the old string kept readable for parked checkpoints; the four readers; spec PRs in the cross-link with their body; reference sets carried into every series repository with one merged list and images carried once; f5f7d's interim single-PR rule removed."
+  out: "Code PR bodies (they already embed the series section)."
+
+decisions:
+  - key: "A NEW KEY, NOT A NEW TYPE: SpecPullRequestUrls beside the legacy string, so a parked run resumes."
+  - key: "EVERY REVIEWER SEES THEIR SPECS: one draft spec PR per series repository; the ticket comment and notices list all."
+  - key: "CROSS-LINKED LIKE CODE PRS: spec PRs enter OpenedPullRequests with their body, de-duplicated by repository against a code PR on the same branch."
+  - key: "ONE REFERENCE LIST: carried into each series repository, images once, ContextKeys.ReferenceSets set once."
+
+steps:
+  - id: prs
+    action: "Open a draft spec PR per series repository; write SpecPullRequestUrls; keep reading the legacy string."
+    modify:
+      - "SpecPullRequestOpener, SpecSetPublisher, ContextKeys"
+  - id: readers
+    action: "Make the ticket commenter, hand-back park, premise notice and failed-run spec PR use the map."
+    modify:
+      - "SpecSetTicketCommenter, SpecHandbackPark, PremiseHandbackNotice, FailedRunSpecPullRequest"
+  - id: crosslink
+    action: "Add spec PRs to OpenedPullRequests with their body, de-duplicated by repository."
+    modify:
+      - "SpecPullRequestOpener, CommitAndPRHandler"
+  - id: references
+    action: "Carry reference sets into every series repository with one merged list."
+    modify:
+      - "MaterializeReferenceSetsHandler, ReferenceSetCarrier"
+
+tests:
+  - "SpecPullRequestOpener_TwoSeriesRepos_OpensTwoDraftPrs"
+  - "SpecSetTicketCommenter_TwoSpecPrs_ListsBoth"
+  - "Resume_LegacySpecPullRequestUrl_StillRead"
+  - "PrCrossLink_SpecPrAndCodePrSameRepo_LinkedOnce"
+  - "MaterializeReferenceSets_TwoSeriesRepos_ImagesCarriedOnce"
+
+done:
+  - "A series over Server and Client opens two draft spec PRs that link each other and the code PRs (RealCompositionHarness)."
+  - "A run parked before this change resumes and still finds its spec PR."

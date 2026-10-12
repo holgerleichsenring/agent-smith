@@ -1,75 +1,82 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-12-f5f7d
-goal: "Each spec, its done record and its index line are written into the repository it names, every such repository carries the series manifest and a spec PR, and no code picks a repository by position."
+goal: "Each spec and its done record are written only into the repository it names; every series repository carries the manifest; placement never picks a repository by position."
 
-applies_to: "backend (spec publish, filing, spec record, reference sets, PR set)"
+applies_to: "backend (spec publish, filing, spec record, scope)"
 
 requires: [2026-10-12-f5f7b]
 
 facts:
-  - claim: "observed: series 2026-10-12-eff5 lay in BackgroundWorker while its spec changed only Server; Server's PR carried no spec; Server already held its own done specs from local work."
+  - claim: "observed: series 2026-10-12-eff5 lay in BackgroundWorker while its spec changed only Server; Server already held its own done specs from local work."
     evidence: "observed: 2026-10-12, AzDO items/commits on agent-smith/19470"
-  - claim: "The writer renders one manifest plus every unexecuted spec into the carrier's first sandbox, removes stale planned files there, and makes one commit and push."
+  - claim: "The writer renders one manifest plus every unexecuted spec into the carrier's first sandbox, cleans stale planned files only there, and makes one commit and push."
     evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesWriter.cs:27-87, src/backend/AgentSmith.Application/Services/Specs/SeriesFiles.cs:22-35, src/backend/AgentSmith.Application/Services/Specs/SeriesStaleFiles.cs:24-38"
-  - claim: "Publish sets one SpecRepo, records the pointer and opens one draft spec PR on the carrier; SpecPullRequestUrl holds one URL with three readers."
-    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetPublisher.cs:23-53, src/backend/AgentSmith.Application/Services/Specs/SpecPullRequestOpener.cs:24-77, src/backend/AgentSmith.Application/Services/Specs/SpecSetTicketCommenter.cs:41, src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackPark.cs:33, src/backend/AgentSmith.Application/Services/Specs/PremiseHandbackNotice.cs:90"
-  - claim: "Filing writes one repository through the provider: the passed carrier, else the record's, else ChooseCarrier."
-    evidence: "src/backend/AgentSmith.Application/Services/Specs/FiledSpecBranch.cs:44-111"
-  - claim: "The record writes done/ files, mocks and the index line into the carrier sandbox (else ContextKeys.Sandbox) and commits once; no other repository gets a file or a line."
-    evidence: "src/backend/AgentSmith.Application/Services/PhaseExecution/WritePhaseRecordHandler.cs:43-66, src/backend/AgentSmith.Application/Services/PhaseExecution/SpecDoneRecorder.cs:13-77, src/backend/AgentSmith.Application/Services/PhaseExecution/SpecDoneFiles.cs:14-39, src/backend/AgentSmith.Application/Services/PhaseExecution/PhaseIndexWriter.cs:31-62, src/backend/AgentSmith.Application/Services/PhaseExecution/SeriesRecordCommit.cs:20-38"
-  - claim: "Reference sets go into the record's carrier sandbox, else the first sandbox."
-    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MaterializeReferenceSetsHandler.cs:35-47, src/backend/AgentSmith.Application/Services/Handlers/MaterializeReferenceSetsHandler.cs:75-86"
-  - claim: "Positional pickers: Resolve falls back to scopedRepos[0], ChooseCarrier to the first configured repo the approval names, Named to repos[0]."
-    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecCarryingRepoResolver.cs:23-62, src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:63, src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedPhaseSetRecorder.cs:81"
-  - claim: "Code PR bodies embed the whole series section; the cross-link patches every opened PR."
-    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PrCrossLinkHandler.cs:25-86"
+  - claim: "Hand-back sets have no specs; today they are written with a draft PR the ticket comment links."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecDerivationParser.cs:66-73, src/backend/AgentSmith.Application/Services/Specs/ScopedContextQuestion.cs:30, src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackPark.cs:33-39"
+  - claim: "Executed state is the spec file's place in done/, not a manifest field; the reader does not compare a spec file's revision with the manifest's."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesManifestDocument.cs:13-43, src/backend/AgentSmith.Application/Services/Specs/SeriesReader.cs:76-88"
+  - claim: "A missing or different pointer sha reads as a reviewer's edit."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRevisionCause.cs:78-81"
+  - claim: "Approved specs already carry their repositories; the approval also stores one CarryingRepo; filing writes one repository through the provider."
+    evidence: "src/backend/AgentSmith.Contracts/Models/PhaseDraft.cs:59-66, src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedPhaseSetRecorder.cs:75-81, src/backend/AgentSmith.Application/Services/Specs/FiledSpecBranch.cs:44-111, src/backend/AgentSmith.Server/Services/SpecDialog/FiledSpecBranchWrite.cs:39-46"
+  - claim: "The record writes into the carrier sandbox, else ContextKeys.Sandbox; single-sandbox runs resolve against the project's repositories."
+    evidence: "src/backend/AgentSmith.Application/Services/PhaseExecution/SpecDoneRecorder.cs:13-77, src/backend/AgentSmith.Application/Services/Builders/WritePhaseRecordContextBuilder.cs:20-21, src/backend/AgentSmith.Application/Services/PhaseExecution/SeriesRecordCommit.cs:20-38"
+  - claim: "Positional pickers: Resolve (scopedRepos[0]), ChooseCarrier, Named (repos[0]); scoping runs before the series is read and only knows the approval."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecCarryingRepoResolver.cs:23-62, src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:63, src/backend/AgentSmith.Application/Services/Scope/ApprovedRepoScope.cs:31-80"
 
 assumptions: []
 
 scope:
-  in: "SeriesRepos (the repositories the specs name; legacy: the repository the series was read from); writer, publish, filing and record per repository; one draft spec PR per series repository with SpecPullRequestUrl as a per-repo map; reference sets into every series repository; positional pickers deleted."
-  out: "Moving existing series; the TicketSeries/ApprovedSeries CarryingRepo columns stay readable for legacy series."
+  in: "SeriesRepos; writer covering previous ∪ current series repositories; legacy specs written as {id, repo}; a set with no specs placed by rule; a sha recorded per successful push; the revision-lag rule; record into the spec's repository only; filing per spec repository; scope keeping approved and pointer repositories; positional pickers deleted."
+  out: "Spec PRs, SpecPullRequestUrl, cross-link and reference sets (2026-10-12-f5f7e). Choosing a sandbox within one repository stays matches[0]."
 
 decisions:
-  - key: "THE SPEC'S REPO DECIDES: files, done record and index line of a spec go only where it names; nothing else gets them."
-  - key: "THE MANIFEST GOES WITH ITS SPECS: every repository holding a spec of the series gets the manifest in the same write — metadata only, joined by f5f7b's highest-revision rule."
-  - key: "ONE COMMIT PER REPOSITORY, POINTER AFTER ALL: the pointer's shas are recorded after every push succeeded; a failed push leaves the pointer and the record step fails as today."
-  - key: "DELETED, NOT DEMOTED: no fallback by position; a new series is placed by its specs, a legacy one where it was read; neither known → refuse with the reason."
-  - key: "EVERY SERIES REPO GETS A SPEC PR, so the reviewer of each repository sees its specs; the cross-link links them like code PRs."
+  - key: "THE SPEC'S REPO DECIDES; a legacy spec's repo is the one it was read from, written explicitly."
+  - key: "PREVIOUS ∪ CURRENT: a write covers every repository that held the series before and holds it now, so a dropped repository loses its manifest and stale specs."
+  - key: "A SET WITHOUT SPECS goes to the previous series repositories, else to every scoped repository — a rule, not a pick."
+  - key: "A SHA PER PUSH: each repository's sha is recorded when its push succeeds, so our partial write is never read as a person's edit."
+  - key: "REVISION LAG: a series repository whose manifest revision is below the winning one makes the read Unreadable, naming it — an old spec is never read silently."
+  - key: "MULTI-REPO MEANS context.Repos > 1; a spec naming a repository that is not checked out is refused with the reason."
+  - key: "FILING PLACES BY SPEC: new approvals stop writing CarryingRepo; an amendment of a legacy approval files at its CarryingRepo."
+  - key: "SCOPE KEEPS WHAT IT KNOWS: the approved specs' repositories and the pointer's sha repositories (server); the CLI adds none."
+  - key: "UNTIL f5f7e the one draft spec PR opens in the repository of the series' earliest spec in series order."
 
 steps:
   - id: repos
-    action: "Add SeriesRepos and replace SpecCarryingRepoResolver's Resolve, ChooseCarrier and Named at every caller; remove the ContextKeys.Sandbox fallback in SpecDoneRecorder for multi-repo runs."
+    action: "Add SeriesRepos; replace Resolve, ChooseCarrier and Named at every caller; drop SpecDoneRecorder's ContextKeys.Sandbox fallback when context.Repos > 1."
     new:
       - "SeriesRepos"
     modify:
-      - "SpecCarryingRepoResolver, DeriveSpecHandler, ApprovedPhaseSetRecorder, FiledSpecBranch, WritePhaseRecordHandler, SpecDoneRecorder, ContextKeys.SpecRepo"
+      - "SpecCarryingRepoResolver, DeriveSpecHandler, ApprovedPhaseSetRecorder, FiledSpecBranch, WritePhaseRecordHandler, SpecDoneRecorder"
   - id: write
-    action: "Render and commit per repository: its specs, the manifest, its stale planned files; filing writes each repository through the provider."
+    action: "Per repository in previous ∪ current: its specs, the manifest, stale cleanup, commit, push, record its sha; filing likewise through the provider."
     modify:
-      - "SeriesWriter, SeriesFiles, SeriesStaleFiles, SpecSetPublisher, FiledSpecBranch"
+      - "SeriesWriter, SeriesFiles, SeriesStaleFiles, SpecSetPublisher, FiledSpecBranch, SpecSetPointerRecorder"
+  - id: lag
+    action: "In the reader, make a lagging manifest revision Unreadable naming the repository."
+    modify:
+      - "SeriesReader"
   - id: record
-    action: "Write done files, mocks and the index line into the spec's repository, update the manifest in every series repository, commit per repository, then record the pointer."
+    action: "Write done files, mocks and the index line into the spec's repository only; commit and record that repository's sha."
     modify:
       - "SpecDoneRecorder, SpecDoneFiles, PhaseIndexWriter, SeriesRecordCommit"
-  - id: prs
-    action: "Open a draft spec PR per series repository; make SpecPullRequestUrl a per-repo map and update its three readers."
+  - id: scope
+    action: "Keep the approved specs' and the pointer's repositories in scope in ApprovedRepoScope.OpenAsync; under --repo a missing one is named."
     modify:
-      - "SpecPullRequestOpener, SpecSetTicketCommenter, SpecHandbackPark, PremiseHandbackNotice"
-  - id: references
-    action: "Write reference sets into every series repository."
-    modify:
-      - "MaterializeReferenceSetsHandler"
+      - "ApprovedRepoScope, ScopeReposHandler"
 
 tests:
   - "SeriesWriter_SpecForServer_WritesSpecAndManifestInServerOnly"
-  - "SeriesWriter_SpecsInTwoRepos_EachGetsItsSpecAndTheManifest"
-  - "SpecDoneRecorder_SpecForServer_DoneFileAndIndexLineInServer"
-  - "SeriesRecordCommit_PushFailsInOneRepo_PointerUnchanged"
-  - "SpecPullRequestOpener_TwoSeriesRepos_OpensTwoDraftPrs"
-  - "SeriesRepos_NoneKnown_Refuses"
-  - "FiledSpecBranch_TwoSeriesRepos_WritesBoth"
+  - "SeriesWriter_RepoDroppedOnRecut_LosesManifestAndStaleSpecs"
+  - "SeriesWriter_LegacySpec_WrittenWithReadFromRepo"
+  - "SeriesWriter_HandbackSetWithoutSpecs_GoesToPreviousElseScope"
+  - "SeriesWriter_PushFailsInB_ShaOfARecorded_NoReviewerEdit"
+  - "SeriesReader_LaggingManifest_IsUnreadableNamingRepo"
+  - "SpecDoneRecorder_SpecForServer_DoneFileAndIndexLineInServerOnly"
+  - "SpecDoneRecorder_SpecRepoNotCheckedOut_Refuses"
+  - "FiledSpecBranch_TwoSpecRepos_WritesEach"
+  - "ApprovedRepoScope_ApprovedSpecNamesServer_KeepsServer"
 
 done:
   - "19470's shape (scope BackgroundWorker+Server, spec for Server) leaves spec, manifest, done record and index line in Server only (RealCompositionHarness)."
-  - "A grep for scopedRepos[0], repos[0] and sandboxes.First() in the spec placement code finds nothing."
+  - "A grep for scopedRepos[0], repos[0] and ChooseCarrier in spec placement finds nothing."
