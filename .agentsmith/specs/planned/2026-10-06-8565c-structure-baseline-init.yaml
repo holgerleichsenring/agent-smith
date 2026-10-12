@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-06-8565c
+goal: "Init measures a component against its principles' Limits and writes what already exceeds them as a baseline beside principles.md; a refresh only shrinks it, and the init PR names the count."
+
+applies_to: "backend (bootstrap principles transfer, init PR body, skills pin)"
+
+requires: [2026-10-06-8565a, 2026-10-06-8565b]
+
+facts:
+  - claim: "The bootstrap round hands the transfer the sandbox, context name, workdir and principles path, then records the outcome for the init PR."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/BootstrapRoundHandler.cs:66-75"
+  - claim: "The transfer preserves an existing file unless RefreshPrinciples is set, and otherwise writes the composed text with Project Specifics carried over."
+    evidence: "src/backend/AgentSmith.Application/Services/BootstrapPrinciplesTransfer.cs:40-104"
+  - claim: "BootstrapRoundHandler is 162 lines and BootstrapPrinciplesTransfer 105; the file-length ratchet forbids a listed file to grow and any file to pass 120."
+    evidence: "observed: wc -l, 2026-10-06; tests/AgentSmith.Tests/Architecture/FileLengthRatchetTests.cs:18-50"
+  - claim: "Per-context meta files live at .agentsmith/contexts/<name>/."
+    evidence: "src/backend/AgentSmith.Contracts/Services/ProjectMetaPaths.cs:14,24,50; src/backend/AgentSmith.Application/Services/BootstrapPromptFactory.cs:145-152"
+  - claim: "A handler runs git in a sandbox through RunStepAsync with a built step and reads OutputContent."
+    evidence: "src/backend/AgentSmith.Application/Services/SandboxGitOperations.cs:171-177"
+  - claim: "The init PR body writes one bullet per context from BootstrapRoundOutcome, per principles mode."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/InitPullRequestBody.cs:35-101; src/backend/AgentSmith.Application/Models/BootstrapRoundOutcome.cs:18-25"
+  - claim: "The skills catalog is pinned by version and sha in Infrastructure.Core; goldens compose against the embedded tarball."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:46-55; tests/AgentSmith.Tests/Skills/ComposedPrinciplesGoldenTests.cs:37-51,171-182"
+
+assumptions:
+  - claim: "git ls-files under the workdir lists the component's tracked sources without build output."
+    check: "Run it in a sandbox over a .NET and a Rust repository before building."
+
+scope:
+  in: >
+    Pin the skills release carrying 8565a; regenerate the goldens. StructureBaseline (Application): lists tracked
+    files under the workdir with git ls-files, measures each the engine recognises, judges against the Limits of
+    the principles text the round ends with, and writes structure-baseline.tsv (path, unit, metric, value) beside
+    principles.md. No baseline yet: write it. Refresh: keep only entries still over their limit, each at
+    min(old, measured); nothing is added. Preserve without refresh: untouched. No Limits block: no file. The
+    outcome carries the entry count; the PR body says how many units already exceed the limits.
+  out: >
+    Judging changed files at commit time — 8565d. Removing a fixed entry between inits — the next refresh does it.
+
+decisions:
+  - key: "A REFRESH NEVER ADDS. A unit someone grew past a limit after init surfaces at the gate the first time the agent touches its file."
+  - key: "TRACKED FILES ONLY. Build output and generated directories are not in git; no exclusion list to maintain."
+  - key: "BESIDE principles.md. The baseline belongs to the context whose limits it measures."
+
+steps:
+  - id: pin
+    action: "Bump SkillsCatalogVersion/Sha256 to the 8565a release; regenerate the principles goldens."
+  - id: baseline
+    action: "StructureBaseline and StructureBaselineFile (read, write, shrink) in Application."
+  - id: wire
+    action: "The transfer calls StructureBaseline after the principles decision; BootstrapRoundOutcome gains the count; no listed file grows."
+  - id: body
+    action: "InitPullRequestBody names the count per context."
+  - id: tests
+    action: "Tests below."
+
+tests:
+  - "StructureBaseline_FirstInit_WritesEveryUnitOverItsLimit"
+  - "StructureBaseline_Refresh_DropsFixedAndLowersShrunkEntries"
+  - "StructureBaseline_Refresh_AddsNoNewEntry"
+  - "StructureBaseline_PreservedWithoutRefresh_LeavesTheFile"
+  - "StructureBaseline_NoLimitsBlock_WritesNothing"
+  - "InitPullRequestBody_BaselineWritten_NamesTheCount"
+
+done:
+  - "an init over a fixture repository with one oversized C# method writes a baseline naming it and a PR body naming one unit"
+  - "build green, full suite green"

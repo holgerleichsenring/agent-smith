@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-06-8565d
+goal: "CommitSpecWork judges every file the branch changed against its context's Limits and baseline; a new excess goes back to the master once, and a second one fails the spec."
+
+applies_to: "backend (spec execution: commit step, master prompt, repair scope)"
+
+requires: [2026-10-06-8565b, 2026-10-06-8565c]
+
+facts:
+  - claim: "The spec block runs AgenticMaster, MasterOpenQuestions, CommitSpecWork, VerifySpec in that order; the repair block repeats the middle four."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Parking.cs:42-60; src/backend/AgentSmith.Application/Services/Specs/SpecVerdict.cs:112-118"
+  - claim: "CommitSpecWorkHandler pushes through the checkpointer and always returns Ok."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecution/CommitSpecWorkHandler.cs:25-36"
+  - claim: "A handler splices steps ahead with OkAndContinueWith; VerifySpec does so for its one repair pass, guarded by SpecRepairAttempted."
+    evidence: "src/backend/AgentSmith.Domain/Models/CommandResult.cs:48-54; src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:181-199"
+  - claim: "The branch diff against base, committed and uncommitted, comes from DeliveryDiff.ForBranchAsync; CitedFileIndex.FromDiff lists its paths."
+    evidence: "src/backend/AgentSmith.Application/Services/DeliveryDiff.cs:47-79; src/backend/AgentSmith.Application/Services/Specs/CitedFileIndex.cs:32-39"
+  - claim: "Each sandbox's contexts carry name and workdir."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SandboxContextList.cs:21-30; src/backend/AgentSmith.Contracts/Sandbox/RemoteContextDiscovery.cs:12-13,44"
+  - claim: "Outstanding criteria reach the master as a prompt block read from a context key; SelectSpec clears repair keys through SpecRepairScope.Reset."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecutionPromptBlocks.cs:39-50; src/backend/AgentSmith.Application/Services/SpecExecutionPromptFactory.cs:60; src/backend/AgentSmith.Application/Services/SpecRepairScope.cs:23-28"
+  - claim: "A sandbox file is read through ISandboxFileReaderFactory.Create(sandbox).TryReadAsync."
+    evidence: "src/backend/AgentSmith.Contracts/Sandbox/ISandboxFileReader.cs:8-19; src/backend/AgentSmith.Contracts/Sandbox/ISandboxFileReaderFactory.cs:8-11"
+
+assumptions:
+  - claim: "A unit is identified across commits by path, kind and name; a rename is a new unit."
+    check: "Accepted as the rule; a renamed oversized unit is reported as new."
+
+scope:
+  in: >
+    StructureGate (Application) per sandbox: changed paths of the branch; each assigned to the context with the
+    longest matching workdir; measured, judged against that context's principles Limits, minus entries its
+    structure-baseline.tsv tolerates (same unit, value not above the entry). CommitSpecWorkHandler pushes as
+    today, then runs the gate. Findings, first time in the spec: set StructureFindings and
+    StructureGateAttempted, splice AgenticMaster, MasterOpenQuestions, CommitSpecWork. Second time: Fail
+    naming every finding. SpecExecutionPromptBlocks renders the findings as a correction block. SpecRepairScope
+    resets both keys. No principles, no Limits or no recognised file: the gate passes silently.
+  out: >
+    Tightening the baseline after a fix — the next refresh (8565c). Deleted files are not judged.
+
+decisions:
+  - key: "AFTER THE PUSH, NOT BEFORE. The checkpoint protects work from loss; a branch is not a delivery, the PR is."
+  - key: "ONE CORRECTION, THEN A VERDICT. The same shape as the repair pass; a third try is a carousel."
+  - key: "NO VERIFY STAGE. The rules are judged by the framework at its own commit; the target's pipeline is not touched."
+
+steps:
+  - id: gate
+    action: "StructureGate and StructureBaselineFile reuse; ContextKeys StructureFindings, StructureGateAttempted."
+  - id: commit
+    action: "CommitSpecWorkHandler runs the gate after the push and splices or fails."
+  - id: prompt
+    action: "SpecExecutionPromptBlocks.StructureFindings; SpecRepairScope.Reset clears both keys."
+  - id: tests
+    action: "Tests below."
+
+tests:
+  - "StructureGate_NewOversizedFunction_ReturnsFinding"
+  - "StructureGate_BaselinedUnitNotGrown_ReturnsNothing"
+  - "StructureGate_BaselinedUnitGrown_ReturnsFinding"
+  - "StructureGate_FileOutsideEveryWorkdir_IsNotJudged"
+  - "StructureGate_NoLimitsBlock_ReturnsNothing"
+  - "CommitSpecWork_FirstFindings_SplicesMasterOpenQuestionsCommit"
+  - "CommitSpecWork_SecondFindings_FailsNamingThem"
+  - "PromptBlocks_StructureFindings_RendersEachFinding"
+  - "SpecRepairScope_Reset_ClearsStructureKeys"
+
+done:
+  - "a harness run whose master writes a 40-line Rust function under a 30-line limit gets one correction pass, and fails naming the function when it does not split it"
+  - "build green, full suite green"

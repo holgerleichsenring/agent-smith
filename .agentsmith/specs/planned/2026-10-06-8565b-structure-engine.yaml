@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-06-8565b
+goal: "A structure engine measures syntactic units — type, function, types per file — with tree-sitter and judges them against a principles file's Limits block, C# and Rust first."
+
+applies_to: "backend (Contracts port, Infrastructure engine, server image)"
+
+requires: [2026-10-06-8565a]
+
+facts:
+  - claim: "TreeSitter.DotNet 1.3.0 (2026-01-22, core 0.26.3, netstandard2.0, no dependencies) ships runtimes/<rid>/native grammars incl. c-sharp, rust, go, java, scala, python, typescript for linux-x64/arm64 and osx-arm64; no Kotlin, no Lua, no musl."
+    evidence: "observed: nuget.org TreeSitter.DotNet 1.3.0 nupkg unpacked, 2026-10-06"
+  - claim: "The binding exposes Language, Parser.Parse, Tree, Node and Query/QueryCursor.Execute."
+    evidence: "observed: TreeSitter.DotNet 1.3.0 lib/netstandard2.0/TreeSitter.xml, 2026-10-06"
+  - claim: "Core 0.26.x and 0.27.0 load grammars of ABI 13..15."
+    evidence: "observed: tree-sitter lib/include/tree_sitter/api.h:29,35 at v0.26.3 and v0.27.0, 2026-10-06"
+  - claim: "The server publishes framework-dependent without a RID on aspnet:10.0 (glibc), amd64 and arm64; runtimes/ assets travel this way today (SQLitePCLRaw e_sqlite3)."
+    evidence: "src/backend/AgentSmith.Server/Dockerfile:19,30,35; .github/workflows/docker-publish.yml:73,77; src/backend/AgentSmith.Infrastructure.Persistence/AgentSmith.Infrastructure.Persistence.csproj:22"
+  - claim: "A composed principles.md carries the delta's text verbatim except its Artefacts section."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Skills/CatalogPrinciplesTemplateSource.cs:49-54,81-118"
+  - claim: "Neither the backend nor the catalog reads any machine-readable delta data today."
+    evidence: "observed: grep 'principles-delta' over src/backend, 2026-10-06; agent-smith-skills:principles/deltas/*.md"
+
+assumptions:
+  - claim: "Grammar node names suffice to tell types, functions and Rust #[cfg(test)] modules apart."
+    check: "Parse one C# and one Rust fixture and print the tree before writing the queries."
+
+scope:
+  in: >
+    IStructureEngine (Contracts): Measure(path, content) returns the file's units — kind, name, start and end line,
+    physical lines — its type count and line count, or null for a language it has no grammar for. StructureLimits.Parse reads
+    every Limits fence of a principles text in order, a later key winning, so Project Specifics can set a house
+    limit (8565a's keys; an absent key sets no limit). StructureJudge compares a
+    measurement with the limits and returns findings (path, unit, metric, value, limit). Per language a data
+    file — extensions, grammar library, a query naming @type, @function and @test captures — is an embedded
+    resource; a new language is a resource, not code. Units inside @test are not measured.
+  out: >
+    Which files are measured and what is already tolerated — 8565c (init baseline) and 8565d (commit gate).
+    Kotlin and Lua need grammars TreeSitter.DotNet does not ship; a later spec builds them.
+
+decisions:
+  - key: "PHYSICAL LINES OF THE NODE SPAN. What a reader sees; 24d4's numbers are measured the same way."
+  - key: "TREESITTER.DOTNET, NOT THE LANGUAGE PACK. The pack downloads grammars at runtime and ships natives through runtime.json, which a RID-less publish does not restore."
+  - key: "TEST CODE IS A CAPTURE, NOT A PATH. Rust tests share the file; a path rule cannot see them."
+
+steps:
+  - id: contracts
+    action: "IStructureEngine, StructureMeasurement, StructureUnit, StructureFinding in Contracts."
+  - id: limits
+    action: "StructureLimits.Parse and StructureJudge (pure, Application)."
+  - id: engine
+    action: "TreeSitterStructureEngine (Infrastructure) over embedded language data; csharp and rust resources; registered as singleton."
+  - id: image
+    action: "Reference TreeSitter.DotNet 1.3.0; prove the grammar loads in the built server image on amd64."
+  - id: tests
+    action: "Tests below with fixtures under tests/."
+
+tests:
+  - "Measure_CSharpClassWithTwoMethods_ReturnsTypeAndBothFunctionsWithSpans"
+  - "Measure_CSharpFileWithTwoTypes_CountsTwoTypes"
+  - "Measure_RustCfgTestModule_ExcludesItsFunctions"
+  - "Measure_UnknownExtension_ReturnsNull"
+  - "Parse_LimitsFence_ReadsEveryKey"
+  - "Parse_NoLimitsSection_SetsNoLimit"
+  - "Parse_ProjectSpecificsFence_OverridesTheDeltaKey"
+  - "Judge_FunctionOverLimit_ReturnsOneFinding"
+  - "Judge_AbsentKey_JudgesNothingForThatMetric"
+
+done:
+  - "a C# and a Rust fixture are measured and judged on macOS and inside the built server image"
+  - "build green, full suite green"
