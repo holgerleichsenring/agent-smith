@@ -195,15 +195,16 @@ work is pushed:
 
 ```yaml
 format:
-  command: dotnet csharpier {files}
+  command: dotnet csharpier format {files}
   when_present: .config/dotnet-tools.json   # optional; absent path, no run
 verify_derived_from:
   files: [.github/workflows/ci.yml]
 ```
 
 `{files}` is required and is replaced by the shell-quoted, repository-root-relative paths
-the spec changed (measured from where the spec started) under this context's workdir; run
-records are left out. No changed file, no run. Each distinct command line runs once per
+the spec changed (measured from where the spec started) under this context's workdir, each
+as `'./path'` so a path that starts with `-` is never read as an option; run records are
+left out. `{files}` is never quoted in the command — the schema refuses `'{files}'`. No changed file, no run. Each distinct command line runs once per
 sandbox. A non-zero exit — a formatter that is not installed included — is logged and
 said in the step result; it never fails the spec, and the work is pushed as written.
 A repository that runs no formatter omits the block.

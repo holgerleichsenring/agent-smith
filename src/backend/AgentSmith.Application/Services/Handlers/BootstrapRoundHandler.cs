@@ -92,7 +92,7 @@ public sealed class BootstrapRoundHandler(
         // 2026-10-06-8565c: after the skill, so the baseline measures the principles.md the
         // init commits.
         var baseline = await structureBaseline.ApplyAsync(sandbox,
-            StructureBaselineScope.For(pipeline, context, transfer.Mode, existing.Principles), cancellationToken);
+            StructureBaselineScope.For(pipeline, context, transfer.Mode), cancellationToken);
         pipeline.AppendBootstrapOutcome(new BootstrapRoundOutcome(
             context.RepoName, context.ContextName, transfer.Mode, transfer.Artefacts, transfer.Overlays,
             transfer.ProjectSpecificsKept, outcome.ImageRefusal, baseline));

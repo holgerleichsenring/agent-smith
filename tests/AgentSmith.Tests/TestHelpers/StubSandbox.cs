@@ -98,12 +98,18 @@ internal sealed class StubSandbox(
         if (IsGit(step, "-z") && IsGit(step, "--name-only"))
             return Answer(step, 0, string.Concat(_stagedFiles.Select(f => f + "\0")) + "\n");
         if (IsGit(step, "-z") && IsGit(step, "--others")) return Answer(step, 0, "\n");
+        // 2026-10-13-2d0c: the gate reads at the merge-base of origin/main and HEAD.
+        if (IsGit(step, "merge-base")) return Answer(step, 0, BaseCommit + "\n");
+        if (IsGit(step, "ls-tree") && step.Args?.LastOrDefault() is { } listed)
+            return Answer(step, 0, baseFiles!.ContainsKey(listed) ? listed + "\n" : string.Empty);
         if (!IsGit(step, "show") || step.Args?.LastOrDefault() is not { } spec
-            || !spec.StartsWith("origin/main:", StringComparison.Ordinal))
+            || !spec.StartsWith(BaseCommit + ":", StringComparison.Ordinal))
             return null;
-        return baseFiles!.TryGetValue(spec["origin/main:".Length..], out var content)
+        return baseFiles!.TryGetValue(spec[(BaseCommit.Length + 1)..], out var content)
             ? Answer(step, 0, content) : Answer(step, 128, null);
     }
+
+    private const string BaseCommit = "base-commit-sha";
 
     private StepResult? SourceAnswer(Step step)
     {

@@ -48,6 +48,6 @@ public sealed class CommitSpecWorkHandler(
         await checkpointer.PushNowAsync(context.Pipeline, cancellationToken);
         logger.LogInformation("Spec work committed — the gate now reads a branch that carries it.");
         var verdict = await structureGate.JudgeAsync(context.Pipeline, cancellationToken);
-        return await structureOutcome.ResolveAsync(context.Pipeline, verdict, cancellationToken, formatNote);
+        return await structureOutcome.ResolveAsync(context.Pipeline, verdict, formatNote, cancellationToken);
     }
 }

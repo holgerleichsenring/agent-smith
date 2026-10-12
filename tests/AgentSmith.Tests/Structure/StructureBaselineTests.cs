@@ -15,7 +15,7 @@ public sealed class StructureBaselineTests
         var result = await Apply(repo);
 
         result.Should().Be(new StructureBaselineResult(true, 1, 0, false));
-        StructureBaselineFile.Parse(repo.Files[Baseline]).Should().ContainSingle()
+        StructureBaselineStubs.File.Parse(repo.Files[Baseline]).Should().ContainSingle()
             .Which.Should().Be(new StructureBaselineEntry("src/Api/A.cs", "A.Long()", "function_lines", 8));
     }
 
@@ -34,7 +34,7 @@ public sealed class StructureBaselineTests
     public async Task StructureBaseline_PreservedWithBaseline_LeavesIt(bool limited)
     {
         var repo = Repo(Class(Method("Long", 5)), limited ? Limits(4) : "## Additions\n");
-        var kept = StructureBaselineFile.Render([new("src/Api/A.cs", "A.Other()", "function_lines", 50)]);
+        var kept = StructureBaselineStubs.File.Render([new("src/Api/A.cs", "A.Other()", "function_lines", 50)], LimitSet(4));
         repo.Files[Baseline] = kept;
 
         var result = await Apply(repo, PrinciplesMode.PreservedExisting);
@@ -69,8 +69,9 @@ public sealed class StructureBaselineTests
     [Fact]
     public async Task StructureBaseline_ListingAtCaptureCap_WritesNothingAndSaysSo()
     {
+        // 2026-10-13-2d0c: a path with a newline makes the capture two lines, and the second may be cut.
         var repo = Repo(Class(Method("Long", 5)));
-        repo.Listing = new string('a', 1_000_000) + "\0\n";
+        repo.Listing = new string('a', 500_000) + "\n" + new string('b', 500_000) + "\0\n";
 
         (await Apply(repo)).Note.Should().Contain("capture cap");
         repo.Files.Should().NotContainKey(Baseline);

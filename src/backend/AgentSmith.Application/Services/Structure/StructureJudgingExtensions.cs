@@ -11,6 +11,12 @@ public static class StructureJudgingExtensions
         services.AddSingleton<StructureJudge>();
         services.AddTransient<StructureSourceListing>(); // 2026-10-06-8565c
         services.AddTransient<StructureBaseline>();
+        services.AddTransient<StructureGitRunner>(); // 2026-10-13-2d0c
+        services.AddTransient<StructureZeroListing>();
+        services.AddTransient<StructureBaselineHeader>();
+        services.AddTransient<StructureBaselineFile>();
+        services.AddTransient<StructureRepoContexts>();
+        services.AddTransient<StructureMergeBase>();
         services.AddTransient<StructureGitReads>();
         services.AddTransient<StructureGateContexts>();
         services.AddTransient<StructureGateFiles>();

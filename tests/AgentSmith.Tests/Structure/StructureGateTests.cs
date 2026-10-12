@@ -1,4 +1,6 @@
 using AgentSmith.Application.Services.Structure;
+using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using static AgentSmith.Tests.Structure.StructureGateFixture;
 
@@ -106,5 +108,46 @@ public sealed class StructureGateTests
             PipelineOf(repo, ("api", "src/Api"), ("worker", "src/Api/Worker")), CancellationToken.None);
 
         verdict.Passed.Should().BeTrue("the worker context declares no Limits, so the api context does not judge its file");
+    }
+
+    [Fact]
+    public async Task StructureGate_BaseMovedAfterCut_JudgesOnlyTheBranchsFiles()
+    {
+        var repo = Changed(Repo(), "src/Api/Mine.cs", "class Mine\n{\n}\n");
+        repo.Files["src/Api/Theirs.cs"] = Long;
+        repo.MovedOnBase.Add("src/Api/Theirs.cs");
+
+        var verdict = await Judge(repo);
+
+        verdict.Passed.Should().BeTrue("Theirs.cs changed on origin/main after the cut, not on this branch");
+        verdict.JudgedFiles.Should().Be(1);
+        repo.RanSteps.Should().Contain(step => step.Args!.SequenceEqual(new[] { "merge-base", "origin/main", "HEAD" }));
+    }
+
+    [Fact]
+    public async Task StructureGate_NoContextWithLimits_SaysWhyNothingWasJudged()
+    {
+        var repo = Changed(Repo(), "src/Api/A.cs", Long);
+        repo.BaseFiles[".agentsmith/contexts/api/principles.md"] = "## Additions\n";
+
+        var verdict = await Judge(repo);
+
+        verdict.JudgedContexts.Should().Be(0);
+        verdict.Skipped.Should().ContainSingle().Which.Should().Contain("no context with Limits and a baseline");
+    }
+
+    [Fact]
+    public async Task StructureGateContexts_GitShowFails_LogsAndPasses()
+    {
+        var repo = Changed(Repo(), "src/Api/A.cs", Long);
+        repo.LsTreeExitCode = 128;
+        var logger = new CapturingLogger<StructureGateContexts>();
+
+        var (owners, rules) = await Contexts(logger).ReadAsync(
+            [new RemoteContextDiscovery("api", "src/Api", "csharp")], repo, RepoSandbox.MergeBase, CancellationToken.None);
+
+        owners.Should().Equal("src/Api");
+        rules.Should().BeEmpty("a git that could not answer passes the context");
+        logger.Warnings.Should().ContainSingle().Which.Should().Contain("git could not read its terms").And.Contain("128");
     }
 }

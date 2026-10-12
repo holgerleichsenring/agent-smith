@@ -99,7 +99,8 @@ public sealed class CommitAndPRHandler(
         }
 
         var anyCode = stagedRepos.Any(s => s.HasCode);
-        await divergences.PublishAsync(context.Pipeline, cancellationToken); // 2026-10-12-fbbda
+        // 2026-10-12-fbbda: divergences for the PR bodies. 2026-10-13-2d0c: only a run with code has any.
+        if (anyCode) await divergences.PublishAsync(context.Pipeline, cancellationToken);
 
         // 2026-09-07-f420: the p0237 finalizer tail reaches this handler after a step has
         // FAILED. The verdict is then already known, so the account is not taken and the

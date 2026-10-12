@@ -13,10 +13,14 @@ namespace AgentSmith.Application.Services.Structure;
 /// refresh keeps what is still over at its lower value and adds only what a changed limit
 /// exposes; a preserved context with a baseline keeps it untouched. Whatever stops it is said,
 /// never thrown: the round goes on without a baseline.
+/// 2026-10-13-2d0c: "a changed limit" is measured against the Limits the baseline records in its
+/// header; a baseline that records none leaves the old limits unknown, so every unit over its
+/// band that it does not list is added.
 /// </summary>
 public sealed class StructureBaseline(
     StructureSourceListing listing, IStructureEngine engine, StructureLimits limits,
-    StructureJudge judge, ISandboxFileReaderFactory files, ILogger<StructureBaseline> logger)
+    StructureJudge judge, StructureBaselineFile baselineFile, ISandboxFileReaderFactory files,
+    ILogger<StructureBaseline> logger)
 {
     public async Task<StructureBaselineResult> ApplyAsync(
         ISandbox sandbox, StructureBaselineScope scope, CancellationToken cancellationToken)
@@ -41,7 +45,7 @@ public sealed class StructureBaseline(
     {
         var present = existing is not null;
         if (present && scope.Mode == PrinciplesMode.PreservedExisting)
-            return StructureBaselineResult.Untouched(StructureBaselineFile.Parse(existing).Count);
+            return StructureBaselineResult.Untouched(baselineFile.Parse(existing).Count);
         if (scope.Mode == PrinciplesMode.SkillWrites)
             return StructureBaselineResult.Skipped("the bootstrap skill wrote principles.md, whose Limits are not relied on", present);
         var limitSet = limits.Read(await reader.TryReadAsync(scope.PrinciplesPath, ct));
@@ -71,9 +75,9 @@ public sealed class StructureBaseline(
         var (findings, unreadable, unavailable) = await MeasureAsync(reader, claimed, limitSet, ct);
         if (unavailable is not null) return StructureBaselineResult.Skipped(unavailable, existing is not null);
         var entries = existing is not null
-            ? StructureBaselineFile.Refresh(StructureBaselineFile.Parse(existing), findings, limits.Read(scope.OldPrinciples))
+            ? baselineFile.Refresh(baselineFile.Parse(existing), findings, baselineFile.MeasuredWith(existing))
             : [.. findings.Select(StructureBaselineEntry.Of)];
-        await reader.WriteAsync(scope.BaselinePath, StructureBaselineFile.Render(entries), ct);
+        await reader.WriteAsync(scope.BaselinePath, baselineFile.Render(entries, limitSet), ct);
         return new StructureBaselineResult(true, entries.Count, unreadable, existing is not null);
     }
 

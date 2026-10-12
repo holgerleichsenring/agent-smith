@@ -22,6 +22,7 @@ public sealed class StructureGateFiles(
     {
         var reader = files.Create(sandbox);
         var findings = new List<StructureFinding>();
+        var judged = 0;
         foreach (var path in paths.Where(engine.Claims))
         {
             if (StructureWorkdir.Owner(owners, path) is not { } owner || !rules.TryGetValue(owner, out var terms))
@@ -35,12 +36,12 @@ public sealed class StructureGateFiles(
             if (measurement.Outcome == StructureOutcome.Unavailable)
                 return new StructureGateVerdict([], measurement.Reason);
             findings.AddRange(Untolerated(path, measurement, terms));
+            judged++;
         }
-        return new StructureGateVerdict(findings);
+        return new StructureGateVerdict(findings) { JudgedFiles = judged, JudgedContexts = rules.Count };
     }
 
     private IEnumerable<StructureFinding> Untolerated(
         string path, StructureMeasurement measurement, StructureContextRules terms) =>
-        judge.Judge(path, measurement, terms.Limits).Where(f => !f.IsExcess
-            || !StructureBaselineFile.Tolerates(terms.Baseline, f.Path, f.Key, f.Metric, f.Value));
+        judge.Judge(path, measurement, terms.Limits).Where(f => !f.IsExcess || !terms.Tolerates(f));
 }

@@ -57,6 +57,19 @@ public sealed class ContextYamlFormatTests
         _written.Should().BeNull("a formatter that cannot be handed the changed files would reformat the repository");
     }
 
+    [Theory]
+    [InlineData("dotnet csharpier format '{files}'")]
+    [InlineData("dotnet csharpier format \\\"{files}\\\"")]
+    public async Task ContextYamlFormat_QuotedPlaceholder_IsRefused(string command)
+    {
+        // 2026-10-13-2d0c: {files} is replaced by paths already quoted; quoting it again joins them into one word.
+        var result = await Host().WriteContextYaml("client", "default", Document(command));
+
+        result.Should().NotStartWith(SandboxContextYamlWriter.WrittenPrefix);
+        result.Should().Contain("/format/command");
+        _written.Should().BeNull();
+    }
+
     [Fact]
     public async Task WriteContextYaml_FormatOnly_KeepsItsDerivation()
     {

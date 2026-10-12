@@ -1,10 +1,10 @@
-using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.Structure;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
+using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Tests.Structure;
@@ -16,18 +16,22 @@ internal static class StructureGateFixture
     public const string Limits = "## Limits\n\n```yaml\nfunction_lines: 4\n```\n";
 
     public static StructureGate Gate(bool missingGrammar = false) => new(
-        new SandboxTargets(),
-        new DeliveryDiff(
-            new SandboxBaseLadder(new SandboxBaseBranch(NullLogger<SandboxBaseBranch>.Instance),
-                NullLogger<SandboxBaseLadder>.Instance),
-            new SandboxRunStartCommit(NullLogger<SandboxRunStartCommit>.Instance),
-            NullLogger<DeliveryDiff>.Instance),
-        new StructureGitReads(),
-        new StructureGateContexts(new StructureGitReads(), new StructureLimits(), NullLogger<StructureGateContexts>.Instance),
+        new SandboxTargets(), MergeBase(), StructureBaselineStubs.GitReads(), new StructureRepoContexts(),
+        Contexts(NullLogger<StructureGateContexts>.Instance),
         new StructureGateFiles(
             missingGrammar ? StructureEngineFixture.MissingGrammar() : StructureEngineFixture.Engine(),
             new StructureJudge(), new SandboxFileReaderFactory(), NullLogger<StructureGateFiles>.Instance),
         NullLogger<StructureGate>.Instance);
+
+    /// <summary>2026-10-13-2d0c: the merge-base resolution over the real ladder.</summary>
+    public static StructureMergeBase MergeBase() => new(
+        new SandboxBaseLadder(new SandboxBaseBranch(NullLogger<SandboxBaseBranch>.Instance),
+            NullLogger<SandboxBaseLadder>.Instance),
+        new SandboxRunStartCommit(NullLogger<SandboxRunStartCommit>.Instance), new StructureGitRunner(),
+        NullLogger<StructureMergeBase>.Instance);
+
+    public static StructureGateContexts Contexts(ILogger<StructureGateContexts> logger) => new(
+        StructureBaselineStubs.GitReads(), new StructureLimits(), StructureBaselineStubs.File, logger);
 
     /// <summary>2026-10-12-fbbda: the PR-time divergence judgment over the same gate.</summary>
     public static StructureDivergencePublisher Publisher() =>

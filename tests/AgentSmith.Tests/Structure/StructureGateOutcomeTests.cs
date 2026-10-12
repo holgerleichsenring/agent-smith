@@ -41,7 +41,7 @@ public sealed class StructureGateOutcomeTests
     {
         var pipeline = Spec();
 
-        var result = await Outcome().ResolveAsync(pipeline, Found, CancellationToken.None);
+        var result = await Outcome().ResolveAsync(pipeline, Found, null, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         result.InsertNext!.Select(c => (c.Name, c.SpecId)).Should().Equal(
@@ -55,9 +55,9 @@ public sealed class StructureGateOutcomeTests
     public async Task CommitSpecWork_SecondFindings_RecordsFailedAndFails()
     {
         var pipeline = Spec();
-        await Outcome().ResolveAsync(pipeline, Found, CancellationToken.None);
+        await Outcome().ResolveAsync(pipeline, Found, null, CancellationToken.None);
 
-        var result = await Outcome().ResolveAsync(pipeline, FoundTwo, CancellationToken.None);
+        var result = await Outcome().ResolveAsync(pipeline, FoundTwo, null, CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.Message.Should().Contain("A.Long()").And.Contain("B.Wide()");
@@ -72,7 +72,7 @@ public sealed class StructureGateOutcomeTests
     {
         var pipeline = Spec();
 
-        var result = await Outcome().ResolveAsync(pipeline, NoGrammar, CancellationToken.None);
+        var result = await Outcome().ResolveAsync(pipeline, NoGrammar, null, CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.Message.Should().Contain("tree-sitter-c-sharp");
@@ -101,7 +101,7 @@ public sealed class StructureGateOutcomeTests
     {
         var pipeline = FixPass();
 
-        var result = await Outcome().ResolveAsync(pipeline, Found, CancellationToken.None);
+        var result = await Outcome().ResolveAsync(pipeline, Found, null, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue(result.Message);
         result.Message.Should().Contain("reverted to the verified state");
@@ -113,7 +113,7 @@ public sealed class StructureGateOutcomeTests
     {
         var pipeline = FixPass();
 
-        var result = await Outcome().ResolveAsync(pipeline, NoGrammar, CancellationToken.None);
+        var result = await Outcome().ResolveAsync(pipeline, NoGrammar, null, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue(result.Message);
         pipeline.Get<string>(ContextKeys.SpecReviewReverted).Should().Contain("tree-sitter-c-sharp");
@@ -125,7 +125,7 @@ public sealed class StructureGateOutcomeTests
         var pipeline = Spec();
         SpecReviewFixPass.Prepare(pipeline);
 
-        var result = await Outcome().ResolveAsync(pipeline, Found, CancellationToken.None);
+        var result = await Outcome().ResolveAsync(pipeline, Found, null, CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         _progress.Verify(p => p.RecordAsync(pipeline, SpecId, SpecRunState.Failed,
@@ -136,9 +136,9 @@ public sealed class StructureGateOutcomeTests
     public async Task CommitSpecWork_Pass_ClearsStructureFindings()
     {
         var pipeline = Spec();
-        await Outcome().ResolveAsync(pipeline, Found, CancellationToken.None);
+        await Outcome().ResolveAsync(pipeline, Found, null, CancellationToken.None);
 
-        var result = await Outcome().ResolveAsync(pipeline, StructureGateVerdict.Pass, CancellationToken.None);
+        var result = await Outcome().ResolveAsync(pipeline, StructureGateVerdict.Pass, null, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
         pipeline.TryGet<List<string>>(ContextKeys.StructureFindings, out _).Should().BeFalse();

@@ -25,7 +25,7 @@ internal static class FormatFixture
     public const string StartHead = "spec-start";
 
     public static SpecFormatRun Run() => new(
-        new SandboxTargets(), new StructureGitReads(), new SpecFormatPlan(),
+        new SandboxTargets(), StructureBaselineStubs.GitReads(), new StructureRepoContexts(), new SpecFormatPlan(),
         new DeclaredStagePresence(new SandboxFileReaderFactory(), NullLogger<DeclaredStagePresence>.Instance),
         new VerifyCommandRunner(NullLogger<VerifyCommandRunner>.Instance), NullLogger<SpecFormatRun>.Instance);
 

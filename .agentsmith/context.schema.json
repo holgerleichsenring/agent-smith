@@ -526,10 +526,10 @@
         "command": {
           "type": "string",
           "minLength": 2,
-          "pattern": "\\{files\\}",
-          "description": "The command line, carrying {files} where the changed paths go \u2014 replaced by the shell-quoted, repository-root-relative paths the spec changed under this context's workdir. A binary is addressed from the repository root. The rewriting form, never a check mode.",
+          "pattern": "^(?!.*['\"]\\{files\\}['\"]).*\\{files\\}",
+          "description": "The command line, carrying {files} where the changed paths go \u2014 replaced by the shell-quoted, repository-root-relative paths ('./src/A.cs') the spec changed under this context's workdir. Never quote {files} yourself: it is already quoted. A binary is addressed from the repository root. The rewriting form, never a check mode.",
           "examples": [
-            "dotnet csharpier {files}",
+            "dotnet csharpier format {files}",
             "npx prettier --write {files}",
             "ruff format {files}"
           ]

@@ -320,6 +320,27 @@ public class CommitAndPRHandlerTests
     }
 
     [Fact]
+    public async Task CommitAndPR_NoCode_JudgesNoDivergence()
+    {
+        // 2026-10-13-2d0c: a run that changed no code has no divergence to name, so the gate is not asked.
+        _sandboxMock.Reset();
+        _sandboxMock.Setup(s => s.RunStepAsync(
+                It.IsAny<Step>(), It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
+            .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
+                Task.FromResult(new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null)));
+        var pipeline = NewPipelineWithSandbox();
+        pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, [new RepoConnection()]);
+
+        await _sut.ExecuteAsync(CreateContext(pipeline), CancellationToken.None);
+
+        pipeline.TryGet<IReadOnlyList<AgentSmith.Contracts.Models.Structure.StructureFinding>>(
+            ContextKeys.StructureDivergences, out _).Should().BeFalse();
+        _sandboxMock.Verify(s => s.RunStepAsync(
+            It.Is<Step>(st => st.Command == "git" && st.Args!.Contains("merge-base")),
+            It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
     public async Task ExecuteAsync_WithoutDoneStatus_FinalizesAtomicallyWithNullStatus()
     {
         var context = CreateContext();

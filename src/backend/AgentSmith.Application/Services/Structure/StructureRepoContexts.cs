@@ -9,10 +9,11 @@ namespace AgentSmith.Application.Services.Structure;
 /// repository (all its contexts, also those scoping left without a sandbox) and the context
 /// list of each sandbox the repository owns. A file is judged by the context whose workdir
 /// holds it, so a context missing here would hand its files to the context around it.
+/// 2026-10-13-2d0c: an instance service, injected where it is read.
 /// </summary>
-public static class StructureRepoContexts
+public sealed class StructureRepoContexts
 {
-    public static IReadOnlyList<RemoteContextDiscovery> Of(
+    public IReadOnlyList<RemoteContextDiscovery> Of(
         PipelineContext pipeline, string repoName, IEnumerable<string> sandboxKeys)
     {
         ArgumentNullException.ThrowIfNull(pipeline);

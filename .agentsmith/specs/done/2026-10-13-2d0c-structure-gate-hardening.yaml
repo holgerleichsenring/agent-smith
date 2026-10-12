@@ -63,6 +63,8 @@ tests:
   - "StructureBaseline_RefreshAfterManualLimitChange_AddsTheExposedUnit"
   - "StructureBaseline_RefreshAfterToleranceLowered_AddsTheExposedUnit"
   - "StructureSourceListing_LongZeroSeparatedLine_IsAccepted"
+  - "StructureGateOutcome_NothingJudged_SaysSo"
+  - "StructureBaseline_RefreshOfHeaderlessBaseline_AddsEveryUnitOverItsBand"
 
 done:
   - "A base moved after the cut leaves the gate judging only the branch's files (unit and real-git test)."

@@ -24,8 +24,8 @@ public sealed class SpecFormatRunTests
 
         note.Should().BeNull("every formatter exited 0");
         sandbox.ShellCommands.Should().BeEquivalentTo(
-            "dotnet csharpier 'api/src/A.cs' 'api/src/it'\\''s.cs'",
-            "prettier --write 'README.md'");
+            "dotnet csharpier './api/src/A.cs' './api/src/it'\\''s.cs'",
+            "prettier --write './README.md'");
         sandbox.RanSteps.Where(FormatSandbox.IsShell).Should().OnlyContain(step => step.WorkingDirectory == "/work",
             "a declared command runs at the repository root");
         sandbox.RanSteps.Should().Contain(step => FormatSandbox.IsGit(step, FormatFixture.StartHead),
@@ -80,6 +80,16 @@ public sealed class SpecFormatRunTests
             [FormatFixture.Context("web", "web", null)],
             ["web/app.ts", "src/A.cs"]);
 
-        plan.Should().ContainSingle().Which.CommandLine.Should().Be("fmt 'src/A.cs'");
+        plan.Should().ContainSingle().Which.CommandLine.Should().Be("fmt './src/A.cs'");
+    }
+
+    [Fact]
+    public void SpecFormatPlan_DashLeadingPath_IsPassedAsRelative()
+    {
+        var plan = new SpecFormatPlan().Plan(
+            [FormatFixture.Context("root", ".", "fmt {files}")], [], ["-rf.cs", "--help.cs"]);
+
+        plan.Should().ContainSingle().Which.CommandLine.Should().Be(
+            "fmt './-rf.cs' './--help.cs'", "a path that starts with '-' must never reach the formatter as an option");
     }
 }

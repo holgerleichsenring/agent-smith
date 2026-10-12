@@ -47,7 +47,7 @@ public sealed class FormatBeforeCommitHarnessTests
         var format = steps.FindIndex(step => step.Command == "/bin/sh" && step.Args is [_, var line]
             && line.StartsWith("dotnet csharpier", StringComparison.Ordinal));
         format.Should().BeGreaterThanOrEqualTo(0, "the declared formatter ran");
-        steps[format].Args![1].Should().Be("dotnet csharpier 'src/Handler.cs'",
+        steps[format].Args![1].Should().Be("dotnet csharpier './src/Handler.cs'",
             "the formatter gets the file the spec changed, and the run record stays out of it");
         steps[format].WorkingDirectory.Should().Be("/work");
         IsCheckpointStart(steps[format + 1]).Should().BeTrue(

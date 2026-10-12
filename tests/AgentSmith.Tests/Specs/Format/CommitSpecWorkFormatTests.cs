@@ -26,7 +26,7 @@ public sealed class CommitSpecWorkFormatTests
         var format = sandbox.RanSteps.FindIndex(FormatSandbox.IsShell);
         var commit = sandbox.RanSteps.FindIndex(step => FormatSandbox.IsGit(step, "commit"));
         format.Should().BeGreaterThanOrEqualTo(0, "the declared formatter ran");
-        sandbox.RanSteps[format].Args![1].Should().Be("dotnet csharpier 'src/A.cs'");
+        sandbox.RanSteps[format].Args![1].Should().Be("dotnet csharpier './src/A.cs'");
         commit.Should().BeGreaterThan(format, "the checkpoint commits what the formatter wrote");
     }
 
@@ -40,7 +40,8 @@ public sealed class CommitSpecWorkFormatTests
         var result = await Commit(pipeline);
 
         result.IsSuccess.Should().BeTrue("a formatter that cannot run never fails the spec");
-        result.Message.Should().StartWith("format: the api formatter exited 127");
+        result.Message.Should().StartWith("Spec work is on the branch;", "the verdict leads, the formatter note follows")
+            .And.Contain("\nformat: the api formatter exited 127");
         sandbox.RanSteps.Should().Contain(step => FormatSandbox.IsGit(step, "commit"), "the work is committed as written");
     }
 

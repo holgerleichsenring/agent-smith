@@ -1,3 +1,4 @@
+using System.Globalization;
 using AgentSmith.Contracts.Models.Structure;
 
 namespace AgentSmith.Application.Services.Structure;
@@ -11,13 +12,15 @@ namespace AgentSmith.Application.Services.Structure;
 /// 2026-10-12-fbbda: 'tolerance_percent' is read beside the metrics, as an integer of 0 or more —
 /// a house fence overrides the delta's, 0 makes the context strict, and a fence that carries only
 /// a tolerance sets no limit.
+/// 2026-10-13-2d0c: values parse culture-invariant, and Project Specifics ends at the next '## '.
 /// </summary>
 public sealed class StructureLimits
 {
     private const string DeltaHeading = "## Limits";
     private const string HouseHeading = "### Limits";
     private const string SpecificsHeading = "## Project Specifics";
-    private const string ToleranceKey = "tolerance_percent";
+    public const string ToleranceKey = "tolerance_percent";
+    private const string SectionPrefix = "## ";
 
     public StructureLimitSet Read(string? principles)
     {
@@ -35,7 +38,8 @@ public sealed class StructureLimits
         for (var i = 0; i < lines.Length; i++)
         {
             var line = lines[i].TrimEnd();
-            if (line.StartsWith(SpecificsHeading, StringComparison.Ordinal)) inSpecifics = true;
+            if (line.StartsWith(SectionPrefix, StringComparison.Ordinal))
+                inSpecifics = line.StartsWith(SpecificsHeading, StringComparison.Ordinal);
             var isLimits = line == DeltaHeading || (inSpecifics && line == HouseHeading);
             if (isLimits && FenceAfter(lines, i + 1) is { } fence) yield return fence;
         }
@@ -63,7 +67,7 @@ public sealed class StructureLimits
         foreach (var raw in fence)
         {
             var parts = raw.Split('#', 2)[0].Split(':', 2, StringSplitOptions.TrimEntries);
-            if (parts.Length != 2 || !int.TryParse(parts[1], out var value)) continue;
+            if (parts.Length != 2 || !int.TryParse(parts[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var value)) continue;
             if (parts[0] == ToleranceKey && value >= 0) tolerance = value;
             else if (StructureMetric.All.Contains(parts[0]) && value > 0) merged[parts[0]] = value;
         }

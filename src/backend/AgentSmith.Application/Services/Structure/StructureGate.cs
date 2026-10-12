@@ -13,21 +13,25 @@ namespace AgentSmith.Application.Services.Structure;
 /// terms of every context of that repository. Terms come from the base; the files come from the
 /// working tree, which is what is being delivered. No comparable base, no judgment.
 /// 2026-10-12-fbbda: every finding carries the repository whose sandbox it was judged in.
+/// 2026-10-13-2d0c: the base is the merge-base with the delivery's base rung, so a base that
+/// moved after the cut never hands this branch someone else's files; what was not judged is said.
 /// </summary>
 public sealed class StructureGate(
-    SandboxTargets targets, DeliveryDiff deliveryDiff, StructureGitReads git, StructureGateContexts contexts,
-    StructureGateFiles files, ILogger<StructureGate> logger)
+    SandboxTargets targets, StructureMergeBase mergeBase, StructureGitReads git, StructureRepoContexts repoContexts,
+    StructureGateContexts contexts, StructureGateFiles files, ILogger<StructureGate> logger)
 {
     public async Task<StructureGateVerdict> JudgeAsync(PipelineContext pipeline, CancellationToken ct)
     {
-        var findings = new List<StructureFinding>();
-        foreach (var repo in Repos(pipeline))
+        var repos = Repos(pipeline);
+        var verdict = repos.Count > 0 ? new StructureGateVerdict([])
+            : StructureGateVerdict.NotJudged("the run names no repository");
+        foreach (var repo in repos)
         {
-            var verdict = await JudgeRepoAsync(pipeline, repo, ct);
-            if (verdict.Unavailable is not null) return verdict;
-            findings.AddRange(verdict.Findings);
+            var judged = await JudgeRepoAsync(pipeline, repo, ct);
+            if (judged.Unavailable is not null) return judged;
+            verdict = verdict.Plus(judged);
         }
-        return new StructureGateVerdict(findings);
+        return verdict;
     }
 
     /// <summary>
@@ -54,32 +58,32 @@ public sealed class StructureGate(
         PipelineContext pipeline, RepoConnection repo, CancellationToken ct)
     {
         var owned = targets.SandboxesForRepo(pipeline, repo);
-        if (owned.Count == 0) return StructureGateVerdict.Pass;
+        if (owned.Count == 0) return StructureGateVerdict.NotJudged($"{repo.Name}: no sandbox");
         // The sandbox RepoWorkPusher puts on the branch: the one whose tree is delivered.
         var sandbox = owned[0].Value;
-        var diff = await deliveryDiff.ForBranchAsync(sandbox, DeliveryBasis.For(pipeline), ct);
-        if (diff.Failed || diff.BaseRef is not { } baseRef)
+        if (await mergeBase.ResolveAsync(sandbox, DeliveryBasis.For(pipeline), ct) is not (string rung, string commit))
         {
-            logger.LogInformation("Structure gate passes {Repo}: no comparable base ({Basis})", repo.Name, diff.Basis);
-            return StructureGateVerdict.Pass;
+            logger.LogInformation("Structure gate passes {Repo}: no base rung gives a merge-base", repo.Name);
+            return StructureGateVerdict.NotJudged($"{repo.Name}: no comparable base");
         }
-        var repoContexts = StructureRepoContexts.Of(pipeline, repo.Name, owned.Select(kv => kv.Key));
-        var (owners, rules) = await contexts.ReadAsync(repoContexts, sandbox, baseRef, ct);
-        if (rules.Count == 0) return StructureGateVerdict.Pass;
-        var verdict = await JudgeChangedAsync(repo.Name, sandbox, baseRef, owners, rules, ct);
+        var (owners, rules) = await contexts.ReadAsync(
+            repoContexts.Of(pipeline, repo.Name, owned.Select(kv => kv.Key)), sandbox, commit, ct);
+        if (rules.Count == 0)
+            return StructureGateVerdict.NotJudged($"{repo.Name}: no context with Limits and a baseline at the merge-base with {rung}");
+        var verdict = await JudgeChangedAsync(repo.Name, sandbox, commit, owners, rules, ct);
         return verdict with { Findings = [.. verdict.Findings.Select(f => f with { Repository = repo.Name })] };
     }
 
     private async Task<StructureGateVerdict> JudgeChangedAsync(
-        string repoName, ISandbox sandbox, string baseRef, IReadOnlyList<string> owners,
+        string repoName, ISandbox sandbox, string baseRev, IReadOnlyList<string> owners,
         IReadOnlyDictionary<string, StructureContextRules> rules, CancellationToken ct)
     {
-        if (await git.ChangedPathsAsync(sandbox, baseRef, ct) is not { } paths)
+        if (await git.ChangedPathsAsync(sandbox, baseRev, ct) is not { } paths)
         {
             logger.LogWarning(
                 "Structure gate could not list what {Repo} changed against {Base}; its structure is not judged",
-                repoName, baseRef);
-            return StructureGateVerdict.Pass;
+                repoName, baseRev);
+            return StructureGateVerdict.NotJudged($"{repoName}: git could not list the changed files");
         }
         return await files.JudgeAsync(sandbox, paths, owners, rules, ct);
     }

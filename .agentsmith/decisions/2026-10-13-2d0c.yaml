@@ -1,0 +1,91 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-2d0c
+
+decisions:
+  - category: Architecture
+    chose: "StructureMergeBase walks DeliveryDiffCandidates' rungs, asks 'git rev-parse --verify --quiet <rung>^{commit}' per rung, then 'git merge-base <rung> HEAD'; the HEAD rung or no rung means no base"
+    over: "The full DeliveryDiff taken only for its BaseRef, or a merge-base of one hard-coded ref"
+    reason: |
+      The gate judged against origin/<base> itself, so a base that moved after the cut handed the branch
+      someone else's files. The same rung order as the delivery diff keeps one answer to "what is the base";
+      a ref check costs nothing where the diff cost the whole branch's text. A rung without a merge-base
+      falls to the next one with a warning.
+  - category: Implementation
+    chose: "Presence is 'git ls-tree --name-only <rev> -- <path>' (empty = absent), content 'git show <rev>:<path>'; any non-zero exit is a StructureBaseRead failure, logged at warning, and that context passes"
+    over: "Reading exit 128 from git show as 'absent'"
+    reason: |
+      git show exits 128 for a missing path AND for a broken repository, so a failure read as "no Limits"
+      and passed in silence. ls-tree separates the two by output, not by exit code.
+  - category: Implementation
+    chose: "The baseline header carries a '# measured with:' line with the Limits and tolerance_percent of the measurement; a refresh compares new limits with those"
+    over: "Comparing with the principles text the round started from (StructureBaselineScope.OldPrinciples)"
+    reason: |
+      Found end to end: the operator lowered a house limit in principles.md by hand, so the principles the
+      refresh started from already held the new limit, old == new, and the over-limit unit was left out.
+      The baseline is the only record of what it was measured against. OldPrinciples became dead and was
+      removed from the scope and BootstrapRoundHandler.
+  - category: Implementation
+    chose: "A baseline with no recorded limits (written before 2d0c) leaves the old limits UNKNOWN: the refresh adds every unit over the new band end it does not list, and writes the header"
+    over: "Falling back to the principles text when the baseline carries none, as the spec's scope said"
+    reason: |
+      Operator refinement. The fallback reproduces the end-to-end bug exactly for every baseline in
+      existence today (the text was edited by hand, so old == new). A limit is green on the day it is
+      installed; the cost is that a unit grown past an unchanged limit is tolerated once, at that refresh.
+  - category: Implementation
+    chose: "StructureZeroListing accepts a capture that is one line at any length; a capture of more than one line at the cap is refused. Shared by StructureSourceListing and StructureGitReads"
+    over: "Refusing every capture at the cap"
+    reason: |
+      The agent captures stdout line by line and stops at RunStepCapturedStdoutMaxChars, keeping each line
+      whole. A -z listing is one line, so it is never cut; only a path containing a newline makes two lines.
+      CaptureCap now references the wire constant instead of repeating 1_000_000.
+  - category: Implementation
+    chose: "StructureGateVerdict carries JudgedFiles, JudgedContexts and Skipped reasons; a pass says 'structure judged N file(s) in M context(s), within their Limits' or 'structure not judged: <reason>'"
+    over: "One 'structure within its Limits' line for every pass"
+    reason: |
+      Coordinator addition from an end-to-end run: a misconfigured local repository had no context with
+      Limits at the base, the gate judged nothing, and the step still said the structure was within its
+      Limits. A pass over nothing must not read like a pass.
+  - category: Implementation
+    chose: "Excess and Divergences are computed in the Findings init accessor; the record keeps a (findings, unavailable) constructor"
+    over: "Computed properties re-filtering on every read, or fields initialised once in the constructor"
+    reason: |
+      Fields set once in the constructor would go stale under the gate's 'verdict with { Findings = ... }';
+      the init accessor recomputes them on every assignment, including a with-expression.
+  - category: Implementation
+    chose: "ResolveAsync(pipeline, verdict, note, ct): the formatter note follows the verdict on its own line"
+    over: "The fbbdb preface before the verdict"
+    reason: |
+      SpecReviewRevert takes the first line of a failed message as the revert reason, so a preface made the
+      formatter the reason a fix pass was undone. Token last is the convention.
+  - category: Implementation
+    chose: "Schema pattern ^(?!.*['\"]\\{files\\}['\"]).*\\{files\\} refuses a quoted placeholder; the example is 'dotnet csharpier format {files}'; every path is passed as './<path>'; ContextYamlFormatReader is unchanged"
+    over: "Also refusing and logging the drop in the reader, as the step text ('logged drop') still says"
+    reason: |
+      The reviewed scope.in names the schema only; the step line predates the review. Paths are already
+      single-quoted, so '{files}' would join them into one word. './' keeps a dash-leading path from being
+      read as an option. CSharpier 1.x needs 'format' (skills v5.14.1+ say so).
+  - category: Implementation
+    chose: "CommitAndPRHandler publishes divergences only when a repository carries code (anyCode)"
+    over: "Judging every run at PR time"
+    reason: |
+      A run with no code has no divergence to name and no PR body that lists one; the gate's git reads were wasted.
+  - category: Implementation
+    chose: "StructureBaselineFile, StructureRepoContexts, StructureBaselineHeader, StructureGitRunner, StructureZeroListing and StructureMergeBase are DI-registered instance services; StructureContextRules keys the baseline by (path, key, metric)"
+    over: "Static classes and a linear scan per finding"
+    reason: |
+      principles.md: no static service classes. The keyed lookup is one dictionary read per finding.
+  - category: Implementation
+    chose: "StructureLimits parses with InvariantCulture and leaves Project Specifics at the next '## ' heading"
+    over: "Culture-dependent parsing and a Project Specifics section that never ended"
+    reason: |
+      A '### Limits' under a later '## ' section is not the house standard.
+  - category: Tooling
+    chose: "One real-git test class (InProcessSandbox, temp repository, ExternalProcess collection, serial trait) pins -z listings, '--' with a dash-leading path, untracked files, deletions, a moved origin/main and ls-tree presence/absence/failure"
+    over: "Stub-only coverage"
+    reason: |
+      RepoSandbox and StubSandbox answer what the code expects; the real repository proves git answers the same.
+  - category: Implementation
+    chose: "Skills pinned to v5.14.2 (tarball replaced, example config and skills-catalog doc bumped); composed principles goldens unchanged"
+    over: "Staying on v5.14.0"
+    reason: |
+      v5.14.1/2 correct the bootstrap's CSharpier example to 'format'. ComposedPrinciplesGoldenTests passed unchanged.

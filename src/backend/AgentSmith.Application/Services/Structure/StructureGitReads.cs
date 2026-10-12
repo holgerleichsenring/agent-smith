@@ -1,6 +1,4 @@
 using AgentSmith.Contracts.Sandbox;
-using AgentSmith.Domain.Entities;
-using AgentSmith.Sandbox.Wire;
 
 namespace AgentSmith.Application.Services.Structure;
 
@@ -9,43 +7,41 @@ namespace AgentSmith.Application.Services.Structure;
 /// and what a meta file said AT that base. Reading Limits and baseline from the base, never the
 /// working tree, is what keeps the master from raising its own ceiling. Paths are NUL-separated
 /// and kept raw, exactly as the baseline records them.
+/// 2026-10-13-2d0c: '--' ends the revisions, so no path is read as an option or a ref; presence
+/// is asked with ls-tree, so a git that cannot answer is a failure, never an absent file.
 /// </summary>
-public sealed class StructureGitReads
+public sealed class StructureGitReads(StructureGitRunner git, StructureZeroListing listing)
 {
-    private const int GitTimeoutSeconds = 60;
-
     /// <summary>Changed and untracked paths, deletions left out; null when git could not answer
     /// completely.</summary>
     public async Task<IReadOnlyList<string>?> ChangedPathsAsync(
-        ISandbox sandbox, string baseRef, CancellationToken cancellationToken)
+        ISandbox sandbox, string baseRev, CancellationToken cancellationToken)
     {
-        var changed = await RunAsync(
-            sandbox, ["diff", "-z", "--name-only", "--diff-filter=d", baseRef], cancellationToken);
-        var untracked = await RunAsync(
+        var changed = await OutputAsync(
+            sandbox, ["diff", "-z", "--name-only", "--diff-filter=d", baseRev, "--"], cancellationToken);
+        var untracked = await OutputAsync(
             sandbox, ["ls-files", "-z", "--others", "--exclude-standard", "--full-name"], cancellationToken);
-        if (Paths(changed) is not { } tracked || Paths(untracked) is not { } added) return null;
+        if (listing.Parse(changed) is not { } tracked || listing.Parse(untracked) is not { } added) return null;
         return [.. tracked.Concat(added).Distinct(StringComparer.Ordinal)];
     }
 
-    /// <summary>The file's content at <paramref name="baseRef"/>, or null when it did not exist there.</summary>
-    public Task<string?> ShowAsync(
-        ISandbox sandbox, string baseRef, string path, CancellationToken cancellationToken) =>
-        RunAsync(sandbox, ["show", $"{baseRef}:{path}"], cancellationToken);
-
-    private static async Task<string?> RunAsync(ISandbox sandbox, string[] args, CancellationToken ct)
+    /// <summary>The file at <paramref name="baseRev"/>: its content, absent, or why git could not say.</summary>
+    public async Task<StructureBaseRead> ReadAtAsync(
+        ISandbox sandbox, string baseRev, string path, CancellationToken cancellationToken)
     {
-        var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run, Command: "git", Args: args,
-            WorkingDirectory: Repository.SandboxWorkPath, TimeoutSeconds: GitTimeoutSeconds);
-        var result = await sandbox.RunStepAsync(step, null, ct);
-        return result.ExitCode == 0 ? result.OutputContent ?? string.Empty : null;
+        var listed = await git.RunAsync(sandbox, ["ls-tree", "--name-only", baseRev, "--", path], cancellationToken);
+        if (listed.ExitCode != 0)
+            return StructureBaseRead.Failed($"git ls-tree {baseRev} -- {path} exited {listed.ExitCode}");
+        if (string.IsNullOrWhiteSpace(listed.OutputContent)) return StructureBaseRead.Absent;
+        var shown = await git.RunAsync(sandbox, ["show", $"{baseRev}:{path}"], cancellationToken);
+        return shown.ExitCode == 0
+            ? new StructureBaseRead(shown.OutputContent ?? string.Empty)
+            : StructureBaseRead.Failed($"git show {baseRev}:{path} exited {shown.ExitCode}");
     }
 
-    // The agent appends a newline to the one -z line; a listing at the capture cap may be cut.
-    private static IReadOnlyList<string>? Paths(string? output)
+    private async Task<string?> OutputAsync(ISandbox sandbox, string[] args, CancellationToken ct)
     {
-        if (output is null) return null;
-        var raw = output.TrimEnd('\n');
-        if (raw.Length >= StructureSourceListing.CaptureCap) return null;
-        return raw.Split('\0', StringSplitOptions.RemoveEmptyEntries);
+        var result = await git.RunAsync(sandbox, args, ct);
+        return result.ExitCode == 0 ? result.OutputContent ?? string.Empty : null;
     }
 }

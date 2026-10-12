@@ -13,11 +13,21 @@ internal sealed class RepoSandbox : ISandbox
     public Dictionary<string, string> Files { get; } = new(StringComparer.Ordinal);
     public string? Listing { get; set; }
 
-    /// <summary>The meta files as they stood at the base, for 'git show origin/main:path'.</summary>
+    /// <summary>2026-10-13-2d0c: the commit 'git merge-base origin/main HEAD' answers.</summary>
+    public const string MergeBase = "merge-base-sha";
+
+    /// <summary>The meta files as they stood at the merge-base, for 'git ls-tree' and 'git show'.</summary>
     public Dictionary<string, string> BaseFiles { get; } = new(StringComparer.Ordinal);
 
-    /// <summary>What 'git diff -z --name-only' against the base answers.</summary>
+    /// <summary>What 'git diff -z --name-only' against the merge-base answers.</summary>
     public List<string> Changed { get; } = [];
+
+    /// <summary>2026-10-13-2d0c: files origin/main changed after the cut — a diff against the rung,
+    /// not the merge-base, would list them too.</summary>
+    public List<string> MovedOnBase { get; } = [];
+
+    /// <summary>2026-10-13-2d0c: exit code of 'git ls-tree'; non-zero is a git that could not answer.</summary>
+    public int LsTreeExitCode { get; set; }
 
     /// <summary>What 'git ls-files -z --others' answers.</summary>
     public List<string> Untracked { get; } = [];
@@ -53,11 +63,16 @@ internal sealed class RepoSandbox : ISandbox
     private StepResult Git(Step step) => step.Args switch
     {
         ["symbolic-ref", ..] => Result(step, 0, "origin/main\n"),
-        ["diff", "-z", "--name-only", "--diff-filter=d", ..] =>
-            Result(step, ChangedExitCode, Nul(Changed.Where(Files.ContainsKey))),
+        ["rev-parse", "--verify", "--quiet", "origin/main^{commit}"] => Result(step, 0, "origin-main-sha\n"),
+        ["rev-parse", "--verify", ..] => Result(step, 1, null),
+        ["merge-base", "origin/main", "HEAD"] => Result(step, 0, MergeBase + "\n"),
+        ["diff", "-z", "--name-only", "--diff-filter=d", var rev, "--"] =>
+            Result(step, ChangedExitCode, Nul(Changed.Concat(rev == MergeBase ? [] : MovedOnBase).Where(Files.ContainsKey))),
         ["ls-files", "-z", "--others", ..] => Result(step, ChangedExitCode, Nul(Untracked)),
-        ["show", var spec] when spec.StartsWith("origin/main:", StringComparison.Ordinal) =>
-            BaseFiles.TryGetValue(spec["origin/main:".Length..], out var at) ? Result(step, 0, at) : Result(step, 128, null),
+        ["ls-tree", "--name-only", MergeBase, "--", var path] =>
+            Result(step, LsTreeExitCode, LsTreeExitCode == 0 && BaseFiles.ContainsKey(path) ? path + "\n" : null),
+        ["show", var spec] when spec.StartsWith(MergeBase + ":", StringComparison.Ordinal) =>
+            BaseFiles.TryGetValue(spec[(MergeBase.Length + 1)..], out var at) ? Result(step, 0, at) : Result(step, 128, null),
         ["ls-files", "-z", "--full-name", "--", ..] =>
             Result(step, ListingExitCode, Listing ?? string.Join('\0', Matching([.. step.Args!.Skip(4)])) + "\0\n"),
         _ => Result(step, 0, string.Empty),

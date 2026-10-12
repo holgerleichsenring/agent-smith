@@ -42,5 +42,6 @@ public sealed class SpecFormatPlan
     }
 
     // POSIX single quotes: nothing inside is expanded, and a quote is closed, escaped, reopened.
-    private static string Quoted(string path) => "'" + path.Replace("'", "'\\''", StringComparison.Ordinal) + "'";
+    // 2026-10-13-2d0c: './' first, so a path that starts with '-' never reads as an option.
+    private static string Quoted(string path) => "'./" + path.Replace("'", "'\\''", StringComparison.Ordinal) + "'";
 }

@@ -18,8 +18,8 @@ namespace AgentSmith.Application.Services.SpecExecution;
 /// as written.
 /// </summary>
 public sealed class SpecFormatRun(
-    SandboxTargets targets, StructureGitReads git, SpecFormatPlan plan, DeclaredStagePresence presence,
-    VerifyCommandRunner runner, ILogger<SpecFormatRun> logger)
+    SandboxTargets targets, StructureGitReads git, StructureRepoContexts repoContexts, SpecFormatPlan plan,
+    DeclaredStagePresence presence, VerifyCommandRunner runner, ILogger<SpecFormatRun> logger)
 {
     public const string Stage = "format";
 
@@ -47,7 +47,7 @@ public sealed class SpecFormatRun(
             logger.LogInformation("{Key}: no spec start head or no change listing; nothing is formatted", key);
             return [];
         }
-        var invocations = plan.Plan(declaring, StructureRepoContexts.Of(pipeline, repoName, [key]), changed);
+        var invocations = plan.Plan(declaring, repoContexts.Of(pipeline, repoName, [key]), changed);
         var notes = new List<string>();
         foreach (var invocation in invocations)
             if (await RunOneAsync(key, sandbox, invocation, ct) is { } note) notes.Add(note);

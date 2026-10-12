@@ -75,7 +75,7 @@ public sealed class StructureToleranceGateTests
         var result = await StructureBaselineRepo.Apply(repo);
 
         result.Entries.Should().Be(1);
-        StructureBaselineFile.Parse(repo.Files[StructureBaselineRepo.Baseline]).Should().ContainSingle()
+        StructureBaselineStubs.File.Parse(repo.Files[StructureBaselineRepo.Baseline]).Should().ContainSingle()
             .Which.Key.Should().Be("A.Long()", "A.Mid() measures 5, inside the band that ends at 6");
     }
 
@@ -85,7 +85,7 @@ public sealed class StructureToleranceGateTests
         var oldLimits = new StructureLimitSet(new Dictionary<string, int> { [StructureMetric.FunctionLines] = 4 }, 50);
         var measured = new StructureFinding("src/A.cs", "A.Long()", StructureMetric.FunctionLines, 6, 3);
 
-        StructureBaselineFile.Refresh([], [measured], oldLimits).Should().ContainSingle(
+        StructureBaselineStubs.File.Refresh([], [measured], oldLimits).Should().ContainSingle(
             "6 sat inside the old band, so the lowered limit is what exposed it");
     }
 }
