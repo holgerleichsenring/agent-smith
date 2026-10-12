@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-f5f7f
+
+decisions:
+  - category: Architecture
+    chose: "SeriesWriter keeps the targets, the branch and the member loop; SeriesMemberCommit writes, stages, commits and pushes one member; SeriesWriteRollback reverts the pushed members and resets every tree; SeriesWriteProgress carries the pre-write heads, shas and pushed flags between them"
+    over: "Growing SeriesWriter, which sat at 117 lines"
+    reason: "Writing a member and undoing a half-landed write change for different reasons; split, each stays under the class limit and the one-repository path reads as before."
+  - category: Architecture
+    chose: "Plain push as GitBranchPusher.PushPlainAsync, selected by CommitAndPushStagedAsync(plain: true); SandboxGitOperations gains StageRevertAsync (git revert --no-commit) and ResetToAsync (reset --hard plus clean of the rendered paths)"
+    over: "A new push class injected into SandboxGitOperations, or reusing CreateOnlyBranchPush"
+    reason: |
+      SandboxGitOperations is constructed in 21 test sites, so a new constructor dependency was ruled out;
+      GitBranchPusher already owns the credential environment. The plain push never fetches and retries,
+      which is what CreateOnlyBranchPush's comment separates it from. SandboxGitOperations stays within its
+      ratchet baseline (318 of 319). The revert is staged and committed through the commit primitive so a
+      local repository without origin still records it.
+  - category: Architecture
+    chose: "Every failed multi-repository write fails the publish step (rolled back, refused, or failed before any member), recording the revert shas first; a one-repository failed write still continues from memory"
+    over: "Failing only when a rollback happened"
+    reason: "The spec's NO CONTINUE-FROM-MEMORY rule is about the series shape, not about how far the write got: the record would re-stamp and push whatever half is there."
+  - category: Implementation
+    chose: "The rollback resets to the pre-write HEAD and also cleans the rendered paths"
+    over: "git reset --hard alone"
+    reason: "A write that failed after writing but before staging leaves untracked files reset does not remove, and the failure tail's persist would push them."
+  - category: Implementation
+    chose: "A refused revert (a person's commit in between) is logged and named in the failure reason; nothing is recorded for that member"
+    over: "Recording our spec sha for it"
+    reason: "Its remote now carries a person's commit; the next run must read that as an edit, which the unchanged pointer sha does."
+  - category: Implementation
+    chose: "SpecSetPointerRecorder.RecordShasAsync merges into the map and keeps the rest of the row, updating RevisionSha only when the carrying repository was reverted; without a row it records nothing"
+    over: "Creating a row"
+    reason: "A row needs a revision and a carrier a failed first write never established; the next run then reads an initial or edited state as it would have before."
+  - category: Architecture
+    chose: "SpecSetBranchState.MemberNotCheckedOut = 3 from SeriesJoin; SpecSourceResolver.Decision.Failure carries it and DeriveSpecHandler fails with it; the lagging hand-back comes out of the resolver through the existing MissingSpecPark path"
+    over: "Keeping the f5f7d SeriesBranch.Refusal"
+    reason: "The resolver is where the precedence between a demand and a hand-back lives; SeriesBranch.Refusal is gone and DeriveSpecHandler stays at its 143-line baseline."
+  - category: Architecture
+    chose: "SeriesJoin carries the executed prefix (SeriesJoinOrder.ExecutedPrefix) for a lagging join; SeriesReader turns it into SpecSetReadResult.OutOfStepPrevious; SpecRecutDemand.PreviousOf picks it for a lagging read"
+    over: "Re-reading every member's done/ inside the resolver"
+    reason: "The join already holds every member's read, so the prefix costs no second pass; the resolver uses it only when the cause is a demand, since every other cause hands back first."
+  - category: Implementation
+    chose: "SeriesBranchRead's members include the lagging ones"
+    over: "Only the members on the newest revision"
+    reason: "A set without specs written after a demand goes to the members read; a lagging repository left out would stay behind."
+  - category: Implementation
+    chose: "SeriesOutOfStepComment holds the marker, the hand-back factory and the comment arm; SpecHandbackComment only dispatches to it; the marker joins OwnTicketComment's awaiting-answer markers"
+    over: "A fifth private arm in SpecHandbackComment"
+    reason: "SpecHandbackComment sat at 117 lines; the d142 precedent keeps an unanswered hand-back in view for the next run."
+  - category: Scope
+    chose: "SpecDerivationEnvelope refuses SeriesOutOfStep from a model reply, as d142 did for ScopeUnassigned"
+    over: "Leaving the envelope untouched (the spec does not name it)"
+    reason: "The envelope parses any enum name, so appending the case would otherwise let a reply park a ticket on a claim no code checked."
+  - category: Scope
+    chose: "SpecRevisionCause and SpecParkStatusResolver are unchanged"
+    over: "Editing them as the spec's modify lists suggest"
+    reason: "A resume already never yields RecutDemand, so the resolver's rank check covers it; every case but NotImplementable already parks in the clarification status — both pinned by tests."

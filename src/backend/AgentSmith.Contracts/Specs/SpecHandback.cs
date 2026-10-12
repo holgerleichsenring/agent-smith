@@ -98,4 +98,12 @@ public enum SpecHandbackCase
     /// parks where a person can answer, and a re-trigger after the answer cuts again.
     /// </summary>
     ScopeUnassigned = 6,
+
+    /// <summary>
+    /// 2026-10-12-f5f7f: the series' repositories carry different revisions of it — a write that
+    /// landed in some of them only. Nothing is derived from or worked over a mixed state; only a
+    /// person can say which revision stands. Raised by the framework only; parks where a person can
+    /// answer, and a re-cut demand with a re-trigger, or a new approval filed again, is the way out.
+    /// </summary>
+    SeriesOutOfStep = 7,
 }

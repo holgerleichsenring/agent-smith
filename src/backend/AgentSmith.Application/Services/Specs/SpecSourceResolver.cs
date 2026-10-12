@@ -26,6 +26,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// third-party input derivation exists to bound. A comment can AMEND the set (that is the
 /// revision path); it can never BE the set.
 /// </para>
+/// <para>2026-10-12-f5f7f: a series out of step is handed back; a member not checked out fails.</para>
 /// </summary>
 public sealed class SpecSourceResolver(
     ApprovedSetHandoff handoff,
@@ -46,9 +47,11 @@ public sealed class SpecSourceResolver(
     /// <param name="Expired">2026-10-12-3a36b: the branch's hand-back is derived again because a
     /// scoped branch got a foreign commit since it parked; a derivation that yields nothing keeps
     /// the stored hand-back rather than a fallback.</param>
+    /// <param name="Failure">2026-10-12-f5f7f: set when the run cannot go on — a member of the series
+    /// is outside the run's checkout.</param>
     public sealed record Decision(
         SpecSource Source, SpecSet? Set, bool NeedsModel, string? Cause = null,
-        SpecHandback? Handback = null, SpecApproval? Approval = null, bool Expired = false)
+        SpecHandback? Handback = null, SpecApproval? Approval = null, bool Expired = false, string? Failure = null)
     {
         /// <summary>The set a derivation that yields nothing keeps instead of a fresh fallback: one over an
         /// executed head, whose record of work a fresh set would drop (2026-10-08-f114), or an expired
@@ -64,13 +67,20 @@ public sealed class SpecSourceResolver(
     {
         ArgumentNullException.ThrowIfNull(ticket);
         ArgumentNullException.ThrowIfNull(branch);
+        if (branch.State == SpecSetBranchState.MemberNotCheckedOut)
+            return new Decision(SpecSource.BranchArtifact, null, false, Failure: $"{branch.Why}; widen the run's scope to the series' repositories");
         var cause = SpecRevisionCause.For(branch.Read, pointer, ticket, pipeline);
         if (SeriesShaEdges.NotCompared(branch.Read, pointer) is { Count: > 0 } unreached)
             logger.LogInformation(
                 "Spec set {Key}: the recorded sha of {Repos} was not compared — this read did not reach it",
                 key, string.Join(", ", unreached));
-        if (branch.Read is { } artifact)
+        // 2026-10-12-f5f7f: nothing works from a mixed state — a resume included; only a demand re-cuts it.
+        if (branch.Read is { Lagging.Count: > 0 } mixed && cause != SpecRevisionCause.RecutDemand)
+            return new Decision(SpecSource.BranchArtifact, null, false, Cause: cause,
+                Handback: SeriesOutOfStepComment.Handback(key, mixed.Lagging, [.. mixed.RevisionShas.Keys]));
+        if (branch.Read is { } read)
         {
+            var artifact = read with { Set = SpecRecutDemand.PreviousOf(read) };
             var amend = SpecAmendmentRule.NeedsModel(cause, artifact.Set, foreignCommitSinceHandback);
             var expired = foreignCommitSinceHandback && artifact.Set.IsHandedBack;
             logger.LogInformation(

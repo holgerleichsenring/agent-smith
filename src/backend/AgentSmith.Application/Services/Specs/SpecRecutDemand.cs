@@ -83,6 +83,17 @@ public static class SpecRecutDemand
     public static SpecApproval? ApprovalOf(TicketComment? demand) =>
         demand is null ? null : new SpecApproval(demand.CreatedAt, string.Empty, demand.Author);
 
+    /// <summary>
+    /// 2026-10-12-f5f7f: the set a demand cuts from. A series out of step offers its executed prefix —
+    /// every member's done/ specs, then the newest members' open ones — rather than the newest members
+    /// alone, which would drop what ran in a lagging repository.
+    /// </summary>
+    public static SpecSet PreviousOf(SpecSetReadResult read)
+    {
+        ArgumentNullException.ThrowIfNull(read);
+        return read.Lagging.Count > 0 && read.OutOfStepPrevious is { } prefix ? prefix : read.Set;
+    }
+
     private static string? Opening(string? body) =>
         body?.Split('\n')
             .Select(line => line.Trim())

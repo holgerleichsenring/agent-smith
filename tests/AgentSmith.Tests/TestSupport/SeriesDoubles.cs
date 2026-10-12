@@ -54,9 +54,14 @@ internal static class SeriesDoubles
         recorder.RecordAsync(project, repo.Name, set,
             new Dictionary<string, string>(StringComparer.Ordinal) { [repo.Name] = sha }, ct);
 
-    internal static SeriesWriter Writer(ISandboxFileReaderFactory files, SandboxGitOperations? git = null) =>
-        new(files, git ?? Git(files), new SeriesFiles(new SeriesManifest()), new SeriesStaleFiles(),
-            new SandboxTargets(), NullLogger<SeriesWriter>.Instance);
+    internal static SeriesWriter Writer(ISandboxFileReaderFactory files, SandboxGitOperations? git = null)
+    {
+        var ops = git ?? Git(files);
+        var member = new SeriesMemberCommit(files, ops, new SeriesFiles(new SeriesManifest()), new SeriesStaleFiles(),
+            NullLogger<SeriesMemberCommit>.Instance);
+        return new(member, new SeriesWriteRollback(ops, member, NullLogger<SeriesWriteRollback>.Instance),
+            ops, new SandboxTargets(), NullLogger<SeriesWriter>.Instance);
+    }
 
     /// <summary>2026-10-06-03c7e: the record step as production composes it.</summary>
     internal static WritePhaseRecordHandler RecordHandler(

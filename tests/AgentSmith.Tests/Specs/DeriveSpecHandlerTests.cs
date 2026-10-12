@@ -131,10 +131,10 @@ public sealed class DeriveSpecHandlerTests
         events.Gates.Should().ContainSingle(g => g.Gate == "spec-accounting" && !g.Passed);
     }
 
-    // 2026-10-12-f5f7d: a series whose repositories disagree is not derived from or written over —
-    // the step fails naming them, before any model call, and the pointer stays as it was.
+    // 2026-10-12-f5f7f: a series whose repositories disagree is not derived from or written over —
+    // it is handed back as its own case naming them, before any model call, and nothing is written.
     [Fact]
-    public async Task DeriveSpecHandler_LaggingRead_FailsNamingRepos_NoModelNoWrite()
+    public async Task DeriveSpecHandler_LaggingRead_HandsBackOutOfStep_NoModelNoWrite()
     {
         var published = new CapturingPublisher();
         var deriver = new Mock<ISpecSetDeriver>(MockBehavior.Strict);
@@ -149,11 +149,13 @@ public sealed class DeriveSpecHandlerTests
                 It.IsAny<TicketKey>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(SpecSetOnBranch.Answered(read));
 
+        var context = Context("Server", "Client");
         var result = await Handler(new RecordingEventPublisher(), published, null, reader.Object, deriver, pointers)
-            .ExecuteAsync(Context("Server", "Client"), default);
+            .ExecuteAsync(context, default);
 
-        result.IsSuccess.Should().BeFalse();
-        result.Message.Should().Contain("Client").And.Contain("out of step");
+        result.IsSuccess.Should().BeTrue("the run parks; it does not fail");
+        result.Message.Should().StartWith("awaiting_user_input").And.Contain("Client").And.Contain("out of step");
+        context.Pipeline.Get<SpecHandback>(ContextKeys.SpecHandback).Case.Should().Be(SpecHandbackCase.SeriesOutOfStep);
         published.Set.Should().BeNull("nothing is written");
         deriver.VerifyNoOtherCalls();
         (await pointers.GetAsync(string.Empty, "azdo-19106", default)).Should().BeNull("the pointer is untouched");

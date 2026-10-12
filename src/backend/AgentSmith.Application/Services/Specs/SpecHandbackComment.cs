@@ -32,6 +32,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// repositories — not that anything contradicts the code. Its heading carries
 /// <see cref="ScopeUnassignedMarker"/>, so the next run keeps it in view while it is unanswered.
 /// </para>
+/// <para>2026-10-12-f5f7f: the OUT-OF-STEP case is <see cref="SeriesOutOfStepComment"/>'s.</para>
 /// </summary>
 public static class SpecHandbackComment
 {
@@ -63,6 +64,7 @@ public static class SpecHandbackComment
             SpecHandbackCase.Question => Question(handback) + spec + waiting,
             SpecHandbackCase.SpecificationMissingFromBranch => Missing(handback) + waiting,
             SpecHandbackCase.ScopeUnassigned => ScopeUnassigned(handback) + waiting,
+            SpecHandbackCase.SeriesOutOfStep => SeriesOutOfStepComment.Build(handback) + waiting,
             _ => Contradiction(handback) + spec + waiting,
         };
     }
