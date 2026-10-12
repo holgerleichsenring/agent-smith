@@ -41,25 +41,26 @@ internal static class AcceptanceSnapshot
     }
 
     /// <summary>
-    /// Every criterion the run's accounts carry, with what it was decided on. A criterion the
-    /// account could not take at all — a red build, a diff that would not run — is "unproven"
-    /// and says why, because an unmeasured criterion and a failed one are different facts.
+    /// Every criterion the run's accounts carry, with what it was decided on. An account that
+    /// could not be taken at all — a red build, a diff that would not run — judged no
+    /// criterion: 2026-10-12-6bfad lists it beside the rows instead of as one, because a build
+    /// that did not run read as "0 of 1 proven" under a criterion named after the repository.
     /// </summary>
     private static AcceptanceView? FromAccounts(RunAccounts? accounts)
     {
         var all = accounts?.All;
         if (all is not { Count: > 0 }) return null;
 
-        var criteria = all
-            .SelectMany(account => account.Criteria.Count > 0
-                ? account.Criteria.Select(Row)
-                : [new AcceptanceCriterionView(
-                    account.RepoKey, AcceptanceCriterionStatuses.Unproven, account.Problem)])
+        var criteria = all.SelectMany(account => account.Criteria.Select(Row)).ToList();
+        var unmeasured = all
+            .Where(account => account.Criteria.Count == 0)
+            .Select(account => new UnmeasuredAccountView(account.RepoKey, account.Problem))
             .ToList();
-        if (criteria.Count == 0) return null;
+        if (criteria.Count == 0 && unmeasured.Count == 0) return null;
 
         return new AcceptanceView(
-            criteria, ExpectationOutcomes.Verbatim, RatifiedByThePhaseSpec, AcceptanceSources.DeliveryAccount);
+            criteria, ExpectationOutcomes.Verbatim, RatifiedByThePhaseSpec,
+            AcceptanceSources.DeliveryAccount, Unmeasured: unmeasured);
     }
 
     /// <summary>A run that declined something and was judged by nothing else — it ended

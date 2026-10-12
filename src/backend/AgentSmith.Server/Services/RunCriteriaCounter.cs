@@ -19,21 +19,13 @@ public sealed class RunCriteriaCounter
         var acceptance = run.Acceptance;
         if (acceptance is null) return CriterionCounts.None;
         var overrules = run.Overrules.ToDictionary(o => o.CriterionKey, StringComparer.Ordinal);
+        // 2026-10-12-6bfad: an account that could not be taken is not among the criteria —
+        // AcceptanceView lists it apart, archived snapshots included.
         return acceptance.Criteria
-            .Where(criterion => !IsAccountRow(acceptance, criterion))
             .Select(criterion => Counted(
                 criterion.Status, overrules.GetValueOrDefault(CriterionKey.Of(criterion.Text))))
             .Aggregate(CriterionCounts.None, (sum, one) => sum.Plus(one));
     }
-
-    /// <summary>
-    /// The row the delivery account writes for a repository it could not judge at all — a
-    /// red build, a diff that would not run. It names the repository, not a criterion, and is
-    /// the only unproven row that source writes.
-    /// </summary>
-    private static bool IsAccountRow(AcceptanceView acceptance, AcceptanceCriterionView criterion) =>
-        acceptance.Source == AcceptanceSources.DeliveryAccount
-        && criterion.Status == AcceptanceCriterionStatuses.Unproven;
 
     private static CriterionCounts Counted(string status, CriterionOverrule? overrule)
     {

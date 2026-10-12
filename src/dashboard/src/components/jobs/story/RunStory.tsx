@@ -49,6 +49,14 @@ const BEAT_ICONS: Record<BeatKey, string> = {
   outcome: "▲",
 };
 
+// 2026-10-12-6bfad: the verify glyph IS a verdict, so it follows the beat — a ✓ beside a
+// "failed" badge said both. The other glyphs only name their beat.
+function sectionIcon(beat: BeatKey, state: string): string {
+  if (beat !== "verify") return BEAT_ICONS[beat];
+  if (state === "done") return "✓";
+  return state === "failed" ? "✗" : "○";
+}
+
 interface RunStoryProps {
   runId: string;
   snapshot: RunSnapshot | null;
@@ -110,7 +118,12 @@ export function RunStory({ runId, snapshot, events, banner, sidebox }: RunStoryP
           {beats ? (
             <>
           <div className="section-head" data-testid="beat-section-head">
-            <div className="bh-ic">{BEAT_ICONS[selected]}</div>
+            <div
+              className={cn("bh-ic", beats[selected] === "failed" && "bad")}
+              data-testid="beat-section-icon"
+            >
+              {sectionIcon(selected, beats[selected])}
+            </div>
             <div className="bh-t">
               <div className="n" data-testid="beat-section-name">{BEAT_NAMES[selected]}</div>
               <div className="s">{subs[selected]}</div>
@@ -367,9 +380,14 @@ function beatSubs(
     subs.building = `${done} of ${ledger.length} done`;
   }
   const criteria = snapshot.acceptance?.criteria ?? [];
+  // 2026-10-12-6bfad: an account nobody could take is not one of the N — "0 of 1 proven"
+  // over a build that never ran counted the sandbox key as a criterion.
+  const unmeasured = snapshot.acceptance?.unmeasured?.length ?? 0;
   if (criteria.length > 0) {
     const met = criteria.filter((c) => c.status === "met").length;
-    subs.verify = `${met} of ${criteria.length} proven`;
+    subs.verify = `${met} of ${criteria.length} proven${unmeasured > 0 ? " · not measured" : ""}`;
+  } else if (unmeasured > 0) {
+    subs.verify = "Not measured";
   } else if (beats.verify === "pending") {
     subs.verify = "Against acceptance";
   }

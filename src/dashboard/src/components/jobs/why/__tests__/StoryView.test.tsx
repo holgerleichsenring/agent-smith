@@ -115,6 +115,27 @@ describe("The story view", () => {
     expect(panel).toHaveTextContent("tool output a bound cut");
   });
 
+  // 2026-10-12-6bfad: a red build judged no criterion; the figure says so instead of
+  // "0/1 proven" or "none ratified".
+  it("TicketStatistics_AnUnmeasuredAccount_IsNotACriterion", () => {
+    render(
+      <TicketStatistics
+        statistics={{
+          totals: stats(), totalDurationMs: 1, phases: [], calls: [], commands: [], truncated: false,
+        }}
+        acceptance={{
+          criteria: [], outcome: "verbatim", ratifiedBy: "spec", source: "delivery_account",
+          unmeasured: [{ repositories: "default", reason: "sbt: not found" }],
+        }}
+      />,
+    );
+
+    const panel = screen.getByTestId("ticket-statistics");
+    expect(panel).toHaveTextContent("not measured");
+    expect(panel).not.toHaveTextContent("none ratified");
+    expect(panel).not.toHaveTextContent("0/1");
+  });
+
   it("TicketStatistics_ATruncatedSeries_SaysWhichNumbersStillCoverTheWholeRun", () => {
     render(
       <TicketStatistics
