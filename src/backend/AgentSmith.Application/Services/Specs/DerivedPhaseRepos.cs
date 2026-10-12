@@ -6,6 +6,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// 2026-10-12-3a36e: the repositories each phase of a derivation reply names — read off the
 /// phase elements, decided by <see cref="SpecReposRule"/> against the scope, and, where the
 /// reply stated them, held against the <c>repo/context</c> names the same phase declares.
+/// 2026-10-12-f5f7a: in a scope of several repositories that is exactly one per phase.
 /// Split from <see cref="SpecDerivationParser"/>, which reads the ordered set.
 /// </summary>
 public sealed class DerivedPhaseRepos(SpecDerivationEnvelope envelope, SpecReposRule rule)

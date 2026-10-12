@@ -99,6 +99,38 @@ public sealed class DeriveSpecHandlerTests
         published.Set.Accounting.IsComplete.Should().BeTrue();
     }
 
+    // 2026-10-12-f5f7a: over several repositories the whole-ticket fallback would put the whole
+    // ticket into one repository's spec — a guess. The ticket is handed back naming them instead.
+    [Fact]
+    public async Task DeriveSpecHandler_MultiRepoFallback_HandsBack()
+    {
+        var events = new RecordingEventPublisher();
+        var published = new CapturingPublisher();
+
+        await Handler(events, published, derivation: null).ExecuteAsync(Context("BackgroundWorker", "Server"), default);
+
+        published.Set!.Phases.Should().BeEmpty();
+        published.Set.Handback!.Case.Should().Be(SpecHandbackCase.RequirementsContradictRepository);
+        published.Set.Handback.Reason.Should().Contain("BackgroundWorker, Server");
+        events.Gates.Should().ContainSingle(g => g.Gate == "spec-accounting" && !g.Passed,
+            "the failed derivation is still reported");
+    }
+
+    [Fact]
+    public async Task SpecCoverageRefusal_MultiRepo_HandsBack()
+    {
+        var events = new RecordingEventPublisher();
+        var published = new CapturingPublisher();
+        var incomplete = Derivation(carries: [1], discarded: []);
+
+        await Handler(events, published, incomplete).ExecuteAsync(Context("BackgroundWorker", "Server"), default);
+
+        published.Set!.IsHandedBack.Should().BeTrue();
+        published.Set.TicketPinnedWhole.Should().BeFalse();
+        published.Set.Handback!.Reason.Should().Contain("BackgroundWorker, Server");
+        events.Gates.Should().ContainSingle(g => g.Gate == "spec-accounting" && !g.Passed);
+    }
+
     // 2026-09-22-6ad7: the reader answers "nothing at the path", never null — a default-valued
     // mock would hand the handler a null branch answer and the split would read as a crash.
     private static ISpecSetReader EmptyBranch()
@@ -150,14 +182,16 @@ public sealed class DeriveSpecHandlerTests
             NullLogger<DeriveSpecHandler>.Instance);
     }
 
-    private static DeriveSpecContext Context()
+    private static DeriveSpecContext Context(params string[] repos)
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.RunId, "run-1");
         return new DeriveSpecContext(
             new Ticket(new TicketId("19106"), "Migrate the client", Ticket, null, "open", "azdo", []),
             null,
-            [new RepoConnection { Name = "primary" }],
+            repos.Length == 0
+                ? [new RepoConnection { Name = "primary" }]
+                : [.. repos.Select(name => new RepoConnection { Name = name })],
             new AgentConfig(),
             pipeline);
     }
