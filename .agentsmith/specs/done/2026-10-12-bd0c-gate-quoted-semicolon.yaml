@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-bd0c
+goal: "A semicolon inside a quoted commit message no longer cuts the message the gate reads, so a spec commit whose subject contains one is gated instead of passing unrecorded."
+
+applies_to: "repository (.claude/hooks commit-message resolver)"
+
+requires: [2026-09-21-9ae2]
+
+facts:
+  - claim: "observed: three spec commits of series 967a (967ac, 967af, 967ad) whose -m subject contained '; ' passed the gate with no ledger line; a later --amend --no-edit of each was gated and passed."
+    evidence: "observed: 2026-10-12, .claude/phase-gate.log of the shared checkout"
+  - claim: "The resolver split every token on ';' after shlex, including a token shlex had built from a quoted argument, so the message ended at the semicolon and its trailing (id) marker was lost."
+    evidence: ".claude/hooks/commit-message.py:82-88"
+
+scope:
+  in: "The resolver tokenises with shlex punctuation_chars, so operators are tokens only outside quotes; the post-hoc semicolon split is removed. Regression tests for double- and single-quoted messages and a cd joined by ';'."
+  out: "The gate's own detection regex, which only decides that a commit is present."
+
+tests:
+  - "Resolve_SemicolonInsideTheQuotedMessage_KeepsTheWholeMessage"
+  - "Resolve_SemicolonInsideASingleQuotedMessage_KeepsTheWholeMessage"
+  - "Resolve_WorkDirAfterASemicolonCd_IsTheCdTarget"
+
+done:
+  - "The command that passed 967ad unrecorded resolves to its full subject including (2026-10-12-967ad); both hook test files green."

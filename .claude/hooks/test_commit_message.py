@@ -158,6 +158,28 @@ def Resolve_DashFFileAfterASemicolonCd_ReadsIt():
             assert result.message is not None and "(p0508)" in result.message, result
 
 
+def Resolve_SemicolonInsideTheQuotedMessage_KeepsTheWholeMessage():
+    # 2026-10-12-bd0c: a `;` in a quoted -m subject cut the message at the `;`, the
+    # marker after it was lost, and three spec commits passed the gate unrecorded.
+    with tempfile.TemporaryDirectory() as path:
+        result = _resolve(f'cd {path} && git commit -q -m "feat: a; b (p0508)" 2>&1 | tail -1', path)
+        assert result.message is not None and result.message.strip() == "feat: a; b (p0508)", result
+
+
+def Resolve_SemicolonInsideASingleQuotedMessage_KeepsTheWholeMessage():
+    with tempfile.TemporaryDirectory() as path:
+        result = _resolve(f"cd {path}; git commit -m 'feat: a; b && c | d (p0508)'", path)
+        assert result.message is not None and result.message.strip() == "feat: a; b && c | d (p0508)", result
+
+
+def Resolve_WorkDirAfterASemicolonCd_IsTheCdTarget():
+    _resolve("git commit -m x", ".")
+    with tempfile.TemporaryDirectory() as path:
+        with tempfile.TemporaryDirectory() as elsewhere:
+            directory = _resolver_module.work_directory(f'cd {path};git commit -m "x; y (p0508)"', elsewhere)
+            assert pathlib.Path(directory).resolve() == pathlib.Path(path).resolve(), directory
+
+
 def Resolve_AmendNoEdit_ReturnsThePreviousMessage():
     with _repository("feat: the previous message (p0508)") as repo:
         result = _resolve("git commit --amend --no-edit", repo)
