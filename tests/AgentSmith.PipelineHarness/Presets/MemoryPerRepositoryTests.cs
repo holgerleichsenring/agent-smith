@@ -32,7 +32,9 @@ public sealed class MemoryPerRepositoryTests
         harness.StubSandboxFactory!.ReportsWorkingTree = true;
         harness.ChatClient
             .EnqueueScopeReply("no verdict") // unusable — the run keeps both repositories
-            .EnqueueText(SpecDerivationFixture.DerivationJson)
+            // 2026-10-12-f5f7a: over two repositories the spec names its one repository.
+            .EnqueueText(SpecDerivationFixture.DerivationJson.Replace(
+                "\"slug\": \"reject-empty-payloads\",", "\"slug\": \"reject-empty-payloads\", \"repos\": [\"sample-server\"],"))
             .EnqueueToolCall("write_file", """{"path":"sample-server/src/Patch.cs","content":"// fix"}""")
             .EnqueueToolCall("remember", """{"type":"project","name":"server-build-order","description":"Contracts build first","body":"The server builds its contracts first.","repository":"sample-server"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"sample-server"}""")
