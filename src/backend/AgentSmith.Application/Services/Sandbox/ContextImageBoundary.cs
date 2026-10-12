@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Models.Sandbox;
 
 namespace AgentSmith.Application.Services.Sandbox;
 
@@ -22,6 +23,12 @@ public sealed class ContextImageBoundary(IImageRegistryTrust trust)
         + "replaces the built-in defaults and turns off Docker Hub official images unless "
         + "sandbox.allow_docker_hub_library is set, so list everything still needed)";
 
+    // 2026-10-12-50bda: a boundary that could not be read trusts nothing; widening the list
+    // would not help, reading it would.
+    private const string UnreadLever =
+        "the stored sandbox settings could not be read, so no image is trusted until they are — "
+        + "check the configuration store, then run again";
+
     /// <summary>Null when the image is absent or inside the boundary.</summary>
     public ContextImageRefusal? Judge(string? image)
     {
@@ -33,7 +40,7 @@ public sealed class ContextImageBoundary(IImageRegistryTrust trust)
             trimmed,
             $"stack.image '{trimmed}' is outside the trusted image registries "
             + $"[{boundary.Description}], so a sandbox will not run it",
-            Lever(trimmed));
+            ReferenceEquals(boundary, RegistryTrustBoundary.Closed) ? UnreadLever : Lever(trimmed));
     }
 
     private static string Lever(string image)

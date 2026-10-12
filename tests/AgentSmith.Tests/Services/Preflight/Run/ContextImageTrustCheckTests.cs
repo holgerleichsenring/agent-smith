@@ -1,10 +1,13 @@
 using AgentSmith.Application.Services.Preflight.Run;
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Preflight;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
+using Moq;
+using AgentSmith.Application.Models.Sandbox;
 
 namespace AgentSmith.Tests.Services.Preflight.Run;
 
@@ -19,16 +22,18 @@ public sealed class ContextImageTrustCheckTests
     private const string SandboxKey = "app";
 
     [Fact]
-    public async Task ContextImageTrustCheck_RefusedImage_WarnsWithLever()
+    public async Task ContextImageTrustCheck_RefusedImage_FailsWithLever()
     {
         var finding = await RunAsync(Refused, new ResolvedProject());
 
-        finding.Verdict.Should().Be(RunPreflightVerdict.Warn,
-            "the language catalog may still carry the toolchain — probably wrong is a report");
+        finding.Verdict.Should().Be(RunPreflightVerdict.Fail,
+            "2026-10-12-50bda: the run does not work in an image substituted for the declared one");
         finding.Message.Should().Contain("context 'backend'").And.Contain(Refused)
             .And.Contain("mcr.microsoft.com/");
+        finding.Message.Should().Contain("will not substitute another");
         finding.Lever.Should().Contain("'sbtscala/'").And.Contain("sandbox.allowed_registries")
-            .And.Contain("sandbox.images");
+            .And.Contain("Trusted image registries").And.Contain("Sandbox tab").And.Contain("sandbox.images")
+            .And.Contain("declare a stack.image inside the boundary");
         finding.Describe().Should().Contain("context-image-trust");
     }
 
@@ -60,8 +65,22 @@ public sealed class ContextImageTrustCheckTests
             .Verdict.Should().Be(RunPreflightVerdict.Pass,
                 "a sandbox that runs on the host runs no image, so nothing was refused");
 
+    [Fact]
+    public async Task ContextImageTrustCheck_RefusedImageTheChainRunsAnyway_Passes()
+    {
+        // A boundary naming one registry stops trusting Docker Hub library images, so a context
+        // that declared the generic image on purpose is refused — and lands on that very image.
+        var trust = new Mock<IImageRegistryTrust>();
+        trust.Setup(t => t.InForce()).Returns(RegistryTrustBoundary.From(
+            new SandboxGlobalConfig { AllowedRegistries = ["ghcr.io/"] }));
+
+        (await RunAsync(SandboxImageChain.GenericFallbackImage, new ResolvedProject(), trust: trust.Object))
+            .Verdict.Should().Be(RunPreflightVerdict.Pass, "the sandbox runs exactly what was declared");
+    }
+
     private static Task<RunPreflightFinding> RunAsync(
-        string contextImage, ResolvedProject project, bool recordImage = true)
+        string contextImage, ResolvedProject project, bool recordImage = true,
+        IImageRegistryTrust? trust = null)
     {
         var pipeline = new PipelineContext();
         pipeline.Set<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(
@@ -76,7 +95,7 @@ public sealed class ContextImageTrustCheckTests
                 ? new Dictionary<string, string> { [SandboxKey] = "buildpack-deps:bookworm-scm" }
                 : new Dictionary<string, string>());
         pipeline.Set(ContextKeys.ProjectConfig, project);
-        return new ContextImageTrustCheck(ContextGates.ImageBoundary())
+        return new ContextImageTrustCheck(ContextGates.ImageBoundary(), new SandboxImageChain(trust))
             .RunAsync(pipeline, CancellationToken.None);
     }
 }

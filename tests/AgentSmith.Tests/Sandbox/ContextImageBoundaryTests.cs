@@ -65,6 +65,16 @@ public sealed class ContextImageBoundaryTests
     }
 
     [Fact]
+    public void Judge_UnreadBoundary_PointsAtTheSettingsNotAtTheList()
+    {
+        var refusal = new ContextImageBoundary(new FixedTrust(RegistryTrustBoundary.Closed)).Judge(UserNamespaceImage)!;
+
+        refusal.Reason.Should().Contain("could not be read");
+        refusal.Lever.Should().Contain("could not be read").And.NotContain("allowed_registries",
+            "2026-10-12-50bda: widening a list nobody could read fixes nothing");
+    }
+
+    [Fact]
     public void Describe_JoinsReasonAndLever() =>
         new ContextImageRefusal("x/y:1", "the reason", "the lever").Describe()
             .Should().Be("the reason — the lever");

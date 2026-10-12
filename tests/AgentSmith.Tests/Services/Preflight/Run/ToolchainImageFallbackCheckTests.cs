@@ -23,7 +23,7 @@ public sealed class ToolchainImageFallbackCheckTests
     {
         var pipeline = Pipeline(Fallback, new RemoteContextDiscovery("default", ".", null, Provenance: Searched));
 
-        var finding = await new ToolchainImageFallbackCheck().RunAsync(pipeline, CancellationToken.None);
+        var finding = await Check().RunAsync(pipeline, CancellationToken.None);
 
         finding.Verdict.Should().Be(RunPreflightVerdict.Warn);
         finding.Message.Should().Contain("sandbox 'app'").And.Contain(Fallback).And.Contain(Searched);
@@ -36,7 +36,7 @@ public sealed class ToolchainImageFallbackCheckTests
     {
         var pipeline = Pipeline(Fallback, new RemoteContextDiscovery("default", ".", "cobol", Provenance: "read on x"));
 
-        var finding = await new ToolchainImageFallbackCheck().RunAsync(pipeline, CancellationToken.None);
+        var finding = await Check().RunAsync(pipeline, CancellationToken.None);
 
         finding.Verdict.Should().Be(RunPreflightVerdict.Warn);
         finding.Message.Should().Contain("lang=cobol");
@@ -48,7 +48,7 @@ public sealed class ToolchainImageFallbackCheckTests
         var pipeline = Pipeline(Fallback, new RemoteContextDiscovery("default", ".", null),
             new SandboxConfig { ToolchainImage = Fallback });
 
-        var finding = await new ToolchainImageFallbackCheck().RunAsync(pipeline, CancellationToken.None);
+        var finding = await Check().RunAsync(pipeline, CancellationToken.None);
 
         finding.Verdict.Should().Be(RunPreflightVerdict.Pass);
     }
@@ -58,11 +58,53 @@ public sealed class ToolchainImageFallbackCheckTests
     {
         var chosen = Pipeline("sbtscala/scala-sbt:17", new RemoteContextDiscovery("default", ".", "scala"));
 
-        (await new ToolchainImageFallbackCheck().RunAsync(chosen, CancellationToken.None))
+        (await Check().RunAsync(chosen, CancellationToken.None))
             .Verdict.Should().Be(RunPreflightVerdict.Pass);
-        (await new ToolchainImageFallbackCheck().RunAsync(new PipelineContext(), CancellationToken.None))
+        (await Check().RunAsync(new PipelineContext(), CancellationToken.None))
             .Verdict.Should().Be(RunPreflightVerdict.Pass, "the in-process backend records no image");
     }
+
+    [Fact]
+    public async Task ToolchainImageFallbackCheck_FellThroughWithVerifyStages_Fails()
+    {
+        var pipeline = Pipeline(Fallback, new RemoteContextDiscovery("backend", ".", "cobol",
+            Verify: [new ContextYamlVerifyStage("build", "cobc -x main.cbl")], Provenance: "read on x"));
+
+        var finding = await Check().RunAsync(pipeline, CancellationToken.None);
+
+        finding.Verdict.Should().Be(RunPreflightVerdict.Fail,
+            "a declared build stage cannot run on an image with no toolchain");
+        finding.Message.Should().Contain("sandbox 'app'").And.Contain("lang=cobol").And.Contain("cobc -x main.cbl");
+        finding.Lever.Should().Contain("sandbox.images.<lang>").And.Contain("Sandbox tab");
+    }
+
+    [Fact]
+    public async Task ToolchainImageFallbackCheck_FellThroughWithoutStages_Warns() =>
+        (await Check().RunAsync(
+            Pipeline(Fallback, new RemoteContextDiscovery("docs", ".", null)), CancellationToken.None))
+            .Verdict.Should().Be(RunPreflightVerdict.Warn, "a sandbox that declares nothing to build may run there");
+
+    [Fact]
+    public async Task ToolchainImageFallbackCheck_RefusedImageOnGeneric_LeavesItToTheTrustCheck()
+    {
+        var pipeline = Pipeline(Fallback, new RemoteContextDiscovery("backend", ".", "scala",
+            ToolchainImage: "sbtscala/scala-sbt:1", Verify: [new ContextYamlVerifyStage("build", "sbt compile")]));
+
+        (await Check().RunAsync(pipeline, CancellationToken.None)).Verdict.Should().Be(RunPreflightVerdict.Pass,
+            "the context named an image; context-image-trust reports its refusal, once");
+    }
+
+    [Fact]
+    public async Task ToolchainImageFallbackCheck_OperatorNamedGenericForTheLanguage_Passes()
+    {
+        var pipeline = Pipeline(Fallback, new RemoteContextDiscovery("backend", ".", "cobol",
+                Verify: [new ContextYamlVerifyStage("build", "cobc -x main.cbl")]),
+            new SandboxConfig { Images = new Dictionary<string, string> { ["cobol"] = Fallback } });
+
+        (await Check().RunAsync(pipeline, CancellationToken.None)).Verdict.Should().Be(RunPreflightVerdict.Pass);
+    }
+
+    private static ToolchainImageFallbackCheck Check() => new(new SandboxImageChain());
 
     private static PipelineContext Pipeline(string image, RemoteContextDiscovery discovery, SandboxConfig? sandbox = null)
     {

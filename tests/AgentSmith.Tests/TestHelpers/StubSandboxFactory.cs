@@ -12,9 +12,13 @@ internal sealed class StubSandboxFactory : ISandboxFactory
     /// found" for — empty by default, so every read keeps succeeding as it always has.</summary>
     public HashSet<string> MissingPaths { get; } = new(StringComparer.Ordinal);
 
+    /// <summary>2026-10-12-50bda: when set, every sandbox names its spec's image the way a container
+    /// backend does, so the run records SandboxImages and the image preflight checks judge it.</summary>
+    public bool NamesImages { get; set; }
+
     public Task<ISandbox> CreateAsync(SandboxSpec spec, CancellationToken cancellationToken)
     {
-        var sandbox = new StubSandbox(MissingPaths);
+        var sandbox = new StubSandbox(MissingPaths, NamesImages ? spec.ToolchainImage : null);
         Spawned.Add((spec, sandbox));
         return Task.FromResult<ISandbox>(sandbox);
     }

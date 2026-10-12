@@ -12,18 +12,21 @@ namespace AgentSmith.Application.Services.Preflight.Run;
 /// 2026-10-12-6bfac: names every context whose stack.image the registry boundary refused, on
 /// the run, before the run spends half an hour in the image it got instead.
 /// <para>
-/// The image chain consults a context's image only when the project names none —
-/// sandbox.toolchain_image, then sandbox.images for the language — so an image the operator
-/// already overrode is not reported. A sandbox with no recorded image runs on the host and
-/// runs no image at all, so it is not reported either.
-/// </para>
-/// <para>
-/// A REPORT, not a gate: the chain falls through to the language catalog, whose image may
-/// carry the toolchain. "Probably wrong" earns a warning, as in <see cref="RegistryCredentialCheck"/>.
+/// 2026-10-12-50bda: a GATE, no longer a report. The image the sandbox was started in is a
+/// substitute nobody chose — the catalog's guess or the generic image — and "automatically
+/// switching to a default image" cost a 25-minute run that failed on a missing build tool.
+/// Whether the context's image was consulted at all is the chain's own decision, so an image
+/// the operator already overrode is never reported, and a refused image the chain lands on
+/// anyway is no substitution. A sandbox with no recorded image runs on the host and runs no
+/// image at all, so it is not judged either.
 /// </para>
 /// </summary>
-public sealed class ContextImageTrustCheck(ContextImageBoundary boundary) : IRunPreflightCheck
+public sealed class ContextImageTrustCheck(
+    ContextImageBoundary boundary, SandboxImageChain chain) : IRunPreflightCheck
 {
+    private const string ContextLever =
+        "or declare a stack.image inside the boundary that carries the context's whole toolchain";
+
     public string Name => "context-image-trust";
 
     public Task<RunPreflightFinding> RunAsync(PipelineContext pipeline, CancellationToken cancellationToken)
@@ -32,10 +35,12 @@ public sealed class ContextImageTrustCheck(ContextImageBoundary boundary) : IRun
         if (refused.Count == 0)
             return Task.FromResult(RunPreflightFinding.Pass(
                 Name, "every context image the sandboxes consult is inside the registry boundary"));
-        var contexts = string.Join("; ", refused.Select(r => $"context '{r.Context}': {r.Refusal.Reason}"));
-        return Task.FromResult(new RunPreflightFinding(
-            Name, RunPreflightVerdict.Warn, contexts,
-            string.Join("; ", refused.Select(r => r.Refusal.Lever).Distinct(StringComparer.Ordinal))));
+        var contexts = string.Join("; ", refused.Select(r =>
+            $"context '{r.Context}': {r.Refusal.Reason}, and the run will not substitute another"));
+        return Task.FromResult(RunPreflightFinding.Fail(
+            Name, contexts,
+            string.Join("; ", refused.Select(r => r.Refusal.Lever).Distinct(StringComparer.Ordinal))
+            + "; " + ContextLever));
     }
 
     private List<(string Context, ContextImageRefusal Refusal)> Refused(PipelineContext pipeline)
@@ -45,25 +50,16 @@ public sealed class ContextImageTrustCheck(ContextImageBoundary boundary) : IRun
             || !pipeline.TryGet<IReadOnlyDictionary<string, string>>(
                 ContextKeys.SandboxImages, out var images) || images is null)
             return [];
-        pipeline.TryGet<ResolvedProject>(ContextKeys.ProjectConfig, out var project);
+        var project = pipeline.TryGet<ResolvedProject>(ContextKeys.ProjectConfig, out var p) && p is not null
+            ? p : new ResolvedProject();
         return bySandbox
             .Where(entry => images.ContainsKey(entry.Key))
             .SelectMany(entry => entry.Value)
-            .Where(d => !OperatorNamesImage(project, d.Language))
-            .Select(d => (d.ContextName, Refusal: boundary.Judge(d.ToolchainImage)))
+            .Select(d => (d.ContextName, Decision: chain.Decide(project, d.Language, d.ToolchainImage)))
+            .Where(r => r.Decision.SubstitutesTheDeclaredImage)
+            .Select(r => (r.ContextName, Refusal: boundary.Judge(r.Decision.RefusedContextImage)))
             .Where(r => r.Refusal is not null)
             .Select(r => (r.ContextName, r.Refusal!))
             .ToList();
-    }
-
-    // The two links that come before the context's own image in SandboxImageChain.Resolve.
-    private static bool OperatorNamesImage(ResolvedProject? project, string? language)
-    {
-        var sandbox = project?.Sandbox;
-        if (sandbox is null) return false;
-        if (!string.IsNullOrEmpty(sandbox.ToolchainImage)) return true;
-        return !string.IsNullOrEmpty(language) && sandbox.Images is { } named && named.Any(kv =>
-            string.Equals(kv.Key, language, StringComparison.OrdinalIgnoreCase)
-            && !string.IsNullOrEmpty(kv.Value));
     }
 }

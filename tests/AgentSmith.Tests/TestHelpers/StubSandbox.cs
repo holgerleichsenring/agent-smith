@@ -11,8 +11,13 @@ namespace AgentSmith.Tests.TestHelpers;
 /// Run-commands fire one stdout line via progress so handlers that
 /// capture stdout (e.g. MarkItDown wrapper) get non-empty content.
 /// </summary>
-internal sealed class StubSandbox(IReadOnlySet<string>? missingPaths = null) : IHoldableSandbox
+internal sealed class StubSandbox(IReadOnlySet<string>? missingPaths = null, string? toolchainImage = null)
+    : IHoldableSandbox, ISandboxToolchainImage
 {
+    /// <summary>2026-10-12-50bda: the image a container backend would name; null (the default)
+    /// records none, as the in-process backend does.</summary>
+    public string ToolchainImage => toolchainImage!;
+
     public string JobId { get; } = "stub-" + Guid.NewGuid().ToString("N")[..8];
     public List<Step> RanSteps { get; } = new();
 
