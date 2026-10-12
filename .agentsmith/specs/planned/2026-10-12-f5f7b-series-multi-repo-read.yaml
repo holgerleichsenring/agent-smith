@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-f5f7b
+goal: "A series whose specs lie in several repositories is read as one: manifests found in every run repository, specs read from their own, edits detected per repository."
+
+applies_to: "backend (series reader, pointer, scope, persistence)"
+
+requires: [2026-10-12-f5f7a]
+
+facts:
+  - claim: "The reader reads one carrier's first sandbox, finds the manifest by ticket key, reads one spec per listed id from that same sandbox, and returns Unreadable without a sandbox."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesReader.cs:38-94, src/backend/AgentSmith.Application/Services/Specs/SeriesManifestFinder.cs:30-31"
+  - claim: "The manifest lists spec ids only; series-wide fields (key, goal, order, revisions, accounting, hand-back, fingerprint, approval) are mapped from it into the SpecSet."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesManifestDocument.cs:13-43, src/backend/AgentSmith.Application/Services/Specs/SeriesManifest.cs:26-110, src/backend/AgentSmith.Application/Services/Specs/SeriesReader.cs:102-110"
+  - claim: "A reviewer's edit is found by the last commit over the manifest and the series' spec paths in that one checkout, compared with the pointer's single RevisionSha; no pointer reads as an edit."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesReader.cs:63-73, src/backend/AgentSmith.Application/Services/Specs/SpecRevisionCause.cs:79-81, src/backend/AgentSmith.Contracts/Specs/SpecSetPointer.cs:22-38"
+  - claim: "The pointer is one TicketSeries row per (project, ticket) with one CarryingRepo and one RevisionSha, written by SpecSetPointerRecorder."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/TicketSeries.cs:10-36, src/backend/AgentSmith.Application/Services/Specs/SpecSetPointerRecorder.cs:34-48"
+  - claim: "The carrier is the pointer's, else the approval's, else scopedRepos[0]; nothing makes a later run's checkout include it, and scoping can narrow it out; an approved scope comes from the approval and --repo intersects it."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecCarryingRepoResolver.cs:23-34, src/backend/AgentSmith.Application/Services/Handlers/ScopeReposHandler.cs:63-95, src/backend/AgentSmith.Application/Services/Scope/ApprovedRepoScope.cs:50-80"
+
+assumptions: []
+
+scope:
+  in: "Manifest specs entries carry their repo (a bare id stays legal and means the manifest's own repo); the reader searches every run sandbox, joins, takes series-wide fields from the highest revision, reads each spec from its repo; RevisionShas per repo on TicketSeries; ReviewerEdit when any repo moved; the series' repos kept in scope."
+  out: "Writing specs into their repos (2026-10-12-f5f7d) — until then every write still lands in one repo, so this slice changes no behaviour."
+
+decisions:
+  - key: "CAPABILITY FIRST: read many before writing many; a series written by today's code reads exactly as before."
+  - key: "HIGHEST REVISION WINS for series-wide fields; equal revisions with different content are a conflict and read as Unreadable with both repositories named."
+  - key: "A BARE ID MEANS HERE: legacy manifests keep working; their specs are read from the manifest's repository."
+  - key: "SHA PER REPOSITORY: TicketSeries keeps one sha per repository holding series files (JSON column, migrations in both assemblies); CarryingRepo stays readable for legacy series and is no longer written."
+  - key: "THE SERIES KEEPS ITS REPOSITORIES IN SCOPE: scoping adds every repository the stored series names (pointer shas, legacy CarryingRepo); under --repo a missing one makes the read Unreadable, never a silent narrower set."
+
+steps:
+  - id: manifest
+    action: "Let manifest specs entries be {id, repo} or a bare id; render {id, repo} for specs that name one."
+    modify:
+      - "SeriesManifestDocument, SeriesManifest, SeriesFiles"
+  - id: reader
+    action: "Find manifests by ticket key in every run sandbox, pick by revision, read each spec from its repo's sandbox, compute LastCommitSha per repo."
+    modify:
+      - "SeriesReader, SeriesManifestFinder, SeriesSpecFileReader, SpecSetReadResult"
+  - id: pointer
+    action: "Store RevisionShas per repo; SpecRevisionCause reads ReviewerEdit when any repo's last series commit differs; recorder writes per repo."
+    modify:
+      - "TicketSeries, TicketSeriesRepository, SpecSetPointer, both pointer stores, SpecSetPointerRecorder, SpecRevisionCause"
+  - id: scope
+    action: "Keep the stored series' repositories in the run scope in ApprovedRepoScope.OpenAsync and ScopeReposHandler."
+    modify:
+      - "ApprovedRepoScope, ScopeReposHandler, DeriveSpecHandler"
+
+tests:
+  - "SeriesReader_SpecsInTwoRepos_ReadsOneSeries"
+  - "SeriesReader_TwoManifests_HighestRevisionWins"
+  - "SeriesReader_EqualRevisionsDiffer_IsUnreadable"
+  - "SeriesReader_LegacyBareIds_ReadFromManifestRepo"
+  - "SpecRevisionCause_OneRepoMoved_IsReviewerEdit"
+  - "ScopeRepos_StoredSeriesNamesServer_KeepsServer"
+  - "ApprovedRepoScope_RepoFlagExcludesSeriesRepo_ReadIsUnreadable"
+
+done:
+  - "A series whose two specs lie in Server and Client (hand-placed in the harness) is read as one, in order (RealCompositionHarness)."
+  - "Every existing series test is green unchanged; migrations in both assemblies."

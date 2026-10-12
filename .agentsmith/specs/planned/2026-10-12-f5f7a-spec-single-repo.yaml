@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-f5f7a
+goal: "In a multi-repository scope every new spec names exactly one repository; work spanning two is cut as two specs, and the fallbacks cut one spec per scoped repository."
+
+applies_to: "backend (spec derivation, design dialog)"
+
+requires: [2026-10-12-3a36e]
+
+facts:
+  - claim: "3a36e added repos: as a list, armed by the reply: if any spec states it, all must and each must be in scope; otherwise code fills the whole scope; one repository in scope is filled."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecReposRule.cs:7-66, src/backend/AgentSmith.Application/Services/Specs/DerivedPhaseRepos.cs:1, src/backend/AgentSmith.Application/Services/SpecDialog/DialogDraftRepos.cs:1"
+  - claim: "3a36e added a prompt section that lists the scope's repository names in every derivation."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ScopeRepositoriesPromptSection.cs:1"
+  - claim: "The whole-ticket fallback and the coverage refusal build one spec over the scope."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecFallback.cs:21-49, src/backend/AgentSmith.Application/Services/Specs/SpecCoverageRefusal.cs:28-33, src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:102-125"
+  - claim: "One phase already works across every sandbox of the run and verifies every sandbox with a diff, so execution does not depend on where a spec's file lies."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:71-80, src/backend/AgentSmith.Application/Services/Handlers/VerifyPhaseHandler.cs:83-124"
+  - claim: "The run never reads requires:; derivation writes it as a chain; the series order is the manifest's list."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivedPhaseBuilder.cs:58-60, src/backend/AgentSmith.Application/Services/Handlers/PhaseSequenceHandler.cs:38-61"
+  - claim: "observed: operator decision — a spec lives in the one repository whose code it changes; split, never copy."
+    evidence: "observed: 2026-10-12, session with the operator"
+
+assumptions: []
+
+scope:
+  in: "Exactly one repo per new spec in a multi-repo scope, stated by the model (the backend prompt section asks for it, independent of the skills pin); a spec naming several is re-asked to split; none stated is re-asked; after the last attempt the fallback cuts one spec per scoped repo; same rules in the dialog for the lone spec and epic children."
+  out: "Where the files go (2026-10-12-f5f7b, f5f7d); legacy specs without repos: stay readable."
+
+decisions:
+  - key: "ONE SPEC, ONE REPO: placement can only follow a single name; a list would bring copies back."
+  - key: "THE BACKEND ASKS, NOT ONLY THE SKILL: the prompt section 3a36e added states the rule, so a binary ahead of the skills release asks too; the scope fill is retired for multi-repo scopes."
+  - key: "SPLIT, AND KEEP THE ORDER: a split pair carries requires: from the dependent to the other, and the series order keeps them adjacent; execution is unchanged."
+  - key: "THE FALLBACK SPLITS TOO: one whole-ticket spec per scoped repository, each naming its repo — no repository is guessed."
+  - key: "ONE REPO IN SCOPE STAYS FILLED: nothing to choose."
+
+steps:
+  - id: rule
+    action: "Make SpecReposRule require exactly one in-scope repo per spec when the scope has more than one; re-ask with 'split it' or 'state it'; drop the multi-repo scope fill."
+    modify:
+      - "SpecReposRule, SpecReposResolution, DerivedPhaseRepos, DialogDraftRepos"
+  - id: prompt
+    action: "Extend ScopeRepositoriesPromptSection: each spec names one repository; work in two is two specs with requires:."
+  - id: fallback
+    action: "Let SpecFallback and SpecCoverageRefusal cut one spec per scoped repository, chained by requires:."
+    modify:
+      - "SpecFallback, SpecCoverageRefusal, DeriveSpecHandler"
+  - id: skills
+    action: "In the agent-smith-skills worktree branch of 3a36e (feat/2026-10-12-3a36e-repos-field), change both masters to one repository per spec; commit, no release."
+
+tests:
+  - "SpecReposRule_MultiRepoScope_SpecNamingTwo_IsReAskedToSplit"
+  - "SpecReposRule_MultiRepoScope_NoneStated_IsReAsked"
+  - "SpecReposRule_SingleRepoScope_IsFilled"
+  - "SpecFallback_TwoReposInScope_CutsOneSpecPerRepo"
+  - "SpecCoverageRefusal_TwoRepos_CutsOneSpecPerRepo"
+  - "DialogDraftRepos_EpicChildNamingTwo_IsInvalid"
+  - "ScopeRepositoriesPromptSection_MultiRepo_StatesOneRepoPerSpec"
+
+done:
+  - "A derivation over BackgroundWorker+Server for a change in both yields two specs, one per repository, chained by requires: (RealCompositionHarness, scripted reply)."
+  - "A failed derivation over two repositories falls back to two specs."
