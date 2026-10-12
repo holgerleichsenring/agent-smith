@@ -36,6 +36,8 @@ public static class SpecReviewPrompt
             discarded, and so is a line past what the read returned. The read gives you line
             numbers; the line you name is one of those.
 
+            {{AccountEvidenceRules.DiffReading}}A finding names a line the branch now contains, never a '-' line.
+
             Answer with JSON and nothing else:
 
               [{"repository": "<one of the repositories below>", "path": "<path as the diff spells it>",

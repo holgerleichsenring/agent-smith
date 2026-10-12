@@ -29,8 +29,7 @@ public sealed class CitedFileIndex
     }
 
     /// <summary>The files a unified diff touches, read off its own +++/--- headers.</summary>
-    public static CitedFileIndex FromDiff(string? diff) =>
-        new((diff ?? string.Empty).Split('\n').Select(DiffHeaderPath).OfType<string>());
+    public static CitedFileIndex FromDiff(string? diff) => new(HeaderPaths(diff ?? string.Empty));
 
     /// <summary>The files something else already enumerated — a scan's read set.</summary>
     public static CitedFileIndex FromPaths(IEnumerable<string>? candidates) =>
@@ -67,6 +66,21 @@ public sealed class CitedFileIndex
         {
             var needle = Normalize(token.Split(':', 2)[0].Trim());
             if (needle.Length > 0) yield return needle;
+        }
+    }
+
+    /// <summary>
+    /// 2026-10-12-fbbdd: a header is read only before a file's first '@@'. Inside a hunk a
+    /// removed SQL comment "-- x" renders as "--- x" and is no path.
+    /// </summary>
+    private static IEnumerable<string> HeaderPaths(string diff)
+    {
+        var inHunk = false;
+        foreach (var line in diff.Split('\n'))
+        {
+            if (line.StartsWith("diff --git ", StringComparison.Ordinal)) inHunk = false;
+            else if (line.StartsWith("@@", StringComparison.Ordinal)) inHunk = true;
+            if (!inHunk && DiffHeaderPath(line) is { } path) yield return path;
         }
     }
 

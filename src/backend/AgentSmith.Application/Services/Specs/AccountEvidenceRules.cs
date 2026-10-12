@@ -68,6 +68,24 @@ internal static class AccountEvidenceRules
               + "criterion that states a prohibition or a plain requirement is never conditional."
             : string.Empty;
 
+    /// <summary>
+    /// 2026-10-12-fbbdd: how git writes a diff, shared by every reader of one. A run's
+    /// account failed a line-length criterion on lines the branch had REMOVED — nothing had
+    /// said that a '-' line is gone.
+    /// </summary>
+    public const string DiffReading =
+        "The diff is git's unified diff. A file's '---' and '+++' lines are its header: the two\n"
+        + "lines before that file's first '@@'. Inside a hunk, a line starting with '+' was added\n"
+        + "by this branch, a line starting with a space is unchanged code around the change, and\n"
+        + "a line starting with '-' is gone from the branch.\n";
+
+    /// <summary>What a '+' and a '-' line can each prove to the account.</summary>
+    public const string DiffJudging =
+        "A criterion about added or changed lines is judged from the '+' lines alone. A '-'\n"
+        + "line proves only what was removed, replaced, renamed or moved — never what the branch\n"
+        + "now contains. A criterion about a whole file's current content follows the rule\n"
+        + "above: a body that shows it, or a search.";
+
     /// <summary>The answer shape, which carries the third disposition only where it can be
     /// admitted. Naming a disposition the account cannot use is how a rule teaches an answer
     /// the checker will refuse.</summary>

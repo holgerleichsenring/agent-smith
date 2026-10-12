@@ -21,8 +21,6 @@ public static class DiffWindows
 {
     public const int DefaultBudgetChars = 400_000;
 
-    private const string FileHeader = "diff --git ";
-
     public static IReadOnlyList<string> Split(string diff, int budgetChars = DefaultBudgetChars)
     {
         if (string.IsNullOrEmpty(diff)) return [];
@@ -46,21 +44,18 @@ public static class DiffWindows
         return windows;
     }
 
-    /// <summary>Each file's diff, header included — never split mid-file.</summary>
+    /// <summary>Each file's diff, header included — never split mid-file. A header is found
+    /// only where git writes one, at a line start (2026-10-12-fbbdd).</summary>
     private static IEnumerable<string> Files(string diff)
     {
-        var index = diff.IndexOf(FileHeader, StringComparison.Ordinal);
-        if (index < 0)
+        var starts = SpecDiffText.Boundaries(diff);
+        if (starts.Count == 0)
         {
             yield return diff;
             yield break;
         }
-        if (index > 0) yield return diff[..index];
-        while (index >= 0)
-        {
-            var next = diff.IndexOf(FileHeader, index + FileHeader.Length, StringComparison.Ordinal);
-            yield return next < 0 ? diff[index..] : diff[index..next];
-            index = next;
-        }
+        if (starts[0] > 0) yield return diff[..starts[0]];
+        for (var i = 0; i < starts.Count; i++)
+            yield return diff[starts[i]..(i + 1 < starts.Count ? starts[i + 1] : diff.Length)];
     }
 }
