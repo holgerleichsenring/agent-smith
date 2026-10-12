@@ -1,7 +1,7 @@
 namespace AgentSmith.Contracts.Commands;
 
 /// <summary>
-/// 2026-10-06-8565d: context keys owned by the commit step's structure gate.
+/// Context keys owned by the commit step's structure gate.
 /// </summary>
 public static partial class ContextKeys
 {

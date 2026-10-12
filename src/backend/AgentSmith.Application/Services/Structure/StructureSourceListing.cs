@@ -15,7 +15,7 @@ public sealed class StructureSourceListing
     // The sandbox agent stops capturing stdout at this many characters (StepExecutor). A -z
     // listing is one line, so it is never cut — it overruns instead, and reaching the cap is
     // the only sign.
-    private const int CaptureCap = 1_000_000;
+    public const int CaptureCap = 1_000_000;
 
     public async Task<(IReadOnlyList<string> Paths, string? Refusal)> ListAsync(
         ISandbox sandbox, string workdir, IReadOnlyList<string> extensions,

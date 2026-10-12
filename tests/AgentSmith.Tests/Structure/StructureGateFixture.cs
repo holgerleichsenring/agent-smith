@@ -3,12 +3,13 @@ using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.Structure;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Tests.Structure;
 
-/// <summary>2026-10-06-8565d: the commit gate over real collaborators and one in-memory repository.</summary>
+/// <summary>The commit gate over real collaborators and one in-memory repository.</summary>
 internal static class StructureGateFixture
 {
     public const string Key = "repo";
@@ -23,12 +24,15 @@ internal static class StructureGateFixture
             NullLogger<DeliveryDiff>.Instance),
         new StructureGitReads(),
         new StructureGateContexts(new StructureGitReads(), new StructureLimits(), NullLogger<StructureGateContexts>.Instance),
-        missingGrammar ? StructureEngineFixture.MissingGrammar() : StructureEngineFixture.Engine(),
-        new StructureJudge(), new SandboxFileReaderFactory(), NullLogger<StructureGate>.Instance);
+        new StructureGateFiles(
+            missingGrammar ? StructureEngineFixture.MissingGrammar() : StructureEngineFixture.Engine(),
+            new StructureJudge(), new SandboxFileReaderFactory(), NullLogger<StructureGateFiles>.Instance),
+        NullLogger<StructureGate>.Instance);
 
     public static PipelineContext PipelineOf(RepoSandbox repo, params (string Name, string Workdir)[] contexts)
     {
         var pipeline = new PipelineContext();
+        pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, [new RepoConnection { Name = Key }]);
         pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes,
             new Dictionary<string, ISandbox>(StringComparer.Ordinal) { [Key] = repo });
         pipeline.Set<IReadOnlyDictionary<string, RemoteContextDiscovery>>(ContextKeys.SandboxDiscoveries,

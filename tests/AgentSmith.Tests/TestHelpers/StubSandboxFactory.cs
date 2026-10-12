@@ -21,8 +21,9 @@ internal sealed class StubSandboxFactory : ISandboxFactory
     /// a clean tree.</summary>
     public bool ReportsWorkingTree { get; set; }
 
-    /// <summary>2026-10-06-8565d: meta files at the base the branch was cut from — null by default,
-    /// so no sandbox names a base and the commit gate passes as it always would.</summary>
+    /// <summary>Meta files at the base the branch was cut from — null by default, so no sandbox
+    /// names a base, 'git show's a file or answers the gate's NUL-separated listings, and the
+    /// commit gate passes as it always would.</summary>
     public Dictionary<string, string>? BaseFiles { get; set; }
 
     /// <summary>2026-10-06-8565c: tracked source files, repo-relative, every sandbox lists and reads —

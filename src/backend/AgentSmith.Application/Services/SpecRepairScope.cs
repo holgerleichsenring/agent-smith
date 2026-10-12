@@ -26,7 +26,7 @@ public static class SpecRepairScope
         ArgumentNullException.ThrowIfNull(pipeline);
         pipeline.Remove(ContextKeys.OutstandingCriteria);
         pipeline.Remove(ContextKeys.SpecRepairAttempted);
-        // 2026-10-06-8565d: one structure correction per spec, so the next spec starts fresh.
+        // One structure correction per spec, so the next spec starts fresh.
         pipeline.Remove(ContextKeys.StructureFindings);
         pipeline.Remove(ContextKeys.StructureGateAttempted);
         // 2026-09-17-042eh: the review's fix pass is the same mechanism under a second name

@@ -23,7 +23,7 @@ namespace AgentSmith.Application.Services.SpecExecution;
 /// scan, same staging rules, one place that knows how to put work on a branch.
 /// </para>
 /// <para>
-/// 2026-10-06-8565d: and this is where the framework holds the work to its Limits — after the
+/// And this is where the framework holds the work to its Limits — after the
 /// push, so nothing is lost, and before VerifySpec, so a correction is still part of the spec.
 /// </para>
 /// </summary>

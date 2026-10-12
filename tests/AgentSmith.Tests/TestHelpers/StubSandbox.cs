@@ -62,8 +62,9 @@ internal sealed class StubSandbox(
             return Task.FromResult(new StepResult(
                 StepResult.CurrentSchemaVersion, step.StepId, ExitCode: 1, TimedOut: false,
                 DurationSeconds: 0.01, ErrorMessage: StepErrors.FileNotFound(missing), OutputContent: null));
-        // 2026-10-06-8565d: a base the branch was cut from, opted into by a test — the commit
-        // gate reads its Limits and baseline there. Without one the gate finds no base and passes.
+        // A base the branch was cut from, opted into by a test — the commit gate lists what the
+        // branch changed against it and reads its Limits and baseline there. Without one the
+        // gate finds no base and passes.
         if (baseFiles is not null && BaseAnswer(step) is { } answer) return Task.FromResult(answer);
         // 2026-10-06-8565c: tracked sources a test seeded — listed by 'git ls-files -z --full-name'
         // and read back. Without any, the listing is empty and the init takes no baseline.
@@ -93,6 +94,10 @@ internal sealed class StubSandbox(
     private StepResult? BaseAnswer(Step step)
     {
         if (IsGit(step, "symbolic-ref")) return Answer(step, 0, "origin/main\n");
+        // The gate's NUL-separated listings: every written file is changed, none untracked.
+        if (IsGit(step, "-z") && IsGit(step, "--name-only"))
+            return Answer(step, 0, string.Concat(_stagedFiles.Select(f => f + "\0")) + "\n");
+        if (IsGit(step, "-z") && IsGit(step, "--others")) return Answer(step, 0, "\n");
         if (!IsGit(step, "show") || step.Args?.LastOrDefault() is not { } spec
             || !spec.StartsWith("origin/main:", StringComparison.Ordinal))
             return null;

@@ -1,5 +1,3 @@
-using AgentSmith.Application.Services.Handlers;
-using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
@@ -7,22 +5,21 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Structure;
 
 /// <summary>
-/// 2026-10-06-8565d: each context's Limits and baseline, read at the branch's base. A context
-/// with a rooted or escaping workdir, no Limits or no baseline is not judged — a limit is
-/// green on the day it is installed, and without a baseline nothing says what was there.
-/// Every normalized workdir still owns its files, so a nested context's file is never judged
-/// by the context around it.
+/// Each context's Limits and baseline, read at the branch's base. A context with a rooted or
+/// escaping workdir, no Limits or no baseline is not judged — a limit is green on the day it is
+/// installed, and without a baseline nothing says what was there. Every normalized workdir still
+/// owns its files, so a nested context's file is never judged by the context around it.
 /// </summary>
 public sealed class StructureGateContexts(
     StructureGitReads git, StructureLimits limits, ILogger<StructureGateContexts> logger)
 {
     public async Task<(IReadOnlyList<string> Owners, IReadOnlyDictionary<string, StructureContextRules> Rules)>
         ReadAsync(
-        PipelineContext pipeline, string sandboxKey, ISandbox sandbox, string baseRef, CancellationToken ct)
+        IReadOnlyList<RemoteContextDiscovery> contexts, ISandbox sandbox, string baseRef, CancellationToken ct)
     {
         var owners = new List<string>();
         var rules = new Dictionary<string, StructureContextRules>(StringComparer.Ordinal);
-        foreach (var context in SandboxContextList.In(pipeline, sandboxKey))
+        foreach (var context in contexts)
         {
             if (StructureWorkdir.Normalize(context.Workdir) is not { } workdir)
             {
