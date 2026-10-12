@@ -76,7 +76,9 @@ public sealed class ChatClientFactory(
                 return ConnectionProbeResult.Unreachable(
                     stopwatch.ElapsedMilliseconds, $"No client builder for type '{effectiveType}'");
 
-            await builder.Build(agent, assignment).GetResponseAsync(
+            var probe = ModelIdRejectionChatClient.Wrap(
+                builder.Build(agent, assignment), agent, TaskType.Summarization, assignment, effectiveType);
+            await probe.GetResponseAsync(
                 [new ChatMessage(ChatRole.User, "ping")],
                 new ChatOptions { MaxOutputTokens = 1 },
                 cancellationToken);
@@ -163,8 +165,9 @@ public sealed class ChatClientFactory(
         // 2026-08-27-3eb1: a context-length refusal names the role, the window it ran
         // against and the setting that would have prevented it — innermost, so nothing
         // above rewrites the provider's own words first.
+        // 2026-10-12-6bfae: a provider "not found" names the role, its entry and the model id.
         var diagnosed = new ContextLengthRefusalChatClient(
-            scrubbed, task.ToString(), assignment.Model ?? effectiveType, window, _logger);
+            ModelIdRejectionChatClient.Wrap(scrubbed, agent, task, assignment, effectiveType), task.ToString(), assignment.Model ?? effectiveType, window, _logger);
 
         if (!ToolBearingTasks.Contains(task))
             return diagnosed;

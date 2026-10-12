@@ -15,6 +15,8 @@ namespace AgentSmith.Application.Services.Scope;
 /// <param name="Refusal">The reply's judgement that the ticket demands something that
 /// must not be done; null when it stated no objection. Read independently of the
 /// repo verdict, like the estimate, and consulted before anything else is.</param>
+/// <param name="CallFailed">2026-10-12-6bfae: the call itself failed — no reply exists. Tells a
+/// failed call from a reply without a repo verdict, which a healthy single-repo run returns.</param>
 public sealed record ScopeClassificationResult(
     RepoScopeClassification? Classification, ScopeEstimate Estimate, string? Error,
-    ScopeRefusal? Refusal = null);
+    ScopeRefusal? Refusal = null, bool CallFailed = false);

@@ -22,6 +22,13 @@ public interface IChatClientBuilder
     bool AcceptsImageAfterToolResult { get; }
 
     /// <summary>
+    /// 2026-10-12-6bfae: the price list's provider names whose model ids this builder's API
+    /// accepts unchanged — the picker ranks those ids first for an agent of this type. Empty
+    /// when the list holds no id the API takes as written (routing-prefixed ids only).
+    /// </summary>
+    IReadOnlyList<string> PriceListProviders => [];
+
+    /// <summary>
     /// Builds the bare IChatClient for the given agent + task assignment.
     /// FunctionInvokingChatClient wrapping is the factory's responsibility.
     /// </summary>

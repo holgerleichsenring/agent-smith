@@ -2,6 +2,7 @@
 
 import { useId, useState } from "react";
 import type { ListedModelPrice } from "@/lib/configApi";
+import { rankModelMatches } from "./modelIdRanking";
 
 // 2026-09-30-62bab: the model id as a search over the public price list. The id stays
 // free text — a model the list does not know is still enterable, and then needs an
@@ -12,19 +13,20 @@ const MAX_MATCHES = 8;
 export function ModelIdSearch({
   value,
   list,
+  preferredProviders = [],
   onChange,
 }: {
   value: string;
   list: ListedModelPrice[] | null;
+  /** 2026-10-12-6bfae: providers whose ids the entry's API accepts as written — offered first. */
+  preferredProviders?: readonly string[];
   onChange: (model: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const listId = useId();
   const query = value.trim().toLowerCase();
   const matches =
-    open && list && query.length >= 2
-      ? list.filter((m) => m.id.toLowerCase().includes(query) && m.id.toLowerCase() !== query).slice(0, MAX_MATCHES)
-      : [];
+    open && list && query.length >= 2 ? rankModelMatches(list, query, preferredProviders, MAX_MATCHES) : [];
 
   return (
     <div className="field">
@@ -71,8 +73,8 @@ export function ModelIdSearch({
               style={{ background: "none", border: 0, borderBottom: "1px solid var(--line)", width: "100%", textAlign: "left", cursor: "pointer", minHeight: 36 }}
             >
               <span className="rr-name">{m.id}</span>
-              <span className="rr-branch">
-                ${m.inputPerMillion} / ${m.outputPerMillion}
+              <span className="rr-branch" data-testid={`agent-model-id-match-provider-${m.id}`}>
+                {m.provider} · ${m.inputPerMillion} / ${m.outputPerMillion}
               </span>
             </button>
           ))}

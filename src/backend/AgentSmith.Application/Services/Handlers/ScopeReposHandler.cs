@@ -72,16 +72,16 @@ public sealed class ScopeReposHandler(
         var reply = await classifier.ClassifyAsync(
             context.Ticket, comments, repos, inventory, context.AgentConfig, pipeline, cancellationToken);
         if (reply.Refusal is not null) return refusals.Apply(pipeline, reply.Refusal);
-        // p0341c/p0413: the SAME call estimates the ticket's size and its shape. Both are
-        // independent of the repo-scope confidence fallback: a low-confidence scope still
-        // yields a usable effort estimate and a usable shape.
+        // p0341c/p0413: the SAME call estimates size and shape, independent of the scope's confidence.
         await estimates.ApplyAsync(pipeline, reply.Estimate, cancellationToken);
-        // p0413a: an operator's --repo override (or a one-repo project) already decided WHICH
-        // repositories — the estimate is what was missing, and it is now recorded.
+        // p0413a: --repo (or a one-repo project) already decided WHICH repositories; the estimate is
+        // recorded. 2026-10-12-6bfae: a failed call is said, never filed under the silent "skipped".
         if (repos.Count <= 1)
         {
             namedContexts.Record(pipeline, reply.Classification, repos, inventory);
-            return CommandResult.Ok("Repo scoping skipped: single-repo run (one repo or --repo)");
+            return CommandResult.Ok(reply.CallFailed
+                ? $"Single-repo run without a ticket estimate: the scope call failed — {reply.Error}"
+                : "Repo scoping skipped: single-repo run (one repo or --repo)");
         }
         var (scoped, record, expectedChanges) = RepoScopeEvaluator.Evaluate(
             reply.Classification, reply.Error, repos);

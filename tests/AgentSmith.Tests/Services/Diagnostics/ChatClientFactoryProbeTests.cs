@@ -43,6 +43,19 @@ public sealed class ChatClientFactoryProbeTests
     }
 
     [Fact]
+    public async Task Probe_RejectedModelId_ReportsTheRejection()
+    {
+        // 2026-10-12-6bfae: the connection test reads the same explanation a run does.
+        var sut = CreateFactory(new ThrowingChatClient(
+            new HttpRequestException("model: m", null, System.Net.HttpStatusCode.NotFound)));
+
+        var result = await sut.ProbeAsync(new AgentConfig { Type = "test", Model = "m" }, CancellationToken.None);
+
+        result.Ok.Should().BeFalse();
+        result.Error.Should().Contain("rejected the model id 'm'").And.Contain("Config Studio");
+    }
+
+    [Fact]
     public async Task ProbeAsync_NoBuilderForType_ReturnsFailure()
     {
         var sut = CreateFactory(new StubChatClient(new Queue<string>()));
@@ -74,12 +87,12 @@ public sealed class ChatClientFactoryProbeTests
         public IChatClient Build(AgentConfig agent, ModelAssignment assignment) => client;
     }
 
-    private sealed class ThrowingChatClient : IChatClient
+    private sealed class ThrowingChatClient(Exception? failure = null) : IChatClient
     {
         public Task<ChatResponse> GetResponseAsync(
             IEnumerable<ChatMessage> messages, ChatOptions? options = null,
             CancellationToken cancellationToken = default) =>
-            throw new HttpRequestException("401 Unauthorized");
+            throw failure ?? new HttpRequestException("401 Unauthorized");
 
         public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
             IEnumerable<ChatMessage> messages, ChatOptions? options = null,
