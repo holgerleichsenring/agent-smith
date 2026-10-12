@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-f5f7f
+goal: "A series whose repositories are out of step is handed back naming them, never re-cut or joined; a repository no longer named leaves the series; the scope keeps the members it knows."
+
+applies_to: "backend (revision cause, hand-back, spec write, scope)"
+
+requires: [2026-10-12-f5f7d]
+
+facts:
+  - claim: "The cause ranks Demand, Rework, StatusBack, TicketEdit and Comment before the sha check; an approved set under a Comment runs no model; every run appends a revision and writes the set it read."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRevisionCause.cs:68-83, src/backend/AgentSmith.Application/Services/Specs/SpecAmendmentRule.cs:36-59, src/backend/AgentSmith.Application/Services/Specs/SpecRevisionHeader.cs:30-44"
+  - claim: "A failed write lets the run continue from the in-memory set."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetPublisher.cs:34-39"
+  - claim: "A hand-back parks the ticket with a comment and a status; the provider cannot delete files."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackPark.cs:28-45, src/backend/AgentSmith.Contracts/Providers/ISourceProvider.BranchWrite.cs:24-38"
+  - claim: "Scope is opened before any sandbox exists, from the approval or the configuration; Narrow narrows derived tickets; the CLI has no persistent pointer."
+    evidence: "src/backend/AgentSmith.Application/Services/Scope/ApprovedRepoScope.cs:20-89, src/backend/AgentSmith.Application/Services/Handlers/ScopeReposHandler.cs:94-98, src/backend/AgentSmith.Application/Services/Persistence/InMemorySpecSetPointerStore.cs:12-27"
+  - claim: "observed: a model re-cut on a lagging series cannot see the lagging repository's specs and would carry an approval nobody gave (round-4 review of 2026-10-12-f5f7d)."
+    evidence: "observed: 2026-10-12, spec review"
+
+assumptions: []
+
+scope:
+  in: "The lagging read (f5f7b) becomes a hand-back naming the lagging repositories, ranked above every cause but a re-cut demand, with no model and no approval carried; a repository no longer named gets an empty sub-series with the write's member list and leaves the pointer map; the server scope keeps the pointer map's repositories, the CLI relies on the reader's refusal."
+  out: "Automatic healing of a lagging series — a person re-runs after fixing what failed the push, or demands a re-cut."
+
+decisions:
+  - key: "OUT OF STEP HANDS BACK: no guess about which side is right; the comment names the lagging repositories and the failed push to fix. The operator owns the next step."
+  - key: "RANKED HIGH: out of step outranks Rework, StatusBack, TicketEdit and Comment; only a re-cut demand — a person's explicit choice — goes first, and its executed set is the stored executed ids plus every member's done/."
+  - key: "LEAVING IS A WRITE: the empty sub-series carries the same stamp and member list as the rest of the write, so the reader sees it as a non-member; through filing its planned files stay but are ignored."
+  - key: "SCOPE KEEPS WHAT IT KNOWS: the server keeps the pointer map's repositories; the CLI has none, and a member not checked out makes the read Unreadable, naming it."
+
+steps:
+  - id: cause
+    action: "Add the out-of-step cause for a read with lagging members, ranked as decided; hand back naming them; NeedsModel false, approval not carried."
+    modify:
+      - "SpecRevisionCause, SpecAmendmentRule, SpecSourceResolver, SpecHandbackPark, SpecHandbackComment"
+  - id: demand
+    action: "A re-cut demand on an out-of-step series takes its executed set from TicketSeries' executed ids and every member's done/."
+    modify:
+      - "SpecRecutDemand, SpecSetDeriver"
+  - id: exit
+    action: "Write an empty sub-series with the write's stamp and member list into a repository no longer named; drop it from the pointer map after its push."
+    modify:
+      - "SeriesWriter, SpecSetPointerRecorder"
+  - id: scope
+    action: "Keep the pointer map's repositories in OpenAsync and Narrow on the server."
+    modify:
+      - "ApprovedRepoScope, ScopeReposHandler"
+
+tests:
+  - "SpecRevisionCause_LaggingMember_IsOutOfStepAboveComment"
+  - "SpecHandback_OutOfStep_NamesLaggingRepos_NoModel"
+  - "SpecRecutDemand_OutOfStep_KeepsExecutedFromIdsAndDone"
+  - "SeriesWriter_RepoNoLongerNamed_EmptySubSeriesThenLeavesMap"
+  - "ApprovedRepoScope_PointerMapRepo_Kept"
+
+done:
+  - "After a push failing in one of two repositories, the next run hands the ticket back naming that repository and runs no model (RealCompositionHarness)."
+  - "In 19470's shape BackgroundWorker is not a member after the first write."
