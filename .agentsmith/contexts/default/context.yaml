@@ -1133,6 +1133,7 @@ state:
     2026-10-13-2d0c: "THE STRUCTURE GATE JUDGES FROM THE MERGE-BASE (structure gate, baseline, format run, code PR, skills v5.14.2 pin). Merge-base per rung, ls-tree presence, git failures warned; baseline header records its Limits; formatter note after verdict, './' paths, quoted {files} refused; a pass says what it judged. -> .agentsmith/specs/done/2026-10-13-2d0c-structure-gate-hardening.yaml"
   active: {}
   planned:
+    2026-10-13-50c7: "A CONTEXT NAMES ITS SOURCES (context.yaml, structure ownership, skills). sources lists the directories a component is built and tested from; baseline, gate and formatter cover them. -> .agentsmith/specs/planned/2026-10-13-50c7-context-sources.yaml"
     2026-10-13-ee83: "STRUCTURE READS ARE BATCHED (baseline, gate). Sources read in chunks, large listings paged, so big repositories are measured. -> .agentsmith/specs/planned/2026-10-13-ee83-structure-batched-reads.yaml"
     2026-10-13-e237: "SECONDARY SANDBOXES ARE GATED (structure gate). A mixed-stack repository is judged in every sandbox at the spec commit. -> .agentsmith/specs/planned/2026-10-13-e237-structure-secondary-sandboxes.yaml"
     2026-10-12-7bd7: "THE SKILLS CI REFUSES PHASE FOR A SPEC (skills repo). The 967ag guard for agent-smith-skills: step-meaning tokens allowlisted per file. -> .agentsmith/specs/planned/2026-10-12-7bd7-skills-spec-word-guard.yaml"

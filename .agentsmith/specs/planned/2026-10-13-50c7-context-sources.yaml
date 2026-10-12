@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-50c7
+goal: "A context names the directories its component is built and tested from, so the structure baseline, gate and formatter cover a component's libraries and tests, not only its entry project."
+
+applies_to: "backend (context.yaml contract, structure ownership) and skills catalog (project-bootstrap)"
+
+requires: [2026-10-13-2d0c, 2026-10-13-e237]
+
+facts:
+  - claim: "observed: on a sample .NET solution (src/Inventory.Api referencing src/Inventory.Core, tests/…) the bootstrap set workdir src/Inventory.Api, so the baseline listed one file and the library holding the oversized method was judged by nothing."
+    evidence: "observed: 2026-10-13, end-to-end init --refresh-principles on a sample repository"
+  - claim: "observed: the repository behind the 2026-10-12 incident has the same shape — workdir is the API project, the persistence adapters live in a sibling project."
+    evidence: "observed: 2026-10-13, the target repository's .agentsmith/contexts/default/context.yaml on its develop branch"
+  - claim: "Structure ownership is the longest workdir prefix holding a path."
+    evidence: "src/backend/AgentSmith.Application/Services/Structure/StructureWorkdir.cs:20-26"
+  - claim: "The bootstrap master receives a component's workdir from discovery and reads source under it."
+    evidence: "observed: 2026-10-13, agent-smith-skills origin/main, skills/_masters/project-bootstrap/SKILL.md:44-63"
+
+scope:
+  in: >
+    context.yaml gains optional 'sources': a list of repository-root-relative directories the component is built and
+    tested from beyond its workdir (referenced projects, test projects). Read shape, serializer, summary,
+    RemoteContextDiscovery (by name), schema (no '..', not rooted) and writer description carry it. Structure
+    ownership (baseline listing, gate, formatter plan) uses workdir plus sources; the longest matching directory
+    across all contexts wins, a tie goes to the context whose workdir holds it. SKILLS: project-bootstrap declares
+    sources from what the component's build and test files reference (read, never guessed); none, nothing. Release, pin.
+  out: "Changing discovery's workdir or what scoping and verify read from it."
+
+decisions:
+  - key: "THE FIELD IS THE FIX. Inferring a component's libraries from layout is a heuristic; the bootstrap reads the project references and writes them down."
+  - key: "WORKDIR KEEPS ITS MEANING. Scoping, sandboxes and verify read workdir; only structure ownership widens."
+
+steps:
+  - id: contract
+    action: "ContextYaml sources through read shape, serializer, summary, discovery, schema, writer description."
+  - id: ownership
+    action: "StructureWorkdir ownership over workdir plus sources; baseline listing, gate and formatter plan use it."
+  - id: skills
+    action: "project-bootstrap declares sources; release; pin."
+
+tests:
+  - "RemoteContextDiscovery_SourcesDeclared_CarriesThem"
+  - "StructureOwnership_SourceDirectory_BelongsToItsContext"
+  - "StructureBaseline_Sources_AreListedAndMeasured"
+  - "SpecFormatPlan_FileUnderSources_IsFormatted"
+
+done:
+  - "A harness init over an API project with a sibling library and sources declared baselines the library's oversized method; full suite green."
