@@ -31,6 +31,9 @@ public static class SkillRunHandlersExtensions
         services.AddSingleton<IPathReadGuard, PathReadGuard>();
         services.AddSingleton<IPathWriteGuard, PathWriteGuard>();
         services.AddTransient<BootstrapToolHostFactory>();
+        // 2026-10-12-6bfac: write_context_yaml and the run preflight speak the same verdict
+        // on a stack.image the registry boundary refuses.
+        services.AddSingleton<Sandbox.ContextImageBoundary>();
         // p0379: deterministic principles transfer (composed core+delta) that
         // runs inside the bootstrap round before the skill call.
         services.AddTransient<BootstrapPrinciplesTransfer>();

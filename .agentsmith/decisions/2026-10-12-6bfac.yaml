@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-6bfac
+
+decisions:
+  - category: Architecture
+    chose: "write_context_yaml ACCEPTS a stack.image outside the registry boundary, writes it, and appends the refusal (image, boundary, lever) plus an instruction to the tool result"
+    over: "Refusing the write through ContextDocumentGate, spending the rejection budget"
+    reason: |
+      Which registries are trusted is the operator's to widen later, and a refusal pushes the
+      model towards an image inside the boundary that lacks the toolchain (an eclipse-temurin
+      image has no sbt) — a worse wrong that no boundary check can see. The instruction tells the
+      model to rewrite only with an image that carries the whole toolchain and otherwise to keep
+      the image and name the boundary in its summary.
+  - category: Architecture
+    chose: "The refusal reaches the init PR body through ContextWriteOutcome.ImageRefusal and BootstrapRoundOutcome, appended after the skill call"
+    over: "A separate pipeline key for image findings"
+    reason: |
+      The PR body already renders one BootstrapRoundOutcome per context; the outcome was appended
+      before the call only because nothing it carried came from the call. BootstrapOutcomes has
+      one reader (InitPullRequestBody), so moving the append loses nothing.
+  - category: Architecture
+    chose: "A run preflight check 'context-image-trust' that WARNS, one finding over all affected contexts"
+    over: "Failing the run, or a finding emitted from SandboxImageChain"
+    reason: |
+      The chain falls through to the language catalog, whose image may carry the toolchain, so a
+      refusal is probably-wrong, not unambiguously-wrong (RegistryCredentialCheck's rule). A Warn
+      renders "Preflight reported: …", which misses the gate's no-op sentence, so the step's
+      HasFinding lights on the dashboard. The chain is a singleton with no run in hand, and the
+      sister phase 6bfaa owns its fallback surfacing.
+  - category: Implementation
+    chose: "The check repeats the chain's two operator links (sandbox.toolchain_image, sandbox.images[lang]) and reports only sandboxes with a recorded image"
+    over: "Calling SandboxImageChain.Resolve"
+    reason: |
+      Resolve logs a line per call and its shape is being edited by 6bfaa. An image the operator
+      already overrode is never consulted, so reporting it would be noise on every run; a sandbox
+      on the in-process backend records no image and runs none.
+  - category: Implementation
+    chose: "The lever names the exact prefix (repository without digest and tag, through its last '/') and warns that naming any entry replaces the built-in defaults; a namespace-free image is pointed at sandbox.allow_docker_hub_library"
+    over: "'Allow the registry'"
+    reason: |
+      'sbtscala/scala-sbt' names no registry host, and matching is a prefix test, so the operator
+      needs the string to add. Naming one entry drops mcr/ghcr and the library shape, so following
+      a bare 'add it' would refuse node:20-bookworm next. The lever names config keys, not a form
+      field: the dashboard fields arrive with 6bfab.
+  - category: Implementation
+    chose: "The boundary judge is a required constructor parameter of WriteContextYamlToolHost, BootstrapToolHostFactory and AgenticMasterHandler"
+    over: "An optional parameter defaulting to the built-in boundary"
+    reason: "An omitted judge would silently judge against the default list instead of the operator's; 2026-09-23-cd28 made the same call for the discovered-context guard."

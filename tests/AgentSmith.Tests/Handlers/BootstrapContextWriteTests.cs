@@ -87,6 +87,27 @@ public sealed class BootstrapContextWriteTests
         result.IsSuccess.Should().BeTrue(result.Message);
     }
 
+    [Fact]
+    public async Task Bootstrap_ImageOutsideBoundary_ReachesTheInitPullRequestOutcome()
+    {
+        // 2026-10-12-6bfac: the write is accepted, and the round carries the refusal to the PR.
+        const string document =
+            """{ "meta": { "workdir": "server" }, "stack": { "lang": "Scala", "image": "sbtscala/scala-sbt:1.11.7" } }""";
+        var pipeline = NewPipeline(new StubSandbox());
+
+        var result = await NewHandler(
+                document, PrinciplesTransferStubs.Composing("# Coding Principles\ncore + delta\n"))
+            .ExecuteAsync(
+                new BootstrapRoundContext(
+                    BootstrapSkill.Name, "monorepo", new AgentConfig(), pipeline,
+                    ContextName: "server", Workdir: "server"),
+                CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue(result.Message);
+        pipeline.Get<List<BootstrapRoundOutcome>>(ContextKeys.BootstrapOutcomes)
+            .Should().ContainSingle().Which.ImageRefusal!.Image.Should().Be("sbtscala/scala-sbt:1.11.7");
+    }
+
     private static async Task<CommandResult> RunAsync(
         string? document, BootstrapPrinciplesTransfer? transfer = null)
     {
@@ -107,7 +128,7 @@ public sealed class BootstrapContextWriteTests
             new PathReadGuard(new NullGitIgnoreResolver()),
             new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())),
             ContextGates.Serializer(),
-            ContextGates.Build(), ContextGates.Writer(), ContextGates.DerivationStamp()),
+            ContextGates.Build(), ContextGates.Writer(), ContextGates.DerivationStamp(), ContextGates.ImageBoundary()),
         // The re-init shape: a context.yaml is already on the sandbox before the round.
         BootstrapReaderStubs.MetaFilesReturning(
             contextYaml: ExistingOnDisk, principles: null),

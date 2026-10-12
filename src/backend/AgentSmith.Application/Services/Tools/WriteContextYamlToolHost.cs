@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Text.Json;
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
@@ -31,6 +32,8 @@ public sealed class WriteContextYamlToolHost : IToolHost
     private readonly SandboxContextYamlWriter _writer;
     // 2026-09-01-e14d: hashes the files a written verify block says it was derived from.
     private readonly VerifyDerivationStamp _derivation;
+    // 2026-10-12-6bfac: a stack.image the registry boundary refuses is written, and said.
+    private readonly ContextImageBoundary _imageBoundary;
     // 2026-08-25-c9c7: per-round, so a document the model cannot make valid stops
     // being re-invited instead of spending the loop's iteration cap.
     private readonly ContextWriteRejectionBudget _budget = new();
@@ -47,6 +50,7 @@ public sealed class WriteContextYamlToolHost : IToolHost
     private bool _written;
     private string? _lastRefusal;
     private string? _lastContext;
+    private ContextImageRefusal? _imageRefusal;
 
     public WriteContextYamlToolHost(
         IReadOnlyDictionary<string, ISandbox> sandboxes,
@@ -55,6 +59,7 @@ public sealed class WriteContextYamlToolHost : IToolHost
         ContextDocumentGate gate,
         SandboxContextYamlWriter writer,
         VerifyDerivationStamp derivation,
+        ContextImageBoundary imageBoundary,
         IReadOnlyDictionary<string, IReadOnlyList<string>>? discoveredContexts = null,
         string? defaultRepoName = null)
     {
@@ -64,13 +69,14 @@ public sealed class WriteContextYamlToolHost : IToolHost
         _gate = gate;
         _writer = writer;
         _derivation = derivation;
+        _imageBoundary = imageBoundary;
         _nameGuard = new ContextNameGuard(discoveredContexts, defaultRepoName);
     }
 
     /// <summary>This round's write outcome — never a question about the disk.</summary>
     public ContextWriteOutcome Outcome => new(
         _written, _lastRefusal,
-        _lastContext is not null && _budget.IsExhausted(_lastContext));
+        _lastContext is not null && _budget.IsExhausted(_lastContext), _imageRefusal);
 
     public IEnumerable<AIFunction> GetTools(SkillExecutionPhase? phase, string? investigatorMode)
     {
@@ -143,8 +149,26 @@ public sealed class WriteContextYamlToolHost : IToolHost
             return _budget.Reject(context_name, defect);
         _budget.Accepted(context_name);
 
-        return await _writer.WriteAsync(sandbox!, repo, context_name, yaml, ct);
+        var written = await _writer.WriteAsync(sandbox!, repo, context_name, yaml, ct);
+        return written.StartsWith(SandboxContextYamlWriter.WrittenPrefix, StringComparison.Ordinal)
+            ? Answered(written, typed.Stack?.Image)
+            : written;
     }
+
+    // 2026-10-12-6bfac: accepted, not refused — the operator may widen the boundary, and a
+    // refusal would push the model towards a trusted image that lacks the toolchain.
+    private string Answered(string written, string? image)
+    {
+        _imageRefusal = _imageBoundary.Judge(image);
+        return _imageRefusal is null
+            ? written
+            : $"{written}\nNote: {_imageRefusal.Describe()}.\n{ImageInstruction}";
+    }
+
+    private const string ImageInstruction =
+        "Write the context again with an image inside the boundary only if one carries this "
+        + "stack's whole toolchain — never one that lacks it. Otherwise keep this image and name "
+        + "the boundary and the lever above in your summary, so the operator can act on it.";
 
     private static string? Refusal(params string?[] defects)
     {

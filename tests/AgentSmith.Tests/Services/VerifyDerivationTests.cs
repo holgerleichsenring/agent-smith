@@ -168,7 +168,7 @@ public sealed class VerifyDerivationTests : IDisposable
             new ContextYamlSerializer(_builders),
             ContextGates.Build(),
             ContextGates.Writer(),
-            ContextGates.DerivationStamp());
+            ContextGates.DerivationStamp(), ContextGates.ImageBoundary());
         return await host.WriteContextYaml("repo", "default", JsonDocument.Parse(document).RootElement);
     }
 

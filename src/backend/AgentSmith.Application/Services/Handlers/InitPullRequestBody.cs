@@ -57,6 +57,9 @@ internal static class InitPullRequestBody
             foreach (var artefact in outcome.Artefacts)
                 body.Append("  - `").Append(artefact.Path).Append("` — ")
                     .Append(Artefact(artefact)).Append('\n');
+            // 2026-10-12-6bfac: the run would refuse this image without a word on the PR.
+            if (outcome.ImageRefusal is { } refused)
+                body.Append("  - **image refused** — ").Append(refused.Describe()).Append('\n');
         }
         return body.Append('\n').Append(siblingMarker).ToString();
     }

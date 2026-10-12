@@ -140,6 +140,40 @@ public sealed class WriteContextYamlToolHostTests
     }
 
     [Fact]
+    public async Task WriteContextYaml_ImageOutsideBoundary_WritesAndSaysSo()
+    {
+        // 2026-10-12-6bfac: accepted — the operator may widen the boundary — but answered.
+        var sut = BuildHost();
+        var document = JsonDocument.Parse("""
+            { "meta": { "workdir": "." },
+              "stack": { "lang": "Scala", "image": "sbtscala/scala-sbt:eclipse-temurin-25_1.11.7_2.13.18" } }
+            """).RootElement;
+
+        var result = await sut.WriteContextYaml(repo: "client", context_name: "default", document);
+
+        result.Should().StartWith("context.yaml written:");
+        result.Should().Contain("outside the trusted image registries")
+            .And.Contain("'sbtscala/'").And.Contain("sandbox.allowed_registries")
+            .And.Contain("never one that lacks it");
+        sut.Outcome.Written.Should().BeTrue();
+        sut.Outcome.ImageRefusal!.Image.Should().StartWith("sbtscala/scala-sbt:");
+    }
+
+    [Fact]
+    public async Task WriteContextYaml_TrustedImage_SaysNothingMore()
+    {
+        var sut = BuildHost();
+        var document = JsonDocument.Parse("""
+            { "meta": { "workdir": "." }, "stack": { "lang": "C#", "image": "mcr.microsoft.com/dotnet/sdk:8.0" } }
+            """).RootElement;
+
+        var result = await sut.WriteContextYaml(repo: "client", context_name: "default", document);
+
+        result.Should().NotContain("Note:");
+        sut.Outcome.ImageRefusal.Should().BeNull();
+    }
+
+    [Fact]
     public async Task WriteContextYaml_InvalidJsonShape_ReturnsError()
     {
         var sut = BuildHost();
@@ -176,7 +210,7 @@ public sealed class WriteContextYamlToolHostTests
         };
         return new WriteContextYamlToolHost(
             sandboxes, defaultRepo: "client", _serializer, ContextGates.Build(), ContextGates.Writer(),
-            ContextGates.DerivationStamp());
+            ContextGates.DerivationStamp(), ContextGates.ImageBoundary());
     }
 
     private static bool Capture(Step step, out Step? captured)
