@@ -36,7 +36,7 @@ public sealed class BootstrapDecisionSurfaceTests
             new PathReadGuard(new NullGitIgnoreResolver()),
             new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())),
             ContextGates.Serializer(), ContextGates.Build(), ContextGates.Writer(),
-            ContextGates.DerivationStamp(), ContextGates.ImageBoundary());
+            ContextGates.DerivationStamp(), ContextGates.ImageReview());
         using var scope = runContext.BeginScope(RunId);
 
         // This test exercises log_decision; an empty pipeline carries no discovered contexts,

@@ -144,7 +144,7 @@ public sealed class BootstrapRetiredPrinciplesRenameTests
             new PathReadGuard(new NullGitIgnoreResolver()),
             new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())),
             ContextGates.Serializer(),
-            ContextGates.Build(), ContextGates.Writer(), ContextGates.DerivationStamp(), ContextGates.ImageBoundary()),
+            ContextGates.Build(), ContextGates.Writer(), ContextGates.DerivationStamp(), ContextGates.ImageReview()),
         BootstrapReaderStubs.MetaFilesOver(repo),
         PrinciplesTransferStubs.Composing(Composed),
         new BootstrapContextWriteVerdict(),

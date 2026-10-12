@@ -79,6 +79,17 @@ public sealed class CliShapedDiTests
     }
 
     [Fact]
+    public void Cli_BootstrapToolHostFactory_ResolvesWithTheRegistryLookup()
+    {
+        // 2026-10-12-50bdb: write_context_yaml asks the image's registry in the CLI too.
+        var provider = BuildCliLikeProvider();
+
+        provider.GetRequiredService<AgentSmith.Application.Services.BootstrapToolHostFactory>().Should().NotBeNull();
+        provider.GetRequiredService<AgentSmith.Application.Services.Sandbox.Registry.IImageReferenceCheck>()
+            .Should().BeOfType<AgentSmith.Application.Services.Sandbox.Registry.ImageReferenceCheck>();
+    }
+
+    [Fact]
     public void Cli_ResolvesPipelineExecutor_WithoutRedis_DoesNotThrow()
     {
         var provider = BuildCliLikeProvider();

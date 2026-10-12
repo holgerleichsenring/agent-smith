@@ -128,7 +128,7 @@ public sealed class BootstrapContextWriteTests
             new PathReadGuard(new NullGitIgnoreResolver()),
             new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())),
             ContextGates.Serializer(),
-            ContextGates.Build(), ContextGates.Writer(), ContextGates.DerivationStamp(), ContextGates.ImageBoundary()),
+            ContextGates.Build(), ContextGates.Writer(), ContextGates.DerivationStamp(), ContextGates.ImageReview()),
         // The re-init shape: a context.yaml is already on the sandbox before the round.
         BootstrapReaderStubs.MetaFilesReturning(
             contextYaml: ExistingOnDisk, principles: null),

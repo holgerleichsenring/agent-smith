@@ -24,7 +24,7 @@ public sealed class WriteContextYamlGuardTests
             gate: AgentSmith.Tests.TestHelpers.ContextGates.Build(),
             writer: AgentSmith.Tests.TestHelpers.ContextGates.Writer(),
             derivation: AgentSmith.Tests.TestHelpers.ContextGates.DerivationStamp(),
-            imageBoundary: AgentSmith.Tests.TestHelpers.ContextGates.ImageBoundary(),
+            imageReview: AgentSmith.Tests.TestHelpers.ContextGates.ImageReview(),
             discoveredContexts: discovered,
             defaultRepoName: defaultRepoName);
 

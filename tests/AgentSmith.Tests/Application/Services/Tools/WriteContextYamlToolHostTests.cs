@@ -210,7 +210,7 @@ public sealed class WriteContextYamlToolHostTests
         };
         return new WriteContextYamlToolHost(
             sandboxes, defaultRepo: "client", _serializer, ContextGates.Build(), ContextGates.Writer(),
-            ContextGates.DerivationStamp(), ContextGates.ImageBoundary());
+            ContextGates.DerivationStamp(), ContextGates.ImageReview());
     }
 
     private static bool Capture(Step step, out Step? captured)

@@ -1,0 +1,104 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-50bdb
+goal: "A stack.image whose tag its registry does not have is refused by write_context_yaml with the closest tags the registry lists; a lookup that cannot answer never blocks the write."
+
+applies_to: "backend (write_context_yaml, sandbox image registry lookup)"
+
+requires: [2026-10-12-6bfac]
+
+facts:
+  - claim: "observed: init-project wrote stack.image 'sbtscala/scala-sbt:eclipse-temurin-25_1.11.7_2.13.18' — sbt and Scala versions read from the repository composed into a plausible tag that the registry does not have; nothing checked, and the run's pod failed with ErrImagePull 'not found'."
+    evidence: "observed: 2026-10-12, operator report"
+  - claim: "observed live: registry-1.docker.io answers an anonymous manifest HEAD with 401 and 'WWW-Authenticate: Bearer realm=\"https://auth.docker.io/token\",service=\"registry.docker.io\",scope=\"repository:sbtscala/scala-sbt:pull\"'; with the anonymous token the missing tag answers 404 (GET body MANIFEST_UNKNOWN), an unknown repository answers 401. ghcr.io uses the same challenge (realm https://ghcr.io/token) and answers 403 for an unknown repository; mcr.microsoft.com needs no token and answers 404 MANIFEST_UNKNOWN."
+    evidence: "observed: 2026-10-12, curl against the three registries"
+  - claim: "observed live: Docker Hub's tags/list for sbtscala/scala-sbt holds 3130 tags, honours n= and last= and returns a relative Link rel=\"next\"; mcr.microsoft.com ignores n= and returns every tag. 'eclipse-temurin-25.0.1_8_1.11.7_2.13.18' exists — the version pair the model wanted was there under a different shape."
+    evidence: "observed: 2026-10-12, curl against registry-1.docker.io and mcr.microsoft.com"
+  - claim: "write_context_yaml spends every refusal from a per-round ContextWriteRejectionBudget, accepts the context only after the gate's defects are clear, then writes and appends the 6bfac boundary note to a successful write."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/WriteContextYamlToolHost.cs:145-166"
+  - claim: "WriteContextYamlToolHost is in the file-length ratchet at 193 lines and has 191."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:50"
+  - claim: "The host's image judge is a constructor parameter passed at two production sites and through ContextGates.ImageBoundary() in the tests."
+    evidence: "src/backend/AgentSmith.Application/Services/BootstrapToolHostFactory.cs:58-66, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:306-308, tests/AgentSmith.Tests/TestHelpers/ContextGates.cs:44-46"
+  - claim: "HTTP idiom: one AddHttpClient() at the composition root, per-feature named or typed clients on top; the draft checks use a named client with auto-redirect off and a per-step timeout from a linked token."
+    evidence: "src/backend/AgentSmith.Server/Services/Startup/ServerHostFactory.cs:98-100, src/backend/AgentSmith.Infrastructure/Services/Providers/DraftChecks/DraftCheckExtensions.cs:13-14, src/backend/AgentSmith.Infrastructure/Services/Providers/DraftChecks/DraftCheckHttp.cs:24-46"
+  - claim: "Application already registers its own HTTP client (web_fetch) and owns the public-address guard RenderUrlGuard, registered in AddAgentSmithCommands for server and CLI alike."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/LoopRuntimeExtensions.cs:26-27, src/backend/AgentSmith.Application/Services/Browser/RenderUrlGuard.cs:13-28, src/backend/AgentSmith.Application/Services/Browser/BrowserRenderExtensions.cs:18-20, src/backend/AgentSmith.Application/Extensions/ServiceCollectionExtensions.cs:34"
+  - claim: "The pipeline harness replaces production boundaries (chat client, providers, sandbox factory) in one method, so a network lookup has to be replaced there too."
+    evidence: "tests/AgentSmith.PipelineHarness/Composition/RealCompositionHarness.cs:166-205"
+  - claim: "RunPreflight runs after CheckoutSource, i.e. after the sandboxes (and their pods) exist."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Code.cs:42-46"
+
+scope:
+  in: >
+    RegistryImageReferenceParser (image -> registry API host, repository, tag or digest; Docker's reading:
+    no host segment = docker.io, docker.io and index.docker.io served by registry-1.docker.io, a bare name under
+    library/; parity tests on the shapes RegistryTrustBoundary reads, which stays untouched). RegistryTransport:
+    one exchange on a named client (auto-redirect off, bounded response buffer), a per-step timeout, every host
+    (registry and token realm) judged by RenderUrlGuard first, transport failure logged and returned as a
+    reason, never thrown. The manifest HEAD accepts all four manifest media types (Docker v2 manifest and list,
+    OCI manifest and index) — a registry answers 404 for an OCI index the request does not accept. RegistryChallengeParser (Bearer realm/service/scope), RegistryTokenSource (anonymous token from the
+    realm), RegistryClient (send; on 401 with a Bearer challenge fetch a token and resend once; the token is
+    returned for reuse). RegistryTagLister (tags/list, n=1000, following Link rel="next" on the same host, at most
+    5 pages). NearestTagRanker (split tags on non-alphanumerics; order by shared tokens, then common prefix, then
+    length closeness; at most 8). ImageReferenceCheck (IImageReferenceCheck): HEAD the manifest — 200 = exists,
+    404 = missing (with ranked candidates; when the tag list cannot be read the refusal stands and says no tags
+    could be listed), anything else or no answer = unverified with the reason.
+    ContextImageReview (Tools) takes over the 6bfac post-write boundary note (its ContextImageAnswer still
+    hands the boundary refusal back, so Outcome.ImageRefusal and the init PR note keep working) and adds: a
+    missing image is joined into the gate's defects (one refusal names everything, 2026-09-23-72c7's reason),
+    i.e. before _budget.Accepted and before the write, so it spends the budget like any defect — a refusal naming image, registry, repository and the candidates, telling the model to choose a listed
+    tag and never compose one from versions found in the repository; an unverified image is written and the
+    result says it could not be verified, why, and that no rewrite is needed for that. The host's ContextImageBoundary parameter becomes
+    ContextImageReview (both production sites; a new ContextGates.ImageReview() over an offline check answering
+    'exists' replaces ImageBoundary() at the host and factory sites, ImageBoundary() stays for the preflight
+    test; the harness replaces IImageReferenceCheck with a stub in ReplaceProductionBoundaries).
+  out: >
+    A run-time preflight HEAD of an existing context's image: the sandbox already exists when RunPreflight runs
+    (fact above), so it cannot fail before sandbox creation, and the preflight and image chain belong to the
+    sister 2026-10-12-50bda; named as a follow-up ("context image existence at run time, before the sandbox is
+    created"). Registry credentials for private registries (a 401/403 is unverified, not refused). The init PR
+    body: a missing image that exhausts the budget leaves nothing written and the round fails
+    (BootstrapRoundHandler), which is the decision below, not a PR finding. The skills repo's
+    SKILL.md (read-only here; the suggested text goes to the report). Named follow-ups: "invented repository name"
+    (Docker Hub 401 / ghcr 403 for an unknown repository cannot be told from a private one without
+    credentials) and "unverified context image in the init PR body" (unverified stays in the tool result).
+
+decisions:
+  - key: "REFUSE, NOT WRITE-WITH-FINDING: a tag the registry answers 404 for can never be pulled, unlike a trust-boundary refusal the operator may widen; the refusal carries the existing tags so the model corrects in the same session."
+  - key: "Only 404 refuses. 401/403/429/5xx, redirect, timeout, DNS and a non-public host are unverified and the write proceeds — never block on a failed lookup."
+  - key: "HEAD, not GET: Docker Hub does not count HEAD against the anonymous pull limit."
+  - key: "Bounds: 5 s per exchange, tag list 1000 x 5 pages, 4 MB body; worst case about nine exchanges for a missing image, typically under two seconds. No memo: a rewrite names a different image."
+  - key: "SSRF: the host is model-authored, so the same public-address guard as rendering judges the registry and the token realm; redirects are not followed. Judging at connect (ConnectCallback) was rejected: behind an egress proxy it would judge the proxy's private address. The residual DNS-rebinding window yields a status code and bounded tag strings."
+  - key: "A missing image spends the shared rejection budget (limit 5); a model that cannot name a listed tag fails the init round instead of shipping an unpullable image. The candidate list makes that rare."
+
+steps:
+  - id: models
+    action: "RegistryImageReference, RegistryChallenge, RegistryReply, ImageReferenceState, ImageReferenceVerdict (Application/Models/Sandbox)."
+  - id: registry
+    action: "Parser, transport, challenge parser, token source, client, tag lister, ranker, check (Application/Services/Sandbox/Registry) + AddImageReferenceCheck (named client) called from AddSkillRunHandlers."
+  - id: review
+    action: "ContextImageReview; WriteContextYamlToolHost refuses a missing image through the budget and answers through the review; BootstrapToolHostFactory, AgenticMasterHandler, ContextGates, MasterHandlerFixture, WriteContextYamlGuardTests (named argument), the harness."
+  - id: tests
+    action: "Fake HttpMessageHandler: challenge -> token -> 200 / 404 / 401 / timeout; parser; ranker on the observed tags; tool host refuses / notes."
+
+tests:
+  - "Parse_BareName_IsDockerHubLibraryOnRegistry1"
+  - "Parse_HostPortAndDigest_KeepsPortOutOfTheTag"
+  - "Rank_ObservedSbtTag_PutsTheSameVersionPairFirst"
+  - "Check_ChallengeThenTokenThen200_Exists"
+  - "Check_404_IsMissingWithNearestTags"
+  - "Check_401AfterToken_IsUnverified"
+  - "Check_Timeout_IsUnverified (handler throws TaskCanceledException; no wall-clock wait)"
+  - "Check_ManifestHead_AcceptsOciIndexAndDockerList"
+  - "Check_404TagsUnlistable_IsMissingWithoutCandidates"
+  - "Check_PrivateHost_IsUnverifiedWithoutARequest"
+  - "TagLister_FollowsLinkUpToThePageBound"
+  - "WriteContextYaml_MissingImage_RefusesAndNamesCandidates"
+  - "WriteContextYaml_MissingImageSixTimes_ExhaustsTheBudget"
+  - "WriteContextYaml_MissingImageAndSchemaDefect_OneRefusalNamesBoth"
+  - "WriteContextYaml_UnverifiedImage_WritesAndSaysSo"
+
+done:
+  - "write_context_yaml with 'sbtscala/scala-sbt:eclipse-temurin-25_1.11.7_2.13.18' against a registry answering 404 refuses, writes nothing, and names 'eclipse-temurin-25.0.1_8_1.11.7_2.13.18' first among the candidates (ranker test over an inline excerpt of the observed tags)."
+  - "A 401, a timeout or a private host writes the file and the result says the image could not be verified."
+  - "No test touches the network; architecture tests and the full suite pass."
