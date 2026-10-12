@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-e237
+goal: "A mixed-stack repository's secondary sandboxes are gated too: their changes are judged at the spec commit, not only merged at PR time."
+
+applies_to: "backend (structure gate, checkpoint push)"
+
+requires: [2026-10-13-2d0c]
+
+facts:
+  - claim: "The gate judges only the repository's first sandbox."
+    evidence: "src/backend/AgentSmith.Application/Services/Structure/StructureGate.cs:59"
+  - claim: "Secondary sandboxes' edits reach the primary only at PR time."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:76-82"
+
+scope:
+  in: "Judge every sandbox of a repository at the spec commit, each against the contexts it owns, or bring its edits into the pushed sandbox first."
+  out: "Changing how the checkpoint pushes."
+
+steps:
+  - id: gate
+    action: "Gate secondary sandboxes."
+
+tests:
+  - "StructureGate_SecondarySandboxExcess_IsFound"
+
+done:
+  - "An excess written in a secondary sandbox is sent back at the spec commit; full suite green."

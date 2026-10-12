@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-ee83
+goal: "The structure baseline and gate read files in batches and page large listings, so a repository with thousands of sources is measured, not refused."
+
+applies_to: "backend (structure baseline, structure gate)"
+
+requires: [2026-10-13-2d0c]
+
+facts:
+  - claim: "The baseline reads each claimed file with its own sandbox call."
+    evidence: "src/backend/AgentSmith.Application/Services/Structure/StructureBaseline.cs:85-92"
+  - claim: "A listing at the capture cap is refused, so a large repository gets no baseline and therefore no gate."
+    evidence: "src/backend/AgentSmith.Application/Services/Structure/StructureSourceListing.cs:18"
+
+scope:
+  in: "Read sources in chunks through one sandbox step each (git cat-file --batch or an archive step); page listings by directory when the capture cap is reached."
+  out: "Measuring languages beyond the engine's grammars."
+
+steps:
+  - id: batch
+    action: "A batched source reader used by baseline and gate; paged listing."
+
+tests:
+  - "StructureBaseline_ThousandFiles_ReadInChunks"
+  - "StructureSourceListing_AtCap_PagesByDirectory"
+
+done:
+  - "A listing over the capture cap still yields a complete baseline; full suite green."
