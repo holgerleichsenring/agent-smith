@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-357a
+
+decisions:
+  - category: Scope
+    chose: "A successor spec on main rather than widening 967ab"
+    alternatives:
+      - "Ship the four aliases inside 967ab — the release that writes the new names cannot also be the one that first reads them on every replica"
+    reason: "Expand must land a release before contract; 967aa is done and frozen, so the gap gets its own id and ships before 967ab."

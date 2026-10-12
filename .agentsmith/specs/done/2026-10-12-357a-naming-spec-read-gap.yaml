@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-357a
+goal: "The checkpointed members 967aa missed — declined criteria, accounts, a ticket's divergence — and the active-step key read their spec names, so 967ab cannot strand a resumed run."
+
+applies_to: "backend (resume, domain records)"
+
+requires: [2026-10-12-967aa]
+
+facts:
+  - claim: "observed: implementing 967ab found four checkpointed members with no reader alias on main — DeclinedCriterion.PhaseId, PhaseAccounts.PhaseId, RunAccounts.Phases, SetDivergence.Phases — and the context key ActivePhaseStep without a rename pair."
+    evidence: "observed: 2026-10-12, agent-smith-2026-10-12-967ab, .agentsmith/decisions/2026-10-12-967ab.yaml"
+  - claim: "Declined criteria and run accounts are stored in the pipeline context, which a checkpoint serialises."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/DeclinedCriteriaLedger.cs:30, src/backend/AgentSmith.Application/Services/Specs/RunAccountLedger.cs:24"
+
+scope:
+  in: "[AcceptedName] on the four members; the pair ActivePhaseStep/ActiveStep in CheckpointRenames; tests that a spec-named checkpoint of each restores."
+  out: "Writing the spec names (967ab)."
+
+tests:
+  - "Checkpoint_SpecNamedDeclinedAndAccounts_Restore"
+  - "Checkpoint_SpecNamedDivergence_Restores"
+  - "CheckpointRenames_ActiveStepKey_MapsToTheDeclaredKey"
+
+done:
+  - "A checkpoint carrying the four members and the key under their spec names restores on this release; 967ab deploys only after this release runs on every replica."
