@@ -1,65 +1,66 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-12-f5f7f
-goal: "A spec write lands in all its repositories or in none; a series still found out of step is handed back as its own case, naming the repositories and the two real ways out."
+goal: "A spec write that fails in one repository is rolled back in the others and stops the run; a series still found out of step is handed back as its own case, naming the repositories and the way out."
 
-applies_to: "backend (spec publish, series reader, hand-back, rework park)"
+applies_to: "backend (spec publish, hand-back, series reader)"
 
 requires: [2026-10-12-f5f7d]
 
 facts:
-  - claim: "A failed write is logged and the run continues from the in-memory set; the sandbox commits and pushes with git."
-    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetPublisher.cs:23-53, src/backend/AgentSmith.Application/Services/SandboxGitOperations.cs:42-101"
-  - claim: "The hand-back cases are Contradiction, NotImplementable, Refused, Question and SpecificationMissingFromBranch; the comment's default arm posts the contradiction text; the repeat guard ends a second unanswered contradiction as a failed step; the park status is resolved per case."
-    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecHandback.cs:50-86, src/backend/AgentSmith.Application/Services/Specs/SpecHandbackComment.cs:57-74, src/backend/AgentSmith.Application/Services/Specs/SpecHandbackRepeat.cs:33-44, src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs:55-79, src/backend/AgentSmith.Application/Services/Specs/SpecParkStatusResolver.cs:22-34"
-  - claim: "3a36a lets a PR command rework a ticket parked by a hand-back."
-    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkParkCheck.cs:20-40"
-  - claim: "An Unreadable read on an unfiled ticket falls through to a fresh derivation; a resume skips the input causes; executed work reaches the model as previous.ExecutedHead built from read phases."
-    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSourceResolver.cs:72-84, src/backend/AgentSmith.Application/Services/Specs/SpecRevisionCause.cs:72-82, src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:77, src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:57-58"
-  - claim: "Hand-back progress is recorded only when a TicketSeries row exists; the dashboard lists hand-backs by case."
-    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs:77, src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkHandbacks.cs:38-45"
+  - claim: "A failed write is logged and the run continues from the in-memory set; the record later rewrites its repository's manifest with the publish stamp and pushes HEAD."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetPublisher.cs:23-53, src/backend/AgentSmith.Application/Services/PhaseExecution/SpecDoneRecorder.cs:53-77, src/backend/AgentSmith.Application/Services/PhaseExecution/SeriesRecordCommit.cs:20-38"
+  - claim: "The pusher pushes with --force-with-lease and, on stale info, fetches and retries; the reader takes the last commit on the series paths as the sha."
+    evidence: "src/backend/AgentSmith.Application/Services/GitBranchPusher.cs:31-36, src/backend/AgentSmith.Application/Services/Specs/SeriesReader.cs:63-73"
+  - claim: "Hand-back cases and their comment arms; a non-verdict case parks in the clarification status, which discovery skips until a person moves the ticket back to a trigger status; without a tracker every case but Refused returns Ok and the pipeline continues; progress is recorded only with a pointer row."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecHandback.cs:50-86, src/backend/AgentSmith.Application/Services/Specs/SpecHandbackComment.cs:57-74, src/backend/AgentSmith.Application/Services/Specs/SpecParkStatusResolver.cs:22-34, src/backend/AgentSmith.Application/Services/Polling/TrackerDiscoveryQueryBuilder.cs:95-99, src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs:77-99, src/backend/AgentSmith.Application/Services/PipelineExecutorPolicy.cs:19"
+  - claim: "A PR command on a hand-back park starts a rework (3a36a); the park check knows only the tracker status."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkParkCheck.cs:18-43"
+  - claim: "Without a read set the cause is Initial before any demand is checked; ExecutedHead is a TakeWhile prefix of the set's phases."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRevisionCause.cs:71-73, src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:57-58"
 
 assumptions: []
 
 scope:
-  in: "All-or-none publish (revert-push what this write already pushed when another member's push fails; pointer shas follow); a SeriesOutOfStep case with its own comment arm and a verdict-like park; the lagging read and a named member not checked out become that hand-back for every ticket, CLI included; a re-cut demand on it carries every member's done/ phases as the executed head; f5f7d's interim DeriveSpec failure replaced."
-  out: "Automatic healing beyond the rollback — a person demands a re-cut or re-approves and re-files."
+  in: "In a series of more than one repository: a failed member push reverts the members already pushed (non-forcing push, lease pinned to our sha), records the revert shas, and fails the run with the reason; a lagging read becomes the SeriesOutOfStep hand-back; a named member not checked out fails the run naming it; a re-cut demand on an out-of-step series gets every member's done/ phases as an executed prefix."
+  out: "Single-repository series keep today's continue-from-memory on a failed write."
 
 decisions:
-  - key: "ALL OR NONE: a member whose push failed makes the write revert the members it already pushed (git revert + push in their sandboxes); the run continues from memory as today, and no lag is left behind."
-  - key: "OUT OF STEP IS RARE AND NAMED: only a failed rollback or a person's edit leaves members on different stamps; it is handed back as SeriesOutOfStep, never joined, never re-cut by itself."
-  - key: "THE COMMENT GIVES THE REAL EXITS: write the re-cut demand phrase, or re-approve and re-file — 're-run' is not offered because nothing in a run heals it."
-  - key: "VERDICT-LIKE PARK: no repeat guard; a PR command is answered with the exits instead of a rework that would re-park."
-  - key: "RANKED HIGH, BELOW A DEMAND AND A RESUME: a demand is a person's choice; a resume continues work the checkpoint already holds."
-  - key: "THE DEMAND SEES EVERYTHING EXECUTED: the reader supplies every member's done/ phases, ordered by id, as the executed head; new ids skip them and the stored executed ids."
-  - key: "NO TICKETSERIES ROW, NO DASHBOARD ENTRY: the ticket comment is the record, as for other cases today."
+  - key: "A FAILED SPEC WRITE STOPS A MULTI-REPOSITORY RUN: nothing later can re-stamp or push the half; the sandboxes are discarded with their local commits."
+  - key: "THE ROLLBACK NEVER FORCES: a revert pushed with a lease pinned to the sha this write pushed; a person's commit in between makes the rollback fail and the read later out of step — never overwritten."
+  - key: "REVERT SHAS ARE RECORDED, so the next run's sha comparison sees our own revert, not a reviewer's edit."
+  - key: "SERIESOUTOFSTEP IS ITS OWN CASE with its own comment: name the lagging repositories; the way out is to write the re-cut demand phrase AND move the ticket back to a trigger status, or re-approve and re-file. It parks in the clarification status."
+  - key: "A PR COMMAND ON IT costs one run that hands back again before any model call — no loop runs by itself."
+  - key: "NOT CHECKED OUT IS NOT OUT OF STEP: a named member outside the run's checkout fails the run naming it; widen the scope."
+  - key: "NO TRACKER, NO CONTINUE: in the CLI without a tracker the case fails the run, as Refused does."
+  - key: "THE DEMAND'S EXECUTED SET IS A PREFIX BY CONSTRUCTION: every member's done/ phases ordered by id, then the newest members' unexecuted specs."
 
 steps:
   - id: rollback
-    action: "In the series writer, on a failed member push revert-push the members already pushed in this write and restore their pointer shas; report the write as failed."
+    action: "On a failed member push in a multi-repository write, revert-push the members pushed in this write with a pinned lease, return the revert shas, record them, fail the publish step with the reason."
     modify:
-      - "SeriesWriter, SandboxGitOperations, SpecSetPointerRecorder"
+      - "SeriesWriter, SpecSetWriteResult, SpecSetPublisher, GitBranchPusher, SpecSetPointerRecorder"
   - id: case
-    action: "Add SpecHandbackCase.SeriesOutOfStep with its comment arm, park status and repeat exemption; ReworkParkCheck answers a PR act on it with the exits."
+    action: "Add SpecHandbackCase.SeriesOutOfStep with its comment arm and clarification park; fail without a tracker."
     modify:
-      - "SpecHandback, SpecHandbackComment, SpecParkStatusResolver, SpecHandbackRepeat, ReworkParkCheck, ReworkNudgeHandler"
+      - "SpecHandback, SpecHandbackComment, SpecParkStatusResolver, SpecHandbackHandler"
   - id: route
-    action: "Turn a lagging read or a named member not checked out into the SeriesOutOfStep hand-back, ranked as decided; replace f5f7d's DeriveSpec failure."
+    action: "Replace f5f7d's DeriveSpec failure: a lagging read hands back SeriesOutOfStep, ranked below a demand and a resume; a named member not checked out fails the run naming it."
     modify:
       - "SpecSourceResolver, SpecRevisionCause, DeriveSpecHandler"
   - id: demand
-    action: "On a re-cut demand for an out-of-step series, read every member's done/ phases into the executed head."
+    action: "On a demand for an out-of-step series, read every member's done/ phases and build the previous set as that executed prefix followed by the newest members' unexecuted specs."
     modify:
-      - "SeriesReader, SpecSetReadResult"
+      - "SeriesReader, SpecSetReadResult, SpecRecutDemand"
 
 tests:
-  - "SeriesWriter_PushFailsInB_RevertsA_PointerRestored"
+  - "SeriesWriter_PushFailsInB_RevertsA_RecordsRevertSha_FailsRun"
+  - "SeriesWriter_Rollback_PersonCommitInBetween_NotForced"
   - "SpecSourceResolver_LaggingRead_HandsBackOutOfStep_NoModel"
-  - "SpecSourceResolver_NamedMemberNotCheckedOutInCli_HandsBack"
-  - "SpecHandbackComment_OutOfStep_NamesReposAndExits"
-  - "ReworkParkCheck_OutOfStep_PrCommandAnsweredWithExits"
-  - "SpecRecutDemand_OutOfStep_ExecutedHeadFromEveryMembersDone"
-  - "SpecRevisionCause_ResumeOnOutOfStep_Resumes"
+  - "SpecSourceResolver_NamedMemberNotCheckedOut_FailsRunNamingIt"
+  - "SpecHandbackComment_OutOfStep_NamesReposAndBothExits"
+  - "SpecHandbackHandler_OutOfStepWithoutTracker_Fails"
+  - "SpecRecutDemand_OutOfStep_ExecutedPrefixFromEveryMembersDone"
 
 done:
-  - "A push failing in one of two repositories leaves both on the previous revision and the next run proceeds normally (RealCompositionHarness)."
+  - "A push failing in one of two repositories leaves both on the previous revision, fails the run with the reason, and the next run reads the series without a reviewer edit (RealCompositionHarness)."
   - "Two members on different stamps hand the ticket back as SeriesOutOfStep naming the lagging repository, with no model call."
