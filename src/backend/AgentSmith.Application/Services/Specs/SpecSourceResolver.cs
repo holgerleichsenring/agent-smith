@@ -43,20 +43,25 @@ public sealed class SpecSourceResolver(
     /// a DEMAND. The set a re-cut produces carries none of its own, and a re-cut published without
     /// one would read back as unapproved on the next run — losing the immunity after exactly one
     /// demand.</param>
+    /// <param name="Expired">2026-10-12-3a36b: the branch's hand-back is derived again because a
+    /// scoped branch got a foreign commit since it parked; a derivation that yields nothing keeps
+    /// the stored hand-back rather than a fallback.</param>
     public sealed record Decision(
         SpecSource Source, SpecSet? Set, bool NeedsModel, string? Cause = null,
-        SpecHandback? Handback = null, SpecApproval? Approval = null);
+        SpecHandback? Handback = null, SpecApproval? Approval = null, bool Expired = false);
 
     public Decision Decide(
         SpecSetOnBranch branch, Ticket ticket, SpecSetPointer? pointer, PipelineContext pipeline,
-        string key, TicketLabelVocabulary vocabulary, SpecApprovalRecord? record = null)
+        string key, TicketLabelVocabulary vocabulary, SpecApprovalRecord? record = null,
+        bool foreignCommitSinceHandback = false)
     {
         ArgumentNullException.ThrowIfNull(ticket);
         ArgumentNullException.ThrowIfNull(branch);
         var cause = SpecRevisionCause.For(branch.Read, pointer, ticket, pipeline);
         if (branch.Read is { } artifact)
         {
-            var amend = SpecAmendmentRule.NeedsModel(cause, artifact.Set);
+            var amend = SpecAmendmentRule.NeedsModel(cause, artifact.Set, foreignCommitSinceHandback);
+            var expired = foreignCommitSinceHandback && artifact.Set.IsHandedBack;
             logger.LogInformation(
                 "Spec set {Key} came off the ticket branch ({Phases} phase(s)); {Mode}",
                 key, artifact.Set.Phases.Count,
@@ -65,8 +70,11 @@ public sealed class SpecSourceResolver(
                 SpecSource.BranchArtifact, artifact.Set, amend, Cause: cause,
                 // 2026-10-08-f114: a Request changes re-derives but does not re-approve — the prior
                 // approval, conversation included, rides along; an unapproved set records none.
+                // 2026-10-12-3a36b: so does an expired hand-back's, onto the set derived again.
                 Approval: SpecRecutDemand.ApprovalFor(cause, artifact.Set, pipeline)
-                    ?? (cause is SpecRevisionCause.Rework or SpecRevisionCause.StatusBack ? artifact.Set.Approval : null));
+                    ?? (expired || cause is SpecRevisionCause.Rework or SpecRevisionCause.StatusBack
+                        ? artifact.Set.Approval : null),
+                Expired: expired);
         }
 
         // ONLY when the path holds nothing. A branch this run could not read may carry an edit,

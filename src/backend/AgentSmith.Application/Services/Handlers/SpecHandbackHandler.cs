@@ -37,6 +37,7 @@ public sealed class SpecHandbackHandler(
     SpecParkStatusResolver parkStatus,
     ISpecSetPointerStore pointers,
     SpecHandbackRepeat repeat,
+    HandbackHeadsReader heads,
     ILogger<SpecHandbackHandler> logger)
     : ICommandHandler<SpecHandbackContext>
 {
@@ -53,7 +54,8 @@ public sealed class SpecHandbackHandler(
         var project = context.Pipeline.TryGet<string>(ContextKeys.ProjectName, out var p) ? p! : string.Empty;
         var key = TicketKeyFactory.For(context.Ticket, context.Pipeline).Value;
         var pointer = await pointers.GetAsync(project, key, cancellationToken);
-        if (repeat.IsRepeat(pointer, handback.Case, context.Pipeline))
+        var foreign = context.Pipeline.TryGet<bool>(ContextKeys.ForeignCommitSinceHandback, out var f) && f;
+        if (repeat.IsRepeat(pointer, handback.Case, context.Pipeline, foreign))
         {
             logger.LogWarning(
                 "Spec {Key} handed back '{Case}' again with no reply on the ticket since — "
@@ -76,9 +78,20 @@ public sealed class SpecHandbackHandler(
         await park.ParkAsync(context, project, handback, status!, cancellationToken);
         if (pointer is not null)
             await pointers.SaveAsync(project,
-                SpecHandbackProgress.Record(pointer, handback.Case), cancellationToken);
+                SpecHandbackProgress.Record(pointer, handback.Case) with
+                {
+                    HandbackHeads = await HeadsAsync(context, handback, cancellationToken),
+                }, cancellationToken);
         return Result(handback);
     }
+
+    // 2026-10-12-3a36b: a contradiction stores the remote heads it parked at, so a later run can
+    // tell whether somebody else committed since; the other cases store none.
+    private async Task<IReadOnlyDictionary<string, string>?> HeadsAsync(
+        SpecHandbackContext context, SpecHandback handback, CancellationToken ct) =>
+        handback.Case == SpecHandbackCase.RequirementsContradictRepository
+            ? await heads.ReadAsync(context.Pipeline, context.Repos, ct)
+            : null;
 
     private static CommandResult Result(SpecHandback handback) => handback.Case switch
     {

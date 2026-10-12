@@ -136,6 +136,7 @@ public sealed class DeriveSpecTicketEditTests
             new UnansweredQuestionPin(NullLogger<UnansweredQuestionPin>.Instance),
             new UnansweredQuestionNotice(tickets.Object, NullLogger<UnansweredQuestionNotice>.Instance),
             new SeriesResolver(new SeriesIdFactory(TimeProvider.System)),
+            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Probe(),
             NullLogger<DeriveSpecHandler>.Instance);
     }
 

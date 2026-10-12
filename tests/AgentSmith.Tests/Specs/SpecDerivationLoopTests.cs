@@ -80,7 +80,7 @@ public sealed class SpecDerivationLoopTests
             new FixedPrompt(),
             DerivationTestParsers.Real(),
             new ScopedContextCoverage(),
-            NullLogger<SpecSetDeriver>.Instance);
+            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Gate(), NullLogger<SpecSetDeriver>.Instance);
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.Sandboxes,
             (IReadOnlyDictionary<string, ISandbox>)new Dictionary<string, ISandbox> { [Repo] = sandbox });

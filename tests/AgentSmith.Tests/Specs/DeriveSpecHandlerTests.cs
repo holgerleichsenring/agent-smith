@@ -179,6 +179,7 @@ public sealed class DeriveSpecHandlerTests
             new UnansweredQuestionNotice(
                 Mock.Of<ITicketProviderFactory>(), NullLogger<UnansweredQuestionNotice>.Instance),
             new SeriesResolver(new SeriesIdFactory(TimeProvider.System)),
+            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Probe(),
             NullLogger<DeriveSpecHandler>.Instance);
     }
 

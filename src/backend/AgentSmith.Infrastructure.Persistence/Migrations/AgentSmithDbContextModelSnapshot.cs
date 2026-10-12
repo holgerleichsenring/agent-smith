@@ -1757,6 +1757,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<int>("ExecutedThrough")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("HandbackHeads")
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("LastHandbackCase")
                         .HasColumnType("INTEGER");
 

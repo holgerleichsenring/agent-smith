@@ -249,7 +249,7 @@ public sealed class ParkRecordsARefusedMoveTests
         new SpecParkStatusResolver(new ClarificationParkStatusResolver()),
         new InMemorySpecSetPointerStore(),
         new SpecHandbackRepeat(NullLogger<SpecHandbackRepeat>.Instance),
-        NullLogger<SpecHandbackHandler>.Instance);
+        AgentSmith.Tests.TestSupport.HandbackTestDoubles.Heads(), NullLogger<SpecHandbackHandler>.Instance);
 
     private TicketClaimService ClaimService()
     {

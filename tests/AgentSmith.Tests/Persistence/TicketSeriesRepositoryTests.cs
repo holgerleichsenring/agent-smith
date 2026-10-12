@@ -48,4 +48,20 @@ public sealed class TicketSeriesRepositoryTests : IDisposable
         (await repository.GetAsync("alpha", TicketKey.For("github", "1").Value, default))
             .Should().BeNull("the same number on another tracker is another ticket");
     }
+
+    /// <summary>2026-10-12-3a36b: the heads a contradiction parked at survive the round trip as a
+    /// JSON column, and a pointer saved without them clears the column.</summary>
+    [Fact]
+    public async Task TicketSeries_HandbackHeads_RoundTripAndClear()
+    {
+        var repository = new TicketSeriesRepository(_context);
+        var key = TicketKey.For("azdo", "7").Value;
+        var heads = new Dictionary<string, string> { ["Server"] = "abc123", ["Client"] = "def456" };
+
+        await repository.SaveAsync("alpha", new SpecSetPointer(key, "Server", "sha-1", 1, HandbackHeads: heads), default);
+        (await repository.GetAsync("alpha", key, default))!.HandbackHeads.Should().Equal(heads);
+
+        await repository.SaveAsync("alpha", new SpecSetPointer(key, "Server", "sha-2", 2), default);
+        (await repository.GetAsync("alpha", key, default))!.HandbackHeads.Should().BeNull();
+    }
 }

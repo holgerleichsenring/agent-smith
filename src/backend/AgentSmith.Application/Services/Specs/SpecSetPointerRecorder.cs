@@ -36,7 +36,10 @@ public sealed class SpecSetPointerRecorder(
             existing?.LastHandbackCase ?? SpecHandbackCase.None,
             existing?.RepeatedHandbackCount ?? 0,
             set.Series ?? existing?.SeriesId,
-            executedThrough ?? existing?.ExecutedThrough ?? 0), cancellationToken);
+            executedThrough ?? existing?.ExecutedThrough ?? 0,
+            // 2026-10-12-3a36b: the stored heads belong to the hand-back the branch carries; a
+            // revision that is not a hand-back ends it, and with it the reference.
+            set.IsHandedBack ? existing?.HandbackHeads : null), cancellationToken);
         logger.LogDebug(
             "Spec set {Key} pointer names {Sha} (revision {Revision})", set.Key, sha, set.Current.Number);
     }

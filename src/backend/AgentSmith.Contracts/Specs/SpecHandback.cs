@@ -31,6 +31,12 @@ public sealed record SpecHandback(
     /// <summary>The readings a question offers; empty for every other case.</summary>
     public IReadOnlyList<string> Readings { get; init; } = Readings ?? [];
 
+    /// <summary>2026-10-12-3a36b: the framework-minted evidence lines a CONTRADICTION rests on,
+    /// resolved from the ids the model cited; empty for every other case and for a reply that
+    /// cited nothing. A contradiction is a claim about the code, and a claim nobody can trace
+    /// to a look is how a grep line became a park that later runs replayed.</summary>
+    public IReadOnlyList<string> Cites { get; init; } = [];
+
     /// <summary>The reading the run takes when nobody answers; null unless this is a question.</summary>
     public string? TakenReading =>
         Case == SpecHandbackCase.Question && Taken >= 0 && Taken < Readings.Count

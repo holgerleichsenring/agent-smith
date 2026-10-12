@@ -122,7 +122,7 @@ public sealed class SpecHandbackRepeatTests
             new SpecParkStatusResolver(new ClarificationParkStatusResolver()),
             pointers,
             new SpecHandbackRepeat(NullLogger<SpecHandbackRepeat>.Instance),
-            NullLogger<SpecHandbackHandler>.Instance);
+            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Heads(), NullLogger<SpecHandbackHandler>.Instance);
     }
 
     private static TrackerConnection Parkable() => new()

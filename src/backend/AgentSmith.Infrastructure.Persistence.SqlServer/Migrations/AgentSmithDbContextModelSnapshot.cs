@@ -1821,6 +1821,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<int>("ExecutedThrough")
                         .HasColumnType("int");
 
+                    b.Property<string>("HandbackHeads")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int>("LastHandbackCase")
                         .HasColumnType("int");
 
