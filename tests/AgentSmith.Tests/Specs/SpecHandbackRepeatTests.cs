@@ -117,6 +117,7 @@ public sealed class SpecHandbackRepeatTests
                 new Application.Services.Lifecycle.UnmovedTicketReport(
                     new Application.Services.Persistence.InMemoryUnmovedTicketStore(),
                     NullLogger<Application.Services.Lifecycle.UnmovedTicketReport>.Instance),
+                Mock.Of<AgentSmith.Contracts.Reviews.IHandbackPrNotice>(),
                 NullLogger<SpecHandbackPark>.Instance),
             new SpecParkStatusResolver(new ClarificationParkStatusResolver()),
             pointers,

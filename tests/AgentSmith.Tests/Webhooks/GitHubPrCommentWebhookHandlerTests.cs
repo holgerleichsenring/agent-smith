@@ -13,7 +13,7 @@ public sealed class GitHubPrCommentWebhookHandlerTests
     private readonly PrCommentHandlerFixture _fixture = new();
 
     private GitHubPrCommentWebhookHandler CreateSut() =>
-        new(_fixture.Admission(), new GitHubAuthorAssociationTrust(),
+        new(_fixture.Admission(), new GitHubAuthorAssociationTrust(), _fixture.Heads(),
             NullLogger<GitHubPrCommentWebhookHandler>.Instance);
 
     private static string IssueComment(

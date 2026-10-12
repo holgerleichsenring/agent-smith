@@ -12,5 +12,9 @@ public interface IReworkParkCheck
 {
     Task<ReworkPark> CheckAsync(ResolvedProject project, string ticketId, CancellationToken cancellationToken);
 
+    /// <summary>The same check for a ticket a hand-back parked — its clarification or not-implementable
+    /// status is reworkable too, because a pull-request act answers the hand-back.</summary>
+    Task<ReworkPark> CheckHandbackAsync(ResolvedProject project, string ticketId, CancellationToken cancellationToken);
+
     Task<bool> MoveAsync(ResolvedProject project, string ticketId, string status, CancellationToken cancellationToken);
 }

@@ -91,8 +91,9 @@ public sealed class TriggerModeTests
     {
         var model = new Mock<IIntentParser>(MockBehavior.Strict);
         var admission = new PrCommentCommandAdmission(new CommentIntentParser(model.Object), new ServerContext("c.yml"),
-            Mock.Of<IPrCommandLaunch>(), NullLogger<PrCommentCommandAdmission>.Instance);
-        var handler = new GitHubPrCommentWebhookHandler(admission, Mock.Of<IPrCommentAuthorTrust>(), NullLogger<GitHubPrCommentWebhookHandler>.Instance,
+            Mock.Of<IPrCommandLaunch>(), Mock.Of<IPrTicketOwner>(), Mock.Of<IReworkNudges>(), NullLogger<PrCommentCommandAdmission>.Instance);
+        var handler = new GitHubPrCommentWebhookHandler(admission, Mock.Of<IPrCommentAuthorTrust>(), Mock.Of<IPrCommandHead>(),
+            NullLogger<GitHubPrCommentWebhookHandler>.Instance,
             modeGate: Gate(Config(Project("p", polls: true))));
         const string comment = """
             { "action": "created", "issue": { "number": 4, "pull_request": { "url": "x" } },
@@ -139,7 +140,7 @@ public sealed class TriggerModeTests
     {
         var launcher = new Mock<IDetachedPipelineLauncher>();
         var admission = new PrCommentCommandAdmission(new CommentIntentParser(Mock.Of<IIntentParser>()), new ServerContext("c.yml"),
-            Mock.Of<IPrCommandLaunch>(), NullLogger<PrCommentCommandAdmission>.Instance);
+            Mock.Of<IPrCommandLaunch>(), Mock.Of<IPrTicketOwner>(), Mock.Of<IReworkNudges>(), NullLogger<PrCommentCommandAdmission>.Instance);
         var actions = new PrSweepActions(new PrReviewRouteResolver(new ConfiguredRepoFinder()), new PrTriggerLabelResolver(),
             new PrRunContextFactory(), launcher.Object, admission,
             new AgentSmith.Server.Services.Sweep.PrSweepBreaker(Mock.Of<Microsoft.Extensions.DependencyInjection.IServiceScopeFactory>(),

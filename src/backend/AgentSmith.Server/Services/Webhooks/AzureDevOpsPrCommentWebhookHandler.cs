@@ -60,6 +60,11 @@ public sealed class AzureDevOpsPrCommentWebhookHandler(
         };
         return new PrCommentCommand(
             comment.GetProperty("content").GetString() ?? "", author,
-            $"{repoFullName}#{prId}", $"pr:{repoFullName}#{prId}", prId.ToString());
+            $"{repoFullName}#{prId}", $"pr:{repoFullName}#{prId}", prId.ToString())
+        {
+            HeadRef = PayloadActTime.Text(pullRequest, "sourceRefName"),
+            SameRepository = !pullRequest.TryGetProperty("forkSource", out _),
+            PrUrl = AzureDevOpsPrUrl.Of(AzureDevOpsPrUrl.RepositoryUrl(pullRequest), pullRequest),
+        };
     }
 }

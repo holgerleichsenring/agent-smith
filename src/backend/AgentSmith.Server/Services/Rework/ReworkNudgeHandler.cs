@@ -14,6 +14,8 @@ namespace AgentSmith.Server.Services.Rework;
 /// queued code run will end and check again; an unfinished attempt is waited for. Only then are
 /// the host's acts read, and only a trusted act after the cutoff — and after an operator's stop —
 /// goes through the rework entry, whose answer is said once on the act's channel.
+/// <para>A run waiting on a hand-back (no checkpoint) is answered by a pull-request act: the entry closes
+/// it and starts the rework. A checkpointed question keeps waiting for its answer.</para>
 /// </summary>
 public sealed class ReworkNudgeHandler(
     IActiveRunLease leases,
@@ -22,13 +24,17 @@ public sealed class ReworkNudgeHandler(
     IReworkEntry rework,
     ReworkSpeech speech,
     ReworkFallbackSpawn fallback,
-    ReworkWithheld withheld)
+    ReworkWithheld withheld,
+    IRunCheckpointStore checkpoints)
 {
     public async Task<ReworkNudgeDisposition> HandleAsync(ResolvedProject project, ClaimedReworkNudge nudge, CancellationToken ct)
     {
         var attempt = await attempts.LatestAsync(project.Name, nudge.TicketId, null, ct);
         if (attempt is null) return ReworkNudgeDisposition.Finish;
         var live = await leases.GetByTicketAsync(project.Name, new TicketId(nudge.TicketId), ct);
+        if (live is null && await HandbackActAsync(project, nudge, attempt, ct) is { } answer)
+            return await AnswerAsync(project, nudge, attempt, answer,
+                await rework.AnswerHandbackAsync(project, nudge.TicketId, attempt, PipelinePresets.CodeName, ct), ct);
         if (live is not null || attempt.Status == RunStatuses.WaitingForInput)
             return await WhileRunningAsync(project, nudge, attempt, live?.RunId ?? attempt.RunId, live is not null, ct);
         if (await attempts.HasQueuedAsync(project.Name, nudge.TicketId, ct)) return ReworkNudgeDisposition.Finish;
@@ -51,10 +57,25 @@ public sealed class ReworkNudgeHandler(
         return leased ? ReworkNudgeDisposition.Finish : ReworkNudgeDisposition.Reschedule;
     }
 
-    private async Task<ReworkNudgeDisposition> EnterAsync(
-        ResolvedProject project, ClaimedReworkNudge nudge, PreviousAttempt attempt, PendingReworkAct act, CancellationToken ct)
+    // A hand-back parks waiting_for_input without a checkpoint; a question the ask gate checkpointed
+    // keeps its own path back. Only a pull-request act answers the hand-back.
+    private async Task<PendingReworkAct?> HandbackActAsync(
+        ResolvedProject project, ClaimedReworkNudge nudge, PreviousAttempt attempt, CancellationToken ct)
     {
-        var outcome = await rework.EnterAsync(project, nudge.TicketId, act.Act, PipelinePresets.CodeName, ct);
+        if (attempt.Status != RunStatuses.WaitingForInput || await checkpoints.GetByRunIdAsync(attempt.RunId, ct) is not null)
+            return null;
+        var act = await pending.NewestAsync(project, nudge.TicketId, attempt, ct);
+        return act?.Repo is not null && !await withheld.SaysAsync(project, nudge.TicketId, act, attempt, ct) ? act : null;
+    }
+
+    private async Task<ReworkNudgeDisposition> EnterAsync(
+        ResolvedProject project, ClaimedReworkNudge nudge, PreviousAttempt attempt, PendingReworkAct act, CancellationToken ct) =>
+        await AnswerAsync(project, nudge, attempt, act,
+            await rework.EnterAsync(project, nudge.TicketId, act.Act, PipelinePresets.CodeName, ct), ct);
+
+    private async Task<ReworkNudgeDisposition> AnswerAsync(ResolvedProject project, ClaimedReworkNudge nudge,
+        PreviousAttempt attempt, PendingReworkAct act, ReworkOutcome outcome, CancellationToken ct)
+    {
         switch (outcome.Kind)
         {
             case ReworkOutcomeKind.Started when outcome.RunId is null:
@@ -78,5 +99,6 @@ public sealed class ReworkNudgeHandler(
         return ReworkNudgeDisposition.Finish;
     }
 
-    private const string NotWaiting = "the ticket is not waiting for one — its last run has not finished, or it is parked as not implementable";
+    private const string NotWaiting =
+        "the ticket is not waiting for one — its last run has not finished, or its current status is not one a rework starts from";
 }

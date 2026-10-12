@@ -20,6 +20,7 @@ public sealed class ReworkEntryTests
     private readonly Mock<IReworkParkCheck> _parks = new();
     private readonly Mock<ITicketReopener> _reopener = new();
     private readonly Mock<IReworkLaunch> _launch = new();
+    private readonly Mock<IWaitingRunCloser> _closer = new();
     private static readonly ResolvedProject Project = new() { Name = "p", Tracker = new TrackerConnection { Type = TrackerType.Jira } };
 
     public ReworkEntryTests()
@@ -30,7 +31,7 @@ public sealed class ReworkEntryTests
     }
 
     private ReworkEntry Entry() => new(_leases.Object, _attempts.Object, _parks.Object, _reopener.Object,
-        _launch.Object, NullLogger<ReworkEntry>.Instance);
+        _launch.Object, _closer.Object, NullLogger<ReworkEntry>.Instance);
 
     private void Attempt(string status, bool finished, string runId = "run-1") =>
         _attempts.Setup(a => a.LatestAsync("p", "T-1", null, It.IsAny<CancellationToken>()))
@@ -132,6 +133,31 @@ public sealed class ReworkEntryTests
 
         outcome.Kind.Should().Be(ReworkOutcomeKind.Refused);
         _reopener.VerifyNoOtherCalls();
+        _launch.VerifyNoOtherCalls();
+    }
+
+    private Task<ReworkOutcome> AnswerHandback() => Entry().AnswerHandbackAsync(Project, "T-1",
+        new PreviousAttempt("run-1", RunStatuses.WaitingForInput, Start, false), "code", CancellationToken.None);
+
+    [Fact]
+    public async Task ReworkEntry_HandbackAnswered_ClosesRowThenLaunches()
+    {
+        _parks.Setup(p => p.CheckHandbackAsync(Project, "T-1", It.IsAny<CancellationToken>())).ReturnsAsync(new ReworkPark(true, "To Do"));
+
+        (await AnswerHandback()).Should().Be(ReworkOutcome.Started("run-2"));
+
+        _closer.Verify(c => c.CloseSupersededAsync("run-1", It.IsAny<CancellationToken>()), Times.Once);
+        _reopener.Verify(r => r.ClearAsync(Project, "T-1", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task ReworkEntry_HandbackStatusNotParked_LeavesRowWaiting()
+    {
+        _parks.Setup(p => p.CheckHandbackAsync(Project, "T-1", It.IsAny<CancellationToken>())).ReturnsAsync(new ReworkPark(false, null));
+
+        (await AnswerHandback()).Kind.Should().Be(ReworkOutcomeKind.NotARework);
+
+        _closer.VerifyNoOtherCalls();
         _launch.VerifyNoOtherCalls();
     }
 }

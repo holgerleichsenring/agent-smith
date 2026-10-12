@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Reviews;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Entities;
 
@@ -43,7 +44,7 @@ public static class SpecRecutDemand
         return In(
             pipeline.TryGet<IReadOnlyList<TicketComment>>(ContextKeys.TicketComments, out var c)
                 ? c : null,
-            set?.Approval);
+            set?.Approval, OwnTicketComment.PrNotes(pipeline));
     }
 
     /// <summary>
@@ -51,8 +52,9 @@ public static class SpecRecutDemand
     /// unapproved set has no approval to measure against and is cleared by the anchor alone, the
     /// way the plain comment cause is.
     /// </summary>
-    public static TicketComment? In(IReadOnlyList<TicketComment>? comments, SpecApproval? approval) =>
-        OwnTicketComment.ForeignAfter(comments, SpecSetComment.CutMarker)
+    public static TicketComment? In(
+        IReadOnlyList<TicketComment>? comments, SpecApproval? approval, IReadOnlyList<PrReviewNote>? prNotes = null) =>
+        OwnTicketComment.ForeignAfter(comments, SpecSetComment.CutMarker, prNotes)
             .Where(Demands)
             .LastOrDefault(c => approval is null || c.CreatedAt > approval.At);
 

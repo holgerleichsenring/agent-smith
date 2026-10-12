@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-3a36a
+
+decisions:
+  - category: Architecture
+    chose: "One static CommentCommandPrefix (^/(agent-smith|agentsmith|as)(?=\\s|$), Multiline for the line start, an inline Singleline tail) read by CommentIntentParser and by the rework act reader"
+    over: "Keeping the regex private to CommentIntentParser and matching commands a second way in PrStandingAct"
+    reason: |
+      The note that started the rework in the admission must be the note the run and the worker read as
+      the act. Multiline stays so a command on a later line still counts (as before); the tail now runs
+      to the end of the comment, so multi-line instructions reach the model and the review. help stays
+      an exact tail.
+  - category: Architecture
+    chose: "PrCommentCommand gains HeadRef, SameRepository and PrUrl as init properties; OpenPullRequest gains SameRepository as an init property (default false) set by all three listers"
+    over: "New positional parameters on both records"
+    reason: |
+      Positional parameters would have rewritten every construction site in tests and handlers for
+      fields most of them do not carry. Default false is the safe side: a lister that forgot the flag
+      reads as a fork and nudges nothing.
+  - category: Architecture
+    chose: "GitHub issue_comment heads are read through a new IPullRequestHeadReader on GitHubSourceProvider (Octokit PullRequest.Get), reached by IPrCommandHead in the handler only for a body that is a command"
+    over: "Reusing IPrDiffProvider.GetDiffAsync, whose PrDiff has the branch"
+    reason: |
+      The diff call downloads every changed file and PrDiff has no fork flag. A failed read, an
+      undeclared repository or a provider without the reader is NotHandled, as the spec says. The read
+      happens before the trust check (the handler cannot reach between match and trust), so an
+      untrusted command costs one host call, never a model call.
+  - category: Architecture
+    chose: "PrTicketOwner (IPrTicketOwner) holds the owner lookup with optional allowed projects; PrReworkAdmission shrinks to it plus the nudges"
+    over: "Copying OwnerAsync into PrCommentCommandAdmission"
+    reason: "One rule for which project owns a ticket branch's pull request, for a Request changes and a comment command alike; the sweep passes its allowed projects."
+  - category: Implementation
+    chose: "On a same-repository ticket branch with a PR URL, a trusted command nudges a rework whatever its tail says; a bare command elsewhere is NotHandled before the model"
+    over: "Letting the model decide on ticket branches too"
+    reason: "THE COMMAND IS THE ACT: '/agent-smith security review' on a ticket branch is a rework whose text is feedback; the threads are the content. Off a ticket branch nothing changes except that an empty tail asks for nothing."
+  - category: Architecture
+    chose: "PrStandingAct reads commands from the review threads (IPrReviewThreadReader): NewestCommandAsync trust-checks only command candidates in the worker; NewestCommand reads the fetcher's already trust-filtered threads; the newer of vote and command is the act"
+    over: "A new host API listing comments since a time"
+    reason: |
+      Every host's thread reader already returns top-level comments (GitHub issue comments, AzDO
+      threads, GitLab discussions) with IsOurs, bot and system flags, and the fetcher reads them anyway.
+      Our marked notes and any body opening with the marker are never commands.
+  - category: Architecture
+    chose: "Hand-back detection in ReworkNudgeHandler: waiting_for_input, no lease, and IRunCheckpointStore.GetByRunIdAsync is null; only a pending act with a Repo (pull request) takes the branch"
+    over: "A new status or flag on the Run row"
+    reason: "SpecHandbackPark writes no checkpoint and the ask gate always does, so the checkpoint is the distinguishing fact already stored; a ticket keyword act keeps today's path."
+  - category: Architecture
+    chose: "IReworkEntry.AnswerHandbackAsync: lease check, IReworkParkCheck.CheckHandbackAsync, move, IWaitingRunCloser.CloseSupersededAsync (CancelTerminalWriter with RunFinishedEvent 'cancelled — superseded by a PR act'), clear, launch"
+    over: "Widening ReworkParkCheck.CheckAsync for every caller, or closing the row before the park check"
+    reason: |
+      The hand-back statuses (needs_clarification_status, not_implementable_status — trigger first,
+      then tracker, as SpecParkStatusResolver resolves them) are reworkable only for a PR act answering
+      a hand-back; a verdict park stays closed to a ticket keyword. Checking first means a refused park
+      leaves the row waiting. CancelTerminalWriter has no interface, so a one-method closer is the
+      seam the entry and its tests need; it raises no watermark and moves no ticket.
+  - category: Scope
+    chose: "The hand-back is posted (HandbackPrNotice, marker <!-- agentsmith:handback -->) on the previous attempt's PullRequestUrls only"
+    over: "Also posting on this run's spec pull request"
+    reason: |
+      The spec's fact names PreviousAttempt.PullRequestUrls as where the run finds the ticket's PRs, and
+      on a rework run the spec PR is the same ticket-branch PR. A first-run hand-back has no previous
+      attempt: its spec PR is linked in the ticket comment, and mapping that URL back to a repo would be
+      a new URL-to-repo rule. Recorded as a known gap, not built.
+  - category: Architecture
+    chose: "OwnTicketComment.ForeignAfter/IsAnswered take optional PR notes (OwnTicketComment.PrNotes reads ContextKeys.PrReviewFeedback); SpecHandbackRepeat and SpecRecutDemand.From pass them"
+    over: "Converting PR notes into ContextKeys.TicketComments"
+    reason: |
+      ONE READER OF REPLIES: the guard and the re-cut demand agree. TicketComments feeds the prompt and
+      the keyword act reader; mixing PR notes in would change both. SpecRecutDemand was not in the
+      spec's modify list but the decision names it; the other IsAnswered callers (question pin,
+      premise notice, revision cause) are unchanged.
+  - category: Implementation
+    chose: "ReworkRule.PrBodyLine, ReworkTexts.Rule and PrWithheld name '/agent-smith' mid-line beside Request changes; docs/reference/integrations/pr-comments.md updated"
+    over: "Leaving the docs page saying only Request changes starts a rework"
+    reason: "No text we post has a line opening with the prefix, so none can read as a command. ReworkNudgeHandler's NotWaiting text no longer claims a not-implementable park is never reworkable."

@@ -73,7 +73,7 @@ public sealed class PrSweepPassTests : IDisposable
         launch.Setup(l => l.LaunchAsync(It.IsAny<PrCommentCommand>(), It.IsAny<PipelineRequest>(), It.IsAny<CancellationToken>(),
             It.IsAny<IReadOnlySet<string>?>())).ReturnsAsync(WebhookResult.HandledNoRoute());
         var admission = new PrCommentCommandAdmission(new CommentIntentParser(_intents.Object), new ServerContext("c.yml"),
-            launch.Object, NullLogger<PrCommentCommandAdmission>.Instance);
+            launch.Object, Mock.Of<IPrTicketOwner>(), Mock.Of<IReworkNudges>(), NullLogger<PrCommentCommandAdmission>.Instance);
         var trust = new Mock<IPrCommentAuthorTrust>();
         trust.Setup(t => t.IsTrustedAsync(It.IsAny<PrCommentAuthor>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
         var keyed = new ServiceCollection().AddKeyedSingleton("github", trust.Object).BuildServiceProvider();

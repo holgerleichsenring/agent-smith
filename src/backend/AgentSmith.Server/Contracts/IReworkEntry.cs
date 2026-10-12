@@ -12,4 +12,10 @@ public interface IReworkEntry
 {
     Task<ReworkOutcome> EnterAsync(
         ResolvedProject project, string ticketId, ReworkAct act, string pipeline, CancellationToken cancellationToken);
+
+    /// <summary>A pull-request act newer than a hand-back's waiting attempt (no checkpoint): the park is
+    /// checked with the hand-back's status accepted, the waiting row is closed as superseded, the rework
+    /// starts.</summary>
+    Task<ReworkOutcome> AnswerHandbackAsync(
+        ResolvedProject project, string ticketId, PreviousAttempt waiting, string pipeline, CancellationToken cancellationToken);
 }

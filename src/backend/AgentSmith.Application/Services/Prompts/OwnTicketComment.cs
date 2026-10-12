@@ -1,3 +1,5 @@
+using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Reviews;
 using AgentSmith.Domain.Entities;
 
 namespace AgentSmith.Application.Services.Prompts;
@@ -51,25 +53,37 @@ public static class OwnTicketComment
 
     public static bool AwaitsAnswer(TicketComment comment) => Carries(comment, AwaitingAnswer);
 
-    /// <summary>True when someone other than us commented after our last comment carrying <paramref name="marker"/>.</summary>
-    public static bool IsAnswered(IReadOnlyList<TicketComment>? comments, string marker) =>
-        ForeignAfter(comments, marker).Any();
+    /// <summary>True when someone other than us commented after our last comment carrying <paramref name="marker"/>
+    /// — on the ticket, or on one of its pull requests (<paramref name="prNotes"/>).</summary>
+    public static bool IsAnswered(
+        IReadOnlyList<TicketComment>? comments, string marker, IReadOnlyList<PrReviewNote>? prNotes = null) =>
+        ForeignAfter(comments, marker, prNotes).Any();
 
     /// <summary>
     /// 2026-09-22-8b25: the comments <see cref="IsAnswered"/> counts — everything by somebody
     /// other than us that follows our last comment carrying <paramref name="marker"/>, oldest
     /// first. Extracted because a second rule asks what those comments SAY, and two readings of
     /// one thread can disagree about which comments are even in scope.
+    /// <para>The trusted notes on the ticket's pull requests count beside the ticket's comments, dated
+    /// against the same anchor: a reviewer who answers a hand-back on the pull request has answered it.</para>
     /// </summary>
     public static IEnumerable<TicketComment> ForeignAfter(
-        IReadOnlyList<TicketComment>? comments, string marker)
+        IReadOnlyList<TicketComment>? comments, string marker, IReadOnlyList<PrReviewNote>? prNotes = null)
     {
-        if (comments is null || comments.Count == 0) return [];
-        var ordered = comments.OrderBy(c => c.CreatedAt).ToList();
+        var ordered = (comments ?? []).OrderBy(c => c.CreatedAt).ToList();
         var asked = ordered.LastOrDefault(c => IsOurs(c) && Carries(c, [marker]));
-        var after = asked is null ? ordered : ordered.Where(c => c.CreatedAt > asked.CreatedAt);
-        return after.Where(c => !IsOurs(c));
+        var thread = ordered.Concat((prNotes ?? []).Where(n => !n.IsOurs).Select(AsComment));
+        return thread.Where(c => (asked is null || c.CreatedAt > asked.CreatedAt) && !IsOurs(c)).OrderBy(c => c.CreatedAt);
     }
+
+    /// <summary>The trusted pull-request notes this run read (ContextKeys.PrReviewFeedback), every thread flattened.</summary>
+    public static IReadOnlyList<PrReviewNote> PrNotes(PipelineContext pipeline) =>
+        pipeline.TryGet<IReadOnlyList<PrReviewFeedback>>(ContextKeys.PrReviewFeedback, out var feedback) && feedback is not null
+            ? [.. feedback.SelectMany(f => f.Threads).SelectMany(t => t.Notes)]
+            : [];
+
+    private static TicketComment AsComment(PrReviewNote note) =>
+        new(note.Author?.AuthorLogin ?? string.Empty, note.At, note.Body);
 
     private static bool Carries(TicketComment comment, string[] markers) =>
         markers.Any(marker =>
