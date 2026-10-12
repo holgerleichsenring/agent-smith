@@ -10,6 +10,7 @@ using AgentSmith.Infrastructure.Services.Providers.DraftChecks;
 using AgentSmith.Infrastructure.Services.Providers.Source;
 using AgentSmith.Infrastructure.Services.Providers.Tickets;
 using AgentSmith.Infrastructure.Services.Security;
+using AgentSmith.Infrastructure.Services.Structure;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Infrastructure;
@@ -37,6 +38,7 @@ public static class ServiceCollectionExtensions
         services.AddProjectMeta();
         services.AddDesignProviders(); // 2026-10-01-7f7ab
         services.AddDraftChecks(); // 2026-10-02-5f89b
+        services.AddStructureEngine(); // 2026-10-06-8565b
         return services;
     }
 }

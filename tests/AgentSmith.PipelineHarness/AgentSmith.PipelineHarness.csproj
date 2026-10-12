@@ -53,4 +53,7 @@
     </None>
   </ItemGroup>
 
+  <!-- 2026-10-06-8565b: only the grammars the structure engine reads. -->
+  <Import Project="../../src/backend/build/structure-natives.targets" />
+
 </Project>

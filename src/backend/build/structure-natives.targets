@@ -1,0 +1,29 @@
+<Project>
+  <!--
+    2026-10-06-8565b: TreeSitter.DotNet ships 28 grammars for nine RIDs (~620 MB). The structure
+    engine loads only the grammars its language data files name, so every other grammar is
+    dropped before it is copied. Matched by file stem with the 'lib' prefix removed, so
+    libtree-sitter-rust.so, libtree-sitter-rust.dylib and tree-sitter-rust.dll are one entry.
+    A new language adds its grammar here beside its data file.
+
+    StructureNativeRids (optional, space-separated — ';' and ',' both split a command-line property) keeps only those RIDs; the Dockerfiles pass
+    the Linux pair. Left empty, every RID stays, which the macOS tests and a single-file
+    publish (which takes one RID anyway) need.
+  -->
+  <PropertyGroup>
+    <StructureNativeKeep>;tree-sitter;tree-sitter-c-sharp;tree-sitter-rust;</StructureNativeKeep>
+  </PropertyGroup>
+
+  <Target Name="StructureNativesKeepList" AfterTargets="ResolvePackageAssets">
+    <ItemGroup>
+      <_StructureNativeDrop Include="@(RuntimeTargetsCopyLocalItems)"
+          Condition="'%(RuntimeTargetsCopyLocalItems.NuGetPackageId)' == 'TreeSitter.DotNet' and !$(StructureNativeKeep.Contains(';$([System.Text.RegularExpressions.Regex]::Replace('%(RuntimeTargetsCopyLocalItems.Filename)', '^lib', ''));'))" />
+      <_StructureNativeDrop Include="@(NativeCopyLocalItems)"
+          Condition="'%(NativeCopyLocalItems.NuGetPackageId)' == 'TreeSitter.DotNet' and !$(StructureNativeKeep.Contains(';$([System.Text.RegularExpressions.Regex]::Replace('%(NativeCopyLocalItems.Filename)', '^lib', ''));'))" />
+      <_StructureNativeDrop Include="@(RuntimeTargetsCopyLocalItems)"
+          Condition="'%(RuntimeTargetsCopyLocalItems.NuGetPackageId)' == 'TreeSitter.DotNet' and '$(StructureNativeRids)' != '' and !$([System.String]::Copy(' $(StructureNativeRids) ').Contains(' %(RuntimeTargetsCopyLocalItems.RuntimeIdentifier) '))" />
+      <RuntimeTargetsCopyLocalItems Remove="@(_StructureNativeDrop)" />
+      <NativeCopyLocalItems Remove="@(_StructureNativeDrop)" />
+    </ItemGroup>
+  </Target>
+</Project>

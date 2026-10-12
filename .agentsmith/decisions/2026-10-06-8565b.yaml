@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-06-8565b
+
+decisions:
+  - category: Tooling
+    chose: "TreeSitter.DotNet 1.3.0 with grammars loaded through NativeLibrary.Load against the binding's assembly and a managed entry-point delegate into Language(IntPtr)"
+    over: "XbergIo.TreeSitterLanguagePack, or the binding's own Language(string) loader"
+    reason: |
+      The language pack downloads grammars at runtime and ships natives through runtime.json, which a RID-less
+      publish does not restore. The binding's loader looks only beside the executable, where a single-file CLI
+      has nothing; NativeLibrary.Load follows deps.json and the bundle's extraction. Proven in aspnet:10.0 on
+      arm64 and amd64 and by a linux-x64 single-file publish in runtime-deps:10.0. A delegate, not a function
+      pointer, so no project needs AllowUnsafeBlocks.
+  - category: Tooling
+    chose: "One src/backend/build/structure-natives.targets, imported by Server, Cli, AgentSmith.Tests and PipelineHarness, keeps natives by file stem; StructureNativeRids is space-separated"
+    over: "A target in Infrastructure.csproj, or ';'/',' separators"
+    reason: |
+      A target does not travel across ProjectReference, so the consuming projects import it. Item metadata is
+      qualified per item list: NativeCopyLocalItems (RID publish) carry no RuntimeIdentifier and an unqualified
+      reference failed the single-file publish. MSBuild splits a command-line property on both ';' and ','.
+      Payload: 626 MB of runtimes before, 12 MB of tree-sitter natives in the Linux images after.
+  - category: Implementation
+    chose: "Exclude globs are case-sensitive and C# test projects match '*Tests/' and '*.Test/'"
+    over: "Case-insensitive '*Test/'"
+    reason: |
+      Case-insensitively '*Test/' matches 'Contest/'. A test pins that such a directory is measured.
+  - category: Implementation
+    chose: "The Rust test region is an anchored sibling pattern: an attribute_item cfg(test) followed by a mod_item, with #eq? predicates"
+    over: "Matching any mod named tests"
+    reason: |
+      tree-sitter-rust makes attributes siblings of the item. '#[cfg(feature = ...)] mod' must stay measured, and
+      a test proves it does.
+  - category: Implementation
+    chose: "Units are identified by tree-sitter node identity, not byte span; C# operators, conversions, destructors, indexers and properties are functions"
+    over: "Span keys and methods only"
+    reason: |
+      Review found a root node and a lone item share one span ('struct A;' without a newline), which doubled the
+      key and dropped the type count. A 60-line getter or operator is a function a reader has to hold in their
+      head. A destructor and a constructor share a name; the ordinal separates them.
+  - category: Implementation
+    chose: "Engine collaborators and StructureLimits/StructureJudge are registered by concrete type"
+    over: "An interface per collaborator"
+    reason: |
+      IStructureEngine is the port; its catalog, loader and collector have one implementation each and no
+      second consumer, as RunWorkCheckpointer and SandboxGitOperations are registered today.

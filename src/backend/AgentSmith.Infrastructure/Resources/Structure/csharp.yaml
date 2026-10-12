@@ -1,0 +1,30 @@
+# 2026-10-06-8565b: how the structure engine reads C#. Test code lives in its own projects,
+# so it is excluded by path; generated code by its conventional names.
+name: csharp
+extensions: [".cs"]
+library: tree-sitter-c-sharp
+symbol: tree_sitter_c_sharp
+attribute_kinds: [attribute_list]
+containers: {}
+exclude:
+  - "**/*Tests/**"
+  - "**/*.Test/**"
+  - "**/tests/**"
+  - "**/test/**"
+  - "**/*.g.cs"
+  - "**/*.Designer.cs"
+  - "**/Migrations/**"
+query: |
+  (class_declaration name: (identifier) @name) @type
+  (struct_declaration name: (identifier) @name) @type
+  (interface_declaration name: (identifier) @name) @type
+  (record_declaration name: (identifier) @name) @type
+  (enum_declaration name: (identifier) @name) @type
+  (method_declaration name: (identifier) @name parameters: (parameter_list) @params) @function
+  (constructor_declaration name: (identifier) @name parameters: (parameter_list) @params) @function
+  (local_function_statement name: (identifier) @name parameters: (parameter_list) @params) @function
+  (destructor_declaration name: (identifier) @name parameters: (parameter_list) @params) @function
+  (operator_declaration operator: _ @name parameters: (parameter_list) @params) @function
+  (conversion_operator_declaration type: _ @name parameters: (parameter_list) @params) @function
+  (indexer_declaration "this" @name parameters: (bracketed_parameter_list) @params) @function
+  (property_declaration name: (identifier) @name) @function

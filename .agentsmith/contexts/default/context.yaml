@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-06-8565b: "A STRUCTURE ENGINE MEASURES UNITS (backend). IStructureEngine over TreeSitter.DotNet with per-language data files (C#, Rust); StructureLimits merges delta and house Limits; StructureJudge names findings; natives kept to 12 MB. -> .agentsmith/specs/done/2026-10-06-8565b-structure-engine.yaml"
     2026-10-06-8565a: "DELTAS DECLARE LIMITS AS DATA (skills catalog). A mandatory Limits section holds one yaml fence of closed keys restating the sourced prose; a limit is green on install, only worse fails; house limits under Project Specifics. -> .agentsmith/specs/done/2026-10-06-8565a-principles-limits-format.yaml"
     2026-09-15-a238: "SUPERSEDED (2026-10-06) by 2026-10-06-8565a: no delta writes a build artefact, so no verify stage has to declare covering one; limits are judged by the framework. Moved to done/ unimplemented. -> .agentsmith/specs/done/2026-09-15-a238-verify-stage-declares-coverage.yaml"
     2026-10-03-24d4: "EVERY DELTA SIZE LIMIT NAMES ITS SOURCE (skills catalog). C# method 55, Rust function 40 measured and ratified; TypeScript 50/300 from ESLint; no C# class limit; validate-skills refuses an unsourced Max line. -> .agentsmith/specs/done/2026-10-03-24d4-principles-size-evidence.yaml"
@@ -1129,7 +1130,6 @@ state:
     2026-10-12-967ah: "THE PHASE READERS GO (backend, dashboard, hooks). Operator-timed once every replica rewrote its store: aliases for owned data and the gate forwarder removed; label and config aliases stay. -> .agentsmith/specs/planned/2026-10-12-967ah-naming-spec-contract.yaml"
     2026-10-12-967ai: "THE PLUGIN SAYS SPEC (spec-first plugin). create-phase alias removed; example prompt and update-project speak of specs and spec/{id} branches outside the layout migration. -> .agentsmith/specs/planned/2026-10-12-967ai-naming-spec-plugin.yaml"
     2026-10-04-6807: "A TICKET CAN ASK AN INIT TO REFRESH PRINCIPLES (ticket routing, config). A configured refresh label on the init ticket sets the same flag as the chip. -> .agentsmith/specs/planned/2026-10-04-6807-init-refresh-ticket-label.yaml"
-    2026-10-06-8565b: "A STRUCTURE ENGINE MEASURES UNITS (backend). tree-sitter measures type, function, file and judges a principles Limits fence; C# and Rust first. -> .agentsmith/specs/planned/2026-10-06-8565b-structure-engine.yaml"
     2026-10-06-8565c: "INIT WRITES A STRUCTURE BASELINE (backend). What already exceeds the Limits is recorded beside principles.md; a refresh only shrinks it. -> .agentsmith/specs/planned/2026-10-06-8565c-structure-baseline-init.yaml"
     2026-10-06-8565d: "THE COMMIT STEP JUDGES STRUCTURE (backend). Changed files over their limit and not baselined go back to the master once, then fail the spec. -> .agentsmith/specs/planned/2026-10-06-8565d-structure-commit-gate.yaml"
     2026-10-03-0fca: "OVERLAYS REACH SUBPROJECTS AND NOTEBOOKS (overlay detection, discovery). sbt and Gradle multi-project declarations scoped per subproject; notebook-only repositories become components. -> .agentsmith/specs/planned/2026-10-03-0fca-overlay-detection-gaps.yaml"
