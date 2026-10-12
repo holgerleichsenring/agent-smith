@@ -25,9 +25,9 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// </para>
 /// </summary>
 public sealed class SandboxImageChain(
-    ImageRegistryTrust? trust = null, ILogger<SandboxImageChain>? logger = null)
+    IImageRegistryTrust? trust = null, ILogger<SandboxImageChain>? logger = null)
 {
-    private readonly ImageRegistryTrust _trust = trust ?? new ImageRegistryTrust();
+    private readonly IImageRegistryTrust _trust = trust ?? new ImageRegistryTrust();
 
     // Generic fallback when no language-specific image can be resolved.
     //
@@ -98,17 +98,18 @@ public sealed class SandboxImageChain(
 
     // p0265: judge an LLM-named stack.image against the operator's registry policy
     // before trusting it as the sandbox toolchain. Returns the image when it is
-    // inside the boundary, else null (the chain continues) with a WARN.
+    // inside the boundary, else null (the chain continues) with a WARN naming THAT boundary.
     private string? AcceptedContextImage(string? contextImage, string? language)
     {
         var trimmed = contextImage?.Trim();
         if (string.IsNullOrEmpty(trimmed)) return null;
-        if (!_trust.Accepts(trimmed))
+        var boundary = _trust.InForce();
+        if (!boundary.Accepts(trimmed))
         {
             logger?.LogWarning(
                 "p0265: context.yaml stack.image '{Image}' is outside the trusted registries "
                 + "[{Trusted}]. Falling back for lang={Lang}.",
-                trimmed, _trust.Description, language ?? "null");
+                trimmed, boundary.Description, language ?? "null");
             return null;
         }
         logger?.LogInformation(

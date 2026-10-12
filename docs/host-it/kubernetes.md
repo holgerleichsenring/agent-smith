@@ -80,6 +80,8 @@ sandbox:
 
 `allowed_registries` is a list of image-reference prefixes. Left empty it means the built-in default, `mcr.microsoft.com/` and `ghcr.io/`. `allow_docker_hub_library` decides whether an official Docker Hub image with no namespace (`node:20-bookworm`) is trusted. Unset, it follows the list: trusted while you name no registries, refused once you do, because a named list is a narrowing. A `stack.image` outside the boundary is skipped with a warning and the chain falls through to the next source. An image you name yourself in `toolchain_image` or `images` is your choice and is not checked.
 
+Entries and images are compared the way Docker reads a reference: an image with no registry host lives on `docker.io`, so `sbtscala/` and `docker.io/sbtscala/` are the same entry and both trust `sbtscala/scala-sbt:…`. A bare `docker.io/` trusts all of Docker Hub. On a server both settings are edited in the dashboard under **Configuration → Settings → Sandbox → Trusted image registries**, which also shows the boundary in force; a saved change applies to the next `stack.image` decision without a restart.
+
 ### Pulling from a private registry
 
 ```yaml
