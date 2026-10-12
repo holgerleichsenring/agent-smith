@@ -38,7 +38,7 @@ public sealed class SpecDoneRecorder(
         var target = Target(pipeline, record);
         if (target is null)
             return CommandResult.Fail(
-                $"Phase {record.Spec.PhaseId} ran but no sandbox of '{record.Carrier.Name}' or no ticket branch can carry its record");
+                $"Spec {record.Spec.PhaseId} ran but no sandbox of '{record.Carrier.Name}' or no ticket branch can carry its record");
         try
         {
             return await WriteAndCommitAsync(pipeline, target, record, cancellationToken);
@@ -47,7 +47,7 @@ public sealed class SpecDoneRecorder(
         {
             logger.LogError(ex, "Recording {SpecId} as executed failed", record.Spec.PhaseId);
             return CommandResult.Fail(
-                $"Phase {record.Spec.PhaseId} ran but its record was not committed: {ex.Message.Split('\n', 2)[0].Trim()}");
+                $"Spec {record.Spec.PhaseId} ran but its record was not committed: {ex.Message.Split('\n', 2)[0].Trim()}");
         }
     }
 
@@ -66,7 +66,7 @@ public sealed class SpecDoneRecorder(
         var sha = await commit.CommitAsync(target, record, executed, staged, move.Planned, ct);
         pipeline.Set(ContextKeys.SpecSet, executed);
         logger.LogInformation("Spec {SpecId} recorded in {Path} as {Sha}", record.Spec.PhaseId, move.Written[0], sha);
-        return CommandResult.Ok($"Phase record {move.Written[0]} committed as {sha}"
+        return CommandResult.Ok($"Spec record {move.Written[0]} committed as {sha}"
             + (index is null ? " (no index line: no discovered context)" : $", indexed in {index}"));
     }
 

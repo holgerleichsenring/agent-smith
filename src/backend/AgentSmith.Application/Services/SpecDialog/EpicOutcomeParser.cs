@@ -31,12 +31,12 @@ public sealed class EpicOutcomeParser(
         if (childMaps is null || childMaps.Count < 2)
             return new OutcomeInvalid(
                 "epic outcome needs 'children' with at least two spec entries — "
-                + "a single slice is just a phase; emit the bare ```yaml draft instead");
+                + "a single slice is just a spec; emit the bare ```yaml draft instead");
 
         if (childMaps.Count > SpecSet.MaxSpecs)
             return new OutcomeInvalid(
                 $"epic outcome has {childMaps.Count} children and one work ticket runs at most "
-                + $"{SpecSet.MaxSpecs} phases — propose the first {SpecSet.MaxSpecs} as this "
+                + $"{SpecSet.MaxSpecs} specs — propose the first {SpecSet.MaxSpecs} as this "
                 + "epic and the rest as a second one, cut after this one has delivered");
 
         var (parent, parentError) = ReadDraft(parentMap, "parent");

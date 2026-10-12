@@ -34,14 +34,14 @@ public static partial class CommandModelUse
             ModelUse.Call, "spec-account prompt", "per ratified criterion: satisfied, with a citation"),
         // 2026-09-17-0e79c: one call per spec, on a look of its own, before the master runs.
         [CommandNames.CheckSpecPremises] = new(
-            ModelUse.Call, "phase premise-check prompt",
+            ModelUse.Call, "spec premise-check prompt",
             "per stated premise that no longer holds: the premise, the verdict and the evidence id"),
         // 2026-09-17-042eh: a fresh instance reads the verified diff against the spec
-        // spec and the principles, with the read-only look of its own terms.
+        // and the principles, with the read-only look of its own terms.
         [CommandNames.ReviewSpecDiff] = new(
-            ModelUse.Call, "phase-review prompt", "findings on a file the reviewer read, cited"),
+            ModelUse.Call, "spec-review prompt", "findings on a file the reviewer read, cited"),
         [CommandNames.DeriveSpec] = new(
-            ModelUse.Call, "spec-derivation-master", "an ordered set of phase specs, as anchors"),
+            ModelUse.Call, "spec-derivation-master", "an ordered set of specs, as anchors"),
         [CommandNames.BootstrapDocument] = new(
             ModelUse.Call, "contract-classifier-master", "the document type"),
         [CommandNames.BootstrapDiscover] = new(

@@ -47,7 +47,7 @@ public sealed record StepBudget(int Limit, string Origin)
     public const int AbsoluteCeiling = 400;
 
     /// <summary>The budget of a run that splices nothing.</summary>
-    public static StepBudget TheDefault => new(Default, "no phase sequence");
+    public static StepBudget TheDefault => new(Default, "no spec sequence");
 
     /// <summary>The budget for a run that will splice <paramref name="specs"/> spec blocks.</summary>
     public static StepBudget ForSpecs(int specs)
@@ -57,8 +57,8 @@ public sealed record StepBudget(int Limit, string Origin)
         return new StepBudget(
             Math.Min(computed, AbsoluteCeiling),
             computed > AbsoluteCeiling
-                ? $"{specs} phase(s) x {PerSpecAllowance} + {BaseAllowance} base, clamped at {AbsoluteCeiling}"
-                : $"{specs} phase(s) x {PerSpecAllowance} + {BaseAllowance} base");
+                ? $"{specs} spec(s) x {PerSpecAllowance} + {BaseAllowance} base, clamped at {AbsoluteCeiling}"
+                : $"{specs} spec(s) x {PerSpecAllowance} + {BaseAllowance} base");
     }
 
     /// <summary>

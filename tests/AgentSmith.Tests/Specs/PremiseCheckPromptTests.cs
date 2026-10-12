@@ -139,7 +139,7 @@ public sealed class PremiseCheckPromptTests
         await h.RunAsync();
 
         var prompt = h.Provider.Prompts.Single();
-        prompt.Should().Contain("## Phases of this specification that have already run")
+        prompt.Should().Contain("## Specs of this series that have already run")
             .And.Contain("2026-09-17-0000: split the sender out")
             .And.Contain("COMMITTED in the repositories you are looking at");
     }

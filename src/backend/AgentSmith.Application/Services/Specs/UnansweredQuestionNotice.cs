@@ -48,5 +48,5 @@ public sealed class UnansweredQuestionNotice(
         + "proceeds on the reading it said it would take:\n\n"
         + $"> {unanswered.TakenLabel} {unanswered.TakenReading}\n\n"
         + "If that is the wrong reading, comment with the one you mean and move the ticket back "
-        + "to a trigger status; the next run re-cuts the phases that have not started.";
+        + "to a trigger status; the next run re-cuts the specs that have not started.";
 }

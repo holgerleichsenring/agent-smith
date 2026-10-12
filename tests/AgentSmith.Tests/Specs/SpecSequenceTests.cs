@@ -113,7 +113,7 @@ public sealed class SpecSequenceTests
         var table = Application.Services.Specs.SpecPrBody.RenderStatus(progress, delivered: true);
 
         table.Should().NotContain("DO NOT MERGE");
-        table.Should().Contain("## Phase status").And.Contain("Not delivered");
+        table.Should().Contain("## Spec status").And.Contain("Not delivered");
         table.Should().Contain("✅ done").And.Contain("dotnet build exited 1");
     }
 

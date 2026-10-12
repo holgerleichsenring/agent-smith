@@ -61,11 +61,11 @@ public static class SpecSetComment
     private static string RenderSpecs(SpecSet set)
     {
         var sb = new StringBuilder();
-        sb.AppendLine("## Derived phases");
+        sb.AppendLine("## Derived specs");
         sb.AppendLine();
         if (set.Phases.Count == 0)
         {
-            sb.AppendLine("_No phase was derived._");
+            sb.AppendLine("_No spec was derived._");
             return sb.ToString();
         }
         foreach (var spec in set.Phases) RenderSpec(sb, spec);
@@ -83,7 +83,7 @@ public static class SpecSetComment
         sb.AppendLine("## Contexts left out");
         sb.AppendLine();
         sb.AppendLine(set.Accounting.DiscardedContexts.Count == 0
-            ? "_Every named context is carried by a phase._"
+            ? "_Every named context is carried by a spec._"
             : SpecAccountingBuilder.RenderDiscardedContexts(set.Accounting));
         return sb.ToString();
     }

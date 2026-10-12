@@ -44,7 +44,7 @@ public sealed class SpecDerivationPromptTests
         var prompt = DerivationPrompt();
 
         prompt.Should().Contain("THE CUT IS SIZED TO THE SHAPE OF THE WORK");
-        prompt.Should().Contain("FEWEST phases its deliverable allows",
+        prompt.Should().Contain("FEWEST specs its deliverable allows",
             "deterministic work must be told to collapse, not merely allowed to");
         prompt.Should().Contain("a step per target turns one operation into one round of work",
             "the measured failure was one model round trip per target, not the phase count alone");
@@ -108,7 +108,7 @@ public sealed class SpecDerivationPromptTests
         prompt.Should().Contain("\"discarded_contexts\"");
         prompt.Should().Contain("EVERY NAMED CONTEXT IS SPOKEN FOR");
         prompt.Should().Contain(
-            "either carried by at least one phase or listed in \"discarded_contexts\" with the reason it is outside the work",
+            "either carried by at least one spec or listed in \"discarded_contexts\" with the reason it is outside the work",
             "a context the ticket names must land in one list or the other, never in neither");
         prompt.Should().Contain("refuses a cut that leaves a named context unaccounted for",
             "the master must know the comparison is enforced, not advisory");

@@ -25,7 +25,7 @@ public sealed class SpecDiffReviewer(
     IRunContextAccessor runContext,
     ILogger<SpecDiffReviewer> logger)
 {
-    private const string RoleName = "phase-diff-reviewer";
+    private const string RoleName = "spec-diff-reviewer";
 
     /// <summary>Per call, the look allowance plus the turn that asks and the turn that
     /// answers — as <see cref="SpecCutReviewer.MaxIterations"/> pins for the cut review.</summary>
@@ -40,7 +40,7 @@ public sealed class SpecDiffReviewer(
         // Not "reviewed and found nothing": nobody was asked. A spec whose diff carries no
         // reviewable file has no question to put, and the record says which of the two it was.
         if (diffs.Count == 0 || diffs.All(d => d.IsEmpty))
-            return PhaseReviewReport.NotTaken("this phase changed no reviewable file");
+            return PhaseReviewReport.NotTaken("this spec changed no reviewable file");
 
         var answer = await AskAsync(
             SpecReviewPrompt.For(draft, principles, diffs, look), draft.PhaseId, look, agent,
@@ -54,7 +54,7 @@ public sealed class SpecDiffReviewer(
 
         var kept = new SpecReviewAdmission(logger).Admit(answer, diffs, look);
         foreach (var finding in kept)
-            logger.LogWarning("Phase review — {Repo}/{Path}:{Line} breaks {Rule}: {Why}",
+            logger.LogWarning("Spec review — {Repo}/{Path}:{Line} breaks {Rule}: {Why}",
                 finding.Repository, finding.Path, finding.Line, finding.Rule, finding.Why);
         return PhaseReviewReport.Taken(kept);
     }
@@ -83,7 +83,7 @@ public sealed class SpecDiffReviewer(
         // and a review that fails must not fail a spec that verified green.
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
-            logger.LogWarning(ex, "The phase review call failed");
+            logger.LogWarning(ex, "The spec review call failed");
             return null;
         }
     }

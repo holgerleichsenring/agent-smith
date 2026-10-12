@@ -23,14 +23,14 @@ public static class ShortfallSection
         sb.AppendLine(Heading);
         sb.AppendLine();
         sb.AppendLine(
-            $"{shortfall.Delivered.Count} of {shortfall.PhaseCount} phase(s) are built, verified and on this "
+            $"{shortfall.Delivered.Count} of {shortfall.PhaseCount} spec(s) are built, verified and on this "
             + $"branch; the run stopped before the rest: {shortfall.Reason}");
         sb.AppendLine();
         foreach (var spec in shortfall.NotDelivered)
             sb.AppendLine($"- **{spec.PhaseId}** — {spec.Goal} ({Standing(spec)})");
         sb.AppendLine();
         sb.AppendLine(
-            "_Nothing of these phases is on the branch: work the stopped phase had begun was "
+            "_Nothing of these specs is on the branch: work the stopped spec had begun was "
             + "reverted to the last verified commit._");
         return sb.ToString().TrimEnd();
     }

@@ -27,7 +27,7 @@ public sealed class SpecDraftValidator(SpecSchemaProvider schemaProvider)
         if (blocks.Count == 0) return new SpecDraftAbsent();
         if (blocks.Count > 1)
             return new SpecDraftInvalid(
-                $"the reply contains {blocks.Count} ```yaml blocks — emit exactly one phase-spec draft");
+                $"the reply contains {blocks.Count} ```yaml blocks — emit exactly one spec draft");
 
         return ValidateYaml(blocks[0].Groups[1].Value);
     }

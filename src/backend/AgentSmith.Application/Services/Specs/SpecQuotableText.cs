@@ -72,7 +72,7 @@ public static class SpecQuotableText
     /// <summary>The spec as the reviewer is shown it, with no heading over nothing.</summary>
     public static string Render(PhaseDraft draft)
     {
-        var head = $"phase_id: {draft.PhaseId}\ngoal: {draft.Goal}";
+        var head = $"spec_id: {draft.PhaseId}\ngoal: {draft.Goal}";
         var statements = Statements(draft);
         if (statements.Count == 0) return head;
         return head + (StatesCriteria(draft) ? "\ndone:\n" : "\nsteps:\n")

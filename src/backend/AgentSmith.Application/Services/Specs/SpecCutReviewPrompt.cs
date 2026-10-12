@@ -36,24 +36,24 @@ public static class SpecCutReviewPrompt
         return $$"""
             {{Opening(ticket)}} {{Judged(drafts)}}
 
-            Find the phases that CANNOT BE DELIVERED AS WRITTEN. There are {{SpecCutVerdicts.Count(offered.Count)}} ways:
+            Find the specs that CANNOT BE DELIVERED AS WRITTEN. There are {{SpecCutVerdicts.Count(offered.Count)}} ways:
 
             {{SpecCutVerdicts.Describe(offered, ticket)}}
 
-            Say nothing about style, ordering or how many phases there are. A cut that is
-            merely coarse is fine; a phase that cannot be delivered is not.
+            Say nothing about style, ordering or how many specs there are. A cut that is
+            merely coarse is fine; a spec that cannot be delivered is not.
 
-            Answer with JSON and nothing else. Quote VERBATIM what the phase states — its goal
-            or a done criterion, or, for a phase that lists no done criteria, its goal or one of
-            its steps. A finding whose quote is not in that phase is discarded:
+            Answer with JSON and nothing else. Quote VERBATIM what the spec states — its goal
+            or a done criterion, or, for a spec that lists no done criteria, its goal or one of
+            its steps. A finding whose quote is not in that spec is discarded:
 
-              [{"phase_id": "<id>", "criterion": "<verbatim from the phase>",
+              [{"spec_id": "<id>", "criterion": "<verbatim from the spec>",
                 "problem": "{{string.Join("|", offered)}}",
-                "why": "<one sentence>", "conflicts_with": "<verbatim other statement of that phase, or null>"{{Cites(look)}}}]
+                "why": "<one sentence>", "conflicts_with": "<verbatim other statement of that spec, or null>"{{Cites(look)}}}]
 
-            An empty array means every phase can be delivered as written.
+            An empty array means every spec can be delivered as written.
             {{DerivationLookPromptSection.Render(look)}}
-            PHASES
+            SPECS
             {{specs}}
             {{Ticket(ticket, ticketText)}}
             """;
@@ -67,20 +67,20 @@ public static class SpecCutReviewPrompt
 
     /// <summary>How the specs will be judged — against criteria only when every spec states them.</summary>
     private static string Judged(IReadOnlyList<PhaseDraft> drafts) => drafts.All(SpecQuotableText.StatesCriteria)
-        ? "Each phase will be built by an agent and then\n"
+        ? "Each spec will be built by an agent and then\n"
           + "judged against its completion criteria: after it runs, a reader is given those\n"
           + "criteria and the branch diff and has to tie each one to a file or to a command\n"
           + "that ran. A criterion that cannot be satisfied, or cannot be checked, fails a\n"
-          + "phase that was executed perfectly."
-        : "Each phase will be built by an agent and then\n"
+          + "spec that was executed perfectly."
+        : "Each spec will be built by an agent and then\n"
           + "judged against what it states: its completion criteria where it lists them,\n"
           + "otherwise its goal and its steps. After it runs, a reader has to tie each of\n"
           + "those to a file or to a command that ran. A statement that cannot be satisfied,\n"
-          + "or cannot be checked, fails a phase that was executed perfectly.";
+          + "or cannot be checked, fails a spec that was executed perfectly.";
 
     private static string Opening(CutReviewTicket ticket) => ticket == CutReviewTicket.Absent
-        ? "A draft has been cut into phases, with no ticket behind it."
-        : "A ticket has been cut into phases.";
+        ? "A draft has been cut into specs, with no ticket behind it."
+        : "A ticket has been cut into specs.";
 
     private static string Ticket(CutReviewTicket ticket, string? text) => ticket switch
     {

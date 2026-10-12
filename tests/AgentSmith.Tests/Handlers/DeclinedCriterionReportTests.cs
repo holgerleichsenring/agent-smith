@@ -112,7 +112,7 @@ public sealed class DeclinedCriterionReportTests
 
         section.Should().Contain(DeclinedCriteriaSection.Heading)
             .And.Contain($"**{Lint}** — {Reason}")
-            .And.Contain("_(phase p1)_");
+            .And.Contain("_(spec p1)_");
     }
 
     [Fact]

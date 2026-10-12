@@ -27,7 +27,7 @@ public sealed class ShortfallSectionTests
         var section = ShortfallSection.Build(shortfall);
 
         section.Should().Contain(ShortfallSection.Heading)
-            .And.Contain("1 of 3 phase(s) are built, verified and on this branch")
+            .And.Contain("1 of 3 spec(s) are built, verified and on this branch")
             .And.Contain("per-pipeline cost budget exhausted")
             .And.Contain("- **p0001b** — Move the callers (failed: dotnet test exited 1)")
             .And.Contain("- **p0001c** — Retire the old check (not started)")

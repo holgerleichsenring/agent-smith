@@ -85,7 +85,7 @@ internal sealed class PremiseCheckAdmission(ILogger logger)
     private PremiseFinding NotStated(PremiseFinding finding)
     {
         logger.LogWarning(
-            "The premise check reported '{Premise}', which is not a premise this phase states — "
+            "The premise check reported '{Premise}', which is not a premise this spec states — "
             + "recording it unproven", finding.Premise);
         return finding with { Verdict = PremiseCheckPrompt.Unproven, Evidence = null, Looked = null };
     }

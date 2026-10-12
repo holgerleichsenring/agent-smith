@@ -74,7 +74,7 @@ public sealed class SpecReviewEvidenceTests
     [Fact]
     public void SpecReview_Terms_AreItsOwn()
     {
-        DerivationLookTerms.SpecReview.Actor.Should().Be("phase review");
+        DerivationLookTerms.SpecReview.Actor.Should().Be("spec review");
         DerivationLookTerms.SpecReview.Allowance.Should().Be(8);
         DerivationLookTerms.SpecReview.EvidencePrefix.Should().Be("P");
     }

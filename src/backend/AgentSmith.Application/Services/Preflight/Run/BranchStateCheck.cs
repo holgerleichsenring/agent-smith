@@ -49,7 +49,7 @@ public sealed class BranchStateCheck(ILogger<BranchStateCheck> logger) : IRunPre
                 Name,
                 $"{BranchLabel(pipeline)} already carries commits from an earlier run "
                 + $"({string.Join(", ", carried)}, last {HistoryDepth} inspected) — that work counts as "
-                + "delivered, so those phases will be skipped. The base branch's newer commits are "
+                + "delivered, so those specs will be skipped. The base branch's newer commits are "
                 + "merged in on checkout (p0496); deleting the branch would discard the earlier "
                 + "run's work and close the pull request hanging off it");
     }

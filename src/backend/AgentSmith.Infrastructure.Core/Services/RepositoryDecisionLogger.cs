@@ -60,7 +60,7 @@ public sealed class RepositoryDecisionLogger : IDecisionLogger
         if (label is null)
         {
             _logger.LogDebug(
-                "No phase label and no run scope — decision mirrored to the event stream only: "
+                "No spec label and no run scope — decision mirrored to the event stream only: "
                 + "[{Category}] {Decision}", category, decision);
             return DecisionLogOutcome.Recorded;
         }

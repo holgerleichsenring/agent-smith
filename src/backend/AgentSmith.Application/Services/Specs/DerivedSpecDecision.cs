@@ -24,7 +24,7 @@ public static class DerivedSpecDecision
     /// whose constraints live in a file nobody is told to open is a spec that drops them.</summary>
     public static string For(string ticketId, string markdownFileName) =>
         $"{Opening}{ticketId} {Attribution} The verbatim naming rules, forbidden APIs and code "
-        + $"templates this phase must honour are carried byte-identical in {markdownFileName} — "
+        + $"templates this spec must honour are carried byte-identical in {markdownFileName} — "
         + "read it, never a summary of it.";
 
     /// <summary>True when the framework, not the spec, wrote this decision.</summary>

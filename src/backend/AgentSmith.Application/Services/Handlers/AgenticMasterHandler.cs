@@ -347,7 +347,7 @@ public sealed class AgenticMasterHandler(
                 ? specPromptFactory.Build(
                     context.Pipeline,
                     ticket ?? throw new InvalidOperationException(
-                        "Phase-execution run has no ticket — FetchTicket must run before the master."),
+                        "Spec-execution run has no ticket — FetchTicket must run before the master."),
                     context.Repository, addressNames,
                     extras.Conversation, extras.Attachments)
                 : isScanMaster
@@ -554,7 +554,7 @@ public sealed class AgenticMasterHandler(
         // an unverified/red run is never reported as success (CommitAndPRHandler).
         var verification = MasterVerificationParser.TryParse(loopResult.Response.Text);
 
-        // p0263: the master changed source but emitted no parseable Phase 4 verdict — a
+        // p0263: the master changed source but emitted no parseable verdict ("Your verdict") — a
         // model-fitness miss (gpt-4.1-class models do the work yet skip the closing
         // artifact, sinking the run at the keystone). Sibling to the p0255 apply-drive:
         // when a verdict is EXPECTED (a green-tests pipeline) and none was parsed,

@@ -36,7 +36,7 @@ public static class PremiseCheckPrompt
         ArgumentNullException.ThrowIfNull(look);
         ArgumentNullException.ThrowIfNull(alreadyRan);
         return $$"""
-            A phase specification is about to be built. It was written earlier, against the
+            A specification is about to be built. It was written earlier, against the
             repositories as they were then. Your job is ONE question: does what it says it
             RESTS ON still hold in those repositories as they are now?
 
@@ -64,9 +64,9 @@ public static class PremiseCheckPrompt
               Nothing is absent because it is not in it.
             A premise you cannot settle with the look its claim calls for is {{Unproven}}.
 
-            Do NOT report that a completion criterion of the phase is not satisfied yet. That
-            is what the phase is FOR, it is asked and answered elsewhere, and such a finding is
-            discarded here. Say nothing about the phase's wording, its size or its ordering.
+            Do NOT report that a completion criterion of the spec is not satisfied yet. That
+            is what the spec is FOR, it is asked and answered elsewhere, and such a finding is
+            discarded here. Say nothing about the spec's wording, its size or its ordering.
 
             Answer with JSON and nothing else:
 
@@ -77,7 +77,7 @@ public static class PremiseCheckPrompt
 
             An empty array means every premise below still holds.
             {{DerivationLookPromptSection.Render(look)}}{{AlreadyRan(alreadyRan)}}
-            THE PHASE
+            THE SPEC
             {{SpecQuotableText.Render(draft)}}
 
             WHAT IT RESTS ON
@@ -94,11 +94,11 @@ public static class PremiseCheckPrompt
     private static string AlreadyRan(IReadOnlyList<PhaseProgress> alreadyRan)
     {
         if (alreadyRan.Count == 0) return string.Empty;
-        return "\n## Phases of this specification that have already run\n"
+        return "\n## Specs of this series that have already run\n"
             + string.Join("\n", alreadyRan.Select(p => $"- {p.PhaseId}: {p.Goal}"))
-            + "\nTheir work is COMMITTED in the repositories you are looking at, and the phase "
+            + "\nTheir work is COMMITTED in the repositories you are looking at, and the spec "
             + "below was written against the state they leave. A premise is not broken merely "
             + "because one of them changed what it describes — that is the sequence working. "
-            + "Report a premise only where what the phase rests on is not so even after they ran.\n";
+            + "Report a premise only where what the spec rests on is not so even after they ran.\n";
     }
 }

@@ -161,7 +161,7 @@ public class PipelinePresetsTests
     public void CodingPresets_DoNotContainRunVerifyPhase_PostP0179b()
     {
         // p0179b: RunVerifyPhase is part of the choreography the master skill
-        // absorbs (Phase 3 — Verify in coding-agent-master).
+        // absorbs ("## Build & test" in coding-agent-master).
         // p0393: `code` runs VerifySpec, a DETERMINISTIC build+test gate. That is not the
         // retired RunVerifyPhase choreography step — it is the second opinion p0216 left
         // missing when it handed verification to the master as a responsibility.

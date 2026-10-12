@@ -78,7 +78,7 @@ internal static class SpecRunCommandBudget
         var whole = entries.Count(e => !e.OutputTrimmed);
         if (ran <= entries.Count && whole == entries.Count) return null;
         return "not every command the agent ran is shown in full here — it ran "
-            + $"{ran} commands in this phase, {entries.Count} are listed and {whole} of those "
+            + $"{ran} commands in this spec, {entries.Count} are listed and {whole} of those "
             + "carry their output. A command that is missing here was still run.";
     }
 

@@ -17,5 +17,5 @@ public sealed record ContradictionCheck(bool IsRefuted, string Why, string? Evid
     public string Refutation =>
         $"A second reading of the repository refutes it: {Why} (evidence: {Evidence}). "
         + "Look again at what the ticket asks against what the repository holds now, then cut the "
-        + "phases — or hand back only what your own looks show.";
+        + "specs — or hand back only what your own looks show.";
 }

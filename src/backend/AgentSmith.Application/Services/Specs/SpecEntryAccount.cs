@@ -66,7 +66,7 @@ public sealed class SpecEntryAccount(
             if (diff.Failed)
             {
                 logger.LogInformation(
-                    "{Key}: no delivery diff could be taken ({Basis}) — this phase is worked, "
+                    "{Key}: no delivery diff could be taken ({Basis}) — this spec is worked, "
                     + "not accounted for at entry", key, diff.Basis);
                 return false;
             }
@@ -74,7 +74,7 @@ public sealed class SpecEntryAccount(
         }
 
         logger.LogInformation(
-            "The branch carries no source yet — entering this phase costs no account");
+            "The branch carries no source yet — entering this spec costs no account");
         return false;
     }
 }

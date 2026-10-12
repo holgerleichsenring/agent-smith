@@ -69,7 +69,7 @@ public sealed class TicketAmendmentTests : IDisposable
 
         var notice = await Amendment(tracker).ApplyAsync(State(), Proposal("the widget stops dropping"), default);
 
-        notice.Should().Contain(Ticket4711).And.Contain("1 phase(s)");
+        notice.Should().Contain(Ticket4711).And.Contain("1 spec(s)");
         tracker.Description.Should().Contain("the widget stops dropping",
             "the region is rendered from the set that was just approved");
         tracker.Description.Should().StartWith(Prose)

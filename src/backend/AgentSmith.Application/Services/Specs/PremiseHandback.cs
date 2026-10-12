@@ -20,7 +20,7 @@ public static class PremiseHandback
     /// <summary>Marks the notice as this system's own, so a later run does not read it as
     /// somebody answering. It carries no cut marker: that phrase is the anchor the comment
     /// rule measures from.</summary>
-    public const string Heading = "## Agent Smith — a phase rests on something that is no longer so";
+    public const string Heading = "## Agent Smith — a spec rests on something that is no longer so";
 
     /// <summary>What a notice for THIS spec carries, so the next run can tell it was already
     /// told and not say the same thing again.</summary>
@@ -45,7 +45,7 @@ public static class PremiseHandback
         var sb = new StringBuilder().AppendLine(Heading).AppendLine();
         sb.AppendLine($"<!-- {Marker(draft.PhaseId)} -->").AppendLine();
         sb.AppendLine(
-            $"Phase {draft.PhaseId} ({draft.Goal}) was not built. Before its work started, a "
+            $"Spec {draft.PhaseId} ({draft.Goal}) was not built. Before its work started, a "
             + "fresh instance checked what the specification says it rests on against the "
             + "repositories as they are now, and read otherwise:").AppendLine();
         foreach (var finding in findings)
@@ -59,7 +59,7 @@ public static class PremiseHandback
         sb.AppendLine();
         sb.AppendLine(
             "This run did not rewrite the specification and never will: the check reports, it "
-            + "does not amend. Any phase that was already verified is still delivered.")
+            + "does not amend. Any spec that was already verified is still delivered.")
             .AppendLine();
         return sb.Append(hasPullRequest
             ? ApprovedSetKept.WhereToChangeIt

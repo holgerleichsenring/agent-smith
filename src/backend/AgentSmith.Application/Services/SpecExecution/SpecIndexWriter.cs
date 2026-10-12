@@ -57,7 +57,7 @@ public sealed class SpecIndexWriter(
             return null;
         }
         await reader.WriteAsync(path, upserted.Yaml, ct);
-        logger.LogInformation("Phase index line written to {Path}", path);
+        logger.LogInformation("Spec index line written to {Path}", path);
         return relative;
     }
 

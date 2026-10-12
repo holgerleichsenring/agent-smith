@@ -37,7 +37,7 @@ public sealed class ControlFlowDiagramTests
 
         code.Steps.Where(s => s.InSpecBlock).Select(s => s.Command)
             .Should().Equal(PipelinePresets.CodeSpecBlock,
-                "the block the run splices per phase is the block the diagram encloses");
+                "the block the run splices per spec is the block the diagram encloses");
     }
 
     [Fact]

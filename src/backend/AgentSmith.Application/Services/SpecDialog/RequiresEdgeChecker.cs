@@ -28,7 +28,7 @@ public sealed partial class RequiresEdgeChecker
             .Append(parent.PhaseId)
             .GroupBy(id => id, StringComparer.Ordinal)
             .FirstOrDefault(g => g.Count() > 1);
-        return duplicate is null ? null : $"epic phase id '{duplicate.Key}' is used more than once";
+        return duplicate is null ? null : $"epic spec id '{duplicate.Key}' is used more than once";
     }
 
     private static string? CheckEdgesPointAtSiblings(

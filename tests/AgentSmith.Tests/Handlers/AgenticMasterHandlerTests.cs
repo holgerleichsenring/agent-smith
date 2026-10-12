@@ -116,7 +116,7 @@ public sealed class AgenticMasterHandlerTests
 
         ctx.Pipeline.TryGet<MasterVerification>(ContextKeys.MasterVerification, out var v).Should().BeTrue();
         v!.Status.Should().Be(VerificationStatus.Green);
-        loop.SeenRequests[^1].UserPrompt.Should().Contain("did NOT emit the required Phase 4 verdict");
+        loop.SeenRequests[^1].UserPrompt.Should().Contain("did NOT emit the verdict that \"Your verdict\" requires");
     }
 
     [Fact]

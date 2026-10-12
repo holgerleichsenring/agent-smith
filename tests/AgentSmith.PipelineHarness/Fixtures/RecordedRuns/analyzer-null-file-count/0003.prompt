@@ -18,7 +18,7 @@ Stub description
 ===== END UNTRUSTED TICKET DATA =====
 
 ## Codebase analysis
-This is what the repositories actually contain. A requirement that contradicts it is a hand-back, not a phase.
+This is what the repositories actually contain. A requirement that contradicts it is a hand-back, not a spec.
 ### Repository: default
 primary_language: csharp
 frameworks: [aspnetcore]

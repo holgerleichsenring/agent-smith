@@ -24,7 +24,7 @@ public sealed class TicketRunsToolHost(IBoundTicketRuns runs) : IToolHost
     }
 
     [Description(
-        "What THIS FRAMEWORK did about this conversation's ticket: the runs it made, the phases "
+        "What THIS FRAMEWORK did about this conversation's ticket: the runs it made, the specs "
         + "they worked and the pull requests they opened. This is the framework's OWN record — a "
         + "branch pushed by hand or a pull request opened outside a run is not in it. Use "
         + "ticket_work for what the tracker shows, and say which of the two an answer rests on.")]

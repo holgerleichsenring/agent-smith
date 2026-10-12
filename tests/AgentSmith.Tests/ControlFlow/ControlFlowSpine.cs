@@ -36,7 +36,7 @@ internal static class ControlFlowSpine
         svg.Rect(ControlFlowLayout.Margin - 12, y, ControlFlowLayout.Width - 2 * (ControlFlowLayout.Margin - 12),
             inner + 46, "cf-block", rx: 10);
         svg.Text(ControlFlowLayout.Margin, y + 20, "cf-accent", 9.5,
-            "PER PHASE SPEC · this block repeats once per derived phase — how many phases is decided at run time");
+            "PER SPEC · this block repeats once per derived spec — how many specs is decided at run time");
         Rows(svg, flow, block, firstIndex, y + 32);
         return y + inner + 46;
     }

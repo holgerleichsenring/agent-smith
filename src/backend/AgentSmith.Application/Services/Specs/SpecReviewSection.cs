@@ -27,7 +27,7 @@ public static class SpecReviewSection
 
         var lines = new List<string>
         {
-            string.Empty, string.Empty, "## What the phase review still finds", string.Empty,
+            string.Empty, string.Empty, "## What the spec review still finds", string.Empty,
         };
         foreach (var spec in shown)
         {
@@ -56,10 +56,10 @@ public static class SpecReviewSection
         if (!report.Reviewed)
             return report.Why is null
                 ? string.Empty
-                : "## What the phase review still finds\n\n- " + report.NotReviewedNote + "\n";
+                : "## What the spec review still finds\n\n- " + report.NotReviewedNote + "\n";
         return report.Findings.Count == 0
             ? string.Empty
-            : "## What the phase review still finds\n\n"
+            : "## What the spec review still finds\n\n"
               + string.Join("\n", report.Findings.Select(Row)) + "\n";
     }
 }

@@ -31,13 +31,13 @@ public static class OutcomeShapes
     public const int MaxLabelLength = 40;
 
     private static readonly DialogChoice IntoSeveralSpecs =
-        new("Cut into several phases", "too big for one phase");
+        new("Cut into several specs", "too big for one spec");
     private static readonly DialogChoice IntoOneSpec =
-        new("Make it one phase", "over-cut for the work");
+        new("Make it one spec", "over-cut for the work");
     private static readonly DialogChoice IntoASpec =
-        new("Make it a phase", "bigger than a bug fix");
+        new("Make it a spec", "bigger than a bug fix");
     private static readonly DialogChoice IntoABugTicket =
-        new("Make it a bug ticket", "smaller than a phase");
+        new("Make it a bug ticket", "smaller than a spec");
 
     /// <summary>
     /// 2026-09-25-8e51e: not a size at all — the same cut, written onto the ticket this

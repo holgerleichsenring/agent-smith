@@ -97,7 +97,7 @@ public sealed class ReviewSpecDiffHandlerTests
         result.IsSuccess.Should().BeTrue();
         factory.ResponseCounter.Should().BeEmpty("there was no diff to put a question about");
         SpecReviewLedger.ForThisSpec(pipeline).Why.Should()
-            .Be("this phase changed no reviewable file");
+            .Be("this spec changed no reviewable file");
     }
 
     [Fact]
@@ -138,7 +138,7 @@ public sealed class ReviewSpecDiffHandlerTests
             .ExecuteAsync(Context(new PipelineContext()), CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Message.Should().Contain("No phase is current");
+        result.Message.Should().Contain("No spec is current");
     }
 
     private static string Answer() =>

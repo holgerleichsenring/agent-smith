@@ -74,8 +74,8 @@ public sealed class MasterTemplateScopes(
             ? $"'{typed.RepoName}' at '{typed.Revision ?? "its own default revision"}'"
             : "its declared repository";
         return new InvalidOperationException(
-            $"A template this phase is built after could not be opened: {declared}. "
-            + $"The phase cannot be implemented against a template nobody can read "
+            $"A template this spec is built after could not be opened: {declared}. "
+            + $"The spec cannot be implemented against a template nobody can read "
             + $"(addresses asked for: {string.Join(", ", names)}). {cause.Message}",
             cause);
     }

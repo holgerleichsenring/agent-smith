@@ -59,8 +59,8 @@ public sealed class SpecExecutionPromptFactory : ISpecExecutionPromptFactory
             {SpecExecutionPromptBlocks.StagedRegistries(pipeline)}
             {SpecExecutionPromptBlocks.OutstandingCriteria(pipeline)}
 
-            ## Phase contract
-            You are implementing PHASE {draft.PhaseId} — this phase and nothing after it.
+            ## Spec contract
+            You are implementing SPEC {draft.PhaseId} — this spec and nothing after it.
             The spec above is the plan of record: its steps are your checklist (the progress
             ledger is seeded from them) and you own how each step lands in this codebase.
             Log every non-obvious choice via log_decision as you go. Where the spec names

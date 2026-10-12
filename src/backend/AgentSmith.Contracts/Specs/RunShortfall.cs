@@ -22,7 +22,7 @@ public sealed record RunShortfall(
 
     /// <summary>One line for the run's own result and log.</summary>
     public string Summary =>
-        $"Delivered {Delivered.Count} of {PhaseCount} phase(s); not delivered: "
+        $"Delivered {Delivered.Count} of {PhaseCount} spec(s); not delivered: "
         + $"{string.Join(", ", NotDelivered.Select(p => p.PhaseId))} — {Reason}";
 
     /// <summary>

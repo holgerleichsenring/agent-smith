@@ -41,7 +41,7 @@ public sealed class CompletedRunTicketSummary
     private static string Heading(int repoCount, RunShortfall? shortfall) => shortfall is null
         ? $"## Agent Smith - Completed across {repoCount} repo(s)"
         : $"## Agent Smith - Delivered with a shortfall ({shortfall.Delivered.Count} of "
-          + $"{shortfall.PhaseCount} phases) across {repoCount} repo(s)";
+          + $"{shortfall.PhaseCount} specs) across {repoCount} repo(s)";
 
     private static string RenderPullRequestList(IReadOnlyList<OpenedPullRequest> opened) =>
         string.Join("\n", opened.Select(o => o.Status switch

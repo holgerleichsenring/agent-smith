@@ -52,7 +52,7 @@ public static class SpecMarkdown
     private static void AppendSpecs(StringBuilder sb, SpecSet set)
     {
         sb.AppendLine();
-        sb.AppendLine("## Phases");
+        sb.AppendLine("## Specs");
         foreach (var spec in set.Phases)
         {
             var executed = set.Executed.Contains(spec.PhaseId, StringComparer.Ordinal)
@@ -69,7 +69,7 @@ public static class SpecMarkdown
     private static void AppendSpecDocuments(StringBuilder sb, SpecSet set)
     {
         sb.AppendLine();
-        sb.AppendLine("## Phase documents");
+        sb.AppendLine("## Spec documents");
         foreach (var spec in set.Phases)
         {
             sb.AppendLine();
@@ -81,7 +81,7 @@ public static class SpecMarkdown
     private static string DocumentOf(SpecSet set, SpecPhase spec) =>
         !string.IsNullOrWhiteSpace(spec.Markdown) ? spec.Markdown.TrimEnd()
         : set.Approval is { Conversation.Length: > 0 } ? NoCompanionByApproval
-        : $"_No phase document found — nothing was readable at "
+        : $"_No spec document found — nothing was readable at "
           + $"`{SeriesPaths.Companion(SeriesPaths.Planned, spec.FileStem)}` on the ticket branch._";
 
     private static void AppendAccounting(StringBuilder sb, SpecSet set)
@@ -89,7 +89,7 @@ public static class SpecMarkdown
         sb.AppendLine();
         sb.AppendLine("## Discarded from the ticket");
         sb.AppendLine(set.TicketPinnedWhole
-            ? "_The accounting could not be produced — the whole ticket is carried by one phase._"
+            ? "_The accounting could not be produced — the whole ticket is carried by one spec._"
             : SpecAccountingBuilder.RenderDiscardedForPullRequest(set.Accounting));
     }
 

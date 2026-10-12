@@ -245,7 +245,7 @@ public sealed class VerifySpecHandler(
             return delivered
                 ? CommandResult.Ok("No verification command ran.")
                 : CommandResult.Ok(
-                    "No repository had working-tree changes to verify; the phase is judged "
+                    "No repository had working-tree changes to verify; the spec is judged "
                     + "by what its criteria account for.");
 
         var failed = ran.Where(o => o.ExitCode != 0).ToList();
@@ -263,7 +263,7 @@ public sealed class VerifySpecHandler(
         // already had a draft on its branch was told no pull request was opened.
         return CommandResult.Fail(
             $"Verification failed: {Where(first.Key)} {first.Stage} '{first.Command}' exited "
-            + $"{first.ExitCode} (run at {first.Cwd}). The phase is not verified.{reason}");
+            + $"{first.ExitCode} (run at {first.Cwd}). The spec is not verified.{reason}");
     }
 
     // 2026-09-01-e14d: a moved derivation source rides along with the verdict rather than

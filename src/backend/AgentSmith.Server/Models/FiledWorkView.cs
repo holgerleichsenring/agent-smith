@@ -106,7 +106,7 @@ public sealed record FiledWorkReviewView(
     public const string NoReasonRecorded = "no reason was recorded";
 
     /// <summary>What a row nobody can deserialize says.</summary>
-    public const string CouldNotBeRead = "the review recorded for this phase could not be read";
+    public const string CouldNotBeRead = "the review recorded for this spec could not be read";
 }
 
 /// <summary>

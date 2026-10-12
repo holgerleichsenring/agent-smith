@@ -42,9 +42,9 @@ public static class SpecExecutionPromptBlocks
             || outstanding is not { Count: > 0 })
             return string.Empty;
         return "\n**This is a REPAIR pass. A fresh reviewer read the branch against this "
-            + "phase's ratified criteria and found these NOT satisfied:**\n"
+            + "spec's ratified criteria and found these NOT satisfied:**\n"
             + string.Join("\n", outstanding.Select(c => "- " + c))
-            + "\nClose exactly these. The rest of the phase is already accounted for — "
+            + "\nClose exactly these. The rest of the spec is already accounted for — "
             + "adding more is scope you were not given. If one of them cannot be satisfied, "
             + "say which and why rather than working around it.";
     }

@@ -38,7 +38,7 @@ public static class RunDeliveryGate
                 ? DeliveryVerdict.Ok()
                 : DeliveryVerdict.Fail(
                     $"The run ratified {ratifiedCriteria} criterion(s) and accounted for none of "
-                    + "them — no phase measured itself against the branch, so there is nothing "
+                    + "them — no spec measured itself against the branch, so there is nothing "
                     + "to show it delivered. Recorded as FAILED.");
 
         var unaccounted = all.Where(a => a.Problem is not null).ToList();

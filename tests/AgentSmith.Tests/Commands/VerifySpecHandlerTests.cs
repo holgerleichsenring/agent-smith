@@ -395,7 +395,7 @@ public sealed class VerifySpecHandlerTests
         var result = await Handler().ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
-        result.Message.Should().Contain("The phase is not verified.")
+        result.Message.Should().Contain("The spec is not verified.")
             .And.NotContain("pull request");
     }
 

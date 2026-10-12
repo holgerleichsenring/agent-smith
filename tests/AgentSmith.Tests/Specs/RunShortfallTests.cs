@@ -28,7 +28,7 @@ public sealed class RunShortfallTests
         shortfall.NotDelivered.Select(p => p.PhaseId).Should().Equal("p0001b");
         shortfall.Reason.Should().Be("per-pipeline cost budget exhausted");
         shortfall.PhaseCount.Should().Be(2);
-        shortfall.Summary.Should().Contain("Delivered 1 of 2 phase(s)").And.Contain("p0001b").And.Contain("cost budget");
+        shortfall.Summary.Should().Contain("Delivered 1 of 2 spec(s)").And.Contain("p0001b").And.Contain("cost budget");
     }
 
     [Fact]

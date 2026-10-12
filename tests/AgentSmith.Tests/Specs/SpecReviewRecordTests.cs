@@ -28,9 +28,9 @@ public sealed class SpecReviewRecordTests
 
         var body = SpecRecordBody.For(Draft(), pipeline);
 
-        body.Should().Contain("What this phase delivers").And.Contain("What the phase review still finds");
-        body.IndexOf("What the phase review still finds", StringComparison.Ordinal).Should().BeGreaterThan(
-            body.IndexOf("What this phase delivers", StringComparison.Ordinal),
+        body.Should().Contain("What this spec delivers").And.Contain("What the spec review still finds");
+        body.IndexOf("What the spec review still finds", StringComparison.Ordinal).Should().BeGreaterThan(
+            body.IndexOf("What this spec delivers", StringComparison.Ordinal),
             "the account says what was delivered; the review says what it costs to keep");
         body.Should().Contain("src/Api/Handler.cs:4");
     }
@@ -54,7 +54,7 @@ public sealed class SpecReviewRecordTests
         pipeline.Set<IReadOnlyList<SpecAccount>>(ContextKeys.SpecAccounts, [Delivered()]);
         SpecReviewLedger.Record(pipeline, PhaseReviewReport.Taken([]));
 
-        SpecRecordBody.For(Draft(), pipeline).Should().NotContain("phase review still finds",
+        SpecRecordBody.For(Draft(), pipeline).Should().NotContain("spec review still finds",
             "a clean review is the quiet case; only its ABSENCE has to be stated");
     }
 

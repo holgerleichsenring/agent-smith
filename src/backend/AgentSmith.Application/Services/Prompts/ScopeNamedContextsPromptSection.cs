@@ -19,7 +19,7 @@ public static class ScopeNamedContextsPromptSection
 
             ## Contexts the scope call named
             The scope call read this ticket as touching the contexts below{because}. Every one of
-            them is either carried by a phase — name it in that phase's "contexts", spelled as
+            them is either carried by a spec — name it in that spec's "contexts", spelled as
             listed — or listed under "discarded_contexts" with the reason it is outside this
             ticket's work. A cut that covers fewer contexts than named is refused.
             {listed}

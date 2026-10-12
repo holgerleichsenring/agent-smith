@@ -16,7 +16,7 @@ public static class SpecAccountRenderer
     /// <summary>p0429a: the heading is the caller's, because a scan accounts for what it
     /// LOOKED FOR and a spec for what it DELIVERS — one renderer, two readings.</summary>
     public static string ToMarkdown(
-        IReadOnlyList<SpecAccount> accounts, string heading = "## What this phase delivers")
+        IReadOnlyList<SpecAccount> accounts, string heading = "## What this spec delivers")
     {
         ArgumentNullException.ThrowIfNull(accounts);
         if (accounts.Count == 0) return string.Empty;

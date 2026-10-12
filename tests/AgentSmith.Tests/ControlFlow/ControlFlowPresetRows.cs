@@ -45,7 +45,7 @@ internal static class ControlFlowPresetRows
         var from = StripX + block[0].i * TickPitch;
         var to = StripX + (block[^1].i * TickPitch) + TickWidth;
         svg.Line(from, y + 16, to, y + 16, "cf-blockline");
-        svg.Text(to + 8, y + 20, "cf-accent", 9, "× one per phase");
+        svg.Text(to + 8, y + 20, "cf-accent", 9, "× one per spec");
     }
 
     private static string TickClass(StepFact step) =>

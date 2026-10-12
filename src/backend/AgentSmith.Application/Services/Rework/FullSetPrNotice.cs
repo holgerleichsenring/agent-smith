@@ -33,7 +33,7 @@ public sealed partial class FullSetPrNotice(ISourceProviderFactory sources, ILog
         try
         {
             if (sources.Create(repo) is IPrCommentProvider comments)
-                await comments.PostCommentAsync(number, $"{Marker}\nAgent Smith — all {SpecSet.MaxSpecs} phases of this "
+                await comments.PostCommentAsync(number, $"{Marker}\nAgent Smith — all {SpecSet.MaxSpecs} specs of this "
                     + "ticket's specification have run, the most one set can hold, so this review was not cut into it. "
                     + "File the feedback as a new ticket.", cancellationToken);
         }

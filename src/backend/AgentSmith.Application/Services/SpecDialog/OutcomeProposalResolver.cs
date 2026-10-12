@@ -27,7 +27,7 @@ public sealed class OutcomeProposalResolver(
                 $"the reply contains {blocks.Count} ```outcome blocks — emit exactly one");
         if (draftValidator.Validate(text) is not SpecDraftAbsent)
             return new OutcomeInvalid(
-                "the reply mixes an ```outcome block with a bare ```yaml block — a phase "
+                "the reply mixes an ```outcome block with a bare ```yaml block — a spec "
                 + "draft is the bare ```yaml block alone; bug and epic payloads live "
                 + "inside the single ```outcome block");
         return ResolveOutcomeBlock(blocks[0].Groups[1].Value, scope);
@@ -74,7 +74,7 @@ public sealed class OutcomeProposalResolver(
             "answer" => new OutcomeInvalid(
                 "kind 'answer' needs no ```outcome block — reply with plain prose"),
             "phase" or "spec" => new OutcomeInvalid(
-                $"kind '{kind}' needs no ```outcome block — emit the phase spec as the bare ```yaml block"),
+                $"kind '{kind}' needs no ```outcome block — emit the spec as the bare ```yaml block"),
             null => new OutcomeInvalid("the ```outcome block is missing 'kind' (bug | epic)"),
             _ => new OutcomeInvalid($"unknown outcome kind '{kind}' — expected bug or epic"),
         };

@@ -499,7 +499,7 @@ public class CommitAndPRHandlerTests
         var result = await _sut.ExecuteAsync(context, CancellationToken.None);
 
         result.IsSuccess.Should().BeTrue();
-        result.Message.Should().Contain("Delivered 1 of 2 phase(s)").And.Contain("pull/42").And.NotContain("Run failed");
+        result.Message.Should().Contain("Delivered 1 of 2 spec(s)").And.Contain("pull/42").And.NotContain("Run failed");
         capturedDraft.Should().BeFalse("the delivered phase is verified — the PR is ready for review");
         capturedBody.Should().StartWith("> ✅ **Delivered with a shortfall**")
             .And.Contain("## Not delivered").And.Contain("p0001b").And.Contain("cost budget exhausted");

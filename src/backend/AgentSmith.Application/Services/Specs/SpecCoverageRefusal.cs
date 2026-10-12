@@ -30,7 +30,7 @@ public sealed class SpecCoverageRefusal(SpecCutGate gate, SpecFallback fallback)
         await gate.RefusedAsync(
             pipeline, ticket.Id.Value,
             "segment(s) " + string.Join(", ", refused.Accounting.Unaccounted)
-            + " were neither carried by a phase nor discarded with a reason", cancellationToken);
+            + " were neither carried by a spec nor discarded with a reason", cancellationToken);
         return fallback.Build(
             key, series, ticket, segments,
             [.. refused.Phases.SelectMany(p => p.Draft.Done).Distinct(StringComparer.Ordinal)],

@@ -67,7 +67,7 @@ public sealed class CompletedRunTicketSummaryTests
 
         var summary = _sut.Build(new PipelineContext(), 1, opened, [], shortfall);
 
-        summary.Should().StartWith("## Agent Smith - Delivered with a shortfall (1 of 2 phases) across 1 repo(s)")
+        summary.Should().StartWith("## Agent Smith - Delivered with a shortfall (1 of 2 specs) across 1 repo(s)")
             .And.Contain("## Not delivered")
             .And.Contain("- **p0001b** — Move the callers (not started)")
             .And.Contain("per-pipeline cost budget exhausted")
