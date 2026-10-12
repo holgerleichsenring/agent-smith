@@ -30,6 +30,10 @@ namespace AgentSmith.Contracts.Specs;
 /// <c>{CarryingRepo: RevisionSha}</c> (<see cref="ShaByRepo"/>), so no row reads as an edit for
 /// lack of the map.
 /// </para>
+/// <para>
+/// 2026-10-12-f5f7d: <see cref="ExecutedIds"/> names the executed specs — a series written into
+/// several repositories has no position that says what ran.
+/// </para>
 /// </summary>
 public sealed record SpecSetPointer(
     string Key,
@@ -41,8 +45,16 @@ public sealed record SpecSetPointer(
     string? SeriesId = null,
     int ExecutedThrough = 0,
     IReadOnlyDictionary<string, string>? HandbackHeads = null,
-    IReadOnlyDictionary<string, string>? RevisionShas = null)
+    IReadOnlyDictionary<string, string>? RevisionShas = null,
+    IReadOnlyList<string>? ExecutedIds = null)
 {
+    /// <summary>
+    /// 2026-10-12-f5f7d: the ids the record step moved to done/. A row that stored none but counts
+    /// executed specs reads as that many leading specs of <paramref name="stored"/>.
+    /// </summary>
+    public IReadOnlyList<string> ExecutedIdsOf(IReadOnlyList<SpecPhase> stored) =>
+        ExecutedIds is { Count: > 0 } ids ? ids : [.. (stored ?? []).Take(ExecutedThrough).Select(p => p.PhaseId)];
+
     /// <summary>The per-repository shas, back-filled from the one carrying repository when absent.</summary>
     public IReadOnlyDictionary<string, string> ShaByRepo =>
         RevisionShas is { Count: > 0 } shas
@@ -74,10 +86,25 @@ public sealed record SpecSetReadResult(SpecSet Set, string LastCommitSha)
 /// p0393a: the outcome of committing one revision. A failed write leaves the run
 /// working from the in-memory set: the artifacts are how a REVIEWER reads the
 /// derivation, and losing the reviewer's view must not lose the run.
+/// <para>
+/// 2026-10-12-f5f7d: one sha per repository written (<see cref="Shas"/>; <see cref="CommitSha"/> is
+/// the carrying repository's), and a REFUSED write — a repository the series names is not checked
+/// out — is told apart from one that failed on the way.
+/// </para>
 /// </summary>
 public sealed record SpecSetWriteResult(bool Written, string? CommitSha, string? Error)
 {
+    public IReadOnlyDictionary<string, string> Shas { get; init; } =
+        new Dictionary<string, string>(StringComparer.Ordinal);
+
+    public bool IsRefused { get; init; }
+
     public static SpecSetWriteResult Ok(string sha) => new(true, sha, null);
 
+    public static SpecSetWriteResult Ok(IReadOnlyDictionary<string, string> shas, string sha) =>
+        new(true, sha, null) { Shas = shas };
+
     public static SpecSetWriteResult Failed(string error) => new(false, null, error);
+
+    public static SpecSetWriteResult Refused(string error) => new(false, null, error) { IsRefused = true };
 }

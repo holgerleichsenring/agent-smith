@@ -136,7 +136,7 @@ public sealed class DeriveSpecQuestionTests
             new SpecSetPointer("azdo-19106", "primary", "sha-1", 1, SpecHandbackCase.Question, 1),
             CancellationToken.None).GetAwaiter().GetResult();
         return new DeriveSpecHandler(
-            deriver, reader.Object, publisher, pointers,
+            deriver, SeriesDoubles.BranchRead(reader.Object), publisher, pointers,
             new ApprovedSpecSetResolver(
                 new InMemorySpecApprovalStore(), NullLogger<ApprovedSpecSetResolver>.Instance),
             new SpecSourceResolver(
@@ -223,7 +223,7 @@ public sealed class DeriveSpecQuestionTests
         public SpecSet? Set { get; private set; }
 
         public Task<CommandResult> PublishAsync(
-            PipelineContext pipeline, string project, RepoConnection carryingRepo, SpecSet set,
+            PipelineContext pipeline, string project, SeriesScope scope, SpecSet set,
             IReadOnlyList<IgnoredInstruction> ignoredInstructions, CancellationToken ct)
         {
             Set = set;

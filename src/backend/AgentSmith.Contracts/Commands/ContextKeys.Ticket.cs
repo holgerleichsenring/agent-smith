@@ -46,4 +46,9 @@ public static partial class ContextKeys
     /// somebody other than us since the stored hand-back parked. DeriveSpec's probe writes it; the
     /// hand-back step reads it, because a park on a branch somebody has since changed is no repeat.</summary>
     public const string ForeignCommitSinceHandback = "ForeignCommitSinceHandback";
+
+    /// <summary>2026-10-12-f5f7d: <c>IReadOnlyList&lt;string&gt;</c> — what a new spec id must not be:
+    /// the spec file names in every run repository's done/ and the stored executed ids. DeriveSpec
+    /// writes it before the model runs; the derivation skips a taken id to the next free letter.</summary>
+    public const string SpecTakenIds = "SpecTakenIds";
 }

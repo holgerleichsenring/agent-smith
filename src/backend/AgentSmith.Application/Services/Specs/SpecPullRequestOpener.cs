@@ -15,6 +15,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// refreshes its body with the phase-status table and promotes it to ready ONLY when
 /// the whole sequence is through. Failure is logged and swallowed: the specs are on
 /// the branch either way, and the run must not die because a PR could not be opened.
+/// 2026-10-12-f5f7d: a set without specs only finds one — it opens no new pull request.
 /// </summary>
 public sealed class SpecPullRequestOpener(
     ISourceProviderFactory sourceFactory,
@@ -22,7 +23,7 @@ public sealed class SpecPullRequestOpener(
     ILogger<SpecPullRequestOpener> logger) : ISpecPullRequestOpener
 {
     public async Task<string?> OpenAsync(
-        PipelineContext pipeline, RepoConnection carryingRepo, SpecSet set,
+        PipelineContext pipeline, RepoConnection carryingRepo, SpecSet set, bool createIfMissing,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(carryingRepo);
@@ -39,7 +40,7 @@ public sealed class SpecPullRequestOpener(
             // showed its predecessors' work as well as its own.
             var target = Handlers.PullRequestTargets.For(pipeline, carryingRepo.Name);
             var url = await provider.FindOpenPullRequestAsync(branchRepo, cancellationToken)
-                ?? await CreateAsync(provider, branchRepo, pipeline, set, target, cancellationToken);
+                ?? (createIfMissing ? await CreateAsync(provider, branchRepo, pipeline, set, target, cancellationToken) : null);
             await RecordAsync(pipeline, carryingRepo.Name, url, cancellationToken);
             return url;
         }

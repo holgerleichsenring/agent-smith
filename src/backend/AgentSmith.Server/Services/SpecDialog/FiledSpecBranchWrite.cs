@@ -36,7 +36,7 @@ public sealed class FiledSpecBranchWrite(
         ArgumentNullException.ThrowIfNull(created);
         ArgumentNullException.ThrowIfNull(notes);
         var result = await branches.WriteAsync(
-            project, record, created.Id, await ReadBackAsync(provider, created, ct), carrier: null, ct);
+            project, record, created.Id, await ReadBackAsync(provider, created, ct), ct);
         if (result.Written) return;
         logger.LogWarning(
             "The approved set of ticket {Ticket} is not on its branch: {Error}",

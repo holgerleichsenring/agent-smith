@@ -47,7 +47,7 @@ public sealed class PullRequestTargetTests
         var sut = new SpecPullRequestOpener(
             FactoryFor(provider).Object, EventTestStubs.NoOp, NullLogger<SpecPullRequestOpener>.Instance);
 
-        await sut.OpenAsync(pipeline, repo, EmptySet(), CancellationToken.None);
+        await sut.OpenAsync(pipeline, repo, EmptySet(), true, CancellationToken.None);
 
         provider.Verify(p => p.CreatePullRequestAsync(
             It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),

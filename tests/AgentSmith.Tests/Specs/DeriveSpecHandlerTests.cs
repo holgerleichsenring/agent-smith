@@ -131,6 +131,34 @@ public sealed class DeriveSpecHandlerTests
         events.Gates.Should().ContainSingle(g => g.Gate == "spec-accounting" && !g.Passed);
     }
 
+    // 2026-10-12-f5f7d: a series whose repositories disagree is not derived from or written over —
+    // the step fails naming them, before any model call, and the pointer stays as it was.
+    [Fact]
+    public async Task DeriveSpecHandler_LaggingRead_FailsNamingRepos_NoModelNoWrite()
+    {
+        var published = new CapturingPublisher();
+        var deriver = new Mock<ISpecSetDeriver>(MockBehavior.Strict);
+        var pointers = new InMemorySpecSetPointerStore();
+        var read = new SpecSetReadResult(Derivation(carries: [1, 2], discarded: []).Set, "sha-Server")
+        {
+            Lagging = ["Client"],
+        };
+        var reader = new Mock<ISpecSetReader>();
+        reader.Setup(r => r.ReadAsync(
+                It.IsAny<PipelineContext>(), It.IsAny<RepoConnection>(), It.IsAny<IReadOnlyList<RepoConnection>>(),
+                It.IsAny<TicketKey>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(SpecSetOnBranch.Answered(read));
+
+        var result = await Handler(new RecordingEventPublisher(), published, null, reader.Object, deriver, pointers)
+            .ExecuteAsync(Context("Server", "Client"), default);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Message.Should().Contain("Client").And.Contain("out of step");
+        published.Set.Should().BeNull("nothing is written");
+        deriver.VerifyNoOtherCalls();
+        (await pointers.GetAsync(string.Empty, "azdo-19106", default)).Should().BeNull("the pointer is untouched");
+    }
+
     // 2026-09-22-6ad7: the reader answers "nothing at the path", never null — a default-valued
     // mock would hand the handler a null branch answer and the split would read as a crash.
     private static ISpecSetReader EmptyBranch()
@@ -145,10 +173,12 @@ public sealed class DeriveSpecHandlerTests
     }
 
     private static DeriveSpecHandler Handler(
-        RecordingEventPublisher events, CapturingPublisher publisher, SpecDerivation? derivation)
+        RecordingEventPublisher events, CapturingPublisher publisher, SpecDerivation? derivation,
+        ISpecSetReader? reader = null, Mock<ISpecSetDeriver>? strictDeriver = null,
+        ISpecSetPointerStore? pointers = null)
     {
-        var deriver = new Mock<ISpecSetDeriver>();
-        deriver.Setup(d => d.DeriveAsync(
+        var deriver = strictDeriver ?? new Mock<ISpecSetDeriver>();
+        if (strictDeriver is null) deriver.Setup(d => d.DeriveAsync(
                 It.IsAny<Ticket>(), It.IsAny<IReadOnlyList<TicketSegment>>(), It.IsAny<SpecSet?>(),
                 It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AgentConfig>(),
                 It.IsAny<PipelineContext>(),
@@ -159,9 +189,9 @@ public sealed class DeriveSpecHandlerTests
         var draftReader = new PhaseDraftReader();
         return new DeriveSpecHandler(
             deriver.Object,
-            EmptyBranch(),
+            SeriesDoubles.BranchRead(reader ?? EmptyBranch()),
             publisher,
-            new InMemorySpecSetPointerStore(),
+            pointers ?? new InMemorySpecSetPointerStore(),
             new ApprovedSpecSetResolver(
                 new InMemorySpecApprovalStore(), NullLogger<ApprovedSpecSetResolver>.Instance),
             new SpecSourceResolver(
@@ -225,7 +255,7 @@ public sealed class DeriveSpecHandlerTests
         public SpecSet? Set { get; private set; }
 
         public Task<CommandResult> PublishAsync(
-            PipelineContext pipeline, string project, RepoConnection carryingRepo, SpecSet set,
+            PipelineContext pipeline, string project, SeriesScope scope, SpecSet set,
             IReadOnlyList<IgnoredInstruction> ignoredInstructions, CancellationToken ct)
         {
             Set = set;

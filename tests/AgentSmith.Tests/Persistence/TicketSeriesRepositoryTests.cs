@@ -92,4 +92,30 @@ public sealed class TicketSeriesRepositoryTests : IDisposable
 
         (await repository.GetAsync("alpha", key, default))!.RevisionShas.Should().BeEquivalentTo(shas);
     }
+
+    /// <summary>2026-10-12-f5f7d: a row written before executed ids reads its count as that many
+    /// leading specs of the set it is read against; a row with ids keeps them.</summary>
+    [Fact]
+    public async Task TicketSeries_LegacyExecutedThrough_BackfillsIds()
+    {
+        var repository = new TicketSeriesRepository(_context);
+        var legacy = TicketKey.For("jira", "4").Value;
+        var current = TicketKey.For("jira", "5").Value;
+        await repository.SaveAsync("alpha", new SpecSetPointer(legacy, "api", "a1", 1, ExecutedThrough: 1), default);
+        await repository.SaveAsync("alpha", new SpecSetPointer(current, "api", "a1", 1, ExecutedThrough: 1,
+            ExecutedIds: ["2026-10-12-0a0ab"]), default);
+        _context.ChangeTracker.Clear();
+        IReadOnlyList<SpecPhase> stored =
+        [
+            new(new Contracts.Models.PhaseDraft("2026-10-12-0a0aa", "g", "spec: x", []), "a", string.Empty, []),
+            new(new Contracts.Models.PhaseDraft("2026-10-12-0a0ab", "g", "spec: y", []), "b", string.Empty, []),
+        ];
+
+        var old = (await repository.GetAsync("alpha", legacy, default))!;
+        var kept = (await repository.GetAsync("alpha", current, default))!;
+
+        old.ExecutedIds.Should().BeNull();
+        old.ExecutedIdsOf(stored).Should().Equal("2026-10-12-0a0aa");
+        kept.ExecutedIdsOf(stored).Should().Equal("2026-10-12-0a0ab");
+    }
 }

@@ -65,7 +65,7 @@ public sealed class SpecHandbackRepeatTests
         IReadOnlyList<TicketComment> thread, SpecSet set)
     {
         var pipeline = Pipeline(sandbox, [.. thread]);
-        await publisher.PublishAsync(pipeline, string.Empty, Repo, set, [], default);
+        await publisher.PublishAsync(pipeline, string.Empty, new SeriesScope([Repo], Repo.Name, [], null), set, [], default);
         return await handler.ExecuteAsync(
             new SpecHandbackContext(Ticket, Parkable(), [Repo], pipeline), default);
     }
@@ -101,7 +101,7 @@ public sealed class SpecHandbackRepeatTests
         readers.Setup(f => f.Create(sandbox)).Returns(files);
         var writer = AgentSmith.Tests.TestSupport.SeriesDoubles.Writer(readers.Object);
         return new SpecSetPublisher(
-            writer, new SpecSetPointerRecorder(pointers, NullLogger<SpecSetPointerRecorder>.Instance),
+            writer, new SeriesRepos(), new SpecSetPointerRecorder(pointers, NullLogger<SpecSetPointerRecorder>.Instance),
             Mock.Of<ISpecPullRequestOpener>(),
             new SpecRefusalReporter(Mock.Of<IEventPublisher>(), NullLogger<SpecRefusalReporter>.Instance),
             Mock.Of<IRunArtifactStore>(), NullLogger<SpecSetPublisher>.Instance);

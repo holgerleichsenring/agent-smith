@@ -34,6 +34,9 @@ public static class SpecDerivationRegistrations
     services.AddTransient<SeriesNewestManifest>().AddTransient<SeriesJoinOrder>();
     services.AddTransient<SeriesSpecFileReader>();
     services.AddTransient<ISpecSetWriter, SeriesWriter>();
+    // 2026-10-12-f5f7d: each spec placed in the repository it names; read, ids, filing per member.
+    services.AddTransient<SeriesRepos>().AddTransient<SeriesTakenIds>().AddTransient<SeriesBranchRead>();
+    services.AddTransient<FiledSeriesWrite>();
     services.AddTransient<SeriesStaleFiles>();
     services.AddTransient<ISpecSetPublisher, SpecSetPublisher>();
     services.AddTransient<SpecSetPointerRecorder>(); // 2026-09-08-4aa9: the marker's commit moves the pointer too

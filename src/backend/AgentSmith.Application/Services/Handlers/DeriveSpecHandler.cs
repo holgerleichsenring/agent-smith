@@ -32,7 +32,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </summary>
 public sealed class DeriveSpecHandler(
     ISpecSetDeriver deriver,
-    ISpecSetReader reader,
+    SeriesBranchRead branchRead,
     ISpecSetPublisher publisher,
     ISpecSetPointerStore pointers,
     ApprovedSpecSetResolver approvals,
@@ -57,17 +57,17 @@ public sealed class DeriveSpecHandler(
         var key = TicketKeyFactory.For(context.Ticket, context.Pipeline);
         var project = ProjectOf(context.Pipeline);
         var pointer = await pointers.GetAsync(project, key.Value, cancellationToken);
-        // 2026-09-22-b6ad: the approval is resolved BEFORE the carrying repo, because filing may
-        // already have written the branch and recorded which repository it wrote it into.
         var approval = await approvals.ResolveAsync(context.Pipeline, key, cancellationToken);
-        var repo = SpecCarryingRepoResolver.Resolve(context.Repos, pointer, approval?.CarryingRepo);
-        if (repo is null)
+        if (context.Repos.Count == 0)
             return CommandResult.Ok("Spec derivation skipped: the run has no repo in scope");
 
         var segments = TicketSegmenter.Segment(context.Ticket.Description);
         context.Pipeline.Set(ContextKeys.TicketSegments, segments);
 
-        var onBranch = await reader.ReadAsync(context.Pipeline, repo, context.Repos, key, cancellationToken);
+        // 2026-10-12-f5f7d: no repository is picked by position; a lagging read goes no further.
+        var branch = await branchRead.ReadAsync(context.Pipeline, context.Repos, key, pointer, approval, cancellationToken);
+        if (branch.Refusal is { } outOfStep) return CommandResult.Fail(outOfStep);
+        var onBranch = branch.OnBranch;
         var previous = onBranch.Read;
         var foreign = await expiry.ProbeAsync(context.Pipeline, context.Repos, previous?.Set, pointer, cancellationToken);
         var decision = sourceResolver.Decide(onBranch, context.Ticket, pointer, context.Pipeline, key.Value,
@@ -87,7 +87,7 @@ public sealed class DeriveSpecHandler(
         var finalized = SpecRevisionHeader.Finalize(
             set, previous, decision.Cause!, context.Ticket, decision.NeedsModel, reported, decision.Approval);
         var result = await publisher.PublishAsync(
-            context.Pipeline, project, repo, finalized, ignored, cancellationToken);
+            context.Pipeline, project, branch.Scope, finalized, ignored, cancellationToken);
         if (!finalized.IsHandedBack)
             await AnnounceAsync(context, finalized, unanswered, cancellationToken);
         return result;

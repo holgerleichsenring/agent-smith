@@ -53,14 +53,23 @@ internal sealed class SeriesRepoBranches
     /// <summary>Reads through <paramref name="reader"/> — the composed one, in the harness.</summary>
     internal async Task<SpecSetOnBranch> ReadWithAsync(ISpecSetReader reader, string carrying, params string[] runRepos)
     {
+        var pipeline = Pipeline();
+        return await reader.ReadAsync(
+            pipeline, new RepoConnection { Name = carrying },
+            [.. runRepos.Select(r => new RepoConnection { Name = r })], new TicketKey(Key), default);
+    }
+
+    /// <summary>2026-10-12-f5f7d: a run over every checked-out repository, on the ticket branch.</summary>
+    internal PipelineContext Pipeline()
+    {
         var pipeline = new PipelineContext();
         pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes,
             _repos.ToDictionary(r => r.Key, r => r.Value.Sandbox.Object));
         pipeline.Set<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxRepos,
             _repos.Keys.ToDictionary(k => k, k => k));
-        return await reader.ReadAsync(
-            pipeline, new RepoConnection { Name = carrying },
-            [.. runRepos.Select(r => new RepoConnection { Name = r })], new TicketKey(Key), default);
+        pipeline.Set(ContextKeys.Repository,
+            new AgentSmith.Domain.Entities.Repository(new AgentSmith.Domain.Models.BranchName("agent-smith/4711"), "https://example.invalid/r.git"));
+        return pipeline;
     }
 
     /// <summary>Each checked-out repository's sandbox opens its own branch.</summary>

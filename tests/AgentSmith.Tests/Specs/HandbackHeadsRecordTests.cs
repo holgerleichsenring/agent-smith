@@ -2,6 +2,7 @@ using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Specs;
+using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
