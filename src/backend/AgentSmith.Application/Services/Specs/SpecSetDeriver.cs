@@ -115,6 +115,6 @@ public sealed class SpecSetDeriver(
 
     private string RenderSystemPrompt() => prompts.Render(SkillName, new Dictionary<string, string>
     {
-        ["MaxPhases"] = SpecSet.MaxPhases.ToString(),
+        ["MaxPhases"] = SpecSet.MaxPhases.ToString(), ["MaxSpecs"] = SpecSet.MaxPhases.ToString(),
     });
 }

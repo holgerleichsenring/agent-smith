@@ -70,7 +70,15 @@ tests:
   - "DiscoveryLabelGuard_SpecAndPhaseLabels_BothRoute"
   - "TicketKindResolver_ConfigKeySpec_MapsToSpecRole"
   - "SpecDerivationParser_SpecsKey_Parses"
+  - "StoredCommandName_SpecNamed_ReadsAsTheDeclaredCommand, RemainingCommand_SpecNamedCommandAndId_ResumesAsTheDeclaredCommand"
+  - "SpecRecord_StoredUnderTheSpecKind_IsServed, FiledWork_SpecReviewArtifactKind_CarriesItsFindings"
+  - "Transcript_SpecProposalTurnKind_ReadsAsPhaseProposal, LatestFiling_SpecKind_ReadsAsPhaseKind"
+  - "Deriver_TheSkillTemplate_IsFilledWithMaxSpecsAndMaxPhases, CutReviewAnswer_SpecIdKey_ReadsAsPhaseId"
+  - "dashboard acceptedNames.test.ts: spec-named bodies read as the phase-named ones"
 
 done:
-  - "For every surface on the reachability list, data in the new shape reads back identically under this release (tests)."
-  - "Full suite green; nothing written by this release differs from the previous one."
+  - "For every surface on the reachability list in decisions/2026-10-12-967aa.yaml, data in the new shape reads back identically under this release (tests/AgentSmith.Tests/SpecNaming, AcceptedNamesTests, RunSpecsServedTests, FiledWorkReadTests, SpecDerivationCoverageTests, dashboard acceptedNames.test.ts)."
+  - "Nothing written by this release differs from the previous one: no writer changed, an alias has no getter (AcceptedNamesTests.Write_NeverEmitsTheAlias, SpecNamedEventReadTests.Serialize_StillWritesThePhaseNames), every old-shape test unchanged and green."
+  - "The RunSteps and RunDecisions PhaseId columns are named as the one surface a reader cannot expand; 967ab carries that expand step."
+  - "pnpm gen:hub-events green with hub-events.ts unchanged."
+  - "Full suite and dashboard tests green at the phase gate."

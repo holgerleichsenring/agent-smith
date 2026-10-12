@@ -24,6 +24,17 @@ public sealed class RunSpecProjection
     /// under, one row per phase, in the same table and read the same way.</summary>
     public const string ReviewKindPrefix = "phase_review:";
 
+    /// <summary>2026-10-12-967aa: the record kind prefix a later release writes, read beside
+    /// <see cref="RecordKindPrefix"/> so a replica that still writes the old one serves both.</summary>
+    public const string AcceptedRecordKindPrefix = "spec_record:";
+
+    /// <summary>2026-10-12-967aa: the review kind prefix a later release writes.</summary>
+    public const string AcceptedReviewKindPrefix = "spec_review:";
+
+    /// <summary>The kinds a spec's review may be stored under, the declared one first.</summary>
+    public static IReadOnlyList<string> ReviewKinds(string specId) =>
+        [ReviewKindPrefix + specId, AcceptedReviewKindPrefix + specId];
+
     public async Task ApplyStateAsync(IUnitOfWork uow, PhaseStateChangedEvent e, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(e);

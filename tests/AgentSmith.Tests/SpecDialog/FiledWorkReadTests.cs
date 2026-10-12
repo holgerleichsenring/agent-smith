@@ -298,6 +298,21 @@ public sealed class FiledWorkReadTests : IDisposable
         review.Findings.Single().Why.Should().Be("the catch body logs nothing");
     }
 
+    /// <summary>2026-10-12-967aa: a review a later release stored under <c>spec_review:</c> reads
+    /// exactly as one stored under <c>phase_review:</c>.</summary>
+    [Fact]
+    public async Task FiledWork_SpecReviewArtifactKind_CarriesItsFindings()
+    {
+        await ReviewedAsync(
+            """{"reviewed":true,"findings":[{"repository":"api","path":"src/A.cs","line":4,"rule":"r","why":"w"}]}""",
+            RunSpecProjection.AcceptedReviewKindPrefix);
+
+        var review = (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single().Review;
+
+        review!.Reviewed.Should().BeTrue();
+        review.Findings.Single().Path.Should().Be("src/A.cs");
+    }
+
     /// <summary>
     /// The distinction the artifact exists for: nobody was asked, and the reason travels. Read
     /// as a clean review this is the page reporting "nothing found" over a question nobody put.
@@ -551,7 +566,7 @@ public sealed class FiledWorkReadTests : IDisposable
         }
     }
 
-    private async Task ReviewedAsync(string reviewJson)
+    private async Task ReviewedAsync(string reviewJson, string kindPrefix = RunSpecProjection.ReviewKindPrefix)
     {
         await FilingAsync(Filed(Work, "alpha"));
         await RunsAsync(Run("r-1", "alpha", Work, T));
@@ -559,7 +574,7 @@ public sealed class FiledWorkReadTests : IDisposable
         await AddAsync(new RunArtifact
         {
             RunId = "r-1",
-            Kind = RunSpecProjection.ReviewKindPrefix + "p1",
+            Kind = kindPrefix + "p1",
             Content = reviewJson,
         });
     }

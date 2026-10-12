@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Specs;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Contracts.Events;
 
@@ -21,7 +22,7 @@ namespace AgentSmith.Contracts.Events;
 /// Null while the phase is simply running.</param>
 public sealed record PhaseStateChangedEvent(
     string RunId,
-    string PhaseId,
+    [property: AcceptedName("SpecId")] string PhaseId,
     int Ordinal,
     string Title,
     PhaseRunState State,
@@ -37,7 +38,7 @@ public sealed record PhaseStateChangedEvent(
 /// </summary>
 public sealed record PhaseRecordedEvent(
     string RunId,
-    string PhaseId,
+    [property: AcceptedName("SpecId")] string PhaseId,
     string Body,
     DateTimeOffset Timestamp)
     : RunEvent(RunId, EventType.PhaseRecorded, Timestamp);
@@ -51,7 +52,7 @@ public sealed record PhaseRecordedEvent(
 /// `reviewed` false says nobody was asked and `why` names which reason it was.</param>
 public sealed record PhaseReviewedEvent(
     string RunId,
-    string PhaseId,
+    [property: AcceptedName("SpecId")] string PhaseId,
     string ReportJson,
     DateTimeOffset Timestamp)
     : RunEvent(RunId, EventType.PhaseReviewed, Timestamp);

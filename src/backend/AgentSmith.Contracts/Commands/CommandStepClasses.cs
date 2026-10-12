@@ -25,6 +25,7 @@ public static partial class CommandStepClasses
     public static string Get(string? commandName)
     {
         if (string.IsNullOrEmpty(commandName)) return Milestone;
+        commandName = CommandNames.Declared(commandName);
         if (Classes.TryGetValue(commandName, out var cls)) return cls;
 
         // Parameterised shapes ("SkillRoundCommand:architect:1") classify by
@@ -47,7 +48,7 @@ public static partial class CommandStepClasses
     {
         if (string.IsNullOrWhiteSpace(summary)) return true;
         if (string.IsNullOrEmpty(commandName)) return false;
-        return GateNoOpSummaries.TryGetValue(commandName, out var phrases)
+        return GateNoOpSummaries.TryGetValue(CommandNames.Declared(commandName), out var phrases)
             && phrases.Any(p => summary.Contains(p, StringComparison.Ordinal));
     }
 

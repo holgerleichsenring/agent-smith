@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentSmith.Contracts.Json;
 
 namespace AgentSmith.Contracts.Specs;
 
@@ -17,6 +18,7 @@ public static class SpecApprovalJson
     private static readonly JsonSerializerOptions Options = new(JsonSerializerDefaults.Web)
     {
         PropertyNameCaseInsensitive = true,
+        TypeInfoResolver = AcceptedNames.Resolver,
     };
 
     public static string Write(SpecApprovalRecord record) =>

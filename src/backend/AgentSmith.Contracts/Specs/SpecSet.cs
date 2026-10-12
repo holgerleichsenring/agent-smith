@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Contracts.Specs;
 
@@ -24,13 +25,13 @@ namespace AgentSmith.Contracts.Specs;
 /// stamped — a set read off a branch without one is treated as absent.</param>
 public sealed record SpecSet(
     string Key,
-    IReadOnlyList<SpecPhase> Phases,
+    [property: AcceptedName("Specs")] IReadOnlyList<SpecPhase> Phases,
     SpecAccounting Accounting,
     IReadOnlyList<SpecRevision> Revisions,
     SpecSource Source,
     SpecHandback? Handback = null,
     bool TicketPinnedWhole = false,
-    IReadOnlyList<string>? ExecutedPhaseIds = null,
+    [property: AcceptedName("ExecutedSpecIds")] IReadOnlyList<string>? ExecutedPhaseIds = null,
     string? TicketFingerprint = null,
     SpecApproval? Approval = null,
     string? Series = null)

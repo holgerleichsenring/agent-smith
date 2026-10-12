@@ -110,11 +110,24 @@ public sealed class SpecDerivationCoverageTests
         prompt.Should().Contain("## Contexts the scope call named").And.Contain("- backend");
     }
 
+    /// <summary>2026-10-12-967aa: the skill template is filled with the token a later skill
+    /// release names beside the one the pinned release names, so either release renders whole.</summary>
+    [Fact]
+    public async Task Deriver_TheSkillTemplate_IsFilledWithMaxSpecsAndMaxPhases()
+    {
+        var prompts = new RecordingPrompt();
+
+        await Derive(new ScriptedClient(Cut("frontend", "backend")), Named("frontend", "backend"), prompts);
+
+        var max = SpecSet.MaxPhases.ToString();
+        prompts.Tokens.Should().Contain("MaxSpecs", max).And.Contain("MaxPhases", max);
+    }
+
     private static ScopeNamedContexts Named(params string[] contexts) =>
         new(contexts, "both contexts need dependency auditing");
 
     private static async Task<(SpecDerivation? Derivation, string? Error)> Derive(
-        ScriptedClient client, ScopeNamedContexts named)
+        ScriptedClient client, ScopeNamedContexts named, IPromptCatalog? prompts = null)
     {
         var deriver = new SpecSetDeriver(
             new CleanReviewer(),
@@ -122,7 +135,7 @@ public sealed class SpecDerivationCoverageTests
                 new SingleClientFactory(client), new AsyncLocalRunContextAccessor(),
                 DerivationTestLooks.Proof()),
             DerivationTestLooks.Factory(),
-            new FixedPrompt(),
+            prompts ?? new FixedPrompt(),
             DerivationTestParsers.Real(),
             new ScopedContextCoverage(),
             AgentSmith.Tests.TestSupport.HandbackTestDoubles.Gate(), NullLogger<SpecSetDeriver>.Instance);
@@ -194,6 +207,19 @@ public sealed class SpecDerivationCoverageTests
             IReadOnlyList<PhaseDraft> drafts, string key, string? ticketText, DerivationLook? look,
             AgentConfig agent, PipelineCostTracker costTracker, CancellationToken cancellationToken)
             => Task.FromResult(SpecCutReview.Clean);
+    }
+
+    private sealed class RecordingPrompt : IPromptCatalog
+    {
+        public IReadOnlyDictionary<string, string> Tokens { get; private set; } = new Dictionary<string, string>();
+
+        public string Get(string name) => "cut the ticket";
+
+        public string Render(string name, IReadOnlyDictionary<string, string> tokens)
+        {
+            Tokens = tokens;
+            return Get(name);
+        }
     }
 
     private sealed class FixedPrompt : IPromptCatalog

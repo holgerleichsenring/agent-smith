@@ -1,3 +1,5 @@
+using AgentSmith.Domain.Models;
+
 namespace AgentSmith.Contracts.Events;
 
 public enum EventType
@@ -98,15 +100,15 @@ public enum EventType
     // through / stopped). Projected into the RunSpec row so a finished phase
     // is addressable after the run — the phase used to survive only as a
     // "p19213a: " prefix on a step name.
-    PhaseStateChanged = 79,
+    [AcceptedName("SpecStateChanged")] PhaseStateChanged = 79,
     // p0466: the executed phase spec, as WritePhaseRecord wrote it into the
     // working tree. Mirrored into the artifact store so the server can serve
     // the record of a phase whose sandbox and branch are long gone.
-    PhaseRecorded = 80,
+    [AcceptedName("SpecRecorded")] PhaseRecorded = 80,
     // 2026-09-17-042eh: what a fresh reviewer found in the phase's own diff, as JSON.
     // Its own event and its own artifact row: the record body carries the findings as
     // prose for a reader, and 2026-09-17-042ej reads them back as data.
-    PhaseReviewed = 81,
+    [AcceptedName("SpecReviewed")] PhaseReviewed = 81,
     // 2026-10-01-7f7ae: a design_read Figma answered — source, file, node and the version read.
     DesignRead = 82,
 }

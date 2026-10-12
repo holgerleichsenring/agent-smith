@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services.Polling;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Tickets;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -65,8 +66,10 @@ public sealed class TrackerDiscoveryQueryBuilderTests
 
         var query = await Builder.BuildAsync(Config(tracker, project), tracker, CancellationToken.None);
 
+        // 2026-10-12-967aa: each binding in both spellings — the phase one and the spec one.
         query.TriggerLabels.Should().BeEquivalentTo(
-            ["bug", FiledTicketLabels.ApprovedSetStamp, PhaseTicketRenderer.PhaseLabel]);
+            ["bug", FiledTicketLabels.ApprovedSetStamp, PhaseTicketRenderer.PhaseLabel,
+                TicketLabels.AcceptedApprovedSetStamp, TicketLabels.AcceptedSpecLabel]);
     }
 
     [Fact]

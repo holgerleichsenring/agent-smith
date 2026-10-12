@@ -20,8 +20,12 @@ assumptions:
 scope:
   in: >
     Rename every type and member on 967aa's reachability list, the three EventType members (codes 79-81 kept),
-    the eight G1 *PhaseCommand names, TicketFilingRole.Phase, filing kind and labels written. Column renames by EF
-    migration in both assemblies (EF emits per-provider SQL). Stored JSON, artifact kinds, event type names,
+    the eight G1 *PhaseCommand names, TicketFilingRole.Phase, filing kind and labels written — using exactly the
+    new names fixed in decisions/2026-10-12-967aa.yaml; each [AcceptedName] flips to name the OLD form, and
+    CommandContextFactory resolves through CommandNames.Declared so operator presets naming the old commands still
+    run. COLUMNS cannot be read under two names (EF maps one column per property), so they expand too: add
+    RunSteps.SpecId and RunDecisions.SpecId by EF migration in both assemblies, write both, read SpecId ?? PhaseId,
+    backfill SpecId from PhaseId; the PhaseId columns are dropped in 967ah. Stored JSON, artifact kinds, event type names,
     command names and checkpoint type names/keys rewritten in C# with JsonNode after MigrateAsync — including
     the escaped copies nested in RunCheckpointed and RunStoryRecorded payloads — idempotent and scoped by row
     type so the execution-stage Phase of LLM/tool events is untouched. Dashboard hub-events.ts, API types and
@@ -35,7 +39,7 @@ steps:
   - id: writers
     action: "Renames on the reachability list; new names written."
   - id: columns
-    action: "EF column-rename migration in both assemblies."
+    action: "EF migration in both assemblies adding SpecId beside PhaseId, written both, backfilled."
   - id: rewrite
     action: "Idempotent JsonNode rewrite step in RunStoreMigrator, after MigrateAsync."
   - id: dashboard

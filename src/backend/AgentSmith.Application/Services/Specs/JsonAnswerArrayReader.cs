@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentSmith.Contracts.Json;
 
 namespace AgentSmith.Application.Services.Specs;
 
@@ -25,6 +26,7 @@ internal static class JsonAnswerArrayReader
     {
         PropertyNameCaseInsensitive = true,
         PropertyNamingPolicy = JsonNamingPolicy.SnakeCaseLower,
+        TypeInfoResolver = AcceptedNames.Resolver,
     };
 
     public static IReadOnlyList<T>? Read<TWire, T>(string? text, Func<TWire, T> toFinding)

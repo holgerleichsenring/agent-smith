@@ -25,7 +25,9 @@ public static class DiscoveryLabelGuard
             {
                 TicketLabelVocabulary.For(tracker).ApprovedSetStamp,
                 FiledTicketLabels.ApprovedSetStamp,
+                TicketLabels.AcceptedApprovedSetStamp,
                 PhaseTicketRenderer.PhaseLabel,
+                TicketLabels.AcceptedSpecLabel,
             }
             .Distinct(StringComparer.OrdinalIgnoreCase)];
 

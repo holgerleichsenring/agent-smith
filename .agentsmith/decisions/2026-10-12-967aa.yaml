@@ -1,0 +1,172 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-967aa
+
+decisions:
+  - category: Scope
+    chose: "The reachability list: every persisted, queued, Redis, checkpoint, served and model-written root whose members say phase for a spec"
+    reason: |
+      Produced by reading each root's writer and reader, not by a name search alone. "reader" names the
+      seam that now accepts the spec name; "served" means only the dashboard reads it.
+
+      RunEvents.Type (EventType NAME, read by EventEnvelopeSerializer.DeserializeRaw)
+        -> PhaseStateChanged/PhaseRecorded/PhaseReviewed (79-81). reader: AcceptedNames.TryParse.
+      RunEvents.PayloadJson (PascalCase) and the Redis stream envelope {t,p} (camelCase)
+        -> PhaseStateChangedEvent.PhaseId, PhaseRecordedEvent.PhaseId, PhaseReviewedEvent.PhaseId,
+           StepStartedEvent.PhaseId, DecisionLoggedEvent.PhaseId; PhaseRunState is an int on the wire.
+           StepStartedEvent.CommandName may carry a spec-block command name (see the command row).
+           reader: EventEnvelopeSerializer (both paths), AcceptedNames.Resolver.
+      RunCheckpointed payload, escaped copies (projected into RunCheckpoint)
+        -> RemainingCommandsJson: CheckpointCommand.Name, CheckpointCommand.PhaseId.
+           ContextJson: [{K,T,V}] — K ContextKeys values PhaseSpec, PhaseStartHeads, PhaseReviewFindings,
+           PhaseReviewFixPass, PhaseReviewReverted, PhaseAccountsSnapshot, RunPhaseReviews, PhaseCommands,
+           PhaseAccounts, PhaseRepairAttempted, PhaseAppliesTo; T assembly-qualified names of PhaseDraft,
+           PhaseStep, PhaseFact, SpecPhase, PhaseProgress, PhaseRunState, PhaseCommandLog, PhaseCommandEntry,
+           RunPhaseReviews, PhaseReviewEntry, PhaseReviewReport, PhaseFinding (direct or as generic args);
+           V members PhaseDraft.PhaseId, SpecSet.Phases/ExecutedPhaseIds, CarriedSegment.PhaseId,
+           SpecSequenceProgress.Phases, PhaseProgress.PhaseId, RunPhaseReviews.Phases, PhaseReviewEntry.PhaseId.
+           QuestionJson (DialogQuestion) carries none.
+           reader: RunResumer, ResumeRequestReader, PipelineContextSerializer, CheckpointRenames.
+      RunStoryRecorded payload, escaped copies (projected onto Run)
+        -> ProgressLedgerJson carries none; AcceptanceJson AcceptanceView.Declined[].Phase
+           (DeclinedCriterionView.Phase). reader: RunStoryJson.
+      RunSteps -> PhaseId column (EF, not JSON), CommandName (spec-block command names), StepName/DisplayName
+        (display strings; the "p19213a: " prefix is an id, not the word). reader: CommandNames.Declared in
+        CommandDisplayNames, CommandStepClasses, GateSilence, CommandBeats, CommandModelUse, GetLabel.
+      RunDecisions -> PhaseId column (EF). No JSON.
+      RunArtifacts.Kind -> phase_record:<id>, phase_review:<id>; review Content (PhaseReviewReport JSON)
+        carries no phase member. reader: RunSpecsReader, FiledWorkRunsReader.
+      Run.PlannedStepsJson -> PlannedStepView.PhaseId, .CommandName. reader: RunStoryJson + RunRailComposer.
+      Run.QueuedRequestJson and the Redis job queue -> PipelineRequest carries no phase member; its Context
+        carries ApprovedSpecSet (SpecApprovalJson string) and ResumeCheckpoint (ResumePayload string).
+      QueuedTicket.InitialContextJson -> the same two nested strings.
+      ApprovedSeries.ContentJson -> SpecApprovalRecord.Set: SpecSet.phases, executedPhaseIds,
+        SpecPhase.draft.phaseId (SpecPhase.phaseId is computed and write-only), accounting.carried[].phaseId.
+        reader: SpecApprovalJson.
+      SpecDialogSession.LatestProposalJson / ConfirmedOutcomeJson -> OutcomeProposalJson Dto
+        {kind:"phase", phase:{phaseId…}, parent, children, findings[].phaseId}. reader: OutcomeProposalJson.
+      SpecDialogSession.LatestFilingJson -> SpecDialogFiling.Kind "phase". reader: SpecDialogLatestOutcomeStore.
+      SpecDialogSession.TranscriptJson -> TranscriptTurn.Kind "phaseProposal" (SpecDialogTurnKind.PhaseProposal).
+        reader: SpecDialogSessionMapper via TolerantNullableEnumConverter.
+      TicketSeries.ExecutedIdsJson / RevisionShasJson -> plain lists and maps, no phase member.
+      ConfigEntity documents -> trackers.*.work_item_kinds key "phase" (TicketFilingRole.Phase).
+        reader: TicketKindResolver.
+      Tracker labels (boards we do not own) -> "phase", "phase-epic", "phase-parent:<id>",
+        "phase-spec:approved". readers: FiledTicketLabels, TicketLabelVocabulary, DiscoveryLabelGuard,
+        ProjectResolver (through FiledTicketLabels.IsEpicRecord).
+      Model-written -> derivation reply key "phases" (SpecDerivationParser) and its template token
+        {MaxPhases} (SpecSetDeriver); cut-review answer "phase_id" (CutFindingWire); dialog outcome
+        block kind "phase" (OutcomeProposalResolver).
+      Served REST and hub payloads read by the dashboard (backend never reads them back)
+        -> RunStepView.phaseId, PlannedStepView.phaseId, RunStatisticsView.phases[].phaseId,
+           RunCommandPoint/RunCallPoint.phaseId, AcceptanceView.declined[].phase, ApprovedSetView.phases,
+           SpecDialogPhaseView.phaseId, SpecDialogProposalPush.kind/phase/findings[].phaseId,
+           SpecDialogConversationOutcome.kind, hub RunEvent payloads above.
+           readers: src/dashboard acceptedNames.ts at the run, run-story, step, spec, judgement, run-list and
+           spec-dialog fetches and at the hub's RunEvent, SandboxEvent, SpecDialog* handlers and GetTrail.
+      Not reachable (G2, untouched): RunEvents.Phase, RunLlmCalls.Phase, LLM/tool event Phase, worker
+        envelope phase, cost Phases, RunVerifyPhase/RunReviewPhase/RunFinalPhase, ActivePhaseStep
+        (excluded from checkpoints), max_skills_per_phase.
+
+  - category: Architecture
+    chose: "One model per surface: an [AcceptedName] attribute on the declared member, read by a JsonTypeInfo modifier and an enum parser"
+    over: "A read-time JsonNode rewrite at each seam"
+    reason: |
+      The rename is TYPE-scoped, not name-scoped: specId and specs are already current names on RunSpecView,
+      FiledWorkSpecView and FiledWorkRunView, and Phase is the execution stage on LLM events, so a
+      name-to-name rewrite of a document would corrupt the shapes that already use the new words. The
+      modifier adds a setter-only property per alias to exactly the type that declares it, so nothing is
+      written differently (an alias has no getter) and the declared model stays the only model. The same
+      attribute on an enum member serves EventType names, SpecDialogTurnKind and TicketFilingRole.
+      967ab flips each attribute (spec name declared, phase name accepted); 967ah deletes them.
+    alternatives:
+      - "Duplicate DTOs per shape — two models that drift, and the principles forbid the shim."
+      - "A converter per type — one class per renamed record, ~15 of them, for one mechanism."
+
+  - category: Implementation
+    chose: "The attribute lives in AgentSmith.Domain; the resolver and enum parser in AgentSmith.Contracts.Json"
+    reason: |
+      RunPhaseReviews and PhaseReviewEntry are Domain types and Domain references nothing, so the attribute
+      must sit there. AcceptedNames.TryParse is Enum.TryParse first, unchanged (numbers included, as the
+      trail reader always accepted), then the aliases; TryParseAccepted is aliases only, for the tolerant
+      transcript converter that refuses numbers by design.
+
+  - category: Implementation
+    chose: "When a document carries both names, the accepted (spec) name's non-null value wins"
+    over: "The declared name wins"
+    reason: |
+      STJ binds the declared name through the constructor and sets the alias afterwards. Both at once is
+      written by nobody; the order is stated so nobody has to discover it.
+
+  - category: Architecture
+    chose: "Checkpoint keys and type names: one table of (phase, spec) pairs, consulted in both directions"
+    reason: |
+      CheckpointRenames restores an entry under whichever key of its pair ContextKeys declares, and resolves a
+      type name as written, else with every renamed full name swapped either way (generic arguments
+      included). The same table serves this release and 967ab, after which the spec side is declared. The
+      pairs are the names 967ab must use: PhaseSpec->CurrentSpec, PhaseStartHeads->SpecStartHeads,
+      PhaseReviewFindings->SpecReviewFindings, PhaseReviewFixPass->SpecReviewFixPass,
+      PhaseReviewReverted->SpecReviewReverted, PhaseAccountsSnapshot->SpecAccountsSnapshot,
+      RunPhaseReviews->RunSpecReviews, PhaseCommands->SpecRunCommands, PhaseAccounts->SpecAccounts,
+      PhaseRepairAttempted->SpecRepairAttempted, PhaseAppliesTo->SpecAppliesTo; types PhaseDraft->SpecDraft,
+      PhaseStep->SpecStep, PhaseFact->SpecFact, SpecPhase->DerivedSpec, PhaseProgress->SpecProgress,
+      PhaseRunState->SpecRunState, PhaseCommandLog->SpecRunCommandLog, PhaseCommandEntry->SpecRunCommandEntry,
+      RunPhaseReviews->RunSpecReviews, PhaseReviewEntry->SpecReviewEntry, PhaseReviewReport->SpecReviewReport,
+      PhaseFinding->SpecFinding (namespaces unchanged). CheckpointRenames joins NoStaticStateRuleTests'
+      data-table allowlist: its statics are literal pairs.
+
+  - category: Implementation
+    chose: "A renamed command maps to its declared name at every stored-name lookup; it is not retired"
+    reason: |
+      RetiredCommands throws through CommandContextFactory, which would fail a resumed run. CommandNames.Declared
+      maps WriteSpecRecordCommand, VerifySpecCommand, CommitSpecWorkCommand, CheckSpecPremisesCommand,
+      ReviewSpecDiffCommand, SpecSequenceCommand, SelectSpecCommand and SpecGateCommand (keeping a ":param"
+      suffix) for display, class, beat, model-use and progress lookups, and CheckpointCommand.ToPipelineCommand
+      maps a checkpointed name before the factory sees it. These are the names 967ab must write.
+      RunVerifyPhase stays — it is the execution stage. 967ab flips the table so operator presets that still
+      name the phase commands keep resolving; CommandContextFactory will need Declared() then.
+
+  - category: Implementation
+    chose: "Artifacts: the declared kind first, then spec_record: / spec_review:"
+    reason: "Both can exist only if a phase is re-recorded across a rolling deploy; the older writer's row is the one this release's projection keeps upserting."
+
+  - category: Implementation
+    chose: "Outcome and filing kind \"spec\" are read as \"phase\" at the read seam"
+    over: "Passing the stored kind through"
+    reason: |
+      FiledTicketWithdrawal reads a filing and writes the WHOLE record back; normalising on read means that
+      re-write is in this release's vocabulary, and every served kind (conversation list, pane) is one word.
+
+  - category: TradeOff
+    chose: "The bare word spec binds a ticket to spec execution, and RoutingWordCollisionRule does not refuse it"
+    over: "Adding spec (and phase) to the collision rule"
+    reason: |
+      Ratified 2026-10-12: the labels become spec, spec-epic, spec-parent:, spec:approved and the phase forms
+      stay read for good. spec:approved is already refused by the rule, because it asks
+      TicketLabelVocabulary.IsApprovedSetStamp, which now knows it. The bare phase word was never in the rule,
+      so spec is not either: adding both would refuse configurations an operator saved before. RISK the
+      operator should know: a board that already uses the label "spec" for something else routes those
+      tickets into spec execution from this release on. The label constants live in TicketLabels (Contracts),
+      which also kept FiledTicketLabels and PhaseTicketRenderer under the 120-line ceiling.
+
+  - category: Implementation
+    chose: "Dashboard: an additive walker at the phase-bearing fetches and hub handlers, not in readJson"
+    over: "One call in apiResponse.readJson for every body"
+    reason: |
+      Additive (phaseId filled from specId, never removed) because specId/specs are current names elsewhere.
+      Not in readJson because configuration and other bodies carry operator-authored values, and a kind
+      "spec" there must not be rewritten and saved back. hub-events.ts is unchanged — the C# members keep
+      their names — and tools/build-hub-event-types.mjs now drops C# attribute lists before it reads a
+      member or a record's base, which the attributes would otherwise have broken.
+
+  - category: Implementation
+    chose: "Derivation reply: \"phases\" if present, else \"specs\"; the template gets MaxPhases and MaxSpecs"
+    reason: "Either skill release may be pinned (an operator's skills.version wins over the embedded catalog), so the reader and the template serve both until 967ah."
+
+  - category: Scope
+    chose: "The RunSteps.PhaseId and RunDecisions.PhaseId columns get no dual reader here"
+    reason: |
+      EF maps one column per property; a reader cannot accept two column names. If 967ab renames the
+      columns in place while a 967aa pod still runs, that pod's queries fail. 967ab needs an expand step of
+      its own for these two columns (add SpecId, write both, drop PhaseId later) or must run with the old
+      pods drained — its spec says "Column renames by EF", which is the drain-and-recreate case the
+      expand/contract assumption rules out.

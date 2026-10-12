@@ -42,8 +42,9 @@ public sealed class RunSpecsReader(IServiceScopeFactory scopeFactory, RunStepsRe
         if (spec is null) return null;
 
         using var scope = scopeFactory.CreateScope();
-        var record = await scope.ServiceProvider.GetRequiredService<RunArtifactRepository>()
-            .ReadAsync(runId, RunSpecProjection.RecordKindPrefix + specId, ct);
+        var artifacts = scope.ServiceProvider.GetRequiredService<RunArtifactRepository>();
+        var record = await artifacts.ReadAsync(runId, RunSpecProjection.RecordKindPrefix + specId, ct)
+            ?? await artifacts.ReadAsync(runId, RunSpecProjection.AcceptedRecordKindPrefix + specId, ct);
         return new RunSpecDetailView(spec, record);
     }
 

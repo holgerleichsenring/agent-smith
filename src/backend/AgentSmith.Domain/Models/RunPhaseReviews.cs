@@ -1,3 +1,5 @@
+using AgentSmith.Domain.Models;
+
 namespace AgentSmith.Domain.Models;
 
 /// <summary>
@@ -9,7 +11,7 @@ namespace AgentSmith.Domain.Models;
 /// findings and call them the run's.
 /// </para>
 /// </summary>
-public sealed record RunPhaseReviews(IReadOnlyList<PhaseReviewEntry> Phases)
+public sealed record RunPhaseReviews([property: AcceptedName("Specs")] IReadOnlyList<PhaseReviewEntry> Phases)
 {
     public static RunPhaseReviews Empty { get; } = new([]);
 
@@ -21,4 +23,4 @@ public sealed record RunPhaseReviews(IReadOnlyList<PhaseReviewEntry> Phases)
 }
 
 /// <summary>One phase's review, under the phase it belongs to.</summary>
-public sealed record PhaseReviewEntry(string PhaseId, PhaseReviewReport Report);
+public sealed record PhaseReviewEntry([property: AcceptedName("SpecId")] string PhaseId, PhaseReviewReport Report);

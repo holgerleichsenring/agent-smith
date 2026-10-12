@@ -1,3 +1,5 @@
+using AgentSmith.Domain.Models;
+
 namespace AgentSmith.Contracts.Tickets;
 
 /// <summary>
@@ -27,7 +29,7 @@ public enum TicketFilingRole
 
     /// <summary>A lone approved phase. Its own role because an installation may map a single
     /// phase and a cut's work ticket to different native types.</summary>
-    Phase,
+    [AcceptedName("Spec")] Phase,
 
     /// <summary>A ticket a chat request asked for.</summary>
     Chat,

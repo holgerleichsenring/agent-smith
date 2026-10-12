@@ -1,3 +1,5 @@
+using AgentSmith.Domain.Models;
+
 namespace AgentSmith.Contracts.Models;
 
 /// <summary>
@@ -7,7 +9,7 @@ namespace AgentSmith.Contracts.Models;
 /// consistency checks.
 /// </summary>
 public sealed record PhaseDraft(
-    string PhaseId,
+    [property: AcceptedName("SpecId")] string PhaseId,
     string Goal,
     string Yaml,
     IReadOnlyList<string> Requires)

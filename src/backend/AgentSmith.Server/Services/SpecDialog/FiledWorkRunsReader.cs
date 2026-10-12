@@ -74,7 +74,7 @@ public sealed class FiledWorkRunsReader(
         var rows = await uow.Set<RunSpec>().AsNoTracking()
             .Where(p => ids.Contains(p.RunId))
             .OrderBy(p => p.Ordinal).ThenBy(p => p.Id).ToListAsync(ct);
-        var kinds = rows.Select(p => RunSpecProjection.ReviewKindPrefix + p.SpecId).Distinct().ToList();
+        var kinds = rows.SelectMany(p => RunSpecProjection.ReviewKinds(p.SpecId)).Distinct().ToList();
         var stored = await uow.Set<RunArtifact>().AsNoTracking()
             .Where(a => ids.Contains(a.RunId) && kinds.Contains(a.Kind))
             .ToListAsync(ct);
@@ -92,8 +92,9 @@ public sealed class FiledWorkRunsReader(
         // appended "handed_back" to that list, and a fourth would otherwise silently hide the
         // verdict of a state this reader had not been taught.
         var terminal = !Running.Contains(phase.Status, StringComparer.Ordinal);
-        var kind = RunSpecProjection.ReviewKindPrefix + phase.SpecId;
-        var row = stored.FirstOrDefault(a => a.RunId == phase.RunId && a.Kind == kind);
+        var row = RunSpecProjection.ReviewKinds(phase.SpecId)
+            .Select(kind => stored.FirstOrDefault(a => a.RunId == phase.RunId && a.Kind == kind))
+            .FirstOrDefault(found => found is not null);
         return new FiledWorkSpecView(
             phase.SpecId, phase.Ordinal, phase.Title, phase.Status,
             terminal ? phase.Verdict : null,

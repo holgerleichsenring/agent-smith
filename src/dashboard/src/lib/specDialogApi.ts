@@ -13,6 +13,7 @@ import type {
   SpecDialogReferenceUpload,
   SpecDialogView,
 } from "@/types/spec-dialog";
+import { acceptSpecNames } from "@/lib/acceptedNames";
 
 const MESSAGES_PATH = "/api/spec-dialog/messages";
 
@@ -20,7 +21,7 @@ export async function fetchSpecDialog(
   dialogId: string,
   signal?: AbortSignal,
 ): Promise<SpecDialogView> {
-  return getJson<SpecDialogView>(`/api/spec-dialog/${encodeURIComponent(dialogId)}`, signal);
+  return acceptSpecNames(await getJson<SpecDialogView>(`/api/spec-dialog/${encodeURIComponent(dialogId)}`, signal));
 }
 
 /**
@@ -32,10 +33,10 @@ export async function fetchFiledWork(
   dialogId: string,
   signal?: AbortSignal,
 ): Promise<FiledWork> {
-  return getJson<FiledWork>(
+  return acceptSpecNames(await getJson<FiledWork>(
     `/api/spec-dialog/${encodeURIComponent(dialogId)}/filed-work`,
     signal,
-  );
+  ));
 }
 
 /**
@@ -50,7 +51,7 @@ export async function fetchSpecDialogConversations(
   const path = limit === undefined
     ? "/api/spec-dialog/conversations"
     : `/api/spec-dialog/conversations?limit=${encodeURIComponent(String(limit))}`;
-  return getJson<SpecDialogConversationPage>(path, signal);
+  return acceptSpecNames(await getJson<SpecDialogConversationPage>(path, signal));
 }
 
 /**

@@ -181,6 +181,41 @@ public sealed class RunSpecsServedTests : IDisposable
             .Should().BeEquivalentTo(["phase_record:p19213a", "phase_review:p19213a"]);
     }
 
+    /// <summary>2026-10-12-967aa: a record a later release stored under <c>spec_record:</c>, and
+    /// the spec-named event names it was replayed from, serve exactly as the phase-named ones.</summary>
+    [Fact]
+    public async Task SpecRecord_StoredUnderTheSpecKind_IsServed()
+    {
+        await ApplyAsync(Selected("p19213a", 1, "Make the thing exist"));
+        await using (var ctx = new AgentSmithDbContext(Options()))
+        {
+            ctx.Set<AgentSmith.Infrastructure.Persistence.Entities.RunArtifact>().Add(new()
+            {
+                RunId = RunId, Kind = RunSpecProjection.AcceptedRecordKindPrefix + "p19213a",
+                Content = "spec: p19213a\n",
+            });
+            await ctx.SaveChangesAsync();
+        }
+
+        (await ReadPhaseAsync("p19213a"))!.Record.Should().Be("spec: p19213a\n");
+    }
+
+    /// <summary>2026-10-12-967aa: a step row whose command carries the spec-block name a later
+    /// release writes is classified and labelled as the declared command.</summary>
+    [Fact]
+    public async Task RunStepsReader_SpecNamedCommand_ClassifiesAsTheDeclaredOne()
+    {
+        await ApplyAsync(
+            new StepStartedEvent(RunId, 0, "Select", 2, T, null, "SelectSpecCommand", "p19213a"),
+            new StepStartedEvent(RunId, 1, "Select", 2, T, null, CommandNames.SelectPhase, "p19213a"));
+
+        var rail = await ReadRailAsync();
+
+        rail.Select(s => s.StepClass).Should().Equal(
+            [CommandStepClasses.Internal, CommandStepClasses.Internal],
+            "an unknown name would read as a milestone");
+    }
+
     [Fact]
     public async Task RunSpecEndpoint_UnknownSpec_IsNotFound() =>
         (await RunSpecQueryEndpoints.GetRunSpecAsync(

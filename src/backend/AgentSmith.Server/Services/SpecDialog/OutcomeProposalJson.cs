@@ -1,6 +1,8 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Json;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Server.Services.SpecDialog;
 
@@ -16,6 +18,7 @@ internal static class OutcomeProposalJson
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        TypeInfoResolver = AcceptedNames.Resolver,
     };
 
     internal static string Write(OutcomeProposal proposal) =>
@@ -40,7 +43,7 @@ internal static class OutcomeProposalJson
     private static OutcomeProposal FromDto(Dto dto) => (OutcomeProposal)(dto.Kind switch
     {
         "bug" => new BugOutcome(dto.Bug!),
-        "phase" => new PhaseOutcome(dto.Phase!),
+        "phase" or SpecDialogProposalComposer.AcceptedSpecKind => new PhaseOutcome(dto.Phase!),
         "epic" => new EpicOutcome(dto.Parent!, dto.Children!),
         _ => throw new InvalidOperationException(
             $"Stored outcome JSON carries unknown kind '{dto.Kind}'."),
@@ -60,7 +63,7 @@ internal static class OutcomeProposalJson
     private sealed record Dto(
         string Kind,
         BugTicketDraft? Bug,
-        PhaseDraft? Phase,
+        [property: AcceptedName("Spec")] PhaseDraft? Phase,
         PhaseDraft? Parent,
         IReadOnlyList<PhaseDraft>? Children,
         IReadOnlyList<TemplateProvenance>? Templates = null,

@@ -78,7 +78,7 @@ if (anyDrift) {
 }
 
 function compareEnum(channel) {
-  const enumSource = readFileSync(channel.csharpFile, "utf8");
+  const enumSource = withoutAttributes(readFileSync(channel.csharpFile, "utf8"));
   const csharpTypes = [...enumSource.matchAll(/^\s*(\w+)\s*=\s*\d+,?\s*$/gm)]
     .map((m) => m[1])
     .filter((n) => n !== channel.enumName);
@@ -129,7 +129,7 @@ function scanRecordsByBase(dir) {
   const files = readdirSync(dir).filter((f) => f.endsWith(".cs"));
   const found = [];
   for (const file of files) {
-    const source = readFileSync(join(dir, file), "utf8");
+    const source = withoutAttributes(readFileSync(join(dir, file), "utf8"));
     const recordPattern = /public\s+sealed\s+record\s+(\w+Event)\b[\s\S]*?:\s*(\w+)\s*[\(;{]/gm;
     let match;
     while ((match = recordPattern.exec(source)) !== null) {
@@ -140,6 +140,12 @@ function scanRecordsByBase(dir) {
     }
   }
   return found;
+}
+
+// 2026-10-12-967aa: a C# attribute list ("[AcceptedName(\"SpecId\")]", "[property: X(...)]") is
+// not part of a member's name or a record's base; it is dropped before either is read.
+function withoutAttributes(source) {
+  return source.replace(/\[(?:\w+:\s*)?\w+(?:\([^\]]*\))?\]\s*/g, "");
 }
 
 function extractEnumBody(source, enumName) {

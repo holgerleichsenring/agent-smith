@@ -16,7 +16,9 @@ assumptions:
 scope:
   in: >
     Remove the phase aliases for stored events, artifacts, approvals, dialog JSON, checkpoints, served JSON and the
-    derivation parser's phases key; remove phase-gate.sh and PHASE_GATE_* fallback; shrink the guard's allowlist.
+    derivation parser's phases key ([AcceptedName], CheckpointRenames, CommandNames.Accepted, acceptedNames.ts); drop
+    the PhaseId columns of RunSteps and RunDecisions by EF migration; remove phase-gate.sh and the PHASE_GATE_*
+    fallback; shrink the guard's allowlist.
   out: "Read aliases for tracker labels and work_item_kinds.phase: they live in trackers and operator config we do not rewrite."
 
 tests:

@@ -64,7 +64,7 @@ public static class FiledTicketLabels
     /// refuses them on this alone.
     /// </summary>
     public static bool IsEpicRecord(IncomingTicketEnvelope envelope) =>
-        Carries(envelope, PhaseTicketRenderer.EpicLabel);
+        Carries(envelope, PhaseTicketRenderer.EpicLabel) || Carries(envelope, TicketLabels.AcceptedSpecEpicLabel);
 
     /// <summary>True when the framework filed this ticket from a set a person approved — the stamp
     /// read under THIS tracker's name for it and every name it has ever had, never another board's.</summary>
@@ -90,7 +90,7 @@ public static class FiledTicketLabels
     /// </summary>
     public static bool BindsPhaseExecution(IncomingTicketEnvelope envelope, TicketLabelVocabulary vocabulary) =>
         CarriesApprovedSet(envelope.Labels, vocabulary) || Carries(envelope, PhaseTicketRenderer.PhaseLabel)
-        || envelope.HasApprovedRecord;
+        || Carries(envelope, TicketLabels.AcceptedSpecLabel) || envelope.HasApprovedRecord;
 
     /// <summary>
     /// No production caller: the framework stamps no position on anything it files. It holds the
@@ -101,7 +101,7 @@ public static class FiledTicketLabels
 
     /// <summary>The epic parent this ticket is a slice of, or null when it carries no stamp.</summary>
     public static string? ParentId(IEnumerable<string> labels) =>
-        Stamped(labels, ParentPrefix).FirstOrDefault();
+        Stamped(labels, ParentPrefix).Concat(Stamped(labels, TicketLabels.AcceptedParentPrefix)).FirstOrDefault();
 
     private static IEnumerable<string> Stamped(IEnumerable<string> labels, string prefix)
     {

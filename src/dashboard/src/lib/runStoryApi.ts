@@ -6,6 +6,7 @@
 // while the run happens, so nothing here can drift from the events it describes.
 
 import { getJson } from "@/lib/apiResponse";
+import { acceptSpecNames } from "@/lib/acceptedNames";
 
 /** The fold over a slice of the trail — the same shape for a run and for one phase. */
 export interface RunCallStatistics {
@@ -96,7 +97,7 @@ export async function fetchRunStatistics(
   runId: string,
   signal?: AbortSignal,
 ): Promise<RunStatistics> {
-  return getJson<RunStatistics>(`/api/runs/${encodeURIComponent(runId)}/statistics`, signal);
+  return acceptSpecNames(await getJson<RunStatistics>(`/api/runs/${encodeURIComponent(runId)}/statistics`, signal));
 }
 
 export async function fetchRunTrace(

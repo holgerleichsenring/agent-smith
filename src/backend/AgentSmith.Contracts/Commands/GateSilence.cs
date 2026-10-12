@@ -20,7 +20,7 @@ public static class GateSilence
     {
         if (string.IsNullOrWhiteSpace(summary)) return true;
         if (string.IsNullOrEmpty(commandName)) return false;
-        return NoOpSummaries.TryGetValue(commandName, out var phrases)
+        return NoOpSummaries.TryGetValue(CommandNames.Declared(commandName), out var phrases)
             && phrases.Any(p => summary.Contains(p, StringComparison.Ordinal));
     }
 

@@ -6,6 +6,7 @@
 
 import type { RunStepRow } from "@/lib/runStepsApi";
 import { apiFetch, getJson, readJson } from "@/lib/apiResponse";
+import { acceptSpecNames } from "@/lib/acceptedNames";
 
 export interface RunSpecDecision {
   stepIndex: number | null;
@@ -39,8 +40,8 @@ export async function fetchRunSpecs(
   runId: string,
   signal?: AbortSignal,
 ): Promise<RunSpecRow[]> {
-  const body = await getJson<{ specs?: RunSpecRow[] }>(
-    `/api/runs/${encodeURIComponent(runId)}/specs`, signal);
+  const body = acceptSpecNames(await getJson<{ specs?: RunSpecRow[] }>(
+    `/api/runs/${encodeURIComponent(runId)}/specs`, signal));
   return body.specs ?? [];
 }
 
@@ -53,5 +54,5 @@ export async function fetchRunSpec(
     `/api/runs/${encodeURIComponent(runId)}/specs/${encodeURIComponent(specId)}`;
   const res = await apiFetch(path, { signal });
   if (res.status === 404) return null;
-  return readJson<RunSpecDetail>(res, path);
+  return acceptSpecNames(await readJson<RunSpecDetail>(res, path));
 }

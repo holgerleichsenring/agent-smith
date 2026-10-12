@@ -1,4 +1,5 @@
 using AgentSmith.Domain.Models;
+using AgentSmith.Contracts.Commands;
 
 namespace AgentSmith.Application.Models;
 
@@ -19,13 +20,14 @@ public sealed record CheckpointCommand(
     string? RepoName = null,
     string? ContextName = null,
     string? Workdir = null,
-    string? PhaseId = null)
+    [property: AcceptedName("SpecId")] string? PhaseId = null)
 {
     public static CheckpointCommand From(PipelineCommand command) => new(
         command.Name, command.SkillName, command.Round,
         command.RepoName, command.ContextName, command.Workdir, command.PhaseId);
 
-    public PipelineCommand ToPipelineCommand() => new(Name)
+    /// <summary>2026-10-12-967aa: a command name a later release writes resolves to the declared one.</summary>
+    public PipelineCommand ToPipelineCommand() => new(CommandNames.Declared(Name))
     {
         SkillName = SkillName,
         Round = Round,

@@ -17,8 +17,10 @@ public sealed class DiscoveryLabelGuardTests
     {
         var guard = DiscoveryLabelGuard.For([Trigger("bug")], Tracker());
 
+        // 2026-10-12-967aa: the spec-named stamp and word bind too, so the guard names them.
         guard.Should().BeEquivalentTo(
-            ["bug", FiledTicketLabels.ApprovedSetStamp, PhaseTicketRenderer.PhaseLabel]);
+            ["bug", FiledTicketLabels.ApprovedSetStamp, PhaseTicketRenderer.PhaseLabel,
+                TicketLabels.AcceptedApprovedSetStamp, TicketLabels.AcceptedSpecLabel]);
     }
 
     [Fact]

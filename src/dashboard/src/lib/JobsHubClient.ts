@@ -7,6 +7,7 @@ import {
 import { HubGroupRegistry } from "./HubGroupRegistry";
 import { HubReconnectPolicy } from "./HubReconnectPolicy";
 import { currentAccessToken } from "./auth/session";
+import { acceptSpecNames } from "./acceptedNames";
 import type {
   RunEvent,
   SandboxActivityRollup,
@@ -283,7 +284,7 @@ export class JobsHubClient {
   /** p0169h: fetches the full retained event window for the trail tab. */
   async getTrail(runId: string): Promise<RunEvent[]> {
     await this.ensureStarted();
-    return this.connection!.invoke<RunEvent[]>("GetTrail", runId);
+    return acceptSpecNames(await this.connection!.invoke<RunEvent[]>("GetTrail", runId));
   }
 
   /**
@@ -378,8 +379,9 @@ export class JobsHubClient {
     // dashboard re-fetches GET /api/runs; the hub no longer ships run snapshots.
     conn.on("RunsChanged", (runId: string) => this.runsChanged.emit(runId));
     conn.on("RunEvent", (event: RunEvent) =>
-      this.runEvents.emit({ runId: event.runId, event }));
-    conn.on("SandboxEvent", (event: RunEvent) => {
+      this.runEvents.emit({ runId: event.runId, event: acceptSpecNames(event) }));
+    conn.on("SandboxEvent", (raw: RunEvent) => {
+      const event = acceptSpecNames(raw);
       const repo = "repo" in event ? (event as { repo: string }).repo : "";
       this.sandboxEvents.emit({ runId: event.runId, repo, event });
     });
@@ -388,13 +390,13 @@ export class JobsHubClient {
     conn.on("SystemBacklog", (events: SystemEvent[]) =>
       this.systemBacklog.emit(events));
     conn.on("SpecDialogMessage", (message: SpecDialogMessagePush) =>
-      this.specDialogMessages.emit(message));
+      this.specDialogMessages.emit(acceptSpecNames(message)));
     conn.on("SpecDialogQuestion", (question: SpecDialogQuestionPush) =>
-      this.specDialogQuestions.emit(question));
+      this.specDialogQuestions.emit(acceptSpecNames(question)));
     conn.on("SpecDialogProposal", (proposal: SpecDialogProposalPush) =>
-      this.specDialogProposals.emit(proposal));
+      this.specDialogProposals.emit(acceptSpecNames(proposal)));
     conn.on("SpecDialogFiled", (filing: SpecDialogFilingPush) =>
-      this.specDialogFilings.emit(filing));
+      this.specDialogFilings.emit(acceptSpecNames(filing)));
     conn.on("SpecDialogReading", (reading: SpecDialogReadingPush) =>
       this.specDialogReadings.emit(reading));
     conn.on("SpecDialogActivity", (activity: SpecDialogActivityPush) =>

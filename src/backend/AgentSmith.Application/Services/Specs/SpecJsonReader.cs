@@ -31,6 +31,10 @@ internal static class SpecJsonReader
     private static string Normalize(string name) =>
         name.Replace("_", string.Empty).Replace("-", string.Empty);
 
+    /// <summary>2026-10-12-967aa: the key a derivation reply lists its specs under — "phases", or
+    /// "specs", the key a later skill release asks for, when the reply carries no "phases".</summary>
+    public static string SpecsKey(JsonElement root) => TryGet(root, "phases", out _) ? "phases" : "specs";
+
     public static string ReadString(JsonElement obj, string name) =>
         TryGet(obj, name, out var el) && el.ValueKind == JsonValueKind.String
             ? el.GetString()!.Trim() : string.Empty;
