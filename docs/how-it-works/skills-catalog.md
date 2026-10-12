@@ -109,7 +109,7 @@ To try a skill before you commit it, point a local run at your working copy of t
 | The pipeline presets (`code`, `security-scan`, …) | The master prompts that drive each pipeline |
 | The agent tools (`read_file`, `edit`, `grep_in_tree`, `web_fetch`, …) | The activation expressions per skill |
 | The concept-type system | The concept vocabulary (`project_language`, `pipeline`, …) |
-| The phase sequence, verification and the delivery account | The coding principles core and language deltas |
+| The spec sequence, verification and the delivery account | The coding principles core and language deltas |
 
 If you find yourself wanting to add a new role to a pipeline, that's a skills-catalog change. If you find yourself wanting a new tool the agent can call, or a new pipeline shape, that's a framework change.
 

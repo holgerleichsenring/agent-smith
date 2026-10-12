@@ -32,7 +32,7 @@ What happens, in order:
 
 1. **Preflight** — the relevant subset of `agent-smith doctor` (config schema, LLM reachable, sandbox spawn, infra). A broken environment fails here with a fix hint, before any pipeline tokens are spent. Redis is not required: the check reports it as skipped for one-shot CLI runs.
 2. **Workspace** — the bundled sample project is extracted to a temp directory and git-initialized with one baseline commit (`--workspace DIR` to choose the location, `--agent NAME` to pick a specific agent from your config).
-3. **The run** — the real `code` preset, headless and in-process: inline ticket → checkout → analyze → derive the phase spec → coding master → verify → commit. Same production path your real tickets will take.
+3. **The run** — the real `code` preset, headless and in-process: inline ticket → checkout → analyze → derive the spec → coding master → verify → commit. Same production path your real tickets will take.
 4. **The result** — a local commit fixing the seeded bug, the `git diff HEAD~1` printed to your terminal, and the workspace left in place for inspection.
 
 Exit code 0 means the loop worked end to end. Everything after this page is about pointing that same loop at your own systems.
@@ -118,11 +118,11 @@ In CLI mode the sandbox is in-process, so no Docker is required. The run goes th
 1. `FetchTicket` reads ticket 54, and `ScopeRepos` decides which of the project's repos it touches (here only `todolist-api`).
 2. `CheckoutSource` creates the run branch, then `RunPreflight` proves the preconditions it can only check now that the branch and sandbox exist.
 3. `BootstrapCheck` and `BootstrapGate` refuse a repo without `.agentsmith/contexts/<name>/context.yaml`; run `init-project` first (see [Onboarding](../reference/setup/onboarding.md)). Then the principles, the memory index and the context are loaded.
-4. `AnalyzeCode` sweeps the repo, and `DeriveSpec` turns the ticket into one or more phase specs, each with a done-list. When the ticket contradicts what is in the repository, `SpecHandback` parks it with a question instead of guessing.
-5. For each phase: the coding master edits the code and runs the repo's own build and tests inside the sandbox, then `VerifyPhase` checks the result against the phase's done-list. A red verify stops the run there.
+4. `AnalyzeCode` sweeps the repo, and `DeriveSpec` turns the ticket into one or more specs, each with a done-list. When the ticket contradicts what is in the repository, `SpecHandback` parks it with a question instead of guessing.
+5. For each spec: the coding master edits the code and runs the repo's own build and tests inside the sandbox, then `VerifyPhase` checks the result against the spec's done-list. A red verify stops the run there.
 6. `WriteRunResult` writes the run record, and `CommitAndPR` opens the pull request.
 
-The phase spec is the run's acceptance contract. It drives what the master works on, what gets verified, and what the PR body says.
+The spec is the run's acceptance contract. It drives what the master works on, what gets verified, and what the PR body says.
 
 If the ticket is too thin to work from (title-only, no reproduction, contradictory), the run doesn't guess: it posts its open questions as a comment on the ticket, parks the ticket in a `needs_clarification` status, and resumes when you answer. See [Spec dialogue](../how-it-works/spec-dialogue.md).
 

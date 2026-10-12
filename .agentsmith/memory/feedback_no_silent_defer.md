@@ -21,20 +21,20 @@ slicing is the failure mode.
 **How to apply:**
 
 - If a task is genuinely too big for one shot, slice it openly: "I'll do A
-  now and B as a follow-up phase" — name the follow-up, list it, get a nod.
+  now and B as a follow-up spec" — name the follow-up, list it, get a nod.
 - If I'm tempted to add "(deferred)" or "out of scope" to my plan, that's the
   moment to surface it as a question or as an explicit follow-up slice, not
   to hide it in a decision-yaml entry the user might never read.
 - A spec's `scope.out` is the spec author's deferral, not mine to silently
   invoke. If I find a NEW thing I want to defer beyond what the spec already
   defers, that's a new follow-up I must name.
-- When I write "p0169f lands later" or similar, the phase has to actually
+- When I write "p0169f lands later" or similar, the spec has to actually
   exist as a planned spec in `specs/planned/` — otherwise it's a phantom.
-- At end-of-phase: explicitly list what's still open + which phase owns it.
+- At end-of-spec: explicitly list what's still open + which spec owns it.
   "Done" must mean done OR a named successor exists.
 - Cross-check: every time I write the word "deferred" / "follow-up" / "later"
-  / "future phase" / "out of scope", stop and ask: is the follow-up actually
-  written down as a planned phase the user can see?
+  / "future spec" / "out of scope", stop and ask: is the follow-up actually
+  written down as a planned spec the user can see?
 
 Cross-link: [[feedback_finish_what_you_start]] (build/test/smoke gate) +
 [[feedback_challenge_premises]] (don't silently accept stale spec premises) +

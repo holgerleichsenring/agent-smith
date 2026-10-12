@@ -159,7 +159,7 @@ its stated reason even though it exited zero.
 ## Proving the wiring without a CLI
 
 `ExternalWorkerTicketTests` in `tests/AgentSmith.PipelineHarness/Presets/` drives a whole
-mechanical ticket through the same bridge with a scripted worker — one phase, the change
+mechanical ticket through the same bridge with a scripted worker — one spec, the change
 set applied at once, a green verdict, a pull request, no provider key, deterministic in
 CI. It proves the **wiring**. Whether a live agent CLI can actually drive the loop to
 green is what your local run proves; the bridge is identical, only the subprocess is

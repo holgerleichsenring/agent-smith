@@ -94,4 +94,4 @@ Agent types are `claude`, `openai`, `azure_openai`, `gemini`, `ollama` and `copi
 - [Layer details](layers.md): what each project contains
 - [Project structure](project-structure.md): the repository layout
 - [Event schema policy](event-schema-policy.md): how the run-event contracts may change
-- [Phase workflow](phase-workflow.md): how phases are planned, executed and tracked
+- [Spec workflow](spec-workflow.md): how specs are planned, executed and tracked

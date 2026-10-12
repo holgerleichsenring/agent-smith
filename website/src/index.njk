@@ -12,10 +12,10 @@ layout: layouts/base.njk
       You drop a ticket into your tracker — Jira, Azure DevOps, GitHub Issues, GitLab, whatever you use. Agent Smith reads it, figures out which project it belongs to, and starts a run. If your project has more than one repo, every repo gets its own sandbox with its own toolchain image (one runs <code class="inline-code">dotnet/sdk:8.0</code>, another runs <code class="inline-code">node:20</code>, a Python worker gets <code class="inline-code">python:3.12</code>). Each sandbox clones its repo and cuts a branch named <code class="inline-code">agent-smith/{ticket}</code>.
     </p>
     <p class="prose">
-      Before it writes anything, it turns the ticket into a specification: the phases the work needs, and for each one a list of what has to be true when it's done. That cut goes onto the ticket as a comment, so you can see what it understood (and correct it by commenting). If the ticket reads two ways, or asks for something the code makes impossible, it says so on the ticket and waits instead of guessing.
+      Before it writes anything, it turns the ticket into a specification: the specs the work needs, and for each one a list of what has to be true when it's done. That cut goes onto the ticket as a comment, so you can see what it understood (and correct it by commenting). If the ticket reads two ways, or asks for something the code makes impossible, it says so on the ticket and waits instead of guessing.
     </p>
     <p class="prose">
-      Then the AI does the boring middle part, one phase at a time: it writes the change, runs the verification each repository declares (your build, your tests), and has the diff of each phase reviewed against its spec before the next one starts. One pull request per repo, all linked to each other in the PR body so reviewers see the whole change at once. The ticket gets every PR URL in the comment, and every run records token usage and dollar cost so you actually know what you spent.
+      Then the AI does the boring middle part, one spec at a time: it writes the change, runs the verification each repository declares (your build, your tests), and has the diff of each spec reviewed against its spec before the next one starts. One pull request per repo, all linked to each other in the PR body so reviewers see the whole change at once. The ticket gets every PR URL in the comment, and every run records token usage and dollar cost so you actually know what you spent.
     </p>
 
     <h3 class="prose-heading">What one run looks like when it is done</h3>
@@ -103,7 +103,7 @@ layout: layouts/base.njk
   <div class="section-wrap section-narrow">
     <h2 class="section-title">Built by the method it teaches</h2>
     <p class="prose">
-      Agent Smith bootstraps an <code class="inline-code">.agentsmith/</code> directory into your repo: context, phase specs, a decision log, a memory of what it learned. That is the product, and it is also how this repository got written, over seven months, by me and one language model. <strong>968 completed phases</strong> and <strong>432,267 lines of C#</strong>, with <strong>5,062 recorded decisions</strong> and <strong>7,038 tests</strong> behind them. About <strong>650 hours</strong> of my time went in, roughly 40 minutes per completed phase.
+      Agent Smith bootstraps an <code class="inline-code">.agentsmith/</code> directory into your repo: context, specs, a decision log, a memory of what it learned. That is the product, and it is also how this repository got written, over seven months, by me and one language model. <strong>968 completed specs</strong> and <strong>432,267 lines of C#</strong>, with <strong>5,062 recorded decisions</strong> and <strong>7,038 tests</strong> behind them. About <strong>650 hours</strong> of my time went in, roughly 40 minutes per completed spec.
     </p>
 
     <h3 class="prose-heading">The tests do the steering</h3>
@@ -113,7 +113,7 @@ layout: layouts/base.njk
 
     <h3 class="prose-heading">The model has no way to wave itself through</h3>
     <p class="prose">
-      A blocking commit hook lets a phase commit through once the dashboard's build and tests, the backend build, all 7,038 tests, four CLI dry runs and every pipeline harness preset come back green. CI would have told me about a break afterwards. The hook stops the commit from existing. And the <code class="inline-code">principles.md</code> I built this project under is the same file Agent Smith injects into its own agents at runtime.
+      A blocking commit hook lets a spec commit through once the dashboard's build and tests, the backend build, all 7,038 tests, four CLI dry runs and every pipeline harness preset come back green. CI would have told me about a break afterwards. The hook stops the commit from existing. And the <code class="inline-code">principles.md</code> I built this project under is the same file Agent Smith injects into its own agents at runtime.
     </p>
 
     <h3 class="prose-heading">Including what didn&#39;t work</h3>
@@ -128,7 +128,7 @@ layout: layouts/base.njk
   <div class="section-wrap section-narrow">
     <h2 class="section-title">There are more pipelines than the coding one</h2>
     <p class="prose">
-      <code class="inline-code">code</code> is the headline because it's the one most people show up for — it covers bug fixes, features, refactors and migrations alike. Seven more presets ship in the box: <code class="inline-code">security-scan</code> and <code class="inline-code">api-security-scan</code> (a security master reviewing a codebase or a live API), <code class="inline-code">pr-review</code> (a review of a pull request, posted back as PR comments), <code class="inline-code">legal-analysis</code> (contract review), <code class="inline-code">mad-discussion</code> (multi-agent design discussion when you want to argue something out), <code class="inline-code">init-project</code> (bootstraps the <code class="inline-code">.agentsmith/</code> directory per component in each repo), and <code class="inline-code">spec-dialog</code> (a design conversation that ends in a ticket or a phase draft). Same orchestrator, different masters, different output shapes.
+      <code class="inline-code">code</code> is the headline because it's the one most people show up for — it covers bug fixes, features, refactors and migrations alike. Seven more presets ship in the box: <code class="inline-code">security-scan</code> and <code class="inline-code">api-security-scan</code> (a security master reviewing a codebase or a live API), <code class="inline-code">pr-review</code> (a review of a pull request, posted back as PR comments), <code class="inline-code">legal-analysis</code> (contract review), <code class="inline-code">mad-discussion</code> (multi-agent design discussion when you want to argue something out), <code class="inline-code">init-project</code> (bootstraps the <code class="inline-code">.agentsmith/</code> directory per component in each repo), and <code class="inline-code">spec-dialog</code> (a design conversation that ends in a ticket or a spec draft). Same orchestrator, different masters, different output shapes.
     </p>
     <p class="prose">
       The masters and skills behind them live in a versioned catalog that ships inside the binary. You can pin another release, or layer your own skills on top without forking it. <a class="prose-link" href="{{ site.docsUrl }}/reference/pipelines/">Pipeline reference is in the docs.</a>

@@ -21,7 +21,7 @@ I built it because most AI coding tools stop at a suggestion in your editor and 
 
 ## What it does
 
-You drop a ticket into your tracker. Agent Smith reads it and derives a specification: the phases the work needs and, per phase, what has to be true when it's done. It clones every repo in the project into its own sandbox (each with its own toolchain — a .NET repo gets `dotnet/sdk:8.0`, a Node repo gets `node:20`, a Python worker gets `python:3.12`), works the phases in order, runs the verification each repository declares, opens one pull request per repo with the changes cross-linked, and writes the ticket back with every PR URL in the comment.
+You drop a ticket into your tracker. Agent Smith reads it and derives a specification: the specs the work needs and, per spec, what has to be true when it's done. It clones every repo in the project into its own sandbox (each with its own toolchain — a .NET repo gets `dotnet/sdk:8.0`, a Node repo gets `node:20`, a Python worker gets `python:3.12`), works the specs in order, runs the verification each repository declares, opens one pull request per repo with the changes cross-linked, and writes the ticket back with every PR URL in the comment.
 
 Tickets in Azure Boards and code in Azure Repos? That works end to end, no GitHub mirror needed — [the Azure DevOps page](https://agent-smith.org/azure-devops/) says why that matters.
 
@@ -29,7 +29,7 @@ The reasoning lands on disk: the specification under `.agentsmith/specs/`, every
 
 ## What decides that a run delivered
 
-Green tests aren't the verdict. After a phase's verification passes, a separate reader goes through its done-list one criterion at a time — met, unmet or not applicable — and has to cite what on the branch proves each one. That account is the only thing the run's verdict listens to. A run that comes back short still opens its pull request, as a draft, with a section naming what was not delivered, and you can overrule a single verdict with a reason that stays on the record. The [delivery account page](https://docs.agent-smith.org/how-it-works/delivery-account/) has the details, and the [lifecycle page](https://docs.agent-smith.org/how-it-works/lifecycle/) walks through a run step by step.
+Green tests aren't the verdict. After a spec's verification passes, a separate reader goes through its done-list one criterion at a time — met, unmet or not applicable — and has to cite what on the branch proves each one. That account is the only thing the run's verdict listens to. A run that comes back short still opens its pull request, as a draft, with a section naming what was not delivered, and you can overrule a single verdict with a reason that stays on the record. The [delivery account page](https://docs.agent-smith.org/how-it-works/delivery-account/) has the details, and the [lifecycle page](https://docs.agent-smith.org/how-it-works/lifecycle/) walks through a run step by step.
 
 If you'd rather think the change through first, the dashboard's [Work it out](https://docs.agent-smith.org/how-it-works/work-it-out/) page is a conversation with an agent that reads your code while it answers. What you approve there is filed as one ticket, and the run executes exactly that specification.
 
@@ -62,17 +62,17 @@ The skills — the masters that drive each pipeline and the rules they follow �
 
 ## Built by the method it teaches
 
-Agent Smith bootstraps an `.agentsmith/` directory into your repo: context, phase specs, a decision log, a memory of what it learned. That is the product. It is also how this repository got written, over seven months, by me and one language model. The numbers below are the receipts.
+Agent Smith bootstraps an `.agentsmith/` directory into your repo: context, specs, a decision log, a memory of what it learned. That is the product. It is also how this repository got written, over seven months, by me and one language model. The numbers below are the receipts.
 
 |  |  |
 |---|---|
-| **968** | completed phases, each specified before a line of code existed |
+| **968** | completed specs, each specified before a line of code existed |
 | **5,062** | recorded decisions, each naming the alternative it beat |
 | **432,267** | lines of C# across 4,803 files |
 | **7,038** | automated tests, gating every single commit |
-| **~650 h** | of human time, roughly 40 minutes per completed phase |
+| **~650 h** | of human time, roughly 40 minutes per completed spec |
 
-Two things did the actual steering. Ten coding principles turned into [architecture tests](tests/AgentSmith.Tests/Architecture/) that fail a build, and every one of them has a concrete thing that went wrong behind it. Then a [blocking commit hook](.claude/hooks/phase-gate.sh) that lets a phase commit through once the dashboard's build and tests, the backend build, all 7,038 tests, four CLI dry runs and every harness preset come back green. CI would have told me about a break afterwards. The hook stops the commit from existing, and the model has no way to wave itself through.
+Two things did the actual steering. Ten coding principles turned into [architecture tests](tests/AgentSmith.Tests/Architecture/) that fail a build, and every one of them has a concrete thing that went wrong behind it. Then a [blocking commit hook](.claude/hooks/spec-gate.sh) that lets a spec commit through once the dashboard's build and tests, the backend build, all 7,038 tests, four CLI dry runs and every harness preset come back green. CI would have told me about a break afterwards. The hook stops the commit from existing, and the model has no way to wave itself through.
 
 The `principles.md` I built this project under is the same file Agent Smith injects into its own agents at runtime. The methodology and the product turned out to be the same thing.
 
@@ -151,7 +151,7 @@ agent-smith code --ticket 54 --project todolist
 
 ## More than the code pipeline
 
-`code` is the headline because shipping a change is the one most people show up for — one pipeline for bug, feature and phase tickets alike, because what differs between them is the specification it derives, not the steps it runs. The rest of the box:
+`code` is the headline because shipping a change is the one most people show up for — one pipeline for bug, feature and spec tickets alike, because what differs between them is the specification it derives, not the steps it runs. The rest of the box:
 
 - `pr-review` — reviews a PR diff and posts line-anchored findings as comments; re-review on push replaces them.
 - `security-scan` — a security master reviews the code, reconciles it with the scanners, and every finding it delivers has to survive a refuter.

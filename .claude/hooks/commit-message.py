@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Resolves the message a `git commit` invocation will actually carry.
 
-phase-gate.sh looks for the phase marker in that message instead of in the raw
+spec-gate.sh looks for the spec marker in that message instead of in the raw
 command line, so `--amend --no-edit`, `-F <file>` and `-C <rev>` are gated like
 an explicit `-m`. Splitting the command in bash would mean `eval`, and `eval`
 would run the commit — hence python.

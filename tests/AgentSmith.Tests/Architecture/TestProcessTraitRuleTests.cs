@@ -40,7 +40,7 @@ public sealed class TestProcessTraitRuleTests
     [Fact]
     public void TestProcessTrait_TheValuesInUse_AreExactlyTheGatesFourProcesses()
     {
-        // phase-gate.sh names these four values in its filters; a fifth would run in the body
+        // spec-gate.sh names these four values in its filters; a fifth would run in the body
         // (the complement), and a value no class carries is a process the gate starts for nothing.
         var used = typeof(TestProcessTraitRuleTests).Assembly.GetTypes()
             .Where(t => t.DeclaringType != typeof(TestProcessTraitRuleTests))

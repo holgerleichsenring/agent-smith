@@ -8,7 +8,7 @@ This page is the orientation. There's a fast-path link list at the bottom — if
 
 ## What it does, in one paragraph
 
-You drop a ticket into your tracker. Agent Smith reads it and derives a specification from it: the phases the work needs and, per phase, the list of what has to be true when it's done. It clones every repo in the project into its own sandbox (each with its own toolchain image — a .NET repo gets `dotnet/sdk:8.0`, a Node repo gets `node:20`), works the phases in order, runs the verification each repository declares, and accounts for every criterion with the evidence it found. Then it opens one pull request per repo with the changes cross-linked and writes the ticket back with every PR URL in the comment. If the ticket is too thin, it asks instead of guessing.
+You drop a ticket into your tracker. Agent Smith reads it and derives a specification from it: the specs the work needs and, per spec, the list of what has to be true when it's done. It clones every repo in the project into its own sandbox (each with its own toolchain image — a .NET repo gets `dotnet/sdk:8.0`, a Node repo gets `node:20`), works the specs in order, runs the verification each repository declares, and accounts for every criterion with the evidence it found. Then it opens one pull request per repo with the changes cross-linked and writes the ticket back with every PR URL in the comment. If the ticket is too thin, it asks instead of guessing.
 
 If you'd rather think the change through first, [Work it out](how-it-works/work-it-out.md) in the dashboard is a conversation with an agent that reads your code while it answers. What you approve there is filed as one ticket, and the run executes exactly that specification.
 

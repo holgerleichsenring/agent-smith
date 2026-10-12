@@ -40,7 +40,7 @@ Both produce the same rule. The trigger type always follows the tracker's type.
 
 Within a matched project, the tracker's label map picks the pipeline. When the map has entries and none matches, the ticket is dropped for that project, not sent to a default.
 
-Two things stop a match before any rule is asked. A ticket carrying the `phase-epic` label marks a record rather than work and is never routed. And a trigger that carries a blocking startup finding (a missing park status, say) doesn't start runs until the finding is fixed.
+Two things stop a match before any rule is asked. A ticket carrying the `spec-epic` or `phase-epic` label marks a record rather than work and is never routed. And a trigger that carries a blocking startup finding (a missing park status, say) doesn't start runs until the finding is fixed.
 
 Polling builds its envelope from the ticket alone, which has labels but no area path and no source repo. So on the polling path only `tag` can match.
 

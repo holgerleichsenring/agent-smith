@@ -91,7 +91,7 @@
 #   my-tracker:
 #     work_item_kinds:
 #       work: User Story     # an approved cut's one work ticket
-#       phase: User Story    # a single phase filed from a design turn
+#       spec: User Story     # a single spec filed from a design turn (phase still accepted)
 #       bug: Bug             # a bug payload
 #       chat: Task           # "create a ticket" from chat
 

@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
-"""Exercises the phase-gate commit-message resolver over every invocation form.
+"""Exercises the spec-gate commit-message resolver over every invocation form.
 
 Run it directly:  python3 .claude/hooks/test_commit_message.py
 
 The Resolve_* cases call the resolver as a function. The Gate_* cases drive
-phase-gate.sh itself against a throwaway repository, where it has no
+spec-gate.sh itself against a throwaway repository, where it has no
 AgentSmith.sln and no skills validator and therefore reports "nothing to gate"
 instead of running the four .NET checks — that line is the tell that the gate
-recognised the commit as a phase commit at all. The ledger cases give the gate a
+recognised the commit as a spec commit at all. The ledger cases give the gate a
 repository that does carry a skills validator, so it reaches a real verdict
 without a .NET build, and read the line it leaves behind.
 """
@@ -25,13 +25,18 @@ import traceback
 HOOKS_DIR = pathlib.Path(__file__).resolve().parent
 REPOSITORY_ROOT = HOOKS_DIR.parent.parent
 RESOLVER_PATH = HOOKS_DIR / "commit-message.py"
-GATE_PATH = HOOKS_DIR / "phase-gate.sh"
+GATE_PATH = HOOKS_DIR / "spec-gate.sh"
+# 2026-10-12-967af: the gate's old path, a forwarder until 967ah.
+FORWARDER_PATH = HOOKS_DIR / "phase-gate.sh"
+# Both names of every gate variable: SPEC_GATE_* is read first, PHASE_GATE_* still honoured.
+_GATE_VARIABLES = [f"{prefix}_GATE_{name}" for prefix in ("SPEC", "PHASE")
+                   for name in ("SELFTEST", "LOG", "CORES")]
 GATE_ENTERED = "nothing to gate"
 MARKER_MESSAGE = "feat: something (p9999)"
 # p0507: the second id namespace — a date and a four-hex random suffix.
 MINTED_MARKER_MESSAGE = "feat: something (2026-08-24-8a3f)"
 
-_GIT_IDENTITY = ["-c", "user.email=gate@example.invalid", "-c", "user.name=Phase Gate"]
+_GIT_IDENTITY = ["-c", "user.email=gate@example.invalid", "-c", "user.name=Spec Gate"]
 _resolver_module = None
 
 
@@ -39,16 +44,16 @@ def _environment():
     """A git environment that ignores the operator's global and system config.
 
     2026-09-22-7c41a: it also drops the gate's OWN step-0 variables. This file is run BY
-    the gate with PHASE_GATE_SELFTEST=1 (and a redirected ledger), and every gate a test
+    the gate with SPEC_GATE_SELFTEST=1 (and a redirected ledger), and every gate a test
     spawns inherited them — so under the gate the tests measured a gate that skips the
-    very step they exist to check, and four of them failed on every phase commit. The
+    very step they exist to check, and four of them failed on every spec commit. The
     recursion guard is unaffected: the gate under test sets the variable itself for the
     hook test it runs, and that copy is what the probe passes on.
     """
     environment = dict(os.environ)
     environment.pop("CLAUDE_PROJECT_DIR", None)
-    environment.pop("PHASE_GATE_SELFTEST", None)
-    environment.pop("PHASE_GATE_LOG", None)
+    for variable in _GATE_VARIABLES:
+        environment.pop(variable, None)
     environment["GIT_CONFIG_GLOBAL"] = os.devnull
     environment["GIT_CONFIG_SYSTEM"] = os.devnull
     return environment
@@ -84,7 +89,7 @@ def _run_gate(command, cwd, ledger=None):
     """Drive the gate; without a ledger path its record goes nowhere."""
     payload = json.dumps({"tool_input": {"command": command}, "cwd": cwd})
     environment = _environment()
-    environment["PHASE_GATE_LOG"] = str(ledger) if ledger else os.devnull
+    environment["SPEC_GATE_LOG"] = str(ledger) if ledger else os.devnull
     return subprocess.run(["bash", str(GATE_PATH)], input=payload, cwd=cwd,
                           env=environment, capture_output=True, text=True)
 
@@ -179,13 +184,13 @@ def Resolve_DashFStdin_ReportsUnresolvable():
     assert result.reason, result
 
 
-def Gate_AmendNoEditCarryingAPhaseMarker_IsGated():
+def Gate_AmendNoEditCarryingASpecMarker_IsGated():
     with _repository(MARKER_MESSAGE) as repo:
         completed = _run_gate("git commit --amend --no-edit", repo)
         assert GATE_ENTERED in completed.stderr, completed.stderr
 
 
-def Gate_DashFFileCarryingAPhaseMarker_IsGated():
+def Gate_DashFFileCarryingASpecMarker_IsGated():
     with _repository("seed") as repo:
         (pathlib.Path(repo) / "message.txt").write_text(MARKER_MESSAGE + "\n")
         completed = _run_gate("git commit -F message.txt", repo)
@@ -194,7 +199,7 @@ def Gate_DashFFileCarryingAPhaseMarker_IsGated():
 
 def Gate_MessageWithoutAMarker_PassesThrough():
     with _repository("seed") as repo:
-        completed = _run_gate('git commit -m "chore: no phase here"', repo)
+        completed = _run_gate('git commit -m "chore: no spec here"', repo)
         assert completed.returncode == 0, completed
         assert completed.stderr == "", completed.stderr
 
@@ -209,7 +214,7 @@ def Gate_UnresolvableMessage_PassesThroughAndSaysSo():
 
 def Gate_InvocationFromThisSession_LeavesATrace():
     with _catalog_repository() as repo, tempfile.TemporaryDirectory() as elsewhere:
-        ledger = pathlib.Path(elsewhere) / "phase-gate.log"
+        ledger = pathlib.Path(elsewhere) / "spec-gate.log"
         completed = _run_gate(f'git commit -m "{MARKER_MESSAGE}"', repo, ledger)
         assert completed.returncode == 0, completed
         lines = _ledger(ledger)
@@ -221,7 +226,7 @@ def Gate_InvocationFromAWorktree_LeavesATraceOrIsRecordedAsNotRunning():
     with _catalog_repository() as repo, tempfile.TemporaryDirectory() as elsewhere:
         worktree = pathlib.Path(elsewhere) / "worktree"
         _git(repo, "worktree", "add", "-q", "-b", "gate-probe", str(worktree))
-        ledger = pathlib.Path(elsewhere) / "phase-gate.log"
+        ledger = pathlib.Path(elsewhere) / "spec-gate.log"
         completed = _run_gate(f'git commit -m "{MARKER_MESSAGE}"', str(worktree), ledger)
         assert completed.returncode == 0, completed
         lines = _ledger(ledger)
@@ -231,8 +236,8 @@ def Gate_InvocationFromAWorktree_LeavesATraceOrIsRecordedAsNotRunning():
 
 def Gate_PassingRun_IsDistinguishableFromNoRun():
     with _catalog_repository() as repo, tempfile.TemporaryDirectory() as elsewhere:
-        ledger = pathlib.Path(elsewhere) / "phase-gate.log"
-        _run_gate('git commit -m "chore: no phase here"', repo, ledger)
+        ledger = pathlib.Path(elsewhere) / "spec-gate.log"
+        _run_gate('git commit -m "chore: no spec here"', repo, ledger)
         assert _ledger(ledger) == [], _ledger(ledger)
         _run_gate(f'git commit -m "{MARKER_MESSAGE}"', repo, ledger)
         assert [line[1] for line in _ledger(ledger)] == ["passed"], _ledger(ledger)
@@ -240,7 +245,7 @@ def Gate_PassingRun_IsDistinguishableFromNoRun():
 
 def Gate_BlockedCommit_IsRecordedAsBlocked():
     with _catalog_repository(validator_exit=1) as repo, tempfile.TemporaryDirectory() as elsewhere:
-        ledger = pathlib.Path(elsewhere) / "phase-gate.log"
+        ledger = pathlib.Path(elsewhere) / "spec-gate.log"
         completed = _run_gate(f'git commit -m "{MARKER_MESSAGE}"', repo, ledger)
         assert completed.returncode == 2, completed
         assert [line[1] for line in _ledger(ledger)] == ["blocked"], _ledger(ledger)
@@ -248,7 +253,7 @@ def Gate_BlockedCommit_IsRecordedAsBlocked():
 
 def Gate_MessageBuiltByTheShell_PassesThroughAndSaysSo():
     with _catalog_repository() as repo, tempfile.TemporaryDirectory() as elsewhere:
-        ledger = pathlib.Path(elsewhere) / "phase-gate.log"
+        ledger = pathlib.Path(elsewhere) / "spec-gate.log"
         completed = _run_gate('git commit -m "$(cat message.txt)"', repo, ledger)
         assert completed.returncode == 0, completed
         assert "built by the shell" in completed.stderr, completed.stderr
@@ -257,14 +262,14 @@ def Gate_MessageBuiltByTheShell_PassesThroughAndSaysSo():
 
 def Gate_UnresolvableMessage_IsRecordedAsNotGated():
     with _catalog_repository() as repo, tempfile.TemporaryDirectory() as elsewhere:
-        ledger = pathlib.Path(elsewhere) / "phase-gate.log"
+        ledger = pathlib.Path(elsewhere) / "spec-gate.log"
         _run_gate("git commit -F -", repo, ledger)
         assert [line[1] for line in _ledger(ledger)] == ["not-gated"], _ledger(ledger)
 
 
 def Gate_CommitCarryingADateMintedId_Gates():
     """A p0507 id must reach the gate exactly as a counter id does. It would not have:
-    the marker pattern required a `p`, so a date-minted phase commit exited 0 unchecked —
+    the marker pattern required a `p`, so a date-minted spec commit exited 0 unchecked —
     a skip indistinguishable from a pass, since both are silent."""
     with _repository("seed") as repo:
         completed = _run_gate(f'git commit -m "{MINTED_MARKER_MESSAGE}"', repo)
@@ -272,17 +277,17 @@ def Gate_CommitCarryingADateMintedId_Gates():
 
 
 def Gate_DateMintedIdIsRecordedInTheLedger():
-    """The ledger must name the phase, not "unknown" — a phase commit with no line never
+    """The ledger must name the spec, not "unknown" — a spec commit with no line never
     met the gate, so the id has to survive into the record as well as into the decision."""
     with _catalog_repository() as repo, tempfile.TemporaryDirectory() as elsewhere:
-        ledger = pathlib.Path(elsewhere) / "phase-gate.log"
+        ledger = pathlib.Path(elsewhere) / "spec-gate.log"
         _run_gate(f'git commit -m "{MINTED_MARKER_MESSAGE}"', repo, ledger)
         lines = _ledger(ledger)
         assert [line[2] for line in lines] == ["2026-08-24-8a3f"], lines
 
 
 def Gate_MalformedDateMintedMarker_PassesThrough():
-    """Widening must not turn any parenthesised text into a phase marker."""
+    """Widening must not turn any parenthesised text into a spec marker."""
     with _repository("seed") as repo:
         completed = _run_gate('git commit -m "chore: nightly (2026-13-99-zzzz)"', repo)
         assert completed.returncode == 0, completed
@@ -314,14 +319,14 @@ def _dashboard_repository(dashboard_exit=0, mirror=None):
     """A throwaway repository shaped like THIS one — it carries an AgentSmith.sln, so
     the gate runs the solution checks, and a src/dashboard whose pnpm is a stub that
     exits as told. In the sequential gate (fewer than eight cores, which the cases here pin)
-    the dashboard step runs first, so a failing stub blocks the phase commit before a single
+    the dashboard step runs first, so a failing stub blocks the spec commit before a single
     .NET command is reached; the lane cases further down drive the other shape.
 
     `mirror` gives the tree a generated mirror to check: this repository's own generator,
     a C# event enum and a TypeScript mirror that either keeps up with it ("intact") or has
     fallen behind it ("drifted"), and the package.json script that is what makes the gate
     run the step at all. Without it the package.json declares no such script, which is the
-    shape of every tree cut before 2026-09-18-7b31 — and, until that phase, of every
+    shape of every tree cut before 2026-09-18-7b31 — and, until that spec, of every
     fixture here."""
     with _repository("seed") as repo:
         root = pathlib.Path(repo)
@@ -368,10 +373,10 @@ def _run_gate_with_stub_pnpm(command, repo, stub_dir, trace, ledger=None, cores=
     the lane cases pass eight."""
     payload = json.dumps({"tool_input": {"command": command}, "cwd": repo})
     environment = _environment()
-    environment["PHASE_GATE_LOG"] = str(ledger) if ledger else os.devnull
+    environment["SPEC_GATE_LOG"] = str(ledger) if ledger else os.devnull
     environment["PATH"] = f"{stub_dir}{os.pathsep}{environment['PATH']}"
     environment["PNPM_TRACE"] = str(trace)
-    environment["PHASE_GATE_CORES"] = cores
+    environment["SPEC_GATE_CORES"] = cores
     environment.update(extra or {})
     return subprocess.run(["bash", str(GATE_PATH)], input=payload, cwd=repo,
                           env=environment, capture_output=True, text=True)
@@ -394,12 +399,12 @@ def Gate_RunsTheDashboardBuildAndTests():
 
 
 def Gate_TheDashboardTestsFail_BlocksTheCommit():
-    """A red dashboard is a blocked phase commit, named as such — not a warning."""
+    """A red dashboard is a blocked spec commit, named as such — not a warning."""
     with _dashboard_repository(dashboard_exit=1) as (repo, stub_dir), \
             tempfile.TemporaryDirectory() as scratch:
         trace = pathlib.Path(scratch) / "pnpm.trace"
         trace.write_text("")
-        ledger = pathlib.Path(scratch) / "phase-gate.log"
+        ledger = pathlib.Path(scratch) / "spec-gate.log"
         completed = _run_gate_with_stub_pnpm(
             f'git commit -m "{MARKER_MESSAGE}"', repo, stub_dir, trace, ledger)
         assert completed.returncode == 2, completed
@@ -445,14 +450,14 @@ def Gate_MirrorIntact_RunsTheStepAndBlocksOnlyLater():
 
 
 def Gate_DashboardWithoutTheScript_SaysNothingToCheckAndIsNotBlockedByTheMirrorStep():
-    """A tree cut before this phase declares no gen:hub-events script. Whether the step
+    """A tree cut before this spec declares no gen:hub-events script. Whether the step
     runs is read from package.json rather than inferred from pnpm's exit code, which
     answers a missing script with a non-zero this gate reads as a failure — so such a
     tree is skipped, says so, and whatever blocks it later is something else."""
     with _dashboard_repository() as (repo, stub_dir), tempfile.TemporaryDirectory() as scratch:
         trace = pathlib.Path(scratch) / "pnpm.trace"
         trace.write_text("")
-        ledger = pathlib.Path(scratch) / "phase-gate.log"
+        ledger = pathlib.Path(scratch) / "spec-gate.log"
         completed = _run_gate_with_stub_pnpm(
             f'git commit -m "{MARKER_MESSAGE}"', repo, stub_dir, trace, ledger)
         assert "no gen:hub-events script" in completed.stderr, completed.stderr
@@ -469,7 +474,7 @@ def Gate_TheBlockedLedgerLine_NamesTheMirrorStep():
             tempfile.TemporaryDirectory() as scratch:
         trace = pathlib.Path(scratch) / "pnpm.trace"
         trace.write_text("")
-        ledger = pathlib.Path(scratch) / "phase-gate.log"
+        ledger = pathlib.Path(scratch) / "spec-gate.log"
         completed = _run_gate_with_stub_pnpm(
             f'git commit -m "{MARKER_MESSAGE}"', repo, stub_dir, trace, ledger)
         assert completed.returncode == 2, completed
@@ -523,7 +528,7 @@ def _run_lanes(repo, stub_dir, scratch, cores="8", **dotnet):
     trace.write_text("")
     dotnet_trace = pathlib.Path(scratch) / "dotnet.trace"
     dotnet_trace.write_text("")
-    ledger = pathlib.Path(scratch) / "phase-gate.log"
+    ledger = pathlib.Path(scratch) / "spec-gate.log"
     extra = {"DOTNET_TRACE": str(dotnet_trace)}
     extra.update({k.upper(): v for k, v in dotnet.items()})
     completed = _run_gate_with_stub_pnpm(f'git commit -m "{MARKER_MESSAGE}"', repo, stub_dir,
@@ -639,7 +644,7 @@ def Gate_NoPnpmForADashboardThatExists_FailsLoudlyInsteadOfSkipping():
         payload = json.dumps({"tool_input": {"command": f'git commit -m "{MARKER_MESSAGE}"'},
                               "cwd": repo})
         environment = _environment()
-        environment["PHASE_GATE_LOG"] = os.devnull
+        environment["SPEC_GATE_LOG"] = os.devnull
         environment["PATH"] = bin_dir
         completed = subprocess.run([os.path.join(bin_dir, "bash"), str(GATE_PATH)],
                                    input=payload, cwd=repo, env=environment,
@@ -649,7 +654,7 @@ def Gate_NoPnpmForADashboardThatExists_FailsLoudlyInsteadOfSkipping():
 
 
 # 2026-09-21-9ae2: the gate runs the hook tests of the tree it gates, before anything
-# else it checks — the files below had sat beside it for three phases with nothing
+# else it checks — the files below had sat beside it for three specs with nothing
 # running them, which is how its command detection drifted from the forms agents write.
 # A stand-in for one of those files: it records the environment the gate hands it, writes
 # a ledger line of its own the way a real fixture does, and drives the gate once more,
@@ -660,9 +665,10 @@ import os
 import pathlib
 import subprocess
 
-ledger = os.environ.get("PHASE_GATE_LOG", "")
+ledger = os.environ.get("SPEC_GATE_LOG", "")
+legacy = os.environ.get("PHASE_GATE_LOG", "")
 with pathlib.Path(os.environ["PROBE_TRACE"]).open("a") as trace:
-    trace.write(f"ran\\tledger={ledger}\\n")
+    trace.write(f"ran\\tlegacy={legacy}\\tledger={ledger}\\n")
 if ledger:
     with pathlib.Path(ledger).open("a") as handle:
         handle.write("probe\\twritten-by-a-hook-test\\n")
@@ -693,7 +699,7 @@ def _run_gate_over_hook_tests(repo, ledger, trace):
     payload = json.dumps({"tool_input": {"command": f'git commit -m "{MARKER_MESSAGE}"'},
                           "cwd": repo})
     environment = _environment()
-    environment["PHASE_GATE_LOG"] = str(ledger)
+    environment["SPEC_GATE_LOG"] = str(ledger)
     environment["PROBE_TRACE"] = str(trace)
     environment["PROBE_GATE"] = str(GATE_PATH)
     environment["PROBE_TREE"] = str(repo)
@@ -705,7 +711,7 @@ def _run_gate_over_hook_tests(repo, ledger, trace):
 def Gate_TheHookTests_AreRunByTheGate():
     with _repository_with_hook_tests() as repo, tempfile.TemporaryDirectory() as scratch:
         trace = pathlib.Path(scratch) / "probe.trace"
-        ledger = pathlib.Path(scratch) / "phase-gate.log"
+        ledger = pathlib.Path(scratch) / "spec-gate.log"
         completed = _run_gate_over_hook_tests(repo, ledger, trace)
         assert completed.returncode == 0, completed
         assert trace.read_text().startswith("ran\t"), trace.read_text()
@@ -717,7 +723,7 @@ def Gate_TheHookTestsRunByTheGate_WriteNoLedgerLine():
     not reach this one — a ledger line that names no commit is worse than none."""
     with _repository_with_hook_tests() as repo, tempfile.TemporaryDirectory() as scratch:
         trace = pathlib.Path(scratch) / "probe.trace"
-        ledger = pathlib.Path(scratch) / "phase-gate.log"
+        ledger = pathlib.Path(scratch) / "spec-gate.log"
         _run_gate_over_hook_tests(repo, ledger, trace)
         recorded = trace.read_text().partition("ledger=")[2].strip()
         assert recorded and recorded != str(ledger), trace.read_text()
@@ -729,17 +735,17 @@ def Gate_TheHookTestsRunByTheGate_AreNotRunAgainByTheGateTheyDrive():
     it — the probe therefore runs once, not once per level."""
     with _repository_with_hook_tests() as repo, tempfile.TemporaryDirectory() as scratch:
         trace = pathlib.Path(scratch) / "probe.trace"
-        ledger = pathlib.Path(scratch) / "phase-gate.log"
+        ledger = pathlib.Path(scratch) / "spec-gate.log"
         _run_gate_over_hook_tests(repo, ledger, trace)
         assert len(trace.read_text().splitlines()) == 1, trace.read_text()
 
 
 def Gate_RedHookTests_BlockTheCommit():
     """A step that never blocks is decoration; the gate that cannot prove itself does
-    not let the phase commit past."""
+    not let the spec commit past."""
     with _repository_with_hook_tests(_FAILING_HOOK_TEST) as repo, \
             tempfile.TemporaryDirectory() as scratch:
-        ledger = pathlib.Path(scratch) / "phase-gate.log"
+        ledger = pathlib.Path(scratch) / "spec-gate.log"
         completed = _run_gate(f'git commit -m "{MARKER_MESSAGE}"', repo, ledger)
         assert completed.returncode == 2, completed
         assert "the hook tests are red" in completed.stderr, completed.stderr
@@ -748,16 +754,109 @@ def Gate_RedHookTests_BlockTheCommit():
 
 
 def Gate_ASpawnedGate_InheritsNoSelftestFlag():
-    """The gate sets PHASE_GATE_SELFTEST when it runs these tests, so every gate the suite
+    """The gate sets SPEC_GATE_SELFTEST when it runs these tests, so every gate the suite
     spawns would skip its own hook-test step if the helper passed the flag on. The four tests
     above would then be green by hand and red whenever the gate ran them, which is how they
     shipped. Pinned here rather than in each of them, because the next spawned gate is the one
     that would forget."""
-    os.environ["PHASE_GATE_SELFTEST"] = "1"
-    try:
-        assert "PHASE_GATE_SELFTEST" not in _environment(), _environment()
-    finally:
-        os.environ.pop("PHASE_GATE_SELFTEST", None)
+    for variable in ("SPEC_GATE_SELFTEST", "PHASE_GATE_SELFTEST"):
+        os.environ[variable] = "1"
+        try:
+            assert variable not in _environment(), _environment()
+        finally:
+            os.environ.pop(variable, None)
+
+
+def Gate_TheHookTestsRunByTheGate_GetBothVariableNames():
+    """A hook test written against the old name must stay isolated too: the gate hands the
+    scratch ledger to it under both names (2026-10-12-967af)."""
+    with _repository_with_hook_tests() as repo, tempfile.TemporaryDirectory() as scratch:
+        trace = pathlib.Path(scratch) / "probe.trace"
+        ledger = pathlib.Path(scratch) / "spec-gate.log"
+        _run_gate_over_hook_tests(repo, ledger, trace)
+        first = trace.read_text().splitlines()[0]
+        legacy = first.partition("legacy=")[2].partition("\t")[0]
+        recorded = first.partition("ledger=")[2]
+        assert legacy and legacy == recorded and legacy != str(ledger), first
+
+
+def Gate_TheOldVariableNames_AreStillHonoured():
+    with _catalog_repository() as repo, tempfile.TemporaryDirectory() as scratch:
+        ledger = pathlib.Path(scratch) / "old-name.log"
+        payload = json.dumps({"tool_input": {"command": f'git commit -m "{MARKER_MESSAGE}"'},
+                              "cwd": repo})
+        environment = _environment()
+        environment["PHASE_GATE_LOG"] = str(ledger)
+        completed = subprocess.run(["bash", str(GATE_PATH)], input=payload, cwd=repo,
+                                   env=environment, capture_output=True, text=True)
+        assert completed.returncode == 0, completed
+        assert [line[1] for line in _ledger(ledger)] == ["passed"], _ledger(ledger)
+
+
+def Gate_TheOldPath_ForwardsToTheGate():
+    """A session that started before the rename still calls phase-gate.sh, and a missing
+    hook exits 127 — which does not block. The old path must gate, pass and block exactly
+    like the new one, called the way Claude Code calls it: as an executable."""
+    assert os.access(FORWARDER_PATH, os.X_OK), FORWARDER_PATH
+    for validator_exit, expected, verdict in ((0, 0, "passed"), (1, 2, "blocked")):
+        with _catalog_repository(validator_exit) as repo, \
+                tempfile.TemporaryDirectory() as scratch:
+            ledger = pathlib.Path(scratch) / "spec-gate.log"
+            payload = json.dumps({"tool_input": {"command": f'git commit -m "{MARKER_MESSAGE}"'},
+                                  "cwd": repo})
+            environment = _environment()
+            environment["SPEC_GATE_LOG"] = str(ledger)
+            completed = subprocess.run([str(FORWARDER_PATH)], input=payload, cwd=repo,
+                                       env=environment, capture_output=True, text=True)
+            assert completed.returncode == expected, completed
+            assert "[spec-gate]" in completed.stderr, completed.stderr
+            assert [line[1] for line in _ledger(ledger)] == [verdict], _ledger(ledger)
+
+
+@contextlib.contextmanager
+def _installed_gate():
+    """A copy of the hooks in a throwaway .claude/, so the DEFAULT ledger path — the one the
+    old-ledger move acts on — is a scratch directory and never the operator's ledger."""
+    with tempfile.TemporaryDirectory() as path:
+        hooks = pathlib.Path(path) / ".claude" / "hooks"
+        hooks.mkdir(parents=True)
+        for name in ("spec-gate.sh", "phase-gate.sh", "commit-message.py"):
+            shutil.copy2(HOOKS_DIR / name, hooks / name)
+        yield hooks
+
+
+def _run_installed_gate(hooks, repo):
+    payload = json.dumps({"tool_input": {"command": f'git commit -m "{MARKER_MESSAGE}"'},
+                          "cwd": repo})
+    return subprocess.run(["bash", str(hooks / "spec-gate.sh")], input=payload, cwd=repo,
+                          env=_environment(), capture_output=True, text=True)
+
+
+def Gate_OldLedgerOnly_MovedOnce():
+    """The old ledger's history continues in the new one: moved when only it exists, and
+    the move happens once — the second run appends, it does not move anything again."""
+    with _installed_gate() as hooks, _catalog_repository() as repo:
+        old, new = hooks.parent / "phase-gate.log", hooks.parent / "spec-gate.log"
+        old.write_text("2026-10-01T00:00:00Z\tpassed\tp0001\t/tree\tabc1234\thistory\n")
+        for _ in range(2):
+            completed = _run_installed_gate(hooks, repo)
+            assert completed.returncode == 0, completed
+        assert not old.exists(), old
+        assert [line[1] for line in _ledger(new)] == ["passed", "passed", "passed"], _ledger(new)
+        assert _ledger(new)[0][5] == "history", _ledger(new)
+
+
+def Gate_BothLedgers_LeftAlone():
+    """Two ledgers are never merged: when the new one already exists the old file stays as
+    it is and the line goes to the new one."""
+    with _installed_gate() as hooks, _catalog_repository() as repo:
+        old, new = hooks.parent / "phase-gate.log", hooks.parent / "spec-gate.log"
+        old.write_text("old\tline\n")
+        new.write_text("new\tline\n")
+        completed = _run_installed_gate(hooks, repo)
+        assert completed.returncode == 0, completed
+        assert old.read_text() == "old\tline\n", old.read_text()
+        assert [line[1] for line in _ledger(new)] == ["line", "passed"], _ledger(new)
 
 
 def _cases():

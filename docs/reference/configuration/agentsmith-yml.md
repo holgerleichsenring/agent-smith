@@ -111,7 +111,7 @@ A role names its catalog entry with `use:`. No role has a built-in model. An uns
 |------|----------|-------------|
 | `primary` | the agentic work | the agent's `model` and `deployment` |
 | `scout` | code analysis, file discovery | `primary` |
-| `planning` | cutting the work into phases | `primary` |
+| `planning` | cutting the work into specs | `primary` |
 | `summarization` | condensing long histories | `primary` |
 | `reasoning` | extended thinking | `primary` |
 | `context_generation` | discovering components and writing each `context.yaml` | `primary` |
@@ -193,7 +193,7 @@ Where tickets come from and how their workflow looks. The tracker owns the workf
 | `default_pipeline` | what a ticket runs when the label map is empty. Unset everywhere means `code`, with a startup finding |
 | `label_names` | renames the labels the framework writes. Keys: `pending`, `enqueued`, `in-progress`, `done`, `failed`, `waiting`, `shortfall`, `approved-set` |
 | `lifecycle_status_names` | Jira: lifecycle state → native workflow status, instead of carrying the lifecycle only as labels |
-| `work_item_kinds` | Azure DevOps and Jira: filing role (`work`, `bug`, `phase`, `chat`) → work-item or issue type. GitHub and GitLab ignore it |
+| `work_item_kinds` | Azure DevOps and Jira: filing role (`work`, `bug`, `spec` — `phase` still accepted — `chat`) → work-item or issue type. GitHub and GitLab ignore it |
 | `extra_fields` | additional work-item fields to fetch |
 | `zero_match_comment` | comment on a ticket no project matched |
 | `polling` | `enabled` (false), `interval_seconds` (60), `jitter_percent` (10). See [Polling](../../trigger-it/polling.md) |

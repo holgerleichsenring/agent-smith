@@ -15,21 +15,21 @@ Speculation surfaces; it doesn't get to pass as fact. And the framework enforces
 
 ## How a coding run flows
 
-There is one coding pipeline, `code`. Its shape is simple to say: the ticket becomes a specification, and the specification is worked phase by phase, each phase checked before the next one starts.
+There is one coding pipeline, `code`. Its shape is simple to say: the ticket becomes a specification, and the specification is worked spec by spec, each spec checked before the next one starts.
 
-**The spec is the plan.** After the code has been read, `DeriveSpec` cuts the ticket into an ordered set of phase specs on the ticket branch — goal, steps, "done when" per phase. Before it writes, the derivation looks at the repository through read-only tools, and the cut it posts to the ticket separates facts (each backed by a look it took) from assumptions (stated without one). A fresh reviewer objects to the cut before it is kept. There is no second planning step and no approval gate: the master opens on the spec, and the spec is what gets verified. Details in [Expectations](expectations.md).
+**The spec is the plan.** After the code has been read, `DeriveSpec` cuts the ticket into an ordered set of specs on the ticket branch — goal, steps, "done when" per spec. Before it writes, the derivation looks at the repository through read-only tools, and the cut it posts to the ticket separates facts (each backed by a look it took) from assumptions (stated without one). A fresh reviewer objects to the cut before it is kept. There is no second planning step and no approval gate: the master opens on the spec, and the spec is what gets verified. Details in [Expectations](expectations.md).
 
 **Hand it back instead of guessing.** A ticket that reads two ways, contradicts the repository, or can't be built as written is handed back at derivation, before any code. A ticket that asks for something that must not be done is refused even earlier, by the scope call, before a sandbox exists.
 
-**Check the premises before each phase.** A phase states what it rests on. Before its work starts, a fresh instance checks those premises against the repositories as they are now — it can run one of the verify stages the repository declares, by its label. A premise that no longer holds hands the phase back with what was looked at. The check reports; it never rewrites the specification.
+**Check the premises before each spec.** A spec states what it rests on. Before its work starts, a fresh instance checks those premises against the repositories as they are now — it can run one of the verify stages the repository declares, by its label. A premise that no longer holds hands the spec back with what was looked at. The check reports; it never rewrites the specification.
 
-**One master, real commands.** The `coding-agent-master` skill does the phase's work: it edits the code and runs the repo's own build and tests via real commands, visible in the run timeline.
+**One master, real commands.** The `coding-agent-master` skill does the spec's work: it edits the code and runs the repo's own build and tests via real commands, visible in the run timeline.
 
-**Verification the master doesn't grade.** `VerifyPhase` runs the verify stages each repository declares, then takes the [delivery account](delivery-account.md): every criterion checked against the real branch, with citations that have to resolve, by a reader that never saw the master's reasoning. An outstanding criterion earns one repair pass. The run's verdict comes from these per-phase accounts and from nothing else.
+**Verification the master doesn't grade.** `VerifyPhase` runs the verify stages each repository declares, then takes the [delivery account](delivery-account.md): every criterion checked against the real branch, with citations that have to resolve, by a reader that never saw the master's reasoning. An outstanding criterion earns one repair pass. The run's verdict comes from these per-spec accounts and from nothing else.
 
-**A review after green.** A fresh reviewer reads the phase's diff against the spec and the repository's principles. Its findings get one fix pass; a fix that doesn't verify is undone, and what the review still finds goes into the phase record, the `phase_review` artifact and the PR. The review never fails a phase that verified.
+**A review after green.** A fresh reviewer reads the spec's diff against it and the repository's principles. Its findings get one fix pass; a fix that doesn't verify is undone, and what the review still finds goes into the spec record, the `phase_review` artifact and the PR. The review never fails a spec that verified.
 
-A run that stops half way still delivers honestly: verified phases ship on a ready PR with a "Not delivered" section, unverified work is reset, and a run that verified nothing leaves a draft PR with a failure banner. See [Lifecycle](lifecycle.md#when-it-goes-wrong).
+A run that stops half way still delivers honestly: verified specs ship on a ready PR with a "Not delivered" section, unverified work is reset, and a run that verified nothing leaves a draft PR with a failure banner. See [Lifecycle](lifecycle.md#when-it-goes-wrong).
 
 ## Scan pipelines: master plus roles
 
@@ -37,7 +37,7 @@ The findings pipelines (`security-scan`, `api-security-scan`, `legal-analysis`) 
 
 ## Spec-first
 
-The methodology works on two levels. The runs follow it: every change starts as a phase spec with a "done when" list, and ends as a phase record committed to the target repository under `.agentsmith/specs/done/`, with a one-line entry in that repository's context. The skills follow it too. Every skill in the `agent-smith-skills` catalog is YAML frontmatter plus a Markdown body, pinned by version, so the judgement a master exercises can be tuned without a release. See the [Skills catalog](skills-catalog.md).
+The methodology works on two levels. The runs follow it: every change starts as a spec with a "done when" list, and ends as a spec record committed to the target repository under `.agentsmith/specs/done/`, with a one-line entry in that repository's context. The skills follow it too. Every skill in the `agent-smith-skills` catalog is YAML frontmatter plus a Markdown body, pinned by version, so the judgement a master exercises can be tuned without a release. See the [Skills catalog](skills-catalog.md).
 
 ## What lands in the run directory
 
@@ -49,21 +49,21 @@ Every run leaves a record in the repository, committed with the change. The run 
 
 **Decisions** — non-obvious choices the agent made during the run. "Picked `400 BadRequest` over `404 Not Found` because the OpenAPI spec already documents 400 for malformed input". The agent records these with the `log_decision` tool when something would surprise a future reader; they land in `.agentsmith/decisions/<run-id>.yaml` and in the run's event stream.
 
-The specification itself lives next to the code, under `.agentsmith/specs/<provider>-<ticket-id>/`: one YAML spec and one Markdown companion per phase, plus `accounting.md`, which shows where every part of the ticket went. The run directories are what the [knowledge-base feature](../reference/concepts/knowledge-base.md) compiles when it builds the wiki across all your runs.
+The specification itself lives next to the code, under `.agentsmith/specs/<provider>-<ticket-id>/`: one YAML spec and one Markdown companion per spec, plus `accounting.md`, which shows where every part of the ticket went. The run directories are what the [knowledge-base feature](../reference/concepts/knowledge-base.md) compiles when it builds the wiki across all your runs.
 
 ## What about hallucinations
 
 The evidence contract is the first mitigation. A finding without a file:line citation is a `Potential` observation by definition, and a claimed citation of a file nobody read is downgraded. The agent can still be wrong about the file:line it points at — but you can check, which is a much weaker class of failure than "the agent invented a function name".
 
-The second is role separation. The instance that judges the work is never the one that did it: the cut reviewer, the premise check, the delivery account and the phase review each start fresh, with no channel to the master's reasoning. Asking the author whether it is done is persuasion; looking at the branch is not.
+The second is role separation. The instance that judges the work is never the one that did it: the cut reviewer, the premise check, the delivery account and the spec review each start fresh, with no channel to the master's reasoning. Asking the author whether it is done is persuasion; looking at the branch is not.
 
 ## Why this order
 
 Spec before code: agree on the WHAT while it's still cheap to disagree. Every correction you make to the cut is an argument you don't have on the PR.
 
-Premises before work: a spec can go stale between the day it was cut and the day its phase runs. Checking costs one look; building on a false premise costs the phase.
+Premises before work: a spec can go stale between the day it was cut and the day its spec runs. Checking costs one look; building on a false premise costs the spec.
 
-Verification after every phase, not once at the end: each phase ends at its own done-list, so stopping is structural rather than a judgement the model has to reach, and a run that stops half way knows exactly which phases are through.
+Verification after every spec, not once at the end: each spec ends at its own done-list, so stopping is structural rather than a judgement the model has to reach, and a run that stops half way knows exactly which specs are through.
 
 Review after green: the review reads verified work, so what it objects to is quality, not whether the thing works.
 

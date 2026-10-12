@@ -128,7 +128,7 @@ spec:
             # webhook secrets carry it — a secretKeyRef to a key the Secret does not
             # have gives CreateContainerConfigError and the pod never starts, so an
             # operator upgrading with an older Secret must not be stopped by these.
-            # No authority means nothing authenticates, as before this phase.
+            # No authority means nothing authenticates, as before p0503b.
             - name: AGENTSMITH_AUTH_AUTHORITY
               valueFrom:
                 secretKeyRef:

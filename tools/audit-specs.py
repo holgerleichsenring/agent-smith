@@ -1,13 +1,13 @@
 """
-Audit done phases for spec-vs-reality drift.
-For each phase, extracts claimed file paths (new:/modify:) and test names (tests:),
+Audit done specs for spec-vs-reality drift.
+For each spec, extracts claimed file paths (new:/modify:) and test names (tests:),
 checks they exist in the repo. Surfaces 'deferred' markers as known gaps.
 """
 import os, re, glob, sys
 from collections import defaultdict
 
 ROOT = './agent-smith/agent-smith'
-PHASES = sorted(glob.glob(os.path.join(ROOT, '.agentsmith/specs/done/*.yaml')))
+SPECS = sorted(glob.glob(os.path.join(ROOT, '.agentsmith/specs/done/*.yaml')))
 
 # Walk repo once, build file index
 SRC_INDEX = set()
@@ -33,9 +33,9 @@ DEFERRED_RE = re.compile(r'(?i)\b(deferred|TODO\b|placeholder|stub|silently\s+(?
 
 drift_report = defaultdict(lambda: {'missing_files': [], 'missing_tests': [], 'deferred': []})
 
-for phase_path in PHASES:
-    phase_name = os.path.basename(phase_path).replace('.yaml', '')
-    with open(phase_path) as fp:
+for spec_path in SPECS:
+    spec_name = os.path.basename(spec_path).replace('.yaml', '')
+    with open(spec_path) as fp:
         content = fp.read()
 
     # File-path claims under new:/modify: (both for src and tests)
@@ -51,7 +51,7 @@ for phase_path in PHASES:
         if path not in SRC_INDEX:
             # try just basename match
             if os.path.basename(path) not in SRC_INDEX:
-                drift_report[phase_name]['missing_files'].append(path)
+                drift_report[spec_name]['missing_files'].append(path)
 
     # Test method claims under tests:
     in_tests = False
@@ -67,7 +67,7 @@ for phase_path in PHASES:
                 # the spec sometimes appends "(comment)" — drop everything after a space inside the literal
                 tname_core = tname.split()[0]
                 if tname_core not in TEST_METHODS:
-                    drift_report[phase_name]['missing_tests'].append(tname_core)
+                    drift_report[spec_name]['missing_tests'].append(tname_core)
 
     # Deferred markers — explicit known gaps
     for m in DEFERRED_RE.finditer(content):
@@ -76,32 +76,32 @@ for phase_path in PHASES:
         line_end = content.find('\n', m.end())
         line = content[line_start:line_end if line_end > 0 else len(content)].strip()
         if len(line) > 200: line = line[:197] + '...'
-        drift_report[phase_name]['deferred'].append(line)
+        drift_report[spec_name]['deferred'].append(line)
 
 # Summarize
-print(f"Audit of {len(PHASES)} done phases\n" + "=" * 60)
+print(f"Audit of {len(SPECS)} done specs\n" + "=" * 60)
 
-phases_with_missing_files = [p for p, d in drift_report.items() if d['missing_files']]
-phases_with_missing_tests = [p for p, d in drift_report.items() if d['missing_tests']]
-phases_with_deferred = [p for p, d in drift_report.items() if d['deferred']]
+specs_with_missing_files = [p for p, d in drift_report.items() if d['missing_files']]
+specs_with_missing_tests = [p for p, d in drift_report.items() if d['missing_tests']]
+specs_with_deferred = [p for p, d in drift_report.items() if d['deferred']]
 
 print(f"\nMISSING FILES (spec promised, not found in repo):")
-print(f"  {len(phases_with_missing_files)} phases affected")
-for p in sorted(phases_with_missing_files)[:20]:
+print(f"  {len(specs_with_missing_files)} specs affected")
+for p in sorted(specs_with_missing_files)[:20]:
     print(f"\n  {p}:")
     for f in drift_report[p]['missing_files'][:5]:
         print(f"    - {f}")
 
 print(f"\n\nMISSING TESTS (spec listed, not found as test method):")
-print(f"  {len(phases_with_missing_tests)} phases affected")
-for p in sorted(phases_with_missing_tests)[:20]:
+print(f"  {len(specs_with_missing_tests)} specs affected")
+for p in sorted(specs_with_missing_tests)[:20]:
     print(f"\n  {p}:")
     for t in drift_report[p]['missing_tests'][:5]:
         print(f"    - {t}")
 
 print(f"\n\nDEFERRED MARKERS (explicit known gaps):")
-print(f"  {len(phases_with_deferred)} phases affected")
-for p in sorted(phases_with_deferred):
+print(f"  {len(specs_with_deferred)} specs affected")
+for p in sorted(specs_with_deferred):
     print(f"\n  {p}:")
     for line in drift_report[p]['deferred'][:3]:
         print(f"    {line}")

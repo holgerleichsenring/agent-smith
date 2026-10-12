@@ -1,6 +1,6 @@
 ---
 name: feedback_code_quality_bar
-description: "Reference quality is the operator's internal .NET reference codebases — Installer pattern, fluent step-builders, transient default, no phase-history comments"
+description: "Reference quality is the operator's internal .NET reference codebases — Installer pattern, fluent step-builders, transient default, no spec-history comments"
 metadata:
   type: feedback
 status: proposed
@@ -12,7 +12,7 @@ Operator's quality bar is the internal .NET reference codebases (background work
 
 **Rules I keep failing on:**
 
-- **No phase-history comments in code** (`// p0123: ...`, `// p0140d: ...`). Belongs in the commit message, the phase YAML, or the per-phase decision file — not the source. Rot inevitable.
+- **No spec-history comments in code** (`// p0123: ...`, `// p0140d: ...`). Belongs in the commit message, the spec YAML, or the per-spec decision file — not the source. Rot inevitable.
 - **No `new ServiceX(logger, factory, ...)` outside test builders.** If a class needs `new` with logger injection, it should be in DI. Caught me doing this multiple times in 2026-05.
 - **Transient is the default lifetime.** Singleton requires a documented reason in the decision file — usually it's not actually correct. "Stateless" is not a reason to be Singleton; it's a reason it doesn't matter, but if scope mismatches surface later, Transient avoids the trap.
 - **Class names must point at one responsibility.** `*Manager`, `*Helper`, `*Coordinator` are smells. If the name needs an "And" (`PipelineExecutor` doing iteration AND error handling AND sandbox AND cost AND lifecycle), it's not modeled yet.

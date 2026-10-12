@@ -13,7 +13,7 @@ The **database is the system of record** for run state. The tracker's status or 
 | **InProgress** | `agent-smith:in-progress` | A consumer pulled the request and a pipeline is running. Heartbeat is being renewed in Redis. |
 | **Waiting** | `agent-smith:waiting` | The run parked on a question and is waiting for a person to answer it. |
 | **Done** | `agent-smith:done` | Pipeline finished successfully. |
-| **Shortfall** | `agent-smith:shortfall` | The run delivered the phases it verified and fell short of the rest. A done that says so, never Failed. |
+| **Shortfall** | `agent-smith:shortfall` | The run delivered the specs it verified and fell short of the rest. A done that says so, never Failed. |
 | **Failed** | `agent-smith:failed` | Pipeline failed. Error is posted as a comment on the ticket. |
 
 When a run ends, the label is chosen in this order: Failed if the run failed, Waiting if it parked on a person, Shortfall if it delivered only part of the work, Done otherwise.
@@ -112,7 +112,7 @@ At the end of a run the framework moves the ticket to its configured done (or pa
 
 ## Observability
 
-Every state transition logs at Information level with `ticketId`, `platform`, `outcome`. The reconciler logs every recovery action ("re-enqueued orphan ticket X"). For dashboards, OpenTelemetry counters land in a follow-up phase.
+Every state transition logs at Information level with `ticketId`, `platform`, `outcome`. The reconciler logs every recovery action ("re-enqueued orphan ticket X"). For dashboards, OpenTelemetry counters land in a follow-up spec.
 
 To inspect lifecycle state for a project at a glance, list issues by label in the platform's UI:
 

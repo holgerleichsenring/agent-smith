@@ -1,6 +1,6 @@
-# Phases & Runs
+# Specs & Runs
 
-Agent Smith tracks its own development through a structured workflow of **phases** and **runs**. This is the meta-workflow — how the project itself is planned, executed, and documented.
+Agent Smith tracks its own development through a structured workflow of **specs** and **runs**. This is the meta-workflow — how the project itself is planned, executed, and documented.
 
 ## The .agentsmith/ Directory
 
@@ -11,13 +11,13 @@ Every project that Agent Smith works on gets an `.agentsmith/` directory:
 ├── context.yaml          # Project description + state tracking
 │                         #   (or contexts/<name>/context.yaml per context)
 ├── principles.md         # The rules the repository states
-├── decisions/            # One decision YAML per phase or run
+├── decisions/            # One decision YAML per spec or run
 ├── memory/               # Experiential memory: MEMORY.md index + one fact per file
 ├── specs/
-│   ├── github-54/        # One ticket's phase specs, written by a code run
-│   ├── done/             # Completed phase documents
+│   ├── github-54/        # One ticket's specs, written by a code run
+│   ├── done/             # Completed spec documents
 │   ├── active/           # Currently executing (max 1)
-│   └── planned/          # Upcoming phases
+│   └── planned/          # Upcoming specs
 ├── wiki/                 # LLM-compiled knowledge base, written by compile-wiki
 │   ├── index.md          # Table of contents for the wiki
 │   ├── decisions.md      # Decisions synthesized from the run records
@@ -35,24 +35,24 @@ Every project that Agent Smith works on gets an `.agentsmith/` directory:
 
 The `wiki/` directory is maintained by the [Project Knowledge Base](knowledge-base.md) -- an LLM-compiled wiki. The `compile-wiki` command reads each run's `plan.md` and `result.md` under `runs/`, plus the wiki as it stands, and asks the model to update the pages. It does not read `decisions/` or `security/`.
 
-## Phases
+## Specs
 
-A **phase** is a unit of planned work — a feature, refactor, or capability addition. Each phase has its own Markdown document describing the goal, motivation, approach, files to create/modify, and definition of done.
+A **spec** is a unit of planned work — a feature, refactor, or capability addition. Each spec has its own Markdown document describing the goal, motivation, approach, files to create/modify, and definition of done.
 
-### Phase Lifecycle
+### Spec Lifecycle
 
 ```
 planned/ → active/ → done/
 ```
 
 - **planned/** — documented but not started. Includes requirements, approach, and acceptance criteria.
-- **active/** — currently being worked on. Only one phase can be active at a time.
+- **active/** — currently being worked on. Only one spec can be active at a time.
 - **done/** — completed. The document stays as historical reference.
 
-### Phase Document Structure
+### Spec Document Structure
 
 ```markdown
-# Phase 52: Single Executable Release
+# p0052: Single Executable Release
 
 ## Goal
 What we're building and why.
@@ -74,7 +74,7 @@ Technical details of the implementation.
 - [ ] GIVEN an optional precondition WHEN the trigger THEN the observable result
 ```
 
-In a phase spec's yaml, a `done` item is either one line or a scenario mapping:
+In a spec's yaml, a `done` item is either one line or a scenario mapping:
 
 ```yaml
 done:
@@ -101,11 +101,11 @@ assumptions:
     check: "Read stored proposals before building."
 ```
 
-Evidence is checked mechanically, not by a model: every cited path must be a file that exists, every cited line must lie inside it, and evidence that is not a file — a log, a scan, a conversation — starts with `observed:` and carries its date. A citation of a planned or active phase is refused; a plan is not evidence. This repository's test suite holds every phase in `planned/` to that, and a new date-minted phase has to state at least one fact. In the product, a design proposal gets the same check against the turn's repositories (see [Spec dialogue](../../how-it-works/spec-dialogue.md)).
+Evidence is checked mechanically, not by a model: every cited path must be a file that exists, every cited line must lie inside it, and evidence that is not a file — a log, a scan, a conversation — starts with `observed:` and carries its date. A citation of a planned or active spec is refused; a plan is not evidence. This repository's test suite holds every spec in `planned/` to that, and a new date-minted spec has to state at least one fact. In the product, a design proposal gets the same check against the turn's repositories (see [Spec dialogue](../../how-it-works/spec-dialogue.md)).
 
-### Phase Tracking in context.yaml
+### Spec Tracking in context.yaml
 
-The `state` section in `context.yaml` tracks all phases:
+The `state` section in `context.yaml` tracks all specs:
 
 ```yaml
 state:
@@ -120,11 +120,11 @@ state:
     p0025: "PR review iteration → .agentsmith/specs/planned/p0025-pr-review.md"
 ```
 
-The key is the phase id; the text after it is a one-line summary, and planned phases point at their full document.
+The key is the spec id; the text after it is a one-line summary, and planned specs point at their full document.
 
-### Phases in a code run
+### Specs in a code run
 
-A [`code` run](../pipelines/fix-and-feature.md) works the same way on your repository. It cuts the ticket into phase specs under `.agentsmith/specs/<provider>-<ticket-id>/` — one YAML spec and one Markdown companion per phase, plus `accounting.md` — with ids derived from the ticket: ticket 54 becomes `p54a`, `p54b`, and so on. When a phase is verified, the run writes its record to `.agentsmith/specs/done/<id>-<slug>.yaml` and adds the matching `state.done` line to the context, so the repository carries the same planned → done history this project keeps for itself.
+A [`code` run](../pipelines/fix-and-feature.md) works the same way on your repository. It cuts the ticket into specs under `.agentsmith/specs/<provider>-<ticket-id>/` — one YAML spec and one Markdown companion per spec, plus `accounting.md` — with ids derived from the ticket: ticket 54 becomes `p54a`, `p54b`, and so on. When a spec is verified, the run writes its record to `.agentsmith/specs/done/<id>-<slug>.yaml` and adds the matching `state.done` line to the context, so the repository carries the same planned → done history this project keeps for itself.
 
 ## Runs
 
@@ -132,7 +132,7 @@ A **run** is a single execution of a pipeline against a ticket or task. Each run
 
 ### plan.md
 
-The coding master's own working plan, written into the run directory when it made one. The plan that the run is held to is the phase specification, not this file.
+The coding master's own working plan, written into the run directory when it made one. The plan that the run is held to is the specification, not this file.
 
 ### result.md
 
@@ -205,7 +205,7 @@ Directories in the old `r{NN}` format are invisible to wiki compilation; documen
 
 ## Agent Smith Evolution
 
-Agent Smith itself is built using this phase workflow. The timeline below shows how the project grew from core infrastructure to a full multi-agent orchestration system:
+Agent Smith itself is built using this spec workflow. The timeline below shows how the project grew from core infrastructure to a full multi-agent orchestration system:
 
 ```mermaid
 timeline
@@ -225,7 +225,7 @@ timeline
         p0064  : Typed Skill Orchestration
 ```
 
-Every one of these phases has a document in `.agentsmith/specs/done/` that explains the why, the how, and the definition of done. See [Self-Documentation](self-documentation.md) for the full picture.
+Every one of these specs has a document in `.agentsmith/specs/done/` that explains the why, the how, and the definition of done. See [Self-Documentation](self-documentation.md) for the full picture.
 
 ## Pipeline Cost Reference
 
@@ -239,23 +239,23 @@ Real numbers from actual pipeline runs. Costs depend on model choice, codebase s
 | mad-discussion | ~15 | ~$0.55 | ~80k / 20k | Discussion document + PR |
 
 !!! note "Real vs. estimated"
-    The security-scan row reflects a verified run (2026-04-09, agent-smith repo, claude-sonnet-4). Other rows are estimates based on typical runs. A `code` run's cost scales with the number of phases the ticket is cut into and is fenced by a per-ticket budget sized from the scope estimate. See [Cost Tracking](cost-tracking.md) for querying your own cost history.
+    The security-scan row reflects a verified run (2026-04-09, agent-smith repo, claude-sonnet-4). Other rows are estimates based on typical runs. A `code` run's cost scales with the number of specs the ticket is cut into and is fenced by a per-ticket budget sized from the scope estimate. See [Cost Tracking](cost-tracking.md) for querying your own cost history.
 
 ## The Complete Workflow
 
 When Agent Smith processes a ticket:
 
-1. **Specify** — cuts the ticket into phase specs on the ticket branch and posts the cut to the ticket
-2. **Execute** — works one phase at a time, after checking the phase's premises
-3. **Verify** — runs the repository's declared verify stages and takes the [delivery account](../../how-it-works/delivery-account.md) per phase
-4. **Record** — writes the phase record, then `result.md` with the account, cost and decision data
+1. **Specify** — cuts the ticket into specs on the ticket branch and posts the cut to the ticket
+2. **Execute** — works one spec at a time, after checking the spec's premises
+3. **Verify** — runs the repository's declared verify stages and takes the [delivery account](../../how-it-works/delivery-account.md) per spec
+4. **Record** — writes the spec record, then `result.md` with the account, cost and decision data
 5. **PR** — commits everything and finalizes one PR per repository
 
 The PR reviewer sees not just the code changes but also:
 
-- The specification the run worked from, phase by phase
+- The specification the run worked from, spec by spec
 - Which criteria the branch meets, with the evidence for each
-- What the phase review still finds, and what the run declined
+- What the spec review still finds, and what the run declined
 - How much it cost, and what decisions it made and why
 
 This transparency is the point. When the agent's code breaks six months later, you'll know what it was thinking.

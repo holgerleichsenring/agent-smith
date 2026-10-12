@@ -1,6 +1,6 @@
 # The code pipeline
 
-The **code** pipeline is Agent Smith's coding workflow. It takes a ticket, reads the codebase, derives a specification, works it phase by phase, verifies each phase, and opens a pull request per repository.
+The **code** pipeline is Agent Smith's coding workflow. It takes a ticket, reads the codebase, derives a specification, works it spec by spec, verifies each spec, and opens a pull request per repository.
 
 Bugs, features, refactors and migrations all run through it. The ticket's label is an input to the specification rather than a choice of pipeline. The names `fix-bug`, `fix-no-test`, `add-feature` and `phase-execution` no longer resolve: a server rewrites a stored configuration that still names them to `code` once at startup and says so, while a CLI `agentsmith.yml` carrying one fails until you edit it to `code`.
 
@@ -17,11 +17,11 @@ Bugs, features, refactors and migrations all run through it. The ticket's label 
 | 7 | BootstrapCheck / BootstrapGate | Refuses a repo with no `.agentsmith/` context |
 | 8 | LoadCodingPrinciples / LoadMemoryIndex / LoadDesignSystem / LoadContext | Loads the repo's principles, memory index, root DESIGN.md and context |
 | 9 | AnalyzeCode | Scout agent maps the relevant code |
-| 10 | DeriveSpec | Turns the ticket into an ordered set of phase specs on the ticket branch |
+| 10 | DeriveSpec | Turns the ticket into an ordered set of specs on the ticket branch |
 | 11 | SpecHandback | Parks the ticket when the derivation handed it back |
 | 12 | PhaseSpecGate | Validates the spec before a single master token is spent |
 | 13 | EnsurePrerequisites / ProbeTarget / MaterializeReferenceSets | Installs what the work needs, checks the target answers, and writes the websites the approval cites |
-| 14 | PhaseSequence | Splices one block of steps per phase that hasn't run yet |
+| 14 | PhaseSequence | Splices one block of steps per spec that hasn't run yet |
 | 15 | WriteRunResult | Writes `result.md` with the account, token usage and cost |
 | 16 | CommitAndPR / PrCrossLink | Commits, pushes, finalizes the PRs and cross-links them |
 
@@ -31,45 +31,45 @@ Bugs, features, refactors and migrations all run through it. The ticket's label 
 
 `MaterializeReferenceSets` writes every website set the approval cites into the carrying repository at `.agentsmith/reference/<setId>/`. The directory is excluded from the commit and from whole-repository searches; the master's prompt names each set. A cited set the run cannot read fails the run, naming it. A project whose `sandbox.browser.enabled` is on also gives the coding master `render_reference` and `compare_reference` and reserves one browser pod per run. `compare_reference` lists every computed-style difference between mapped selectors of a reference and a candidate page and a screenshot similarity; the run's comparisons appear in `result.md` under *Visual comparison*, with up to four diff images under the run record. They report and never gate.
 
-### The per-phase block
+### The per-spec block
 
-`PhaseSequence` expands into this block for every phase, in order:
+`PhaseSequence` expands into this block for every spec, in order:
 
 | Command | What it does |
 |---------|-------------|
-| SelectPhase | Makes the phase current; a phase the branch already satisfies is recorded done and its work steps are skipped |
-| CheckPhasePremises | A fresh instance checks what the phase says it rests on; a false premise hands the phase back |
-| AgenticMaster | The coding master does the phase's work |
+| SelectPhase | Makes the spec current; a spec the branch already satisfies is recorded done and its work steps are skipped |
+| CheckPhasePremises | A fresh instance checks what the spec says it rests on; a false premise hands the spec back |
+| AgenticMaster | The coding master does the spec's work |
 | MasterOpenQuestions | Parks the run when the master asked a person something |
-| CommitPhaseWork | Puts the phase's work on the branch before it is judged |
+| CommitPhaseWork | Puts the spec's work on the branch before it is judged |
 | VerifyPhase | Runs the declared verify stages, then takes the delivery account |
-| ReviewPhaseDiff | A fresh reviewer reads the phase diff; findings get one fix pass |
-| WritePhaseRecord | Commits the phase record under `.agentsmith/specs/done/` |
+| ReviewPhaseDiff | A fresh reviewer reads the spec diff; findings get one fix pass |
+| WritePhaseRecord | Commits the spec record under `.agentsmith/specs/done/` |
 
 ```mermaid
 graph TD
     Ticket --> Scope["ScopeRepos<br/>narrow · size · refuse"]
     Scope --> Analyze["AnalyzeCode<br/>(scout agent)"]
-    Analyze --> Derive["DeriveSpec<br/>phase specs on the branch"]
+    Analyze --> Derive["DeriveSpec<br/>specs on the branch"]
     Derive -->|handed back| Park[ticket parked]
-    Derive --> Phase["per phase:<br/>premises → master → commit"]
-    Phase --> Verify["VerifyPhase<br/>stages + delivery account"]
-    Verify -->|outstanding, once| Phase
+    Derive --> Spec["per spec:<br/>premises → master → commit"]
+    Spec --> Verify["VerifyPhase<br/>stages + delivery account"]
+    Verify -->|outstanding, once| Spec
     Verify -->|green| Review[ReviewPhaseDiff]
-    Review -->|next phase| Phase
+    Review -->|next spec| Spec
     Review --> PR[CommitAndPR]
 
     style Derive fill:#27ae60,color:#fff
     style Verify fill:#c0392b,color:#fff
 ```
 
-A red phase stops the sequence; the remaining phases don't run, and delivery decides between a failure and a shortfall (see [Lifecycle](../../how-it-works/lifecycle.md#when-it-goes-wrong)).
+A red spec stops the sequence; the remaining specs don't run, and delivery decides between a failure and a shortfall (see [Lifecycle](../../how-it-works/lifecycle.md#when-it-goes-wrong)).
 
 ## The specification
 
-`DeriveSpec` writes the set to the ticket branch under `.agentsmith/specs/<provider>-<ticket-id>/`: per phase a schema-valid YAML spec and a Markdown companion that carries the verbatim parts of the ticket, plus `accounting.md`, which says for every part of the ticket which phase carries it or why it was discarded. Phase ids come from the ticket, so ticket 54 becomes `p54a`, `p54b`, and a re-run recomputes the same ids.
+`DeriveSpec` writes the set to the ticket branch under `.agentsmith/specs/<provider>-<ticket-id>/`: per spec a schema-valid YAML spec and a Markdown companion that carries the verbatim parts of the ticket, plus `accounting.md`, which says for every part of the ticket which spec carries it or why it was discarded. Spec ids come from the ticket, so ticket 54 becomes `p54a`, `p54b`, and a re-run recomputes the same ids.
 
-Before it writes, the derivation may look at the repositories through read-only tools. A cut that fails validation goes back to the model with the reason, up to three attempts; a fresh reviewer objects to cuts it doesn't accept, and if every attempt drew an objection the least-objected cut is kept and the objection is shown on the run. A cut that covers fewer of the contexts the scope call named gets one more attempt; a gap that survives it becomes a question for the author. If nothing usable comes back, the whole ticket runs as one phase and the run says why.
+Before it writes, the derivation may look at the repositories through read-only tools. A cut that fails validation goes back to the model with the reason, up to three attempts; a fresh reviewer objects to cuts it doesn't accept, and if every attempt drew an objection the least-objected cut is kept and the objection is shown on the run. A cut that covers fewer of the contexts the scope call named gets one more attempt; a gap that survives it becomes a question for the author. If nothing usable comes back, the whole ticket runs as one spec and the run says why.
 
 The cut is committed, a draft PR opens at that commit, and the cut is posted to the ticket with its criteria, facts and assumptions. The run doesn't wait on it. How you correct a cut, and how an approved specification from a design conversation is handled, is on [Expectations](../../how-it-works/expectations.md#the-done-list-is-the-expectation).
 
@@ -110,7 +110,7 @@ agent-smith code --ticket 54 --project todolist --dry-run
 
 ## Output
 
-- The work branch `agent-smith/<ticket-id>` in every repo in scope, carrying the specification, the checkpoint commits, the change and the phase records.
-- One **pull request** per repository with changes, opened as a draft at the spec commit and taken out of draft only by a complete, verified run. Its body carries the ticket, the per-phase table, the delivery account, what the phase review still finds, and declined criteria. A red run's PR stays a draft with a banner.
+- The work branch `agent-smith/<ticket-id>` in every repo in scope, carrying the specification, the checkpoint commits, the change and the spec records.
+- One **pull request** per repository with changes, opened as a draft at the spec commit and taken out of draft only by a complete, verified run. Its body carries the ticket, the per-spec table, the delivery account, what the spec review still finds, and declined criteria. A red run's PR stays a draft with a banner.
 - A **run record** in `.agentsmith/runs/<run-id>/` with `result.md`, plus the master's `plan.md` where it wrote one.
 - The **ticket** gets a comment with the PR links, your done status and the `agent-smith:done` label — or `agent-smith:shortfall` / `agent-smith:failed` when the run fell short.

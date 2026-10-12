@@ -38,7 +38,7 @@ public sealed class SpecSeriesIdTests
     [
         ".agentsmith/spec.schema.json",
         ".agentsmith/decision.schema.json",
-        ".claude/hooks/phase-gate.sh",
+        ".claude/hooks/spec-gate.sh",
         "src/backend/AgentSmith.Application/Services/SpecDialog/RequiresEdgeChecker.cs",
         "src/backend/AgentSmith.Infrastructure.Core/Services/DecisionFileLabel.cs",
         "src/backend/AgentSmith.Server/Services/Events/RunStepsReader.cs",

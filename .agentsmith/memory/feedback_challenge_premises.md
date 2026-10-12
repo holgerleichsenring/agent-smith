@@ -18,7 +18,7 @@ When the user grants velocity ("ohne zu fragen, durcharbeiten") and a spec is on
 **Why:** Production consequences. The user's framing: "Fehlerhafte entscheidungen haben direkt konsequenzen." High-speed work doesn't excuse skipping the foundational check; it amplifies the cost of skipping it.
 
 **How to apply:**
-- For any phase that touches deployment, infrastructure, or cross-process boundaries: spend ~5 minutes checking the K8s/IaC configs in adjacent repos before writing code.
+- For any spec that touches deployment, infrastructure, or cross-process boundaries: spend ~5 minutes checking the K8s/IaC configs in adjacent repos before writing code.
 - When a spec assumes "X already works", grep for the actual execution evidence (logs in past run records, deployed env vars, etc.).
 - One short clarifying question is cheaper than re-doing a full PR. Velocity ≠ silence on premises.
 - If the spec itself was authored at high speed (e.g. by me in a prior session), treat it with the same suspicion as any other input — not as a contract.

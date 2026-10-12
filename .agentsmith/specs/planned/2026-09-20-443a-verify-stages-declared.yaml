@@ -182,7 +182,7 @@ facts:
   - claim: "This context's image is the .NET SDK and carries no node or pnpm."
     evidence: ".agentsmith/contexts/default/context.yaml stack.image = mcr.microsoft.com/dotnet/sdk:10.0"
   - claim: "The gate runs `dotnet build AgentSmith.sln -clp:ErrorsOnly` and `dotnet test AgentSmith.sln --no-build --filter \"Category!=LiveLLM\"`."
-    evidence: ".claude/hooks/phase-gate.sh:224, :234"
+    evidence: ".claude/hooks/spec-gate.sh:278, :316"
   - claim: "A declared stage carries a label, a command and an optional presence path, and runs at the repository root through /bin/sh -c."
     evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/ContextYamlVerifyStage.cs:20-27"
   - claim: "A command containing a double quote is rejected by the bare-binary read, which is what the toolchain probe uses."
@@ -212,7 +212,7 @@ facts:
   - claim: "Nothing in the tree fixes which command shape the analyzer emits: the project map is written at runtime only, no fixture pins this repository's ci commands, and the string is read verbatim and executed with no normaliser between."
     evidence: "src/backend/AgentSmith.Application/Services/ProjectMapJsonReader.cs:104-110, src/backend/AgentSmith.Application/Services/Handlers/VerifyStageResolver.cs:104-114"
   - claim: "This repository's CI does run dotnet test, with --no-build, and neither CI build command names the solution; the live-model category is excluded there for cost."
-    evidence: ".github/workflows/docker-publish.yml:62, :39, .github/workflows/agent-smith.yml:33, .claude/hooks/phase-gate.sh:229-233"
+    evidence: ".github/workflows/docker-publish.yml:62, :39, .github/workflows/agent-smith.yml:33, .claude/hooks/spec-gate.sh:283-287"
   - claim: "The drift reporter returns silently when no verify_derived_from hash is recorded."
     evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifyDerivationDrift.cs:37"
 
