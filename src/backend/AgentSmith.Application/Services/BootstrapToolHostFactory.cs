@@ -31,7 +31,8 @@ public sealed class BootstrapToolHostFactory(
     IContextYamlSerializer contextYamlSerializer,
     ContextDocumentGate contextDocumentGate,
     SandboxContextYamlWriter contextYamlWriter,
-    VerifyDerivationStamp verifyDerivationStamp)
+    VerifyDerivationStamp verifyDerivationStamp,
+    Sandbox.ContextImageBoundary imageBoundary) // 2026-10-12-6bfac
 {
     /// <summary>
     /// 2026-09-23-cd28: <paramref name="pipeline"/> is REQUIRED. The guard this builds sat
@@ -62,6 +63,7 @@ public sealed class BootstrapToolHostFactory(
             contextDocumentGate,
             contextYamlWriter,
             verifyDerivationStamp,
+            imageBoundary,
             DiscoveredContexts(pipeline),
             repoName);
         var tools = new AgenticToolSurface().Bootstrap(fs, log, writeContextYaml);

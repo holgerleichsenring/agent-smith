@@ -41,6 +41,10 @@ internal static class ContextGates
         new(new AgentSmith.Application.Services.VerifyDerivationDigest(
             new AgentSmith.Application.Services.Sandbox.SandboxFileReaderFactory()));
 
+    /// <summary>2026-10-12-6bfac: the boundary judge over the built-in default registries.</summary>
+    public static AgentSmith.Application.Services.Sandbox.ContextImageBoundary ImageBoundary() =>
+        new(new AgentSmith.Application.Services.Sandbox.ImageRegistryTrust());
+
     /// <summary>
     /// The real emitter. A mock returns null YAML, which the write path used to put on
     /// disk unnoticed — a fixture that cannot produce a file cannot prove one survived.

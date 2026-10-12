@@ -148,6 +148,23 @@ public sealed class InitPullRequestBodyTests
             .And.NotContain("nothing carried over");
     }
 
+    [Fact]
+    public void Compose_ImageOutsideBoundary_IsNamedUnderTheContext()
+    {
+        // 2026-10-12-6bfac: the run would refuse this image; the PR is where the operator
+        // ratifies the context that names it, so it says so there.
+        var refusal = new ContextImageRefusal(
+            "sbtscala/scala-sbt:1", "stack.image 'sbtscala/scala-sbt:1' is outside the boundary",
+            "add 'sbtscala/' to sandbox.allowed_registries");
+        var body = Compose(Outcome("api", "server", PrinciplesMode.Transferred)
+            with { ImageRefusal = refusal });
+
+        body.Should().Contain("image refused").And.Contain("sbtscala/scala-sbt:1")
+            .And.Contain("sandbox.allowed_registries");
+        Compose(Outcome("api", "server", PrinciplesMode.Transferred))
+            .Should().NotContain("image refused");
+    }
+
     private static string Compose(params BootstrapRoundOutcome[] outcomes) =>
         InitPullRequestBody.Compose(outcomes, "api", Marker);
 

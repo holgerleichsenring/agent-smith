@@ -68,6 +68,17 @@ public sealed class CliShapedDiTests
     }
 
     [Fact]
+    public void Cli_RunPreflight_CarriesTheContextImageTrustCheck()
+    {
+        // 2026-10-12-6bfac: the refused-image finding exists only if the real composition
+        // resolves it, with the boundary judge it shares with write_context_yaml.
+        var provider = BuildCliLikeProvider();
+
+        provider.GetServices<IRunPreflightCheck>().Select(c => c.Name)
+            .Should().Contain("context-image-trust");
+    }
+
+    [Fact]
     public void Cli_ResolvesPipelineExecutor_WithoutRedis_DoesNotThrow()
     {
         var provider = BuildCliLikeProvider();

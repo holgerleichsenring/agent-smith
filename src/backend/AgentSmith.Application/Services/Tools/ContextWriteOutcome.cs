@@ -17,5 +17,10 @@ namespace AgentSmith.Application.Services.Tools;
 /// <param name="BudgetExhausted">
 /// The per-round refusal budget ran out, so the tool stopped inviting another attempt.
 /// </param>
+/// <param name="ImageRefusal">
+/// 2026-10-12-6bfac: the last successful write's stack.image, when the registry boundary
+/// refuses it — the file was written, and the sandbox will not run that image.
+/// </param>
 public sealed record ContextWriteOutcome(
-    bool Written, string? LastRefusal, bool BudgetExhausted);
+    bool Written, string? LastRefusal, bool BudgetExhausted,
+    AgentSmith.Application.Models.ContextImageRefusal? ImageRefusal = null);
