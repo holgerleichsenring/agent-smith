@@ -30,6 +30,8 @@ public sealed class TreeSitterStructureEngine(
         return new StructureMeasurement(StructureOutcome.Measured, units, FileLines(content), types);
     }
 
+    public bool Claims(string path) => catalog.For(path) is ({ }, false);
+
     private static int FileLines(string? content) =>
         string.IsNullOrEmpty(content) ? 0 : content.Count(c => c == '\n') + (content.EndsWith('\n') ? 0 : 1);
 }

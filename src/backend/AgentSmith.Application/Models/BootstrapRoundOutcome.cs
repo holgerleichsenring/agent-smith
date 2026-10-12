@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Structure;
 using AgentSmith.Contracts.Services;
 
 namespace AgentSmith.Application.Models;
@@ -24,7 +25,10 @@ public sealed record BootstrapRoundOutcome(
     // 2026-10-04-2bf2: whether a refresh carried the file's Project Specifics section over.
     bool ProjectSpecificsKept = false,
     // 2026-10-12-6bfac: the written stack.image, when the registry boundary refuses it.
-    ContextImageRefusal? ImageRefusal = null)
+    ContextImageRefusal? ImageRefusal = null,
+    // 2026-10-06-8565c: what the round did with the context's structure baseline; null when the
+    // skill authored principles.md and no Limits block can be relied on.
+    StructureBaselineResult? StructureBaseline = null)
 {
     /// <summary>2026-10-03-cf20c: the framework overlays the written principles.md carries.</summary>
     public IReadOnlyList<string> Overlays { get; init; } = Overlays ?? [];

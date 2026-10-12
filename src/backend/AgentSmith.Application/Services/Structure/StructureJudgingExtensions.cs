@@ -9,6 +9,8 @@ public static class StructureJudgingExtensions
     {
         services.AddSingleton<StructureLimits>();
         services.AddSingleton<StructureJudge>();
+        services.AddTransient<StructureSourceListing>(); // 2026-10-06-8565c
+        services.AddTransient<StructureBaseline>();
         return services;
     }
 }

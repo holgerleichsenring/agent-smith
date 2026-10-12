@@ -15,4 +15,10 @@ public interface IStructureEngine
     /// code, is NotMeasured; a grammar that cannot be loaded is Unavailable, never a silent pass.
     /// </summary>
     StructureMeasurement Measure(string path, string content);
+
+    /// <summary>
+    /// 2026-10-06-8565c: whether <see cref="Measure"/> would measure <paramref name="path"/> — a
+    /// language claims it and does not exclude it — so a caller reads only the files that count.
+    /// </summary>
+    bool Claims(string path);
 }

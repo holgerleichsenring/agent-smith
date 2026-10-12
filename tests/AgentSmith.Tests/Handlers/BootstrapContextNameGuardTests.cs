@@ -1,3 +1,4 @@
+using AgentSmith.Tests.Structure;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Sandbox;
@@ -111,6 +112,7 @@ public sealed class BootstrapContextNameGuardTests
         PrinciplesTransferStubs.Composing("# Coding Principles\ncore + delta\n"),
         new BootstrapContextWriteVerdict(),
         new BootstrapOutputRecorder(),
+        StructureBaselineStubs.Real(),
         new SandboxTargets(),
         EventTestStubs.RunContext,
         NullLogger<BootstrapRoundHandler>.Instance);
