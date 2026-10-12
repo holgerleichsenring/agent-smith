@@ -38,17 +38,20 @@ facts:
   - claim: "Both PR bodies carry a rule line naming Request changes as the only PR act; the run already finds the ticket's PRs from PreviousAttempt.PullRequestUrls."
     evidence: "src/backend/AgentSmith.Application/Services/Rework/ReworkRule.cs:7-9, src/backend/AgentSmith.Application/Services/Rework/FullSetPrNotice.cs:23-28"
 
+  - claim: "There is no superseded status; the cancel endpoint raises the rework watermark and fails the ticket, while CancelTerminalWriter with a RunFinishedEvent 'cancelled' does neither. A hand-back parks the ticket in a clarification/verdict status ReworkParkCheck does not accept. OpenPullRequest carries no fork flag; GitHub's review-comment payload has the head, issue_comment does not."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/RunStatuses.cs:11-18, src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs:132, src/backend/AgentSmith.Server/Services/CapacityQueueDrop.cs:44-48, src/backend/AgentSmith.Infrastructure.Persistence/Services/CancelTerminalWriter.cs:1, src/backend/AgentSmith.Application/Services/Specs/SpecParkStatusResolver.cs:28-34, src/backend/AgentSmith.Contracts/Sweep/OpenPullRequest.cs:5-7, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubSourceProvider.cs:321"
+
 assumptions: []
 
 scope:
   in: "Everything the steps name."
-  out: "Commands on other branches keep today's model-resolved launch, except that a bare one is ignored."
+  out: "Commands off ticket branches: model-resolved as today; a bare one is ignored."
 
 decisions:
-  - key: "THE COMMAND IS THE ACT, THE THREADS ARE THE CONTENT: several review comments, then one '/agent-smith' — the rework reads every counted thread."
+  - key: "THE COMMAND IS THE ACT, THE THREADS THE CONTENT."
   - key: "NO NEW KEYWORD: ^/(agent-smith|agentsmith|as)(?=\\s|$) with a Singleline tail; '/as-is' and '/assign' never match; help stays an exact tail."
   - key: "TICKET BRANCH DECIDES: on agent-smith/{ticket} from the same repository the command nudges the ticket (owner lookup shared with PrReworkAdmission, filtered by the sweep's allowed projects); elsewhere the model resolves it, and a bare command is ignored."
-  - key: "A PR ACT ANSWERS A WAITING HAND-BACK: ReworkEntry and the nudge handler let a PullRequest act newer than a waiting_for_input attempt start the rework; the waiting run is closed as superseded."
+  - key: "A PR ACT ANSWERS A WAITING HAND-BACK (no checkpoint = hand-back; checkpointed questions keep their path): park check accepts the hand-back status, then the row is closed via CancelTerminalWriter as 'cancelled — superseded by a PR act' (no watermark, no ticket move), then the rework launches."
   - key: "OURS NEVER COMMANDS: a body starting with the agentsmith marker is ignored by the admission, and no text we post has a line starting with the prefix."
   - key: "ONE READER OF REPLIES: ForeignAfter takes the trusted PR notes beside the ticket comments, so the guard and the re-cut demand agree. 3a36b also edits SpecHandbackRepeat; a goes first."
 
@@ -58,9 +61,9 @@ steps:
     modify:
       - "CommentIntentParser"
   - id: command-fields
-    action: "Add HeadRef, SameRepository and PrUrl to PrCommentCommand; fill them in the AzDO and GitLab handlers from the payload, in the GitHub handler by fetching the PR, and in PrSweepActions from OpenPullRequest."
+    action: "Add HeadRef, SameRepository, PrUrl to PrCommentCommand: AzDO/GitLab and GitHub review comments from the payload; GitHub issue_comment fetched after the parser matched via the configured repo's provider client (a failed fetch is NotHandled); the sweep passes its OpenPullRequest, which gains a same-repository flag in all listers."
     modify:
-      - "PrCommentCommand, AzureDevOpsPrCommentWebhookHandler, GitLabMrCommentWebhookHandler, GitHubPrCommentWebhookHandler, PrSweepActions"
+      - "PrCommentCommand, OpenPullRequest + listers, the three PR comment handlers, PrSweepComments, PrSweepActions"
   - id: command-act
     action: "In PrCommentCommandAdmission ignore our marked notes, nudge a rework for a trusted ticket-branch command, ignore a bare command elsewhere."
     new:
@@ -72,15 +75,15 @@ steps:
     modify:
       - "PrStandingAct, PrReviewFeedbackFetcher, ReworkPendingActs"
   - id: waiting
-    action: "Let a PullRequest act newer than a waiting_for_input attempt start the rework and close the waiting run as superseded; fix the refusal text."
+    action: "For a PullRequest act newer than a checkpoint-less waiting_for_input attempt: take that branch before the nudge handler's reschedule, accept the hand-back park status, close the row as decided, launch; fix the NotWaiting text."
     modify:
-      - "ReworkEntry, ReworkNudgeHandler, ReworkParkCheck"
+      - "ReworkNudgeHandler, ReworkEntry, ReworkParkCheck"
   - id: answer-on-pr
     action: "Post the hand-back with our marker on the ticket's PRs; feed trusted PR notes into OwnTicketComment.ForeignAfter."
     modify:
       - "SpecHandbackPark, OwnTicketComment, SpecHandbackRepeat"
   - id: texts
-    action: "Rewrite ReworkRule.PrBodyLine, ReworkTexts.Rule and PrWithheld: comment on the PR, then '/agent-smith' to rework them all; Request changes works too."
+    action: "Rewrite ReworkRule.PrBodyLine, ReworkTexts.Rule and PrWithheld: comment, then '/agent-smith' reworks them all; Request changes too."
 
 tests:
   - "CommentIntentParser_AgentsmithWithoutHyphen_Matches"
@@ -93,7 +96,8 @@ tests:
   - "PrCommentCommandAdmission_BareCommandElsewhere_IsNotHandled"
   - "PrTicketOwner_ProjectOutsideSweep_IsNotNudged"
   - "PrReviewFeedbackFetcher_ThreeCommentsThenBareCommand_FeedbackHoldsAllThree"
-  - "ReworkEntry_HandbackWaitingAttempt_PullRequestAct_Starts"
+  - "ReworkNudgeHandler_HandbackWaiting_PullRequestAct_ClosesRowWithoutWatermarkAndStarts"
+  - "ReworkNudgeHandler_CheckpointedQuestion_PullRequestAct_KeepsWaiting"
   - "OwnTicketComment_TrustedPrReplyAfterHandback_IsForeign"
 
 done:

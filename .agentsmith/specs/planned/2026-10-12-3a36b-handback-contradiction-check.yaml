@@ -4,7 +4,7 @@ goal: "A contradiction hand-back parks only after a checker confirms it from the
 
 applies_to: "backend (spec derivation, hand-back)"
 
-requires: [2026-10-12-3a36a]
+requires: [2026-10-12-3a36a, 2026-10-12-3a36d]
 
 facts:
   - claim: "observed: run 10-10 (rework on PR 9476) derived with two spec-derivation calls and two greps in Server, no spec-cut-reviewer call, and handed back RequirementsContradictRepository: 'SubmitAssetsRequest contains only TruckPlate and TrailerPlate'."
@@ -35,51 +35,53 @@ facts:
 assumptions: []
 
 scope:
-  in: "cites on a contradiction hand-back (prompt + parser); a checker before parking; one extra derivation on a refutation; per scoped repo the HEAD at parking, on the TicketSeries row; expiry on foreign commits since it, keeping the approval; the repeat guard reset by them."
+  in: "cites on a contradiction hand-back (prompt + parser); a checker before parking; one extra derivation on a refutation; per scoped repo the remote branch head at parking, inside 3a36d's HandbackJson; expiry on foreign commits since it, keeping the approval; the repeat guard reset by them."
   out: "Other hand-back cases; replies on the PR (3a36a); sandboxes committing under a foreign identity — the probe is skipped there and says so."
 
 decisions:
-  - key: "A SECOND READING, NOT A RULE: the claim is code semantics, so a model checks it, not a parser."
+  - key: "A SECOND READING, NOT A RULE: code semantics are a model's to check."
   - key: "CITES ARE ASKED FOR, NOT FORCED: an uncited contradiction is re-asked; on the last attempt it parks unchecked and is logged — it never falls through to the one-phase fallback."
-  - key: "THE CHECKER RE-LOOKS: it gets the cited looks (repository, command, kind) and its own fresh look, since a grep has no file to re-read."
+  - key: "THE CHECKER RE-LOOKS: the cited looks plus its own fresh look — a grep has no file to re-read."
   - key: "REFUTED MEANS ONE MORE ATTEMPT, by a refuted flag of its own in the attempt bound beside pinned; a second contradiction is not checked again. No look, no check — logged."
-  - key: "THE HEAD AT PARKING IS THE REFERENCE: one sha per scoped repo, stored with the hand-back; no clocks; a repo without one is skipped and logged."
-  - key: "OURS BY EMAIL: a commit is ours when its author email is SandboxGitIdentity.Email; a sandbox whose configured email differs skips the probe."
+  - key: "THE REMOTE HEAD AT PARKING IS THE REFERENCE: origin/<branch> per scoped repo, stored with the hand-back; none when the branch is not on the remote; a sha the clone does not know is skipped and logged, like a missing one."
+  - key: "PROBE ONLY A HANDED-BACK SET: our provider-API commits (filing) carry the token's identity; stored heads are cleared when a revision that is not a hand-back is recorded."
+  - key: "OURS BY EMAIL (SandboxGitIdentity.Email); a sandbox configured with another email skips the probe."
   - key: "EXPIRY NEVER APPROVES A GUESS: an expiry re-derive that yields nothing keeps the stored hand-back; the approval is carried only onto a derived set."
-  - key: "THE RESET TRAVELS IN THE CONTEXT: the probe's result is a ContextKeys entry SpecHandbackHandler hands to IsRepeat."
+  - key: "THE RESET TRAVELS IN THE CONTEXT, from the probe to IsRepeat."
 
 steps:
   - id: prompt
-    action: "Add cites to the requirements_contradict_repository shape in agent-smith-skills spec-derivation-master SKILL.md; release; bump SkillsCatalogVersion."
+    action: "Add cites to the requirements_contradict_repository shape in agent-smith-skills spec-derivation-master SKILL.md; release; bump SkillsCatalogVersion and SkillsCatalogSha256."
   - id: cites
-    action: "Parse cites on a contradiction against Evidence.Looks; re-ask when missing or unknown; park unchecked on the last attempt."
+    action: "The parser parses cites and resolves them through DerivationEvidence.IndexById; the deriver re-asks when missing or unknown and parks unchecked on the last attempt."
     modify:
       - "SpecDerivationEnvelope.Handback, SpecDerivationParser, SpecSetDeriver"
   - id: checker
     action: "Between parse and review in SpecSetDeriver run a ContradictionChecker on the cited looks plus an OnTerms look; on Refuted set refuted (+1 attempt) and re-ask with the refutation."
     new:
-      - "ContradictionChecker + admission by its own evidence id (shape of PhasePremiseChecker)"
+      - "ContradictionChecker + admission by its own evidence id (shape of PhasePremiseChecker), reading cited records from look.Evidence.Looks"
     modify:
-      - "SpecSetDeriver"
+      - "SpecSetDeriver, DerivationLookTerms (ContradictionCheck: own prefix, CutReviewAllowance)"
   - id: heads
-    action: "Store each scoped repo's HEAD sha at parking on the TicketSeries row (column + migration in both persistence assemblies, pointer stores)."
+    action: "Store origin/<branch> per scoped repo in 3a36d's HandbackJson at parking; clear on a non-hand-back revision."
     modify:
-      - "TicketSeries, TicketSeriesRepository, SpecSetPointer, Db/InMemory pointer stores, SpecHandbackHandler"
+      - "SpecHandbackHandler, the HandbackJson shape of 3a36d"
   - id: expiry
-    action: "In DeriveSpecHandler before Decide, probe each scoped repo for commits not ours in storedHead..HEAD (--first-parent --no-merges); pass the bool to NeedsModel and into ContextKeys; carry the approval only onto a derived set."
+    action: "In DeriveSpecHandler before Decide, when the branch set is handed back, probe each scoped repo with git rev-list --no-merges <stored>..HEAD --not <baseRef> (base via SandboxBaseLadder.ResolveAsync), authors other than SandboxGitIdentity.Email; pass the bool to NeedsModel and into ContextKeys; carry the approval only onto a derived set."
     new:
       - "ForeignCommitProbe, ContextKeys.ForeignCommitSinceHandback"
     modify:
       - "DeriveSpecHandler, SpecAmendmentRule, SpecSourceResolver, SpecHandbackHandler, SpecHandbackRepeat"
 
 tests:
-  - "SpecDerivationParser_ContradictionWithoutCites_IsReAsked"
+  - "SpecSetDeriver_ContradictionWithoutCites_IsReAsked"
   - "SpecSetDeriver_UncitedOnLastAttempt_ParksUncheckedNotFallback"
   - "ContradictionChecker_ReasonContradictedByFile_Refutes"
   - "SpecSetDeriver_RefutedAfterPinned_StillGetsOneMore"
   - "ForeignCommitProbe_BaseMergeAndOurCommits_AreNotForeign"
   - "ForeignCommitProbe_FastForwardedBase_IsNotForeign"
-  - "ForeignCommitProbe_RepoWithoutStoredHead_IsSkipped"
+  - "ForeignCommitProbe_RepoWithoutStoredHeadOrUnknownSha_IsSkipped"
+  - "ForeignCommitProbe_FilingAfterHandback_NotProbedWhenSetNotHandedBack"
   - "Expiry_ApprovedSet_ReDerivedSetStaysApproved"
   - "Expiry_DerivationFails_KeepsHandbackNoApprovedFallback"
   - "SpecHandbackRepeat_ForeignCommitSinceHandback_IsNotRepeat"

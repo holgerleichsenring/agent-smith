@@ -47,7 +47,7 @@ decisions:
 
 steps:
   - id: no-carrier-on-failure
-    action: "Make CommitAndPR's record carrier require not (failed and no shortfall); for the spec repo with SpecPullRequestUrl, keep 'opened', add it to opened and refresh its body with the failure banner."
+    action: "Make CommitAndPR's record carrier require not (failed and no shortfall); for the spec repo (ContextKeys.SpecRepo) with SpecPullRequestUrl and no Opened outcome from the loop, replace its SkippedNoChanges by Opened(SpecPullRequestUrl), publish that, and refresh its body once with the failure banner."
     modify:
       - "CommitAndPRHandler"
   - id: persist-record-only
@@ -55,22 +55,23 @@ steps:
     modify:
       - "PersistWorkBranchHandler"
   - id: failed-message
-    action: "Set ContextKeys.FailedStepName in PipelineStepFailure before the finalizer tail; move the WIP message into one builder used by PersistWorkBranch and by CommitAndPR on a failed run."
+    action: "Set ContextKeys.FailedStepName before the finalizer tail in PipelineStepFailure and at the safety-cancel site in PipelineExecutor; move the WIP message into one builder used by PersistWorkBranch and by CommitAndPR on a failed run."
     new:
       - "WipCommitMessage: subject + Run-Id, Pipeline, Failed-Step trailers"
     modify:
-      - "PipelineStepFailure, PersistWorkBranchHandler, CommitAndPRHandler"
+      - "PipelineStepFailure, PipelineExecutor, PersistWorkBranchHandler, CommitAndPRHandler"
 
 tests:
   - "CommitAndPR_FailedRunWithoutCode_OpensNoRecordPr"
   - "CommitAndPR_FailedRun_FirstRepoWithoutPr_CreatesNoBranchOrPr"
   - "CommitAndPR_FailedRunWithoutCode_KeepsSpecPrOutcomeOpened"
   - "CommitAndPR_FailedRunWithCode_UsesWipMessageWithFailedStep"
+  - "CommitAndPR_SafetyCancelWithCode_WipMessageNamesStep"
   - "CommitAndPR_DeliveredShortfall_KeepsFixMessage"
   - "CommitAndPR_GreenRunWithoutCode_KeepsRecordPr"
   - "PersistWorkBranch_OnlyRunRecordStaged_IsNoChanges"
 
 done:
-  - "A run failing before any phase pushes no commit other than the series record written at derivation (RealCompositionHarness, three repos)."
+  - "A run failing before any phase records no git commit or push in any sandbox after derivation other than the series commit (RealCompositionHarness, Stub backend, ReposOverride of three repos)."
   - "No 'fix:' commit exists for a failed run; a delivered shortfall still gets one."
   - "A failed run's summary and ticket comment name the spec PR."
