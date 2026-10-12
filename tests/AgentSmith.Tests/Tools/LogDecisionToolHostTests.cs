@@ -12,7 +12,7 @@ public sealed class LogDecisionToolHostTests
     [Fact]
     public void GetTools_AnyPhase_ReturnsLogDecisionTool()
     {
-        var host = new LogDecisionToolHost(Mock.Of<IDecisionLogger>(), repositoryFiles: null);
+        var host = new LogDecisionToolHost(Mock.Of<IDecisionLogger>(), repositories: null);
 
         foreach (var phase in Enum.GetValues<SkillExecutionPhase>())
         {
@@ -29,7 +29,7 @@ public sealed class LogDecisionToolHostTests
                 It.IsAny<string>(), It.IsAny<CancellationToken>(), It.IsAny<string?>()))
             .ReturnsAsync(DecisionLogOutcome.Recorded);
         var repository = Mock.Of<ISandboxFileReader>();
-        var host = new LogDecisionToolHost(logger.Object, repository);
+        var host = new LogDecisionToolHost(logger.Object, AgentSmith.Tests.TestHelpers.TestRepositories.One(repository));
 
         var result = await host.LogDecision("Architecture", "Chose composition over inheritance");
 
@@ -50,7 +50,7 @@ public sealed class LogDecisionToolHostTests
     [Fact]
     public async Task LogDecision_InvalidCategory_ReturnsStructuredError()
     {
-        var host = new LogDecisionToolHost(Mock.Of<IDecisionLogger>(), repositoryFiles: null);
+        var host = new LogDecisionToolHost(Mock.Of<IDecisionLogger>(), repositories: null);
 
         var result = await host.LogDecision("not-a-category", "x");
 
@@ -87,6 +87,35 @@ public sealed class LogDecisionToolHostTests
     private static async Task<string> ResultFor(DecisionLogOutcome outcome) =>
         await HostReturning(outcome, out _).LogDecision("Architecture", "a choice");
 
+    /// <summary>
+    /// 2026-10-12-f5f7c: one host, a repository map — the file copy goes to the repository the
+    /// call names, the run-wide list keeps every decision, and two repositories need a name.
+    /// </summary>
+    [Fact]
+    public async Task LogDecisionToolHost_TwoRepos_FileCopyInNamedRepo()
+    {
+        var logger = new Mock<IDecisionLogger>();
+        logger.Setup(l => l.LogAsync(It.IsAny<ISandboxFileReader?>(), It.IsAny<DecisionCategory>(),
+                It.IsAny<string>(), It.IsAny<CancellationToken>(), It.IsAny<string?>()))
+            .ReturnsAsync(DecisionLogOutcome.Recorded);
+        var server = Mock.Of<ISandboxFileReader>();
+        var client = Mock.Of<ISandboxFileReader>();
+        var host = new LogDecisionToolHost(logger.Object,
+            new AgentSmith.Application.Services.Repositories.FixedRunRepositories(
+                new Dictionary<string, ISandboxFileReader> { ["server"] = server, ["client"] = client }));
+
+        var unnamed = await host.LogDecision("Architecture", "a choice");
+        await host.LogDecision("Architecture", "server choice", "server");
+        await host.LogDecision("Tooling", "client choice", "client");
+
+        unnamed.Should().StartWith("Error:").And.Contain("server, client");
+        logger.Verify(l => l.LogAsync(server, DecisionCategory.Architecture, "server choice",
+            It.IsAny<CancellationToken>(), It.IsAny<string?>()), Times.Once);
+        logger.Verify(l => l.LogAsync(client, DecisionCategory.Tooling, "client choice",
+            It.IsAny<CancellationToken>(), It.IsAny<string?>()), Times.Once);
+        host.GetDecisions().Select(d => d.Decision).Should().Equal("server choice", "client choice");
+    }
+
     private static LogDecisionToolHost HostReturning(
         DecisionLogOutcome outcome, out Mock<IDecisionLogger> logger)
     {
@@ -94,6 +123,6 @@ public sealed class LogDecisionToolHostTests
         logger.Setup(l => l.LogAsync(It.IsAny<ISandboxFileReader?>(), It.IsAny<DecisionCategory>(),
                 It.IsAny<string>(), It.IsAny<CancellationToken>(), It.IsAny<string?>()))
             .ReturnsAsync(outcome);
-        return new LogDecisionToolHost(logger.Object, repositoryFiles: null);
+        return new LogDecisionToolHost(logger.Object, repositories: null);
     }
 }

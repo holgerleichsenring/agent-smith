@@ -36,7 +36,7 @@ public sealed class LogDecisionLoopTests
     {
         var sandbox = new RecordingSandbox();
         var host = new LogDecisionToolHost(
-            Logger(), new SandboxFileReaderFactory().Create(sandbox));
+            Logger(), AgentSmith.Tests.TestHelpers.TestRepositories.One(new SandboxFileReaderFactory().Create(sandbox)));
         using var scope = _runContext.BeginScope(RunId);
 
         var answer = await RunLoopAsync(host, calls: 1);
@@ -75,7 +75,8 @@ public sealed class LogDecisionLoopTests
     }
 
     private LogDecisionToolHost HostOverADeadSandbox() =>
-        new(Logger(), new SandboxFileReaderFactory().Create(new RecordingSandbox(exitCode: 1)));
+        new(Logger(), AgentSmith.Tests.TestHelpers.TestRepositories.One(
+            new SandboxFileReaderFactory().Create(new RecordingSandbox(exitCode: 1))));
 
     private RepositoryDecisionLogger Logger() =>
         new(_runContext,

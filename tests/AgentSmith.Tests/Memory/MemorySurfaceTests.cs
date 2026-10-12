@@ -26,16 +26,16 @@ public sealed class MemorySurfaceTests
 
     public MemorySurfaceTests()
     {
-        var store = new MemoryStore(_reader, "/work");
-        _recall = new MemoryRecallToolHost(store);
-        _remember = new MemoryWriteToolHost(store);
+        var repositories = TestRepositories.One(_reader);
+        _recall = new MemoryRecallToolHost(repositories, "/work");
+        _remember = new MemoryWriteToolHost(repositories, "/work");
     }
 
     [Fact]
     public void ReviewSurface_IncludesRecall_RememberIsProposalOnly_NoCodeWrite()
     {
         var fs = new FilesystemToolHost(new Mock<ISandbox>().Object);
-        var log = new LogDecisionToolHost(new StubDecisionLogger(), repositoryFiles: null);
+        var log = new LogDecisionToolHost(new StubDecisionLogger(), repositories: null);
 
         var tools = new AgentSmith.Application.Services.Tools.AgenticToolSurface().Review(fs, log, web: null, _recall, _remember)
             .OfType<AIFunction>().Select(t => t.Name).ToHashSet();
@@ -51,7 +51,7 @@ public sealed class MemorySurfaceTests
     public void ReadWriteSurface_IncludesRecallAndRemember()
     {
         var fs = new FilesystemToolHost(new Mock<ISandbox>().Object);
-        var log = new LogDecisionToolHost(new StubDecisionLogger(), repositoryFiles: null);
+        var log = new LogDecisionToolHost(new StubDecisionLogger(), repositories: null);
         var human = new HumanToolHost(null, null);
 
         var tools = new AgentSmith.Application.Services.Tools.AgenticToolSurface().ReadWriteWithHuman(

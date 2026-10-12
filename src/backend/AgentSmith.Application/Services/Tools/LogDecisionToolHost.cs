@@ -1,7 +1,7 @@
 using System.ComponentModel;
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Repositories;
 using AgentSmith.Contracts.Decisions;
-using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
 using Microsoft.Extensions.AI;
 
@@ -16,21 +16,26 @@ namespace AgentSmith.Application.Services.Tools;
 /// pass a directory the server process cannot write; a default here is also how the next call site
 /// would silently write nothing.
 /// </para>
+/// <para>
+/// 2026-10-12-f5f7c: ONE host per run with a REPOSITORY map. The run-wide decision list stays
+/// whole; only the file copy is routed — into the repository the call names, or the run's only
+/// one.
+/// </para>
 /// </summary>
 public sealed class LogDecisionToolHost : IToolHost
 {
     private readonly IDecisionLogger _decisionLogger;
-    private readonly ISandboxFileReader? _repositoryFiles;
+    private readonly IRunRepositories? _repositories;
     private readonly List<PlanDecision> _decisions = new();
     // The master shares one host across concurrent sub-agents and the loop hooks read this list
     // mid-run; the await below is sandbox round-trips now, not local file IO, so the window
     // between two adds is wide enough to matter. GetDecisions hands back a copy for that reason.
     private readonly object _sync = new();
 
-    public LogDecisionToolHost(IDecisionLogger decisionLogger, ISandboxFileReader? repositoryFiles)
+    public LogDecisionToolHost(IDecisionLogger decisionLogger, IRunRepositories? repositories)
     {
         _decisionLogger = decisionLogger;
-        _repositoryFiles = repositoryFiles;
+        _repositories = repositories;
     }
 
     public IReadOnlyList<PlanDecision> GetDecisions()
@@ -49,11 +54,16 @@ public sealed class LogDecisionToolHost : IToolHost
     public async Task<string> LogDecision(
         [Description("Category: Architecture, Tooling, Implementation, or TradeOff.")] string category,
         [Description("One-line description of the decision and its rationale.")] string decision,
+        [Description("The repository the decision is about. Required when the run has more than one " +
+                     "repository; omit it when there is one.")] string? repository = null,
         CancellationToken ct = default)
     {
         if (!Enum.TryParse<DecisionCategory>(category, ignoreCase: true, out var cat))
             return $"Error: invalid category '{category}'.";
-        var outcome = await _decisionLogger.LogAsync(_repositoryFiles, cat, decision, ct);
+        var pick = _repositories is null ? null : RunRepositoryPick.From(_repositories.Names(), repository);
+        if (pick?.Error is not null) return pick.Error;
+        var files = pick?.Name is { } name ? _repositories!.FilesOf(name) : null;
+        var outcome = await _decisionLogger.LogAsync(files, cat, decision, ct);
         // 2026-09-19-c511b: a lost repository COPY is not the model's business — the decision is
         // recorded on the run either way, and the one run that was told rewrote the same decision
         // four times in six seconds because rewording is the only repair a model has for a tool it

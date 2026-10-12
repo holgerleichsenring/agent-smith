@@ -23,7 +23,7 @@ public sealed class ToolKitTests
         IToolHost[] hosts =
         [
             new FilesystemToolHost(sandbox),
-            new LogDecisionToolHost(decisionLogger, repositoryFiles: null),
+            new LogDecisionToolHost(decisionLogger, repositories: null),
             new HumanToolHost()
         ];
         return (new ToolKit(new AllHostsActivePolicy()), hosts);
