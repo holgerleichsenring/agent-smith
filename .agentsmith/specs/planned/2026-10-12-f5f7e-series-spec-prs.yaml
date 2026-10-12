@@ -1,58 +1,63 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-12-f5f7e
-goal: "Every series repository gets its own draft spec PR, linked to the others like code PRs, and reference sets are carried once into every series repository."
+goal: "Every series repository gets its own spec PR, kept as an opened PR of the run whether or not it gained code, cross-linked with the others; reference sets go where the series runs."
 
-applies_to: "backend (spec PRs, cross-link, reference sets, resume)"
+applies_to: "backend (spec PRs, CommitAndPR outcomes, cross-link, reference sets, resume)"
 
 requires: [2026-10-12-f5f7d]
 
 facts:
-  - claim: "The spec PR is opened once, on one repository; SpecPullRequestUrl holds one URL and has four readers, one of them 3a36c's failed-run spec PR beside the single SpecRepo."
-    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecPullRequestOpener.cs:24-77, src/backend/AgentSmith.Application/Services/Specs/SpecSetTicketCommenter.cs:41, src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackPark.cs:33, src/backend/AgentSmith.Application/Services/Specs/PremiseHandbackNotice.cs:90, src/backend/AgentSmith.Application/Services/Handlers/FailedRunSpecPullRequest.cs:32-38"
-  - claim: "Both keys are saved in resume checkpoints."
-    evidence: "src/backend/AgentSmith.Application/Services/Resume/PipelineContextSerializer.cs:27-37"
-  - claim: "The cross-link patches every PR in OpenedPullRequests, which only CommitAndPR and InitCommit fill, and skips entries without a recorded body."
-    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PrCrossLinkHandler.cs:25-86, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:152, src/backend/AgentSmith.Application/Services/Handlers/InitCommitHandler.cs:67"
-  - claim: "Reference sets are kept out of git and carried into the record's carrier sandbox; each carry overwrites ContextKeys.ReferenceSets and merges images again."
-    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetCarrier.cs:9-11, src/backend/AgentSmith.Application/Services/Handlers/MaterializeReferenceSetsHandler.cs:35-86"
+  - claim: "The spec PR is opened once with find-or-create on the ticket branch; in a repository with code CommitAndPR finds that same PR, rewrites its body and takes it out of draft."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecPullRequestOpener.cs:24-77, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:328-368"
+  - claim: "SpecPullRequestUrl holds one URL with four readers; it and SpecRepo are saved in resume checkpoints; only compiler-generated lists are repaired on restore."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetTicketCommenter.cs:41, src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackPark.cs:33, src/backend/AgentSmith.Application/Services/Specs/PremiseHandbackNotice.cs:90, src/backend/AgentSmith.Application/Services/Handlers/FailedRunSpecPullRequest.cs:32-41, src/backend/AgentSmith.Application/Services/Resume/PipelineContextSerializer.cs:27-37, src/backend/AgentSmith.Application/Services/Resume/CheckpointType.cs:26-41"
+  - claim: "A repository without code is published SkippedNoChanges and the projection keeps the last outcome per repository, so its spec PR drops out of the run's PRs, the cross-link and the rework readers; only failed runs keep it today."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:132-155, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunPullRequestProjection.cs:50-51, src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPreviousAttemptReader.cs:58-59, src/backend/AgentSmith.Application/Services/Handlers/PrCrossLinkHandler.cs:66-82"
+  - claim: "The spec PR body has no sibling marker; the code PR body has one."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecPrBody.cs:18-31, src/backend/AgentSmith.Application/Services/Handlers/CodePullRequestBody.cs:25"
+  - claim: "A carried reference set has one Repo and a run-unique Address; the master reads any sandbox by repository prefix; the carry falls back to the first sandbox without a carrier."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/CarriedReferenceSet.cs:9-16, src/backend/AgentSmith.Application/Services/Tools/ReferenceDesignTools.cs:59, src/backend/AgentSmith.Application/Services/Handlers/MaterializeReferenceSetsHandler.cs:75-86"
 
 assumptions: []
 
 scope:
-  in: "A draft spec PR per series repository; ContextKeys.SpecPullRequestUrls (repo → url) with the old string kept readable for parked checkpoints; the four readers; spec PRs in the cross-link with their body; reference sets carried into every series repository with one merged list and images carried once; f5f7d's interim single-PR rule removed."
-  out: "Code PR bodies (they already embed the series section)."
+  in: "A spec PR per series repository; ContextKeys.SpecPullRequestUrls (Dictionary repo→url) with the legacy string read as {SpecRepo: url}; the four readers; CommitAndPR keeps every series repository's spec PR Opened on green and failed runs; the sibling marker in the spec PR body; reference sets carried once, into the repository of the series' earliest spec in series order; f5f7d's interim PR rule removed; a dropped repository's open spec PR listed as dropped in the ticket comment."
+  out: "PR-sweep reviews of spec-only PRs (today's behaviour, now per repository); closing a dropped repository's PR (left to people)."
 
 decisions:
-  - key: "A NEW KEY, NOT A NEW TYPE: SpecPullRequestUrls beside the legacy string, so a parked run resumes."
-  - key: "EVERY REVIEWER SEES THEIR SPECS: one draft spec PR per series repository; the ticket comment and notices list all."
-  - key: "CROSS-LINKED LIKE CODE PRS: spec PRs enter OpenedPullRequests with their body, de-duplicated by repository against a code PR on the same branch."
-  - key: "ONE REFERENCE LIST: carried into each series repository, images once, ContextKeys.ReferenceSets set once."
+  - key: "SAME PR, ONE OWNER: where a repository has code, its spec PR is the code PR and CommitAndPR owns body and readiness; nothing is de-duplicated because nothing is duplicated."
+  - key: "A SPEC-ONLY REPOSITORY STAYS LISTED: 3a36c's keep-the-spec-PR becomes general — its SkippedNoChanges becomes Opened with its URL, a marked body, ready only when the keystone is satisfied."
+  - key: "A NEW KEY, A CONCRETE DICTIONARY, the legacy string mapped to {SpecRepo: url} — a parked run resumes."
+  - key: "PARKED RUNS LINK TOO: the marker sits in the spec PR body from the first write."
+  - key: "REFERENCES ONCE: Addresses stay unique; the earliest spec's repository is a rule from the series' own order, and the master reads every sandbox anyway."
 
 steps:
   - id: prs
-    action: "Open a draft spec PR per series repository; write SpecPullRequestUrls; keep reading the legacy string."
+    action: "Open a draft spec PR per series repository; write SpecPullRequestUrls; read the legacy string as {SpecRepo: url}."
     modify:
       - "SpecPullRequestOpener, SpecSetPublisher, ContextKeys"
   - id: readers
-    action: "Make the ticket commenter, hand-back park, premise notice and failed-run spec PR use the map."
+    action: "Make the ticket commenter (listing dropped repositories too), hand-back park, premise notice and failed-run spec PR use the map."
     modify:
       - "SpecSetTicketCommenter, SpecHandbackPark, PremiseHandbackNotice, FailedRunSpecPullRequest"
-  - id: crosslink
-    action: "Add spec PRs to OpenedPullRequests with their body, de-duplicated by repository."
+  - id: outcomes
+    action: "In CommitAndPR turn every series repository's SkippedNoChanges into Opened with its spec PR, republish, give it the marked body, promote only when satisfied; add the sibling marker to SpecPrBody."
     modify:
-      - "SpecPullRequestOpener, CommitAndPRHandler"
+      - "CommitAndPRHandler, FailedRunSpecPullRequest, SpecPrBody"
   - id: references
-    action: "Carry reference sets into every series repository with one merged list."
+    action: "Carry reference sets once into the earliest series spec's repository; no first-sandbox fallback."
     modify:
-      - "MaterializeReferenceSetsHandler, ReferenceSetCarrier"
+      - "MaterializeReferenceSetsHandler"
 
 tests:
   - "SpecPullRequestOpener_TwoSeriesRepos_OpensTwoDraftPrs"
   - "SpecSetTicketCommenter_TwoSpecPrs_ListsBoth"
-  - "Resume_LegacySpecPullRequestUrl_StillRead"
-  - "PrCrossLink_SpecPrAndCodePrSameRepo_LinkedOnce"
-  - "MaterializeReferenceSets_TwoSeriesRepos_ImagesCarriedOnce"
+  - "CommitAndPR_GreenRunSpecOnlyRepo_KeepsSpecPrOpened"
+  - "Resume_LegacySpecPullRequestUrl_ReadAsMap"
+  - "Resume_NewMapKey_RoundTrips"
+  - "PrCrossLink_SpecOnlyPrAndCodePr_LinkEachOther"
+  - "MaterializeReferenceSets_NoCarryingRepo_UsesEarliestSeriesSpecRepo"
 
 done:
-  - "A series over Server and Client opens two draft spec PRs that link each other and the code PRs (RealCompositionHarness)."
+  - "A series over Server and Client ends with one PR per repository, cross-linked; a spec-only repository's PR is listed as opened (RealCompositionHarness)."
   - "A run parked before this change resumes and still finds its spec PR."
