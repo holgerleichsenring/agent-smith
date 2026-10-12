@@ -1127,7 +1127,7 @@ state:
   active: {}
   planned:
     2026-10-12-fbbda: "A LIMIT HAS A TOLERANCE BAND (structure gate, skills). Past the limit inside tolerance_percent is a divergence named in PR and record; past the band is an excess the gate sends back or fails. -> .agentsmith/specs/planned/2026-10-12-fbbda-structure-tolerance-band.yaml"
-    2026-10-12-fbbdb: "A CONTEXT DECLARES ITS FORMATTER (context.yaml, spec commit, skills). The spec commit runs the declared format command before the push; line length is formatting, never a criterion. -> .agentsmith/specs/planned/2026-10-12-fbbdb-format-before-commit.yaml"
+    2026-10-12-fbbdb: "A CONTEXT DECLARES ITS FORMATTER (context.yaml, spec commit, skills). The spec commit runs the repository's own formatter over the files the spec changed before the push; layout is never a criterion. -> .agentsmith/specs/planned/2026-10-12-fbbdb-format-before-commit.yaml"
     2026-10-12-fbbdc: "DONE CRITERIA ARE OUTCOMES (skills, cut review). Shape rules stay with principles, gate and formatter; an explicit Done when is the done list; the cut review reports a shape rule. -> .agentsmith/specs/planned/2026-10-12-fbbdc-criteria-outcomes-only.yaml"
     2026-10-12-fbbdd: "THE ACCOUNTANT JUDGES WHAT THE BRANCH CONTAINS (spec account). A removed diff line proves only a removal criterion, never current content or size. -> .agentsmith/specs/planned/2026-10-12-fbbdd-account-removed-lines.yaml"
     2026-10-12-7bd7: "THE SKILLS CI REFUSES PHASE FOR A SPEC (skills repo). The 967ag guard for agent-smith-skills: step-meaning tokens allowlisted per file. -> .agentsmith/specs/planned/2026-10-12-7bd7-skills-spec-word-guard.yaml"

@@ -1,32 +1,48 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-12-fbbdd
-goal: "The accountant judges what the branch now contains: a removed diff line is evidence only for a criterion about removal, never about the code's current content or shape."
+goal: "Whoever judges a spec's diff reads it as git means it: '+' lines were added, context lines are unchanged, '-' lines are gone and prove only a removal or replacement."
 
-applies_to: "backend (spec account prompt)"
+applies_to: "backend (spec account, spec diff review, diff windows)"
 
 requires: []
 
 facts:
   - claim: "observed: run 2026-10-12T13-36-42-9015's accountant failed 'no changed adapter line exceeds 150 characters' although no added line exceeded 148; all 25 lines over 150 in the adapter diff were removed lines."
     evidence: "observed: 2026-10-12, git diff fd217e127^..31bc4dc93 of the run's target repository"
-  - claim: "The accountant is shown the branch diff body under DIFF and told to decide per criterion from it."
+  - claim: "The accountant decides per criterion from the diff body under DIFF; nothing explains a '-' line."
     evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecAccountPrompt.cs:51-55, src/backend/AgentSmith.Application/Services/Specs/SpecAccountPrompt.cs:113"
-  - claim: "Each window of the unified diff is asked separately."
-    evidence: "src/backend/AgentSmith.Application/Services/Specs/AccountCalls.cs:28-40"
+  - claim: "The correction and full-reach passes append to the same prompt, so one rule there reaches all three passes."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecAccountCall.cs:32-34, src/backend/AgentSmith.Application/Services/Specs/AccountCalls.cs:45-61"
+  - claim: "Rules for reading evidence live in AccountEvidenceRules; SpecAccountPrompt is 117 lines under the 120-line ratchet."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/AccountEvidenceRules.cs:1-12, tests/AgentSmith.Tests/Architecture/FileLengthRatchetTests.cs:19-35"
+  - claim: "The spec diff review shows the same unified diff without the rule."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecReviewPrompt.cs:28-45, src/backend/AgentSmith.Application/Services/Specs/SpecDiffs.cs:54"
+  - claim: "Diff windows find file boundaries by an unanchored search for 'diff --git ', so an added line containing that text splits a file."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DiffWindows.cs:52-61"
 
 scope:
   in: >
-    SpecAccountPrompt states how to read the body: lines starting with '-' are gone from the branch; '+' and context
-    lines are what it now contains; a criterion about current content, size or shape is judged from those alone,
-    and a removed line proves only a criterion about removal.
-  out: "Showing post-images instead of the diff — the removal criteria need the '-' lines."
+    Shared hunk semantics (AccountEvidenceRules.DiffReading): a file's '---'/'+++' header is the two lines before its
+    first '@@'; inside a hunk '+' lines were added, space-prefixed lines are unchanged code around them, '-' lines are
+    gone from the branch. The account prompt adds: a criterion about added or changed lines is judged from '+' lines
+    alone, a '-' line proves only what was removed, replaced, renamed or moved, a whole file's current content follows
+    the existing body-or-search rule. The diff review adds: a finding names a line the branch now contains, never a '-'
+    line. DiffWindows anchors the file header to a line start, reusing SpecDiffText's boundary; CitedFileIndex reads a
+    header path only before a file's first '@@'.
+  out: "Showing post-images instead of the diff — removal criteria need the '-' lines."
 
 steps:
-  - id: prompt
-    action: "Add the reading rule above the DIFF section of SpecAccountPrompt."
+  - id: rule
+    action: "AccountEvidenceRules.DiffReading; both prompts render it above their diff."
+  - id: windows
+    action: "DiffWindows.Files and CitedFileIndex.DiffHeaderPath read headers only where git writes them."
 
 tests:
-  - "SpecAccountPrompt_ExplainsRemovedLines"
+  - "SpecAccountPrompt_ExplainsDiffReading"
+  - "SpecReviewPrompt_ExplainsDiffReading"
+  - "DiffWindows_AddedLineContainingTheHeader_StaysInItsFile"
+  - "CitedFileIndex_RemovedLineStartingWithDashes_IsNoPath"
 
 done:
-  - "The account prompt carries the removed-line rule; full suite green."
+  - "Both prompts render the diff-reading rule; a diff whose '+' line contains 'diff --git ' splits into one window per real file."
+  - "Full suite green."

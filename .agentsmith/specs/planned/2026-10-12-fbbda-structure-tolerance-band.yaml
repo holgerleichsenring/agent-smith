@@ -1,53 +1,60 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-12-fbbda
-goal: "A limit carries a tolerance: a unit past its limit but inside the band is a divergence the PR and record name; only a unit past the band is an excess the gate sends back or fails."
+goal: "A limit carries a tolerance: a unit past its limit but inside the band is a divergence each repository's PR names; only a unit past the band is an excess the gate sends back or fails."
 
-applies_to: "backend (structure judge, gate, baseline, records) and skills catalog (delta Limits)"
+applies_to: "backend (structure limits, judge, gate, baseline, code PR body) and skills catalog (delta Limits)"
 
 requires: [2026-10-06-8565c, 2026-10-06-8565d]
 
 facts:
-  - claim: "The judge reports every unit whose value exceeds its limit as one kind of finding."
-    evidence: "src/backend/AgentSmith.Application/Services/Structure/StructureJudge.cs:32-37"
-  - claim: "Limits are read from a delta's '## Limits' fence and a house '### Limits' fence under Project Specifics, merged key by key."
-    evidence: "src/backend/AgentSmith.Application/Services/Structure/StructureLimits.cs:14-34"
-  - claim: "The catalog validator accepts a closed set of Limits keys."
-    evidence: "observed: 2026-10-12, agent-smith-skills origin/main 6c04986, scripts/validate-skills.sh:199-214"
-  - claim: "observed: the operator — 'a 123-line class is no problem, 150 neither, but it has to be solid'."
+  - claim: "The judge reports every unit whose value exceeds its limit as one kind of finding, carrying a path but no repository."
+    evidence: "src/backend/AgentSmith.Application/Services/Structure/StructureJudge.cs:32-37, src/backend/AgentSmith.Contracts/Models/Structure/StructureFinding.cs:4"
+  - claim: "Limits merge a delta fence and a house fence key by key, keeping only positive values; a set with no metric is empty."
+    evidence: "src/backend/AgentSmith.Application/Services/Structure/StructureLimits.cs:14-34, src/backend/AgentSmith.Application/Services/Structure/StructureLimits.cs:61, src/backend/AgentSmith.Contracts/Models/Structure/StructureLimitSet.cs:11"
+  - claim: "The code PR body is composed per repository inside OpenOneAsync and without one for spec-only PRs, and takes no repository."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CodePullRequestBody.cs:25, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:126-142, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:232, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:319"
+  - claim: "The catalog validator accepts a closed set of Limits keys, each restating a 'lines' number from the size prose."
+    evidence: "observed: 2026-10-13, agent-smith-skills origin/main 6c04986, scripts/validate-skills.sh:199-227"
+  - claim: "observed: the operator — 'a 123-line class is no problem, 150 neither, but it has to be solid'; tolerance 25 percent ratified."
     evidence: "observed: 2026-10-12, operator conversation"
 
 scope:
   in: >
-    Limits gain the closed key tolerance_percent (non-negative integer; absent = 0). StructureJudge returns each
-    unit over its limit with a severity: Divergence when value <= limit * (100 + tolerance) / 100, else Excess.
-    The commit gate splices or fails on Excess only; divergences ride on the gate's outcome into the spec record
-    and the code PR body as a list ('within tolerance: path key metric value/limit'). The init baseline records
-    Excess only. SKILLS: DELTA-FORMAT names the key, validate-skills accepts it, each delta that sets a limit states
-    tolerance_percent: 25; release and pin.
-  out: "Judging whether a divergence is solid — the reviewer reads the list in the PR."
+    StructureLimitSet gains Tolerance (percent, 0 or more, absent = 0), parsed from 'tolerance_percent' apart from
+    the metrics: 0 is kept, it never makes a set non-empty, a house fence overrides it. StructureFinding gains
+    Repository (stamped by the gate from the sandbox-to-repository map) and Severity: Divergence when value <=
+    floor(limit * (100 + tolerance) / 100), else Excess. The commit gate,
+    its correction prompt and the init baseline act on Excess only; the master is asked to reach the limit, not the
+    band. At PR time the code body of each repository (CommitAndPRHandler:319) lists the divergences in the files the
+    branch changed, for contexts with a baseline at the base ('within tolerance: path key
+    metric value/limit'); a unit already inside the band at the base is listed too. SKILLS: DELTA-FORMAT names the
+    key and its source (operator ratification 2026-10-12); validate-skills accepts it as 0 or more, outside the
+    'lines' prose check; each delta with a limit states tolerance_percent: 25; release; pin; goldens regenerated from the pinned tarball.
+  out: "Judging whether a divergence is solid — the reviewer reads the PR. Class limits — no delta sets type_lines; a project's house '### Limits' fence does."
 
 decisions:
-  - key: "THE BAND IS DATA, NOT A DEFAULT. A delta states 25; code without the key is strict, so no number hides in the engine."
-  - key: "A DIVERGENCE IS NAMED, NEVER BLOCKED. 'Solid' is a judgement; the gate counts, the reviewer decides."
+  - key: "THE BAND IS DATA, NOT A DEFAULT. Code without the key is strict; the 25 lives in the catalog with its source."
+  - key: "DIVERGENCES AT PR TIME, NOT IN THE RECORD. The gate judges the whole branch, so a per-spec record would list earlier specs' work."
 
 steps:
   - id: limits
-    action: "StructureLimitSet and StructureLimits read tolerance_percent."
+    action: "StructureLimitSet.Tolerance; StructureLimits parses it separately."
   - id: judge
-    action: "StructureFinding carries Severity; StructureJudge classifies."
-  - id: gate
-    action: "Gate and baseline act on Excess; divergences reach the record and the PR body."
+    action: "StructureFinding Repository and Severity; StructureJudge classifies; gate, prompt and baseline use Excess."
+  - id: pr
+    action: "CodePullRequestBody takes the repository and lists that repository's divergences, judged at PR time."
   - id: skills
-    action: "DELTA-FORMAT, validate-skills, deltas; release; pin."
+    action: "DELTA-FORMAT, validate-skills, deltas; release; pin; regenerate goldens."
 
 tests:
   - "StructureJudge_ValueInsideBand_IsDivergence"
   - "StructureJudge_ValuePastBand_IsExcess"
-  - "StructureJudge_NoTolerance_EveryOverIsExcess"
+  - "StructureLimits_HouseToleranceZero_OverridesDelta"
+  - "StructureLimits_ToleranceOnly_IsEmpty"
   - "StructureGate_OnlyDivergences_Passes"
   - "StructureBaseline_Divergence_IsNotRecorded"
-  - "CodePullRequestBody_Divergences_AreListed"
+  - "CodePullRequestBody_Divergences_ListedForTheirRepositoryOnly"
 
 done:
-  - "A harness run whose scripted master writes a 24-line method under function_lines 20 and tolerance 25 passes with the divergence named in the PR body; a 30-line method gets the correction pass."
+  - "A harness run whose scripted master writes a 24-line method under function_lines 20 and tolerance 25 passes with the divergence in the PR body; a 30-line method gets the correction pass."
   - "Full suite green."
