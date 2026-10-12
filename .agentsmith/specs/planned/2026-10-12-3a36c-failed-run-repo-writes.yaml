@@ -1,8 +1,8 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-12-3a36c
-goal: "A run writes into a repository only what it changed there: no run-record-only commit and no 'fix:' subject on a failed run."
+goal: "A failed run commits into a repository only work it did there: no run-record-only commit, no record-carrier PR, and a WIP subject instead of 'fix:'."
 
-applies_to: "backend (run record, failure persist)"
+applies_to: "backend (CommitAndPR failure path, failure persist)"
 
 requires: [2026-10-12-3a36d]
 
@@ -11,51 +11,54 @@ facts:
     evidence: "observed: 2026-10-12, AzDO commits on agent-smith/19470 in the three repositories"
   - claim: "observed: the manifest gained revisions 4, 6, 7 and 8, each 'comment on the ticket — the approved set was kept', with no other change."
     evidence: "observed: 2026-10-12, .agentsmith/series/2026-10-12-eff5.yaml on BackgroundWorker"
-  - claim: "WriteRunResult writes plan.md/result.md into every repo of the run, changed or not."
-    evidence: "src/backend/AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs:175-210"
-  - claim: "The failure persist pushes any repo with working changes; the run record counts as one."
+  - claim: "On a failed step the finalizer tail runs WriteRunResult then CommitAndPR before the error handler's PersistWorkBranch."
+    evidence: "src/backend/AgentSmith.Application/Services/Pipeline/PipelineStepFailure.cs:84-88, src/backend/AgentSmith.Application/Services/Pipeline/PipelineFinalizerTail.cs:22-27"
+  - claim: "CommitAndPR already excludes .agentsmith paths from 'code'; with no code anywhere the first repo becomes the record carrier (p0235: at least one PR with result.md), force-stages .agentsmith, commits 'fix: {title}' and finds-or-creates the PR."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:61-65, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:88, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:127-129, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:238, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:248, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:337"
+  - claim: "PersistWorkBranch then pushes any repo with working changes; the uncommitted run record counts as one."
     evidence: "src/backend/AgentSmith.Application/Services/Handlers/PersistWorkBranchHandler.cs:54-83"
-  - claim: "CommitAndPR's commit subject is 'fix: {ticket title}' whether or not the run failed."
-    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:238"
-  - claim: "Every finalised set appends a revision, model or not, so a kept set is re-committed on every run."
-    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRevisionHeader.cs:30-44"
-  - claim: "result.md is also cached in the run artifact store; the disk write is treated as authoritative."
-    evidence: "src/backend/AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs:386-395"
-  - claim: "The WIP subject is '[wip] agent-smith run {runId}'."
-    evidence: "src/backend/AgentSmith.Contracts/Models/Lifecycle/WipCommit.cs:9-11"
+  - claim: "Init already skips a commit whose staged files all lie under the runs directory."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/InitCommitHandler.cs:91-104, src/backend/AgentSmith.Application/Services/RunRecordPaths.cs:39-41"
+  - claim: "The WIP message is subject plus Run-Id, Pipeline and Failed-Step trailers; the PR sweep skips a head carrying the WIP marker."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PersistWorkBranchHandler.cs:149-160, src/backend/AgentSmith.Contracts/Models/Lifecycle/WipCommit.cs:4-11, src/backend/AgentSmith.Server/Services/Sweep/PrSweepPass.cs:66"
+  - claim: "Readers of the run record use the artifact store or filter aborted runs; the branch-state preflight counts framework commits, so fewer commits only removes false 'earlier run's work' warnings."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CompileKnowledgeHandler.cs:129-137, src/backend/AgentSmith.Application/Services/Preflight/Run/BranchStateCheck.cs:93-95"
 
 assumptions: []
 
 scope:
-  in: "Run record only beside real changes; failed-run commit subject."
-  out: "Where specs and revisions live — 3a36d moves revisions off the branch, which ends the kept-set revision commits."
+  in: "No record carrier on a failed run; PersistWorkBranch skips record-only stages; one WIP message for CommitAndPR on a failed run."
+  out: "Green runs without code keep the p0235 record PR; WriteRunResult still writes into every sandbox (an uncommitted file costs nothing); revisions off the branch are 3a36d's."
 
 decisions:
-  - key: "REAL CHANGE DECIDES: a repo's change is real when it touches a path outside .agentsmith/runs/; without one the record lives in the artifact store only, and the store becomes authoritative for that repo."
-  - key: "A FAILED RUN'S COMMIT SAYS SO: CommitAndPR uses the WIP subject on a failed run, so 'fix:' only ever names delivered work."
+  - key: "FIX AT COMMIT TIME, as Init already does: a file in a discarded sandbox costs nothing, only commits leak."
+  - key: "P0235 STAYS FOR GREEN RUNS: its rule ('at least one PR') describes a delivered run; a failed run has no delivery to show."
+  - key: "ONE WIP MESSAGE: CommitAndPR on a failed run uses PersistWorkBranch's message, trailers included; the sweep then skips that head (af10), which is intended — a failed run's work is not reviewed as delivered."
 
 steps:
-  - id: record-beside-change
-    action: "In WriteRunResult, write the run record into a repo only when the run has a real change there; otherwise cache it in the artifact store only."
-    new:
-      - "RunRecordTarget: real-change test per repo (path outside .agentsmith/runs/)"
-    modify:
-      - "WriteRunResultHandler"
-  - id: persist-real-change
-    action: "Treat a repo whose staged changes are all under .agentsmith/runs/ as NoChanges in PersistWorkBranch and in CommitAndPR."
-    modify:
-      - "PersistWorkBranchHandler, CommitAndPRHandler"
-  - id: failed-subject
-    action: "Use WipCommit.Subject for CommitAndPR's commit when the run failed."
+  - id: no-carrier-on-failure
+    action: "Make CommitAndPR's record carrier require failureReason is null."
     modify:
       - "CommitAndPRHandler"
+  - id: persist-record-only
+    action: "After StageAllAsync, return NoChanges in PersistWorkBranch when every staged path is under the runs directory."
+    modify:
+      - "PersistWorkBranchHandler"
+  - id: failed-message
+    action: "Move the WIP message into one builder and use it for CommitAndPR's commit when the run failed."
+    new:
+      - "WipCommitMessage: subject + Run-Id, Pipeline, Failed-Step trailers"
+    modify:
+      - "PersistWorkBranchHandler, CommitAndPRHandler"
 
 tests:
-  - "WriteRunResult_RepoWithoutRealChange_WritesNoRecordFile"
-  - "PersistWorkBranch_OnlyRunRecordChanged_IsNoChanges"
-  - "CommitAndPR_FailedRun_UsesWipSubject"
+  - "CommitAndPR_FailedRunWithoutCode_OpensNoRecordPr"
+  - "CommitAndPR_FailedRun_FirstRepoWithoutPr_CreatesNoBranchOrPr"
+  - "CommitAndPR_FailedRunWithCode_UsesWipMessage"
+  - "CommitAndPR_GreenRunWithoutCode_KeepsRecordPr"
+  - "PersistWorkBranch_OnlyRunRecordStaged_IsNoChanges"
 
 done:
-  - "A run that fails before any phase pushes no commit to any repository (RealCompositionHarness, three repos)."
-  - "A green run still writes its record into each repo it changed."
+  - "With 3a36d in place, a run failing before any phase pushes no commit to any repository (RealCompositionHarness, three repos)."
   - "No 'fix:' commit exists for a failed run."
+  - "A green run without code still opens its record PR."

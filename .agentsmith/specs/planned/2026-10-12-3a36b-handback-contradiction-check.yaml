@@ -1,62 +1,74 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-12-3a36b
-goal: "A contradiction hand-back parks only after a reviewer confirms it against the repository, and a stored hand-back is derived again once the branch or the conversation has moved."
+goal: "A contradiction hand-back parks only after a checker confirms it from the files it cites, and a stored one is derived again, still approved, once the branch got foreign commits."
 
 applies_to: "backend (spec derivation, hand-back)"
 
-requires: [2026-10-12-3a36a, 2026-10-12-3a36d]
+requires: [2026-10-12-3a36d]
 
 facts:
   - claim: "observed: run 10-10 (rework on PR 9476) derived with two spec-derivation calls and two greps in Server, no spec-cut-reviewer call, and handed back RequirementsContradictRepository: 'SubmitAssetsRequest contains only TruckPlate and TrailerPlate'."
     evidence: "observed: 2026-10-12, RunLlmCalls + RunEvents of run 2026-10-12T10-10-33-3ee4"
   - claim: "observed: at that time the branch's SubmitAssetsRequest still declared ShipmentId and AccessLinkId; the reviewer removed them by hand at 10:20 (dd73f4a8)."
     evidence: "observed: 2026-10-12, AzDO items API at d497be40 and branch history of agent-smith/19470"
-  - claim: "The hand-back is written into the series manifest and read back from it with the set."
-    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesManifest.cs:82-87, src/backend/AgentSmith.Application/Services/Specs/SeriesManifest.cs:101-106, src/backend/AgentSmith.Application/Services/Specs/SeriesReader.cs:106"
-  - claim: "A set read from the branch is published with its stored hand-back, which the hand-back step then acts on."
-    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetPublisher.cs:49-54, src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs:44-64"
-  - claim: "An approved set without a demand, rework or status-back act runs no model, whatever it carries."
-    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecAmendmentRule.cs:36-52"
-  - claim: "observed: runs 10-20, 10-28 and 10-45 made no derivation call and republished the 10-10 hand-back; the last two failed on the repeat guard."
-    evidence: "observed: 2026-10-12, RunLlmCalls + RunSteps for ticket 19470"
-  - claim: "The cut reviewer judges a set against the ticket text only."
-    evidence: ".agentsmith/specs/done/2026-10-08-f114-rework-executed-set-append.yaml (claim 'The cut reviewer judges the set against the ticket text only')"
+  - claim: "A non-question hand-back is case plus prose reason; the parser builds it with no evidence and no phases."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecDerivationEnvelope.cs:39-44, src/backend/AgentSmith.Application/Services/Specs/SpecDerivationEnvelope.cs:59-63, src/backend/AgentSmith.Application/Services/Specs/SpecDerivationParser.cs:66-73"
+  - claim: "Evidence records carry a Path; phases already cite evidence ids."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationEvidence.cs:40-50"
+  - claim: "The cut reviewer returns Clean for a set without drafts, so a hand-back is never reviewed."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecCutReviewer.cs:43"
+  - claim: "The deriver loops parse → review with a re-ask, and grants a pinned set one extra attempt; with nothing kept the handler falls back to one phase."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:62, src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:72-96, src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:102-110"
+  - claim: "A read-only look over the run's sandboxes exists (search + read, read capped at 16,000 chars, null without sandbox); PhasePremiseChecker is a checker of the same shape admitting a verdict by its own evidence id."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationLookFactory.cs:65-73, src/backend/AgentSmith.Application/Services/Specs/DerivationTools.cs:17-36, src/backend/AgentSmith.Application/Services/Specs/RepositoryFileReadTool.cs:20, src/backend/AgentSmith.Application/Services/Specs/PhasePremiseChecker.cs:26-60"
+  - claim: "NeedsModel is a pure function of cause and set; an approved set under a Comment stops there, and a re-derive under Comment carries no approval into Finalize."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecAmendmentRule.cs:36-52, src/backend/AgentSmith.Application/Services/Specs/SpecSourceResolver.cs:50-69, src/backend/AgentSmith.Application/Services/Specs/SpecRevisionHeader.cs:42"
+  - claim: "Checkout merges the base branch into HEAD; our git identity is skipped where one already resolves; the last revision sha is recorded per series."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/WorkBranchBaseMerger.cs:48, src/backend/AgentSmith.Application/Services/Sandbox/SandboxGitIdentity.cs:30-35, src/backend/AgentSmith.Infrastructure.Persistence/Entities/TicketSeries.cs:23-26"
+  - claim: "The repeat guard counts only replies."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecHandbackRepeat.cs:30-44"
 
-assumptions:
-  - claim: "The derivation has read-only repository tools a checker can reuse (2026-09 derivation-read-only-tools)."
-    check: "Find the tool host the spec-derivation role gets and confirm it is read-only and per-sandbox."
-  - claim: "Our own commits are recognisable on the branch (author 'Agent Smith' / WipCommit marker)."
-    check: "Open WipCommit and the git identity the sandbox commits with."
+assumptions: []
 
 scope:
-  in: "A checker for RequirementsContradictRepository before parking; expiry of a stored hand-back against its time in TicketSeries (3a36d)."
-  out: "Other hand-back cases (a refusal parks every time, a question is ended by its pin); PR reply detection itself (3a36a)."
+  in: "Required cites on a contradiction hand-back; a checker before parking; one extra derivation on a refutation; expiry on foreign commits since the recorded revision sha, keeping the approval; the repeat guard reset by such a commit."
+  out: "Other hand-back cases; replies on the PR (3a36a); sandboxes running under the operator's own git identity — no 'ours' to exclude, so no expiry probe there."
 
 decisions:
-  - key: "A SECOND READING, NOT A RULE: the claim is code semantics, so a model checks it — with the files read whole, not a grep line — rather than a parser (no language-specific checks)."
-  - key: "REFUTED MEANS DERIVE AGAIN ONCE with the refutation as input; a second contradiction parks. No loop."
-  - key: "THE TIME IS THE FIELD: expiry compares against the hand-back time 3a36d stores in TicketSeries, not against revisions."
-  - key: "EXPIRY RE-DERIVES, it does not delete: a moved branch or a reply makes the model run on the set again; an unchanged picture still ends at the repeat guard."
+  - key: "A SECOND READING, NOT A RULE: the claim is code semantics, so a model checks it from the cited files, not a parser."
+  - key: "NO CITE, NO CONTRADICTION: a contradiction citing no evidence the look produced is re-asked, as an uncited phase fact is."
+  - key: "REFUTED MEANS ONE MORE ATTEMPT, granted like pinned's, with the refutation in the prompt; a second contradiction is not checked again. No look, no check — logged."
+  - key: "SHA RANGE, NOT CLOCKS: foreign = first-parent, non-merge commits in recordedSha..HEAD whose author is not our identity."
+  - key: "EXPIRY KEEPS THE APPROVAL: an expired hand-back re-derives an approved set without un-approving it."
+  - key: "A FOREIGN COMMIT RESETS THE REPEAT GUARD: the picture changed, so a renewed contradiction parks again instead of failing."
 
 steps:
+  - id: cites
+    action: "Require cites (evidence ids) on a RequirementsContradictRepository hand-back; re-ask when they are missing or unknown."
+    modify:
+      - "SpecDerivationEnvelope.Handback, SpecDerivationParser"
   - id: checker
-    action: "Before a RequirementsContradictRepository hand-back is published, have a checker role read the files the reason names (whole) and answer confirmed or refuted with the evidence."
+    action: "In SpecSetDeriver between parse and review, run a ContradictionChecker over the cited paths through DerivationLookFactory.OnTerms; on Refuted, add one attempt and re-ask with the refutation."
     new:
-      - "ContradictionCheck: role prompt + verdict record (Confirmed, Refutation)"
+      - "ContradictionChecker + admission by its own evidence id (shape of PhasePremiseChecker)"
     modify:
-      - "Spec derivation: on Refuted, derive once more with the refutation in the prompt"
+      - "SpecSetDeriver"
   - id: expiry
-    action: "Make SpecAmendmentRule.NeedsModel true when the set carries a hand-back and a scoped repo's ticket branch has a commit not ours after the stored hand-back time, or a reply was counted after it."
+    action: "Add an async foreign-commit probe per scoped repo in DeriveSpecHandler before Decide; pass its bool to NeedsModel; carry artifact.Set.Approval on an expiry re-derive."
+    new:
+      - "ForeignCommitProbe: git log --first-parent --no-merges <sha>..HEAD --format=%ae minus our identity"
     modify:
-      - "SpecAmendmentRule, SpecSourceResolver (passes branch heads and reply flag)"
+      - "DeriveSpecHandler, SpecAmendmentRule, SpecSourceResolver, SpecHandbackRepeat"
 
 tests:
-  - "ContradictionCheck_ReasonContradictedByFile_Refutes"
-  - "Derivation_RefutedContradiction_DerivesOnceMoreWithRefutation"
-  - "NeedsModel_HandbackAndForeignCommitAfterIt_True"
-  - "NeedsModel_HandbackAndReplyAfterIt_True"
-  - "NeedsModel_HandbackAndNothingMoved_False"
+  - "SpecDerivationParser_ContradictionWithoutCites_IsReAsked"
+  - "ContradictionChecker_ReasonContradictedByFile_Refutes"
+  - "SpecSetDeriver_RefutedOnLastAttempt_GetsOneMore"
+  - "ForeignCommitProbe_BaseMergeAndOurCommits_AreNotForeign"
+  - "NeedsModel_HandbackAndForeignCommit_True"
+  - "Expiry_ApprovedSet_ReDerivedSetStaysApproved"
+  - "SpecHandbackRepeat_ForeignCommitSinceHandback_IsNotRepeat"
 
 done:
-  - "Replaying run 10-10's inputs through RealCompositionHarness with a scripted false contradiction yields a refutation and a second derivation, not a park."
-  - "A set whose hand-back predates a foreign commit on any scoped branch is derived again by the next run."
+  - "Replaying run 10-10's inputs (RealCompositionHarness, scripted false contradiction) yields a refutation and a second derivation, not a park."
+  - "After a foreign commit, the next run re-derives the approved set and the result is still approved."
