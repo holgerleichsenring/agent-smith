@@ -32,8 +32,8 @@ public sealed class WriteContextYamlToolHost : IToolHost
     private readonly SandboxContextYamlWriter _writer;
     // 2026-09-01-e14d: hashes the files a written verify block says it was derived from.
     private readonly VerifyDerivationStamp _derivation;
-    // 2026-10-12-6bfac: a stack.image the registry boundary refuses is written, and said.
-    private readonly ContextImageBoundary _imageBoundary;
+    // 2026-10-12-6bfac / 2026-10-12-50bdb: a missing image is refused, a refused one said.
+    private readonly ContextImageReview _images;
     // 2026-08-25-c9c7: per-round, so a document the model cannot make valid stops
     // being re-invited instead of spending the loop's iteration cap.
     private readonly ContextWriteRejectionBudget _budget = new();
@@ -59,7 +59,7 @@ public sealed class WriteContextYamlToolHost : IToolHost
         ContextDocumentGate gate,
         SandboxContextYamlWriter writer,
         VerifyDerivationStamp derivation,
-        ContextImageBoundary imageBoundary,
+        ContextImageReview imageReview,
         IReadOnlyDictionary<string, IReadOnlyList<string>>? discoveredContexts = null,
         string? defaultRepoName = null)
     {
@@ -69,7 +69,7 @@ public sealed class WriteContextYamlToolHost : IToolHost
         _gate = gate;
         _writer = writer;
         _derivation = derivation;
-        _imageBoundary = imageBoundary;
+        _images = imageReview;
         _nameGuard = new ContextNameGuard(discoveredContexts, defaultRepoName);
     }
 
@@ -145,30 +145,24 @@ public sealed class WriteContextYamlToolHost : IToolHost
         // 2026-09-23-72c7: the self-contradiction is reported ALONGSIDE the gate's defects,
         // for 2026-08-26-167c's reason — a round sent back twice for one document starts
         // guessing at the half it was not told about.
-        if (Refusal(_gate.Defect(typed), _workdirCommands.Defect(typed)) is { } defect)
+        var image = await _images.VerifyAsync(typed.Stack?.Image, ct);
+        if (Refusal(_gate.Defect(typed), _workdirCommands.Defect(typed), _images.Defect(image)) is { } defect)
             return _budget.Reject(context_name, defect);
         _budget.Accepted(context_name);
 
         var written = await _writer.WriteAsync(sandbox!, repo, context_name, yaml, ct);
         return written.StartsWith(SandboxContextYamlWriter.WrittenPrefix, StringComparison.Ordinal)
-            ? Answered(written, typed.Stack?.Image)
+            ? Answered(_images.Answer(written, typed.Stack?.Image, image))
             : written;
     }
 
-    // 2026-10-12-6bfac: accepted, not refused — the operator may widen the boundary, and a
-    // refusal would push the model towards a trusted image that lacks the toolchain.
-    private string Answered(string written, string? image)
+    // 2026-10-12-6bfac: a boundary refusal is accepted, not refused — the operator may widen
+    // the boundary; the outcome carries it to the init PR.
+    private string Answered(ContextImageAnswer answer)
     {
-        _imageRefusal = _imageBoundary.Judge(image);
-        return _imageRefusal is null
-            ? written
-            : $"{written}\nNote: {_imageRefusal.Describe()}.\n{ImageInstruction}";
+        _imageRefusal = answer.Refusal;
+        return answer.Text;
     }
-
-    private const string ImageInstruction =
-        "Write the context again with an image inside the boundary only if one carries this "
-        + "stack's whole toolchain — never one that lacks it. Otherwise keep this image and name "
-        + "the boundary and the lever above in your summary, so the operator can act on it.";
 
     private static string? Refusal(params string?[] defects)
     {

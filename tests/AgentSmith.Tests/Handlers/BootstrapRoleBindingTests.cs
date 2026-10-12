@@ -119,7 +119,7 @@ public sealed class BootstrapRoleBindingTests
                 new PathReadGuard(new NullGitIgnoreResolver()),
                 new PathWriteGuard(new PathReadGuard(new NullGitIgnoreResolver())),
                 ContextGates.Serializer(), ContextGates.Build(), ContextGates.Writer(),
-                ContextGates.DerivationStamp(), ContextGates.ImageBoundary()),
+                ContextGates.DerivationStamp(), ContextGates.ImageReview()),
             BootstrapReaderStubs.NullMetaFiles(),
             PrinciplesTransferStubs.NoTemplates(),
             new BootstrapContextWriteVerdict(),

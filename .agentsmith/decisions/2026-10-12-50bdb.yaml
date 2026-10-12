@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-50bdb
+
+decisions:
+  - category: Architecture
+    chose: "write_context_yaml REFUSES a stack.image its registry answers 404 for, through the shared rejection budget, naming the closest tags the repository lists"
+    over: "Writing the file and appending a finding, as 6bfac does for the trust boundary"
+    reason: |
+      A tag the registry does not have can never be pulled — no setting the operator changes makes
+      it work, unlike a registry outside the trust boundary. A refusal with the published tags lets
+      the model correct in the same session (the observed case: the version pair it wanted existed
+      as eclipse-temurin-25.0.1_8_1.11.7_2.13.18). Consequence accepted: a model that cannot name a
+      listed tag within the budget (limit 5, shared with schema defects) fails the init round
+      instead of shipping an image the pod cannot pull.
+  - category: Architecture
+    chose: "The missing-image defect is joined into the gate's defects (one refusal), checked before _budget.Accepted and before the write"
+    over: "A separate check after the gate is clear, or after the write"
+    reason: |
+      After Accepted the tally is cleared, so a post-gate refusal would always count as refusal 1
+      and the budget would never run out. Joining follows 2026-09-23-72c7: a round sent back twice
+      for one document starts guessing at the half it was not told about.
+  - category: Architecture
+    chose: "Only a 404 refuses; 401/403/429/5xx, a redirect, a timeout, a DNS or connection failure, a non-public host and an unparseable reference are 'unverified' and the write proceeds"
+    over: "Treating a 401/403 after the anonymous token as missing"
+    reason: |
+      Observed live: Docker Hub answers 401 and ghcr.io 403 for an unknown repository, which is the
+      same answer a private repository gets — the sandbox may hold pull credentials the lookup does
+      not. A lookup that cannot answer never blocks a write. The unverified result says so and that
+      no rewrite is needed, so the model does not swap a correct private image for a worse public one.
+  - category: Implementation
+    chose: "Manifest HEAD accepting all four manifest media types; tag list n=1000, at most 5 pages, Link rel=next followed only on the same scheme and host"
+    over: "GET, a bare Accept, an unbounded list, or a 'last=' window around the requested tag"
+    reason: |
+      Docker Hub does not count a HEAD against the anonymous pull limit. A registry answers 404 for an
+      OCI index or manifest list the request does not accept — every multi-arch image would read as
+      missing. sbtscala/scala-sbt lists 3130 tags; five pages cover it, and mcr.microsoft.com ignores
+      n= and answers in one page that the 4 MB buffer bounds. A 'last=' window would need a guess at
+      where the requested tag's neighbours start.
+  - category: Implementation
+    chose: "Candidates ranked by shared letter-and-digit runs, then common prefix, then length closeness; at most 8"
+    over: "Per-ecosystem tag patterns (JDK/sbt/Scala, node, python version shapes)"
+    reason: "No language-specific parsers: the runs are the only reading, so any registry's tags rank the same way. On the observed tag the same version pair ranks first."
+  - category: Security
+    chose: "Every registry and token-realm URL is judged by RenderUrlGuard (public addresses only) before a request; the named client follows no redirect"
+    over: "Judging the connected address in SocketsHttpHandler.ConnectCallback, or no guard"
+    reason: |
+      The image host is model-authored, so the lookup is an SSRF surface. A connect-time judge would
+      judge the egress proxy's (private) address in proxied deployments and refuse every lookup. The
+      residual DNS-rebinding window yields a status code and bounded tag strings, which the model
+      already reads from far less guarded sources.
+  - category: Implementation
+    chose: "ContextImageReview replaces ContextImageBoundary as write_context_yaml's constructor parameter and owns both image judgments (registry before the write, boundary note after it)"
+    over: "A second constructor parameter beside the boundary"
+    reason: "WriteContextYamlToolHost sits in the file-length ratchet with two lines of room; moving the 6bfac note out of it pays for the new check (191 -> 185 lines), and ContextImageAnswer keeps handing the boundary refusal to Outcome.ImageRefusal and the init PR."
+  - category: Scope
+    chose: "No run-time preflight HEAD of an existing context's image in this phase"
+    over: "A context-image-existence preflight check"
+    reason: |
+      RunPreflight runs after CheckoutSource, when the sandbox pod already exists, so it cannot fail
+      fast before sandbox creation; the preflight checks and the image chain belong to the sister
+      2026-10-12-50bda. Follow-ups named: "context image existence at run time, before the sandbox is
+      created", "invented repository name" (needs credentials to tell from a private one), and
+      "unverified context image in the init PR body".

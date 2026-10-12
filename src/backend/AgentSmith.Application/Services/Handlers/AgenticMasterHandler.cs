@@ -40,7 +40,7 @@ public sealed class AgenticMasterHandler(
     ContextDocumentGate contextDocumentGate, // 2026-08-25-c9c7: judges write_context_yaml's document
     SandboxContextYamlWriter contextYamlWriter, // 2026-08-26-364f: preserves what the document omits
     Tools.VerifyDerivationStamp verifyDerivationStamp, // 2026-09-01-e14d: hashes the verify block's source
-    Sandbox.ContextImageBoundary imageBoundary, // 2026-10-12-6bfac: says when stack.image is refused
+    ContextImageReview imageReview, // 2026-10-12-6bfac / 50bdb: a missing stack.image is refused, a refused one said
     IMasterOutputSchemaResolver schemaResolver,
     IScanMasterPromptFactory scanPromptFactory,
     ScanMasterPasses scanPasses, // 2026-09-01-7df4/0e80: the scan's follow-up passes
@@ -305,7 +305,7 @@ public sealed class AgenticMasterHandler(
             ? drn : defaultKey;
         var writeContextYaml = new WriteContextYamlToolHost(
             sandboxes, defaultKey, contextYamlSerializer, contextDocumentGate,
-            contextYamlWriter, verifyDerivationStamp, imageBoundary, discoveredContexts,
+            contextYamlWriter, verifyDerivationStamp, imageReview, discoveredContexts,
             writeDefaultRepoName);
 
         // p0356: the probed toolchain inventory enters the CODING master's system
