@@ -42,7 +42,7 @@ public sealed class PersistWorkBranchHandlerTests
             });
         _handler = new PersistWorkBranchHandler(
             new SandboxGitOperations(new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
-            new SandboxTargets(), NullLogger<PersistWorkBranchHandler>.Instance);
+            new SandboxTargets(), new WipCommitMessage(), NullLogger<PersistWorkBranchHandler>.Instance);
     }
 
     private static bool IsStagedCheck(Step step) =>
@@ -113,6 +113,44 @@ public sealed class PersistWorkBranchHandlerTests
         message.Should().Contain("Pipeline: default");
         message.Should().Contain("Failed-Step: Generating plan");
     }
+
+    // 2026-10-12-3a36c: the run record alone is not work done in a repository — a failed run
+    // used to push a result.md-only commit into every repo, creating branches where none was.
+    [Fact]
+    public async Task PersistWorkBranch_OnlyRunRecordStaged_IsNoChanges()
+    {
+        var pipeline = NewPipelineWithRepoAndSandbox();
+        SetupStagedNames(".agentsmith/runs/run-1/result.md\n.agentsmith/runs/run-1/plan.md");
+
+        var result = await _handler.ExecuteAsync(NewContext(pipeline), CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Message.Should().Contain("0 pushed, 1 nothing to commit");
+        _capturedSteps.Should().NotContain(s => s.Args!.Contains("commit") || s.Args!.Contains("push"));
+    }
+
+    [Fact]
+    public async Task PersistWorkBranch_SpecFileBesideTheRunRecord_IsPersisted()
+    {
+        var pipeline = NewPipelineWithRepoAndSandbox();
+        SetupStagedNames(".agentsmith/runs/run-1/result.md\n.agentsmith/specs/planned/p1.yaml");
+
+        await _handler.ExecuteAsync(NewContext(pipeline), CancellationToken.None);
+
+        _capturedSteps.Should().Contain(s => s.Command == "git" && s.Args!.Contains("push"),
+            "only the runs directory is the record — an uncommitted spec file is work");
+    }
+
+    private void SetupStagedNames(string names) =>
+        _sandboxMock.Setup(s => s.RunStepAsync(
+                It.Is<Step>(st => st.Command == "git" && st.Args != null && st.Args.Contains("--name-only")),
+                It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()))
+            .Returns<Step, IProgress<StepEvent>?, CancellationToken>((step, _, _) =>
+            {
+                _capturedSteps.Add(step);
+                return Task.FromResult(new StepResult(
+                    StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null, names));
+            });
 
     [Fact]
     public async Task PersistWorkBranch_NothingStaged_PreCommitCheckRoutesToSkipped_NoCommitAttempted()

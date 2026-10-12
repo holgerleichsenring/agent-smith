@@ -102,5 +102,5 @@ public sealed class ConflictedCheckoutStopsThePushTests
         new(new SandboxGitOperations(
                 new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance,
                 new StubSandboxFileReaderFactory(), TestGit.Identity),
-            new SandboxTargets(), NullLogger<PersistWorkBranchHandler>.Instance);
+            new SandboxTargets(), new WipCommitMessage(), NullLogger<PersistWorkBranchHandler>.Instance);
 }

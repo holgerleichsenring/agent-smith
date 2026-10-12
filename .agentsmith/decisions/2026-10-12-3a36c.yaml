@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-3a36c
+
+decisions:
+  - category: Architecture
+    chose: "A failed run (failureReason set, no prepared shortfall) opens no record carrier; the spec PR opened at derivation replaces the spec repo's SkippedNoChanges outcome as Opened, is published, and gets the failure banner once"
+    over: "Keeping the p0235 carrier for failed runs, or recording the spec PR as a new outcome row"
+    reason: |
+      The carrier committed result.md into the first repo — onto a reviewed PR, or creating a branch
+      where there was none. The run record lives on the run. The spec PR is the work the run did, so
+      it is what the step result and the failure comment name; replacing the skip in place keeps one
+      outcome per repo, which is what the projection keeps anyway.
+  - category: Architecture
+    chose: "'Failed' is decided off the prepared shortfall (shortfall is null), not the delivered one"
+    over: "Waiting for primaryUrl to decide delivery"
+    reason: |
+      The carrier and the commit message are chosen inside the PR loop, before any URL exists. A
+      prepared shortfall carries verified code, so it never needs the carrier; one that then fails to
+      open a PR is reported as failed by the existing path.
+  - category: Architecture
+    chose: "PersistWorkBranch skips a repo whose staged paths all lie under .agentsmith/runs/ (RunRecordPaths.IsUnderRunsDir), as InitCommit does"
+    over: "The broad IsRunRecordPath test"
+    reason: "An uncommitted spec or context file after a failed write is work and must still be saved as WIP."
+  - category: Implementation
+    chose: "One WipCommitMessage builder (instance, transient) used by PersistWorkBranch and, through FailedRunPersistence.CommitMessage, by CommitAndPR on a failed run"
+    over: "Two copies of the trailer block"
+    reason: "The PR sweep recognises the WIP subject (af10); a failed run's CommitAndPR commit is now ours too, so the sweep skips that head as intended."
+  - category: Implementation
+    chose: "FailedStepName is set in PipelineStepFailure.ReportAsync before the tail and at the executor's safety-cancel site; it is removed again when the tail delivered a shortfall"
+    over: "Leaving it set on a delivered shortfall"
+    reason: "A delivered run has no failed step; ShortfallDelivery tests read the key's absence as 'the error path never ran'."
+  - category: Implementation
+    chose: "Extracted CodePullRequestBody (static, like InitPullRequestBody) and PullRequestOutcomePublisher (replaces IEventPublisher in CommitAndPRHandler) from CommitAndPRHandler"
+    over: "Adding the spec-PR keep inline"
+    reason: |
+      The handler sits over its FileLengthRatchet baseline (436 lines); the body is now composed twice
+      and the outcome published from two types, so both became their own types. The handler is 424 lines.
+  - category: Implementation
+    chose: "The done criterion's harness test asserts that every git commit across the three sandboxes is a series commit ('spec: …'), and that no repo without a commit saw a push"
+    over: "Asserting exactly one commit"
+    reason: |
+      Deviation: the harness StubSandbox answers 'git diff --cached --quiet' with exit 0, so SeriesWriter
+      sees the series as unchanged and makes no commit there. The assertion still fails on the old code
+      (mutation-checked: restoring the carrier makes it red).
+  - category: Implementation
+    chose: "FailedRunFinalizationTests now expects no commit beyond the series and the spec PR as the single opened outcome"
+    over: "Keeping 'p0237 stays: the partial work is committed'"
+    reason: "That run fails before any phase did work; its only commit was the result.md-only carrier this spec removes."

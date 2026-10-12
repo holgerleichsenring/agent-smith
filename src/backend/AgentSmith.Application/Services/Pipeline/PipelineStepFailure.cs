@@ -82,9 +82,17 @@ public sealed class PipelineStepFailure(
         ArgumentNullException.ThrowIfNull(context);
         ArgumentNullException.ThrowIfNull(failure);
         context.Set(ContextKeys.FailureReason, failure.Message ?? "unknown");
+        // 2026-10-12-3a36c: the tail's CommitAndPR writes the WIP trailer, so the failed step
+        // is known before it runs, not only once the error handler has.
+        if (!string.IsNullOrEmpty(failure.StepName))
+            context.Set(ContextKeys.FailedStepName, failure.StepName);
         await finalizerTail.RunAsync(stoppedAt, commands, projectConfig, context, executionCount, ct);
         if (RunShortfall.DeliveredOn(context) is { } shortfall)
+        {
+            // A delivered run has no failed step; the name was only for the tail's WIP trailer.
+            context.Remove(ContextKeys.FailedStepName);
             return CommandResult.Ok(shortfall.Summary);
+        }
         await errorHandler.HandleStepFailureAsync(
             pipeline.Select(c => c.Name).ToList(), projectConfig, context, lifecycle, failure, ct);
         return failure;
