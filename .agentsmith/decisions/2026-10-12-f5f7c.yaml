@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-f5f7c
+
+decisions:
+  - category: Architecture
+    chose: "IRunRepositories (Names, FilesOf, HasCodeChangeAsync) with two implementations: PipelineRunRepositories reads the pipeline's sandbox map and key-to-repo map on every call; FixedRunRepositories serves a set known at construction (post-execute changed repos, a bootstrap round's one repo)"
+    over: "Passing a repo-name-to-reader dictionary built once in AgenticMasterHandler"
+    reason: |
+      A dictionary built at handler start misses a repository ensure_repo_sandbox adds mid-run.
+      Reading the pipeline per call makes it count from then on. A repository's surface is
+      SandboxTargets.SandboxesForRepo(...)[0] — the sandbox CommitAndPR commits from, with the
+      other toolchain sandboxes folded into it — so a written memory is in that repo's commit.
+  - category: Architecture
+    chose: "Templates and reference scopes are excluded from the repository names by their address prefixes (template:, reference:)"
+    over: "Excluding by ISourceScopeSandbox type"
+    reason: "The spec dialog's own repositories are source-scope sandboxes too; the prefix is the naming contract TemplatePromptSection and DerivationLookFactory already read."
+  - category: Architecture
+    chose: "remember writes only into a repository with a code change this run — a working-tree path outside the run record, or checkpointed code, CommitAndPR's own hasCode test — and otherwise answers with the repositories that have one"
+    over: "Also counting the green no-code record-carrier PR, or the spec PR"
+    reason: |
+      The record carrier is the first configured repository and is decided only at commit time,
+      after the verdict; counting it would be a positional pick. The spec PR is opened at
+      derivation and carries no later working-tree memory. A memory written before any code
+      change is answered, and the skills text says to remember once the repository has its change.
+  - category: Implementation
+    chose: "RunRepositoryPick.From(names, named) — a pure static over values: a named repository must be one of the run's (case-insensitive), none named defaults with one repository and is a tool error with more"
+    over: "An extension method on IRunRepositories"
+    reason: "NoStaticStateRuleTests refuses a static that takes a collaborator; the rule only needs the name list."
+  - category: Implementation
+    chose: "RepoDiffPartition.FirstChangedSandbox replaced by ChangedRepoSandboxes (repo name to commit sandbox); the post-execute decision log gets every changed repo by name"
+    over: "Keeping the first changed sandbox as the decision target"
+    reason: "The spec's 'no positional pick'; FirstChangedSandbox had no other reader. The filesystem host's default repo stays ChangedRepoNames[0] — it is not a memory or decision path."
+  - category: Implementation
+    chose: "The narrative is written once per repository whose filtered changes include a non-run-record path; a one-repository run keeps writing into its repository as before"
+    over: "Writing into every repository, or into none when one repository did not change code"
+    reason: "A repository that changed only its run record gets no PR, so a narrative there never lands; a single repository has nothing to choose between."
+  - category: Implementation
+    chose: "The memory index is labelled by repository whenever the run has more than one, even when only one repository has an index"
+    over: "Labelling only when two indexes were found (the sandbox-key behaviour)"
+    reason: "The label is the name remember and recall take; an unlabelled index in a multi-repository run hides which repository it belongs to."
+  - category: Implementation
+    chose: "StubSandboxFactory.ReportsWorkingTree (off by default) makes the harness stub answer git status --porcelain with what was written"
+    over: "Changing the stub's default answer"
+    reason: "Every other harness run reads a clean tree today; flipping the default would change persist, partition and checkpoint behaviour in unrelated tests."

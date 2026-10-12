@@ -25,21 +25,21 @@ public sealed class RepoDiffPartitioner(
         var changedSandboxes = new Dictionary<string, ISandbox>();
         var changedNames = new List<string>();
         var skippedNames = new List<string>();
-        ISandbox? firstChanged = null;
+        var repoSandboxes = new Dictionary<string, ISandbox>(StringComparer.Ordinal);
         foreach (var repo in repos)
         {
             var pairs = sandboxTargets.SandboxesForRepo(pipeline, repo);
             if (await AnyWorkingChangesAsync(pairs, cancellationToken))
             {
                 foreach (var (key, sandbox) in pairs) changedSandboxes[key] = sandbox;
-                firstChanged ??= pairs[0].Value;
+                repoSandboxes[repo.Name] = pairs[0].Value;
                 changedNames.Add(repo.Name);
                 continue;
             }
             skippedNames.Add(repo.Name);
             logger.LogInformation("No diff in {Repo} — skipped", repo.Name);
         }
-        return new RepoDiffPartition(changedSandboxes, changedNames, skippedNames, firstChanged);
+        return new RepoDiffPartition(changedSandboxes, changedNames, skippedNames, repoSandboxes);
     }
 
     private async Task<bool> AnyWorkingChangesAsync(

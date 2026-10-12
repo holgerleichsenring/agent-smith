@@ -25,7 +25,7 @@ public sealed class MemoryToolHostTests
             "PipelineHarness Docker tier fails on macOS from cold-start timeouts.");
         await Seed("pricing-rules", MemoryEntryType.Feedback, "How pricing must be computed",
             "Always price cache reads separately.");
-        var sut = new MemoryRecallToolHost(_store);
+        var sut = new MemoryRecallToolHost(TestRepositories.One(_reader), Root);
 
         var byText = await sut.Recall("cold-start timeouts");
         var byFacet = await sut.Recall("type:feedback pricing");
@@ -43,7 +43,7 @@ public sealed class MemoryToolHostTests
         _reader.Files[$"{MemoryDirPrefix}no-wrapper-shims.md"] =
             "---\nname: no-wrapper-shims\ndescription: Migrate callers directly\nmetadata:\n"
             + "  type: feedback\nstatus: ratified\n---\n\nNever bridge old interface to new via a shim.\n";
-        var sut = new MemoryRecallToolHost(_store);
+        var sut = new MemoryRecallToolHost(TestRepositories.One(_reader), Root);
 
         var result = await sut.Recall("[[no-wrapper-shims]]");
 
@@ -54,7 +54,7 @@ public sealed class MemoryToolHostTests
     [Fact]
     public async Task Recall_NoMatch_SaysSoInsteadOfFailing()
     {
-        var sut = new MemoryRecallToolHost(_store);
+        var sut = new MemoryRecallToolHost(TestRepositories.One(_reader), Root);
 
         var result = await sut.Recall("nothing-here");
 
@@ -64,7 +64,7 @@ public sealed class MemoryToolHostTests
     [Fact]
     public async Task Remember_PolicyType_FlaggedPendingRatification_NonPolicyPersisted()
     {
-        var sut = new MemoryWriteToolHost(_store);
+        var sut = new MemoryWriteToolHost(TestRepositories.One(_reader), Root);
 
         var feedbackReply = await sut.Remember(
             "feedback", "Ask Before Guessing", "Ask the operator instead of guessing", "The rule body.");
@@ -84,7 +84,7 @@ public sealed class MemoryToolHostTests
     [Fact]
     public async Task Remember_InvalidType_ReturnsErrorWithoutWriting()
     {
-        var sut = new MemoryWriteToolHost(_store);
+        var sut = new MemoryWriteToolHost(TestRepositories.One(_reader), Root);
 
         var reply = await sut.Remember("policy", "some-name", "desc", "body");
 
@@ -95,7 +95,7 @@ public sealed class MemoryToolHostTests
     [Fact]
     public async Task Remember_WritesOnlyMemoryPaths_AllRunRecordClass()
     {
-        var sut = new MemoryWriteToolHost(_store);
+        var sut = new MemoryWriteToolHost(TestRepositories.One(_reader), Root);
 
         await sut.Remember("reference", "api-docs", "Where the API docs live", "https://example.test");
 

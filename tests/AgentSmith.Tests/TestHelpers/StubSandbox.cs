@@ -11,7 +11,8 @@ namespace AgentSmith.Tests.TestHelpers;
 /// Run-commands fire one stdout line via progress so handlers that
 /// capture stdout (e.g. MarkItDown wrapper) get non-empty content.
 /// </summary>
-internal sealed class StubSandbox(IReadOnlySet<string>? missingPaths = null, string? toolchainImage = null)
+internal sealed class StubSandbox(
+    IReadOnlySet<string>? missingPaths = null, string? toolchainImage = null, bool reportsWorkingTree = false)
     : IHoldableSandbox, ISandboxToolchainImage
 {
     /// <summary>2026-10-12-50bda: the image a container backend would name; null (the default)
@@ -71,6 +72,8 @@ internal sealed class StubSandbox(IReadOnlySet<string>? missingPaths = null, str
             StepKind.Run when IsGit(step, "remote.origin.url") => Origin ?? string.Empty,
             StepKind.Run when IsGit(step, "rev-parse") => Head,
             StepKind.Run when IsGit(step, "--name-status") => string.Empty,
+            StepKind.Run when reportsWorkingTree && IsGit(step, "--porcelain") =>
+                string.Concat(_stagedFiles.Select(file => $"?? {file}\n")),
             StepKind.Run when IsGitDiff(step) => GitDiffOutput(step),
             _ => string.Empty,
         };

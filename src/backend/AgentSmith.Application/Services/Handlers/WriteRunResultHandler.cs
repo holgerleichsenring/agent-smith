@@ -174,7 +174,7 @@ public sealed class WriteRunResultHandler(
 
         var written = 0;
         var planCached = false;
-        ISandboxFileReader? firstReader = null;
+        var narratives = new List<(ISandboxFileReader Reader, IReadOnlyList<CodeChange> Changes)>();
         foreach (var repo in repos)
         {
             var sandbox = ResolvePerRepoSandbox(context.Pipeline, repo);
@@ -189,7 +189,9 @@ public sealed class WriteRunResultHandler(
                     .Where(c => c.Path.ToString().StartsWith(repo.Name + "/", StringComparison.Ordinal))
                     .ToList();
             var repoReader = readerFactory.Create(sandbox);
-            firstReader ??= repoReader;
+            // 2026-10-12-f5f7c: the narrative goes to each repository that changed, with its changes.
+            if (repos.Count == 1 || repoChanges.Any(c => !RunRecordPaths.IsRunRecordPath(c.Path.ToString())))
+                narratives.Add((repoReader, repoChanges));
             // cacheResult on the first repo; cache the first plan.md we find (the
             // agent may write its plan.md only in the repo it edited, p0235).
             planCached |= await WriteRepoRecordAsync(
@@ -200,12 +202,12 @@ public sealed class WriteRunResultHandler(
             logger.LogInformation(
                 "WriteRunResult: repo {Repo} run-doc written ({RunId})", repo.Name, RunIdGenerator.FormatForDisplay(runId));
         }
-        // p0380: ONE curated project memory per green ticket run — written to the
-        // first repo's store (the same checkout the run record leads with).
-        if (firstReader is not null)
+        // p0380 / 2026-10-12-f5f7c: the curated project memory of a green ticket run, in every
+        // repository it changed — the store that repository's pull request carries.
+        foreach (var (reader, changes) in narratives)
             await narrativeWriter.TryWriteAsync(
-                firstReader, context.Repository.LocalPath, context.Ticket, runId,
-                failureReason, context.Changes, decisions, cancellationToken);
+                reader, context.Repository.LocalPath, context.Ticket, runId,
+                failureReason, changes, decisions, cancellationToken);
         return CommandResult.Ok(
             $"Run {RunIdGenerator.FormatForDisplay(runId)} recorded in {written} repo(s)");
     }
