@@ -641,6 +641,16 @@ export interface RunAcceptance {
    *  could make true — with the evaluated meaning of not doing each. Beside the rows, not
    *  among them: the rows are what the gate decided on. Absent on earlier runs. */
   declined?: DeclinedCriterion[] | null;
+  /** 2026-10-12-6bfad: accounts nobody could take — a red build, a diff that would not run —
+   *  with why. Not criteria and never counted as one. Absent on runs served before. */
+  unmeasured?: UnmeasuredAccount[] | null;
+}
+
+/** 2026-10-12-6bfad: one account that judged no criterion. `repositories` is one repository
+ *  key, or the comma-joined keys a phase-wide account spans. */
+export interface UnmeasuredAccount {
+  repositories: string;
+  reason: string | null;
 }
 
 /** 2026-09-06-3d81: one declined criterion and the agent's evaluated reason. */

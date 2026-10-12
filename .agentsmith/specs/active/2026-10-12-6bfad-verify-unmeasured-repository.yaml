@@ -1,0 +1,91 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-6bfad
+goal: "An account nobody could take (a red build) reads as acceptance not measured — never a criterion, never in N of M — and the red-build line no longer claims no PR exists."
+
+applies_to: "backend (verify message, acceptance view) + dashboard (verify panel, storybar)"
+
+requires: [2026-08-25-7f5a, 2026-09-07-f420]
+
+facts:
+  - claim: "observed: a code run's VerifyPhase failed 'default build sbt compile exited 127 ... No pull request is opened for a red build.' while CommitAndPR then reported 'partial work persisted as draft PR: <url>' and the run listed that draft."
+    evidence: "observed: 2026-10-12, operator run view, release 0.158.0"
+  - claim: "The sentence 'No pull request is opened for a red build' is appended to every red verification outcome."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifyPhaseHandler.cs:261-264"
+  - claim: "After a failed step the finalizer tail still runs CommitAndPR."
+    evidence: "src/backend/AgentSmith.Application/Services/Pipeline/PipelineFinalizerTail.cs:22-27"
+  - claim: "On a failed run without a shortfall the keystone is DeliveryVerdict.Fail, so each PR is opened or refreshed with isDraft true; with a shortfall the tree is restored to its verified head first."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:109-113, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:136-138, src/backend/AgentSmith.Application/Services/Handlers/ShortfallDelivery.cs:27-43"
+  - claim: "An existing PR is found and refreshed; MarkPullRequestReadyAsync runs only when isDraft is false, and nothing ever puts a ready PR back into draft."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:337-339, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:373-377"
+  - claim: "A red build records one account per sandbox key with no criteria and the failure message as Problem."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifyPhaseHandler.cs:132-138, src/backend/AgentSmith.Application/Services/Specs/RunAccountLedger.cs:32-38"
+  - claim: "AcceptanceSnapshot turns such an account into a criterion row whose Text is the repo key, status unproven, reason the problem."
+    evidence: "src/backend/AgentSmith.Application/Services/AcceptanceSnapshot.cs:53-58"
+  - claim: "Four more producers write a criteria-less account with a Problem, RepoKey a comma-joined key list: diff not taken, account threw, no completion criteria, unreadable answer."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/PhaseAccounting.cs:52-55, src/backend/AgentSmith.Application/Services/Specs/PhaseAccounting.cs:67-71, src/backend/AgentSmith.Application/Services/Specs/SpecAccountant.cs:45-46, src/backend/AgentSmith.Application/Services/Specs/SpecAccountant.cs:68-69"
+  - claim: "FromAccounts returns null when no row results, and Build then falls back to a declined-only view."
+    evidence: "src/backend/AgentSmith.Application/Services/AcceptanceSnapshot.cs:34-40, src/backend/AgentSmith.Application/Services/AcceptanceSnapshot.cs:59"
+  - claim: "Beats treat the acceptance as proven when every row is met or n/a and one is met; the repository row is what keeps a half-red run from reading proven today."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/RunBeatsComputer.cs:60-84"
+  - claim: "Row() maps only to met / not_applicable / unmet, so under the delivery_account source an unproven row is only ever that repository row; the criteria-met counter already filters it by that rule."
+    evidence: "src/backend/AgentSmith.Application/Services/AcceptanceSnapshot.cs:82-90, src/backend/AgentSmith.Server/Services/RunCriteriaCounter.cs:22-36"
+  - claim: "Under master_verification an unproven row is a real criterion the master reported nothing for."
+    evidence: "tests/AgentSmith.Tests/Server/RunStoryServedTests.cs:57-63"
+  - claim: "The persisted AcceptanceJson is deserialized as AcceptanceView at four read sites: run detail, beats, judgements, criteria-met."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/RunSnapshotMapper.cs:82-84, src/backend/AgentSmith.Server/Services/Events/RunBeatsComputer.cs:74, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/CriterionJudgementRepository.cs:27-29, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/CriteriaMetRepository.cs:24-27"
+  - claim: "AcceptanceView is a positional record with defaulted trailing parameters; the TS mirror RunAcceptance is hand-written (gen:hub-events checks Contracts/Events only)."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/RunStoryContracts.cs:82-96, src/dashboard/src/types/hub-events.ts:631-644, tools/build-hub-event-types.mjs:27"
+  - claim: "The verify card counts every row: badge 'met of total proven'; the storybar sub and the ticket statistics count the same list."
+    evidence: "src/dashboard/src/components/jobs/story/VerifySummary.tsx:98-106, src/dashboard/src/components/jobs/story/RunStory.tsx:369-373, src/dashboard/src/components/jobs/why/TicketStatistics.tsx:22-23"
+  - claim: "The section head shows a fixed ✓ glyph for the verify beat whatever its state, beside a badge that can say failed; the storybar marker already uses ✗ for failed."
+    evidence: "src/dashboard/src/components/jobs/story/RunStory.tsx:43-49, src/dashboard/src/components/jobs/story/RunStory.tsx:111-119, src/dashboard/src/components/jobs/story/StoryBar.tsx:50-55"
+
+scope:
+  in: >
+    MESSAGE: the red-build line ends 'The phase is not verified.' — what the PR step kept, and as what, is that
+    step's own line (failed run: draft; shortfall: earlier verified phases may be marked ready).
+    VIEW: AcceptanceView gains Unmeasured (UnmeasuredAccountView: Repositories — one key or a comma-joined list —
+    and Reason). AcceptanceSnapshot writes every account without criteria there instead of as a row, and returns a
+    view when there are criteria OR unmeasured accounts. Archived snapshots: the record lifts a delivery_account
+    unproven row into Unmeasured on construction, so every read site (and the counter) sees one shape; the counter's
+    own filter goes; beats' AcceptanceProven also requires Unmeasured empty. DASHBOARD: RunAcceptance.unmeasured
+    mirrored; the verify card renders an 'Acceptance could not be measured' block (repositories as a label, reason
+    verbatim) in place of the empty-state text, excluded from N of M, badge 'bad' 'not measured'; storybar sub and
+    ticket statistics say 'not measured' instead of 0 of N; TicketPanel loses the repo-key row by the same lift; the
+    verify section icon follows state (✓ done, ✗ failed, ○ otherwise).
+  out: >
+    Putting an already-ready PR back into draft when a later run's verification is red (needs a convert-to-draft call
+    per host; named as an open item, not done here). The beat states themselves (server-computed, already 'failed').
+    An operator judgement recorded on an archived repo-key row keeps its row in the store but matches no criterion.
+
+decisions:
+  - key: "THE FIELD IS THE FIX: a repository nobody could judge is its own list, not a status of a criterion."
+  - key: "LIFT ON CONSTRUCTION: archived rows are exact by construction (only criteria-less accounts wrote unproven under delivery_account), so one rule in the record serves all four read sites; a later `with { Criteria = … }` bypasses it, and the record says so."
+  - key: "MESSAGE STATES ONLY WHAT VERIFY GUARANTEES: whether a PR exists or is draft is CommitAndPR's line to say."
+
+steps:
+  - id: message
+    action: "VerifyPhaseHandler red-build sentence."
+  - id: contract
+    action: "UnmeasuredAccountView; AcceptanceView.Unmeasured with the legacy lift; RunCriteriaCounter filter removed; AcceptanceProven requires no unmeasured."
+  - id: snapshot
+    action: "AcceptanceSnapshot writes criteria-less accounts to Unmeasured; null only when both lists are empty."
+  - id: dashboard
+    action: "hub-events mirror; VerifySummary block + badge; RunStory sub + icon; TicketStatistics note."
+  - id: tests
+    action: "Backend: message, snapshot shape, legacy lift (delivery vs master source), wire field. Dashboard: card, badge, sub, icon."
+
+tests:
+  - "VerifyPhaseHandler red build: message ends 'The phase is not verified.'"
+  - "RunStory_AnAccountThatCouldNotBeTaken_IsUnmeasuredNotACriterion (replaces ..._IsUnprovenAndSaysWhy)"
+  - "RunStory_OnlyUnmeasuredAccounts_StillSnapshotted"
+  - "Beats_UnmeasuredAccount_AcceptanceNotProven"
+  - "AcceptanceView_ArchivedDeliveryAccountRow_IsLiftedToUnmeasured"
+  - "AcceptanceView_MasterVerificationUnproven_StaysACriterion"
+  - "VerifySummary unmeasured block, badge and count"
+  - "RunStory verify sub and section icon follow state"
+
+done:
+  - "A red build's VerifyPhase line no longer says no pull request is opened."
+  - "A red-build run (new or archived) serves no criterion named after a repo key; the card shows 'Acceptance could not be measured' with the repo as a label, the badge and storybar say 'not measured', and the section icon is ✗ when the beat failed."
+  - "Backend and dashboard suites pass."

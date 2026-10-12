@@ -258,10 +258,12 @@ public sealed class VerifyPhaseHandler(
         // 2026-09-03-7bac: the message names the DIRECTORY as well as the command. Run
         // 5a18 was a command run in the wrong place, and reading it as one took a trail
         // dig because the outcome said everything except where it stood.
+        // 2026-10-12-6bfad: the line states what this step knows. Whether a pull request
+        // exists, and whether it stays a draft, is CommitAndPR's to report — a run that
+        // already had a draft on its branch was told no pull request was opened.
         return CommandResult.Fail(
             $"Verification failed: {Where(first.Key)} {first.Stage} '{first.Command}' exited "
-            + $"{first.ExitCode} (run at {first.Cwd})."
-            + $" No pull request is opened for a red build.{reason}");
+            + $"{first.ExitCode} (run at {first.Cwd}). The phase is not verified.{reason}");
     }
 
     // 2026-09-01-e14d: a moved derivation source rides along with the verdict rather than

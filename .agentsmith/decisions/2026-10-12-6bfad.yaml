@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-6bfad
+
+decisions:
+  - category: Architecture
+    chose: "The red-build line ends 'The phase is not verified.' and says nothing about a pull request"
+    over: "'the pull request stays a draft' / 'the run does not mark its work ready'"
+    reason: |
+      Verify runs before CommitAndPR and cannot know what it will do. A failed run opens or
+      refreshes a draft; a shortfall reverts this phase and may mark a PR ready carrying the
+      earlier verified phases; a rework run refreshes a PR an earlier green run already marked
+      ready, and nothing puts it back into draft. Every PR sentence is false on one of those
+      paths; CommitAndPR's own line reports what was kept and as what.
+  - category: Architecture
+    chose: "AcceptanceView.Unmeasured (UnmeasuredAccountView: Repositories, Reason) for every account that judged no criterion"
+    over: "Keeping the 'unproven' row and teaching each reader to skip it"
+    reason: |
+      The field is the fix: a criterion-less account is a different fact from a criterion.
+      The criteria-met counter already skipped the row by a source+status rule; the card, the
+      storybar, the ticket statistics and the ticket panel did not, so the same rule was missing
+      in four places. Five producers write such an account (red build, diff not taken, account
+      threw, no completion criteria, unreadable answer) and phase-wide ones carry a
+      comma-joined key list, hence 'Repositories' and the neutral 'Acceptance could not be
+      measured' instead of 'the build did not run'.
+  - category: Architecture
+    chose: "Archived snapshots are lifted inside the AcceptanceView record on construction"
+    over: "A reader service at each of the four deserialization sites; leaving archives as they are"
+    reason: |
+      The run the operator looked at is archived, so leaving archives alone fixes nothing they
+      see. The lift is exact, not a heuristic: under delivery_account, criteria map only to met,
+      not_applicable or unmet, so an unproven row there was always an account row; under
+      master_verification unproven is a real criterion and stays. One rule in the record reaches
+      every read site and replaces the counter's private copy. A later `with { Criteria = … }`
+      would bypass it; nothing writes one.
+  - category: Implementation
+    chose: "Criteria carries JsonPropertyOrder(-1)"
+    over: "Letting the wire reorder"
+    reason: "Declaring the property in the record body moved it behind the positional members; the wire has always led with criteria and a served-snapshot test pins that prefix."
+  - category: Implementation
+    chose: "The beats' AcceptanceProven also requires no unmeasured account"
+    over: "Leaving it on criteria alone"
+    reason: "The repository row was what kept a half-red run (phase 1 met, phase 2 red) from reading as proven; lifting it out would otherwise turn that beat green."
+  - category: Implementation
+    chose: "Badge: 'not measured' alone, or appended to the criteria count; class bad. Verify section glyph: ✓ done, ✗ failed (bad wash), ○ otherwise; other beats keep their glyphs"
+    over: "A neutral badge; a state glyph on every beat"
+    reason: "An account nobody could take is a failure of the run, not a neutral state. Only the verify glyph is itself a verdict; the others name their beat and cannot contradict a badge."
+  - category: Implementation
+    chose: "Operator judgements recorded on an archived repo-key row are left in the store unmatched"
+    over: "Migrating or deleting them"
+    reason: "They overruled a row that was never a criterion; the counter already ignored them. They stop being shown with the row and change no figure."
