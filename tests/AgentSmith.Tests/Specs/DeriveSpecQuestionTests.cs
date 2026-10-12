@@ -208,7 +208,8 @@ public sealed class DeriveSpecQuestionTests
 
         public Task<(SpecDerivation? Derivation, string? Error)> DeriveAsync(
             Ticket ticket, IReadOnlyList<TicketSegment> segments, SpecSet? previous, string series,
-            string cause, AgentConfig agentConfig, PipelineContext pipeline, CancellationToken cancellationToken)
+            string cause, IReadOnlyList<string> repositories, AgentConfig agentConfig, PipelineContext pipeline,
+            CancellationToken cancellationToken)
         {
             PinSeen = pipeline.TryGet<string>(ContextKeys.SpecQuestionPin, out var pin) ? pin : null;
             return Task.FromResult<(SpecDerivation?, string?)>((derivation, null));

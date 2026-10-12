@@ -15,6 +15,10 @@ namespace AgentSmith.Contracts.Specs;
 /// 2026-10-06-03c7c: the caller hands in the series' base id — read off the branch or minted —
 /// and every phase id is that base plus a letter.
 /// </para>
+/// <para>
+/// 2026-10-12-3a36e: and the scope's repository names, which each phase's repos is checked
+/// against or filled from.
+/// </para>
 /// </summary>
 public interface ISpecSetDeriver
 {
@@ -24,6 +28,7 @@ public interface ISpecSetDeriver
         SpecSet? previous,
         string series,
         string cause,
+        IReadOnlyList<string> repositories,
         AgentConfig agentConfig,
         PipelineContext pipeline,
         CancellationToken cancellationToken);

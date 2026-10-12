@@ -167,7 +167,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<PhaseDraftReader>();
         services.AddTransient<PhaseDraftIdRewriter>().AddTransient<SeriesDraftIds>(); // 2026-10-06-03c7c
         services.AddTransient<BugOutcomeParser>();
-        services.AddTransient<EpicOutcomeParser>();
+        services.AddTransient<EpicOutcomeParser>().AddTransient<DialogDraftRepos>().AddTransient<PhaseDraftReposWriter>(); // 3a36e
         services.AddTransient<RequiresEdgeChecker>();
         services.AddTransient<IOutcomeProposalResolver, OutcomeProposalResolver>().AddTransient<SpecDialogProposalRefusal>().AddTransient<SpecDialogProposalReview>();
         // 2026-10-02-3f06c: the proposal's cited files, read before its model review.

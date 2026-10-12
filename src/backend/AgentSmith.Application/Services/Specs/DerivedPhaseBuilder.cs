@@ -29,7 +29,7 @@ public sealed class DerivedPhaseBuilder(
     public (SpecPhase? Phase, string? Error) Build(
         JsonElement element, int index, string series, string ticketId,
         IReadOnlyList<TicketSegment> segments, IReadOnlyList<SpecPhase> previous,
-        IReadOnlyList<string>? evidence)
+        IReadOnlyList<string>? evidence, IReadOnlyList<string>? repos = null)
     {
         var goal = SpecJsonReader.ReadString(element, "goal");
         if (goal.Length == 0) return (null, $"phase {index + 1} has no goal");
@@ -40,7 +40,7 @@ public sealed class DerivedPhaseBuilder(
         var slug = SpecJsonReader.ReadString(element, "slug") is { Length: > 0 } s
             ? PhaseIdFactory.Slug(s) : PhaseIdFactory.Slug(goal);
         var carried = CarriedBy(element, segments);
-        var yaml = Render(element, phaseId, slug, goal, done, carried, ticketId, previous, evidence);
+        var yaml = Render(element, phaseId, slug, goal, done, carried, ticketId, previous, evidence, repos ?? []);
         if (validator.ValidateYaml(yaml) is SpecDraftInvalid invalid)
             return (null, $"phase {index + 1} ({phaseId}) is not a valid phase spec: {invalid.Error}");
 
@@ -52,14 +52,14 @@ public sealed class DerivedPhaseBuilder(
     private string Render(
         JsonElement element, string phaseId, string slug, string goal, IReadOnlyList<string> done,
         IReadOnlyList<int> carried, string ticketId, IReadOnlyList<SpecPhase> previous,
-        IReadOnlyList<string>? evidence) =>
+        IReadOnlyList<string>? evidence, IReadOnlyList<string> repos) =>
         yamlRenderer.Render(
             phaseId, goal,
             // The sequence IS the requires-chain: each phase depends on the one before
             // it, because the repository it edits is the previous phase's output.
             previous.Count > 0 ? [previous[^1].PhaseId] : [],
             ReadSteps(element), done, $"{phaseId}-{slug}.md", carried, ticketId,
-            factResolver.Resolve(envelope.Facts(element), evidence), envelope.Contexts(element));
+            factResolver.Resolve(envelope.Facts(element), evidence), envelope.Contexts(element), repos);
 
     private static List<int> CarriedBy(JsonElement element, IReadOnlyList<TicketSegment> segments) =>
         SpecJsonReader.ReadInts(element, "carries")

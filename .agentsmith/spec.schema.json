@@ -59,6 +59,21 @@
         }
       ]
     },
+    "repos": {
+      "oneOf": [
+        {
+          "type": "array",
+          "description": "The repositories this spec changes, by their configured names. Stated by the derivation or the design dialog from the repositories in scope, or filled from the scope; a hand-written spec may declare them too.",
+          "items": {
+            "type": "string"
+          }
+        },
+        {
+          "type": "string",
+          "description": "A single repository"
+        }
+      ]
+    },
     "facts": {
       "type": [
         "array",

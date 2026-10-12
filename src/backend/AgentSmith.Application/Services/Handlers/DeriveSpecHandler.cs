@@ -96,8 +96,10 @@ public sealed class DeriveSpecHandler(
         DeriveSpecContext context, SpecSourceResolver.Decision decision, string key, string series,
         IReadOnlyList<TicketSegment> segments, CancellationToken ct)
     {
+        // 2026-10-12-3a36e: the scope by its configured names — what every phase's repos names.
+        IReadOnlyList<string> scope = [.. context.Repos.Select(r => r.Name)];
         var (derivation, error) = await deriver.DeriveAsync(context.Ticket!, segments, decision.Set,
-            series, decision.Cause!, context.AgentConfig, context.Pipeline, ct);
+            series, decision.Cause!, scope, context.AgentConfig, context.Pipeline, ct);
 
         if (derivation is null)
         {
@@ -107,7 +109,7 @@ public sealed class DeriveSpecHandler(
             // 2026-10-08-f114: the fallback is a fresh one-phase set; over an executed head it would
             // drop the record of work already on the branch, so the set the branch carries is kept.
             return (decision.Set is { ExecutedHead.Count: > 0 } carried ? carried
-                : fallback.Build(key, series, context.Ticket!, segments, [], decision.Source), []);
+                : fallback.Build(key, series, context.Ticket!, segments, [], decision.Source, scope), []);
         }
 
         // p0447: the deriver kept the least-objected cut instead of discarding it. The
@@ -121,7 +123,7 @@ public sealed class DeriveSpecHandler(
 
         return (
             await coverageRefusal.ApplyAsync(
-                context.Pipeline, context.Ticket!, key, series, segments, derivation.Set, decision.Source, ct),
+                context.Pipeline, context.Ticket!, key, series, segments, derivation.Set, decision.Source, scope, ct),
             derivation.IgnoredInstructions);
     }
 

@@ -117,7 +117,8 @@ public sealed class DeriveSpecHandlerTests
         var deriver = new Mock<ISpecSetDeriver>();
         deriver.Setup(d => d.DeriveAsync(
                 It.IsAny<Ticket>(), It.IsAny<IReadOnlyList<TicketSegment>>(), It.IsAny<SpecSet?>(),
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<AgentConfig>(), It.IsAny<PipelineContext>(),
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<IReadOnlyList<string>>(), It.IsAny<AgentConfig>(),
+                It.IsAny<PipelineContext>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((derivation, derivation is null ? "no parseable cut" : null));
 

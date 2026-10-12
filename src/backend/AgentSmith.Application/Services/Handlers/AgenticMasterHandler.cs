@@ -671,7 +671,9 @@ public sealed class AgenticMasterHandler(
         AgenticLoopResult loopResult, MasterConversation conversation, PipelineCostTracker costTracker, CancellationToken ct)
     {
         loopResult = await proposalRefusal.RefuseEarlyProposalAsync(pipeline, request, userPrompt, loopResult, conversation, costTracker, ct);
-        var resolution = outcomeResolver.Resolve(loopResult.Response.Text ?? string.Empty);
+        // 2026-10-12-3a36e: the turn's repositories, keyed by their configured names in the dialog.
+        IReadOnlyList<string> scope = [.. Specs.DerivationLookFactory.ProposalRepositories(pipeline)?.Keys ?? []];
+        var resolution = outcomeResolver.Resolve(loopResult.Response.Text ?? string.Empty, scope);
         if (resolution is OutcomeResolved first)
             return MasterOutcomes.PublishOutcome(pipeline, first.Proposal, loopResult);
         var invalid = (OutcomeInvalid)resolution;
@@ -699,7 +701,7 @@ public sealed class AgenticMasterHandler(
             return MasterOutcomes.FailOutcome(pipeline, loopResult, invalid.Error);
         }
 
-        var retryResolution = outcomeResolver.Resolve(retry.Response.Text ?? string.Empty);
+        var retryResolution = outcomeResolver.Resolve(retry.Response.Text ?? string.Empty, scope);
         if (retryResolution is OutcomeResolved second)
             return MasterOutcomes.PublishOutcome(pipeline, second.Proposal, retry);
 

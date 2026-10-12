@@ -47,6 +47,10 @@ public sealed class SpecDerivationEnvelope
     public IReadOnlyList<string> Contexts(JsonElement phase) =>
         SpecJsonReader.ReadStrings(phase, "contexts");
 
+    /// <summary>2026-10-12-3a36e: the repositories a phase states it changes, as written.</summary>
+    public IReadOnlyList<string> Repos(JsonElement phase) =>
+        SpecJsonReader.ReadStrings(phase, "repos");
+
     /// <summary>2026-09-08-1830: the named contexts the model deliberately leaves out, each
     /// with its reason; one without a reason is not accounted for.</summary>
     public IReadOnlyList<DiscardedContext> DiscardedContexts(JsonElement root) =>

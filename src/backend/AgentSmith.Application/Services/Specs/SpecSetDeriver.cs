@@ -46,7 +46,8 @@ public sealed class SpecSetDeriver(
 
     public async Task<(SpecDerivation? Derivation, string? Error)> DeriveAsync(
         Ticket ticket, IReadOnlyList<TicketSegment> segments, SpecSet? previous, string series,
-        string cause, AgentConfig agentConfig, PipelineContext pipeline, CancellationToken cancellationToken)
+        string cause, IReadOnlyList<string> repositories, AgentConfig agentConfig, PipelineContext pipeline,
+        CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(ticket);
         var key = previous?.Key ?? TicketKeyFactory.For(ticket, pipeline).Value;
@@ -54,7 +55,8 @@ public sealed class SpecSetDeriver(
         await using var owned = look; // 2026-09-13-84c0: it owns any template scope it made
 
         var named = pipeline.TryGet<ScopeNamedContexts>(ContextKeys.ScopeNamedContexts, out var n) ? n : null;
-        var messages = SpecDerivationMessages.Opening(RenderSystemPrompt(), ticket, segments, previous, cause, pipeline, look);
+        var messages = SpecDerivationMessages.Opening(
+            RenderSystemPrompt(), ticket, segments, previous, cause, pipeline, look, repositories);
 
         string? lastError = null;
         var kept = new LeastObjectedCut();
@@ -72,7 +74,7 @@ public sealed class SpecSetDeriver(
             var parsed = parser.Parse(
                 response.Text, key, series, ticket.Id.Value, segments,
                 previous is null ? SpecSource.Derived : SpecSource.BranchArtifact,
-                previous?.ExecutedHead, look?.Evidence.Lines);
+                previous?.ExecutedHead, look?.Evidence.Lines, repositories);
             if (parsed.Derivation is null)
             {
                 lastError = parsed.Error;

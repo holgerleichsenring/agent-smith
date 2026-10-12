@@ -195,7 +195,9 @@ internal static class MasterHandlerFixture
             new AgentSmith.Application.Services.SpecDialog.BugOutcomeParser(),
             new AgentSmith.Application.Services.SpecDialog.EpicOutcomeParser(
                 validator, reader,
-                new AgentSmith.Application.Services.SpecDialog.RequiresEdgeChecker()));
+                new AgentSmith.Application.Services.SpecDialog.RequiresEdgeChecker(),
+                AgentSmith.Tests.SpecDialog.DialogTestRepos.Real()),
+            AgentSmith.Tests.SpecDialog.DialogTestRepos.Real());
     }
 
     internal sealed class StubPromptCatalog(string name, string body) : IPromptCatalog

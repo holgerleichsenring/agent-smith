@@ -22,13 +22,14 @@ public sealed class SpecDialogDocumentTests
         var reader = new PhaseDraftReader();
         return new OutcomeProposalResolver(
             validator, reader, new BugOutcomeParser(),
-            new EpicOutcomeParser(validator, reader, new RequiresEdgeChecker()));
+            new EpicOutcomeParser(validator, reader, new RequiresEdgeChecker(), DialogTestRepos.Real()),
+            DialogTestRepos.Real());
     }
 
     [Fact]
     public void Resolve_ADocumentCarryingAYamlExample_IsAnAnswer()
     {
-        var resolution = Resolver().Resolve("Here it is.\n\n" + Document);
+        var resolution = Resolver().Resolve("Here it is.\n\n" + Document, []);
 
         resolution.Should().BeOfType<OutcomeResolved>()
             .Which.Proposal.Should().BeOfType<AnswerOutcome>();

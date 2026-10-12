@@ -15,6 +15,7 @@ internal static class DerivationTestParsers
             new DerivedPhaseBuilder(
                 new SpecDraftValidator(new PhaseSpecSchemaProvider()), new PhaseDraftReader(),
                 new DerivedPhaseYamlRenderer(), envelope, new FactResolver()),
-            envelope);
+            envelope,
+            new DerivedPhaseRepos(envelope, new SpecReposRule()));
     }
 }

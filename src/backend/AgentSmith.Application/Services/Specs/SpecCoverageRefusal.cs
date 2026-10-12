@@ -19,7 +19,7 @@ public sealed class SpecCoverageRefusal(SpecCutGate gate, SpecFallback fallback)
     public async Task<SpecSet> ApplyAsync(
         PipelineContext pipeline, Ticket ticket, string key, string series,
         IReadOnlyList<TicketSegment> segments, SpecSet refused, SpecSource source,
-        CancellationToken cancellationToken)
+        IReadOnlyList<string> scope, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(ticket);
         ArgumentNullException.ThrowIfNull(refused);
@@ -30,6 +30,6 @@ public sealed class SpecCoverageRefusal(SpecCutGate gate, SpecFallback fallback)
         return fallback.Build(
             key, series, ticket, segments,
             [.. refused.Phases.SelectMany(p => p.Draft.Done).Distinct(StringComparer.Ordinal)],
-            source);
+            source, scope);
     }
 }
