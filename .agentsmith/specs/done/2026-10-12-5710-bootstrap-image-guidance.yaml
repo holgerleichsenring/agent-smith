@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-5710
+goal: "The project-bootstrap skill tells the model to name a published tag, never one composed from repository versions, and that write_context_yaml checks the tag and the trusted registries."
+
+applies_to: "skills (project-bootstrap SKILL.md), embedded skills pin"
+
+requires: [2026-10-12-50bda, 2026-10-12-50bdb, 2026-10-12-6bfac]
+
+facts:
+  - claim: "observed: the bootstrap composed 'sbtscala/scala-sbt:eclipse-temurin-25_1.11.7_2.13.18' from versions read in build.properties and build.sbt; the repository publishes that version pair as 'eclipse-temurin-25.0.1_8_1.11.7_2.13.18'."
+    evidence: "observed: 2026-10-12, operator report and Docker Hub tags/list"
+  - claim: "The skill's only image guidance is the stack.image placeholder: exact toolchain image that builds and runs tests, git-bearing, never -slim/-alpine. It says nothing about tag shapes, registries or the tool's checks."
+    evidence: "observed: 2026-10-12, agent-smith-skills origin/main 99622f6, skills/_masters/project-bootstrap/SKILL.md line 101"
+  - claim: "write_context_yaml refuses a stack.image its registry reports missing, listing the closest published tags when its tag list can be read and holds close ones; an unverifiable image is written with a note that no rewrite is needed; an image outside the trusted registries is written with the boundary note."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/ContextImageReview.cs:30-55"
+  - claim: "With no allowed_registries named, the trusted registries are mcr.microsoft.com/ and ghcr.io/ plus Docker Hub official library images."
+    evidence: "src/backend/AgentSmith.Application/Models/Sandbox/RegistryTrustBoundary.cs:25, src/backend/AgentSmith.Application/Models/Sandbox/RegistryTrustBoundary.cs:44-45"
+  - claim: "The tool tells the model to move inside the boundary only to an image carrying the stack's whole toolchain; only the code pipeline runs preflight, and a project toolchain_image or images[lang] wins before the context image."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/ContextImageReview.cs:17-20, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Code.cs:46, src/backend/AgentSmith.Application/Services/Sandbox/SandboxImageChain.cs:38-41"
+  - claim: "The embedded catalog is pinned by SkillsCatalogVersion and SkillsCatalogSha256 with the tarball checked in under Resources/; a bump also moves the version strings in the example config and the skills-catalog doc."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:45-55, config/agentsmith.example.yml:598, docs/how-it-works/skills-catalog.md:20, docs/how-it-works/skills-catalog.md:37, docs/how-it-works/skills-catalog.md:58, docs/how-it-works/skills-catalog.md:59, docs/how-it-works/skills-catalog.md:73, docs/how-it-works/skills-catalog.md:85"
+  - claim: "The deployment that failed resolves the embedded catalog (source default, no overlay), so the pin bump reaches it on redeploy."
+    evidence: "observed: 2026-10-12, /api/config/installation catalog source default, overlay null, v5.10.0 (server 0.155.0)"
+  - claim: "A skill's frontmatter version is semver, bumped when the body changes."
+    evidence: "observed: 2026-10-12, agent-smith-skills README.md line 45"
+
+scope:
+  in: >
+    One short paragraph after the context.yaml JSON block in project-bootstrap SKILL.md, in the tool's own
+    words: name a tag the registry publishes, never one composed from repository versions; when the tool
+    lists published tags choose one whose toolchain fits the stack, when it lists none name a tag known
+    to be published, in that repository or another; "could not be checked against its registry" needs no
+    rewrite for that reason alone; no concrete tag-shape example (2026-08-25-014d removed tag-shape prose); an image outside the trusted registries
+    (default mcr.microsoft.com/, ghcr.io/, Docker Hub official images) is written, and a code run stops at
+    preflight until the operator trusts that registry or names the project's image — move inside only to an
+    image that carries the whole toolchain; the tool result names the trusted registries in force. Skill version 2.4.1 -> 2.5.0. Skills PR (conventional title),
+    release, then the pin bump here: SkillsCatalogVersion, SkillsCatalogSha256, the tarball under Resources/
+    (old one deleted), config/agentsmith.example.yml and every v5.11.0 in docs/how-it-works/skills-catalog.md.
+  out: "Product code — the checks shipped in 50bdb, 6bfac and 50bda; the csproj change is a build pin only."
+
+done:
+  - "validate-skills.sh green; skills PR merged and released; the paragraph and version 2.5.0 are in the released project-bootstrap SKILL.md."
+  - "SkillsCatalogVersion and SkillsCatalogSha256 name that release, the old tarball is deleted and the new one checked in, the example config and every former v5.11.0 in skills-catalog.md name the release."
+  - "decisions/2026-10-12-5710.yaml written, the state.done index line added, the spec moved to done/."
+  - "The phase gate logs a passed line for 2026-10-12-5710."
