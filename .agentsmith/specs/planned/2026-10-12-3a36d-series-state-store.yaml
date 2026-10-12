@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-3a36d
+goal: "A ticket's series — specs, manifest fields, revisions, hand-back and executed specs — is held in the database and read from there; branch files become what is written from it."
+
+applies_to: "backend (spec source, series store, persistence)"
+
+requires: []
+
+facts:
+  - claim: "Today the branch is the only set a run reads; the cause logic keys on whether the series path answered."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSourceResolver.cs:14-17, src/backend/AgentSmith.Application/Services/Specs/SpecSourceResolver.cs:72-81, src/backend/AgentSmith.Application/Services/Specs/SeriesReader.cs:43-50"
+  - claim: "The manifest carries goal, ticket_pinned_whole, fingerprint, approval, accounting, revisions and hand-back; the reader builds the set from it."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesManifest.cs:29-42, src/backend/AgentSmith.Application/Services/Specs/SeriesManifest.cs:101-110, src/backend/AgentSmith.Application/Services/Specs/SeriesReader.cs:102-110"
+  - claim: "The database holds the approval as one content column, and per ticket one TicketSeries row with carrier, revision sha and number, last hand-back case and ExecutedThrough — a prefix count."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/ApprovedSeries.cs:7-11, src/backend/AgentSmith.Infrastructure.Persistence/Entities/TicketSeries.cs:10-36, src/backend/AgentSmith.Application/Services/PhaseExecution/SeriesRecordCommit.cs:32"
+  - claim: "Readers of branch-held series state: filing keeps executed specs out of planned/ and reports kept edits by fingerprint; the unanswered-question pin reads the hand-back from the branch-read set."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/FiledSpecBranch.cs:50-68, src/backend/AgentSmith.Application/Services/Specs/FiledSpecBranch.cs:99-105, src/backend/AgentSmith.Application/Services/Specs/UnansweredQuestionPin.cs:27-30, src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkHandbacks.cs:38-45"
+  - claim: "A reviewer's edit on the branch is detected by comparing the series' last commit with the recorded revision sha."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRevisionCause.cs:62-82"
+  - claim: "observed: a false hand-back stored in the BackgroundWorker manifest was replayed by three runs without a model call."
+    evidence: "observed: 2026-10-12, RunLlmCalls + series manifest of ticket 19470"
+  - claim: "Persistence serves four providers from two migration assemblies; the archive is model-driven."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Extensions/PersistenceOptionsExtensions.cs:23-33"
+
+assumptions:
+  - claim: "The archive import tolerates a new table once its migration head matches."
+    check: "Open ArchiveTableOrder and the migration-head check; older archives refusing to import is acceptable and stated in the release notes."
+
+scope:
+  in: "A SeriesState store (one row per series: set content, revisions, hand-back with time, executed spec ids, per-repo written sha/hash); the resolver, pointer stores, filing, pin and dialog read it; executed by spec id; migrations in both assemblies."
+  out: "Where the files go and edit detection (3a36e); series that exist only on a branch are imported into the store the first time a run reads them, then the store wins."
+
+decisions:
+  - key: "ONE TRUTH, IN THE DATABASE: the branch can be half-pushed, edited or merged per repo; the store cannot."
+  - key: "EXECUTED BY ID, NOT BY PREFIX: ExecutedThrough assumes one global order; executed spec ids do not."
+  - key: "IMPORT ONCE, NEVER GUESS: a branch-only series is read as today, stored, and from then on read from the store."
+  - key: "THE HAND-BACK CARRIES ITS TIME: case, reason, readings, taken and parked-at live in the store (3a36b expires against it)."
+
+steps:
+  - id: store
+    action: "Add SeriesState (entity, configuration, repository) with the set content JSON, revisions, hand-back, executed spec ids and per-repo written state; migrate both assemblies; retire TicketSeries' revision and hand-back columns into it."
+    new:
+      - "SeriesState, ISeriesStateStore (Db + InMemory)"
+  - id: read
+    action: "Make SpecSourceResolver read the store first, import a branch-only series once, and pass the stored set on; rewire SpecSetPointer users, FiledSpecBranch, UnansweredQuestionPin and FiledWorkHandbacks."
+    modify:
+      - "SpecSourceResolver, SeriesReader, SpecSetPointerRecorder, FiledSpecBranch, UnansweredQuestionPin, FiledWorkHandbacks"
+  - id: write
+    action: "Make SpecSetPublisher and the spec record step write the store first, the branch second; mark executed by spec id."
+    modify:
+      - "SpecSetPublisher, SeriesRecordCommit, WritePhaseRecordHandler"
+
+tests:
+  - "SpecSourceResolver_StoredSeries_ReadsStoreNotBranch"
+  - "SpecSourceResolver_BranchOnlySeries_ImportsOnceThenReadsStore"
+  - "SeriesState_Handback_RoundTripsWithTime"
+  - "SeriesRecord_SpecBExecutedBeforeA_MarksByIdNotPrefix"
+  - "FiledSpecBranch_ExecutedFromStore_StaysOutOfPlanned"
+
+done:
+  - "A run whose branch manifest was deleted still reads its series, approval and hand-back from the database (RealCompositionHarness)."
+  - "Migrations exist in both persistence assemblies; SQLite and SQL Server suites green."
