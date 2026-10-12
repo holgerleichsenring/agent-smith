@@ -21,15 +21,29 @@ const FIELDS = [
   { key: "memoryLimit", label: "memory limit" },
 ] as const;
 
+// 2026-10-12-006d: the layer is the answer for a run that CHANGES CODE. A project's runs take
+// their pipeline per run — a ticket's labels, a trigger's default, the CLI — so its own
+// pipeline field decides nothing, and the light profile a run that changes no code is held to
+// is named beside it rather than in place of it.
 const LAYER_SENTENCE: Record<SandboxResourceLayer, string> = {
   "project-override": "this project's own block answers",
   "light-profile":
-    "this project's pipeline changes no code, so the fixed light profile answers — the process-wide default never reaches it",
+    "a run of this pipeline changes no code, so the fixed light profile answers — the process-wide default never reaches it",
   "context-document":
-    "the resources the repository's context document names answer, clamped to the operator ceiling",
+    "a run that changes code gets the resources the repository's context document names, clamped to the operator ceiling",
   "global-default":
-    "the process-wide sandbox default answers, unless the repository's context document names resources for that run",
+    "a run that changes code gets the process-wide sandbox default, unless the repository's context document names resources for that run",
 };
+
+const NO_CODE_SENTENCE =
+  "a run whose pipeline changes no code is held to the fixed light profile";
+const PER_RUN_SENTENCE = "each run's own pipeline decides which applies";
+
+function layerSentence(inherited: InheritedResources): string {
+  const own = `${LAYER_SENTENCE[inherited.layer]} (${summarise(inherited.values)})`;
+  if (inherited.layer !== "global-default" && inherited.layer !== "context-document") return own;
+  return `${own}; ${NO_CODE_SENTENCE} (${summarise(inherited.noCodeValues)}) — ${PER_RUN_SENTENCE}`;
+}
 
 export function SandboxResourceGroup({
   value,
@@ -59,9 +73,7 @@ export function SandboxResourceGroup({
       </label>
 
       <p className="help" data-testid="form-sandbox-resources-layer">
-        {inherited
-          ? `${LAYER_SENTENCE[inherited.layer]} (${summarise(inherited.values)})`
-          : "the layer that would answer could not be read"}
+        {inherited ? layerSentence(inherited) : "the layer that would answer could not be read"}
       </p>
 
       {/* With no inherited values there is nothing to seed all four from, and this group

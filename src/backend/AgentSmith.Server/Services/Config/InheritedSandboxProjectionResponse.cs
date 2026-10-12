@@ -27,9 +27,11 @@ public sealed record ConfigInheritedSandbox(
 /// answers. The layer is on the wire because the value alone cannot say it — the light
 /// profile a non-code-changing pipeline is held to and a configured global default can hold
 /// the same numbers, and the repository's context document can pre-empt the global default
-/// per run.
+/// per run. 2026-10-12-006d: <c>Values</c>/<c>Layer</c> answer for a run that changes code,
+/// <c>NoCodeValues</c> for a run that changes none — the pipeline is chosen per run.
 /// </summary>
-public sealed record ConfigInheritedResources(ConfigResourceSummary Values, string Layer);
+public sealed record ConfigInheritedResources(
+    ConfigResourceSummary Values, string Layer, ConfigResourceSummary NoCodeValues);
 
 /// <summary>
 /// The per-project rows plus the process-wide row a project with no row of its own falls

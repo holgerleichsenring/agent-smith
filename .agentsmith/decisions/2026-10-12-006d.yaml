@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-006d
+
+decisions:
+  - category: Architecture
+    chose: "Fix only the explanation surfaces; leave run-time sizing untouched"
+    over: "Changing the resolver or the light-profile rule"
+    reason: |
+      A run's own pipeline reaches the resolver (ExecutePipelineUseCase.cs:290 -> PipelineSandboxCoordinator.cs:66,
+      99-101 -> SandboxSpecBuilder.cs:49), and admission sizes with the ticket's pipeline too. A ticket-triggered
+      `code` run gets the context document's resources or the process-wide default (request 250m/1Gi, limit
+      1000m/4Gi), never the light profile (request 256Mi, limit 1Gi). The only null-pipeline specs are a source
+      scope's and the browser's, neither a build sandbox. The dashboard read the project's legacy `Pipeline`
+      field, empty unless set, and the resolver reads empty as "changes no code".
+  - category: Architecture
+    chose: "Ask the one resolver twice — for a code run and for a no-code run — and send both"
+    over: "Resolving with the project's default pipeline, or the ticket fallback, as the one answer"
+    reason: |
+      A project's runs take their pipeline per run (a trigger's label map, a trigger's default, the CLI), so
+      any single pipeline the projection picked would be one guess among several. Both answers come from the
+      same resolver, so no second sizing rule exists to disagree with it.
+  - category: Implementation
+    chose: "Keep the layer on the wire; reword every sentence to say it is the code-run answer"
+    over: "Dropping the layer, now that the projection only ever yields global-default"
+    reason: |
+      Removing it is a wider contract change for no gain in truth; the light-profile sentence is reworded so
+      it no longer claims anything about the project's pipeline.
+  - category: Implementation
+    chose: "The effective snapshot (detail panel) sizes resources and the cost cap for a code run, labelled so"
+    over: "Leaving it on the project's pipeline field"
+    reason: |
+      It showed the light profile under a global-default badge, and its cost cap read the same field while
+      a run reads its own pipeline's cap (ExecutePipelineUseCase.cs:303). Nothing at run time reads the snapshot.
+  - category: Implementation
+    chose: "Leave the observed 1Gi as an operator check, not a code claim"
+    over: "Asserting from code which layer sized the pod"
+    reason: |
+      1Gi matches the default's memory request, a context document naming 1Gi, or a Sandbox__MemoryLimit
+      override; the pod's requests/limits settle it. This phase does not touch the cluster. A Scala/sbt build
+      that needs more than the default should get a project sandbox.resources override.

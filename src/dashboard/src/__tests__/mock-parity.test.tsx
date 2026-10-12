@@ -104,6 +104,7 @@ vi.mock("@/lib/configApi", () => {
         resources: {
           values: { cpuRequest: "250m", cpuLimit: "1000m", memoryRequest: "1Gi", memoryLimit: "4Gi" },
           layer: "global-default",
+          noCodeValues: { cpuRequest: "100m", cpuLimit: "500m", memoryRequest: "256Mi", memoryLimit: "1Gi" },
         },
         images: {
           dotnet: { value: "mcr.microsoft.com/dotnet/sdk:9.0", source: "code-default" },

@@ -26,7 +26,8 @@ public static class InheritedSandboxMapper
         // them to be inherited from, and an empty field would read as an inherited none.
         Resources: new ConfigInheritedResources(
             ConfigSnapshotMapper.ToSummary(settings.Resources.Values)!,
-            SandboxResourceLayerName.Of(settings.Resources.Layer)),
+            SandboxResourceLayerName.Of(settings.Resources.Layer),
+            ConfigSnapshotMapper.ToSummary(settings.Resources.NoCodeValues)!),
         Images: settings.Images.ToDictionary(kv => kv.Key, kv => Rv(kv.Value), StringComparer.OrdinalIgnoreCase));
 
     private static ConfigResolvedValue<T> Rv<T>(ResolvedValue<T> v) =>

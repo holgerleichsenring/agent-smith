@@ -51,6 +51,7 @@ const row = (over: Partial<InheritedSandbox> = {}): InheritedSandbox => ({
   resources: {
     values: { cpuRequest: "250m", cpuLimit: "1000m", memoryRequest: "1Gi", memoryLimit: "4Gi" },
     layer: "global-default",
+    noCodeValues: { cpuRequest: "100m", cpuLimit: "500m", memoryRequest: "256Mi", memoryLimit: "1Gi" },
   },
   images: {
     dotnet: { value: "mcr.microsoft.com/dotnet/sdk:9.0", source: "code-default" },
@@ -142,18 +143,32 @@ describe("ProjectForm structured sandbox overrides", () => {
     expect(saved[2].sandbox!.structured!.resources).toBeNull();
   });
 
-  it("ProjectForm_TheResourceGroup_NamesTheLayerThatWouldAnswerRatherThanOneNumber", () => {
-    render(<Harness inheritedSandbox={projection(row({
-      resources: {
-        values: { cpuRequest: "100m", cpuLimit: "500m", memoryRequest: "256Mi", memoryLimit: "1Gi" },
-        layer: "light-profile",
-      },
-    }))} />);
+  // 2026-10-12-006d: a project with no pipeline field of its own, whose runs come from
+  // tickets as `code`, was told "this project's pipeline changes no code". The pipeline is the
+  // RUN's, so the group names what a code run gets and the light profile beside it.
+  it("ProjectForm_TheResourceGroup_NamesWhatACodeRunAndANoCodeRunGet", () => {
+    render(<Harness />);
     openSandbox();
 
     const layer = screen.getByTestId("form-sandbox-resources-layer");
-    expect(layer).toHaveTextContent("light profile");
-    expect(layer).toHaveTextContent("cpu 100m/500m");
+    expect(layer).toHaveTextContent("a run that changes code gets the process-wide sandbox default");
+    expect(layer).toHaveTextContent("cpu 250m/1000m, memory 1Gi/4Gi");
+    expect(layer).toHaveTextContent("changes no code is held to the fixed light profile");
+    expect(layer).toHaveTextContent("cpu 100m/500m, memory 256Mi/1Gi");
+    expect(layer).toHaveTextContent("each run's own pipeline decides");
+    expect(layer).not.toHaveTextContent("this project's pipeline changes no code");
+  });
+
+  it("ProjectForm_SizeItMyself_SeedsTheCodeRunValues", () => {
+    const saved: StudioProject[] = [];
+    render(<Harness onSave={(p) => saved.push(p)} />);
+    openSandbox();
+
+    fireEvent.click(screen.getByTestId("form-field-sandbox-resources-override"));
+    fireEvent.click(screen.getByTestId("save"));
+
+    // An override wins for every pipeline, so the build sizing is the seed, never the light profile.
+    expect(saved[0].sandbox!.structured!.resources!.memoryLimit).toBe("4Gi");
   });
 
   it("ProjectForm_TheResourceGroupWithNoInheritedValues_RefusesToSeedFourBlanks", () => {

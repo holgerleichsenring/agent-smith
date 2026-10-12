@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Sandbox;
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Configuration.Resolved;
 using AgentSmith.Contracts.Services;
@@ -64,20 +65,22 @@ public sealed class InheritedSandboxProjection(
             AgentRegistry: ResolvedValue<string>.Global(global.Value.AgentRegistry),
             AgentVersion: InheritedVersion(counterfactual),
             HoldSeconds: hold,
-            Resources: InheritedResources(counterfactual, project.Pipeline),
+            Resources: InheritedResources(counterfactual),
             Images: CodeDefaultImages);
     }
 
     /// <summary>
-    /// The cpu/memory the project would be given with no resources of its own, and the
-    /// LAYER that produced it — from the one resolver, in one walk, so the layer named can
-    /// never belong to a different answer than the value shown. The project's CONFIGURED
-    /// pipeline decides it, exactly as the effective snapshot's does; no context resources
-    /// are passed, because that document is written per run and the layer says so.
+    /// The cpu/memory the project would be given with no resources of its own — asked of the
+    /// one resolver twice, because the answer depends on the RUN's pipeline and a project's
+    /// runs choose theirs per run (a ticket's labels, a trigger's default, the CLI). Its own
+    /// pipeline field decides nothing a run gets (2026-10-12-006d). The code-run answer
+    /// carries its layer; no context resources are passed, because that document is written
+    /// per run and the layer says so. A null pipeline is the resolver's no-code question.
     /// </summary>
-    private InheritedSandboxResources InheritedResources(ResolvedProject counterfactual, string? pipeline) =>
-        new(resources.Resolve(counterfactual, pipeline),
-            resources.ResolveLayer(counterfactual, pipeline));
+    private InheritedSandboxResources InheritedResources(ResolvedProject counterfactual) =>
+        new(resources.Resolve(counterfactual, PipelinePresets.CodeName),
+            resources.ResolveLayer(counterfactual, PipelinePresets.CodeName),
+            resources.Resolve(counterfactual, pipelineName: null));
 
     /// <summary>
     /// The per-language table a project's image map is merged over, ONE ANSWER PER KEY —
