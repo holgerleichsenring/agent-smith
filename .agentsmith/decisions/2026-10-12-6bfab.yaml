@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-6bfab
+
+decisions:
+  - category: Architecture
+    chose: "Only the image boundary is read per decision (IImageRegistryTrust.InForce through ISandboxSettingsReader); LoadedSandboxGlobalConfig stays a Lazy read"
+    over: "Making IOptions<SandboxGlobalConfig> re-read on every Value access"
+    reason: |
+      The options are built once per process, so a Studio save never reached ImageRegistryTrust without a
+      restart. Making the options live would silently change the restart semantics of every sandbox field
+      (agent registry, version, timeouts), which the Sandbox form still says apply after a restart. The
+      boundary is read once per sandbox spec, only when a context names an image, so the per-decision read is cheap.
+  - category: Architecture
+    chose: "The server reads the boundary from the config store's sandbox setting (StoredSandboxSettingsReader); a failed read keeps the last boundary, and with none the boundary is closed"
+    over: "Reading through IConfigurationLoader and detecting a degraded read by LastRead not advancing"
+    reason: |
+      DbConfigurationLoader answers a database failure with an EMPTY configuration, and an empty sandbox block
+      is the WIDE default (mcr + ghcr + every library image) — a blip would widen a narrowed list. LastRead is
+      one field for the whole process, so a concurrent successful read elsewhere would make a degraded read
+      look good (the spec reviewer's finding). The store keeps its assembled document, a save reloads it on
+      the saving replica and the epoch watch on every other, and a failed reload keeps the old document.
+      Closed is safe: a refused stack.image only falls through to the language catalog.
+  - category: Architecture
+    chose: "Entries and images are canonicalized the way Docker resolves a reference before the prefix match; the canonical form is for matching only"
+    over: "Raw string prefixes (an image without docker.io/ never matches docker.io/foo/)"
+    reason: |
+      An operator writing 'docker.io/sbtscala/' for 'sbtscala/scala-sbt:…' would otherwise see their entry
+      silently do nothing. Docker's own reading: no '/' is docker.io/library/<name>; a first segment with '.'
+      or ':' or 'localhost' is a host, else docker.io; docker.io/<one segment> is a library image. Entries get
+      their trailing '/' BEFORE canonicalizing, so 'docker.io/sbtscala' is a namespace, not a library image.
+      Nothing currently accepted or refused changes, and the port-as-tag guard holds. The sandbox still runs
+      the trimmed image as written. index.docker.io aliases are not mapped.
+  - category: Architecture
+    chose: "The boundary in force is computed by the server (GET /api/config/sandbox/image-trust) and shown beside the form"
+    over: "Re-deriving the effective boundary from the draft in TypeScript"
+    reason: "Two implementations of the default/library rule could disagree; the panel shows the server's one answer and flags unsaved changes."
+  - category: Implementation
+    chose: "Adding the first registry seeds the built-in defaults as visible, removable rows"
+    over: "Starting from an empty list"
+    reason: "Naming any registry replaces the default; without the seed, allowing one Docker Hub namespace would silently drop mcr.microsoft.com/ and ghcr.io/ (reviewer finding)."
+  - category: Implementation
+    chose: "The CLI, given a config path, now enforces the file's sandbox.allowed_registries at each decision"
+    over: "Keeping the placeholder options the CLI composed before"
+    reason: "The placeholder silently ignored the file's boundary; reading the file is the default reader's natural behaviour and needs no CLI-specific code."

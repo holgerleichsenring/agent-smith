@@ -180,8 +180,9 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<PhaseSpecGateContext>, PhaseSpecGateHandler>();
         services.AddTransient<VerifyCommandRunner>(); // p0419
         // p0504: the image ordering and which commands verify a repo — each its own type.
-        // 2026-08-25-014d: the registry boundary reads configuration, so it is a service.
-        services.AddSingleton<AgentSmith.Application.Services.Sandbox.ImageRegistryTrust>();
+        // 2026-08-25-014d: the registry boundary reads configuration (per decision, 6bfab), so it is a service.
+        services.AddSingleton<Sandbox.ISandboxSettingsReader, Sandbox.LoaderSandboxSettingsReader>()
+            .AddSingleton<Sandbox.IImageRegistryTrust, Sandbox.ImageRegistryTrust>();
         services.AddSingleton<AgentSmith.Application.Services.Sandbox.SandboxImageChain>();
         services.AddTransient<DeclaredStagePresence>();
         services.AddTransient<VerifyStageResolver>();

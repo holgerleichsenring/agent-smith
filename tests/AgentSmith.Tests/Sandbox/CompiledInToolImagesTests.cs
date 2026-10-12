@@ -27,7 +27,7 @@ public sealed class CompiledInToolImagesTests
     [Fact]
     public void ToolRunnerImages_AreCoveredOrTheirExclusionIsRecorded()
     {
-        var trust = new ImageRegistryTrust();
+        var trust = new ImageRegistryTrust().InForce();
         var compiledIn = new ToolRunnerConfig().Images.Values
             .Append(ZapSpawner.ScannerImage)
             .ToList();
@@ -48,7 +48,7 @@ public sealed class CompiledInToolImagesTests
     public void TheRecordedExclusions_AreStillTheOnesThatNeedExcluding()
     {
         // An exclusion list that outlives what it excuses stops being a classification.
-        var trust = new ImageRegistryTrust();
+        var trust = new ImageRegistryTrust().InForce();
         var compiledIn = new ToolRunnerConfig().Images.Values
             .Append(ZapSpawner.ScannerImage)
             .ToHashSet(StringComparer.Ordinal);
@@ -61,6 +61,6 @@ public sealed class CompiledInToolImagesTests
     public void TheScannerImage_IsAlreadyInsideTheBoundary()
     {
         // Recorded so the asymmetry is legible: this one needs no exclusion at all.
-        new ImageRegistryTrust().Accepts(ZapSpawner.ScannerImage).Should().BeTrue();
+        new ImageRegistryTrust().InForce().Accepts(ZapSpawner.ScannerImage).Should().BeTrue();
     }
 }

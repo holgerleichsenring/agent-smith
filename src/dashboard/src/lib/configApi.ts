@@ -903,6 +903,29 @@ export interface SandboxSetting {
    *  SANDBOX_HOLD_SECONDS reachable as the fallback and then the built-in 180;
    *  0 holds nothing. A held sandbox is released before any capacity probe. */
   holdSeconds: number | null;
+  /** 2026-10-12-6bfab: the registries an LLM-named stack.image may come from, as reference
+   *  prefixes. EMPTY means the built-in default (see ImageTrustBoundary.defaultRegistries);
+   *  naming any replaces it. Older reads may omit it. */
+  allowedRegistries?: string[];
+  /** Whether a Docker Hub official library image (`node:20`) is trusted. NULL follows the
+   *  list: trusted while it is empty, refused once a registry is named. */
+  allowDockerHubLibrary?: boolean | null;
+}
+
+/** 2026-10-12-6bfab: the sandbox image boundary in force — what the next stack.image
+ *  decision is judged against, computed by the server so there is one answer. Registries
+ *  are in the canonical form they are matched in (`sbtscala/` reads `docker.io/sbtscala/`). */
+export interface ImageTrustBoundary {
+  registries: string[];
+  registriesAreDefault: boolean;
+  dockerHubLibrary: boolean;
+  dockerHubLibraryIsExplicit: boolean;
+  defaultRegistries: string[];
+  description: string;
+}
+
+export async function fetchImageTrust(signal?: AbortSignal): Promise<ImageTrustBoundary> {
+  return getJson<ImageTrustBoundary>(`/api/config/sandbox/image-trust`, signal);
 }
 
 export interface QueueSetting {

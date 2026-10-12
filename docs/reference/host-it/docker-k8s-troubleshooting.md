@@ -70,7 +70,8 @@ context.yaml stack.image '…' is outside the trusted registries [...]. Falling 
 The image isn't under `sandbox.allowed_registries` (default `mcr.microsoft.com/` and
 `ghcr.io/`), or it is a Docker Hub library image while a registry list is set and
 `allow_docker_hub_library` isn't. Widen the list, or name the image yourself in
-`toolchain_image` / `images`, which are not checked. See
+`toolchain_image` / `images`, which are not checked. The list is edited under Settings →
+Sandbox → Trusted image registries and applies without a restart. See
 [Kubernetes](../../host-it/kubernetes.md#which-registries-a-toolchain-image-may-come-from).
 
 ## A declared credential never arrives

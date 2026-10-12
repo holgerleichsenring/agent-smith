@@ -1,7 +1,8 @@
+using AgentSmith.Application.Models.Sandbox;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
 using FluentAssertions;
-using Microsoft.Extensions.Options;
+using Moq;
 
 namespace AgentSmith.Tests.Sandbox;
 
@@ -12,8 +13,8 @@ namespace AgentSmith.Tests.Sandbox;
 /// </summary>
 public sealed class ImageRegistryTrustTests
 {
-    private static ImageRegistryTrust Trust(SandboxGlobalConfig? config = null) =>
-        new(Options.Create(config ?? new SandboxGlobalConfig()));
+    private static RegistryTrustBoundary Trust(SandboxGlobalConfig? config = null) =>
+        RegistryTrustBoundary.From(config ?? new SandboxGlobalConfig());
 
     [Theory]
     [InlineData("mcr.microsoft.com/dotnet/sdk:8.0", true)]
@@ -108,5 +109,53 @@ public sealed class ImageRegistryTrustTests
         Trust().Description.Should()
             .Contain("sandbox.allowed_registries")
             .And.Contain("mcr.microsoft.com/");
+    }
+
+    private static readonly SandboxGlobalConfig Narrowed = new() { AllowedRegistries = ["registry.example.com/"] };
+
+    [Fact]
+    public void InForce_AfterTheStoredConfigChanges_UsesTheNewBoundary()
+    {
+        // 2026-10-12-6bfab: the boundary is read at each decision, so a save applies to
+        // the next stack.image without a restart.
+        var stored = new SandboxGlobalConfig();
+        var reader = new Mock<ISandboxSettingsReader>();
+        reader.Setup(r => r.Current()).Returns(() => stored);
+        var trust = new ImageRegistryTrust(reader.Object);
+        trust.InForce().Accepts("sbtscala/scala-sbt:1").Should().BeFalse();
+
+        stored = new SandboxGlobalConfig { AllowedRegistries = ["docker.io/sbtscala/"] };
+
+        trust.InForce().Accepts("sbtscala/scala-sbt:1").Should().BeTrue();
+    }
+
+    [Fact]
+    public void InForce_ReadFails_KeepsTheLastBoundary()
+    {
+        var reader = new Mock<ISandboxSettingsReader>();
+        reader.SetupSequence(r => r.Current())
+            .Returns(Narrowed)
+            .Throws(new InvalidOperationException("store unreachable"));
+        var trust = new ImageRegistryTrust(reader.Object);
+        trust.InForce();
+
+        var kept = trust.InForce();
+
+        kept.Accepts("node:20-bookworm").Should().BeFalse(
+            "a failed read keeps the narrowed boundary, never the wide default");
+        kept.Accepts("registry.example.com/team/tool:1").Should().BeTrue();
+    }
+
+    [Fact]
+    public void InForce_FirstReadFails_IsClosed()
+    {
+        var reader = new Mock<ISandboxSettingsReader>();
+        reader.Setup(r => r.Current()).Throws(new InvalidOperationException("store unreachable"));
+
+        var boundary = new ImageRegistryTrust(reader.Object).InForce();
+
+        boundary.Accepts("mcr.microsoft.com/dotnet/sdk:8.0").Should().BeFalse(
+            "a boundary nobody could read trusts nothing; the chain falls through to the catalog");
+        boundary.Should().Be(RegistryTrustBoundary.Closed);
     }
 }

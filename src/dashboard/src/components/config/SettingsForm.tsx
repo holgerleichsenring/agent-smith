@@ -20,6 +20,7 @@ import type {
   SkillsSetting,
 } from "@/lib/configApi";
 import { CheckField, DrawerSection, NumberField, TextField } from "./formFields";
+import { SandboxImageTrustFields } from "./SandboxImageTrustFields";
 
 // p0353: the per-settings typed forms. One case per settings key — flat docs are a
 // straightforward field list; the nested pipeline-cost-cap (default + per-pipeline +
@@ -42,17 +43,23 @@ export function SettingsForm({
   value,
   onChange,
   capabilities,
+  persisted = null,
 }: {
   settingKey: SettingKey;
   value: SettingValue;
   onChange: (v: SettingValue) => void;
   capabilities: ConfigCapabilities | null;
+  /** The saved value — the Sandbox form refetches the boundary in force when it changes. */
+  persisted?: SettingValue | null;
 }) {
   switch (settingKey) {
     case "orchestrator":
       return <OrchestratorForm value={value as OrchestratorSetting} onChange={onChange} />;
     case "sandbox":
-      return <SandboxForm value={value as SandboxSetting} onChange={onChange} />;
+      return (
+        <SandboxForm value={value as SandboxSetting} onChange={onChange}
+          persisted={persisted as SandboxSetting | null} />
+      );
     case "deployment":
       return <DeploymentForm value={value as DeploymentSetting} onChange={onChange} />;
     case "registries":
@@ -122,7 +129,15 @@ function OrchestratorForm({
 const AFTER_RESTART = "applies after a server restart";
 const NEXT_DECISION = "applies to the next capacity decision, no restart";
 
-function SandboxForm({ value, onChange }: { value: SandboxSetting; onChange: (v: SettingValue) => void }) {
+function SandboxForm({
+  value,
+  onChange,
+  persisted,
+}: {
+  value: SandboxSetting;
+  onChange: (v: SettingValue) => void;
+  persisted: SandboxSetting | null;
+}) {
   const set = patcher(value, onChange);
   return (
     <>
@@ -171,6 +186,7 @@ function SandboxForm({ value, onChange }: { value: SandboxSetting; onChange: (v:
         onChange={(v) => set({ holdSeconds: v ?? null })} testId="setting-sandbox-hold"
         placeholder="180"
         help={`how long a design conversation keeps its source sandboxes — ${NEXT_DECISION}`} />
+      <SandboxImageTrustFields value={value} onChange={set} persisted={persisted} />
     </>
   );
 }

@@ -389,6 +389,41 @@ public sealed class ConfigStudioApiSmokeTests
         }
     }
 
+    // 2026-10-12-6bfab: the image boundary saved through the Sandbox settings form reaches the
+    // NEXT decision over the same store — no restart, no second read of the options.
+    [Fact]
+    public async Task ConfigStudioApi_SandboxImageBoundary_SavedThenInForce()
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"agentsmith-smoke-trust-{Guid.NewGuid():N}.yml");
+        File.WriteAllText(path, Yaml);
+        try
+        {
+            await using var app = await StartAppAsync(path);
+            using var http = NewClient(app);
+            var trust = new AgentSmith.Application.Services.Sandbox.ImageRegistryTrust(
+                new AgentSmith.Server.Services.Sandbox.StoredSandboxSettingsReader(
+                    app.Services.GetRequiredService<IConfigStore>()));
+            trust.InForce().Accepts("sbtscala/scala-sbt:1").Should().BeFalse();
+
+            var put = await http.PutAsync("/api/config/settings/sandbox", JsonBody(
+                """{"agentRegistry":"ghcr.io/x","stepTimeoutSeconds":900,"runCommandTimeoutSeconds":300,"allowedRegistries":["sbtscala/"],"allowDockerHubLibrary":true}"""));
+            put.StatusCode.Should().Be(HttpStatusCode.OK);
+            (await http.GetStringAsync("/api/config/settings/sandbox"))
+                .Should().Contain("\"allowedRegistries\":[\"sbtscala/\"]").And.Contain("\"allowDockerHubLibrary\":true");
+
+            var boundary = trust.InForce();
+            boundary.Accepts("sbtscala/scala-sbt:1").Should().BeTrue();
+            boundary.Accepts("node:20-bookworm").Should().BeTrue("the library switch was set explicitly");
+            boundary.Accepts("mcr.microsoft.com/dotnet/sdk:8.0").Should().BeFalse();
+
+            await app.StopAsync();
+        }
+        finally
+        {
+            DeleteConfigAndDb(path);
+        }
+    }
+
     [Fact]
     public async Task ConfigStudioApi_ValidateDraft_ReportsWhatTheServerWouldReport()
     {
