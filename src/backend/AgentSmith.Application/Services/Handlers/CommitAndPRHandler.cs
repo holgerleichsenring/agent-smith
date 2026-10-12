@@ -30,17 +30,17 @@ public sealed class CommitAndPRHandler(
     ITicketProviderFactory ticketFactory,
     SandboxGitOperations gitOps,
     ISecretPatternScanner secretScanner,
-    IEventPublisher events,
+    PullRequestOutcomePublisher outcomes,
     TicketLifecycle ticketLifecycle,
     SandboxTargets sandboxTargets,
     Specs.PhaseAccounting accounting,
     FailedRunPersistence failedRun,
+    FailedRunSpecPullRequest failedRunSpecPr,
     ShortfallDelivery shortfallDelivery,
     CompletedRunTicketSummary completedSummary,
     ILogger<CommitAndPRHandler> logger)
     : ICommandHandler<CommitAndPRContext>
 {
-    private const string SiblingMarker = "<!-- agentsmith:sibling-prs -->";
     // p0234: the run record (plan.md / result.md / decisions.md / context.yaml)
     // lives under this dir; force-staged so a .gitignore can't drop it.
     private const string AgentSmithRunRecordPath = ".agentsmith";
@@ -119,12 +119,15 @@ public sealed class CommitAndPRHandler(
         var progress = context.Pipeline.TryGet<SpecSequenceProgress>(
             ContextKeys.SpecSequenceProgress, out var seq) ? seq : null;
         var halfMigrated = progress?.IsPartial == true && shortfall is null;
+        // 2026-10-12-3a36c: failed means NOT delivered — a delivered shortfall stays a delivery.
+        var failed = failureReason is not null && shortfall is null;
 
         foreach (var (repo, _, sandbox, hasCode) in stagedRepos)
         {
             // Open a PR when this repo changed code, or — if nothing changed
             // anywhere — for the first repo as the run-record carrier.
-            var isRecordCarrier = !anyCode && repo.Name == context.Configs[0].Name;
+            // 2026-10-12-3a36c: never on a failed run; it commits only work it did.
+            var isRecordCarrier = !anyCode && !failed && repo.Name == context.Configs[0].Name;
             OpenedPullRequest outcome;
             if (!hasCode && !isRecordCarrier)
             {
@@ -146,8 +149,11 @@ public sealed class CommitAndPRHandler(
             // token-limit throw at a subsequent step) left the PRs live in Azure
             // DevOps but "No PR opened" on the run. Publishing per repo means every
             // already-opened PR survives on the run regardless of what fails next.
-            await PublishOutcomeAsync(context.Pipeline, outcome, cancellationToken);
+            await outcomes.PublishAsync(context.Pipeline, outcome, cancellationToken);
         }
+
+        if (failed)
+            await KeepSpecPullRequestAsync(context, opened, bodies, failureReason!, progress, cancellationToken);
 
         context.Pipeline.Set<IReadOnlyList<OpenedPullRequest>>(ContextKeys.OpenedPullRequests, opened);
         context.Pipeline.Set<IReadOnlyDictionary<string, string>>(ContextKeys.OpenedPullRequestBodies, bodies);
@@ -215,19 +221,15 @@ public sealed class CommitAndPRHandler(
         return RunDeliveryGate.Evaluate(accounts, criteria.Count);
     }
 
-    // p0223: surface the structured per-repo outcome to the run detail so the UI
-    // renders "no changes — no PR needed" / a clickable PR link / a real failure
-    // reason, instead of the raw "git commit · exit 1" sandbox row.
-    // p0350: one repo at a time, emitted inline in the PR loop the moment each
-    // outcome is known — see the loop comment for why batching lost PRs.
-    private async Task PublishOutcomeAsync(
-        PipelineContext pipeline, OpenedPullRequest o, CancellationToken ct)
+    // 2026-10-12-3a36c: a failed run's persisted work includes the spec PR opened at
+    // derivation; it keeps its 'opened' outcome and carries the failure banner.
+    private async Task KeepSpecPullRequestAsync(
+        CommitAndPRContext context, List<OpenedPullRequest> opened, Dictionary<string, string> bodies,
+        string failureReason, SpecSequenceProgress? progress, CancellationToken ct)
     {
-        if (!pipeline.TryGet<string>(ContextKeys.RunId, out var runId) || string.IsNullOrEmpty(runId))
-            return;
-        await events.PublishAsync(
-            new PullRequestOutcomeEvent(runId!, o.RepoName, PullRequestOutcomeText.Status(o.Status), DateTimeOffset.UtcNow, o.Url, o.Reason),
-            ct);
+        var body = CodePullRequestBody.Compose(context, failedRun.PullRequestBanner(failureReason), progress, null);
+        if (await failedRunSpecPr.KeepAsync(context.Pipeline, context.Configs, opened, body, ct) is { } kept)
+            bodies[kept.RepoName] = body;
     }
 
     private async Task<(OpenedPullRequest Result, string? Body)> OpenOneAsync(
@@ -235,7 +237,9 @@ public sealed class CommitAndPRHandler(
         string? failureReason, RunShortfall? shortfall, SpecSequenceProgress? progress, CancellationToken ct)
     {
         var branch = context.Repository.CurrentBranch.Value;
-        var message = $"fix: {context.Ticket.Title} (#{context.Ticket.Id})";
+        var message = failureReason is not null && shortfall is null
+            ? failedRun.CommitMessage(context.Pipeline)
+            : $"fix: {context.Ticket.Title} (#{context.Ticket.Id})";
         try
         {
             await gitOps.StageAllAsync(sandbox, ct);
@@ -308,20 +312,7 @@ public sealed class CommitAndPRHandler(
             : isDraft
                 ? "> ⚠️ **Verification red** — build/tests did not pass. Draft for review, do not merge as-is.\n\n"
                 : string.Empty;
-        // p0328/p0393a: the acceptance contract renders as a reviewer checklist. p0393a
-        // adds the per-phase table and the discarded list — for a stopped sequence the
-        // table is the statement that the repository is half migrated, spelled out phase
-        // by phase instead of implied by a red check.
-        // p0429a: and the account the gate judged the run by, itemised — a reviewer who
-        // reads only the PR still reads what went unanswered instead of inferring it.
-        // 2026-09-06-3d81: and the criteria the master declined, with their reasons.
-        // 2026-09-24-b3c1: the pull-request body is markdown, and an Azure DevOps
-        // description is HTML — rendered raw, a reviewer read the tags themselves.
-        var body = $"{redBanner}{TicketHtmlConverter.ToText(context.Ticket.Description)}"
-            + $"{SpecPrBodySection.Build(context.Pipeline, progress, shortfall)}"
-            + $"{RunAccountSection.Build(context.Pipeline)}"
-            + $"{PhaseReviewSection.Build(context.Pipeline)}"
-            + $"{DeclinedCriteriaSection.Build(context.Pipeline)}\n\n{Rework.ReworkRule.PrBodyLine}\n\n{SiblingMarker}";
+        var body = CodePullRequestBody.Compose(context, redBanner, progress, shortfall);
         try
         {
             var provider = sourceFactory.Create(repo);

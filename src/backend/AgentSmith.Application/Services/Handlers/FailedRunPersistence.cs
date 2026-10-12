@@ -14,7 +14,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// word on the failure is FailureTicketComment, posted by the error path.
 /// </para>
 /// </summary>
-public sealed class FailedRunPersistence
+public sealed class FailedRunPersistence(WipCommitMessage wipMessage)
 {
     /// <summary>The failure an earlier step left on the run; null while the run is green.</summary>
     public string? Reason(PipelineContext pipeline)
@@ -25,6 +25,9 @@ public sealed class FailedRunPersistence
             ? reason
             : null;
     }
+
+    /// <summary>2026-10-12-3a36c: a failed run commits its work as WIP, never as 'fix:'.</summary>
+    public string CommitMessage(PipelineContext pipeline) => wipMessage.Build(pipeline);
 
     /// <summary>The banner a failed run's draft PR leads with, so a reviewer reads the
     /// failure before the ticket text.</summary>

@@ -49,16 +49,20 @@ public sealed class FailedRunFinalizationTests
         last.Status.Should().Be("failed");
         last.Comment.Should().Contain("Agent Smith — Failed").And.Contain("cost budget");
 
+        // 2026-10-12-3a36c: nothing ran past derivation, so the spec PR opened there is the
+        // run's whole persisted work — no record-carrier commit is made on top of it.
         var opened = runner.LastContext!.Get<IReadOnlyList<OpenedPullRequest>>(ContextKeys.OpenedPullRequests);
         var pr = opened.Should().ContainSingle(o => o.Status == OpenStatus.Opened,
-            "the partial work is persisted as a draft PR").Subject;
+            "the spec PR is persisted as the failed run's draft").Subject;
+        pr.Url.Should().Be(runner.LastContext!.Get<string>(ContextKeys.SpecPullRequestUrl));
         last.Comment.Should().Contain(pr.Url!, "the failure comment says where the partial work went");
         var bodies = runner.LastContext!.Get<IReadOnlyDictionary<string, string>>(ContextKeys.OpenedPullRequestBodies);
         bodies[pr.RepoName].Should().Contain("Run failed").And.Contain("cost budget")
             .And.NotContain("Completed");
-        harness.StubSandboxFactory!.Spawned.Should().Contain(
-            s => s.Sandbox.RanSteps.Any(step => step.Command == "git" && step.Args != null && step.Args.Contains("commit")),
-            "p0237 stays: the partial work is committed");
+        harness.StubSandboxFactory!.Spawned.Should().NotContain(
+            s => s.Sandbox.RanSteps.Any(step => step.Command == "git" && step.Args != null && step.Args.Contains("commit")
+                && !step.Args.Any(a => a.StartsWith("spec: ", StringComparison.Ordinal))),
+            "a run that did no work commits nothing beyond its series");
         runner.LastContext!.Get<string>(ContextKeys.FailureReason).Should().Contain("cost budget");
     }
 
