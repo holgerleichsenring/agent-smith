@@ -15,44 +15,51 @@ facts:
     evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesReader.cs:63-73, src/backend/AgentSmith.Application/Services/Specs/SpecRevisionCause.cs:79-81, src/backend/AgentSmith.Contracts/Specs/SpecSetPorts.cs:50-55"
   - claim: "The pointer is one TicketSeries row with one CarryingRepo and one RevisionSha; a repository may have several sandboxes."
     evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/TicketSeries.cs:10-36, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/TicketSeriesRepository.cs:38-49, src/backend/AgentSmith.Application/Services/Handlers/SandboxTargets.cs:39-42"
+  - claim: "Spec ids are the base plus a letter by position; requires: is written as a positional chain; ExecutedHead is a TakeWhile prefix; RevisionsOf stamps UtcNow when a manifest has no parsable revision; the finder takes the base from the file stem."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesIdFactory.cs:31, src/backend/AgentSmith.Application/Services/Specs/DerivedPhaseBuilder.cs:58-60, src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:57-58, src/backend/AgentSmith.Application/Services/Specs/SeriesManifest.cs:75-81, src/backend/AgentSmith.Application/Services/Specs/SeriesManifestFinder.cs:31, src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:70-89"
   - claim: "observed: three review rounds refused a manifest shared across repositories — without a cross-repository transaction its copies diverge on a partial push."
     evidence: "observed: 2026-10-12, spec reviews of 3a36d-h and f5f7d"
 
 assumptions: []
 
 scope:
-  in: "An optional series_repos list in the manifest; per run repository (one sandbox each) today's read of its sub-series; the join; per-repository shas with a back-fill; ReviewerEdit when any repository moved."
-  out: "Writing sub-series into several repositories, scope (2026-10-12-f5f7d). Until then every ticket has one sub-series and reads exactly as today."
+  in: "An optional series_repos list in the manifest; per run repository (one sandbox each) today's read of its sub-series; the join with the rules below; per-repository shas merged into a map with a back-fill; ReviewerEdit when any repository moved."
+  out: "Writing sub-series into several repositories, scope (2026-10-12-f5f7d). Until then every ticket has one sub-series and reads as today."
 
 decisions:
-  - key: "SELF-CONTAINED SUB-SERIES: each repository's manifest lists only its own specs, in today's format; nothing has to agree across repositories for a read to be correct."
-  - key: "MEMBERSHIP FROM THE NEWEST MANIFEST: the sub-series whose current revision has the latest timestamp names series_repos; sub-series in other repositories are stale and ignored. No series_repos (legacy) means a one-repository series."
-  - key: "THE JOIN: specs of member sub-series in requires: order across repositories, manifest order within one; series-wide fields from the newest manifest; any Unreadable member → Unreadable."
-  - key: "BACK-FILL, NO FALSE EDIT: a row without a sha map reads {CarryingRepo: RevisionSha}; the migration writes it; CarryingRepo is still written in this slice."
+  - key: "SELF-CONTAINED SUB-SERIES: each repository's manifest lists only its own specs, in today's format."
+  - key: "ORDER BY ID: joined specs are ordered by id within the one base; requires: is a check — a backward edge or a cycle makes the read Unreadable."
+  - key: "EXECUTED STAYS A PREFIX: a join whose done/ set is not a prefix of the joined order is Unreadable, naming the gap."
+  - key: "NEWEST = LARGEST PARSED REVISION TIME among members' current revisions (clocks of different machines — accepted); a manifest without a parsed time never wins; a tie with differing series_repos is Unreadable. Its series_repos is the membership; its series-wide fields, Revisions included, are the set's."
+  - key: "ALL OR NOTHING: different bases, a member named but not checked out or reading Nothing, or any broken manifest in a run repository → Unreadable; NothingAtThePath only when no run repository has one. No series_repos (legacy) means a one-repository series; a legacy manifest in two run repositories reads the pointer's repository, as today."
+  - key: "BACK-FILL, NO FALSE EDIT: a row without a sha map reads {CarryingRepo: RevisionSha}; the recorder merges {repo: sha} into the map and still writes CarryingRepo."
   - key: "MOVED, AT THE EDGES: a member read now but absent from the map counts as moved; one in the map but not checked out is not compared and is logged."
 
 steps:
   - id: manifest
-    action: "Add optional series_repos to the manifest document and mapping."
+    action: "Add optional series_repos to the manifest document and mapping; a revision without a parsable time is marked unparsed for this reader."
     modify:
       - "SeriesManifestDocument, SeriesManifest"
   - id: reader
-    action: "Read each run repository's sub-series with today's reader (one sandbox per repository), join by the rules above, compute LastCommitSha per repository."
+    action: "Read each run repository's sub-series with today's reader (one sandbox per repository), join by the rules above, compute LastCommitSha per repository; DeriveSpecHandler passes the run's repositories."
     modify:
-      - "SeriesReader, SpecSetReadResult, SpecSetPorts"
+      - "SeriesReader, SpecSetReadResult, SpecSetPorts, DeriveSpecHandler"
   - id: pointer
     action: "Store RevisionShas per repository (JSON column, migrations in both assemblies, back-filled); SpecRevisionCause reads ReviewerEdit by the edge rules."
     modify:
       - "TicketSeries, TicketSeriesRepository, SpecSetPointer, both pointer stores, SpecSetPointerRecorder, SpecRevisionCause"
 
 tests:
-  - "SeriesReader_SubSeriesInTwoRepos_JoinsInRequiresOrder"
+  - "SeriesReader_SubSeriesInTwoRepos_JoinsById"
+  - "SeriesReader_BackwardRequires_IsUnreadable"
+  - "SeriesReader_ExecutedGapAcrossRepos_IsUnreadable"
+  - "SeriesReader_ManifestWithoutParsedTime_NeverNewest"
+  - "SeriesReader_NamedMemberNotCheckedOut_IsUnreadable"
   - "SeriesReader_StaleSubSeriesOutsideNewestMembers_Ignored"
-  - "SeriesReader_MemberUnreadable_IsUnreadable"
-  - "SeriesReader_LegacyManifestWithoutSeriesRepos_ReadsAsToday"
+  - "SeriesReader_LegacyManifestInTwoRepos_ReadsPointerRepo"
   - "SpecRevisionCause_LegacyRowUnchangedBranch_IsRetrigger"
   - "SpecRevisionCause_OneRepoMoved_IsReviewerEdit"
 
 done:
-  - "Two hand-placed sub-series in Server and Client are read as one set in requires: order (RealCompositionHarness)."
-  - "Every existing series test is green unchanged; migrations in both assemblies."
+  - "Two hand-placed sub-series in Server and Client are read as one set in id order (RealCompositionHarness)."
+  - "Every existing series test is green; constructors updated mechanically; migrations in both assemblies."
