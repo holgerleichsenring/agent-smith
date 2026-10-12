@@ -10,7 +10,7 @@ namespace AgentSmith.Tests.Specs;
 /// <summary>
 /// 2026-09-08-4aa9: what the model and the author are told about a comment — the prompt
 /// names the revision the comment postdates, points at the conversation and keeps the
-/// executed phases; the derivation-time comment names the re-cut and the kept phases.
+/// executed specs; the derivation-time comment names the re-cut and the kept specs.
 /// </summary>
 public sealed class CommentRecutNoticeTests
 {
@@ -37,7 +37,7 @@ public sealed class CommentRecutNoticeTests
     }
 
     [Fact]
-    public void Comment_ACommentRevision_NamesTheRecutAndTheKeptPhases()
+    public void Comment_ACommentRevision_NamesTheRecutAndTheKeptSpecs()
     {
         var body = SpecSetComment.Render(Set(SpecRevisionCause.Initial, SpecRevisionCause.Comment), null);
 
@@ -47,7 +47,7 @@ public sealed class CommentRecutNoticeTests
     }
 
     [Fact]
-    public void Comment_ACommentBeforeAnyPhaseRan_SaysTheWholeSetWasCutAgain()
+    public void Comment_ACommentBeforeAnySpecRan_SaysTheWholeSetWasCutAgain()
     {
         var set = Set(SpecRevisionCause.Initial, SpecRevisionCause.Comment) with { Executed = [] };
 
@@ -69,13 +69,13 @@ public sealed class CommentRecutNoticeTests
 
     private static SpecSet Set(params string[] causes) => new(
         "azdo-1",
-        [Phase("p1a", "Introduce the guard"), Phase("p1b", "Move the callers")],
+        [Spec("p1a", "Introduce the guard"), Spec("p1b", "Move the callers")],
         SpecAccounting.Empty,
         [.. causes.Select((cause, i) => new SpecRevision(i + 1, cause, DateTimeOffset.UtcNow))],
         SpecSource.BranchArtifact,
         ExecutedPhaseIds: ["p1a"]);
 
-    private static SpecPhase Phase(string id, string goal) => new(
+    private static SpecPhase Spec(string id, string goal) => new(
         new PhaseDraft(id, goal, $"spec: {id}\ngoal: \"{goal}\"", []) { Done = [$"{goal} is done."] },
         id, string.Empty, []);
 }

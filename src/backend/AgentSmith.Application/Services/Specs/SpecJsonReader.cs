@@ -6,7 +6,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// <summary>
 /// p0393a: case-insensitive JSON element access shared by the derivation parser.
 /// Models emit snake_case, camelCase and PascalCase interchangeably; the parser
-/// must not turn that into a lost phase.
+/// must not turn that into a lost spec.
 /// </summary>
 internal static class SpecJsonReader
 {

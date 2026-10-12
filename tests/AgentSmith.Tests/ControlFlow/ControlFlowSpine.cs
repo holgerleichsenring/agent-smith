@@ -4,7 +4,7 @@ namespace AgentSmith.Tests.ControlFlow;
 
 /// <summary>
 /// p0408: the code pipeline drawn in full — every step in execution order, with the
-/// per-phase block enclosed, because the phase boundary is the one structural fact a
+/// per-spec block enclosed, because the spec boundary is the one structural fact a
 /// flat step list hides.
 /// </summary>
 internal static class ControlFlowSpine
@@ -19,8 +19,8 @@ internal static class ControlFlowSpine
             "Each box is a step the executor really runs. The word under a green box is the master or prompt that answers there.");
         y += 62;
 
-        var before = flow.Steps.TakeWhile(s => !s.InPhaseBlock).ToList();
-        var block = flow.Steps.Where(s => s.InPhaseBlock).ToList();
+        var before = flow.Steps.TakeWhile(s => !s.InSpecBlock).ToList();
+        var block = flow.Steps.Where(s => s.InSpecBlock).ToList();
         var after = flow.Steps.Skip(before.Count + block.Count).ToList();
 
         y = Rows(svg, flow, before, 1, y);

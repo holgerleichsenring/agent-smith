@@ -65,7 +65,7 @@ public sealed class DeliveryAccountingTests : IAsyncLifetime
     }
 
     /// <summary>
-    /// The false negative that cost run 14: criteria belong to the PHASE, and a two-repo
+    /// The false negative that cost run 14: criteria belong to the SPEC, and a two-repo
     /// ticket whose criteria name one repository must not make the other outstanding.
     /// </summary>
     [Fact]
@@ -118,7 +118,7 @@ public sealed class DeliveryAccountingTests : IAsyncLifetime
     private async Task<SpecAccount> AccountAsync(
         ScriptedChatClient scripted, IReadOnlyList<string> criteria, string? extraRepo = null)
     {
-        var accounting = new PhaseAccounting(
+        var accounting = new SpecDeliveryAccounting(
             new DeliveryDiff(
                 new AgentSmith.Application.Services.Sandbox.SandboxBaseLadder(
                     new AgentSmith.Application.Services.Sandbox.SandboxBaseBranch(NullLogger<AgentSmith.Application.Services.Sandbox.SandboxBaseBranch>.Instance),
@@ -130,7 +130,7 @@ public sealed class DeliveryAccountingTests : IAsyncLifetime
                 new AccountCalls(new SpecAccountCall(ScriptedChatClientFactoryAdapter.Untraced(scripted), new AgentSmith.Application.Services.Events.AsyncLocalRunContextAccessor(), NullLogger<SpecAccountCall>.Instance)),
                 NullLogger<SpecAccountant>.Instance),
             new AgentSmith.Application.Services.Handlers.SandboxTargets(),
-            NullLogger<PhaseAccounting>.Instance);
+            NullLogger<SpecDeliveryAccounting>.Instance);
 
         var sandboxes = new Dictionary<string, ISandbox>
         {
@@ -143,7 +143,7 @@ public sealed class DeliveryAccountingTests : IAsyncLifetime
             "code", new AgentConfig(), SkillsPath: string.Empty, CodingPrinciplesPath: null));
         // The criteria come from the RATIFIED spec, never from the caller — the accounting
         // measures what was agreed before the work, which is the whole point.
-        pipeline.Set(ContextKeys.PhaseSpec, new PhaseDraft(
+        pipeline.Set(ContextKeys.CurrentSpec, new PhaseDraft(
             "p1", "localise the greeting", "goal: localise the greeting", [])
             { Done = criteria });
         var accounts = await accounting.TakeAsync(

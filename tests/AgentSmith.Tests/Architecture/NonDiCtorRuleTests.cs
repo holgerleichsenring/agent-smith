@@ -28,8 +28,8 @@ namespace AgentSmith.Tests.Architecture;
 /// IOptions/IOptionsMonitor/IOptionsSnapshot, ILogger/ILogger&lt;T&gt;, framework
 /// well-knowns (HttpClient, TimeProvider, IServiceProvider, IConfiguration),
 /// or a concrete type that is itself registered in the same IServiceCollection.
-/// Known violators at this phase's commit-time are listed in
-/// <see cref="Allowlist"/>; the list shrinks as later phases land.
+/// Known violators at this spec's commit-time are listed in
+/// <see cref="Allowlist"/>; the list shrinks as later specs land.
 /// </summary>
 // Touches AddSandbox/backend selection → serialize with the env-mutating
 // SandboxBackendDetectionTests (see ServerDiLifetimeTests) to avoid the k8s-backend race.

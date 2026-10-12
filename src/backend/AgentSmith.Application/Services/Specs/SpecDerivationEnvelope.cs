@@ -7,8 +7,8 @@ namespace AgentSmith.Application.Services.Specs;
 /// <summary>
 /// p0400c: the cut's ENVELOPE — what the model discarded and why, which ticket
 /// instructions it refused to obey, and whether it handed the ticket back instead
-/// of cutting it. Read beside the phases, not inside them: these three answer for
-/// the ticket as a whole, while a phase answers for its own slice.
+/// of cutting it. Read beside the specs, not inside them: these three answer for
+/// the ticket as a whole, while a spec answers for its own slice.
 /// <para>
 /// A QUESTION hand-back carries its readings as a typed list and the taken one as
 /// an index. One with fewer than two readings, or a taken index outside them, is not
@@ -34,26 +34,26 @@ public sealed class SpecDerivationEnvelope
                 SpecJsonReader.ReadString(e, "reason")))
             .Where(i => i.Quote.Length > 0)];
 
-    /// <summary>2026-09-07-b7e2: a phase's fact lines as the model wrote them — claim and
+    /// <summary>2026-09-07-b7e2: a spec's fact lines as the model wrote them — claim and
     /// the id it cites. Which of them ARE facts is <see cref="FactResolver"/>'s call.</summary>
-    public IReadOnlyList<FactLine> Facts(JsonElement phase) =>
-        [.. SpecJsonReader.ReadObjects(phase, "facts")
+    public IReadOnlyList<FactLine> Facts(JsonElement spec) =>
+        [.. SpecJsonReader.ReadObjects(spec, "facts")
             .Select(e => new FactLine(
                 SpecJsonReader.ReadString(e, "claim"),
                 SpecJsonReader.ReadString(e, "cites")))
             .Where(f => f.Claim.Length > 0)];
 
-    /// <summary>2026-09-08-1830: the contexts a phase declares it changes, as written.</summary>
-    public IReadOnlyList<string> Contexts(JsonElement phase) =>
-        SpecJsonReader.ReadStrings(phase, "contexts");
+    /// <summary>2026-09-08-1830: the contexts a spec declares it changes, as written.</summary>
+    public IReadOnlyList<string> Contexts(JsonElement spec) =>
+        SpecJsonReader.ReadStrings(spec, "contexts");
 
-    /// <summary>2026-10-12-3a36e: the repositories a phase states it changes, as written.
+    /// <summary>2026-10-12-3a36e: the repositories a spec states it changes, as written.
     /// 2026-10-12-f5f7a: a string names one — one repository per spec is the rule, so the
     /// shape the rule asks for is not read as nothing stated.</summary>
-    public IReadOnlyList<string> Repos(JsonElement phase)
+    public IReadOnlyList<string> Repos(JsonElement spec)
     {
-        var single = SpecJsonReader.ReadString(phase, "repos");
-        return single.Length > 0 ? [single] : SpecJsonReader.ReadStrings(phase, "repos");
+        var single = SpecJsonReader.ReadString(spec, "repos");
+        return single.Length > 0 ? [single] : SpecJsonReader.ReadStrings(spec, "repos");
     }
 
     /// <summary>2026-09-08-1830: the named contexts the model deliberately leaves out, each

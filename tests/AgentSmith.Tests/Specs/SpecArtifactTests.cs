@@ -37,7 +37,7 @@ public sealed class SpecArtifactTests
     {
         var files = new RecordingFileReader();
 
-        await Writer(files).WriteAsync(PipelineWithSandbox(), new RepoConnection { Name = "primary" }, TwoPhaseSet(), default);
+        await Writer(files).WriteAsync(PipelineWithSandbox(), new RepoConnection { Name = "primary" }, TwoSpecSet(), default);
 
         files.Written.Keys.Should().BeEquivalentTo(
         [
@@ -64,7 +64,7 @@ public sealed class SpecArtifactTests
         var steps = new List<Step>();
 
         await Writer(files).WriteAsync(
-            PipelineWithSandbox(RecordingSandbox(steps)), new RepoConnection { Name = "primary" }, TwoPhaseSet(), default);
+            PipelineWithSandbox(RecordingSandbox(steps)), new RepoConnection { Name = "primary" }, TwoSpecSet(), default);
 
         GitRemoveArgs(steps).Should().Contain($".agentsmith/specs/planned/{Base}c-dropped.yaml")
             .And.NotContain(a => a.Contains("other-series"), "another series' spec is not this cut's to remove")
@@ -78,7 +78,7 @@ public sealed class SpecArtifactTests
         var steps = new List<Step>();
 
         await Writer(files).WriteAsync(
-            PipelineWithSandbox(RecordingSandbox(steps)), new RepoConnection { Name = "primary" }, TwoPhaseSet(), default);
+            PipelineWithSandbox(RecordingSandbox(steps)), new RepoConnection { Name = "primary" }, TwoSpecSet(), default);
 
         var add = steps.Single(s => s.Command == "git" && s.Args is ["add", "-f", ..]).Args!;
         add.Should().Contain(files.Written.Keys).And.NotContain(".agentsmith/specs/planned");
@@ -87,7 +87,7 @@ public sealed class SpecArtifactTests
     [Fact]
     public void SeriesManifest_RoundTripsTheOrderAndTheAccountingAndListsNoExecutedHead()
     {
-        var set = TwoPhaseSet() with { Executed = [A] };
+        var set = TwoSpecSet() with { Executed = [A] };
 
         var manifest = new SeriesManifest();
         var text = manifest.Serialize(set);
@@ -109,7 +109,7 @@ public sealed class SpecArtifactTests
         var question = new SpecHandback(
             SpecHandbackCase.Question, "reads two ways",
             Readings: ["only where an advisory forces it", "everywhere"], Taken: 1);
-        var set = TwoPhaseSet() with { Phases = [], Handback = question };
+        var set = TwoSpecSet() with { Phases = [], Handback = question };
 
         var manifest = new SeriesManifest();
         var read = manifest.HandbackOf(manifest.Parse(manifest.Serialize(set))!)!;
@@ -123,11 +123,11 @@ public sealed class SpecArtifactTests
     [Fact]
     public void SeriesManifest_RoundTrip_KeepsFingerprintPinnedAndDiscarded()
     {
-        var accounting = TwoPhaseSet().Accounting with
+        var accounting = TwoSpecSet().Accounting with
         {
             DiscardedContexts = [new DiscardedContext("backend", "the audit flags nothing there")],
         };
-        var set = TwoPhaseSet() with
+        var set = TwoSpecSet() with
         {
             Accounting = accounting, TicketPinnedWhole = true, TicketFingerprint = "fp-1", Goal = "Ship the widget",
         };
@@ -192,9 +192,9 @@ public sealed class SpecArtifactTests
         return pipeline;
     }
 
-    private static SpecSet TwoPhaseSet() => new(
+    private static SpecSet TwoSpecSet() => new(
         "azdo-19106",
-        [Phase(A, "first"), Phase(B, "second")],
+        [Spec(A, "first"), Spec(B, "second")],
         new SpecAccounting(
             [new CarriedSegment(1, A), new CarriedSegment(2, B)],
             [new DiscardedSegment(3, "a sign-off")],
@@ -203,7 +203,7 @@ public sealed class SpecArtifactTests
         SpecSource.Derived,
         Series: Base);
 
-    private static SpecPhase Phase(string id, string slug) => new(
+    private static SpecPhase Spec(string id, string slug) => new(
         new PhaseDraft(id, $"Goal {id}", $"spec: {id}\ngoal: \"Goal {id}\"", []),
         slug,
         $"# {id}\n\nverbatim from segment one\n",

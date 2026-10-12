@@ -41,7 +41,7 @@ public sealed class RunWorkCheckpointer(
     /// <para>
     /// A checkpoint is opportunistic by design — it fires when the progress ledger flips,
     /// at most every CheckpointPushMinIntervalSeconds. That is right for durability and
-    /// wrong for a GATE: whether the phase verification can see the phase's work must not
+    /// wrong for a GATE: whether the spec verification can see the spec's work must not
     /// depend on whether an unrelated timer happened to fire. Measured live on ticket
     /// 19106: the master wrote its file, the gate read the branch seven seconds before the
     /// work reached it, and five satisfied criteria were reported outstanding.

@@ -67,7 +67,7 @@ public sealed class ScopeEstimateRecorder(
 
     /// <summary>
     /// p0413: the SHAPE reaches the two places that can act on it — the pipeline
-    /// context, where the spec derivation reads it to decide how few phases the
+    /// context, where the spec derivation reads it to decide how few specs the
     /// deliverable needs, and the run row, where an operator reads why the ticket
     /// got the process it got. No shape stated => nothing recorded, and every
     /// consumer behaves exactly as it did before.

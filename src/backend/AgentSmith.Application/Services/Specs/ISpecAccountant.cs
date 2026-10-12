@@ -4,7 +4,7 @@ using AgentSmith.Domain.Models;
 namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
-/// p0422: accounts for a phase against the branch. A port, for the same reason as
+/// p0422: accounts for a spec against the branch. A port, for the same reason as
 /// <see cref="ISpecCutReviewer"/>: it is the framework's own call, not the master's.
 /// </summary>
 public interface ISpecAccountant

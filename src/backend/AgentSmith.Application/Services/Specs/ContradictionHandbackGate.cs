@@ -8,7 +8,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// <summary>
 /// 2026-10-12-3a36b: stands between a parsed contradiction hand-back and its park. CITES ARE
 /// ASKED FOR, NOT FORCED: an uncited contradiction is asked again, and on the last attempt it
-/// parks unchecked and says so — it never falls through to the one-phase fallback. A cited one is
+/// parks unchecked and says so — it never falls through to the one-spec fallback. A cited one is
 /// put to <see cref="IContradictionChecker"/> over the cited looks plus a fresh look of its own;
 /// a refutation buys one more attempt, and a second contradiction after it is not checked again.
 /// No look, no check — logged.

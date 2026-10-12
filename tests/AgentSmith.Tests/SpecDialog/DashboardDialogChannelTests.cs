@@ -210,7 +210,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
     }
 
     /// <summary>
-    /// The TARGET side, and the reason this phase is not a deletion. The resumer's own guards
+    /// The TARGET side, and the reason this spec is not a deletion. The resumer's own guards
     /// are all about the source session; the move CLOSES whatever is open on the target thread
     /// before rebinding. A route addressed by ids that did not check the target would let a
     /// caller close another principal's live dialog with a conversation of their own.
@@ -316,7 +316,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
     }
 
     /// <summary>
-    /// Found by review, and older than this phase: the resume closed the target thread with a bulk
+    /// Found by review, and older than this spec: the resume closed the target thread with a bulk
     /// update the tracked session did not see, then set the session open again — which, to the
     /// change tracker, was no change. So a resume into the thread a session already lived in
     /// silently closed it while answering that it had resumed. The tracker is deliberately NOT

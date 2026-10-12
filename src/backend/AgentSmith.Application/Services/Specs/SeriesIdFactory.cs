@@ -6,7 +6,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// <summary>
 /// 2026-10-06-03c7c: mints the base id of a SERIES — the specs cut from one piece of work —
 /// in code, from the clock: today's UTC date plus four random hex digits, the shape this
-/// repository mints its own phases in. Its members are the base plus a letter, by position.
+/// repository mints its own specs in. Its members are the base plus a letter, by position.
 /// <para>
 /// It replaces ids derived from a ticket number: two trackers number their tickets
 /// independently, so equal numbers collided, and a model never mints one either.

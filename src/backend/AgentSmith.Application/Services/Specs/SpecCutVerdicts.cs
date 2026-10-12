@@ -1,7 +1,7 @@
 namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
-/// 2026-09-15-ffa7: the ways a cut review may say a phase cannot be delivered, composed
+/// 2026-09-15-ffa7: the ways a cut review may say a spec cannot be delivered, composed
 /// from what the reviewer was given rather than numbered in the prompt's template.
 /// <para>
 /// Two predicates decide what is on offer. The coverage verdict needs the WHOLE ticket
@@ -9,7 +9,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// framework minted for a look the reviewer took. Four combinations, one composition.
 /// </para>
 /// <para>
-/// 2026-09-15-a5a5: the ticket has three states, and the verdicts name what a phase STATES —
+/// 2026-09-15-a5a5: the ticket has three states, and the verdicts name what a spec STATES —
 /// a criterion, or its goal and steps where it lists none — rather than assuming a criterion.
 /// </para>
 /// </summary>

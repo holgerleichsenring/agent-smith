@@ -20,7 +20,7 @@ namespace AgentSmith.Tests.Persistence;
 [Collection(RelationalStoreCollection.Name)]
 public sealed class RunStoreRepairTests : IDisposable
 {
-    // The last migration before this phase's — the state a live database is in.
+    // The last migration before this spec's — the state a live database is in.
     private const string MigrationBeforeIdentity = "AddRunPhases";
     private const string RunId = "run-replayed";
     private static readonly DateTimeOffset T0 = DateTimeOffset.Parse("2026-08-24T09:00:00Z");
@@ -132,7 +132,7 @@ public sealed class RunStoreRepairTests : IDisposable
         new(new RunDuplicateRepair(new(), new(), new(), new()), NullLogger<RunStoreMigrator>.Instance);
 
     // Reads through the connection, not the model — the store may still be on the schema
-    // that predates this phase, where the entity's new column does not exist yet.
+    // that predates this spec, where the entity's new column does not exist yet.
     private long Count(string table)
     {
         using var command = _connection.CreateCommand();

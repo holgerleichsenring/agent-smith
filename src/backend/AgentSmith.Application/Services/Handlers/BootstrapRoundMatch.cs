@@ -38,7 +38,7 @@ public sealed class BootstrapRoundMatch(
         // competes with project-bootstrap (output_schema=bootstrap) on
         // the same project_language predicate and produces an ambiguous
         // match. BootstrapDiscoverHandler already does the same scoping
-        // for the discovery phase (line 133).
+        // for the discovery spec (line 133).
         var bootstrapRoles = roles.Where(r => r.OutputSchema == "bootstrap").ToList();
         var matched = activationFilter.Filter(bootstrapRoles, concepts);
         if (matched.Count == 0)

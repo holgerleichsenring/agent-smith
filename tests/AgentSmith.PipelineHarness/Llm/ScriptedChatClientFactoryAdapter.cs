@@ -27,7 +27,7 @@ namespace AgentSmith.PipelineHarness.Llm;
 /// 2026-09-08-805f: and with the master loop governor below the tool loop whenever hooks
 /// are present, as ChatClientFactory inserts it. Without it no fast-tier run had ever
 /// exercised the money fence, the ledger reminder, the per-iteration cost recording — or
-/// the ledger-complete brake this phase proves through this adapter.
+/// the ledger-complete brake this spec proves through this adapter.
 /// </para>
 /// </summary>
 internal sealed class ScriptedChatClientFactoryAdapter(

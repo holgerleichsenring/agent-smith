@@ -15,7 +15,7 @@ namespace AgentSmith.Tests.Server.Archive;
 
 /// <summary>
 /// 2026-08-28-3793: the two endpoints on the REAL composition, over real HTTP, against a
-/// real migrated database — because every claim this phase makes is about what a running
+/// real migrated database — because every claim this spec makes is about what a running
 /// server does with a file, and none of it can be proven by calling a handler.
 /// <para>
 /// The refusal cases are the point. The literal emptiness rule the CLI applies cannot hold

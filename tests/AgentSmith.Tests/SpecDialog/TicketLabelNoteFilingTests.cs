@@ -21,11 +21,11 @@ namespace AgentSmith.Tests.SpecDialog;
 public sealed class TicketLabelNoteFilingTests
 {
     [Fact]
-    public async Task Filing_APhaseTicket_CarriesTheNoteAsProseUnderItsOwnHeading()
+    public async Task Filing_ASpecTicket_CarriesTheNoteAsProseUnderItsOwnHeading()
     {
         var provider = new RecordingProvider();
 
-        await FileAsync(provider, new PhaseOutcome(Draft("p9000a")));
+        await FileAsync(provider, new SpecOutcome(Draft("p9000a")));
 
         var body = provider.Created.Single().Body;
         body.Should().Contain(TicketLabelNote.Heading);
@@ -35,7 +35,7 @@ public sealed class TicketLabelNoteFilingTests
             .And.OnlyContain(line => !line.StartsWith('-') && !line.StartsWith('*'),
                 "bare prose, because a bulleted line under a heading can be read as a criterion");
         // 2026-09-25-c1f7: a HINT, not a warning. 3c7aa moved the routing bind onto the approval
-        // record and this phase moved discovery onto it too, so the sentence that named what
+        // record and this spec moved discovery onto it too, so the sentence that named what
         // removing the label costs is no longer true and says what the label is FOR instead.
         lines[0].Should().Contain(FiledTicketLabels.ApprovedSetStamp)
             .And.Contain("binds this ticket to phase execution")
@@ -97,7 +97,7 @@ public sealed class TicketLabelNoteFilingTests
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider);
         var store = ApprovedSetDoubles.Store();
         var filer = new OutcomeTicketFiler(
-            Config(), factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
+            Config(), factory.Object, new SpecTicketRenderer(), new BugTicketRenderer(),
             new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
             ApprovedSetDoubles.SetFiler(store),
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(),

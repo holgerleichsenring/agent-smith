@@ -8,9 +8,9 @@ namespace AgentSmith.Tests.Pipeline;
 public sealed class PipelineDataFlowsCoverageTests
 {
     [Fact]
-    public void EveryPipelinePreset_HasMatchingPhaseDataFlow()
+    public void EveryPipelinePreset_HasMatchingStepDataFlow()
     {
-        var declared = new IPhaseDataFlow[]
+        var declared = new IStepDataFlow[]
         {
             new CodeDataFlow(), new CodeDataFlow(), new CodeDataFlow(),
             new InitProjectDataFlow(), new SecurityScanDataFlow(),
@@ -26,13 +26,13 @@ public sealed class PipelineDataFlowsCoverageTests
         var presetNames = PipelinePresets.Names.ToHashSet(StringComparer.OrdinalIgnoreCase);
 
         declaredNames.Should().BeEquivalentTo(presetNames,
-            "every pipeline preset must have a matching IPhaseDataFlow declaration");
+            "every pipeline preset must have a matching IStepDataFlow declaration");
     }
 
     [Fact]
-    public void EveryPhaseDataFlow_HasNonEmptyEdges()
+    public void EveryStepDataFlow_HasNonEmptyEdges()
     {
-        var declared = new IPhaseDataFlow[]
+        var declared = new IStepDataFlow[]
         {
             new CodeDataFlow(), new CodeDataFlow(), new CodeDataFlow(),
             new InitProjectDataFlow(), new SecurityScanDataFlow(),

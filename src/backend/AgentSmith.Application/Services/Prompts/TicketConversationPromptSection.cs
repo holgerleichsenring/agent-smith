@@ -15,7 +15,7 @@ namespace AgentSmith.Application.Services.Prompts;
 /// almost all of it was agent-smith's own announcements: spec handbacks, "this is how I
 /// understood the ticket", open questions, run results from twenty-four runs. An agent
 /// reading its own past output as if it were instruction spends its rounds reconciling
-/// versions of the task instead of doing it: that phase made 348 tool calls and wrote
+/// versions of the task instead of doing it: that spec made 348 tool calls and wrote
 /// nothing in four hours.
 /// </para>
 /// <para>

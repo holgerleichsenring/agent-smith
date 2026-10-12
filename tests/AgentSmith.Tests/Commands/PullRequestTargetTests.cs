@@ -227,7 +227,7 @@ public sealed class PullRequestTargetTests
     private static CommitAndPRHandler BuildCommitAndPrHandler(ISourceProviderFactory sourceFactory) =>
         new(sourceFactory, NoTickets().Object, GitOps(), new SecretPatternScanner(),
             new PullRequestOutcomePublisher(EventTestStubs.NoOp), new TicketLifecycle(), new SandboxTargets(),
-            new PhaseAccounting(
+            new SpecDeliveryAccounting(
                 TestGit.Delivery,
                 new SpecAccountant(
                     new ScriptedChatClientFactory(),
@@ -237,7 +237,7 @@ public sealed class PullRequestTargetTests
                         NullLogger<SpecAccountCall>.Instance)),
                     NullLogger<SpecAccountant>.Instance),
                 new SandboxTargets(),
-                NullLogger<PhaseAccounting>.Instance),
+                NullLogger<SpecDeliveryAccounting>.Instance),
             new FailedRunPersistence(new WipCommitMessage()),
             new SpecOnlyPullRequests(sourceFactory, new PullRequestOutcomePublisher(EventTestStubs.NoOp), NullLogger<SpecOnlyPullRequests>.Instance),
             new ShortfallDelivery(

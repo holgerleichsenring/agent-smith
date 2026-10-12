@@ -19,7 +19,7 @@ public static class MasterPromptTokens
         "RunRecordDir",
         "MaxFixIterations",
         "ExpectationSection",     // p0328/p0393a: the acceptance contract
-        "SpecSection",            // p0393a: the current phase's verbatim ticket spans
+        "SpecSection",            // p0393a: the current spec's verbatim ticket spans
         "ProgressLedgerSection",  // p0341
         "MemoryIndexSection",     // p0380
         "PrDiffSection",          // p0312c

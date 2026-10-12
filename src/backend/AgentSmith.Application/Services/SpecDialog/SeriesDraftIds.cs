@@ -9,7 +9,7 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// series' base plus a letter, every <c>requires:</c> edge follows it, and the draft's YAML text is
 /// rewritten with the same map so the text and the fields say the same thing.
 /// </summary>
-public sealed class SeriesDraftIds(PhaseDraftIdRewriter rewriter)
+public sealed class SeriesDraftIds(SpecDraftIdRewriter rewriter)
 {
     public IReadOnlyList<PhaseDraft> Assign(string series, IReadOnlyList<PhaseDraft> ordered)
     {

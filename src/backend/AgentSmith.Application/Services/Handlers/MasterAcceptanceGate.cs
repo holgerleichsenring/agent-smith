@@ -13,7 +13,7 @@ internal static class MasterAcceptanceGate
 {
     /// <summary>
     /// The ratified contract is satisfied only when the master's verdict CAN stand for
-    /// this kind of phase AND every ratified criterion carries a disposition that is Met
+    /// this kind of spec AND every ratified criterion carries a disposition that is Met
     /// or justified not-applicable. A missing verdict, a disqualifying status, or any
     /// unmet / missing disposition means not satisfied.
     /// </summary>
@@ -42,13 +42,13 @@ internal static class MasterAcceptanceGate
         return AcceptanceJudgement.Of(AcceptancePairing.Pair(criteria, dispositions));
     }
 
-    // p0406: a phase that produced no source change has nothing for a build to be green
+    // p0406: a spec that produced no source change has nothing for a build to be green
     // ABOUT — run fa8c spent 23 of its 41 minutes on two build invocations trying to
     // reach a gate that could not be reached, and never finished.
-    // p0421: which phases those are is READ from the run's own changes rather than
-    // declared. A phase that produced source still owes a green build — an Unknown
+    // p0421: which specs those are is READ from the run's own changes rather than
+    // declared. A spec that produced source still owes a green build — an Unknown
     // verdict over changed code is exactly the hollow success the gate exists for. A
-    // phase that produced none is judged by its dispositions; its own red still
+    // spec that produced none is judged by its dispositions; its own red still
     // disqualifies it, because a master reporting that its work failed is never
     // overruled by what it did or did not touch.
     private static bool StatusAllowsDelivery(VerificationStatus status, bool producedSourceChanges) =>

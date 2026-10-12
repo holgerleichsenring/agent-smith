@@ -11,7 +11,7 @@ namespace AgentSmith.Cli.Services;
 /// surprised, so <c>agentsmith database migrate</c> is its single deliberate entry point.
 /// A CLI one-shot has neither replicas nor an operator standing by: it owns the file it
 /// writes, and demanding a separate migrate step before a local run would reproduce
-/// exactly the "nothing was recorded" state this phase exists to end. So the local SQLite
+/// exactly the "nothing was recorded" state this spec exists to end. So the local SQLite
 /// store migrates itself; any shared provider is assumed current, as on the server.
 /// </para>
 /// <para>Failure to prepare the store never fails the run — it is announced and the run

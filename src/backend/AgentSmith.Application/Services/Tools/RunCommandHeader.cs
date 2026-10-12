@@ -6,7 +6,7 @@ namespace AgentSmith.Application.Services.Tools;
 
 /// <summary>
 /// The header lines above a command's labeled sections. <c>exit_code:</c> stays the FIRST line
-/// — the phase command log reads the status from there — and <c>truncated:</c> is the one flag
+/// — the spec command log reads the status from there — and <c>truncated:</c> is the one flag
 /// the tool descriptions promise.
 /// </summary>
 internal static class RunCommandHeader

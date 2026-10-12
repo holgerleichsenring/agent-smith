@@ -21,7 +21,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// 2026-09-08-4aa9: so does a COMMENT — the objection the derivation-time comment invites.
 /// It is read from the thread the run carries, the way the question pin and the repeat
 /// guard read theirs: a comment by anyone but us after our last cut comment. It sits
-/// where the edit sits, for the same reason. The executed-phase record moves the pointer
+/// where the edit sits, for the same reason. The executed-spec record moves the pointer
 /// now, so the sha comparison below reads a marker's commit as this system's own.
 /// </para>
 /// <para>

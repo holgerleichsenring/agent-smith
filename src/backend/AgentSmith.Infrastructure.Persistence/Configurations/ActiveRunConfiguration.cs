@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 namespace AgentSmith.Infrastructure.Persistence.Configurations;
 
 /// <summary>
-/// The single-run lease. The load-bearing constraint of the whole phase: a real
+/// The single-run lease. The load-bearing constraint of the whole spec: a real
 /// UNIQUE(Project, TicketId) index (NOT filtered — MySQL lacks partial indexes),
 /// both columns capped at the indexed-string length so the migration applies on
 /// MySQL utf8mb4. This index — not the heartbeat — is what makes a second claim

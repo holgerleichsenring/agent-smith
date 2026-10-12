@@ -7,7 +7,7 @@ namespace AgentSmith.Infrastructure.Core.Services;
 /// The decision → event mapping <see cref="RepositoryDecisionLogger"/> publishes through — the
 /// run's own record of a decision, of which the repository file is a copy. Today's signature is
 /// single-string ("chose X over Y because Z"); we mirror that into Chose with
-/// Over=null and Reason=sourceLabel for now. A follow-up phase can split the
+/// Over=null and Reason=sourceLabel for now. A follow-up spec can split the
 /// signature into structured fields without re-shaping the event contract.
 /// </summary>
 public sealed class DecisionEventMirror(
@@ -30,10 +30,10 @@ public sealed class DecisionEventMirror(
                 Over: null,
                 Reason: sourceLabel ?? string.Empty,
                 DateTimeOffset.UtcNow,
-                // p0466: the phase the decision was taken in, from the ambient step
-                // frame. The alternative — attributing decisions to a phase by the
+                // p0466: the spec the decision was taken in, from the ambient step
+                // frame. The alternative — attributing decisions to a spec by the
                 // step index they share — would be the parser again, one join down.
-                PhaseId: runContext.CurrentPhaseId),
+                PhaseId: runContext.CurrentSpecId),
             cancellationToken);
     }
 }

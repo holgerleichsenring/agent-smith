@@ -9,7 +9,7 @@ namespace AgentSmith.Tests.Cli;
 /// AddAgentSmithCore registers AgentSmithConfig.Empty() as a placeholder; the server
 /// overrides it, the CLI did not. Eight handlers inject AgentSmithConfig directly, so
 /// a CLI run silently received "nothing is configured" — run 0adc lost its private-feed
-/// credentials that way and spent a whole phase diagnosing a 401 that was never real.
+/// credentials that way and spent a whole spec diagnosing a 401 that was never real.
 /// </summary>
 public sealed class CliConfigCompositionTests
 {

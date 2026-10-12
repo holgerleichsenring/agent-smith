@@ -33,7 +33,7 @@ public sealed class CommitAndPRHandler(
     PullRequestOutcomePublisher outcomes,
     TicketLifecycle ticketLifecycle,
     SandboxTargets sandboxTargets,
-    Specs.PhaseAccounting accounting,
+    Specs.SpecDeliveryAccounting accounting,
     FailedRunPersistence failedRun,
     SpecOnlyPullRequests specOnlyPrs,
     ShortfallDelivery shortfallDelivery,
@@ -104,7 +104,7 @@ public sealed class CommitAndPRHandler(
         // keystone is not asked; the PR is a draft that names the failure, and the ticket
         // is left to the error path — the tail used to finalize it "Completed" with the
         // done status before the failure comment landed (runs b7bc and 0c88).
-        // p0439: unless the run stopped AFTER a verified phase — then that phase is
+        // p0439: unless the run stopped AFTER a verified spec — then that spec is
         // delivered (its verification was the keystone) and the rest is named as missing.
         var failureReason = failedRun.Reason(context.Pipeline);
         var shortfall = failureReason is null ? null : await shortfallDelivery.PrepareAsync(
@@ -113,9 +113,9 @@ public sealed class CommitAndPRHandler(
             : shortfall is not null ? DeliveryVerdict.Ok() : DeliveryVerdict.Fail(failureReason);
 
         // p0393a: a sequence that stopped mid-way leaves a HALF-MIGRATED repository — some
-        // phases applied, others not. That state must be unmergeable BY CONSTRUCTION, not
+        // specs applied, others not. That state must be unmergeable BY CONSTRUCTION, not
         // merely accompanied by a red check somebody can override, because it is the one
-        // failure that looks finished. A delivered shortfall carries only verified phases.
+        // failure that looks finished. A delivered shortfall carries only verified specs.
         var progress = context.Pipeline.TryGet<SpecSequenceProgress>(
             ContextKeys.SpecSequenceProgress, out var seq) ? seq : null;
         var halfMigrated = progress?.IsPartial == true && shortfall is null;
@@ -211,10 +211,10 @@ public sealed class CommitAndPRHandler(
     private async Task<DeliveryVerdict> EvaluateKeystoneAsync(
         CommitAndPRContext context, CancellationToken ct)
     {
-        // p0393a: the acceptance contract is the current phase's done-list, falling back to
+        // p0393a: the acceptance contract is the current spec's done-list, falling back to
         // a ratified expectation for pipelines that still negotiate one.
         var criteria = Specs.AcceptanceCriteria.For(context.Pipeline);
-        // p0421: ONE gate, reading what every phase accounted for against the branch.
+        // p0421: ONE gate, reading what every spec accounted for against the branch.
         // Its predecessor asked whether THIS run had committed code and needed six
         // signals to teach that question its exceptions — a resumed branch carrying a
         // complete delivery still came out FAILED.
@@ -366,7 +366,7 @@ public sealed class CommitAndPRHandler(
                 repoName, target.Value, moved);
         }
         var updated = await provider.UpdatePullRequestBodyAsync(prUrl, body, ct);
-        // p0393a: the PR was opened as a DRAFT at the spec commit, before any phase was
+        // p0393a: the PR was opened as a DRAFT at the spec commit, before any spec was
         // verified. Only a complete, green run takes it out of draft — a stopped sequence
         // stays unmergeable by construction, which is the whole point of opening it early.
         var ready = !isDraft && await provider.MarkPullRequestReadyAsync(prUrl, ct);

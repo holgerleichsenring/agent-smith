@@ -1,0 +1,169 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-967ac
+
+decisions:
+  - category: Tooling
+    chose: "Symbols renamed by a Roslyn pass that binds every identifier token, not by text replacement"
+    over: "Word-boundary sed over Phase"
+    reason: |
+      An MSBuildWorkspace pass resolved each identifier token containing "phase" (code, crefs, nameof, named
+      arguments) to its symbol, decided per symbol, wrote all edits at once, then re-bound every renamed token
+      and every token spelled like a new name in the edited solution: 0 binding changes, 0 compile errors
+      before writing. A text pass cannot tell PhaseDraft.PhaseId (persisted) from CutFinding.PhaseId (not),
+      nor a local that would shadow an existing spec. Comments and log templates went through a second,
+      lexer-scoped pass; every changed string literal was diffed against HEAD by token (54, all intended).
+
+  - category: Scope
+    chose: "The final old -> new table"
+    reason: |
+      TYPES (src):
+      ApprovedPhaseSetRecorder->ApprovedSpecSetRecorder, CheckPhasePremisesContext->CheckSpecPremisesContext,
+      CheckPhasePremisesContextBuilder->CheckSpecPremisesContextBuilder,
+      CheckPhasePremisesHandler->CheckSpecPremisesHandler, CommitPhaseWorkContext->CommitSpecWorkContext,
+      CommitPhaseWorkContextBuilder->CommitSpecWorkContextBuilder, CommitPhaseWorkHandler->CommitSpecWorkHandler,
+      DerivedPhaseBuilder->DerivedSpecBuilder, DerivedPhaseDecision->DerivedSpecDecision,
+      DerivedPhaseRepos->DerivedSpecRepos, DerivedPhaseSequence->DerivedSpecSequence,
+      DerivedPhaseYamlRenderer->DerivedSpecYamlRenderer, FiledWorkPhaseReviews->FiledWorkSpecReviews,
+      HarnessPhasePremiseChecker->HarnessSpecPremiseChecker, IPhaseDataFlow->IStepDataFlow,
+      IPhaseDataFlowResolver->IStepDataFlowResolver, IPhaseExecutionPromptFactory->ISpecExecutionPromptFactory,
+      IPhasePremiseChecker->ISpecPremiseChecker, IPhaseProgressRecorder->ISpecProgressRecorder,
+      PermissivePhaseDataFlow->PermissiveStepDataFlow, PhaseAccounting->SpecDeliveryAccounting,
+      PhaseCommandBudget->SpecRunCommandBudget, PhaseCommandScope->SpecRunCommandScope,
+      PhaseDataFlowEdge->StepDataFlowEdge, PhaseDataFlowResolver->StepDataFlowResolver, PhaseDiff->SpecDiff,
+      PhaseDiffBound->SpecDiffBound, PhaseDiffFile->SpecDiffFile, PhaseDiffPath->SpecDiffPath,
+      PhaseDiffReviewer->SpecDiffReviewer, PhaseDiffs->SpecDiffs, PhaseDiffText->SpecDiffText,
+      PhaseDraftIdRewriter->SpecDraftIdRewriter, PhaseDraftLists->SpecDraftLists,
+      PhaseDraftReader->SpecDraftReader, PhaseDraftReposWriter->SpecDraftReposWriter,
+      PhaseEntryAccount->SpecEntryAccount, PhaseEvidence->SpecEvidence,
+      PhaseExecutionExtensions->SpecExecutionExtensions, PhaseExecutionPromptBlocks->SpecExecutionPromptBlocks,
+      PhaseExecutionPromptFactory->SpecExecutionPromptFactory, PhaseFacts->SpecFacts,
+      PhaseFindingWire->SpecFindingWire, PhaseIdFactory->SpecIdFactory, PhaseIndexWriter->SpecIndexWriter,
+      PhaseInputs->SpecInputs, PhaseOutcome->SpecOutcome, PhasePremiseChecker->SpecPremiseChecker,
+      PhasePremises->SpecPremises, PhasePremisesReader->SpecPremisesReader,
+      PhaseProgressRecorder->SpecProgressRecorder, PhaseQuotableText->SpecQuotableText,
+      PhaseRecordBody->SpecRecordBody, PhaseRecordIndexLine->SpecRecordIndexLine,
+      PhaseRecordPublisher->SpecRecordPublisher, PhaseRepairScope->SpecRepairScope,
+      PhaseReviewAdmission->SpecReviewAdmission, PhaseReviewAnswerReader->SpecReviewAnswerReader,
+      PhaseReviewFixPass->SpecReviewFixPass, PhaseReviewLedger->SpecReviewLedger,
+      PhaseReviewPrompt->SpecReviewPrompt, PhaseReviewPublisher->SpecReviewPublisher,
+      PhaseReviewRevert->SpecReviewRevert, PhaseReviewScript->SpecReviewScript,
+      PhaseReviewSection->SpecReviewSection, PhaseSequenceContext->SpecSequenceContext,
+      PhaseSequenceContextBuilder->SpecSequenceContextBuilder, PhaseSequenceHandler->SpecSequenceHandler,
+      PhaseSpecGateContext->SpecGateContext, PhaseSpecGateContextBuilder->SpecGateContextBuilder,
+      PhaseSpecGateHandler->SpecGateHandler, PhaseSpecProse->SpecProse,
+      PhaseSpecSchemaProvider->SpecSchemaProvider, PhaseStartHeads->SpecStartHeads,
+      PhaseTicketBody->SpecTicketBody, PhaseTicketContent->SpecTicketContent,
+      PhaseTicketRenderer->SpecTicketRenderer, PhaseVerdict->SpecVerdict, PrecedingPhases->PrecedingSpecs,
+      ReviewPhaseDiffContext->ReviewSpecDiffContext, ReviewPhaseDiffContextBuilder->ReviewSpecDiffContextBuilder,
+      ReviewPhaseDiffHandler->ReviewSpecDiffHandler, RunPhaseStatistics->RunSpecStatistics,
+      SelectPhaseContext->SelectSpecContext, SelectPhaseContextBuilder->SelectSpecContextBuilder,
+      SelectPhaseHandler->SelectSpecHandler, SpecPhaseMocks->SpecMocks, VerifyPhaseContext->VerifySpecContext,
+      VerifyPhaseContextBuilder->VerifySpecContextBuilder, VerifyPhaseHandler->VerifySpecHandler,
+      WritePhaseRecordContext->WriteSpecRecordContext,
+      WritePhaseRecordContextBuilder->WriteSpecRecordContextBuilder,
+      WritePhaseRecordHandler->WriteSpecRecordHandler
+      TYPES (tests):
+      ApprovedPhaseSetStoredTests->ApprovedSpecSetStoredTests,
+      DerivedPhaseYamlRendererTests->DerivedSpecYamlRendererTests,
+      PhaseAccountingResilienceTests->SpecDeliveryAccountingResilienceTests,
+      PhaseAlreadySatisfiedTests->SpecAlreadySatisfiedTests, PhaseAttributionTests->SpecAttributionTests,
+      PhaseDataFlowResolverTests->StepDataFlowResolverTests, PhaseDiffTests->SpecDiffTests,
+      PhaseDraftListsTests->SpecDraftListsTests, PhaseDraftReaderSpecKeyTests->SpecDraftReaderSpecKeyTests,
+      PhaseEntryAccountTests->SpecEntryAccountTests, PhaseEvidenceRuleTests->SpecEvidenceRuleTests,
+      PhaseExecutionRoutingTests->SpecExecutionRoutingTests, PhaseExecutionTests->SpecExecutionTests,
+      PhaseFactsRuleTests->SpecFactsRuleTests, PhaseIdExtractionTests->SpecIdExtractionTests,
+      PhaseIdFactoryTests->SpecIdFactoryTests, PhaseIdMintingTests->SpecIdMintingTests,
+      PhaseIdReader->SpecIdReader, PhaseIdRuntimeReaderTests->SpecIdRuntimeReaderTests,
+      PhaseIdSchemaTests->SpecIdSchemaTests, PhaseIndexLineTests->SpecIndexLineTests,
+      PhaseNameBaseline->SpecNameBaseline, PhaseNameRuleTests->SpecNameRuleTests,
+      PhaseProgressRecorderTests->SpecProgressRecorderTests, PhaseRecord->SpecRecord,
+      PhaseRecordFile->SpecRecordFile, PhaseRecordLengthRatchetTests->SpecRecordLengthRatchetTests,
+      PhaseRecordPublishedTests->SpecRecordPublishedTests, PhaseRecordRuleTests->SpecRecordRuleTests,
+      PhaseRepairScopeTests->SpecRepairScopeTests, PhaseRepairTests->SpecRepairTests,
+      PhaseReviewAdmissionTests->SpecReviewAdmissionTests, PhaseReviewEvidenceTests->SpecReviewEvidenceTests,
+      PhaseReviewFixPassTests->SpecReviewFixPassTests, PhaseReviewRecordTests->SpecReviewRecordTests,
+      PhaseSequenceTests->SpecSequenceTests, PhaseSeriesIdTests->SpecSeriesIdTests, PhaseSpecFile->SpecYamlFile,
+      PhaseSpecFileSchemaTests->SpecYamlFileSchemaTests,
+      PhaseSpecPremiseKeysSchemaTests->SpecPremiseKeysSchemaTests, PhaseSpecProseTests->SpecProseTests,
+      PhaseSpecSchemaFile->SpecSchemaFile, PhaseTicketProvider->SpecTicketProvider,
+      PhaseTicketProviderFactory->SpecTicketProviderFactory, PhaseVerdictTests->SpecVerdictTests,
+      PremiseCheckPhaseBlockTests->PremiseCheckSpecBlockTests,
+      ReviewPhaseDiffHandlerTests->ReviewSpecDiffHandlerTests, SpecPhaseMockTests->SpecMockTests,
+      TestPhaseReview->TestSpecReview, VerifyPhaseDataFlowEdgesTests->VerifySpecDataFlowEdgesTests,
+      VerifyPhaseHandlerTests->VerifySpecHandlerTests
+      CONSTANTS (identifier only, value unchanged):
+      ContextKeys.ActivePhaseStep->ActiveStep, CommandNames.CheckPhasePremises->CheckSpecPremises,
+      PipelinePresets.CodePhaseBlock->CodeSpecBlock, CommandNames.CommitPhaseWork->CommitSpecWork,
+      ContextKeys.PhaseAccounts->SpecAccounts, ContextKeys.PhaseAccountsSnapshot->SpecAccountsSnapshot,
+      ContextKeys.PhaseAppliesTo->SpecAppliesTo, ContextKeys.PhaseCommands->SpecRunCommands,
+      ContextKeys.PhaseRepairAttempted->SpecRepairAttempted, ContextKeys.PhaseReviewFindings->SpecReviewFindings,
+      ContextKeys.PhaseReviewFixPass->SpecReviewFixPass, ContextKeys.PhaseReviewReverted->SpecReviewReverted,
+      CommandNames.PhaseSequence->SpecSequence, ContextKeys.PhaseSpec->CurrentSpec,
+      CommandNames.PhaseSpecGate->SpecGate, ContextKeys.PhaseStartHeads->SpecStartHeads,
+      PipelinePresets.PhaseWorkSteps->SpecWorkSteps, CommandNames.ReviewPhaseDiff->ReviewSpecDiff,
+      ContextKeys.RunPhaseReviews->RunSpecReviews, CommandNames.SelectPhase->SelectSpec,
+      CommandNames.VerifyPhase->VerifySpec, CommandNames.WritePhaseRecord->WriteSpecRecord
+      Namespace AgentSmith.Application.Services.PhaseExecution -> .SpecExecution (folder too; no type in it is
+      a context value). Members: IRunContextAccessor.CurrentPhaseId -> CurrentSpecId, BeginStepScope(phaseId) ->
+      specId (BeginCallScope(role, phase) unchanged); AsyncLocalRunContextAccessor.CurrentPhase -> CurrentSpec;
+      StepDataFlowEdge.FromPhaseStep/ToPhaseStep -> FromStep/ToStep; DataFlowViolationException.ActivePhaseStep
+      -> ActiveStep; SpecSet.MaxPhases -> MaxSpecs (template token MaxPhases still filled). About 430 methods
+      (mostly test names), 130 parameters, 73 locals. Baselines phase-name/-record/-record-length-baseline.tsv
+      -> spec-*.tsv; AGENTSMITH_WRITE_PHASE_BASELINE -> AGENTSMITH_WRITE_SPEC_BASELINE (set nowhere outside
+      the tests); file-length-baseline row VerifyPhaseHandler.cs -> VerifySpecHandler.cs. Log placeholders
+      {PhaseId}/{Phase}/{Phases} -> {SpecId}/{Spec}/{Specs} in 25 templates. Deleted: PipelinePhase,
+      PhaseAssignment, ContextKeys.CurrentPhase.
+
+  - category: Scope
+    chose: "Left for 967ab: every type whose assembly-qualified name a checkpoint stores, and every serialized member"
+    reason: |
+      Types: PhaseDraft, PhaseStep, PhaseFact, SpecPhase, PhaseProgress, PhaseRunState, PhaseCommandLog,
+      PhaseCommandEntry, RunPhaseReviews, PhaseReviewEntry, PhaseReviewReport, PhaseFinding, PhaseAccounts
+      (stored as context values; CheckpointRenames maps the names 967aa fixed, and renaming the type alone
+      would write SpecDraft.PhaseId), SpecDialogPhaseView (served), the three Phase*Event records and EventType
+      members (hub mirror and RunEvents.Type). Members kept because JSON or a column carries their name:
+      PhaseId/Phase/Phases on PhaseAccounts, RunAccounts, SpecSet, CarriedSegment, SpecSequenceProgress,
+      CheckpointCommand, DeclinedCriterion (DeclinedCriteria is a context value), RunShortfall.PhaseCount
+      (context value), SetDivergence (SeededTicket is a context value), TicketRun (tool output the model
+      reads), CutFindingWire, ProposalFinding, OutcomeProposalJson.Dto, RunStep/RunDecision entities, every
+      served view (RunStepView, PlannedStepView, RunStatisticsView, RunSpecStatistics, RunCommandPoint,
+      RunCallPoint, DeclinedCriterionView, ApprovedSetView, SpecDialogProposalPush). Every [AcceptedName]
+      member. ContextKeys and CommandNames values (identifiers renamed, values byte-identical).
+      PhaseCommandLogTests keeps the name of the class it tests.
+
+  - category: Scope
+    chose: "G2 and 967ad left as they are"
+    reason: |
+      G2: SkillExecutionPhase and everything typed by it, PhaseCost, PhaseUsage/TokenUsageTracker,
+      RunVerifyPhase/RunReviewPhase/RunFinalPhase (+ RunVerifyPhaseContext(Builder)), MaxSkillsPerPhase,
+      GuardErrorKind.WriteForbiddenInPhase, CallScope/LLM/tool event Phase, WorkerRequest/WorkerCallIdentity
+      Phase, RunEvent/RunLlmCall Phase columns, RunCostSummary/RepoCost Phases, KubernetesPodWatcher, and the
+      tool-host/cost test classes (GetTools_PlanPhase_*, AssertWritable_*Phase_*, ...). 967ad: prompt text,
+      tracker/PR prose, failure messages and test fixtures that quote them; the template tokens MaxPhases and
+      the derivation key "phases". Dual-reader tests (tests/AgentSmith.Tests/SpecNaming, AcceptedNamesTests)
+      and CheckpointRenames keep the phase names on purpose.
+
+  - category: Implementation
+    chose: "Comments say spec where they meant the spec; label words, persisted names and G2 lines keep phase"
+    reason: |
+      The lexer-scoped pass rewrote phase/phases in comments, skipping any line naming a G2 stage, a stored
+      name (phase_review:, phaseId, "phases", phase-parent:, `phase:`) or a file whose symbols are G2.
+      Reverted by hand where the word is the literal tracker label ("the phase word a person types"), the
+      phase-gate hook, and verify-phase (the RunVerifyPhase stage). A comment naming a kept identifier keeps it.
+
+  - category: TradeOff
+    chose: "Tuple element names and record parameter docs fixed by hand"
+    reason: |
+      Tuple element fields have no stable symbol across tuple types, so the Roslyn pass skipped them; the five
+      architecture-test tuples (string PhaseId) were renamed by hand, SeriesJoinOrder's (p.PhaseId, i) follows
+      the kept SpecPhase.PhaseId. Planned specs 443a, 60ca, 967ad and 967af cited moved files; their evidence
+      paths were re-grounded (lines unchanged) because SpecEvidenceRuleTests requires it.
+
+  - category: Scope
+    chose: "Docs, CLAUDE.md and the gate are 967af's"
+    reason: |
+      CLAUDE.md still names PhaseNameRuleTests, PhaseRecordLengthRatchetTests,
+      PhaseRecord_EveryPointer_ResolvesToAFile, PhaseIdFactory.Slug and WritePhaseRecordHandler (now
+      SpecNameRuleTests, SpecRecordLengthRatchetTests, SpecRecord_EveryPointer_ResolvesToAFile,
+      SpecIdFactory.Slug, WriteSpecRecordHandler); docs/ name the step classes by their command names, which
+      did not change. .claude/ references none of the renamed symbols.

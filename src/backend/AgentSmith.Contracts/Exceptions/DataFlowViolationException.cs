@@ -2,22 +2,22 @@ namespace AgentSmith.Contracts.Exceptions;
 
 /// <summary>
 /// Thrown by a gated PipelineContext read when the active step is not declared
-/// as a consumer of the requested key under the resolved IPhaseDataFlow. Fatal
+/// as a consumer of the requested key under the resolved IStepDataFlow. Fatal
 /// only when PipelineDataFlowConfig.Enforce is true; warning-only otherwise.
 /// </summary>
 public sealed class DataFlowViolationException : Exception
 {
-    public string ActivePhaseStep { get; }
+    public string ActiveStep { get; }
     public string OffendingKey { get; }
     public IReadOnlyList<string> DeclaredFromSteps { get; }
 
     public DataFlowViolationException(
-        string activePhaseStep,
+        string activeStep,
         string offendingKey,
         IReadOnlyList<string> declaredFromSteps)
-        : base(BuildMessage(activePhaseStep, offendingKey, declaredFromSteps))
+        : base(BuildMessage(activeStep, offendingKey, declaredFromSteps))
     {
-        ActivePhaseStep = activePhaseStep;
+        ActiveStep = activeStep;
         OffendingKey = offendingKey;
         DeclaredFromSteps = declaredFromSteps;
     }

@@ -6,7 +6,7 @@ namespace AgentSmith.PipelineHarness.Evals;
 /// TWO rates, each over its own denominator — misses over the flawed files, false alarms
 /// over the clean ones. One combined score hides the direction that has cost live runs: a
 /// scan that finds nothing looks exactly like a clean repository, and fourteen tuning
-/// phases on the delivery account moved the wrong axis for precisely that reason.
+/// specs on the delivery account moved the wrong axis for precisely that reason.
 /// </para>
 /// <para>
 /// Both populations are printed. A rate over four files is not a rate, and a report that

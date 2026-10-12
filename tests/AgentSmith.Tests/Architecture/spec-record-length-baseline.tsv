@@ -1,0 +1,5 @@
+# p0512: spec record entries over the 400-character cap, measured when the ratchet was
+# installed. From here a listed entry may only get SHORTER, a new entry may not join,
+# and an entry compressed under the cap must LEAVE this list — the test fails either way.
+# The eleven that ran past 3000 characters were compressed in p0512 and are not listed.
+# chars	spec id (state.done in .agentsmith/contexts/default/context.yaml)

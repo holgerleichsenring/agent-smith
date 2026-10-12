@@ -5,7 +5,7 @@ namespace AgentSmith.Application.Services;
 
 /// <summary>
 /// 2026-09-22-7c41a: one sentence for every reader that acts on the per-pipeline cost cap.
-/// Six of them do — two stop the run, one skips a skill, two let a phase through unchecked
+/// Six of them do — two stop the run, one skips a skill, two let a spec through unchecked
 /// and one ends the master's re-engagement — and until now each said only THAT the cap was
 /// exhausted. A resumed run carries the segment before it, so the cap fires earlier and at
 /// a reader the operator did not expect; a message that names neither the cap nor the

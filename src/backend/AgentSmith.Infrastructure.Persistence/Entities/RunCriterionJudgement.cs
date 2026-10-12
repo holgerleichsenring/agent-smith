@@ -4,7 +4,7 @@ namespace AgentSmith.Infrastructure.Persistence.Entities;
 /// 2026-08-25-e257: one human judgement of one criterion's disposition.
 /// <para>
 /// A run that fails on a wrong criterion is indistinguishable from one that fails on a right
-/// one — same state, same colour, same cost. Fourteen phases have tuned the delivery account,
+/// one — same state, same colour, same cost. Fourteen specs have tuned the delivery account,
 /// each on a single failed run, because the only failures that announce themselves are
 /// mechanical. The operator already knows which verdicts were wrong; this is where they say
 /// so.
@@ -17,7 +17,7 @@ namespace AgentSmith.Infrastructure.Persistence.Entities;
 /// </para>
 /// <para>
 /// Keyed by a digest of the criterion TEXT rather than its position, because the criteria of
-/// a re-derived phase can reorder and a label that moved to a different criterion is worse
+/// a re-derived spec can reorder and a label that moved to a different criterion is worse
 /// than no label at all.
 /// </para>
 /// </summary>

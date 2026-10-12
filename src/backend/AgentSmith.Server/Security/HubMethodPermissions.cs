@@ -11,7 +11,7 @@ namespace AgentSmith.Server.Security;
 /// <para>
 /// Nothing here decides which RUN a caller may watch. A permission on
 /// <c>SubscribeRun</c> says the caller may watch runs, not which one — that is a scope,
-/// and a different phase.
+/// and a different spec.
 /// </para>
 /// </summary>
 internal static class HubMethodPermissions

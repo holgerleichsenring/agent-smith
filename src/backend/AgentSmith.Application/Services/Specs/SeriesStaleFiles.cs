@@ -34,7 +34,7 @@ public sealed class SeriesStaleFiles
         var name = SeriesPaths.FileName(path);
         if (seriesBase.Length == 0 || !SeriesPaths.BelongsToSeries(name, seriesBase)) return false;
         if (written.Contains(path)) return false;
-        return !(SpecPhaseMocks.IsMock(name)
+        return !(SpecMocks.IsMock(name)
             && set.UnexecutedTail.Any(p => SeriesPaths.BelongsTo(name, p.PhaseId)));
     }
 }

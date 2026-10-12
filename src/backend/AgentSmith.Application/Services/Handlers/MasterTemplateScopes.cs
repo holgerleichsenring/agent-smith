@@ -7,8 +7,8 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// 2026-09-13-6f35: opens the templates a phase is built after for the master that types
-/// the code. The derivation names HOW a phase is to be built; until this ran, the writer
+/// 2026-09-13-6f35: opens the templates a spec is built after for the master that types
+/// the code. The derivation names HOW a spec is to be built; until this ran, the writer
 /// could not open the thing the cut cited — a citation, not a mechanism.
 /// <para>
 /// It is its own type because AgenticMasterHandler sits one line under its length ratchet,
@@ -20,12 +20,12 @@ public sealed class MasterTemplateScopes(
     ProjectTemplateScopes scopes, ILogger<MasterTemplateScopes> logger)
 {
     /// <summary>
-    /// Selects the templates declared for the contexts THIS PHASE changes, materialises each
+    /// Selects the templates declared for the contexts THIS SPEC changes, materialises each
     /// one at its declared revision, and publishes their addresses on
     /// <see cref="ContextKeys.TemplateAddresses"/>.
     /// <para>
     /// Materialisation happens here, before the master's first token, because a template that
-    /// cannot be reached must fail the phase rather than answer every read with a refusal the
+    /// cannot be reached must fail the spec rather than answer every read with a refusal the
     /// model spends a pass discovering. It is a defensive assert and not a second user-facing
     /// path: DeriveSpec precedes the master in the code preset and 2026-09-13-84c0 already
     /// failed the derivation on the same condition, so an operator has seen it once already.
@@ -65,7 +65,7 @@ public sealed class MasterTemplateScopes(
         return attachment;
     }
 
-    // The phase fails naming the template AND the revision it asked for: "the template is
+    // The spec fails naming the template AND the revision it asked for: "the template is
     // broken" and "this project pinned a tag that no longer exists" are different repairs,
     // and a message that names only the repository leaves the operator to guess which.
     private static InvalidOperationException Unreachable(IEnumerable<string> names, Exception cause)

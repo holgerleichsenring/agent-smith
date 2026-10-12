@@ -9,7 +9,7 @@ namespace AgentSmith.Tests.Architecture;
 /// instance of an idea that had already lost twice, so it is gone rather than tuned.
 /// <para>
 /// A removal is only finished when it cannot come back by halves: a leftover type, a
-/// leftover catalog reader or a leftover reference to the word is what a later phase
+/// leftover catalog reader or a leftover reference to the word is what a later spec
 /// would build the fourth instance on top of.
 /// </para>
 /// </summary>
@@ -43,7 +43,7 @@ public sealed class ProfileMechanismRetiredTests
     /// <summary>
     /// The key is DEPRECATED in the schema, not deleted from it: the root is
     /// <c>additionalProperties: false</c>, so removing the property would refuse every
-    /// context written before this phase instead of merely no longer asking for one.
+    /// context written before this spec instead of merely no longer asking for one.
     /// </summary>
     [Fact]
     public void TheSchemaStillDeclaresDomain_AsDeprecated()

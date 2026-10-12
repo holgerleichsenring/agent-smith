@@ -10,7 +10,7 @@ namespace AgentSmith.Tests.Specs;
 
 /// <summary>
 /// p0413: the shape the scope classifier stated reaches the derivation — the one
-/// call that decides how many phases a ticket becomes. The section states the
+/// call that decides how many specs a ticket becomes. The section states the
 /// shape and the reason and nothing else: what the shape MEANS for the cut is a
 /// rule of the derivation master, not a per-run instruction assembled in code.
 /// A ticket with no stated shape must read the prompt it always read.

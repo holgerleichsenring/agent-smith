@@ -29,7 +29,7 @@ public sealed class TicketTitleTests
     [Fact]
     public void TicketTitle_LongGoal_IsCutAtAWordBoundaryAndTheBodyKeepsTheGoal()
     {
-        var content = new PhaseTicketRenderer().RenderPhase(
+        var content = new SpecTicketRenderer().RenderSpec(
             new PhaseDraft("p9000a", LongGoal, $"spec: p9000a\ngoal: {LongGoal}", []));
 
         content.Title.Length.Should().BeLessThanOrEqualTo(TicketTitle.MaxLength);
@@ -134,7 +134,7 @@ public sealed class TicketTitleTests
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider);
         return new OutcomeTicketFiler(
-            Config(), factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
+            Config(), factory.Object, new SpecTicketRenderer(), new BugTicketRenderer(),
             new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
             TestSupport.ApprovedSetDoubles.SetFiler(),
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);

@@ -205,7 +205,7 @@ public sealed class FiledWorkPermissionTests : IDisposable
     private static SpecDialogMessenger Messenger() =>
         new([], NullLogger<SpecDialogMessenger>.Instance);
 
-    /// <summary>The real router over a turn that proposes a phase and a gate that approves it —
+    /// <summary>The real router over a turn that proposes a spec and a gate that approves it —
     /// the shortest path from "a message arrived" to "the filer was handed a permission".</summary>
     private SpecDialogRouter Router(SpecDialogSessionRepository repository)
     {
@@ -223,7 +223,7 @@ public sealed class FiledWorkPermissionTests : IDisposable
         turnRunner
             .Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((ConversationState state, CancellationToken _) =>
-                SpecDialogTurnResult.On(state.Platform, "drafted", new PhaseOutcome(
+                SpecDialogTurnResult.On(state.Platform, "drafted", new SpecOutcome(
                     new PhaseDraft("p9000a", "a slice",
                         "spec: p9000a\ngoal: \"a slice\"\ndone:\n  - \"done\"", [])
                     { Done = ["done"] })));

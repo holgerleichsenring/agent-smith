@@ -171,9 +171,9 @@ public sealed class SpecDoneRecordGitTests
         pipeline.Set(ContextKeys.RunId, RunId);
         pipeline.Set(ContextKeys.ProjectName, Project);
         pipeline.Set(ContextKeys.SpecSet, set);
-        pipeline.Set(ContextKeys.PhaseSpec, set.Phases[0].Draft);
+        pipeline.Set(ContextKeys.CurrentSpec, set.Phases[0].Draft);
         return SeriesDoubles.RecordHandler(git.Files, pointers, git.Ops).ExecuteAsync(
-            new WritePhaseRecordContext(pipeline.Get<Repository>(ContextKeys.Repository), pipeline, repos), default);
+            new WriteSpecRecordContext(pipeline.Get<Repository>(ContextKeys.Repository), pipeline, repos), default);
     }
 
     private static string Planned(string rest) => $"{SeriesPaths.Planned}/{Base}{rest}";

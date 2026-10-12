@@ -4,7 +4,7 @@ using AgentSmith.Contracts.Progress;
 namespace AgentSmith.Application.Services.Tools;
 
 /// <summary>
-/// p0341, p0394a: seeds the progress ledger 1:1 from the ratified phase spec's
+/// p0341, p0394a: seeds the progress ledger 1:1 from the ratified spec's
 /// steps — the model opens on the checklist instead of re-deriving it, and the
 /// seed and the keystone's verification finally share one source. Ids are
 /// FRAMEWORK-ASSIGNED (the spec step's own id) so the model does not invent

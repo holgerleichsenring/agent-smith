@@ -52,7 +52,7 @@ internal static class SpecPromptComposer
         if (rendered.Length > 0) sb.AppendLine(rendered);
     }
 
-    // 2026-09-08-1830: the contexts the scope call named — the list every phase declares
+    // 2026-09-08-1830: the contexts the scope call named — the list every spec declares
     // its own against. Absent renders nothing.
     private static void AppendNamedContexts(StringBuilder sb, PipelineContext pipeline)
     {

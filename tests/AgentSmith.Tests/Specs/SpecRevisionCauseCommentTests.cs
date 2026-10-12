@@ -9,7 +9,7 @@ using FluentAssertions;
 namespace AgentSmith.Tests.Specs;
 
 /// <summary>
-/// 2026-09-08-4aa9: the revision cause after an executed phase. The marker's commit is
+/// 2026-09-08-4aa9: the revision cause after an executed spec. The marker's commit is
 /// this system's own — the pointer names it, so it reads as a re-trigger, never as a
 /// reviewer's edit. A comment by anyone but us after our last cut comment is a comment
 /// cause that outranks the sha; a ticket edit and a resume outrank the comment.
@@ -21,7 +21,7 @@ public sealed class SpecRevisionCauseCommentTests
     private static readonly DateTimeOffset Now = DateTimeOffset.UtcNow;
 
     [Fact]
-    public void Cause_AnExecutedPhaseRecordedByThisSystem_IsARetriggerNotAReviewerEdit()
+    public void Cause_AnExecutedSpecRecordedByThisSystem_IsARetriggerNotAReviewerEdit()
     {
         SpecRevisionCause.For(Previous(), Pointer(MarkerSha), Ticket(Text), Pipeline())
             .Should().Be(SpecRevisionCause.Retrigger, "the marker moved the pointer to its own commit");
@@ -83,17 +83,17 @@ public sealed class SpecRevisionCauseCommentTests
     private static Ticket Ticket(string description) =>
         new(new TicketId("1"), "Token refresh drops the session", description, null, "open", "azdo", []);
 
-    // A two-phase set whose first phase ran, cut from the unedited text; the marker's
+    // A two-spec set whose first spec ran, cut from the unedited text; the marker's
     // commit is the last on the spec path.
     private static SpecSetReadResult Previous() => new(
         new SpecSet(
-            "azdo-1", [Phase("p1a"), Phase("p1b")], SpecAccounting.Empty,
+            "azdo-1", [Spec("p1a"), Spec("p1b")], SpecAccounting.Empty,
             [new SpecRevision(1, SpecRevisionCause.Initial, Now.AddHours(-3))],
             SpecSource.BranchArtifact, ExecutedPhaseIds: ["p1a"],
             TicketFingerprint: TicketTextFingerprint.Of(Ticket(Text))),
         MarkerSha);
 
-    private static SpecPhase Phase(string id) => new(
+    private static SpecPhase Spec(string id) => new(
         new PhaseDraft(id, $"Goal {id}", $"spec: {id}\ngoal: \"Goal {id}\"", []) { Done = [$"Done {id}."] },
         id, string.Empty, []);
 

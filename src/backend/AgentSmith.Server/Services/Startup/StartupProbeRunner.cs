@@ -18,7 +18,7 @@ public sealed class StartupProbeRunner(
     // A probe answers a yes/no question about one dependency. Bounded because the probes
     // run before the listener binds: an endpoint that blackholes its packets would
     // otherwise hold the port shut for the OS connect timeout, which is the very
-    // "unreachable server" this phase exists to make impossible.
+    // "unreachable server" this spec exists to make impossible.
     private static readonly TimeSpan ProbeBudget = TimeSpan.FromSeconds(10);
 
     public async Task RunAsync(CancellationToken cancellationToken = default)

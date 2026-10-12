@@ -42,11 +42,11 @@ public static partial class CommandStepClasses
             // MaterializeReferenceSetsHandler: the approval cites no uploaded material (2026-10-08-e8b9k: sets or images).
             "The approval cites no uploaded material",
         ],
-        [CommandNames.PhaseSpecGate] =
+        [CommandNames.SpecGate] =
         [
-            // PhaseSpecGateHandler: "Phase spec pX validated: ..." / "N phase specs validated, ...".
+            // SpecGateHandler: "Spec pX validated: ..." / "N specs validated, ...".
             "validated",
-            // PhaseSpecGateHandler: set already handed back upstream — nothing to gate here.
+            // SpecGateHandler: set already handed back upstream — nothing to gate here.
             "nothing to gate",
         ],
         [CommandNames.MasterOpenQuestions] =

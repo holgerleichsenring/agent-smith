@@ -50,15 +50,15 @@ public static class PipelineExecutionExtensions
         // p0356: the sandbox toolchain probe feeding the master's capability line.
         services.AddTransient<ISandboxToolchainProbe, SandboxToolchainProbe>();
         services.TryAddSingleton<ICapacityQueue, Spawning.NoOpCapacityQueue>();
-        services.AddSingleton<IPhaseDataFlow, CodeDataFlow>(); // p0393
-        services.AddSingleton<IPhaseDataFlow, InitProjectDataFlow>();
-        services.AddSingleton<IPhaseDataFlow, SecurityScanDataFlow>();
-        services.AddSingleton<IPhaseDataFlow, ApiSecurityScanDataFlow>();
-        services.AddSingleton<IPhaseDataFlow, MadDiscussionDataFlow>();
-        services.AddSingleton<IPhaseDataFlow, LegalAnalysisDataFlow>();
-        services.AddSingleton<IPhaseDataFlow, PrReviewDataFlow>();
-        services.AddSingleton<IPhaseDataFlow, SpecDialogDataFlow>();
-        services.AddSingleton<IPhaseDataFlowResolver, PhaseDataFlowResolver>();
+        services.AddSingleton<IStepDataFlow, CodeDataFlow>(); // p0393
+        services.AddSingleton<IStepDataFlow, InitProjectDataFlow>();
+        services.AddSingleton<IStepDataFlow, SecurityScanDataFlow>();
+        services.AddSingleton<IStepDataFlow, ApiSecurityScanDataFlow>();
+        services.AddSingleton<IStepDataFlow, MadDiscussionDataFlow>();
+        services.AddSingleton<IStepDataFlow, LegalAnalysisDataFlow>();
+        services.AddSingleton<IStepDataFlow, PrReviewDataFlow>();
+        services.AddSingleton<IStepDataFlow, SpecDialogDataFlow>();
+        services.AddSingleton<IStepDataFlowResolver, StepDataFlowResolver>();
         services.AddOptions<PipelineDataFlowConfig>().Configure<AgentSmithConfig>(
             (opts, config) => opts.Enforce = config.PipelineDataFlow.Enforce);
         services.AddScoped<DataFlowReadGate>();

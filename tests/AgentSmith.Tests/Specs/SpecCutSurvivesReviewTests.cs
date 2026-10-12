@@ -23,9 +23,9 @@ namespace AgentSmith.Tests.Specs;
 /// no cut at all.
 /// <para>
 /// The deriver retries three times, hands the objections back each time, and then throws
-/// the cut away. What replaces it is one phase carrying the whole ticket — no boundaries,
-/// no per-phase verdict, no repair pass, and on live run 2552 nineteen minutes of work
-/// with no way to end. Four phases with an objection against the fourth are strictly
+/// the cut away. What replaces it is one spec carrying the whole ticket — no boundaries,
+/// no per-spec verdict, no repair pass, and on live run 2552 nineteen minutes of work
+/// with no way to end. Four specs with an objection against the fourth are strictly
 /// better than that, and the objection is recorded rather than obeyed.
 /// </para>
 /// <para>

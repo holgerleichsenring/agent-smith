@@ -9,7 +9,7 @@ namespace AgentSmith.Application.Services.Scans;
 /// <para>
 /// The account is MECHANICAL — no model is asked whether the scan scanned. The evidence
 /// is the execution trail, and <see cref="CitationResolver"/> checks the claim exactly as
-/// it checks a phase's: a criterion citing a command that never ran, or that ran and
+/// it checks a spec's: a criterion citing a command that never ran, or that ran and
 /// failed, is outstanding and NAMES itself. That is the difference between a scan whose
 /// dependency audit died and a scan that found nothing.
 /// </para>
@@ -29,7 +29,7 @@ public sealed class ScanCoverageAccountant : IScanCoverageAccountant
         if (contract.Criteria.Count == 0) return new SpecAccount(RepoKey, []);
 
         var trail = Trail(pipeline);
-        // The scan's two kinds of evidence, checked by the same resolver a phase account
+        // The scan's two kinds of evidence, checked by the same resolver a spec account
         // uses: the files the scan really read, and the steps that really ran.
         var read = pipeline.TryGet<List<string>>(ContextKeys.MasterReadPaths, out var paths) ? paths : null;
         var resolver = new CitationResolver(CitedFileIndex.FromPaths(read), Succeeded(trail));

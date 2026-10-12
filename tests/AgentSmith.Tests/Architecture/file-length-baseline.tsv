@@ -1,4 +1,4 @@
-# p0403: files over the 120-line limit, measured at the END of the phase that
+# p0403: files over the 120-line limit, measured at the END of the spec that
 # installed the ratchet (after the first burn-down: AgenticMasterHandler 1307 -> 960).
 # From here the list may only SHRINK and a listed file may only get SHORTER.
 # Fix a file, drop its line — the test fails if a fixed file is still listed.
@@ -16,7 +16,7 @@
 332	AgentSmith.Sandbox.Agent/Services/GrepStepHandler.cs
 345	AgentSmith.Infrastructure.Core/Services/YamlSkillLoader.cs
 343	AgentSmith.Application/Services/Handlers/BootstrapDiscoverHandler.cs
-335	AgentSmith.Application/Services/Handlers/VerifyPhaseHandler.cs
+335	AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs
 342	AgentSmith.Application/Services/Handlers/SetupRegistryAuthHandler.cs
 159	AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs
 311	AgentSmith.Server/Services/Events/JobsBroadcaster.cs

@@ -5,7 +5,7 @@ namespace AgentSmith.Tests.Scans;
 /// <summary>
 /// p0429: a scanned source the substantiation can read — the files that exist, and
 /// nothing else. A citation to anything not in here is exactly the invented location
-/// the phase drops.
+/// the spec drops.
 /// </summary>
 internal sealed class ScannedSourceStub(Dictionary<string, string> files)
     : ISandboxFileReader, ISandboxFileReaderFactory

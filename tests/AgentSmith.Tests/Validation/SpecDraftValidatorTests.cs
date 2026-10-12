@@ -5,13 +5,13 @@ using FluentAssertions;
 namespace AgentSmith.Tests.Validation;
 
 /// <summary>
-/// p0315b: the phase-spec draft gate — a reply without a yaml block is a
+/// p0315b: the spec draft gate — a reply without a yaml block is a
 /// plain answer, a schema-valid block passes, and every failure mode names
 /// exactly what is wrong (the error drives the master's re-prompt).
 /// </summary>
 public sealed class SpecDraftValidatorTests
 {
-    private readonly SpecDraftValidator _sut = new(new PhaseSpecSchemaProvider());
+    private readonly SpecDraftValidator _sut = new(new SpecSchemaProvider());
 
     [Fact]
     public void Validate_NoYamlBlock_IsAbsent() =>
@@ -19,7 +19,7 @@ public sealed class SpecDraftValidatorTests
             .Should().BeOfType<SpecDraftAbsent>();
 
     [Fact]
-    public void Validate_ValidPhaseSpec_IsValid()
+    public void Validate_ValidSpec_IsValid()
     {
         var reply = """
             Draft below.
@@ -50,7 +50,7 @@ public sealed class SpecDraftValidatorTests
     }
 
     [Fact]
-    public void Validate_BadPhaseIdPattern_IsInvalid() =>
+    public void Validate_BadSpecIdPattern_IsInvalid() =>
         _sut.Validate("```yaml\nspec: not-a-phase\ngoal: \"g\"\n```")
             .Should().BeOfType<SpecDraftInvalid>();
 

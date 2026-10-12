@@ -43,7 +43,7 @@ internal static class DockerPresetScripts
 
     /// <summary>
     /// Fixing a bug: one edit, then the loop closes. p0394a: GeneratePlan left the
-    /// phase path — the spec is the plan, so the master's write_file tool-call is the
+    /// spec path — the spec is the plan, so the master's write_file tool-call is the
     /// first coding-side FIFO consumer and no plan slot is scripted anymore.
     /// </summary>
     public static void BugFix(ScriptedChatClient client) => client

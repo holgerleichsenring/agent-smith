@@ -25,7 +25,7 @@ namespace AgentSmith.Tests.Spawning;
 /// </para>
 /// <para>
 /// The labels here are written out rather than composed, because the prefix has no factory left:
-/// <c>phase-requires:</c> is a legacy word this framework reads nowhere.
+/// <c>spec-requires:</c> is a legacy word this framework reads nowhere.
 /// </para>
 /// </summary>
 public sealed class PredecessorRetirementTests

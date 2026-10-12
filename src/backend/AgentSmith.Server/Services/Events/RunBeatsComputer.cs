@@ -67,7 +67,7 @@ public static class RunBeatsComputer
     }
 
     // p0376: "proven" = every persisted criterion met or n/a, at least one met. 2026-10-12-6bfad:
-    // and no account went unmeasured — a red build proved nothing, whatever earlier phases
+    // and no account went unmeasured — a red build proved nothing, whatever earlier specs
     // met. Read off run.AcceptanceJson, the keystone's per-criterion verdicts at run end.
     private static bool AcceptanceProven(string? acceptanceJson)
     {
@@ -121,7 +121,7 @@ public static class RunBeatsComputer
     // The beats the pipeline DEFINITION contains — drives "skipped" (a preset
     // with no verify-beat command renders verify as skipped, not pending). Null
     // for pipelines without a code-defined preset: we then only know what ran.
-    // p0393a: the EFFECTIVE list, with the per-phase block expanded — `code` splices its
+    // p0393a: the EFFECTIVE list, with the per-spec block expanded — `code` splices its
     // plan/master/verify steps at run time, and reading the literal list would render a
     // pipeline that always builds and verifies as one that skips both.
     private static IReadOnlySet<RunBeat>? PlannedBeats(string pipeline)

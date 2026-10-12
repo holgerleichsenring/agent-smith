@@ -98,12 +98,12 @@ public sealed class RunRailServedTests : IDisposable
         rail[1].SubAgents.Should().Be(0);
     }
 
-    // p0395: a spliced phase step (p0393a) is projected with the phase id composed
+    // p0395: a spliced spec step (p0393a) is projected with the spec id composed
     // into its names. The read path splits it back apart — PhaseId structured, the
     // names clean — for old prefixed rows exactly like new ones; an unspliced step
-    // carries no phase.
+    // carries no spec.
     [Fact]
-    public async Task StepsEndpoint_SplicedPhaseStep_ServesPhaseIdAndCleanNames()
+    public async Task StepsEndpoint_SplicedSpecStep_ServesSpecIdAndCleanNames()
     {
         await ProjectAsync(
             new RunStartedEvent(RunId, "ticket", "code", ["primary"], T, "claude", "42"),
@@ -122,11 +122,11 @@ public sealed class RunRailServedTests : IDisposable
         rail[1].DisplayName.Should().Be("Fetch ticket");
     }
 
-    // p0507: the second id namespace reaches the rail. A date-minted phase is spliced
+    // p0507: the second id namespace reaches the rail. A date-minted spec is spliced
     // into the step names exactly like a counter one, so the read path must split it
     // back apart rather than leave the raw prefix in the label an operator reads.
     [Fact]
-    public async Task StepLabel_DateMintedPhase_RendersWithoutTheRawPrefix()
+    public async Task StepLabel_DateMintedSpec_RendersWithoutTheRawPrefix()
     {
         await ProjectAsync(
             new RunStartedEvent(RunId, "ticket", "code", ["primary"], T, "claude", "42"),
@@ -170,7 +170,7 @@ public sealed class RunRailServedTests : IDisposable
         await ProjectAsync(
             new RunStartedEvent(RunId, "ticket", "code", ["primary"], T, "claude", "42"),
             new StepStartedEvent(
-                RunId, 0, "Validate phase spec", 3, T, "Validate phase spec", CommandNames.PhaseSpecGate),
+                RunId, 0, "Validate phase spec", 3, T, "Validate phase spec", CommandNames.SpecGate),
             new StepFinishedEvent(RunId, 0, "failed", 100, T, "Spec set carries no phase"),
             new StepStartedEvent(
                 RunId, 1, "Hand the ticket back", 3, T, "Hand the ticket back", CommandNames.SpecHandback),

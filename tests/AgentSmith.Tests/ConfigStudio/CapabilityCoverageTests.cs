@@ -14,7 +14,7 @@ namespace AgentSmith.Tests.ConfigStudio;
 /// The defect is not any one missing input — it is that a field could be ADDED to the
 /// backend and stay invisible. This test walks the raw read models against the capabilities
 /// descriptor, so the next added field fails until the descriptor declares it or the gap is
-/// written down here with the phase that closes it.
+/// written down here with the spec that closes it.
 /// </summary>
 public sealed class CapabilityCoverageTests
 {

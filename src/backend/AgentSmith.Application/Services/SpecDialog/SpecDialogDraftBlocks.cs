@@ -5,7 +5,7 @@ namespace AgentSmith.Application.Services.SpecDialog;
 
 /// <summary>
 /// The two fenced shapes a design-partner reply proposes work in: a bare ```yaml block is a
-/// phase draft, an ```outcome block a bug or an epic. The resolver and the validator read
+/// spec draft, an ```outcome block a bug or an epic. The resolver and the validator read
 /// their blocks through these rules, and a surface that shows a reply without its draft
 /// finds the draft through the same ones — so "what counts as a draft" has one answer.
 /// <para>

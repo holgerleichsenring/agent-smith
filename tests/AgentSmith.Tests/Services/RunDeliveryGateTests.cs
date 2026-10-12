@@ -5,7 +5,7 @@ using FluentAssertions;
 namespace AgentSmith.Tests.Services;
 
 /// <summary>
-/// p0421: the ONE gate that decides whether a run delivered, reading what each phase
+/// p0421: the ONE gate that decides whether a run delivered, reading what each spec
 /// accounted for against the branch.
 /// <para>
 /// The four suites this replaces tested the old gate's six signals. What they were
@@ -17,7 +17,7 @@ namespace AgentSmith.Tests.Services;
 public sealed class RunDeliveryGateTests
 {
     [Fact]
-    public void EveryCriterionSatisfiedAcrossEveryPhase_IsADelivery()
+    public void EveryCriterionSatisfiedAcrossEverySpec_IsADelivery()
     {
         var verdict = RunDeliveryGate.Evaluate(RunAccounts.Empty
             .With("p1", [Account("api", Met("packages pinned", "src/Api/Api.csproj"))])
@@ -63,7 +63,7 @@ public sealed class RunDeliveryGateTests
 
     /// <summary>The p0341c protection: a run that stopped early cannot satisfy what it never reached.</summary>
     [Fact]
-    public void APhaseThatNeverRan_LeavesItsCriteriaOutstanding()
+    public void ASpecThatNeverRan_LeavesItsCriteriaOutstanding()
     {
         var verdict = RunDeliveryGate.Evaluate(RunAccounts.Empty
             .With("p1", [Account("api", Met("packages pinned", "src/Api/Api.csproj"))])
@@ -75,7 +75,7 @@ public sealed class RunDeliveryGateTests
     }
 
     [Fact]
-    public void APhaseThatCouldNotBeAccountedFor_IsNotADelivery()
+    public void ASpecThatCouldNotBeAccountedFor_IsNotADelivery()
     {
         var verdict = RunDeliveryGate.Evaluate(RunAccounts.Empty.With("p1", [
             new SpecAccount("api", [], "the delivery diff could not be taken (no comparable base)")]), ratifiedCriteria: 2);
@@ -97,7 +97,7 @@ public sealed class RunDeliveryGateTests
 
     /// <summary>
     /// Criteria that were ratified and never accounted for are a GAP: silence means no
-    /// phase ever measured itself, which is the hollow success the gate exists for.
+    /// spec ever measured itself, which is the hollow success the gate exists for.
     /// </summary>
     [Fact]
     public void RatifiedCriteriaWithNoAccountAtAll_FailsTheRun()
@@ -109,7 +109,7 @@ public sealed class RunDeliveryGateTests
     }
 
     [Fact]
-    public void RerunningAPhase_ReplacesItsAccount_RatherThanCountingItTwice()
+    public void RerunningASpec_ReplacesItsAccount_RatherThanCountingItTwice()
     {
         var accounts = RunAccounts.Empty
             .With("p1", [Account("api", new CriterionAccount("packages pinned", AccountDisposition.NotSatisfied))])
@@ -120,10 +120,10 @@ public sealed class RunDeliveryGateTests
     }
 
     /// <summary>
-    /// p0421, found in run 8a1f: a run whose phases were ALL already executed on the branch
-    /// runs no phase — so nothing accounted for anything, and the gate failed exactly the
+    /// p0421, found in run 8a1f: a run whose specs were ALL already executed on the branch
+    /// runs no spec — so nothing accounted for anything, and the gate failed exactly the
     /// case the accounting exists for. The account is taken for the branch regardless of
-    /// whether a phase ran now; this test states the shape the gate must then see.
+    /// whether a spec ran now; this test states the shape the gate must then see.
     /// </summary>
     [Fact]
     public void ARunWhoseWorkWasAlreadyOnTheBranch_IsADelivery_WhenTheBranchIsAccountedFor()

@@ -11,7 +11,7 @@ namespace AgentSmith.Application.Models;
 /// AgenticMasterHandler from TicketClarificationToolHost) and posts it to the
 /// originating ticket via the p0318 open-questions transport.
 /// 2026-09-03-3c07: <paramref name="Step"/> is the command being executed — the
-/// re-engaged master a resumed run splices belongs to the same phase as this step.
+/// re-engaged master a resumed run splices belongs to the same spec as this step.
 /// </summary>
 public sealed record MasterOpenQuestionsContext(
     Ticket Ticket,

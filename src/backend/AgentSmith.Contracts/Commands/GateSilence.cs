@@ -37,11 +37,11 @@ public static class GateSilence
             // SpecHandbackHandler: the derivation produced specs, no handback to route.
             "The derivation handed nothing back",
         ],
-        [CommandNames.PhaseSpecGate] =
+        [CommandNames.SpecGate] =
         [
-            // PhaseSpecGateHandler: "Phase spec pX validated: ..." / "N phase specs validated, ...".
+            // SpecGateHandler: "Spec pX validated: ..." / "N specs validated, ...".
             "validated",
-            // PhaseSpecGateHandler: set already handed back upstream — nothing to gate here.
+            // SpecGateHandler: set already handed back upstream — nothing to gate here.
             "nothing to gate",
         ],
         [CommandNames.MasterOpenQuestions] =

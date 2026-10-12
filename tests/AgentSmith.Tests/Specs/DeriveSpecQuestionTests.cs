@@ -1,6 +1,6 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
-using AgentSmith.Application.Services.PhaseExecution;
+using AgentSmith.Application.Services.SpecExecution;
 using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Specs;
@@ -41,7 +41,7 @@ public sealed class DeriveSpecQuestionTests
     public async Task Question_ASecondUnansweredPark_ProceedsAndSaysOnWhichReading()
     {
         var tickets = new Mock<ITicketProvider>();
-        var deriver = new CapturingDeriver(PhasesCut());
+        var deriver = new CapturingDeriver(SpecsCut());
         var published = new CapturingPublisher();
         var context = Context(OurQuestion(Asked));
 
@@ -63,7 +63,7 @@ public sealed class DeriveSpecQuestionTests
     public async Task Question_AProceedNotice_NamesTheTakenReadingFromTheFirstQuestion()
     {
         var tickets = new Mock<ITicketProvider>();
-        var deriver = new CapturingDeriver(PhasesCut(goal: "Go conservative: bump only what an advisory forces"));
+        var deriver = new CapturingDeriver(SpecsCut(goal: "Go conservative: bump only what an advisory forces"));
         var context = Context(OurQuestion(Asked));
 
         await Handler(deriver, new CapturingPublisher(), tickets).ExecuteAsync(context, default);
@@ -82,8 +82,8 @@ public sealed class DeriveSpecQuestionTests
             OurQuestion(Asked),
             new TicketComment("operator", Asked.AddHours(1), "(b) — the newest major everywhere, please"));
 
-        // The model reads the answer in the thread and cuts: no pin, no notice, real phases.
-        var cutting = new CapturingDeriver(PhasesCut());
+        // The model reads the answer in the thread and cuts: no pin, no notice, real specs.
+        var cutting = new CapturingDeriver(SpecsCut());
         var cut = new CapturingPublisher();
         await Handler(cutting, cut, tickets).ExecuteAsync(answered, default);
         cutting.PinSeen.Should().BeNull("an answered question is derived on the answer, not on the pin");
@@ -123,8 +123,8 @@ public sealed class DeriveSpecQuestionTests
     {
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(tickets.Object);
-        var validator = new SpecDraftValidator(new PhaseSpecSchemaProvider());
-        var draftReader = new PhaseDraftReader();
+        var validator = new SpecDraftValidator(new SpecSchemaProvider());
+        var draftReader = new SpecDraftReader();
         var reader = new Mock<ISpecSetReader>();
         reader.Setup(r => r.ReadAsync(
                 It.IsAny<PipelineContext>(), It.IsAny<RepoConnection>(), It.IsAny<IReadOnlyList<RepoConnection>>(),
@@ -143,10 +143,10 @@ public sealed class DeriveSpecQuestionTests
                 new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance),
                 new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
                 NullLogger<SpecSourceResolver>.Instance),
-            new SpecFallback(validator, draftReader, new DerivedPhaseYamlRenderer()),
+            new SpecFallback(validator, draftReader, new DerivedSpecYamlRenderer()),
             new SpecCoverageRefusal(
                 new SpecCutGate(new Application.Services.Events.NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
-                new SpecFallback(validator, draftReader, new DerivedPhaseYamlRenderer())),
+                new SpecFallback(validator, draftReader, new DerivedSpecYamlRenderer())),
             new SpecSetTicketCommenter(factory.Object, Moq.Mock.Of<AgentSmith.Contracts.Reviews.IFullSetPrNotice>(), NullLogger<SpecSetTicketCommenter>.Instance),
             ApprovedSetDoubles.KeptNotice(),
             new SpecCutGate(new Application.Services.Events.NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
@@ -186,18 +186,18 @@ public sealed class DeriveSpecQuestionTests
                 Readings: ["conservative", "everything"], Taken: 1)),
         []);
 
-    private static SpecDerivation PhasesCut(string goal = "Bump the packages")
+    private static SpecDerivation SpecsCut(string goal = "Bump the packages")
     {
         var segments = TicketSegmenter.Segment(Ticket);
         var carries = segments.Select(s => s.Id).ToList();
-        var phase = new SpecPhase(
+        var spec = new SpecPhase(
             new Contracts.Models.PhaseDraft("p19106a", goal, "spec: p19106a", []) { Done = ["The packages are bumped."] },
             "bump-the-packages",
             SegmentExtractor.BuildMarkdown("p19106a", goal, carries, segments),
             carries);
         return new SpecDerivation(
             new SpecSet(
-                "azdo-19106", [phase], SpecAccountingBuilder.Build([phase], [], segments),
+                "azdo-19106", [spec], SpecAccountingBuilder.Build([spec], [], segments),
                 [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow)], SpecSource.Derived),
             []);
     }

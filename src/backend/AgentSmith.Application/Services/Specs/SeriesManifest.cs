@@ -67,7 +67,7 @@ public sealed class SeriesManifest
         string.IsNullOrWhiteSpace(doc.TicketFingerprint) ? null : doc.TicketFingerprint.Trim();
 
     public SpecAccounting AccountingOf(SeriesManifestDocument doc) => new(
-        [.. doc.Carried.Select(c => new CarriedSegment(c.Segment, c.Phase))],
+        [.. doc.Carried.Select(c => new CarriedSegment(c.Segment, c.Spec))],
         [.. doc.Discarded.Select(d => new DiscardedSegment(d.Segment, d.Reason))],
         [.. doc.Unaccounted],
         [.. doc.DiscardedContexts.Select(d => new DiscardedContext(d.Context, d.Reason))]);
@@ -97,7 +97,7 @@ public sealed class SeriesManifest
     private static void WriteAccounting(SeriesManifestDocument doc, SpecAccounting accounting)
     {
         doc.Carried = [.. accounting.Carried.Select(
-            c => new SeriesCarriedEntry { Segment = c.SegmentId, Phase = c.PhaseId })];
+            c => new SeriesCarriedEntry { Segment = c.SegmentId, Spec = c.PhaseId })];
         doc.Discarded = [.. accounting.Discarded.Select(
             d => new SeriesDiscardedEntry { Segment = d.SegmentId, Reason = d.Reason })];
         doc.Unaccounted = [.. accounting.Unaccounted];

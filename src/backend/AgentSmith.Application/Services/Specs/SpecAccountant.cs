@@ -17,7 +17,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// adversarially — "what is missing" — because "all done" is the cheap answer to the
 /// positive question and the expensive answer to the negative one. And every
 /// "satisfied" carries a citation that <see cref="CitedFileIndex"/> resolves against the
-/// diff, so a criterion cannot be satisfied by a file the phase never touched.
+/// diff, so a criterion cannot be satisfied by a file the spec never touched.
 /// </para>
 /// <para>
 /// What stays unverified: a real path may fail to mean what the account claims. No

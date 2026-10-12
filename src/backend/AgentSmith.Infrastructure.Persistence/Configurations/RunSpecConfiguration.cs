@@ -6,9 +6,9 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 namespace AgentSmith.Infrastructure.Persistence.Configurations;
 
 /// <summary>
-/// p0466: one row per spec per run. (RunId, SpecId) is UNIQUE — a phase changes
+/// p0466: one row per spec per run. (RunId, SpecId) is UNIQUE — a spec changes
 /// standing several times (selected, then through or stopped) and every change upserts
-/// the same row, so a replayed event cannot fork a phase into two.
+/// the same row, so a replayed event cannot fork a spec into two.
 /// </summary>
 public sealed class RunSpecConfiguration : IEntityTypeConfiguration<RunSpec>
 {

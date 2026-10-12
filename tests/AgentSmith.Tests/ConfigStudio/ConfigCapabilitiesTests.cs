@@ -31,7 +31,7 @@ public sealed class ConfigCapabilitiesTests
     {
         // 2026-09-16-a4d7: declared, so every tracker form renders it — and OPTIONAL,
         // because Required is enforced by ValidateTracker on every upsert and would make
-        // every tracker configured before the phase unsaveable.
+        // every tracker configured before the spec unsaveable.
         var capabilities = ConfigStudioCapabilities.Build(["claude"]);
 
         foreach (var type in capabilities.TrackerTypes)

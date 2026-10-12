@@ -12,7 +12,7 @@ public sealed class SpecDialogReplySlot
 
     /// <summary>
     /// p0315e: the typed terminal outcome the master's reply resolved to
-    /// (answer / bug / phase / epic), written together with the reply.
+    /// (answer / bug / spec / epic), written together with the reply.
     /// </summary>
     public OutcomeProposal? Outcome { get; set; }
 

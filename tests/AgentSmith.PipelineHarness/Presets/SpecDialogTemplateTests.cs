@@ -86,7 +86,7 @@ public sealed class SpecDialogTemplateTests
 
         await RunTurnAsync(harness, state);
 
-        // 2026-09-22-2d11b: it was disposed until this phase. A template checkout is no
+        // 2026-09-22-2d11b: it was disposed until this spec. A template checkout is no
         // longer left running with nobody owning it — the CONVERSATION owns it, the reapers'
         // third rail spares it while the hold window lasts, and a capacity door may evict it.
         harness.StubSandboxFactory!.Spawned.Should().OnlyContain(s => !s.Sandbox.Disposed);

@@ -11,9 +11,9 @@ namespace AgentSmith.Infrastructure.Persistence.Services.Repair;
 /// duplicated, and states what makes two of them the same recorded fact.
 /// <para>
 /// The trail says it exactly: one row per position. The other three have no identity on
-/// rows written before this phase — the column that carries one is what this phase adds —
+/// rows written before this spec — the column that carries one is what this spec adds —
 /// so for those the fact IS the content, which is sound precisely because the caller has
-/// already established that this run was replayed. Only columns that predate this phase are
+/// already established that this run was replayed. Only columns that predate this spec are
 /// read, so the repair runs on the schema the store is already on, ahead of the migration.
 /// </para>
 /// </summary>

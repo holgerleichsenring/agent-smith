@@ -20,7 +20,7 @@ public sealed class DockerSandboxOptions
     /// one solution, while all 268 other sandbox commands of that run together
     /// took 1.5 minutes. Set SANDBOX_PACKAGE_CACHE=false to turn it off, e.g. to
     /// force a provably cold restore or to spare disk; the sandbox then behaves
-    /// exactly as it did before this phase.
+    /// exactly as it did before this spec.
     /// </summary>
     public bool PackageCacheEnabled { get; set; } = true;
 }

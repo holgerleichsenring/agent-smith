@@ -9,7 +9,7 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// <para>
 /// A write is refused unless its path lies under one of the prefixes the scope declares, and
 /// the declared set is EMPTY by default — so nothing is writable in a source scope until a
-/// caller names a prefix. The phase that publishes a specification to a ticket branch is what
+/// caller names a prefix. The spec that publishes a specification to a ticket branch is what
 /// passes one; until then this policy is a refusal with a reason.
 /// </para>
 /// <para>

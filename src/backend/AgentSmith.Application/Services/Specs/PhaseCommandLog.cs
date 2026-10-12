@@ -1,7 +1,7 @@
 namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
-/// p0452: the commands the agent itself ran in this phase, as evidence the account can read.
+/// p0452: the commands the agent itself ran in this spec, as evidence the account can read.
 /// <para>
 /// The delivery account judges from the branch diff and a list of commands — and that list
 /// held only the stages VERIFICATION ran, never the agent's own. Three live runs died on
@@ -23,7 +23,7 @@ public sealed class PhaseCommandLog
 
     /// <summary>p0469: public and settable so the checkpoint can carry the log through a park
     /// and give it back on resume. Recorded through <see cref="Record"/>, which is what keeps
-    /// it inside <see cref="PhaseCommandBudget"/>.</summary>
+    /// it inside <see cref="SpecRunCommandBudget"/>.</summary>
     public List<PhaseCommandEntry> Entries { get; init; } = [];
 
     /// <summary>p0470: how many commands ran, counted where they are recorded and never
@@ -48,9 +48,9 @@ public sealed class PhaseCommandLog
         {
             _ran++;
             Entries.Add(new PhaseCommandEntry(repo ?? string.Empty,
-                PhaseCommandBudget.Capped(command.Trim()),
-                PhaseCommandBudget.Tail(output), ExitCode(output)));
-            PhaseCommandBudget.Fit(Entries);
+                SpecRunCommandBudget.Capped(command.Trim()),
+                SpecRunCommandBudget.Tail(output), ExitCode(output)));
+            SpecRunCommandBudget.Fit(Entries);
         }
     }
 
@@ -62,7 +62,7 @@ public sealed class PhaseCommandLog
     {
         lock (_sync)
         {
-            var notice = PhaseCommandBudget.Notice(Entries, _ran);
+            var notice = SpecRunCommandBudget.Notice(Entries, _ran);
             return notice is null ? [.. Entries.Select(Line)] : [notice, .. Entries.Select(Line)];
         }
     }
@@ -79,7 +79,7 @@ public sealed class PhaseCommandLog
 
     /// <summary>p0470: an output the budget took is NOT an output that was never produced.
     /// "no output" is the proof a search found nothing, pinned by p0452's own test, so a
-    /// trimmed tail borrowing that wording would make this phase's defect one level down.
+    /// trimmed tail borrowing that wording would make this spec's defect one level down.
     /// </summary>
     private static string Output(PhaseCommandEntry entry) =>
         entry.OutputTrimmed ? " — output not shown (trimmed to fit)"

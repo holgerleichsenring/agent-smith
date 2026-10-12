@@ -90,10 +90,10 @@ public sealed class RenamedApprovedSetStampTests
     public void AmendedSpecification_RenamedStamp_NoteNamesTheRenamedLabel()
     {
         var amended = AmendedSpecification.Of(
-            new PhaseOutcome(new PhaseDraft("p9001", "goal", "spec: p9001\ngoal: goal", [])),
+            new SpecOutcome(new PhaseDraft("p9001", "goal", "spec: p9001\ngoal: goal", [])),
             "2026-10-06-0a0a", "job-1",
             new AmendmentRendering(
-                new PhaseTicketRenderer(), new EpicChildOrderer(),
+                new SpecTicketRenderer(), new EpicChildOrderer(),
                 AgentSmith.Tests.TestSupport.ApprovedSetDoubles.SeriesFiling()),
             Vocabulary);
 

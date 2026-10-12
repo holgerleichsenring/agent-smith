@@ -6,7 +6,7 @@ namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
 /// 2026-09-17-0e79a: what a cut whose ACCOUNTING is incomplete becomes — the refusal is
-/// reported and the run falls back to one phase carrying the whole ticket.
+/// reported and the run falls back to one spec carrying the whole ticket.
 /// <para>
 /// It left DeriveSpecHandler because reporting an incomplete accounting and building the
 /// fallback from the refused cut is its own responsibility: the cut was refused for its

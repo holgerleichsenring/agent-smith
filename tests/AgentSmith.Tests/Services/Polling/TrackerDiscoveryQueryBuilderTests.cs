@@ -58,7 +58,7 @@ public sealed class TrackerDiscoveryQueryBuilderTests
     /// two keys: the approval stamp every filing writes, and the phase word a person types.
     /// </summary>
     [Fact]
-    public async Task Build_ALabelGuard_LetsBothPhaseExecutionBindingsThrough()
+    public async Task Build_ALabelGuard_LetsBothSpecExecutionBindingsThrough()
     {
         var tracker = Tracker("jira-main", TrackerType.Jira);
         var project = JiraProject("alpha", tracker, "alpha-tag", ["To Do"]);
@@ -66,9 +66,9 @@ public sealed class TrackerDiscoveryQueryBuilderTests
 
         var query = await Builder.BuildAsync(Config(tracker, project), tracker, CancellationToken.None);
 
-        // 2026-10-12-967aa: each binding in both spellings — the phase one and the spec one.
+        // 2026-10-12-967aa: each binding in both spellings — the spec one and the spec one.
         query.TriggerLabels.Should().BeEquivalentTo(
-            ["bug", FiledTicketLabels.ApprovedSetStamp, PhaseTicketRenderer.PhaseLabel,
+            ["bug", FiledTicketLabels.ApprovedSetStamp, SpecTicketRenderer.SpecLabel,
                 TicketLabels.AcceptedApprovedSetStamp, TicketLabels.AcceptedSpecLabel]);
     }
 

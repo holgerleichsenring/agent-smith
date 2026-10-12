@@ -46,7 +46,7 @@ internal sealed class CustomRoleRules
 
     // Permission names do NOT fold: the catalog compares them ordinally, so a save that
     // accepted 'Runs.Read' would hand the catalog a name it then drops — which is the
-    // silent drop this phase exists to end, arriving through the door meant to stop it.
+    // silent drop this spec exists to end, arriving through the door meant to stop it.
     private static void RefuseUnknownPermissions(string name, IReadOnlyList<string> bundle)
     {
         var unknown = bundle

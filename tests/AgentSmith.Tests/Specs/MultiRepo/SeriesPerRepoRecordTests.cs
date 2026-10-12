@@ -33,7 +33,7 @@ public sealed class SeriesPerRepoRecordTests
         var pipeline = RecordPipeline(set);
 
         var result = await SeriesDoubles.RecordHandler(_branches.Files(), pointers).ExecuteAsync(
-            new WritePhaseRecordContext(pipeline.Get<AgentSmith.Domain.Entities.Repository>(ContextKeys.Repository), pipeline,
+            new WriteSpecRecordContext(pipeline.Get<AgentSmith.Domain.Entities.Repository>(ContextKeys.Repository), pipeline,
                 [Worker, Server]), default);
 
         result.IsSuccess.Should().BeTrue(result.Message);
@@ -50,7 +50,7 @@ public sealed class SeriesPerRepoRecordTests
     }
 
     [Fact]
-    public void DerivedPhaseBuilder_IdInDone_NotReminted()
+    public void DerivedSpecBuilder_IdInDone_NotReminted()
     {
         const string reply = """
             {"phases": [{"slug": "one", "goal": "Do one", "done": ["One."], "carries": [1]},
@@ -99,7 +99,7 @@ public sealed class SeriesPerRepoRecordTests
         pipeline.Set(ContextKeys.ProjectName, "p");
         pipeline.Set(ContextKeys.SpecRepo, Server.Name);
         pipeline.Set(ContextKeys.SpecSet, set);
-        pipeline.Set(ContextKeys.PhaseSpec, set.Phases[0].Draft);
+        pipeline.Set(ContextKeys.CurrentSpec, set.Phases[0].Draft);
         return pipeline;
     }
 

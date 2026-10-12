@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace AgentSmith.Tests.Workers;
 
 /// <summary>
-/// p0419: a dead worker process is not an answer. Run c96d had two phases verified green
+/// p0419: a dead worker process is not an answer. Run c96d had two specs verified green
 /// — build and test, both repositories — when one `claude -p` exited 1 after 2.8s, and
 /// the whole ticket was recorded FAILED with 45 minutes of correct work thrown away.
 /// </summary>

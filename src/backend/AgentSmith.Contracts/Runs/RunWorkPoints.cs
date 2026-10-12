@@ -13,12 +13,12 @@ namespace AgentSmith.Contracts.Runs;
 public static class RunWorkPoints
 {
     public static IReadOnlyList<RunCallPoint> Calls(
-        IEnumerable<RunEvent> events, Func<int?, string?> phaseOf)
+        IEnumerable<RunEvent> events, Func<int?, string?> specOf)
     {
         var index = 0;
         return [.. events.OfType<LlmCallFinishedEvent>().Select(c => new RunCallPoint(
             ++index,
-            phaseOf(c.OriginStepIndex),
+            specOf(c.OriginStepIndex),
             c.OriginStepIndex,
             c.Role,
             c.Model,
@@ -31,12 +31,12 @@ public static class RunWorkPoints
     }
 
     public static IReadOnlyList<RunCommandPoint> Commands(
-        IEnumerable<RunEvent> events, Func<int?, string?> phaseOf)
+        IEnumerable<RunEvent> events, Func<int?, string?> specOf)
     {
         var index = 0;
         return [.. events.OfType<SandboxResultEvent>().Select(r => new RunCommandPoint(
             ++index,
-            phaseOf(r.OriginStepIndex),
+            specOf(r.OriginStepIndex),
             r.OriginStepIndex,
             r.Repo,
             r.Command,

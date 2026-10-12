@@ -34,9 +34,9 @@ public static class ContextBuildersExtensions
         AddBuilder<PostPrCommentsContextBuilder>(services, CommandNames.PostPrComments);
         AddBuilder<DeriveSpecContextBuilder>(services, CommandNames.DeriveSpec); // p0393a
         AddBuilder<SpecHandbackContextBuilder>(services, CommandNames.SpecHandback); // p0393a
-        AddBuilder<PhaseSequenceContextBuilder>(services, CommandNames.PhaseSequence); // p0393a
-        AddBuilder<SelectPhaseContextBuilder>(services, CommandNames.SelectPhase); // p0393a
-        AddBuilder<CheckPhasePremisesContextBuilder>(services, CommandNames.CheckPhasePremises); // 0e79c
+        AddBuilder<SpecSequenceContextBuilder>(services, CommandNames.SpecSequence); // p0393a
+        AddBuilder<SelectSpecContextBuilder>(services, CommandNames.SelectSpec); // p0393a
+        AddBuilder<CheckSpecPremisesContextBuilder>(services, CommandNames.CheckSpecPremises); // 0e79c
         AddBuilder<EmptyPlanCheckContextBuilder>(services, CommandNames.EmptyPlanCheck);
         AddBuilder<ApprovalContextBuilder>(services, CommandNames.Approval);
         AddBuilder<AgenticMasterContextBuilder>(services, CommandNames.AgenticMaster);
@@ -80,12 +80,12 @@ public static class ContextBuildersExtensions
         AddBuilder<AskContextBuilder>(services, CommandNames.Ask);
         AddBuilder<CompileKnowledgeContextBuilder>(services, CommandNames.CompileKnowledge);
         AddBuilder<PipelineNameInitializerContextBuilder>(services, CommandNames.PipelineNameInitializer);
-        AddBuilder<PhaseSpecGateContextBuilder>(services, CommandNames.PhaseSpecGate);
-        AddBuilder<VerifyPhaseContextBuilder>(services, CommandNames.VerifyPhase); // p0393
-        AddBuilder<ReviewPhaseDiffContextBuilder>(services, CommandNames.ReviewPhaseDiff); // 2026-09-17-042eh
+        AddBuilder<SpecGateContextBuilder>(services, CommandNames.SpecGate);
+        AddBuilder<VerifySpecContextBuilder>(services, CommandNames.VerifySpec); // p0393
+        AddBuilder<ReviewSpecDiffContextBuilder>(services, CommandNames.ReviewSpecDiff); // 2026-09-17-042eh
         AddBuilder<MasterOpenQuestionsContextBuilder>(services, CommandNames.MasterOpenQuestions);
-        AddBuilder<CommitPhaseWorkContextBuilder>(services, CommandNames.CommitPhaseWork); // p0437
-        AddBuilder<WritePhaseRecordContextBuilder>(services, CommandNames.WritePhaseRecord);
+        AddBuilder<CommitSpecWorkContextBuilder>(services, CommandNames.CommitSpecWork); // p0437
+        AddBuilder<WriteSpecRecordContextBuilder>(services, CommandNames.WriteSpecRecord);
         AddBuilder<BootstrapCheckContextBuilder>(services, CommandNames.BootstrapCheck);
         AddBuilder<BootstrapGateContextBuilder>(services, CommandNames.BootstrapGate);
         AddBuilder<PublishProjectLanguageContextBuilder>(services, CommandNames.PublishProjectLanguage);

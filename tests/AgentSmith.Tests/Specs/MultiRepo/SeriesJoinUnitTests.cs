@@ -72,6 +72,6 @@ public sealed class SeriesJoinUnitTests
         new(repo, SubSeriesState.Found)
         {
             Base = "x1",
-            Phases = [new SpecPhase(new PhaseDraft(id, "g", $"spec: {id}", requires is null ? [] : [requires]), id, string.Empty, [])],
+            Specs = [new SpecPhase(new PhaseDraft(id, "g", $"spec: {id}", requires is null ? [] : [requires]), id, string.Empty, [])],
         };
 }

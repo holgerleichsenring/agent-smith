@@ -282,7 +282,7 @@ public sealed class PipelineErrorHandlerTests
         var context = new PipelineContext();
         context.Set(ContextKeys.Repository,
             new Repository(new BranchName("main"), "https://example.com/repo.git"));
-        var commands = new[] { CommandNames.PhaseSequence, CommandNames.WriteRunResult, CommandNames.CommitAndPR };
+        var commands = new[] { CommandNames.SpecSequence, CommandNames.WriteRunResult, CommandNames.CommitAndPR };
 
         await _sut.HandleStepFailureAsync(
             commands, new ResolvedProject(), context, _lifecycleMock.Object,

@@ -47,7 +47,7 @@ public sealed class ImageWithoutGitTests
     [Fact]
     public void Image_WithoutGit_IsNoLongerSilentlyDowngraded()
     {
-        // The model named an alpine image. Before this phase the chain answered with a
+        // The model named an alpine image. Before this spec the chain answered with a
         // DIFFERENT image and logged a warning nobody reads; the run then succeeded in a
         // toolchain the repository never asked for. Now the named image is the one used.
         new SandboxImageChain()

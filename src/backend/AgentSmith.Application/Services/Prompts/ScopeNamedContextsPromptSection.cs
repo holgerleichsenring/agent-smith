@@ -4,7 +4,7 @@ namespace AgentSmith.Application.Services.Prompts;
 
 /// <summary>
 /// 2026-09-08-1830: renders the contexts the scope call named as the list the
-/// derivation declares its phases against — every one is carried by a phase or listed
+/// derivation declares its specs against — every one is carried by a spec or listed
 /// as discarded with a reason, and the reader holds the cut to that. Empty when nothing
 /// was named, so the derivation reads exactly the prompt it read before.
 /// </summary>

@@ -260,7 +260,7 @@ public sealed class SpecDialogGroundingTests
     // The design partner's pinned body renders "{ProjectContextSection}", then the literal
     // "## Coding Principles" heading followed by "{CodingPrinciples}". Both tokens are bound
     // here off the master context the PRODUCTION builder produces, exactly as
-    // AgenticMasterHandler binds them — the heading is what this phase stops leaving empty.
+    // AgenticMasterHandler binds them — the heading is what this spec stops leaving empty.
     private static string DesignPartnerPrompt(PipelineContext pipeline)
     {
         var master = (AgenticMasterContext)new AgenticMasterContextBuilder().Build(

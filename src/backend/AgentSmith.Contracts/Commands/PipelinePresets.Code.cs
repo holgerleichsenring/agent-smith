@@ -7,17 +7,17 @@ public static partial class PipelinePresets
     public const string CodeName = "code";
 
     // p0393: fix-bug, fix-no-test, add-feature and phase-execution collapse into this
-    // one preset. They differed only in steps the phase spec now carries:
+    // one preset. They differed only in steps the spec now carries:
     //   - add-feature's GenerateTests/GenerateDocs are spec steps when the work needs them
     //   - fix-bug's reproduction grounding is a step in the plan
-    //   - fix-bug's "no code changes = FAIL" is an unmet done-criterion at VerifyPhase
-    //   - fix-no-test was fix-bug minus NegotiateExpectation, which this phase deletes
-    // The ticket label (bug / feature / phase) therefore stops selecting a pipeline and
+    //   - fix-bug's "no code changes = FAIL" is an unmet done-criterion at VerifySpec
+    //   - fix-no-test was fix-bug minus NegotiateExpectation, which this spec deletes
+    // The ticket label (bug / feature / spec) therefore stops selecting a pipeline and
     // becomes an input to the spec instead.
     //
     // Corrections this shape carries against its predecessors:
     //
-    // - The ratified phase spec is the run's single planning artifact (p0394a).
+    // - The ratified spec is the run's single planning artifact (p0394a).
     //   GeneratePlan re-planned the derived spec into a pre-spec JSON format and drowned
     //   in its own detail on every multi-repo migration ticket; the ledger now seeds from
     //   the spec's steps and the master's plan section renders the spec, so the keystone
@@ -30,7 +30,7 @@ public static partial class PipelinePresets
     //   requirement does not match what is in the repository" surfaces (p0394a retired the
     //   plan-level PlanOpenQuestions gate with the plan itself).
     //
-    // - VerifyPhase is the point. p0216 moved build+test to the coding master as a
+    // - VerifySpec is the point. p0216 moved build+test to the coding master as a
     //   RESPONSIBILITY and left nothing that refuses the PR when the build is red — green
     //   was a model claim with no second opinion.
     public static readonly IReadOnlyList<string> Code =
@@ -50,12 +50,12 @@ public static partial class PipelinePresets
         CommandNames.LoadDesignSystem, // 2026-10-01-283dg
         CommandNames.LoadContext,
         CommandNames.AnalyzeCode,
-        // p0393a: any ticket becomes an ordered SET of phase specs here — after
+        // p0393a: any ticket becomes an ordered SET of specs here — after
         // AnalyzeCode, because "the requirement contradicts the repository" is only
         // findable once the code has been read.
         CommandNames.DeriveSpec,
         CommandNames.SpecHandback,        // not implementable / contradicts the repo => park
-        CommandNames.PhaseSpecGate,       // spec validated before a single master token
+        CommandNames.SpecGate,       // spec validated before a single master token
         CommandNames.EnsurePrerequisites, // p0202e: analyzer-derived, before the master
         // 2026-09-01-379a: after the prerequisites installed the CLI the probe calls,
         // and before the master, so a target that refuses costs no model token.
@@ -63,11 +63,11 @@ public static partial class PipelinePresets
         // 2026-10-01-283df: the uploaded websites the approval cites, written into the carrying
         // repository outside the commit — directly before the master that builds against them.
         CommandNames.MaterializeReferenceSets,
-        // p0393a: one master → verify → record block per derived phase, spliced in
+        // p0393a: one master → verify → record block per derived spec, spliced in
         // order. p0328's NegotiateExpectation is gone with it: every run now carries a
         // schema-validated done-list, so negotiating a second acceptance contract would
         // restate the same intent a third time.
-        CommandNames.PhaseSequence,
+        CommandNames.SpecSequence,
         CommandNames.WriteRunResult, CommandNames.CommitAndPR,
         CommandNames.PrCrossLink, // p0158c: multi-repo pass-2 (no-op for single-PR runs)
     ];

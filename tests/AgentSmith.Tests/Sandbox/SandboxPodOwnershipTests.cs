@@ -21,7 +21,7 @@ public sealed class SandboxPodOwnershipTests
     }
 
     [Fact]
-    public void UnownedSelector_AsksForPodsFromABinaryBeforeThisPhase()
+    public void UnownedSelector_AsksForPodsFromABinaryBeforeThisSpec()
     {
         SandboxPodLabels.UnownedSelector.Should().Be($"app={SandboxPodLabels.AppLabel},!owner");
     }

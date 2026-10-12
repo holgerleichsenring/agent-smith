@@ -6,9 +6,9 @@ namespace AgentSmith.Server.Services.Events;
 /// p0466: one spec a run executed, as the operator opens it — what it was asked to do, where
 /// it ended up, the decisions taken inside it and the steps it ran.
 /// <para>
-/// Everything here is read from rows the PRODUCER wrote: the phase row states its own
-/// ordinal, title and standing, and the steps and decisions name their phase in a column.
-/// Nothing on this path derives a phase by parsing a display name.
+/// Everything here is read from rows the PRODUCER wrote: the spec row states its own
+/// ordinal, title and standing, and the steps and decisions name their spec in a column.
+/// Nothing on this path derives a spec by parsing a display name.
 /// </para>
 /// </summary>
 public sealed record RunSpecView(

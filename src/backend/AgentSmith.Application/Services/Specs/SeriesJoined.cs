@@ -11,7 +11,7 @@ namespace AgentSmith.Application.Services.Specs;
 public sealed record SeriesJoined(SpecSetOnBranch? Otherwise)
 {
     public SubSeriesRead? Newest { get; init; }
-    public IReadOnlyList<SpecPhase> Phases { get; init; } = [];
+    public IReadOnlyList<SpecPhase> Specs { get; init; } = [];
     public IReadOnlyList<string> Executed { get; init; } = [];
     public IReadOnlyDictionary<string, string> Shas { get; init; } = new Dictionary<string, string>();
     public IReadOnlyList<string> Lagging { get; init; } = [];

@@ -25,7 +25,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 ///
 /// <para>
 /// p0393b — why the subject is a ticket-triggered discussion run and NOT
-/// spec-dialog, which the phase spec named:
+/// spec-dialog, which the spec named:
 /// </para>
 /// <list type="bullet">
 /// <item>Durable dialogue is ticket-keyed by construction. DialogueAskGate's

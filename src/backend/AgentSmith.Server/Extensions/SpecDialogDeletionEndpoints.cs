@@ -44,7 +44,7 @@ internal static class SpecDialogDeletionEndpoints
     /// after the admission has read the session and appended a turn, so a message already
     /// inside the admission is invisible here. What is left degrades safely. The gate is in
     /// memory and per process, so a delete served by the replica that is not running the turn
-    /// is not refused at all; closing that is named in the spec as a phase of its own.
+    /// is not refused at all; closing that is named in the spec as a spec of its own.
     /// </para>
     /// </summary>
     internal static async Task<IResult> DeleteAsync(

@@ -47,7 +47,7 @@ public sealed class CustomRoleEditorTests
             await h.Writer.SaveAsync(Doc(Roles(("auditor", ["Runs.Read"]))), Actor, default);
 
         // The catalog compares permissions ordinally, so accepting this would hand it a name
-        // it then drops — the silent drop this phase exists to end, through the door meant
+        // it then drops — the silent drop this spec exists to end, through the door meant
         // to stop it.
         await save.Should().ThrowAsync<ConfigurationException>().WithMessage("*case-sensitive*");
     }

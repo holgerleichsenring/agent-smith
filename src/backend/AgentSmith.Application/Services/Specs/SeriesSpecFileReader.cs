@@ -18,7 +18,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// </para>
 /// </summary>
 public sealed class SeriesSpecFileReader(
-    PhaseDraftReader draftReader,
+    SpecDraftReader draftReader,
     ILogger<SeriesSpecFileReader> logger)
 {
     /// <param name="listed">Repo-relative paths of the state directories' files.</param>
@@ -63,7 +63,7 @@ public sealed class SeriesSpecFileReader(
             var draft = draftReader.Read(yaml);
             var inDirectory = listed.Where(p => p.StartsWith(directory + "/", StringComparison.Ordinal)).ToList();
             return SeriesSpecRead.Read(new SpecPhase(draft, LabelOf(stem, id), markdown, Carried(doc, draft.PhaseId),
-                SpecPhaseMocks.Of(inDirectory, directory, draft.PhaseId)), IsDone(path));
+                SpecMocks.Of(inDirectory, directory, draft.PhaseId)), IsDone(path));
         }
         catch (Exception ex) when (ex is InvalidOperationException or YamlDotNet.Core.YamlException)
         {
@@ -72,9 +72,9 @@ public sealed class SeriesSpecFileReader(
         }
     }
 
-    private static IReadOnlyList<int> Carried(SeriesManifestDocument doc, string phaseId) =>
+    private static IReadOnlyList<int> Carried(SeriesManifestDocument doc, string specId) =>
         [.. doc.Carried
-            .Where(c => string.Equals(c.Phase, phaseId, StringComparison.Ordinal))
+            .Where(c => string.Equals(c.Spec, specId, StringComparison.Ordinal))
             .Select(c => c.Segment)];
 
     private static string LabelOf(string stem, string id) =>

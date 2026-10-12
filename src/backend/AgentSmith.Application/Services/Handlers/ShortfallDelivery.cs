@@ -10,10 +10,10 @@ namespace AgentSmith.Application.Services.Handlers;
 /// <summary>
 /// p0439: what a run that fell short of part of its contract delivers, and how it says so.
 /// <para>
-/// A run that stopped after a verified phase — a later phase's master died on the cost
+/// A run that stopped after a verified spec — a later spec's master died on the cost
 /// budget, its verification was red, a safety mechanism cancelled it — has built something
 /// sound. Today that ends as a failed run behind a draft nobody is pointed at. The keystone
-/// stays: only phases verification recorded done are delivered, and each sandbox is brought
+/// stays: only specs verification recorded done are delivered, and each sandbox is brought
 /// back to its verified head first; a sandbox that cannot be is a run that stays failed.
 /// </para>
 /// </summary>
@@ -21,7 +21,7 @@ public sealed class ShortfallDelivery(UnverifiedWorkReverter reverter, ILogger<S
 {
     /// <summary>
     /// The shortfall this run delivers, with every sandbox's source restored to its verified
-    /// head — or null: no verified phase, no open phase, or a sandbox whose unverified work
+    /// head — or null: no verified spec, no open spec, or a sandbox whose unverified work
     /// could not be reverted.
     /// </summary>
     public async Task<RunShortfall?> PrepareAsync(

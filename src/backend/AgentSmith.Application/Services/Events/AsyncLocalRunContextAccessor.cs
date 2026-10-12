@@ -18,23 +18,23 @@ public sealed class AsyncLocalRunContextAccessor : IRunContextAccessor
     private static readonly AsyncLocal<string?> CurrentRun = new();
     private static readonly AsyncLocal<CallScope?> CurrentCall = new();
     private static readonly AsyncLocal<int?> CurrentStep = new();
-    private static readonly AsyncLocal<string?> CurrentPhase = new();
+    private static readonly AsyncLocal<string?> CurrentSpec = new();
 
     public string? CurrentRunId => CurrentRun.Value;
     public CallScope? CurrentCallScope => CurrentCall.Value;
     public int? CurrentStepIndex => CurrentStep.Value;
-    public string? CurrentPhaseId => CurrentPhase.Value;
+    public string? CurrentSpecId => CurrentSpec.Value;
 
     public IDisposable BeginScope(string runId) => Enter(CurrentRun, runId);
 
     public IDisposable BeginCallScope(string role, string phase, string? repoName = null) =>
         Enter(CurrentCall, new CallScope(role, phase, repoName));
 
-    // p0466: the step frame carries its phase. One frame, two facts, one lifetime —
-    // a phase that outlived its step (or a step whose phase went stale) would be a
+    // p0466: the step frame carries its spec. One frame, two facts, one lifetime —
+    // a spec that outlived its step (or a step whose spec went stale) would be a
     // second ambient to keep in sync with the first.
-    public IDisposable BeginStepScope(int stepIndex, string? phaseId = null) =>
-        new CompositeFrame(Enter(CurrentStep, stepIndex), Enter(CurrentPhase, phaseId));
+    public IDisposable BeginStepScope(int stepIndex, string? specId = null) =>
+        new CompositeFrame(Enter(CurrentStep, stepIndex), Enter(CurrentSpec, specId));
 
     private static IDisposable Enter<T>(AsyncLocal<T> frame, T value)
     {

@@ -12,7 +12,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace AgentSmith.Tests.References;
 
 /// <summary>
-/// 2026-10-01-283df: the step before PhaseSequence writes every cited set into the carrying
+/// 2026-10-01-283df: the step before SpecSequence writes every cited set into the carrying
 /// repository at .agentsmith/reference/&lt;setId&gt;/, excluded from git, publishes them for the
 /// prompt — and fails the run, naming the sets, when this process cannot read them.
 /// </summary>
@@ -96,11 +96,11 @@ public sealed class MaterializeReferenceSetsTests
     }
 
     [Fact]
-    public void CodePreset_MaterializeReferenceSets_RunsDirectlyBeforePhaseSequence()
+    public void CodePreset_MaterializeReferenceSets_RunsDirectlyBeforeSpecSequence()
     {
         var code = PipelinePresets.Code.ToList();
 
-        code.IndexOf(CommandNames.MaterializeReferenceSets).Should().Be(code.IndexOf(CommandNames.PhaseSequence) - 1);
+        code.IndexOf(CommandNames.MaterializeReferenceSets).Should().Be(code.IndexOf(CommandNames.SpecSequence) - 1);
     }
 
     [Fact]

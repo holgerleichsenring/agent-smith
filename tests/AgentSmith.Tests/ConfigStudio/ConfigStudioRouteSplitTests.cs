@@ -17,7 +17,7 @@ namespace AgentSmith.Tests.ConfigStudio;
 /// since (2026-09-14-620e's template-context picker is the fortieth, 2026-09-30-62baa's
 /// model price list the forty-first, 2026-10-02-5f89b's two draft checks the
 /// forty-sixth and forty-seventh, 2026-10-02-5f89c's discovery refresh the forty-eighth). The two file-length
-/// assertions hold the other half of the phase: the split files stay under the limit
+/// assertions hold the other half of the spec: the split files stay under the limit
 /// and none of them buys its way into the ratchet baseline.
 /// </summary>
 public sealed class ConfigStudioRouteSplitTests

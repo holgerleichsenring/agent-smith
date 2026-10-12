@@ -1,11 +1,11 @@
 namespace AgentSmith.Domain.Models;
 
 /// <summary>
-/// 2026-09-17-0e79c: one premise of a phase that a fresh instance reports does not hold in
+/// 2026-09-17-0e79c: one premise of a spec that a fresh instance reports does not hold in
 /// the repositories as they stand.
 /// <para>
 /// <see cref="Premise"/> is the claim as the SPEC states it. The checker may paraphrase; the
-/// admission resolves what it wrote against the phase's own facts, assumptions and decisions
+/// admission resolves what it wrote against the spec's own facts, assumptions and decisions
 /// prose and replaces it with the stated wording, so a premise nobody stated can never become a
 /// verdict and a verdict always quotes the spec rather than the model.
 /// </para>

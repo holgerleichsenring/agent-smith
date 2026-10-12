@@ -9,7 +9,7 @@ namespace AgentSmith.Infrastructure.Services;
 
 /// <summary>
 /// Renders a compact, LLM-friendly project brief from the loaded .agentsmith/ artifacts.
-/// Drops state.done / behavior / integrations from context.yaml — phase history and runtime
+/// Drops state.done / behavior / integrations from context.yaml — spec history and runtime
 /// triggers, not the code under review. 2026-09-04-cf3d: reads the typed context.yaml list,
 /// one parsed block per context — a labelled concatenation is not a YAML document.
 /// </summary>

@@ -33,7 +33,7 @@ public sealed class SpecNamedCheckpointReadTests
 
         _sut.Restore(entries, restored);
 
-        restored.TryGet<PhaseDraft>(ContextKeys.PhaseSpec, out var back).Should().BeTrue();
+        restored.TryGet<PhaseDraft>(ContextKeys.CurrentSpec, out var back).Should().BeTrue();
         back.Should().BeEquivalentTo(draft);
     }
 
@@ -53,15 +53,15 @@ public sealed class SpecNamedCheckpointReadTests
 
         _sut.Restore(entries, restored);
 
-        restored.TryGet<RunPhaseReviews>(ContextKeys.RunPhaseReviews, out var back).Should().BeTrue();
+        restored.TryGet<RunPhaseReviews>(ContextKeys.RunSpecReviews, out var back).Should().BeTrue();
         back!.Phases.Single().PhaseId.Should().Be("s1");
-        restored.TryGet<List<PhaseDraft>>(ContextKeys.PhaseAccounts, out _).Should().BeTrue();
+        restored.TryGet<List<PhaseDraft>>(ContextKeys.SpecAccounts, out _).Should().BeTrue();
     }
 
     [Fact]
     public void Checkpoint_SpecSetWithSpecsMember_Restores()
     {
-        var set = ApprovedSets.Set("k", [ApprovedSets.Phase("s1a")], null);
+        var set = ApprovedSets.Set("k", [ApprovedSets.Spec("s1a")], null);
         var context = new PipelineContext();
         context.Set(ContextKeys.SpecSet, set);
         var restored = new PipelineContext();
@@ -77,12 +77,12 @@ public sealed class SpecNamedCheckpointReadTests
     {
         var draft = new PhaseDraft("p1", "g", "spec: p1", []);
         var context = new PipelineContext();
-        context.Set(ContextKeys.PhaseSpec, draft);
+        context.Set(ContextKeys.CurrentSpec, draft);
         var restored = new PipelineContext();
 
         _sut.Restore(_sut.Serialize(context), restored);
 
-        restored.Get<PhaseDraft>(ContextKeys.PhaseSpec).Should().BeEquivalentTo(draft);
+        restored.Get<PhaseDraft>(ContextKeys.CurrentSpec).Should().BeEquivalentTo(draft);
     }
 
     [Fact]
@@ -90,19 +90,19 @@ public sealed class SpecNamedCheckpointReadTests
     {
         var written = JsonSerializer.Serialize(new List<CheckpointCommand>
         {
-            new(CommandNames.SelectPhase, PhaseId: "s1"),
-            new(CommandNames.VerifyPhase + ":api", PhaseId: "s1"),
+            new(CommandNames.SelectSpec, PhaseId: "s1"),
+            new(CommandNames.VerifySpec + ":api", PhaseId: "s1"),
         });
         var newShape = SpecShape.Of(written)
-            .Replace(CommandNames.SelectPhase, "SelectSpecCommand")
-            .Replace(CommandNames.VerifyPhase, "VerifySpecCommand");
+            .Replace(CommandNames.SelectSpec, "SelectSpecCommand")
+            .Replace(CommandNames.VerifySpec, "VerifySpecCommand");
 
         var commands = JsonSerializer.Deserialize<List<CheckpointCommand>>(
                 newShape, AgentSmith.Contracts.Json.AcceptedNames.DefaultOptions)!
             .Select(c => c.ToPipelineCommand()).ToList();
 
-        commands.Select(c => c.Name).Should().Equal(CommandNames.SelectPhase, CommandNames.VerifyPhase + ":api");
-        commands.Should().OnlyContain(c => c.PhaseId == "s1");
+        commands.Select(c => c.Name).Should().Equal(CommandNames.SelectSpec, CommandNames.VerifySpec + ":api");
+        commands.Should().OnlyContain(c => c.SpecId == "s1");
     }
 
     private static object Entry(string key, string type, string value) => new { K = key, T = type, V = value };

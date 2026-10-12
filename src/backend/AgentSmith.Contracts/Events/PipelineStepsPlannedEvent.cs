@@ -3,8 +3,8 @@ namespace AgentSmith.Contracts.Events;
 /// <summary>
 /// p0405: the executor announcing the steps it is going to run, from
 /// <see cref="FirstStepIndex"/> onwards. Published when the command list is
-/// established and again whenever a handler splices into it (PhaseSequence turns
-/// one command into five per derived phase), so the announcement is always the
+/// established and again whenever a handler splices into it (SpecSequence turns
+/// one command into five per derived spec), so the announcement is always the
 /// list the run will actually execute — REPORTED by the producer that holds it,
 /// never re-derived by a reader from a preset and a step count.
 /// <para>

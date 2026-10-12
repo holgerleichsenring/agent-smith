@@ -11,11 +11,11 @@ namespace AgentSmith.Tests.Validation;
 /// </summary>
 public sealed class SpecDialogDraftBlocksTests
 {
-    private const string PhaseDraft = "```yaml\nspec: p9999\ngoal: \"g\"\n```";
+    private const string SpecDraft = "```yaml\nspec: p9999\ngoal: \"g\"\n```";
     private const string OutcomeDraft = "```outcome\nkind: bug\ntitle: \"t\"\n```";
 
     [Theory]
-    [InlineData(PhaseDraft)]
+    [InlineData(SpecDraft)]
     [InlineData(OutcomeDraft)]
     public void Contains_EitherDraftShape_IsFound(string draft) =>
         SpecDialogDraftBlocks.Contains("Proposal:\n" + draft).Should().BeTrue();
@@ -42,21 +42,21 @@ public sealed class SpecDialogDraftBlocksTests
 
     [Fact]
     public void Strip_ADraftOnlyReply_IsEmpty() =>
-        SpecDialogDraftBlocks.Strip(PhaseDraft).Should().BeEmpty();
+        SpecDialogDraftBlocks.Strip(SpecDraft).Should().BeEmpty();
 
     [Fact]
     public void On_TheDashboard_ShowsTheReplyWithoutItsDraftAndKeepsItWhole()
     {
-        var result = SpecDialogTurnResult.On("dashboard", "Here.\n" + PhaseDraft, new AnswerOutcome());
+        var result = SpecDialogTurnResult.On("dashboard", "Here.\n" + SpecDraft, new AnswerOutcome());
 
         result.Shown.Should().Be("Here.");
-        result.Reply.Should().Be("Here.\n" + PhaseDraft);
+        result.Reply.Should().Be("Here.\n" + SpecDraft);
     }
 
     [Theory]
     [InlineData("slack")]
     [InlineData("teams")]
     public void On_AChatPlatform_ShowsTheReplyUnchanged(string platform) =>
-        SpecDialogTurnResult.On(platform, "Here.\n" + PhaseDraft, new AnswerOutcome())
-            .Shown.Should().Be("Here.\n" + PhaseDraft);
+        SpecDialogTurnResult.On(platform, "Here.\n" + SpecDraft, new AnswerOutcome())
+            .Shown.Should().Be("Here.\n" + SpecDraft);
 }

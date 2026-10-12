@@ -20,7 +20,7 @@ public sealed class ProposalEvidenceReviewTests
     [Fact]
     public async Task ProposalEvidenceReview_FactCitingAMissingFile_AddsAFinding()
     {
-        var proposal = new PhaseOutcome(Draft("p9001", ("the handler exists", $"{Repo}/src/gone.cs:3"),
+        var proposal = new SpecOutcome(Draft("p9001", ("the handler exists", $"{Repo}/src/gone.cs:3"),
             ("the api file has two lines", $"{Repo}/src/a.cs:1-2")));
 
         var findings = await Findings(proposal);
@@ -34,7 +34,7 @@ public sealed class ProposalEvidenceReviewTests
     public async Task ProposalEvidenceReview_TemplateQualifiedPath_IsNotChecked()
     {
         var template = new EvidenceTreeSandbox(new Dictionary<string, string>());
-        var proposal = new PhaseOutcome(Draft("p9001", ("the template has it", "template:sample/src/gone.cs:3")));
+        var proposal = new SpecOutcome(Draft("p9001", ("the template has it", "template:sample/src/gone.cs:3")));
 
         var findings = await Findings(proposal, ("template:sample", template));
 
@@ -57,9 +57,9 @@ public sealed class ProposalEvidenceReviewTests
     }
 
     [Fact]
-    public async Task ProposalEvidenceReview_PhaseRequiringAPhase_IsNotChecked()
+    public async Task ProposalEvidenceReview_SpecRequiringASpec_IsNotChecked()
     {
-        var proposal = new PhaseOutcome(
+        var proposal = new SpecOutcome(
             Draft("p9001", ("made earlier", $"{Repo}/src/gone.cs")) with { Requires = ["p9000"] });
 
         (await Findings(proposal)).Should().BeEmpty();
@@ -75,8 +75,8 @@ public sealed class ProposalEvidenceReviewTests
         return await ProposalEvidenceTestReview.Create().FindingsAsync(pipeline, proposal, CancellationToken.None);
     }
 
-    private static PhaseDraft Draft(string phaseId, params (string Claim, string Evidence)[] facts) =>
-        new(phaseId, $"goal of {phaseId}", $"spec: {phaseId}", [])
+    private static PhaseDraft Draft(string specId, params (string Claim, string Evidence)[] facts) =>
+        new(specId, $"goal of {specId}", $"spec: {specId}", [])
         {
             Facts = [.. facts.Select(f => new PhaseFact(f.Claim, f.Evidence))],
         };

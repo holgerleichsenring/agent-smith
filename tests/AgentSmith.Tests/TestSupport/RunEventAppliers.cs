@@ -21,7 +21,7 @@ internal static class RunEventAppliers
             pullRequests: new(),
             classification: new(),
             finalization: new(new(), budget),
-            phases: new(),
+            specs: new(),
             llmCalls: new(new(), new(), new()),
             decisions: new(new()));
 }

@@ -76,7 +76,7 @@ public sealed class TicketLabelNoteFetchTests
     public async Task Fetch_AnEpicParentCarryingTheNote_PublishesAGroundWithoutIt()
     {
         // The epic parent is a SECOND ticket, fetched and published by the same step — and this
-        // phase gives it a note too, so the ground would otherwise carry one into the derivation.
+        // spec gives it a note too, so the ground would otherwise carry one into the derivation.
         var pipeline = await FetchPipelineAsync(
             Requirement, parentBody: "## Goal\nOne platform.\n" + Note);
 

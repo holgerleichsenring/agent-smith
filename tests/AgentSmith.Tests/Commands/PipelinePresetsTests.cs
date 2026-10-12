@@ -49,27 +49,27 @@ public class PipelinePresetsTests
     {
         // p0393: fix-bug, fix-no-test, add-feature and phase-execution collapsed into one.
         // The order that matters: the ticket becomes specs, the gate runs before any master
-        // token is spent, and VerifyPhase sits before CommitAndPR so a red build cannot open
-        // a pull request. p0393a: master/verify are spliced per derived phase, so the
+        // token is spent, and VerifySpec sits before CommitAndPR so a red build cannot open
+        // a pull request. p0393a: master/verify are spliced per derived spec, so the
         // order is asserted over the EFFECTIVE list — the steps a run actually executes.
         PipelinePresets.Effective(PipelinePresets.CodeName).Should().ContainInOrder(
             CommandNames.AnalyzeCode,
             CommandNames.DeriveSpec,
-            CommandNames.PhaseSpecGate,
-            CommandNames.SelectPhase,
+            CommandNames.SpecGate,
+            CommandNames.SelectSpec,
             CommandNames.AgenticMaster,
-            CommandNames.VerifyPhase,
+            CommandNames.VerifySpec,
             CommandNames.CommitAndPR);
     }
 
     [Fact]
-    public void PhaseSequence_Splice_ContainsNoPlanCommands()
+    public void SpecSequence_Splice_ContainsNoPlanCommands()
     {
-        // p0394a: the ratified phase spec is the run's single planning artifact — the
-        // legacy JSON plan call and its plan-level clarification gate left the phase
-        // path. The block the sequence splices per phase must not re-introduce them.
-        PipelinePresets.CodePhaseBlock.Should().NotContain("GeneratePlanCommand");
-        PipelinePresets.CodePhaseBlock.Should().NotContain("PlanOpenQuestionsCommand");
+        // p0394a: the ratified spec is the run's single planning artifact — the
+        // legacy JSON plan call and its plan-level clarification gate left the spec
+        // path. The block the sequence splices per spec must not re-introduce them.
+        PipelinePresets.CodeSpecBlock.Should().NotContain("GeneratePlanCommand");
+        PipelinePresets.CodeSpecBlock.Should().NotContain("PlanOpenQuestionsCommand");
         PipelinePresets.Effective(PipelinePresets.CodeName)
             .Should().NotContain("GeneratePlanCommand")
             .And.NotContain("PlanOpenQuestionsCommand");
@@ -118,7 +118,7 @@ public class PipelinePresetsTests
     public void Code_HasNoFixedTestOrDocsStep()
     {
         // p0393: add-feature carried GenerateTests + GenerateDocs for every run whether the
-        // work needed them or not. They are steps in the phase spec now — the decision moved
+        // work needed them or not. They are steps in the spec now — the decision moved
         // to where the work is described, instead of a preset name deciding it for everyone.
         PipelinePresets.Code.Should().NotContain(CommandNames.GenerateTests);
         PipelinePresets.Code.Should().NotContain(CommandNames.GenerateDocs);
@@ -162,12 +162,12 @@ public class PipelinePresetsTests
     {
         // p0179b: RunVerifyPhase is part of the choreography the master skill
         // absorbs (Phase 3 — Verify in coding-agent-master).
-        // p0393: `code` runs VerifyPhase, a DETERMINISTIC build+test gate. That is not the
+        // p0393: `code` runs VerifySpec, a DETERMINISTIC build+test gate. That is not the
         // retired RunVerifyPhase choreography step — it is the second opinion p0216 left
         // missing when it handed verification to the master as a responsibility.
         PipelinePresets.Code.Should().NotContain(CommandNames.RunVerifyPhase);
-        // p0393a: VerifyPhase runs once per derived phase, spliced by PhaseSequence.
-        PipelinePresets.Effective(PipelinePresets.CodeName).Should().Contain(CommandNames.VerifyPhase);
+        // p0393a: VerifySpec runs once per derived spec, spliced by SpecSequence.
+        PipelinePresets.Effective(PipelinePresets.CodeName).Should().Contain(CommandNames.VerifySpec);
     }
 
     [Fact]

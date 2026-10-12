@@ -159,7 +159,7 @@ public sealed class SecurityCorpusMechanicsTests(ITestOutputHelper output)
     }
 
     /// <summary>
-    /// The guard that stops this whole phase from measuring nothing. The harness's own two
+    /// The guard that stops this whole spec from measuring nothing. The harness's own two
     /// catalog roots carry no <c>patterns/</c> directory at all, so a scan composed with
     /// either would apply ZERO patterns and score 0/N by construction, with nothing saying
     /// so. The eval composition reads the embedded release instead — and this proves it.

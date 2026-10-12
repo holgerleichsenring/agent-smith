@@ -179,7 +179,7 @@ public sealed class ApprovedSetDeriveSpecTests
     }
 
     /// <summary>
-    /// 2026-09-17-0e79a review: the fence this phase removed must not come back as a PASTE.
+    /// 2026-09-17-0e79a review: the fence this spec removed must not come back as a PASTE.
     /// Anyone with tracker write access can put a ```yaml block in a filed ticket's description;
     /// on a stamped ticket the description is not a source, and the run parks.
     /// </summary>
@@ -202,7 +202,7 @@ public sealed class ApprovedSetDeriveSpecTests
     /// fenced spec in its description is no source any more — the text is derived from like any.
     /// </summary>
     [Fact]
-    public async Task ApprovedSet_HandWrittenPhaseTicketWithNoRecord_DerivesFromItsText()
+    public async Task ApprovedSet_HandWrittenSpecTicketWithNoRecord_DerivesFromItsText()
     {
         var harness = Harness();
         harness.Deriver.Result = Derivation();
@@ -216,7 +216,7 @@ public sealed class ApprovedSetDeriveSpecTests
     }
 
     [Fact]
-    public async Task LoudMiss_PhaseTicketWithAParentStamp_StillDerives()
+    public async Task LoudMiss_SpecTicketWithAParentStamp_StillDerives()
     {
         var harness = Harness();
         harness.Deriver.Result = Derivation();
@@ -249,7 +249,7 @@ public sealed class ApprovedSetDeriveSpecTests
     }
 
     [Fact]
-    public async Task ApprovedSet_NoRecordAndNoPhaseLabel_DerivesExactlyAsBefore()
+    public async Task ApprovedSet_NoRecordAndNoSpecLabel_DerivesExactlyAsBefore()
     {
         var harness = Harness();
         harness.Deriver.Result = Derivation();
@@ -351,11 +351,11 @@ public sealed class ApprovedSetDeriveSpecTests
     private static SpecDerivation Derivation()
     {
         var segments = TicketSegmenter.Segment("Migrate the client.");
-        var phase = new SpecPhase(
-            ApprovedSets.Phase("p19106a").Draft, "p19106a", string.Empty, [.. segments.Select(s => s.Id)]);
+        var spec = new SpecPhase(
+            ApprovedSets.Spec("p19106a").Draft, "p19106a", string.Empty, [.. segments.Select(s => s.Id)]);
         return new SpecDerivation(
             new SpecSet(
-                Key, [phase], SpecAccountingBuilder.Build([phase], [], segments),
+                Key, [spec], SpecAccountingBuilder.Build([spec], [], segments),
                 [new SpecRevision(1, SpecRevisionCause.Initial, ApprovedSets.Noon)],
                 SpecSource.Derived),
             []);

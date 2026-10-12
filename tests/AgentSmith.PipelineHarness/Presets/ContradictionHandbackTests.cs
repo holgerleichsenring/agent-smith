@@ -93,7 +93,7 @@ public sealed class ContradictionHandbackTests
     /// <summary>
     /// 2026-10-12-3a36b, the shape of the run that started it: the derivation greps once and hands
     /// back a contradiction citing that grep; a second reading refutes it, so the derivation is asked
-    /// again and cuts phases — the ticket is never parked on the false claim.
+    /// again and cuts specs — the ticket is never parked on the false claim.
     /// </summary>
     [Fact]
     public async Task Contradiction_RefutedBySecondReading_IsDerivedAgainNotParked()

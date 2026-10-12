@@ -78,7 +78,7 @@ public sealed class SkillBodyResolverTests
     [Fact]
     public void SharedRef_EditOnce_EveryCitingMasterRendersTheChange()
     {
-        // The point of the phase: one file, one edit, every citing master changed.
+        // The point of the spec: one file, one edit, every citing master changed.
         var references = References(("spawn-budget", "Budget: 20 children, run-wide."));
         var resolver = new SkillBodyResolver(references);
 
@@ -131,7 +131,7 @@ public sealed class SkillBodyResolverTests
     public void ResolveBody_NoCitations_ReturnsRulesVerbatim()
     {
         // The overwhelmingly common case, and the one a catalog pinned before this
-        // phase produces: no citation, no reference lookup, byte-identical body.
+        // spec produces: no citation, no reference lookup, byte-identical body.
         var references = References();
         var resolver = new SkillBodyResolver(references);
         var skill = Skill("architect", "Plan the implementation.");

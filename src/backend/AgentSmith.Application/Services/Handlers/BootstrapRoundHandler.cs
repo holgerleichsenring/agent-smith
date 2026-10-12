@@ -153,10 +153,10 @@ public sealed class BootstrapRoundHandler(
             ? map
             : null;
 
-    // p0161d: per-phase applies_to wins if present; otherwise the prompt
+    // p0161d: per-spec applies_to wins if present; otherwise the prompt
     // factory falls back to its per-context PrimaryLanguage line (p0161a D4).
     private static string? ResolveAppliesTo(PipelineContext pipeline) =>
-        pipeline.TryGet<string>(ContextKeys.PhaseAppliesTo, out var appliesTo)
+        pipeline.TryGet<string>(ContextKeys.SpecAppliesTo, out var appliesTo)
             && !string.IsNullOrWhiteSpace(appliesTo)
             ? appliesTo
             : null;

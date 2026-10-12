@@ -8,7 +8,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// Only the author knows whether the scope call over-read the ticket, so the run asks —
 /// as a <see cref="SpecHandbackCase.Question"/>, with the two readings typed and the
 /// carrying one taken, so an unanswered re-trigger proceeds on carrying the gap. A
-/// hand-back replaces the spec: the phases the cut had are dropped, as the parser drops
+/// hand-back replaces the spec: the specs the cut had are dropped, as the parser drops
 /// them for a question the model asks itself.
 /// </summary>
 public static class ScopedContextQuestion

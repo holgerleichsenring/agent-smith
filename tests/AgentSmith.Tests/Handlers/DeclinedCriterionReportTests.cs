@@ -14,8 +14,8 @@ namespace AgentSmith.Tests.Handlers;
 /// <para>
 /// The answer existed (not_applicable with the evaluated meaning) and the gate accepted it;
 /// what was missing was anyone being told about it and anyone reading it afterwards. The
-/// verdict is overwritten by every phase's pass, so the declined criteria are kept in their
-/// own per-phase ledger and rendered from there.
+/// verdict is overwritten by every spec's pass, so the declined criteria are kept in their
+/// own per-spec ledger and rendered from there.
 /// </para>
 /// </summary>
 public sealed class DeclinedCriterionReportTests
@@ -28,10 +28,10 @@ public sealed class DeclinedCriterionReportTests
     private static MasterVerification Verdict(params AcceptanceDisposition[] dispositions) =>
         new(VerificationStatus.Green, true, true, true, true, "summary", AcceptanceDispositions: dispositions);
 
-    private static PipelineContext InPhase(string phaseId)
+    private static PipelineContext InSpec(string specId)
     {
         var pipeline = new PipelineContext();
-        pipeline.Set(ContextKeys.PhaseSpec, new PhaseDraft(phaseId, "goal", "spec: " + phaseId, []) { Done = [Lint] });
+        pipeline.Set(ContextKeys.CurrentSpec, new PhaseDraft(specId, "goal", "spec: " + specId, []) { Done = [Lint] });
         return pipeline;
     }
 
@@ -50,9 +50,9 @@ public sealed class DeclinedCriterionReportTests
             .Should().BeFalse("a bare N/A is a refusal, not an answer");
 
     [Fact]
-    public void Ledger_ADeclinedCriterionWithItsReason_IsKeptUnderItsPhase()
+    public void Ledger_ADeclinedCriterionWithItsReason_IsKeptUnderItsSpec()
     {
-        var pipeline = InPhase("p1");
+        var pipeline = InSpec("p1");
 
         DeclinedCriteriaLedger.Record(pipeline, Verdict(
             new AcceptanceDisposition("the guard exists", AcceptanceStatus.Met, "Guard.cs"),
@@ -65,7 +65,7 @@ public sealed class DeclinedCriterionReportTests
     [Fact]
     public void Ledger_ABareNotApplicable_IsNotKept()
     {
-        var pipeline = InPhase("p1");
+        var pipeline = InSpec("p1");
 
         DeclinedCriteriaLedger.Record(pipeline, Verdict(
             new AcceptanceDisposition(Lint, AcceptanceStatus.NotApplicable, "")));
@@ -74,12 +74,12 @@ public sealed class DeclinedCriterionReportTests
     }
 
     [Fact]
-    public void Ledger_ASecondPhase_KeepsTheFirstPhasesDeclinedCriterion()
+    public void Ledger_ASecondSpec_KeepsTheFirstSpecsDeclinedCriterion()
     {
-        var pipeline = InPhase("p1");
+        var pipeline = InSpec("p1");
         DeclinedCriteriaLedger.Record(pipeline, Verdict(
             new AcceptanceDisposition(Lint, AcceptanceStatus.NotApplicable, Reason)));
-        pipeline.Set(ContextKeys.PhaseSpec, new PhaseDraft("p2", "goal", "spec: p2", []) { Done = ["callers moved"] });
+        pipeline.Set(ContextKeys.CurrentSpec, new PhaseDraft("p2", "goal", "spec: p2", []) { Done = ["callers moved"] });
 
         DeclinedCriteriaLedger.Record(pipeline, Verdict(
             new AcceptanceDisposition("callers moved", AcceptanceStatus.Met, "Callers.cs")));
@@ -89,9 +89,9 @@ public sealed class DeclinedCriterionReportTests
     }
 
     [Fact]
-    public void Ledger_ThePhaseRunAgain_ReplacesItsOwnEntries()
+    public void Ledger_TheSpecRunAgain_ReplacesItsOwnEntries()
     {
-        var pipeline = InPhase("p1");
+        var pipeline = InSpec("p1");
         DeclinedCriteriaLedger.Record(pipeline, Verdict(
             new AcceptanceDisposition(Lint, AcceptanceStatus.NotApplicable, Reason)));
 
@@ -102,9 +102,9 @@ public sealed class DeclinedCriterionReportTests
     }
 
     [Fact]
-    public void Outcome_ADeclinedCriterion_RendersWithItsReasonAndPhase()
+    public void Outcome_ADeclinedCriterion_RendersWithItsReasonAndSpec()
     {
-        var pipeline = InPhase("p1");
+        var pipeline = InSpec("p1");
         DeclinedCriteriaLedger.Record(pipeline, Verdict(
             new AcceptanceDisposition(Lint, AcceptanceStatus.NotApplicable, Reason)));
 
@@ -118,7 +118,7 @@ public sealed class DeclinedCriterionReportTests
     [Fact]
     public void Outcome_ARunWithNothingDeclined_RendersNoSuchSection()
     {
-        var pipeline = InPhase("p1");
+        var pipeline = InSpec("p1");
         DeclinedCriteriaLedger.Record(pipeline, Verdict(
             new AcceptanceDisposition(Lint, AcceptanceStatus.Met, "config pinned")));
 

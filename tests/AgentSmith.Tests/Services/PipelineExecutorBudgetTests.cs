@@ -13,7 +13,7 @@ namespace AgentSmith.Tests.Services;
 /// <summary>
 /// 2026-09-17-0e79e: the executor's loop guard is the budget the run published, re-read on
 /// every pass — and exhausting it is reported the way a failing step is, so the finalizer
-/// tail runs and the phases that verified are still delivered.
+/// tail runs and the specs that verified are still delivered.
 /// </summary>
 public sealed class PipelineExecutorBudgetTests
 {
@@ -53,7 +53,7 @@ public sealed class PipelineExecutorBudgetTests
     [Fact]
     public async Task PipelineExecutor_BudgetPublishedMidRun_IsTheGuardFromThenOn()
     {
-        // PhaseSequence publishes the budget from inside the run, so a budget captured once
+        // SpecSequence publishes the budget from inside the run, so a budget captured once
         // before the loop would be the default for every run that needs a different number.
         var h = new PipelineExecutorTestBuilder();
         var project = new ResolvedProject();
@@ -75,22 +75,22 @@ public sealed class PipelineExecutorBudgetTests
     {
         var h = new PipelineExecutorTestBuilder();
         var project = new ResolvedProject();
-        var pipeline = WithBudget(StepBudget.ForPhases(1));
+        var pipeline = WithBudget(StepBudget.ForSpecs(1));
         ArrangeLoop(h, project, pipeline);
 
         var result = await h.Sut.ExecuteAsync([Loop], project, pipeline, CancellationToken.None);
 
         result.IsSuccess.Should().BeFalse();
         result.Message.Should()
-            .Contain($"step budget {StepBudget.ForPhases(1).Limit}")
-            .And.Contain(StepBudget.ForPhases(1).Origin, "an exhausted run is read without arithmetic")
+            .Contain($"step budget {StepBudget.ForSpecs(1).Limit}")
+            .And.Contain(StepBudget.ForSpecs(1).Origin, "an exhausted run is read without arithmetic")
             .And.Contain("infinite loop in command insertion");
     }
 
     [Fact]
     public async Task PipelineExecutor_BudgetExhausted_RunsTheFinalizerTail()
     {
-        // Before this phase the ceiling returned a bare failed result BEFORE the step ran,
+        // Before this spec the ceiling returned a bare failed result BEFORE the step ran,
         // so the run wrote no result, opened no pull request and left the ticket unfinalized.
         var h = new PipelineExecutorTestBuilder();
         var project = new ResolvedProject();
@@ -109,7 +109,7 @@ public sealed class PipelineExecutorBudgetTests
     }
 
     [Fact]
-    public async Task PipelineExecutor_BudgetExhausted_DeliversTheVerifiedPhasesAsAShortfall()
+    public async Task PipelineExecutor_BudgetExhausted_DeliversTheVerifiedSpecsAsAShortfall()
     {
         var h = new PipelineExecutorTestBuilder();
         var ticket = new Mock<ITicketProvider>();
@@ -168,7 +168,7 @@ public sealed class PipelineExecutorBudgetTests
     {
         // A result carrying no StepName renders "<b>Step:</b>  (0/0)" on the ticket, logs
         // "stopped at step 0:  failed" and stamps an empty step into the WIP trailer — the
-        // failure report this phase exists to produce, saying nothing about where it stopped.
+        // failure report this spec exists to produce, saying nothing about where it stopped.
         var h = new PipelineExecutorTestBuilder();
         var ticket = new Mock<ITicketProvider>();
         h.TicketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(ticket.Object);
@@ -277,7 +277,7 @@ public sealed class PipelineExecutorBudgetTests
         return pipeline;
     }
 
-    /// <summary>A command that publishes a budget from inside the run, as PhaseSequence does.</summary>
+    /// <summary>A command that publishes a budget from inside the run, as SpecSequence does.</summary>
     private static ICommandContext Publisher(
         PipelineExecutorTestBuilder h, ResolvedProject project, PipelineContext pipeline,
         StepBudget budget)

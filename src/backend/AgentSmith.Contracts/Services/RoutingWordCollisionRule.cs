@@ -11,7 +11,7 @@ namespace AgentSmith.Contracts.Services;
 /// operator's to choose) spelled the same as one of the operator's OWN routing words.
 /// <para>
 /// THE COLLISION DOES NOT PRODUCE TWO ANSWERS; IT PRODUCES ONE WRONG ONE, THREE WAYS, EACH
-/// SILENT. (1) A ticket that binds to phase execution short-circuits in ProjectResolver
+/// SILENT. (1) A ticket that binds to spec execution short-circuits in ProjectResolver
 /// BEFORE PipelineResolver.Resolve is reached, so a routing key equal to the approved-set
 /// stamp never runs at all. (2) PipelineResolver STRIPS lifecycle words from the labels it
 /// matches on, so a routing key equal to one of them cannot satisfy its own map — the key

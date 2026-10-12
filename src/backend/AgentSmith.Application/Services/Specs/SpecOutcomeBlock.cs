@@ -5,7 +5,7 @@ namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
 /// 2026-10-06-03c7e: the <c>outcome:</c> block an executed spec carries in <c>specs/done/</c> —
-/// the run that executed it, what it delivered and what the phase review still finds. Rendered
+/// the run that executed it, what it delivered and what the spec review still finds. Rendered
 /// as YAML, multi-line text as literal blocks, so the done file stays one parseable document.
 /// </summary>
 public static class SpecOutcomeBlock

@@ -4,8 +4,8 @@ namespace AgentSmith.Tests.Prompts;
 
 /// <summary>
 /// p0400a: run b9b0 proved that documenting ships_code was not enough — the
-/// derivation omitted it on a pure-knowledge phase and the keystone failed a
-/// 7/7-done phase for lacking a diff it never promised. The prompt now states
+/// derivation omitted it on a pure-knowledge spec and the keystone failed a
+/// 7/7-done spec for lacking a diff it never promised. The prompt now states
 /// the obligation; this pins the load-bearing wording.
 /// <para>
 /// p0442: the prompt is served by the PINNED SKILLS CATALOG now, not by an embedded
@@ -17,9 +17,9 @@ public sealed class SpecDerivationPromptTests
 {
     /// <summary>
     /// p0421: the obligation moved from declaring a flag to WRITING CHECKABLE CRITERIA.
-    /// After the phase runs, a reader who did not do the work is handed the criteria and
+    /// After the spec runs, a reader who did not do the work is handed the criteria and
     /// the branch diff and has to tie each one to a file — so a criterion nobody can tie
-    /// to anything fails the phase that honoured it.
+    /// to anything fails the spec that honoured it.
     /// </summary>
     [Fact]
     public void DerivationPrompt_DemandsCriteriaThatCanBeCheckedAgainstTheRepository()
@@ -33,7 +33,7 @@ public sealed class SpecDerivationPromptTests
     }
 
     /// <summary>
-    /// p0413: run 1b4b cut a mechanical ticket into three phases, each with a full
+    /// p0413: run 1b4b cut a mechanical ticket into three specs, each with a full
     /// master loop, and burned $10 without finishing the first. The prompt must
     /// state the cut-sizing rule the classified shape feeds — as a RULE about the
     /// work, with no example that names an ecosystem, a tool or a language.
@@ -93,14 +93,14 @@ public sealed class SpecDerivationPromptTests
     /// <summary>
     /// 2026-09-08-1830: a dependency ticket naming two contexts was cut for one, every
     /// criterion was met, the run went green, and the other context was never touched. The
-    /// master now states per phase which of the named contexts it changes ("contexts") and
+    /// master now states per spec which of the named contexts it changes ("contexts") and
     /// accounts for every one it does not carry ("discarded_contexts" with a reason), so the
     /// system can compare the two lists and refuse a cut that leaves a context unspoken for.
     /// The "question" hand-back gains its worked example. Ships with the v5.2.0 pin (skills
     /// PR #182).
     /// </summary>
     [Fact]
-    public void SpecDerivationMaster_NamesTheContextsEachPhaseCarries()
+    public void SpecDerivationMaster_NamesTheContextsEachSpecCarries()
     {
         var prompt = DerivationPrompt();
 

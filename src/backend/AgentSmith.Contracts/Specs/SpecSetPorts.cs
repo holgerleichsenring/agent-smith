@@ -7,16 +7,16 @@ namespace AgentSmith.Contracts.Specs;
 
 /// <summary>
 /// p0393a: the one LLM call of the DeriveSpec step, and the only place JUDGEMENT
-/// lives. What is load-bearing and where the phase boundaries fall is a judgement,
+/// lives. What is load-bearing and where the spec boundaries fall is a judgement,
 /// so it sits in the pinned skill and can be tuned without a release. Cutting the
 /// chosen spans and writing the markdown is base functionality and lives in code:
 /// the model returns ANCHORS, never content.
 /// <para>
 /// 2026-10-06-03c7c: the caller hands in the series' base id — read off the branch or minted —
-/// and every phase id is that base plus a letter.
+/// and every spec id is that base plus a letter.
 /// </para>
 /// <para>
-/// 2026-10-12-3a36e: and the scope's repository names, which each phase's repos is checked
+/// 2026-10-12-3a36e: and the scope's repository names, which each spec's repos is checked
 /// against or filled from.
 /// </para>
 /// </summary>

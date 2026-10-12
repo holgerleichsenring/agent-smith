@@ -13,7 +13,7 @@ namespace AgentSmith.Server.Extensions;
 /// p0503b: the whole authentication pipeline, and the only place it is decided.
 /// <para>
 /// Registration hangs off the AUTHORITY: with none configured nothing here runs and the
-/// server behaves exactly as it did before this phase. Refusal hangs off the ENFORCE
+/// server behaves exactly as it did before this spec. Refusal hangs off the ENFORCE
 /// switch instead, through the fallback policy — with an authority configured and the
 /// switch off, a presented token is still validated but no route is refused, which is
 /// what keeps an installation reachable while its operator prepares an authority.

@@ -11,14 +11,14 @@ public static partial class CommandNames
     private static readonly IReadOnlyDictionary<string, string> AcceptedCommandNames =
         new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            ["WriteSpecRecordCommand"] = WritePhaseRecord,
-            ["VerifySpecCommand"] = VerifyPhase,
-            ["CommitSpecWorkCommand"] = CommitPhaseWork,
-            ["CheckSpecPremisesCommand"] = CheckPhasePremises,
-            ["ReviewSpecDiffCommand"] = ReviewPhaseDiff,
-            ["SpecSequenceCommand"] = PhaseSequence,
-            ["SelectSpecCommand"] = SelectPhase,
-            ["SpecGateCommand"] = PhaseSpecGate,
+            ["WriteSpecRecordCommand"] = WriteSpecRecord,
+            ["VerifySpecCommand"] = VerifySpec,
+            ["CommitSpecWorkCommand"] = CommitSpecWork,
+            ["CheckSpecPremisesCommand"] = CheckSpecPremises,
+            ["ReviewSpecDiffCommand"] = ReviewSpecDiff,
+            ["SpecSequenceCommand"] = SpecSequence,
+            ["SelectSpecCommand"] = SelectSpec,
+            ["SpecGateCommand"] = SpecGate,
         };
 
     /// <summary>

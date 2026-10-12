@@ -13,14 +13,14 @@ public sealed class SpecNamedCommandReadTests
 {
     public static TheoryData<string, string> Renamed => new()
     {
-        { "WriteSpecRecordCommand", CommandNames.WritePhaseRecord },
-        { "VerifySpecCommand", CommandNames.VerifyPhase },
-        { "CommitSpecWorkCommand", CommandNames.CommitPhaseWork },
-        { "CheckSpecPremisesCommand", CommandNames.CheckPhasePremises },
-        { "ReviewSpecDiffCommand", CommandNames.ReviewPhaseDiff },
-        { "SpecSequenceCommand", CommandNames.PhaseSequence },
-        { "SelectSpecCommand", CommandNames.SelectPhase },
-        { "SpecGateCommand", CommandNames.PhaseSpecGate },
+        { "WriteSpecRecordCommand", CommandNames.WriteSpecRecord },
+        { "VerifySpecCommand", CommandNames.VerifySpec },
+        { "CommitSpecWorkCommand", CommandNames.CommitSpecWork },
+        { "CheckSpecPremisesCommand", CommandNames.CheckSpecPremises },
+        { "ReviewSpecDiffCommand", CommandNames.ReviewSpecDiff },
+        { "SpecSequenceCommand", CommandNames.SpecSequence },
+        { "SelectSpecCommand", CommandNames.SelectSpec },
+        { "SpecGateCommand", CommandNames.SpecGate },
     };
 
     [Theory]
@@ -40,7 +40,7 @@ public sealed class SpecNamedCommandReadTests
     [Fact]
     public void Declared_KeepsAParameterSuffix_AndLeavesOtherNamesAlone()
     {
-        CommandNames.Declared("VerifySpecCommand:api").Should().Be(CommandNames.VerifyPhase + ":api");
+        CommandNames.Declared("VerifySpecCommand:api").Should().Be(CommandNames.VerifySpec + ":api");
         CommandNames.Declared(CommandNames.AgenticMaster).Should().Be(CommandNames.AgenticMaster);
         CommandNames.Declared(CommandNames.RunVerifyPhase).Should().Be(CommandNames.RunVerifyPhase,
             "the execution-stage verify keeps its name");
@@ -50,6 +50,6 @@ public sealed class SpecNamedCommandReadTests
     public void GateSilence_SpecNamedGate_KnowsItsNoOpSentence()
     {
         GateSilence.IsNoOpSummary("SpecGateCommand", "x").Should()
-            .Be(GateSilence.IsNoOpSummary(CommandNames.PhaseSpecGate, "x"));
+            .Be(GateSilence.IsNoOpSummary(CommandNames.SpecGate, "x"));
     }
 }

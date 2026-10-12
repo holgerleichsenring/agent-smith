@@ -24,7 +24,7 @@ internal static class Amendments
             new SpecDialogTicketTextRepository(Mock.Of<IUnitOfWork>()),
             ApprovedSetDoubles.Recorder(),
             new Mock<ITicketProviderFactory>().Object,
-            new PhaseTicketRenderer(), new EpicChildOrderer(),
+            new SpecTicketRenderer(), new EpicChildOrderer(),
             ApprovedSetDoubles.SeriesFiling(),
             ApprovedSetDoubles.Branch(),
             NullLogger<TicketAmendment>.Instance);

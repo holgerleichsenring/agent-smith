@@ -4,10 +4,10 @@ namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
 /// 2026-10-12-3a36e: tells the derivation which repositories are in scope, by the names a
-/// phase's <c>repos</c> is checked against. Rendered whether or not the derivation may look:
+/// spec's <c>repos</c> is checked against. Rendered whether or not the derivation may look:
 /// the look section lists sandbox keys and is absent without a sandbox, and neither is the
-/// list a phase names its repositories from.
-/// 2026-10-12-f5f7a: it states the rule — one repository per phase, work in two cut as two.
+/// list a spec names its repositories from.
+/// 2026-10-12-f5f7a: it states the rule — one repository per spec, work in two cut as two.
 /// </summary>
 internal static class ScopeRepositoriesPromptSection
 {

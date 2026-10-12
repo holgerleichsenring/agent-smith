@@ -32,7 +32,7 @@ public sealed class ApprovedSpecSetCarrier(
             var record = await store.GetAsync(tracker ?? string.Empty, key.Value, ct);
             if (record is null) return null;
             logger.LogInformation(
-                "Carrying the approved spec set {Key} ({Phases} phase(s)) onto the run's initial context",
+                "Carrying the approved spec set {Key} ({Specs} spec(s)) onto the run's initial context",
                 record.Key, record.Set.Phases.Count);
             return SpecApprovalJson.Write(record);
         }

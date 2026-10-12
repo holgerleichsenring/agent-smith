@@ -8,7 +8,7 @@ namespace AgentSmith.Server.Extensions;
 /// 2026-08-25-e257: where the operator says a criterion's disposition was wrong.
 /// <para>
 /// A false negative is invisible and therefore unpriced: a run refused over a criterion the
-/// branch satisfied looks exactly like a run refused correctly. Fourteen phases have tuned
+/// branch satisfied looks exactly like a run refused correctly. Fourteen specs have tuned
 /// the delivery account, each on a single failed run, because the only failures that announce
 /// themselves are mechanical ones. The operator already knows which verdicts were wrong.
 /// Nothing has ever asked.

@@ -9,7 +9,7 @@ namespace AgentSmith.Tests.TestHelpers;
 /// 2026-09-19-4c1f: an ISourceProvider whose REMOTE reads are scripted per repository and
 /// per path. It exists beside <see cref="StubSourceProvider"/> rather than widening it:
 /// nine test files and the composition harness read that one's fixed answers, and the
-/// third absence this phase has to tell apart — a file that could not be READ — can only
+/// third absence this spec has to tell apart — a file that could not be READ — can only
 /// be produced by a read that THROWS, which no shared stub can be taught without changing
 /// what every one of those tests sees.
 /// <para>

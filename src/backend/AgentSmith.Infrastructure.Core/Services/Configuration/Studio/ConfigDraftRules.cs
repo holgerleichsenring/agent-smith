@@ -89,7 +89,7 @@ public sealed class ConfigDraftRules(
     /// <summary>
     /// 2026-09-16-a4d7: a tracker declaring neither a label map nor a default routes every
     /// ticket to the hardcoded fallback, and nothing said so. ADVISORY, not blocking — every
-    /// tracker configured before that phase is in this state and must keep saving — and it
+    /// tracker configured before that spec is in this state and must keep saving — and it
     /// names its own field.
     /// </summary>
     private static StartupFinding? UndeclaredRouting(TrackerEntity draft)

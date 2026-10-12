@@ -39,8 +39,8 @@ public sealed class DemoFixBugTests : IAsyncLifetime
         await using var harness = RealCompositionHarness.Build(
             FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
         harness.ChatClient
-            // p0393a: DeriveSpec turns the ticket into the phase set and drains one FIFO
-            // slot. The phase's done-list is the run's acceptance contract — p0328's
+            // p0393a: DeriveSpec turns the ticket into the spec set and drains one FIFO
+            // slot. The spec's done-list is the run's acceptance contract — p0328's
             // negotiation left the code pipeline with it.
             .EnqueueText("""
                 {"phases": [

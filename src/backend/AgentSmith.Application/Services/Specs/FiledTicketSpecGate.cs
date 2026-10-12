@@ -26,10 +26,10 @@ namespace AgentSmith.Application.Services.Specs;
 /// </para>
 /// <para>
 /// The gate keys on the STAMP and not on the bare phase label, and the source precedence
-/// consults it BEFORE the ticket description. A hand-written phase ticket carries the label too
+/// consults it BEFORE the ticket description. A hand-written spec ticket carries the label too
 /// and its spec legitimately lives in its description; a FILED one carries the stamp, and a
 /// fenced block pasted into its description by anyone with tracker access is exactly the second
-/// editable truth this phase removed — so on a stamped ticket the description is not consulted
+/// editable truth this spec removed — so on a stamped ticket the description is not consulted
 /// at all.
 /// </para>
 /// <para>
@@ -43,7 +43,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// LEGACY DISCRIMINATOR: nothing the framework files carries one any more — an epic's work ticket
 /// cuts from its own base and its slice records carry no stamp at all — and the children already
 /// on a tracker keep deriving. What an epic's work ticket DOES carry is the approved-set stamp,
-/// exactly as a filed phase does, so it is held to the same rule. A slice record carries neither,
+/// exactly as a filed spec does, so it is held to the same rule. A slice record carries neither,
 /// and is never held to anything: nothing routes it and no run works one.
 /// </para>
 /// </summary>

@@ -13,7 +13,7 @@ namespace AgentSmith.Tests.Commands;
 /// B.Integration.Tests</c>. The runner tokenised it and executed argv[0] with the rest as
 /// arguments, so <c>&amp;&amp;</c> reached MSBuild — "MSB1008: Only one project can be
 /// specified", "Switch: &amp;&amp;". The run failed at its verification step after both
-/// phases of real work had succeeded.
+/// specs of real work had succeeded.
 /// </para>
 /// <para>
 /// The agent's own run_command tool has always passed its text to <c>/bin/sh -c</c>. The

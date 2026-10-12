@@ -125,7 +125,7 @@ public sealed class BootstrapPerContextTests
     [Fact]
     public async Task BootstrapPromptFactory_AppliesToFlowsIntoBootstrapPrompt()
     {
-        // p0161d step 8: PhaseAppliesTo renders an "Applies to: ..." line in the
+        // p0161d step 8: SpecAppliesTo renders an "Applies to: ..." line in the
         // bootstrap user prompt when set.
         var captured = new CapturedPrompt();
         var handler = new BootstrapRoundHandler(
@@ -139,7 +139,7 @@ public sealed class BootstrapPerContextTests
             EventTestStubs.RunContext,
             NullLogger<BootstrapRoundHandler>.Instance);
         var pipeline = NewSingleSandboxPipeline("monorepo");
-        pipeline.Set(ContextKeys.PhaseAppliesTo, "Application (BootstrapDispatch)");
+        pipeline.Set(ContextKeys.SpecAppliesTo, "Application (BootstrapDispatch)");
 
         await handler.ExecuteAsync(
             new BootstrapRoundContext(

@@ -31,12 +31,12 @@ public sealed class ControlFlowDiagramTests
     }
 
     [Fact]
-    public void ControlFlowDiagram_DrawsThePhaseBoundary()
+    public void ControlFlowDiagram_DrawsTheSpecBoundary()
     {
         var code = ControlFlowFacts.Of(PipelinePresets.CodeName);
 
-        code.Steps.Where(s => s.InPhaseBlock).Select(s => s.Command)
-            .Should().Equal(PipelinePresets.CodePhaseBlock,
+        code.Steps.Where(s => s.InSpecBlock).Select(s => s.Command)
+            .Should().Equal(PipelinePresets.CodeSpecBlock,
                 "the block the run splices per phase is the block the diagram encloses");
     }
 

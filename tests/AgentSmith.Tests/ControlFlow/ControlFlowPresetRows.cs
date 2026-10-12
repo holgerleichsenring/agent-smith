@@ -39,7 +39,7 @@ internal static class ControlFlowPresetRows
         for (var i = 0; i < flow.Steps.Count; i++)
             svg.Rect(StripX + i * TickPitch, y - 8, TickWidth, 18, TickClass(flow.Steps[i]), rx: 3);
 
-        var block = flow.Steps.Select((s, i) => (s, i)).Where(t => t.s.InPhaseBlock).ToList();
+        var block = flow.Steps.Select((s, i) => (s, i)).Where(t => t.s.InSpecBlock).ToList();
         if (block.Count == 0) return;
 
         var from = StripX + block[0].i * TickPitch;

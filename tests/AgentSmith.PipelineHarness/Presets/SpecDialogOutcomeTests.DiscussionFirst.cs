@@ -92,7 +92,7 @@ public sealed partial class SpecDialogOutcomeTests
     }
 
     [Fact]
-    public async Task CreatePhase_FilingNotice_IsRecordedAsAFiling()
+    public async Task CreateSpec_FilingNotice_IsRecordedAsAFiling()
     {
         await using var bed = await FilingBed.BuildAsync(autoAnswer: "approve");
         var state = await bed.OpenSessionAsync("th-filing-kind");

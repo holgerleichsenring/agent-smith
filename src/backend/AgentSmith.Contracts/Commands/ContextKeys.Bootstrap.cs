@@ -27,12 +27,12 @@ public static partial class ContextKeys
     /// ask_human a working path).</summary>
     public const string DiscoveryAmbiguous = "DiscoveryAmbiguous";
 
-    /// <summary>p0161d: free-form <c>applies_to:</c> value from the active phase
+    /// <summary>p0161d: free-form <c>applies_to:</c> value from the active spec
     /// YAML. When set, AgentPromptBuilder and BootstrapPromptFactory render an
     /// "Applies to: ..." prefix line so the LLM knows which stack(s) the work
     /// targets. Optional — falls back silently to the existing per-context
     /// language annotation when absent (p0161a D4 fallback chain).</summary>
-    public const string PhaseAppliesTo = "PhaseAppliesTo";
+    public const string SpecAppliesTo = "PhaseAppliesTo";
 
     /// <summary>p0161d: per-(repo, context) bootstrap-skill markdown summaries
     /// accumulated by BootstrapRoundHandler across all rounds. Dictionary

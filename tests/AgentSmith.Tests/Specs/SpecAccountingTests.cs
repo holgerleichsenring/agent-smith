@@ -15,7 +15,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace AgentSmith.Tests.Specs;
 
 /// <summary>
-/// p0420: the phase is judged by what the branch shows against its ratified criteria.
+/// p0420: the spec is judged by what the branch shows against its ratified criteria.
 /// <para>
 /// Run c96d was recorded FAILED — "this fix/feature run produced no code changes" —
 /// while its branch carried nine updated project files, an adapted call site and a
@@ -330,7 +330,7 @@ public sealed class SpecAccountingTests
     /// <summary>
     /// p0483: the account is handed the branch-search tool, and the prompt it gets says so.
     /// Asserted on ChatOptions rather than on the prompt alone, because a tool that never
-    /// reaches the call is a phase that changed nothing.
+    /// reaches the call is a spec that changed nothing.
     /// </summary>
     [Fact]
     public async Task SpecAccountant_WithABranchSearch_OffersTheSearchToolAndNamesTheRepository()
@@ -347,7 +347,7 @@ public sealed class SpecAccountingTests
 
         // 2026-08-25-6f12: the account now makes a second call — the full-reach pass, for the
         // criterion this answer left unsatisfied — so the assertion is that EVERY call was
-        // offered the tool, which is the claim the phase that wrote it was making.
+        // offered the tool, which is the claim the spec that wrote it was making.
         client.ToolsOffered.Should().NotBeEmpty()
             .And.OnlyContain(tool => tool.Name == "search_branch");
         client.Prompts[0].Should().Contain("search_branch").And.Contain("api");
@@ -376,7 +376,7 @@ public sealed class SpecAccountingTests
 
         public List<string> Prompts { get; } = [];
 
-        /// <summary>p0483: what the model was OFFERED. A phase that hands the account a tool
+        /// <summary>p0483: what the model was OFFERED. A spec that hands the account a tool
         /// and never reaches ChatOptions is inert, and no assertion on the prompt would say so.
         /// </summary>
         public List<AITool> ToolsOffered { get; } = [];

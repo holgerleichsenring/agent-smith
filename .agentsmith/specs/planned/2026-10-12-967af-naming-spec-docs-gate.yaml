@@ -8,7 +8,7 @@ requires: [2026-10-12-967ac]
 
 facts:
   - claim: "The gate hook is registered by path, and the path is pinned by an architecture test and the hook tests."
-    evidence: ".claude/settings.json:9, tests/AgentSmith.Tests/Architecture/PhaseSeriesIdTests.cs:41, .claude/hooks/test_commit_message.py:28"
+    evidence: ".claude/settings.json:9, tests/AgentSmith.Tests/Architecture/SpecSeriesIdTests.cs:41, .claude/hooks/test_commit_message.py:28"
   - claim: "The ledger defaults to .claude/phase-gate.log; the env vars are PHASE_GATE_LOG, PHASE_GATE_SELFTEST, PHASE_GATE_CORES."
     evidence: ".claude/hooks/phase-gate.sh:53, .claude/hooks/phase-gate.sh:206, .claude/hooks/phase-gate.sh:430"
   - claim: "Two docs pages are named after phases and linked from mkdocs.yml."

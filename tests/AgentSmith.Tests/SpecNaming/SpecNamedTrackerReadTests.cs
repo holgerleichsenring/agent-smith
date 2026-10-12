@@ -39,11 +39,11 @@ public sealed class SpecNamedTrackerReadTests
     [InlineData("spec:approved")]
     [InlineData("Spec:Approved")]
     public void BindsSpecExecution_EitherWord_Binds(string label) =>
-        FiledTicketLabels.BindsPhaseExecution(Envelope(label), Vocabulary).Should().BeTrue();
+        FiledTicketLabels.BindsSpecExecution(Envelope(label), Vocabulary).Should().BeTrue();
 
     [Fact]
     public void BindsSpecExecution_AnOrdinaryLabel_DoesNotBind() =>
-        FiledTicketLabels.BindsPhaseExecution(Envelope("specification"), Vocabulary).Should().BeFalse();
+        FiledTicketLabels.BindsSpecExecution(Envelope("specification"), Vocabulary).Should().BeFalse();
 
     [Theory]
     [InlineData("phase-epic")]

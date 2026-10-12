@@ -8,7 +8,7 @@ namespace AgentSmith.Tests.Handlers;
 /// 2026-09-22-b41d: one factory builds the clone for the RUN and for the read-only source
 /// scope, and only the scope's was narrowed. A run diffs against a base, reads its own log
 /// and can be handed a revision reachable from nothing, so its command must come out of that
-/// phase byte for byte — which is what these pin.
+/// spec byte for byte — which is what these pin.
 /// </summary>
 public sealed class CheckoutStepFactoryTests
 {

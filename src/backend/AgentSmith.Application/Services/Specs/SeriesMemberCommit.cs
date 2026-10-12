@@ -40,7 +40,7 @@ public sealed class SeriesMemberCommit(
         await gitOps.CommitAndPushStagedAsync(sandbox, branch, SeriesWriter.MessageFor(set), repo, ct, plain);
         var sha = await gitOps.GetHeadCommitAsync(sandbox, ct);
         logger.LogInformation(
-            "Series {Base} revision {Revision} ({Phases} spec(s)) committed in {Repo} as {Sha} on {Branch}",
+            "Series {Base} revision {Revision} ({Specs} spec(s)) committed in {Repo} as {Sha} on {Branch}",
             set.Series, set.Current.Number, set.Phases.Count, repo.Name, sha, branch);
         return (sha, true);
     }

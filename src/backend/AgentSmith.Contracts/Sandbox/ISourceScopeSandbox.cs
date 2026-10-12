@@ -33,7 +33,7 @@ public interface ISourceScopeSandbox : ISandbox
     /// into a step-refusal sentence. Returns the sha the scope landed on.
     /// <para>
     /// 2026-09-13-6f35: on the interface because the coding master opens its templates BEFORE
-    /// its first token. A scope it cannot materialise must fail the phase then, not answer
+    /// its first token. A scope it cannot materialise must fail the spec then, not answer
     /// every read with a refusal the model spends a pass discovering.
     /// </para>
     /// </summary>

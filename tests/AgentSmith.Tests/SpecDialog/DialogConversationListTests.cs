@@ -259,7 +259,7 @@ public sealed class DialogConversationListTests : IDisposable
     {
         await OpenAsync("d-1");
         await new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance)
-            .SetProposalAsync(Platform, "d-1", Phase(), CancellationToken.None);
+            .SetProposalAsync(Platform, "d-1", Spec(), CancellationToken.None);
 
         (await ListAsync()).Single().Outcome.Should().BeNull("only a filing produces an outcome");
     }
@@ -269,9 +269,9 @@ public sealed class DialogConversationListTests : IDisposable
     {
         var state = await StateAsync("d-1");
         var store = new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance);
-        await store.SetProposalAsync(Platform, "d-1", Phase(), CancellationToken.None);
+        await store.SetProposalAsync(Platform, "d-1", Spec(), CancellationToken.None);
         await store.SetFilingAsync(Platform, "d-1",
-            new FilingReport([new("https://tracker.test/1", "p1: the phase")], null), Phase(), CancellationToken.None);
+            new FilingReport([new("https://tracker.test/1", "p1: the phase")], null), Spec(), CancellationToken.None);
         var before = (await ListAsync()).Single().Outcome;
 
         await Flow(store).HandleAsync(state, new AnswerOutcome(), false, CancellationToken.None);
@@ -281,7 +281,7 @@ public sealed class DialogConversationListTests : IDisposable
     }
 
     /// <summary>
-    /// Found while rebasing this phase onto its predecessor's review fixes. The kind was read back
+    /// Found while rebasing this spec onto its predecessor's review fixes. The kind was read back
     /// from the latest PROPOSAL, and that is cleared whenever a later proposal is rejected or times
     /// out — so an epic filed and then followed by a discarded proposal lost what it was, and the
     /// list said "filed" with no kind. The filing now records its own kind.
@@ -295,7 +295,7 @@ public sealed class DialogConversationListTests : IDisposable
         await store.SetFilingAsync(Platform, "d-1",
             new FilingReport([new("https://tracker.test/1", "p1: parent")], null), Epic(), CancellationToken.None);
 
-        await store.SetProposalAsync(Platform, "d-1", Phase(), CancellationToken.None);
+        await store.SetProposalAsync(Platform, "d-1", Spec(), CancellationToken.None);
         await store.ClearProposalAsync(Platform, "d-1", CancellationToken.None);
 
         (await ListAsync()).Single().Outcome!.Kind.Should().Be("epic",
@@ -396,7 +396,7 @@ public sealed class DialogConversationListTests : IDisposable
             store, NullLogger<SpecDialogOutcomeFlow>.Instance);
     }
 
-    private static PhaseOutcome Phase() => new(new PhaseDraft("p1", "the phase", "spec: p1", []));
+    private static SpecOutcome Spec() => new(new PhaseDraft("p1", "the phase", "spec: p1", []));
 
     private static EpicOutcome Epic() => new(
         new PhaseDraft("p1", "parent", "spec: p1", []),

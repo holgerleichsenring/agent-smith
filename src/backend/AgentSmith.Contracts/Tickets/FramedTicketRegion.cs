@@ -14,7 +14,7 @@ namespace AgentSmith.Contracts.Tickets;
 /// text an operator may reword, which is why the pattern tolerates any text up to the close.
 /// </para>
 /// <para>
-/// A body with NO complete pair is a ticket filed before this phase, and
+/// A body with NO complete pair is a ticket filed before this spec, and
 /// <see cref="Replace"/> answers null for it rather than guessing where the framework's text
 /// ends. Appending a second rendering would leave the ticket saying two things; overwriting the
 /// whole body would delete prose nobody can attribute. The caller refuses and says so.

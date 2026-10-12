@@ -3,7 +3,7 @@ using AgentSmith.Domain.Models;
 namespace AgentSmith.Contracts.Specs;
 
 /// <summary>
-/// p0393a: which phases of the sequence are through and which are not.
+/// p0393a: which specs of the sequence are through and which are not.
 /// <para>
 /// A stopped sequence is a HALF-MIGRATED repository, which is the dangerous state
 /// a migration has — worse than not having started. The stop is therefore only half
@@ -19,12 +19,12 @@ public sealed record SpecSequenceProgress([property: AcceptedName("Specs")] IRea
         new([.. set.Phases.Select(p => new PhaseProgress(p.PhaseId, p.Draft.Goal,
             set.Executed.Contains(p.PhaseId, StringComparer.Ordinal) ? PhaseRunState.Done : PhaseRunState.NotStarted))]);
 
-    /// <summary>True while any phase is anything other than done — the half-migrated state.</summary>
+    /// <summary>True while any spec is anything other than done — the half-migrated state.</summary>
     public bool IsPartial => Phases.Any(p => p.State != PhaseRunState.Done);
 
     public SpecSequenceProgress With(
-        string phaseId, PhaseRunState state, string? failingCommand = null, string? note = null) =>
-        new([.. Phases.Select(p => p.PhaseId == phaseId
+        string specId, PhaseRunState state, string? failingCommand = null, string? note = null) =>
+        new([.. Phases.Select(p => p.PhaseId == specId
             ? p with
             {
                 State = state,
@@ -34,10 +34,10 @@ public sealed record SpecSequenceProgress([property: AcceptedName("Specs")] IRea
             : p)]);
 }
 
-/// <summary>p0393a: one phase's standing in the sequence.</summary>
+/// <summary>p0393a: one spec's standing in the sequence.</summary>
 /// <param name="Note">p0460: why the standing is what it is, where the state alone would
-/// mislead — a phase found already satisfied on entry is DONE and did no work, and a
-/// reader of the table has to be able to tell that from a phase that ran.</param>
+/// mislead — a spec found already satisfied on entry is DONE and did no work, and a
+/// reader of the table has to be able to tell that from a spec that ran.</param>
 public sealed record PhaseProgress(
     [property: AcceptedName("SpecId")] string PhaseId,
     string Goal,
@@ -52,11 +52,11 @@ public enum PhaseRunState
     InProgress = 1,
     Done = 2,
 
-    /// <summary>The phase ran and its verification came back red.</summary>
+    /// <summary>The spec ran and its verification came back red.</summary>
     Failed = 3,
 
     /// <summary>
-    /// 2026-09-17-0e79c: the phase did NOT run — it was handed back before its work started,
+    /// 2026-09-17-0e79c: the spec did NOT run — it was handed back before its work started,
     /// because what the specification says it rests on is no longer so.
     /// <para>
     /// A separate state, not a flavour of <see cref="Failed"/>, because the two ask opposite

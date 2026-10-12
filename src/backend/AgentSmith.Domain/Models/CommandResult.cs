@@ -25,9 +25,9 @@ public sealed record CommandResult
     public IReadOnlyList<PipelineCommand>? InsertNext { get; init; }
 
     /// <summary>
-    /// p0460: steps still ahead IN THIS STEP'S OWN PHASE that this step has made
-    /// unnecessary. Named steps only, and never past the phase boundary — a step can
-    /// retire its own phase's remaining work, never another phase's.
+    /// p0460: steps still ahead IN THIS STEP'S OWN SPEC that this step has made
+    /// unnecessary. Named steps only, and never past the spec boundary — a step can
+    /// retire its own spec's remaining work, never another spec's.
     /// </summary>
     public IReadOnlyList<string>? DropAhead { get; init; }
 
@@ -53,7 +53,7 @@ public sealed record CommandResult
         };
     }
 
-    /// <summary>p0460: succeeded, and the named steps of this step's own phase have
+    /// <summary>p0460: succeeded, and the named steps of this step's own spec have
     /// nothing left to do.</summary>
     public static CommandResult OkAndDropAhead(string message, IReadOnlyList<string> stepNames)
     {

@@ -25,7 +25,7 @@ public sealed record FiledTicket(string Reference, string Title)
     public FiledWorkStart? Start { get; init; }
 
     /// <summary>2026-09-17-042em: what a person calls this ticket — the Jira key, or the tracker's
-    /// number behind a hash. Null on a filing written before that phase, which then reads by its
+    /// number behind a hash. Null on a filing written before that spec, which then reads by its
     /// <see cref="Reference"/> exactly as it always did.</summary>
     public string? Key { get; init; }
 

@@ -6,7 +6,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 
 /// <summary>
 /// Routes a turn's typed terminal outcome. Answer → nothing (today's default
-/// path). Bug / phase / epic → shown in-thread and CONFIRMED at the approval
+/// path). Bug / spec / epic → shown in-thread and CONFIRMED at the approval
 /// gate first; only a confirmed proposal reaches the outcome sink (p0315c:
 /// real ticket filing). Rejected / timed-out proposals route nowhere and say
 /// so; an edit note is handed back to the router, which re-runs the design

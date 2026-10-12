@@ -9,7 +9,7 @@ public sealed class RunLlmCall : EntityBase
     /// <summary>
     /// 2026-08-25-61f1: the trail position of the event that produced this row. The store
     /// holds at most one row per (RunId, EventSeq), so a call projected twice is summed
-    /// once — the cost rollups read this table. Null on rows written before this phase.
+    /// once — the cost rollups read this table. Null on rows written before this spec.
     /// </summary>
     public long? EventSeq { get; set; }
 

@@ -19,7 +19,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// </summary>
 public sealed class FiledWorkRunsReader(
     IServiceScopeFactory scopeFactory,
-    FiledWorkPhaseReviews reviews,
+    FiledWorkSpecReviews reviews,
     IRunCheckpointStore checkpoints,
     ILogger<FiledWorkRunsReader> logger)
 {
@@ -81,23 +81,23 @@ public sealed class FiledWorkRunsReader(
         return rows.ToLookup(p => p.RunId, p => Spec(p, stored), StringComparer.Ordinal);
     }
 
-    /// <summary>The two states RunSpecProjection.StatusOf writes for a phase still going.</summary>
+    /// <summary>The two states RunSpecProjection.StatusOf writes for a spec still going.</summary>
     private static readonly string[] Running = ["not_started", "in_progress"];
 
-    private FiledWorkSpecView Spec(RunSpec phase, List<RunArtifact> stored)
+    private FiledWorkSpecView Spec(RunSpec spec, List<RunArtifact> stored)
     {
-        // The projection KEEPS the last verdict it saw and clears EndedAt when a phase runs
+        // The projection KEEPS the last verdict it saw and clears EndedAt when a spec runs
         // again, so a verdict on a running row is what stopped the attempt before. Terminal is
         // stated as "not running" rather than as a list of the three terminal words: 0e79c
         // appended "handed_back" to that list, and a fourth would otherwise silently hide the
         // verdict of a state this reader had not been taught.
-        var terminal = !Running.Contains(phase.Status, StringComparer.Ordinal);
-        var row = RunSpecProjection.ReviewKinds(phase.SpecId)
-            .Select(kind => stored.FirstOrDefault(a => a.RunId == phase.RunId && a.Kind == kind))
+        var terminal = !Running.Contains(spec.Status, StringComparer.Ordinal);
+        var row = RunSpecProjection.ReviewKinds(spec.SpecId)
+            .Select(kind => stored.FirstOrDefault(a => a.RunId == spec.RunId && a.Kind == kind))
             .FirstOrDefault(found => found is not null);
         return new FiledWorkSpecView(
-            phase.SpecId, phase.Ordinal, phase.Title, phase.Status,
-            terminal ? phase.Verdict : null,
-            reviews.Of(row?.Content, phase.SpecId));
+            spec.SpecId, spec.Ordinal, spec.Title, spec.Status,
+            terminal ? spec.Verdict : null,
+            reviews.Of(row?.Content, spec.SpecId));
     }
 }

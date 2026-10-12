@@ -47,18 +47,18 @@ public sealed class SeriesIdentityTests
     }
 
     [Fact]
-    public void PhaseDraftIdRewriter_SpecAndRequires_AreRewrittenAndFreeTextIsKept()
+    public void SpecDraftIdRewriter_SpecAndRequires_AreRewrittenAndFreeTextIsKept()
     {
         var ids = new Dictionary<string, string> { ["p12a"] = "2026-10-06-0a0aa", ["p12b"] = "2026-10-06-0a0ab" };
         const string yaml = "spec: p12b\ngoal: \"keep p12a in prose\"\nrequires:\n- p12a-the-label\n- the API is live\ndone:\n- d\n";
 
-        var rewritten = new PhaseDraftIdRewriter().Rewrite(yaml, ids);
+        var rewritten = new SpecDraftIdRewriter().Rewrite(yaml, ids);
 
         rewritten.Should().Contain("spec: 2026-10-06-0a0ab")
             .And.Contain("- 2026-10-06-0a0aa-the-label", "an id-label entry matches by its id prefix")
             .And.Contain("- the API is live")
             .And.Contain("keep p12a in prose", "only the id fields are rewritten, never the prose");
-        new PhaseDraftIdRewriter().RewriteValue("p12ab", ids).Should().Be("p12ab", "a longer token is not an id");
+        new SpecDraftIdRewriter().RewriteValue("p12ab", ids).Should().Be("p12ab", "a longer token is not an id");
     }
 
     [Fact]

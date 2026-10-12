@@ -13,7 +13,7 @@ namespace AgentSmith.Server.Models;
 /// what the transcript keeps: the design master's only memory of the conversation, which an
 /// edit note re-runs the turn over, so its draft must stay in it. <paramref name="Shown"/> is
 /// what the person reads. On the dashboard the draft is shown by the proposal pane and is left
-/// out of the prose; Slack and Teams have no pane, and their confirmation names a phase by id
+/// out of the prose; Slack and Teams have no pane, and their confirmation names a spec by id
 /// and goal only, so there the reply is the one place its steps and done-list are read.
 /// </para>
 /// <para>
@@ -36,7 +36,7 @@ public sealed record SpecDialogTurnResult(
     public static SpecDialogTurnKind KindOf(OutcomeProposal outcome) => outcome switch
     {
         BugOutcome => SpecDialogTurnKind.BugProposal,
-        PhaseOutcome => SpecDialogTurnKind.PhaseProposal,
+        SpecOutcome => SpecDialogTurnKind.PhaseProposal,
         EpicOutcome => SpecDialogTurnKind.EpicProposal,
         AnswerOutcome => SpecDialogTurnKind.Answer,
         _ => throw new ArgumentOutOfRangeException(

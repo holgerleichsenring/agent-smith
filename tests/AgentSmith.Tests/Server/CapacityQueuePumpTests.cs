@@ -253,7 +253,7 @@ public sealed class CapacityQueuePumpTests : IDisposable
     }
 
     // The ORDER is load-bearing. Removing the entry first and then failing to finalize
-    // reproduces exactly the state this phase exists to fix — entry gone, row queued, nothing
+    // reproduces exactly the state this spec exists to fix — entry gone, row queued, nothing
     // left to retry. Finalizing first leaves the head in place for the next tick.
     [Fact]
     public async Task QueueDrop_AFinalizeThatThrows_LeavesTheEntryForTheNextTick()

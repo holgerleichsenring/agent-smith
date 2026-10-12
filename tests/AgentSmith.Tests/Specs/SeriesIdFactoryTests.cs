@@ -19,7 +19,7 @@ public sealed class SeriesIdFactoryTests
         var minted = new SeriesIdFactory(clock).Mint();
 
         minted.Should().MatchRegex("^2026-10-07-[0-9a-f]{4}$", "the date is UTC, not the local one");
-        PhaseIdSchemaTests.SpecPattern().IsMatch(SeriesIdFactory.Member(minted, 0)).Should().BeTrue(
+        SpecIdSchemaTests.SpecPattern().IsMatch(SeriesIdFactory.Member(minted, 0)).Should().BeTrue(
             "a member id is validated against the spec schema");
     }
 }

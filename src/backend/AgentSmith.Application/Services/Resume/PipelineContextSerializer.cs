@@ -31,7 +31,7 @@ public sealed class PipelineContextSerializer(
         ContextKeys.SandboxRepos, ContextKeys.SandboxDiscoveries, ContextKeys.SandboxContexts,
         ContextKeys.Repository, ContextKeys.ProjectConfig, ContextKeys.ResolvedPipeline,
         ContextKeys.CatalogResolution, ContextKeys.ConceptVocabulary, ContextKeys.ConfigDir,
-        ContextKeys.SpecDialogReplySlot, ContextKeys.ActivePhaseStep, ContextKeys.SpecDialogDesignSources,
+        ContextKeys.SpecDialogReplySlot, ContextKeys.ActiveStep, ContextKeys.SpecDialogDesignSources,
         ContextKeys.SpecDialogProject,
         ContextKeys.RemainingCommands, ContextKeys.PipelineExecutionCount,
         ContextKeys.WaitingForInput, ContextKeys.OpenQuestionsAwaitingAnswer,

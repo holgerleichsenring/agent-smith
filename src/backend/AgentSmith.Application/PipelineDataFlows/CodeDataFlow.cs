@@ -7,11 +7,11 @@ namespace AgentSmith.Application.PipelineDataFlows;
 /// fix-no-test, add-feature and phase-execution flows, which carried the same
 /// wildcard baseline plus the same two documentary verify-phase edges.
 /// </summary>
-public sealed class CodeDataFlow : PermissivePhaseDataFlow
+public sealed class CodeDataFlow : PermissiveStepDataFlow
 {
     public override string PresetName => Contracts.Commands.PipelinePresets.CodeName;
 
-    public override IReadOnlyList<PhaseDataFlowEdge> Edges { get; } =
+    public override IReadOnlyList<StepDataFlowEdge> Edges { get; } =
     [
         Wildcard,
         // p0129a: explicit verify-phase edges. Wildcard above still matches first; these

@@ -9,7 +9,7 @@ namespace AgentSmith.Tests.Server;
 /// 2026-08-25-7f5a: the run detail shows the account the GATE decided on.
 /// <para>
 /// The snapshot was built only from a negotiated expectation and the master's own
-/// dispositions, while the gate has refused runs on the phase spec's criteria since p0393a.
+/// dispositions, while the gate has refused runs on the spec's criteria since p0393a.
 /// A live run showed both at once: the failure named three ratified criteria and the card
 /// said "No ratified acceptance contract on this run yet". Nothing was missing from the run —
 /// the page was reading the wrong one of two judges.
@@ -37,7 +37,7 @@ public sealed class DeliveryAccountOnTheRunDetailTests
     }
 
     /// <summary>
-    /// The run this phase exists for: criteria, a verdict, and no negotiated expectation
+    /// The run this spec exists for: criteria, a verdict, and no negotiated expectation
     /// anywhere. It used to snapshot nothing at all, so the handler published nothing and the
     /// page had an honest null to render as "no contract".
     /// </summary>

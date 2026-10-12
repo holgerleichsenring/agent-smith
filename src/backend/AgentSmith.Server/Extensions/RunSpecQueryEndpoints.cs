@@ -9,7 +9,7 @@ namespace AgentSmith.Server.Extensions;
 /// <para>
 /// The run's execution used to be readable only as a live stream, which is why a spec
 /// that had ended could not be opened: a document can be reopened, a stream cannot.
-/// 2026-10-06-03c7g: served at /specs with keys specs/specId; was /phases.
+/// 2026-10-06-03c7g: served at /specs with keys specs/specId; was /specs.
 /// </para>
 /// </summary>
 internal static class RunSpecQueryEndpoints

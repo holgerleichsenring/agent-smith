@@ -2,7 +2,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Events;
 using AgentSmith.Application.Services.Handlers;
-using AgentSmith.Application.Services.PhaseExecution;
+using AgentSmith.Application.Services.SpecExecution;
 using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.SpecDialog;
@@ -26,8 +26,8 @@ using Moq;
 namespace AgentSmith.Tests.Specs;
 
 /// <summary>
-/// 2026-10-08-f114: a set whose every phase ran — the branch carries both specs under done/, as a
-/// branch re-cut from a base that merged the series does — appends new phases for a comment or a
+/// 2026-10-08-f114: a set whose every spec ran — the branch carries both specs under done/, as a
+/// branch re-cut from a base that merged the series does — appends new specs for a comment or a
 /// Request changes, and keeps its executed head when the derivation fails.
 /// </summary>
 public sealed class DeriveSpecAppendTests
@@ -45,7 +45,7 @@ public sealed class DeriveSpecAppendTests
         """;
 
     [Fact]
-    public async Task Derive_FullyExecutedSetWithComment_AppendsPhaseAfterHead()
+    public async Task Derive_FullyExecutedSetWithComment_AppendsSpecAfterHead()
     {
         var deriver = new CapturingDeriver(Appended());
         var published = new CapturingPublisher();
@@ -93,14 +93,14 @@ public sealed class DeriveSpecAppendTests
         var gitOps = new SandboxGitOperations(
             new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, factory.Object,
             new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance));
-        var draftReader = new PhaseDraftReader();
+        var draftReader = new SpecDraftReader();
         var reader = AgentSmith.Tests.TestSupport.SeriesDoubles.Reader(factory.Object, gitOps);
         // The last commit on the spec path is the marker's; the pointer names what the caller says.
         var pointers = new InMemorySpecSetPointerStore();
         if (pointerSha is not null)
             pointers.SaveAsync(string.Empty, new SpecSetPointer(Key, "primary", pointerSha, 1), default)
                 .GetAwaiter().GetResult();
-        var validator = new SpecDraftValidator(new PhaseSpecSchemaProvider());
+        var validator = new SpecDraftValidator(new SpecSchemaProvider());
         var tickets = new Mock<ITicketProviderFactory>();
         return new DeriveSpecHandler(
             deriver, SeriesDoubles.BranchRead(reader), publisher, pointers,
@@ -110,10 +110,10 @@ public sealed class DeriveSpecAppendTests
                 new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance),
                 new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
                 NullLogger<SpecSourceResolver>.Instance),
-            new SpecFallback(validator, draftReader, new DerivedPhaseYamlRenderer()),
+            new SpecFallback(validator, draftReader, new DerivedSpecYamlRenderer()),
             new SpecCoverageRefusal(
                 new SpecCutGate(new NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
-                new SpecFallback(validator, draftReader, new DerivedPhaseYamlRenderer())),
+                new SpecFallback(validator, draftReader, new DerivedSpecYamlRenderer())),
             new SpecSetTicketCommenter(tickets.Object, Moq.Mock.Of<AgentSmith.Contracts.Reviews.IFullSetPrNotice>(), NullLogger<SpecSetTicketCommenter>.Instance),
             ApprovedSetDoubles.KeptNotice(),
             new SpecCutGate(new NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
@@ -154,8 +154,8 @@ public sealed class DeriveSpecAppendTests
     {
         var files = new SeededFileReader();
         files.Seed($".agentsmith/series/{Series}.yaml", SetYaml(TicketTextFingerprint.Of(Ticket())));
-        files.Seed($".agentsmith/specs/done/{HeadId}-first.yaml", PhaseYaml(HeadId));
-        files.Seed($".agentsmith/specs/done/{TailId}-second.yaml", PhaseYaml(TailId));
+        files.Seed($".agentsmith/specs/done/{HeadId}-first.yaml", SpecYaml(HeadId));
+        files.Seed($".agentsmith/specs/done/{TailId}-second.yaml", SpecYaml(TailId));
         return files;
     }
 
@@ -176,7 +176,7 @@ public sealed class DeriveSpecAppendTests
         ticket_fingerprint: {fingerprint}
         """;
 
-    private static string PhaseYaml(string id) => $"""
+    private static string SpecYaml(string id) => $"""
         spec: {id}
         goal: "Goal {id}"
         done:
@@ -188,13 +188,13 @@ public sealed class DeriveSpecAppendTests
     {
         var segments = TicketSegmenter.Segment(TicketText);
         var carries = segments.Select(s => s.Id).ToList();
-        SpecPhase Phase(string id, string goal) => new(
+        SpecPhase Spec(string id, string goal) => new(
             new PhaseDraft(id, goal, $"spec: {id}\ngoal: \"{goal}\"", []) { Done = [$"Done {id}."] },
             id, string.Empty, carries);
-        var phases = new[] { Phase(HeadId, $"Goal {HeadId}"), Phase(TailId, $"Goal {TailId}"), Phase(NewId, "Rename as the review asks") };
+        var specs = new[] { Spec(HeadId, $"Goal {HeadId}"), Spec(TailId, $"Goal {TailId}"), Spec(NewId, "Rename as the review asks") };
         return new SpecDerivation(
             new SpecSet(
-                Key, phases, SpecAccountingBuilder.Build(phases, [], segments),
+                Key, specs, SpecAccountingBuilder.Build(specs, [], segments),
                 [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow)],
                 SpecSource.BranchArtifact, ExecutedPhaseIds: [HeadId, TailId], Series: Series),
             []);

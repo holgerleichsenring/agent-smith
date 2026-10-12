@@ -6,29 +6,29 @@ namespace AgentSmith.Tests.Architecture;
 /// <summary>
 /// p0437: a gate runs AFTER the thing it judges.
 /// <para>
-/// Measured live on ticket 19106: the master wrote its file, the phase verification read
+/// Measured live on ticket 19106: the master wrote its file, the spec verification read
 /// the branch, reported "this branch carries no source change", and called five satisfied
 /// criteria outstanding — and the work reached the branch afterwards, in the run-level
-/// CommitAndPR that runs once after ALL phases. Not a race: the gate simply stood before
-/// the delivery, every run, every phase.
+/// CommitAndPR that runs once after ALL specs. Not a race: the gate simply stood before
+/// the delivery, every run, every spec.
 /// </para>
 /// <para>
 /// The operator named the consequence, and it is why this is a rule rather than a fix:
 /// with the gate before the delivery, work that has been done can NEVER reach its goal.
-/// The next person to reorder this block will not have read the phase spec, so the order
+/// The next person to reorder this block will not have read the spec, so the order
 /// is asserted instead of documented.
 /// </para>
 /// </summary>
 public sealed class GateOrderRuleTests
 {
     private static readonly string[] CommittingSteps =
-        [CommandNames.CommitPhaseWork, CommandNames.CommitAndPR, CommandNames.InitCommit];
+        [CommandNames.CommitSpecWork, CommandNames.CommitAndPR, CommandNames.InitCommit];
 
     [Fact]
-    public void PhaseBlock_TheVerificationFollowsACommittingStep()
+    public void SpecBlock_TheVerificationFollowsACommittingStep()
     {
-        var block = PipelinePresets.CodePhaseBlock;
-        var verify = block.ToList().IndexOf(CommandNames.VerifyPhase);
+        var block = PipelinePresets.CodeSpecBlock;
+        var verify = block.ToList().IndexOf(CommandNames.VerifySpec);
 
         verify.Should().BeGreaterThan(-1, "the phase block is what splices per derived phase");
         var commitBefore = block.Take(verify).Any(CommittingSteps.Contains);
@@ -41,11 +41,11 @@ public sealed class GateOrderRuleTests
     }
 
     [Fact]
-    public void PhaseBlock_CommitsAfterTheMasterHasWorked()
+    public void SpecBlock_CommitsAfterTheMasterHasWorked()
     {
-        var block = PipelinePresets.CodePhaseBlock.ToList();
+        var block = PipelinePresets.CodeSpecBlock.ToList();
 
-        block.IndexOf(CommandNames.CommitPhaseWork).Should().BeGreaterThan(
+        block.IndexOf(CommandNames.CommitSpecWork).Should().BeGreaterThan(
             block.IndexOf(CommandNames.AgenticMaster),
             "committing before the master runs would put nothing on the branch");
     }
@@ -59,12 +59,12 @@ public sealed class GateOrderRuleTests
     {
         string[] asItWas =
         [
-            CommandNames.SelectPhase, CommandNames.AgenticMaster,
-            CommandNames.MasterOpenQuestions, CommandNames.VerifyPhase,
-            CommandNames.WritePhaseRecord,
+            CommandNames.SelectSpec, CommandNames.AgenticMaster,
+            CommandNames.MasterOpenQuestions, CommandNames.VerifySpec,
+            CommandNames.WriteSpecRecord,
         ];
 
-        var verify = asItWas.ToList().IndexOf(CommandNames.VerifyPhase);
+        var verify = asItWas.ToList().IndexOf(CommandNames.VerifySpec);
 
         asItWas.Take(verify).Any(CommittingSteps.Contains).Should().BeFalse(
             "the pre-p0437 order had no committing step before the gate — that is the defect");

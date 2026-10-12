@@ -6,7 +6,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Agent;
 /// 2026-09-08-805f: the per-pass counter behind the ledger-complete brake. A master whose
 /// checklist is complete owes its verdict; the idle stop cannot see a master that keeps
 /// calling read-only tools, and the money fence is the only other thing that ends such a
-/// pass — which turns a finished phase into a failed run. This counts the model's tool
+/// pass — which turns a finished spec into a failed run. This counts the model's tool
 /// turns while the ledger stays complete: after the allowance it asks for the verdict
 /// once, after the allowance again it ends the pass. A ledger that stops being complete
 /// (an item reopened) resets the count; the demand is made once per pass.

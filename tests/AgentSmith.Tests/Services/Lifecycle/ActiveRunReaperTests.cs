@@ -132,7 +132,7 @@ public sealed class ActiveRunReaperTests
     // moves. p0432's intent survives — a loop that has genuinely stopped still fails in seconds
     // — while a slow host merely takes longer.
     // 2026-08-30-f590 (continued): thirty seconds sat INSIDE the starvation window this
-    // phase measured — 35 to 39 second stretches on a two-core runner — so the budget still
+    // spec measured — 35 to 39 second stretches on a two-core runner — so the budget still
     // fired on a loop that was merely unscheduled. It is raised above the measured maximum.
     // This is not the total-time pendulum p0423b and p0432 swung: a genuinely stalled loop
     // still fails, it just takes two minutes of provable no-progress to say so.

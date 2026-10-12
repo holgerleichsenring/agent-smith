@@ -25,7 +25,7 @@ namespace AgentSmith.Application.Services.Scope;
 /// Null/empty preserves the keystone's anyCode semantics (fail-open).</param>
 /// <param name="Shape">p0413: the SHAPE of the work beside its size — a deterministic
 /// transformation, judgement, or mixed — with the one line that says why. It decides how
-/// the ticket is CUT (how many phases, how their steps are phrased), never whether a model
+/// the ticket is CUT (how many specs, how their steps are phrased), never whether a model
 /// is involved. Null when the model stated no shape, and the derivation is then told
 /// nothing: it cuts exactly as it did before.</param>
 public sealed record RepoScopeClassification(

@@ -36,7 +36,7 @@ public static class ProjectMetaPaths
     public const string MemoryIndexFile = "MEMORY.md";
     public const string MemoryIndex = Memory + "/" + MemoryIndexFile;
 
-    /// <summary>p0380: per-phase / per-run decision YAMLs (decision.schema.json).</summary>
+    /// <summary>p0380: per-spec / per-run decision YAMLs (decision.schema.json).</summary>
     public const string Decisions = Root + "/decisions";
 
     public const string ContextYamlFile = "context.yaml";

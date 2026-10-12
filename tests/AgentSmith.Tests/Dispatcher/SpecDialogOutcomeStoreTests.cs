@@ -59,10 +59,10 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
         var provider = new RecordingProvider();
         var sink = BuildSink(provider);
         var state = await OpenSessionAsync("th-1");
-        var phase = new PhaseOutcome(new PhaseDraft(
+        var spec = new SpecOutcome(new PhaseDraft(
             "p9999", "Widget endpoint", "spec: p9999\ngoal: \"Widget endpoint\"", []));
 
-        await sink.AcceptAsync(state, phase, false, CancellationToken.None);
+        await sink.AcceptAsync(state, spec, false, CancellationToken.None);
 
         provider.Created.Should().ContainSingle().Which.Title.Should().MatchRegex(@"^\d{4}-\d{2}-\d{2}-[0-9a-f]{4}a: Widget endpoint$");
         var session = await _repository.GetOpenByThreadAsync(Platform, "th-1", CancellationToken.None);
@@ -131,7 +131,7 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
     {
         var store = new SpecDialogOutcomeStore(_repository, NullLogger<SpecDialogOutcomeStore>.Instance);
         var act = () => store.SetConfirmedAsync(
-            Platform, "th-none", new PhaseOutcome(new PhaseDraft("p1", "g", "spec: p1", [])),
+            Platform, "th-none", new SpecOutcome(new PhaseDraft("p1", "g", "spec: p1", [])),
             CancellationToken.None);
 
         await act.Should().ThrowAsync<InvalidOperationException>()
@@ -152,7 +152,7 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
             },
         };
         var filer = new OutcomeTicketFiler(
-            config, factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
+            config, factory.Object, new SpecTicketRenderer(), new BugTicketRenderer(),
             new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
             TestSupport.ApprovedSetDoubles.SetFiler(),
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);

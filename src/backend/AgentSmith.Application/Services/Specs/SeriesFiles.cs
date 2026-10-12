@@ -22,14 +22,14 @@ public sealed class SeriesFiles(SeriesManifest manifest)
     public IReadOnlyList<SpecSetFile> Render(SpecSet set)
     {
         var files = new List<SpecSetFile>(1 + (set.Phases.Count * 2)) { Manifest(set) };
-        foreach (var phase in set.UnexecutedTail)
+        foreach (var spec in set.UnexecutedTail)
         {
             files.Add(new SpecSetFile(
-                SeriesPaths.Spec(SeriesPaths.Planned, phase.FileStem), phase.Draft.Yaml.TrimEnd() + "\n"));
+                SeriesPaths.Spec(SeriesPaths.Planned, spec.FileStem), spec.Draft.Yaml.TrimEnd() + "\n"));
             // 2026-10-08-e8b9f: an approved spec has no companion — no empty file stands in for one.
-            if (string.IsNullOrWhiteSpace(phase.Markdown)) continue;
+            if (string.IsNullOrWhiteSpace(spec.Markdown)) continue;
             files.Add(new SpecSetFile(
-                SeriesPaths.Companion(SeriesPaths.Planned, phase.FileStem), phase.Markdown));
+                SeriesPaths.Companion(SeriesPaths.Planned, spec.FileStem), spec.Markdown));
         }
         return files;
     }

@@ -9,7 +9,7 @@ namespace AgentSmith.Server.Models;
 /// A PLAIN payload and deliberately not an event record: the hub-event type generator
 /// scans records under the events namespace by base type and calls one without a matching
 /// TypeScript interface drift. This derives from neither base, so it is not scanned —
-/// and the check runs in CI rather than in the build the phase gate invokes, which is
+/// and the check runs in CI rather than in the build the spec gate invokes, which is
 /// what makes getting it wrong expensive.
 /// </para>
 /// <para>

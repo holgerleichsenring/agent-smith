@@ -5,11 +5,11 @@ using AgentSmith.Domain.Models;
 namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
-/// 2026-09-17-0e79c: what a run SAYS when a phase's stated premise no longer holds — the one
-/// verdict string the phase row carries, and the notice the ticket gets.
+/// 2026-09-17-0e79c: what a run SAYS when a spec's stated premise no longer holds — the one
+/// verdict string the spec row carries, and the notice the ticket gets.
 /// <para>
 /// The verdict is composed into a SINGLE string on purpose.
-/// <see cref="PhaseProgressRecorder"/> publishes <c>failingCommand ?? note</c>, so passing the
+/// <see cref="SpecProgressRecorder"/> publishes <c>failingCommand ?? note</c>, so passing the
 /// premise as one and the evidence as the other would drop the evidence silently. The premise,
 /// the finding, the minted line and WHAT WAS LOOKED AT travel together or not at all: the step
 /// from a look to a premise is a judgement, and a reader who cannot see the look cannot make it.
@@ -22,21 +22,21 @@ public static class PremiseHandback
     /// rule measures from.</summary>
     public const string Heading = "## Agent Smith — a phase rests on something that is no longer so";
 
-    /// <summary>What a notice for THIS phase carries, so the next run can tell it was already
+    /// <summary>What a notice for THIS spec carries, so the next run can tell it was already
     /// told and not say the same thing again.</summary>
-    public static string Marker(string phaseId) => $"agent-smith:premise-check:{phaseId}";
+    public static string Marker(string specId) => $"agent-smith:premise-check:{specId}";
 
-    /// <summary>The phase row's verdict: the premise, why it fails, what was looked at.</summary>
-    public static string Verdict(string phaseId, PremiseFinding finding)
+    /// <summary>The spec row's verdict: the premise, why it fails, what was looked at.</summary>
+    public static string Verdict(string specId, PremiseFinding finding)
     {
         ArgumentNullException.ThrowIfNull(finding);
-        return $"False premise in {phaseId}: \"{Clean(finding.Premise)}\" — "
+        return $"False premise in {specId}: \"{Clean(finding.Premise)}\" — "
             + $"{Clean(finding.Why)}{Proof(finding)}";
     }
 
     /// <summary>The ticket's copy: every false premise, what proved it, and where a correction
     /// is made. <paramref name="hasPullRequest"/> decides which of the two true wordings for
-    /// that last part is used — a first-phase hand-back has opened none.</summary>
+    /// that last part is used — a first-spec hand-back has opened none.</summary>
     public static string Notice(
         PhaseDraft draft, IReadOnlyList<PremiseFinding> findings, bool hasPullRequest)
     {

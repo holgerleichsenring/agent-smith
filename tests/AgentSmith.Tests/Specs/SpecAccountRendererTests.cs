@@ -7,7 +7,7 @@ namespace AgentSmith.Tests.Specs;
 /// <summary>
 /// p0420: the account IS the reviewer's text. Not a confidence score and not a hedge —
 /// the claim, itemised, each satisfied criterion pointing at the file that satisfies it,
-/// so refuting a line costs opening one file instead of re-deriving the phase.
+/// so refuting a line costs opening one file instead of re-deriving the spec.
 /// </summary>
 public sealed class SpecAccountRendererTests
 {

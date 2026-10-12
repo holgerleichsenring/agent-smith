@@ -5,7 +5,7 @@ using FluentAssertions;
 namespace AgentSmith.Tests.Specs;
 
 /// <summary>
-/// p0494: a run's third phase was refused on "final restore, build, and existing test
+/// p0494: a run's third spec was refused on "final restore, build, and existing test
 /// commands exit successfully for both affected repositories" over a command it had cited
 /// PERFECTLY — the citation was rebuilt offline from the recorded command and came out byte
 /// identical, 186 characters, elision marker included.
@@ -67,7 +67,7 @@ public sealed class VerbatimCitationTests
         Resolve(ShownCommand() + "'", line).IsSatisfied.Should().BeTrue();
     }
 
-    /// <summary>The guarantee p0481 bought and this phase does not spend: two commands of one
+    /// <summary>The guarantee p0481 bought and this spec does not spend: two commands of one
     /// family share their head, so a head names neither of them in particular.</summary>
     [Fact]
     public void Citation_ShortenedCommandCitedByItsHeadOnly_StillRefused()

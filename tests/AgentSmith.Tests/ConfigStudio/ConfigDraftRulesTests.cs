@@ -106,7 +106,7 @@ public sealed class ConfigDraftRulesTests
     {
         // The descriptor declares the field OPTIONAL on purpose: Required is enforced by
         // ValidateTracker on every upsert and surfaced as a BLOCKING draft finding, so
-        // requiring it would make every tracker configured before this phase unsaveable.
+        // requiring it would make every tracker configured before this spec unsaveable.
         var draft = new TrackerEntity(
             Id: "gh", Type: "github", AuthSecret: "GITHUB_TOKEN", Url: "https://github.com/x/y");
 

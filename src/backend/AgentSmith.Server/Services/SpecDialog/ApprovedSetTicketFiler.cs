@@ -12,14 +12,14 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Server.Services.SpecDialog;
 
 /// <summary>
-/// 2026-09-22-b3d7: THE ONE SHAPE A FILED SPECIFICATION TAKES, for a lone phase and for an
+/// 2026-09-22-b3d7: THE ONE SHAPE A FILED SPECIFICATION TAKES, for a lone spec and for an
 /// approved cut alike. Create one ticket from a rendered body, store the approved set under its
 /// spec key, start it — three acts that used to live in two classes, differing only in the body,
 /// the filing ROLE and the length of the set. Two classes for that were two places for the next
 /// change to land in one of, and the store-failure message only ever reached one of them.
 /// <para>
 /// The ROLE stays a parameter, decided by the call site: an installation may map <c>work</c> and
-/// <c>phase</c> to different native work-item types, and nothing about the content can tell the
+/// <c>spec</c> to different native work-item types, and nothing about the content can tell the
 /// two apart — the labels are identical.
 /// </para>
 /// <para>
@@ -28,7 +28,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// description anyone with tracker access can edit.
 /// <para>
 /// 2026-09-22-766b: and it is the ONLY label a filing writes. The separate phase word that used
-/// to travel beside it asserted the same fact a second time — a filed ticket is phase execution
+/// to travel beside it asserted the same fact a second time — a filed ticket is spec execution
 /// BECAUSE somebody approved a specification for it — so the stamp now carries the routing bind
 /// as well and the word is gone from both ends.
 /// </para>
@@ -36,7 +36,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// <para>
 /// 2026-09-17-042eg: it is started LAST, after the set is stored. A ticket moved into a trigger
 /// status before its set exists can be claimed by the poller, and the run would then derive its
-/// own spec — the one outcome this set of phases exists to prevent.
+/// own spec — the one outcome this set of specs exists to prevent.
 /// </para>
 /// <para>
 /// 2026-09-22-b6ad: and the set is WRITTEN TO THE TICKET BRANCH in the gap between the two, for
@@ -45,19 +45,19 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// </para>
 /// </summary>
 public sealed class ApprovedSetTicketFiler(
-    ApprovedPhaseSetRecorder approvals,
+    ApprovedSpecSetRecorder approvals,
     FiledSpecBranchWrite branches,
     FiledWorkStarter starter,
     TicketKindResolver kinds,
     ILogger<ApprovedSetTicketFiler> logger)
 {
     /// <param name="render">The body, given the note that explains the labels it is filed with.</param>
-    /// <param name="series">The series' base id and its approved phases, re-id'd, in run order.</param>
+    /// <param name="series">The series' base id and its approved specs, re-id'd, in run order.</param>
     /// <param name="goal">2026-10-06-03c7f: the series' goal — an epic's parent goal, a lone spec's own.</param>
     /// <param name="notes">What a step that failed AFTER the ticket existed left behind.</param>
     public async Task FileAsync(
         ITicketProvider provider, ConversationState state, ResolvedProject project,
-        TicketFilingRole role, Func<string, PhaseTicketContent> render,
+        TicketFilingRole role, Func<string, SpecTicketContent> render,
         FiledSeries series, string goal, List<FiledTicket> filed, List<string> notes,
         bool mayStartRuns, CancellationToken ct)
     {
@@ -79,7 +79,7 @@ public sealed class ApprovedSetTicketFiler(
     }
 
     /// <summary>
-    /// The store failure names the ticket, for a phase as well as for a cut. Until the set is
+    /// The store failure names the ticket, for a spec as well as for a cut. Until the set is
     /// stored the created ticket carries the approved-set stamp and no stored specification, which
     /// is the broken hand-off FiledTicketSpecGate fails loudly on — the same hazard either way, and only
     /// the cut's path used to say so. Asking again files a SECOND ticket with a second stored set,

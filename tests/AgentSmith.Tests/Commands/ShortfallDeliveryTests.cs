@@ -33,7 +33,7 @@ public sealed class ShortfallDeliveryTests
         NullLogger<ShortfallDelivery>.Instance);
 
     [Fact]
-    public async Task Prepare_NoVerifiedPhase_IsNull()
+    public async Task Prepare_NoVerifiedSpec_IsNull()
     {
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.FailureReason, "budget");
@@ -44,7 +44,7 @@ public sealed class ShortfallDeliveryTests
     }
 
     [Fact]
-    public async Task Prepare_AVerifiedPhaseWithItsHeadRecorded_IsTheShortfall()
+    public async Task Prepare_AVerifiedSpecWithItsHeadRecorded_IsTheShortfall()
     {
         var pipeline = Pipeline(withHead: true);
 

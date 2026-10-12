@@ -46,10 +46,10 @@ public sealed class DeliveredFindingRefutationTests
     }
 
     /// <summary>
-    /// The one thing this phase must not do. The source resolver claims essentially every
+    /// The one thing this spec must not do. The source resolver claims essentially every
     /// AnalyzedFromSource finding with a file and a line, so the moment master findings
     /// enter the checked set, every one whose path the reader cannot open would be dropped
-    /// as an invention — the opposite of the phase's purpose.
+    /// as an invention — the opposite of the spec's purpose.
     /// </summary>
     [Fact]
     public async Task Refuter_MasterFindingWhoseFileCannotBeRead_IsStillDelivered()

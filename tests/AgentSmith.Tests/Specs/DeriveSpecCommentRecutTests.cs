@@ -2,7 +2,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Events;
 using AgentSmith.Application.Services.Handlers;
-using AgentSmith.Application.Services.PhaseExecution;
+using AgentSmith.Application.Services.SpecExecution;
 using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.SpecDialog;
@@ -26,7 +26,7 @@ namespace AgentSmith.Tests.Specs;
 
 /// <summary>
 /// 2026-09-08-4aa9, run a109's other half through the real reader: the branch carries a
-/// set whose first phase executed and the ticket text is unchanged. An operator comment
+/// set whose first spec executed and the ticket text is unchanged. An operator comment
 /// after our derivation-time comment calls the deriver with the branch set and the
 /// comment cause; no comment continues the tail with no deriver call — and, the pointer
 /// at the marker's own commit, the cause is a re-trigger, not a reviewer edit.
@@ -34,7 +34,7 @@ namespace AgentSmith.Tests.Specs;
 public sealed class DeriveSpecCommentRecutTests
 {
     private const string Key = "azdo-19106";
-    // 2026-10-06-03c7c: the series the branch's set carries, and the members its phases are.
+    // 2026-10-06-03c7c: the series the branch's set carries, and the members its specs are.
     private const string Series = "2026-10-06-0a0a";
     private static readonly string HeadId = SeriesIdFactory.Member(Series, 0);
     private static readonly string TailId = SeriesIdFactory.Member(Series, 1);
@@ -47,7 +47,7 @@ public sealed class DeriveSpecCommentRecutTests
         """;
 
     [Fact]
-    public async Task DeriveSpec_ACommentAfterAnExecutedPhase_CallsTheDeriverWithTheSetAndTheCause()
+    public async Task DeriveSpec_ACommentAfterAnExecutedSpec_CallsTheDeriverWithTheSetAndTheCause()
     {
         var deriver = new CapturingDeriver(RecutTail());
         var published = new CapturingPublisher();
@@ -66,7 +66,7 @@ public sealed class DeriveSpecCommentRecutTests
     }
 
     [Fact]
-    public async Task DeriveSpec_NoCommentAfterAnExecutedPhase_ContinuesTheTailWithoutTheDeriver()
+    public async Task DeriveSpec_NoCommentAfterAnExecutedSpec_ContinuesTheTailWithoutTheDeriver()
     {
         var deriver = new CapturingDeriver(RecutTail());
         var published = new CapturingPublisher();
@@ -122,14 +122,14 @@ public sealed class DeriveSpecCommentRecutTests
         var gitOps = new SandboxGitOperations(
             new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, factory.Object,
             new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance));
-        var draftReader = new PhaseDraftReader();
+        var draftReader = new SpecDraftReader();
         var reader = AgentSmith.Tests.TestSupport.SeriesDoubles.Reader(factory.Object, gitOps);
         // The last commit on the spec path is the marker's; the pointer names what the caller says.
         var pointers = new InMemorySpecSetPointerStore();
         if (pointerSha is not null)
             pointers.SaveAsync(string.Empty, new SpecSetPointer(Key, "primary", pointerSha, 1), default)
                 .GetAwaiter().GetResult();
-        var validator = new SpecDraftValidator(new PhaseSpecSchemaProvider());
+        var validator = new SpecDraftValidator(new SpecSchemaProvider());
         var tickets = new Mock<ITicketProviderFactory>();
         return new DeriveSpecHandler(
             deriver, SeriesDoubles.BranchRead(reader), publisher, pointers,
@@ -139,10 +139,10 @@ public sealed class DeriveSpecCommentRecutTests
                 new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance),
                 new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
                 NullLogger<SpecSourceResolver>.Instance),
-            new SpecFallback(validator, draftReader, new DerivedPhaseYamlRenderer()),
+            new SpecFallback(validator, draftReader, new DerivedSpecYamlRenderer()),
             new SpecCoverageRefusal(
                 new SpecCutGate(new NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
-                new SpecFallback(validator, draftReader, new DerivedPhaseYamlRenderer())),
+                new SpecFallback(validator, draftReader, new DerivedSpecYamlRenderer())),
             new SpecSetTicketCommenter(tickets.Object, Moq.Mock.Of<AgentSmith.Contracts.Reviews.IFullSetPrNotice>(), NullLogger<SpecSetTicketCommenter>.Instance),
             ApprovedSetDoubles.KeptNotice(),
             new SpecCutGate(new NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
@@ -182,8 +182,8 @@ public sealed class DeriveSpecCommentRecutTests
     {
         var files = new SeededFileReader();
         files.Seed($".agentsmith/series/{Series}.yaml", SetYaml(TicketTextFingerprint.Of(Ticket())));
-        files.Seed($".agentsmith/specs/done/{HeadId}-first.yaml", PhaseYaml(HeadId));
-        files.Seed($".agentsmith/specs/planned/{TailId}-second.yaml", PhaseYaml(TailId));
+        files.Seed($".agentsmith/specs/done/{HeadId}-first.yaml", SpecYaml(HeadId));
+        files.Seed($".agentsmith/specs/planned/{TailId}-second.yaml", SpecYaml(TailId));
         return files;
     }
 
@@ -204,7 +204,7 @@ public sealed class DeriveSpecCommentRecutTests
         ticket_fingerprint: {fingerprint}
         """;
 
-    private static string PhaseYaml(string id) => $"""
+    private static string SpecYaml(string id) => $"""
         spec: {id}
         goal: "Goal {id}"
         done:
@@ -216,13 +216,13 @@ public sealed class DeriveSpecCommentRecutTests
     {
         var segments = TicketSegmenter.Segment(TicketText);
         var carries = segments.Select(s => s.Id).ToList();
-        SpecPhase Phase(string id, string goal) => new(
+        SpecPhase Spec(string id, string goal) => new(
             new PhaseDraft(id, goal, $"spec: {id}\ngoal: \"{goal}\"", []) { Done = [$"Done {id}."] },
             id, string.Empty, carries);
-        var phases = new[] { Phase(HeadId, $"Goal {HeadId}"), Phase(TailId, "Cut again with the comment in view") };
+        var specs = new[] { Spec(HeadId, $"Goal {HeadId}"), Spec(TailId, "Cut again with the comment in view") };
         return new SpecDerivation(
             new SpecSet(
-                Key, phases, SpecAccountingBuilder.Build(phases, [], segments),
+                Key, specs, SpecAccountingBuilder.Build(specs, [], segments),
                 [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow)],
                 SpecSource.BranchArtifact, ExecutedPhaseIds: [HeadId], Series: Series),
             []);

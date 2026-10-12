@@ -13,7 +13,7 @@ namespace AgentSmith.Tests.Server;
 
 /// <summary>
 /// 2026-10-02-5ab2d: a click on a clarification whose command is no longer pending — expired,
-/// flushed before this phase, or already taken — answers instead of falling silent. Confirm is
+/// flushed before this spec, or already taken — answers instead of falling silent. Confirm is
 /// told to send it again; Help shows help; Slack's buttons go either way.
 /// </summary>
 public sealed class ClarificationClickTests : IDisposable

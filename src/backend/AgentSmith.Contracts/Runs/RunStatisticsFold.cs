@@ -3,11 +3,11 @@ using AgentSmith.Contracts.Events;
 namespace AgentSmith.Contracts.Runs;
 
 /// <summary>
-/// p0423b: the ticket's statistics, folded out of the recorded trail — phases, their
+/// p0423b: the ticket's statistics, folded out of the recorded trail — specs, their
 /// durations, the calls inside them and their sizes.
 /// <para>
 /// Group first, fold second: the same <see cref="RunCallStatistics"/> that answers for a
-/// run answers for a phase when it is handed that phase's events. Nothing here is counted
+/// run answers for a spec when it is handed that spec's events. Nothing here is counted
 /// while the run happens, so nothing here can disagree with the run.
 /// </para>
 /// </summary>
@@ -19,46 +19,46 @@ public static class RunStatisticsFold
     public static RunStatisticsView Fold(
         IReadOnlyList<RunEvent> events, IReadOnlyList<RunStepFacts> steps, int maxPoints = MaxPoints)
     {
-        var phaseByStep = steps
+        var specByStep = steps
             .GroupBy(s => s.StepIndex)
-            .ToDictionary(g => g.Key, g => g.First().PhaseId);
-        string? PhaseOf(int? stepIndex) =>
-            stepIndex is { } i && phaseByStep.TryGetValue(i, out var phase) ? phase : null;
+            .ToDictionary(g => g.Key, g => g.First().SpecId);
+        string? SpecOf(int? stepIndex) =>
+            stepIndex is { } i && specByStep.TryGetValue(i, out var spec) ? spec : null;
 
-        var calls = RunWorkPoints.Calls(events, PhaseOf);
-        var commands = RunWorkPoints.Commands(events, PhaseOf);
+        var calls = RunWorkPoints.Calls(events, SpecOf);
+        var commands = RunWorkPoints.Commands(events, SpecOf);
         return new RunStatisticsView(
             RunCallStatistics.From(events),
             steps.Sum(s => s.DurationMs),
-            Phases(events, steps, PhaseOf),
+            Specs(events, steps, SpecOf),
             Tail(calls, maxPoints),
             Tail(commands, maxPoints),
             calls.Count > maxPoints || commands.Count > maxPoints,
             Breakdown(steps, commands));
     }
 
-    // The phases in the order the run ran them — a phase's place is the first step that
+    // The specs in the order the run ran them — a spec's place is the first step that
     // carries it, so the sequence is the run's own, not the alphabet's.
-    private static IReadOnlyList<RunPhaseStatistics> Phases(
-        IReadOnlyList<RunEvent> events, IReadOnlyList<RunStepFacts> steps, Func<int?, string?> phaseOf)
+    private static IReadOnlyList<RunSpecStatistics> Specs(
+        IReadOnlyList<RunEvent> events, IReadOnlyList<RunStepFacts> steps, Func<int?, string?> specOf)
     {
-        var byPhase = events.ToLookup(e => phaseOf(e.OriginStepIndex));
+        var bySpec = events.ToLookup(e => specOf(e.OriginStepIndex));
         return
         [
             .. steps
-                .GroupBy(s => s.PhaseId)
+                .GroupBy(s => s.SpecId)
                 .OrderBy(g => g.Min(s => s.StepIndex))
-                .Select(g => Compose(g.Key, [.. g], byPhase[g.Key]))
+                .Select(g => Compose(g.Key, [.. g], bySpec[g.Key]))
         ];
     }
 
-    private static RunPhaseStatistics Compose(
-        string? phaseId, IReadOnlyList<RunStepFacts> steps, IEnumerable<RunEvent> events)
+    private static RunSpecStatistics Compose(
+        string? specId, IReadOnlyList<RunStepFacts> steps, IEnumerable<RunEvent> events)
     {
         var own = events.ToList();
         var commands = own.OfType<SandboxResultEvent>().ToList();
-        return new RunPhaseStatistics(
-            phaseId,
+        return new RunSpecStatistics(
+            specId,
             steps.Count,
             steps.Sum(s => s.DurationMs),
             RunCallStatistics.From(own),

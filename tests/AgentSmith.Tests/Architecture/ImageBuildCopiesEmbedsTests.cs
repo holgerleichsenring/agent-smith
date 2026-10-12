@@ -12,7 +12,7 @@ namespace AgentSmith.Tests.Architecture;
 /// <c>.agentsmith/context.schema.json</c> to the project's embedded resources; the
 /// Dockerfiles still copied one named schema at that root, so the compiler asked for a
 /// file that was not in the build context and every image failed at publish with CS1566
-/// — while the checkout built green, the suite passed and the phase gate said yes,
+/// — while the checkout built green, the suite passed and the spec gate said yes,
 /// because on a checkout the file is simply there.
 /// </para>
 /// <para>

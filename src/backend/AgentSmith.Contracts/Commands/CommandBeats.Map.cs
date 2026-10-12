@@ -50,8 +50,8 @@ public static partial class CommandBeats
         // same beat as the plan, immediately before it.
             [CommandNames.DeriveSpec] = RunBeat.Plan,
             [CommandNames.SpecHandback] = RunBeat.Plan,
-            [CommandNames.PhaseSequence] = RunBeat.Plan,
-            [CommandNames.SelectPhase] = RunBeat.Plan,
+            [CommandNames.SpecSequence] = RunBeat.Plan,
+            [CommandNames.SelectSpec] = RunBeat.Plan,
             [CommandNames.EmptyPlanCheck] = RunBeat.Plan,
         // p0394a: GeneratePlan/PlanOpenQuestions are retired, but persisted run
         // records from earlier runs still carry these steps — they keep their
@@ -59,10 +59,10 @@ public static partial class CommandBeats
         ["GeneratePlanCommand"] = RunBeat.Plan,
         ["PlanOpenQuestionsCommand"] = RunBeat.Plan,
             [CommandNames.Approval] = RunBeat.Plan,
-            // 2026-09-17-0e79c: it runs between SelectPhase and the master, and decides whether
-            // the phase is built at all — Verify would light the rail's last beat before Building.
-            [CommandNames.CheckPhasePremises] = RunBeat.Plan,
-            [CommandNames.PhaseSpecGate] = RunBeat.Plan,
+            // 2026-09-17-0e79c: it runs between SelectSpec and the master, and decides whether
+            // the spec is built at all — Verify would light the rail's last beat before Building.
+            [CommandNames.CheckSpecPremises] = RunBeat.Plan,
+            [CommandNames.SpecGate] = RunBeat.Plan,
             [CommandNames.Ask] = RunBeat.Plan,
 
             // ---- building: the work itself ---------------------------------------
@@ -99,9 +99,9 @@ public static partial class CommandBeats
             [CommandNames.SubstantiateFindings] = RunBeat.Verify, // p0429
             [CommandNames.AccountScanCoverage] = RunBeat.Verify, // p0429
             [CommandNames.RunVerifyPhase] = RunBeat.Verify,
-            [CommandNames.CommitPhaseWork] = RunBeat.Verify, // p0437
-            [CommandNames.VerifyPhase] = RunBeat.Verify, // p0393
-            [CommandNames.ReviewPhaseDiff] = RunBeat.Verify, // 2026-09-17-042eh
+            [CommandNames.CommitSpecWork] = RunBeat.Verify, // p0437
+            [CommandNames.VerifySpec] = RunBeat.Verify, // p0393
+            [CommandNames.ReviewSpecDiff] = RunBeat.Verify, // 2026-09-17-042eh
             [CommandNames.ConvergenceCheck] = RunBeat.Verify,
             [CommandNames.CompileFindings] = RunBeat.Verify,
             [CommandNames.CollectMasterFindings] = RunBeat.Verify,

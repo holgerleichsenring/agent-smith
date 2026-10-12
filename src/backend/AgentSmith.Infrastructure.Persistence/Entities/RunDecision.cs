@@ -9,7 +9,7 @@ public sealed class RunDecision : EntityBase
     /// <summary>
     /// 2026-08-25-61f1: the trail position of the event that produced this row. The store
     /// holds at most one row per (RunId, EventSeq), so a decision projected twice is
-    /// recorded once. Null on rows written before this phase.
+    /// recorded once. Null on rows written before this spec.
     /// </summary>
     public long? EventSeq { get; set; }
 
@@ -32,8 +32,8 @@ public sealed class RunDecision : EntityBase
     public int? StepIndex { get; set; }
 
     /// <summary>
-    /// p0466: the derived phase the decision was taken in, from the producer's ambient
-    /// step frame. Null on pre-p0466 rows and outside any phase — unattributed, never
+    /// p0466: the derived spec the decision was taken in, from the producer's ambient
+    /// step frame. Null on pre-p0466 rows and outside any spec — unattributed, never
     /// derived from the step index it happens to share with one.
     /// </summary>
     public string? PhaseId { get; set; }

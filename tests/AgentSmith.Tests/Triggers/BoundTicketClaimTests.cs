@@ -14,7 +14,7 @@ namespace AgentSmith.Tests.Triggers;
 
 /// <summary>
 /// 2026-09-25-e5b1: the bind and the claim have to agree, and they agree on a NAME. ProjectResolver
-/// hard-binds a phase ticket to a pipeline before any label map is read, and ClaimPreChecker then
+/// hard-binds a spec ticket to a pipeline before any label map is read, and ClaimPreChecker then
 /// exempts that same pipeline from the label-triggered check — because the bind is the reason the
 /// name is in no label map. Moving the bind from `phase-execution` to `code` without moving the
 /// exemption would have left the two disagreeing: a resolved pipeline the claim refuses, on a

@@ -10,7 +10,7 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// acceptance criteria and the comments that are not ours — stripped of the framework's own note
 /// and CAPPED.
 /// <para>
-/// The cap is the phase's load-bearing number. A conversation re-sends its whole prompt every
+/// The cap is the spec's load-bearing number. A conversation re-sends its whole prompt every
 /// turn, on the one surface with neither a cost fence nor an iteration ceiling, so whatever is
 /// seeded is multiplied by the length of the conversation rather than paid once — the same
 /// reasoning that made the image ceiling four rather than ten. One live ticket thread ran to

@@ -34,7 +34,7 @@ internal static class OutcomeProposalJson
     private static Dto ToDto(OutcomeProposal proposal) => (proposal switch
     {
         BugOutcome bug => new Dto("bug", bug.Ticket, null, null, null),
-        PhaseOutcome phase => new Dto("phase", null, phase.Draft, null, null),
+        SpecOutcome spec => new Dto("phase", null, spec.Draft, null, null),
         EpicOutcome epic => new Dto("epic", null, null, epic.Parent, epic.Children),
         _ => throw new InvalidOperationException(
             $"Outcome kind '{proposal.GetType().Name}' cannot be stored on a session."),
@@ -43,7 +43,7 @@ internal static class OutcomeProposalJson
     private static OutcomeProposal FromDto(Dto dto) => (OutcomeProposal)(dto.Kind switch
     {
         "bug" => new BugOutcome(dto.Bug!),
-        "phase" or SpecDialogProposalComposer.AcceptedSpecKind => new PhaseOutcome(dto.Phase!),
+        "phase" or SpecDialogProposalComposer.AcceptedSpecKind => new SpecOutcome(dto.Phase!),
         "epic" => new EpicOutcome(dto.Parent!, dto.Children!),
         _ => throw new InvalidOperationException(
             $"Stored outcome JSON carries unknown kind '{dto.Kind}'."),

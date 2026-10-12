@@ -13,17 +13,17 @@ public sealed class DataFlowReadGateTests
 {
     private const string Pipeline = "test";
 
-    private static IPhaseDataFlow Flow(params PhaseDataFlowEdge[] edges)
+    private static IStepDataFlow Flow(params StepDataFlowEdge[] edges)
         => new TestFlow(Pipeline, edges);
 
-    private static DataFlowReadGate Build(IPhaseDataFlow flow, bool enforce)
+    private static DataFlowReadGate Build(IStepDataFlow flow, bool enforce)
         => new(
             new SingleFlowResolver(flow),
             Options.Create(new PipelineDataFlowConfig { Enforce = enforce }),
             NullLogger<DataFlowReadGate>.Instance);
 
     private static (DataFlowReadGate Gate, PipelineContext Context) Attach(
-        IPhaseDataFlow flow, bool enforce, string activeStep)
+        IStepDataFlow flow, bool enforce, string activeStep)
     {
         var gate = Build(flow, enforce);
         var context = new PipelineContext();
@@ -36,7 +36,7 @@ public sealed class DataFlowReadGateTests
     public void OnRead_DeclaredKey_DoesNotThrow()
     {
         var (_, context) = Attach(
-            Flow(new PhaseDataFlowEdge("Producer", "Consumer", new[] { "Plan" })),
+            Flow(new StepDataFlowEdge("Producer", "Consumer", new[] { "Plan" })),
             enforce: true, "Consumer");
         context.Set("Plan", "value");
 
@@ -49,7 +49,7 @@ public sealed class DataFlowReadGateTests
     public void OnRead_UndeclaredKey_EnforceTrue_Throws()
     {
         var (_, context) = Attach(
-            Flow(new PhaseDataFlowEdge("Producer", "Consumer", new[] { "Plan" })),
+            Flow(new StepDataFlowEdge("Producer", "Consumer", new[] { "Plan" })),
             enforce: true, "Consumer");
         context.Set("Diff", "value");
 
@@ -63,7 +63,7 @@ public sealed class DataFlowReadGateTests
     public void OnRead_UndeclaredKey_EnforceFalse_DoesNotThrow()
     {
         var (_, context) = Attach(
-            Flow(new PhaseDataFlowEdge("Producer", "Consumer", new[] { "Plan" })),
+            Flow(new StepDataFlowEdge("Producer", "Consumer", new[] { "Plan" })),
             enforce: false, "Consumer");
         context.Set("Diff", "value");
 
@@ -76,7 +76,7 @@ public sealed class DataFlowReadGateTests
     public void OnRead_WildcardFromStep_AllowsAnyProducer()
     {
         var (_, context) = Attach(
-            Flow(new PhaseDataFlowEdge("*", "Consumer", new[] { "Plan" })),
+            Flow(new StepDataFlowEdge("*", "Consumer", new[] { "Plan" })),
             enforce: true, "Consumer");
         context.Set("Plan", "value");
 
@@ -89,7 +89,7 @@ public sealed class DataFlowReadGateTests
     public void OnRead_WildcardToStep_AllowsAnyConsumer()
     {
         var (_, context) = Attach(
-            Flow(new PhaseDataFlowEdge("Producer", "*", new[] { "Plan" })),
+            Flow(new StepDataFlowEdge("Producer", "*", new[] { "Plan" })),
             enforce: true, "AnyStep");
         context.Set("Plan", "value");
 
@@ -102,7 +102,7 @@ public sealed class DataFlowReadGateTests
     public void OnRead_WildcardKey_AllowsAnyKey()
     {
         var (_, context) = Attach(
-            Flow(new PhaseDataFlowEdge("*", "*", new[] { "*" })),
+            Flow(new StepDataFlowEdge("*", "*", new[] { "*" })),
             enforce: true, "Anything");
         context.Set("AnyKeyAtAll", "value");
 
@@ -132,7 +132,7 @@ public sealed class DataFlowReadGateTests
         try { context.Get<string>("Diff"); } catch (DataFlowViolationException ex) { captured = ex; }
 
         captured.Should().NotBeNull();
-        captured!.ActivePhaseStep.Should().Be("Consumer");
+        captured!.ActiveStep.Should().Be("Consumer");
         captured.OffendingKey.Should().Be("Diff");
     }
 
@@ -150,19 +150,19 @@ public sealed class DataFlowReadGateTests
         handle.Should().BeNull();
     }
 
-    private sealed class TestFlow(string name, IReadOnlyList<PhaseDataFlowEdge> edges) : IPhaseDataFlow
+    private sealed class TestFlow(string name, IReadOnlyList<StepDataFlowEdge> edges) : IStepDataFlow
     {
         public string PresetName => name;
-        public IReadOnlyList<PhaseDataFlowEdge> Edges => edges;
+        public IReadOnlyList<StepDataFlowEdge> Edges => edges;
     }
 
-    private sealed class SingleFlowResolver(IPhaseDataFlow flow) : IPhaseDataFlowResolver
+    private sealed class SingleFlowResolver(IStepDataFlow flow) : IStepDataFlowResolver
     {
-        public IPhaseDataFlow? Resolve(string pipelineName) => flow;
+        public IStepDataFlow? Resolve(string pipelineName) => flow;
     }
 
-    private sealed class NullResolver : IPhaseDataFlowResolver
+    private sealed class NullResolver : IStepDataFlowResolver
     {
-        public IPhaseDataFlow? Resolve(string pipelineName) => null;
+        public IStepDataFlow? Resolve(string pipelineName) => null;
     }
 }

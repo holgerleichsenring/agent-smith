@@ -82,7 +82,7 @@ public sealed class ClaimPreCheckerTests
     [Fact]
     public void Check_TheCodePresetOnAProjectThatDeclaresSomethingElse_IsStillClaimable()
     {
-        // 2026-09-25-e5b1: ProjectResolver binds a phase-bound ticket to `code`, and a bound
+        // 2026-09-25-e5b1: ProjectResolver binds a spec-bound ticket to `code`, and a bound
         // ticket is in NOBODY's label map — so `code` is exempt from the label-triggered check,
         // exactly as its old name `phase-execution` was. Without this the bind would resolve a
         // pipeline the claim then refuses, and the ticket would sit there.

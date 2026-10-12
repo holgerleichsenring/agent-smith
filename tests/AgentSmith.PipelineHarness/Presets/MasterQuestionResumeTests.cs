@@ -92,7 +92,7 @@ public sealed class MasterQuestionResumeTests
             masterPrompt.Should().NotBeNull("the answer must re-engage the master that asked");
             string.Join("\n", masterPrompt!.Select(m => m.Text ?? string.Empty))
                 .Should().Contain(Answer, "the operator's answer must be in the resumed master's input");
-            StepNames(ctx, runId).Should().Contain(CommandNames.CommitPhaseWork,
+            StepNames(ctx, runId).Should().Contain(CommandNames.CommitSpecWork,
                 "the run must continue past the question step");
             tickets.Finalized.Count(f => f.Status == ParkStatus).Should().Be(1,
                 "the run must not re-post the same question on resume");

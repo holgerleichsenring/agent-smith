@@ -69,10 +69,10 @@ internal static class MasterPromptSections
                + index.Trim() + "\n";
     }
 
-    // p0394a: render the ratified phase spec into the master body as the plan of
+    // p0394a: render the ratified spec into the master body as the plan of
     // record — goal, steps and done criteria verbatim, so the master executes the
     // same artifact the ledger seeded from and the keystone verifies. Empty when
-    // the run carries no phase spec (scan / spec-dialog surfaces) — the skill
+    // the run carries no spec (scan / spec-dialog surfaces) — the skill
     // omits the section then.
     internal static string BuildPlanSection(PhaseDraft? draft)
     {

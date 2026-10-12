@@ -4,7 +4,7 @@ using FluentAssertions;
 
 namespace AgentSmith.Tests.Specs;
 
-/// <summary>p0439: the "Not delivered" section names every open phase and the one reason.</summary>
+/// <summary>p0439: the "Not delivered" section names every open spec and the one reason.</summary>
 public sealed class ShortfallSectionTests
 {
     [Fact]
@@ -14,7 +14,7 @@ public sealed class ShortfallSectionTests
     }
 
     [Fact]
-    public void Build_NamesEveryOpenPhaseInTheDerivationsWordsAndTheReason()
+    public void Build_NamesEveryOpenSpecInTheDerivationsWordsAndTheReason()
     {
         var shortfall = new RunShortfall(
             [new PhaseProgress("p0001a", "Introduce the guard", PhaseRunState.Done)],
@@ -35,10 +35,10 @@ public sealed class ShortfallSectionTests
     }
 
     [Fact]
-    public void Build_PhaseHandedBackOnAFalsePremise_IsNotDescribedAsNotStartedOrAsFailed()
+    public void Build_SpecHandedBackOnAFalsePremise_IsNotDescribedAsNotStartedOrAsFailed()
     {
         // 2026-09-17-0e79c: the standing is its own value, and this switch's default arm says
-        // "not started" — which of a phase the run stopped on would be plainly false.
+        // "not started" — which of a spec the run stopped on would be plainly false.
         var shortfall = new RunShortfall(
             [],
             [new PhaseProgress(

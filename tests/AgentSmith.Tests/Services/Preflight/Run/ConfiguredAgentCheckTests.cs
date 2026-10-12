@@ -8,7 +8,7 @@ namespace AgentSmith.Tests.Services.Preflight.Run;
 
 /// <summary>
 /// p0428: the empty-placeholder config (p0419's structural defect) is named before the
-/// run spends a phase diagnosing its consequences.
+/// run spends a spec diagnosing its consequences.
 /// </summary>
 public sealed class ConfiguredAgentCheckTests
 {

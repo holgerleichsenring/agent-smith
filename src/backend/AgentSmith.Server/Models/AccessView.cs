@@ -12,7 +12,7 @@ namespace AgentSmith.Server.Models;
 /// The stored mapping exactly as it is, which is what a save sends back. The panes are
 /// DERIVED — a custom role's bundle reaches them with the permissions the catalog does not
 /// know already dropped — so a surface that rebuilt the document from what it renders
-/// would quietly rewrite the very roles this phase promises to round-trip verbatim.
+/// would quietly rewrite the very roles this spec promises to round-trip verbatim.
 /// </param>
 /// <param name="NameClaimIsSelfAsserted">
 /// The name claim is not <c>sub</c>. Email and preferred-username are editable by their

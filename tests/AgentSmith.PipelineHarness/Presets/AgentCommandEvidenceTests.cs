@@ -5,11 +5,11 @@ using Microsoft.Extensions.DependencyInjection;
 namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
-/// p0469 through the REAL composition: a phase that completes normally hands the delivery
+/// p0469 through the REAL composition: a spec that completes normally hands the delivery
 /// account the commands the agent ran in it.
 /// <para>
 /// p0452 published them from the budget catch, the general catch and the mid-run-question
-/// park — never from the path a phase takes when it works. Every live run that finished
+/// park — never from the path a spec takes when it works. Every live run that finished
 /// therefore handed the reader only the verification stage's own build and test lines, and
 /// one was refused for an exhaustive scan the agent had run several times. A handler test
 /// can prove the publication; only the wired pipeline proves it still reaches the reader

@@ -2,13 +2,13 @@ namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
 /// p0393a: the derivation reply every code-preset harness run needs. DeriveSpec runs
-/// between AnalyzeCode and PhaseSpecGate and drains one FIFO slot, so every scripted
+/// between AnalyzeCode and SpecGate and drains one FIFO slot, so every scripted
 /// code run starts with this.
 /// </summary>
 internal static class SpecDerivationFixture
 {
     /// <summary>
-    /// One phase, everything carried. The segment ids are generous on purpose: ids the
+    /// One spec, everything carried. The segment ids are generous on purpose: ids the
     /// ticket does not have are dropped by the accounting builder, so this stays complete
     /// whatever the fixture ticket's shape is.
     /// </summary>
@@ -25,8 +25,8 @@ internal static class SpecDerivationFixture
          "handback": {"case": "none", "reason": ""}}
         """;
 
-    /// <summary>Two phases, so a test can watch the sequence run more than one block.</summary>
-    public const string TwoPhaseJson = """
+    /// <summary>Two specs, so a test can watch the sequence run more than one block.</summary>
+    public const string TwoSpecJson = """
         {"phases": [
            {"slug": "introduce-the-guard",
             "goal": "Introduce the empty-payload guard",

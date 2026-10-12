@@ -11,13 +11,13 @@ public static partial class ContextKeys
     public const string Plan = "Plan";
     public const string CodeChanges = "CodeChanges";
 
-    /// <summary>p0452: the commands the agent ran in this phase, as evidence for the
+    /// <summary>p0452: the commands the agent ran in this spec, as evidence for the
     /// delivery account. Until it could see them, three runs were refused for searches
     /// the agent had actually run.</summary>
-    public const string PhaseCommands = "PhaseCommands";
+    public const string SpecRunCommands = "PhaseCommands";
 
     /// <summary>p0341: the coding master's durable <c>ProgressLedger</c> — seeded
-    /// from the ratified phase spec's steps (p0394a), kept current via
+    /// from the ratified spec's steps (p0394a), kept current via
     /// update_progress, source-of-truth copy. Read by the nudge builders
     /// (re-drives resume the checklist) and by WriteRunResultHandler (the
     /// done-status honesty diagnostic).</summary>
@@ -29,7 +29,7 @@ public static partial class ContextKeys
     public const string MasterVerification = "MasterVerification";
 
     /// <summary>2026-09-06-3d81: every criterion the run's masters declined (a
-    /// <c>DeclinedCriteria</c>), kept per phase because the verdict above is overwritten by
+    /// <c>DeclinedCriteria</c>), kept per spec because the verdict above is overwritten by
     /// each pass. Recorded by AgenticMasterHandler, rendered wherever the outcome is read.</summary>
     public const string DeclinedCriteria = "DeclinedCriteria";
 

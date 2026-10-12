@@ -31,7 +31,7 @@ public sealed class DialogDraftReposTests
     {
         var reply = Lone("repos: [Server]  # the server only");
 
-        var draft = Phase(_resolver.Resolve(reply, Scope));
+        var draft = Spec(_resolver.Resolve(reply, Scope));
 
         draft.Repos.Should().Equal("Server");
         draft.Yaml.Should().Contain("# the server only", "a stated, valid field leaves the text as written");
@@ -57,13 +57,13 @@ public sealed class DialogDraftReposTests
     [Fact]
     public void OutcomeProposalResolver_LoneSpecNamingOneAsString_IsKept()
     {
-        Phase(_resolver.Resolve(Lone("repos: Server"), Scope)).Repos.Should().Equal("Server");
+        Spec(_resolver.Resolve(Lone("repos: Server"), Scope)).Repos.Should().Equal("Server");
     }
 
     [Fact]
     public void OutcomeProposalResolver_OneRepoScope_RewritesAStatedOther()
     {
-        var draft = Phase(_resolver.Resolve(Lone("repos:\n- Elsewhere"), ["Server"]));
+        var draft = Spec(_resolver.Resolve(Lone("repos:\n- Elsewhere"), ["Server"]));
 
         draft.Repos.Should().Equal("Server");
         draft.Yaml.Should().NotContain("Elsewhere");
@@ -111,17 +111,17 @@ public sealed class DialogDraftReposTests
     }
 
     [Fact]
-    public void PhaseDraftReposWriter_StatedBlock_IsReplacedAndTheRestKept()
+    public void SpecDraftReposWriter_StatedBlock_IsReplacedAndTheRestKept()
     {
-        var written = new PhaseDraftReposWriter().Write(
+        var written = new SpecDraftReposWriter().Write(
             "spec: p1\nrepos:\n  - Old\n  - Older\ngoal: g # kept\n", ["Server"]);
 
         written.Should().Be("spec: p1\ngoal: g # kept\nrepos:\n- Server\n");
     }
 
-    private static PhaseDraft Phase(OutcomeResolution resolution) =>
+    private static PhaseDraft Spec(OutcomeResolution resolution) =>
         resolution.Should().BeOfType<OutcomeResolved>()
-            .Which.Proposal.Should().BeOfType<PhaseOutcome>().Subject.Draft;
+            .Which.Proposal.Should().BeOfType<SpecOutcome>().Subject.Draft;
 
     private static string Lone(string repos) => $"""
         Draft:
@@ -152,8 +152,8 @@ public sealed class DialogDraftReposTests
 
     private static OutcomeProposalResolver Resolver()
     {
-        var validator = new SpecDraftValidator(new PhaseSpecSchemaProvider());
-        var reader = new PhaseDraftReader();
+        var validator = new SpecDraftValidator(new SpecSchemaProvider());
+        var reader = new SpecDraftReader();
         return new OutcomeProposalResolver(
             validator, reader, new BugOutcomeParser(),
             new EpicOutcomeParser(validator, reader, new RequiresEdgeChecker(), DialogTestRepos.Real()),

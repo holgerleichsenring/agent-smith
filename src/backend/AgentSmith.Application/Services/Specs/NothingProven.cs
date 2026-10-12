@@ -6,14 +6,14 @@ namespace AgentSmith.Application.Services.Specs;
 /// 2026-08-25-9749: the rail that keeps NOT APPLICABLE from becoming a silent pass.
 /// <para>
 /// An account that satisfied nothing is not a delivery, whatever it declined to judge, or
-/// the third disposition is simply a way to pass a phase having proven nothing. The rule
+/// the third disposition is simply a way to pass a spec having proven nothing. The rule
 /// has a trap of its own: refusing while the outstanding list is empty produces a failure
 /// with no criterion named and no repair possible, which is the shape the account was
 /// built to end. So the refusal NAMES what went unjudged, and the antecedent each row
 /// declared false — an operator reading it can overrule one line rather than the verdict.
 /// </para>
 /// <para>
-/// One type, read by the phase verdict and by the run gate alike. Two copies of this rule
+/// One type, read by the spec verdict and by the run gate alike. Two copies of this rule
 /// is two authors for one wrong verdict, which is the objection that made the run gate a
 /// single gate in the first place.
 /// </para>

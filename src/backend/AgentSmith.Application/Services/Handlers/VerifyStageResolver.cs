@@ -31,7 +31,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// /work. A command needing another directory carries its own cd.
 /// </para>
 /// <para>
-/// Extracted from VerifyPhaseHandler (p0504), which decides what the outcomes MEAN.
+/// Extracted from VerifySpecHandler (p0504), which decides what the outcomes MEAN.
 /// </para>
 /// </summary>
 public sealed class VerifyStageResolver(

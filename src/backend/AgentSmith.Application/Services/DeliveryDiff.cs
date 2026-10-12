@@ -21,7 +21,7 @@ namespace AgentSmith.Application.Services;
 /// confident answer to a question nobody asked.
 /// </para>
 /// <para>
-/// 2026-09-01-b467: and the chain knows where the RUN began, because the phase commits its
+/// 2026-09-01-b467: and the chain knows where the RUN began, because the spec commits its
 /// work before the gate reads it. On a branch that IS the base — a local repository with no
 /// remote, which is what the bundled demo produces — the base rungs see nothing and HEAD
 /// means uncommitted work only, so a correct delivery was invisible at every rung.

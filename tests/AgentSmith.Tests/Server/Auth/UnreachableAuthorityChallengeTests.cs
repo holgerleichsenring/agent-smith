@@ -11,7 +11,7 @@ namespace AgentSmith.Tests.Server.Auth;
 /// <para>
 /// ONE booted server per test class, which is not a stylistic preference: xUnit initialises
 /// a class's fixtures concurrently, and two boots racing over CONFIG_PATH give one of the
-/// two servers the other's authority. The reachable half of this phase's assertions is a
+/// two servers the other's authority. The reachable half of this spec's assertions is a
 /// separate class for that reason.
 /// </para>
 /// </summary>

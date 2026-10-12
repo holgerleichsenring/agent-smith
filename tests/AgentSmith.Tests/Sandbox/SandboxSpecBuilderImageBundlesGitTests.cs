@@ -74,7 +74,7 @@ public sealed class SandboxSpecBuilderImageBundlesGitTests
     {
         // 2026-08-25-014d: the catalog offers a language its convention image and
         // nothing else. A name-shaped answer to "does this image contain git" is
-        // exactly the guess this phase removed, so its return would be a regression.
+        // exactly the guess this spec removed, so its return would be a regression.
         typeof(ToolchainImageCatalog).GetMembers()
             .Select(m => m.Name)
             .Should().NotContain(n => n.Contains("Git", StringComparison.Ordinal),

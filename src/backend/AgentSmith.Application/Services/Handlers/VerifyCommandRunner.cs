@@ -9,7 +9,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// <summary>
 /// p0419: runs ONE declared verification command in a sandbox and reports what it said.
 /// <para>
-/// Split out of VerifyPhaseHandler, which decides WHICH commands to run and what their
+/// Split out of VerifySpecHandler, which decides WHICH commands to run and what their
 /// outcomes mean. Executing one is a different job, and it is the job that failed
 /// silently: run 354b reported two red builds whose reason was blank everywhere.
 /// </para>
@@ -47,7 +47,7 @@ public sealed class VerifyCommandRunner(ILogger<VerifyCommandRunner> logger)
         // p0425: a declared command is a command LINE, run through the same shell as the
         // agent's own run_command tool. Tokenising it into argv handed `&&` to MSBuild —
         // ticket 19192's verification declared two test projects and was failed by its own
-        // separator, after both phases of real work had succeeded. The verifier decides
+        // separator, after both specs of real work had succeeded. The verifier decides
         // whether work is delivered; it must not be the weaker executor.
         var step = new Step(
             Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,

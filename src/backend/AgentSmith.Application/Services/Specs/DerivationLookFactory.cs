@@ -9,7 +9,7 @@ namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
 /// 2026-09-07-b7e2: builds the derivation's tool host over every sandbox of the run —
-/// the map <see cref="PhaseAccounting"/> already hands the account's search, read from
+/// the map <see cref="SpecDeliveryAccounting"/> already hands the account's search, read from
 /// the pipeline the same way. Null when the run has no sandbox: a derivation over an
 /// inline ticket with nothing checked out writes from the ticket alone, as it did.
 /// </summary>
@@ -43,7 +43,7 @@ public sealed class DerivationLookFactory(
         OnTerms(pipeline, DerivationLookTerms.CutReview);
 
     /// <summary>
-    /// 2026-09-17-0e79c: the look a phase's stated premises are checked with, before its work
+    /// 2026-09-17-0e79c: the look a spec's stated premises are checked with, before its work
     /// starts. The run's repositories on the premise check's own terms and, for the cut
     /// review's reason, no template scope: a template says what work should FOLLOW, and a
     /// premise is what the spec ASSUMES about the target. Null when the run has no sandbox —

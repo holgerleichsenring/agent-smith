@@ -4,8 +4,8 @@ using AgentSmith.Contracts.Specs;
 namespace AgentSmith.Application.Services.Specs;
 
 /// <summary>
-/// 2026-09-17-0e79c: the question put to a fresh instance before a phase's work starts — not
-/// "is this a good phase", which the cut review already asked, but "do the things this phase
+/// 2026-09-17-0e79c: the question put to a fresh instance before a spec's work starts — not
+/// "is this a good spec", which the cut review already asked, but "do the things this spec
 /// SAYS IT RESTS ON still hold in the repositories as they stand".
 /// <para>
 /// The section describing the look is rendered here for this check's OWN look, or the tools
@@ -14,7 +14,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// of a look.
 /// </para>
 /// <para>
-/// The phases of this set that already ran are named too. Their work is committed in the very
+/// The specs of this set that already ran are named too. Their work is committed in the very
 /// sandbox the reader looks into, and a premise written against the state they LEAVE reads as
 /// broken to anyone who does not know they ran.
 /// </para>
@@ -28,7 +28,7 @@ public static class PremiseCheckPrompt
     public const string Unproven = "unproven";
 
     public static string For(
-        PhaseDraft draft, PhasePremises premises, DerivationLook look,
+        PhaseDraft draft, SpecPremises premises, DerivationLook look,
         IReadOnlyList<PhaseProgress> alreadyRan)
     {
         ArgumentNullException.ThrowIfNull(draft);
@@ -78,7 +78,7 @@ public static class PremiseCheckPrompt
             An empty array means every premise below still holds.
             {{DerivationLookPromptSection.Render(look)}}{{AlreadyRan(alreadyRan)}}
             THE PHASE
-            {{PhaseQuotableText.Render(draft)}}
+            {{SpecQuotableText.Render(draft)}}
 
             WHAT IT RESTS ON
             {{premises.Render()}}
@@ -87,7 +87,7 @@ public static class PremiseCheckPrompt
 
     /// <summary>
     /// The predecessors whose work is already in the repositories. A set is cut as a sequence and
-    /// each phase commits before the next is entered, so a later phase's premises are written
+    /// each spec commits before the next is entered, so a later spec's premises are written
     /// against the state the earlier ones leave — and a reader who is not told this reports every
     /// one of them as broken.
     /// </summary>

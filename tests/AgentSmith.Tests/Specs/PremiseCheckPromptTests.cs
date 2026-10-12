@@ -129,7 +129,7 @@ public sealed class PremiseCheckPromptTests
     }
 
     [Fact]
-    public async Task PremiseCheck_Prompt_NamesThePhasesOfThisSetThatAlreadyRan()
+    public async Task PremiseCheck_Prompt_NamesTheSpecsOfThisSetThatAlreadyRan()
     {
         // A set is a sequence: slice 2's premises are written against the state slice 1 leaves,
         // and slice 1's commits are in the very sandbox this reader looks into.
@@ -145,7 +145,7 @@ public sealed class PremiseCheckPromptTests
     }
 
     [Fact]
-    public async Task PremiseCheck_Prompt_FirstPhaseOfASet_NamesNoPredecessor()
+    public async Task PremiseCheck_Prompt_FirstSpecOfASet_NamesNoPredecessor()
     {
         var h = For(Draft(), "[]");
 
@@ -202,7 +202,7 @@ public sealed class PremiseCheckPromptTests
             .Should().BeNull("every verdict this check reaches needs a look that ran");
     }
 
-    /// <summary>A two-phase set whose FIRST phase is done, as the sequence leaves it.</summary>
+    /// <summary>A two-spec set whose FIRST spec is done, as the sequence leaves it.</summary>
     private static void SetWithAnExecutedPredecessor(
         Contracts.Commands.PipelineContext pipeline, Contracts.Models.PhaseDraft current)
     {

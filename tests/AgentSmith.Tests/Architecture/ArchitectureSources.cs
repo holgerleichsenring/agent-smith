@@ -14,12 +14,12 @@ internal static class ArchitectureSources
     /// <summary>
     /// 2026-09-22-3f7c: the test assemblies the gate and the pull request run un-filtered.
     /// The PipelineHarness is deliberately end-to-end and self-gates on a Docker daemon, so
-    /// the wall-clock rule does not judge it — that scoping is the phase's own decision.
+    /// the wall-clock rule does not judge it — that scoping is the spec's own decision.
     /// </summary>
     public static IReadOnlyList<string> GatedTestRoots { get; } =
         [TestSourceRoot, Resolve("tests", "AgentSmith.Sandbox.Agent.Tests")];
 
-    /// <summary>p0512: the methodology tree, for the rules that judge the phase record.</summary>
+    /// <summary>p0512: the methodology tree, for the rules that judge the spec record.</summary>
     public static string AgentSmithRoot { get; } = Resolve(".agentsmith");
 
     /// <summary>p0521: the checkout root, for the rules that judge what CLAUDE.md states.</summary>

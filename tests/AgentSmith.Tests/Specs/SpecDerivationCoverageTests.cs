@@ -113,13 +113,13 @@ public sealed class SpecDerivationCoverageTests
     /// <summary>2026-10-12-967aa: the skill template is filled with the token a later skill
     /// release names beside the one the pinned release names, so either release renders whole.</summary>
     [Fact]
-    public async Task Deriver_TheSkillTemplate_IsFilledWithMaxSpecsAndMaxPhases()
+    public async Task Deriver_TheSkillTemplate_IsFilledWithMaxSpecsAndMaxSpecs()
     {
         var prompts = new RecordingPrompt();
 
         await Derive(new ScriptedClient(Cut("frontend", "backend")), Named("frontend", "backend"), prompts);
 
-        var max = SpecSet.MaxPhases.ToString();
+        var max = SpecSet.MaxSpecs.ToString();
         prompts.Tokens.Should().Contain("MaxSpecs", max).And.Contain("MaxPhases", max);
     }
 

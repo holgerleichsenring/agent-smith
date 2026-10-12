@@ -166,8 +166,8 @@ public sealed class EventSequenceCompletenessTests
         public CallScope? CurrentCallScope => null;
         public IDisposable BeginScope(string id) => new NoOpScope();
         public int? CurrentStepIndex => null;
-        public string? CurrentPhaseId => null;
-        public IDisposable BeginStepScope(int stepIndex, string? phaseId = null) => new NoOpScope();
+        public string? CurrentSpecId => null;
+        public IDisposable BeginStepScope(int stepIndex, string? specId = null) => new NoOpScope();
         public IDisposable BeginCallScope(string role, string phase, string? repoName = null) => new NoOpScope();
         private sealed class NoOpScope : IDisposable { public void Dispose() { } }
     }

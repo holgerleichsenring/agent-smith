@@ -7,7 +7,7 @@ namespace AgentSmith.Infrastructure.Core.Services.Configuration;
 /// <see cref="ConfigNames.Comparer"/>. The raw map was passed straight through before, so
 /// the agents catalog was the one that stayed ordinal — and it is read from two places
 /// (the project builder resolving <c>agent:</c> and <c>pipelines[].agent</c>, and the
-/// composed config the CLI's <c>--agent</c> reads), which is exactly the split this phase
+/// composed config the CLI's <c>--agent</c> reads), which is exactly the split this spec
 /// removes: one copy is built and handed to both.
 /// <para>
 /// Built key by key rather than through the copy constructor: that constructor throws

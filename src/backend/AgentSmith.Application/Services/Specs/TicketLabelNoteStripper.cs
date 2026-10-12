@@ -9,7 +9,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// the ticket fetch — rather than at the readers, because the readers are more than anyone
 /// counts: the master prompt, the scope classifier, the derivation, its acceptance-criteria
 /// read, the epic-ground section and the CUT REVIEW, which takes the ticket text with no fence
-/// at all. Worse, the whole-ticket fallback pins the entire description AS the ratified phase
+/// at all. Worse, the whole-ticket fallback pins the entire description AS the ratified spec
 /// markdown, where a leak is not a prompt hazard but the specification. A per-reader stripper is
 /// a list that goes stale; the fetch handler is a door that cannot.
 /// <para>

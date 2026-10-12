@@ -7,8 +7,8 @@ namespace AgentSmith.Application.Services.Specs;
 /// <summary>
 /// 2026-09-08-4aa9: records the pointer for a commit this system made on the spec path.
 /// The pointer's sha is "the last revision this system wrote", and two writers make such
-/// commits — the publisher for a revision, the executed-phase marker for the record that
-/// a phase ran. Until the marker recorded too, every re-trigger after an executed phase
+/// commits — the publisher for a revision, the executed-spec marker for the record that
+/// a spec ran. Until the marker recorded too, every re-trigger after an executed spec
 /// read the marker's own commit as a reviewer's edit and derived nothing.
 /// <para>
 /// The hand-back state rides along unchanged: the hand-back step owns the counters,

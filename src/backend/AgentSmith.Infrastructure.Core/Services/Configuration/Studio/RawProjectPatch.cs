@@ -36,7 +36,7 @@ public static class RawProjectPatch
     }
 
     /// <summary>
-    /// 2026-09-22-6968: written only when the entity CARRIES a block — until this phase the
+    /// 2026-09-22-6968: written only when the entity CARRIES a block — until this spec the
     /// stored sandbox block survived a studio save by never being mentioned at all, and the
     /// moment the projection carries it a save becomes able to destroy it. Within a sent
     /// block each scalar is written AS GIVEN, null included: that is how the form clears an

@@ -6,7 +6,7 @@ namespace AgentSmith.Tests.Skills;
 /// <summary>
 /// 2026-09-20-b5af: the parser's own proof.
 /// <para>
-/// Until this phase the section had exactly one live positive case — the C# delta's two declared
+/// Until this spec the section had exactly one live positive case — the C# delta's two declared
 /// files — and every other case was covered only by "the packaged catalog happens to look like
 /// this". With no delta declaring a file, production takes the stated-empty path on every run and
 /// the positive path not at all, so the machinery that reads a declared entry is proven here or

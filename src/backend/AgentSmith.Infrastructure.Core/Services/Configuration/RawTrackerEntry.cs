@@ -64,7 +64,7 @@ public sealed class RawTrackerEntry
 
     /// <summary>
     /// 2026-09-18-b4f0 (YAML key <c>work_item_kinds</c>): role -> native work-item/issue
-    /// type for the tickets agent-smith files (work / record / bug / phase / chat). Unset
+    /// type for the tickets agent-smith files (work / record / bug / spec / chat). Unset
     /// roles create what the provider created before the key existed. Azure DevOps and Jira
     /// only.
     /// </summary>

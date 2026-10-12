@@ -32,7 +32,7 @@ public static partial class CommandNames
         };
 
     /// <summary>
-    /// Returns a migration hint if the given command name was retired in a past phase.
+    /// Returns a migration hint if the given command name was retired in a past spec.
     /// </summary>
     public static bool TryGetRetirementMessage(string commandName, out string message)
     {

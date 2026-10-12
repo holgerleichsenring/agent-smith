@@ -4,7 +4,7 @@ using FluentAssertions;
 
 namespace AgentSmith.Tests.Services;
 
-/// <summary>p0394a: the master's plan section renders the ratified phase spec —
+/// <summary>p0394a: the master's plan section renders the ratified spec —
 /// goal, steps and done criteria verbatim — so the master executes the same
 /// artifact the ledger seeded from and the keystone verifies; absent spec →
 /// empty section (scan / spec-dialog surfaces).</summary>

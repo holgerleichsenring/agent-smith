@@ -7,7 +7,7 @@ namespace AgentSmith.Contracts.Tickets;
 /// characters and nothing bounded what the framework filed, so a long goal failed the create.
 /// <para>
 /// A title is one line, so line breaks become spaces. A cut falls at whitespace only when that
-/// keeps most of the title — "p9000a:…" for a phase whose goal is one long url says nothing — and
+/// keeps most of the title — "p9000a:…" for a spec whose goal is one long url says nothing — and
 /// otherwise is a hard cut that never splits a surrogate pair. The ellipsis says it cut; the
 /// whole text belongs in the body.
 /// </para>

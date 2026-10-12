@@ -12,11 +12,11 @@ public static partial class CommandModelUse
             ModelUse.Call, "repo-scope classifier prompt", "the repos the ticket touches"),
         [CommandNames.AnalyzeCode] = new(
             ModelUse.Call, "project-analyzer-master", "a project map per repo"),
-        // p0433: the step that decides DELIVERY asks a model. Since p0420 the phase
-        // account is one call per phase, and p0421 made it the only thing that decides
+        // p0433: the step that decides DELIVERY asks a model. Since p0420 the spec
+        // account is one call per spec, and p0421 made it the only thing that decides
         // whether a run delivered — while this map still called the step deterministic and
         // the published diagram drew it as machinery.
-        [CommandNames.VerifyPhase] = new(
+        [CommandNames.VerifySpec] = new(
             ModelUse.Call, "spec-account prompt", "per ratified criterion: satisfied, with a citation"),
         // p0433: the PR step accounts too — TakeOrReuseAsync only reuses when the ledger
         // already holds an account, so on a run that reaches it first, this asks.
@@ -27,18 +27,18 @@ public static partial class CommandModelUse
         // token PLACEHOLDERS, never the token itself.
         [CommandNames.SetupRegistryAuth] = new(
             ModelUse.Call, "registry-auth staging prompt", "the auth files to write, with token placeholders"),
-        // p0460: entering a phase takes the delivery account FIRST, so a step that used to
+        // p0460: entering a spec takes the delivery account FIRST, so a step that used to
         // be pure bookkeeping asks a model on every branch that already carries work — and
-        // its answer decides whether the phase is worked at all.
-        [CommandNames.SelectPhase] = new(
+        // its answer decides whether the spec is worked at all.
+        [CommandNames.SelectSpec] = new(
             ModelUse.Call, "spec-account prompt", "per ratified criterion: satisfied, with a citation"),
-        // 2026-09-17-0e79c: one call per phase, on a look of its own, before the master runs.
-        [CommandNames.CheckPhasePremises] = new(
+        // 2026-09-17-0e79c: one call per spec, on a look of its own, before the master runs.
+        [CommandNames.CheckSpecPremises] = new(
             ModelUse.Call, "phase premise-check prompt",
             "per stated premise that no longer holds: the premise, the verdict and the evidence id"),
-        // 2026-09-17-042eh: a fresh instance reads the verified diff against the phase
+        // 2026-09-17-042eh: a fresh instance reads the verified diff against the spec
         // spec and the principles, with the read-only look of its own terms.
-        [CommandNames.ReviewPhaseDiff] = new(
+        [CommandNames.ReviewSpecDiff] = new(
             ModelUse.Call, "phase-review prompt", "findings on a file the reviewer read, cited"),
         [CommandNames.DeriveSpec] = new(
             ModelUse.Call, "spec-derivation-master", "an ordered set of phase specs, as anchors"),
@@ -72,9 +72,9 @@ public static partial class CommandModelUse
         CommandNames.LoadSkills, CommandNames.LoadSwagger, CommandNames.LoadCachedCodeMap,
         CommandNames.GroundSpecDialog,
         CommandNames.PublishProjectLanguage, CommandNames.SessionSetup,
-        CommandNames.SpecHandback, CommandNames.PhaseSpecGate, CommandNames.PhaseSequence,
-        CommandNames.MasterOpenQuestions, CommandNames.CommitPhaseWork,
-        CommandNames.WritePhaseRecord, CommandNames.BootstrapDispatch,
+        CommandNames.SpecHandback, CommandNames.SpecGate, CommandNames.SpecSequence,
+        CommandNames.MasterOpenQuestions, CommandNames.CommitSpecWork,
+        CommandNames.WriteSpecRecord, CommandNames.BootstrapDispatch,
         CommandNames.BootstrapRetire,
         CommandNames.StaticPatternScan, CommandNames.GitHistoryScan, CommandNames.DependencyAudit,
         CommandNames.SecurityTrend, CommandNames.SpawnNuclei, CommandNames.SpawnSpectral,

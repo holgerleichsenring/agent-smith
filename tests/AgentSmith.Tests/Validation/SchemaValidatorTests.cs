@@ -16,7 +16,7 @@ public sealed class SchemaValidatorTests
 {
     private static string Refusal(string yaml)
     {
-        var outcome = new SpecDraftValidator(new PhaseSpecSchemaProvider()).ValidateYaml(yaml);
+        var outcome = new SpecDraftValidator(new SpecSchemaProvider()).ValidateYaml(yaml);
         return outcome.Should().BeOfType<SpecDraftInvalid>().Subject.Error;
     }
 

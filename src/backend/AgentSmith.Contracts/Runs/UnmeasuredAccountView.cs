@@ -1,7 +1,7 @@
 namespace AgentSmith.Contracts.Runs;
 
 /// <summary>
-/// 2026-10-12-6bfad: an account of a phase that could not be taken at all — the build was
+/// 2026-10-12-6bfad: an account of a spec that could not be taken at all — the build was
 /// red, the delivery diff would not run, the accounting call failed — with why.
 /// <para>
 /// It judged no criterion, so it is never shown or counted as one. A build that did not
@@ -9,6 +9,6 @@ namespace AgentSmith.Contracts.Runs;
 /// </para>
 /// </summary>
 /// <param name="Repositories">The repository key the account was taken over — one key, or
-/// the comma-joined keys of every repository a phase-wide account spans.</param>
+/// the comma-joined keys of every repository a spec-wide account spans.</param>
 /// <param name="Reason">Why it could not be taken, verbatim.</param>
 public sealed record UnmeasuredAccountView(string Repositories, string? Reason);

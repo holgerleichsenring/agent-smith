@@ -25,7 +25,7 @@ public sealed class SpecDialogProposalReviewTests
     private const string Repo = "repo-a";
 
     [Fact]
-    public async Task Turn_PhaseProposal_IsReviewedAgainstTheTurnsRepositories()
+    public async Task Turn_SpecProposal_IsReviewedAgainstTheTurnsRepositories()
     {
         var reviewer = new RecordingReviewer(look =>
         {
@@ -33,7 +33,7 @@ public sealed class SpecDialogProposalReviewTests
             return new SpecCutReview(
                 [new CutFinding("p9999", string.Empty, SpecCutVerdicts.FalsePremise, "the endpoint is already there", Cites: id)]);
         });
-        var pipeline = Turn(new PhaseOutcome(Draft("p9999")));
+        var pipeline = Turn(new SpecOutcome(Draft("p9999")));
 
         await Review(reviewer).ReviewAsync(pipeline, new AgentConfig(), Tracker(pipeline), CancellationToken.None);
 
@@ -85,7 +85,7 @@ public sealed class SpecDialogProposalReviewTests
                 new CutFinding("p9999", "goal of p9999", SpecCutVerdicts.FalsePremise, "nor so", Cites: "P7"),
             ]);
         });
-        var pipeline = Turn(new PhaseOutcome(Draft("p9999")));
+        var pipeline = Turn(new SpecOutcome(Draft("p9999")));
 
         await Review(reviewer).ReviewAsync(pipeline, new AgentConfig(), Tracker(pipeline), CancellationToken.None);
 
@@ -103,7 +103,7 @@ public sealed class SpecDialogProposalReviewTests
         // The tracker the review is handed is the one the TURN spends from, proven by spending
         // on it: a reference passed and never used would charge the turn nothing.
         var reviewer = new RecordingReviewer(_ => SpecCutReview.Clean, spends: true);
-        var pipeline = Turn(new PhaseOutcome(Draft("p9999")));
+        var pipeline = Turn(new SpecOutcome(Draft("p9999")));
         var tracker = Tracker(pipeline);
 
         await Review(reviewer).ReviewAsync(pipeline, new AgentConfig(), tracker, CancellationToken.None);
@@ -121,20 +121,20 @@ public sealed class SpecDialogProposalReviewTests
     public async Task Flow_ReviewTimedOutOnAnUncancelledToken_DoesNotBlockTheProposal()
     {
         var reviewer = new RecordingReviewer(_ => throw new TaskCanceledException("A task was canceled."));
-        var pipeline = Turn(new PhaseOutcome(Draft("p9999")));
+        var pipeline = Turn(new SpecOutcome(Draft("p9999")));
 
         var review = async () => await Review(reviewer)
             .ReviewAsync(pipeline, new AgentConfig(), Tracker(pipeline), CancellationToken.None);
 
         await review.Should().NotThrowAsync("the run was never cancelled — only the model call gave up");
-        Outcome(pipeline).Should().BeOfType<PhaseOutcome>().Which.Findings.Should().BeEmpty();
+        Outcome(pipeline).Should().BeOfType<SpecOutcome>().Which.Findings.Should().BeEmpty();
     }
 
     [Fact]
     public async Task Flow_ReviewOnACancelledRun_Propagates()
     {
         var reviewer = new RecordingReviewer(_ => throw new OperationCanceledException());
-        var pipeline = Turn(new PhaseOutcome(Draft("p9999")));
+        var pipeline = Turn(new SpecOutcome(Draft("p9999")));
         using var cancelled = new CancellationTokenSource();
         await cancelled.CancelAsync();
 
@@ -158,7 +158,7 @@ public sealed class SpecDialogProposalReviewTests
             return new SpecCutReview(
                 [new CutFinding("p9999", "goal of p9999", SpecCutVerdicts.FalsePremise, "not so", Cites: "P1, P2")]);
         });
-        var pipeline = Turn(new PhaseOutcome(Draft("p9999")));
+        var pipeline = Turn(new SpecOutcome(Draft("p9999")));
 
         await Review(reviewer).ReviewAsync(pipeline, new AgentConfig(), Tracker(pipeline), CancellationToken.None);
 
@@ -170,13 +170,13 @@ public sealed class SpecDialogProposalReviewTests
     public async Task Flow_ReviewFailed_DoesNotBlockTheProposal()
     {
         var reviewer = new RecordingReviewer(_ => throw new InvalidOperationException("model unreachable"));
-        var pipeline = Turn(new PhaseOutcome(Draft("p9999")));
+        var pipeline = Turn(new SpecOutcome(Draft("p9999")));
 
         var review = async () => await Review(reviewer)
             .ReviewAsync(pipeline, new AgentConfig(), Tracker(pipeline), CancellationToken.None);
 
         await review.Should().NotThrowAsync("a review that could not be taken is not evidence of a fault");
-        Outcome(pipeline).Should().BeOfType<PhaseOutcome>().Which.Findings.Should().BeEmpty();
+        Outcome(pipeline).Should().BeOfType<SpecOutcome>().Which.Findings.Should().BeEmpty();
     }
 
     // 2026-10-02-3f06c: the evidence check and the model review are two halves of one review; the
@@ -186,7 +186,7 @@ public sealed class SpecDialogProposalReviewTests
     {
         var reviewer = new RecordingReviewer(_ => new SpecCutReview(
             [new CutFinding("p9999", "goal of p9999", "contradiction", "it forbids what it asks for")]));
-        var pipeline = Turn(new PhaseOutcome(CitingAMissingFile("p9999")), MissingTree());
+        var pipeline = Turn(new SpecOutcome(CitingAMissingFile("p9999")), MissingTree());
 
         await Review(reviewer).ReviewAsync(pipeline, new AgentConfig(), Tracker(pipeline), CancellationToken.None);
 
@@ -198,7 +198,7 @@ public sealed class SpecDialogProposalReviewTests
     public async Task SpecDialogProposalReview_ModelReviewFails_KeepsTheEvidenceFindings()
     {
         var reviewer = new RecordingReviewer(_ => throw new InvalidOperationException("model unreachable"));
-        var pipeline = Turn(new PhaseOutcome(CitingAMissingFile("p9999")), MissingTree());
+        var pipeline = Turn(new SpecOutcome(CitingAMissingFile("p9999")), MissingTree());
 
         await Review(reviewer).ReviewAsync(pipeline, new AgentConfig(), Tracker(pipeline), CancellationToken.None);
 
@@ -208,8 +208,8 @@ public sealed class SpecDialogProposalReviewTests
         finding.Evidence.Should().BeNull("it rests on the check's own read, not on a minted look");
     }
 
-    private static PhaseDraft CitingAMissingFile(string phaseId) =>
-        Draft(phaseId) with { Facts = [new PhaseFact("the handler exists", $"{Repo}/src/Gone.cs:12")] };
+    private static PhaseDraft CitingAMissingFile(string specId) =>
+        Draft(specId) with { Facts = [new PhaseFact("the handler exists", $"{Repo}/src/Gone.cs:12")] };
 
     private static ISandbox MissingTree() => new EvidenceTreeSandbox(new Dictionary<string, string>());
 
@@ -231,7 +231,7 @@ public sealed class SpecDialogProposalReviewTests
             ReadThrough(look!).GetAwaiter().GetResult();
             return SpecCutReview.Clean;
         });
-        var pipeline = Turn(new PhaseOutcome(Draft("p9999")));
+        var pipeline = Turn(new SpecOutcome(Draft("p9999")));
 
         await Review(reviewer, accessor)
             .ReviewAsync(pipeline, new AgentConfig(), Tracker(pipeline), CancellationToken.None);
@@ -248,8 +248,8 @@ public sealed class SpecDialogProposalReviewTests
                 CancellationToken.None)
             .AsTask();
 
-    private static PhaseDraft Draft(string phaseId) =>
-        new(phaseId, $"goal of {phaseId}", $"spec: {phaseId}", []);
+    private static PhaseDraft Draft(string specId) =>
+        new(specId, $"goal of {specId}", $"spec: {specId}", []);
 
     private static PipelineCostTracker Tracker(PipelineContext pipeline) =>
         PipelineCostTracker.GetOrCreate(pipeline);

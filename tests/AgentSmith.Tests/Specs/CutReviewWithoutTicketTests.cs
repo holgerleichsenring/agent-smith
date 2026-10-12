@@ -6,7 +6,7 @@ namespace AgentSmith.Tests.Specs;
 
 /// <summary>
 /// 2026-09-15-a5a5: the ticket has three states — whole, truncated, absent — decided by
-/// PRESENCE first, and a phase that states no criteria is shown with what it does state.
+/// PRESENCE first, and a spec that states no criteria is shown with what it does state.
 /// </summary>
 public sealed class CutReviewWithoutTicketTests
 {
@@ -55,7 +55,7 @@ public sealed class CutReviewWithoutTicketTests
     }
 
     [Fact]
-    public void Prompt_APhaseWithNoDoneList_RendersItsGoalAndStepActionsAsQuotable()
+    public void Prompt_ASpecWithNoDoneList_RendersItsGoalAndStepActionsAsQuotable()
     {
         var prompt = SpecCutReviewPrompt.For([DoneLess()], null, look: null);
 
@@ -65,7 +65,7 @@ public sealed class CutReviewWithoutTicketTests
     }
 
     [Fact]
-    public void Prompt_APhaseWithNoDoneList_RendersNoEmptyDoneHeading()
+    public void Prompt_ASpecWithNoDoneList_RendersNoEmptyDoneHeading()
     {
         var prompt = SpecCutReviewPrompt.For([DoneLess(), DoneLess() with { Steps = [] }], null, look: null);
 

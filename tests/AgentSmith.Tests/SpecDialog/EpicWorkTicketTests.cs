@@ -22,7 +22,7 @@ using AgentSmith.Contracts.Tickets;
 namespace AgentSmith.Tests.SpecDialog;
 
 /// <summary>
-/// 2026-09-17-0e79d: an approved cut is ONE piece of work. It files one phase-labelled WORK
+/// 2026-09-17-0e79d: an approved cut is ONE piece of work. It files one spec-labelled WORK
 /// ticket carrying the whole approved set under its own spec key.
 /// <para>
 /// 2026-09-22-b3d7: and ONE ticket is all it files. The slice records it used to file beside the
@@ -51,11 +51,11 @@ public sealed class EpicWorkTicketTests
 
     /// <summary>
     /// 2026-09-22-766b: the word is gone from the FILING, and it is still read — a person types
-    /// it. That is why this pin matters more rather than less: the word binds phase execution, so
+    /// it. That is why this pin matters more rather than less: the word binds spec execution, so
     /// a filing that wrote it would put a framework word on somebody else's board AND hand every
     /// filed ticket a second binding key. The stamp beside it already says the same thing — that
     /// somebody approved a specification for this ticket, which is exactly what "this ticket is
-    /// phase execution" means.
+    /// spec execution" means.
     /// </summary>
     [Fact]
     public async Task Filing_AFiledTicket_CarriesNoPhaseWord()
@@ -63,7 +63,7 @@ public sealed class EpicWorkTicketTests
         var provider = new RecordingProvider();
 
         await FileAsync(provider, Epic(Slice("p9000a"), Slice("p9000b")));
-        await FileRawAsync(provider, new PhaseOutcome(Slice("p9000c")));
+        await FileRawAsync(provider, new SpecOutcome(Slice("p9000c")));
 
         provider.Created.Should().HaveCount(2).And.OnlyContain(
             c => !c.Labels.Contains("phase", StringComparer.OrdinalIgnoreCase),
@@ -82,7 +82,7 @@ public sealed class EpicWorkTicketTests
         var provider = new RecordingProvider();
 
         await FileAsync(provider, Epic(Slice("p9000a"), Slice("p9000b")));
-        await FileRawAsync(provider, new PhaseOutcome(Slice("p9000c")));
+        await FileRawAsync(provider, new SpecOutcome(Slice("p9000c")));
 
         provider.Created.Should().HaveCount(2).And.OnlyContain(
             c => c.Labels.Count == 1 && c.Labels[0] == FiledTicketLabels.ApprovedSetStamp);
@@ -169,7 +169,7 @@ public sealed class EpicWorkTicketTests
 
         await FileAsync(provider, Epic(Slice("p9000a"), Slice("p9000b"), Slice("p9000c")));
 
-        provider.Created.SelectMany(c => c.Labels).Should().NotContain(PhaseTicketRenderer.EpicLabel);
+        provider.Created.SelectMany(c => c.Labels).Should().NotContain(SpecTicketRenderer.EpicLabel);
     }
 
     /// <summary>
@@ -230,7 +230,7 @@ public sealed class EpicWorkTicketTests
     /// <summary>
     /// The one ticket a run works from must say where its specification lives — the body is not
     /// the spec, the approved record is, and a reader of an epic's work ticket must not have to
-    /// know that an epic keeps it somewhere a filed phase does not.
+    /// know that an epic keeps it somewhere a filed spec does not.
     /// </summary>
     [Fact]
     public async Task EpicApproval_WorkTicketBody_PointsAtTheApprovedSpecification()
@@ -239,7 +239,7 @@ public sealed class EpicWorkTicketTests
 
         await FileAsync(provider, Epic(Slice("p9000a"), Slice("p9000b")));
 
-        provider.Created[0].Body.Should().Contain(PhaseTicketRenderer.SpecificationHeading)
+        provider.Created[0].Body.Should().Contain(SpecTicketRenderer.SpecificationHeading)
             .And.Contain(SeriesPaths.Planned, "the run publishes the set to the ticket branch under it")
             .And.Contain("job-1", "the pointer records the conversation the set was approved in");
     }
@@ -249,20 +249,20 @@ public sealed class EpicWorkTicketTests
     /// specification, so its own run stops at the spec gate. The operator is told which ticket
     /// that is instead of being handed a complete-looking filing.
     /// <para>
-    /// 2026-09-22-b3d7: FOR A PHASE AS WELL AS FOR A CUT. It is one hazard and one filing path,
+    /// 2026-09-22-b3d7: FOR A SPEC AS WELL AS FOR A CUT. It is one hazard and one filing path,
     /// and only the cut's path used to name the ticket.
     /// </para>
     /// </summary>
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public async Task Filing_AStoreThatFails_NamesTheTicketThatMustNotBeTriggered_ForAPhaseAsWellAsACut(
+    public async Task Filing_AStoreThatFails_NamesTheTicketThatMustNotBeTriggered_ForASpecAsWellAsACut(
         bool cut)
     {
         var provider = new RecordingProvider();
         OutcomeProposal proposal = cut
             ? Epic(Slice("p9000a"), Slice("p9000b"))
-            : new PhaseOutcome(Slice("p9000a"));
+            : new SpecOutcome(Slice("p9000a"));
 
         var report = await FileRawAsync(
             provider, proposal,
@@ -280,7 +280,7 @@ public sealed class EpicWorkTicketTests
     /// </summary>
     [Fact]
     public void ProjectResolver_AnEnvelopeCarryingTheRecordLabel_StillResolvesToNoProject() =>
-        Resolve([PhaseTicketRenderer.EpicLabel]).Should().BeEmpty(
+        Resolve([SpecTicketRenderer.EpicLabel]).Should().BeEmpty(
             "a record in a trigger status would otherwise be claimed like any ticket");
 
     [Fact]
@@ -301,7 +301,7 @@ public sealed class EpicWorkTicketTests
     [Fact]
     public void RecordLabel_KeepsItsValue_SoTheRecordsAlreadyFiledStayUnroutable()
     {
-        PhaseTicketRenderer.EpicLabel.Should().Be("phase-epic");
+        SpecTicketRenderer.EpicLabel.Should().Be("phase-epic");
         Resolve(["phase-epic"]).Should().BeEmpty();
     }
 
@@ -343,27 +343,27 @@ public sealed class EpicWorkTicketTests
 
     /// <summary>
     /// A bug is its own role: it is the one filing both trackers ship a dedicated native type
-    /// for, and this codebase already files it apart. A lone phase is a fourth role again — it
+    /// for, and this codebase already files it apart. A lone spec is a fourth role again — it
     /// carries the same labels as an epic's work ticket, so nothing but the call site can tell
     /// the two apart.
     /// </summary>
     [Fact]
-    public async Task Create_ABugFiling_SendsTheBugKind_AndALonePhaseFilingSendsTheSingleTicketKind()
+    public async Task Create_ABugFiling_SendsTheBugKind_AndALoneSpecFilingSendsTheSingleTicketKind()
     {
         var kinds = Kinds(("bug", "Bug"), ("phase", "User Story"), ("work", "Feature"));
         var bugs = new RecordingProvider();
-        var phases = new RecordingProvider();
+        var specs = new RecordingProvider();
 
         var bugReport = await FileRawAsync(
             bugs, new BugOutcome(new BugTicketDraft("The widget is lost", "It vanished.", null)),
             ApprovedSetDoubles.Store(), kinds);
-        var phaseReport = await FileRawAsync(
-            phases, new PhaseOutcome(Slice("p9000a")), ApprovedSetDoubles.Store(), kinds);
+        var specReport = await FileRawAsync(
+            specs, new SpecOutcome(Slice("p9000a")), ApprovedSetDoubles.Store(), kinds);
 
         bugReport.Error.Should().BeNull();
-        phaseReport.Error.Should().BeNull();
+        specReport.Error.Should().BeNull();
         bugs.Created.Should().ContainSingle().Which.Kind.Should().Be("Bug");
-        phases.Created.Should().ContainSingle().Which.Kind.Should().Be("User Story",
+        specs.Created.Should().ContainSingle().Which.Kind.Should().Be("User Story",
             "a lone phase is not an epic's work ticket, even though their labels are identical");
     }
 
@@ -402,17 +402,17 @@ public sealed class EpicWorkTicketTests
     };
 
     /// <summary>
-    /// 2026-09-17-0e79d: the single-phase path must not have moved with the cut's. One approved
-    /// phase is still one phase-labelled ticket and one stored set — which, since 2026-09-22-b3d7,
+    /// 2026-09-17-0e79d: the single-spec path must not have moved with the cut's. One approved
+    /// spec is still one spec-labelled ticket and one stored set — which, since 2026-09-22-b3d7,
     /// is exactly what a cut files too.
     /// </summary>
     [Fact]
-    public async Task PhaseApproval_SinglePhase_StillFilesOneTicket()
+    public async Task SpecApproval_SingleSpec_StillFilesOneTicket()
     {
         var provider = new RecordingProvider();
         var store = ApprovedSetDoubles.Store();
 
-        var report = await FileRawAsync(provider, new PhaseOutcome(Slice("p9000a")), store);
+        var report = await FileRawAsync(provider, new SpecOutcome(Slice("p9000a")), store);
 
         report.Error.Should().BeNull();
         provider.Created.Should().ContainSingle()
@@ -441,7 +441,7 @@ public sealed class EpicWorkTicketTests
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider);
         var filer = new OutcomeTicketFiler(
-            Config(kinds), factory.Object, new PhaseTicketRenderer(), new BugTicketRenderer(),
+            Config(kinds), factory.Object, new SpecTicketRenderer(), new BugTicketRenderer(),
             new EpicChildOrderer(), ApprovedSetDoubles.SeriesFiling(),
             ApprovedSetDoubles.SetFiler(store),
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);

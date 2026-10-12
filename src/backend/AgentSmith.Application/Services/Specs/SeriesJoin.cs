@@ -39,11 +39,11 @@ public sealed class SeriesJoin(SeriesNewestManifest newestManifest, SeriesJoinOr
         if (bases.Count > 1)
             return SeriesJoined.Unreadable($"the series' members name different bases: {string.Join(", ", bases)}");
         var current = members.Where(m => m.Stamp == newest.Stamp).ToList();
-        var (phases, executed, why) = order.Of(current);
+        var (specs, executed, why) = order.Of(current);
         if (why is not null) return SeriesJoined.Unreadable(why);
         return new SeriesJoined(Otherwise: null)
         {
-            Newest = newest, Phases = phases, Executed = executed,
+            Newest = newest, Specs = specs, Executed = executed,
             Shas = current.ToDictionary(m => m.Repo, m => m.Sha, StringComparer.Ordinal),
             Lagging = [.. members.Where(m => m.Stamp != newest.Stamp).Select(m => m.Repo)],
             OutOfStep = current.Count == members.Count ? null : order.ExecutedPrefix(members, current),

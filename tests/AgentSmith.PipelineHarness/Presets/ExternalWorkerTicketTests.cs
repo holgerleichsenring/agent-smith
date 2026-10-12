@@ -10,7 +10,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 
 /// <summary>
 /// p0416: the end-to-end scenario this system has been missing — a whole mechanical
-/// ticket driven by an EXTERNAL worker answering every model call. One phase, the change
+/// ticket driven by an EXTERNAL worker answering every model call. One spec, the change
 /// set applied at once, a green verification verdict, a pull request; no provider key,
 /// no token cost, repeatable as often as anyone likes.
 /// <para>

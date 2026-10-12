@@ -4,7 +4,7 @@ using AgentSmith.Skills;
 namespace AgentSmith.Infrastructure.Core.Services;
 
 /// <summary>
-/// Enforces the new SKILL.md format rules (p0127a, Phase C). Each violation
+/// Enforces the new SKILL.md format rules (p0127a, Spec C). Each violation
 /// throws <see cref="SkillFormatException"/> carrying the offending file path
 /// and a human-readable rule description.
 /// </summary>
