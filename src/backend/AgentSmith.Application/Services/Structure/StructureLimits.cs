@@ -8,20 +8,25 @@ namespace AgentSmith.Application.Services.Structure;
 /// standard and overrides it key by key, because it is read later. Only the closed metric keys
 /// count, and only as positive integers — the catalog's validator refuses anything else, so a
 /// stray value here sets no limit rather than an invented one.
+/// 2026-10-12-fbbda: 'tolerance_percent' is read beside the metrics, as an integer of 0 or more —
+/// a house fence overrides the delta's, 0 makes the context strict, and a fence that carries only
+/// a tolerance sets no limit.
 /// </summary>
 public sealed class StructureLimits
 {
     private const string DeltaHeading = "## Limits";
     private const string HouseHeading = "### Limits";
     private const string SpecificsHeading = "## Project Specifics";
+    private const string ToleranceKey = "tolerance_percent";
 
     public StructureLimitSet Read(string? principles)
     {
         if (string.IsNullOrEmpty(principles)) return StructureLimitSet.None;
         var merged = new Dictionary<string, int>(StringComparer.Ordinal);
+        var tolerance = 0;
         foreach (var fence in Fences(principles.Split('\n')))
-            Merge(merged, fence);
-        return new StructureLimitSet(merged);
+            tolerance = Merge(merged, fence) ?? tolerance;
+        return new StructureLimitSet(merged, tolerance);
     }
 
     private static IEnumerable<IReadOnlyList<string>> Fences(string[] lines)
@@ -51,14 +56,17 @@ public sealed class StructureLimits
         return i < lines.Length ? body : null;
     }
 
-    private static void Merge(Dictionary<string, int> merged, IReadOnlyList<string> fence)
+    // Merges the fence's metrics and returns the tolerance it declares, null when none.
+    private static int? Merge(Dictionary<string, int> merged, IReadOnlyList<string> fence)
     {
+        int? tolerance = null;
         foreach (var raw in fence)
         {
-            var line = raw.Split('#', 2)[0];
-            var parts = line.Split(':', 2, StringSplitOptions.TrimEntries);
-            if (parts.Length != 2 || !StructureMetric.All.Contains(parts[0])) continue;
-            if (int.TryParse(parts[1], out var value) && value > 0) merged[parts[0]] = value;
+            var parts = raw.Split('#', 2)[0].Split(':', 2, StringSplitOptions.TrimEntries);
+            if (parts.Length != 2 || !int.TryParse(parts[1], out var value)) continue;
+            if (parts[0] == ToleranceKey && value >= 0) tolerance = value;
+            else if (StructureMetric.All.Contains(parts[0]) && value > 0) merged[parts[0]] = value;
         }
+        return tolerance;
     }
 }

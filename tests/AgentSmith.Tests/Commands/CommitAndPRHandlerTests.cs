@@ -81,6 +81,7 @@ public class CommitAndPRHandlerTests
                     NullLogger<UnverifiedWorkReverter>.Instance),
                 NullLogger<ShortfallDelivery>.Instance),
             new CompletedRunTicketSummary(),
+            AgentSmith.Tests.Structure.StructureGateFixture.Publisher(),
             NullLogger<CommitAndPRHandler>.Instance);
     }
 

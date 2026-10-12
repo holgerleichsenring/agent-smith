@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-fbbda
+
+decisions:
+  - category: Architecture
+    chose: "StructureLimitSet carries Tolerance beside ByMetric; StructureLimits reads 'tolerance_percent' in the same fence pass, later fence wins"
+    over: "Treating tolerance_percent as one more metric key in ByMetric"
+    reason: |
+      A metric key makes a set non-empty and is kept only when positive; a tolerance of 0 is meaningful (a
+      house fence makes the context strict) and a tolerance alone must leave the set empty. Read in the same
+      pass, the house fence overrides the delta by the rule that already orders the metrics.
+  - category: Architecture
+    chose: "Severity is stamped by StructureJudge; the verdict keeps every finding and exposes Excess and Divergences; Passed reads Excess only"
+    over: "Filtering divergences out inside the judge or the gate files"
+    reason: |
+      One judgment feeds both consumers — the commit gate needs the excesses, the PR body the divergences — so
+      the PR-time path reuses StructureGate unchanged instead of a parallel walk over the same files.
+  - category: Implementation
+    chose: "The baseline tolerates excesses only; a divergence is kept whatever the baseline lists"
+    over: "Filtering divergences through the baseline like excesses"
+    reason: |
+      The spec lists a unit already inside the band at the base too. An older baseline (taken before the band)
+      may list a unit that is now a divergence; it is still named in the PR, never sent back.
+  - category: Implementation
+    chose: "Baseline refresh exposes a unit when it sat within the OLD band, not the old bare limit"
+    over: "Leaving Refresh comparing to the old limit"
+    reason: |
+      With a band, a unit between the old limit and the old band end was never an excess, so a lowered limit is
+      what exposes it; comparing to the bare limit would drop it from the refresh and fail it at the gate.
+  - category: Architecture
+    chose: "StructureDivergencePublisher judges the branch once in CommitAndPRHandler after staging, puts findings on ContextKeys.StructureDivergences; StructureDivergenceSection filters by the repository CodePullRequestBody is given"
+    over: "Judging inside each OpenOneAsync, or passing findings through the handler's call chain"
+    reason: |
+      CommitAndPRHandler is 430 lines against a 436 baseline; one call and one constructor parameter fit. The
+      sections already read the pipeline. A failed judgment logs and names nothing — it never stops a PR.
+  - category: Implementation
+    chose: "Finding.ToString and the gate's messages keep 'value > limit'; the correction prompt adds 'the limit itself, not the tolerance band'"
+    over: "Printing the band end in the gate message"
+    reason: |
+      The master is asked to reach the limit; showing the band end would invite aiming at it.
+  - category: Scope
+    chose: "This change is the backend half; the skills half shipped as agent-smith-skills v5.14.0 and its embedded pin bump rides with 2026-10-12-fbbdb"
+    over: "Bumping the pin here as well"
+    reason: |
+      fbbdb is implemented in parallel and bumps the same pin; two bumps of one line conflict. The backend
+      reads the key whether or not the pinned catalog states it — absent means strict.

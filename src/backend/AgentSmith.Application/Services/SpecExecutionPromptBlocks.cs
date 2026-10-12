@@ -69,16 +69,18 @@ public static class SpecExecutionPromptBlocks
     /// <summary>
     /// The units the commit gate found over the principles' Limits, for the master's one
     /// correction. Empty unless that correction is under way; while it is, it is the only
-    /// instruction the pass carries.
+    /// instruction the pass carries. 2026-10-12-fbbda: they are past the tolerance band, and the
+    /// master is asked to reach the limit itself, not the band's end.
     /// </summary>
     public static string StructureFindings(PipelineContext pipeline)
     {
         var findings = Findings(pipeline);
         if (findings.Count == 0) return string.Empty;
         return "\n**This is a STRUCTURE correction. These units exceed the Limits in the principles "
-            + "(path, unit, metric, value > limit):**\n"
+            + "past their tolerance band (path, unit, metric, value > limit):**\n"
             + string.Join("\n", findings.Select(f => "- " + f))
-            + "\nSplit each by responsibility until it is within its limit. Change nothing else.";
+            + "\nSplit each by responsibility until it is within its limit — the limit itself, not the "
+            + "tolerance band. Change nothing else.";
     }
 
     private static IReadOnlyList<string> Findings(PipelineContext pipeline) =>

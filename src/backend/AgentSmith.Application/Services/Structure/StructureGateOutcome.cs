@@ -41,10 +41,10 @@ public sealed class StructureGateOutcome(SpecReviewRevert reviewRevert, ISpecPro
     private static CommandResult Correction(PipelineContext pipeline, StructureGateVerdict verdict)
     {
         pipeline.Set(ContextKeys.StructureGateAttempted, true);
-        pipeline.Set(ContextKeys.StructureFindings, verdict.Findings.Select(f => f.ToString()).ToList());
+        pipeline.Set(ContextKeys.StructureFindings, verdict.Excess.Select(f => f.ToString()).ToList());
         var specId = pipeline.TryGet<SpecDraft>(ContextKeys.CurrentSpec, out var draft) ? draft?.SpecId : null;
         return CommandResult.OkAndContinueWith(
-            $"{verdict.Findings.Count} unit(s) over their Limits; one correction pass follows",
+            $"{verdict.Excess.Count} unit(s) over their Limits; one correction pass follows",
             [.. CorrectionBlock.Select(name => new PipelineCommand(name) { SpecId = specId })]);
     }
 
@@ -58,11 +58,11 @@ public sealed class StructureGateOutcome(SpecReviewRevert reviewRevert, ISpecPro
 
     private static string Message(StructureGateVerdict verdict) => verdict.Unavailable is { } reason
         ? $"structure gate could not judge: {reason}"
-        : $"structure gate: {verdict.Findings.Count} unit(s) over their Limits\n"
-          + string.Join('\n', verdict.Findings.Select(f => $"- {f}"));
+        : $"structure gate: {verdict.Excess.Count} unit(s) over their Limits\n"
+          + string.Join('\n', verdict.Excess.Select(f => $"- {f}"));
 
     private static string Note(StructureGateVerdict verdict) => verdict.Unavailable is { } reason
         ? $"structure gate could not judge: {reason}"
-        : $"structure gate: {verdict.Findings.Count} unit(s) over their Limits: "
-          + string.Join("; ", verdict.Findings);
+        : $"structure gate: {verdict.Excess.Count} unit(s) over their Limits: "
+          + string.Join("; ", verdict.Excess);
 }

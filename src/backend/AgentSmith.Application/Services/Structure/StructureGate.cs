@@ -12,6 +12,7 @@ namespace AgentSmith.Application.Services.Structure;
 /// baseline tolerates — once per repository, in the sandbox the checkpoint pushes, with the
 /// terms of every context of that repository. Terms come from the base; the files come from the
 /// working tree, which is what is being delivered. No comparable base, no judgment.
+/// 2026-10-12-fbbda: every finding carries the repository whose sandbox it was judged in.
 /// </summary>
 public sealed class StructureGate(
     SandboxTargets targets, DeliveryDiff deliveryDiff, StructureGitReads git, StructureGateContexts contexts,
@@ -19,19 +20,34 @@ public sealed class StructureGate(
 {
     public async Task<StructureGateVerdict> JudgeAsync(PipelineContext pipeline, CancellationToken ct)
     {
-        if (!pipeline.TryGet<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, out var repos) || repos is null)
-        {
-            logger.LogInformation("Structure gate passes: the run names no repository");
-            return StructureGateVerdict.Pass;
-        }
         var findings = new List<StructureFinding>();
-        foreach (var repo in repos)
+        foreach (var repo in Repos(pipeline))
         {
             var verdict = await JudgeRepoAsync(pipeline, repo, ct);
             if (verdict.Unavailable is not null) return verdict;
             findings.AddRange(verdict.Findings);
         }
         return new StructureGateVerdict(findings);
+    }
+
+    /// <summary>
+    /// 2026-10-12-fbbda: the divergences of every repository, judged now on the files the branch
+    /// changed — for the pull-request bodies. A repository that cannot be judged names none.
+    /// </summary>
+    public async Task<IReadOnlyList<StructureFinding>> DivergencesAsync(PipelineContext pipeline, CancellationToken ct)
+    {
+        var divergences = new List<StructureFinding>();
+        foreach (var repo in Repos(pipeline))
+            divergences.AddRange((await JudgeRepoAsync(pipeline, repo, ct)).Divergences);
+        return divergences;
+    }
+
+    private IReadOnlyList<RepoConnection> Repos(PipelineContext pipeline)
+    {
+        if (pipeline.TryGet<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, out var repos) && repos is not null)
+            return repos;
+        logger.LogInformation("Structure gate passes: the run names no repository");
+        return [];
     }
 
     private async Task<StructureGateVerdict> JudgeRepoAsync(
@@ -50,7 +66,8 @@ public sealed class StructureGate(
         var repoContexts = StructureRepoContexts.Of(pipeline, repo.Name, owned.Select(kv => kv.Key));
         var (owners, rules) = await contexts.ReadAsync(repoContexts, sandbox, baseRef, ct);
         if (rules.Count == 0) return StructureGateVerdict.Pass;
-        return await JudgeChangedAsync(repo.Name, sandbox, baseRef, owners, rules, ct);
+        var verdict = await JudgeChangedAsync(repo.Name, sandbox, baseRef, owners, rules, ct);
+        return verdict with { Findings = [.. verdict.Findings.Select(f => f with { Repository = repo.Name })] };
     }
 
     private async Task<StructureGateVerdict> JudgeChangedAsync(

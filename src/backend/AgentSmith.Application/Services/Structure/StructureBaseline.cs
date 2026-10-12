@@ -87,7 +87,8 @@ public sealed class StructureBaseline(
             if (await reader.TryReadAsync(path, ct) is not { } content) { unreadable++; continue; }
             var measurement = engine.Measure(path, content);
             if (measurement.Outcome == StructureOutcome.Unavailable) return ([], unreadable, measurement.Reason);
-            findings.AddRange(judge.Judge(path, measurement, limitSet));
+            // 2026-10-12-fbbda: a divergence is inside the band and needs no tolerating.
+            findings.AddRange(judge.Judge(path, measurement, limitSet).Where(f => f.IsExcess));
         }
         return (findings, unreadable, null);
     }

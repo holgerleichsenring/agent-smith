@@ -19,14 +19,20 @@ namespace AgentSmith.Application.Services.Handlers;
 /// 2026-10-12-3a36c: its own type because CommitAndPRHandler composes it twice — for the PRs it
 /// opens and for the spec PR a failed run keeps — and sits over its file-length baseline.
 /// </para>
+/// <para>
+/// 2026-10-12-fbbda: a code PR names its repository, and its body lists that repository's
+/// structure divergences; the spec-only body names none.
+/// </para>
 /// </summary>
 internal static class CodePullRequestBody
 {
     public static string Compose(
-        CommitAndPRContext context, string banner, SpecSequenceProgress? progress, RunShortfall? shortfall) =>
+        CommitAndPRContext context, string banner, SpecSequenceProgress? progress, RunShortfall? shortfall,
+        string? repository = null) =>
         $"{banner}{TicketHtmlConverter.ToText(context.Ticket.Description)}"
         + $"{SpecPrBodySection.Build(context.Pipeline, progress, shortfall)}"
         + $"{RunAccountSection.Build(context.Pipeline)}"
+        + $"{StructureDivergenceSection.Build(context.Pipeline, repository)}"
         + $"{SpecReviewSection.Build(context.Pipeline)}"
         + $"{DeclinedCriteriaSection.Build(context.Pipeline)}\n\n{Rework.ReworkRule.PrBodyLine}\n\n{SpecPrBody.SiblingMarker}";
 }

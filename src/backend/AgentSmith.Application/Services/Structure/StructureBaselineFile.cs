@@ -29,8 +29,9 @@ public static class StructureBaselineFile
     /// <summary>
     /// A refresh: every old entry still measured over its limit stays, at the lower of the two
     /// values. A unit not yet listed is added only when the old principles did not limit its
-    /// metric or it was within that old limit — what a changed limit exposes. A unit grown past
-    /// an unchanged limit is not added; it surfaces at the commit gate.
+    /// metric or it was within that old limit's band — what a changed limit exposes. A unit grown
+    /// past an unchanged band is not added; it surfaces at the commit gate. <paramref name="measured"/>
+    /// holds excesses only (2026-10-12-fbbda).
     /// </summary>
     public static IReadOnlyList<StructureBaselineEntry> Refresh(IReadOnlyList<StructureBaselineEntry> old,
         IReadOnlyList<StructureFinding> measured, StructureLimitSet oldLimits)
@@ -40,7 +41,7 @@ public static class StructureBaselineFile
         var kept = old.Where(e => now.ContainsKey(e.Identity))
             .Select(e => e with { Value = Math.Min(e.Value, now[e.Identity]) });
         var exposed = measured.Where(f => !listed.Contains((f.Path, f.Key, f.Metric))
-                && (oldLimits.For(f.Metric) is not { } before || f.Value <= before))
+                && (oldLimits.For(f.Metric) is not { } before || f.Value <= oldLimits.BandEnd(before)))
             .Select(StructureBaselineEntry.Of);
         return [.. kept.Concat(exposed)];
     }

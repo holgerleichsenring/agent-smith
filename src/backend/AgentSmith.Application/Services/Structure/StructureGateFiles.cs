@@ -9,7 +9,8 @@ namespace AgentSmith.Application.Services.Structure;
 /// Measures the changed files of one repository as the working tree holds them and judges each
 /// against the terms of the context that owns it, minus what that context's baseline tolerates.
 /// A file the sandbox will not hand over (too large, not UTF-8) is logged and not judged; a
-/// grammar that will not load stops the judgment and is named.
+/// grammar that will not load stops the judgment and is named. 2026-10-12-fbbda: a divergence is
+/// kept whatever the baseline says — a unit already inside the band at the base is named too.
 /// </summary>
 public sealed class StructureGateFiles(
     IStructureEngine engine, StructureJudge judge, ISandboxFileReaderFactory files,
@@ -40,6 +41,6 @@ public sealed class StructureGateFiles(
 
     private IEnumerable<StructureFinding> Untolerated(
         string path, StructureMeasurement measurement, StructureContextRules terms) =>
-        judge.Judge(path, measurement, terms.Limits).Where(f =>
-            !StructureBaselineFile.Tolerates(terms.Baseline, f.Path, f.Key, f.Metric, f.Value));
+        judge.Judge(path, measurement, terms.Limits).Where(f => !f.IsExcess
+            || !StructureBaselineFile.Tolerates(terms.Baseline, f.Path, f.Key, f.Metric, f.Value));
 }

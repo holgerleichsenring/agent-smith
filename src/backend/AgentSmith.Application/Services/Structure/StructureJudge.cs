@@ -5,6 +5,7 @@ namespace AgentSmith.Application.Services.Structure;
 /// <summary>
 /// 2026-10-06-8565b: holds one file's measurement against a limit set and names every unit
 /// over its limit. What a baseline tolerates is not this class's question — it judges what is.
+/// 2026-10-12-fbbda: a unit up to the band's end is a divergence, one past it an excess.
 /// </summary>
 public sealed class StructureJudge
 {
@@ -33,7 +34,8 @@ public sealed class StructureJudge
         List<StructureFinding> findings, string path, string key, string metric, int value,
         StructureLimitSet limits)
     {
-        if (limits.For(metric) is { } limit && value > limit)
-            findings.Add(new StructureFinding(path, key, metric, value, limit));
+        if (limits.For(metric) is not { } limit || value <= limit) return;
+        var severity = value <= limits.BandEnd(limit) ? StructureSeverity.Divergence : StructureSeverity.Excess;
+        findings.Add(new StructureFinding(path, key, metric, value, limit, severity));
     }
 }

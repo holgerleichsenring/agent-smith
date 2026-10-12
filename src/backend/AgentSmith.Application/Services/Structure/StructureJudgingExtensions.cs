@@ -16,6 +16,7 @@ public static class StructureJudgingExtensions
         services.AddTransient<StructureGateFiles>();
         services.AddTransient<StructureGate>();
         services.AddTransient<StructureGateOutcome>();
+        services.AddTransient<StructureDivergencePublisher>(); // 2026-10-12-fbbda
         return services;
     }
 }

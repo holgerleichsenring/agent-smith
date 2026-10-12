@@ -29,6 +29,10 @@ internal static class StructureGateFixture
             new StructureJudge(), new SandboxFileReaderFactory(), NullLogger<StructureGateFiles>.Instance),
         NullLogger<StructureGate>.Instance);
 
+    /// <summary>2026-10-12-fbbda: the PR-time divergence judgment over the same gate.</summary>
+    public static StructureDivergencePublisher Publisher() =>
+        new(Gate(), NullLogger<StructureDivergencePublisher>.Instance);
+
     public static PipelineContext PipelineOf(RepoSandbox repo, params (string Name, string Workdir)[] contexts)
     {
         var pipeline = new PipelineContext();

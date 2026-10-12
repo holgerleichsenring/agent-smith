@@ -244,6 +244,7 @@ public sealed class PullRequestTargetTests
                 new UnverifiedWorkReverter(GitOps(), NullLogger<UnverifiedWorkReverter>.Instance),
                 NullLogger<ShortfallDelivery>.Instance),
             new CompletedRunTicketSummary(),
+            AgentSmith.Tests.Structure.StructureGateFixture.Publisher(),
             NullLogger<CommitAndPRHandler>.Instance);
 
     private static SandboxGitOperations GitOps() =>

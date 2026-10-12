@@ -12,4 +12,8 @@ public static partial class ContextKeys
     /// <summary>Set once a spec has had its structure correction, so a second finding is a
     /// verdict rather than a carousel.</summary>
     public const string StructureGateAttempted = "StructureGateAttempted";
+
+    /// <summary>2026-10-12-fbbda: the units past their limit but inside the tolerance band, judged
+    /// at pull-request time, each carrying its repository — read by every code PR body.</summary>
+    public const string StructureDivergences = "StructureDivergences";
 }
