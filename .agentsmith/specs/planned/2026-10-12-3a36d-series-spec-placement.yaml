@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-3a36d
+goal: "Each spec names the one repository it changes and lives only there; each repo's manifest lists only its own specs, and what spans the series (revisions, hand-back) lives in the database."
+
+applies_to: "backend (spec derivation, approval, spec record, persistence)"
+
+requires: []
+
+facts:
+  - claim: "observed: series 2026-10-12-eff5 (ticket 19470) lies in BackgroundWorker — manifest, specs/done/eff5a and the context.yaml index line — while eff5a changed only Server; Server's PR 9476 carries no spec."
+    evidence: "observed: 2026-10-12, AzDO items and commits on agent-smith/19470"
+  - claim: "The carrier is the pointer's repo, else the approval's, else scopedRepos[0]; the class itself calls the fallback a guess."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecCarryingRepoResolver.cs:6-33"
+  - claim: "The approval's carrier is the first configured repository the approval names."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecCarryingRepoResolver.cs:42-49, src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedPhaseSetRecorder.cs:81"
+  - claim: "The derivation resolves one carrier for the whole set."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:63"
+  - claim: "03c7e decided: other repos get neither file nor index line; their PR links the carrying one."
+    evidence: ".agentsmith/specs/done/2026-10-06-03c7e-spec-done-outcome.yaml:37, .agentsmith/decisions/2026-10-06-03c7e.yaml:33-37"
+  - claim: "observed: the cross-link did not happen — 'Cross-link skipped (single PR run)' on every run of ticket 19470."
+    evidence: "observed: 2026-10-12, RunSteps PrCrossLinkCommand"
+  - claim: "A phase has no repository field; PhaseDraft is id, goal, yaml, requires (+ done)."
+    evidence: "src/backend/AgentSmith.Contracts/Models/PhaseDraft.cs:9-21, src/backend/AgentSmith.Contracts/Specs/SpecPhase.cs:15-26"
+  - claim: "The manifest holds series-wide state: revisions, hand-back, approval, fingerprint."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesManifest.cs:82-106, src/backend/AgentSmith.Application/Services/Specs/SeriesReader.cs:102-110"
+  - claim: "The database already keeps one TicketSeries row per ticket with one CarryingRepo, one RevisionSha, the revision number, the last hand-back case and ExecutedThrough; the approval is a database row (ApprovedSeries)."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/TicketSeries.cs:10-36, src/backend/AgentSmith.Contracts/Specs/SpecSetPointer.cs:22-30, .agentsmith/decisions/2026-10-06-03c7f.yaml:6-7"
+
+assumptions:
+  - claim: "Every reader of a series (run, spec viewer, dialog) can reach all repos of the run or the project."
+    check: "List the callers of SeriesReader and the spec viewer's source; a clone-less reader must read the DB."
+
+scope:
+  in: "Required repo: per spec; spec, done file and index line in that repo; a per-repo manifest of that repo's specs; revisions, hand-back and per-repo revision shas in the database; the first-repo fallbacks deleted."
+  out: "Moving series that already exist (the operator deletes or keeps old layouts, as in 03c7)."
+
+decisions:
+  - key: "OPERATOR RULE, OVERRULES 03c7e: a spec lives where it is used and can be clearly assigned; 'the first repo' is a guess and is deleted, not kept as a fallback."
+  - key: "SPLIT, NEVER COPY: work in two repositories is two specs with requires:, so each file has one home; copies diverge on a reviewer's edit, a failed push or a one-sided merge."
+  - key: "THE MANIFEST IS SPLIT TOO: each repo's lists only its specs; the shared base id is the series, the reader joins the parts."
+  - key: "SERIES-WIDE STATE IS NOT ON A BRANCH: revisions and hand-back describe the process, not code, and move to TicketSeries beside the approval."
+  - key: "THE FIELD IS THE FIX: the model states repo: when it cuts; nothing infers it from prose or from the diff."
+
+steps:
+  - id: repo-field
+    action: "Add a required repo: to the spec schema and PhaseDraft; derivation and dialog prompts cut one spec per repository; parsers refuse a missing or out-of-scope repo."
+    modify:
+      - "spec.schema.json, PhaseDraft, derivation + dialog parsers and prompts"
+  - id: series-state-db
+    action: "Move revisions and hand-back (case, reason, readings, taken, at) into TicketSeries; replace CarryingRepo/RevisionSha with a revision sha per repo."
+    new:
+      - "TicketSeriesRepo: series id, repo, revision sha"
+      - "Migration per persistence assembly"
+    modify:
+      - "TicketSeries, SpecSetPointer, SpecSetPointerRecorder, SpecHandbackHandler"
+  - id: per-repo-files
+    action: "Write each spec's planned/done files and index line into its repo, and a manifest of only that repo's specs; read a series by joining the manifests of the run's repos."
+    modify:
+      - "SeriesManifest(Document), SeriesReader, ISpecSetWriter, WritePhaseRecordHandler, SpecDoneRecorder, PhaseIndexWriter"
+  - id: drop-first
+    action: "Delete SpecCarryingRepoResolver's positional fallbacks and ChooseCarrier; approval records the repos its specs name."
+    modify:
+      - "SpecCarryingRepoResolver, DeriveSpecHandler, ApprovedPhaseSetRecorder, FiledSpecBranch"
+
+tests:
+  - "SpecParser_SpecWithoutRepo_IsRefused"
+  - "SpecParser_RepoOutsideScope_IsRefused"
+  - "SpecRecord_SpecForServer_WritesFilesAndIndexLineInServerOnly"
+  - "SeriesReader_TwoRepoManifests_JoinsOneSeries"
+  - "TicketSeries_Handback_RoundTripsReasonAndTime"
+
+done:
+  - "A three-repo run whose only spec names Server leaves spec, manifest and index line in Server and nothing in the other two (RealCompositionHarness)."
+  - "A series over Server and Client has one spec file per repo and no file in both."
+  - "No manifest carries revisions or a hand-back; no code path picks a repository by position."

@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-3a36a
+goal: "A trusted pull-request comment carrying the comment_keyword is a rework act like Request changes, and a hand-back is answered on that pull request, where a reply counts."
+
+applies_to: "backend (rework acts, spec hand-back)"
+
+requires: [2026-10-08-e8b9c, 2026-10-08-0781]
+
+facts:
+  - claim: "observed: ticket 19470, PR 9476 — the reviewer wrote three '/agentsmith' instruction comments and voted -5 once (10:00:49). Run 10-10 served the vote; runs 10-20, 10-28 and 10-45 read the vote as old and ran as 'comment on the ticket — the approved set was kept'."
+    evidence: "observed: 2026-10-12, AzDO PR 9476 threads + series manifest revisions 4-8, release 0.158.0"
+  - claim: "A pull-request act is only a standing Request changes newer than the previous attempt's cutoff; the vote's thread time is compared, so a vote left at -5 counts once."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/PrStandingAct.cs:14-24, src/backend/AgentSmith.Contracts/Runs/PreviousAttempt.cs:20-27"
+  - claim: "The keyword act is read from TICKET comments only, in the run and in the rework worker; a missing keyword yields no act."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/ReworkActReader.cs:17-26, src/backend/AgentSmith.Application/Services/Rework/ReworkPendingActs.cs:33-40"
+  - claim: "The run already reads the PR threads of every PR the ticket's runs opened, trusted notes only, and the vote act in the same pass."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/PrReviewFeedbackFetcher.cs:23-54, src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPreviousAttemptReader.cs:50-61"
+  - claim: "comment_keyword is a property of the tracker trigger."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/WebhookTriggerConfig.cs:67, src/backend/AgentSmith.Application/Services/Builders/SourceContextBuilders.cs:18"
+  - claim: "observed: the deployment configures no comment_keyword (no ConfigEntities document contains 'keyword')."
+    evidence: "observed: 2026-10-12, deployment database query"
+  - claim: "The hand-back comment is posted on the ticket only."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackPark.cs:28-38"
+  - claim: "The repeat guard counts a reply only among ticket comments."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecHandbackRepeat.cs:30-44"
+  - claim: "Both PR bodies carry one rule line naming Request changes as the only PR act."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/ReworkRule.cs:7-9, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:324, src/backend/AgentSmith.Application/Services/Specs/SpecPrBody.cs:25"
+
+assumptions:
+  - claim: "ReworkAct does not carry the pull-request URL it came from; PendingReworkAct does."
+    check: "Open src/backend/AgentSmith.Contracts/Runs/ReworkAct.cs and PendingReworkAct.cs."
+  - claim: "SpecSetPointer records when the last hand-back was parked, or the manifest revision time can stand in."
+    check: "Open SpecSetPointer and SpecHandbackProgress.Record; if neither carries a time, add one (3a36b adds handback_at to the manifest)."
+
+scope:
+  in: "PR keyword act (run + worker), hand-back comment on the act's PR, PR reply counted by the repeat guard, the PR rule line."
+  out: "Verifying a hand-back and its expiry (3a36b); what a failed run writes (3a36c); configuring a keyword for the deployment (operator, Settings)."
+
+decisions:
+  - key: "ONE KEYWORD, BOTH CHANNELS: the tracker trigger's comment_keyword, so an operator sets one word and it works on the ticket and on our PRs; no keyword configured means the vote stays the only PR act, as today."
+  - key: "THE NEWEST ACT WINS across ticket keyword, PR keyword and vote — the existing rule, extended by one source."
+  - key: "ANSWER WHERE ASKED: a run served by a PR act posts its hand-back on that PR as well as on the ticket; the ticket stays the record."
+  - key: "THE RULE LINE SAYS THE VOTE COUNTS ONCE: 'a vote already standing is not a new request — reset it and vote again, or comment with the keyword'."
+
+steps:
+  - id: pr-keyword-act
+    action: "Read the newest trusted, non-bot, non-ours PR note containing comment_keyword after the cutoff as a PullRequest act, in PrReviewFeedbackFetcher and ReworkPendingActs."
+    new:
+      - "PrKeywordAct: newest keyword note over PR threads after PreviousAttempt.Cutoff, trust-filtered"
+    modify:
+      - "ReworkAct: carries the PR URL for the PullRequest channel"
+      - "ReworkPendingActs: keyword act per PR beside the vote act"
+  - id: handback-on-pr
+    action: "When the served act's channel is PullRequest, post SpecHandbackComment on that PR through IPrCommentProvider as well."
+    modify:
+      - "SpecHandbackPark"
+  - id: pr-reply-counts
+    action: "Count a trusted human PR note written after the last hand-back, on any PR of the attempt, as an answer in SpecHandbackRepeat."
+    modify:
+      - "SpecHandbackRepeat"
+  - id: rule-line
+    action: "Rewrite ReworkRule.PrBodyLine to name the keyword comment and that a standing vote counts once."
+
+tests:
+  - "PrKeywordAct_TrustedNoteWithKeywordAfterCutoff_IsAct"
+  - "PrKeywordAct_NoteBeforeCutoffOrUntrustedOrOurs_IsNoAct"
+  - "PrKeywordAct_NoKeywordConfigured_IsNoAct"
+  - "ReworkPendingActs_PrKeywordNewerThanVote_KeywordWins"
+  - "SpecHandbackPark_PullRequestAct_PostsOnThatPullRequest"
+  - "SpecHandbackRepeat_TrustedPrReplyAfterHandback_IsNotRepeat"
+
+done:
+  - "With comment_keyword 'agentsmith' a trusted PR comment containing it after the last run starts one rework, by webhook and by polling."
+  - "A hand-back from a PR-served run appears as a comment on that PR."
+  - "A trusted PR reply after a contradiction hand-back lets the next run park again instead of failing."
+  - "Both PR bodies state the keyword comment and that a standing vote counts once."

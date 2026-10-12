@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-3a36b
+goal: "A contradiction hand-back parks only after a reviewer confirms it against the repository, and a stored hand-back is derived again once the branch or the conversation has moved."
+
+applies_to: "backend (spec derivation, hand-back)"
+
+requires: [2026-10-12-3a36a, 2026-10-12-3a36d]
+
+facts:
+  - claim: "observed: run 10-10 (rework on PR 9476) derived with two spec-derivation calls and two greps in Server, no spec-cut-reviewer call, and handed back RequirementsContradictRepository: 'SubmitAssetsRequest contains only TruckPlate and TrailerPlate'."
+    evidence: "observed: 2026-10-12, RunLlmCalls + RunEvents of run 2026-10-12T10-10-33-3ee4"
+  - claim: "observed: at that time the branch's SubmitAssetsRequest still declared ShipmentId and AccessLinkId; the reviewer removed them by hand at 10:20 (dd73f4a8)."
+    evidence: "observed: 2026-10-12, AzDO items API at d497be40 and branch history of agent-smith/19470"
+  - claim: "The hand-back is written into the series manifest and read back from it with the set."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesManifest.cs:82-87, src/backend/AgentSmith.Application/Services/Specs/SeriesManifest.cs:101-106, src/backend/AgentSmith.Application/Services/Specs/SeriesReader.cs:106"
+  - claim: "A set read from the branch is published with its stored hand-back, which the hand-back step then acts on."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetPublisher.cs:49-54, src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs:44-64"
+  - claim: "An approved set without a demand, rework or status-back act runs no model, whatever it carries."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecAmendmentRule.cs:36-52"
+  - claim: "observed: runs 10-20, 10-28 and 10-45 made no derivation call and republished the 10-10 hand-back; the last two failed on the repeat guard."
+    evidence: "observed: 2026-10-12, RunLlmCalls + RunSteps for ticket 19470"
+  - claim: "The cut reviewer judges a set against the ticket text only."
+    evidence: ".agentsmith/specs/done/2026-10-08-f114-rework-executed-set-append.yaml (claim 'The cut reviewer judges the set against the ticket text only')"
+
+assumptions:
+  - claim: "The derivation has read-only repository tools a checker can reuse (2026-09 derivation-read-only-tools)."
+    check: "Find the tool host the spec-derivation role gets and confirm it is read-only and per-sandbox."
+  - claim: "Our own commits are recognisable on the branch (author 'Agent Smith' / WipCommit marker)."
+    check: "Open WipCommit and the git identity the sandbox commits with."
+
+scope:
+  in: "A checker for RequirementsContradictRepository before parking; expiry of a stored hand-back against its time in TicketSeries (3a36d)."
+  out: "Other hand-back cases (a refusal parks every time, a question is ended by its pin); PR reply detection itself (3a36a)."
+
+decisions:
+  - key: "A SECOND READING, NOT A RULE: the claim is code semantics, so a model checks it — with the files read whole, not a grep line — rather than a parser (no language-specific checks)."
+  - key: "REFUTED MEANS DERIVE AGAIN ONCE with the refutation as input; a second contradiction parks. No loop."
+  - key: "THE TIME IS THE FIELD: expiry compares against the hand-back time 3a36d stores in TicketSeries, not against revisions."
+  - key: "EXPIRY RE-DERIVES, it does not delete: a moved branch or a reply makes the model run on the set again; an unchanged picture still ends at the repeat guard."
+
+steps:
+  - id: checker
+    action: "Before a RequirementsContradictRepository hand-back is published, have a checker role read the files the reason names (whole) and answer confirmed or refuted with the evidence."
+    new:
+      - "ContradictionCheck: role prompt + verdict record (Confirmed, Refutation)"
+    modify:
+      - "Spec derivation: on Refuted, derive once more with the refutation in the prompt"
+  - id: expiry
+    action: "Make SpecAmendmentRule.NeedsModel true when the set carries a hand-back and a scoped repo's ticket branch has a commit not ours after the stored hand-back time, or a reply was counted after it."
+    modify:
+      - "SpecAmendmentRule, SpecSourceResolver (passes branch heads and reply flag)"
+
+tests:
+  - "ContradictionCheck_ReasonContradictedByFile_Refutes"
+  - "Derivation_RefutedContradiction_DerivesOnceMoreWithRefutation"
+  - "NeedsModel_HandbackAndForeignCommitAfterIt_True"
+  - "NeedsModel_HandbackAndReplyAfterIt_True"
+  - "NeedsModel_HandbackAndNothingMoved_False"
+
+done:
+  - "Replaying run 10-10's inputs through RealCompositionHarness with a scripted false contradiction yields a refutation and a second derivation, not a park."
+  - "A set whose hand-back predates a foreign commit on any scoped branch is derived again by the next run."
