@@ -1,3 +1,5 @@
+using AgentSmith.Domain.Models;
+
 namespace AgentSmith.Contracts.Models;
 
 /// <summary>
@@ -11,4 +13,4 @@ namespace AgentSmith.Contracts.Models;
 /// </summary>
 /// <param name="Phases">How many specs the approved specification holds.</param>
 /// <param name="Unsaid">The approved goals the ticket's own text does not carry, verbatim.</param>
-public sealed record SetDivergence(int Phases, IReadOnlyList<string> Unsaid);
+public sealed record SetDivergence([property: AcceptedName("Specs")] int Phases, IReadOnlyList<string> Unsaid);
