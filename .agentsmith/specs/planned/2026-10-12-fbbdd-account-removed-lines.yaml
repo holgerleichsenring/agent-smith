@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-fbbdd
+goal: "The accountant judges what the branch now contains: a removed diff line is evidence only for a criterion about removal, never about the code's current content or shape."
+
+applies_to: "backend (spec account prompt)"
+
+requires: []
+
+facts:
+  - claim: "observed: run 2026-10-12T13-36-42-9015's accountant failed 'no changed adapter line exceeds 150 characters' although no added line exceeded 148; all 25 lines over 150 in the adapter diff were removed lines."
+    evidence: "observed: 2026-10-12, git diff fd217e127^..31bc4dc93 of the run's target repository"
+  - claim: "The accountant is shown the branch diff body under DIFF and told to decide per criterion from it."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecAccountPrompt.cs:51-55, src/backend/AgentSmith.Application/Services/Specs/SpecAccountPrompt.cs:113"
+  - claim: "Each window of the unified diff is asked separately."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/AccountCalls.cs:28-40"
+
+scope:
+  in: >
+    SpecAccountPrompt states how to read the body: lines starting with '-' are gone from the branch; '+' and context
+    lines are what it now contains; a criterion about current content, size or shape is judged from those alone,
+    and a removed line proves only a criterion about removal.
+  out: "Showing post-images instead of the diff — the removal criteria need the '-' lines."
+
+steps:
+  - id: prompt
+    action: "Add the reading rule above the DIFF section of SpecAccountPrompt."
+
+tests:
+  - "SpecAccountPrompt_ExplainsRemovedLines"
+
+done:
+  - "The account prompt carries the removed-line rule; full suite green."

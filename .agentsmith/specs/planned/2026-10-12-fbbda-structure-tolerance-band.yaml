@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-fbbda
+goal: "A limit carries a tolerance: a unit past its limit but inside the band is a divergence the PR and record name; only a unit past the band is an excess the gate sends back or fails."
+
+applies_to: "backend (structure judge, gate, baseline, records) and skills catalog (delta Limits)"
+
+requires: [2026-10-06-8565c, 2026-10-06-8565d]
+
+facts:
+  - claim: "The judge reports every unit whose value exceeds its limit as one kind of finding."
+    evidence: "src/backend/AgentSmith.Application/Services/Structure/StructureJudge.cs:32-37"
+  - claim: "Limits are read from a delta's '## Limits' fence and a house '### Limits' fence under Project Specifics, merged key by key."
+    evidence: "src/backend/AgentSmith.Application/Services/Structure/StructureLimits.cs:14-34"
+  - claim: "The catalog validator accepts a closed set of Limits keys."
+    evidence: "observed: 2026-10-12, agent-smith-skills origin/main 6c04986, scripts/validate-skills.sh:199-214"
+  - claim: "observed: the operator — 'a 123-line class is no problem, 150 neither, but it has to be solid'."
+    evidence: "observed: 2026-10-12, operator conversation"
+
+scope:
+  in: >
+    Limits gain the closed key tolerance_percent (non-negative integer; absent = 0). StructureJudge returns each
+    unit over its limit with a severity: Divergence when value <= limit * (100 + tolerance) / 100, else Excess.
+    The commit gate splices or fails on Excess only; divergences ride on the gate's outcome into the spec record
+    and the code PR body as a list ('within tolerance: path key metric value/limit'). The init baseline records
+    Excess only. SKILLS: DELTA-FORMAT names the key, validate-skills accepts it, each delta that sets a limit states
+    tolerance_percent: 25; release and pin.
+  out: "Judging whether a divergence is solid — the reviewer reads the list in the PR."
+
+decisions:
+  - key: "THE BAND IS DATA, NOT A DEFAULT. A delta states 25; code without the key is strict, so no number hides in the engine."
+  - key: "A DIVERGENCE IS NAMED, NEVER BLOCKED. 'Solid' is a judgement; the gate counts, the reviewer decides."
+
+steps:
+  - id: limits
+    action: "StructureLimitSet and StructureLimits read tolerance_percent."
+  - id: judge
+    action: "StructureFinding carries Severity; StructureJudge classifies."
+  - id: gate
+    action: "Gate and baseline act on Excess; divergences reach the record and the PR body."
+  - id: skills
+    action: "DELTA-FORMAT, validate-skills, deltas; release; pin."
+
+tests:
+  - "StructureJudge_ValueInsideBand_IsDivergence"
+  - "StructureJudge_ValuePastBand_IsExcess"
+  - "StructureJudge_NoTolerance_EveryOverIsExcess"
+  - "StructureGate_OnlyDivergences_Passes"
+  - "StructureBaseline_Divergence_IsNotRecorded"
+  - "CodePullRequestBody_Divergences_AreListed"
+
+done:
+  - "A harness run whose scripted master writes a 24-line method under function_lines 20 and tolerance 25 passes with the divergence named in the PR body; a 30-line method gets the correction pass."
+  - "Full suite green."

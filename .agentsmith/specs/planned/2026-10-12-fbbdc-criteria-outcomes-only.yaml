@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-fbbdc
+goal: "A done criterion states an outcome; size, formatting and naming rules stay with the principles, the structure gate and the formatter, and an operator's explicit 'Done when' is the done list."
+
+applies_to: "skills catalog (design-partner, spec-derivation) and backend (cut review)"
+
+requires: [2026-10-06-8565d]
+
+facts:
+  - claim: "observed: run 2026-10-12T13-36-42-9015 failed on two done criteria — one LINQ operator per line and 150 characters, every method at most 20 lines — that the operator's message listed as Requirements 4 and 6, while its 'Done when' named neither; the design turn folded both lists into one done list of 13."
+    evidence: "observed: 2026-10-12, design session 7566d37c turns 48-53 and RunArtifacts spec_md of that run"
+  - claim: "The design partner's draft rules say only that done criteria must be verifiable."
+    evidence: "observed: 2026-10-12, agent-smith-skills origin/main 6c04986, skills/_masters/design-partner-master/SKILL.md:376-383"
+  - claim: "The derivation master writes criteria so a reader can tie each to a file."
+    evidence: "observed: 2026-10-12, agent-smith-skills origin/main 6c04986, skills/_masters/spec-derivation-master/SKILL.md:81-91"
+  - claim: "The cut review is told to say nothing about style and lists closed ways a spec cannot be delivered."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecCutReviewPrompt.cs:38-44"
+  - claim: "Every done criterion of a spec is judged against the branch after the run, and an unsatisfied one fails it."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecCutReviewPrompt.cs:68-77"
+
+scope:
+  in: >
+    SKILLS: design-partner-master and spec-derivation-master — when the operator's text says when the work is done
+    ('Done when', 'Definition of done', 'Acceptance'), the done list is drawn from that part only and the rest
+    becomes steps; a rule about the code's shape (size of a function, class or file, line length, formatting,
+    operators per line, naming) is never a done criterion — the structure gate (8565d) and the context's format
+    command (fbbdb) hold it; a requested shape rule with no gate becomes a step. Released and pinned.
+    BACKEND: SpecCutVerdicts gains a way 'shape-rule' — a done criterion that is a rule about the code's shape
+    rather than an outcome — offered always, so the design review and the derivation review report it.
+  out: "Rewriting criteria the operator approved before this release."
+
+decisions:
+  - key: "THE OPERATOR'S SPLIT IS KEPT. Requirements are the work, 'Done when' is the verdict; folding them made hints into fails."
+  - key: "A SHAPE RULE IS MEASURED, NOT JUDGED. A model reading a diff estimates sizes; the gate counts them."
+
+steps:
+  - id: skills
+    action: "Both masters state the two rules; skills release; pin bump."
+  - id: verdict
+    action: "SpecCutVerdicts: the shape-rule way with its description, offered with and without a ticket."
+
+tests:
+  - "SpecCutVerdicts_Offered_IncludesShapeRule"
+  - "SpecCutReviewPrompt_DescribesShapeRule"
+
+done:
+  - "The cut review prompt offers the shape-rule way; the pinned design-partner and spec-derivation masters carry both rules (golden or catalog test)."
+  - "Full suite green."
