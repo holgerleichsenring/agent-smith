@@ -25,7 +25,8 @@ public sealed class DerivedPhaseYamlRenderer
         IReadOnlyList<int> carriedSegments,
         string ticketId,
         PhaseFacts? facts = null,
-        IReadOnlyList<string>? contexts = null)
+        IReadOnlyList<string>? contexts = null,
+        IReadOnlyList<string>? repos = null)
     {
         var document = new Dictionary<string, object?>
         {
@@ -33,6 +34,9 @@ public sealed class DerivedPhaseYamlRenderer
             ["goal"] = goal,
         };
         if (requires.Count > 0) document["requires"] = requires;
+        // 2026-10-12-3a36e: the repositories the phase changes, stated or filled from the scope.
+        // Absent when no scope was known, so a cut over no repository renders as it did.
+        if (repos is { Count: > 0 }) document["repos"] = repos;
         document["scope"] = new Dictionary<string, object?>
         {
             ["in"] = carriedSegments.Count > 0

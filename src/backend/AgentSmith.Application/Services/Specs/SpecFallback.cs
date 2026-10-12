@@ -12,6 +12,10 @@ namespace AgentSmith.Application.Services.Specs;
 /// applying one that is not. Degrading to too much context is cheap; degrading to a
 /// missing manual nobody noticed is the failure the accounting exists to prevent.
 /// </para>
+/// <para>
+/// 2026-10-12-3a36e: the whole ticket names the whole scope in repos — the caller passes the
+/// scope's repository names, as the derivation's own fill does.
+/// </para>
 /// </summary>
 public sealed class SpecFallback(
     ISpecDraftValidator validator,
@@ -20,7 +24,7 @@ public sealed class SpecFallback(
 {
     public SpecSet Build(
         string key, string series, Ticket ticket, IReadOnlyList<TicketSegment> segments,
-        IReadOnlyList<string> doneCriteria, SpecSource source)
+        IReadOnlyList<string> doneCriteria, SpecSource source, IReadOnlyList<string> repos)
     {
         ArgumentNullException.ThrowIfNull(ticket);
         var phaseId = SeriesIdFactory.Member(series, 0);
@@ -31,7 +35,7 @@ public sealed class SpecFallback(
 
         var yaml = yamlRenderer.Render(
             phaseId, goal, [], [], done, $"{fileStem}.md",
-            [.. segments.Select(s => s.Id)], ticket.Id.Value);
+            [.. segments.Select(s => s.Id)], ticket.Id.Value, repos: repos);
         // A yaml this method composes and cannot validate is a composition bug, not a
         // model failure — the fallback has no second chance to fall back to.
         if (validator.ValidateYaml(yaml) is SpecDraftInvalid invalid)

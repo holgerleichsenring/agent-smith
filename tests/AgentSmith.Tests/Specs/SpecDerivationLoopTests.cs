@@ -91,7 +91,7 @@ public sealed class SpecDerivationLoopTests
             acceptanceCriteria: null, status: "open", source: "test");
         return await deriver.DeriveAsync(
             ticket, TicketSegmenter.Segment(Ticket), previous: null, series: "2026-10-06-0a0a", cause: "initial derivation",
-            new AgentConfig(), pipeline, CancellationToken.None);
+            repositories: [], new AgentConfig(), pipeline, CancellationToken.None);
     }
 
     private static string Reply()

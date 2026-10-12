@@ -17,12 +17,14 @@ internal static class SpecDerivationMessages
     /// <summary>The rendered judgement prompt, then the ticket with the look it may take.</summary>
     public static List<ChatMessage> Opening(
         string systemPrompt, Ticket ticket, IReadOnlyList<TicketSegment> segments,
-        SpecSet? previous, string cause, PipelineContext pipeline, DerivationLook? look) =>
+        SpecSet? previous, string cause, PipelineContext pipeline, DerivationLook? look,
+        IReadOnlyList<string> scope) =>
     [
         new(ChatRole.System, systemPrompt),
         new(ChatRole.User,
             SpecPromptComposer.Compose(ticket, segments, previous, cause, pipeline)
-            + DerivationLookPromptSection.Render(look)),
+            + DerivationLookPromptSection.Render(look)
+            + ScopeRepositoriesPromptSection.Render(scope)),
     ];
 
     /// <summary>A rejection, in the shape the deriver already knows how to answer.</summary>

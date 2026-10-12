@@ -36,6 +36,8 @@ public sealed class PhaseDraftReader
             Assumptions = PhaseDraftLists.Assumptions(map),
             // 2026-09-08-1830: the contexts the phase declares it changes.
             Contexts = PhaseDraftLists.Strings(map, "contexts"),
+            // 2026-10-12-3a36e: the repositories the spec declares it changes.
+            Repos = PhaseDraftLists.Strings(map, "repos"),
         };
     }
 

@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services;
+using AgentSmith.Tests.SpecDialog;
 using AgentSmith.Application.Services.PhaseExecution;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Specs;
@@ -71,7 +72,7 @@ public sealed class DoneCriterionTests
     [Fact]
     public void Parse_AnEpicChildWithOnlyScenarios_HasDone()
     {
-        var parser = new EpicOutcomeParser(Validator, new PhaseDraftReader(), new RequiresEdgeChecker());
+        var parser = new EpicOutcomeParser(Validator, new PhaseDraftReader(), new RequiresEdgeChecker(), DialogTestRepos.Real());
         var yaml = """
             kind: epic
             parent: { spec: p9000, goal: Widget platform }
@@ -84,7 +85,7 @@ public sealed class DoneCriterionTests
                 done: [{ when: the API is called, then: a stored widget returns }]
             """;
 
-        var epic = parser.Parse(OutcomeYamlReader.ReadMap(yaml))
+        var epic = parser.Parse(OutcomeYamlReader.ReadMap(yaml), [])
             .Should().BeOfType<OutcomeResolved>().Which.Proposal.Should().BeOfType<EpicOutcome>().Subject;
 
         epic.Children[0].Done.Should().Equal("WHEN a widget is saved THEN it is stored");
