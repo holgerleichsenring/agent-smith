@@ -12,7 +12,8 @@ namespace AgentSmith.Tests.TestHelpers;
 /// capture stdout (e.g. MarkItDown wrapper) get non-empty content.
 /// </summary>
 internal sealed class StubSandbox(
-    IReadOnlySet<string>? missingPaths = null, string? toolchainImage = null, bool reportsWorkingTree = false)
+    IReadOnlySet<string>? missingPaths = null, string? toolchainImage = null, bool reportsWorkingTree = false,
+    IReadOnlyDictionary<string, string>? baseFiles = null)
     : IHoldableSandbox, ISandboxToolchainImage
 {
     /// <summary>2026-10-12-50bda: the image a container backend would name; null (the default)
@@ -60,6 +61,9 @@ internal sealed class StubSandbox(
             return Task.FromResult(new StepResult(
                 StepResult.CurrentSchemaVersion, step.StepId, ExitCode: 1, TimedOut: false,
                 DurationSeconds: 0.01, ErrorMessage: StepErrors.FileNotFound(missing), OutputContent: null));
+        // 2026-10-06-8565d: a base the branch was cut from, opted into by a test — the commit
+        // gate reads its Limits and baseline there. Without one the gate finds no base and passes.
+        if (baseFiles is not null && BaseAnswer(step) is { } answer) return Task.FromResult(answer);
         var output = step.Kind switch
         {
             StepKind.ListFiles => DefaultListing(step.Path),
@@ -81,6 +85,20 @@ internal sealed class StubSandbox(
             StepResult.CurrentSchemaVersion, step.StepId, ExitCode: 0,
             TimedOut: false, DurationSeconds: 0.01, ErrorMessage: null, OutputContent: output));
     }
+
+    private StepResult? BaseAnswer(Step step)
+    {
+        if (IsGit(step, "symbolic-ref")) return Answer(step, 0, "origin/main\n");
+        if (!IsGit(step, "show") || step.Args?.LastOrDefault() is not { } spec
+            || !spec.StartsWith("origin/main:", StringComparison.Ordinal))
+            return null;
+        return baseFiles!.TryGetValue(spec["origin/main:".Length..], out var content)
+            ? Answer(step, 0, content) : Answer(step, 128, null);
+    }
+
+    private static StepResult Answer(Step step, int exit, string? output) => new(
+        StepResult.CurrentSchemaVersion, step.StepId, exit, TimedOut: false, DurationSeconds: 0.01,
+        ErrorMessage: null, OutputContent: output);
 
     private static string Normalize(string path) =>
         path.StartsWith("/work/", StringComparison.Ordinal) ? path["/work/".Length..] : path;

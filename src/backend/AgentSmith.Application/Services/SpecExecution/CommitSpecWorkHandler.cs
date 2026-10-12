@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Structure;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -21,9 +22,15 @@ namespace AgentSmith.Application.Services.SpecExecution;
 /// depend on an unrelated timer, so this asks the same mechanism directly — same secret
 /// scan, same staging rules, one place that knows how to put work on a branch.
 /// </para>
+/// <para>
+/// 2026-10-06-8565d: and this is where the framework holds the work to its Limits — after the
+/// push, so nothing is lost, and before VerifySpec, so a correction is still part of the spec.
+/// </para>
 /// </summary>
 public sealed class CommitSpecWorkHandler(
     RunWorkCheckpointer checkpointer,
+    StructureGate structureGate,
+    StructureGateOutcome structureOutcome,
     ILogger<CommitSpecWorkHandler> logger)
     : ICommandHandler<CommitSpecWorkContext>
 {
@@ -33,6 +40,7 @@ public sealed class CommitSpecWorkHandler(
         ArgumentNullException.ThrowIfNull(context);
         await checkpointer.PushNowAsync(context.Pipeline, cancellationToken);
         logger.LogInformation("Spec work committed — the gate now reads a branch that carries it.");
-        return CommandResult.Ok("Spec work is on the branch");
+        var verdict = await structureGate.JudgeAsync(context.Pipeline, cancellationToken);
+        return await structureOutcome.ResolveAsync(context.Pipeline, verdict, cancellationToken);
     }
 }

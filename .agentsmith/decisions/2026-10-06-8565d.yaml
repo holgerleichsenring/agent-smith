@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-06-8565d
+
+decisions:
+  - category: Security
+    chose: "Limits and baseline are read at the delivery diff's base ref with git show; only the judged files come from the working tree"
+    over: "Reading .agentsmith from the working tree"
+    reason: |
+      The master writes the working tree. Reading its terms there would let it raise a limit or baseline its
+      own excess and pass. A test raises both in the working tree and the gate still finds the unit.
+  - category: Architecture
+    chose: "The gate runs inside CommitSpecWork after the push; a correction splices master, questions, commit ahead of the queued VerifySpec"
+    over: "A verify stage, or a pipeline step of its own"
+    reason: |
+      The operator ruled out a verify stage. The push first keeps the work safe; the splice keeps the
+      correction inside the spec. One correction per spec, then a recorded failure.
+  - category: Architecture
+    chose: "Inside the review's fix pass a finding goes through SpecReviewRevert like a red build"
+    over: "Splicing a correction inside the fix pass"
+    reason: |
+      The fix pass is the last pass by contract; a structure regression there is undone to the verified head.
+  - category: Implementation
+    chose: "No comparable base, no Limits, or no baseline at the base: the context passes, logged"
+    over: "Failing pre-existing excess in a context without a baseline"
+    reason: |
+      A limit is green on the day it is installed; without a baseline nothing says what was there before.
+  - category: Implementation
+    chose: "The shared StubSandbox answers a base only when a test opts in (StubSandboxFactory.BaseFiles)"
+    over: "Answering symbolic-ref for every harness test"
+    reason: |
+      A base name changes the delivery ladder for every harness run; opting in keeps the other 240 harness
+      tests on the path they were written for.

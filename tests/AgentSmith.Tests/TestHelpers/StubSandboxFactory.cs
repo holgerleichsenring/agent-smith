@@ -21,9 +21,14 @@ internal sealed class StubSandboxFactory : ISandboxFactory
     /// a clean tree.</summary>
     public bool ReportsWorkingTree { get; set; }
 
+    /// <summary>2026-10-06-8565d: meta files at the base the branch was cut from — null by default,
+    /// so no sandbox names a base and the commit gate passes as it always would.</summary>
+    public Dictionary<string, string>? BaseFiles { get; set; }
+
     public Task<ISandbox> CreateAsync(SandboxSpec spec, CancellationToken cancellationToken)
     {
-        var sandbox = new StubSandbox(MissingPaths, NamesImages ? spec.ToolchainImage : null, ReportsWorkingTree);
+        var sandbox = new StubSandbox(
+            MissingPaths, NamesImages ? spec.ToolchainImage : null, ReportsWorkingTree, BaseFiles);
         Spawned.Add((spec, sandbox));
         return Task.FromResult<ISandbox>(sandbox);
     }

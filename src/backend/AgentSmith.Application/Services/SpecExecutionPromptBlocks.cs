@@ -60,4 +60,19 @@ public static class SpecExecutionPromptBlocks
         var bullets = string.Join("\n", done.Select(d => $"- {d}"));
         return $"\n### Done criteria\n{bullets}\n";
     }
+
+    /// <summary>
+    /// 2026-10-06-8565d: the units the commit gate found over the principles' Limits, for the
+    /// master's one correction. Empty unless that correction is under way.
+    /// </summary>
+    public static string StructureFindings(PipelineContext pipeline)
+    {
+        if (!pipeline.TryGet<List<string>>(ContextKeys.StructureFindings, out var findings)
+            || findings is not { Count: > 0 })
+            return string.Empty;
+        return "\n**This is a STRUCTURE correction. These units exceed the Limits in the principles "
+            + "(path, unit, metric, value > limit):**\n"
+            + string.Join("\n", findings.Select(f => "- " + f))
+            + "\nSplit each by responsibility until it is within its limit. Change nothing else.";
+    }
 }
