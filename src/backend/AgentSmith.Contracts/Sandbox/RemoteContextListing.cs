@@ -18,9 +18,12 @@ namespace AgentSmith.Contracts.Sandbox;
 /// state of a repository nobody has onboarded yet.</param>
 /// <param name="UnreadableReason">Why <c>.agentsmith/contexts</c> could not be listed at
 /// all. Null when the listing succeeded, whatever it contained.</param>
+/// <param name="Searched">2026-10-12-6bfaa: the branch the listing was read on and every
+/// branch passed over before it, in words. Null when nothing was listed.</param>
 public sealed record RemoteContextListing(
     IReadOnlyList<RemoteContextDiscovery> Contexts,
-    string? UnreadableReason = null)
+    string? UnreadableReason = null,
+    string? Searched = null)
 {
     public static RemoteContextListing None { get; } = new([]);
 

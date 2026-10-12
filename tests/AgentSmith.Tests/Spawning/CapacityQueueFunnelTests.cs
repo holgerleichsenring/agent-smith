@@ -1,3 +1,4 @@
+using AgentSmith.Application.Models;
 using AgentSmith.Tests.TestSupport;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Sandbox;
@@ -216,7 +217,7 @@ public sealed class CapacityQueueFunnelTests : IDisposable
         await funnel.SpawnAsync(ticketId: "42");
 
         var refused = await NewInitAdmission(fits: false)
-            .TryAdmitAsync(new ResolvedProject { Name = "p1" }, "code", "run-1", CancellationToken.None);
+            .TryAdmitAsync(new ResolvedProject { Name = "p1" }, "code", "run-1", ContextReadBranches.None, CancellationToken.None);
 
         using var ctx = new AgentSmithDbContext(Options());
         refused.Admitted.Should().BeFalse();

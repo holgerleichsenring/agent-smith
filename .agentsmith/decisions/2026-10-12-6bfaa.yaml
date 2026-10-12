@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-6bfaa
+
+decisions:
+  - category: Architecture
+    chose: "Read context.yaml on the first candidate branch that exists AND lists something under .agentsmith/contexts, else on the default branch"
+    over: "The first candidate that merely exists; or the default branch only (before)"
+    reason: |
+      For a branch the run composes from its ticket this is what the checkout lands on: an existing
+      work branch gets its base merged in, so a work branch without contexts sees the base's once the
+      run is on it. A handed branch (PR head, scan, init) is checked out without a merge; when it
+      declares nothing, the default branch's contexts still pick a better image than none, and the
+      discovery's provenance names the default branch so nobody mistakes where it came from.
+  - category: Architecture
+    chose: "Branch-taking overloads in a new ISourceProvider partial (BranchRead), implemented by *BranchRead collaborators per host"
+    over: "An optional ref parameter on the existing default-branch reads; growing the providers"
+    reason: |
+      Every implementer must answer for a branch, and an optional parameter lets one forget. The
+      remote providers are hundreds of lines over the class limit, so the reads moved into a
+      collaborator beside each *BranchWrite and the default-branch reads now call the same code with
+      the resolved default — the providers shrank. Branch existence is false only on a 404/NotFound
+      and Azure Repos matches the exact ref, because its heads/ filter is a prefix match.
+  - category: Architecture
+    chose: "ISandboxLanguageResolver and IRunFootprintCalculator take a required ContextReadBranches"
+    over: "An overload that keeps the default-branch-only call"
+    reason: |
+      A caller with no run in hand has to SAY so (ContextReadBranches.None) rather than inherit the
+      default branch silently — the silent default is the defect. The spawn reservation reads the
+      ticket's composed branch, InitRunAdmission takes candidates from its caller (init branch, or a
+      chat launch's handed PR branch), so a reservation reads what the run will.
+  - category: Architecture
+    chose: "Branch selection and the context.yaml read extracted into ContextBranchLocator and ContextYamlRemoteReader"
+    over: "Adding the branch walk to SandboxLanguageResolver"
+    reason: "The resolver was already past the line limit; the walk and the parse are responsibilities of their own."
+  - category: Implementation
+    chose: "RemoteContextDiscovery.Provenance (nullable string, by name, carried through From)"
+    over: "A structured provenance record"
+    reason: |
+      Its only reader is a sentence in a run report, and the discovery is checkpointed with the
+      remote inventory; a nullable string round-trips through JSON with nothing to version.
+  - category: Implementation
+    chose: "A run preflight check 'toolchain-image' that WARNS, one finding aggregating every sandbox on the generic fallback"
+    over: "Failing the run; a dashboard event of its own"
+    reason: |
+      A repository without a language legitimately runs on that image. The preflight's warnings already
+      become the step result and the gate event, so the fallback reaches the run with no new contract.
+      It reads the image the backend recorded, so the in-process backend (host toolchain) never warns,
+      and an image the operator or the context named as that string is a choice, not a fallback.
+  - category: Scope
+    chose: "A first run whose ticket branch does not exist yet reads the default branch and, if that falls back, reports it"
+    over: "Adding the init branch as a candidate"
+    reason: |
+      A new ticket branch is cut from the default branch, so the sandbox will hold exactly what the
+      default branch declares; resolving the image from an unmerged init branch would give the
+      sandbox a toolchain for files it does not have. The report names the merge as the lever.
+  - category: Scope
+    chose: "The spawn reservation does not try a slice's parent rung"
+    over: "Fetching the ticket at spawn to learn its parent"
+    reason: "The ticket is not fetched before the reservation; the run itself tries the rung, the reservation reads the ticket branch or the default."

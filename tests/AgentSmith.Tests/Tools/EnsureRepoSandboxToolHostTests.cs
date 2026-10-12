@@ -1,3 +1,4 @@
+using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Builders;
 using AgentSmith.Application.Services.Handlers;
@@ -46,7 +47,7 @@ public sealed class EnsureRepoSandboxToolHostTests
                             AgentSmith.Sandbox.Wire.StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null)));
                 return sandbox.Object;
             });
-        _resolverMock.Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
+        _resolverMock.Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[] { new RemoteContextDiscovery("default", ".", "csharp") });
         // "Local" provider — checkout trusts the bind-mount, no in-sandbox clone.
         var provider = new Mock<ISourceProvider>();

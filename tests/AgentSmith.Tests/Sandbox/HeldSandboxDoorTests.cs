@@ -1,3 +1,4 @@
+using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Server.Services.Init;
@@ -25,7 +26,7 @@ public sealed class HeldSandboxDoorTests
         var recording = new RecordingHeldSandboxes();
         var admission = Admission(recording, recording.AdmittingProbe());
 
-        await admission.TryAdmitAsync(new ResolvedProject { Name = "p1" }, "code", "run-1", default);
+        await admission.TryAdmitAsync(new ResolvedProject { Name = "p1" }, "code", "run-1", ContextReadBranches.None, default);
 
         recording.Order.Should().NotContain(RecordingHeldSandboxes.Released);
         recording.Order.Should().StartWith(RecordingHeldSandboxes.Probe, "it asks before it removes");
@@ -38,7 +39,7 @@ public sealed class HeldSandboxDoorTests
         var admission = Admission(recording, recording.DenyingProbe("namespace quota full"));
 
         var decision = await admission.TryAdmitAsync(
-            new ResolvedProject { Name = "p1" }, "code", "run-1", default);
+            new ResolvedProject { Name = "p1" }, "code", "run-1", ContextReadBranches.None, default);
 
         decision.Admitted.Should().BeFalse();
         // The release still happens BEFORE the probe that decides, never after a denial:

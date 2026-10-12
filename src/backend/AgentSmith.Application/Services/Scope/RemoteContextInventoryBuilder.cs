@@ -1,3 +1,4 @@
+using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
@@ -32,8 +33,9 @@ public sealed class RemoteContextInventoryBuilder(
         ArgumentNullException.ThrowIfNull(pipeline);
         ArgumentNullException.ThrowIfNull(repos);
         var inventory = new Dictionary<string, IReadOnlyList<RemoteContextDiscovery>>(StringComparer.Ordinal);
+        var branches = ContextReadBranches.For(pipeline);
         foreach (var repo in repos)
-            inventory[repo.Name ?? string.Empty] = await languageResolver.ResolveAllAsync(repo, ct);
+            inventory[repo.Name ?? string.Empty] = await languageResolver.ResolveAllAsync(repo, branches, ct);
 
         var contextOverride = pipeline.TryGet<string>(ContextKeys.SourceContext, out var ctx)
             && !string.IsNullOrWhiteSpace(ctx);

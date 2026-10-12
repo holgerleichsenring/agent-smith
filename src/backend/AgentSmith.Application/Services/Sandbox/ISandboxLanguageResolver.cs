@@ -1,3 +1,4 @@
+using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 
@@ -7,11 +8,16 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// Discovers contexts on a remote repo (pre-sandbox) so PipelineSandboxCoordinator
 /// can fan out one sandbox per context with the right toolchain image per
 /// discovery (p0161).
+/// <para>
+/// 2026-10-12-6bfaa: every member takes the branches to try before the default branch. A caller
+/// inside a run passes <see cref="ContextReadBranches.For"/>; one with no run in hand passes
+/// <see cref="ContextReadBranches.None"/> — and has to say so.
+/// </para>
 /// </summary>
 public interface ISandboxLanguageResolver
 {
     Task<IReadOnlyList<RemoteContextDiscovery>> ResolveAllAsync(
-        RepoConnection source, CancellationToken cancellationToken);
+        RepoConnection source, ContextReadBranches branches, CancellationToken cancellationToken);
 
     /// <summary>
     /// 2026-08-31-f634: the same discovery, reported instead of resolved — the contexts
@@ -22,7 +28,7 @@ public interface ISandboxLanguageResolver
     /// credential cannot read this repository" are opposite instructions.
     /// </summary>
     Task<RemoteContextListing> ListContextsAsync(
-        RepoConnection source, CancellationToken cancellationToken);
+        RepoConnection source, ContextReadBranches branches, CancellationToken cancellationToken);
 
     /// <summary>
     /// p0261: resolve a SINGLE named context (.agentsmith/contexts/&lt;name&gt;),
@@ -34,5 +40,6 @@ public interface ISandboxLanguageResolver
     /// so the bootstrap probe still hits contexts/&lt;name&gt;/.
     /// </summary>
     Task<IReadOnlyList<RemoteContextDiscovery>> ResolveContextAsync(
-        RepoConnection source, string contextName, CancellationToken cancellationToken);
+        RepoConnection source, string contextName, ContextReadBranches branches,
+        CancellationToken cancellationToken);
 }

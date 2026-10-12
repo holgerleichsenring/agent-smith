@@ -26,6 +26,7 @@ public static class RunPreflightServiceCollectionExtensions
         services.AddSingleton<Sandbox.ISandboxSecretPresenceProbe, Sandbox.SandboxSecretPresenceProbe>();
         services.AddTransient<IRunPreflightCheck, InjectedSecretCheck>();
         services.AddTransient<IRunPreflightCheck, BranchStateCheck>();
+        services.AddTransient<IRunPreflightCheck, ToolchainImageFallbackCheck>(); // 2026-10-12-6bfaa
         return services;
     }
 }

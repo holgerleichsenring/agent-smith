@@ -1,7 +1,7 @@
+using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Sandbox;
-using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Sandbox;
@@ -12,73 +12,74 @@ namespace AgentSmith.Application.Services.Sandbox;
 /// the provider is what knows how to reach either. One RemoteContextDiscovery per
 /// context; empty discovery → one synthetic ("default", ".", null) so un-init /
 /// pre-v2 repos still get one root sandbox with the generic-image fallback (p0161).
+/// <para>
+/// 2026-10-12-6bfaa: the branch every context.yaml is read on is the one
+/// <see cref="ContextBranchLocator"/> picks from the run's candidates, and each discovery
+/// carries where it was read — the synthetic default carries why nothing was.
+/// </para>
 /// </summary>
 public sealed class SandboxLanguageResolver(
     ISourceProviderFactory sourceProviderFactory,
-    IContextYamlParser contextYamlParser,
+    ContextBranchLocator branchLocator,
+    ContextYamlRemoteReader yamlReader,
     ILogger<SandboxLanguageResolver> logger) : ISandboxLanguageResolver
 {
-    private const string ContextsRoot = ".agentsmith/contexts";
-
-    private static readonly RemoteContextDiscovery SyntheticDefault =
-        new("default", ".", null);
-
     public async Task<IReadOnlyList<RemoteContextDiscovery>> ResolveAllAsync(
-        RepoConnection source, CancellationToken cancellationToken)
+        RepoConnection source, ContextReadBranches branches, CancellationToken cancellationToken)
     {
-        var listing = await ListContextsAsync(source, cancellationToken);
+        var listing = await ListContextsAsync(source, branches, cancellationToken);
         if (listing.Contexts.Count > 0)
         {
             logger.LogInformation(
-                "Discovery {Repo}: resolved {Count} context(s) [{Contexts}]",
+                "Discovery {Repo}: resolved {Count} context(s) [{Contexts}] ({Where})",
                 FormatRepoTag(source), listing.Contexts.Count,
-                string.Join(", ", listing.Contexts.Select(d => d.ContextName)));
+                string.Join(", ", listing.Contexts.Select(d => d.ContextName)), listing.Searched);
             return listing.Contexts;
         }
 
+        var reason = listing.UnreadableReason is null
+            ? $"no context.yaml under {ContextBranchLocator.ContextsRoot}/ ({listing.Searched ?? "the repository names no url or path"})"
+            : $"{ContextBranchLocator.ContextsRoot}/ could not be read ({listing.UnreadableReason})";
         logger.LogWarning(
-            "Discovery {Repo}: no context resolved ({Reason}). Using synthetic default " +
-            "(name=default workdir=. lang=null). Probe will hit " +
-            "/work/.agentsmith/contexts/default/ — typically not on the repo.",
-            FormatRepoTag(source), listing.UnreadableReason ?? "none readable under " + ContextsRoot);
-        return [SyntheticDefault];
+            "Discovery {Repo}: {Reason}. Using synthetic default (name=default workdir=. lang=null).",
+            FormatRepoTag(source), reason);
+        return [new RemoteContextDiscovery("default", ".", null, Provenance: reason)];
     }
 
     public async Task<RemoteContextListing> ListContextsAsync(
-        RepoConnection source, CancellationToken cancellationToken)
+        RepoConnection source, ContextReadBranches branches, CancellationToken cancellationToken)
     {
         if (!source.HasLocation) return RemoteContextListing.None;
 
         var repoTag = FormatRepoTag(source);
-        IReadOnlyList<string> children;
+        var provider = sourceProviderFactory.Create(source);
+        ContextDirectory directory;
         try
         {
-            var provider = sourceProviderFactory.Create(source);
-            children = await provider.ListDirectoryAsync(ContextsRoot, cancellationToken);
+            directory = await branchLocator.LocateAsync(provider, branches, cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             // The provider contract lists an absent path as empty and propagates auth and
             // transport errors, so reaching here means the repository could not be read —
             // a different answer from "it declares nothing", and it must stay different.
-            logger.LogWarning(ex,
-                "Discovery {Repo}: list of {Path} failed.", repoTag, ContextsRoot);
+            logger.LogWarning(ex, "Discovery {Repo}: list of {Path} failed.", repoTag, ContextBranchLocator.ContextsRoot);
             return RemoteContextListing.Unreadable(ex.Message);
         }
 
         logger.LogInformation(
-            "Discovery {Repo}: {Path} subfolders=[{Children}] ({Count})",
-            repoTag, ContextsRoot, string.Join(", ", children), children.Count);
+            "Discovery {Repo}: {Path} on {Where} subfolders=[{Children}] ({Count})",
+            repoTag, ContextBranchLocator.ContextsRoot, directory.Where,
+            string.Join(", ", directory.Children), directory.Children.Count);
 
         var discoveries = new List<RemoteContextDiscovery>();
-        foreach (var contextName in children)
+        foreach (var contextName in directory.Children)
         {
-            var summary = await TryParseContextYamlAsync(source, repoTag, contextName, cancellationToken);
-            if (summary is null) continue;
-            discoveries.Add(RemoteContextDiscovery.From(contextName, summary));
+            var summary = await yamlReader.ReadAsync(provider, directory.Branch, repoTag, contextName, cancellationToken);
+            if (summary is not null)
+                discoveries.Add(RemoteContextDiscovery.From(contextName, summary, ProvenanceOf(contextName, directory)));
         }
-
-        return new RemoteContextListing(discoveries);
+        return new RemoteContextListing(discoveries, Searched: Describe(directory));
     }
 
     // p0261: `--context NAME` path — one explicit context, no discovery, no
@@ -87,86 +88,46 @@ public sealed class SandboxLanguageResolver(
     // no file there) we still return a NAMED synthetic so the bootstrap probe
     // hits contexts/NAME/ rather than the misleading "default".
     public async Task<IReadOnlyList<RemoteContextDiscovery>> ResolveContextAsync(
-        RepoConnection source, string contextName, CancellationToken cancellationToken)
+        RepoConnection source, string contextName, ContextReadBranches branches, CancellationToken cancellationToken)
     {
         var repoTag = FormatRepoTag(source);
-        var summary = await TryParseContextYamlAsync(source, repoTag, contextName, cancellationToken);
-        if (summary is null)
+        var provider = sourceProviderFactory.Create(source);
+        var directory = await TryLocateAsync(provider, branches, repoTag, cancellationToken);
+        var summary = await yamlReader.ReadAsync(provider, directory.Branch, repoTag, contextName, cancellationToken);
+        if (summary is not null)
         {
-            logger.LogWarning(
-                "Context override {Repo}/{Context}: context.yaml not readable — using a named synthetic " +
-                "(workdir=. lang=null). Probe will hit /work/.agentsmith/contexts/{Context}/.",
-                repoTag, contextName);
-            return [new RemoteContextDiscovery(contextName, ".", null)];
+            logger.LogInformation("Context override {Repo}: pinned to '{Context}' (workdir={Workdir} lang={Lang})",
+                repoTag, contextName, summary.Workdir, summary.Language ?? "null");
+            return [RemoteContextDiscovery.From(contextName, summary, ProvenanceOf(contextName, directory))];
         }
-        logger.LogInformation(
-            "Context override {Repo}: pinned to '{Context}' (workdir={Workdir} lang={Lang})",
-            repoTag, contextName, summary.Workdir, summary.Language ?? "null");
-        return [RemoteContextDiscovery.From(contextName, summary)];
+        var reason = $"{ContextBranchLocator.ContextsRoot}/{contextName}/context.yaml not readable on {Describe(directory)}";
+        logger.LogWarning(
+            "Context override {Repo}/{Context}: {Reason} — using a named synthetic (workdir=. lang=null).",
+            repoTag, contextName, reason);
+        return [new RemoteContextDiscovery(contextName, ".", null, Provenance: reason)];
     }
 
-    private async Task<ContextYamlSummary?> TryParseContextYamlAsync(
-        RepoConnection source, string repoTag, string contextName, CancellationToken ct)
+    // The override reads one named file wherever it is; a branch that cannot be located is read
+    // on the default branch, and that read reports its own failure.
+    private async Task<ContextDirectory> TryLocateAsync(
+        ISourceProvider provider, ContextReadBranches branches, string repoTag, CancellationToken ct)
     {
-        var path = $"{ContextsRoot}/{contextName}/context.yaml";
-        string? yaml;
         try
         {
-            var provider = sourceProviderFactory.Create(source);
-            yaml = await provider.TryReadFileAsync(path, ct);
+            return await branchLocator.LocateAsync(provider, branches, ct);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            logger.LogWarning(ex,
-                "Context {Repo}/{Context}: read {Path} threw. Skipped.",
-                repoTag, contextName, path);
-            return null;
+            logger.LogWarning(ex, "Context override {Repo}: locating the branch failed.", repoTag);
+            return new ContextDirectory(null, [], []);
         }
-
-        if (string.IsNullOrEmpty(yaml))
-        {
-            logger.LogWarning(
-                "Context {Repo}/{Context}: read {Path} returned empty. Skipped.",
-                repoTag, contextName, path);
-            return null;
-        }
-
-        ContextYamlParseResult result;
-        try
-        {
-            result = contextYamlParser.Parse(yaml);
-        }
-        catch (InvalidOperationException ex)
-        {
-            // meta.workdir is required — surface as a config error.
-            logger.LogWarning(
-                "Context {Repo}/{Context}: {Path} rejected — {Reason}. Skipped.",
-                repoTag, contextName, path, ex.Message);
-            return null;
-        }
-
-        if (result.ErrorReason is not null)
-        {
-            logger.LogWarning(
-                "Context {Repo}/{Context}: {Path} parse failed — {Reason}. Skipped (sandbox will fall back to generic image).",
-                repoTag, contextName, path, result.ErrorReason);
-            return null;
-        }
-
-        if (result.Summary is null)
-        {
-            logger.LogWarning(
-                "Context {Repo}/{Context}: {Path} produced no summary (empty or shape did not match expected fields, {Bytes} bytes read). Skipped.",
-                repoTag, contextName, path, yaml.Length);
-            return null;
-        }
-
-        var summary = result.Summary;
-        logger.LogInformation(
-            "Context {Repo}/{Context}: workdir={Workdir} lang={Lang} image={Image}",
-            repoTag, contextName, summary.Workdir, summary.Language ?? "null", summary.Image ?? "null");
-        return summary;
     }
+
+    private static string ProvenanceOf(string contextName, ContextDirectory directory) =>
+        $"{ContextBranchLocator.ContextsRoot}/{contextName}/context.yaml read on {Describe(directory)}";
+
+    private static string Describe(ContextDirectory directory) =>
+        directory.PassedOver.Count == 0 ? directory.Where : $"{directory.Where}; {directory.Searched}";
 
     private static string FormatRepoTag(RepoConnection source)
     {

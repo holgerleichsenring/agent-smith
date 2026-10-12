@@ -105,8 +105,8 @@ public sealed class ScopeReposRefusalTests
     {
         var resolver = new Mock<ISandboxLanguageResolver>();
         resolver
-            .Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((RepoConnection repo, CancellationToken _) =>
+            .Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((RepoConnection repo, ContextReadBranches _, CancellationToken _) =>
                 new[] { new RemoteContextDiscovery("default", ".", "csharp", Purpose: $"{repo.Name} service") });
         _chatClient = new StubChatClient(new Queue<string>([classifierReply]));
         var events = new Mock<AgentSmith.Contracts.Events.IEventPublisher>();

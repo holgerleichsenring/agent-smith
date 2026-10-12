@@ -40,12 +40,17 @@ namespace AgentSmith.Contracts.Sandbox;
 /// after the prerequisites and before the master. Null = nothing asks, which the run reports as
 /// not declared rather than as answered. Passed BY NAME at every construction site, for
 /// the reason the paragraph above gives.</param>
+/// <param name="Provenance">2026-10-12-6bfaa: where this context.yaml was read — or, for the
+/// synthetic default, why there was none to read: every branch passed over and the default
+/// branch's answer. The run's toolchain-image report quotes it. Null = not recorded. Passed BY
+/// NAME, for the reason above.</param>
 public sealed record RemoteContextDiscovery(
     string ContextName, string Workdir, string? Language, string? Prerequisites = null,
     string? ToolchainImage = null, ContextYamlStackResources? Resources = null,
     string? Purpose = null, IReadOnlyList<ContextYamlVerifyStage>? Verify = null,
     ContextYamlVerifyDerivation? VerifyDerivedFrom = null,
-    ContextYamlTargetProbe? Probe = null)
+    ContextYamlTargetProbe? Probe = null,
+    string? Provenance = null)
 {
     /// <summary>
     /// The ONE mapping from a parsed context.yaml to a discovery. Both production
@@ -54,13 +59,14 @@ public sealed record RemoteContextDiscovery(
     /// by hand: one of them forgets, and every test that builds the record itself agrees
     /// with the forgetting.
     /// </summary>
-    public static RemoteContextDiscovery From(string contextName, ContextYamlSummary summary)
+    public static RemoteContextDiscovery From(
+        string contextName, ContextYamlSummary summary, string? provenance = null)
     {
         ArgumentNullException.ThrowIfNull(summary);
         return new RemoteContextDiscovery(
             contextName, summary.Workdir, summary.Language, summary.Prerequisites,
             summary.Image, summary.Resources, summary.Purpose,
             Verify: summary.Verify, VerifyDerivedFrom: summary.VerifyDerivedFrom,
-            Probe: summary.Probe);
+            Probe: summary.Probe, Provenance: provenance);
     }
 }

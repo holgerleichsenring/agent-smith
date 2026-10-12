@@ -30,6 +30,9 @@ public sealed class PipelineRunner(IServiceProvider services)
     /// tests. Wins over <see cref="RepoOverride"/> when set.</summary>
     public IReadOnlyList<RepoConnection>? ReposOverride { get; set; }
 
+    /// <summary>2026-10-12-6bfaa: the project's sandbox block — per-language images among it.</summary>
+    public SandboxConfig? SandboxOverride { get; set; }
+
     /// <summary>
     /// 2026-09-13-84c0: what this project is built after, per context. The runner composes
     /// its ResolvedProject in code rather than reading the fixture's projects: block, so a
@@ -143,6 +146,7 @@ public sealed class PipelineRunner(IServiceProvider services)
             Tracker = new TrackerConnection { Type = TrackerType.GitHub, Url = "https://stub.test" },
             Agent = agent,
             Pipeline = presetName,
+            Sandbox = SandboxOverride,
             // p0199c: leave CodingPrinciplesPath unset so LoadCodingPrinciplesHandler
             // resolves the default `.agentsmith/principles.md` AND keeps the
             // nested per-context fallback (`.agentsmith/contexts/<name>/coding-

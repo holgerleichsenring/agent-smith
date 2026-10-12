@@ -37,7 +37,7 @@ public sealed class PipelineSandboxCoordinatorPerStackSizeTests
     [Fact]
     public async Task SameImageDifferentResources_CollapsesToOnePod_MaxEnvelope()
     {
-        _resolverMock.Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
+        _resolverMock.Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[]
             {
                 new RemoteContextDiscovery("build", "src/Api", "csharp", Resources: Heavy),
@@ -60,7 +60,7 @@ public sealed class PipelineSandboxCoordinatorPerStackSizeTests
     [Fact]
     public async Task SameImageSameResources_CollapsesToOneSandbox()
     {
-        _resolverMock.Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
+        _resolverMock.Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new[]
             {
                 new RemoteContextDiscovery("a", "src/A", "csharp", Resources: Heavy),

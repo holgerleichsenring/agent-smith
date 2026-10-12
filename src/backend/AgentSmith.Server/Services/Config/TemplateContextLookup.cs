@@ -1,4 +1,5 @@
 using System.Text.RegularExpressions;
+using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Models.Configuration;
@@ -44,7 +45,7 @@ public sealed partial class TemplateContextLookup(
         var repo = resolved.Repos.FirstOrDefault(r => Names(repoRef).Any(n => ConfigNames.AreSame(r.Name, n)));
         if (repo is null) return null;
 
-        var listing = await contexts.ListContextsAsync(repo, cancellationToken);
+        var listing = await contexts.ListContextsAsync(repo, ContextReadBranches.None, cancellationToken);
         return listing.IsUnreadable
             ? new ProjectContextsView([], Sanitised(listing.UnreadableReason!))
             : new ProjectContextsView([.. listing.Contexts.Select(c => c.ContextName)]);

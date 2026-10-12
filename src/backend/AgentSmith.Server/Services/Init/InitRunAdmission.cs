@@ -1,3 +1,4 @@
+using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
@@ -34,9 +35,10 @@ public sealed class InitRunAdmission(
     ILogger<InitRunAdmission> logger)
 {
     public async Task<CapacityDecision> TryAdmitAsync(
-        ResolvedProject project, string pipelineName, string runId, CancellationToken ct)
+        ResolvedProject project, string pipelineName, string runId, ContextReadBranches branches,
+        CancellationToken ct)
     {
-        var footprint = await footprintCalculator.CalculateAsync(project, pipelineName, ct);
+        var footprint = await footprintCalculator.CalculateAsync(project, pipelineName, branches, ct);
         await capacityBudget.RecordAsync(runId, footprint, ct);
         // 2026-09-22-2d11a: releasing held sandboxes is a force remove with no grace, which
         // is why it belongs at the door the corpse sweep was taken out of. It is bounded by

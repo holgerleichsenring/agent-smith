@@ -1,9 +1,11 @@
+using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Models.Triggers;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Spawning;
@@ -61,7 +63,9 @@ public sealed class SpawnPipelineRunsUseCase(
         Dictionary<string, string>? planAnswers = null)
     {
         ValidateForSpawn(project, envelope);
-        var footprint = await footprintCalculator.CalculateAsync(project, pipelineName, ct);
+        var footprint = await footprintCalculator.CalculateAsync(
+            project, pipelineName,
+            ContextReadBranches.ForBranch(TicketBranchNamer.Compose(new TicketId(envelope.TicketId!))), ct);
 
         // p0320c: strict FIFO — a fitting smaller run never overtakes a non-empty queue.
         var head = await capacityQueue.PeekHeadAsync(ct);

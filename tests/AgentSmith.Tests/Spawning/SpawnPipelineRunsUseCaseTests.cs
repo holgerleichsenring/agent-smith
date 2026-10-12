@@ -1,3 +1,4 @@
+using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.Spawning;
 using AgentSmith.Contracts.Commands;
@@ -48,6 +49,19 @@ public sealed class SpawnPipelineRunsUseCaseTests
         harness.LastRequest!.ProjectName.Should().Be("p1");
         harness.LastRequest.PipelineName.Should().Be("code");
         harness.LastRequest.TicketId.Value.Should().Be("42");
+    }
+
+    // 2026-10-12-6bfaa: the reservation reads contexts on the branch the run will compose.
+    [Fact]
+    public async Task Spawn_Footprint_ReadsTheComposedTicketBranch()
+    {
+        var harness = new Harness();
+
+        await harness.Sut.ExecuteAsync(
+            ClaimableConfig, BuildProject("p1", repos: new[] { "repo-only" }), "code", Envelope("42"), Trigger(),
+            CancellationToken.None);
+
+        harness.FootprintBranches!.Candidates.Should().Equal(new AgentSmith.Domain.Models.BranchName("agent-smith/42"));
     }
 
     [Fact]
@@ -355,6 +369,7 @@ public sealed class SpawnPipelineRunsUseCaseTests
         public ClaimRequest? LastRequest { get; private set; }
         public RunFootprintBreakdown? RecordedFootprint { get; private set; }
         public string? RecordedRunId { get; private set; }
+        public ContextReadBranches? FootprintBranches { get; private set; }
         public string? EnqueuedRunId => _queue.LastReservedRunId;
 
         public Harness(bool fits = true, RunFootprintBreakdown? footprint = null,
@@ -374,7 +389,8 @@ public sealed class SpawnPipelineRunsUseCaseTests
                 [], "1", "4Gi", 1_000_000_000, 4L * 1024 * 1024 * 1024, [], "stub");
             var calculator = new Mock<IRunFootprintCalculator>();
             calculator.Setup(c => c.CalculateAsync(
-                    It.IsAny<ResolvedProject>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
+                    It.IsAny<ResolvedProject>(), It.IsAny<string?>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
+                .Callback<ResolvedProject, string?, ContextReadBranches, CancellationToken>((_, _, b, _) => FootprintBranches = b)
                 .ReturnsAsync(fp);
 
             var budget = new Mock<ICapacityBudget>();

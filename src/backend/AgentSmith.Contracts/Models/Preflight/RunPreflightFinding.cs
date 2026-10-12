@@ -15,8 +15,8 @@ public sealed record RunPreflightFinding(
     public static RunPreflightFinding Pass(string check, string message) =>
         new(check, RunPreflightVerdict.Pass, message);
 
-    public static RunPreflightFinding Warn(string check, string message) =>
-        new(check, RunPreflightVerdict.Warn, message);
+    public static RunPreflightFinding Warn(string check, string message, string? lever = null) =>
+        new(check, RunPreflightVerdict.Warn, message, lever);
 
     public static RunPreflightFinding Fail(string check, string message, string lever) =>
         new(check, RunPreflightVerdict.Fail, message, lever);

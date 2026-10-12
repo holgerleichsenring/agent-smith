@@ -123,7 +123,7 @@ public sealed class PipelineSandboxCoordinatorMultiRepoTests
         // ISandboxLanguageResolver.ResolveAllAsync called once per repo (per-repo
         // discovery, not a single aggregate call).
         harness.LanguageResolverMock.Verify(r => r.ResolveAllAsync(
-            It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()),
+            It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()),
             Times.Exactly(2));
     }
 
@@ -252,7 +252,7 @@ public sealed class PipelineSandboxCoordinatorMultiRepoTests
                     return Task.FromResult(sandbox.Object);
                 });
             LanguageResolverMock.Setup(r => r.ResolveAllAsync(
-                    It.IsAny<RepoConnection>(), It.IsAny<CancellationToken>()))
+                    It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(new[] { new RemoteContextDiscovery("default", ".", null) });
 
             Sut = new PipelineSandboxCoordinator(
@@ -278,7 +278,7 @@ public sealed class PipelineSandboxCoordinatorMultiRepoTests
         public Harness WithDiscoveries(string repoName, params RemoteContextDiscovery[] discoveries)
         {
             LanguageResolverMock.Setup(r => r.ResolveAllAsync(
-                    It.Is<RepoConnection>(rc => rc.Name == repoName), It.IsAny<CancellationToken>()))
+                    It.Is<RepoConnection>(rc => rc.Name == repoName), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
                 .ReturnsAsync(discoveries);
             return this;
         }

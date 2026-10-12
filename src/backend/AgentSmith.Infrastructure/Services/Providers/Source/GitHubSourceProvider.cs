@@ -31,6 +31,8 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, 
     private readonly DefaultBranchResolver _defaultBranch;
     // 2026-09-22-b6ad: putting files on a branch without a checkout, through this same client.
     private readonly GitHubBranchWrite _branchWrite;
+    // 2026-10-12-6bfaa: reading a named branch, the default-branch reads included.
+    private readonly GitHubBranchRead _branchRead;
 
     public string ProviderType => "GitHub";
 
@@ -49,6 +51,7 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, 
         _defaultBranch = new DefaultBranchResolver(
             connection.DefaultBranch, $"{_owner}/{_repo}", logger);
         _branchWrite = new GitHubBranchWrite(_owner, _repo, clientFactory, _token, logger);
+        _branchRead = new GitHubBranchRead(_owner, _repo, clientFactory, _token);
     }
 
     public async Task<BranchWriteResult> WriteFilesToBranchAsync(
@@ -279,44 +282,21 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, 
         string prUrl, BranchName sourceBranch, CancellationToken cancellationToken) =>
         _pullRequests.CompleteAsync(prUrl, cancellationToken);
 
-    public async Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken)
-    {
-        var client = CreateGitHubClient();
-        var branch = await GetDefaultBranchAsync(client);
-        try
-        {
-            var contents = await client.Repository.Content.GetAllContentsByRef(
-                _owner, _repo, path, branch);
-            // GetAllContentsByRef on a file returns a single-element list with
-            // the file's text. The 'Content' field is null when the file is a
-            // directory; for our use case (.agentsmith/context.yaml) it is a
-            // regular file.
-            return contents.Count == 0 ? null : contents[0].Content;
-        }
-        catch (NotFoundException)
-        {
-            return null;
-        }
-    }
+    public async Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken) =>
+        await _branchRead.TryReadFileAsync(path, await GetDefaultBranchAsync(CreateGitHubClient()), cancellationToken);
 
-    public async Task<IReadOnlyList<string>> ListDirectoryAsync(string path, CancellationToken cancellationToken)
-    {
-        var client = CreateGitHubClient();
-        var branch = await GetDefaultBranchAsync(client);
-        try
-        {
-            // GetAllContentsByRef on a directory returns one entry per child;
-            // each has Name. For a file path the list is one element with that
-            // file's name — caller can filter by sub-dir if needed.
-            var contents = await client.Repository.Content.GetAllContentsByRef(
-                _owner, _repo, path, branch);
-            return contents.Select(c => c.Name).ToList();
-        }
-        catch (NotFoundException)
-        {
-            return [];
-        }
-    }
+    public async Task<IReadOnlyList<string>> ListDirectoryAsync(string path, CancellationToken cancellationToken) =>
+        await _branchRead.ListDirectoryAsync(path, await GetDefaultBranchAsync(CreateGitHubClient()), cancellationToken);
+
+    public Task<bool> BranchExistsAsync(BranchName branch, CancellationToken cancellationToken) =>
+        _branchRead.ExistsAsync(branch.Value, cancellationToken);
+
+    public Task<string?> TryReadFileAsync(string path, BranchName branch, CancellationToken cancellationToken) =>
+        _branchRead.TryReadFileAsync(path, branch.Value, cancellationToken);
+
+    public Task<IReadOnlyList<string>> ListDirectoryAsync(
+        string path, BranchName branch, CancellationToken cancellationToken) =>
+        _branchRead.ListDirectoryAsync(path, branch.Value, cancellationToken);
 
     private IGitHubClient CreateGitHubClient() => _clientFactory.Create(_token);
 

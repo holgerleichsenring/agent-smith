@@ -1,3 +1,4 @@
+using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
@@ -31,7 +32,7 @@ public sealed class ChatTicketlessRunLauncher(
         ResolvedProject project, string pipeline, Dictionary<string, object> context, CancellationToken ct)
     {
         var runId = RunIdGenerator.Generate(timeProvider.GetUtcNow());
-        var decision = await admission.TryAdmitAsync(project, pipeline, runId, ct);
+        var decision = await admission.TryAdmitAsync(project, pipeline, runId, HandedBranch(context), ct);
         if (!decision.Admitted) return ChatLaunchResult.Refused(decision.Reason!);
 
         await runs.CreateQueuedRunAsync(runId, project.Name, pipeline, ReposOf(project, context), QueuedSummary, ct);
@@ -50,4 +51,12 @@ public sealed class ChatTicketlessRunLauncher(
         context.TryGetValue(ContextKeys.SourceOverrideRepo, out var repo) && repo is string name
             ? [name]
             : project.Repos.Select(r => r.Name).ToList();
+
+    // 2026-10-12-6bfaa: the reservation reads contexts where the run will — a pull request's
+    // head when the launch hands one in, the default branch otherwise.
+    private static ContextReadBranches HandedBranch(Dictionary<string, object> context) =>
+        context.TryGetValue(ContextKeys.CheckoutBranch, out var branch)
+        && branch is string name && !string.IsNullOrWhiteSpace(name)
+            ? ContextReadBranches.ForBranch(new Domain.Models.BranchName(name))
+            : ContextReadBranches.None;
 }

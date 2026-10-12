@@ -1,3 +1,5 @@
+using AgentSmith.Tests.TestHelpers;
+using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Resume;
 using AgentSmith.Application.Services.Sandbox;
@@ -38,7 +40,7 @@ public sealed class ContextYamlProbeBlockTests
     [Fact]
     public async Task ContextYaml_AProbeBlock_ReachesTheDiscoveryFromRealYaml()
     {
-        var discoveries = await Resolver().ResolveAllAsync(Source, CancellationToken.None);
+        var discoveries = await Resolver().ResolveAllAsync(Source, ContextReadBranches.None, CancellationToken.None);
 
         var probe = discoveries.Should().ContainSingle().Which.Probe;
         probe.Should().NotBeNull(
@@ -54,7 +56,7 @@ public sealed class ContextYamlProbeBlockTests
     public async Task ContextYaml_AProbeBlock_ReachesTheExplicitContextPathToo()
     {
         var discoveries = await Resolver()
-            .ResolveContextAsync(Source, "warehouse", CancellationToken.None);
+            .ResolveContextAsync(Source, "warehouse", ContextReadBranches.None, CancellationToken.None);
 
         discoveries.Should().ContainSingle().Which.Probe.Should().NotBeNull(
             "the pinned-context path builds the same record");
@@ -77,7 +79,7 @@ public sealed class ContextYamlProbeBlockTests
     [Fact]
     public async Task ContextYaml_AProbeBlock_ReachesTheResolverFromItsOwnDeclaration()
     {
-        var discoveries = await Resolver().ResolveAllAsync(Source, CancellationToken.None);
+        var discoveries = await Resolver().ResolveAllAsync(Source, ContextReadBranches.None, CancellationToken.None);
         var pipeline = new PipelineContext();
         pipeline.Set<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(
             ContextKeys.SandboxContexts,
@@ -130,7 +132,7 @@ public sealed class ContextYamlProbeBlockTests
     [Fact]
     public async Task ContextYaml_AProbeBlock_SurvivesTheResumeRoundTrip()
     {
-        var discoveries = await Resolver().ResolveAllAsync(Source, CancellationToken.None);
+        var discoveries = await Resolver().ResolveAllAsync(Source, ContextReadBranches.None, CancellationToken.None);
         var before = new PipelineContext();
         before.Set<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(
             ContextKeys.RemoteContextInventory,
@@ -158,9 +160,6 @@ public sealed class ContextYamlProbeBlockTests
             .ReturnsAsync(Yaml);
         var factory = new Mock<ISourceProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(source.Object);
-        return new SandboxLanguageResolver(
-            factory.Object,
-            new ContextYamlParser(new ContextYamlSerializer(new ContextYamlBuilders())),
-            NullLogger<SandboxLanguageResolver>.Instance);
+        return TestSandboxLanguageResolver.Create(factory.Object, new ContextYamlParser(new ContextYamlSerializer(new ContextYamlBuilders())));
     }
 }
