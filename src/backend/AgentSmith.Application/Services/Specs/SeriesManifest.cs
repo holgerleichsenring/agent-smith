@@ -79,6 +79,12 @@ public sealed class SeriesManifest
                 DateTimeOffset.TryParse(r.At, CultureInfo.InvariantCulture, DateTimeStyles.RoundtripKind, out var at)
                     ? at : DateTimeOffset.UtcNow))];
 
+    /// <summary>2026-10-12-f5f7b: the current revision's time when it parses, null otherwise — a
+    /// manifest whose time is unparsed is never the newest one.</summary>
+    public DateTimeOffset? CurrentRevisionTimeOf(SeriesManifestDocument doc) =>
+        doc.Revisions.Count > 0 && DateTimeOffset.TryParse(doc.Revisions[^1].At, CultureInfo.InvariantCulture,
+            DateTimeStyles.RoundtripKind, out var at) ? at : null;
+
     public SpecHandback? HandbackOf(SeriesManifestDocument doc) =>
         Enum.TryParse<SpecHandbackCase>(doc.HandbackCase, ignoreCase: true, out var parsed)
         && parsed != SpecHandbackCase.None

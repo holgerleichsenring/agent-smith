@@ -46,12 +46,16 @@ public interface ISpecSetDeriver
 /// <para>
 /// 2026-10-06-03c7d: the set is found by the TICKET KEY its series manifest names.
 /// </para>
+/// <para>
+/// 2026-10-12-f5f7b: and read from every run repository — each may carry its own sub-series; the
+/// carrying repository decides between one-repository series found in several of them.
+/// </para>
 /// </summary>
 public interface ISpecSetReader
 {
     Task<SpecSetOnBranch> ReadAsync(
-        PipelineContext pipeline, RepoConnection carryingRepo, TicketKey ticket,
-        CancellationToken cancellationToken);
+        PipelineContext pipeline, RepoConnection carryingRepo, IReadOnlyList<RepoConnection> repositories,
+        TicketKey ticket, CancellationToken cancellationToken);
 }
 
 /// <summary>

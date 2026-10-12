@@ -18,6 +18,12 @@ public sealed class SeriesManifestDocument
     public string? Goal { get; set; }
     public bool TicketPinnedWhole { get; set; }
     public List<string> Specs { get; set; } = [];
+
+    /// <summary>2026-10-12-f5f7b: the repositories whose sub-series make up the ticket's set, as the
+    /// write that stamped this manifest saw them; null on a manifest that predates it, which is a
+    /// one-repository series.</summary>
+    public List<string>? SeriesRepos { get; set; }
+
     public List<SeriesRevisionEntry> Revisions { get; set; } = [];
     public List<SeriesCarriedEntry> Carried { get; set; } = [];
     public List<SeriesDiscardedEntry> Discarded { get; set; } = [];

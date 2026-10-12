@@ -48,4 +48,32 @@ public sealed class TicketSeriesRepositoryTests : IDisposable
         (await repository.GetAsync("alpha", TicketKey.For("github", "1").Value, default))
             .Should().BeNull("the same number on another tracker is another ticket");
     }
+
+    [Fact]
+    public async Task TicketSeries_RowWithoutShaMap_BackFillsTheCarryingRepository()
+    {
+        var repository = new TicketSeriesRepository(_context);
+        var key = TicketKey.For("jira", "2").Value;
+        await repository.SaveAsync("alpha", new SpecSetPointer(key, "api", "sha-1", 1), default);
+        var row = await _context.TicketSeries.SingleAsync(t => t.TicketKey == key);
+        row.RevisionShasJson = null;
+        await _context.SaveChangesAsync();
+        _context.ChangeTracker.Clear();
+
+        var read = await repository.GetAsync("alpha", key, default);
+
+        read!.RevisionShas.Should().BeEquivalentTo(new Dictionary<string, string> { ["api"] = "sha-1" });
+    }
+
+    [Fact]
+    public async Task TicketSeries_ShaMap_RoundTrips()
+    {
+        var repository = new TicketSeriesRepository(_context);
+        var key = TicketKey.For("jira", "3").Value;
+        var shas = new Dictionary<string, string> { ["api"] = "a1", ["web"] = "w1" };
+
+        await repository.SaveAsync("alpha", new SpecSetPointer(key, "api", "a1", 1, RevisionShas: shas), default);
+
+        (await repository.GetAsync("alpha", key, default))!.RevisionShas.Should().BeEquivalentTo(shas);
+    }
 }

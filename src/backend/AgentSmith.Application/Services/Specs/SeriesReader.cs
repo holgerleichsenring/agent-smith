@@ -1,7 +1,5 @@
-using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Specs;
 using Microsoft.Extensions.Logging;
 
@@ -17,87 +15,63 @@ namespace AgentSmith.Application.Services.Specs;
 /// read it" — the caller hands those back rather than replacing them from a copy.
 /// </para>
 /// <para>
-/// 2026-10-06-03c7d: the set is the series whose manifest under <c>series/</c> names the run's
-/// ticket key; its specs are read from <c>specs/planned/</c> by id. The revision sha is the last
-/// commit on the manifest and on every spec file of the series.
+/// 2026-10-06-03c7d/e: the set is the series whose manifest under <c>series/</c> names the run's
+/// ticket key; a spec is executed when it lies in done/.
 /// </para>
 /// <para>
-/// 2026-10-06-03c7e: specs are read across planned/, done/ and active/; a spec is executed when
-/// it lies in done/ — the manifest keeps no executed list.
+/// 2026-10-12-f5f7b: every run repository may hold its own self-contained sub-series of the ticket.
+/// Each is read as one repository was read before (<see cref="SubSeriesReader"/>) and the reads are
+/// joined into one set (<see cref="SeriesJoin"/>); the set carries the last commit per joined
+/// repository and names the lagging members.
 /// </para>
 /// </summary>
 public sealed class SeriesReader(
-    ISandboxFileReaderFactory readerFactory,
-    SandboxGitOperations gitOps,
-    SeriesManifestFinder finder,
-    SeriesSpecFileReader specs,
+    SubSeriesReader subSeries,
+    SeriesJoin join,
     SeriesManifest manifest,
-    SandboxTargets sandboxTargets,
     ILogger<SeriesReader> logger) : ISpecSetReader
 {
     public async Task<SpecSetOnBranch> ReadAsync(
-        PipelineContext pipeline, RepoConnection carryingRepo, TicketKey ticket,
-        CancellationToken cancellationToken)
+        PipelineContext pipeline, RepoConnection carryingRepo, IReadOnlyList<RepoConnection> repositories,
+        TicketKey ticket, CancellationToken cancellationToken)
     {
-        var matches = sandboxTargets.SandboxesForRepo(pipeline, carryingRepo);
-        if (matches.Count == 0)
+        ArgumentNullException.ThrowIfNull(carryingRepo);
+        var carrying = carryingRepo.Name ?? string.Empty;
+        var reads = new List<SubSeriesRead>();
+        foreach (var repo in RunRepos(carryingRepo, repositories))
+            reads.Add(await subSeries.ReadAsync(pipeline, repo, ticket, cancellationToken));
+        var joined = join.Join(reads, carrying);
+        if (joined.Otherwise is { } answer)
         {
-            // NOT "nothing at the path": the path was never looked at.
-            logger.LogWarning(
-                "No sandbox for {Repo} — the repository carrying the spec set is not checked out",
-                carryingRepo.Name);
-            return SpecSetOnBranch.Unreadable(
-                $"the repository '{carryingRepo.Name}' carrying the set is not checked out in this run");
+            if (answer.State == SpecSetBranchState.Unreadable)
+                logger.LogWarning("The series of ticket {Ticket} is unreadable: {Why}", ticket.Value, answer.Why);
+            return answer;
         }
-
-        var sandbox = matches[0].Value;
-        var files = readerFactory.Create(sandbox);
-        var lookup = await finder.FindAsync(files, ticket, cancellationToken);
-        if (lookup.Otherwise is { } answer) return answer;
-        var phases = await ReadSpecsAsync(files, lookup.Document!, cancellationToken);
-        if (phases.Why is { } why)
-        {
-            logger.LogWarning("Series {Base} did not read back: {Why}", lookup.Base, why);
-            return SpecSetOnBranch.Unreadable(why);
-        }
-        var sha = await gitOps.GetLastCommitForPathsAsync(sandbox, RevisionPaths(lookup.Base!), cancellationToken);
-        var set = SetOf(ticket, lookup.Base!, lookup.Document!, phases.Read, phases.Executed);
-        logger.LogInformation(
-            "Series {Base} of {Ticket} read from the ticket branch: {Phases} spec(s), revision {Revision}",
-            lookup.Base, set.Key, set.Phases.Count, set.Current.Number);
-        return SpecSetOnBranch.Answered(new SpecSetReadResult(set, sha));
+        return SpecSetOnBranch.Answered(ResultOf(ticket, carrying, joined));
     }
 
     /// <summary>The paths whose last commit is a series' revision sha.</summary>
     public static IReadOnlyList<string> RevisionPaths(string seriesBase) =>
         [SeriesPaths.Manifest(seriesBase), SeriesPaths.SpecFilesPathspec(seriesBase)];
 
-    private async Task<(IReadOnlyList<SpecPhase> Read, IReadOnlyList<string> Executed, string? Why)> ReadSpecsAsync(
-        ISandboxFileReader files, SeriesManifestDocument doc, CancellationToken ct)
+    private SpecSetReadResult ResultOf(TicketKey ticket, string carrying, SeriesJoined joined)
     {
-        var listed = await ListStatesAsync(files, ct);
-        var read = new List<SpecPhase>(doc.Specs.Count);
-        var executed = new List<string>();
-        foreach (var id in doc.Specs)
-        {
-            var spec = await specs.ReadAsync(files, listed, id, doc, ct);
-            if (spec.Phase is null) return ([], [], spec.Why);
-            read.Add(spec.Phase);
-            if (spec.Executed) executed.Add(spec.Phase.PhaseId);
-        }
-        return (read, executed, null);
+        var newest = joined.Newest!;
+        var set = SetOf(ticket, newest.Base, newest.Document!, joined.Phases, joined.Executed);
+        var sha = joined.Shas.TryGetValue(carrying, out var own) ? own : joined.Shas[newest.Repo];
+        logger.LogInformation(
+            "Series {Base} of {Ticket} read from {Repos}: {Phases} spec(s), revision {Revision}, lagging {Lagging}",
+            newest.Base, set.Key, string.Join(", ", joined.Shas.Keys), set.Phases.Count, set.Current.Number,
+            joined.Lagging.Count == 0 ? "none" : string.Join(", ", joined.Lagging));
+        return new SpecSetReadResult(set, sha) { RevisionShas = joined.Shas, Lagging = joined.Lagging };
     }
 
-    private static async Task<IReadOnlyList<string>> ListStatesAsync(ISandboxFileReader files, CancellationToken ct) =>
-        [.. await ListAsync(files, SeriesPaths.Planned, ct),
-            .. await ListAsync(files, SeriesPaths.Done, ct),
-            .. await ListAsync(files, SeriesPaths.Active, ct)];
-
-    private static async Task<IReadOnlyList<string>> ListAsync(
-        ISandboxFileReader files, string directory, CancellationToken ct) =>
-        [.. (await files.ListAsync(directory, maxDepth: 1, ct))
-            .Select(p => $"{directory}/{SeriesPaths.FileName(p)}")
-            .Distinct(StringComparer.Ordinal)];
+    // The carrying repository is read even when the scope does not list it — the one-repository
+    // reader read nothing else; a repository listed twice is read once.
+    private static IReadOnlyList<RepoConnection> RunRepos(
+        RepoConnection carryingRepo, IReadOnlyList<RepoConnection> repositories) =>
+        [.. new[] { carryingRepo }.Concat(repositories ?? [])
+            .DistinctBy(r => r.Name ?? string.Empty, StringComparer.Ordinal)];
 
     private SpecSet SetOf(
         TicketKey ticket, string seriesBase, SeriesManifestDocument doc, IReadOnlyList<SpecPhase> phases,

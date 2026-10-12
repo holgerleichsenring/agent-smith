@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-f5f7b
+
+decisions:
+  - category: Architecture
+    chose: "SeriesReader orchestrates: SubSeriesReader reads one repository exactly as the old reader read the carrying one; SeriesJoin applies the all-or-nothing rules; SeriesNewestManifest picks the manifest that speaks for the set; SeriesJoinOrder orders and checks"
+    over: "Growing SeriesReader with the join"
+    reason: |
+      Reading a checkout, choosing the newest manifest and ordering the joined specs change for
+      different reasons; split, each stays under the class limit and is tested on its own.
+  - category: Architecture
+    chose: "ISpecSetReader.ReadAsync takes the run's repositories beside the carrying repository; DeriveSpecHandler passes DeriveSpecContext.Repos; the carrying repository is always read"
+    over: "Reading ContextKeys.Repos inside the reader"
+    reason: |
+      ContextKeys.Repos is only set once scoping narrows (3a36e's finding); the handler holds the
+      resolved scope. The carrying repository stays first so a legacy series reads where it did.
+  - category: Architecture
+    chose: "A single joined sub-series keeps its manifest order and is not re-checked for requires or a done/ gap; the id-order join and its checks apply from two sub-series on"
+    over: "Ordering and checking every read by id"
+    reason: |
+      The slice must change nothing for series written by today's code. Today's reader returns
+      manifest order and ExecutedHead tolerates a gap with TakeWhile; refusing such a hand-edited
+      one-repository series now would turn a readable branch unreadable.
+  - category: Architecture
+    chose: "Any repository that reads Unreadable makes the set unreadable (prefixed with its name when several are read); with nothing found anywhere the answer is NothingAtThePath unless the carrying repository is not checked out, which stays Unreadable as before"
+    over: "Requiring every run repository to be checked out before answering NothingAtThePath"
+    reason: |
+      All or nothing for what is there; the carrying repository's rule is today's. A non-carrying
+      repository without a sandbox was never read before, so treating it as unknown would make
+      today's multi-repository runs unreadable.
+  - category: Architecture
+    chose: "Membership: one found sub-series is the set; legacy manifests only, found in several repositories, read the carrying repository (none there is Unreadable); otherwise the largest parsed current revision time wins, an unparsed time never wins, a tie with different series_repos is Unreadable, a tie with the same members prefers the carrying repository"
+    over: "Merging the members of every found manifest"
+    reason: "The spec's decision: the newest manifest's series_repos is the membership and its series-wide fields are the set's."
+  - category: Architecture
+    chose: "A member whose stamp differs from the newest is listed in SpecSetReadResult.Lagging and left out of the joined phases and of RevisionShas"
+    over: "Joining it or failing the read"
+    reason: "OUT OF STEP IS NAMED, NOT JOINED — f5f7d/f5f7f consume Lagging; with one-repository writes it is always empty."
+  - category: Implementation
+    chose: "SpecSetReadResult keeps its positional (Set, LastCommitSha) and gains init properties RevisionShas and Lagging; LastCommitSha is the carrying repository's sha, else the newest manifest's"
+    over: "A new positional parameter"
+    reason: "Every test double and seeded harness reader constructs the record positionally; an empty map falls back to today's one-sha comparison."
+  - category: Implementation
+    chose: "TicketSeries.RevisionShasJson (nullable JSON object), back-filled at READ time to {CarryingRepo: RevisionSha}; SpecSetPointer.ShaByRepo back-fills the same way for pointers built without a map; migration AddTicketSeriesRevisionShas generated in both assemblies by the pinned dotnet ef 9.0.17 (--no-build, project = startup = the migrations assembly)"
+    over: "A SQL data back-fill in the migration"
+    reason: "A read-time back-fill needs no provider-specific JSON SQL and covers rows written by older replicas during a rolling deploy."
+  - category: Implementation
+    chose: "SpecSetPointerRecorder merges {repo: sha} into the existing map (empty repository names dropped) and still writes CarryingRepo and RevisionSha"
+    over: "Replacing the map per write"
+    reason: "The spec's BACK-FILL, NO FALSE EDIT decision; f5f7d writes several repositories per publish through the same recorder."
+  - category: Implementation
+    chose: "SeriesShaEdges decides the moved/not-compared edges; SpecRevisionCause calls Moved, SpecSourceResolver logs NotCompared"
+    over: "Comparing and logging inside the static SpecRevisionCause"
+    reason: "SpecRevisionCause is static with no logger and at 110 lines; the resolver already logs the decision it makes from the cause."
+  - category: Scope
+    chose: "The RealCompositionHarness proof reads two hand-placed sub-series through the composed ISpecSetReader (sandbox file reader replaced), not through a whole code run"
+    over: "A full pipeline run over two seeded stub repositories"
+    reason: "Nothing writes sub-series into two repositories until f5f7d, so a run cannot reach the join without the hand-placed branches the reader test already uses."
+  - category: Scope
+    chose: "MemoryPerRepositoryTests (f5f7c) states repos: [sample-server] on its scripted spec"
+    over: "Leaving the integration branch's harness red"
+    reason: "It failed on the base commit too: f5f7a re-asks a spec naming no repository over two, which parked the run; the gate runs it, so this commit carries the one-line fixture fix, as f5f7a did for FailedRunRepoWritesTests."

@@ -88,7 +88,7 @@ public sealed class SpecDoneRecordGitTests
         await RecordAsync(git, git.Pipeline, set, [Primary], pointers);
 
         var read = (await SeriesDoubles.Reader(git.Files, git.Ops)
-            .ReadAsync(git.Pipeline, Primary, new TicketKey(Ticket), default)).Read!;
+            .ReadAsync(git.Pipeline, Primary, [], new TicketKey(Ticket), default)).Read!;
         read.LastCommitSha.Should().Be((await pointers.GetAsync(Project, Ticket, default))!.RevisionSha,
             "the record is this system's own commit on the series' paths");
         read.Set.Executed.Should().Equal(A);
@@ -103,7 +103,7 @@ public sealed class SpecDoneRecordGitTests
         await RecordAsync(git, git.Pipeline, set, [Primary], new InMemorySpecSetPointerStore());
         var before = File.ReadAllText(Path.Combine(git.WorkDir, Done("a-first.yaml")));
         var read = (await SeriesDoubles.Reader(git.Files, git.Ops)
-            .ReadAsync(git.Pipeline, Primary, new TicketKey(Ticket), default)).Read!.Set;
+            .ReadAsync(git.Pipeline, Primary, [], new TicketKey(Ticket), default)).Read!.Set;
 
         await PublishAsync(git, read with { Phases = [read.Phases[0], Set(("b", "renamed")).Phases[0]] });
 
@@ -123,7 +123,7 @@ public sealed class SpecDoneRecordGitTests
         await git.CommitFilesAsync(Planned("a-first.yaml"));
 
         var read = (await SeriesDoubles.Reader(git.Files, git.Ops)
-            .ReadAsync(git.Pipeline, Primary, new TicketKey(Ticket), default)).Read!.Set;
+            .ReadAsync(git.Pipeline, Primary, [], new TicketKey(Ticket), default)).Read!.Set;
 
         read.Phases.Select(p => p.PhaseId).Should().Equal(A, B);
         read.Executed.Should().Equal([A], "a spec in done/ ran, its planned leftover notwithstanding");

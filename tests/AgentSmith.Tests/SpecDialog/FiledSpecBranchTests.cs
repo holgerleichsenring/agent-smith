@@ -422,7 +422,7 @@ public sealed class FiledSpecBranchTests
             ContextKeys.Sandboxes, new Dictionary<string, ISandbox> { ["sample-api"] = sandbox.Object });
         var reader = SeriesDoubles.Reader(readers.Object);
         var onBranch = await reader.ReadAsync(
-            pipeline, new RepoConnection { Name = "sample-api" }, new TicketKey(Key), default);
+            pipeline, new RepoConnection { Name = "sample-api" }, [], new TicketKey(Key), default);
         return onBranch.Read;
     }
 

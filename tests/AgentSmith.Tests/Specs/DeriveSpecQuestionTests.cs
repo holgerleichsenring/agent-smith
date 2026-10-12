@@ -127,7 +127,8 @@ public sealed class DeriveSpecQuestionTests
         var draftReader = new PhaseDraftReader();
         var reader = new Mock<ISpecSetReader>();
         reader.Setup(r => r.ReadAsync(
-                It.IsAny<PipelineContext>(), It.IsAny<RepoConnection>(), It.IsAny<TicketKey>(),
+                It.IsAny<PipelineContext>(), It.IsAny<RepoConnection>(), It.IsAny<IReadOnlyList<RepoConnection>>(),
+                It.IsAny<TicketKey>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(SpecSetOnBranch.Answered(new SpecSetReadResult(PreviousQuestion(), "sha-1")));
         var pointers = new InMemorySpecSetPointerStore();

@@ -20,10 +20,12 @@ internal static class SeriesDoubles
             files, new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance));
 
     internal static SeriesReader Reader(ISandboxFileReaderFactory files, SandboxGitOperations? git = null) =>
-        new(files, git ?? Git(files),
-            new SeriesManifestFinder(new SeriesManifest(), NullLogger<SeriesManifestFinder>.Instance),
-            new SeriesSpecFileReader(new PhaseDraftReader(), NullLogger<SeriesSpecFileReader>.Instance),
-            new SeriesManifest(), new SandboxTargets(), NullLogger<SeriesReader>.Instance);
+        new(new SubSeriesReader(files, git ?? Git(files),
+                new SeriesManifestFinder(new SeriesManifest(), NullLogger<SeriesManifestFinder>.Instance),
+                new SeriesSpecFileReader(new PhaseDraftReader(), NullLogger<SeriesSpecFileReader>.Instance),
+                new SeriesManifest(), new SandboxTargets()),
+            new SeriesJoin(new SeriesNewestManifest(), new SeriesJoinOrder()),
+            new SeriesManifest(), NullLogger<SeriesReader>.Instance);
 
     internal static SeriesWriter Writer(ISandboxFileReaderFactory files, SandboxGitOperations? git = null) =>
         new(files, git ?? Git(files), new SeriesFiles(new SeriesManifest()), new SeriesStaleFiles(),

@@ -67,7 +67,7 @@ public sealed class DeriveSpecHandler(
         var segments = TicketSegmenter.Segment(context.Ticket.Description);
         context.Pipeline.Set(ContextKeys.TicketSegments, segments);
 
-        var onBranch = await reader.ReadAsync(context.Pipeline, repo, key, cancellationToken);
+        var onBranch = await reader.ReadAsync(context.Pipeline, repo, context.Repos, key, cancellationToken);
         var previous = onBranch.Read;
         var decision = sourceResolver.Decide(onBranch, context.Ticket, pointer, context.Pipeline, key.Value,
             Contracts.Tickets.TicketLabelVocabulary.ForOptional(context.Tracker), approval);
