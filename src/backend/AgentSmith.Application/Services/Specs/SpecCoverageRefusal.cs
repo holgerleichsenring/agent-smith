@@ -13,6 +13,10 @@ namespace AgentSmith.Application.Services.Specs;
 /// COVERAGE, not for its criteria, so the done-list is carried forward and the run's acceptance
 /// contract stays non-empty without one being invented.
 /// </para>
+/// <para>
+/// 2026-10-12-f5f7a: in a scope of several repositories the fallback is a hand-back naming them
+/// (<see cref="SpecFallback"/>): the refusal is still reported, and no whole-ticket spec is built.
+/// </para>
 /// </summary>
 public sealed class SpecCoverageRefusal(SpecCutGate gate, SpecFallback fallback)
 {

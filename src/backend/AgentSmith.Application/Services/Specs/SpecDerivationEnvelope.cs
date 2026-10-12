@@ -47,9 +47,14 @@ public sealed class SpecDerivationEnvelope
     public IReadOnlyList<string> Contexts(JsonElement phase) =>
         SpecJsonReader.ReadStrings(phase, "contexts");
 
-    /// <summary>2026-10-12-3a36e: the repositories a phase states it changes, as written.</summary>
-    public IReadOnlyList<string> Repos(JsonElement phase) =>
-        SpecJsonReader.ReadStrings(phase, "repos");
+    /// <summary>2026-10-12-3a36e: the repositories a phase states it changes, as written.
+    /// 2026-10-12-f5f7a: a string names one — one repository per spec is the rule, so the
+    /// shape the rule asks for is not read as nothing stated.</summary>
+    public IReadOnlyList<string> Repos(JsonElement phase)
+    {
+        var single = SpecJsonReader.ReadString(phase, "repos");
+        return single.Length > 0 ? [single] : SpecJsonReader.ReadStrings(phase, "repos");
+    }
 
     /// <summary>2026-09-08-1830: the named contexts the model deliberately leaves out, each
     /// with its reason; one without a reason is not accounted for.</summary>

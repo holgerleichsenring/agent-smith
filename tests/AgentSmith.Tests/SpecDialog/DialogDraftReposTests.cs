@@ -7,8 +7,9 @@ namespace AgentSmith.Tests.SpecDialog;
 
 /// <summary>
 /// 2026-10-12-3a36e: a design dialog's lone spec and every epic child name the repositories
-/// they change — stated within the turn's scope, or filled from it. The epic parent is the
-/// umbrella ticket and names none.
+/// they change, within the turn's scope. The epic parent is the umbrella ticket and names none.
+/// 2026-10-12-f5f7a: over several repositories each names EXACTLY ONE — nothing is filled, and a
+/// lone spec naming several is told to become an epic, one child per repository.
 /// </summary>
 public sealed class DialogDraftReposTests
 {
@@ -37,12 +38,26 @@ public sealed class DialogDraftReposTests
     }
 
     [Fact]
-    public void OutcomeProposalResolver_LoneSpecWithoutRepos_IsFilledFromScope()
+    public void OutcomeProposalResolver_MultiRepoLoneSpecWithoutRepos_IsInvalid()
     {
-        var draft = Phase(_resolver.Resolve(Lone(string.Empty), Scope));
+        _resolver.Resolve(Lone(string.Empty), Scope).Should().BeOfType<OutcomeInvalid>()
+            .Which.Error.Should().Contain("names no repository").And.Contain("state it");
+    }
 
-        draft.Repos.Should().Equal(Scope);
-        draft.Yaml.Should().Contain("repos:").And.Contain("goal: \"Add the widget endpoint\"");
+    [Fact]
+    public void DialogDraftRepos_LoneSpecNamingTwo_NudgesEpic()
+    {
+        var (yaml, error) = DialogTestRepos.Real().ForSpec(
+            "spec: p9999\ngoal: g\nrepos: [Server, BackgroundWorker]\n", Scope);
+
+        yaml.Should().BeNull();
+        error.Should().Contain("names 2 repositories").And.Contain("propose it as an epic, one child per repository");
+    }
+
+    [Fact]
+    public void OutcomeProposalResolver_LoneSpecNamingOneAsString_IsKept()
+    {
+        Phase(_resolver.Resolve(Lone("repos: Server"), Scope)).Repos.Should().Equal("Server");
     }
 
     [Fact]
@@ -55,13 +70,30 @@ public sealed class DialogDraftReposTests
     }
 
     [Fact]
-    public void OutcomeProposalResolver_EpicChildrenWithoutRepos_AreFilledAndTheParentIsNot()
+    public void OutcomeProposalResolver_MultiRepoEpicChildrenWithoutRepos_AreInvalid()
     {
-        var epic = _resolver.Resolve(Epic(null, null), Scope).Should().BeOfType<OutcomeResolved>()
+        _resolver.Resolve(Epic(null, null), Scope).Should().BeOfType<OutcomeInvalid>()
+            .Which.Error.Should().Contain("epic children").And.Contain("spec 1 names no repository");
+    }
+
+    [Fact]
+    public void OutcomeProposalResolver_EpicOneChildPerRepository_KeepsThemAndTheParentNamesNone()
+    {
+        var epic = _resolver.Resolve(Epic("repos: [Server]", "repos: [BackgroundWorker]"), Scope)
+            .Should().BeOfType<OutcomeResolved>().Which.Proposal.Should().BeOfType<EpicOutcome>().Subject;
+
+        epic.Children[0].Repos.Should().Equal("Server");
+        epic.Children[1].Repos.Should().Equal("BackgroundWorker");
+        epic.Parent.Repos.Should().BeEmpty("the umbrella ticket changes nothing itself");
+    }
+
+    [Fact]
+    public void OutcomeProposalResolver_SingleRepoEpicChildrenWithoutRepos_AreFilled()
+    {
+        var epic = _resolver.Resolve(Epic(null, null), ["Server"]).Should().BeOfType<OutcomeResolved>()
             .Which.Proposal.Should().BeOfType<EpicOutcome>().Subject;
 
-        epic.Children.Should().OnlyContain(c => c.Repos.SequenceEqual(Scope));
-        epic.Parent.Repos.Should().BeEmpty("the umbrella ticket changes nothing itself");
+        epic.Children.Should().OnlyContain(c => c.Repos.SequenceEqual(new[] { "Server" }));
     }
 
     [Fact]
@@ -75,7 +107,7 @@ public sealed class DialogDraftReposTests
     public void OutcomeProposalResolver_EpicMixedDeclaration_IsInvalid()
     {
         _resolver.Resolve(Epic("repos: [Server]", null), Scope)
-            .Should().BeOfType<OutcomeInvalid>().Which.Error.Should().Contain("every spec must");
+            .Should().BeOfType<OutcomeInvalid>().Which.Error.Should().Contain("spec 2 names no repository");
     }
 
     [Fact]

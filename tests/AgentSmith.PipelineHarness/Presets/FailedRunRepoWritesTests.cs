@@ -23,6 +23,12 @@ public sealed class FailedRunRepoWritesTests
     private const string BudgetReason =
         "per-pipeline cost budget exhausted: 15.02 USD of 15.00 USD spent";
 
+    // 2026-10-12-f5f7a: over several repositories each spec names exactly one; a reply naming none
+    // is asked again, so the two-phase fixture states them.
+    private static readonly string TwoPhaseOneRepoEach = SpecDerivationFixture.TwoPhaseJson
+        .Replace("\"slug\": \"introduce-the-guard\",", "\"slug\": \"introduce-the-guard\", \"repos\": [\"sample-server\"],")
+        .Replace("\"slug\": \"migrate-the-callers\",", "\"slug\": \"migrate-the-callers\", \"repos\": [\"sample-client\"],");
+
     private static IReadOnlyList<RepoConnection> ThreeRepos() =>
     [
         new() { Name = "sample-server", Type = RepoType.Local, Path = "/tmp", Url = "https://stub.test/sample-server" },
@@ -37,7 +43,7 @@ public sealed class FailedRunRepoWritesTests
         await using var harness = BuildHarness(tickets);
         harness.ChatClient
             .EnqueueScopeReply("no verdict") // unusable — the run keeps all three repos
-            .EnqueueText(SpecDerivationFixture.TwoPhaseJson)
+            .EnqueueText(TwoPhaseOneRepoEach)
             .EnqueueThrow(new MasterBudgetExhaustedException(BudgetReason));
 
         var runner = new PipelineRunner(harness.Services)
