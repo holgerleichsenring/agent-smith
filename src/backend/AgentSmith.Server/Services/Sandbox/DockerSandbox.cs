@@ -37,9 +37,7 @@ public sealed class DockerSandbox(
         // operator's cap is killed by the agent — which reports the timeout with the
         // output it captured. The host wait is the backstop for a silent sandbox.
         var capped = SandboxStepCap.Clamp(step, stepTimeoutCapSeconds);
-        await channel.PushStepAsync(capped, cancellationToken);
-        return await channel.WaitForResultAsync(
-            capped.StepId, progress, SandboxStepCap.ChannelWait(capped), cancellationToken);
+        return await channel.RunStepAsync(capped, progress, SandboxStepCap.ChannelWait(capped), cancellationToken);
     }
 
     public async ValueTask DisposeAsync()
