@@ -38,6 +38,7 @@ public sealed class SpecHandbackHandler(
     ISpecSetPointerStore pointers,
     SpecHandbackRepeat repeat,
     HandbackHeadsReader heads,
+    SpecSetAnnouncer announcer,
     ILogger<SpecHandbackHandler> logger)
     : ICommandHandler<SpecHandbackContext>
 {
@@ -76,6 +77,7 @@ public sealed class SpecHandbackHandler(
         }
 
         await park.ParkAsync(context, project, handback, status!, cancellationToken);
+        await announcer.AnnounceHandbackAsync(context.Pipeline, key, handback, cancellationToken);
         if (pointer is not null)
             await pointers.SaveAsync(project,
                 SpecHandbackProgress.Record(pointer, handback.Case) with

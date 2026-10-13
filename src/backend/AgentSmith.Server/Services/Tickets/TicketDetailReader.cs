@@ -1,12 +1,9 @@
 using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Domain.Models;
-using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.SpecDialog;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Server.Services.Tickets;
 
@@ -16,7 +13,7 @@ namespace AgentSmith.Server.Services.Tickets;
 /// this page and the conversation's filed-work panel cannot disagree; everything else is another run.
 /// </summary>
 public sealed class TicketDetailReader(
-    IServiceScopeFactory scopes,
+    TicketRunsQuery runQuery,
     TicketAttempts attempts,
     TicketAttemptMarker marker,
     TicketLiveStateReader live,
@@ -28,7 +25,7 @@ public sealed class TicketDetailReader(
     /// <summary>Null when the pair has no code run — it is not a ticket.</summary>
     public async Task<TicketDetailView?> ReadAsync(string project, string ticketId, CancellationToken ct)
     {
-        var rows = await RowsAsync(project, ticketId, ct);
+        var rows = await runQuery.ForTicketAsync(project, ticketId, ct);
         var code = rows.Where(r => r.Run.Pipeline == PipelinePresets.CodeName).ToList();
         if (code.Count == 0) return null;
         var ordered = attempts.Of(code);
@@ -43,19 +40,6 @@ public sealed class TicketDetailReader(
             [.. ordered.Select((a, i) => Attempt(i + 1, a.Run, runs[i], marker.Mark(a.Run, state, specs),
                 records.GetValueOrDefault(a.Run.Id)))],
             [.. rows.Where(r => !attempts.IsAttempt(r)).Select(Other)]);
-    }
-
-    private async Task<List<TicketRunRow>> RowsAsync(string project, string ticketId, CancellationToken ct)
-    {
-        using var scope = scopes.CreateScope();
-        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-        var steps = uow.Set<RunStep>();
-        var rows = await uow.Set<Run>().AsNoTracking()
-            .Where(r => r.Project == project && r.TicketId == ticketId)
-            .OrderBy(r => r.Id)
-            .Select(r => new { Run = r, HasStep = steps.Any(s => s.RunId == r.Id) })
-            .ToListAsync(ct);
-        return [.. rows.Select(r => new TicketRunRow(r.Run, r.HasStep))];
     }
 
     private static TicketAttemptView Attempt(

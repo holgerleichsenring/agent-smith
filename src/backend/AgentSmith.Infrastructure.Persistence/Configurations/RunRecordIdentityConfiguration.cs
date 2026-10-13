@@ -25,6 +25,7 @@ public sealed class RunRecordIdentityConfiguration(string? providerName)
         Unique<RunStep>(modelBuilder);
         Unique<RunLlmCall>(modelBuilder);
         Unique<RunDecision>(modelBuilder);
+        Unique<RunSeriesCut>(modelBuilder); // 2026-10-13-9a59e
     }
 
     private void Unique<T>(ModelBuilder modelBuilder) where T : class

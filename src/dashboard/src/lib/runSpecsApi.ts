@@ -21,7 +21,8 @@ export interface RunSpecRow {
   title: string;
   /** "not_started" | "in_progress" | "done" | "failed" | "handed_back". */
   status: string;
-  startedAt: string;
+  /** 2026-10-13-9a59e: null on a row the cut created that has not started yet. */
+  startedAt: string | null;
   endedAt: string | null;
   /** Why the standing is what it is — a failing command, or an entry note. */
   verdict: string | null;

@@ -16,6 +16,7 @@ namespace AgentSmith.Server.Models;
 /// <param name="Cause">2026-10-13-9a59d: why the newest attempt with a record began.</param>
 /// <param name="TrackerState">2026-10-13-9a59d: the tracker state that attempt fetched.</param>
 /// <param name="WebUrl">2026-10-13-9a59d: where the ticket opens in its tracker.</param>
+/// <param name="SeriesStrip">2026-10-13-9a59e: the series at a glance; set on list rows only.</param>
 public sealed record TicketSummaryView(
     string Project,
     string TicketId,
@@ -38,4 +39,5 @@ public sealed record TicketSummaryView(
     IReadOnlyList<TicketPullRequestView> PullRequests,
     AgentSmith.Contracts.Runs.AttemptCause? Cause = null,
     string? TrackerState = null,
-    string? WebUrl = null);
+    string? WebUrl = null,
+    TicketSeriesStripView? SeriesStrip = null);

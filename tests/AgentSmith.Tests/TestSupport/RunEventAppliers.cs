@@ -26,7 +26,7 @@ internal static class RunEventAppliers
             pullRequests: new(), classification: new()),
         new RunStepFamily(steps: new(new()), llmCalls: new(new(), new(), new()), decisions: new(new())),
         new RunSandboxFamily(new(new(), new())),
-        new RunSpecFamily(new()),
+        new RunSpecFamily(new(), new(new())),
         new RunAttemptFamily(new()),
     ];
 }

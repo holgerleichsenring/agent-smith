@@ -15,7 +15,7 @@ internal static class TicketQueryEndpoints
     {
         app.MapGet("/api/tickets", ListAsync).Needs(Permissions.RunsRead);
         app.MapGet("/api/tickets/{project}/{ticketId}", DetailAsync).Needs(Permissions.RunsRead);
-        return app;
+        return app.MapTicketSeriesEndpoints(); // 2026-10-13-9a59e
     }
 
     // Internal so the endpoint tests drive the real readers without a host.
@@ -40,6 +40,6 @@ internal static class TicketQueryEndpoints
     /// Routing decodes every escape in a segment except an encoded slash, which it leaves as %2F so
     /// the segment boundary survives; a ticket id carrying a slash arrives that way and is decoded here.
     /// </summary>
-    private static string Decoded(string segment) =>
+    internal static string Decoded(string segment) =>
         segment.Replace("%2F", "/", StringComparison.OrdinalIgnoreCase);
 }

@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Server.Models;
 
 namespace AgentSmith.Server.Services.Tickets;
@@ -9,6 +10,7 @@ namespace AgentSmith.Server.Services.Tickets;
 /// anyway; the read is bounded by <see cref="TicketListQuery.Ceiling"/> instead.
 /// <para>2026-10-13-9a59b: every ticket's pull-request records feed its bucket; only the page's rows
 /// carry when each pull request was opened, and only the page nudges a backfill.</para>
+/// <para>2026-10-13-9a59e: only the page's rows carry their series strip.</para>
 /// </summary>
 public sealed class TicketListReader(
     TicketListQuery query,
@@ -19,7 +21,8 @@ public sealed class TicketListReader(
     TicketMonthCost monthCost,
     TicketCounts counts,
     TicketPullRequestReader pullRequests,
-    TicketAttemptRecords attemptRecords)
+    TicketAttemptRecords attemptRecords,
+    SeriesStripReader strips)
 {
     private static readonly ILookup<string, string> NoSpecs =
         Array.Empty<string>().ToLookup(s => s, StringComparer.Ordinal);
@@ -37,8 +40,10 @@ public sealed class TicketListReader(
         var statuses = await specs.ForAsync(pageAttempts, ct);
         var records = await attemptRecords.ForAsync(pageAttempts, ct);
         var pagePrs = await pullRequests.PageAsync([.. page.SelectMany(t => t.Rows).Select(r => r.Run.Id)], prRecords, ct);
+        var pageStrips = await strips.ForAsync([.. page.Select(t => (IReadOnlyList<Run>)[.. attempts.Of(t.Rows).Select(a => a.Run)])], ct);
         return new TicketListView(
-            [.. page.Select(t => composer.Compose(t.Rows, state, statuses, pagePrs.GetValueOrDefault(Key(t.Rows)) ?? [], records))],
+            [.. page.Select(t => composer.Compose(t.Rows, state, statuses, pagePrs.GetValueOrDefault(Key(t.Rows)) ?? [], records))
+                .Select(s => s with { SeriesStrip = pageStrips.GetValueOrDefault(s.NewestRunId) })],
             NextCursor(all, page, request),
             counts.Of([.. all.Select(t => t.Summary)], await monthCost.OfAsync(request.Project, ct), read.Truncated));
     }

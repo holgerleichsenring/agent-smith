@@ -30,13 +30,17 @@ public sealed class RunSpecProjection
         var row = await FindAsync(uow, e.RunId, e.SpecId, ct);
         if (row is null)
         {
-            row = new RunSpec { RunId = e.RunId, SpecId = e.SpecId, StartedAt = e.Timestamp };
+            row = new RunSpec { RunId = e.RunId, SpecId = e.SpecId };
             uow.Add(row);
         }
         row.Ordinal = e.Ordinal;
         row.Title = e.Title;
         row.Status = StatusOf(e.State);
         row.Verdict = e.Verdict ?? row.Verdict;
+        // 2026-10-13-9a59e: a row the cut created has not started until the spec first runs; the
+        // spec's acceptance is the last one any event carried.
+        if (row.StartedAt is null && e.State != SpecRunState.NotStarted) row.StartedAt = e.Timestamp;
+        row.AcceptanceJson = e.AcceptanceJson ?? row.AcceptanceJson;
         // A spec that is running again after a repair pass is not ended any more —
         // the standing is the spec's, not a monotonic clock's.
         row.EndedAt = IsTerminal(e.State) ? e.Timestamp : null;

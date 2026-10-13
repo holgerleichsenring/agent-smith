@@ -16,7 +16,7 @@ public sealed record RunSpecView(
     int Ordinal,
     string Title,
     string Status,
-    DateTimeOffset StartedAt,
+    DateTimeOffset? StartedAt, // 2026-10-13-9a59e: null while a cut spec has not started
     DateTimeOffset? EndedAt,
     string? Verdict,
     IReadOnlyList<RunDecisionView> Decisions,

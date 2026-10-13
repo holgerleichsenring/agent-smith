@@ -526,6 +526,8 @@ export interface SpecStateChangedEvent extends RunEventBase {
   title: string;
   state: number;
   verdict: string | null;
+  /** 2026-10-13-9a59e: the spec's own acceptance (serialised AcceptanceView); null while it has none. */
+  acceptanceJson?: string | null;
 }
 
 /**
@@ -578,6 +580,24 @@ export interface SpecSetPublishedEvent extends RunEventBase {
   approvalConversation?: string | null;
   approvalPrincipal?: string | null;
   committed: boolean;
+  /** 2026-10-13-9a59e: the cut — the set's key (the ticket key for a hand-back that never published). */
+  setKey?: string | null;
+  /** 2026-10-13-9a59e: the hand-back case (C# SpecHandbackCase name); null when not handed back. */
+  handbackCase?: string | null;
+  /** 2026-10-13-9a59e: every spec as published; empty for a hand-back. */
+  specs?: SpecCutEntry[] | null;
+}
+
+/** 2026-10-13-9a59e: one spec of a published cut. Mirrors C# SpecCutEntry. */
+export interface SpecCutEntry {
+  specId: string;
+  ordinal: number;
+  fileStem: string;
+  goal: string;
+  repos: string[];
+  steps: { id: string; action: string; target?: string | null }[];
+  done: string[];
+  yaml: string;
 }
 
 export type RunEvent =

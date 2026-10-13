@@ -67,6 +67,7 @@ internal sealed class TicketStoreHarness : IDisposable
 
     public TicketListReader List => _provider.GetRequiredService<TicketListReader>();
     public TicketDetailReader Detail => _provider.GetRequiredService<TicketDetailReader>();
+    public TicketSeriesReader Series => _provider.GetRequiredService<TicketSeriesReader>();
 
     public async Task AddAsync(params object[] rows)
     {

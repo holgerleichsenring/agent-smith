@@ -218,9 +218,11 @@ public sealed class VerifySpecHandler(
             result = reverted;
         if (!context.Pipeline.TryGet<SpecDraft>(ContextKeys.CurrentSpec, out var draft) || draft is null)
             return result;
+        // 2026-10-13-9a59e: a spliced repair has not run yet — the spec stays in progress with its account.
         if (result.IsSuccess)
-            await progress.RecordAsync(
-                context.Pipeline, draft.SpecId, SpecRunState.Done, cancellationToken: ct);
+            await progress.RecordAsync(context.Pipeline, draft.SpecId,
+                result.InsertNext is { Count: > 0 } ? SpecRunState.InProgress : SpecRunState.Done,
+                cancellationToken: ct);
         else
             await progress.RecordAsync(
                 context.Pipeline, draft.SpecId, SpecRunState.Failed, FailingCommandOf(result),

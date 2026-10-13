@@ -475,7 +475,8 @@ public sealed class SpecHandbackTests
             new SpecParkStatusResolver(new ClarificationParkStatusResolver()),
             pointers ?? new Application.Services.Persistence.InMemorySpecSetPointerStore(),
             Repeat(),
-            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Heads(), NullLogger<SpecHandbackHandler>.Instance);
+            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Heads(),
+            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Announcer(), NullLogger<SpecHandbackHandler>.Instance);
     }
 
     private static SpecHandbackRepeat Repeat() => new(NullLogger<SpecHandbackRepeat>.Instance);

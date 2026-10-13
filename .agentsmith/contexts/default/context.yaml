@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-13-9a59e: "SERIES PUBLISHED READ (spec publish, run-event projections, tickets). Each publish carries its cut (RunSeriesCut, hand-backs included) and stands not_started RunSpec rows up; a spec ends with its own verdict; GET /api/tickets/{project}/{ticketId}/series and the list strip read it. -> .agentsmith/specs/done/2026-10-13-9a59e-series-published-read.yaml"
     2026-10-13-9a59d: "ATTEMPT CAUSE RECORDED (FetchTicket, run-event applier, tickets). Each attempt records the act it served with its source, the ticket fingerprint, tracker state and web url, and the revision and approval it worked from (RunAttempt, event 83); the applier dispatches to five families. -> .agentsmith/specs/done/2026-10-13-9a59d-attempt-cause-recorded.yaml"
     2026-10-13-9a59c: "PR REVIEW TRIGGERS (webhooks, change and PR sweeps). Every review, vote, comment, merge, close and reopen on a ticket's PR refreshes its record: on delivery in webhook mode, within the sweeps in polling mode; all are Refresh nudges that start nothing. Docs name the deliveries and polling timing. -> .agentsmith/specs/done/2026-10-13-9a59c-pr-review-triggers.yaml"
     2026-10-13-9a59b: "PR REVIEW RECORD (rework worker, tickets). Every PR a ticket's runs named gets a PrKey-keyed record of state, decisions and comments, refreshed by the nudge worker; a Refresh nudge starts nothing. Tickets gain waiting_on_review and done, PR cells and review counts. -> .agentsmith/specs/done/2026-10-13-9a59b-pr-review-record.yaml"

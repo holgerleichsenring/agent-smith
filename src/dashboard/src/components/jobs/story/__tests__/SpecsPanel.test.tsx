@@ -63,6 +63,14 @@ describe("SpecsPanel", () => {
     );
   });
 
+  it("SpecsPanel_NotStartedRowWithoutStartTime_RendersNotStarted", async () => {
+    // 2026-10-13-9a59e: the cut stands every unexecuted spec up before it runs.
+    respond([spec({ status: "not_started", startedAt: null, endedAt: null, decisions: [] })]);
+    render(<SpecsPanel runId="r1" revision={0} />);
+
+    expect((await screen.findByTestId("spec-p19213a")).textContent).toContain("not started");
+  });
+
   it("SpecsPanel_FinishedSpec_OpensItsDecisionsAndExecutedSpec", async () => {
     respond([spec()]);
     render(<SpecsPanel runId="r1" revision={0} />);

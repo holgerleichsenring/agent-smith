@@ -31,7 +31,7 @@ public static class RunProjectionsExtensions
         services.AddSingleton<RunTrailBuffers>();
         services.AddSingleton<CancelTerminalWriter>();
         services.AddSingleton<IUnfinishedRunSource, UnfinishedRunSource>();
-        services.AddSingleton<RunSpecProjection>();
+        services.AddSingleton<RunSpecProjection>().AddSingleton<RunSeriesCutProjection>(); // 2026-10-13-9a59e
         // 2026-08-25-61f1: the three tables a run event INSERTS into own their own rows —
         // and with them the rule that one event's row is written once.
         services.AddSingleton<ProjectedEventRecords>();
