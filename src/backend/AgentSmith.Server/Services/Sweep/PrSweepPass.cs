@@ -1,5 +1,4 @@
 using AgentSmith.Contracts.Models.Configuration;
-using AgentSmith.Contracts.Models.Lifecycle;
 using AgentSmith.Contracts.Sweep;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
@@ -10,13 +9,12 @@ namespace AgentSmith.Server.Services.Sweep;
 
 /// <summary>
 /// 2026-10-08-10b0: one repository's pull-request events in one cycle. A repository not yet recorded,
-/// or unswept for two intervals, is recorded (heads, labels, comments up to now) and starts nothing.
-/// Afterwards a pull request without a row is new — reviewed, scanned if labelled, its comments read
-/// from its creation; a new head is reviewed; a label going on is scanned; a newer comment goes to
-/// command admission. Each start follows a compare-and-set that won, so a head is launched for once
-/// whatever its run's outcome. 2026-10-09-af10: a head moved to our own work commit, or a pull request
-/// whose sweep reviews failed three times in a row, records the head and starts no review. A complete list prunes the rows
-/// of pull requests no longer open; a list the budget cut prunes nothing.
+/// or unswept for two intervals, is recorded (labels, comments up to now) and starts nothing.
+/// Afterwards a pull request without a row is new — its comments are read from its creation and a
+/// review label already on it is scanned; a label going on is scanned; a newer comment goes to command
+/// admission. Each start follows a compare-and-set that won. 2026-10-13-0b82a: opening a pull request
+/// or pushing to it starts no review — a review starts on a person's command, which the comments carry.
+/// A complete list prunes the rows of pull requests no longer open; a list the budget cut prunes nothing.
 /// </summary>
 public sealed class PrSweepPass(PrSweepStore store, PrSweepActions actions, PrTriggerLabelResolver labels)
 {
@@ -30,7 +28,7 @@ public sealed class PrSweepPass(PrSweepStore store, PrSweepActions actions, PrTr
         var states = fresh ? await store.StatesAsync(key, ct) : null;
         foreach (var pr in page.Items)
             if (states is null) await store.RecordAsync(Row(target, key, pr, now), ct);
-            else await ActAsync(target, key, pr, states, lister, ct);
+            else await ActAsync(target, key, pr, states, ct);
         if (fresh) await new PrSweepComments(store, actions).RunAsync(target, key, page.Items, lister, turn, ct);
         if (!page.Cut) await store.PruneAsync(key, [.. page.Items.Select(p => p.Number)], ct);
         await store.MarkSweptAsync(key, fresh || !page.Cut, now, ct);
@@ -38,33 +36,17 @@ public sealed class PrSweepPass(PrSweepStore store, PrSweepActions actions, PrTr
     }
 
     private async Task ActAsync(
-        SweepTarget target, string key, OpenPullRequest pr, IReadOnlyDictionary<string, PrSweepState> states,
-        IOpenPullRequestLister lister, CancellationToken ct)
+        SweepTarget target, string key, OpenPullRequest pr, IReadOnlyDictionary<string, PrSweepState> states, CancellationToken ct)
     {
         if (!states.TryGetValue(pr.Number, out var row))
         {
-            if (!await store.TryInsertAsync(Row(target, key, pr, pr.CreatedAt), ct)) return;
-            await actions.ReviewAsync(target, key, pr);
-            if (Labelled(target, pr)) await actions.ScanAsync(target, pr);
+            if (await store.TryInsertAsync(Row(target, key, pr, pr.CreatedAt), ct) && Labelled(target, pr))
+                await actions.ScanAsync(target, pr);
             return;
         }
-        if (pr.HeadSha != row.ReviewedHead && await store.TryMoveHeadAsync(key, pr.Number, row.ReviewedHead, pr.HeadSha, ct)
-            && !PrSweepBreaker.Paused(row) && !await OursAsync(lister, pr, ct))
-            await actions.ReviewAsync(target, key, pr);
         var labelled = Labelled(target, pr);
         if (labelled != row.LabelPresent && await store.TrySetLabelAsync(key, pr.Number, row.LabelPresent, labelled, ct) && labelled)
             await actions.ScanAsync(target, pr);
-    }
-
-    /// <summary>
-    /// 2026-10-09-af10: a head that moved to a work commit agent-smith pushed is not new work. The head
-    /// is recorded either way; an unreadable message reviews as before.
-    /// </summary>
-    private static async Task<bool> OursAsync(IOpenPullRequestLister lister, OpenPullRequest pr, CancellationToken ct)
-    {
-        if (pr.HeadSha is null) return false;
-        try { return WipCommit.IsOurs(await lister.HeadCommitMessageAsync(pr.HeadSha, ct)); }
-        catch (Exception) when (!ct.IsCancellationRequested) { return false; }
     }
 
     private bool Labelled(SweepTarget target, OpenPullRequest pr) =>
@@ -72,6 +54,6 @@ public sealed class PrSweepPass(PrSweepStore store, PrSweepActions actions, PrTr
 
     private PrSweepState Row(SweepTarget target, string key, OpenPullRequest pr, DateTimeOffset seen) => new()
     {
-        Repository = key, Number = pr.Number, ReviewedHead = pr.HeadSha, LabelPresent = Labelled(target, pr), CommentsSeenTicks = seen.UtcTicks,
+        Repository = key, Number = pr.Number, LabelPresent = Labelled(target, pr), CommentsSeenTicks = seen.UtcTicks,
     };
 }

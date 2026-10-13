@@ -8,28 +8,19 @@ using Microsoft.Extensions.DependencyInjection;
 namespace AgentSmith.Server.Services.Sweep;
 
 /// <summary>
-/// 2026-10-08-10b0: what a pull-request event starts, from the PR sweep — the same routes, launcher
-/// and admission the webhooks use, limited to the polling entry's projects. Azure DevOps has no
-/// label scan in either mode: its webhook carries no label change.
+/// 2026-10-08-10b0: what a pull-request event starts, from the PR sweep — the same launcher and
+/// admission the webhooks use, limited to the polling entry's projects. Azure DevOps has no label
+/// scan in either mode: its webhook carries no label change. 2026-10-13-0b82a: no review here — a
+/// review starts on a person's command, through the admission.
 /// </summary>
 public sealed class PrSweepActions(
-    PrReviewRouteResolver routes,
     PrTriggerLabelResolver labels,
     PrRunContextFactory contexts,
     AgentSmith.Server.Contracts.IDetachedPipelineLauncher launcher,
     PrCommentCommandAdmission admission,
-    PrSweepBreaker breaker,
     IServiceProvider services)
 {
     private const string ScanPipeline = "security-scan";
-
-    /// <summary>2026-10-09-af10: the run's outcome goes to the breaker, which counts failures in a row.</summary>
-    public async Task ReviewAsync(SweepTarget target, string key, OpenPullRequest pr)
-    {
-        if (routes.Resolve(target.Config, Kind(target.Repo), target.Repo.Url!, pr.Labels) is { } route && target.Allowed.Contains(route.ProjectName))
-            await launcher.LaunchAsync(route.ProjectName, route.PipelineName, contexts.FromFacts(Facts(pr), route.RepoName),
-                breaker.Watch(target, key, pr));
-    }
 
     public async Task ScanAsync(SweepTarget target, OpenPullRequest pr)
     {

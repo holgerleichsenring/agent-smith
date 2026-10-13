@@ -541,15 +541,8 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
-                    b.Property<int>("FailedReviews")
-                        .HasColumnType("int");
-
                     b.Property<bool>("LabelPresent")
                         .HasColumnType("bit");
-
-                    b.Property<string>("ReviewedHead")
-                        .HasMaxLength(64)
-                        .HasColumnType("nvarchar(64)");
 
                     b.Property<DateTimeOffset>("UpdatedAt")
                         .HasColumnType("datetimeoffset");

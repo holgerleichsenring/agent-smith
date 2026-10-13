@@ -134,15 +134,6 @@ public sealed class PrReworkAdmissionTests
         (await Azure().HandleAsync(Vote(-5, voter: "creator"), VoteHeader)).Handled.Should().BeFalse();
 
     [Fact]
-    public async Task AzureDevOpsPr_VoteHeader_NeverStartsPrReview()
-    {
-        var prReview = new AzureDevOpsPrEventWebhookHandler(Mock.Of<IConfigurationLoader>(), new ServerContext("c.yml"),
-            new PrReviewRouteResolver(new ConfiguredRepoFinder()), NullLogger<AzureDevOpsPrEventWebhookHandler>.Instance);
-
-        (await prReview.HandleAsync(Vote(-5), VoteHeader)).Handled.Should().BeFalse();
-    }
-
-    [Fact]
-    public async Task AzureDevOpsPr_NoHeader_KeepsPrReview() =>
+    public async Task AzureDevOpsPr_NoHeader_NotAVote() =>
         (await Azure().HandleAsync(Vote(-5), NoHeaders)).Handled.Should().BeFalse();
 }

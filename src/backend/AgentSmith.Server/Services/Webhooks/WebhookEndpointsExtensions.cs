@@ -34,7 +34,6 @@ internal static class WebhookEndpointsExtensions
         services.AddSingleton<IDetachedPipelineLauncher, DetachedPipelineLauncher>(); // 2026-10-08-10b0
         services.AddSingleton<TriggerModeGate>(); // 2026-10-08-101b
         services.AddSingleton<AgentSmith.Server.Services.Sweep.PrSweepActions>();
-        services.AddSingleton<AgentSmith.Server.Services.Sweep.PrSweepBreaker>();
         // 2026-10-08-e8b9b: the rework entry and the router the ticket-comment handlers share —
         // singletons beside the singleton handlers; the scoped chat launcher is reached through a scope.
         services.AddSingleton<ITicketReopener, Services.Lifecycle.TicketReopener>();
@@ -62,14 +61,9 @@ internal static class WebhookEndpointsExtensions
         services.AddSingleton<StatusBackGate>();
         services.AddSingleton<IWebhookHandler, JiraStatusWebhookHandler>();
         services.AddSingleton<IWebhookHandler, JiraCommentWebhookHandler>();
-        // p0167a: pr-opened / pr-synchronize -> pr-review. Registered AFTER the
-        // label/comment handlers so existing triggers keep first-match precedence.
-        services.AddSingleton<IWebhookHandler, GitHubPrEventWebhookHandler>();
-        services.AddSingleton<IWebhookHandler, GitLabMrEventWebhookHandler>();
-        // 2026-10-08-f147: after the push/open handler, which takes every update with oldrev; the
-        // review handler answers Handled for any admitted review and would otherwise swallow pushes.
+        // 2026-10-13-0b82a: opening or pushing to a pull request starts nothing, so no handler takes
+        // those deliveries; the review handler refuses a push (oldrev) on its own.
         services.AddSingleton<IWebhookHandler, GitLabMrReviewWebhookHandler>();
-        services.AddSingleton<IWebhookHandler, AzureDevOpsPrEventWebhookHandler>();
         return services;
     }
 }

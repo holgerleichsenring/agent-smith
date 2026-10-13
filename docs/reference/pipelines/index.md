@@ -19,7 +19,7 @@ Agent Smith ships eight pipeline presets. Each one is a fixed list of steps defi
 | Pipeline | Started by | What it does | Master |
 |----------|------------|--------------|--------|
 | **code** | `agent-smith code --ticket N --project P`, a ticket label, a PR comment | Ticket → specs → code → verified green → PR | `coding-agent-master` |
-| **pr-review** | a PR being opened or updated, a PR comment | Reviews the PR diff and posts line-anchored comments | `pr-review-master` |
+| **pr-review** | a PR comment | Reviews the PR diff and posts line-anchored comments | `pr-review-master` |
 | **security-scan** | `agent-smith security-scan --agent A`, a ticket label, the review label on a PR, a PR comment | Code security review with SARIF output | `security-master` |
 | **api-security-scan** | `agent-smith api-scan --swagger … --target …`, a ticket label | Nuclei, Spectral and ZAP against a running API, triaged by a master | `api-security-master` |
 | **legal-analysis** | `agent-smith legal --source F` | Reads a contract and writes a clause-level analysis | `legal-analyst-master` |

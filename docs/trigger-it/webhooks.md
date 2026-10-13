@@ -25,7 +25,7 @@ For the action:
 
 Azure DevOps sends no platform header by default, so point these subscriptions at `POST /webhook`: the server recognises Azure DevOps from the payload itself (its `publisherId` and `eventType`). The per-platform routes (`/webhook/github`, `/webhook/gitlab`) never read a payload that way.
 
-If you also subscribe to **Pull request updated**, filter it to **Source branch updated**: every `git.pullrequest.updated` delivery starts a PR review, whatever changed.
+A pull request being created or pushed to starts nothing, so **Pull request created** and **Source branch updated** subscriptions are not needed. The one **Pull request updated** subscription agent-smith reads is the reviewer-vote one described in [PR comments](../reference/integrations/pr-comments.md#request-changes-starts-a-rework).
 
 > **Set `AZDO_WEBHOOK_SECRET`.** With it unset, every delivery to `/webhook` that reads as Azure DevOps is accepted unverified.
 

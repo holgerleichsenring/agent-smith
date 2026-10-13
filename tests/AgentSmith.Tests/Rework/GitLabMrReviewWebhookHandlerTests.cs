@@ -82,13 +82,10 @@ public sealed class GitLabMrReviewWebhookHandlerTests
         (await Handler().HandleAsync(Update(state: "approved"), NoHeaders)).Handled.Should().BeFalse();
 
     [Fact]
-    public async Task GitLabMrPush_WithStandingRequestedChanges_StillReachesPrReview()
+    public async Task GitLabMrPush_WithStandingRequestedChanges_NotTaken()
     {
         var push = Update(extra: """, "oldrev": "abc" """);
 
         (await Handler().HandleAsync(push, NoHeaders)).Handled.Should().BeFalse();
-        var order = new ServiceCollection().AddWebhookHandlers()
-            .Where(d => d.ServiceType == typeof(IWebhookHandler)).Select(d => d.ImplementationType).ToList();
-        order.Should().ContainInOrder(typeof(GitLabMrEventWebhookHandler), typeof(GitLabMrReviewWebhookHandler));
     }
 }

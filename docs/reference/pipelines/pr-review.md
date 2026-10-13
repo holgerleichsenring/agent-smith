@@ -37,22 +37,10 @@ The PR must live in a GitHub, GitLab or Azure DevOps repository; any other repo 
 
 ## Triggering
 
-A PR being **opened or updated** starts a review, when the repository belongs to a configured project. On GitHub that is the `pull_request` event with action `opened` or `synchronize`; on GitLab a merge request opened or pushed to; on Azure DevOps `git.pullrequest.created` and `git.pullrequest.updated`. A repository no project claims never triggers.
-
-The project's platform trigger (`github_trigger`, `gitlab_trigger` or `azuredevops_trigger`) can route a PR elsewhere with `pipeline_from_label`: a PR carrying a mapped label runs the pipeline that label names instead of `pr-review`.
-
-```yaml
-projects:
-  todolist:
-    github_trigger:
-      pipeline_from_label:
-        no-review: security-scan     # this PR gets a security scan instead of a review
-```
-
-You can also start a review from a PR comment, `/agent-smith review`; see [PR comments](../integrations/pr-comments.md).
+A review starts when a person asks for one: a comment `/agent-smith review` (or `/as review`) on the pull request by someone with write access to the repository. See [PR comments](../integrations/pr-comments.md). Opening a pull request or pushing to it starts nothing, in webhook and polling mode alike: a new commit is a change, not a request. A repository no project claims never triggers.
 
 !!! note "The review label starts a security scan"
-    Putting the label `security-review` on a pull request, or the word your project sets as `pr_trigger_label` on its `github_trigger` / `gitlab_trigger`, starts a **security-scan** of that pull request's head (its branch checked out, scanned in full), not a `pr-review`. The scan starts when the label is added, and only for a repository a project configures. Setting `pr_trigger_label` adds a word; `security-review` keeps triggering either way. Pushes to a pull request that already carries the label still start a `pr-review`.
+    Putting the label `security-review` on a pull request, or the word your project sets as `pr_trigger_label` on its `github_trigger` / `gitlab_trigger`, starts a **security-scan** of that pull request's head (its branch checked out, scanned in full), not a `pr-review`. The scan starts when the label is added, and only for a repository a project configures. Setting `pr_trigger_label` adds a word; `security-review` keeps triggering either way.
 
 ## Per-pipeline overrides
 

@@ -9,7 +9,7 @@ namespace AgentSmith.Server.Services.Webhooks;
 /// Handles GitLab Merge Request Hook events. Starts the security-scan pipeline on the merge
 /// request's head when an update ADDS the review-request label — the word the owning project's
 /// gitlab_trigger configures, or the historical "security-review" (PrTriggerLabelResolver owns
-/// the word). Any other update, a source push above all, is left to GitLabMrEventWebhookHandler.
+/// the word). Any other update is left to the handlers after it; a source push starts nothing.
 /// </summary>
 public sealed class GitLabMrLabelWebhookHandler(
     IConfigurationLoader configLoader,
@@ -59,7 +59,7 @@ public sealed class GitLabMrLabelWebhookHandler(
             return WebhookResult.NotHandled();
 
         var repoPath = project.TryGetProperty("path_with_namespace", out var p) ? p.GetString() ?? "" : repoUrl;
-        if (routeResolver.Resolve(config, "gitlab", repoUrl, []) is not { } route)
+        if (routeResolver.Resolve(config, repoUrl) is not { } route)
             return WebhookResult.NotHandled($"no agent-smith project configured for repo {repoPath}");
 
         var mrIid = attrs.GetProperty("iid").GetInt32();

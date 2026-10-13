@@ -145,9 +145,7 @@ public sealed class PrCommentReworkCommandTests
         new(_fixture.Admission(), Trusted(), _fixture.Heads(), NullLogger<GitHubPrCommentWebhookHandler>.Instance);
 
     private PrSweepActions Sweep() =>
-        new(new PrReviewRouteResolver(new ConfiguredRepoFinder()), new PrTriggerLabelResolver(), new PrRunContextFactory(),
-            Mock.Of<IDetachedPipelineLauncher>(), _fixture.Admission(),
-            new PrSweepBreaker(Mock.Of<IServiceScopeFactory>(), Mock.Of<ISourceProviderFactory>(), NullLogger<PrSweepBreaker>.Instance),
+        new(new PrTriggerLabelResolver(), new PrRunContextFactory(), Mock.Of<IDetachedPipelineLauncher>(), _fixture.Admission(),
             new ServiceCollection().AddKeyedSingleton("github", Trusted()).BuildServiceProvider());
 
     private const string AzureComment = """

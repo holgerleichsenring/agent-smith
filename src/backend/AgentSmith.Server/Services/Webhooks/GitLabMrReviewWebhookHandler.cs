@@ -9,8 +9,8 @@ namespace AgentSmith.Server.Services.Webhooks;
 /// <summary>
 /// 2026-10-08-f147: a GitLab merge-request update that shows a reviewer in requested_changes. A
 /// first request changes the reviewer list; a repeated one changes nothing, so the delivery is taken
-/// when it carries no oldrev (a push) and no change besides the reviewers. Registered after the MR
-/// event and label handlers. 2026-10-08-0781: it nudges the ticket; the worker reads GitLab's own
+/// when it carries no oldrev (a push) and no change besides the reviewers. Registered after the
+/// label handler. 2026-10-08-0781: it nudges the ticket; the worker reads GitLab's own
 /// "requested changes" note for the act and its time.
 /// </summary>
 public sealed class GitLabMrReviewWebhookHandler(

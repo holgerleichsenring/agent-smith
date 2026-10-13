@@ -51,7 +51,7 @@ Both modes start the same work; webhooks only start it sooner.
 | Tracker network reachability | Tracker must reach orchestrator | Orchestrator must reach tracker |
 | Tracker API calls | One request per ticket event | Per interval: the poller's two ticket lists, the change sweep's changed-ticket read (one page usually) and one read of open pull requests per repository |
 | Rework acts (keyword comments, Request changes, Wait for author) | Delivered as they happen | Found by the change sweep from a persisted cursor; served by the same rework worker |
-| Pull-request events (review on open and push, the review label, `/agent-smith` comments) | Delivered as they happen | The PR sweep lists each repository's open pull requests every interval and starts each once per head, label added or comment; a repository is recorded first, so switching to polling replays nothing. Azure DevOps has no label scan in either mode |
+| Pull-request events (the review label, `/agent-smith` comments) | Delivered as they happen | The PR sweep lists each repository's open pull requests every interval and starts each once per label added or comment; opening or pushing starts nothing; a repository is recorded first, so switching to polling replays nothing. Azure DevOps has no label scan in either mode |
 | Secret to verify | Yes (HMAC or basic auth) | Auth token only |
 | Survives orchestrator restarts | Tracker retries until it gets 200 | Yes — the sweep's cursors are rows in the database and only move forward |
 

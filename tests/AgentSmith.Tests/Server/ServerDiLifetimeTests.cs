@@ -53,8 +53,77 @@ public sealed class ServerDiLifetimeTests
         provider.GetService<IPromptCatalog>().Should().NotBeNull("Server DI must register IPromptCatalog");
         provider.GetService<IDialogueTransport>().Should().NotBeNull("Server DI must register IDialogueTransport");
         provider.GetService<IPipelineConfigResolver>().Should().NotBeNull("Server DI must register IPipelineConfigResolver");
-        provider.GetServices<IWebhookHandler>().Should().HaveCount(20, "all 20 webhook handlers (13 ticket-event + 3 p0167a pr-event + 2 2026-10-08-e8b9c pr-review + 1 2026-10-08-f147 GitLab review + 1 2026-10-08-2123 Jira status) register from a single AddWebhookHandlers call");
+        provider.GetServices<IWebhookHandler>().Should().HaveCount(17, "all 17 webhook handlers (13 ticket-event + 2 2026-10-08-e8b9c pr-review + 1 2026-10-08-f147 GitLab review + 1 2026-10-08-2123 Jira status) register from a single AddWebhookHandlers call; 2026-10-13-0b82a removed the 3 pr-event handlers");
     }
+
+    // 2026-10-13-0b82a: opening or pushing to a pull request is a change, not an assignment —
+    // no registered handler takes the delivery, on any host, for a repository a project owns.
+    [Theory]
+    [InlineData("github", "pull_request", GitHubOpened)]
+    [InlineData("github", "pull_request", GitHubSynchronize)]
+    [InlineData("gitlab", "merge_request", GitLabOpened)]
+    [InlineData("gitlab", "merge_request", GitLabPushed)]
+    [InlineData("azuredevops", "git.pullrequest.created", AzureDevOpsPr)]
+    [InlineData("azuredevops", "git.pullrequest.updated", AzureDevOpsPr)]
+    public async Task PrOpenedDelivery_OnEveryHost_StartsNothing(string platform, string eventType, string payload)
+    {
+        var services = BuildServerLikeServices();
+        var loader = new Mock<IConfigurationLoader>();
+        loader.Setup(l => l.LoadConfig(It.IsAny<string>())).Returns(OwningConfig());
+        services.AddSingleton(loader.Object);
+        var provider = services.BuildServiceProvider();
+        var headers = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var handler in provider.GetServices<IWebhookHandler>().Where(h => h.CanHandle(platform, eventType)))
+            (await handler.HandleAsync(payload, headers)).Handled.Should().BeFalse(handler.GetType().Name + " must not take it");
+    }
+
+    private static AgentSmithConfig OwningConfig() => new()
+    {
+        Projects = new Dictionary<string, ResolvedProject>
+        {
+            ["my-api"] = new()
+            {
+                Repos =
+                [
+                    new RepoConnection { Name = "gh", Url = "https://github.com/org/my-api" },
+                    new RepoConnection { Name = "gl", Url = "https://gitlab.com/org/my-api" },
+                    new RepoConnection { Name = "ado", Url = "https://dev.azure.com/org/proj/_git/my-api" },
+                ],
+            },
+        },
+    };
+
+    private const string GitHubOpened = """
+        { "action": "opened", "pull_request": { "number": 42, "head": { "sha": "h", "ref": "feature/x" }, "base": { "sha": "b" },
+          "user": { "login": "dev-a" }, "labels": [] },
+          "repository": { "full_name": "org/my-api", "clone_url": "https://github.com/org/my-api.git" } }
+        """;
+
+    private const string GitHubSynchronize = """
+        { "action": "synchronize", "pull_request": { "number": 42, "head": { "sha": "h2", "ref": "feature/x" }, "base": { "sha": "b" },
+          "user": { "login": "dev-a" }, "labels": [] },
+          "repository": { "full_name": "org/my-api", "clone_url": "https://github.com/org/my-api.git" } }
+        """;
+
+    private const string GitLabOpened = """
+        { "user": { "username": "dev-a" }, "object_attributes": { "iid": 7, "action": "open", "source_branch": "feature/x",
+          "last_commit": { "id": "h" } }, "labels": [],
+          "project": { "path_with_namespace": "org/my-api", "web_url": "https://gitlab.com/org/my-api" } }
+        """;
+
+    private const string GitLabPushed = """
+        { "user": { "username": "dev-a" }, "object_attributes": { "iid": 7, "action": "update", "source_branch": "feature/x",
+          "last_commit": { "id": "h2" }, "oldrev": "h" }, "labels": [],
+          "project": { "path_with_namespace": "org/my-api", "web_url": "https://gitlab.com/org/my-api" } }
+        """;
+
+    private const string AzureDevOpsPr = """
+        { "resource": { "pullRequestId": 11, "status": "active", "sourceRefName": "refs/heads/feature/x",
+          "createdBy": { "uniqueName": "dev-a@example.test" }, "lastMergeSourceCommit": { "commitId": "h" },
+          "lastMergeTargetCommit": { "commitId": "b" },
+          "repository": { "name": "my-api", "remoteUrl": "https://org@dev.azure.com/org/proj/_git/my-api" } } }
+        """;
 
     [Fact]
     public void ServerDi_TicketStatusTransitionerFactory_ResolvesToLockingVariant()
