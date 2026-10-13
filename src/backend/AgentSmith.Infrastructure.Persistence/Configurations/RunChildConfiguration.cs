@@ -27,6 +27,7 @@ public sealed class RunChildConfiguration
     [
         typeof(RunRepo), typeof(RunStep), typeof(RunEvent), typeof(RunDecision),
         typeof(RunLlmCall), typeof(RunArtifact), typeof(RunSandbox), typeof(RunSpec),
+        typeof(RunAttempt), // 2026-10-13-9a59d
     ];
 
     public void Apply(ModelBuilder modelBuilder)
@@ -42,5 +43,6 @@ public sealed class RunChildConfiguration
             entity.Property("RunId").HasMaxLength(PersistenceLimits.IndexedString);
             entity.HasIndex("RunId");
         }
+        new RunAttemptConfiguration().Configure(modelBuilder.Entity<RunAttempt>());
     }
 }

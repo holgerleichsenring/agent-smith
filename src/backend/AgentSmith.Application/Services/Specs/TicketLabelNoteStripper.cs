@@ -44,7 +44,7 @@ public static partial class TicketLabelNoteStripper
         var description = Strip(ticket.Description);
         return ReferenceEquals(description, ticket.Description)
             ? ticket
-            : ticket.WithDescription(description);
+            : ticket.With(description: description);
     }
 
     /// <summary>

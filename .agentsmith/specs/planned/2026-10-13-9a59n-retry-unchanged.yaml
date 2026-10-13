@@ -14,7 +14,7 @@ facts:
   - claim: "A not-implementable verdict is a hand-back: it parks in not_implementable_status (or the clarification status) and the run answers awaiting_user_input; the rework entry's hand-back park check accepts both statuses."
     evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecParkStatusResolver.cs:18-29, src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs:96-99, src/backend/AgentSmith.Server/Services/Rework/ReworkParkCheck.cs:40-43"
   - claim: "Infrastructure ends reach the run row as cancel reasons 'interrupted' (liveness reaper) and 'stale-lease-reaped' (stale lease release), both through CancelRequested."
-    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/RunLivenessReaper.cs:35,81-90, src/backend/AgentSmith.Application/Services/Lifecycle/StaleLeaseRelease.cs:63-69, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs:143-149"
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/RunLivenessReaper.cs:35,81-90, src/backend/AgentSmith.Application/Services/Lifecycle/StaleLeaseRelease.cs:63-69, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunRowFamily.cs:62-68"
   - claim: "A vanished sandbox cancels in memory with reason sandbox-vanished and the run ends failed; the reason never reaches Run.CancelReason."
     evidence: "src/backend/AgentSmith.Server/Services/Sandbox/SandboxLivenessWatcher.cs:123-131, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:589"
   - claim: "The cancel enforcer finalizes a flagged run 'cancelled' and terminalizes its ticket to failed_status (else done_status), fail-soft and skipped when a newer run holds the ticket."

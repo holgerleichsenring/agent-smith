@@ -39,7 +39,7 @@ public static class SpecDerivationRegistrations
     services.AddTransient<SeriesRepos>().AddTransient<SeriesTakenIds>().AddTransient<SeriesBranchRead>();
     services.AddTransient<FiledSeriesWrite>();
     services.AddTransient<SeriesStaleFiles>();
-    services.AddTransient<ISpecSetPublisher, SpecSetPublisher>();
+    services.AddTransient<ISpecSetPublisher, SpecSetPublisher>().AddTransient<SpecSetAnnouncer>();
     services.AddTransient<SpecSetPointerRecorder>(); // 2026-09-08-4aa9: the marker's commit moves the pointer too
     services.AddTransient<ISpecPullRequestOpener, SpecPullRequestOpener>();
     services.AddTransient<DerivedSpecYamlRenderer>();

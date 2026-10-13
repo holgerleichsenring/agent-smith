@@ -18,7 +18,7 @@ public sealed class AzureDevOpsCommentMapper
         new(
             comment.CreatedBy?.DisplayName ?? "unknown",
             ToUtcOffset(comment.CreatedDate),
-            comment.Text ?? string.Empty);
+            comment.Text ?? string.Empty) { Id = comment.Id.ToString() };
 
     // AzDO reports UTC timestamps but the SDK's DateTime often carries
     // Kind=Unspecified; treating that as local would shift the thread order.

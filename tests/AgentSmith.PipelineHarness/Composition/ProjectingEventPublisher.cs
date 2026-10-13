@@ -4,6 +4,7 @@ using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.PipelineHarness.Composition;
 
@@ -22,9 +23,15 @@ namespace AgentSmith.PipelineHarness.Composition;
 public sealed class ProjectingEventPublisher(IServiceScopeFactory scopeFactory) : IEventPublisher
 {
     private readonly RunEventApplier _applier = new(
-        checkpoints: new(), expectations: new(), queuedRuns: new(), sandboxes: new(new(), new()),
-        steps: new(new()), pullRequests: new(), classification: new(), finalization: new(new()),
-        specs: new(), llmCalls: new(new(), new(), new()), decisions: new(new()));
+    [
+        new RunRowFamily(
+            new RunStartProjection(new(), NullLogger<RunStartProjection>.Instance), finalization: new(new()),
+            checkpoints: new(), expectations: new(), pullRequests: new(), classification: new()),
+        new RunStepFamily(steps: new(new()), llmCalls: new(new(), new(), new()), decisions: new(new())),
+        new RunSandboxFamily(new(new(), new())),
+        new RunSpecFamily(new()),
+        new RunAttemptFamily(new()),
+    ]);
 
     private readonly ConcurrentDictionary<string, long> _seqByRun = new();
 

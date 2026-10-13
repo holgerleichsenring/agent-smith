@@ -39,6 +39,13 @@ public static class RunProjectionsExtensions
         services.AddSingleton<RunStepProjection>();
         services.AddSingleton<RunLlmCallProjection>();
         services.AddSingleton<RunDecisionProjection>();
+        // 2026-10-13-9a59d: the applier dispatches to these families, in this order.
+        services.AddSingleton<RunStartProjection>().AddSingleton<RunAttemptProjection>();
+        services.AddSingleton<IRunEventFamily, RunRowFamily>();
+        services.AddSingleton<IRunEventFamily, RunStepFamily>();
+        services.AddSingleton<IRunEventFamily, RunSandboxFamily>();
+        services.AddSingleton<IRunEventFamily, RunSpecFamily>();
+        services.AddSingleton<IRunEventFamily, RunAttemptFamily>();
         return services;
     }
 }

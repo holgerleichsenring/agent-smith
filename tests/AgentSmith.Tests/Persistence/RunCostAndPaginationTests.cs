@@ -35,7 +35,7 @@ public sealed class RunCostAndPaginationTests : IDisposable
 
     private RunDbProjector NewProjector()
     {
-        var services = new ServiceCollection();
+        var services = new ServiceCollection().AddLogging();
         services.AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(Options()));
         services.AddRunProjections();
         services.AddSingleton<RunEventApplier>();

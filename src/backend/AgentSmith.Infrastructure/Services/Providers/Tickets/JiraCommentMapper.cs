@@ -35,6 +35,9 @@ public sealed class JiraCommentMapper
         var body = comment.TryGetProperty("body", out var b)
             ? JiraAdfParser.ExtractText(b)
             : string.Empty;
-        return new TicketComment(author, createdAt, body);
+        var id = comment.TryGetProperty("id", out var i) && i.ValueKind == JsonValueKind.String
+            ? i.GetString()
+            : null;
+        return new TicketComment(author, createdAt, body) { Id = id };
     }
 }

@@ -44,6 +44,6 @@ public sealed class ReworkPendingActs(
         var provider = sources.Create(repo);
         var vote = provider is IPrReviewActReader votes ? await _standing.NewestAsync(repo.Type, votes, url, since, ct) : null;
         var command = provider is IPrReviewThreadReader threads ? await _standing.NewestCommandAsync(repo.Type, threads, url, since, ct) : null;
-        return PrStandingAct.Newer(vote, command) is { } note ? new PendingReworkAct(PrStandingAct.Act(note), repo, url) : null;
+        return PrStandingAct.NewerAct(vote, command, url) is { } act ? new PendingReworkAct(act, repo, url) : null;
     }
 }

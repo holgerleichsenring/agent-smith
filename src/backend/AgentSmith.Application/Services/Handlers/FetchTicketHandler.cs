@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -24,7 +25,8 @@ public sealed class FetchTicketHandler(
     AgentSmith.Contracts.Reviews.IPrReviewFeedbackFetcher prReview,
     EpicGroundFetcher epicGround,
     ILogger<FetchTicketHandler> logger,
-    Rework.StatusBackActReader? statusBack = null)
+    Rework.StatusBackActReader? statusBack = null,
+    Rework.AttemptCauseReader? attemptCause = null)
     : ICommandHandler<FetchTicketContext>
 {
     public async Task<CommandResult> ExecuteAsync(
@@ -90,13 +92,15 @@ public sealed class FetchTicketHandler(
         await prReview.FetchAsync(context.Pipeline, cancellationToken);
         // 2026-10-08-2123: and whether a person moved the ticket back since that attempt.
         if (statusBack is not null) await statusBack.ApplyAsync(provider, context, cancellationToken);
+        // 2026-10-13-9a59d: which of those acts this attempt serves, recorded on the fetched event.
+        var cause = attemptCause is null ? null : await attemptCause.ReadAsync(provider, context, cancellationToken);
 
         // 2026-09-13-7d9f: the epic this ticket is one slice of, read ONCE — here, with the
         // ticket. A parent that cannot be read is named in the step and the run proceeds.
         var ground = await epicGround.AttachAsync(
             provider, ticket, context.Pipeline, cancellationToken);
 
-        await PublishFetchedEventAsync(ticket, attachmentCount, cancellationToken, actsReadAt);
+        await PublishFetchedEventAsync(ticket, attachmentCount, cancellationToken, actsReadAt, cause);
 
         return CommandResult.Ok(
             $"Ticket {context.TicketId} fetched from {provider.ProviderType}{ground}");
@@ -119,7 +123,8 @@ public sealed class FetchTicketHandler(
     // p0184: publish the typed event for the dashboard. Best-effort —
     // a publish failure must not break ticket fetch.
     private async Task PublishFetchedEventAsync(
-        Ticket ticket, int attachmentCount, CancellationToken cancellationToken, DateTimeOffset? actsReadAt = null)
+        Ticket ticket, int attachmentCount, CancellationToken cancellationToken,
+        DateTimeOffset? actsReadAt = null, AttemptCause? cause = null)
     {
         var runId = runContext.CurrentRunId;
         if (string.IsNullOrEmpty(runId)) return;
@@ -135,7 +140,10 @@ public sealed class FetchTicketHandler(
                 AttachmentCount: attachmentCount,
                 Source: ticket.Source,
                 Timestamp: DateTimeOffset.UtcNow,
-                ActsReadAt: actsReadAt),
+                ActsReadAt: actsReadAt,
+                Cause: cause,
+                TicketFingerprint: TicketTextFingerprint.Of(ticket),
+                WebUrl: ticket.WebUrl),
                 cancellationToken);
         }
         catch (Exception ex)

@@ -30,12 +30,12 @@ public sealed class PriorRunSeedSourceTests
     {
         var reader = new Mock<IPriorRunLedgerReader>();
         reader.Setup(r => r.ReadLatestForTicketAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((PriorRunLedger?)null);
 
         await Build(reader.Object).SeedAsync(ContextWith("alpha"), "4471", CancellationToken.None);
 
-        reader.Verify(r => r.ReadLatestForTicketAsync("alpha", "4471", It.IsAny<CancellationToken>()),
+        reader.Verify(r => r.ReadLatestForTicketAsync("alpha", "4471", It.IsAny<string?>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -59,7 +59,7 @@ public sealed class PriorRunSeedSourceTests
     {
         var reader = new Mock<IPriorRunLedgerReader>();
         reader.Setup(r => r.ReadLatestForTicketAsync(
-                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+                It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>(), It.IsAny<CancellationToken>()))
             .ThrowsAsync(new InvalidOperationException("no database channel"));
 
         var seed = await Build(reader.Object)

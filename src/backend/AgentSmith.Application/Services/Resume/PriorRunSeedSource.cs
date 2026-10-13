@@ -32,7 +32,8 @@ public sealed class PriorRunSeedSource(
             return Array.Empty<ProgressLedgerEntry>();
         try
         {
-            var prior = await reader.ReadLatestForTicketAsync(project!, ticketId, cancellationToken);
+            var runId = pipeline.TryGet<string>(ContextKeys.RunId, out var id) ? id : null;
+            var prior = await reader.ReadLatestForTicketAsync(project!, ticketId, runId, cancellationToken);
             var seed = PriorRunLedgerSeeder.Seed(prior, DateTimeOffset.UtcNow);
             if (seed.Count > 0)
                 logger.LogInformation(

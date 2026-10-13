@@ -49,7 +49,10 @@ public sealed class ReworkPendingActsTests
 
         var act = await NewestAsync();
 
-        act!.Act.Should().Be(new ReworkAct("alice", Start.AddMinutes(20), ReworkChannel.PullRequest));
+        act!.Act.Should().Be(new ReworkAct("alice", Start.AddMinutes(20), ReworkChannel.PullRequest)
+        {
+            Source = new AttemptSource(AttemptSourceKinds.Command, "https://github.com/o/api/pull/4"),
+        });
         act.Repo.Should().Be(Repo);
     }
 

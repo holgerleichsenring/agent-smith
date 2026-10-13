@@ -22,7 +22,10 @@ public static class ReworkActReader
             .Where(c => !OwnTicketComment.IsOurs(c) && attempt.Precedes(c.CreatedAt)
                 && c.Body?.Contains(keyword, StringComparison.OrdinalIgnoreCase) == true)
             .MaxBy(c => c.CreatedAt);
-        return act is null ? null : new ReworkAct(act.Author, act.CreatedAt);
+        return act is null ? null : new ReworkAct(act.Author, act.CreatedAt)
+        {
+            Source = new AttemptSource(AttemptSourceKinds.Comment, Id: act.Id),
+        };
     }
 
     /// <summary>Reads the act off the pipeline and sets <see cref="ContextKeys.ReworkAct"/>.</summary>

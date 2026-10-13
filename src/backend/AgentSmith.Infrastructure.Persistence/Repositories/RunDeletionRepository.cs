@@ -61,6 +61,7 @@ public sealed class RunDeletionRepository(IUnitOfWork unitOfWork, IUniqueViolati
         await DeleteByRunIdAsync<RunArtifact>(ids, ct);
         await DeleteByRunIdAsync<RunSandbox>(ids, ct);
         await DeleteByRunIdAsync<RunSpec>(ids, ct); // p0466
+        await DeleteByRunIdAsync<RunAttempt>(ids, ct); // 2026-10-13-9a59d
     }
 
     private async Task DeleteSatellitesAsync(IReadOnlyCollection<string> ids, CancellationToken ct)

@@ -44,11 +44,11 @@ public sealed class PrReviewFeedbackFetcher(
             var vote = provider is IPrReviewActReader acts ? await _standing.NewestAsync(repo.Type, acts, url, attempt, cancellationToken) : null;
             if (provider is not IPrReviewThreadReader reader)
             {
-                ApplyAct(pipeline, vote, null);
+                ApplyAct(pipeline, vote, null, url);
                 return null;
             }
             var countable = await CountableAsync(repo.Type, await reader.ListAsync(url, cancellationToken), cancellationToken);
-            ApplyAct(pipeline, vote, PrStandingAct.NewestCommand(countable, attempt));
+            ApplyAct(pipeline, vote, PrStandingAct.NewestCommand(countable, attempt), url);
             return PrReviewSelection.Select(countable, attempt);
         }
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
@@ -58,9 +58,9 @@ public sealed class PrReviewFeedbackFetcher(
         }
     }
 
-    private static void ApplyAct(PipelineContext pipeline, PrReviewNote? vote, PrReviewNote? command)
+    private static void ApplyAct(PipelineContext pipeline, PrReviewNote? vote, PrReviewNote? command, string url)
     {
-        if (PrStandingAct.Newer(vote, command) is { } act) ReworkActReader.ApplyPullRequest(pipeline, PrStandingAct.Act(act));
+        if (PrStandingAct.NewerAct(vote, command, url) is { } act) ReworkActReader.ApplyPullRequest(pipeline, act);
     }
 
     private async Task<IReadOnlyList<PrReviewThread>> CountableAsync(

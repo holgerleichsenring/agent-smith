@@ -24,7 +24,8 @@ public sealed class GitHubFieldMapper : ITicketFieldMapper<Issue>
             "GitHub",
             labels,
             Person(issue.Assignee),
-            Person(issue.User));
+            Person(issue.User),
+            webUrl: issue.HtmlUrl);
     }
 
     // p0454: GitHub mentions by @login; Name is optional on an account, so the login

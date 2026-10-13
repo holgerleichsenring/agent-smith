@@ -48,6 +48,9 @@ internal sealed class JiraTicketCreator(
         var key = doc.RootElement.GetProperty("key").GetString()
             ?? throw new InvalidOperationException("Jira returned a created issue without a key.");
         logger.LogInformation("Jira created issue {Key} in project {Project}", key, projectKey);
-        return new CreatedTicket(new TicketId(key), $"{baseUrl}/browse/{key}");
+        return new CreatedTicket(new TicketId(key), BrowseUrl(key));
     }
+
+    /// <summary>Where a person opens the issue with this key.</summary>
+    public string BrowseUrl(string key) => $"{baseUrl}/browse/{key}";
 }

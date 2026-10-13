@@ -19,7 +19,10 @@ public sealed class ReworkActReaderTests
              new TicketComment("bob", Start.AddMinutes(20), "@agent-smith and the docs")],
             "@agent-smith", Attempt);
 
-        act.Should().Be(new ReworkAct("bob", Start.AddMinutes(20)));
+        act.Should().Be(new ReworkAct("bob", Start.AddMinutes(20))
+        {
+            Source = new AttemptSource(AttemptSourceKinds.Comment),
+        });
     }
 
     [Fact]

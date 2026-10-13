@@ -17,5 +17,5 @@ public sealed class GitHubCommentMapper
         new(
             comment.User?.Login ?? "unknown",
             comment.CreatedAt,
-            comment.Body ?? string.Empty);
+            comment.Body ?? string.Empty) { Id = comment.Id.ToString() };
 }

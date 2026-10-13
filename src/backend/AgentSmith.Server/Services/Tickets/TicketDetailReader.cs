@@ -22,7 +22,8 @@ public sealed class TicketDetailReader(
     TicketLiveStateReader live,
     TicketSummaryComposer composer,
     FiledWorkRunsReader composed,
-    TicketPullRequestReader pullRequests)
+    TicketPullRequestReader pullRequests,
+    TicketAttemptRecords attemptRecords)
 {
     /// <summary>Null when the pair has no code run — it is not a ticket.</summary>
     public async Task<TicketDetailView?> ReadAsync(string project, string ticketId, CancellationToken ct)
@@ -35,10 +36,12 @@ public sealed class TicketDetailReader(
         var runs = await composed.ForRunsAsync([.. ordered.Select(a => a.Run)], ct);
         var specs = runs.SelectMany(r => r.Specs.Select(s => (r.RunId, s.Status)))
             .ToLookup(s => s.RunId, s => s.Status, StringComparer.Ordinal);
+        var records = await attemptRecords.ForAsync([.. ordered.Select(a => a.Run.Id)], ct);
         return new TicketDetailView(
-            composer.Compose(code, state, specs, await pullRequests.TicketAsync(project, ticketId, ct)),
+            composer.Compose(code, state, specs, await pullRequests.TicketAsync(project, ticketId, ct), records),
             TicketBranchNamer.Compose(new TicketId(ticketId)).Value,
-            [.. ordered.Select((a, i) => Attempt(i + 1, a.Run, runs[i], marker.Mark(a.Run, state, specs)))],
+            [.. ordered.Select((a, i) => Attempt(i + 1, a.Run, runs[i], marker.Mark(a.Run, state, specs),
+                records.GetValueOrDefault(a.Run.Id)))],
             [.. rows.Where(r => !attempts.IsAttempt(r)).Select(Other)]);
     }
 
@@ -55,9 +58,11 @@ public sealed class TicketDetailReader(
         return [.. rows.Select(r => new TicketRunRow(r.Run, r.HasStep))];
     }
 
-    private static TicketAttemptView Attempt(int number, Run run, FiledWorkRunView view, TicketAttemptMark mark) =>
+    private static TicketAttemptView Attempt(
+        int number, Run run, FiledWorkRunView view, TicketAttemptMark mark, TicketAttemptRecord? record) =>
         new(number, run.Id, run.Status, run.StartedAt, run.FinishedAt, run.CostTotalUsd,
-            mark.EndedOnInfrastructure, mark.HandedBack, view.PullRequests, view.Specs, view.PendingQuestion);
+            mark.EndedOnInfrastructure, mark.HandedBack, view.PullRequests, view.Specs, view.PendingQuestion,
+            record?.Cause, record?.Revision);
 
     private static TicketOtherRunView Other(TicketRunRow row) =>
         new(row.Run.Id, row.Run.Pipeline, row.Run.Status, row.Run.StartedAt, row.Run.FinishedAt,

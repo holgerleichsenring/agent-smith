@@ -1053,6 +1053,86 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.ToTable("RunArtifacts");
                 });
 
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.RunAttempt", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset?>("ApprovalAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ApprovalConversation")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ApprovalPrincipal")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CarriedSpecIdsJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CauseActor")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("CauseAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CauseChannel")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RevisionCause")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("RevisionNumber")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RunId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SeriesId")
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SourceDetail")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SourceId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SourceKind")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SourceUrl")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TicketFingerprint")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TrackerState")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("WebUrl")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RunId")
+                        .IsUnique();
+
+                    b.ToTable("RunAttempts", (string)null);
+                });
+
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.RunCapacity", b =>
                 {
                     b.Property<long>("Id")

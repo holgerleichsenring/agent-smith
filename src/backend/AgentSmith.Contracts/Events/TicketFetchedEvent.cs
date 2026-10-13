@@ -23,5 +23,10 @@ public sealed record TicketFetchedEvent(
     string Source,
     DateTimeOffset Timestamp,
     // 2026-10-08-0781: the instant the run began reading the ticket's thread and pull requests.
-    DateTimeOffset? ActsReadAt = null)
+    DateTimeOffset? ActsReadAt = null,
+    // 2026-10-13-9a59d: the act this attempt served, the fingerprint of the ticket text it saw
+    // (TicketTextFingerprint) and where the ticket opens in its tracker.
+    AgentSmith.Contracts.Runs.AttemptCause? Cause = null,
+    string? TicketFingerprint = null,
+    string? WebUrl = null)
     : RunEvent(RunId, EventType.TicketFetched, Timestamp);

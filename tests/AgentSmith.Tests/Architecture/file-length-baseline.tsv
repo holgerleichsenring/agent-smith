@@ -18,7 +18,6 @@
 343	AgentSmith.Application/Services/Handlers/BootstrapDiscoverHandler.cs
 335	AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs
 342	AgentSmith.Application/Services/Handlers/SetupRegistryAuthHandler.cs
-159	AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs
 311	AgentSmith.Server/Services/Events/JobsBroadcaster.cs
 319	AgentSmith.Application/Services/SandboxGitOperations.cs
 314	AgentSmith.Application/Services/PipelineSandboxCoordinator.cs

@@ -119,7 +119,10 @@ public sealed class PrReviewFeedbackFetcherTests
         PrReviewFeedbackPromptSection.Render(pipeline).Should().Contain("rename the parser")
             .And.Contain("drop the retry loop").And.Contain("the README is out of date");
         pipeline.Get<ReworkAct>(ContextKeys.ReworkAct).Should().Be(
-            new ReworkAct("alice", Start.AddMinutes(23), ReworkChannel.PullRequest), "the command is the act");
+            new ReworkAct("alice", Start.AddMinutes(23), ReworkChannel.PullRequest)
+            {
+                Source = new AttemptSource(AttemptSourceKinds.Command, "https://github.com/o/api/pull/4"),
+            }, "the command is the act");
     }
 
     [Fact]

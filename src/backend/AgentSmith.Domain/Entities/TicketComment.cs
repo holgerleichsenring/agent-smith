@@ -9,4 +9,11 @@ namespace AgentSmith.Domain.Entities;
 public sealed record TicketComment(
     string Author,
     DateTimeOffset CreatedAt,
-    string Body);
+    string Body)
+{
+    /// <summary>
+    /// The tracker's own id of the comment, or null where the payload carried none. A cause
+    /// recorded from a keyword comment stores it as its source id.
+    /// </summary>
+    public string? Id { get; init; }
+}

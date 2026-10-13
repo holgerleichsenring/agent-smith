@@ -83,7 +83,7 @@ public sealed class  JiraTicketProvider : ITicketProvider, ITicketStatusHistory,
         _logger.LogDebug("Jira GetTicket #{Ticket}: GET {Url}", ticketId.Value, url);
         using var doc = await _http.SendForJsonAsync(HttpMethod.Get, url, null, cancellationToken)
             ?? throw new TicketNotFoundException(ticketId);
-        var ticket = _mapper.Map(ticketId, doc.RootElement);
+        var ticket = _mapper.Map(ticketId, doc.RootElement).With(webUrl: _creator.BrowseUrl(ticketId.Value));
         _logger.LogDebug("Jira GetTicket #{Ticket}: status={Status} labels={Count}",
             ticketId.Value, ticket.Status, ticket.Labels?.Count ?? 0);
         return ticket;

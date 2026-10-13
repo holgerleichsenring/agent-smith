@@ -1,3 +1,5 @@
+using AgentSmith.Contracts.Runs;
+using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Server.Extensions;
 using AgentSmith.Server.Models;
 using AgentSmith.Tests.TestSupport;
@@ -82,6 +84,39 @@ public sealed class TicketDetailReaderTests : IDisposable
         attempts[0].EndedOnInfrastructure.Should().BeTrue();
         attempts[1].PullRequests.Should().ContainSingle().Which.Url.Should().Be("https://git/pr/1");
         attempts[1].ExecutedSpecs.Should().ContainSingle().Which.SpecId.Should().Be("s1");
+    }
+
+    [Fact]
+    public async Task TicketDetail_Attempts_CarryCauseRevisionAndWebUrl()
+    {
+        // 2026-10-13-9a59d: each attempt names what started it and what it worked from; the row names
+        // the newest attempt that has a record — a queued reservation has none yet.
+        await _store.AddAsync(Run(R1, status: "failed"), Step(R1), Run(R2), Step(R2), Run(R3, status: "queued"),
+            new RunAttempt
+            {
+                RunId = R1, CauseChannel = AttemptChannels.Pickup, CauseActor = "dave", TrackerState = "Ready",
+                WebUrl = "https://github.com/o/api/issues/42",
+            },
+            new RunAttempt
+            {
+                RunId = R2, CauseChannel = AttemptChannels.PullRequest, CauseActor = "alice", CauseAt = T,
+                SourceKind = AttemptSourceKinds.Review, SourceUrl = "https://github.com/o/api/pull/4", SourceId = "PRR_1",
+                TrackerState = "In Review", WebUrl = "https://github.com/o/api/issues/42", RevisionNumber = 2,
+                RevisionCause = "pull request review", SeriesId = "2026-10-13-1234",
+                CarriedSpecIdsJson = "[\"2026-10-13-1234a\"]", ApprovalAt = T.AddMinutes(-5),
+            });
+
+        var detail = await ReadAsync();
+
+        detail.Attempts[1].Cause.Should().BeEquivalentTo(new AttemptCause(AttemptChannels.PullRequest, "alice", T,
+            new AttemptSource(AttemptSourceKinds.Review, "https://github.com/o/api/pull/4", "PRR_1")));
+        detail.Attempts[1].Revision.Should().BeEquivalentTo(new TicketAttemptRevisionView(
+            2, "pull request review", "2026-10-13-1234", ["2026-10-13-1234a"], T.AddMinutes(-5)));
+        detail.Attempts[0].Revision.Should().BeNull("the first attempt published no revision");
+        detail.Attempts[2].Cause.Should().BeNull("a queued reservation has not fetched its ticket");
+        detail.Summary.Cause!.Channel.Should().Be(AttemptChannels.PullRequest);
+        detail.Summary.TrackerState.Should().Be("In Review");
+        detail.Summary.WebUrl.Should().Be("https://github.com/o/api/issues/42");
     }
 
     private async Task<TicketDetailView> ReadAsync() =>

@@ -13,6 +13,9 @@ namespace AgentSmith.Server.Models;
 /// <param name="LastOutcome">The newest attempt's status on an idle row; null otherwise.</param>
 /// <param name="Attempts">Every attempt, oldest first.</param>
 /// <param name="PullRequests">2026-10-13-9a59b: every pull request the ticket's runs named, from its record.</param>
+/// <param name="Cause">2026-10-13-9a59d: why the newest attempt with a record began.</param>
+/// <param name="TrackerState">2026-10-13-9a59d: the tracker state that attempt fetched.</param>
+/// <param name="WebUrl">2026-10-13-9a59d: where the ticket opens in its tracker.</param>
 public sealed record TicketSummaryView(
     string Project,
     string TicketId,
@@ -32,4 +35,7 @@ public sealed record TicketSummaryView(
     int SpecsDone,
     int SpecsTotal,
     IReadOnlyList<TicketAttemptMark> Attempts,
-    IReadOnlyList<TicketPullRequestView> PullRequests);
+    IReadOnlyList<TicketPullRequestView> PullRequests,
+    AgentSmith.Contracts.Runs.AttemptCause? Cause = null,
+    string? TrackerState = null,
+    string? WebUrl = null);

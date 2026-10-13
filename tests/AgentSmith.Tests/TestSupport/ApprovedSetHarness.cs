@@ -108,6 +108,7 @@ internal sealed class ApprovedSetHarness
         PullRequests,
         new SpecRefusalReporter(new NoOpEventPublisher(), NullLogger<SpecRefusalReporter>.Instance),
         Mock.Of<Contracts.Persistence.IRunArtifactStore>(),
+        new SpecSetAnnouncer(new NoOpEventPublisher(), NullLogger<SpecSetAnnouncer>.Instance),
         NullLogger<SpecSetPublisher>.Instance);
 
     internal DeriveSpecContext Context(Ticket ticket, string? carriedJson = null)

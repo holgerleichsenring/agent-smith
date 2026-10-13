@@ -158,7 +158,7 @@ public sealed class RunRecordIdentityTests : IDisposable
 
     private ServiceProvider BuildProvider()
     {
-        var services = new ServiceCollection();
+        var services = new ServiceCollection().AddLogging();
         services.AddScoped<IUnitOfWork>(_ => Context());
         services.AddRunProjections();
         services.AddSingleton<RunEventApplier>();

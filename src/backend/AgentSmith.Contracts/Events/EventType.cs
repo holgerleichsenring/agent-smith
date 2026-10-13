@@ -109,4 +109,6 @@ public enum EventType
     SpecReviewed = 81,
     // 2026-10-01-7f7ae: a design_read Figma answered — source, file, node and the version read.
     DesignRead = 82,
+    // 2026-10-13-9a59d: a spec set was published — the revision and approval an attempt worked from.
+    SpecSetPublished = 83,
 }

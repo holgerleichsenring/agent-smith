@@ -8,13 +8,13 @@ requires: [2026-10-13-9a59d, 2026-10-13-9a59g, 2026-10-13-9a59i, p0327, 2026-08-
 
 facts:
   - claim: "Every launch of a run — first start and each relaunch after a park — publishes RunStarted stamped with that launch's own clock; the applier applies it to the waiting row and ignores a duplicate on a running one."
-    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:47,81,94-97, src/backend/AgentSmith.Contracts/Events/L1RunEvents.cs:3-8,34, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs:49,101-113"
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:47,81,94-97, src/backend/AgentSmith.Contracts/Events/L1RunEvents.cs:3-8,34, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunRowFamily.cs:32, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunStartProjection.cs:24-38"
   - claim: "The trail position continues across relaunches: a buffer for a run with history starts where the store ended, and only a non-waiting RunFinished releases the buffer."
     evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunTrailBuffer.cs:19-29, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunDbProjector.cs:34-48"
   - claim: "A RunFinished is set-once for terminal statuses; a waiting status keeps FinishedAt null, so each park's RunFinished is projected, and again on every replay."
     evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:29-39,65-73"
   - claim: "Only the terminal reconciler applies a RunFinished without a trail position, and only a terminal one."
-    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs:36-42, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunTerminalReconciler.cs:24-40"
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs:36-37, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunTerminalReconciler.cs:24-40"
   - claim: "The raw trail (RunEvent rows with Seq, Type, Timestamp) is pruned after 90 days while Run rows are kept, so launches cannot be read back from the trail durably."
     evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunEvent.cs:8-14, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunRetentionService.cs:7-34"
   - claim: "An LLM call row keeps its trail position and duration but no time of day; rows written before 2026-08-25-61f1 have no position."

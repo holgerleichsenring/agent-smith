@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Server.Services.Events;
 using RunPullRequestView = AgentSmith.Contracts.Runs.RunPullRequestView;
 
@@ -10,6 +11,9 @@ namespace AgentSmith.Server.Models;
 /// <param name="PullRequests">As the run recorded them, one per repository.</param>
 /// <param name="ExecutedSpecs">The specs the run executed, each with its verdict.</param>
 /// <param name="PendingQuestion">Set while the attempt is parked on a question.</param>
+/// <param name="Cause">2026-10-13-9a59d: why the attempt began; null before it fetched its ticket.</param>
+/// <param name="Revision">2026-10-13-9a59d: the series revision and approval it worked from; null when
+/// it published none.</param>
 public sealed record TicketAttemptView(
     int Number,
     string RunId,
@@ -21,4 +25,6 @@ public sealed record TicketAttemptView(
     bool HandedBack,
     IReadOnlyList<RunPullRequestView> PullRequests,
     IReadOnlyList<FiledWorkSpecView> ExecutedSpecs,
-    PendingQuestionInfo? PendingQuestion);
+    PendingQuestionInfo? PendingQuestion,
+    AttemptCause? Cause = null,
+    TicketAttemptRevisionView? Revision = null);

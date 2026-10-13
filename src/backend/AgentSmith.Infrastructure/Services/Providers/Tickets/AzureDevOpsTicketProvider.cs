@@ -83,7 +83,7 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider, ITicketStatusHi
         var workItem = await _connections.CreateClient()
             .GetWorkItemAsync(_project, id, cancellationToken: cancellationToken)
             ?? throw new TicketNotFoundException(ticketId);
-        var ticket = _mapper.Map(ticketId, workItem.Fields);
+        var ticket = _mapper.Map(ticketId, workItem.Fields).With(webUrl: _creator.WebUrlFor(id));
         _logger.LogDebug("AzDO GetTicket #{Ticket}: status={Status} labels={Count}",
             ticketId.Value, ticket.Status, ticket.Labels?.Count ?? 0);
         return ticket;

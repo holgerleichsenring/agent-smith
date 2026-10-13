@@ -36,7 +36,7 @@ public sealed class RunDbProjectorTests : IDisposable
     // connection — each scope sees the same database.
     private ServiceProvider BuildProvider()
     {
-        var services = new ServiceCollection();
+        var services = new ServiceCollection().AddLogging();
         services.AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(Options()));
         services.AddRunProjections();
         services.AddSingleton<RunEventApplier>();

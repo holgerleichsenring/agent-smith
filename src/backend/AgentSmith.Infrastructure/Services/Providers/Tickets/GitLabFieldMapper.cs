@@ -27,7 +27,8 @@ public sealed class GitLabFieldMapper : ITicketFieldMapper<JsonElement>
             // the older lowercase one and a newer uppercase enum — and a self-managed instance
             // below the version that added the second returns neither. Whichever is present, and
             // never rendered raw: an enum token is not a word a person recognises.
-            Kind(issue));
+            Kind(issue),
+            ReadOrNull(issue, "web_url"));
 
     private static string? Kind(JsonElement issue) =>
         ReadOrNull(issue, "issue_type") ?? Spoken(ReadOrNull(issue, "type"));

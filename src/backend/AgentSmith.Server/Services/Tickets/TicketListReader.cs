@@ -18,7 +18,8 @@ public sealed class TicketListReader(
     TicketSpecStatuses specs,
     TicketMonthCost monthCost,
     TicketCounts counts,
-    TicketPullRequestReader pullRequests)
+    TicketPullRequestReader pullRequests,
+    TicketAttemptRecords attemptRecords)
 {
     private static readonly ILookup<string, string> NoSpecs =
         Array.Empty<string>().ToLookup(s => s, StringComparer.Ordinal);
@@ -28,15 +29,16 @@ public sealed class TicketListReader(
         var read = await query.ReadAsync(request.Project, ct);
         var tickets = read.Rows.GroupBy(r => (r.Run.Project, r.Run.TicketId)).Select(g => g.ToList()).ToList();
         var state = await live.ReadAsync([.. tickets.Select(t => attempts.Head(t).Run)], ct);
-        var records = await pullRequests.AllAsync(request.Project, ct);
-        var all = tickets.Select(t => (Rows: t, Summary: composer.Compose(t, state, NoSpecs, pullRequests.Views(records[Key(t)]))))
+        var prRecords = await pullRequests.AllAsync(request.Project, ct);
+        var all = tickets.Select(t => (Rows: t, Summary: composer.Compose(t, state, NoSpecs, pullRequests.Views(prRecords[Key(t)]))))
             .OrderByDescending(t => t.Summary.NewestRunId, StringComparer.Ordinal).ToList();
         var page = Page(all, request);
-        var statuses = await specs.ForAsync(
-            [.. page.SelectMany(t => attempts.Of(t.Rows)).Select(a => a.Run.Id)], ct);
-        var pagePrs = await pullRequests.PageAsync([.. page.SelectMany(t => t.Rows).Select(r => r.Run.Id)], records, ct);
+        var pageAttempts = page.SelectMany(t => attempts.Of(t.Rows)).Select(a => a.Run.Id).ToList();
+        var statuses = await specs.ForAsync(pageAttempts, ct);
+        var records = await attemptRecords.ForAsync(pageAttempts, ct);
+        var pagePrs = await pullRequests.PageAsync([.. page.SelectMany(t => t.Rows).Select(r => r.Run.Id)], prRecords, ct);
         return new TicketListView(
-            [.. page.Select(t => composer.Compose(t.Rows, state, statuses, pagePrs.GetValueOrDefault(Key(t.Rows)) ?? []))],
+            [.. page.Select(t => composer.Compose(t.Rows, state, statuses, pagePrs.GetValueOrDefault(Key(t.Rows)) ?? [], records))],
             NextCursor(all, page, request),
             counts.Of([.. all.Select(t => t.Summary)], await monthCost.OfAsync(request.Project, ct), read.Truncated));
     }

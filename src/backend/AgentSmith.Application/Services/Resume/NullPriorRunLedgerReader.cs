@@ -12,6 +12,6 @@ namespace AgentSmith.Application.Services.Resume;
 public sealed class NullPriorRunLedgerReader : IPriorRunLedgerReader
 {
     public Task<PriorRunLedger?> ReadLatestForTicketAsync(
-        string project, string ticketId, CancellationToken cancellationToken)
+        string project, string ticketId, string? excludingRunId, CancellationToken cancellationToken)
         => Task.FromResult<PriorRunLedger?>(null);
 }

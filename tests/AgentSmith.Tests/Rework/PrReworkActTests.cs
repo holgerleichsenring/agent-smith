@@ -49,7 +49,10 @@ public sealed class PrReworkActTests
         var pipeline = await RunWith(Request(30), trusted: true);
 
         pipeline.TryGet<ReworkAct>(ContextKeys.ReworkAct, out var act).Should().BeTrue();
-        act.Should().Be(new ReworkAct("alice", Start.AddMinutes(30), ReworkChannel.PullRequest));
+        act.Should().Be(new ReworkAct("alice", Start.AddMinutes(30), ReworkChannel.PullRequest)
+        {
+            Source = new AttemptSource(AttemptSourceKinds.Review, "https://github.com/o/api/pull/4"),
+        });
     }
 
     [Fact]

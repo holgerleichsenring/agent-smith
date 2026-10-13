@@ -39,7 +39,7 @@ public sealed class PriorRunLedgerResumeTests : IDisposable
 
     private ServiceProvider BuildProvider()
     {
-        var services = new ServiceCollection();
+        var services = new ServiceCollection().AddLogging();
         services.AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(Options()));
         services.AddRunProjections();
         services.AddSingleton<RunEventApplier>();
@@ -97,7 +97,7 @@ public sealed class PriorRunLedgerResumeTests : IDisposable
             null, t0.AddMinutes(40)));
 
         var prior = await provider.GetRequiredService<DbPriorRunLedgerReader>()
-            .ReadLatestForTicketAsync(Project, "77", CancellationToken.None);
+            .ReadLatestForTicketAsync(Project, "77", null, CancellationToken.None);
 
         prior.Should().NotBeNull();
         prior!.RunId.Should().Be(reapedRun, "the LATEST same-ticket run wins");
@@ -114,7 +114,7 @@ public sealed class PriorRunLedgerResumeTests : IDisposable
         await StartRunAsync(provider, "run-1", "77", DateTimeOffset.UtcNow);
 
         var prior = await provider.GetRequiredService<DbPriorRunLedgerReader>()
-            .ReadLatestForTicketAsync(Project, "77", CancellationToken.None);
+            .ReadLatestForTicketAsync(Project, "77", null, CancellationToken.None);
 
         prior.Should().BeNull();
     }
@@ -133,7 +133,7 @@ public sealed class PriorRunLedgerResumeTests : IDisposable
         }
 
         var prior = await provider.GetRequiredService<DbPriorRunLedgerReader>()
-            .ReadLatestForTicketAsync(Project, "77", CancellationToken.None);
+            .ReadLatestForTicketAsync(Project, "77", null, CancellationToken.None);
 
         prior.Should().BeNull();
     }
@@ -159,8 +159,8 @@ public sealed class PriorRunLedgerResumeTests : IDisposable
             null, t0.AddMinutes(40)));
 
         var reader = provider.GetRequiredService<DbPriorRunLedgerReader>();
-        var alpha = await reader.ReadLatestForTicketAsync("alpha", "4471", CancellationToken.None);
-        var beta = await reader.ReadLatestForTicketAsync("beta", "4471", CancellationToken.None);
+        var alpha = await reader.ReadLatestForTicketAsync("alpha", "4471", null, CancellationToken.None);
+        var beta = await reader.ReadLatestForTicketAsync("beta", "4471", null, CancellationToken.None);
 
         alpha.Should().NotBeNull();
         alpha!.RunId.Should().Be(alphaRun, "the newer beta run must not seed alpha");
@@ -187,7 +187,7 @@ public sealed class PriorRunLedgerResumeTests : IDisposable
             null, t0.AddMinutes(40)));
 
         var prior = await provider.GetRequiredService<DbPriorRunLedgerReader>()
-            .ReadLatestForTicketAsync(Project, "4471", CancellationToken.None);
+            .ReadLatestForTicketAsync(Project, "4471", null, CancellationToken.None);
 
         prior.Should().NotBeNull();
         prior!.RunId.Should().Be(newer, "keying on the project did not cost the latest-run ordering");
@@ -205,7 +205,7 @@ public sealed class PriorRunLedgerResumeTests : IDisposable
             null, t0.AddMinutes(10)));
 
         var prior = await provider.GetRequiredService<DbPriorRunLedgerReader>()
-            .ReadLatestForTicketAsync("gamma", "4471", CancellationToken.None);
+            .ReadLatestForTicketAsync("gamma", "4471", null, CancellationToken.None);
 
         prior.Should().BeNull("a project with no run of its own starts empty, not on someone else's");
     }
@@ -224,8 +224,27 @@ public sealed class PriorRunLedgerResumeTests : IDisposable
             null, t0.AddMinutes(10)));
 
         var prior = await provider.GetRequiredService<DbPriorRunLedgerReader>()
-            .ReadLatestForTicketAsync("  ", "4471", CancellationToken.None);
+            .ReadLatestForTicketAsync("  ", "4471", null, CancellationToken.None);
 
         prior.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task DbPriorRunLedgerReader_CurrentRun_IsLeftOut()
+    {
+        // 2026-10-13-9a59d: a run flushes its own ledger mid-run; it must never seed from it.
+        var provider = BuildProvider();
+        var t0 = DateTimeOffset.UtcNow.AddHours(-1);
+        await StartRunAsync(provider, "2026-07-20T0700-aaaa", "77", t0);
+        await StartRunAsync(provider, "2026-07-20T0800-bbbb", "77", t0.AddMinutes(30));
+        await ProjectAsync(provider, new RunStoryRecordedEvent("2026-07-20T0700-aaaa",
+            LedgerJson(new ProgressLedgerEntry("1", "earlier attempt", ProgressStatus.Done)), null, t0.AddMinutes(10)));
+        await ProjectAsync(provider, new RunStoryRecordedEvent("2026-07-20T0800-bbbb",
+            LedgerJson(new ProgressLedgerEntry("1", "this run's own flush", ProgressStatus.InProgress)), null, t0.AddMinutes(40)));
+
+        var prior = await provider.GetRequiredService<DbPriorRunLedgerReader>()
+            .ReadLatestForTicketAsync(Project, "77", "2026-07-20T0800-bbbb", CancellationToken.None);
+
+        prior!.RunId.Should().Be("2026-07-20T0700-aaaa");
     }
 }

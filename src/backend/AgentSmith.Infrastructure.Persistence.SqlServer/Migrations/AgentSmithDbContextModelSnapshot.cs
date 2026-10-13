@@ -1084,6 +1084,88 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.ToTable("RunArtifacts");
                 });
 
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.RunAttempt", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset?>("ApprovalAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("ApprovalConversation")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("ApprovalPrincipal")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CarriedSpecIdsJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("CauseActor")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset?>("CauseAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("CauseChannel")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("RevisionCause")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("RevisionNumber")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RunId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
+                    b.Property<string>("SeriesId")
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
+                    b.Property<string>("SourceDetail")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SourceId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SourceKind")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("SourceUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TicketFingerprint")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("TrackerState")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("WebUrl")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RunId")
+                        .IsUnique();
+
+                    b.ToTable("RunAttempts", (string)null);
+                });
+
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.RunCapacity", b =>
                 {
                     b.Property<long>("Id")

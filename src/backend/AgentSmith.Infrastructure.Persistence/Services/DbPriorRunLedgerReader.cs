@@ -20,7 +20,7 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 public sealed class DbPriorRunLedgerReader(IServiceScopeFactory scopeFactory) : IPriorRunLedgerReader
 {
     public async Task<PriorRunLedger?> ReadLatestForTicketAsync(
-        string project, string ticketId, CancellationToken cancellationToken)
+        string project, string ticketId, string? excludingRunId, CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(project) || string.IsNullOrWhiteSpace(ticketId)) return null;
         using var scope = scopeFactory.CreateScope();
@@ -28,7 +28,8 @@ public sealed class DbPriorRunLedgerReader(IServiceScopeFactory scopeFactory) : 
         // Ordered by Id: run ids are time-sortable by construction (p0156), and
         // SQLite cannot ORDER BY a DateTimeOffset column.
         var run = await uow.Set<Run>().AsNoTracking()
-            .Where(r => r.Project == project && r.TicketId == ticketId && r.ProgressLedgerJson != null)
+            .Where(r => r.Project == project && r.TicketId == ticketId && r.ProgressLedgerJson != null
+                && r.Id != excludingRunId)
             .OrderByDescending(r => r.Id)
             .FirstOrDefaultAsync(cancellationToken);
         if (run is null) return null;

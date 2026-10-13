@@ -60,7 +60,7 @@ public sealed class DataArchiveSchemaTests : IDisposable
         using var db = MigratedStoreTemplate.Context(_store);
         var ordered = new ArchiveTableOrder().Of(db.Model);
 
-        ordered.Should().HaveCount(39);
+        ordered.Should().HaveCount(40);
         var placed = new HashSet<string>(StringComparer.Ordinal);
         foreach (var type in ordered)
         {
@@ -160,7 +160,7 @@ public sealed class DataArchiveSchemaTests : IDisposable
         using var db = MigratedStoreTemplate.Context(_store);
         var generated = new GeneratedKeyProperty();
 
-        DataArchiveHarness.Tables(db).Count(t => generated.Of(t) is not null).Should().Be(29); // 283da: + ReferenceFiles; 9a59b: + PrReviewRecords, PrReviewEntries
+        DataArchiveHarness.Tables(db).Count(t => generated.Of(t) is not null).Should().Be(30); // 283da: + ReferenceFiles; 9a59b: + PrReviewRecords, PrReviewEntries; 9a59d: + RunAttempts
         generated.Of(db.Model.FindEntityType(typeof(Run))!).Should().BeNull("a run carries its own id");
         generated.Of(db.Model.FindEntityType(typeof(RunEvent))!).Should().NotBeNull();
     }

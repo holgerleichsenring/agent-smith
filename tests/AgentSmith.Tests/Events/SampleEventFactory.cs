@@ -38,6 +38,9 @@ internal static class SampleEventFactory
         if (type == typeof(decimal)) return 0.17m;
         if (type.IsEnum) return Enum.GetValues(type).GetValue(0);
         if (declared == typeof(IReadOnlyList<string>)) return new[] { "one", "two" };
+        if (type == typeof(AgentSmith.Contracts.Runs.AttemptCause)) // 2026-10-13-9a59d
+            return new AgentSmith.Contracts.Runs.AttemptCause("pull_request", "alice", Timestamp,
+                new AgentSmith.Contracts.Runs.AttemptSource("review", "https://example.test/pull/4", "PRR_1", "detail"));
         throw new NotSupportedException(
             $"{eventType.Name}.{parameter.Name} is a {declared.Name}; teach SampleEventFactory "
             + "how to fill it, or the round-trip rule stops covering this event.");

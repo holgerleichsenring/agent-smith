@@ -44,6 +44,7 @@ export enum EventType {
   SpecRecorded = 80,
   SpecReviewed = 81,
   DesignRead = 82,
+  SpecSetPublished = 83,
 }
 
 interface RunEventBase {
@@ -262,6 +263,30 @@ export interface TicketFetchedEvent extends RunEventBase {
   source: string;
   /** 2026-10-08-0781: when the run began reading the ticket and its pull requests (the rework cutoff). */
   actsReadAt?: string | null;
+  /** 2026-10-13-9a59d: the act this attempt served. */
+  cause?: AttemptCause | null;
+  /** 2026-10-13-9a59d: fingerprint of the ticket text the attempt saw. */
+  ticketFingerprint?: string | null;
+  /** 2026-10-13-9a59d: where the ticket opens in its tracker. */
+  webUrl?: string | null;
+}
+
+/** 2026-10-13-9a59d: where the act an attempt served was made. Mirrors C# AttemptSource. */
+export interface AttemptSource {
+  /** comment | review | command | status */
+  kind: string;
+  url?: string | null;
+  id?: string | null;
+  detail?: string | null;
+}
+
+/** 2026-10-13-9a59d: why an attempt began. Mirrors C# AttemptCause. */
+export interface AttemptCause {
+  /** ticket_comment | pull_request | status_move | requested | retrigger | pickup */
+  channel: string;
+  actor?: string | null;
+  at?: string | null;
+  source?: AttemptSource | null;
 }
 
 /**
@@ -539,6 +564,22 @@ export interface DesignReadEvent extends RunEventBase {
   lastModified: string;
 }
 
+/**
+ * 2026-10-13-9a59d: a spec set was published once its placement held, written or not — the
+ * revision and approval the attempt works from. No revisionNumber: the publish carried no revision.
+ */
+export interface SpecSetPublishedEvent extends RunEventBase {
+  type: EventType.SpecSetPublished;
+  revisionNumber?: number | null;
+  revisionCause?: string | null;
+  seriesId?: string | null;
+  carriedSpecIds?: string[] | null;
+  approvalAt?: string | null;
+  approvalConversation?: string | null;
+  approvalPrincipal?: string | null;
+  committed: boolean;
+}
+
 export type RunEvent =
   | RunStartedEvent
   | RunFinishedEvent
@@ -580,7 +621,8 @@ export type RunEvent =
   | SpecStateChangedEvent
   | SpecRecordedEvent
   | SpecReviewedEvent
-  | DesignReadEvent;
+  | DesignReadEvent
+  | SpecSetPublishedEvent;
 
 /** p0327: the pending question of a status="waiting_for_input" run, joined
  *  from its checkpoint row at query time (REST detail only). */

@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-13-9a59d: "ATTEMPT CAUSE RECORDED (FetchTicket, run-event applier, tickets). Each attempt records the act it served with its source, the ticket fingerprint, tracker state and web url, and the revision and approval it worked from (RunAttempt, event 83); the applier dispatches to five families. -> .agentsmith/specs/done/2026-10-13-9a59d-attempt-cause-recorded.yaml"
     2026-10-13-9a59c: "PR REVIEW TRIGGERS (webhooks, change and PR sweeps). Every review, vote, comment, merge, close and reopen on a ticket's PR refreshes its record: on delivery in webhook mode, within the sweeps in polling mode; all are Refresh nudges that start nothing. Docs name the deliveries and polling timing. -> .agentsmith/specs/done/2026-10-13-9a59c-pr-review-triggers.yaml"
     2026-10-13-9a59b: "PR REVIEW RECORD (rework worker, tickets). Every PR a ticket's runs named gets a PrKey-keyed record of state, decisions and comments, refreshed by the nudge worker; a Refresh nudge starts nothing. Tickets gain waiting_on_review and done, PR cells and review counts. -> .agentsmith/specs/done/2026-10-13-9a59b-pr-review-record.yaml"
     2026-10-13-9a59a: "TICKET READ MODEL (Server tickets). GET /api/tickets and /api/tickets/{project}/{ticketId} (runs.read): tickets from code runs, needs_you/working/idle via RunQueuePlace, attempts by run id, InfrastructureEnd; TicketActivityChanged (56) to the overview group, off the System page; RunSnapshot gains project, platform. -> .agentsmith/specs/done/2026-10-13-9a59a-ticket-read-model.yaml"

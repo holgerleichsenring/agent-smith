@@ -1,4 +1,7 @@
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Persistence.Contracts;
+using Microsoft.Extensions.Logging.Abstractions;
 using AgentSmith.Infrastructure.Persistence.Services;
 
 namespace AgentSmith.Tests.TestSupport;
@@ -11,17 +14,19 @@ namespace AgentSmith.Tests.TestSupport;
 /// </summary>
 internal static class RunEventAppliers
 {
-    public static RunEventApplier Default(ICapacityBudget? budget = null) =>
-        new(
-            checkpoints: new(),
-            expectations: new(),
-            queuedRuns: new(),
-            sandboxes: new(new(), new()),
-            steps: new(new()),
-            pullRequests: new(),
-            classification: new(),
-            finalization: new(new(), budget),
-            specs: new(),
-            llmCalls: new(new(), new(), new()),
-            decisions: new(new()));
+    public static RunEventApplier Default(ICapacityBudget? budget = null, ITicketActivityNudge? activity = null) =>
+        new(Families(budget, activity));
+
+    public static IReadOnlyList<IRunEventFamily> Families(
+        ICapacityBudget? budget = null, ITicketActivityNudge? activity = null) =>
+    [
+        new RunRowFamily(
+            new RunStartProjection(new(), NullLogger<RunStartProjection>.Instance, activity),
+            finalization: new(new(), budget), checkpoints: new(), expectations: new(),
+            pullRequests: new(), classification: new()),
+        new RunStepFamily(steps: new(new()), llmCalls: new(new(), new(), new()), decisions: new(new())),
+        new RunSandboxFamily(new(new(), new())),
+        new RunSpecFamily(new()),
+        new RunAttemptFamily(new()),
+    ];
 }

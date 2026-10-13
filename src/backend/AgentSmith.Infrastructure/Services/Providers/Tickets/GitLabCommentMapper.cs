@@ -32,8 +32,11 @@ public sealed class GitLabCommentMapper
         var createdAt = DateTimeOffset.TryParse(ReadString(note, "created_at"), out var ts)
             ? ts
             : DateTimeOffset.MinValue;
+        var id = note.TryGetProperty("id", out var i) && i.ValueKind == JsonValueKind.Number
+            ? i.GetInt64().ToString()
+            : null;
         return new TicketComment(
-            author.Length > 0 ? author : "unknown", createdAt, ReadString(note, "body"));
+            author.Length > 0 ? author : "unknown", createdAt, ReadString(note, "body")) { Id = id };
     }
 
     private static string ReadString(JsonElement el, string name) =>
