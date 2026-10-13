@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-3890a
+
+decisions:
+  - category: Architecture
+    chose: "Challenge a self-declared stop once: red verdict on a drained ledger, a blocker, or criteria satisfied only through not_applicable, while a criterion is not Met and budget remains"
+    over: "Admitting a decline only with an antecedent and a base search (the account's bar), or classifying reason texts"
+    reason: |
+      A reviewer showed the base-search bar cannot refuse 'the regression test was not added' (the test is absent from
+      the base by definition) and that it would not reach the red or blocked stops at all. One pass that puts the
+      master's own reasons in front of it costs one pass and covers every surrender path; a restated stop is respected.
+  - category: Architecture
+    chose: "Classify the stop once in MasterSurrenderChallenge, reusing the policy predicates; a tool-less pass is read by its verdict before it counts as idle"
+    over: "Changing ShouldReengage to return a reason"
+    reason: "MasterReengagementPolicy is at 118 of 120 lines and AgenticMasterHandler on its baseline; the decision lives in its own class and the handler only calls it."
+  - category: Implementation
+    chose: "Record every code run's loop end through IDecisionLogger with no repository surface"
+    over: "log_decision into the target repository's decisions file"
+    reason: "Loop mechanics belong on the run's trail, not in the customer's pull request."
