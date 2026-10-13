@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-3890b
+
+decisions:
+  - category: Architecture
+    chose: "A pipeline that commits its work (WorkBranchPersistPolicy.IntendedToChangeCode) reports the files its branch carries; every other pipeline keeps its tool writes"
+    over: "Accumulating CodeChanges across master passes, or reading the branch for every pipeline"
+    reason: |
+      Each master pass overwrites CodeChanges, and earlier passes committed their work in checkpoint commits, so the
+      last pass's tool writes named 1 file of ~50. The branch is the record of a run that commits; a PR review's
+      working tree is someone else's PR head, so its branch would list their work as the run's.
+  - category: Architecture
+    chose: "BranchChangedFiles runs git diff --name-status over the delivery diff's ladder plus git ls-files --others --exclude-standard, per sandbox, unioned per repository"
+    over: "Parsing file names out of DeliveryDiff's patch text"
+    reason: "Names from git carry the change type and are not bounded by patch size; reusing DeliveryDiffCandidates keeps the comparison the delivery gate takes. Secondary sandboxes are separate clones that never commit, so only their own rung shows their edits — hence the union."
+  - category: Design
+    chose: "An unreadable sandbox (non-zero git, or a throw) falls back to its repository's share of CodeChanges and adds a [changed-files] diagnostic line"
+    over: "Failing the record write, or silently dropping that sandbox"
+    reason: "result.md is written for failed runs too; the other sandboxes keep their branch lists and the reader is told which list is not from git."
+  - category: Design
+    chose: "Ledger coverage reads one union over all repositories, every path written <repo>/<path> (a tool write already carrying its repository is left as is)"
+    over: "Changing ProgressLedgerCoverage's matching rule"
+    reason: "With prefixed paths both a bare target (suffix rule) and a prefixed target (equality) match, single-repo included, and a target in another repository is found in the union."
+  - category: Design
+    chose: "duration_seconds is wall clock from RunStartedAt; ContextKeys.RunDurationSeconds removed"
+    over: "Summing master loop durations"
+    reason: "The key was the last master pass's length (245 s for a 49-minute run) with one writer and one reader. A parked-then-resumed run counts its parked time; that is stated in the RunStartedAt doc."
+  - category: Design
+    chose: "RunAccountSection.BuildForResult renders an account whose problem equals the Outcome text as 'see Outcome'; Build is unchanged"
+    over: "Changing the shared renderer"
+    reason: "The PR body and the ticket comment carry no Outcome section, so they keep the text. Where the review revert replaced the result or on the early-keystone path the texts differ and the repetition stays — stated in the spec's scope."
+  - category: Design
+    chose: "A failed run's summary fallback reads 'Did not complete; N file(s) changed on the branch.'"
+    over: "Keeping 'Completed N change(s).' under a failed Outcome"
+    reason: "RunResultFidelityTests asserted the old text for a failed run; its assertion moved with the spec."

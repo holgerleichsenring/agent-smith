@@ -515,7 +515,7 @@ public sealed class AgenticMasterHandler(
                     cancellationToken);
                 conversation.Continued(applyNudge, applyResult.Response);
                 TrackMasterResponse(applyResult.Response);
-                loopResult = applyResult; // verdict + duration come from the apply pass
+                loopResult = applyResult; // the verdict comes from the apply pass
                 changes = fs.GetChanges();
             }
             catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
@@ -531,7 +531,6 @@ public sealed class AgenticMasterHandler(
         context.Pipeline.Set(ContextKeys.CodeChanges, changes);
         // p0341: the final ledger for the done-status diagnostic (WriteRunResult) + result.md.
         context.Pipeline.Set(ContextKeys.ProgressLedger, progress.GetLedger());
-        context.Pipeline.Set(ContextKeys.RunDurationSeconds, (int)loopResult.Duration.TotalSeconds);
 
         // p0267: publish the master's final answer + skill name so a downstream
         // findings-scrape (CollectMasterFindings on the api-security path) can route
