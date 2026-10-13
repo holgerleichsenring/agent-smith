@@ -96,8 +96,8 @@ describe("MissionControl", () => {
       systemActivity: null,
     };
     render(<MissionControl />);
-    // Needs-you always renders (top priority), even empty — with a calm line.
-    expect(screen.getByTestId("section-needs-you")).toHaveTextContent("Nothing waiting on you.");
+    // Waiting for input always renders (top priority), even empty — with a calm line.
+    expect(screen.getByTestId("section-needs-you")).toHaveTextContent("No run is waiting for input.");
     // An empty Queued section is omitted entirely.
     expect(screen.queryByTestId("section-queued")).not.toBeInTheDocument();
   });
@@ -117,9 +117,9 @@ describe("MissionControl", () => {
     };
     render(<MissionControl />);
     const section = screen.getByTestId("section-needs-you");
-    expect(section.querySelector("h2")).toHaveTextContent("Needs you");
+    expect(section.querySelector("h2")).toHaveTextContent("Waiting for input");
     expect(screen.getByTestId("section-needs-you-count")).toHaveTextContent("1");
-    expect(section).toHaveTextContent("answer here — the run resumes immediately");
+    expect(section).toHaveTextContent("a run is parked on a question — open it to answer");
   });
 
   it("MissionControl_FinishedRuns_ShowsClearFinished", () => {
@@ -245,5 +245,27 @@ describe("MissionControl when the server refused this caller", () => {
 
     expect(screen.getByTestId("mission-skeleton")).toBeInTheDocument();
     expect(screen.queryByTestId("mission-refused")).toBeNull();
+  });
+
+  // 2026-10-13-9a59p: a ticket's question is answered on the ticket list and a ticketless run's in
+  // the run viewer — the runs home lists parked runs as rows and holds no answer box.
+  it("MissionControl_WaitingForInput_IsRowsLinkingToTheRunViewer_WithNoAnswerBox", () => {
+    mockOverview = {
+      active: [
+        snap("parked", "waiting_for_input", { pendingQuestion: question, ticketId: "42" }),
+        snap("bare", "waiting_for_input"),
+      ],
+      recent: [],
+      systemActivity: null,
+    };
+    render(<MissionControl />);
+
+    const section = screen.getByTestId("section-needs-you");
+    expect(section.querySelector("h2")).toHaveTextContent("Waiting for input");
+    expect(screen.getByTestId("metric-needs-you")).toHaveTextContent("Waiting for input");
+    expect(screen.queryByTestId("pending-question-card")).toBeNull();
+    expect(section.querySelector("input")).toBeNull();
+    expect(screen.getByTestId("run-row-parked")).toHaveAttribute("href", "/jobs/parked");
+    expect(screen.getByTestId("run-row-bare")).toHaveAttribute("href", "/jobs/bare");
   });
 });

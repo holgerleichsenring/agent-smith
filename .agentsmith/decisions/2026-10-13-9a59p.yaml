@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-9a59p
+
+decisions:
+  - category: Design
+    chose: "Vendor the current mock, v6.3, as design/mockups/ticket-view.html with a header comment naming it non-shipping where it is"
+    over: "The v6.1 the spec names"
+    reason: |
+      The operator handed over v6.3 as the ratified copy; the list view the spec builds is the same in both. The
+      header comment marks the Mock-only footers, the topbar list/detail switch and the preview-state chips as
+      non-shipping; they stay in the file so q, r and s can cite one copy.
+  - category: Implementation
+    chose: "DEVIATION: the row's pendingQuestion is read as the server's TicketPendingQuestion {runId, question}, not a bare PendingQuestionInfo"
+    over: "The spec's wording, which reads the field as 9a59a's PendingQuestionInfo"
+    reason: |
+      AgentSmith.Server/Models/TicketPendingQuestion.cs wraps the question with the run that asks it, and
+      TicketSummaryComposer.cs:42 fills it so. The card answers that runId; without the field the hook falls back to
+      one run-detail fetch of newestRunId, as NeedsYouCard did.
+  - category: Implementation
+    chose: "Server field names are the truth: counts.doneThisMonth {tickets, attempts}, counts.lastDone {project, ticketId, at}, counts.stuck, seriesStrip {derive, cells[{specId, state}]}, cause {channel, actor, at, source{kind, url, id, detail}}, handback {text, at}"
+    over: "Re-deriving any of them on the client"
+    reason: |
+      TicketCountsView, TicketSeriesStripView/TicketSeriesCellView, AttemptCause/AttemptSource and TicketHandbackView
+      serialize camelCase; types/tickets.ts mirrors them, with every field a later member added optional so an older
+      server draws nothing rather than a guess. lastDone carries its project, which the spec's text left out.
+  - category: Implementation
+    chose: "The activity line says '{specsDone} of {specsTotal} specs done'"
+    over: "'spec x of y' with x = specsDone"
+    reason: |
+      specsDone counts done specs, so 'spec 3 of 5' while the fourth runs would name the wrong spec; the row has no
+      field saying which spec is live. The strip's live cell shows that.
+  - category: Implementation
+    chose: "Stuck rows say 'unchanged since the last attempt, checked {age} ago' when the check saw no change, 'not checked since {age} ago' only when nothing observed the ticket"
+    over: "Showing 'not checked since' whenever a checkedAt exists"
+    reason: |
+      9a59h's unchangedSinceLastAttempt is false when the check saw an act, null when nothing observed it; only the
+      null case is a missing check. A stuck ticket is always a fresh unchanged one by TicketBucketRule.
+  - category: Design
+    chose: "PR cells: merged = proven, closed = idle (.pr.ended), open + approved = .pr.appr, open + changes-requested or rejected = .pr.chg, open + changes-requested-untrusted = .pr.untrusted (dashed), unsupported/unread = a plain cell"
+    over: "The mock's single grey .pr cell"
+    reason: |
+      The spec asks each of 9a59b's exact state and decision strings to be drawn; the mock has one grey cell. The four
+      classes are listed as mock-parity deviations and use only existing tokens.
+  - category: Design
+    chose: "Attempt marks: handedBack = person, endedOnInfrastructure = stopped (idle grey), success/shortfall = ok, failed = bad, running = run, queued = empty, waiting_for_input with a question = person, cancelled by a person = stopped"
+    over: "Drawing a person's cancel as failed"
+    reason: |
+      The spec lists handed back, failed, ok, running and stopped; a cancel ended nothing in the work, so it reads
+      stopped like a reaper's end. failedAttempts counts failed marks that a reaper did not end.
+  - category: Implementation
+    chose: "The Tickets rail entry's count is the sum of the six bucket counts"
+    over: "The loaded page's length"
+    reason: |
+      TicketCountsView counts every ticket the read covered into exactly one bucket, so the sum is the ticket total;
+      the page holds at most 50 rows.
+  - category: Architecture
+    chose: "TICKET_PARAM and PROJECT_PARAM move to lib/specDialogAddress.ts; SpecDialogSurface imports them"
+    over: "Importing them from SpecDialogSurface"
+    reason: |
+      Importing the constants from the surface pulled the whole conversation surface into /tickets (236 kB first
+      load against 162 kB). One definition stays; nothing re-exports it.
+  - category: Implementation
+    chose: "Coalesce the ticket store's reads in CoalescedRefetch: one pending read, due at the earliest window any pending nudge asked for"
+    over: "Two independent throttles, one per hub message"
+    reason: |
+      A TicketActivityChanged nudge (2 s) must not wait behind a RunsChanged one held for 15 s, and the two meeting
+      must cost one read. Arriving on /tickets from elsewhere pulls a held read forward to now. Mount and the hub's
+      Connected transition each read once, as useJobsHub does.
+  - category: Design
+    chose: "The runs home's .need card CSS is deleted with NeedsYouCard; the runs-list deviation lines say parked runs are .rrow rows"
+    over: "Leaving the unused rules in mock-parity.css"
+    reason: |
+      Nothing renders .need, .n-top or .n-body any more; the shared .q-item/.n-answer rules stay, the run viewer's
+      dialogue drawer and the ticket list use them.
+  - category: Documentation
+    chose: "dashboard.md gains a Tickets section and the Work rail entry; Needs you on the runs home becomes Waiting for input there and in capacity.md"
+    over: "Leaving the docs describing an inline answer the runs home no longer has"
+    reason: |
+      The page the operator reads would otherwise promise an answer box that was removed.
+  - category: Design
+    chose: "A bucket view reads its own first page on every landed read of the shared store and keeps the pages loaded past it"
+    over: "Filtering the shared first page"
+    reason: |
+      The shared page holds every bucket, so a filtered section would show fewer rows than its count; rereading on
+      the store's version keeps the bucket view as fresh as the rail without a second hub listener.

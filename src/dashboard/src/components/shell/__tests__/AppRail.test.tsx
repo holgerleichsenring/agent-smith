@@ -163,7 +163,7 @@ describe("AppRail", () => {
     renderRail();
     // p0348: "All runs" carries the ALL-runs count (no date filter).
     expect(screen.getByTestId("app-rail-count-All runs")).toHaveTextContent("5");
-    expect(screen.getByTestId("app-rail-count-Needs you")).toHaveTextContent("1");
+    expect(screen.getByTestId("app-rail-count-Waiting for input")).toHaveTextContent("1");
     expect(screen.getByTestId("app-rail-count-Running")).toHaveTextContent("2");
     expect(screen.getByTestId("app-rail-count-Queued")).toHaveTextContent("1");
     expect(screen.getByTestId("app-rail-count-Finished")).toHaveTextContent("1");
@@ -190,14 +190,14 @@ describe("AppRail", () => {
       systemActivity: null,
     };
     renderRail();
-    expect(screen.getByTestId("app-rail-item-Needs you")).toHaveAttribute("data-hot", "true");
+    expect(screen.getByTestId("app-rail-item-Waiting for input")).toHaveAttribute("data-hot", "true");
     expect(screen.getByTestId("app-rail-item-Running")).toHaveAttribute("data-hot", "false");
   });
 
   it("AppRail_NoOverviewYet_MonitorCountsShowZero", () => {
     renderRail();
-    expect(screen.getByTestId("app-rail-count-Needs you")).toHaveTextContent("0");
-    expect(screen.getByTestId("app-rail-item-Needs you")).toHaveAttribute("data-hot", "false");
+    expect(screen.getByTestId("app-rail-count-Waiting for input")).toHaveTextContent("0");
+    expect(screen.getByTestId("app-rail-item-Waiting for input")).toHaveAttribute("data-hot", "false");
   });
 
   // p0458: the monitor items name a BUCKET of the home screen, not an anchor in
@@ -205,7 +205,7 @@ describe("AppRail", () => {
   it("AppRail_MonitorSections_LinkToTheFilteredHomeScreen", () => {
     renderRail();
     expect(screen.getByTestId("app-rail-item-All runs")).toHaveAttribute("href", "/");
-    expect(screen.getByTestId("app-rail-item-Needs you")).toHaveAttribute("href", "/?bucket=needs-you");
+    expect(screen.getByTestId("app-rail-item-Waiting for input")).toHaveAttribute("href", "/?bucket=needs-you");
     expect(screen.getByTestId("app-rail-item-Running")).toHaveAttribute("href", "/?bucket=running");
     expect(screen.getByTestId("app-rail-item-Queued")).toHaveAttribute("href", "/?bucket=queued");
     expect(screen.getByTestId("app-rail-item-Finished")).toHaveAttribute("href", "/?bucket=finished");

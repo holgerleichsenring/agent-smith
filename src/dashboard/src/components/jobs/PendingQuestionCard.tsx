@@ -24,9 +24,11 @@ interface Props {
   answered?: boolean;
   /** p0458: fires once the run has accepted the answer. */
   onAnswered?: () => void;
+  /** 2026-10-13-9a59p: the send button's words; a ticket names the attempt it resumes. */
+  label?: string;
 }
 
-export function PendingQuestionCard({ runId, question, answered, onAnswered }: Props) {
+export function PendingQuestionCard({ runId, question, answered, onAnswered, label }: Props) {
   const [text, setText] = useState("");
   const [posted, setPosted] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -107,7 +109,7 @@ export function PendingQuestionCard({ runId, question, answered, onAnswered }: P
             data-testid="pending-question-submit"
             onClick={() => submit(text)}
           >
-            Send &amp; resume run
+            {label ?? "Send & resume run"}
           </button>
         </div>
       )}

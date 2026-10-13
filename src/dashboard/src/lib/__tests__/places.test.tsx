@@ -78,6 +78,21 @@ describe("Places", () => {
       .toEqual([]);
   });
 
+  // 2026-10-13-9a59p: the Work section links the ticket list and its six buckets; a bucket is a
+  // query of one place, and a ticket's own page is matched like a run's.
+  it("Places_TicketList_AndItsBuckets_AreOnePlace_AndATicketIsAPlace", () => {
+    const hrefs = railHrefs("/");
+    for (const bucket of ["needs-you", "working", "waiting-on-review", "stuck", "ended", "done"]) {
+      expect(hrefs).toContain(`/tickets?bucket=${bucket}`);
+      expect(placeForPath(`/tickets?bucket=${bucket}`)).toBe("Tickets");
+    }
+    expect(hrefs).toContain("/tickets");
+    expect(placeForPath("/tickets")).toBe("Tickets");
+    expect(placeForPath("/tickets/shop/GH-101")).toBe("Ticket");
+    expect(placeForPath("/tickets/shop")).toBeNull();
+    expect(railHrefs("/config")).not.toContain("/tickets");
+  });
+
   it("Places_WorkItOut_IsATopLevelDestination", () => {
     // 2026-09-15-cb3e: designing the work is a peer of watching it, not a diagnostic
     // under /system — and the table is closed, so the route lives in it or nowhere.

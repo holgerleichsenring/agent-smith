@@ -1,0 +1,1512 @@
+<!-- Ticket view mock, vendored 2026-10-13 (v6.3) by 2026-10-13-9a59p; the one copy the 9a59 series cites.
+     NON-SHIPPING: every "Mock only" footer, the topbar list/detail switch and the composer's
+     "Mock · preview state" chips exist to review the mock and are never ported. -->
+<title>agent-smith · tickets</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  /* Ticket view mock v5 (2026-10-13). Tokens: repo-root DESIGN.md + the dashboard's mock-parity.css, verbatim.
+     Light-only by design, like the dashboard. Layout is the mock's; visuals are the tokens' (c7aed rule).
+     Layout concept: app shell (rail + top bar); list = buckets by who acts next; detail = one dark
+     card-terminal-panel flow graph over tabs that hold everything the graph leaves out. */
+  :root {
+    --bg:#fffefb; --panel:#f8f4f0; --panel-2:#efe9df;
+    --ink:#201515; --ink-2:#605d52; --ink-3:#939084;
+    --line:#e6dfd0; --line-2:#efe9dd;
+    --accent:#22c55e; --accent-ink:#fffefb; --accent-wash:#e7f6ec;
+    --run:#a8741f; --run-wash:#f4ecd9; --ok:#22c55e; --ok-wash:#e7f6ec; --bad:#c0392b; --bad-wash:#f6e6e2;
+    --idle:#c5c0b1;
+    --person:#2f6fb0; --person-wash:#e6eef7;
+    --r:12px; --r-s:6px;
+    --mono:"IBM Plex Mono", ui-monospace,"SF Mono",Menlo,monospace;
+    --sans:Inter, system-ui,-apple-system,"Segoe UI",sans-serif;
+    --shadow:0 1px 0 rgba(32,21,21,.03);
+    --topbar-h:52px;
+    /* card-terminal-panel tokens (DESIGN.md colors.terminal-*) + derived rules, no new hues */
+    --t-bg:#1c1e22; --t-text:#d8d4cc; --t-accent:#22c55e; --t-mute:#6b7280; --t-link:#5eb1ff; --t-string:#e8c46d;
+    --t-line:color-mix(in srgb, var(--t-mute) 38%, var(--t-bg));
+    --t-line-2:color-mix(in srgb, var(--t-mute) 22%, var(--t-bg));
+    --t-raise:color-mix(in srgb, var(--t-mute) 10%, var(--t-bg));
+    --t-dim:color-mix(in srgb, var(--t-mute) 70%, var(--t-bg));
+    --t-bad:color-mix(in srgb, var(--bad) 78%, var(--t-text));
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased; }
+  .mono { font-family:var(--mono); }
+  a { color:inherit; }
+  @keyframes mock-pulse { 0%{box-shadow:0 0 0 0 currentColor;} 70%{box-shadow:0 0 0 6px transparent;} 100%{box-shadow:0 0 0 0 transparent;} }
+  @media (prefers-reduced-motion:reduce){ *{ animation:none !important; } }
+  [hidden] { display:none !important; }
+  button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, [tabindex]:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+
+  /* ===== shell (mirrors AppRail: Tickets is new, everything else is today's rail) ===== */
+  .app { display:grid; grid-template-columns:236px minmax(0,1fr); grid-template-rows:auto 1fr; min-height:100vh; }
+  @media (max-width:860px){ .app{ grid-template-columns:minmax(0,1fr); } .side{ position:static; height:auto; } }
+  .topbar { grid-column:1/-1; display:flex; align-items:center; gap:10px; height:var(--topbar-h); padding:0 18px; border-bottom:1px solid var(--line); background:var(--bg); }
+  .tb-place { font-size:13.5px; font-weight:620; display:flex; gap:8px; align-items:center; min-width:0; }
+  .tb-place .crumb { color:var(--ink-3); font-weight:500; cursor:pointer; background:none; border:0; font:inherit; padding:0; }
+  .tb-place .crumb:hover { color:var(--ink); }
+  .tb-place .sep { color:var(--idle); }
+  .tb-actions { margin-left:auto; display:flex; align-items:center; gap:6px; }
+  .tb-btn { font:inherit; font-size:12.5px; font-weight:560; color:var(--ink-2); background:none; border:1px solid transparent; border-radius:9px; padding:6px 10px; cursor:pointer; display:flex; align-items:center; gap:8px; }
+  .tb-btn:hover { background:var(--panel-2); color:var(--ink); }
+  .tb-btn.on { background:var(--panel-2); color:var(--ink); }
+  .tb-avatar { width:24px; height:24px; border-radius:50%; background:var(--accent-wash); color:var(--accent); display:grid; place-items:center; font-size:11.5px; font-weight:700; }
+  .side { border-right:1px solid var(--line); background:var(--panel); padding:14px 12px; display:flex; flex-direction:column; gap:2px; position:sticky; top:0; align-self:start; height:calc(100vh - var(--topbar-h)); overflow-y:auto; }
+  .brand { display:flex; align-items:center; gap:9px; padding:4px 10px 12px; }
+  .brand .logo { width:26px; height:26px; border-radius:8px; background:var(--accent); color:#fff; display:grid; place-items:center; font-weight:800; font-size:14px; }
+  .brand .bn { font-weight:680; }
+  .nav-h { font-size:10px; letter-spacing:.13em; text-transform:uppercase; color:var(--ink-3); font-weight:600; padding:10px 12px 4px; }
+  .nav { display:flex; align-items:center; gap:10px; padding:7px 12px; border-radius:9px; cursor:pointer; color:var(--ink-2); font-size:13px; font-weight:520; text-decoration:none; }
+  .nav:hover { background:var(--panel-2); color:var(--ink); }
+  .nav.on { background:var(--accent-wash); color:var(--accent); font-weight:620; }
+  .nav.sub { padding-left:34px; font-size:12.5px; }
+  .nav .nc { margin-left:auto; font-size:11px; font-variant-numeric:tabular-nums; color:var(--ink-3); background:var(--panel-2); border-radius:20px; padding:1px 8px; min-width:22px; text-align:center; }
+  .nav .nc.hot { background:var(--run-wash); color:var(--run); font-weight:700; }
+  .nav .nc.new { background:var(--ink); color:var(--bg); font-size:9.5px; letter-spacing:.08em; font-weight:700; }
+
+  .main { padding:24px 34px 60px; max-width:1480px; min-width:0; }
+  @media (max-width:640px){ .main{ padding:18px 16px 40px; } }
+  .m-head { display:flex; align-items:flex-end; gap:16px; margin-bottom:16px; flex-wrap:wrap; }
+  .m-head h1 { font-size:23px; margin:0; font-weight:680; letter-spacing:-.02em; text-wrap:balance; }
+  .m-head .msub { font-size:13px; color:var(--ink-3); margin-top:4px; max-width:70ch; }
+
+  /* metric strip */
+  .health { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:var(--r); overflow:hidden; margin-bottom:26px; }
+  @media (max-width:1000px){ .health{ grid-template-columns:repeat(3,minmax(0,1fr)); } }
+  @media (max-width:520px){ .health{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  .metric { background:var(--panel); padding:12px 15px; display:flex; flex-direction:column; gap:3px; min-width:0; }
+  .metric .k { font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); font-weight:600; }
+  .metric .v { font-size:19px; font-weight:640; font-variant-numeric:tabular-nums; display:flex; align-items:baseline; gap:6px; flex-wrap:wrap; }
+  .metric .v small { font-size:11.5px; font-weight:500; color:var(--ink-3); }
+  .metric.hot { background:var(--run-wash); } .metric.hot .v { color:var(--run); }
+
+  .section-head { display:flex; align-items:center; gap:10px; padding:0 2px 11px; border-bottom:1px solid var(--line); margin:26px 0 14px; flex-wrap:wrap; }
+  .section-head.first { margin-top:0; }
+  .section-head h2 { font-size:16px; font-weight:660; margin:0; }
+  .cnt { font-size:11.5px; font-weight:650; padding:2px 9px; border-radius:20px; background:var(--panel-2); color:var(--ink-2); font-variant-numeric:tabular-nums; }
+  .cnt.amber { background:var(--run-wash); color:var(--run); }
+  .cnt.green { background:var(--ok-wash); color:var(--ok); }
+  .cnt.red { background:var(--bad-wash); color:var(--bad); }
+  .section-head .sh-sub { font-size:12px; color:var(--ink-3); margin-left:auto; }
+
+  .pill { font-size:10.5px; font-weight:650; letter-spacing:.04em; text-transform:uppercase; padding:3px 9px; border-radius:20px; white-space:nowrap; display:inline-block; }
+  .pill.ok { background:var(--ok-wash); color:var(--ok); }
+  .pill.bad { background:var(--bad-wash); color:var(--bad); }
+  .pill.amber { background:var(--run-wash); color:var(--run); }
+  .pill.q { background:var(--panel-2); color:var(--ink-3); }
+  .pill.person { background:var(--person-wash); color:var(--person); }
+  .btn { font:inherit; font-size:12.5px; font-weight:600; border-radius:9px; padding:8px 14px; cursor:pointer; border:1px solid var(--line); background:var(--panel); color:var(--ink); white-space:nowrap; }
+  .btn:hover { background:var(--panel-2); }
+  .btn.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .btn.primary:hover { filter:brightness(1.06); }
+  .btn.sm { font-size:11.5px; padding:5px 10px; }
+  .btn[disabled] { opacity:.5; cursor:not-allowed; }
+
+  /* ===== ticket list ===== */
+  .rows { display:flex; flex-direction:column; }
+  .trow { display:grid; grid-template-columns:14px minmax(0,1fr) 128px 76px 86px 70px 14px; gap:16px; align-items:center; padding:13px 16px; background:var(--panel); border:1px solid var(--line); border-top:0; cursor:pointer; }
+  .rows > .trow:first-child, .rows > .rgroup:first-child .trow { border-top:1px solid var(--line); border-radius:var(--r) var(--r) 0 0; }
+  .rows > .trow:last-child { border-radius:0 0 var(--r) var(--r); }
+  .rows > .trow:only-child { border-radius:var(--r); }
+  .trow:hover { background:var(--panel-2); }
+  @media (max-width:900px){ .trow{ grid-template-columns:14px minmax(0,1fr) auto 14px; } .trow .hidesm{ display:none; } }
+  .sd { width:10px; height:10px; border-radius:50%; }
+  .sd.run { background:var(--run); color:var(--run); animation:mock-pulse 1.8s infinite; }
+  .sd.need { background:var(--person); color:var(--person); animation:mock-pulse 1.2s infinite; }
+  .sd.queued { background:var(--bg); border:2px solid var(--run); }
+  .sd.ok { background:var(--ok); } .sd.bad { background:var(--bad); } .sd.human { background:var(--ink-3); }
+  .rmain { min-width:0; }
+  .rt { display:flex; align-items:baseline; gap:9px; min-width:0; }
+  .tick { font-family:var(--mono); font-size:11.5px; color:var(--ink-3); flex:none; }
+  .ttl { font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .act { font-size:11.5px; color:var(--ink-3); margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .act b { color:var(--ink-2); font-weight:600; }
+  .act .aq { color:var(--person); font-weight:600; }
+  .act .ab { color:var(--bad); font-weight:600; }
+  /* attempt dots */
+  .attempts { display:flex; gap:5px; align-items:center; }
+  .attempts i { width:9px; height:9px; border-radius:2px; background:var(--panel-2); border:1px solid var(--line); }
+  .attempts i.ok { background:var(--ok); border-color:var(--ok); }
+  .attempts i.bad { background:var(--bad); border-color:var(--bad); }
+  .attempts i.run { background:var(--run); border-color:var(--run); color:var(--run); animation:mock-pulse 1.8s infinite; }
+  .attempts i.hb { background:var(--person); border-color:var(--person); }
+  .attempts i.stop { background:var(--idle); border-color:var(--idle); }
+  .attempts .al { font-family:var(--mono); font-size:11px; color:var(--ink-3); margin-left:4px; }
+  .trow .cost { font-family:var(--mono); font-size:12px; color:var(--ink-2); font-variant-numeric:tabular-nums; text-align:right; }
+  .trow .cost small { color:var(--ink-3); display:block; font-size:10.5px; }
+  .trow .when { font-size:11.5px; color:var(--ink-3); white-space:nowrap; text-align:right; }
+  .trow .chev { color:var(--ink-3); font-size:13px; }
+  /* series strip: derive · one cell per spec of the current series · ship */
+  .strip { display:flex; gap:3px; align-items:center; }
+  .strip i { width:14px; height:8px; border-radius:2px; background:var(--panel-2); border:1px solid var(--line); }
+  .strip i.d { width:8px; } .strip i.p { width:8px; }
+  .strip i.done { background:var(--ok); border-color:var(--ok); }
+  .strip i.carried { background:var(--ok-wash); border-color:var(--ok); border-style:dashed; }
+  .strip i.live { background:var(--run); border-color:var(--run); color:var(--run); animation:mock-pulse 1.8s infinite; }
+  .strip i.ask { background:var(--person); border-color:var(--person); }
+  .strip i.bad { background:var(--bad); border-color:var(--bad); }
+  .strip i.pr { background:var(--ink-3); border-color:var(--ink-3); }
+  /* the answer, inline in the row group (same component as PendingQuestionCard) */
+  .rgroup { display:flex; flex-direction:column; }
+  .rgroup .trow { border-radius:0; }
+  .answer { border:1px solid var(--line); border-top:0; background:var(--bg); padding:12px 16px 14px 46px; display:flex; flex-direction:column; gap:10px; }
+  .rows > .rgroup:last-child .answer { border-radius:0 0 var(--r) var(--r); }
+  .q-item { border:1px solid var(--line-2); background:var(--panel-2); border-radius:10px; padding:12px 14px; }
+  .q-item .qt { font-size:13.5px; font-weight:560; }
+  .q-item .qm { font-size:11px; color:var(--ink-3); margin-top:3px; }
+  .q-opts { display:flex; gap:7px; flex-wrap:wrap; margin-top:10px; }
+  .q-opt { font:inherit; font-size:12.5px; font-weight:560; border:1px solid var(--line); background:var(--panel); color:var(--ink-2); padding:7px 12px; border-radius:9px; cursor:pointer; text-align:left; }
+  .q-opt:hover { border-color:var(--accent); color:var(--accent); }
+  .q-opt.on { border-color:var(--accent); background:var(--accent-wash); color:var(--accent); font-weight:620; }
+  .n-answer { display:flex; gap:9px; align-items:center; flex-wrap:wrap; }
+  .n-answer input { flex:1; min-width:200px; font:inherit; font-size:13px; padding:9px 13px; border:1px solid var(--line); border-radius:10px; background:var(--panel); color:var(--ink); }
+  .answer .hint-line { font-size:11.5px; color:var(--ink-3); }
+  .answer .hint-line b { color:var(--ink-2); font-weight:600; }
+  .done-row { display:flex; align-items:center; gap:10px; padding:12px 16px; border:1px dashed var(--line); border-radius:var(--r); font-size:12.5px; color:var(--ink-3); }
+  .done-row b { color:var(--ink-2); }
+  .done-row .btn { margin-left:auto; }
+
+  /* ===== ticket detail ===== */
+  .t-head { display:flex; align-items:flex-start; gap:14px; margin-bottom:6px; flex-wrap:wrap; }
+  .t-head .ticon { width:22px; height:22px; border-radius:50%; margin-top:5px; flex:none; background:var(--run); color:var(--run); animation:mock-pulse 1.8s infinite; }
+  .t-head .tt { min-width:0; flex:1 1 360px; }
+  .t-head h1 { margin:0; font-size:21px; font-weight:680; letter-spacing:-.02em; line-height:1.25; text-wrap:balance; }
+  .t-head h1 .key { font-family:var(--mono); font-weight:500; font-size:17px; color:var(--ink-2); margin-right:8px; }
+  .t-head .tsub { font-size:12.5px; color:var(--ink-3); margin-top:4px; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  .t-head .tsub b { color:var(--ink-2); font-weight:600; }
+  .t-head .tsub a { color:var(--ink-2); text-decoration:none; }
+  .t-head .t-act { display:flex; gap:8px; flex:none; flex-wrap:wrap; }
+  .tabs { display:flex; gap:4px; border-bottom:1px solid var(--line); margin:16px 0 18px; overflow-x:auto; }
+  .tab { font:inherit; font-size:13px; font-weight:560; color:var(--ink-2); background:none; border:0; border-bottom:2px solid transparent; padding:8px 12px 10px; cursor:pointer; white-space:nowrap; margin-bottom:-1px; }
+  .tab:hover { color:var(--ink); }
+  .tab[aria-selected="true"] { color:var(--ink); border-bottom-color:var(--accent); font-weight:640; }
+  .tab .tc { font-size:11px; color:var(--ink-3); margin-left:6px; font-family:var(--mono); }
+  .tab .tc.hot { color:var(--person); font-weight:600; }
+
+  .sum { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:var(--r); overflow:hidden; margin-bottom:14px; }
+  @media (max-width:900px){ .sum{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
+  .sum .sg { background:var(--panel); padding:12px 15px; min-width:0; display:flex; flex-direction:column; gap:4px; }
+  .sum .k { font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); font-weight:600; }
+  .sum .v { font-size:13px; display:flex; flex-direction:column; gap:2px; }
+  .sum .v .dim { color:var(--ink-3); font-size:12px; }
+  .sum .v .mono { font-size:12px; }
+
+  .banner { display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:12px; align-items:center; background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--ink-3); border-radius:var(--r); padding:12px 16px; margin-bottom:14px; }
+  .banner.need { border-left-color:var(--person); }
+  .banner .bi { width:18px; height:18px; border-radius:50%; border:1.5px solid var(--ink-3); color:var(--ink-3); display:grid; place-items:center; font-size:11px; font-weight:700; }
+  .banner.need .bi { border-color:var(--person); color:var(--person); }
+  .banner .bt { font-size:13.5px; font-weight:560; }
+  .banner .bs { font-size:11.5px; color:var(--ink-3); margin-top:2px; }
+  .banner .bs b { color:var(--ink-2); font-weight:600; }
+  @media (max-width:640px){ .banner{ grid-template-columns:auto minmax(0,1fr); } .banner .btn{ grid-column:2; justify-self:start; } }
+
+  /* ===== flow graph on card-terminal-panel ===== */
+  .graph { border-radius:var(--r) var(--r) 0 0; overflow:hidden; background:var(--t-bg); border:1px solid var(--t-bg); }
+  .g-top { display:flex; align-items:center; gap:4px; padding:10px 14px 0; border-bottom:1px solid var(--t-line-2); flex-wrap:wrap; }
+  .gt { font:inherit; font-family:var(--mono); font-size:11.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--t-mute); background:none; border:0; border-bottom:2px solid transparent; padding:7px 11px 9px; cursor:pointer; margin-bottom:-1px; display:flex; gap:8px; align-items:center; }
+  .gt:hover { color:var(--t-text); }
+  .gt[aria-selected="true"] { color:var(--t-text); border-bottom-color:var(--t-accent); }
+  .gt .gd { width:7px; height:7px; border-radius:2px; }
+  .gd.ok{background:var(--t-accent);} .gd.bad{background:var(--t-bad);} .gd.hb{background:var(--t-link);} .gd.run{background:var(--t-string);color:var(--t-string);animation:mock-pulse 1.8s infinite;}
+  .g-sub { font-family:var(--mono); font-size:11.5px; color:var(--t-mute); padding:10px 18px; border-bottom:1px solid var(--t-line-2); display:flex; gap:14px; flex-wrap:wrap; align-items:center; }
+  .g-sub b { color:var(--t-text); font-weight:500; }
+  .g-sub .cause { color:var(--t-link); }
+  .g-sub .modes { margin-left:auto; display:inline-flex; border:1px solid var(--t-line); border-radius:7px; overflow:hidden; }
+  .lm { font:inherit; font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--t-mute); background:var(--t-raise); border:0; padding:5px 11px; cursor:pointer; }
+  .lm + .lm { border-left:1px solid var(--t-line); }
+  .lm:hover { color:var(--t-text); }
+  .lm[aria-pressed="true"] { background:color-mix(in srgb, var(--t-accent) 30%, var(--t-bg)); color:var(--t-text); }
+  .canvas { background:var(--t-bg); background-image:radial-gradient(circle at 1px 1px, var(--t-line-2) 1px, transparent 0); background-size:26px 26px; overflow-x:auto; }
+  .canvas svg { display:block; width:100%; min-width:900px; height:auto; }
+  .g-legend { display:flex; gap:16px; flex-wrap:wrap; padding:9px 18px 12px; border-top:1px solid var(--t-line-2); font-family:var(--mono); font-size:10.5px; letter-spacing:.06em; text-transform:uppercase; color:var(--t-mute); }
+  .g-legend span { display:inline-flex; align-items:center; gap:7px; }
+  .g-legend i { width:9px; height:9px; border-radius:50%; display:inline-block; }
+
+  .edge { fill:none; stroke:var(--t-line); stroke-width:1.6; }
+  .edge.done { stroke:color-mix(in srgb, var(--t-accent) 45%, var(--t-bg)); }
+  .edge.idle { stroke:var(--t-line-2); stroke-dasharray:5 6; }
+  .edge.bad { stroke:color-mix(in srgb, var(--bad) 60%, var(--t-bg)); }
+  .edge.carried { stroke:color-mix(in srgb, var(--t-accent) 28%, var(--t-bg)); stroke-dasharray:4 5; }
+  .edge.person { stroke:color-mix(in srgb, var(--t-link) 55%, var(--t-bg)); stroke-dasharray:3 4; }
+  .edge.back { stroke:var(--t-string); stroke-width:1.6; stroke-dasharray:6 6; opacity:.75; }
+  .edge.live { stroke:var(--t-string); stroke-width:2; stroke-dasharray:7 8; animation:flow 1.1s linear infinite; }
+  .edge.next { stroke:var(--t-line); stroke-dasharray:3 5; }
+  @keyframes flow { to { stroke-dashoffset:-30; } }
+  .elab { font-family:var(--mono); font-size:11px; fill:var(--t-string); }
+  .elab.dim, .elab.next { fill:var(--t-mute); font-size:10.5px; }
+  .lane { fill:var(--t-raise); stroke:var(--t-line-2); stroke-width:1; }
+  .passlab, .speclab { font-family:var(--mono); font-size:10.5px; letter-spacing:.14em; fill:var(--t-mute); }
+  .carrytxt { font-family:var(--mono); font-size:11px; fill:var(--t-dim); }
+
+  .node { cursor:pointer; }
+  .node .disc { fill:var(--t-raise); stroke:var(--t-line); stroke-width:1.4; }
+  .node .halo { fill:none; stroke:transparent; stroke-width:2; }
+  .node .ic { fill:none; stroke:var(--t-mute); stroke-width:1.5; stroke-linecap:round; stroke-linejoin:round; }
+  .node .lab { font-family:var(--mono); font-size:11.5px; letter-spacing:.08em; fill:var(--t-mute); }
+  .node .met { font-family:var(--mono); font-size:10.5px; fill:var(--t-dim); }
+  .node .badge { font-family:var(--mono); font-size:11px; fill:var(--t-string); }
+  .node:hover .disc { stroke:var(--t-mute); }
+  .node:focus-visible { outline:none; }
+  .node:focus-visible .disc { stroke:var(--t-link); stroke-width:2.4; }
+  .node.done .disc { stroke:var(--t-accent); fill:color-mix(in srgb, var(--t-accent) 10%, var(--t-bg)); }
+  .node.done .ic { stroke:var(--t-accent); } .node.done .lab { fill:var(--t-text); }
+  .node.carried .disc { stroke:color-mix(in srgb, var(--t-accent) 40%, var(--t-bg)); stroke-dasharray:4 4; }
+  .node.carried .ic { stroke:color-mix(in srgb, var(--t-accent) 50%, var(--t-bg)); } .node.carried .lab { fill:var(--t-dim); }
+  .node.live .disc { stroke:var(--t-string); fill:color-mix(in srgb, var(--t-string) 12%, var(--t-bg)); }
+  .node.live .ic { stroke:var(--t-string); } .node.live .lab { fill:var(--t-text); } .node.live .met { fill:var(--t-string); }
+  .node.live .halo { stroke:var(--t-string); animation:halo 1.8s ease-out infinite; }
+  @keyframes halo { 0%{ stroke-opacity:.5; } 100%{ stroke-opacity:0; } }
+  .node.bad .disc { stroke:var(--t-bad); fill:color-mix(in srgb, var(--bad) 14%, var(--t-bg)); }
+  .node.bad .ic { stroke:var(--t-bad); } .node.bad .lab { fill:var(--t-bad); } .node.bad .met { fill:color-mix(in srgb, var(--t-bad) 70%, var(--t-bg)); }
+  .node.person .disc { stroke:var(--t-link); fill:color-mix(in srgb, var(--t-link) 12%, var(--t-bg)); }
+  .node.person .ic { stroke:var(--t-link); } .node.person .lab { fill:var(--t-link); }
+  .node.sel .disc { stroke-width:2.6; } .node.sel .lab { fill:var(--t-text); }
+  @media (prefers-reduced-motion:reduce){ .edge.live, .node.live .halo { animation:none; } }
+
+  /* node detail, light, below the panel */
+  .sdet { border:1px solid var(--line); border-top:0; border-radius:0 0 var(--r) var(--r); background:var(--bg); }
+  .sd-h { display:flex; align-items:center; gap:10px; padding:12px 18px; border-bottom:1px solid var(--line-2); flex-wrap:wrap; }
+  .sd-h h3 { margin:0; font-size:14px; font-weight:660; }
+  .sd-h .sh-sub { margin-left:auto; font-size:11.5px; color:var(--ink-3); }
+  .sd-b { display:grid; grid-template-columns:minmax(0,1.4fr) minmax(0,1fr); gap:18px 26px; padding:14px 18px 18px; }
+  .sd-b.one { grid-template-columns:minmax(0,1fr); }
+  @media (max-width:900px){ .sd-b{ grid-template-columns:minmax(0,1fr); } }
+  .why { font-size:12.5px; color:var(--ink-2); max-width:72ch; }
+  .why b { color:var(--ink); font-weight:600; }
+  .why .ab { color:var(--bad); font-weight:600; }
+  .why p { margin:0 0 8px; } .why p:last-child { margin:0; }
+  .doc { font-size:12.5px; color:var(--ink-2); border:1px solid var(--line); border-radius:var(--r-s); background:var(--panel); padding:10px 12px; }
+  .doc h5 { margin:0 0 6px; font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); font-weight:600; }
+  .doc p { margin:0 0 6px; } .doc p:last-child { margin:0; } .doc ul { margin:0; padding-left:16px; }
+  .jobs { display:flex; flex-direction:column; border:1px solid var(--line); border-radius:var(--r-s); overflow:hidden; }
+  .job { display:grid; grid-template-columns:14px 24px minmax(0,1fr) auto; gap:10px; align-items:center; padding:8px 12px; background:var(--panel); border-top:1px solid var(--line-2); font-size:12.5px; }
+  .job:first-child { border-top:0; }
+  .job .ji { width:10px; height:10px; border-radius:50%; }
+  .job.done .ji { background:var(--ok); } .job.live .ji { background:var(--run); color:var(--run); animation:mock-pulse 1.6s infinite; } .job.idle .ji { border:1.5px solid var(--idle); } .job.bad .ji { background:var(--bad); }
+  .job .jn { font-family:var(--mono); font-size:11px; color:var(--ink-3); }
+  .job .jt { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .job .jm { font-family:var(--mono); font-size:11px; color:var(--ink-3); white-space:nowrap; }
+  .job.live { background:color-mix(in srgb, var(--run-wash) 45%, var(--panel)); }
+  .crit { display:flex; flex-direction:column; gap:6px; }
+  .ci { display:grid; grid-template-columns:18px minmax(0,1fr) auto; gap:8px; align-items:baseline; font-size:12.5px; }
+  .ci .m { font-family:var(--mono); font-size:11px; font-weight:700; text-align:center; border-radius:4px; padding:1px 0; }
+  .m.ok { background:var(--ok-wash); color:var(--ok); } .m.bad { background:var(--bad-wash); color:var(--bad); } .m.q { background:var(--panel-2); color:var(--ink-3); }
+  .ci .cw { font-family:var(--mono); font-size:10.5px; color:var(--ink-3); white-space:nowrap; }
+  .term { background:var(--t-bg); color:var(--t-text); font-family:var(--mono); font-size:11.5px; line-height:1.6; padding:10px 12px; border-radius:var(--r-s); overflow-x:auto; }
+  .term .t { color:var(--t-mute); } .term .g { color:var(--t-accent); } .term .s { color:var(--t-string); } .term .l { color:var(--t-link); }
+  .term .cur::after { content:"▍"; color:var(--t-accent); animation:blink 1s steps(2) infinite; }
+  @keyframes blink { 50%{ opacity:0; } }
+
+  /* ===== conversation ===== */
+  .conv-tools { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
+  .chip { font:inherit; font-size:12px; font-weight:560; border:1px solid var(--line); background:var(--panel); color:var(--ink-2); padding:5px 11px; border-radius:20px; cursor:pointer; }
+  .chip[aria-pressed="true"] { background:var(--ink); color:var(--bg); border-color:var(--ink); }
+  .conv { display:flex; flex-direction:column; gap:0; max-width:880px; }
+  .c-att { display:flex; align-items:center; gap:10px; margin:18px 0 10px; font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); font-weight:600; }
+  .c-att:first-child { margin-top:0; }
+  .c-att::after { content:""; flex:1; height:1px; background:var(--line); }
+  .c-att .pill { letter-spacing:.04em; }
+  .msg { display:grid; grid-template-columns:30px minmax(0,1fr); gap:12px; padding:8px 0; }
+  .msg .av { width:30px; height:30px; border-radius:50%; display:grid; place-items:center; font-size:11px; font-weight:700; background:var(--panel-2); color:var(--ink-2); }
+  .msg .av.agent { background:var(--ink); color:var(--bg); font-family:var(--mono); }
+  .msg .av.op { background:var(--accent-wash); color:var(--accent); }
+  .msg .av.rv { background:var(--person-wash); color:var(--person); }
+  .msg .av.sys { background:var(--bg); border:1px dashed var(--line); color:var(--ink-3); }
+  .msg .mh { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; font-size:12.5px; }
+  .msg .mh b { font-weight:620; }
+  .msg .mh .where { font-size:11px; color:var(--ink-3); border:1px solid var(--line); border-radius:20px; padding:0 8px; }
+  .msg .mh .w { font-family:var(--mono); font-size:11px; color:var(--ink-3); margin-left:auto; }
+  .msg .mb { font-size:13px; color:var(--ink); margin-top:4px; max-width:70ch; }
+  .msg .mb.quote { border-left:2px solid var(--line); padding-left:10px; color:var(--ink-2); }
+  .msg .mb .file { font-family:var(--mono); font-size:11px; color:var(--ink-3); display:block; margin-bottom:3px; }
+  .msg .mf { font-size:11.5px; color:var(--ink-3); margin-top:4px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+  .msg .mf .eff { color:var(--person); font-weight:600; }
+  .msg .mf .eff.run { color:var(--run); }
+  .msg.internal .mb { font-size:12.5px; color:var(--ink-2); }
+  .diff { font-family:var(--mono); font-size:11.5px; border:1px solid var(--line); border-radius:var(--r-s); background:var(--panel); padding:8px 10px; margin-top:6px; overflow-x:auto; }
+  .diff .rm { color:var(--bad); } .diff .ad { color:#1a7f43; }
+  .speclist { margin:6px 0 0; padding-left:18px; font-size:12.5px; color:var(--ink-2); }
+
+  /* ===== specs × attempts ===== */
+  .plan { border:1px solid var(--line); border-radius:var(--r); overflow:hidden; background:var(--panel); }
+  .plan .scroll { overflow-x:auto; }
+  .plan table { border-collapse:collapse; width:100%; min-width:720px; }
+  .plan th { font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); font-weight:600; text-align:left; padding:10px 14px; border-bottom:1px solid var(--line); background:var(--panel-2); white-space:nowrap; }
+  .plan th.a { text-align:center; width:78px; }
+  .plan th.a .ad { display:block; font-family:var(--mono); font-size:10.5px; letter-spacing:0; text-transform:none; font-weight:400; margin-top:2px; }
+  .plan th.a.cur { color:var(--run); }
+  .plan td { padding:10px 14px; border-bottom:1px solid var(--line-2); vertical-align:middle; }
+  .plan tr:last-child td { border-bottom:0; }
+  .plan tr.rev td { background:var(--bg); padding:7px 14px; font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-3); font-weight:600; }
+  .plan .ln { font-family:var(--mono); font-size:11px; color:var(--ink-3); width:40px; }
+  .plan .st { font-size:13px; font-weight:560; }
+  .plan .st .sn { font-size:11px; color:var(--ink-3); margin-top:1px; font-weight:400; }
+  .plan .st .sn .mono { font-size:10.5px; }
+  .plan td.c { text-align:center; }
+  .plan td.nowc { font-size:11.5px; color:var(--ink-2); white-space:nowrap; }
+  .plan tr.open td { background:color-mix(in srgb, var(--run-wash) 40%, var(--panel)); }
+  .cell { display:inline-grid; place-items:center; min-width:22px; height:22px; padding:0 4px; border-radius:6px; font-size:11px; font-weight:700; font-family:var(--mono); }
+  .cell.done { background:var(--ok-wash); color:var(--ok); }
+  .cell.carried { color:var(--ink-3); border:1px dashed var(--line); }
+  .cell.fail { background:var(--bad-wash); color:var(--bad); }
+  .cell.ask { background:var(--person-wash); color:var(--person); }
+  .cell.live { background:var(--run-wash); color:var(--run); border:1px solid var(--run); }
+  .cell.none { color:var(--idle); }
+  .cell.recut { background:var(--panel-2); color:var(--ink-2); border:1px solid var(--line); }
+  .plan .legend { display:flex; gap:14px; flex-wrap:wrap; padding:9px 14px; border-top:1px solid var(--line); font-size:11px; color:var(--ink-3); background:var(--bg); }
+  .plan .legend span { display:inline-flex; align-items:center; gap:6px; }
+  .plan .legend .cell { min-width:16px; height:16px; font-size:9px; border-radius:4px; }
+  .revs { display:flex; flex-direction:column; gap:6px; margin-top:18px; max-width:880px; }
+  .rv { display:grid; grid-template-columns:42px minmax(0,1fr) auto; gap:12px; align-items:baseline; font-size:12.5px; padding:8px 12px; border:1px solid var(--line); border-radius:var(--r-s); background:var(--panel); }
+  .rv .rn { font-family:var(--mono); font-size:11.5px; color:var(--ink-2); font-weight:500; }
+  .rv .rc { color:var(--ink-2); } .rv .rc b { color:var(--ink); font-weight:600; }
+  .rv .rw { font-family:var(--mono); font-size:11px; color:var(--ink-3); white-space:nowrap; }
+
+  /* ===== attempts ===== */
+  .start { border:1px solid color-mix(in srgb, var(--accent) 40%, var(--line)); border-radius:var(--r); background:var(--panel); margin-bottom:22px; overflow:hidden; }
+  .start .s-head { display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--line-2); flex-wrap:wrap; }
+  .start .s-head h3 { margin:0; font-size:14px; font-weight:660; }
+  .start .s-body { display:grid; grid-template-columns:minmax(0,1.2fr) minmax(0,1fr); gap:16px; padding:14px 16px; }
+  @media (max-width:760px){ .start .s-body{ grid-template-columns:minmax(0,1fr); } }
+  .field { display:flex; flex-direction:column; gap:6px; min-width:0; }
+  .field label, .field .fl { font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); font-weight:600; }
+  .field textarea { font:inherit; font-size:13px; padding:9px 13px; border:1px solid var(--line); border-radius:10px; background:var(--bg); color:var(--ink); resize:vertical; }
+  .field .help { font-size:11.5px; color:var(--ink-3); }
+  .since { display:flex; flex-direction:column; gap:6px; }
+  .since .ev { display:grid; grid-template-columns:18px minmax(0,1fr) auto; gap:8px; align-items:baseline; font-size:12.5px; }
+  .since .ev .ic { color:var(--ink-3); text-align:center; }
+  .since .ev .w { font-family:var(--mono); font-size:11px; color:var(--ink-3); }
+  .since .ev b { font-weight:600; }
+  .start .s-foot { display:flex; align-items:center; gap:10px; padding:12px 16px; border-top:1px solid var(--line-2); background:var(--bg); flex-wrap:wrap; }
+  .start .s-foot .est { font-size:12px; color:var(--ink-3); }
+  .start .s-foot .est b { color:var(--ink-2); font-family:var(--mono); font-weight:500; }
+  .start .s-foot .btn.primary { margin-left:auto; }
+  .tl { display:flex; flex-direction:column; position:relative; }
+  .tl::before { content:""; position:absolute; left:19px; top:18px; bottom:18px; width:2px; background:var(--line); }
+  .att { position:relative; display:grid; grid-template-columns:40px minmax(0,1fr); gap:0 12px; }
+  .att .dot { width:12px; height:12px; border-radius:50%; margin:15px 0 0 14px; border:2px solid var(--bg); box-shadow:0 0 0 1px var(--line); background:var(--idle); position:relative; z-index:1; }
+  .att.ok .dot { background:var(--ok); } .att.bad .dot { background:var(--bad); } .att.hb .dot { background:var(--person); }
+  .att.run .dot { background:var(--run); color:var(--run); animation:mock-pulse 1.8s infinite; }
+  .att .card { background:var(--panel); border:1px solid var(--line); border-radius:var(--r); margin-bottom:10px; overflow:hidden; }
+  .a-top { width:100%; font:inherit; color:inherit; text-align:left; background:none; border:0; display:grid; grid-template-columns:minmax(0,1fr) auto auto auto; gap:14px; align-items:center; padding:11px 14px; cursor:pointer; }
+  .a-top:hover { background:var(--panel-2); }
+  @media (max-width:700px){ .a-top{ grid-template-columns:minmax(0,1fr) auto; } .a-top .a-num.hidesm{ display:none; } }
+  .a-name { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; min-width:0; }
+  .a-name .an { font-weight:650; font-size:13.5px; }
+  .a-name .rid { font-family:var(--mono); font-size:11px; color:var(--ink-3); }
+  .a-why { font-size:11.5px; color:var(--ink-3); margin-top:2px; }
+  .a-why b { color:var(--ink-2); font-weight:600; }
+  .a-why .cause { color:var(--person); font-weight:600; }
+  .a-num { font-family:var(--mono); font-size:12px; color:var(--ink-2); font-variant-numeric:tabular-nums; white-space:nowrap; text-align:right; }
+  .a-num small { display:block; color:var(--ink-3); font-size:10.5px; }
+  .a-body { border-top:1px solid var(--line-2); padding:12px 14px 14px; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px 22px; font-size:12.5px; }
+  @media (max-width:760px){ .a-body{ grid-template-columns:minmax(0,1fr); } }
+  .kv { display:flex; flex-direction:column; gap:5px; }
+  .kv .k { font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); font-weight:600; }
+  .kv .v { color:var(--ink-2); }
+  .kv .v b { color:var(--ink); font-weight:600; }
+  .kv ul { margin:0; padding-left:16px; display:flex; flex-direction:column; gap:3px; }
+  .kv .links { display:flex; gap:7px; flex-wrap:wrap; }
+  .chg { position:relative; display:grid; grid-template-columns:40px minmax(0,1fr); gap:0 12px; }
+  .chg .dot { width:8px; height:8px; border-radius:50%; margin:9px 0 0 16px; background:var(--bg); border:2px solid var(--person); position:relative; z-index:1; }
+  .chg .line { font-size:12.5px; color:var(--ink-2); padding:4px 0 12px; display:flex; gap:10px; align-items:baseline; flex-wrap:wrap; }
+  .chg .line b { color:var(--ink); font-weight:600; }
+  .chg .line .w { font-family:var(--mono); font-size:11px; color:var(--ink-3); }
+  .chg .line a { color:var(--person); font-size:11.5px; }
+
+  /* ===== cost & compute ===== */
+  .costs { display:flex; flex-direction:column; gap:8px; max-width:720px; }
+  .cr { display:grid; grid-template-columns:34px minmax(0,1fr) 64px; gap:12px; align-items:center; font-size:12px; }
+  .cr .cl { font-family:var(--mono); font-size:11px; color:var(--ink-3); }
+  .cr .track { display:flex; flex-direction:column; gap:4px; min-width:0; }
+  .cr .bar { height:10px; border-radius:3px; background:var(--line-2); overflow:hidden; display:flex; }
+  .cr .bar > span { display:block; height:100%; background:var(--ink-2); }
+  .cr .bar > span + span { border-left:2px solid var(--panel); }
+  .cr .bar > span.live { background:var(--run); }
+  .cr .bar > span.dv { background:var(--idle); }
+  .cr .parts { font-size:11px; color:var(--ink-3); font-family:var(--mono); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .cr .cv { font-family:var(--mono); font-size:12px; text-align:right; color:var(--ink-2); font-variant-numeric:tabular-nums; }
+  .cr.total { border-top:1px solid var(--line); padding-top:8px; font-weight:600; }
+  .cr.total .cv { color:var(--ink); }
+  .compute { border:1px solid var(--line); border-radius:var(--r); overflow:hidden; background:var(--panel); }
+  .c-head, .c-row { display:grid; grid-template-columns:44px minmax(0,1fr) 46px 66px; gap:14px; align-items:center; padding:10px 16px; }
+  .c-head { font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); font-weight:600; background:var(--panel-2); border-bottom:1px solid var(--line); }
+  .c-head .r, .c-n { text-align:right; }
+  .c-row { border-bottom:1px solid var(--line-2); }
+  .c-row:last-of-type { border-bottom:0; }
+  .c-a { font-family:var(--mono); font-size:12px; color:var(--ink-2); }
+  .c-n { font-family:var(--mono); font-size:12px; color:var(--ink-2); font-variant-numeric:tabular-nums; }
+  .c-track { min-width:0; display:flex; flex-direction:column; gap:6px; }
+  .c-bar { height:12px; border-radius:3px; overflow:hidden; display:flex; background:var(--line-2); }
+  .c-bar > span { display:block; height:100%; }
+  .c-bar .model { background:var(--ok); }
+  .c-bar .park { background:repeating-linear-gradient(135deg,var(--person) 0 4px,var(--person-wash) 4px 8px); }
+  .c-bar .over { background:var(--idle); }
+  .c-pods { display:flex; flex-direction:column; gap:3px; }
+  .pd { font-size:11px; color:var(--ink-3); font-family:var(--mono); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .pd b { color:var(--ink-2); font-weight:500; }
+  .c-legend { display:flex; gap:16px; flex-wrap:wrap; padding:10px 16px; border-top:1px solid var(--line); background:var(--bg); font-size:11px; color:var(--ink-3); }
+  .c-legend span { display:inline-flex; align-items:center; gap:6px; }
+  .c-legend i { width:12px; height:8px; border-radius:2px; display:inline-block; }
+
+  /* ===== spec documents (read-only, rendered from the series) ===== */
+  .sp-grid { display:grid; grid-template-columns:300px minmax(0,1fr); gap:22px; align-items:start; }
+  @media (max-width:980px){ .sp-grid{ grid-template-columns:minmax(0,1fr); } }
+  .sp-list { display:flex; flex-direction:column; gap:6px; }
+  .sp-item { font:inherit; color:inherit; text-align:left; background:var(--panel); border:1px solid var(--line); border-radius:var(--r-s); padding:10px 12px; cursor:pointer; display:flex; flex-direction:column; gap:6px; }
+  .sp-item:hover { background:var(--panel-2); }
+  .sp-item[aria-current="true"] { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-wash); }
+  .sp-item .si-top { display:flex; gap:8px; align-items:baseline; }
+  .sp-item .si-n { font-family:var(--mono); font-size:11px; color:var(--ink-3); }
+  .sp-item .si-t { font-size:13px; font-weight:600; min-width:0; }
+  .sp-item .si-cells { display:flex; gap:4px; align-items:center; }
+  .sp-item .si-cells .cell { min-width:18px; height:18px; font-size:9.5px; border-radius:4px; }
+  .sp-item .si-cells .al { font-size:10.5px; color:var(--ink-3); margin-left:auto; }
+  .spdoc { border:1px solid var(--line); border-radius:var(--r); background:var(--bg); overflow:hidden; }
+  .spdoc .sh { padding:14px 18px; border-bottom:1px solid var(--line-2); background:var(--panel); display:flex; flex-direction:column; gap:6px; }
+  .spdoc .sh .meta { display:flex; gap:10px; flex-wrap:wrap; font-size:11.5px; color:var(--ink-3); align-items:center; }
+  .spdoc .sh .meta .mono { font-size:11px; }
+  .spdoc .sh h3 { margin:0; font-size:17px; font-weight:660; letter-spacing:-.015em; text-wrap:balance; }
+  .spdoc .sb { padding:14px 18px 18px; display:flex; flex-direction:column; gap:16px; }
+  .spdoc .blk h4 { margin:0 0 8px; font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); font-weight:600; }
+  .spdoc .goal { font-size:13.5px; color:var(--ink); max-width:70ch; margin:0; }
+  .steps { display:flex; flex-direction:column; border:1px solid var(--line); border-radius:var(--r-s); overflow:hidden; }
+  .stp { display:grid; grid-template-columns:22px 22px minmax(0,1fr) auto; gap:10px; align-items:baseline; padding:8px 12px; border-top:1px solid var(--line-2); font-size:12.5px; background:var(--panel); }
+  .stp:first-child { border-top:0; }
+  .stp .sk { width:14px; height:14px; border-radius:4px; border:1.5px solid var(--idle); display:grid; place-items:center; font-size:10px; font-weight:800; color:#fff; align-self:center; }
+  .stp.done .sk { background:var(--ok); border-color:var(--ok); }
+  .stp.live .sk { background:var(--run); border-color:var(--run); color:var(--run); animation:mock-pulse 1.6s infinite; }
+  .stp.carried .sk { border-style:dashed; border-color:var(--ok); }
+  .stp.live { background:color-mix(in srgb, var(--run-wash) 45%, var(--panel)); }
+  .stp .sn2 { font-family:var(--mono); font-size:11px; color:var(--ink-3); }
+  .stp .sw { font-family:var(--mono); font-size:10.5px; color:var(--ink-3); white-space:nowrap; }
+  .ro-note { display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:12px; color:var(--ink-3); border-top:1px dashed var(--line); padding-top:12px; }
+  .ro-note .btn { margin-left:auto; }
+
+  /* ===== composer: continue on this ticket ===== */
+  .composer { margin-top:22px; border:1px solid color-mix(in srgb, var(--accent) 40%, var(--line)); border-radius:var(--r); background:var(--panel); overflow:hidden; max-width:880px; }
+  .cp-head { display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--line-2); flex-wrap:wrap; }
+  .cp-head h3 { margin:0; font-size:14px; font-weight:660; }
+  .cp-head .sh-sub { font-size:11.5px; color:var(--ink-3); }
+  .cp-states { display:flex; gap:6px; flex-wrap:wrap; padding:10px 16px; border-bottom:1px dashed var(--line); background:var(--bg); align-items:center; }
+  .cp-states .lbl { font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); font-weight:600; margin-right:4px; }
+  .cp-body { padding:6px 16px 4px; }
+  .proposal { border:1px solid var(--line); border-radius:var(--r-s); background:var(--bg); margin-top:8px; overflow:hidden; }
+  .proposal .ph { display:flex; gap:8px; align-items:center; padding:8px 12px; border-bottom:1px solid var(--line-2); font-size:12px; font-weight:600; flex-wrap:wrap; }
+  .proposal .ph .pill { margin-left:auto; }
+  .proposal .pb { padding:10px 12px; font-size:12.5px; color:var(--ink-2); display:flex; flex-direction:column; gap:6px; }
+  .proposal .pb .add { font-family:var(--mono); font-size:12px; color:#1a7f43; }
+  .proposal .pb .keep { font-family:var(--mono); font-size:12px; color:var(--ink-3); }
+  .cp-effect { margin:12px 0 4px; padding:10px 12px; border-radius:var(--r-s); background:var(--accent-wash); color:var(--ink); font-size:12.5px; display:flex; gap:10px; align-items:flex-start; }
+  .cp-effect.warn { background:var(--run-wash); }
+  .cp-effect.person { background:var(--person-wash); }
+  .cp-effect b { font-weight:620; }
+  .cp-actions { display:flex; gap:8px; flex-wrap:wrap; padding:10px 16px 14px; align-items:center; }
+  .cp-actions .btn.primary { order:-1; }
+  .cp-input { display:flex; gap:9px; padding:12px 16px; border-top:1px solid var(--line-2); background:var(--bg); align-items:flex-end; }
+  .cp-input textarea { flex:1; font:inherit; font-size:13px; padding:9px 13px; border:1px solid var(--line); border-radius:10px; background:var(--panel); color:var(--ink); resize:vertical; min-height:40px; }
+  .next-card { display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:12px; align-items:center; background:var(--panel); border:1px solid var(--line); border-radius:var(--r); padding:12px 16px; margin-bottom:22px; }
+  .next-card .bt { font-size:13.5px; font-weight:560; }
+  .next-card .bs { font-size:11.5px; color:var(--ink-3); margin-top:2px; }
+  @media (max-width:640px){ .next-card{ grid-template-columns:minmax(0,1fr); } }
+
+  /* ===== mock-only notes: what each surface needs from the backend ===== */
+  .mockfoot { margin-top:36px; border-top:1px dashed var(--line); padding-top:14px; font-size:12px; color:var(--ink-3); max-width:80ch; }
+  .mockfoot h4 { margin:0 0 8px; font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; font-weight:600; }
+  .mockfoot ol { margin:0; padding-left:18px; display:flex; flex-direction:column; gap:4px; }
+  .mockfoot code { font-family:var(--mono); font-size:11px; color:var(--ink-2); }
+  .mockfoot b { color:var(--ink-2); font-weight:600; }
+</style>
+
+<div class="app">
+  <header class="topbar">
+    <div class="tb-place">
+      <button class="crumb" data-show="list" type="button">Tickets</button>
+      <span class="sep" id="crumb-sep">/</span>
+      <span id="crumb-cur" class="mono">AZDO-4471</span>
+    </div>
+    <div class="tb-actions">
+      <button class="tb-btn" data-show="list" type="button" id="vw-list">Ticket list</button>
+      <button class="tb-btn on" data-show="detail" type="button" id="vw-detail">Ticket detail</button>
+      <button class="tb-btn" type="button" aria-label="Configuration">⚙</button>
+      <button class="tb-btn" type="button"><span class="tb-avatar">H</span>h.operator</button>
+    </div>
+  </header>
+
+  <aside class="side" aria-label="Navigation">
+    <div class="brand"><div class="logo">a</div><div class="bn">agent-smith</div></div>
+    <div class="nav-h">Work</div>
+    <a class="nav on" data-show="list" href="#">Tickets<span class="nc new">NEW</span></a>
+    <a class="nav sub" data-show="list" href="#">Needs you<span class="nc hot">2</span></a>
+    <a class="nav sub" data-show="list" href="#">Working<span class="nc">3</span></a>
+    <a class="nav sub" data-show="list" href="#">Waiting on review<span class="nc">3</span></a>
+    <a class="nav sub" data-show="list" href="#">Stuck<span class="nc">1</span></a>
+    <a class="nav sub" data-show="list" href="#">Done<span class="nc">14</span></a>
+    <div class="nav-h">Monitor</div>
+    <a class="nav" href="#">All runs<span class="nc">22</span></a>
+    <a class="nav sub" href="#">Waiting for input<span class="nc">2</span></a>
+    <a class="nav sub" href="#">Running<span class="nc">2</span></a>
+    <a class="nav sub" href="#">Queued<span class="nc">1</span></a>
+    <a class="nav sub" href="#">Finished<span class="nc">17</span></a>
+    <a class="nav" href="#">Pull requests<span class="nc">5</span></a>
+    <div class="nav-h">Design</div>
+    <a class="nav" href="#">Work it out</a>
+    <div class="nav-h">System</div>
+    <a class="nav" href="#">Tracker · Azure DevOps</a>
+    <a class="nav" href="#">Webhooks</a>
+    <a class="nav" href="#">Chat dispatchers</a>
+    <div class="nav-h">Insight</div>
+    <a class="nav" href="#">Overview</a>
+  </aside>
+
+  <!-- ================================================================ LIST -->
+  <main class="main" id="view-list" hidden>
+    <div class="m-head">
+      <div><h1>Tickets</h1><div class="msub">Every ticket agent-smith has worked, grouped by who has to act next. A ticket is the work; each run is one attempt at it.</div></div>
+    </div>
+
+    <div class="health">
+      <div class="metric hot"><span class="k">Needs you</span><span class="v">2<small>oldest 41m</small></span></div>
+      <div class="metric"><span class="k">Working</span><span class="v">3<small>2 running · 1 queued</small></span></div>
+      <div class="metric"><span class="k">Waiting on review</span><span class="v">3<small>4 PRs open</small></span></div>
+      <div class="metric"><span class="k">Stuck</span><span class="v">1<small>no one acted since</small></span></div>
+      <div class="metric"><span class="k">Done this month</span><span class="v">14<small>1.7 attempts each</small></span></div>
+      <div class="metric"><span class="k">Spent this month</span><span class="v">$312<small>all runs</small></span></div>
+    </div>
+
+    <div class="section-head first"><h2>Needs you</h2><span class="cnt amber">2</span><span class="sh-sub">a person has to answer before the ticket moves</span></div>
+    <div class="rows">
+      <div class="rgroup">
+        <div class="trow" tabindex="0">
+          <span class="sd need"></span>
+          <div class="rmain">
+            <div class="rt"><span class="tick">JIRA-2210</span><span class="ttl">Add rate-limit headers to the public export API</span></div>
+            <div class="act"><span class="aq">question in attempt 1</span> · parked in spec 2 of 3 · sandboxes released, nothing is running</div>
+          </div>
+          <div class="strip hidesm" title="derive · 3 specs · PR"><i class="d done"></i><i class="done"></i><i class="ask"></i><i></i><i class="p"></i></div>
+          <div class="attempts hidesm"><i class="hb"></i><span class="al">1</span></div>
+          <div class="cost hidesm">$2.10<small>1 attempt</small></div>
+          <div class="when hidesm">41m</div>
+          <span class="chev">›</span>
+        </div>
+        <div class="answer">
+          <div class="q-item">
+            <div class="qt">Should the limit headers follow the IETF draft (RateLimit-Policy) or the GitHub style (X-RateLimit-Limit / -Remaining / -Reset)?</div>
+            <div class="qm">Asked in spec 2 · export-api-rate-headers · repo export-api · no answer by Oct 14 09:00 applies the default: “IETF draft”.</div>
+            <div class="q-opts"><button class="q-opt" type="button">IETF draft</button><button class="q-opt" type="button">GitHub style</button></div>
+          </div>
+          <div class="n-answer">
+            <input id="ans-2210" type="text" placeholder="Add context for the agent (optional)">
+            <button class="btn primary" type="button">Send &amp; resume attempt 1</button>
+          </div>
+          <div class="hint-line">Same answer box as the run viewer's Dialogue drawer. The answer resumes attempt 1.</div>
+        </div>
+      </div>
+      <div class="rgroup">
+        <div class="trow" tabindex="0">
+          <span class="sd need"></span>
+          <div class="rmain">
+            <div class="rt"><span class="tick">AZDO-4501</span><span class="ttl">Archive invoices older than ten years to cold storage</span></div>
+            <div class="act"><span class="aq">handed back</span> at derivation · the ticket asks for a table the repository does not have</div>
+          </div>
+          <div class="strip hidesm" title="derive handed back"><i class="d ask"></i><i class="p"></i></div>
+          <div class="attempts hidesm"><i class="hb"></i><span class="al">1</span></div>
+          <div class="cost hidesm">$1.30<small>1 attempt</small></div>
+          <div class="when hidesm">3h</div>
+          <span class="chev">›</span>
+        </div>
+        <div class="answer">
+          <div class="q-item">
+            <div class="qt">The ticket says “move rows from <span class="mono">InvoiceArchive</span>”, but no such table exists in billing-db. Did you mean <span class="mono">Invoices</span> filtered by <span class="mono">IssuedAt</span>, or is the archive table part of this ticket?</div>
+            <div class="qm">Posted on the ticket 3h ago. A hand-back has no paused run to resume: your reply goes into the ticket's conversation and, once you approve the result, starts attempt 2.</div>
+          </div>
+          <div class="n-answer">
+            <input id="ans-4501" type="text" placeholder="Your answer">
+            <button class="btn primary" type="button">Reply in the conversation</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="section-head"><h2>Working</h2><span class="cnt">3</span><span class="sh-sub">an attempt is running or waiting for capacity</span></div>
+    <div class="rows">
+      <div class="trow" data-show="detail" tabindex="0">
+        <span class="sd run"></span>
+        <div class="rmain">
+          <div class="rt"><span class="tick">AZDO-4471</span><span class="ttl">Migrate messaging: MassTransit → Wolverine</span></div>
+          <div class="act">attempt 4 · <b>spec 4 of 5 · step 2 of 3</b> · started 6m ago by <b>PR review: changes requested</b> on #813</div>
+        </div>
+        <div class="strip hidesm" title="derive · 5 specs · PR"><i class="d done"></i><i class="carried"></i><i class="carried"></i><i class="carried"></i><i class="live"></i><i></i><i class="p pr"></i></div>
+        <div class="attempts hidesm"><i class="hb"></i><i class="bad"></i><i class="ok"></i><i class="run"></i><span class="al">4</span></div>
+        <div class="cost hidesm">$14.76<small>4 attempts</small></div>
+        <div class="when hidesm">6m</div>
+        <span class="chev">›</span>
+      </div>
+      <div class="trow" tabindex="0">
+        <span class="sd run"></span>
+        <div class="rmain">
+          <div class="rt"><span class="tick">GH-318</span><span class="ttl">Nullable reference warnings in the reporting module</span></div>
+          <div class="act">attempt 2 · <b>spec 2 of 2 · verify, pass 2</b> · started by <b>ticket edited</b> after attempt 1 failed</div>
+        </div>
+        <div class="strip hidesm"><i class="d done"></i><i class="carried"></i><i class="live"></i><i class="p"></i></div>
+        <div class="attempts hidesm"><i class="bad"></i><i class="run"></i><span class="al">2</span></div>
+        <div class="cost hidesm">$11.40<small>2 attempts</small></div>
+        <div class="when hidesm">28m</div>
+        <span class="chev">›</span>
+      </div>
+      <div class="trow" tabindex="0">
+        <span class="sd queued"></span>
+        <div class="rmain">
+          <div class="rt"><span class="tick">AZDO-4490</span><span class="ttl">Replace hand-rolled retry in the import worker with Polly</span></div>
+          <div class="act">attempt 1 · <b>queued</b>, 1 run ahead · picked up from tracker status <b>Ready for agent</b></div>
+        </div>
+        <div class="strip hidesm"><i class="d"></i><i class="p"></i></div>
+        <div class="attempts hidesm"><i></i><span class="al">1</span></div>
+        <div class="cost hidesm">$0.00<small>queued</small></div>
+        <div class="when hidesm">3m</div>
+        <span class="chev">›</span>
+      </div>
+    </div>
+
+    <div class="section-head"><h2>Waiting on review</h2><span class="cnt">3</span><span class="sh-sub">agent-smith is done; a person owns the next move</span></div>
+    <div class="rows">
+      <div class="trow" tabindex="0">
+        <span class="sd human"></span>
+        <div class="rmain">
+          <div class="rt"><span class="tick">AZDO-4462</span><span class="ttl">Move feature flags from appsettings to the config service</span></div>
+          <div class="act">PR #809 open · all specs verified · <b>no review for 2 days</b></div>
+        </div>
+        <div class="strip hidesm"><i class="d done"></i><i class="done"></i><i class="done"></i><i class="p pr"></i></div>
+        <div class="attempts hidesm"><i class="ok"></i><span class="al">1</span></div>
+        <div class="cost hidesm">$4.62<small>1 attempt</small></div>
+        <div class="when hidesm">2d</div>
+        <span class="chev">›</span>
+      </div>
+      <div class="trow" tabindex="0">
+        <span class="sd human"></span>
+        <div class="rmain">
+          <div class="rt"><span class="tick">GH-305</span><span class="ttl">Upgrade eslint to v9 flat config</span></div>
+          <div class="act">PR #77 <b>approved by k.lead</b> · not merged · merging is yours</div>
+        </div>
+        <div class="strip hidesm"><i class="d done"></i><i class="done"></i><i class="p pr"></i></div>
+        <div class="attempts hidesm"><i class="stop"></i><i class="ok"></i><span class="al">2</span></div>
+        <div class="cost hidesm">$7.90<small>2 attempts</small></div>
+        <div class="when hidesm">6h</div>
+        <span class="chev">›</span>
+      </div>
+      <div class="trow" tabindex="0">
+        <span class="sd human"></span>
+        <div class="rmain">
+          <div class="rt"><span class="tick">JIRA-2187</span><span class="ttl">Health endpoint reports dependency versions</span></div>
+          <div class="act">PR #811 <b>changes requested by ext.contrib</b> · not a trusted reviewer, so no attempt was started</div>
+        </div>
+        <div class="strip hidesm"><i class="d done"></i><i class="done"></i><i class="p pr"></i></div>
+        <div class="attempts hidesm"><i class="ok"></i><span class="al">1</span></div>
+        <div class="cost hidesm">$1.95<small>1 attempt</small></div>
+        <div class="when hidesm">9h</div>
+        <span class="chev">›</span>
+      </div>
+    </div>
+
+    <div class="section-head"><h2>Stuck</h2><span class="cnt red">1</span><span class="sh-sub">the last attempt failed and no one has acted on the ticket since</span></div>
+    <div class="rows">
+      <div class="trow" tabindex="0">
+        <span class="sd bad"></span>
+        <div class="rmain">
+          <div class="rt"><span class="tick">AZDO-4455</span><span class="ttl">Consolidate the three PDF renderers</span></div>
+          <div class="act"><span class="ab">3 attempts failed</span> in spec 3 verify · ticket text unchanged since attempt 1 · no comment, status move or review since</div>
+        </div>
+        <div class="strip hidesm"><i class="d done"></i><i class="carried"></i><i class="carried"></i><i class="bad"></i><i class="p"></i></div>
+        <div class="attempts hidesm"><i class="bad"></i><i class="bad"></i><i class="bad"></i><span class="al">3</span></div>
+        <div class="cost hidesm">$38.10<small>3 attempts</small></div>
+        <div class="when hidesm">1d</div>
+        <span class="chev">›</span>
+      </div>
+    </div>
+
+    <div class="section-head"><h2>Done</h2><span class="cnt green">14</span><span class="sh-sub">merged or closed this month</span></div>
+    <div class="done-row"><span>Collapsed by default. <b>14 tickets</b>, last merged 2h ago (GH-301).</span><button class="btn sm" type="button">Show done</button></div>
+
+    <div class="mockfoot">
+      <h4>Mock only · what the list reads</h4>
+      <ol>
+        <li><b>Ticket = (project, ticket id).</b> A ticket belongs to exactly one project. Attempts are the <code>code</code>-pipeline runs of that pair, ordered by run id; scans and pr-review runs are not attempts. Extends <code>FiledWorkRunsReader</code>.</li>
+        <li><b>Buckets, one owner each.</b> Needs you = a run waiting for an answer (same gate as <code>RunQueuePlace</code>) or a hand-back. Working = running or queued. Waiting on review = a PR open, approved or changes-requested without a started attempt (PR-keyed review record). Stuck = last attempt failed, same ticket fingerprint, and no person commented, moved or reviewed since. Done = merged or closed.</li>
+        <li><b>The strip</b> is the ticket's current series: derive, one cell per spec (executed earlier = dashed), PR. Not the five run beats.</li>
+        <li><b>One inbox for tickets.</b> The answer box is <code>PendingQuestionCard</code>. Runs without a ticket (chat, CLI, scans) stay answerable in the run viewer only; the runs list keeps “Waiting for input” as a machine filter that links to the ticket when there is one.</li>
+      </ol>
+    </div>
+  </main>
+
+  <!-- ================================================================ DETAIL -->
+  <main class="main" id="view-detail">
+    <div class="t-head">
+      <span class="ticon" aria-hidden="true"></span>
+      <div class="tt">
+        <h1><span class="key">AZDO-4471</span>Migrate messaging: MassTransit → Wolverine</h1>
+        <div class="tsub"><a href="#">Azure DevOps · portal ↗</a><span>·</span><span>tracker status <b>Active</b></span><span>·</span><span>attempt 4 running</span><span>·</span><span>branch <span class="mono">agent-smith/AZDO-4471</span></span></div>
+      </div>
+      <div class="t-act"><button class="btn primary" type="button" data-tab-go="conversation">Continue in conversation</button><button class="btn" type="button">Cancel attempt 4</button></div>
+    </div>
+
+    <div class="tabs" role="tablist" aria-label="Ticket sections">
+      <button class="tab" role="tab" aria-selected="true" data-tab="summary" id="t-summary">Summary</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="conversation" id="t-conversation">Conversation<span class="tc">16</span></button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="specs" id="t-specs">Specs<span class="tc">5 · rev 4</span></button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="acceptance" id="t-acceptance">Acceptance<span class="tc">8/11</span></button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="attempts" id="t-attempts">Attempts<span class="tc">4</span></button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="cost" id="t-cost">Cost &amp; compute<span class="tc">$14.76</span></button>
+    </div>
+
+    <!-- ===== SUMMARY ===== -->
+    <section class="tabpane" id="tab-summary" role="tabpanel" aria-labelledby="t-summary">
+      <div class="sum">
+        <div class="sg"><span class="k">Attempt 4 started by</span><div class="v"><span>PR review: changes requested</span><span class="dim">m.reviewer on #813 · Sep 4 14:20</span></div></div>
+        <div class="sg"><span class="k">Series</span><div class="v"><span>5 specs · revision 4</span><span class="dim">3 executed earlier · 2 new, cut before any ran</span></div></div>
+        <div class="sg"><span class="k">Pull requests</span><div class="v"><span class="mono">#812 portal-api · open</span><span class="mono">#813 portal-worker · changes requested</span></div></div>
+        <div class="sg"><span class="k">This attempt</span><div class="v"><span class="mono">6m 12s · $0.41</span><span class="dim">1 sandbox · portal-worker · run 2026-09-04T14-26-05-a4f1</span></div></div>
+      </div>
+
+      <div class="banner">
+        <span class="bi">i</span>
+        <div>
+          <div class="bt">Specs 1–3 ran in earlier attempts and are not redone. This attempt cut specs 4 and 5 from the review on #813 and works through them in order.</div>
+          <div class="bs">Executed specs are append-only: the branch keeps them, the series keeps their ids. <b>$0</b> spent on specs 1–3 this time.</div>
+        </div>
+        <button class="btn" type="button" data-tab-go="specs">Open specs</button>
+      </div>
+
+      <div class="graph">
+        <div class="g-top" id="att-switch" role="tablist" aria-label="Attempts">
+          <button class="gt" role="tab" aria-selected="false" data-att="a1" type="button"><span class="gd hb"></span>Attempt 1</button>
+          <button class="gt" role="tab" aria-selected="false" data-att="a2" type="button"><span class="gd bad"></span>Attempt 2</button>
+          <button class="gt" role="tab" aria-selected="false" data-att="a3" type="button"><span class="gd ok"></span>Attempt 3</button>
+          <button class="gt" role="tab" aria-selected="true" data-att="a4" type="button"><span class="gd run"></span>Attempt 4</button>
+        </div>
+        <div class="g-sub"><span id="att-sub"></span>
+          <span class="modes" id="loop-mode" aria-label="Build and verify passes">
+            <button class="lm" type="button" data-mode="unrolled" aria-pressed="true">passes unrolled</button>
+            <button class="lm" type="button" data-mode="compact" aria-pressed="false">folded</button>
+          </span>
+        </div>
+        <div class="canvas"><svg id="flow" viewBox="0 0 1130 520" role="img" aria-label="Flow of the selected attempt"></svg></div>
+        <div class="g-legend">
+          <span><i style="background:var(--t-accent)"></i>done here</span>
+          <span><i style="border:1px dashed var(--t-accent)"></i>carried, cost nothing</span>
+          <span><i style="background:var(--t-string)"></i>working now</span>
+          <span><i style="background:var(--t-bad)"></i>stopped here</span>
+          <span><i style="background:var(--t-link)"></i>waits for a person</span>
+          <span><i style="border:1px dashed var(--t-string);border-radius:2px"></i>↺ re-engaged by the master</span>
+        </div>
+      </div>
+      <div class="sdet" id="sdet" aria-live="polite"></div>
+
+      <div class="mockfoot">
+        <h4>Mock only · what the graph reads</h4>
+        <ol>
+          <li><b>The shape is the <code>code</code> pipeline:</b> FetchTicket → AnalyzeCode → DeriveSpec (cut ↔ <code>ISpecCutReviewer</code>, up to the attempt bound) → SpecHandback or SpecGate → SpecSequence (one master → verify → record block per spec, each spec naming one repository) → CommitAndPR.</li>
+          <li><b>Specs not yet started</b> (spec 5 in attempt 4) are drawn from the cut itself, which derivation must publish; today the set exists only in memory until a spec changes state.</li>
+          <li><b>Carried specs</b> are the series' executed specs (<code>TicketSeries</code>), shown dashed with $0. Not the prior-run ledger seed, which only fires for step-less specs.</li>
+          <li><b>Passes</b> are the master's re-engagements inside one spec block. Each lane needs a recorded pass (event + projection, deduplicated by trail sequence) and the LLM calls stamped with their pass, so a lane can carry its own cost. The return label names the reason the policy re-engaged: verdict red with open steps, steps marked done that the diff does not back, or the acceptance gate unsatisfied.</li>
+          <li><b>An answered question resumes the same attempt</b> (the question node). A hand-back ends it; the reply starts the next one. Hand-back cases on main: contradiction (confirmed by a checker from cited lines, expires on foreign commits), scope unassigned (no single repository per spec), series out of step, missing spec.</li>
+          <li><b>Spec PRs</b> open per series repository when the series is published and stay open on a failed run, not ready until verified.</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ===== CONVERSATION ===== -->
+    <section class="tabpane" id="tab-conversation" role="tabpanel" aria-labelledby="t-conversation" hidden>
+      <div class="section-head first"><h2>Conversation</h2><span class="cnt">16</span><span class="sh-sub">ticket comments, questions and answers, PR reviews, the spec cut review and your conversation, in order</span></div>
+      <div class="conv-tools" id="conv-filter" role="group" aria-label="Filter">
+        <button class="chip" type="button" data-f="all" aria-pressed="true">All</button>
+        <button class="chip" type="button" data-f="ticket" aria-pressed="false">Ticket</button>
+        <button class="chip" type="button" data-f="question" aria-pressed="false">Questions</button>
+        <button class="chip" type="button" data-f="review" aria-pressed="false">PR reviews</button>
+        <button class="chip" type="button" data-f="cut" aria-pressed="false">Spec cut</button>
+        <button class="chip" type="button" data-f="dialog" aria-pressed="false">Ticket conversation</button>
+      </div>
+      <div class="conv" id="conv">
+        <div class="c-att">Attempt 1 <span class="pill person">handed back</span></div>
+        <div class="msg" data-k="ticket"><span class="av op">H</span><div>
+          <div class="mh"><b>h.operator</b><span class="where">ticket · status</span><span class="w">Sep 3 · 09:11</span></div>
+          <div class="mb">Moved the ticket to <b>Ready for agent</b>.</div>
+          <div class="mf"><span class="eff run">picked up · started attempt 1</span></div></div></div>
+        <div class="msg" data-k="question"><span class="av agent">as</span><div>
+          <div class="mh"><b>Agent Smith</b><span class="where">ticket comment · hand-back · contradiction</span><span class="w">Sep 3 · 09:24</span></div>
+          <div class="mb">The ticket says “no message contract changes”, but the portal-worker consumers read MassTransit envelope headers (<span class="mono">CorrelationId</span>, <span class="mono">ConversationId</span>) that Wolverine names differently. Should I map the old header names onto Wolverine's envelope, or may the consumers change?</div>
+          <div class="diff"><div>Consumers/OrderConsumer.cs:14 · <span class="mono">context.Headers.Get&lt;Guid&gt;("CorrelationId")</span></div><div>Consumers/InvoiceConsumer.cs:22 · <span class="mono">context.ConversationId</span></div></div>
+          <div class="mf">a checker confirmed the contradiction from these cited lines · no spec was cut · expires if portal-worker gets foreign commits</div></div></div>
+        <div class="msg" data-k="question"><span class="av op">H</span><div>
+          <div class="mh"><b>h.operator</b><span class="where">ticket comment</span><span class="w">Sep 3 · 10:58</span></div>
+          <div class="mb quote">Map the headers. Consumers must not change in this ticket.</div>
+          <div class="mf"><span class="eff">answer to the hand-back · started attempt 2</span></div></div></div>
+
+        <div class="c-att">Attempt 2 <span class="pill bad">spec 3 not done</span></div>
+        <div class="msg internal" data-k="cut"><span class="av sys">◇</span><div>
+          <div class="mh"><b>Spec cut reviewer</b><span class="where">in the run · cut 1 refused</span><span class="w">Sep 3 · 11:49</span></div>
+          <div class="mb">Specs 2 and 3 both rewrite <span class="mono">Messaging/RetryPolicy.cs</span> in portal-worker. Two specs may not own one file; merge them or move the retry change wholly into one spec.</div></div></div>
+        <div class="msg internal" data-k="cut"><span class="av sys">◇</span><div>
+          <div class="mh"><b>Spec cut reviewer</b><span class="where">in the run · cut 2 accepted</span><span class="w">Sep 3 · 11:51</span></div>
+          <div class="mb">Deliverable. Every ticket segment is carried by a named spec.</div></div></div>
+        <div class="msg" data-k="ticket"><span class="av agent">as</span><div>
+          <div class="mh"><b>Agent Smith</b><span class="where">ticket comment · revision 2</span><span class="w">Sep 3 · 11:52</span></div>
+          <div class="mb">This is how I understood the ticket. I am going ahead; comment to change it.
+            <ol class="speclist"><li>Port the publishers to Wolverine (portal-api)</li><li>Replace the consumers, mapping the MassTransit headers (portal-worker)</li><li>Retry with exponential backoff (portal-worker)</li></ol>
+            Spec PRs, one per repository: <b>#812</b> portal-api, <b>#813</b> portal-worker. Not ready for review until every spec is verified.</div></div></div>
+        <div class="msg" data-k="question"><span class="av agent">as</span><div>
+          <div class="mh"><b>Agent Smith</b><span class="where">question · dashboard + ticket</span><span class="w">Sep 3 · 12:31</span></div>
+          <div class="mb">portal-worker has a MassTransit outbox table. Keep the existing Postgres outbox and map it to Wolverine, or switch to Wolverine's durable inbox?</div>
+          <div class="mf">spec 2 · the run parked and released its sandboxes</div></div></div>
+        <div class="msg" data-k="question"><span class="av op">H</span><div>
+          <div class="mh"><b>h.operator</b><span class="where">answered in agent-smith</span><span class="w">Sep 3 · 15:43</span></div>
+          <div class="mb quote">Keep the Postgres outbox.</div>
+          <div class="mf"><span class="eff run">resumed attempt 2 after 3h 12m</span></div></div></div>
+        <div class="msg" data-k="ticket"><span class="av agent">as</span><div>
+          <div class="mh"><b>Agent Smith</b><span class="where">ticket comment · run failed</span><span class="w">Sep 3 · 16:58</span></div>
+          <div class="mb">Specs 1 and 2 are done and pushed. Spec 3 is not: “retry uses exponential backoff” is still unproven after 2 passes. #812 and #813 stay open and not ready; the WIP commits are on them.</div></div></div>
+        <div class="msg" data-k="ticket"><span class="av sys">≡</span><div>
+          <div class="mh"><b>Ticket text changed</b><span class="where">seen when attempt 3 read the ticket</span><span class="w">Sep 4 · 08:02</span></div>
+          <div class="mb">The acceptance criteria differ from what attempt 2 read.
+            <div class="diff"><div class="rm">− Retries use exponential backoff.</div><div class="ad">+ Retries use exponential backoff: base 2 s, at most 60 s, at most 8 tries.</div></div></div>
+          <div class="mf"><span class="eff">ticket text changed · started attempt 3</span></div></div></div>
+
+        <div class="c-att">Attempt 3 <span class="pill ok">PRs ready</span></div>
+        <div class="msg" data-k="ticket"><span class="av agent">as</span><div>
+          <div class="mh"><b>Agent Smith</b><span class="where">ticket comment · revision 3</span><span class="w">Sep 4 · 08:03</span></div>
+          <div class="mb">The criteria changed, so I cut spec 3 again. Specs 1 and 2 already ran and stay as they are.</div></div></div>
+        <div class="msg" data-k="ticket"><span class="av agent">as</span><div>
+          <div class="mh"><b>Agent Smith</b><span class="where">ticket comment</span><span class="w">Sep 4 · 08:41</span></div>
+          <div class="mb">#812 (portal-api) and #813 (portal-worker) are ready for review. All criteria of specs 1–3 are verified.</div></div></div>
+        <div class="msg" data-k="review"><span class="av rv">M</span><div>
+          <div class="mh"><b>m.reviewer</b><span class="where">PR #813 · review · trusted</span><span class="w">Sep 4 · 14:20</span></div>
+          <div class="mb quote"><span class="file">Messaging/RetryPolicy.cs · line 18</span>The retry policy has to be configurable per consumer. The billing consumer needs a longer cap than the rest. And when a message goes to the error queue, log a warning that names the consumer.</div>
+          <div class="mf"><span class="pill bad">changes requested</span><span class="eff">started attempt 4</span></div></div></div>
+
+        <div class="c-att">Attempt 4 <span class="pill amber">running</span></div>
+        <div class="msg" data-k="review"><span class="av agent">as</span><div>
+          <div class="mh"><b>Agent Smith</b><span class="where">PR #813 comment</span><span class="w">Sep 4 · 14:26</span></div>
+          <div class="mb">Working on the requested changes in attempt 4: a per-consumer retry policy (spec 4) and a warning with the consumer name on dead-lettering (spec 5). I will push onto this PR and ask for review again.</div></div></div>
+
+        <div class="c-att">Now <span class="pill q">in the ticket conversation</span></div>
+        <div class="msg" data-k="dialog"><span class="av op">H</span><div>
+          <div class="mh"><b>h.operator</b><span class="where">ticket conversation</span><span class="w">Sep 4 · 14:31</span></div>
+          <div class="mb">Once this lands, the import consumer should use the per-consumer setting too, with a 30-second cap. Can you add that?</div></div></div>
+        <div class="msg" data-k="dialog"><span class="av agent">as</span><div>
+          <div class="mh"><b>Agent Smith</b><span class="where">ticket conversation · proposal</span><span class="w">Sep 4 · 14:32</span></div>
+          <div class="mb">Yes. Specs 1–3 are executed and stay. Specs 4 and 5 are being worked now and keep their cut. I would append one spec:
+            <div class="proposal"><div class="ph">Proposed change · revision 5<span class="pill amber">waiting for your approval</span></div>
+              <div class="pb"><span class="keep">  1–3  executed · unchanged</span><span class="keep">  4–5  in attempt 4 · unchanged</span><span class="add">+ 6    Import consumer uses the per-consumer retry setting, cap 30 s · portal-worker</span><span>Done when: the import consumer retries with a 30 s cap; the other consumers are unchanged.</span></div></div></div></div></div>
+      </div>
+
+      <div class="composer" id="composer">
+        <div class="cp-head"><h3>Continue on this ticket</h3><span class="sh-sub">This is the ticket's conversation in Work it out: one per ticket, the same thread every attempt reads.</span></div>
+        <div class="cp-states" role="group" aria-label="Preview the ticket state">
+          <span class="lbl">Mock · preview state</span>
+          <button class="chip" type="button" data-st="running" aria-pressed="true">attempt running</button>
+          <button class="chip" type="button" data-st="parked" aria-pressed="false">question pending</button>
+          <button class="chip" type="button" data-st="failed" aria-pressed="false">attempt failed</button>
+          <button class="chip" type="button" data-st="infra" aria-pressed="false">failed: sandbox lost</button>
+          <button class="chip" type="button" data-st="review" aria-pressed="false">waiting on review</button>
+          <button class="chip" type="button" data-st="closed" aria-pressed="false">ticket closed</button>
+        </div>
+        <div class="cp-body"><div class="cp-effect" id="cp-effect"></div></div>
+        <div class="cp-actions" id="cp-actions"></div>
+        <div class="cp-input"><textarea id="cp-text" rows="2" placeholder="Write about this ticket. The agent sees the ticket, its specs, every attempt, the reviews and the questions."></textarea><button class="btn" type="button">Send</button></div>
+      </div>
+
+      <div class="mockfoot">
+        <h4>Mock only · what the conversation reads</h4>
+        <ol>
+          <li><b>Exists today, per run:</b> questions (<code>RunCheckpoint</code>), answers with author and time (<code>DialogueAnswerEntry</code>), the Work it out conversation (<code>SpecDialogSession</code>, owner-only).</li>
+          <li><b>Missing:</b> the act that started each attempt with its source (comment id, PR + review/thread id, status move) persisted per run; PR review content, approvals and merges in a PR-keyed record; the hand-back question text (today only a tracker comment); the spec-cut review verdicts as run events; the ticket fingerprint diff behind “ticket edited”.</li>
+          <li><b>The composer is the ticket's Work it out session</b> (one per tracker ticket, unique on <code>(Tracker, TicketKey)</code>; ticket-bound sessions are readable with <code>DialogWrite</code>). A ticket started from Work it out shows that conversation as its first block.</li>
+          <li><b>Missing for the agent in that session:</b> PR review comments, spec verdicts and done-criteria outcomes. Today it reads the ticket, linked PRs/branches and a run list (<code>ticket_runs</code>) only.</li>
+          <li><b>Missing state check:</b> nothing looks at a closed ticket today; lookup by id binds it silently.</li>
+          <li><b>A PR command that starts nothing</b> (2026-10-13-0b82b: bootstrap files missing) appears here as one PR comment, “command answered, no attempt”.</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ===== SPECS ===== -->
+    <section class="tabpane" id="tab-specs" role="tabpanel" aria-labelledby="t-specs" hidden>
+      <div class="section-head first"><h2>Specs</h2><span class="cnt green">3 of 5 done</span><span class="sh-sub">the series as it is being worked · read-only, changed only through the conversation</span></div>
+      <div class="sp-grid">
+        <div class="sp-list" id="sp-list" aria-label="Specs of this ticket"></div>
+        <div class="spdoc" id="sp-doc" aria-live="polite"></div>
+      </div>
+
+      <div class="section-head"><h2>Revisions</h2><span class="cnt">4</span><span class="sh-sub">why the series changed · executed specs are never cut again</span></div>
+      <div class="revs">
+        <div class="rv"><span class="rn">rev 1</span><span class="rc"><b>Handed back</b> before any spec was cut: the header question.</span><span class="rw">A1 · Sep 3 09:24</span></div>
+        <div class="rv"><span class="rn">rev 2</span><span class="rc"><b>Cut 3 specs</b> after the operator's answer. The reviewer refused the first cut (two specs on one file).</span><span class="rw">A2 · Sep 3 11:51</span></div>
+        <div class="rv"><span class="rn">rev 3</span><span class="rc"><b>Ticket edited.</b> Spec 3 cut again; specs 1–2 kept as executed.</span><span class="rw">A3 · Sep 4 08:03</span></div>
+        <div class="rv"><span class="rn">rev 4</span><span class="rc"><b>PR rework</b> on #813 by m.reviewer. Specs 4 and 5 appended.</span><span class="rw">A4 · Sep 4 14:26</span></div>
+      </div>
+      <div class="mockfoot">
+        <h4>Mock only · what the spec documents read</h4>
+        <ol>
+          <li><b>Missing: a ticket series read.</b> Today a derived series lives only on the ticket branch (<code>.agentsmith/series/…</code> + <code>specs/planned/…</code>); the database keeps a pointer (<code>TicketSeries</code>), and <code>ApprovedSeries.ContentJson</code> exists only for conversation approvals. No endpoint returns a ticket's series with steps and done criteria.</li>
+          <li><b>Missing: the series before execution.</b> After DeriveSpec the whole set exists only in memory; a <code>RunSpec</code> row appears at the first state change. Specs 4 and 5 can be shown before they run only if derivation emits the cut (event + projection).</li>
+          <li><b>Exists:</b> per-spec state and verdict (<code>SpecStateChanged</code>), the executed body (<code>SpecRecorded</code>), review findings (<code>SpecReviewed</code>), the live ledger (<code>RunStoryRecorded</code>, <code>LedgerTransitionsRecorded</code>). Per-criterion verdicts arrive only at run end today.</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ===== ACCEPTANCE ===== -->
+    <section class="tabpane" id="tab-acceptance" role="tabpanel" aria-labelledby="t-acceptance" hidden>
+      <div class="section-head first"><h2>Acceptance</h2><span class="cnt">8 of 11 verified</span><span class="sh-sub">each spec's done criteria · the attempt that verified them</span></div>
+      <div style="display:flex;flex-direction:column;gap:18px;max-width:820px">
+        <div class="doc"><h5>Spec 1 · portal-api</h5><div class="crit">
+          <div class="ci"><span class="m ok">✓</span><span>Bus registration builds without MassTransit packages</span><span class="cw">A2</span></div>
+          <div class="ci"><span class="m ok">✓</span><span>Every publisher sends through <span class="mono">IMessageBus</span></span><span class="cw">A2</span></div>
+          <div class="ci"><span class="m ok">✓</span><span>Message contracts are unchanged (contract test)</span><span class="cw">A2</span></div></div></div>
+        <div class="doc"><h5>Spec 2 · portal-worker</h5><div class="crit">
+          <div class="ci"><span class="m ok">✓</span><span>Consumers handle the same message types</span><span class="cw">A2 · pass 2</span></div>
+          <div class="ci"><span class="m ok">✓</span><span>CorrelationId and ConversationId arrive under their old names</span><span class="cw">A2 · pass 2</span></div>
+          <div class="ci"><span class="m ok">✓</span><span>The Postgres outbox keeps working (integration test)</span><span class="cw">A2 · pass 2</span></div></div></div>
+        <div class="doc"><h5>Spec 3 · portal-worker</h5><div class="crit">
+          <div class="ci"><span class="m ok">✓</span><span>Retries use exponential backoff: base 2 s, at most 60 s, at most 8 tries</span><span class="cw">A3</span></div>
+          <div class="ci"><span class="m ok">✓</span><span>A poison message lands in the error queue after the last try</span><span class="cw">A3</span></div></div></div>
+        <div class="doc"><h5>Spec 4 · portal-worker · working</h5><div class="crit">
+          <div class="ci"><span class="m q">·</span><span>Each consumer can set its own retry policy in configuration</span><span class="cw">verify pending</span></div>
+          <div class="ci"><span class="m q">·</span><span>The billing consumer uses a 5-minute cap; the others keep the default</span><span class="cw">verify pending</span></div></div></div>
+        <div class="doc"><h5>Spec 5 · portal-worker · not started</h5><div class="crit">
+          <div class="ci"><span class="m q">·</span><span>A dead-lettered message logs a warning that names its consumer</span><span class="cw">not started</span></div></div></div>
+      </div>
+    </section>
+
+    <!-- ===== ATTEMPTS ===== -->
+    <section class="tabpane" id="tab-attempts" role="tabpanel" aria-labelledby="t-attempts" hidden>
+      <div class="next-card">
+        <span class="bi" style="width:18px;height:18px;border-radius:50%;border:1.5px solid var(--ink-3);display:grid;place-items:center;font-size:11px;font-weight:700;color:var(--ink-3)">i</span>
+        <div><div class="bt">The next attempt starts from the conversation.</div>
+          <div class="bs">Say what should change; the agent proposes a revision of the series; approving it starts the next attempt with that conversation as its cause. An attempt that failed on infrastructure (sandbox lost, host unreachable) also offers <b>Retry unchanged</b>.</div></div>
+        <button class="btn primary" type="button" data-tab-go="conversation">Continue in conversation</button>
+      </div>
+
+      <div class="section-head first"><h2>Attempts</h2><span class="cnt">4</span><span class="sh-sub">newest first · what started it, what it did, why it stopped</span></div>
+      <div class="tl">
+        <div class="att run"><span class="dot"></span><div class="card">
+          <button class="a-top" type="button" data-toggle="a4" aria-expanded="true">
+            <div><div class="a-name"><span class="an">Attempt 4</span><span class="pill amber">running</span><span class="rid">2026-09-04T14-26-05-a4f1</span></div>
+              <div class="a-why">started by <span class="cause">PR review: changes requested</span> · m.reviewer on #813 · specs 1–3 carried</div></div>
+            <div class="a-num">6m<small>running</small></div><div class="a-num hidesm">$0.41<small>so far</small></div><div class="a-num hidesm">spec 4 of 5<small>step 2 of 3</small></div>
+          </button>
+          <div class="a-body" id="a4">
+            <div class="kv"><span class="k">Doing</span><div class="v"><ul><li>Spec 4, step 2: bind a retry policy per consumer from configuration</li><li>Next: verify spec 4, then spec 5, then push onto #813 and re-request review</li></ul></div></div>
+            <div class="kv"><span class="k">Machine</span><div class="v links"><button class="btn sm" type="button">Open run viewer ↗</button><button class="btn sm" type="button">Trace · 12 LLM calls</button></div></div>
+          </div></div></div>
+
+        <div class="chg"><span class="dot"></span><div class="line"><span class="w">Sep 4 14:20</span><b>PR review: changes requested</b><span>m.reviewer on #813</span><a href="#" data-tab-go="conversation">read</a></div></div>
+
+        <div class="att ok"><span class="dot"></span><div class="card">
+          <button class="a-top" type="button" data-toggle="a3" aria-expanded="false">
+            <div><div class="a-name"><span class="an">Attempt 3</span><span class="pill ok">PRs ready</span><span class="rid">2026-09-04T08-02-11-9c1e</span></div>
+              <div class="a-why">started by <span class="cause">ticket text changed</span> · specs 1–2 carried, spec 3 cut again</div></div>
+            <div class="a-num">39m<small>wall</small></div><div class="a-num hidesm">$3.05<small>total</small></div><div class="a-num hidesm">3 / 3<small>specs done</small></div>
+          </button>
+          <div class="a-body" id="a3" hidden>
+            <div class="kv"><span class="k">Did</span><div class="v"><ul><li>Cut spec 3 again against the new criteria (rev 3)</li><li>Spec 3 done in one pass</li><li>Marked <b>#812</b> (portal-api) and <b>#813</b> (portal-worker) ready for review</li></ul></div></div>
+            <div class="kv"><span class="k">Ended</span><div class="v"><b>Finished.</b> Both PRs wait for review.</div></div>
+            <div class="kv"><span class="k">Machine</span><div class="v links"><button class="btn sm" type="button">Open run viewer ↗</button><button class="btn sm" type="button">Trace · 41 LLM calls</button></div></div>
+          </div></div></div>
+
+        <div class="chg"><span class="dot"></span><div class="line"><span class="w">Sep 4 08:02</span><b>Ticket text changed</b><span>the backoff criterion</span><a href="#" data-tab-go="conversation">read</a></div></div>
+
+        <div class="att bad"><span class="dot"></span><div class="card">
+          <button class="a-top" type="button" data-toggle="a2" aria-expanded="false">
+            <div><div class="a-name"><span class="an">Attempt 2</span><span class="pill bad">spec 3 not done</span><span class="rid">2026-09-03T11-41-30-77ab</span></div>
+              <div class="a-why">started by <span class="cause">answer to the hand-back</span> · h.operator on the ticket · <b>asked 1 question, waited 3h 12m</b></div></div>
+            <div class="a-num">5h 17m<small>wall</small></div><div class="a-num hidesm">$9.40<small>total</small></div><div class="a-num hidesm">2 / 3<small>specs done</small></div>
+          </button>
+          <div class="a-body" id="a2" hidden>
+            <div class="kv"><span class="k">Did</span><div class="v"><ul><li>Cut 3 specs; the reviewer refused the first cut. Opened the spec PRs #812 and #813</li><li>Spec 1 done in one pass</li><li>Spec 2: asked about the outbox, resumed after the answer, done in pass 2</li><li>Spec 3: two passes, “exponential backoff” still unproven</li></ul></div></div>
+            <div class="kv"><span class="k">Ended</span><div class="v"><b>Failed:</b> spec 3 was still red after 2 passes. Specs 1–2 are committed; the spec PRs #812 and #813 stay open, not ready.</div></div>
+            <div class="kv"><span class="k">Machine</span><div class="v links"><button class="btn sm" type="button">Open run viewer ↗</button><button class="btn sm" type="button">Trace · 128 LLM calls</button></div></div>
+          </div></div></div>
+
+        <div class="chg"><span class="dot"></span><div class="line"><span class="w">Sep 3 10:58</span><b>Hand-back answered</b><span>h.operator on the ticket</span><a href="#" data-tab-go="conversation">read</a></div></div>
+
+        <div class="att hb"><span class="dot"></span><div class="card">
+          <button class="a-top" type="button" data-toggle="a1" aria-expanded="false">
+            <div><div class="a-name"><span class="an">Attempt 1</span><span class="pill person">handed back</span><span class="rid">2026-09-03T09-11-02-31c0</span></div>
+              <div class="a-why">started by <span class="cause">tracker status Ready for agent</span> · h.operator</div></div>
+            <div class="a-num">13m<small>wall</small></div><div class="a-num hidesm">$1.90<small>total</small></div><div class="a-num hidesm">—<small>no spec cut</small></div>
+          </button>
+          <div class="a-body" id="a1" hidden>
+            <div class="kv"><span class="k">Did</span><div class="v"><ul><li>Read both repositories</li><li>Found that “no contract changes” conflicts with the consumers' header use</li></ul></div></div>
+            <div class="kv"><span class="k">Ended</span><div class="v"><b>Handed back</b> as a contradiction, confirmed by the checker from two cited lines. Nothing was cut or committed.</div></div>
+          </div></div></div>
+      </div>
+      <div class="mockfoot">
+        <h4>Mock only · starting an attempt</h4>
+        <ol>
+          <li><b>One way in.</b> Approving a proposal in the ticket conversation enters <code>ReworkEntry</code> as an operator channel, beside keyword comment, PR request-changes, <code>/agent-smith</code> and status-back: same claim, lease and nudge queue. A running attempt makes it wait; a pending question must be answered first.</li>
+          <li><b>Changes today's behaviour:</b> approving in a ticket-bound conversation files a <i>new</i> ticket, and “Amend this ticket” is refused once any run touched the ticket. Here approval continues <i>this</i> ticket, appending specs or cutting unexecuted ones again; the executed head stays.</li>
+          <li><b>Retry unchanged</b> only for infrastructure failures. Every other next attempt needs a change, and the change is the conversation.</li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- ===== COST & COMPUTE ===== -->
+    <section class="tabpane" id="tab-cost" role="tabpanel" aria-labelledby="t-cost" hidden>
+      <div class="section-head first"><h2>Cost</h2><span class="cnt">$14.76</span><span class="sh-sub">per attempt, split by spec and pass · cap is per run ($15)</span></div>
+      <div class="costs">
+        <div class="cr"><span class="cl">A1</span><div class="track"><div class="bar"><span class="dv" style="width:12.7%"></span></div><span class="parts">read + derive $1.90 · handed back</span></div><span class="cv">$1.90</span></div>
+        <div class="cr"><span class="cl">A2</span><div class="track"><div class="bar"><span class="dv" style="width:8.7%"></span><span style="width:14%"></span><span style="width:21.3%"></span><span style="width:18.7%"></span></div><span class="parts">derive $1.30 · S1 $2.10 · S2 $3.20 (2 passes) · S3 $2.80 (2 passes)</span></div><span class="cv">$9.40</span></div>
+        <div class="cr"><span class="cl">A3</span><div class="track"><div class="bar"><span class="dv" style="width:6%"></span><span style="width:11.3%"></span><span style="width:3%"></span></div><span class="parts">derive $0.90 · S3 $1.70 · PRs $0.45 · S1–S2 carried $0</span></div><span class="cv">$3.05</span></div>
+        <div class="cr"><span class="cl">A4</span><div class="track"><div class="bar"><span class="dv" style="width:1.5%"></span><span class="live" style="width:1.3%"></span></div><span class="parts">derive $0.22 · S4 $0.19 so far · S1–S3 carried $0</span></div><span class="cv">$0.41</span></div>
+        <div class="cr total"><span class="cl">all</span><span class="parts" style="font-family:var(--sans)">Bars share one scale: the $15 run cap is the full width.</span><span class="cv">$14.76</span></div>
+      </div>
+
+      <div class="section-head"><h2>Compute</h2><span class="cnt">4h 45m pod time</span><span class="sh-sub">every sandbox of every attempt · bar = wall clock, one scale</span></div>
+      <div class="health" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+        <div class="metric"><span class="k">Pod time</span><span class="v">4h 45m<small>285 pod-minutes</small></span></div>
+        <div class="metric"><span class="k">Memory reserved</span><span class="v">19 Gi·h<small>4 Gi per pod</small></span></div>
+        <div class="metric"><span class="k">Model time</span><span class="v">2h 10m<small>across 4 attempts</small></span></div>
+        <div class="metric hot"><span class="k">Waiting on you</span><span class="v">4h 46m<small>2 waits</small></span></div>
+      </div>
+      <div class="banner need" style="margin-bottom:18px">
+        <span class="bi">!</span>
+        <div>
+          <div class="bt">Two answers cost this ticket more time than all of its model work.</div>
+          <div class="bs">The hand-back waited <b>1h 34m</b> for a reply; the outbox question parked attempt 2 for <b>3h 12m</b>. No pods were held while waiting. A parked run releases its sandboxes; the resume provisioned portal-worker again.</div>
+        </div>
+        <button class="btn" type="button" data-tab-go="conversation">Read both</button>
+      </div>
+      <div class="compute">
+        <div class="c-head"><span>Att.</span><span>Wall clock · what the pods did in it</span><span class="r">Pods</span><span class="r">Pod-min</span></div>
+        <div class="c-row"><span class="c-a">A1</span><div class="c-track">
+          <div class="c-bar" style="width:4.1%"><span class="model" style="width:69%"></span><span class="over" style="width:31%"></span></div>
+          <div class="c-pods"><span class="pd"><b>portal-api</b> · 13m · released at run end</span><span class="pd"><b>portal-worker</b> · 13m · released at run end</span></div></div>
+          <span class="c-n">2</span><span class="c-n">26</span></div>
+        <div class="c-row"><span class="c-a">A2</span><div class="c-track">
+          <div class="c-bar" style="width:100%"><span class="model" style="width:11%"></span><span class="over" style="width:4.8%"></span><span class="park" style="width:60.6%"></span><span class="model" style="width:17%"></span><span class="over" style="width:6.6%"></span></div>
+          <div class="c-pods"><span class="pd"><b>portal-api</b> · 50m · released when the run parked; not needed after</span><span class="pd"><b>portal-worker</b> · 50m + 75m · released at park, provisioned again on resume</span></div></div>
+          <span class="c-n">3</span><span class="c-n">175</span></div>
+        <div class="c-row"><span class="c-a">A3</span><div class="c-track">
+          <div class="c-bar" style="width:12.3%"><span class="model" style="width:69%"></span><span class="over" style="width:31%"></span></div>
+          <div class="c-pods"><span class="pd"><b>portal-api</b> · 39m · PR only, no spec ran here</span><span class="pd"><b>portal-worker</b> · 39m · released at run end</span></div></div>
+          <span class="c-n">2</span><span class="c-n">78</span></div>
+        <div class="c-row"><span class="c-a">A4</span><div class="c-track">
+          <div class="c-bar" style="width:1.9%"><span class="model" style="width:75%"></span><span class="over" style="width:25%"></span></div>
+          <div class="c-pods"><span class="pd"><b>portal-worker</b> · 6m · running · portal-api not in scope</span></div></div>
+          <span class="c-n">1</span><span class="c-n">6</span></div>
+        <div class="c-legend"><span><i style="background:var(--ok)"></i>model working</span><span><i style="background:repeating-linear-gradient(135deg,var(--person) 0 4px,var(--person-wash) 4px 8px)"></i>parked on a question · no pods, no tokens</span><span><i style="background:var(--idle)"></i>provisioning, tools, git, tests</span></div>
+      </div>
+      <div class="mockfoot">
+        <h4>Mock only · cost and compute</h4>
+        <ol>
+          <li><b>Cost per spec and pass</b> needs each LLM call stamped with its pass when it is published. Each spec is already its own master step carrying its spec id; only the pass is missing. Derive and PR calls are priced by their pipeline command.</li>
+          <li><b>No “kept vs lost” dollars.</b> Nothing ties a model call to a step that survived. What carried over is shown as specs, at $0.</li>
+          <li><b>Pod end reason</b> (released at end, released at park, vanished, out of memory) must be written where the sandbox closes, on every backend; today every disposed sandbox is recorded as <code>failed</code>. Sandbox rows need a trail sequence and a unique index so a replay does not double pod-minutes. Reference, browser and probe pods are not counted.</li>
+          <li><b>Waiting on you</b> needs one record per park (today one checkpoint row per run, overwritten) plus the hand-back-to-reply gap from the conversation record.</li>
+        </ol>
+      </div>
+    </section>
+  </main>
+</div>
+
+<script>
+(function () {
+  /* ---------- flow graph: the code pipeline for one attempt ----------
+     head: TICKET → DERIVE (cut ↔ reviewer) → GATE, or → HAND-BACK.
+     body: the spec series, one row per spec. A carried spec is one dashed node.
+     A spec that ran gets SPEC → BUILD → VERIFY, one lane per pass, and may hang a
+     QUESTION off BUILD (same attempt, parked and resumed). The last spec feeds SHIP. */
+  var ICON = {
+    ticket:'M-5-6 L6 0 L-5 6 Z',
+    derive:'M-6-6 h8 l4 4 v8 h-12 Z M-3-1 h6 M-3 2 h6',
+    gate:'M-6 0 L-2 5 L6-6',
+    hand:'M-5 2 v-6 a1.6 1.6 0 013 0 v-1 a1.6 1.6 0 013 0 v1 a1.6 1.6 0 013 0 v5 a5 5 0 01-9 3 Z',
+    spec:'M-5-7 h7 l4 4 v10 h-11 Z M2-7 v4 h4',
+    build:'M-5-5 a2 2 0 100 .1 M5-5 a2 2 0 100 .1 M5 5 a2 2 0 100 .1 M-4-3 v4 a2 2 0 002 2 h5 M3-4 L-2 0',
+    verify:'M-6 0 L-2 5 L6-6',
+    ask:'M-3-3 a3 3 0 116 0 c0 2-3 2-3 4 M0 5 v.5',
+    pr:'M-5-6 a2 2 0 100 .1 M-5-4 v9 M-5 7 a2 2 0 100 .1 M5 1 a2 2 0 100 .1 M5 3 v3 M5-1 v-4 a2 2 0 00-2-2 h-4 M-1-8 L-4-5 L-1-2',
+    stop:'M-5-5 h10 v10 h-10 Z'
+  };
+  var X = { ticket:70, derive:190, gate:310, spec:440, build:600, verify:770, ship:1020 };
+  var R = 26, RS = 18, HEAD_Y = 80, ROW = 150, CARRY = 72, ASK_ROOM = 44;
+
+  var GA = {
+    a1: {
+      sub:'Sep 3 · 09:11 · <span class="cause">tracker status Ready for agent</span> · <b>handed back at derivation</b> · 13m · $1.90',
+      open:'handback',
+      head:{ ticket:{s:'done',m:'fetched 09:11'}, derive:{s:'done',m:'read 2 repos · $1.90'} },
+      handback:{ s:'person', m:'contradiction · checked' },
+      specs:[],
+      tail:{ kind:'end', s:'person', label:'ENDS', m:'handed back', next:'attempt 2' }
+    },
+    a2: {
+      sub:'Sep 3 · 11:41 · <span class="cause">answer to the hand-back</span> · <b>2 of 3 specs</b> · 5h 17m wall · $9.40',
+      open:'v-s3-2',
+      head:{ ticket:{s:'done',m:'answer read'}, derive:{s:'done',m:'cut 2 of 2 · spec PRs · $1.30',badge:'1✗'}, gate:{s:'done',m:'3 specs valid'} },
+      specs:[
+        { id:'s1', label:'SPEC 1 · PORTAL-API', s:'done', m:'$2.10', passes:[ { build:{s:'done',m:'4 steps · $1.60'}, verify:{s:'done',m:'3 of 3 · $0.50'} } ] },
+        { id:'s2', label:'SPEC 2 · PORTAL-WORKER', s:'done', m:'$3.20', passes:[
+            { build:{s:'done',m:'5 steps · $1.40'}, ask:{s:'person',m:'parked 3h 12m'}, verify:{s:'bad',m:'2 of 3 · $0.70'}, exit:{why:'verdict red: outbox criterion has no test',what:'master re-engaged on step 5'} },
+            { build:{s:'done',m:'step 5 · $0.80'}, verify:{s:'done',m:'3 of 3 · $0.30'} } ] },
+        { id:'s3', label:'SPEC 3 · PORTAL-WORKER', s:'bad', m:'$2.80', passes:[
+            { build:{s:'done',m:'3 steps · $1.20'}, verify:{s:'bad',m:'1 of 2 · $0.40'}, exit:{why:'verdict red: backoff unproven',what:'master re-engaged on step 2'} },
+            { build:{s:'done',m:'step 2 · $0.90'}, verify:{s:'bad',m:'1 of 2 · $0.30'} } ] }
+      ],
+      tail:{ kind:'end', s:'bad', label:'ENDS', m:'spec 3 red · PRs not ready', next:'attempt 3' }
+    },
+    a3: {
+      sub:'Sep 4 · 08:02 · <span class="cause">ticket text changed</span> · <b>spec 3 cut again, done in one pass</b> · 39m · $3.05',
+      open:'tail',
+      head:{ ticket:{s:'done',m:'text changed'}, derive:{s:'done',m:'rev 3 · $0.90'}, gate:{s:'done',m:'1 new spec'} },
+      specs:[
+        { id:'s1', label:'SPEC 1', s:'carried', carriedFrom:'A2' },
+        { id:'s2', label:'SPEC 2', s:'carried', carriedFrom:'A2' },
+        { id:'s3', label:'SPEC 3 · PORTAL-WORKER', s:'done', m:'$1.70', passes:[ { build:{s:'done',m:'3 steps · $1.30'}, verify:{s:'done',m:'2 of 2 · $0.40'} } ] }
+      ],
+      tail:{ kind:'ship', s:'done', label:'SHIP', m:'#812 · #813 ready · $0.45', next:null }
+    },
+    a4: {
+      sub:'Sep 4 · 14:26 · <span class="cause">PR review: changes requested on #813</span> · <b>spec 4 of 5, step 2 of 3</b> · 6m · $0.41',
+      open:'b-s4-1',
+      head:{ ticket:{s:'carried',m:'unchanged'}, derive:{s:'done',m:'rev 4 · $0.22'}, gate:{s:'done',m:'2 new specs'} },
+      specs:[
+        { id:'s1', label:'SPEC 1', s:'carried', carriedFrom:'A2' },
+        { id:'s2', label:'SPEC 2', s:'carried', carriedFrom:'A2' },
+        { id:'s3', label:'SPEC 3', s:'carried', carriedFrom:'A3' },
+        { id:'s4', label:'SPEC 4 · PORTAL-WORKER', s:'live', m:'$0.19 so far', passes:[ { build:{s:'live',m:'step 2 of 3'}, verify:{s:'idle',m:'not yet'} } ] },
+        { id:'s5', label:'SPEC 5 · PORTAL-WORKER', s:'idle', m:'cut, not started', passes:[ { build:{s:'idle',m:'2 steps'}, verify:{s:'idle',m:'1 criterion'} } ] }
+      ],
+      tail:{ kind:'ship', s:'idle', label:'SHIP', m:'push onto #813', next:null }
+    }
+  };
+
+  function jobs(rows) {
+    return '<div class="jobs">' + rows.map(function (r) {
+      return '<div class="job ' + r[0] + '"><span class="ji"></span><span class="jn">' + r[1] + '</span><span class="jt">' + r[2] + '</span><span class="jm">' + (r[3] || '') + '</span></div>';
+    }).join('') + '</div>';
+  }
+  function crit(rows) {
+    return '<div class="crit">' + rows.map(function (r) {
+      return '<div class="ci"><span class="m ' + r[0] + '">' + (r[0] === 'ok' ? '✓' : (r[0] === 'bad' ? '✗' : '·')) + '</span><span>' + r[1] + '</span><span class="cw">' + (r[2] || '') + '</span></div>';
+    }).join('') + '</div>';
+  }
+  function why(ps) { return '<div class="why">' + ps.map(function (p) { return '<p>' + p + '</p>'; }).join('') + '</div>'; }
+  function doc(h, body) { return '<div class="doc"><h5>' + h + '</h5>' + body + '</div>'; }
+  var LIVE = '<div class="term"><div><span class="t">14:31:52</span> <span class="g">read_file</span> Messaging/RetryPolicy.cs</div><div><span class="t">14:32:04</span> <span class="g">write_file</span> Messaging/ConsumerRetryOptions.cs <span class="s">+41</span></div><div><span class="t">14:32:19</span> <span class="g">run_command</span> dotnet build <span class="l">ok 18s</span></div><div><span class="t">14:32:40</span> <span class="g">update_progress</span> step 2 · "options bound, wiring the consumers next"</div><div><span class="t">14:32:41</span> <span class="cur">thinking</span></div></div>';
+
+  /* detail text per node id and attempt: [subtitle, left, right] */
+  var D = {
+    ticket: {
+      a1:['fetched from Azure DevOps', why(['Picked up when h.operator moved the ticket to <b>Ready for agent</b>.']), doc('ticket text', '<p>Messaging moves off MassTransit before the licence renewal. Both services. No message contract changes.</p>')],
+      a2:['read again', why(['Read again because the hand-back was answered on the ticket. The answer is pinned for derivation.']), doc('answer pinned', '<p>“Map the headers. Consumers must not change in this ticket.”</p>')],
+      a3:['text changed', why(['The ticket fingerprint changed: the acceptance criteria differ from what attempt 2 read. Trackers do not say who edited.']), doc('what changed', '<p>− Retries use exponential backoff.<br>+ Retries use exponential backoff: base 2 s, at most 60 s, at most 8 tries.</p>')],
+      a4:['unchanged', why(['Ticket text unchanged since attempt 3. The cause of this attempt is the PR review, not a ticket change.']), '']
+    },
+    derive: {
+      a1:['handed back · $1.90', why(['After reading both repositories the deriver found the ticket contradicts the code: the consumers read MassTransit header names that “no contract changes” would forbid touching.', 'A contradiction is not guessed around. The ticket is handed back before any spec is cut.']), ''],
+      a2:['cut 2 of 2 · $1.30', jobs([['bad','cut 1','three specs · specs 2 and 3 both rewrite RetryPolicy.cs','refused'],['done','cut 2','three specs · retry wholly in spec 3','accepted']]), why(['The reviewer is a separate model call with read-only looks into the repositories. It refused the first cut; the second was deliverable.', 'The cut was then posted on the ticket as “this is how I understood it”. The run did not wait for a reply.'])],
+      a3:['rev 3 · $0.90', why(['Specs 1 and 2 were executed in attempt 2 and are append-only. Only spec 3, which never finished, was cut again against the new criterion.']), jobs([['done','cut 1','spec 3 only','accepted']])],
+      a4:['rev 4 · $0.22', why(['The PR review asked for two things none of the executed specs covers, so specs 4 and 5 were appended. Specs 1–3 are not touched.', 'Both new specs exist from this moment on, with their steps and done criteria: spec 5 is drawn before it runs.']), jobs([['done','cut 1','append specs 4 and 5','accepted']])]
+    },
+    handback: {
+      a1:['contradiction · waits for a person', why(['<b>Checked before it parked:</b> a checker confirmed the contradiction from the two lines the deriver cited. Only then was the question posted on the ticket.', 'The run ended here. A hand-back has no paused run to resume: the reply starts the next attempt. It expires if portal-worker gets commits from someone else, and the ticket is derived again.']), doc('the question', '<p>Should I map the old header names onto Wolverine\'s envelope, or may the consumers change?</p><p style="color:var(--ink-3)">Answered by h.operator at 10:58, 1h 34m later.</p>')]
+    },
+    gate: {
+      a2:['3 specs valid', why(['Schema, repository names and done criteria checked before any master token was spent.']), ''],
+      a3:['1 new spec valid', why(['Only the re-cut spec 3 was validated; executed specs are not revalidated.']), ''],
+      a4:['2 new specs valid', why(['Specs 4 and 5 validated.']), '']
+    },
+    'b-s1-1': { a2:['4 steps · $1.60', jobs([['done','1','Swap the bus registration in the host','done'],['done','2','Port the publishers','11 files'],['done','3','Remove MassTransit packages','done'],['done','4','Contract test for the published messages','done']]), ''] },
+    'v-s1-1': { a2:['3 of 3 · $0.50', crit([['ok','Bus registration builds without MassTransit','A2'],['ok','Publishers send through IMessageBus','A2'],['ok','Message contracts unchanged','A2']]), ''] },
+    'b-s2-1': { a2:['5 steps · $1.40', jobs([['done','1','Register Wolverine handlers','done'],['done','2','Map CorrelationId and ConversationId','done'],['done','3','Port the consumers','9 files'],['done','4','Remove MassTransit packages','done'],['done','5','Outbox: keep Postgres, map to Wolverine','after the answer']]), why(['Step 5 needed a decision. The master asked, the run parked and released its sandboxes, and resumed after the answer.'])] },
+    'ask-s2-1': { a2:['parked 3h 12m', why(['<b>Question:</b> keep the Postgres outbox and map it, or switch to Wolverine\'s durable inbox?', '<b>Answer</b> by h.operator in agent-smith at 15:43: keep the Postgres outbox.', 'Same attempt: the run resumed and portal-worker was provisioned again.']), ''] },
+    'v-s2-1': { a2:['2 of 3 · $0.70', crit([['ok','Consumers handle the same message types','pass 1'],['ok','Headers arrive under their old names','pass 1'],['bad','The Postgres outbox keeps working','no test']]), why(['The master\'s verdict was red with step 5 still open, so the re-engagement policy sent it back.'])] },
+    'b-s2-2': { a2:['pass 2 · $0.80', jobs([['done','5','Outbox: integration test added','done']]), ''] },
+    'v-s2-2': { a2:['3 of 3 · $0.30', crit([['ok','Consumers handle the same message types','pass 1'],['ok','Headers arrive under their old names','pass 1'],['ok','The Postgres outbox keeps working','pass 2']]), ''] },
+    'b-s3-1': { a2:['3 steps · $1.20', jobs([['done','1','RetryPolicy with backoff','done'],['done','2','Wire the policy into the consumers','done'],['done','3','Poison messages to the error queue','done']]), ''] },
+    'v-s3-1': { a2:['1 of 2 · $0.40', crit([['bad','Retries use exponential backoff','unproven'],['ok','Poison message lands in the error queue','pass 1']]), why(['The backoff criterion named no bounds, and the master could not show which delays were right.'])] },
+    'b-s3-2': { a2:['pass 2 · $0.90', jobs([['done','2','Backoff test with a fake clock','done']]), ''] },
+    'v-s3-2': { a2:['1 of 2 · $0.30', crit([['bad','Retries use exponential backoff','unproven'],['ok','Poison message lands in the error queue','pass 1']]), why(['<span class="ab">Still unproven.</span> The master ended the spec red after this pass. Specs 1 and 2 stay on the branch; no PR was opened.', 'Going further needed a person: h.operator made the criterion precise the next morning, which started attempt 3.'])] },
+    'b-s3-1@a3': ['3 steps · $1.30', jobs([['done','1','RetryPolicy: base 2 s, cap 60 s, 8 tries','done'],['done','2','Fake-clock test for the delays','done'],['done','3','Poison messages to the error queue','done']]), ''],
+    'v-s3-1@a3': ['2 of 2 · $0.40', crit([['ok','Backoff: base 2 s, at most 60 s, at most 8 tries','A3'],['ok','Poison message lands in the error queue','A3']]), ''],
+    'b-s4-1': { a4:['working · step 2 of 3', jobs([['done','1','Per-consumer retry options in configuration','done'],['live','2','Wire the options into each consumer','4m 40s'],['idle','3','Billing consumer: 5-minute cap','next']]), LIVE] },
+    'v-s4-1': { a4:['not yet', why(['Runs after step 3. If the verdict is red, a second lane appears here, inside this attempt.']), ''] },
+    'b-s5-1': { a4:['not started', why(['Cut in revision 4, runs after spec 4. Its steps are already known; nothing has been spent on it.']), ''] },
+    'v-s5-1': { a4:['not started', why(['One done criterion, verified after its build.']), ''] },
+    tail: {
+      a1:['handed back', why(['No spec, no commit, no PR. The reply on the ticket started attempt 2.']), ''],
+      a2:['ended · spec 3 red', why(['Specs 1 and 2 are committed. The spec PRs #812 and #813, opened when the series was published, stay open and not ready: spec 3 was not done.']), ''],
+      a3:['PRs ready · $0.45', '<div class="jobs"><div class="job done"><span class="ji"></span><span class="jn">#812</span><span class="jt">portal-api · specs 1</span><span class="jm">open</span></div><div class="job bad"><span class="ji"></span><span class="jn">#813</span><span class="jt">portal-worker · specs 2–3</span><span class="jm">changes requested</span></div></div>', why(['m.reviewer requested changes on #813 at 14:20, which started attempt 4.'])],
+      a4:['not yet', why(['Attempt 4 pushes onto the existing branch, so #813 gets the change and no new PR is opened.']), '']
+    }
+  };
+
+  /* ---------- the series: one source for spec nodes and the Specs tab ---------- */
+  var SPECS = [
+    { id:'s1', n:1, title:'Port the publishers to Wolverine', repo:'portal-api', stem:'2026-09-03-77aba-messaging-publishers-wolverine', rev:'rev 2', origin:'cut in A2 after the hand-back answer', state:'done', cells:['none','done:1','carried','carried'],
+      goal:'portal-api publishes through Wolverine; MassTransit is gone from the host and the message contracts stay byte-identical.',
+      steps:[['done','Swap the bus registration in the host','A2'],['done','Port the 11 publishers to IMessageBus','A2'],['done','Remove the MassTransit packages','A2'],['done','Contract test for every published message','A2']],
+      crit:[['ok','Bus registration builds without MassTransit packages','A2'],['ok','Every publisher sends through IMessageBus','A2'],['ok','Message contracts are unchanged (contract test)','A2']] },
+    { id:'s2', n:2, title:'Replace the consumers, mapping the headers', repo:'portal-worker', stem:'2026-09-03-77abb-messaging-consumers-header-map', rev:'rev 2', origin:'cut in A2 after the hand-back answer', state:'done', cells:['none','done:2?','carried','carried'],
+      goal:'portal-worker consumes through Wolverine. CorrelationId and ConversationId keep their MassTransit names; the Postgres outbox stays.',
+      steps:[['done','Register the Wolverine handlers','A2'],['done','Map CorrelationId and ConversationId onto the envelope','A2'],['done','Port the 9 consumers','A2'],['done','Remove the MassTransit packages','A2'],['done','Keep the Postgres outbox, mapped to Wolverine','A2 · pass 2']],
+      crit:[['ok','Consumers handle the same message types','A2 · pass 1'],['ok','Headers arrive under their old names','A2 · pass 1'],['ok','The Postgres outbox keeps working (integration test)','A2 · pass 2']] },
+    { id:'s3', n:3, title:'Retry with exponential backoff', repo:'portal-worker', stem:'2026-09-04-9c1ea-messaging-retry-backoff', rev:'rev 3', origin:'cut again in A3 after the ticket edit; the rev 2 cut never finished', state:'done', cells:['none','fail:2✗','done:1','carried'],
+      goal:'Failed messages are retried with exponential backoff: base 2 s, at most 60 s, at most 8 tries; then they go to the error queue.',
+      steps:[['done','RetryPolicy: base 2 s, cap 60 s, 8 tries','A3'],['done','Fake-clock test for the delays','A3'],['done','Poison messages to the error queue','A3']],
+      crit:[['ok','Backoff: base 2 s, at most 60 s, at most 8 tries','A3'],['ok','A poison message lands in the error queue after the last try','A3']] },
+    { id:'s4', n:4, title:'Retry policy configurable per consumer', repo:'portal-worker', stem:'2026-09-04-a4f1a-messaging-retry-per-consumer', rev:'rev 4', origin:'cut in A4 from m.reviewer\'s review on #813', state:'live', cells:['none','none','none','live'],
+      goal:'Each consumer can override the retry policy in configuration; the billing consumer uses a 5-minute cap.',
+      steps:[['done','Per-consumer retry options in configuration','A4'],['live','Wire the options into each consumer','working · 4m 40s'],['idle','Billing consumer: 5-minute cap','next']],
+      crit:[['q','Each consumer can set its own retry policy in configuration','verify pending'],['q','The billing consumer uses a 5-minute cap; the others keep the default','verify pending']] },
+    { id:'s5', n:5, title:'Warn with the consumer name on dead-lettering', repo:'portal-worker', stem:'2026-09-04-a4f1b-messaging-deadletter-warning', rev:'rev 4', origin:'cut in A4 from m.reviewer\'s review on #813', state:'idle', cells:['none','none','none','idle'],
+      goal:'When a message goes to the error queue, the worker logs one warning that names the consumer and the message id.',
+      steps:[['idle','Log the warning in the dead-letter path','after spec 4'],['idle','Test that the warning names the consumer','after spec 4']],
+      crit:[['q','A dead-lettered message logs a warning that names its consumer','not started']] }
+  ];
+  var SP_STATE = { done:['ok','done'], live:['amber','working'], idle:['q','not started'], fail:['bad','not done'] };
+  function cellHtml(c) {
+    var k = c.split(':')[0], v = c.split(':')[1];
+    if (k === 'none') return '<span class="cell none">—</span>';
+    if (k === 'carried') return '<span class="cell carried">·</span>';
+    if (k === 'live') return '<span class="cell live">▶</span>';
+    if (k === 'idle') return '<span class="cell recut" title="cut, not started">○</span>';
+    return '<span class="cell ' + k + '">' + v + '</span>';
+  }
+  function specDoc(sp) {
+    var st = SP_STATE[sp.state];
+    return '<div class="sh"><div class="meta"><span class="mono">spec ' + sp.n + '</span><span class="pill ' + st[0] + '">' + st[1] + '</span><span class="mono">' + sp.repo + '</span><span>' + sp.rev + ' · ' + sp.origin + '</span></div>' +
+      '<h3>' + sp.title + '</h3><div class="meta"><span class="mono">' + sp.stem + '.yaml</span></div></div>' +
+      '<div class="sb"><div class="blk"><h4>Goal</h4><p class="goal">' + sp.goal + '</p></div>' +
+      '<div class="blk"><h4>Steps · as worked</h4><div class="steps">' + sp.steps.map(function (t, i) {
+        return '<div class="stp ' + t[0] + '"><span class="sk">' + (t[0] === 'done' ? '✓' : '') + '</span><span class="sn2">' + (i + 1) + '</span><span>' + t[1] + '</span><span class="sw">' + t[2] + '</span></div>'; }).join('') + '</div></div>' +
+      '<div class="blk"><h4>Done when</h4>' + crit(sp.crit) + '</div>' +
+      '<div class="ro-note"><span>Read-only. A spec changes only through the ticket conversation, and an executed spec never changes.</span><button class="btn sm" type="button" data-tab-go="conversation">Discuss in conversation</button></div></div>';
+  }
+  var curSpec = 's4';
+  function renderSpecs() {
+    document.getElementById('sp-list').innerHTML = SPECS.map(function (sp) {
+      return '<button class="sp-item" type="button" data-spec="' + sp.id + '" aria-current="' + (sp.id === curSpec) + '"><span class="si-top"><span class="si-n">' + sp.n + '</span><span class="si-t">' + sp.title + '</span></span>' +
+        '<span class="si-cells">' + sp.cells.map(cellHtml).join('') + '<span class="al mono">' + sp.repo + '</span></span></button>';
+    }).join('');
+    var sp = SPECS.filter(function (x) { return x.id === curSpec; })[0];
+    document.getElementById('sp-doc').innerHTML = specDoc(sp);
+    document.querySelectorAll('#sp-list .sp-item').forEach(function (b) { b.addEventListener('click', function () { curSpec = b.dataset.spec; renderSpecs(); }); });
+    wireGo(document.getElementById('sp-doc'));
+  }
+  function wireGo(root) { root.querySelectorAll('[data-tab-go]').forEach(function (t) { t.addEventListener('click', function (e) { e.preventDefault(); tab(t.dataset.tabGo); }); }); }
+  function openSpec(id) { curSpec = id; renderSpecs(); tab('specs'); }
+
+  var curAtt = 'a4', curNode = GA.a4.open, mode = 'unrolled';
+  var gEl = document.getElementById('flow'), sdet = document.getElementById('sdet'), attSub = document.getElementById('att-sub');
+
+  function seg(ax, ay, bx, by, ra, rb) {
+    var dx = bx - ax, dy = by - ay, L = Math.sqrt(dx * dx + dy * dy) || 1, ux = dx / L, uy = dy / L;
+    return 'M' + (ax + ux * ra).toFixed(1) + ' ' + (ay + uy * ra).toFixed(1) + ' L' + (bx - ux * rb).toFixed(1) + ' ' + (by - uy * rb).toFixed(1);
+  }
+  function ecls(a, b) {
+    if (a === 'live' || b === 'live') return 'live';
+    if (a === 'bad' || b === 'bad') return 'bad';
+    if (a === 'person' || b === 'person') return 'person';
+    if (a === 'idle' || b === 'idle') return 'idle';
+    if (a === 'carried' && b === 'carried') return 'carried';
+    return 'done';
+  }
+  function esc(t) { return String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;'); }
+  function node(id, x, y, r, st, label, met, icon, badge) {
+    var sel = id === curNode ? ' sel' : '';
+    return '<g class="node ' + st + sel + '" data-n="' + id + '" tabindex="0" role="button" aria-label="' + esc(label) + '">' +
+      '<circle class="halo" cx="' + x + '" cy="' + y + '" r="' + (r + 7) + '"/>' +
+      '<circle class="disc" cx="' + x + '" cy="' + y + '" r="' + r + '"/>' +
+      '<path class="ic" transform="translate(' + x + ',' + y + ')' + (r < 22 ? ' scale(.75)' : '') + '" d="' + ICON[icon] + '"/>' +
+      (badge ? '<text class="badge" x="' + (x + r + 4) + '" y="' + (y - r + 4) + '">' + badge + '</text>' : '') +
+      '<text class="lab" x="' + x + '" y="' + (y + r + 18) + '" text-anchor="middle">' + esc(label) + '</text>' +
+      '<text class="met" x="' + x + '" y="' + (y + r + 32) + '" text-anchor="middle">' + esc(met || '') + '</text></g>';
+  }
+
+  function render() {
+    var a = GA[curAtt], s = '', n = '', y0 = HEAD_Y;
+    attSub.innerHTML = a.sub;
+
+    n += node('ticket', X.ticket, y0, R, a.head.ticket.s, 'TICKET', a.head.ticket.m, 'ticket');
+    s += '<path class="edge ' + ecls(a.head.ticket.s, a.head.derive.s) + '" d="' + seg(X.ticket, y0, X.derive, y0, R, R) + '"/>';
+    n += node('derive', X.derive, y0, R, a.head.derive.s, 'DERIVE', a.head.derive.m, 'derive', a.head.derive.badge);
+
+    var lastY = y0, lastX = X.derive, lastS = a.head.derive.s;
+    if (a.handback) {
+      s += '<path class="edge person" d="' + seg(X.derive, y0, X.gate, y0, R, R) + '"/>';
+      n += node('handback', X.gate, y0, R, a.handback.s, 'HAND-BACK', a.handback.m, 'hand');
+      lastX = X.gate; lastS = 'person';
+    } else {
+      s += '<path class="edge ' + ecls(a.head.derive.s, a.head.gate.s) + '" d="' + seg(X.derive, y0, X.gate, y0, R, R) + '"/>';
+      n += node('gate', X.gate, y0, R, a.head.gate.s, 'GATE', a.head.gate.m, 'gate');
+      s += '<text class="speclab" x="' + (X.spec - 22) + '" y="' + (y0 - 46) + '">SERIES · ' + a.specs.length + ' SPECS</text>';
+      var y = y0, prevSpecY = null, prevSpecS = a.head.gate.s;
+      a.specs.forEach(function (sp, si) {
+        var first = si === 0;
+        if (!sp.carriedFrom && sp.passes[0].ask && !first) y += ASK_ROOM;
+        if (first) s += '<path class="edge ' + ecls(a.head.gate.s, sp.s) + '" d="' + seg(X.gate, y0, X.spec, y, R, sp.carriedFrom ? RS : R) + '"/>';
+        else s += '<path class="edge ' + ecls(prevSpecS, sp.s) + '" d="' + seg(X.spec, prevSpecY, X.spec, y, prevSpecS === 'carried' ? RS : R, sp.carriedFrom ? RS : R) + '"/>';
+        if (sp.carriedFrom) {
+          n += node(sp.id, X.spec, y, RS, 'carried', sp.label, '', 'spec');
+          s += '<path class="edge carried" d="M' + (X.spec + RS + 8) + ' ' + y + ' L' + (X.build - 10) + ' ' + y + '"/>';
+          s += '<text class="carrytxt" x="' + X.build + '" y="' + (y + 4) + '">executed in ' + sp.carriedFrom + ' · carried · $0</text>';
+          lastY = y; lastX = X.spec; lastS = 'carried';
+          prevSpecY = y; prevSpecS = 'carried'; y += CARRY;
+          return;
+        }
+        var lanes = mode === 'compact' && sp.passes.length > 1 ? [sp.passes[sp.passes.length - 1]] : sp.passes;
+        var folded = lanes.length !== sp.passes.length;
+        n += node(sp.id, X.spec, y, R, sp.s, sp.label, sp.m, 'spec');
+        lanes.forEach(function (P, pi) {
+          var ly = y + pi * ROW, idx = folded ? sp.passes.length : pi + 1, suf = '-' + sp.id + '-' + idx;
+          if (sp.passes.length > 1 && !folded) {
+            s += '<rect class="lane" x="' + (X.build - 58) + '" y="' + (ly - 50) + '" width="' + (X.verify - X.build + 116) + '" height="112" rx="14"/>';
+            s += '<text class="passlab" x="' + (X.build - 46) + '" y="' + (ly - 32) + '">PASS ' + idx + ' OF ' + sp.passes.length + '</text>';
+          }
+          if (pi === 0) s += '<path class="edge ' + ecls(sp.s, P.build.s) + '" d="' + seg(X.spec, y, X.build, ly, R, R) + '"/>';
+          s += '<path class="edge ' + ecls(P.build.s, P.verify.s) + '" d="' + seg(X.build, ly, X.verify, ly, R, R) + '"/>';
+          n += node('b' + suf, X.build, ly, R, P.build.s, 'BUILD', P.build.m, 'build', folded ? '×' + sp.passes.length : '');
+          n += node('v' + suf, X.verify, ly, R, P.verify.s, 'VERIFY', P.verify.m, 'verify', folded ? '×' + sp.passes.length : '');
+          if (P.ask) {
+            var ax = (X.build + X.verify) / 2, ay = ly - 70;
+            s += '<path class="edge person" d="' + seg(X.build, ly, ax, ay, R, RS) + '"/>';
+            n += node('ask' + suf, ax, ay, RS, P.ask.s, 'QUESTION', P.ask.m, 'ask');
+          }
+          if (P.exit && !folded && pi < lanes.length - 1) {
+            var yn = ly + ROW;
+            s += '<path class="edge back" d="M' + (X.verify + R) + ' ' + ly + ' C' + (X.verify + 90) + ' ' + ly + ' ' + (X.build - 120) + ' ' + yn + ' ' + (X.build - R) + ' ' + yn + '"/>';
+            s += '<text class="elab" x="' + ((X.build + X.verify) / 2) + '" y="' + (ly + 82) + '" text-anchor="middle">↺ ' + esc(P.exit.why) + '</text>';
+            s += '<text class="elab dim" x="' + ((X.build + X.verify) / 2) + '" y="' + (ly + 96) + '" text-anchor="middle">' + esc(P.exit.what) + '</text>';
+          }
+          lastY = ly; lastX = X.verify; lastS = P.verify.s;
+        });
+        prevSpecY = y; prevSpecS = sp.s;
+        y += lanes.length * ROW + 6;
+      });
+    }
+
+    var t = a.tail, ty = lastY;
+    var tcls = t.s === 'bad' ? 'bad' : (t.s === 'person' ? 'person' : (t.s === 'done' ? 'done' : 'idle'));
+    if (lastX === X.spec) s += '<path class="edge carried" d="M' + (X.spec + RS + 8) + ' ' + ty + ' L' + (X.ship - R) + ' ' + ty + '"/>';
+    else s += '<path class="edge ' + tcls + '" d="' + seg(lastX, ty, X.ship, ty, R, R) + '"/>';
+    n += node('tail', X.ship, ty, R, t.s, t.label, t.m, t.kind === 'ship' ? 'pr' : 'stop');
+    if (t.next) {
+      s += '<path class="edge next" d="M' + (X.ship + R + 10) + ' ' + ty + ' l40 0"/>';
+      s += '<text class="elab next" x="' + (X.ship + R + 14) + '" y="' + (ty - 10) + '">→ ' + t.next + '</text>';
+    }
+    var h = Math.max(ty + 90, 200);
+    gEl.setAttribute('viewBox', '0 0 1130 ' + h);
+    gEl.innerHTML = s + n;
+    gEl.querySelectorAll('.node').forEach(function (g) {
+      g.addEventListener('click', function () { curNode = g.dataset.n; render(); });
+      g.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); curNode = g.dataset.n; render(); } });
+    });
+    detail(a);
+  }
+
+  var NAME = { ticket:'Ticket', derive:'Derive · cut and review', handback:'Hand-back', gate:'Spec gate', tail:'' };
+  function detail(a) {
+    var id = curNode, d = (D[id + '@' + curAtt]) || (D[id] && D[id][curAtt]) || null;
+    var title = NAME[id];
+    var m = id.match(/^(b|v|ask)-(s\d)-(\d)$/), st = 'idle';
+    if (m) {
+      var sp = a.specs.filter(function (x) { return x.id === m[2]; })[0], P = sp && sp.passes[+m[3] - 1];
+      title = ({ b:'Build', v:'Verify', ask:'Question' }[m[1]]) + ' · spec ' + m[2].slice(1) + (sp && sp.passes.length > 1 ? ' · pass ' + m[3] : '');
+      st = P ? (m[1] === 'b' ? P.build.s : (m[1] === 'v' ? P.verify.s : P.ask.s)) : 'idle';
+    } else if (/^s\d$/.test(id)) {
+      var sp2 = a.specs.filter(function (x) { return x.id === id; })[0];
+      title = 'Spec ' + id.slice(1); st = sp2 ? sp2.s : 'idle';
+    } else if (id === 'tail') { title = a.tail.kind === 'ship' ? 'Ship' : 'End of attempt'; st = a.tail.s; }
+    else if (id === 'handback') st = a.handback.s;
+    else st = (a.head[id] || {}).s || 'idle';
+    var spm = /^s\d$/.test(id) ? SPECS.filter(function (x) { return x.id === id; })[0] : null;
+    if (spm) {
+      var carried = st === 'carried';
+      d = [carried ? 'executed earlier · $0' : (spm.state === 'idle' ? 'cut, not started' : spm.rev),
+        '<div class="doc"><h5>spec ' + spm.n + ' · ' + spm.repo + '</h5><p><b>' + spm.title + '</b></p><p>' + spm.goal + '</p><p style="color:var(--ink-3)">' + spm.steps.length + ' steps · ' + spm.crit.length + ' done criteria · ' + spm.origin + '</p></div>',
+        why([carried ? 'Executed in an earlier attempt. Its commits are on the branch; nothing ran here.' : 'Steps and done criteria are known from the moment the spec is cut, and fill in as they are worked.']) + '<p style="margin-top:10px"><button class="btn sm" type="button" data-open-spec="' + id + '">Open the spec</button></p>'];
+    }
+    if (!d) d = ['', why(['Nothing recorded here in this attempt.']), ''];
+    var pill = { done:'ok', carried:'q', live:'amber', bad:'bad', idle:'q', person:'person' }[st] || 'q';
+    var word = { done:'done here', carried:'carried', live:'working now', bad:'stopped here', idle:'not started', person:'waits for a person' }[st] || st;
+    sdet.innerHTML = '<div class="sd-h"><h3>' + title + '</h3><span class="pill ' + pill + '">' + word + '</span><span class="sh-sub">' + curAtt.toUpperCase() + (d[0] ? ' · ' + d[0] : '') + '</span></div>' +
+      '<div class="sd-b' + (d[2] ? '' : ' one') + '"><div>' + d[1] + '</div>' + (d[2] ? '<div>' + d[2] + '</div>' : '') + '</div>';
+    sdet.querySelectorAll('[data-open-spec]').forEach(function (b) { b.addEventListener('click', function () { openSpec(b.dataset.openSpec); }); });
+  }
+
+  document.querySelectorAll('#att-switch .gt').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('#att-switch .gt').forEach(function (x) { x.setAttribute('aria-selected', 'false'); });
+      b.setAttribute('aria-selected', 'true'); curAtt = b.dataset.att; curNode = GA[curAtt].open; render();
+    });
+  });
+  document.querySelectorAll('#loop-mode .lm').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('#loop-mode .lm').forEach(function (x) { x.setAttribute('aria-pressed', 'false'); });
+      b.setAttribute('aria-pressed', 'true'); mode = b.dataset.mode;
+      render();
+    });
+  });
+  render();
+
+  /* ---------- views, tabs, filters ---------- */
+  var list = document.getElementById('view-list'), det = document.getElementById('view-detail');
+  function show(which) {
+    var isList = which === 'list';
+    list.hidden = !isList; det.hidden = isList;
+    document.getElementById('crumb-sep').hidden = isList; document.getElementById('crumb-cur').hidden = isList;
+    document.getElementById('vw-list').classList.toggle('on', isList); document.getElementById('vw-detail').classList.toggle('on', !isList);
+    try { localStorage.setItem('ticket-view-v5', which); } catch (e) {}
+    window.scrollTo(0, 0);
+  }
+  document.querySelectorAll('[data-show]').forEach(function (el) {
+    el.addEventListener('click', function (e) { e.preventDefault(); show(el.dataset.show); });
+    if (el.classList.contains('trow')) el.addEventListener('keydown', function (e) { if (e.key === 'Enter') show(el.dataset.show); });
+  });
+  function tab(name) {
+    document.querySelectorAll('.tab').forEach(function (t) { t.setAttribute('aria-selected', t.dataset.tab === name ? 'true' : 'false'); });
+    document.querySelectorAll('.tabpane').forEach(function (p) { p.hidden = p.id !== 'tab-' + name; });
+  }
+  document.querySelectorAll('.tab').forEach(function (t) { t.addEventListener('click', function () { tab(t.dataset.tab); }); });
+  document.querySelectorAll('[data-tab-go]').forEach(function (t) { t.addEventListener('click', function (e) { e.preventDefault(); tab(t.dataset.tabGo); }); });
+  document.querySelectorAll('[data-toggle]').forEach(function (el) {
+    el.addEventListener('click', function () { var b = document.getElementById(el.dataset.toggle); b.hidden = !b.hidden; el.setAttribute('aria-expanded', b.hidden ? 'false' : 'true'); });
+  });
+  document.querySelectorAll('.q-opts').forEach(function (g) {
+    g.querySelectorAll('.q-opt').forEach(function (o) { o.addEventListener('click', function () {
+      g.querySelectorAll('.q-opt').forEach(function (x) { x.classList.remove('on'); }); o.classList.add('on'); }); });
+  });
+  document.querySelectorAll('#conv-filter .chip').forEach(function (c) {
+    c.addEventListener('click', function () {
+      document.querySelectorAll('#conv-filter .chip').forEach(function (x) { x.setAttribute('aria-pressed', 'false'); });
+      c.setAttribute('aria-pressed', 'true');
+      var f = c.dataset.f;
+      document.querySelectorAll('#conv .msg').forEach(function (m) { m.hidden = f !== 'all' && m.dataset.k !== f; });
+    });
+  });
+  renderSpecs();
+
+  /* ---------- composer: what approving does, by ticket state ---------- */
+  var CP = {
+    running:['', 'Attempt 4 is running. <b>Approve queues attempt 5:</b> it starts when attempt 4 ends, carries specs 1–5 and adds spec 6. The conversation is its cause.', [['primary','Approve · queue attempt 5'],['','Ask for changes'],['','Discard']]],
+    parked:['person', 'Attempt 4 waits for your answer to a question in spec 4. <b>Answer it first</b>: the answer resumes attempt 4. A series change starts only after the attempt ends.', [['primary','Answer the question'],['','Approve · after attempt 4', true]]],
+    failed:['warn', 'Attempt 4 failed: spec 4 stayed red after its passes. <b>Approve starts attempt 5 now</b> with spec 6 added; spec 4 can be cut again because it never finished.', [['primary','Approve · start attempt 5'],['','Ask for changes'],['','Discard']]],
+    infra:['warn', 'Attempt 4 failed because its sandbox was lost; nothing about the ticket changed. <b>Retry unchanged</b> starts attempt 5 with the same series. Approving the proposal starts it with spec 6 added.', [['primary','Approve · start attempt 5'],['','Retry unchanged'],['','Discard']]],
+    review:['', 'Both PRs wait for review. <b>Approve starts attempt 5</b>, which works spec 6 and pushes onto #813. The reviewer is asked again.', [['primary','Approve · start attempt 5'],['','Ask for changes'],['','Discard']]],
+    closed:['warn', 'The ticket is closed in the tracker. <b>Approve files a follow-up ticket</b> linked to this one, starting from this conversation. A keyword comment on the closed ticket does the same. The closed ticket stays as delivered.', [['primary','Approve · file follow-up ticket'],['','Ask for changes'],['','Discard']]]
+  };
+  function cp(stName) {
+    var c = CP[stName], ef = document.getElementById('cp-effect');
+    ef.className = 'cp-effect' + (c[0] ? ' ' + c[0] : ''); ef.innerHTML = '<span>' + c[1] + '</span>';
+    document.getElementById('cp-actions').innerHTML = c[2].map(function (b) { return '<button class="btn ' + b[0] + '" type="button"' + (b[2] ? ' disabled' : '') + '>' + b[1] + '</button>'; }).join('');
+  }
+  document.querySelectorAll('.cp-states .chip').forEach(function (c) {
+    c.addEventListener('click', function () {
+      document.querySelectorAll('.cp-states .chip').forEach(function (x) { x.setAttribute('aria-pressed', 'false'); });
+      c.setAttribute('aria-pressed', 'true'); cp(c.dataset.st);
+    });
+  });
+  cp('running');
+  try { if (localStorage.getItem('ticket-view-v5') === 'list') show('list'); } catch (e) {}
+})();
+</script>

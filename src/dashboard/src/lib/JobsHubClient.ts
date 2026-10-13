@@ -148,6 +148,9 @@ export class JobsHubClient {
   // 2026-09-17-042ej: "something about the work you filed moved". Data-free by design — the
   // page refetches over the read that checks ownership — so a plain subject with no payload.
   readonly filedWorkChanged = makeSubject<void>();
+  // 2026-10-13-9a59p: "ticket {key} of {project} changed" — a refresh signal for the ticket list,
+  // data-free like RunsChanged. A plain subject: a replayed nudge would only cost a refetch.
+  readonly ticketActivityChanged = makeSubject<{ project: string; ticketKey: string }>();
   readonly connectionState = makeSubject<HubConnectionState>();
 
   constructor(options: JobsHubClientOptions) {
@@ -400,6 +403,8 @@ export class JobsHubClient {
     conn.on("SpecDialogActivity", (activity: SpecDialogActivityPush) =>
       this.specDialogActivity.emit(activity));
     conn.on("FiledWorkChanged", () => this.filedWorkChanged.emit(undefined));
+    conn.on("TicketActivityChanged", (project: string, ticketKey: string) =>
+      this.ticketActivityChanged.emit({ project, ticketKey }));
     conn.on("SandboxActivity", (rollup: SandboxActivityRollup) =>
       this.sandboxActivity.emit(rollup));
     conn.on("SystemActivityUpdated", (snapshot: SystemActivitySnapshot) =>

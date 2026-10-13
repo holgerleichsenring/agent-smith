@@ -8,6 +8,9 @@ import { ConfigCatalogProvider } from "@/components/config/ConfigCatalogProvider
 import { EventStoreProvider } from "@/lib/eventStore/EventStoreProvider";
 import { silentEventStore } from "@/lib/eventStore/__tests__/fakes";
 import type { OverviewSnapshot, RunSnapshot } from "@/types/hub-events";
+import TicketsPage from "@/app/tickets/page";
+import { TicketListProvider } from "@/lib/tickets/TicketListProvider";
+import { fakeHub, list, pr, ticket } from "@/components/tickets/__tests__/ticketFixtures";
 
 // p0343c: PIXEL IDENTITY guard — each redesigned surface renders the ratified
 // mock's structural DOM (wrapper + key mock classes), bound to real data. If a
@@ -62,6 +65,8 @@ vi.mock("@/hooks/useJobsHub", () => ({
   }),
 }));
 vi.mock("@/hooks/useRunEvents", () => ({ useRunEvents: () => [] }));
+const tickets = vi.hoisted(() => ({ fetch: vi.fn() }));
+vi.mock("@/lib/ticketsApi", () => ({ fetchTickets: (...args: unknown[]) => tickets.fetch(...args) }));
 vi.mock("@/hooks/useRunExecutionTree", () => ({
   useRunExecutionTree: () => ({ nodes: [] }),
 }));
@@ -173,10 +178,36 @@ describe("Mock parity", () => {
     const homeRoot = screen.getByTestId("runs-home");
     expect(homeRoot.className).toContain("mock-shell");
     expect(homeRoot.className).toContain("mock-runs");
-    for (const cls of [".main", ".m-head", ".inflow", ".health", ".metric", ".section-head", ".cnt", ".rows", ".rrow", ".spine", ".need", ".n-top", ".q-item", ".q-opt", ".n-answer"]) {
+    for (const cls of [".main", ".m-head", ".inflow", ".health", ".metric", ".section-head", ".cnt", ".rows", ".rrow", ".spine", ".rrow.st-need"]) {
       expect(homeRoot.querySelector(cls), `runs home missing ${cls}`).not.toBeNull();
     }
+    // 2026-10-13-9a59p: a parked run is a row; the answer box lives on the ticket list.
+    for (const cls of [".need", ".q-item", ".n-answer"]) {
+      expect(homeRoot.querySelector(cls), `runs home still carries ${cls}`).toBeNull();
+    }
     home.unmount();
+
+    // ---- ticket list (ticket-view.html, list view) ----
+    tickets.fetch.mockResolvedValue(list(
+      [
+        ticket({
+          bucket: "needs_you", kind: "question", status: "waiting_for_input", ticketId: "7",
+          pendingQuestion: { runId: "r-101", question: { questionId: "q1", type: "Freeform", text: "Which header style?", context: null, choices: ["IETF draft"], defaultAnswer: null, askedAt: "2026-07-17T10:01:00Z", answerDeadlineAt: "2026-07-17T12:00:00Z" } },
+          seriesStrip: { derive: "cut", cells: [{ specId: "s1", state: "done" }, { specId: "s2", state: "asked" }] },
+        }),
+        ticket({ ticketId: "8", seriesStrip: { derive: "cut", cells: [{ specId: "s1", state: "live" }] }, pullRequests: [pr()] }),
+      ],
+      { needsYou: 1, working: 1, running: 1 },
+    ));
+    const ticketView = render(<TicketListProvider client={fakeHub().client}><TicketsPage /></TicketListProvider>);
+    const ticketsRoot = screen.getByTestId("tickets-home");
+    expect(ticketsRoot.className).toContain("mock-shell");
+    expect(ticketsRoot.className).toContain("mock-tickets");
+    await screen.findByTestId("ticket-list");
+    for (const cls of [".main", ".m-head", ".health", ".metric", ".section-head", ".cnt", ".rows", ".rgroup", ".trow", ".sd", ".rmain", ".tick", ".ttl", ".act", ".strip", ".attempts", ".cost", ".when", ".chev", ".answer", ".q-item", ".q-opt", ".n-answer"]) {
+      expect(ticketsRoot.querySelector(cls), `ticket list missing ${cls}`).not.toBeNull();
+    }
+    ticketView.unmount();
 
     // ---- run viewer (run-viewer.html) ----
     const viewer = render(withStore(<RunDetailPage params={resolvedParams("r1")} />));

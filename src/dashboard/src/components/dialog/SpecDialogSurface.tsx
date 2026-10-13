@@ -11,6 +11,7 @@ import {
   readTicketProject,
   resolveTicketProjects,
 } from "@/lib/specDialogApi";
+import { PROJECT_PARAM, TICKET_PARAM } from "@/lib/specDialogAddress";
 import { useFiledWork } from "@/hooks/useFiledWork";
 import { useSpecDialog } from "@/hooks/useSpecDialog";
 import { FailedSurface } from "@/components/shell/FailedSurface";
@@ -44,10 +45,6 @@ export const WORK_IT_OUT = "Work it out";
  *  said it was open — the dialog id it is already living on. */
 export const OPEN_PARAM = "open";
 export const ON_PARAM = "on";
-
-/** 2026-09-25-8e51b: the ticket a page was opened on, and the project it belongs to. */
-export const TICKET_PARAM = "ticket";
-export const PROJECT_PARAM = "project";
 
 /**
  * 2026-09-21-f237b: a conversation handed to this surface by its address.
