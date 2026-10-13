@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Reviews;
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Contracts.Specs;
 using AgentSmith.Application.Services.Triggers;
 using AgentSmith.Domain.Models;
 
@@ -12,23 +13,34 @@ namespace AgentSmith.Application.Services.Rework;
 /// 2026-10-08-0781: what the rework worker reads before it starts or says anything — the newest
 /// keyword comment on the ticket and the newest standing request for changes or comment command on
 /// each pull request the ticket's runs opened, after the attempt's cutoff, trusted. The newer one wins.
+/// <para>2026-10-13-9a59m: beside them, the ticket's stored approval when it is an operator act
+/// (<see cref="OperatorAct"/>), read by the tracker connection and the ticket key a run resolves.</para>
 /// </summary>
 public sealed class ReworkPendingActs(
-    ITicketProviderFactory tickets, ISourceProviderFactory sources, IPrReviewAuthorTrust trust) : IReworkPendingActs
+    ITicketProviderFactory tickets, ISourceProviderFactory sources, IPrReviewAuthorTrust trust,
+    ISpecApprovalStore approvals) : IReworkPendingActs
 {
     private readonly PrStandingAct _standing = new(trust);
 
     public async Task<PendingReworkAct?> NewestAsync(
+        ResolvedProject project, string ticketId, PreviousAttempt since, CancellationToken cancellationToken) =>
+        Newer(await KeywordActAsync(project, ticketId, since, cancellationToken),
+            await NewestHandbackAnswerAsync(project, ticketId, since, cancellationToken));
+
+    public async Task<PendingReworkAct?> NewestHandbackAnswerAsync(
         ResolvedProject project, string ticketId, PreviousAttempt since, CancellationToken cancellationToken)
     {
-        var newest = await KeywordActAsync(project, ticketId, since, cancellationToken);
+        var key = TicketKey.For(project.Tracker.Type.ToString().ToLowerInvariant(), ticketId).Value;
+        var newest = OperatorAct.Of(await approvals.GetAsync(project.Tracker.Name, key, cancellationToken), since) is { } op
+            ? new PendingReworkAct(op) : null;
         foreach (var (repoName, url) in since.PullRequestUrls)
-            if (project.Repos.FirstOrDefault(r => r.Name == repoName) is { } repo
-                && await PullRequestActAsync(repo, url, since, cancellationToken) is { } act
-                && (newest is null || act.Act.At > newest.Act.At))
-                newest = act;
+            if (project.Repos.FirstOrDefault(r => r.Name == repoName) is { } repo)
+                newest = Newer(newest, await PullRequestActAsync(repo, url, since, cancellationToken));
         return newest;
     }
+
+    private static PendingReworkAct? Newer(PendingReworkAct? kept, PendingReworkAct? other) =>
+        other is not null && (kept is null || other.Act.At > kept.Act.At) ? other : kept;
 
     private async Task<PendingReworkAct?> KeywordActAsync(
         ResolvedProject project, string ticketId, PreviousAttempt since, CancellationToken ct)

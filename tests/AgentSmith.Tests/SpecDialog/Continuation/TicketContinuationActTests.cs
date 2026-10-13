@@ -217,7 +217,7 @@ public sealed class TicketContinuationActTests : IDisposable
         _h.Tracker.ReadFails = new HttpRequestException("the tracker is down");
 
         var result = await _h.InScopeAsync(sp => TicketApprovalPreviewEndpoints.PreviewAsync(
-            "alpha", "42", sp.GetRequiredService<TicketApprovalPreview>(), default));
+            "alpha", "42", ContinuationHarness.Http(sp), sp.GetRequiredService<TicketApprovalPreview>(), default));
 
         var json = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
         json.StatusCode.Should().Be(StatusCodes.Status502BadGateway);
@@ -246,10 +246,10 @@ public sealed class TicketContinuationActTests : IDisposable
     public async Task ApprovalPreview_NoConversationOrNoOpenProposal_404()
     {
         var none = await _h.InScopeAsync(sp => TicketApprovalPreviewEndpoints.PreviewAsync(
-            "alpha", "42", sp.GetRequiredService<TicketApprovalPreview>(), default));
+            "alpha", "42", ContinuationHarness.Http(sp), sp.GetRequiredService<TicketApprovalPreview>(), default));
         await _h.BindAsync(null);
         var noProposal = await _h.InScopeAsync(sp => TicketApprovalPreviewEndpoints.PreviewAsync(
-            "alpha", "42", sp.GetRequiredService<TicketApprovalPreview>(), default));
+            "alpha", "42", ContinuationHarness.Http(sp), sp.GetRequiredService<TicketApprovalPreview>(), default));
 
         none.Should().BeOfType<NotFound>();
         noProposal.Should().BeOfType<NotFound>();

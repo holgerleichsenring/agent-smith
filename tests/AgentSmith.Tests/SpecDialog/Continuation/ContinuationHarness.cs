@@ -23,6 +23,8 @@ using AgentSmith.Server.Services.Tickets.Conversation;
 using AgentSmith.Tests.TestHelpers;
 using AgentSmith.Tests.TestSupport;
 using AgentSmith.Tests.Tickets;
+using AgentSmith.Infrastructure.Persistence.Services;
+using Microsoft.AspNetCore.Http;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -72,7 +74,13 @@ internal sealed class ContinuationHarness : IDisposable
         Loader.Setup(l => l.LoadConfig(It.IsAny<string>())).Returns(() => Config);
         services.AddSingleton(Loader.Object).AddSingleton(new ServerContext("config.yml"));
         services.AddTransient<TicketProjects>().AddTransient<TicketTranscriptReader>();
+        services.AddScoped(_ => FiledWorkDoubles.Move(Routing)); // 2026-10-13-9a59m: before the registration's TryAdd
         services.AddScoped<TicketAmendment>().AddTicketContinuation();
+        // 2026-10-13-9a59m: the start arm's reads and the nudge queue, over the same store.
+        services.AddScoped<RunCheckpointRepository>().AddScoped<ReworkNudgeRepository>().AddScoped<ReworkLedgerRepository>();
+        services.AddSingleton<IActiveRunLease, DbActiveRunLease>().AddSingleton<IRunCheckpointStore, DbRunCheckpointStore>();
+        services.AddSingleton<IPreviousAttemptReader, DbPreviousAttemptReader>().AddSingleton<IReworkNudges, DbReworkNudges>();
+        services.AddSingleton(new TokenAuthorityConfig());
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
 
@@ -82,6 +90,9 @@ internal sealed class ContinuationHarness : IDisposable
     public RecordingBranchSources Sources { get; } = new();
     public Mock<ITicketActivityNudge> Activity { get; } = new();
     public Mock<IConfigurationLoader> Loader { get; } = new();
+
+    /// <summary>2026-10-13-9a59m: the routing config the never-worked start resolves against — none by default.</summary>
+    public AgentSmithConfig Routing { get; set; } = new();
 
     public AgentSmithConfig Config { get; } = new()
     {
@@ -121,9 +132,9 @@ internal sealed class ContinuationHarness : IDisposable
 
     /// <summary>A worked attempt that published a cut of <paramref name="specs"/>, with the pointer naming what ran.</summary>
     public async Task WorkedAsync(string runId, string project, string series, IReadOnlyList<string> specs,
-        IReadOnlyList<string> executed, string carrier = "web")
+        IReadOnlyList<string> executed, string carrier = "web", string status = "success")
     {
-        await AddAsync(TicketStoreHarness.Run(runId, project: project), TicketStoreHarness.Step(runId),
+        await AddAsync(TicketStoreHarness.Run(runId, project: project, status: status), TicketStoreHarness.Step(runId),
             TicketSeriesFixtures.Cut(runId, 1, [.. specs.Select((id, i) => TicketSeriesFixtures.Entry(id, i + 1))]),
             new RunAttempt { RunId = runId, SeriesId = series });
         await Pointers.SaveAsync(project, new SpecSetPointer(Key, carrier, "sha", 1, SeriesId: series,
@@ -149,17 +160,30 @@ internal sealed class ContinuationHarness : IDisposable
         return await act(scope.ServiceProvider);
     }
 
-    public Task AcceptAsync(OutcomeProposal proposal) => InScopeAsync(async sp =>
+    public Task AcceptAsync(OutcomeProposal proposal, bool mayStartRuns = false) => InScopeAsync(async sp =>
     {
-        await sp.GetRequiredService<TicketFilingOutcomeSink>().AcceptAsync(State(), proposal, false, default);
+        await sp.GetRequiredService<TicketFilingOutcomeSink>().AcceptAsync(State(), proposal, mayStartRuns, default);
         return true;
     });
 
-    public Task<TicketContinuationOutcome> ActAsync(OutcomeProposal proposal) =>
-        InScopeAsync(sp => sp.GetRequiredService<TicketContinuationAct>().ApplyAsync(State(), proposal, false, default));
+    public Task<TicketContinuationOutcome> ActAsync(OutcomeProposal proposal, bool mayStartRuns = false) =>
+        InScopeAsync(sp => sp.GetRequiredService<TicketContinuationAct>().ApplyAsync(State(), proposal, mayStartRuns, default));
 
-    public Task<TicketApprovalPreviewRead?> PreviewAsync() =>
-        InScopeAsync(sp => sp.GetRequiredService<TicketApprovalPreview>().ReadAsync("alpha", TicketId, default));
+    public Task<TicketApprovalPreviewRead?> PreviewAsync(bool mayStartRuns = false) =>
+        InScopeAsync(sp => sp.GetRequiredService<TicketApprovalPreview>().ReadAsync("alpha", TicketId, mayStartRuns, default));
+
+    /// <summary>A request on a non-enforcing install: the caller holds every permission.</summary>
+    public static HttpContext Http(IServiceProvider services) => new DefaultHttpContext { RequestServices = services };
+
+    /// <summary>2026-10-13-9a59m: the rework nudges the approvals queued.</summary>
+    public async Task<List<ReworkNudge>> NudgesAsync()
+    {
+        await using var ctx = new AgentSmithDbContext(Options());
+        return await ctx.Set<ReworkNudge>().AsNoTracking().ToListAsync();
+    }
+
+    /// <summary>The singletons a nudge is handled with, from the same composition.</summary>
+    public IServiceProvider Services => _provider;
 
     public Task<SpecApprovalRecord?> RecordAsync() => Approvals.GetAsync("gh", Key, default);
 

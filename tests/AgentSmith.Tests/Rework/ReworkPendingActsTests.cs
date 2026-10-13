@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Rework;
+using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Reviews;
@@ -15,6 +16,7 @@ public sealed class ReworkPendingActsTests
     private static readonly DateTimeOffset Start = new(2026, 10, 12, 9, 0, 0, TimeSpan.Zero);
     private static readonly RepoConnection Repo = new() { Name = "api", Type = RepoType.GitHub };
     private readonly Mock<ISourceProvider> _provider = new();
+    private readonly InMemorySpecApprovalStore _approvals = new();
 
     private static PrReviewNote Note(string who, int minutes, string body = "x") =>
         new(new PrCommentAuthor("u", "r", who, who), false, false, Start.AddMinutes(minutes), body);
@@ -31,7 +33,7 @@ public sealed class ReworkPendingActsTests
         {
             PullRequestUrls = new Dictionary<string, string> { ["api"] = "https://github.com/o/api/pull/4" },
         };
-        return new ReworkPendingActs(Mock.Of<ITicketProviderFactory>(), sources.Object, trust.Object)
+        return new ReworkPendingActs(Mock.Of<ITicketProviderFactory>(), sources.Object, trust.Object, _approvals)
             .NewestAsync(project, "42", attempt, CancellationToken.None);
     }
 
@@ -62,5 +64,35 @@ public sealed class ReworkPendingActsTests
         Review([], Note("mallory", 20, "/agent-smith"));
 
         (await NewestAsync()).Should().BeNull();
+    }
+
+    /// <summary>2026-10-13-9a59m: the stored approval beside the ticket's keyword comment — the newer is the act.</summary>
+    [Fact]
+    public async Task ReworkPendingActs_OperatorAndKeywordAct_NewerWins()
+    {
+        var tracker = new Mock<ITicketProvider>();
+        tracker.Setup(t => t.GetCommentsAsync(It.IsAny<AgentSmith.Domain.Models.TicketId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new AgentSmith.Domain.Entities.TicketComment("bob", Start.AddMinutes(10), "agentsmith again") { Id = "c-1" }]);
+        var tickets = new Mock<ITicketProviderFactory>();
+        tickets.Setup(t => t.Create(It.IsAny<TrackerConnection>())).Returns(tracker.Object);
+        var project = new ResolvedProject
+        {
+            Name = "p", Tracker = new TrackerConnection { Name = "gh", Type = TrackerType.GitHub },
+            GithubTrigger = new WebhookTriggerConfig { CommentKeyword = "agentsmith" },
+        };
+        var attempt = new PreviousAttempt("run-1", "failed", Start, true);
+        var acts = new ReworkPendingActs(tickets.Object, Mock.Of<ISourceProviderFactory>(), Mock.Of<IPrReviewAuthorTrust>(), _approvals);
+
+        await _approvals.SaveAsync(Operator.OperatorActTests.Record(Start.AddMinutes(20)) with { Key = "github-7" }, default);
+        var approval = await acts.NewestAsync(project, "7", attempt, CancellationToken.None);
+        await _approvals.SaveAsync(Operator.OperatorActTests.Record(Start.AddMinutes(5)) with { Key = "github-7" }, default);
+        var comment = await acts.NewestAsync(project, "7", attempt, CancellationToken.None);
+        var answer = await acts.NewestHandbackAnswerAsync(project, "7", attempt, CancellationToken.None);
+
+        approval!.Act.Channel.Should().Be(ReworkChannel.Operator, "the approval at minute 20 is newer than the comment at 10");
+        approval.Act.Author.Should().Be("owner");
+        approval.Repo.Should().BeNull("the worker answers an approval on the ticket");
+        comment!.Act.Channel.Should().Be(ReworkChannel.Ticket, "the comment at 10 is newer than the approval at 5");
+        answer!.Act.Channel.Should().Be(ReworkChannel.Operator, "a keyword comment never answers a hand-back");
     }
 }

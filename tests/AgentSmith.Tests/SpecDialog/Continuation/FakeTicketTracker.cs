@@ -21,6 +21,8 @@ internal sealed class FakeTicketTracker : ITicketProviderFactory
     public List<string> Regions { get; } = [];
     public List<string> Created { get; } = [];
     public List<(string TicketId, string Comment)> Comments { get; } = [];
+    public List<string> Labels { get; } = []; // 2026-10-13-9a59m: labels the ticket carries and tags put on it
+    public List<string> Moves { get; } = [];
 
     public ITicketProvider Create(TrackerConnection config) => new Provider(this);
     public ITicketRewriter CreateRewriter(TrackerConnection config) => new Rewriter(this);
@@ -43,7 +45,20 @@ internal sealed class FakeTicketTracker : ITicketProviderFactory
         public Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken) =>
             owner.ReadFails is { } failure ? Task.FromException<Ticket>(failure)
                 : Task.FromResult(new Ticket(ticketId, "Widget drops", "the widget drops", null, owner.Status, "GitHub",
-                    isClosed: owner.IsClosed));
+                    [.. owner.Labels], isClosed: owner.IsClosed));
+
+        public Task<bool> AddLabelAsync(TicketId ticketId, string label, CancellationToken cancellationToken)
+        {
+            owner.Labels.Add(label);
+            return Task.FromResult(true);
+        }
+
+        public Task<bool> TransitionToAsync(TicketId ticketId, string statusName, CancellationToken cancellationToken)
+        {
+            owner.Moves.Add(statusName);
+            owner.Status = statusName;
+            return Task.FromResult(true);
+        }
 
         public Task<ConnectionProbeResult> ProbeAsync(CancellationToken cancellationToken) =>
             Task.FromResult(new ConnectionProbeResult(true, 0, null));

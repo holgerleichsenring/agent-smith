@@ -49,7 +49,7 @@ The left column, **Recents**, lists your twenty most recent conversations, newes
 
 ### Who a conversation belongs to
 
-A conversation you start with no ticket is yours: only you can read it, write in it or approve what it proposes. A conversation bound to a ticket is different. A ticket has exactly one conversation, and anyone who can use this page can open and continue it, because everyone who can see the ticket on the board may discuss it. Deleting a conversation is always the owner's alone.
+A conversation you start with no ticket is yours: only you can read it, write in it or approve what it proposes. A conversation bound to a ticket is different. A ticket has exactly one conversation, and anyone who can use this page can open, resume and continue it, because everyone who can see the ticket on the board may discuss it. Deleting a conversation is always the owner's alone.
 
 ### Deleting
 
@@ -90,6 +90,19 @@ Approving a spec or a cut in a ticket conversation doesn't file a new ticket. Wh
 - **A ticket a person closed** gets one follow-up ticket with the proposal's specs that haven't already run on it, and a comment on each ticket names the other. A ticket the framework itself moved to done or failed isn't closed in this sense and is continued instead. The conversation stays the closed ticket's, so a later approval there files another follow-up.
 
 If the tracker can't be read, the approval is refused and nothing is recorded; approve again once it answers. A series that would hold more than eight specs is refused with both counts.
+
+### When the next attempt starts
+
+Approving in a ticket's conversation also starts the work, if you hold `runs.control`. The approval is the act: the attempt it starts records it as its cause, with who approved, when, and in which conversation. The conversation says which of these happened, and the approval preview shows the same answer for you before you approve:
+
+- **The last attempt ended.** The next attempt starts now, on whichever server picks up the request.
+- **A run is working the ticket.** The approval waits for that run. When it ends, the next attempt starts, unless the run already picked up this approval and worked it.
+- **The last attempt handed the ticket back.** The approval answers the hand-back: the waiting run is closed and the next attempt starts. A keyword comment written after the approval doesn't change that.
+- **The last attempt is waiting for an answer to its question.** Nothing is recorded. The conversation names the run and where to answer it (the run's question, or `POST /api/runs/{runId}/answer`). The proposal stays open, so you can approve it once the question is answered.
+- **No code run has worked the ticket yet.** Its first attempt starts the way a filed ticket's does. The project's routing tag is put on the ticket and the ticket is moved into a trigger status, so the next poll picks it up.
+- **You don't hold `runs.control`.** The change is recorded and nothing starts, not even at the next run end. Someone who may start runs, or a move on the tracker, starts the next attempt.
+
+An operator's stop (a cancel or a delete) withholds an approval given before it, as it does any other act.
 
 ## Withdrawing a filing
 

@@ -13,6 +13,7 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
+using AgentSmith.Tests.TestSupport;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -90,7 +91,7 @@ public sealed class FetchTicketAttemptCauseTests
             new OwnReadOfThePullRequest(),
             new EpicGroundFetcher(new EpicParentReader(NullLogger<EpicParentReader>.Instance)),
             NullLogger<FetchTicketHandler>.Instance,
-            attemptCause: new AttemptCauseReader(identity, NullLogger<AttemptCauseReader>.Instance));
+            attemptCause: new AttemptCauseReader(identity, ApprovedSetDoubles.Resolver(), NullLogger<AttemptCauseReader>.Instance));
     }
 
     /// <summary>The run's own read of the previous attempt's pull request: a standing Request changes.</summary>

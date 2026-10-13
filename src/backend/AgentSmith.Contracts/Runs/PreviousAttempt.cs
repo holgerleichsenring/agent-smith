@@ -16,6 +16,10 @@ public sealed record PreviousAttempt(string RunId, string Status, DateTimeOffset
     /// reads, kept across a resume. Null on a run that never read them (or an older row).</summary>
     public DateTimeOffset? ActsReadAt { get; init; }
 
+    /// <summary>2026-10-13-9a59m: the approval instant the attempt published as the one it worked; null when
+    /// it published none (or died before publishing).</summary>
+    public DateTimeOffset? WorkedApprovalAt { get; init; }
+
     /// <summary>2026-10-08-0781: what the run had seen: its read, else its start.</summary>
     public DateTimeOffset Cutoff => ActsReadAt ?? StartedAt;
 

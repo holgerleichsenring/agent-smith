@@ -282,7 +282,7 @@ export interface TicketFetchedEvent extends RunEventBase {
 
 /** 2026-10-13-9a59d: where the act an attempt served was made. Mirrors C# AttemptSource. */
 export interface AttemptSource {
-  /** comment | review | command | status */
+  /** comment | review | command | status | conversation (2026-10-13-9a59m: id = the session) */
   kind: string;
   url?: string | null;
   id?: string | null;
@@ -291,7 +291,7 @@ export interface AttemptSource {
 
 /** 2026-10-13-9a59d: why an attempt began. Mirrors C# AttemptCause. */
 export interface AttemptCause {
-  /** ticket_comment | pull_request | status_move | requested | retrigger | pickup */
+  /** ticket_comment | pull_request | status_move | requested | retrigger | pickup | operator (2026-10-13-9a59m) */
   channel: string;
   actor?: string | null;
   at?: string | null;

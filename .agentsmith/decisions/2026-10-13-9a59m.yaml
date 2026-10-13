@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-9a59m
+
+decisions:
+  - category: Architecture
+    chose: "The stored approval IS the operator act: OperatorAct.Of(record, attempt) counts it only when its SeriesContinuation.StartsAttempt holds, it is newer than the attempt's WorkedApprovalAt and the attempt Precedes it"
+    over: "Persisting a separate act row or event for the approval"
+    reason: |
+      The record already holds instant, conversation and principal. StartsAttempt is the one added fact, on l's
+      SeriesContinuation (JSON, default false), so a filing's or a re-cut demand's approval never starts anything and
+      a permission-less approval is never served at a later run end. No table, no event type, archive counts unchanged.
+  - category: Architecture
+    chose: "One start path: the act enqueues ReworkNudgeRequest(Operator, Channel Operator); ReworkPendingActs reads the approval beside the keyword and pull-request acts, newest wins"
+    over: "Starting the attempt directly from the dialog turn"
+    reason: |
+      The worker runs under the ticket lock on whichever replica claims the nudge, a live run's end nudges again
+      (RunEnd), the operator-stop watermark withholds it like any act, and a merge of two Operator nudges is one row.
+  - category: Architecture
+    chose: "NewestHandbackAnswerAsync (operator or pull-request only) on IReworkPendingActs; ReworkNudgeHandler.HandbackActAsync reads it"
+    over: "Taking the hand-back answer from the newest act of any channel"
+    reason: |
+      Newest-of-all lets a later keyword comment hide the approval and reschedule the waiting attempt
+      (ReworkNudgeHandler.cs:62-69 before this spec).
+  - category: Architecture
+    chose: "AttemptCauseReader's operator arm calls ApprovedSpecSetResolver.ResolveAsync at FetchTicket and ranks first; it is skipped when the context names a pipeline other than code"
+    over: "Reading the approval only after DeriveSpec resolved it"
+    reason: |
+      FetchTicket precedes ScopeRepos and DeriveSpec; the resolver publishes its winner, so later steps read the same
+      record. A pr-review or scan run fetches the ticket too and must not be labelled with an operator cause.
+  - category: Implementation
+    chose: "The start arm's inputs live on TicketContinuationState (TicketStartInputs, read by OperatorStartArm inside the state reader, which now takes mayStartRuns); Decide stays (state, proposal)"
+    over: "A third Decide parameter for runs.control"
+    reason: |
+      Decide stays pure and the preview and the act cannot disagree. The preview endpoint passes the caller's
+      runs.control (SpecDialogEndpoints.MayStartRuns), so it shows the arm that caller's approval would take.
+  - category: Implementation
+    chose: "OperatorStart (new, scoped) applies the arm after the record: Operator nudge for continue, FiledWorkMove.StartExistingAsync for amend-never-worked"
+    over: "Putting the nudge, the tracker and the move into TicketContinuationAct"
+    reason: "Keeps the act at 89 lines with one more dependency instead of three."
+  - category: Implementation
+    chose: "DEVIATION: the never-worked path passes SeriesContinuation([], null, StartsAttempt: true) only when the arm starts an attempt; a permission-less never-worked approval keeps a null continuation"
+    over: "Always passing the basis-less continuation (spec scope.in, FIRST ATTEMPT)"
+    reason: |
+      A continuation with StartsAttempt false carries nothing a reader uses (l never merges a basis-less one,
+      ApprovedContinuation.cs:24), and l's pinned contract 'a never-worked hand-off continues nothing' stays true.
+  - category: Implementation
+    chose: "DEVIATION: the arm's sentence is appended after l's reason in the Filing turn"
+    over: "Replacing l's 'next attempt works its series' sentence"
+    reason: |
+      l's reason states WHAT the next attempt works (the dispositions); the arm states WHEN it starts. Both are true
+      and the preview shows the reason unchanged.
+  - category: Testing
+    chose: "DEVIATION: the end-to-end test drives ContinuationHarness (real AddTicketContinuation over migrated SQLite, the real durable nudge queue, DbPreviousAttemptReader, DbActiveRunLease, the real ReworkNudgeHandler and ReworkPendingActs) with only IReworkEntry mocked, then the real AttemptCauseReader for the started run"
+    over: "A RealCompositionHarness test (spec step tests)"
+    reason: |
+      No RealCompositionHarness exists in this tree; the pipeline harness has no rework worker or dialog sink.
+      The entry's reopen/launch is covered by ReworkEntryTests. BoundApproval_NeverWorked_StartsTheFirstAttempt_OnEveryTracker
+      is a FiledWorkMove theory over all four trackers; the act-level never-worked start is OperatorChannelTests.
+  - category: Architecture
+    chose: "Resume: SpecDialogOwnership.MayReach replaces the UserId equality in SpecDialogResumer"
+    over: "Keeping resume owner-only for ticket-bound sessions"
+    reason: "A ticket has one conversation that anyone on the surface may reach (main-thread decision 3); deletion stays owner-only."
+  - category: Architecture
+    chose: "FiledWorkMove extracted from FiledWorkStarter (resolution, move, status read); the existing ticket gets the routing tag only, resolved with its current labels"
+    over: "Calling FiledWorkStarter.StampAsync for an existing ticket"
+    reason: |
+      StampAsync takes a CreatedTicket and a filed list; a spec label or the approved-set stamp on a discovered
+      ticket would route it through FiledTicketSpecGate instead of deriving. FiledWorkStarter is now 53 lines.

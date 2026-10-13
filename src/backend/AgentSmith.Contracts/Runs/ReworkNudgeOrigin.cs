@@ -14,4 +14,7 @@ public enum ReworkNudgeOrigin
     RunEnd = 2,
     PullRequest = 3,
     Ticket = 4,
+
+    /// <summary>2026-10-13-9a59m: an approval in the ticket's own conversation — a person's act, never late.</summary>
+    Operator = 5,
 }

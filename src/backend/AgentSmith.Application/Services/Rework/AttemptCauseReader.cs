@@ -1,7 +1,9 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Runs;
+using AgentSmith.Domain.Entities;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Application.Services.Rework;
@@ -12,13 +14,19 @@ namespace AgentSmith.Application.Services.Rework;
 /// pull-request act; a pull-request act there wins, a status move back outranks a ticket keyword act,
 /// then a run asked for by name, then a re-trigger of a ticket with a previous attempt, else the
 /// ticket's first pickup — naming who moved it into its trigger status when the tracker keeps history.
+/// <para>2026-10-13-9a59m: an approval in the ticket's own conversation ranks FIRST — the attempt that serves
+/// it works the approved revision. FetchTicket runs before the run resolved its approval, so the arm resolves
+/// it here (the resolver publishes the winner, which ScopeRepos and DeriveSpec then read unchanged) and
+/// applies <see cref="OperatorAct"/> against the previous attempt.</para>
 /// </summary>
-public sealed class AttemptCauseReader(TrackerIdentity identity, ILogger<AttemptCauseReader> logger)
+public sealed class AttemptCauseReader(
+    TrackerIdentity identity, ApprovedSpecSetResolver approvals, ILogger<AttemptCauseReader> logger)
 {
     public async Task<AttemptCause> ReadAsync(
         ITicketProvider provider, FetchTicketContext context, CancellationToken cancellationToken)
     {
         var pipeline = context.Pipeline;
+        if (await OperatorAsync(pipeline, cancellationToken) is { } approved) return Of(approved);
         var act = pipeline.TryGet<ReworkAct>(ContextKeys.ReworkAct, out var a) ? a : null;
         var statusBack = pipeline.TryGet<ReworkAct>(ContextKeys.StatusBackAct, out var s) ? s : null;
         if (act is not null && (act.Channel != ReworkChannel.Ticket || statusBack is null)) return Of(act);
@@ -27,6 +35,16 @@ public sealed class AttemptCauseReader(TrackerIdentity identity, ILogger<Attempt
         if (pipeline.TryGet<PreviousAttempt>(ContextKeys.PreviousAttempt, out var previous) && previous is not null)
             return new AttemptCause(AttemptChannels.Retrigger);
         return await PickupAsync(provider, context, cancellationToken);
+    }
+
+    private async Task<ReworkAct?> OperatorAsync(PipelineContext pipeline, CancellationToken cancellationToken)
+    {
+        if (pipeline.TryGet<string>(ContextKeys.PipelineName, out var name) && name is not null && name != PipelinePresets.CodeName)
+            return null;
+        if (!pipeline.TryGet<Ticket>(ContextKeys.Ticket, out var ticket) || ticket is null) return null;
+        var record = await approvals.ResolveAsync(pipeline, TicketKeyFactory.For(ticket, pipeline), cancellationToken);
+        return OperatorAct.Of(record,
+            pipeline.TryGet<PreviousAttempt>(ContextKeys.PreviousAttempt, out var previous) ? previous : null);
     }
 
     private async Task<AttemptCause> PickupAsync(
@@ -59,6 +77,7 @@ public sealed class AttemptCauseReader(TrackerIdentity identity, ILogger<Attempt
     {
         ReworkChannel.PullRequest => AttemptChannels.PullRequest,
         ReworkChannel.Status => AttemptChannels.StatusMove,
+        ReworkChannel.Operator => AttemptChannels.Operator,
         _ => AttemptChannels.TicketComment,
     };
 }

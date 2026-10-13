@@ -15,4 +15,7 @@ public static class AttemptChannels
 
     /// <summary>The ticket's first attempt.</summary>
     public const string Pickup = "pickup";
+
+    /// <summary>2026-10-13-9a59m: an approval in the ticket's own conversation.</summary>
+    public const string Operator = "operator";
 }

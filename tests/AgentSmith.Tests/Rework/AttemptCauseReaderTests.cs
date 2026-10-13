@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Application.Services.Rework;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
@@ -9,6 +10,7 @@ using AgentSmith.Contracts.Webhooks;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
+using AgentSmith.Tests.TestSupport;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 
@@ -26,10 +28,11 @@ public sealed class AttemptCauseReaderTests
 
     private readonly Mock<ITicketProvider> _provider = new();
     private readonly PipelineContext _pipeline = new();
+    private readonly InMemorySpecApprovalStore _approvals = new();
 
     private AttemptCauseReader Reader() => new(
         new TrackerIdentity(Mock.Of<ITicketProviderFactory>(), NullLogger<TrackerIdentity>.Instance),
-        NullLogger<AttemptCauseReader>.Instance);
+        ApprovedSetDoubles.Resolver(_approvals), NullLogger<AttemptCauseReader>.Instance);
 
     private FetchTicketContext Context(IReadOnlyList<string>? statuses = null) =>
         new(new TicketId("42"), new TrackerConnection { Name = "gh", Type = TrackerType.GitHub }, _pipeline,
@@ -193,5 +196,23 @@ public sealed class AttemptCauseReaderTests
             .ThrowsAsync(new HttpRequestException("history unavailable"));
 
         (await ReadAsync(["Ready"])).Should().Be(new AttemptCause(AttemptChannels.Pickup));
+    }
+
+    /// <summary>2026-10-13-9a59m: FetchTicket runs before the run resolved its approval; the operator arm resolves
+    /// the stored record itself, ranks first, and publishes the winner the later steps read.</summary>
+    [Fact]
+    public async Task AttemptCause_AtFetchTicket_ResolvesApprovalItself_CauseOperator()
+    {
+        PreviousAttempt();
+        KeywordComment(40);
+        _pipeline.Set(ContextKeys.Ticket, new Ticket(new TicketId("42"), "t", "d", null, "Failed", "github"));
+        _pipeline.Set(ContextKeys.TrackerConnection, "gh");
+        await _approvals.SaveAsync(Operator.OperatorActTests.Record(Start.AddMinutes(30)), default);
+
+        var cause = await ReadAsync();
+
+        cause.Should().BeEquivalentTo(new AttemptCause(AttemptChannels.Operator, "owner", Start.AddMinutes(30),
+            new AttemptSource(AttemptSourceKinds.Conversation, Id: "s-1")), "the approval ranks above a later keyword comment");
+        _pipeline.Has(ContextKeys.ApprovedSpecSet).Should().BeTrue("the resolver published the winner for ScopeRepos and DeriveSpec");
     }
 }

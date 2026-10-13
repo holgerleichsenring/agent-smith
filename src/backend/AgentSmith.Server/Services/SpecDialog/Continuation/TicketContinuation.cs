@@ -23,9 +23,10 @@ public static class TicketContinuation
         var (drafts, error) = Drafts(proposal);
         if (error is not null) return Plain(Refused, $"The proposal cannot be recorded: {error}.", state);
         if (state.ClosedForWork) return FollowUp(state, drafts);
-        return state.Worked
+        var decision = state.Worked
             ? SeriesContinuationIds.Continue(state, drafts, proposal is EpicOutcome)
             : NeverWorked(state, drafts);
+        return decision with { Start = OperatorStartArm.Of(state.Start, decision.Effect) }; // 2026-10-13-9a59m
     }
 
     private static (IReadOnlyList<SpecDraft> Drafts, string? Error) Drafts(OutcomeProposal proposal) => proposal switch

@@ -14,4 +14,7 @@ public static class AttemptSourceKinds
 
     /// <summary>A person's move of the ticket into a trigger status.</summary>
     public const string Status = "status";
+
+    /// <summary>2026-10-13-9a59m: an approval in a design conversation; the id is the session.</summary>
+    public const string Conversation = "conversation";
 }

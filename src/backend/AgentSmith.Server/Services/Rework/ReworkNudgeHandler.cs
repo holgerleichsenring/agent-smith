@@ -14,7 +14,7 @@ namespace AgentSmith.Server.Services.Rework;
 /// queued code run will end and check again; an unfinished attempt is waited for. Only then are
 /// the host's acts read, and only a trusted act after the cutoff — and after an operator's stop —
 /// goes through the rework entry, whose answer is said once on the act's channel.
-/// <para>A run waiting on a hand-back (no checkpoint) is answered by a pull-request act: the entry closes
+/// <para>A run waiting on a hand-back (no checkpoint) is answered by a pull-request act or an operator approval: the entry closes
 /// it and starts the rework. A checkpointed question keeps waiting for its answer.</para>
 /// </summary>
 public sealed class ReworkNudgeHandler(
@@ -58,14 +58,15 @@ public sealed class ReworkNudgeHandler(
     }
 
     // A hand-back parks waiting_for_input without a checkpoint; a question the ask gate checkpointed
-    // keeps its own path back. Only a pull-request act answers the hand-back.
+    // keeps its own path back. A pull-request act or an approval in the ticket's conversation answers
+    // the hand-back (2026-10-13-9a59m) — read apart from keyword comments, so a later one hides neither.
     private async Task<PendingReworkAct?> HandbackActAsync(
         ResolvedProject project, ClaimedReworkNudge nudge, PreviousAttempt attempt, CancellationToken ct)
     {
         if (attempt.Status != RunStatuses.WaitingForInput || await checkpoints.GetByRunIdAsync(attempt.RunId, ct) is not null)
             return null;
-        var act = await pending.NewestAsync(project, nudge.TicketId, attempt, ct);
-        return act?.Repo is not null && !await withheld.SaysAsync(project, nudge.TicketId, act, attempt, ct) ? act : null;
+        var act = await pending.NewestHandbackAnswerAsync(project, nudge.TicketId, attempt, ct);
+        return act is not null && !await withheld.SaysAsync(project, nudge.TicketId, act, attempt, ct) ? act : null;
     }
 
     private async Task<ReworkNudgeDisposition> EnterAsync(

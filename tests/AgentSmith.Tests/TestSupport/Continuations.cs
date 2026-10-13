@@ -30,9 +30,13 @@ internal static class Continuations
         var reader = new TicketContinuationStateReader(config, new FiledWorkTrackerProjects(config), trackers,
             new TicketClosure(new TrackerIdentity(trackers, NullLogger<TrackerIdentity>.Instance), NullLogger<TicketClosure>.Instance),
             new TicketRunsQuery(scopes), new TicketAttempts(), new TicketSeriesRecordsReader(scopes),
-            new InMemorySpecSetPointerStore(), ApprovedSetDoubles.Recorder(), NullLogger<TicketContinuationStateReader>.Instance);
+            new InMemorySpecSetPointerStore(), ApprovedSetDoubles.Recorder(),
+            new OperatorStartArm(Mock.Of<IActiveRunLease>(), Mock.Of<IPreviousAttemptReader>(), Mock.Of<IRunCheckpointStore>()),
+            NullLogger<TicketContinuationStateReader>.Instance);
         return new TicketContinuationAct(config, new SpecDialogTicketTextRepository(Mock.Of<IUnitOfWork>()), reader,
             Amendments.Unused(), new ClosedTicketFollowUp(filer, new FollowUpLink(trackers, NullLogger<FollowUpLink>.Instance)),
-            ApprovedSetDoubles.Recorder(), Mock.Of<ITicketActivityNudge>(), NullLogger<TicketContinuationAct>.Instance);
+            ApprovedSetDoubles.Recorder(), Mock.Of<ITicketActivityNudge>(),
+            new OperatorStart(Mock.Of<IReworkNudges>(), trackers, FiledWorkDoubles.Move(), NullLogger<OperatorStart>.Instance),
+            NullLogger<TicketContinuationAct>.Instance);
     }
 }

@@ -21,7 +21,8 @@ public sealed class SpecDialogResumer(
     /// 2026-09-15-9033: a session is resumed by its OWNER or by nobody. The lookup is by
     /// session id alone, and the resume rewrites where the session lives, so without the
     /// check a /spec resume typed in any chat thread takes a session from whoever opened it.
-    /// An unowned session answers "not found", the reply for an id that never existed.
+    /// An unowned session answers "not found", the reply for an id that never existed. 2026-10-13-9a59m: a
+    /// TICKET-BOUND session is the ticket's — anyone who may write dialogs resumes it (SpecDialogOwnership.MayReach).
     /// <para>
     /// A session mid-turn is not moved. The running turn holds the old thread: its reply
     /// would find no open session and never be stored, and its approval would be accepted in
@@ -34,7 +35,7 @@ public sealed class SpecDialogResumer(
         CancellationToken ct)
     {
         var session = await repository.GetBySessionIdAsync(sessionId, ct);
-        if (session is null || !string.Equals(session.UserId, userId, StringComparison.Ordinal))
+        if (session is null || !SpecDialogOwnership.MayReach(session, userId))
             return new SpecDialogResumeNotFound();
         if (pendingQuestions.TryPeek(sessionId, out _))
             return new SpecDialogResumeRefused(sessionId, QuestionPending: true);

@@ -14,11 +14,13 @@ namespace AgentSmith.Server.Services.SpecDialog.Continuation;
 /// for a ticket that is still open: the decision is read once, and its effect applied — a continuation
 /// recorded under the ticket for its next attempt, a never-worked ticket's series recorded whole, or a
 /// follow-up filed for a ticket a person closed. A refusal records nothing and keeps the proposal.
+/// <para>2026-10-13-9a59m: the decision's start arm then starts the attempt (<see cref="OperatorStart"/>); a
+/// question that waits refuses the approval like a refusal does, so it can be approved once answered.</para>
 /// </summary>
 public sealed class TicketContinuationAct(
     AgentSmithConfig config, SpecDialogTicketTextRepository ticketText, TicketContinuationStateReader reader,
     TicketAmendment amendment, ClosedTicketFollowUp followUp, ApprovedSpecSetRecorder approvals,
-    ITicketActivityNudge activity, ILogger<TicketContinuationAct> logger)
+    ITicketActivityNudge activity, OperatorStart starter, ILogger<TicketContinuationAct> logger)
 {
     public async Task<TicketContinuationOutcome> ApplyAsync(
         ConversationState state, OutcomeProposal proposal, bool mayStartRuns, CancellationToken ct)
@@ -28,17 +30,22 @@ public sealed class TicketContinuationAct(
         if (await ticketText.GetAsync(state.JobId, ct) is not { TicketId: { Length: > 0 } ticketId })
             return new("This conversation never recorded which ticket it belongs to, so the approval has no "
                 + "ticket to continue. Nothing was recorded.", false);
-        var read = await reader.ReadAsync(name, ticketId, ct);
+        var read = await reader.ReadAsync(name, ticketId, mayStartRuns, ct);
         if (read.State is not { } current) return new(read.Failure!, false);
         var decision = TicketContinuation.Decide(current, proposal);
         logger.LogInformation("Approval in conversation {Session} on ticket {Ticket}: {Effect}", state.JobId, ticketId, decision.Effect);
         switch (decision.Effect)
         {
             case AmendNeverWorked:
-                var amended = await amendment.ApplyAsync(state, proposal, ct);
-                return new(amended.Notice, amended.Recorded);
+                var amended = await amendment.ApplyAsync(state, proposal, ct,
+                    decision.Start?.StartsAttempt == true ? new SeriesContinuation([], null, StartsAttempt: true) : null);
+                return amended.Recorded && decision.Start is { } first
+                    ? new($"{amended.Notice} {await starter.StartAsync(config.Projects[name], ticketId, decision.Effect, first, ct)}", true)
+                    : new(amended.Notice, amended.Recorded);
             case FollowUpClosed:
                 return await followUp.FileAsync(state, proposal, decision, config.Projects[name], ticketId, mayStartRuns, ct);
+            case Continue when decision.Start is { Kind: TicketStartArms.QuestionPending } waiting:
+                return new(OperatorStartArm.Say(waiting), false);
             case Continue:
                 return await ContinueAsync(state, proposal, decision, current, config.Projects[name], ticketId, ct);
             default:
@@ -63,7 +70,8 @@ public sealed class TicketContinuationAct(
             return new($"The approval of ticket {ticketId} was not recorded: {ex.Message}. Approve again.", false);
         }
         await activity.ChangedAsync(project.Name, TicketKey.For(project.Tracker.Type.ToString().ToLowerInvariant(), ticketId).Value, ct);
-        return new($"{decision.Reason} {Summary(decision)}", true);
+        var started = decision.Start is { } start ? $" {await starter.StartAsync(project, ticketId, decision.Effect, start, ct)}" : string.Empty;
+        return new($"{decision.Reason} {Summary(decision)}{started}", true);
     }
 
     private static string Summary(TicketContinuationDecision decision) => string.Join(" ",

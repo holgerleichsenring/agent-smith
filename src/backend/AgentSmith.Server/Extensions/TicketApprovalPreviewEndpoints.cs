@@ -18,10 +18,10 @@ internal static class TicketApprovalPreviewEndpoints
 
     // Internal so the endpoint tests drive the real reader without a host.
     internal static async Task<IResult> PreviewAsync(
-        string project, string ticketId, TicketApprovalPreview preview, CancellationToken cancellationToken)
+        string project, string ticketId, HttpContext ctx, TicketApprovalPreview preview, CancellationToken cancellationToken)
     {
-        var read = await preview.ReadAsync(
-            TicketQueryEndpoints.Decoded(project), TicketQueryEndpoints.Decoded(ticketId), cancellationToken);
+        var read = await preview.ReadAsync(TicketQueryEndpoints.Decoded(project), TicketQueryEndpoints.Decoded(ticketId),
+            SpecDialogEndpoints.MayStartRuns(ctx), cancellationToken);
         if (read is null) return Results.NotFound();
         return read.View is { } view
             ? Results.Ok(view)

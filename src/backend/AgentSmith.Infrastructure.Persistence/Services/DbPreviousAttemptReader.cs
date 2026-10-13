@@ -33,6 +33,9 @@ public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory) :
         {
             PullRequestUrls = await OpenedPullRequestsAsync(uow, project, ticketId, cancellationToken),
             ActsReadAt = run.ActsReadAt,
+            // 2026-10-13-9a59m: the approval this attempt published as worked (its RunAttempt row).
+            WorkedApprovalAt = await uow.Set<RunAttempt>().AsNoTracking().Where(a => a.RunId == run.Id)
+                .Select(a => a.ApprovalAt).FirstOrDefaultAsync(cancellationToken),
         };
     }
 

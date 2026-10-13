@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-13-9a59m: "OPERATOR CHANNEL (rework worker, attempt cause, ticket continuation, filed-work move, dialog resume). Approving in a ticket's conversation starts its next attempt, waits for a live run, answers a hand-back or asks for a pending answer first; the attempt's cause is operator. -> .agentsmith/specs/done/2026-10-13-9a59m-operator-channel.yaml"
     2026-10-13-9a59l: "SERIES CONTINUATION (spec dialog approval, run spec source, approval preview). Approving in a ticket's own conversation continues its series by spec id, records a never-worked ticket's series on every tracker, files a linked follow-up for a person-closed one; Amend this ticket retired. -> .agentsmith/specs/done/2026-10-13-9a59l-series-continuation.yaml"
     2026-10-13-9a59k: "TICKET CLOSED CATEGORY (tracker mappers, Azure DevOps state categories, status histories, ticket closure). A fetched ticket says whether its tracker counts it closed; TicketClosure says a person closed it for work, not a status agent-smith sets; TicketParkStatuses is the one park-status resolver. -> .agentsmith/specs/done/2026-10-13-9a59k-ticket-closed-category.yaml"
     2026-10-13-9a59j: "RUN SEGMENTS (run projections, persistence, run read). Every launch of a run is a segment row with its start, end and end status; /api/runs/{runId}/compute serves segments with model time, the calls no segment holds, and each park's asked/answered/resumed times. -> .agentsmith/specs/done/2026-10-13-9a59j-run-segments.yaml"

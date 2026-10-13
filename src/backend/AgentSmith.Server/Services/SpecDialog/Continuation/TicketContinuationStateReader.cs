@@ -20,9 +20,11 @@ namespace AgentSmith.Server.Services.SpecDialog.Continuation;
 public sealed class TicketContinuationStateReader(
     AgentSmithConfig config, FiledWorkTrackerProjects trackerProjects, ITicketProviderFactory trackers,
     TicketClosure closure, TicketRunsQuery runs, TicketAttempts attempts, TicketSeriesRecordsReader seriesRecords,
-    ISpecSetPointerStore pointers, ApprovedSpecSetRecorder approvals, ILogger<TicketContinuationStateReader> logger)
+    ISpecSetPointerStore pointers, ApprovedSpecSetRecorder approvals, OperatorStartArm startArm,
+    ILogger<TicketContinuationStateReader> logger)
 {
-    public async Task<TicketContinuationRead> ReadAsync(string projectName, string ticketId, CancellationToken ct)
+    /// <param name="mayStartRuns">2026-10-13-9a59m: whether the approver holds runs.control — the start arm's input.</param>
+    public async Task<TicketContinuationRead> ReadAsync(string projectName, string ticketId, bool mayStartRuns, CancellationToken ct)
     {
         if (!config.Projects.TryGetValue(projectName, out var project))
             return TicketContinuationRead.Failed($"Project '{projectName}' is no longer in the configuration catalog.");
@@ -59,7 +61,8 @@ public sealed class TicketContinuationStateReader(
         var scope = new ContinuationBasis(
             pointer is not null ? [.. pointer.ShaByRepo.Keys] : record?.Repositories ?? [],
             NonEmpty(pointer?.CarryingRepo) ?? NonEmpty(record?.CarryingRepo));
-        return new(new TicketContinuationState(ticketId, closed, basisRun?.Run.Id, series, basis, executed, scope, record), null);
+        var start = await startArm.ReadAsync(projectName, ticketId, mayStartRuns, ct);
+        return new(new TicketContinuationState(ticketId, closed, basisRun?.Run.Id, series, basis, executed, scope, record, start), null);
     }
 
     private static string? NonEmpty(string? value) => string.IsNullOrWhiteSpace(value) ? null : value;

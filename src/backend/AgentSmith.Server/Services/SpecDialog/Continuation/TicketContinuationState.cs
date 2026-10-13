@@ -12,6 +12,7 @@ namespace AgentSmith.Server.Services.SpecDialog.Continuation;
 /// <param name="Series">The series' base id, or null when nothing named one yet.</param>
 /// <param name="Basis">The latest published cut with specs, else the approval record's set.</param>
 /// <param name="ExecutedIds">The specs the pointer names as executed.</param>
+/// <param name="Start">2026-10-13-9a59m: what the start arm is decided over; null where nothing read it.</param>
 public sealed record TicketContinuationState(
     string TicketId,
     bool ClosedForWork,
@@ -20,7 +21,8 @@ public sealed record TicketContinuationState(
     IReadOnlyList<BasisSpec> Basis,
     IReadOnlyList<string> ExecutedIds,
     ContinuationBasis Scope,
-    SpecApprovalRecord? Record)
+    SpecApprovalRecord? Record,
+    TicketStartInputs? Start = null)
 {
     public bool Worked => BasisRunId is not null;
 }

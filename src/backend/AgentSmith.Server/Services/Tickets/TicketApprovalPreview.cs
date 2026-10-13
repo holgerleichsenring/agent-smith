@@ -14,16 +14,17 @@ namespace AgentSmith.Server.Services.Tickets;
 public sealed class TicketApprovalPreview(
     TicketProjects projects, TicketTranscriptReader transcript, TicketContinuationStateReader reader)
 {
-    public async Task<TicketApprovalPreviewRead?> ReadAsync(string project, string ticketId, CancellationToken ct)
+    /// <param name="mayStartRuns">2026-10-13-9a59m: whether the caller holds runs.control — the start arm differs.</param>
+    public async Task<TicketApprovalPreviewRead?> ReadAsync(string project, string ticketId, bool mayStartRuns, CancellationToken ct)
     {
         if (projects.Of(project) is not { } resolved) return null;
         if (await transcript.SessionAsync(resolved, ticketId, ct) is not { LatestProposalJson: { } json }) return null;
         if (Proposal(json) is not { } proposal) return null;
-        var read = await reader.ReadAsync(project, ticketId, ct);
+        var read = await reader.ReadAsync(project, ticketId, mayStartRuns, ct);
         if (read.State is not { } state) return new(null, read.Failure);
         var decision = TicketContinuation.Decide(state, proposal);
         return new(new TicketApprovalPreviewView(project, ticketId, decision.Effect, decision.Reason,
-            decision.Executed, decision.Unstarted, decision.BasisRunId, decision.Specs), null);
+            decision.Executed, decision.Unstarted, decision.BasisRunId, decision.Specs, decision.Start), null);
     }
 
     // An unreadable stored proposal is no proposal to preview, as the conversation read shows it absent.

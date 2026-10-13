@@ -19,10 +19,13 @@ internal static class TicketContinuationRegistrations
         services.TryAddTransient<TicketSeriesRecordsReader>();
         services.TryAddTransient<TicketProjects>();
         services.TryAddTransient<Tickets.Conversation.TicketTranscriptReader>();
+        services.TryAddScoped<FiledWorkTagger>();
+        services.TryAddScoped<FiledWorkMove>();
         return services.AddScoped<TicketContinuationStateReader>()
             .AddScoped<TicketApprovalPreview>()
             .AddScoped<TicketContinuationAct>()
             .AddScoped<ClosedTicketFollowUp>()
-            .AddScoped<FollowUpLink>();
+            .AddScoped<FollowUpLink>()
+            .AddScoped<OperatorStartArm>().AddScoped<OperatorStart>(); // 2026-10-13-9a59m
     }
 }
