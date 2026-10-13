@@ -14,7 +14,8 @@ namespace AgentSmith.Server.Services.Sweep;
 /// every repository its projects declare, once per cycle across entries. A changed ticket with a code
 /// run is nudged for its project; a changed pull request from an agent-smith branch of the same
 /// repository is nudged when exactly one configured project of that repository ran the ticket.
-/// Nudges are origin Sweep: the worker serves acts only.
+/// Nudges are origin Sweep: the worker serves acts only. A RefreshOnly item — an approval, a vote
+/// change — is a Refresh nudge, which only reads the pull request's record again.
 /// </summary>
 public sealed class ChangeSweepSources(
     ITicketProviderFactory tickets,
@@ -58,7 +59,8 @@ public sealed class ChangeSweepSources(
         foreach (var owner in repoFinder.FindAll(config, repo.Url!))
             if (await attempts.LatestAsync(owner.ProjectName, ticket, null, ct) is not null) owners.Add(owner.ProjectName);
         if (owners.Count == 1)
-            await nudges.EnqueueAsync(new ReworkNudgeRequest(owners[0], ticket, ReworkNudgeOrigin.Sweep, item.PrUrl), ct);
+            await nudges.EnqueueAsync(new ReworkNudgeRequest(owners[0], ticket,
+                item.RefreshOnly ? ReworkNudgeOrigin.Refresh : ReworkNudgeOrigin.Sweep, item.PrUrl), ct);
     }
 
     // A cursor key fits an indexed column; a long repository URL is named by its hash.

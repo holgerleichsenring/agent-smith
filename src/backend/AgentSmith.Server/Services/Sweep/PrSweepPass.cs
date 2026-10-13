@@ -15,8 +15,9 @@ namespace AgentSmith.Server.Services.Sweep;
 /// admission. Each start follows a compare-and-set that won. 2026-10-13-0b82a: opening a pull request
 /// or pushing to it starts no review — a review starts on a person's command, which the comments carry.
 /// A complete list prunes the rows of pull requests no longer open; a list the budget cut prunes nothing.
+/// The repository's pull-request records are compared with the list for merges, closes and reopens.
 /// </summary>
-public sealed class PrSweepPass(PrSweepStore store, PrSweepActions actions, PrTriggerLabelResolver labels)
+public sealed class PrSweepPass(PrSweepStore store, PrSweepActions actions, PrTriggerLabelResolver labels, PrSweepRecordNudge records)
 {
     public async Task<string?> RunAsync(SweepTarget target, IOpenPullRequestLister lister, string? resume,
         TimeSpan interval, DateTimeOffset now, int turn, CancellationToken ct)
@@ -31,6 +32,7 @@ public sealed class PrSweepPass(PrSweepStore store, PrSweepActions actions, PrTr
             else await ActAsync(target, key, pr, states, ct);
         if (fresh) await new PrSweepComments(store, actions).RunAsync(target, key, page.Items, lister, turn, ct);
         if (!page.Cut) await store.PruneAsync(key, [.. page.Items.Select(p => p.Number)], ct);
+        await records.RunAsync(target, key, page, resume, ct);
         await store.MarkSweptAsync(key, fresh || !page.Cut, now, ct);
         return page.Resume;
     }

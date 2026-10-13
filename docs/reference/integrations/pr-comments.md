@@ -61,6 +61,8 @@ On GitHub, subscribe to:
 | `pull_request_review_comment` | `created` | Inline code comment on a PR |
 | `pull_request` | `labeled` | Security scan on the review label |
 | `pull_request_review` | `submitted` | **Pull request reviews**: Request changes on an agent-smith PR starts a rework |
+| `pull_request_review` | `submitted`, `edited`, `dismissed` | Any other review (approval, comment review, dismissal) keeps the PR's record current |
+| `pull_request` | `closed`, `reopened` | A merge, close or reopen keeps the PR's record current |
 
 ## What a command starts
 
@@ -81,6 +83,18 @@ On GitLab (19.3 or later), **Request changes** on an agent-smith merge request s
 A comment counts as agent-smith's own only when it carries the agent-smith marker **and** was written by the account behind the repository's token, on every host; a pasted marker is a stranger's comment, never collected as ours and never deleted when a review is re-posted.
 
 On Azure DevOps, add a **Pull request updated** subscription filtered to **Reviewer vote changed** (`ReviewerVoteNotification`) with the HTTP header `X-AgentSmith-Change: review-vote` and the same Basic credentials. A **Pull request created** or **Source branch updated** subscription is no longer needed: neither starts anything.
+
+## The pull request's record
+
+agent-smith keeps a record of every pull request a ticket's runs opened: its state, the reviewers' standing decisions and the comments. Besides a run's end and a look at the ticket, these deliveries ask for the record to be read again. None of them starts, refuses or announces anything; a Request changes still starts a rework exactly as above.
+
+| Host | Delivery | Subscribe to |
+|------|----------|--------------|
+| GitHub | every review (approved, commented, edited, dismissed), every comment — a top-level comment, a review comment with its file and line — and a pull request closed (merged or not) or reopened | **Pull request reviews**, **Issue comments**, **Pull request review comments**, **Pull requests** |
+| GitLab | a reviewer's update, every comment, and a merge request closed, merged, reopened, approved or unapproved | **Merge request events**, **Comments** |
+| Azure DevOps | every vote (an approval, a reset to 0 that withdraws a decision), every comment, a pull request completed or abandoned, a merge attempted | the reviewer-vote **Pull request updated** subscription above, **Pull request commented on**, a second **Pull request updated** subscription filtered to **Status changed** (no header), and **Pull request merge attempted** |
+
+Our own notes never refresh anything. A delivery arriving while the ticket's nudge is backing off is read at once; a reopen that coincides with another pull request's delivery is caught by the next read of the ticket's recently closed records, which runs for a day after a pull request ends. In polling mode the same changes are found by the sweeps; see [polling](../../trigger-it/polling.md#polling-vs-webhooks) for when.
 
 ## How it works
 

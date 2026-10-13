@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-9a59c
+
+decisions:
+  - category: Architecture
+    chose: "One PrRecordNudge (Server/Services/Webhooks, singleton) behind every new trigger: head path through IPrTicketOwner, head-less fallback through PrReviewRecordRepository.ByPrKeyAsync(PrKey.Of(url)) in its own scope, always a Refresh-origin nudge"
+    over: "Each handler enqueueing its own nudge, or a head read from the host for a head-less comment"
+    reason: |
+      Every trigger the spec adds is no act, so one class owns the Refresh shape and the FromDelivery flag. A
+      GitHub top-level comment carries no head; its ticket comes from the record the URL keys, never a host call.
+  - category: Implementation
+    chose: "DEVIATION: a review delivery whose act the admission did not admit refreshes the record on all three hosts — GitHub's refused Request changes (the PR author's own, a fork) and GitLab's author-only request too, not only Azure DevOps' non -5 votes"
+    over: "Refreshing only the deliveries that are not change requests at all (spec scope.in names 'every other review delivery' for GitHub and GitLab)"
+    reason: |
+      The spec states the rule for Azure DevOps as 'every vote delivery not admitted as a -5 act'; applying the
+      same rule on every host keeps one shape (admission first, refresh when not handled) and the record still
+      changed. A refresh starts nothing, so the extra deliveries are harmless. GitHubPrReviewWebhookHandler.cs,
+      GitLabMrReviewWebhookHandler.cs, AzureDevOpsPrReviewVoteWebhookHandler.cs.
+  - category: Implementation
+    chose: "PrCommentCommand.FromSweep (init), set by PrSweepActions; the admission passes FromDelivery = !FromSweep to the record nudge"
+    over: "Inferring a sweep from a non-null allowedProjects"
+    reason: |
+      A webhook comment's refresh must pull a backing-off nudge forward and a sweep's must not
+      (ReworkNudgeWriter.cs:44-46); an explicit flag says which instead of reading it off an unrelated parameter.
+  - category: Implementation
+    chose: "The record nudge logs and swallows a failure (no record store, a database error) and returns false"
+    over: "Letting the exception reach the comment admission"
+    reason: |
+      The refresh runs BEFORE the command match; a failing record lookup must never keep a person's command from
+      its admission.
+  - category: Implementation
+    chose: "PrSweepRecordNudge is built with ActivatorUtilities from PrSweep's scope, not registered in DI"
+    over: "A scoped registration in AddWebhookHandlers"
+    reason: |
+      PrSweepPass itself is built in PrSweep.cs from the scope's PrSweepStore; the record nudge is built the same
+      way beside it, from the scope's PrReviewRecordRepository and IReworkNudges, so the persistence-only test
+      stores that drive PrSweep need no server registration.
+  - category: Implementation
+    chose: "The record sweep nudges only records of the target's polling projects (SweepTarget.Allowed)"
+    over: "Every record of the repository key"
+    reason: "The PR sweep's routes are limited to the polling projects that declare the repository (PrSweep.cs Targets); the record sweep follows the same boundary."
+  - category: Implementation
+    chose: "AzureDevOpsPrStateWebhookHandler answers NotHandled for a header-marked vote delivery; GitLabReviewDelivery.IsReviewersOnlyUpdate = update, no oldrev, no change but the reviewers; IsReviewSubmission = that plus a requester"
+    over: "Two handlers both taking one vote delivery; a second copy of the update predicate"
+    reason: "The vote handler owns the vote subscription; the GitLab predicate is one rule with the requester as the only difference, as the spec's fact on GitLabReviewDelivery requires."
+  - category: Implementation
+    chose: "Azure DevOps refresh Dedupe 'refresh|{id}|{reviewer:vote,…}' over non-creator reviewers sorted ordinally; the act item keeps its original voter ordering and Dedupe"
+    over: "Re-sorting the act voters with the refresh comparer"
+    reason: "The act Dedupe must stay byte-identical so a sweep restart or upgrade never re-nudges a standing -5 act."

@@ -5,9 +5,11 @@ using Octokit;
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
 
 /// <summary>
-/// 2026-10-08-9e6e: a GitHub repository's open pull requests whose latest review by someone is
-/// CHANGES_REQUESTED after the cursor — read from latestReviews, so a body-only review counts
-/// without depending on the PR's updated time. Paged by endCursor within the budget; a cut read
+/// 2026-10-08-9e6e: a GitHub repository's open pull requests whose latest review by someone was
+/// submitted after the cursor — read from latestReviews, so a body-only review counts without
+/// depending on the PR's updated time. An item is an act when such a review is CHANGES_REQUESTED,
+/// otherwise RefreshOnly (an approval or a comment review only changes the record). A dismissal keeps
+/// its review's submittedAt, so it is not listed. Paged by endCursor within the budget; a cut read
 /// resumes at the page it stopped. A reply carrying an errors array throws.
 /// </summary>
 public sealed class GitHubChangedPullRequests(IGitHubClient client, string owner, string repo)
@@ -38,12 +40,14 @@ public sealed class GitHubChangedPullRequests(IGitHubClient client, string owner
 
     private static ChangedItem? Item(JsonElement pr, DateTimeOffset since)
     {
-        var newest = pr.GetProperty("latestReviews").GetProperty("nodes").EnumerateArray()
-            .Where(r => r.GetProperty("state").GetString() == "CHANGES_REQUESTED" && r.TryGetProperty("submittedAt", out var s) && s.ValueKind == JsonValueKind.String)
-            .Select(r => DateTimeOffset.Parse(r.GetProperty("submittedAt").GetString()!)).DefaultIfEmpty(DateTimeOffset.MinValue).Max();
-        return newest > since
-            ? new ChangedItem(newest, PrUrl: pr.GetProperty("url").GetString(), HeadRef: pr.GetProperty("headRefName").GetString(),
-                SameRepository: !pr.GetProperty("isCrossRepository").GetBoolean())
+        var reviews = pr.GetProperty("latestReviews").GetProperty("nodes").EnumerateArray()
+            .Where(r => r.TryGetProperty("submittedAt", out var s) && s.ValueKind == JsonValueKind.String)
+            .Select(r => (State: r.GetProperty("state").GetString(), At: DateTimeOffset.Parse(r.GetProperty("submittedAt").GetString()!)))
+            .Where(r => r.At > since).ToList();
+        return reviews.Count > 0
+            ? new ChangedItem(reviews.Max(r => r.At), PrUrl: pr.GetProperty("url").GetString(), HeadRef: pr.GetProperty("headRefName").GetString(),
+                SameRepository: !pr.GetProperty("isCrossRepository").GetBoolean(),
+                RefreshOnly: reviews.All(r => r.State != "CHANGES_REQUESTED"))
             : null;
     }
 }

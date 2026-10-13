@@ -52,8 +52,16 @@ Both modes start the same work; webhooks only start it sooner.
 | Tracker API calls | One request per ticket event | Per interval: the poller's two ticket lists, the change sweep's changed-ticket read (one page usually) and one read of open pull requests per repository |
 | Rework acts (keyword comments, Request changes, Wait for author) | Delivered as they happen | Found by the change sweep from a persisted cursor; served by the same rework worker |
 | Pull-request events (the review label, `/agent-smith` comments) | Delivered as they happen | The PR sweep lists each repository's open pull requests every interval and starts each once per label added or comment; opening or pushing starts nothing; a repository is recorded first, so switching to polling replays nothing. Azure DevOps has no label scan in either mode |
+| The pull request's record (reviews, votes, comments, merges, closes, reopens) | Delivered as they happen ([which deliveries](../reference/integrations/pr-comments.md#the-pull-requests-record)) | See below |
 | Secret to verify | Yes (HMAC or basic auth) | Auth token only |
 | Survives orchestrator restarts | Tracker retries until it gets 200 | Yes — the sweep's cursors are rows in the database and only move forward |
+
+In polling mode the record of a ticket's pull request is kept current by the same two sweeps, without further requests. One sweep cycle runs the change sweep under a deadline of half the interval, then the PR sweep, then waits a full interval, so a cycle takes the interval plus the work.
+
+- **Reviews and votes** within a sweep cycle — about one interval when every source fits its deadline; a list cut by its deadline resumes in the next cycle. GitHub lists a pull request whose latest review by someone is newer than the cursor; Azure DevOps lists every pull request with a reviewer, named by every vote, so a changed or reset vote is listed again (after a restart each is read once more). A GitHub dismissal keeps its review's time, so polling sees it only at the next read from another trigger.
+- **Comments** within one cycle on GitHub and GitLab; on Azure DevOps, which reads comments per pull request, within the rotation of ten pull requests a cycle.
+- **Merges, closes and reopens** when a complete open list is read — one not cut by the budget and not resumed from an earlier page. A pull request merged before any sweep listed it open is found too. A record the host can no longer read is asked for again each complete pass.
+- **A sweep outage** longer than two intervals re-records the repository: comments written in the gap are not replayed.
 
 GitHub allows 5,000 REST requests an hour per token. At a 60-second interval with ten GitHub repositories, polling spends about 2,600 of them (the change sweep, the worker's follow-up reads and the pull-request events — three calls a repository a cycle); raise the interval past ten repositories.
 

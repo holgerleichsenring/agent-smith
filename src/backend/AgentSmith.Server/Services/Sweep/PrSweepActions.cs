@@ -35,7 +35,7 @@ public sealed class PrSweepActions(
         admission.AdmitAsync(new PrCommentCommand(comment.Body, comment.Author, $"{target.Repo.Name}#{comment.PrNumber}",
                 $"pr:{target.Repo.Name}#{comment.PrNumber}", comment.PrNumber)
             {
-                HeadRef = pr.HeadBranch, SameRepository = pr.SameRepository, PrUrl = pr.Url,
+                HeadRef = pr.HeadBranch, SameRepository = pr.SameRepository, PrUrl = pr.Url, FromSweep = true,
             },
             services.GetRequiredKeyedService<IPrCommentAuthorTrust>(Kind(target.Repo)), ct, target.Allowed);
 

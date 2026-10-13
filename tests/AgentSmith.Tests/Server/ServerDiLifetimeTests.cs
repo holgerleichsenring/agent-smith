@@ -53,7 +53,7 @@ public sealed class ServerDiLifetimeTests
         provider.GetService<IPromptCatalog>().Should().NotBeNull("Server DI must register IPromptCatalog");
         provider.GetService<IDialogueTransport>().Should().NotBeNull("Server DI must register IDialogueTransport");
         provider.GetService<IPipelineConfigResolver>().Should().NotBeNull("Server DI must register IPipelineConfigResolver");
-        provider.GetServices<IWebhookHandler>().Should().HaveCount(17, "all 17 webhook handlers (13 ticket-event + 2 2026-10-08-e8b9c pr-review + 1 2026-10-08-f147 GitLab review + 1 2026-10-08-2123 Jira status) register from a single AddWebhookHandlers call; 2026-10-13-0b82a removed the 3 pr-event handlers");
+        provider.GetServices<IWebhookHandler>().Should().HaveCount(20, "all 20 webhook handlers (13 ticket-event + 2 2026-10-08-e8b9c pr-review + 1 2026-10-08-f147 GitLab review + 1 2026-10-08-2123 Jira status + 3 pull-request state) register from a single AddWebhookHandlers call; 2026-10-13-0b82a removed the 3 pr-event handlers");
     }
 
     // 2026-10-13-0b82a: opening or pushing to a pull request is a change, not an assignment —

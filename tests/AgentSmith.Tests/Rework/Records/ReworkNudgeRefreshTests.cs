@@ -187,4 +187,45 @@ public sealed class ReworkNudgeRefreshTests : IDisposable
         _h.Records().Select(r => r.Url).Should().Equal(Pr2);
         _h.Entries().Select(e => e.HostId).Should().Equal("C2");
     }
+
+    [Fact]
+    public async Task RefreshDuringHandledPullRequestNudge_HandlerRunsOnce()
+    {
+        await _h.RunAsync("run-1", Pr1);
+        _h.State(Pr1, PrReviewStates.Open);
+        var handled = 0;
+        _attempts.Setup(a => a.LatestAsync("p", "7", null, It.IsAny<CancellationToken>()))
+            .Returns(async () =>
+            {
+                // A merge delivery arrives while the act is being handled.
+                if (handled++ == 0)
+                    await Repo().EnqueueAsync(new ReworkNudgeRequest("p", "7", ReworkNudgeOrigin.Refresh, Pr1) { FromDelivery = true }, CancellationToken.None);
+                return new PreviousAttempt("run-1", "success", T, true);
+            });
+        await Enqueue(ReworkNudgeOrigin.PullRequest);
+
+        await Worker().DrainAsync(CancellationToken.None);
+        var afterAct = handled;
+        await Worker().DrainAsync(CancellationToken.None);
+
+        afterAct.Should().BeGreaterThan(0);
+        handled.Should().Be(afterAct, "the refresh merged during handling only refreshes the record");
+        Rows().Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task PrMergedDelivery_TicketNudgeInBackoff_RefreshesWithinOneDrain()
+    {
+        await _h.RunAsync("run-1", Pr1);
+        Attempt("success", finished: true);
+        await Enqueue(ReworkNudgeOrigin.Ticket);
+        var claimed = (await Repo().ClaimDueAsync(10, CancellationToken.None)).Single();
+        await Repo().RescheduleAsync(claimed, TimeSpan.FromMinutes(15), CancellationToken.None);
+        _h.State(Pr1, PrReviewStates.Merged);
+
+        await Repo().EnqueueAsync(new ReworkNudgeRequest("p", "7", ReworkNudgeOrigin.Refresh, Pr1) { FromDelivery = true }, CancellationToken.None);
+        await Worker().DrainAsync(CancellationToken.None);
+
+        _h.Records().Single().State.Should().Be(PrReviewStates.Merged, "a delivery's refresh is not held behind the ticket's backoff");
+    }
 }

@@ -24,4 +24,7 @@ public sealed record PrCommentCommand(
 
     /// <summary>The pull request's URL in the shape its provider parses — what a rework nudge names.</summary>
     public string? PrUrl { get; init; }
+
+    /// <summary>True when the PR sweep read the comment; false for a webhook delivery.</summary>
+    public bool FromSweep { get; init; }
 }

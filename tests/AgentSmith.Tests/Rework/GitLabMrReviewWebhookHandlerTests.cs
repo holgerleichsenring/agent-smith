@@ -37,6 +37,7 @@ public sealed class GitLabMrReviewWebhookHandlerTests
         attempts.Setup(a => a.LatestAsync("app", "12", null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new PreviousAttempt("run-1", "success", At.AddHours(-1), true));
         return new GitLabMrReviewWebhookHandler(PrReworkAdmissionTests.Admission(attempts.Object, _nudges.Object, config),
+            Webhooks.PrRecordNudges.Of(PrReworkAdmissionTests.Owner(attempts.Object, config), _nudges.Object),
             NullLogger<GitLabMrReviewWebhookHandler>.Instance);
     }
 
@@ -78,8 +79,14 @@ public sealed class GitLabMrReviewWebhookHandlerTests
         (await Handler().HandleAsync(Update("""{ "title": { "previous": "a", "current": "b" } }"""), NoHeaders)).Handled.Should().BeFalse();
 
     [Fact]
-    public async Task GitLabMrReview_NoRequestedChanges_NotHandled() =>
-        (await Handler().HandleAsync(Update(state: "approved"), NoHeaders)).Handled.Should().BeFalse();
+    public async Task GitLabMrReview_ReviewerApprovedUpdate_NudgesRefresh()
+    {
+        (await Handler().HandleAsync(Update(state: "approved"), NoHeaders)).Handled.Should().BeTrue();
+
+        VerifyNudged(Times.Never());
+        _nudges.Verify(n => n.EnqueueAsync(It.Is<ReworkNudgeRequest>(r => r.TicketId == "12" && r.PrUrl == MrUrl
+            && r.Origin == ReworkNudgeOrigin.Refresh && r.FromDelivery), It.IsAny<CancellationToken>()), Times.Once);
+    }
 
     [Fact]
     public async Task GitLabMrPush_WithStandingRequestedChanges_NotTaken()
