@@ -19,11 +19,15 @@ decisions:
 
 scope:
   in: >
-    SpecFormatRun records each failed run (repository, context, command, exit code, output tail of at most 20 lines)
-    under a context key, last spec's failures kept per (repository, context, command). The code PR body of that
-    repository gets a section 'Formatter did not run cleanly' naming the command, exit code and tail, and the lever:
-    correct 'format' in .agentsmith/contexts/<context>/context.yaml to the rewriting form the repository's own CI uses.
-  out: "Running a formatter at bootstrap time."
+    SpecFormatInvocation carries the declared format.Command. SpecFormatRun keeps each run's VerifyOutcome (the exception
+    message when the formatter cannot start) and records a failure as an IReadOnlyList entry (repository, context,
+    declared command, exit code, output tail capped at 800 characters, masked by SecretMasker) under a checkpointed
+    context key; failures accumulate over the run, a later failure under the same (repository, context, declared
+    command) replaces the earlier, a later success clears nothing. The code PR body of that repository names them
+    directly after the banner: what failed and its tail, then the fix when the command itself is wrong — correct
+    'format' in .agentsmith/contexts/<context>/context.yaml to the rewriting form the repository's CI uses. Recording and
+    the section live in their own small types.
+  out: "Running a formatter at bootstrap time; telling a wrong command from an unparseable file."
 
 steps:
   - id: record
@@ -33,6 +37,7 @@ tests:
   - "SpecFormatRun_Failure_IsRecordedWithItsOutput"
   - "CodePullRequestBody_FormatterFailure_NamesCommandAndLever"
   - "CodePullRequestBody_NoFailure_HasNoFormatterSection"
+  - "Harness_FormatFails_PullRequestNamesCommandAndLever"
 
 done:
   - "A harness run whose declared formatter exits non-zero opens a code PR naming the command, its output and the context.yaml lever; full suite green."
