@@ -137,6 +137,7 @@ scope:
     comment on a closed ticket — 2026-10-13-9a59t.
 
 decisions:
+  - key: "STATE PALETTE RATIFIED (operator, 2026-10-13): DESIGN.md gains its own state palette (proven green, working amber, stopped red, waits-for-a-person blue), separate from the single brand accent."
   - key: "ONE INBOX IS A LIST, NOT A COMPONENT COUNT — Needs you on tickets is the ticket inbox; a ticketless run is answered in the run viewer only, where RunAnswerLink points (brief decision 3)."
   - key: "THE RUNS HOME KEEPS / — moving it breaks /?bucket= bookmarks, the rail's isChosen and every posted link; the ticket list is a new place beside it."
   - key: "IDLE IS A SECTION: ENDED (review3 P3) — after b and h a cancelled run, a failed-but-unchecked one, a success without a PR and a ticket with no attempt are still idle; the mock is silent, so they get a sixth section and a rail entry rather than vanishing. Named Ended, not Stopped, and each dot drawn from lastOutcome, so a success is never painted in the stopped colour."

@@ -56,3 +56,7 @@ decisions:
     chose: "Mapper tests in the existing *FieldMapperTests, history tests in StatusHistoryTests, a fresh organization per AzureDevOpsStateCategoriesTests case, and a ServiceProvider test resolving TicketClosure from AddPipelineHandlers"
     over: "Only hand-built TicketClosure instances"
     reason: "The registration is part of the contract l, n and t call; a test that bypasses DI cannot prove it."
+  - category: Product
+    chose: "RATIFIED 2026-10-13 by the operator: closed for work means a person closed it; a status agent-smith set itself (done_status included) is not a close, so a review on the run's own PR still reworks it"
+    over: "Treating any status in the tracker's closed category as closed, which would turn every review on a done_status ticket into a follow-up"
+    reason: "Operator: 'lass es wie es gebaut ist … lass die person entscheiden'. Whoever wants the work finished closes the ticket; that close is what files a follow-up."
