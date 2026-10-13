@@ -1,20 +1,33 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-12-7bd7
-goal: "The agent-smith-skills CI fails when a skill or reference says phase for a spec; the workflow-step meaning stays allowlisted."
+goal: "The agent-smith-skills validator fails when a skill, reference or principles file says phase outside an allowlist of the workflow-step meaning, so the old noun cannot come back."
 
-applies_to: "the agent-smith-skills repository (CI)"
+applies_to: "the agent-smith-skills repository (validator, CI)"
 
 requires: [2026-10-12-967ag]
 
 facts:
   - claim: "967ag guards agent-smith only; its spec named the skills-repo check and left it out."
     evidence: ".agentsmith/specs/done/2026-10-12-967ag-naming-spec-guard.yaml"
-  - claim: "observed: after skills v5.13.0 the remaining phase lines in the skills repo are the workflow-step headings of api-security, security, legal-analyst and mad-discussion masters and references/phase-discipline.md."
-    evidence: "observed: 2026-10-12, agent-smith-skills origin/main after #217"
+  - claim: "observed: on agent-smith-skills origin/main 214245f, 26 lines under skills/, references/ and principles/ say phase, all in references/phase-discipline.md and the step headings of the api-security, security, legal-analyst and mad-discussion masters; CI runs scripts/validate-skills.sh in .github/workflows/validate.yml."
+    evidence: "observed: 2026-10-13, agent-smith-skills origin/main 214245f, git grep -i phase"
 
 scope:
-  in: "A check in the skills repo's validate script and CI with an allowlist of the step-meaning tokens per file; CHANGELOG excluded."
-  out: "Renaming the step headings of those masters."
+  in: >
+    A spec-word check in scripts/validate-skills.sh over skills/, references/ and principles/ (CHANGELOG excluded): every
+    line saying phase must match an allowlist file, scripts/phase-word-allowlist.tsv, listing each allowed file with the
+    count of phase-word lines it may hold and the reason (workflow-step meaning); a file gaining a line or an unlisted
+    file fails, a count that shrank must be lowered (the list only shrinks). A fixture proves red and green.
+  out: "Renaming the masters' step headings."
+
+steps:
+  - id: check
+    action: "check_spec_word in validate-skills.sh with the allowlist; negative fixture run in the script's self-test or CI."
+
+tests:
+  - "validate-skills.sh refuses a fixture skill saying 'the phase you were given'"
+  - "validate-skills.sh refuses an allowlisted file whose phase lines grew"
+  - "validate-skills.sh passes on main"
 
 done:
-  - "The skills CI is red on a fixture skill that says 'the phase you were given' and green on main."
+  - "The skills CI is red on the fixture and green on main; released; agent-smith pins the release."
