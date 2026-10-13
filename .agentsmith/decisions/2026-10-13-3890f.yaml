@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-3890f
+
+decisions:
+  - category: Design
+    chose: "State the capability in the coding master: a missing ecosystem tool is installed with run_command; the no-install line covers only the injected python3"
+    over: "Leaving the server-side challenge (3890a) as the only correction"
+    reason: |
+      The live master did what the text allowed it to read: 'network package installs will not work' and 'assume
+      nothing else beyond the declared toolchain' outweighed 'an install is normally cheaper'. The challenge catches
+      a surrender after the fact; the skill should not invite it.
+  - category: Tooling
+    chose: "Ship it as skills release v5.15.1 (PR #228, release PR #229) and move the embedded pin, tarball and doc examples to it"
+    over: "Pinning a branch or a pre-release"
+    reason: "The embedded catalog is a verified release tarball by design; the operator's own config pin stays theirs to move."
