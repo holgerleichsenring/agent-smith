@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-3890f
+goal: "The coding master's skill says a missing ecosystem tool is installed with run_command and narrows the 'network package installs will not work' line to the injected python3."
+
+applies_to: "skills (coding-agent-master) + backend skills pin"
+
+requires: []
+
+facts:
+  - claim: "The deployed skill advises installing ecosystem tools, then says network package installs will not work and to assume nothing beyond the declared toolchain."
+    evidence: "observed: 2026-10-13, agent-smith-skills v5.15.0 skills/_masters/coding-agent-master/SKILL.md lines 328-336 and 378-384"
+  - claim: "observed: the live master ran dotnet ef once, got 'not found' and declared migration tooling unavailable 19 s later without an install attempt."
+    evidence: "observed: 2026-10-13, operator run 6fd1 trail seq 1006 and 1009"
+
+assumptions: []
+
+scope:
+  in: >
+    In skills/_masters/coding-agent-master/SKILL.md (branch cut from the skills repo's origin/main): the python3 bullet
+    says 'standard library only — do not install into the injected python3; a project that needs Python packages
+    makes its own venv', not that network installs fail in general; the tooling paragraph states that a command
+    the repository's ecosystem ships as an installable tool (dotnet tool install/restore, npm dev dependency, pip into a
+    venv) and that is missing is installed with run_command before it is relied on, and that 'not on PATH' is never a
+    reason for not_applicable or blocked. The master's frontmatter version is bumped (CI's version-bump job requires it). Released through the skills
+    repository; then SkillsCatalogVersion and SkillsCatalogSha256 move to that release, the old embedded tarball is
+    replaced by the new one, and the config/agentsmith.example.yml pin comment follows. The operator's deployed config
+    pin is theirs to move.
+  out: "Any other skill."
+
+decisions:
+  - key: "STATE THE CAPABILITY. The master did what the text allowed it to read; the text says what it can do."
+
+steps:
+  - id: skill
+    action: "Edit the two passages, bump the master's version; skills PR with a conventional title."
+  - id: pin
+    action: "After the release: SkillsCatalogVersion, SkillsCatalogSha256, the embedded tarball and the example config comment."
+
+tests:
+  - "skills validator passes"
+
+done:
+  - "The released coding-agent-master tells the model to install a missing ecosystem tool, and the server's embedded pin names that release."
