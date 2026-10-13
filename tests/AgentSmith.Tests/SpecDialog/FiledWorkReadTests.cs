@@ -98,8 +98,7 @@ public sealed class FiledWorkReadTests : IDisposable
         var run = (await ReadAsync()).Tickets.Single().Runs.Single();
         var json = JsonSerializer.Serialize(run, new JsonSerializerOptions(JsonSerializerDefaults.Web));
 
-        json.Should().Contain("\"specs\":[{\"specId\":\"p1\"")
-            .And.NotContain("\"phases\"").And.NotContain("\"phaseId\"");
+        json.Should().Contain("\"specs\":[{\"specId\":\"p1\"").And.NotContain("\"phases\"");
     }
 
     /// <summary>
@@ -296,21 +295,6 @@ public sealed class FiledWorkReadTests : IDisposable
         review.Why.Should().BeNull();
         review.Findings.Single().Path.Should().Be("src/A.cs");
         review.Findings.Single().Why.Should().Be("the catch body logs nothing");
-    }
-
-    /// <summary>2026-10-12-967aa/967ab: a review the release before the rename stored under the old
-    /// kind reads exactly as one stored under <c>spec_review:</c>.</summary>
-    [Fact]
-    public async Task FiledWork_OldReviewArtifactKind_CarriesItsFindings()
-    {
-        await ReviewedAsync(
-            """{"reviewed":true,"findings":[{"repository":"api","path":"src/A.cs","line":4,"rule":"r","why":"w"}]}""",
-            RunSpecProjection.AcceptedReviewKindPrefix);
-
-        var review = (await ReadAsync()).Tickets.Single().Runs.Single().Specs.Single().Review;
-
-        review!.Reviewed.Should().BeTrue();
-        review.Findings.Single().Path.Should().Be("src/A.cs");
     }
 
     /// <summary>

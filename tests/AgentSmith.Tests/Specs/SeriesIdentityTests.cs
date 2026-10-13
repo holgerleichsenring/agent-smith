@@ -15,7 +15,7 @@ namespace AgentSmith.Tests.Specs;
 public sealed class SeriesIdentityTests
 {
     private const string Reply = """
-        {"phases": [{"slug": "rename", "goal": "Rename the clients", "done": ["Renamed."], "carries": [1]}]}
+        {"specs": [{"slug": "rename", "goal": "Rename the clients", "done": ["Renamed."], "carries": [1]}]}
         """;
 
     [Fact]

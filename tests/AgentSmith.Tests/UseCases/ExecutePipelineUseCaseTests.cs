@@ -41,6 +41,7 @@ public class ExecutePipelineUseCaseTests
             new AgentSmith.Application.Services.Resume.ResumeRequestReader(
                 new AgentSmith.Application.Services.Resume.PipelineContextSerializer(
                     NullLogger<AgentSmith.Application.Services.Resume.PipelineContextSerializer>.Instance),
+                Mock.Of<AgentSmith.Contracts.Services.ICommandContextFactory>(f => f.Knows(It.IsAny<string>())),
                 NullLogger<AgentSmith.Application.Services.Resume.ResumeRequestReader>.Instance),
             new AgentSmith.Application.Services.Resume.ResumedCapRecompute(
                 new AgentSmith.Tests.Sandbox.StubConfigResolver(), _events,

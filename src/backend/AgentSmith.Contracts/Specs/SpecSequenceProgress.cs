@@ -1,5 +1,3 @@
-using AgentSmith.Domain.Models;
-
 namespace AgentSmith.Contracts.Specs;
 
 /// <summary>
@@ -12,7 +10,7 @@ namespace AgentSmith.Contracts.Specs;
 /// prevent, and it produces it in a form that looks finished.
 /// </para>
 /// </summary>
-public sealed record SpecSequenceProgress([property: AcceptedName("Phases")] IReadOnlyList<SpecProgress> Specs)
+public sealed record SpecSequenceProgress(IReadOnlyList<SpecProgress> Specs)
 {
     /// <summary>2026-10-06-03c7e: a spec already in done/ is seeded Done — it ran in an earlier run.</summary>
     public static SpecSequenceProgress ForSet(SpecSet set) =>
@@ -39,7 +37,7 @@ public sealed record SpecSequenceProgress([property: AcceptedName("Phases")] IRe
 /// mislead — a spec found already satisfied on entry is DONE and did no work, and a
 /// reader of the table has to be able to tell that from a spec that ran.</param>
 public sealed record SpecProgress(
-    [property: AcceptedName("PhaseId")] string SpecId,
+    string SpecId,
     string Goal,
     SpecRunState State,
     string? FailingCommand = null,

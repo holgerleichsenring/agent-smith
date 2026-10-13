@@ -1,5 +1,4 @@
 using AgentSmith.Contracts.Specs;
-using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Contracts.Events;
 
@@ -22,7 +21,7 @@ namespace AgentSmith.Contracts.Events;
 /// Null while the spec is simply running.</param>
 public sealed record SpecStateChangedEvent(
     string RunId,
-    [property: AcceptedName("PhaseId")] string SpecId,
+    string SpecId,
     int Ordinal,
     string Title,
     SpecRunState State,
@@ -38,7 +37,7 @@ public sealed record SpecStateChangedEvent(
 /// </summary>
 public sealed record SpecRecordedEvent(
     string RunId,
-    [property: AcceptedName("PhaseId")] string SpecId,
+    string SpecId,
     string Body,
     DateTimeOffset Timestamp)
     : RunEvent(RunId, EventType.SpecRecorded, Timestamp);
@@ -52,7 +51,7 @@ public sealed record SpecRecordedEvent(
 /// `reviewed` false says nobody was asked and `why` names which reason it was.</param>
 public sealed record SpecReviewedEvent(
     string RunId,
-    [property: AcceptedName("PhaseId")] string SpecId,
+    string SpecId,
     string ReportJson,
     DateTimeOffset Timestamp)
     : RunEvent(RunId, EventType.SpecReviewed, Timestamp);

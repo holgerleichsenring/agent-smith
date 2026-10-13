@@ -1,4 +1,3 @@
-using AgentSmith.Domain.Models;
 using AgentSmith.Contracts.Models;
 
 namespace AgentSmith.Contracts.Specs;
@@ -25,6 +24,5 @@ public sealed record DerivedSpec(
     /// <summary>Shared stem of the yaml and its markdown companion.</summary>
     public string FileStem => $"{Draft.SpecId}-{Slug}";
 
-    [AcceptedName("PhaseId")]
     public string SpecId => Draft.SpecId;
 }

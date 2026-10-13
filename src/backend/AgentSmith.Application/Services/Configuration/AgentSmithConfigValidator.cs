@@ -15,7 +15,7 @@ namespace AgentSmith.Application.Services.Configuration;
 /// roots used to aggregate these into one exception and abort startup — the errors were
 /// named, and the process that named them died anyway.
 /// </summary>
-public sealed class AgentSmithConfigValidator
+public sealed class AgentSmithConfigValidator(SkillsConfigValidator skills)
 {
     public IReadOnlyList<string> Validate(AgentSmithConfig config) =>
         Findings(config).Select(f => f.Reason).ToList();
@@ -28,6 +28,7 @@ public sealed class AgentSmithConfigValidator
         ValidateProjectResolutionPresence(config.Projects, errors);
         ValidateRepoStrategySingleRepo(config.Projects, errors);
         ValidatePipelineOverrides(config.Projects, errors);
+        errors.AddRange(skills.Findings(config.Skills));
         return errors;
     }
 

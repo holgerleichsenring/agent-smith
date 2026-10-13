@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-7bd7
+goal: "The agent-smith-skills validator fails when a skill, reference or principles file says phase outside an allowlist of the workflow-step meaning, so the old noun cannot come back."
+
+applies_to: "the agent-smith-skills repository (validator, CI)"
+
+requires: [2026-10-12-967ag]
+
+facts:
+  - claim: "967ag guards agent-smith only; its spec named the skills-repo check and left it out."
+    evidence: ".agentsmith/specs/done/2026-10-12-967ag-naming-spec-guard.yaml"
+  - claim: "observed: on agent-smith-skills origin/main 214245f, 26 lines under skills/, references/ and principles/ say phase, all in references/phase-discipline.md and the step headings of the api-security, security, legal-analyst and mad-discussion masters; CI runs scripts/validate-skills.sh in .github/workflows/validate.yml."
+    evidence: "observed: 2026-10-13, agent-smith-skills origin/main 214245f, git grep -i phase"
+
+scope:
+  in: >
+    A spec-word check in scripts/validate-skills.sh over skills/, references/, principles/ and patterns/ (CHANGELOG excluded): every
+    line saying phase must match an allowlist file, scripts/phase-word-allowlist.tsv, listing each allowed file with the
+    count of phase-word lines it may hold and the reason (workflow-step meaning); a file gaining a line or an unlisted
+    file fails, a count that shrank must be lowered (the list only shrinks). A CI step copies the tree to a temp directory, adds a fixture line and a grown allowlisted file, and expects a non-zero exit; greps that may find nothing keep '|| true'.
+  out: "Renaming the masters' step headings."
+
+steps:
+  - id: check
+    action: "check_spec_word in validate-skills.sh with the allowlist; negative fixture step in .github/workflows/validate.yml."
+
+tests:
+  - "validate-skills.sh refuses a fixture skill saying 'the phase you were given'"
+  - "validate-skills.sh refuses an allowlisted file whose phase lines grew"
+  - "validate-skills.sh passes on main"
+
+done:
+  - "The skills CI is red on the fixture and green on main."

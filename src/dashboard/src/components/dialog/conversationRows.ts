@@ -1,5 +1,4 @@
 import type { SpecDialogSessionSummary } from "@/types/spec-dialog";
-import { outcomeKindWord } from "./outcomeKind";
 
 // 2026-09-17-c7aed: the conversation list reads like a history, newest first, the way the list
 // already arrives.
@@ -22,7 +21,7 @@ export function outcomeLabel({ outcome }: SpecDialogSessionSummary): string | nu
   if (!outcome) return null;
   const tickets = `${outcome.tickets} ticket${outcome.tickets === 1 ? "" : "s"}`;
   const verb = outcome.partial ? "partly filed" : "filed";
-  return outcome.kind ? `${outcomeKindWord(outcome.kind)} ${verb} · ${tickets}` : `${tickets} ${verb}`;
+  return outcome.kind ? `${outcome.kind} ${verb} · ${tickets}` : `${tickets} ${verb}`;
 }
 
 /** The time of day a conversation from today was last active; nothing for an older one. */

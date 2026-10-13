@@ -194,11 +194,6 @@ or the commit is blocked. Read this before a definition of done leans on it.
   the tree the commit runs in, resolved from the call's `cwd`, a leading `cd` and git's
   own `-C` — one reading of the command decides both which tree is built and which
   message is read.
-- **The old name still works until 2026-10-12-967ah.** `.claude/hooks/phase-gate.sh` is a
-  forwarder that execs `spec-gate.sh` — a session snapshots its hook path at start, and a
-  missing hook exits 127, which does not block. `PHASE_GATE_LOG`, `PHASE_GATE_SELFTEST` and
-  `PHASE_GATE_CORES` are honoured when the `SPEC_GATE_*` name is unset. The first run moves
-  `.claude/phase-gate.log` to `.claude/spec-gate.log` when only the old file exists.
 - **Gated command shapes:** `git commit`, after a leading `cd` or a shell separator, and
   with git's global options in between — `git -C <tree> commit`, `git -c <name>=<value>
   commit`, `git --git-dir=<dir> commit`. Until 2026-09-21-9ae2 only `commit` straight

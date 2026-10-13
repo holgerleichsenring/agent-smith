@@ -21,7 +21,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 public sealed class SpecReposTests
 {
     private const string ServerOnlyDerivation = """
-        {"phases": [
+        {"specs": [
            {"slug": "retry-policy-in-server",
             "goal": "Move the retry policy into the server",
             "repos": ["Server"],
@@ -34,7 +34,7 @@ public sealed class SpecReposTests
         """;
 
     private const string BothReposDerivation = """
-        {"phases": [
+        {"specs": [
            {"slug": "retry-policy-in-worker",
             "goal": "Expose the retry policy from the worker",
             "repos": "BackgroundWorker",

@@ -3,25 +3,20 @@ using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
-using AgentSmith.Domain.Models;
 
-namespace AgentSmith.Contracts.Json;
+namespace AgentSmith.Infrastructure.Persistence.Services.SpecRename;
 
 /// <summary>
-/// 2026-10-12-967ab: the write side of <see cref="AcceptedNameAttribute"/> for data already
-/// stored. It walks a stored document beside the CLR type that reads it and renames every member
-/// (and every enum value) found under an accepted name to the declared one — the same attribute
-/// <see cref="AcceptedNames"/> reads with, so the rewrite and the reader cannot disagree.
-/// <para>
-/// TYPE-scoped, never name-scoped: a member is renamed only where the type that owns it declares
-/// the alias, so the execution stage an LLM event or a cost record carries is never touched.
-/// Running it twice changes nothing — after the first pass no accepted name is left to find.
-/// </para>
+/// 2026-10-12-967ab/967ah: walks a stored document beside the CLR type that reads it and renames
+/// every member (and every enum value) still stored under an old name to the current one, as
+/// <see cref="SpecRenameTable"/> lists them per declaring type. A member moves only where the type
+/// owning it is listed, so the execution stage an LLM event or a cost record carries is never
+/// touched. Running it twice changes nothing — after the first pass no old name is left to find.
 /// </summary>
-public static class AcceptedNameRewriter
+public sealed class SpecMemberRewriter
 {
     /// <summary>Rewrites <paramref name="node"/> in place; true when anything changed.</summary>
-    public static bool Rewrite(JsonNode? node, Type type, JsonNamingPolicy? policy)
+    public bool Rewrite(JsonNode? node, Type type, JsonNamingPolicy? policy)
     {
         ArgumentNullException.ThrowIfNull(type);
         type = Nullable.GetUnderlyingType(type) ?? type;
@@ -36,34 +31,33 @@ public static class AcceptedNameRewriter
         };
     }
 
-    private static bool RewriteAll(IEnumerable<JsonNode?> nodes, Type type, JsonNamingPolicy? policy)
+    private bool RewriteAll(IEnumerable<JsonNode?> nodes, Type type, JsonNamingPolicy? policy)
     {
         var changed = false;
         foreach (var child in nodes.ToList()) changed |= Rewrite(child, type, policy);
         return changed;
     }
 
-    private static bool RewriteObject(JsonObject obj, Type type, JsonNamingPolicy? policy)
+    private bool RewriteObject(JsonObject obj, Type type, JsonNamingPolicy? policy)
     {
         var changed = false;
+        foreach (var rename in SpecRenameTable.Members.GetValueOrDefault(type) ?? [])
+            changed |= Move(obj, Name(rename.Old, policy), Name(rename.New, policy));
         foreach (var property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
             if (property.GetIndexParameters().Length > 0) continue;
-            var declared = JsonName(property, policy);
-            foreach (var alias in property.GetCustomAttributes<AcceptedNameAttribute>())
-                changed |= Move(obj, policy?.ConvertName(alias.Name) ?? alias.Name, declared);
-            if (obj.TryGetPropertyValue(declared, out var child) && child is not null)
+            if (obj.TryGetPropertyValue(JsonName(property, policy), out var child) && child is not null)
                 changed |= Rewrite(child, property.PropertyType, policy);
         }
         return changed;
     }
 
-    // The reader sets the alias after the declared member, so a non-null alias value wins.
-    private static bool Move(JsonObject obj, string alias, string declared)
+    // The old readers set the alias after the declared member, so a non-null old value wins.
+    private static bool Move(JsonObject obj, string old, string current)
     {
-        if (alias == declared || !obj.TryGetPropertyValue(alias, out var value)) return false;
-        obj.Remove(alias);
-        if (value is not null || !obj.ContainsKey(declared)) obj[declared] = value;
+        if (!obj.TryGetPropertyValue(old, out var value)) return false;
+        obj.Remove(old);
+        if (value is not null || !obj.ContainsKey(current)) obj[current] = value;
         return true;
     }
 
@@ -71,20 +65,17 @@ public static class AcceptedNameRewriter
     private static bool RewriteEnum(JsonValue value, Type type)
     {
         if (!value.TryGetValue<string>(out var text)) return false;
-        foreach (var field in type.GetFields(BindingFlags.Public | BindingFlags.Static))
-        {
-            if (!field.GetCustomAttributes<AcceptedNameAttribute>()
-                    .Any(a => string.Equals(a.Name, text, StringComparison.OrdinalIgnoreCase))) continue;
-            var declared = char.IsLower(text[0]) ? JsonNamingPolicy.CamelCase.ConvertName(field.Name) : field.Name;
-            value.ReplaceWith(JsonValue.Create(declared));
-            return true;
-        }
-        return false;
+        var rename = (SpecRenameTable.EnumMembers.GetValueOrDefault(type) ?? [])
+            .FirstOrDefault(r => string.Equals(r.Old, text, StringComparison.OrdinalIgnoreCase));
+        if (rename is null) return false;
+        value.ReplaceWith(JsonValue.Create(char.IsLower(text[0]) ? JsonNamingPolicy.CamelCase.ConvertName(rename.New) : rename.New));
+        return true;
     }
 
+    private static string Name(string declared, JsonNamingPolicy? policy) => policy?.ConvertName(declared) ?? declared;
+
     private static string JsonName(PropertyInfo property, JsonNamingPolicy? policy) =>
-        property.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name
-        ?? policy?.ConvertName(property.Name) ?? property.Name;
+        property.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name ?? Name(property.Name, policy);
 
     private static Type? ElementType(Type type)
     {
@@ -103,7 +94,7 @@ public static class AcceptedNameRewriter
         (type.IsInterface ? [type, .. type.GetInterfaces()] : type.GetInterfaces())
             .Where(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
 
-    // Framework types carry no accepted names; walking them would only cost time.
+    // Framework types carry no renamed members; walking them would only cost time.
     private static bool IsWalkable(Type type) =>
         type is { IsPrimitive: false, IsEnum: false } && type != typeof(string) && type != typeof(object)
         && type.Namespace?.StartsWith("System", StringComparison.Ordinal) != true;

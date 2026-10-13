@@ -6,7 +6,6 @@
 
 import type { RunEvent, RunTimeSplit } from "@/types/hub-events";
 import { getJson } from "@/lib/apiResponse";
-import { acceptSpecNames } from "@/lib/acceptedNames";
 
 export interface RunStepRow {
   stepIndex: number;
@@ -71,8 +70,8 @@ export interface RunDecisionRow {
 }
 
 export async function fetchRunSteps(runId: string, signal?: AbortSignal): Promise<RunStepRow[]> {
-  const body = acceptSpecNames(await getJson<{ steps?: RunStepRow[] }>(
-    `/api/runs/${encodeURIComponent(runId)}/steps`, signal));
+  const body = await getJson<{ steps?: RunStepRow[] }>(
+    `/api/runs/${encodeURIComponent(runId)}/steps`, signal);
   return body.steps ?? [];
 }
 
@@ -121,17 +120,17 @@ async function getStepEvents(
   signal?: AbortSignal,
 ): Promise<StepEventsBody> {
   const params = new URLSearchParams(query ?? {}).toString();
-  return acceptSpecNames(await getJson<StepEventsBody>(
+  return getJson<StepEventsBody>(
     `/api/runs/${encodeURIComponent(runId)}/steps/${stepIndex}/events${params ? `?${params}` : ""}`,
     signal,
-  ));
+  );
 }
 
 export async function fetchRunDecisions(
   runId: string,
   signal?: AbortSignal,
 ): Promise<RunDecisionRow[]> {
-  const body = acceptSpecNames(await getJson<{ decisions?: RunDecisionRow[] }>(
-    `/api/runs/${encodeURIComponent(runId)}/decisions`, signal));
+  const body = await getJson<{ decisions?: RunDecisionRow[] }>(
+    `/api/runs/${encodeURIComponent(runId)}/decisions`, signal);
   return body.decisions ?? [];
 }

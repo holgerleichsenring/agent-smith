@@ -106,7 +106,7 @@ public sealed class ContradictionHandbackTests
             .EnqueueToolCall(Application.Services.Specs.RepositorySearchTool.Name,
                 """{"repository":"default","pattern":"SubmitAssetsRequest"}""")
             .EnqueueText("""
-                {"phases": [], "handback": {"case": "requirements_contradict_repository",
+                {"specs": [], "handback": {"case": "requirements_contradict_repository",
                  "reason": "SubmitAssetsRequest contains only TruckPlate and TrailerPlate", "cites": ["L1"]}}
                 """)
             .EnqueueText(SpecDerivationFixture.DerivationJson)

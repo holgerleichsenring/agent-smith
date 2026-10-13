@@ -14,4 +14,7 @@ public interface ICommandContextFactory
         PipelineCommand command,
         ResolvedProject project,
         PipelineContext pipeline);
+
+    /// <summary>True when a context builder is registered for <paramref name="commandName"/>.</summary>
+    bool Knows(string commandName);
 }

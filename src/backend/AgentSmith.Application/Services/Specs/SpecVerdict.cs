@@ -85,7 +85,7 @@ public static class SpecVerdict
     /// <para>
     /// The repair is a REPETITION of part of the spec block, so its steps belong to the
     /// same spec as the block they repeat. p0438 spliced them bare: SpecSequence stamps
-    /// every step it splices with a <c>PhaseId</c> and the repair did not, so on live run
+    /// every step it splices with a <c>SpecId</c> and the repair did not, so on live run
     /// a98c the three repair steps came back as <c>spec=None</c> — the rail drew a second
     /// spec header, and the pass's cost and calls were rolled up under no spec at all.
     /// </para>

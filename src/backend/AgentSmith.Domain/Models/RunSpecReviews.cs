@@ -11,7 +11,7 @@ namespace AgentSmith.Domain.Models;
 /// findings and call them the run's.
 /// </para>
 /// </summary>
-public sealed record RunSpecReviews([property: AcceptedName("Phases")] IReadOnlyList<SpecReviewEntry> Specs)
+public sealed record RunSpecReviews(IReadOnlyList<SpecReviewEntry> Specs)
 {
     public static RunSpecReviews Empty { get; } = new([]);
 
@@ -23,4 +23,4 @@ public sealed record RunSpecReviews([property: AcceptedName("Phases")] IReadOnly
 }
 
 /// <summary>One spec's review, under the spec it belongs to.</summary>
-public sealed record SpecReviewEntry([property: AcceptedName("PhaseId")] string SpecId, SpecReviewReport Report);
+public sealed record SpecReviewEntry(string SpecId, SpecReviewReport Report);

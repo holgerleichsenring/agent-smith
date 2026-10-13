@@ -25,7 +25,7 @@ public sealed class SpecWordRuleTests
 
         SpecWordAllowlist.Load().Offenders([written]).Should().BeEquivalentTo(
         [
-            "src/backend/AgentSmith.Contracts/Specs/SpecSummaryView.cs: PhaseId — allowed only in the files spec-word-files.tsv lists",
+            "src/backend/AgentSmith.Contracts/Specs/SpecSummaryView.cs: PhaseId — allowed only in the store rewrite and its tests",
             "src/backend/AgentSmith.Contracts/Specs/SpecSummaryView.cs: PhaseTitle — not allowlisted",
         ], "a new file may not name the spec id PhaseId, nor coin a phase word; the execution stage stays");
     }
@@ -40,6 +40,25 @@ public sealed class SpecWordRuleTests
         allowlist.Offenders([grown]).Should().ContainSingle(
             "a listed file may keep the word it has, not gain another");
     }
+
+    [Fact]
+    public void SpecWord_ARewriteTokenOutsideTheRewrite_Fails()
+    {
+        var allowlist = SpecWordAllowlist.Load();
+        var token = allowlist.Reach.First(row => row.Value == "rewrite").Key;
+        var inRewrite = new SpecWordFile(SpecWordAllowlist.RewritePaths[0] + "SpecRenameTable.cs", new Dictionary<string, int> { [token] = 1 });
+        var inReader = new SpecWordFile("src/backend/AgentSmith.Server/Services/Events/RunSpecsReader.cs", new Dictionary<string, int> { [token] = 1 });
+
+        allowlist.Offenders([inRewrite]).Should().BeEmpty();
+        allowlist.Offenders([inReader]).Should().ContainSingle(
+            "an old stored name is spelled by the store rewrite alone; no reader takes it back");
+    }
+
+    /// <summary>2026-10-12-967ah: the readers of the old names are gone, and so is their category.</summary>
+    [Fact]
+    public void SpecWord_NoAlias967ahRowsRemain() =>
+        SpecWordAllowlist.Load().Categories.Where(row => row.Value == "ALIAS-967ah").Select(row => row.Key)
+            .Should().BeEmpty("what is left of the old names is the rewrite's (REWRITE), a label's or history's");
 
     [Fact]
     public void SpecWord_Tree_IsClean()

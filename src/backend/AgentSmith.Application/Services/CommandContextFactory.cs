@@ -9,8 +9,6 @@ namespace AgentSmith.Application.Services;
 /// <summary>
 /// Maps pipeline commands to typed ICommandContext records via keyed IContextBuilder lookup.
 /// Adding a new command requires only a new IContextBuilder + DI registration.
-/// 2026-10-12-967ab: a command is looked up by its declared name, so an operator's preset that
-/// still names a spec-block command by its old name resolves to the same builder.
 /// </summary>
 public sealed class CommandContextFactory(
     IEnumerable<KeyedContextBuilder> builders) : ICommandContextFactory
@@ -21,7 +19,7 @@ public sealed class CommandContextFactory(
     public ICommandContext Create(
         PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
-        if (!_builders.TryGetValue(CommandNames.Declared(command.Name), out var builder))
+        if (!_builders.TryGetValue(command.Name, out var builder))
         {
             if (CommandNames.TryGetRetirementMessage(command.Name, out var retirement))
                 throw new ConfigurationException(retirement);
@@ -30,6 +28,8 @@ public sealed class CommandContextFactory(
 
         return builder.Build(command, project, pipeline);
     }
+
+    public bool Knows(string commandName) => _builders.ContainsKey(commandName);
 }
 
 /// <summary>

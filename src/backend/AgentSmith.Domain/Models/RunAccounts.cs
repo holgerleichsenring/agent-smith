@@ -8,7 +8,7 @@ namespace AgentSmith.Domain.Models;
 /// same mistake as judging the branch by the last commit.
 /// </para>
 /// </summary>
-public sealed record RunAccounts([property: AcceptedName("Phases")] IReadOnlyList<SpecAccounts> Specs)
+public sealed record RunAccounts(IReadOnlyList<SpecAccounts> Specs)
 {
     public static RunAccounts Empty { get; } = new([]);
 

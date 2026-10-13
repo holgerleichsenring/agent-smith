@@ -142,7 +142,7 @@ function scanRecordsByBase(dir) {
   return found;
 }
 
-// 2026-10-12-967aa: a C# attribute list ("[AcceptedName(\"SpecId\")]", "[property: X(...)]") is
+// 2026-10-12-967aa: a C# attribute list ("[JsonPropertyName(\"specId\")]", "[property: X(...)]") is
 // not part of a member's name or a record's base; it is dropped before either is read.
 function withoutAttributes(source) {
   return source.replace(/\[(?:\w+:\s*)?\w+(?:\([^\]]*\))?\]\s*/g, "");

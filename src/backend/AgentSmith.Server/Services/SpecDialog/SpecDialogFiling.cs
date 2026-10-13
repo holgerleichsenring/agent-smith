@@ -13,9 +13,4 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// would not link to its parent. Null only on a record written before notes were kept.</param>
 public sealed record SpecDialogFiling(
     IReadOnlyList<FiledTicket> Filed, string? Error, DateTimeOffset At, string? Kind = null,
-    IReadOnlyList<string>? Notes = null)
-{
-    /// <summary>2026-10-12-967aa/967ab: the record with the kind written before the rename read as the
-    /// kind this release writes, so every reader and every re-write sees one vocabulary.</summary>
-    public SpecDialogFiling InDeclaredKind() => this with { Kind = SpecDialogProposalComposer.Declared(Kind) };
-}
+    IReadOnlyList<string>? Notes = null);

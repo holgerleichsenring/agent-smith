@@ -9,7 +9,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// of the finding resolves in turn.
 /// </summary>
 internal sealed record CutFindingWire(
-    [property: AcceptedName("PhaseId")] string SpecId, string Criterion, string Problem, string Why,
+    string SpecId, string Criterion, string Problem, string Why,
     string? ConflictsWith = null, JsonElement? Cites = null)
 {
     public CutFinding ToFinding() =>

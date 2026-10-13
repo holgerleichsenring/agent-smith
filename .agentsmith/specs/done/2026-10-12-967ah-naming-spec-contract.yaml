@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-967ah
+goal: "No reader of data agent-smith owns accepts the phase names anymore; the one-time store rewrite keeps its own frozen table, so old history still converts, and labels and config keys keep reading phase."
+
+applies_to: "backend (persistence, events, resume, commands, derivation), dashboard, .claude hooks"
+
+requires: [2026-10-12-967ab, 2026-10-12-967ag]
+
+facts:
+  - claim: "Thirty members carry an [AcceptedName] alias read by AcceptedNames, and the store rewrite derives its renames from the same attributes."
+    evidence: "src/backend/AgentSmith.Contracts/Json/AcceptedNames.cs:14-58, src/backend/AgentSmith.Contracts/Json/AcceptedNameRewriter.cs:21, src/backend/AgentSmith.Infrastructure.Persistence/Services/SpecRename/EventPayloadRewriter.cs:46"
+  - claim: "Checkpoint keys and type names are mapped through CheckpointRenames on read and in the store rewrite."
+    evidence: "src/backend/AgentSmith.Application/Services/Resume/PipelineContextSerializer.cs:86-101, src/backend/AgentSmith.Infrastructure.Persistence/Services/SpecRename/CheckpointJsonRewriter.cs:53-65"
+  - claim: "Old command names resolve through CommandNames.Accepted."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/CommandNames.Accepted.cs:12-34"
+  - claim: "The derivation reads 'phases' before 'specs' and fills both MaxPhases and MaxSpecs."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecJsonReader.cs:34-36, src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:118"
+  - claim: "RunSteps and RunDecisions still carry a PhaseId column beside SpecId."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunStep.cs:40, src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunDecision.cs:46"
+  - claim: "phase-gate.sh forwards to spec-gate.sh, which still honours PHASE_GATE_* and moves an old ledger."
+    evidence: ".claude/hooks/phase-gate.sh:4, .claude/hooks/spec-gate.sh:53-57, .claude/hooks/spec-gate.sh:220-229, CLAUDE.md:197-201"
+
+decisions:
+  - key: "THE REWRITE OUTLIVES THE READERS. Its renames move into a frozen table of its own (members, event names, keys, types, commands, kinds, prefixes), so a store last written before 967ab converts in the same deploy that drops the aliases; completed history stays readable."
+  - key: "IN-FLIGHT IS DISPOSABLE. A resume whose command or context entry no longer resolves fails before any step with a reason, never half-resumed (operator, 2026-10-13)."
+  - key: "ONE DEPLOY REPLACES EVERY POD. A 967ab replica beside a 967ah one would query a dropped column; the operator replaces all pods at once."
+
+scope:
+  in: >
+    Delete AcceptedNameAttribute and AcceptedNames' alias resolution (TicketKindResolver maps the config key 'phase'
+    to Spec explicitly), CommandNames.Accepted, CheckpointRenames' read path, RunSpecsReader's and RunSpecProjection's
+    old prefixes, SpecDialogProposalComposer's accepted kind, the dashboard's acceptedNames.ts, outcomeKind.ts and
+    conversationDelete.ts aliases, and their tests; their constants move into one frozen rename table under
+    Persistence/Services/SpecRename that only the store rewrite reads. Derivation reads only 'specs' and fills only
+    MaxSpecs; the config validator refuses a skills pin below v5.13.0. EF migration in both assemblies: Up backfills
+    SpecId from PhaseId where null, then drops both PhaseId columns; Down restores and fills them; the rewrite's
+    backfill and the projections' PhaseId writes go. ResumeRequestReader fails a resume whose command name or context
+    entry type does not resolve, naming it. Delete phase-gate.sh, the PHASE_GATE_* fallback and the ledger move;
+    CLAUDE.md and hook tests follow. Guard: rows whose token is gone are deleted; tokens the frozen table and its
+    tests keep move to a REWRITE category listed only for Persistence/Services/SpecRename and its tests.
+  out: "Read aliases for tracker labels and work_item_kinds.phase — they live in trackers and operator config."
+
+steps:
+  - id: rewrite-table
+    action: "Move the rewrite's renames into a frozen SpecRenameTable used only by the store rewrite."
+  - id: readers
+    action: "Delete the alias readers, accepted command names, checkpoint read renames, acceptedNames.ts, the phases key and MaxPhases."
+  - id: columns
+    action: "EF migration dropping the PhaseId columns."
+  - id: gate
+    action: "Delete the forwarder and PHASE_GATE_*; CLAUDE.md, settings.json, hook tests."
+  - id: guard
+    action: "Remove ALIAS-967ah allowlist rows and counts."
+
+tests:
+  - "StoreRewrite_PrePhaseStore_ConvertsWithoutReaderAliases"
+  - "Reader_PhaseNamedPayload_IsNotAccepted"
+  - "Migration_DropPhaseIdColumns_UpDown"
+  - "SpecWord_NoAlias967ahRowsRemain"
+  - "TicketKindResolver_ConfigKeyPhase_StillMapsToSpec"
+  - "ResumeRequestReader_UnresolvableOldCommand_FailsBeforeAnyStep"
+  - "SkillsConfigValidator_PinBelow5_13_IsRefused"
+
+done:
+  - "No reader of owned data accepts a phase name; a store written in the pre-967ab shape converts and reads back after migration; the guard has no ALIAS-967ah row; full suite green."

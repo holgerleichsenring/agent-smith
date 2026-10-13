@@ -27,7 +27,7 @@ namespace AgentSmith.Tests.Specs;
 public sealed class SpecCutReviewTests
 {
     private const string Contradiction = """
-        [{"phase_id":"p19106a","criterion":"No production source file has been modified",
+        [{"spec_id":"p19106a","criterion":"No production source file has been modified",
           "problem":"contradiction","why":"the migration criteria require modifying source",
           "conflicts_with":"MediatR appears nowhere in the sources"}]
         """;
@@ -59,7 +59,7 @@ public sealed class SpecCutReviewTests
     public async Task AFindingQuotingACriterionTheSpecNeverStated_IsDiscarded()
     {
         var review = await Review("""
-            [{"phase_id":"p19106a","criterion":"the moon is a balloon",
+            [{"spec_id":"p19106a","criterion":"the moon is a balloon",
               "problem":"uncheckable","why":"invented"}]
             """);
 

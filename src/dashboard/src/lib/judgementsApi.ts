@@ -11,7 +11,6 @@
 
 import { getJson, sendJson } from "@/lib/apiResponse";
 import type { RunAcceptance } from "@/types/hub-events";
-import { acceptSpecNames } from "@/lib/acceptedNames";
 
 export type CriterionDisposition = "met" | "unmet" | "not_applicable" | "unproven";
 
@@ -33,7 +32,7 @@ export async function fetchJudgedAcceptance(
   runId: string,
   signal?: AbortSignal,
 ): Promise<JudgedAcceptance> {
-  return acceptSpecNames(await getJson<JudgedAcceptance>(`/api/runs/${encodeURIComponent(runId)}/acceptance`, signal));
+  return getJson<JudgedAcceptance>(`/api/runs/${encodeURIComponent(runId)}/acceptance`, signal);
 }
 
 /** Records one, replacing any earlier judgement of the same criterion. */
@@ -47,12 +46,12 @@ export async function recordJudgement(
   },
   signal?: AbortSignal,
 ): Promise<JudgedAcceptance> {
-  return acceptSpecNames(await sendJson<JudgedAcceptance>(
+  return sendJson<JudgedAcceptance>(
     "POST",
     `/api/runs/${encodeURIComponent(runId)}/judgements`,
     judgement,
     signal,
-  ));
+  );
 }
 
 /** Withdraws one. A judgement nobody stands behind any more must be removable, or the
@@ -62,10 +61,10 @@ export async function withdrawJudgement(
   criterion: string,
   signal?: AbortSignal,
 ): Promise<JudgedAcceptance> {
-  return acceptSpecNames(await sendJson<JudgedAcceptance>(
+  return sendJson<JudgedAcceptance>(
     "DELETE",
     `/api/runs/${encodeURIComponent(runId)}/judgements?criterion=${encodeURIComponent(criterion)}`,
     null,
     signal,
-  ));
+  );
 }

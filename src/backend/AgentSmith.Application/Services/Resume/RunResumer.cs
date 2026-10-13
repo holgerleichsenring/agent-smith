@@ -5,7 +5,6 @@ using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
-using AgentSmith.Contracts.Json;
 
 namespace AgentSmith.Application.Services.Resume;
 
@@ -50,7 +49,7 @@ public sealed class RunResumer(
     {
         var payload = new ResumePayload(
             Commands: JsonSerializer.Deserialize<List<CheckpointCommand>>(
-                checkpoint.RemainingCommandsJson, AcceptedNames.DefaultOptions)
+                checkpoint.RemainingCommandsJson)
                 ?? throw new InvalidOperationException(
                     $"Checkpoint for run {checkpoint.RunId} has no remaining commands."),
             ContextJson: checkpoint.ContextJson,

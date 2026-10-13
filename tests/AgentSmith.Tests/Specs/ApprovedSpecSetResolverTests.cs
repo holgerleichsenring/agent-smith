@@ -122,7 +122,7 @@ public sealed class ApprovedSpecSetResolverTests
     {
         SpecApprovalJson.Read("""{"key":"azdo-19106"}""").Should().BeNull();
         SpecApprovalJson.Read("""{"key":"azdo-19106","set":null,"repositories":[]}""").Should().BeNull();
-        SpecApprovalJson.Read("""{"set":{"key":"x","phases":[],"revisions":[]}}""")
+        SpecApprovalJson.Read("""{"set":{"key":"x","specs":[],"revisions":[]}}""")
             .Should().BeNull("a record with no key cannot be checked against the run's own");
     }
 

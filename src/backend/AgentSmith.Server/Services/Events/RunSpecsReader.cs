@@ -9,7 +9,7 @@ namespace AgentSmith.Server.Services.Events;
 
 /// <summary>
 /// p0466: serves a run's specs from the RunSpec projection, each with the decisions
-/// and steps that name it (their PhaseId column keeps its stored name). Two set-based
+/// and steps that name it by their SpecId column. Two set-based
 /// queries plus the rail the step reader already composes — flat in the number of specs,
 /// never one query per spec.
 /// </summary>
@@ -43,8 +43,7 @@ public sealed class RunSpecsReader(IServiceScopeFactory scopeFactory, RunStepsRe
 
         using var scope = scopeFactory.CreateScope();
         var artifacts = scope.ServiceProvider.GetRequiredService<RunArtifactRepository>();
-        var record = await artifacts.ReadAsync(runId, RunSpecProjection.RecordKindPrefix + specId, ct)
-            ?? await artifacts.ReadAsync(runId, RunSpecProjection.AcceptedRecordKindPrefix + specId, ct);
+        var record = await artifacts.ReadAsync(runId, RunSpecProjection.RecordKindPrefix + specId, ct);
         return new RunSpecDetailView(spec, record);
     }
 
@@ -63,11 +62,11 @@ public sealed class RunSpecsReader(IServiceScopeFactory scopeFactory, RunStepsRe
         IUnitOfWork uow, string runId, CancellationToken ct)
     {
         var rows = await uow.Set<RunDecision>().AsNoTracking()
-            .Where(d => d.RunId == runId && (d.SpecId != null || d.PhaseId != null))
+            .Where(d => d.RunId == runId && d.SpecId != null)
             .OrderBy(d => d.Id)
             .ToListAsync(ct);
         return rows.ToLookup(
-            d => (d.SpecId ?? d.PhaseId)!, // 2026-10-12-967ab: a row no backfill reached
+            d => d.SpecId!,
             d => new RunDecisionView(d.StepIndex, d.Name, d.Reason, d.Category, d.CreatedAt),
             StringComparer.Ordinal);
     }

@@ -98,7 +98,7 @@ public sealed class SpecDerivationLoopTests
     {
         var segments = TicketSegmenter.Segment(Ticket);
         return $$$"""
-            {"phases": [
+            {"specs": [
                {"slug": "raise-the-floors", "goal": "Raise the direct package floors the audit names",
                 "steps": [{"id": "raise", "action": "Raise the versions"}],
                 "done": ["The manifests carry versions the audit no longer flags."],

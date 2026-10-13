@@ -1,5 +1,3 @@
-using AgentSmith.Domain.Models;
-
 namespace AgentSmith.Contracts.Events;
 
 /// <summary>
@@ -14,7 +12,7 @@ public sealed record DecisionLoggedEvent(
     string? Over,
     string Reason,
     DateTimeOffset Timestamp,
-    [property: AcceptedName("PhaseId")] string? SpecId = null)
+    string? SpecId = null)
     : RunEvent(RunId, EventType.DecisionLogged, Timestamp);
 
 public sealed record GateCheckedEvent(

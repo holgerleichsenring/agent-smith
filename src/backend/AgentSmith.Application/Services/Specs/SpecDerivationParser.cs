@@ -52,7 +52,7 @@ public sealed class SpecDerivationParser(
             {
                 var root = doc.RootElement;
                 if (root.ValueKind != JsonValueKind.Object) continue;
-                if (!SpecJsonReader.TryGet(root, SpecJsonReader.SpecsKey(root), out _)
+                if (!SpecJsonReader.TryGet(root, SpecJsonReader.SpecsKey, out _)
                     && !SpecJsonReader.TryGet(root, "handback", out _))
                     continue;
                 return Build(root, new SeriesOf(key, series), ticketId, segments, source, executedHead ?? [],
@@ -79,7 +79,7 @@ public sealed class SpecDerivationParser(
                 null, cited.Problem);
         }
 
-        var specElements = SpecJsonReader.ReadObjects(root, SpecJsonReader.SpecsKey(root)).ToList();
+        var specElements = SpecJsonReader.ReadObjects(root, SpecJsonReader.SpecsKey).ToList();
         if (specElements.Count == 0)
             return new Parsed(null,
                 envelope.HandbackRejection(root) ?? "the reply carried neither a spec nor a hand-back");

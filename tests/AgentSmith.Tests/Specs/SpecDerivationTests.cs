@@ -61,7 +61,7 @@ public sealed class SpecDerivationTests
         // deriver's retry loop hands the rejection back to the model to answer.
         var segments = TicketSegmenter.Segment(MigrationTicket);
         var reply = $$"""
-            {"phases": [{"goal": "swap the client", "slug": "swap-the-client",
+            {"specs": [{"goal": "swap the client", "slug": "swap-the-client",
                          "steps": ["replace the calls"], "segments": [1]}]}
             """;
 
@@ -116,7 +116,7 @@ public sealed class SpecDerivationTests
         // The judgement forgot the last two segments entirely — no spec, no reason.
         var parsed = _parser.Parse(
             """
-              {"phases": [{"slug": "rename", "goal": "Rename the clients",
+              {"specs": [{"slug": "rename", "goal": "Rename the clients",
                            "done": ["Every call site uses the new name."],
                            "carries": [1, 2]}],
                "discarded": []}
@@ -159,7 +159,7 @@ public sealed class SpecDerivationTests
 
         var parsed = _parser.Parse(
             """
-            {"phases": [],
+            {"specs": [],
              "handback": {"case": "not_implementable",
                           "reason": "The legacy client is the only transport this platform has."}}
             """,
@@ -179,7 +179,7 @@ public sealed class SpecDerivationTests
 
         var parsed = _parser.Parse(
             """
-            {"phases": [],
+            {"specs": [],
              "handback": {"case": "requirements_contradict_repository",
                           "reason": "There is no LegacyHttpHelper in any repository in scope."}}
             """,
@@ -222,7 +222,7 @@ public sealed class SpecDerivationTests
         var segments = TicketSegmenter.Segment(MigrationTicket);
         var listed = string.Join(", ", Enumerable.Range(0, readings).Select(i => $"\"reading {i}\""));
         var reply = $$$"""
-            {"phases": [],
+            {"specs": [],
              "handback": {"case": "question", "reason": "the ticket reads two ways",
                           "readings": [{{{listed}}}], "taken": {{{taken}}}}}
             """;
@@ -241,7 +241,7 @@ public sealed class SpecDerivationTests
         {
             var reply = name == "question"
                 ? QuestionReply(taken: 0)
-                : $$$"""{"phases": [], "handback": {"case": "{{{name}}}", "reason": "r"}}""";
+                : $$$"""{"specs": [], "handback": {"case": "{{{name}}}", "reason": "r"}}""";
 
             var parsed = _parser.Parse(reply, "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived);
 
@@ -264,7 +264,7 @@ public sealed class SpecDerivationTests
     }
 
     private static string QuestionReply(int taken) => $$$"""
-        {"phases": [],
+        {"specs": [],
          "handback": {"case": "question",
                       "reason": "'Adopt the newest versions, even breaking' reads two ways and the work differs.",
                       "readings": ["a major only where nothing lower clears the advisory",
@@ -278,7 +278,7 @@ public sealed class SpecDerivationTests
         var segments = TicketSegmenter.Segment(MigrationTicket);
 
         var parsed = _parser.Parse(
-            """{"phases": [{"slug": "rename", "goal": "Rename the clients", "carries": [1]}]}""",
+            """{"specs": [{"slug": "rename", "goal": "Rename the clients", "carries": [1]}]}""",
             "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived);
 
         parsed.Derivation.Should().BeNull();
@@ -298,7 +298,7 @@ public sealed class SpecDerivationTests
         // executed, so what the model said about it is discarded.
         var recut = _parser.Parse(
             """
-            {"phases": [
+            {"specs": [
                {"slug": "something-else-entirely", "goal": "A different first spec",
                 "done": ["Nobody asked for this."], "carries": [1]},
                {"slug": "split-a", "goal": "Forbid the legacy helper",
@@ -327,7 +327,7 @@ public sealed class SpecDerivationTests
         var head = string.Join(",", segments.SkipLast(1).Take(3).Select(s => s.Id));
         var tail = string.Join(",", segments.SkipLast(1).Skip(3).Select(s => s.Id));
         return $$$"""
-            {"phases": [
+            {"specs": [
                {"slug": "rename-the-clients",
                 "goal": "Rename every call site onto the ServiceClient convention",
                 "steps": [{"id": "rename", "action": "Rename the call sites"}],

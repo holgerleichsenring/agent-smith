@@ -1,6 +1,5 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using AgentSmith.Contracts.Json;
 using AgentSmith.Contracts.Models;
 
 namespace AgentSmith.Infrastructure.Persistence.Services.SpecRename;
@@ -8,17 +7,14 @@ namespace AgentSmith.Infrastructure.Persistence.Services.SpecRename;
 /// <summary>
 /// 2026-10-12-967ab: the JSON columns of a SpecDialogSession. Their roots are Server types this
 /// assembly cannot reference, so the root is spelled here and pinned to the Server's reader by
-/// tests: the outcome (OutcomeProposalJson's camelCase Dto — kind, its accepted "phase" member, the
+/// tests: the outcome (OutcomeProposalJson's camelCase Dto — kind, its old "phase" member, the
 /// drafts and findings below it, walked as their Contracts types), the filing kind
 /// (SpecDialogFiling, web defaults) and the transcript turn kind (SpecDialogTurnKind).
 /// </summary>
-public sealed class SpecDialogJsonRewriter(SpecRenameJson json)
+public sealed class SpecDialogJsonRewriter(SpecRenameJson json, SpecMemberRewriter members)
 {
-    /// <summary>The kind a filed or proposed spec was written under before the rename.</summary>
-    public const string OldSpecKind = "phase";
-
-    /// <summary>The kind it is written under now.</summary>
-    public const string SpecKind = "spec";
+    private const string OldSpecKind = SpecRenameTable.OldSpecKind;
+    private const string SpecKind = SpecRenameTable.SpecKind;
 
     private static readonly JsonNamingPolicy Camel = JsonNamingPolicy.CamelCase;
 
@@ -45,6 +41,6 @@ public sealed class SpecDialogJsonRewriter(SpecRenameJson json)
         return true;
     }
 
-    private static bool Walk(JsonObject owner, string member, Type type) =>
-        owner[member] is { } child && AcceptedNameRewriter.Rewrite(child, type, Camel);
+    private bool Walk(JsonObject owner, string member, Type type) =>
+        owner[member] is { } child && members.Rewrite(child, type, Camel);
 }

@@ -16,12 +16,6 @@ public sealed class SpecDialogProposalComposer(
     public const string SpecKind = "spec";
     public const string EpicKind = "epic";
 
-    /// <summary>2026-10-12-967ab: the kind written for a spec before the rename, read as <see cref="SpecKind"/>.</summary>
-    public const string AcceptedSpecKind = "phase";
-
-    /// <summary>A stored kind in the vocabulary this release writes.</summary>
-    public static string? Declared(string? kind) => kind == AcceptedSpecKind ? SpecKind : kind;
-
     /// <summary>The kind a proposal files as, or null for an answer, which files nothing.</summary>
     public static string? KindOf(OutcomeProposal? proposal) => proposal switch
     {

@@ -15,8 +15,8 @@ public sealed class RunArtifactSpecNames : IStoredSpecNameSurface
     public async Task<int> RewriteAsync(AgentSmithDbContext db, CancellationToken ct)
     {
         var changed = 0;
-        changed += await RenameAsync(db, RunSpecProjection.AcceptedRecordKindPrefix, RunSpecProjection.RecordKindPrefix, ct);
-        changed += await RenameAsync(db, RunSpecProjection.AcceptedReviewKindPrefix, RunSpecProjection.ReviewKindPrefix, ct);
+        foreach (var prefix in SpecRenameTable.ArtifactPrefixes)
+            changed += await RenameAsync(db, prefix.Old, prefix.New, ct);
         return changed;
     }
 

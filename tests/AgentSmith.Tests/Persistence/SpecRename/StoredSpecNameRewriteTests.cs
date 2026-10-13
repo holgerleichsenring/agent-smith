@@ -5,6 +5,8 @@ using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Tests.Persistence.SpecRename;
@@ -12,11 +14,14 @@ namespace AgentSmith.Tests.Persistence.SpecRename;
 /// <summary>
 /// 2026-10-12-967ab: a store holding every surface the old release wrote in the phase names holds
 /// only spec names after the rewrite, reads back as it did, and a second pass changes nothing.
+/// 2026-10-12-967ah: with every reader of the old names gone, a store last written before 967ab —
+/// its spec ids still in the old column — converts through the migrations and the frozen table.
 /// </summary>
 [Collection(RelationalStoreCollection.Name)]
 public sealed class StoredSpecNameRewriteTests : IDisposable
 {
     private readonly SqliteConnection _connection = MigratedStoreTemplate.OpenCopy();
+
 
     public void Dispose() => _connection.Dispose();
 
@@ -26,6 +31,26 @@ public sealed class StoredSpecNameRewriteTests : IDisposable
         await using var db = await SeededAsync(Context);
         (await SpecNamedStoreAssertions.TextsAsync(db)).Where(t => t!.Contains("hase") || t.StartsWith("spec_record:"))
             .Should().HaveCount((await SpecNamedStoreAssertions.TextsAsync(db)).Count, "the seed is the old shape throughout");
+
+        await Rewrite().RewriteAsync(db, CancellationToken.None);
+
+        await SpecNamedStoreAssertions.HoldsOnlySpecNamesAsync(db);
+        await SpecNamedStoreAssertions.ReadsBackAsTheOldShapeDidAsync(db);
+    }
+
+    [Fact]
+    public async Task StoreRewrite_PrePhaseStore_ConvertsWithoutReaderAliases()
+    {
+        await using var empty = new SqliteConnection("Data Source=:memory:");
+        await empty.OpenAsync();
+        await using var db = new AgentSmithDbContext(
+            new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(empty).Options);
+        var migrator = db.GetService<IMigrator>();
+        await migrator.MigrateAsync(MigrationBeforeSpecIdColumns);
+        await db.Database.ExecuteSqlRawAsync(OldShapeStore.PreSpecIdRowsSql);
+        await migrator.MigrateAsync();
+        await OldShapeStore.SeedAsync(db, withStepRows: false);
+        db.ChangeTracker.Clear();
 
         await Rewrite().RewriteAsync(db, CancellationToken.None);
 
@@ -75,6 +100,8 @@ public sealed class StoredSpecNameRewriteTests : IDisposable
         llm.PayloadJson.Should().Be(OldShapeStore.LlmCall.PayloadJson).And.Contain("\"Phase\":\"Implementation\"");
         llm.Phase.Should().Be("Implementation");
     }
+
+    private const string MigrationBeforeSpecIdColumns = "AddTicketSeriesExecutedIds";
 
     private AgentSmithDbContext Context() =>
         new(new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options);

@@ -5,7 +5,6 @@ using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
-using AgentSmith.Contracts.Json;
 
 namespace AgentSmith.Application.Services.Resume;
 
@@ -16,9 +15,12 @@ namespace AgentSmith.Application.Services.Resume;
 /// the delivered answer for the ask gate, and returns the step cursor to
 /// re-enter at. A malformed payload fails fast — silently restarting the whole
 /// pipeline would repeat side effects the checkpointed half already performed.
+/// 2026-10-12-967ah: so does a checkpoint naming a command or a context type this build does
+/// not have — it is refused before any step runs, never resumed half-way.
 /// </summary>
 public sealed class ResumeRequestReader(
     IPipelineContextSerializer contextSerializer,
+    ICommandContextFactory commandContexts,
     ILogger<ResumeRequestReader> logger)
 {
     public ResumeExecutionPlan? TryRead(PipelineContext pipeline)
@@ -26,10 +28,11 @@ public sealed class ResumeRequestReader(
         var payloadJson = ReadPayloadJson(pipeline);
         if (payloadJson is null) return null;
 
-        var payload = JsonSerializer.Deserialize<ResumePayload>(payloadJson, AcceptedNames.DefaultOptions)
+        var payload = JsonSerializer.Deserialize<ResumePayload>(payloadJson)
             ?? throw new InvalidOperationException("Resume payload deserialized to null.");
         if (payload.Commands.Count == 0)
             throw new InvalidOperationException("Resume payload carries no remaining commands.");
+        EnsureResolvable(payload);
 
         contextSerializer.Restore(payload.ContextJson, pipeline);
         StageAnswer(pipeline, payload);
@@ -39,6 +42,17 @@ public sealed class ResumeRequestReader(
             "Resuming checkpointed run at '{Head}' with {Count} remaining commands (execution count {ExecutionCount})",
             commands[0].DisplayName, commands.Count, payload.ExecutionCount);
         return new ResumeExecutionPlan(commands, payload.ExecutionCount);
+    }
+
+    private void EnsureResolvable(ResumePayload payload)
+    {
+        var commands = payload.Commands.Select(c => c.Name).Where(n => !commandContexts.Knows(n)).Distinct().ToList();
+        var entries = contextSerializer.Unresolvable(payload.ContextJson);
+        if (commands.Count == 0 && entries.Count == 0) return;
+        throw new InvalidOperationException(
+            "The checkpoint cannot be resumed by this build: "
+            + string.Join("; ", [.. commands.Select(c => $"unknown command '{c}'"),
+                .. entries.Select(e => $"unknown context entry type {e}")]));
     }
 
     private static void StageAnswer(PipelineContext pipeline, ResumePayload payload)

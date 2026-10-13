@@ -26,11 +26,7 @@ HOOKS_DIR = pathlib.Path(__file__).resolve().parent
 REPOSITORY_ROOT = HOOKS_DIR.parent.parent
 RESOLVER_PATH = HOOKS_DIR / "commit-message.py"
 GATE_PATH = HOOKS_DIR / "spec-gate.sh"
-# 2026-10-12-967af: the gate's old path, a forwarder until 967ah.
-FORWARDER_PATH = HOOKS_DIR / "phase-gate.sh"
-# Both names of every gate variable: SPEC_GATE_* is read first, PHASE_GATE_* still honoured.
-_GATE_VARIABLES = [f"{prefix}_GATE_{name}" for prefix in ("SPEC", "PHASE")
-                   for name in ("SELFTEST", "LOG", "CORES")]
+_GATE_VARIABLES = [f"SPEC_GATE_{name}" for name in ("SELFTEST", "LOG", "CORES")]
 GATE_ENTERED = "nothing to gate"
 MARKER_MESSAGE = "feat: something (p9999)"
 # p0507: the second id namespace — a date and a four-hex random suffix.
@@ -688,9 +684,8 @@ import pathlib
 import subprocess
 
 ledger = os.environ.get("SPEC_GATE_LOG", "")
-legacy = os.environ.get("PHASE_GATE_LOG", "")
 with pathlib.Path(os.environ["PROBE_TRACE"]).open("a") as trace:
-    trace.write(f"ran\\tlegacy={legacy}\\tledger={ledger}\\n")
+    trace.write(f"ran\\tledger={ledger}\\n")
 if ledger:
     with pathlib.Path(ledger).open("a") as handle:
         handle.write("probe\\twritten-by-a-hook-test\\n")
@@ -781,104 +776,11 @@ def Gate_ASpawnedGate_InheritsNoSelftestFlag():
     above would then be green by hand and red whenever the gate ran them, which is how they
     shipped. Pinned here rather than in each of them, because the next spawned gate is the one
     that would forget."""
-    for variable in ("SPEC_GATE_SELFTEST", "PHASE_GATE_SELFTEST"):
-        os.environ[variable] = "1"
-        try:
-            assert variable not in _environment(), _environment()
-        finally:
-            os.environ.pop(variable, None)
-
-
-def Gate_TheHookTestsRunByTheGate_GetBothVariableNames():
-    """A hook test written against the old name must stay isolated too: the gate hands the
-    scratch ledger to it under both names (2026-10-12-967af)."""
-    with _repository_with_hook_tests() as repo, tempfile.TemporaryDirectory() as scratch:
-        trace = pathlib.Path(scratch) / "probe.trace"
-        ledger = pathlib.Path(scratch) / "spec-gate.log"
-        _run_gate_over_hook_tests(repo, ledger, trace)
-        first = trace.read_text().splitlines()[0]
-        legacy = first.partition("legacy=")[2].partition("\t")[0]
-        recorded = first.partition("ledger=")[2]
-        assert legacy and legacy == recorded and legacy != str(ledger), first
-
-
-def Gate_TheOldVariableNames_AreStillHonoured():
-    with _catalog_repository() as repo, tempfile.TemporaryDirectory() as scratch:
-        ledger = pathlib.Path(scratch) / "old-name.log"
-        payload = json.dumps({"tool_input": {"command": f'git commit -m "{MARKER_MESSAGE}"'},
-                              "cwd": repo})
-        environment = _environment()
-        environment["PHASE_GATE_LOG"] = str(ledger)
-        completed = subprocess.run(["bash", str(GATE_PATH)], input=payload, cwd=repo,
-                                   env=environment, capture_output=True, text=True)
-        assert completed.returncode == 0, completed
-        assert [line[1] for line in _ledger(ledger)] == ["passed"], _ledger(ledger)
-
-
-def Gate_TheOldPath_ForwardsToTheGate():
-    """A session that started before the rename still calls phase-gate.sh, and a missing
-    hook exits 127 — which does not block. The old path must gate, pass and block exactly
-    like the new one, called the way Claude Code calls it: as an executable."""
-    assert os.access(FORWARDER_PATH, os.X_OK), FORWARDER_PATH
-    for validator_exit, expected, verdict in ((0, 0, "passed"), (1, 2, "blocked")):
-        with _catalog_repository(validator_exit) as repo, \
-                tempfile.TemporaryDirectory() as scratch:
-            ledger = pathlib.Path(scratch) / "spec-gate.log"
-            payload = json.dumps({"tool_input": {"command": f'git commit -m "{MARKER_MESSAGE}"'},
-                                  "cwd": repo})
-            environment = _environment()
-            environment["SPEC_GATE_LOG"] = str(ledger)
-            completed = subprocess.run([str(FORWARDER_PATH)], input=payload, cwd=repo,
-                                       env=environment, capture_output=True, text=True)
-            assert completed.returncode == expected, completed
-            assert "[spec-gate]" in completed.stderr, completed.stderr
-            assert [line[1] for line in _ledger(ledger)] == [verdict], _ledger(ledger)
-
-
-@contextlib.contextmanager
-def _installed_gate():
-    """A copy of the hooks in a throwaway .claude/, so the DEFAULT ledger path — the one the
-    old-ledger move acts on — is a scratch directory and never the operator's ledger."""
-    with tempfile.TemporaryDirectory() as path:
-        hooks = pathlib.Path(path) / ".claude" / "hooks"
-        hooks.mkdir(parents=True)
-        for name in ("spec-gate.sh", "phase-gate.sh", "commit-message.py"):
-            shutil.copy2(HOOKS_DIR / name, hooks / name)
-        yield hooks
-
-
-def _run_installed_gate(hooks, repo):
-    payload = json.dumps({"tool_input": {"command": f'git commit -m "{MARKER_MESSAGE}"'},
-                          "cwd": repo})
-    return subprocess.run(["bash", str(hooks / "spec-gate.sh")], input=payload, cwd=repo,
-                          env=_environment(), capture_output=True, text=True)
-
-
-def Gate_OldLedgerOnly_MovedOnce():
-    """The old ledger's history continues in the new one: moved when only it exists, and
-    the move happens once — the second run appends, it does not move anything again."""
-    with _installed_gate() as hooks, _catalog_repository() as repo:
-        old, new = hooks.parent / "phase-gate.log", hooks.parent / "spec-gate.log"
-        old.write_text("2026-10-01T00:00:00Z\tpassed\tp0001\t/tree\tabc1234\thistory\n")
-        for _ in range(2):
-            completed = _run_installed_gate(hooks, repo)
-            assert completed.returncode == 0, completed
-        assert not old.exists(), old
-        assert [line[1] for line in _ledger(new)] == ["passed", "passed", "passed"], _ledger(new)
-        assert _ledger(new)[0][5] == "history", _ledger(new)
-
-
-def Gate_BothLedgers_LeftAlone():
-    """Two ledgers are never merged: when the new one already exists the old file stays as
-    it is and the line goes to the new one."""
-    with _installed_gate() as hooks, _catalog_repository() as repo:
-        old, new = hooks.parent / "phase-gate.log", hooks.parent / "spec-gate.log"
-        old.write_text("old\tline\n")
-        new.write_text("new\tline\n")
-        completed = _run_installed_gate(hooks, repo)
-        assert completed.returncode == 0, completed
-        assert old.read_text() == "old\tline\n", old.read_text()
-        assert [line[1] for line in _ledger(new)] == ["line", "passed"], _ledger(new)
+    os.environ["SPEC_GATE_SELFTEST"] = "1"
+    try:
+        assert "SPEC_GATE_SELFTEST" not in _environment(), _environment()
+    finally:
+        os.environ.pop("SPEC_GATE_SELFTEST", None)
 
 
 def _cases():

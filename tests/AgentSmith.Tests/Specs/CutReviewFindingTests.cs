@@ -69,7 +69,7 @@ public sealed class CutReviewFindingTests
     public async Task Finding_ContradictionQuotingACriterion_IsKeptAsBefore()
     {
         var review = await ReviewAfterOneLook($$"""
-            [{"phase_id":"p1a","criterion":"{{Criterion}}","problem":"contradiction",
+            [{"spec_id":"p1a","criterion":"{{Criterion}}","problem":"contradiction",
               "why":"cannot both hold","conflicts_with":null,"cites":null}]
             """);
 
@@ -77,7 +77,7 @@ public sealed class CutReviewFindingTests
     }
 
     private static string FalsePremise(string cites) => $$"""
-        [{"phase_id":"p1a","criterion":"the senders already reference the new bus",
+        [{"spec_id":"p1a","criterion":"the senders already reference the new bus",
           "problem":"false-premise","why":"the search finds no reference to it",
           "conflicts_with":null,"cites":{{cites}}}]
         """;

@@ -8,15 +8,22 @@ using FluentAssertions;
 namespace AgentSmith.Tests.SpecNaming;
 
 /// <summary>
-/// 2026-10-12-967aa: a design-partner reply naming the spec outcome kind the way a later skill
-/// release does is refused with the same correction as the phase kind — not as an unknown kind.
+/// 2026-10-12-967aa/967ah: a design-partner reply naming the spec outcome kind is told to emit the
+/// bare yaml; the kind's old name is an unknown kind like any other word.
 /// </summary>
 public sealed class SpecNamedOutcomeKindTests
 {
-    [Theory]
-    [InlineData("phase")]
-    [InlineData("spec")]
-    public void Resolve_AnOutcomeBlockOfTheSpecKind_IsToldToEmitTheBareYaml(string kind)
+    [Fact]
+    public void Resolve_AnOutcomeBlockOfTheSpecKind_IsToldToEmitTheBareYaml() =>
+        Resolve("spec").Should().BeOfType<OutcomeInvalid>()
+            .Which.Error.Should().Be("kind 'spec' needs no ```outcome block — emit the spec as the bare ```yaml block");
+
+    [Fact]
+    public void Resolve_AnOutcomeBlockOfTheOldKind_IsAnUnknownKind() =>
+        Resolve("phase").Should().BeOfType<OutcomeInvalid>()
+            .Which.Error.Should().Be("unknown outcome kind 'phase' — expected bug or epic");
+
+    private static OutcomeResolution Resolve(string kind)
     {
         var validator = new SpecDraftValidator(new SpecSchemaProvider());
         var reader = new SpecDraftReader();
@@ -25,9 +32,6 @@ public sealed class SpecNamedOutcomeKindTests
             new EpicOutcomeParser(validator, reader, new RequiresEdgeChecker(), DialogTestRepos.Real()),
             DialogTestRepos.Real());
 
-        var resolution = resolver.Resolve($"Here.\n\n```outcome\nkind: {kind}\n```", []);
-
-        resolution.Should().BeOfType<OutcomeInvalid>()
-            .Which.Error.Should().Be($"kind '{kind}' needs no ```outcome block — emit the spec as the bare ```yaml block");
+        return resolver.Resolve($"Here.\n\n```outcome\nkind: {kind}\n```", []);
     }
 }

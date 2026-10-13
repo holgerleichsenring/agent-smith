@@ -25,7 +25,7 @@ public sealed class ScopedContextCoverageTests
         """{"repos":[{"name":"primary","affected":true,"confidence":0.95}],"contexts":{"primary":["frontend","backend"]},"rationale":"both the frontend and backend contexts need dependency auditing"}""";
 
     private const string FrontendOnlyJson = """
-        {"phases": [
+        {"specs": [
            {"slug": "frontend-dependency-updates",
             "goal": "Raise the frontend package floors the audit names",
             "contexts": ["frontend"],
@@ -39,7 +39,7 @@ public sealed class ScopedContextCoverageTests
         """;
 
     private const string BothContextsJson = """
-        {"phases": [
+        {"specs": [
            {"slug": "frontend-dependency-updates",
             "goal": "Raise the frontend package floors the audit names",
             "contexts": ["frontend"],
