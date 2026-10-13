@@ -1506,6 +1506,52 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.ToTable("RunExpectations");
                 });
 
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.RunLedgerTransition", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<long?>("EventSeq")
+                        .HasColumnType("bigint");
+
+                    b.Property<int?>("MasterPass")
+                        .HasColumnType("int");
+
+                    b.Property<string>("RunId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
+                    b.Property<string>("SpecId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("TransitionsJson")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RunId");
+
+                    b.HasIndex("RunId", "EventSeq")
+                        .IsUnique()
+                        .HasFilter("[EventSeq] IS NOT NULL");
+
+                    b.ToTable("RunLedgerTransitions", (string)null);
+                });
+
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.RunLlmCall", b =>
                 {
                     b.Property<long>("Id")
@@ -1533,6 +1579,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<long?>("EventSeq")
                         .HasColumnType("bigint");
 
+                    b.Property<int?>("MasterPass")
+                        .HasColumnType("int");
+
                     b.Property<string>("Model")
                         .HasColumnType("nvarchar(max)");
 
@@ -1549,6 +1598,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .IsRequired()
                         .HasMaxLength(191)
                         .HasColumnType("nvarchar(191)");
+
+                    b.Property<string>("SpecId")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int?>("StepIndex")
                         .HasColumnType("int");
@@ -1571,6 +1623,85 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .HasFilter("[EventSeq] IS NOT NULL");
 
                     b.ToTable("RunLlmCalls");
+                });
+
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.RunPass", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bigint");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<long>("Id"));
+
+                    b.Property<int>("ActionablePending")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("CriteriaJson")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("CriteriaMet")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("CriteriaTotal")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("EndedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("EndedBecause")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<long?>("EventSeq")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("GateLine")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("OpenedBecause")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("Ordinal")
+                        .HasColumnType("int");
+
+                    b.Property<int>("PassInStep")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ReengageReason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("RunId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("nvarchar(191)");
+
+                    b.Property<string>("SpecId")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("UnbackedDone")
+                        .HasColumnType("int");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("VerdictEmitted")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RunId");
+
+                    b.HasIndex("RunId", "EventSeq")
+                        .IsUnique()
+                        .HasFilter("[EventSeq] IS NOT NULL");
+
+                    b.ToTable("RunPasses", (string)null);
                 });
 
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.RunRepo", b =>

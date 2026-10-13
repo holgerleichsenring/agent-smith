@@ -55,7 +55,8 @@ public sealed class AgenticMasterHandler(
     IEventPublisher eventPublisher, // p0356: mid-run ledger flushes
     Resume.PriorRunSeedSource priorRunSeed, // p0356: same-ticket resume seed
     ISandboxToolchainProbe toolchainProbe, // p0356: probed capability line
-    SandboxWorkingTreeReader workingTree, // p0411: the changed paths the state block carries
+    MasterReengagementLoop reengagement, // 2026-10-13-9a59f: the open loop, lifted out
+    Passes.MasterPassRecorder passes, // 2026-10-13-9a59f: every master pass of a spec, recorded
     RunWorkCheckpointer checkpointer, // p0360: mid-run work durability
     Repositories.RunRepositoriesFactory runRepositories, // 2026-10-12-f5f7c: memory + decision files per repository
     IDialogueTransport? dialogueTransport,
@@ -146,7 +147,7 @@ public sealed class AgenticMasterHandler(
         // scan/spec-dialog surfaces have no update_progress tool.
         var checkpointInterval = context.AgentConfig.CheckpointPushMinIntervalSeconds;
         // p0374a: the master pass a ledger update arrived in. Pass 0 is the first
-        // loop; ReengageWhileProductiveAsync advances it per re-engagement pass.
+        // loop; MasterReengagementLoop advances it per re-engagement pass.
         // The counter lives here because the loop does; the tool host only reads it.
         var masterPass = 0;
         Func<Contracts.Progress.ProgressLedger, IReadOnlyList<Contracts.Progress.LedgerTransition>, Task>? onReplaced =
@@ -397,6 +398,11 @@ public sealed class AgenticMasterHandler(
 
         // p0341f: every drive below continues THIS conversation instead of opening a new one.
         var conversation = new MasterConversation();
+        // 2026-10-13-9a59f: pass 0 — the first loop with its apply drive and verdict nudge — is a pass
+        // of the spec; opened here, synchronously, so every call it makes carries it.
+        var pass0 = passes.Open(context.Pipeline, passInStep: 0);
+        Task EndPass0(string reason) => passes.EndAsync(context.Pipeline, pass0, reason, null,
+            new Passes.MasterPassState(progress.GetLedger(), fs.GetChanges(), null, null));
         AgenticLoopResult loopResult;
         try
         {
@@ -415,6 +421,7 @@ public sealed class AgenticMasterHandler(
             logger.LogWarning(
                 "Master '{Skill}' stopped on the per-pipeline cost budget: {Reason}",
                 context.MasterSkillName, budgetEx.Message);
+            await EndPass0(Contracts.Passes.MasterPassReasons.Budget);
             return CommandResult.Fail(budgetEx.Message);
         }
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
@@ -432,6 +439,7 @@ public sealed class AgenticMasterHandler(
             if (partialDecisions.Count > 0) context.Pipeline.AppendDecisions(partialDecisions);
             var reason = MasterOutcomes.DescribeMasterFailure(ex);
             logger.LogWarning(ex, "Master skill '{Skill}' failed: {Reason}", context.MasterSkillName, reason);
+            await EndPass0(Contracts.Passes.MasterPassReasons.Failed);
             return CommandResult.Fail(reason);
         }
 
@@ -460,6 +468,7 @@ public sealed class AgenticMasterHandler(
             logger.LogInformation(
                 "Master '{Skill}' asked for clarification mid-run — pausing for the ticket answer",
                 context.MasterSkillName);
+            await EndPass0(Contracts.Passes.MasterPassReasons.Question);
             return CommandResult.Ok("awaiting_user_input: master asked for clarification mid-run");
         }
 
@@ -581,16 +590,12 @@ public sealed class AgenticMasterHandler(
             }
         }
 
-        // p0341c: the OPEN loop's re-engagement. A model that quit early while budget AND
-        // actionable ledger steps remain is driven on — bounded by MONEY + FORWARD PROGRESS,
-        // never a fixed re-drive count. Each pass resumes WARM: the nudge carries the current
-        // ledger (checklist) AND a working-state block (decisions + last build/test — the
-        // continuity). Stop on: drained ledger, honest RED, budget exhausted, a zero-forward-
-        // progress pass, or a parked operator question (which short-circuits the whole run).
-        (loopResult, changes, verification) = await ReengageWhileProductiveAsync(
-            context, request, userPrompt, pipelineName, progress, fs, log, verdictOwed,
-            costTracker, TrackMasterResponse, ticketClarifications, loopResult, changes, verification,
-            conversation, setPass: p => masterPass = p, cancellationToken);
+        // p0341c: the OPEN loop's re-engagement — MasterReengagementLoop; it ends pass 0 with its first decision.
+        pass0?.Dispose();
+        (loopResult, changes, verification) = await reengagement.RunAsync(
+            new ReengageSession(context, request, userPrompt, pipelineName, progress, fs, log, verdictOwed,
+                costTracker, TrackMasterResponse, ticketClarifications, conversation, p => masterPass = p),
+            new ReengageState(loopResult, changes, verification), pass0, verification, cancellationToken);
         if (ticketClarifications?.Captured is { } reengageQuestion)
         {
             context.Pipeline.Set(ContextKeys.CodeChanges, changes);
@@ -705,169 +710,6 @@ public sealed class AgenticMasterHandler(
         logger.LogWarning(
             "Design-partner terminal outcome still invalid after re-prompt: {Error}", stillInvalid.Error);
         return MasterOutcomes.FailOutcome(pipeline, retry, stillInvalid.Error);
-    }
-
-    // An absolute anti-hang net on re-engagement passes for the fail-open case (no cost
-    // cap configured). It is NOT the control — money + forward progress are.
-    private const int ReengageHardSafetyCap = 50;
-
-    // The open-loop re-engagement driver. Loops WHILE ShouldReengage holds AND the previous
-    // pass called a tool, re-running the loop with a warm nudge (current ledger + working-
-    // state block). Stops on drained ledger, honest RED, budget exhausted, an idle pass, a
-    // parked operator question, or the hard safety net.
-    private async Task<(AgenticLoopResult LoopResult, IReadOnlyList<CodeChange> Changes, MasterVerification? Verification)>
-        ReengageWhileProductiveAsync(
-            AgenticMasterContext context, AgenticLoopRequest request, string userPrompt,
-            string? pipelineName, ProgressLedgerToolHost progress, FilesystemToolHost fs,
-            LogDecisionToolHost log, VerdictOwed verdictOwed, PipelineCostTracker costTracker,
-            Action<ChatResponse> trackMasterResponse,
-            TicketClarificationToolHost? ticketClarifications,
-            AgenticLoopResult loopResult, IReadOnlyList<CodeChange> changes,
-            MasterVerification? verification, MasterConversation conversation, Action<int> setPass,
-            CancellationToken cancellationToken)
-    {
-        var ratifiedCriteria = MasterReengagementPolicy.RatifiedCriteria(context.Pipeline);
-        for (var pass = 0; pass < ReengageHardSafetyCap; pass++)
-        {
-            // p0374a: pass 0 is the first loop, so a re-engagement pass is 1-based —
-            // every ledger transition recorded from here carries the pass it happened in.
-            setPass(pass + 1);
-            if (!MasterReengagementPolicy.ShouldReengage(
-                    pipelineName, progress.GetLedger(), verification,
-                    costTracker.IsBudgetExhausted, ratifiedCriteria, changes, pass + 1, verdictOwed.Demanded))
-            {
-                // 2026-09-22-7c41a: when MONEY is what ended the re-engagement, say which cap
-                // and what was spent — a resumed run carries the segment before it, so this
-                // stop can arrive far earlier than the run's own record would suggest.
-                if (costTracker.IsBudgetExhausted)
-                    logger.LogWarning("Master '{Skill}' will not re-engage — {Stop}",
-                        context.MasterSkillName, CostCapStop.Describe(costTracker));
-                LogVerdictlessStop(
-                    context.MasterSkillName, verification, pass + 1, ratifiedCriteria.Count, verdictOwed.Demanded);
-                break;
-            }
-            if (ticketClarifications?.Captured is not null)
-                break; // an operator question short-circuits — the caller parks the run
-
-            var passThrew = false;
-            MasterBlockedClaim? blockedClaim = null;
-            var toolCallsInPass = 0;
-            // p0391: the per-pass ledger snapshot the turnover bound compares against — the
-            // ids the checklist carried INTO this pass. A pass that ends with only ids it
-            // invented itself, having written nothing, refilled its own work.
-            var ledgerIdsAtPassStart = progress.GetLedger().Entries
-                .Select(e => e.Id).ToHashSet(StringComparer.Ordinal);
-            var changesAtPassStart = changes;
-
-            logger.LogInformation(
-                "Master '{Skill}' re-engaging the open loop — {Remaining} actionable step(s) remain, budget OK; acceptance: {Acceptance}",
-                context.MasterSkillName, progress.GetLedger().ActionablePending.Count,
-                MasterAcceptanceGate.Judge(verification, ratifiedCriteria, changes.Count > 0).Describe());
-            try
-            {
-                // p0411: read the working tree HERE, once per pass, so the nudge opens with
-                // the changed paths instead of leaving them to be asked for.
-                var changedPaths = await ReadChangedPathsAsync(context, cancellationToken);
-                var nudge = MasterNudges.BuildReengageNudge(
-                    userPrompt, progress.GetLedger(), log.GetDecisions(), verification,
-                    changedPaths, MasterPipelineFacts.StagedRegistries(context.Pipeline));
-                var reengaged = await loopRunner.RunAsync(
-                    request with { UserPrompt = nudge, PriorMessages = conversation.Thread() },
-                    cancellationToken);
-                conversation.Continued(nudge, reengaged.Response);
-                // p0341e: no-op for the coding master (per-iteration governor hook already
-                // recorded this pass's spend); the shared helper keeps the gating in one place.
-                trackMasterResponse(reengaged.Response);
-                loopResult = reengaged;
-                changes = fs.GetChanges();
-                var reparsed = MasterVerificationParser.TryParse(reengaged.Response.Text);
-                if (reparsed is not null) verification = reparsed;
-                blockedClaim = MasterVerificationParser.TryParseBlockedClaim(reengaged.Response.Text);
-                toolCallsInPass = ReengageProgressPolicy.CountToolCalls(reengaged.Response);
-            }
-            catch (MasterBudgetExhaustedException budgetEx)
-            {
-                // 2026-09-22-7c41a: the fence's own sentence, which names the cap and the
-                // spend. This arm only LOGS and breaks, so without it the run's loudest
-                // money stop left nothing but "hit the cost budget".
-                logger.LogWarning(
-                    "Master '{Skill}' hit the cost budget mid re-engagement — stopping (partial work preserved): {Reason}",
-                    context.MasterSkillName, budgetEx.Message);
-                break;
-            }
-            catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
-            {
-                // A crashed/timeout pass is RECOVERY, not zero-progress — keep the prior
-                // state and let the next iteration re-decide against the budget.
-                logger.LogWarning(ex, "Re-engagement pass failed for master '{Skill}'", context.MasterSkillName);
-                passThrew = true;
-            }
-
-            if (ticketClarifications?.Captured is not null)
-                break; // asked during the pass — caller parks
-
-            // p0365: the model controls the pass boundary and naturally alternates edit passes
-            // and verify passes, so per-pass state deltas mis-judge progress. The one reliable
-            // idle signal is a pass that called NO tool — the model, re-engaged, did nothing.
-            // Keep driving while any tool fires; budget / wall-time / the hard cap bound the
-            // active-but-unconverging case, and repetition is surfaced to the operator, not auto-killed.
-            // p0391: …and the ledger-turnover bound on top — the model-owned checklist has no
-            // turnover limit, so a pass that only re-invents work is stopped mechanically.
-            var selfRefilled = ReengageProgressPolicy.IsSelfRefilled(
-                ledgerIdsAtPassStart, progress.GetLedger(),
-                ReengageProgressPolicy.ProducedNewWork(changesAtPassStart, changes));
-            var outcome = ReengageProgressPolicy.Decide(
-                toolCallsInPass, blockedClaim, passThrew, selfRefilled);
-            if (outcome != ReengageOutcome.Continue)
-            {
-                LogReengageStop(context.MasterSkillName, outcome, blockedClaim);
-                break;
-            }
-        }
-
-        return (loopResult, changes, verification);
-    }
-
-    // p0406: the open loop stopped while the contract was still unsatisfied and the master
-    // had never emitted a verdict. That is a NAMED outcome — an unknown verdict the keystone
-    // will record honestly — not the silent break it used to be.
-    private void LogVerdictlessStop(
-        string skill, MasterVerification? verification, int reengagePass, int criteriaCount, bool demanded)
-    {
-        if (!MasterAcceptanceGate.VerdictlessAfterOneRedrive(verification, reengagePass, criteriaCount, demanded))
-            return;
-        logger.LogWarning(
-            "Master '{Skill}' emitted no verification verdict across {Passes} pass(es) — ending the "
-            + "open loop on an unknown verdict rather than re-driving a null", skill, reengagePass);
-    }
-
-    // p0411: the run's changed paths, repo-prefixed as the master addresses them.
-    private Task<IReadOnlyList<string>> ReadChangedPathsAsync(
-        AgenticMasterContext context, CancellationToken ct) =>
-        workingTree.ChangedPathsAsync(
-            context.Pipeline.Get<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes),
-            context.Pipeline.TryGet<IReadOnlyDictionary<string, string>>(
-                ContextKeys.SandboxRepos, out var keyToRepo) ? keyToRepo : null,
-            ct);
-
-    // p0365: an empty pass (no tool call) is surfaced as an idle stop, not a silent truncation;
-    // an honest blocked claim with a concrete blocker is respected and named. Both stop the loop;
-    // the keystone still records the run's honest outcome from the drained/undrained ledger.
-    private void LogReengageStop(string skill, ReengageOutcome outcome, MasterBlockedClaim? block)
-    {
-        if (outcome == ReengageOutcome.StopBlocked)
-            logger.LogInformation(
-                "Master '{Skill}' reported a concrete blocker — stopping the open loop (respected): {Blocker}",
-                skill, block?.Blocker);
-        else if (outcome == ReengageOutcome.StopSelfRefilled)
-            logger.LogInformation(
-                "Master '{Skill}' re-engagement pass refilled its own checklist — every remaining step was "
-                + "added during the pass and nothing reached the diff; stopping the open loop so the run "
-                + "ends on its verdict instead of on the budget", skill);
-        else
-            logger.LogInformation(
-                "Master '{Skill}' re-engagement pass called no tool — the model is idle with work still open; "
-                + "stopping and surfacing for review", skill);
     }
 
     // p0317: gathers what FetchTicket published — the conversation section, the

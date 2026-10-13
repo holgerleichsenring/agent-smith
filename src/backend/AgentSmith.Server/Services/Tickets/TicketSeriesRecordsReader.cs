@@ -29,7 +29,9 @@ public sealed class TicketSeriesRecordsReader(IServiceScopeFactory scopes)
         return new(cuts, specs, attempts, await GateStepsAsync(uow, runIds, ct),
             await uow.Set<RunCriterionJudgement>().AsNoTracking()
                 .Where(j => runIds.Contains(j.RunId)).OrderBy(j => j.Id).ToListAsync(ct),
-            checkpointed.ToHashSet(StringComparer.Ordinal));
+            checkpointed.ToHashSet(StringComparer.Ordinal),
+            await uow.Set<RunLedgerTransition>().AsNoTracking() // 2026-10-13-9a59f
+                .Where(t => runIds.Contains(t.RunId) && t.SpecId != null).OrderBy(t => t.Id).ToListAsync(ct));
     }
 
     // The newest SpecGate step of each run, by row id: a resumed run gates again.

@@ -29,6 +29,7 @@ public sealed class RunChildConfiguration
         typeof(RunLlmCall), typeof(RunArtifact), typeof(RunSandbox), typeof(RunSpec),
         typeof(RunAttempt), // 2026-10-13-9a59d
         typeof(RunSeriesCut), // 2026-10-13-9a59e
+        typeof(RunPass), typeof(RunLedgerTransition), // 2026-10-13-9a59f
     ];
 
     public void Apply(ModelBuilder modelBuilder)
@@ -46,5 +47,7 @@ public sealed class RunChildConfiguration
         }
         new RunAttemptConfiguration().Configure(modelBuilder.Entity<RunAttempt>());
         modelBuilder.Entity<RunSeriesCut>().ToTable("RunSeriesCuts");
+        modelBuilder.Entity<RunPass>().ToTable("RunPasses");
+        modelBuilder.Entity<RunLedgerTransition>().ToTable("RunLedgerTransitions");
     }
 }

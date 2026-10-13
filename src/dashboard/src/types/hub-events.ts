@@ -45,6 +45,7 @@ export enum EventType {
   SpecReviewed = 81,
   DesignRead = 82,
   SpecSetPublished = 83,
+  MasterPassEnded = 84,
 }
 
 interface RunEventBase {
@@ -588,6 +589,34 @@ export interface SpecSetPublishedEvent extends RunEventBase {
   specs?: SpecCutEntry[] | null;
 }
 
+/**
+ * 2026-10-13-9a59f: one master pass of a spec ended — why it opened and ended (a re-engaged end names
+ * its reengageReason), the verdicts it reported itself and what it left open. The ordinal is run-wide.
+ */
+export interface MasterPassEndedEvent extends RunEventBase {
+  type: EventType.MasterPassEnded;
+  specId: string;
+  ordinal: number;
+  passInStep: number;
+  openedBecause: string;
+  endedBecause: string;
+  reengageReason?: string | null;
+  verdictEmitted: boolean;
+  criteriaMet?: number | null;
+  criteriaTotal?: number | null;
+  criteria?: MasterPassCriterion[] | null;
+  gateLine: string;
+  actionablePending: number;
+  unbackedDone: number;
+}
+
+/** 2026-10-13-9a59f: the master's disposition of one criterion in one pass. Mirrors C# MasterPassCriterion. */
+export interface MasterPassCriterion {
+  criterion: string;
+  status: string;
+  evidence: string;
+}
+
 /** 2026-10-13-9a59e: one spec of a published cut. Mirrors C# SpecCutEntry. */
 export interface SpecCutEntry {
   specId: string;
@@ -642,7 +671,8 @@ export type RunEvent =
   | SpecRecordedEvent
   | SpecReviewedEvent
   | DesignReadEvent
-  | SpecSetPublishedEvent;
+  | SpecSetPublishedEvent
+  | MasterPassEndedEvent;
 
 /** p0327: the pending question of a status="waiting_for_input" run, joined
  *  from its checkpoint row at query time (REST detail only). */

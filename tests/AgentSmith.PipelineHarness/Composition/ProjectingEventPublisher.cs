@@ -31,6 +31,7 @@ public sealed class ProjectingEventPublisher(IServiceScopeFactory scopeFactory) 
         new RunSandboxFamily(new(new(), new())),
         new RunSpecFamily(new(), new(new())),
         new RunAttemptFamily(new()),
+        new RunPassFamily(new(new()), new(new())), // 2026-10-13-9a59f
     ]);
 
     private readonly ConcurrentDictionary<string, long> _seqByRun = new();

@@ -41,4 +41,23 @@ public interface IRunContextAccessor
     /// p0466: <paramref name="specId"/> is the spec that step belongs to.
     /// </summary>
     IDisposable BeginStepScope(int stepIndex, string? specId = null);
+
+    /// <summary>
+    /// 2026-10-13-9a59f: the run-wide ordinal of the master pass executing on this flow, or null outside
+    /// one. Default members, so an accessor that keeps no pass frame reads null and opens nothing.
+    /// </summary>
+    int? CurrentMasterPass => null;
+
+    /// <summary>2026-10-13-9a59f: opens the ambient master-pass frame. Open it synchronously in the
+    /// method that runs the pass: a frame set inside an async callee is gone when the callee returns.</summary>
+    IDisposable BeginMasterPassScope(int ordinal) => NoFrame.Instance;
+
+    private sealed class NoFrame : IDisposable
+    {
+        public static readonly NoFrame Instance = new();
+
+        public void Dispose()
+        {
+        }
+    }
 }

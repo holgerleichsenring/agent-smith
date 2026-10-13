@@ -35,6 +35,8 @@ public sealed class RunEventApplierFamiliesTests
         [typeof(SpecRecordedEvent)] = ["RunSpecFamily"],
         [typeof(SpecReviewedEvent)] = ["RunSpecFamily"],
         [typeof(SpecSetPublishedEvent)] = ["RunSpecFamily", "RunAttemptFamily"],
+        [typeof(MasterPassEndedEvent)] = ["RunPassFamily"],
+        [typeof(LedgerTransitionsRecordedEvent)] = ["RunPassFamily"],
     };
 
     [Fact]

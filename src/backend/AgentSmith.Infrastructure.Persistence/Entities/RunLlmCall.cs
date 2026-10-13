@@ -31,4 +31,11 @@ public sealed class RunLlmCall : EntityBase
     /// counts are one query. Null on pre-p0388a rows — unattributed, never guessed.
     /// </summary>
     public int? StepIndex { get; set; }
+
+    /// <summary>2026-10-13-9a59f: the spec the call was made in — a step index can name two step rows
+    /// after a park, so the call states its own. Null outside a spec and on older rows.</summary>
+    public string? SpecId { get; set; }
+
+    /// <summary>2026-10-13-9a59f: the run-wide master pass the call was made in; null outside one.</summary>
+    public int? MasterPass { get; set; }
 }

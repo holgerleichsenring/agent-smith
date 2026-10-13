@@ -10,6 +10,7 @@ namespace AgentSmith.Server.Models;
 /// <param name="State">not_started | in_progress | done | failed | handed_back | carried.</param>
 /// <param name="ExecutedBy">The attempt that executed the spec; null while nothing has.</param>
 /// <param name="Unmeasured">Accounts that could not be taken for the spec, with why.</param>
+/// <param name="Worked">2026-10-13-9a59f: each step as worked, in the spec's step order.</param>
 public sealed record TicketSeriesSpecView(
     string SpecId,
     int Ordinal,
@@ -22,4 +23,5 @@ public sealed record TicketSeriesSpecView(
     string? ExecutedBy,
     int? ExecutedByAttempt,
     IReadOnlyList<TicketSeriesCriterionView> Done,
-    IReadOnlyList<UnmeasuredAccountView> Unmeasured);
+    IReadOnlyList<UnmeasuredAccountView> Unmeasured,
+    IReadOnlyList<TicketSeriesStepWorkedView>? Worked = null);

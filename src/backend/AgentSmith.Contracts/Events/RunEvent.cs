@@ -26,6 +26,12 @@ public abstract record RunEvent(string RunId, EventType Type, DateTimeOffset Tim
     /// </summary>
     public int? OriginStepIndex { get; init; }
 
+    /// <summary>2026-10-13-9a59f: the spec this event was produced in, stamped like the step.</summary>
+    public string? OriginSpecId { get; init; }
+
+    /// <summary>2026-10-13-9a59f: the run-wide master pass this event was produced in, or null outside one.</summary>
+    public int? OriginMasterPass { get; init; }
+
     string IDomainEvent.EventId => _eventId;
     DateTimeOffset IDomainEvent.OccurredAt => Timestamp;
     string IDomainEvent.Origin => $"run:{RunId}";

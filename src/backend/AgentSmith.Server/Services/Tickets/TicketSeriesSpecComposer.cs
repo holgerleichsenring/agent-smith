@@ -33,7 +33,8 @@ public sealed class TicketSeriesSpecComposer
             spec.SpecId, spec.Ordinal, spec.FileStem, spec.Goal, spec.Repos, spec.Steps, spec.Yaml, state,
             executed?.RunId, executed is null ? null : attemptNumbers[executed.RunId],
             [.. spec.Done.Select(text => Criterion(text, acceptance, judgements))],
-            acceptance?.Unmeasured ?? []);
+            acceptance?.Unmeasured ?? [],
+            StepsAsWorkedFold.Fold(spec, records.Transitions ?? [], attemptNumbers)); // 2026-10-13-9a59f
     }
 
     private static TicketSeriesCriterionView Criterion(

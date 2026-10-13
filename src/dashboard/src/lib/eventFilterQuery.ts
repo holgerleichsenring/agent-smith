@@ -66,6 +66,7 @@ const TYPE_KEYS: Record<string, EventType> = {
   RunCancelRequested: EventType.RunCancelRequested,
   SandboxVanished: EventType.SandboxVanished,
   DesignRead: EventType.DesignRead, // 2026-10-01-7f7ae
+  MasterPassEnded: EventType.MasterPassEnded, // 2026-10-13-9a59f
 };
 
 const KEY_BY_TYPE: Record<EventType, string> = Object.fromEntries(

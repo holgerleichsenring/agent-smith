@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-9a59f
+
+decisions:
+  - category: Architecture
+    chose: "Three classes out of AgenticMasterHandler — MasterReengagementLoop (the for-loop and its exits), ReengagePass (one pass's drive, reparse and forward-progress verdict) and ReengageStopLog (the stop lines) — all DI-registered by AddMasterPasses, chained on the handler's own registration line"
+    over: "One MasterReengagementLoop class, or registering the three on new lines of PipelineHandlersExtensions"
+    reason: |
+      The loop body alone was about 112 lines; with the cap, the changed-paths read and the recorder calls it
+      could not fit one class under 120. PipelineHandlersExtensions sits at its 218-line baseline, so the
+      registration rides the handler's line instead of adding one. The handler drops 905 -> 747 and its
+      baseline line follows; behaviour of the loop is unchanged (the existing re-engagement tests are green
+      unmodified).
+  - category: Architecture
+    chose: "ReengageReasonPolicy returns a ReengageDecision(Reengage, Reason) whose reason is a MasterPassReasons wire string; ShouldReengage delegates in one line"
+    over: "A C# enum mapped to the wire word at the event boundary"
+    reason: |
+      The reason is only ever carried to the event and read back as a string by the server and the dashboard;
+      an enum would add a mapping and a second vocabulary. The branches are exactly ShouldReengage's, in its
+      order (MasterReengagementPolicy.cs:69-109 before this spec); the off-code-pipeline stop returns a null
+      reason because a spec step only runs in the code preset, and the loop records it as nothing-left.
+  - category: Architecture
+    chose: "The recorder's Open returns a MasterPassFrame that holds the ambient pass scope; the caller disposes it once the pass's work is done, and EndAsync needs only the frame's facts"
+    over: "Ending the pass inside the recorder by disposing the scope there"
+    reason: |
+      AsyncLocal frames set or cleared inside an async callee do not flow back to the caller, and the frame
+      handle is idempotent — a dispose inside EndAsync would mark it disposed while the caller's flow still
+      carried the pass. Pass 0's frame is opened in the handler and disposed before the loop is called; each
+      re-engagement pass's frame is opened and disposed inside the loop around the pass.
+  - category: Architecture
+    chose: "A re-engagement pass that threw ends with the loop's next decision (re-engaged or a stop), not with failed"
+    over: "Ending it failed"
+    reason: |
+      The loop has always treated a throwing re-engagement pass as recovery and decided again; failed is the
+      end of pass 0 when the master step itself fails. Recording the thrown pass as failed would claim an end
+      the loop did not take.
+  - category: Data
+    chose: "The pass's own counts and per-criterion verdicts are null when it emitted no verdict, the counts also null on a verdict-level refusal or with no ratified criteria; the gate line describes the verdict the loop stands on"
+    over: "Counting the standing (carried) verdict"
+    reason: |
+      A pass that emitted nothing must not show the previous pass's counts (done criterion 3). The gate line
+      is the judgement the loop decided on, in AcceptanceJudgement.Describe()'s words.
+  - category: Data
+    chose: "RunLedgerTransition is written for every LedgerTransitionsRecordedEvent, its SpecId and MasterPass read from the publish-path stamps (null outside a spec or pass); the series read uses only rows with a spec"
+    over: "Writing transition rows only inside a recorded pass"
+    reason: |
+      The row is the queryable projection of a trail-only event the trail prunes after 90 days; keeping every
+      one costs nothing and the stamps say where it belongs. The event's doc now says it is projected.
+  - category: Data
+    chose: "StepsAsWorkedFold reports a step's last recorded state, and the attempt and pass that last moved it from not-done into done only while it stands done; a step never moved reads state null"
+    over: "Reporting the done move even after a reopen, or reading an unmoved step as pending"
+    reason: |
+      A refused rewrite carries done -> done and moved nothing; a reopened step is not done, and naming the
+      pass that once completed it would read as if it still were. A seeded step has no transition, so null is
+      the honest state.
+  - category: Architecture
+    chose: "Calls outside every spec are priced by the RunStep with the call's step index and the largest EventSeq below the call's; no step index, or no such row, is not attributed"
+    over: "Joining the call to any step row of that index"
+    reason: |
+      After a park the resume re-runs from the checkpointed execution count, so one index names two step rows
+      (PipelineExecutor.cs:112,130 with DialogueCheckpointWriter.cs:30-31). An unstamped call whose step carries
+      a spec id is priced other — the call stamp, not the step row, says what a call belongs to.
+  - category: Testing
+    chose: "The harness test decorates the scripted chat-client factory with the production EventPublishingChatClient (priced as gpt-4o) inside its own override"
+    over: "Inserting EventPublishingChatClient into ScriptedChatClientFactoryAdapter for every harness test"
+    reason: |
+      The adapter publishes no model calls, so no harness run had ever projected a RunLlmCall row; changing it
+      for all harness tests would alter every event stream they assert on. The run showed the real shape: two
+      passes (the first re-engaged red-with-open-steps, the second died on the fence), then VerifySpec's repair
+      master opened a third pass numbered on, opened because repair.

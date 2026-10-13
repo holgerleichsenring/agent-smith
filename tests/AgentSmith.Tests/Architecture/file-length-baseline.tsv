@@ -3,7 +3,7 @@
 # From here the list may only SHRINK and a listed file may only get SHORTER.
 # Fix a file, drop its line — the test fails if a fixed file is still listed.
 # lines	path (relative to src/backend)
-922	AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs
+747	AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs
 617	AgentSmith.Application/Services/ExecutePipelineUseCase.cs
 617	AgentSmith.Application/Services/Tools/FilesystemToolHost.cs
 541	AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs

@@ -109,7 +109,7 @@ public static class PipelineHandlersExtensions
         // p0401: shared scanner-observation service (severity mapping + warn-once).
         services.AddSingleton<ScannerObservationFactory>();
         services.AddTransient<ICommandHandler<ApprovalContext>, ApprovalHandler>();
-        services.AddTransient<ICommandHandler<AgenticMasterContext>, AgenticMasterHandler>();
+        services.AddTransient<ICommandHandler<AgenticMasterContext>, AgenticMasterHandler>().AddMasterPasses(); // 9a59f
         services.AddTransient<ITicketDocumentMaterializer, TicketDocumentMaterializer>();
         services.AddTransient<GitBranchPusher>(); // p0422
         services.AddTransient<SandboxGitOperations>();
