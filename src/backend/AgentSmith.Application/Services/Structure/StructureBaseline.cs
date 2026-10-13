@@ -19,11 +19,13 @@ namespace AgentSmith.Application.Services.Structure;
 /// 2026-10-13-50c7: the context measures every file under its workdir and sources that it owns or
 /// ties on, and records the directories it owned. Every excess under a newly owned directory is
 /// added — to a preserved baseline too, which otherwise keeps its entries and Limits line.
+/// 2026-10-13-ee83: the sources are read in batched steps; the gate keeps its per-file reads.
 /// </summary>
 public sealed class StructureBaseline(
     StructureSourceListing listing, IStructureEngine engine, StructureLimits limits,
     StructureJudge judge, StructureBaselineFile baselineFile, StructureBaselineOwnership ownership,
-    StructureBaselineEntries entries, ISandboxFileReaderFactory files, ILogger<StructureBaseline> logger)
+    StructureBaselineEntries entries, ISandboxFileReaderFactory files, StructureBatchedReader batched,
+    ILogger<StructureBaseline> logger)
 {
     public async Task<StructureBaselineResult> ApplyAsync(
         ISandbox sandbox, StructureBaselineScope scope, CancellationToken cancellationToken)
@@ -59,7 +61,7 @@ public sealed class StructureBaseline(
         var (claimed, refusal) = await ClaimedAsync(sandbox, owned, ct);
         return refusal is not null
             ? StructureBaselineResult.Skipped(refusal, present)
-            : await RecordAsync(reader, scope, existing, owned, claimed, limitSet, ct);
+            : await RecordAsync(sandbox, reader, scope, existing, owned, claimed, limitSet, ct);
     }
 
     // The tracked files this context owns or ties on that a language measures; a sibling's are its own.
@@ -72,11 +74,13 @@ public sealed class StructureBaseline(
         return claimed.Count == 0 ? ([], "no tracked file under the workdir is in a measured language") : (claimed, null);
     }
 
-    private async Task<StructureBaselineResult> RecordAsync(ISandboxFileReader reader, StructureBaselineScope scope,
-        string? existing, StructureBaselineOwned owned, IReadOnlyList<string> claimed, StructureLimitSet limitSet,
+    private async Task<StructureBaselineResult> RecordAsync(ISandbox sandbox, ISandboxFileReader reader,
+        StructureBaselineScope scope, string? existing, StructureBaselineOwned owned, IReadOnlyList<string> claimed,
+        StructureLimitSet limitSet,
         CancellationToken ct)
     {
-        var (findings, unreadable, unavailable) = await MeasureAsync(reader, claimed, limitSet, ct);
+        var contents = await batched.ReadAsync(sandbox, reader, claimed, ct);
+        var (findings, unreadable, unavailable) = Measure(contents, claimed, limitSet);
         if (unavailable is not null) return StructureBaselineResult.Skipped(unavailable, existing is not null);
         var preserved = existing is not null && scope.Mode == PrinciplesMode.PreservedExisting;
         var written = entries.Compose(existing, preserved, findings, path => ownership.IsNewlyOwned(owned, path));
@@ -85,14 +89,14 @@ public sealed class StructureBaseline(
         return new StructureBaselineResult(true, written.Count, unreadable, existing is not null);
     }
 
-    private async Task<(IReadOnlyList<StructureFinding>, int, string?)> MeasureAsync(
-        ISandboxFileReader reader, IReadOnlyList<string> paths, StructureLimitSet limitSet, CancellationToken ct)
+    private (IReadOnlyList<StructureFinding>, int, string?) Measure(
+        IReadOnlyDictionary<string, string?> contents, IReadOnlyList<string> paths, StructureLimitSet limitSet)
     {
         var findings = new List<StructureFinding>();
         var unreadable = 0;
         foreach (var path in paths)
         {
-            if (await reader.TryReadAsync(path, ct) is not { } content) { unreadable++; continue; }
+            if (contents.GetValueOrDefault(path) is not { } content) { unreadable++; continue; }
             var measurement = engine.Measure(path, content);
             if (measurement.Outcome == StructureOutcome.Unavailable) return ([], unreadable, measurement.Reason);
             // 2026-10-12-fbbda: a divergence is inside the band and needs no tolerating.

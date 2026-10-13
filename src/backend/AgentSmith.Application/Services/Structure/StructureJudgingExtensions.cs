@@ -13,6 +13,9 @@ public static class StructureJudgingExtensions
         services.AddTransient<StructureBaseline>();
         services.AddTransient<StructureGitRunner>(); // 2026-10-13-2d0c
         services.AddTransient<StructureZeroListing>();
+        services.AddTransient<StructureBatchedReader>(); // 2026-10-13-ee83
+        services.AddTransient<StructureBatchScript>();
+        services.AddTransient<StructureBatchOutput>();
         services.AddTransient<StructureBaselineHeader>();
         services.AddTransient<StructureBaselineFile>();
         services.AddTransient<StructureRepoContexts>();
