@@ -14,15 +14,15 @@ facts:
 
 scope:
   in: >
-    A spec-word check in scripts/validate-skills.sh over skills/, references/ and principles/ (CHANGELOG excluded): every
+    A spec-word check in scripts/validate-skills.sh over skills/, references/, principles/ and patterns/ (CHANGELOG excluded): every
     line saying phase must match an allowlist file, scripts/phase-word-allowlist.tsv, listing each allowed file with the
     count of phase-word lines it may hold and the reason (workflow-step meaning); a file gaining a line or an unlisted
-    file fails, a count that shrank must be lowered (the list only shrinks). A fixture proves red and green.
+    file fails, a count that shrank must be lowered (the list only shrinks). A CI step copies the tree to a temp directory, adds a fixture line and a grown allowlisted file, and expects a non-zero exit; greps that may find nothing keep '|| true'.
   out: "Renaming the masters' step headings."
 
 steps:
   - id: check
-    action: "check_spec_word in validate-skills.sh with the allowlist; negative fixture run in the script's self-test or CI."
+    action: "check_spec_word in validate-skills.sh with the allowlist; negative fixture step in .github/workflows/validate.yml."
 
 tests:
   - "validate-skills.sh refuses a fixture skill saying 'the phase you were given'"
@@ -30,4 +30,4 @@ tests:
   - "validate-skills.sh passes on main"
 
 done:
-  - "The skills CI is red on the fixture and green on main; released; agent-smith pins the release."
+  - "The skills CI is red on the fixture and green on main."
