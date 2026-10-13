@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-13-9a59j: "RUN SEGMENTS (run projections, persistence, run read). Every launch of a run is a segment row with its start, end and end status; /api/runs/{runId}/compute serves segments with model time, the calls no segment holds, and each park's asked/answered/resumed times. -> .agentsmith/specs/done/2026-10-13-9a59j-run-segments.yaml"
     2026-10-13-9a59i: "SANDBOX END REASON (sandbox backends, release, run projections, run read). Every sandbox row records how it ended — exited, oom-killed, vanished, gone or released at park, requeue or end, unobserved — first end wins, a replay adds nothing; GET /api/runs/{runId}/compute serves every spawn. -> .agentsmith/specs/done/2026-10-13-9a59i-sandbox-end-reason.yaml"
     2026-10-13-9a59h: "CONVERSATION READ AND STUCK (ticket read model, persistence). GET /api/tickets/{project}/{ticketId}/conversation returns a ticket's conversation by attempt, Work it out turns behind dialog.write; a between-attempts check marks a failed, untouched ticket Stuck. -> .agentsmith/specs/done/2026-10-13-9a59h-conversation-read.yaml"
     2026-10-13-9a59g: "CONVERSATION RECORD (run-event projections, derivation, spec dialog). A ticket run keeps its ticket text with criteria, every question it parked on, its hand-back (event 85) and every cut review (event 86) as RunConversationEntry rows that live as long as the run; a bound design conversation nudges its ticket. -> .agentsmith/specs/done/2026-10-13-9a59g-conversation-record.yaml"

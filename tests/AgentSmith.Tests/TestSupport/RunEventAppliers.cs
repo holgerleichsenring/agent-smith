@@ -30,5 +30,6 @@ internal static class RunEventAppliers
         new RunAttemptFamily(new()),
         new RunPassFamily(new(new()), new(new())), // 2026-10-13-9a59f
         new RunConversationProjection(new()), // 2026-10-13-9a59g
+        new RunSegmentProjection(new()), // 2026-10-13-9a59j
     ];
 }

@@ -12,9 +12,9 @@ public sealed class RunEventApplierFamiliesTests
 {
     private static readonly Dictionary<Type, string[]> Expected = new()
     {
-        [typeof(RunStartedEvent)] = ["RunRowFamily"],
+        [typeof(RunStartedEvent)] = ["RunRowFamily", "RunSegmentProjection"],
         [typeof(TicketFetchedEvent)] = ["RunRowFamily", "RunAttemptFamily", "RunConversationProjection"],
-        [typeof(RunFinishedEvent)] = ["RunRowFamily", "RunSandboxFamily"],
+        [typeof(RunFinishedEvent)] = ["RunRowFamily", "RunSandboxFamily", "RunSegmentProjection"],
         [typeof(PullRequestOutcomeEvent)] = ["RunRowFamily"],
         [typeof(RunCancelRequestedEvent)] = ["RunRowFamily"],
         [typeof(RunCheckpointedEvent)] = ["RunRowFamily", "RunConversationProjection"],

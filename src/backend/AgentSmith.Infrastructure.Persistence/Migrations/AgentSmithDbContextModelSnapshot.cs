@@ -1795,6 +1795,48 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.ToTable("RunSandboxes");
                 });
 
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.RunSegment", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("EndSeq")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("EndStatus")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset?>("EndedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("EventSeq")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RunId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("StartedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RunId");
+
+                    b.HasIndex("RunId", "EventSeq")
+                        .IsUnique();
+
+                    b.ToTable("RunSegments", (string)null);
+                });
+
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.RunSeriesCut", b =>
                 {
                     b.Property<long>("Id")

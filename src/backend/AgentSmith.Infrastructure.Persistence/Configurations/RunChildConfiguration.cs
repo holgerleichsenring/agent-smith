@@ -32,6 +32,7 @@ public sealed class RunChildConfiguration
         typeof(RunPass), typeof(RunLedgerTransition), // 2026-10-13-9a59f
         typeof(RunConversationEntry), // 2026-10-13-9a59g
         typeof(TicketBetweenAttemptsCheck), // 2026-10-13-9a59h
+        typeof(RunSegment), // 2026-10-13-9a59j
     ];
 
     public void Apply(ModelBuilder modelBuilder)
@@ -52,5 +53,6 @@ public sealed class RunChildConfiguration
         modelBuilder.Entity<RunSeriesCut>().ToTable("RunSeriesCuts");
         modelBuilder.Entity<RunPass>().ToTable("RunPasses");
         modelBuilder.Entity<RunLedgerTransition>().ToTable("RunLedgerTransitions");
+        modelBuilder.Entity<RunSegment>().ToTable("RunSegments");
     }
 }

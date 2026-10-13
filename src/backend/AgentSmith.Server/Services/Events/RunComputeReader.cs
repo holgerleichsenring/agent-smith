@@ -10,7 +10,7 @@ namespace AgentSmith.Server.Services.Events;
 /// unlike the snapshot's live compute, which keeps one pod per repository. Read once per attempt, so it is
 /// its own endpoint rather than a field every listed run pays for. The sandboxes no row records are named.
 /// </summary>
-public sealed class RunComputeReader(IServiceScopeFactory scopes)
+public sealed class RunComputeReader(IServiceScopeFactory scopes, RunSegmentsReader segments)
 {
     /// <summary>The sandboxes a run opens that leave no row: named, never counted.</summary>
     public static IReadOnlyList<RunComputeUncountedView> Uncounted { get; } =
@@ -31,13 +31,18 @@ public sealed class RunComputeReader(IServiceScopeFactory scopes)
             .Select(s => new RunComputeSpawnView(
                 s.RepoName ?? s.Key, s.SpawnedAt, s.DisposedAt, s.MemoryRequest, s.EndReason, s.ExitCode, s.OomKilled))
             .ToListAsync(ct);
-        return new RunComputeRecordView(runId, spawns, Uncounted);
+        var launches = await segments.ReadAsync(uow, runId, ct);
+        return new RunComputeRecordView(runId, spawns, Uncounted, launches.Segments, launches.UnattributedCalls);
     }
 }
 
-/// <summary>2026-10-13-9a59i: a run's compute record — each spawn, and the sandboxes it does not count.</summary>
+/// <summary>
+/// 2026-10-13-9a59i: a run's compute record — each spawn, and the sandboxes it does not count.
+/// 2026-10-13-9a59j: each launch as a segment, and the calls no segment holds.
+/// </summary>
 public sealed record RunComputeRecordView(
-    string RunId, IReadOnlyList<RunComputeSpawnView> Spawns, IReadOnlyList<RunComputeUncountedView> Uncounted);
+    string RunId, IReadOnlyList<RunComputeSpawnView> Spawns, IReadOnlyList<RunComputeUncountedView> Uncounted,
+    IReadOnlyList<RunComputeSegmentView> Segments, int UnattributedCalls);
 
 /// <summary>
 /// 2026-10-13-9a59i: one spawned sandbox. EndReason is one of SandboxEndReasons; an 'unobserved' spawn keeps

@@ -2,6 +2,7 @@ using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Contracts;
+using DialogueAnswerEntry = AgentSmith.Infrastructure.Persistence.Entities.DialogueAnswerEntry;
 using AgentSmith.Infrastructure.Persistence.Extensions;
 using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Server.Extensions;
@@ -39,6 +40,7 @@ public sealed class RunComputeEndpointTests : IDisposable
         services.AddRunProjections();
         services.AddSingleton<RunEventApplier>();
         services.AddSingleton<RunComputeReader>();
+        services.AddSingleton<RunSegmentsReader>().AddSingleton<RunParkReader>();
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true });
     }
 
@@ -75,6 +77,43 @@ public sealed class RunComputeEndpointTests : IDisposable
         view.Uncounted.Select(u => u.Kind).Should().Equal("source-scope", "browser", "preflight");
         view.Uncounted.Should().OnlyContain(u => u.Label.Length > 0);
     }
+
+    [Fact]
+    public async Task RunComputeEndpoint_ServesSegments()
+    {
+        await ApplyAsync(
+            new RunStartedEvent(RunId, "ticket", "code", ["api"], T, "claude", "42"),
+            new LlmCallFinishedEvent(RunId, "gpt-4o", "master", 10, 5, 0.01m, 4_000, T.AddMinutes(2)),
+            Parked("q1", minute: 3), Finished("waiting_for_input", minute: 4),
+            new RunStartedEvent(RunId, "ticket", "code", ["api"], T.AddMinutes(20), "claude", "42"),
+            new LlmCallFinishedEvent(RunId, "gpt-4o", "master", 10, 5, 0.01m, 6_000, T.AddMinutes(22)),
+            Finished("success", minute: 30));
+        using (var scope = _provider.CreateScope())
+        {
+            var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+            uow.Add(new DialogueAnswerEntry
+            {
+                DialogueJobId = RunId, QuestionId = "q1", Answer = "yes", AnsweredBy = "alice", AnsweredAt = T.AddMinutes(15),
+            });
+            await uow.SaveChangesAsync(CancellationToken.None);
+        }
+
+        var view = await ReadAsync();
+
+        view.Segments.Select(s => (s.StartedAt, s.EndedAt, s.EndStatus, s.ModelMs)).Should().Equal(
+            (T, T.AddMinutes(4), "waiting_for_input", 4_000L),
+            (T.AddMinutes(20), T.AddMinutes(30), "success", 6_000L));
+        view.Segments[0].Park.Should().Be(new RunComputeParkView(
+            RunParkKinds.Question, T.AddMinutes(3), "q1", T.AddMinutes(15), "alice", T.AddMinutes(20)));
+        view.UnattributedCalls.Should().Be(0);
+    }
+
+    private static RunCheckpointedEvent Parked(string questionId, int minute) =>
+        new(RunId, "alpha", "42", "github", "code", RunId, questionId,
+            System.Text.Json.JsonSerializer.Serialize(new AgentSmith.Contracts.Dialogue.DialogQuestion(
+                questionId, AgentSmith.Contracts.Dialogue.QuestionType.FreeText, "Which client?", null, null, null,
+                TimeSpan.FromHours(1))),
+            "[]", "{}", 1, T.AddMinutes(minute), T.AddHours(1), T.AddMinutes(minute));
 
     [Fact]
     public async Task RunComputeEndpoint_UnknownRun_IsNotFound()
