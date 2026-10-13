@@ -25,7 +25,7 @@ internal static class RunEventAppliers
             finalization: new(new(), budget), checkpoints: new(), expectations: new(),
             pullRequests: new(), classification: new()),
         new RunStepFamily(steps: new(new()), llmCalls: new(new(), new(), new()), decisions: new(new())),
-        new RunSandboxFamily(new(new(), new())),
+        new RunSandboxFamily(new(new(), new(), new()), new()),
         new RunSpecFamily(new(), new(new())),
         new RunAttemptFamily(new()),
         new RunPassFamily(new(new()), new(new())), // 2026-10-13-9a59f

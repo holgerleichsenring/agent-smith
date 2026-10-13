@@ -2,7 +2,6 @@ using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Sandbox.Wire;
 using Docker.DotNet;
-using Docker.DotNet.Models;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
@@ -25,7 +24,7 @@ public sealed class SandboxLivenessWatcher : IAsyncDisposable
     public static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(2);
 
     private readonly IDatabase _database;
-    private readonly IDockerClient _docker;
+    private readonly DockerContainerProbe _probe;
     private readonly IRunCancellationRegistry _registry;
     private readonly IEventPublisher _publisher;
     private readonly SandboxLivenessTarget _target;
@@ -45,7 +44,7 @@ public sealed class SandboxLivenessWatcher : IAsyncDisposable
         ILogger<SandboxLivenessWatcher> logger)
     {
         _database = multiplexer.GetDatabase();
-        _docker = docker;
+        _probe = new DockerContainerProbe(docker);
         _registry = registry;
         _publisher = publisher;
         _target = target;
@@ -92,7 +91,7 @@ public sealed class SandboxLivenessWatcher : IAsyncDisposable
 
     private async Task ProbeAndMaybeCancelAsync(CancellationToken ct)
     {
-        var verdict = await ProbeContainerAsync(ct);
+        var verdict = await _probe.ProbeAsync(_target.ContainerId, ct);
         if (verdict.IsRunning)
         {
             // Heartbeat-late but container alive — treat as a transient miss
@@ -109,7 +108,7 @@ public sealed class SandboxLivenessWatcher : IAsyncDisposable
         _stop.Cancel();
     }
 
-    private async Task SignalVanishedAsync(ContainerProbeVerdict verdict, CancellationToken ct)
+    private async Task SignalVanishedAsync(DockerContainerVerdict verdict, CancellationToken ct)
     {
         // exitCode 137 (= 128+SIGKILL) with oomKilled=true → out-of-memory;
         // 139 (= 128+SIGSEGV) → a crash (e.g. a source generator); 0 → the main
@@ -120,7 +119,7 @@ public sealed class SandboxLivenessWatcher : IAsyncDisposable
             _target.RunId, ShortId(_target.ContainerId), verdict.State,
             verdict.ExitCode, verdict.OomKilled,
             string.IsNullOrEmpty(verdict.Error) ? "<none>" : verdict.Error);
-        await PublishVanishedAsync(verdict.State, ct);
+        await PublishVanishedAsync(verdict, ct);
         // p0396: carry the exit evidence to the run summary as a detail next to
         // the cancel reason — the reason string itself stays "sandbox-vanished"
         // (ResolveCancelStatus and the ticket terminalization key on it). No
@@ -132,44 +131,18 @@ public sealed class SandboxLivenessWatcher : IAsyncDisposable
         _registry.TryCancel(_target.RunId, CancelReason, detail);
     }
 
-    private Task PublishVanishedAsync(string containerState, CancellationToken ct) =>
+    // 2026-10-13-9a59i: the vanish carries the exit facts; null when the probe had none.
+    private Task PublishVanishedAsync(DockerContainerVerdict verdict, CancellationToken ct) =>
         _publisher.PublishAsync(new SandboxVanishedEvent(
             RunId: _target.RunId,
             JobId: _target.JobId,
             Repo: _target.SandboxKey,
             LastHeartbeatAt: _lastHeartbeatAt,
             Reason: CancelReason,
-            ContainerState: containerState,
-            Timestamp: DateTimeOffset.UtcNow), ct);
-
-    private async Task<ContainerProbeVerdict> ProbeContainerAsync(CancellationToken ct)
-    {
-        try
-        {
-            var info = await _docker.Containers.InspectContainerAsync(_target.ContainerId, ct);
-            var state = info.State;
-            if (state?.Running == true) return new ContainerProbeVerdict(true, "Running");
-            if (state is null) return new ContainerProbeVerdict(false, "Unknown");
-            // p0237: capture the EXIT EVIDENCE (exit code + OOMKilled + error) so
-            // the vanish log says WHY the container died — OOM (137 + OOMKilled),
-            // a crash (139 = SIGSEGV, e.g. a source generator), or a clean exit
-            // (0) — instead of a bare "state=exited" that forces guessing.
-            var label = state.Dead ? "Dead"
-                : !string.IsNullOrEmpty(state.Status) ? state.Status
-                : $"Exited({state.ExitCode})";
-            return new ContainerProbeVerdict(
-                false, label, state.ExitCode, state.OOMKilled, state.Error, HasExitFacts: true);
-        }
-        catch (DockerContainerNotFoundException)
-        {
-            return new ContainerProbeVerdict(false, "Gone");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogDebug(ex, "docker inspect probe failed for container {Container}", _target.ContainerId);
-            return new ContainerProbeVerdict(false, "ProbeError");
-        }
-    }
+            ContainerState: verdict.State,
+            Timestamp: DateTimeOffset.UtcNow,
+            ExitCode: verdict.HasExitFacts ? (int)verdict.ExitCode : null,
+            OomKilled: verdict.HasExitFacts ? verdict.OomKilled : null), ct);
 
     public async ValueTask DisposeAsync()
     {
@@ -184,10 +157,4 @@ public sealed class SandboxLivenessWatcher : IAsyncDisposable
     }
 
     private static string ShortId(string id) => id.Length > 12 ? id[..12] : id;
-
-    // HasExitFacts: true only when docker inspect actually delivered the exit
-    // state — Gone/Unknown/ProbeError verdicts carry defaults, not evidence.
-    private readonly record struct ContainerProbeVerdict(
-        bool IsRunning, string State, long ExitCode = 0, bool OomKilled = false, string? Error = null,
-        bool HasExitFacts = false);
 }

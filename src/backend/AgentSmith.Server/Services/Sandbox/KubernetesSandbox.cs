@@ -18,9 +18,10 @@ public sealed class KubernetesSandbox(
     int stepTimeoutCapSeconds,
     string toolchainImage,
     ResolvedSandboxSecrets injectedSecrets,
-    ILogger logger) : IHoldableSandbox, ISandboxToolchainImage, ISandboxSecretInjection
+    ILogger logger) : IHoldableSandbox, ISandboxToolchainImage, ISandboxSecretInjection, ISandboxExitReader
 {
     private static readonly TimeSpan ShutdownGrace = TimeSpan.FromSeconds(10);
+    private readonly KubernetesPodExitReader _exits = new(client);
 
     public string JobId => jobId;
 
@@ -30,6 +31,10 @@ public sealed class KubernetesSandbox(
     // 2026-08-28-b630: the declared credentials the pod spec projected into this pod. The
     // pod builder is their only consumer, so this backend is the only one that names them.
     public ResolvedSandboxSecrets InjectedSecrets => injectedSecrets;
+
+    // 2026-10-13-9a59i: read before the delete — the pod (RestartPolicy Never) still holds the exit.
+    public Task<SandboxExitRead> ReadExitAsync(CancellationToken cancellationToken) =>
+        _exits.ReadAsync(podName, @namespace, cancellationToken);
 
     public async Task<StepResult> RunStepAsync(
         Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken)

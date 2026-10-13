@@ -159,5 +159,7 @@ public sealed class PipelineSandboxCoordinatorTests
         AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp,
         AgentSmith.Tests.TestHelpers.EventTestStubs.RunContext,
         new NoOpSandboxLivenessSupervisor(),
+new AgentSmith.Application.Services.Sandbox.SandboxRelease(
+            AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp, NullLogger<AgentSmith.Application.Services.Sandbox.SandboxRelease>.Instance),
         NullLogger<PipelineSandboxCoordinator>.Instance);
 }

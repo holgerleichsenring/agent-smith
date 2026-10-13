@@ -19,7 +19,7 @@ public sealed class SandboxEventProjector(
     IEventPublisher eventPublisher,
     IRunContextAccessor runContext,
     string repo,
-    ILogger? logger = null) : ISandbox, ISandboxLivenessProbeTarget
+    ILogger? logger = null) : ISandbox, ISandboxWrapper
 {
     // p0357: flags tree-mutating commands so the dashboard's write counter is honest
     // about script edits. Pure classifier; one instance per projector.
@@ -27,12 +27,8 @@ public sealed class SandboxEventProjector(
 
     public string JobId => inner.JobId;
 
-    // p0201: surface the underlying liveness probe target id (if any) so the
-    // coordinator doesn't have to peel the projector wrapper. Empty string when
-    // the inner sandbox doesn't implement the marker (InProcess / Kubernetes).
-    public string LivenessProbeTargetId => inner is ISandboxLivenessProbeTarget t
-        ? t.LivenessProbeTargetId
-        : string.Empty;
+    // 2026-10-13-9a59i: the backend behind this projection, for callers that need its own markers.
+    public ISandbox Inner => inner;
 
     public async Task<StepResult> RunStepAsync(
         Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken)

@@ -103,6 +103,35 @@ public sealed class SandboxLivenessWatcherTests
             It.Is<string?>(d => d != null && d.Contains("exit code 137"))), Times.AtLeastOnce);
     }
 
+    [Fact]
+    public async Task Vanished_CarriesExitCodeAndOom()
+    {
+        var fixture = new WatcherFixture();
+        fixture.HeartbeatPresent = false;
+        fixture.ContainerState = new ContainerState { Running = false, ExitCode = 137, OOMKilled = true, Status = "exited" };
+
+        await fixture.RunUntilAsync(fixture.VanishObserved, "the OOM-killed container is announced");
+
+        // 2026-10-13-9a59i: the exit facts ride on the event, not only the log and the cancel detail.
+        fixture.Publisher.Verify(p => p.PublishAsync(
+            It.Is<SandboxVanishedEvent>(e => e.ExitCode == 137 && e.OomKilled == true),
+            It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+    }
+
+    [Fact]
+    public async Task Vanished_GoneContainer_CarriesNoExitFacts()
+    {
+        var fixture = new WatcherFixture();
+        fixture.HeartbeatPresent = false;
+        fixture.ProbeThrowsNotFound = true;
+
+        await fixture.RunUntilAsync(fixture.VanishObserved, "the gone container is announced");
+
+        fixture.Publisher.Verify(p => p.PublishAsync(
+            It.Is<SandboxVanishedEvent>(e => e.ExitCode == null && e.OomKilled == null),
+            It.IsAny<CancellationToken>()), Times.AtLeastOnce);
+    }
+
     private sealed class WatcherFixture
     {
         public Mock<IConnectionMultiplexer> Multiplexer { get; } = new();

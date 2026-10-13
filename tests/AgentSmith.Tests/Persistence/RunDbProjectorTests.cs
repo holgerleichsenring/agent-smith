@@ -127,7 +127,7 @@ public sealed class RunDbProjectorTests : IDisposable
             new SandboxCreatedEvent("run-1", "web", "node:20", "typescript", t.AddMinutes(2)),
             CancellationToken.None);
         await projector.ProjectAsync(
-            new SandboxDisposedEvent("run-1", "api", 0, t.AddMinutes(9)), CancellationToken.None);
+            new SandboxDisposedEvent("run-1", "api", 0, t.AddMinutes(9), "exited", false), CancellationToken.None);
         await projector.ProjectAsync(
             new SandboxVanishedEvent(
                 "run-1", "job-1", "web", t.AddMinutes(5), "heartbeat missing", "Exited(137)", t.AddMinutes(6)),
@@ -139,13 +139,14 @@ public sealed class RunDbProjectorTests : IDisposable
         api.SpawnedAt.Should().Be(t.AddMinutes(1));
         api.DisposedAt.Should().Be(t.AddMinutes(9));
         api.MemoryRequest.Should().Be("1Gi");
-        api.Status.Should().Be("ok");
+        api.EndReason.Should().Be("exited");
+        api.ExitCode.Should().Be(0);
 
         var web = run.Sandboxes.Single(s => s.RepoName == "web");
         web.SpawnedAt.Should().Be(t.AddMinutes(2));
         web.DisposedAt.Should().Be(t.AddMinutes(6), "the vanish verdict is the sandbox's end-of-life");
         web.MemoryRequest.Should().BeNull("the producer didn't declare one — no fabricated value");
-        web.Status.Should().Be("vanished");
+        web.EndReason.Should().Be("vanished");
     }
 
     [Fact]

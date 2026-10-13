@@ -37,7 +37,7 @@ public sealed record RunComputeView(IReadOnlyList<RunComputePod> Pods, string To
                 s.RepoName ?? s.Key,
                 s.ToolchainImage ?? "—",
                 s.MemoryRequest ?? "—",
-                s.Status ?? "created"))
+                s.EndReason, s.ExitCode, s.OomKilled))
             .ToList();
 
         long totalBytes = 0;
@@ -54,5 +54,8 @@ public sealed record RunComputeView(IReadOnlyList<RunComputePod> Pods, string To
     }
 }
 
-/// <summary>p0348: one actually-spawned sandbox pod on the run-detail compute view.</summary>
-public sealed record RunComputePod(string Repo, string Image, string Mem, string Status);
+/// <summary>
+/// p0348: one actually-spawned sandbox pod on the run-detail compute view. 2026-10-13-9a59i: how it
+/// ended (SandboxEndReasons, null while open) replaces the old status, with the exit facts read.
+/// </summary>
+public sealed record RunComputePod(string Repo, string Image, string Mem, string? EndReason, int? ExitCode, bool? OomKilled);

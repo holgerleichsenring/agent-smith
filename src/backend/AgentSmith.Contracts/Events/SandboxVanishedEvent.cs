@@ -7,6 +7,7 @@ namespace AgentSmith.Contracts.Events;
 /// trail carries the verdict; <see cref="ContainerState"/> distinguishes
 /// "Exited(137)" (OOM kill) from "Gone" (docker daemon lost the container) so
 /// the operator doesn't have to docker-log dive.
+/// 2026-10-13-9a59i: ExitCode and OomKilled are the probe's exit facts; null when it had none.
 /// </summary>
 public sealed record SandboxVanishedEvent(
     string RunId,
@@ -15,5 +16,7 @@ public sealed record SandboxVanishedEvent(
     DateTimeOffset? LastHeartbeatAt,
     string Reason,
     string ContainerState,
-    DateTimeOffset Timestamp)
+    DateTimeOffset Timestamp,
+    int? ExitCode = null,
+    bool? OomKilled = null)
     : RunEvent(RunId, EventType.SandboxVanished, Timestamp);

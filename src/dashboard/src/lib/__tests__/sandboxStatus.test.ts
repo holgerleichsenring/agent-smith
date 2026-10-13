@@ -23,6 +23,8 @@ function disposed(repo: string): RunEvent {
     timestamp: TS,
     repo,
     exitCode: 0,
+    exitState: "exited",
+    oomKilled: false,
   };
 }
 

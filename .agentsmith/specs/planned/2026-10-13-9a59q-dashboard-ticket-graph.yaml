@@ -26,7 +26,7 @@ facts:
   - claim: "useTrail is a one-shot read through the hub method GetTrail that never updates and starts its own useJobsHub; the live run viewer reads useRunEvents, a ref-counted per-run store subscription."
     evidence: "src/dashboard/src/hooks/useTrail.ts:7-45, src/dashboard/src/lib/JobsHubClient.ts:286, src/dashboard/src/hooks/useRunEvents.ts:7-28, src/dashboard/src/app/jobs/[id]/page.tsx:81"
   - claim: "RunsChanged carries the changed run id; a RunCancelRequested event reaches a run's stream."
-    evidence: "src/dashboard/src/lib/JobsHubClient.ts:120,379-381, src/dashboard/src/types/hub-events.ts:34,377-378"
+    evidence: "src/dashboard/src/lib/JobsHubClient.ts:120,379-381, src/dashboard/src/types/hub-events.ts:34,381-382"
   - claim: "The backend fires a RunsChanged nudge per event of a live run, so the run list coalesces it."
     evidence: "src/dashboard/src/hooks/useJobsHub.ts:96-109"
   - claim: "queued and waiting_for_input are live because both resume as the same run; only success, shortfall, failed, error and cancelled are terminal, and isRunLive answers that."

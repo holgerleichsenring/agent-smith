@@ -32,6 +32,7 @@ public sealed class TestMigrationRuleTests
         "RunSpecIdColumnsMigrationTests.cs",
         "StoredSpecNameRewriteTests.cs",
         "StepAttributionPersistenceTests.cs",
+        "RunSandboxEndMigrationTests.cs",
     ];
 
     [Fact]

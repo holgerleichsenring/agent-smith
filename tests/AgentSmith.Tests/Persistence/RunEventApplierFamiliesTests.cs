@@ -14,7 +14,7 @@ public sealed class RunEventApplierFamiliesTests
     {
         [typeof(RunStartedEvent)] = ["RunRowFamily"],
         [typeof(TicketFetchedEvent)] = ["RunRowFamily", "RunAttemptFamily", "RunConversationProjection"],
-        [typeof(RunFinishedEvent)] = ["RunRowFamily"],
+        [typeof(RunFinishedEvent)] = ["RunRowFamily", "RunSandboxFamily"],
         [typeof(PullRequestOutcomeEvent)] = ["RunRowFamily"],
         [typeof(RunCancelRequestedEvent)] = ["RunRowFamily"],
         [typeof(RunCheckpointedEvent)] = ["RunRowFamily", "RunConversationProjection"],

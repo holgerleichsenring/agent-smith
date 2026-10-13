@@ -31,6 +31,7 @@ public sealed class PipelineSandboxCoordinator(
     IEventPublisher eventPublisher,
     IRunContextAccessor runContext,
     ISandboxLivenessSupervisor livenessSupervisor,
+    SandboxRelease release,
     ILogger<PipelineSandboxCoordinator> logger) : IPipelineSandboxCoordinator
 {
     private readonly Dictionary<string, ISandbox> _sandboxes = new(StringComparer.Ordinal);
@@ -286,29 +287,12 @@ public sealed class PipelineSandboxCoordinator(
         // never trips the watcher's "vanished" detection. Each sandbox's own
         // DisposeAsync sends the Shutdown step then deletes the heartbeat key.
         await livenessSupervisor.DisposeAsync();
-        foreach (var (key, sandbox) in _sandboxes)
-        {
-            if (sandbox is null) continue;
-            await sandbox.DisposeAsync();
-            await PublishDisposedAsync(key);
-        }
+        // 2026-10-13-9a59i: each sandbox's exit is read before its own DisposeAsync sends the
+        // Shutdown step, deletes the heartbeat key and removes it.
+        await release.ReleaseAllAsync(_runId, _sandboxes);
         _sandboxes.Clear();
         _discoveries.Clear();
         _contextsBySandbox.Clear();
         _groupKeyToSandboxKey.Clear();
-    }
-
-    private async Task PublishDisposedAsync(string sandboxKey)
-    {
-        if (string.IsNullOrEmpty(_runId)) return;
-        try
-        {
-            await eventPublisher.PublishAsync(
-                new SandboxDisposedEvent(_runId!, sandboxKey, ExitCode: null, DateTimeOffset.UtcNow));
-        }
-        catch (Exception ex)
-        {
-            logger.LogDebug(ex, "Failed to publish SandboxDisposed for {Key}", sandboxKey);
-        }
     }
 }

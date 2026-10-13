@@ -1746,12 +1746,24 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset?>("DisposedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("EndReason")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("EventSeq")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("ExitCode")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Key")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<string>("MemoryRequest")
                         .HasColumnType("TEXT");
+
+                    b.Property<bool?>("OomKilled")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("RepoName")
                         .HasColumnType("TEXT");
@@ -1762,9 +1774,6 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<DateTimeOffset?>("SpawnedAt")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("Status")
                         .HasColumnType("TEXT");
 
                     b.Property<int?>("StepIndex")
@@ -1779,6 +1788,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("RunId");
+
+                    b.HasIndex("RunId", "EventSeq")
+                        .IsUnique();
 
                     b.ToTable("RunSandboxes");
                 });

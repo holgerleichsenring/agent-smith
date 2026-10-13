@@ -38,6 +38,7 @@ internal static class RunQueryEndpoints
         // 2026-08-25-e257: where the operator says a verdict was wrong. A label, not
         // a control — nothing here moves the run.
         app.MapCriterionJudgementEndpoints();
+        app.MapRunComputeEndpoints(); // 2026-10-13-9a59i: every spawn and how it ended
         return app;
     }
 

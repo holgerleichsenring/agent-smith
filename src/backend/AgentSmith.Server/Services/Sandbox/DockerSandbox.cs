@@ -19,9 +19,10 @@ public sealed class DockerSandbox(
     SandboxRedisChannel channel,
     int stepTimeoutCapSeconds,
     string toolchainImage,
-    ILogger logger) : IHoldableSandbox, ISandboxLivenessProbeTarget, ISandboxToolchainImage
+    ILogger logger) : IHoldableSandbox, ISandboxLivenessProbeTarget, ISandboxToolchainImage, ISandboxExitReader
 {
     private static readonly TimeSpan ShutdownGrace = TimeSpan.FromSeconds(10);
+    private readonly DockerContainerProbe _probe = new(docker);
 
     public string JobId => jobId;
     public string LivenessProbeTargetId => toolchainContainerId;
@@ -29,6 +30,10 @@ public sealed class DockerSandbox(
     // 2026-08-31-7097: this container really was started from this image, so anything
     // reporting on the tools it carries can name it.
     public string ToolchainImage => toolchainImage;
+
+    // 2026-10-13-9a59i: AutoRemove is off, so a container that died mid-run is still inspectable here.
+    public async Task<SandboxExitRead> ReadExitAsync(CancellationToken cancellationToken) =>
+        (await _probe.ProbeAsync(toolchainContainerId, cancellationToken)).ToExitRead();
 
     public async Task<StepResult> RunStepAsync(
         Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken)

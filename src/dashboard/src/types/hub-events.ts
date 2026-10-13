@@ -98,6 +98,10 @@ export interface SandboxDisposedEvent extends RunEventBase {
   type: EventType.SandboxDisposed;
   repo: string;
   exitCode: number | null;
+  /** 2026-10-13-9a59i: what the backend read before the release — 'running' | 'exited' | 'gone';
+   *  null when it has no process to read. */
+  exitState: string | null;
+  oomKilled: boolean | null;
 }
 
 export interface StepStartedEvent extends RunEventBase {
@@ -418,6 +422,9 @@ export interface SandboxVanishedEvent extends RunEventBase {
   lastHeartbeatAt: string | null;
   reason: string;
   containerState: string;
+  /** 2026-10-13-9a59i: the probe's exit facts; null when it had none. */
+  exitCode: number | null;
+  oomKilled: boolean | null;
 }
 
 /**
@@ -967,12 +974,17 @@ export interface RunFootprintView {
   reserved: boolean;
 }
 
-/** p0348: one pod the run actually spawned (a persisted RunSandbox row). */
+/** p0348: one pod the run actually spawned (a persisted RunSandbox row).
+ *  2026-10-13-9a59i: how it ended replaces the old status — endReason is one of exited,
+ *  oom-killed, vanished, gone, released-at-park, released-at-requeue, released-at-end,
+ *  unobserved (released while the run is still going); null while open or on older rows. */
 export interface RunComputePod {
   repo: string;
   image: string;
   mem: string;
-  status: string;
+  endReason: string | null;
+  exitCode: number | null;
+  oomKilled: boolean | null;
 }
 
 /** p0348: the pods a run actually spawned — the honest live-compute view. */

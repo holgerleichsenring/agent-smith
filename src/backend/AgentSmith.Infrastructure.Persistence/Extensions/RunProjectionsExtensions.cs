@@ -18,7 +18,7 @@ public static class RunProjectionsExtensions
         services.AddSingleton<RunCheckpointProjection>();
         services.AddSingleton<RunExpectationProjection>();
         services.AddSingleton<QueuedRunProjection>();
-        services.AddSingleton<RunSandboxProjection>();
+        services.AddSingleton<RunSandboxProjection>().AddSingleton<SandboxEndFold>(); // 2026-10-13-9a59i
         services.AddSingleton<RunStepTimeProjection>();
         services.AddSingleton<RunPullRequestProjection>();
         // p0413: what the scope classifier decided about the ticket — its size and

@@ -1809,12 +1809,24 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<DateTimeOffset?>("DisposedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<string>("EndReason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<long?>("EventSeq")
+                        .HasColumnType("bigint");
+
+                    b.Property<int?>("ExitCode")
+                        .HasColumnType("int");
+
                     b.Property<string>("Key")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("MemoryRequest")
                         .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool?>("OomKilled")
+                        .HasColumnType("bit");
 
                     b.Property<string>("RepoName")
                         .HasColumnType("nvarchar(max)");
@@ -1826,9 +1838,6 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
 
                     b.Property<DateTimeOffset?>("SpawnedAt")
                         .HasColumnType("datetimeoffset");
-
-                    b.Property<string>("Status")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int?>("StepIndex")
                         .HasColumnType("int");
@@ -1842,6 +1851,10 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("RunId");
+
+                    b.HasIndex("RunId", "EventSeq")
+                        .IsUnique()
+                        .HasFilter("[EventSeq] IS NOT NULL");
 
                     b.ToTable("RunSandboxes");
                 });
