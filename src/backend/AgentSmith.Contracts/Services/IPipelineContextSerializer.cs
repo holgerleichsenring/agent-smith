@@ -17,4 +17,8 @@ public interface IPipelineContextSerializer
     /// repo list); entries that no longer deserialize are skipped with a
     /// warning rather than failing the resume.</summary>
     void Restore(string serialized, PipelineContext into);
+
+    /// <summary>2026-10-12-967ah: every restorable entry whose type does not resolve in this
+    /// build, as "key (type)" — a resume refuses such a checkpoint rather than run without it.</summary>
+    IReadOnlyList<string> Unresolvable(string serialized);
 }

@@ -1,6 +1,6 @@
 using System.Text.Json.Nodes;
 
-namespace AgentSmith.Tests.SpecNaming;
+namespace AgentSmith.Tests.Persistence.SpecRename;
 
 /// <summary>
 /// 2026-10-12-967aa/967ab: what the release before the rename wrote — the JSON this release writes,

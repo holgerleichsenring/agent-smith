@@ -134,7 +134,7 @@ public sealed class CutReviewQuotableTests
 
     /// <summary>
     /// 2026-10-12-967ad: the prompt asks for "spec_id", and an answer in that key keeps the id of
-    /// every finding — the reader still takes "phase_id" from a model that answers the old way.
+    /// every finding.
     /// </summary>
     [Fact]
     public async Task SpecCutReview_SpecIdAnswer_KeepsFindingIds()
@@ -145,8 +145,8 @@ public sealed class CutReviewQuotableTests
         var review = await Reviewer(new CappingFactory(provider)).ReviewAsync(
             [DoneLess()], Key, "the ticket", look: null, new AgentConfig(), Tracker(), CancellationToken.None);
 
-        provider.Prompts.Single().Should().Contain("[{\"spec_id\": \"<id>\"")
-            .And.NotContain("phase_id", "the prompt and the rendered specs name the id the same way");
+        provider.Prompts.Single().Should().Contain("[{\"spec_id\": \"<id>\"",
+            "the prompt and the rendered specs name the id the same way");
         review.Findings.Should().ContainSingle().Which.SpecId.Should().Be("e1");
     }
 
@@ -155,7 +155,7 @@ public sealed class CutReviewQuotableTests
             drafts, Key, "the ticket", look: null, new AgentConfig(), Tracker(), CancellationToken.None);
 
     private static string Uncheckable(string spec, string quote) =>
-        $$"""[{"phase_id":"{{spec}}","criterion":"{{quote}}","problem":"uncheckable","why":"no command shows it"}]""";
+        $$"""[{"spec_id":"{{spec}}","criterion":"{{quote}}","problem":"uncheckable","why":"no command shows it"}]""";
 
     private static SpecDraft Criterion(string done) =>
         new("p1a", "goal", "spec: p1a", []) { Done = [done] };

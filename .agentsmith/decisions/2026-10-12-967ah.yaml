@@ -1,0 +1,110 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-12-967ah
+
+decisions:
+  - category: Architecture
+    chose: "One frozen SpecRenameTable (two partial files) in Persistence/Services/SpecRename, read by a walker of its own (SpecMemberRewriter) and CheckpointEntryNames"
+    over: "Keeping AcceptedNameRewriter and CheckpointRenames in Contracts.Json with the attributes gone"
+    reason: |
+      The rewrite read the readers' own tables, so deleting the readers would have deleted what the
+      rewrite converts with. The table now carries every old name as literal data: members per
+      DECLARING type (21 types; type-scoped as before, so Phase on LLM events stays), enum members
+      (SpecDialogTurnKind, EventType 79-81), context keys, full type names (generic arguments still
+      swapped by regex), spec-block command names (":param" kept), artifact prefixes and the outcome/
+      filing kind. Nothing outside the SpecRename folder references it in src. Members and enum
+      members sit in one file with every static declared before use, because C# does not order
+      initialisation across partial files. The table joined NoStaticStateRuleTests' data-table list
+      in place of CheckpointRenames. SpecRenameTableTests pins the NEW side of every row to what
+      this release declares (properties, ContextKeys, CommandNames, EventType, types, prefixes, kind).
+
+  - category: Implementation
+    chose: "Readers take the declared names only: plain STJ options, Enum.TryParse, Type.GetType, the stored command and kind as written"
+    reason: |
+      Removed: AcceptedNameAttribute and every [AcceptedName] (30 members), AcceptedNames,
+      AcceptedNameRewriter, CheckpointRenames, CommandNames.Accepted/Declared and its eight callers
+      (factory, executor, checkpoint command, beats, display names, step classes, gate silence,
+      model use, progress labels), SpecDialogProposalComposer.AcceptedSpecKind/Declared,
+      SpecDialogFiling.InDeclaredKind, the TolerantNullableEnumConverter alias fallback,
+      RunSpecProjection's old prefixes and ReviewKinds, RunSpecsReader's and FiledWorkRunsReader's
+      old-prefix reads, RunStepsReader/RunSpecsReader PhaseId fallbacks, the derivation "phases" key
+      and {MaxPhases}, the cut-review "phase_id" alias (it rode [AcceptedName] on CutFindingWire) and
+      the dialog outcome block kind "phase" (now an unknown kind). Dashboard: acceptedNames.ts,
+      outcomeKind.ts and the conversationDelete alias, with their tests.
+
+  - category: Implementation
+    chose: "TicketKindResolver maps the work_item_kinds key \"phase\" to the Spec role by name, case-insensitively"
+    reason: |
+      It is operator configuration, out of scope for the removal, and it read through the
+      [AcceptedName("Phase")] on TicketFilingRole, which went with the other aliases. The original
+      Enum.TryParse semantics are kept for every other key. Tracker label aliases (TicketLabels.Accepted*)
+      are untouched.
+
+  - category: Implementation
+    chose: "Resume refuses a checkpoint naming an unknown command or an unresolvable context type, before restoring anything"
+    over: "Skipping unknown context entries with a warning, as Restore does for entries that fail to deserialize"
+    reason: |
+      Operator ruling (2026-10-13): in-flight is disposable, half-resumed is not. ICommandContextFactory
+      gained Knows(name); IPipelineContextSerializer gained Unresolvable(json), which ignores excluded
+      keys (they are dropped anyway). ResumeRequestReader names every offender in one exception, raised
+      before Restore and before any step. An entry that resolves but fails to deserialize keeps p0478's
+      skip-with-warning.
+
+  - category: Implementation
+    chose: "SkillsConfigValidator refuses a pulled skills.version below v5.13.0 as a blocking configuration finding"
+    reason: |
+      v5.13.0 is the first skills release whose prompts use the spec names only; an older pin would ask
+      for "phases"/{MaxPhases}, which nothing reads now. Only the default (pulled) source is judged and
+      only a tag that parses as a version; a branch name or the embedded/path/url sources are not. It is
+      injected into AgentSmithConfigValidator, so the server probe, preflight and CLI validate all see it.
+      The embedded catalog (v5.15.0) carries no old token (checked). Docs examples pinned at v1.1.0/v4.7.0
+      moved to v5.15.0 and the skills-catalog page states the floor.
+
+  - category: Architecture
+    chose: "DropRunPhaseIdColumns in both migration assemblies: Up copies PhaseId into SpecId where null, then drops both PhaseId columns; Down restores them and copies SpecId back"
+    reason: |
+      Same provider quoting as AddRunSpecIdColumns (backticks for Pomelo MySQL, double quotes for
+      SQLite/PostgreSQL, brackets on SQL Server). The rewrite's backfill (RunStepSpecNames' and the
+      whole RunDecisionSpecNames surface) and the projections' PhaseId writes went with the entity
+      properties. One deploy replaces every pod (spec decision): a 967ab replica would query the dropped
+      column.
+
+  - category: Implementation
+    chose: "StoreRewrite_PrePhaseStore_ConvertsWithoutReaderAliases migrates an empty store to the schema before AddRunSpecIdColumns, writes step and decision rows with only PhaseId, migrates to the head, seeds the remaining old-shape rows and rewrites"
+    reason: |
+      That is the pre-967ab store end to end through the migrations and the frozen table, read back by
+      the real readers. The old-shape expectations that used to be computed by reading the old shape
+      (outcome proposal) now compare against the declared value, since nothing reads the old shape.
+      StoredSpecNameRewriteTests joined TestMigrationRuleTests' "migration is the subject" list.
+      The negative reader tests build their old-shape payloads from the table and SpecShape, so the
+      old tokens stay inside the rewrite's tests.
+
+  - category: Scope
+    chose: "Guard: ALIAS-967ah rows gone; the tokens still spelled move to category REWRITE with a new reach 'rewrite' (only under Persistence/Services/SpecRename and tests/AgentSmith.Tests/Persistence/SpecRename)"
+    over: "Keeping them 'anywhere' or 'listed' with per-file rows"
+    reason: |
+      A 'rewrite' reach states the rule itself: an old stored name may be spelled by the store rewrite
+      and its tests and nowhere else, so a reader that took one back fails the guard on the day it is
+      written. PhaseId and phaseId became REWRITE too, so their per-file rows went; to fit, the RunPhases
+      migration test moved into Persistence/SpecRename, two negative assertions on "phaseId"/"phase_id"
+      and three comments were reworded. Nine rows whose token is gone were deleted (MaxPhases,
+      PHASE_GATE_*, fromPhases, phase-gate, phase-named, phase_id); 8 file rows were added for the bare
+      word in the new table files, TicketKindResolver and the tracker test. SpecWord_NoAlias967ahRowsRemain
+      and SpecWord_ARewriteTokenOutsideTheRewrite_Fails pin it.
+
+  - category: TradeOff
+    chose: "An operator preset or stored step naming an old spec-block command is now an unknown command"
+    reason: |
+      The scope deletes CommandNames.Accepted, which also served operator presets (967ab). Stored
+      names are rewritten by the store rewrite; operator-authored pipeline definitions are not, and now
+      fail with "Unknown command: '<old name>'". RISK the operator should know: a custom preset still
+      naming the old command values must be updated before this deploy. Adding them to RetiredCommands
+      would have put the old names back outside the rewrite's folder.
+
+  - category: Tooling
+    chose: "phase-gate.sh, the PHASE_GATE_* fallbacks and the one-time ledger move deleted; the hook tests that pinned them deleted"
+    reason: |
+      Removed Gate_TheHookTestsRunByTheGate_GetBothVariableNames, Gate_TheOldVariableNames_AreStillHonoured,
+      Gate_TheOldPath_ForwardsToTheGate, Gate_OldLedgerOnly_MovedOnce and Gate_BothLedgers_LeftAlone with
+      their helpers; the probe hook test records only SPEC_GATE_LOG. CLAUDE.md lost the forwarder bullet.
+      settings.json already named spec-gate.sh. A session that started before this lands and still calls
+      phase-gate.sh exits 127, which does not block: restart sessions after the merge.

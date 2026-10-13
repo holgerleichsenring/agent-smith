@@ -139,7 +139,7 @@ public sealed class SpecSetTicketCommenterTests
     {
         var segments = TicketSegmenter.Segment(Ticket);
         var reply = $$$"""
-            {"phases": [
+            {"specs": [
                {"slug": "raise-the-floors", "goal": "Raise the direct package floors the audit names",
                 {{{contexts}}}
                 "steps": [{"id": "raise", "action": "Raise the versions"}],

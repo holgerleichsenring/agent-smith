@@ -244,7 +244,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
         // A row as releases before this one wrote it: a kind and its payload, no findings field.
         var session = await _repository.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
         session!.LatestProposalJson =
-            "{\"kind\":\"phase\",\"phase\":{\"phaseId\":\"p9999\",\"goal\":\"widget goal\","
+            "{\"kind\":\"spec\",\"spec\":{\"specId\":\"p9999\",\"goal\":\"widget goal\","
             + "\"yaml\":\"spec: p9999\",\"requires\":[]}}";
         await _repository.SaveAsync(CancellationToken.None);
 

@@ -73,7 +73,7 @@ public sealed class OutcomeProposalResolver(
             "epic" => epicParser.Parse(map, scope),
             "answer" => new OutcomeInvalid(
                 "kind 'answer' needs no ```outcome block — reply with plain prose"),
-            "phase" or "spec" => new OutcomeInvalid(
+            "spec" => new OutcomeInvalid(
                 $"kind '{kind}' needs no ```outcome block — emit the spec as the bare ```yaml block"),
             null => new OutcomeInvalid("the ```outcome block is missing 'kind' (bug | epic)"),
             _ => new OutcomeInvalid($"unknown outcome kind '{kind}' — expected bug or epic"),

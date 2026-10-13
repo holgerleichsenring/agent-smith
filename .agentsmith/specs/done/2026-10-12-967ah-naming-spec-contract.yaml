@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-12-967ah
-goal: "No reader of data agent-smith owns accepts the phase names any more; the one-time store rewrite keeps its own frozen table, so old history still converts, and labels and config keys keep reading phase."
+goal: "No reader of data agent-smith owns accepts the phase names anymore; the one-time store rewrite keeps its own frozen table, so old history still converts, and labels and config keys keep reading phase."
 
 applies_to: "backend (persistence, events, resume, commands, derivation), dashboard, .claude hooks"
 

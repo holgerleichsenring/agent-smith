@@ -24,17 +24,6 @@ public sealed class RunSpecProjection
     /// under, one row per spec, in the same table and read the same way.</summary>
     public const string ReviewKindPrefix = "spec_review:";
 
-    /// <summary>2026-10-12-967ab: the record kind prefix written before the rename, read beside
-    /// <see cref="RecordKindPrefix"/> until the store rewrite has renamed every row (967ah).</summary>
-    public const string AcceptedRecordKindPrefix = "phase_record:";
-
-    /// <summary>2026-10-12-967ab: the review kind prefix written before the rename.</summary>
-    public const string AcceptedReviewKindPrefix = "phase_review:";
-
-    /// <summary>The kinds a spec's review may be stored under, the declared one first.</summary>
-    public static IReadOnlyList<string> ReviewKinds(string specId) =>
-        [ReviewKindPrefix + specId, AcceptedReviewKindPrefix + specId];
-
     public async Task ApplyStateAsync(IUnitOfWork uow, SpecStateChangedEvent e, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(e);

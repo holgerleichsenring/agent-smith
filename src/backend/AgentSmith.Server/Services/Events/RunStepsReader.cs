@@ -58,7 +58,7 @@ public sealed partial class RunStepsReader(
             calls.Calls, calls.Cost,
             counts.GetValueOrDefault((step.StepIndex, nameof(EventType.SandboxCommand))),
             counts.GetValueOrDefault((step.StepIndex, nameof(EventType.SubAgentSpawned))),
-            step.SpecId ?? step.PhaseId ?? parsedSpecId ?? displaySpecId,
+            step.SpecId ?? parsedSpecId ?? displaySpecId,
             stepClass,
             stepClass == CommandStepClasses.Gate && GateHasFinding(step),
             // p0404: where this step's wall-clock went, from the time the applier
@@ -77,7 +77,7 @@ public sealed partial class RunStepsReader(
             && !GateSilence.IsNoOpSummary(step.CommandName, step.ResultMessage);
     }
 
-    private static (string? PhaseId, string? Name) SplitSpec(string? composed)
+    private static (string? SpecId, string? Name) SplitSpec(string? composed)
     {
         if (string.IsNullOrEmpty(composed)) return (null, composed);
         var match = SpecQualifiedRegex().Match(composed);

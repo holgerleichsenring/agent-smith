@@ -18,7 +18,6 @@ public sealed record RunShortfall(
     IReadOnlyList<SpecProgress> NotDelivered,
     string Reason)
 {
-    [AcceptedName("PhaseCount")]
     public int SpecCount => Delivered.Count + NotDelivered.Count;
 
     /// <summary>One line for the run's own result and log.</summary>

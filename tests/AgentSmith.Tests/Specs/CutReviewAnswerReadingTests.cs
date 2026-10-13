@@ -14,7 +14,7 @@ namespace AgentSmith.Tests.Specs;
 public sealed class CutReviewAnswerReadingTests
 {
     private const string Finding = """
-        [{"phase_id":"p1a","criterion":"every sender uses the new bus","problem":"uncheckable",
+        [{"spec_id":"p1a","criterion":"every sender uses the new bus","problem":"uncheckable",
           "why":"no command shows it","cites":null}]
         """;
 

@@ -2,65 +2,61 @@
 # SpecWordRuleTests. Columns: token, reach, category, reason (tab-separated).
 #   reach    anywhere = the token carries its meaning and may stand in any file;
 #            listed   = the token cannot tell its meanings apart and may stand only where
-#                       spec-word-files.tsv lists it, at most as often as it says.
+#                       spec-word-files.tsv lists it, at most as often as it says;
+#            rewrite  = an old stored name that only the one-time store rewrite still spells
+#                       (2026-10-12-967ah); it may stand only under Persistence/Services/SpecRename
+#                       and tests/AgentSmith.Tests/Persistence/SpecRename.
 #   category G2 another meaning (execution stage, triage stage, skill workflow step, pod phase,
-#               UI state) and stays; STORED-967ab a stored or served name 967ab renames (none left);
-#               ALIAS-967ah a reader of the old name 967ah removes; LABEL a tracker word or
+#               UI state) and stays; REWRITE an old name the frozen rename table and its tests
+#               keep, reach rewrite (no reader accepts it since 967ah); LABEL a tracker word or
 #               config key read for good; HISTORY a name that records history and never
 #               changes; MIXED a bare word whose meaning the file decides.
 # A row whose token occurs nowhere fails as stale: delete it.
-ActivePhaseStep	anywhere	ALIAS-967ah	old context-key value a checkpoint stored; CheckpointRenames maps and the store rewrite renames it until 967ah
-CheckPhasePremisesCommand	anywhere	ALIAS-967ah	old command-name value read from RunSteps, checkpoints and operator presets (CommandNames.Accepted) until 967ah
-CommitPhaseWorkCommand	anywhere	ALIAS-967ah	old command-name value read from RunSteps, checkpoints and operator presets (CommandNames.Accepted) until 967ah
-ExecutedPhaseIds	anywhere	ALIAS-967ah	old stored member name read through [AcceptedName] and renamed by the store rewrite until 967ah
-MaxPhases	anywhere	ALIAS-967ah	derivation template token filled beside MaxSpecs until 967ah
-PHASE_GATE_	anywhere	ALIAS-967ah	gate variables honoured as the fallback until 967ah
-PHASE_GATE_CORES	anywhere	ALIAS-967ah	gate variables honoured as the fallback until 967ah
-PHASE_GATE_LOG	anywhere	ALIAS-967ah	gate variables honoured as the fallback until 967ah
-PHASE_GATE_SELFTEST	anywhere	ALIAS-967ah	gate variables honoured as the fallback until 967ah
-PhaseAccounts	anywhere	ALIAS-967ah	old type name and context-key value a checkpoint stored; CheckpointRenames maps both and the store rewrite renames them until 967ah
-PhaseAccountsSnapshot	anywhere	ALIAS-967ah	old context-key value a checkpoint stored; CheckpointRenames maps and the store rewrite renames it until 967ah
-PhaseAppliesTo	anywhere	ALIAS-967ah	old context-key value a checkpoint stored; CheckpointRenames maps and the store rewrite renames it until 967ah
-PhaseCommandEntry	anywhere	ALIAS-967ah	old type name a checkpoint stored; CheckpointRenames resolves and the store rewrite renames it until 967ah
-PhaseCommandLog	anywhere	ALIAS-967ah	old type name a checkpoint stored; CheckpointRenames resolves and the store rewrite renames it until 967ah
-PhaseCommands	anywhere	ALIAS-967ah	old context-key value a checkpoint stored; CheckpointRenames maps and the store rewrite renames it until 967ah
-PhaseCount	anywhere	ALIAS-967ah	old stored member name read through [AcceptedName] and renamed by the store rewrite until 967ah
-PhaseDraft	anywhere	ALIAS-967ah	old type name a checkpoint stored; CheckpointRenames resolves and the store rewrite renames it until 967ah
-PhaseFact	anywhere	ALIAS-967ah	old type name a checkpoint stored; CheckpointRenames resolves and the store rewrite renames it until 967ah
-PhaseFinding	anywhere	ALIAS-967ah	old type name a checkpoint stored; CheckpointRenames resolves and the store rewrite renames it until 967ah
-PhaseId	listed	ALIAS-967ah	the spec id under its old name: the RunSteps/RunDecisions.PhaseId column (dropped in 967ah), [AcceptedName] aliases and the store rewrite
-PhaseProgress	anywhere	ALIAS-967ah	old type name a checkpoint stored; CheckpointRenames resolves and the store rewrite renames it until 967ah
-PhaseProposal	anywhere	ALIAS-967ah	old stored member name read through [AcceptedName] and renamed by the store rewrite until 967ah
-PhaseRecorded	anywhere	ALIAS-967ah	old EventType name read from RunEvents.Type ([AcceptedName]) and renamed by the store rewrite until 967ah
-PhaseRepairAttempted	anywhere	ALIAS-967ah	old context-key value a checkpoint stored; CheckpointRenames maps and the store rewrite renames it until 967ah
-PhaseReviewEntry	anywhere	ALIAS-967ah	old type name a checkpoint stored; CheckpointRenames resolves and the store rewrite renames it until 967ah
-PhaseReviewFindings	anywhere	ALIAS-967ah	old context-key value a checkpoint stored; CheckpointRenames maps and the store rewrite renames it until 967ah
-PhaseReviewFixPass	anywhere	ALIAS-967ah	old context-key value a checkpoint stored; CheckpointRenames maps and the store rewrite renames it until 967ah
-PhaseReviewReport	anywhere	ALIAS-967ah	old type name a checkpoint stored; CheckpointRenames resolves and the store rewrite renames it until 967ah
-PhaseReviewReverted	anywhere	ALIAS-967ah	old context-key value a checkpoint stored; CheckpointRenames maps and the store rewrite renames it until 967ah
-PhaseReviewed	anywhere	ALIAS-967ah	old EventType name read from RunEvents.Type ([AcceptedName]) and renamed by the store rewrite until 967ah
-PhaseRunState	anywhere	ALIAS-967ah	old type name a checkpoint stored; CheckpointRenames resolves and the store rewrite renames it until 967ah
-PhaseSequenceCommand	anywhere	ALIAS-967ah	old command-name value read from RunSteps, checkpoints and operator presets (CommandNames.Accepted) until 967ah
-PhaseSpec	anywhere	ALIAS-967ah	old context-key value a checkpoint stored; CheckpointRenames maps and the store rewrite renames it until 967ah
-PhaseSpecGateCommand	anywhere	ALIAS-967ah	old command-name value read from RunSteps, checkpoints and operator presets (CommandNames.Accepted) until 967ah
-PhaseStartHeads	anywhere	ALIAS-967ah	old context-key value a checkpoint stored; CheckpointRenames maps and the store rewrite renames it until 967ah
-PhaseStateChanged	anywhere	ALIAS-967ah	old EventType name read from RunEvents.Type ([AcceptedName]) and renamed by the store rewrite until 967ah
-PhaseStep	anywhere	ALIAS-967ah	old type name a checkpoint stored; CheckpointRenames resolves and the store rewrite renames it until 967ah
-ReviewPhaseDiffCommand	anywhere	ALIAS-967ah	old command-name value read from RunSteps, checkpoints and operator presets (CommandNames.Accepted) until 967ah
-RunPhaseReviews	anywhere	ALIAS-967ah	old type name and context-key value a checkpoint stored; CheckpointRenames maps both and the store rewrite renames them until 967ah
-SelectPhaseCommand	anywhere	ALIAS-967ah	old command-name value read from RunSteps, checkpoints and operator presets (CommandNames.Accepted) until 967ah
-SpecPhase	anywhere	ALIAS-967ah	old type name a checkpoint stored; CheckpointRenames resolves and the store rewrite renames it until 967ah
-VerifyPhaseCommand	anywhere	ALIAS-967ah	old command-name value read from RunSteps, checkpoints and operator presets (CommandNames.Accepted) until 967ah
-WritePhaseRecordCommand	anywhere	ALIAS-967ah	old command-name value read from RunSteps, checkpoints and operator presets (CommandNames.Accepted) until 967ah
-executedPhaseIds	anywhere	ALIAS-967ah	old stored member name read through [AcceptedName] and renamed by the store rewrite until 967ah
-fromPhases	anywhere	ALIAS-967ah	tests of the readers that accept both names until 967ah
-phase-gate	anywhere	ALIAS-967ah	the old gate path, kept as a forwarder until 967ah
-phase-named	anywhere	ALIAS-967ah	tests of the readers that accept both names until 967ah
-phaseId	listed	ALIAS-967ah	the spec id under its old name: the RunSteps/RunDecisions.PhaseId column (dropped in 967ah), [AcceptedName] aliases and the store rewrite
-phaseProposal	anywhere	ALIAS-967ah	tests of the readers that accept both names until 967ah
-phase_id	listed	ALIAS-967ah	cut-review answer key the reader still accepts beside spec_id until 967ah
-phase_record	anywhere	ALIAS-967ah	old artifact kind prefix read beside spec_record:/spec_review: and renamed by the store rewrite until 967ah
-phase_review	anywhere	ALIAS-967ah	old artifact kind prefix read beside spec_record:/spec_review: and renamed by the store rewrite until 967ah
+ActivePhaseStep	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+CheckPhasePremisesCommand	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+CommitPhaseWorkCommand	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+ExecutedPhaseIds	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+PhaseAccounts	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+PhaseAccountsSnapshot	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+PhaseAppliesTo	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+PhaseCommandEntry	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+PhaseCommandLog	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+PhaseCommands	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+PhaseCount	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+PhaseDraft	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+PhaseFact	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+PhaseFinding	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+PhaseId	rewrite	REWRITE	the spec id under its old name, as the frozen SpecRenameTable, the rewrite's tests and the migrations that drop the column spell it
+PhaseProgress	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+PhaseProposal	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+PhaseRecorded	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+PhaseRepairAttempted	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+PhaseReviewEntry	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+PhaseReviewFindings	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+PhaseReviewFixPass	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+PhaseReviewReport	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+PhaseReviewReverted	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+PhaseReviewed	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+PhaseRunState	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+PhaseSequenceCommand	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+PhaseSpec	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+PhaseSpecGateCommand	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+PhaseStartHeads	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+PhaseStateChanged	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+PhaseStep	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+ReviewPhaseDiffCommand	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+RunPhaseReviews	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+SelectPhaseCommand	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+SpecPhase	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+VerifyPhaseCommand	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+WritePhaseRecordCommand	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+executedPhaseIds	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+phaseId	rewrite	REWRITE	the spec id under its old name, as the frozen SpecRenameTable, the rewrite's tests and the migrations that drop the column spell it
+phaseProposal	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+phase_record	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+phase_review	rewrite	REWRITE	old name the frozen SpecRenameTable or the rewrite's tests spell; the store rewrite converts it
+Migration_DropPhaseIdColumns_UpDown	rewrite	REWRITE	test of the migration that drops the old spec-id columns
+StoreRewrite_PrePhaseStore_ConvertsWithoutReaderAliases	rewrite	REWRITE	test that a store written before the rename converts through the frozen table alone
 AggregatePhase	anywhere	G2	cost per execution stage (RunCostSummary, result.md cost.phases)
 AppendPhaseRows	anywhere	G2	cost per execution stage (RunCostSummary, result.md cost.phases)
 AssertWritable_BootstrapPhase_ContextYamlPath_ReturnsOk	anywhere	G2	test name about the execution stage of a model call
@@ -152,6 +148,9 @@ feedback_phase_versioning	anywhere	HISTORY	memory slugs cited from history
 nphases	anywhere	HISTORY	the old set.yaml layout, read as absent
 phase-execution	anywhere	HISTORY	retired pipeline name the server still rewrites to code
 phase-slug-product-bound	anywhere	HISTORY	label of spec 2026-09-07-e9a2, a file name in the record
+DropRunPhaseIdColumns	anywhere	HISTORY	EF migration names, which never change
+Reader_PhaseNamedOutcomeKind_IsNotAccepted	anywhere	HISTORY	test names pinning that no reader of owned data reads the retired names
+Reader_PhaseNamedPayload_IsNotAccepted	anywhere	HISTORY	test names pinning that no reader of owned data reads the retired names
 DiscoveryLabelGuard_SpecAndPhaseLabels_BothRoute	anywhere	LABEL	test names about the phase word a person types on a ticket
 Filing_AFiledTicket_CarriesNoPhaseWord	anywhere	LABEL	test names about the phase word a person types on a ticket
 Routing_AHandTypedPhaseWord_BindsToSpecExecution	anywhere	LABEL	test names about the phase word a person types on a ticket
@@ -159,6 +158,7 @@ phase-epic	anywhere	LABEL	tracker label read for good beside the spec form (boar
 phase-parent	anywhere	LABEL	tracker label read for good beside the spec form (boards we do not own)
 phase-requires	anywhere	LABEL	a retired tracker stamp an old ticket may still carry
 phase-spec	anywhere	LABEL	tracker label read for good beside the spec form (boards we do not own)
+TicketKindResolver_ConfigKeyPhase_StillMapsToSpec	anywhere	LABEL	test name of the work_item_kinds config key read for good
 PHASE	listed	MIXED	the bare word: execution stage, triage stage, skill workflow step, pod phase, tracker label word, served or stored member, quoted history — the file decides which
 Phase	listed	MIXED	the bare word: execution stage, triage stage, skill workflow step, pod phase, tracker label word, served or stored member, quoted history — the file decides which
 Phases	listed	MIXED	the bare word: execution stage, triage stage, skill workflow step, pod phase, tracker label word, served or stored member, quoted history — the file decides which

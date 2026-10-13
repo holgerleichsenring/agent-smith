@@ -75,7 +75,7 @@ public sealed class ScopedContextCoverageTests
         var segments = Application.Services.Specs.TicketSegmenter.Segment(Ticket);
         var declared = contexts is null ? string.Empty : $"\"contexts\": {contexts},";
         var reply = $$$"""
-            {"phases": [
+            {"specs": [
                {"slug": "raise-the-floors", "goal": "Raise the package floors the audit names",
                 {{{declared}}}
                 "steps": [{"id": "raise", "action": "Raise the versions"}],

@@ -64,18 +64,27 @@ public sealed class SpecNamedTrackerReadTests
 
     [Theory]
     [InlineData("spec")]
-    [InlineData("phase")]
     [InlineData("SPEC")]
-    public void TicketKindResolver_ConfigKeySpec_MapsToSpecRole(string key)
+    public void TicketKindResolver_ConfigKeySpec_MapsToSpecRole(string key) =>
+        KindFor(key, TicketFilingRole.Spec).Should().Be("User Story");
+
+    /// <summary>2026-10-12-967ah: the reader aliases are gone, and this key is not one of them —
+    /// it is operator configuration, mapped to the spec role by name.</summary>
+    [Fact]
+    public void TicketKindResolver_ConfigKeyPhase_StillMapsToSpec()
+    {
+        KindFor("phase", TicketFilingRole.Spec).Should().Be("User Story");
+        KindFor("Phase", TicketFilingRole.Work).Should().BeNull("the key names the spec role and no other");
+    }
+
+    private static string? KindFor(string key, TicketFilingRole role)
     {
         var project = new ResolvedProject
         {
             Name = "p1",
             Tracker = new TrackerConnection { Name = "t1", WorkItemKinds = new Dictionary<string, string> { [key] = "User Story" } },
         };
-
-        new TicketKindResolver(NullLogger<TicketKindResolver>.Instance).For(project, TicketFilingRole.Spec)
-            .Should().Be("User Story");
+        return new TicketKindResolver(NullLogger<TicketKindResolver>.Instance).For(project, role);
     }
 
     private static IncomingTicketEnvelope Envelope(string label) => new() { Labels = [label] };

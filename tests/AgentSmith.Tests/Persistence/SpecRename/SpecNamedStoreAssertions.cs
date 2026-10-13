@@ -100,7 +100,7 @@ internal static class SpecNamedStoreAssertions
     {
         var session = await db.SpecDialogSessions.AsNoTracking().SingleAsync();
         OutcomeProposalJson.Read(session.LatestProposalJson!).Should().BeEquivalentTo(
-            OutcomeProposalJson.Read(OldShapeJson.Outcome(new SpecOutcome(OldShapeJson.Draft) { Findings = [new ProposalFinding("s1", "p", "w")] })));
+            new SpecOutcome(OldShapeJson.Draft) { Findings = [new ProposalFinding("s1", "p", "w")] });
         OutcomeProposalJson.Read(session.ConfirmedOutcomeJson!).Should().BeOfType<EpicOutcome>()
             .Which.Children.Single().SpecId.Should().Be("s2");
         SpecDialogSessionMapper.ReadTranscript(session.TranscriptJson).Single().Kind.Should().Be(SpecDialogTurnKind.SpecProposal);

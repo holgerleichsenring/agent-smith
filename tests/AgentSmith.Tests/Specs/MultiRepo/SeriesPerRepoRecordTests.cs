@@ -53,7 +53,7 @@ public sealed class SeriesPerRepoRecordTests
     public void DerivedSpecBuilder_IdInDone_NotReminted()
     {
         const string reply = """
-            {"phases": [{"slug": "one", "goal": "Do one", "done": ["One."], "carries": [1]},
+            {"specs": [{"slug": "one", "goal": "Do one", "done": ["One."], "carries": [1]},
                         {"slug": "two", "goal": "Do two", "done": ["Two."], "carries": [1]}]}
             """;
         var segments = TicketSegmenter.Segment("Do one and two.");

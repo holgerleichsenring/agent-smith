@@ -1,19 +1,18 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using AgentSmith.Contracts.Json;
 
 namespace AgentSmith.Infrastructure.Persistence.Services.SpecRename;
 
 /// <summary>
 /// 2026-10-12-967ab: one stored JSON text rewritten against the type that reads it — parsed,
-/// walked by <see cref="AcceptedNameRewriter"/> and written back only when a name moved, so a
+/// walked by <see cref="SpecMemberRewriter"/> and written back only when a name moved, so a
 /// document already in the spec names comes back as null ("nothing to write").
 /// </summary>
-public sealed class SpecRenameJson
+public sealed class SpecRenameJson(SpecMemberRewriter members)
 {
     /// <summary>The rewritten text, or null when it was empty, unreadable or already current.</summary>
     public string? Rewrite(string? json, Type type, JsonNamingPolicy? policy) =>
-        Rewrite(json, node => AcceptedNameRewriter.Rewrite(node, type, policy));
+        Rewrite(json, node => members.Rewrite(node, type, policy));
 
     /// <summary>The same, with the walk supplied by the caller.</summary>
     public string? Rewrite(string? json, Func<JsonNode, bool> walk)
@@ -41,7 +40,7 @@ public sealed class SpecRenameJson
         return true;
     }
 
-    /// <summary>Moves a member to its new name, the way the reader resolves both: a non-null old value wins.</summary>
+    /// <summary>Moves a member to its new name, the way the old readers resolved both: a non-null old value wins.</summary>
     public bool Move(JsonObject owner, string from, string to)
     {
         if (!owner.TryGetPropertyValue(from, out var value)) return false;

@@ -26,7 +26,7 @@ public sealed class EveryContextLoadedTests
         """{"repos":[{"name":"primary","affected":true,"confidence":0.95}],"contexts":{"primary":["backend","frontend"]},"rationale":"both contexts change"}""";
 
     private const string BothContextsJson = """
-        {"phases": [
+        {"specs": [
            {"slug": "dependency-updates",
             "goal": "Raise the package floors the audit names in both contexts",
             "contexts": ["backend", "frontend"],

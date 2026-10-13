@@ -11,6 +11,7 @@ public static class ConfigurationValidationExtensions
 {
     public static IServiceCollection AddConfigurationValidation(this IServiceCollection services)
     {
+        services.AddSingleton<SkillsConfigValidator>();
         services.AddSingleton<AgentSmithConfigValidator>();
         services.AddSingleton<PollingConfigDeprecationWarner>();
         services.AddSingleton<CompactionConfigDeprecationWarner>();

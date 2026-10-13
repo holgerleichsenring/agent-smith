@@ -102,7 +102,7 @@ public sealed class ReworkAppendRuleTests
     [Fact]
     public void Parse_AppendReplyShorterThanHead_Refused()
     {
-        const string reply = """{ "phases": [ { "goal": "only one", "done": ["x"], "carries": [] } ] }""";
+        const string reply = """{ "specs": [ { "goal": "only one", "done": ["x"], "carries": [] } ] }""";
 
         var parsed = AgentSmith.Tests.Specs.DerivationTestParsers.Real().Parse(
             reply, "k", "2026-10-06-0a0a", "1", [], SpecSource.Derived, Executed(2).Specs);

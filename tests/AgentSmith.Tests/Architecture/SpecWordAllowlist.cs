@@ -8,7 +8,9 @@ namespace AgentSmith.Tests.Architecture;
 /// (<c>SkillExecutionPhase</c>, <c>phase_review</c>, <c>PHASE_GATE_LOG</c>) may stand anywhere.
 /// A token that cannot tell its meanings apart — the bare word, and <c>PhaseId</c>, which a
 /// relapse would write first — is <c>listed</c>: it may stand only in the files
-/// <c>spec-word-files.tsv</c> names, at most as often as it says.
+/// <c>spec-word-files.tsv</c> names, at most as often as it says. A token of reach
+/// <c>rewrite</c> (2026-10-12-967ah) is an old name only the one-time store rewrite still spells:
+/// it may stand only under that rewrite's sources and its tests.
 /// </para>
 /// <para>
 /// Both lists only shrink. A token that occurs nowhere, or a file row whose token left the
@@ -19,21 +21,33 @@ namespace AgentSmith.Tests.Architecture;
 internal sealed class SpecWordAllowlist
 {
     private const string Listed = "listed";
+    private const string Rewrite = "rewrite";
+
+    /// <summary>Where a <c>rewrite</c> token may stand: the store rewrite and its tests.</summary>
+    internal static readonly string[] RewritePaths =
+    [
+        "src/backend/AgentSmith.Infrastructure.Persistence/Services/SpecRename/",
+        "tests/AgentSmith.Tests/Persistence/SpecRename/",
+    ];
 
     private SpecWordAllowlist(
-        IReadOnlyDictionary<string, string> reach, IReadOnlyDictionary<(string Path, string Token), int> files)
+        IReadOnlyList<string[]> tokens, IReadOnlyDictionary<(string Path, string Token), int> files)
     {
-        Reach = reach;
+        Reach = tokens.ToDictionary(row => row[0], row => row[1], StringComparer.Ordinal);
+        Categories = tokens.ToDictionary(row => row[0], row => row[2], StringComparer.Ordinal);
         FileRows = files;
     }
 
     /// <summary>Token → <c>anywhere</c> or <c>listed</c>.</summary>
     public IReadOnlyDictionary<string, string> Reach { get; }
 
+    /// <summary>Token → its category (G2, REWRITE, LABEL, HISTORY, MIXED).</summary>
+    public IReadOnlyDictionary<string, string> Categories { get; }
+
     public IReadOnlyDictionary<(string Path, string Token), int> FileRows { get; }
 
     public static SpecWordAllowlist Load() => new(
-        Rows("spec-word-allowlist.tsv").ToDictionary(row => row[0], row => row[1], StringComparer.Ordinal),
+        [.. Rows("spec-word-allowlist.tsv")],
         Rows("spec-word-files.tsv").ToDictionary(row => (row[0], row[1]), row => int.Parse(row[2])));
 
     public IEnumerable<string> Offenders(IEnumerable<SpecWordFile> files) =>
@@ -62,6 +76,9 @@ internal sealed class SpecWordAllowlist
     private string? Judge(string path, string token, int count)
     {
         if (!Reach.TryGetValue(token, out var reach)) return "not allowlisted";
+        if (reach == Rewrite)
+            return RewritePaths.Any(p => path.StartsWith(p, StringComparison.Ordinal))
+                ? null : "allowed only in the store rewrite and its tests";
         if (reach != Listed) return null;
         if (!FileRows.TryGetValue((path, token), out var allowed)) return "allowed only in the files spec-word-files.tsv lists";
         return count > allowed ? $"{count} occurrences, {allowed} allowed" : null;

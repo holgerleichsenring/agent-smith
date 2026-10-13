@@ -37,11 +37,4 @@ public sealed class RunDecision : EntityBase
     /// derived from the step index it happens to share with one.
     /// </summary>
     public string? SpecId { get; set; }
-
-    /// <summary>
-    /// 2026-10-12-967ab: the column <see cref="SpecId"/> was written to before the rename. Written
-    /// beside it so a replica that still reads this column sees every row, and read only as the
-    /// fallback for a row nothing has backfilled; dropped in 2026-10-12-967ah.
-    /// </summary>
-    public string? PhaseId { get; set; }
 }

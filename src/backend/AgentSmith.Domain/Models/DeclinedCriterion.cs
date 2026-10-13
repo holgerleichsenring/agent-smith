@@ -12,4 +12,4 @@ namespace AgentSmith.Domain.Models;
 /// </summary>
 /// <param name="SpecId">The spec whose master declined it; null on a run that has no
 /// spec and is judged by a negotiated expectation.</param>
-public sealed record DeclinedCriterion(string Criterion, string Reason, [property: AcceptedName("PhaseId")] string? SpecId = null);
+public sealed record DeclinedCriterion(string Criterion, string Reason, string? SpecId = null);

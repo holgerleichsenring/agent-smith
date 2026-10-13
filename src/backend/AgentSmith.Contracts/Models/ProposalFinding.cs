@@ -1,5 +1,3 @@
-using AgentSmith.Domain.Models;
-
 namespace AgentSmith.Contracts.Models;
 
 /// <summary>
@@ -21,7 +19,7 @@ namespace AgentSmith.Contracts.Models;
 /// Null where the finding cites nothing — only a false premise does.
 /// </param>
 public sealed record ProposalFinding(
-    [property: AcceptedName("PhaseId")] string SpecId,
+    string SpecId,
     string Problem,
     string Why,
     string? Quote = null,

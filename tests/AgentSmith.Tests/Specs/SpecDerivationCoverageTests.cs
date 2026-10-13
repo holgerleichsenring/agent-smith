@@ -113,14 +113,14 @@ public sealed class SpecDerivationCoverageTests
     /// <summary>2026-10-12-967aa: the skill template is filled with the token a later skill
     /// release names beside the one the pinned release names, so either release renders whole.</summary>
     [Fact]
-    public async Task Deriver_TheSkillTemplate_IsFilledWithMaxSpecsAndMaxSpecs()
+    public async Task Deriver_TheSkillTemplate_IsFilledWithMaxSpecs()
     {
         var prompts = new RecordingPrompt();
 
         await Derive(new ScriptedClient(Cut("frontend", "backend")), Named("frontend", "backend"), prompts);
 
         var max = SpecSet.MaxSpecs.ToString();
-        prompts.Tokens.Should().Contain("MaxSpecs", max).And.Contain("MaxPhases", max);
+        prompts.Tokens.Should().Contain("MaxSpecs", max).And.HaveCount(1);
     }
 
     private static ScopeNamedContexts Named(params string[] contexts) =>
@@ -163,7 +163,7 @@ public sealed class SpecDerivationCoverageTests
             ? "[]"
             : $$$"""[{"context": "{{{discarded}}}", "reason": "the audit flags nothing there"}]""";
         return $$$"""
-            {"phases": [
+            {"specs": [
                {"slug": "raise-the-floors", "goal": "Raise the package floors the audit names",
                 {{{declared}}}
                 "steps": [{"id": "raise", "action": "Raise the versions"}],

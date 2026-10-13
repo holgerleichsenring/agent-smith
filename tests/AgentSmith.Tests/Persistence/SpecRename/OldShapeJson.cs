@@ -7,7 +7,6 @@ using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.SpecDialog;
-using AgentSmith.Tests.SpecNaming;
 using AgentSmith.Tests.TestSupport;
 
 namespace AgentSmith.Tests.Persistence.SpecRename;

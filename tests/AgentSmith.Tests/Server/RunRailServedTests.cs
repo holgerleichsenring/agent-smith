@@ -99,7 +99,7 @@ public sealed class RunRailServedTests : IDisposable
     }
 
     // p0395: a spliced spec step (p0393a) is projected with the spec id composed
-    // into its names. The read path splits it back apart — PhaseId structured, the
+    // into its names. The read path splits it back apart — SpecId structured, the
     // names clean — for old prefixed rows exactly like new ones; an unspliced step
     // carries no spec.
     [Fact]

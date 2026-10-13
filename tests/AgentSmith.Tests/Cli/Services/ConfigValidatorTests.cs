@@ -49,7 +49,7 @@ public sealed class ConfigValidatorTests : IDisposable
         var findings = NewValidator(out var loader).Validate(_tempFile);
 
         // What the server would publish for the same file, from the same rule object.
-        var serverFindings = new AgentSmithConfigValidator().Findings(loader.LoadConfig(_tempFile));
+        var serverFindings = new AgentSmithConfigValidator(new SkillsConfigValidator()).Findings(loader.LoadConfig(_tempFile));
 
         serverFindings.Should().NotBeEmpty();
         findings.Select(f => (f.Project, f.Trigger, f.Field, f.Severity))
@@ -162,6 +162,6 @@ public sealed class ConfigValidatorTests : IDisposable
                 new AgentSmithPaths(),
                 findings),
             new NoOpSystemEventPublisher());
-        return new ConfigValidator(loader, findings, new AgentSmithConfigValidator());
+        return new ConfigValidator(loader, findings, new AgentSmithConfigValidator(new SkillsConfigValidator()));
     }
 }

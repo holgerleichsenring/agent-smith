@@ -50,17 +50,7 @@ cmd=$(printf '%s' "$cmd_b64" | base64 -d 2>/dev/null)
 hook_cwd=$(printf '%s' "$cwd_b64" | base64 -d 2>/dev/null)
 
 hooks_dir=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-# 2026-10-12-967af: SPEC_GATE_* is read first, PHASE_GATE_* is still honoured, so a caller
-# written against either name keeps working until 967ah removes the old one. The default
-# ledger moved to spec-gate.log; the old file is carried over ONCE — only when it exists and
-# the new one does not, so its history continues and two ledgers are never merged.
-ledger="${SPEC_GATE_LOG:-${PHASE_GATE_LOG:-}}"
-if [ -z "$ledger" ]; then
-  ledger="$hooks_dir/../spec-gate.log"
-  if [ -f "$hooks_dir/../phase-gate.log" ] && [ ! -e "$ledger" ]; then
-    mv "$hooks_dir/../phase-gate.log" "$ledger" 2>/dev/null || true
-  fi
-fi
+ledger="${SPEC_GATE_LOG:-$hooks_dir/../spec-gate.log}"
 
 # The spec marker a commit message carries, in either namespace: the closed counter
 # id, e.g. (p0272) / (p73a), or a p0507 date-minted id, e.g. (2026-08-24-8a3f). The
@@ -214,10 +204,9 @@ job_rc() { cat "$tmp/job-$1.rc" 2>/dev/null || echo missing; }
 # The tests drive the gate against throwaway repositories, so two things keep that out
 # of this run: SPEC_GATE_LOG sends any line they write to a scratch file instead of the
 # ledger, and SPEC_GATE_SELFTEST makes the gate they invoke skip this step rather than
-# run the tests that invoked it. Both names are set, so the isolation holds whichever one
-# a test file reads. A tree carrying no hook tests says so and moves on.
+# run the tests that invoked it. A tree carrying no hook tests says so and moves on.
 check_hook_tests() {
-  [ -z "${SPEC_GATE_SELFTEST:-${PHASE_GATE_SELFTEST:-}}" ] || return 0
+  [ -z "${SPEC_GATE_SELFTEST:-}" ] || return 0
   log "0/5 hook tests (this gate's own detection and resolver)..."
   local hook_tests hook_test
   hook_tests=$(ls .claude/hooks/test_*.py 2>/dev/null)
@@ -225,8 +214,7 @@ check_hook_tests() {
     log "    no .claude/hooks/test_*.py in $target_dir — no hook tests to run"
   fi
   for hook_test in $hook_tests; do
-    if ! SPEC_GATE_SELFTEST=1 PHASE_GATE_SELFTEST=1 SPEC_GATE_LOG="$tmp/selftest-spec-gate.log" \
-        PHASE_GATE_LOG="$tmp/selftest-spec-gate.log" \
+    if ! SPEC_GATE_SELFTEST=1 SPEC_GATE_LOG="$tmp/selftest-spec-gate.log" \
         python3 "$hook_test" >"$tmp/hook-tests.log" 2>&1; then
       tail -40 "$tmp/hook-tests.log" >&2; failed "hook tests: $(basename "$hook_test")"; return 1
     fi
@@ -439,8 +427,8 @@ if [ -f src/dashboard/package.json ] && ! command -v pnpm >/dev/null 2>&1; then
   fail "dashboard checks need pnpm on PATH (corepack enable, or install pnpm)"
 fi
 
-# SPEC_GATE_CORES (PHASE_GATE_CORES still honoured) overrides the probe, for the hook tests that pin either shape.
-cores=${SPEC_GATE_CORES:-${PHASE_GATE_CORES:-$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)}}
+# SPEC_GATE_CORES overrides the probe, for the hook tests that pin either shape.
+cores=${SPEC_GATE_CORES:-$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)}
 case "$cores" in ''|*[!0-9]*) cores=1 ;; esac
 if [ "$cores" -ge 8 ]; then parallel=1; else parallel=0; fi
 

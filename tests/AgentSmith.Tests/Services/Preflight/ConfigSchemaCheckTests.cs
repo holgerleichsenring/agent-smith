@@ -18,7 +18,7 @@ public sealed class ConfigSchemaCheckTests
     {
         var check = new ConfigSchemaCheck(
             FakePreflightConfigSource.LoadFailure("mapping values are not allowed here (line 12)"),
-            new AgentSmithConfigValidator());
+            new AgentSmithConfigValidator(new SkillsConfigValidator()));
 
         var result = await check.RunAsync(CancellationToken.None);
 
@@ -35,7 +35,7 @@ public sealed class ConfigSchemaCheckTests
             Secrets = new Dictionary<string, string> { ["github_token"] = "", ["ok_secret"] = "value" },
         };
         var check = new ConfigSchemaCheck(
-            FakePreflightConfigSource.Of(config), new AgentSmithConfigValidator());
+            FakePreflightConfigSource.Of(config), new AgentSmithConfigValidator(new SkillsConfigValidator()));
 
         var result = await check.RunAsync(CancellationToken.None);
 
@@ -53,7 +53,7 @@ public sealed class ConfigSchemaCheckTests
             Secrets = new Dictionary<string, string> { ["token"] = "resolved" },
         };
         var check = new ConfigSchemaCheck(
-            FakePreflightConfigSource.Of(config), new AgentSmithConfigValidator());
+            FakePreflightConfigSource.Of(config), new AgentSmithConfigValidator(new SkillsConfigValidator()));
 
         var result = await check.RunAsync(CancellationToken.None);
 

@@ -1098,9 +1098,6 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("PhaseId")
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("Reason")
                         .HasColumnType("TEXT");
 
@@ -1459,9 +1456,6 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
 
                     b.Property<long>("LlmMs")
                         .HasColumnType("INTEGER");
-
-                    b.Property<string>("PhaseId")
-                        .HasColumnType("TEXT");
 
                     b.Property<string>("ResultMessage")
                         .HasColumnType("TEXT");

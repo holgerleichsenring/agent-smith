@@ -82,7 +82,7 @@ public sealed class SpecDialogLatestOutcomeStore(
     internal SpecDialogLatestOutcome Of(SpecDialogSession session) => new(
         Readable(session.LatestProposalJson, OutcomeProposalJson.Read, session.ThreadId),
         Readable(session.LatestFilingJson,
-            json => JsonSerializer.Deserialize<SpecDialogFiling>(json, JsonOptions)?.InDeclaredKind(), session.ThreadId));
+            json => JsonSerializer.Deserialize<SpecDialogFiling>(json, JsonOptions), session.ThreadId));
 
     private T? Readable<T>(string? json, Func<string, T?> read, string? threadId) where T : class
     {

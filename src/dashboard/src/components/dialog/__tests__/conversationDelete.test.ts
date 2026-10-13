@@ -36,9 +36,9 @@ describe("The deletion warning", () => {
     // The epic parent carries the same sentence, for the same reason.
     expect(deletionWarning(conversation({ outcome: { kind: "epic", tickets: 3, partial: false } })))
       .toBe(said);
-    // 2026-10-12-967ab: a replica still on 967aa serves a spec filing's kind as "phase".
+    // "phase" is not a served kind; it says only the sentence true of every filing.
     expect(deletionWarning(conversation({ outcome: { kind: "phase", tickets: 1, partial: false } })))
-      .toBe(said);
+      .not.toContain("names this conversation");
   });
 
   // A bug ticket's body has no such sentence, and warning about one it never had would be a

@@ -7,6 +7,7 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
+using AgentSmith.Infrastructure.Persistence.Services.SpecRename;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Services;
@@ -80,16 +81,18 @@ public class CommandContextFactoryTests
             .WithMessage("*Unknown command*");
     }
 
-    /// <summary>2026-10-12-967ab: an operator preset written before the rename still names the
-    /// spec-block command by its old name; it resolves to the builder of the declared one.</summary>
+    /// <summary>2026-10-12-967ah: a spec-block command is known by the name it is declared under
+    /// alone; the name it had before the rename is an unknown command like any other.</summary>
     [Fact]
-    public void Create_AnOldSpecBlockCommandNameInAPreset_ResolvesTheDeclaredBuilder()
+    public void Create_AnOldSpecBlockCommandName_IsUnknown()
     {
-        var command = new PipelineCommand("SelectPhaseCommand") { SpecId = "s1" };
+        var old = SpecRenameTable.CommandNames.Single(r => r.New == CommandNames.SelectSpec).Old;
 
-        var result = _sut.Create(command, CreateProjectConfig(), new PipelineContext());
+        var act = () => _sut.Create(new PipelineCommand(old), CreateProjectConfig(), new PipelineContext());
 
-        result.Should().BeOfType<SelectSpecContext>().Which.SpecId.Should().Be("s1");
+        act.Should().Throw<ConfigurationException>().WithMessage($"*Unknown command: '{old}'*");
+        _sut.Knows(old).Should().BeFalse();
+        _sut.Knows(CommandNames.SelectSpec).Should().BeTrue();
     }
 
     private static ResolvedProject CreateProjectConfig()

@@ -1,7 +1,6 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Tickets;
 using Microsoft.Extensions.Logging;
-using AgentSmith.Contracts.Json;
 
 namespace AgentSmith.Application.Services.Tickets;
 
@@ -44,7 +43,7 @@ public sealed class TicketKindResolver(ILogger<TicketKindResolver> logger)
         string? kind = null;
         foreach (var (key, configured) in tracker.WorkItemKinds)
         {
-            if (!AcceptedNames.TryParse<TicketFilingRole>(key, ignoreCase: true, out var configuredRole))
+            if (!TryParseRole(key, out var configuredRole))
                 logger.LogWarning(
                     "Tracker '{Tracker}' work_item_kinds: unknown filing role '{Key}' ignored "
                     + "(known: {Roles})", tracker.Name, key, string.Join(", ", KnownRoles));
@@ -56,6 +55,22 @@ public sealed class TicketKindResolver(ILogger<TicketKindResolver> logger)
             kind ?? "the provider's default type");
         return kind;
     }
+
+    /// <summary>
+    /// A role key as an operator writes it, case-insensitively. The key "phase" names the spec
+    /// role: it is operator configuration saved before the spec rename, so it is read for good.
+    /// </summary>
+    private static bool TryParseRole(string key, out TicketFilingRole role)
+    {
+        if (string.Equals(key, HistoricalSpecKey, StringComparison.OrdinalIgnoreCase))
+        {
+            role = TicketFilingRole.Spec;
+            return true;
+        }
+        return Enum.TryParse(key, ignoreCase: true, out role);
+    }
+
+    private const string HistoricalSpecKey = "phase";
 
     private static readonly IReadOnlyList<string> KnownRoles =
         [.. Enum.GetNames<TicketFilingRole>().Select(n => n.ToLowerInvariant())];

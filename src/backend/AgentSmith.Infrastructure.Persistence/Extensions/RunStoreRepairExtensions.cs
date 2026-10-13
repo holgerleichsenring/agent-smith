@@ -28,6 +28,8 @@ public static class RunStoreRepairExtensions
     // 2026-10-12-967ab: the one-time rewrite of rows stored in the pre-rename names, run by the migrator.
     private static IServiceCollection AddStoredSpecNameRewrite(this IServiceCollection services)
     {
+        services.AddSingleton<SpecMemberRewriter>();
+        services.AddSingleton<CheckpointEntryNames>();
         services.AddSingleton<SpecRenameJson>();
         services.AddSingleton<SpecApprovalJsonRewriter>();
         services.AddSingleton<CheckpointJsonRewriter>();
@@ -43,7 +45,6 @@ public static class RunStoreRepairExtensions
         services.AddSingleton<IStoredSpecNameSurface, ApprovedSeriesSpecNames>();
         services.AddSingleton<IStoredSpecNameSurface, SpecDialogSessionSpecNames>();
         services.AddSingleton<IStoredSpecNameSurface, RunStepSpecNames>();
-        services.AddSingleton<IStoredSpecNameSurface, RunDecisionSpecNames>();
         services.AddSingleton<StoredSpecNameRewrite>();
         return services;
     }

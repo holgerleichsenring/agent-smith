@@ -114,7 +114,7 @@ public sealed class ScopeUnassignedHandbackTests
     public void SpecDerivationEnvelope_ModelNamesScopeUnassigned_Refused(string name)
     {
         using var doc = JsonDocument.Parse(
-            $$$"""{"phases": [], "handback": {"case": "{{{name}}}", "reason": "cannot divide"}}""");
+            $$$"""{"specs": [], "handback": {"case": "{{{name}}}", "reason": "cannot divide"}}""");
         var envelope = new SpecDerivationEnvelope();
 
         envelope.Handback(doc.RootElement).Should().BeNull("only the code raises this case");

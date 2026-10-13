@@ -1,5 +1,3 @@
-using AgentSmith.Domain.Models;
-
 namespace AgentSmith.Contracts.Models;
 
 /// <summary>
@@ -12,7 +10,7 @@ public enum SpecDialogTurnKind
 {
     Answer = 0,
     BugProposal = 1,
-    [AcceptedName("PhaseProposal")] SpecProposal = 2,
+    SpecProposal = 2,
     EpicProposal = 3,
     Failure = 4,
     Notice = 5,

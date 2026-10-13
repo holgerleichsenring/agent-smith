@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 
-namespace AgentSmith.Tests.Persistence;
+namespace AgentSmith.Tests.Persistence.SpecRename;
 
 /// <summary>
 /// 2026-10-06-03c7g: RunPhases becomes RunSpecs IN PLACE. A store on the previous schema,

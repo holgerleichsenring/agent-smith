@@ -193,7 +193,7 @@ public sealed class SpecReposDerivationTests
         var firstExtra = (first is null ? "" : $", \"repos\": {first}")
             + (firstContexts is null ? "" : $", \"contexts\": {firstContexts}");
         var secondExtra = second is null ? "" : $", \"repos\": {second}";
-        return "{\"phases\": ["
+        return "{\"specs\": ["
             + "{\"slug\": \"move-the-policy\", \"goal\": \"Move the retry policy into the server\", "
             + "\"done\": [\"The server owns the retry policy.\"], \"carries\": [1]" + firstExtra + "}, "
             + "{\"slug\": \"keep-the-worker\", \"goal\": \"Leave the worker as it is\", "

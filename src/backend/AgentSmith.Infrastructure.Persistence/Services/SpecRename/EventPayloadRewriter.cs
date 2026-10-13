@@ -1,8 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
-using AgentSmith.Contracts.Json;
 using AgentSmith.Contracts.Runs;
 
 namespace AgentSmith.Infrastructure.Persistence.Services.SpecRename;
@@ -12,7 +10,8 @@ namespace AgentSmith.Infrastructure.Persistence.Services.SpecRename;
 /// carry a spec name. Scoped by event type: the LLM, tool and cost events keep their
 /// execution stage because no row of theirs is ever opened here.
 /// </summary>
-public sealed class EventPayloadRewriter(SpecRenameJson json, CheckpointJsonRewriter checkpoints)
+public sealed class EventPayloadRewriter(
+    SpecRenameJson json, CheckpointJsonRewriter checkpoints, SpecMemberRewriter members)
 {
     private static readonly IReadOnlyDictionary<string, Type> Walked = new Dictionary<string, Type>
     {
@@ -29,10 +28,6 @@ public sealed class EventPayloadRewriter(SpecRenameJson json, CheckpointJsonRewr
         .. Walked.Keys, nameof(EventType.RunCheckpointed), nameof(EventType.RunStoryRecorded),
     ];
 
-    /// <summary>The declared name for a type name stored under an accepted one; null when it is current.</summary>
-    public string? RenameType(string stored) =>
-        AcceptedNames.TryParseAccepted<EventType>(stored, ignoreCase: false, out var type) ? type.ToString() : null;
-
     /// <summary>The rewritten payload of a row of <paramref name="typeName"/>, or null when nothing moved.</summary>
     public string? Rewrite(string typeName, string? payload) => typeName switch
     {
@@ -43,15 +38,15 @@ public sealed class EventPayloadRewriter(SpecRenameJson json, CheckpointJsonRewr
             && json.RewriteNested(e, nameof(RunStoryRecordedEvent.AcceptanceJson),
                 acceptance => json.Rewrite(acceptance, typeof(AcceptanceView), JsonNamingPolicy.CamelCase))),
         _ when Walked.TryGetValue(typeName, out var type) =>
-            json.Rewrite(payload, node => AcceptedNameRewriter.Rewrite(node, type, policy: null) | DeclareCommand(node)),
+            json.Rewrite(payload, node => members.Rewrite(node, type, policy: null) | RenameCommand(node)),
         _ => null,
     };
 
-    private static bool DeclareCommand(JsonNode node)
+    private static bool RenameCommand(JsonNode node)
     {
         if (node is not JsonObject e || e[nameof(StepStartedEvent.CommandName)] is not JsonValue value
-            || !value.TryGetValue<string>(out var stored) || CommandNames.Declared(stored) == stored) return false;
-        e[nameof(StepStartedEvent.CommandName)] = CommandNames.Declared(stored);
+            || !value.TryGetValue<string>(out var stored) || SpecRenameTable.CommandName(stored) is not { } current) return false;
+        e[nameof(StepStartedEvent.CommandName)] = current;
         return true;
     }
 }

@@ -12,7 +12,7 @@ namespace AgentSmith.Tests.Configuration;
 /// </summary>
 public sealed class AgentSmithConfigValidatorTests
 {
-    private readonly AgentSmithConfigValidator _sut = new();
+    private readonly AgentSmithConfigValidator _sut = new(new SkillsConfigValidator());
 
     [Fact]
     public void Validate_PipelineTriggersUsesKnownPipeline_NoError()

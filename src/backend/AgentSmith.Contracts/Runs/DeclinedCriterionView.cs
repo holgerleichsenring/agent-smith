@@ -1,5 +1,3 @@
-using AgentSmith.Domain.Models;
-
 namespace AgentSmith.Contracts.Runs;
 
 /// <summary>
@@ -9,4 +7,4 @@ namespace AgentSmith.Contracts.Runs;
 /// </summary>
 /// <param name="Spec">The spec whose master declined it; null on a run judged by a
 /// negotiated expectation rather than a spec.</param>
-public sealed record DeclinedCriterionView(string Text, string Reason, [property: AcceptedName("Phase")] string? Spec = null);
+public sealed record DeclinedCriterionView(string Text, string Reason, string? Spec = null);

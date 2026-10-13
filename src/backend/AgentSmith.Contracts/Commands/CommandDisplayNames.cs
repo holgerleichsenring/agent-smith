@@ -20,7 +20,6 @@ public static partial class CommandDisplayNames
 {
     public static string Get(string commandName)
     {
-        commandName = CommandNames.Declared(commandName);
         if (Labels.TryGetValue(commandName, out var label))
             return label;
 

@@ -1,5 +1,3 @@
-using AgentSmith.Domain.Models;
-
 namespace AgentSmith.Contracts.Specs;
 
 /// <summary>
@@ -34,7 +32,7 @@ public sealed record SpecAccounting(
 }
 
 /// <summary>p0393a: a ticket segment carried by a named spec.</summary>
-public sealed record CarriedSegment(int SegmentId, [property: AcceptedName("PhaseId")] string SpecId);
+public sealed record CarriedSegment(int SegmentId, string SpecId);
 
 /// <summary>p0393a: a ticket segment deliberately left out, with the reason a reviewer reads.</summary>
 public sealed record DiscardedSegment(int SegmentId, string Reason);

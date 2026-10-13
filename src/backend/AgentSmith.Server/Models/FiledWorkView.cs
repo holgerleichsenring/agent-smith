@@ -57,7 +57,7 @@ public sealed record FiledWorkRunView(
 
 /// <summary>
 /// One spec that run executed, as its own row says it stands (2026-10-06-03c7g: was
-/// FiledWorkPhaseView, served as phases/phaseId).
+/// FiledWorkPhaseView).
 /// <para>
 /// There is deliberately NO "awaiting an amendment" flag here. A hand-back has a status of its
 /// own — <c>handed_back</c>, written by RunSpecProjection.StatusOf for

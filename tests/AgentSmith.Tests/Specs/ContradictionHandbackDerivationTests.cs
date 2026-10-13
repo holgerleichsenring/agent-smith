@@ -137,7 +137,7 @@ public sealed class ContradictionHandbackDerivationTests
         new Dictionary<string, object?> { ["repository"] = Repo, ["pattern"] = pattern });
 
     private static string Contradiction(string? cites) =>
-        "{\"phases\": [], \"handback\": {\"case\": \"requirements_contradict_repository\", "
+        "{\"specs\": [], \"handback\": {\"case\": \"requirements_contradict_repository\", "
         + "\"reason\": \"SubmitAssetsRequest contains only TruckPlate and TrailerPlate\""
         + (cites is null ? string.Empty : $", \"cites\": {(cites.StartsWith('[') || cites.StartsWith('"') ? cites : $"\"{cites}\"")}")
         + "}}";
@@ -146,7 +146,7 @@ public sealed class ContradictionHandbackDerivationTests
     {
         var segments = TicketSegmenter.Segment(Ticket);
         return $$$"""
-            {"phases": [
+            {"specs": [
                {"slug": "send-the-id", "goal": "Send the shipment id with the assets",
                 "steps": [{"id": "send", "action": "Send the id"}],
                 "done": ["The request carries the shipment id."],

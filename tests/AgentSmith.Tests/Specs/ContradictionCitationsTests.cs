@@ -56,7 +56,7 @@ public sealed class ContradictionCitationsTests
     private SpecDerivationParser.Parsed Parse(string? cites)
     {
         var segments = TicketSegmenter.Segment("Send the shipment id.");
-        var reply = "{\"phases\": [], \"handback\": {\"case\": \"requirements_contradict_repository\", "
+        var reply = "{\"specs\": [], \"handback\": {\"case\": \"requirements_contradict_repository\", "
             + "\"reason\": \"the request has no such field\"" + (cites is null ? string.Empty : ", " + cites) + "}}";
         return _parser.Parse(reply, "azdo-1", "2026-10-12-0a0a", "1", segments, SpecSource.Derived,
             evidence: Evidence);

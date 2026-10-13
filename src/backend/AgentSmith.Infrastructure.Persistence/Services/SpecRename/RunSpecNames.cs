@@ -1,7 +1,5 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using AgentSmith.Contracts.Commands;
-using AgentSmith.Contracts.Json;
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
@@ -10,11 +8,12 @@ namespace AgentSmith.Infrastructure.Persistence.Services.SpecRename;
 
 /// <summary>
 /// 2026-10-12-967ab: the Runs row — its planned steps (PlannedStepView, camelCase, whose command
-/// names map through <see cref="CommandNames.Declared"/>), the request a capacity-queued run waits
+/// names map through <see cref="SpecRenameTable.CommandName"/>), the request a capacity-queued run waits
 /// with, and the acceptance the run story projected (AcceptanceView, camelCase).
 /// </summary>
 public sealed class RunSpecNames(
-    SpecRenameJson json, RequestContextJsonRewriter requests, RowPages pages) : IStoredSpecNameSurface
+    SpecRenameJson json, RequestContextJsonRewriter requests, SpecMemberRewriter members, RowPages pages)
+    : IStoredSpecNameSurface
 {
     private static readonly JsonNamingPolicy Camel = JsonNamingPolicy.CamelCase;
 
@@ -38,14 +37,14 @@ public sealed class RunSpecNames(
         return planned is not null || request is not null || acceptance is not null;
     }
 
-    private static bool RewritePlanned(JsonNode node)
+    private bool RewritePlanned(JsonNode node)
     {
-        var changed = AcceptedNameRewriter.Rewrite(node, typeof(List<PlannedStepView>), Camel);
+        var changed = members.Rewrite(node, typeof(List<PlannedStepView>), Camel);
         foreach (var step in (node as JsonArray ?? []).OfType<JsonObject>())
         {
             if (step["commandName"] is not JsonValue value || !value.TryGetValue<string>(out var stored)) continue;
-            if (CommandNames.Declared(stored) == stored) continue;
-            step["commandName"] = CommandNames.Declared(stored);
+            if (SpecRenameTable.CommandName(stored) is not { } current) continue;
+            step["commandName"] = current;
             changed = true;
         }
         return changed;

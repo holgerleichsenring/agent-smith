@@ -107,7 +107,7 @@ public sealed class SpecCutSurvivesReviewTests
         var discarded = string.Join(",", segments.Skip(2).Select(
             s => "{\"segment\": " + s.Id + ", \"reason\": \"a sign-off, not part of the work\"}"));
         return $$$"""
-            {"phases": [
+            {"specs": [
                {"slug": "swap-the-client", "goal": "Move every call site onto the new client",
                 "steps": [{"id": "swap", "action": "Swap the call sites"}],
                 "done": ["No call site uses the legacy client."], "carries": [{{{head}}}]},

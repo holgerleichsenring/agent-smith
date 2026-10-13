@@ -27,7 +27,7 @@ public sealed class PremiseCheckSpecBlockTests
     /// <summary>Two specs that each STATE something. A cite nothing minted is downgraded to an
     /// assumption, which is still a premise — so the check has something to be asked about.</summary>
     private const string TwoSpecsStatingPremises = """
-        {"phases": [
+        {"specs": [
            {"slug": "introduce-the-guard",
             "goal": "Introduce the empty-payload guard",
             "steps": [{"id": "guard", "action": "Answer an empty request body with 400"}],

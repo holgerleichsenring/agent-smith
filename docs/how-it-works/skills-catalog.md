@@ -38,7 +38,7 @@ skills:
   cache_dir: /var/lib/agentsmith/skills
 ```
 
-Resolution: an explicit `path` wins, then `url`, then `version`; only when none of them is set does the embedded catalog apply. **`source`** values (normally inferred from which field you set):
+Resolution: an explicit `path` wins, then `url`, then `version`; only when none of them is set does the embedded catalog apply. A pinned `version` must be `v5.13.0` or later: older releases ask the model in names this server no longer reads, and the configuration check refuses them at startup. **`source`** values (normally inferred from which field you set):
 
 | Value | What it does |
 |---|---|

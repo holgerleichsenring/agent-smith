@@ -1,5 +1,3 @@
-using AgentSmith.Domain.Models;
-
 namespace AgentSmith.Contracts.Events;
 
 /// <summary>
@@ -34,7 +32,7 @@ public sealed record StepStartedEvent(
     DateTimeOffset Timestamp,
     string? DisplayName = null,
     string? CommandName = null,
-    [property: AcceptedName("PhaseId")] string? SpecId = null)
+    string? SpecId = null)
     : RunEvent(RunId, EventType.StepStarted, Timestamp);
 
 public sealed record StepFinishedEvent(

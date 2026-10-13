@@ -83,7 +83,7 @@ public sealed class RunSpecsServedTests : IDisposable
                 CommandNames.AgenticMaster, "p19213a"));
 
         await using var ctx = new AgentSmithDbContext(Options());
-        ctx.RunSteps.Single().PhaseId.Should().Be("p19213a");
+        ctx.RunSteps.Single().SpecId.Should().Be("p19213a");
     }
 
     [Fact]
@@ -93,7 +93,7 @@ public sealed class RunSpecsServedTests : IDisposable
             RunId, "tooling", "sqlite", "postgres", "smallest footprint", T, "p19213a"));
 
         await using var ctx = new AgentSmithDbContext(Options());
-        ctx.RunDecisions.Single().PhaseId.Should().Be("p19213a");
+        ctx.RunDecisions.Single().SpecId.Should().Be("p19213a");
     }
 
     /// <summary>
@@ -179,41 +179,6 @@ public sealed class RunSpecsServedTests : IDisposable
         ctx.Set<AgentSmith.Infrastructure.Persistence.Entities.RunArtifact>()
             .Where(a => a.RunId == RunId).Select(a => a.Kind).ToList()
             .Should().BeEquivalentTo(["spec_record:p19213a", "spec_review:p19213a"]);
-    }
-
-    /// <summary>2026-10-12-967aa/967ab: a record the release before the rename stored under
-    /// <c>phase_record:</c> serves exactly as one stored under the declared kind.</summary>
-    [Fact]
-    public async Task SpecRecord_StoredUnderTheOldKind_IsServed()
-    {
-        await ApplyAsync(Selected("p19213a", 1, "Make the thing exist"));
-        await using (var ctx = new AgentSmithDbContext(Options()))
-        {
-            ctx.Set<AgentSmith.Infrastructure.Persistence.Entities.RunArtifact>().Add(new()
-            {
-                RunId = RunId, Kind = RunSpecProjection.AcceptedRecordKindPrefix + "p19213a",
-                Content = "spec: p19213a\n",
-            });
-            await ctx.SaveChangesAsync();
-        }
-
-        (await ReadSpecAsync("p19213a"))!.Record.Should().Be("spec: p19213a\n");
-    }
-
-    /// <summary>2026-10-12-967aa/967ab: a step row whose command carries the spec-block name it had
-    /// before the rename is classified and labelled as the declared command.</summary>
-    [Fact]
-    public async Task RunStepsReader_OldCommandName_ClassifiesAsTheDeclaredOne()
-    {
-        await ApplyAsync(
-            new StepStartedEvent(RunId, 0, "Select", 2, T, null, "SelectPhaseCommand", "p19213a"),
-            new StepStartedEvent(RunId, 1, "Select", 2, T, null, CommandNames.SelectSpec, "p19213a"));
-
-        var rail = await ReadRailAsync();
-
-        rail.Select(s => s.StepClass).Should().Equal(
-            [CommandStepClasses.Internal, CommandStepClasses.Internal],
-            "an unknown name would read as a milestone");
     }
 
     [Fact]

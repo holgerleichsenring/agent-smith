@@ -121,7 +121,7 @@ public sealed class DerivationFactsTests
             s => "{\"segment\": " + s.Id + ", \"reason\": \"a sign-off\"}"));
         var factsField = facts is null ? string.Empty : $$""", "facts": [{{facts}}]""";
         return $$$"""
-            {"phases": [
+            {"specs": [
                {"slug": "raise-the-floors", "goal": "Raise the direct package floors the audit names",
                 "steps": [{"id": "raise", "action": "Raise the versions"}],
                 "done": ["The manifests carry versions the audit no longer flags."],

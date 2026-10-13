@@ -126,7 +126,7 @@ public sealed class SeriesOutOfStepTests
     [InlineData("7")]
     public void SpecDerivationEnvelope_ModelNamesOutOfStep_Refused(string name)
     {
-        using var doc = JsonDocument.Parse($$$"""{"phases": [], "handback": {"case": "{{{name}}}", "reason": "x"}}""");
+        using var doc = JsonDocument.Parse($$$"""{"specs": [], "handback": {"case": "{{{name}}}", "reason": "x"}}""");
 
         new SpecDerivationEnvelope().Handback(doc.RootElement).Should().BeNull("only the code raises this case");
     }

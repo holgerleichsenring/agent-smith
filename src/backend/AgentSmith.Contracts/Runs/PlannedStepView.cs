@@ -1,5 +1,3 @@
-using AgentSmith.Domain.Models;
-
 namespace AgentSmith.Contracts.Runs;
 
 /// <summary>
@@ -16,4 +14,4 @@ public sealed record PlannedStepView(
     int StepIndex,
     string CommandName,
     string DisplayName,
-    [property: AcceptedName("PhaseId")] string? SpecId);
+    string? SpecId);

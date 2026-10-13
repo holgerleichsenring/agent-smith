@@ -2,7 +2,6 @@ using System.Text.Json;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.Logging;
-using AgentSmith.Contracts.Json;
 
 namespace AgentSmith.Application.Services.Resume;
 
@@ -55,14 +54,15 @@ public sealed class PipelineContextSerializer(
     public void Restore(string serialized, PipelineContext into)
     {
         var entries = JsonSerializer.Deserialize<List<SerializedEntry>>(serialized) ?? [];
-        var restored = 0;
-        foreach (var entry in entries)
-        {
-            if (TryRestoreEntry(entry, into)) restored++;
-        }
+        var restored = entries.Count(entry => TryRestoreEntry(entry, into));
         logger.LogInformation(
             "Restored {Restored}/{Total} checkpointed context entries", restored, entries.Count);
     }
+
+    public IReadOnlyList<string> Unresolvable(string serialized) =>
+        [.. (JsonSerializer.Deserialize<List<SerializedEntry>>(serialized) ?? [])
+            .Where(e => !ExcludedKeys.Contains(e.K) && Type.GetType(e.T, throwOnError: false) is null)
+            .Select(e => $"{e.K} ({e.T})")];
 
     private SerializedEntry? TrySerializeEntry(string key, object value)
     {
@@ -83,12 +83,12 @@ public sealed class PipelineContextSerializer(
 
     private bool TryRestoreEntry(SerializedEntry entry, PipelineContext into)
     {
-        if (ExcludedKeys.Contains(CheckpointRenames.Key(entry.K)))
+        if (ExcludedKeys.Contains(entry.K))
         {
             logger.LogInformation("Checkpointed entry '{Key}' is live state of the leg that parked — dropped", entry.K);
             return false;
         }
-        var type = CheckpointRenames.Resolve(entry.T);
+        var type = Type.GetType(entry.T, throwOnError: false);
         if (type is null)
         {
             logger.LogWarning("Checkpointed entry '{Key}' has unknown type '{Type}' — skipped", entry.K, entry.T);
@@ -96,9 +96,9 @@ public sealed class PipelineContextSerializer(
         }
         try
         {
-            var value = JsonSerializer.Deserialize(entry.V, type, AcceptedNames.DefaultOptions);
+            var value = JsonSerializer.Deserialize(entry.V, type);
             if (value is null) return false;
-            into.Set(CheckpointRenames.Key(entry.K), value);
+            into.Set(entry.K, value);
             return true;
         }
         // p0478: as forgiving as TrySerializeEntry, which has always caught these three and
@@ -114,5 +114,4 @@ public sealed class PipelineContextSerializer(
 
     /// <summary>One persisted entry: key, runtime type, payload JSON.</summary>
     private sealed record SerializedEntry(string K, string T, string V);
-
 }

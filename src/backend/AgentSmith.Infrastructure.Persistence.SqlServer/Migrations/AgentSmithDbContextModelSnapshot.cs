@@ -1133,9 +1133,6 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<string>("PhaseId")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("Reason")
                         .HasColumnType("nvarchar(max)");
 
@@ -1511,9 +1508,6 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
 
                     b.Property<long>("LlmMs")
                         .HasColumnType("bigint");
-
-                    b.Property<string>("PhaseId")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("ResultMessage")
                         .HasColumnType("nvarchar(max)");

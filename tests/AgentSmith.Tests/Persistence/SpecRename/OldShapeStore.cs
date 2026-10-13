@@ -10,7 +10,11 @@ using RunEventRow = AgentSmith.Infrastructure.Persistence.Entities.RunEvent;
 
 namespace AgentSmith.Tests.Persistence.SpecRename;
 
-/// <summary>2026-10-12-967ab: one row of every rewritten surface, stored the way the old release stored it.</summary>
+/// <summary>
+/// 2026-10-12-967ab: one row of every rewritten surface, stored the way the old release stored it.
+/// 2026-10-12-967ah: the step and decision rows carry the spec id in SpecId, the one column left;
+/// <see cref="PreSpecIdRowsSql"/> writes them as a store from before that column existed.
+/// </summary>
 internal static class OldShapeStore
 {
     public const string RunId = "run-old";
@@ -19,7 +23,15 @@ internal static class OldShapeStore
         JsonSerializer.Serialize(new LlmCallFinishedEvent(RunId, "m", "coder", 1, 1, 0m, 1, T, Phase: "Implementation")),
         phase: "Implementation");
 
-    public static async Task SeedAsync(AgentSmithDbContext db)
+    public const string PreSpecIdRowsSql =
+        """
+        INSERT INTO RunSteps (RunId, EventSeq, StepIndex, StepName, Status, CommandName, PhaseId, LlmMs, ThrottleWaitMs, SandboxMs, CreatedAt, UpdatedAt)
+        VALUES ('run-old', 4, 3, 'Verify', 'ok', 'VerifyPhaseCommand:api', 's1', 0, 0, 0, '2026-10-12 09:00:00+00:00', '2026-10-12 09:00:00+00:00');
+        INSERT INTO RunDecisions (RunId, EventSeq, Name, PhaseId, CreatedAt, UpdatedAt)
+        VALUES ('run-old', 5, 'a', 's1', '2026-10-12 09:00:00+00:00', '2026-10-12 09:00:00+00:00');
+        """;
+
+    public static async Task SeedAsync(AgentSmithDbContext db, bool withStepRows = true)
     {
         db.Runs.Add(new Run
         {
@@ -47,13 +59,18 @@ internal static class OldShapeStore
             ContentJson = ApprovedSet(), ApprovedAt = T, ApprovedInConversation = "c", ApprovedBy = "b",
         });
         db.SpecDialogSessions.Add(Session());
+        if (withStepRows) AddStepRows(db);
+        await db.SaveChangesAsync();
+    }
+
+    private static void AddStepRows(AgentSmithDbContext db)
+    {
         db.RunSteps.Add(new RunStep
         {
             RunId = RunId, EventSeq = 4, StepIndex = 3, StepName = "Verify", Status = "ok",
-            CommandName = "VerifyPhaseCommand:api", PhaseId = "s1",
+            CommandName = "VerifyPhaseCommand:api", SpecId = "s1",
         });
-        db.RunDecisions.Add(new RunDecision { RunId = RunId, EventSeq = 5, Name = "a", PhaseId = "s1" });
-        await db.SaveChangesAsync();
+        db.RunDecisions.Add(new RunDecision { RunId = RunId, EventSeq = 5, Name = "a", SpecId = "s1" });
     }
 
     private static IEnumerable<RunEventRow> Events() =>

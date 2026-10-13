@@ -93,10 +93,9 @@ public sealed class NoStaticStateRuleTests
         // and the refresh rung must classify a failure the same way.
         typeof(AgentSmith.Application.Services.Sandbox.SourceScopeFailures),
         typeof(AgentSmith.Application.Services.Sandbox.ToolchainProbeCommand),
-        // 2026-10-12-967aa: the context keys and type names a checkpoint may carry under the spec
-        // rename, as fixed (spec, spec) literal pairs, plus the set of declared ContextKeys values
-        // read off the constants once. Nothing routes through it but a restore.
-        typeof(AgentSmith.Contracts.Json.CheckpointRenames),
+        // 2026-10-12-967ah: the names the spec rename moved, frozen as literal pairs and read by
+        // the one-time store rewrite alone.
+        typeof(AgentSmith.Infrastructure.Persistence.Services.SpecRename.SpecRenameTable),
     ];
 
     private static readonly string[] TargetAssemblies =

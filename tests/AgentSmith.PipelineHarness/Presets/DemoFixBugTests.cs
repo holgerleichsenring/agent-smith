@@ -43,7 +43,7 @@ public sealed class DemoFixBugTests : IAsyncLifetime
             // slot. The spec's done-list is the run's acceptance contract — p0328's
             // negotiation left the code pipeline with it.
             .EnqueueText("""
-                {"phases": [
+                {"specs": [
                    {"slug": "bulk-discount-boundary",
                     "goal": "Apply the bulk discount at exactly 100.00",
                     "steps": [{"id": "boundary", "action": "Include the 100.00 boundary in the discount check"}],
