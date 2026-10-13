@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/Card";
 import { SectionLabel } from "@/components/ui/SectionLabel";
 import { ProvenanceBadge } from "./ProvenanceBadge";
 import { ProjectInitAction } from "./ProjectInitAction";
+import { ProjectRepos } from "./ProjectRepos";
 import type {
   ConfigAgent,
   ConfigProject,
@@ -39,7 +40,7 @@ export function ProjectDetailPanel({ project, repos, trackers, agents }: Props) 
       <Card className="px-5 py-4">
         <Header project={project} />
         <AgentSection name={project.agentName} agent={agent} />
-        <ReposSection repos={projectRepos} />
+        <ReposSection project={project.name} repos={projectRepos} />
         <TrackerSection name={project.trackerName} tracker={tracker} trigger={project.trigger} />
         <ResolvedSection resolved={project.resolved} />
       </Card>
@@ -87,26 +88,10 @@ function AgentSection({ name, agent }: { name: string; agent: ConfigAgent | null
   );
 }
 
-function ReposSection({ repos }: { repos: ConfigRepo[] }) {
+function ReposSection({ project, repos }: { project: string; repos: ConfigRepo[] }) {
   return (
     <Section title="Repositories" testId="repos-section">
-      {repos.length === 0 && <span className="dsh-mono text-stone-400">—</span>}
-      <div className="space-y-3">
-        {repos.map((r) => (
-          <div key={r.name} data-testid={`repo-${r.name}`} className="rounded-md border border-stone-100 px-3 py-2">
-            <div className="flex items-center gap-2">
-              <span className="dsh-body font-semibold text-stone-700">{r.name}</span>
-              <Badge tone="neutral">{r.type}</Badge>
-            </div>
-            {r.url && <div className="mt-1 dsh-mono break-all text-stone-600">{r.url}</div>}
-            <div className="mt-1 flex flex-wrap gap-x-4 dsh-label text-stone-400">
-              {r.organization && <span>org: {r.organization}</span>}
-              {r.project && <span>project: {r.project}</span>}
-              {r.defaultBranch && <span>branch: {r.defaultBranch}</span>}
-            </div>
-          </div>
-        ))}
-      </div>
+      <ProjectRepos project={project} repos={repos} />
     </Section>
   );
 }

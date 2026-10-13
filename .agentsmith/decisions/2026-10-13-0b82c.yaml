@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-0b82c
+
+decisions:
+  - category: Architecture
+    chose: "Read each repository's bootstrap from its host when the project detail opens; store nothing"
+    over: "A stored per-repository bootstrap state refreshed by runs, sweeps or a timer"
+    reason: |
+      The host is the truth and a person opening the panel is the moment the question is asked. A stored
+      state needs a refresh rule nobody can state, and a periodic probe would be work without new information.
+  - category: Architecture
+    chose: "One request per panel open, each repository row takes its entry by name"
+    over: "A client component per row fetching for itself"
+    reason: "The endpoint answers for every repository; a fetch per row would read every repository once per row."
+  - category: Architecture
+    chose: "A configured default branch is read by name; otherwise the host's default is read and shown as 'default'"
+    over: "Showing the configured branch while the provider reads the host's default"
+    reason: "The GitHub provider ignores the configured branch for default-branch reads; the label must name what was read."
