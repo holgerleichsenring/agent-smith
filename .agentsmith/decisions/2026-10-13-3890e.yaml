@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-3890e
+
+decisions:
+  - category: Architecture
+    chose: "The newest step page carries the step's older SubAgentSpawned/Completed ahead of it, read by a separate reader"
+    over: "A client-side fetch of sub-agent events, or growing TrailReader"
+    reason: |
+      They are a handful per step and the client already builds nodes from them; TrailReader sits on the file-length
+      baseline and may not grow. The page's OldestSeq and HasOlder stay the page's own, so "load older" walks without a gap.
+  - category: Design
+    chose: "The tree ignores a Spawned for a sub-agent it already holds"
+    over: "Letting a re-delivered Spawned reset the node"
+    reason: "Load older can deliver the same Spawned again; it must not turn a finished sub-agent back into a running one."

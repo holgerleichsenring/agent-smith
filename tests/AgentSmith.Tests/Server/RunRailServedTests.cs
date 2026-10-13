@@ -47,6 +47,8 @@ public sealed class RunRailServedTests : IDisposable
 
     private RunStepsReader Steps() => new(_scopes, new RunStepAggregatesReader(), new RunRailComposer());
     private RunDecisionsReader Decisions() => new(_scopes);
+    private StepSubAgentLifecycleReader Lifecycle() =>
+        new(_scopes, new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer());
     private TrailReader Trail() =>
         new(null!, _scopes, new AgentSmith.Infrastructure.Services.Events.EventEnvelopeSerializer());
 
@@ -242,6 +244,43 @@ public sealed class RunRailServedTests : IDisposable
         page.HasOlder.Should().BeTrue();
     }
 
+    // 2026-10-13-3890e: a long step opened on its newest page still shows the sub-agents it
+    // spawned early on — their lifecycle comes along ahead of the page.
+    [Fact]
+    public async Task StepPage_Newest_CarriesOlderSubAgentLifecycle()
+    {
+        await SeedStepWithSubAgentAsync();
+
+        var page = await ReadNewestPageAsync(0, limit: 10);
+
+        page.Events.OfType<SubAgentSpawnedEvent>().Should().ContainSingle(e => e.SubAgentId == "sub-1");
+        page.Events.OfType<SubAgentCompletedEvent>().Should().ContainSingle(e => e.Status == "Failed");
+        Summaries(page.Events.OfType<SandboxCommandEvent>()).Should().HaveCount(10);
+    }
+
+    [Fact]
+    public async Task StepPage_PrependedLifecycle_DoesNotMoveOldestSeq()
+    {
+        await SeedStepWithSubAgentAsync();
+
+        var withLifecycle = await ReadNewestPageAsync(0, limit: 10);
+        var older = await ReadOlderPageAsync(0, withLifecycle.OldestSeq, limit: 10);
+
+        withLifecycle.HasOlder.Should().BeTrue();
+        Summaries(older.Events.OfType<SandboxCommandEvent>()).Should().Equal(
+            "cmd-20", "cmd-21", "cmd-22", "cmd-23", "cmd-24", "cmd-25", "cmd-26", "cmd-27", "cmd-28", "cmd-29");
+    }
+
+    private async Task SeedStepWithSubAgentAsync()
+    {
+        await ProjectAsync(
+            new RunStartedEvent(RunId, "ticket", "code", ["primary"], T, "claude", "42"),
+            new StepStartedEvent(RunId, 0, "Implement", 1, T),
+            new SubAgentSpawnedEvent(RunId, "sub-1", "scout", "scanning", null, "h", T) { OriginStepIndex = 0 },
+            new SubAgentCompletedEvent(RunId, "sub-1", "Failed", 0, 0, 0, 0, 0m, T) { OriginStepIndex = 0 });
+        await ProjectAsync([.. Enumerable.Range(0, 40).Select(i => SandboxCommand(0, $"cmd-{i}"))]);
+    }
+
     // p0388d: newest-anchored is not a substitute for history. Walking the
     // backwards cursor reaches the step's beginning, and the pages join without
     // a gap or a repeat — an operator diagnosing a run gets the whole step.
@@ -392,7 +431,7 @@ public sealed class RunRailServedTests : IDisposable
     private async Task<StepPageShape> ReadStepPageAsync(int stepIndex, long? beforeSeq, int? limit)
     {
         var result = await RunStepQueryEndpoints.GetRunStepEventsAsync(
-            RunId, stepIndex, sinceSeq: null, beforeSeq, limit, Trail(), CancellationToken.None);
+            RunId, stepIndex, sinceSeq: null, beforeSeq, limit, Trail(), Lifecycle(), CancellationToken.None);
         return new StepPageShape(
             ValueOf<IReadOnlyList<object>>(result, "events"),
             ValueOf<long>(result, "oldestSeq"),
@@ -403,7 +442,7 @@ public sealed class RunRailServedTests : IDisposable
     private async Task<StepDeltaShape> ReadDeltaAsync(int stepIndex, long sinceSeq, int? limit)
     {
         var result = await RunStepQueryEndpoints.GetRunStepEventsAsync(
-            RunId, stepIndex, sinceSeq, beforeSeq: null, limit, Trail(), CancellationToken.None);
+            RunId, stepIndex, sinceSeq, beforeSeq: null, limit, Trail(), Lifecycle(), CancellationToken.None);
         return new StepDeltaShape(
             ValueOf<IReadOnlyList<object>>(result, "events"),
             ValueOf<long>(result, "newestSeq"),

@@ -199,6 +199,40 @@ describe("useRunExecutionTree", () => {
     expect(node.children![0].label).toBe("sub-agent: Reviewer");
   });
 
+  // 2026-10-13-3890e: "load older" can re-deliver a Spawned the newest page already carried.
+  it("useRunExecutionTree keeps a completed sub-agent when its Spawned arrives again", () => {
+    const spawned: RunEvent = {
+      type: EventType.SubAgentSpawned,
+      runId: RUN_ID,
+      timestamp: ts(500),
+      subAgentId: "sa-9",
+      name: "Reviewer",
+      activity: "review the changes",
+      parentSubAgentId: null,
+      inheritedContextHash: "h",
+    };
+    const page: RunEvent[] = [
+      spawned,
+      {
+        type: EventType.SubAgentCompleted,
+        runId: RUN_ID,
+        timestamp: ts(510),
+        subAgentId: "sa-9",
+        status: "Failed",
+        observationsCount: 0,
+        findingsCount: 0,
+        filesWrittenCount: 0,
+        toolCalls: 0,
+        costUsd: 0,
+      },
+      spawned,
+    ];
+    const { result } = renderHook(() => useRunExecutionTree(page, SNAPSHOT, RUN_ID, 4));
+    const children = result.current.nodes[0].children!;
+    expect(children).toHaveLength(1);
+    expect(children[0].status).not.toBe("run");
+  });
+
   // The anchor is a fallback, never an override: a page that DOES carry the
   // step's opening event still takes its identity from that event.
   it("useRunExecutionTree_PageWithStepStarted_KeepsTheStepsOwnIdentity", () => {
