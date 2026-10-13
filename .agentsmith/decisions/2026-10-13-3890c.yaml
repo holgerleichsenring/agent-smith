@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-3890c
+
+decisions:
+  - category: Architecture
+    chose: "Count framework commits with rev-list --no-merges HEAD --not <base>, the base resolved by SandboxBaseLadder"
+    over: "Keeping git log -n 50 over HEAD, or raising the depth"
+    reason: |
+      Over HEAD alone every framework commit another ticket had merged into the base read as this branch's earlier run
+      (9/1/42 on a branch with none). ForeignCommitProbe already excludes both merges and the base's own history; the
+      same exclusion here makes the count mean what its message says.
+  - category: Architecture
+    chose: "No resolvable base means no report for that sandbox"
+    over: "Falling back to the unbounded history count"
+    reason: "A count over the base's history is exactly the false report this replaces."
+  - category: Design
+    chose: "The warning drops 'those specs will be skipped'"
+    over: "Keeping the promise in the text"
+    reason: "Nothing reads this finding to skip specs; SpecSet.Executed decides that. The message states what is on the branch."
