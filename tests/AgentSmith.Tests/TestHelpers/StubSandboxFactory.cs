@@ -30,10 +30,14 @@ internal sealed class StubSandboxFactory : ISandboxFactory
     /// null by default, so no init finds a source to measure.</summary>
     public Dictionary<string, string>? SourceFiles { get; set; }
 
+    /// <summary>2026-10-13-a347a: a shell command line starting with a key exits with its code and
+    /// says its output — empty by default, so every command keeps succeeding.</summary>
+    public Dictionary<string, (int ExitCode, string Output)> ShellAnswers { get; } = new(StringComparer.Ordinal);
+
     public Task<ISandbox> CreateAsync(SandboxSpec spec, CancellationToken cancellationToken)
     {
         var sandbox = new StubSandbox(
-            MissingPaths, NamesImages ? spec.ToolchainImage : null, ReportsWorkingTree, BaseFiles, SourceFiles);
+            MissingPaths, NamesImages ? spec.ToolchainImage : null, ReportsWorkingTree, BaseFiles, SourceFiles, ShellAnswers);
         Spawned.Add((spec, sandbox));
         return Task.FromResult<ISandbox>(sandbox);
     }

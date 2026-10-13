@@ -17,6 +17,7 @@ public static class SpecExecutionExtensions
         services.AddTransient<ICommandHandler<CommitSpecWorkContext>, CommitSpecWorkHandler>(); // p0437
         services.AddTransient<SpecFormatPlan>(); // 2026-10-12-fbbdb
         services.AddTransient<SpecFormatRun>();
+        services.AddTransient<SpecFormatFailureRecorder>(); // 2026-10-13-a347a
         // 2026-10-06-03c7e: the record moves the spec to done/ in one series commit.
         services.AddTransient<SpecDoneFiles>();
         services.AddTransient<SeriesRecordCommit>();

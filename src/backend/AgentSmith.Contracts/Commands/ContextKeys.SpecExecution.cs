@@ -11,4 +11,9 @@ public static partial class ContextKeys
     /// ticket-triggered run (IReadOnlyList&lt;PlanOpenQuestion&gt;) — captured by
     /// TicketClarificationToolHost, posted + parked by MasterOpenQuestions.</summary>
     public const string MasterOpenQuestions = "MasterOpenQuestions";
+
+    /// <summary>2026-10-13-a347a: the declared formatters that failed at a spec commit
+    /// (IReadOnlyList&lt;SpecFormatFailure&gt;), each carrying its repository — accumulated over the
+    /// run and read by that repository's code PR body.</summary>
+    public const string SpecFormatFailures = "SpecFormatFailures";
 }

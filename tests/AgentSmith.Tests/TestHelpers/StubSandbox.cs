@@ -14,7 +14,8 @@ namespace AgentSmith.Tests.TestHelpers;
 internal sealed class StubSandbox(
     IReadOnlySet<string>? missingPaths = null, string? toolchainImage = null, bool reportsWorkingTree = false,
     IReadOnlyDictionary<string, string>? baseFiles = null,
-    IReadOnlyDictionary<string, string>? sourceFiles = null)
+    IReadOnlyDictionary<string, string>? sourceFiles = null,
+    IReadOnlyDictionary<string, (int ExitCode, string Output)>? shellAnswers = null)
     : IHoldableSandbox, ISandboxToolchainImage
 {
     /// <summary>2026-10-12-50bda: the image a container backend would name; null (the default)
@@ -65,6 +66,10 @@ internal sealed class StubSandbox(
         // A base the branch was cut from, opted into by a test — the commit gate lists what the
         // branch changed against it and reads its Limits and baseline there. Without one the
         // gate finds no base and passes.
+        // 2026-10-13-a347a: a shell command a test declared failing answers as it would.
+        if (step.Command == "/bin/sh" && step.Args is [_, var line] && shellAnswers?.FirstOrDefault(
+                a => line.StartsWith(a.Key, StringComparison.Ordinal)) is { Key: not null } shell)
+            return Task.FromResult(Answer(step, shell.Value.ExitCode, shell.Value.Output));
         if (baseFiles is not null && BaseAnswer(step) is { } answer) return Task.FromResult(answer);
         // 2026-10-06-8565c: tracked sources a test seeded — listed by 'git ls-files -z --full-name'
         // and read back. Without any, the listing is empty and the init takes no baseline.

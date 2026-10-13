@@ -16,10 +16,13 @@ namespace AgentSmith.Application.Services.SpecExecution;
 /// earlier spec's files and untouched code stay as they are. It never fails: a formatter that
 /// exits non-zero, or is not installed, is logged and returned as a note, and the work is pushed
 /// as written.
+/// 2026-10-13-a347a: a failure is also recorded for the code PR of its repository, with the
+/// declared command and what the formatter said.
 /// </summary>
 public sealed class SpecFormatRun(
     SandboxTargets targets, StructureGitReads git, StructureRepoContexts repoContexts, SpecFormatPlan plan,
-    DeclaredStagePresence presence, VerifyCommandRunner runner, ILogger<SpecFormatRun> logger)
+    DeclaredStagePresence presence, VerifyCommandRunner runner, SpecFormatFailureRecorder failures,
+    ILogger<SpecFormatRun> logger)
 {
     public const string Stage = "format";
 
@@ -50,7 +53,7 @@ public sealed class SpecFormatRun(
         var invocations = plan.Plan(declaring, repoContexts.Of(pipeline, repoName, [key]), changed);
         var notes = new List<string>();
         foreach (var invocation in invocations)
-            if (await RunOneAsync(key, sandbox, invocation, ct) is { } note) notes.Add(note);
+            if (await RunOneAsync(pipeline, repoName, key, sandbox, invocation, ct) is { } note) notes.Add(note);
         return notes;
     }
 
@@ -69,32 +72,33 @@ public sealed class SpecFormatRun(
     }
 
     private async Task<string?> RunOneAsync(
-        string key, ISandbox sandbox, SpecFormatInvocation invocation, CancellationToken ct)
+        PipelineContext pipeline, string repoName, string key, ISandbox sandbox,
+        SpecFormatInvocation invocation, CancellationToken ct)
     {
-        var exitCode = await ExitCodeAsync(key, sandbox, invocation, ct);
-        if (exitCode == 0)
+        var outcome = await OutcomeAsync(key, sandbox, invocation, ct);
+        if (outcome.ExitCode == 0)
         {
             logger.LogInformation("{Key}: {Context} formatted {Count} file(s)", key, invocation.ContextName, invocation.FileCount);
             return null;
         }
-        return $"format: the {invocation.ContextName} formatter exited {exitCode} in {key}; "
+        failures.Record(pipeline, repoName, invocation, outcome);
+        return $"format: the {invocation.ContextName} formatter exited {outcome.ExitCode} in {key}; "
                + $"its {invocation.FileCount} file(s) are committed as written";
     }
 
-    // The runner logs a non-zero exit with its output; a formatter that cannot even start is -1.
-    private async Task<int> ExitCodeAsync(
+    // The runner logs a non-zero exit with its output; a formatter that cannot even start is -1,
+    // and what stopped it is its output.
+    private async Task<VerifyOutcome> OutcomeAsync(
         string key, ISandbox sandbox, SpecFormatInvocation invocation, CancellationToken ct)
     {
         try
         {
-            var outcome = await runner.RunAsync(
-                key, Stage, sandbox, Repository.SandboxWorkPath, invocation.CommandLine, ct);
-            return outcome.ExitCode;
+            return await runner.RunAsync(key, Stage, sandbox, Repository.SandboxWorkPath, invocation.CommandLine, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             logger.LogWarning(ex, "{Key}: the {Context} formatter could not run", key, invocation.ContextName);
-            return -1;
+            return new VerifyOutcome(key, Stage, invocation.CommandLine, -1, Skipped: false, Output: ex.Message);
         }
     }
 }

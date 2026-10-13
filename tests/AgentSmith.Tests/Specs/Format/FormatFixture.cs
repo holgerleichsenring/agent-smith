@@ -6,6 +6,8 @@ using AgentSmith.Application.Services.Specs;
 using AgentSmith.Application.Services.Structure;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Runs;
+using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Entities;
@@ -24,10 +26,11 @@ internal static class FormatFixture
     public const string Key = "repo";
     public const string StartHead = "spec-start";
 
-    public static SpecFormatRun Run() => new(
+    public static SpecFormatRun Run(params string[] secrets) => new(
         new SandboxTargets(), StructureBaselineStubs.GitReads(), new StructureRepoContexts(), new SpecFormatPlan(new StructureOwnership()),
         new DeclaredStagePresence(new SandboxFileReaderFactory(), NullLogger<DeclaredStagePresence>.Instance),
-        new VerifyCommandRunner(NullLogger<VerifyCommandRunner>.Instance), NullLogger<SpecFormatRun>.Instance);
+        new VerifyCommandRunner(NullLogger<VerifyCommandRunner>.Instance),
+        new SpecFormatFailureRecorder(new SecretMasker(new FixedSecretValues(secrets))), NullLogger<SpecFormatRun>.Instance);
 
     public static CommitSpecWorkHandler Handler() => new(
         Run(), Checkpointer(), StructureGateFixture.Gate(),
@@ -61,5 +64,12 @@ internal static class FormatFixture
         return new RunWorkCheckpointer(
             new RepoWorkPusher(gitOps, new SecretPatternScanner(), new SandboxTargets(), NullLogger<RepoWorkPusher>.Instance),
             NullLogger<RunWorkCheckpointer>.Instance);
+    }
+
+    private sealed class FixedSecretValues(IReadOnlyList<string> values) : ISecretValues
+    {
+        public string? Resolve(string name) => null;
+
+        public IReadOnlyList<string> All() => values;
     }
 }

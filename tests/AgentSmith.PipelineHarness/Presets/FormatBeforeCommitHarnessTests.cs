@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.PipelineHarness.Composition;
 using AgentSmith.Sandbox.Wire;
@@ -52,6 +53,32 @@ public sealed class FormatBeforeCommitHarnessTests
         steps[format].WorkingDirectory.Should().Be("/work");
         IsCheckpointStart(steps[format + 1]).Should().BeTrue(
             "the checkpoint push is the next thing the spec commit does");
+    }
+
+    [Fact]
+    public async Task Harness_FormatFails_PullRequestNamesCommandAndLever()
+    {
+        // 2026-10-13-a347a: the declared formatter refuses its arguments; the code PR says so.
+        await using var harness = RealCompositionHarness.Build(
+            FixturePaths.For(FixturePaths.Default), HarnessProjectAnalyzerStub.Register);
+        ((StubSourceProviderFactory)harness.Services.GetRequiredService<ISourceProviderFactory>()).ContextYaml = ContextYaml;
+        harness.StubSandboxFactory!.BaseFiles = new Dictionary<string, string>(StringComparer.Ordinal);
+        harness.StubSandboxFactory.ReportsWorkingTree = true;
+        harness.StubSandboxFactory.ShellAnswers["dotnet csharpier"] = (1, "Unrecognized command or argument './src/Handler.cs'");
+        harness.ChatClient
+            .EnqueueText(SpecDerivationFixture.DerivationJson)
+            .EnqueueText("Planning: I will add the handler.")
+            .EnqueueToolCall("write_file", """{"path":"primary/src/Handler.cs","content":"class Handler {}\n"}""")
+            .EnqueueText(GreenVerdict);
+
+        var runner = new PipelineRunner(harness.Services);
+        await runner.RunAsync("code");
+
+        var bodies = runner.LastContext!.Get<IReadOnlyDictionary<string, string>>(ContextKeys.OpenedPullRequestBodies);
+        bodies.Values.Should().Contain(body =>
+            body.Contains("`dotnet csharpier {files}` exited 1", StringComparison.Ordinal)
+            && body.Contains("Unrecognized command or argument './src/Handler.cs'", StringComparison.Ordinal)
+            && body.Contains("correct `format` in `.agentsmith/contexts/", StringComparison.Ordinal));
     }
 
     private static bool IsCheckpointStart(Step step) =>

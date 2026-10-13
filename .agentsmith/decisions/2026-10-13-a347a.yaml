@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-a347a
+
+decisions:
+  - category: Architecture
+    chose: "A SpecFormatFailureRecorder (masks with the singleton SecretMasker, cuts to 800 chars, replaces by repository/context/declared command) and a static SpecFormatFailureSection beside StructureDivergenceSection"
+    over: "Recording and rendering inside SpecFormatRun and CodePullRequestBody"
+    reason: |
+      SpecFormatRun sat at 100 of 120 lines and its job is running formatters; keeping a failure for the PR and
+      deciding which earlier entry it replaces is a second reason to change. The section is a pure function of
+      the pipeline, so it follows StructureDivergenceSection's shape and its per-repository filter.
+  - category: Implementation
+    chose: "The failures are an IReadOnlyList<SpecFormatFailure> under ContextKeys.SpecFormatFailures, rebuilt as a List on every record"
+    over: "A dictionary keyed by (repository, context, command)"
+    reason: |
+      PipelineContextSerializer checkpoints every non-excluded key and CheckpointType materialises lists; a
+      tuple-keyed dictionary has no JSON key form and would drop out of a resumed run. A list of records with
+      a primary constructor round-trips, and replacement is a filter on the three fields.
+  - category: Implementation
+    chose: "Mask the whole output, then take its tail"
+    over: "Take the tail, then mask"
+    reason: "A secret straddling the 800-character cut would be left half shown and no longer match the masker's known value."
+  - category: Implementation
+    chose: "A formatter that cannot start is recorded with exit -1 and the exception message as its output"
+    over: "Recording only non-zero exits from the runner"
+    reason: "A missing tool or a lost sandbox is exactly what the operator must see; the -1 was already the step note's convention."
+  - category: Implementation
+    chose: "The section goes directly after the banner and renders the tail in a fence longer than any backtick run in it"
+    over: "Appending it beside the structure section; a fixed triple-backtick fence"
+    reason: |
+      Azure DevOps cuts a description over 4000 characters from the end, so a section near the end is the first
+      thing lost. Formatter output can itself contain a fence, which would close a fixed one and spill the rest
+      of the body into the code block.
+  - category: Testing
+    chose: "StubSandboxFactory.ShellAnswers: a shell command line starting with a key answers its exit code and output"
+    over: "A dedicated failing sandbox for the harness"
+    reason: "The harness test must run the real composition; the stub keeps every other command succeeding by default."

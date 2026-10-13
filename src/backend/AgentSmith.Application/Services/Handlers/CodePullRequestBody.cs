@@ -23,13 +23,16 @@ namespace AgentSmith.Application.Services.Handlers;
 /// 2026-10-12-fbbda: a code PR names its repository, and its body lists that repository's
 /// structure divergences; the spec-only body names none.
 /// </para>
+/// <para>
+/// 2026-10-13-a347a: and, right after the banner, that repository's failed formatters.
+/// </para>
 /// </summary>
 internal static class CodePullRequestBody
 {
     public static string Compose(
         CommitAndPRContext context, string banner, SpecSequenceProgress? progress, RunShortfall? shortfall,
         string? repository = null) =>
-        $"{banner}{TicketHtmlConverter.ToText(context.Ticket.Description)}"
+        $"{banner}{SpecFormatFailureSection.Build(context.Pipeline, repository)}{TicketHtmlConverter.ToText(context.Ticket.Description)}"
         + $"{SpecPrBodySection.Build(context.Pipeline, progress, shortfall)}"
         + $"{RunAccountSection.Build(context.Pipeline)}"
         + $"{StructureDivergenceSection.Build(context.Pipeline, repository)}"

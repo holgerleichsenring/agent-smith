@@ -14,6 +14,9 @@ internal sealed class FormatSandbox : ISandbox
 
     public int ShellExitCode { get; set; }
 
+    /// <summary>2026-10-13-a347a: what a shell command says.</summary>
+    public string ShellOutput { get; set; } = string.Empty;
+
     public List<Step> RanSteps { get; } = [];
 
     public string JobId => "format-sandbox";
@@ -28,7 +31,7 @@ internal sealed class FormatSandbox : ISandbox
     public Task<StepResult> RunStepAsync(Step step, IProgress<StepEvent>? progress, CancellationToken ct)
     {
         RanSteps.Add(step);
-        if (IsShell(step)) return Answer(step, ShellExitCode, string.Empty);
+        if (IsShell(step)) return Answer(step, ShellExitCode, ShellOutput);
         if (IsGit(step, "-z") && IsGit(step, "--name-only"))
             return Answer(step, 0, string.Concat(Changed.Select(path => path + "\0")) + "\n");
         if (IsGit(step, "-z") && IsGit(step, "--others")) return Answer(step, 0, "\n");

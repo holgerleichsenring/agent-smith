@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-13-a347a
-goal: "A declared formatter that fails at the spec commit is named in the repository's code PR with its command and output, so the operator corrects context.yaml once instead of it failing quietly on every run."
+goal: "A declared formatter that fails at the spec commit is named in the repository's code PR with its command and output, so the operator corrects context.yaml once."
 
 applies_to: "backend (spec format run, code PR body)"
 

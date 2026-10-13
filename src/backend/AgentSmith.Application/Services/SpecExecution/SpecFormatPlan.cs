@@ -39,7 +39,7 @@ public sealed class SpecFormatPlan(StructureOwnership ownership)
         if (owned.Count == 0) return null;
         var line = format.Command.Replace(
             ContextYamlFormat.FilesPlaceholder, string.Join(' ', owned.Select(Quoted)), StringComparison.Ordinal);
-        return new SpecFormatInvocation(context.ContextName, line, owned.Count);
+        return new SpecFormatInvocation(context.ContextName, line, owned.Count, format.Command);
     }
 
     // POSIX single quotes: nothing inside is expanded, and a quote is closed, escaped, reopened.
