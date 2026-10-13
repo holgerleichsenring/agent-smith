@@ -43,6 +43,8 @@ internal static class SampleEventFactory
                 ["api"], [new AgentSmith.Contracts.Models.SpecStep("s1", "do it", "src/A.cs")], ["it builds"], "spec: x") };
         if (declared == typeof(IReadOnlyList<AgentSmith.Contracts.Passes.MasterPassCriterion>)) // 2026-10-13-9a59f
             return new[] { new AgentSmith.Contracts.Passes.MasterPassCriterion("it builds", "met", "src/A.cs") };
+        if (declared == typeof(IReadOnlyList<AgentSmith.Domain.Models.CutFinding>)) // 2026-10-13-9a59g
+            return new[] { new AgentSmith.Domain.Models.CutFinding("2026-10-13-1234a", "it builds", "two goals", "why", "c2", "E1") };
         if (type == typeof(AgentSmith.Contracts.Runs.AttemptCause)) // 2026-10-13-9a59d
             return new AgentSmith.Contracts.Runs.AttemptCause("pull_request", "alice", Timestamp,
                 new AgentSmith.Contracts.Runs.AttemptSource("review", "https://example.test/pull/4", "PRR_1", "detail"));

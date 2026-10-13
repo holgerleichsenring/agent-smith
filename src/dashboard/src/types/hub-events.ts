@@ -46,6 +46,8 @@ export enum EventType {
   DesignRead = 82,
   SpecSetPublished = 83,
   MasterPassEnded = 84,
+  SpecHandedBack = 85,
+  SpecCutReviewed = 86,
 }
 
 interface RunEventBase {
@@ -270,6 +272,8 @@ export interface TicketFetchedEvent extends RunEventBase {
   ticketFingerprint?: string | null;
   /** 2026-10-13-9a59d: where the ticket opens in its tracker. */
   webUrl?: string | null;
+  /** 2026-10-13-9a59g: the ticket's acceptance criteria as text; null when it states none. */
+  acceptanceCriteria?: string | null;
 }
 
 /** 2026-10-13-9a59d: where the act an attempt served was made. Mirrors C# AttemptSource. */
@@ -617,6 +621,37 @@ export interface MasterPassCriterion {
   evidence: string;
 }
 
+/**
+ * 2026-10-13-9a59g: a hand-back was posted — the comment as the ticket received it and the ticket
+ * sentence it quotes. No case: the published cut carries it.
+ */
+export interface SpecHandedBackEvent extends RunEventBase {
+  type: EventType.SpecHandedBack;
+  text: string;
+  quote?: string | null;
+}
+
+/**
+ * 2026-10-13-9a59g: one review of a derived cut — every review, accepted ones too. `attempt` is the
+ * derivation attempt (1-based); an accepted review carries no findings.
+ */
+export interface SpecCutReviewedEvent extends RunEventBase {
+  type: EventType.SpecCutReviewed;
+  attempt: number;
+  deliverable: "accepted" | "refused";
+  findings: CutFinding[];
+}
+
+/** 2026-10-13-9a59g: why a spec of a cut cannot be delivered as written. Mirrors C# CutFinding. */
+export interface CutFinding {
+  specId: string;
+  criterion: string;
+  problem: string;
+  why: string;
+  conflictsWith?: string | null;
+  cites?: string | null;
+}
+
 /** 2026-10-13-9a59e: one spec of a published cut. Mirrors C# SpecCutEntry. */
 export interface SpecCutEntry {
   specId: string;
@@ -672,7 +707,9 @@ export type RunEvent =
   | SpecReviewedEvent
   | DesignReadEvent
   | SpecSetPublishedEvent
-  | MasterPassEndedEvent;
+  | MasterPassEndedEvent
+  | SpecHandedBackEvent
+  | SpecCutReviewedEvent;
 
 /** p0327: the pending question of a status="waiting_for_input" run, joined
  *  from its checkpoint row at query time (REST detail only). */

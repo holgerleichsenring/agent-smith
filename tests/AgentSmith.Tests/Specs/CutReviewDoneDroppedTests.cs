@@ -70,7 +70,7 @@ public sealed class CutReviewDoneDroppedTests
         var deriverChat = new Scripted(Cut(Kept), Cut(Kept, Dropped));
         var reviewerChat = new Scripted(DoneDropped("export-guard", Dropped), "[]");
         var deriver = new SpecSetDeriver(
-            Reviewer(new FixedFactory(reviewerChat)),
+            AgentSmith.Tests.TestSupport.CutReviewSteps.Of(Reviewer(new FixedFactory(reviewerChat))),
             new SpecDerivationCall(new FixedFactory(deriverChat), new AsyncLocalRunContextAccessor(),
                 DerivationTestLooks.Proof()),
             DerivationTestLooks.Factory(), new FixedPrompt(), DerivationTestParsers.Real(),

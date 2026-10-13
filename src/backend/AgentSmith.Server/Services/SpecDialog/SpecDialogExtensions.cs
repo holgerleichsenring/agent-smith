@@ -30,7 +30,7 @@ internal static class SpecDialogExtensions
         // Scoped: the session manager rides the per-message DI scope's unit of
         // work (SpecDialogSessionRepository -> AgentSmithDbContext); the turn
         // runner shares that scope for the duration of its in-process run.
-        services.AddScoped<SpecDialogSessionManager>();
+        services.AddScoped<SpecDialogSessionManager>().AddScoped<BoundSessionNudge>(); // 2026-10-13-9a59g
         services.AddScoped<SpecDialogResumer>();
         services.AddScoped<SpecDialogAnswerAdmission>();
         services.AddScoped<SpecDialogCommandHandler>();

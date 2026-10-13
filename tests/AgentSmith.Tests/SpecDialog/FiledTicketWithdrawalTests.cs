@@ -242,6 +242,8 @@ public sealed class FiledTicketWithdrawalTests : IDisposable
         services.AddSingleton<IUnitOfWork>(_context);
         services.AddSingleton(new SpecDialogSessionRepository(_context));
         services.AddSingleton<SpecDialogLatestOutcomeStore>();
+        services.AddSingleton(sp => AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(
+            sp.GetRequiredService<SpecDialogSessionRepository>()));
         services.AddSingleton(NullLogger<SpecDialogLatestOutcomeStore>.Instance);
         services.AddSingleton<Microsoft.Extensions.Logging.ILogger<SpecDialogLatestOutcomeStore>>(
             NullLogger<SpecDialogLatestOutcomeStore>.Instance);
@@ -280,7 +282,7 @@ public sealed class FiledTicketWithdrawalTests : IDisposable
         };
 
     private SpecDialogLatestOutcomeStore Store() =>
-        new(new SpecDialogSessionRepository(_context),
+        new(new SpecDialogSessionRepository(_context), AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(new SpecDialogSessionRepository(_context)),
             NullLogger<SpecDialogLatestOutcomeStore>.Instance);
 
     private async Task<SpecDialogFiling> FilingAsync(

@@ -2,6 +2,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Application.Services.Rework;
 using AgentSmith.Application.Services.SpecDialog;
+using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
@@ -48,11 +49,32 @@ public sealed class FetchTicketAttemptCauseTests
         fetched.TicketFingerprint.Should().HaveLength(64);
     }
 
-    private static FetchTicketHandler Handler(IEventPublisher events)
+    // 2026-10-13-9a59g: the ticket's criteria travel on the fetched event, converted as the description is.
+    [Fact]
+    public async Task FetchTicketHandler_PublishesAcceptanceCriteria()
+    {
+        const string criteria = "<ul><li>It <b>builds</b></li><li>It ships</li></ul>";
+        var published = new List<RunEvent>();
+        var events = new Mock<IEventPublisher>();
+        events.Setup(e => e.PublishAsync(It.IsAny<RunEvent>(), It.IsAny<CancellationToken>()))
+            .Callback((RunEvent e, CancellationToken _) => published.Add(e)).Returns(Task.CompletedTask);
+        var pipeline = new PipelineContext();
+        pipeline.Set(ContextKeys.ProjectName, "alpha");
+        pipeline.Set(ContextKeys.RunId, "run-2");
+
+        await Handler(events.Object, criteria).ExecuteAsync(new FetchTicketContext(
+            new TicketId("42"), new TrackerConnection { Name = "gh", Type = TrackerType.GitHub }, pipeline), default);
+
+        var fetched = published.OfType<TicketFetchedEvent>().Single();
+        fetched.AcceptanceCriteria.Should().Be(TicketHtmlConverter.ToText(criteria));
+        fetched.AcceptanceCriteria.Should().Contain("builds").And.NotContain("<b>");
+    }
+
+    private static FetchTicketHandler Handler(IEventPublisher events, string? criteria = null)
     {
         var provider = new Mock<ITicketProvider>();
         provider.Setup(p => p.GetTicketAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new Ticket(new TicketId("42"), "Widget", "Body", null, "open", "GitHub",
+            .ReturnsAsync(new Ticket(new TicketId("42"), "Widget", "Body", criteria, "open", "GitHub",
                 webUrl: "https://github.com/o/api/issues/42"));
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(provider.Object);

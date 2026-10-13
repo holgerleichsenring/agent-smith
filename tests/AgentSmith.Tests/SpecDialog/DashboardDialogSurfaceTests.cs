@@ -49,7 +49,7 @@ public sealed class DashboardDialogSurfaceTests : IDisposable
         MigratedStoreTemplate.CopyInto(_context);
         _repository = new SpecDialogSessionRepository(_context);
         _sessions = new SpecDialogSessionManager(
-            _repository, AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
+            _repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
             NullLogger<SpecDialogSessionManager>.Instance);
         _ownership = new SpecDialogOwnership(_repository);
         _turns = new SpecDialogTurnGate(_clock);
@@ -352,7 +352,7 @@ public sealed class DashboardDialogSurfaceTests : IDisposable
 
     private SpecDialogViewReader Reader() =>
         new(_sessions, new SpecDialogProjectCatalog(Loader()), _pending,
-            new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance),
+            new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance),
             new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()), _turns,
             new SpecDialogTicketTextRepository(_context), TestUploads.Over(_context));
 

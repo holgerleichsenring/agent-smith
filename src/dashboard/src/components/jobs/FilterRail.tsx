@@ -49,6 +49,8 @@ const LABELS: Record<EventType, string> = {
   [EventType.DesignRead]: "DesignRead", // 2026-10-01-7f7ae
   [EventType.SpecSetPublished]: "SpecSetPublished", // 2026-10-13-9a59d
   [EventType.MasterPassEnded]: "MasterPassEnded", // 2026-10-13-9a59f
+  [EventType.SpecHandedBack]: "SpecHandedBack", // 2026-10-13-9a59g
+  [EventType.SpecCutReviewed]: "SpecCutReviewed", // 2026-10-13-9a59g
 };
 
 interface FilterRailProps {

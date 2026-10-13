@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-9a59g
+
+decisions:
+  - category: Architecture
+    chose: "CutReviewStep(ISpecCutReviewer, IEventPublisher, IRunContextAccessor, ILogger) owns the review block — the per-attempt look, the review, the publish, the offer of a refused cut to the least-objected set and the rejection text — and SpecSetDeriver takes it in place of ISpecCutReviewer (120 -> 108 lines)"
+    over: "A decorator around ISpecCutReviewer that publishes, or publishing from inside SpecSetDeriver"
+    reason: |
+      The no-wrapper rule excludes the decorator, and the deriver was at exactly 120 lines. The look factory
+      stays the deriver's dependency and is passed to ReviewAsync, so the step's constructor is the spec's
+      three collaborators plus the logger that moved with the warning line; the six test files that build a
+      deriver pass CutReviewSteps.Of(reviewer).
+  - category: Architecture
+    chose: "The method is internal (it takes the internal LeastObjectedCut); the attempt number published is the loop's own 1-based attempt"
+    over: "Making LeastObjectedCut public to expose a public method"
+    reason: |
+      LeastObjectedCut is an internal detail of the derivation loop; widening it for a step that only the
+      deriver calls would publish an implementation type. Tests reach it through InternalsVisibleTo.
+  - category: Data
+    chose: "RunConversationEntry has no DbSet and no ToTable: the table is named RunConversationEntry in both migration sets (AddRunConversationEntries)"
+    over: "A plural ToTable name as 9a59e/f gave RunSeriesCuts and RunPasses"
+    reason: |
+      The spec states the CLR name and pins it in the migration so nobody expects a plural; the migration
+      test asserts the table name on the model and the one migration name in both sets.
+  - category: Data
+    chose: "DetailJson shapes (camelCase, RunStoryJson): ticket-text {acceptanceCriteria} or null when the ticket states none; hand-back {quote} or null without a quote; cut-review {attempt, deliverable, findings[CutFinding]}; question Text = the DialogQuestion's text, an unreadable question JSON stores a null text rather than failing the projection"
+    over: "Storing the raw event payloads"
+    reason: |
+      The reader (2026-10-13-9a59h) needs exactly these fields; the question's other fields stay on the
+      checkpoint and in the inbox, the title stays on Run.TicketTitle — no datum is persisted twice.
+  - category: Data
+    chose: "Ticket-run rule: TicketFetched and RunCheckpointed write only with a non-empty TicketId; SpecHandedBack and SpecCutReviewed always write"
+    over: "Looking up the Run row's TicketId for the two derivation events"
+    reason: |
+      A hand-back and a cut review are only ever made by the derivation over a Ticket (SpecSetDeriver.DeriveAsync
+      takes one, SpecHandbackPark posts to it), so they are ticket turns by construction; the run row may not
+      exist yet when a spawned orchestrator's events are projected, so a lookup would drop real rows.
+  - category: Implementation
+    chose: "The conversation family is RunConversationProjection itself (IRunEventFamily), registered last in AddRunProjections; TicketFetched now reaches RunRowFamily, RunAttemptFamily, RunConversationProjection and RunCheckpointed reaches RunRowFamily, RunConversationProjection"
+    over: "A RunConversationFamily wrapping a separate projection class"
+    reason: |
+      One projection, four arms; a family class that only forwards would be the wrapper the rule forbids.
+  - category: Implementation
+    chose: "Both publishers (SpecHandbackPark, CutReviewStep) publish after the act, stay silent without IRunContextAccessor.CurrentRunId and swallow a publish failure at debug level"
+    over: "Letting a failed publish fail the park or the derivation"
+    reason: |
+      The hand-back is already posted and the review already answered when the publish runs; losing the
+      record row is better than failing a park whose comment is on the ticket. Same rule FetchTicketHandler
+      applies to its fetched event.
+  - category: Architecture
+    chose: "BoundSessionNudge(SpecDialogSessionRepository, ITicketActivityNudge, ILogger).SaveAsync(session, ct) is a required constructor parameter of SpecDialogSessionManager and SpecDialogLatestOutcomeStore, placed on an existing constructor line; 41 test constructions pass BoundSessionNudges.Quiet(repository)"
+    over: "An optional trailing parameter falling back to repository.SaveAsync"
+    reason: |
+      An optional nudge would let a composition silently drop the ticket refresh; both classes stay at 120
+      lines because the parameter rides an existing line and the save call is swapped one for one. The
+      ServiceProvider test resolves both through a container with ValidateOnBuild.
+  - category: Implementation
+    chose: "Planned specs h, i, j, l, n, p, q, s re-grounded where this spec moved cited lines; the archive-count claims in h, i, j, n updated to 44 tables / 90 rows"
+    over: "Leaving shifted citations for the next members"
+    reason: |
+      The evidence script resolves file:line; a citation that still resolves but points at a moved line is
+      the defect mechanism the memory names (a valid citation is not a true fact).

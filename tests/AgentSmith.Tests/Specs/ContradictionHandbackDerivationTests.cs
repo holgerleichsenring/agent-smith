@@ -117,7 +117,7 @@ public sealed class ContradictionHandbackDerivationTests
         StepProvider provider, IContradictionChecker checker)
     {
         var deriver = new SpecSetDeriver(
-            new CleanReviewer(),
+            AgentSmith.Tests.TestSupport.CutReviewSteps.Of(new CleanReviewer()),
             new SpecDerivationCall(new CappingFactory(provider), new AsyncLocalRunContextAccessor(), Proof()),
             Factory(), new FixedPrompt(), DerivationTestParsers.Real(), new ScopedContextCoverage(),
             HandbackTestDoubles.Gate(checker), NullLogger<SpecSetDeriver>.Instance);

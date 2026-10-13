@@ -28,5 +28,7 @@ public sealed record TicketFetchedEvent(
     // (TicketTextFingerprint) and where the ticket opens in its tracker.
     AgentSmith.Contracts.Runs.AttemptCause? Cause = null,
     string? TicketFingerprint = null,
-    string? WebUrl = null)
+    string? WebUrl = null,
+    // 2026-10-13-9a59g: the ticket's acceptance criteria as text, converted as the description is.
+    string? AcceptanceCriteria = null)
     : RunEvent(RunId, EventType.TicketFetched, Timestamp);

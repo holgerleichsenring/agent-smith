@@ -30,6 +30,7 @@ public sealed class RunChildConfiguration
         typeof(RunAttempt), // 2026-10-13-9a59d
         typeof(RunSeriesCut), // 2026-10-13-9a59e
         typeof(RunPass), typeof(RunLedgerTransition), // 2026-10-13-9a59f
+        typeof(RunConversationEntry), // 2026-10-13-9a59g
     ];
 
     public void Apply(ModelBuilder modelBuilder)

@@ -639,7 +639,7 @@ public sealed class FiledWorkReadTests : IDisposable
     {
         await using var ctx = new AgentSmithDbContext(Options());
         var store = new SpecDialogLatestOutcomeStore(
-            new SpecDialogSessionRepository(ctx), NullLogger<SpecDialogLatestOutcomeStore>.Instance);
+            new SpecDialogSessionRepository(ctx), AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(new SpecDialogSessionRepository(ctx)), NullLogger<SpecDialogLatestOutcomeStore>.Instance);
         await store.SetFilingAsync(
             Platform, Dialog, new FilingReport(filed, null), new AnswerOutcome(),
             CancellationToken.None);
@@ -682,7 +682,7 @@ public sealed class FiledWorkReadTests : IDisposable
         var ctx = new AgentSmithDbContext(Options());
         return new FiledWorkReader(
             new FiledWorkFiling(new SpecDialogLatestOutcomeStore(
-                new SpecDialogSessionRepository(ctx),
+                new SpecDialogSessionRepository(ctx), AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(new SpecDialogSessionRepository(ctx)),
                 NullLogger<SpecDialogLatestOutcomeStore>.Instance)),
             new FiledWorkBoundTicket(
                 new SpecDialogSessionRepository(ctx), new SpecDialogTicketTextRepository(ctx)),

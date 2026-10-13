@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Contracts.Tickets;
@@ -21,11 +22,15 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </para>
 /// <para>The hand-back is posted on the ticket's pull requests too, marked as ours — a reviewer who
 /// works there answers there, and a comment command answers the hand-back with a rework.</para>
+/// <para>2026-10-13-9a59g: the posted words are published as <see cref="SpecHandedBackEvent"/> — the
+/// comment is otherwise kept only by the tracker — and nothing is published outside a run.</para>
 /// </summary>
 public sealed class SpecHandbackPark(
     ITicketProviderFactory ticketFactory,
     Lifecycle.UnmovedTicketReport unmovedTickets,
     AgentSmith.Contracts.Reviews.IHandbackPrNotice prNotice,
+    IEventPublisher events,
+    IRunContextAccessor runContext,
     ILogger<SpecHandbackPark> logger)
 {
     public async Task ParkAsync(
@@ -38,6 +43,7 @@ public sealed class SpecHandbackPark(
         var finalize = await ticketFactory.Create(context.Tracker!).FinalizeAsync(
             context.Ticket!.Id, comment, status, cancellationToken);
         await prNotice.PostAsync(context.Pipeline, comment, cancellationToken);
+        await PublishAsync(comment, handback.Quote, cancellationToken);
         // The awaiting-answer flag short-circuits the rest of the run for BOTH classes:
         // there is nothing to build either way. What differs is how the ticket comes back —
         // an answered question re-triggers, a verdict waits for a Retry.
@@ -50,5 +56,20 @@ public sealed class SpecHandbackPark(
             finalize.StatusMoved
                 ? $" — parked in {status}"
                 : " — the tracker did not move it, so it is held from the next poll");
+    }
+
+    private async Task PublishAsync(string comment, string? quote, CancellationToken cancellationToken)
+    {
+        var runId = runContext.CurrentRunId;
+        if (string.IsNullOrEmpty(runId)) return;
+        try
+        {
+            await events.PublishAsync(
+                new SpecHandedBackEvent(runId, DateTimeOffset.UtcNow, comment, quote), cancellationToken);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogDebug(ex, "The hand-back of run {RunId} was posted but not published", runId);
+        }
     }
 }

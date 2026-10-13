@@ -113,4 +113,7 @@ public enum EventType
     SpecSetPublished = 83,
     // 2026-10-13-9a59f: one master pass of a spec ended — why it opened and ended, and its verdicts.
     MasterPassEnded = 84,
+    // 2026-10-13-9a59g: a hand-back's posted words, and every review of a derived cut.
+    SpecHandedBack = 85,
+    SpecCutReviewed = 86,
 }

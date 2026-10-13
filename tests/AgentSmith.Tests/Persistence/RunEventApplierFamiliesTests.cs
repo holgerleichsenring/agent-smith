@@ -13,11 +13,11 @@ public sealed class RunEventApplierFamiliesTests
     private static readonly Dictionary<Type, string[]> Expected = new()
     {
         [typeof(RunStartedEvent)] = ["RunRowFamily"],
-        [typeof(TicketFetchedEvent)] = ["RunRowFamily", "RunAttemptFamily"],
+        [typeof(TicketFetchedEvent)] = ["RunRowFamily", "RunAttemptFamily", "RunConversationProjection"],
         [typeof(RunFinishedEvent)] = ["RunRowFamily"],
         [typeof(PullRequestOutcomeEvent)] = ["RunRowFamily"],
         [typeof(RunCancelRequestedEvent)] = ["RunRowFamily"],
-        [typeof(RunCheckpointedEvent)] = ["RunRowFamily"],
+        [typeof(RunCheckpointedEvent)] = ["RunRowFamily", "RunConversationProjection"],
         [typeof(ExpectationRatifiedEvent)] = ["RunRowFamily"],
         [typeof(RunStoryRecordedEvent)] = ["RunRowFamily"],
         [typeof(PipelineStepsPlannedEvent)] = ["RunRowFamily"],
@@ -37,6 +37,8 @@ public sealed class RunEventApplierFamiliesTests
         [typeof(SpecSetPublishedEvent)] = ["RunSpecFamily", "RunAttemptFamily"],
         [typeof(MasterPassEndedEvent)] = ["RunPassFamily"],
         [typeof(LedgerTransitionsRecordedEvent)] = ["RunPassFamily"],
+        [typeof(SpecHandedBackEvent)] = ["RunConversationProjection"],
+        [typeof(SpecCutReviewedEvent)] = ["RunConversationProjection"],
     };
 
     [Fact]

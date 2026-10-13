@@ -341,13 +341,13 @@ public sealed class OutcomeShapeOfferTests : IDisposable
     {
         var repository = new SpecDialogSessionRepository(_context);
         var sessions = new SpecDialogSessionManager(
-            repository, AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
+            repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(repository), AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
             NullLogger<SpecDialogSessionManager>.Instance);
         var state = await sessions.OpenAsync(
             Platform, "C1", Thread, "U1",
             new ActiveScope { Project = "sample", Repos = ["repo-a"] }, CancellationToken.None);
         var store = new SpecDialogLatestOutcomeStore(
-            repository, NullLogger<SpecDialogLatestOutcomeStore>.Instance);
+            repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(repository), NullLogger<SpecDialogLatestOutcomeStore>.Instance);
         var messenger = new SpecDialogMessenger([], NullLogger<SpecDialogMessenger>.Instance);
         var composer = new SpecDialogOutcomeComposer();
         var flow = new SpecDialogOutcomeFlow(

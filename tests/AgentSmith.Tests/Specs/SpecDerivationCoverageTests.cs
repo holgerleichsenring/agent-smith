@@ -130,7 +130,7 @@ public sealed class SpecDerivationCoverageTests
         ScriptedClient client, ScopeNamedContexts named, IPromptCatalog? prompts = null)
     {
         var deriver = new SpecSetDeriver(
-            new CleanReviewer(),
+            AgentSmith.Tests.TestSupport.CutReviewSteps.Of(new CleanReviewer()),
             new SpecDerivationCall(
                 new SingleClientFactory(client), new AsyncLocalRunContextAccessor(),
                 DerivationTestLooks.Proof()),

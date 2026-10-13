@@ -143,7 +143,9 @@ public sealed class FetchTicketHandler(
                 ActsReadAt: actsReadAt,
                 Cause: cause,
                 TicketFingerprint: TicketTextFingerprint.Of(ticket),
-                WebUrl: ticket.WebUrl),
+                WebUrl: ticket.WebUrl,
+                AcceptanceCriteria: ticket.AcceptanceCriteria is { } criteria
+                    ? TicketHtmlConverter.ToText(criteria) : null),
                 cancellationToken);
         }
         catch (Exception ex)

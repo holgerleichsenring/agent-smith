@@ -56,6 +56,8 @@ public static class EventTypeResolver
         EventType.DesignRead => typeof(DesignReadEvent), // 2026-10-01-7f7ae
         EventType.SpecSetPublished => typeof(SpecSetPublishedEvent), // 2026-10-13-9a59d
         EventType.MasterPassEnded => typeof(MasterPassEndedEvent), // 2026-10-13-9a59f
+        EventType.SpecHandedBack => typeof(SpecHandedBackEvent), // 2026-10-13-9a59g
+        EventType.SpecCutReviewed => typeof(SpecCutReviewedEvent), // 2026-10-13-9a59g
         _ => null
     };
 

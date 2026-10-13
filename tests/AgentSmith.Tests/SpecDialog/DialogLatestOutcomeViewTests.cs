@@ -50,7 +50,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
         MigratedStoreTemplate.CopyInto(_context);
         _repository = new SpecDialogSessionRepository(_context);
         _sessions = new SpecDialogSessionManager(
-            _repository, AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
+            _repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
             NullLogger<SpecDialogSessionManager>.Instance);
     }
 
@@ -101,7 +101,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
     public async Task View_AFilingWithANote_KeepsTheNote()
     {
         await ConversationAsync((TranscriptRole.Assistant, Draft));
-        var store = new SpecDialogLatestOutcomeStore(_repository, NullLogger<SpecDialogLatestOutcomeStore>.Instance);
+        var store = new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), NullLogger<SpecDialogLatestOutcomeStore>.Instance);
 
         await store.SetFilingAsync(Platform, Dialog,
             new FilingReport([new("https://tracker.test/2", "p9999: widget goal")], null)
@@ -136,7 +136,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
 
         // Set directly: this is about where the card goes, and a timed-out approval now clears
         // the proposal it would have been placed for.
-        await new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance)
+        await new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance)
             .SetProposalAsync(Platform, Dialog, Proposal(), CancellationToken.None);
 
         (await ReadAsync()).ProposalTurn.Should().Be(3);
@@ -167,7 +167,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
     {
         var broken = new AgentSmithDbContext(
             new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options);
-        var store = new SpecDialogLatestOutcomeStore(new SpecDialogSessionRepository(broken), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance);
+        var store = new SpecDialogLatestOutcomeStore(new SpecDialogSessionRepository(broken), AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(new SpecDialogSessionRepository(broken)), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance);
         await broken.DisposeAsync();
 
         var write = () => store.SetFilingAsync(
@@ -196,7 +196,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
     [Fact]
     public async Task LatestOutcomeStore_WithNoOpenSession_WritesNothingAndReadsNone()
     {
-        var store = new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance);
+        var store = new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance);
 
         await store.SetProposalAsync(Platform, "d-nobody", Proposal(), CancellationToken.None);
 
@@ -274,7 +274,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
     private async Task<SpecDialogSessionView> ReadAsync() =>
         (await new SpecDialogViewReader(
                 _sessions, new SpecDialogProjectCatalog(Loader()), new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)),
-                new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance), ProposalComposer(),
+                new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance), ProposalComposer(),
                 new SpecDialogTurnGate(TimeProvider.System),
                 new SpecDialogTicketTextRepository(_context), TestUploads.Over(_context))
             .ReadAsync(Dialog, CancellationToken.None)).Session!;
@@ -295,7 +295,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
         var composer = new SpecDialogOutcomeComposer();
         var channel = new DashboardOutcomeChannel(
             ProposalComposer(), NullLogger<DashboardOutcomeChannel>.Instance, _hub);
-        var latest = new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance);
+        var latest = new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance);
         return new SpecDialogOutcomeFlow(
             new SpecDialogOutcomeConfirmer(transport.Object, messenger, new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)),
                 composer, NullLogger<SpecDialogOutcomeConfirmer>.Instance),

@@ -70,7 +70,7 @@ public sealed class ConversationSubjectTests : IDisposable
 
         _repository = new SpecDialogSessionRepository(_context);
         _sessions = new SpecDialogSessionManager(
-            _repository, AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
+            _repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
             NullLogger<SpecDialogSessionManager>.Instance);
         _chat = new RecordingChatClients(() => _answer) { OnCall = () => _order.Add("mint") };
         _router = Router();
@@ -270,7 +270,7 @@ public sealed class ConversationSubjectTests : IDisposable
         new(_sessions, new SpecDialogProjectCatalog(Loader()),
             new SpecDialogPendingQuestions(_turnGate),
             new SpecDialogLatestOutcomeStore(
-                _repository, NullLogger<SpecDialogLatestOutcomeStore>.Instance),
+                _repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), NullLogger<SpecDialogLatestOutcomeStore>.Instance),
             new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
             _turnGate, new SpecDialogTicketTextRepository(_context), TestUploads.Over(_context));
 
@@ -294,7 +294,7 @@ public sealed class ConversationSubjectTests : IDisposable
                 new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
                 NullLogger<DashboardOutcomeChannel>.Instance),
             new SpecDialogLatestOutcomeStore(
-                _repository, NullLogger<SpecDialogLatestOutcomeStore>.Instance),
+                _repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), NullLogger<SpecDialogLatestOutcomeStore>.Instance),
             NullLogger<SpecDialogOutcomeFlow>.Instance);
         return new SpecDialogRouter(
             new SpecCommandParser(), _sessions,
