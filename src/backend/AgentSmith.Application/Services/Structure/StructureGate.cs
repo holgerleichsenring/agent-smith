@@ -69,12 +69,12 @@ public sealed class StructureGate(
             logger.LogInformation("Structure gate passes {Repo}: no base rung gives a merge-base", repo.Name);
             return StructureGateVerdict.NotJudged($"{repo.Name}: no comparable base");
         }
-        var (owners, rules) = await contexts.ReadAsync(
+        var (claims, rules) = await contexts.ReadAsync(
             repoContexts.Of(pipeline, repo.Name, owned.Select(kv => kv.Key)), primary, commit, ct);
         if (rules.Count == 0)
             return StructureGateVerdict.NotJudged($"{repo.Name}: no context with Limits and a baseline at the merge-base with {rung}");
         var verdict = await sandboxes.JudgeAsync(
-            pipeline, repo.Name, everySandbox ? owned : [owned[0]], commit, owners, rules, ct);
+            pipeline, repo.Name, everySandbox ? owned : [owned[0]], commit, claims, rules, ct);
         return verdict with { Findings = [.. verdict.Findings.Select(f => f with { Repository = repo.Name })] };
     }
 }

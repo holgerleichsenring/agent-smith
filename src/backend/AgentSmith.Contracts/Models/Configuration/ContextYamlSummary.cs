@@ -45,10 +45,13 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// <param name="Format">2026-10-12-fbbdb: `format:` — the repository's own formatter in its
 /// rewriting form, run by the spec commit over the files the spec changed. Null/absent → the
 /// spec commit formats nothing.</param>
+/// <param name="Sources">2026-10-13-50c7: `sources:` — repository-root-relative directories beyond
+/// the workdir the component is built and tested from. Null/absent → the workdir alone.</param>
 public sealed record ContextYamlSummary(
     string Workdir, string? Language, string? Prerequisites = null, string? Image = null,
     ContextYamlStackResources? Resources = null, string? Purpose = null,
     IReadOnlyList<ContextYamlVerifyStage>? Verify = null,
     ContextYamlVerifyDerivation? VerifyDerivedFrom = null,
     ContextYamlTargetProbe? Probe = null,
-    ContextYamlFormat? Format = null);
+    ContextYamlFormat? Format = null,
+    IReadOnlyList<string>? Sources = null);

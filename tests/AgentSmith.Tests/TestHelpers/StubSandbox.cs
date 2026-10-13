@@ -113,7 +113,8 @@ internal sealed class StubSandbox(
 
     private StepResult? SourceAnswer(Step step)
     {
-        if (step.Kind == StepKind.ReadFile && step.Path is { } path
+        // 2026-10-13-50c7: a file the run wrote reads back as written, not as it was seeded.
+        if (step.Kind == StepKind.ReadFile && step.Path is { } path && !_writtenFiles.ContainsKey(Normalize(path))
             && sourceFiles!.TryGetValue(Normalize(path), out var content))
             return Answer(step, 0, content);
         if (!IsGit(step, "--full-name") || step.Args is not { } args) return null;

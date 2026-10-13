@@ -15,6 +15,7 @@ internal static class WriteContextYamlToolDescription
         "verify_derived_from?: { files: [path,…] }, " +
         "probe?: { target, command }, " +
         "format?: { command, when_present? }, " +
+        "sources?: [dir,…], " +
         "arch?: object, quality?: object, behavior?: object }. " +
         "Do NOT restate what the repository already states about itself — the build " +
         "file's frameworks, versions and packages, the workflow's CI platform, the " +
@@ -69,5 +70,12 @@ internal static class WriteContextYamlToolDescription
         "spec commit replaces with the shell-quoted repository-root-relative paths the spec " +
         "changed and runs at the REPOSITORY ROOT before the push. A command without {files} " +
         "is refused. Name the file you read it from in verify_derived_from.files. A " +
-        "repository that runs no formatter omits the block.";
+        "repository that runs no formatter omits the block. " +
+        // 2026-10-13-50c7: a component is more than its entry project.
+        "sources lists the directories BEYOND meta.workdir this component is built and tested " +
+        "from — the projects its manifest references, transitively, and the test projects that " +
+        "reference it — each relative to the REPOSITORY ROOT, never rooted, never '..', never '.'. " +
+        "READ them from the manifests (project references, workspace members); never guess them " +
+        "from folder names. The structure baseline, the commit gate and the formatter cover them " +
+        "as they cover the workdir. Omit it when the workdir holds everything.";
 }

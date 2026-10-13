@@ -24,6 +24,12 @@ public static class StructureJudgingExtensions
         services.AddTransient<StructureGate>();
         services.AddTransient<StructureGateOutcome>();
         services.AddTransient<StructureDivergencePublisher>(); // 2026-10-12-fbbda
+        services.AddTransient<StructureOwnership>(); // 2026-10-13-50c7
+        services.AddTransient<StructureBaselineOwnedLine>();
+        services.AddTransient<StructureBaselineOwnership>();
+        services.AddTransient<StructureBaselineEntries>();
+        services.AddTransient<StructureContextSources>();
+        services.AddTransient<StructureBaselineScopes>();
         return services;
     }
 }

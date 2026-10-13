@@ -27,7 +27,10 @@ public sealed record BootstrapRoundOutcome(
     // 2026-10-12-6bfac: the written stack.image, when the registry boundary refuses it.
     ContextImageRefusal? ImageRefusal = null,
     // 2026-10-06-8565c: what the round did with the context's structure baseline, or why it took none.
-    StructureBaselineResult? StructureBaseline = null)
+    StructureBaselineResult? StructureBaseline = null,
+    // 2026-10-13-50c7: the sources the round's context.yaml declares, so a later round of the same
+    // repository knows which directories this context owns.
+    IReadOnlyList<string>? Sources = null)
 {
     /// <summary>2026-10-03-cf20c: the framework overlays the written principles.md carries.</summary>
     public IReadOnlyList<string> Overlays { get; init; } = Overlays ?? [];

@@ -16,7 +16,7 @@ public sealed class StructureSourceListingTests
         repo.Listing.Length.Should().BeGreaterThan(1_000_000, "the listing is past the capture cap");
 
         var (listed, refusal) = await StructureBaselineStubs.Listing()
-            .ListAsync(repo, "src/Api", [".cs"], CancellationToken.None);
+            .ListAsync(repo, ["src/Api"], [".cs"], CancellationToken.None);
 
         refusal.Should().BeNull();
         listed.Should().HaveCount(paths.Count).And.EndWith(paths[^1]);

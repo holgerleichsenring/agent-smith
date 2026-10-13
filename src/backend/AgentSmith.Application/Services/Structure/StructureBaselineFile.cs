@@ -7,8 +7,9 @@ namespace AgentSmith.Application.Services.Structure;
 /// 2026-10-06-8565c: structure-baseline.tsv beside a context's principles.md — one tab-separated
 /// line per tolerated unit, sorted, so a diff of the file reads as what got better.
 /// 2026-10-13-2d0c: the header also records the Limits the entries were measured with.
+/// 2026-10-13-50c7: and the directories the context owned; a header line it has nothing for is left out.
 /// </summary>
-public sealed class StructureBaselineFile(StructureBaselineHeader header)
+public sealed class StructureBaselineFile(StructureBaselineHeader header, StructureBaselineOwnedLine ownedLine)
 {
     public const string FileName = "structure-baseline.tsv";
     private const string Header = "# path\tkey\tmetric\tvalue — units over their Limits when measured, each tolerated up to its value";
@@ -24,8 +25,10 @@ public sealed class StructureBaselineFile(StructureBaselineHeader header)
     /// <summary>The Limits the baseline was measured with, or null when it records none.</summary>
     public StructureLimitSet? MeasuredWith(string? text) => header.Read(text);
 
-    public string Render(IEnumerable<StructureBaselineEntry> entries, StructureLimitSet measuredWith) =>
-        string.Join('\n', new[] { Header, header.Render(measuredWith) }.Concat(entries
+    public string Render(IEnumerable<StructureBaselineEntry> entries, StructureLimitSet? measuredWith,
+        IReadOnlyList<string>? owned = null) =>
+        string.Join('\n', new[] { Header, measuredWith is null ? null : header.Render(measuredWith),
+                owned is null ? null : ownedLine.Render(owned) }.OfType<string>().Concat(entries
             .OrderBy(e => e.Path, StringComparer.Ordinal).ThenBy(e => e.Key, StringComparer.Ordinal)
             .ThenBy(e => e.Metric, StringComparer.Ordinal)
             .Select(e => $"{e.Path}\t{e.Key}\t{e.Metric}\t{e.Value.ToString(CultureInfo.InvariantCulture)}"))) + "\n";

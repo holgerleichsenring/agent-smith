@@ -151,6 +151,7 @@ public sealed class BootstrapRetiredPrinciplesRenameTests
         new BootstrapContextWriteVerdict(),
         new BootstrapOutputRecorder(),
         StructureBaselineStubs.Real(),
+        StructureBaselineStubs.Scopes(),
         new SandboxTargets(),
         EventTestStubs.RunContext,
         NullLogger<BootstrapRoundHandler>.Instance);

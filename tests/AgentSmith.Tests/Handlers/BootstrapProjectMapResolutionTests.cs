@@ -246,6 +246,7 @@ public sealed class BootstrapProjectMapResolutionTests
         new BootstrapContextWriteVerdict(),
         new BootstrapOutputRecorder(),
         StructureBaselineStubs.Real(),
+        StructureBaselineStubs.Scopes(),
         new SandboxTargets(),
         EventTestStubs.RunContext,
         NullLogger<BootstrapRoundHandler>.Instance);

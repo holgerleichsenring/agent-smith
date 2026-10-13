@@ -61,7 +61,7 @@ directory contradicts itself and is refused with both halves named.
 | Class | The test | Examples |
 | --- | --- | --- |
 | **Judgement** | Somebody DECIDED it, and no file in the repository states it. | `meta.purpose`, `quality.limits`, `behavior.*`, `integrations`, `data`, `state`, `decisions` |
-| **Mechanism** | The orchestrator ACTS on it — a run behaves differently because of its value. | `meta.workdir`, `stack.lang`, `stack.image`, `stack.resources`, `prerequisites`, `verify`, `probe`, `format`, `methodology`, `registry_auth` |
+| **Mechanism** | The orchestrator ACTS on it — a run behaves differently because of its value. | `meta.workdir`, `stack.lang`, `stack.image`, `stack.resources`, `prerequisites`, `verify`, `probe`, `format`, `sources`, `methodology`, `registry_auth` |
 | **Reading** | A copy of something the repository still states for itself. | `stack.frameworks`, `stack.sdks`, `stack.testing`, `stack.ci`, `meta.version`, `arch.style`, `quality.principles` |
 
 A reading is worthless on the day it is written and wrong soon after. `sdks` names a
@@ -208,6 +208,30 @@ left out. `{files}` is never quoted in the command — the schema refuses `'{fil
 sandbox. A non-zero exit — a formatter that is not installed included — is logged and
 said in the step result; it never fails the spec, and the work is pushed as written.
 A repository that runs no formatter omits the block.
+
+## `sources` are the rest of the component
+
+`meta.workdir` points at the entry project. A component is usually more: the libraries its
+manifest references and the test projects that reference it. A context names those directories,
+relative to the repository root, so the structure baseline, the commit gate and the formatter
+cover them as they cover the workdir:
+
+```yaml
+meta:
+  workdir: src/Inventory.Api
+sources:
+  - src/Inventory.Core
+  - tests/Inventory.Tests
+```
+
+The bootstrap reads them from the manifests (project references, followed transitively), never
+from folder names. An entry is never rooted, never escapes with `..` and is never `.`.
+
+A file belongs to the context with the longest directory holding it, workdirs and sources alike.
+On one directory a workdir beats another context's source, and among sources the context whose
+name sorts first owns it. The baseline records the directories it owned (`# owned:`); when a
+re-init adds a source, whatever already exceeds the Limits there is baselined that day, as a new
+limit's excess is — a preserved baseline keeps its entries and only gains those.
 
 ## `state.done` is written by the run
 

@@ -143,10 +143,10 @@ public sealed class StructureGateTests
         repo.LsTreeExitCode = 128;
         var logger = new CapturingLogger<StructureGateContexts>();
 
-        var (owners, rules) = await Contexts(logger).ReadAsync(
+        var (claims, rules) = await Contexts(logger).ReadAsync(
             [new RemoteContextDiscovery("api", "src/Api", "csharp")], repo, RepoSandbox.MergeBase, CancellationToken.None);
 
-        owners.Should().Equal("src/Api");
+        claims.Should().Equal(new StructureClaim("api", "src/Api", true));
         rules.Should().BeEmpty("a git that could not answer passes the context");
         logger.Warnings.Should().ContainSingle().Which.Should().Contain("git could not read its terms").And.Contain("128");
     }

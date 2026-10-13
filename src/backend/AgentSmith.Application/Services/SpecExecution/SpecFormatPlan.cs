@@ -10,8 +10,10 @@ namespace AgentSmith.Application.Services.SpecExecution;
 /// context whose workdir holds it most closely — the same reading the structure gate uses — so
 /// a nested context's files never reach the formatter of the context around it. Run records are
 /// not code and are never formatted. Each distinct command line runs once.
+/// 2026-10-13-50c7: a context also owns its sources; ownership is by context, through
+/// <see cref="StructureOwnership"/>, and contexts sharing a workdir each format its files.
 /// </summary>
-public sealed class SpecFormatPlan
+public sealed class SpecFormatPlan(StructureOwnership ownership)
 {
     public IReadOnlyList<SpecFormatInvocation> Plan(
         IReadOnlyList<RemoteContextDiscovery> declaring,
@@ -19,22 +21,21 @@ public sealed class SpecFormatPlan
         IReadOnlyList<string> changedPaths)
     {
         ArgumentNullException.ThrowIfNull(declaring);
-        var workdirs = repositoryContexts.Concat(declaring)
-            .Select(context => StructureWorkdir.Normalize(context.Workdir))
-            .OfType<string>().Distinct(StringComparer.Ordinal).ToList();
+        var claims = ownership.Claims(
+            declaring.Concat(repositoryContexts).DistinctBy(context => context.ContextName, StringComparer.Ordinal));
         var files = changedPaths.Where(path => !RunRecordPaths.IsRunRecordPath(path)).ToList();
         return [.. declaring
-            .Select(context => Invocation(context, workdirs, files))
+            .Select(context => Invocation(context, claims, files))
             .OfType<SpecFormatInvocation>()
             .DistinctBy(invocation => invocation.CommandLine, StringComparer.Ordinal)];
     }
 
-    private static SpecFormatInvocation? Invocation(
-        RemoteContextDiscovery context, IReadOnlyList<string> workdirs, IReadOnlyList<string> files)
+    private SpecFormatInvocation? Invocation(
+        RemoteContextDiscovery context, IReadOnlyList<StructureClaim> claims, IReadOnlyList<string> files)
     {
-        if (context.Format is not { } format || StructureWorkdir.Normalize(context.Workdir) is not { } own)
+        if (context.Format is not { } format || StructureWorkdir.Normalize(context.Workdir) is null)
             return null;
-        var owned = files.Where(path => StructureWorkdir.Owner(workdirs, path) == own).ToList();
+        var owned = files.Where(path => ownership.Owners(claims, path).Contains(context.ContextName)).ToList();
         if (owned.Count == 0) return null;
         var line = format.Command.Replace(
             ContextYamlFormat.FilesPlaceholder, string.Join(' ', owned.Select(Quoted)), StringComparison.Ordinal);

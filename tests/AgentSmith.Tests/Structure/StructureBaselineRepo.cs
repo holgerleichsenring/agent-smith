@@ -33,6 +33,6 @@ internal static class StructureBaselineRepo
 
     public static Task<StructureBaselineResult> Apply(RepoSandbox repo, PrinciplesMode mode = PrinciplesMode.Transferred,
         string workdir = "src/Api", IStructureEngine? engine = null, params string[] siblings) =>
-        StructureBaselineStubs.Real(engine).ApplyAsync(
-            repo, new StructureBaselineScope("api", workdir, siblings, mode), CancellationToken.None);
+        StructureBaselineStubs.Real(engine).ApplyAsync(repo, new StructureBaselineScope("api", workdir,
+            [.. siblings.Select((s, i) => new StructureClaim($"sibling{i}", s, true))], mode), CancellationToken.None);
 }

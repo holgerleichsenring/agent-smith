@@ -18,7 +18,7 @@ public sealed class StructureRepoSandboxes(
 {
     public async Task<StructureGateVerdict> JudgeAsync(
         PipelineContext pipeline, string repoName, IReadOnlyList<KeyValuePair<string, ISandbox>> sandboxes,
-        string primaryBase, IReadOnlyList<string> owners, IReadOnlyDictionary<string, StructureContextRules> rules,
+        string primaryBase, IReadOnlyList<StructureClaim> claims, IReadOnlyDictionary<string, StructureContextRules> rules,
         CancellationToken ct)
     {
         var verdict = new StructureGateVerdict([]);
@@ -28,7 +28,7 @@ public sealed class StructureRepoSandboxes(
             var baseRev = i == 0 ? primaryBase : await SecondaryBaseAsync(pipeline, sandbox, ct);
             var judged = baseRev is null
                 ? StructureGateVerdict.NotJudged($"{repoName}: sandbox {key} has no comparable base")
-                : await JudgeChangedAsync(repoName, sandbox, baseRev, owners, rules, ct);
+                : await JudgeChangedAsync(repoName, sandbox, baseRev, claims, rules, ct);
             if (judged.Unavailable is not null) return judged;
             verdict = verdict.Plus(judged);
         }
@@ -39,7 +39,7 @@ public sealed class StructureRepoSandboxes(
         await mergeBase.ResolveAsync(sandbox, DeliveryBasis.For(pipeline), ct) is (_, string commit) ? commit : null;
 
     private async Task<StructureGateVerdict> JudgeChangedAsync(
-        string repoName, ISandbox sandbox, string baseRev, IReadOnlyList<string> owners,
+        string repoName, ISandbox sandbox, string baseRev, IReadOnlyList<StructureClaim> claims,
         IReadOnlyDictionary<string, StructureContextRules> rules, CancellationToken ct)
     {
         if (await git.ChangedPathsAsync(sandbox, baseRev, ct) is not { } paths)
@@ -49,7 +49,7 @@ public sealed class StructureRepoSandboxes(
                 repoName, baseRev);
             return StructureGateVerdict.NotJudged($"{repoName}: git could not list the changed files");
         }
-        return await files.JudgeAsync(sandbox, paths, owners, rules, ct);
+        return await files.JudgeAsync(sandbox, paths, claims, rules, ct);
     }
 
     // One finding per (path, key, metric), in first-seen order: an excess outranks a divergence,

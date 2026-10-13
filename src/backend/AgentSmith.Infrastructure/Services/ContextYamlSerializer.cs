@@ -68,7 +68,9 @@ public sealed class ContextYamlSerializer(ContextYamlBuilders builders) : IConte
                 // 2026-09-01-379a: the declared target probe, asked before the master runs.
                 Probe: ContextYamlProbeReader.Read(doc.Probe),
                 // 2026-10-12-fbbdb: the formatter the spec commit runs over changed files.
-                Format: ContextYamlFormatReader.Read(doc.Format)));
+                Format: ContextYamlFormatReader.Read(doc.Format),
+                // 2026-10-13-50c7: the directories the structure baseline, gate and formatter also cover.
+                Sources: ContextYamlSourcesReader.Read(doc.Sources)));
     }
 
     // p0268: pass the raw four fields through UNPARSED. Trimming only; the

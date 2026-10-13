@@ -11,13 +11,15 @@ namespace AgentSmith.Application.Services.Structure;
 /// A file the sandbox will not hand over (too large, not UTF-8) is logged and not judged; a
 /// grammar that will not load stops the judgment and is named. 2026-10-12-fbbda: a divergence is
 /// kept whatever the baseline says — a unit already inside the band at the base is named too.
+/// 2026-10-13-50c7: the owner is a context; of contexts sharing a workdir, the last with rules
+/// judges, as the last one read always did.
 /// </summary>
 public sealed class StructureGateFiles(
     IStructureEngine engine, StructureJudge judge, ISandboxFileReaderFactory files,
-    ILogger<StructureGateFiles> logger)
+    StructureOwnership ownership, ILogger<StructureGateFiles> logger)
 {
     public async Task<StructureGateVerdict> JudgeAsync(
-        ISandbox sandbox, IReadOnlyList<string> paths, IReadOnlyList<string> owners,
+        ISandbox sandbox, IReadOnlyList<string> paths, IReadOnlyList<StructureClaim> claims,
         IReadOnlyDictionary<string, StructureContextRules> rules, CancellationToken ct)
     {
         var reader = files.Create(sandbox);
@@ -25,8 +27,9 @@ public sealed class StructureGateFiles(
         var judged = 0;
         foreach (var path in paths.Where(engine.Claims))
         {
-            if (StructureWorkdir.Owner(owners, path) is not { } owner || !rules.TryGetValue(owner, out var terms))
+            if (ownership.Owners(claims, path).LastOrDefault(rules.ContainsKey) is not { } owner)
                 continue;
+            var terms = rules[owner];
             if (await reader.TryReadAsync(path, ct) is not { } content)
             {
                 logger.LogWarning("Structure gate cannot read {Path} (too large or not UTF-8); not judged", path);

@@ -21,7 +21,8 @@ internal static class StructureGateFixture
         new StructureRepoSandboxes(MergeBase(), StructureBaselineStubs.GitReads(),
             new StructureGateFiles(
                 missingGrammar ? StructureEngineFixture.MissingGrammar() : StructureEngineFixture.Engine(),
-                new StructureJudge(), new SandboxFileReaderFactory(), NullLogger<StructureGateFiles>.Instance),
+                new StructureJudge(), new SandboxFileReaderFactory(), new StructureOwnership(),
+                NullLogger<StructureGateFiles>.Instance),
             NullLogger<StructureRepoSandboxes>.Instance),
         NullLogger<StructureGate>.Instance);
 
@@ -33,13 +34,18 @@ internal static class StructureGateFixture
         NullLogger<StructureMergeBase>.Instance);
 
     public static StructureGateContexts Contexts(ILogger<StructureGateContexts> logger) => new(
-        StructureBaselineStubs.GitReads(), new StructureLimits(), StructureBaselineStubs.File, logger);
+        StructureBaselineStubs.GitReads(), new StructureLimits(), StructureBaselineStubs.File, new StructureOwnership(),
+        logger);
 
     /// <summary>2026-10-12-fbbda: the PR-time divergence judgment over the same gate.</summary>
     public static StructureDivergencePublisher Publisher() =>
         new(Gate(), NullLogger<StructureDivergencePublisher>.Instance);
 
-    public static PipelineContext PipelineOf(RepoSandbox repo, params (string Name, string Workdir)[] contexts)
+    public static PipelineContext PipelineOf(RepoSandbox repo, params (string Name, string Workdir)[] contexts) =>
+        PipelineOf(repo, [.. contexts.Select(c => new RemoteContextDiscovery(c.Name, c.Workdir, "csharp"))]);
+
+    /// <summary>2026-10-13-50c7: the contexts as discovered, sources included.</summary>
+    public static PipelineContext PipelineOf(RepoSandbox repo, IReadOnlyList<RemoteContextDiscovery> contexts)
     {
         var pipeline = new PipelineContext();
         pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, [new RepoConnection { Name = Key }]);
@@ -50,7 +56,7 @@ internal static class StructureGateFixture
         pipeline.Set<IReadOnlyDictionary<string, IReadOnlyList<RemoteContextDiscovery>>>(ContextKeys.SandboxContexts,
             new Dictionary<string, IReadOnlyList<RemoteContextDiscovery>>(StringComparer.Ordinal)
             {
-                [Key] = [.. contexts.Select(c => new RemoteContextDiscovery(c.Name, c.Workdir, "csharp"))],
+                [Key] = contexts,
             });
         return pipeline;
     }

@@ -74,7 +74,7 @@ public sealed class StructureGitReadsRealRepositoryTests : IAsyncLifetime
         (await reads.ReadAtAsync(_sandbox, commit, ".agentsmith/contexts/api/structure-baseline.tsv", default))
             .Should().Be(StructureBaseRead.Absent);
         (await reads.ReadAtAsync(_sandbox, "no-such-revision", Principles, default)).Failure.Should().Contain("ls-tree");
-        (await StructureBaselineStubs.Listing().ListAsync(_sandbox, "src", [".cs"], default)).Paths
+        (await StructureBaselineStubs.Listing().ListAsync(_sandbox, ["src"], [".cs"], default)).Paths
             .Should().Equal("src/With Space.cs");
     }
 

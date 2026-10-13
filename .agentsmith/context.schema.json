@@ -545,6 +545,21 @@
         }
       }
     },
+    "sources": {
+      "$comment": "MECHANISM \u2014 2026-10-13-50c7: the structure baseline, the commit gate and the formatter assign a file under one of these directories to this context, as they do a file under its workdir; the longest directory across all contexts wins.",
+      "type": "array",
+      "description": "The directories BEYOND meta.workdir this component is built and tested from: the projects its manifest references, transitively, and the test projects that reference it \u2014 read from the manifests, never guessed from folder names. Each relative to the REPOSITORY ROOT. Omit the block when the workdir holds everything.",
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "pattern": "^(?!\\s*$)(?![/\\\\])(?![A-Za-z]:)(?!\\.?/*$)(?!(?:.*[/\\\\])?\\.\\.(?:[/\\\\]|$)).+$",
+        "description": "One directory, relative to the repository root: never rooted, never escaping with '..', never '.' (the root is a workdir, not a source).",
+        "examples": [
+          "src/Inventory.Core",
+          "tests/Inventory.Tests"
+        ]
+      }
+    },
     "arch": {
       "type": "object",
       "description": "Architecture and code organization",

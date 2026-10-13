@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.SpecExecution;
+using AgentSmith.Application.Services.Structure;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Specs.Format;
@@ -75,7 +76,7 @@ public sealed class SpecFormatRunTests
     [Fact]
     public void SpecFormatPlan_PathOfANestedContext_GoesToThatContextOnly()
     {
-        var plan = new SpecFormatPlan().Plan(
+        var plan = new SpecFormatPlan(new StructureOwnership()).Plan(
             [FormatFixture.Context("root", ".", "fmt {files}")],
             [FormatFixture.Context("web", "web", null)],
             ["web/app.ts", "src/A.cs"]);
@@ -86,10 +87,32 @@ public sealed class SpecFormatRunTests
     [Fact]
     public void SpecFormatPlan_DashLeadingPath_IsPassedAsRelative()
     {
-        var plan = new SpecFormatPlan().Plan(
+        var plan = new SpecFormatPlan(new StructureOwnership()).Plan(
             [FormatFixture.Context("root", ".", "fmt {files}")], [], ["-rf.cs", "--help.cs"]);
 
         plan.Should().ContainSingle().Which.CommandLine.Should().Be(
             "fmt './-rf.cs' './--help.cs'", "a path that starts with '-' must never reach the formatter as an option");
+    }
+
+    [Fact]
+    public void SpecFormatPlan_FileUnderSources_IsFormatted()
+    {
+        // 2026-10-13-50c7: the library the API project references is the API context's to format.
+        var api = FormatFixture.Context("api", "src/Api", "fmt {files}") with { Sources = ["src/Core"] };
+
+        var plan = new SpecFormatPlan(new StructureOwnership()).Plan(
+            [api], [api], ["src/Api/A.cs", "src/Core/B.cs", "docs/C.cs"]);
+
+        plan.Should().ContainSingle().Which.CommandLine.Should().Be("fmt './src/Api/A.cs' './src/Core/B.cs'");
+    }
+
+    [Fact]
+    public void SpecFormatPlan_SharedWorkdir_EveryContextFormatsIt()
+    {
+        var plan = new SpecFormatPlan(new StructureOwnership()).Plan(
+            [FormatFixture.Context("one", "src", "fmt-one {files}"), FormatFixture.Context("two", "src", "fmt-two {files}")],
+            [], ["src/A.cs"]);
+
+        plan.Select(p => p.CommandLine).Should().Equal("fmt-one './src/A.cs'", "fmt-two './src/A.cs'");
     }
 }

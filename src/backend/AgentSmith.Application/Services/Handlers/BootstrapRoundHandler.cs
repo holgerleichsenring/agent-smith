@@ -28,6 +28,7 @@ public sealed class BootstrapRoundHandler(
     BootstrapContextWriteVerdict contextWrite,
     BootstrapOutputRecorder outputRecorder,
     StructureBaseline structureBaseline,
+    StructureBaselineScopes baselineScopes,
     SandboxTargets sandboxTargets,
     IRunContextAccessor runContext,
     ILogger<BootstrapRoundHandler> logger) : ICommandHandler<BootstrapRoundContext>
@@ -91,11 +92,14 @@ public sealed class BootstrapRoundHandler(
         // after the call, so a written stack.image the boundary refuses is among them.
         // 2026-10-06-8565c: after the skill, so the baseline measures the principles.md the
         // init commits.
-        var baseline = await structureBaseline.ApplyAsync(sandbox,
-            StructureBaselineScope.For(pipeline, context, transfer.Mode), cancellationToken);
+        // 2026-10-13-50c7: the scope carries the sources of the context.yaml just written; the
+        // outcome records them for the later rounds of the repository.
+        var scope = await baselineScopes.ForAsync(
+            pipeline, sandbox, context, transfer.Mode, existing.ContextYaml, cancellationToken);
+        var baseline = await structureBaseline.ApplyAsync(sandbox, scope, cancellationToken);
         pipeline.AppendBootstrapOutcome(new BootstrapRoundOutcome(
             context.RepoName, context.ContextName, transfer.Mode, transfer.Artefacts, transfer.Overlays,
-            transfer.ProjectSpecificsKept, outcome.ImageRefusal, baseline));
+            transfer.ProjectSpecificsKept, outcome.ImageRefusal, baseline, scope.Sources));
         var onDisk = await metaFiles.ExistsAsync(sandbox, ctxPath, cancellationToken);
         logger.LogInformation(
             "{Emoji} {DisplayName} [Bootstrap]: {Count} file(s) written, {Decisions} decision(s), context.yaml written={CtxWritten} on-disk={OnDisk}",

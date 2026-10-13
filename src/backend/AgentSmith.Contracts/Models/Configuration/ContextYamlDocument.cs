@@ -39,4 +39,7 @@ public sealed record ContextYamlDocument(
     ContextYamlTargetProbe? Probe = null,
     // 2026-10-12-fbbdb: the rewriting form of the formatter the repository already runs,
     // run by the spec commit over the files the spec changed. Null = nothing is formatted.
-    ContextYamlFormat? Format = null);
+    ContextYamlFormat? Format = null,
+    // 2026-10-13-50c7: the directories beyond the workdir the component is built and tested
+    // from — its libraries and test projects. Null = the workdir alone.
+    IReadOnlyList<string>? Sources = null);

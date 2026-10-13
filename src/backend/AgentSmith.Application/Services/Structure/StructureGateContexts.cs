@@ -10,16 +10,17 @@ namespace AgentSmith.Application.Services.Structure;
 /// installed, and without a baseline nothing says what was there. Every normalized workdir still
 /// owns its files, so a nested context's file is never judged by the context around it.
 /// 2026-10-13-2d0c: read at the merge-base; a git failure is a warning, never "no Limits".
+/// 2026-10-13-50c7: a context also claims its sources, and the rules are keyed by context name.
 /// </summary>
 public sealed class StructureGateContexts(
     StructureGitReads git, StructureLimits limits, StructureBaselineFile baselineFile,
-    ILogger<StructureGateContexts> logger)
+    StructureOwnership ownership, ILogger<StructureGateContexts> logger)
 {
-    public async Task<(IReadOnlyList<string> Owners, IReadOnlyDictionary<string, StructureContextRules> Rules)>
+    public async Task<(IReadOnlyList<StructureClaim> Claims, IReadOnlyDictionary<string, StructureContextRules> Rules)>
         ReadAsync(
         IReadOnlyList<RemoteContextDiscovery> contexts, ISandbox sandbox, string baseRev, CancellationToken ct)
     {
-        var owners = new List<string>();
+        var claims = new List<StructureClaim>();
         var rules = new Dictionary<string, StructureContextRules>(StringComparer.Ordinal);
         foreach (var context in contexts)
         {
@@ -29,11 +30,11 @@ public sealed class StructureGateContexts(
                     context.ContextName, context.Workdir);
                 continue;
             }
-            owners.Add(workdir);
+            claims.AddRange(ownership.Claims(context.ContextName, workdir, context.Sources));
             if (await RulesAsync(sandbox, baseRev, context.ContextName, workdir, ct) is { } read)
-                rules[workdir] = read;
+                rules[context.ContextName] = read;
         }
-        return (owners, rules);
+        return (claims, rules);
     }
 
     private async Task<StructureContextRules?> RulesAsync(

@@ -16,11 +16,14 @@ namespace AgentSmith.Application.Services.Structure;
 /// 2026-10-13-2d0c: "a changed limit" is measured against the Limits the baseline records in its
 /// header; a baseline that records none leaves the old limits unknown, so every unit over its
 /// band that it does not list is added.
+/// 2026-10-13-50c7: the context measures every file under its workdir and sources that it owns or
+/// ties on, and records the directories it owned. Every excess under a newly owned directory is
+/// added — to a preserved baseline too, which otherwise keeps its entries and Limits line.
 /// </summary>
 public sealed class StructureBaseline(
     StructureSourceListing listing, IStructureEngine engine, StructureLimits limits,
-    StructureJudge judge, StructureBaselineFile baselineFile, ISandboxFileReaderFactory files,
-    ILogger<StructureBaseline> logger)
+    StructureJudge judge, StructureBaselineFile baselineFile, StructureBaselineOwnership ownership,
+    StructureBaselineEntries entries, ISandboxFileReaderFactory files, ILogger<StructureBaseline> logger)
 {
     public async Task<StructureBaselineResult> ApplyAsync(
         ISandbox sandbox, StructureBaselineScope scope, CancellationToken cancellationToken)
@@ -44,41 +47,42 @@ public sealed class StructureBaseline(
         StructureBaselineScope scope, string? existing, CancellationToken ct)
     {
         var present = existing is not null;
-        if (present && scope.Mode == PrinciplesMode.PreservedExisting)
+        var owned = ownership.For(scope, existing);
+        if (present && scope.Mode == PrinciplesMode.PreservedExisting && owned?.NewlyOwned is not { Count: > 0 })
             return StructureBaselineResult.Untouched(baselineFile.Parse(existing).Count);
         if (scope.Mode == PrinciplesMode.SkillWrites)
             return StructureBaselineResult.Skipped("the bootstrap skill wrote principles.md, whose Limits are not relied on", present);
         var limitSet = limits.Read(await reader.TryReadAsync(scope.PrinciplesPath, ct));
         if (limitSet.IsEmpty) return StructureBaselineResult.Skipped("principles.md declares no Limits", present);
-        if (StructureWorkdir.Normalize(scope.Workdir) is not { } workdir)
+        if (owned is null)
             return StructureBaselineResult.Skipped($"workdir '{scope.Workdir}' is rooted or escapes the repository", present);
-        var (claimed, refusal) = await ClaimedAsync(sandbox, scope, workdir, ct);
+        var (claimed, refusal) = await ClaimedAsync(sandbox, owned, ct);
         return refusal is not null
             ? StructureBaselineResult.Skipped(refusal, present)
-            : await RecordAsync(reader, scope, existing, claimed, limitSet, ct);
+            : await RecordAsync(reader, scope, existing, owned, claimed, limitSet, ct);
     }
 
-    // The tracked files this context owns that a language measures; a sibling's are its own.
+    // The tracked files this context owns or ties on that a language measures; a sibling's are its own.
     private async Task<(IReadOnlyList<string>, string?)> ClaimedAsync(
-        ISandbox sandbox, StructureBaselineScope scope, string workdir, CancellationToken ct)
+        ISandbox sandbox, StructureBaselineOwned owned, CancellationToken ct)
     {
-        var (paths, refusal) = await listing.ListAsync(sandbox, workdir, engine.Extensions, ct);
+        var (paths, refusal) = await listing.ListAsync(sandbox, owned.Directories, engine.Extensions, ct);
         if (refusal is not null) return ([], refusal);
-        var owners = scope.SiblingWorkdirs.Append(workdir).ToList();
-        var claimed = paths.Where(p => StructureWorkdir.Owner(owners, p) == workdir && engine.Claims(p)).ToList();
+        var claimed = paths.Where(p => ownership.Measures(owned, p) && engine.Claims(p)).ToList();
         return claimed.Count == 0 ? ([], "no tracked file under the workdir is in a measured language") : (claimed, null);
     }
 
     private async Task<StructureBaselineResult> RecordAsync(ISandboxFileReader reader, StructureBaselineScope scope,
-        string? existing, IReadOnlyList<string> claimed, StructureLimitSet limitSet, CancellationToken ct)
+        string? existing, StructureBaselineOwned owned, IReadOnlyList<string> claimed, StructureLimitSet limitSet,
+        CancellationToken ct)
     {
         var (findings, unreadable, unavailable) = await MeasureAsync(reader, claimed, limitSet, ct);
         if (unavailable is not null) return StructureBaselineResult.Skipped(unavailable, existing is not null);
-        var entries = existing is not null
-            ? baselineFile.Refresh(baselineFile.Parse(existing), findings, baselineFile.MeasuredWith(existing))
-            : [.. findings.Select(StructureBaselineEntry.Of)];
-        await reader.WriteAsync(scope.BaselinePath, baselineFile.Render(entries, limitSet), ct);
-        return new StructureBaselineResult(true, entries.Count, unreadable, existing is not null);
+        var preserved = existing is not null && scope.Mode == PrinciplesMode.PreservedExisting;
+        var written = entries.Compose(existing, preserved, findings, path => ownership.IsNewlyOwned(owned, path));
+        var measuredWith = preserved ? baselineFile.MeasuredWith(existing) : limitSet;
+        await reader.WriteAsync(scope.BaselinePath, baselineFile.Render(written, measuredWith, owned.Directories), ct);
+        return new StructureBaselineResult(true, written.Count, unreadable, existing is not null);
     }
 
     private async Task<(IReadOnlyList<StructureFinding>, int, string?)> MeasureAsync(

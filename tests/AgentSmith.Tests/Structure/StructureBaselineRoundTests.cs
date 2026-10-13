@@ -79,6 +79,7 @@ public sealed class StructureBaselineRoundTests
         new BootstrapContextWriteVerdict(),
         new BootstrapOutputRecorder(),
         StructureBaselineStubs.Real(),
+        StructureBaselineStubs.Scopes(),
         new SandboxTargets(),
         EventTestStubs.RunContext,
         NullLogger<BootstrapRoundHandler>.Instance);

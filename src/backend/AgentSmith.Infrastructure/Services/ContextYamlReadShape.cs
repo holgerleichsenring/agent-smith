@@ -34,6 +34,10 @@ internal sealed class ContextYamlReadShape
     // Declared HERE for the reason every block above is.
     public FormatBlock? Format { get; set; }
 
+    // 2026-10-13-50c7: the directories beyond the workdir the component is built and tested
+    // from. Declared HERE for the reason every block above is.
+    public List<string>? Sources { get; set; }
+
     internal sealed class MetaBlock
     {
         public string? Workdir { get; set; }

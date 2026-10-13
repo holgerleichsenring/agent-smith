@@ -387,6 +387,7 @@ public sealed class BootstrapPrinciplesTransferTests
         new BootstrapContextWriteVerdict(),
         new BootstrapOutputRecorder(),
         StructureBaselineStubs.Real(),
+        StructureBaselineStubs.Scopes(),
         new SandboxTargets(),
         EventTestStubs.RunContext,
         NullLogger<BootstrapRoundHandler>.Instance);
