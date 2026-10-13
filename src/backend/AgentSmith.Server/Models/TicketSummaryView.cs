@@ -12,6 +12,7 @@ namespace AgentSmith.Server.Models;
 /// <param name="NewestRunId">The newest attempt, or the newest run when none counts as one.</param>
 /// <param name="LastOutcome">The newest attempt's status on an idle row; null otherwise.</param>
 /// <param name="Attempts">Every attempt, oldest first.</param>
+/// <param name="PullRequests">2026-10-13-9a59b: every pull request the ticket's runs named, from its record.</param>
 public sealed record TicketSummaryView(
     string Project,
     string TicketId,
@@ -30,4 +31,5 @@ public sealed record TicketSummaryView(
     TicketPendingQuestion? PendingQuestion,
     int SpecsDone,
     int SpecsTotal,
-    IReadOnlyList<TicketAttemptMark> Attempts);
+    IReadOnlyList<TicketAttemptMark> Attempts,
+    IReadOnlyList<TicketPullRequestView> PullRequests);

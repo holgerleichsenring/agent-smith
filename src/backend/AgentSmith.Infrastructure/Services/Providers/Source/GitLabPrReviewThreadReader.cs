@@ -48,7 +48,8 @@ public sealed class GitLabPrReviewThreadReader(
         foreach (var note in notes) read.Add(await NoteAsync(note, ct));
         return new PrReviewThread(position is { } p1 ? Str(p1, "new_path") : null,
             position is { } p2 && p2.TryGetProperty("new_line", out var l) && l.ValueKind == JsonValueKind.Number ? l.GetInt32() : null,
-            resolvable.Count == 0 ? null : resolvable.All(n => Bool(n, "resolved")), read);
+            resolvable.Count == 0 ? null : resolvable.All(n => Bool(n, "resolved")), read)
+            { HostId = Str(discussion, "id") ?? string.Empty };
     }
 
     private async Task<PrReviewNote> NoteAsync(JsonElement note, CancellationToken ct)
@@ -61,6 +62,7 @@ public sealed class GitLabPrReviewThreadReader(
             await _users.IsBotAsync(id, ct), Bool(note, "system"), DateTimeOffset.Parse(Str(note, "created_at")!), body)
         {
             IsOurs = OwnPrNoteMarker.IsOurs(body, id == _tokenUser),
+            HostId = note.TryGetProperty("id", out var noteId) ? noteId.ToString() : string.Empty,
         };
     }
 

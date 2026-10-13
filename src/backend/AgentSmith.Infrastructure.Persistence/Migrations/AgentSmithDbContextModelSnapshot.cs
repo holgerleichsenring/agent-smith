@@ -478,6 +478,165 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.ToTable("PendingClarifications", (string)null);
                 });
 
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.PrReviewEntry", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("AtTicks")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("AuthorLogin")
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Body")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Decision")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("File")
+                        .HasMaxLength(1024)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("HostId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsBot")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsOurs")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsSystem")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Kind")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("Line")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("PrKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool?>("Resolved")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Standing")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ThreadHostId")
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("Truncated")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("Trusted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PrKey", "HostId")
+                        .IsUnique();
+
+                    b.ToTable("PrReviewEntries", (string)null);
+                });
+
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.PrReviewRecord", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("CheckedAtTicks")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Number")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PrKey")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Project")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Repo")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RepoKey")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RunId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("State")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("StateAtTicks")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TicketId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Url")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PrKey")
+                        .IsUnique();
+
+                    b.HasIndex("RunId");
+
+                    b.HasIndex("Project", "TicketId");
+
+                    b.HasIndex("RepoKey", "Number");
+
+                    b.ToTable("PrReviewRecords", (string)null);
+                });
+
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.PrSweepRepository", b =>
                 {
                     b.Property<string>("Repository")

@@ -1,3 +1,4 @@
+using System.Globalization;
 using AgentSmith.Contracts.Reviews;
 using AgentSmith.Contracts.Webhooks;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
@@ -17,9 +18,15 @@ public static class AzureReposReviewMapping
         IEnumerable<GitPullRequestCommentThread> threads, string repoUrl, string repositoryId, string projectId, string? selfId) =>
         [.. threads.Where(t => t.IsDeleted != true).Select(t => new PrReviewThread(
             t.ThreadContext?.FilePath, t.ThreadContext?.RightFileStart?.Line, Resolved(t.Status),
-            [.. (t.Comments ?? []).Where(c => c.IsDeleted != true).Select(c => Note(c, repoUrl, repositoryId, projectId, selfId))]))];
+            [.. (t.Comments ?? []).Where(c => c.IsDeleted != true).Select(c => Note(t, c, repoUrl, repositoryId, projectId, selfId))])
+            { HostId = t.Id.ToString(CultureInfo.InvariantCulture) })];
 
-    private static PrReviewNote Note(Comment comment, string repoUrl, string repositoryId, string projectId, string? selfId) =>
+    /// <summary>2026-10-13-9a59b: a comment's host id, "{threadId}/{commentId}" — a vote's decision carries the same.</summary>
+    public static string CommentHostId(GitPullRequestCommentThread thread, Comment comment) =>
+        $"{thread.Id.ToString(CultureInfo.InvariantCulture)}/{comment.Id.ToString(CultureInfo.InvariantCulture)}";
+
+    private static PrReviewNote Note(
+        GitPullRequestCommentThread thread, Comment comment, string repoUrl, string repositoryId, string projectId, string? selfId) =>
         new(comment.Author is { Id: { } id } author
                 ? new PrCommentAuthor(repoUrl, repositoryId, id, author.UniqueName ?? id) { ProjectId = projectId }
                 : null,
@@ -28,6 +35,7 @@ public static class AzureReposReviewMapping
         {
             IsOurs = OwnPrNoteMarker.IsOurs(comment.Content,
                 selfId is not null && string.Equals(comment.Author?.Id, selfId, StringComparison.OrdinalIgnoreCase)),
+            HostId = CommentHostId(thread, comment),
         };
 
     private static bool? Resolved(CommentThreadStatus status) => status switch

@@ -6,11 +6,12 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// <summary>
 /// 2026-10-08-e8b9d / 2026-10-08-e8b9c: a pull request's review threads and its standing "Wait for
 /// author" votes, over the provider's Git client. The repository's ids come with the answer, because
-/// an Azure DevOps author's trust verdict is keyed on them.
+/// an Azure DevOps author's trust verdict is keyed on them. 2026-10-13-9a59b: and its state with the
+/// standing votes.
 /// </summary>
 public sealed class AzureReposReviewReads(
     Func<CancellationToken, Task<GitHttpClient>> connect, Func<CancellationToken, Task<string?>> self,
-    string project, string repoName, string repoUrl) : IPrReviewThreadReader, IPrReviewActReader
+    string project, string repoName, string repoUrl) : IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader
 {
     public async Task<IReadOnlyList<PrReviewThread>> ListAsync(string prUrl, CancellationToken cancellationToken)
     {
@@ -30,6 +31,15 @@ public sealed class AzureReposReviewReads(
         var threads = await client.GetThreadsAsync(project, repoName, prId, cancellationToken: cancellationToken);
         return AzureReposVoteActs.Standing(threads, pr.Reviewers ?? [], pr.CreatedBy?.Id, repoUrl,
             pr.Repository.Id.ToString(), pr.Repository.ProjectReference.Id.ToString());
+    }
+
+    public async Task<PrReviewState> ReadAsync(string prUrl, CancellationToken cancellationToken)
+    {
+        var prId = PrId(prUrl);
+        var client = await connect(cancellationToken);
+        var pr = await client.GetPullRequestAsync(project, repoName, prId, cancellationToken: cancellationToken);
+        var threads = await client.GetThreadsAsync(project, repoName, prId, cancellationToken: cancellationToken);
+        return AzureReposVoteDecisions.Read(pr, threads, await self(cancellationToken), repoUrl);
     }
 
     private static int PrId(string prUrl) => AzureReposPullRequestUpdater.TryParsePullRequestId(prUrl, out var prId)

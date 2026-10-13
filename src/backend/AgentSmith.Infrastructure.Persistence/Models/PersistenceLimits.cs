@@ -28,4 +28,8 @@ public static class PersistenceLimits
 
     /// <summary>2026-10-08-e8b9g: a SHA-256 as lower-case hex.</summary>
     public const int Sha256Hex = 64;
+
+    /// <summary>2026-10-13-9a59b: a pull-request review note's stored body; a longer one is cut and
+    /// marked Truncated.</summary>
+    public const int ReviewNoteBody = 4000;
 }

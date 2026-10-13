@@ -45,12 +45,15 @@ internal sealed class TicketStoreHarness : IDisposable
         services.AddSingleton<TimeProvider>(new FixedClock(T.AddHours(3)));
         services.AddSingleton(Config);
         services.AddTransient<FiledWorkSpecReviews>().AddTransient<FiledWorkRunsReader>();
+        services.AddScoped<PrReviewRecordRepository>().AddScoped<NamedPullRequestReader>();
+        services.AddSingleton(Nudges.Object);
         services.AddTicketReaders();
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
     }
 
     public Mock<ICapacityQueue> Queue { get; } = new();
     public Mock<IActiveRunLease> Lease { get; } = new();
+    public Mock<IReworkNudges> Nudges { get; } = new();
     public Dictionary<string, int> Positions { get; } = new(StringComparer.Ordinal);
     public StaleLease? HeldLease { get; set; }
 

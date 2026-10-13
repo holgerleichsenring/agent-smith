@@ -21,7 +21,8 @@ public sealed class TicketDetailReader(
     TicketAttemptMarker marker,
     TicketLiveStateReader live,
     TicketSummaryComposer composer,
-    FiledWorkRunsReader composed)
+    FiledWorkRunsReader composed,
+    TicketPullRequestReader pullRequests)
 {
     /// <summary>Null when the pair has no code run — it is not a ticket.</summary>
     public async Task<TicketDetailView?> ReadAsync(string project, string ticketId, CancellationToken ct)
@@ -35,7 +36,7 @@ public sealed class TicketDetailReader(
         var specs = runs.SelectMany(r => r.Specs.Select(s => (r.RunId, s.Status)))
             .ToLookup(s => s.RunId, s => s.Status, StringComparer.Ordinal);
         return new TicketDetailView(
-            composer.Compose(code, state, specs),
+            composer.Compose(code, state, specs, await pullRequests.TicketAsync(project, ticketId, ct)),
             TicketBranchNamer.Compose(new TicketId(ticketId)).Value,
             [.. ordered.Select((a, i) => Attempt(i + 1, a.Run, runs[i], marker.Mark(a.Run, state, specs)))],
             [.. rows.Where(r => !attempts.IsAttempt(r)).Select(Other)]);

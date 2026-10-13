@@ -17,7 +17,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// the actual git clone happens sandbox-side via Step{Kind=Run, Command=git, ...}.
 /// Default-branch resolution stays here (REST API call, not git plumbing).
 /// </summary>
-public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IChangedPullRequestLister, IOpenPullRequestSource
+public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IChangedPullRequestLister, IOpenPullRequestSource
 {
     private readonly string _baseUrl;
     private readonly string _projectPath;
@@ -291,6 +291,9 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, 
 
     public Task<IReadOnlyList<PrReviewNote>> ChangesRequestedAsync(string prUrl, CancellationToken cancellationToken) =>
         new GitLabMrActReader(_baseUrl, _projectPath, _privateToken, _cloneUrl, _httpClient, _logger).ChangesRequestedAsync(prUrl, cancellationToken);
+
+    public Task<PrReviewState> ReadAsync(string prUrl, CancellationToken cancellationToken) =>
+        new GitLabMrStateReader(_baseUrl, _projectPath, _privateToken, _cloneUrl, _httpClient, _logger).ReadAsync(prUrl, cancellationToken);
 
     private const int MaxNotePages = 50;
 

@@ -26,7 +26,9 @@ internal static class TicketReadExtensions
             .AddTransient<TicketMonthCost>()
             .AddTransient<TicketCounts>()
             .AddTransient<TicketListReader>()
-            .AddTransient<TicketDetailReader>();
+            .AddTransient<TicketDetailReader>()
+            .AddTransient<TicketReviewState>() // 2026-10-13-9a59b
+            .AddTransient<TicketPullRequestReader>();
         return services;
     }
 }

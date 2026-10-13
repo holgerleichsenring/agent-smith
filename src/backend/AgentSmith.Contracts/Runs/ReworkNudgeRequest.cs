@@ -12,6 +12,11 @@ public sealed record ReworkNudgeRequest(
     ReworkChannel? Channel = null,
     TimeSpan? Delay = null)
 {
+    /// <summary>2026-10-13-9a59b: the request came from a webhook delivery, so a Refresh may pull a
+    /// waiting nudge forward; a sweep's or a read's Refresh may not.</summary>
+    public bool FromDelivery { get; init; }
+
     /// <summary>A run end and a sweep never pull a waiting nudge forward; a person's act does.</summary>
-    public bool IsLate => Origin is ReworkNudgeOrigin.RunEnd or ReworkNudgeOrigin.Sweep;
+    public bool IsLate => Origin is ReworkNudgeOrigin.RunEnd or ReworkNudgeOrigin.Sweep
+        || (Origin == ReworkNudgeOrigin.Refresh && !FromDelivery);
 }

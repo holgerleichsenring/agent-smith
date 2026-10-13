@@ -1,4 +1,4 @@
-using System.Text.Json;
+using System.Globalization;
 using AgentSmith.Contracts.Reviews;
 using AgentSmith.Contracts.Webhooks;
 using Microsoft.Extensions.Logging;
@@ -16,6 +16,7 @@ public sealed class GitLabMrActReader(
 {
     private readonly GitLabNotesPager _notes = new(baseUrl, projectPath, token, http, logger);
     private readonly GitLabUsers _users = new(baseUrl, token, http);
+    private readonly GitLabMergeRequestRead _mergeRequests = new(baseUrl, projectPath, token, http);
 
     public const string RequestedChanges = "requested changes";
     public const string Approved = "approved this merge request";
@@ -25,7 +26,7 @@ public sealed class GitLabMrActReader(
     {
         if (!GitLabMergeRequestUpdater.TryParseMergeRequestIid(prUrl, out var iid))
             throw new ArgumentException($"Not a GitLab merge request URL: {prUrl}", nameof(prUrl));
-        var excluded = new[] { await MrAuthorAsync(iid, cancellationToken), await _users.TokenUserIdAsync(cancellationToken) };
+        var excluded = new[] { (await _mergeRequests.ReadAsync(iid, cancellationToken)).AuthorId, await _users.TokenUserIdAsync(cancellationToken) };
         var standing = (await _notes.ReadAsync(iid.ToString(), MaxPages, cancellationToken))
             .Where(n => n.System && n.AuthorId is not null && n.Body is RequestedChanges or Approved)
             .GroupBy(n => n.AuthorId!.Value)
@@ -42,17 +43,6 @@ public sealed class GitLabMrActReader(
         var id = note.AuthorId!.Value;
         return new PrReviewNote(
             new PrCommentAuthor(repoUrl, Uri.UnescapeDataString(projectPath), id.ToString(), note.AuthorUsername ?? id.ToString()),
-            await _users.IsBotAsync(id, ct), false, note.CreatedAt, note.Body);
-    }
-
-    private async Task<long?> MrAuthorAsync(int iid, CancellationToken ct)
-    {
-        using var request = new HttpRequestMessage(HttpMethod.Get, $"{baseUrl}/api/v4/projects/{projectPath}/merge_requests/{iid}");
-        request.Headers.Add("PRIVATE-TOKEN", token);
-        using var response = await http.SendAsync(request, ct);
-        await response.EnsureSuccessWithBodyAsync(ct);
-        using var mr = await JsonDocument.ParseAsync(await response.Content.ReadAsStreamAsync(ct), cancellationToken: ct);
-        return mr.RootElement.TryGetProperty("author", out var a) && a.ValueKind == JsonValueKind.Object
-            && a.TryGetProperty("id", out var id) && id.ValueKind == JsonValueKind.Number ? id.GetInt64() : null;
+            await _users.IsBotAsync(id, ct), false, note.CreatedAt, note.Body) { HostId = note.Id.ToString(CultureInfo.InvariantCulture) };
     }
 }

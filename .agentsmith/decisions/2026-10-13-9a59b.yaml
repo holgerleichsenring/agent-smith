@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-9a59b
+
+decisions:
+  - category: Architecture
+    chose: "Pull-request records keyed by PrKey (SHA-256 hex of the URL as PullRequestsJson stores it), state on the record only, one entry row per host id with the decision as a column and a Standing flag"
+    over: "Review state in the run's PullRequestsJson, a decision copied onto the record, or a second row per decision"
+    reason: |
+      One pull request spans attempts and PullRequestsJson is overwritten per outcome. On every host the
+      decision is the same object as a note the thread reader returns, so a second row per id would flip or
+      break the unique index, and a decision on the record would store it twice beside the entries. The
+      Standing flag the refresh clears withdraws dismissed reviews, reset votes and GitLab unapproves.
+  - category: Architecture
+    chose: "ReworkNudgeOrigin.Refresh = 0; a Refresh-origin nudge runs only the refresh and finishes; the claim resets the row's origin to Refresh and a reschedule restores max(current, claimed)"
+    over: "Every nudge reaching ReworkNudgeHandler, or a PendingOrigin column"
+    reason: |
+      The handler re-enters a standing act refused earlier, so a read-triggered nudge must never reach it. A
+      Refresh merged during a claim would otherwise be freed at the higher claimed origin and re-run the handler.
+  - category: Implementation
+    chose: "DEVIATION: the claim token carries the claimed origin ('{origin}:{guid}'), and a claim whose lease expired is re-served at max(row origin, token origin)"
+    over: "The spec's bare 'claim sets Origin = Refresh'"
+    reason: |
+      With the reset alone, a worker that dies mid-claim leaves the row at Refresh: after the 5-minute lease
+      (ReworkNudgeRepository.ClaimLease) the person's act would be re-claimed as a Refresh and never handled.
+      The existing 64-char ClaimToken column carries it, so no column is added
+      (ReworkNudgeConfiguration.cs:19; test CrashedClaim_ReclaimedAfterExpiry_KeepsTheClaimedOrigin).
+  - category: Implementation
+    chose: "DEVIATION: the list's page-scoped read is over the page tickets' code runs' PullRequestsJson (NamedPullRequestReader.ByRunsAsync), not over RunRepo (RunId, PrUrl, PrStatus)"
+    over: "A RunRepo read for the backfill plus no opened-at on list rows"
+    reason: |
+      lastActivityAt falls back to the PR's openedAt, which only PullRequestsJson holds (RunRepo has no
+      outcome time, RunRepo.cs:7-10); one page-scoped read serves both the backfill and opened-at, so list row
+      and detail header derive lastActivityAt the same way. The all-ticket TicketListQuery still reads no JSON.
+  - category: Implementation
+    chose: "The ticket's pull requests come from NamedPullRequestReader: every PullRequestsJson URL of the ticket's code runs whose status HasPullRequest, the newest run naming it as RunId and the earliest openedAt"
+    over: "The act reader's newest-opened-URL-per-repo set"
+    reason: "A superseded pull request would never be read again and Done would never arrive."
+  - category: Architecture
+    chose: "Persistence split into PrReviewRecordRepository (reads, implements IPrReviewRecordReader, ByPrKeyAsync/ByRepoKeyAsync for 2026-10-13-9a59c), PrReviewRecordWriter (compare-and-set upsert, unread, orphan delete) and NamedPullRequestReader"
+    over: "One PrReviewRecordRepository holding every step's method"
+    reason: "All of them in one class would pass the 120-line limit; the writer mirrors ReworkNudgeWriter beside ReworkNudgeRepository."
+  - category: Implementation
+    chose: "The write is a compare-and-set ExecuteUpdate on CheckedAtTicks < the read's start; 'changed' is SaveChanges' row count over the tracked copies (CheckedAt alone is no change)"
+    over: "Locking only on the Redis ticket lock"
+    reason: "The ticket lock's lease can expire mid-refresh; the CAS keeps an older read from overwriting a newer one."
+  - category: Implementation
+    chose: "The refresh builds the TicketActivityChanged key from the project's tracker type lowercased, not through TicketKeyResolver"
+    over: "Injecting TicketKeyResolver"
+    reason: |
+      TicketKeyResolver is registered by AddTicketReaders, which runs only when the dashboard API is enabled
+      (ServerHostFactory.cs:89); the nudge worker runs on every server. The run row's platform is that same
+      spelling, so the key matches.
+  - category: Implementation
+    chose: "A decision entry's Trusted is the reviewer's trust even where the host wrote its note as a system note (Azure DevOps vote comments, GitLab system notes); any other note is trusted only when a person wrote it"
+    over: "Trusted = person note only"
+    reason: "Otherwise every Azure DevOps and GitLab request for changes would read changes-requested-untrusted."
+  - category: Implementation
+    chose: "An Azure DevOps vote is timed by the voter's newest vote thread casting that vote; with none it gets 'vote:{reviewerId}' and the pull request's creation time; a GitLab 'locked' merge request reads open"
+    over: "Leaving a threadless vote untimed"
+    reason: "Locked is GitLab's transient state while a merge runs; StateAt is non-null for every read state."
+  - category: Implementation
+    chose: "TicketPullRequestView carries StateAt and Note in addition to the contract's {number, url, repo, state, decision, by, lastActivityAt}; TicketCountsView adds WaitingOnReview and Done counts, LastDone names the project"
+    over: "Only the contract's fields"
+    reason: "Done-at is the newest StateAt the bucket rule needs; Note carries 'not a trusted reviewer, so no attempt was started' for 2026-10-13-9a59p. Members may add, not rename."
+  - category: Implementation
+    chose: "PrReviewRecords and PrReviewEntries named by ToTable, configured from TicketRecordConfigurations; one AddPrReviewRecords migration per set via dotnet ef"
+    over: "EF's default singular table names (no DbSet on the 120-line context)"
+    reason: "Plural like every other table; AgentSmithDbContext untouched. Archive counts move to 39 tables / 80 seed rows / 29 generated-key tables."

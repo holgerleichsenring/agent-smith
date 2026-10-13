@@ -22,6 +22,9 @@ public static class ServerStateExtensions
         services.AddScoped<ReworkNudgeRepository>().AddScoped<ReworkLedgerRepository>();
         services.AddScoped<AgentSmith.Contracts.Sweep.ISweepCursors, SweepCursorStore>(); // 2026-10-08-9e6e
         services.AddScoped<PrSweepStore>(); // 2026-10-08-10b0
+        // 2026-10-13-9a59b: the pull-request review records.
+        services.AddScoped<PrReviewRecordRepository>().AddScoped<PrReviewRecordWriter>().AddScoped<NamedPullRequestReader>();
+        services.AddScoped<AgentSmith.Contracts.Reviews.IPrReviewRecordReader>(sp => sp.GetRequiredService<PrReviewRecordRepository>());
         services.RemoveAll<IReworkNudges>().RemoveAll<IReworkWatermark>();
         services.AddSingleton<DbReworkNudges>();
         services.AddSingleton<IReworkNudges>(sp => sp.GetRequiredService<DbReworkNudges>());
