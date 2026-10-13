@@ -15,6 +15,7 @@ scope:
   out: "Cost and compute, which is its own tab in 2026-09-09-be83 — it was split out because five tabs plus a start form is more than one phase can ship complete. Editing the specification or the criteria from this page. Re-planning. Any new endpoint: every tab reads what the backend phases already deliver, or the tab says which phase provides it."
 
 decisions:
+  - key: "RETIRED 2026-10-13, never built: the code moved for a month and a re-review refused it; superseded by 2026-10-13-9a59r and 2026-10-13-9a59s (the conversation/specs and attempts/cost tabs)."
   - key: |
       THE MATRIX IS THE HONEST FORM OF "IT RAN FOUR TIMES". Steps against attempts shows in one
       glance which work was done once and carried three times, which is the fact the runs list can

@@ -13,6 +13,7 @@ scope:
   out: "A retention policy or a scheduled purge. Deleting anything in a tracker or a repository. Changing what a run deletion already removes."
 
 decisions:
+  - key: "RETIRED 2026-10-13, never built: the code moved for a month and a re-review refused it; superseded by 2026-10-13-9a59a and 2026-10-13-9a59g (run-keyed ticket rows deleted with their run)."
   - key: |
       A PROJECTION CANNOT ORPHAN, A ROW CAN. The ticket read model is computed over runs, so
       deleting every run of a ticket makes the ticket disappear on its own — correct. But the

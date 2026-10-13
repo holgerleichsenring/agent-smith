@@ -1,0 +1,237 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-9a59d
+goal: "Every attempt records in the run the act it served with its source, the ticket text it saw and the series revision and approval it worked from; the ticket read model shows it."
+
+applies_to: "backend (FetchTicket, tracker mappers and providers, act readers, spec publish, run-event applier, persistence, ticket read model) + the dashboard's hub-events mirror"
+
+requires: [2026-10-13-9a59a, 2026-10-13-9a59b, 2026-10-08-e8b9b, 2026-10-08-e8b9c, 2026-10-08-2123, 2026-10-08-7c0e, 2026-10-08-f114, 2026-09-08-5cd2, 2026-09-09-b26f]
+
+facts:
+  - claim: "The run reads the act it serves itself, at FetchTicket — the keyword comment from the thread, the review on the previous attempt's pull requests, then the status history — so the act reaches the run whichever claimer won the lease."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/FetchTicketHandler.cs:85-92, src/backend/AgentSmith.Application/Services/Rework/ReworkActReader.cs:17-45, src/backend/AgentSmith.Application/Services/Rework/StatusBackActReader.cs:17-27"
+  - claim: "A pull-request act is the newer of a standing Request changes (vote) and a trusted comment command; both become one ReworkAct with channel PullRequest, built from the note alone, with no URL and nothing saying which."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/PrReviewFeedbackFetcher.cs:44-64, src/backend/AgentSmith.Application/Services/Rework/PrStandingAct.cs:44-49"
+  - claim: "ReworkAct carries author, time and channel (Ticket, PullRequest, Status) only — no source reference — and lives in the pipeline context, never persisted."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/ReworkAct.cs:10, src/backend/AgentSmith.Contracts/Runs/ReworkChannel.cs:5-11"
+  - claim: "A status move carries actor, time and the status moved into; the status-back act keeps only actor and time."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/TicketStatusMove.cs:4, src/backend/AgentSmith.Application/Services/Rework/StatusBackActReader.cs:25-26"
+  - claim: "The status history is read only when a previous attempt exists and the trigger names trigger statuses; our own moves are excluded through TrackerIdentity."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/StatusBackActReader.cs:19-25"
+  - claim: "The ticket keyword act and the pull-request act share ONE context slot, ReworkAct: the pull-request act replaces the ticket act only when it is newer, so by the time anything reads the slot the older of the two is gone; the status move has its own slot, StatusBackAct."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/ReworkActReader.cs:33,41-45, src/backend/AgentSmith.Application/Services/Rework/StatusBackActReader.cs:26"
+  - claim: "The revision cause reads that one slot: a re-cut demand first, then a pull-request act in the slot, then a status move back, then a ticket edit and a plain comment."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRevisionCause.cs:68-82"
+  - claim: "The only writer of a handed_back RunSpec is the premise check, and it FAILS the run; every parked hand-back (derivation question, not-implementable, contradiction, scope unassigned, scope refusal, missing spec) goes through SpecHandbackHandler and writes no RunSpec row."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CheckSpecPremisesHandler.cs:107-117, src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs:48-50,78, src/backend/AgentSmith.Application/Services/Scope/ScopeRefusalRecorder.cs:25-26, src/backend/AgentSmith.Application/Services/Specs/MissingSpecPark.cs:23"
+  - claim: "A scope refusal and a missing spec hand back before SpecSetPublisher runs: the refusal never reaches derivation, and DeriveSpec returns the missing-spec park before its publish call."
+    evidence: "src/backend/AgentSmith.Application/Services/Scope/ScopeRefusalRecorder.cs:13,25-30, src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:75,88-89"
+  - claim: "Ticket is a sealed class with get-only properties set by a positional constructor, not a record; the Jira and Azure DevOps providers get their Ticket from ITicketFieldMapper.Map(TicketId, raw), which cannot see the connection; WithDescription has one product caller and one test caller."
+    evidence: "src/backend/AgentSmith.Domain/Entities/Ticket.cs:16-62,70-72, src/backend/AgentSmith.Contracts/Services/ITicketFieldMapper.cs:22-28, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketProvider.cs:86, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs:87, src/backend/AgentSmith.Application/Services/Specs/TicketLabelNoteStripper.cs:47, tests/AgentSmith.Tests/Providers/Tickets/TicketKindTests.cs:71"
+  - claim: "PrStandingAct.Act has two callers: the run's own pull-request read and the pending-act read of the nudge path."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/PrStandingAct.cs:44-45, src/backend/AgentSmith.Application/Services/Rework/PrReviewFeedbackFetcher.cs:63, src/backend/AgentSmith.Application/Services/Rework/ReworkPendingActs.cs:47"
+  - claim: "RunStarted on an existing row promotes it when IsWaiting, which is true for queued AND waiting_for_input — a capacity reservation and a parked run's relaunch take the same branch."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/RunStatuses.cs:24, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs:106-113"
+  - claim: "Every run child type carries a long Id and is registered through modelBuilder.Entity(type), which needs a key."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunSpec.cs:15, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunChildConfiguration.cs:38-43"
+  - claim: "The data archive tests pin the table count at 37 and the seeded rows at 76, two per table; the dashboard's FilterRail labels are a Record over every EventType, so a new event type without a label fails pnpm build."
+    evidence: "tests/AgentSmith.Tests/Persistence/DataArchiveRoundTripTests.cs:33-35,54,81, tests/AgentSmith.Tests/Persistence/DataArchiveSchemaTests.cs:63, src/dashboard/src/components/jobs/FilterRail.tsx:8"
+  - claim: "The status-back revision cause applies only to a fully executed set with feedback since, so a run can serve a status move while its revision says something else."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/StatusBackCause.cs:20-26"
+  - claim: "A run asked for by name in chat carries ContextKeys.RequestedByName (a bool, no requester), seeded by the spawn funnel and read through IsRequestedByName."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/ContextKeys.Chat.cs:13, src/backend/AgentSmith.Application/Services/Spawning/SpawnRequestBuilder.cs:73, src/backend/AgentSmith.Contracts/Commands/RequestedByNameExtensions.cs:12-18, src/backend/AgentSmith.Server/Services/ChatLaunch/ChatTicketRunLauncher.cs:32-37"
+  - claim: "TicketComment carries no id; the four comment mappers build it from payloads that hold one."
+    evidence: "src/backend/AgentSmith.Domain/Entities/TicketComment.cs:9-12, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubCommentMapper.cs:16-20, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsCommentMapper.cs:17-21, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraCommentMapper.cs:22-39, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabCommentMapper.cs:27-37"
+  - claim: "A fetched Ticket carries no web address, and WithDescription — applied at the fetch door whenever the label note is stripped — copies each field by hand."
+    evidence: "src/backend/AgentSmith.Domain/Entities/Ticket.cs:16-38,69-71, src/backend/AgentSmith.Application/Services/Handlers/FetchTicketHandler.cs:51-55"
+  - claim: "GitHub's issue (HtmlUrl) and GitLab's issue payload (web_url) carry the address; GitHubFieldMapper does not read it."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketProvider.cs:112, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabTicketProvider.cs:126, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubFieldMapper.cs:15-27"
+  - claim: "Jira's and Azure DevOps' addresses are composed from the connection, not the payload: the Jira creator builds {base}/browse/{key}, the Azure DevOps creator WorkItemWebUrl(organization, project, id); the field mappers see neither."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketCreator.cs:14-18,51, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketCreator.cs:22-24,61-62, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraFieldMapper.cs:17, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsFieldMapper.cs:18-24"
+  - claim: "The Jira and Azure DevOps providers hold their creator and map the fetched ticket in GetTicketAsync."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketProvider.cs:60,80-90, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs:54,78-90"
+  - claim: "The previous attempt is read at FetchTicket — newest code run of (project, ticket), this run and queued rows left out — and put on the pipeline context."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/TicketExtrasFetcher.cs:41-51, src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPreviousAttemptReader.cs:18-37"
+  - claim: "Only a pull-request act answers a hand-back parked without a checkpoint."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeHandler.cs:60-69"
+  - claim: "TicketFetchedEvent carries the tracker State, but the applier persists only the title and ActsReadAt."
+    evidence: "src/backend/AgentSmith.Contracts/Events/TicketFetchedEvent.cs:15-27, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs:50"
+  - claim: "Each run resolves its revision cause and writes it, with the revision number and the ticket fingerprint, only into the set it commits to git."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRevisionCause.cs:36-82, src/backend/AgentSmith.Application/Services/Specs/SpecSourceResolver.cs:72, src/backend/AgentSmith.Application/Services/Specs/SpecRevisionHeader.cs:30-43"
+  - claim: "SpecSetPublisher holds the placed set — its revisions, series, executed ids and approval — and returns before writing only when placement refuses; the written and not-written branches both follow; it is 101 lines."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetPublisher.cs:34-68, src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:25-36,44,91"
+  - claim: "An approval is identified by its instant: SpecApproval.At is what 'newer' compares, beside the conversation and principal."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecApproval.cs:7-25, src/backend/AgentSmith.Infrastructure.Persistence/Entities/ApprovedSeries.cs:51-58"
+  - claim: "TicketSeries is one row per (project, ticket key) whose revision number and executed head are overwritten by each run, so it cannot say what an earlier attempt worked from."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/TicketSeries.cs:3-16,27,35-49"
+  - claim: "The ticket text fingerprint covers title, description and acceptance criteria, normalised so a re-save that changes nothing is not an edit."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/TicketTextFingerprint.cs:8-25"
+  - claim: "Run.Trigger is 'ticket' or 'manual', written at RunStarted and by the capacity-queue row before the run has read anything, and overwritten on promotion."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:16, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:542, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/QueuedTicketRepository.cs:103-108, src/backend/AgentSmith.Infrastructure.Persistence/Services/QueuedRunProjection.cs:25"
+  - claim: "The prior-run ledger seed is consulted only for a spec without steps, and DbPriorRunLedgerReader reads the newest ledger of the ticket without leaving the current run out, although this run flushes its own ledger mid-run."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:129-132, src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPriorRunLedgerReader.cs:22-37, src/backend/AgentSmith.Application/Services/Resume/PriorRunSeedSource.cs:27-42, src/backend/AgentSmith.Application/Services/Tools/ProgressLedgerFlusher.cs:18-28"
+  - claim: "A resume restores the progress ledger from its checkpoint: the key is not among the serializer's excluded keys."
+    evidence: "src/backend/AgentSmith.Application/Services/Resume/PipelineContextSerializer.cs:27-50"
+  - claim: "Run children are deleted by run id in the run's deletion transaction."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunDeletionRepository.cs:30-64"
+  - claim: "AgentSmithDbContext is at exactly 120 lines; run children are registered through RunChildConfiguration.Children (indexed RunId, no foreign key) and per-table rules through grouped Apply classes such as RunRecordIdentityConfiguration."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/AgentSmithDbContext.cs:74-78, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunChildConfiguration.cs:24-45, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunRecordIdentityConfiguration.cs:18-34"
+  - claim: "RunEventApplier is one switch over every projected event type with run-row updates inline, at its 159-line baseline; its projections are registered in AddRunProjections, and tests build it through RunEventAppliers.Default."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs:23-98, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:21, src/backend/AgentSmith.Infrastructure.Persistence/Extensions/RunProjectionsExtensions.cs:16-40, tests/AgentSmith.Tests/TestSupport/RunEventAppliers.cs:14-26"
+  - claim: "Ratchet rooms: FetchTicketHandler 147 of 189, JiraTicketProvider 197 of 206, AzureDevOpsTicketProvider 214 of 218 (GitHub and GitLab providers are not touched)."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:40,44,55"
+  - claim: "Two migration sets serve the four providers."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Extensions/PersistenceOptionsExtensions.cs:23,32-33"
+  - claim: "RunStarted inserts a new Run row, promotes a queued reservation, or relaunches a waiting row (a duplicate on a running row is ignored); the event carries Project and Platform (the tracker type lowercased)."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs:101-127, src/backend/AgentSmith.Infrastructure.Persistence/Services/QueuedRunProjection.cs:18-29, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:564-567"
+  - claim: "RunDbProjector is the server-side single writer that applies every drained run event once."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunDbProjector.cs:9-14,28-41"
+  - claim: "The highest EventType value is DesignRead = 82; the resolver maps each value to its event type and the dashboard mirrors them."
+    evidence: "src/backend/AgentSmith.Contracts/Events/EventType.cs:110-111, src/backend/AgentSmith.Infrastructure/Services/Events/EventTypeResolver.cs:33,56, src/dashboard/src/types/hub-events.ts:46"
+
+assumptions:
+  - "Each tracker payload the comment mappers already read carries a stable comment id (GitHub IssueComment.Id, Azure DevOps Comment.Id, Jira comment id, GitLab note id); a comment with none records the act's url and time instead."
+
+scope:
+  in: >
+    TRACKER READS: TicketComment gains an optional Id (init), filled by all four comment mappers (GitHub, GitLab,
+    Jira, Azure DevOps) with the tracker's own comment id — the value a ticket-comment cause stores as source.id, so
+    2026-10-13-9a59h's entry ids join on it. Ticket gains an
+    optional WebUrl, a constructor parameter like Kind; ONE copy method Ticket.With(string? description = null,
+    string? webUrl = null) replaces WithDescription (its caller TicketLabelNoteStripper and TicketKindTests move to
+    it), so one place carries every field and later fields (2026-10-13-9a59k's IsClosed) are added there once.
+    GitHubFieldMapper and GitLabFieldMapper pass it from the payload; JiraTicketProvider and
+    AzureDevOpsTicketProvider fill it in GetTicketAsync as _mapper.Map(...).With(webUrl: <creator helper>)
+    (JiraTicketCreator.BrowseUrl(key), extracted from its line 51; AzureDevOpsTicketCreator.WebUrlFor(id) over
+    WorkItemWebUrl) — replacing the mapped line, not adding one. ACT SOURCE: ReworkAct gains Source (init):
+    AttemptSource(Kind, Url, Id, Detail), Kind comment | review | command | status; ReworkActReader sets the
+    comment's id; PrStandingAct.Act takes the PR url and kind and sets the note's HostId (2026-10-13-9a59b), and
+    both its callers pass them (PrReviewFeedbackFetcher and ReworkPendingActs, which has the url at hand);
+    StatusBackActReader sets the status moved into as Detail. CAUSE: AttemptCauseReader (own class) picks what
+    this run served from the slots as they stand: the one ReworkAct slot (already the newer of the ticket keyword
+    act and the pull-request act, ReworkActReader.ApplyPullRequest), except that a status-back act outranks a
+    ticket keyword act in it; else the status-back slot; else requested (ContextKeys.RequestedByName, no actor); else retrigger when a previous
+    attempt exists; else pickup, with the person who moved the ticket into its trigger status when the tracker
+    has history (one read, self excluded, fail-soft). Channel vocabulary: ticket_comment, pull_request,
+    status_move, requested, retrigger, pickup. source.id is TicketComment.Id for a keyword comment and the note's
+    HostId for a review or command. Recorded at FetchTicket on TicketFetchedEvent (Cause,
+    TicketFingerprint, WebUrl); the tracker State the event already carries is persisted too. APPLIER:
+    RunEventApplier becomes a dispatcher handing each event, with its trail position, to projection families
+    (run row, steps and calls, sandboxes, specs, attempt), each a class within 120 lines naming the events it
+    applies, registered in AddRunProjections; the inline run-row arms move into the run-row family. ATTEMPT START
+    NUDGE: the run-row family's RunStarted arm publishes 2026-10-13-9a59a's TicketActivityChanged(Project,
+    TicketKey.For(Platform, TicketId)) through ITicketActivityNudge, fail-soft, when it inserts a new code-pipeline run
+    carrying a ticket or promotes a reservation whose status == queued — never for a relaunch of a
+    waiting_for_input row (RunStatuses.IsWaiting covers both, so the arm tests == Queued) or a replay. Later
+    members add an arm to a family or register a family; none grows the dispatcher. REVISION: SpecSetAnnouncer
+    (own class) builds and publishes SpecSetPublishedEvent (EventType.SpecSetPublished = 83) once per publish
+    after placement, written or not (an event 83 that 2026-10-13-9a59e publishes from
+    SpecHandbackHandler for a hand-back that never reached the publisher carries no revision): revision number and cause as written, series id, executed spec ids carried
+    in, the set's approval (instant, conversation, principal) when it carries one, and whether the write
+    committed; SpecSetPublisher calls it in both branches. STORE: RunAttempt (long Id key like every run child), one row per run (unique RunId),
+    registered in RunChildConfiguration.Children with RunAttemptConfiguration (unique RunId) applied from
+    RunChildConfiguration.Apply — AgentSmithDbContext untouched; written by RunAttemptProjection in the attempt
+    family: fetch fields (cause channel, actor, at, source kind/url/id/detail, fingerprint, tracker state, web
+    url) set once (a resume keeps the first), revision fields (number, cause, series id, carried ids, worked
+    approval instant, conversation, principal) last-wins within the run, left untouched by an event 83 that carries
+    no revision; an attempt that handed back before DeriveSpec published (scope refusal, missing spec) has no
+    revision fields, and readers treat it as having worked no approval; an insert race between replicas
+    resolves through the unique index; deleted in DeleteChildrenAsync; migrations in both sets. Run.Trigger is
+    left as it is. PRIOR LEDGER: IPriorRunLedgerReader.ReadLatestForTicketAsync takes excludingRunId;
+    PriorRunSeedSource passes the run id; the null reader follows. READ MODEL: 9a59a's TicketAttemptView gains
+    cause{channel, actor, at, source{kind,url,id,detail}} and revision{number, cause, seriesId, carriedIds,
+    approvalAt}; TicketSummaryView gains cause, trackerState and webUrl from the newest attempt that has a
+    RunAttempt row (a queued reservation has none yet) — one set query per page. MIRROR: hub-events.ts for the extended TicketFetchedEvent and SpecSetPublishedEvent 83
+    (pnpm gen:hub-events) and a FilterRail label for SpecSetPublished.
+  out: >
+    The operator channel (approving a proposal in the ticket conversation) and its use of the worked approval
+    recorded here — 2026-10-13-9a59m. Retry unchanged and the retry channel with the principal as actor (a Retry
+    move is ours, so this spec reads it as retrigger without a person) — 2026-10-13-9a59n. The cut's specs (goal,
+    repos, steps, done criteria, hand-back case) on SpecSetPublishedEvent — 2026-10-13-9a59e. The pull request's
+    review record and the PrReviewNote/PrReviewThread HostId — 2026-10-13-9a59b. Stuck, which compares these
+    fingerprints between attempts, and the conversation order — 2026-10-13-9a59h. Whether an attempt answers a
+    parked hand-back: on the compute read from this cause — 2026-10-13-9a59j; hand-back recognition from the
+    conversation entry — 2026-10-13-9a59h (a RunSpec handed_back mark covers premise hand-backs only). The editor of a ticket edit and "changed the
+    criteria": no tracker gives them (operator decision 3); the read shows the revision cause TicketEdit.
+    Who requested a chat run by name: the envelope carries a flag only; none of the series records it.
+
+decisions:
+  - key: "RECORDED WHERE THE RUN READS ITS ACT. Since e8b9b any claimer may win the lease; a cause set at the door would say poller for a PR review. FetchTicket is the one place that knows."
+  - key: "CAUSE ORDER = THE SLOTS AS THEY STAND (review3 F3). The one ReworkAct slot already holds the newer of the ticket keyword act and the pull-request act (ReworkActReader.cs:41-45), a choice by time made before this reader runs; then the status-back slot ranks above a ticket act, by kind. SpecRevisionCause reads the same slot (SpecRevisionCause.cs:74-75), so cause and revision agree on which act. They can still differ in KIND: a status move on a set with an unexecuted tail serves the move while the revision says re-trigger (StatusBackCause.cs:23), and a re-cut demand comment records ticket_comment or pull_request while the revision says RecutDemand (SpecRevisionCause.cs:73); both are recorded and the read shows both."
+  - key: "NO PreviousAttemptRunId (review cut C4). Lineage is 9a59a's run-id order, computed per read; a stored pointer would copy that ordering and dangle once the earlier run is deleted (operator decision 2)."
+  - key: "WEB ADDRESS FROM WHERE THE TRACKER STATES IT (review cut C1). GitHub and GitLab give it in the payload, so their mappers read it; Jira and Azure DevOps compose it from the connection, so their providers fill it through the helper their creators already use — one formula per tracker, not a second guess."
+  - key: "RUN.TRIGGER STAYS, UNCHANGED. It answers ticket-or-manual at launch, before anything is read, and the queued row writes it; overloading it with the cause would make one column mean two moments."
+  - key: "A ROW PER RUN, NOT COLUMNS ON RUN. A dozen fields would push Run.cs past its limit; a RunAttempt child keyed by run id dies with its run (operator decision 2). It goes through RunChildConfiguration (review cut C6): AgentSmithDbContext is at 120 lines and is never edited."
+  - key: "SET-ONCE CAUSE, LAST-WINS REVISION. A resume keeps the run id and must not rewrite why the attempt began; the revision is written once per publish and a replay writes the same values."
+  - key: "THE WORKED APPROVAL IS RECORDED. Only the run knows whether an approval landing mid-attempt was picked up, so it records the approval instant it published; 9a59m starts a further attempt only for an approval newer than that, and 9a59h's 'now' group starts there."
+  - key: "THE APPLIER IS SPLIT HERE, ONCE. It is at its ratchet and e, f, g, i and j add routes; the first member to touch it makes room, so the others add an arm in the family that owns their table."
+  - key: "AN ANNOUNCER, NOT A FATTER PUBLISHER (review cut C7). SpecSetPublisher is 101 lines; building the event and publishing it is SpecSetAnnouncer's, into which 2026-10-13-9a59e adds one call to its SpecCutContent builder (the cut, and the one writer of the hand-back case) and a hand-back-only publish that SpecHandbackHandler calls for a hand-back that never reached the publisher (scope refusal, missing spec); the publisher grows by one call per branch."
+  - key: "ONE PUBLISH EVENT FOR THE SERIES. The revision this attempt worked from and the cut's content are one moment; 9a59e extends event 83 rather than adding a second writer, and stores only what RunAttempt does not."
+  - key: "NO answersHandback (review3 F1). A RunSpec handed_back row is written only by the premise check, which fails the run (CheckSpecPremisesHandler.cs:107-117); every parked hand-back goes through SpecHandbackHandler without one, so a flag read from it would be false for every park. Whether an attempt answers a hand-back is 2026-10-13-9a59j's compute read of this cause, and hand-back recognition is 2026-10-13-9a59h's from 9a59g's entry."
+  - key: "ONE COPY METHOD ON TICKET (review3 F2). Ticket is a sealed class, so neither `with` nor an init setter outside `new` reaches a mapped ticket; a second hand copy beside WithDescription would be a second place to forget a field (Ticket.cs:68-69). Ticket.With(description, webUrl) replaces it."
+  - key: "WHAT IS NOT RECORDED IS NOT SHOWN (review cut C5, operator decisions 3 and 4). 'ticket edited' from the revision cause TicketEdit; the editor and what changed are not rendered. 'requested' carries no actor."
+  - key: "SOURCE AS DATA, NOT A LINK. The source keeps kind, url, id and detail so the conversation and attempts views can link or quote; where a host gives no id the url and the host time (already the act's identity since e8b9b) stand in."
+  - key: "PICKUP READS HISTORY ONCE MORE, FAIL-SOFT (review finding 8). StatusBackActReader reads only with a previous attempt; a first attempt reads the mover once, and a label- or webhook-triggered pickup without trigger statuses records no actor."
+  - key: "A NEW ATTEMPT ANNOUNCES ITSELF (series coordination, 2026-10-13). The ticket page refreshes on TicketActivityChanged plus its own runs' events; a new attempt has a run id the page has not seen, so its start is the one moment the ticket must be named. The single-writer projector publishes it from the RunStarted arm with Run.Platform, the spelling of a's ticketKey; a relaunch is not a new attempt and a replay inserts nothing. A capacity reservation is announced when it is promoted, not when it is written."
+  - key: "THE SELF-READ IS FIXED, NOT RECORDED. A resumed run restores its ledger from the checkpoint, so leaving the current run out of the prior-run read loses nothing."
+
+steps:
+  - id: tracker-reads
+    action: "TicketComment.Id filled by all four comment mappers (the value cause.source.id stores); Ticket.WebUrl as a constructor parameter, Ticket.With(description, webUrl) replacing WithDescription (TicketLabelNoteStripper.cs:47, TicketKindTests.cs:71 move); GitHub/GitLab mappers pass it, Jira/Azure DevOps providers append .With(webUrl: helper) to the mapped line (Jira room 9, Azure DevOps 4: zero net lines)."
+  - id: act-source
+    action: "AttemptSource record; ReworkAct.Source set by ReworkActReader, PrStandingAct.Act (url, kind review|command, 9a59b's HostId) with both callers (PrReviewFeedbackFetcher.cs:63, ReworkPendingActs.cs:47) and StatusBackActReader."
+  - id: cause
+    action: "AttemptCauseReader: the ReworkAct slot (newer of ticket and PR act) unless it is a ticket act and a status-back act exists, else the status-back slot, else requested, retrigger or pickup (with the mover); fingerprint from TicketTextFingerprint."
+  - id: fetch-event
+    action: "TicketFetchedEvent gains Cause, TicketFingerprint, WebUrl; FetchTicketHandler (147 of 189) calls the reader and passes them; hub-events.ts mirror."
+  - id: applier-split
+    action: "RunEventApplier becomes a dispatcher over five projection families (<= 120 lines each) registered in AddRunProjections; run-row arms move to the run-row family, whose RunStarted arm publishes TicketActivityChanged on an insert or a promotion of a row == queued (not IsWaiting); RunEventAppliers.Default follows; its baseline row is removed."
+  - id: publish-event
+    action: "SpecSetAnnouncer builds and publishes SpecSetPublishedEvent 83; SpecSetPublisher (101) calls it in both branches; EventType 112 -> 114 of 120 (one comment line + the entry; f takes 114 -> 116, g 116 -> 120) and resolver entries; hub-events.ts; FilterRail.tsx:8 label SpecSetPublished; pnpm gen:hub-events and pnpm build pass."
+  - id: store
+    action: "RunAttempt entity (long Id) in RunChildConfiguration.Children + RunAttemptConfiguration (unique RunId) applied from its Apply; migrations in both sets; DeleteChildrenAsync deletes it (RunDeletionRepository about 90 -> 91 after b); data-archive counts +1 table +2 rows (37/76 today, 39/80 after b's two tables, 40/82 after d) at DataArchiveRoundTripTests.cs:33,34,54,81 and DataArchiveSchemaTests.cs:63."
+  - id: projection
+    action: "RunAttemptProjection in the attempt family for both events: fetch fields set once, revision fields last-wins and untouched by an event 83 without a revision, unique-violation tolerant."
+  - id: prior-ledger
+    action: "IPriorRunLedgerReader.ReadLatestForTicketAsync takes excludingRunId; DbPriorRunLedgerReader filters it; PriorRunSeedSource passes the run id; NullPriorRunLedgerReader follows."
+  - id: read-model
+    action: "9a59a's attempt and summary views carry cause, revision, trackerState and webUrl (summary: newest attempt with a RunAttempt row), read in one set query per page."
+  - id: tests
+    action: "Red first for every test below, then green; run the classes touched."
+
+tests:
+  - "AttemptCause_KeywordComment_RecordsTicketCommentWithItsId"
+  - "AttemptCause_RequestChanges_RecordsPullRequestReviewWithUrlAndHostId"
+  - "AttemptCause_CommentCommand_RecordsPullRequestCommand"
+  - "AttemptCause_StatusMovedBack_RecordsStatusMoveWithActor"
+  - "AttemptCause_PrActAndNewerStatusMove_RecordsThePullRequest"
+  - "AttemptCause_KeywordCommentNewerThanRequestChanges_RecordsTheComment"
+  - "AttemptCause_RequestedByName_IsRequestedWithoutActor"
+  - "AttemptCause_NoActWithPreviousAttempt_IsRetrigger"
+  - "AttemptCause_FirstAttempt_IsPickupWithTheMover"
+  - "AttemptCause_HistoryUnreadable_IsPickupWithoutActor"
+  - "AttemptCause_AnotherReplicaClaimed_StillRecordsThePrReview"
+  - "RunEventApplier_EveryProjectedEventType_ReachesExactlyItsFamilies"
+  - "RunAttemptProjection_ResumedRun_KeepsTheFirstCause"
+  - "RunAttemptProjection_RedeliveredEvents_WriteOneRow"
+  - "RunAttemptProjection_PublishEvent_RecordsRevisionCarriedIdsAndApprovalInstant"
+  - "SpecSetAnnouncer_WriteFailed_StillPublishesWithCommittedFalse"
+  - "RunDeletion_DeletesTheRunAttemptRow"
+  - "RunStarted_NewCodeRunOrPromotedReservation_PublishesTicketActivity_RelaunchAndReplayDoNot"
+  - "DbPriorRunLedgerReader_CurrentRun_IsLeftOut"
+  - "CommentMappers_EveryTracker_FillTheCommentId"
+  - "TicketProviders_EveryTracker_FillTheWebUrl"
+  - "Ticket_With_CarriesEveryProperty"
+  - "RunAttemptProjection_HandbackOnlyPublish_LeavesRevisionEmpty"
+  - "TicketDetail_Attempts_CarryCauseRevisionAndWebUrl"
+
+done:
+  - "An attempt started by a Request changes shows on its ticket as a pull-request review, naming the reviewer, the PR and the review, whichever replica claimed it."
+  - "An attempt started by a keyword comment names that comment; a status move names who moved it and where."
+  - "A ticket-edit revision says the ticket was edited, naming no editor."
+  - "Each attempt names the revision and approval it worked from with its cause, and the executed specs it carried in."
+  - "A ticket's detail links to the ticket in its tracker on GitHub, GitLab, Jira and Azure DevOps."
+  - "A resumed attempt keeps the cause it began with."
+  - "A new attempt's start sends TicketActivityChanged for its ticket on every replica; a relaunch after a park sends none."
+  - "A run's attempt record is gone when the run is deleted, on all four providers."
+  - "RunEventApplier is under the 120-line limit and leaves the file-length baseline; AgentSmithDbContext is unchanged."
+  - "A step-less spec never seeds its ledger from its own run."

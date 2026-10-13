@@ -16,6 +16,7 @@ scope:
   out: "The tabs behind the graph (2026-09-09-094f). Starting an attempt from here — the control belongs to the work-plan tab in 2026-09-09-094f and its endpoint is 2026-09-09-b51e. Replacing the run viewer: every node's detail links to it and it keeps its own route. Inventing state a payload does not carry; a node whose facts are missing renders as unknown and says which phase would provide them."
 
 decisions:
+  - key: "RETIRED 2026-10-13, never built: the code moved for a month and a re-review refused it; superseded by 2026-10-13-9a59q (the dashboard ticket graph)."
   - key: |
       THE GRAPH IS THE CONTROL FLOW, NOT A DECORATION. Five boxes in a row cannot show that verify
       returns to build, that build fans out per repository, or that a question hangs off build and

@@ -1,0 +1,265 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-9a59a
+goal: "The server answers which tickets exist, who must act next on each and what their attempts were, so the ticket page reads one answer instead of regrouping runs in the browser."
+
+applies_to: "backend (Server ticket read endpoints, run snapshot, ticket activity nudge on the system stream) + the dashboard's RunSnapshot and system-events mirrors"
+
+requires: [2026-09-17-042ej, 2026-09-22-7c41c, 2026-10-02-5ab2b, 2026-10-08-7c0e, p0503a]
+
+facts:
+  - claim: "Run carries Project, Pipeline, TicketId, TicketTitle, a nullable Platform, Status, StartedAt and FinishedAt; the id is the sortable p0156 run id."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:3-21"
+  - claim: "Run ids start with a yyyy-MM-ddTHH-mm-ss timestamp, so a month is a string prefix of the id."
+    evidence: "src/backend/AgentSmith.Application/Services/RunIdGenerator.cs:12-15"
+  - claim: "FiledWorkRunsReader reads one ticket's runs across a list of projects, every pipeline, newest first by run id, capped at 10, and composes each with its executed specs and the pending question of a parked run."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkRunsReader.cs:20-69"
+  - claim: "Its callers pass the projects of one tracker or one project and rely on the cap of 10."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/BoundTicketRuns.cs:17-30, src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkReader.cs:69, src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkReader.cs:87"
+  - claim: "The previous-attempt reader leaves queued rows out: to it a queued row is a capacity reservation, never an attempt. This spec counts a live reservation, so it does NOT reuse that rule."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPreviousAttemptReader.cs:11-30"
+  - claim: "A capacity reservation is a Run row with the reserved run id, Pipeline from the candidate, Trigger ticket and Status queued; RunStarted promotes that same row, keeping its id."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/QueuedTicketRepository.cs:103-108, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs:101-114"
+  - claim: "Promotion overwrites StartedAt, so StartedAt cannot order attempts."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/QueuedRunProjection.cs:18-25"
+  - claim: "QueuedRunSweeper flags a claimed request whose consumer stopped beating before RunStarted with cancel reason interrupted, the liveness reaper's reason."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/QueuedRunSweeper.cs:39-40, src/backend/AgentSmith.Server/Services/Lifecycle/QueuedRunSweeper.cs:73-78"
+  - claim: "A RunStep row is written by StepStartedEvent, so a row that never started a step has none; PipelineStepRunner is the only publisher of StepStartedEvent."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs:52, src/backend/AgentSmith.Application/Services/PipelineStepRunner.cs:164"
+  - claim: "A launch that reserved a run id and throws in its prologue (init, capacity-queue, resume) ends that reserved row as failed before any step starts."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:360-372"
+  - claim: "A cancel request ends the row as cancelled for every reason except sandbox-vanished, so a queue cancel and the sweeper's interrupted flag both finalize as cancelled."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:585-589"
+  - claim: "SQLite cannot ORDER BY or compare a DateTimeOffset; the runs list orders by id and applies its cursor in memory."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunRepository.cs:35-41"
+  - claim: "A parked run whose relaunch holds a queue place or a fresh lease is not waiting on a person; RunQueuePlace is the one gate the overview and the run detail share, and RelaunchingAsync reads one lease per waiting run."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/RunQueuePlace.cs:36-81, src/backend/AgentSmith.Server/Services/Events/RunListComposer.cs:57-75, src/backend/AgentSmith.Server/Extensions/RunQueryEndpoints.cs:95-108"
+  - claim: "A question park writes a checkpoint; a hand-back park sets the same awaiting flag and writes none, and both end the run as waiting_for_input."
+    evidence: "src/backend/AgentSmith.Application/Services/Triage/MasterOpenQuestionsHandler.cs:62-66, src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackPark.cs:41-44, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:222-232"
+  - claim: "A handed-back spec keeps the RunSpec status handed_back."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSpecProjection.cs:93"
+  - claim: "There are two hand-back producers: the derivation hand-back parks the run with no specs (so no RunSpec row), the premise hand-back writes RunSpec handed_back and fails the run."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs:17-20, src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackPark.cs:41-44, src/backend/AgentSmith.Application/Services/Handlers/CheckSpecPremisesHandler.cs:107-117"
+  - claim: "A parked run superseded by a PR act is finalized as cancelled with the summary 'cancelled — superseded by a PR act', so its row no longer tells that it was a hand-back."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/WaitingRunCloser.cs:13-18"
+  - claim: "PendingQuestionInfo carries the question id, type, text, context, choices, default answer, asked-at and answer deadline."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/PendingQuestionInfo.cs:13-21"
+  - claim: "PendingQuestionInfo.FromCheckpoint returns null for a missing or resumed checkpoint; pending checkpoints are the ones not yet resumed."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/PendingQuestionInfo.cs:28-31, src/backend/AgentSmith.Contracts/Services/IRunCheckpointStore.cs:18-19"
+  - claim: "A waiting status keeps FinishedAt null, so the moment of a park without a checkpoint is not stored."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:65-71"
+  - claim: "Run.TokensIn and TokensOut are never written; the run row accumulates cost only."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunLlmCallProjection.cs:33-37, src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:30-32"
+  - claim: "PullRequestsJson carries every repo's PR with openedAt and is what FiledWorkRunsReader and /api/pull-requests read."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:61-66, src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkRunsReader.cs:51-57"
+  - claim: "An index on Runs(Project, TicketId) already exists."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunConfiguration.cs:24-27"
+  - claim: "The run snapshot and its live fold carry neither Project nor Platform, although RunStartedEvent carries both."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/RunSnapshot.cs:12-40, src/backend/AgentSmith.Server/Services/Events/RunSnapshotFold.cs:16-24, src/backend/AgentSmith.Contracts/Events/L1RunEvents.cs:24-29"
+  - claim: "The live fold's snapshot never leaves the server with its fields: the overview nudge sends only the run id, and the only other reader of the active set asks ContainsKey."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/JobsHubFanout.cs:15-19, src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs:135"
+  - claim: "RunSnapshot.cs sits at its file-length baseline of 130 lines; the default limit is 120."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:39, tests/AgentSmith.Tests/Architecture/FileLengthRatchetTests.cs:19-52"
+  - claim: "observed: 2026-10-13, wc -l in this worktree: RunSnapshotFold.cs 119, RunSnapshotMapper.cs 117, FiledWorkRunsReader.cs 102, SystemEventStream.cs 86, BackpressureSafeFanout.cs 62, IRunEventFanout.cs 38, JobsHubFanout.cs 35, EventTypeResolver.cs 78, SystemEventType.cs 33; none has a baseline row, so each is held to 120."
+    evidence: "observed: 2026-10-13, wc -l + grep of tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv"
+  - claim: "The RunSnapshot TypeScript mirror is hand-kept; gen:hub-events checks records under Contracts/Events against hub-events.ts and system-events.ts."
+    evidence: "src/dashboard/src/types/hub-events.ts:677, tools/build-hub-event-types.mjs:2-27"
+  - claim: "The name ITicketReader is taken by the dialog's tracker slice reader."
+    evidence: "src/backend/AgentSmith.Contracts/Dialogue/ITicketReader.cs:20"
+  - claim: "/api/pull-requests, a regrouping of run rows, needs runs.read and is mapped with the other UI read endpoints; the route table is pinned by a golden baseline."
+    evidence: "src/backend/AgentSmith.Server/Extensions/PullRequestQueryEndpoints.cs:25-29, src/backend/AgentSmith.Server/Extensions/ServerEndpointExtensions.cs:53, src/backend/AgentSmith.Server/Security/Permissions.cs:18, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:51"
+  - claim: "ApprovedSeries treats one ticket in two projects of one tracker as the same work; the operator decided a ticket belongs to exactly one project."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/ApprovedSeries.cs:25-28, observed: 2026-10-13, operator decision 1 in the 9a59 series brief"
+  - claim: "The run-list nudge is data-free and reaches only the clients of the replica that sends it: the hub has no backplane."
+    evidence: "src/backend/AgentSmith.Contracts/Services/IRunListNudge.cs:19-26, src/backend/AgentSmith.Server/Services/Events/JobsHubRunListNudge.cs:13-17"
+  - claim: "Every replica runs JobsBroadcaster as a hosted service, and each drains the system stream with its own cursor."
+    evidence: "src/backend/AgentSmith.Server/Extensions/DashboardApiExtensions.cs:42-43, src/backend/AgentSmith.Server/Services/Events/JobsBroadcaster.cs:211, src/backend/AgentSmith.Server/Services/Events/SystemEventStream.cs:22, src/backend/AgentSmith.Server/Services/Events/SystemEventStream.cs:55-69"
+  - claim: "Every drained or rehydrated system event is appended to the 10 000-entry ring that feeds the System page's 24 h rollup, and is sent only to the System group."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/SystemEventStream.cs:19, src/backend/AgentSmith.Server/Services/Events/SystemEventStream.cs:43-47, src/backend/AgentSmith.Server/Services/Events/SystemEventStream.cs:63-72, src/backend/AgentSmith.Server/Services/Events/JobsHubFanout.cs:30-34"
+  - claim: "Subscribing to the System group seeds the caller with the last 50 entries of the same system stream, deserialized with no type filter."
+    evidence: "src/backend/AgentSmith.Server/Hubs/JobsHub.cs:44-48, src/backend/AgentSmith.Server/Services/Events/SystemBacklogReader.cs:22, src/backend/AgentSmith.Server/Services/Events/SystemBacklogReader.cs:31-52"
+  - claim: "Every system event shares one Redis stream capped near 10 000 entries, the window RehydrateAsync reads back."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Events/RedisSystemEventPublisher.cs:31-34, src/backend/AgentSmith.Infrastructure/Services/Events/EventStreamKeys.cs:14, src/backend/AgentSmith.Server/Services/Events/SystemEventStream.cs:38-41"
+  - claim: "describeSystemEvent switches over every SystemEventType with no default under strict TypeScript, so a new member of the SystemEvent union without a case fails the dashboard build."
+    evidence: "src/dashboard/src/hooks/useSubsystemActivity.ts:119-145, src/dashboard/tsconfig.json:7"
+  - claim: "IRunEventFanout has two implementations, JobsHubFanout and BackpressureSafeFanout, and two test doubles."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/IRunEventFanout.cs:10-38, src/backend/AgentSmith.Server/Services/Events/BackpressureSafeFanout.cs:30-34, tests/AgentSmith.Tests/Services/Events/RunEventRouterTests.cs:148, tests/AgentSmith.Tests/Services/Events/RunEventRouterTests.cs:174"
+  - claim: "A system event whose type EventTypeResolver.ResolveSystem does not map is dropped on deserialization."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Events/EventEnvelopeSerializer.cs:85-90, src/backend/AgentSmith.Infrastructure/Services/Events/EventTypeResolver.cs:62-77"
+  - claim: "SystemEventType ends at ConfigReloaded = 55; a system event record passes Source, its type and Timestamp to the SystemEvent base."
+    evidence: "src/backend/AgentSmith.Contracts/Events/SystemEventType.cs:29-32, src/backend/AgentSmith.Contracts/Events/ConfigChangedEvent.cs:8-13"
+  - claim: "ISystemEventPublisher defaults to a no-op and the server swaps in the Redis publisher."
+    evidence: "src/backend/AgentSmith.Application/Services/Events/EventPublishingExtensions.cs:21-24, src/backend/AgentSmith.Server/Services/RedisExtensions.cs:53"
+  - claim: "A ticket's key is TicketKey.For(tracker type, ticket id); the binder takes the type from the project's tracker, and a bound conversation stores only that key and its tracker."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/TicketKey.cs:13-25, src/backend/AgentSmith.Server/Services/SpecDialog/TicketConversationBinder.cs:42-46, src/backend/AgentSmith.Infrastructure.Persistence/Entities/SpecDialogSession.cs:64-67"
+  - claim: "A bound conversation's key is TicketKey.For(platform, ticket id) with platform = the project's tracker type lowercased, and RunStartedEvent stamps Run.Platform with that same string; TicketKey.For lowercases and slugs both parts."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketBinding.cs:24-27, src/backend/AgentSmith.Server/Services/SpecDialog/TicketConversationBinder.cs:44-46, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:564-567, src/backend/AgentSmith.Contracts/Specs/TicketKey.cs:13-25"
+  - claim: "A ticket's work branch is agent-smith/<ticket id>, composed from the ticket id alone, unless the run was handed a CheckoutBranch."
+    evidence: "src/backend/AgentSmith.Application/Services/TicketBranchNamer.cs:27-28, src/backend/AgentSmith.Application/Services/RunBranchResolver.cs:22-28"
+  - claim: "A reservation row already stores the lowercased Platform, the same string RunStarted stamps."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/QueuedTicketRepository.cs:103-107, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:564-567"
+  - claim: "Infrastructure ends reach the run row only as CancelReason interrupted (liveness reaper, queued-run sweeper) or stale-lease-reaped (lease reaper); the last cancel request wins."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/RunLivenessReaper.cs:35, src/backend/AgentSmith.Application/Services/Lifecycle/StaleLeaseRelease.cs:65-67, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs:143-149"
+  - claim: "A capacity rejection does not end a run: RunFinished status queued keeps the row waiting and upserts its queue entry."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:65-71, src/backend/AgentSmith.Infrastructure.Persistence/Services/QueuedRunProjection.cs:52-76"
+  - claim: "The only multi-provider persistence test runs SQLite always and SQL Server only when AGENTSMITH_TEST_DB_CONNSTR is set."
+    evidence: "tests/AgentSmith.Tests/Persistence/MoneyPrecisionPersistenceTests.cs:20-37"
+
+assumptions:
+  - "Five thousand ticket-carrying code runs cover every ticket an operator works this quarter; the response says when the ceiling cut older tickets off."
+  - "Every run that does work starts at least one step; a CANCELLED row with no RunStep never did work."
+
+scope:
+  in: >
+    TICKET: (Project, raw TicketId) with at least one code-pipeline run. ATTEMPTS: its code-pipeline runs ordered by
+    run id and numbered from 1, computed per request and never stored, so a deleted run renumbers the rest. A live
+    queued reservation IS an attempt (it keeps its id when promoted) and stays counted by TicketAttempts — the
+    latest-attempt check of 2026-10-13-9a59n relies on it. A CANCELLED row with no RunStep never started —
+    a reservation the operator cancelled from the queue, or a request QueuedRunSweeper flagged interrupted before
+    RunStarted (both finalize as cancelled) — and is NOT an attempt; a FAILED row with no RunStep (a reserved
+    launch whose prologue threw) IS a numbered attempt with lastOutcome failed: it is listed among the ticket's other runs as never started, so it is
+    never numbered and never endedOnInfrastructure. A ticket whose code rows all never started reads idle with 0
+    attempts. Runs of other pipelines (pr-review, security-scan, init) are other runs, never attempts. Title and
+    Platform come from the newest run that carries them; ticketKey = TicketKey.For(the newest run's Platform, falling
+    back to the project's tracker type lowercased, raw ticket id).Value — exactly the spelling SpecDialogSession.TicketKey holds and Run.Platform carries,
+    so 2026-10-13-9a59g's BoundSessionNudge and 2026-10-13-9a59d's attempt-start nudge name the same ticket (null
+    only when no run carries a Platform and the project is no longer configured). READERS in Server/Services/Tickets (never ITicketReader),
+    split so b, e and h extend seams: TicketAttempts (the attempt predicate), InfrastructureEnd, TicketBucketRule,
+    TicketListQuery (the ceiling read), TicketCounts, TicketMonthCost, TicketListReader (compose, sort, page),
+    TicketDetailReader. FiledWorkRunsReader gains ForRunsAsync(rows) — the compose half of ForAsync — which ForAsync
+    then calls; its callers keep the cap of 10 and every pipeline. BUCKETS: needs_you when the newest attempt is
+    waiting_for_input and RunQueuePlace gives it no place, kind question (a pending checkpoint, its
+    PendingQuestionInfo carried) or handback (no pending checkpoint); working when running, queued, or waiting with
+    a place; idle otherwise, carrying lastOutcome = its status. ARM ORDER for the series (later members insert, never reorder):
+    needs_you > working > waiting_on_review (9a59b) > stuck (9a59h) > done (9a59b) > idle. since = the checkpoint's AskedAt, the attempt's
+    StartedAt, or its FinishedAt; null for a hand-back. INFRASTRUCTURE END: one class — the attempt was cancelled
+    with reason interrupted or stale-lease-reaped. LIST: GET /api/tickets?project=&bucket=&cursor=&limit= reads the
+    newest 5000 code runs carrying a ticket (light columns plus a has-step EXISTS, no JSON), groups and buckets in
+    memory, sorts by the newest attempt's run id, pages with that id as the cursor (limit default 50, max 200) and
+    returns TicketCountsView, honouring ?project= (per bucket, working split running/queued — a parked
+    run whose relaunch holds a place or a fresh lease counts as queued, oldestNeedsYouSince, monthCost over all
+    runs of the filtered project(s) from the month's run-id prefix with decimal summed in memory, truncated). TicketSummaryView: project,
+    ticketId, ticketKey, platform, title, bucket, kind, since, attemptCount, cost, newestRunId, status, lastOutcome,
+    queuePlace, pendingQuestion (on a needs_you question row only: the PendingQuestionInfo of the pending checkpoint —
+    text, choices, defaultAnswer, answerDeadlineAt — plus runId, so 2026-10-13-9a59p renders PendingQuestionCard
+    inline; read from the checkpoints the bucket rule already loads, so no extra query), specsDone, specsTotal (the newest attempt's RunSpec rows), attempts[] = {runId, status,
+    endedOnInfrastructure, handedBack = (status waiting_for_input AND no pending checkpoint) OR (a RunSpec of it is
+    handed_back)}. DETAIL: GET /api/tickets/{project}/{ticketId}
+    (URL-encoded) returns TicketDetailView = the summary + branch (the ticket's default branch, TicketBranchNamer.Compose; a run handed a CheckoutBranch worked elsewhere) + attempts[TicketAttemptView
+    = number, runId, status, startedAt, finishedAt, cost, endedOnInfrastructure, handedBack, pullRequests (from
+    PullRequestsJson), executedSpecs (RunSpec rows with verdicts), pendingQuestion] + otherRuns; 404 for a pair with
+    no code run. Both need runs.read, are mapped beside the PR endpoints, route-permission-baseline.tsv regenerated.
+    NUDGE: TicketActivityChangedEvent(Source, Project, TicketKey, Timestamp) with SystemEventType.TicketActivityChanged
+    = 56 and an EventTypeResolver.ResolveSystem row; ITicketActivityNudge (Contracts) implemented once over
+    ISystemEventPublisher. SystemEventStream hands this type to a new IRunEventFanout.ToTicketActivityAsync and keeps
+    it OUT of the ring, the rollup and the System group, in DrainAsync and RehydrateAsync, and SystemBacklogReader
+    skips it in the System group's 50-entry seed; JobsHubFanout sends hub
+    message TicketActivityChanged(project, ticketKey) to the overview group; BackpressureSafeFanout bounds it like the
+    others; both test doubles gain the member. system-events.ts mirrors the record and describeSystemEvent gains its case (returns "" — the type never
+    reaches the System page). This spec publishes none.
+    SNAPSHOT: RunSnapshot gains Project and Platform, set by RunSnapshotMapper (GET /api/runs and the run detail);
+    hub-events.ts RunSnapshot gains both. RunSnapshotFold is not touched: its snapshot never leaves the server with
+    its fields.
+  out: >
+    Waiting on review, Done, open-PR count, Done this month and the list row's PR review — 2026-10-13-9a59b. The
+    cause, revision, fingerprint, tracker state and web address of an attempt — 2026-10-13-9a59d. Not-started
+    specs, the series strip and per-spec verdicts — 2026-10-13-9a59e. Per-pass cost and steps as worked —
+    2026-10-13-9a59f. Stuck, the between-attempts check and the hand-back's since — 2026-10-13-9a59h (from the
+    hand-back entry 2026-10-13-9a59g records). The handedBack mark of a hand-back attempt later superseded or
+    cancelled — 2026-10-13-9a59h, from 2026-10-13-9a59g's SpecHandedBack (85) entry; until then a reads it as cancelled. Sandbox end reasons — 2026-10-13-9a59i; the sandbox arm of
+    InfrastructureEnd — 2026-10-13-9a59n. Publishing TicketActivityChanged — 2026-10-13-9a59b, 2026-10-13-9a59g,
+    2026-10-13-9a59h, 2026-10-13-9a59l, and on a new attempt's start 2026-10-13-9a59d. The dashboard listener and list — 2026-10-13-9a59p; the graph —
+    2026-10-13-9a59q. Token totals: the mock shows none and the run row holds none.
+
+decisions:
+  - key: "SUPERSEDES THE 2026-09-09 TICKET-UI SET. 2026-10-13-9a59a..s replace 2026-09-09-fd21, -577c, -debf, -b51e, -9e54, -5cb7, -53e9, -ce50, -1a80, -3158, -094f and -be83, which never ran; their files stay in specs/done as the superseded record."
+  - key: "A PROJECTION, NOT A TABLE. A ticket is computed over its runs per request; nothing new is stored, so nothing can disagree with the runs and nothing outlives a deleted run."
+  - key: "KEY = (PROJECT, RAW TICKET ID). Operator decision 1; Run and the previous-attempt reader already key on it. ticketKey rides beside it only to match conversations and nudges, never as the identity."
+  - key: "ATTEMPTS: CODE RUNS BY RUN ID, A LIVE RESERVATION INCLUDED, A NEVER-STARTED END EXCLUDED. Operator decision 11; StartedAt moves on promotion. Unlike DbPreviousAttemptReader (which drops every queued row), a live reservation counts: it is the work about to happen and keeps its id. A CANCELLED row without a RunStep did nothing, so it is never numbered — which is also why a reservation the sweeper flags interrupted can never be offered Retry unchanged. A FAILED row without a step is a prologue failure (ExecutePipelineUseCase.cs:360-372) the operator must see, so it stays a numbered attempt (review3-a finding 3)."
+  - key: "RUN-SIDE BUCKETS ONLY, THROUGH RUNQUEUEPLACE. A bucket from Run.Status alone would show needs-you while the runs page says queued to resume, the disagreement 7c41c removed. idle carries lastOutcome until b and h add their buckets."
+  - key: "ONE INFRASTRUCTURE-END RULE. The attempt read, the composer's Retry offer and the Retry endpoint ask one class (2026-10-13-9a59n extends it), so the page never offers what the endpoint refuses. Of operator decision 8's causes, host unreachable IS interrupted (the driving process stopped beating) and capacity never ends an attempt (a rejection keeps the row queued), so neither needs an arm of its own."
+  - key: "PAGING IN MEMORY OVER A STATED CEILING. Buckets are computed in memory, so a page needs every ticket's newest attempt anyway; 5000 runs is the ceiling and the response says when it bit. The sort key is the newest attempt's run id: immutable and SQLite-safe."
+  - key: "THE TICKET NUDGE IS A SYSTEM EVENT, KEPT OFF THE SYSTEM PAGE. The run-list nudge reaches only the sender's replica, while every replica drains the system stream with its own cursor. It is a UI refresh signal, not system activity: SystemEventStream routes it to the overview group and never into the ring or the 24 h rollup, and SystemBacklogReader skips it in the 50-entry seed, so it cannot evict poll cycles from the live ring. It DOES share the Redis stream's ~10 000-entry MAXLEN window that RehydrateAsync reads back (RedisSystemEventPublisher.cs:31-34); the publishers (b, g, h, l, d) fire once per change, which is low volume against poll cycles."
+  - key: "SERIES STANDARD (binding for 2026-10-13-9a59b..s): TicketActivityChangedEvent(Source, Project, TicketKey, Timestamp) — Timestamp because every system event passes it to the SystemEvent base; ticketKey is TicketKey.For(tracker type lowercased, ticket id).Value, the SpecDialogSession.TicketKey spelling; ITicketActivityNudge has ONE implementation and no extra no-op class."
+  - key: "ONE NUDGE IMPLEMENTATION, NO SEPARATE NO-OP. ISystemEventPublisher already defaults to its no-op outside the server, so the one ITicketActivityNudge over it is safe in every composition; a second no-op class would duplicate that default."
+  - key: "HANDEDBACK COVERS BOTH PRODUCERS. The derivation hand-back parks with no RunSpec row and the premise hand-back writes RunSpec handed_back and fails the run; reading only RunSpec would mark the wrong one, so the mark is waiting-without-pending-checkpoint OR a handed_back RunSpec (review3-a finding 4)."
+  - key: "TICKETKEY FROM THE RUN ROW FIRST. Run.Platform holds the same lowercased tracker type the binder uses, so a removed project's ticket still matches its stored conversation; live config is the fallback only (review3-a finding 6)."
+  - key: "NO LIVE-FOLD EDIT. The fold's snapshot reaches clients only as a run id, so Project and Platform on it would be unobservable; the REST snapshot carries them (review3-a finding 5)."
+  - key: "PRS FROM PULLREQUESTSJSON. It keeps every repo's PR with openedAt and is what FiledWorkRunsReader already serves, so the ticket page and the filed-work panel cannot disagree."
+  - key: "EXTEND FILEDWORKRUNSREADER BY ITS COMPOSE HALF. The detail reads its own rows (one project, every pipeline, no cap) and hands them to ForRunsAsync; a second composer would be a second answer waiting to disagree, and sharing the compose keeps the file near 107 lines."
+  - key: "RUNS.READ, NOT A NEW PERMISSION. The page regroups run rows like /api/pull-requests; a new permission would hide it from every custom role until edited."
+  - key: "TOKENS CUT. Run.TokensIn/Out read 0 everywhere and the mock shows no tokens."
+  - key: "NO CACHE. Computed per request so replicas cannot answer differently. The price is one Redis lease read per waiting newest attempt per list request (RelaunchingAsync), bounded by the needs-you count."
+  - key: "PROVIDER SAFETY BY CONSTRUCTION. No DateTimeOffset in SQL, no SQL sum over decimal, only Where/OrderBy on Id and an EXISTS; tests run on SQLite, the CI provider; the SQL Server path runs where AGENTSMITH_TEST_DB_CONNSTR is set."
+
+steps:
+  - id: contracts
+    action: "Server/Models: TicketBucket (needs_you, working, idle), TicketSummaryView, TicketAttemptMark, TicketCountsView, TicketDetailView, TicketAttemptView, TicketOtherRunView — the contract's field names."
+  - id: attempts
+    action: "TicketAttempts (code pipeline; every row except a cancelled one with no RunStep) and InfrastructureEnd (interrupted | stale-lease-reaped), each its own class."
+  - id: filed-work-read
+    action: "FiledWorkRunsReader: extract ForRunsAsync(rows) from ForAsync, which calls it; callers unchanged. Budget: 102 -> about 107 of 120."
+  - id: bucket
+    action: "TicketBucketRule: newest attempt + positions + relaunching set + pending checkpoints -> bucket, kind, since, lastOutcome; RunQueuePlace.Of and RelaunchingAsync reused."
+  - id: list
+    action: "TicketListQuery (5000-row ceiling, light columns + has-step), TicketCounts, TicketMonthCost (run-id prefix, in-memory sum), TicketListReader (group, ticketKey, sort, cursor, one RunSpec set query for the page)."
+  - id: detail
+    action: "TicketDetailReader: one-project rows, attempts numbered through TicketAttempts and composed by ForRunsAsync, endedOnInfrastructure, handedBack, other runs incl. never-started, branch, summary through the bucket rule."
+  - id: endpoints
+    action: "TicketQueryEndpoints: GET /api/tickets and /api/tickets/{project}/{ticketId} with runs.read, mapped after MapPullRequestQueryEndpoints; regenerate route-permission-baseline.tsv."
+  - id: nudge-event
+    action: "TicketActivityChangedEvent, SystemEventType 56, EventTypeResolver.ResolveSystem row, ITicketActivityNudge + its system-stream implementation registered in AddEventPublishing; system-events.ts mirror; describeSystemEvent (useSubsystemActivity.ts:119-145) gains the TicketActivityChanged case returning \"\" (strict TS fails the build otherwise; FilterRail.tsx's LABELS is keyed by run EventType and needs no row); pnpm gen:hub-events and pnpm build green."
+  - id: nudge-route
+    action: "IRunEventFanout.ToTicketActivityAsync; JobsHubFanout (overview group, TicketActivityChanged), BackpressureSafeFanout, the two RunEventRouterTests doubles; SystemEventStream routes the type before the ring in DrainAsync and RehydrateAsync (86 -> about 95); SystemBacklogReader skips the type in ReadAsync (53 -> about 55)."
+  - id: snapshot
+    action: "RunSnapshot gains Project, Platform and stays at its 130-line baseline by shortening its own comments; RunSnapshotMapper 117 -> 118 (both args on one line); RunSnapshotFold untouched (stays 119); hub-events.ts RunSnapshot mirrors them."
+  - id: tests
+    action: "Red first for every test below, then green; run the Server, Events and Architecture classes touched."
+
+tests:
+  - "TicketList_RunsOfOneTicket_AreOneRowWithAttemptsByRunId"
+  - "TicketList_PrReviewRunOnTicket_IsNotAnAttempt"
+  - "TicketList_ResumedAttempt_KeepsItsNumber"
+  - "TicketList_ParkedWithQueuePlace_IsWorkingNotNeedsYou"
+  - "TicketList_ParkedWithFreshRelaunchLease_IsWorkingNotNeedsYou"
+  - "TicketList_ParkedWithPendingCheckpoint_IsNeedsYouQuestion"
+  - "TicketList_NeedsYouQuestion_CarriesPendingQuestionWithRunId"
+  - "TicketList_ParkedWithoutCheckpoint_IsNeedsYouHandback"
+  - "TicketList_QueuedReservation_IsWorkingAndAnAttempt"
+  - "TicketList_ReservationCancelledBeforeStart_IsNotAnAttempt"
+  - "TicketList_PrologueFailureOfReservation_IsAFailedAttempt"
+  - "TicketList_FinishedAttempt_IsIdleWithLastOutcome"
+  - "TicketList_SameTicketIdTwoProjects_AreTwoTickets"
+  - "TicketList_CursorPage_NeverRepeatsATicket"
+  - "TicketList_Counts_CoverEveryBucketIndependentOfThePage"
+  - "TicketList_Counts_NameTheOldestNeedsYouSince"
+  - "TicketList_MonthCost_SumsEveryRunOfTheMonth"
+  - "TicketList_CeilingReached_SaysTruncated"
+  - "TicketList_Row_CarriesTheConversationTicketKey"
+  - "TicketList_HandedBackSpec_MarksTheAttempt"
+  - "TicketList_DerivationHandback_MarksTheAttempt"
+  - "TicketList_ProjectFilter_ScopesCountsAndMonthCost"
+  - "TicketList_RemovedProject_KeyFromRunPlatform"
+  - "TicketDetail_UnknownPair_Is404"
+  - "TicketDetail_DeletedRun_RenumbersTheAttempts"
+  - "TicketDetail_UrlEncodedTicketId_IsFound"
+  - "TicketDetail_CarriesTheBranchName"
+  - "InfrastructureEnd_InterruptedOrStaleLease_Holds_UserCancelDoesNot"
+  - "SystemEventStream_TicketActivityChanged_GoesToOverview_NotRingNorRollup"
+  - "SystemEventStream_Rehydrate_SkipsTicketActivityChanged"
+  - "SystemBacklog_SkipsTicketActivityChanged"
+  - "describeSystemEvent_TicketActivityChanged_IsEmpty (dashboard, useSubsystemActivity.test.ts)"
+  - "EventTypeResolver_ResolvesTicketActivityChanged"
+  - "TicketActivityNudge_PublishesOnTheSystemStream"
+  - "FiledWorkRunsReader_ExistingCallers_KeepTheCapAndEveryPipeline"
+  - "RunSnapshotMapper_CarriesProjectAndPlatform"
+  - "RoutePermission_TicketRoutes_NeedRunsRead"
+
+done:
+  - "GET /api/tickets lists each (project, ticket id) once, with its bucket, attempt count and cost, using only SQLite-safe operators (no DateTimeOffset in SQL, decimal summed in memory)."
+  - "A parked run whose relaunch is under way reads working on the ticket list and queued on the runs list — never needs-you on one and queued on the other."
+  - "A pr-review run, and a reservation cancelled before it started, show on the detail as other runs and never as attempts."
+  - "The detail numbers attempts by run id, says which ended on infrastructure and which handed back, names the branch, and deleting one renumbers the rest."
+  - "A TicketActivityChanged published on one replica reaches the overview group of every replica and never appears on the System page, neither live nor in its subscribe backlog."
+  - "GET /api/runs and the run detail carry project and platform."
+  - "A reserved launch that failed in its prologue shows as a failed attempt, never as a never-started other run."
+  - "A custom role holding runs.read opens the ticket endpoints without an edit."

@@ -14,6 +14,7 @@ scope:
   out: "The ticket detail page, its graph and its tabs (2026-09-09-3158 and 2026-09-09-094f). Any new visual language: the mock's markup is ported the way p0343c ported the earlier mockups, into the existing prefix-scoped stylesheet. Deleting the runs list — it stays the machine view and stays reachable."
 
 decisions:
+  - key: "RETIRED 2026-10-13, never built: the code moved for a month and a re-review refused it; superseded by 2026-10-13-9a59p (the dashboard ticket list)."
   - key: |
       MISSION CONTROL IS TICKET-FRAMED IN ITS COPY AND RUN-KEYED IN ITS DATA. p0343 named the home
       screen "tickets worked as jobs", but the component fetches runs and buckets runs, so four

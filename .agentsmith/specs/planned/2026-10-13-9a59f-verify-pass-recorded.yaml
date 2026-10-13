@@ -1,0 +1,174 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-9a59f
+goal: "Every master pass of a spec is recorded with why it opened and ended, its verdicts, the steps it worked and its cost, so spend reads per spec, pass and command, across a park."
+
+applies_to: "backend (master re-engagement loop, event attribution, run-event projections, persistence, run and ticket read endpoints) + the dashboard's hub-events mirror"
+
+requires: [2026-10-13-9a59d, 2026-10-13-9a59e, p0341c, p0365, p0374a, p0388a, p0391, p0466, 2026-08-25-61f1]
+
+facts:
+  - claim: "The pass counter lives in AgenticMasterHandler: masterPass starts at 0 per handler invocation and ReengageWhileProductiveAsync sets it to pass + 1 before deciding whether to re-engage."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:148-151,730-734"
+  - claim: "AgenticMasterHandler is 905 lines against a ratchet baseline of 922; the re-engagement driver and its two log helpers span lines 710-871 and use the loop runner, the working-tree reader and the logger."
+    evidence: "observed: 2026-10-13, wc -l src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs = 905; tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:6, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:710-871"
+  - claim: "A file not in the baseline fails the ratchet above 120 lines; MasterReengagementPolicy is 118 lines and not listed."
+    evidence: "tests/AgentSmith.Tests/Architecture/FileLengthRatchetTests.cs:19-30, observed: 2026-10-13, wc -l src/backend/AgentSmith.Application/Services/Handlers/MasterReengagementPolicy.cs = 118"
+  - claim: "ShouldReengage returns false in five places: off a code pipeline, on budget, on a red verdict with a drained ledger, on an unsatisfied contract with no verdict after one re-drive, and at the fall-through; it re-drives for three reasons: a red verdict with actionable steps, done steps the diff does not back, or an unsatisfied acceptance gate; it returns only a bool."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterReengagementPolicy.cs:64-110, src/backend/AgentSmith.Application/Services/Handlers/MasterAcceptanceGate.cs:68-70"
+  - claim: "SpecSequence is expanded only in the code preset, and the code preset is the only code-changing preset, so a spec step never meets ShouldReengage's off-code-pipeline stop."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Code.cs:70, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.cs:66-69,78-79"
+  - claim: "ReengageWhileProductiveAsync alone spans about 112 lines, with the hard-cap constant above it and ReadChangedPathsAsync below; a pass's try/catch body (nudge, loop run, reparse, blocked claim, tool count) is its own block."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:712,718-829,766-804,845-852"
+  - claim: "The seeded data-archive tests hard-code 37 tables and 76 rows, and the seed writes two rows for every table in the model, so every new table moves those assertions."
+    evidence: "tests/AgentSmith.Tests/Persistence/DataArchiveRoundTripTests.cs:33-34,54,81, tests/AgentSmith.Tests/Persistence/DataArchiveSchemaTests.cs:63, tests/AgentSmith.Tests/TestSupport/FullStoreSeed.cs:38-43"
+  - claim: "The dashboard's FilterRail keeps an exhaustive Record<EventType, string> of labels, so a new EventType fails pnpm build until it gains an entry; eventFilterQuery's TYPE_KEYS is a plain string record."
+    evidence: "src/dashboard/src/components/jobs/FilterRail.tsx:8,49, src/dashboard/src/lib/eventFilterQuery.ts:41,68"
+  - claim: "A re-engagement loop also ends on a budget exception, a captured operator question, an idle pass, a respected blocked claim, a self-refilled ledger or the hard cap of 50; each is only logged, and a pass that threw continues."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:712,742-750,788-807,816-825, src/backend/AgentSmith.Application/Services/Handlers/ReengageProgressPolicy.cs:10-22,45-54"
+  - claim: "Pass 0 runs the first loop and may add an apply drive and a verdict nudge; it ends the step on a budget exception, a failure or a question."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:401-436,453-464,563-582"
+  - claim: "A pass that emits no verdict keeps the previous pass's verification."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:783-784"
+  - claim: "Scan and spec-dialog masters run the same handler; a spec draft is present only on spec execution."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:93-100,113-119,395"
+  - claim: "Three mechanisms re-splice the master as a new step of the same spec: the repair (OutstandingCriteria, SpecRepairAttempted), the structure correction (StructureFindings, StructureGateAttempted) and the review fix pass (SpecReviewFixPass, which also sets SpecRepairAttempted); SelectSpec resets all of them per spec."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:186-203, src/backend/AgentSmith.Application/Services/Structure/StructureGateOutcome.cs:30-51, src/backend/AgentSmith.Application/Services/Specs/SpecReviewFixPass.cs:69-79, src/backend/AgentSmith.Application/Services/SpecRepairScope.cs:24-40"
+  - claim: "The gate's judgement names its counts or a verdict-level refusal with no pairings."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AcceptanceJudgement.cs:34-51"
+  - claim: "A pass's verification carries the master's disposition per criterion (criterion, status, evidence), null when it reported none."
+    evidence: "src/backend/AgentSmith.Domain/Models/MasterVerification.cs:24-37,49"
+  - claim: "The step frame already holds the spec id; the publish decorator stamps only the step index, and keeps an event's own stamp."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineStepRunner.cs:53, src/backend/AgentSmith.Contracts/Events/IRunContextAccessor.cs:31-43, src/backend/AgentSmith.Application/Services/Events/StepAttributingEventPublisher.cs:13-23, src/backend/AgentSmith.Contracts/Events/RunEvent.cs:27"
+  - claim: "IRunContextAccessor is implemented by AsyncLocalRunContextAccessor and by private stubs in many test classes; the frames are AsyncLocal, so a frame set inside an async method is gone when it returns."
+    evidence: "src/backend/AgentSmith.Application/Services/Events/AsyncLocalRunContextAccessor.cs:16-44, tests/AgentSmith.Tests/Events/ModelCallActivityTests.cs:101, tests/AgentSmith.PipelineHarness/Evals/EvalRunContext.cs:9"
+  - claim: "RunLlmCall keeps the step index and no spec or pass; RunStep keeps the typed command name and its spec."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunLlmCallProjection.cs:42-50, src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunLlmCall.cs:4-33, src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunStep.cs:17-33"
+  - claim: "A resume continues from the checkpointed execution count, which was stored before the parking step's increment, and re-runs the re-provision steps first, so a step index can name two RunStep rows."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineExecutor.cs:41-44,92,112,129-130, src/backend/AgentSmith.Application/Services/Resume/DialogueCheckpointWriter.cs:30-31,48-49, src/backend/AgentSmith.Application/Services/Resume/ResumeRequestReader.cs:44"
+  - claim: "Context keys survive a park unless the serializer excludes them; ContextKeys is a partial class whose main file is at its 152-line baseline."
+    evidence: "src/backend/AgentSmith.Application/Services/Resume/PipelineContextSerializer.cs:27-40, src/backend/AgentSmith.Contracts/Commands/ContextKeys.SpecExecution.cs:3, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:79"
+  - claim: "Each accepted update_progress publishes its transitions (entry, from, to, cause, per-invocation pass) as a trail-only event no projection reads; the trail is pruned after 90 days; ledger entry ids are the spec's step ids."
+    evidence: "src/backend/AgentSmith.Contracts/Progress/LedgerTransition.cs:16-22, src/backend/AgentSmith.Contracts/Events/LedgerTransitionsRecordedEvent.cs:3-18, src/backend/AgentSmith.Application/Services/Tools/ProgressLedgerFlusher.cs:41-55, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunRetentionService.cs:18,30-34, src/backend/AgentSmith.Application/Services/Tools/ProgressLedgerSeeder.cs:20-30"
+  - claim: "The ledger flush runs inside the tool call of the pass that made it."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:152-168"
+  - claim: "DeriveSpec runs before the spec sequence, CommitAndPR and PrCrossLink after it."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Code.cs:56-58,71-72"
+  - claim: "The highest EventType is DesignRead = 82 and EventType.cs is 112 lines; the resolver is 78."
+    evidence: "src/backend/AgentSmith.Contracts/Events/EventType.cs:110-111, observed: 2026-10-13, wc -l EventType.cs = 112, EventTypeResolver.cs = 78"
+  - claim: "Run child tables register through RunChildConfiguration.Children and RunRecordIdentityConfiguration; inserting projections dedupe through ProjectedEventRecords; AgentSmithDbContext is at exactly 120 lines."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunChildConfiguration.cs:26-44, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunRecordIdentityConfiguration.cs:23-34, src/backend/AgentSmith.Infrastructure.Persistence/Services/ProjectedEventRecords.cs:19-26, observed: 2026-10-13, wc -l AgentSmithDbContext.cs = 120"
+
+assumptions:
+  - "2026-10-13-9a59d splits RunEventApplier into projection families and lets a later member register a family; 9a59d defines EventType 83."
+  - "2026-10-13-9a59e provides TicketSeriesReader and its per-spec steps from the cut, which this spec annotates with how each step was worked."
+
+scope:
+  in: >
+    EXTRACT: ReengageWhileProductiveAsync's for-loop and exits plus ReadChangedPathsAsync move to MasterReengagementLoop,
+    one pass's try/catch body to ReengagePass (returns tool calls, blocked claim, threw, reparsed verification) and the
+    two log helpers to ReengageStopLog, each under 120 lines; the loop returns its end reason and whether each pass emitted a
+    verdict; AgenticMasterHandler's baseline line drops to its new length. REASONS: ReengageReasonPolicy (own class)
+    names why the loop re-engages (red-with-open-steps, unbacked-done, gate-unsatisfied) or stops (nothing-left,
+    budget, red-accepted, verdictless); MasterReengagementPolicy.ShouldReengage delegates to it in one line. End
+    reasons: re-engaged, nothing-left, budget, red-accepted, verdictless, idle, blocked, self-refilled, cap, question,
+    failed. A pass that ends re-engaged also carries the reengageReason the next pass opens with, so the return edge is
+    labelled from the ended pass alone. Opened because, read in this order: after-answer (the
+    last pass ended on a question), review-fix, structure-correction, repair, else first; a re-engagement pass opens
+    with its re-engage reason. RECORD: MasterPassRecorder opens a pass frame synchronously (IDisposable) around pass 0
+    and each re-engagement pass and publishes MasterPassEndedEvent (EventType 84) at every exit: spec id, run-wide
+    pass ordinal, pass in step, opened and ended because, reengageReason (only when ended re-engaged), verdict emitted this pass, criteria met and total (null
+    without a verdict or on a refusal), per-criterion verdicts (criterion, status, evidence), the gate's Describe()
+    line, actionable pending and unbacked done counts. Only spec steps record (CurrentSpecId non-null); scan and
+    spec-dialog masters publish nothing. The ordinal and last-ended-on-question are context keys in a new
+    ContextKeys.MasterPass.cs, carried by the checkpoint. STAMP: IRunContextAccessor gains CurrentMasterPass and
+    BeginMasterPassScope as default members; RunEvent gains OriginSpecId and OriginMasterPass, stamped by
+    StepAttributingEventPublisher. STORE: RunPass and RunLedgerTransition (RunId, EventSeq, SpecId, MasterPass,
+    TransitionsJson) rows, unique on (RunId, EventSeq), registered through RunChildConfiguration.Children and
+    RunRecordIdentityConfiguration; RunLlmCall gains SpecId and MasterPass; both migration sets; deleted in the run's
+    deletion transaction; this spec registers its own passes family on 9a59d's dispatcher, holding both arms; RunLlmCallProjection copies the stamps.
+    READ: GET /api/runs/{runId}/passes (runs.read, RunPassEndpoints) per spec: passes in ordinal order, each with its
+    run-wide ordinal and passInSpec (1-based rank of the ordinal within its spec, the number q, r and s display), opened
+    and ended reasons and reengageReason, counts, per-criterion verdicts, the steps each moved, cost and call count; a pass with stamped calls
+    and no end row reads ended unknown; spec cost outside passes; calls with no spec grouped derive (DeriveSpec), pr
+    (CommitAndPR, PrCrossLink) or other by the RunStep with the call's step index and the largest EventSeq below the
+    call's; calls with no step index are not attributed. STEPS AS WORKED: 9a59e's series read gains, per step, its
+    state and the attempt and run-wide pass that last moved it to done, folded from RunLedgerTransition.
+  out: >
+    Rendering passes per attempt and the graph lanes (2026-10-13-9a59q). The Cost and compute tab
+    (2026-10-13-9a59s). Model time and pod time per segment (2026-10-13-9a59j). Sandbox end reasons
+    (2026-10-13-9a59i). Per-repository cost inside a pass: a spec names one repository (f5f7a), so per spec is per
+    repository, read by 2026-10-13-9a59s from this endpoint.
+
+decisions:
+  - key: "STAMP, NOT A TIME WINDOW. RunLlmCall has no event time and the trail is pruned after 90 days; a producer stamp is clock-free and replay-safe."
+  - key: "ONE EVENT AT THE END OF A PASS. A pass that dies with the run leaves stamped calls and no end row, read as ended unknown; no open-pass row to close in RunFinished."
+  - key: "A RUN-WIDE ORDINAL BESIDE THE LEDGER'S PASS. p0374a's per-invocation pass stays in the transitions JSON; the stamped ordinal is what survives a park and a repair (review F7: beside, not replacing)."
+  - key: "A PASS VERDICT IS NOT THE SPEC VERDICT. The pass stores what the master reported in it; 9a59e's RunSpec.AcceptanceJson stores VerifySpec's account when the spec ends. Two moments, two writers."
+  - key: "TRANSITIONS GET A TABLE. The trail row is pruned at 90 days and carries no spec or ordinal; RunLedgerTransition is the projection a reader can query, the same relation RunLlmCall has to its trail event."
+  - key: "RUNLLMCALL.SPECID IS KEPT. A step index can name two RunStep rows after a park (PipelineExecutor.cs:112,130 with DialogueCheckpointWriter.cs:30-31), so the call states its own spec; the command of a call outside a spec is resolved by the step row with the largest EventSeq below the call's."
+  - key: "AFTER-ANSWER IS READ FIRST. Review cut 3 put it fourth; a master resumed after a question inside a repair would then read 'repair' and lose the answer. The last-pass-ended-on-question key is set only by the recorder and cleared on the next open, so it is exact."
+  - key: "DEFAULT INTERFACE MEMBERS. The pass frame is added to IRunContextAccessor as default members so the test stubs compile unchanged; the recorder's open is synchronous because an AsyncLocal frame set inside an async method does not outlive it."
+  - key: "A FAMILY OF ITS OWN. RunPass and RunLedgerTransition arms sit in a passes family rather than the specs family, which 9a59d and 9a59e already fill toward 120 lines."
+  - key: "THE GATE'S OWN WORDS. The recorded label is AcceptanceJudgement.Describe(); nothing checks criteria against the diff, so 'no evidence in the diff' is not produced."
+  - key: "WHEN THE MASTER RE-ENGAGES IS UNCHANGED. The reason function returns exactly the branches ShouldReengage has: re-drives red-with-open-steps, unbacked-done, gate-unsatisfied; stops budget, red-accepted (red with a drained ledger, MasterReengagementPolicy.cs:87-88), verdictless (MasterAcceptanceGate.VerdictlessAfterOneRedrive, MasterReengagementPolicy.cs:104-108) and nothing-left (fall-through, :109). The off-code-pipeline stop (:69-70) gets no reason because a spec step only runs in the code preset (PipelinePresets.Code.cs:70); existing policy tests stay green unmodified. The vocabulary grew in round 3 (red-accepted, verdictless): 2026-10-13-9a59q and 2026-10-13-9a59s mirror it."
+  - key: "THE ENDED PASS NAMES WHY IT RE-ENGAGED. The mock labels the return edge with the reason; carrying reengageReason on the ended pass (not only the next pass's opened-because) lets 2026-10-13-9a59q label the edge from one row."
+  - key: "PASS NUMBER PER SPEC IS SERVED, NOT DERIVED. The ordinal stays run-wide (it survives a park and a repair); the read adds passInSpec so the dashboard members never re-rank (main-thread decision 7, 2026-10-13)."
+  - key: "THREE CLASSES OUT OF THE HANDLER. The loop body alone is about 112 lines (AgenticMasterHandler.cs:718-829); with the cap, the changed-paths read and seven recorder calls it cannot fit one class under 120, so the pass body is ReengagePass and the logs ReengageStopLog."
+
+steps:
+  - id: extract
+    action: "Move the re-engagement loop and exits to MasterReengagementLoop, one pass's try/catch body to ReengagePass and the log helpers to ReengageStopLog (each < 120 lines); lower the AgenticMasterHandler baseline line to its new length; behaviour unchanged."
+  - id: reasons
+    action: "ReengageReasonPolicy with the reason enum (re-drive: red-with-open-steps, unbacked-done, gate-unsatisfied; stop: budget, red-accepted, verdictless, nothing-left); ShouldReengage delegates in one line (MasterReengagementPolicy shrinks from 118)."
+  - id: contracts
+    action: "MasterPassEndedEvent with EventType 84 (EventType.cs 114 -> 116 of 120 after d's 83: one comment line + the entry), resolver entry (78 lines), hub-events.ts mirror, FilterRail.tsx LABELS entry for MasterPassEnded (exhaustive record; pnpm build is part of the proof) and the TYPE_KEYS entry in eventFilterQuery.ts; a run event, so no describeSystemEvent case; RunEvent (33 lines) gains OriginSpecId and OriginMasterPass; ContextKeys.MasterPass.cs."
+  - id: ambient
+    action: "IRunContextAccessor (44 lines) default pass members; AsyncLocalRunContextAccessor (71 lines) implements them; StepAttributingEventPublisher stamps step, spec and pass, each only when unset."
+  - id: recorder
+    action: "MasterPassRecorder holds the ordinal and last-question flag in context, opens the frame synchronously, reads the opener in the stated order and publishes the end; called at pass 0 in the handler and per pass in the loop."
+  - id: schema
+    action: "RunPass and RunLedgerTransition in RunChildConfiguration.Children and RunRecordIdentityConfiguration.Unique; RunLlmCall gains SpecId and MasterPass; one migration per set; RunDeletionRepository deletes both (about 92 -> 94 of 120 after b, d, e); DataArchiveRoundTripTests.cs:33,54,81 and DataArchiveSchemaTests.cs:63 table count +2 and DataArchiveRoundTripTests.cs:34 row count +4 on what b, d and e left (running total 41 -> 43 tables, 84 -> 88 rows)."
+  - id: project
+    action: "Passes family registered on 9a59d's dispatcher: RunPassProjection and RunLedgerTransitionProjection insert once per (RunId, EventSeq); RunLlmCallProjection (51 lines) copies the stamps."
+  - id: read
+    action: "RunPassesReader and RunPassEndpoints: passes per spec with ordinal, passInSpec and reengageReason, steps moved per pass, verdicts, cost buckets (pass, spec outside passes, derive, pr, other, not attributed); route-permission-baseline.tsv regenerated."
+  - id: steps-as-worked
+    action: "StepsAsWorkedFold annotates 9a59e's series read steps with state, attempt and run-wide pass from the attempts' RunLedgerTransition rows for that spec."
+  - id: tests
+    action: "Red first: policy, recorder, projection, reader and fold tests below; a scripted harness run proves cost per pass equals the sum of its scripted calls."
+
+tests:
+  - "Reengage_RedWithOpenSteps_NamesThatReason"
+  - "Reengage_UnbackedDoneSteps_NamesThatReason"
+  - "Reengage_GateUnsatisfied_NamesThatReason"
+  - "Reengage_RedDrainedLedger_StopsRedAccepted"
+  - "Reengage_VerdictlessAfterRedrive_StopsVerdictless"
+  - "PassRecorder_ReengagedPass_CarriesTheReengageReason"
+  - "Passes_Read_SecondSpecPasses_NumberOneAndTwoInSpec"
+  - "PassRecorder_EveryLoopExit_PublishesOneEndWithItsReason"
+  - "PassRecorder_PassWithoutVerdict_HasNullCriteriaCounts"
+  - "PassRecorder_AfterPark_ContinuesTheOrdinalAndOpensAfterAnswer"
+  - "PassRecorder_RepairStep_OpensBecauseRepair"
+  - "PassRecorder_ReviewFixPass_OpensBecauseReviewFix"
+  - "PassRecorder_StructureCorrection_OpensBecauseStructureCorrection"
+  - "PassRecorder_ScanMaster_PublishesNothing"
+  - "Publisher_InsidePass_StampsSpecAndPass"
+  - "RunPass_ReplayedEvent_InsertsOneRow"
+  - "LedgerTransitions_Replayed_InsertOneRow"
+  - "Passes_Read_CallsWithoutEndRow_ReadAsEndedUnknown"
+  - "Passes_Read_UnstampedCalls_AreGroupedByTheirStepsCommand"
+  - "Passes_Read_StepIndexReusedAfterPark_PricesByTheStepThatWasRunning"
+  - "Passes_Read_CallWithoutStep_IsNotAttributed"
+  - "Passes_Read_PassListsTheStepsItMovedAndItsCriterionVerdicts"
+  - "TicketSeries_Read_StepDoneInSecondPass_NamesAttemptAndPass"
+  - "RunDeletion_RemovesPassAndTransitionRows"
+  - "Harness_TwoPassSpec_CostPerPassEqualsItsScriptedCalls"
+
+done:
+  - "A spec that re-engaged twice reads three passes numbered 1-3 within the spec, each with why it opened and ended (a re-engaged end names its reason) and its own cost."
+  - "A pass that stopped red with nothing left or without a verdict reads red-accepted or verdictless, never nothing-left."
+  - "A pass that ended without a verdict shows no criteria counts rather than the previous pass's."
+  - "After a park and an answer, the resumed master's pass continues the numbering and says it opened after an answer."
+  - "Calls outside any pass are priced as spec-outside-passes, derive, pr or other; calls with no step are reported as not attributed, never guessed into a pass."
+  - "The ticket series read names, per step, the attempt and pass that completed it."
+  - "Scan and spec-dialog masters record no passes; replaying the trail stores each pass once; deleting the run removes its passes and transitions."

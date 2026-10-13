@@ -1,0 +1,121 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-9a59j
+goal: "Each launch of a run is recorded as a segment with its model time and, when it parked, who it waited on and until when; the run's compute endpoint serves them."
+
+applies_to: "backend (segment projection family, persistence, run compute read)"
+
+requires: [2026-10-13-9a59d, 2026-10-13-9a59g, 2026-10-13-9a59i, p0327, 2026-08-25-61f1]
+
+facts:
+  - claim: "Every launch of a run — first start and each relaunch after a park — publishes RunStarted stamped with that launch's own clock; the applier applies it to the waiting row and ignores a duplicate on a running one."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:47,81,94-97, src/backend/AgentSmith.Contracts/Events/L1RunEvents.cs:3-8,34, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs:49,101-113"
+  - claim: "The trail position continues across relaunches: a buffer for a run with history starts where the store ended, and only a non-waiting RunFinished releases the buffer."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunTrailBuffer.cs:19-29, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunDbProjector.cs:34-48"
+  - claim: "A RunFinished is set-once for terminal statuses; a waiting status keeps FinishedAt null, so each park's RunFinished is projected, and again on every replay."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:29-39,65-73"
+  - claim: "Only the terminal reconciler applies a RunFinished without a trail position, and only a terminal one."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs:36-42, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunTerminalReconciler.cs:24-40"
+  - claim: "The raw trail (RunEvent rows with Seq, Type, Timestamp) is pruned after 90 days while Run rows are kept, so launches cannot be read back from the trail durably."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunEvent.cs:8-14, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunRetentionService.cs:7-34"
+  - claim: "An LLM call row keeps its trail position and duration but no time of day; rows written before 2026-08-25-61f1 have no position."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunLlmCall.cs:9-22"
+  - claim: "RunCheckpoint is one row per run (unique RunId); a second park overwrites AskedAt and resets ResumedAt, so it cannot say when an earlier park was asked or resumed."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunCheckpointConfiguration.cs:24, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunCheckpointProjection.cs:17-41"
+  - claim: "Every answer — dashboard, ticket comment, deadline default — lands in the inbox with AnsweredAt and AnsweredBy under the run id as dialogue identity and the question id."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/DialogueResumeSweeper.cs:65-107, src/backend/AgentSmith.Infrastructure.Persistence/Entities/DialogueAnswerEntry.cs:9-18, src/backend/AgentSmith.Application/Services/Resume/DialogueJobIdentity.cs:13-21"
+  - claim: "A hand-back sets OpenQuestionsAwaitingAnswer, which makes the run finish waiting_for_input with no checkpoint; it is never resumed — the ticket comes back as a new run."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackPark.cs:41-44, src/backend/AgentSmith.Contracts/Commands/RunPark.cs:19-24, src/backend/AgentSmith.Server/Services/Lifecycle/DialogueResumeSweeper.cs:59-61"
+  - claim: "Run-keyed children register through RunChildConfiguration and the (RunId, EventSeq) identity through RunRecordIdentityConfiguration (filtered on SQL Server); the create-by-position check is ProjectedEventRecords."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunChildConfiguration.cs:26-44, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunRecordIdentityConfiguration.cs:23-34, src/backend/AgentSmith.Infrastructure.Persistence/Services/ProjectedEventRecords.cs:19-26"
+  - claim: "Sub-agents run concurrently (a semaphore of MaxConcurrentSubAgents over Task.WhenAll), so their LLM calls overlap in time and each call row keeps its own full duration."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/SubAgentRunner.cs:38-44, src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunLlmCall.cs:9-22"
+  - claim: "A capacity rejection mid-run publishes RunFinished 'queued', which RunStatuses.IsWaiting counts as a pause beside waiting_for_input; the run relaunches later onto the same id."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:194-198, src/backend/AgentSmith.Contracts/Runs/RunStatuses.cs:11-12,24"
+  - claim: "The archive round-trip seeds two generated rows per table and pins 37 tables / 76 rows today."
+    evidence: "tests/AgentSmith.Tests/TestSupport/FullStoreSeed.cs:33-46, tests/AgentSmith.Tests/Persistence/DataArchiveRoundTripTests.cs:33-34,54,81, tests/AgentSmith.Tests/Persistence/DataArchiveSchemaTests.cs:63"
+  - claim: "Run deletion removes run-keyed children in DeleteChildrenAsync; the file is 86 lines."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunDeletionRepository.cs:54-64"
+
+assumptions:
+  - "2026-10-13-9a59i serves GET /api/runs/{runId}/compute through RunComputeReader; this spec adds `segments` and `unattributedCalls` to that response and adds no route."
+  - "2026-10-13-9a59d's projection families receive each event with its trail position and RunAttempt holds each attempt's cause (channel, actor, at); 2026-10-13-9a59a orders a ticket's attempts by run id."
+  - "2026-10-13-9a59g's RunConversationEntry holds the question (Kind question, QuestionId, At) and the hand-back (Kind hand-back, At) at their own trail positions, for runs with a ticket only."
+  - "2026-10-13-9a59d writes RunAttempt at FetchTicket, so a queued reservation that has not started has no RunAttempt row."
+
+scope:
+  in: >
+    PERSISTENCE: RunSegment, one row per launch: RunId, EventSeq (its RunStarted's position), StartedAt, EndSeq,
+    EndedAt, EndStatus (from the RunFinished that closed it). Registered in RunChildConfiguration.Children and as
+    Unique<RunSegment> in RunRecordIdentityConfiguration (filtered on SQL Server); AgentSmithDbContext is not
+    touched. One migration per set (Persistence, Persistence.SqlServer). The archive tests move by one table:
+    DataArchiveRoundTripTests.cs:33,54,81 and DataArchiveSchemaTests.cs:63 +1 table, DataArchiveRoundTripTests.cs:34
+    +2 seed rows on what b, d, e, f, g and h left (running total 45 -> 46 tables, 92 -> 94 rows). No event type is
+    added, so FilterRail.tsx and describeSystemEvent are untouched. Deleted with the run in
+    DeleteChildrenAsync (RunDeletionRepository about 96 -> 97 of 120 after b, d, e, f, g, h). PROJECTION: a segment family registered with 9a59d's dispatcher —
+    RunStarted inserts a segment by its position (ProjectedEventRecords: a replay adds none); RunFinished closes
+    the open segment whose EventSeq lies below its position (a replayed park RunFinished finds its segment already
+    closed and changes nothing); a position-less terminal RunFinished closes the run's open segment with EndSeq
+    null. READ: RunSegmentsReader feeds 9a59i's compute endpoint: segments [{startedAt, endedAt, endStatus, modelMs,
+    park?}] in launch order. modelMs = summed DurationMs of the run's RunLlmCall rows whose EventSeq lies in
+    [EventSeq, EndSeq) (open end for the live or position-less one); calls without a position are counted once for
+    the run as unattributedCalls. modelMs is CALL TIME: overlapping sub-agent calls each count in full, so it may
+    exceed the segment's wall clock and is never a share of it. endStatus 'queued' is a capacity wait, never a park:
+    such a segment has no park. park, for a segment that ended waiting_for_input: kind 'question' — askedAt and
+    questionId from 9a59g's question entry inside the segment, answeredAt and answeredBy from the inbox row
+    (DialogueJobId = run id, QuestionId), resumedAt = the next segment's startedAt; kind 'handback' — askedAt from
+    9a59g's hand-back entry inside the segment, answeredAt and answeredBy = the cause instant and actor of the
+    ticket's next attempt that HAS a RunAttempt row (9a59d; a reservation not yet fetched has none), null while
+    there is none. A waiting_for_input segment with neither a question nor a hand-back entry inside it (a ticketless
+    run's question, a run from before 9a59g) reads park {kind: null} with askedAt and answer null — never guessed.
+    Nothing about a question or an answer is stored again.
+  out: >
+    The sandbox end reasons, the spawns and the endpoint itself — 2026-10-13-9a59i. The sandbox arm of
+    InfrastructureEnd (a sandbox vanished or oom-killed inside the run's LAST segment, read from this table and
+    9a59i's RunSandbox.EventSeq) — 2026-10-13-9a59n. The question and hand-back records — 2026-10-13-9a59g. Attempt
+    cause and order — 2026-10-13-9a59d and 2026-10-13-9a59a. The waiting share and wall-clock bars on the ticket's
+    Cost & compute tab, and the dashboard types — 2026-10-13-9a59s. Backfilling segments on runs launched before
+    this spec: they read an empty list, never a guess.
+
+decisions:
+  - key: "A SEGMENT, NOT A PARK COPY. The question and its asked time are 9a59g's entry and the answer is the inbox row; what nothing records durably is when each launch began and ended (the checkpoint keeps only the last park, the trail is pruned), so that is the only new row. A park is a segment that ended waiting."
+  - key: "THE TRAIL IS NOT THE RECORD. RunEvent rows hold the same RunStarted/RunFinished, but they age out after 90 days while sandbox and call rows stay; a typed row per launch is the same choice RunStep and RunLlmCall already make, not a second copy of a kept datum."
+  - key: "MODEL TIME BY TRAIL POSITION. A call row has no time of day but has its position, and the segment holds the positions of its RunStarted and RunFinished; comparing positions is clock-free and replay-safe."
+  - key: "A HAND-BACK IS ANSWERED BY THE NEXT ATTEMPT (review F6). The run that handed back never resumes; what ends the wait is the act that started the next attempt, which 9a59d records as its cause — read, not copied."
+  - key: "MODEL TIME IS CALL TIME (review3 F1, main thread 2026-10-13). Concurrent sub-agent calls (SubAgentRunner.cs:38-44) each count in full and a call row has no time of day, so the union of intervals cannot be computed; modelMs can exceed the segment's wall clock and is never drawn as a share of it. The field keeps its contract name modelMs (a member may add, not rename); 2026-10-13-9a59s shows it as a separate total."
+  - key: "A REQUEUE IS NOT A PARK (review3 F3). A segment ended 'queued' waited for capacity, not for a person; it carries no park, and 2026-10-13-9a59s counts it apart from waiting on you, as 2026-10-13-9a59i's released-at-requeue does for its sandboxes."
+  - key: "AN UNKNOWN PARK IS SAID, NOT GUESSED (review3 F2). The compute endpoint is run-scoped and a ticketless run can park on a question, but 9a59g records conversation entries only for runs with a ticket; reading the checkpoint instead would bring back the overwrite this spec avoids, so such a park reads kind null."
+  - key: "THE NEXT ATTEMPT IS THE NEXT FETCHED ONE (review3 F4). A queued reservation follows by run id but has no cause yet; answering the hand-back from it would read 'answered' with null fields."
+  - key: "UNATTRIBUTED CALLS ARE A RUN COUNT. A call without a position belongs to no segment, so it is named once on the response (unattributedCalls) rather than on a segment it may not belong to."
+  - key: "SPLIT FROM THE END-REASON SPEC (review F8, cut 6). The segment half shares no class with 2026-10-13-9a59i and lands after it, adding to its endpoint."
+
+steps:
+  - id: schema
+    action: "RunSegment entity; RunChildConfiguration.Children and Unique<RunSegment> in RunRecordIdentityConfiguration; one migration per set; DeleteChildrenAsync removes it; archive tests 45 -> 46 tables, 92 -> 94 seed rows."
+  - id: projection
+    action: "RunSegmentProjection in a segment family on 9a59d's dispatcher: RunStarted inserts by position, RunFinished closes the open segment below its position, position-less terminal closes the open one."
+  - id: read
+    action: "RunSegmentsReader: segments with modelMs by position, unattributedCalls, question park from 9a59g's entry and the inbox, hand-back park from the next fetched attempt's cause, queued ends without a park, unknown parks as kind null, modelMs as call time; added to 9a59i's RunComputeReader response."
+  - id: tests
+    action: "Red first for every test below; the index test on SQLite and SQL Server."
+
+tests:
+  - "RunSegment_TwoParks_ThreeSegmentsWithTheirEnds"
+  - "RunSegment_ReplayedRunStarted_AddsNoSegment"
+  - "RunSegment_ReplayedParkFinished_ChangesNothing"
+  - "RunSegment_PositionlessTerminal_ClosesOpenSegment"
+  - "RunSegment_UniqueIndex_FilteredOnSqlServer"
+  - "RunSegment_DeletedWithRun"
+  - "RunSegments_ModelTimeByTrailPosition_CountsUnattributedOnce"
+  - "RunSegments_QuestionPark_NamesAskedFromEntryAndAnswerFromInbox"
+  - "RunSegments_HandbackPark_AnsweredByNextAttemptCause"
+  - "RunSegments_HandbackPark_NoNextAttempt_Unanswered (also with a pending reservation as next run id)"
+  - "RunSegments_OverlappingCalls_ModelTimeMayExceedWallClock"
+  - "RunSegments_TicketlessQuestionPark_ReadsUnknownPark"
+  - "RunSegments_QueuedEnd_IsNotAPark"
+  - "RunComputeEndpoint_ServesSegments"
+
+done:
+  - "A run that parked twice on questions reads three segments at /api/runs/{runId}/compute, each with its model time, and two parks with asked, answered (by whom) and resumed times."
+  - "A run that handed back reads its last segment as a hand-back park, answered at the instant and by the actor of the ticket's next attempt once there is one."
+  - "Replaying a run's trail leaves its segment rows unchanged; deleting the run removes them."
+  - "A run put back in the capacity queue reads a segment ended 'queued' with no park; a ticketless run's question park reads kind null."

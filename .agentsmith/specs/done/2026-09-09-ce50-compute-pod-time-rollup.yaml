@@ -12,6 +12,7 @@ scope:
   out: "A fleet-wide capacity total — there is no total-capacity API and inventing one from one ticket's rows would be a fiction; it belongs to a capacity page and is named here, not silently dropped. Changing provisioning, reaping or sizing. Closing the Kubernetes liveness gap the sandbox agent's idle exit leaves open — this phase makes an idle-kill visible, it does not prevent one."
 
 decisions:
+  - key: "RETIRED 2026-10-13, never built: the code moved for a month and a re-review refused it; superseded by 2026-10-13-9a59i and 2026-10-13-9a59j (sandbox end reasons and run segments)."
   - key: |
       "HELD FOR A PERSON" WAS FALSIFIED BY THE CODE AND IS NOT BUILT. The design called for pods
       alive multiplied by parked time, and it would read zero: a parking run tears its sandboxes

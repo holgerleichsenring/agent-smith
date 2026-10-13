@@ -11,6 +11,7 @@ scope:
   out: "Writing anything new at run time — this phase reads what the run rows already hold; lineage, cause and change events are 2026-09-09-debf and 2026-09-09-9e54. A ticket TABLE — TicketSpecSet stays the only ticket-keyed row and this is a projection over runs, because a second write path would drift from it. Starting or controlling anything from a ticket (2026-09-09-b51e). Compute rollups (2026-09-09-ce50). Any dashboard change (2026-09-09-1a80)."
 
 decisions:
+  - key: "RETIRED 2026-10-13, never built: the code moved for a month and a re-review refused it; superseded by 2026-10-13-9a59a (the ticket read model)."
   - key: |
       A PROJECTION, NOT A NEW TABLE. Every fact a ticket page shows already exists on Run,
       RunStep, RunRepo and RunCapacity, keyed by TicketId + Project. A ticket table would be a

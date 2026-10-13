@@ -13,6 +13,7 @@ scope:
   out: "Continuing an existing run at its cursor — that is p0382 and stays a separate, cheaper path; if it ships, its control sits beside this one and this phase does not implement it. A generic start-any-pipeline endpoint: p0489 declined one and the reason still holds, so this takes no pipeline parameter and starts the pipeline the ticket's project is configured for. Editing expectations before starting; the button belongs to the acceptance surface and is a named follow-up. Cancelling, which RunControlEndpoints already does."
 
 decisions:
+  - key: "RETIRED 2026-10-13, never built: the code moved for a month and a re-review refused it; superseded by 2026-10-13-9a59m (an operator channel on ReworkEntry)."
   - key: |
       THE REFUSAL FROM p0489 IS NARROWED, NOT REVERSED. What was declined is a generic launcher
       with a pipeline parameter and no tested path per preset. This endpoint has one subject, a

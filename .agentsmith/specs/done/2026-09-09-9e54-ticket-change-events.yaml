@@ -12,6 +12,7 @@ scope:
   out: "Pull-request review comments as events — that needs the review integration in 2026-09-09-5cb7 and is added there. Configuration changes as events — the config studio already has its own audit trail (p0345) and duplicating it here would create two histories of one fact; the ticket payload links to it instead. Polling trackers more often than the poller already does. Backfilling events for past tickets."
 
 decisions:
+  - key: "RETIRED 2026-10-13, never built: the code moved for a month and a re-review refused it; superseded by 2026-10-13-9a59g and 2026-10-13-9a59h (the ticket conversation record and read)."
   - key: |
       THE REVISION STAMP IS THE LOAD-BEARING PART. "Three attempts failed and nothing has changed
       since" is the difference between a retry worth paying for and one that cannot end differently.

@@ -1,0 +1,167 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-9a59c
+goal: "Every review, vote, comment, merge, close and reopen on a ticket's pull request refreshes its record — on delivery in webhook mode, within the sweeps in polling mode — and starts nothing."
+
+applies_to: "backend (PR webhook handlers and comment admission, change sweep and PR sweep, source providers' changed-PR lists) + docs"
+
+requires: [2026-10-13-9a59b, 2026-10-13-0b82a]
+
+facts:
+  - claim: "The review handlers admit only a request for changes: GitHub a submitted changes_requested review, Azure DevOps a header-marked delivery with a non-creator -5 voter, GitLab a reviewers-only update with someone in requested_changes; all else answers NotHandled."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/GitHubPrReviewWebhookHandler.cs:28-30, src/backend/AgentSmith.Server/Services/Webhooks/AzureDevOpsPrReviewVoteWebhookHandler.cs:30,37-39, src/backend/AgentSmith.Server/Services/Webhooks/GitLabReviewDelivery.cs:15-23, src/backend/AgentSmith.Server/Services/Webhooks/GitLabMrReviewWebhookHandler.cs:29-34"
+  - claim: "An admitted request for changes enqueues a PullRequest-origin nudge for the ticket of a same-repository ticket branch, owner found by IPrTicketOwner; a polling project's repository is refused first."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/PrReworkAdmission.cs:18-29, src/backend/AgentSmith.Server/Services/Webhooks/GitHubPrReviewWebhookHandler.cs:33"
+  - claim: "Since 0b82a no handler takes a pull request's open, push, close or merge delivery; the label handlers share the pull_request and merge_request event types and answer NotHandled for any other action."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/WebhookEndpointsExtensions.cs:46-67, src/backend/AgentSmith.Server/Services/Webhooks/GitHubPrLabelWebhookHandler.cs:26-27,47, src/backend/AgentSmith.Server/Services/Webhooks/GitLabMrLabelWebhookHandler.cs:25-26,47"
+  - claim: "The dispatcher tries every handler whose CanHandle matches until one returns Handled, so a new handler beside an existing one on the same event type is reached."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/WebhookRequestProcessor.cs:104-110"
+  - claim: "Comment admission returns early for our own note and for a non-command; only a trusted command on a ticket branch nudges the ticket."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/PrCommentCommandAdmission.cs:34-49,58-70"
+  - claim: "GitLab and Azure DevOps comment deliveries carry the head ref, same-repository flag and PR URL; a GitHub review comment carries them, a top-level issue_comment carries none and the head is read from GitHub only for a command."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/GitLabMrCommentWebhookHandler.cs:65-67, src/backend/AgentSmith.Server/Services/Webhooks/AzureDevOpsPrCommentWebhookHandler.cs:65-67, src/backend/AgentSmith.Server/Services/Webhooks/GitHubPrCommentWebhookHandler.cs:77-86,94-96, src/backend/AgentSmith.Server/Services/Webhooks/PrCommandHead.cs:19"
+  - claim: "A GitHub run records the pull request's html URL as its PR URL."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubSourceProvider.cs:118-119"
+  - claim: "The PR sweep sends every new comment on a known pull request through the same comment admission; per-PR-comment hosts get a rotating window of ten pull requests per cycle."
+    evidence: "src/backend/AgentSmith.Server/Services/Sweep/PrSweepActions.cs:34-40, src/backend/AgentSmith.Server/Services/Sweep/PrSweepComments.cs:14,20-21,39-44"
+  - claim: "The PR sweep prunes rows of pull requests no longer open only when the open list was not cut; PruneAsync deletes by (repository key, number) and returns nothing."
+    evidence: "src/backend/AgentSmith.Server/Services/Sweep/PrSweepPass.cs:33, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrSweepStore.cs:48-49"
+  - claim: "A PrSweepState row exists only for a pull request a sweep listed open, and a reopened pull request re-enters as a freshly inserted row with no nudge."
+    evidence: "src/backend/AgentSmith.Server/Services/Sweep/PrSweepPass.cs:29-31, src/backend/AgentSmith.Server/Services/Sweep/PrSweepPass.cs:41-45"
+  - claim: "A lister resumed from a stored page reports itself complete while naming only its tail pages, so `!Cut` alone does not mean the whole open set was listed."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubOpenPullRequests.cs:21-31, src/backend/AgentSmith.Server/Services/Sweep/PrSweep.cs:43-47"
+  - claim: "PrSweep builds PrSweepPass with new inside a DI scope, passing it the scope's PrSweepStore; the sweep keys a repository by RepoKey.Of(the configured repo Url)."
+    evidence: "src/backend/AgentSmith.Server/Services/Sweep/PrSweep.cs:38-47, src/backend/AgentSmith.Server/Services/Sweep/PrSweepPass.cs:24"
+  - claim: "PrCommentCommandAdmission and IPrTicketOwner are singletons, so a nudge that reads a scoped repository needs its own scope."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/WebhookEndpointsExtensions.cs:30-32"
+  - claim: "The change sweep runs under a leader lease and nudges a ticket-branch pull request of a changed-PR list with origin Sweep, an undatable item once per Dedupe; the once-set is one in-memory set for the whole sweep instance."
+    evidence: "src/backend/AgentSmith.Server/Services/Sweep/ChangeSweepHostedService.cs:22,30-31, src/backend/AgentSmith.Server/Services/Sweep/ChangeSweepSources.cs:26, src/backend/AgentSmith.Server/Services/Sweep/ChangeSweepSources.cs:53-62, src/backend/AgentSmith.Contracts/Sweep/ChangedItem.cs:9-11"
+  - claim: "Azure DevOps' act Dedupe is '{PullRequestId}|{voters}', and only -5 voters produce an item."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposChangedPullRequests.cs:31-37"
+  - claim: "One sweep cycle runs the change sources under a deadline of half the interval with rotation, then the PR sweep, then waits a full interval, so the period is the interval plus the work and a source cut by the deadline waits a cycle."
+    evidence: "src/backend/AgentSmith.Server/Services/Sweep/ChangeSweepCycle.cs:18-25, src/backend/AgentSmith.Server/Services/Sweep/ChangeSweepHostedService.cs:42-52"
+  - claim: "Only a per-PR-comment host (Azure DevOps) reads comments in the rotating window of ten; GitHub reads every known open PR's comments each cycle; a repository unswept for two intervals is re-recorded and its gap's comments are skipped."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubOpenPullRequests.cs:17, src/backend/AgentSmith.Server/Services/Sweep/PrSweepComments.cs:14-20, src/backend/AgentSmith.Server/Services/Sweep/PrSweepPass.cs:27-30"
+  - claim: "GitHub's changed list dates an item by its review's submittedAt, which a dismissal keeps, so polling sees a dismissal only through another trigger's refresh."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubChangedPullRequests.cs:17, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubChangedPullRequests.cs:39-46"
+  - claim: "GitLabReviewDelivery.IsReviewSubmission is false without a requester, so a reviewers-only update without one must be told apart from it, not from that predicate."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/GitLabReviewDelivery.cs:15-27"
+  - claim: "A merge into a nudge row keeps the higher origin, and a late request never pulls the due time forward."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/ReworkNudgeWriter.cs:40-46, src/backend/AgentSmith.Contracts/Runs/ReworkNudgeRequest.cs:16"
+  - claim: "The changed-PR lists keep only GitHub CHANGES_REQUESTED reviews and Azure DevOps non-creator -5 voters of active pull requests; GitLab returns every updated open merge request."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubChangedPullRequests.cs:39-47, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposChangedPullRequests.cs:24,31-37, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabChangedPullRequests.cs:16-37"
+  - claim: "The docs name the deliveries that start a rework and the Azure DevOps vote subscription."
+    evidence: "docs/reference/integrations/pr-comments.md:61-63,79,83"
+  - claim: "Touched files and their lengths, none in the file-length baseline: GitHubPrCommentWebhookHandler 100, PrCommentCommandAdmission 98, WebhookEndpointsExtensions 70, ChangeSweepSources 67, PrSweepStore 69, PrSweepPass 59, the three review handlers 58/51/51, the GitHub and Azure DevOps changed lists 49/38."
+    evidence: "observed: 2026-10-13, wc -l on those files at a998e060f against tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv"
+
+assumptions:
+  - "Azure DevOps sends git.pullrequest.updated with resource.status completed or abandoned for a status change and git.pullrequest.merged for 'Pull request merge attempted'; GitLab's merge_request hook carries action close, merge, reopen, approved, unapproved, approval and unapproval."
+  - "GitHub's issue_comment delivery for a pull request carries issue.pull_request.html_url, equal to the html URL the run recorded."
+  - "2026-10-13-9a59b ships ReworkNudgeOrigin.Refresh, ReworkNudgeRequest.FromDelivery, PrKey.Of, the Refresh-only worker path with the claim-time origin reset, and PrReviewRecord with PrKey, Url, Project, TicketId, State, RepoKey (= RepoKey.Of the configured repo Url, the key PrSweep uses) and Number (string) plus the repository lookups ByPrKeyAsync and ByRepoKeyAsync, as its scope names them."
+
+scope:
+  in: >
+    PrRecordNudge (Server/Services/Webhooks, own class): given repo URL, head ref, same-repository flag, PR URL and the
+    allowed projects, enqueues a Refresh-origin nudge (with the PR URL, FromDelivery = true from a webhook so it is not late) for the
+    ticket of a same-repository ticket branch through IPrTicketOwner; without a head it falls back to
+    ByPrKeyAsync(PrKey.Of(PR URL)) from 9a59b — the one hash, never a second. It opens its own DI scope for the
+    repository (its callers are singletons). Never a host call.
+    REVIEWS: GitHub any other pull_request_review delivery (approved, commented, edited, dismissed) nudges Refresh;
+    Azure DevOps every header-marked vote delivery not admitted as a -5 act nudges Refresh, whatever
+    the vote — a reset to 0 is the delivery that withdraws a decision; GitLab a reviewers-only update without a
+    requester nudges Refresh (GitLabReviewDelivery gains IsReviewersOnlyUpdate beside IsReviewSubmission). A request for changes keeps PrReworkAdmission and its PullRequest origin.
+    COMMENTS: PrCommentCommandAdmission calls PrRecordNudge for every comment that is not our own note, BEFORE the
+    command match — covering the three comment webhooks and the PR sweep's comments alike; a trusted command still
+    enqueues its PullRequest-origin nudge, which the merge keeps. GitHub's issue_comment sets PrUrl from
+    issue.pull_request.html_url so the record fallback can find its ticket.
+    STATE: new GitHubPrStateWebhookHandler (pull_request closed or reopened), GitLabMrStateWebhookHandler (merge_request
+    close, merge, reopen, approved, unapproved, approval, unapproval) and AzureDevOpsPrStateWebhookHandler
+    (git.pullrequest.updated with status completed or abandoned, git.pullrequest.merged) nudge Refresh, after the
+    trigger-mode gate, registered beside the existing handlers.
+    POLLING: ChangedItem gains RefreshOnly; GitHub's list keeps any review state newer than the cursor, RefreshOnly when
+    no CHANGES_REQUESTED is; Azure DevOps lists an act item for -5 voters (Dedupe unchanged) and a RefreshOnly item for
+    every PR with a non-creator reviewer, Dedupe "refresh|{PullRequestId}|{sorted voter:vote, zeros included}" — so a
+    reset vote changes the key and is listed, and the prefix keeps refresh keys out of the act namespace; after a
+    restart the in-memory once-set is empty and each such PR is refreshed once. ChangeSweepSources enqueues Refresh
+    (late) for a RefreshOnly item, Sweep otherwise. RECORD SWEEP: PrSweepRecordNudge (own class, scoped, built in
+    PrSweep.cs beside PrSweepStore and passed to PrSweepPass) reads 9a59b's ByRepoKeyAsync(RepoKey) once per pass and
+    nudges Refresh (late, with the URL) for (1) every record whose State is open and whose Number is not in the list,
+    only after a list that is neither cut nor resumed (`!page.Cut && resume is null`) — this also covers a PR merged
+    before any sweep saw it open, which has no PrSweepState row — and (2) every record merged or closed whose Number
+    IS in the list (a reopen). PruneAsync is unchanged. A record that stays mismatched (a deleted PR the host can no
+    longer read) is nudged again each complete pass. GitLab's list is unchanged.
+    DOCS: pr-comments.md, trigger-it/webhooks.md and trigger-it/polling.md name the deliveries that keep the record
+    current, the Azure DevOps 'Pull request updated' (status) and 'Pull request merge attempted' subscriptions, and the
+    polling timing per host: reviews and votes within a sweep cycle (about one interval when every source fits its
+    deadline; a cut list resumes next cycle); comments — GitHub and GitLab one cycle, Azure DevOps the rotation of
+    ten; merges, closes and reopens when a complete (uncut, unresumed) open list is read; comments during a sweep
+    outage longer than two intervals are not replayed; a GitHub dismissal in polling mode is seen only by the next
+    refresh from another trigger. Webhook mode: a reopen coalesced with another PR's nudge before the drain is caught
+    by 9a59b's 24-hour re-read of recently closed records.
+  out: >
+    The record, its refresh, the Refresh origin, the run-end and read-time nudges and the ticket buckets —
+    2026-10-13-9a59b. Showing review entries in the conversation — 2026-10-13-9a59h. Dashboard rendering —
+    2026-10-13-9a59p. A Request changes keeps starting a rework exactly as before; no new act is defined here.
+    GitLab's changed list stays as it is, so its MR updates remain Sweep-origin nudges (pre-existing; not a trigger
+    this spec adds). The prefix-only own-note check (PrCommentCommandAdmission.cs:34) stays: a stranger's pasted
+    marker suppresses one harmless Refresh.
+
+decisions:
+  - key: "EVERY NEW TRIGGER IS REFRESH: an approval, a comment, a merge or a prune is no act, so it must never reach the rework handler; Refresh runs only the record refresh (review finding 1, cut 1)."
+  - key: "COMMENTS NUDGE BEFORE THE COMMAND CHECK: the comment handlers were command-only, so in webhook mode a plain comment never reached the record (review finding 3). One call in the admission covers webhooks and the PR sweep."
+  - key: "NO HOST CALL IN A DELIVERY: a GitHub top-level comment has no head; its ticket comes from the record keyed by the PR URL GitHub already sends, not from a head read per comment. A PR with no record yet is reached by 2026-10-13-9a59b's backfill."
+  - key: "WIDEN EXISTING READS, NO THIRD POLLER: the changed lists change their filter, not their request count; a refresh item gets its own Dedupe so a vote change never re-nudges an act with Sweep origin."
+  - key: "RECORD SWEEP OVER THE RECORDS, NOT THE PRUNED ROWS: a PR merged before any sweep listed it open has no PrSweepState row and was never pruned, and a resumed list prunes rows of pages it did not read; comparing the RepoKey's records with a complete, unresumed list covers both and adds the reopen (review3-c findings 1, 7). PruneAsync is untouched."
+  - key: "EVERY AZURE DEVOPS VOTE DELIVERY REFRESHES; THE REFRESH DEDUPE CARRIES THE PR ID AND ZEROS: a reset vote is the delivery that withdraws an approval, and a voter-only key collided across PRs (review3-c findings 2, 3)."
+  - key: "DELIVERY REFRESH IS NOT LATE, SWEEP REFRESH IS: a late merge never pulls a backing-off row forward (ReworkNudgeWriter.cs:44-46), which would delay a merge delivery by up to 15 minutes; 9a59b's FromDelivery carries the difference (review3-c finding 5)."
+  - key: "NO RE-RUN OF THE HANDLER: owned by 9a59b's claim-time origin reset, so done 3 stays absolute and this spec pins it with a test (review3-c finding 4)."
+  - key: "HONEST POLLING TIMING: comments ride the PR sweep's rotating window of ten and merges ride the prune, so the docs and the done criteria say it per host and per cycle (review finding 5; review3-c finding 6)."
+  - key: "SPLIT FROM ONE EARLIER DRAFT: this spec owns the triggers; 2026-10-13-9a59b owns the record."
+
+steps:
+  - id: nudge
+    action: "PrRecordNudge (own class, own scope) with the head path and the record fallback through 9a59b's ByPrKeyAsync(PrKey.Of(url)); FromDelivery on webhook nudges; ChangedItem.RefreshOnly (11 lines)."
+  - id: reviews
+    action: "GitHub review, Azure DevOps vote (every vote not admitted as -5, zero included) and GitLab review handlers send every other review delivery to PrRecordNudge; GitLabReviewDelivery (36 lines) gains IsReviewersOnlyUpdate; the change-request path is unchanged."
+  - id: comments
+    action: "PrCommentCommandAdmission (98 lines, stays <= 120) calls PrRecordNudge first; GitHubPrCommentWebhookHandler (100 lines, stays <= 120) sets PrUrl on issue_comment."
+  - id: state-handlers
+    action: "GitHubPrStateWebhookHandler, GitLabMrStateWebhookHandler, AzureDevOpsPrStateWebhookHandler with the trigger-mode gate; registrations in WebhookEndpointsExtensions (70 lines)."
+  - id: changed-lists
+    action: "GitHubChangedPullRequests and AzureReposChangedPullRequests (refresh|{id}|{voter:vote incl. zeros} Dedupe) widened; ChangeSweepSources picks the origin from RefreshOnly."
+  - id: prune
+    action: "PrSweepRecordNudge (scoped, own class): open records not in a complete unresumed list, closed records in the list; PrSweep.cs:46 (64 lines) passes it into PrSweepPass (59 lines); PruneAsync unchanged."
+  - id: tests
+    action: "Red first, one per test name below; run the webhook, sweep and provider classes touched."
+  - id: docs
+    action: "pr-comments.md, webhooks.md and polling.md: the deliveries, the two Azure DevOps subscriptions, the polling timing."
+
+tests:
+  - "GitHubPrReview_Approved_NudgesRefreshAndStartsNothing"
+  - "GitHubPrReview_ChangesRequested_KeepsPullRequestOrigin"
+  - "AzureDevOpsVote_OtherReviewerApproval_NudgesRefresh"
+  - "AzureDevOpsVote_ResetToZero_NudgesRefresh"
+  - "ChangedPullRequests_AzureDevOps_SameVoterTwoPrs_BothListed"
+  - "ChangedPullRequests_AzureDevOps_VoteResetToZero_IsListedAgain"
+  - "GitLabMrReview_ReviewerApprovedUpdate_NudgesRefresh"
+  - "PrClosedOrMergedDelivery_EveryHost_NudgesRefreshAndStartsNothing"
+  - "PrStateDelivery_PollingProjectRepo_IsRefused"
+  - "PrComment_PlainCommentOnTicketBranch_NudgesRefresh_EveryHost"
+  - "PrComment_OurOwnNote_NudgesNothing"
+  - "GitHubIssueComment_NoHead_NudgesTheTicketOfItsRecord"
+  - "PrComment_TrustedCommand_StillNudgesPullRequestOrigin"
+  - "ChangedPullRequests_GitHubApproval_IsListedRefreshOnly"
+  - "ChangedPullRequests_AzureDevOpsApproval_RefreshItem_MinusFiveItemUnchanged"
+  - "ChangeSweep_RefreshOnlyItem_EnqueuesRefreshOrigin"
+  - "PrSweep_RecordOpenButNotListed_NudgesRefresh_NeverRecordedPrToo"
+  - "PrSweep_ResumedList_NudgesNoOpenRecord"
+  - "PrSweep_ReopenedPr_NudgesRefreshWithItsUrl"
+  - "RefreshDuringHandledPullRequestNudge_HandlerRunsOnce"
+  - "PrMergedDelivery_TicketNudgeInBackoff_RefreshesWithinOneDrain"
+  - "PrSweep_PlainComment_NudgesRefresh"
+
+done:
+  - "In webhook mode an approval, a vote (a reset to zero too), a review comment with file and line, a plain comment, a merge, a close and a reopen on a ticket's pull request reach its record on delivery on GitHub, GitLab and Azure DevOps (with the subscriptions the docs name), even while the ticket's nudge is backing off."
+  - "In polling mode reviews and votes reach it within a sweep cycle; comments within one cycle on GitHub and GitLab and within the rotation of ten on Azure DevOps; merges, closes and reopens — a PR merged before any sweep saw it open too — when a complete, unresumed open list is read."
+  - "None of the triggers this spec adds starts, refuses or announces an attempt, also when one merges into a nudge being handled; a Request changes starts a rework exactly as before."
+  - "The docs name every delivery that keeps the record current and the polling timing."

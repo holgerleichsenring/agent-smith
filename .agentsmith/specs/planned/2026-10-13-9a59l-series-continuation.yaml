@@ -1,0 +1,235 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-9a59l
+goal: "Approving in a ticket's own conversation continues its series by spec id (ran: kept; unstarted: re-cut or dropped; new: appended); a ticket a person closed gets a linked follow-up."
+
+applies_to: "backend (spec dialog outcome sink and shapes, ticket continuation decision and preview, approval record, never-worked amendment, run-side spec source) + docs"
+
+requires: [2026-10-13-9a59a, 2026-10-13-9a59e, 2026-10-13-9a59k, 2026-09-25-8e51e, 2026-10-08-e8b9b, 2026-10-08-0781, 2026-10-08-f114, 2026-10-12-f5f7d]
+
+facts:
+  - claim: "In a bound conversation a plain approval files a NEW ticket: Approved maps to OutcomeConfirmed, the flow hands it to the sink, the sink calls the filer."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeConfirmer.cs:103-109, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:58-60, src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:26-33"
+  - claim: "The sink answers in the thread and keeps the answer as a Filing turn; the dialog is open on this path."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:52-60,79-83"
+  - claim: "Only the Amend, Reject and Timeout arms clear the stored proposal, the Amend arm because 'the pane must not offer it again'; AcceptAsync never clears it, and ClearProposalAsync nulls LatestProposalJson on the open session."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:61-79, src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:26-61, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogLatestOutcomeStore.cs:43-44"
+  - claim: "'Amend this ticket' is a bound-only shape for specs and epics, read between the approval words and the edit note, routed to IOutcomeSink.AmendAsync as a Filing turn; a test fixture and a harness sink implement AmendAsync."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeShapes.cs:48-53,83-96, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeConfirmer.cs:103-116, src/backend/AgentSmith.Server/Services/SpecDialog/ConfirmationResult.cs:36, src/backend/AgentSmith.Server/Services/SpecDialog/IOutcomeSink.cs:26-33, src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:72-84, tests/AgentSmith.Tests/SpecDialog/OutcomeShapeOfferTests.cs:210-215,283, tests/AgentSmith.PipelineHarness/Presets/SpecDialogOutcomeTests.cs:579-583"
+  - claim: "The dialog prompt's filed-work clause tells the model the operator chooses an amendment."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialogPromptFactory.cs:78-87"
+  - claim: "The amendment keeps the ticket's series base, and is refused once a lease or any Run row — of ANY pipeline, pr-review and scans included — of a project sharing the tracker exists; the withdrawal asks the same question."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketAmendment.cs:53-54,60-65, src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkClaims.cs:29-51, src/backend/AgentSmith.Server/Services/SpecDialog/FiledTicketWithdrawal.cs:64"
+  - claim: "The lease half exists because a claim takes the lease before the run row appears, so between the two the ticket is claimed and invisible to every row reader."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkClaims.cs:13-19,36-42"
+  - claim: "The amendment rewrites the ticket first and records nothing when the rewrite does not land; it writes the record, then the branch with the ticket read back; a failed branch write is said and leaves the old branch set; TicketAmendment is 120 lines."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketAmendment.cs:25-27,84-98,102-108,111-118, observed: 2026-10-13, wc -l TicketAmendment.cs = 120 in this worktree"
+  - claim: "Jira refuses a description rewrite, so the amendment changes nothing on Jira."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketRewriter.cs:27-37, src/backend/AgentSmith.Server/Services/SpecDialog/TicketAmendment.cs:85-89"
+  - claim: "The recorder's summary says a re-approved set merges POSITIONALLY and the run refuses or reports edits to the head; no code does that — once the branch answered, the record is not consulted; only a branch with nothing at the path takes the record."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSpecSetRecorder.cs:45-51, src/backend/AgentSmith.Application/Services/Specs/SpecSourceResolver.cs:14-20,81-105"
+  - claim: "RecordAsync mints the approval from the turn's session and user and takes the series and goal as parameters."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSpecSetRecorder.cs:63-73"
+  - claim: "The run resolves the approval once at DeriveSpec (newer of carried and stored) and passes it to the source decision; the kept notice takes a discarded note that the handler always passes as null."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:60,72-73,85-86, src/backend/AgentSmith.Application/Services/Specs/ApprovedSpecSetResolver.cs:32-44, src/backend/AgentSmith.Application/Services/Specs/ApprovedSetKeptNotice.cs:34-36"
+  - claim: "A published revision stamps the approval it was given onto the set, and a set with an approval is no longer re-cut by a ticket comment or edit."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRevisionHeader.cs:36-43, src/backend/AgentSmith.Application/Services/Specs/SpecAmendmentRule.cs:52-55"
+  - claim: "The kept notice tells a person a change to an approved set is made on the branch, 'not the design conversation: nothing re-opens an approved record from one yet'."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovedSetKept.cs:42-51"
+  - claim: "An executed spec is append-only, executed specs are named by id on the pointer, and a series holds at most 8 specs."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:38-58,70, src/backend/AgentSmith.Contracts/Specs/SpecSetPointer.cs:34-36,49-56"
+  - claim: "Filing re-ids drafts by position from letter a; a next-free member id helper exists; the draft id rewriter rewrites ids, requires edges and yaml together."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SeriesDraftIds.cs:14-26, src/backend/AgentSmith.Application/Services/Specs/SeriesIdFactory.cs:33-46"
+  - claim: "A recorded spec keeps its label by id; a relabel leaves a second file for one id, which the reader refuses."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSpecSetRecorder.cs:108-111"
+  - claim: "The checkout-free branch write always mints revision 1, so it cannot carry a continuation's revision."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/FiledSpecBranch.cs:99-105"
+  - claim: "The approval record is positional with every later field appended last, and is stored whole as ContentJson; re-approving clears SatisfiedAt."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecApprovalRecord.cs:63-71, src/backend/AgentSmith.Infrastructure.Persistence/Entities/ApprovedSeries.cs:47-49,60-65"
+  - claim: "A successful run moves the ticket into done_status, or closes it when none is set (GitHub closes the issue, Jira transitions to the default status); today a ticket in done_status or failed_status is reworkable, which is how a Request changes on the run's own PR reworks it."
+    evidence: "src/backend/AgentSmith.Application/Services/Lifecycle/TicketLifecycle.cs:9-13,49, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketFinalizer.cs:26-29, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketFinalizer.cs:30-34, src/backend/AgentSmith.Server/Services/Rework/ReworkParkCheck.cs:33-36"
+  - claim: "No provider relates two tickets; a comment is UpdateStatusAsync and an 'Agent Smith —' comment is ours to every thread reader; filing tags and starts through FiledWorkStarter."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ITicketProvider.cs:55-60, src/backend/AgentSmith.Application/Services/Prompts/OwnTicketComment.cs:26-34, src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkStarter.cs:43-56"
+  - claim: "A ticket's conversation is found by (tracker, ticket key); its open proposal is readable by session id; dialog.write exists."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SpecDialogSessionRepository.cs:32-37, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogLatestOutcomeStore.cs:65-69, src/backend/AgentSmith.Server/Security/Permissions.cs:68"
+  - claim: "The bound turn's ticket_runs tool names only the spec ids each run worked, not their text; its description says nothing about how a proposal keeps a spec."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/BoundTicketRuns.cs:27-30, src/backend/AgentSmith.Application/Services/Tools/TicketRunsToolHost.cs:26-32"
+  - claim: "Line room: ApprovedSpecSetRecorder 119, SpecDialogExtensions 119 (TicketAmendment registered on line 60), SpecDerivationRegistrations 113 (SpecSourceResolver on line 69), ApprovedSetKept 120, SpecSourceResolver 114, ServerEndpointExtensions 71 (ticket conversation map on line 45), DeriveSpecHandler listed at 143 (may only shrink)."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:106, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogExtensions.cs:60, src/backend/AgentSmith.Application/Services/Specs/SpecDerivationRegistrations.cs:69, src/backend/AgentSmith.Server/Extensions/ServerEndpointExtensions.cs:45, observed: 2026-10-13, wc -l on ApprovedSpecSetRecorder.cs, SpecDialogExtensions.cs, SpecDerivationRegistrations.cs, ApprovedSetKept.cs, SpecSourceResolver.cs, ServerEndpointExtensions.cs"
+  - claim: "The docs describe 'Amend this ticket' as the bound conversation's extra shape and the way to change its ticket."
+    evidence: "docs/how-it-works/work-it-out.md:86, docs/how-it-works/spec-dialogue.md:42,66"
+  - claim: "A handed-back set carries Handback and IsHandedBack holds while it is set; Finalize copies the set changing only Revisions, TicketFingerprint and Approval; a handed-back set is not announced and the spec gate answers 'nothing to gate'; today a Rework or RecutDemand cause re-derives (NeedsModel true)."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:31,95, src/backend/AgentSmith.Application/Services/Specs/SpecRevisionHeader.cs:38-43, src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:91, src/backend/AgentSmith.Application/Services/SpecExecution/SpecGateHandler.cs:33-36, src/backend/AgentSmith.Application/Services/Specs/SpecAmendmentRule.cs:48-49"
+  - claim: "RecordAsync stores the drafts as the record's set, the session scope's repositories (else every project repository) and the carrier of THESE drafts; the run narrows its repositories to record.Repositories; with nothing at the path the hand-off hands record.Set over as the whole set; a member not checked out fails the run; the pointer names the carrier and the per-repository shas."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSpecSetRecorder.cs:74-81,117-118, src/backend/AgentSmith.Application/Services/Scope/ApprovedRepoScope.cs:58-79, src/backend/AgentSmith.Application/Services/Specs/ApprovedSetHandoff.cs:25-37, src/backend/AgentSmith.Application/Services/Specs/SpecSourceResolver.cs:70-71,103-105, src/backend/AgentSmith.Contracts/Specs/SpecSetPointer.cs:38-48,59-62"
+  - claim: "One ticket may route to several projects of one tracker and one record serves them all; FiledWorkClaims looks across every project sharing the tracker for that reason."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkClaims.cs:21-24,44-50, src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkTrackerProjects.cs:22-27, src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSpecSetRecorder.cs:16-19"
+  - claim: "TicketAmendment's lease refusal names the amendment act, its catch says the ticket 'was rewritten', and the amendment never throws into the turn; an Azure DevOps fetch throws on a missing ticket."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketAmendment.cs:63-65,70-77, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs:78-85"
+  - claim: "Filing pushes SpecDialogFiled to an open dashboard pane; the retired Amend arm only cleared LatestProposalJson."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:43-48, src/backend/AgentSmith.Server/Services/SpecDialog/DashboardOutcomeChannel.cs:48-59, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:63-66"
+
+assumptions:
+  - "2026-10-13-9a59a's TicketAttempts answers a ticket's code attempts (live reservation included, never-started rows excluded) for a (project, ticket id)."
+  - "2026-10-13-9a59k's TicketClosure.ClosedForWorkAsync(project, provider, ticket) (Application, async) answers closed-for-work: in the tracker's closed category and not done_status, failed_status, needs_clarification_status or not_implementable_status, nor a run's own close when no done_status is set (read through ITicketStatusHistory.NewestMoveIntoAsync)."
+  - "A cleared SatisfiedAt makes discovery name the ticket again, but discovery still claims only from a trigger status; recording a continuation moves no status, so nothing starts in this spec."
+
+scope:
+  in: >
+    DECISION: TicketContinuation.Decide(state, proposal) is a pure function over TicketContinuationState —
+    the ticket fetched now (closed = 2026-10-13-9a59k's TicketClosure closed-for-work), WORKED = at least one
+    code attempt by 2026-10-13-9a59a's TicketAttempts in ANY project of FiledWorkTrackerProjects.SharingTrackerWith
+    (the reach FiledWorkClaims has; a ticket touched only by pr-review or scan runs is never-worked), the BASIS (2026-10-13-9a59e's latest cut with specs plus the pointer's ExecutedIds, else the
+    approval record's set), the record. It answers one effect: bug-ticket (a bug proposal files as today),
+    follow-up-closed, amend-never-worked, refused-over-cap (executed plus resulting unstarted specs over
+    SpecSet.MaxSpecs, naming both counts), or continue. MATCH BY ID: a draft whose id is executed is kept (a
+    changed text is reported as a discarded edit, never applied); an unstarted basis id the proposal repeats is
+    recut (kept only when its yaml is byte-identical); an unstarted basis id a lone SPEC proposal does not repeat
+    is kept; one an EPIC proposal omits is dropped; an unknown id is appended and takes SeriesIdFactory.NextFree
+    past every basis, executed and record id, requires edges rewritten by SpecDraftIdRewriter.
+    ACT: TicketFilingOutcomeSink.AcceptAsync routes a bound spec or epic approval to TicketContinuationAct.
+    Continue stores the record through ApprovedSpecSetRecorder with the new SpecApprovalRecord.Continuation
+    (dispositions in proposal order, BasisRunId); its Repositories are the basis series' (the pointer's ShaByRepo
+    keys, else the previous record's) united with the proposal's, its carrier the basis carrier (pointer
+    CarryingRepo, else the previous record's). It publishes TicketActivityChanged (2026-10-13-9a59a), says in
+    the thread that the ticket's next attempt works it (a Filing turn), and clears the open proposal
+    (ClearProposalAsync) — as do amend-never-worked and follow-up-closed once they acted; refused-over-cap keeps it.
+    A failed ticket or state read (Azure DevOps state category included) refuses the approval: the reason is said
+    as a Filing turn, nothing is recorded, the proposal is kept; the preview answers 502 with the reason.
+    HAND-OFF: ApprovedSetHandoff never hands over a record whose Continuation carries a BasisRunId — its Set is
+    the proposal, not the series; with nothing at the path the run fails naming that the approval continues a
+    series the branch no longer holds.
+    RUN MERGE: ApprovedContinuation beside SpecSourceResolver — when the branch answered and the resolved record
+    carries a Continuation WITH a BasisRunId whose approval is newer than the branch set's, it applies the
+    dispositions to the branch as read NOW: recut replaces an unstarted spec keeping its id and branch label,
+    dropped removes an unstarted one, appended takes NextFree past the branch's ids; a spec that ran since the
+    basis is kept and its recut/drop reported as discarded; branch specs the basis never saw stay after the
+    appended ones and are named; over the cap nothing is merged and the notice says why. A Continuation without a
+    BasisRunId (the never-worked hand-off) is never merged. NeedsModel false, cause SpecRevisionCause.Approval,
+    approval the record's, Handback null — the approval answers a hand-back, so the merged set is gated and built; the discarded note reaches ApprovedSetKeptNotice in place of DeriveSpecHandler's null.
+    NEVER-WORKED: amend-never-worked records the approved series on EVERY tracker through TicketAmendment —
+    ApplyAsync gains an optional SeriesContinuation passed to RecordAsync (null here; 2026-10-13-9a59m passes its
+    start flag); the description is rewritten first where the tracker supports it, a refused or failed rewrite is
+    said and never blocks; the record and the branch (read-back ticket) are written anyway. The LEASE half of
+    FiledWorkClaims stays (FiledWorkClaims.LeaseOnAsync, which OnAsync calls first for the withdrawal): a claimed
+    ticket is refused and nothing is recorded; the refusal and the catch message (TicketAmendment.cs:63-65,75-76),
+    which name the retired amendment and claim a rewrite, are reworded in place to say the approval was not
+    recorded; the Run-row half is replaced by Decide's code-attempt rule. FOLLOW-UP from an APPROVAL: ClosedTicketFollowUp files the proposal's drafts minus the
+    closed ticket's executed ids through OutcomeTicketFiler (nothing left: said, nothing filed), then
+    FollowUpLink posts one 'Agent Smith —' comment on each ticket naming the other.
+    PREVIEW: GET /api/tickets/{project}/{ticketId}/approval-preview (dialog.write, own endpoint class) runs
+    Decide over the ticket's conversation's open proposal and answers effect, reason, counts, basis run id and
+    per-spec {specId, goal, disposition kept|recut|appended|dropped, note}; 404 when no conversation or proposal.
+    RETIRE AMEND (here, so no window leaves the shape without its guard): OutcomeShapes.AmendTheTicket, the
+    confirmer's IsAmend arm, OutcomeAmendRequested, the flow arm, IOutcomeSink.AmendAsync and
+    TicketFilingOutcomeSink.AmendAsync go; the label typed in a bound thread is an edit note; the prompt's
+    filed-work clause says approval in a bound conversation continues the ticket (line-neutral).
+    WORDING: the recorder's summary states the id rule; ApprovedSetKept.WhereToChangeIt names the ticket's
+    conversation; ticket_runs' description says repeating an id re-cuts it and a lone spec leaves the rest kept.
+    DOCS: work-it-out.md, spec-dialogue.md: approve continues the ticket by id, what the preview shows,
+    never-worked records on every tracker, a person-closed ticket gets a follow-up from an approval.
+  out: >
+    Starting an attempt from the approval — the first of a never-worked ticket and the next of a worked one (start
+    now, wait for the live run, refuse while a question pends, recorded without runs.control, answering a
+    hand-back), the operator cause, pending-act and nudge arms, and resuming a ticket-bound conversation by any
+    dialog.write holder — 2026-10-13-9a59m. A keyword comment or pull-request act on a ticket a person closed filing
+    the follow-up instead of reopening it — 2026-10-13-9a59t. Retry after an infrastructure end —
+    2026-10-13-9a59n. Verdicts, criteria and PR review on ticket_runs — 2026-10-13-9a59o. Rendering the preview in
+    the composer, the Work it out page's approval card wording for a bound conversation, and refetching the
+    conversation and the preview after the composer's approval (nothing is pushed to an open pane) — 2026-10-13-9a59r.
+    Recording the cut the basis reads — 2026-10-13-9a59e. Rewriting a worked ticket's description: the series is
+    the document (operator decision 9). A native tracker relation between the two tickets: no provider has one;
+    the comments are the link. Rebinding the conversation to the follow-up: the conversation stays the closed
+    ticket's, and each later approval there files another follow-up.
+
+decisions:
+  - key: "CLOSED MEANS CLOSED FOR WORK (main-thread decision 1, 2026-10-13; pending operator ratification, recorded in 2026-10-13-9a59k): in the tracker's closed category AND not done_status, failed_status, needs_clarification_status or not_implementable_status, nor a run's own close when no done_status is set (TicketClosure.ClosedForWorkAsync reads it through ITicketStatusHistory.NewestMoveIntoAsync). A person closed it. So a Request changes or /agent-smith on a run's own pull request still reworks (TicketLifecycle.cs:9-13, ReworkParkCheck.cs:33-36), and only a person-closed ticket gets a follow-up."
+  - key: "SPLIT, NOT CUT (review3-l L8 and L1; main-thread decision 4). The act door (keyword comment and pull-request act on a ticket closed for work, the act's text, the rework ledger order) is 2026-10-13-9a59t, built last. L1's cut of the pull-request channel is not applied there: decision 1 removes the regression it named, because the run's own done or close is not closed for work."
+  - key: "AMEND IS RETIRED HERE, NOT IN 9a59m (review3-l L2). This spec removes TicketAmendment's Run-row refusal; leaving the shape live until m's commit would let 'Amend this ticket' rewrite a worked ticket's description with no guard. Approve is the amendment in a bound conversation; the retired label falls through to an edit note."
+  - key: "THE LEASE STAYS (review3-l L3). Between taking the lease and the Run row appearing, a never-worked ticket is claimed and invisible to TicketAttempts; writing the record and the checkout-free branch then races the claiming run. The lease half of FiledWorkClaims refuses that window with today's sentence; only the any-pipeline Run-row half gives way to the code-attempt rule. The preview, computed before the act, may say never-worked during that window; the act's answer is what is true."
+  - key: "AN ACTED-ON PROPOSAL IS CLEARED (review3-l L4). Continue, never-worked and follow-up clear LatestProposalJson as the Amend arm did, so the preview, 2026-10-13-9a59h's open proposal and 2026-10-13-9a59r's composer never offer it again."
+  - key: "ONLY A WORKED BASIS IS MERGED (review3-l L5, review3-m M2). A Continuation without a BasisRunId is the never-worked hand-off: merging its empty dispositions over a stale branch set (TicketAmendment.cs:102-108 failure branch) would stamp the new approval onto the old set (SpecRevisionHeader.cs:42) and 9a59d would record it as worked."
+  - key: "KEPT MEANS NOT REPEATED (review3-l L7). The bound agent sees spec ids, not yaml (BoundTicketRuns.cs:27-30), so a repeated unstarted id is practically always a re-cut; byte-identical yaml stays 'kept' but is not relied on. A lone spec proposal keeps what it does not name; an epic drops it."
+  - key: "MATCH BY ID, NOT BY POSITION (review2-g G1). Position cannot tell a kept spec from a re-cut or appended one; the id can, and an executed id is the record of work. The recorder's positional summary described a merge nobody built and is replaced."
+  - key: "DISPOSITIONS ARE RECORDED, THE RUN APPLIES THEM. The server has no clone and the checkout-free write mints revision 1 (FiledSpecBranch.cs:99-105); a live run may hold the branch. So the approval stores what each spec should become and the run applies it as the next revision with cause Approval; what changed on the branch since is reported in the run's notice, never silently applied."
+  - key: "AN EXECUTED SPEC IS KEPT WHETHER OR NOT THE PROPOSAL LISTS IT. It can never leave the series, so omission cannot mean anything else; a changed text of one is reported as discarded, never refused."
+  - key: "APPROVED IS FINAL FOR TICKET TEXT. A continuation's revision carries the approval (SpecRevisionHeader.cs:42), so from then on a ticket comment or edit no longer re-cuts the set (SpecAmendmentRule.cs:52); a change goes through the conversation (operator decision 9). The docs say so."
+  - key: "WORKED MEANS A CODE ATTEMPT. FiledWorkClaims' Run-row half counts a run of any pipeline, so a ticket a pr-review or scan run touched could never be continued; a's attempt rule is the one definition the ticket page also shows."
+  - key: "THE CONVERSATION STAYS BOUND. Rebinding would move the session's unique (tracker, ticket key) to a ticket it never discussed; the thread names the follow-up instead."
+  - key: "NEVER-WORKED RECORDS ON EVERY TRACKER (operator default, 2026-10-13). Today the rewrite gates the record, so on Jira an approval changed nothing. The run reads the branch and the record, never the description (TicketAmendment.cs:19-22), so the rewrite is a courtesy: attempted where supported, said when refused, never blocking; it still goes first so the branch set's fingerprint is the stored text."
+  - key: "DEVIATION FROM THE SERIES CONTRACT: Decide(state, proposal) has no readOnly flag. It is pure — the preview calls it, the act calls it and then applies the effect. 2026-10-13-9a59m adds its start arm as a field of the continue and amend-never-worked effects and inputs on TicketContinuationState. Effects add bug-ticket beside the contract's four."
+  - key: "ONE WRITER OF ACTIVITY: the stored continuation publishes TicketActivityChanged; a filed follow-up is a new ticket whose first run publishes its own. No table and no event type is added, so DataArchiveRoundTripTests (37 tables / 76 seed rows), DataArchiveSchemaTests and FilterRail.tsx are unchanged by this spec (main-thread decision 6)."
+  - key: "THE APPROVAL ANSWERS A HAND-BACK (review4-l L4-1; main-thread decision 1). Finalize keeps a set's Handback (SpecRevisionHeader.cs:38-43) and a handed-back set gates nothing (SpecGateHandler.cs:33-36); the merge bypasses the Rework re-derive that clears it today (SpecAmendmentRule.cs:48-49), so it clears Handback itself — else 2026-10-13-9a59m's answers-handback attempt parks again at once."
+  - key: "A CONTINUATION RECORD SCOPES THE WHOLE SERIES, NOT THE PROPOSAL (review4-l L4-2; main-thread decision 2). The run narrows to record.Repositories (ApprovedRepoScope.cs:58-79): the proposal's alone would leave the executed specs' repositories out (SpecSourceResolver.cs:70-71), so they are united with the basis series'; the carrier stays the basis carrier the pointer names. Its Set is only the proposal, so the hand-off refuses it rather than make it the series."
+  - key: "WORKED REACHES EVERY PROJECT ON THE TRACKER (review4-l L4-3; main-thread decision 3). One record serves every project a ticket routes to (ApprovedSpecSetRecorder.cs:16-19); a sibling project's run read as never-worked would write a revision-1 branch over the one that run published (FiledSpecBranch.cs:99-105)."
+  - key: "A FAILED READ REFUSES, IT DOES NOT GUESS (review4-l L4-5; main-thread decision 5). Deciding closed or worked from an unreadable ticket could follow up an open ticket or continue a closed one; the person approves again once the tracker answers, and the proposal is still there."
+  - key: "REGISTRATIONS WITHOUT LINES. ApprovedContinuation chains onto SpecDerivationRegistrations line 69 (113 stays); TicketContinuationStateReader, TicketContinuationAct, ClosedTicketFollowUp and FollowUpLink chain onto SpecDialogExtensions line 60 (119 stays); the preview endpoint class adds one map line to ServerEndpointExtensions (71 -> 72 before other members)."
+
+steps:
+  - id: contracts
+    action: "SpecApprovalRecord.Continuation (SeriesContinuation{Dispositions[SpecDisposition{SpecId, Kind}], BasisRunId nullable}, appended last)."
+  - id: basis
+    action: "TicketContinuationStateReader: ticket via GetTicketAsync and 2026-10-13-9a59k's TicketClosure.ClosedForWorkAsync (a failed read is a refusal with its reason), worked from 2026-10-13-9a59a's TicketAttempts over SharingTrackerWith, 2026-10-13-9a59e's latest cut + pointer ExecutedIds, carrier and repositories (else the record's), the record."
+  - id: decide
+    action: "TicketContinuation.Decide (pure) with SeriesContinuationIds (match by id, repeated = recut, lone spec keeps the rest, epic drops, NextFree, requires rewrite, branch labels kept): effect, counts, dispositions, notes."
+  - id: act
+    action: "TicketFilingOutcomeSink (85 lines) routes bound spec/epic approvals to TicketContinuationAct; continue records via the recorder (continuation and basis repositories/carrier as parameters, lines 66, 77, 80-81 and 117-118 changed in place, 119 kept), nudges 56, answers as a Filing turn, clears the open proposal; registrations chained on SpecDialogExtensions line 60."
+  - id: never-worked
+    action: "TicketAmendment (120, may only shrink): optional SeriesContinuation into RecordAsync; FiledWorkClaims.LeaseOnAsync replaces OnAsync here (OnAsync = lease then Run row for the withdrawal); rewrite attempted where supported and its refusal said; record and branch written regardless; lease refusal and catch message reworded in place."
+  - id: follow-up
+    action: "ClosedTicketFollowUp (approval door): drafts minus executed ids through OutcomeTicketFiler; FollowUpLink (shared with 2026-10-13-9a59t) comments on both tickets naming the other; proposal cleared."
+  - id: merge
+    action: "ApprovedContinuation applies a BasisRunId continuation's dispositions to the branch read, Handback cleared; ApprovedSetHandoff refuses a BasisRunId record; SpecSourceResolver (114, +<=4) calls it before its branch arm; Decision.Discarded replaces DeriveSpecHandler's null in place (143/143); registration chained on SpecDerivationRegistrations line 69."
+  - id: preview
+    action: "TicketApprovalPreviewEndpoints: GET approval-preview, dialog.write, Decide over the bound session's open proposal; one map line in ServerEndpointExtensions; route-permission-baseline.tsv regenerated."
+  - id: retire-amend
+    action: "Remove AmendTheTicket, IsAmend, OutcomeAmendRequested, the flow arm and both AmendAsync members; the harness sink (SpecDialogOutcomeTests.cs:579-583) and OutcomeShapeOfferTests' amend cases rewritten; filed-work prompt clause rewritten line-neutral."
+  - id: wording-docs
+    action: "Recorder summary (lines 45-51 rewritten, no line added), ApprovedSetKept.WhereToChangeIt in place (120), ticket_runs description; work-it-out.md line 86 and spec-dialogue.md lines 42 and 66: approve continues by id, the preview, approved is final for ticket text, never-worked records on every tracker, person-closed -> follow-up."
+  - id: tests
+    action: "Red first for every test below; one harness test drives approval -> record -> next run's merge over a branch with an executed head."
+
+tests:
+  - "BoundApproval_WorkedTicket_RecordsContinuation_FilesNothing_ClearsProposal"
+  - "BoundApproval_NeverWorked_RecordsSeriesAndBranch_RewritesWhereSupported"
+  - "BoundApproval_NeverWorkedOnJira_RewriteRefused_SeriesStillRecorded"
+  - "BoundApproval_NeverWorked_LeaseHeldWithoutRunRow_RefusedNothingRecorded"
+  - "BoundApproval_TicketWithOnlyPrReviewRuns_IsNeverWorked"
+  - "BoundApproval_BugOutcome_StillFilesBugTicket"
+  - "BoundApproval_TicketWorkedBySiblingProject_IsWorked"
+  - "BoundApproval_TicketFetchFails_RefusedWithReason_NothingRecorded_ProposalKept"
+  - "BoundApproval_ContinuationRecord_RepositoriesAreBasisUnionProposal_CarrierIsBasis"
+  - "TicketAmendment_LeaseRefusalAndFailure_NameNoAmendmentOrRewrite"
+  - "BoundApproval_OverMaxSpecs_RefusedNamingBothCounts_ProposalKept"
+  - "BoundApproval_Stored_PublishesTicketActivityChanged"
+  - "Decide_ExecutedId_KeptAndChangedTextReportedDiscarded"
+  - "Decide_RepeatedUnstartedId_IsRecut_NotRepeatedInLoneSpec_IsKept"
+  - "Decide_UnknownId_AppendedPastEveryTakenId_RequiresRewritten"
+  - "Decide_EpicOmitsUnstarted_Dropped"
+  - "Decide_PersonClosedTicket_FollowUp_EvenWhenNeverWorked"
+  - "Decide_TicketInOwnDoneStatus_IsNotClosedForWork_Continues"
+  - "ApprovedContinuation_AppliesDispositions_KeepsExecutedHeadAndLabels"
+  - "ApprovedContinuation_SpecRanSinceBasis_KeptAndReportedDiscarded"
+  - "ApprovedContinuation_AppendedIdTakenOnBranch_TakesNextFree"
+  - "ApprovedContinuation_SameApproval_IsNoOp"
+  - "ApprovedContinuation_WithoutBasisRunId_NeverMerged"
+  - "ApprovedContinuation_OverCap_NotMergedNoticeSaysWhy"
+  - "ApprovedContinuation_OverHandedBackSet_ClearsHandback_SpecGateRuns"
+  - "ApprovedRepoScope_ContinuationRecord_KeepsExecutedSpecsRepositories"
+  - "ApprovedSetHandoff_ContinuationRecord_NothingAtPath_RefusedNotHandedOver"
+  - "ApprovalPreview_TicketFetchFails_502WithReason"
+  - "ClosedTicket_Approval_FilesFollowUp_WithoutExecutedSpecs_CommentsOnBoth"
+  - "ApprovalPreview_MatchesWhatTheApprovalRecords"
+  - "ApprovalPreview_WithoutDialogWrite_Forbidden"
+  - "ApprovalPreview_NoConversationOrNoOpenProposal_404"
+  - "OutcomeShapes_BoundConversation_OffersNoAmendShape"
+  - "Confirmation_AmendLabelInBoundThread_IsEditNote"
+  - "Harness_ApprovalThenNextRun_BranchSeriesKeepsHeadAndAppends"
+
+done:
+  - "Approving a proposal in the conversation of a ticket whose specs a and b ran records it under that ticket and files no new ticket, on GitHub, GitLab, Azure DevOps and Jira; the approved proposal is not offered again."
+  - "The ticket's next run works a series that still holds a and b as they ran, with the proposal's re-cut and new specs after them, revision cause 'approved in design conversation'."
+  - "Before approving, the preview names each spec as kept, re-cut, appended or dropped, and the approval records exactly that; anything that changed on the branch since is named in the run's notice."
+  - "Approving on a ticket a person closed files one follow-up ticket and both tickets name each other; a ticket agent-smith itself moved to done is continued, not followed up."
+  - "Approving on a ticket no code attempt has worked records the approved series on GitHub, GitLab, Azure DevOps and Jira; the description is rewritten only where the tracker supports it, and a refusal is said, never blocking."
+  - "No 'Amend this ticket' button is offered in any conversation."
+  - "Approving on a handed-back ticket that a run worked is gated and built by the ticket's next run; a ticket worked by another project on the same tracker is continued, never re-filed."

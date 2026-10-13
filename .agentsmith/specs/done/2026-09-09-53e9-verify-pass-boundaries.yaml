@@ -12,6 +12,7 @@ scope:
   out: "Changing when the gate runs or what it accepts — this phase observes it. Attempt-level lineage, which is the outer loop (2026-09-09-debf). Backfilling: a run with no pass rows reads as one pass, which is what it looked like before. Attributing cost for pre-p0388a runs, whose LLM calls carry no step index and whose windows are therefore unprovable — those report unknown."
 
 decisions:
+  - key: "RETIRED 2026-10-13, never built: the code moved for a month and a re-review refused it; superseded by 2026-10-13-9a59f (master passes recorded)."
   - key: |
       NOT DERIVABLE — RECORD IT. The first draft of this phase planned to decide between deriving
       a boundary and recording one. The code settles it: MasterAcceptanceGate is an internal

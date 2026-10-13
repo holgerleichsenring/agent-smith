@@ -1,0 +1,149 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-9a59t
+goal: "A keyword comment or pull-request act on a ticket a person closed files one linked follow-up ticket carrying the act's text, instead of reopening the closed ticket."
+
+applies_to: "backend (rework park check, rework entry, pending acts, nudge handler, rework ledger, waiting-run closer, follow-up filing) + docs"
+
+requires: [2026-10-13-9a59k, 2026-10-13-9a59l, 2026-10-13-9a59m, 2026-10-13-9a59n, 2026-10-08-e8b9b, 2026-10-08-e8b9c, 2026-10-08-0781]
+
+facts:
+  - claim: "The park check fetches the ticket and calls it reworkable when claimable, in done_status or failed_status, a hand-back park on a hand-back answer, or held by an unmoved fact; a parked, unclaimable ticket is moved to the first trigger status."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkParkCheck.cs:27-37"
+  - claim: "ReworkPark carries only Parked and MoveTo."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkPark.cs:3-6"
+  - claim: "The entry's reopen path, used by a fresh act and by a hand-back answer alike, answers NotARework when not parked, otherwise moves the ticket, closes a superseded waiting row, clears and launches; ReworkEntry is 77 lines."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkEntry.cs:50-76, observed: 2026-10-13, wc -l ReworkEntry.cs = 77"
+  - claim: "The entry receives only the ReworkAct (author, time, channel); the handler holds the PendingReworkAct with the repository and PR url and answers the entry's outcome per kind; ReworkNudgeHandler is 104 lines."
+    evidence: "src/backend/AgentSmith.Server/Contracts/IReworkEntry.cs:13-14, src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeHandler.cs:42-44,71-99, observed: 2026-10-13, wc -l ReworkNudgeHandler.cs = 104"
+  - claim: "The outcome kinds are Started, NotARework, AlreadyServed and Refused."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkOutcomeKind.cs:4-14, src/backend/AgentSmith.Server/Services/Rework/ReworkOutcome.cs:4-13"
+  - claim: "A keyword act is built from the newest matching comment not ours after the cutoff, keeping author and time only; a pull-request act is built from a review note that carries its Body; PendingReworkAct has no text."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/ReworkActReader.cs:17-26, src/backend/AgentSmith.Application/Services/Rework/ReworkPendingActs.cs:33-47, src/backend/AgentSmith.Application/Services/Rework/PrStandingAct.cs:44-49, src/backend/AgentSmith.Contracts/Reviews/PrReviewNote.cs:9-10, src/backend/AgentSmith.Contracts/Runs/PendingReworkAct.cs:9"
+  - claim: "A keyword comment nudges the worker only for a ticket with a previous attempt; one with none is dispatched as before."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/KeywordCommentRouter.cs:44-51"
+  - claim: "The rework ledger marks a key per ticket and answers whether it was new; ReworkSpeech marks first and posts after, logging a failed post and keeping the key spent."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReworkLedgerRepository.cs:39-49, src/backend/AgentSmith.Server/Services/Rework/ReworkSpeech.cs:12-38"
+  - claim: "A ticket is created with title, description, labels and a kind; the title is fitted to every tracker; the kind comes from the filing role; a comment is UpdateStatusAsync; an 'Agent Smith —' body is ours and never a trigger."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ITicketProvider.cs:55-61, src/backend/AgentSmith.Contracts/Tickets/TicketTitle.cs:21-28, src/backend/AgentSmith.Application/Services/Tickets/TicketKindResolver.cs:28-57, src/backend/AgentSmith.Application/Services/Prompts/OwnTicketComment.cs:28-36,53-54"
+  - claim: "FiledWorkStarter.StampAsync tags, resolves and moves a created ticket and never throws; it is scoped, while the rework worker's classes are singletons."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkStarter.cs:40-56, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogExtensions.cs:51, src/backend/AgentSmith.Server/Extensions/ReworkNudgeWorkerExtensions.cs:16-20"
+  - claim: "A successful run moves the ticket into done_status or closes it when none is set, and a done_status ticket is reworkable today — the loop a Request changes on the run's own PR relies on."
+    evidence: "src/backend/AgentSmith.Application/Services/Lifecycle/TicketLifecycle.cs:9-13,49, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketFinalizer.cs:26-29, src/backend/AgentSmith.Server/Services/Rework/ReworkParkCheck.cs:33-34"
+  - claim: "The rework texts open with our heading; PR texts carry the rework marker."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkTexts.cs:3-37"
+  - claim: "The webhook docs say a keyword comment on a finished ticket starts exactly one new attempt and moves the ticket back."
+    evidence: "docs/trigger-it/webhooks.md:106-108"
+  - claim: "A keyword comment enqueues one nudge per kept project match; the worker locks per (project, ticket); a ledger row is keyed (project, ticket) and its key mark is read-modify-write; one ticket may match several projects of one tracker."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/KeywordCommentRouter.cs:38-40,49-50, src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeWorker.cs:54-55, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReworkLedgerRepository.cs:39-48, src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkTrackerProjects.cs:22-27, src/backend/AgentSmith.Contracts/Services/IRedisClaimLock.cs:8-14"
+  - claim: "A waiting attempt with no live lease is answered only by a hand-back act; every other act on it is rescheduled; the entry closes a superseded waiting row through IWaitingRunCloser, whose summary names a PR act."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeHandler.cs:35-39,57,62-69, src/backend/AgentSmith.Server/Services/Rework/ReworkEntry.cs:36-37,70, src/backend/AgentSmith.Server/Services/Rework/WaitingRunCloser.cs:13-18, src/backend/AgentSmith.Server/Contracts/IReworkEntry.cs:11-21"
+  - claim: "Rework trust is per channel: a pull-request act is read only from authors the host trusts (a host without trust trusts nobody); a keyword act is any comment not ours, and a ticket comment carries only an author login, while host trust needs an association or an author id."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/PrStandingAct.cs:22-23,35, src/backend/AgentSmith.Infrastructure/Services/Webhooks/PrReviewAuthorTrust.cs:17-23, src/backend/AgentSmith.Application/Services/Rework/ReworkActReader.cs:21-24, src/backend/AgentSmith.Domain/Entities/TicketComment.cs:9-12, src/backend/AgentSmith.Infrastructure/Services/Webhooks/GitHubAuthorAssociationTrust.cs:20, src/backend/AgentSmith.Infrastructure/Services/Webhooks/GitLabMemberAccessTrust.cs:33-35"
+  - claim: "The ledger watermark withholds every act at or before it and says so, so it cannot mark one act served."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkWithheld.cs:14-27, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReworkLedgerRepository.cs:16-37"
+  - claim: "FiledWorkStarter and FollowUpLink's registration line are scoped; ReworkParkCheck, the closer and the entry are singletons."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogExtensions.cs:51,60, src/backend/AgentSmith.Server/Services/Webhooks/WebhookEndpointsExtensions.cs:41,43-44"
+
+assumptions:
+  - "2026-10-13-9a59k's TicketClosure.ClosedForWorkAsync(project, provider, ticket) (Application, async) answers closed-for-work: in the tracker's closed category and not done_status, failed_status, needs_clarification_status or not_implementable_status, nor a run's own close when no done_status is set (read through ITicketStatusHistory.NewestMoveIntoAsync) (pending operator ratification)."
+  - "2026-10-13-9a59l's FollowUpLink posts one 'Agent Smith —' comment on each of two tickets naming the other."
+  - "2026-10-13-9a59m's ReworkChannel.Operator exists; an Operator act on a ticket closed after its approval reaches the entry through the RunEnd nudge."
+  - "2026-10-13-9a59n's ReworkChannel.Retry exists; a stored retry request stays a pending act until an attempt starts."
+
+scope:
+  in: >
+    PARK: ReworkPark gains Closed (default false); ReworkParkCheck, as 2026-10-13-9a59k left it on the shared TicketParkStatuses
+    resolver, sets it from TicketClosure.ClosedForWorkAsync over the ticket it already fetches (line 29), before the reworkable test. ENTRY: ReworkOutcomeKind gains
+    ClosedForWork and ReworkOutcome.ClosedForWork; ReopenAndLaunchAsync returns it when park.Closed, before the move,
+    the superseding and the launch for a fresh act; for a hand-back answer it first closes the waiting row as
+    superseded (IWaitingRunCloser, ReworkEntry.cs:70). WAITING: IReworkEntry gains SupersedeIfClosedAsync(project,
+    ticket, waiting): park check, and when Closed the waiting row (hand-back or checkpointed question) is closed
+    through the same closer and ClosedForWork returned, else null; the handler calls it for a pending act on a
+    waiting attempt with no lease before WhileRunningAsync, so a closed ticket is never rescheduled behind its own
+    waiting run. WaitingRunCloser.Summary says 'superseded by a newer act' (in place).
+    TEXT: PendingReworkAct gains Text (appended, nullable); ReworkActReader gains ReadComment (Read calls it) so
+    the keyword act carries the comment body; the pull-request act carries the note's Body (a vote without text:
+    null). The entry signature is unchanged: the follow-up is filed by the handler, which holds the pending act.
+    FOLLOW-UP: ClosedTicketActFollowUp (Server/Services/Rework, singleton; FiledWorkStarter, FollowUpLink and
+    FiledWorkTrackerProjects resolved inside one per-call scope): ONE PER TRACKER TICKET — under the lock
+    agentsmith:rework-followup:{tracker}:{ticket} (busy: Reschedule) it marks follow-up|{channel}|{act ticks}|{author},
+    no run id, on the ledger row of the first project by name of SharingTrackerWith(project) FIRST (a key already
+    marked returns silently, so the other matching projects' nudges file nothing). For a Ticket or PullRequest act it creates 'Follow-up: {closed title}' (TicketTitle.Fit) with body =
+    the act's text, or for a vote without text the pull request's url, plus a line naming the closed ticket, no
+    labels, kind TicketKindResolver.For(project, Work), then FiledWorkStarter.StampAsync with mayStartRuns true
+    (the act carries the authority that reopens a ticket today), then FollowUpLink on both tickets; for a
+    pull-request act ReworkSpeech also answers on the pull request (kind 'followed-up'). An Operator act
+    (2026-10-13-9a59m) or a Retry act (2026-10-13-9a59n) is answered Refused through ReworkSpeech: the ticket was
+    closed; approve a change in its conversation to file a follow-up. TRUST: only an act the rework trust rule
+    admits files — a pull-request act is read host-trusted already; a keyword act is admitted, as for a rework, by
+    the tracker's comment access. SERVED: the spent follow-up key is the act's served mark; ReworkLedgerRepository
+    gains IsSpokenAsync and the handler answers Finish, saying nothing, for an act whose key is spent — before the
+    entry and before a hand-back answer — so a later reopen never reworks it. HANDLER: AnswerAsync gains the
+    ClosedForWork case; registration beside the worker's other singletons. DOCS: webhooks.md 'Rework a finished
+    ticket' and pr-comments.md say a person-closed ticket gets a linked follow-up, a ticket agent-smith closed is
+    reworked as before.
+  out: >
+    The closed-for-work rule and its per-tracker evidence of who closed — 2026-10-13-9a59k. A follow-up from an
+    approval in the ticket's conversation, FollowUpLink, retiring the Amend shape — 2026-10-13-9a59l. The operator
+    channel itself — 2026-10-13-9a59m. The retry endpoint's 409 on a closed ticket — 2026-10-13-9a59n. A keyword comment on a
+    closed ticket that no run ever worked: KeywordCommentRouter dispatches it status-gated as today, and a closed
+    status starts nothing. Showing the follow-up on the ticket view: the closed ticket's comment reaches the
+    conversation through 2026-10-13-9a59h.
+
+decisions:
+  - key: "REJECTED CUT: review3-l L1 asked to drop the pull-request channel from the follow-up door. It is kept here because main-thread decision 1 (2026-10-13) removes the regression L1 named: a done_status move or the close a successful run performs (TicketLifecycle.cs:9-13, GitHubTicketFinalizer.cs:26-29) is not closed for work, so a Request changes or /agent-smith on the run's own pull request still reworks it (3a36 unchanged). Only a ticket a person closed gets a follow-up from a pull-request act."
+  - key: "THE HANDLER FILES, THE ENTRY DECIDES (review3-l L6). The entry receives only ReworkAct (IReworkEntry.cs:13-14); the handler holds the PendingReworkAct with the text and where to answer. The entry answers ClosedForWork; the handler files. No signature change on the one door."
+  - key: "MARK FIRST, THEN FILE (review3-l L6). The ledger key is marked before the create, as ReworkSpeech does (ReworkSpeech.cs:24-37). Accepted failure: a crash or a failed create between the mark and the filing loses that follow-up — logged, never duplicated; the person comments again. A duplicate ticket on someone's tracker is the worse failure."
+  - key: "THE CLOSED CHECK COMES BEFORE THE REWORKABLE TEST. A person-closed ticket gets a follow-up whatever its status name: on a tracker where done_status is unset or names another status, the reworkable test alone would answer NotARework and the act would vanish."
+  - key: "NO FRAMEWORK LABELS, WORK KIND. The follow-up carries no phase label and no approved-set stamp, so FiledTicketSpecGate lets its first run derive; the project's routing tag is added by FiledWorkStarter's tagger as for any filed ticket."
+  - key: "NO TABLE, NO EVENT (main-thread decision 6). The follow-up is a tracker ticket and a ledger key; DataArchive test counts (37 tables / 76 seed rows) and FilterRail.tsx are unchanged."
+  - key: "ONE FOLLOW-UP PER TRACKER TICKET (review4-t T-1; main-thread decision t1). Nudges are per project (KeywordCommentRouter.cs:38-40) and the worker's lock too (ReworkNudgeWorker.cs:54-55), so a run-id key per project files one ticket per match; the key drops the run id, lives on one row chosen by name, and its own tracker-ticket lock keeps the read-modify-write mark (ReworkLedgerRepository.cs:39-48) from racing between projects."
+  - key: "A CLOSED TICKET SUPERSEDES ITS WAITING ATTEMPT (review4-t T-2; main-thread decision t2). Rescheduling behind a hand-back or a question nobody will answer on a closed ticket never files; the waiting row is closed through the closer the hand-back answer already uses, then the follow-up is filed."
+  - key: "TRUST IS THE REWORK RULE (review4-t T-6; main-thread decision t3). The same authority that reopens a ticket today files its follow-up: pull-request acts are host-trusted at read (PrStandingAct.cs:22-23,35); a keyword act has no author identity a host could judge (TicketComment.cs:9-12), so like a rework it rests on the tracker's comment access. A filter on keyword authors needs an author identity no ticket comment carries; it is not added here."
+  - key: "SERVED BY THE SPENT KEY, NOT THE WATERMARK (review4-t T-4; main-thread decision t5). Raising notServedThrough would make the act read as withheld and say so (ReworkWithheld.cs:14-27); the follow-up key already names the act, so reading it is the served test."
+  - key: "LINE ROOM. ReworkNudgeHandler 104 -> at most 106 after 2026-10-13-9a59m, then about 114 with the ClosedForWork case, the served check, the waiting route and one constructor parameter; ReworkEntry 77 -> about 86; IReworkEntry 21 -> about 25; ReworkLedgerRepository 55 -> about 62; ReworkParkCheck 52 -> about 47 after 2026-10-13-9a59k's TicketParkStatuses switch, then about 50 with Closed; ReworkPendingActs 49 -> about 52 after m; ReworkActReader 46 -> about 52; ReworkTexts 38 -> about 46; ReworkNudgeWorkerExtensions 24 -> 25. None is in the ratchet baseline; each stays under 120."
+
+steps:
+  - id: contracts
+    action: "ReworkPark.Closed; ReworkOutcomeKind.ClosedForWork and ReworkOutcome.ClosedForWork; PendingReworkAct.Text (appended); ReworkTexts for the follow-up comment, the PR answer and the operator refusal."
+  - id: act-text
+    action: "ReworkActReader.ReadComment (Read calls it); ReworkPendingActs passes the comment body or the note's Body into PendingReworkAct.Text."
+  - id: park
+    action: "ReworkParkCheck (on k's TicketParkStatuses resolver) sets Closed from TicketClosure.ClosedForWorkAsync over the fetched ticket, before the reworkable test."
+  - id: entry
+    action: "ReworkEntry.ReopenAndLaunchAsync returns ClosedForWork when park.Closed (a hand-back answer's waiting row closed first); SupersedeIfClosedAsync on IReworkEntry for a waiting attempt; WaitingRunCloser.Summary reworded in place."
+  - id: follow-up
+    action: "ClosedTicketActFollowUp: tracker-ticket lock, run-less key marked first on the first sharing project's row, CreateAsync, FiledWorkStarter.StampAsync and FollowUpLink in one scope, PR answer through ReworkSpeech; Operator and Retry acts refused naming the conversation; ReworkLedgerRepository.IsSpokenAsync."
+  - id: handler
+    action: "ReworkNudgeHandler: served check before the entry and the hand-back answer, SupersedeIfClosedAsync before WhileRunningAsync, AnswerAsync's ClosedForWork case; ClosedTicketActFollowUp registered in ReworkNudgeWorkerExtensions."
+  - id: docs
+    action: "docs/trigger-it/webhooks.md 'Rework a finished ticket' and docs/reference/integrations/pr-comments.md: person-closed -> linked follow-up, agent-smith's own done or close -> rework as before."
+  - id: tests
+    action: "Red first for every test below; a RealCompositionHarness test drives keyword comment -> nudge -> follow-up on a person-closed ticket."
+
+tests:
+  - "ReworkParkCheck_PersonClosedTicket_IsClosed"
+  - "ReworkParkCheck_OwnDoneStatusInClosedCategory_IsParkedNotClosed"
+  - "ReworkEntry_ClosedPark_AnswersClosedForWork_MovesNothing"
+  - "ReworkEntry_HandbackAnswerOnClosedTicket_ClosesWaitingRowAsSuperseded"
+  - "NudgeHandler_ClosedTicket_CheckpointedQuestionWaiting_ClosedThenFollowUpFiled"
+  - "ReworkActReader_KeywordAct_CarriesCommentBody"
+  - "ReworkPendingActs_PullRequestAct_CarriesNoteBody"
+  - "ClosedTicket_KeywordComment_FilesFollowUpWithCommentText_DoesNotReopen"
+  - "ClosedTicket_RequestChanges_FilesFollowUp_AnswersOnPullRequest"
+  - "ClosedTicket_SameActTwice_FilesOnce"
+  - "ClosedTicket_CreateFails_KeySpent_NoDuplicate"
+  - "ClosedTicket_OperatorAct_RefusedNamingConversation"
+  - "ClosedTicket_RetryAct_RefusedNamingConversation"
+  - "ClosedTicket_KeywordComment_TwoMatchingProjects_FilesOnce"
+  - "ClosedTicket_FollowedUpAct_TicketReopenedLater_NeverReworks"
+  - "ClosedTicketActFollowUp_ResolvesScopedStarterAndLinkInOneScope"
+  - "OwnDoneTicket_RequestChangesOnOwnPr_StillReworks"
+  - "Harness_KeywordCommentOnPersonClosedTicket_FollowUpFiledAndLinked"
+
+done:
+  - "A keyword comment on a ticket a person closed files one follow-up ticket whose description holds the comment's text; both tickets name each other and the closed ticket stays closed."
+  - "A Request changes or an /agent-smith command on the pull request of a ticket a person closed files one follow-up and says so on the pull request."
+  - "A Request changes on the pull request of a ticket agent-smith itself moved to done reworks that pull request as before."
+  - "The same comment delivered twice, or to two projects on one tracker, files one follow-up, on every tracker."
+  - "A keyword comment on a person-closed ticket whose last attempt waits on a hand-back or a question closes that attempt and files the follow-up; a comment that filed a follow-up never reworks the ticket later."

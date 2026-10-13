@@ -1,0 +1,102 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-9a59o
+goal: "In a ticket's conversation the agent's ticket_runs answer carries each attempt's cause, each spec's verdict and criteria outcomes, and the PR review record with file and line, so it can name them."
+
+applies_to: "backend (bound ticket runs, ticket_runs tool, domain result) + docs"
+
+requires: [2026-10-13-9a59b, 2026-10-13-9a59d, 2026-10-13-9a59e, 2026-10-13-9a59l, 2026-09-28-1da5d]
+
+facts:
+  - claim: "A bound turn is given ticket_runs whenever the turn runner seeded the bound-runs port; the turn side needs no change."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:289-293"
+  - claim: "BoundTicketRuns is newed inside BoundTicketReaders.ForAsync from the readers its constructor takes (69 lines); BoundTicketReaders is registered scoped in SpecDialogExtensions."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/BoundTicketReaders.cs:22-26,52-53, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogExtensions.cs:74"
+  - claim: "A stored acceptance snapshot is an AcceptanceView: Criteria of (Text, Status met|unmet|not_applicable|unproven, Reason, Citation), Declined of (Text, Reason, Spec) and Unmeasured of (Repositories, Reason); RunStoryJson.TryDeserialize answers null on bad JSON."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/AcceptanceView.cs:5-11,24-31, src/backend/AgentSmith.Contracts/Runs/RunStoryContracts.cs:74-78,86,97-108, src/backend/AgentSmith.Contracts/Runs/DeclinedCriterionView.cs:10, src/backend/AgentSmith.Contracts/Runs/UnmeasuredAccountView.cs:14"
+  - claim: "The existing tool test builds TicketRun positionally with string spec ids."
+    evidence: "tests/AgentSmith.Tests/SpecDialog/TicketRunsToolTests.cs:44-50"
+  - claim: "ticket_runs answers per run only run id, project, status, start, spec ids and PR urls, and names this framework's record as its source."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/BoundTicketRuns.cs:20-31, src/backend/AgentSmith.Domain/Models/TicketRunsResult.cs:7-9,21-27"
+  - claim: "The tool's description promises runs, specs and pull requests only."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/TicketRunsToolHost.cs:26-32"
+  - claim: "The reader it uses returns the ticket's newest 10 runs of every pipeline with pipeline, status, cost, finish, PRs, the pending question and each spec's status and terminal verdict, in three set-based queries."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkRunsReader.cs:15-48,64-99, src/backend/AgentSmith.Server/Models/FiledWorkView.cs:46-56,77-83"
+  - claim: "RunSpec carries a verdict string but no per-criterion outcomes; Run.AcceptanceJson is the run-end gate snapshot."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunSpec.cs:13-40, src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:56-60"
+  - claim: "Existing tests pin the answer's source line, the empty answer and the argument-free tool."
+    evidence: "tests/AgentSmith.Tests/SpecDialog/TicketRunsToolTests.cs:16-33"
+  - claim: "Line room: BoundTicketRuns 39, TicketRunsResult 27, TicketRunsToolHost 33, FiledWorkRunsReader 102 (not touched); none is in the ratchet baseline."
+    evidence: "observed: 2026-10-13, wc -l on the four files in this worktree; tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:1-5"
+  - claim: "A review note carries IsBot and IsSystem as the host says them; the act reader counts neither as a person."
+    evidence: "src/backend/AgentSmith.Contracts/Reviews/PrReviewNote.cs:7-10, src/backend/AgentSmith.Application/Services/Rework/PrStandingAct.cs:56"
+
+assumptions:
+  - "2026-10-13-9a59b ships the Contracts port IPrReviewRecordReader.ByTicketAsync(project, ticketId), implemented by its repository over the (Project, TicketId) index: records with PrKey = PrKey.Of(url) (SHA-256 hex of the trimmed URL, an opaque key), Url (the readable URL), State, StateAt, and their entries (Kind comment|review|decision, Decision, Standing, AuthorLogin, Trusted, IsOurs, IsBot, IsSystem, File, Line, Resolved, Body capped at 4000 with Truncated, At); this spec reads through that port and never queries the tables."
+  - "2026-10-13-9a59d stores RunAttempt (cause channel, actor, at, source) per run, channel one of ticket_comment, pull_request, status_move, requested, retrigger, pickup, operator (2026-10-13-9a59m) and retry (2026-10-13-9a59n); 2026-10-13-9a59e stores RunSpec.AcceptanceJson as AcceptanceSnapshot.Build's AcceptanceView for the spec when it ended."
+
+scope:
+  in: >
+    RESULT: TicketRun gains Pipeline, Cause {channel, actor, at, source kind} (2026-10-13-9a59d's RunAttempt, channel
+    passed verbatim; null on a run without one), PendingQuestion text, and Specs becomes [{id, status, verdict,
+    criteria [{criterion, status (met|unmet|not_applicable|unproven), note, citation}], declined [{criterion,
+    reason}], unmeasured [{repos, reason}]}] (status and verdict as FiledWorkRunsReader gives them; criteria decoded
+    from 2026-10-13-9a59e's RunSpec.AcceptanceJson through RunStoryJson.TryDeserialize<AcceptanceView>, mapped
+    Text -> criterion, Reason -> note; undecodable JSON reads null and never throws). TicketRunsResult gains
+    PullRequestReviews [{url, state, stateAt, entries}] for every record of the ticket (2026-10-13-9a59b; url = the
+    record's readable Url, never the PrKey hash): entries are comments, reviews and decisions with kind, decision,
+    standing, author, trusted, ours, bot, system, file, line, resolved, body and time; the body is cut to 600 characters with a truncated flag (also set when the stored body was truncated), and
+    the answer carries the newest 40 entries over ALL pull requests, oldest first within each. READER:
+    TicketRunsFacts (Server, new) reads RunAttempt and RunSpec.AcceptanceJson for the run ids in two set-based
+    queries and the ticket's PR records with their entries through 9a59b's IPrReviewRecordReader.ByTicketAsync;
+    BoundTicketReaders' constructor gains TicketRunsFacts (scoped registration beside it in SpecDialogExtensions) and
+    passes it to BoundTicketRuns, which composes it with FiledWorkRunsReader's runs; a failed read keeps today's
+    fail-soft None. TOOL: the description says the answer carries causes (naming the channel vocabulary, operator
+    and retry among it), verdicts, criteria outcomes, declined and unmeasured accounts, and the PR review entries with
+    kind, decision, file and line — an entry with trusted false started nothing, a system entry is the host's event,
+    not a person's — still this framework's record and not the tracker's, and keeps 2026-10-13-9a59l's sentence on repeating a spec id. DOCS: work-it-out.md's
+    ticket conversation section says what the design partner can see about runs and reviews.
+  out: >
+    The PR review record itself — 2026-10-13-9a59b. Attempt causes — 2026-10-13-9a59d. Per-criterion verdicts per
+    spec — 2026-10-13-9a59e. The ticket's conversation read for the page — 2026-10-13-9a59h. The ticket's own
+    acceptance criteria on the fetch — 2026-10-13-9a59g; read_ticket already gives the agent the ticket text.
+
+decisions:
+  - key: "ONE TOOL, MORE FACTS. ticket_runs already separates this framework's record from the tracker's (1da5d); reviews the framework recorded and verdicts it judged are the same kind of claim, so they extend it rather than adding a tool."
+  - key: "READ, NOT RECOMPUTED. Every field comes from a row another member writes; the tool composes and never derives a verdict or a review state."
+  - key: "BOUNDED ANSWER (review3 O2). The store's 4000-character cap allows 160k characters per 40 entries, and the dialog loop has no tool-result cap; so the tool cuts each body to 600 characters and keeps 40 entries over all pull requests, newest first, with ten runs."
+  - key: "PR RECORDS BY TICKET, THROUGH b's PORT (review3 O4; series pass 2026-10-13). PrKey is a hash and cannot be built from what the tool sees, and FiledWorkRunsReader sees only the 10 newest runs (FiledWorkRunsReader.cs:25,34-38); IPrReviewRecordReader.ByTicketAsync covers every record of the ticket, and reading through it keeps TicketRunsFacts off 9a59b's tables. The answer names a PR by its readable Url."
+  - key: "CRITERIA KEEP THE STORED SHAPE (review3 O3). AcceptanceView's own fields are mapped, Declined and Unmeasured included: a declined criterion and a red build are the failed-criterion answers the done line promises."
+  - key: "REVIEWER ACTS KEEP KIND AND DECISION (review3 O1). 'X requested changes' is the fact a reviewer act is about; untrusted authors stay listed and are marked as having started nothing."
+
+steps:
+  - id: model
+    action: "TicketRun and TicketRunsResult gain the fields above (Domain records, new small records beside them)."
+  - id: facts
+    action: "TicketRunsFacts (new): set-based reads of RunAttempt and RunSpec.AcceptanceJson for the run ids, PR records and entries through IPrReviewRecordReader.ByTicketAsync; AcceptanceView decode; body cut to 600 and 40-entry cap."
+  - id: compose
+    action: "BoundTicketReaders (69 lines) gains TicketRunsFacts in its constructor and DI (SpecDialogExtensions.cs:74) and passes it to BoundTicketRuns, which composes runs and facts; fail-soft unchanged."
+  - id: tool
+    action: "TicketRunsToolHost description names causes with the channel vocabulary, verdicts, criteria, declined/unmeasured, and PR review entries with kind, decision, file and line."
+  - id: tests
+    action: "Red first for every test below; rewrite TicketRunsToolTests.cs:46's positional TicketRun with the new spec shape."
+  - id: docs
+    action: "work-it-out.md: what the design partner can read about runs and reviews."
+
+tests:
+  - "TicketRuns_CarriesCauseOfEachAttempt"
+  - "TicketRuns_CarriesSpecVerdictAndCriteriaOutcomes"
+  - "TicketRuns_CarriesPrReviewCommentWithFileAndLine"
+  - "TicketRuns_CarriesReviewDecisionAndKind"
+  - "TicketRuns_SystemAndBotEntries_Flagged"
+  - "TicketRuns_PrNamedByReadableUrl_NotPrKey"
+  - "TicketRuns_PrReviewEntries_CappedNewestFortyOverAllPullRequests"
+  - "TicketRuns_LongBodies_TruncatedInAnswer"
+  - "TicketRuns_DeclinedAndUnmeasured_Carried"
+  - "TicketRuns_UndecodableAcceptanceJson_ReadsNullCriteria"
+  - "TicketRuns_PrOfOlderAttempt_ReadByTicket"
+  - "TicketRuns_RunWithoutAttemptRow_HasNullCause"
+  - "TicketRuns_StoreFails_ReturnsNone"
+  - "TicketRunsTool_Description_NamesReviewsVerdictsAndChannels"
+
+done:
+  - "Asked in a ticket's conversation, the agent names a spec's verdict, a failed criterion and a reviewer's PR comment with its file and line, says who requested changes or approved, and says why each attempt started."

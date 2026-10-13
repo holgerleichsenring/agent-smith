@@ -13,6 +13,7 @@ scope:
   out: "A checkpoint or resume changing run identity — a resumed run keeps its id (RunCheckpoint, ResumeRunLauncher) and is not a new attempt. Deriving cause for historical runs; pre-phase rows read as unknown and are never guessed. Starting a run from a reason (2026-09-09-b51e). Change events outside the system (2026-09-09-9e54)."
 
 decisions:
+  - key: "RETIRED 2026-10-13, never built: the code moved for a month and a re-review refused it; superseded by 2026-10-13-9a59d (attempt cause recorded in the run)."
   - key: |
       THE CALL SITE ALREADY KNOWS; NOBODY ASKS IT TO SAY SO. PriorRunLedgerSeeder itself is a pure
       static over a ledger it is handed; the resolution happens at its call site in the master

@@ -1,0 +1,172 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-9a59s
+goal: "The ticket detail gains Attempts (what started each, what it did, why it stopped) and Cost & compute (cost per spec and pass on the run-cap scale, pods with end reasons, time waiting on a person)."
+
+applies_to: "dashboard (ticket detail: Attempts and Cost & compute tabs)"
+
+requires:
+  - 2026-10-13-9a59a
+  - 2026-10-13-9a59d
+  - 2026-10-13-9a59e
+  - 2026-10-13-9a59f
+  - 2026-10-13-9a59h
+  - 2026-10-13-9a59i
+  - 2026-10-13-9a59j
+  - 2026-10-13-9a59p
+  - 2026-10-13-9a59q
+  - 2026-10-13-9a59r
+
+facts:
+  - claim: "A run's cost is one per-run total; its budget tier, cost cap and token cap are per-run columns, so no ticket-wide cap exists."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:30,67-73"
+  - claim: "The run detail gives the client per run the LLM call count, model time, reserved Gi-minutes (null while running) and the cost cap (absent on Unknown-tier and pre-p0357 runs)."
+    evidence: "src/dashboard/src/types/hub-events.ts:697-705,724-728,757-762"
+  - claim: "The run detail is fetched by runsApi.fetchRun, which useRunDetailSnapshot already uses."
+    evidence: "src/dashboard/src/lib/runsApi.ts:42, src/dashboard/src/hooks/useRunDetailSnapshot.ts:4,59"
+  - claim: "Today's compute view lists each pod by repository, image, memory and status only, and is served only inside the run detail; GET /api/runs/{runId} is the run detail read under runs.read."
+    evidence: "src/dashboard/src/types/hub-events.ts:839-852, src/backend/AgentSmith.Server/Services/Events/RunSnapshotMapper.cs:89, src/backend/AgentSmith.Server/Extensions/RunQueryEndpoints.cs:27-29"
+  - claim: "A sandbox row is created at spawn, set ok or failed by exit code at dispose, or vanished; nothing records released-at-park or out-of-memory today."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSandboxProjection.cs:42,52,65"
+  - claim: "The run detail's reserved Gi-minutes charge a sandbox with no close event to the run's end (DisposedAt ?? FinishedAt)."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/ReservedCapacityCalculator.cs:20-23,33-35"
+  - claim: "RunStatuses.IsWaiting counts queued beside waiting_for_input, so the status alone does not say a person is waited on."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/RunStatuses.cs:24"
+  - claim: "queued and waiting_for_input are live because both resume as the same run; isRunLive answers that."
+    evidence: "src/dashboard/src/lib/runLiveness.ts:4-20"
+  - claim: "The live view of a run is /jobs/{id}; its trace is read on the separate why view /jobs/{id}/why."
+    evidence: "src/dashboard/src/components/jobs/RunRow.tsx:66, src/dashboard/src/app/jobs/[id]/why/page.tsx:1-8, src/dashboard/src/components/jobs/why/TraceReader.tsx:24"
+  - claim: "The trace and the per-run statistics are served under runs.read."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RunStoryEndpoints.cs:19-20"
+  - claim: "The PR status vocabulary has no draft or ready state, and the run view's draft flag is derived from the run's terminal status, not recorded per PR."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/PullRequestStatuses.cs:12-34, src/backend/AgentSmith.Server/Services/Events/RunPullRequestView.cs:12-16"
+  - claim: "RunsChanged fires throughout a live run; the run list coalesces it to 350 ms."
+    evidence: "src/dashboard/src/hooks/useJobsHub.ts:29-33,96-109"
+  - claim: "The p0390 retry endpoint retries only a ticket parked on a not-implementable verdict; no dashboard code calls it."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs:38-41"
+  - claim: "The line ratchet covers C# only: file-length-baseline.tsv lists no dashboard file, so mock-parity.css (1285 lines) needs no room made."
+    evidence: "observed: 2026-10-13, grep -c '\\.ts' tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv = 0; wc -l src/dashboard/src/styles/mock-parity.css"
+
+assumptions:
+  - "2026-10-13-9a59f serves GET /api/runs/{runId}/passes: per spec its passes, each with a per-spec pass number, cost, call count and end reason (re-engaged, nothing-left, budget, idle, blocked, self-refilled, cap, question, failed, red-accepted, verdictless, and unknown for a pass with stamped calls and no end row; a re-engaging pass carries reengageReason), the spec's cost outside passes, and the non-pass calls as derive, pr, other and not attributed."
+  - "2026-10-13-9a59i serves GET /api/runs/{runId}/compute: spawns {repo, spawnedAt, disposedAt, memory, endReason, exitCode, oomKilled} and the uncounted sandboxes by name; endReason is one of exited, oom-killed, vanished, gone, released-at-park, released-at-requeue (a capacity rejection put the run back in the queue; no person is waited on), released-at-end, unobserved (no close event; disposedAt null); 2026-10-13-9a59j adds segments {startedAt, endedAt, endStatus, modelMs, park {kind question|handback, askedAt, answeredAt, answeredBy}} and the run's unattributedCalls; a segment ended 'queued' is a capacity wait and carries no park; modelMs is CALL time — summed call durations, which parallel sub-agents overlap — not a share of the segment's wall clock; a hand-back park is answered at the next attempt's cause.at."
+  - "2026-10-13-9a59a's TicketAttemptView carries number, runId, status, startedAt, finishedAt, cost, endedOnInfrastructure, pullRequests, executedSpecs; 2026-10-13-9a59d adds cause {channel, actor, at, source {kind, url, id, detail}} and revision {number, cause, seriesId, carriedIds, approvalAt}."
+  - "2026-10-13-9a59q's per-page store gives useTicketSeries(project, ticketId, runId?) — the default read names the attempt its cut came from, ?runId= gives that attempt's cut and hand-back case — useTicketConversation and useAttemptPasses, with isRunLive as the live test; 2026-10-13-9a59r's Conversation tab accepts ?causeOf={runId} and scrolls to that attempt's cause entry by its (source, prKey or url, sourceId) join."
+
+scope:
+  in: >
+    READS: useAttemptRun(runId) over runsApi.fetchRun (budgetCapUsd, llmCalls, reservedGiMinutes) and
+    useAttemptCompute(runId) over 9a59i/9a59j's compute read, both registered in 9a59q's per-page store and its
+    cache; q's useTicketSeries (default cut, and ?runId= once for a terminal handed-back attempt), useTicketConversation
+    and useAttemptPasses are consumed, never re-fetched. LIVE means isRunLive(status): a queued or waiting_for_input
+    attempt is live (a question park relaunches the same run id and adds segments, spawns and passes); a terminal
+    attempt's per-run reads are fetched once; live attempts' refetch on their own RunsChanged and the ticket's
+    TicketActivityChanged, one fetch per read per 2 s window. TABS: Attempts (counter = attempts) and Cost & compute
+    (counter = summed attempt cost) appended to 9a59q's tab table. ATTEMPTS: the next-attempt card (the next attempt
+    starts from the conversation; Retry unchanged exists only after an infrastructure failure) with Continue in
+    conversation. Timeline newest first, ordered by run id: per attempt a card whose head is a button (aria-expanded)
+    with outcome dot, "Attempt n", outcome pill, run id, the why-line (9a59d's cause channel with actor and source, the
+    count of carried specs, questions asked and their total wait from 9a59j's question parks), and three numbers
+    (duration — running or wall —, cost — so far or total —, specs done x / y, or for the live attempt "spec n of m"
+    and its step from the series read only when the read's cut came from the live attempt's run id, else "deriving");
+    the body, open for the live attempt: Doing (live spec and step, then the remaining specs of the cut in order, or
+    deriving) or Did (each cut with its reviewer verdict from 9a59h's spec-cut entries, the spec PRs the attempt
+    opened, each spec's outcome with its pass count, questions and resumes), Ended (one sentence: finished; failed
+    with the end reason of the failing spec's last pass in 9a59f's words, the reason clause dropped when it is
+    unknown; handed back with its case; cancelled), Machine (Open run viewer -> /jobs/{id}, Trace · n LLM calls ->
+    /jobs/{id}/why). Between cards, the change event that started the next attempt (time, channel label, actor,
+    source) with read -> /tickets/{project}/{ticketId}?tab=conversation&causeOf={runId} of the attempt it started when
+    cause.source.id exists, else ?tab=conversation. COST: section head with the ticket total and the largest run cap; one bar per attempt on
+    one scale split into derive, each spec (its passes plus its cost outside passes, with its pass count), pr, other
+    and not attributed, the live attempt's bar marked live, its parts written beside it with carried specs at $0; a
+    total row. Scale: full width = the larger of the largest run cap and the largest attempt cost; a smaller cap is
+    marked on its own row; with no cap on any attempt the largest cost is the full width; a cost over its cap passes
+    its marker. COMPUTE: section head with pod time; four tiles — pod time (pod-minutes: each spawn from spawnedAt to
+    disposedAt, or — an unobserved pod — clipped at the end of the segment it was spawned in, or now for the live
+    attempt; the run detail's reserved Gi-minutes charge the same pod to run end, so the two figures differ for it and
+    the tile's note names both), memory
+    reserved (summed reservedGiMinutes of terminal attempts as Gi·h, said to be a reservation), model call time
+    (summed modelMs, shown as its own number labelled as summed call durations that overlap when sub-agents run in
+    parallel, never a share of any bar), waiting on you (each question or hand-back park from askedAt to answeredAt,
+    total and count, marked hot when non-zero); a segment ended 'queued' and a sandbox released-at-requeue are a wait
+    for capacity, drawn and labelled as such between segments and never counted as waiting on you; a banner when waiting exceeded
+    model call time, naming each wait (hand-back to reply, each question park) and whether a pod's lifetime overlapped
+    a park, with Read both -> Conversation; per attempt a wall-clock bar on one scale (the longest attempt is the full
+    width) with each segment drawn as one span from startedAt to endedAt and its call time written beside it as a
+    figure, parks drawn between segments, the pods line (repository, lifetime per spawn, end reason in words — released-at-requeue reads "released while
+    waiting for capacity", released-at-park "released while waiting on you"), the
+    uncounted sandboxes named, pod count and pod-minutes; the legend.
+  out: >
+    The detail route, header, tab shell, Summary, graph, the per-page store and its series, conversation and passes
+    hooks — 2026-10-13-9a59q. Conversation, Specs and Acceptance, and the ?causeOf= anchor and its join this tab links to —
+    2026-10-13-9a59r. Starting or retrying an attempt from these tabs: the next attempt starts from the conversation's
+    approval and Retry unchanged is offered in the composer (2026-10-13-9a59r; policy 2026-10-13-9a59l,
+    2026-10-13-9a59m, 2026-10-13-9a59n). Kept-versus-lost dollars and a ticket-wide budget (operator decision 10).
+    Fleet compute totals: the Overview page owns spend; no capacity page exists.
+
+decisions:
+  - key: "ONE SCALE PER SECTION — cost bars share the larger of the largest run cap and the largest cost, compute bars the longest wall clock, so rows compare by eye; caps are per run, so a smaller cap is marked on its row rather than averaged into a ticket cap (review F7)."
+  - key: "SENTENCES FROM FIELDS — Did, Ended and the why-line are composed by a pure function from structured fields of 9a59a, 9a59d, 9a59e, 9a59f, 9a59h and 9a59j; no run summary text is parsed, and an absent field — or an end reason of unknown — drops its clause (review3-s S5)."
+  - key: "CUT FROM THE MOCK — 'PRs marked ready' (no recorded draft or ready state, review F6), the change-event labels 'Ticket edited' and 'Hand-back answered' (not a recorded channel, review F4), 'the re-engagement limit' wording (9a59f's end reasons instead, review F8), the Doing line's 'push and re-request review' (no field) and the hand-back Ended line's 'confirmed by the checker' (no field; attemptStory renders only the case) are dropped."
+  - key: "PER-ATTEMPT READS ARE NAMED — the run detail GET /api/runs/{runId} through the existing runsApi.fetchRun is the source of the cap, the LLM call count and reserved Gi-minutes; 9a59i/9a59j's compute read is the source of spawns, segments and parks (review F1, review3-s S6)."
+  - key: "SERIES, CONVERSATION AND PASSES ARE q'S (series decision 8, review3-s S1) — the per-attempt ?runId= series read lives in q's useTicketSeries; this spec adds only its run and compute reads to q's store."
+  - key: "LIVE IS isRunLive (review3-s S4) — a question park resumes the same run id and adds segments, spawns and passes, so only terminal attempts are read once."
+  - key: "SPEC n OF m ONLY FROM THIS ATTEMPT'S CUT (review3-s S3) — the default series read is the latest cut with specs, which during derivation is the previous attempt's; the read names its attempt, so a cut from another run reads deriving."
+  - key: "MODEL TIME IS CALL TIME, NEVER A SHARE OF WALL CLOCK (series decision 7) — 9a59j sums call durations, and parallel sub-agents overlap, so the sum can exceed the segment; a segment is drawn as its wall-clock span with the call time written beside it, and the tile names it as summed call time."
+  - key: "READ JOINS IN r — the change event's read opens the Conversation tab at ?causeOf={runId} only when cause.source.id exists; r finds the entry with the same (source, prKey or url, sourceId) join its footers use, so s never rebuilds h's composite entry id; a status move has no such entry and only opens the tab (review F5, review3-s S2)."
+  - key: "THE HAND-BACK WAIT IS 9a59j'S PARK — its answeredAt is the next attempt's cause.at, so the reply gap is a recorded difference, not an estimate (review F3)."
+  - key: "PARKED TIME IS NOT POD TIME — a park releases its sandboxes (9a59i's released-at-park), so a park is drawn without pods and the banner says pods were held only when a spawn's lifetime overlapped a park."
+  - key: "A REQUEUE IS NOT WAITING ON YOU (series pass 2026-10-13, after 9a59i/9a59j): RunStatuses.IsWaiting counts queued beside waiting_for_input (RunStatuses.cs:24), but a capacity rejection waits on the cluster; only question and hand-back parks feed the waiting-on-you tile and banner."
+  - key: "AN UNOBSERVED POD HAS TWO LIFETIMES, NAMED (series pass 2026-10-13, 9a59i decision): this tab clips it at its segment's end; the run detail's reserved Gi-minutes charge it to run end (ReservedCapacityCalculator.cs:33-35). Both are shown with their rule rather than one silently disagreeing with the other."
+  - key: "TRACE GOES TO THE WHY VIEW — p0423b keeps statistics off the live run view, so the trace link opens /jobs/{id}/why."
+
+steps:
+  - id: reads
+    action: "useAttemptRun (runsApi.fetchRun) and useAttemptCompute registered in q's store: once for terminal attempts, refetched for isRunLive ones, 2 s window; types in types/tickets.ts."
+  - id: tabs
+    action: "Append Attempts and Cost & compute with their counters to 9a59q's tab table."
+  - id: next-card
+    action: "Next-attempt card with Continue in conversation."
+  - id: attempt-cards
+    action: "AttemptCard: head button, pill, run id, why-line, three numbers (spec n of m only from the live attempt's own cut, else deriving); expanded body for the live attempt; machine links."
+  - id: sentences
+    action: "attemptStory(attempt, passes, parks, cutEntries, cut): Doing/Did bullets and the Ended sentence from fields, each clause dropped when its field is absent or the end reason is unknown."
+  - id: change-events
+    action: "Change-event rows between attempts from 9a59d's cause, labelled by channel; read links to ?tab=conversation&causeOf={runId} when cause.source.id exists."
+  - id: cost-bars
+    action: "costScale and CostRow: buckets per attempt on the shared scale, own-cap marker, over-cap and no-cap rules, parts text, total row."
+  - id: compute-tiles
+    action: "computeTotals: pod-minutes (unobserved clipped at segment end, named against run detail's run-end charge), Gi·h, summed call time as its own figure, waits on you (parks only) and capacity waits apart; the four tiles and the waiting banner."
+  - id: wall-clock
+    action: "computeSegments and ComputeRow: segments as wall-clock spans with call time as a figure, parks between them, pods line with end reasons, uncounted sandboxes, legend."
+  - id: css
+    action: "Port the mock's attempts, cost and compute CSS to mock-parity.css under .mock-tickets."
+  - id: tests
+    action: "Red first: unit tests for attemptStory, costScale, computeTotals and computeSegments; component tests below; extend the ticket-view parity block."
+
+tests:
+  - "MockParity_TicketAttemptsCost_StructuralClassesPresent"
+  - "attemptStory: a handed-back attempt ends with its case and lists no spec"
+  - "attemptStory: a failed attempt's Ended sentence uses the failing spec's last pass end reason; an absent pass count drops the clause"
+  - "attemptStory: a failing spec whose last pass ended unknown says failed with no reason clause"
+  - "attemptStory: Did never says a PR was marked ready"
+  - "costScale: the largest run cap is the full width and a smaller cap is marked on its row"
+  - "costScale: with no cap on any attempt the largest cost is the full width; a cost over its cap passes its marker"
+  - "computeTotals: the hand-back wait runs from its askedAt to the next attempt's cause.at"
+  - "computeTotals: a spawn with no observed dispose counts to the end of its segment, and the tile names the run detail's run-end figure beside it"
+  - "computeTotals: a segment ended queued and a released-at-requeue pod add nothing to waiting on you"
+  - "computeSegments: a park splits the wall clock and is drawn without pods; a segment's call time larger than its span is written as a figure and never drawn as a share"
+  - "dashboard: attempts are newest first, ordered by run id, the live one expanded"
+  - "dashboard: the live attempt shows deriving, not spec n of m, while the series read's cut came from an earlier attempt"
+  - "dashboard: a terminal attempt's run, compute and passes reads are fetched once; a waiting_for_input attempt's are refetched on a nudge"
+  - "dashboard: the run read goes through runsApi.fetchRun and the series read through q's store, one request per endpoint"
+  - "dashboard: Trace links to /jobs/{id}/why and Open run viewer to /jobs/{id}"
+  - "dashboard: read on a comment-caused change event opens the Conversation tab at the entry with that id; on a status move it opens the tab only"
+  - "dashboard: carried specs appear at $0 in the parts text and add nothing to the bar"
+  - "dashboard: the waiting banner appears only when waiting exceeded model call time"
+  - "dashboard: memory reserved is labelled as a reservation and leaves out live attempts"
+  - "dashboard: an attempt with no sandbox records shows its row without pods rather than zero"
+
+done:
+  - "A reviewer comparing both tabs to the mock finds the same timeline, bars, tiles and layout in the dashboard's tokens; the wording differs only where a decision above drops a clause no field carries."
+  - "Every figure on both tabs traces to a field a backend member delivers; none is summed from a paged list or estimated, and model time is never drawn as a share of wall clock."
+  - "Dashboard build and tests green."

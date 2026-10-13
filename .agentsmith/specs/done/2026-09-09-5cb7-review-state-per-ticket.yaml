@@ -12,6 +12,7 @@ scope:
   out: "Reacting to a review — no run is started, no comment is answered, nothing is pushed. Reading review comment bodies or attributing them to a criterion; the state is a status, not a conversation. A webhook subscription per repository; this phase polls the PRs it already knows about and a webhook is a named follow-up."
 
 decisions:
+  - key: "RETIRED 2026-10-13, never built: the code moved for a month and a re-review refused it; superseded by 2026-10-13-9a59b and 2026-10-13-9a59c (a PR-keyed review record and its triggers)."
   - key: |
       THE PULL REQUESTS COME FROM PullRequestsJson. p0347 records in the Run entity that the single
       per-repo PrUrl column is lossy for a multi-repo run and that PullRequestsJson keeps every
