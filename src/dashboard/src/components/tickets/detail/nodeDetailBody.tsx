@@ -5,6 +5,7 @@ import { duration } from "./attemptFlowLayout";
 import { clock, passEndWords, statusWords } from "./flowWords";
 import { questionJoin } from "./questionJoin";
 import { Doc, Why, type NodeContext, type NodeExplained } from "./NodeDetail";
+import { OpenSpecButton } from "./OpenSpecButton";
 
 // 2026-10-13-9a59q: what the body nodes say — spec, build, verify, question and tail. A pass speaks
 // only for itself: an earlier pass's verify lists its own criterion verdicts, not the spec's final ones.
@@ -35,9 +36,14 @@ export function specDetail(context: NodeContext): NodeExplained | null {
         <p className="dim-line">{spec.steps.length} steps · {spec.done.length} done criteria{origin ? ` · ${origin}` : ""}</p>
       </Doc>
     ),
-    right: <Why lines={[carried
-      ? `Executed in ${executed}. Its commits are on the branch; nothing ran here.`
-      : "Steps and done criteria are known from the moment the spec is cut, and fill in as they are worked."]} />,
+    right: (
+      <>
+        <Why lines={[carried
+          ? `Executed in ${executed}. Its commits are on the branch; nothing ran here.`
+          : "Steps and done criteria are known from the moment the spec is cut, and fill in as they are worked."]} />
+        <OpenSpecButton specId={spec.specId} />
+      </>
+    ),
   };
 }
 

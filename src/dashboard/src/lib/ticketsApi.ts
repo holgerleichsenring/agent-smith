@@ -2,10 +2,12 @@
 // The unfiltered first page and the counts feed the rail and the list together; a bucket view asks
 // the server for its bucket and pages it with the cursor the server returns.
 
-import { getJson } from "@/lib/apiResponse";
+import { apiFetch, getJson, refused } from "@/lib/apiResponse";
 import { ticketPath } from "@/lib/tickets/ticketAddress";
 import type {
+  RetryRefusal,
   RunPasses,
+  TicketApprovalPreview,
   TicketConversation,
   TicketDetail,
   TicketListView,
@@ -54,4 +56,24 @@ export function fetchTicketConversation(
 
 export function fetchRunPasses(runId: string, signal?: AbortSignal): Promise<RunPasses> {
   return getJson<RunPasses>(`/api/runs/${encodeURIComponent(runId)}/passes`, signal);
+}
+
+// 2026-10-13-9a59r: what approving the open proposal would do; dialog.write. A 404 (no proposal open)
+// throws like any other refusal — the caller asks only while the conversation shows one.
+export function fetchApprovalPreview(
+  project: string, ticketId: string, signal?: AbortSignal,
+): Promise<TicketApprovalPreview> {
+  return getJson<TicketApprovalPreview>(`/api${ticketPath(project, ticketId)}/approval-preview`, signal);
+}
+
+export type RetryAnswer = { kind: "requested" } | { kind: "refused"; refusal: RetryRefusal };
+
+/** 2026-10-13-9a59r: Retry unchanged (9a59n, runs.control). A 409 is an answer, not a fault: its
+ *  reason text is what the page shows. Every other non-2xx throws. */
+export async function retryAttempt(runId: string): Promise<RetryAnswer> {
+  const path = `/api/runs/${encodeURIComponent(runId)}/retry`;
+  const res = await apiFetch(path, { method: "POST" });
+  if (res.status === 409) return { kind: "refused", refusal: (await res.json()) as RetryRefusal };
+  if (!res.ok) throw await refused(res, path);
+  return { kind: "requested" };
 }

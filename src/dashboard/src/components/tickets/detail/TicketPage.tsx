@@ -1,27 +1,21 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { TICKETS_PATH } from "@/lib/TicketBucketFilter";
 import { useTicketDetail } from "@/lib/tickets/TicketPageStore";
 import { TicketHeader } from "./TicketHeader";
 import { TicketTabs } from "./TicketTabs";
 import { TAB_PARAM, ticketTab } from "./ticketTabTable";
+import { CAUSE_PARAM, useTicketTabGo } from "./useTicketTabGo";
 
 // 2026-10-13-9a59q: the ticket detail — header, tab bar, the selected tab's pane — under
 // .mock-shell.mock-tickets like the list. ?tab= is read here, under the route's Suspense boundary.
 
 export function TicketPage() {
   const detail = useTicketDetail();
-  const params = useSearchParams();
-  const router = useRouter();
-  const pathname = usePathname() ?? TICKETS_PATH;
-  const tab = ticketTab(params?.get(TAB_PARAM) ?? null);
-  const select = (id: string) => {
-    const next = new URLSearchParams(params?.toString() ?? "");
-    next.set(TAB_PARAM, id);
-    router.replace(`${pathname}?${next.toString()}`, { scroll: false });
-  };
+  const address = useTicketTabGo();
+  const tab = ticketTab(address.param(TAB_PARAM));
+  const select = (id: string) => address.go(id, { [CAUSE_PARAM]: null });
 
   return (
     <div className="mock-shell mock-tickets" data-testid="ticket-page">

@@ -43,7 +43,7 @@ facts:
     evidence: "src/dashboard/src/hooks/useJobsHub.ts:29-33,96-109"
   - claim: "The retry endpoint (2026-10-13-9a59n) starts an unchanged attempt only after an infrastructure end and answers every refusal as a 409 {reason, text, project, ticketId}; no dashboard code calls it."
     evidence: "src/backend/AgentSmith.Server/Extensions/RetryEndpoints.cs:16,24-31, src/backend/AgentSmith.Server/Models/RetryRefusalView.cs:8"
-  - claim: "The line ratchet covers C# only: file-length-baseline.tsv lists no dashboard file, so mock-parity.css (1561 lines) needs no room made."
+  - claim: "The line ratchet covers C# only: file-length-baseline.tsv lists no dashboard file, so mock-parity.css (1681 lines) needs no room made."
     evidence: "observed: 2026-10-13, grep -c '\\.ts' tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv = 0; wc -l src/dashboard/src/styles/mock-parity.css"
 
 assumptions:

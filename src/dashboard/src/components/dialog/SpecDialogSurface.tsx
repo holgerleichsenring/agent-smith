@@ -14,6 +14,8 @@ import {
 import { PROJECT_PARAM, TICKET_PARAM } from "@/lib/specDialogAddress";
 import { useFiledWork } from "@/hooks/useFiledWork";
 import { useSpecDialog } from "@/hooks/useSpecDialog";
+import { ticketApprovalEffect } from "@/lib/tickets/approvalEffect";
+import { useApprovalPreview } from "@/lib/tickets/useApprovalPreview";
 import { FailedSurface } from "@/components/shell/FailedSurface";
 import { PageHead } from "@/components/system/PageHead";
 import { ConfirmDialog, useConfirmDialog } from "./ConfirmDialog";
@@ -164,6 +166,14 @@ const MARK_MS = 1400;
 export function SpecDialogSurface() {
   const dialog = useSpecDialog();
   useHandover(dialog.open);
+  // 2026-10-13-9a59r: a TICKET-BOUND conversation's approval continues that ticket or files a follow-up;
+  // the card says which, from the same preview the ticket page reads, while an approval question is open.
+  const bound = dialog.view?.session?.ticket ? dialog.view.session : null;
+  const preview = useApprovalPreview(bound?.scope.name ?? null, bound?.ticket?.ticketId ?? null, {
+    enabled: bound !== null && dialog.question?.kind === "approval",
+    nudge: dialog.proposal?.at ?? "",
+  });
+  const ticketEffect = bound && preview.data ? ticketApprovalEffect(preview.data) : null;
   const {
     pending: pendingTicket,
     reason: ticketReason,
@@ -397,6 +407,7 @@ export function SpecDialogSurface() {
                       <DialogQuestionCard
                         question={dialog.question}
                         proposal={dialog.proposal}
+                        ticketEffect={ticketEffect}
                         onAnswer={(answer, decision) => void dialog.send(answer, project, decision)}
                       />
                     )}

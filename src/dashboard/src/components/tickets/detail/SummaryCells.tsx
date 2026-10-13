@@ -4,6 +4,7 @@ import { useTicketSeries } from "@/lib/tickets/TicketPageStore";
 import type { TicketAttempt, TicketDetail, TicketSeriesSpec } from "@/types/tickets";
 import { channelWords, money } from "../ticketFormat";
 import { clock, elapsed } from "./flowWords";
+import { useTicketTabGo } from "./useTicketTabGo";
 
 // 2026-10-13-9a59q: the mock's .sum cells and .banner for one attempt, from its own records — the
 // cause, the revision and its carried ids, the ticket's pull-request records, and the attempt's cut
@@ -98,6 +99,7 @@ export function CarriedBanner({ attempt }: { attempt: TicketAttempt }) {
         <div className="bt">{capital(specList(carried))} ran in earlier attempts and {carried.length === 1 ? "is" : "are"} not redone. {cutWords}</div>
         <div className="bs">Executed specs are append-only: the branch keeps them, the series keeps their ids. <b>$0</b> spent on {specList(carried)} this time.</div>
       </div>
+      <OpenSpecsButton />
     </div>
   );
 }
@@ -110,4 +112,10 @@ function specList(specs: TicketSeriesSpec[]): string {
 
 function capital(text: string): string {
   return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** 2026-10-13-9a59r: the banner's way to the Specs tab. */
+function OpenSpecsButton() {
+  const address = useTicketTabGo();
+  return <button type="button" className="btn" data-testid="ticket-open-specs" onClick={() => address.go("specs")}>Open specs</button>;
 }

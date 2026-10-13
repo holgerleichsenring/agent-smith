@@ -13,17 +13,28 @@ import { TicketListProvider } from "@/lib/tickets/TicketListProvider";
 import { fakeHub, list, pr, ticket } from "@/components/tickets/__tests__/ticketFixtures";
 import { TicketPage } from "@/components/tickets/detail/TicketPage";
 import { TicketPageStore } from "@/lib/tickets/TicketPageStore";
-import { attempt, conversation, detail, pass, passes, series, spec } from "@/components/tickets/detail/__tests__/detailFixtures";
+import { attempt, conversation, detail, entry, pass, passes, series, spec } from "@/components/tickets/detail/__tests__/detailFixtures";
 
 // p0343c: PIXEL IDENTITY guard — each redesigned surface renders the ratified
 // mock's structural DOM (wrapper + key mock classes), bound to real data. If a
 // refactor drops the mock DOM, these fail before the operator sees the drift.
 
 const push = vi.fn();
+// 2026-10-13-9a59r: the ticket page reads ?tab=, so a case can set the search before rendering.
+const search = vi.hoisted(() => ({ current: "" }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push, replace: vi.fn() }),
   usePathname: () => "/",
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(search.current),
+}));
+// 2026-10-13-9a59r: the ticket composer's Work it out session, at rest — no hub, no server.
+vi.mock("@/hooks/useSpecDialog", () => ({
+  useSpecDialog: () => ({
+    dialogId: "d-1", view: null, conversations: [], entries: [], question: null, proposal: null, filed: null,
+    failure: null, uploadNote: null, awaiting: false, working: false, workingSince: null, readings: [], activity: [],
+    send: async () => {}, refresh: async () => {}, startNew: async () => {}, open: async () => {}, remove: async () => {},
+    attach: async () => {}, attachSite: async () => {},
+  }),
 }));
 
 function snap(over: Partial<RunSnapshot> = {}): RunSnapshot {
@@ -70,7 +81,13 @@ vi.mock("@/hooks/useJobsHub", () => ({
 }));
 vi.mock("@/hooks/useRunEvents", () => ({ useRunEvents: () => [] }));
 const tickets = vi.hoisted(() => ({ fetch: vi.fn() }));
-vi.mock("@/lib/ticketsApi", () => ({ fetchTickets: (...args: unknown[]) => tickets.fetch(...args) }));
+vi.mock("@/lib/ticketsApi", () => ({
+  fetchTickets: (...args: unknown[]) => tickets.fetch(...args),
+  fetchApprovalPreview: () => Promise.resolve({
+    project: "shop", ticketId: "101", effect: "continue", reason: "", executed: 1, unstarted: 0, basisRunId: "r-2",
+    specs: [{ specId: "s1", goal: "Port", disposition: "kept" }], start: { kind: "start-now" },
+  }),
+}));
 vi.mock("@/hooks/useRunExecutionTree", () => ({
   useRunExecutionTree: () => ({ nodes: [] }),
 }));
@@ -258,6 +275,50 @@ describe("Mock parity", () => {
     for (const cls of [".main", ".m-head", ".btn.primary", ".yaml-note", ".list", ".ecard", ".ec-top", ".ec-ic", ".ec-name", ".tybadge", ".edit-hint", ".fields"]) {
       expect(studioRoot.querySelector(cls), `config studio missing ${cls}`).not.toBeNull();
     }
+  });
+
+  it("MockParity_TicketConversationSpecsAcceptance_StructuralClassesPresent", async () => {
+    const twoAttempts = [attempt(), attempt({ number: 2, runId: "r-2" })];
+    const ticketApi = {
+      detail: () => Promise.resolve(detail(twoAttempts)),
+      series: (_p: string, _t: string, runId: string | null) => Promise.resolve(series(runId ?? "r-2", [
+        spec({ state: "carried", worked: [{ stepId: "1", state: "done", doneByRunId: "r-1", doneByAttempt: 1, doneInPass: 1 }] }),
+        spec({ specId: "s2", ordinal: 2, state: "in_progress", done: [{ text: "Works", verdict: null, note: null, citation: null, overrule: null }] }),
+      ])),
+      conversation: () => Promise.resolve({
+        ...conversation([
+          entry({ id: "q", attemptRunId: "r-1" }),
+          entry({ id: "e", source: "ticket", kind: "edited", role: "person", attemptRunId: "r-2", text: null, detail: { title: { before: "a", after: "b" } } }),
+          entry({ id: "c", source: "spec-cut", kind: "cut-review", attemptRunId: "r-2", text: "Deliverable." }),
+          entry({ id: "n", source: "conversation", kind: "turn", role: "person", attemptRunId: null, group: "now", text: "Add one" }),
+        ]),
+        attempts: [{ runId: "r-1", number: 1, cause: null, revision: null }, { runId: "r-2", number: 2, cause: null, revision: null }],
+        sessionId: "s-1",
+        proposal: { kind: "spec", drafts: [{ specId: "s3", goal: "Import consumer", repos: ["w"], done: ["caps"] }] },
+      }),
+      passes: (runId: string) => Promise.resolve(passes(runId, { s2: [pass()] })),
+    };
+    const tabs: Array<[string, string[]]> = [
+      ["conversation", [".section-head", ".conv-tools", ".chip", ".conv", ".c-att", ".msg", ".msg.internal", ".av", ".mh", ".where", ".mb", ".diff", ".proposal", ".ph", ".pb", ".composer", ".cp-head", ".cp-actions", ".cp-input"]],
+      ["specs", [".sp-grid", ".sp-list", ".sp-item", ".si-top", ".si-cells", ".cell", ".spdoc", ".sh", ".sb", ".blk", ".steps", ".stp", ".crit", ".ci", ".ro-note", ".revs", ".rv"]],
+      ["acceptance", [".doc", ".crit", ".ci", ".m", ".cw"]],
+    ];
+    for (const [tab, classes] of tabs) {
+      search.current = `tab=${tab}`;
+      const page = render(
+        <TicketPageStore project="shop" ticketId="101" client={fakeHub().client} api={ticketApi}>
+          <TicketPage />
+        </TicketPageStore>,
+      );
+      const root = screen.getByTestId("ticket-page");
+      await screen.findByTestId(`ticket-tab-${tab}`);
+      await screen.findByText(tab === "conversation" ? "Add one" : tab === "specs" ? "Revisions" : "Acceptance", { selector: tab === "conversation" ? ".mb" : "h2" });
+      for (const cls of classes) {
+        expect(root.querySelector(cls), `ticket ${tab} tab missing ${cls}`).not.toBeNull();
+      }
+      page.unmount();
+    }
+    search.current = "";
   });
 
   it("TraceDrawer_HostsExistingMasterDetail", async () => {

@@ -5,8 +5,9 @@
      design/mockups/config-studio.html→ .mock-config
      design/mockups/ticket-view.html  → .mock-tickets (2026-10-13-9a59p: shell + list;
                                         2026-10-13-9a59q: detail header, tabs, summary,
-                                        graph, node detail; the other tabs are ported by
-                                        the specs that build them, under the same scope)
+                                        graph, node detail; 2026-10-13-9a59r: conversation,
+                                        composer, specs, acceptance; the other tabs are
+                                        ported by the specs that build them, same scope)
    Every rule is prefix-scoped under the .mock-shell wrapper (applied at each
    redesigned page root and the app rail) so the mock look wins inside the
    redesigned surfaces without leaking into System/Rollups pages. Values are
@@ -39,7 +40,8 @@
      row's .act line names only recorded fields; the detail's keyframes flow, halo and
      blink are mock-flow, mock-halo and mock-blink (global names, like mock-pulse); the
      light .pill set, the header dot's other states, .gd.infra, the legend swatch
-     classes, .g-note and .doc .dim-line are added (2026-10-13-9a59q). */
+     classes, .g-note and .doc .dim-line are added (2026-10-13-9a59q); the Conversation,
+     Specs and Acceptance tabs' own deviations are listed in their section (2026-10-13-9a59r). */
 
 /* ===== shared shell: tokens + primitives (identical across all three mocks) == */
 .mock-shell {
@@ -508,6 +510,124 @@
 .mock-tickets .g-note a { color: var(--t-link); }
 .mock-tickets .doc .dim-line { color: var(--ink-3); }
 .mock-tickets .node { outline: none; }
+
+/* =========================================================================
+   TICKET DETAIL — ticket-view.html, Conversation, Specs and Acceptance tabs (2026-10-13-9a59r)
+   ========================================================================= */
+/* ===== conversation ===== */
+.mock-tickets .conv-tools { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:14px; }
+.mock-tickets .chip { font:inherit; font-size:12px; font-weight:560; border:1px solid var(--line); background:var(--panel); color:var(--ink-2); padding:5px 11px; border-radius:20px; cursor:pointer; }
+.mock-tickets .chip[aria-pressed="true"] { background:var(--ink); color:var(--bg); border-color:var(--ink); }
+.mock-tickets .conv { display:flex; flex-direction:column; gap:0; max-width:880px; }
+.mock-tickets .c-att { display:flex; align-items:center; gap:10px; margin:18px 0 10px; font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); font-weight:600; }
+.mock-tickets .c-att:first-child { margin-top:0; }
+.mock-tickets .c-att::after { content:""; flex:1; height:1px; background:var(--line); }
+.mock-tickets .c-att .pill { letter-spacing:.04em; }
+.mock-tickets .msg { display:grid; grid-template-columns:30px minmax(0,1fr); gap:12px; padding:8px 0; }
+.mock-tickets .msg .av { width:30px; height:30px; border-radius:50%; display:grid; place-items:center; font-size:11px; font-weight:700; background:var(--panel-2); color:var(--ink-2); }
+.mock-tickets .msg .av.agent { background:var(--ink); color:var(--bg); font-family:var(--mono); }
+.mock-tickets .msg .av.op { background:var(--accent-wash); color:var(--accent); }
+.mock-tickets .msg .av.rv { background:var(--person-wash); color:var(--person); }
+.mock-tickets .msg .av.sys { background:var(--bg); border:1px dashed var(--line); color:var(--ink-3); }
+.mock-tickets .msg .mh { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; font-size:12.5px; }
+.mock-tickets .msg .mh b { font-weight:620; }
+.mock-tickets .msg .mh .where { font-size:11px; color:var(--ink-3); border:1px solid var(--line); border-radius:20px; padding:0 8px; }
+.mock-tickets .msg .mh .w { font-family:var(--mono); font-size:11px; color:var(--ink-3); margin-left:auto; }
+.mock-tickets .msg .mb { font-size:13px; color:var(--ink); margin-top:4px; max-width:70ch; }
+.mock-tickets .msg .mb.quote { border-left:2px solid var(--line); padding-left:10px; color:var(--ink-2); }
+.mock-tickets .msg .mb .file { font-family:var(--mono); font-size:11px; color:var(--ink-3); display:block; margin-bottom:3px; }
+.mock-tickets .msg .mf { font-size:11.5px; color:var(--ink-3); margin-top:4px; display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+.mock-tickets .msg .mf .eff { color:var(--person); font-weight:600; }
+.mock-tickets .msg .mf .eff.run { color:var(--run); }
+.mock-tickets .msg.internal .mb { font-size:12.5px; color:var(--ink-2); }
+.mock-tickets .diff { font-family:var(--mono); font-size:11.5px; border:1px solid var(--line); border-radius:var(--r-s); background:var(--panel); padding:8px 10px; margin-top:6px; overflow-x:auto; }
+.mock-tickets .diff .rm { color:var(--bad); } .mock-tickets .diff .ad { color:#1a7f43; }
+
+/* ===== spec documents ===== */
+.mock-tickets .cell { display:inline-grid; place-items:center; min-width:22px; height:22px; padding:0 4px; border-radius:6px; font-size:11px; font-weight:700; font-family:var(--mono); }
+.mock-tickets .cell.done { background:var(--ok-wash); color:var(--ok); }
+.mock-tickets .cell.carried { color:var(--ink-3); border:1px dashed var(--line); }
+.mock-tickets .cell.fail { background:var(--bad-wash); color:var(--bad); }
+.mock-tickets .cell.live { background:var(--run-wash); color:var(--run); border:1px solid var(--run); }
+.mock-tickets .cell.none { color:var(--idle); }
+.mock-tickets .cell.recut { background:var(--panel-2); color:var(--ink-2); border:1px solid var(--line); }
+.mock-tickets .revs { display:flex; flex-direction:column; gap:6px; margin-top:18px; max-width:880px; }
+.mock-tickets .rv { display:grid; grid-template-columns:42px minmax(0,1fr) auto; gap:12px; align-items:baseline; font-size:12.5px; padding:8px 12px; border:1px solid var(--line); border-radius:var(--r-s); background:var(--panel); }
+.mock-tickets .rv .rn { font-family:var(--mono); font-size:11.5px; color:var(--ink-2); font-weight:500; }
+.mock-tickets .rv .rc { color:var(--ink-2); } .mock-tickets .rv .rc b { color:var(--ink); font-weight:600; }
+.mock-tickets .rv .rw { font-family:var(--mono); font-size:11px; color:var(--ink-3); white-space:nowrap; }
+.mock-tickets .sp-grid { display:grid; grid-template-columns:300px minmax(0,1fr); gap:22px; align-items:start; }
+@media (max-width:980px){ .mock-tickets .sp-grid{ grid-template-columns:minmax(0,1fr); } }
+.mock-tickets .sp-list { display:flex; flex-direction:column; gap:6px; }
+.mock-tickets .sp-item { font:inherit; color:inherit; text-align:left; background:var(--panel); border:1px solid var(--line); border-radius:var(--r-s); padding:10px 12px; cursor:pointer; display:flex; flex-direction:column; gap:6px; }
+.mock-tickets .sp-item:hover { background:var(--panel-2); }
+.mock-tickets .sp-item[aria-current="true"] { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-wash); }
+.mock-tickets .sp-item .si-top { display:flex; gap:8px; align-items:baseline; }
+.mock-tickets .sp-item .si-n { font-family:var(--mono); font-size:11px; color:var(--ink-3); }
+.mock-tickets .sp-item .si-t { font-size:13px; font-weight:600; min-width:0; }
+.mock-tickets .sp-item .si-cells { display:flex; gap:4px; align-items:center; }
+.mock-tickets .sp-item .si-cells .cell { min-width:18px; height:18px; font-size:9.5px; border-radius:4px; }
+.mock-tickets .sp-item .si-cells .al { font-size:10.5px; color:var(--ink-3); margin-left:auto; }
+.mock-tickets .spdoc { border:1px solid var(--line); border-radius:var(--r); background:var(--bg); overflow:hidden; }
+.mock-tickets .spdoc .sh { padding:14px 18px; border-bottom:1px solid var(--line-2); background:var(--panel); display:flex; flex-direction:column; gap:6px; }
+.mock-tickets .spdoc .sh .meta { display:flex; gap:10px; flex-wrap:wrap; font-size:11.5px; color:var(--ink-3); align-items:center; }
+.mock-tickets .spdoc .sh .meta .mono { font-size:11px; }
+.mock-tickets .spdoc .sh h3 { margin:0; font-size:17px; font-weight:660; letter-spacing:-.015em; text-wrap:balance; }
+.mock-tickets .spdoc .sb { padding:14px 18px 18px; display:flex; flex-direction:column; gap:16px; }
+.mock-tickets .spdoc .blk h4 { margin:0 0 8px; font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); font-weight:600; }
+.mock-tickets .steps { display:flex; flex-direction:column; border:1px solid var(--line); border-radius:var(--r-s); overflow:hidden; }
+.mock-tickets .stp { display:grid; grid-template-columns:22px 22px minmax(0,1fr) auto; gap:10px; align-items:baseline; padding:8px 12px; border-top:1px solid var(--line-2); font-size:12.5px; background:var(--panel); }
+.mock-tickets .stp:first-child { border-top:0; }
+.mock-tickets .stp .sk { width:14px; height:14px; border-radius:4px; border:1.5px solid var(--idle); display:grid; place-items:center; font-size:10px; font-weight:800; color:#fff; align-self:center; }
+.mock-tickets .stp.done .sk { background:var(--ok); border-color:var(--ok); }
+.mock-tickets .stp.live .sk { background:var(--run); border-color:var(--run); color:var(--run); animation:mock-pulse 1.6s infinite; }
+.mock-tickets .stp.carried .sk { border-style:dashed; border-color:var(--ok); }
+.mock-tickets .stp.live { background:color-mix(in srgb, var(--run-wash) 45%, var(--panel)); }
+.mock-tickets .stp .sn2 { font-family:var(--mono); font-size:11px; color:var(--ink-3); }
+.mock-tickets .stp .sw { font-family:var(--mono); font-size:10.5px; color:var(--ink-3); white-space:nowrap; }
+.mock-tickets .ro-note { display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:12px; color:var(--ink-3); border-top:1px dashed var(--line); padding-top:12px; }
+.mock-tickets .ro-note .btn { margin-left:auto; }
+
+/* ===== composer: continue on this ticket ===== */
+.mock-tickets .composer { margin-top:22px; border:1px solid color-mix(in srgb, var(--accent) 40%, var(--line)); border-radius:var(--r); background:var(--panel); overflow:hidden; max-width:880px; }
+.mock-tickets .cp-head { display:flex; align-items:center; gap:10px; padding:12px 16px; border-bottom:1px solid var(--line-2); flex-wrap:wrap; }
+.mock-tickets .cp-head h3 { margin:0; font-size:14px; font-weight:660; }
+.mock-tickets .cp-head .sh-sub { font-size:11.5px; color:var(--ink-3); }
+.mock-tickets .cp-body { padding:6px 16px 4px; }
+.mock-tickets .proposal { border:1px solid var(--line); border-radius:var(--r-s); background:var(--bg); margin-top:8px; overflow:hidden; }
+.mock-tickets .proposal .ph { display:flex; gap:8px; align-items:center; padding:8px 12px; border-bottom:1px solid var(--line-2); font-size:12px; font-weight:600; flex-wrap:wrap; }
+.mock-tickets .proposal .ph .pill { margin-left:auto; }
+.mock-tickets .proposal .pb { padding:10px 12px; font-size:12.5px; color:var(--ink-2); display:flex; flex-direction:column; gap:6px; }
+.mock-tickets .proposal .pb .add { font-family:var(--mono); font-size:12px; color:#1a7f43; }
+.mock-tickets .proposal .pb .keep { font-family:var(--mono); font-size:12px; color:var(--ink-3); }
+.mock-tickets .cp-effect { margin:12px 0 4px; padding:10px 12px; border-radius:var(--r-s); background:var(--accent-wash); color:var(--ink); font-size:12.5px; display:flex; gap:10px; align-items:flex-start; }
+.mock-tickets .cp-effect.warn { background:var(--run-wash); }
+.mock-tickets .cp-effect.person { background:var(--person-wash); }
+.mock-tickets .cp-effect b { font-weight:620; }
+.mock-tickets .cp-actions { display:flex; gap:8px; flex-wrap:wrap; padding:10px 16px 14px; align-items:center; }
+.mock-tickets .cp-actions .btn.primary { order:-1; }
+.mock-tickets .cp-input { display:flex; gap:9px; padding:12px 16px; border-top:1px solid var(--line-2); background:var(--bg); align-items:flex-end; }
+.mock-tickets .cp-input textarea { flex:1; font:inherit; font-size:13px; padding:9px 13px; border:1px solid var(--line); border-radius:10px; background:var(--panel); color:var(--ink); resize:vertical; min-height:40px; }
+
+/* deviations (2026-10-13-9a59r): groups wrap each attempt marker; the proposal block stands alone and marks
+   recut and dropped specs; the composer's text field is Work it out's DialogComposer (.d-foot) inside
+   .cp-input; notes beside the composer's actions; a pending run question heads the tab; the acceptance
+   list's inline style is a class; a hidden conversation's composer is a note */
+.mock-tickets .c-group:first-child > .c-att { margin-top:0; }
+.mock-tickets .conv + .proposal { max-width:880px; margin-top:18px; }
+.mock-tickets .proposal .pb .recut { font-family:var(--mono); font-size:12px; color:var(--run); }
+.mock-tickets .proposal .pb .drop { font-family:var(--mono); font-size:12px; color:var(--bad); }
+.mock-tickets .proposal .pb .draft { display:flex; flex-direction:column; gap:2px; }
+.mock-tickets .proposal .pb .done-when { font-size:12px; color:var(--ink-3); padding-left:14px; }
+.mock-tickets .cp-input .d-foot { flex:1; padding:0; border-top:0; }
+.mock-tickets .cp-note { font-size:11.5px; color:var(--ink-3); }
+.mock-tickets .cp-note.bad { color:var(--bad); }
+.mock-tickets .composer > .cp-note { padding:0 16px 10px; }
+.mock-tickets .q-head { max-width:880px; margin-bottom:16px; display:flex; flex-direction:column; gap:10px; }
+.mock-tickets .acc-list { display:flex; flex-direction:column; gap:18px; max-width:820px; }
+.mock-tickets .composer.hidden-note { border-color:var(--line); }
+.mock-tickets .open-spec { margin:10px 0 0; }
+.mock-tickets .banner .btn { white-space:nowrap; }
 
 /* =========================================================================
    RUN VIEWER — run-viewer.html

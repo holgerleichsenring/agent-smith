@@ -7,8 +7,11 @@ import { HUB_URL } from "@/hooks/useJobsHub";
 import { useRunEvents } from "@/hooks/useRunEvents";
 import { isRunLive } from "@/lib/runLiveness";
 import { EventType, type RunEvent } from "@/types/hub-events";
-import type { RunPasses, TicketAttempt, TicketConversation, TicketDetail, TicketSeries } from "@/types/tickets";
+import type {
+  RunPasses, TicketApprovalPreview, TicketAttempt, TicketConversation, TicketDetail, TicketSeries,
+} from "@/types/tickets";
 import { TicketPageReads, type Read, type TicketPageApi, type TicketPageSnapshot } from "./TicketPageReads";
+import { useApprovalPreview } from "./useApprovalPreview";
 
 // 2026-10-13-9a59q: the ONE store of a ticket page. Every ticket-level read lives here, so the Summary
 // tab and the tabs 9a59r and 9a59s add never issue a second read of one endpoint. Refetch rules: a
@@ -24,6 +27,8 @@ interface StoreValue {
   reads: TicketPageReads;
   liveAttempt: TicketAttempt | null;
   liveEvents: RunEvent[];
+  /** 2026-10-13-9a59r: counts this ticket's TicketActivityChanged nudges (and reconnects). */
+  activity: number;
 }
 
 const Ctx = createContext<StoreValue | null>(null);
@@ -46,17 +51,22 @@ export function TicketPageStore({ project, ticketId, children, client, api }: Pr
     return () => reads.dispose();
   }, [reads]);
 
+  const [activity, setActivity] = useState(0);
   const ticketKey = useRef<string | null>(null);
   ticketKey.current = snapshot?.detail.data?.summary.ticketKey ?? null;
 
   useEffect(() => {
     const offTicket = hub.ticketActivityChanged.add((nudge) => {
       const ours = nudge.ticketKey === ticketKey.current || nudge.ticketKey === ticketId;
-      if (nudge.project === project && ours) reads.ticketChanged();
+      if (nudge.project !== project || !ours) return;
+      reads.ticketChanged();
+      setActivity((n) => n + 1);
     });
     const offRuns = hub.runsChanged.add((runId) => reads.runChanged(runId));
     const offConn = hub.connectionState.add((state) => {
-      if (state === HubConnectionState.Connected) reads.ticketChanged();
+      if (state !== HubConnectionState.Connected) return;
+      reads.ticketChanged();
+      setActivity((n) => n + 1);
     });
     let leave: (() => Promise<void>) | null = null;
     let left = false;
@@ -78,8 +88,8 @@ export function TicketPageStore({ project, ticketId, children, client, api }: Pr
   useCutReviews(liveEvents, reads);
 
   const value = useMemo<StoreValue>(
-    () => ({ project, ticketId, snapshot: current, reads, liveAttempt, liveEvents }),
-    [project, ticketId, current, reads, liveAttempt, liveEvents],
+    () => ({ project, ticketId, snapshot: current, reads, liveAttempt, liveEvents, activity }),
+    [project, ticketId, current, reads, liveAttempt, liveEvents, activity],
   );
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
@@ -138,6 +148,44 @@ export function useAttemptPasses(runId: string | null): Read<RunPasses> {
 export function useLiveAttempt(): { attempt: TicketAttempt | null; events: RunEvent[] } {
   const { liveAttempt, liveEvents } = useStore();
   return { attempt: liveAttempt, events: liveEvents };
+}
+
+/** 2026-10-13-9a59r: the per-run reads of several attempts at once — the same store entries as
+ *  useTicketSeries(runId) and useAttemptPasses(runId), wanted together for a table of attempts. */
+export function useAttemptReads(runIds: readonly string[]): {
+  series: Record<string, Read<TicketSeries>>;
+  passes: Record<string, Read<RunPasses>>;
+} {
+  const { snapshot, reads } = useStore();
+  const key = runIds.join(",");
+  useEffect(() => {
+    for (const runId of key ? key.split(",") : []) {
+      reads.want("series", runId);
+      reads.want("passes", runId);
+    }
+  }, [reads, key]);
+  const series: Record<string, Read<TicketSeries>> = {};
+  const passes: Record<string, Read<RunPasses>> = {};
+  for (const runId of runIds) {
+    series[runId] = (snapshot.runSeries[runId] as Read<TicketSeries> | undefined) ?? PENDING_READ;
+    passes[runId] = (snapshot.runPasses[runId] as Read<RunPasses> | undefined) ?? PENDING_READ;
+  }
+  return { series, passes };
+}
+
+/** 2026-10-13-9a59r: the approval preview of this ticket — asked only while the conversation shows an
+ *  open proposal it does not hide, again on this ticket's TicketActivityChanged and when the newest
+ *  attempt's status moves; never on a bare RunsChanged. */
+export function useTicketApprovalPreview(): Read<TicketApprovalPreview> {
+  const { project, ticketId, snapshot, activity } = useStore();
+  const conversation = snapshot.conversation.data;
+  const enabled = conversation !== null && conversation.proposal !== null && !conversation.transcriptHidden;
+  const attempts = snapshot.detail.data?.attempts ?? [];
+  const newest = attempts.length > 0 ? attempts[attempts.length - 1] : null;
+  return useApprovalPreview(project, ticketId, {
+    enabled,
+    nudge: `${activity}|${newest?.runId ?? ""}=${newest?.status ?? ""}`,
+  });
 }
 
 const PENDING_READ: Read<never> = { data: null, failed: false, refusal: null, loading: true };

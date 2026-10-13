@@ -6,6 +6,7 @@ import { EventType } from "@/types/hub-events";
 import type { TicketDetail } from "@/types/tickets";
 import { ticketLabel } from "../ticketFormat";
 import { statusWords } from "./flowWords";
+import { CAUSE_PARAM, useTicketTabGo } from "./useTicketTabGo";
 
 // 2026-10-13-9a59q: the mock's .t-head — key and title, then a subline of what is recorded: the
 // tracker link, the tracker status as the newest attempt read it, the live (or newest) attempt and
@@ -22,6 +23,7 @@ const PLATFORM_WORDS: Record<string, string> = {
 export function TicketHeader({ detail }: { detail: TicketDetail }) {
   const { summary, attempts, branch } = detail;
   const live = useLiveAttempt();
+  const address = useTicketTabGo();
   const newest = attempts.length > 0 ? attempts[attempts.length - 1] : null;
   const cancelling = live.events.some((e) => e.type === EventType.RunCancelRequested);
   const parts: React.ReactNode[] = [];
@@ -49,6 +51,8 @@ export function TicketHeader({ detail }: { detail: TicketDetail }) {
         </div>
       </div>
       <div className="t-act">
+        <button type="button" className="btn primary" data-testid="ticket-continue"
+          onClick={() => address.go("conversation", { [CAUSE_PARAM]: null })}>Continue in conversation</button>
         {live.attempt && (
           <CancelRunButton
             runId={live.attempt.runId}

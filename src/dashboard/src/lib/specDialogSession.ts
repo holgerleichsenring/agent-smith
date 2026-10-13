@@ -27,6 +27,30 @@ export function startNewDialog(): string {
   return hold(mintDialogId());
 }
 
+/**
+ * 2026-10-13-9a59r: where a conversation surface takes its dialog id from. Work it out HOLDS the
+ * browser's one id; a surface opened on a ticket mints its own per instance and holds nothing, so
+ * opening a ticket never rewrites the operator's Work it out conversation.
+ */
+export interface DialogIdSource {
+  /** The id a freshly mounted surface starts on. */
+  seed(): string;
+  /** The id a switch moves to — `to` when going to a dialog already known, else a fresh one. */
+  switchTo(to?: string): string;
+}
+
+/** The browser's one held id — Work it out. */
+export const HELD_DIALOG_ID: DialogIdSource = {
+  seed: () => currentDialogId(),
+  switchTo: (to) => (to ? returnToDialog(to) : startNewDialog()),
+};
+
+/** An id per surface instance, never held: what was held before stays held. */
+export const INSTANCE_DIALOG_ID: DialogIdSource = {
+  seed: () => mintDialogId(),
+  switchTo: (to) => to ?? mintDialogId(),
+};
+
 export function mintDialogId(): string {
   const random = globalThis.crypto?.randomUUID?.();
   return `d-${(random ?? `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`)

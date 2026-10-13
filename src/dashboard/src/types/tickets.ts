@@ -364,3 +364,41 @@ export interface TicketConversation {
   transcriptHidden: boolean;
   threadUnavailable: boolean;
 }
+
+// 2026-10-13-9a59r: what approving the ticket's open proposal would do (GET …/approval-preview,
+// dialog.write; 404 when no proposal is open) — 9a59l's effect and per-spec dispositions, 9a59m's start arm.
+
+/** bug-ticket | follow-up-closed | amend-never-worked | refused-over-cap | refused | continue */
+export type TicketApprovalEffect = string;
+
+/** start-now | wait-for-run | refused-question-pending | recorded-without-runs-control | answers-handback */
+export type TicketStartArm = string;
+
+export interface TicketContinuationSpec {
+  specId: string;
+  goal: string;
+  /** kept | recut | appended | dropped */
+  disposition: string;
+  note?: string | null;
+}
+
+export interface TicketApprovalPreview {
+  project: string;
+  ticketId: string;
+  effect: TicketApprovalEffect;
+  reason: string;
+  executed: number;
+  unstarted: number;
+  basisRunId: string | null;
+  specs: TicketContinuationSpec[];
+  start?: { kind: TicketStartArm; runId?: string | null } | null;
+}
+
+/** Every 409 of POST /api/runs/{runId}/retry (2026-10-13-9a59n). */
+export interface RetryRefusal {
+  /** not-latest | handed-back | not-finished | not-infrastructure | closed-for-work | starting */
+  reason: string;
+  text: string;
+  project: string;
+  ticketId: string;
+}

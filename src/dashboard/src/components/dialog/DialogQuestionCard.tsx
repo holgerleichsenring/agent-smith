@@ -2,6 +2,7 @@
 
 import { DialogProposalFindings } from "@/components/dialog/DialogProposalFindings";
 import { Markdown } from "@/components/ui/Markdown";
+import type { TicketApprovalEffect } from "@/lib/tickets/approvalEffect";
 import type {
   SpecDialogChoice,
   SpecDialogDecision,
@@ -65,16 +66,21 @@ export function DialogQuestionCard({
   question,
   proposal,
   onAnswer,
+  ticketEffect,
 }: {
   question: SpecDialogQuestionPush;
   proposal: SpecDialogProposalPush | null;
   onAnswer: (answer: string, decision?: SpecDialogDecision) => void;
+  /** 2026-10-13-9a59r: on a TICKET-BOUND conversation "Approve & file … One ticket." is false — 9a59l
+   *  continues the ticket or files a follow-up — so the card says what the preview says instead. */
+  ticketEffect?: TicketApprovalEffect | null;
 }) {
   const expired = hasExpired(question);
-  const controls = expired ? [] : controlsFor(question);
+  const bound = question.kind === "approval" && ticketEffect ? ticketEffect : null;
+  const controls = expired ? [] : controlsFor(question, bound);
   const decision = question.kind === "approval" && !expired;
   const shapes = decision && question.choices.length > 0;
-  const summary = decision && proposal ? summaryOf(proposal) : null;
+  const summary = decision ? (bound ? bound.summary : proposal ? summaryOf(proposal) : null) : null;
   // Only where the server said nothing AND the card has nothing of its own: a chat-shaped
   // confirmation that still carries its text keeps that text, and shows no second line.
   const unsummarised = decision && !summary && question.text.trim().length === 0;
@@ -138,13 +144,16 @@ export function DialogQuestionCard({
   );
 }
 
-function controlsFor(question: SpecDialogQuestionPush): Control[] {
-  if (question.kind === "approval")
+function controlsFor(question: SpecDialogQuestionPush, bound: TicketApprovalEffect | null): Control[] {
+  if (question.kind === "approval") {
+    const approve: Control[] = bound && !bound.approvable ? []
+      : [{ label: bound ? "Approve" : "Approve & file", answer: "approve", primary: true, decision: "approved" }];
     return [
-      { label: "Approve & file", answer: "approve", primary: true, decision: "approved" },
+      ...approve,
       { label: "Reject", answer: "reject", primary: false, decision: "rejected" },
       ...question.choices.map(asShape),
     ];
+  }
   if (question.choices.length > 0) return question.choices.map(asControl);
   if (question.kind === "confirmation")
     return [

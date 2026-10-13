@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-13-9a59r: "TICKET CONVERSATION (dashboard ticket page: Conversation, Specs, Acceptance tabs; Work it out dialog-id source; bound approval card). One thread per ticket with the ticket's own Work it out composer, moving nothing until the first act; specs as read-only documents; acceptance per spec. -> .agentsmith/specs/done/2026-10-13-9a59r-dashboard-ticket-conversation.yaml"
     2026-10-13-9a59q: "TICKET PAGE (dashboard /tickets/{project}/{ticketId}, one per-page store, Summary tab, attempt flow graph). Header, four cells and per attempt a pipeline graph with spec rows, passes, questions and hand-backs, each node explained; list rows and code runs link here. -> .agentsmith/specs/done/2026-10-13-9a59q-dashboard-ticket-graph.yaml"
     2026-10-13-9a59p: "TICKET LIST (dashboard /tickets, rail Work section, runs home, DESIGN.md state palette). Tickets grouped by who acts next with series strip, PR cells and attempt marks; questions answered inline, hand-backs lead into the conversation; the runs home says Waiting for input. -> .agentsmith/specs/done/2026-10-13-9a59p-dashboard-ticket-list.yaml"
     2026-10-13-9a59o: "TICKET_RUNS FACTS (dialog tool, bound ticket runs). In a ticket's conversation ticket_runs carries each attempt's cause, each spec's verdict, criteria outcomes, declined and unmeasured accounts, and every PR record's newest 40 review entries with kind, decision, file and line. -> .agentsmith/specs/done/2026-10-13-9a59o-dialog-agent-ticket-tools.yaml"

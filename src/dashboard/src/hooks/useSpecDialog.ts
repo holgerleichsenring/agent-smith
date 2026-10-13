@@ -13,7 +13,7 @@ import {
   uploadSpecDialogImage,
   uploadSpecDialogReferences,
 } from "@/lib/specDialogApi";
-import { currentDialogId, returnToDialog, startNewDialog } from "@/lib/specDialogSession";
+import { HELD_DIALOG_ID, type DialogIdSource } from "@/lib/specDialogSession";
 // 2026-09-17-042ee kept the turn's steps here; 2026-09-18-2f8b moved the merge out, because
 // "which steps belong to the turn running now" is a rule of its own with its own tests.
 import { mergedSteps, ofTurn } from "@/components/dialog/turnSteps";
@@ -139,7 +139,10 @@ export interface SpecDialogState {
   attachSite: (files: File[], project?: string, leftOut?: PickLeftOut) => Promise<void>;
 }
 
-export function useSpecDialog(): SpecDialogState {
+/** 2026-10-13-9a59r: `source` says where the dialog id comes from — the browser's held id by default
+ *  (Work it out), or one minted per instance and never held (a ticket's conversation). */
+export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDialogState {
+  const ids = useRef(source);
   const [dialogId, setDialogId] = useState<string | null>(null);
   const [view, setView] = useState<SpecDialogView | null>(null);
   const [conversations, setConversations] = useState<SpecDialogSessionSummary[]>([]);
@@ -196,7 +199,7 @@ export function useSpecDialog(): SpecDialogState {
 
   // Reading the held id is a browser act, so it happens after the first render rather
   // than during it.
-  useEffect(() => setDialogId(currentDialogId()), []);
+  useEffect(() => setDialogId(ids.current.seed()), []);
 
   const append = useCallback((kind: DialogEntryKind, text: string, at: string, extra: Partial<DialogEntry> = {}) => {
     counter.current += 1;
@@ -582,7 +585,7 @@ export function useSpecDialog(): SpecDialogState {
     setActivity([]);
     setUploadNote(null);
     pending.current = resuming;
-    setDialogId(to ? returnToDialog(to) : startNewDialog());
+    setDialogId(ids.current.switchTo(to));
   }, []);
 
   // 2026-09-22-2a86: a fresh tab, and nothing said at the server yet. The control used to post
