@@ -37,7 +37,7 @@ public sealed class PrCommandLaunch(
         using var scope = scopes.CreateScope();
         var text = request.TicketId is { } ticket
             ? await TicketRunAsync(scope.ServiceProvider, owner, ticket.Value, request.PipelineName, ct)
-            : await TicketlessRunAsync(scope.ServiceProvider, owner, command.PrNumber, request.PipelineName, ct);
+            : await TicketlessRunAsync(scope.ServiceProvider, owner, command, request.PipelineName, ct);
         await SayAsync(owner.Repo, command.PrNumber, text, ct);
         return WebhookResult.HandledNoRoute();
     }
@@ -50,9 +50,14 @@ public sealed class PrCommandLaunch(
         return holder is null ? PrCommandTexts.NoHolder(ticketId) : PrCommandTexts.WorkedOn(ticketId, holder.RunId);
     }
 
-    private static async Task<string> TicketlessRunAsync(IServiceProvider services, ConfiguredRepo owner, string prNumber, string pipeline, CancellationToken ct)
+    // 2026-10-13-0b82b: the branch is read for its bootstrap before the run exists.
+    private static async Task<string> TicketlessRunAsync(
+        IServiceProvider services, ConfiguredRepo owner, PrCommentCommand command, string pipeline, CancellationToken ct)
     {
-        var context = await services.GetRequiredService<ChatPrContextResolver>().ResolveAsync(owner.Repo, prNumber, ct);
+        var context = await services.GetRequiredService<ChatPrContextResolver>().ResolveAsync(owner.Repo, command.PrNumber, ct);
+        if (await services.GetRequiredService<PrCommandBootstrapCheck>()
+                .RefusalAsync(owner.Repo, pipeline, context, command.SameRepository, ct) is { } refusal)
+            return refusal;
         return Answer(pipeline, await services.GetRequiredService<ChatTicketlessRunLauncher>().LaunchAsync(owner.Project, pipeline, context, ct));
     }
 

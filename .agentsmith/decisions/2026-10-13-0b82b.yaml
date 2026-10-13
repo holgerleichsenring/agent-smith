@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-0b82b
+
+decisions:
+  - category: Architecture
+    chose: "Check bootstrap when the command is admitted, through the host API, and answer the command instead of starting a run"
+    over: "Starting the run and letting its bootstrap gate fail, as before"
+    reason: |
+      The answer was known before a sandbox existed; a run only to refuse cost a sandbox, a red run on the
+      dashboard and no answer where the person asked. The comment mark already guarantees one answer per command.
+  - category: Architecture
+    chose: "Discover contexts with the run's own ListContextsAsync, then read the gate's three files on the PR branch with repo-relative paths"
+    over: "Listing .agentsmith/contexts directly, or reusing the sandbox-absolute BootstrapPaths"
+    reason: |
+      A raw listing mixes files with directories on GitHub and GitLab and would refuse where the gate passes;
+      BootstrapPaths start at /work and would read nothing on the host, refusing every command. Reading on the
+      PR branch matches the checkout the gate sees.
+  - category: Architecture
+    chose: "Absent branch, unreadable listing or a host exception is Unknown, and Unknown launches"
+    over: "Treating any failed read as not bootstrapped"
+    reason: "An unreachable host is not proof the repository is uninitialised; the run's own gate still holds."

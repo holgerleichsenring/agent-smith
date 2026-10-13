@@ -26,6 +26,7 @@ internal static class WebhookEndpointsExtensions
         services.AddSingleton<PrTriggerLabelResolver>();
         services.AddPrCommentAuthorTrust();
         services.AddSingleton<IPrCommandLaunch, PrCommandLaunch>(); // 2026-10-08-e8b9e
+        services.AddTransient<PrCommandBootstrapCheck>(); // 2026-10-13-0b82b
         services.AddSingleton<IPrTicketOwner, PrTicketOwner>();
         services.AddSingleton<IPrCommandHead, PrCommandHead>();
         services.AddSingleton<PrCommentCommandAdmission>();
