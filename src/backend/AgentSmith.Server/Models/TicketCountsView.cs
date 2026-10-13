@@ -8,6 +8,7 @@ namespace AgentSmith.Server.Models;
 /// <param name="MonthCost">Every run of the filtered project(s) started this month.</param>
 /// <param name="Truncated">The read ceiling cut older tickets off.</param>
 /// <param name="OpenPullRequests">2026-10-13-9a59b: open pull-request records over every ticket read.</param>
+/// <param name="Stuck">2026-10-13-9a59h: tickets in the stuck bucket.</param>
 public sealed record TicketCountsView(
     int NeedsYou,
     int Working,
@@ -21,4 +22,5 @@ public sealed record TicketCountsView(
     int Done,
     int OpenPullRequests,
     TicketDoneCount DoneThisMonth,
-    TicketLastDone? LastDone);
+    TicketLastDone? LastDone,
+    int Stuck = 0);

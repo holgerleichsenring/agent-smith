@@ -9,7 +9,8 @@ namespace AgentSmith.Server.Services.Tickets;
 /// platform come from the newest run that carries them.
 /// </summary>
 public sealed class TicketSummaryComposer(
-    TicketAttempts attempts, TicketBucketRule buckets, TicketAttemptMarker marker, TicketKeyResolver keys)
+    TicketAttempts attempts, TicketBucketRule buckets, TicketAttemptMarker marker, TicketKeyResolver keys,
+    Checks.TicketStuckRule stuck)
 {
     /// <summary>The spec status of a spec that was built through.</summary>
     private const string DoneSpec = "done";
@@ -18,25 +19,31 @@ public sealed class TicketSummaryComposer(
     /// <param name="specStatuses">RunSpec statuses by run id; empty where specs are not wanted.</param>
     /// <param name="pullRequests">The ticket's pull requests from their records.</param>
     /// <param name="records">2026-10-13-9a59d: attempt records by run id; null where they are not wanted.</param>
+    /// <param name="standing">2026-10-13-9a59h: the stored checks and hand-backs; null where they are not read.</param>
     public TicketSummaryView Compose(IReadOnlyList<TicketRunRow> codeRows, TicketLiveState live,
         ILookup<string, string> specStatuses, IReadOnlyList<TicketPullRequestView> pullRequests,
-        IReadOnlyDictionary<string, TicketAttemptRecord>? records = null)
+        IReadOnlyDictionary<string, TicketAttemptRecord>? records = null,
+        TicketStanding? standing = null)
     {
         var ordered = attempts.Of(codeRows);
         var head = attempts.Head(codeRows).Run;
-        var state = buckets.Of(head, live, pullRequests);
+        var check = standing?.CheckOf(head.Id);
+        var unchanged = stuck.Unchanged(head, check, standing?.PrRecordsOf(head) ?? []);
+        var state = buckets.Of(head, live, pullRequests, unchanged == true);
         var newestFirst = codeRows.Select(r => r.Run).OrderByDescending(r => r.Id, StringComparer.Ordinal).ToList();
         var platform = newestFirst.Select(r => r.Platform).FirstOrDefault(p => !string.IsNullOrEmpty(p));
         var headSpecs = specStatuses[head.Id].ToList();
         var record = ordered.Select(a => records?.GetValueOrDefault(a.Run.Id)).LastOrDefault(r => r is not null);
-        return new TicketSummaryView(
+        var summary = new TicketSummaryView(
             head.Project, head.TicketId, keys.For(head.Project, platform, head.TicketId), platform,
             newestFirst.Select(r => r.TicketTitle).FirstOrDefault(t => !string.IsNullOrEmpty(t)),
             state.Bucket, state.Kind, state.Since, ordered.Count, codeRows.Sum(r => r.Run.CostTotalUsd),
             head.Id, head.Status, state.LastOutcome, state.QueuePlace, Question(head, state),
             headSpecs.Count(s => s == DoneSpec), headSpecs.Count,
             [.. ordered.Select(a => marker.Mark(a.Run, live, specStatuses))], pullRequests,
-            record?.Cause, record?.TrackerState, record?.WebUrl);
+            record?.Cause, record?.TrackerState, record?.WebUrl,
+            UnchangedSinceLastAttempt: unchanged, CheckedAt: check?.CheckedAt);
+        return standing?.Apply(summary) ?? summary;
     }
 
     private static TicketPendingQuestion? Question(Run head, TicketBucketState state) =>

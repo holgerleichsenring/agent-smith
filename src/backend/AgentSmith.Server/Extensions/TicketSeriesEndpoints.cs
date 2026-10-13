@@ -12,7 +12,7 @@ internal static class TicketSeriesEndpoints
     internal static WebApplication MapTicketSeriesEndpoints(this WebApplication app)
     {
         app.MapGet("/api/tickets/{project}/{ticketId}/series", SeriesAsync).Needs(Permissions.RunsRead);
-        return app;
+        return app.MapTicketConversationReadEndpoints(); // 2026-10-13-9a59h
     }
 
     // Internal so the endpoint tests drive the real reader without a host.

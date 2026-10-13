@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-9a59h
+
+decisions:
+  - category: Architecture
+    chose: "Server/Services/Tickets/Conversation: ConversationRunRecords (one scope: conversation rows, attempt rows, inbox answers), ConversationRunEntries, ConversationPrEntries, TicketThreadReader, TicketTranscriptReader, ConversationAssembly (thread entries, fold, placement, demand) and TicketConversationReader as the orchestrator; endpoint class TicketConversationReadEndpoints chained from MapTicketSeriesEndpoints"
+    over: "One reader class holding every source"
+    reason: |
+      Each source is a query over rows an earlier member wrote (or the one tracker read), so each is its own
+      class under the 120-line limit; the orchestrator only joins them. The endpoint is its own class, as the
+      spec's endpoint step asks, and joins the ticket surface where 9a59e's series endpoint already chains.
+  - category: Architecture
+    chose: "Server/Services/Tickets/Checks: TicketTrackerObserver (the three tracker reads), TicketCheckStore (read many / upsert re-reading on the unique violation), TicketBetweenAttemptsChecker (gate, reuse, nudge), TicketStuckRule (stuck observation + actedSince), TicketCheckKicks (IMemoryCache gate + bounded channel) and the hosted TicketCheckKickWorker"
+    over: "A service named TicketBetweenAttemptsCheck beside the entity of that name"
+    reason: |
+      The entity carries the spec's name (TicketBetweenAttemptsCheck, table TicketBetweenAttemptsChecks); the
+      service is the Checker so one simple name does not mean two types. The bucket rule takes the stuck
+      observation as a bool, so its precedence stays in one place and the clock stays in the stuck rule.
+  - category: Data
+    chose: "The list reads the FULL pull-request records (IPrReviewRecordReader.ByTicketAsync) only for tickets whose stored check is unchanged with no acts; every other row decides stuck without them"
+    over: "Deciding stuck from the list's records as they are read today"
+    reason: |
+      DEVIATION from 'the list and counts read the check row' alone: PrReviewRecordRepository.ForListAsync
+      keeps only standing decisions (PrReviewRecordRepository.cs:19-21), so a person's later PR comment would
+      be invisible to the list and the list would say stuck while the detail says acted. Only the candidates
+      pay the extra read; the tracker is still never read by the list.
+  - category: Data
+    chose: "A question is two entries: question:{runId}:{questionId} (role agent) and question:{runId}:{questionId}:answer — kind answer with the inbox's AnsweredBy as author, or kind default-answer with role system and no author when the inbox row is the deadline default (comment 'timeout', answered by 'system')"
+    over: "One entry carrying the answer in its detail"
+    reason: |
+      The spec gives the deadline answer its own role (system); a role belongs to an entry, so the answer is
+      one. The answer keeps the question's run as its attempt.
+  - category: Data
+    chose: "An edit entry (source ticket, kind edited, role person, no author, no text) carries in detail only the changed fields of title (Run.TicketTitle), description and criteria as {before, after}; the first attempt's ticket text is not an entry; an attempt without a recorded fingerprint is skipped in the comparison"
+    over: "Showing every fetched ticket text, or diffing against the live ticket"
+    reason: |
+      The spec makes an edit only where consecutive attempts' recorded fingerprints differ; the earliest
+      ticket-text row per run is the fetch. The live ticket's unread edit appears only as actedSince 'edit'.
+  - category: Behaviour
+    chose: "The hand-back fold matches every posted hand-back heading: the three awaiting-answer markers plus the out-of-step marker and the 'not implementable as specified', 'refused: ...' and 'specification is not on the ticket branch' headings"
+    over: "Only the three markers the fact names"
+    reason: |
+      DEVIATION (widened): SpecHandbackComment.Build heads all seven cases with 'Agent Smith — ' plus a phrase
+      (SpecHandbackComment.cs:55-118); folding only three would show a refused or not-implementable hand-back
+      twice. SpecHandbackComment is at 120 lines, so the list lives in ConversationAssembly beside the fold,
+      referencing the existing constants where they exist.
+  - category: Behaviour
+    chose: "The live thread cache keeps a failed read as 'unavailable' for the same 60 s"
+    over: "Retrying the tracker on every refetch while it is down"
+    reason: |
+      The point of the cache is one tracker read per minute per ticket per replica while the Conversation tab
+      refetches every 2 s; a tracker that is down (or slow to time out) would otherwise be hit hardest.
+  - category: Security
+    chose: "When transcriptHidden is true, sessionId and openDialogId are null as well as the turns and the proposal"
+    over: "Returning the identifiers to a runs.read caller"
+    reason: |
+      TicketConversationEndpoints serves those identifiers under dialog.write only; this read must not widen
+      that. The explicit transcriptHidden still tells the dashboard a conversation exists.
+  - category: Behaviour
+    chose: "The demand match compares the author exactly and the time within one second; the attempt marker names the matching entry as demandEntryId"
+    over: "Exact tick equality"
+    reason: |
+      The instant passes through a tracker payload, a branch manifest and two stores (SQLite text, SQL Server
+      datetimeoffset); a sub-second rounding must not lose the match, and two comments by one person inside a
+      second are not a realistic ambiguity.
+  - category: Behaviour
+    chose: "A pull-request entry's role: system when IsSystem (author null), agent when ours, reviewer for a review or decision entry or any entry carrying a decision, person for a plain comment; IsSystem entries still count as a non-ours, non-bot entry for stuck"
+    over: "Excluding system notes from the stuck rule"
+    reason: |
+      The spec's stuck rule names non-ours, non-bot entries; an Azure DevOps vote comment is written by the
+      host for a person's vote, which is an act on the pull request.
+  - category: Behaviour
+    chose: "An attempt without a recorded fingerprint writes no check"
+    over: "Recording FingerprintUnchanged = false"
+    reason: |
+      Unknown never counts as unchanged, and recording 'changed' would invent an edit nobody made.
+  - category: Architecture
+    chose: "The project (and its tracker) is resolved through IConfigurationLoader + ServerContext.ConfigPath (TicketProjects), as TicketConversationEndpoints and ProjectBootstrapReader do"
+    over: "The startup AgentSmithConfig singleton"
+    reason: |
+      A project or tracker added in the Config Studio after startup must be checked and its thread read
+      without a restart; the loader serves the current configuration.
+  - category: Behaviour
+    chose: "TicketCheckKicks queues into a bounded channel (100, drop-write) read by one hosted worker that runs each check in its own async scope and swallows a check's failure"
+    over: "An unbounded queue, or Task.Run per kick"
+    reason: |
+      The per-ticket gate and the per-read cap already bound the producer; the bound guards a stalled worker,
+      and a dropped kick is retried by the next list read after the five-minute gate.

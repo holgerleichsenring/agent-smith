@@ -17,6 +17,10 @@ namespace AgentSmith.Server.Models;
 /// <param name="TrackerState">2026-10-13-9a59d: the tracker state that attempt fetched.</param>
 /// <param name="WebUrl">2026-10-13-9a59d: where the ticket opens in its tracker.</param>
 /// <param name="SeriesStrip">2026-10-13-9a59e: the series at a glance; set on list rows only.</param>
+/// <param name="UnchangedSinceLastAttempt">2026-10-13-9a59h: true when a fresh check saw a failed last attempt's
+/// ticket unchanged and untouched, false when it saw an act or an edit, null when nothing observed it.</param>
+/// <param name="CheckedAt">2026-10-13-9a59h: when that check ran; null when none did.</param>
+/// <param name="Handback">2026-10-13-9a59h: the posted hand-back's words and time on a hand-back row.</param>
 public sealed record TicketSummaryView(
     string Project,
     string TicketId,
@@ -40,4 +44,7 @@ public sealed record TicketSummaryView(
     AgentSmith.Contracts.Runs.AttemptCause? Cause = null,
     string? TrackerState = null,
     string? WebUrl = null,
-    TicketSeriesStripView? SeriesStrip = null);
+    TicketSeriesStripView? SeriesStrip = null,
+    bool? UnchangedSinceLastAttempt = null,
+    DateTimeOffset? CheckedAt = null,
+    TicketHandbackView? Handback = null);

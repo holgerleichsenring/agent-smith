@@ -12,6 +12,12 @@ using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Server.Extensions;
 using AgentSmith.Server.Services.SpecDialog;
 using AgentSmith.Server.Services.Tickets;
+using AgentSmith.Server.Services.Tickets.Checks;
+using AgentSmith.Server.Services.Tickets.Conversation;
+using AgentSmith.Application.Services.Rework;
+using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Reviews;
+using AgentSmith.Infrastructure.Persistence.Services.Translators;
 using AgentSmith.Tests.TestSupport;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -47,6 +53,16 @@ internal sealed class TicketStoreHarness : IDisposable
         services.AddTransient<FiledWorkSpecReviews>().AddTransient<FiledWorkRunsReader>();
         services.AddScoped<PrReviewRecordRepository>().AddScoped<NamedPullRequestReader>();
         services.AddSingleton(Nudges.Object);
+        // 2026-10-13-9a59h: the tracker, the configuration loader and the activity nudge are the check's and the
+        // conversation's substitutes; the session store and the pull-request read port are real.
+        Loader.Setup(l => l.LoadConfig(It.IsAny<string>())).Returns(() => Config);
+        Trackers.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(() => Tracker.Object);
+        services.AddSingleton(Loader.Object).AddSingleton(new ServerContext("config.yml"));
+        services.AddSingleton(Trackers.Object).AddSingleton(Activity.Object);
+        services.AddSingleton<TrackerIdentity>();
+        services.AddScoped<IPrReviewRecordReader>(sp => sp.GetRequiredService<PrReviewRecordRepository>());
+        services.AddScoped<SpecDialogSessionRepository>();
+        services.AddSingleton<IUniqueViolationTranslator, SqliteUniqueViolationTranslator>();
         services.AddTicketReaders();
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
     }
@@ -54,6 +70,10 @@ internal sealed class TicketStoreHarness : IDisposable
     public Mock<ICapacityQueue> Queue { get; } = new();
     public Mock<IActiveRunLease> Lease { get; } = new();
     public Mock<IReworkNudges> Nudges { get; } = new();
+    public Mock<IConfigurationLoader> Loader { get; } = new();
+    public Mock<ITicketProviderFactory> Trackers { get; } = new();
+    public Mock<ITicketProvider> Tracker { get; } = new();
+    public Mock<ITicketActivityNudge> Activity { get; } = new();
     public Dictionary<string, int> Positions { get; } = new(StringComparer.Ordinal);
     public StaleLease? HeldLease { get; set; }
 
@@ -68,6 +88,10 @@ internal sealed class TicketStoreHarness : IDisposable
     public TicketListReader List => _provider.GetRequiredService<TicketListReader>();
     public TicketDetailReader Detail => _provider.GetRequiredService<TicketDetailReader>();
     public TicketSeriesReader Series => _provider.GetRequiredService<TicketSeriesReader>();
+    public TicketConversationReader Conversation => _provider.GetRequiredService<TicketConversationReader>();
+    public TicketBetweenAttemptsChecker Checker => _provider.GetRequiredService<TicketBetweenAttemptsChecker>();
+    public TicketCheckKicks Kicks => _provider.GetRequiredService<TicketCheckKicks>();
+    public IServiceProvider Services => _provider;
 
     public async Task AddAsync(params object[] rows)
     {

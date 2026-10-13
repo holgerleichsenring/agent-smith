@@ -1,4 +1,6 @@
 using AgentSmith.Server.Services.Tickets;
+using AgentSmith.Server.Services.Tickets.Checks;
+using AgentSmith.Server.Services.Tickets.Conversation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -34,7 +36,20 @@ internal static class TicketReadExtensions
             .AddTransient<TicketSeriesRecordsReader>()
             .AddTransient<TicketSeriesSpecComposer>()
             .AddTransient<TicketSeriesReader>()
-            .AddTransient<SeriesStripReader>();
+            .AddTransient<SeriesStripReader>()
+            .AddTransient<TicketProjects>() // 2026-10-13-9a59h
+            .AddTransient<TicketStandings>()
+            .AddTransient<TicketStuckRule>()
+            .AddTransient<TicketCheckStore>()
+            .AddTransient<TicketTrackerObserver>()
+            .AddTransient<TicketBetweenAttemptsChecker>()
+            .AddSingleton<TicketCheckKicks>()
+            .AddHostedService<TicketCheckKickWorker>()
+            .AddTransient<ConversationRunRecords>()
+            .AddSingleton<TicketThreadReader>()
+            .AddTransient<TicketTranscriptReader>()
+            .AddTransient<TicketConversationReader>()
+            .AddMemoryCache();
         return services;
     }
 }

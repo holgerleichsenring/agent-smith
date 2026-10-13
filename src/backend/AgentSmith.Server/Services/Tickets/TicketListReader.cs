@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Server.Models;
 
@@ -11,6 +12,8 @@ namespace AgentSmith.Server.Services.Tickets;
 /// <para>2026-10-13-9a59b: every ticket's pull-request records feed its bucket; only the page's rows
 /// carry when each pull request was opened, and only the page nudges a backfill.</para>
 /// <para>2026-10-13-9a59e: only the page's rows carry their series strip.</para>
+/// <para>2026-10-13-9a59h: every ticket's stored check decides stuck and every hand-back row its since; the
+/// tracker is never read here — the page's failed tickets are only offered to the check, unawaited.</para>
 /// </summary>
 public sealed class TicketListReader(
     TicketListQuery query,
@@ -22,7 +25,9 @@ public sealed class TicketListReader(
     TicketCounts counts,
     TicketPullRequestReader pullRequests,
     TicketAttemptRecords attemptRecords,
-    SeriesStripReader strips)
+    SeriesStripReader strips,
+    TicketStandings standings,
+    Checks.TicketCheckKicks kicks)
 {
     private static readonly ILookup<string, string> NoSpecs =
         Array.Empty<string>().ToLookup(s => s, StringComparer.Ordinal);
@@ -31,18 +36,24 @@ public sealed class TicketListReader(
     {
         var read = await query.ReadAsync(request.Project, ct);
         var tickets = read.Rows.GroupBy(r => (r.Run.Project, r.Run.TicketId)).Select(g => g.ToList()).ToList();
-        var state = await live.ReadAsync([.. tickets.Select(t => attempts.Head(t).Run)], ct);
+        var heads = tickets.Select(t => attempts.Head(t).Run).ToList();
+        var state = await live.ReadAsync(heads, ct);
         var prRecords = await pullRequests.AllAsync(request.Project, ct);
-        var all = tickets.Select(t => (Rows: t, Summary: composer.Compose(t, state, NoSpecs, pullRequests.Views(prRecords[Key(t)]))))
+        var standing = await standings.ReadAsync(heads, ct);
+        var all = tickets.Select(t => (Rows: t, Summary: composer.Compose(
+                t, state, NoSpecs, pullRequests.Views(prRecords[Key(t)]), null, standing)))
             .OrderByDescending(t => t.Summary.NewestRunId, StringComparer.Ordinal).ToList();
         var page = Page(all, request);
+        kicks.Offer(page.Where(t => t.Summary.Status == RunStatuses.Failed)
+            .Select(t => new Checks.TicketCheckKick(t.Summary.Project, t.Summary.TicketId)));
         var pageAttempts = page.SelectMany(t => attempts.Of(t.Rows)).Select(a => a.Run.Id).ToList();
         var statuses = await specs.ForAsync(pageAttempts, ct);
         var records = await attemptRecords.ForAsync(pageAttempts, ct);
         var pagePrs = await pullRequests.PageAsync([.. page.SelectMany(t => t.Rows).Select(r => r.Run.Id)], prRecords, ct);
         var pageStrips = await strips.ForAsync([.. page.Select(t => (IReadOnlyList<Run>)[.. attempts.Of(t.Rows).Select(a => a.Run)])], ct);
         return new TicketListView(
-            [.. page.Select(t => composer.Compose(t.Rows, state, statuses, pagePrs.GetValueOrDefault(Key(t.Rows)) ?? [], records))
+            [.. page.Select(t => composer.Compose(t.Rows, state, statuses, pagePrs.GetValueOrDefault(Key(t.Rows)) ?? [],
+                    records, standing))
                 .Select(s => s with { SeriesStrip = pageStrips.GetValueOrDefault(s.NewestRunId) })],
             NextCursor(all, page, request),
             counts.Of([.. all.Select(t => t.Summary)], await monthCost.OfAsync(request.Project, ct), read.Truncated));

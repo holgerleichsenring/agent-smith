@@ -46,7 +46,12 @@ public sealed class TicketPullRequestReader(
     }
 
     /// <summary>One ticket's pull requests; a missing or stale record nudges one refresh.</summary>
-    public async Task<IReadOnlyList<TicketPullRequestView>> TicketAsync(string project, string ticketId, CancellationToken ct)
+    public async Task<IReadOnlyList<TicketPullRequestView>> TicketAsync(string project, string ticketId, CancellationToken ct) =>
+        (await TicketRecordsAsync(project, ticketId, ct)).Views;
+
+    /// <summary>2026-10-13-9a59h: the same read with the records and their entries beside the views.</summary>
+    public async Task<(IReadOnlyList<PrReviewRecordView> Records, IReadOnlyList<TicketPullRequestView> Views)> TicketRecordsAsync(
+        string project, string ticketId, CancellationToken ct)
     {
         using var scope = scopes.CreateScope();
         var records = await scope.ServiceProvider.GetRequiredService<PrReviewRecordRepository>().ByTicketAsync(project, ticketId, ct);
@@ -54,7 +59,7 @@ public sealed class TicketPullRequestReader(
         var stale = clock.GetUtcNow() - StaleAfter;
         if (named.Any(n => records.All(r => r.PrKey != PrKey.Of(n.Url))) || records.Any(r => r.CheckedAt < stale))
             await NudgeAsync(project, ticketId, ct);
-        return review.Of(records, OpenedAt(named));
+        return (records, review.Of(records, OpenedAt(named)));
     }
 
     private static Dictionary<string, DateTimeOffset> OpenedAt(IEnumerable<NamedPullRequest> named) =>

@@ -13,12 +13,14 @@ namespace AgentSmith.Server.Services.Tickets;
 /// says queued to resume.
 /// <para>2026-10-13-9a59b: precedence over the series is needs_you > working > waiting_on_review >
 /// stuck > done > idle; a pull request's record decides waiting on review and done.</para>
+/// <para>2026-10-13-9a59h: stuck is the stuck rule's observation, passed in — never assumed here.</para>
 /// </summary>
 public sealed class TicketBucketRule
 {
     private const string Running = "running";
 
-    public TicketBucketState Of(Run newest, TicketLiveState live, IReadOnlyList<TicketPullRequestView> pullRequests)
+    public TicketBucketState Of(
+        Run newest, TicketLiveState live, IReadOnlyList<TicketPullRequestView> pullRequests, bool stuck = false)
     {
         ArgumentNullException.ThrowIfNull(newest);
         ArgumentNullException.ThrowIfNull(pullRequests);
@@ -29,6 +31,8 @@ public sealed class TicketBucketRule
             return new(TicketBucket.Working, null, newest.StartedAt, null, place, null);
         if (pullRequests.Any(p => p.State == PrReviewStates.Open))
             return new(TicketBucket.WaitingOnReview, null, newest.FinishedAt, null, null, null);
+        if (stuck)
+            return new(TicketBucket.Stuck, null, newest.FinishedAt, newest.Status, null, null);
         if (DoneAt(pullRequests) is { } doneAt && newest.StartedAt <= doneAt)
             return new(TicketBucket.Done, null, doneAt, null, null, null);
         return new(TicketBucket.Idle, null, newest.FinishedAt, newest.Status, null, null);

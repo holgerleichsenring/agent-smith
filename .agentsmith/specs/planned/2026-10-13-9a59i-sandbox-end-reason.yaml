@@ -47,7 +47,7 @@ facts:
     evidence: "src/backend/AgentSmith.Application/Services/Pipeline/PipelineExecutionExtensions.cs:45, src/backend/AgentSmith.Infrastructure.Persistence/Migrations/20261012181922_AddRunSpecIdColumns.cs:33-42, src/backend/AgentSmith.Infrastructure.Persistence.SqlServer/Migrations/20261012181926_AddRunSpecIdColumns.cs:29-32"
   - claim: "A run's trail positions are re-minted from the store's highest Seq when a buffer is created, so a re-delivered event keeps its position only when the buffer re-seeds at the same point."
     evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunTrailBuffers.cs:49-57"
-  - claim: "The archive round-trip seeds two generated rows per table and pins 44 tables / 90 rows (after 2026-10-13-9a59g); this spec adds columns, not a table."
+  - claim: "The archive round-trip seeds two generated rows per table and pins 45 tables / 92 rows (after 2026-10-13-9a59h); this spec adds columns, not a table."
     evidence: "tests/AgentSmith.Tests/TestSupport/FullStoreSeed.cs:33-46, tests/AgentSmith.Tests/Persistence/DataArchiveRoundTripTests.cs:33-34"
   - claim: "A RunFinished is set-once for terminal statuses; a waiting status keeps FinishedAt null, so a park's RunFinished is applied again on every replay."
     evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:29-39,65-73"
@@ -60,7 +60,7 @@ facts:
   - claim: "A run-scoped read has its own endpoint class mapped from RunQueryEndpoints under runs.read, and every route's permission is pinned in route-permission-baseline.tsv."
     evidence: "src/backend/AgentSmith.Server/Extensions/RunSpecQueryEndpoints.cs:15-22, src/backend/AgentSmith.Server/Extensions/RunQueryEndpoints.cs:25-34, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:54-56"
   - claim: "Run deletion removes RunSandbox rows by run id; run-keyed children register through RunChildConfiguration and the (RunId, EventSeq) identity through RunRecordIdentityConfiguration, both applied by the context."
-    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunDeletionRepository.cs:54-64, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunChildConfiguration.cs:24-46, src/backend/AgentSmith.Infrastructure.Persistence/AgentSmithDbContext.cs:78"
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunDeletionRepository.cs:54-64, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunChildConfiguration.cs:24-47, src/backend/AgentSmith.Infrastructure.Persistence/AgentSmithDbContext.cs:78"
   - claim: "Line room: PipelineSandboxCoordinator 314, SandboxLivenessWatcher 193 and SandboxEventProjector 123 sit at their file-length baselines and may only shrink; RunQueryEndpoints is 111 of 120, KubernetesSandbox 86, DockerSandbox 97, RunSandboxProjection 75."
     evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:24,51,74, src/backend/AgentSmith.Server/Extensions/RunQueryEndpoints.cs:1-111, src/backend/AgentSmith.Server/Services/Sandbox/KubernetesSandbox.cs:1-86, src/backend/AgentSmith.Server/Services/Sandbox/DockerSandbox.cs:1-97, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSandboxProjection.cs:1-75"
 

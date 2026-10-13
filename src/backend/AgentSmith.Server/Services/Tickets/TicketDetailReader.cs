@@ -11,6 +11,8 @@ namespace AgentSmith.Server.Services.Tickets;
 /// 2026-10-13-9a59a: one ticket — every run of the (project, ticket id) pair, every pipeline and no
 /// cap. The attempts are numbered from 1 by run id and composed by the filed-work compose half, so
 /// this page and the conversation's filed-work panel cannot disagree; everything else is another run.
+/// <para>2026-10-13-9a59h: a failed last attempt is checked against its tracker first (bounded by the check's
+/// own reuse; a live attempt reads no tracker), and the detail says what was acted since.</para>
 /// </summary>
 public sealed class TicketDetailReader(
     TicketRunsQuery runQuery,
@@ -20,7 +22,10 @@ public sealed class TicketDetailReader(
     TicketSummaryComposer composer,
     FiledWorkRunsReader composed,
     TicketPullRequestReader pullRequests,
-    TicketAttemptRecords attemptRecords)
+    TicketAttemptRecords attemptRecords,
+    Checks.TicketBetweenAttemptsChecker checker,
+    TicketStandings standings,
+    Checks.TicketStuckRule stuck)
 {
     /// <summary>Null when the pair has no code run — it is not a ticket.</summary>
     public async Task<TicketDetailView?> ReadAsync(string project, string ticketId, CancellationToken ct)
@@ -29,17 +34,22 @@ public sealed class TicketDetailReader(
         var code = rows.Where(r => r.Run.Pipeline == PipelinePresets.CodeName).ToList();
         if (code.Count == 0) return null;
         var ordered = attempts.Of(code);
-        var state = await live.ReadAsync([attempts.Head(code).Run], ct);
+        await checker.CheckAsync(code, ct);
+        var head = attempts.Head(code).Run;
+        var state = await live.ReadAsync([head], ct);
+        var standing = await standings.ReadAsync([head], ct);
+        var (prRecords, prViews) = await pullRequests.TicketRecordsAsync(project, ticketId, ct);
         var runs = await composed.ForRunsAsync([.. ordered.Select(a => a.Run)], ct);
         var specs = runs.SelectMany(r => r.Specs.Select(s => (r.RunId, s.Status)))
             .ToLookup(s => s.RunId, s => s.Status, StringComparer.Ordinal);
         var records = await attemptRecords.ForAsync([.. ordered.Select(a => a.Run.Id)], ct);
         return new TicketDetailView(
-            composer.Compose(code, state, specs, await pullRequests.TicketAsync(project, ticketId, ct), records),
+            composer.Compose(code, state, specs, prViews, records, standing),
             TicketBranchNamer.Compose(new TicketId(ticketId)).Value,
             [.. ordered.Select((a, i) => Attempt(i + 1, a.Run, runs[i], marker.Mark(a.Run, state, specs),
                 records.GetValueOrDefault(a.Run.Id)))],
-            [.. rows.Where(r => !attempts.IsAttempt(r)).Select(Other)]);
+            [.. rows.Where(r => !attempts.IsAttempt(r)).Select(Other)],
+            stuck.ActedSince(head, standing.CheckOf(head.Id), prRecords));
     }
 
     private static TicketAttemptView Attempt(

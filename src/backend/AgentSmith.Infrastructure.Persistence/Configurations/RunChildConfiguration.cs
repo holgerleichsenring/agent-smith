@@ -31,6 +31,7 @@ public sealed class RunChildConfiguration
         typeof(RunSeriesCut), // 2026-10-13-9a59e
         typeof(RunPass), typeof(RunLedgerTransition), // 2026-10-13-9a59f
         typeof(RunConversationEntry), // 2026-10-13-9a59g
+        typeof(TicketBetweenAttemptsCheck), // 2026-10-13-9a59h
     ];
 
     public void Apply(ModelBuilder modelBuilder)
@@ -47,6 +48,7 @@ public sealed class RunChildConfiguration
             entity.HasIndex("RunId");
         }
         new RunAttemptConfiguration().Configure(modelBuilder.Entity<RunAttempt>());
+        new TicketBetweenAttemptsCheckConfiguration().Configure(modelBuilder.Entity<TicketBetweenAttemptsCheck>());
         modelBuilder.Entity<RunSeriesCut>().ToTable("RunSeriesCuts");
         modelBuilder.Entity<RunPass>().ToTable("RunPasses");
         modelBuilder.Entity<RunLedgerTransition>().ToTable("RunLedgerTransitions");

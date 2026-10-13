@@ -31,7 +31,7 @@ public sealed class TicketListQuery(IServiceScopeFactory scopes)
             {
                 Id = r.Id, Project = r.Project, Pipeline = r.Pipeline, TicketId = r.TicketId,
                 TicketTitle = r.TicketTitle, Platform = r.Platform, Status = r.Status, StartedAt = r.StartedAt,
-                FinishedAt = r.FinishedAt, CostTotalUsd = r.CostTotalUsd, CancelReason = r.CancelReason,
+                FinishedAt = r.FinishedAt, ActsReadAt = r.ActsReadAt, CostTotalUsd = r.CostTotalUsd, CancelReason = r.CancelReason,
             }, steps.Any(s => s.RunId == r.Id)))
             .ToListAsync(ct);
         return new TicketListRows([.. rows.Take(Ceiling)], rows.Count > Ceiling);

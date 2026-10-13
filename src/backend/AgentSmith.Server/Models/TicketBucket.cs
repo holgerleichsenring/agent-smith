@@ -16,6 +16,12 @@ public static class TicketBucket
     /// <summary>2026-10-13-9a59b: a pull request is open and no attempt runs, waits or needs a person.</summary>
     public const string WaitingOnReview = "waiting_on_review";
 
+    /// <summary>
+    /// 2026-10-13-9a59h: the last attempt failed and a check under a day old saw the ticket unchanged and
+    /// untouched since — no tracker act, no person's pull-request entry. Never assumed: unchecked is idle.
+    /// </summary>
+    public const string Stuck = "stuck";
+
     /// <summary>2026-10-13-9a59b: every pull request is merged or closed and no attempt started since.</summary>
     public const string Done = "done";
 
@@ -25,6 +31,6 @@ public static class TicketBucket
     /// <summary>Every bucket the list accepts as a filter.</summary>
     public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
     {
-        NeedsYou, Working, WaitingOnReview, Done, Idle,
+        NeedsYou, Working, WaitingOnReview, Stuck, Done, Idle,
     };
 }
