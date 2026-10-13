@@ -1,5 +1,20 @@
 # Changelog
 
+## [0.161.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.160.0...v0.161.0) (2026-10-13)
+
+
+### Features
+
+* a PR command reads the branch's bootstrap through the host before a run exists and answers once when files are missing (2026-10-13-0b82b) ([bb693f1](https://github.com/holgerleichsenring/agent-smith/commit/bb693f164fa43a3fcfbc09489802efc8ec498ab1))
+* the project detail shows per repository whether its default branch is bootstrapped, read live from the host (2026-10-13-0b82c) ([580901c](https://github.com/holgerleichsenring/agent-smith/commit/580901c59a0abe75b71d66a56e3a85d1b236868d))
+
+
+### Bug Fixes
+
+* a PR review starts only on a person's command, a command checks bootstrap first, the project shows bootstrap state (2026-10-13-0b82) ([a998e06](https://github.com/holgerleichsenring/agent-smith/commit/a998e060f653b10e5939353c82ecfabc176ec6ae))
+* opening or pushing to a pull request starts nothing, a review starts only on a person's command (2026-10-13-0b82a) ([b86bb91](https://github.com/holgerleichsenring/agent-smith/commit/b86bb912f2efaa6029fb8abc3c88c39e3ef88682))
+* the verdict overrule under each criterion is a quiet link, not large unstyled text (2026-10-13-09f5) ([5e87649](https://github.com/holgerleichsenring/agent-smith/commit/5e87649009669eb99a1d920a6b8963a5eee6ed28))
+
 ## [0.160.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.159.0...v0.160.0) (2026-10-13)
 
 
