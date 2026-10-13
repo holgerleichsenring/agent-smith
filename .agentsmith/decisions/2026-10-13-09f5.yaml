@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-09f5
+
+decisions:
+  - category: Design
+    chose: "Define the missing .btn-link rule under .mock-viewer"
+    over: "Renaming the control's class to an existing utility"
+    reason: "The component already names what it is; only the stylesheet never answered, and the behaviour from e257 stays untouched."

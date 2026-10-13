@@ -415,6 +415,9 @@
 .mock-viewer .crit .c-txt { font-size: 14px; font-weight: 560; letter-spacing: -0.005em; }
 .mock-viewer .crit.fail .c-txt { color: var(--bad); }
 .mock-viewer .crit .c-proof { font-size: 12px; color: var(--ink-2); margin-top: 5px; }
+/* 2026-10-13-09f5: the overrule, withdraw and cancel controls under a criterion are quiet links. */
+.mock-viewer .btn-link { background: none; border: 0; padding: 0; font: inherit; font-size: 12px; color: var(--ink-3); cursor: pointer; margin-top: 5px; }
+.mock-viewer .btn-link:hover { color: var(--ink-2); text-decoration: underline; }
 .mock-viewer .crit .c-stat { font-size: 10.5px; font-weight: 660; letter-spacing: 0.05em; text-transform: uppercase; padding: 3px 10px; border-radius: 20px; align-self: center; white-space: nowrap; }
 .mock-viewer .crit.pass .c-stat { background: var(--ok-wash); color: var(--ok); }
 .mock-viewer .crit.fail .c-stat { background: var(--bad-wash); color: var(--bad); }
