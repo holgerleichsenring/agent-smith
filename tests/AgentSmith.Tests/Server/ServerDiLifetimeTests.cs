@@ -208,6 +208,23 @@ public sealed class ServerDiLifetimeTests
             .Should().NotBeNull();
     }
 
+    // 2026-10-13-9a59t: the closed ticket's follow-up is a worker singleton; what it files with is scoped and
+    // resolves inside the one scope it opens per call.
+    [Fact]
+    public void ClosedTicketActFollowUp_ResolvesScopedStarterAndLinkInOneScope()
+    {
+        var services = AgentSmith.Infrastructure.Persistence.Extensions.ServerStateExtensions.AddServerState(BuildServerLikeServices());
+        services.AddReworkNudgeWorker();
+        using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+
+        provider.GetRequiredService<AgentSmith.Server.Services.Rework.ClosedTicketActFollowUp>().Should().NotBeNull();
+        provider.GetRequiredService<AgentSmith.Server.Services.Rework.ReworkNudgeHandler>().Should().NotBeNull();
+        using var scope = provider.CreateScope();
+        var filing = AgentSmith.Server.Services.Rework.FollowUpServices.Of(scope.ServiceProvider);
+        filing.Starter.Should().NotBeNull();
+        filing.Link.Should().NotBeNull();
+    }
+
     // 2026-10-13-9a59o: a bound turn's run record reads its facts through the real composition.
     [Fact]
     public void ServerDi_BoundTicketRunFacts_ResolveFromTheRealComposition()

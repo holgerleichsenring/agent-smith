@@ -18,4 +18,10 @@ public interface IReworkEntry
     /// starts.</summary>
     Task<ReworkOutcome> AnswerHandbackAsync(
         ResolvedProject project, string ticketId, PreviousAttempt waiting, string pipeline, CancellationToken cancellationToken);
+
+    /// <summary>2026-10-13-9a59t: an act on a ticket a person closed while its attempt waits (a hand-back or a
+    /// checkpointed question): the waiting row is closed as superseded and ClosedForWork answered; null when
+    /// the ticket is not closed for work.</summary>
+    Task<ReworkOutcome?> SupersedeIfClosedAsync(
+        ResolvedProject project, string ticketId, PreviousAttempt waiting, CancellationToken cancellationToken);
 }

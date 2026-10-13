@@ -27,6 +27,7 @@ using AgentSmith.Server.Extensions;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Lifecycle;
 using AgentSmith.Server.Services.Rework;
+using AgentSmith.Server.Services.SpecDialog;
 using AgentSmith.Tests.SpecDialog.Continuation;
 using AgentSmith.Tests.TestHelpers;
 using AgentSmith.Tests.TestSupport;
@@ -60,7 +61,7 @@ internal sealed class RetryHarness : IDisposable
         var services = new ServiceCollection().AddLogging();
         services.AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(Options()));
         services.AddSingleton(Config).AddSingleton<ITicketProviderFactory>(Tracker);
-        services.AddSingleton<TrackerIdentity>().AddTransient<TicketClosure>();
+        services.AddSingleton<TrackerIdentity>().AddTransient<TicketClosure>().AddTransient<FiledWorkTrackerProjects>();
         services.AddSingleton<IUniqueViolationTranslator, SqliteUniqueViolationTranslator>();
         services.AddScoped<RunRepository>().AddScoped<RunRetryRequestRepository>().AddScoped<ActiveRunRepository>();
         services.AddScoped<RunDeletionRepository>();
@@ -183,11 +184,11 @@ internal sealed class RetryHarness : IDisposable
             new PolledTicketEnvelope(ApprovedRecordProbes.None()), Mock.Of<IEnvelopeProjectResolver>(),
             Mock.Of<ISpawnPipelineRunsUseCase>(), NullLogger<ReworkFallbackSpawn>.Instance);
         var pending = new ReworkPendingActs(Tracker, Mock.Of<ISourceProviderFactory>(), Mock.Of<IPrReviewAuthorTrust>(), Approvals);
-        var entry = new ReworkEntry(leases, attempts, new ReworkParkCheck(Tracker, Mock.Of<IUnmovedTicketStore>()),
+        var entry = new ReworkEntry(leases, attempts, new ReworkParkCheck(Tracker, Mock.Of<IUnmovedTicketStore>(), sp.GetRequiredService<TicketClosure>()),
             new TicketReopener(new InMemorySpecSetPointerStore(), Approvals, Mock.Of<IUnmovedTicketStore>()), Launch.Object,
             Mock.Of<IWaitingRunCloser>(), NullLogger<ReworkEntry>.Instance);
         return new ReworkNudgeHandler(leases, attempts, pending, entry, speech, fallback,
-            new ReworkWithheld(scopes, speech), sp.GetRequiredService<IRunCheckpointStore>());
+            new ReworkWithheld(scopes, speech), sp.GetRequiredService<IRunCheckpointStore>(), ClosedTicketFollowUps.Of(scopes, Tracker, speech));
     }
 
     private DbContextOptions<AgentSmithDbContext> Options() =>

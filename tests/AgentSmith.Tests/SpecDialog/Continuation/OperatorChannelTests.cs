@@ -281,7 +281,8 @@ public sealed class OperatorChannelTests : IDisposable
             Mock.Of<ISpawnPipelineRunsUseCase>(), NullLogger<ReworkFallbackSpawn>.Instance);
         var pending = new ReworkPendingActs(_h.Tracker, Mock.Of<ISourceProviderFactory>(), Mock.Of<IPrReviewAuthorTrust>(), _h.Approvals);
         return new ReworkNudgeHandler(sp.GetRequiredService<IActiveRunLease>(), sp.GetRequiredService<IPreviousAttemptReader>(),
-            pending, _entry.Object, speech, fallback, new ReworkWithheld(scopes, speech), sp.GetRequiredService<IRunCheckpointStore>());
+            pending, _entry.Object, speech, fallback, new ReworkWithheld(scopes, speech), sp.GetRequiredService<IRunCheckpointStore>(),
+            ClosedTicketFollowUps.Of(scopes, _h.Tracker, speech));
     }
 
     // The started run's FetchTicket: the ticket, its tracker connection and its previous attempt, as the run sets them.

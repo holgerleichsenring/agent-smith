@@ -35,4 +35,17 @@ public static class ReworkTexts
 
     public static string PrRefused(string ticketId, string reason) =>
         $"{PrMarker}\nAgent Smith — this review did not start a rework of ticket {ticketId}: {reason}.";
+
+    // 2026-10-13-9a59t: a ticket a person closed is not reopened; its act is followed up on a new ticket.
+    public static string PrFollowedUp(string ticketId, string followUp) =>
+        $"{PrMarker}\nAgent Smith — ticket {ticketId} was closed by a person, so this review did not reopen it: it continues on {followUp}.";
+
+    public const string NotWaiting =
+        "the ticket is not waiting for one — its last run has not finished, or its current status is not one a rework starts from";
+
+    public const string ClosedRefusal =
+        "the ticket was closed in its tracker — approve a change in its conversation to file a follow-up";
+
+    public static string FollowUpBody(string text, string closedTicket, string author) =>
+        $"{text}\n\nAgent Smith — follows up {closedTicket}, which a person closed; {author} asked for this there.";
 }

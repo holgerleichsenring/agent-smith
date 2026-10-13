@@ -20,7 +20,8 @@ internal sealed class ServerStateStore : IDisposable
     private readonly string? _path;
 
     public ServerStateStore(
-        TimeProvider? clock = null, Func<AgentSmithDbContext, IUnitOfWork>? unitOfWork = null, bool onDisk = false)
+        TimeProvider? clock = null, Func<AgentSmithDbContext, IUnitOfWork>? unitOfWork = null, bool onDisk = false,
+        Action<IServiceCollection>? configure = null)
     {
         if (onDisk)
         {
@@ -34,6 +35,7 @@ internal sealed class ServerStateStore : IDisposable
         services.AddSingleton(clock ?? TimeProvider.System);
         services.AddLogging();
         services.AddServerState();
+        configure?.Invoke(services); // 2026-10-13-9a59t: what a test's worker resolves beside the state services
         Services = services.BuildServiceProvider();
     }
 

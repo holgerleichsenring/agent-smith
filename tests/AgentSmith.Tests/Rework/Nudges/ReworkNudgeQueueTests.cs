@@ -99,4 +99,18 @@ public sealed class ReworkNudgeQueueTests : IDisposable
         mark.Should().NotBeNull();
         mark!.Value.Should().BeOnOrAfter(before.AddSeconds(-1), "every act up to the delete is withheld");
     }
+
+    // 2026-10-13-9a59t: a marked key reads spent — a follow-up key is its act's served mark.
+    [Fact]
+    public async Task ReworkLedger_IsSpoken_TrueOnlyAfterTheMark()
+    {
+        using var ctx = _store.Context();
+        var ledger = new ReworkLedgerRepository(ctx, new SqliteUniqueViolationTranslator());
+
+        (await ledger.IsSpokenAsync("p", "7", "follow-up|Ticket|1|carol", CancellationToken.None)).Should().BeFalse();
+        await ledger.TryMarkSpokenAsync("p", "7", "follow-up|Ticket|1|carol", CancellationToken.None);
+
+        (await ledger.IsSpokenAsync("p", "7", "follow-up|Ticket|1|carol", CancellationToken.None)).Should().BeTrue();
+        (await ledger.IsSpokenAsync("p", "7", "follow-up|Ticket|2|carol", CancellationToken.None)).Should().BeFalse();
+    }
 }

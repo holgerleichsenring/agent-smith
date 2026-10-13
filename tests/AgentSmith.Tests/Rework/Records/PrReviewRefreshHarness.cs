@@ -26,7 +26,7 @@ internal sealed class PrReviewRefreshHarness : IDisposable
 
     public PrReviewRefreshHarness()
     {
-        Store = new ServerStateStore(Clock);
+        Store = new ServerStateStore(Clock, configure: ClosedTicketFollowUps.Register);
         Provider.As<IPrReviewStateReader>();
         Provider.As<IPrReviewThreadReader>();
         Sources.Setup(s => s.Create(It.IsAny<RepoConnection>())).Returns(() => Provider.Object);

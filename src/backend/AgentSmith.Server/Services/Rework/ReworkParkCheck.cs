@@ -15,9 +15,11 @@ namespace AgentSmith.Server.Services.Rework;
 /// labelled stays open); a verdict park is none of these — except for a pull-request act answering a
 /// hand-back, whose clarification or not-implementable status is reworkable. A ticket is moved only out
 /// of a non-trigger status: Jira has no transition into the status a ticket is already in.
+/// <para>2026-10-13-9a59t: a ticket a person closed for work (<see cref="TicketClosure"/>) is Closed, decided
+/// before the reworkable test — whatever its status name, it is never reopened.</para>
 /// </summary>
 public sealed class ReworkParkCheck(
-    ITicketProviderFactory tickets, IUnmovedTicketStore unmovedTickets) : IReworkParkCheck
+    ITicketProviderFactory tickets, IUnmovedTicketStore unmovedTickets, TicketClosure closure) : IReworkParkCheck
 {
     public Task<ReworkPark> CheckAsync(ResolvedProject project, string ticketId, CancellationToken cancellationToken) =>
         CheckAsync(project, ticketId, handback: false, cancellationToken);
@@ -27,7 +29,10 @@ public sealed class ReworkParkCheck(
 
     private async Task<ReworkPark> CheckAsync(ResolvedProject project, string ticketId, bool handback, CancellationToken cancellationToken)
     {
-        var status = (await tickets.Create(project.Tracker).GetTicketAsync(new TicketId(ticketId), cancellationToken)).Status;
+        var provider = tickets.Create(project.Tracker);
+        var ticket = await provider.GetTicketAsync(new TicketId(ticketId), cancellationToken);
+        if (await closure.ClosedForWorkAsync(project, provider, ticket, cancellationToken)) return new ReworkPark(false, null, Closed: true);
+        var status = ticket.Status;
         var trigger = TriggerSelectionHelper.ByTrackerType(project, project.Tracker.Type);
         var statuses = trigger?.TriggerStatuses ?? [];
         var parks = TicketParkStatuses.Of(project);

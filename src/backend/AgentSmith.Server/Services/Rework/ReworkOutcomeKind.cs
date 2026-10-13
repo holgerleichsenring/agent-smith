@@ -11,4 +11,6 @@ public enum ReworkOutcomeKind
     AlreadyServed,
     /// <summary>A rework was asked for and cannot start now; the reason is told to the person.</summary>
     Refused,
+    /// <summary>2026-10-13-9a59t: a person closed the ticket for work; nothing moved, the act gets a follow-up.</summary>
+    ClosedForWork,
 }

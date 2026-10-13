@@ -14,9 +14,10 @@ public sealed class FollowUpLink(ITicketProviderFactory trackers, ILogger<Follow
 {
     public const string Heading = "Agent Smith — follow-up";
 
-    /// <summary>What did not land, for the thread; null when both comments were posted.</summary>
+    /// <summary>What did not land, for the thread; null when both comments were posted. 2026-10-13-9a59t:
+    /// <paramref name="askedBy"/> names the person whose act on the closed ticket filed it; null is an approval.</summary>
     public async Task<string?> LinkAsync(
-        ResolvedProject project, string closedTicketId, FiledTicket followUp, CancellationToken ct)
+        ResolvedProject project, string closedTicketId, FiledTicket followUp, CancellationToken ct, string? askedBy = null)
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(followUp);
@@ -25,12 +26,13 @@ public sealed class FollowUpLink(ITicketProviderFactory trackers, ILogger<Follow
         var followUpKey = followUp.Key ?? followUp.Reference;
         var missed = new List<string>();
         if (!await PostAsync(provider, closedTicketId,
-                $"{Heading}: this ticket was closed, so the work approved in its conversation continues on "
-                + $"{followUpKey} ({followUp.Reference}).", ct))
+                $"{Heading}: this ticket was closed, so "
+                + (askedBy is null ? "the work approved in its conversation" : $"what {askedBy} asked for")
+                + $" continues on {followUpKey} ({followUp.Reference}).", ct))
             missed.Add(closedKey);
         if (followUp.TicketId is { Length: > 0 } id && !await PostAsync(provider, id,
-                $"{Heading}: this ticket follows up {closedKey}, which a person closed before its conversation "
-                + "approved this work.", ct))
+                $"{Heading}: this ticket follows up {closedKey}, which a person closed before "
+                + (askedBy is null ? "its conversation approved this work." : $"{askedBy} asked for this work."), ct))
             missed.Add(followUpKey);
         return missed.Count == 0 ? null
             : $"The link comment could not be posted on {string.Join(" and ", missed)}; name the other ticket there by hand.";

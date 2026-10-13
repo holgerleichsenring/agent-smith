@@ -16,6 +16,8 @@ namespace AgentSmith.Server.Services.Rework;
 /// act's time against it, the CURRENT status, the move, the clearing, the launch. A hand-back's waiting
 /// attempt answered on the pull request: the status (the hand-back's accepted), the move, the row closed
 /// as superseded, the clearing, the launch.
+/// <para>2026-10-13-9a59t: a ticket a person closed is answered ClosedForWork before anything moves — a
+/// waiting row it supersedes is closed first — and the handler files the follow-up.</para>
 /// </summary>
 public sealed class ReworkEntry(
     IActiveRunLease leases,
@@ -56,6 +58,14 @@ public sealed class ReworkEntry(
         return await ReopenAndLaunchAsync(project, ticketId, pipeline, park, waiting.RunId, cancellationToken);
     }
 
+    public async Task<ReworkOutcome?> SupersedeIfClosedAsync(
+        ResolvedProject project, string ticketId, PreviousAttempt waiting, CancellationToken cancellationToken)
+    {
+        if (!(await parks.CheckAsync(project, ticketId, cancellationToken)).Closed) return null;
+        await closer.CloseSupersededAsync(waiting.RunId, cancellationToken);
+        return ReworkOutcome.ClosedForWork;
+    }
+
     private async Task<ReworkOutcome> ReopenAndLaunchAsync(
         ResolvedProject project, string ticketId, string pipeline, CancellationToken cancellationToken) =>
         await ReopenAndLaunchAsync(project, ticketId, pipeline,
@@ -64,6 +74,8 @@ public sealed class ReworkEntry(
     private async Task<ReworkOutcome> ReopenAndLaunchAsync(ResolvedProject project, string ticketId, string pipeline,
         ReworkPark park, string? supersededRunId, CancellationToken cancellationToken)
     {
+        if (park.Closed && supersededRunId is not null) await closer.CloseSupersededAsync(supersededRunId, cancellationToken);
+        if (park.Closed) return ReworkOutcome.ClosedForWork;
         if (!park.Parked) return ReworkOutcome.NotARework;
         if (park.MoveTo is { } target && !await parks.MoveAsync(project, ticketId, target, cancellationToken))
             return ReworkOutcome.Refused($"the tracker offered no move to '{target}'");

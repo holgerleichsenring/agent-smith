@@ -45,7 +45,8 @@ public sealed class ReworkNudgeRefreshTests : IDisposable
             new PolledTicketEnvelope(ApprovedRecordProbes.None()), Mock.Of<IEnvelopeProjectResolver>(),
             Mock.Of<ISpawnPipelineRunsUseCase>(), NullLogger<ReworkFallbackSpawn>.Instance);
         var handler = new ReworkNudgeHandler(Mock.Of<IActiveRunLease>(), _attempts.Object, _pending.Object, _rework.Object, speech,
-            fallback, new ReworkWithheld(_h.Store.ScopeFactory, speech), Mock.Of<IRunCheckpointStore>());
+            fallback, new ReworkWithheld(_h.Store.ScopeFactory, speech), Mock.Of<IRunCheckpointStore>(),
+            ClosedTicketFollowUps.Of(_h.Store.ScopeFactory, tickets.Object, speech));
         var locks = new Mock<IRedisClaimLock>();
         locks.Setup(l => l.TryAcquireAsync(It.IsAny<string>(), It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>())).ReturnsAsync("lock");
         var config = new Mock<IConfigurationLoader>();

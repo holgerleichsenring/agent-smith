@@ -50,7 +50,8 @@ public sealed class ReworkPendingActs(
         var keyword = TriggerSelectionHelper.ByTrackerType(project, project.Tracker.Type)?.CommentKeyword;
         if (string.IsNullOrWhiteSpace(keyword)) return null;
         var comments = await tickets.Create(project.Tracker).GetCommentsAsync(new TicketId(ticketId), ct);
-        return ReworkActReader.Read(comments, keyword, since) is { } act ? new PendingReworkAct(act) : null;
+        return ReworkActReader.ReadComment(comments, keyword, since) is { } comment
+            ? new PendingReworkAct(ReworkActReader.ActOf(comment), Text: comment.Body) : null;
     }
 
     private async Task<PendingReworkAct?> PullRequestActAsync(RepoConnection repo, string url, PreviousAttempt since, CancellationToken ct)
@@ -58,6 +59,8 @@ public sealed class ReworkPendingActs(
         var provider = sources.Create(repo);
         var vote = provider is IPrReviewActReader votes ? await _standing.NewestAsync(repo.Type, votes, url, since, ct) : null;
         var command = provider is IPrReviewThreadReader threads ? await _standing.NewestCommandAsync(repo.Type, threads, url, since, ct) : null;
-        return PrStandingAct.NewerAct(vote, command, url) is { } act ? new PendingReworkAct(act, repo, url) : null;
+        var text = PrStandingAct.Newer(vote, command)?.Body;
+        return PrStandingAct.NewerAct(vote, command, url) is { } act
+            ? new PendingReworkAct(act, repo, url, string.IsNullOrWhiteSpace(text) ? null : text) : null;
     }
 }

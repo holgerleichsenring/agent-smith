@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-13-9a59t: "CLOSED TICKET FOLLOW-UP (rework worker: park check, entry, handler, ledger; docs). A keyword comment or PR act on a ticket a person closed files one linked follow-up carrying its text instead of reopening it; once per tracker ticket, a waiting attempt is superseded, a followed-up act never reworks. -> .agentsmith/specs/done/2026-10-13-9a59t-keyword-followup.yaml"
     2026-10-13-9a59s: "TICKET ATTEMPTS AND COST (dashboard ticket page: Attempts, Cost & compute tabs; run and compute reads in the page store). Per attempt what started it, what it did and why it stopped; cost per spec and pass on the run-cap scale; pods with end reasons, call time and time waiting on you. -> .agentsmith/specs/done/2026-10-13-9a59s-dashboard-ticket-attempts-cost.yaml"
     2026-10-13-9a59r: "TICKET CONVERSATION (dashboard ticket page: Conversation, Specs, Acceptance tabs; Work it out dialog-id source; bound approval card). One thread per ticket with the ticket's own Work it out composer, moving nothing until the first act; specs as read-only documents; acceptance per spec. -> .agentsmith/specs/done/2026-10-13-9a59r-dashboard-ticket-conversation.yaml"
     2026-10-13-9a59q: "TICKET PAGE (dashboard /tickets/{project}/{ticketId}, one per-page store, Summary tab, attempt flow graph). Header, four cells and per attempt a pipeline graph with spec rows, passes, questions and hand-backs, each node explained; list rows and code runs link here. -> .agentsmith/specs/done/2026-10-13-9a59q-dashboard-ticket-graph.yaml"

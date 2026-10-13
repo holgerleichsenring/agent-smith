@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-9a59t
+
+decisions:
+  - category: Architecture
+    chose: "ReworkParkCheck answers Closed from TicketClosure before the reworkable test and returns early, unparked"
+    over: "Setting Closed beside Parked after the unmoved-fact read"
+    reason: |
+      A closed ticket is never reopened whatever its status name, so the reworkable test and the unmoved read have
+      nothing to decide; the entry tests Closed first anyway. agent-smith's own done_status (or its own close when
+      none is set) stays a park through TicketClosure, so a Request changes on the run's own PR still reworks.
+  - category: Architecture
+    chose: "The handler files through ClosedTicketActFollowUp; the entry only answers ClosedForWork (and SupersedeIfClosedAsync for a waiting attempt)"
+    over: "Passing the pending act into the entry"
+    reason: |
+      The entry receives only ReworkAct; the handler holds the act's text and where to answer it. The one door
+      keeps its signature.
+  - category: Architecture
+    chose: "Only Ticket and PullRequest acts file a follow-up; every other channel (Operator, Retry, and a Status move) is refused on the ticket naming the conversation"
+    over: "Filing for a status move as well"
+    reason: |
+      The spec names Ticket and PullRequest as filing and Operator/Retry as refused; a status move is not an act
+      with text and cannot both move a ticket back and leave it closed, so it is answered like the other
+      non-comment channels rather than silently dropped.
+  - category: Architecture
+    chose: "The served check (follow-up key spent) runs on every act read — before the entry, before a hand-back answer, and before the closed-waiting route"
+    over: "Raising the notServedThrough watermark"
+    reason: |
+      The watermark would make the act read withheld and say so; the key already names the act. Checking it before
+      the withheld check keeps a followed-up act silent.
+  - category: Architecture
+    chose: "FollowUpLink.LinkAsync gained an optional askedBy; null keeps the approval wording byte for byte"
+    over: "A second link class for acts"
+    reason: |
+      The link comment said 'the work approved in its conversation', which is false for a keyword comment or a
+      review. One class, two wordings, the approval path unchanged.
+  - category: Architecture
+    chose: "The follow-up re-reads the closed ticket for its title inside the filing"
+    over: "Carrying the title on ReworkPark"
+    reason: |
+      ReworkPark is a park decision; a title on it would serve one caller. The extra read happens once per filed
+      follow-up, after the key is marked, inside the logged failure boundary.
+  - category: Testing
+    chose: "DEVIATION: Harness_KeywordCommentOnPersonClosedTicket_FollowUpFiledAndLinked drives the real KeywordCommentRouter -> durable nudge queue -> real handler, entry, park check, closure and follow-up over ContinuationHarness's real DI and migrated SQLite"
+    over: "A RealCompositionHarness test"
+    reason: |
+      RealCompositionHarness (tests/AgentSmith.PipelineHarness/Composition/RealCompositionHarness.cs) composes the
+      CLI pipeline; the webhook router, the nudge queue and the rework worker live only in the server composition,
+      which it does not build. The server-side harness exercises every class the spec names on the real store, and
+      ServerDiLifetimeTests proves the singleton/scoped wiring from the real server registration.
+  - category: Testing
+    chose: "ServerStateStore gained an optional configure hook; hand-built rework handlers get ClosedTicketFollowUps.Of(...)"
+    over: "Registering FiledWorkTrackerProjects in every ServerStateStore"
+    reason: |
+      The served check resolves FiledWorkTrackerProjects from its scope as production does; only the stores that
+      build a rework handler need it.

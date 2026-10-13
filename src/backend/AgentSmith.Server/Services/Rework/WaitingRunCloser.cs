@@ -12,7 +12,7 @@ namespace AgentSmith.Server.Services.Rework;
 /// </summary>
 public sealed class WaitingRunCloser(CancelTerminalWriter terminalWriter, TimeProvider clock) : IWaitingRunCloser
 {
-    public const string Summary = "cancelled — superseded by a PR act";
+    public const string Summary = "cancelled — superseded by a newer act";
 
     public Task CloseSupersededAsync(string runId, CancellationToken cancellationToken) =>
         terminalWriter.FinalizeAsync(new RunFinishedEvent(runId, "cancelled", null, Summary, clock.GetUtcNow()), cancellationToken);

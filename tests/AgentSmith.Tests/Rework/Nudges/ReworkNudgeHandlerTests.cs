@@ -21,7 +21,7 @@ namespace AgentSmith.Tests.Rework.Nudges;
 public sealed class ReworkNudgeHandlerTests : IDisposable
 {
     private static readonly DateTimeOffset Start = new(2026, 10, 8, 10, 0, 0, TimeSpan.Zero);
-    private readonly ServerStateStore _store = new();
+    private readonly ServerStateStore _store = new(configure: ClosedTicketFollowUps.Register);
     private readonly Mock<IActiveRunLease> _leases = new();
     private readonly Mock<IPreviousAttemptReader> _attempts = new();
     private readonly Mock<IReworkPendingActs> _pending = new();
@@ -45,7 +45,7 @@ public sealed class ReworkNudgeHandlerTests : IDisposable
             new PolledTicketEnvelope(ApprovedRecordProbes.None()), Mock.Of<IEnvelopeProjectResolver>(),
             Mock.Of<ISpawnPipelineRunsUseCase>(), NullLogger<ReworkFallbackSpawn>.Instance);
         return new ReworkNudgeHandler(_leases.Object, _attempts.Object, _pending.Object, rework, speech, fallback,
-            new ReworkWithheld(_store.ScopeFactory, speech), _checkpoints.Object);
+            new ReworkWithheld(_store.ScopeFactory, speech), _checkpoints.Object, ClosedTicketFollowUps.Of(_store.ScopeFactory, tickets.Object, speech));
     }
 
     private void Attempt(string status, bool finished, DateTimeOffset? readAt = null) =>
@@ -207,6 +207,7 @@ public sealed class ReworkNudgeHandlerTests : IDisposable
 
         _rework.Verify(r => r.AnswerHandbackAsync(It.IsAny<ResolvedProject>(), It.IsAny<string>(), It.IsAny<PreviousAttempt>(),
             It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        AskedOnlyWhetherClosed();
         _rework.VerifyNoOtherCalls();
     }
 
@@ -218,6 +219,7 @@ public sealed class ReworkNudgeHandlerTests : IDisposable
 
         (await Handle()).Should().Be(ReworkNudgeDisposition.Reschedule, "only a pull-request act answers a hand-back");
 
+        AskedOnlyWhetherClosed();
         _rework.VerifyNoOtherCalls();
     }
 
@@ -270,6 +272,11 @@ public sealed class ReworkNudgeHandlerTests : IDisposable
 
         _rework.Verify(r => r.AnswerHandbackAsync(It.IsAny<ResolvedProject>(), It.IsAny<string>(), It.IsAny<PreviousAttempt>(),
             It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        AskedOnlyWhetherClosed();
         _rework.VerifyNoOtherCalls();
     }
+
+    // 2026-10-13-9a59t: a waiting attempt's act asks whether the ticket was closed; an open one keeps waiting.
+    private void AskedOnlyWhetherClosed() =>
+        _rework.Verify(r => r.SupersedeIfClosedAsync(Project, "7", It.IsAny<PreviousAttempt>(), It.IsAny<CancellationToken>()), Times.Once);
 }

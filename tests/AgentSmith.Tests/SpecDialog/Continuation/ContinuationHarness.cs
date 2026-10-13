@@ -75,6 +75,7 @@ internal sealed class ContinuationHarness : IDisposable
         services.AddSingleton(Loader.Object).AddSingleton(new ServerContext("config.yml"));
         services.AddTransient<TicketProjects>().AddTransient<TicketTranscriptReader>();
         services.AddScoped(_ => FiledWorkDoubles.Move(Routing)); // 2026-10-13-9a59m: before the registration's TryAdd
+        services.AddScoped<FiledWorkStarter>().AddTransient<TicketKindResolver>(); // 2026-10-13-9a59t: a closed ticket's act files
         services.AddScoped<TicketAmendment>().AddTicketContinuation();
         // 2026-10-13-9a59m: the start arm's reads and the nudge queue, over the same store.
         services.AddScoped<RunCheckpointRepository>().AddScoped<ReworkNudgeRepository>().AddScoped<ReworkLedgerRepository>();

@@ -24,6 +24,9 @@ internal sealed class FakeTicketTracker : ITicketProviderFactory
     public List<string> Labels { get; } = []; // 2026-10-13-9a59m: labels the ticket carries and tags put on it
     public List<string> Moves { get; } = [];
     public bool RefusesMoves { get; set; } // 2026-10-13-9a59n: the tracker offers no such move
+    public List<string> Titles { get; } = []; // 2026-10-13-9a59t: titles of created tickets, the thread, a failing create
+    public List<TicketComment> Thread { get; } = [];
+    public Exception? CreateFails { get; set; }
 
     public ITicketProvider Create(TrackerConnection config) => new Provider(this);
     public ITicketRewriter CreateRewriter(TrackerConnection config) => new Rewriter(this);
@@ -68,10 +71,15 @@ internal sealed class FakeTicketTracker : ITicketProviderFactory
         public Task<CreatedTicket> CreateAsync(
             string title, string description, IReadOnlyList<string> labels, string? kind, CancellationToken cancellationToken)
         {
+            if (owner.CreateFails is { } failure) return Task.FromException<CreatedTicket>(failure);
+            owner.Titles.Add(title);
             owner.Created.Add(description);
             var id = (43 + owner.Created.Count - 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
             return Task.FromResult(new CreatedTicket(new TicketId(id), $"https://example.invalid/issues/{id}"));
         }
+
+        public Task<IReadOnlyList<TicketComment>> GetCommentsAsync(TicketId ticketId, CancellationToken cancellationToken) =>
+            Task.FromResult<IReadOnlyList<TicketComment>>([.. owner.Thread]);
 
         public Task UpdateStatusAsync(TicketId ticketId, string comment, CancellationToken cancellationToken)
         {

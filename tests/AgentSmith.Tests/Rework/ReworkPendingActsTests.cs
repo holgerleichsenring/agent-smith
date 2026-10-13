@@ -125,4 +125,41 @@ public sealed class ReworkPendingActsTests
         comment!.Act.Channel.Should().Be(ReworkChannel.Ticket, "the comment at 10 is newer than the retry at 5");
         answer.Should().BeNull("a retry never answers a hand-back");
     }
+
+    // 2026-10-13-9a59t: the pull-request act carries what the note says; a keyword act carries its comment.
+    [Fact]
+    public async Task ReworkPendingActs_PullRequestAct_CarriesNoteBody()
+    {
+        Review([], Note("alice", 20, "/agentsmith\nand the tests"));
+
+        (await NewestAsync())!.Text.Should().Be("/agentsmith\nand the tests");
+    }
+
+    [Fact]
+    public async Task ReworkPendingActs_VoteWithoutText_CarriesNoText()
+    {
+        Review([Note("bob", 10, " ")]);
+
+        (await NewestAsync())!.Text.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task ReworkPendingActs_KeywordAct_CarriesCommentBody()
+    {
+        var tracker = new Mock<ITicketProvider>();
+        tracker.Setup(t => t.GetCommentsAsync(It.IsAny<AgentSmith.Domain.Models.TicketId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new AgentSmith.Domain.Entities.TicketComment("bob", Start.AddMinutes(10), "agentsmith add CSV") { Id = "c-1" }]);
+        var tickets = new Mock<ITicketProviderFactory>();
+        tickets.Setup(t => t.Create(It.IsAny<TrackerConnection>())).Returns(tracker.Object);
+        var project = new ResolvedProject
+        {
+            Name = "p", Tracker = new TrackerConnection { Name = "gh", Type = TrackerType.GitHub },
+            GithubTrigger = new WebhookTriggerConfig { CommentKeyword = "agentsmith" },
+        };
+
+        var act = await new ReworkPendingActs(tickets.Object, Mock.Of<ISourceProviderFactory>(), Mock.Of<IPrReviewAuthorTrust>(), _approvals)
+            .NewestAsync(project, "42", new PreviousAttempt("run-1", "success", Start, true), CancellationToken.None);
+
+        act!.Text.Should().Be("agentsmith add CSV");
+    }
 }
