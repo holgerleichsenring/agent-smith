@@ -74,6 +74,14 @@ public static class SpecQuotableText
         return quote.Length > 0 && stated.Any(text => Words(text).SequenceEqual(quote));
     }
 
+    /// <summary>2026-10-13-a347b: true when the quote is a run of at least <see cref="MinWords"/> of the
+    /// text's words — no half-length rule: the text is a whole ticket, the quote one outcome.</summary>
+    public static bool IsRunIn(string? text, string? quoted)
+    {
+        var quote = Words(quoted);
+        return quote.Length >= MinWords && ContainsRun(Words(text), quote);
+    }
+
     /// <summary>The spec as the reviewer is shown it, with no heading over nothing.</summary>
     public static string Render(SpecDraft draft)
     {
@@ -95,8 +103,13 @@ public static class SpecQuotableText
         if (stated.Length == 0) return false;
         if (stated.SequenceEqual(quote)) return true;
         if (quote.Length < MinWords || quote.Length * 2 < stated.Length) return false;
-        for (var i = 0; i + quote.Length <= stated.Length; i++)
-            if (stated.AsSpan(i, quote.Length).SequenceEqual(quote)) return true;
+        return ContainsRun(stated, quote);
+    }
+
+    private static bool ContainsRun(string[] text, string[] quote)
+    {
+        for (var i = 0; i + quote.Length <= text.Length; i++)
+            if (text.AsSpan(i, quote.Length).SequenceEqual(quote)) return true;
         return false;
     }
 

@@ -24,22 +24,27 @@ namespace AgentSmith.Application.Services.Specs;
 /// A SHAPE RULE is admitted only when its quote is a done entry: a goal or a step that names
 /// a form is work to do, not a verdict a reader judges.
 /// </para>
+/// <para>
+/// 2026-10-13-a347b: a DONE DROPPED quotes the ticket, so it is admitted when the ticket's words
+/// contain the quote and refused when the quote is a done entry of any spec — then it was kept.
+/// </para>
 /// </summary>
 internal sealed class SpecCutAdmission(ILogger logger)
 {
     public IReadOnlyList<CutFinding> Admit(
-        IReadOnlyList<SpecDraft> drafts, IReadOnlyList<CutFinding> answer, DerivationLook? look)
+        IReadOnlyList<SpecDraft> drafts, IReadOnlyList<CutFinding> answer, string? ticketText, DerivationLook? look)
     {
         // Only a look that reached a verdict can prove a premise false; one that could not run
         // keeps its id and its line, and proves nothing.
         var ran = new HashSet<string>(
             (look?.Evidence.Looks ?? []).Where(l => l.Ran).Select(l => l.Id), StringComparer.Ordinal);
-        return [.. answer.Where(finding => Admitted(drafts, finding, ran))];
+        return [.. answer.Where(finding => Admitted(drafts, finding, ticketText, ran))];
     }
 
     private bool Admitted(
-        IReadOnlyList<SpecDraft> drafts, CutFinding finding, IReadOnlySet<string> ran)
+        IReadOnlyList<SpecDraft> drafts, CutFinding finding, string? ticketText, IReadOnlySet<string> ran)
     {
+        if (IsDoneDropped(finding)) return QuotesADroppedOutcome(drafts, finding, ticketText);
         var spec = drafts.FirstOrDefault(d =>
             string.Equals(d.SpecId, finding.SpecId, StringComparison.OrdinalIgnoreCase));
         if (IsFalsePremise(finding)) return Cited(finding, spec, ran);
@@ -70,6 +75,21 @@ internal sealed class SpecCutAdmission(ILogger logger)
             finding.SpecId, Shorten(finding.Criterion ?? string.Empty));
         return false;
     }
+
+    private bool QuotesADroppedOutcome(IReadOnlyList<SpecDraft> drafts, CutFinding finding, string? ticketText)
+    {
+        var inTicket = SpecQuotableText.IsRunIn(ticketText, finding.Criterion);
+        var kept = drafts.Any(d => SpecQuotableText.IsDoneEntry(d, finding.Criterion));
+        if (inTicket && !kept) return true;
+        logger.LogWarning(
+            "Cut review reported a dropped outcome for {Spec} that {Reason} — discarding the finding: {Criterion}",
+            finding.SpecId, kept ? "a done entry states" : "the ticket does not contain",
+            Shorten(finding.Criterion ?? string.Empty));
+        return false;
+    }
+
+    public static bool IsDoneDropped(CutFinding finding) =>
+        string.Equals(finding.Problem?.Trim(), SpecCutVerdicts.DoneDropped, StringComparison.OrdinalIgnoreCase);
 
     public static bool IsShapeRule(CutFinding finding) =>
         string.Equals(finding.Problem?.Trim(), SpecCutVerdicts.ShapeRule, StringComparison.OrdinalIgnoreCase);

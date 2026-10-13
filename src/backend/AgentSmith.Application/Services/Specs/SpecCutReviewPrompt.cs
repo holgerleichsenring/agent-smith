@@ -46,9 +46,9 @@ public static class SpecCutReviewPrompt
 
             Answer with JSON and nothing else. Quote VERBATIM what the spec states — its goal
             or a done criterion, or, for a spec that lists no done criteria, its goal or one of
-            its steps. A finding whose quote is not in that spec is discarded:
+            its steps.{{TicketQuote(offered)}} A finding whose quote is not {{QuotedFrom(offered)}} is discarded:
 
-              [{"spec_id": "<id>", "criterion": "<verbatim from the spec>",
+              [{"spec_id": "<id>", "criterion": "<verbatim from the spec{{TicketQuoteShort(offered)}}>",
                 "problem": "{{string.Join("|", offered)}}",
                 "why": "<one sentence>", "conflicts_with": "<verbatim other statement of that spec, or null>"{{Cites(look)}}}]
 
@@ -89,6 +89,21 @@ public static class SpecCutReviewPrompt
         CutReviewTicket.Whole => "\nTICKET\n" + text,
         _ => "\nTICKET\n" + text![..MaxTicketChars] + "\n… ticket truncated",
     };
+
+    /// <summary>2026-10-13-a347b: the one way that quotes the ticket, said only where it is offered.</summary>
+    private static string TicketQuote(IReadOnlyList<string> offered) => QuotesTicket(offered)
+        ? $" A {SpecCutVerdicts.DoneDropped} instead quotes the ticket's outcome VERBATIM."
+        : string.Empty;
+
+    private static string QuotedFrom(IReadOnlyList<string> offered) => QuotesTicket(offered)
+        ? $"in that spec — or, for a {SpecCutVerdicts.DoneDropped}, not in the ticket —"
+        : "in that spec";
+
+    private static string TicketQuoteShort(IReadOnlyList<string> offered) => QuotesTicket(offered)
+        ? $", or from the ticket for a {SpecCutVerdicts.DoneDropped}"
+        : string.Empty;
+
+    private static bool QuotesTicket(IReadOnlyList<string> offered) => offered.Contains(SpecCutVerdicts.DoneDropped);
 
     /// <summary>The citation field, asked for only when there is a look to cite.</summary>
     private static string Cites(DerivationLook? look) => look is null
