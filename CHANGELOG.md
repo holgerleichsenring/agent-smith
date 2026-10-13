@@ -1,5 +1,30 @@
 # Changelog
 
+## [0.160.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.159.0...v0.160.0) (2026-10-13)
+
+
+### Features
+
+* a context may declare its repository's formatter and the spec commit runs it over the changed files, skills pin v5.14.0 (2026-10-12-fbbdb) ([578c388](https://github.com/holgerleichsenring/agent-smith/commit/578c3882a85677e0101bdd4199c6ef12c854c1fd))
+* a context names the directories its component is built and tested from and structure ownership covers them, skills pin v5.15.0 (2026-10-13-50c7) ([3923442](https://github.com/holgerleichsenring/agent-smith/commit/3923442051e7ddb01fac98fe463384c90fa09d55))
+* a declared formatter that fails at the spec commit is named in its repository's code PR with command, output and the context.yaml lever (2026-10-13-a347a) ([9c336af](https://github.com/holgerleichsenring/agent-smith/commit/9c336afc13ebae8e7e1aed9762ed21465f76a10c))
+* a done criterion states an outcome and the cut review reports a shape rule in a done entry (2026-10-12-fbbdc) ([e400e63](https://github.com/holgerleichsenring/agent-smith/commit/e400e63d90f4f45d1f7aa46cd18ed05ea9fefa67))
+* a structure limit carries a tolerance band, a divergence is named in its repository's PR and only an excess is gated (2026-10-12-fbbda) ([7eb84f3](https://github.com/holgerleichsenring/agent-smith/commit/7eb84f3ddbfd4f7b7f5e49e5c93e935a1e7d7c49))
+* code-shape limits are measured with a baseline and tolerance, done criteria are the operator's outcomes (2026-10-12-fbbd) ([5ee88ca](https://github.com/holgerleichsenring/agent-smith/commit/5ee88ca21074459aea0c642d329670b74d3f29aa))
+* init measures a component against its Limits and writes what already exceeds them as a structure baseline (2026-10-06-8565c) ([5a108cc](https://github.com/holgerleichsenring/agent-smith/commit/5a108ccd98bbdd2f88022754bdf79be5cf1f5000))
+* init reads a repository's sources for the structure baseline in a few batched sandbox steps (2026-10-13-ee83) ([465bfbd](https://github.com/holgerleichsenring/agent-smith/commit/465bfbd2e144cab2867d63373915a5fb09b9942f))
+* no reader of owned data accepts the phase names, the store rewrite keeps a frozen table and the PhaseId columns are dropped (2026-10-12-967ah) ([37f3d73](https://github.com/holgerleichsenring/agent-smith/commit/37f3d734d616cbb6882b212f71b265285c327754))
+* no reader of owned data accepts the phase names, the store rewrite keeps a frozen table and the PhaseId columns are dropped (2026-10-12-967ah) ([baccdff](https://github.com/holgerleichsenring/agent-smith/commit/baccdff3dd96e97295f299a30b3b7e8de321a24b))
+* the cut review reports a spec that drops an outcome the ticket's own Done when lists (2026-10-13-a347b) ([8dd979d](https://github.com/holgerleichsenring/agent-smith/commit/8dd979dbe795c865c990e528e00c5637ba4374bf))
+* the spec commit judges every file the branch changed against its context's Limits and baseline (2026-10-06-8565d) ([743fb60](https://github.com/holgerleichsenring/agent-smith/commit/743fb60b973d83a9cd600e8867c6f49757679e22))
+* the structure gate judges every sandbox of a repository at the spec commit, findings once (2026-10-13-e237) ([1c81593](https://github.com/holgerleichsenring/agent-smith/commit/1c815934ace47e3bf6f4d89bc43771f0d0cb8e9e))
+
+
+### Bug Fixes
+
+* the structure gate judges from the merge-base and says when it judged nothing, a baseline records the limits it was measured with (2026-10-13-2d0c) ([d821480](https://github.com/holgerleichsenring/agent-smith/commit/d8214806d22285e23851e51aa322346586ec5f54))
+* whoever judges a spec's diff reads it as git means it, a removed line proves only a removal (2026-10-12-fbbdd) ([1ddb072](https://github.com/holgerleichsenring/agent-smith/commit/1ddb072eb22490ca4c65f04eeee874ec736867a5))
+
 ## [0.159.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.158.0...v0.159.0) (2026-10-12)
 
 
