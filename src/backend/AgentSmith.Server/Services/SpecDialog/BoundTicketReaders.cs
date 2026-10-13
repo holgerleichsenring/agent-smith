@@ -23,6 +23,7 @@ public sealed class BoundTicketReaders(
     ITicketProviderFactory providers,
     SpecDialogTicketTextRepository store,
     FiledWorkRunsReader runs,
+    TicketRunsFacts facts,
     ILoggerFactory loggerFactory)
 {
     private static FrameworkFacts Facts(ResolvedProject project, string ticketId)
@@ -50,7 +51,7 @@ public sealed class BoundTicketReaders(
                 providers.CreateLinkedWork(project.Tracker), new TicketId(held.TicketId)),
             // 2026-09-28-1da5d: and what THIS framework did about it, which is a different claim.
             new BoundTicketRuns(
-                runs, project, held.TicketId, loggerFactory.CreateLogger<BoundTicketRuns>()),
+                runs, facts, project, held.TicketId, loggerFactory.CreateLogger<BoundTicketRuns>()),
             // 2026-09-28-1da5e: and what this framework's own rules produce for this ticket,
             // taken from the code that decides them rather than restated anywhere.
             Facts(project, held.TicketId));

@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-13-9a59o: "TICKET_RUNS FACTS (dialog tool, bound ticket runs). In a ticket's conversation ticket_runs carries each attempt's cause, each spec's verdict, criteria outcomes, declined and unmeasured accounts, and every PR record's newest 40 review entries with kind, decision, file and line. -> .agentsmith/specs/done/2026-10-13-9a59o-dialog-agent-ticket-tools.yaml"
     2026-10-13-9a59n: "RETRY UNCHANGED (run control, infrastructure-end rule, rework worker, attempt cause). Retry starts one attempt only after an infrastructure end (interrupted, reaped, a vanished or OOM-killed sandbox in the last launch) through the rework queue, cause retry; every other end answers 409 {reason, text}. -> .agentsmith/specs/done/2026-10-13-9a59n-retry-unchanged.yaml"
     2026-10-13-9a59m: "OPERATOR CHANNEL (rework worker, attempt cause, ticket continuation, filed-work move, dialog resume). Approving in a ticket's conversation starts its next attempt, waits for a live run, answers a hand-back or asks for a pending answer first; the attempt's cause is operator. -> .agentsmith/specs/done/2026-10-13-9a59m-operator-channel.yaml"
     2026-10-13-9a59l: "SERIES CONTINUATION (spec dialog approval, run spec source, approval preview). Approving in a ticket's own conversation continues its series by spec id, records a never-worked ticket's series on every tracker, files a linked follow-up for a person-closed one; Amend this ticket retired. -> .agentsmith/specs/done/2026-10-13-9a59l-series-continuation.yaml"

@@ -208,6 +208,19 @@ public sealed class ServerDiLifetimeTests
             .Should().NotBeNull();
     }
 
+    // 2026-10-13-9a59o: a bound turn's run record reads its facts through the real composition.
+    [Fact]
+    public void ServerDi_BoundTicketRunFacts_ResolveFromTheRealComposition()
+    {
+        using var provider = AgentSmith.Infrastructure.Persistence.Extensions.ServerStateExtensions.AddServerState(BuildServerLikeServices())
+            .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        using var scope = provider.CreateScope();
+
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.SpecDialog.BoundTicketReaders>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.SpecDialog.TicketRunsFacts>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Contracts.Reviews.IPrReviewRecordReader>().Should().NotBeNull();
+    }
+
     [Fact]
     public async Task ServerShapedDi_ConcurrentJiraTransitions_SecondGetsPreconditionFailed()
     {

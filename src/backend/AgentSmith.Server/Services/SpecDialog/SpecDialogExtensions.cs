@@ -71,8 +71,8 @@ internal static class SpecDialogExtensions
         // 2026-09-15-9033: the dashboard channel — the ownership guard rides the session
         // manager's own scoped unit of work, and the dispatcher is the one way in.
         services.AddScoped<SpecDialogOwnership>();
-        services.AddScoped<TicketConversationBinder>().AddScoped<BoundTicketReaders>()
-            .AddScoped<TicketSearchAcrossTrackers>();  // 8e51b, 481ba, 5c1eb
+        services.AddScoped<TicketConversationBinder>().AddScoped<BoundTicketReaders>().AddScoped<TicketRunsFacts>()
+            .AddScoped<TicketSearchAcrossTrackers>();  // 8e51b, 481ba, 5c1eb, 9a59o
         services.AddScoped<TicketTextForConversation>().AddScoped<TicketMovedCheck>()
             .AddScoped<ApprovedSetDivergence>();  // 8e51c, 481ba, 8e51e
         services.AddScoped<TicketProjectChoice>().AddScoped<TicketProjectForTracker>();  // 8e51a, 481bb
