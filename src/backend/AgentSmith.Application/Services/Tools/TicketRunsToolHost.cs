@@ -27,7 +27,10 @@ public sealed class TicketRunsToolHost(IBoundTicketRuns runs) : IToolHost
         "What THIS FRAMEWORK did about this conversation's ticket: the runs it made, the specs "
         + "they worked and the pull requests they opened. This is the framework's OWN record — a "
         + "branch pushed by hand or a pull request opened outside a run is not in it. Use "
-        + "ticket_work for what the tracker shows, and say which of the two an answer rests on.")]
+        + "ticket_work for what the tracker shows, and say which of the two an answer rests on. "
+        + "Approving a proposal here continues the ticket's series by spec id: repeating an id that has "
+        + "not run re-cuts it, a spec that ran is kept as it ran, a new id is appended, and a lone spec "
+        + "leaves the rest of the series kept while an epic drops what it leaves out.")]
     private async Task<TicketRunsResult> Runs(CancellationToken cancellationToken) =>
         await runs.ForAsync(cancellationToken);
 }

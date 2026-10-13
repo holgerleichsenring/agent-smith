@@ -71,20 +71,20 @@ public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
     // The trigger is the conversation's own filing record — a kept filing turn — not the
     // outcome type, which a failed turn, a twice-invalid proposal and a refused proposal all
     // share. So the clause reaches every turn kind, a proposal turn included.
-    // 2026-09-25-8e51e: the clause used to say filed work cannot be CHANGED, full stop. That is
-    // no longer true: approving an amendment rewrites the framework's region of the bound
-    // ticket and re-records the approved set. What stays true is the part that matters — the
+    // 2026-10-13-9a59l: the clause used to say filed work cannot be CHANGED, full stop. In a
+    // conversation bound to a ticket, approving a proposal continues that ticket's series by
+    // spec id instead of filing a new one. What stays true is the part that matters — the
     // model never does it, an approval does, and reporting it as done is still false.
     private static string FiledWorkContract(IReadOnlyList<SpecDialogTurn> transcript) =>
         transcript.Any(turn => turn.Kind == SpecDialogTurnKind.Filing)
             ? "\nThis conversation has already filed work. You cannot change, close or re-cut "
               + "what was filed, and you must never report having done so: a reply that "
               + "describes filed work as merged, split, closed or otherwise altered is false. "
-              + "Work you have not filed is what you PROPOSE, never what you have done. A "
-              + "proposal may also be approved AS AN AMENDMENT of the work this conversation "
-              + "belongs to, which rewrites it from the approved specification — you propose it "
-              + "exactly as you would any other, the operator chooses the amendment, and "
-              + "reporting one as done is as false as the rest."
+              + "Work you have not filed is what you PROPOSE, never what you have done. In a "
+              + "conversation that belongs to existing work, approving a proposal CONTINUES that "
+              + "work by spec id — specs that ran stay, repeated ids are re-cut, new ids "
+              + "are appended — you propose it exactly as you would any other, the operator "
+              + "approves, and reporting the continuation as done is as false as the rest."
             : string.Empty;
 
     private static string ProposalContract(bool mayPropose) => mayPropose

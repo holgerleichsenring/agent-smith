@@ -176,6 +176,25 @@ public sealed class ServerDiLifetimeTests
             .Should().NotBeNull("POST /api/projects/{name}/init resolves the launcher per request");
     }
 
+    // 2026-10-13-9a59l: an approval in a ticket's own conversation and its preview resolve from the real
+    // composition — with the dashboard API, and without it, where a chat conversation still approves.
+    [Fact]
+    public void ServerDi_TicketContinuation_ResolvesFromTheRealComposition()
+    {
+        foreach (var services in new[] { BuildServerLikeServices(), BuildServerLikeServices().AddDashboardApi() })
+        {
+            using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+            using var scope = provider.CreateScope();
+
+            scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.SpecDialog.IOutcomeSink>()
+                .Should().BeOfType<AgentSmith.Server.Services.SpecDialog.TicketFilingOutcomeSink>();
+            scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.SpecDialog.Continuation.TicketContinuationAct>()
+                .Should().NotBeNull();
+            scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.Tickets.TicketApprovalPreview>()
+                .Should().NotBeNull();
+        }
+    }
+
     [Fact]
     public async Task ServerShapedDi_ConcurrentJiraTransitions_SecondGetsPreconditionFailed()
     {

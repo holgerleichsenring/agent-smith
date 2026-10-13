@@ -37,18 +37,18 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// a second approval cannot land under a key no run resolves. The record is the editable
 /// artifact; the dialog has no clone of the branch and never reads one.
 /// <para>
-/// <see cref="LoadAsync"/> has two callers: <see cref="TicketAmendment"/>, before it renders, so an
-/// amended ticket keeps its series base (2026-10-06-03c7c), and <see cref="ApprovedSetDivergence"/>,
-/// which compares the ticket's text with the approved goals before a turn runs.
+/// <see cref="LoadAsync"/> is read by <see cref="TicketAmendment"/>, so a re-recorded ticket keeps its
+/// series base (2026-10-06-03c7c), by <see cref="ApprovedSetDivergence"/> before a turn runs, and by
+/// the continuation state reader (2026-10-13-9a59l), whose basis it is when no cut was published.
 /// </para>
 /// <para>
-/// WHICH SPECS ALREADY RAN LIVES ON THE BRANCH, so the constraint is written down instead: a
-/// re-approved set keeps every position at or before the executed head exactly as it is, may only
-/// edit positions after it, and may not be shorter. The merge at publish is POSITIONAL and the run
-/// enforces it three ways — a set shorter than the head is REFUSED naming what it would drop; a
-/// set that edits the head and adds nothing after it is REFUSED, because publishing it would leave
-/// the run reporting success with every change discarded; and a set that edits the head but does
-/// add work after it keeps the head exactly as it ran and REPORTS the discarded edit.
+/// 2026-10-13-9a59l: A WORKED TICKET'S APPROVAL MATCHES BY SPEC ID, never by position. The record
+/// then carries a continuation: an executed id is kept whatever the proposal says, an unstarted id
+/// the proposal repeats is re-cut, one a lone spec leaves out is kept and one an epic leaves out is
+/// dropped, an unknown id is appended under the next free member id. The run applies it to the
+/// branch as read then, reports what ran since as discarded, and the record is never handed over as
+/// the series. Its repositories are the basis series' united with the proposal's, and its carrier
+/// is the basis carrier.
 /// </para>
 /// </summary>
 public sealed class ApprovedSpecSetRecorder(
@@ -63,7 +63,7 @@ public sealed class ApprovedSpecSetRecorder(
     /// <param name="goal">The series' goal: an epic's parent goal, a lone spec's own.</param>
     public async Task<SpecApprovalRecord> RecordAsync(
         ConversationState state, ResolvedProject project, string ticketId,
-        FiledSeries series, string goal, CancellationToken cancellationToken)
+        FiledSeries series, string goal, CancellationToken cancellationToken, SeriesContinuation? continuation = null, ContinuationBasis? basis = null)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(project);
@@ -74,11 +74,11 @@ public sealed class ApprovedSpecSetRecorder(
         var set = new SpecSet(
             key.Value, [.. series.Drafts.Select(d => new DerivedSpec(d, LabelOf(d, previous), string.Empty, []))],
             SpecAccounting.Empty, [], SpecSource.Approved, Approval: approval, Series: series.Id) { Goal = goal };
-        var repositories = Repositories(state, project);
+        var repositories = Repositories(state, project, basis);
         // 2026-09-25-c1f7: the ticket id as GIVEN (discovery names it in a tracker query; the key
         // re-spelled it). 2026-10-01-283df/e8b9k: the sets and images held NOW — the approval freezes them.
-        var uncited = new SpecApprovalRecord(key.Value, set, repositories, project.Tracker.Name,
-            placement.CarrierOf(series.Drafts, repositories), ticketId ?? string.Empty);
+        var uncited = new SpecApprovalRecord(key.Value, set, repositories, project.Tracker.Name, basis?.Carrier
+            ?? placement.CarrierOf(series.Drafts, repositories), ticketId ?? string.Empty, Continuation: continuation);
         var record = await _citations.SaveAsync(
             await _citations.CiteAsync(uncited, state.JobId, cancellationToken), state.JobId, cancellationToken);
         logger.LogInformation(
@@ -113,7 +113,7 @@ public sealed class ApprovedSpecSetRecorder(
     private static TicketKey KeyFor(ResolvedProject project, string ticketId) =>
         TicketKey.For(project.Tracker.Type.ToString().ToLowerInvariant(), ticketId);
 
-    // The scope's repositories when the session named some, the project's own otherwise.
-    private static IReadOnlyList<string> Repositories(ConversationState state, ResolvedProject project) =>
-        state.Scope?.Repos is { Count: > 0 } scoped ? scoped : [.. project.Repos.Select(r => r.Name)];
+    // The scope's repositories when the session named some, the project's own otherwise; a continuation's basis first.
+    private static IReadOnlyList<string> Repositories(ConversationState state, ResolvedProject project, ContinuationBasis? basis) =>
+        [.. (basis?.Repositories ?? []).Union(state.Scope?.Repos is { Count: > 0 } scoped ? scoped : project.Repos.Select(r => r.Name), StringComparer.OrdinalIgnoreCase)];
 }

@@ -92,7 +92,7 @@ public sealed class HandbackExpiryTests
             deriver, SeriesDoubles.BranchRead(new StubReader()), publisher, pointers,
             new ApprovedSpecSetResolver(new InMemorySpecApprovalStore(), NullLogger<ApprovedSpecSetResolver>.Instance),
             new SpecSourceResolver(
-                new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance),
+                new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance), AgentSmith.Tests.TestSupport.ApprovedSetDoubles.Continuation(),
                 new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
                 NullLogger<SpecSourceResolver>.Instance),
             fallback, new SpecCoverageRefusal(gate, fallback),

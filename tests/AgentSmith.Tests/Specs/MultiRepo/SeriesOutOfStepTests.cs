@@ -158,7 +158,7 @@ public sealed class SeriesOutOfStepTests
     }
 
     private static SpecSourceResolver.Decision Decide(SpecSetOnBranch branch, PipelineContext pipeline) =>
-        new SpecSourceResolver(new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance),
+        new SpecSourceResolver(new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance), AgentSmith.Tests.TestSupport.ApprovedSetDoubles.Continuation(),
                 new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance), NullLogger<SpecSourceResolver>.Instance)
             .Decide(branch, new Ticket(new TicketId("4711"), "t", "text", null, "open", "azdo", []),
                 new SpecSetPointer(SeriesRepoBranches.Key, "Server", "sha-Server", 1), pipeline,

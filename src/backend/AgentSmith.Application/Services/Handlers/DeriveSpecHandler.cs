@@ -83,7 +83,7 @@ public sealed class DeriveSpecHandler(
         // Reported BEFORE the publish, because the publish is what clears the input: a hand-back
         // must not suppress it, and an unreported input must not be marked as dealt with.
         var reported = await keptNotice.PostAsync(
-            context.Pipeline, context.Tracker, set, decision.Cause!, discarded: null, cancellationToken);
+            context.Pipeline, context.Tracker, set, decision.Cause!, decision.Discarded, cancellationToken);
         var finalized = SpecRevisionHeader.Finalize(
             set, previous, decision.Cause!, context.Ticket, decision.NeedsModel, reported, decision.Approval);
         var result = await publisher.PublishAsync(

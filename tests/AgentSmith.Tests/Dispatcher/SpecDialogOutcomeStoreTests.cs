@@ -158,7 +158,7 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
         return new TicketFilingOutcomeSink(
             new SpecDialogOutcomeStore(_repository, NullLogger<SpecDialogOutcomeStore>.Instance),
-            filer, TestSupport.Amendments.Unused(), _sessions, messenger, new SpecDialogOutcomeComposer(),
+            filer, TestSupport.Continuations.Unused(filer), _sessions, messenger, new SpecDialogOutcomeComposer(),
             new DashboardOutcomeChannel(
                 new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
                 NullLogger<DashboardOutcomeChannel>.Instance),

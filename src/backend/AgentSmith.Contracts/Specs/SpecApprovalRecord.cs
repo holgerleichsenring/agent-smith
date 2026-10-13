@@ -60,6 +60,11 @@ namespace AgentSmith.Contracts.Specs;
 /// Null on a record written before this spec, which cites none; an older reader ignores it.
 /// Appended LAST for the same reason as the fields before it.
 /// </param>
+/// <param name="Continuation">
+/// 2026-10-13-9a59l: set when the approval was given in the conversation of the ticket it is stored
+/// under — the per-spec dispositions the next run applies to the branch series, and the attempt they
+/// were decided against. Null on a filing. Appended LAST for the same reason as the fields before it.
+/// </param>
 public sealed record SpecApprovalRecord(
     string Key,
     SpecSet Set,
@@ -68,7 +73,8 @@ public sealed record SpecApprovalRecord(
     string CarryingRepo = "",
     string TicketId = "",
     IReadOnlyList<string>? References = null,
-    IReadOnlyList<string>? Images = null)
+    IReadOnlyList<string>? Images = null,
+    SeriesContinuation? Continuation = null)
 {
     /// <summary>The approval the set carries — null only on a record built without one.</summary>
     public SpecApproval? Approval => Set.Approval;

@@ -22,6 +22,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace AgentSmith.Tests.SpecDialog;
 
@@ -67,7 +68,7 @@ public sealed class TicketAmendmentTests : IDisposable
     {
         var tracker = await BoundAsync();
 
-        var notice = await Amendment(tracker).ApplyAsync(State(), Proposal("the widget stops dropping"), default);
+        var notice = (await Amendment(tracker).ApplyAsync(State(), Proposal("the widget stops dropping"), default)).Notice;
 
         notice.Should().Contain(Ticket4711).And.Contain("1 spec(s)");
         tracker.Description.Should().Contain("the widget stops dropping",
@@ -186,68 +187,89 @@ public sealed class TicketAmendmentTests : IDisposable
     }
 
     /// <summary>
-    /// The lease is keyed by project and ticket, one ticket may match several projects and a run
-    /// is spawned per match — so a check that looked only at the conversation's own project would
-    /// amend a specification out from under a live sibling run.
+    /// 2026-10-13-9a59l: a run ROW no longer refuses the write here — whether a code attempt worked the
+    /// ticket is the continuation decision's question, and a pr-review or scan row is not one.
     /// </summary>
     [Fact]
-    public async Task Amendment_ATicketHeldByASiblingProjectsRun_IsRefusedNamingTheRun()
+    public async Task Amendment_ARunRowWithoutALease_IsNotRefusedHere()
     {
         var tracker = await BoundAsync();
         _context.Add(new Run
         {
-            Id = "2026-09-25T08-00-00-0001", Project = Sibling, Pipeline = "code",
+            Id = "2026-09-25T08-00-00-0001", Project = Sibling, Pipeline = "pr-review",
             TicketId = Ticket4711, Status = "success",
             StartedAt = DateTimeOffset.Parse("2026-09-25T08:00:00Z"),
         });
         await _context.SaveChangesAsync();
-        var sources = new RecordingBranchSources();
 
-        var notice = await Amendment(tracker, sources).ApplyAsync(
-            State(), Proposal("the widget stops dropping"), default);
+        var result = await Amendment(tracker).ApplyAsync(State(), Proposal("the widget stops dropping"), default);
 
-        notice.Should().Contain("2026-09-25T08-00-00-0001").And.Contain("Nothing was changed");
-        tracker.Regions.Should().BeEmpty("a ticket a run has taken is not rewritten underneath it");
-        sources.Writes.Should().BeEmpty();
+        result.Recorded.Should().BeTrue();
+        tracker.Regions.Should().ContainSingle();
     }
 
-    /// <summary>The window no row reader can see: the claim holds the lease and the run row it
-    /// will mint does not exist yet.</summary>
+    /// <summary>The window no row reader can see: the claim holds the lease and the run row it will mint
+    /// does not exist yet — writing the record and the branch there races the claiming run.</summary>
     [Fact]
-    public async Task Amendment_ATicketWhoseClaimHoldsOnlyALease_IsRefusedToo()
+    public async Task BoundApproval_NeverWorked_LeaseHeldWithoutRunRow_RefusedNothingRecorded()
     {
         var tracker = await BoundAsync();
+        var store = ApprovedSetDoubles.Store();
+        var sources = new RecordingBranchSources();
         await Leases().TryClaimAsync(Sibling, new TicketId(Ticket4711), default);
 
-        var notice = await Amendment(tracker).ApplyAsync(
+        var result = await Amendment(tracker, sources, store).ApplyAsync(
             State(), Proposal("the widget stops dropping"), default);
 
-        notice.Should().Contain("claimed").And.Contain("Nothing was changed");
+        result.Recorded.Should().BeFalse();
+        result.Notice.Should().Contain("claimed").And.Contain("not recorded");
+        (await store.GetAsync(Tracker, Key, default)).Should().BeNull();
+        sources.Writes.Should().BeEmpty();
         tracker.Regions.Should().BeEmpty();
     }
 
     /// <summary>
-    /// A refused rewrite — Jira's by construction, and any ticket filed before the markers —
-    /// leaves the ticket, the record AND the branch exactly as they were. That is the only state
-    /// a refusal may leave behind: a record moved without the ticket is the incongruence this
-    /// spec exists to remove.
+    /// 2026-10-13-9a59l: the run reads the branch and the record, never the description, so a rewrite
+    /// the tracker refuses (Jira's by construction) is said and the series is recorded anyway.
     /// </summary>
     [Fact]
-    public async Task Amendment_ARewriteTheTrackerRefuses_LeavesTheRecordAndTheBranchAlone()
+    public async Task BoundApproval_NeverWorkedOnJira_RewriteRefused_SeriesStillRecorded()
     {
         var tracker = await BoundAsync();
         tracker.Answer = TicketRewriteResult.Unsupported("Jira stores a description as a structured document.");
         var store = ApprovedSetDoubles.Store();
         var sources = new RecordingBranchSources();
 
-        var notice = await Amendment(tracker, sources, store).ApplyAsync(
+        var result = await Amendment(tracker, sources, store).ApplyAsync(
             State(), Proposal("the widget stops dropping"), default);
 
-        notice.Should().Contain("NOT rewritten").And.Contain("structured document");
-        (await store.GetAsync(Tracker, Key, default)).Should().BeNull(
-            "the approved set is not moved by a rewrite that did not land");
-        sources.Writes.Should().BeEmpty();
+        result.Recorded.Should().BeTrue();
+        result.Notice.Should().Contain("not rewritten").And.Contain("structured document").And.Contain("1 spec(s)");
+        (await store.GetAsync(Tracker, Key, default))!.Set.Specs.Should().ContainSingle()
+            .Which.Draft.Goal.Should().Be("the widget stops dropping");
+        sources.Writes.Should().ContainSingle("the branch is what the next run reads");
         tracker.Description.Should().NotContain("stops dropping");
+    }
+
+    /// <summary>2026-10-13-9a59l: neither the lease refusal nor a failed write names the retired
+    /// amendment or claims the ticket was rewritten.</summary>
+    [Fact]
+    public async Task TicketAmendment_LeaseRefusalAndFailure_NameNoAmendmentOrRewrite()
+    {
+        var tracker = await BoundAsync();
+        var failing = new Mock<ISpecApprovalStore>();
+        failing.Setup(f => f.GetAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((SpecApprovalRecord?)null);
+        failing.Setup(f => f.SaveAsync(It.IsAny<SpecApprovalRecord>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("the store is down"));
+        var failed = (await Amendment(tracker, store: failing.Object).ApplyAsync(
+            State(), Proposal("the widget stops dropping"), default)).Notice;
+        await Leases().TryClaimAsync(Sibling, new TicketId(Ticket4711), default);
+        var refused = (await Amendment(tracker).ApplyAsync(State(), Proposal("the widget stops dropping"), default)).Notice;
+
+        failed.Should().Contain("the store is down");
+        foreach (var notice in new[] { refused, failed })
+            notice.Should().NotContainEquivalentOf("amend").And.NotContain("was rewritten").And.Contain("not");
     }
 
     /// <summary>A conversation whose ticket text was never recorded cannot address a tracker: the
@@ -257,10 +279,10 @@ public sealed class TicketAmendmentTests : IDisposable
     {
         var tracker = new FakeTracker(Prose);
 
-        var notice = await Amendment(tracker).ApplyAsync(
-            State(), Proposal("the widget stops dropping"), default);
+        var notice = (await Amendment(tracker).ApplyAsync(
+            State(), Proposal("the widget stops dropping"), default)).Notice;
 
-        notice.Should().Contain("never recorded which ticket").And.Contain("Nothing was changed");
+        notice.Should().Contain("never recorded which ticket").And.Contain("not recorded");
         tracker.Regions.Should().BeEmpty();
     }
 
@@ -271,8 +293,8 @@ public sealed class TicketAmendmentTests : IDisposable
     {
         var tracker = await BoundAsync();
 
-        var notice = await Amendment(tracker).ApplyAsync(
-            State(), new BugOutcome(new BugTicketDraft("Widget drops", "It drops.", "It stops.")), default);
+        var notice = (await Amendment(tracker).ApplyAsync(
+            State(), new BugOutcome(new BugTicketDraft("Widget drops", "It drops.", "It stops.")), default)).Notice;
 
         notice.Should().Contain("not filed from an approved specification");
         tracker.Regions.Should().BeEmpty();

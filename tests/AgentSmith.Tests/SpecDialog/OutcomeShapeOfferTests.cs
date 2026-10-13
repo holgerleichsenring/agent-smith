@@ -203,88 +203,29 @@ public sealed class OutcomeShapeOfferTests : IDisposable
     }
 
     /// <summary>
-    /// A conversation that belongs to no ticket has no ticket to amend, so the door is not shown
-    /// — and the same words typed there stay an ordinary edit note.
+    /// 2026-10-13-9a59l: the amendment shape is retired — approving in a ticket's own conversation is
+    /// what continues the ticket, so a bound conversation is offered exactly the size ladder.
     /// </summary>
     [Fact]
-    public async Task Amendment_AConversationWithNoTicket_IsNeverOfferedTheAmend()
+    public async Task OutcomeShapes_BoundConversation_OffersNoAmendShape()
     {
-        var asked = await AskedAsync(new SpecOutcome(Draft("p9001")));
+        var spec = await AskedAsync(new SpecOutcome(Draft("p9001")), bound: true);
+        var epic = await AskedAsync(new EpicOutcome(Draft("p9000"), [Draft("p9000a")]), bound: true);
 
-        asked.Choices!.Should().NotContain(OutcomeShapes.AmendTheTicket);
-        (await ConfirmAsync(new SpecOutcome(Draft("p9001")), OutcomeShapes.AmendTheTicket.Label))
-            .Should().BeOfType<OutcomeEditRequested>();
+        spec.Choices!.Select(c => c.Label).Should().Equal("Cut into several specs", "Make it a bug ticket");
+        epic.Choices!.Select(c => c.Label).Should().Equal("Make it one spec");
+        OutcomeShapes.All.Should().NotContain(c => c.Label == "Amend this ticket");
     }
 
+    /// <summary>2026-10-13-9a59l: the retired label typed in a bound thread is an ordinary edit note —
+    /// it sends the master round again, it never writes the ticket.</summary>
     [Fact]
-    public async Task Amendment_AConversationThatBelongsToATicket_IsOfferedIt()
+    public async Task Confirmation_AmendLabelInBoundThread_IsEditNote()
     {
-        var asked = await AskedAsync(new SpecOutcome(Draft("p9001")), bound: true);
-
-        asked.Type.Should().Be(QuestionType.Approval, "an amendment is still an approval");
-        asked.Choices!.Should().Contain(OutcomeShapes.AmendTheTicket);
-    }
-
-    /// <summary>A bug carries no approved set, so the bound ticket has no region of ours for it
-    /// to replace and the door is not offered even on a bound conversation.</summary>
-    [Fact]
-    public async Task Amendment_ABugProposalOnABoundConversation_IsNotOfferedIt() =>
-        (await AskedAsync(new BugOutcome(new BugTicketDraft("t", "d", null)), bound: true))
-            .Choices!.Should().NotContain(OutcomeShapes.AmendTheTicket);
-
-    /// <summary>
-    /// The order of matching: an approval word first, the amendment where it was offered, and
-    /// everything else an edit note. Read as an edit note the amendment would send the master
-    /// round again instead of writing the ticket.
-    /// </summary>
-    [Fact]
-    public async Task Amendment_ThePickedAmendOnABoundConversation_IsItsOwnConfirmationResult()
-    {
-        (await ConfirmAsync(new SpecOutcome(Draft("p9001")), OutcomeShapes.AmendTheTicket.Label, bound: true))
-            .Should().BeOfType<OutcomeAmendRequested>();
+        (await ConfirmAsync(new SpecOutcome(Draft("p9001")), "Amend this ticket", bound: true))
+            .Should().BeOfType<OutcomeEditRequested>().Which.Note.Should().Be("Amend this ticket");
         (await ConfirmAsync(new SpecOutcome(Draft("p9001")), "approve", bound: true))
-            .Should().BeOfType<OutcomeConfirmed>("approving still FILES; the amendment is the other door");
-        (await ConfirmAsync(new SpecOutcome(Draft("p9001")), "drop the second slice", bound: true))
-            .Should().BeOfType<OutcomeEditRequested>();
-    }
-
-    /// <summary>The flow's own arm: the sink is told to amend, and the stored proposal is cleared
-    /// because it has been acted on — the pane must not offer it again.</summary>
-    [Fact]
-    public async Task OutcomeFlow_AnAmendedConfirmation_ReachesTheSinksAmendDoor()
-    {
-        var sink = new RecordingAmendSink();
-        var (flow, store, state) = await FlowAsync(sink);
-        var proposal = new SpecOutcome(Draft("p9001"));
-        await store.SetProposalAsync(Platform, Thread, proposal, CancellationToken.None);
-
-        var result = await flow.ApplyAsync(
-            state, proposal, new OutcomeAmendRequested(), false, CancellationToken.None);
-
-        result.Should().BeOfType<OutcomeFlowCompleted>();
-        sink.Amended.Should().ContainSingle().Which.Should().Be(proposal);
-        sink.Accepted.Should().BeEmpty("an amendment files nothing");
-        (await store.ReadAsync(Platform, Thread, CancellationToken.None)).Proposal.Should().BeNull();
-    }
-
-    private sealed class RecordingAmendSink : IOutcomeSink
-    {
-        public List<OutcomeProposal> Amended { get; } = [];
-
-        public List<OutcomeProposal> Accepted { get; } = [];
-
-        public Task AcceptAsync(
-            ConversationState state, OutcomeProposal proposal, bool mayStartRuns, CancellationToken ct)
-        {
-            Accepted.Add(proposal);
-            return Task.CompletedTask;
-        }
-
-        public Task AmendAsync(ConversationState state, OutcomeProposal proposal, CancellationToken ct)
-        {
-            Amended.Add(proposal);
-            return Task.CompletedTask;
-        }
+            .Should().BeOfType<OutcomeConfirmed>("approving in a bound thread is the continuation");
     }
 
     /// <summary>A result added later, standing in for the one nobody remembered to handle.</summary>

@@ -39,7 +39,7 @@ public sealed class SpecSourceTests
         """;
 
     private readonly SpecSourceResolver _sut = new(
-        new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance),
+        new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance), AgentSmith.Tests.TestSupport.ApprovedSetDoubles.Continuation(),
         new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
         NullLogger<SpecSourceResolver>.Instance);
 

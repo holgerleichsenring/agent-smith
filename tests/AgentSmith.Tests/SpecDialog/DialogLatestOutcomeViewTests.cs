@@ -321,7 +321,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
         return new TicketFilingOutcomeSink(
             new SpecDialogOutcomeStore(_repository, NullLogger<SpecDialogOutcomeStore>.Instance),
-            filer, TestSupport.Amendments.Unused(), _sessions, messenger, composer, channel, latest,
+            filer, TestSupport.Continuations.Unused(filer), _sessions, messenger, composer, channel, latest,
             NullLogger<TicketFilingOutcomeSink>.Instance);
     }
 

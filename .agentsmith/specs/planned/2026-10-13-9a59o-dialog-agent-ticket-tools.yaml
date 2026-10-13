@@ -18,7 +18,7 @@ facts:
   - claim: "ticket_runs answers per run only run id, project, status, start, spec ids and PR urls, and names this framework's record as its source."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/BoundTicketRuns.cs:20-31, src/backend/AgentSmith.Domain/Models/TicketRunsResult.cs:7-9,21-27"
   - claim: "The tool's description promises runs, specs and pull requests only."
-    evidence: "src/backend/AgentSmith.Application/Services/Tools/TicketRunsToolHost.cs:26-32"
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/TicketRunsToolHost.cs:26-35"
   - claim: "The reader it uses returns the ticket's newest 10 runs of every pipeline with pipeline, status, cost, finish, PRs, the pending question and each spec's status and terminal verdict, in three set-based queries."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkRunsReader.cs:15-48,64-99, src/backend/AgentSmith.Server/Models/FiledWorkView.cs:46-56,77-83"
   - claim: "RunSpec carries a verdict string but no per-criterion outcomes; Run.AcceptanceJson is the run-end gate snapshot."

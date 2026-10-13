@@ -42,7 +42,7 @@ facts:
   - claim: "The ledger watermark withholds every act at or before it and says so, so it cannot mark one act served."
     evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkWithheld.cs:14-27, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReworkLedgerRepository.cs:16-37"
   - claim: "FiledWorkStarter and FollowUpLink's registration line are scoped; ReworkParkCheck, the closer and the entry are singletons."
-    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogExtensions.cs:51,60, src/backend/AgentSmith.Server/Services/Webhooks/WebhookEndpointsExtensions.cs:41,43-44"
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogExtensions.cs:51, src/backend/AgentSmith.Server/Services/SpecDialog/TicketContinuationRegistrations.cs:26, src/backend/AgentSmith.Server/Services/Webhooks/WebhookEndpointsExtensions.cs:41,43-44"
 
 assumptions:
   - "2026-10-13-9a59k's TicketClosure.ClosedForWorkAsync(project, provider, ticket) (Application, async) answers closed-for-work: in the tracker's closed category and not done_status, failed_status, needs_clarification_status or not_implementable_status, nor a run's own close when no done_status is set (read through ITicketStatusHistory.NewestMoveIntoAsync) (pending operator ratification)."

@@ -28,7 +28,7 @@ facts:
   - claim: "Run children are registered by type in RunChildConfiguration and deleted one line each in the run's deletion transaction."
     evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunChildConfiguration.cs:26-47, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunDeletionRepository.cs:30-38,54-64"
   - claim: "The retry route is in the route-permission baseline as runs.control."
-    evidence: "tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:102"
+    evidence: "tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:107"
   - claim: "RunControlEndpoints is 185 lines under a 194-line baseline, RelationalPersistenceExtensions 224 under 225 and registers the retry service; RunDeletionRepository is 86 lines, RunChildConfiguration 46."
     evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:37,49, src/backend/AgentSmith.Server/Extensions/RelationalPersistenceExtensions.cs:129, observed: 2026-10-13, wc -l on the four files in this worktree"
   - claim: "Tests pin today's retry service directly, and one calls the endpoint method with a constructed service."
@@ -136,7 +136,7 @@ steps:
   - id: act
     action: "ReworkChannel.Retry; ReworkPendingActs returns the retry act newest-wins."
   - id: endpoint
-    action: "RetryEndpoints (own class, mapped at ServerEndpointExtensions.cs:42, 71 lines): latest by TicketAttempts, waiting 409 before not-finished, closed-for-work 409 via TicketClosure.ClosedForWorkAsync, every 409 as {reason, text, project, ticketId}, starting 409 naming the requester, upsert, enqueue, 202; RunControlEndpoints loses the route; route baseline unchanged."
+    action: "RetryEndpoints (own class, mapped at ServerEndpointExtensions.cs:42, 73 lines): latest by TicketAttempts, waiting 409 before not-finished, closed-for-work 409 via TicketClosure.ClosedForWorkAsync, every 409 as {reason, text, project, ticketId}, starting 409 naming the requester, upsert, enqueue, 202; RunControlEndpoints loses the route; route baseline unchanged."
   - id: retire
     action: "Delete NotImplementableRetryService, its registration and Server.Services.Lifecycle.RetryOutcome; move NotImplementableRetryOrderTests' case to ReworkEntry, rewrite UnmovedTicketClaimTests' retry case and RetryEndpointOutcomeTests; fix TicketReopener.cs:10's summary; lower the two ratchet baselines."
   - id: cause

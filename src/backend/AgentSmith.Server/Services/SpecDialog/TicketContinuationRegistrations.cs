@@ -1,0 +1,28 @@
+using AgentSmith.Server.Services.SpecDialog.Continuation;
+using AgentSmith.Server.Services.Tickets;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+
+namespace AgentSmith.Server.Services.SpecDialog;
+
+/// <summary>
+/// 2026-10-13-9a59l: what an approval in a ticket's own conversation needs. The ticket readers it
+/// shares with the dashboard API are added only when that API did not add them — a server with the UI
+/// API off still runs conversations on chat. The approval preview's read lives here beside the act it previews.
+/// </summary>
+internal static class TicketContinuationRegistrations
+{
+    internal static IServiceCollection AddTicketContinuation(this IServiceCollection services)
+    {
+        services.TryAddTransient<TicketAttempts>();
+        services.TryAddTransient<TicketRunsQuery>();
+        services.TryAddTransient<TicketSeriesRecordsReader>();
+        services.TryAddTransient<TicketProjects>();
+        services.TryAddTransient<Tickets.Conversation.TicketTranscriptReader>();
+        return services.AddScoped<TicketContinuationStateReader>()
+            .AddScoped<TicketApprovalPreview>()
+            .AddScoped<TicketContinuationAct>()
+            .AddScoped<ClosedTicketFollowUp>()
+            .AddScoped<FollowUpLink>();
+    }
+}
