@@ -9,12 +9,14 @@ import { DeleteRunButton } from "./DeleteRunButton";
 import { isRelaunching, relaunchPlace, toRunNodeStatus } from "./runStatus";
 import { RunStats, relativeAgo } from "./RunStats";
 import { formatRunSummary } from "@/lib/formatRunSummary";
+import { ticketPath } from "@/lib/tickets/ticketAddress";
 import { cn } from "@/lib/utils";
 
 // p0343c (pixel identity): one run row in the runs-list.html mock's .rrow DOM —
 // status dot · ticket ref + title + activity line · story spine (only when the
 // snapshot carries server-computed beats) · progress/cost/elapsed mono columns ·
-// always-visible delete · chevron. Whole row links to /jobs/{runId}. Everything
+// always-visible delete · chevron. A code run of a ticket links to the ticket's page
+// (2026-10-13-9a59q); any other run to /jobs/{runId}. Everything
 // rendered is real snapshot data; fields the snapshot does not carry are
 // omitted, never synthesised.
 
@@ -49,6 +51,14 @@ function finishedPill(status: NodeStatus): { cls: string; label: string } | null
   }
 }
 
+/** A code run with a ticket and project opens its ticket; a ticketless or non-code run its viewer. */
+export function runRowHref(snapshot: RunSnapshot): string {
+  if (snapshot.pipeline === "code" && snapshot.ticketId && snapshot.project) {
+    return ticketPath(snapshot.project, snapshot.ticketId);
+  }
+  return `/jobs/${encodeURIComponent(snapshot.runId)}`;
+}
+
 export function RunRow({ snapshot }: Props) {
   // 2026-09-22-7c41c: ONE derived status drives all four reads below — the layout gate, the
   // state dot's class, the activity-line gate and the wait-reason column. A parked run whose
@@ -64,7 +74,7 @@ export function RunRow({ snapshot }: Props) {
 
   return (
     <Link
-      href={`/jobs/${encodeURIComponent(snapshot.runId)}`}
+      href={runRowHref(snapshot)}
       data-testid={`run-row-${snapshot.runId}`}
       className={cn("rrow", ST_CLASS[status])}
     >

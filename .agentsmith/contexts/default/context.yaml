@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-13-9a59q: "TICKET PAGE (dashboard /tickets/{project}/{ticketId}, one per-page store, Summary tab, attempt flow graph). Header, four cells and per attempt a pipeline graph with spec rows, passes, questions and hand-backs, each node explained; list rows and code runs link here. -> .agentsmith/specs/done/2026-10-13-9a59q-dashboard-ticket-graph.yaml"
     2026-10-13-9a59p: "TICKET LIST (dashboard /tickets, rail Work section, runs home, DESIGN.md state palette). Tickets grouped by who acts next with series strip, PR cells and attempt marks; questions answered inline, hand-backs lead into the conversation; the runs home says Waiting for input. -> .agentsmith/specs/done/2026-10-13-9a59p-dashboard-ticket-list.yaml"
     2026-10-13-9a59o: "TICKET_RUNS FACTS (dialog tool, bound ticket runs). In a ticket's conversation ticket_runs carries each attempt's cause, each spec's verdict, criteria outcomes, declined and unmeasured accounts, and every PR record's newest 40 review entries with kind, decision, file and line. -> .agentsmith/specs/done/2026-10-13-9a59o-dialog-agent-ticket-tools.yaml"
     2026-10-13-9a59n: "RETRY UNCHANGED (run control, infrastructure-end rule, rework worker, attempt cause). Retry starts one attempt only after an infrastructure end (interrupted, reaped, a vanished or OOM-killed sandbox in the last launch) through the rework queue, cause retry; every other end answers 409 {reason, text}. -> .agentsmith/specs/done/2026-10-13-9a59n-retry-unchanged.yaml"

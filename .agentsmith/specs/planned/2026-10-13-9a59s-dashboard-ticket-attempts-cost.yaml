@@ -34,7 +34,7 @@ facts:
   - claim: "queued and waiting_for_input are live because both resume as the same run; isRunLive answers that."
     evidence: "src/dashboard/src/lib/runLiveness.ts:4-20"
   - claim: "The live view of a run is /jobs/{id}; its trace is read on the separate why view /jobs/{id}/why."
-    evidence: "src/dashboard/src/components/jobs/RunRow.tsx:66, src/dashboard/src/app/jobs/[id]/why/page.tsx:1-8, src/dashboard/src/components/jobs/why/TraceReader.tsx:24"
+    evidence: "src/dashboard/src/components/jobs/RunRow.tsx:59, src/dashboard/src/app/jobs/[id]/why/page.tsx:1-8, src/dashboard/src/components/jobs/why/TraceReader.tsx:24"
   - claim: "The trace and the per-run statistics are served under runs.read."
     evidence: "src/backend/AgentSmith.Server/Extensions/RunStoryEndpoints.cs:19-20"
   - claim: "The PR status vocabulary has no draft or ready state, and the run view's draft flag is derived from the run's terminal status, not recorded per PR."
@@ -43,7 +43,7 @@ facts:
     evidence: "src/dashboard/src/hooks/useJobsHub.ts:29-33,96-109"
   - claim: "The retry endpoint (2026-10-13-9a59n) starts an unchanged attempt only after an infrastructure end and answers every refusal as a 409 {reason, text, project, ticketId}; no dashboard code calls it."
     evidence: "src/backend/AgentSmith.Server/Extensions/RetryEndpoints.cs:16,24-31, src/backend/AgentSmith.Server/Models/RetryRefusalView.cs:8"
-  - claim: "The line ratchet covers C# only: file-length-baseline.tsv lists no dashboard file, so mock-parity.css (1285 lines) needs no room made."
+  - claim: "The line ratchet covers C# only: file-length-baseline.tsv lists no dashboard file, so mock-parity.css (1561 lines) needs no room made."
     evidence: "observed: 2026-10-13, grep -c '\\.ts' tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv = 0; wc -l src/dashboard/src/styles/mock-parity.css"
 
 assumptions:

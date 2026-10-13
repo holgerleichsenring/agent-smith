@@ -11,6 +11,9 @@ import type { OverviewSnapshot, RunSnapshot } from "@/types/hub-events";
 import TicketsPage from "@/app/tickets/page";
 import { TicketListProvider } from "@/lib/tickets/TicketListProvider";
 import { fakeHub, list, pr, ticket } from "@/components/tickets/__tests__/ticketFixtures";
+import { TicketPage } from "@/components/tickets/detail/TicketPage";
+import { TicketPageStore } from "@/lib/tickets/TicketPageStore";
+import { attempt, conversation, detail, pass, passes, series, spec } from "@/components/tickets/detail/__tests__/detailFixtures";
 
 // p0343c: PIXEL IDENTITY guard — each redesigned surface renders the ratified
 // mock's structural DOM (wrapper + key mock classes), bound to real data. If a
@@ -18,8 +21,9 @@ import { fakeHub, list, pr, ticket } from "@/components/tickets/__tests__/ticket
 
 const push = vi.fn();
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push }),
+  useRouter: () => ({ push, replace: vi.fn() }),
   usePathname: () => "/",
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 function snap(over: Partial<RunSnapshot> = {}): RunSnapshot {
@@ -208,6 +212,30 @@ describe("Mock parity", () => {
       expect(ticketsRoot.querySelector(cls), `ticket list missing ${cls}`).not.toBeNull();
     }
     ticketView.unmount();
+
+    // ---- ticket detail (ticket-view.html, detail view: Summary) ----
+    const carriedAttempt = attempt({ number: 2, runId: "r-2", revision: { number: 2, cause: "comment on the ticket", seriesId: "x", carriedIds: ["s1"], approvalAt: null } });
+    const ticketApi = {
+      detail: () => Promise.resolve(detail([attempt(), carriedAttempt])),
+      series: (_p: string, _t: string, runId: string | null) => Promise.resolve(series(runId ?? "r-2", [
+        spec({ state: "carried" }), spec({ specId: "s2", ordinal: 2 }),
+      ])),
+      conversation: () => Promise.resolve(conversation([])),
+      passes: (runId: string) => Promise.resolve(passes(runId, { s2: [pass()] })),
+    };
+    const ticketPage = render(
+      <TicketPageStore project="shop" ticketId="101" client={fakeHub().client} api={ticketApi}>
+        <TicketPage />
+      </TicketPageStore>,
+    );
+    const pageRoot = screen.getByTestId("ticket-page");
+    expect(pageRoot.className).toContain("mock-shell");
+    expect(pageRoot.className).toContain("mock-tickets");
+    await screen.findByTestId("attempt-flow");
+    for (const cls of [".t-head", ".ticon", ".tsub", ".tabs", ".tab", ".sum", ".sg", ".banner", ".graph", ".g-top", ".gt", ".g-sub", ".lm", ".canvas", ".edge", ".node", ".g-legend", ".sdet", ".sd-h", ".sd-b"]) {
+      expect(pageRoot.querySelector(cls), `ticket detail missing ${cls}`).not.toBeNull();
+    }
+    ticketPage.unmount();
 
     // ---- run viewer (run-viewer.html) ----
     const viewer = render(withStore(<RunDetailPage params={resolvedParams("r1")} />));

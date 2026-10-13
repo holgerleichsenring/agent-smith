@@ -137,6 +137,21 @@ describe("RunRow", () => {
     expect(row).toHaveAttribute("href", `/jobs/${encodeURIComponent(base.runId)}`);
   });
 
+  // 2026-10-13-9a59q: a code run of a ticket opens the ticket's page; anything else its run viewer.
+  it("RunRow_ACodeRunWithATicket_LinksToTheTicketPage", () => {
+    render(<RunRow snapshot={{ ...base, pipeline: "code", project: "shop", ticketId: "45/1" }} />);
+    expect(screen.getByTestId(`run-row-${base.runId}`)).toHaveAttribute("href", "/tickets/shop/45%2F1");
+  });
+
+  it("RunRow_ATicketlessOrNonCodeRun_LinksToItsRunViewer", () => {
+    const viewer = `/jobs/${encodeURIComponent(base.runId)}`;
+    const { unmount } = render(<RunRow snapshot={{ ...base, pipeline: "code", project: "shop", ticketId: null }} />);
+    expect(screen.getByTestId(`run-row-${base.runId}`)).toHaveAttribute("href", viewer);
+    unmount();
+    render(<RunRow snapshot={{ ...base, pipeline: "security-scan", project: "shop" }} />);
+    expect(screen.getByTestId(`run-row-${base.runId}`)).toHaveAttribute("href", viewer);
+  });
+
   it("RunRow_QueuedStatus_ShowsPositionAndReason", () => {
     // p0320d: a queued run shows its FIFO place and WHY it waits — never the
     // misleading stepIndex/totalSteps fill that reads like a stalled run.

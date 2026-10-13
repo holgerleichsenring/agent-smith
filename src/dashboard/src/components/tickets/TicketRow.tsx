@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { ticketPath } from "@/lib/tickets/ticketAddress";
 import type { TicketSummary } from "@/types/tickets";
 import { TicketActivity } from "./TicketActivity";
 import { TicketAttemptMarks } from "./TicketAttemptMarks";
@@ -9,7 +10,7 @@ import { age, attempts, money, ticketLabel } from "./ticketFormat";
 
 // 2026-10-13-9a59p: one ticket on the list, in the mock's .trow anatomy — state dot, key and
 // title over the activity line, series strip with its PR cells, attempt marks, summed cost, age,
-// chevron. The whole row opens the newest attempt's run viewer; Enter does the same, being a link.
+// chevron. The whole row opens the ticket's page (2026-10-13-9a59q); Enter does the same, being a link.
 
 /** The state dot. An ended ticket is coloured by how its last attempt ended, so a success is
  *  never painted in the stopped colour. */
@@ -37,7 +38,7 @@ function outcomeDot(outcome: string | null): string {
 }
 
 export function ticketHref(t: TicketSummary): string {
-  return `/jobs/${encodeURIComponent(t.newestRunId)}`;
+  return ticketPath(t.project, t.ticketId);
 }
 
 export function TicketRow({ ticket }: { ticket: TicketSummary }) {

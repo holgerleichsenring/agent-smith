@@ -132,3 +132,235 @@ export interface TicketListView {
   nextCursor: string | null;
   counts: TicketCounts;
 }
+
+// 2026-10-13-9a59q: the ticket page's reads — GET /api/tickets/{project}/{ticketId} (TicketDetailView),
+// .../series[?runId=] (TicketSeriesView), .../conversation (TicketConversationView) and
+// GET /api/runs/{runId}/passes (RunPassesView), camelCase as AgentSmith.Server/Models serves them.
+
+/** A per-repository pull-request outcome as the run row recorded it (opened | no_changes | failed). */
+export interface TicketRunPullRequest {
+  repo: string;
+  status: string;
+  url: string | null;
+  reason: string | null;
+  openedAt: string;
+}
+
+/** A spec the attempt executed (a RunSpec row, not_started included). */
+export interface TicketExecutedSpec {
+  specId: string;
+  ordinal: number;
+  title: string;
+  status: string;
+  verdict: string | null;
+}
+
+export interface TicketAttemptRevision {
+  number: number;
+  cause: string | null;
+  seriesId: string | null;
+  carriedIds: string[];
+  approvalAt: string | null;
+}
+
+/** One attempt at the ticket, numbered from 1 by run id. */
+export interface TicketAttempt {
+  number: number;
+  runId: string;
+  status: string;
+  startedAt: string;
+  finishedAt: string | null;
+  cost: number;
+  endedOnInfrastructure: boolean;
+  handedBack: boolean;
+  pullRequests: TicketRunPullRequest[];
+  executedSpecs: TicketExecutedSpec[];
+  pendingQuestion: PendingQuestionInfo | null;
+  cause?: AttemptCause | null;
+  revision?: TicketAttemptRevision | null;
+}
+
+export interface TicketOtherRun {
+  runId: string;
+  pipeline: string;
+  status: string;
+  startedAt: string;
+  finishedAt: string | null;
+  cost: number;
+  neverStarted: boolean;
+}
+
+export interface TicketActedSince {
+  kind: string;
+  who: string | null;
+  at: string;
+  url?: string | null;
+}
+
+export interface TicketDetail {
+  summary: TicketSummary;
+  branch: string;
+  attempts: TicketAttempt[];
+  otherRuns: TicketOtherRun[];
+  actedSince?: TicketActedSince[] | null;
+}
+
+export interface TicketSpecStep {
+  id: string;
+  action: string;
+  target: string | null;
+}
+
+export interface TicketSeriesCriterion {
+  text: string;
+  /** met | unmet | not_applicable; null while unjudged */
+  verdict: string | null;
+  note: string | null;
+  citation: string | null;
+  overrule: { humanStatus: string; reason: string; author: string; at: string } | null;
+}
+
+export interface TicketSeriesStepWorked {
+  stepId: string;
+  state: string | null;
+  doneByRunId: string | null;
+  doneByAttempt: number | null;
+  doneInPass: number | null;
+}
+
+export interface TicketSeriesSpec {
+  specId: string;
+  ordinal: number;
+  fileStem: string;
+  goal: string;
+  repos: string[];
+  steps: TicketSpecStep[];
+  yaml: string;
+  /** not_started | in_progress | done | failed | handed_back | carried */
+  state: string;
+  executedBy: string | null;
+  executedByAttempt: number | null;
+  done: TicketSeriesCriterion[];
+  unmeasured: Array<{ repositories: string; reason: string | null }>;
+  worked?: TicketSeriesStepWorked[] | null;
+}
+
+export interface TicketSeries {
+  project: string;
+  ticketId: string;
+  /** The attempt the cut came from; null when no attempt published one. */
+  runId: string | null;
+  attempt: number | null;
+  at: string | null;
+  setKey: string | null;
+  handback: { case: string; runId: string; attempt: number; at: string } | null;
+  /** passed | failed | skipped */
+  gate: { status: string; specCount: number; runId: string } | null;
+  specs: TicketSeriesSpec[];
+  revisions: Array<{ number: number; cause: string | null; runId: string; attempt: number; at: string | null }>;
+  recorded: boolean;
+}
+
+export interface RunPassCost {
+  costUsd: number;
+  calls: number;
+}
+
+export interface RunPassCriterion {
+  criterion: string;
+  /** met | not_applicable | unmet */
+  status: string;
+  evidence: string;
+}
+
+export interface RunPassStepMoved {
+  entryId: string;
+  activity: string;
+  from: string | null;
+  to: string | null;
+  cause: string;
+  pass: number;
+}
+
+/** One master pass; ordinal is run-wide, passInSpec the number a reader is shown. */
+export interface RunPass {
+  ordinal: number;
+  passInSpec: number;
+  passInStep: number | null;
+  openedBecause: string | null;
+  endedBecause: string;
+  reengageReason: string | null;
+  verdictEmitted: boolean | null;
+  criteriaMet: number | null;
+  criteriaTotal: number | null;
+  criteria: RunPassCriterion[] | null;
+  gateLine: string | null;
+  actionablePending: number | null;
+  unbackedDone: number | null;
+  endedAt: string | null;
+  stepsMoved: RunPassStepMoved[];
+  costUsd: number;
+  calls: number;
+}
+
+export interface RunPassSpec {
+  specId: string;
+  passes: RunPass[];
+  outsidePasses: RunPassCost;
+}
+
+export interface RunPasses {
+  runId: string;
+  specs: RunPassSpec[];
+  derive: RunPassCost;
+  pr: RunPassCost;
+  other: RunPassCost;
+  notAttributed: RunPassCost;
+}
+
+/** ticket | question | pr-review | spec-cut | conversation */
+export type TicketConversationSource = string;
+
+export interface TicketConversationEntry {
+  id: string;
+  sourceId: string | null;
+  prKey: string | null;
+  source: TicketConversationSource;
+  /** edited | answer | default-answer | command-answer | comment | turn | question | hand-back | cut-review | … */
+  kind: string;
+  /** person | agent | system | reviewer */
+  role: string;
+  author: string | null;
+  isOurs: boolean;
+  at: string;
+  attemptRunId: string | null;
+  group: string | null;
+  text: string | null;
+  file?: string | null;
+  line?: number | null;
+  detail?: unknown;
+  url?: string | null;
+}
+
+export interface TicketConversationAttempt {
+  runId: string;
+  number: number;
+  cause: AttemptCause | null;
+  revision: TicketAttemptRevision | null;
+  demandEntryId?: string | null;
+}
+
+export interface TicketConversation {
+  project: string;
+  ticketId: string;
+  entries: TicketConversationEntry[];
+  attempts: TicketConversationAttempt[];
+  sessionId: string | null;
+  openDialogId: string | null;
+  proposal: {
+    kind: string;
+    drafts: Array<{ specId: string; goal: string; repos: string[]; done: string[] }>;
+  } | null;
+  transcriptHidden: boolean;
+  threadUnavailable: boolean;
+}

@@ -77,10 +77,10 @@ describe("TicketList", () => {
     expect(screen.getByTestId("ticket-metric-working")).toHaveTextContent("2 running · 1 queued");
   });
 
-  it("Row_OpensTheNewestAttemptsRunViewer", async () => {
+  it("Row_OpensTheTicketPage", async () => {
     serve(list([ticket({ newestRunId: "r-9" })], { working: 1 }));
     renderTickets();
-    expect(await screen.findByTestId("ticket-row-shop-101")).toHaveAttribute("href", "/jobs/r-9");
+    expect(await screen.findByTestId("ticket-row-shop-101")).toHaveAttribute("href", "/tickets/shop/101");
   });
 
   it("StuckBucket_FetchesItsBucket_ShowsOnlyStuck_MarksItsRailEntry_AndPages", async () => {
@@ -157,6 +157,8 @@ describe("TicketList", () => {
 
     expect((await screen.findByTestId("ticket-handback"))).toHaveTextContent("No such table exists.");
     expect(screen.getByTestId("ticket-handback-reply")).toHaveAttribute("href", "/spec-dialog?ticket=45%2F1&project=shop");
+    // 2026-10-13-9a59q: the Needs-you row itself opens the ticket's page.
+    expect(screen.getByTestId("ticket-row-shop-45/1")).toHaveAttribute("href", "/tickets/shop/45%2F1");
     expect(hoisted.fetch.mock.calls.every(([query]) => !("conversation" in query))).toBe(true);
     expect(hoisted.fetchRun).not.toHaveBeenCalled();
     expect(network).not.toHaveBeenCalled();

@@ -3,7 +3,15 @@
 // the server for its bucket and pages it with the cursor the server returns.
 
 import { getJson } from "@/lib/apiResponse";
-import type { TicketListView, TicketServerBucket } from "@/types/tickets";
+import { ticketPath } from "@/lib/tickets/ticketAddress";
+import type {
+  RunPasses,
+  TicketConversation,
+  TicketDetail,
+  TicketListView,
+  TicketSeries,
+  TicketServerBucket,
+} from "@/types/tickets";
 
 export interface TicketListQuery {
   bucket?: TicketServerBucket;
@@ -22,4 +30,28 @@ export function ticketListPath(query: TicketListQuery = {}): string {
 
 export async function fetchTickets(query: TicketListQuery = {}, signal?: AbortSignal): Promise<TicketListView> {
   return getJson<TicketListView>(ticketListPath(query), signal);
+}
+
+// 2026-10-13-9a59q: the ticket page's reads, under /api at the page's own address.
+
+export function fetchTicketDetail(project: string, ticketId: string, signal?: AbortSignal): Promise<TicketDetail> {
+  return getJson<TicketDetail>(`/api${ticketPath(project, ticketId)}`, signal);
+}
+
+/** Without a run id the ticket's latest cut with specs; with one, that attempt's cut and gate. */
+export function fetchTicketSeries(
+  project: string, ticketId: string, runId: string | null, signal?: AbortSignal,
+): Promise<TicketSeries> {
+  const query = runId ? `?runId=${encodeURIComponent(runId)}` : "";
+  return getJson<TicketSeries>(`/api${ticketPath(project, ticketId)}/series${query}`, signal);
+}
+
+export function fetchTicketConversation(
+  project: string, ticketId: string, signal?: AbortSignal,
+): Promise<TicketConversation> {
+  return getJson<TicketConversation>(`/api${ticketPath(project, ticketId)}/conversation`, signal);
+}
+
+export function fetchRunPasses(runId: string, signal?: AbortSignal): Promise<RunPasses> {
+  return getJson<RunPasses>(`/api/runs/${encodeURIComponent(runId)}/passes`, signal);
 }

@@ -126,7 +126,13 @@ Every refusal is a `409` with one body, `{reason, text, project, ticketId}`. `re
 - **Ended**: no next step is running or waiting, such as a cancelled attempt or a success without a pull request. The dot follows how the last attempt ended.
 - **Done**: every pull request merged or closed, collapsed to this month's count until **Show done**.
 
-Each row shows the series strip (one cell per spec of the current series, then one per pull request), a mark per attempt, the summed cost and the age, and opens the newest attempt. A section holding more tickets than the page loaded ends with **Show all**, which opens its bucket view.
+Each row shows the series strip (one cell per spec of the current series, then one per pull request), a mark per attempt, the summed cost and the age, and opens the ticket's page. A section holding more tickets than the page loaded ends with **Show all**, which opens its bucket view. On the runs home, a code run of a ticket opens the same page; any other run opens its run viewer.
+
+### A ticket's page
+
+`/tickets/{project}/{ticketId}` opens on **Summary**. The header names the ticket, links its tracker, says which tracker status the newest attempt read, which attempt is running and the work branch; **Cancel attempt n** ends a running attempt. Four cells describe the chosen attempt: what started it, its series revision with how many specs it carried and how many it cut new, the ticket's pull requests with their review state, and its wall time, cost and repositories. A banner names the specs an attempt carried from earlier attempts at no cost.
+
+Below is the attempt's flow graph, one tab per attempt: ticket, derive (with a count of the cuts the reviewer refused), then either the hand-back or the spec gate, one row per spec of that attempt's cut, and the ship or end node. A carried spec is one small dashed node. A spec that ran gets build and verify, one lane per master pass, numbered within the spec, with the reason the master went back on the return edge; **folded** shows only the last pass. A question hangs off the build of the pass that parked. Choosing a node, by click or Enter, explains it from that attempt's own records below the graph; a node with nothing recorded says so. An attempt from before attempts recorded their cut has no graph and links to its run viewer. The page follows a running attempt without a reload.
 
 ## Pull requests
 

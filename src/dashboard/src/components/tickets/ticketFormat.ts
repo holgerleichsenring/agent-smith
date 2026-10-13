@@ -38,9 +38,13 @@ const CHANNEL_WORDS: Record<string, string> = {
   retry: "retry",
 };
 
+export function channelWords(channel: string): string {
+  return CHANNEL_WORDS[channel] ?? channel;
+}
+
 /** Why the newest attempt began: the channel, the status it moved into, and who acted. */
 export function causeWords(cause: AttemptCause): string {
-  const channel = CHANNEL_WORDS[cause.channel] ?? cause.channel;
+  const channel = channelWords(cause.channel);
   const detail = cause.source?.detail ? ` to ${cause.source.detail}` : "";
   const actor = cause.actor ? ` by ${cause.actor}` : "";
   return `${channel}${detail}${actor}`;

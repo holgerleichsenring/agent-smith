@@ -1,0 +1,92 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-9a59q
+
+decisions:
+  - category: Architecture
+    chose: "The store is a plain class, TicketPageReads, holding every read and its refetch rules, wrapped by the TicketPageStore provider that wires the hub, useRunEvents and the hooks"
+    over: "All reads and timers inside the React provider"
+    reason: |
+      The rules (one fetch per read per 2 s window, terminal per-run reads once, live ones re-read, the
+      conversation only on (a), (c), (d)) are counted per endpoint in tests with an injected api; the provider only
+      routes hub nudges and the live stream to it. The class is restartable because React's strict mode disposes and
+      starts an effect once more, and every landing is guarded by a generation so an aborted read never flashes.
+  - category: Implementation
+    chose: "DEVIATION: the hooks read the page's ticket from its provider — useTicketDetail(), useTicketSeries(runId?), useTicketConversation(), useAttemptPasses(runId) — instead of taking (project, ticketId) again"
+    over: "The spec's useTicketDetail(project, ticketId) / useTicketSeries(project, ticketId, runId?) signatures"
+    reason: |
+      One store is mounted per route (keyed by project/ticket), so a second (project, ticketId) argument could only
+      repeat the provider's or disagree with it. r and s call the same hooks without the pair.
+  - category: Implementation
+    chose: "Every scheduled read waits its 2 s window through its own CoalescedRefetch (ticket tick = detail + default series + live per-run reads; conversation tick), including (c) and (d)"
+    over: "Reading the conversation at once on a changed status or a SpecCutReviewed"
+    reason: |
+      A read scheduled at once right after a (a)-triggered conversation read would be a second read inside one
+      window. With every trigger waiting its window from the first nudge, a read never fires sooner than 2 s after
+      the one before it.
+  - category: Implementation
+    chose: "An attempt whose status moved in a refetched detail and is now terminal gets its watched per-run reads once more; a per-run read requested while one is in flight runs again after it"
+    over: "Treating the last live read as final"
+    reason: |
+      A live read in flight when the run ends can land the state from before its last pass; the one extra read
+      after the move is what makes 'fetched once' true of the final state.
+  - category: Implementation
+    chose: "DEVIATION: the ticket node shows the cause and the 'edited' conversation entry (its title/description/criteria before/after diff); it shows no ticket-text entry"
+    over: "The spec's 'the ticket-text entry and its fingerprint diff'"
+    reason: |
+      9a59h's conversation read serves no ticket-text entry: ConversationRunEntries.Of
+      (Server/Services/Tickets/Conversation/ConversationRunEntries.cs:22-41) yields questions, answers, hand-backs and
+      cut reviews, and reads ticket-text rows only to build the 'edited' entry between consecutive fingerprints.
+  - category: Implementation
+    chose: "The derive badge counts the attempt's refused cut-review entries from the conversation read; a SpecCutReviewed in the live stream re-reads the conversation (rule d)"
+    over: "Counting SpecCutReviewed events from the live stream for the badge"
+    reason: |
+      One source draws live and terminal attempts alike, and the findings the node detail lists live only in the
+      entry's detail. The stream event is the trigger, as rule (d) requires, so the badge still follows the live run.
+  - category: Implementation
+    chose: "A pass is live when it is the spec's last pass, ended 'unknown' (calls stamped, no end row) and the spec is in_progress; a spec with no recorded pass draws one stub lane, working while live and in_progress, else idle with its cut's step and criterion counts"
+    over: "Inventing a next lane after a re-engaged pass before it made a call"
+    reason: |
+      9a59f writes a pass row only when it ends; a running pass shows only as stamped calls read 'unknown'. A lane
+      for a pass that has not made a call would draw a value no backend member delivers.
+  - category: Implementation
+    chose: "The question node joins by position over the attempt's conversation entries with source question and kind question, in the order the read serves them, against the run's question-ended passes by ordinal; the answer is the entry with id '{questionId entry}:answer'"
+    over: "Matching by time"
+    reason: "As the spec decides (review3-q Q3); h's ids (ConversationRunEntries.cs:28,46) make the answer lookup exact."
+  - category: Implementation
+    chose: "The fallback (no graph, link to the run viewer) is a terminal attempt with no revision AND series?runId= naming no cut (runId null); a live attempt with no cut draws TICKET -> DERIVE working"
+    over: "Falling back whenever the cut is missing"
+    reason: |
+      TicketSeriesReader returns RunId null when the asked attempt published no cut; a hand-back attempt has a
+      hand-back cut and draws HAND-BACK. A live attempt before its cut is deriving (review3-q Q5).
+  - category: Implementation
+    chose: "Runs-home links: RunRow's href is the ticket page when pipeline is code and the snapshot carries ticketId and project; any other run keeps /jobs/{runId}"
+    over: "Linking every run with a ticket id"
+    reason: |
+      The snapshot's project is filled on the REST paths only (RunSnapshot.cs:111); a row without it cannot name
+      the page and keeps the run viewer rather than guessing the project.
+  - category: Implementation
+    chose: "ticketPath lives in lib/tickets/ticketAddress.ts, and TICKET_PAGE_API binds the HTTP reads at call time"
+    over: "Exporting the path from lib/ticketsApi.ts"
+    reason: |
+      Several suites mock @/lib/ticketsApi wholesale with fetchTickets only; a link helper there would vanish under
+      those mocks and break every row that links.
+  - category: Implementation
+    chose: "The tab table is components/tickets/detail/ticketTabTable.ts (ticketTabs, TicketTab, ticketTab, TAB_PARAM); the bar is TicketTabs.tsx"
+    over: "ticketTabs.ts beside TicketTabs.tsx"
+    reason: "On a case-insensitive file system ./ticketTabs and ./TicketTabs are one import path."
+  - category: Design
+    chose: "Deviations from ticket-view.html, recorded in mock-parity.css's header: keyframes flow/halo/blink are mock-flow/mock-halo/mock-blink; the light .pill set, the header dot's other states (person, ok, bad, idle), .gd.infra for an attempt ended on infrastructure, legend swatch classes, .g-note and .doc .dim-line are added"
+    over: "Global keyframe names and inline legend styles"
+    reason: |
+      The mock's keyframe names are global and generic (Tailwind owns pulse already); the header dot and the
+      switcher must show every state of the palette, not only working. Colours come from the existing tokens only.
+  - category: Design
+    chose: "Summary cells describe the attempt chosen in the graph's switcher (the newest until another is picked); a cell with nothing recorded says 'not recorded' / 'none recorded' and draws no value"
+    over: "Cells pinned to the newest attempt"
+    reason: |
+      'This attempt' and 'Series' are per attempt; switching attempts in the graph without the cells following would
+      show two attempts' facts side by side.
+  - category: Scope
+    chose: "The banner's Open specs button, the header's Continue in conversation and the spec node's Open the spec button are not drawn"
+    over: "Drawing them disabled"
+    reason: "They belong to 2026-10-13-9a59r with the tabs they open; the bar never shows a control without its target."

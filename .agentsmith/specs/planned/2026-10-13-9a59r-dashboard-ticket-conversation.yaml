@@ -58,8 +58,8 @@ facts:
   - claim: "The backend fires a RunsChanged nudge per event of a live run."
     evidence: "src/dashboard/src/hooks/useJobsHub.ts:96-109"
   - claim: "The mock-parity layer is plain CSS scoped under .mock-shell; its parity test asserts structural classes per surface."
-    evidence: "src/dashboard/src/styles/mock-parity.css:1-15, src/dashboard/src/__tests__/mock-parity.test.tsx:151-152"
-  - claim: "The line ratchet covers C# only: file-length-baseline.tsv lists no dashboard file, so useSpecDialog.ts (764 lines) and mock-parity.css (1399 lines) need no room made."
+    evidence: "src/dashboard/src/styles/mock-parity.css:1-15, src/dashboard/src/__tests__/mock-parity.test.tsx:155-156"
+  - claim: "The line ratchet covers C# only: file-length-baseline.tsv lists no dashboard file, so useSpecDialog.ts (764 lines) and mock-parity.css (1561 lines) need no room made."
     evidence: "observed: 2026-10-13, grep -c '\\.ts' tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv = 0; wc -l src/dashboard/src/hooks/useSpecDialog.ts src/dashboard/src/styles/mock-parity.css"
 
 assumptions:

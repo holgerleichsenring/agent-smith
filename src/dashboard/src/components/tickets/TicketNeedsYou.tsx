@@ -32,7 +32,7 @@ function QuestionAnswer({ ticket }: { ticket: TicketSummary }) {
   if (!parked.question) {
     return (
       <div className="hint-line" data-testid="ticket-question-unavailable">
-        Question unavailable — <Link href={ticketHref(ticket)}>open the attempt</Link> to answer.
+        Question unavailable — <Link href={ticketHref(ticket)}>open the ticket</Link> to answer.
       </div>
     );
   }

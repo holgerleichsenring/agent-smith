@@ -17,16 +17,18 @@ import { useCallback, useState } from "react";
 interface Props {
   runId: string;
   cancelRequested: boolean;
+  /** 2026-10-13-9a59q: the idle wording — "Cancel attempt 3" on the ticket page; "cancel" otherwise. */
+  label?: string;
 }
 
 import { apiFetch } from "@/lib/apiResponse";
 
-export function CancelRunButton({ runId, cancelRequested }: Props) {
+export function CancelRunButton({ runId, cancelRequested, label: idleLabel = "cancel" }: Props) {
   const [armed, setArmed] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const disabled = pending || cancelRequested;
-  const label = disabled ? "cancelling…" : armed ? "confirm cancel" : "cancel";
+  const label = disabled ? "cancelling…" : armed ? "confirm cancel" : idleLabel;
 
   const onClick = useCallback(async (e: React.MouseEvent) => {
     e.preventDefault();
