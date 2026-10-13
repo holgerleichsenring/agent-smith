@@ -37,10 +37,6 @@ public sealed class GitLabMrLabelWebhookHandlerTests
             new PrReviewRouteResolver(new ConfiguredRepoFinder()), new PrRunContextFactory(),
             NullLogger<GitLabMrLabelWebhookHandler>.Instance);
 
-    private static GitLabMrEventWebhookHandler CreateEventHandler() =>
-        new(Loader().Object, new ServerContext(ConfigPath), new PrReviewRouteResolver(new ConfiguredRepoFinder()),
-            new PrRunContextFactory(), NullLogger<GitLabMrEventWebhookHandler>.Instance);
-
     private static string Payload(string previous, string current, string extraAttrs = "", bool withChanges = true) => $$"""
         {
             "user": { "username": "dev-a" },
@@ -84,20 +80,11 @@ public sealed class GitLabMrLabelWebhookHandlerTests
     }
 
     [Fact]
-    public async Task GitLabMrLabel_SourcePushOnLabelledMr_FallsThroughToPrReview()
+    public async Task GitLabMrLabel_SourcePushOnLabelledMr_StartsNothing()
     {
         var push = Payload("", "", extraAttrs: """, "oldrev": "prevsha" """, withChanges: false);
-        IWebhookHandler[] registrationOrder = [CreateHandler(), CreateEventHandler()];
 
-        WebhookResult? claimed = null;
-        foreach (var handler in registrationOrder)
-        {
-            var result = await handler.HandleAsync(push, EmptyHeaders);
-            if (result.Handled) { claimed = result; break; }
-        }
-
-        claimed.Should().NotBeNull();
-        claimed!.Pipeline.Should().Be("pr-review");
+        (await CreateHandler().HandleAsync(push, EmptyHeaders)).Handled.Should().BeFalse();
     }
 
     [Fact]

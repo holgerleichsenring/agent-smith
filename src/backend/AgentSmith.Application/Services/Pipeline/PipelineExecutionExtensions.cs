@@ -78,7 +78,7 @@ public static class PipelineExecutionExtensions
         // dashboard read one materialized resolution.
         services.AddSingleton<Configuration.IConfigResolver, Configuration.ConfigResolutionPass>();
         services.AddTransient<ISandboxLanguageResolver, SandboxLanguageResolver>()
-            .AddTransient<ContextBranchLocator>().AddTransient<ContextYamlRemoteReader>();
+            .AddTransient<ContextBranchLocator>().AddTransient<ContextYamlRemoteReader>().AddTransient<RemoteBootstrapProbe>();
         services.AddTransient<ISourceConfigOverrider, SourceConfigOverrider>();
         services.AddSingleton<IPipelineConfigResolver, PipelineConfigResolver>();
         // p0401: one meter per host, injected — the instrument set is a service, not

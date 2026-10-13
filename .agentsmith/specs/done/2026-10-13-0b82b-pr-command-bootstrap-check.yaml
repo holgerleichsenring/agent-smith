@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-0b82b
+goal: "A PR command for a pipeline that needs a bootstrapped repository is checked against the PR's branch before a run exists; when files are missing the command gets one answer and no run."
+
+applies_to: "backend (PR command launch, bootstrap probe) + docs"
+
+requires: [2026-10-13-0b82a]
+
+facts:
+  - claim: "A ticketless PR command launches through PrCommandLaunch and answers the command with one PR comment."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/PrCommandLaunch.cs:28-56,65-77"
+  - claim: "The bootstrap verdict per context — context.yaml and principles.md, the retired name reported — is ContextProbeResult, described by MissingBootstrapFile."
+    evidence: "src/backend/AgentSmith.Application/Models/ContextProbeResult.cs:10-35"
+  - claim: "BootstrapPaths are sandbox-absolute (/work/...); host reads take repo-relative paths under .agentsmith/contexts/<name>/."
+    evidence: "src/backend/AgentSmith.Application/Models/BootstrapPaths.cs:20-36, src/backend/AgentSmith.Contracts/Services/ProjectMetaPaths.cs:55-62, src/backend/AgentSmith.Application/Services/Sandbox/ContextYamlRemoteReader.cs:20-34"
+  - claim: "Today the check only happens inside a run, after a sandbox is created and the branch checked out."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/BootstrapCheckHandler.cs:44-90, src/backend/AgentSmith.Application/Services/Handlers/BootstrapContextProbe.cs:16-46"
+  - claim: "The source provider lists a directory and reads a file on a named branch without a checkout."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ISourceProvider.BranchRead.cs:21-35, src/backend/AgentSmith.Application/Services/Sandbox/ContextBranchLocator.cs:20-35"
+  - claim: "A run discovers contexts with SandboxLanguageResolver.ListContextsAsync: only children whose context.yaml reads count; none yields one synthetic 'default' context; an unreadable listing is distinct from an empty one."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxLanguageResolver.cs:30-82"
+  - claim: "Context discovery passes over an absent, empty or unreadable candidate branch and lists the default branch instead; branch reads propagate auth and transport errors."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ContextBranchLocator.cs:22-56, src/backend/AgentSmith.Contracts/Providers/ISourceProvider.BranchRead.cs:15-35"
+  - claim: "The sweep advances a pull request's comment mark by compare-and-set before admission, so each comment is admitted once."
+    evidence: "src/backend/AgentSmith.Server/Services/Sweep/PrSweepComments.cs:24-33"
+
+assumptions: []
+
+scope:
+  in: >
+    RemoteBootstrapProbe (Application): for a repository and an optional branch, discover contexts exactly as the run does
+    (SandboxLanguageResolver.ListContextsAsync; no context is the synthetic 'default') and take their NAMES only; then read
+    context.yaml, principles.md and, when principles.md is absent, the retired name per context ON THE PROBED BRANCH
+    (the default-branch reads when none), as BootstrapContextProbe does in the sandbox. A branch the host says is absent
+    (BranchExistsAsync, asked first because discovery hides it), an unreadable listing, or an exception from the probe's
+    own reads is "unknown", never "incomplete"; a context.yaml read discovery itself swallows counts as no context, as in
+    the run. Paths are repo-relative (.agentsmith/contexts/<name>/ + the ProjectMetaPaths file names), never BootstrapPaths.
+    PrCommandLaunch.TicketlessRunAsync: after ChatPrContextResolver resolved the context and before the launch, when the
+    preset (PipelinePresets.TryResolve) carries BootstrapGate and the PR is from the same repository, probe the resolved
+    CheckoutBranch; incomplete → the command's answer names the branch and each MissingBootstrapFile.Describe() and says
+    init-project fixes it; no run. Unknown launches as before (the in-run gate still holds).
+    docs/reference/integrations/pr-comments.md says so.
+  out: >
+    Ticket-branch rework (agent-smith's own branch). Fork pull requests (the branch is not in the repository). Project
+    overview — 2026-10-13-0b82c.
+
+decisions:
+  - key: "CHECK AT ADMISSION, ANSWER THE ACT. One command, one answer; the comment mark already guarantees no repeat."
+  - key: "SAME VERDICT AS THE GATE: reuse ContextProbeResult and MissingBootstrapFile so the answer and a run's refusal never disagree."
+  - key: "FAIL OPEN on host errors: an unreachable host is not proof the repository is uninitialised."
+
+steps:
+  - id: probe
+    action: "RemoteBootstrapProbe: context names from the run's discovery, the three reads on the probed branch; unknown on absent branch, unreadable listing or host exception."
+  - id: launch
+    action: "PrCommandLaunch probes before a ticketless launch of a BootstrapGate preset; incomplete answers and stops."
+  - id: tests
+    action: "Red first: probe on retired principles, no contexts, stray file under contexts/, absent branch, a read that throws, branch without contexts while the default has them, complete; launch refuses with one answer and no run; unknown launches."
+  - id: docs
+    action: "pr-comments.md: an uninitialised branch gets an answer instead of a run."
+
+tests:
+  - "RemoteBootstrapProbe_RetiredPrinciples_ReportsRename"
+  - "RemoteBootstrapProbe_NoContexts_Incomplete"
+  - "RemoteBootstrapProbe_Complete"
+  - "RemoteBootstrapProbe_StrayFileUnderContexts_IsNoContext"
+  - "RemoteBootstrapProbe_AbsentBranch_Unknown"
+  - "RemoteBootstrapProbe_ReadThrows_Unknown"
+  - "RemoteBootstrapProbe_ReadsRepoRelativePaths"
+  - "RemoteBootstrapProbe_BranchWithoutContexts_IncompleteOnThatBranch"
+  - "PrCommand_UninitialisedBranch_AnswersOnceAndStartsNothing"
+  - "PrCommand_ProbeUnknown_StillLaunches"
+
+done:
+  - "A '/agent-smith pr-review' on a PR whose branch carries the retired principles file gets one answer naming the contexts and init-project, and no run appears."
+  - "The same command on a bootstrapped branch starts the review."

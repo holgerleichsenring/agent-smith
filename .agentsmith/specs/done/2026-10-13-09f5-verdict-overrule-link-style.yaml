@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-09f5
+goal: "The 'this verdict is wrong' overrule under each criterion reads as a quiet link, not as large unstyled text."
+
+applies_to: "dashboard (run story styles)"
+
+requires: [2026-08-25-e257]
+
+facts:
+  - claim: "The overrule, withdraw and cancel controls carry the class btn-link."
+    evidence: "src/dashboard/src/components/jobs/story/CriterionJudgementControl.tsx:58-80,119"
+  - claim: "No stylesheet defines btn-link, so the button renders with the browser's defaults inside the criterion."
+    evidence: "src/dashboard/src/styles/mock-parity.css:408-420"
+  - claim: "observed: on 2026-10-13 the operator saw 'this verdict is wrong' as large black text under every criterion of a run."
+    evidence: "observed: 2026-10-13, operator screenshot of run b058"
+
+assumptions: []
+
+scope:
+  in: "A .mock-viewer .btn-link rule in mock-parity.css: no background or border, 12px, the muted ink, underline on hover, pointer cursor."
+  out: "Moving or renaming the control; its behaviour (e257) is unchanged."
+
+decisions:
+  - key: "STYLE THE CLASS, DON'T RENAME IT. The component already says what it is; the stylesheet never answered."
+
+steps:
+  - id: css
+    action: "Add the .mock-viewer .btn-link rule beside the criterion styles."
+  - id: test
+    action: "A test reads mock-parity.css and finds the rule."
+
+tests:
+  - "mock-parity.css styles the criterion's overrule link"
+
+done:
+  - "Under each criterion of a finished run, 'this verdict is wrong' is a small muted link."

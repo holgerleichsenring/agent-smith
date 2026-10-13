@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-0b82a
+
+decisions:
+  - category: Architecture
+    chose: "Opening a pull request or pushing to it starts nothing; pr-review starts only on a person's command"
+    over: "A per-project switch for automatic review, or keeping auto-review and tightening its guards"
+    reason: |
+      A new head is a change, not an assignment; 2026-10-08-e8b9 already settled that only a deliberate act
+      starts work. On 2026-10-13 the sweep started five reviews nobody asked for on one repository, all failing
+      at the bootstrap gate. Nobody asked for a switch, and the guards (own-commit check, breaker) existed only
+      to contain the automatic start.
+  - category: Architecture
+    chose: "Delete the three PR-event webhook handlers, the breaker, the head columns and the head-message read"
+    over: "Leaving them unreachable behind a disabled path"
+    reason: |
+      Webhook and polling mode must behave alike (2026-10-08-101b); half-removed code would let them diverge
+      again. Everything deleted had no caller once the start was gone.
+  - category: Architecture
+    chose: "A new pull request that already carries the review label is still scanned"
+    over: "Treating every first sighting as record-only"
+    reason: "Putting the label on is a person's act; dropping its effect is not what the series asks for."

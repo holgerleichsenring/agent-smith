@@ -20,7 +20,7 @@ public sealed class WipCommitMessageTests
 
         var message = new WipCommitMessage().Build(pipeline);
 
-        WipCommit.IsOurs(message).Should().BeTrue("the PR sweep must recognise the head as ours");
+        message.Should().StartWith(WipCommit.Subject("run-1"));
         message.Should().Be(
             "[wip] agent-smith run run-1\n\nRun-Id: run-1\nPipeline: code\nFailed-Step: [4/9] AgenticExecute\n");
     }

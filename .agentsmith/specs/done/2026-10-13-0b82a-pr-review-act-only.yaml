@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-0b82a
+goal: "A pull request being opened or pushed to starts nothing; pr-review starts only on a person's act, in polling and webhook mode alike, on every host."
+
+applies_to: "backend (PR sweep, PR webhook handlers, persistence) + docs"
+
+requires: [2026-10-08-10b0, 2026-10-09-af10]
+
+facts:
+  - claim: "The sweep launches pr-review for a pull request it has no row for, and for one whose head moved, unless paused or the head is our WIP commit."
+    evidence: "src/backend/AgentSmith.Server/Services/Sweep/PrSweepPass.cs:41-54"
+  - claim: "The breaker exists only for sweep-launched reviews: it counts their failures on PrSweepState.FailedReviews and pauses at 3."
+    evidence: "src/backend/AgentSmith.Server/Services/Sweep/PrSweepBreaker.cs:10-45, src/backend/AgentSmith.Infrastructure.Persistence/Entities/PrSweepState.cs:14-18"
+  - claim: "GitHub opened/synchronize, GitLab MR open/push and Azure DevOps created/updated route to pr-review by default (p0167a)."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/GitHubPrEventWebhookHandler.cs:21-25, src/backend/AgentSmith.Server/Services/Webhooks/AzureDevOpsPrEventWebhookHandler.cs:24-28, src/backend/AgentSmith.Server/Services/Webhooks/GitLabMrEventWebhookHandler.cs:16-52, src/backend/AgentSmith.Server/Services/Webhooks/WebhookEndpointsExtensions.cs:67-72"
+  - claim: "A trusted /agent-smith comment is admitted through PrCommentCommandAdmission; on a ticket branch it is a rework act, elsewhere it resolves to code, security-scan or pr-review."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/PrCommentCommandAdmission.cs:31-57, src/backend/AgentSmith.Server/Services/Webhooks/PrCommentPipelines.cs:21-27"
+  - claim: "observed: on 2026-10-13 the sweep started pr-review on every PR a person opened or pushed in one Azure DevOps repository (5 runs, 07:58-09:30 UTC), all failing at the bootstrap gate, none asked for."
+    evidence: "observed: 2026-10-13, operator database Runs + Azure DevOps PR list, release 0.160.0"
+  - claim: "The head-commit message read exists only for the sweep's own-commit check."
+    evidence: "src/backend/AgentSmith.Contracts/Sweep/IOpenPullRequestLister.cs:15, src/backend/AgentSmith.Server/Services/Sweep/PrSweepPass.cs:60-68"
+
+assumptions: []
+
+scope:
+  in: >
+    SWEEP: a new pull request gets its row (labels, comments mark at creation) and starts no review — a review label
+    already on it still starts its scan (a person put it there); a head move starts nothing. Comments and the review label (a person adding it) keep their paths. Delete ReviewedHead, FailedReviews,
+    PrSweepBreaker, the launcher outcome callback the breaker used, TryMoveHeadAsync, RecordReviewOutcomeAsync,
+    ResetFailedReviewsAsync, HeadCommitMessageAsync on the lister contract and its three implementations, and whatever
+    becomes unreferenced with them. Migration dropping both columns in both migration sets. WEBHOOKS: delete
+    GitHubPrEventWebhookHandler, GitLabMrEventWebhookHandler, AzureDevOpsPrEventWebhookHandler and their registrations; a
+    PR open/update delivery answers not-handled. Label handlers, comment handlers, the review-vote and review handlers stay.
+    PrReviewRouteResolver loses its PR-label override (both remaining callers pass no labels); pipeline_from_label stays
+    for tickets. Comments that name the deleted handlers or the open/push start are corrected (GitLabMrLabelWebhookHandler,
+    GitLabMrReviewWebhookHandler, WebhookEndpointsExtensions, PrSweepPass, PrSweepActions, PrReviewRouteResolver). Tests
+    asserting the old behaviour are rewritten or deleted (the three PR/MR event handler test files, PrSweepPassTests
+    breaker/WIP/head cases, PrReviewLoopGuardTests, TriggerModeTests sweep review, GitLabMrReviewWebhookHandlerTests order
+    case, PrReworkAdmissionTests, GitLabMrLabelWebhookHandlerTests, PrSweepRotationTests, PrCommentReworkCommandTests).
+    DOCS: pr-review.md Triggering and its pipeline_from_label paragraph, pr-comments.md (the "on its own" line, event
+    table, platform table, AzDO subscription advice), pipelines/index.md, trigger-it/webhooks.md, trigger-it/polling.md
+    say a review starts on a command.
+  out: >
+    Cancelling a live review whose pull request closes (no act starts one on a closed PR any more). Answering a command
+    on a PR whose repository is not bootstrapped — 2026-10-13-0b82b. Showing bootstrap state on the project — 2026-10-13-0b82c.
+
+decisions:
+  - key: "AN ACT, NOT A CHANGE. A new head is a change, not an assignment; e8b9 settled that only a person's act starts work."
+  - key: "DELETE, NOT DISABLE. No switch for auto-review: nobody asked for it and its only safety net (the breaker) goes with it."
+  - key: "WEBHOOK AND POLLING ALIKE (101b): removing the start from one mode only would make the modes differ again."
+
+steps:
+  - id: sweep
+    action: "PrSweepPass: insert the row of a new PR and start no review (keep its label scan); drop the head-move branch."
+  - id: breaker
+    action: "Delete PrSweepBreaker, the outcome callback, the store members, the lister head-message read; drop the two columns with a migration per set."
+  - id: webhooks
+    action: "Delete the three PR event handlers and their registrations; drop the route resolver's label override."
+  - id: tests
+    action: "Red first: a new PR and a head move start nothing in the sweep; a GitHub opened, GitLab open and AzDO created delivery start nothing; a trusted command still starts pr-review."
+  - id: docs
+    action: "pr-review.md, pr-comments.md, pipelines/index.md, webhooks.md, polling.md describe the command as the trigger."
+
+tests:
+  - "PrSweep_NewPullRequest_StartsNothing"
+  - "PrSweep_HeadMoved_StartsNothing"
+  - "PrSweep_NewPullRequestWithLabel_StillScans"
+  - "PrSweep_TrustedCommand_StartsPrReview"
+  - "PrOpenedDelivery_OnEveryHost_StartsNothing"
+
+done:
+  - "A pull request opened or pushed to in a swept repository starts no run, on GitHub, GitLab and Azure DevOps."
+  - "The same delivery through a webhook starts no run."
+  - "A trusted '/agent-smith pr-review' on that pull request still starts one review."
+  - "The docs name the command as the only way a review starts."

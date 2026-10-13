@@ -1,4 +1,7 @@
+using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Dialogue;
+using AgentSmith.Application.Services.Sandbox;
+using AgentSmith.Domain.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
@@ -122,23 +125,10 @@ public sealed class ChatTicketlessRunLaunchTests : IDisposable
     [Fact]
     public async Task Admission_TicketlessReview_LaunchesWithoutTicket()
     {
-        _diffs.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(Diff(new PrDiff(
-            "base-sha", "head-sha", [], HeadBranch: "feature/login", Author: "octo")));
-        var services = new ServiceCollection();
-        services.AddSingleton(new ChatPrContextResolver(_diffs.Object, new PrRunContextFactory()));
-        services.AddSingleton(new ChatTicketlessRunLauncher(Runs(), Admission(), Dispatch(), TimeProvider.System,
-            NullLogger<ChatTicketlessRunLauncher>.Instance));
         var comments = new Mock<IPrCommentProvider>();
-        var sources = new Mock<ISourceProviderFactory>();
-        sources.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(comments.As<ISourceProvider>().Object);
-        var launch = new PrCommandLaunch(ConfigLoader(), new ServerContext("agentsmith.yml"),
-            new AgentSmith.Infrastructure.Services.Webhooks.ConfiguredRepoFinder(), Mock.Of<IActiveRunLease>(),
-            services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>(),
-            sources.Object, NullLogger<PrCommandLaunch>.Instance);
-        var command = new PrCommentCommand("/as review", new AgentSmith.Contracts.Webhooks.PrCommentAuthor(
-            "https://github.com/o/sample-server", "o/sample-server", "octo", "octo"), "o/sample-server#42", "pr:o/sample-server#42", "42");
 
-        await launch.LaunchAsync(command, new PipelineRequest(Project, "security-scan", TicketId: null, Headless: true), CancellationToken.None);
+        await TicketlessLaunch(comments, Host(principles: true)).LaunchAsync(
+            Command(sameRepository: false), new PipelineRequest(Project, "security-scan", TicketId: null, Headless: true), CancellationToken.None);
 
         var request = _enqueued.Should().ContainSingle().Subject;
         request.TicketId.Should().BeNull();
@@ -146,6 +136,70 @@ public sealed class ChatTicketlessRunLaunchTests : IDisposable
         request.Context![ContextKeys.PrNumber].Should().Be("42");
         comments.Verify(c => c.PostCommentAsync("42", It.Is<string>(t => t.Contains(request.RunId!)), It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    // 2026-10-13-0b82b: the branch is read before a run exists; one answer, no run.
+    [Fact]
+    public async Task PrCommand_UninitialisedBranch_AnswersOnceAndStartsNothing()
+    {
+        var comments = new Mock<IPrCommentProvider>();
+
+        await TicketlessLaunch(comments, Host(principles: false)).LaunchAsync(
+            Command(sameRepository: true), new PipelineRequest(Project, "pr-review", TicketId: null, Headless: true), CancellationToken.None);
+
+        _enqueued.Should().BeEmpty();
+        comments.Verify(c => c.PostCommentAsync("42", It.Is<string>(t => t.Contains("branch 'feature/login' is not initialised")
+            && t.Contains("'api' has no principles.md") && t.Contains("init-project")), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task PrCommand_ProbeUnknown_StillLaunches()
+    {
+        var host = Host(principles: false);
+        host.Setup(p => p.BranchExistsAsync(It.IsAny<BranchName>(), It.IsAny<CancellationToken>())).ThrowsAsync(new HttpRequestException("503"));
+
+        await TicketlessLaunch(new Mock<IPrCommentProvider>(), host).LaunchAsync(
+            Command(sameRepository: true), new PipelineRequest(Project, "pr-review", TicketId: null, Headless: true), CancellationToken.None);
+
+        _enqueued.Should().ContainSingle();
+    }
+
+    private PrCommandLaunch TicketlessLaunch(Mock<IPrCommentProvider> comments, Mock<ISourceProvider> host)
+    {
+        _diffs.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(Diff(new PrDiff(
+            "base-sha", "head-sha", [], HeadBranch: "feature/login", Author: "octo")));
+        var hosts = new Mock<ISourceProviderFactory>();
+        hosts.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(host.Object);
+        var contexts = new Mock<ISandboxLanguageResolver>();
+        contexts.Setup(c => c.ListContextsAsync(It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new RemoteContextListing([new RemoteContextDiscovery("api", ".", "csharp")]));
+        var services = new ServiceCollection();
+        services.AddSingleton(new ChatPrContextResolver(_diffs.Object, new PrRunContextFactory()));
+        services.AddSingleton(new ChatTicketlessRunLauncher(Runs(), Admission(), Dispatch(), TimeProvider.System,
+            NullLogger<ChatTicketlessRunLauncher>.Instance));
+        services.AddSingleton(new PrCommandBootstrapCheck(new RemoteBootstrapProbe(hosts.Object, contexts.Object,
+            NullLogger<RemoteBootstrapProbe>.Instance)));
+        var sources = new Mock<ISourceProviderFactory>();
+        sources.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(comments.As<ISourceProvider>().Object);
+        return new PrCommandLaunch(ConfigLoader(), new ServerContext("agentsmith.yml"),
+            new AgentSmith.Infrastructure.Services.Webhooks.ConfiguredRepoFinder(), Mock.Of<IActiveRunLease>(),
+            services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>(),
+            sources.Object, NullLogger<PrCommandLaunch>.Instance);
+    }
+
+    private static Mock<ISourceProvider> Host(bool principles)
+    {
+        var host = new Mock<ISourceProvider>();
+        host.Setup(p => p.BranchExistsAsync(It.IsAny<BranchName>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        host.Setup(p => p.TryReadFileAsync(It.IsAny<string>(), It.IsAny<BranchName>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string path, BranchName _, CancellationToken _) =>
+                path.EndsWith("/principles.md") && !principles ? null : "content");
+        return host;
+    }
+
+    private static PrCommentCommand Command(bool sameRepository) =>
+        new("/as review", new AgentSmith.Contracts.Webhooks.PrCommentAuthor(
+            "https://github.com/o/sample-server", "o/sample-server", "octo", "octo"), "o/sample-server#42", "pr:o/sample-server#42", "42")
+        { SameRepository = sameRepository, HeadRef = "feature/login" };
 
     private SecurityReviewIntentHandler SecurityHandler() => new(
         ConfigLoader(), new ServerContext("agentsmith.yml"),

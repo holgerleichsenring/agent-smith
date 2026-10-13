@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-0b82c
+goal: "The project detail shows, per repository, whether its default branch is bootstrapped and which context lacks which file, read live from the host."
+
+applies_to: "backend (project endpoint) + dashboard (project detail panel)"
+
+requires: [2026-10-13-0b82b]
+
+facts:
+  - claim: "The project detail panel lists the project's repositories and holds the Initialize action."
+    evidence: "src/dashboard/src/components/system/ProjectDetailPanel.tsx:30-67,89-111"
+  - claim: "Project endpoints live under /api/projects/{name}, read under runs.read."
+    evidence: "src/backend/AgentSmith.Server/Extensions/ProjectInitEndpoints.cs:22-27"
+  - claim: "Projects resolve through config.Projects with their RepoConnection list; a repository may have no hosted location."
+    evidence: "src/backend/AgentSmith.Server/Services/Init/InitRunStateReader.cs:23-25, src/backend/AgentSmith.Contracts/Models/Configuration/RepoConnection.cs:16-40"
+  - claim: "Without a branch the provider reads the default branch."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ISourceProvider.cs:54-76"
+
+assumptions: []
+
+scope:
+  in: >
+    GET /api/projects/{name}/bootstrap (runs.read): one entry per repository of the project (config.Projects, as
+    InitRunStateReader resolves it) — repo name, the branch read, state complete / incomplete / unknown, each missing
+    file's description, and the reason when unknown; 404 for an unknown project. It uses 2026-10-13-0b82b's
+    RemoteBootstrapProbe on the configured DefaultBranch when one is set (reported by name), else on the host's default
+    (reported as 'default'). A repository without a hosted location is unknown with that reason. Read when the panel
+    opens; nothing is stored. Dashboard: one fetch per panel open (a hook ReposSection owns), each repository row gets
+    its entry by name and shows 'initialised', 'not initialised' with the missing lines, or the unknown reason.
+  out: >
+    A project-list badge, a stored or cached state, a periodic probe. Feature branches (a command on one is answered by 0b82b).
+
+decisions:
+  - key: "READ, DON'T STORE. The host is the truth and a person opening the panel is the moment the question is asked; a stored state would need a refresh rule nobody can state."
+
+steps:
+  - id: endpoint
+    action: "ProjectBootstrapEndpoints + reader over the configured repos and RemoteBootstrapProbe."
+  - id: dashboard
+    action: "projectBootstrapApi client; one fetch per panel open, each ReposSection row shows its entry."
+  - id: tests
+    action: "Endpoint: complete, incomplete with retired file, host error as unknown, configured branch, unknown project. Dashboard: the three row states."
+
+tests:
+  - "ProjectBootstrap_IncompleteRepo_ListsMissingFiles"
+  - "ProjectBootstrap_HostError_IsUnknownWithReason"
+  - "ProjectBootstrap_ConfiguredDefaultBranch_IsReadAndNamed"
+  - "ProjectBootstrap_UnknownProject_404"
+  - "ProjectDetailPanel shows not initialised with missing lines"
+
+done:
+  - "Opening a project whose repository's default branch carries the retired principles file shows that repository as not initialised, naming each context."
+  - "An initialised repository shows initialised; an unreachable one shows why it could not be checked."

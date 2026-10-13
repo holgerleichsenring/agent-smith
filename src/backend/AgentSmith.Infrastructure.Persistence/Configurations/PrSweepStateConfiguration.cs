@@ -15,7 +15,6 @@ public sealed class PrSweepStateConfiguration : IEntityTypeConfiguration<PrSweep
         builder.HasKey(s => new { s.Repository, s.Number });
         builder.Property(s => s.Repository).HasMaxLength(PersistenceLimits.IndexedString);
         builder.Property(s => s.Number).HasMaxLength(PersistenceLimits.IndexedString);
-        builder.Property(s => s.ReviewedHead).HasMaxLength(PersistenceLimits.Sha256Hex);
         builder.Property(s => s.CommentsSeenId).HasMaxLength(64);
     }
 }

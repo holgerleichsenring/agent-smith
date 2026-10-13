@@ -33,7 +33,7 @@ projects:
 
 Setting it adds a word rather than replacing one: `security-review` keeps triggering, so pull requests already carrying it still work. The label is matched case-insensitively. On GitHub this is the `pull_request` event with action `labeled`; on GitLab, any update to a merge request that carries the label.
 
-Opening or updating a pull request starts a [PR review](../pipelines/pr-review.md) on its own, without a label or a comment.
+Opening or updating a pull request starts nothing. A [PR review](../pipelines/pr-review.md) starts on a command such as `/agent-smith review`.
 
 ## Who may issue commands
 
@@ -59,12 +59,14 @@ On GitHub, subscribe to:
 |-------|--------|----------|
 | `issue_comment` | `created` | Comment on a PR (GitHub treats PRs as issues) |
 | `pull_request_review_comment` | `created` | Inline code comment on a PR |
-| `pull_request` | `opened`, `synchronize`, `labeled` | PR review on open and push; security scan on the review label |
+| `pull_request` | `labeled` | Security scan on the review label |
 | `pull_request_review` | `submitted` | **Pull request reviews**: Request changes on an agent-smith PR starts a rework |
 
 ## What a command starts
 
 A command that names a ticket (`/agent-smith fix #12`) is claimed like any other run of that ticket: it is admitted, queued for capacity or refused, and the pull request is told which — including when another run is already working on the ticket, in which case nothing new starts. A command without a ticket (`/as review`) runs against this pull request directly. Either way the command is read once; the run starts with the pipeline it resolved to.
+
+Before a command without a ticket starts `pr-review`, `security-scan` or `code`, agent-smith reads the pull request's branch through the host and checks what the run's bootstrap gate would check: every context's `context.yaml` and `principles.md`. When a file is missing, nothing starts; the command gets one answer naming the branch, each context and file, and that `init-project` fixes it. When the host cannot say (the branch is gone, the host does not answer), the run starts and its own gate decides. A pull request from a fork is not read this way. The project's detail in the dashboard shows the same check for each repository's default branch: initialised, not initialised with the missing files, or why the host could not be read.
 
 ## Request changes starts a rework
 
@@ -78,12 +80,12 @@ On GitLab (19.3 or later), **Request changes** on an agent-smith merge request s
 
 A comment counts as agent-smith's own only when it carries the agent-smith marker **and** was written by the account behind the repository's token, on every host; a pasted marker is a stranger's comment, never collected as ours and never deleted when a review is re-posted.
 
-On Azure DevOps, keep the **Pull request updated** subscription that starts PR reviews filtered to **Source branch updated** (`PushNotification`), and add a second **Pull request updated** subscription filtered to **Reviewer vote changed** (`ReviewerVoteNotification`) with the HTTP header `X-AgentSmith-Change: review-vote` and the same Basic credentials. A delivery carrying that header never starts a PR review.
+On Azure DevOps, add a **Pull request updated** subscription filtered to **Reviewer vote changed** (`ReviewerVoteNotification`) with the HTTP header `X-AgentSmith-Change: review-vote` and the same Basic credentials. A **Pull request created** or **Source branch updated** subscription is no longer needed: neither starts anything.
 
 ## How it works
 
 ```
-PR comment / PR label / PR event
+PR comment / PR label
     |
     v
 POST /webhook (signature verified when a secret is configured)
@@ -93,15 +95,15 @@ POST /webhook (signature verified when a secret is configured)
     |
     +-- label    --> security-review or pr_trigger_label --> security-scan starts
     |
-    +-- opened / updated --> pr-review starts (or the pipeline a mapped PR label names)
+    +-- opened / pushed to --> nothing starts
 ```
 
 ## Platform support
 
-| Platform | Comment commands | Review label | Review on open/update |
-|----------|------------------|--------------|-----------------------|
-| GitHub | Supported | Supported | Supported |
-| GitLab (merge requests) | Supported | Supported | Supported |
-| Azure DevOps | Supported | — | Supported |
+| Platform | Comment commands | Review label |
+|----------|------------------|--------------|
+| GitHub | Supported | Supported |
+| GitLab (merge requests) | Supported | Supported |
+| Azure DevOps | Supported | — |
 
 See also: [Webhook Configuration](../configuration/webhooks.md) for the full configuration reference.

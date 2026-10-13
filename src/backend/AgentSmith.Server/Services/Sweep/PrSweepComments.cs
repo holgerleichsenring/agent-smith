@@ -29,9 +29,7 @@ public sealed class PrSweepComments(PrSweepStore store, PrSweepActions actions)
                 continue;
             mark.CommentsSeenTicks = comment.CreatedAt.UtcTicks;
             mark.CommentsSeenId = comment.Id;
-            // 2026-10-09-af10: a person's admitted command is the person asking again.
-            if ((await actions.CommandAsync(target, comment, known.First(p => p.Number == comment.PrNumber), ct)).Handled)
-                await store.ResetFailedReviewsAsync(key, comment.PrNumber, ct);
+            await actions.CommandAsync(target, comment, known.First(p => p.Number == comment.PrNumber), ct);
         }
     }
 

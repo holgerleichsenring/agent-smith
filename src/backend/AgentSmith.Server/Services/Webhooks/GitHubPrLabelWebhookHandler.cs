@@ -57,7 +57,7 @@ public sealed class GitHubPrLabelWebhookHandler(
             return WebhookResult.NotHandled();
 
         var repoFullName = repository.GetProperty("full_name").GetString() ?? "";
-        if (routeResolver.Resolve(config, "github", repoUrl, []) is not { } route)
+        if (routeResolver.Resolve(config, repoUrl) is not { } route)
             return WebhookResult.NotHandled($"no agent-smith project configured for repo {repoFullName}");
 
         var pr = root.GetProperty("pull_request");
