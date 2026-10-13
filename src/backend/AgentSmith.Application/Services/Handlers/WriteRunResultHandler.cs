@@ -40,6 +40,7 @@ public sealed class WriteRunResultHandler(
     IEventPublisher events,
     Memory.RunNarrativeMemoryWriter narrativeWriter, // p0380: green-run curated memory
     SandboxTargets sandboxTargets,
+    RunResultChanges runResultChanges, // 2026-10-13-3890b: the branch is the record
     ILogger<WriteRunResultHandler> logger)
     : ICommandHandler<WriteRunResultContext>
 {
@@ -121,23 +122,11 @@ public sealed class WriteRunResultHandler(
     {
         var (cost, duration) = ResolveCostAndDuration(context.Pipeline);
         var trail = TryGet<List<ExecutionTrailEntry>>(context.Pipeline, ContextKeys.ExecutionTrail);
-        var decisions = TryGet<List<PlanDecision>>(context.Pipeline, ContextKeys.Decisions);
-        // p0341: done-status honesty DIAGNOSTIC — a done ledger step whose EXPLICIT
-        // target is absent from the diff is surfaced in result.md (as a decision line),
-        // never fed to RunOutcomeKeystone. Completion stays p0340's; this is memory
-        // hygiene, not a gate. Target-less done items are skipped (no false warning).
-        var ledger = TryGet<ProgressLedger>(context.Pipeline, ContextKeys.ProgressLedger);
-        if (ledger is { IsEmpty: false })
-        {
-            var ledgerWarnings = Tools.ProgressLedgerCoverage.UnbackedDoneSteps(ledger, context.Changes);
-            if (ledgerWarnings.Count > 0)
-            {
-                decisions ??= new List<PlanDecision>();
-                foreach (var w in ledgerWarnings)
-                    decisions.Add(new PlanDecision(
-                        "Implementation", $"[progress-ledger] {w} (diagnostic, not a gate)"));
-            }
-        }
+        var repos = context.Pipeline.TryGet<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, out var r)
+            && r is { Count: > 0 } ? r : null;
+        var changeSet = await runResultChanges.ResolveAsync(context.Pipeline, repos, context.Changes, cancellationToken);
+        var decisions = WithDiagnostics(
+            TryGet<List<PlanDecision>>(context.Pipeline, ContextKeys.Decisions), context.Pipeline, changeSet);
         var trend = TryGet<SecurityTrend>(context.Pipeline, ContextKeys.SecurityTrend);
         var dialogueEntries = dialogueTrail.GetAll();
         var perSkillBreakdown = ResolvePerSkillBreakdown(context.Pipeline);
@@ -149,8 +138,6 @@ public sealed class WriteRunResultHandler(
         // arg), changes filtered by the repo prefix. So every repo carries a
         // committable run-record and gets its own PR. Falls back to the legacy
         // single-sandbox write when the run has no Repos list (CLI/one-off).
-        var repos = context.Pipeline.TryGet<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, out var r)
-            && r is { Count: > 0 } ? r : null;
 
         // p0380: the early verdict is computed ONCE here (it is pipeline-scoped,
         // not per-repo) — WriteRepoRecordAsync renders it, and the green-run
@@ -162,12 +149,12 @@ public sealed class WriteRunResultHandler(
             var sandbox = context.Pipeline.Get<ISandbox>(ContextKeys.Sandbox);
             var reader = readerFactory.Create(sandbox);
             await WriteRepoRecordAsync(
-                reader, context, runId, repoName: null, context.Changes,
+                reader, context, runId, repoName: null, changeSet.For(null),
                 cost, duration, trail, decisions, trend, dialogueEntries, perSkillBreakdown, topology,
                 failureReason, cacheResult: true, tryCachePlan: true, cancellationToken);
             await narrativeWriter.TryWriteAsync(
                 reader, context.Repository.LocalPath, context.Ticket, runId,
-                failureReason, context.Changes, decisions, cancellationToken);
+                failureReason, changeSet.For(null), decisions, cancellationToken);
             logger.LogInformation("Written run result {RunId} (single sandbox)", RunIdGenerator.FormatForDisplay(runId));
             return CommandResult.Ok($"Run {RunIdGenerator.FormatForDisplay(runId)} recorded");
         }
@@ -183,11 +170,7 @@ public sealed class WriteRunResultHandler(
                 logger.LogWarning("WriteRunResult: no sandbox for repo '{Repo}' — skipping run-doc", repo.Name);
                 continue;
             }
-            var repoChanges = repos.Count == 1
-                ? context.Changes
-                : context.Changes
-                    .Where(c => c.Path.ToString().StartsWith(repo.Name + "/", StringComparison.Ordinal))
-                    .ToList();
+            var repoChanges = changeSet.For(repo.Name);
             var repoReader = readerFactory.Create(sandbox);
             // 2026-10-12-f5f7c: the narrative goes to each repository that changed, with its changes.
             if (repos.Count == 1 || repoChanges.Any(c => !RunRecordPaths.IsRunRecordPath(c.Path.ToString())))
@@ -210,6 +193,24 @@ public sealed class WriteRunResultHandler(
                 failureReason, changes, decisions, cancellationToken);
         return CommandResult.Ok(
             $"Run {RunIdGenerator.FormatForDisplay(runId)} recorded in {written} repo(s)");
+    }
+
+    // p0341: done-status honesty DIAGNOSTIC — a done ledger step whose EXPLICIT target is
+    // absent from the run's files is a decision line, never a gate. 2026-10-13-3890b: read
+    // against every repository's files, and beside a note per sandbox whose branch was unreadable.
+    private static List<PlanDecision>? WithDiagnostics(
+        List<PlanDecision>? decisions, PipelineContext pipeline, RunResultChangeSet changes)
+    {
+        var ledger = TryGet<ProgressLedger>(pipeline, ContextKeys.ProgressLedger);
+        var warnings = ledger is { IsEmpty: false }
+            ? Tools.ProgressLedgerCoverage.UnbackedDoneSteps(ledger, changes.Coverage)
+                .Select(w => $"[progress-ledger] {w} (diagnostic, not a gate)")
+            : [];
+        var lines = changes.Notes.Concat(warnings).ToList();
+        if (lines.Count == 0) return decisions;
+        decisions ??= [];
+        decisions.AddRange(lines.Select(line => new PlanDecision("Implementation", line)));
+        return decisions;
     }
 
     // p0380: explicit failure set by a prior step wins; otherwise the p0253
@@ -286,7 +287,7 @@ public sealed class WriteRunResultHandler(
             ignoredInstructions,
             // p0429a: what the run — or the scan — accounted for, itemised beside the
             // findings instead of only inside the gate that read it.
-            RunAccountSection.Build(context.Pipeline),
+            RunAccountSection.BuildForResult(context.Pipeline, failureReason), // 3890b: once
             // 2026-09-06-3d81: and the criteria the master declined, with their reasons.
             DeclinedCriteriaSection.Build(context.Pipeline) + VisualComparisonSection.Build(context.Pipeline)); // + 283di
         await reader.WriteAsync(Path.Combine(runDir, "result.md"), resultMd, ct);
@@ -423,12 +424,10 @@ public sealed class WriteRunResultHandler(
             && explicitCost is not null
             ? explicitCost
             : PipelineCostTracker.GetOrCreate(pipeline).BuildSummary();
-        var duration = pipeline.TryGet<int>(ContextKeys.RunDurationSeconds, out var explicitSeconds)
-            && explicitSeconds > 0
-            ? explicitSeconds
-            : pipeline.TryGet<DateTimeOffset>(ContextKeys.RunStartedAt, out var startedAt)
-                ? (int)Math.Max(0, (DateTimeOffset.UtcNow - startedAt).TotalSeconds)
-                : 0;
+        // 2026-10-13-3890b: wall clock — a parked-then-resumed run counts its parked time.
+        var duration = pipeline.TryGet<DateTimeOffset>(ContextKeys.RunStartedAt, out var startedAt)
+            ? (int)Math.Max(0, (DateTimeOffset.UtcNow - startedAt).TotalSeconds)
+            : 0;
         return (cost, duration);
     }
 

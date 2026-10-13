@@ -56,7 +56,7 @@ public sealed class RunNarrativePerRepositoryTests
             factory.Object, new InMemoryDialogueTrail(), new InMemoryRunArtifactStore(),
             new Events.RecordingEventPublisher(),
             new RunNarrativeMemoryWriter(NullLogger<RunNarrativeMemoryWriter>.Instance),
-            new SandboxTargets(), NullLogger<WriteRunResultHandler>.Instance);
+            new SandboxTargets(), AgentSmith.Tests.TestHelpers.TestRunResultChanges.Create(), NullLogger<WriteRunResultHandler>.Instance);
     }
 
     private static WriteRunResultContext Context(Dictionary<string, ISandbox> sandboxes, List<CodeChange> changes)

@@ -53,7 +53,7 @@ public sealed class WriteRunResultInitProjectTests
             });
         _sut = new WriteRunResultHandler(factory.Object, _dialogueTrail, new InMemoryRunArtifactStore(), new AgentSmith.Tests.Events.RecordingEventPublisher(),
             new AgentSmith.Application.Services.Memory.RunNarrativeMemoryWriter(NullLogger<AgentSmith.Application.Services.Memory.RunNarrativeMemoryWriter>.Instance),
-            new SandboxTargets(), NullLogger<WriteRunResultHandler>.Instance);
+            new SandboxTargets(), AgentSmith.Tests.TestHelpers.TestRunResultChanges.Create(), NullLogger<WriteRunResultHandler>.Instance);
     }
 
     [Fact]
@@ -114,7 +114,7 @@ public sealed class WriteRunResultInitProjectTests
         {
             ["mono"] = new[] { new DiscoveredComponent("default", ".", "csharp", "Program.cs") },
         });
-        pipeline.Set(ContextKeys.RunDurationSeconds, 42);
+        pipeline.Set(ContextKeys.RunStartedAt, DateTimeOffset.UtcNow.AddSeconds(-42));
         pipeline.Set(ContextKeys.ExecutionTrail, new List<ExecutionTrailEntry>
         {
             new("CheckoutSourceCommand", null, true, "OK", DateTimeOffset.UtcNow, TimeSpan.FromSeconds(2), null),
@@ -131,7 +131,7 @@ public sealed class WriteRunResultInitProjectTests
 
         var resultMd = _written.First(kv => kv.Key.EndsWith("result.md")).Value;
         resultMd.Should().Contain("type: init");
-        resultMd.Should().Contain("duration_seconds: 42");
+        resultMd.Should().MatchRegex("duration_seconds: 4[23]\\b");
         resultMd.Should().Contain("Discovered components");
         resultMd.Should().Contain("Bootstrap output per component");
         resultMd.Should().Contain("Wrote context.yaml + principles.md.");

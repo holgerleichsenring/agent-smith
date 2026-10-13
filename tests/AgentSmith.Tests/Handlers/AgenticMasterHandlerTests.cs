@@ -55,7 +55,7 @@ public sealed class AgenticMasterHandlerTests
     }
 
     [Fact]
-    public async Task ExecuteAsync_SetsCodeChangesAndDurationInPipelineContext()
+    public async Task ExecuteAsync_SetsCodeChangesInPipelineContext()
     {
         var prompts = new MasterHandlerFixture.StubPromptCatalog("coding-agent-master", "body");
         var loop = new CapturingLoopRunner();
@@ -63,7 +63,8 @@ public sealed class AgenticMasterHandlerTests
         var context = MasterHandlerFixture.BuildContext("coding-agent-master");
         await MasterHandlerFixture.Build(loop, prompts).ExecuteAsync(context, CancellationToken.None);
 
-        context.Pipeline.TryGet<int>(ContextKeys.RunDurationSeconds, out _).Should().BeTrue();
+        // 2026-10-13-3890b: duration is wall clock from RunStartedAt, not the master's pass.
+        context.Pipeline.TryGet<IReadOnlyList<CodeChange>>(ContextKeys.CodeChanges, out _).Should().BeTrue();
     }
 
     [Fact]
