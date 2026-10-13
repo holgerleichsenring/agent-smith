@@ -13,6 +13,10 @@ namespace AgentSmith.Application.Services.Specs;
 /// a criterion, or its goal and steps where it lists none — rather than assuming a criterion.
 /// </para>
 /// <para>
+/// 2026-10-13-a347b: a dropped 'Done when' outcome needs the whole ticket too, and is the one
+/// verdict whose quote comes from the ticket.
+/// </para>
+/// <para>
 /// A shape rule is offered always and last: a done entry that measures the code's form is
 /// judged from a diff by a model, which is not where a size or a layout is measured.
 /// </para>
@@ -22,6 +26,9 @@ public static class SpecCutVerdicts
     public const string Contradiction = "contradiction";
     public const string Uncheckable = "uncheckable";
     public const string NotInTicket = "not-in-ticket";
+
+    /// <summary>2026-10-13-a347b: the one verdict that quotes the ticket rather than a spec.</summary>
+    public const string DoneDropped = "done-dropped";
 
     /// <summary>The one verdict admitted by a citation instead of a quote.</summary>
     public const string FalsePremise = "false-premise";
@@ -33,7 +40,7 @@ public static class SpecCutVerdicts
     public static IReadOnlyList<string> Offered(CutReviewTicket ticket, bool canLook)
     {
         var offered = new List<string> { Contradiction, Uncheckable };
-        if (ticket == CutReviewTicket.Whole) offered.Add(NotInTicket);
+        if (ticket == CutReviewTicket.Whole) offered.AddRange([NotInTicket, DoneDropped]);
         if (canLook) offered.Add(FalsePremise);
         offered.Add(ShapeRule);
         return offered;
@@ -63,6 +70,7 @@ public static class SpecCutVerdicts
         3 => "three",
         4 => "four",
         5 => "five",
+        6 => "six",
         _ => count.ToString(System.Globalization.CultureInfo.InvariantCulture),
     };
 
@@ -77,6 +85,11 @@ public static class SpecCutVerdicts
             + "   repository or a command: a statement about the PROCESS (\"no push has been performed\", \"the work was\n"
             + "   done in the agreed order\") or about intent rather than result.",
         NotInTicket => "NOT IN THE TICKET — something a spec states that the ticket never asked for.",
+        DoneDropped =>
+            "DONE DROPPED — an outcome the ticket lists under its own \"Done when\",\n"
+            + "   \"Definition of done\" or \"Acceptance\" that no done entry of any spec states (a\n"
+            + "   shape rule excepted). This way quotes the TICKET: quote the ticket's outcome\n"
+            + "   verbatim, and give as spec_id the spec that does that work.",
         FalsePremise =>
             "FALSE PREMISE — the spec rests on something about the repositories that is not\n"
             + "   so — a file, a type, a package, a version or a place it assumes — and a look you\n"

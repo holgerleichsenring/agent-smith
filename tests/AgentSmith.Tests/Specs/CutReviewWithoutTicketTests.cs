@@ -47,9 +47,10 @@ public sealed class CutReviewWithoutTicketTests
         var prompt = SpecCutReviewPrompt.For(Criteria(), "migrate the messaging library", look: null);
 
         prompt.Should().StartWith("A ticket has been cut into specs.")
-            .And.Contain("There are four ways:")
+            .And.Contain("There are five ways:")
             .And.Contain("3. NOT IN THE TICKET")
-            .And.Contain("\"problem\": \"contradiction|uncheckable|not-in-ticket|shape-rule\"")
+            .And.Contain("4. DONE DROPPED")
+            .And.Contain("\"problem\": \"contradiction|uncheckable|not-in-ticket|done-dropped|shape-rule\"")
             .And.EndWith("\nTICKET\nmigrate the messaging library")
             .And.NotContain("TOO LONG TO SHOW").And.NotContain("NO TICKET");
     }
@@ -81,7 +82,7 @@ public sealed class CutReviewWithoutTicketTests
         var verdicts = prompt[prompt.IndexOf("ways:", StringComparison.Ordinal)..prompt.IndexOf("Say nothing", StringComparison.Ordinal)];
         verdicts.Should().NotContainEquivalentOf("criterion").And.NotContainEquivalentOf("criteria");
         prompt.Should().Contain("its goal or one of\nits steps")
-            .And.Contain("\"criterion\": \"<verbatim from the spec>\"")
+            .And.Contain("\"criterion\": \"<verbatim from the spec, or from the ticket for a done-dropped>\"")
             .And.Contain("<verbatim other statement of that spec, or null>");
     }
 

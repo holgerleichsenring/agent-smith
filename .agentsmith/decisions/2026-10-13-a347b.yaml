@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-a347b
+
+decisions:
+  - category: Architecture
+    chose: "done-dropped is a fourth admission shape in SpecCutAdmission, matched against the ticket text the reviewer already holds"
+    over: "Folding it into the quote-in-spec path, or matching it in the prompt layer"
+    reason: |
+      It is the one verdict whose quote comes from the ticket, so the spec-quote check would
+      discard every honest finding. SpecCutReviewer already receives the ticket text for the
+      prompt; passing the same string to Admit keeps one source for what was shown and what is
+      checked.
+  - category: Implementation
+    chose: "SpecQuotableText.IsRunIn: a contiguous run of at least MinWords words, no half-length rule, sharing the word splitter and run search with Matches"
+    over: "A character-level Contains on the ticket, or reusing IsOneOf over the ticket's lines"
+    reason: |
+      A ticket is long and the quote one outcome of it, so the half-length rule would refuse every
+      finding; per-line matching would depend on how a ticket source wraps lines. Word comparison is
+      the same normalisation every other quote check uses.
+  - category: Implementation
+    chose: "Refused when the quote is a done entry of ANY spec (IsDoneEntry over all drafts), regardless of spec_id"
+    over: "Checking only the spec the finding names, or requiring spec_id to resolve to a draft"
+    reason: |
+      The scope states exactly two conditions. An outcome kept by a sibling spec was not dropped, and
+      spec_id names where the work belongs, which may be a spec that does not yet state it; the
+      rejection text hands the id to the deriver as given.
+  - category: Implementation
+    chose: "The prompt names the exception only where done-dropped is offered; with it absent the prompt is byte-identical to before"
+    over: "One always-on sentence about ticket quotes"
+    reason: |
+      A truncated or absent ticket never offers the way, and a sentence about quoting the ticket there
+      would invite the finding the admission cannot check. The verdict text avoids the word
+      'criterion' so the done-less wording rule (Prompt_Verdicts_DoNotAssumeACriterionExists) still holds.
+  - category: Testing
+    chose: "The done criterion is proven in AgentSmith.Tests with the real SpecSetDeriver and real SpecCutReviewer over two scripted chat clients"
+    over: "A RealCompositionHarness preset"
+    reason: |
+      The harness replaces ISpecCutReviewer with HarnessSpecCutReviewer, so its admission is never the
+      product's. The deriver-level test drives parse, review, admission, rejection and re-derivation
+      with scripted answers, the pattern SpecCutSurvivesReviewTests and CutReviewPerAttemptTests use.
