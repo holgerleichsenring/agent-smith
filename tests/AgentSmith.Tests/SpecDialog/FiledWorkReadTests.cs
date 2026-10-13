@@ -70,6 +70,22 @@ public sealed class FiledWorkReadTests : IDisposable
             .Equal("2026-09-17T11-00-00-0002", "2026-09-17T09-00-00-0001");
     }
 
+    // 2026-10-13-9a59a: ForAsync now composes through ForRunsAsync; its callers keep the cap and every pipeline.
+    [Fact]
+    public async Task FiledWorkRunsReader_ExistingCallers_KeepTheCapAndEveryPipeline()
+    {
+        await FilingAsync(Filed(Work, "alpha"));
+        var runs = Enumerable.Range(1, 12).Select(i => Run($"2026-09-17T09-00-{i:00}-000{i % 10}", "alpha", Work, T)).ToArray();
+        runs[^1].Pipeline = "pr-review";
+        await RunsAsync(runs);
+
+        var read = (await ReadAsync()).Tickets.Single().Runs;
+
+        read.Should().HaveCount(10);
+        read[0].RunId.Should().Be(runs[^1].Id);
+        read[0].Pipeline.Should().Be("pr-review");
+    }
+
     [Fact]
     public async Task FiledWork_RunWithFiveSpecs_ListsEachSpecWithItsStanding()
     {

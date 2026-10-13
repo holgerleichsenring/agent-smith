@@ -766,6 +766,9 @@ export interface RunSnapshot {
    *  shape was stated and on pre-p0413 rows. */
   workShape?: string | null;
   workShapeReason?: string | null;
+  /** 2026-10-13-9a59a: the run row's project and tracker platform (REST paths only). */
+  project?: string | null;
+  platform?: string | null;
 }
 
 /** p0350: one pull request a run opened, per repo. */

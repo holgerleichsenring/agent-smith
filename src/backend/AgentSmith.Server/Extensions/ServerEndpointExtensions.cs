@@ -51,6 +51,7 @@ internal static class ServerEndpointExtensions
         app.MapSpecDialogReferenceFileEndpoints(); // 2026-10-09-86e1: the files inside the uploads
         app.MapRunQueryEndpoints();
         app.MapPullRequestQueryEndpoints(); // p0347: the Pull Requests page read surface
+        app.MapTicketQueryEndpoints(); // 2026-10-13-9a59a: the ticket page read surface
         app.MapRunDeletionEndpoints(); // p0337: dashboard run cleanup (destructive, UI-API-gated)
         app.MapCriteriaMetEndpoints();
         app.MapCatalogEndpoints();

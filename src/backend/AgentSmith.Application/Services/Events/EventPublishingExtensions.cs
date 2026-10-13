@@ -26,6 +26,9 @@ public static class EventPublishingExtensions
         // Studio import endpoint always resolves it; Server's AddRedis swaps in
         // RedisConfigReloadSignal via last-write-wins over TryAddSingleton.
         services.TryAddSingleton<IConfigReloadSignal, NullConfigReloadSignal>();
+        // 2026-10-13-9a59a: one implementation over the system publisher, no separate no-op.
+        services.TryAddSingleton(TimeProvider.System);
+        services.TryAddSingleton<ITicketActivityNudge, SystemStreamTicketActivityNudge>();
         return services;
     }
 }

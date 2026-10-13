@@ -75,6 +75,8 @@ GET	/api/spec-dialog/tickets/{project}/{ticketId}	dialog.write
 GET	/api/spec-dialog/tickets/{ticketId}	dialog.write
 GET	/api/spec-dialog/{dialogId}	dialog.write
 GET	/api/spec-dialog/{dialogId}/filed-work	dialog.write,runs.read
+GET	/api/tickets	runs.read
+GET	/api/tickets/{project}/{ticketId}	runs.read
 GET	/health	anonymous
 POST	/api/archive/import	archive.import
 POST	/api/config/agents	config.write

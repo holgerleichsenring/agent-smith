@@ -73,6 +73,7 @@ public static class EventTypeResolver
         SystemEventType.ConceptVocabularyLoaded => typeof(ConceptVocabularyLoadedEvent),
         SystemEventType.ConfigChanged => typeof(ConfigChangedEvent), // p0353
         SystemEventType.ConfigReloaded => typeof(ConfigReloadedEvent), // p0353
+        SystemEventType.TicketActivityChanged => typeof(TicketActivityChangedEvent), // 2026-10-13-9a59a
         _ => null
     };
 }

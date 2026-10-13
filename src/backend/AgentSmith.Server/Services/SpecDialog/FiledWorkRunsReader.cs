@@ -40,8 +40,20 @@ public sealed class FiledWorkRunsReader(
             // ORDER BY — which SQLite cannot translate at all.
             .OrderByDescending(r => r.Id)
             .Take(Cap).ToListAsync(ct);
-        if (runs.Count == 0) return [];
+        return await ForRunsAsync(runs, ct);
+    }
 
+    /// <summary>
+    /// 2026-10-13-9a59a: the compose half — the given rows, in the given order, each with its
+    /// executed specs and a parked run's pending question. The ticket detail reads its own rows
+    /// (one project, every pipeline, no cap) and composes them here, so the two pages cannot disagree.
+    /// </summary>
+    public async Task<IReadOnlyList<FiledWorkRunView>> ForRunsAsync(IReadOnlyList<Run> runs, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(runs);
+        if (runs.Count == 0) return [];
+        using var scope = scopeFactory.CreateScope();
+        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
         var specs = await SpecsAsync(uow, runs.Select(r => r.Id).ToList(), ct);
         var composed = new List<FiledWorkRunView>(runs.Count);
         foreach (var run in runs) composed.Add(await ComposeAsync(run, specs, ct));

@@ -43,6 +43,7 @@ internal static class DashboardApiExtensions
         services.AddHostedService(sp => sp.GetRequiredService<JobsBroadcaster>());
         services.AddRunEventPipeline();
         services.AddDashboardReaders();
+        services.AddTicketReaders(); // 2026-10-13-9a59a: GET /api/tickets
         services.AddProjectInit(); // p0489: POST /api/projects/{name}/init
         services.AddDashboardSwagger();
         return services;

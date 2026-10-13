@@ -37,11 +37,9 @@ public sealed record RunSnapshot(
     // as the heading and falls back to Pipeline (then "unknown") when absent.
     string? TicketId = null,
     string? TicketTitle = null,
-    // p0186: agent display label from RunStartedEvent ("type/model" form,
-    // e.g. "claude/claude-sonnet-4-20250514"). Null for pre-p0186 events.
+    // p0186: agent display label from RunStartedEvent ("type/model"). Null pre-p0186.
     string? AgentName = null,
-    // p0200: flipped true by RunCancelRequestedEvent so the dashboard card
-    // can render "cancelling…" until the terminal RunFinished lands.
+    // p0200: flipped by RunCancelRequestedEvent; the card renders "cancelling…" until RunFinished.
     bool CancelRequested = false,
     // p0320d: 1-based FIFO position for a status="queued" run, computed at query
     // time from the capacity queue's order (never persisted — the head moves).
@@ -107,10 +105,12 @@ public sealed record RunSnapshot(
     // attributed time (pre-p0404 rows), so the client shows nothing rather than
     // a zero that reads as "no model time".
     RunTimeSplitView? TimeSplit = null,
-    // p0413: the SHAPE the classifier stated (with the line saying why) — the signal
-    // that decided how this ticket was cut into specs. Null when none was stated.
+    // p0413: the SHAPE the classifier stated (with the line saying why). Null when none.
     string? WorkShape = null,
-    string? WorkShapeReason = null)
+    string? WorkShapeReason = null,
+    // 2026-10-13-9a59a: the run row's project and platform (REST only, not the live fold).
+    string? Project = null,
+    string? Platform = null)
 {
     /// <summary>
     /// p0211: explicit, stable run title for the dashboard. Resolves to the

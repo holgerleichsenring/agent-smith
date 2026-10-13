@@ -162,6 +162,7 @@ public sealed class RunEventRouterTests
         { Rollups.Enqueue(rollup); return Task.CompletedTask; }
         public Task ToSystemAsync(SystemEvent systemEvent, CancellationToken ct) => Task.CompletedTask;
         public Task ToSystemActivityAsync(SystemActivitySnapshot snapshot, CancellationToken ct) => Task.CompletedTask;
+        public Task ToTicketActivityAsync(TicketActivityChangedEvent ticketEvent, CancellationToken ct) => Task.CompletedTask;
     }
 
     private sealed class RecordingPersistence : IRunEventPersistence
@@ -187,5 +188,6 @@ public sealed class RunEventRouterTests
         public Task ToRunActivityAsync(string runId, SandboxActivityRollup rollup, CancellationToken ct) => Task.CompletedTask;
         public Task ToSystemAsync(SystemEvent systemEvent, CancellationToken ct) => Task.CompletedTask;
         public Task ToSystemActivityAsync(SystemActivitySnapshot snapshot, CancellationToken ct) => Task.CompletedTask;
+        public Task ToTicketActivityAsync(TicketActivityChangedEvent ticketEvent, CancellationToken ct) => Task.CompletedTask;
     }
 }

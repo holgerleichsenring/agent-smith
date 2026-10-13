@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-13-9a59a: "TICKET READ MODEL (Server tickets). GET /api/tickets and /api/tickets/{project}/{ticketId} (runs.read): tickets from code runs, needs_you/working/idle via RunQueuePlace, attempts by run id, InfrastructureEnd; TicketActivityChanged (56) to the overview group, off the System page; RunSnapshot gains project, platform. -> .agentsmith/specs/done/2026-10-13-9a59a-ticket-read-model.yaml"
     2026-09-09-fd21: "RETIRED (2026-10-13, superseded before it was built by 2026-10-13-9a59a): written from the 2026-09-09 ticket mock, refused on re-review against a month-newer code base. Moved to done/ as historical record, never implemented. -> .agentsmith/specs/done/2026-09-09-fd21-ticket-read-model.yaml"
     2026-09-09-577c: "RETIRED (2026-10-13, superseded before it was built by 2026-10-13-9a59a and 2026-10-13-9a59g): written from the 2026-09-09 ticket mock, refused on re-review against a month-newer code base. Moved to done/ as historical record, never implemented. -> .agentsmith/specs/done/2026-09-09-577c-ticket-rows-follow-their-runs.yaml"
     2026-09-09-debf: "RETIRED (2026-10-13, superseded before it was built by 2026-10-13-9a59d): written from the 2026-09-09 ticket mock, refused on re-review against a month-newer code base. Moved to done/ as historical record, never implemented. -> .agentsmith/specs/done/2026-09-09-debf-attempt-lineage-cause.yaml"

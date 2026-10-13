@@ -1,0 +1,24 @@
+namespace AgentSmith.Server.Models;
+
+/// <summary>
+/// 2026-10-13-9a59a: who must act next on a ticket — the words the ticket list is filtered by.
+/// Later members of the series insert buckets between these; the order the rule asks in is
+/// needs_you, working, then everything else.
+/// </summary>
+public static class TicketBucket
+{
+    /// <summary>The newest attempt is parked and no relaunch is under way: a person must answer.</summary>
+    public const string NeedsYou = "needs_you";
+
+    /// <summary>The newest attempt runs, waits in the capacity queue, or is being relaunched.</summary>
+    public const string Working = "working";
+
+    /// <summary>Everything else; the row carries the newest attempt's status as its last outcome.</summary>
+    public const string Idle = "idle";
+
+    /// <summary>Every bucket the list accepts as a filter.</summary>
+    public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
+    {
+        NeedsYou, Working, Idle,
+    };
+}

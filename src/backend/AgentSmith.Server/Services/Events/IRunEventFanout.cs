@@ -35,4 +35,10 @@ public interface IRunEventFanout
     /// 24h rollup instead of deriving from the capped client buffer.
     /// </summary>
     Task ToSystemActivityAsync(SystemActivitySnapshot snapshot, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// 2026-10-13-9a59a: tells the Overview group a ticket changed ("TicketActivityChanged" with
+    /// project and ticket key), so a ticket page refetches. Never sent to the System group.
+    /// </summary>
+    Task ToTicketActivityAsync(TicketActivityChangedEvent ticketEvent, CancellationToken cancellationToken);
 }
