@@ -1136,6 +1136,8 @@ state:
     2026-10-13-ee83: "THE BASELINE READS SOURCES IN BATCHES (structure baseline). Measured first: per-file ReadFile 106 s for 400 files in a container (250 ms poll tick), so the reader was built: one sh -c Run step per chunk, base64 lines under a byte budget, per-file fallback; 400 files in 2 steps, 1 s. Gate unchanged. -> .agentsmith/specs/done/2026-10-13-ee83-structure-batched-reads.yaml"
   active: {}
   planned:
+    2026-10-13-a347a: "A DECLARED FORMATTER IS PROVEN WHEN WRITTEN (write_context_yaml). The tool runs it once on a component source and refuses a command that does not exit 0, restoring the file. -> .agentsmith/specs/planned/2026-10-13-a347a-format-proven-at-write.yaml"
+    2026-10-13-a347b: "THE CUT REVIEW KEEPS THE OPERATOR'S DONE WHEN (cut review). done-dropped reports a ticket Done when outcome no done entry states, so the derivation is redone. -> .agentsmith/specs/planned/2026-10-13-a347b-cut-review-done-when.yaml"
     2026-10-12-7bd7: "THE SKILLS CI REFUSES PHASE FOR A SPEC (skills repo). The 967ag guard for agent-smith-skills: step-meaning tokens allowlisted per file. -> .agentsmith/specs/planned/2026-10-12-7bd7-skills-spec-word-guard.yaml"
     2026-10-12-967ah: "THE PHASE READERS GO (backend, dashboard, hooks). Operator-timed once every replica rewrote its store: aliases for owned data and the gate forwarder removed; label and config aliases stay. -> .agentsmith/specs/planned/2026-10-12-967ah-naming-spec-contract.yaml"
     2026-10-12-967ai: "THE PLUGIN SAYS SPEC (spec-first plugin). create-phase alias removed; example prompt and update-project speak of specs and spec/{id} branches outside the layout migration. -> .agentsmith/specs/planned/2026-10-12-967ai-naming-spec-plugin.yaml"
