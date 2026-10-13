@@ -1,8 +1,11 @@
 import type { ComponentType } from "react";
 import type { TicketConversation, TicketDetail, TicketSeries } from "@/types/tickets";
+import { money } from "../ticketFormat";
 import { specsCounter, acceptanceTally } from "./specWords";
 import { TicketAcceptanceTab } from "./TicketAcceptanceTab";
+import { TicketAttemptsTab } from "./TicketAttemptsTab";
 import { TicketConversationTab } from "./TicketConversationTab";
+import { TicketCostTab } from "./TicketCostTab";
 import { TicketSpecsTab } from "./TicketSpecsTab";
 import { TicketSummaryTab } from "./TicketSummaryTab";
 
@@ -51,6 +54,11 @@ export const ticketTabs: TicketTab[] = [
       const tally = acceptanceTally(series);
       return tally ? { text: `${tally.verified}/${tally.total}` } : null;
     },
+  },
+  { id: "attempts", label: "Attempts", Pane: TicketAttemptsTab, counter: (detail) => ({ text: String(detail.attempts.length) }) },
+  {
+    id: "cost", label: "Cost & compute", Pane: TicketCostTab,
+    counter: (detail) => ({ text: money(detail.attempts.reduce((sum, a) => sum + a.cost, 0)) }),
   },
 ];
 

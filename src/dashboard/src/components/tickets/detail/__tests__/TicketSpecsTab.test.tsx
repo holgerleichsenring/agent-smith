@@ -49,12 +49,16 @@ const world = {
   detail: null as unknown as TicketDetail,
   series: {} as Record<string, TicketSeries>,
   passes: {} as Record<string, RunPasses>,
+  run: () => Promise.reject(new Error("unused")),
+  compute: () => Promise.reject(new Error("unused")),
 };
 const api = {
   detail: vi.fn(() => Promise.resolve(world.detail)),
   series: vi.fn((_p: string, _t: string, runId: string | null) => Promise.resolve(world.series[runId ?? "default"])),
   conversation: vi.fn(() => Promise.resolve(conversation([]))),
   passes: vi.fn((runId: string) => Promise.resolve(world.passes[runId] ?? passes(runId, {}, 0))),
+  run: vi.fn(() => Promise.reject(new Error("unused"))),
+  compute: vi.fn(() => Promise.reject(new Error("unused"))),
 };
 
 const settle = async () => {

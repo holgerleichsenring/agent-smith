@@ -6,6 +6,7 @@ import { apiFetch, getJson, refused } from "@/lib/apiResponse";
 import { ticketPath } from "@/lib/tickets/ticketAddress";
 import type {
   RetryRefusal,
+  RunCompute,
   RunPasses,
   TicketApprovalPreview,
   TicketConversation,
@@ -56,6 +57,11 @@ export function fetchTicketConversation(
 
 export function fetchRunPasses(runId: string, signal?: AbortSignal): Promise<RunPasses> {
   return getJson<RunPasses>(`/api/runs/${encodeURIComponent(runId)}/passes`, signal);
+}
+
+/** 2026-10-13-9a59s: every sandbox and launch segment of one run (9a59i, 9a59j); runs.read. */
+export function fetchRunCompute(runId: string, signal?: AbortSignal): Promise<RunCompute> {
+  return getJson<RunCompute>(`/api/runs/${encodeURIComponent(runId)}/compute`, signal);
 }
 
 // 2026-10-13-9a59r: what approving the open proposal would do; dialog.write. A 404 (no proposal open)

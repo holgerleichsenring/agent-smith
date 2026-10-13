@@ -78,6 +78,8 @@ const api = {
     () => Promise.resolve(series("r-1", [spec()]))),
   conversation: vi.fn(() => Promise.resolve(world.conversation)),
   passes: vi.fn(() => Promise.reject(new Error("unused"))),
+  run: vi.fn(() => Promise.reject(new Error("unused"))),
+  compute: vi.fn(() => Promise.reject(new Error("unused"))),
 };
 
 const settle = async (ms = 0) => {

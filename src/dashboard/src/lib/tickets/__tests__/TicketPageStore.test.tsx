@@ -36,6 +36,8 @@ const api = {
   series: vi.fn((_p: string, _t: string, runId: string | null) => Promise.resolve(series(runId ?? "r-1", []))),
   conversation: vi.fn(() => Promise.resolve(conversation([]))),
   passes: vi.fn((runId: string) => Promise.resolve(passes(runId, {}))),
+  run: vi.fn(() => Promise.reject(new Error("unused"))),
+  compute: vi.fn(() => Promise.reject(new Error("unused"))),
 };
 
 const reads = (fn: { mock: { calls: unknown[][] } }, runId?: string) =>

@@ -1,12 +1,15 @@
 import { ApiResponseError, refusalIn, type ApiRefusal } from "@/lib/apiResponse";
+import { fetchRun } from "@/lib/runsApi";
 import { isRunLive } from "@/lib/runLiveness";
 import {
+  fetchRunCompute,
   fetchRunPasses,
   fetchTicketConversation,
   fetchTicketDetail,
   fetchTicketSeries,
 } from "@/lib/ticketsApi";
-import type { RunPasses, TicketConversation, TicketDetail, TicketSeries } from "@/types/tickets";
+import type { RunSnapshot } from "@/types/hub-events";
+import type { RunCompute, RunPasses, TicketConversation, TicketDetail, TicketSeries } from "@/types/tickets";
 import { CoalescedRefetch } from "./CoalescedRefetch";
 
 // 2026-10-13-9a59q: every read of one ticket page, held once for the page's life. Detail, the default
@@ -14,6 +17,8 @@ import { CoalescedRefetch } from "./CoalescedRefetch";
 // attempt's per-run reads never change, so they are fetched once; a live attempt's (isRunLive — a
 // question park resumes the same run and adds passes) are re-read with the detail. Every read is
 // scheduled through its own 2 s window, so a burst of nudges costs one fetch per read.
+// 2026-10-13-9a59s: the run detail (cap, LLM calls, reserved Gi-minutes) and the compute record are two
+// more per-run reads under the same rules.
 
 export const TICKET_READ_MS = 2000;
 
@@ -33,6 +38,8 @@ export interface TicketPageSnapshot {
   conversation: Read<TicketConversation>;
   runSeries: Readonly<Record<string, Read<TicketSeries>>>;
   runPasses: Readonly<Record<string, Read<RunPasses>>>;
+  runRun: Readonly<Record<string, Read<RunSnapshot>>>;
+  runCompute: Readonly<Record<string, Read<RunCompute>>>;
 }
 
 export interface TicketPageApi {
@@ -40,6 +47,9 @@ export interface TicketPageApi {
   series(project: string, ticketId: string, runId: string | null, signal?: AbortSignal): Promise<TicketSeries>;
   conversation(project: string, ticketId: string, signal?: AbortSignal): Promise<TicketConversation>;
   passes(runId: string, signal?: AbortSignal): Promise<RunPasses>;
+  /** The run detail; a 404 rejects like any other read. */
+  run(runId: string, signal?: AbortSignal): Promise<RunSnapshot>;
+  compute(runId: string, signal?: AbortSignal): Promise<RunCompute>;
 }
 
 /** The reads over HTTP, bound at call time. */
@@ -48,15 +58,29 @@ export const TICKET_PAGE_API: TicketPageApi = {
   series: (project, ticketId, runId, signal) => fetchTicketSeries(project, ticketId, runId, signal),
   conversation: (project, ticketId, signal) => fetchTicketConversation(project, ticketId, signal),
   passes: (runId, signal) => fetchRunPasses(runId, signal),
+  run: async (runId, signal) => {
+    const run = await fetchRun(runId, signal);
+    if (!run) throw new ApiResponseError(`/api/runs/${runId}`, 404, "no such run");
+    return run;
+  },
+  compute: (runId, signal) => fetchRunCompute(runId, signal),
 };
 
-export type PerRunRead = "series" | "passes";
+export type PerRunRead = "series" | "passes" | "run" | "compute";
+
+export const PER_RUN_READS: readonly PerRunRead[] = ["series", "passes", "run", "compute"];
+
+type PerRunField = "runSeries" | "runPasses" | "runRun" | "runCompute";
+
+const PER_RUN_FIELD: Readonly<Record<PerRunRead, PerRunField>> = {
+  series: "runSeries", passes: "runPasses", run: "runRun", compute: "runCompute",
+};
 
 const PENDING: Read<never> = { data: null, failed: false, refusal: null, loading: true };
 
 export class TicketPageReads {
   private snap: TicketPageSnapshot = {
-    detail: PENDING, series: PENDING, conversation: PENDING, runSeries: {}, runPasses: {},
+    detail: PENDING, series: PENDING, conversation: PENDING, runSeries: {}, runPasses: {}, runRun: {}, runCompute: {},
   };
   private readonly wanted = new Set<string>();
   private readonly inFlight = new Set<string>();
@@ -127,7 +151,17 @@ export class TicketPageReads {
   }
 
   private perRun(kind: PerRunRead): Readonly<Record<string, Read<unknown>>> {
-    return kind === "series" ? this.snap.runSeries : this.snap.runPasses;
+    return this.snap[PER_RUN_FIELD[kind]];
+  }
+
+  private loader(kind: PerRunRead, runId: string): () => Promise<unknown> {
+    const signal = this.abort.signal;
+    switch (kind) {
+      case "series": return () => this.api.series(this.project, this.ticketId, runId, signal);
+      case "passes": return () => this.api.passes(runId, signal);
+      case "run": return () => this.api.run(runId, signal);
+      case "compute": return () => this.api.compute(runId, signal);
+    }
   }
 
   private readTicket(): void {
@@ -154,7 +188,7 @@ export class TicketPageReads {
     this.conversationTick.within(TICKET_READ_MS);
     const moved = detail.attempts.filter((a) => !before.split(",").includes(`${a.runId}=${a.status}`));
     for (const attempt of moved) {
-      for (const kind of ["series", "passes"] as const) {
+      for (const kind of PER_RUN_READS) {
         if (this.wanted.has(`${kind}:${attempt.runId}`) && !isRunLive(attempt.status)) this.readPerRun(kind, attempt.runId);
       }
     }
@@ -173,10 +207,8 @@ export class TicketPageReads {
     }
     this.inFlight.add(key);
     const generation = this.generation;
-    const load = kind === "series"
-      ? () => this.api.series(this.project, this.ticketId, runId, this.abort.signal)
-      : () => this.api.passes(runId, this.abort.signal);
-    const field = kind === "series" ? "runSeries" : "runPasses";
+    const load = this.loader(kind, runId);
+    const field = PER_RUN_FIELD[kind];
     if (!this.snap[field][runId]) this.publish({ ...this.snap, [field]: { ...this.snap[field], [runId]: PENDING } });
     void load()
       .then((data) => this.landed(generation, field, runId, { data, failed: false, refusal: null, loading: false }))
@@ -188,7 +220,7 @@ export class TicketPageReads {
       });
   }
 
-  private landed(generation: number, field: "runSeries" | "runPasses", runId: string, read: Read<unknown>): void {
+  private landed(generation: number, field: PerRunField, runId: string, read: Read<unknown>): void {
     if (this.disposed || generation !== this.generation) return;
     this.publish({ ...this.snap, [field]: { ...this.snap[field], [runId]: read } });
   }

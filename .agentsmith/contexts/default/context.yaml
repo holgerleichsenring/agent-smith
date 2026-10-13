@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-13-9a59s: "TICKET ATTEMPTS AND COST (dashboard ticket page: Attempts, Cost & compute tabs; run and compute reads in the page store). Per attempt what started it, what it did and why it stopped; cost per spec and pass on the run-cap scale; pods with end reasons, call time and time waiting on you. -> .agentsmith/specs/done/2026-10-13-9a59s-dashboard-ticket-attempts-cost.yaml"
     2026-10-13-9a59r: "TICKET CONVERSATION (dashboard ticket page: Conversation, Specs, Acceptance tabs; Work it out dialog-id source; bound approval card). One thread per ticket with the ticket's own Work it out composer, moving nothing until the first act; specs as read-only documents; acceptance per spec. -> .agentsmith/specs/done/2026-10-13-9a59r-dashboard-ticket-conversation.yaml"
     2026-10-13-9a59q: "TICKET PAGE (dashboard /tickets/{project}/{ticketId}, one per-page store, Summary tab, attempt flow graph). Header, four cells and per attempt a pipeline graph with spec rows, passes, questions and hand-backs, each node explained; list rows and code runs link here. -> .agentsmith/specs/done/2026-10-13-9a59q-dashboard-ticket-graph.yaml"
     2026-10-13-9a59p: "TICKET LIST (dashboard /tickets, rail Work section, runs home, DESIGN.md state palette). Tickets grouped by who acts next with series strip, PR cells and attempt marks; questions answered inline, hand-backs lead into the conversation; the runs home says Waiting for input. -> .agentsmith/specs/done/2026-10-13-9a59p-dashboard-ticket-list.yaml"

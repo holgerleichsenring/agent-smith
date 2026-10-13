@@ -6,8 +6,8 @@
      design/mockups/ticket-view.html  → .mock-tickets (2026-10-13-9a59p: shell + list;
                                         2026-10-13-9a59q: detail header, tabs, summary,
                                         graph, node detail; 2026-10-13-9a59r: conversation,
-                                        composer, specs, acceptance; the other tabs are
-                                        ported by the specs that build them, same scope)
+                                        composer, specs, acceptance; 2026-10-13-9a59s:
+                                        attempts, cost and compute)
    Every rule is prefix-scoped under the .mock-shell wrapper (applied at each
    redesigned page root and the app rail) so the mock look wins inside the
    redesigned surfaces without leaking into System/Rollups pages. Values are
@@ -41,7 +41,8 @@
      blink are mock-flow, mock-halo and mock-blink (global names, like mock-pulse); the
      light .pill set, the header dot's other states, .gd.infra, the legend swatch
      classes, .g-note and .doc .dim-line are added (2026-10-13-9a59q); the Conversation,
-     Specs and Acceptance tabs' own deviations are listed in their section (2026-10-13-9a59r). */
+     Specs and Acceptance tabs' own deviations are listed in their section (2026-10-13-9a59r), the
+     Attempts and Cost & compute tabs' in theirs (2026-10-13-9a59s). */
 
 /* ===== shared shell: tokens + primitives (identical across all three mocks) == */
 .mock-shell {
@@ -628,6 +629,102 @@
 .mock-tickets .composer.hidden-note { border-color:var(--line); }
 .mock-tickets .open-spec { margin:10px 0 0; }
 .mock-tickets .banner .btn { white-space:nowrap; }
+
+/* =========================================================================
+   TICKET DETAIL — ticket-view.html, Attempts and Cost & compute tabs (2026-10-13-9a59s)
+   ========================================================================= */
+/* ===== attempts ===== */
+.mock-tickets .next-card { display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:12px; align-items:center; background:var(--panel); border:1px solid var(--line); border-radius:var(--r); padding:12px 16px; margin-bottom:22px; }
+.mock-tickets .next-card .bt { font-size:13.5px; font-weight:560; }
+.mock-tickets .next-card .bs { font-size:11.5px; color:var(--ink-3); margin-top:2px; }
+@media (max-width:640px) { .mock-tickets .next-card { grid-template-columns:minmax(0,1fr); } }
+.mock-tickets .tl { display:flex; flex-direction:column; position:relative; }
+.mock-tickets .tl::before { content:""; position:absolute; left:19px; top:18px; bottom:18px; width:2px; background:var(--line); }
+.mock-tickets .att { position:relative; display:grid; grid-template-columns:40px minmax(0,1fr); gap:0 12px; }
+.mock-tickets .att .dot { width:12px; height:12px; border-radius:50%; margin:15px 0 0 14px; border:2px solid var(--bg); box-shadow:0 0 0 1px var(--line); background:var(--idle); position:relative; z-index:1; }
+.mock-tickets .att.ok .dot { background:var(--ok); } .mock-tickets .att.bad .dot { background:var(--bad); } .mock-tickets .att.hb .dot { background:var(--person); }
+.mock-tickets .att.run .dot { background:var(--run); color:var(--run); animation:mock-pulse 1.8s infinite; }
+.mock-tickets .att .card { background:var(--panel); border:1px solid var(--line); border-radius:var(--r); margin-bottom:10px; overflow:hidden; }
+.mock-tickets .a-top { width:100%; font:inherit; color:inherit; text-align:left; background:none; border:0; display:grid; grid-template-columns:minmax(0,1fr) auto auto auto; gap:14px; align-items:center; padding:11px 14px; cursor:pointer; }
+.mock-tickets .a-top:hover { background:var(--panel-2); }
+@media (max-width:700px) { .mock-tickets .a-top { grid-template-columns:minmax(0,1fr) auto; } .mock-tickets .a-top .a-num.hidesm { display:none; } }
+.mock-tickets .a-name { display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; min-width:0; }
+.mock-tickets .a-name .an { font-weight:650; font-size:13.5px; }
+.mock-tickets .a-name .rid { font-family:var(--mono); font-size:11px; color:var(--ink-3); }
+.mock-tickets .a-why { font-size:11.5px; color:var(--ink-3); margin-top:2px; }
+.mock-tickets .a-why b { color:var(--ink-2); font-weight:600; }
+.mock-tickets .a-why .cause { color:var(--person); font-weight:600; }
+.mock-tickets .a-num { font-family:var(--mono); font-size:12px; color:var(--ink-2); font-variant-numeric:tabular-nums; white-space:nowrap; text-align:right; }
+.mock-tickets .a-num small { display:block; color:var(--ink-3); font-size:10.5px; }
+.mock-tickets .a-body { border-top:1px solid var(--line-2); padding:12px 14px 14px; display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1fr); gap:14px 22px; font-size:12.5px; }
+@media (max-width:760px) { .mock-tickets .a-body { grid-template-columns:minmax(0,1fr); } }
+.mock-tickets .kv { display:flex; flex-direction:column; gap:5px; }
+.mock-tickets .kv .k { font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); font-weight:600; }
+.mock-tickets .kv .v { color:var(--ink-2); }
+.mock-tickets .kv .v b { color:var(--ink); font-weight:600; }
+.mock-tickets .kv ul { margin:0; padding-left:16px; display:flex; flex-direction:column; gap:3px; }
+.mock-tickets .kv .links { display:flex; gap:7px; flex-wrap:wrap; }
+.mock-tickets .chg { position:relative; display:grid; grid-template-columns:40px minmax(0,1fr); gap:0 12px; }
+.mock-tickets .chg .dot { width:8px; height:8px; border-radius:50%; margin:9px 0 0 16px; background:var(--bg); border:2px solid var(--person); position:relative; z-index:1; }
+.mock-tickets .chg .line { font-size:12.5px; color:var(--ink-2); padding:4px 0 12px; display:flex; gap:10px; align-items:baseline; flex-wrap:wrap; }
+.mock-tickets .chg .line b { color:var(--ink); font-weight:600; }
+.mock-tickets .chg .line .w { font-family:var(--mono); font-size:11px; color:var(--ink-3); }
+.mock-tickets .chg .line a { color:var(--person); font-size:11.5px; }
+
+/* ===== cost & compute ===== */
+.mock-tickets .costs { display:flex; flex-direction:column; gap:8px; max-width:720px; }
+.mock-tickets .cr { display:grid; grid-template-columns:34px minmax(0,1fr) 64px; gap:12px; align-items:center; font-size:12px; }
+.mock-tickets .cr .cl { font-family:var(--mono); font-size:11px; color:var(--ink-3); }
+.mock-tickets .cr .track { display:flex; flex-direction:column; gap:4px; min-width:0; }
+.mock-tickets .cr .bar { height:10px; border-radius:3px; background:var(--line-2); overflow:hidden; display:flex; }
+.mock-tickets .cr .bar > span { display:block; height:100%; background:var(--ink-2); }
+.mock-tickets .cr .bar > span + span { border-left:2px solid var(--panel); }
+.mock-tickets .cr .bar > span.live { background:var(--run); }
+.mock-tickets .cr .bar > span.dv { background:var(--idle); }
+.mock-tickets .cr .parts { font-size:11px; color:var(--ink-3); font-family:var(--mono); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.mock-tickets .cr .cv { font-family:var(--mono); font-size:12px; text-align:right; color:var(--ink-2); font-variant-numeric:tabular-nums; }
+.mock-tickets .cr.total { border-top:1px solid var(--line); padding-top:8px; font-weight:600; }
+.mock-tickets .cr.total .cv { color:var(--ink); }
+.mock-tickets .compute { border:1px solid var(--line); border-radius:var(--r); overflow:hidden; background:var(--panel); }
+.mock-tickets .c-head, .mock-tickets .c-row { display:grid; grid-template-columns:44px minmax(0,1fr) 46px 66px; gap:14px; align-items:center; padding:10px 16px; }
+.mock-tickets .c-head { font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); font-weight:600; background:var(--panel-2); border-bottom:1px solid var(--line); }
+.mock-tickets .c-head .r, .mock-tickets .c-n { text-align:right; }
+.mock-tickets .c-row { border-bottom:1px solid var(--line-2); }
+.mock-tickets .c-row:last-of-type { border-bottom:0; }
+.mock-tickets .c-a { font-family:var(--mono); font-size:12px; color:var(--ink-2); }
+.mock-tickets .c-n { font-family:var(--mono); font-size:12px; color:var(--ink-2); font-variant-numeric:tabular-nums; }
+.mock-tickets .c-track { min-width:0; display:flex; flex-direction:column; gap:6px; }
+.mock-tickets .c-bar { height:12px; border-radius:3px; overflow:hidden; display:flex; background:var(--line-2); }
+.mock-tickets .c-bar > span { display:block; height:100%; }
+.mock-tickets .c-bar .park { background:repeating-linear-gradient(135deg,var(--person) 0 4px,var(--person-wash) 4px 8px); }
+.mock-tickets .c-bar .over { background:var(--idle); }
+.mock-tickets .c-pods { display:flex; flex-direction:column; gap:3px; }
+.mock-tickets .pd { font-size:11px; color:var(--ink-3); font-family:var(--mono); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.mock-tickets .pd b { color:var(--ink-2); font-weight:500; }
+.mock-tickets .c-legend { display:flex; gap:16px; flex-wrap:wrap; padding:10px 16px; border-top:1px solid var(--line); background:var(--bg); font-size:11px; color:var(--ink-3); }
+.mock-tickets .c-legend span { display:inline-flex; align-items:center; gap:6px; }
+.mock-tickets .c-legend i { width:12px; height:8px; border-radius:2px; display:inline-block; }
+
+/* deviations (2026-10-13-9a59s): the next-attempt card's info dot is the banner's .bi; a run's own cap is a
+   .capmark on its row's .bar-wrap (no ticket-wide cap exists); not-attributed cost is its own .na span; the
+   total row's text is .parts.sans; the compute tiles are .health.four (the mock's inline style); a launch
+   segment is ONE .seg span (the mock's model/over split would draw call time as a share of wall clock) with
+   its call time written in .c-figs; a capacity wait is .cap; the legend swatches are classes; the banner
+   button keeps its line */
+.mock-tickets .next-card .bi { width:18px; height:18px; border-radius:50%; border:1.5px solid var(--ink-3); display:grid; place-items:center; font-size:11px; font-weight:700; color:var(--ink-3); }
+.mock-tickets .cr .bar-wrap { position:relative; }
+.mock-tickets .cr .capmark { position:absolute; top:-3px; bottom:-3px; width:2px; margin-left:-1px; background:var(--ink); border-radius:1px; }
+.mock-tickets .cr .capmark.over { background:var(--bad); }
+.mock-tickets .cr .bar > span.na { background:var(--line); }
+.mock-tickets .cr .parts.sans { font-family:var(--sans); }
+.mock-tickets .health.four { grid-template-columns:repeat(4,minmax(0,1fr)); }
+@media (max-width:760px) { .mock-tickets .health.four { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+.mock-tickets .compute-banner { margin-bottom:18px; }
+.mock-tickets .c-bar .seg, .mock-tickets .c-legend i.seg { background:var(--ok); }
+.mock-tickets .c-bar .cap, .mock-tickets .c-legend i.cap { background:repeating-linear-gradient(135deg,var(--run) 0 4px,var(--run-wash) 4px 8px); }
+.mock-tickets .c-legend i.park { background:repeating-linear-gradient(135deg,var(--person) 0 4px,var(--person-wash) 4px 8px); }
+.mock-tickets .c-legend i.over { background:var(--idle); }
+.mock-tickets .c-figs { font-size:11px; color:var(--ink-2); font-family:var(--mono); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
 /* =========================================================================
    RUN VIEWER — run-viewer.html

@@ -13,7 +13,9 @@ import { TicketListProvider } from "@/lib/tickets/TicketListProvider";
 import { fakeHub, list, pr, ticket } from "@/components/tickets/__tests__/ticketFixtures";
 import { TicketPage } from "@/components/tickets/detail/TicketPage";
 import { TicketPageStore } from "@/lib/tickets/TicketPageStore";
-import { attempt, conversation, detail, entry, pass, passes, series, spec } from "@/components/tickets/detail/__tests__/detailFixtures";
+import {
+  attempt, compute, conversation, detail, entry, pass, passes, runDetail, segment, series, spec,
+} from "@/components/tickets/detail/__tests__/detailFixtures";
 
 // p0343c: PIXEL IDENTITY guard — each redesigned surface renders the ratified
 // mock's structural DOM (wrapper + key mock classes), bound to real data. If a
@@ -239,6 +241,8 @@ describe("Mock parity", () => {
       ])),
       conversation: () => Promise.resolve(conversation([])),
       passes: (runId: string) => Promise.resolve(passes(runId, { s2: [pass()] })),
+      run: () => Promise.reject(new Error("unused")),
+      compute: () => Promise.reject(new Error("unused")),
     };
     const ticketPage = render(
       <TicketPageStore project="shop" ticketId="101" client={fakeHub().client} api={ticketApi}>
@@ -297,6 +301,8 @@ describe("Mock parity", () => {
         proposal: { kind: "spec", drafts: [{ specId: "s3", goal: "Import consumer", repos: ["w"], done: ["caps"] }] },
       }),
       passes: (runId: string) => Promise.resolve(passes(runId, { s2: [pass()] })),
+      run: () => Promise.reject(new Error("unused")),
+      compute: () => Promise.reject(new Error("unused")),
     };
     const tabs: Array<[string, string[]]> = [
       ["conversation", [".section-head", ".conv-tools", ".chip", ".conv", ".c-att", ".msg", ".msg.internal", ".av", ".mh", ".where", ".mb", ".diff", ".proposal", ".ph", ".pb", ".composer", ".cp-head", ".cp-actions", ".cp-input"]],
@@ -313,6 +319,43 @@ describe("Mock parity", () => {
       const root = screen.getByTestId("ticket-page");
       await screen.findByTestId(`ticket-tab-${tab}`);
       await screen.findByText(tab === "conversation" ? "Add one" : tab === "specs" ? "Revisions" : "Acceptance", { selector: tab === "conversation" ? ".mb" : "h2" });
+      for (const cls of classes) {
+        expect(root.querySelector(cls), `ticket ${tab} tab missing ${cls}`).not.toBeNull();
+      }
+      page.unmount();
+    }
+    search.current = "";
+  });
+
+  it("MockParity_TicketAttemptsCost_StructuralClassesPresent", async () => {
+    const parked = segment({
+      endedAt: "2026-09-04T14:10:00Z", endStatus: "waiting_for_input",
+      park: { kind: "question", askedAt: "2026-09-04T14:09:00Z", questionId: "1", answeredAt: "2026-09-04T16:00:00Z", answeredBy: "h", resumedAt: "2026-09-04T16:00:00Z" },
+    });
+    const ticketApi = {
+      detail: () => Promise.resolve(detail([attempt(), attempt({ number: 2, runId: "r-2", cost: 9.4 })])),
+      series: (_p: string, _t: string, runId: string | null) => Promise.resolve(series(runId ?? "r-2", [spec()])),
+      conversation: () => Promise.resolve(conversation([])),
+      passes: (runId: string) => Promise.resolve(passes(runId, { s1: [pass()] })),
+      run: (runId: string) => Promise.resolve(runDetail(runId, { budgetCapUsd: runId === "r-1" ? 5 : 15 })),
+      compute: (runId: string) => Promise.resolve(compute(runId, {
+        segments: [parked, segment({ startedAt: "2026-09-04T16:00:00Z", endedAt: "2026-09-04T16:30:00Z" })],
+      })),
+    };
+    const tabs: Array<[string, string, string[]]> = [
+      ["attempts", "attempts-timeline", [".next-card", ".bi", ".bt", ".bs", ".section-head", ".tl", ".att", ".dot", ".card", ".a-top", ".a-name", ".an", ".pill", ".rid", ".a-why", ".cause", ".a-num", ".a-body", ".kv", ".k", ".v", ".links", ".chg", ".line"]],
+      ["cost", "compute-table", [".costs", ".cr", ".cl", ".track", ".bar", ".parts", ".cv", ".cr.total", ".capmark", ".health.four", ".metric", ".metric.hot", ".banner.need", ".compute", ".c-head", ".c-row", ".c-a", ".c-track", ".c-bar", ".seg", ".park", ".c-figs", ".c-pods", ".pd", ".c-n", ".c-legend"]],
+    ];
+    for (const [tab, ready, classes] of tabs) {
+      search.current = `tab=${tab}`;
+      const page = render(
+        <TicketPageStore project="shop" ticketId="101" client={fakeHub().client} api={ticketApi}>
+          <TicketPage />
+        </TicketPageStore>,
+      );
+      const root = screen.getByTestId("ticket-page");
+      await screen.findByTestId(ready);
+      await screen.findAllByText(/LLM calls|call time/);
       for (const cls of classes) {
         expect(root.querySelector(cls), `ticket ${tab} tab missing ${cls}`).not.toBeNull();
       }

@@ -402,3 +402,51 @@ export interface RetryRefusal {
   project: string;
   ticketId: string;
 }
+
+// 2026-10-13-9a59s: GET /api/runs/{runId}/compute (RunComputeRecordView, 9a59i + 9a59j) — every sandbox the
+// run spawned with how it ended, the sandboxes no row counts, and each launch as a segment with its park.
+
+/** exited | oom-killed | vanished | gone | released-at-park | released-at-requeue | released-at-end | unobserved */
+export type SandboxEndReason = string;
+
+export interface RunComputeSpawn {
+  repo: string;
+  spawnedAt: string | null;
+  /** Null while open, and for an unobserved spawn (no close event reached it). */
+  disposedAt: string | null;
+  memory: string | null;
+  endReason: SandboxEndReason | null;
+  exitCode: number | null;
+  oomKilled: boolean | null;
+}
+
+/** Who a parked segment waited on; kind null when neither a question nor a hand-back sits inside it. */
+export interface RunComputePark {
+  /** question | handback | null */
+  kind: string | null;
+  askedAt: string | null;
+  questionId: string | null;
+  /** A hand-back's answer is the cause of the ticket's next attempt. */
+  answeredAt: string | null;
+  answeredBy: string | null;
+  resumedAt: string | null;
+}
+
+/** One launch of the run. endedAt null = open; endStatus "queued" is a capacity wait, never a park. */
+export interface RunComputeSegment {
+  startedAt: string;
+  endedAt: string | null;
+  endStatus: string | null;
+  /** Summed call durations inside the segment — parallel sub-agents overlap, so it may exceed the span. */
+  modelMs: number;
+  park: RunComputePark | null;
+}
+
+export interface RunCompute {
+  runId: string;
+  spawns: RunComputeSpawn[];
+  /** source-scope | browser | preflight — named, never counted. */
+  uncounted: Array<{ kind: string; label: string }>;
+  segments: RunComputeSegment[];
+  unattributedCalls: number;
+}

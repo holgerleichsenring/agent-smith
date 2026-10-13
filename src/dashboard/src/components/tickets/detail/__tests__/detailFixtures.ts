@@ -1,5 +1,9 @@
 import { ticket } from "../../__tests__/ticketFixtures";
+import type { RunSnapshot } from "@/types/hub-events";
 import type {
+  RunCompute,
+  RunComputeSegment,
+  RunComputeSpawn,
   RunPass,
   RunPasses,
   TicketAttempt,
@@ -81,5 +85,34 @@ export function conversation(entries: TicketConversationEntry[]): TicketConversa
   return {
     project: "shop", ticketId: "101", entries, attempts: [], sessionId: null, openDialogId: null,
     proposal: null, transcriptHidden: false, threadUnavailable: false,
+  };
+}
+
+// 2026-10-13-9a59s: the run detail fields the Attempts and Cost tabs read, and the compute record.
+
+export function runDetail(runId: string, over: Partial<RunSnapshot> = {}): RunSnapshot {
+  return { runId, llmCalls: 12, budgetCapUsd: 15, reservedGiMinutes: 120, costUsd: 1, ...over } as RunSnapshot;
+}
+
+export function segment(over: Partial<RunComputeSegment> = {}): RunComputeSegment {
+  return {
+    startedAt: "2026-09-04T14:00:00Z", endedAt: "2026-09-04T14:30:00Z", endStatus: "success", modelMs: 600000, park: null,
+    ...over,
+  };
+}
+
+export function spawn(over: Partial<RunComputeSpawn> = {}): RunComputeSpawn {
+  return {
+    repo: "portal-api", spawnedAt: "2026-09-04T14:01:00Z", disposedAt: "2026-09-04T14:30:00Z", memory: "4Gi",
+    endReason: "released-at-end", exitCode: null, oomKilled: null,
+    ...over,
+  };
+}
+
+export function compute(runId: string, over: Partial<RunCompute> = {}): RunCompute {
+  return {
+    runId, spawns: [spawn()], segments: [segment()], unattributedCalls: 0,
+    uncounted: [{ kind: "browser", label: "browser sandboxes" }],
+    ...over,
   };
 }

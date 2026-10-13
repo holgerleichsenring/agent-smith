@@ -6,11 +6,13 @@ import { getJobsHubClient, type JobsHubClient } from "@/lib/JobsHubClient";
 import { HUB_URL } from "@/hooks/useJobsHub";
 import { useRunEvents } from "@/hooks/useRunEvents";
 import { isRunLive } from "@/lib/runLiveness";
-import { EventType, type RunEvent } from "@/types/hub-events";
+import { EventType, type RunEvent, type RunSnapshot } from "@/types/hub-events";
 import type {
-  RunPasses, TicketApprovalPreview, TicketAttempt, TicketConversation, TicketDetail, TicketSeries,
+  RunCompute, RunPasses, TicketApprovalPreview, TicketAttempt, TicketConversation, TicketDetail, TicketSeries,
 } from "@/types/tickets";
-import { TicketPageReads, type Read, type TicketPageApi, type TicketPageSnapshot } from "./TicketPageReads";
+import {
+  TicketPageReads, type PerRunRead, type Read, type TicketPageApi, type TicketPageSnapshot,
+} from "./TicketPageReads";
 import { useApprovalPreview } from "./useApprovalPreview";
 
 // 2026-10-13-9a59q: the ONE store of a ticket page. Every ticket-level read lives here, so the Summary
@@ -171,6 +173,54 @@ export function useAttemptReads(runIds: readonly string[]): {
     passes[runId] = (snapshot.runPasses[runId] as Read<RunPasses> | undefined) ?? PENDING_READ;
   }
   return { series, passes };
+}
+
+/** 2026-10-13-9a59s: one attempt's run detail — its cost cap, LLM call count and reserved Gi-minutes —
+ *  through runsApi.fetchRun, held in the page's store like every other per-run read. */
+export function useAttemptRun(runId: string | null): Read<RunSnapshot> {
+  const { snapshot, reads } = useStore();
+  useWanted(reads, ["run"], runId ? [runId] : []);
+  if (!runId) return EMPTY_READ;
+  return (snapshot.runRun[runId] as Read<RunSnapshot> | undefined) ?? PENDING_READ;
+}
+
+/** 2026-10-13-9a59s: one attempt's compute record — spawns, uncounted sandboxes, segments and parks. */
+export function useAttemptCompute(runId: string | null): Read<RunCompute> {
+  const { snapshot, reads } = useStore();
+  useWanted(reads, ["compute"], runId ? [runId] : []);
+  if (!runId) return EMPTY_READ;
+  return (snapshot.runCompute[runId] as Read<RunCompute> | undefined) ?? PENDING_READ;
+}
+
+export interface AttemptMachines {
+  run: Record<string, Read<RunSnapshot>>;
+  compute: Record<string, Read<RunCompute>>;
+  passes: Record<string, Read<RunPasses>>;
+}
+
+/** 2026-10-13-9a59s: the run detail, compute and passes reads of several attempts at once — the same
+ *  store entries as useAttemptRun, useAttemptCompute and useAttemptPasses — for the tabs that put every
+ *  attempt on one scale. */
+export function useAttemptMachines(runIds: readonly string[]): AttemptMachines {
+  const { snapshot, reads } = useStore();
+  useWanted(reads, ["run", "compute", "passes"], runIds);
+  const machines: AttemptMachines = { run: {}, compute: {}, passes: {} };
+  for (const runId of runIds) {
+    machines.run[runId] = (snapshot.runRun[runId] as Read<RunSnapshot> | undefined) ?? PENDING_READ;
+    machines.compute[runId] = (snapshot.runCompute[runId] as Read<RunCompute> | undefined) ?? PENDING_READ;
+    machines.passes[runId] = (snapshot.runPasses[runId] as Read<RunPasses> | undefined) ?? PENDING_READ;
+  }
+  return machines;
+}
+
+function useWanted(reads: TicketPageReads, kinds: readonly PerRunRead[], runIds: readonly string[]): void {
+  const key = runIds.join(",");
+  const kindKey = kinds.join(",");
+  useEffect(() => {
+    for (const runId of key ? key.split(",") : []) {
+      for (const kind of kindKey.split(",")) reads.want(kind as PerRunRead, runId);
+    }
+  }, [reads, key, kindKey]);
 }
 
 /** 2026-10-13-9a59r: the approval preview of this ticket — asked only while the conversation shows an
