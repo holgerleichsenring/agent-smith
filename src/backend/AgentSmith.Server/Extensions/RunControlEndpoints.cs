@@ -9,7 +9,8 @@ using AgentSmith.Server.Services.Lifecycle;
 namespace AgentSmith.Server.Extensions;
 
 /// <summary>
-/// p0200: HTTP control surface for in-flight pipeline runs. Today: cancel.
+/// p0200: HTTP control surface for in-flight pipeline runs. Today: cancel. 2026-10-13-9a59n: retry is
+/// <see cref="RetryEndpoints"/>.
 ///
 /// p0330: cancel is PERSISTENT STATE, not a best-effort signal. The endpoint
 /// writes CancelRequested + a kill deadline onto the run row BEFORE returning;
@@ -35,42 +36,7 @@ internal static class RunControlEndpoints
         app.MapPost("/api/runs/{runId}/cancel", CancelAsync).Needs(Security.Permissions.RunsControl);
         // p0327: the dashboard's answer affordance for waiting_for_input runs.
         app.MapPost("/api/runs/{runId}/answer", AnswerAsync).Needs(Security.Permissions.RunsControl);
-        // p0390: the explicit operator Retry for a ticket parked on a
-        // not-implementable verdict — the only way back, because a verdict does
-        // not auto-retry on a comment the way a question does.
-        app.MapPost("/api/runs/{runId}/retry", RetryAsync).Needs(Security.Permissions.RunsControl);
         return app;
-    }
-
-    // p0390: clears the recorded hand-back state and moves the ticket back to a
-    // trigger status. The existing poller then claims it — no second launch path.
-    internal static async Task<IResult> RetryAsync(
-        string runId,
-        RunRepository runs,
-        AgentSmithConfig config,
-        Services.Lifecycle.NotImplementableRetryService retry,
-        CancellationToken cancellationToken)
-    {
-        var run = await runs.GetRunDetailAsync(runId, cancellationToken);
-        if (run is null) return Results.NotFound();
-        if (string.IsNullOrWhiteSpace(run.TicketId))
-            return Results.BadRequest("This run has no ticket to retry.");
-        if (!config.Projects.TryGetValue(run.Project, out var project))
-            return Results.BadRequest($"Project '{run.Project}' is not configured.");
-
-        // 2026-09-21-1fa0: the outcome, not the attempt. A tracker that refused the move is the
-        // case this answered "retried: true" to, while the ticket sat in a status nothing polls.
-        var outcome = await retry.RetryAsync(project, run.TicketId!, cancellationToken);
-        return outcome switch
-        {
-            Services.Lifecycle.RetryOutcome.Retried =>
-                Results.Ok(new { runId, run.TicketId, retried = true }),
-            Services.Lifecycle.RetryOutcome.TrackerRefusedTheMove => Results.BadRequest(
-                "The tracker offered no move for this ticket, so it was not retried. "
-                + "It keeps the hold that says why it is not being picked up."),
-            _ => Results.BadRequest(
-                "The project's tracker declares no trigger status to move the ticket to."),
-        };
     }
 
     /// <summary>p0327 request body: the operator's answer text (+ optional comment).</summary>

@@ -95,4 +95,34 @@ public sealed class ReworkPendingActsTests
         comment!.Act.Channel.Should().Be(ReworkChannel.Ticket, "the comment at 10 is newer than the approval at 5");
         answer!.Act.Channel.Should().Be(ReworkChannel.Operator, "a keyword comment never answers a hand-back");
     }
+
+    /// <summary>2026-10-13-9a59n: the attempt's stored Retry beside the ticket's keyword comment — the newer is the act.</summary>
+    [Fact]
+    public async Task ReworkPendingActs_RetryAndKeywordAct_NewerWins()
+    {
+        var tracker = new Mock<ITicketProvider>();
+        tracker.Setup(t => t.GetCommentsAsync(It.IsAny<AgentSmith.Domain.Models.TicketId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new AgentSmith.Domain.Entities.TicketComment("bob", Start.AddMinutes(10), "agentsmith again") { Id = "c-1" }]);
+        var tickets = new Mock<ITicketProviderFactory>();
+        tickets.Setup(t => t.Create(It.IsAny<TrackerConnection>())).Returns(tracker.Object);
+        var project = new ResolvedProject
+        {
+            Name = "p", Tracker = new TrackerConnection { Name = "gh", Type = TrackerType.GitHub },
+            GithubTrigger = new WebhookTriggerConfig { CommentKeyword = "agentsmith" },
+        };
+        var acts = new ReworkPendingActs(tickets.Object, Mock.Of<ISourceProviderFactory>(), Mock.Of<IPrReviewAuthorTrust>(), _approvals);
+        PreviousAttempt Retried(int minutes) => new("run-1", "cancelled", Start, true)
+        {
+            RetryRequestedBy = "ops-1", RetryRequestedAt = Start.AddMinutes(minutes),
+        };
+
+        var retry = await acts.NewestAsync(project, "7", Retried(20), CancellationToken.None);
+        var comment = await acts.NewestAsync(project, "7", Retried(5), CancellationToken.None);
+        var answer = await acts.NewestHandbackAnswerAsync(project, "7", Retried(20), CancellationToken.None);
+
+        retry!.Act.Should().Be(new ReworkAct("ops-1", Start.AddMinutes(20), ReworkChannel.Retry));
+        retry.Repo.Should().BeNull("the worker answers a retry on the ticket");
+        comment!.Act.Channel.Should().Be(ReworkChannel.Ticket, "the comment at 10 is newer than the retry at 5");
+        answer.Should().BeNull("a retry never answers a hand-back");
+    }
 }

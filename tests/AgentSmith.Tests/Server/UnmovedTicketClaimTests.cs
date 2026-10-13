@@ -192,20 +192,27 @@ public sealed class UnmovedTicketClaimTests : IDisposable
     public async Task Claim_AfterTheOperatorRetriedFromTheRunView_IsAllowedAgain()
     {
         await RecordUnmovedAsync();
-        var tickets = new Mock<ITicketProvider>();
-        // 2026-09-21-1fa0: the tracker says it moved the ticket, and only that answer releases it.
-        tickets.Setup(t => t.TransitionToAsync(
-                It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(true);
-        var factory = new Mock<ITicketProviderFactory>();
-        factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(tickets.Object);
-        var retry = new NotImplementableRetryService(
-            new AgentSmith.Server.Services.Lifecycle.TicketReopener(new InMemorySpecSetPointerStore(), new InMemorySpecApprovalStore(), _store), factory.Object,
-            NullLogger<NotImplementableRetryService>.Instance);
+        // 2026-10-13-9a59n: a Retry enters through the rework entry like every act; the tracker says it moved the
+        // ticket (2026-09-21-1fa0: only that answer releases it), and the entry's reopener drops the hold.
+        var parks = new Mock<AgentSmith.Server.Contracts.IReworkParkCheck>();
+        parks.Setup(p => p.CheckAsync(It.IsAny<ResolvedProject>(), Ticket, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AgentSmith.Server.Services.Rework.ReworkPark(true, "Approved"));
+        parks.Setup(p => p.MoveAsync(It.IsAny<ResolvedProject>(), Ticket, "Approved", It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        var attempts = new Mock<IPreviousAttemptReader>();
+        attempts.Setup(a => a.LatestAsync(Project, Ticket, null, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AgentSmith.Contracts.Runs.PreviousAttempt("r-1", "cancelled", DateTimeOffset.UtcNow.AddHours(-1), true));
+        var launch = new Mock<AgentSmith.Server.Contracts.IReworkLaunch>();
+        launch.Setup(l => l.LaunchAsync(Project, Ticket, "code", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(AgentSmith.Server.Services.Rework.ReworkOutcome.Started("r-2"));
+        var entry = new AgentSmith.Server.Services.Rework.ReworkEntry(new NoOpActiveRunLease(), attempts.Object, parks.Object,
+            new TicketReopener(new InMemorySpecSetPointerStore(), new InMemorySpecApprovalStore(), _store), launch.Object,
+            Mock.Of<AgentSmith.Server.Contracts.IWaitingRunCloser>(), NullLogger<AgentSmith.Server.Services.Rework.ReworkEntry>.Instance);
 
-        var moved = await retry.RetryAsync(Config().Projects[Project], Ticket, CancellationToken.None);
+        var outcome = await entry.EnterAsync(Config().Projects[Project], Ticket,
+            new AgentSmith.Contracts.Runs.ReworkAct("ops-1", DateTimeOffset.UtcNow, AgentSmith.Contracts.Runs.ReworkChannel.Retry),
+            "code", CancellationToken.None);
 
-        moved.Should().Be(RetryOutcome.Retried);
+        outcome.Kind.Should().Be(AgentSmith.Server.Services.Rework.ReworkOutcomeKind.Started);
         var result = await ClaimService().ClaimAsync(Request(), Config(), CancellationToken.None);
         result.Outcome.Should().Be(ClaimOutcome.Claimed);
     }

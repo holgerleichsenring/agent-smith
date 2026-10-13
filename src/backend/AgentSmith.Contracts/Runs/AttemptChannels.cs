@@ -18,4 +18,7 @@ public static class AttemptChannels
 
     /// <summary>2026-10-13-9a59m: an approval in the ticket's own conversation.</summary>
     public const string Operator = "operator";
+
+    /// <summary>2026-10-13-9a59n: Retry after an infrastructure end — the same work, unchanged.</summary>
+    public const string Retry = "retry";
 }

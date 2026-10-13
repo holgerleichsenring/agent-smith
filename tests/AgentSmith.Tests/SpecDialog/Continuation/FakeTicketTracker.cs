@@ -23,6 +23,7 @@ internal sealed class FakeTicketTracker : ITicketProviderFactory
     public List<(string TicketId, string Comment)> Comments { get; } = [];
     public List<string> Labels { get; } = []; // 2026-10-13-9a59m: labels the ticket carries and tags put on it
     public List<string> Moves { get; } = [];
+    public bool RefusesMoves { get; set; } // 2026-10-13-9a59n: the tracker offers no such move
 
     public ITicketProvider Create(TrackerConnection config) => new Provider(this);
     public ITicketRewriter CreateRewriter(TrackerConnection config) => new Rewriter(this);
@@ -55,6 +56,7 @@ internal sealed class FakeTicketTracker : ITicketProviderFactory
 
         public Task<bool> TransitionToAsync(TicketId ticketId, string statusName, CancellationToken cancellationToken)
         {
+            if (owner.RefusesMoves) return Task.FromResult(false);
             owner.Moves.Add(statusName);
             owner.Status = statusName;
             return Task.FromResult(true);

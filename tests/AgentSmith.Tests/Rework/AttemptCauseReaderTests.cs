@@ -168,6 +168,31 @@ public sealed class AttemptCauseReaderTests
         (await ReadAsync()).Should().Be(new AttemptCause(AttemptChannels.Requested));
     }
 
+    // 2026-10-13-9a59n: a Retry carries no change — an act with content wins, a name or a re-trigger loses.
+    private void RetriedAttempt(int minutes) =>
+        _pipeline.Set(ContextKeys.PreviousAttempt, new PreviousAttempt("run-1", "cancelled", Start, true)
+        {
+            RetryRequestedBy = "ops-1", RetryRequestedAt = Start.AddMinutes(minutes),
+        });
+
+    [Fact]
+    public async Task AttemptCause_KeywordAfterRetry_IsKeyword()
+    {
+        RetriedAttempt(20);
+        KeywordComment(30);
+
+        (await ReadAsync()).Channel.Should().Be(AttemptChannels.TicketComment);
+    }
+
+    [Fact]
+    public async Task AttemptCause_RetryOnly_IsRetryByThePrincipal_AboveRequestedByName()
+    {
+        RetriedAttempt(20);
+        _pipeline.Set(ContextKeys.RequestedByName, true);
+
+        (await ReadAsync()).Should().Be(new AttemptCause(AttemptChannels.Retry, "ops-1", Start.AddMinutes(20)));
+    }
+
     [Fact]
     public async Task AttemptCause_NoActWithPreviousAttempt_IsRetrigger()
     {

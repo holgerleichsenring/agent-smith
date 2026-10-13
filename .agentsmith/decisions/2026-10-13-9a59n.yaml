@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-9a59n
+
+decisions:
+  - category: Architecture
+    chose: "'gone' is NOT an infrastructure end; the sandbox arm reads only vanished and oom-killed"
+    over: "Treating gone (2026-10-13-9a59i) like vanished"
+    reason: |
+      9a59i records gone only at release (SandboxEndRule.OfDispose): the backend read the sandbox already gone, or
+      the exit read failed or ran out of its 10 s budget (SandboxRelease). Both happen AFTER the run ended on its
+      own terms, and an unreadable exit is no evidence that the infrastructure ended anything. A sandbox that
+      disappeared under a running attempt is caught by the liveness watcher as vanished, which the arm covers.
+      Pinned by InfrastructureEnd_OtherSandboxEnds_DoNotHold.
+  - category: Architecture
+    chose: "InfrastructureEnd.Holds(run, RunLastLaunch? lastLaunch = null); TicketLaunchEnds reads each run's newest segment and its vanished/OOM sandboxes in two queries; the list (page attempts) and the detail pass them to the marker, Retry's gate passes the retried run's"
+    over: "A per-row flag computed in the ticket list query"
+    reason: |
+      One rule answers both the attempt marks and Retry; the position check (segment.EventSeq < sandbox.EventSeq <
+      EndSeq) stays inside the rule. The list's full-ticket compose (used for buckets and counts) passes none — it
+      never reads the arm — so only the page pays for the read.
+  - category: Architecture
+    chose: "Retry is RunRetry (orchestration) + RunRetryGate (the run-side refusals) behind RetryEndpoints, registered by AddRunRetry from AddDashboardApi"
+    over: "One service class or keeping the route in RunControlEndpoints"
+    reason: |
+      The gate needs the ticket readers (TicketRunsQuery, TicketAttempts, InfrastructureEnd, TicketLaunchEnds), which
+      live only with the dashboard API, where the route is mapped; the request side needs the tracker, the lease, the
+      store and the queue. Splitting keeps both under 80 lines.
+  - category: Implementation
+    chose: "A non-code run answers 400 ('only an attempt at a ticket's work — a code run — is retried')"
+    over: "Letting it fall through to not-latest"
+    reason: "A scan run is never an attempt; naming the ticket's latest attempt for it would send the operator to the wrong run."
+  - category: Implementation
+    chose: "The retry principal is SpecDialogOwnership.PrincipalOf(caller) (sub claim, else name, else 'anonymous') — OwnerOf now delegates to it"
+    over: "A second copy of the claim lookup in the endpoint"
+    reason: "An approval's principal is the session owner read this way; a retry's cause names the same person the same way."
+  - category: Implementation
+    chose: "The 'starting' refusal names the stored request (who, when) when there is one, else says an attempt is already starting"
+    over: "Always naming a requester"
+    reason: |
+      A live lease without a newer run row can belong to any claimer (poller, webhook, another replica's rework);
+      only a stored request names a person. A newer queued or started code run is caught earlier as not-latest.
+  - category: Implementation
+    chose: "The 503 covers the tracker read and TicketClosure together; nothing is recorded or enqueued"
+    over: "Only the GetTicket call"
+    reason: "TicketClosure's Azure DevOps state-category read throws on failure (2026-10-13-9a59k); both are the one tracker read the spec names."
+  - category: Testing
+    chose: "DEVIATION: the end-to-end Retry tests drive RetryHarness (real AddTicketReaders + AddRunRetry over migrated SQLite, the durable nudge queue, DbActiveRunLease, DbPreviousAttemptReader, the real ReworkNudgeHandler, ReworkPendingActs, ReworkEntry and ReworkParkCheck) with only the tracker faked and IReworkLaunch recorded, then the real AttemptCauseReader for the started run"
+    over: "A RealCompositionHarness test (spec step tests)"
+    reason: |
+      tests/AgentSmith.PipelineHarness/Composition/RealCompositionHarness drives pipelines; it has no rework worker,
+      nudge queue or dashboard route. The same choice as 2026-10-13-9a59m. ServerDi_RunRetry_ResolvesFromTheRealComposition
+      proves the wiring; it adds AddServerState to the test's server mirror, which predates that extension.
+  - category: Testing
+    chose: "NotImplementableRetryOrderTests' move-before-clear case is ReworkEntry_MoveThatThrows_ClearsNothing (the refused-move case already existed as ReworkEntry_RefusedMove_ClearsNothing); RetryEndpointOutcomeTests is replaced by Rework/Retry/RetryTests"
+    over: "Keeping the retired service's tests"
+    reason: "The service and its outcome enum are gone; the order guarantee now lives in the rework entry every act goes through."

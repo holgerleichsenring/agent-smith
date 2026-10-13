@@ -24,7 +24,7 @@ Some tickets shouldn't be built as written, and the run says so instead of guess
 
 - **The ticket reads two ways.** The comment lists both readings and names the one the run would take. Reply with the one you mean and move the ticket back to a trigger status. If nobody answers and the ticket comes back anyway, the next run proceeds on the reading it named and says so.
 - **The requirement contradicts the repository.** Reply with what changes the picture and move the ticket back. A second contradiction with no reply in between ends the run as a failure rather than parking forever.
-- **Not implementable as specified.** A verdict, not a question: it parks in your `not_implementable_status` (or `needs_clarification_status` when you have none), and a comment doesn't restart it. Change the ticket and use Retry on the run.
+- **Not implementable as specified.** A verdict, not a question: it parks in your `not_implementable_status` (or `needs_clarification_status` when you have none), and a comment doesn't restart it. Answer it in the ticket's conversation on the dashboard: approving a change there starts the next attempt. Retry is not for this — it repeats an attempt unchanged, and only after an infrastructure end.
 
 A ticket that asks for something that must not be done is refused even earlier, by the scope call; see [Lifecycle](lifecycle.md#in-seven-steps).
 

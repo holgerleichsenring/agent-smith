@@ -14,8 +14,11 @@ public sealed class TicketAttemptMarker(InfrastructureEnd infrastructure)
     /// <summary>The status RunSpecProjection writes for a handed-back spec.</summary>
     public const string HandedBackSpec = "handed_back";
 
-    public TicketAttemptMark Mark(Run run, TicketLiveState live, ILookup<string, string> specStatuses) =>
-        new(run.Id, run.Status, infrastructure.Holds(run), IsHandedBack(run, live, specStatuses));
+    /// <param name="launches">2026-10-13-9a59n: the runs' last launches; null where they are not read.</param>
+    public TicketAttemptMark Mark(Run run, TicketLiveState live, ILookup<string, string> specStatuses,
+        IReadOnlyDictionary<string, RunLastLaunch>? launches = null) =>
+        new(run.Id, run.Status, infrastructure.Holds(run, launches?.GetValueOrDefault(run.Id)),
+            IsHandedBack(run, live, specStatuses));
 
     public bool IsHandedBack(Run run, TicketLiveState live, ILookup<string, string> specStatuses) =>
         (run.Status == RunStatuses.WaitingForInput && !live.Pending.ContainsKey(run.Id))

@@ -105,7 +105,7 @@ GitLab sends the token in the `X-Gitlab-Token` header, plain text (not HMAC). Th
 
 ## Rework a finished ticket
 
-A comment carrying the project's `comment_keyword` on a ticket whose last run finished — the ticket sits in `done_status` or `failed_status`, or the last run could not move it — starts exactly one new attempt. Agent Smith moves the ticket back to the first `trigger_statuses` entry when it sits outside them, clears what held it, and starts the run; the run reads the comment itself and leads its prompt with everything written since the previous attempt started. Ordinary comments start nothing. While a run is working on the ticket, a keyword comment starts no second run: Agent Smith says so on the ticket, and you comment again once that run has finished. A ticket parked as not implementable comes back only through Retry.
+A comment carrying the project's `comment_keyword` on a ticket whose last run finished — the ticket sits in `done_status` or `failed_status`, or the last run could not move it — starts exactly one new attempt. Agent Smith moves the ticket back to the first `trigger_statuses` entry when it sits outside them, clears what held it, and starts the run; the run reads the comment itself and leads its prompt with everything written since the previous attempt started. Ordinary comments start nothing. While a run is working on the ticket, a keyword comment starts no second run: Agent Smith says so on the ticket, and you comment again once that run has finished. A ticket parked as not implementable comes back through its conversation on the dashboard, where approving a change starts the next attempt; Retry only repeats an attempt that ended on infrastructure.
 
 ## Reachability
 

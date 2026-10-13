@@ -126,7 +126,6 @@ internal static class RelationalPersistenceExtensions
         services.AddSingleton<ISpecSetPointerStore, DbSpecSetPointerStore>();
         services.AddSingleton<ISpecApprovalStore, DbSpecApprovalStore>();
         services.AddTicketFactStores(); // c1a7 + 2026-09-25-b4d9
-        services.AddScoped<Services.Lifecycle.NotImplementableRetryService>();
         services.AddScoped<RunCheckpointRepository>().AddScoped<DialogueAnswerRepository>();
         services.RemoveAll<IRunCheckpointStore>();
         services.AddSingleton<IRunCheckpointStore, DbRunCheckpointStore>();

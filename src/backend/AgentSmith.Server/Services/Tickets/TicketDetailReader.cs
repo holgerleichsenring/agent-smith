@@ -25,7 +25,8 @@ public sealed class TicketDetailReader(
     TicketAttemptRecords attemptRecords,
     Checks.TicketBetweenAttemptsChecker checker,
     TicketStandings standings,
-    Checks.TicketStuckRule stuck)
+    Checks.TicketStuckRule stuck,
+    TicketLaunchEnds launchEnds)
 {
     /// <summary>Null when the pair has no code run — it is not a ticket.</summary>
     public async Task<TicketDetailView?> ReadAsync(string project, string ticketId, CancellationToken ct)
@@ -43,10 +44,11 @@ public sealed class TicketDetailReader(
         var specs = runs.SelectMany(r => r.Specs.Select(s => (r.RunId, s.Status)))
             .ToLookup(s => s.RunId, s => s.Status, StringComparer.Ordinal);
         var records = await attemptRecords.ForAsync([.. ordered.Select(a => a.Run.Id)], ct);
+        var launches = await launchEnds.ForAsync([.. ordered.Select(a => a.Run.Id)], ct);
         return new TicketDetailView(
-            composer.Compose(code, state, specs, prViews, records, standing),
+            composer.Compose(code, state, specs, prViews, records, standing, launches),
             TicketBranchNamer.Compose(new TicketId(ticketId)).Value,
-            [.. ordered.Select((a, i) => Attempt(i + 1, a.Run, runs[i], marker.Mark(a.Run, state, specs),
+            [.. ordered.Select((a, i) => Attempt(i + 1, a.Run, runs[i], marker.Mark(a.Run, state, specs, launches),
                 records.GetValueOrDefault(a.Run.Id)))],
             [.. rows.Where(r => !attempts.IsAttempt(r)).Select(Other)],
             stuck.ActedSince(head, standing.CheckOf(head.Id), prRecords));

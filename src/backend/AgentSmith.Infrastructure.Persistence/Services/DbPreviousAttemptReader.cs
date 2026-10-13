@@ -29,8 +29,13 @@ public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory) :
             .Select(r => new { r.Id, r.Status, r.StartedAt, r.FinishedAt, r.ActsReadAt })
             .FirstOrDefaultAsync(cancellationToken);
         if (run is null) return null;
+        // 2026-10-13-9a59n: the Retry a person asked of this attempt, a row of the run.
+        var retry = await uow.Set<RunRetryRequest>().AsNoTracking().Where(q => q.RunId == run.Id)
+            .Select(q => new { q.RequestedBy, q.RequestedAt }).FirstOrDefaultAsync(cancellationToken);
         return new PreviousAttempt(run.Id, run.Status, run.StartedAt, run.FinishedAt is not null)
         {
+            RetryRequestedBy = retry?.RequestedBy,
+            RetryRequestedAt = retry?.RequestedAt,
             PullRequestUrls = await OpenedPullRequestsAsync(uow, project, ticketId, cancellationToken),
             ActsReadAt = run.ActsReadAt,
             // 2026-10-13-9a59m: the approval this attempt published as worked (its RunAttempt row).

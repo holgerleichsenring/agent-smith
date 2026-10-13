@@ -18,6 +18,7 @@ internal static class TicketReadExtensions
         services.TryAddSingleton(TimeProvider.System);
         services.AddTransient<TicketAttempts>()
             .AddTransient<InfrastructureEnd>()
+            .AddTransient<TicketLaunchEnds>() // 2026-10-13-9a59n
             .AddTransient<TicketAttemptMarker>()
             .AddTransient<TicketBucketRule>()
             .AddTransient<TicketKeyResolver>()

@@ -195,6 +195,19 @@ public sealed class ServerDiLifetimeTests
         }
     }
 
+    // 2026-10-13-9a59n: Retry resolves from the real composition with the dashboard API that maps its route.
+    [Fact]
+    public void ServerDi_RunRetry_ResolvesFromTheRealComposition()
+    {
+        using var provider = AgentSmith.Infrastructure.Persistence.Extensions.ServerStateExtensions.AddServerState(BuildServerLikeServices()).AddDashboardApi()
+            .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        using var scope = provider.CreateScope();
+
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.Rework.RunRetry>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Infrastructure.Persistence.Repositories.RunRetryRequestRepository>()
+            .Should().NotBeNull();
+    }
+
     [Fact]
     public async Task ServerShapedDi_ConcurrentJiraTransitions_SecondGetsPreconditionFailed()
     {

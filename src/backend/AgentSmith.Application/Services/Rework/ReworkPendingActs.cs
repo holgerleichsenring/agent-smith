@@ -15,6 +15,7 @@ namespace AgentSmith.Application.Services.Rework;
 /// each pull request the ticket's runs opened, after the attempt's cutoff, trusted. The newer one wins.
 /// <para>2026-10-13-9a59m: beside them, the ticket's stored approval when it is an operator act
 /// (<see cref="OperatorAct"/>), read by the tracker connection and the ticket key a run resolves.</para>
+/// <para>2026-10-13-9a59n: and the attempt's own stored Retry (<see cref="RetryAct"/>), newest-wins with the rest.</para>
 /// </summary>
 public sealed class ReworkPendingActs(
     ITicketProviderFactory tickets, ISourceProviderFactory sources, IPrReviewAuthorTrust trust,
@@ -24,8 +25,9 @@ public sealed class ReworkPendingActs(
 
     public async Task<PendingReworkAct?> NewestAsync(
         ResolvedProject project, string ticketId, PreviousAttempt since, CancellationToken cancellationToken) =>
-        Newer(await KeywordActAsync(project, ticketId, since, cancellationToken),
-            await NewestHandbackAnswerAsync(project, ticketId, since, cancellationToken));
+        Newer(Newer(await KeywordActAsync(project, ticketId, since, cancellationToken),
+            await NewestHandbackAnswerAsync(project, ticketId, since, cancellationToken)),
+            RetryAct.Of(since) is { } retry ? new PendingReworkAct(retry) : null);
 
     public async Task<PendingReworkAct?> NewestHandbackAnswerAsync(
         ResolvedProject project, string ticketId, PreviousAttempt since, CancellationToken cancellationToken)

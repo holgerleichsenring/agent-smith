@@ -136,6 +136,22 @@ public sealed class ReworkEntryTests
         _launch.VerifyNoOtherCalls();
     }
 
+    // 2026-10-13-9a59n: from the retired operator Retry (2026-09-21-1fa0) — the move comes FIRST, so a move that
+    // throws escapes before the hold, the hand-back or the approval is cleared.
+    [Fact]
+    public async Task ReworkEntry_MoveThatThrows_ClearsNothing()
+    {
+        Attempt("failed", true); Park(parked: true, moveTo: "To Do");
+        _parks.Setup(p => p.MoveAsync(Project, "T-1", "To Do", It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("TF401320: the state is not allowed"));
+
+        var act = () => Act(10);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        _reopener.VerifyNoOtherCalls();
+        _launch.VerifyNoOtherCalls();
+    }
+
     private Task<ReworkOutcome> AnswerHandback() => Entry().AnswerHandbackAsync(Project, "T-1",
         new PreviousAttempt("run-1", RunStatuses.WaitingForInput, Start, false), "code", CancellationToken.None);
 

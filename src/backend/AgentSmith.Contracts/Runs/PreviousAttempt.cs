@@ -20,6 +20,12 @@ public sealed record PreviousAttempt(string RunId, string Status, DateTimeOffset
     /// it published none (or died before publishing).</summary>
     public DateTimeOffset? WorkedApprovalAt { get; init; }
 
+    /// <summary>2026-10-13-9a59n: who asked to retry this attempt unchanged; null when nobody did.</summary>
+    public string? RetryRequestedBy { get; init; }
+
+    /// <summary>2026-10-13-9a59n: when the retry was asked for, by the server's clock.</summary>
+    public DateTimeOffset? RetryRequestedAt { get; init; }
+
     /// <summary>2026-10-08-0781: what the run had seen: its read, else its start.</summary>
     public DateTimeOffset Cutoff => ActsReadAt ?? StartedAt;
 

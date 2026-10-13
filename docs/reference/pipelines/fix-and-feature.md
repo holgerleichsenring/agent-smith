@@ -79,7 +79,7 @@ The derivation hands a ticket back instead of guessing. Each case comments on th
 
 - **Two readings.** The comment lists both and names the one the run would take. Answer and move the ticket back to a trigger status; if the ticket comes back with nobody having answered, the run proceeds on the named reading and says so.
 - **Contradicts the repository.** Parks in `needs_clarification_status`. A second contradiction with no reply on the ticket in between ends the run as a failed step: "the loop ends here".
-- **Not implementable as specified.** Parks in `not_implementable_status` when you configured one, otherwise in `needs_clarification_status`. It doesn't restart on a comment; change the ticket and use Retry on the run.
+- **Not implementable as specified.** Parks in `not_implementable_status` when you configured one, otherwise in `needs_clarification_status`. It doesn't restart on a comment; answer it in the ticket's conversation, where approving a change starts the next attempt. Retry repeats an attempt unchanged and only after an infrastructure end, so it refuses a hand-back.
 - **Refused.** Raised by `ScopeRepos` before checkout, with the offending sentence quoted. If the request is legitimate, reply with why and move the ticket back; the next run reads your reply beside the ticket.
 
 When no park status can be resolved, the run fails rather than leave the ticket claimable.

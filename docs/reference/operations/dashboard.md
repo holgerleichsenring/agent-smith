@@ -108,9 +108,11 @@ curl -X DELETE "https://agentsmith.example.com/api/runs?state=terminal"   # ever
 
 The bulk form only ever touches terminal runs, so it can't kill a live one. It is what **clear finished** on the runs board calls; its confirming second click says that the finished runs and their verdict history go.
 
-### Retrying a handed-back ticket
+### Retrying after an infrastructure end
 
-A ticket the agent judged not implementable is parked and doesn't come back on a comment the way a question does. `POST /api/runs/{runId}/retry` (needs `runs.control`) moves its ticket back to a trigger status, and the poller claims it from there. The answer says whether that worked: when the tracker offers no move for the ticket, the retry is refused and the ticket keeps the hold that says why it isn't being picked up.
+`POST /api/runs/{runId}/retry` (needs `runs.control`) starts the same work again, unchanged, and only when the run ended on infrastructure: it was interrupted (no process drove it any more), its replica went away (`stale-lease-reaped`), or a sandbox of its last launch vanished or was OOM-killed. The run must be the ticket's latest attempt and finished. A `202` means the retry is recorded and queued: the rework worker moves the ticket from `failed_status` back to the first trigger status and starts one attempt, whose cause names you with channel `retry`. If the worker can't start it (the tracker offers no move, say), it says so on the ticket, and you can retry again.
+
+Every refusal is a `409` with one body, `{reason, text, project, ticketId}`. `reason` is `not-latest`, `handed-back`, `not-finished`, `not-infrastructure`, `closed-for-work` or `starting`; `text` is the sentence to show. A hand-back and an attempt that ended on its own work are answered in the ticket conversation, where approving a change starts the next attempt; a ticket a person closed in its tracker gets a linked follow-up from an approval there instead of being reopened. A `503` means the tracker couldn't be read, and nothing was recorded.
 
 ## Pull requests
 

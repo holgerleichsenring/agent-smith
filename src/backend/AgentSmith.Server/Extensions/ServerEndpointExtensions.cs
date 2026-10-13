@@ -39,7 +39,8 @@ internal static class ServerEndpointExtensions
     {
         app.UseCors(DashboardConstants.CorsPolicy);
         app.MapHub<JobsHub>("/hub/jobs").Needs(Permissions.RunsRead);
-        app.MapRunControlEndpoints(); // p0506: cancel / answer / retry
+        app.MapRunControlEndpoints(); // p0506: cancel / answer
+        app.MapRetryEndpoints(); // 2026-10-13-9a59n: retry after an infrastructure end
         app.MapSpecDialogEndpoints(); // 2026-09-15-9033: the dashboard's spec-dialog channel
         app.MapSpecDialogViewEndpoints(); // 2026-09-15-cb3e: what is on the dialog page
         app.MapTicketConversationEndpoints(); // 8e51b: which conversation a ticket has

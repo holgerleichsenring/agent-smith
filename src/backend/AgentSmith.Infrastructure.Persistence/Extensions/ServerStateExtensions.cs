@@ -25,6 +25,7 @@ public static class ServerStateExtensions
         // 2026-10-13-9a59b: the pull-request review records.
         services.AddScoped<PrReviewRecordRepository>().AddScoped<PrReviewRecordWriter>().AddScoped<NamedPullRequestReader>();
         services.AddScoped<AgentSmith.Contracts.Reviews.IPrReviewRecordReader>(sp => sp.GetRequiredService<PrReviewRecordRepository>());
+        services.AddScoped<RunRetryRequestRepository>(); // 2026-10-13-9a59n
         services.RemoveAll<IReworkNudges>().RemoveAll<IReworkWatermark>();
         services.AddSingleton<DbReworkNudges>();
         services.AddSingleton<IReworkNudges>(sp => sp.GetRequiredService<DbReworkNudges>());

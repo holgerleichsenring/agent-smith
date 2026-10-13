@@ -18,7 +18,7 @@ facts:
   - claim: "The outcome kinds are Started, NotARework, AlreadyServed and Refused."
     evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkOutcomeKind.cs:4-14, src/backend/AgentSmith.Server/Services/Rework/ReworkOutcome.cs:4-13"
   - claim: "A keyword act is built from the newest matching comment not ours after the cutoff, keeping author and time only; a pull-request act is built from a review note that carries its Body; PendingReworkAct has no text."
-    evidence: "src/backend/AgentSmith.Application/Services/Rework/ReworkActReader.cs:17-26, src/backend/AgentSmith.Application/Services/Rework/ReworkPendingActs.cs:45-59, src/backend/AgentSmith.Application/Services/Rework/PrStandingAct.cs:44-49, src/backend/AgentSmith.Contracts/Reviews/PrReviewNote.cs:9-10, src/backend/AgentSmith.Contracts/Runs/PendingReworkAct.cs:9"
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/ReworkActReader.cs:17-26, src/backend/AgentSmith.Application/Services/Rework/ReworkPendingActs.cs:47-61, src/backend/AgentSmith.Application/Services/Rework/PrStandingAct.cs:44-49, src/backend/AgentSmith.Contracts/Reviews/PrReviewNote.cs:9-10, src/backend/AgentSmith.Contracts/Runs/PendingReworkAct.cs:9"
   - claim: "A keyword comment nudges the worker only for a ticket with a previous attempt; one with none is dispatched as before."
     evidence: "src/backend/AgentSmith.Server/Services/Webhooks/KeywordCommentRouter.cs:44-51"
   - claim: "The rework ledger marks a key per ticket and answers whether it was new; ReworkSpeech marks first and posts after, logging a failed post and keeping the key spent."

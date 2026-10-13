@@ -86,6 +86,25 @@ public sealed class TicketDetailReaderTests : IDisposable
         attempts[1].ExecutedSpecs.Should().ContainSingle().Which.SpecId.Should().Be("s1");
     }
 
+    // 2026-10-13-9a59n: the detail's and the list's marks read the sandbox arm from the attempt's last launch.
+    [Fact]
+    public async Task TicketDetailAndList_SandboxVanishedInLastLaunch_MarkInfrastructureEnd()
+    {
+        await _store.AddAsync(Run(R1, status: "failed"), Step(R1), Run(R2, status: "failed"), Step(R2),
+            new RunSegment { RunId = R1, EventSeq = 1, StartedAt = T, EndSeq = 9, EndedAt = T },
+            new RunSegment { RunId = R1, EventSeq = 10, StartedAt = T, EndSeq = 20, EndedAt = T },
+            new RunSandbox { RunId = R1, Key = "api", RepoName = "api", EventSeq = 15, EndReason = "vanished" },
+            new RunSegment { RunId = R2, EventSeq = 1, StartedAt = T, EndSeq = 9, EndedAt = T },
+            new RunSegment { RunId = R2, EventSeq = 10, StartedAt = T, EndSeq = 20, EndedAt = T },
+            new RunSandbox { RunId = R2, Key = "api", RepoName = "api", EventSeq = 5, EndReason = "vanished" });
+
+        var attempts = (await ReadAsync()).Attempts;
+        var row = (await _store.List.ReadAsync(new TicketListRequest(null, null, null, null), CancellationToken.None)).Tickets.Single();
+
+        attempts.Select(a => a.EndedOnInfrastructure).Should().Equal(true, false);
+        row.Attempts.Select(a => a.EndedOnInfrastructure).Should().Equal(true, false);
+    }
+
     [Fact]
     public async Task TicketDetail_Attempts_CarryCauseRevisionAndWebUrl()
     {

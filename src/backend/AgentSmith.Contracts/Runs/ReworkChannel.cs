@@ -10,4 +10,6 @@ public enum ReworkChannel
     Status,
     // 2026-10-13-9a59m: a person approved a change in the ticket's own conversation.
     Operator,
+    // 2026-10-13-9a59n: a person asked for an unchanged attempt after an infrastructure end.
+    Retry,
 }

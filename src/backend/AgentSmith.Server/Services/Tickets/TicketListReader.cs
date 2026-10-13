@@ -27,7 +27,8 @@ public sealed class TicketListReader(
     TicketAttemptRecords attemptRecords,
     SeriesStripReader strips,
     TicketStandings standings,
-    Checks.TicketCheckKicks kicks)
+    Checks.TicketCheckKicks kicks,
+    TicketLaunchEnds launchEnds)
 {
     private static readonly ILookup<string, string> NoSpecs =
         Array.Empty<string>().ToLookup(s => s, StringComparer.Ordinal);
@@ -49,11 +50,12 @@ public sealed class TicketListReader(
         var pageAttempts = page.SelectMany(t => attempts.Of(t.Rows)).Select(a => a.Run.Id).ToList();
         var statuses = await specs.ForAsync(pageAttempts, ct);
         var records = await attemptRecords.ForAsync(pageAttempts, ct);
+        var launches = await launchEnds.ForAsync(pageAttempts, ct);
         var pagePrs = await pullRequests.PageAsync([.. page.SelectMany(t => t.Rows).Select(r => r.Run.Id)], prRecords, ct);
         var pageStrips = await strips.ForAsync([.. page.Select(t => (IReadOnlyList<Run>)[.. attempts.Of(t.Rows).Select(a => a.Run)])], ct);
         return new TicketListView(
             [.. page.Select(t => composer.Compose(t.Rows, state, statuses, pagePrs.GetValueOrDefault(Key(t.Rows)) ?? [],
-                    records, standing))
+                    records, standing, launches))
                 .Select(s => s with { SeriesStrip = pageStrips.GetValueOrDefault(s.NewestRunId) })],
             NextCursor(all, page, request),
             counts.Of([.. all.Select(t => t.Summary)], await monthCost.OfAsync(request.Project, ct), read.Truncated));

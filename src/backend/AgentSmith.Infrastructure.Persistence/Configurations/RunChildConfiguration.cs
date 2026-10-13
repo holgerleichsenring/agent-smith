@@ -33,6 +33,7 @@ public sealed class RunChildConfiguration
         typeof(RunConversationEntry), // 2026-10-13-9a59g
         typeof(TicketBetweenAttemptsCheck), // 2026-10-13-9a59h
         typeof(RunSegment), // 2026-10-13-9a59j
+        typeof(RunRetryRequest), // 2026-10-13-9a59n: unique by RunRetryRequestConfiguration
     ];
 
     public void Apply(ModelBuilder modelBuilder)

@@ -7,8 +7,8 @@ using AgentSmith.Server.Contracts;
 namespace AgentSmith.Server.Services.Lifecycle;
 
 /// <summary>
-/// 2026-10-08-e8b9b: extracted from NotImplementableRetryService, which now calls it, so the Retry
-/// and the rework entry clear exactly the same three things: the hand-back case (otherwise the next
+/// 2026-10-08-e8b9b: the one reopener of the rework entry, so every act — a Retry included — clears
+/// exactly the same three things: the hand-back case (otherwise the next
 /// attempt's repeat guard reads "handed back again"), the approval's SatisfiedAt (2026-10-06-03c7f:
 /// discovery names the ticket again) and the unmoved fact (2026-09-18-c1a7: the claim gate reads it).
 /// </summary>

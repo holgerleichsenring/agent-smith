@@ -18,6 +18,8 @@ namespace AgentSmith.Application.Services.Rework;
 /// it works the approved revision. FetchTicket runs before the run resolved its approval, so the arm resolves
 /// it here (the resolver publishes the winner, which ScopeRepos and DeriveSpec then read unchanged) and
 /// applies <see cref="OperatorAct"/> against the previous attempt.</para>
+/// <para>2026-10-13-9a59n: a Retry of the previous attempt carries no change, so it ranks below every act with
+/// content and above a run asked for by name, a re-trigger and a pickup.</para>
 /// </summary>
 public sealed class AttemptCauseReader(
     TrackerIdentity identity, ApprovedSpecSetResolver approvals, ILogger<AttemptCauseReader> logger)
@@ -31,9 +33,10 @@ public sealed class AttemptCauseReader(
         var statusBack = pipeline.TryGet<ReworkAct>(ContextKeys.StatusBackAct, out var s) ? s : null;
         if (act is not null && (act.Channel != ReworkChannel.Ticket || statusBack is null)) return Of(act);
         if (statusBack is not null) return Of(statusBack);
+        var previous = pipeline.TryGet<PreviousAttempt>(ContextKeys.PreviousAttempt, out var p) ? p : null;
+        if (RetryAct.Of(previous) is { } retry) return Of(retry);
         if (pipeline.IsRequestedByName()) return new AttemptCause(AttemptChannels.Requested);
-        if (pipeline.TryGet<PreviousAttempt>(ContextKeys.PreviousAttempt, out var previous) && previous is not null)
-            return new AttemptCause(AttemptChannels.Retrigger);
+        if (previous is not null) return new AttemptCause(AttemptChannels.Retrigger);
         return await PickupAsync(provider, context, cancellationToken);
     }
 
@@ -78,6 +81,7 @@ public sealed class AttemptCauseReader(
         ReworkChannel.PullRequest => AttemptChannels.PullRequest,
         ReworkChannel.Status => AttemptChannels.StatusMove,
         ReworkChannel.Operator => AttemptChannels.Operator,
+        ReworkChannel.Retry => AttemptChannels.Retry,
         _ => AttemptChannels.TicketComment,
     };
 }

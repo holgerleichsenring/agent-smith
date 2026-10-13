@@ -41,8 +41,8 @@ facts:
     evidence: "src/backend/AgentSmith.Contracts/Runs/PullRequestStatuses.cs:12-34, src/backend/AgentSmith.Server/Services/Events/RunPullRequestView.cs:12-16"
   - claim: "RunsChanged fires throughout a live run; the run list coalesces it to 350 ms."
     evidence: "src/dashboard/src/hooks/useJobsHub.ts:29-33,96-109"
-  - claim: "The p0390 retry endpoint retries only a ticket parked on a not-implementable verdict; no dashboard code calls it."
-    evidence: "src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs:38-41"
+  - claim: "The retry endpoint (2026-10-13-9a59n) starts an unchanged attempt only after an infrastructure end and answers every refusal as a 409 {reason, text, project, ticketId}; no dashboard code calls it."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RetryEndpoints.cs:16,24-31, src/backend/AgentSmith.Server/Models/RetryRefusalView.cs:8"
   - claim: "The line ratchet covers C# only: file-length-baseline.tsv lists no dashboard file, so mock-parity.css (1285 lines) needs no room made."
     evidence: "observed: 2026-10-13, grep -c '\\.ts' tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv = 0; wc -l src/dashboard/src/styles/mock-parity.css"
 

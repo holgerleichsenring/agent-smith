@@ -20,10 +20,11 @@ public sealed class TicketSummaryComposer(
     /// <param name="pullRequests">The ticket's pull requests from their records.</param>
     /// <param name="records">2026-10-13-9a59d: attempt records by run id; null where they are not wanted.</param>
     /// <param name="standing">2026-10-13-9a59h: the stored checks and hand-backs; null where they are not read.</param>
+    /// <param name="launches">2026-10-13-9a59n: the attempts' last launches; null where they are not read.</param>
     public TicketSummaryView Compose(IReadOnlyList<TicketRunRow> codeRows, TicketLiveState live,
         ILookup<string, string> specStatuses, IReadOnlyList<TicketPullRequestView> pullRequests,
         IReadOnlyDictionary<string, TicketAttemptRecord>? records = null,
-        TicketStanding? standing = null)
+        TicketStanding? standing = null, IReadOnlyDictionary<string, RunLastLaunch>? launches = null)
     {
         var ordered = attempts.Of(codeRows);
         var head = attempts.Head(codeRows).Run;
@@ -40,7 +41,7 @@ public sealed class TicketSummaryComposer(
             state.Bucket, state.Kind, state.Since, ordered.Count, codeRows.Sum(r => r.Run.CostTotalUsd),
             head.Id, head.Status, state.LastOutcome, state.QueuePlace, Question(head, state),
             headSpecs.Count(s => s == DoneSpec), headSpecs.Count,
-            [.. ordered.Select(a => marker.Mark(a.Run, live, specStatuses))], pullRequests,
+            [.. ordered.Select(a => marker.Mark(a.Run, live, specStatuses, launches))], pullRequests,
             record?.Cause, record?.TrackerState, record?.WebUrl,
             UnchangedSinceLastAttempt: unchanged, CheckedAt: check?.CheckedAt);
         return standing?.Apply(summary) ?? summary;

@@ -34,7 +34,7 @@ facts:
   - claim: "The run viewer's Ticket beat shows the ticket body from the run's own TicketFetched event."
     evidence: "src/dashboard/src/components/jobs/story/TicketPanel.tsx:12-14,25,133"
   - claim: "Cancel exists per run as an endpoint under runs.control and as a two-step button taking runId and cancelRequested, labelled cancel."
-    evidence: "src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs:35, src/dashboard/src/components/jobs/CancelRunButton.tsx:17-28"
+    evidence: "src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs:36, src/dashboard/src/components/jobs/CancelRunButton.tsx:17-28"
   - claim: "RunRepo keeps one PR url and status per repository; the run row stores no branch name and no tracker address or status."
     evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunRepo.cs:6-12, src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:8-34"
   - claim: "A run row links to the run viewer /jobs/{runId}."

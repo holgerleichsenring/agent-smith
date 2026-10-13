@@ -22,7 +22,7 @@ facts:
   - claim: "PendingQuestionCard posts the answer to /api/runs/{runId}/answer, which resumes the same run, and its button reads Send & resume run."
     evidence: "src/dashboard/src/components/jobs/PendingQuestionCard.tsx:17-27,35-41,110"
   - claim: "Answering a run needs runs.control, not runs.read."
-    evidence: "src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs:37"
+    evidence: "src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs:38"
   - claim: "Tracker comments and chat replies that ask a question link to the run viewer /jobs/{runId}."
     evidence: "src/backend/AgentSmith.Application/Services/Dialogue/RunAnswerLink.cs:35"
   - claim: "Each useJobsHub caller fetches GET /api/runs on its own and refetches on RunsChanged, coalesced to one fetch per 350 ms, and holds an overview subscription."
