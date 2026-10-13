@@ -43,6 +43,13 @@ public sealed class Ticket
     /// </summary>
     public string? WebUrl { get; }
 
+    /// <summary>
+    /// Whether the tracker itself counts the ticket done or closed — Jira's Done status category,
+    /// an Azure DevOps state in the Completed or Removed category, a closed GitHub or GitLab issue.
+    /// It consults no configured status name; whether agent-smith put it there is not its question.
+    /// </summary>
+    public bool IsClosed { get; }
+
     public Ticket(
         TicketId id,
         string title,
@@ -54,7 +61,8 @@ public sealed class Ticket
         TicketPerson? assignee = null,
         TicketPerson? reporter = null,
         string? kind = null,
-        string? webUrl = null)
+        string? webUrl = null,
+        bool isClosed = false)
     {
         Id = id;
         Title = title;
@@ -67,6 +75,7 @@ public sealed class Ticket
         Reporter = reporter;
         Kind = kind;
         WebUrl = webUrl;
+        IsClosed = isClosed;
     }
 
     /// <summary>
@@ -74,7 +83,7 @@ public sealed class Ticket
     /// The ONE copy of a ticket: the fetch door rewrites every fetched ticket through it, so a field
     /// left out here would be silently dropped everywhere.
     /// </summary>
-    public Ticket With(string? description = null, string? webUrl = null) =>
+    public Ticket With(string? description = null, string? webUrl = null, bool? isClosed = null) =>
         new(Id, Title, description ?? Description, AcceptanceCriteria, Status, Source, Labels,
-            Assignee, Reporter, Kind, webUrl ?? WebUrl);
+            Assignee, Reporter, Kind, webUrl ?? WebUrl, isClosed ?? IsClosed);
 }

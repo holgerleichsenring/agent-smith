@@ -25,6 +25,7 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider, ITicketStatusHi
     private readonly AzureDevOpsFieldMapper _mapper;
     private readonly AzureDevOpsCommentMapper _commentMapper = new();
     private readonly AzureDevOpsConnectionCache _connections;
+    private readonly AzureDevOpsStateCategories _categories;
     private readonly TicketLabelVocabulary _labels;
     private readonly AzureDevOpsWorkItemLister _lister;
     private readonly ILogger _logger;
@@ -48,6 +49,7 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider, ITicketStatusHi
         _attachmentLoader = attachmentLoader;
         _mapper = mapper;
         _connections = new AzureDevOpsConnectionCache(connection, logger);
+        _categories = AzureDevOpsStateCategories.For(_connections, connection.Project);
         _lister = new AzureDevOpsWorkItemLister(_connections, mapper, connection.Project, openStates, extraFields, logger);
         _logger = logger;
         _finalizer = new AzureDevOpsTicketFinalizer(_doneStatus, WriteFinalizeAsync, logger);
@@ -83,7 +85,7 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider, ITicketStatusHi
         var workItem = await _connections.CreateClient()
             .GetWorkItemAsync(_project, id, cancellationToken: cancellationToken)
             ?? throw new TicketNotFoundException(ticketId);
-        var ticket = _mapper.Map(ticketId, workItem.Fields).With(webUrl: _creator.WebUrlFor(id));
+        var ticket = _mapper.Map(ticketId, workItem.Fields).With(webUrl: _creator.WebUrlFor(id), isClosed: await _categories.IsClosedAsync(workItem.Fields, cancellationToken));
         _logger.LogDebug("AzDO GetTicket #{Ticket}: status={Status} labels={Count}",
             ticketId.Value, ticket.Status, ticket.Labels?.Count ?? 0);
         return ticket;
@@ -205,6 +207,7 @@ public sealed class AzureDevOpsTicketProvider : ITicketProvider, ITicketStatusHi
     public Task<TicketStatusMove?> NewestPersonMoveIntoAsync(
         TicketId ticketId, IReadOnlyCollection<string> statuses, TrackerActor? self, CancellationToken cancellationToken) =>
         new AzureDevOpsStatusHistory(_connections, _project).NewestPersonMoveIntoAsync(ticketId, statuses, self, cancellationToken);
+    public Task<TicketStatusMove?> NewestMoveIntoAsync(TicketId ticketId, string status, CancellationToken ct) => new AzureDevOpsStatusHistory(_connections, _project).NewestMoveIntoAsync(ticketId, status, ct);
 
     public Task<TrackerActor?> SelfAsync(CancellationToken cancellationToken) =>
         new AzureDevOpsStatusHistory(_connections, _project).SelfAsync(cancellationToken);

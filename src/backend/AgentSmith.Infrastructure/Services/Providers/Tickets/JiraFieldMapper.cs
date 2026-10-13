@@ -29,8 +29,16 @@ public sealed class JiraFieldMapper : ITicketFieldMapper<JsonElement>
             ReadPerson(fields, "reporter"),
             // 2026-09-27-481bf: the project's own word for it — "Bug", "Story", anything an
             // administrator named. Absent when the fetch did not ask for the field.
-            ReadNested(fields, "issuetype", "name"));
+            ReadNested(fields, "issuetype", "name"),
+            isClosed: IsDoneCategory(fields));
     }
+
+    // The status's own category, never its name: an administrator may call any status "Done", and
+    // a status read without its category is not closed.
+    private static bool IsDoneCategory(JsonElement fields) =>
+        fields.ValueKind == JsonValueKind.Object
+        && fields.TryGetProperty("status", out var status) && status.ValueKind == JsonValueKind.Object
+        && string.Equals(ReadNested(status, "statusCategory", "key"), "done", StringComparison.OrdinalIgnoreCase);
 
     // p0454: accountId, not name — the pre-GDPR [~username] mention form no longer
     // resolves on Jira Cloud, so a person without an accountId cannot be reached.

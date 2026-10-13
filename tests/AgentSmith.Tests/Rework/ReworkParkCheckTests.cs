@@ -72,4 +72,29 @@ public sealed class ReworkParkCheckTests
     public async Task Check_ClarificationStatus_NotParkedWithoutHandback() =>
         (await Check("Clarify").CheckAsync(Project("To Do"), "T-1", CancellationToken.None))
             .Parked.Should().BeFalse();
+
+    [Theory]
+    [InlineData("Tracker clarify", true)]
+    [InlineData("Trigger not implementable", true)]
+    [InlineData("Tracker not implementable", false)]
+    public async Task ReworkParkCheck_HandbackPark_UnchangedThroughSharedResolver(string status, bool parked)
+    {
+        var project = new ResolvedProject
+        {
+            Name = "p",
+            Tracker = new TrackerConnection
+            {
+                Name = "jira", Type = TrackerType.Jira,
+                NeedsClarificationStatus = "Tracker clarify", NotImplementableStatus = "Tracker not implementable",
+            },
+            JiraTrigger = new JiraTriggerConfig
+            {
+                TriggerStatuses = ["To Do"], DoneStatus = "Done", NotImplementableStatus = "Trigger not implementable",
+            },
+        };
+
+        (await Check(status).CheckHandbackAsync(project, "T-1", CancellationToken.None))
+            .Should().Be(new ReworkPark(parked, parked ? "To Do" : null),
+                "the trigger's status wins over the tracker's; the tracker's fills a blank trigger");
+    }
 }

@@ -188,6 +188,7 @@ public sealed class  JiraTicketProvider : ITicketProvider, ITicketStatusHistory,
     public Task<TicketStatusMove?> NewestPersonMoveIntoAsync(
         TicketId ticketId, IReadOnlyCollection<string> statuses, TrackerActor? self, CancellationToken cancellationToken) =>
         new JiraStatusHistory(_http, _baseUrl, _endpoints).NewestPersonMoveIntoAsync(ticketId, statuses, self, cancellationToken);
+    public Task<TicketStatusMove?> NewestMoveIntoAsync(TicketId ticketId, string status, CancellationToken ct) => new JiraStatusHistory(_http, _baseUrl, _endpoints).NewestMoveIntoAsync(ticketId, status, ct);
 
     public Task<TrackerActor?> SelfAsync(CancellationToken cancellationToken) =>
         new JiraStatusHistory(_http, _baseUrl, _endpoints).SelfAsync(cancellationToken);

@@ -41,6 +41,13 @@ public sealed class GitHubFieldMapperTests
         Sut.Map(new TicketId("7"), issue).Assignee.Should().BeNull();
     }
 
+    [Fact]
+    public void GitHubFieldMapper_ClosedIssue_IsClosed_OpenIssue_IsNot()
+    {
+        Sut.Map(new TicketId("7"), Deserialize("""{ "number": 7, "title": "T", "state": "closed" }""")).IsClosed.Should().BeTrue();
+        Sut.Map(new TicketId("7"), Deserialize("""{ "number": 7, "title": "T", "state": "open" }""")).IsClosed.Should().BeFalse();
+    }
+
     private static Issue Deserialize(string json) =>
         new SimpleJsonSerializer().Deserialize<Issue>(json);
 }

@@ -36,6 +36,8 @@ internal sealed class AzureDevOpsWiqlRunner(
 
     private const int HydrateBatch = 200;  // AzDO GetWorkItemsAsync hard per-call limit
 
+    private readonly AzureDevOpsStateCategories _categories = AzureDevOpsStateCategories.For(connections, project);
+
     /// <summary>
     /// The work items matching <paramref name="where"/>, most recently changed first, at most
     /// <paramref name="top"/> of them. Throws when the query does not run.
@@ -91,9 +93,10 @@ internal sealed class AzureDevOpsWiqlRunner(
         {
             var batch = ids.Skip(offset).Take(HydrateBatch).ToArray();
             var workItems = await client.GetWorkItemsAsync(batch, fields: fields, cancellationToken: cancellationToken);
-            tickets.AddRange(workItems
-                .Where(w => w?.Fields is not null)
-                .Select(w => mapper.Map(new TicketId(w.Id!.Value.ToString()), w.Fields)));
+            // The category is read once per work item type (the categories cache it), never per item.
+            foreach (var item in workItems.Where(w => w?.Fields is not null))
+                tickets.Add(mapper.Map(new TicketId(item.Id!.Value.ToString()), item.Fields)
+                    .With(isClosed: await _categories.IsClosedAsync(item.Fields, cancellationToken)));
         }
         return tickets;
     }

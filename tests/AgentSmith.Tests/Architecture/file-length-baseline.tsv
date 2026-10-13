@@ -52,7 +52,7 @@
 191	AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabTicketProvider.cs
 190	AgentSmith.Application/Services/Handlers/InitCommitHandler.cs
 189	AgentSmith.Application/Services/Handlers/FetchTicketHandler.cs
-189	AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketProvider.cs
+188	AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketProvider.cs
 187	AgentSmith.Infrastructure.Core/Services/SkillMdParser.cs
 187	AgentSmith.Infrastructure/Services/Security/GitHistoryScanner.cs
 184	AgentSmith.Application/Services/Tools/SpawnAgentToolHost.cs

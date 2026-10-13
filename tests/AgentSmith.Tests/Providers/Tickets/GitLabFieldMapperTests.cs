@@ -107,4 +107,11 @@ public sealed class GitLabFieldMapperTests
         Sut.Map(new TicketId("7"), Parse("""{ "iid": 7, "title": "T" }"""))
             .Assignee.Should().BeNull();
     }
+
+    [Fact]
+    public void GitLabFieldMapper_StateClosed_IsClosed()
+    {
+        Sut.Map(new TicketId("42"), Parse("""{ "title": "T", "state": "closed" }""")).IsClosed.Should().BeTrue();
+        Sut.Map(new TicketId("42"), Parse("""{ "title": "T", "state": "opened" }""")).IsClosed.Should().BeFalse();
+    }
 }

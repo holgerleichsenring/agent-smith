@@ -8,7 +8,7 @@ requires: [2026-10-13-9a59k, 2026-10-13-9a59l, 2026-10-13-9a59m, 2026-10-13-9a59
 
 facts:
   - claim: "The park check fetches the ticket and calls it reworkable when claimable, in done_status or failed_status, a hand-back park on a hand-back answer, or held by an unmoved fact; a parked, unclaimable ticket is moved to the first trigger status."
-    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkParkCheck.cs:27-37"
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkParkCheck.cs:28-39"
   - claim: "ReworkPark carries only Parked and MoveTo."
     evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkPark.cs:3-6"
   - claim: "The entry's reopen path, used by a fresh act and by a hand-back answer alike, answers NotARework when not parked, otherwise moves the ticket, closes a superseded waiting row, clears and launches; ReworkEntry is 77 lines."
@@ -28,7 +28,7 @@ facts:
   - claim: "FiledWorkStarter.StampAsync tags, resolves and moves a created ticket and never throws; it is scoped, while the rework worker's classes are singletons."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkStarter.cs:40-56, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogExtensions.cs:51, src/backend/AgentSmith.Server/Extensions/ReworkNudgeWorkerExtensions.cs:16-20"
   - claim: "A successful run moves the ticket into done_status or closes it when none is set, and a done_status ticket is reworkable today — the loop a Request changes on the run's own PR relies on."
-    evidence: "src/backend/AgentSmith.Application/Services/Lifecycle/TicketLifecycle.cs:9-13,49, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketFinalizer.cs:26-29, src/backend/AgentSmith.Server/Services/Rework/ReworkParkCheck.cs:33-34"
+    evidence: "src/backend/AgentSmith.Application/Services/Lifecycle/TicketLifecycle.cs:9-13,49, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketFinalizer.cs:26-29, src/backend/AgentSmith.Server/Services/Rework/ReworkParkCheck.cs:35-36"
   - claim: "The rework texts open with our heading; PR texts carry the rework marker."
     evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkTexts.cs:3-37"
   - claim: "The webhook docs say a keyword comment on a finished ticket starts exactly one new attempt and moves the ticket back."

@@ -28,7 +28,8 @@ public sealed class GitLabFieldMapper : ITicketFieldMapper<JsonElement>
             // below the version that added the second returns neither. Whichever is present, and
             // never rendered raw: an enum token is not a word a person recognises.
             Kind(issue),
-            ReadOrNull(issue, "web_url"));
+            ReadOrNull(issue, "web_url"),
+            isClosed: string.Equals(ReadString(issue, "state"), "closed", StringComparison.OrdinalIgnoreCase));
 
     private static string? Kind(JsonElement issue) =>
         ReadOrNull(issue, "issue_type") ?? Spoken(ReadOrNull(issue, "type"));

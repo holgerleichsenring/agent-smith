@@ -25,7 +25,9 @@ public sealed class GitHubFieldMapper : ITicketFieldMapper<Issue>
             labels,
             Person(issue.Assignee),
             Person(issue.User),
-            webUrl: issue.HtmlUrl);
+            webUrl: issue.HtmlUrl,
+            // StringValue, as Status reads it: a state string Octokit has no member for never throws.
+            isClosed: string.Equals(issue.State.StringValue, "closed", StringComparison.OrdinalIgnoreCase));
     }
 
     // p0454: GitHub mentions by @login; Name is optional on an account, so the login

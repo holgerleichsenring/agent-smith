@@ -46,7 +46,7 @@ facts:
   - claim: "The approval record is positional with every later field appended last, and is stored whole as ContentJson; re-approving clears SatisfiedAt."
     evidence: "src/backend/AgentSmith.Contracts/Specs/SpecApprovalRecord.cs:63-71, src/backend/AgentSmith.Infrastructure.Persistence/Entities/ApprovedSeries.cs:47-49,60-65"
   - claim: "A successful run moves the ticket into done_status, or closes it when none is set (GitHub closes the issue, Jira transitions to the default status); today a ticket in done_status or failed_status is reworkable, which is how a Request changes on the run's own PR reworks it."
-    evidence: "src/backend/AgentSmith.Application/Services/Lifecycle/TicketLifecycle.cs:9-13,49, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketFinalizer.cs:26-29, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketFinalizer.cs:30-34, src/backend/AgentSmith.Server/Services/Rework/ReworkParkCheck.cs:33-36"
+    evidence: "src/backend/AgentSmith.Application/Services/Lifecycle/TicketLifecycle.cs:9-13,49, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketFinalizer.cs:26-29, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketFinalizer.cs:30-34, src/backend/AgentSmith.Server/Services/Rework/ReworkParkCheck.cs:35-38"
   - claim: "No provider relates two tickets; a comment is UpdateStatusAsync and an 'Agent Smith —' comment is ours to every thread reader; filing tags and starts through FiledWorkStarter."
     evidence: "src/backend/AgentSmith.Contracts/Providers/ITicketProvider.cs:55-60, src/backend/AgentSmith.Application/Services/Prompts/OwnTicketComment.cs:26-34, src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkStarter.cs:43-56"
   - claim: "A ticket's conversation is found by (tracker, ticket key); its open proposal is readable by session id; dialog.write exists."
@@ -64,7 +64,7 @@ facts:
   - claim: "One ticket may route to several projects of one tracker and one record serves them all; FiledWorkClaims looks across every project sharing the tracker for that reason."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkClaims.cs:21-24,44-50, src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkTrackerProjects.cs:22-27, src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSpecSetRecorder.cs:16-19"
   - claim: "TicketAmendment's lease refusal names the amendment act, its catch says the ticket 'was rewritten', and the amendment never throws into the turn; an Azure DevOps fetch throws on a missing ticket."
-    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketAmendment.cs:63-65,70-77, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs:78-85"
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketAmendment.cs:63-65,70-77, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs:80-87"
   - claim: "Filing pushes SpecDialogFiled to an open dashboard pane; the retired Amend arm only cleared LatestProposalJson."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:43-48, src/backend/AgentSmith.Server/Services/SpecDialog/DashboardOutcomeChannel.cs:48-59, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:63-66"
 

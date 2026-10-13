@@ -11,4 +11,11 @@ public interface ITicketStatusHistory
 {
     Task<TicketStatusMove?> NewestPersonMoveIntoAsync(
         TicketId ticketId, IReadOnlyCollection<string> statuses, TrackerActor? self, CancellationToken cancellationToken);
+
+    /// <summary>
+    /// 2026-10-13-9a59k: the newest move into <paramref name="status"/> by ANY actor — the token's own
+    /// and apps included, <see cref="TrackerActor.IsApp"/> carried — so a caller can tell whose close
+    /// it was. GitHub and GitLab know "closed" (a close) and "open"/"opened" (a reopen) only.
+    /// </summary>
+    Task<TicketStatusMove?> NewestMoveIntoAsync(TicketId ticketId, string status, CancellationToken cancellationToken);
 }
