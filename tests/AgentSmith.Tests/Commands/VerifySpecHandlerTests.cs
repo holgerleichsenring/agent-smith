@@ -140,6 +140,20 @@ public sealed class VerifySpecHandlerTests
         sandbox.RanSteps.Should().Contain(s => IsDotnet(s));
     }
 
+    [Fact]
+    public async Task VerifySpec_FixPassAlreadyReverted_ReturnsEarlyWithoutRunningAnything()
+    {
+        var (context, sandbox) = Setup(
+            Map("csharp", new CiConfig(true, "dotnet build", null, null)));
+        context.Pipeline.Set(ContextKeys.SpecReviewReverted, "fix pass reverted: structure gate");
+
+        var result = await Handler().ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue();
+        result.Message.Should().Contain("fix pass was reverted");
+        sandbox.RanSteps.Should().BeEmpty("the commit step already brought the tree back to its verified head");
+    }
+
     // 2026-09-03-7bac: every command runs at the REPOSITORY ROOT, the frame the analyzer
     // and the coding master already work in, and meta.workdir places none of them. ee12
     // had moved them to the declaration on run a06c's evidence ('npm run build' at /work

@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-06-8565c
+goal: "Init measures a component against its principles' Limits and writes what already exceeds them as a baseline beside principles.md; a refresh only shrinks it, and the init PR names the count."
+
+applies_to: "backend (bootstrap principles transfer, init PR body)"
+
+requires: [2026-10-06-8565a, 2026-10-06-8565b]
+
+facts:
+  - claim: "The bootstrap round hands the transfer the sandbox, context name, workdir, principles path and the existing principles text, then records the outcome for the init PR."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/BootstrapRoundHandler.cs:66-75; src/backend/AgentSmith.Application/Services/BootstrapPrinciplesTransfer.cs:40-48,71-89"
+  - claim: "The bootstrap skill runs after the transfer and may write principles.md; it cannot write any other meta file."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/BootstrapRoundHandler.cs:76-80; src/backend/AgentSmith.Application/Services/Tools/PathWriteGuard.cs:29-50"
+  - claim: "The init commit stages everything with git add -A."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/InitCommitHandler.cs:90; src/backend/AgentSmith.Application/Services/SandboxGitOperations.cs:40-43"
+  - claim: "BootstrapRoundHandler is baselined at 194 lines; BootstrapPrinciplesTransfer is 105 and unlisted, so it may not pass 120."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:35; tests/AgentSmith.Tests/Architecture/FileLengthRatchetTests.cs:18-50"
+  - claim: "Stdout is captured line by line until 1,000,000 chars, a line never cut; a file read is one wire round trip, refused above 1 MB or for non-UTF-8 content."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Services/StepExecutor.cs:60-62,90; src/backend/AgentSmith.Application/Services/Sandbox/SandboxFileReader.cs:14,22-26; src/backend/AgentSmith.Sandbox.Agent/Services/FileStepHandler.cs:59,74-76"
+  - claim: "Rooted and escaping workdirs are already refused, and '.' normalised, by the overlay detector."
+    evidence: "src/backend/AgentSmith.Application/Services/FrameworkOverlayDetector.cs:31-40"
+  - claim: "The init PR body writes one bullet per context from BootstrapRoundOutcome."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/InitPullRequestBody.cs:35-101; src/backend/AgentSmith.Application/Models/BootstrapRoundOutcome.cs:18-25"
+
+assumptions:
+  - claim: "git ls-files lists a component's sources without build output, within the output cap for the repositories we serve."
+    check: "Run it in a sandbox over a .NET and a Rust repository; record file counts, reads and elapsed time."
+
+scope:
+  in: >
+    StructureBaseline (Application) runs after the bootstrap skill, so it measures against the
+    principles.md the round leaves: 'git ls-files -z --full-name -- <workdir>' narrowed to the engine's extensions at /work (rooted or escaping
+    workdir: none), output at or above the 1,000,000-char capture cap refused as incomplete, paths owned by a
+    longer-prefix component of the same init excluded, files the engine recognises read and measured, judged
+    (8565b), written to structure-baseline.tsv (path, key, metric, value) beside principles.md. Transferred,
+    Refreshed and Preserved without a baseline: write it. SkillWrites: no baseline, said. Refresh with one: entries still over their limit at
+    min(old, measured), matched by path+key+metric; added only for a unit over the new limit whose value is
+    within the old limit, or that the old principles did not limit. Preserved with one: untouched. No Limits, or no listed file in a measured language: no
+    file, said. Unreadable or oversized files counted; incomplete listing, non-git source, an Unavailable grammar, a measure or
+    write failure: no baseline, said. The
+    round appends its outcome after the baseline, carrying entry and unreadable counts; the PR body names them,
+    and on refresh that a unit grown past an unchanged limit surfaces at the gate.
+  out: >
+    Judging changed files at commit time — 8565d. Dropping fixed entries between inits — the next refresh.
+
+decisions:
+  - key: "A REFRESH ADDS ONLY WHAT A NEW LIMIT EXPOSES. A limit is green on the day it is installed; a unit that grew past an unchanged limit surfaces at the gate."
+  - key: "TRACKED FILES, REPO-RELATIVE. The gate's diff paths are repo-relative; the baseline must match them without translation."
+  - key: "FAIL LOUD, NOT PARTIAL. An incomplete listing writes nothing; a partial baseline would tolerate nothing it missed."
+  - key: "AFTER THE SKILL. The skill may rewrite principles.md; the baseline measures the text the init commits."
+
+steps:
+  - id: baseline
+    action: "StructureBaseline, StructureBaselineFile (read, write, shrink) in Application."
+  - id: wire
+    action: "The round calls it after the skill and appends its outcome with the counts; the transfer is unchanged."
+  - id: body
+    action: "InitPullRequestBody names the counts per context."
+  - id: harness
+    action: "A harness catalog whose C# delta carries a Limits fence; StubSandbox answers 'ls-files -z --full-name' from seeded sources."
+  - id: tests
+    action: "Tests below."
+
+tests:
+  - "StructureBaseline_FirstInit_WritesEveryUnitOverItsLimit"
+  - "StructureBaseline_Refresh_DropsFixedAndLowersShrunkEntries"
+  - "StructureBaseline_Refresh_AddsOnlyUnitsALoweredLimitExposes"
+  - "StructureBaseline_NoMeasuredLanguage_WritesNothingAndSaysSo"
+  - "StructureBaseline_WriteFails_RoundGoesOnAndSaysSo"
+  - "StructureBaseline_PreservedWithoutBaseline_WritesIt"
+  - "StructureBaseline_PreservedWithBaseline_LeavesIt"
+  - "StructureBaseline_ListingAtCaptureCap_WritesNothingAndSaysSo"
+  - "StructureBaseline_RootedWorkdir_WritesNothing"
+  - "StructureBaseline_NoLimitsBlock_WritesNothing"
+  - "StructureBaseline_PathOfNestedComponent_IsLeftToIt"
+  - "BootstrapRound_SkillRewritesPrinciples_BaselineMeasuresTheFinalText"
+  - "InitPullRequestBody_BaselineWritten_NamesTheCounts"
+
+done:
+  - "a RealCompositionHarness init over one oversized C# method writes a baseline naming it and an init PR body naming one unit"
+  - "build green, full suite green"

@@ -1,3 +1,4 @@
+using AgentSmith.Tests.Structure;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Handlers;
@@ -281,6 +282,8 @@ public sealed class BootstrapSandboxResolutionTests
         PrinciplesTransferStubs.Composing("# Coding Principles\ncore + delta\n"),
         new BootstrapContextWriteVerdict(),
         new BootstrapOutputRecorder(),
+        StructureBaselineStubs.Real(),
+        StructureBaselineStubs.Scopes(),
         new SandboxTargets(),
         EventTestStubs.RunContext,
         NullLogger<BootstrapRoundHandler>.Instance);

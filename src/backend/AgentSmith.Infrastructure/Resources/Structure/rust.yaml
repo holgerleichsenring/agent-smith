@@ -1,0 +1,21 @@
+# 2026-10-06-8565b: how the structure engine reads Rust. Unit tests share the file under
+# #[cfg(test)], so they are a capture; integration tests and benches live in their own trees.
+# An impl is not a type: it names the functions inside it ('Display for Foo').
+name: rust
+extensions: [".rs"]
+library: tree-sitter-rust
+symbol: tree_sitter_rust
+attribute_kinds: []
+containers:
+  impl_item: { fields: [trait, type], separator: " for " }
+  mod_item: { fields: [name], separator: "" }
+exclude:
+  - "**/tests/**"
+  - "**/benches/**"
+query: |
+  (struct_item name: (type_identifier) @name) @type
+  (enum_item name: (type_identifier) @name) @type
+  (union_item name: (type_identifier) @name) @type
+  (trait_item name: (type_identifier) @name) @type
+  (function_item name: (identifier) @name parameters: (parameters) @params) @function
+  ((attribute_item (attribute (identifier) @_cfg arguments: (token_tree (identifier) @_test))) . (mod_item) @test (#eq? @_cfg "cfg") (#eq? @_test "test"))

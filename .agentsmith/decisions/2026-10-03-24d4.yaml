@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-03-24d4
+
+decisions:
+  - category: Architecture
+    chose: "Delta limits, operator-ratified 2026-10-06, physical lines of the unit's span: C# function 55, no C# type limit; Rust function 40; TypeScript function 50 and file 300; Scala none"
+    over: "The unsourced C# 20/120, Rust 'roughly 30', TypeScript 'roughly 30/200'; or clippy's 100 and Sonar's 80, which count code lines only and are opt-in"
+    reason: |
+      No tool states a C# or Rust length rule in physical lines that is on by default. C# 55 and Rust 40 are
+      the p95 of measured reference repositories (CleanArchitecture 39, efcore 56, aspire 70; tokio 33,
+      ripgrep 42, serde 41), tests and generated code excluded, read 2026-10-06. C# type p95 ranges from 78 to
+      697 across the same repositories, so no number is defensible. TypeScript's 50/300 are ESLint's stated
+      defaults for max-lines-per-function and max-lines, counted in physical lines. Scala's only stated rule
+      (scalastyle 50) comes from a tool unmaintained since 2022 that Spark ships disabled.
+  - category: Architecture
+    chose: "A stricter house standard (agent-smith's 20 per method, 120 per type) lives in a Limits fence under the composed file's Project Specifics, which overrides the delta and survives a refresh"
+    over: "Keeping a house standard in the delta"
+    reason: |
+      A delta is documented convention of a language; a project's taste goes to Project Specifics. The
+      operator ratified this split 2026-10-06.

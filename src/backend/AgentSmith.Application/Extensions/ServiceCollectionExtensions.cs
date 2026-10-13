@@ -1,6 +1,7 @@
 using AgentSmith.Application.Prompts;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Browser;
+using AgentSmith.Application.Services.Structure;
 using AgentSmith.Application.Services.Builders;
 using AgentSmith.Application.Services.Configuration;
 using AgentSmith.Application.Services.Events;
@@ -44,6 +45,7 @@ public static class ServiceCollectionExtensions
         services.AddSwaggerCompression();
         services.AddWebhookCommentIntent();
         services.AddEventPublishing();
+        services.AddStructureJudging(); // 2026-10-06-8565b
         return services;
     }
 }

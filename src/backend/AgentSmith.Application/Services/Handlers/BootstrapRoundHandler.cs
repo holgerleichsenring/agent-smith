@@ -1,5 +1,6 @@
 using AgentSmith.Application.Extensions;
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Structure;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
@@ -26,6 +27,8 @@ public sealed class BootstrapRoundHandler(
     BootstrapPrinciplesTransfer principlesTransfer,
     BootstrapContextWriteVerdict contextWrite,
     BootstrapOutputRecorder outputRecorder,
+    StructureBaseline structureBaseline,
+    StructureBaselineScopes baselineScopes,
     SandboxTargets sandboxTargets,
     IRunContextAccessor runContext,
     ILogger<BootstrapRoundHandler> logger) : ICommandHandler<BootstrapRoundContext>
@@ -87,9 +90,16 @@ public sealed class BootstrapRoundHandler(
         // 2026-09-15-c6e9: the round's facts reach the init pull request, which is the one
         // artefact a human opens. Appended, not set: one round per component. 2026-10-12-6bfac:
         // after the call, so a written stack.image the boundary refuses is among them.
+        // 2026-10-06-8565c: after the skill, so the baseline measures the principles.md the
+        // init commits.
+        // 2026-10-13-50c7: the scope carries the sources of the context.yaml just written; the
+        // outcome records them for the later rounds of the repository.
+        var scope = await baselineScopes.ForAsync(
+            pipeline, sandbox, context, transfer.Mode, existing.ContextYaml, cancellationToken);
+        var baseline = await structureBaseline.ApplyAsync(sandbox, scope, cancellationToken);
         pipeline.AppendBootstrapOutcome(new BootstrapRoundOutcome(
             context.RepoName, context.ContextName, transfer.Mode, transfer.Artefacts, transfer.Overlays,
-            transfer.ProjectSpecificsKept, outcome.ImageRefusal));
+            transfer.ProjectSpecificsKept, outcome.ImageRefusal, baseline, scope.Sources));
         var onDisk = await metaFiles.ExistsAsync(sandbox, ctxPath, cancellationToken);
         logger.LogInformation(
             "{Emoji} {DisplayName} [Bootstrap]: {Count} file(s) written, {Decisions} decision(s), context.yaml written={CtxWritten} on-disk={OnDisk}",

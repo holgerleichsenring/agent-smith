@@ -1,4 +1,5 @@
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Structure;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -21,9 +22,21 @@ namespace AgentSmith.Application.Services.SpecExecution;
 /// depend on an unrelated timer, so this asks the same mechanism directly — same secret
 /// scan, same staging rules, one place that knows how to put work on a branch.
 /// </para>
+/// <para>
+/// And this is where the framework holds the work to its Limits — after the
+/// push, so nothing is lost, and before VerifySpec, so a correction is still part of the spec.
+/// </para>
+/// <para>
+/// 2026-10-12-fbbdb: and before the push, each context's own formatter rewrites the files the
+/// spec changed, so the branch carries formatted code and the gate measures it. A formatter
+/// that fails is said in the step result, never a failure of the step.
+/// </para>
 /// </summary>
 public sealed class CommitSpecWorkHandler(
+    SpecFormatRun formatRun,
     RunWorkCheckpointer checkpointer,
+    StructureGate structureGate,
+    StructureGateOutcome structureOutcome,
     ILogger<CommitSpecWorkHandler> logger)
     : ICommandHandler<CommitSpecWorkContext>
 {
@@ -31,8 +44,10 @@ public sealed class CommitSpecWorkHandler(
         CommitSpecWorkContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
+        var formatNote = await formatRun.RunAsync(context.Pipeline, cancellationToken);
         await checkpointer.PushNowAsync(context.Pipeline, cancellationToken);
         logger.LogInformation("Spec work committed — the gate now reads a branch that carries it.");
-        return CommandResult.Ok("Spec work is on the branch");
+        var verdict = await structureGate.JudgeAsync(context.Pipeline, cancellationToken);
+        return await structureOutcome.ResolveAsync(context.Pipeline, verdict, formatNote, cancellationToken);
     }
 }

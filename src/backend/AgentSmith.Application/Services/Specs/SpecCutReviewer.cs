@@ -47,7 +47,7 @@ public sealed class SpecCutReviewer(
         if (answer is null)
             return new SpecCutReview([], "the cut review returned nothing readable");
 
-        var kept = new SpecCutAdmission(logger).Admit(drafts, answer, look);
+        var kept = new SpecCutAdmission(logger).Admit(drafts, answer, ticketText, look);
         foreach (var finding in kept)
             logger.LogWarning("Cut review — {Spec} cannot be delivered: {Problem} — {Why}",
                 finding.SpecId, finding.Problem, finding.Why);

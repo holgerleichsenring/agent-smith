@@ -38,6 +38,7 @@ public sealed class CommitAndPRHandler(
     SpecOnlyPullRequests specOnlyPrs,
     ShortfallDelivery shortfallDelivery,
     CompletedRunTicketSummary completedSummary,
+    Structure.StructureDivergencePublisher divergences,
     ILogger<CommitAndPRHandler> logger)
     : ICommandHandler<CommitAndPRContext>
 {
@@ -98,6 +99,8 @@ public sealed class CommitAndPRHandler(
         }
 
         var anyCode = stagedRepos.Any(s => s.HasCode);
+        // 2026-10-12-fbbda: divergences for the PR bodies. 2026-10-13-2d0c: only a run with code has any.
+        if (anyCode) await divergences.PublishAsync(context.Pipeline, cancellationToken);
 
         // 2026-09-07-f420: the p0237 finalizer tail reaches this handler after a step has
         // FAILED. The verdict is then already known, so the account is not taken and the
@@ -316,7 +319,7 @@ public sealed class CommitAndPRHandler(
             return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed, PullRequestOutcomeText.FirstLine(ex.Message)), null);
         }
 
-        var body = CodePullRequestBody.Compose(context, Banner(failureReason, shortfall, isDraft), progress, shortfall);
+        var body = CodePullRequestBody.Compose(context, Banner(failureReason, shortfall, isDraft), progress, shortfall, repo.Name);
         try
         {
             var provider = sourceFactory.Create(repo);

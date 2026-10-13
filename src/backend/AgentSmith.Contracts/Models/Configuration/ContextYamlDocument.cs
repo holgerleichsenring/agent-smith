@@ -36,4 +36,10 @@ public sealed record ContextYamlDocument(
     ContextYamlVerifyDerivation? VerifyDerivedFrom = null,
     // 2026-09-01-379a: the command that asks this context's target environment whether
     // it answers, run after the prerequisites and before the master. Null = nothing asks.
-    ContextYamlTargetProbe? Probe = null);
+    ContextYamlTargetProbe? Probe = null,
+    // 2026-10-12-fbbdb: the rewriting form of the formatter the repository already runs,
+    // run by the spec commit over the files the spec changed. Null = nothing is formatted.
+    ContextYamlFormat? Format = null,
+    // 2026-10-13-50c7: the directories beyond the workdir the component is built and tested
+    // from — its libraries and test projects. Null = the workdir alone.
+    IReadOnlyList<string>? Sources = null);

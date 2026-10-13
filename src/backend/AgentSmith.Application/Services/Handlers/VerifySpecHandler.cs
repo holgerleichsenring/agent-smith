@@ -65,6 +65,10 @@ public sealed class VerifySpecHandler(
         VerifySpecContext context, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(context);
+        // A fix pass the commit step already reverted left the tree as the first verification
+        // saw it; that verdict and its account stand, as the review's do.
+        if (context.Pipeline.TryGet<string>(ContextKeys.SpecReviewReverted, out var reverted) && reverted is not null)
+            return CommandResult.Ok($"The fix pass was reverted, so the verified state stands ({reverted}).");
         if (!sandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out _))
             return await RecordAsync(
                 context, CommandResult.Ok("No sandboxes in pipeline context; nothing to verify."),

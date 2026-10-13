@@ -35,9 +35,14 @@ public static class SpecExecutionPromptBlocks
     /// The repair is only worth a master pass if the agent is told exactly which criteria
     /// the branch does not satisfy — a generic "try again" spends the pass and closes
     /// nothing.
+    /// <para>
+    /// A structure correction that follows a repair takes its place: the repair's work is done
+    /// and committed, and the correction may change nothing but the units it names.
+    /// </para>
     /// </summary>
     public static string OutstandingCriteria(PipelineContext pipeline)
     {
+        if (Findings(pipeline).Count > 0) return string.Empty;
         if (!pipeline.TryGet<List<string>>(ContextKeys.OutstandingCriteria, out var outstanding)
             || outstanding is not { Count: > 0 })
             return string.Empty;
@@ -60,4 +65,25 @@ public static class SpecExecutionPromptBlocks
         var bullets = string.Join("\n", done.Select(d => $"- {d}"));
         return $"\n### Done criteria\n{bullets}\n";
     }
+
+    /// <summary>
+    /// The units the commit gate found over the principles' Limits, for the master's one
+    /// correction. Empty unless that correction is under way; while it is, it is the only
+    /// instruction the pass carries. 2026-10-12-fbbda: they are past the tolerance band, and the
+    /// master is asked to reach the limit itself, not the band's end.
+    /// </summary>
+    public static string StructureFindings(PipelineContext pipeline)
+    {
+        var findings = Findings(pipeline);
+        if (findings.Count == 0) return string.Empty;
+        return "\n**This is a STRUCTURE correction. These units exceed the Limits in the principles "
+            + "past their tolerance band (path, unit, metric, value > limit):**\n"
+            + string.Join("\n", findings.Select(f => "- " + f))
+            + "\nSplit each by responsibility until it is within its limit — the limit itself, not the "
+            + "tolerance band. Change nothing else.";
+    }
+
+    private static IReadOnlyList<string> Findings(PipelineContext pipeline) =>
+        pipeline.TryGet<List<string>>(ContextKeys.StructureFindings, out var findings) && findings is not null
+            ? findings : [];
 }

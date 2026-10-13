@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-a347a
+goal: "A declared formatter that fails at the spec commit is named in the repository's code PR with its command and output, so the operator corrects context.yaml once."
+
+applies_to: "backend (spec format run, code PR body)"
+
+requires: [2026-10-13-50c7]
+
+facts:
+  - claim: "observed: with the bootstrap skill's corrected example in the pinned catalog, gpt-5.6 still declared 'dotnet csharpier {files}', which CSharpier 1.x refuses; two code runs logged 'formatter exited 1' and nothing reached the PR."
+    evidence: "observed: 2026-10-13, end-to-end init refresh and two code runs on a sample repository"
+  - claim: "A failed formatter run becomes a step note only."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecution/SpecFormatRun.cs:53, src/backend/AgentSmith.Application/Services/SpecExecution/SpecFormatRun.cs:80"
+  - claim: "The code PR body is composed per repository and already appends a structure section."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CodePullRequestBody.cs:29-35"
+
+decisions:
+  - key: "REPORTED, NOT PROVEN AT WRITE. The bootstrap sandbox has not restored a repository's local tools, so a write-time proof refuses correct commands; the commit-time run is the one with the tool in place."
+
+scope:
+  in: >
+    SpecFormatInvocation carries the declared format.Command. SpecFormatRun keeps each run's VerifyOutcome (the exception
+    message when the formatter cannot start) and records a failure as an IReadOnlyList entry (repository, context,
+    declared command, exit code, output tail capped at 800 characters, masked by SecretMasker) under a checkpointed
+    context key; failures accumulate over the run, a later failure under the same (repository, context, declared
+    command) replaces the earlier, a later success clears nothing. The code PR body of that repository names them
+    directly after the banner: what failed and its tail, then the fix when the command itself is wrong — correct
+    'format' in .agentsmith/contexts/<context>/context.yaml to the rewriting form the repository's CI uses. Recording and
+    the section live in their own small types.
+  out: "Running a formatter at bootstrap time; telling a wrong command from an unparseable file."
+
+steps:
+  - id: record
+    action: "SpecFormatRun records failures; a section builder renders them in CodePullRequestBody per repository."
+
+tests:
+  - "SpecFormatRun_Failure_IsRecordedWithItsOutput"
+  - "CodePullRequestBody_FormatterFailure_NamesCommandAndLever"
+  - "CodePullRequestBody_NoFailure_HasNoFormatterSection"
+  - "Harness_FormatFails_PullRequestNamesCommandAndLever"
+
+done:
+  - "A harness run whose declared formatter exits non-zero opens a code PR naming the command, its output and the context.yaml lever; full suite green."

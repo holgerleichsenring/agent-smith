@@ -21,9 +21,23 @@ internal sealed class StubSandboxFactory : ISandboxFactory
     /// a clean tree.</summary>
     public bool ReportsWorkingTree { get; set; }
 
+    /// <summary>Meta files at the base the branch was cut from — null by default, so no sandbox
+    /// names a base, 'git show's a file or answers the gate's NUL-separated listings, and the
+    /// commit gate passes as it always would.</summary>
+    public Dictionary<string, string>? BaseFiles { get; set; }
+
+    /// <summary>2026-10-06-8565c: tracked source files, repo-relative, every sandbox lists and reads —
+    /// null by default, so no init finds a source to measure.</summary>
+    public Dictionary<string, string>? SourceFiles { get; set; }
+
+    /// <summary>2026-10-13-a347a: a shell command line starting with a key exits with its code and
+    /// says its output — empty by default, so every command keeps succeeding.</summary>
+    public Dictionary<string, (int ExitCode, string Output)> ShellAnswers { get; } = new(StringComparer.Ordinal);
+
     public Task<ISandbox> CreateAsync(SandboxSpec spec, CancellationToken cancellationToken)
     {
-        var sandbox = new StubSandbox(MissingPaths, NamesImages ? spec.ToolchainImage : null, ReportsWorkingTree);
+        var sandbox = new StubSandbox(
+            MissingPaths, NamesImages ? spec.ToolchainImage : null, ReportsWorkingTree, BaseFiles, SourceFiles, ShellAnswers);
         Spawned.Add((spec, sandbox));
         return Task.FromResult<ISandbox>(sandbox);
     }

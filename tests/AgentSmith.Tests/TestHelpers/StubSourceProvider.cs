@@ -11,7 +11,7 @@ namespace AgentSmith.Tests.TestHelpers;
 /// so SandboxLanguageResolver picks a known language; CreatePullRequestAsync
 /// returns a fake URL. No real git, no network.
 /// </summary>
-internal sealed class StubSourceProvider : ISourceProvider
+internal sealed class StubSourceProvider(string? contextYaml = null) : ISourceProvider
 {
     // "Local" so CheckoutSourceHandler short-circuits the git-clone path:
     // local repos trust the sandbox bind-mount and skip the in-sandbox clone.
@@ -28,12 +28,16 @@ internal sealed class StubSourceProvider : ISourceProvider
     // test can assert WHICH rung reached the provider instead of only that a PR was opened.
     public BranchName? LastTarget { get; private set; }
 
+    /// <summary>2026-10-06-8565c: the body the last pull request was opened with.</summary>
+    public string? LastDescription { get; private set; }
+
     public Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
         CancellationToken cancellationToken, TicketId? linkedTicketId = null, bool isDraft = false,
         BranchName? targetBranch = null)
     {
         LastTarget = targetBranch;
+        LastDescription = description;
         return Task.FromResult($"https://stub.test/pulls/{linkedTicketId?.Value ?? "1"}");
     }
 
@@ -62,6 +66,8 @@ internal sealed class StubSourceProvider : ISourceProvider
 
     public Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken)
     {
+        if (path.EndsWith("context.yaml", StringComparison.Ordinal) && contextYaml is not null)
+            return Task.FromResult<string?>(contextYaml);
         if (path.EndsWith("context.yaml", StringComparison.Ordinal))
         {
             // prerequisites exercises the p0202/p0202a install wiring
@@ -112,5 +118,17 @@ internal sealed class StubSourceProvider : ISourceProvider
 
 internal sealed class StubSourceProviderFactory : ISourceProviderFactory
 {
-    public ISourceProvider Create(RepoConnection config) => new StubSourceProvider();
+    /// <summary>2026-10-06-8565c: every provider handed out, so a test can read what it was asked.</summary>
+    public List<StubSourceProvider> Created { get; } = [];
+
+    /// <summary>2026-10-12-fbbdb: the context.yaml every provider serves instead of the synthetic
+    /// default — null by default, so every run reads the context it always read.</summary>
+    public string? ContextYaml { get; set; }
+
+    public ISourceProvider Create(RepoConnection config)
+    {
+        var provider = new StubSourceProvider(ContextYaml);
+        Created.Add(provider);
+        return provider;
+    }
 }

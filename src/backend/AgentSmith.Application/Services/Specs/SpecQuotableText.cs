@@ -36,6 +36,11 @@ public static class SpecQuotableText
     /// <summary>True when the quote is, or is most of, one of the spec's quotable texts.</summary>
     public static bool Contains(SpecDraft draft, string? quoted) => IsOneOf(Of(draft), quoted);
 
+    /// <summary>True when the quote is, or is most of, one of the spec's done entries —
+    /// never its goal or a step.</summary>
+    public static bool IsDoneEntry(SpecDraft draft, string? quoted) =>
+        IsOneOf([.. draft.Done.Where(d => !string.IsNullOrWhiteSpace(d))], quoted);
+
     /// <summary>
     /// 2026-09-17-0e79c: the same match against ANY corpus of stated texts. The premise check
     /// resolves a reported premise against what the spec says it RESTS ON, which is a different
@@ -69,6 +74,14 @@ public static class SpecQuotableText
         return quote.Length > 0 && stated.Any(text => Words(text).SequenceEqual(quote));
     }
 
+    /// <summary>2026-10-13-a347b: true when the quote is a run of at least <see cref="MinWords"/> of the
+    /// text's words — no half-length rule: the text is a whole ticket, the quote one outcome.</summary>
+    public static bool IsRunIn(string? text, string? quoted)
+    {
+        var quote = Words(quoted);
+        return quote.Length >= MinWords && ContainsRun(Words(text), quote);
+    }
+
     /// <summary>The spec as the reviewer is shown it, with no heading over nothing.</summary>
     public static string Render(SpecDraft draft)
     {
@@ -90,8 +103,13 @@ public static class SpecQuotableText
         if (stated.Length == 0) return false;
         if (stated.SequenceEqual(quote)) return true;
         if (quote.Length < MinWords || quote.Length * 2 < stated.Length) return false;
-        for (var i = 0; i + quote.Length <= stated.Length; i++)
-            if (stated.AsSpan(i, quote.Length).SequenceEqual(quote)) return true;
+        return ContainsRun(stated, quote);
+    }
+
+    private static bool ContainsRun(string[] text, string[] quote)
+    {
+        for (var i = 0; i + quote.Length <= text.Length; i++)
+            if (text.AsSpan(i, quote.Length).SequenceEqual(quote)) return true;
         return false;
     }
 

@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-ee83
+goal: "Init reads a repository's sources for the structure baseline in a few sandbox steps instead of one per file, measured first, keeping each file's size and UTF-8 rules."
+
+applies_to: "backend (structure baseline)"
+
+requires: [2026-10-13-2d0c]
+
+facts:
+  - claim: "The baseline reads each claimed file with its own sandbox call."
+    evidence: "src/backend/AgentSmith.Application/Services/Structure/StructureBaseline.cs:85-92"
+  - claim: "Stdout is captured line by line up to the wire cap, and a file read refuses over 1 MB or non-UTF-8 content."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Services/StepExecutor.cs:58-63, src/backend/AgentSmith.Sandbox.Agent/Services/FileStepHandler.cs:59-78"
+  - claim: "The sandbox wire has no archive or multi-file read step."
+    evidence: "src/backend/AgentSmith.Sandbox.Wire/StepKind.cs:12-25"
+
+scope:
+  in: >
+    First measure per-file reads of a few hundred files in the container sandbox (elapsed, and the stdout events a
+    batch would add — every line is an XADD and a live output event) and record it; build only when per-file reading
+    exceeds 20 seconds, else close the spec with the measurement. The batched reader serves the baseline only: one
+    Run step per chunk, paths as positional arguments to 'sh -c', each line '<index> <base64 < "$f" | tr -d '\n'>'
+    (GNU, BSD and busybox), the script keeping its own byte budget under the stdout cap and emitting 'skip <index>'
+    for a file that would not fit, ending with 'end <count>'; decoding strict UTF-8 with the BOM stripped like the
+    container's ReadFile, over 1 MB unreadable; a missing marker, file or non-zero exit falls back per file. The gate
+    keeps per-file reads.
+  out: "A new wire step kind."
+
+steps:
+  - id: measure
+    action: "Measure per-file read cost in a container sandbox; record it."
+  - id: batch
+    action: "StructureBatchedReader used by StructureBaseline."
+
+tests:
+  - "StructureBatchedReader_Chunk_ReturnsEveryFile"
+  - "StructureBatchedReader_MissingMarker_FallsBackPerFile"
+  - "StructureBatchedReader_OversizedOrBinary_CountedUnreadable"
+  - "StructureBatchedReader_InProcessSandbox_RunsTheRealScript"
+
+done:
+  - "A baseline over a tree of hundreds of files takes a handful of sandbox steps and matches the per-file baseline; full suite green."

@@ -60,6 +60,8 @@ internal static class InitPullRequestBody
             // 2026-10-12-6bfac: the run would refuse this image without a word on the PR.
             if (outcome.ImageRefusal is { } refused)
                 body.Append("  - **image refused** — ").Append(refused.Describe()).Append('\n');
+            if (outcome.StructureBaseline is { } baseline)
+                body.Append("  - ").Append(baseline.Sentence()).Append('\n');
         }
         return body.Append('\n').Append(siblingMarker).ToString();
     }

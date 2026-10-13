@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-50c7
+
+decisions:
+  - category: Architecture
+    chose: "StructureOwnership works on StructureClaim(context, directory, isWorkdir); Owners(path) returns EVERY context whose workdir is the longest holding directory, else the ordinal-smallest context among the sources there"
+    over: "One owner per path, picking a name among contexts that share a workdir too"
+    reason: |
+      The spec settles workdir-vs-source and source-vs-source ties; it says nothing about two contexts sharing
+      one workdir, and contexts without sources must behave exactly as before. Before, the format plan ran every
+      sharing context and the gate kept the last context read with rules. Returning all sharing workdirs keeps
+      both: the format plan formats for each, the gate takes the last of them that has rules.
+  - category: Implementation
+    chose: "A context whose workdir is rooted or escapes claims nothing — its sources included"
+    over: "Letting its sources claim files while the workdir is ignored"
+    reason: |
+      Such a context was never judged and never owned a file; its sources taking files from other contexts
+      (in the format plan, which does not skip it) would hand them to a context nothing measures.
+  - category: Implementation
+    chose: "The round's sources are recorded on BootstrapRoundOutcome (new optional Sources), which StructureBaselineScopes reads back for earlier rounds of the same repository"
+    over: "A new ContextKeys entry keyed by repository and context"
+    reason: |
+      BootstrapRoundOutcome already is the one pipeline record per round, appended after the baseline, keyed
+      by repository and context. A second key would be a parallel record of the same round.
+  - category: Architecture
+    chose: "StructureBaselineScopes builds the scope (own sources from the written context.yaml via IContextYamlParser, the earlier workdir from existing.ContextYaml, sibling claims from DiscoveredComponents plus recorded sources); BootstrapRoundHandler gains that one dependency"
+    over: "A static StructureBaselineScope.For taking more arguments, or StructureBaseline reading context.yaml itself"
+    reason: |
+      Reading the sandbox needs an instance service; the baseline measuring files is a different
+      responsibility from reading what a context.yaml says. A read that fails is a warning and no sources,
+      as every other baseline failure is said and never thrown.
+  - category: Implementation
+    chose: "The baseline header gains '# owned:' followed by tab-separated normalized directories, the root written '.'; Render takes the owned list optionally"
+    over: "Space-separated like the measured-with line"
+    reason: |
+      A directory may contain a space; a tab never appears in the paths the baseline already tab-separates.
+      An optional parameter keeps every existing caller rendering what it rendered.
+  - category: Implementation
+    chose: "A baseline without the owned line owned the workdir of the context.yaml before the round; when there was none, the round's own workdir"
+    over: "Treating every current directory as newly owned when no earlier context.yaml exists"
+    reason: |
+      The spec names existing.ContextYaml. A baseline with no context.yaml beside it is an anomaly; assuming it
+      owned the round's workdir adds only what the sources bring, never the workdir's grown units.
+  - category: Implementation
+    chose: "A preserved baseline with newly owned directories is rewritten with its old entries as they are, its old measured-with line (left out if it had none), the newly owned excess and the owned line; the result reads as refreshed"
+    over: "Re-measuring and refreshing the old entries too"
+    reason: |
+      The spec keeps a preserved baseline's entries and measured-with line. A preserved file whose ownership did
+      not change stays byte-identical (Untouched), as before.
+  - category: Implementation
+    chose: "The read path trims sources and drops blanks only; rooted, escaping or root entries are refused by the schema at write and ignored by StructureOwnership at use"
+    over: "Refusing them in ContextYamlSerializer.Parse"
+    reason: |
+      Normalization lives in StructureWorkdir (Application), which the Infrastructure reader does not reference;
+      a hand-written context.yaml with a bad entry loses that entry, not the whole context.
+  - category: Implementation
+    chose: "StubSandbox answers a read of a file the run wrote with what was written, before any seeded source file"
+    over: "A harness that seeds no context.yaml"
+    reason: |
+      The re-init harness needs both the context.yaml before the round (seeded) and the one the skill writes;
+      the stub returned the seeded copy after the write, which no real sandbox does.
+  - category: Scope
+    chose: "The done criterion runs as two harness cases: re-init then a later spec that passes, and the same later spec against a baseline without the library entry, which is sent back naming Repository.Load()"
+    over: "Only the passing case"
+    reason: |
+      A pass alone does not show the gate judged the library; without sources it is judged by nothing and would
+      pass too. The contrast proves ownership through sources reaches the gate.

@@ -97,6 +97,8 @@ public static class SpecAccountPrompt
             looks like it ought to be. Saying "not satisfied" costs you nothing and is the
             useful answer; saying "satisfied" without a file is the one thing that misleads.
 
+            {{AccountEvidenceRules.DiffReading}}{{AccountEvidenceRules.DiffJudging}}
+
             Answer with JSON and nothing else:
 
             {{shape}}

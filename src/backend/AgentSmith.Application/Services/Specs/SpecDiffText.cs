@@ -77,7 +77,9 @@ public static class SpecDiffText
         chunk.Contains("\nGIT binary patch", StringComparison.Ordinal)
         || chunk.Contains("\nBinary files ", StringComparison.Ordinal);
 
-    private static IReadOnlyList<int> Boundaries(string text)
+    /// <summary>Where each file's diff begins: "diff --git " at the start of the text or of
+    /// a line — an added line merely containing it is still part of its file.</summary>
+    internal static IReadOnlyList<int> Boundaries(string text)
     {
         const string marker = "diff --git ";
         var starts = new List<int>();

@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-2d0c
+goal: "The structure gate judges from the merge-base, never passes a git failure in silence, a baseline knows the limits it was measured with, and the formatter and divergence paths are safe."
+
+applies_to: "backend (structure gate, spec format run, code PR) and skills pin"
+
+requires: [2026-10-06-8565d, 2026-10-12-fbbda, 2026-10-12-fbbdb]
+
+facts:
+  - claim: "The gate lists changed paths and reads Limits and baseline against the base ref itself, origin/<base>, not the merge-base."
+    evidence: "src/backend/AgentSmith.Application/Services/Structure/StructureGitReads.cs:20-33"
+  - claim: "The base ref comes from a full delivery diff taken only for its BaseRef."
+    evidence: "src/backend/AgentSmith.Application/Services/Structure/StructureGate.cs:59-60"
+  - claim: "A failed git show reads as 'no Limits' and the context passes without a log line."
+    evidence: "src/backend/AgentSmith.Application/Services/Structure/StructureGateContexts.cs:41-48"
+  - claim: "The formatter note is prepended to the outcome, and a revert takes the first line as its reason."
+    evidence: "src/backend/AgentSmith.Application/Services/Structure/StructureGateOutcome.cs:23-35, src/backend/AgentSmith.Application/Services/Specs/SpecReviewRevert.cs:47"
+  - claim: "{files} is replaced by single-quoted paths; the schema accepts a command that quotes the placeholder itself."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecution/SpecFormatPlan.cs:40-45, .agentsmith/context.schema.json:529"
+  - claim: "Divergences are judged at PR time for every run, code or not."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:102"
+  - claim: "observed: a refresh after the operator lowered a house limit in principles.md left the over-limit unit out of the baseline, because the refresh compares against the current principles text."
+    evidence: "observed: 2026-10-13, end-to-end init --refresh-principles on a sample repository"
+  - claim: "observed: CSharpier 1.x needs 'format'; skills v5.14.1 corrects the bootstrap's example."
+    evidence: "observed: 2026-10-13, end-to-end init on a sample repository"
+
+scope:
+  in: >
+    MERGE-BASE: resolve the base rung as DeliveryDiffCandidates orders it (SandboxBaseLadder, run start; the HEAD rung
+    means no base), each rung tested with 'git rev-parse --verify <rung>^{commit}' instead of a diff, then 'git
+    merge-base <rung> HEAD' (a failure falls to the next rung or passes loudly); list changed paths and read
+    Limits/baseline there, '--' before pathspecs. GIT FAILURE: presence is asked with 'git ls-tree --name-only <rev> --
+    <path>' (empty = absent); a non-zero exit is logged at warning and passes that context loudly. BASELINE LIMITS: the
+    baseline's '#' header records the Limits and tolerance_percent it was measured with; a refresh compares new limits against those (the
+    principles text only when a baseline carries none). LISTING: a capture that is one -z line is accepted at any
+    length; more than one line at the cap is still refused. OUTCOME: the formatter
+    note follows the verdict; the revert reason stays the structure finding; ResolveAsync takes the token last.
+    {FILES}: the schema refuses a quoted placeholder and its example says 'dotnet csharpier format {files}'; each path is
+    passed as './<path>'. Divergences judged only for runs with code. Small: CaptureCap references the wire limit; Limits parse
+    invariant and leave Project Specifics at the next '## '; StructureBaselineFile and StructureRepoContexts become
+    DI services; verdict lists computed once; baseline lookup keyed. Pin skills v5.14.2. One test against a real git
+    repository pins -z listings, pathspecs, untracked files, deletions and the merge-base.
+  out: "Batched reads and listing pagination — 2026-10-13-ee83. Gating secondary sandboxes — 2026-10-13-e237."
+
+steps:
+  - id: base
+    action: "Merge-base resolution and git-failure handling in StructureGitReads/StructureGate/StructureGateContexts."
+  - id: format
+    action: "Outcome note order, token order, {files} guard and ./ paths, logged drop."
+  - id: tidy
+    action: "Divergence guard, constants, parse fixes, DI services, cached lists, keyed lookup, pin."
+  - id: tests
+    action: "Unit tests per change and one real-git test."
+
+tests:
+  - "StructureGate_BaseMovedAfterCut_JudgesOnlyTheBranchsFiles"
+  - "StructureGateContexts_GitShowFails_LogsAndPasses"
+  - "StructureGateOutcome_FormatterNote_FollowsTheVerdict"
+  - "ContextYamlFormat_QuotedPlaceholder_IsRefused"
+  - "SpecFormatPlan_DashLeadingPath_IsPassedAsRelative"
+  - "CommitAndPR_NoCode_JudgesNoDivergence"
+  - "StructureGitReads_RealRepository_ListsLikeTheStub"
+  - "StructureBaseline_RefreshAfterManualLimitChange_AddsTheExposedUnit"
+  - "StructureBaseline_RefreshAfterToleranceLowered_AddsTheExposedUnit"
+  - "StructureSourceListing_LongZeroSeparatedLine_IsAccepted"
+  - "StructureGateOutcome_NothingJudged_SaysSo"
+  - "StructureBaseline_RefreshOfHeaderlessBaseline_AddsEveryUnitOverItsBand"
+
+done:
+  - "A base moved after the cut leaves the gate judging only the branch's files (unit and real-git test)."
+  - "Full suite green."

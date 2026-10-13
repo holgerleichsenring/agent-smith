@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-06-8565b
+goal: "A structure engine measures syntactic units — type, function, file — with tree-sitter and judges them against a principles file's Limits fences, C# and Rust first."
+
+applies_to: "backend (Contracts port, Infrastructure engine, Application limits and judge, server and CLI images)"
+
+requires: [2026-10-06-8565a]
+
+facts:
+  - claim: "TreeSitter.DotNet 1.3.0 (2026-01-22, core 0.26.3, netstandard2.0, no dependencies) ships runtimes/<rid>/native for nine RIDs with 28 grammars, about 65 MB per RID, glibc only; no Kotlin, no Lua."
+    evidence: "observed: nuget.org TreeSitter.DotNet 1.3.0 nupkg unpacked and objdump'ed, 2026-10-06"
+  - claim: "The core is a DllImport('tree-sitter'); grammars load through the package's own loader from AppContext.BaseDirectory or runtimes/<os>-<arch>/native; Language also takes an IntPtr."
+    evidence: "observed: decompiled TreeSitter.dll 1.3.0 Native.cs, NativeLibrary.cs, Language.cs:384-409, 2026-10-06"
+  - claim: "The server and CLI images publish RID-less; the released CLI publishes single-file per RID with natives self-extracted."
+    evidence: "src/backend/AgentSmith.Server/Dockerfile:30,35; src/backend/AgentSmith.Cli/Dockerfile:30; .github/workflows/release-please.yml:56-62"
+  - claim: "Application references only Contracts and Domain; infrastructure services register in ServiceCollectionExtensions."
+    evidence: "src/backend/AgentSmith.Application/AgentSmith.Application.csproj:4-5; src/backend/AgentSmith.Infrastructure/Extensions/ServiceCollectionExtensions.cs"
+  - claim: "A static class holding non-generated state fails the static-state rule."
+    evidence: "tests/AgentSmith.Tests/Architecture/NoStaticStateRuleTests.cs:106-120"
+  - claim: "A composed principles.md carries the delta verbatim, then Project Specifics to the end of file."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Skills/CatalogPrinciplesTemplateSource.cs:81-118; src/backend/AgentSmith.Application/Services/ProjectSpecificsSection.cs:10-19"
+
+assumptions:
+  - claim: "Grammar node names tell types, functions, attributes and Rust #[cfg(test)] modules apart."
+    check: "Print the tree of one C# and one Rust fixture before writing the queries."
+
+scope:
+  in: >
+    IStructureEngine (Contracts): Measure(path, content) returns Measured (units, the file's line and type counts),
+    NotMeasured (unknown extension or excluded path) or Unavailable (grammar did not load, logged). A unit is kind (type or function), key and
+    span. The key is unique in its file: container chain plus name (a Rust impl contributes its full header, 'Trait for
+    Type') and, where the grammar has one, the parameter-type list; an ordinal only for identical signatures; a file-level metric's key is '<file>'. Lines are
+    physical, from the declaration's first non-attribute line to its last; leading comments are outside. Nested
+    and local functions are units and count inside their parent; lambdas are not units; a Rust impl is not a type.
+    Per language one embedded data file names extensions, grammar, query (@type, @function, @test) and exclude
+    globs for test and generated paths (C#: test projects, *.g.cs, *.Designer.cs, Migrations). Grammars load by
+    NativeLibrary.Load plus GetExport into Language(IntPtr). One structure-natives.targets, imported by Server, Cli,
+    AgentSmith.Tests and PipelineHarness, keeps natives by file stem (tree-sitter, tree-sitter-c-sharp,
+    tree-sitter-rust; lib prefix and extension ignored); a RID filter applies only when the Dockerfiles pass a
+    property for linux-x64 and linux-arm64. StructureLimits (instance) merges the '## Limits'
+    fence and a '### Limits' fence under Project Specifics, later key winning. StructureJudge returns findings
+    (path, key, metric, value, limit). Parser and cursor per call; Language and Query shared.
+  out: >
+    Which files are measured and what is tolerated — 8565c, 8565d. Kotlin, Lua and further languages — a later
+    spec adds a data file, a keep-list entry and, where the package lacks it, a grammar build.
+
+decisions:
+  - key: "TREESITTER.DOTNET, NOT THE LANGUAGE PACK. The pack downloads grammars at runtime and ships natives through runtime.json, which a RID-less publish does not restore."
+  - key: "OUR LOADER, NOT THE PACKAGE'S. NativeLibrary.Load follows deps.json and single-file extraction; the package's loader only sees the base directory."
+  - key: "TEST CODE: A CAPTURE WHERE IT SHARES THE FILE, A PATH WHERE IT DOES NOT. Rust keeps tests inline; C# keeps them in projects."
+  - key: "ATTRIBUTES OUT, NESTED IN. One counting rule for every language, independent of whether a grammar makes attributes children or siblings."
+
+steps:
+  - id: contracts
+    action: "IStructureEngine, StructureMeasurement, StructureUnit, StructureFinding in Contracts."
+  - id: limits
+    action: "StructureLimits and StructureJudge in Application."
+  - id: engine
+    action: "TreeSitterStructureEngine, grammar loader, csharp and rust data files in Infrastructure; singleton."
+  - id: packaging
+    action: "Native keep-list target; prove both images and the single-file CLI load both grammars."
+  - id: tests
+    action: "Tests below with fixtures."
+
+tests:
+  - "Measure_CSharpClassWithTwoMethods_ReturnsTypeAndFunctionsWithSpans"
+  - "Measure_CSharpOverloadInsertedAbove_KeepsTheOtherKey"
+  - "Measure_CSharpAttributeLines_AreNotCounted"
+  - "Measure_CSharpLocalFunction_IsAUnitInsideItsParent"
+  - "Measure_CSharpTestProjectPath_ReturnsNotMeasured"
+  - "Measure_RustCfgTestModule_ExcludesItsFunctions"
+  - "Measure_RustTwoTraitImplsSameFn_KeysIndependentOfOrder"
+  - "Measure_UnknownExtension_ReturnsNotMeasured"
+  - "Measure_GrammarFailsToLoad_ReturnsUnavailable"
+  - "Limits_ProjectSpecificsFence_OverridesTheDeltaKey"
+  - "Limits_NoFence_SetsNoLimit"
+  - "Judge_FunctionOverLimit_ReturnsOneFinding"
+
+done:
+  - "C# and Rust fixtures are measured in tests on macOS, in the built server image, and by a linux-x64 single-file CLI; a win-x64 single-file publish carries the three natives"
+  - "the server image grows by less than 15 MB"
+  - "build green, full suite green"

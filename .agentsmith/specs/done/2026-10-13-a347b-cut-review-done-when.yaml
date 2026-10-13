@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-a347b
+goal: "The cut review reports a spec that drops an outcome the ticket's own 'Done when' lists, so the derivation keeps the operator's verdict one for one."
+
+applies_to: "backend (cut review)"
+
+requires: [2026-10-12-fbbdc]
+
+facts:
+  - claim: "observed: two tickets each listed three 'Done when' outcomes (tests pass, a test proves the change, a test proves the guard) and both derived specs kept only 'the tests pass', with the one-for-one rule in the pinned derivation master."
+    evidence: "observed: 2026-10-13, end-to-end code runs on a sample repository"
+  - claim: "The cut review offers its ways from one list, NOT IN THE TICKET only when the whole ticket is shown."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecCutVerdicts.cs:33-38"
+
+scope:
+  in: >
+    SpecCutVerdicts gains 'done-dropped', placed after not-in-ticket and before false-premise, offered when the whole
+    ticket is shown: an outcome the ticket lists under its own 'Done when' / 'Definition of done' / 'Acceptance' (title,
+    description and acceptance criteria — not comments) that no done entry states, shape rules excepted. Its quote is
+    the ticket's outcome and its spec_id the spec that does that work. The prompt says this way quotes the ticket.
+    SpecCutAdmission receives the ticket text: a done-dropped finding is admitted when the ticket's word sequence
+    contains the quote (at least MinWords words, no half-length rule) and refused when the quote is one of any spec's
+    done entries. Count names six. A rejected cut is re-derived as today.
+  out: "The design dialog, which sees no ticket text."
+
+steps:
+  - id: verdict
+    action: "done-dropped in SpecCutVerdicts; ticket text into SpecCutAdmission; prompt wording; CutReviewVerdictPromptTests and CutReviewShapeRuleTests updated."
+
+tests:
+  - "SpecCutVerdicts_WholeTicket_OffersDoneDropped"
+  - "SpecCutAdmission_DoneDroppedQuotingTheTicket_IsAdmitted"
+  - "SpecCutAdmission_DoneDroppedQuotingADoneEntry_IsRefused"
+
+done:
+  - "A derivation whose first cut drops a 'Done when' outcome is rejected and re-derived (harness with scripted answers); full suite green."

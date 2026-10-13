@@ -12,7 +12,10 @@ namespace AgentSmith.Tests.TestHelpers;
 /// capture stdout (e.g. MarkItDown wrapper) get non-empty content.
 /// </summary>
 internal sealed class StubSandbox(
-    IReadOnlySet<string>? missingPaths = null, string? toolchainImage = null, bool reportsWorkingTree = false)
+    IReadOnlySet<string>? missingPaths = null, string? toolchainImage = null, bool reportsWorkingTree = false,
+    IReadOnlyDictionary<string, string>? baseFiles = null,
+    IReadOnlyDictionary<string, string>? sourceFiles = null,
+    IReadOnlyDictionary<string, (int ExitCode, string Output)>? shellAnswers = null)
     : IHoldableSandbox, ISandboxToolchainImage
 {
     /// <summary>2026-10-12-50bda: the image a container backend would name; null (the default)
@@ -60,6 +63,17 @@ internal sealed class StubSandbox(
             return Task.FromResult(new StepResult(
                 StepResult.CurrentSchemaVersion, step.StepId, ExitCode: 1, TimedOut: false,
                 DurationSeconds: 0.01, ErrorMessage: StepErrors.FileNotFound(missing), OutputContent: null));
+        // A base the branch was cut from, opted into by a test — the commit gate lists what the
+        // branch changed against it and reads its Limits and baseline there. Without one the
+        // gate finds no base and passes.
+        // 2026-10-13-a347a: a shell command a test declared failing answers as it would.
+        if (step.Command == "/bin/sh" && step.Args is [_, var line] && shellAnswers?.FirstOrDefault(
+                a => line.StartsWith(a.Key, StringComparison.Ordinal)) is { Key: not null } shell)
+            return Task.FromResult(Answer(step, shell.Value.ExitCode, shell.Value.Output));
+        if (baseFiles is not null && BaseAnswer(step) is { } answer) return Task.FromResult(answer);
+        // 2026-10-06-8565c: tracked sources a test seeded — listed by 'git ls-files -z --full-name'
+        // and read back. Without any, the listing is empty and the init takes no baseline.
+        if (sourceFiles is not null && SourceAnswer(step) is { } source) return Task.FromResult(source);
         var output = step.Kind switch
         {
             StepKind.ListFiles => DefaultListing(step.Path),
@@ -81,6 +95,44 @@ internal sealed class StubSandbox(
             StepResult.CurrentSchemaVersion, step.StepId, ExitCode: 0,
             TimedOut: false, DurationSeconds: 0.01, ErrorMessage: null, OutputContent: output));
     }
+
+    private StepResult? BaseAnswer(Step step)
+    {
+        if (IsGit(step, "symbolic-ref")) return Answer(step, 0, "origin/main\n");
+        // The gate's NUL-separated listings: every written file is changed, none untracked.
+        if (IsGit(step, "-z") && IsGit(step, "--name-only"))
+            return Answer(step, 0, string.Concat(_stagedFiles.Select(f => f + "\0")) + "\n");
+        if (IsGit(step, "-z") && IsGit(step, "--others")) return Answer(step, 0, "\n");
+        // 2026-10-13-2d0c: the gate reads at the merge-base of origin/main and HEAD.
+        if (IsGit(step, "merge-base")) return Answer(step, 0, BaseCommit + "\n");
+        if (IsGit(step, "ls-tree") && step.Args?.LastOrDefault() is { } listed)
+            return Answer(step, 0, baseFiles!.ContainsKey(listed) ? listed + "\n" : string.Empty);
+        if (!IsGit(step, "show") || step.Args?.LastOrDefault() is not { } spec
+            || !spec.StartsWith(BaseCommit + ":", StringComparison.Ordinal))
+            return null;
+        return baseFiles!.TryGetValue(spec[(BaseCommit.Length + 1)..], out var content)
+            ? Answer(step, 0, content) : Answer(step, 128, null);
+    }
+
+    private const string BaseCommit = "base-commit-sha";
+
+    private StepResult? SourceAnswer(Step step)
+    {
+        // 2026-10-13-50c7: a file the run wrote reads back as written, not as it was seeded.
+        if (step.Kind == StepKind.ReadFile && step.Path is { } path && !_writtenFiles.ContainsKey(Normalize(path))
+            && sourceFiles!.TryGetValue(Normalize(path), out var content))
+            return Answer(step, 0, content);
+        if (!IsGit(step, "--full-name") || step.Args is not { } args) return null;
+        // A pathspec "dir/*.ext" as git reads it: '*' crosses directories.
+        var specs = args.SkipWhile(a => a != "--").Skip(1).Select(s => s.Split('*', 2)).ToList();
+        var listed = sourceFiles!.Keys.Order(StringComparer.Ordinal).Where(p => specs.Any(s =>
+            s.Length == 2 && p.StartsWith(s[0], StringComparison.Ordinal) && p.EndsWith(s[1], StringComparison.Ordinal)));
+        return Answer(step, 0, string.Join('\0', listed) + "\0\n");
+    }
+
+    private static StepResult Answer(Step step, int exit, string? output) => new(
+        StepResult.CurrentSchemaVersion, step.StepId, exit, TimedOut: false, DurationSeconds: 0.01,
+        ErrorMessage: null, OutputContent: output);
 
     private static string Normalize(string path) =>
         path.StartsWith("/work/", StringComparison.Ordinal) ? path["/work/".Length..] : path;

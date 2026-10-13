@@ -113,6 +113,7 @@ internal sealed class RepoCommitFixture
             new ShortfallDelivery(new UnverifiedWorkReverter(gitOps, NullLogger<UnverifiedWorkReverter>.Instance),
                 NullLogger<ShortfallDelivery>.Instance),
             new CompletedRunTicketSummary(),
+            AgentSmith.Tests.Structure.StructureGateFixture.Publisher(),
             NullLogger<CommitAndPRHandler>.Instance);
     }
 

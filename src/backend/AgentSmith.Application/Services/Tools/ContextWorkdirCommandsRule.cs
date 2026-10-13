@@ -7,7 +7,7 @@ namespace AgentSmith.Application.Services.Tools;
 /// directory does not also claim its source is the whole repository. Returns the
 /// contradiction, or null when the document does not carry it.
 /// <para>
-/// 2026-09-03-7bac: build, test, prerequisites and probe all run at the REPOSITORY ROOT
+/// 2026-09-03-7bac: build, test, prerequisites, probe and format all run at the REPOSITORY ROOT
 /// and no declared path places one, so a command carrying its own <c>cd</c> is how a
 /// sub-tree component expresses itself; meta.workdir says where that component's ROOT is.
 /// A root at the repository root and commands that must all leave it cannot both be true —
@@ -47,7 +47,7 @@ public sealed class ContextWorkdirCommandsRule
     private static string Contradiction(string directory) =>
         $"/meta/workdir: the document contradicts itself. meta.workdir says this context's "
         + $"ROOT is the repository root (\".\"), while EVERY declared command begins by "
-        + $"entering '{directory}' — and build, test, prerequisites and probe all run at the "
+        + $"entering '{directory}' — and build, test, prerequisites, probe and format all run at the "
         + "repository root, so a command that carries its own cd is saying the root is not "
         + $"where this context lives. Decide which half is wrong: if this component really "
         + $"lives under '{directory}', set meta.workdir to the directory holding the manifest "
@@ -73,6 +73,7 @@ public sealed class ContextWorkdirCommandsRule
         if (document.Verify is { } stages) all.AddRange(stages.Select(stage => stage.Command));
         all.Add(document.Prerequisites);
         all.Add(document.Probe?.Command);
+        all.Add(document.Format?.Command);
         return [.. all.Where(command => !string.IsNullOrWhiteSpace(command)).Select(command => command!)];
     }
 

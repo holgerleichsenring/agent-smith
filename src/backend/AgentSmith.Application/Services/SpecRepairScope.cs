@@ -26,6 +26,9 @@ public static class SpecRepairScope
         ArgumentNullException.ThrowIfNull(pipeline);
         pipeline.Remove(ContextKeys.OutstandingCriteria);
         pipeline.Remove(ContextKeys.SpecRepairAttempted);
+        // One structure correction per spec, so the next spec starts fresh.
+        pipeline.Remove(ContextKeys.StructureFindings);
+        pipeline.Remove(ContextKeys.StructureGateAttempted);
         // 2026-09-17-042eh: the review's fix pass is the same mechanism under a second name
         // and ends the same way. A finding, a snapshot or a spent fix pass carried into the
         // next spec is the leak p0444 closed for the repair, reopened.

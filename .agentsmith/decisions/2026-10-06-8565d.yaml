@@ -1,0 +1,73 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-06-8565d
+
+decisions:
+  - category: Security
+    chose: "Limits and baseline are read at the delivery diff's base ref with git show; only the judged files come from the working tree"
+    over: "Reading .agentsmith from the working tree"
+    reason: |
+      The master writes the working tree. Reading its terms there would let it raise a limit or baseline its
+      own excess and pass. A test raises both in the working tree and the gate still finds the unit.
+  - category: Architecture
+    chose: "The gate runs inside CommitSpecWork after the push; a correction splices master, questions, commit ahead of the queued VerifySpec"
+    over: "A verify stage, or a pipeline step of its own"
+    reason: |
+      The operator ruled out a verify stage. The push first keeps the work safe; the splice keeps the
+      correction inside the spec. One correction per spec, then a recorded failure.
+  - category: Architecture
+    chose: "Inside the review's fix pass a finding goes through SpecReviewRevert like a red build"
+    over: "Splicing a correction inside the fix pass"
+    reason: |
+      The fix pass is the last pass by contract; a structure regression there is undone to the verified head.
+  - category: Implementation
+    chose: "No comparable base, no Limits, or no baseline at the base: the context passes, logged"
+    over: "Failing pre-existing excess in a context without a baseline"
+    reason: |
+      A limit is green on the day it is installed; without a baseline nothing says what was there before.
+  - category: Implementation
+    chose: "The shared StubSandbox answers a base only when a test opts in (StubSandboxFactory.BaseFiles)"
+    over: "Answering symbolic-ref for every harness test"
+    reason: |
+      A base name changes the delivery ladder for every harness run; opting in keeps the other 240 harness
+      tests on the path they were written for.
+  - category: Architecture
+    chose: "The gate judges once per repository, in SandboxesForRepo(...)[0] — the sandbox RepoWorkPusher pushes — with the contexts of every sandbox of that repository plus the run's RemoteContextInventory for it"
+    over: "Judging every sandbox with only its own context list (the WIP)"
+    reason: |
+      Only the pushed sandbox's tree reaches the branch, so judging a second sandbox would judge work
+      that is not delivered, and a repository with two sandboxes would report a finding twice. A context
+      that lives in another sandbox, or that scoping left without one, still owns its workdir: missing
+      it would hand its files to the context around it and its Limits to nobody.
+  - category: Implementation
+    chose: "A git listing that fails or reaches the capture cap is logged as a warning and that repository is not judged"
+    over: "Treating it as an empty change set (the WIP's silent pass), or failing the spec"
+    reason: |
+      A failed listing says nothing about the work's structure; inventing an empty list hid it, and
+      failing the spec over a sandbox git hiccup would turn a quality gate into an availability gate.
+      The same holds for a file the sandbox refuses to read (over 1 MB, not UTF-8): logged, not judged.
+  - category: Implementation
+    chose: "Changed paths from 'git diff -z --name-only --diff-filter=d <base>' and 'git ls-files -z --others --exclude-standard --full-name', split on NUL and never trimmed"
+    over: "Newline listings trimmed per line"
+    reason: |
+      The baseline records paths raw from a -z listing (8565c); a gate that quoted or trimmed them
+      differently would never match a baselined entry for a path with spaces or unusual characters.
+  - category: Implementation
+    chose: "While StructureFindings is set, the repair block (OutstandingCriteria) renders empty and the structure block is the only correction instruction"
+    over: "Rendering both blocks when a structure correction follows a repair pass"
+    reason: |
+      The repair's work is already committed when its CommitSpecWork finds an excess; the correction is
+      there to split the named units and change nothing else. Two blocks would tell the master both
+      'close these criteria' and 'change nothing else'. The queued VerifySpec still judges the criteria.
+  - category: Implementation
+    chose: "The second finding records SpecRunState.Failed with every finding joined into the note; the Fail message lists each finding on its own line"
+    over: "Recording only the first line of the failure (the WIP)"
+    reason: |
+      The first line said only how many units were over; the spec record is what a person reads, and it
+      has to name what to split.
+  - category: Implementation
+    chose: "VerifySpec returns Ok without running or recording anything when SpecReviewReverted is set"
+    over: "Letting the queued VerifySpec of a fix pass run again over the reverted tree"
+    reason: |
+      The commit step's revert already restored the first verification's account and head; verifying
+      again would spend the build and re-record a verdict the first verification already recorded.
+      ReviewSpecDiff returns early on the same key.

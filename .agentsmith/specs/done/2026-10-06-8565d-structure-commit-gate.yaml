@@ -1,0 +1,86 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-06-8565d
+goal: "CommitSpecWork judges every file the branch changed against its context's Limits and baseline; a new excess goes back to the master once, and a second one fails the spec."
+
+applies_to: "backend (spec execution: commit step, master prompt, repair scope, spec record)"
+
+requires: [2026-10-06-8565b, 2026-10-06-8565c]
+
+facts:
+  - claim: "CommitSpecWork appears only in the code spec block, the verify repair block and the review fix pass; a splice runs directly after the current step."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Parking.cs:42-60; src/backend/AgentSmith.Application/Services/Specs/SpecVerdict.cs:112-118; src/backend/AgentSmith.Application/Services/Specs/SpecReviewFixPass.cs:21-43"
+  - claim: "CommitSpecWorkHandler pushes through the checkpointer and always returns Ok."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecution/CommitSpecWorkHandler.cs:25-36"
+  - claim: "VerifySpec splices one repair pass guarded by SpecRepairAttempted, records the spec state, and reverts a failed review fix pass to the verified head."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:181-199,205-223; src/backend/AgentSmith.Application/Services/Specs/SpecReviewRevert.cs:14-20"
+  - claim: "DeliveryDiff resolves a comparable base ref or fails with no comparable base; the harness stub answers name-status listings empty."
+    evidence: "src/backend/AgentSmith.Application/Services/DeliveryDiff.cs:47-79,97-98; tests/AgentSmith.Tests/TestHelpers/StubSandbox.cs:59-78"
+  - claim: "Each sandbox's contexts carry name and raw meta.workdir."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SandboxContextList.cs:21-30; src/backend/AgentSmith.Contracts/Sandbox/RemoteContextDiscovery.cs:12-13,44"
+  - claim: "Repair findings reach the re-run master as a prompt block read from a context key; SelectSpec clears repair keys."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecutionPromptBlocks.cs:39-50; src/backend/AgentSmith.Application/Services/SpecExecutionPromptFactory.cs:60; src/backend/AgentSmith.Application/Services/SpecRepairScope.cs:23-36"
+  - claim: "The pipeline harness drives the spec block with scripted masters."
+    evidence: "tests/AgentSmith.PipelineHarness/Presets/DerivedSpecCodeTests.cs:72"
+
+assumptions: []
+
+scope:
+  in: >
+    StructureGate (Application) once per repository, in the sandbox the checkpoint pushes (SandboxTargets
+    .SandboxesForRepo[0]), with owners and rules from every context of that repository. Base: the ref DeliveryDiff resolves; no comparable base: pass,
+    logged. Paths: 'git diff -z --name-only --diff-filter=d <base>' plus untracked files ('ls-files -z --others
+    --exclude-standard --full-name'), raw like the baseline's; an unreadable file is logged, not judged. Each path goes to the
+    context of the sandbox's REPOSITORY (all its contexts, not only this sandbox's) whose normalised workdir ('.', './', trailing slash removed; root matches all; rooted or escaping:
+    context skipped, logged) is the longest prefix. That context's principles.md and structure-baseline.tsv are
+    read at the base with git show, never from the working tree. Measured and judged (8565b), minus what the
+    baseline tolerates (same path+key+metric, value not above). Pass cases: no principles, no Limits, no
+    baseline (logged), or nothing measured. An Unavailable grammar fails the step naming it. CommitSpecWork
+    pushes as today, then gates. Pass: remove StructureFindings. Findings during a review fix pass: route through
+    SpecReviewRevert; a failed revert records SpecRunState.Failed; VerifySpec returns early on a reverted tree, as
+    ReviewSpecDiff does. Otherwise the first finding in the spec, wherever it occurs: set StructureFindings and
+    StructureGateAttempted, splice AgenticMaster, MasterOpenQuestions, CommitSpecWork. The second: record
+    SpecRunState.Failed with every finding in the note through ISpecProgressRecorder and Fail naming every finding.
+    SpecExecutionPromptBlocks renders the findings; SpecRepairScope.Reset clears both keys. A git failure is logged, never a silent pass. StubSandbox opts into a
+    base name, 'git show' and NUL-separated listings for the harness.
+  out: >
+    Tightening the baseline after a fix — the next refresh (8565c). A moved file's baselined units, and a baselined unit whose signature or enclosing type changed, read as new.
+
+decisions:
+  - key: "AFTER THE PUSH, NOT BEFORE. The checkpoint protects work from loss; a branch is not a delivery, the PR is."
+  - key: "ONE CORRECTION PER SPEC, THEN A VERDICT. The same shape as the repair pass; a third try is a carousel."
+  - key: "THE REVIEW FIX PASS KEEPS ITS CONTRACT. A fix that breaks a limit is reverted to the verified head, as a fix that breaks the build is."
+  - key: "NO VERIFY STAGE. The framework judges at its own commit; the target's pipeline is not touched."
+  - key: "INSIDE THE FIX PASS AN UNAVAILABLE GRAMMAR REVERTS, like any finding; outside it the step fails naming it and records SpecRunState.Failed. After a repair, the structure block lists what to close and nothing else changes."
+  - key: "LIMITS AND BASELINE FROM THE BASE. The master writes the working tree; it must not be able to raise its own ceiling."
+
+steps:
+  - id: gate
+    action: "StructureGate with workdir normalisation; ContextKeys StructureFindings, StructureGateAttempted."
+  - id: commit
+    action: "CommitSpecWorkHandler runs the gate after the push: pass, splice, revert or fail-and-record."
+  - id: prompt
+    action: "SpecExecutionPromptBlocks.StructureFindings; SpecRepairScope.Reset clears both keys."
+  - id: tests
+    action: "Tests below."
+
+tests:
+  - "StructureGate_NewOversizedFunction_ReturnsFinding"
+  - "StructureGate_BaselinedUnitNotGrown_ReturnsNothing"
+  - "StructureGate_BaselinedUnitGrown_ReturnsFinding"
+  - "StructureGate_RootWorkdir_JudgesEveryPath"
+  - "StructureGate_DeletedFile_IsNotJudged"
+  - "StructureGate_NoLimitsBlock_ReturnsNothing"
+  - "StructureGate_BaselineRaisedInWorkingTree_JudgesAgainstTheBase"
+  - "StructureGate_NoBaseline_Passes"
+  - "StructureGate_UnavailableGrammar_FailsNamingIt"
+  - "CommitSpecWork_FirstFindings_SplicesMasterOpenQuestionsCommit"
+  - "CommitSpecWork_SecondFindings_RecordsFailedAndFails"
+  - "CommitSpecWork_FindingsInReviewFixPass_RevertsToVerifiedHead"
+  - "CommitSpecWork_RevertFails_RecordsFailed"
+  - "CommitSpecWork_Pass_ClearsStructureFindings"
+  - "PromptBlocks_StructureFindings_RendersEachFinding"
+  - "SpecRepairScope_Reset_ClearsStructureKeys"
+
+done:
+  - "a pipeline-harness run whose scripted master writes a 70-line C# method under a 55-line limit gets one correction pass, and fails naming the method when it does not split it"
+  - "build green, full suite green"

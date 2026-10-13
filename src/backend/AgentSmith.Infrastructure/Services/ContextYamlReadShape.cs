@@ -30,6 +30,14 @@ internal sealed class ContextYamlReadShape
     // probe the repository did declare.
     public ProbeBlock? Probe { get; set; }
 
+    // 2026-10-12-fbbdb: the repository's own formatter, run over the spec's changed files.
+    // Declared HERE for the reason every block above is.
+    public FormatBlock? Format { get; set; }
+
+    // 2026-10-13-50c7: the directories beyond the workdir the component is built and tested
+    // from. Declared HERE for the reason every block above is.
+    public List<string>? Sources { get; set; }
+
     internal sealed class MetaBlock
     {
         public string? Workdir { get; set; }
@@ -77,6 +85,14 @@ internal sealed class ContextYamlReadShape
         public string? Target { get; set; }
 
         public string? Command { get; set; }
+    }
+
+    internal sealed class FormatBlock
+    {
+        public string? Command { get; set; }
+
+        // Read via the shared UnderscoredNamingConvention as `when_present`.
+        public string? WhenPresent { get; set; }
     }
 
     internal sealed class ResourcesBlock

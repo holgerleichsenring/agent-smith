@@ -16,6 +16,9 @@ COPY src/backend/AgentSmith.Sandbox.Wire/AgentSmith.Sandbox.Wire.csproj       sr
 # skills tarball (master description lengths) during publish.
 COPY src/backend/AgentSmith.SkillsPackaging/AgentSmith.SkillsPackaging.csproj    src/backend/AgentSmith.SkillsPackaging/
 
+# 2026-10-06-8565b: the structure engine's native keep-list, imported by the project file.
+COPY src/backend/build/ src/backend/build/
+
 RUN dotnet restore src/backend/AgentSmith.Server/AgentSmith.Server.csproj
 
 # Schemas embedded into AgentSmith.Application via Link (p0128a, p0315b).
@@ -27,7 +30,9 @@ COPY .agentsmith/*.schema.json .agentsmith/
 
 # Copy all source and publish
 COPY src/ src/
-RUN dotnet publish src/backend/AgentSmith.Server -c Release -o /app/publish --no-restore
+# 2026-10-06-8565b: tree-sitter natives for the image's two Linux RIDs only.
+RUN dotnet publish src/backend/AgentSmith.Server -c Release -o /app/publish --no-restore \
+    "-p:StructureNativeRids=linux-x64 linux-arm64"
 
 # ---
 

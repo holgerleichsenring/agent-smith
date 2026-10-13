@@ -14,13 +14,13 @@ public sealed class CutReviewWithoutTicketTests
     [InlineData(null)]
     [InlineData("")]
     [InlineData("   \n")]
-    public void Prompt_WithNoTicket_OffersTwoVerdictsAndNeverNotInTheTicket(string? ticket)
+    public void Prompt_WithNoTicket_OffersThreeVerdictsAndNeverNotInTheTicket(string? ticket)
     {
         var prompt = SpecCutReviewPrompt.For(Criteria(), ticket, look: null);
 
         SpecCutReviewPrompt.StateOf(ticket).Should().Be(CutReviewTicket.Absent);
-        prompt.Should().Contain("There are two ways:")
-            .And.Contain("\"problem\": \"contradiction|uncheckable\"")
+        prompt.Should().Contain("There are three ways:")
+            .And.Contain("\"problem\": \"contradiction|uncheckable|shape-rule\"")
             .And.Contain("There is NO TICKET behind these specs")
             .And.NotContain("NOT IN THE TICKET")
             .And.NotContain("not-in-ticket")
@@ -34,9 +34,9 @@ public sealed class CutReviewWithoutTicketTests
 
         SpecCutReviewPrompt.StateOf(new string('x', 400_000)).Should().Be(CutReviewTicket.Truncated);
         prompt.Should().StartWith("A ticket has been cut into specs.")
-            .And.Contain("There are two ways:")
+            .And.Contain("There are three ways:")
             .And.Contain("TOO LONG TO SHOW")
-            .And.Contain("\"problem\": \"contradiction|uncheckable\"")
+            .And.Contain("\"problem\": \"contradiction|uncheckable|shape-rule\"")
             .And.Contain("\nTICKET\nxxx").And.EndWith("… ticket truncated")
             .And.NotContain("NOT IN THE TICKET");
     }
@@ -47,9 +47,10 @@ public sealed class CutReviewWithoutTicketTests
         var prompt = SpecCutReviewPrompt.For(Criteria(), "migrate the messaging library", look: null);
 
         prompt.Should().StartWith("A ticket has been cut into specs.")
-            .And.Contain("There are three ways:")
+            .And.Contain("There are five ways:")
             .And.Contain("3. NOT IN THE TICKET")
-            .And.Contain("\"problem\": \"contradiction|uncheckable|not-in-ticket\"")
+            .And.Contain("4. DONE DROPPED")
+            .And.Contain("\"problem\": \"contradiction|uncheckable|not-in-ticket|done-dropped|shape-rule\"")
             .And.EndWith("\nTICKET\nmigrate the messaging library")
             .And.NotContain("TOO LONG TO SHOW").And.NotContain("NO TICKET");
     }
@@ -81,7 +82,7 @@ public sealed class CutReviewWithoutTicketTests
         var verdicts = prompt[prompt.IndexOf("ways:", StringComparison.Ordinal)..prompt.IndexOf("Say nothing", StringComparison.Ordinal)];
         verdicts.Should().NotContainEquivalentOf("criterion").And.NotContainEquivalentOf("criteria");
         prompt.Should().Contain("its goal or one of\nits steps")
-            .And.Contain("\"criterion\": \"<verbatim from the spec>\"")
+            .And.Contain("\"criterion\": \"<verbatim from the spec, or from the ticket for a done-dropped>\"")
             .And.Contain("<verbatim other statement of that spec, or null>");
     }
 

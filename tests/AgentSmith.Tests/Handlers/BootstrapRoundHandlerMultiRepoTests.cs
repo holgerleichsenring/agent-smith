@@ -1,3 +1,4 @@
+using AgentSmith.Tests.Structure;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Sandbox;
@@ -150,6 +151,8 @@ public sealed class BootstrapRoundHandlerMultiRepoTests
         PrinciplesTransferStubs.NoTemplates(),
         new BootstrapContextWriteVerdict(),
         new BootstrapOutputRecorder(),
+        StructureBaselineStubs.Real(),
+        StructureBaselineStubs.Scopes(),
         new SandboxTargets(),
         EventTestStubs.RunContext,
         NullLogger<BootstrapRoundHandler>.Instance);

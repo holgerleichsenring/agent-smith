@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-12-fbbdc
+goal: "A done criterion states an outcome: a general rule about the code's shape is never one, and an operator's explicit 'Done when' is the done list of a single spec as it already is of an epic child."
+
+applies_to: "skills catalog (design-partner, spec-derivation) and backend (cut review)"
+
+requires: [2026-10-06-8565d, 2026-10-12-fbbdb]
+
+facts:
+  - claim: "observed: run 2026-10-12T13-36-42-9015 failed on two done criteria — one LINQ operator per line and 150 characters, every method at most 20 lines — the operator's message listed as Requirements 4 and 6 while its 'Done when' named neither."
+    evidence: "observed: 2026-10-12, design session 7566d37c turns 48-53 and RunArtifacts spec_md of that run"
+  - claim: "The design partner already draws an epic child's done list from the part of the ticket that says when the slice is finished, and asks for concrete design values in criteria."
+    evidence: "observed: 2026-10-13, agent-smith-skills origin/main 6c04986, skills/_masters/design-partner-master/SKILL.md:113-118, :450-453"
+  - claim: "The derivation master carries naming rules and code templates as byte-for-byte segments and sees no principles or limits."
+    evidence: "observed: 2026-10-13, agent-smith-skills origin/main 6c04986, skills/_masters/spec-derivation-master/SKILL.md:7, :56-59"
+  - claim: "The cut review offers its ways from one list, tells the reviewer to say nothing about style, and admits a finding whose quote the spec states."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecCutVerdicts.cs:26-32, src/backend/AgentSmith.Application/Services/Specs/SpecCutReviewPrompt.cs:43, src/backend/AgentSmith.Application/Services/Specs/SpecCutAdmission.cs:42"
+  - claim: "Verify judges a spec's done entries only."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/AcceptanceCriteria.cs:20-25"
+
+scope:
+  in: >
+    A SHAPE RULE is a measure of the code's form, however narrowly scoped — size of functions, classes or files,
+    line length, operators per line, code layout (indentation, wrapping, braces), naming conventions. Not one: visual
+    design values and named changes ('rename X to Y').
+    DESIGN PARTNER: the epic-child rule extends to single specs (an explicit 'Done when' is the done list; design
+    values from a reference stay criteria); a shape rule is never a done criterion, even inside 'Done when' — it
+    becomes a step, and the reply says so. DERIVATION: a ticket's explicit 'Done when' is its done list too; a shape rule is never a done criterion —
+    carry the segment. Neither claims a
+    gate or formatter enforces it; a size rule holds only where a project's Limits declare it. Release and pin. BACKEND: SpecCutVerdicts appends a way 'shape-rule' (a done
+    criterion that is a shape rule), offered always; admitted only when its quote is a done entry; the style
+    sentence exempts it; Count names five.
+  out: "Rewriting criteria approved before this release."
+
+decisions:
+  - key: "THE OPERATOR'S SPLIT IS KEPT. Requirements are the work, 'Done when' is the verdict; folding them made hints into fails."
+  - key: "A SHAPE RULE LOSES EVEN IN 'DONE WHEN'. A model judging sizes from a diff is the failure; the gate measures what a project declares."
+
+steps:
+  - id: skills
+    action: "Both masters carry the rules above; release; pin."
+  - id: verdict
+    action: "shape-rule appended last in SpecCutVerdicts; done-only admission; prompt style sentence; CutReviewVerdictPromptTests and CutReviewWithoutTicketTests updated."
+
+tests:
+  - "SpecCutVerdicts_Offered_EndsWithShapeRule"
+  - "SpecCutReviewPrompt_StyleSentenceExemptsShapeRule"
+  - "SpecCutAdmission_ShapeRuleQuotingTheGoal_IsDiscarded"
+  - "PackagedMaster_DesignPartner_KeepsShapeRulesOutOfDone"
+
+done:
+  - "The cut review offers shape-rule and admits it only against a done entry; the pinned masters carry the rules (packaged-master tests)."
+  - "Full suite green."
