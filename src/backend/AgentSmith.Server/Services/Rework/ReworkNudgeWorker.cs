@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence.Models;
 using AgentSmith.Infrastructure.Persistence.Repositories;
@@ -13,6 +14,9 @@ namespace AgentSmith.Server.Services.Rework;
 /// compare-and-set, handled under the ticket's own lock — a busy lock means another replica is
 /// handling that ticket, so the nudge waits — and then finished or rescheduled at the generation it
 /// was claimed at. A handler failure reschedules; nothing is dropped by an exception.
+/// <para>2026-10-13-9a59b: every nudge first refreshes the ticket's pull-request records under the same
+/// lock. A Refresh-origin nudge does only that and is finished once the refresh wrote its result or
+/// its failure — it never reaches the handler, so it starts, refuses and announces nothing.</para>
 /// </summary>
 public sealed class ReworkNudgeWorker(
     IServiceScopeFactory scopes,
@@ -20,6 +24,7 @@ public sealed class ReworkNudgeWorker(
     IConfigurationLoader configLoader,
     ServerContext serverContext,
     ReworkNudgeHandler handler,
+    PrReviewRecordRefresh refresh,
     ILogger<ReworkNudgeWorker> logger) : BackgroundService
 {
     private static readonly TimeSpan Interval = TimeSpan.FromSeconds(5);
@@ -74,12 +79,27 @@ public sealed class ReworkNudgeWorker(
         {
             if (!configLoader.LoadConfig(serverContext.ConfigPath).Projects.TryGetValue(nudge.Project, out var project))
                 return ReworkNudgeDisposition.Finish;
+            await RefreshAsync(project, nudge, ct);
+            if (nudge.Origin == ReworkNudgeOrigin.Refresh) return ReworkNudgeDisposition.Finish;
             return await handler.HandleAsync(project, nudge, ct);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
             logger.LogWarning(ex, "Rework nudge for {Project}/#{Ticket} failed; checked again later", nudge.Project, nudge.TicketId);
             return ReworkNudgeDisposition.Reschedule;
+        }
+    }
+
+    // A refresh that cannot reach the database must not keep a person's act from its handler.
+    private async Task RefreshAsync(ResolvedProject project, ClaimedReworkNudge nudge, CancellationToken ct)
+    {
+        try
+        {
+            await refresh.RefreshAsync(project, nudge.TicketId, nudge.PrUrl, ct);
+        }
+        catch (Exception ex) when (!ct.IsCancellationRequested && nudge.Origin != ReworkNudgeOrigin.Refresh)
+        {
+            logger.LogWarning(ex, "Pull-request records of {Project}/#{Ticket} were not refreshed", nudge.Project, nudge.TicketId);
         }
     }
 

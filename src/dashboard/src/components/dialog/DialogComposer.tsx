@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import type { SpecDialogHeldContent } from "@/types/spec-dialog";
 import { AttachMenu } from "./AttachMenu";
 import { DialogReferenceSelection } from "./DialogReferenceSelection";
@@ -51,6 +51,7 @@ export function DialogComposer({
   disabled,
   left = null,
   loadHeld,
+  inputRef,
 }: {
   onSend: (text: string) => void;
   /** An image the operator picked. The conversation keeps it; the next turn is shown it. */
@@ -65,6 +66,8 @@ export function DialogComposer({
   left?: number | null;
   /** 2026-10-09-86e1: the content hashes the conversation holds; absent before one is open. */
   loadHeld?: () => Promise<SpecDialogHeldContent[]>;
+  /** 2026-10-13-9a59r: the text field, for a surface whose own control focuses it (Ask for changes). */
+  inputRef?: RefObject<HTMLTextAreaElement | null>;
 }) {
   const [text, setText] = useState("");
   const [attaching, setAttaching] = useState(false);
@@ -203,6 +206,7 @@ export function DialogComposer({
           )}
         </div>
         <textarea
+          ref={inputRef}
           data-testid="dialog-composer-text"
           value={text}
           rows={3}

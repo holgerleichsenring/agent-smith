@@ -44,10 +44,22 @@ public sealed class TicketRunsToolTests
     public void TicketRunsTool_ARunItRecorded_CarriesItsSpecsAndPullRequests()
     {
         var run = new TicketRun(
-            "r-1", "sample", "success", DateTimeOffset.UtcNow, ["2026-09-24-d4e1"], ["https://pr/9335"]);
+            "r-1", "sample", "code", "success", DateTimeOffset.UtcNow, null, null,
+            [new TicketRunSpec("2026-09-24-d4e1", "done", null, null, null, null)], ["https://pr/9335"]);
 
-        new TicketRunsResult([run]).Runs.Should().ContainSingle()
+        new TicketRunsResult([run], []).Runs.Should().ContainSingle()
             .Which.Should().BeEquivalentTo(run);
+    }
+
+    [Fact]
+    public void TicketRunsTool_Description_NamesReviewsVerdictsAndChannels()
+    {
+        var description = new TicketRunsToolHost(new Bound()).GetTools(null, null).Single().Description;
+
+        description.Should().Contain("verdict").And.Contain("criteria").And.Contain("declined")
+            .And.Contain("unmeasured").And.Contain("file and line").And.Contain("decision")
+            .And.Contain("operator").And.Contain("retry").And.Contain("trusted false")
+            .And.Contain("system entry").And.Contain("framework's OWN record").And.Contain("repeating an id");
     }
 
     private sealed class Bound : IBoundTicketRuns

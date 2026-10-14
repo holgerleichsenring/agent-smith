@@ -60,7 +60,7 @@ public sealed class DataArchiveSchemaTests : IDisposable
         using var db = MigratedStoreTemplate.Context(_store);
         var ordered = new ArchiveTableOrder().Of(db.Model);
 
-        ordered.Should().HaveCount(37);
+        ordered.Should().HaveCount(47);
         var placed = new HashSet<string>(StringComparer.Ordinal);
         foreach (var type in ordered)
         {
@@ -155,12 +155,12 @@ public sealed class DataArchiveSchemaTests : IDisposable
     }
 
     [Fact]
-    public void GeneratedKeyProperty_TheTablesTheProviderGeneratesKeysFor_AreTheTwentySevenWithLongIds()
+    public void GeneratedKeyProperty_TheTablesTheProviderGeneratesKeysFor_AreTheTwentyNineWithLongIds()
     {
         using var db = MigratedStoreTemplate.Context(_store);
         var generated = new GeneratedKeyProperty();
 
-        DataArchiveHarness.Tables(db).Count(t => generated.Of(t) is not null).Should().Be(27); // 283da: + ReferenceFiles
+        DataArchiveHarness.Tables(db).Count(t => generated.Of(t) is not null).Should().Be(37); // 283da: + ReferenceFiles; 9a59b: + PrReviewRecords, PrReviewEntries; 9a59d: + RunAttempts; 9a59e: + RunSeriesCuts; 9a59f: + RunPasses, RunLedgerTransitions; 9a59g: + RunConversationEntry; 9a59h: + TicketBetweenAttemptsChecks; 9a59j: + RunSegments; 9a59n: + RunRetryRequests
         generated.Of(db.Model.FindEntityType(typeof(Run))!).Should().BeNull("a run carries its own id");
         generated.Of(db.Model.FindEntityType(typeof(RunEvent))!).Should().NotBeNull();
     }

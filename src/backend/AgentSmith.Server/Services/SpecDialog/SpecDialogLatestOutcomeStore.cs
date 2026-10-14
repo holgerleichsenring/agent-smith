@@ -26,7 +26,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// </para>
 /// </summary>
 public sealed class SpecDialogLatestOutcomeStore(
-    SpecDialogSessionRepository repository, ILogger<SpecDialogLatestOutcomeStore> logger)
+    SpecDialogSessionRepository repository, BoundSessionNudge bound, ILogger<SpecDialogLatestOutcomeStore> logger)
 {
     // 2026-09-22-9519: a start state this build cannot place costs one word, not the whole filing.
     // In the OPTIONS, never on the property: there it outranks the enum's own and changes the page.
@@ -110,7 +110,7 @@ public sealed class SpecDialogLatestOutcomeStore(
             var session = await find();
             if (session is null) return;
             change(session);
-            await repository.SaveAsync(ct);
+            await bound.SaveAsync(session, ct);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {

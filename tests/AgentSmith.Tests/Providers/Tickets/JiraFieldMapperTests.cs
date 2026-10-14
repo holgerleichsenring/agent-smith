@@ -113,4 +113,20 @@ public sealed class JiraFieldMapperTests
 
         Sut.Map(new TicketId("AS-1"), issue).Assignee.Should().BeNull();
     }
+
+    private static JsonElement WithStatus(string status) =>
+        Parse($$"""{ "key": "AS-1", "fields": { "summary": "T", "status": {{status}} } }""");
+
+    [Fact]
+    public void JiraFieldMapper_StatusCategoryDone_IsClosed_InProgress_IsNot()
+    {
+        Sut.Map(new TicketId("AS-1"), WithStatus("""{ "name": "Shipped", "statusCategory": { "key": "done", "name": "Done" } }"""))
+            .IsClosed.Should().BeTrue("the category decides, whatever the status is called");
+        Sut.Map(new TicketId("AS-1"), WithStatus("""{ "name": "Done", "statusCategory": { "key": "indeterminate", "name": "In Progress" } }"""))
+            .IsClosed.Should().BeFalse("a status named Done in another category is not closed");
+    }
+
+    [Fact]
+    public void JiraFieldMapper_StatusWithoutCategory_IsNotClosed() =>
+        Sut.Map(new TicketId("AS-1"), WithStatus("""{ "name": "Done" }""")).IsClosed.Should().BeFalse();
 }

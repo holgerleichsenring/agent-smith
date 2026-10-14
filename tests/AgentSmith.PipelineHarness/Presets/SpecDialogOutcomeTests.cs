@@ -576,12 +576,6 @@ public sealed partial class SpecDialogOutcomeTests
             lock (_accepted) _accepted.Add(proposal);
             return Task.CompletedTask;
         }
-
-        /// <summary>2026-09-25-8e51e: no preset approves an amendment; one that did would be
-        /// asserting on a tracker write, which is the amendment's own suite.</summary>
-        public Task AmendAsync(
-            ConversationState state, OutcomeProposal proposal, CancellationToken cancellationToken) =>
-            Task.CompletedTask;
     }
 
     private sealed class RecordingTicketProvider : ITicketProvider

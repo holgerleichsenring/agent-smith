@@ -37,6 +37,19 @@ public sealed class Ticket
     /// </summary>
     public string? Kind { get; }
 
+    /// <summary>
+    /// Where a person opens the ticket in its tracker, or null when the read gave none. GitHub and
+    /// GitLab state it in the issue payload; Jira and Azure DevOps compose it from the connection.
+    /// </summary>
+    public string? WebUrl { get; }
+
+    /// <summary>
+    /// Whether the tracker itself counts the ticket done or closed — Jira's Done status category,
+    /// an Azure DevOps state in the Completed or Removed category, a closed GitHub or GitLab issue.
+    /// It consults no configured status name; whether agent-smith put it there is not its question.
+    /// </summary>
+    public bool IsClosed { get; }
+
     public Ticket(
         TicketId id,
         string title,
@@ -47,7 +60,9 @@ public sealed class Ticket
         IReadOnlyList<string>? labels = null,
         TicketPerson? assignee = null,
         TicketPerson? reporter = null,
-        string? kind = null)
+        string? kind = null,
+        string? webUrl = null,
+        bool isClosed = false)
     {
         Id = id;
         Title = title;
@@ -59,15 +74,16 @@ public sealed class Ticket
         Assignee = assignee;
         Reporter = reporter;
         Kind = kind;
+        WebUrl = webUrl;
+        IsClosed = isClosed;
     }
 
     /// <summary>
-    /// 2026-09-18-d518: the same ticket with its description replaced — what the fetch door
-    /// publishes once the framework's own label note has been taken out of it.
+    /// The same ticket with the given fields replaced; a null argument keeps the current value.
+    /// The ONE copy of a ticket: the fetch door rewrites every fetched ticket through it, so a field
+    /// left out here would be silently dropped everywhere.
     /// </summary>
-    /// <para>Every field travels: this rewrites EVERY fetched ticket, so one left out here is one
-    /// silently dropped everywhere.</para>
-    public Ticket WithDescription(string description) =>
-        new(Id, Title, description, AcceptanceCriteria, Status, Source, Labels, Assignee, Reporter,
-            Kind);
+    public Ticket With(string? description = null, string? webUrl = null, bool? isClosed = null) =>
+        new(Id, Title, description ?? Description, AcceptanceCriteria, Status, Source, Labels,
+            Assignee, Reporter, Kind, webUrl ?? WebUrl, isClosed ?? IsClosed);
 }

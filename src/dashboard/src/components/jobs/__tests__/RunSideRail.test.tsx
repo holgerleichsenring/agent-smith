@@ -50,8 +50,8 @@ const FOOTPRINT = {
 // p0348: the pods actually spawned — the honest live-compute the rail now shows.
 const LIVE_COMPUTE = {
   pods: [
-    { repo: "server", image: "dotnet/sdk:8.0", mem: "1Gi", status: "created" },
-    { repo: "backgroundworker", image: "dotnet/sdk:8.0", mem: "1Gi", status: "created" },
+    { repo: "server", image: "dotnet/sdk:8.0", mem: "1Gi", endReason: null, exitCode: null, oomKilled: null },
+    { repo: "backgroundworker", image: "dotnet/sdk:8.0", mem: "1Gi", endReason: null, exitCode: null, oomKilled: null },
   ],
   totalMem: "2Gi",
 };
@@ -107,6 +107,24 @@ describe("RunSideRail", () => {
     expect(pods).toHaveTextContent("backgroundworker");
     // The reservation-only repo ("web") is NOT shown — only what actually spawned.
     expect(pods).not.toHaveTextContent("node:20");
+  });
+
+  it("RunSideRail renders pods from fixtures without status", () => {
+    // 2026-10-13-9a59i: a pod carries how it ended, not a status — the rail draws name, image and
+    // resources whether the pod is open or ended.
+    const ended = {
+      pods: [
+        { repo: "server", image: "dotnet/sdk:8.0", mem: "1Gi", endReason: "oom-killed", exitCode: 137, oomKilled: true },
+        { repo: "web", image: "node:20", mem: "1Gi", endReason: null, exitCode: null, oomKilled: null },
+      ],
+      totalMem: "2Gi",
+    };
+    renderRail({ footprint: FOOTPRINT, liveCompute: ended });
+    fireEvent.click(screen.getByTestId("side-rail-compute"));
+    const pods = screen.getByTestId("side-rail-pods");
+    expect(pods).toHaveTextContent("server");
+    expect(pods).toHaveTextContent("node:20");
+    expect(screen.getByTestId("side-rail-compute-v")).toHaveTextContent("2 pods · 2Gi");
   });
 
   it("RunDetail_SideRail_WaitingForInput_HumanizesStatusWord", () => {

@@ -7,9 +7,10 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 
 /// <summary>
 /// 2026-10-08-e8b9c: Azure DevOps' standing "Wait for author" votes. A vote leaves a system thread
-/// whose properties say CodeReviewThreadType VoteUpdate and CodeReviewVoteResult -5; only the voter's
-/// NEWEST such thread counts, and only while the reviewer list still shows that voter at -5 — a reset
-/// vote, or our auto-complete's +10, leaves no standing act. The pull request's creator is skipped.
+/// (<see cref="AzureReposVoteThreads"/>); only the voter's NEWEST -5 thread counts, and only while the
+/// reviewer list still shows that voter at -5 — a reset vote, or our auto-complete's +10, leaves no
+/// standing act. The pull request's creator is skipped. 2026-10-13-9a59b: the act carries the vote
+/// comment's host id.
 /// </summary>
 public static class AzureReposVoteActs
 {
@@ -19,27 +20,17 @@ public static class AzureReposVoteActs
         IEnumerable<GitPullRequestCommentThread> threads, IEnumerable<IdentityRefWithVote> reviewers,
         string? creatorId, string repoUrl, string repositoryId, string projectId)
     {
-        var atMinusFive = reviewers.Where(r => r.Vote == WaitForAuthor && r.Id is not null)
-            .Select(r => r.Id!).ToHashSet(StringComparer.OrdinalIgnoreCase);
-        return [.. threads.Where(t => t.IsDeleted != true && IsWaitForAuthorVote(t))
-            .Select(t => (Voter: t.Comments?.FirstOrDefault()?.Author, t.PublishedDate))
-            .Where(v => v.Voter?.Id is { } id && atMinusFive.Contains(id) && !string.Equals(id, creatorId, StringComparison.OrdinalIgnoreCase))
-            .GroupBy(v => v.Voter!.Id!, StringComparer.OrdinalIgnoreCase)
-            .Select(g => g.MaxBy(v => v.PublishedDate))
-            .Select(v => new PrReviewNote(
-                new PrCommentAuthor(repoUrl, repositoryId, v.Voter!.Id!, v.Voter.UniqueName ?? v.Voter.Id!) { ProjectId = projectId },
-                false, false, new DateTimeOffset(DateTime.SpecifyKind(v.PublishedDate, DateTimeKind.Utc)), string.Empty))];
+        var all = threads.ToList();
+        return [.. reviewers.Where(r => r.Vote == WaitForAuthor && r.Id is not null
+                && !string.Equals(r.Id, creatorId, StringComparison.OrdinalIgnoreCase))
+            .Select(r => AzureReposVoteThreads.Newest(all, r.Id!, WaitForAuthor))
+            .OfType<(GitPullRequestCommentThread Thread, Comment Comment)>()
+            .Select(v => Note(v.Thread, v.Comment, repoUrl, repositoryId, projectId))];
     }
 
-    private static bool IsWaitForAuthorVote(GitPullRequestCommentThread thread) =>
-        Property(thread, "CodeReviewThreadType") == "VoteUpdate" && Property(thread, "CodeReviewVoteResult") == "-5";
-
-    // The REST shape is {"$type": ..., "$value": ...}; the SDK may hand back the raw value or that object.
-    private static string? Property(GitPullRequestCommentThread thread, string name)
-    {
-        if (thread.Properties is null || !thread.Properties.TryGetValue(name, out var value) || value is null) return null;
-        if (value is string text) return text;
-        var token = Newtonsoft.Json.Linq.JToken.FromObject(value);
-        return token.Type == Newtonsoft.Json.Linq.JTokenType.Object ? token["$value"]?.ToString() : token.ToString();
-    }
+    private static PrReviewNote Note(
+        GitPullRequestCommentThread thread, Comment comment, string repoUrl, string repositoryId, string projectId) =>
+        new(new PrCommentAuthor(repoUrl, repositoryId, comment.Author.Id, comment.Author.UniqueName ?? comment.Author.Id) { ProjectId = projectId },
+            false, false, new DateTimeOffset(DateTime.SpecifyKind(thread.PublishedDate, DateTimeKind.Utc)), string.Empty)
+        { HostId = AzureReposReviewMapping.CommentHostId(thread, comment) };
 }

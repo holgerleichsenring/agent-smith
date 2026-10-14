@@ -1,0 +1,177 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-9a59n
+goal: "Retry starts an unchanged attempt only after an infrastructure end, through the rework entry with the retrying person as its cause; every other end answers 409 pointing at the ticket conversation."
+
+applies_to: "backend (run control endpoints, infrastructure-end rule, previous attempt, pending acts, persistence, attempt cause) + docs"
+
+requires: [2026-10-13-9a59a, 2026-10-13-9a59d, 2026-10-13-9a59i, 2026-10-13-9a59j, 2026-10-13-9a59k, 2026-10-13-9a59l, 2026-10-13-9a59m, 2026-10-08-e8b9b, 2026-10-08-0781, p0393a]
+
+facts:
+  - claim: "POST /api/runs/{runId}/retry (runs.control) serves the not-implementable verdict park: it moves the ticket to the first trigger status, then clears the hand-back, the approval's SatisfiedAt and the unmoved fact; the poller claims it."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs:38-41,45-74, src/backend/AgentSmith.Server/Services/Lifecycle/NotImplementableRetryService.cs:33-67, src/backend/AgentSmith.Server/Services/Lifecycle/TicketReopener.cs:20-33"
+  - claim: "The docs send a not-implementable park to Retry and say a keyword comment does not bring it back."
+    evidence: "docs/how-it-works/expectations.md:27, docs/reference/pipelines/fix-and-feature.md:82, docs/trigger-it/webhooks.md:108, docs/reference/operations/dashboard.md:111-113"
+  - claim: "A not-implementable verdict is a hand-back: it parks in not_implementable_status (or the clarification status) and the run answers awaiting_user_input; the rework entry's hand-back park check accepts both statuses."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecParkStatusResolver.cs:18-29, src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs:96-99, src/backend/AgentSmith.Server/Services/Rework/ReworkParkCheck.cs:37, src/backend/AgentSmith.Application/Services/Tickets/TicketParkStatuses.cs:34"
+  - claim: "Infrastructure ends reach the run row as cancel reasons 'interrupted' (liveness reaper) and 'stale-lease-reaped' (stale lease release), both through CancelRequested."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/RunLivenessReaper.cs:35,81-90, src/backend/AgentSmith.Application/Services/Lifecycle/StaleLeaseRelease.cs:63-69, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunRowFamily.cs:62-68"
+  - claim: "A vanished sandbox cancels in memory with reason sandbox-vanished and the run ends failed; the reason never reaches Run.CancelReason."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/SandboxLivenessWatcher.cs:122-131, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:589"
+  - claim: "The cancel enforcer finalizes a flagged run 'cancelled' and terminalizes its ticket to failed_status (else done_status), fail-soft and skipped when a newer run holds the ticket."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/CancelEnforcer.cs:113-131, src/backend/AgentSmith.Server/Services/Lifecycle/CancelledTicketFinalizer.cs:30-66"
+  - claim: "The rework park check treats done_status and failed_status as reworkable and moves the ticket into the first trigger status before clearing and launching."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkParkCheck.cs:28-40, src/backend/AgentSmith.Server/Services/Rework/ReworkEntry.cs:64-76"
+  - claim: "A stale-lease reap leaves the taken-ticket record for the reconciler, which re-enqueues every record without a fresh lease; the terminal projection clears the record."
+    evidence: "src/backend/AgentSmith.Application/Services/Lifecycle/StaleLeaseRelease.cs:46-52, src/backend/AgentSmith.Application/Services/Lifecycle/EnqueuedReconciler.cs:76-96, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:52-63"
+  - claim: "The rework entry and the worker read the newest non-queued code attempt; a queued code run ends the nudge; the entry refuses a waiting attempt and serves only an act newer than the cutoff."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPreviousAttemptReader.cs:24-39, src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeHandler.cs:40-44, src/backend/AgentSmith.Server/Services/Rework/ReworkEntry.cs:35-40"
+  - claim: "Run children are registered by type in RunChildConfiguration and deleted one line each in the run's deletion transaction."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunChildConfiguration.cs:26-47, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunDeletionRepository.cs:30-38,54-64"
+  - claim: "The retry route is in the route-permission baseline as runs.control."
+    evidence: "tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:107"
+  - claim: "RunControlEndpoints is 185 lines under a 194-line baseline, RelationalPersistenceExtensions 224 under 225 and registers the retry service; RunDeletionRepository is 86 lines, RunChildConfiguration 46."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:37,49, src/backend/AgentSmith.Server/Extensions/RelationalPersistenceExtensions.cs:129, observed: 2026-10-13, wc -l on the four files in this worktree"
+  - claim: "Tests pin today's retry service directly, and one calls the endpoint method with a constructed service."
+    evidence: "tests/AgentSmith.Tests/Server/NotImplementableRetryOrderTests.cs:131-135, tests/AgentSmith.Tests/Server/UnmovedTicketClaimTests.cs:202-204, tests/AgentSmith.Tests/Server/RetryEndpointOutcomeTests.cs:51,61,76-87"
+  - claim: "RetryOutcome (Server.Services.Lifecycle) exists only for the retry service; TicketReopener's summary names that service; run control endpoints are mapped in ServerEndpointExtensions (71 lines)."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/RetryOutcome.cs:9-19, src/backend/AgentSmith.Server/Services/Lifecycle/TicketReopener.cs:9-13, src/backend/AgentSmith.Server/Extensions/ServerEndpointExtensions.cs:42, observed: 2026-10-13, grep finds RetryOutcome of that namespace only in the service, the endpoint and the persistence registration"
+  - claim: "A hand-back parks the run waiting_for_input, and a waiting status keeps FinishedAt null, so the previous attempt reads not finished."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs:96-99, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:73, src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPreviousAttemptReader.cs:32"
+  - claim: "The rework entry answers NotARework when the park check finds no park and Refused when the tracker offers no move; the worker finishes a nudge while a queued code run exists; pending acts are re-read on every nudge against the attempt's cutoff."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkEntry.cs:67-69, src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeHandler.cs:40-44, src/backend/AgentSmith.Application/Services/Rework/ReworkPendingActs.cs:25-40, src/backend/AgentSmith.Contracts/Runs/PreviousAttempt.cs:31"
+  - claim: "RunChildConfiguration gives each child a NON-unique RunId index (46 lines); a unique RunId lives in the entity's own configuration (RunCheckpoint), and ticket-record configurations are applied from TicketRecordConfigurations (21 lines)."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunChildConfiguration.cs:45-50, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunCheckpointConfiguration.cs:24, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/TicketRecordConfigurations.cs:13-20"
+  - claim: "With no failed_status, a cancelled run finalizes with done_status, and with neither configured GitHub closes the issue."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/CancelledTicketFinalizer.cs:51-56, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketFinalizer.cs:26-30"
+  - claim: "Today's retry route answers its refusals as plain-text bodies; a 409 elsewhere carries a typed body or a sentence the client shows."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs:65-73,94, src/backend/AgentSmith.Server/Extensions/ProjectInitEndpoints.cs:38-42"
+  - claim: "The data archive tests pin the table count (46) and seed rows (94) after 2026-10-13-9a59j."
+    evidence: "tests/AgentSmith.Tests/Persistence/DataArchiveRoundTripTests.cs:33-34,54,81, tests/AgentSmith.Tests/Persistence/DataArchiveSchemaTests.cs:63"
+
+assumptions:
+  - "2026-10-13-9a59a's InfrastructureEnd is one class, used by its attempt read, taking the run's cancel reason; this spec adds an argument for the last segment's sandbox ends."
+  - "2026-10-13-9a59i records RunSandbox.EndReason (vanished, oom-killed among them) with its spawn time, and 2026-10-13-9a59j records RunSegment rows with StartedAt/EndedAt per launch."
+  - "2026-10-13-9a59m's ReworkNudgeOrigin.Operator exists; a retry rides it with its own channel."
+  - "2026-10-13-9a59k's TicketClosure.ClosedForWorkAsync(project, provider, ticket) (Application/Services/Tickets, async) answers closed for work: false unless Ticket.IsClosed; false when the status is one of TicketParkStatuses (done_status, failed_status, needs_clarification_status, not_implementable_status); with no done_status set, false for a run's own close read from the tracker's history (an unreadable history reads false) (pending operator ratification). 2026-10-13-9a59l files a closed ticket's follow-up from an approval in its conversation; 2026-10-13-9a59t (built after this spec) files it from a keyword comment or pull-request act."
+  - "2026-10-13-9a59a's TicketAttempts orders a ticket's code attempts by run id and counts a live queued reservation."
+  - "2026-10-13-9a59i stamps RunSandbox.EventSeq and 2026-10-13-9a59j stamps RunSegment.EventSeq/EndSeq (EndSeq null while open)."
+
+scope:
+  in: >
+    RULE: InfrastructureEnd gains the sandbox arm — only for a run whose status is failed or cancelled, a sandbox of
+    the run whose EndReason is vanished or oom-killed (2026-10-13-9a59i) and whose position lies inside the run's
+    LAST segment (2026-10-13-9a59j): segment.EventSeq < sandbox.EventSeq and (segment.EndSeq is null or
+    sandbox.EventSeq < segment.EndSeq). A sandbox row without a position (written before 9a59i) never holds the
+    arm; a run without a segment row reads the arm false. The cancel-reason arm
+    (interrupted, stale-lease-reaped) is 2026-10-13-9a59a's. The attempt read's endedOnInfrastructure passes the last
+    segment's sandbox ends, so the read and Retry answer from one rule. Host unreachable and capacity are not offered:
+    nothing records the first, the second queues and never fails a run. STORE: RunRetryRequest (RunId unique = the
+    retried run, RequestedBy, RequestedAt), registered in RunChildConfiguration.Children (its plain RunId index) with
+    its own RunRetryRequestConfiguration making that index unique, applied from TicketRecordConfigurations.Apply,
+    deleted in RunDeletionRepository.DeleteChildrenAsync, migrations in both sets. PREVIOUS: PreviousAttempt gains
+    RetryRequestedBy / RetryRequestedAt, read by DbPreviousAttemptReader from that run's row. ACT: ReworkChannel.Retry;
+    ReworkPendingActs returns ReworkAct(by, at, Retry) for an attempt with a retry request newer than its cutoff, merged
+    newest-wins. ENDPOINT: RetryEndpoints (own class, same route and runs.control, mapped in ServerEndpointExtensions beside
+    MapRunControlEndpoints) — 404 unknown run, 400 no ticket or unconfigured project; 409 naming the newer attempt
+    when the run is not the ticket's latest code attempt by 2026-10-13-9a59a's TicketAttempts (a newer queued
+    reservation counts and is named); 409 'a hand-back is answered in the ticket conversation' (with the ticket's
+    project and id) when the attempt is waiting_for_input; 409 when it is running or queued (not finished); 409 'only
+    an infrastructure end retries unchanged — say what should change in the ticket
+    conversation' (with the ticket's project and id) when InfrastructureEnd does not hold; 409 when the ticket, fetched once, is
+    TicketClosure.ClosedForWorkAsync(project, provider, ticket) (2026-10-13-9a59k). EVERY 409 is one body {reason,
+    text, project, ticketId} — reason a stable code (not-latest, handed-back, not-finished, not-infrastructure,
+    closed-for-work, starting) and text the sentence 2026-10-13-9a59r shows verbatim; closed-for-work's text is 'the
+    ticket was closed in its tracker — approving a change in the ticket conversation files a follow-up'. 503 with nothing recorded when that read fails; 409 naming who
+    retried and when while the ticket holds a live lease or a queued code run (an attempt is already starting).
+    Otherwise the row is upserted (a second request while the run is still the latest finished attempt replaces
+    RequestedBy/RequestedAt; a unique violation from another replica re-reads and updates),
+    ReworkNudgeRequest(Operator, Channel Retry) enqueued, 202 {runId, ticketId, retryRequested}. A stored request
+    stays a pending act, re-served by every later nudge of the ticket, until an attempt starts after it (the new
+    attempt's cutoff passes it) or the run is deleted. The worker enters through ReworkEntry: the enforcer has moved the
+    ticket to failed_status, which the park check accepts; the entry moves it to the trigger status, clears and launches
+    one attempt under the ticket lock. What the worker later says (refused, not a rework, withheld) is a ticket comment
+    through ReworkSpeech, shown by 2026-10-13-9a59h as a ticket entry. RETIRE:
+    NotImplementableRetryService, its registration and
+    Server.Services.Lifecycle.RetryOutcome go — a verdict park is answered in the ticket conversation
+    (2026-10-13-9a59m answers-handback); NotImplementableRetryOrderTests' move-before-clear case moves to ReworkEntry;
+    UnmovedTicketClaimTests' retry case drives the new path;
+    RetryEndpointOutcomeTests is rewritten against RetryEndpoints; TicketReopener's summary stops naming the
+    retired service. RunControlEndpoints loses the retry route; its baseline
+    line and RelationalPersistenceExtensions' are lowered to the new counts. CAUSE: 2026-10-13-9a59d's
+    AttemptCauseReader gains the retry arm from the previous attempt's retry request: channel retry, actor = the
+    principal, at = request time; it ranks below every act that carries a change and above requested, retrigger and
+    pickup. DOCS: expectations.md, fix-and-feature.md, webhooks.md and operations/dashboard.md say Retry is for
+    infrastructure ends and a hand-back is answered in the ticket conversation.
+  out: >
+    The sandbox end reason — 2026-10-13-9a59i. Run segments — 2026-10-13-9a59j. The cancel-reason arm and the attempt
+    read — 2026-10-13-9a59a. Answering a hand-back by approval — 2026-10-13-9a59m. The Retry unchanged button —
+    2026-10-13-9a59r (composer); the Attempts tab's next-attempt card only says when Retry exists —
+    2026-10-13-9a59s. A tracker that refused the failed_status finalize
+    (fail-soft) leaves the ticket in a status the entry does not rework; Retry then answers not-a-rework on the ticket —
+    no member adds a park arm for it (see decisions). A keyword comment or pull-request act on a ticket closed
+    for work files a linked follow-up instead of reopening it — 2026-10-13-9a59t (keyword-followup, built last).
+
+decisions:
+  - key: "CLOSED MEANS TicketClosure.ClosedForWorkAsync(project, provider, ticket) (2026-10-13-9a59k, main-thread decision 1, pending operator ratification 2026-10-13): closed for work = the tracker's closed category AND not a status agent-smith sets itself (done_status, failed_status, needs_clarification_status, not_implementable_status, and the close a run performs where none is configured, CancelledTicketFinalizer.cs:51-56, GitHubTicketFinalizer.cs:26-30). A person closed it; our own terminal move after an infrastructure end does not refuse Retry (review3 N1)."
+  - key: "RETRY UNCHANGED ONLY AFTER INFRASTRUCTURE. Operator decision 8: every other next attempt needs a change, and the change is the conversation."
+  - key: "REJECTED CUT: a park rule for the in-progress status after an infrastructure end (review G2). Both infrastructure cancel reasons go through CancelRequested, and CancelEnforcer finalizes the run and terminalizes the ticket to failed_status (CancelEnforcer.cs:113-131, CancelledTicketFinalizer.cs:49-56), which ReworkParkCheck.cs:34 already reworks. Only a failed, fail-soft tracker call leaves the ticket in progress, and that is said, not guessed around."
+  - key: "RECONCILER COORDINATION BY ORDER. Retry requires the run finished, which is when the terminal projection clears the taken record (RunFinalizationProjection.cs:57-63); a reconciler relaunch before that makes the retried run not the latest attempt, which answers 409 (review G2)."
+  - key: "THE REQUEST IS A ROW OF THE RETRIED RUN. The run reads its act itself (ReworkEntry.cs:12-18); a retry has no tracker trace to read, so it is persisted once, keyed by the run it retries, and dies with it (operator decision 2)."
+  - key: "ONE ENTRY. Retry goes through the nudge queue and ReworkEntry like every other act; p0390's direct move and its service are retired with the verdict park they served (review G10)."
+  - key: "A TICKET A PERSON CLOSED IS NOT RETRIED (operator rule 2026-10-13: a closed ticket always gets a follow-up). Retry would move it back into a trigger status — a reopen; the 409 points at the ticket conversation, where an approval files the follow-up (2026-10-13-9a59l). KNOWN CONSEQUENCE: only where 2026-10-13-9a59k cannot tell our close from a person's on a tracker (it names which) does a run's own terminal move read closed; everywhere else the cancel enforcer's move keeps Retry."
+  - key: "A HAND-BACK GETS THE CONVERSATION ANSWER, NOT 'NOT FINISHED' (review3 N2). A hand-back parks waiting_for_input with FinishedAt null (SpecHandbackHandler.cs:96-99, RunFinalizationProjection.cs:73), so the waiting check runs before the finished check."
+  - key: "THE SANDBOX ARM NEEDS A FAILED OR CANCELLED RUN AND A POSITION (review3 N3). 9a59i records oom-killed at release too, so a delivered run with an OOM'd sandbox must not read as an infrastructure end; positions, not wall clock, place a sandbox in a segment."
+  - key: "A RETRY REQUEST IS UPSERTED, NOT UNIQUE-REFUSED (review3 N4). The worker can end a request without an attempt (ReworkEntry.cs:67-69, ReworkNudgeHandler.cs:40); a refusing unique index would block Retry for good. It stays a standing act like a keyword comment, so a later nudge may start the attempt after the cause (a tracker move) is fixed; deleting the run withholds it (RunDeletionRepository WithholdActsAsync)."
+  - key: "LATEST ATTEMPT IS 9a59a's TicketAttempts (review3 N5). DbPreviousAttemptReader excludes queued rows (DbPreviousAttemptReader.cs:24-28), so a newer queued reservation would be invisible and the worker would finish the nudge silently at ReworkNudgeHandler.cs:40."
+  - key: "A 409 CARRIES ITS REASON (series pass 2026-10-13): today's refusals are bare strings (RunControlEndpoints.cs:65-73); 2026-10-13-9a59r must show why Retry was refused and offer the conversation, so every 409 is {reason, text, project, ticketId}, reason a code the composer branches on and text a sentence it shows unchanged."
+  - key: "RETRY RANKS LOW. A retry carries no change, so any act with content written since is the attempt's cause."
+
+steps:
+  - id: rule
+    action: "InfrastructureEnd gains the sandbox arm over the last segment's sandbox ends; the attempt read passes them."
+  - id: store
+    action: "RunRetryRequest entity; RunChildConfiguration.Children entry (46 lines); RunRetryRequestConfiguration (unique RunId) applied from TicketRecordConfigurations.Apply (21 lines); deletion line (RunDeletionRepository about 97 -> 98 of 120, the series' last); migrations in both sets; DataArchiveRoundTripTests.cs:33,34,54,81 and DataArchiveSchemaTests.cs:63 go +1 table / +2 seed rows (about 46 -> 47 tables, 94 -> 96 rows after b 2, d 1, e 1, f 2, g 1, h 1, j 1)."
+  - id: previous
+    action: "PreviousAttempt.RetryRequestedBy/At; DbPreviousAttemptReader reads the latest attempt's request."
+  - id: act
+    action: "ReworkChannel.Retry; ReworkPendingActs returns the retry act newest-wins."
+  - id: endpoint
+    action: "RetryEndpoints (own class, mapped at ServerEndpointExtensions.cs:42, 73 lines): latest by TicketAttempts, waiting 409 before not-finished, closed-for-work 409 via TicketClosure.ClosedForWorkAsync, every 409 as {reason, text, project, ticketId}, starting 409 naming the requester, upsert, enqueue, 202; RunControlEndpoints loses the route; route baseline unchanged."
+  - id: retire
+    action: "Delete NotImplementableRetryService, its registration and Server.Services.Lifecycle.RetryOutcome; move NotImplementableRetryOrderTests' case to ReworkEntry, rewrite UnmovedTicketClaimTests' retry case and RetryEndpointOutcomeTests; fix TicketReopener.cs:10's summary; lower the two ratchet baselines."
+  - id: cause
+    action: "AttemptCauseReader retry arm, ranked below acts with content."
+  - id: tests
+    action: "Red first for every test below; a RealCompositionHarness test drives Retry on an interrupted run to one attempt with cause retry."
+  - id: docs
+    action: "expectations.md, fix-and-feature.md, webhooks.md, operations/dashboard.md: Retry after infrastructure; hand-backs in the conversation."
+
+tests:
+  - "InfrastructureEnd_SandboxVanishedInLastSegment_Holds"
+  - "InfrastructureEnd_SandboxVanishedInEarlierSegment_DoesNotHold"
+  - "InfrastructureEnd_OomKilledInLastSegment_Holds"
+  - "InfrastructureEnd_OomInLastSegment_SucceededRun_DoesNotHold"
+  - "InfrastructureEnd_SandboxWithoutPosition_DoesNotHold"
+  - "Retry_InterruptedRun_StartsOneAttempt_CauseRetry"
+  - "Retry_StaleLeaseReaped_StartsOneAttempt"
+  - "Retry_SandboxVanished_StartsOneAttempt"
+  - "Retry_VerdictPark_409NamesConversation"
+  - "Retry_FailedOnVerdict_409NamesConversation"
+  - "Retry_NotLatestAttempt_409NamesNewerAttempt"
+  - "Retry_NewerQueuedReservation_409NamesIt"
+  - "Retry_WhileAttemptStarting_409NamesFirstRequester"
+  - "Retry_AfterRefusedFirstRequest_UpsertsAndEnqueues"
+  - "Retry_ClosedTicket_409PointsAtTheConversation_RecordsNothing"
+  - "Retry_Every409_CarriesReasonCodeAndText"
+  - "Retry_OwnFailedStatusInClosedCategory_StartsOneAttempt"
+  - "Retry_UnknownRun_404"
+  - "RunDeletion_DeletesRetryRequest"
+  - "ReworkPendingActs_RetryAndKeywordAct_NewerWins"
+  - "AttemptCause_KeywordAfterRetry_IsKeyword"
+
+done:
+  - "Retry on a run that ended interrupted, reaped or with a vanished or OOM-killed sandbox in its last launch starts exactly one attempt, which names the retrying person as its cause."
+  - "Retry on a ticket a person closed answers 409 with reason closed-for-work and a sentence that points at the ticket conversation, recording nothing."
+  - "Retry on any other run answers 409 and points at the ticket conversation; a ticket handed back as not implementable gets the conversation answer, not 'not finished', and comes back by approving a change there."
+  - "A retry the worker could not start (the tracker refused the move) can be requested again."
+  - "Deleting the retried run deletes its retry request."

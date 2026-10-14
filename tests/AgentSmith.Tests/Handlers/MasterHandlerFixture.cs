@@ -33,6 +33,8 @@ internal static class MasterHandlerFixture
         ISubAgentRunner? subAgents = null, LoopLimitsConfig? limits = null,
         AgentSmith.Contracts.Providers.IFigmaClient? figma = null,
         AgentSmith.Application.Services.Tools.RenderReferenceToolFactory? render = null,
+        AgentSmith.Contracts.Events.IEventPublisher? passEvents = null,
+        AgentSmith.Contracts.Events.IRunContextAccessor? runContext = null,
         IDecisionLogger? decisions = null) =>
         new(loop, prompts, decisions ?? new NoOpDecisionLogger(), AgentSmithConfig.Empty(),
             new AgentSmith.Infrastructure.Services.ContextYamlSerializer(
@@ -75,7 +77,7 @@ internal static class MasterHandlerFixture
                 new AgentSmith.Application.Services.Sandbox.ToolchainFindingReporter(
                     NullLogger<AgentSmith.Application.Services.Sandbox.ToolchainFindingReporter>.Instance),
                 NullLogger<AgentSmith.Application.Services.Sandbox.SandboxToolchainProbe>.Instance),
-            new SandboxWorkingTreeReader(NullLogger<SandboxWorkingTreeReader>.Instance),
+            Reengagement(loop, Recorder(passEvents, runContext)), Recorder(passEvents, runContext),
             new AgentSmith.Application.Services.RunWorkCheckpointer(
                 new AgentSmith.Application.Services.RepoWorkPusher(
                     new AgentSmith.Application.Services.SandboxGitOperations(
@@ -95,6 +97,21 @@ internal static class MasterHandlerFixture
             AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
             AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Tools(),
             NullLogger<AgenticMasterHandler>.Instance);
+
+    /// <summary>2026-10-13-9a59f: the open loop the handler drives, over the same loop runner.</summary>
+    internal static MasterReengagementLoop Reengagement(
+        IAgenticLoopRunner loop, AgentSmith.Application.Services.Passes.MasterPassRecorder recorder) =>
+        new(new ReengagePass(loop, new SandboxWorkingTreeReader(NullLogger<SandboxWorkingTreeReader>.Instance),
+                new ReengageStopLog(NullLogger<ReengageStopLog>.Instance), NullLogger<ReengagePass>.Instance),
+            recorder, new ReengageStopLog(NullLogger<ReengageStopLog>.Instance));
+
+    /// <summary>2026-10-13-9a59f: no spec frame by default, so a handler test records no pass.</summary>
+    internal static AgentSmith.Application.Services.Passes.MasterPassRecorder Recorder(
+        AgentSmith.Contracts.Events.IEventPublisher? events = null,
+        AgentSmith.Contracts.Events.IRunContextAccessor? runContext = null) =>
+        new(events ?? new AgentSmith.Application.Services.Events.NoOpEventPublisher(),
+            runContext ?? new AgentSmith.Application.Services.Events.AsyncLocalRunContextAccessor(),
+            TimeProvider.System, NullLogger<AgentSmith.Application.Services.Passes.MasterPassRecorder>.Instance);
 
     /// <summary>
     /// The real <see cref="MasterToolComposition"/> the handler holds — the sub-agent

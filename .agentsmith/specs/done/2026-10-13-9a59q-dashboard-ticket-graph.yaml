@@ -1,0 +1,194 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-9a59q
+goal: "A ticket's detail page opens on its Summary: header, four summary cells, and per attempt a flow graph of the code pipeline with spec rows, passes and hand-backs, each node explained below."
+
+applies_to: "dashboard (ticket detail route, per-page ticket store and hooks, header, tab shell, Summary tab, flow graph on card-terminal-panel, ticket links from the list)"
+
+requires:
+  - 2026-10-13-9a59a
+  - 2026-10-13-9a59b
+  - 2026-10-13-9a59d
+  - 2026-10-13-9a59e
+  - 2026-10-13-9a59f
+  - 2026-10-13-9a59g
+  - 2026-10-13-9a59h
+  - 2026-10-13-9a59p
+
+facts:
+  - claim: "A code run fetches the ticket, reads the code, derives an ordered set of specs, may hand back at SpecHandback, validates at SpecGate, runs one master-verify-record block per spec in SpecSequence, then commits and opens the PRs."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Code.cs:36-72"
+  - claim: "Expectation negotiation is gone from the code pipeline; nothing emits ExpectationRatified any more, so the graph has no ratify node."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Code.cs:26-29, src/backend/AgentSmith.Contracts/Events/EventType.cs:69-71"
+  - claim: "A hand-back park posts the question on the tracker and sets the awaiting-answer flag; it writes no checkpoint, so no pending question marks it."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackPark.cs:36-52"
+  - claim: "Each executed spec of a run is served per run, one row and one detail; a RunSpec row carries a Title and a Status."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RunSpecQueryEndpoints.cs:19-20, src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunSpec.cs:13,25,28"
+  - claim: "useTrail is a one-shot read through the hub method GetTrail that never updates and starts its own useJobsHub; the live run viewer reads useRunEvents, a ref-counted per-run store subscription."
+    evidence: "src/dashboard/src/hooks/useTrail.ts:7-45, src/dashboard/src/lib/JobsHubClient.ts:289, src/dashboard/src/hooks/useRunEvents.ts:7-28, src/dashboard/src/app/jobs/[id]/page.tsx:81"
+  - claim: "RunsChanged carries the changed run id; a RunCancelRequested event reaches a run's stream."
+    evidence: "src/dashboard/src/lib/JobsHubClient.ts:120,382-384, src/dashboard/src/types/hub-events.ts:34,381-382"
+  - claim: "The backend fires a RunsChanged nudge per event of a live run, so the run list coalesces it."
+    evidence: "src/dashboard/src/hooks/useJobsHub.ts:96-109"
+  - claim: "queued and waiting_for_input are live because both resume as the same run; only success, shortfall, failed, error and cancelled are terminal, and isRunLive answers that."
+    evidence: "src/dashboard/src/lib/runLiveness.ts:4-20"
+  - claim: "The run viewer's Ticket beat shows the ticket body from the run's own TicketFetched event."
+    evidence: "src/dashboard/src/components/jobs/story/TicketPanel.tsx:12-14,25,133"
+  - claim: "Cancel exists per run as an endpoint under runs.control and as a two-step button taking runId and cancelRequested, labelled cancel."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs:36, src/dashboard/src/components/jobs/CancelRunButton.tsx:17-31"
+  - claim: "RunRepo keeps one PR url and status per repository; the run row stores no branch name and no tracker address or status."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunRepo.cs:6-12, src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:8-34"
+  - claim: "A run row links to the run viewer /jobs/{runId}."
+    evidence: "src/dashboard/src/components/jobs/RunRow.tsx:59"
+  - claim: "DESIGN.md's card-terminal-panel component carries background, text, accent and mute only; terminal-link and terminal-string are palette colours; the prose allows no colouring beyond its two accents except the state palette's terminal variants (2026-10-13-9a59p)."
+    evidence: "DESIGN.md:19-24,212-219,532"
+  - claim: "The mock-parity layer turns off animation under prefers-reduced-motion and uses mock-pulse because Tailwind owns pulse."
+    evidence: "src/dashboard/src/styles/mock-parity.css:19-20,96-103"
+  - claim: "Search params are read in a component under a page's Suspense boundary, never in the root layout."
+    evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:4,62, src/dashboard/src/app/spec-dialog/page.tsx:1,7, src/dashboard/src/lib/RunBucketFilter.tsx:20-23"
+  - claim: "The existing TopologyGraph draws one run's sandboxes from its events, not a pipeline; it is not reused."
+    evidence: "src/dashboard/src/components/jobs/TopologyGraph.tsx:10-25,35"
+  - claim: "The ratified mock's graph names 'PRs ready' and a checker confirmation on the hand-back node, and a sandbox count in This attempt; none of them is recorded per attempt."
+    evidence: "observed: 2026-10-13, scratchpad ticket-view.html summary cell 'This attempt' and graph data a1 hand-back and a3 tail"
+
+assumptions:
+  - "Reads, by the series contract: 9a59a detail = summary + branch + attempts[] {number, runId, status, startedAt, finishedAt, cost, endedOnInfrastructure, handedBack, pullRequests, executedSpecs incl. not_started, pendingQuestion}; 9a59d adds per attempt cause {channel, actor, at, source} and revision {number, cause, seriesId, carriedIds, approvalAt}, on the summary trackerState and webUrl; 9a59b adds per PR state, decision, by, lastActivityAt."
+  - "9a59e GET /api/tickets/{project}/{ticketId}/series[?runId=] gives the cut (specs with goal, repos, steps, done list), the attempt the cut came from, per-spec state and verdict, the gate and the hand-back case of that attempt; 9a59f adds steps as worked and serves GET /api/runs/{runId}/passes (per spec, passes with a per-spec pass number, opened-because, end reason, per-criterion verdicts, steps moved, cost; non-pass cost by derive, pr, other)."
+  - "9a59f's end reasons are re-engaged, nothing-left, budget, idle, blocked, self-refilled, cap, question, failed, red-accepted, verdictless, and unknown for a pass with stamped calls and no end row; a re-engaging pass carries reengageReason; each pass carries passInSpec (1-based within its spec) beside the run-wide ordinal."
+  - "9a59h GET /api/tickets/{project}/{ticketId}/conversation (runs.read) gives entries with attemptRunId in EventSeq order per run: ticket text with its fingerprint diff, questions and answers, hand-back (g's 85), spec-cut reviews (g's 86, accepted|refused)."
+  - "9a59p delivers types/tickets.ts, lib/ticketsApi.ts, JobsHubClient.ticketActivityChanged, the --t-* and state tokens under .mock-tickets, the DESIGN.md state palette, places.ts matching /tickets/{project}/{ticketId}, and its ticket rows and the runs home's code-run rows linking to the run viewer until this spec builds the detail route; 9a59d publishes TicketActivityChanged when a new attempt of the ticket starts."
+
+scope:
+  in: >
+    STORE (one per route, series coordination decision 8): TicketPageStore under the route holds every ticket-level
+    read once and exposes useTicketDetail(project, ticketId), useTicketSeries(project, ticketId, runId?) (no runId =
+    9a59e's default cut; with runId = that attempt's cut and gate), useTicketConversation(project, ticketId) and
+    useAttemptPasses(runId); 2026-10-13-9a59r and 2026-10-13-9a59s consume these and fetch none of these endpoints
+    themselves. Types extend p's types/tickets.ts and reads p's lib/ticketsApi.ts; no second types file. LIVE means
+    isRunLive(status): a queued or waiting_for_input attempt is live (a question park resumes the same run id and adds
+    passes); per-run reads of a terminal attempt (series?runId=, passes) are fetched once and cached for the page's
+    life, a live attempt's are refetched. The live tail is useRunEvents(liveRunId). REFETCH, one fetch per read per
+    2 s window: detail, default series and the live attempt's reads on (a) a TicketActivityChanged naming this
+    (project, ticketKey) — 9a59d also sends it when a new attempt starts — and (b) a RunsChanged whose run id is one of
+    this ticket's attempts; the conversation read (it reads the tracker) only on (a), on (c) a refetched detail whose
+    attempt statuses differ from the last one (covers the question park and the hand-back park), and on (d) a
+    SpecCutReviewed (86) in the live attempt's stream — never on a bare RunsChanged. The page never scans the
+    overview's runs for a new attempt.
+    LINKS (p hands over): p's TicketRow (Enter and click), its Needs-you rows and the runs home's code-run RunRow link
+    switch from the run viewer to /tickets/{project}/{ticketId}; a ticketless or non-code run keeps /jobs/{runId}.
+    HEADER (t-head): ticket key and title; subline with the tracker link (webUrl), "tracker status {trackerState} at
+    attempt n", the live attempt ("attempt n running") or the newest attempt's status, and the branch, each only when
+    present; Cancel attempt n = CancelRunButton with a new optional label prop, shown only for a live attempt,
+    cancelRequested read from a RunCancelRequested event in its stream.
+    TAB SHELL: role=tablist from a ticketTabs table that r and s append to, ?tab= read in the page under Suspense,
+    counters per tab; Summary ships here.
+    SUMMARY: four cells — Attempt n started by (cause channel, actor, source, at), Series (n specs, revision n, carried
+    vs cut new from carriedIds), Pull requests (number, repository, state, decision), This attempt (duration, cost,
+    repositories = the union of the spec repos in this attempt's cut from series?runId=, run id); the banner naming
+    the carried specs at $0 and what this attempt cut, from the revision's cause.
+    GRAPH on card-terminal-panel: attempt switcher (dot from status, handedBack, endedOnInfrastructure), sub-line
+    (start, cause, status, duration, cost), passes unrolled / folded, the SVG and the legend, in the state palette.
+    layoutAttemptFlow(attemptData, mode) is pure: TICKET -> DERIVE (badge = refused cut reviews of that attempt) ->
+    GATE, or -> HAND-BACK when handedBack; SERIES · n SPECS; a carried spec is one small dashed node "executed in An ·
+    carried · $0"; a spec that ran or will run gets SPEC -> BUILD -> VERIFY, one lane per pass with PASS i OF n from
+    9a59f's passInSpec (never the run-wide ordinal) and the return edge labelled with the ended pass's reengageReason
+    (its end reason when it has none) and the next pass's opened-because; a QUESTION hangs off the BUILD of the pass that parked; a not-started spec comes
+    from that attempt's cut (its not_started RunSpec rows); the tail is SHIP (PRs) or ENDS with "-> attempt n+1".
+    Folded shows the last pass with a ×n badge. A live attempt that has not cut yet draws TICKET -> DERIVE (working).
+    NODE DETAIL (aria-live), per kind: ticket (the cause, the ticket-text entry and its fingerprint diff of that
+    attempt); derive (derive cost, each cut review with its deliverable and findings); hand-back (case from the series
+    read, the posted text and quote from the entry, and the next attempt's cause actor and at as "answered by"); gate
+    (outcome and spec count); spec (goal, step and criterion counts, revision and cause, carried wording); build (steps
+    the pass moved, open steps; for the live pass the last tool calls from the stream); verify (the pass's own
+    criterion verdicts, met/total, its end reason); question (question, answer, role, author where recorded, parked
+    duration = answer at minus question at — joined by POSITION: the k-th question-ended pass of the run in run-wide
+    order pairs with the k-th question entry of that run in EventSeq order, drawn only when both counts are equal,
+    else the empty-record line); tail (PRs with review state, status and last end reason). A node with no record says
+    "Nothing recorded here in this attempt." A terminal attempt with no revision and no cut (it predates 9a59e) draws
+    no graph and links to its run viewer. Nodes are focusable buttons (Enter, Space); reduced motion stops the live
+    dash; the canvas scrolls sideways when narrow.
+  out: >
+    Ticket list, rail, places, the vendored mock and the DESIGN.md state palette — 2026-10-13-9a59p. The header's
+    Continue in conversation button, the banner's Open specs button, the spec node's Open the spec button, the
+    approval preview hook and the Conversation, Specs and Acceptance tabs — 2026-10-13-9a59r. Attempts and Cost tabs,
+    their counters, the run and compute reads, sandboxes and pods — 2026-10-13-9a59s. Dropped, not recorded (operator
+    decision 4): 'PRs ready', the hand-back checker confirmation, a live tracker status, This attempt's sandbox count.
+    A folded graph chosen by viewport width: the mock folds only on the toggle.
+
+decisions:
+  - key: "THE GRAPH IS THE PIPELINE AS IT IS — head, one row per spec, passes per spec, hand-back exit, ship; no ratify node and no build fan-out per repository, because each spec names one repository (f5f7a)."
+  - key: "LAYOUT IS A PURE FUNCTION — layoutAttemptFlow returns nodes and edges with the mock's columns and row heights, so the shape is unit-tested without a DOM and the SVG only paints; layout and node-detail renderers live in separate files."
+  - key: "ONE STORE PER PAGE OWNS EVERY TICKET READ (series decision 8, review3-q Q1, review3-r R2) — detail, series (with runId), conversation and passes are built here because q is built first; r adds only useApprovalPreview and s only its run and compute reads, so one page never issues two reads of one endpoint, and a conversation read (one tracker comment read each) is not doubled."
+  - key: "LIVE IS isRunLive, NOT 'NOT SUCCEEDED' (review3-q Q4) — runLiveness.ts already names queued and waiting_for_input live because a park resumes the same run; a cached-once read of a parked attempt would miss its later passes."
+  - key: "THE CONVERSATION FOLLOWS RECORDED CHANGE, NOT EVERY EVENT (review3-q Q2) — a live attempt's question, hand-back and cut review publish no TicketActivityChanged, so the conversation also refetches when the refetched detail shows a changed attempt status (DB truth for both parks) and on SpecCutReviewed in the stream; a bare RunsChanged fires per event and would read the tracker every 2 s."
+  - key: "THE QUESTION NODE JOINS BY POSITION (review3-q Q3) — neither the pass nor the question entry carries the other's id; the k-th question-ended pass and the k-th question entry of the run are the same park because each question park ends exactly one pass and records one entry; when the counts differ the node shows no text rather than a time-matched guess."
+  - key: "A LIVE ATTEMPT BEFORE ITS CUT IS DERIVING (review3-q Q5) — the run-viewer fallback is for terminal attempts that predate 9a59e only."
+  - key: "REPOSITORIES FROM THE CUT (review3-q Q6) — TicketAttemptView has no repository list and RunSpec no repo column; the attempt's cut names each spec's repos, so This attempt shows their union."
+  - key: "THE LIST LINKS HERE ONCE THIS ROUTE EXISTS (coordinator, 2026-10-13) — p ships before the detail route, so its rows point at the run viewer; this spec switches them, so no build in between links to a 404."
+  - key: "FIVE READS, NAMED — detail, series, conversation, passes per attempt, and the live stream; a terminal attempt's per-run reads never change, so they are fetched once and only live attempts refetch."
+  - key: "REFETCH ONLY FOR THIS TICKET, AT 2 S — RunsChanged fires per event of any run, so only this ticket's known attempts count; a new attempt is learned from TicketActivityChanged, which 9a59d sends at its start (series coordination, 2026-10-13), not by scanning the overview."
+  - key: "LIVE TAIL FROM useRunEvents, NOT useTrail — useTrail is one-shot and opens its own run-list fetch; the stream also carries RunCancelRequested and SpecCutReviewed, so Cancel and the derive badge need no extra read."
+  - key: "STATE COLOURS FROM THE PALETTE (operator decision 2) — done, working, stopped and waits-for-a-person use 9a59p's DESIGN.md state palette terminal variants; no colour is defined here."
+  - key: "OLDER ATTEMPTS FROM THEIR OWN RECORDS — gate, cut and hand-back case from series?runId=, hand-back text from that run's conversation entry, not-started specs from that run's RunSpec rows; a spec a later re-cut dropped keeps only what its own attempt recorded."
+  - key: "ABSENT, NOT ESTIMATED — a value a run did not record leaves its place empty, and the graph never fills a node from a neighbour."
+  - key: "TRACKER STATUS IS AS READ — trackerState is what the newest attempt's FetchTicket saw, so it is labelled with that attempt."
+  - key: "THE TAB TABLE IS APPENDED, NOT REWRITTEN — r and s add their tabs and counters to one table, so the bar never shows a tab without a pane."
+
+steps:
+  - id: types
+    action: "Extend p's types/tickets.ts and lib/ticketsApi.ts with detail, series (?runId=), conversation and passes reads; absent fields optional."
+  - id: store
+    action: "TicketPageStore + useTicketDetail, useTicketSeries(runId?), useTicketConversation, useAttemptPasses: once-per-terminal-attempt cache, isRunLive, the (a)-(d) refetch rules with one fetch per read per 2 s, useRunEvents for the live attempt."
+  - id: route-and-header
+    action: "Route page under Suspense with the store provider; TicketHeader with tracker link, status at attempt n, live attempt, branch; CancelRunButton label prop."
+  - id: links
+    action: "Switch p's TicketRow, Needs-you rows and the runs home's code-run RunRow link from /jobs/{runId} to /tickets/{project}/{ticketId}; update p's link tests."
+  - id: tab-shell
+    action: "ticketTabs table + TicketTabs (role tab, aria-selected, ?tab=); Summary registered."
+  - id: summary
+    action: "Four summary cells (repositories from the cut) and the carried/new banner."
+  - id: layout
+    action: "layoutAttemptFlow: head (deriving for a live uncut attempt), hand-back exit, series rows, carried rows, pass lanes numbered by passInSpec and return edges labelled by reengageReason, positional question nodes, tail; folded variant."
+  - id: svg
+    action: "AttemptFlowGraph: nodes, edges, switcher, sub-line, mode toggle, legend; focusable nodes; reduced motion."
+  - id: node-detail-head
+    action: "Detail for ticket, derive, hand-back and gate nodes."
+  - id: node-detail-body
+    action: "Detail for spec, build (live tail), verify, question (positional join) and tail nodes; the empty-record line; the pre-series run-viewer link for terminal attempts."
+  - id: css
+    action: "Port the mock's detail-header, tabs, summary, banner, graph and node-detail CSS under .mock-tickets."
+  - id: tests
+    action: "Red first: layout unit tests, store tests and the component tests below; extend the ticket block of the mock-parity test."
+
+tests:
+  - "MockParity_StructuralClasses_PresentPerSurface (ticket detail block: .t-head, .tabs, .sum, .banner, .graph, .sdet)"
+  - "layoutAttemptFlow: a handed-back attempt ends at HAND-BACK with no GATE and no series"
+  - "layoutAttemptFlow: carried specs are one dashed row each, priced $0, before the specs this attempt runs"
+  - "layoutAttemptFlow: a spec with two passes draws two lanes numbered by passInSpec (not the run-wide ordinal) and one return edge labelled with the first pass's reengageReason"
+  - "layoutAttemptFlow: folded draws the last pass only with a ×n badge on build and verify"
+  - "layoutAttemptFlow: a not-started spec of the cut is drawn idle"
+  - "layoutAttemptFlow: a question hangs off the build of the pass that parked"
+  - "layoutAttemptFlow: a live attempt without a cut draws TICKET -> DERIVE working, not the run-viewer fallback"
+  - "questionJoin: the k-th question-ended pass pairs with the k-th question entry; unequal counts draw the empty-record line"
+  - "store: switching to a terminal attempt fetches its series and passes once across remounts; a refetch re-reads only live attempts'"
+  - "store: a waiting_for_input attempt is live and its passes are refetched after it resumes"
+  - "store: a RunsChanged for another ticket's run refetches nothing; one for this ticket's attempt refetches the detail once within 2 s"
+  - "store: a RunsChanged burst during a live attempt issues no conversation read; a changed attempt status in the refetched detail or a SpecCutReviewed in the stream issues one"
+  - "dashboard: a live attempt's hand-back and refused cut review appear without a reload"
+  - "dashboard: a new attempt appears after this ticket's TicketActivityChanged, with no RunsChanged scan of the overview"
+  - "dashboard: a ticket row, a Needs-you row and a code run on the runs home link to /tickets/{project}/{ticketId}; a ticketless run links to /jobs/{runId}"
+  - "dashboard: This attempt lists the union of the cut's spec repositories"
+  - "dashboard: an older handed-back attempt draws HAND-BACK with the text of its own conversation entry"
+  - "dashboard: an earlier pass's verify node lists its own criterion verdicts, not the spec's final ones"
+  - "dashboard: the derive node shows the derive cost and the refused cut reviews"
+  - "dashboard: a node without a record says nothing was recorded, and a field the detail lacks is not drawn"
+  - "dashboard: nodes are reachable by Tab and open their detail on Enter and Space"
+  - "dashboard: Cancel attempt n shows only for a live attempt and reads cancelling after a RunCancelRequested event"
+  - "dashboard: a terminal attempt with no revision and no cut links to its run viewer instead of a graph"
+
+done:
+  - "A reviewer comparing the Summary tab to the mock finds the same header, cells, banner, graph and node detail, in the dashboard's tokens, apart from the dropped unrecorded values."
+  - "Every attempt of a ticket draws its own graph; a live attempt, including its parks, hand-back and cut reviews, updates without a reload."
+  - "One ticket page issues at most one read per endpoint per refetch, and no conversation read on a bare RunsChanged."
+  - "Ticket rows on /tickets and code runs on the runs home open the ticket page."
+  - "No node, cell or label shows a value no backend member delivers."
+  - "Dashboard build and tests green."

@@ -1,0 +1,212 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-9a59r
+goal: "The ticket detail gains Conversation (every exchange in order, with the ticket's own Work it out composer), Specs (the series as read-only documents) and Acceptance (criteria per spec)."
+
+applies_to: "dashboard (ticket detail: Conversation, Specs and Acceptance tabs; useSpecDialog's dialog-id source; the approval card on a ticket-bound conversation)"
+
+requires:
+  - 2026-10-13-9a59a
+  - 2026-10-13-9a59d
+  - 2026-10-13-9a59e
+  - 2026-10-13-9a59f
+  - 2026-10-13-9a59h
+  - 2026-10-13-9a59l
+  - 2026-10-13-9a59m
+  - 2026-10-13-9a59n
+  - 2026-10-13-9a59p
+  - 2026-10-13-9a59q
+
+facts:
+  - claim: "useSpecDialog seeds its dialog id on mount from the one id the browser holds."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:16,142-143,199"
+  - claim: "That id is held under one localStorage key for the whole browser; returnToDialog and startNewDialog both overwrite it, and mintDialogId mints an id without holding it."
+    evidence: "src/dashboard/src/lib/specDialogSession.ts:11,16-35,47-55"
+  - claim: "Opening a conversation switches the hook's dialog id through returnToDialog or startNewDialog, so it rewrites the held id; open with an open dialog id goes there, without one it resumes onto a fresh id."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:568-586,605-615"
+  - claim: "send posts on the hook's current dialog id with the project and the ticket id; the first message to a dialog id is what opens and binds the conversation."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:507-515, src/dashboard/src/lib/specDialogApi.ts:164-184"
+  - claim: "The server opens a conversation only when none is open on the dialog id, reading the ticket from its tracker when a ticket is named."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/DashboardDialogDispatcher.cs:79-97"
+  - claim: "Today a ticket's session ids come from a lookup that reads the tracker and answers 404 when the tracker cannot read the ticket; it needs dialog.write."
+    evidence: "src/backend/AgentSmith.Server/Extensions/TicketConversationEndpoints.cs:26-27,66-90, src/dashboard/src/lib/specDialogApi.ts:186-199"
+  - claim: "A ticket-bound conversation is reachable — watched and posted into — by every caller of the surface, not only its owner; reading a conversation needs dialog.write."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOwnership.cs:34-53,68-72, src/backend/AgentSmith.Server/Extensions/SpecDialogViewEndpoints.cs:21-28"
+  - claim: "Resuming a conversation bound to no ticket is its owner's act (another caller gets not-found; a ticket-bound one anyone on the surface may reach, since 2026-10-13-9a59m), is refused while a question pends or a turn runs, and moves the session: it closes what is open on the target thread and bumps LastActivityAt."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogResumer.cs:37-43,61-70"
+  - claim: "The resume route answers 403 when the target dialog is not the caller's to watch, 204 when resumed, 409 with a question-waiting or turn-running text when refused, 404 otherwise."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogResumeEndpoints.cs:59-72, src/dashboard/src/lib/specDialogApi.ts:75-86"
+  - claim: "The approval question's controls are Approve & file and Reject, sent as an ordinary message; the card's summary line says what would be filed as new tickets; a question past its deadline accepts no click."
+    evidence: "src/dashboard/src/components/dialog/DialogQuestionCard.tsx:44-46,73-77,141-148,168-181"
+  - claim: "Work it out renders that card from the hook's question and proposal only; the conversation's view carries the ticket it is bound to (null when none) and its project scope."
+    evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:396-401, src/dashboard/src/types/spec-dialog.ts:101-103,131-132,151-155"
+  - claim: "A proposal shows in the exchange as a pointer card; the draft itself stays in the pane."
+    evidence: "src/dashboard/src/components/dialog/DialogProposalCard.tsx:5-7"
+  - claim: "DialogComposer exposes no ref or focus prop; its text field is internal."
+    evidence: "src/dashboard/src/components/dialog/DialogComposer.tsx:46-66,205"
+  - claim: "PendingQuestionCard posts to the run's answer endpoint, which needs runs.control."
+    evidence: "src/dashboard/src/components/jobs/PendingQuestionCard.tsx:17-43, src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs:38"
+  - claim: "A control is hidden only when the caller's identity is present and lacks the permission, read from useCallerIdentity."
+    evidence: "src/dashboard/src/components/jobs/ClearTerminalRunsButton.tsx:15,19,40, src/dashboard/src/lib/identityApi.ts:23, src/dashboard/src/hooks/useCallerIdentity.ts:33"
+  - claim: "The identity's permissions are the role catalog's plus permission claims plus identity.read; a non-enforcing install's caller without a role holds no dialog.write there."
+    evidence: "src/backend/AgentSmith.Server/Security/CallerIdentityResolver.cs:95-101"
+  - claim: "A run's acceptance is read under runs.read; recording and withdrawing an operator judgement are runs.control."
+    evidence: "src/backend/AgentSmith.Server/Extensions/CriterionJudgementEndpoints.cs:26-28"
+  - claim: "A run's acceptance contract is the current spec's done list, so criteria belong to a spec."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/AcceptanceCriteria.cs:7-25"
+  - claim: "A spec draft carries its done list and its repositories."
+    evidence: "src/backend/AgentSmith.Contracts/Models/SpecDraft.cs:21,66"
+  - claim: "The backend fires a RunsChanged nudge per event of a live run."
+    evidence: "src/dashboard/src/hooks/useJobsHub.ts:96-109"
+  - claim: "The mock-parity layer is plain CSS scoped under .mock-shell; its parity test asserts structural classes per surface."
+    evidence: "src/dashboard/src/styles/mock-parity.css:1-15, src/dashboard/src/__tests__/mock-parity.test.tsx:155-156"
+  - claim: "The line ratchet covers C# only: file-length-baseline.tsv lists no dashboard file, so useSpecDialog.ts (764 lines) and mock-parity.css (1561 lines) need no room made."
+    evidence: "observed: 2026-10-13, grep -c '\\.ts' tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv = 0; wc -l src/dashboard/src/hooks/useSpecDialog.ts src/dashboard/src/styles/mock-parity.css"
+
+assumptions:
+  - "2026-10-13-9a59q delivers the per-page TicketPageStore with useTicketDetail, useTicketSeries(project, ticketId, runId?), useTicketConversation and useAttemptPasses, its refetch rules (conversation on TicketActivityChanged, a changed attempt status in the refetched detail, or SpecCutReviewed in the live stream; never on a bare RunsChanged), isRunLive as the live test, and the ticketTabs table."
+  - "2026-10-13-9a59h's conversation read gives entries {id, source, kind, role, author (only where recorded), isOurs, at, attemptRunId or group before|now, text, file, line, detail}, attempt markers {runId, number, cause, revision}, sessionId and openDialogId, and the open proposal with its drafts (ids, goal, repos, done); without dialog.write on an enforcing install it marks the conversation hidden and leaves turns and proposal out."
+  - "9a59h's entry id is '{source}:{scope}:{sourceId}' and the entry also carries sourceId and prKey; 2026-10-13-9a59d's cause.source carries {kind, url, id}. An entry is an attempt's cause when source matches the cause's kind, prKey (or the ticket's url) matches its url, and sourceId equals its id — joined on that triple, never on id equality and never on time."
+  - "2026-10-13-9a59l serves GET /api/tickets/{project}/{ticketId}/approval-preview under dialog.write, 404 when no proposal is open: effect bug-ticket | follow-up-closed | amend-never-worked | refused-over-cap | continue with per-spec dispositions kept | recut | appended | dropped; 2026-10-13-9a59m adds the start arm start-now | wait-for-run | refused-question-pending | recorded-without-runs-control | answers-handback."
+  - "2026-10-13-9a59m lets any caller holding dialog.write resume a ticket-bound session (unbound sessions stay owner-only), so the resume's remaining refusals are 403 (no dialog.write or a foreign target dialog), 404 (no such session) and the two 409s."
+  - "2026-10-13-9a59a's attempt carries endedOnInfrastructure; 2026-10-13-9a59n accepts the retry act only for such an attempt, records cause channel retry, and answers 409 with a reason text for a closed ticket."
+  - "2026-10-13-9a59e's series read gives per spec id, ordinal, fileStem, goal, repos, steps, done list, state, executing attempt and its verdict with any operator judgement; 2026-10-13-9a59f adds each step's state, attempt and run-wide pass; 2026-10-13-9a59d's revision.number is the series revision."
+
+scope:
+  in: >
+    DIALOG-ID SOURCE: useSpecDialog takes an optional source; the default is the held browser id (Work it out
+    unchanged), the instance source mints with mintDialogId and holds nothing, so the ticket tab never reads or writes
+    the stored Work it out dialog id. READS: 9a59q's useTicketConversation, useTicketSeries and useAttemptPasses are
+    consumed, never re-fetched; this spec adds only useApprovalPreview(project, ticketId): fetched only when the
+    conversation read shows an open proposal and is not hidden; refetched on this ticket's TicketActivityChanged (9a59g
+    sends it on every proposal save) and when q's refetched detail shows the newest attempt's status changed (m's
+    start arm reads the lease, the waiting state and the checkpoint); never on a bare RunsChanged; one fetch per 2 s.
+    TABS: Conversation (counter = entries), Specs (counter "n · rev k" from the newest revision.number, n alone when
+    none), Acceptance (counter = verified/total) appended to 9a59q's tab table; the header's Continue in conversation,
+    the banner's Open specs and the spec node's Open the spec set ?tab= (and the selected spec). The Conversation tab
+    accepts ?causeOf={runId} and scrolls, once loaded, to the entry that is that attempt's cause by the same triple join
+    (2026-10-13-9a59s links there); no matching entry leaves the tab at its top.
+    CONVERSATION: filter chips All, Ticket, Questions, PR reviews, Spec cut, Ticket conversation (aria-pressed), one
+    per 9a59h source; entries grouped under 9a59h's attempt markers ("Attempt n" with its outcome pill) and its before
+    / now groups ("Now · in the ticket conversation"); an entry is keyed and anchored (data-entry-id) on 9a59h's composite id and shows avatar by role
+    (person, agent, system, reviewer), the author only where 9a59h recorded one, where-label, time, body (a person's
+    words as a quote), file and line for a review comment, the detail block for a ticket-text diff or cited lines,
+    spec-cut entries styled internal; our own ticket comments — among them the worker's later answers (refused, not a
+    rework, withheld) — are ticket entries under the Ticket chip, avatar agent; a footer "started attempt n" only where
+    causeEntryMatch(entry, attempt.cause) holds — source = cause kind, prKey or ticket url = cause url, sourceId = cause id. A hidden conversation shows its ticket, question, PR and
+    spec-cut entries and says the ticket conversation needs dialog.write.
+    PROPOSAL BLOCK: "Proposed change", its approval pill, each draft (goal, repository, done when) marked with its
+    9a59l disposition. COMPOSER "Continue on this ticket": useSpecDialog on the instance source; nothing is opened,
+    resumed or written on tab open or mount — until the first composer act (focus, Send, Approve, Reject) the closed
+    session is read from 9a59h's transcript; on that act the composer goes to 9a59h's openDialogId, else resumes its
+    sessionId (any dialog.write holder, 9a59m), else binds a fresh minted id whose first message carries the project
+    and ticket id. The resume's refusals render as states, never as a broken composer: 409 question pending ("answer
+    the waiting question first"), 409 turn running ("a reply is being written; try again when it lands"), 403 and 404
+    with the server's reason. The effect line renders the preview's effect and start arm, one label each from one
+    approvalEffectLabel table; Approve and Reject answer the approval question (no Approve once it expired or while the
+    start arm is refused-question-pending), Ask for changes focuses the text field, Discard rejects; with no open
+    approval question the composer is a plain composer with no effect line; Retry unchanged appears only when the
+    newest attempt endedOnInfrastructure and the caller is not known to lack runs.control, calling 9a59n's retry and
+    showing a refusal's reason text (a closed ticket's 409 points at the conversation). The composer and the preview
+    are gated on 9a59h's hidden marker, not on the client identity, so a non-enforcing install keeps them.
+    APPROVAL CARD ON A TICKET-BOUND CONVERSATION (series decision 5): DialogQuestionCard gains an optional
+    ticketEffect prop; when given, the primary control reads "Approve" and the summary line is the preview's effect
+    label (continue this ticket, file a follow-up for a closed ticket, ...) instead of "File this ...? One ticket.";
+    the ticket composer passes it, and Work it out's SpecDialogSurface passes it when the view's session is bound
+    (session.ticket non-null), reading useApprovalPreview(session.scope.name, session.ticket.ticketId) while an
+    approval question is open. An unbound conversation's card is unchanged.
+    PENDING QUESTION: while a run question pends, PendingQuestionCard heads the tab for a caller not known to lack
+    runs.control; otherwise the question text shows and says answering needs runs.control. SPECS: "x of n done"; the
+    list (ordinal, goal, one cell per attempt — not run, done in n passes, failed, carried, working, not started — and
+    repository) beside the selected spec's document (live spec first): spec n, state pill, repository, executing
+    attempt, the goal as heading, the file stem, Steps as worked (mark, number, text, attempt and pass from 9a59f), Done
+    when (criteria with marks) and the read-only note with Discuss in conversation; then Revisions from the attempts'
+    revision (number, cause, attempt, approval time). ACCEPTANCE: "x of n verified", one block per spec (ordinal,
+    repository, working / not started), each criterion with its mark and the attempt that verified it, "verify pending"
+    or "not started"; an operator judgement shows as the overruled disposition.
+  out: >
+    The detail route, header, tab shell, Summary, graph and every ticket-level read hook except the approval preview —
+    2026-10-13-9a59q. The Attempts and Cost & compute tabs — 2026-10-13-9a59s. The approval's effect and its policy —
+    2026-10-13-9a59l and 2026-10-13-9a59m. Widening the resume of a ticket-bound session to any dialog.write holder
+    (the backend change) and retiring the Amend shape — 2026-10-13-9a59m. A keyword comment on a closed ticket filing a
+    follow-up — 2026-10-13-9a59t. Overruling a criterion from the ticket: the mock has no control here; it stays in the
+    run viewer. Editing a spec in place: specs change only through the conversation (operator decision 9).
+
+decisions:
+  - key: "THE COMPOSER IS THE TICKET'S WORK IT OUT SESSION (operator decision 6) — the same hook, composer and approval question, opened on the session unique per (tracker, ticket); not a second dialog surface."
+  - key: "THE TICKET TAB HOLDS ITS OWN DIALOG ID — useSpecDialog gets a dialog-id source; the ticket tab mints per instance and never holds, because the held id is the operator's Work it out conversation and opening the ticket would overwrite it, and a first message on a held id with an open conversation would land there unbound (review F1)."
+  - key: "VIEWING WRITES NOTHING; THE SESSION MOVES ON THE FIRST ACT (series decision 3, review3-r R3) — a resume closes what is open on the target and bumps LastActivityAt (SpecDialogResumer.cs:60-69), so it runs on the first composer act, never on tab open; until then 9a59h's transcript is the closed session's view. 9a59m widens the resume of a ticket-bound session to every dialog.write holder; its refusals are drawn as states."
+  - key: "ONE PREVIEW HOOK, NO OTHER READ (series decision 8, review3-r R2) — q's store owns detail, series, conversation and passes; this spec adds useApprovalPreview only, so the page never reads one endpoint twice."
+  - key: "THE PREVIEW AND THE CONVERSATION FOLLOW RECORDED CHANGE (review3-r R1) — both read the tracker per request and RunsChanged fires per event; the preview is read only while a proposal is open and refetched on TicketActivityChanged and a changed newest-attempt status, the conversation follows q's rule."
+  - key: "THE SERVER'S HIDDEN MARKER GATES THE COMPOSER (review3-r R4) — 9a59h decides dialog.write with Enforce honoured; the client identity on a non-enforcing install lacks dialog.write while the server accepts the write, so the identity is used only to hide runs.control controls when present and lacking (ClearTerminalRunsButton.tsx:40)."
+  - key: "THE APPROVAL CARD SAYS WHAT A BOUND APPROVAL DOES (series decision 5) — on a ticket-bound conversation 'Approve & file … One ticket.' is false (l continues the ticket or files a follow-up), so both surfaces render 9a59l's effect through one label table."
+  - key: "ENTRIES ARE ADDRESSABLE (review3-r R5, review3-s S2) — ?causeOf={runId} lets 9a59s's change event open the Conversation tab at that attempt's cause entry through the same causeEntryMatch the footers use, so s neither rebuilds h's composite id nor edits this list."
+  - key: "THE PAGE RENDERS THE EFFECT, IT DOES NOT DECIDE IT — the effect line shows 9a59l's effect and 9a59m's start arm as data, one label per value; the mock's six preview states are not client branches, and its failed-versus-review wording, which no field carries, is dropped (review F2)."
+  - key: "NOW IS 9a59h'S GROUP — what came after the last attempt's worked approval is the server's group field; the page does not regroup by time (review F5)."
+  - key: "FOOTERS JOIN BY ID ONLY — 'started attempt n' is drawn where causeEntryMatch joins an entry to a cause on (source, prKey or url, sourceId) — h's composite id is a row key, not the cause's id; the mock's 'ticket text changed · started attempt 3', 'picked up', and 'resumed attempt 2 after 3h 12m' have no id join and are dropped (review F8)."
+  - key: "CUT FROM THE MOCK — the proposal's revision number, the spec document's separate title (the goal is the heading), the spec's revision-and-origin line (the executing attempt is shown) and the pass on Acceptance (the attempt is shown) have no served field and are dropped (review F3, F6, F7). The Specs counter keeps the mock's 'rev k' because revision.number is recorded (review3-r R6)."
+  - key: "SPECS ARE DOCUMENTS, NOT FILES (operator decision 9) — built from 9a59e's structured series; no spec file is fetched and no edit control exists."
+  - key: "ACCEPTANCE PER SPEC — criteria are each spec's done list (AcceptanceCriteria), so a ticket has one list per spec, never one flat list."
+  - key: "AUTHOR ONLY WHERE RECORDED (operator decision 3) — a ticket edit shows no editor and a turn shows its role where no author is recorded."
+
+steps:
+  - id: dialog-id-source
+    action: "specDialogSession gains an instance source (mint, no hold); useSpecDialog(source = held) routes its mount seed and switchTo through it; Work it out keeps the default."
+  - id: preview-read
+    action: "types/tickets.ts and ticketsApi gain the approval preview; useApprovalPreview over q's store signals: only with an open, unhidden proposal, refetch on TicketActivityChanged and a changed newest-attempt status, 2 s window."
+  - id: tabs
+    action: "Append Conversation, Specs (n · rev k) and Acceptance with counters to 9a59q's tab table; the three cross-links set ?tab= and the selected spec; ?causeOf= scrolls the Conversation tab."
+  - id: conversation-list
+    action: "Filter chips, attempt groups and before/now groups from q's useTicketConversation, rows keyed on h's composite id, entry anatomy by role, internal style, causeEntryMatch footers, the hidden state."
+  - id: proposal-block
+    action: "Proposal block from 9a59h's open proposal drafts and 9a59l's per-spec dispositions."
+  - id: composer
+    action: "TicketComposer over useSpecDialog(instance) + DialogComposer (gains an optional inputRef): open, resume or bind on the first act only; resume refusal states; effect line and actions from the preview; gated on the hidden marker."
+  - id: retry
+    action: "Retry unchanged for an infrastructure-ended newest attempt, hidden only when identity lacks runs.control; refusal reason text shown."
+  - id: approval-card
+    action: "approvalEffectLabel table; DialogQuestionCard ticketEffect prop (Approve, effect summary); SpecDialogSurface passes it for a bound session via useApprovalPreview."
+  - id: pending-question
+    action: "PendingQuestionCard heads the tab while a run question pends, else the question text with the permission note."
+  - id: specs-and-acceptance
+    action: "Spec list with per-attempt cells, the spec document (goal heading, file stem, steps as worked, done when, read-only note) and Revisions; Acceptance per spec with marks, verifying attempt, pending / not started, overruled."
+  - id: css
+    action: "Port the mock's conversation, composer, spec and acceptance CSS to mock-parity.css under .mock-tickets."
+  - id: tests
+    action: "Red first: the tests below; extend the ticket-view parity block."
+
+tests:
+  - "MockParity_TicketConversationSpecsAcceptance_StructuralClassesPresent"
+  - "useSpecDialog: the instance source leaves the held Work it out dialog id unchanged on mount, open and start-new"
+  - "useSpecDialog: on the instance source a first message goes to a freshly minted id with project and ticket id, even when the held id has an open conversation"
+  - "useSpecDialog: the default source still holds and restores the browser's dialog id"
+  - "dashboard: opening the Conversation tab issues no resume, no message and no write; the closed session reads from the transcript"
+  - "dashboard: the first Send resumes the session and posts; a 409 question-pending and a 409 turn-running each render their own state, not a composer error"
+  - "dashboard: a caller who is not the session's owner and holds dialog.write resumes a closed ticket session on the first act (9a59m)"
+  - "dashboard: the page reads the conversation and series through q's store only — one request per endpoint per refetch"
+  - "dashboard: a RunsChanged burst during a live attempt issues no conversation and no preview read; a TicketActivityChanged for this ticket refetches the preview once"
+  - "dashboard: no preview request is made while the conversation shows no open proposal or is hidden"
+  - "dashboard: entries group under 9a59h's attempt markers and its before/now groups, in the read's order"
+  - "dashboard: ?tab=conversation&causeOf={runId} scrolls to the entry that is that attempt's cause; with no match it stays at the top"
+  - "dashboard: a worker's later answer comment (refused, not a rework, withheld) shows under the Ticket chip as an agent entry"
+  - "dashboard: the PR reviews chip shows only review entries; a review comment shows its file and line; a ticket edit shows its diff and no editor"
+  - "causeEntryMatch: a PR comment matches on source, prKey and sourceId; the same sourceId on another PR or source does not match"
+  - "dashboard: a footer 'started attempt n' appears only on the entry causeEntryMatch joins to that attempt's cause"
+  - "dashboard: each 9a59l effect and each 9a59m start arm renders its own label, and Approve answers the approval question with approve"
+  - "dashboard: with refused-question-pending or an expired question there is no Approve; with no approval question there is no effect line"
+  - "DialogQuestionCard: with ticketEffect the primary control reads Approve and the summary is the effect label; without it the card is unchanged"
+  - "SpecDialogSurface: a bound session's approval card shows the preview's follow-up-closed label for a closed ticket"
+  - "dashboard: a hidden conversation draws no composer and makes no preview request; a non-enforcing install whose identity lacks dialog.write still gets the composer"
+  - "dashboard: Retry unchanged appears only when the newest attempt ended on infrastructure and is not hidden from a caller known to lack runs.control; a 409 shows its reason text"
+  - "dashboard: without runs.control the pending question shows as text with no answer card"
+  - "dashboard: the Specs counter reads 'n · rev k' from the newest revision"
+  - "dashboard: a carried spec shows a carried cell for each later attempt and the document marks each step with its attempt and pass"
+  - "dashboard: Acceptance counts verified criteria across specs and shows an overruled criterion as overruled"
+  - "dashboard: Open the spec on a graph node selects that spec on the Specs tab"
+
+done:
+  - "A reviewer comparing the three tabs to the mock finds the same layout and grouping in the dashboard's tokens; the wording differs only where a decision above drops a clause no field carries."
+  - "An operator holding dialog.write — owner or not — answers, asks for changes and approves on the ticket without opening Work it out, the effect shown is the one 9a59l/9a59m apply, and their Work it out conversation is where they left it."
+  - "Opening a ticket page moves no conversation; a refused resume is shown as its reason."
+  - "A ticket-bound conversation's approval card says what the approval does on both surfaces."
+  - "PR reviews, questions, hand-backs, cut verdicts and the ticket conversation of one ticket read as one thread."
+  - "Dashboard build and tests green."

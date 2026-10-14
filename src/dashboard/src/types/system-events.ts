@@ -25,6 +25,10 @@ export enum SystemEventType {
   // p0353 — config live-reload: pending -> applied
   ConfigChanged = 54,
   ConfigReloaded = 55,
+
+  // 2026-10-13-9a59a — a ticket page refresh signal; routed to the overview group
+  // as the hub message "TicketActivityChanged", never shown on the System page.
+  TicketActivityChanged = 56,
 }
 
 export interface SystemEventBase {
@@ -146,6 +150,14 @@ export interface ConfigReloadedEvent extends SystemEventBase {
   trackerCount: number;
 }
 
+// 2026-10-13-9a59a ticket refresh signal.
+
+export interface TicketActivityChangedEvent extends SystemEventBase {
+  type: SystemEventType.TicketActivityChanged;
+  project: string;
+  ticketKey: string;
+}
+
 export type SystemEvent =
   | PollCycleStartedEvent
   | PollCycleFinishedEvent
@@ -158,4 +170,5 @@ export type SystemEvent =
   | SkillCatalogLoadedEvent
   | ConceptVocabularyLoadedEvent
   | ConfigChangedEvent
-  | ConfigReloadedEvent;
+  | ConfigReloadedEvent
+  | TicketActivityChangedEvent;

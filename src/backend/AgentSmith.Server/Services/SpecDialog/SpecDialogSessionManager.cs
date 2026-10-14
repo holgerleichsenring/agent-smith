@@ -13,7 +13,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// volatile Redis conversation cache) so transcripts survive a Redis flush.
 /// </summary>
 public sealed class SpecDialogSessionManager(
-    SpecDialogSessionRepository repository,
+    SpecDialogSessionRepository repository, BoundSessionNudge bound,
     IHeldSandboxRegister holds,
     TimeProvider timeProvider,
     ILogger<SpecDialogSessionManager> logger)
@@ -76,7 +76,7 @@ public sealed class SpecDialogSessionManager(
         var transcript = SpecDialogSessionMapper.ReadTranscript(session.TranscriptJson);
         session.TranscriptJson = SpecDialogSessionMapper.WriteTranscript([.. transcript, turn]);
         session.LastActivityAt = turn.At;
-        await repository.SaveAsync(ct);
+        await bound.SaveAsync(session, ct);
 
         return SpecDialogSessionMapper.ToState(session);
     }
@@ -97,7 +97,7 @@ public sealed class SpecDialogSessionManager(
         if (index < 0) return SpecDialogSessionMapper.ToState(session);
         transcript[index] = turn with { Decision = null };
         session.TranscriptJson = SpecDialogSessionMapper.WriteTranscript(transcript);
-        await repository.SaveAsync(ct);
+        await bound.SaveAsync(session, ct);
 
         return SpecDialogSessionMapper.ToState(session);
     }

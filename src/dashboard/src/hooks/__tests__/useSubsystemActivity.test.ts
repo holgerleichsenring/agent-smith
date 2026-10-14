@@ -1,6 +1,6 @@
 import { renderHook, act } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { useSubsystemActivity } from "../useSubsystemActivity";
+import { describeSystemEvent, useSubsystemActivity } from "../useSubsystemActivity";
 import { SystemEventType, type SystemEvent } from "@/types/system-events";
 
 // p0209b: per-subsystem freshness derivation. Time is pinned via fake timers so
@@ -82,5 +82,18 @@ describe("useSubsystemActivity", () => {
     expect(result.current.webhooks.freshness).toBe("—");
     expect(result.current.webhooks.tail).toBeNull();
     expect(result.current.webhooks.events).toHaveLength(0);
+  });
+});
+
+describe("describeSystemEvent", () => {
+  it("describeSystemEvent_TicketActivityChanged_IsEmpty", () => {
+    const nudge: SystemEvent = {
+      source: "ticket-activity",
+      type: SystemEventType.TicketActivityChanged,
+      timestamp: "2026-10-13T09:00:00Z",
+      project: "sample",
+      ticketKey: "github-42",
+    };
+    expect(describeSystemEvent(nudge)).toBe("");
   });
 });

@@ -10,7 +10,8 @@ namespace AgentSmith.Server.Services.Webhooks;
 /// Handles GitHub PR comment events (issue_comment on PRs, pull_request_review_comment).
 /// This handler owns the GitHub payload shape; what the comment starts is decided by
 /// <see cref="PrCommentCommandAdmission"/> with GitHub's author trust. A review comment carries the
-/// pull request's head; an issue comment does not, so a command's head is read from GitHub.
+/// pull request's head; an issue comment does not, so a command's head is read from GitHub. An issue
+/// comment's PR URL is the html URL its issue names — the URL the run recorded.
 /// </summary>
 public sealed class GitHubPrCommentWebhookHandler(
     PrCommentCommandAdmission admission,
@@ -73,7 +74,10 @@ public sealed class GitHubPrCommentWebhookHandler(
         };
         var command = new PrCommentCommand(
             comment.GetProperty("body").GetString() ?? "", author,
-            $"{repoFullName}#{prNumber}", $"pr:{repoFullName}#{prNumber}", prNumber.ToString());
+            $"{repoFullName}#{prNumber}", $"pr:{repoFullName}#{prNumber}", prNumber.ToString())
+        {
+            PrUrl = root.TryGetProperty("issue", out var issue) ? PayloadActTime.Text(issue, "pull_request", "html_url") : null,
+        };
         return root.TryGetProperty("pull_request", out var pr) ? WithHead(command, pr, repoFullName) : command;
     }
 

@@ -25,6 +25,9 @@ internal static class DashboardReadersExtensions
         services.AddSingleton<RunStepsReader>();
         services.AddSingleton<RunDecisionsReader>();
         services.AddSingleton<RunSpecsReader>(); // p0466
+        services.AddSingleton<Services.Passes.RunPassesReader>(); // 2026-10-13-9a59f
+        services.AddSingleton<RunComputeReader>(); // 2026-10-13-9a59i
+        services.AddSingleton<RunSegmentsReader>().AddSingleton<RunParkReader>(); // 2026-10-13-9a59j
         services.AddSingleton<RunStatisticsReader>(); // p0423b
         services.AddSingleton<RunTraceIndexReader>(); // p0423b
         services.AddSingleton<ResultMarkdownReader>();

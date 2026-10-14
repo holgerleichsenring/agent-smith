@@ -104,7 +104,9 @@ public sealed class SpecHandbackRepeatTests
             writer, new SeriesRepos(), new SpecSetPointerRecorder(pointers, NullLogger<SpecSetPointerRecorder>.Instance),
             Mock.Of<ISpecPullRequestOpener>(),
             new SpecRefusalReporter(Mock.Of<IEventPublisher>(), NullLogger<SpecRefusalReporter>.Instance),
-            Mock.Of<IRunArtifactStore>(), NullLogger<SpecSetPublisher>.Instance);
+            Mock.Of<IRunArtifactStore>(),
+            new SpecSetAnnouncer(Mock.Of<IEventPublisher>(), NullLogger<SpecSetAnnouncer>.Instance),
+            NullLogger<SpecSetPublisher>.Instance);
     }
 
     private static SpecHandbackHandler Handler(Mock<ITicketProvider> tickets, ISpecSetPointerStore pointers)
@@ -118,11 +120,12 @@ public sealed class SpecHandbackRepeatTests
                     new Application.Services.Persistence.InMemoryUnmovedTicketStore(),
                     NullLogger<Application.Services.Lifecycle.UnmovedTicketReport>.Instance),
                 Mock.Of<AgentSmith.Contracts.Reviews.IHandbackPrNotice>(),
-                NullLogger<SpecHandbackPark>.Instance),
+                Mock.Of<AgentSmith.Contracts.Events.IEventPublisher>(), Mock.Of<AgentSmith.Contracts.Events.IRunContextAccessor>(), NullLogger<SpecHandbackPark>.Instance),
             new SpecParkStatusResolver(new ClarificationParkStatusResolver()),
             pointers,
             new SpecHandbackRepeat(NullLogger<SpecHandbackRepeat>.Instance),
-            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Heads(), NullLogger<SpecHandbackHandler>.Instance);
+            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Heads(),
+            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Announcer(), NullLogger<SpecHandbackHandler>.Instance);
     }
 
     private static TrackerConnection Parkable() => new()

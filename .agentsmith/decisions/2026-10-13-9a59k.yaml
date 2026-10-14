@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-9a59k
+
+decisions:
+  - category: Architecture
+    chose: "Ticket.IsClosed is the tracker's own closed category (Jira statusCategory.key done, Azure DevOps state category Completed or Removed, GitHub/GitLab state closed), carried through the constructor and the one copy method Ticket.With(description, webUrl, isClosed)"
+    over: "Comparing the status against configured done/closed names, or a WithClosed copy method"
+    reason: |
+      Operator decision 1 (2026-10-13): closed means the same on every tracker and consults no configuration;
+      whether agent-smith put the ticket there is TicketClosure's question. One copy method, so the fetch door
+      cannot drop the flag. A bool, not a nullable: every mapper and both Azure DevOps read paths set it, and an
+      inline ticket is false because no tracker holds it.
+  - category: Architecture
+    chose: "AzureDevOpsStateCategories reads GetWorkItemTypeStatesAsync through a delegate, caches the closed state names statically per (organization, project, type) for 30 minutes, and is asked in the provider path (GetTicketAsync's .With, the WIQL runner per hydrated item) — not in the synchronous field mapper"
+    over: "Reading the category inside AzureDevOpsFieldMapper, or one states read per work item"
+    reason: |
+      The mapper has no client and is synchronous; the category needs a call per work item type. The static
+      cache in a sealed non-static class follows AzureDevOpsConnectionCache, so a 200-item hydration costs one
+      read per distinct type. AzureDevOpsConnectionCache gained an internal OrganizationUrl for the key.
+  - category: Error handling
+    chose: "A failed states read throws, like the work-item read beside it"
+    over: "Answering not closed on a failure"
+    reason: |
+      Not closed on a failure would let an approval continue a ticket its tracker closed. Every Azure DevOps
+      GetTicketAsync caller and a poll cycle fail while the states endpoint fails; the per-type cache makes such
+      a read rare (review3 F3).
+  - category: Architecture
+    chose: "ITicketStatusHistory.NewestMoveIntoAsync(ticketId, status) — the newest move into one status by ANY actor, IsApp carried; each history now enumerates its moves once and the person read filters them"
+    over: "Reusing NewestPersonMoveIntoAsync with a null self"
+    reason: |
+      The person read drops apps (GitHub, Jira) before the caller sees them, so it cannot tell our or an app's
+      close from a person's. GitHub reads 'closed' events (and reopens for open), GitLab resource_state_events
+      'closed'/'reopened', Jira changelog status items, Azure DevOps updates' System.State. The person reads keep
+      their exact behaviour (GitLab and Azure DevOps still filter only the token identity). Provider forwarders
+      are one line each; GitHub's three-line forwarder collapsed to one (189 -> 188, baseline lowered).
+  - category: Architecture
+    chose: "TicketParkStatuses (Application/Services/Tickets), a record built by Of(project): Done = trigger done_status, Failed = failed_status else Done (no trigger: none), Clarification and NotImplementable = trigger else tracker, NotImplementable else Clarification; Own / IsRunEnd / IsHandbackPark. ReworkParkCheck reads it and its private Either and Same are gone"
+    over: "A second copy of the precedence in TicketClosure, or moving it into Domain"
+    reason: |
+      Both callers sit above Application (ReworkParkCheck in Server; TicketClosure for l, n and t). Which
+      statuses park is unchanged: the done/failed test kept its trigger-only scope (Failed falls back to Done,
+      which the old test also covered), and the hand-back park's NotImplementable fallback to Clarification adds
+      nothing the clarification test did not already accept. SpecParkStatusResolver reads the run's seeded
+      context and stays (review3 F1).
+  - category: Architecture
+    chose: "TicketClosure.ClosedForWorkAsync(project, provider, ticket, ct): false unless IsClosed; false for any own park status; true when a done_status is configured; else the history decides — the newest move into the current status by an actor that is neither the token identity nor an app is a person's close. Registered transient on PipelineHandlersExtensions' TrackerIdentity line (218 lines, none added)"
+    over: "Copying the providers' default close status ('Done' / 'Closed') into Application"
+    reason: |
+      Main-thread decision 1 (2026-10-13, pending operator ratification): only a person's close earns a
+      follow-up; a Request changes on a run's own PR still reworks a ticket the run moved to Done. With no
+      done_status the run closes into an Infrastructure default the status cannot tell from a person's, so the
+      history answers. An unknown close — no move, unknown token identity, failed read, no history port — reads
+      not closed for work: the ticket reworks as today, while a wrong 'closed' would file a follow-up nobody
+      asked for.
+  - category: Testing
+    chose: "Mapper tests in the existing *FieldMapperTests, history tests in StatusHistoryTests, a fresh organization per AzureDevOpsStateCategoriesTests case, and a ServiceProvider test resolving TicketClosure from AddPipelineHandlers"
+    over: "Only hand-built TicketClosure instances"
+    reason: "The registration is part of the contract l, n and t call; a test that bypasses DI cannot prove it."
+  - category: Product
+    chose: "RATIFIED 2026-10-13 by the operator: closed for work means a person closed it; a status agent-smith set itself (done_status included) is not a close, so a review on the run's own PR still reworks it"
+    over: "Treating any status in the tracker's closed category as closed, which would turn every review on a done_status ticket into a follow-up"
+    reason: "Operator: 'lass es wie es gebaut ist … lass die person entscheiden'. Whoever wants the work finished closes the ticket; that close is what files a follow-up."

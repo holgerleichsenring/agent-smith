@@ -158,7 +158,7 @@ public sealed class SeriesOutOfStepTests
     }
 
     private static SpecSourceResolver.Decision Decide(SpecSetOnBranch branch, PipelineContext pipeline) =>
-        new SpecSourceResolver(new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance),
+        new SpecSourceResolver(new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance), AgentSmith.Tests.TestSupport.ApprovedSetDoubles.Continuation(),
                 new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance), NullLogger<SpecSourceResolver>.Instance)
             .Decide(branch, new Ticket(new TicketId("4711"), "t", "text", null, "open", "azdo", []),
                 new SpecSetPointer(SeriesRepoBranches.Key, "Server", "sha-Server", 1), pipeline,
@@ -182,9 +182,9 @@ public sealed class SeriesOutOfStepTests
                 new Application.Services.Lifecycle.UnmovedTicketReport(
                     new InMemoryUnmovedTicketStore(),
                     NullLogger<Application.Services.Lifecycle.UnmovedTicketReport>.Instance),
-                Mock.Of<AgentSmith.Contracts.Reviews.IHandbackPrNotice>(), NullLogger<SpecHandbackPark>.Instance),
+                Mock.Of<AgentSmith.Contracts.Reviews.IHandbackPrNotice>(), Mock.Of<AgentSmith.Contracts.Events.IEventPublisher>(), Mock.Of<AgentSmith.Contracts.Events.IRunContextAccessor>(), NullLogger<SpecHandbackPark>.Instance),
             new SpecParkStatusResolver(new ClarificationParkStatusResolver()), pointers,
             new SpecHandbackRepeat(NullLogger<SpecHandbackRepeat>.Instance),
-            HandbackTestDoubles.Heads(), NullLogger<SpecHandbackHandler>.Instance);
+            HandbackTestDoubles.Heads(), HandbackTestDoubles.Announcer(), NullLogger<SpecHandbackHandler>.Instance);
     }
 }

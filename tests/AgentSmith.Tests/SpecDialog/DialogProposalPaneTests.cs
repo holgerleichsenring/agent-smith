@@ -239,7 +239,7 @@ public sealed class DialogProposalPaneTests : IDisposable
                 transport.Object, messenger, new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)), composer,
                 NullLogger<SpecDialogOutcomeConfirmer>.Instance),
             Mock.Of<IOutcomeSink>(), composer, messenger, Channel(),
-            new SpecDialogLatestOutcomeStore(new SpecDialogSessionRepository(_context), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance),
+            new SpecDialogLatestOutcomeStore(new SpecDialogSessionRepository(_context), AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(new SpecDialogSessionRepository(_context)), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance),
             NullLogger<SpecDialogOutcomeFlow>.Instance);
     }
 

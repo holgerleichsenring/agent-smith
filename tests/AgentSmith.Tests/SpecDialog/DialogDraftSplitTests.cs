@@ -61,7 +61,7 @@ public sealed class DialogDraftSplitTests : IDisposable
         MigratedStoreTemplate.CopyInto(_context);
         var repository = new SpecDialogSessionRepository(_context);
         _sessions = new SpecDialogSessionManager(
-            repository, AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
+            repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(repository), AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
             NullLogger<SpecDialogSessionManager>.Instance);
         _slack.SetupGet(adapter => adapter.Platform).Returns(Slack);
         _messenger = new SpecDialogMessenger(
@@ -238,7 +238,7 @@ public sealed class DialogDraftSplitTests : IDisposable
             new DashboardOutcomeChannel(
                 new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
                 NullLogger<DashboardOutcomeChannel>.Instance, _hub),
-            new SpecDialogLatestOutcomeStore(repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance), NullLogger<SpecDialogOutcomeFlow>.Instance);
+            new SpecDialogLatestOutcomeStore(repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance), NullLogger<SpecDialogOutcomeFlow>.Instance);
         return new SpecDialogRouter(
             new SpecCommandParser(), _sessions,
             new SpecDialogCommandHandler(_sessions,

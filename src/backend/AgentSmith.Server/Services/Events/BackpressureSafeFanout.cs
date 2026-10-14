@@ -33,6 +33,9 @@ public sealed class BackpressureSafeFanout(
     public Task ToSystemActivityAsync(SystemActivitySnapshot snapshot, CancellationToken ct) =>
         BoundedAsync(() => inner.ToSystemActivityAsync(snapshot, ct), "system-activity", "overview", ct);
 
+    public Task ToTicketActivityAsync(TicketActivityChangedEvent ticketEvent, CancellationToken ct) =>
+        BoundedAsync(() => inner.ToTicketActivityAsync(ticketEvent, ct), "ticket-activity", ticketEvent.TicketKey, ct);
+
     private async Task BoundedAsync(Func<Task> send, string channel, string target, CancellationToken ct)
     {
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(ct);

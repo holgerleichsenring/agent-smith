@@ -14,9 +14,11 @@ namespace AgentSmith.Contracts.Services;
 /// within its project, so two projects on one tracker can both carry the same
 /// id; on the ticket alone the newer run seeds its checklist from the other
 /// project's work and the master opens on a repository it is not working in.
+/// 2026-10-13-9a59d: the reading run itself is left out — it flushes its own ledger mid-run, and a
+/// run must never seed from its own work.
 /// </summary>
 public interface IPriorRunLedgerReader
 {
     Task<PriorRunLedger?> ReadLatestForTicketAsync(
-        string project, string ticketId, CancellationToken cancellationToken);
+        string project, string ticketId, string? excludingRunId, CancellationToken cancellationToken);
 }

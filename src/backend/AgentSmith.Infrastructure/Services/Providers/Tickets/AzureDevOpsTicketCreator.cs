@@ -47,6 +47,9 @@ public sealed class AzureDevOpsTicketCreator(
         return new CreatedTicket(new TicketId(id.ToString()), WorkItemWebUrl(organizationUrl, project, id));
     }
 
+    /// <summary>Where a person opens the work item with this id.</summary>
+    public string WebUrlFor(int id) => WorkItemWebUrl(organizationUrl, project, id);
+
     internal static JsonPatchDocument BuildCreatePatch(
         string title, string descriptionHtml, IReadOnlyList<string> labels)
     {

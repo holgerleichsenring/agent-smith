@@ -44,7 +44,7 @@ public sealed class DialogConversationListTests : IDisposable
         MigratedStoreTemplate.CopyInto(_context);
         _repository = new SpecDialogSessionRepository(_context);
         _sessions = new SpecDialogSessionManager(
-            _repository, AgentSmith.Tests.Sandbox.Holds.None(), _clock,
+            _repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), AgentSmith.Tests.Sandbox.Holds.None(), _clock,
             NullLogger<SpecDialogSessionManager>.Instance);
     }
 
@@ -197,7 +197,7 @@ public sealed class DialogConversationListTests : IDisposable
             null,
             new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", Owner)], "test")),
             new SpecDialogOwnership(_repository),
-            new SpecDialogConversationList(_repository, new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance), new SpecDialogTicketTextRepository(_context)), CancellationToken.None);
+            new SpecDialogConversationList(_repository, new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance), new SpecDialogTicketTextRepository(_context)), CancellationToken.None);
 
         result.Should().BeOfType<Ok<SpecDialogConversationPage>>()
             .Which.Value!.Conversations.Select(summary => summary.SessionId).Should().Equal(mine);
@@ -243,7 +243,7 @@ public sealed class DialogConversationListTests : IDisposable
     public async Task Outcome_DerivedFromTheLatestFiling()
     {
         await OpenAsync("d-1");
-        var store = new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance);
+        var store = new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance);
         await store.SetProposalAsync(Platform, "d-1", Epic(), CancellationToken.None);
         await store.SetFilingAsync(Platform, "d-1",
             new FilingReport([new("https://tracker.test/1", "p1: parent")], "the second slice was refused"),
@@ -258,7 +258,7 @@ public sealed class DialogConversationListTests : IDisposable
     public async Task Outcome_WithNothingFiled_IsNull()
     {
         await OpenAsync("d-1");
-        await new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance)
+        await new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance)
             .SetProposalAsync(Platform, "d-1", Spec(), CancellationToken.None);
 
         (await ListAsync()).Single().Outcome.Should().BeNull("only a filing produces an outcome");
@@ -268,7 +268,7 @@ public sealed class DialogConversationListTests : IDisposable
     public async Task Outcome_AnAnswerAfterAFiling_DoesNotChangeIt()
     {
         var state = await StateAsync("d-1");
-        var store = new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance);
+        var store = new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance);
         await store.SetProposalAsync(Platform, "d-1", Spec(), CancellationToken.None);
         await store.SetFilingAsync(Platform, "d-1",
             new FilingReport([new("https://tracker.test/1", "p1: the spec")], null), Spec(), CancellationToken.None);
@@ -290,7 +290,7 @@ public sealed class DialogConversationListTests : IDisposable
     public async Task Outcome_AFiledEpicFollowedByADiscardedProposal_StillSaysEpic()
     {
         await OpenAsync("d-1");
-        var store = new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance);
+        var store = new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance);
         await store.SetProposalAsync(Platform, "d-1", Epic(), CancellationToken.None);
         await store.SetFilingAsync(Platform, "d-1",
             new FilingReport([new("https://tracker.test/1", "p1: parent")], null), Epic(), CancellationToken.None);
@@ -418,7 +418,7 @@ public sealed class DialogConversationListTests : IDisposable
     /// <summary>2026-09-21-f237b: the rows AND the owner's whole count, which is what the
     /// conversations page says "the 20 most recent of 63" from.</summary>
     private Task<SpecDialogConversationPage> PageAsync(int? limit = null) =>
-        new SpecDialogConversationList(_repository, new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance), new SpecDialogTicketTextRepository(_context)).ListAsync(Owner, limit, CancellationToken.None);
+        new SpecDialogConversationList(_repository, new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance), new SpecDialogTicketTextRepository(_context)).ListAsync(Owner, limit, CancellationToken.None);
 
     public void Dispose()
     {

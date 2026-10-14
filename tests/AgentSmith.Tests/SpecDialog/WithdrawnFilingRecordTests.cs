@@ -79,5 +79,5 @@ public sealed class WithdrawnFilingRecordTests
     }
 
     private static SpecDialogLatestOutcomeStore Store() =>
-        new(new SpecDialogSessionRepository(null!), NullLogger<SpecDialogLatestOutcomeStore>.Instance);
+        new(new SpecDialogSessionRepository(null!), AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(new SpecDialogSessionRepository(null!)), NullLogger<SpecDialogLatestOutcomeStore>.Instance);
 }

@@ -18,7 +18,7 @@ public static class RunProjectionsExtensions
         services.AddSingleton<RunCheckpointProjection>();
         services.AddSingleton<RunExpectationProjection>();
         services.AddSingleton<QueuedRunProjection>();
-        services.AddSingleton<RunSandboxProjection>();
+        services.AddSingleton<RunSandboxProjection>().AddSingleton<SandboxEndFold>(); // 2026-10-13-9a59i
         services.AddSingleton<RunStepTimeProjection>();
         services.AddSingleton<RunPullRequestProjection>();
         // p0413: what the scope classifier decided about the ticket — its size and
@@ -31,7 +31,7 @@ public static class RunProjectionsExtensions
         services.AddSingleton<RunTrailBuffers>();
         services.AddSingleton<CancelTerminalWriter>();
         services.AddSingleton<IUnfinishedRunSource, UnfinishedRunSource>();
-        services.AddSingleton<RunSpecProjection>();
+        services.AddSingleton<RunSpecProjection>().AddSingleton<RunSeriesCutProjection>(); // 2026-10-13-9a59e
         // 2026-08-25-61f1: the three tables a run event INSERTS into own their own rows —
         // and with them the rule that one event's row is written once.
         services.AddSingleton<ProjectedEventRecords>();
@@ -39,6 +39,17 @@ public static class RunProjectionsExtensions
         services.AddSingleton<RunStepProjection>();
         services.AddSingleton<RunLlmCallProjection>();
         services.AddSingleton<RunDecisionProjection>();
+        // 2026-10-13-9a59d: the applier dispatches to these families, in this order.
+        services.AddSingleton<RunStartProjection>().AddSingleton<RunAttemptProjection>();
+        services.AddSingleton<IRunEventFamily, RunRowFamily>();
+        services.AddSingleton<IRunEventFamily, RunStepFamily>();
+        services.AddSingleton<IRunEventFamily, RunSandboxFamily>();
+        services.AddSingleton<IRunEventFamily, RunSpecFamily>();
+        services.AddSingleton<IRunEventFamily, RunAttemptFamily>();
+        services.AddSingleton<RunPassProjection>().AddSingleton<RunLedgerTransitionProjection>(); // 2026-10-13-9a59f
+        services.AddSingleton<IRunEventFamily, RunPassFamily>();
+        services.AddSingleton<IRunEventFamily, RunConversationProjection>(); // 2026-10-13-9a59g
+        services.AddSingleton<IRunEventFamily, RunSegmentProjection>(); // 2026-10-13-9a59j
         return services;
     }
 }

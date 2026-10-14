@@ -181,6 +181,9 @@ function describeSystemEvent(e: SystemEvent): string {
       return `config change ${e.epoch} pending · by ${e.actor}`;
     case SystemEventType.ConfigReloaded:
       return `config reload ${e.epoch} applied · ${e.trackerCount} trackers`;
+    case SystemEventType.TicketActivityChanged:
+      // 2026-10-13-9a59a: a refresh signal the server keeps off the System page.
+      return "";
   }
 }
 

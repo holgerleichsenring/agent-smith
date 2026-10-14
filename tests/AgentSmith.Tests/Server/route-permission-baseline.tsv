@@ -53,7 +53,9 @@ GET	/api/runs	runs.read
 GET	/api/runs/expectations/metrics	runs.read
 GET	/api/runs/{runId}	runs.read
 GET	/api/runs/{runId}/acceptance	runs.read
+GET	/api/runs/{runId}/compute	runs.read
 GET	/api/runs/{runId}/decisions	runs.read
+GET	/api/runs/{runId}/passes	runs.read
 GET	/api/runs/{runId}/specs	runs.read
 GET	/api/runs/{runId}/specs/{specId}	runs.read
 GET	/api/runs/{runId}/statistics	runs.read
@@ -75,6 +77,11 @@ GET	/api/spec-dialog/tickets/{project}/{ticketId}	dialog.write
 GET	/api/spec-dialog/tickets/{ticketId}	dialog.write
 GET	/api/spec-dialog/{dialogId}	dialog.write
 GET	/api/spec-dialog/{dialogId}/filed-work	dialog.write,runs.read
+GET	/api/tickets	runs.read
+GET	/api/tickets/{project}/{ticketId}	runs.read
+GET	/api/tickets/{project}/{ticketId}/approval-preview	dialog.write
+GET	/api/tickets/{project}/{ticketId}/conversation	runs.read
+GET	/api/tickets/{project}/{ticketId}/series	runs.read
 GET	/health	anonymous
 POST	/api/archive/import	archive.import
 POST	/api/config/agents	config.write

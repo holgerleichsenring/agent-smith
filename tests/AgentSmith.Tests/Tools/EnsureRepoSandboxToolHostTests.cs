@@ -139,6 +139,8 @@ public sealed class EnsureRepoSandboxToolHostTests
             _factoryMock.Object, _specBuilder, _resolverMock.Object,
             EventTestStubs.NoOp, EventTestStubs.RunContext,
             new NoOpSandboxLivenessSupervisor(),
+new AgentSmith.Application.Services.Sandbox.SandboxRelease(
+                AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp, NullLogger<AgentSmith.Application.Services.Sandbox.SandboxRelease>.Instance),
             NullLogger<PipelineSandboxCoordinator>.Instance);
         await coordinator.EnsureSandboxesAsync(project, pipeline, CancellationToken.None);
 

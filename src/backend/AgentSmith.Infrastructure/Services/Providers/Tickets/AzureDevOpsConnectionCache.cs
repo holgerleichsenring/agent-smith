@@ -21,6 +21,8 @@ internal sealed class AzureDevOpsConnectionCache(AzureDevOpsTicketConnection con
     private static readonly ConcurrentDictionary<string, Entry> Cache = new();
 
     private readonly string _organizationUrl = connection.OrganizationUrl;
+
+    internal string OrganizationUrl => _organizationUrl;
     private readonly string _pat = connection.PersonalAccessToken;
 
     // 2026-10-02-5f89a: keyed by org URL AND token hash, so a re-pointed secret or a second

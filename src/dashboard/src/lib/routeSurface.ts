@@ -10,6 +10,7 @@ const SURFACE_BY_SEGMENT: Record<string, string> = {
   config: "configuration",
   system: "system view",
   "pull-requests": "pull requests",
+  tickets: "ticket list",
 };
 
 export function routeSurfaceName(pathname: string | null | undefined): string {

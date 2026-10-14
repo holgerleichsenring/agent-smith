@@ -21,6 +21,7 @@ import {
 } from "@/lib/RunBucketFilter";
 import { cn } from "@/lib/utils";
 import { AppRailItem } from "./AppRailItem";
+import { WorkRailSection } from "./WorkRailSection";
 import { isOpenPullRequest } from "@/lib/prStatus";
 
 // p0209a: persistent left app rail. p0343c (pixel identity): the rail emits the
@@ -148,12 +149,13 @@ export function AppRail() {
         <ConfigRailSections pathname={pathname} />
       ) : (
         <>
-          <Section label="Monitor" />
+          <WorkRailSection />
+          <Section label="Monitor" style={{ marginTop: 10 }} />
           {/* p0348: "All runs" = every run in the merged active+recent list (no
               date filter — the old "Today" label was misleading).
               p0458: each item below SHOWS its bucket rather than scrolling to it —
               a label carrying a live count is read as a filter, so it is one.
-              "All runs" clears the filter. Needs-you goes hot (amber) the moment
+              "All runs" clears the filter. Waiting for input goes hot (amber) the moment
               a run waits on the operator. */}
           <AppRailItem
             label="All runs"
@@ -164,7 +166,7 @@ export function AppRail() {
             onClick={chooseBucket("all")}
           />
           <AppRailItem
-            label="Needs you"
+            label="Waiting for input"
             href={bucketHref("needs-you")}
             icon="?"
             active={isChosen("needs-you")}

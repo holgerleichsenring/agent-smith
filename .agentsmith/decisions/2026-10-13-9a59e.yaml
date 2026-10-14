@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-9a59e
+
+decisions:
+  - category: Architecture
+    chose: "The cut rides on 9a59d's SpecSetPublishedEvent (SetKey, HandbackCase, Specs of SpecCutEntry), built by SpecCutContent inside SpecSetAnnouncer; SpecSetPublisher is not touched"
+    over: "A git read of the branch, or a second event beside 83"
+    reason: |
+      The branch stays the content of record; the row is what THIS attempt published, so the read needs no
+      clone or host call and dies with the run. One event is one moment: the publish already carries the
+      revision, the cut is the same publication.
+  - category: Architecture
+    chose: "SpecSetAnnouncer.AnnounceHandbackAsync, called by SpecHandbackHandler right after ParkAsync, announces a hand-back-only cut (ticket key, no specs, its case, no revision) unless the set on the context is already handed back"
+    over: "The case on 9a59g's event 85; announcing every hand-back from the handler"
+    reason: |
+      A scope refusal and a missing spec park without the publisher, so they had no case anywhere. The check
+      sits in the announcer so the handler grows by exactly two lines (118 -> 120 of 120); a set the publisher
+      handed back was announced there, so it is not announced twice. A later member that grows the handler
+      extracts first.
+  - category: Data
+    chose: "The case is stored as the SpecHandbackCase name (Refused, Question, SpecificationMissingFromBranch, ...)"
+    over: "A snake_case code or the integer"
+    reason: |
+      The integer is the pointer store's persistence and append-only; the name is readable on the wire and in
+      the row without a second vocabulary to keep in step. The dashboard maps names to words.
+  - category: Data
+    chose: "RunSeriesCut (Id, RunId, EventSeq, SetKey, HandbackCase, SpecsJson, At), table RunSeriesCuts, registered through RunChildConfiguration.Children (plus one ToTable line there) and RunRecordIdentityConfiguration.Unique"
+    over: "An own IEntityTypeConfiguration; editing AgentSmithDbContext"
+    reason: |
+      Like every run child it carries a long Id, so Children gives RunId its cap and index and the identity
+      configuration its filtered (RunId, EventSeq) unique index; the context stays at 120 lines. The plural
+      table name matches RunAttempts.
+  - category: Data
+    chose: "The cut projection stands up not_started RunSpec rows for the unexecuted specs, updates ordinal and goal of rows still not_started, removes not_started rows a later cut of the run dropped, and leaves the rows alone on a hand-back cut"
+    over: "Pruning on a hand-back cut too"
+    reason: |
+      A hand-back cut has no specs; pruning on it would erase the specs the series read keeps showing below
+      the hand-back. A row that already ran is never touched. Carried specs get no row.
+  - category: Data
+    chose: "RunSpec.StartedAt is set when it is null and the event is not NotStarted; RunSpec.AcceptanceJson takes any event's non-null acceptance (last write wins)"
+    over: "Stamping only on InProgress"
+    reason: |
+      A spec recorded Done by SelectSpec's already-satisfied path never sent InProgress and was stamped on
+      creation before; keeping that is the closest faithful reading of "set on the first InProgress".
+  - category: Architecture
+    chose: "SpecProgressRecorder attaches the spec's acceptance on every state change whenever that spec has an account or a declined criterion (AcceptanceSnapshot over that spec's RunAccounts entry and declined criteria); a spec with neither carries null"
+    over: "An explicit flag on ISpecProgressRecorder for Done, Failed and the repair's in_progress"
+    reason: |
+      The interface keeps its shape (five callers and three test doubles). Done, Failed and the repair's
+      in_progress all have an account by then; SelectSpec's first in_progress has none and carries null. The
+      account a review fix-pass revert restored is the one on the context at record time.
+  - category: Behaviour
+    chose: "VerifySpec records in_progress, not done, when its successful result splices the repair (InsertNext non-empty)"
+    over: "Recording done before the repair has run"
+    reason: |
+      A per-spec verdict would show a green cell over a red account. The repair's own verification decides
+      done or failed afterwards.
+  - category: Architecture
+    chose: "Series read = TicketSeriesReader over TicketRunsQuery (lifted out of TicketDetailReader, which now uses it), TicketSeriesRecordsReader (one set query per table), TicketSeriesCuts (cut choice) and TicketSeriesSpecComposer"
+    over: "One reader class"
+    reason: |
+      The 120-line class limit; the detail reader's run query was the same query the series needs, so it moved
+      instead of being copied.
+  - category: Behaviour
+    chose: "A spec's state is the cut attempt's RunSpec status or carried; executedBy is the newest attempt whose row left not_started; criteria verdicts come from the newest attempt row with EndedAt and an acceptance, matched by CriterionKey; a declined criterion with no row reads not_applicable with its reason; the overrule is that run's judgement by CriterionKey"
+    over: "Positional matching of criteria; reading Run.AcceptanceJson"
+    reason: |
+      Criteria of a re-derived spec can reorder (CriterionKey's own reason). Run.AcceptanceJson stays the
+      gate's run-end snapshot; the ticket read uses only the per-spec rows.
+  - category: Behaviour
+    chose: "Gate status: skipped when the cut carries a case, else passed/failed from the cut attempt's newest SpecGate step (success -> passed); no step -> no gate"
+    over: "Reading the step for hand-backs"
+    reason: "SpecGate answers OK for a handed-back set (SpecGateHandler.cs:33-36), so its step says success."
+  - category: Behaviour
+    chose: "Strip derive order: deriving (newest attempt live with no cut of its own), handed_back (the newest cut is a hand-back), cut, none. Cells: carried, asked (newest attempt waiting_for_input with a checkpoint and the spec in_progress in it), then the cut attempt's status; in_progress on an ended attempt reads failed"
+    over: "A seventh cell word for a spec that stopped mid-run"
+    reason: |
+      The cell vocabulary is fixed by the series contract (done, carried, live, asked, failed, handed_back,
+      not_started). A spec in progress when its attempt ended did not finish; the attempt's own status on the
+      row says why (cancelled, failed).
+  - category: Behaviour
+    chose: "?runId= names an attempt of the ticket or answers 404; its cut is that attempt's latest cut with specs, else its latest cut; handback = that attempt's hand-back cut"
+    over: "Falling back to the default read for a foreign run id"
+    reason: "A run id that is not an attempt of the ticket is a wrong address, not an empty series."
+  - category: Behaviour
+    chose: "A ticket with no cut row answers 200 with Recorded=false and no specs"
+    over: "404"
+    reason: "Runs before this spec have no cut; the read says so rather than pretending the ticket does not exist."

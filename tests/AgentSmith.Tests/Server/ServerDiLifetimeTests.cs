@@ -53,7 +53,7 @@ public sealed class ServerDiLifetimeTests
         provider.GetService<IPromptCatalog>().Should().NotBeNull("Server DI must register IPromptCatalog");
         provider.GetService<IDialogueTransport>().Should().NotBeNull("Server DI must register IDialogueTransport");
         provider.GetService<IPipelineConfigResolver>().Should().NotBeNull("Server DI must register IPipelineConfigResolver");
-        provider.GetServices<IWebhookHandler>().Should().HaveCount(17, "all 17 webhook handlers (13 ticket-event + 2 2026-10-08-e8b9c pr-review + 1 2026-10-08-f147 GitLab review + 1 2026-10-08-2123 Jira status) register from a single AddWebhookHandlers call; 2026-10-13-0b82a removed the 3 pr-event handlers");
+        provider.GetServices<IWebhookHandler>().Should().HaveCount(20, "all 20 webhook handlers (13 ticket-event + 2 2026-10-08-e8b9c pr-review + 1 2026-10-08-f147 GitLab review + 1 2026-10-08-2123 Jira status + 3 pull-request state) register from a single AddWebhookHandlers call; 2026-10-13-0b82a removed the 3 pr-event handlers");
     }
 
     // 2026-10-13-0b82a: opening or pushing to a pull request is a change, not an assignment —
@@ -174,6 +174,68 @@ public sealed class ServerDiLifetimeTests
 
         scope.ServiceProvider.GetService<AgentSmith.Server.Services.Init.InitRunLauncher>()
             .Should().NotBeNull("POST /api/projects/{name}/init resolves the launcher per request");
+    }
+
+    // 2026-10-13-9a59l: an approval in a ticket's own conversation and its preview resolve from the real
+    // composition — with the dashboard API, and without it, where a chat conversation still approves.
+    [Fact]
+    public void ServerDi_TicketContinuation_ResolvesFromTheRealComposition()
+    {
+        foreach (var services in new[] { BuildServerLikeServices(), BuildServerLikeServices().AddDashboardApi() })
+        {
+            using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+            using var scope = provider.CreateScope();
+
+            scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.SpecDialog.IOutcomeSink>()
+                .Should().BeOfType<AgentSmith.Server.Services.SpecDialog.TicketFilingOutcomeSink>();
+            scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.SpecDialog.Continuation.TicketContinuationAct>()
+                .Should().NotBeNull();
+            scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.Tickets.TicketApprovalPreview>()
+                .Should().NotBeNull();
+        }
+    }
+
+    // 2026-10-13-9a59n: Retry resolves from the real composition with the dashboard API that maps its route.
+    [Fact]
+    public void ServerDi_RunRetry_ResolvesFromTheRealComposition()
+    {
+        using var provider = AgentSmith.Infrastructure.Persistence.Extensions.ServerStateExtensions.AddServerState(BuildServerLikeServices()).AddDashboardApi()
+            .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        using var scope = provider.CreateScope();
+
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.Rework.RunRetry>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Infrastructure.Persistence.Repositories.RunRetryRequestRepository>()
+            .Should().NotBeNull();
+    }
+
+    // 2026-10-13-9a59t: the closed ticket's follow-up is a worker singleton; what it files with is scoped and
+    // resolves inside the one scope it opens per call.
+    [Fact]
+    public void ClosedTicketActFollowUp_ResolvesScopedStarterAndLinkInOneScope()
+    {
+        var services = AgentSmith.Infrastructure.Persistence.Extensions.ServerStateExtensions.AddServerState(BuildServerLikeServices());
+        services.AddReworkNudgeWorker();
+        using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+
+        provider.GetRequiredService<AgentSmith.Server.Services.Rework.ClosedTicketActFollowUp>().Should().NotBeNull();
+        provider.GetRequiredService<AgentSmith.Server.Services.Rework.ReworkNudgeHandler>().Should().NotBeNull();
+        using var scope = provider.CreateScope();
+        var filing = AgentSmith.Server.Services.Rework.FollowUpServices.Of(scope.ServiceProvider);
+        filing.Starter.Should().NotBeNull();
+        filing.Link.Should().NotBeNull();
+    }
+
+    // 2026-10-13-9a59o: a bound turn's run record reads its facts through the real composition.
+    [Fact]
+    public void ServerDi_BoundTicketRunFacts_ResolveFromTheRealComposition()
+    {
+        using var provider = AgentSmith.Infrastructure.Persistence.Extensions.ServerStateExtensions.AddServerState(BuildServerLikeServices())
+            .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        using var scope = provider.CreateScope();
+
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.SpecDialog.BoundTicketReaders>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.SpecDialog.TicketRunsFacts>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Contracts.Reviews.IPrReviewRecordReader>().Should().NotBeNull();
     }
 
     [Fact]

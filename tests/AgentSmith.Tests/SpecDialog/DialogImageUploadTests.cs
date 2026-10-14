@@ -67,7 +67,7 @@ public sealed class DialogImageUploadTests : IDisposable
         _attachments = new ReferenceFileRepository(_context);
         _ticketText = new SpecDialogTicketTextRepository(_context);
         _sessions = new SpecDialogSessionManager(
-            _repository, AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
+            _repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
             NullLogger<SpecDialogSessionManager>.Instance);
         _ownership = new SpecDialogOwnership(_repository);
     }
@@ -269,7 +269,7 @@ public sealed class DialogImageUploadTests : IDisposable
                 _sessions, new SpecDialogProjectCatalog(Loader()),
                 new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)),
                 new SpecDialogLatestOutcomeStore(
-                    _repository, NullLogger<SpecDialogLatestOutcomeStore>.Instance),
+                    _repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), NullLogger<SpecDialogLatestOutcomeStore>.Instance),
                 new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
                 new SpecDialogTurnGate(TimeProvider.System), _ticketText, TestUploads.Over(_context))
             .ReadAsync(dialogId, CancellationToken.None)).Session;

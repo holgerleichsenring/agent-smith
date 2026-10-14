@@ -245,11 +245,12 @@ public sealed class ParkRecordsARefusedMoveTests
 
     private SpecHandbackHandler HandbackHandler(Mock<ITicketProvider> provider) => new(
         new SpecHandbackPark(
-            Factory(provider), Report(), Mock.Of<AgentSmith.Contracts.Reviews.IHandbackPrNotice>(), NullLogger<SpecHandbackPark>.Instance),
+            Factory(provider), Report(), Mock.Of<AgentSmith.Contracts.Reviews.IHandbackPrNotice>(), Mock.Of<AgentSmith.Contracts.Events.IEventPublisher>(), Mock.Of<AgentSmith.Contracts.Events.IRunContextAccessor>(), NullLogger<SpecHandbackPark>.Instance),
         new SpecParkStatusResolver(new ClarificationParkStatusResolver()),
         new InMemorySpecSetPointerStore(),
         new SpecHandbackRepeat(NullLogger<SpecHandbackRepeat>.Instance),
-        AgentSmith.Tests.TestSupport.HandbackTestDoubles.Heads(), NullLogger<SpecHandbackHandler>.Instance);
+        AgentSmith.Tests.TestSupport.HandbackTestDoubles.Heads(),
+        AgentSmith.Tests.TestSupport.HandbackTestDoubles.Announcer(), NullLogger<SpecHandbackHandler>.Instance);
 
     private TicketClaimService ClaimService()
     {

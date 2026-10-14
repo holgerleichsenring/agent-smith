@@ -37,7 +37,7 @@ public sealed class SpecDialogAnswerAdmissionTests : IDisposable
             new DbContextOptionsBuilder<AgentSmithDbContext>().UseSqlite(_connection).Options);
         MigratedStoreTemplate.CopyInto(_context);
         _sessions = new SpecDialogSessionManager(
-            new SpecDialogSessionRepository(_context), AgentSmith.Tests.Sandbox.Holds.None(), _clock,
+            new SpecDialogSessionRepository(_context), AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(new SpecDialogSessionRepository(_context)), AgentSmith.Tests.Sandbox.Holds.None(), _clock,
             NullLogger<SpecDialogSessionManager>.Instance);
         _admission = new SpecDialogAnswerAdmission(_sessions, _pending, _transport.Object);
     }

@@ -114,6 +114,14 @@ public sealed class RoutePermissionGuardTests
         secrets.Should().NotContain(fact => fact.Permissions.Contains(Permissions.ConfigWrite));
     }
 
+    // 2026-10-13-9a59a: a regrouping of run rows, like /api/pull-requests — no new permission.
+    [Fact]
+    public void RoutePermission_TicketRoutes_NeedRunsRead()
+    {
+        Declaration("GET", "/api/tickets").Should().Equal(Permissions.RunsRead);
+        Declaration("GET", "/api/tickets/{project}/{ticketId}").Should().Equal(Permissions.RunsRead);
+    }
+
     // The config/secrets split holds for direct entity CRUD and leaks here: the change
     // feed carries the secret's id and changed field names, revert takes no type filter
     // at all, export serializes the secret entities, and import writes them.

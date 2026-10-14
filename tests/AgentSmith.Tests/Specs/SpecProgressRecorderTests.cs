@@ -78,6 +78,38 @@ public sealed class SpecProgressRecorderTests
             .Should().BeFalse();
     }
 
+    /// <summary>2026-10-13-9a59e: a spec's verdict rides on its own state event — its accounts only.</summary>
+    [Fact]
+    public async Task SpecProgressRecorder_Done_CarriesThatSpecsCriteriaOnly()
+    {
+        var (pipeline, publisher, recorder) = Setup();
+        pipeline.Set(ContextKeys.RunAccounts, AgentSmith.Domain.Models.RunAccounts.Empty
+            .With("p0001a", [new("api", [new("p0001a is done.", AgentSmith.Domain.Models.AccountDisposition.Satisfied, "src/A.cs")])])
+            .With("p0001b", [new("api", [new("p0001b is done.", AgentSmith.Domain.Models.AccountDisposition.NotSatisfied)])]));
+
+        await recorder.RecordAsync(pipeline, "p0001a", SpecRunState.Done);
+
+        var acceptance = AgentSmith.Contracts.Runs.RunStoryJson.TryDeserialize<AgentSmith.Contracts.Runs.AcceptanceView>(
+            publisher.Events.OfType<SpecStateChangedEvent>().Single().AcceptanceJson)!;
+        acceptance.Criteria.Select(c => (c.Text, c.Status)).Should().Equal(("p0001a is done.", "met"));
+    }
+
+    [Fact]
+    public async Task SpecProgressRecorder_FailedOnRedBuild_CarriesTheUnmeasuredProblem()
+    {
+        var (pipeline, publisher, recorder) = Setup();
+        pipeline.Set(ContextKeys.CurrentSpec, TwoSpecSet().Specs[1].Draft);
+        Application.Services.Specs.RunAccountLedger.RecordProblem(pipeline, ["api"], "dotnet build exited 1");
+
+        await recorder.RecordAsync(pipeline, "p0001b", SpecRunState.Failed, "dotnet build exited 1");
+        await recorder.RecordAsync(pipeline, "p0001a", SpecRunState.InProgress);
+
+        var events = publisher.Events.OfType<SpecStateChangedEvent>().ToList();
+        AgentSmith.Contracts.Runs.RunStoryJson.TryDeserialize<AgentSmith.Contracts.Runs.AcceptanceView>(events[0].AcceptanceJson)!
+            .Unmeasured.Single().Reason.Should().Be("dotnet build exited 1");
+        events[1].AcceptanceJson.Should().BeNull("a spec with no account yet carries none");
+    }
+
     private static (PipelineContext, RecordingEventPublisher, SpecProgressRecorder) Setup()
     {
         var pipeline = new PipelineContext();

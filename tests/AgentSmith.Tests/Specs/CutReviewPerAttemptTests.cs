@@ -30,7 +30,7 @@ public sealed class CutReviewPerAttemptTests
     {
         var reviewer = new SpendingReviewer();
         var deriver = new SpecSetDeriver(
-            reviewer,
+            AgentSmith.Tests.TestSupport.CutReviewSteps.Of(reviewer),
             new SpecDerivationCall(
                 new CappingFactory(new LookingProvider(Cut())), new AsyncLocalRunContextAccessor(), Proof()),
             Factory(), new FixedPrompt(), DerivationTestParsers.Real(), new ScopedContextCoverage(),
@@ -51,7 +51,7 @@ public sealed class CutReviewPerAttemptTests
     {
         var provider = new LookingProvider(Cut());
         var deriver = new SpecSetDeriver(
-            new CitingReviewer(),
+            AgentSmith.Tests.TestSupport.CutReviewSteps.Of(new CitingReviewer()),
             new SpecDerivationCall(new CappingFactory(provider), new AsyncLocalRunContextAccessor(), Proof()),
             Factory(), new FixedPrompt(), DerivationTestParsers.Real(), new ScopedContextCoverage(),
             AgentSmith.Tests.TestSupport.HandbackTestDoubles.Gate(), NullLogger<SpecSetDeriver>.Instance);
@@ -72,7 +72,7 @@ public sealed class CutReviewPerAttemptTests
     {
         var reviewer = new SpendingReviewer();
         var deriver = new SpecSetDeriver(
-            reviewer,
+            AgentSmith.Tests.TestSupport.CutReviewSteps.Of(reviewer),
             new SpecDerivationCall(new CappingFactory(new LookingProvider(Cut())), new AsyncLocalRunContextAccessor(), Proof()),
             Factory(), new FixedPrompt(), DerivationTestParsers.Real(), new ScopedContextCoverage(),
             AgentSmith.Tests.TestSupport.HandbackTestDoubles.Gate(), NullLogger<SpecSetDeriver>.Instance);

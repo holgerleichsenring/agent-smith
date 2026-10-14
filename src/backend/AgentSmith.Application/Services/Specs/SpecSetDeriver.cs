@@ -34,7 +34,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// </para>
 /// </summary>
 public sealed class SpecSetDeriver(
-    ISpecCutReviewer reviewer,
+    CutReviewStep cutReview,
     SpecDerivationCall call,
     DerivationLookFactory looks,
     IPromptCatalog prompts,
@@ -88,22 +88,10 @@ public sealed class SpecSetDeriver(
                 attempts.IsLast(attempt), attempts.Refuted, agentConfig, pipeline, cancellationToken);
             if (gated.Step == HandbackGateStep.Park) return (parsed.Derivation, null);
             if (gated.Step != HandbackGateStep.Continue) { messages.Add(attempts.Gated(gated, parsed.Derivation)); continue; }
-            // p0422: the parser checks the SHAPE; a fresh instance checks whether the cut can
-            // be DELIVERED. Rejected here, the deriver answers instead of a run finding out.
-            // 2026-09-15-ffa7: the reviewer keeps nothing between calls, so its look is per attempt.
-            await using var reviewLook = looks.ForCutReview(pipeline);
-            var set = parsed.Derivation.Set;
-            var review = await reviewer.ReviewAsync(
-                [.. set.Specs.Select(p => p.Draft)], set.Key, SpecCutReviewTicketText.Of(ticket), reviewLook,
-                agentConfig, PipelineCostTracker.GetOrCreate(pipeline), cancellationToken);
-            if (!review.Deliverable)
-            {
-                attempts.Kept.Offer(parsed.Derivation, review);
-                var rejection = SpecCutRejection.For(review, reviewLook?.Evidence.Lines);
-                logger.LogWarning("Spec cut attempt {Attempt} is not deliverable: {Error}", attempt, rejection);
-                messages.Add(attempts.Reject("Your cut cannot be delivered", rejection));
-                continue;
-            }
+            // p0422: the parser checks the SHAPE; a fresh instance checks whether the cut can be DELIVERED.
+            var rejection = await cutReview.ReviewAsync(
+                parsed.Derivation, ticket, attempt, attempts.Kept, looks, agentConfig, pipeline, cancellationToken);
+            if (rejection is not null) { messages.Add(attempts.Reject("Your cut cannot be delivered", rejection)); continue; }
             var gap = coverage.Gap(named, parsed.Derivation.Set);
             if (gap.Count == 0) return (parsed.Derivation, null);
             if (attempts.Pinned) return (ScopedContextQuestion.For(parsed.Derivation, gap, named!), null);

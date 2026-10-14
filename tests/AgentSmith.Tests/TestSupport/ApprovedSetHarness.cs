@@ -82,7 +82,7 @@ internal sealed class ApprovedSetHarness
             Pointers,
             new ApprovedSpecSetResolver(Approvals, NullLogger<ApprovedSpecSetResolver>.Instance),
             new SpecSourceResolver(
-                new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance),
+                new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance), AgentSmith.Tests.TestSupport.ApprovedSetDoubles.Continuation(),
                 new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
                 NullLogger<SpecSourceResolver>.Instance),
             new SpecFallback(validator, draftReader, new DerivedSpecYamlRenderer()),
@@ -108,6 +108,7 @@ internal sealed class ApprovedSetHarness
         PullRequests,
         new SpecRefusalReporter(new NoOpEventPublisher(), NullLogger<SpecRefusalReporter>.Instance),
         Mock.Of<Contracts.Persistence.IRunArtifactStore>(),
+        new SpecSetAnnouncer(new NoOpEventPublisher(), NullLogger<SpecSetAnnouncer>.Instance),
         NullLogger<SpecSetPublisher>.Instance);
 
     internal DeriveSpecContext Context(Ticket ticket, string? carriedJson = null)

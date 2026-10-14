@@ -1,0 +1,144 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-9a59k
+goal: "A fetched ticket says whether its tracker counts it closed, and TicketClosure says whether a person closed it for work: closed category and not a status agent-smith itself set."
+
+applies_to: "backend (domain ticket, the four tracker field mappers and status histories, Azure DevOps provider and WIQL runner, application ticket closure and park statuses, rework park check)"
+
+requires: [2026-10-13-9a59d]
+
+facts:
+  - claim: "A Ticket carries a status string and no closed state; its copy method rebuilds every field by hand and says a field left out is dropped on every fetched ticket."
+    evidence: "src/backend/AgentSmith.Domain/Entities/Ticket.cs:16-38,64-72"
+  - claim: "The GitHub, Jira and Azure DevOps mappers construct a Ticket by name; GitLab's mapper and InlineTicket.ToTicket use a target-typed new."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubFieldMapper.cs:18, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraFieldMapper.cs:20, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsFieldMapper.cs:24, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabFieldMapper.cs:15-16, src/backend/AgentSmith.Contracts/Models/InlineTicket.cs:20-23"
+  - claim: "GitHub maps the issue state through StringValue into Status, and the provider closes an issue by setting ItemState.Closed."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubFieldMapper.cs:23, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketProvider.cs:158-159"
+  - claim: "GitLab maps the issue's state field into Status and closes through the 'close' state event."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabFieldMapper.cs:21, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabTicketProvider.cs:165,179"
+  - claim: "Jira maps only status.name; statusCategory is used only inside JQL; both the single fetch and the search ask for the status field."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraFieldMapper.cs:82-86, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketProvider.cs:82,100, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraIssueSearcher.cs:27-28, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraDiscoveryJqlBuilder.cs:66-67"
+  - claim: "The Azure DevOps mapper is synchronous over a field dictionary with no client; it maps System.State and System.WorkItemType."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsFieldMapper.cs:16-35"
+  - claim: "Azure DevOps 'open' is a configured state list the code calls a guess."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsOpenScope.cs:8-19"
+  - claim: "The Azure DevOps single fetch maps workItem.Fields; list and search reads hydrate System.State and System.WorkItemType through the WIQL runner and map each item."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs:78-90, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsWiqlRunner.cs:26-35,89-97"
+  - claim: "GetTicketAsync is also what the run's fetch, the label write and the rework park check call, and the poll lister answers a failed WIQL run with an empty cycle."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/FetchTicketHandler.cs:54, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs:131-133, src/backend/AgentSmith.Server/Services/Rework/ReworkParkCheck.cs:29, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsWorkItemLister.cs:55-61"
+  - claim: "The provider news a collaborator per call over the pooled connection (status history), and the connection cache is a static dictionary inside a sealed non-static class with a 30-minute TTL."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs:205-210, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsConnectionCache.cs:18-21"
+  - claim: "The pinned Azure DevOps client exposes the per-type state list with its category."
+    evidence: "observed: 2026-10-13, strings on microsoft.teamfoundationserver.client 19.225.2 Microsoft.TeamFoundation.WorkItemTracking.WebApi.dll lists GetWorkItemTypeStatesAsync and WorkItemStateColor; csproj pin at src/backend/AgentSmith.Infrastructure/AgentSmith.Infrastructure.csproj:48"
+  - claim: "A successful run finalizes into the seeded done_status; with none it closes: GitHub and GitLab close the issue, Jira and Azure DevOps move into the tracker's done_status or the provider default 'Done' / 'Closed'."
+    evidence: "src/backend/AgentSmith.Application/Services/Lifecycle/TicketLifecycle.cs:37-53, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:406-409, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketFinalizer.cs:26-30, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabTicketFinalizer.cs:26-30, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketProvider.cs:51, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs:47, src/backend/AgentSmith.Infrastructure/Services/Factories/TicketProviderFactory.cs:59,78"
+  - claim: "A failed or cancelled run finalizes into failed_status, else done_status, else the same close; the spawn seeds done_status from the trigger and failed_status with the done fallback."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineErrorHandler.cs:161-166, src/backend/AgentSmith.Server/Services/Lifecycle/CancelledTicketFinalizer.cs:51-56, src/backend/AgentSmith.Application/Services/Spawning/SpawnRequestBuilder.cs:77-84"
+  - claim: "The effective trigger inherits the tracker's done (fresh trigger), failed, clarification and not-implementable statuses; a trigger's done_status defaults to 'In Review'."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/EffectiveTriggerBuilder.cs:47-51, src/backend/AgentSmith.Contracts/Models/Configuration/WebhookTriggerConfig.cs:23"
+  - claim: "The park-status precedence exists twice: ReworkParkCheck resolves trigger-then-tracker privately (Either) and treats done and failed as reworkable; SpecParkStatusResolver falls back from not-implementable to clarification from the run's seeded context."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkParkCheck.cs:30-45, src/backend/AgentSmith.Application/Services/Specs/SpecParkStatusResolver.cs:23-34"
+  - claim: "Every tracker has a status history behind ITicketStatusHistory, but it answers only a PERSON's newest move into given statuses; GitHub and GitLab read only reopens, Jira the changelog (Cloud: the last page of 100), Azure DevOps the updates (actor never flagged an app)."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ITicketStatusHistory.cs:5-14, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubStatusHistory.cs:20-30, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabStatusHistory.cs:23-40, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraStatusHistory.cs:25-45, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsStatusHistory.cs:23-46"
+  - claim: "An actor is ours when it matches the token's identity (TrackerIdentity, cached per tracker, null when unreadable); IsApp marks a host's app or bot."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/TrackerActor.cs:5-9, src/backend/AgentSmith.Application/Services/Rework/TrackerIdentity.cs:13-30"
+  - claim: "Line room: AzureDevOpsTicketProvider 214/218, JiraTicketProvider 197/206, GitLabTicketProvider 189/191, GitHubTicketProvider 189/189 (its history forwarder spans three lines, GitLab's one), PipelineHandlersExtensions 218/218 with TrackerIdentity and StatusBackActReader registered on one line; AzureDevOpsWiqlRunner 106 and ReworkParkCheck 52 are unlisted (120)."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:38,40,44,53,56, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketProvider.cs:179-182, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabTicketProvider.cs:185, src/backend/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs:43, observed: 2026-10-13, wc -l AzureDevOpsWiqlRunner.cs = 106"
+
+assumptions:
+  - "2026-10-13-9a59d replaces WithDescription with the ONE copy method Ticket.With(description, webUrl) and appends .With(webUrl: ...) to the Jira and Azure DevOps mapped lines; this spec adds an isClosed argument to that method and that call, never a second copy method."
+  - "Jira Cloud and Data Center return status.statusCategory.key ('new', 'indeterminate', 'done') inside every status object they return; a status without it reads not closed."
+  - "An Azure DevOps work item type's states change rarely enough that a 30-minute per-type cache (the connection cache's TTL) is current."
+  - "A tracker token used by agent-smith is not also a person's own account; where it is, that person's closes read as ours."
+
+scope:
+  in: >
+    FLAG: Ticket gains IsClosed (bool, constructor parameter defaulting false); 2026-10-13-9a59d's Ticket.With gains
+    `bool? isClosed = null` (null keeps). The tracker counts the ticket done or closed by its OWN category, never by a
+    configured status name (operator decision 1). GitHubFieldMapper: issue.State.StringValue is "closed" (StringValue,
+    as Status already reads it, so an unknown state string never throws). GitLabFieldMapper: state "closed".
+    JiraFieldMapper: fields.status.statusCategory.key is "done". InlineTicket stays false by construction (an inline
+    requirement has no tracker). Azure DevOps: a new AzureDevOpsStateCategories (provider path, not the mapper) reads
+    GetWorkItemTypeStatesAsync(project, type) through a delegate, caches it statically per (organization, project,
+    type) for 30 minutes, and answers whether a state's category is Completed or Removed; GetTicketAsync passes
+    isClosed in d's .With on the mapped line, and the WIQL runner reads the categories once per distinct type of a
+    batch and maps each item with it. A states read that fails throws, like the work-item read beside it.
+    HISTORY: ITicketStatusHistory gains NewestMoveIntoAsync(ticketId, status) — the newest move into ONE status by
+    ANY actor, IsApp carried — on all four: GitHub issue events 'closed' (or 'reopened' for open), GitLab
+    resource_state_events 'closed' (or 'reopened'), Jira changelog status items, Azure DevOps updates' System.State.
+    Each provider forwards in one line (GitHub collapses its three-line NewestPersonMoveIntoAsync forwarder to one:
+    189 -> 188; GitLab 190/191, Jira 198/206, Azure DevOps 215/218). PARK STATUSES: TicketParkStatuses
+    (Application/Services/Tickets) is the ONE resolver of the statuses agent-smith itself sets, from the project's
+    effective trigger then tracker: Done (trigger done_status), Failed (failed_status, else Done, as the spawn seeds
+    it), Clarification (trigger then tracker), NotImplementable (trigger then tracker, else Clarification); Own(status)
+    and IsHandbackPark(status). ReworkParkCheck's done/failed test and IsHandbackPark read it and its private Either
+    goes, with no change in which statuses park (the effective trigger already inherits the tracker's). CLOSURE:
+    TicketClosure (Application/Services/Tickets, transient, registered on PipelineHandlersExtensions.cs:43 beside
+    TrackerIdentity, no line added) — ClosedForWorkAsync(project, provider, ticket): false unless IsClosed; false when
+    the status is one of TicketParkStatuses; when no done_status is set (Done blank or no trigger), the run's own close
+    lands in the tracker's default close and the status cannot tell it from a person's, so the history decides — the
+    newest move into the current status by an actor that is neither the token's identity nor an app reads closed for
+    work; ours, an app, no move found, an unknown token identity or a failed history read reads not closed for work;
+    otherwise true.
+  out: >
+    Using the answer — what an approval does on a ticket closed for work — 2026-10-13-9a59l; Retry refused on a
+    ticket closed for work — 2026-10-13-9a59n; a keyword comment or pull-request act on a ticket closed for work
+    filing the follow-up — 2026-10-13-9a59t. Showing the tracker state on the ticket view — 2026-10-13-9a59d records
+    it, 2026-10-13-9a59q renders it in the detail header. Not built by any member of this series: replacing
+    AzureDevOpsOpenScope's configured open states or Jira's statusCategory JQL with the flag (those are discovery
+    queries run inside the tracker, which the flag cannot serve); SpecParkStatusResolver stays the run-side resolver
+    over the run's seeded context.
+
+decisions:
+  - key: "CLOSED IS THE TRACKER'S CATEGORY (operator decision 1, 2026-10-13). Jira statusCategory Done, Azure DevOps state category Completed or Removed, GitHub/GitLab issue closed. IsClosed consults no configured status, so it means the same on every tracker; what agent-smith set is TicketClosure's question, not the flag's."
+  - key: "CLOSED FOR WORK = A PERSON CLOSED IT (main-thread decision 1, 2026-10-13; pending operator ratification (2026-10-13)). A ticket is closed for work only when its status is in the closed category AND is not a status agent-smith itself sets: done_status, failed_status, needs_clarification_status, not_implementable_status, nor the close a run performs when no done_status is configured. A Request changes or /agent-smith on a run's own PR therefore still reworks a ticket the run moved to Done (2026-10-12-3a36 unchanged); only a person's close gets a follow-up. If the operator rejects it, TicketClosure shrinks to IsClosed and 2026-10-13-9a59l/n/t keep calling it."
+  - key: "WHICH RULE PER TRACKER. With a done_status configured, the configured-status rule decides on all four trackers (a status name agent-smith writes is ours, whoever moved it there last). With none, the run's close lands in the tracker's default: GitHub and GitLab 'closed' (issue events / resource_state_events tell who closed it), Jira tracker done_status or 'Done' (changelog author, accountType app), Azure DevOps tracker done_status or 'Closed' (update RevisedBy; the host flags no apps, so only the token identity filters). The history decides there because the provider defaults live in Infrastructure and copying them into Application would be a second copy of the fallback."
+  - key: "AN UNKNOWN CLOSE IS OURS. When the history cannot answer (no move found, Jira Cloud's last page lacks it, the token identity is unreadable, the read fails), the ticket reads not closed for work: the ticket then reworks as today, while a wrong 'closed' would file a follow-up nobody asked for."
+  - key: "ONE PARK-STATUS RESOLVER (review3 F1). TicketParkStatuses lives in Application because both callers sit above it (ReworkParkCheck in Server; TicketClosure for 2026-10-13-9a59l, n and t); Domain references nothing that knows a trigger. SpecParkStatusResolver reads the run's seeded context, not the project, and stays."
+  - key: "AZURE DEVOPS IN THE PROVIDER PATH, NOT THE MAPPER (review2-g G6). The mapper is synchronous and has no client; the category needs a call per work item type. A per-type static cache in a sealed non-static class (the AzureDevOpsConnectionCache pattern) makes a 200-item hydration cost one call per type, not per item."
+  - key: "A FAILED CATEGORY READ FAILS THE READ. Answering 'not closed' on a failure would let an approval continue a ticket its tracker closed. This fails every Azure DevOps GetTicketAsync caller (run start, label writes, park check) and empties a poll cycle while the states endpoint fails; accepted because the per-type cache makes a read rare (review3 F3)."
+  - key: "A BOOL, NOT A NULLABLE. Every mapper and both Azure DevOps read paths set it; an inline ticket is false by construction because no tracker holds it."
+  - key: "ONE COPY METHOD (coordinator, 2026-10-13). IsClosed travels through the constructor and 2026-10-13-9a59d's Ticket.With; no WithClosed."
+
+steps:
+  - id: domain
+    action: "Ticket.IsClosed (constructor parameter, default false); 2026-10-13-9a59d's Ticket.With gains isClosed (null keeps). Ticket.cs about 75 of 120."
+  - id: mappers
+    action: "GitHub (State.StringValue 'closed'), GitLab (state 'closed') and Jira (statusCategory.key 'done') field mappers pass IsClosed."
+  - id: azure
+    action: "AzureDevOpsStateCategories (delegate over GetWorkItemTypeStatesAsync, static per-type cache); GetTicketAsync passes isClosed in d's .With on line 86; WiqlRunner reads categories per distinct type of a batch (106 -> about 115)."
+  - id: history
+    action: "ITicketStatusHistory.NewestMoveIntoAsync on the four histories; one-line provider forwarders (GitHub 189 -> 188 by collapsing its existing forwarder, GitLab 190/191, Jira 198/206, Azure DevOps 215/218)."
+  - id: park-statuses
+    action: "TicketParkStatuses (Application/Services/Tickets); ReworkParkCheck reads it for done/failed and IsHandbackPark, Either goes (52 -> about 47)."
+  - id: closure
+    action: "TicketClosure.ClosedForWorkAsync (configured rule, history for the no-done close); registered on PipelineHandlersExtensions.cs:43 (218/218, no line added)."
+  - id: tests
+    action: "Red first for every test below; mapper tests extend the existing *FieldMapperTests fixtures, history tests extend StatusHistoryTests; each state-categories test uses its own (organization, project, type) key."
+
+tests:
+  - "GitHubFieldMapper_ClosedIssue_IsClosed_OpenIssue_IsNot"
+  - "GitLabFieldMapper_StateClosed_IsClosed"
+  - "JiraFieldMapper_StatusCategoryDone_IsClosed_InProgress_IsNot"
+  - "JiraFieldMapper_StatusWithoutCategory_IsNotClosed"
+  - "AzureDevOpsStateCategories_CompletedOrRemoved_IsClosed_ResolvedIsNot"
+  - "AzureDevOpsStateCategories_SecondTicketOfSameType_ReadsStatesOnce"
+  - "AzureDevOpsStateCategories_ReadFails_Throws"
+  - "Ticket_With_KeepsIsClosed"
+  - "StatusHistory_NewestMoveInto_ReturnsOwnAndAppActors"
+  - "GitHubHistory_NewestMoveIntoClosed_ReadsClosedEvent"
+  - "TicketParkStatuses_TriggerOverridesTrackerStatus"
+  - "TicketParkStatuses_NotImplementableUnset_FallsBackToClarification"
+  - "ReworkParkCheck_HandbackPark_UnchangedThroughSharedResolver"
+  - "TicketClosure_OwnDoneStatusInClosedCategory_IsNotClosedForWork"
+  - "TicketClosure_OwnFailedClarificationOrNotImplementable_IsNotClosedForWork"
+  - "TicketClosure_PersonMovedToOtherClosedStatus_IsClosedForWork"
+  - "TicketClosure_NoDoneStatus_OurClose_IsNotClosedForWork"
+  - "TicketClosure_NoDoneStatus_PersonClose_IsClosedForWork"
+  - "TicketClosure_NoDoneStatus_HistoryUnreadable_IsNotClosedForWork"
+
+done:
+  - "A Jira ticket in any status of the Done category reads closed; one in a Done-named status of another category does not."
+  - "An Azure DevOps work item in a Completed or Removed state reads closed, fetched alone or listed; a Resolved one does not."
+  - "A closed GitHub or GitLab issue reads closed; a reopened one does not."
+  - "A ticket in done_status, failed_status, needs_clarification_status or not_implementable_status is not closed for work, whatever that status's category; neither is a GitHub issue the run closed with no done_status configured."
+  - "A ticket a person moved into another closed-category status, or a GitHub/GitLab issue a person closed, is closed for work."

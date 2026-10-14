@@ -13,6 +13,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// 100 of each; a reply carrying an errors array throws, because GraphQL fails as HTTP 200.
 /// <para>2026-10-08-f147: the same query asks who the token is (viewer), so a marked note is ours
 /// only when the token's account wrote it.</para>
+/// <para>2026-10-13-9a59b: every note and thread carries its node id; a review body's thread is FromReview.</para>
 /// </summary>
 public sealed class GitHubPrReviewThreadReader(
     IGitHubClient client, string owner, string repo, string repoUrl, ILogger logger) : IPrReviewThreadReader
@@ -21,10 +22,10 @@ public sealed class GitHubPrReviewThreadReader(
 
     private const string Query =
         "query($owner:String!,$repo:String!,$number:Int!){viewer{login} repository(owner:$owner,name:$repo){pullRequest(number:$number){"
-        + "reviewThreads(first:100){pageInfo{hasNextPage} nodes{isResolved path line originalLine "
-        + "comments(first:100){nodes{author{__typename login} authorAssociation body createdAt publishedAt}}}}"
-        + "reviews(first:100){nodes{author{__typename login} authorAssociation body submittedAt}}"
-        + "comments(first:100){nodes{author{__typename login} authorAssociation body createdAt}}}}}";
+        + "reviewThreads(first:100){pageInfo{hasNextPage} nodes{id isResolved path line originalLine "
+        + "comments(first:100){nodes{id author{__typename login} authorAssociation body createdAt publishedAt}}}}"
+        + "reviews(first:100){nodes{id author{__typename login} authorAssociation body submittedAt}}"
+        + "comments(first:100){nodes{id author{__typename login} authorAssociation body createdAt}}}}}";
 
     public async Task<IReadOnlyList<PrReviewThread>> ListAsync(string prUrl, CancellationToken cancellationToken)
     {
@@ -46,19 +47,22 @@ public sealed class GitHubPrReviewThreadReader(
         if (threads.GetProperty("pageInfo").GetProperty("hasNextPage").GetBoolean())
             logger.LogWarning("PR #{Pr} has more than 100 review threads; the first 100 are read", number);
         return [.. Nodes(threads).Select(InlineThread),
-            .. Nodes(pr.GetProperty("reviews")).Select(n => Single(n, "submittedAt")).OfType<PrReviewThread>(),
-            .. Nodes(pr.GetProperty("comments")).Select(n => Single(n, "createdAt")).OfType<PrReviewThread>()];
+            .. Nodes(pr.GetProperty("reviews")).Select(n => Single(n, "submittedAt", fromReview: true)).OfType<PrReviewThread>(),
+            .. Nodes(pr.GetProperty("comments")).Select(n => Single(n, "createdAt", fromReview: false)).OfType<PrReviewThread>()];
     }
 
     private PrReviewThread InlineThread(JsonElement node)
     {
         var line = Int(node, "line") ?? Int(node, "originalLine");
         var notes = Nodes(node.GetProperty("comments")).Select(c => Note(c, "publishedAt", "createdAt")).OfType<PrReviewNote>();
-        return new PrReviewThread(Str(node, "path"), line, node.GetProperty("isResolved").GetBoolean(), [.. notes]);
+        return new PrReviewThread(Str(node, "path"), line, node.GetProperty("isResolved").GetBoolean(), [.. notes])
+            { HostId = Str(node, "id") ?? string.Empty };
     }
 
-    private PrReviewThread? Single(JsonElement node, string timeField) =>
-        Note(node, timeField, timeField) is { } note ? new PrReviewThread(null, null, null, [note]) : null;
+    private PrReviewThread? Single(JsonElement node, string timeField, bool fromReview) =>
+        Note(node, timeField, timeField) is { } note
+            ? new PrReviewThread(null, null, null, [note]) { HostId = note.HostId, FromReview = fromReview }
+            : null;
 
     private PrReviewNote? Note(JsonElement node, string timeField, string fallbackTime)
     {
@@ -72,6 +76,7 @@ public sealed class GitHubPrReviewThreadReader(
             author is { } x && Str(x, "__typename") == "Bot", false, DateTimeOffset.Parse(at), body)
         {
             IsOurs = OwnPrNoteMarker.IsOurs(body, login is not null && string.Equals(login, _viewer, StringComparison.OrdinalIgnoreCase)),
+            HostId = Str(node, "id") ?? string.Empty,
         };
     }
 

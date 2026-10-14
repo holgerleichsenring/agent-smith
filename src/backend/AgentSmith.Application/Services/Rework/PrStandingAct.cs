@@ -41,8 +41,18 @@ public sealed class PrStandingAct(IPrReviewAuthorTrust trust)
     public static PrReviewNote? NewestCommand(IEnumerable<PrReviewThread> trustedThreads, PreviousAttempt attempt) =>
         trustedThreads.SelectMany(t => t.Notes).Where(n => IsCommand(n, attempt)).MaxBy(n => n.At);
 
-    public static ReworkAct Act(PrReviewNote note) =>
-        new(note.Author!.AuthorLogin, note.At, ReworkChannel.PullRequest);
+    /// <summary>The act a note on the pull request at <paramref name="url"/> stands for; <paramref name="kind"/>
+    /// is <see cref="AttemptSourceKinds.Review"/> or <see cref="AttemptSourceKinds.Command"/>.</summary>
+    public static ReworkAct Act(PrReviewNote note, string url, string kind) =>
+        new(note.Author!.AuthorLogin, note.At, ReworkChannel.PullRequest)
+        {
+            Source = new AttemptSource(kind, url, string.IsNullOrEmpty(note.HostId) ? null : note.HostId),
+        };
+
+    /// <summary>The act of the newer of a standing vote and a command; null when neither exists.</summary>
+    public static ReworkAct? NewerAct(PrReviewNote? vote, PrReviewNote? command, string url) =>
+        Newer(vote, command) is not { } note ? null
+            : Act(note, url, ReferenceEquals(note, vote) ? AttemptSourceKinds.Review : AttemptSourceKinds.Command);
 
     /// <summary>The newer of two acts; either may be absent.</summary>
     public static PrReviewNote? Newer(PrReviewNote? first, PrReviewNote? second) =>

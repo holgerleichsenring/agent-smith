@@ -39,11 +39,11 @@ public static class ApprovedSetKept
     /// </summary>
     public const string Heading = "## Agent Smith — the approved specification stands";
 
-    /// <summary>Where a change to an approved set is actually made TODAY. Not the design
-    /// conversation: nothing re-opens an approved record from one yet, and a wording that sent an
-    /// operator there would be the promise this spec deleted, pointing somewhere else.</summary>
-    public const string WhereToChangeIt = OnTheBranch + " and open in the pull request this run "
-        + "linked. " + TheEditRule;
+    /// <summary>Where a change to an approved set is made: on the branch, or (2026-10-13-9a59l) by approving
+    /// a new proposal in the ticket's own conversation, which the next run merges into the series by spec
+    /// id — what already ran stays as it ran.</summary>
+    public const string WhereToChangeIt = OnTheBranch + " and open in the pull request this run linked. " + TheEditRule
+        + " Or approve a new proposal in the ticket's conversation: the next run continues the series by spec id.";
 
     /// <summary>2026-09-17-0e79c: the same place, for a run that has NOT opened a pull request
     /// yet. A hand-back on the FIRST spec of a set happens before any delivery, so naming a

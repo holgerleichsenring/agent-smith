@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-9a59i
+
+decisions:
+  - category: Architecture
+    chose: "SandboxExitRead(State Running|Exited|Gone, ExitCode, OomKilled) with a Label for the wire, ISandboxExitReader and ISandboxWrapper in Contracts/Sandbox, plus a SandboxUnwrap.Backend() extension that peels every wrapper; SandboxEndReasons holds the vocabulary"
+    over: "A nullable exit (null = running) and a concrete SandboxEventProjector unwrap in the supervisor"
+    reason: |
+      Running and Gone both carry no facts; collapsing them would record a pod deleted under the run as an
+      ordinary release. The supervisor (Server) and the release (Application) both reach the backend through
+      one Contracts extension, so neither knows the projector type.
+  - category: Architecture
+    chose: "DockerContainerProbe(IDockerClient) holds the inspect call and DockerContainerVerdict; it has no logger — a probe failure's message rides on the verdict's Error and the watcher's vanish warning prints it"
+    over: "A probe constructed with a logger by DockerSandbox and the watcher"
+    reason: |
+      Both callers build the probe themselves (the sandbox and the watcher are created by hand in their
+      factories), and a logger-free probe keeps them from newing a logged collaborator. A cancelled inspect now
+      rethrows instead of reading as ProbeError, so a disposing watcher no longer announces a vanish.
+  - category: Architecture
+    chose: "KubernetesPodExitReader(IKubernetes) reads the toolchain container: Terminated -> Exited(code, reason OOMKilled), Running/Waiting -> Running, a pod without a toolchain status, a 404 or any failure -> Gone"
+    over: "Reading the pod phase"
+    reason: |
+      The phase does not carry the exit code or the OOM reason; the container status does, and with
+      RestartPolicy Never it still holds them at release. A pod with no toolchain status is unreadable, which
+      the contract calls Gone.
+  - category: Architecture
+    chose: "SandboxRelease(IEventPublisher, ILogger) is a transient registered beside the coordinator; ReleaseAllAsync(runId, sandboxes) reads each exit through Backend() with a 10 s budget, disposes, then publishes SandboxDisposed with ExitState/ExitCode/OomKilled; a failed read is Gone"
+    over: "Reading the exit inside each backend's DisposeAsync"
+    reason: |
+      The coordinator's dispose loop and PublishDisposedAsync moved out whole (314 -> 298 lines); the run id
+      passes per call. The read is skipped without a run id because nothing would record it. Unreadable is Gone
+      by the reader's own contract, so a read that throws keeps that meaning.
+  - category: Data
+    chose: "Migration RecordSandboxEndReason (both sets) adds EndReason, copies Status 'vanished' -> EndReason, then drops Status; Down restores Status filled the same way; EventSeq/ExitCode/OomKilled added; unique (RunId, EventSeq) filtered on SQL Server"
+    over: "EF's scaffolded RenameColumn(Status -> EndReason)"
+    reason: |
+      A rename would carry 'failed', 'ok' and 'created' into EndReason as if they were facts. The copy is
+      quoted per provider as AddRunSpecIdColumns does; on SQLite the copy runs before the drop's table rebuild
+      (proven by RunSandboxEndMigrationTests).
+  - category: Data
+    chose: "SandboxEndRule (static) maps vanish, dispose and run status to a reason; SandboxEndFold is its own class and the RunFinished arm of RunSandboxFamily, so RunFinished now reaches [RunRowFamily, RunSandboxFamily]"
+    over: "Folding the release inside RunFinalizationProjection"
+    reason: |
+      The fold is a sandbox fact bounded by the RunFinished's own position; keeping it in the sandbox family
+      leaves the run-row finalization untouched and its set-once terminal guard irrelevant to it (a park's
+      RunFinished is re-applied on replay and the bound keeps it off later launches).
+  - category: Data
+    chose: "A close picks the latest row of (RunId, RepoName) with EventSeq below its own position, ordered by EventSeq; with none, the latest position-less row by Id"
+    over: "Ordering by Id within the bound"
+    reason: |
+      The position is the identity the bound is about; ordering by it says the same thing the bound does.
+      A position-less row only exists before this spec, so the fallback is what LatestAsync did.
+  - category: API
+    chose: "GET /api/runs/{runId}/compute -> RunComputeRecordView(RunId, Spawns[RunComputeSpawnView(Repo, SpawnedAt, DisposedAt, Memory, EndReason, ExitCode, OomKilled)], Uncounted[RunComputeUncountedView(Kind source-scope|browser|preflight, Label)]); 404 for an unknown run; RunComputeReader singleton over a scope, registered in AddDashboardReaders"
+    over: "Uncounted as bare strings"
+    reason: |
+      Each uncounted sandbox is named by a stable kind for the dashboard and a label for a reader; 9a59j
+      appends segments and unattributedCalls as trailing members of the same record.
+  - category: Process
+    chose: "File-length baseline lowered for PipelineSandboxCoordinator (298) and SandboxLivenessWatcher (160); SandboxEventProjector (119) left the baseline"
+    over: "Leaving the old ceilings"
+    reason: "The ratchet only shrinks; the room this spec freed is not handed to the next change."

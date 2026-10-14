@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-9a59r
+
+decisions:
+  - category: Architecture
+    chose: "DEVIATION: the store hooks are called as 9a59q built them — useTicketSeries(runId?), useTicketConversation(), useAttemptPasses(runId), useTicketDetail() returning project and ticketId — and the tab table is ticketTabTable.ts"
+    over: "The spec's assumed useTicketSeries(project, ticketId, runId?) and a ticketTabs file"
+    reason: |
+      9a59q's store owns the page's project and ticket (lib/tickets/TicketPageStore.tsx), so the hooks take no
+      address; its tab table is ticketTabTable.ts because ticketTabs.ts clashes with TicketTabs.tsx on a
+      case-insensitive file system. The reads are still q's, consumed and never re-fetched.
+  - category: Architecture
+    chose: "A counter receives the detail and the page's conversation and default series: TicketTab.counter(detail, reads)"
+    over: "A counter over the detail alone, as 9a59q declared it"
+    reason: |
+      The Conversation counter counts entries and the Specs and Acceptance counters count the series; neither is
+      in the detail. TicketTabs reads both through q's store hooks, so no read is added. The second argument is
+      extra, so a counter over the detail alone (9a59s) still fits.
+  - category: Architecture
+    chose: "useAttemptReads(runIds) in TicketPageStore — the same per-run store entries as useTicketSeries(runId) and useAttemptPasses(runId), wanted together"
+    over: "One child component per attempt calling the single-run hooks, or deriving the per-attempt cells from the default series"
+    reason: |
+      A cell per attempt (not run, done in n passes, carried, failed, working, not started) is that attempt's own
+      cut and passes; the default series holds only the newest execution. Hooks cannot be called in a loop, and
+      the store already fetches a finished attempt's per-run reads once, so the multi-run hook adds no endpoint.
+  - category: Architecture
+    chose: "The approval preview is useApprovalPreview(project, ticketId, {enabled, nudge}) in lib/tickets, wrapped by useTicketApprovalPreview() over the store's signals"
+    over: "A preview read inside TicketPageReads"
+    reason: |
+      Work it out's SpecDialogSurface needs the same read outside any ticket page (the approval card of a bound
+      session), so the hook takes its gate and its refetch signal as data. On the ticket page the signal is a
+      counter of this ticket's TicketActivityChanged (and reconnects), joined with the newest attempt's
+      runId=status; a RunsChanged moves neither. In Work it out it is the proposal's time. One fetch per 2 s.
+  - category: Architecture
+    chose: "Before the first act the composer shows the effect line and Approve/Discard from the preview when the conversation has an open proposal on an open dialog (openDialogId); after it, from the approval question the hook now watches"
+    over: "Watching openDialogId from mount, or offering Approve only after a focus"
+    reason: |
+      The spec moves the composer to openDialogId only on the first act and counts Approve and Reject among
+      those acts. An open session with a proposal is one whose approval question waits there, so the click is
+      the act: the composer goes to the dialog, and the decision is sent once its view shows the approval
+      question still open and not expired — otherwise it says the question is no longer waiting. After the act
+      the line follows the hook's question, so with none it is a plain composer.
+  - category: Architecture
+    chose: "DEVIATION: the ticket composer draws the approval as the mock's effect line and actions (Approve, Ask for changes, Discard = reject) and renders DialogQuestionCard only for the design turn's other questions; ticketEffect is passed by SpecDialogSurface"
+    over: "Also rendering DialogQuestionCard with ticketEffect inside the ticket composer"
+    reason: |
+      Both would put two Approve controls on one surface. The composer's line and the card's summary come from
+      the one table (lib/tickets/approvalEffect.ts: approvalEffectLabel / ticketApprovalEffect), so the two
+      surfaces say the same thing about one approval.
+  - category: Architecture
+    chose: "DialogQuestionCard.ticketEffect is {summary, approvable}: Approve (not 'Approve & file'), the effect as the summary line, no Approve while the start arm is refused-question-pending"
+    over: "A bare label string"
+    reason: |
+      The spec withholds Approve while the start arm is refused-question-pending on both surfaces; the card
+      already withholds every control after the deadline. An unbound conversation passes nothing and the card is
+      unchanged.
+  - category: Implementation
+    chose: "causeEntryMatch compares the entry's readable url (the record's Url, which its prKey hashes) with the cause's url for a pull request; a ticket comment cause carries no url (ReworkActReader), so it matches the ticket's url or none"
+    over: "Hashing the cause url in the browser to compare with prKey"
+    reason: |
+      9a59h serves Url on every pr-review entry (ConversationPrEntries) and PrKey is SHA-256 of that same trimmed
+      URL, so equality of the URLs is the prKey join without an async digest. The triple stays source, pull
+      request, sourceId; the composite id is never compared. A conversation or status cause has no sourceId on an
+      entry and draws no footer.
+  - category: Implementation
+    chose: "Acceptance counts the machine verdict met as verified; an operator judgement is shown beside it as 'overruled: <status> by <author> — <reason>'"
+    over: "Counting the operator's status instead"
+    reason: |
+      A judgement is a label, not a control (CriterionJudgement): it does not move the gate or the run, so the
+      count the tab shows stays what the run verified, and the judgement is drawn as the overruled disposition.
+  - category: Implementation
+    chose: "A resume refusal is read off the hook's failure when its path ends in /resume: 409 with the question-waiting text, 409 otherwise (turn running), 403 (an ApiRefusal), 404; each is a state with Try again"
+    over: "A second resume call outside the hook"
+    reason: |
+      The hook owns the resume (it waits for the subscription before moving a conversation); the route's two 409
+      texts are fixed constants in SpecDialogResumeEndpoints. Try again repeats the act on a fresh minted id.
+  - category: Implementation
+    chose: "An image attached before the first message is held back with a note; once the session is there it is uploaded to it"
+    over: "Uploading it to the minted id"
+    reason: |
+      The image route opens a conversation with the project only — no ticket — so an upload as the very first act
+      would open an unbound conversation beside the ticket's. The first message is what binds.
+  - category: Implementation
+    chose: "Retry unchanged also shows on a hidden conversation, in place of the composer"
+    over: "Hiding it with the composer"
+    reason: |
+      Retry needs runs.control, not dialog.write; a caller who may retry but not read the ticket's conversation
+      still gets the control after an infrastructure end.
+  - category: Implementation
+    chose: "Entries are grouped by 9a59h's markers in marker order (before, each attempt, now) keeping the read's order inside a group; the selected tab clears ?causeOf="
+    over: "Splitting the read's order wherever the attempt changes"
+    reason: |
+      9a59h places every entry; grouping under the markers needs no regrouping by time, and a reader switching tabs
+      should not be scrolled to a cause again.

@@ -71,7 +71,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
 
         _repository = new SpecDialogSessionRepository(_context);
         _sessions = new SpecDialogSessionManager(
-            _repository, AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
+            _repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
             NullLogger<SpecDialogSessionManager>.Instance);
         _resumer = new SpecDialogResumer(
             _repository, _turnGate, _pendingQuestions, TimeProvider.System,
@@ -576,7 +576,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
 new DashboardOutcomeChannel(
                 new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
                 NullLogger<DashboardOutcomeChannel>.Instance, _hub),
-            new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance),
+            new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance),
             NullLogger<SpecDialogOutcomeFlow>.Instance);
         return new SpecDialogRouter(
             new SpecCommandParser(), _sessions, Commands(messenger),

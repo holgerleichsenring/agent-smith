@@ -19,7 +19,10 @@ public sealed class ReworkActReaderTests
              new TicketComment("bob", Start.AddMinutes(20), "@agent-smith and the docs")],
             "@agent-smith", Attempt);
 
-        act.Should().Be(new ReworkAct("bob", Start.AddMinutes(20)));
+        act.Should().Be(new ReworkAct("bob", Start.AddMinutes(20))
+        {
+            Source = new AttemptSource(AttemptSourceKinds.Comment),
+        });
     }
 
     [Fact]
@@ -59,5 +62,19 @@ public sealed class ReworkActReaderTests
 
         pipeline.TryGet<ReworkAct>(AgentSmith.Contracts.Commands.ContextKeys.ReworkAct, out var act).Should().BeTrue();
         act!.Author.Should().Be("alice");
+    }
+
+    // 2026-10-13-9a59t: the comment the act is read from travels with it, so a follow-up can carry its text.
+    [Fact]
+    public void ReworkActReader_KeywordAct_CarriesCommentBody()
+    {
+        IReadOnlyList<TicketComment> thread =
+            [new TicketComment("alice", Start.AddMinutes(10), "@agent-smith rename it"),
+             new TicketComment("bob", Start.AddMinutes(20), "@agent-smith and the docs") { Id = "c-2" }];
+
+        var comment = ReworkActReader.ReadComment(thread, "@agent-smith", Attempt);
+
+        comment!.Body.Should().Be("@agent-smith and the docs");
+        ReworkActReader.ActOf(comment).Should().Be(ReworkActReader.Read(thread, "@agent-smith", Attempt));
     }
 }

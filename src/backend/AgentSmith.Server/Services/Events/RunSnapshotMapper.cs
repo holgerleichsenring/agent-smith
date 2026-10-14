@@ -111,7 +111,7 @@ public static class RunSnapshotMapper
             TimeSplit: includeStory ? timeSplit : null,
             // p0413: the shape that decided the cut — on the card and the detail.
             WorkShape: run.WorkShape,
-            WorkShapeReason: run.WorkShapeReason);
+            WorkShapeReason: run.WorkShapeReason, Project: run.Project, Platform: run.Platform);
     }
 
 }

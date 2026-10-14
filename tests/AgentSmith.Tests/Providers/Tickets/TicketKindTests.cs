@@ -63,12 +63,12 @@ public sealed class TicketKindTests
     [Fact]
     public void TicketKind_ATicketRewrittenByTheFetchDoor_KeepsItsKind()
     {
-        // WithDescription rewrites EVERY fetched ticket positionally, so a field left out of it is
+        // With rewrites EVERY fetched ticket positionally, so a field left out of it is
         // one silently dropped everywhere.
         var ticket = new AgentSmith.Domain.Entities.Ticket(
             new TicketId("412"), "Widget drops", "before", null, "Open", "Jira", kind: "Bug");
 
-        ticket.WithDescription("after").Kind.Should().Be("Bug");
+        ticket.With(description: "after").Kind.Should().Be("Bug");
     }
 
     private static string? Kind(string json) =>

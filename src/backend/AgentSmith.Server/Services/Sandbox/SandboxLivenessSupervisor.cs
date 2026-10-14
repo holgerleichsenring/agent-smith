@@ -25,7 +25,8 @@ public sealed class SandboxLivenessSupervisor(
 
     public void Watch(string runId, string sandboxKey, ISandbox sandbox)
     {
-        if (sandbox is not ISandboxLivenessProbeTarget target) return;
+        // 2026-10-13-9a59i: the coordinator hands over its projector; the container id is the backend's.
+        if (sandbox.Backend() is not ISandboxLivenessProbeTarget target) return;
         var containerId = target.LivenessProbeTargetId;
         if (string.IsNullOrEmpty(containerId)) return;
         var watcher = new SandboxLivenessWatcher(

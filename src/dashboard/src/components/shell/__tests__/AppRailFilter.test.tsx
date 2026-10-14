@@ -60,7 +60,7 @@ describe("the rail's monitor items are a filter", () => {
   it("AwayFromTheHomeScreen_NoBucketClaimsToBeOnScreen", () => {
     usePathname.mockReturnValue("/system/tracker");
     renderRail("/system/tracker");
-    for (const label of ["All runs", "Needs you", "Running", "Queued", "Finished"]) {
+    for (const label of ["All runs", "Waiting for input", "Running", "Queued", "Finished"]) {
       expect(screen.getByTestId(`app-rail-item-${label}`)).toHaveAttribute("data-active", "false");
     }
   });

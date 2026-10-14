@@ -24,7 +24,7 @@ Queued runs go into a persistent FIFO. The properties that matter:
 
 Resumed runs (a run that checkpointed on a question and got its answer — see [durable dialogue](../../how-it-works/expectations.md)) ride the same queue with the same rules.
 
-In the [dashboard](dashboard.md) a queued run sits in the **Queued** bucket with its place in line (`pos 3`) and the reason it's waiting. A parked run whose answer is in and whose relaunch waits for a slot moves there too, as `resuming · pos 2`, rather than still showing under **Needs you**. Position also comes back on `/api/runs`.
+In the [dashboard](dashboard.md) a queued run sits in the **Queued** bucket with its place in line (`pos 3`) and the reason it's waiting. A parked run whose answer is in and whose relaunch waits for a slot moves there too, as `resuming · pos 2`, rather than still showing under **Waiting for input**. Position also comes back on `/api/runs`.
 
 Cancelling or deleting a queued or parked run takes it out of the queue and disarms its ticket, so the next poll doesn't file it again at the back of the line.
 

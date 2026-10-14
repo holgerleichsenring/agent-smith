@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Events;
 using AgentSmith.Infrastructure.Services.Events;
 using AgentSmith.Server.Hubs;
 using StackExchange.Redis;
@@ -46,8 +47,9 @@ public sealed class SystemBacklogReader(
         {
             var payload = pair.Value.ToString();
             if (string.IsNullOrEmpty(payload)) continue;
-            var systemEvent = envelopes.DeserializeSystem(payload);
-            if (systemEvent is not null) yield return systemEvent;
+            // 2026-10-13-9a59a: a ticket nudge never seeds the System page.
+            if (envelopes.DeserializeSystem(payload) is { } systemEvent and not TicketActivityChangedEvent)
+                yield return systemEvent;
         }
     }
 }

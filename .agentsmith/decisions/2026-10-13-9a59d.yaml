@@ -1,0 +1,85 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-9a59d
+
+decisions:
+  - category: Architecture
+    chose: "Record the cause at FetchTicket, read from the act slots as they stand (AttemptCauseReader)"
+    over: "Setting the cause at the claim door or the nudge"
+    reason: |
+      Since e8b9b any claimer may win the lease; only the run's own read knows which act it serves. The one
+      ReworkAct slot already holds the newer of the ticket and pull-request act; a pull-request act there wins,
+      a status move outranks a ticket keyword act, then requested, retrigger, pickup (SpecRevisionCause's
+      ranking: PR act, status move, comment).
+  - category: Architecture
+    chose: "PrStandingAct.Act(note, url, kind) plus PrStandingAct.NewerAct(vote, command, url), which both callers use"
+    over: "Each caller deciding review-or-command by itself"
+    reason: |
+      Both callers (PrReviewFeedbackFetcher, ReworkPendingActs) took the newer of a vote and a command and
+      wrapped it; the kind is which of the two won, so it is decided once beside Newer.
+  - category: Architecture
+    chose: "RunEventApplier becomes a dispatcher over IRunEventFamily (run row, steps and calls, sandboxes, specs, attempt), each naming its events"
+    over: "Growing the switch past its 159-line baseline"
+    reason: |
+      e, f, g, i and j add projected events; each now adds an arm to the family owning its table or registers a
+      family. The applier left the file-length baseline (45 lines). RunStarted's insert/promote/relaunch moved
+      into RunStartProjection so the run-row family stays a router.
+  - category: Architecture
+    chose: "Checkpoint, ratified expectation, pull-request outcome and classification events live in the run-row family; decisions in the steps-and-calls family"
+    over: "A sixth family for run-level side records"
+    reason: |
+      The spec names five families; these events write run-level records keyed by run id beside the row, and
+      decisions are inserted by trail position like steps and calls.
+  - category: Architecture
+    chose: "TicketActivityChanged on a new code-run insert with a ticket, or a promotion of a row whose status == queued; ITicketActivityNudge optional in RunStartProjection"
+    over: "RunStatuses.IsWaiting, or a required nudge"
+    reason: |
+      IsWaiting also covers waiting_for_input, a relaunch of the same attempt. The nudge is optional because
+      compositions without event publishing (CLI, tests) build the projector; a missing nudge is a missing
+      refresh, never a lost row.
+  - category: Architecture
+    chose: "One SpecSetAnnouncer call right after the write, with write.Written as committed"
+    over: "One call inside each branch"
+    reason: |
+      Both branches follow the write; one call before they split announces both, as the spec requires, and keeps
+      SpecSetPublisher at one added line.
+  - category: Implementation
+    chose: "RunAttempt as a run child (RunChildConfiguration.Children) with RunAttemptConfiguration applied from RunChildConfiguration.Apply, ToTable RunAttempts, unique RunId"
+    over: "Columns on Run, or a configuration applied from AgentSmithDbContext"
+    reason: |
+      AgentSmithDbContext is at 120 lines and untouched; the row dies with its run in DeleteChildrenAsync. The
+      unique index resolves an insert race: the loser detaches and updates the winner's row.
+  - category: Implementation
+    chose: "Fetch fields set once, guarded by CauseChannel or TicketFingerprint already set; revision fields last-wins, skipped when RevisionNumber is null"
+    over: "A separate fetched flag column"
+    reason: |
+      The new producer always stamps a fingerprint, so a stored one means a fetch already landed; a resume keeps
+      why the attempt began. Whether the write committed rides on event 83 but is not stored: the spec's field
+      list for RunAttempt does not carry it.
+  - category: Architecture
+    chose: "IPriorRunLedgerReader.ReadLatestForTicketAsync(project, ticketId, excludingRunId, ct); PriorRunSeedSource passes ContextKeys.RunId"
+    over: "An optional trailing parameter"
+    reason: |
+      Every caller must decide whether it reads its own run; a required parameter makes the null reader and the
+      tests say so explicitly.
+  - category: Architecture
+    chose: "Ticket.With(description, webUrl) replaces WithDescription; null keeps the current value"
+    over: "A second hand copy beside WithDescription"
+    reason: |
+      Ticket is a sealed class; one copy method is the one place a new field (k's IsClosed) is added.
+  - category: TradeOff
+    chose: "The Azure DevOps web url is proven on AzureDevOpsTicketCreator.WebUrlFor, the helper GetTicketAsync appends"
+    over: "Driving AzureDevOpsTicketProvider.GetTicketAsync"
+    reason: |
+      The provider reads through an SDK client built in its own constructor that no test can substitute (the
+      reason the creator takes its write as a delegate); GitHub, GitLab and Jira are proven end to end.
+  - category: Architecture
+    chose: "pipeline.IsRequestedByName() overload beside the dictionary one, sharing IsTrue"
+    over: "Reading the key inline in the cause reader"
+    reason: |
+      The flag comes back as bool or JsonElement after a queue round-trip; one place reads both shapes.
+  - category: Implementation
+    chose: "Re-grounded four planned facts (9a59h, 9a59i, 9a59j, 9a59n) that cited RunEventApplier lines"
+    over: "Leaving SpecEvidence_EveryPlannedFact_Resolves red"
+    reason: |
+      The split moved the lines they cite into RunRowFamily, RunSandboxFamily, RunStartProjection and the
+      dispatcher; the claims are unchanged.

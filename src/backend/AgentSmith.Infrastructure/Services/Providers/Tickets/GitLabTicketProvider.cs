@@ -183,6 +183,7 @@ public sealed class GitLabTicketProvider : ITicketProvider, ITicketStatusHistory
 
     // 2026-10-08-2123 / 9e6e: reopens, who the token is and the changed issues, read by collaborators.
     public Task<TicketStatusMove?> NewestPersonMoveIntoAsync(TicketId ticketId, IReadOnlyCollection<string> statuses, TrackerActor? self, CancellationToken ct) => History().NewestPersonMoveIntoAsync(ticketId, statuses, self, ct);
+    public Task<TicketStatusMove?> NewestMoveIntoAsync(TicketId ticketId, string status, CancellationToken ct) => History().NewestMoveIntoAsync(ticketId, status, ct);
     public Task<TrackerActor?> SelfAsync(CancellationToken ct) => History().SelfAsync(ct);
     public Task<ChangedPage> ChangedSinceAsync(DateTimeOffset since, int maxPages, CancellationToken ct) => new GitLabChangedTickets(_http, _baseUrl, _projectPath).ChangedSinceAsync(since, maxPages, ct);
     private GitLabStatusHistory History() => new(_http, _baseUrl, _projectPath);

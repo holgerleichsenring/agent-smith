@@ -25,11 +25,27 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// </summary>
 internal static class FiledWorkClaims
 {
-    /// <summary>What holds the ticket, or null when nothing does.</summary>
+    /// <summary>What holds the ticket, or null when nothing does: the lease, then any run row.</summary>
     internal static async Task<string?> OnAsync(
         IServiceScope scope, IReadOnlyList<FiledWorkProject> projects, string ticketId, CancellationToken ct)
     {
         if (projects.Count == 0) return null;
+        if (await LeaseOnAsync(scope, projects, ticketId, ct) is { } leased) return leased;
+        var names = projects.Select(p => p.Name).ToList();
+        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        var run = await uow.Set<Run>().AsNoTracking()
+            .Where(r => names.Contains(r.Project) && r.TicketId == ticketId)
+            .OrderByDescending(r => r.Id)
+            .Select(r => r.Id)
+            .FirstOrDefaultAsync(ct);
+        return run is null ? null : $"has already been worked by run {run}.";
+    }
+
+    /// <summary>2026-10-13-9a59l: the lease half alone — a claim whose run row may not exist yet.
+    /// Null when no project on the tracker holds a lease on the ticket.</summary>
+    internal static async Task<string?> LeaseOnAsync(
+        IServiceScope scope, IReadOnlyList<FiledWorkProject> projects, string ticketId, CancellationToken ct)
+    {
         var leases = scope.ServiceProvider.GetRequiredService<ActiveRunRepository>();
         foreach (var project in projects)
         {
@@ -41,13 +57,6 @@ internal static class FiledWorkClaims
                     ? $"is claimed by run {claiming}, which may not have started working yet."
                     : "is claimed by a run that has not started working yet.";
         }
-        var names = projects.Select(p => p.Name).ToList();
-        var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
-        var run = await uow.Set<Run>().AsNoTracking()
-            .Where(r => names.Contains(r.Project) && r.TicketId == ticketId)
-            .OrderByDescending(r => r.Id)
-            .Select(r => r.Id)
-            .FirstOrDefaultAsync(ct);
-        return run is null ? null : $"has already been worked by run {run}.";
+        return null;
     }
 }

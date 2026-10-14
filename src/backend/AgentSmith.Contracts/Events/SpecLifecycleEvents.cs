@@ -19,6 +19,9 @@ namespace AgentSmith.Contracts.Events;
 /// <param name="Verdict">Why the standing is what it is — the failing command of a
 /// stopped spec, or the note explaining a spec that was through before it started.
 /// Null while the spec is simply running.</param>
+/// <param name="AcceptanceJson">2026-10-13-9a59e: the spec's own acceptance when the event was
+/// written — its accounts and declined criteria rendered as the run detail renders them; null when the
+/// spec has none yet.</param>
 public sealed record SpecStateChangedEvent(
     string RunId,
     string SpecId,
@@ -26,7 +29,8 @@ public sealed record SpecStateChangedEvent(
     string Title,
     SpecRunState State,
     string? Verdict,
-    DateTimeOffset Timestamp)
+    DateTimeOffset Timestamp,
+    string? AcceptanceJson = null)
     : RunEvent(RunId, EventType.SpecStateChanged, Timestamp);
 
 /// <summary>

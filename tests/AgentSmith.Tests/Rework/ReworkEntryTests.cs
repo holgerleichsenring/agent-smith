@@ -136,6 +136,22 @@ public sealed class ReworkEntryTests
         _launch.VerifyNoOtherCalls();
     }
 
+    // 2026-10-13-9a59n: from the retired operator Retry (2026-09-21-1fa0) — the move comes FIRST, so a move that
+    // throws escapes before the hold, the hand-back or the approval is cleared.
+    [Fact]
+    public async Task ReworkEntry_MoveThatThrows_ClearsNothing()
+    {
+        Attempt("failed", true); Park(parked: true, moveTo: "To Do");
+        _parks.Setup(p => p.MoveAsync(Project, "T-1", "To Do", It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("TF401320: the state is not allowed"));
+
+        var act = () => Act(10);
+
+        await act.Should().ThrowAsync<InvalidOperationException>();
+        _reopener.VerifyNoOtherCalls();
+        _launch.VerifyNoOtherCalls();
+    }
+
     private Task<ReworkOutcome> AnswerHandback() => Entry().AnswerHandbackAsync(Project, "T-1",
         new PreviousAttempt("run-1", RunStatuses.WaitingForInput, Start, false), "code", CancellationToken.None);
 
@@ -159,5 +175,45 @@ public sealed class ReworkEntryTests
 
         _closer.VerifyNoOtherCalls();
         _launch.VerifyNoOtherCalls();
+    }
+
+    // 2026-10-13-9a59t: a ticket a person closed is answered ClosedForWork before anything moves.
+    [Fact]
+    public async Task ReworkEntry_ClosedPark_AnswersClosedForWork_MovesNothing()
+    {
+        Attempt("success", true);
+        _parks.Setup(p => p.CheckAsync(Project, "T-1", It.IsAny<CancellationToken>())).ReturnsAsync(new ReworkPark(false, null, Closed: true));
+
+        (await Act(10)).Should().Be(ReworkOutcome.ClosedForWork);
+
+        _parks.Verify(p => p.MoveAsync(It.IsAny<ResolvedProject>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        _reopener.VerifyNoOtherCalls();
+        _launch.VerifyNoOtherCalls();
+        _closer.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task ReworkEntry_HandbackAnswerOnClosedTicket_ClosesWaitingRowAsSuperseded()
+    {
+        var waiting = new PreviousAttempt("run-1", "waiting_for_input", Start, false);
+        _parks.Setup(p => p.CheckHandbackAsync(Project, "T-1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ReworkPark(false, null, Closed: true));
+
+        (await Entry().AnswerHandbackAsync(Project, "T-1", waiting, "code", CancellationToken.None)).Should().Be(ReworkOutcome.ClosedForWork);
+
+        _closer.Verify(c => c.CloseSupersededAsync("run-1", It.IsAny<CancellationToken>()), Times.Once);
+        _launch.VerifyNoOtherCalls();
+        _reopener.VerifyNoOtherCalls();
+    }
+
+    [Fact]
+    public async Task ReworkEntry_SupersedeIfClosed_OpenTicket_LeavesTheWaitingRow()
+    {
+        Park(true, null);
+
+        (await Entry().SupersedeIfClosedAsync(Project, "T-1", new PreviousAttempt("run-1", "waiting_for_input", Start, false),
+            CancellationToken.None)).Should().BeNull();
+
+        _closer.VerifyNoOtherCalls();
     }
 }

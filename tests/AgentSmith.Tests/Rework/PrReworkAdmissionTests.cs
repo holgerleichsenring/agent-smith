@@ -47,7 +47,9 @@ public sealed class PrReworkAdmissionTests
     }
 
     private GitHubPrReviewWebhookHandler GitHub() =>
-        new(Admission(_attempts.Object, _nudges.Object, Config()), NullLogger<GitHubPrReviewWebhookHandler>.Instance);
+        new(Admission(_attempts.Object, _nudges.Object, Config()), Records(), NullLogger<GitHubPrReviewWebhookHandler>.Instance);
+
+    private PrRecordNudge Records() => Webhooks.PrRecordNudges.Of(Owner(_attempts.Object, Config()), _nudges.Object);
 
     private static string Review(string state = "changes_requested", string reviewer = "alice", string headRef = "agent-smith/12",
         string headRepo = "o/app", string repo = "app", string prAuthor = "bot") => $$"""
@@ -74,12 +76,16 @@ public sealed class PrReworkAdmissionTests
     }
 
     [Fact]
-    public async Task GitHubPrReview_Approved_NotHandled() =>
-        (await GitHub().HandleAsync(Review(state: "approved"), NoHeaders)).Handled.Should().BeFalse();
+    public async Task GitHubPrReview_ByPrAuthor_OnlyRefreshes()
+    {
+        (await GitHub().HandleAsync(Review(reviewer: "bot", prAuthor: "bot"), NoHeaders)).Handled.Should().BeTrue();
 
-    [Fact]
-    public async Task GitHubPrReview_ByPrAuthor_NotHandled() =>
-        (await GitHub().HandleAsync(Review(reviewer: "bot", prAuthor: "bot"), NoHeaders)).Handled.Should().BeFalse();
+        VerifyOnlyRefreshed();
+    }
+
+    private void VerifyOnlyRefreshed() =>
+        _nudges.Verify(n => n.EnqueueAsync(It.Is<ReworkNudgeRequest>(r => r.Origin != ReworkNudgeOrigin.Refresh),
+            It.IsAny<CancellationToken>()), Times.Never);
 
     [Fact]
     public async Task GitHubPrReview_ForkHead_NotHandled() =>
@@ -115,7 +121,7 @@ public sealed class PrReworkAdmissionTests
         new(StringComparer.OrdinalIgnoreCase) { ["X-AgentSmith-Change"] = "review-vote" };
 
     private AzureDevOpsPrReviewVoteWebhookHandler Azure() =>
-        new(Admission(_attempts.Object, _nudges.Object, Config()), NullLogger<AzureDevOpsPrReviewVoteWebhookHandler>.Instance);
+        new(Admission(_attempts.Object, _nudges.Object, Config()), Records(), NullLogger<AzureDevOpsPrReviewVoteWebhookHandler>.Instance);
 
     [Fact]
     public async Task AzureDevOpsPr_VoteHeaderMinusFive_NudgesTheTicket()
@@ -126,12 +132,12 @@ public sealed class PrReworkAdmissionTests
     }
 
     [Fact]
-    public async Task AzureDevOpsPr_VoteHeaderVoterReset_NotHandled() =>
-        (await Azure().HandleAsync(Vote(10), VoteHeader)).Handled.Should().BeFalse();
+    public async Task AzureDevOpsPr_CreatorsOwnVote_OnlyRefreshes()
+    {
+        (await Azure().HandleAsync(Vote(-5, voter: "creator"), VoteHeader)).Handled.Should().BeTrue();
 
-    [Fact]
-    public async Task AzureDevOpsPr_CreatorsOwnVote_NotHandled() =>
-        (await Azure().HandleAsync(Vote(-5, voter: "creator"), VoteHeader)).Handled.Should().BeFalse();
+        VerifyOnlyRefreshed();
+    }
 
     [Fact]
     public async Task AzureDevOpsPr_NoHeader_NotAVote() =>

@@ -19,11 +19,13 @@ public sealed class AsyncLocalRunContextAccessor : IRunContextAccessor
     private static readonly AsyncLocal<CallScope?> CurrentCall = new();
     private static readonly AsyncLocal<int?> CurrentStep = new();
     private static readonly AsyncLocal<string?> CurrentSpec = new();
+    private static readonly AsyncLocal<int?> CurrentPass = new();
 
     public string? CurrentRunId => CurrentRun.Value;
     public CallScope? CurrentCallScope => CurrentCall.Value;
     public int? CurrentStepIndex => CurrentStep.Value;
     public string? CurrentSpecId => CurrentSpec.Value;
+    public int? CurrentMasterPass => CurrentPass.Value;
 
     public IDisposable BeginScope(string runId) => Enter(CurrentRun, runId);
 
@@ -35,6 +37,9 @@ public sealed class AsyncLocalRunContextAccessor : IRunContextAccessor
     // second ambient to keep in sync with the first.
     public IDisposable BeginStepScope(int stepIndex, string? specId = null) =>
         new CompositeFrame(Enter(CurrentStep, stepIndex), Enter(CurrentSpec, specId));
+
+    // 2026-10-13-9a59f: the master pass inside the step's frame.
+    public IDisposable BeginMasterPassScope(int ordinal) => Enter(CurrentPass, ordinal);
 
     private static IDisposable Enter<T>(AsyncLocal<T> frame, T value)
     {

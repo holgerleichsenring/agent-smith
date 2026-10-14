@@ -39,8 +39,8 @@ public sealed class PrCommentReworkCommandTests
 
     private void VerifyNudgedOnce(string prUrl)
     {
-        _fixture.Nudged.Should().ContainSingle();
-        _fixture.Nudged[0].Should().Be(new ReworkNudgeRequest("test-project", "42", ReworkNudgeOrigin.PullRequest, prUrl, ReworkChannel.PullRequest));
+        _fixture.Acts().Should().ContainSingle();
+        _fixture.Acts()[0].Should().Be(new ReworkNudgeRequest("test-project", "42", ReworkNudgeOrigin.PullRequest, prUrl, ReworkChannel.PullRequest));
     }
 
     [Fact]
@@ -114,7 +114,7 @@ public sealed class PrCommentReworkCommandTests
                 SameRepository = true,
             }, CancellationToken.None)).Handled.Should().BeTrue();
 
-        _fixture.Nudged.Select(n => n.PrUrl).Should().Equal(
+        _fixture.Acts().Select(n => n.PrUrl).Should().Equal(
             "https://dev.azure.com/org/MyProject/_git/my-api/pullrequest/42",
             "https://gitlab.example.com/org/my-api/-/merge_requests/42",
             PrUrl, PrUrl, PrUrl);

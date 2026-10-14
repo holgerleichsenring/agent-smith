@@ -17,8 +17,14 @@ public sealed class StepAttributingEventPublisher(
     public Task PublishAsync(RunEvent runEvent, CancellationToken cancellationToken = default) =>
         inner.PublishAsync(Stamp(runEvent), cancellationToken);
 
-    private RunEvent Stamp(RunEvent runEvent) =>
-        runEvent.OriginStepIndex is not null || runContext.CurrentStepIndex is null
+    // 2026-10-13-9a59f: step, spec and master pass, each only when the event does not carry its own.
+    private RunEvent Stamp(RunEvent runEvent)
+    {
+        var step = runEvent.OriginStepIndex ?? runContext.CurrentStepIndex;
+        var spec = runEvent.OriginSpecId ?? runContext.CurrentSpecId;
+        var pass = runEvent.OriginMasterPass ?? runContext.CurrentMasterPass;
+        return step == runEvent.OriginStepIndex && spec == runEvent.OriginSpecId && pass == runEvent.OriginMasterPass
             ? runEvent
-            : runEvent with { OriginStepIndex = runContext.CurrentStepIndex };
+            : runEvent with { OriginStepIndex = step, OriginSpecId = spec, OriginMasterPass = pass };
+    }
 }

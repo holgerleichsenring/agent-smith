@@ -1,0 +1,224 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-9a59b
+goal: "Every pull request of a ticket has a PR-keyed record of its state, decisions and comments, refreshed by the nudge worker without starting anything; tickets gain Waiting on review and Done."
+
+applies_to: "backend (review contracts, source providers' review reads, persistence, rework nudge worker, ticket read model)"
+
+requires: [2026-10-13-9a59a, 2026-10-13-0b82a]
+
+facts:
+  - claim: "PullRequestsJson is per run and the outcome projection replaces a repo's entry on every PullRequestOutcomeEvent, so it cannot hold review state that outlives the next outcome."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunPullRequestProjection.cs:43-53"
+  - claim: "A ticket's branch is reused across attempts, but a merged or closed pull request on it is followed by a new one with a new URL, so one ticket can name several pull requests per repository over its runs."
+    evidence: "src/backend/AgentSmith.Application/Services/TicketBranchNamer.cs:27-31,54, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunPullRequestProjection.cs:50-52"
+  - claim: "The pull-request status vocabulary has no state for a pull request a person merged or closed; HasPullRequest names the statuses under which a run has a pull request on the host."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/PullRequestStatuses.cs:9-48"
+  - claim: "The rework worker's act read covers only the newest OPENED URL per repo over the newest 20 code runs, so a superseded pull request is never read again."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/ReworkPendingActs.cs:25, src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPreviousAttemptReader.cs:50-60"
+  - claim: "PrReviewNote and PrReviewThread are positional records without a host id; 8 PrReviewNote and 17 PrReviewThread construction sites exist in src and tests."
+    evidence: "src/backend/AgentSmith.Contracts/Reviews/PrReviewNote.cs:9-15, src/backend/AgentSmith.Contracts/Reviews/PrReviewThread.cs:8, observed: 2026-10-13, grep -rn 'new PrReviewNote(' and 'new PrReviewThread(' over src and tests at a998e060f"
+  - claim: "Thread readers exist per host and return inline threads, review bodies and top-level comments as threads of notes; IsOurs needs the token's account."
+    evidence: "src/backend/AgentSmith.Contracts/Reviews/IPrReviewThreadReader.cs:7-10, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPrReviewThreadReader.cs:22-27,43-51, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabPrReviewThreadReader.cs:24-39, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposReviewMapping.cs:16-31"
+  - claim: "The act readers return only standing requests for changes: GitHub CHANGES_REQUESTED minus the PR author, Azure DevOps -5 minus the creator, GitLab the newest requested/approved note per author minus the MR author and the token's user; approvals, -10, +5, merge and close are read nowhere."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPrReviewActReader.cs:15-17,30-32, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposVoteActs.cs:22-31, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabMrActReader.cs:28-33"
+  - claim: "Azure DevOps auto-complete casts a +10 vote as the pull request's creator."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposAutoComplete.cs:26,39,57-58"
+  - claim: "The three source providers implement the review interfaces by delegating to reader classes; the local provider implements none."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubSourceProvider.cs:19,304-308, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabSourceProvider.cs:20,289-293, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposSourceProvider.cs:23,310-315, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/LocalSourceProvider.cs:14"
+  - claim: "GitHub, GitLab and Azure DevOps providers are 330, 367 and 366 lines against file-length baselines of 374, 421 and 434; the ratchet fails only a listed file that grew past its baseline."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:11-15, tests/AgentSmith.Tests/Architecture/FileLengthRatchetTests.cs:37-52, observed: 2026-10-13, wc -l on the three providers at a998e060f"
+  - claim: "On every host a decision is the same object a thread reader already returns as a note: GitHub latestReviews are the review nodes the thread reader turns into single-note threads; GitLab decisions are system notes the thread reader returns; Azure DevOps vote threads are system threads the mapping keeps."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPrReviewThreadReader.cs:26, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPrReviewThreadReader.cs:48-61, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPrReviewActReader.cs:17, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabPrReviewThreadReader.cs:32-34, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabPrReviewThreadReader.cs:61, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabMrActReader.cs:20-21, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabMrActReader.cs:30, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposReviewMapping.cs:18-20, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposReviewMapping.cs:26, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposVoteActs.cs:24-25"
+  - claim: "GitHub's thread reader drops a review whose body is empty, so an approval without a body has no note."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPrReviewThreadReader.cs:63-66"
+  - claim: "A host withdraws a decision without leaving a decision note: a reset Azure DevOps vote leaves no standing vote, and GitLab's act reader reads only the approved and requested-changes bodies."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposVoteActs.cs:9-12, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabMrActReader.cs:20-21, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabMrActReader.cs:28-33"
+  - claim: "Trust is decided per author by IPrReviewAuthorTrust; a person is a note that is neither bot nor system and has an author."
+    evidence: "src/backend/AgentSmith.Contracts/Reviews/IPrReviewAuthorTrust.cs:11-14, src/backend/AgentSmith.Application/Services/Rework/PrStandingAct.cs:23,56"
+  - claim: "Every nudge, whatever its origin, goes to ReworkNudgeHandler, which for a finished attempt reads pending acts and enters the rework, and answers a hand-back park with a pull-request act."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeWorker.cs:71-77, src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeHandler.cs:35-44"
+  - claim: "A claim snapshots the row's origin; Finish deletes only at the claimed generation and otherwise frees the row due now with whatever origin the merges left; Reschedule at a stale generation falls back to Finish."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReworkNudgeRepository.cs:23-58"
+  - claim: "A host failure reschedules with a backoff capped at 15 minutes and unbounded tries; the busy-lock path reschedules too."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeWorker.cs:52-60, src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeWorker.cs:79-96"
+  - claim: "The outcome event's timestamp is stored as the PR's openedAt in PullRequestsJson, and RunRepo holds PrUrl and PrStatus per run and repo as light columns."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunPullRequestProjection.cs:29-36, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunPullRequestProjection.cs:51, src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunRepo.cs:7-10"
+  - claim: "The data-archive tests pin the table count at 37 and the seeded row count at 76."
+    evidence: "tests/AgentSmith.Tests/Persistence/DataArchiveRoundTripTests.cs:33-34, tests/AgentSmith.Tests/Persistence/DataArchiveRoundTripTests.cs:54, tests/AgentSmith.Tests/Persistence/DataArchiveRoundTripTests.cs:81, tests/AgentSmith.Tests/Persistence/DataArchiveSchemaTests.cs:63"
+  - claim: "Nudge origins rank a merge (Sweep 1 to Ticket 4); the writer keeps the higher origin and lets only a non-late request pull the due time forward."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/ReworkNudgeOrigin.cs:7-13, src/backend/AgentSmith.Contracts/Runs/ReworkNudgeRequest.cs:16, src/backend/AgentSmith.Infrastructure.Persistence/Services/ReworkNudgeWriter.cs:41-46"
+  - claim: "The worker handles a nudge under a per-ticket Redis lock whose lease is the 5-minute claim lease; it is 97 lines."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeWorker.cs:52-69, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReworkNudgeRepository.cs:18"
+  - claim: "A run end nudges its ticket with origin RunEnd."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:45-47"
+  - claim: "SQLite cannot compare a DateTimeOffset, so the nudge table keeps UTC ticks."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/ReworkNudge.cs:6-7"
+  - claim: "Run deletion clears every run-keyed table in one transaction, keyed by run id; it is 86 lines."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunDeletionRepository.cs:30-39,66-85"
+  - claim: "Ticket-keyed tables are configured in TicketRecordConfigurations, which the context applies; the context is at 120 lines."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Configurations/TicketRecordConfigurations.cs:11-20, src/backend/AgentSmith.Infrastructure.Persistence/AgentSmithDbContext.cs:61"
+  - claim: "Indexed strings cap at 191 for MySQL; a SHA-256 hex is 64; the sweep keys a pull request by RepoKey and a string Number."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Models/PersistenceLimits.cs:10,30, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/PrSweepStateConfiguration.cs:15-17, src/backend/AgentSmith.Infrastructure/Services/Webhooks/RepoKey.cs:10-16"
+
+assumptions:
+  - "2026-10-13-9a59a ships TicketBucketRule, TicketListQuery, TicketCounts, TicketListReader, TicketDetailReader, TicketSummaryView, TicketCountsView and ITicketActivityNudge as its contract names them; this spec adds arms and fields, never renames."
+  - "GitHub's GraphQL pullRequest exposes number, state, mergedAt, closedAt and node ids on reviews, review threads and comments; GitLab's merge request read returns state, merged_at and closed_at; Azure DevOps GetPullRequestAsync returns Status, ClosedDate and Reviewers with Vote."
+  - "GitLab writes the system note 'unapproved this merge request' when a person withdraws an approval."
+
+scope:
+  in: >
+    CONTRACT: PrReviewNote.HostId and PrReviewThread.HostId as init properties (no construction site changes),
+    PrReviewThread.FromReview (init, GitHub review bodies); every thread and act reader fills them — GitHub node ids,
+    GitLab note and discussion ids, Azure DevOps "{threadId}/{commentId}" and the thread id. HostId is never null; an
+    Azure DevOps vote with no vote thread gets the synthetic id "vote:{reviewerId}". A decision's HostId IS the id of
+    the note the thread reader returns for the same object (GitHub review node, GitLab system note, Azure DevOps
+    vote-thread comment), so 2026-10-13-9a59d's cause.source.id and 2026-10-13-9a59h's entry id join. IPrReviewStateReader.ReadAsync(prUrl) returns PrReviewState(Number, State
+    open|merged|closed, StateAt, Decisions) with PrReviewDecision(HostId, Author, IsBot, Decision
+    approved|approved-with-suggestions|changes-requested|rejected, At, Body): GitHub latestReviews APPROVED and
+    CHANGES_REQUESTED with state/mergedAt/closedAt; Azure DevOps status and votes 10, 5, -5, -10 timed by their vote
+    threads; GitLab state plus the newest approved / requested-changes / unapproved note per author (unapproved = no decision). The pull request's author, the
+    token's own identity and bots are excluded from decisions, so our auto-complete +10 is never an approval. Local
+    implements none. ReworkNudgeOrigin.Refresh = 0 (below Sweep). ReworkNudgeRequest gains `FromDelivery` (init, default false); IsLate
+    = RunEnd or Sweep, or Refresh unless FromDelivery — a webhook delivery's Refresh may pull the due time forward,
+    a sweep's or a read's may not (2026-10-13-9a59c sets it). PrKey.Of(url) (Contracts) = SHA-256 hex of the trimmed
+    URL, the one hash 2026-10-13-9a59c reuses.
+    STORE (TicketRecordConfigurations, both migration sets): PrReviewRecord — PrKey (PrKey.Of the URL exactly
+    as PullRequestsJson stores it; unique), Url (the readable URL, unindexed), Repo, RepoKey (RepoKey.Of the configured
+    repo Url, the key PrSweep uses), Number (string, as PrSweepState.Number), Project, TicketId, RunId, State
+    (open|merged|closed|unsupported|unread), StateAt, CheckedAt — times as UTC ticks; indexes (Project, TicketId),
+    RunId, (RepoKey, Number). No LastActivityAt column: it is derived on read. PrReviewEntry — PrKey + HostId unique,
+    ONE row per host id; Kind comment|review|decision, Decision (set on the row whose HostId the state reader names;
+    a Kind decision row exists only when no note carries that id, e.g. a GitHub approval with an empty body),
+    Standing (true while the latest state read lists the decision; a refresh clears it on every decision row absent
+    from the read, so a dismissed review, a reset vote or a GitLab unapprove withdraws it), AuthorLogin, Trusted,
+    IsOurs, IsBot, IsSystem, File, Line, Resolved, ThreadHostId, Body capped at PersistenceLimits.ReviewNoteBody =
+    4000 with Truncated, At (ticks). State lives on the record only; the current decision only in Standing rows.
+    REFRESH (PrReviewRecordRefresh, Server): enumerates every URL in the ticket's code runs' PullRequestsJson whose
+    status HasPullRequest; an existing record no remaining run names is deleted with its entries, never refreshed. A
+    merged or closed record is re-read only when the nudge names its URL or its StateAt is under 24 h old (a reopen
+    whose URL lost the coalesced PrUrl column, ReworkNudgeWriter.cs:42, is still seen within a day). Per URL: state + threads from the repo's provider, each author trust-checked once per
+    refresh, record and entries upserted by HostId (entries never deleted but with their record); RunId = the newest
+    code run naming the URL. The write is a compare-and-set on CheckedAt < the read's start, so a refresh that outlived
+    its lock never overwrites a newer one. A provider without the reader writes unsupported; a host failure writes
+    unread for a record that did not exist, keeps CheckedAt on an existing one, and is logged. A refresh that changed anything publishes
+    TicketActivityChanged through ITicketActivityNudge. WORKER: runs the refresh under the ticket's lock before the
+    handler on every nudge; a Refresh-origin nudge runs ONLY the refresh and is FINISHED once its result or failure
+    is written (the next real trigger retries; no 15-minute retry loop) — it never reaches ReworkNudgeHandler, so it
+    starts, refuses and announces nothing. A merge with any higher origin keeps the higher one. CLAIM RESETS THE
+    ORIGIN: ClaimDueAsync sets Origin = Refresh in its claim update (the claimed origin rides on ClaimedReworkNudge),
+    so a stale Finish leaves only origins merged since the claim; RescheduleAsync — its compare-and-set and its
+    stale-generation fallback alike, and so the worker's busy-lock reschedule — writes Origin = max(current,
+    claimed). A Refresh merged into a nudge being handled therefore never re-runs the handler.
+    DELETE: RunDeletionRepository deletes the records whose RunId is deleted and their entries, in its transaction.
+    PORT: IPrReviewRecordReader (Contracts) ByTicketAsync(project, ticketId) returns records (PrKey = the hash, Url =
+    the readable URL) with their entries, implemented by the repository; 2026-10-13-9a59h and 2026-10-13-9a59o read
+    through it. The repository also exposes ByPrKeyAsync and ByRepoKeyAsync(repoKey) for 2026-10-13-9a59c.
+    READ (extends 9a59a): TicketReviewState per pull request — state, decision from the Standing rows only (rejected >
+    changes-requested > changes-requested-untrusted > approved; the newest wins among equals; changes-requested-untrusted
+    is shown as "not a trusted reviewer, so no attempt was started") with by, lastActivityAt = the newest entry's At,
+    else the PR's openedAt from PullRequestsJson, else StateAt — the decision vocabulary is exactly none | approved | changes-requested | changes-requested-untrusted |
+    rejected (an Azure DevOps +5, approved-with-suggestions, reads approved) and the record state exactly open | merged
+    | closed | unsupported | unread; 2026-10-13-9a59p reads these strings verbatim. TicketBucketRule precedence (series-wide): needs_you > working > waiting_on_review > stuck (2026-10-13-9a59h)
+    > done > idle. waiting_on_review = a record open and no live, queued or needs-you attempt; done = at least one record,
+    every record merged or closed, done-at = newest StateAt, and no attempt started after done-at (a keyword comment
+    after a merge starts an attempt that is working, not Done). TicketSummaryView.pullRequests[] =
+    {number, url, repo, state, decision, by, lastActivityAt}. TicketCountsView gains openPullRequests,
+    doneThisMonth{tickets, attempts}, lastDone{ticketId, at}. BACKFILL: a list read enqueues Refresh for a page ticket
+    whose runs name a pull request with no record — one extra page-scoped query over RunRepo (RunId, PrUrl, PrStatus)
+    of the page tickets' code runs, hashed with PrKey.Of and compared against the records (9a59a's TicketListQuery
+    reads no JSON); a detail read also when its records were checked over 5 minutes
+    ago. Run end keeps its nudge, which now refreshes.
+  out: >
+    Every other trigger — review and vote deliveries beyond requests for changes, comment deliveries, merge and close
+    deliveries, the widened changed-PR lists, the PR sweep's comments and prune, and the docs — 2026-10-13-9a59c.
+    The attempt a review caused — 2026-10-13-9a59d. The PR cell drawn beside a list row's series strip —
+    2026-10-13-9a59p, from this spec's pullRequests[] (never stored in 2026-10-13-9a59e's strip). Showing entries in the conversation — 2026-10-13-9a59h; Stuck — 2026-10-13-9a59h. Giving the
+    dialog agent PR review — 2026-10-13-9a59o. Dashboard rendering — 2026-10-13-9a59p, 2026-10-13-9a59q,
+    2026-10-13-9a59r. Pull requests of ticketless runs (scans, pr-review) — no ticket view shows them.
+
+decisions:
+  - key: "PR-KEYED, NOT RUN JSON: one pull request spans attempts and PullRequestsJson is overwritten per outcome."
+  - key: "ENUMERATE EVERY PR THE TICKET'S RUNS NAMED, NOT THE ACT READER'S SET: the act read keeps only the newest opened URL per repo, so a superseded PR would stay open forever and Done would never arrive (review finding 2)."
+  - key: "A REFRESH-ONLY ORIGIN: every nudge reached the rework handler, which re-enters a standing act refused earlier; Refresh = 0 runs only the refresh, and a merge with a real act keeps the act's origin (review finding 1)."
+  - key: "THE NUDGE WORKER IS THE ONLY WRITER: it holds the ticket lock on any replica; deliveries, sweeps and reads only nudge, so webhook and polling write the same way (101b)."
+  - key: "PRKEY IS THE HASH OF THE URL AS STORED: only the refresh writes and it reads URLs from PullRequestsJson, so no normalisation is needed; the hash keeps the unique index inside MySQL's 191-char limit while Url stays unindexed."
+  - key: "STATE ON THE RECORD ONLY: a merge or close has no host id; entries carry comments, review bodies and decisions."
+  - key: "ONE ENTRY ROW PER HOST ID, DECISION AS A COLUMN: on every host the decision is the same object as a note the thread reader returns, so two rows per id would flip or violate the unique index, and h's entry id must equal d's cause.source.id (review3-b finding 1)."
+  - key: "STANDING FLAG, NOT A DECISION ON THE RECORD: the record copying the current decision would store it twice beside the entries; a Standing flag the refresh clears for every decision absent from the read withdraws dismissed reviews, reset votes and GitLab unapproves with one datum (review3-b finding 2, alternative chosen)."
+  - key: "ISSYSTEM ON THE ENTRY: Azure DevOps vote comments and GitLab system notes come back as notes with IsSystem; keeping the flag lets 9a59h render them as system, never as a person (PrStandingAct.cs:56 treats them as non-persons) (review3-b finding 3)."
+  - key: "THE CLAIM RESETS THE ORIGIN: a Refresh merged during a claim made Finish free the row at the higher claimed origin and re-run the handler; resetting to Refresh at claim and restoring max(current, claimed) on reschedule keeps 'a Refresh never reaches the handler' true (review3-b finding 4, review3-c finding 4). No PendingOrigin column is needed."
+  - key: "A REFRESH FINISHES AFTER WRITING ITS FAILURE: a deleted PR or a lost token would otherwise be read every 15 minutes forever (ReworkNudgeWorker.cs:94-96); the next real trigger retries (review3-b finding 5)."
+  - key: "BUCKET PRECEDENCE STATED, DONE NEEDS NO NEWER ATTEMPT: needs_you > working > waiting_on_review > stuck > done > idle, the series order 9a59a states and 9a59h tests (review3-b finding 6)."
+  - key: "LASTACTIVITYAT DERIVED, NOT STORED: newest entry, else openedAt, else StateAt — a stored copy would be a second datum (review3-b finding 7)."
+  - key: "A CONTRACTS READ PORT: h and o live outside Persistence; IPrReviewRecordReader serves both, and PrKey is the hash while Url is readable (review3-b finding 8)."
+  - key: "ORPHANS DELETED BY THE REFRESH; RECENTLY CLOSED RE-READ FOR 24 H: a record no run names is deleted instead of refreshed forever; a one-URL PrUrl column (ReworkNudgeWriter.cs:42) can lose a reopen when two URLs coalesce, so a record closed in the last day is re-read on every refresh — bounded by the day (review3-b finding 9a, 9b; review3-c finding 7)."
+  - key: "DELIVERY REFRESH IS NOT LATE: FromDelivery on the request lets a webhook Refresh pull a backing-off row forward; a sweep's or read's Refresh stays late (review3-c finding 5)."
+  - key: "TIMES AS TICKS: SQLite cannot compare a DateTimeOffset, and the compare-and-set on CheckedAt runs in SQL. The ticket lock already serialises writers; the compare-and-set covers a lock lease that expired mid-refresh."
+  - key: "REPOKEY AND NUMBER ON THE RECORD: lookup columns written from the same read as Url, so 2026-10-13-9a59c's prune can join PrSweepState (RepoKey, Number) without parsing URLs per host; the list row needs the number anyway."
+  - key: "BACKFILL BY THE LIST, BOUNDED BY 'NO RECORD': after deploy no PR has a record; a missing record nudges once and unread stops it repeating, a stale one is refreshed only by the detail (review finding 4)."
+  - key: "DIES WITH ITS NEWEST RUN, REBUILT FROM THE HOST: operator decision 2 keys rows by run id; the host still holds the review, so a deleted record costs one read, not history."
+  - key: "OUR OWN VOTE IS NOT AN APPROVAL: the author, the token's identity and bots are excluded on every host."
+  - key: "SPLIT FROM ONE EARLIER DRAFT: this spec is the record and its read; 2026-10-13-9a59c owns the triggers (review: ~40 files was beyond one commit)."
+
+steps:
+  - id: contract
+    action: "HostId (init) on PrReviewNote and PrReviewThread, PrReviewThread.FromReview; IPrReviewStateReader, PrReviewState, PrReviewDecision; ReworkNudgeOrigin.Refresh = 0, ReworkNudgeRequest.FromDelivery and IsLate covering Refresh; PrKey.Of; IPrReviewRecordReader with its record/entry views."
+  - id: host-ids
+    action: "Thread and act readers on GitHub (ids added to both GraphQL queries; GitHubPrReviewThreadReader 91 lines), GitLab and Azure DevOps fill HostId (the decision's id = its note's id; vote:{reviewerId} for a threadless Azure DevOps vote); GitHub's review bodies set FromReview."
+  - id: state-readers
+    action: "GitHubPrReviewStateReader, GitLabMrStateReader (approved / requested changes / unapproved, newest per author) and AzureReposReviewReads.ReadAsync with the exclusions; each provider delegates in one line (330/374, 367/421, 366/434 lines)."
+  - id: store
+    action: "PrReviewRecord and PrReviewEntry entities and configurations applied from TicketRecordConfigurations (21 -> 23 lines); PersistenceLimits.ReviewNoteBody; one migration in each set; AgentSmithDbContext untouched. Archive counts: DataArchiveRoundTripTests.cs:33,54,81 and DataArchiveSchemaTests.cs:63 go 37 -> 39 tables, DataArchiveRoundTripTests.cs:34 76 -> 80 seed rows (first table-adding member of the series; later members add to 39/80)."
+  - id: repository
+    action: "PrReviewRecordRepository (implements IPrReviewRecordReader): the ticket's run URLs, the compare-and-set upsert of a record with its entries and the Standing sweep, orphan delete, records by ticket set, ByPrKeyAsync, ByRepoKeyAsync, the page-scoped RunRepo PR read for the list backfill."
+  - id: refresh
+    action: "PrReviewRecordRefresh (own class, <= 120 lines): enumerate, orphan delete, recently-closed re-read, read, trust, upsert, unsupported/unread, TicketActivityChanged on change."
+  - id: worker
+    action: "ReworkNudgeWorker (97 -> about 110 of 120): refresh under the lock before the handler; Refresh origin runs only the refresh and finishes. ReworkNudgeRepository (63 -> about 70): claim sets Origin = Refresh, reschedule (both paths) restores max(current, claimed)."
+  - id: delete
+    action: "RunDeletionRepository: records whose RunId is deleted and their entries, in DeleteSatellitesAsync (86 -> about 90 of 120; first of the series' deletion lines: d 91, e 92, f 94, g 95, h 96, j 97, n 98 — no extraction needed)."
+  - id: read
+    action: "TicketReviewState (own class); TicketBucketRule waiting_on_review and done arms; TicketCounts fields; pullRequests[] on the summary; list and detail backfill nudges through IReworkNudges."
+  - id: tests
+    action: "Red first, one per test name below; run the Server, Infrastructure and Persistence classes touched and the Architecture tests."
+
+tests:
+  - "PrReviewState_GitHub_ApprovalAndMergeRead"
+  - "PrReviewState_AzureDevOps_MapsTenFiveMinusFiveMinusTen"
+  - "PrReviewState_AzureDevOps_CreatorAutoCompleteVote_IsNoApproval"
+  - "PrReviewState_GitLab_TokenUserApproval_IsExcluded"
+  - "PrReviewThreads_EveryHost_CarryHostIds"
+  - "PrReviewActs_EveryHost_CarryHostIds"
+  - "PrReviewRecordRefresh_UpsertsEntriesOncePerHostId"
+  - "PrReviewEntry_DecisionAndReviewBody_OneRowPerHostId"
+  - "PrReviewState_WithdrawnDecision_ReadsNone (GitHub dismissed, Azure DevOps reset, GitLab unapproved)"
+  - "PrReviewEntry_SystemNote_StoredWithIsSystem"
+  - "PrReviewRecordRefresh_RecordNoRunNames_IsDeleted"
+  - "PrReviewRecordRefresh_SupersededPr_StillReachesClosed"
+  - "PrReviewRecordRefresh_LeaseExpiredMidRefresh_OlderReadNeverOverwritesNewer"
+  - "PrReviewRecordRefresh_HostFailure_WritesUnread_HandlerDispositionStands"
+  - "RefreshNudge_HostFailure_FinishesWithoutRetryLoop"
+  - "PrReviewRecordRefresh_LocalRepo_WritesUnsupported"
+  - "PrReviewRecordRefresh_ChangedRecord_PublishesTicketActivity_UnchangedDoesNot"
+  - "RefreshNudge_StandingRefusedAct_IsNotReEntered"
+  - "ReworkNudgeWriter_RefreshMergedWithPullRequest_KeepsPullRequestOrigin"
+  - "RefreshMergedDuringClaim_DoesNotRunTheHandlerAgain"
+  - "RescheduleAfterMerge_KeepsTheClaimedOrigin"
+  - "ReworkNudgeRequest_DeliveryRefresh_IsNotLate_SweepRefreshIs"
+  - "RunDeletion_NewestRunNamingPr_DeletesRecordAndEntries"
+  - "TicketReviewState_UntrustedChangesRequested_SaysNoAttempt"
+  - "TicketBuckets_MergedPr_IsDone_LiveAttemptBeatsWaitingOnReview"
+  - "TicketBuckets_AttemptAfterMerge_IsNotDone"
+  - "TicketReviewState_NoEntries_LastActivityIsOpenedAt"
+  - "TicketCounts_OpenPullRequestsAndDoneThisMonthWithAttempts"
+  - "TicketList_PrWithoutRecord_EnqueuesRefreshOnce"
+  - "TicketDetail_StaleRecord_EnqueuesOneRefresh"
+  - "PrReviewRecord_Migrations_ApplyOnSqliteAndSqlServer"
+
+done:
+  - "After a run end or a ticket read, every pull request the ticket's runs named — a superseded one too — has a record with its state, decisions and comments (file and line) from GitHub, GitLab and Azure DevOps; a local repository reads unsupported."
+  - "A ticket whose pull request a person merged is Done and counts in Done this month with its attempts; one with an open pull request and no attempt running or waiting is Waiting on review."
+  - "An approval withdrawn on the host (dismissed, reset, unapproved) no longer reads approved after the next refresh."
+  - "A request for changes by an untrusted reviewer shows 'no attempt was started'; our own auto-complete vote never shows as an approval."
+  - "A Refresh nudge never starts, refuses or announces an attempt, even while a refused act stands or when it merges into a nudge being handled."
+  - "Deleting the run that names a pull request removes its record and entries; the next nudge rebuilds it."

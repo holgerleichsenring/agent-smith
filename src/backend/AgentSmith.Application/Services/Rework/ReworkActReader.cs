@@ -17,13 +17,24 @@ public static class ReworkActReader
     public static ReworkAct? Read(
         IReadOnlyList<TicketComment>? comments, string? keyword, PreviousAttempt? attempt)
     {
+        return ReadComment(comments, keyword, attempt) is { } comment ? ActOf(comment) : null;
+    }
+
+    /// <summary>2026-10-13-9a59t: the comment the act is read from, so its text can travel with it.</summary>
+    public static TicketComment? ReadComment(
+        IReadOnlyList<TicketComment>? comments, string? keyword, PreviousAttempt? attempt)
+    {
         if (attempt is null || string.IsNullOrWhiteSpace(keyword) || comments is null) return null;
-        var act = comments
+        return comments
             .Where(c => !OwnTicketComment.IsOurs(c) && attempt.Precedes(c.CreatedAt)
                 && c.Body?.Contains(keyword, StringComparison.OrdinalIgnoreCase) == true)
             .MaxBy(c => c.CreatedAt);
-        return act is null ? null : new ReworkAct(act.Author, act.CreatedAt);
     }
+
+    public static ReworkAct ActOf(TicketComment comment) => new(comment.Author, comment.CreatedAt)
+    {
+        Source = new AttemptSource(AttemptSourceKinds.Comment, Id: comment.Id),
+    };
 
     /// <summary>Reads the act off the pipeline and sets <see cref="ContextKeys.ReworkAct"/>.</summary>
     public static void Apply(PipelineContext pipeline, string? keyword)

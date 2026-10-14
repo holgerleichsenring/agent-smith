@@ -13,7 +13,13 @@ public static class RequestedByNameExtensions
     {
         if (context is null || !context.TryGetValue(ContextKeys.RequestedByName, out var value))
             return false;
-        return value is true
-            || value is JsonElement { ValueKind: JsonValueKind.True };
+        return IsTrue(value);
     }
+
+    /// <summary>2026-10-13-9a59d: the same flag on a running pipeline, which the initial context seeded.</summary>
+    public static bool IsRequestedByName(this PipelineContext pipeline) =>
+        pipeline.TryGet<object>(ContextKeys.RequestedByName, out var value) && IsTrue(value);
+
+    private static bool IsTrue(object? value) =>
+        value is true || value is JsonElement { ValueKind: JsonValueKind.True };
 }

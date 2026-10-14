@@ -10,4 +10,9 @@ namespace AgentSmith.Contracts.Services;
 public interface IReworkPendingActs
 {
     Task<PendingReworkAct?> NewestAsync(ResolvedProject project, string ticketId, PreviousAttempt since, CancellationToken cancellationToken);
+
+    /// <summary>2026-10-13-9a59m: the newest act that answers a hand-back — an approval in the ticket's
+    /// conversation or a pull-request act; a keyword comment never does.</summary>
+    Task<PendingReworkAct?> NewestHandbackAnswerAsync(
+        ResolvedProject project, string ticketId, PreviousAttempt since, CancellationToken cancellationToken);
 }

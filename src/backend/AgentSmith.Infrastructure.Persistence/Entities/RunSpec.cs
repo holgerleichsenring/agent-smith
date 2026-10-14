@@ -27,7 +27,9 @@ public sealed class RunSpec : EntityBase
     /// <summary>not_started | in_progress | done | failed.</summary>
     public string Status { get; set; } = string.Empty;
 
-    public DateTimeOffset StartedAt { get; set; }
+    /// <summary>When the spec first ran; null on a row the cut created that has not started
+    /// (2026-10-13-9a59e).</summary>
+    public DateTimeOffset? StartedAt { get; set; }
 
     /// <summary>When the spec reached a terminal standing; null while it runs.</summary>
     public DateTimeOffset? EndedAt { get; set; }
@@ -38,4 +40,11 @@ public sealed class RunSpec : EntityBase
     /// that simply ran through.
     /// </summary>
     public string? Verdict { get; set; }
+
+    /// <summary>
+    /// 2026-10-13-9a59e: the spec's acceptance as it stood at its last recorded change — its accounts
+    /// and declined criteria, serialised as the run detail's acceptance view. Run.AcceptanceJson stays
+    /// the gate's run-end snapshot over every spec.
+    /// </summary>
+    public string? AcceptanceJson { get; set; }
 }

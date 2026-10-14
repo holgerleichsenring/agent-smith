@@ -1,0 +1,140 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-9a59g
+goal: "Each code run records its ticket's conversation as it happens: ticket text with criteria, every question, the hand-back's words and every spec-cut review, kept as long as the run is."
+
+applies_to: "backend (run events, persistence projection, spec-dialog save path) + hub-events mirror"
+
+requires: [2026-10-13-9a59a, 2026-10-13-9a59d, 2026-10-13-9a59e]
+
+facts:
+  - claim: "TicketFetchedEvent carries title, description and state but not the acceptance criteria, which the Ticket has and the fingerprint covers."
+    evidence: "src/backend/AgentSmith.Contracts/Events/TicketFetchedEvent.cs:15-27, src/backend/AgentSmith.Domain/Entities/Ticket.cs:19-21, src/backend/AgentSmith.Application/Services/Specs/TicketTextFingerprint.cs:18-24"
+  - claim: "FetchTicketHandler publishes the event with the description run through TicketHtmlConverter; the file is 147 lines against a 189-line baseline entry."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/FetchTicketHandler.cs:128-138, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:55"
+  - claim: "A hand-back's words go to the ticket and its pull requests as a comment and nowhere else; the park writes no checkpoint. SpecHandbackPark is 54 lines."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackPark.cs:16-20,36-40"
+  - claim: "A hand-back carries its quoted ticket sentence as a typed slot beside the case and reason."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecHandback.cs:9-11,18-23"
+  - claim: "SpecSetDeriver reviews every parsed cut in lines 94-106, uses the verdict in-run and publishes it nowhere; the file is exactly 120 lines and takes the reviewer as a constructor parameter."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:36-44,94-106,113, observed: 2026-10-13, wc -l reads 120 at a998e060f"
+  - claim: "A review is a list of findings, deliverable when empty; a finding names spec id, criterion, problem, why, conflict and cited look."
+    evidence: "src/backend/AgentSmith.Domain/Models/SpecCutReview.cs:13-18, src/backend/AgentSmith.Domain/Models/CutFinding.cs:16-22"
+  - claim: "DerivationAttempts (60 lines) already holds the loop's per-attempt state, including the least-objected cut the review offers to."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationAttempts.cs:13,23-36"
+  - claim: "A run has ONE checkpoint row, overwritten with the next question when it parks again; the event carries project, ticket id, question id and the question JSON."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunCheckpointProjection.cs:17-40, src/backend/AgentSmith.Contracts/Events/RunCheckpointedEvent.cs:12-27"
+  - claim: "Projections that insert ask ProjectedEventRecords whether (RunId, EventSeq) is already held, and RunRecordIdentityConfiguration makes that pair unique, filtered on SQL Server."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/ProjectedEventRecords.cs:17-26, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunRecordIdentityConfiguration.cs:18-34"
+  - claim: "RunChildConfiguration.Apply's modelBuilder.Entity(child) puts a type into the model and RunRecordIdentityConfiguration adds its unique (RunId, EventSeq); IUnitOfWork.Set<T> reaches it without a DbSet. RunDecision does have one (AgentSmithDbContext.cs:24); this spec adds none, so the table takes the CLR type's name, RunConversationEntry."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunChildConfiguration.cs:26-30,39-44, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunRecordIdentityConfiguration.cs:23-34, src/backend/AgentSmith.Infrastructure.Persistence/AgentSmithDbContext.cs:24,74,78"
+  - claim: "SpecHandbackPark's constructor has no event publisher and no run context; the text it posts is the local comment it builds. SpecSetDeriver's constructor has neither either. FetchTicketHandler reads the run id from IRunContextAccessor.CurrentRunId and publishes nothing without one."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackPark.cs:25-29,37-40, src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:36-44, src/backend/AgentSmith.Application/Services/Handlers/FetchTicketHandler.cs:22,124-125"
+  - claim: "Six test files construct SpecSetDeriver directly and five construct SpecHandbackPark; production builds the park through DI."
+    evidence: "tests/AgentSmith.Tests/Specs/SpecDerivationLoopTests.cs, tests/AgentSmith.Tests/Specs/SpecCutSurvivesReviewTests.cs, tests/AgentSmith.Tests/Specs/CutReviewDoneDroppedTests.cs, tests/AgentSmith.Tests/Specs/SpecDerivationCoverageTests.cs, tests/AgentSmith.Tests/Specs/ContradictionHandbackDerivationTests.cs, tests/AgentSmith.Tests/Specs/CutReviewPerAttemptTests.cs, tests/AgentSmith.Tests/Specs/SpecHandbackTests.cs, tests/AgentSmith.Tests/Specs/ParkRecordsARefusedMoveTests.cs, tests/AgentSmith.Tests/Specs/ScopeUnassignedHandbackTests.cs, tests/AgentSmith.Tests/Specs/SpecHandbackRepeatTests.cs, tests/AgentSmith.Tests/Specs/MultiRepo/SeriesOutOfStepTests.cs, src/backend/AgentSmith.Application/Services/Specs/SpecDerivationRegistrations.cs:83"
+  - claim: "A hand-back parks at derivation and ends the run awaiting input, so a run that handed back never reaches the master to park on a question; a hand-back can follow an accepted cut (a scoped-context question after the review)."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs:78, src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:96-109"
+  - claim: "The seeded data-archive tests hard-code 37 tables and 76 rows, two seeded rows per table in the model; FilterRail's label table is an exhaustive Record<EventType, string>, so pnpm build fails on an unlabelled EventType while gen:hub-events checks only enum and record presence."
+    evidence: "tests/AgentSmith.Tests/Persistence/DataArchiveRoundTripTests.cs:33-34,54,81, tests/AgentSmith.Tests/Persistence/DataArchiveSchemaTests.cs:63, tests/AgentSmith.Tests/TestSupport/FullStoreSeed.cs:38-43, src/dashboard/src/components/jobs/FilterRail.tsx:8, tools/build-hub-event-types.mjs:9-17"
+  - claim: "Run deletion removes each child by run id inside one transaction; RunDeletionRepository is 86 lines."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunDeletionRepository.cs:54-64"
+  - claim: "Retention prunes RunEvent rows older than 90 days, so a payload kept only in the trail is lost."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunRetentionService.cs:18,30-34"
+  - claim: "The highest EventType value is DesignRead = 82; the resolver maps each value to its event type, and hub-events.ts mirrors it."
+    evidence: "src/backend/AgentSmith.Contracts/Events/EventType.cs:110-111, src/backend/AgentSmith.Infrastructure/Services/Events/EventTypeResolver.cs:53-56, src/dashboard/src/types/hub-events.ts:45-46,582-583"
+  - claim: "EventType.cs is 112 lines and has no baseline row, so the ratchet fails it above 120; 9a59d's 83 and 9a59f's 84 take it to 116 before this spec."
+    evidence: "tests/AgentSmith.Tests/Architecture/FileLengthRatchetTests.cs:19-30, observed: 2026-10-13, wc -l src/backend/AgentSmith.Contracts/Events/EventType.cs = 112 and no EventType.cs row in tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv"
+  - claim: "A Work it out turn is saved by SpecDialogSessionManager.AppendTurnAsync and ClearDecisionAsync, and the proposal and filing by SpecDialogLatestOutcomeStore.UpdateAsync, each through repository.SaveAsync; both files are exactly 120 lines."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSessionManager.cs:15-19,68-81,89-102, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogLatestOutcomeStore.cs:28-29,105-119, observed: 2026-10-13, wc -l reads 120 for both at a998e060f"
+  - claim: "A ticket-bound session carries its Project, Tracker and TicketKey (TicketKey.For spelling, unique per tracker)."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSessionManager.cs:36,39-40, src/backend/AgentSmith.Infrastructure.Persistence/Entities/SpecDialogSession.cs:64-67, src/backend/AgentSmith.Contracts/Specs/TicketKey.cs:13-14"
+
+assumptions:
+  - "2026-10-13-9a59a defines TicketActivityChangedEvent(Source, Project, TicketKey, Timestamp) (SystemEventType 56) behind ITicketActivityNudge, one implementation over ISystemEventPublisher (a no-op outside the server, no extra no-op class), with ticketKey in the TicketKey.For spelling SpecDialogSession.TicketKey holds."
+  - "2026-10-13-9a59d turns RunEventApplier into a dispatcher over projection families and adds Cause, TicketFingerprint and WebUrl to TicketFetchedEvent; this spec registers one more family and adds one more field."
+  - "2026-10-13-9a59e is the one writer of the hand-back CASE (event 83's cut); this spec's hand-back event carries no case."
+
+scope:
+  in: >
+    EVENTS (resolver entry + hub-events.ts mirror + FilterRail.tsx LABELS entries; pnpm gen:hub-events and pnpm build green; run
+    events, so no describeSystemEvent case): TicketFetchedEvent gains
+    AcceptanceCriteria (text, as the description is converted). SpecHandedBackEvent = EventType 85: the posted
+    comment text, the quote, the time; NO case (2026-10-13-9a59e writes it). SpecCutReviewedEvent = EventType 86:
+    derivation attempt number, deliverable (accepted | refused), findings — published for EVERY review, accepted
+    ones included. PUBLISHERS: FetchTicketHandler passes the criteria; SpecHandbackPark gains IEventPublisher and IRunContextAccessor
+    and publishes the local comment it posted, after posting;
+    the review block of SpecSetDeriver (lines 94-106) moves into a new CutReviewStep that reviews, offers a refused
+    cut to the kept set, publishes the event (CutReviewStep takes IEventPublisher and IRunContextAccessor) and returns the rejection message
+    or none; both publishers publish nothing without a run id (a CLI or inline ticket), as FetchTicketHandler does — the deriver takes
+    CutReviewStep in place of ISpecCutReviewer and loses about ten lines. STORE: RunConversationEntry (Id, RunId,
+    EventSeq, Kind ticket-text | question | hand-back | cut-review, At, QuestionId, Text, DetailJson), registered
+    without a DbSet: typeof in RunChildConfiguration.Children and Unique<RunConversationEntry> in
+    RunRecordIdentityConfiguration (filtered on SQL Server); the table is named RunConversationEntry (CLR name, no DbSet)
+    in both migration sets; deleted in
+    RunDeletionRepository.DeleteChildrenAsync; not pruned by retention. PROJECTION: RunConversationProjection, a
+    conversation family registered with 2026-10-13-9a59d's dispatcher, deduped by ProjectedEventRecords, writes a
+    row only for a run with a ticket: ticket-text from TicketFetched (Text = description, DetailJson = criteria;
+    the title stays on Run.TicketTitle), question from EVERY RunCheckpointed whose TicketId is non-empty (Text = the
+    question's text, QuestionId; the answer stays in the inbox), hand-back from SpecHandedBack (Text = posted text,
+    DetailJson = quote), cut-review from SpecCutReviewed (DetailJson = attempt, deliverable, findings). NUDGE:
+    BoundSessionNudge.SaveAsync(session) saves through the repository and, when the session has a TicketKey,
+    publishes 9a59a's TicketActivityChanged(Project, TicketKey), fail-soft; SpecDialogSessionManager's two saves and
+    SpecDialogLatestOutcomeStore.UpdateAsync call it instead of repository.SaveAsync. Line room: each class takes
+    the nudge on an existing constructor line and swaps a call for a call, so both stay at 120.
+  out: >
+    Reading the conversation, the between-attempts check, Stuck and the hand-back's since — 2026-10-13-9a59h.
+    The park segments that read the question and hand-back rows — 2026-10-13-9a59j. The hand-back case and the cut's
+    content — 2026-10-13-9a59e. The act an attempt served, its fingerprint and worked approval — 2026-10-13-9a59d.
+    Who edited a ticket — not recorded by any tracker read; dropped by operator decision 3.
+
+decisions:
+  - key: "SPLIT FROM ONE EARLIER DRAFT (review cut 1): this half records, 2026-10-13-9a59h reads. The record half has no reader dependency and ships its rows before anything renders them."
+  - key: "A ROW PER PARK, NOT THE CHECKPOINT: the checkpoint is resume state, overwritten by the next question and keyed one per run; the conversation entry is the history. They share the latest question's text by design — one is consumed by resume, the other read by people."
+  - key: "TICKET RUNS ONLY (review F9): a ticketless chat run's questions stay in the run viewer (operator decision 3), so the projection skips a checkpoint with an empty TicketId."
+  - key: "THE TITLE IS NOT COPIED: Run.TicketTitle already holds each attempt's title; the ticket-text row holds description and criteria only, so no datum is persisted twice."
+  - key: "EVERY REVIEW IS PUBLISHED (review cut 5): the mock shows 'cut 2 accepted' beside 'cut 1 refused'; an accepted review is a turn of the conversation too."
+  - key: "CUT REVIEW AS A STEP, NOT A DECORATOR (review F5): a wrapper around ISpecCutReviewer is excluded by the no-wrapper rule; moving the review block out of SpecSetDeriver is what makes room for the publish."
+  - key: "THE NUDGE SAVES (contract): one BoundSessionNudge owns 'a bound session changed'; both 120-line classes swap one call, so neither needs a split and none of their seven callers changes."
+  - key: "RUN ID FROM THE AMBIENT CONTEXT (review3 F4): the two new publishers read IRunContextAccessor.CurrentRunId as FetchTicketHandler does (FetchTicketHandler.cs:124-125) and stay silent without a run; the deriver also runs for a CLI or inline ticket."
+  - key: "TWO OBSERVABLE RUNS IN THE DONE LINE (review3 F5): a hand-back ends the run at derivation (SpecHandbackHandler.cs:78), so 'parked twice and handed back' cannot be one run; the done criterion names two runs that can exist."
+  - key: "NO NEW DBSET: AgentSmithDbContext is at 120 lines; the table takes the CLR name RunConversationEntry, stated in the migration so nobody expects a plural."
+  - key: "NO CASE ON THE HAND-BACK EVENT: 2026-10-13-9a59e's cut is the one writer of the case; two writers would disagree on a resumed run."
+
+steps:
+  - id: events
+    action: "AcceptanceCriteria on TicketFetchedEvent; SpecHandedBackEvent (85) and SpecCutReviewedEvent (86) — EventType.cs 116 -> 120 after d and f (one comment line + entry each; if a longer comment is wanted, the two share one comment line so the file stays <= 120); resolver entries; hub-events.ts mirror; FilterRail.tsx LABELS gains SpecHandedBack and SpecCutReviewed (exhaustive record); pnpm gen:hub-events and pnpm build green."
+  - id: fetch
+    action: "FetchTicketHandler passes the criteria through TicketHtmlConverter (147 of 189 baseline lines)."
+  - id: handback
+    action: "SpecHandbackPark takes IEventPublisher and IRunContextAccessor and publishes SpecHandedBackEvent with the posted local comment, quote and time after posting, nothing without a run id; the five test files that construct it (SpecHandbackTests, ParkRecordsARefusedMoveTests, ScopeUnassignedHandbackTests, SpecHandbackRepeatTests, SeriesOutOfStepTests) pass the two."
+  - id: cut-review
+    action: "CutReviewStep (ISpecCutReviewer, IEventPublisher, IRunContextAccessor) takes SpecSetDeriver lines 94-106, publishes every review with its attempt number, nothing without a run id; the deriver takes CutReviewStep and drops below 120 lines; the six test files that construct SpecSetDeriver (SpecDerivationLoopTests, SpecCutSurvivesReviewTests, CutReviewDoneDroppedTests, SpecDerivationCoverageTests, ContradictionHandbackDerivationTests, CutReviewPerAttemptTests) pass a CutReviewStep."
+  - id: store
+    action: "RunConversationEntry entity; Children entry and unique (RunId, EventSeq) beside RunDecision's; table RunConversationEntry in a migration in both sets; DataArchiveRoundTripTests.cs:33,54,81 and DataArchiveSchemaTests.cs:63 table count +1 and DataArchiveRoundTripTests.cs:34 row count +2 on what b, d, e and f left (running total 43 -> 44 tables, 88 -> 90 rows)."
+  - id: project
+    action: "RunConversationProjection as a conversation family on 9a59d's dispatcher for the four events, ticket runs only, deduped; RunDeletionRepository deletes the rows (about 94 -> 95 of 120)."
+  - id: nudge
+    action: "BoundSessionNudge; SpecDialogSessionManager and SpecDialogLatestOutcomeStore save through it; tests that construct either pass it."
+  - id: tests
+    action: "Red first, one per test name below."
+
+tests:
+  - "RunConversationProjection_SecondPark_KeepsTheFirstQuestion"
+  - "RunConversationProjection_ReplayedEvent_WritesOneRow"
+  - "RunConversationProjection_TicketlessCheckpoint_WritesNothing"
+  - "RunConversationProjection_TicketFetched_StoresDescriptionAndCriteriaNotTitle"
+  - "RunDeletion_RemovesConversationEntries"
+  - "SpecHandbackPark_PublishesTheCommentTextAndQuote"
+  - "SpecHandbackPark_NoRunId_PublishesNothing"
+  - "SpecSetDeriver_RefusedCut_PublishesFindings"
+  - "SpecSetDeriver_AcceptedCut_PublishesDeliverable"
+  - "FetchTicketHandler_PublishesAcceptanceCriteria"
+  - "BoundSession_TurnSaved_PublishesTicketActivity_UnboundDoesNot"
+  - "BoundSession_ProposalSaved_PublishesTicketActivity"
+  - "RunConversationEntry_Migrations_ApplyOnSqliteAndSqlServer"
+
+done:
+  - "A ticket run with one refused and one accepted cut that then handed back holds three rows (two cut-reviews, one hand-back) plus its ticket-text row, each once after a replay."
+  - "A ticket run that parked twice on questions holds two question rows plus its ticket-text row, each once after a replay."
+  - "Deleting the run removes its rows; retention leaves them."
+  - "A turn or proposal saved in a ticket-bound Work it out conversation sends TicketActivityChanged for that ticket; an unbound one sends nothing."
+  - "SpecSetDeriver and both spec-dialog classes are at or below 120 lines; pnpm gen:hub-events and pnpm build pass."

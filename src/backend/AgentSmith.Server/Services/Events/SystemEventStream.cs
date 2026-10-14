@@ -43,8 +43,9 @@ public sealed class SystemEventStream(IRunEventFanout fanout, EventEnvelopeSeria
         for (var i = entries.Length - 1; i >= 0; i--)
         {
             ct.ThrowIfCancellationRequested();
-            var systemEvent = Deserialize(entries[i]);
-            if (systemEvent is not null) _recent.Append(systemEvent);
+            // 2026-10-13-9a59a: a ticket nudge is a refresh signal, not system activity.
+            if (Deserialize(entries[i]) is { } systemEvent and not TicketActivityChangedEvent)
+                _recent.Append(systemEvent);
         }
         // p0258: anchor the live drain at the REAL last stream id (entries are newest-first, so
         // entries[0] is it) — NOT the "$" sentinel, which converted to "0-0" and re-read the
@@ -60,16 +61,26 @@ public sealed class SystemEventStream(IRunEventFanout fanout, EventEnvelopeSeria
         foreach (var entry in entries)
         {
             ct.ThrowIfCancellationRequested();
-            var systemEvent = Deserialize(entry);
-            if (systemEvent is null) continue;
-            _recent.Append(systemEvent);
-            appended = true;
-            await fanout.ToSystemAsync(systemEvent, ct);
+            if (Deserialize(entry) is { } systemEvent) appended |= await RouteAsync(systemEvent, ct);
         }
         _cursor = entries[^1].Id.ToString();
         // p0175-fix: one rollup broadcast per batch (not per event) keeps the SignalR overhead
         // bounded under burst load while still keeping the KPI cards within one loop interval.
         if (appended) await fanout.ToSystemActivityAsync(Activity(), ct);
+    }
+
+    /// <summary>True when the event joined the ring. 2026-10-13-9a59a: a ticket nudge goes to the
+    /// overview group instead, never into the ring or the 24 h rollup.</summary>
+    private async Task<bool> RouteAsync(SystemEvent systemEvent, CancellationToken ct)
+    {
+        if (systemEvent is TicketActivityChangedEvent ticket)
+        {
+            await fanout.ToTicketActivityAsync(ticket, ct);
+            return false;
+        }
+        _recent.Append(systemEvent);
+        await fanout.ToSystemAsync(systemEvent, ct);
+        return true;
     }
 
     private SystemEvent? Deserialize(StreamEntry entry)

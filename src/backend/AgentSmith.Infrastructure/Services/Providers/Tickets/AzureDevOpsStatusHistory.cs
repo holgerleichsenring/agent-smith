@@ -21,9 +21,17 @@ internal sealed class AzureDevOpsStatusHistory(AzureDevOpsConnectionCache connec
     }
 
     public async Task<TicketStatusMove?> NewestPersonMoveIntoAsync(
-        TicketId ticketId, IReadOnlyCollection<string> statuses, TrackerActor? self, CancellationToken cancellationToken)
+        TicketId ticketId, IReadOnlyCollection<string> statuses, TrackerActor? self, CancellationToken cancellationToken) =>
+        (await MovesAsync(ticketId, statuses, cancellationToken)).Where(m => !m.Actor.Is(self)).MaxBy(m => m.At);
+
+    // The host flags no apps, so IsApp stays false: only the token's identity tells our move apart.
+    public async Task<TicketStatusMove?> NewestMoveIntoAsync(TicketId ticketId, string status, CancellationToken cancellationToken) =>
+        (await MovesAsync(ticketId, [status], cancellationToken)).MaxBy(m => m.At);
+
+    private async Task<IReadOnlyList<TicketStatusMove>> MovesAsync(
+        TicketId ticketId, IReadOnlyCollection<string> statuses, CancellationToken cancellationToken)
     {
-        if (!int.TryParse(ticketId.Value, out var id)) return null;
+        if (!int.TryParse(ticketId.Value, out var id)) return [];
         var client = connections.CreateClient();
         var updates = new List<WorkItemUpdate>();
         for (var skip = 0; ; skip += PageSize)
@@ -32,7 +40,7 @@ internal sealed class AzureDevOpsStatusHistory(AzureDevOpsConnectionCache connec
             updates.AddRange(page);
             if (page.Count < PageSize) break;
         }
-        return updates.Select(u => Move(u, statuses)).OfType<TicketStatusMove>().Where(m => !m.Actor.Is(self)).MaxBy(m => m.At);
+        return [.. updates.Select(u => Move(u, statuses)).OfType<TicketStatusMove>()];
     }
 
     private static TicketStatusMove? Move(WorkItemUpdate update, IReadOnlyCollection<string> statuses)

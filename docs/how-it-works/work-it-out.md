@@ -49,7 +49,7 @@ The left column, **Recents**, lists your twenty most recent conversations, newes
 
 ### Who a conversation belongs to
 
-A conversation you start with no ticket is yours: only you can read it, write in it or approve what it proposes. A conversation bound to a ticket is different. A ticket has exactly one conversation, and anyone who can use this page can open and continue it, because everyone who can see the ticket on the board may discuss it. Deleting a conversation is always the owner's alone.
+A conversation you start with no ticket is yours: only you can read it, write in it or approve what it proposes. A conversation bound to a ticket is different. A ticket has exactly one conversation, and anyone who can use this page can open, resume and continue it, because everyone who can see the ticket on the board may discuss it. Deleting a conversation is always the owner's alone.
 
 ### Deleting
 
@@ -83,7 +83,28 @@ Approving files the ticket and tries to start its run. Moving a ticket into a tr
 
 Bind a conversation to a ticket (search for it, or open `?ticket=`) and the ticket becomes the conversation's subject. Every turn is given the ticket's text as the requirement being discussed, never as instructions to the agent. Long tickets are cut at comment boundaries with the description kept whole, and the design partner can read the rest in slices when the answer depends on it. If the ticket changes on the tracker after the conversation read it, the next turn says so before relying on the old text. If the ticket already has an approved specification that says things the ticket text doesn't, the conversation raises that and asks which is right.
 
-Proposals in a ticket conversation get one more shape: **Amend this ticket** (specs and cuts only). Approving it doesn't file a new ticket. It rewrites the framework's part of this ticket's description from the new specification, records the new approved set and writes it to the ticket branch. That keeps the ticket readable for whoever reviews the pull request or judges the result; the run itself works from the branch either way. The rewrite works on GitHub, GitLab and Azure DevOps (where a Bug's text lives in its repro steps, and that is the field written). Jira refuses: its description comes back as plain text and rewriting it would destroy what a person wrote, so the conversation tells you to paste the part you want yourself. An amendment is also refused while a run holds the ticket.
+The design partner can also read what the framework itself did about the ticket, kept apart from what the tracker shows. For each of the ticket's ten newest runs it sees the pipeline, the status, why the attempt started (a ticket comment, a pull request, a status move, a request, a retrigger, a pickup, an approval in a conversation, or a retry, with who and when), and a parked run's question. For each spec a run worked it sees the status, the verdict, and the outcome of every criterion with its note and citation, plus criteria the agent declined and accounts nobody could take, such as a red build. It also sees every pull request recorded for the ticket by its address, with its state and the newest 40 review entries across them: comments, reviews and decisions with their author, file and line. An entry from an author who isn't trusted is listed but started nothing, and a system entry is the host's own event rather than a person's. So you can ask which criterion failed, who requested changes and on which line, or why the last attempt started, and the answer names the record it rests on.
+
+Approving a spec or a cut in a ticket conversation doesn't file a new ticket. What it does depends on the ticket, and the approval preview (`GET /api/tickets/{project}/{ticketId}/approval-preview`, which needs `dialog.write`) shows it before you approve, spec by spec:
+
+- **A ticket a run has worked** is continued by spec id. A spec that already ran is kept exactly as it ran; a changed text of one is reported as discarded. A spec that hasn't run and that the proposal repeats is re-cut. One that a lone spec leaves out is kept, and one that a cut leaves out is dropped. A spec with a new id is appended after the rest. The approval is recorded under the ticket, and the ticket's next run applies it to the series on the branch and names anything that changed there since. Once approved this way, the series is final for ticket text: a comment or an edit on the ticket no longer re-cuts it, so changes go through the conversation again. "Worked" means a code run on any project that shares the ticket's tracker; a pull-request review or a scan doesn't count.
+- **A ticket no code run has worked** takes the approved series whole, on GitHub, GitLab, Azure DevOps and Jira: it's recorded under the ticket and written to the ticket branch. The framework's part of the description is rewritten from it where the tracker supports that (GitHub, GitLab, Azure DevOps). Jira refuses, because its description comes back as plain text and rewriting it would destroy what a person wrote; the conversation says so, and the series is recorded anyway. While a run holds the ticket, the approval is refused and nothing is recorded.
+- **A ticket a person closed** gets one follow-up ticket with the proposal's specs that haven't already run on it, and a comment on each ticket names the other. A ticket the framework itself moved to done or failed isn't closed in this sense and is continued instead. The conversation stays the closed ticket's, so a later approval there files another follow-up.
+
+If the tracker can't be read, the approval is refused and nothing is recorded; approve again once it answers. A series that would hold more than eight specs is refused with both counts.
+
+### When the next attempt starts
+
+Approving in a ticket's conversation also starts the work, if you hold `runs.control`. The approval is the act: the attempt it starts records it as its cause, with who approved, when, and in which conversation. The conversation says which of these happened, and the approval preview shows the same answer for you before you approve:
+
+- **The last attempt ended.** The next attempt starts now, on whichever server picks up the request.
+- **A run is working the ticket.** The approval waits for that run. When it ends, the next attempt starts, unless the run already picked up this approval and worked it.
+- **The last attempt handed the ticket back.** The approval answers the hand-back: the waiting run is closed and the next attempt starts. A keyword comment written after the approval doesn't change that.
+- **The last attempt is waiting for an answer to its question.** Nothing is recorded. The conversation names the run and where to answer it (the run's question, or `POST /api/runs/{runId}/answer`). The proposal stays open, so you can approve it once the question is answered.
+- **No code run has worked the ticket yet.** Its first attempt starts the way a filed ticket's does. The project's routing tag is put on the ticket and the ticket is moved into a trigger status, so the next poll picks it up.
+- **You don't hold `runs.control`.** The change is recorded and nothing starts, not even at the next run end. Someone who may start runs, or a move on the tracker, starts the next attempt.
+
+An operator's stop (a cancel or a delete) withholds an approval given before it, as it does any other act.
 
 ## Withdrawing a filing
 

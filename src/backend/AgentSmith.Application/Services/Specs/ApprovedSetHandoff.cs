@@ -25,6 +25,11 @@ public sealed class ApprovedSetHandoff(ILogger<ApprovedSetHandoff> logger)
     public SpecSourceResolver.Decision? Decide(SpecApprovalRecord? record, string key)
     {
         if (record is null) return null;
+        // 2026-10-13-9a59l: a continuation's set is the proposal, not the series it continues.
+        if (record.Continuation?.BasisRunId is { } basis)
+            return new SpecSourceResolver.Decision(SpecSource.Approved, null, false, Failure:
+                $"the approval given in design conversation {Conversation(record)} continues the series run {basis} "
+                + "worked, and the ticket branch no longer holds it; restore the branch's series and approve again");
         logger.LogInformation(
             "Spec set {Key} comes from the approval given in conversation {Conversation} "
             + "({Specs} spec(s)); the ticket branch carries none yet",

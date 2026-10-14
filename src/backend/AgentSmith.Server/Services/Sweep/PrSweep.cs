@@ -43,7 +43,8 @@ public sealed class PrSweep(
             var from = await cursors.GetAsync(key, ct);
             var now = time.GetUtcNow();
             var turn = _commentTurns[key] = _commentTurns.GetValueOrDefault(key) + 1;
-            var resume = await new PrSweepPass(scope.ServiceProvider.GetRequiredService<PrSweepStore>(), actions, labels)
+            var resume = await new PrSweepPass(scope.ServiceProvider.GetRequiredService<PrSweepStore>(), actions, labels,
+                    ActivatorUtilities.CreateInstance<PrSweepRecordNudge>(scope.ServiceProvider))
                 .RunAsync(target, source.OpenPullRequests(), from?.Resume, interval, now, turn, ct);
             await cursors.AdvanceAsync(key, new SweepPosition(now, resume), ct);
         }

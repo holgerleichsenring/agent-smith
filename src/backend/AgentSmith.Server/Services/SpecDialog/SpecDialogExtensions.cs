@@ -30,7 +30,7 @@ internal static class SpecDialogExtensions
         // Scoped: the session manager rides the per-message DI scope's unit of
         // work (SpecDialogSessionRepository -> AgentSmithDbContext); the turn
         // runner shares that scope for the duration of its in-process run.
-        services.AddScoped<SpecDialogSessionManager>();
+        services.AddScoped<SpecDialogSessionManager>().AddScoped<BoundSessionNudge>(); // 2026-10-13-9a59g
         services.AddScoped<SpecDialogResumer>();
         services.AddScoped<SpecDialogAnswerAdmission>();
         services.AddScoped<SpecDialogCommandHandler>();
@@ -48,7 +48,7 @@ internal static class SpecDialogExtensions
         // 2026-09-17-042eg: what makes a filed work ticket actually start, and what says why it did not.
         // 2026-09-20-2ba8: the tag that lets it resolve at all goes on in the same step.
         services.AddScoped<FiledWorkTagger>();
-        services.AddScoped<FiledWorkStarter>();
+        services.AddScoped<FiledWorkStarter>().AddScoped<FiledWorkMove>(); // 2026-10-13-9a59m: the move, shared
         services.AddScoped<SpecDialogOutcomeStore>();
         services.AddScoped<SpecDialogLatestOutcomeStore>();
         // 2026-09-17-0e79a: filing a spec stores the approved set under the ticket's spec key.
@@ -57,7 +57,7 @@ internal static class SpecDialogExtensions
         services.AddScoped<ApprovedSetTicketFiler>();
         // 2026-09-22-b6ad: the approved set reaches the ticket branch as the ticket is filed.
         services.AddScoped<FiledSpecBranchWrite>();
-        services.AddScoped<OutcomeTicketFiler>().AddScoped<TicketAmendment>(); // 8e51e
+        services.AddScoped<OutcomeTicketFiler>().AddScoped<TicketAmendment>().AddTicketContinuation(); // 8e51e, 9a59l
         services.AddTransient<FiledSeriesFactory>(); // 2026-10-06-03c7c
         services.AddScoped<IOutcomeSink, TicketFilingOutcomeSink>();
         services.AddScoped<SpecDialogOutcomeFlow>();
@@ -71,8 +71,8 @@ internal static class SpecDialogExtensions
         // 2026-09-15-9033: the dashboard channel — the ownership guard rides the session
         // manager's own scoped unit of work, and the dispatcher is the one way in.
         services.AddScoped<SpecDialogOwnership>();
-        services.AddScoped<TicketConversationBinder>().AddScoped<BoundTicketReaders>()
-            .AddScoped<TicketSearchAcrossTrackers>();  // 8e51b, 481ba, 5c1eb
+        services.AddScoped<TicketConversationBinder>().AddScoped<BoundTicketReaders>().AddScoped<TicketRunsFacts>()
+            .AddScoped<TicketSearchAcrossTrackers>();  // 8e51b, 481ba, 5c1eb, 9a59o
         services.AddScoped<TicketTextForConversation>().AddScoped<TicketMovedCheck>()
             .AddScoped<ApprovedSetDivergence>();  // 8e51c, 481ba, 8e51e
         services.AddScoped<TicketProjectChoice>().AddScoped<TicketProjectForTracker>();  // 8e51a, 481bb

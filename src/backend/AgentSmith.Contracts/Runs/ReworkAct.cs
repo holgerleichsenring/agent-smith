@@ -7,4 +7,8 @@ namespace AgentSmith.Contracts.Runs;
 /// <para>2026-10-08-f114: <see cref="Channel"/> says where the act was made; only a pull-request act
 /// is a revision cause of its own — on the ticket, Comment and RecutDemand already are.</para>
 /// </summary>
-public sealed record ReworkAct(string Author, DateTimeOffset At, ReworkChannel Channel = ReworkChannel.Ticket);
+public sealed record ReworkAct(string Author, DateTimeOffset At, ReworkChannel Channel = ReworkChannel.Ticket)
+{
+    /// <summary>2026-10-13-9a59d: where the act was made; null for an act read before sources existed.</summary>
+    public AttemptSource? Source { get; init; }
+}

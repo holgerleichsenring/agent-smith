@@ -15,9 +15,14 @@ public sealed record SandboxCreatedEvent(
     string? MemoryRequest = null)
     : RunEvent(RunId, EventType.SandboxCreated, Timestamp);
 
+// 2026-10-13-9a59i: ExitState is what the backend read before the release — 'running', 'exited'
+// or 'gone' (SandboxExitLabels); null when the backend has no process to read. ExitCode and
+// OomKilled are set only when it exited.
 public sealed record SandboxDisposedEvent(
     string RunId,
     string Repo,
     int? ExitCode,
-    DateTimeOffset Timestamp)
+    DateTimeOffset Timestamp,
+    string? ExitState = null,
+    bool? OomKilled = null)
     : RunEvent(RunId, EventType.SandboxDisposed, Timestamp);

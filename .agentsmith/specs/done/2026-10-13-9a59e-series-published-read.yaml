@@ -1,0 +1,185 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-9a59e
+goal: "A ticket's series is readable before and while it is worked: every cut spec with its goal, repository, steps and done criteria, its state, and each criterion's verdict as its spec ends."
+
+applies_to: "backend (spec publish announcer, spec hand-back handler, spec progress recorder, run-event projections, persistence, ticket read endpoints) + the run viewer's spec row type"
+
+requires: [2026-10-13-9a59a, 2026-10-13-9a59d, p0466, 2026-10-06-03c7c, 2026-10-06-03c7e, 2026-10-12-f5f7d, 2026-08-25-61f1, 2026-08-25-e257]
+
+facts:
+  - claim: "TicketSeries is a pointer per (Project, ticket key) and deliberately holds no spec content, because a server copy of the branch's specs would drift the moment a reviewer edits the branch."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/TicketSeries.cs:3-9"
+  - claim: "TicketSeries keeps the last hand-back case only as the repeat counter's state, per ticket, overwritten on every hand-back and cleared by a reopen."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/TicketSeries.cs:29-33, src/backend/AgentSmith.Application/Services/Specs/SpecHandbackProgress.cs:18-19, src/backend/AgentSmith.Server/Services/Lifecycle/TicketReopener.cs:28"
+  - claim: "The publisher places the set, puts it and any hand-back on the run context, and caches a markdown rendering per run before writing git; a placement refusal returns before any of it."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetPublisher.cs:39-47,70-94"
+  - claim: "SpecSetPublisher is 101 lines and not in the file-length baseline, so it has 19 lines of room."
+    evidence: "observed: 2026-10-13, wc -l src/backend/AgentSmith.Application/Services/Specs/SpecSetPublisher.cs = 101; tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv has no row for it"
+  - claim: "The markdown cache is the spec_md artifact: one row per run, overwritten by each publish, and pruned with the other non-final artifacts after 90 days."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/DbRunArtifactStore.cs:15,27-30, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunRetentionService.cs:18-21,36-40"
+  - claim: "A set carries its key, its specs, the executed ids, the series base and the hand-back; a spec's draft carries goal, done list, steps (id, action, target) and repositories, and the derived spec its file stem."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:25-49,95, src/backend/AgentSmith.Contracts/Models/SpecDraft.cs:9-29,66,74, src/backend/AgentSmith.Contracts/Specs/DerivedSpec.cs:17-27"
+  - claim: "A handed-back set is published with no specs and no executed ids."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ScopedContextQuestion.cs:23-35"
+  - claim: "NotStarted exists only in memory: SpecSequence seeds the per-spec table from the set, and a RunSpec row is created by the first SpecStateChanged event for that spec, stamped StartedAt at creation."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSequenceProgress.cs:16-18, src/backend/AgentSmith.Application/Services/Handlers/SpecSequenceHandler.cs:43, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSpecProjection.cs:27-43"
+  - claim: "Only the unexecuted tail of a set is spliced as per-spec steps, each command carrying the spec id."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecSequenceHandler.cs:38-51"
+  - claim: "The first state change of a spec is InProgress at SelectSpec; Done or Failed is written by VerifySpec or by SelectSpec's already-satisfied path, all through SpecProgressRecorder."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SelectSpecHandler.cs:57-58,89-93, src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:211-229, src/backend/AgentSmith.Application/Services/Specs/SpecProgressRecorder.cs:14-47"
+  - claim: "A verification that splices the one repair pass returns success, so RecordAsync records the spec Done with the red account before the repair has run."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:162-164,183-204,221-222, src/backend/AgentSmith.Domain/Models/CommandResult.cs:48-53"
+  - claim: "VerifySpecHandler is 296 lines against a baseline of 335."
+    evidence: "observed: 2026-10-13, wc -l src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs = 296; tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:19"
+  - claim: "Each spec's accounts are recorded per spec id on the run context before RecordAsync on all three paths; a re-recorded spec replaces its own entry."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:141-149, src/backend/AgentSmith.Application/Services/Handlers/SelectSpecHandler.cs:89-90, src/backend/AgentSmith.Application/Services/Specs/RunAccountLedger.cs:17-25, src/backend/AgentSmith.Domain/Models/RunAccounts.cs:15-16"
+  - claim: "The acceptance reaches the database only at run end, flattened over all specs, rendered by AcceptanceSnapshot from the run's accounts and the declined criteria, which carry their spec id."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs:104-111, src/backend/AgentSmith.Application/Services/AcceptanceSnapshot.cs:21,34-64, src/backend/AgentSmith.Domain/Models/DeclinedCriterion.cs:15"
+  - claim: "RunSpec has no repository, no acceptance and a non-nullable StartedAt; it is unique on (RunId, SpecId) and deleted with its run."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunSpec.cs:13-41, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunSpecConfiguration.cs:21, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunDeletionRepository.cs:54-64"
+  - claim: "Operator judgements of a criterion are rows per run keyed by CriterionKey.Of the criterion text."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunCriterionJudgement.cs:24-34, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/CriterionJudgementRepository.cs:44-58, src/backend/AgentSmith.Contracts/Runs/CriterionJudgement.cs:42-44"
+  - claim: "A run's child tables get their indexed RunId through RunChildConfiguration.Children, and a (RunId, EventSeq) unique index, filtered on SQL Server, through RunRecordIdentityConfiguration; AgentSmithDbContext is at exactly 120 lines."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunChildConfiguration.cs:26-44, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunRecordIdentityConfiguration.cs:23-34, observed: 2026-10-13, wc -l src/backend/AgentSmith.Infrastructure.Persistence/AgentSmithDbContext.cs = 120"
+  - claim: "An inserting projection asks ProjectedEventRecords whether the event's row is already held."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/ProjectedEventRecords.cs:17-26"
+  - claim: "RunSpecsReader serves /api/runs/{runId}/specs from RunSpec rows only; RunSpecView and the dashboard type carry startedAt as non-null, and SpecsPanel already has a not-started badge."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/RunSpecsReader.cs:18-31,50-57, src/backend/AgentSmith.Server/Services/Events/RunSpecView.cs:14-23, src/backend/AgentSmith.Server/Extensions/RunSpecQueryEndpoints.cs:19-20, src/dashboard/src/lib/runSpecsApi.ts:18-29, src/dashboard/src/components/jobs/story/SpecsPanel.tsx:25"
+  - claim: "SpecGate validates nothing per spec: it passes a set with at least one spec, names the count, and answers OK for a handed-back set; its RunStep row keeps the typed command name, status and result line."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecution/SpecGateHandler.cs:28-54, src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunStep.cs:24,35-37"
+  - claim: "Two hand-backs park without SpecSetPublisher ever running: a scope refusal sets the hand-back itself and never reaches derivation, and DeriveSpec returns the missing-spec park before its publish call."
+    evidence: "src/backend/AgentSmith.Application/Services/Scope/ScopeRefusalRecorder.cs:13,25-30, src/backend/AgentSmith.Application/Services/Specs/MissingSpecPark.cs:19-24, src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:75,88-89"
+  - claim: "Every hand-back, those two included, is parked by SpecHandbackHandler, which reads the one SpecHandback slot all three writers set and has the ticket key in hand before it parks; it is 118 lines with no baseline row."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs:35-41,48-50,55,78, src/backend/AgentSmith.Application/Services/Specs/SpecSetPublisher.cs:72-76, observed: 2026-10-13, wc -l src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs = 118"
+  - claim: "Whether a run's set is a hand-back is read from the set on the context (SpecSet.IsHandedBack), which SpecGate also uses."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecution/SpecGateHandler.cs:28,33-36"
+  - claim: "A review fix-pass revert restores the run's accounts before the spec is recorded again, so the per-spec account at record time is the one that stands."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecReviewFixPass.cs:90-98"
+  - claim: "FiledWorkRunsReader, the spec dialogue's filed-work view, reads every RunSpec row of the filed runs and already treats not_started as still going, hiding its verdict."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkRunsReader.cs:71-81,85,94-99"
+  - claim: "Every run child type carries a long Id and is registered through modelBuilder.Entity(type), which needs a key."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunSpec.cs:15, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunChildConfiguration.cs:38-43"
+  - claim: "The data archive tests pin the table count at 37 and the seeded rows at 76, two per table."
+    evidence: "tests/AgentSmith.Tests/Persistence/DataArchiveRoundTripTests.cs:33-35,54,81, tests/AgentSmith.Tests/Persistence/DataArchiveSchemaTests.cs:63"
+  - claim: "A parked run's status is waiting_for_input and its checkpoint row names no spec."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/RunStatuses.cs:12, src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunCheckpoint.cs:11-28"
+
+assumptions:
+  - "2026-10-13-9a59a provides the ticket identity (project, ticket id), its attempts (TicketAttempts: code runs ordered by run id), the list row composed per page by TicketListReader and the ticket route these reads hang under."
+  - "2026-10-13-9a59d provides SpecSetPublishedEvent (EventType 83) built by SpecSetAnnouncer after placement, RunAttempt with each attempt's revision number and cause, series id, carried ids and approval, and RunEventApplier split into projection families including a specs family."
+
+scope:
+  in: >
+    PUBLISH: 9a59d's SpecSetPublishedEvent (83) gains the cut — set key, the hand-back case, and per spec its id,
+    ordinal, file stem, goal, repositories, steps (id, action, target), done list and yaml — filled by a SpecCutContent
+    builder; this spec adds the one call to it inside 9a59d's SpecSetAnnouncer; revision, series id, carried ids and approval stay 9a59d's fields.
+    The cut is the one writer of an attempt's hand-back case. HAND-BACK-ONLY PUBLISH: a hand-back that never
+    reached the publisher (scope refusal, missing spec) gets its cut too — SpecHandbackHandler (118 -> 120 of 120:
+    one constructor parameter, one call right after ParkAsync) calls SpecSetAnnouncer.AnnounceHandbackAsync, which
+    publishes event 83 with SetKey = the ticket key, no specs, the case and no revision (9a59d's RunAttempt keeps
+    its revision fields empty) only when ContextKeys.SpecSet is absent or not IsHandedBack, so a set the
+    publisher already handed back is never announced twice. STORE: a RunSeriesCut row per publication (long Id,
+    RunId, EventSeq, SetKey, HandbackCase, SpecsJson, At), registered through RunChildConfiguration.Children and
+    RunRecordIdentityConfiguration (AgentSmithDbContext untouched); RunSpec rows created not_started for every
+    unexecuted spec of the cut, and not_started rows of this run that a later cut of the same run dropped are removed;
+    RunSpec.StartedAt becomes nullable and is set on the first InProgress; RunSpec.AcceptanceJson holds the spec's
+    verdict when it ended (last write wins). VERDICT PER SPEC: SpecStateChangedEvent gains a trailing optional
+    AcceptanceJson that SpecProgressRecorder fills on Done, Failed, and the in_progress written when the repair is
+    spliced, from that spec's accounts and declined criteria, rendered by AcceptanceSnapshot; RunSpecProjection
+    stores it for any event that carries one, last write wins. A verification that splices its repair records the spec in_progress, with that
+    account, instead of Done. READ (runs.read, TicketSeriesEndpoints): GET /api/tickets/{project}/{ticketId}/series
+    returns the latest cut WITH specs across the ticket's attempts, and a newer hand-back cut as the current state
+    above it (handed back, case, attempt, at); ?runId= returns that attempt's cut, its hand-back case and its gate. Per spec: id, file stem,
+    goal, repositories, steps (id, action, target), yaml, done criteria each with its verdict from the RunSpec row of
+    the attempt that last ended the spec and that run's operator judgement (overrule: human status, reason, author, at) by CriterionKey, state (not_started,
+    in_progress, done, failed, handed_back, carried) and the attempt that executed it; the gate (passed, failed, or
+    skipped for a hand-back) from that attempt's SpecGate step, with the cut's spec count; the revision list from
+    9a59d's RunAttempt rows (number, cause, attempt) with at = that attempt's RunSeriesCut.At. STRIP: 9a59a's list row gains seriesStrip = derive state
+    (cut, handed_back, deriving, none) and one cell per spec of the newest cut with specs (done, carried, live, asked,
+    failed, handed_back, not_started), read for a page in one set query; "asked" = the newest attempt is
+    waiting_for_input with a RunCheckpoint row and this spec's RunSpec row is in_progress. Both migration sets;
+    RunSeriesCut deleted in the run's deletion transaction; FiledWorkRunsReader now also sees the not_started rows
+    of a run that failed before reaching them and lists them as still going (its tests are run); hub-events.ts mirror; RunSpecView.StartedAt and
+    runSpecsApi.ts startedAt nullable.
+  out: >
+    The attempt's cause, fingerprint, revision and approval, and the SpecSetAnnouncer itself (2026-10-13-9a59d). Steps
+    as worked — each step's state and the attempt and pass that completed it — and the OriginSpecId stamp with the
+    RunLedgerTransition rows (2026-10-13-9a59f). The pull-request cell beside the strip: data 2026-10-13-9a59b's row pullRequests,
+    drawn by 2026-10-13-9a59p. The hand-back's posted text and quote (2026-10-13-9a59g). A ticket with an approved series and
+    no attempt yet: its proposal is read from the conversation (2026-10-13-9a59h). Changing a spec, only through the
+    conversation (2026-10-13-9a59l). The Specs and Acceptance tabs (2026-10-13-9a59r) and the list strip
+    (2026-10-13-9a59p). Runs before this spec have no cut row; their series read is empty and says so.
+
+decisions:
+  - key: "CUT ON THE PUBLISH EVENT, NOT A GIT READ. The branch stays the content of record (03c7c); the row is what this attempt published, so the read needs no clone or host call and dies with the run (operator decision 2)."
+  - key: "AS PUBLISHED BY ATTEMPT N. A reviewer's edit on the branch between attempts is not on the ticket until the next attempt publishes; the read names the attempt its cut came from, which is the honest answer to TicketSeries.cs:3-9."
+  - key: "CONTENT ON THE CUT, STANDING ON RUNSPEC, REVISION ON RUNATTEMPT. Each datum has one table and the read joins them; RunSpec gets no Repo column, a spec's repositories are read from the cut (review C1)."
+  - key: "THE CUT IS THE ONE WRITER OF AN ATTEMPT'S HAND-BACK CASE. 9a59g's SpecHandedBackEvent carries the posted text and quote only (review C4). TicketSeries.LastHandbackCase stays the repeat counter's per-ticket state and is not read by the ticket view."
+  - key: "A HAND-BACK THAT NEVER PUBLISHED STILL GETS ITS CUT (review3 F1, option a, chosen by the main thread 2026-10-13). A scope refusal and a missing spec park without SpecSetPublisher (ScopeRefusalRecorder.cs:13,25-26; DeriveSpecHandler.cs:75,89), so they would have no case anywhere. SpecHandbackHandler parks every hand-back and publishes a hand-back-only event 83 when the set on the context is absent or not handed back. Rejected (b), the case on 9a59g's event 85: it changes g's contract and moves e's current-state read to 9a59h. SpecHandbackHandler reaches 120 of 120 with this, so a later member that grows it makes room first."
+  - key: "STRUCTURED FIELDS ARE THE READ'S SOURCE, THE YAML IS 9a59l's COMPARISON KEY (review3 F6). The cut stores goal, repos, steps and done beside the rendered yaml, which holds the same fields; every reader (this read, 9a59q, 9a59r) uses the structured fields and nothing parses the yaml back. 2026-10-13-9a59l compares it as text, 'same yaml', and is its only consumer."
+  - key: "LATEST CUT WITH SPECS. A hand-back cut has no specs (ScopedContextQuestion.cs:28-33); reading it as the series would empty the Specs tab, so it is reported as the current state above the last cut that had specs (review C2)."
+  - key: "TWO ACCEPTANCE MOMENTS, TWO WRITERS. RunSpec.AcceptanceJson is the spec's verdict when it ended; Run.AcceptanceJson stays the gate's run-end snapshot over all specs; the ticket read uses only the per-spec rows (review C3)."
+  - key: "A SPEC UNDER REPAIR IS NOT DONE. VerifySpec recorded Done before the repair it spliced had run, which a per-spec verdict would show as a green cell over a red account; it now records in_progress until the repair's verification decides."
+  - key: "SPEC_MD STAYS THE RUN VIEWER'S RENDERING. It is prose, overwritten per publish and pruned at 90 days (RunRetentionService.cs:18-21); the cut is the data. Nothing on the ticket reads spec_md (review finding 9)."
+  - key: "CARRIED SPECS GET NO RUNSPEC ROW. They are not this run's work; the read takes their state from the attempt that executed them."
+  - key: "VERDICT RIDES ON THE STATE EVENT. Done and Failed are already the one write of a spec's standing (p0466); a second event would be a second writer of one moment."
+  - key: "THE GATE IS REPORTED AS IT IS. SpecGate checks that a set exists; its count is the cut's spec count and nothing claims per-spec validation the code does not do. 'skipped for a hand-back' is read from the cut's case, not the step: SpecGate answers OK for a handed-back set (SpecGateHandler.cs:33-36), so its RunStep row says success."
+  - key: "THE STRIP IS SERVER-SIDE AND HAS NO PR CELL. Cells come from the cut and RunSpec in one query per page; the PR cell is the row's pullRequests (9a59b), so the review state is not copied into the strip."
+  - key: "TABLE REGISTRATION WITHOUT THE CONTEXT. RunSeriesCut needs no configuration of its own because it carries a long Id like every run child (RunSpec.cs:15): Children gives RunId its cap and index, RunRecordIdentityConfiguration the unique index; its text columns are unbounded."
+
+steps:
+  - id: contracts
+    action: "SpecSetPublishedEvent gains the cut (SetKey, HandbackCase, Specs of SpecCutEntry); SpecStateChangedEvent gains trailing optional AcceptanceJson (SpecLifecycleEvents.cs 57 lines); hub-events.ts mirror; pnpm gen:hub-events passes."
+  - id: cut-builder
+    action: "SpecCutContent builds the cut from the placed set; one call added in 9a59d's SpecSetAnnouncer; SpecSetPublisher (101 lines) is not touched."
+  - id: handback-publish
+    action: "SpecSetAnnouncer.AnnounceHandbackAsync publishes a hand-back-only event 83 when ContextKeys.SpecSet is absent or not IsHandedBack; SpecHandbackHandler (118 -> 120 of 120) calls it after ParkAsync."
+  - id: verdict
+    action: "SpecProgressRecorder (48 lines) on Done, Failed and the repair's in_progress attaches that spec's accounts and declined criteria through AcceptanceSnapshot; VerifySpecHandler (296 of 335) records in_progress when it splices the repair."
+  - id: schema
+    action: "RunSeriesCut entity in RunChildConfiguration.Children (46 lines) and RunRecordIdentityConfiguration.Unique (35 lines); RunSpec gains AcceptanceJson and a nullable StartedAt; one migration per set; RunDeletionRepository deletes RunSeriesCut (about 91 -> 92 of 120 after b and d); data-archive counts +1 table +2 rows (40/82 after b and d, 41/84 after e) at DataArchiveRoundTripTests.cs:33,34,54,81 and DataArchiveSchemaTests.cs:63."
+  - id: project
+    action: "RunSeriesCutProjection inserts once per (RunId, EventSeq) and upserts or prunes not_started RunSpec rows; RunSpecProjection (96 lines) sets StartedAt on first InProgress and stores AcceptanceJson; both arms in 9a59d's specs family."
+  - id: read
+    action: "TicketSeriesReader over 9a59a's attempts: latest cut with specs, a newer hand-back as current state, ?runId=, standings across attempts, carried specs, verdicts, judgements by CriterionKey, gate, revisions from RunAttempt."
+  - id: endpoint
+    action: "TicketSeriesEndpoints maps GET /api/tickets/{project}/{ticketId}/series with runs.read; route-permission-baseline.tsv regenerated."
+  - id: strip
+    action: "SeriesStripReader fills 9a59a's list row seriesStrip for a page in one set query, called by TicketListReader's page compose."
+  - id: viewer-type
+    action: "RunSpecView.StartedAt (23 lines) and runSpecsApi.ts startedAt nullable; SpecsPanel renders a not-started row without a start time."
+  - id: tests
+    action: "Red first: projection, recorder, reader, strip and endpoint tests below; a harness run proves the rows exist before the first spec starts; FiledWorkRunsReader's tests run."
+
+tests:
+  - "SpecCut_Published_CreatesNotStartedRowsForUnexecutedSpecsOnly"
+  - "SpecCut_ReplayedEvent_InsertsOneCutRow"
+  - "SpecCut_RecutInRun_PrunesDroppedNotStartedRows"
+  - "SpecCut_HandedBackSet_IsPublishedWithItsCase"
+  - "SpecCut_ScopeRefusal_RecordsTheRefusedCase"
+  - "SpecCut_MissingSpec_RecordsItsCase"
+  - "SpecHandback_SetAlreadyHandedBack_PublishesNoSecondCut"
+  - "SpecState_FirstInProgress_SetsStartedAt"
+  - "SpecProgressRecorder_Done_CarriesThatSpecsCriteriaOnly"
+  - "SpecProgressRecorder_FailedOnRedBuild_CarriesTheUnmeasuredProblem"
+  - "VerifySpec_RepairSpliced_RecordsInProgressWithItsAccount"
+  - "TicketSeries_Read_HandbackAfterCut_KeepsTheSpecs"
+  - "TicketSeries_Read_WithRunId_ReturnsThatAttemptsCutHandbackCaseAndGate"
+  - "TicketSeries_Read_CarriedSpecNamesTheAttemptThatExecutedIt"
+  - "TicketSeries_Read_AppliesOperatorJudgementByCriterionText"
+  - "TicketSeries_Read_GatePassedWithTheCutsSpecCount"
+  - "TicketSeries_Read_RevisionsComeFromEachAttemptsRecord"
+  - "TicketSeries_Read_RunWithoutCut_IsEmpty"
+  - "SeriesStrip_Page_OneQuery_CellsForDoneCarriedLiveAskedFailedNotStarted"
+  - "SeriesStrip_WaitingRunWithSpecInProgress_IsAsked"
+  - "RunDeletion_RemovesSeriesCutRows"
+  - "Harness_ThreeSpecRun_RowsExistBeforeTheFirstSpecStarts"
+
+done:
+  - "Right after DeriveSpec, the run's specs endpoint lists every unexecuted spec of the cut as not started, before any spec runs."
+  - "The ticket series read returns each spec's goal, repository, steps, done criteria, state and the attempt that executed it."
+  - "When a spec ends, its criteria verdicts are readable on that spec before the run ends; a spec under repair reads in progress, not done."
+  - "A hand-back after a cut leaves the specs readable and reports the hand-back as the current state, a scope refusal and a missing spec included."
+  - "A list row carries its series strip without a request of its own."
+  - "The revision list shows each revision's cause and the attempt that published it."
+  - "Deleting a run removes its cut rows; a replayed event stores one row."

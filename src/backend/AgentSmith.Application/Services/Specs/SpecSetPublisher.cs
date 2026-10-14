@@ -29,6 +29,7 @@ public sealed class SpecSetPublisher(
     ISpecPullRequestOpener prOpener,
     SpecRefusalReporter refusals,
     Contracts.Persistence.IRunArtifactStore artifacts,
+    SpecSetAnnouncer announcer,
     ILogger<SpecSetPublisher> logger) : ISpecSetPublisher
 {
     public async Task<CommandResult> PublishAsync(
@@ -45,6 +46,7 @@ public sealed class SpecSetPublisher(
         await CacheForViewerAsync(pipeline, placement.Set, cancellationToken);
 
         var write = await writer.WriteAsync(pipeline, placement, cancellationToken);
+        await announcer.AnnounceAsync(pipeline, placement.Set, write.Written, cancellationToken);
         if (!write.Written)
             return await NotWrittenAsync(project, placement, write, cancellationToken);
         pipeline.Set(ContextKeys.SpecRevisionSha, write.CommitSha!);

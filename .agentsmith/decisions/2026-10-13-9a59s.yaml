@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-9a59s
+
+decisions:
+  - category: Architecture
+    chose: "DEVIATION: the series, conversation and passes are read through 9a59q's hooks as built — useTicketSeries(runId?), useTicketConversation(), useAttemptPasses(runId) — and a plural useAttemptMachines(runIds) {run, compute, passes} sits beside the spec's useAttemptRun(runId) and useAttemptCompute(runId)"
+    over: "The spec's assumed useTicketSeries(project, ticketId, runId?), or one useAttemptRun/useAttemptCompute call per attempt"
+    reason: |
+      q's store owns the page's address (lib/tickets/TicketPageStore.tsx), so its hooks take none. Both tabs put
+      every attempt on one scale (largest cap, longest wall clock), so the parent needs every attempt's reads at
+      once and a hook cannot be called in a loop; useAttemptMachines wants the same store entries the singular
+      hooks want, like 9a59r's useAttemptReads does for series and passes.
+  - category: Architecture
+    chose: "The run detail and compute reads are two more PerRunRead kinds in TicketPageReads (snapshot runRun/runCompute, TicketPageApi.run/compute) under q's rules — fetched once when terminal, re-read with the ticket tick while isRunLive, re-read once when the attempt's status moves"
+    over: "A second store or a hook-local fetch per tab"
+    reason: |
+      One store means one request per endpoint and run across tabs, and the live refetch (RunsChanged of the
+      attempt, the ticket's TicketActivityChanged, 2 s window) comes from the existing ticket tick. fetchRun
+      answers a 404 with null; the binding turns that into a 404 rejection so the Read carries notFound like
+      every other per-run read.
+  - category: Scope
+    chose: "The next-attempt card says that Retry unchanged is offered in the conversation and carries only Continue in conversation"
+    over: "A second Retry unchanged button on the Attempts tab"
+    reason: |
+      The spec's out-of-scope puts Retry unchanged in 9a59r's composer; the card names where it is, as the mock
+      does (its card has only the Continue button).
+  - category: Architecture
+    chose: "Did and Ended are composed from fields with these words: each cut-review entry of the attempt as 'Cut n: accepted/refused by the reviewer (k findings)'; 'Opened the PR(s) #n (repo)' from the attempt's opened pull requests; per executed spec its outcome, pass count, questions (passes ended 'question') and resumes (passes opened 'after-answer'); Failed names the failing (else in-progress) spec, its pass count and its last pass's end reason; an attempt that endedOnInfrastructure says so instead"
+    over: "The mock's prose ('Marked #812 ready', 'confirmed by the checker', 'the re-engagement limit')"
+    reason: |
+      Every clause is a field of 9a59a, 9a59d, 9a59e, 9a59f or 9a59h; a missing passes read drops the pass and
+      reason clauses, an 'unknown' end reason drops the reason clause, and nothing records a ready mark or a
+      checker's confirmation.
+  - category: Architecture
+    chose: "A wait on you is a question or hand-back park; a hand-back's answer is the park's answeredAt (9a59j joins the next attempt's cause.at) and falls back to the next attempt's cause.at; a question's is answeredAt, else resumedAt; an unanswered park counts to now only while it can still be answered, else it is left out"
+    over: "Counting every waiting_for_input segment end, or estimating an unanswered park"
+    reason: |
+      A default answer resumes the run without an inbox row, so resumedAt is the recorded end of that wait. A
+      park whose kind is null is drawn as a park but never counted as waiting on you.
+  - category: Architecture
+    chose: "A pod counts as held while waiting only when it lived on after the parked segment ended, not merely after the question was asked"
+    over: "Overlap with the park's askedAt..answeredAt"
+    reason: |
+      The question is recorded a moment before the run parks and releases its sandboxes (released-at-park), so
+      overlap from askedAt would report a held pod on every park — exactly the claim the PARKED TIME IS NOT POD
+      TIME decision rules out.
+  - category: Architecture
+    chose: "The Pod time tile's note gives the clipped pod-minutes and, when an unobserved pod makes them differ, the same spawns counted to run end with the run detail's rule"
+    over: "Comparing against the run detail's reservedGiMinutes"
+    reason: |
+      reservedGiMinutes is Gi-weighted and is shown on its own tile as the reservation; naming the run-end rule
+      in pod-minutes keeps both figures in one unit, each with its rule (ReservedCapacityCalculator.cs:33-35).
+  - category: Architecture
+    chose: "DEVIATION from the mock: a launch segment is one .seg span on the wall-clock bar with its call time written in .c-figs; the gap before the first launch and after a non-parking end is 'not running', a gap after a 'queued' end is a capacity wait (.cap)"
+    over: "The mock's model/over split inside each launch"
+    reason: |
+      9a59j's modelMs is summed call time that can exceed the span; drawing it as a share would contradict the
+      MODEL TIME IS CALL TIME decision. A reservation's queue time before its first launch has no segment, so it
+      is drawn without a claim about what it waited on.
+  - category: Architecture
+    chose: "Cost bars split by 9a59f's passes read; the row's figure is 9a59a's attempt cost; until the passes read lands the bar is one span of the attempt cost; a terminal attempt's specs figure is done / its RunSpec rows"
+    over: "Summing the passes read as the row total"
+    reason: |
+      The attempt cost is the recorded per-run total the header and counters use; the split explains it. The
+      cut stands not_started RunSpec rows (9a59e), so the denominator is the attempt's own cut.
+  - category: Architecture
+    chose: "The change between two cards is labelled by channelWords (a status move adds the status it moved into), with the actor and where — #n from a pull-request source url, 'the ticket' for a comment or status move — and read links to ?tab=conversation&causeOf={runId} only when cause.source.id exists"
+    over: "The mock's labels 'Ticket edited' and 'Hand-back answered'"
+    reason: |
+      Those are not recorded channels; 9a59r resolves ?causeOf= with the join its footers use, so this tab never
+      rebuilds an entry id.

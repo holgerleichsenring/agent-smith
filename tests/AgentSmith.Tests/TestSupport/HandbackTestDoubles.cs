@@ -21,6 +21,10 @@ internal static class HandbackTestDoubles
     public static HandbackHeadsReader Heads() =>
         new(new SandboxTargets(), NullLogger<HandbackHeadsReader>.Instance);
 
+    /// <summary>2026-10-13-9a59e: the announcer a hand-back publishes its cut through.</summary>
+    public static SpecSetAnnouncer Announcer(AgentSmith.Contracts.Events.IEventPublisher? events = null) =>
+        new(events ?? Moq.Mock.Of<AgentSmith.Contracts.Events.IEventPublisher>(), NullLogger<SpecSetAnnouncer>.Instance);
+
     /// <summary>A gate whose checker lets every cited contradiction stand.</summary>
     public static ContradictionHandbackGate Gate(IContradictionChecker? checker = null) =>
         new(checker ?? new StandingChecker(), Specs.DerivationTestLooks.Factory(),

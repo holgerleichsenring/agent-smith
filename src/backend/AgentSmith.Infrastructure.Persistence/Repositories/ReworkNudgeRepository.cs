@@ -12,6 +12,11 @@ namespace AgentSmith.Infrastructure.Persistence.Repositories;
 /// a due row had, taking a token and pushing due five minutes out — a crashed worker's claim is free
 /// again once that passes. Finish: delete at the claimed generation; a merge since leaves the row,
 /// freed and due now. Reschedule: compare-and-set at the generation, a new due time.
+/// <para>2026-10-13-9a59b: the claim resets the row's origin to Refresh — the claimed origin rides on
+/// the claim — so a Finish at a stale generation leaves only the origins merged since, and a Refresh
+/// merged during handling never re-runs the handler. A Reschedule, at either generation, restores the
+/// higher of the current and the claimed origin. The token carries the claimed origin, so a claim
+/// that expires with its crashed worker is served again at that origin.</para>
 /// </summary>
 public sealed class ReworkNudgeRepository(IUnitOfWork unitOfWork, IUniqueViolationTranslator violations, TimeProvider time)
 {
@@ -28,14 +33,16 @@ public sealed class ReworkNudgeRepository(IUnitOfWork unitOfWork, IUniqueViolati
         var claimed = new List<ClaimedReworkNudge>();
         foreach (var n in due)
         {
-            var token = Guid.NewGuid().ToString("N");
+            var origin = Math.Max(n.Origin, ExpiredClaimOrigin(n.ClaimToken));
+            var token = $"{origin}:{Guid.NewGuid():N}";
             var won = await unitOfWork.Set<ReworkNudge>()
                 .Where(x => x.Project == n.Project && x.TicketId == n.TicketId
                     && x.Generation == n.Generation && x.DueTicks <= now.UtcTicks)
                 .ExecuteUpdateAsync(s => s.SetProperty(x => x.ClaimToken, token)
+                    .SetProperty(x => x.Origin, (int)ReworkNudgeOrigin.Refresh)
                     .SetProperty(x => x.DueTicks, (now + ClaimLease).UtcTicks), ct);
             if (won > 0)
-                claimed.Add(new(n.Project, n.TicketId, (ReworkNudgeOrigin)n.Origin, n.PrUrl, n.Channel, n.Generation, token, n.Tries));
+                claimed.Add(new(n.Project, n.TicketId, (ReworkNudgeOrigin)origin, n.PrUrl, n.Channel, n.Generation, token, n.Tries));
         }
         return claimed;
     }
@@ -50,12 +57,21 @@ public sealed class ReworkNudgeRepository(IUnitOfWork unitOfWork, IUniqueViolati
 
     public async Task RescheduleAsync(ClaimedReworkNudge nudge, TimeSpan delay, CancellationToken ct)
     {
+        var claimed = (int)nudge.Origin;
         var moved = await Mine(nudge).Where(n => n.Generation == nudge.Generation)
             .ExecuteUpdateAsync(s => s.SetProperty(n => n.ClaimToken, (string?)null)
                 .SetProperty(n => n.Tries, n => n.Tries + 1)
+                .SetProperty(n => n.Origin, n => n.Origin > claimed ? n.Origin : claimed)
                 .SetProperty(n => n.DueTicks, (time.GetUtcNow() + delay).UtcTicks), ct);
-        if (moved == 0) await FinishAsync(nudge, ct);
+        if (moved > 0) return;
+        await Mine(nudge).ExecuteUpdateAsync(s => s.SetProperty(n => n.ClaimToken, (string?)null)
+            .SetProperty(n => n.Origin, n => n.Origin > claimed ? n.Origin : claimed)
+            .SetProperty(n => n.DueTicks, time.GetUtcNow().UtcTicks), ct);
     }
+
+    // A claim whose worker died left its row at Refresh; its token still names the origin it claimed.
+    private static int ExpiredClaimOrigin(string? token) =>
+        token?.Split(':', 2) is [var origin, _] && int.TryParse(origin, out var value) ? value : (int)ReworkNudgeOrigin.Refresh;
 
     private IQueryable<ReworkNudge> Mine(ClaimedReworkNudge nudge) =>
         unitOfWork.Set<ReworkNudge>().Where(n => n.Project == nudge.Project && n.TicketId == nudge.TicketId

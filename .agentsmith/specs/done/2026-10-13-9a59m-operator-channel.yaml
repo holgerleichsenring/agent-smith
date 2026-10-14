@@ -1,0 +1,169 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-9a59m
+goal: "Approving in a ticket's conversation starts its first or next attempt as an operator act, waits for a live run or answers a hand-back; the attempt names the approval as its cause."
+
+applies_to: "backend (rework channel, pending acts, nudge handler, previous attempt, series continuation, continuation start arm, filed-work start, dialog resume) + docs"
+
+requires: [2026-10-13-9a59d, 2026-10-13-9a59l, 2026-10-08-e8b9b, 2026-10-08-0781, 2026-10-08-f114, 2026-09-25-8e51e, 2026-09-17-0e79a]
+
+facts:
+  - claim: "A rework act has three channels — Ticket, PullRequest, Status — and carries author, host time and channel only."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/ReworkChannel.cs:5-11, src/backend/AgentSmith.Contracts/Runs/ReworkAct.cs:10"
+  - claim: "The pending-acts reader reads only the ticket's keyword comment and each pull request's standing act after the attempt's cutoff; the newer wins. It has no approval store."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/ReworkPendingActs.cs:16-31"
+  - claim: "PreviousAttempt carries run id, status, start, finished, pull-request urls and ActsReadAt; Precedes subtracts a 5 s skew margin from the cutoff."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/PreviousAttempt.cs:9-27"
+  - claim: "The previous-attempt reader selects the newest non-queued code Run row and projects a fixed column set."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPreviousAttemptReader.cs:24-36"
+  - claim: "The rework entry answers NotARework for a ticket with no previous attempt; a never-worked ticket is started the way a filed one is — FiledWorkStarter tags it, resolves it as the poller would and moves it into a trigger status, needing mayStartRuns for the move; its only entry StampAsync takes a CreatedTicket and a filed list, the start/move/status read are private (lines 58-116), and the file is 119 lines."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkEntry.cs:32-35, src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkStarter.cs:43-56,58-116, observed: 2026-10-13, wc -l FiledWorkStarter.cs = 119"
+  - claim: "A ticket carrying the approved-set stamp and no set on its branch parks instead of deriving, so a framework label put on a discovered ticket changes its route."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/FiledTicketSpecGate.cs:55-64"
+  - claim: "Only the nudge handler calls the rework entry; a live lease answers WorkedOn or AlreadyServed, a waiting attempt is refused, an act no newer than the cutoff is AlreadyServed."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeHandler.cs:37,74, src/backend/AgentSmith.Server/Services/Rework/ReworkEntry.cs:29-48"
+  - claim: "A hand-back park (waiting, no checkpoint) is answered only by a pull-request act taken from the NEWEST pending act of any channel; any other act on a waiting attempt is rescheduled until the attempt ends."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeHandler.cs:35-39,49-58,62-69"
+  - claim: "The handler speaks through ReworkSpeech, once per (run, act, kind), on the pull request a review stands on, otherwise as a ticket comment; the NotARework fallback spawn is keyed on the nudge's Ticket origin."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkSpeech.cs:20-33, src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeHandler.cs:76-99"
+  - claim: "Appending a dialog turn needs the thread's OPEN session and rewrites TranscriptJson read-modify-write; the session entity has no concurrency token."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSessionManager.cs:68-79, src/backend/AgentSmith.Infrastructure.Persistence/Entities/SpecDialogSession.cs:26,70-72"
+  - claim: "Nudge origins rank a merge (Sweep 1 .. Ticket 4); the writer keeps the higher origin; RunEnd and Sweep are late, a person's act is not."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/ReworkNudgeOrigin.cs:7-13, src/backend/AgentSmith.Infrastructure.Persistence/Services/ReworkNudgeWriter.cs:34,41, src/backend/AgentSmith.Contracts/Runs/ReworkNudgeRequest.cs:7-17"
+  - claim: "A run's terminal projection enqueues a RunEnd nudge for its ticket."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:43-47"
+  - claim: "An act at or before an operator stop's watermark is withheld and said once."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkWithheld.cs:14-28"
+  - claim: "An approval is (instant, conversation, principal); the recorder mints it from the turn's session and user; the record is read by tracker connection and ticket key, the key built from the tracker type."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecApproval.cs:22-25, src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSpecSetRecorder.cs:72, src/backend/AgentSmith.Contracts/Specs/ISpecApprovalStore.cs:18, src/backend/AgentSmith.Server/Services/Lifecycle/TicketReopener.cs:23,31"
+  - claim: "FetchTicket runs before ScopeRepos and DeriveSpec; the resolver decides the approval (newer of carried and stored) and publishes the winner back, so a second call returns the same record."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Code.cs:40-41,56, src/backend/AgentSmith.Application/Services/Specs/ApprovedSpecSetResolver.cs:9-12,32-44"
+  - claim: "runs.control is sampled once when a dialog turn starts and passed as mayStartRuns to the outcome sink."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogEndpoints.cs:45,56-61, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:24-26,58-60"
+  - claim: "The resume route needs dialog.write and checks the target dialog; the resumer answers 'not found' for a session whose UserId is not the caller's, although a ticket-bound session is reachable by anyone who may reach the surface."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogResumeEndpoints.cs:38-39,59-65, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogResumer.cs:36-38, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOwnership.cs:65-70"
+  - claim: "Line room: FiledWorkStarter 119, ReworkNudgeHandler 104, SpecDialogResumer 76, DbPreviousAttemptReader 63, ReworkPendingActs 49; none is in the ratchet baseline, so each stays at or under 120."
+    evidence: "observed: 2026-10-13, wc -l on each file in this worktree; tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:1-5"
+
+assumptions:
+  - "2026-10-13-9a59d's RunAttempt holds the worked approval (instant, conversation, principal) last-wins within the run, and its AttemptCauseReader is a class with one arm per channel."
+  - "2026-10-13-9a59l's pure TicketContinuation.Decide(state, proposal) returns continue and amend-never-worked effects; its TicketContinuationState and SeriesContinuation (BasisRunId nullable; a continuation without one is never merged) take added fields; TicketAmendment.ApplyAsync takes an optional SeriesContinuation it passes to the recorder; l has retired the Amend shape."
+
+scope:
+  in: >
+    CHANNEL: ReworkChannel.Operator (author = the approving principal, At = the approval instant). ReworkNudgeOrigin.Operator,
+    the next free value above every existing origin (5 on main), not late. APPROVAL: 2026-10-13-9a59l's
+    SeriesContinuation gains StartsAttempt (default false — a record without a continuation, or written before this
+    spec, starts nothing); the continuation act sets it from the turn's mayStartRuns. WORKED: PreviousAttempt gains
+    WorkedApprovalAt, read by DbPreviousAttemptReader from 2026-10-13-9a59d's RunAttempt of that run. OPERATOR ACT:
+    OperatorAct (Application, new, pure) — the record's approval is an operator act on an attempt when its
+    Continuation's StartsAttempt holds, its instant is not the attempt's WorkedApprovalAt or older, and
+    attempt.Precedes(instant). ReworkPendingActs reads the record through ISpecApprovalStore (key as TicketReopener
+    builds it) and merges the operator act newest-wins with the keyword and pull-request acts; a second read,
+    NewestHandbackAnswerAsync, returns the newest Operator or pull-request act only. HAND-BACK:
+    ReworkNudgeHandler.HandbackActAsync takes that read, so a later keyword comment never hides the approval; the
+    entry's AnswerHandbackAsync closes the waiting row and starts the attempt; a checkpointed question keeps waiting.
+    CAUSE: 2026-10-13-9a59d's AttemptCauseReader gains the operator arm. It runs at FetchTicket, before the run
+    has resolved its approval, so the arm calls ApprovedSpecSetResolver.ResolveAsync itself (idempotent; the
+    winner is published for ScopeRepos and DeriveSpec) and applies the same OperatorAct rule against the previous
+    attempt: channel operator, actor = principal, at = approval instant, source {kind conversation, id = session
+    id}; for a first attempt a resolved approval whose continuation has StartsAttempt is the operator act, so the
+    start's move never reads as pickup; it ranks first. START ARM: OperatorStartArm (new) reads the lease, the
+    latest code attempt, HasQueued and the checkpoint into new inputs on l's TicketContinuationState, and Decide
+    maps them to Start {kind, runId} on the continue effect: refused-question-pending (attempt waiting with a
+    checkpoint; names the run and POST /api/runs/{runId}/answer), recorded-without-runs-control (mayStartRuns
+    false), wait-for-run (a live lease or a queued code run), answers-handback (attempt waiting without a
+    checkpoint), start-now. On amend-never-worked the arm is recorded-without-runs-control or start-now (a lease
+    there is the claim window l's act refuses). ACT: refused-question-pending records nothing and keeps the open
+    proposal (no ClearProposalAsync), so the person approves it after answering; every other arm
+    lets l's act record the approval, and when StartsAttempt holds enqueues ReworkNudgeRequest(Operator, Channel
+    Operator) — the worker, the ticket lock and the RunEnd nudge serve it on any replica. FIRST ATTEMPT: l's
+    never-worked path passes SeriesContinuation{no dispositions, BasisRunId null, StartsAttempt} to
+    TicketAmendment.ApplyAsync; start-now, because the entry answers NotARework without an attempt, starts the
+    ticket through FiledWorkMove (extracted from FiledWorkStarter lines 58-116; StampAsync and the existing-ticket
+    start both call it): the routing tag only, resolved with the ticket's CURRENT labels — no phase label and no
+    approved-set stamp, which would re-route it — then the move. The arm's sentence replaces l's 'the next attempt
+    works it' in the same Filing turn; what the worker later says is a ticket comment through ReworkSpeech.
+    RESUME (main-thread decision 3): SpecDialogResumer lets any caller holding dialog.write resume a TICKET-BOUND
+    session (SpecDialogOwnership.MayReach in place of the UserId test at lines 36-38); an unbound session stays its
+    owner's. DOCS: work-it-out.md and spec-dialogue.md say approving in a ticket conversation continues the
+    ticket and when the next attempt starts, and that anyone who may write dialogs can continue it.
+  out: >
+    The continuation decision, its merge rule, the approval preview endpoint, the never-worked amendment, the
+    closed ticket's follow-up from an approval and retiring the 'Amend this ticket' shape — 2026-10-13-9a59l.
+    Ticket.IsClosed and closed-for-work — 2026-10-13-9a59k. A keyword comment or pull-request act on a ticket a
+    person closed, and an operator act that reaches such a ticket — 2026-10-13-9a59t. Retry unchanged and its retry
+    channel — 2026-10-13-9a59n. RunAttempt, its projection and the cause vocabulary — 2026-10-13-9a59d. The ticket
+    conversation read that shows the Filing turn and the ticket comments — 2026-10-13-9a59h. Rendering the start
+    arm in the composer, the Work it out page's approval card for a bound conversation (its ticketEffect prop) and
+    resuming only on the first composer action — 2026-10-13-9a59r. Writing the worker's later answers into the
+    dialog transcript: refused, see decisions.
+
+decisions:
+  - key: "ONE ENTRY, THROUGH THE QUEUE. The approval enqueues a nudge like a keyword comment does (KeywordCommentRouter); the entry runs under the ticket lock on whichever replica claims it. No second start path, no direct call from the turn."
+  - key: "THE STORED APPROVAL IS THE ACT. Nothing new is persisted for the act itself: the record already holds instant, conversation and principal; StartsAttempt is the one added fact, because recorded-without-runs-control must not start an attempt at the next RunEnd nudge. It lives on l's SeriesContinuation, so only a continuation approval ever starts an attempt — a filing's or a re-cut demand's approval never does. No table and no event type is added (main-thread decision 6: archive counts and FilterRail unchanged)."
+  - key: "THE NEVER-WORKED START RIDES A BASIS-LESS CONTINUATION (review3-m M2). l merges only a continuation with a BasisRunId, so the empty one carrying StartsAttempt never stamps a new approval onto a stale branch set; TicketAmendment is changed by l (its optional parameter), not here."
+  - key: "THE CAUSE ARM RESOLVES THE APPROVAL ITSELF (review3-m M3). FetchTicket precedes ScopeRepos and DeriveSpec (PipelinePresets.Code.cs:40-41,56); ResolveAsync publishes its winner, so calling it earlier changes nothing the later steps read."
+  - key: "THE HAND-BACK READS OPERATOR AND PULL-REQUEST ACTS ONLY (review3-m M4). Newest-of-all would let a later keyword comment hide the approval and reschedule the waiting attempt (ReworkNudgeHandler.cs:62-69)."
+  - key: "FILED-WORK START EXTRACTED (review3-m M1). FiledWorkStarter is at 119 lines; FiledWorkMove holds the start, move and status read for both callers. An existing ticket gets the routing tag only: a phase label or approved-set stamp would send a discovered ticket through FiledTicketSpecGate."
+  - key: "CARD CUT (review3-m C1; main-thread decision 5). The confirmation's sentence reaches chat only (the page arm is empty by design) and ConfirmAsync has no mayStartRuns; the page card ('Approve & file', DialogQuestionCard.tsx) is 2026-10-13-9a59r's via its ticketEffect prop. This spec changes no card."
+  - key: "OPERATOR OUTRANKS TICKET IN A NUDGE MERGE (accepted, review3-m minor). ReworkNudgeWriter keeps the higher origin, so a keyword-comment nudge merged into a pending Operator nudge loses the Ticket-origin NotARework fallback spawn; the window is the seconds before the worker claims the nudge, and the comment is still read as an act."
+  - key: "A TICKET-BOUND SESSION IS THE TICKET'S (main-thread decision 3). SpecDialogOwnership already lets anyone on the surface reach one (lines 65-70); resuming is the same widening. Unbound sessions and deletion stay owner-only."
+  - key: "THE WORKED APPROVAL DECIDES THE NEXT ATTEMPT. An approval the live attempt published (d's RunAttempt) starts no extra attempt; one it never saw is served when it ends. An attempt that died before publishing relies on Precedes."
+  - key: "THE WORKER SPEAKS ON THE TICKET. The turn says the arm in the open thread; the worker may run on another replica with no open session, and appending to TranscriptJson from there would race the session's own read-modify-write. A ticket comment reaches the ticket conversation through 2026-10-13-9a59h."
+  - key: "A PENDING QUESTION IS ANSWERED FIRST. The approval records nothing while a checkpointed question waits, so the answer resumes the attempt unchanged and the change is approved after it ends; the proposal stays open for that approval (review4-l cross-member mismatch), as l keeps it on refused-over-cap."
+  - key: "OPERATOR RANKS FIRST AMONG CAUSES. The attempt that serves an approval works the approved revision (SpecRevisionCause.Approval), whatever else was written since."
+
+steps:
+  - id: channel
+    action: "ReworkChannel.Operator; ReworkNudgeOrigin.Operator (next free value, not late)."
+  - id: approval
+    action: "SeriesContinuation.StartsAttempt (default false), set by l's continuation act and never-worked path from mayStartRuns."
+  - id: worked
+    action: "PreviousAttempt.WorkedApprovalAt; DbPreviousAttemptReader (63) reads it from the run's RunAttempt row."
+  - id: operator-act
+    action: "OperatorAct rule (new); ReworkPendingActs (49) reads the record through ISpecApprovalStore, merges the operator act newest-wins, and gains NewestHandbackAnswerAsync (operator or pull-request only)."
+  - id: handback
+    action: "ReworkNudgeHandler.HandbackActAsync uses NewestHandbackAnswerAsync and admits an Operator act; 104 -> at most 106 lines."
+  - id: cause
+    action: "AttemptCauseReader operator arm: ApprovedSpecSetResolver.ResolveAsync, then the OperatorAct rule against the previous attempt; ranked first."
+  - id: start-arm
+    action: "OperatorStartArm (new) fills its inputs on TicketContinuationState; Decide maps them to the Start field of continue and amend-never-worked; preview and act read it."
+  - id: act
+    action: "Act: record unless refused-question-pending, which keeps the open proposal; enqueue the Operator nudge when StartsAttempt; never-worked start-now through FiledWorkMove (extracted from FiledWorkStarter, routing tag only on an existing ticket); say the arm in the thread as the Filing turn."
+  - id: resume
+    action: "SpecDialogResumer (76) lines 36-38: SpecDialogOwnership.MayReach in place of the UserId equality; unbound sessions owner-only."
+  - id: tests
+    action: "Red first for every test below; a RealCompositionHarness test drives bound approval -> nudge -> attempt with cause operator over a ticket with an executed head."
+  - id: docs
+    action: "work-it-out.md and spec-dialogue.md: approve continues the ticket, starts, waits, answers a hand-back or asks for the answer first; any dialog writer may continue a ticket's conversation."
+
+tests:
+  - "OperatorAct_ApprovalNewerThanWorkedAndCutoff_IsAct"
+  - "OperatorAct_ApprovalTheAttemptWorked_IsNoAct"
+  - "OperatorAct_AttemptDiedBeforePublishing_OlderApprovalIsNoAct"
+  - "OperatorAct_WithoutStartsAttempt_IsNoAct"
+  - "ReworkPendingActs_OperatorAndKeywordAct_NewerWins"
+  - "NudgeHandler_HandbackPark_OperatorActAnswersThroughAnswerHandback"
+  - "NudgeHandler_HandbackPark_LaterKeywordComment_OperatorActStillAnswers"
+  - "NudgeHandler_CheckpointedQuestion_OperatorActWaits"
+  - "AttemptCause_AtFetchTicket_ResolvesApprovalItself_CauseOperator"
+  - "OperatorStartArm_EachState_NamesItsArm"
+  - "BoundApproval_FinishedAttempt_StartsOneAttempt_CauseOperator"
+  - "BoundApproval_NeverWorked_StartsTheFirstAttempt_OnEveryTracker"
+  - "FiledWorkMove_ExistingTicket_AddsRoutingTagOnly"
+  - "BoundApproval_LiveRun_ServedByRunEndNudge"
+  - "BoundApproval_LiveRunPublishedTheApproval_StartsNoExtraAttempt"
+  - "BoundApproval_QuestionPending_RecordsNothing_NamesAnswerPath_ProposalKept"
+  - "BoundApproval_WithoutRunsControl_RunEndStartsNothing"
+  - "OperatorNudge_TwoReplicas_OneAttempt"
+  - "OperatorNudge_AfterOperatorStop_IsWithheld"
+  - "Resume_TicketBoundSession_AnotherDialogWriter_Resumes"
+  - "Resume_UnboundSession_AnotherCaller_NotFound"
+
+done:
+  - "Approving a proposal in the conversation of a ticket no code attempt has worked starts its first attempt on GitHub, GitLab, Azure DevOps and Jira alike, when the ticket's trigger can be reached."
+  - "Approving a proposal in the conversation of a ticket whose last attempt failed starts the next attempt on the same ticket, and that attempt names the approval (who, when, which conversation) as its cause."
+  - "Approving while a run works the ticket says so in the conversation; the attempt starts when that run ends, on whichever replica serves the nudge, and not at all when the run already worked that approval."
+  - "Approving on a ticket handed back answers the hand-back and starts the attempt, even when a keyword comment came after the approval; approving while a question waits records nothing, says where to answer, and the same proposal can be approved once the question is answered."
+  - "Approving without runs.control records the change, says nothing started, and no later run end starts it."
+  - "A second person with dialog.write can continue a ticket's conversation; a conversation bound to no ticket stays its owner's."

@@ -140,7 +140,9 @@ public sealed class SeriesWriteRollbackGitTests
                 new SpecSetPointerRecorder(pointers, NullLogger<SpecSetPointerRecorder>.Instance),
                 Mock.Of<ISpecPullRequestOpener>(),
                 new SpecRefusalReporter(Mock.Of<IEventPublisher>(), NullLogger<SpecRefusalReporter>.Instance),
-                Mock.Of<IRunArtifactStore>(), NullLogger<SpecSetPublisher>.Instance)
+                Mock.Of<IRunArtifactStore>(),
+                new SpecSetAnnouncer(Mock.Of<IEventPublisher>(), NullLogger<SpecSetAnnouncer>.Instance),
+                NullLogger<SpecSetPublisher>.Instance)
             .PublishAsync(repos.Pipeline(), Project, Scope(), set, [], default);
 
     private static SeriesScope Scope() => new([TwoRepoSeries.Server, TwoRepoSeries.Client], null, [], null);

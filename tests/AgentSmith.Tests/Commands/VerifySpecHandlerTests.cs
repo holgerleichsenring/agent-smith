@@ -23,7 +23,8 @@ namespace AgentSmith.Tests.Commands;
 // read from the branch, never from a declaration.
 public sealed class VerifySpecHandlerTests
 {
-    private static VerifySpecHandler Handler(ISpecAccountant? accountant = null) => new(
+    private static VerifySpecHandler Handler(
+        ISpecAccountant? accountant = null, AgentSmith.Contracts.Events.IEventPublisher? events = null) => new(
         new VerifyStageResolver(
             new DeclaredStagePresence(
                 new SandboxFileReaderFactory(), NullLogger<DeclaredStagePresence>.Instance),
@@ -43,7 +44,7 @@ public sealed class VerifySpecHandlerTests
                 NullLogger<SpecAccountant>.Instance),
             new SandboxTargets(),
             NullLogger<SpecDeliveryAccounting>.Instance),
-        new SpecProgressRecorder(new NoOpEventPublisher()),
+        new SpecProgressRecorder(events ?? new NoOpEventPublisher()),
         new VerifiedHeads(NullLogger<VerifiedHeads>.Instance),
         AgentSmith.Tests.TestHelpers.TestSpecReview.Revert(),
         NullLogger<VerifySpecHandler>.Instance);
@@ -315,6 +316,43 @@ public sealed class VerifySpecHandlerTests
         carried.Should().ContainSingle().Which.Criteria.Should().ContainSingle();
         RunAccountLedger.Current(context.Pipeline).All.Should().ContainSingle(
             "the record and the pull request read the account off the ledger");
+    }
+
+    /// <summary>
+    /// 2026-10-13-9a59e: a verification that splices its one repair pass has not decided the spec —
+    /// the spec stands in progress, carrying the account the repair is asked to close, never done.
+    /// </summary>
+    [Fact]
+    public async Task VerifySpec_RepairSpliced_RecordsInProgressWithItsAccount()
+    {
+        var draft = new SpecDraft("p1", "goal", "spec: p1", []) { Done = ["the handler is migrated"] };
+        var (context, _) = Setup(Map("csharp", new CiConfig(true, "dotnet build", null, null)), draft);
+        context.Pipeline.Set(ContextKeys.ResolvedPipeline,
+            new ResolvedPipelineConfig("code", new AgentConfig(), "skills", null));
+        context.Pipeline.Set(ContextKeys.RunId, "run-1");
+        context.Pipeline.Set(ContextKeys.SpecSet, new AgentSmith.Contracts.Specs.SpecSet("k",
+            [new AgentSmith.Contracts.Specs.DerivedSpec(draft, "p1", string.Empty, [])],
+            AgentSmith.Contracts.Specs.SpecAccounting.Empty, [], AgentSmith.Contracts.Specs.SpecSource.Derived));
+        var events = AgentSmith.Tests.TestHelpers.EventTestStubs.Recording();
+
+        var result = await Handler(new OutstandingAccountant(), events).ExecuteAsync(context, CancellationToken.None);
+
+        result.InsertNext.Should().NotBeNullOrEmpty("the repair pass is spliced");
+        var recorded = events.Events.OfType<AgentSmith.Contracts.Events.SpecStateChangedEvent>().Single();
+        recorded.State.Should().Be(AgentSmith.Contracts.Specs.SpecRunState.InProgress);
+        recorded.AcceptanceJson.Should().Contain("the handler is migrated").And.Contain("unmet");
+    }
+
+    private sealed class OutstandingAccountant : ISpecAccountant
+    {
+        public Task<SpecAccount> AccountAsync(
+            string repoKey, IReadOnlyList<string> criteria, string diff,
+            IReadOnlyList<string> commandResults, AgentConfig agent,
+            BranchSearch? branchSearch, PipelineCostTracker costTracker,
+            CancellationToken cancellationToken,
+            int windowBudgetChars = DiffWindows.DefaultBudgetChars) =>
+            Task.FromResult(new SpecAccount(repoKey, [.. criteria.Select(c =>
+                new CriterionAccount(c, AccountDisposition.NotSatisfied, "src/Api/Program.cs"))]));
     }
 
     private sealed class SatisfiedAccountant : ISpecAccountant

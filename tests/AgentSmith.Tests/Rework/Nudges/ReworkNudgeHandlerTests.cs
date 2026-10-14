@@ -21,7 +21,7 @@ namespace AgentSmith.Tests.Rework.Nudges;
 public sealed class ReworkNudgeHandlerTests : IDisposable
 {
     private static readonly DateTimeOffset Start = new(2026, 10, 8, 10, 0, 0, TimeSpan.Zero);
-    private readonly ServerStateStore _store = new();
+    private readonly ServerStateStore _store = new(configure: ClosedTicketFollowUps.Register);
     private readonly Mock<IActiveRunLease> _leases = new();
     private readonly Mock<IPreviousAttemptReader> _attempts = new();
     private readonly Mock<IReworkPendingActs> _pending = new();
@@ -45,15 +45,19 @@ public sealed class ReworkNudgeHandlerTests : IDisposable
             new PolledTicketEnvelope(ApprovedRecordProbes.None()), Mock.Of<IEnvelopeProjectResolver>(),
             Mock.Of<ISpawnPipelineRunsUseCase>(), NullLogger<ReworkFallbackSpawn>.Instance);
         return new ReworkNudgeHandler(_leases.Object, _attempts.Object, _pending.Object, rework, speech, fallback,
-            new ReworkWithheld(_store.ScopeFactory, speech), _checkpoints.Object);
+            new ReworkWithheld(_store.ScopeFactory, speech), _checkpoints.Object, ClosedTicketFollowUps.Of(_store.ScopeFactory, tickets.Object, speech));
     }
 
     private void Attempt(string status, bool finished, DateTimeOffset? readAt = null) =>
         _attempts.Setup(a => a.LatestAsync("p", "7", null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(new PreviousAttempt("run-1", status, Start, finished) { ActsReadAt = readAt });
 
-    private void Pending(PendingReworkAct? act) =>
+    private void Pending(PendingReworkAct? act, PendingReworkAct? handbackAnswer = null)
+    {
         _pending.Setup(p => p.NewestAsync(Project, "7", It.IsAny<PreviousAttempt>(), It.IsAny<CancellationToken>())).ReturnsAsync(act);
+        _pending.Setup(p => p.NewestHandbackAnswerAsync(Project, "7", It.IsAny<PreviousAttempt>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(handbackAnswer ?? (act?.Act.Channel is ReworkChannel.PullRequest or ReworkChannel.Operator ? act : null));
+    }
 
     private void Outcome(ReworkOutcome outcome) =>
         _rework.Setup(r => r.EnterAsync(Project, "7", It.IsAny<ReworkAct>(), "code", It.IsAny<CancellationToken>())).ReturnsAsync(outcome);
@@ -203,6 +207,7 @@ public sealed class ReworkNudgeHandlerTests : IDisposable
 
         _rework.Verify(r => r.AnswerHandbackAsync(It.IsAny<ResolvedProject>(), It.IsAny<string>(), It.IsAny<PreviousAttempt>(),
             It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        AskedOnlyWhetherClosed();
         _rework.VerifyNoOtherCalls();
     }
 
@@ -214,6 +219,64 @@ public sealed class ReworkNudgeHandlerTests : IDisposable
 
         (await Handle()).Should().Be(ReworkNudgeDisposition.Reschedule, "only a pull-request act answers a hand-back");
 
+        AskedOnlyWhetherClosed();
         _rework.VerifyNoOtherCalls();
     }
+
+    private static readonly PendingReworkAct OperatorApproval = new(new ReworkAct("owner", Start.AddMinutes(20), ReworkChannel.Operator)
+    {
+        Source = new AttemptSource(AttemptSourceKinds.Conversation, Id: "s-1"),
+    });
+
+    private void Answers(ReworkOutcome outcome) =>
+        _rework.Setup(r => r.AnswerHandbackAsync(Project, "7", It.IsAny<PreviousAttempt>(), "code", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(outcome);
+
+    [Fact]
+    public async Task NudgeHandler_HandbackPark_OperatorActAnswersThroughAnswerHandback()
+    {
+        Attempt("waiting_for_input", finished: false, readAt: Start.AddMinutes(1));
+        Pending(OperatorApproval);
+        Answers(ReworkOutcome.Started("run-2"));
+
+        (await Handle()).Should().Be(ReworkNudgeDisposition.Finish);
+
+        _rework.Verify(r => r.AnswerHandbackAsync(Project, "7", It.Is<PreviousAttempt>(a => a.RunId == "run-1"), "code",
+            It.IsAny<CancellationToken>()), Times.Once);
+        _rework.Verify(r => r.EnterAsync(It.IsAny<ResolvedProject>(), It.IsAny<string>(), It.IsAny<ReworkAct>(),
+            It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task NudgeHandler_HandbackPark_LaterKeywordComment_OperatorActStillAnswers()
+    {
+        Attempt("waiting_for_input", finished: false, readAt: Start.AddMinutes(1));
+        Pending(Act, handbackAnswer: OperatorApproval); // the keyword comment (minute 30) is newer than the approval (20)
+        Answers(ReworkOutcome.Started("run-2"));
+
+        (await Handle()).Should().Be(ReworkNudgeDisposition.Finish, "a later keyword comment never hides the approval");
+
+        _rework.Verify(r => r.AnswerHandbackAsync(Project, "7", It.IsAny<PreviousAttempt>(), "code",
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task NudgeHandler_CheckpointedQuestion_OperatorActWaits()
+    {
+        Attempt("waiting_for_input", finished: false, readAt: Start.AddMinutes(1));
+        Pending(OperatorApproval);
+        _checkpoints.Setup(c => c.GetByRunIdAsync("run-1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new RunCheckpointRecord("run-1", "p", "7", null, "code", "job", "q", "{}", "[]", "{}", 1, Start, Start.AddDays(1), null));
+
+        (await Handle()).Should().Be(ReworkNudgeDisposition.Reschedule, "the question's answer brings the run back first");
+
+        _rework.Verify(r => r.AnswerHandbackAsync(It.IsAny<ResolvedProject>(), It.IsAny<string>(), It.IsAny<PreviousAttempt>(),
+            It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+        AskedOnlyWhetherClosed();
+        _rework.VerifyNoOtherCalls();
+    }
+
+    // 2026-10-13-9a59t: a waiting attempt's act asks whether the ticket was closed; an open one keeps waiting.
+    private void AskedOnlyWhetherClosed() =>
+        _rework.Verify(r => r.SupersedeIfClosedAsync(Project, "7", It.IsAny<PreviousAttempt>(), It.IsAny<CancellationToken>()), Times.Once);
 }

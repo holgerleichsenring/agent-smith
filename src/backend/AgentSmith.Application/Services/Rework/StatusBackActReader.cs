@@ -23,7 +23,10 @@ public sealed class StatusBackActReader(TrackerIdentity identity, ILogger<Status
         {
             var self = await identity.SelfAsync(context.Config, cancellationToken);
             if (await history.NewestPersonMoveIntoAsync(ticketId, statuses, self, cancellationToken) is { } move && attempt.Precedes(move.At))
-                context.Pipeline.Set(ContextKeys.StatusBackAct, new ReworkAct(move.Actor.Login ?? move.Actor.Id, move.At, ReworkChannel.Status));
+                context.Pipeline.Set(ContextKeys.StatusBackAct, new ReworkAct(move.Actor.Login ?? move.Actor.Id, move.At, ReworkChannel.Status)
+                {
+                    Source = new AttemptSource(AttemptSourceKinds.Status, Detail: move.Status),
+                });
         }
         catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {

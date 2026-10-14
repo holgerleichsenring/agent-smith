@@ -1,0 +1,75 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-9a59l
+
+decisions:
+  - category: Architecture
+    chose: "TicketContinuation.Decide(state, proposal) is one pure static function over a TicketContinuationState read once by TicketContinuationStateReader; the preview endpoint and TicketContinuationAct both call it"
+    over: "Separate preview and act logic, or a readOnly flag on Decide"
+    reason: |
+      DEVIATION FROM THE SERIES CONTRACT (as the spec records): no readOnly flag. Decide decides; only the act
+      applies the effect, so the preview cannot disagree with what the approval records
+      (ApprovalPreview_MatchesWhatTheApprovalRecords). Effects: bug-ticket, follow-up-closed,
+      amend-never-worked, refused-over-cap, continue, plus refused for a cut whose requires edges have no order
+      (the same refusal filing makes) — a proposal that cannot be decided must not be guessed into a series.
+  - category: Architecture
+    chose: "Match by spec id (SeriesContinuationIds): executed id kept with a changed text noted as discarded; repeated unstarted id recut unless byte-identical; unrepeated unstarted id kept by a lone spec, dropped by an epic; unknown id appended under SeriesIdFactory.NextFree past basis, executed and record ids, requires and yaml rewritten by SpecDraftIdRewriter"
+    over: "The recorder's former positional merge, which no code implemented"
+    reason: |
+      Position cannot tell a kept spec from a re-cut or appended one; the id can. Dispositions are recorded in
+      proposal order, then every basis spec the proposal did not name, so the run knows which branch specs the
+      basis saw. The record's Set holds only the proposal's drafts that did not run, re-id'd.
+  - category: Architecture
+    chose: "SpecApprovalRecord.Continuation (SeriesContinuation{Dispositions[SpecDisposition{SpecId, Kind}], BasisRunId}) appended last; RecordAsync takes it plus a ContinuationBasis(Repositories, Carrier) as trailing optional parameters"
+    over: "Storing the basis repositories and carrier on the continuation, or a second record type"
+    reason: |
+      No datum twice: the record already has Repositories and CarryingRepo, so the basis only feeds them —
+      Repositories = basis (pointer ShaByRepo keys, else the record's) united with the scope's, carrier = basis
+      carrier (pointer, else record), so ApprovedRepoScope keeps the executed specs' repositories.
+  - category: Architecture
+    chose: "ApprovedContinuation + ContinuationMerge (Application/Services/Specs) decide in SpecSourceResolver's branch arm, before the amendment rule; the merged set has Handback null, cause ApprovedSetHandoff.CauseOf(record), the record's approval, NeedsModel false; Decision.Discarded feeds ApprovedSetKeptNotice in place of DeriveSpecHandler's null"
+    over: "Merging in DeriveSpecHandler (143/143, no room) or re-deriving with the model"
+    reason: |
+      The resolver already owns the source choice and has the record; one call line plus the Decision field.
+      Only a record with a BasisRunId whose approval is newer than the branch set's is merged, so a published
+      merge (same approval on the branch) is a no-op and a never-worked hand-off is never merged.
+  - category: Error handling
+    chose: "Over the cap at run time the merge is not applied: the run works the branch set as it is (NeedsModel false, its approval untouched) and the notice says why with both counts"
+    over: "Falling through to the ordinary cause path, or failing the run"
+    reason: |
+      The act already refused over-cap against the basis; this arises only when the branch grew since. The
+      decision returns the branch set rather than null so the notice reaches the ticket; the trade-off is that a
+      re-derive cause seen in that same run is not acted on — the person re-approves a smaller series.
+  - category: Error handling
+    chose: "ApprovedSetHandoff refuses a record whose Continuation carries a BasisRunId with a Failure naming the conversation and the basis run"
+    over: "Handing the proposal over as the whole series"
+    reason: "A continuation's Set is the proposal, not the series; publishing it as the set would drop what ran."
+  - category: Architecture
+    chose: "TicketAmendment (never-worked) attempts the rewrite first, says a refused or thrown rewrite, and records the series and writes the branch regardless; it asks only FiledWorkClaims.LeaseOnAsync, returns TicketAmendmentResult(Notice, Recorded)"
+    over: "Rewrite gating the record (Jira recorded nothing), or keeping the Run-row refusal"
+    reason: |
+      Operator default 2026-10-13: never-worked records on every tracker. The Run-row half counted pr-review and
+      scan runs as work; the decision's code-attempt rule replaced it. The lease half stays: between lease and
+      run row the claim is invisible to TicketAttempts. Recorded drives whether the proposal is cleared.
+  - category: Architecture
+    chose: "TicketFilingOutcomeSink routes a bound (TicketKey set) spec or epic approval to TicketContinuationAct and answers as a Filing turn; an acted outcome clears LatestProposalJson, a follow-up's filing is also published to the pane; the Amend shape, confirmer arm, OutcomeAmendRequested, flow arm and both AmendAsync members are deleted"
+    over: "Keeping Amend this ticket until 2026-10-13-9a59m"
+    reason: "Leaving the shape live would let it rewrite a worked ticket's description with its Run-row guard gone."
+  - category: Architecture
+    chose: "Registrations: AddTicketContinuation() chained on SpecDialogExtensions line 60 (119 lines kept) registers the reader, act, follow-up, link and the preview service, TryAdd-ing TicketAttempts, TicketRunsQuery, TicketSeriesRecordsReader, TicketProjects and TicketTranscriptReader; ApprovedContinuation and ContinuationMerge chained on the SpecSourceResolver line of SpecDerivationRegistrations"
+    over: "Registering the preview in AddTicketReaders"
+    reason: |
+      The dashboard API is optional and a chat conversation still approves; the ticket read pieces are added only
+      when the dashboard did not add them. The preview service sits beside the act it previews (TicketStoreHarness
+      validates AddTicketReaders on build without the dialog services). ServerDi_TicketContinuation_ResolvesFromTheRealComposition
+      proves both compositions.
+  - category: Architecture
+    chose: "FollowUpLink posts one 'Agent Smith — follow-up' comment on the closed ticket and on the follow-up, each naming the other; a failed post is said in the thread"
+    over: "A tracker relation"
+    reason: "No provider relates two tickets; the 'Agent Smith —' heading keeps both comments ours to every thread reader."
+  - category: Testing
+    chose: "Harness_ApprovalThenNextRun_BranchSeriesKeepsHeadAndAppends drives the real DeriveSpec graph (ApprovedSetHarness: real branch reader, resolver, publisher) over a store holding the continuation record"
+    over: "A PipelineHarness preset"
+    reason: |
+      DEVIATION (location only): the presets run against a scripted model and carry no seeded ticket branch with
+      an executed head; ApprovedSetHarness is the existing harness for exactly this read-merge-publish path. The
+      server half (approval -> record) is proven over the real store in TicketContinuationActTests.

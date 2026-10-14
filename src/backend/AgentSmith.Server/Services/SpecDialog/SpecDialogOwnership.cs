@@ -25,7 +25,10 @@ public sealed class SpecDialogOwnership(SpecDialogSessionRepository sessions)
     /// because a display name can be re-issued while <c>sub</c> is what the directory
     /// guarantees stable — and it is what a grant is written against.
     /// </summary>
-    public string OwnerOf(ClaimsPrincipal? caller) =>
+    public string OwnerOf(ClaimsPrincipal? caller) => PrincipalOf(caller);
+
+    /// <summary>2026-10-13-9a59n: the same principal for an act outside a dialog — a Retry names it as its cause.</summary>
+    public static string PrincipalOf(ClaimsPrincipal? caller) =>
         caller?.FindFirst("sub")?.Value ?? caller?.Identity?.Name ?? AnonymousOwner;
 
     /// <summary>

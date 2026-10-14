@@ -27,6 +27,13 @@ public sealed class RunChildConfiguration
     [
         typeof(RunRepo), typeof(RunStep), typeof(RunEvent), typeof(RunDecision),
         typeof(RunLlmCall), typeof(RunArtifact), typeof(RunSandbox), typeof(RunSpec),
+        typeof(RunAttempt), // 2026-10-13-9a59d
+        typeof(RunSeriesCut), // 2026-10-13-9a59e
+        typeof(RunPass), typeof(RunLedgerTransition), // 2026-10-13-9a59f
+        typeof(RunConversationEntry), // 2026-10-13-9a59g
+        typeof(TicketBetweenAttemptsCheck), // 2026-10-13-9a59h
+        typeof(RunSegment), // 2026-10-13-9a59j
+        typeof(RunRetryRequest), // 2026-10-13-9a59n: unique by RunRetryRequestConfiguration
     ];
 
     public void Apply(ModelBuilder modelBuilder)
@@ -42,5 +49,11 @@ public sealed class RunChildConfiguration
             entity.Property("RunId").HasMaxLength(PersistenceLimits.IndexedString);
             entity.HasIndex("RunId");
         }
+        new RunAttemptConfiguration().Configure(modelBuilder.Entity<RunAttempt>());
+        new TicketBetweenAttemptsCheckConfiguration().Configure(modelBuilder.Entity<TicketBetweenAttemptsCheck>());
+        modelBuilder.Entity<RunSeriesCut>().ToTable("RunSeriesCuts");
+        modelBuilder.Entity<RunPass>().ToTable("RunPasses");
+        modelBuilder.Entity<RunLedgerTransition>().ToTable("RunLedgerTransitions");
+        modelBuilder.Entity<RunSegment>().ToTable("RunSegments");
     }
 }

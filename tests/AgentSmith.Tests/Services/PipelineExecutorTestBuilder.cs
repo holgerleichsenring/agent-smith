@@ -101,6 +101,8 @@ internal sealed class PipelineExecutorTestBuilder
             EventTestStubs.NoOp,
             EventTestStubs.RunContext,
             new NoOpSandboxLivenessSupervisor(),
+new AgentSmith.Application.Services.Sandbox.SandboxRelease(
+                AgentSmith.Tests.TestHelpers.EventTestStubs.NoOp, NullLogger<AgentSmith.Application.Services.Sandbox.SandboxRelease>.Instance),
             NullLogger<PipelineSandboxCoordinator>.Instance));
         var provider = services.BuildServiceProvider();
 

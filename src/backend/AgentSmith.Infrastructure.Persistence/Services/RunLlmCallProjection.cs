@@ -46,6 +46,7 @@ public sealed class RunLlmCallProjection(
             TokensIn = e.TokensIn, TokensOut = e.TokensOut, CostUsd = e.CostUsd, DurationMs = e.DurationMs,
             CachedTokensIn = e.CachedTokensIn, CacheCreationTokensIn = e.CacheCreationTokensIn,
             StepIndex = e.OriginStepIndex, // p0388a
+            SpecId = e.OriginSpecId, MasterPass = e.OriginMasterPass, // 2026-10-13-9a59f
             EventSeq = eventSeq,
         };
 }

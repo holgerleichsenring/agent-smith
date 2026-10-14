@@ -10,6 +10,8 @@ import { SignInGate } from "@/components/shell/SignInGate";
 import { ConfigCatalogProvider } from "@/components/config/ConfigCatalogProvider";
 import { EventStoreProvider } from "@/lib/eventStore/EventStoreProvider";
 import { RunBucketFilterProvider } from "@/lib/RunBucketFilter";
+import { TicketBucketFilterProvider } from "@/lib/TicketBucketFilter";
+import { TicketListProvider } from "@/lib/tickets/TicketListProvider";
 import { RuntimeSettingsProvider } from "@/lib/runtimeSettings/RuntimeSettingsProvider";
 import "./globals.css";
 
@@ -48,6 +50,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <EventStoreProvider>
             <ConfigCatalogProvider>
               <RunBucketFilterProvider>
+                {/* 2026-10-13-9a59p: the ticket bucket and the ticket list are shared by the
+                  rail and the list for the same reason as the run bucket above. */}
+                <TicketBucketFilterProvider>
+                <TicketListProvider>
                 {/* 2026-08-25-39ab: the layout sits ABOVE the route boundary, so a
                   throw in the rail or the banner escapes error.tsx and blanks the
                   document. Each gets its own boundary: the rail failing must not
@@ -89,6 +95,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                     </RenderBoundary>
                   </main>
                 </div>
+                </TicketListProvider>
+                </TicketBucketFilterProvider>
               </RunBucketFilterProvider>
             </ConfigCatalogProvider>
           </EventStoreProvider>

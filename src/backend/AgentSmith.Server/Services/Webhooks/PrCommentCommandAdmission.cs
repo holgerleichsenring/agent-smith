@@ -18,6 +18,7 @@ namespace AgentSmith.Server.Services.Webhooks;
 /// On a ticket branch of the same repository the command IS a rework act: the ticket is nudged and
 /// the rework reads every open review thread. Elsewhere the model resolves the command to a
 /// pipeline <see cref="PrCommentPipelines.Allowed"/> names; a bare command there means nothing.
+/// Every comment but our own note first asks for the pull request's record to be read again.
 /// </summary>
 public sealed class PrCommentCommandAdmission(
     CommentIntentParser commentIntentParser,
@@ -25,6 +26,7 @@ public sealed class PrCommentCommandAdmission(
     IPrCommandLaunch launch,
     IPrTicketOwner owners,
     IReworkNudges nudges,
+    PrRecordNudge records,
     ILogger<PrCommentCommandAdmission> logger)
 {
     public async Task<WebhookResult> AdmitAsync(
@@ -33,6 +35,7 @@ public sealed class PrCommentCommandAdmission(
     {
         if (command.Body.StartsWith(OwnPrNoteMarker.Prefix, StringComparison.Ordinal))
             return WebhookResult.NotHandled("our own note");
+        await records.NudgeAsync(PrRecordDelivery.Of(command, allowedProjects), cancellationToken);
         var match = commentIntentParser.Match(command.Body);
         if (match.Type == CommentIntentType.Unknown)
             return WebhookResult.NotHandled();

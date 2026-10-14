@@ -17,5 +17,8 @@ public sealed class TicketRecordConfigurations
         modelBuilder.ApplyConfiguration(new TicketSeriesConfiguration()); // p0390
         modelBuilder.ApplyConfiguration(new UnmovedTicketConfiguration()); // 2026-09-18-c1a7
         modelBuilder.ApplyConfiguration(new TakenTicketConfiguration()); // 2026-09-25-b4d9
+        modelBuilder.ApplyConfiguration(new PrReviewRecordConfiguration()); // 2026-10-13-9a59b
+        modelBuilder.ApplyConfiguration(new PrReviewEntryConfiguration());
+        modelBuilder.ApplyConfiguration(new RunRetryRequestConfiguration()); // 2026-10-13-9a59n
     }
 }

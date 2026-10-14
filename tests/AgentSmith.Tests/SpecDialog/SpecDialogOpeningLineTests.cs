@@ -87,7 +87,7 @@ public sealed class SpecDialogOpeningLineTests : IDisposable
 
     private SpecDialogCommandHandler Handler(Mock<IPlatformAdapter> adapter) =>
         new(new SpecDialogSessionManager(
-                new SpecDialogSessionRepository(_context), Sandbox.Holds.None(), TimeProvider.System,
+                new SpecDialogSessionRepository(_context), AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(new SpecDialogSessionRepository(_context)), Sandbox.Holds.None(), TimeProvider.System,
                 NullLogger<SpecDialogSessionManager>.Instance),
             new SpecDialogScopeResolver(Loader()),
             new SpecDialogReplyComposer(),

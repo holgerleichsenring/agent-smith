@@ -13,6 +13,7 @@ using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
+using Moq;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -73,11 +74,55 @@ public sealed class SpecCutSurvivesReviewTests
         error.Should().BeNull();
     }
 
-    private static async Task<(SpecDerivation? Derivation, string? Error)> Derive(
-        string reply, SpecCutReview verdict)
+    // 2026-10-13-9a59g: every review is published with its attempt, a refused one with its findings.
+    [Fact]
+    public async Task SpecSetDeriver_RefusedCut_PublishesFindings()
     {
+        var published = new List<AgentSmith.Contracts.Events.RunEvent>();
+
+        await Derive(ValidCut(), new SequenceReviewer(Objecting), Publisher(published));
+
+        var reviews = published.OfType<AgentSmith.Contracts.Events.SpecCutReviewedEvent>().ToList();
+        reviews.Select(r => r.Attempt).Should().Equal(1, 2, 3);
+        reviews.Should().OnlyContain(r => r.Deliverable == AgentSmith.Contracts.Events.CutReviewDeliverables.Refused
+                                          && r.RunId == RunId);
+        reviews[0].Findings.Should().ContainSingle().Which.SpecId.Should().Be("p19106b");
+    }
+
+    [Fact]
+    public async Task SpecSetDeriver_AcceptedCut_PublishesDeliverable()
+    {
+        var published = new List<AgentSmith.Contracts.Events.RunEvent>();
+
+        await Derive(ValidCut(), new SequenceReviewer(Objecting, SpecCutReview.Clean), Publisher(published));
+
+        var reviews = published.OfType<AgentSmith.Contracts.Events.SpecCutReviewedEvent>().ToList();
+        reviews.Select(r => (r.Attempt, r.Deliverable)).Should().Equal(
+            (1, AgentSmith.Contracts.Events.CutReviewDeliverables.Refused),
+            (2, AgentSmith.Contracts.Events.CutReviewDeliverables.Accepted));
+        reviews[1].Findings.Should().BeEmpty();
+    }
+
+    private const string RunId = "2026-10-13T1000-cut";
+
+    private static AgentSmith.Contracts.Events.IEventPublisher Publisher(List<AgentSmith.Contracts.Events.RunEvent> sink)
+    {
+        var publisher = new Mock<AgentSmith.Contracts.Events.IEventPublisher>();
+        publisher.Setup(p => p.PublishAsync(It.IsAny<AgentSmith.Contracts.Events.RunEvent>(), It.IsAny<CancellationToken>()))
+            .Callback<AgentSmith.Contracts.Events.RunEvent, CancellationToken>((e, _) => sink.Add(e))
+            .Returns(Task.CompletedTask);
+        return publisher.Object;
+    }
+
+    private static Task<(SpecDerivation? Derivation, string? Error)> Derive(string reply, SpecCutReview verdict) =>
+        Derive(reply, new FixedReviewer(verdict), events: null);
+
+    private static async Task<(SpecDerivation? Derivation, string? Error)> Derive(
+        string reply, ISpecCutReviewer reviewer, AgentSmith.Contracts.Events.IEventPublisher? events)
+    {
+        var runContext = Mock.Of<AgentSmith.Contracts.Events.IRunContextAccessor>(c => c.CurrentRunId == RunId);
         var deriver = new SpecSetDeriver(
-            new FixedReviewer(verdict),
+            AgentSmith.Tests.TestSupport.CutReviewSteps.Of(reviewer, events, runContext),
             new SpecDerivationCall(
                 new SingleClientFactory(new AlwaysAnswers(reply)), new AsyncLocalRunContextAccessor(),
                 DerivationTestLooks.Proof()),
@@ -126,6 +171,16 @@ public sealed class SpecCutSurvivesReviewTests
             IReadOnlyList<SpecDraft> drafts, string key, string? ticketText, DerivationLook? look,
             AgentConfig agent, PipelineCostTracker costTracker, CancellationToken cancellationToken)
             => Task.FromResult(verdict);
+    }
+
+    private sealed class SequenceReviewer(params SpecCutReview[] verdicts) : ISpecCutReviewer
+    {
+        private int _calls;
+
+        public Task<SpecCutReview> ReviewAsync(
+            IReadOnlyList<SpecDraft> drafts, string key, string? ticketText, DerivationLook? look,
+            AgentConfig agent, PipelineCostTracker costTracker, CancellationToken cancellationToken)
+            => Task.FromResult(verdicts[Math.Min(_calls++, verdicts.Length - 1)]);
     }
 
     private sealed class FixedPrompt : IPromptCatalog

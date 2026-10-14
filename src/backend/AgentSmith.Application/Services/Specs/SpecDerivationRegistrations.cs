@@ -17,6 +17,7 @@ public static class SpecDerivationRegistrations
     public static IServiceCollection AddSpecDerivation(this IServiceCollection services)
     {
     services.AddTransient<ISpecCutReviewer, SpecCutReviewer>(); // p0422: the cut is reviewed before it is built
+    services.AddTransient<CutReviewStep>(); // 2026-10-13-9a59g: and every review is published
         // 2026-09-17-0e79c: and each spec's stated premises are checked before it is worked
         services.AddTransient<ISpecPremiseChecker, SpecPremiseChecker>();
         services.AddTransient<PremiseHandbackNotice>();
@@ -39,7 +40,7 @@ public static class SpecDerivationRegistrations
     services.AddTransient<SeriesRepos>().AddTransient<SeriesTakenIds>().AddTransient<SeriesBranchRead>();
     services.AddTransient<FiledSeriesWrite>();
     services.AddTransient<SeriesStaleFiles>();
-    services.AddTransient<ISpecSetPublisher, SpecSetPublisher>();
+    services.AddTransient<ISpecSetPublisher, SpecSetPublisher>().AddTransient<SpecSetAnnouncer>();
     services.AddTransient<SpecSetPointerRecorder>(); // 2026-09-08-4aa9: the marker's commit moves the pointer too
     services.AddTransient<ISpecPullRequestOpener, SpecPullRequestOpener>();
     services.AddTransient<DerivedSpecYamlRenderer>();
@@ -66,7 +67,7 @@ public static class SpecDerivationRegistrations
     services.AddTransient<DerivationLookFactory>();
     services.AddTransient<ScopedContextCoverage>(); // 2026-09-08-1830: the cut covers what the scope call named
     services.TryAddSingleton<IPackageEcosystemDetector, Sandbox.PackageEcosystemDetector>();
-    services.AddTransient<SpecSourceResolver>();
+    services.AddTransient<SpecSourceResolver>().AddTransient<ApprovedContinuation>().AddTransient<ContinuationMerge>(); // 9a59l
     // 2026-10-06-03c7c: a series' base id is minted in code, once, and read back thereafter.
     services.TryAddSingleton(TimeProvider.System);
     services.AddTransient<SeriesIdFactory>();

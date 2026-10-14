@@ -8,15 +8,35 @@ import { ConfigCatalogProvider } from "@/components/config/ConfigCatalogProvider
 import { EventStoreProvider } from "@/lib/eventStore/EventStoreProvider";
 import { silentEventStore } from "@/lib/eventStore/__tests__/fakes";
 import type { OverviewSnapshot, RunSnapshot } from "@/types/hub-events";
+import TicketsPage from "@/app/tickets/page";
+import { TicketListProvider } from "@/lib/tickets/TicketListProvider";
+import { fakeHub, list, pr, ticket } from "@/components/tickets/__tests__/ticketFixtures";
+import { TicketPage } from "@/components/tickets/detail/TicketPage";
+import { TicketPageStore } from "@/lib/tickets/TicketPageStore";
+import {
+  attempt, compute, conversation, detail, entry, pass, passes, runDetail, segment, series, spec,
+} from "@/components/tickets/detail/__tests__/detailFixtures";
 
 // p0343c: PIXEL IDENTITY guard — each redesigned surface renders the ratified
 // mock's structural DOM (wrapper + key mock classes), bound to real data. If a
 // refactor drops the mock DOM, these fail before the operator sees the drift.
 
 const push = vi.fn();
+// 2026-10-13-9a59r: the ticket page reads ?tab=, so a case can set the search before rendering.
+const search = vi.hoisted(() => ({ current: "" }));
 vi.mock("next/navigation", () => ({
-  useRouter: () => ({ push }),
+  useRouter: () => ({ push, replace: vi.fn() }),
   usePathname: () => "/",
+  useSearchParams: () => new URLSearchParams(search.current),
+}));
+// 2026-10-13-9a59r: the ticket composer's Work it out session, at rest — no hub, no server.
+vi.mock("@/hooks/useSpecDialog", () => ({
+  useSpecDialog: () => ({
+    dialogId: "d-1", view: null, conversations: [], entries: [], question: null, proposal: null, filed: null,
+    failure: null, uploadNote: null, awaiting: false, working: false, workingSince: null, readings: [], activity: [],
+    send: async () => {}, refresh: async () => {}, startNew: async () => {}, open: async () => {}, remove: async () => {},
+    attach: async () => {}, attachSite: async () => {},
+  }),
 }));
 
 function snap(over: Partial<RunSnapshot> = {}): RunSnapshot {
@@ -62,6 +82,14 @@ vi.mock("@/hooks/useJobsHub", () => ({
   }),
 }));
 vi.mock("@/hooks/useRunEvents", () => ({ useRunEvents: () => [] }));
+const tickets = vi.hoisted(() => ({ fetch: vi.fn() }));
+vi.mock("@/lib/ticketsApi", () => ({
+  fetchTickets: (...args: unknown[]) => tickets.fetch(...args),
+  fetchApprovalPreview: () => Promise.resolve({
+    project: "shop", ticketId: "101", effect: "continue", reason: "", executed: 1, unstarted: 0, basisRunId: "r-2",
+    specs: [{ specId: "s1", goal: "Port", disposition: "kept" }], start: { kind: "start-now" },
+  }),
+}));
 vi.mock("@/hooks/useRunExecutionTree", () => ({
   useRunExecutionTree: () => ({ nodes: [] }),
 }));
@@ -173,10 +201,62 @@ describe("Mock parity", () => {
     const homeRoot = screen.getByTestId("runs-home");
     expect(homeRoot.className).toContain("mock-shell");
     expect(homeRoot.className).toContain("mock-runs");
-    for (const cls of [".main", ".m-head", ".inflow", ".health", ".metric", ".section-head", ".cnt", ".rows", ".rrow", ".spine", ".need", ".n-top", ".q-item", ".q-opt", ".n-answer"]) {
+    for (const cls of [".main", ".m-head", ".inflow", ".health", ".metric", ".section-head", ".cnt", ".rows", ".rrow", ".spine", ".rrow.st-need"]) {
       expect(homeRoot.querySelector(cls), `runs home missing ${cls}`).not.toBeNull();
     }
+    // 2026-10-13-9a59p: a parked run is a row; the answer box lives on the ticket list.
+    for (const cls of [".need", ".q-item", ".n-answer"]) {
+      expect(homeRoot.querySelector(cls), `runs home still carries ${cls}`).toBeNull();
+    }
     home.unmount();
+
+    // ---- ticket list (ticket-view.html, list view) ----
+    tickets.fetch.mockResolvedValue(list(
+      [
+        ticket({
+          bucket: "needs_you", kind: "question", status: "waiting_for_input", ticketId: "7",
+          pendingQuestion: { runId: "r-101", question: { questionId: "q1", type: "Freeform", text: "Which header style?", context: null, choices: ["IETF draft"], defaultAnswer: null, askedAt: "2026-07-17T10:01:00Z", answerDeadlineAt: "2026-07-17T12:00:00Z" } },
+          seriesStrip: { derive: "cut", cells: [{ specId: "s1", state: "done" }, { specId: "s2", state: "asked" }] },
+        }),
+        ticket({ ticketId: "8", seriesStrip: { derive: "cut", cells: [{ specId: "s1", state: "live" }] }, pullRequests: [pr()] }),
+      ],
+      { needsYou: 1, working: 1, running: 1 },
+    ));
+    const ticketView = render(<TicketListProvider client={fakeHub().client}><TicketsPage /></TicketListProvider>);
+    const ticketsRoot = screen.getByTestId("tickets-home");
+    expect(ticketsRoot.className).toContain("mock-shell");
+    expect(ticketsRoot.className).toContain("mock-tickets");
+    await screen.findByTestId("ticket-list");
+    for (const cls of [".main", ".m-head", ".health", ".metric", ".section-head", ".cnt", ".rows", ".rgroup", ".trow", ".sd", ".rmain", ".tick", ".ttl", ".act", ".strip", ".attempts", ".cost", ".when", ".chev", ".answer", ".q-item", ".q-opt", ".n-answer"]) {
+      expect(ticketsRoot.querySelector(cls), `ticket list missing ${cls}`).not.toBeNull();
+    }
+    ticketView.unmount();
+
+    // ---- ticket detail (ticket-view.html, detail view: Summary) ----
+    const carriedAttempt = attempt({ number: 2, runId: "r-2", revision: { number: 2, cause: "comment on the ticket", seriesId: "x", carriedIds: ["s1"], approvalAt: null } });
+    const ticketApi = {
+      detail: () => Promise.resolve(detail([attempt(), carriedAttempt])),
+      series: (_p: string, _t: string, runId: string | null) => Promise.resolve(series(runId ?? "r-2", [
+        spec({ state: "carried" }), spec({ specId: "s2", ordinal: 2 }),
+      ])),
+      conversation: () => Promise.resolve(conversation([])),
+      passes: (runId: string) => Promise.resolve(passes(runId, { s2: [pass()] })),
+      run: () => Promise.reject(new Error("unused")),
+      compute: () => Promise.reject(new Error("unused")),
+    };
+    const ticketPage = render(
+      <TicketPageStore project="shop" ticketId="101" client={fakeHub().client} api={ticketApi}>
+        <TicketPage />
+      </TicketPageStore>,
+    );
+    const pageRoot = screen.getByTestId("ticket-page");
+    expect(pageRoot.className).toContain("mock-shell");
+    expect(pageRoot.className).toContain("mock-tickets");
+    await screen.findByTestId("attempt-flow");
+    for (const cls of [".t-head", ".ticon", ".tsub", ".tabs", ".tab", ".sum", ".sg", ".banner", ".graph", ".g-top", ".gt", ".g-sub", ".lm", ".canvas", ".edge", ".node", ".g-legend", ".sdet", ".sd-h", ".sd-b"]) {
+      expect(pageRoot.querySelector(cls), `ticket detail missing ${cls}`).not.toBeNull();
+    }
+    ticketPage.unmount();
 
     // ---- run viewer (run-viewer.html) ----
     const viewer = render(withStore(<RunDetailPage params={resolvedParams("r1")} />));
@@ -199,6 +279,89 @@ describe("Mock parity", () => {
     for (const cls of [".main", ".m-head", ".btn.primary", ".yaml-note", ".list", ".ecard", ".ec-top", ".ec-ic", ".ec-name", ".tybadge", ".edit-hint", ".fields"]) {
       expect(studioRoot.querySelector(cls), `config studio missing ${cls}`).not.toBeNull();
     }
+  });
+
+  it("MockParity_TicketConversationSpecsAcceptance_StructuralClassesPresent", async () => {
+    const twoAttempts = [attempt(), attempt({ number: 2, runId: "r-2" })];
+    const ticketApi = {
+      detail: () => Promise.resolve(detail(twoAttempts)),
+      series: (_p: string, _t: string, runId: string | null) => Promise.resolve(series(runId ?? "r-2", [
+        spec({ state: "carried", worked: [{ stepId: "1", state: "done", doneByRunId: "r-1", doneByAttempt: 1, doneInPass: 1 }] }),
+        spec({ specId: "s2", ordinal: 2, state: "in_progress", done: [{ text: "Works", verdict: null, note: null, citation: null, overrule: null }] }),
+      ])),
+      conversation: () => Promise.resolve({
+        ...conversation([
+          entry({ id: "q", attemptRunId: "r-1" }),
+          entry({ id: "e", source: "ticket", kind: "edited", role: "person", attemptRunId: "r-2", text: null, detail: { title: { before: "a", after: "b" } } }),
+          entry({ id: "c", source: "spec-cut", kind: "cut-review", attemptRunId: "r-2", text: "Deliverable." }),
+          entry({ id: "n", source: "conversation", kind: "turn", role: "person", attemptRunId: null, group: "now", text: "Add one" }),
+        ]),
+        attempts: [{ runId: "r-1", number: 1, cause: null, revision: null }, { runId: "r-2", number: 2, cause: null, revision: null }],
+        sessionId: "s-1",
+        proposal: { kind: "spec", drafts: [{ specId: "s3", goal: "Import consumer", repos: ["w"], done: ["caps"] }] },
+      }),
+      passes: (runId: string) => Promise.resolve(passes(runId, { s2: [pass()] })),
+      run: () => Promise.reject(new Error("unused")),
+      compute: () => Promise.reject(new Error("unused")),
+    };
+    const tabs: Array<[string, string[]]> = [
+      ["conversation", [".section-head", ".conv-tools", ".chip", ".conv", ".c-att", ".msg", ".msg.internal", ".av", ".mh", ".where", ".mb", ".diff", ".proposal", ".ph", ".pb", ".composer", ".cp-head", ".cp-actions", ".cp-input"]],
+      ["specs", [".sp-grid", ".sp-list", ".sp-item", ".si-top", ".si-cells", ".cell", ".spdoc", ".sh", ".sb", ".blk", ".steps", ".stp", ".crit", ".ci", ".ro-note", ".revs", ".rv"]],
+      ["acceptance", [".doc", ".crit", ".ci", ".m", ".cw"]],
+    ];
+    for (const [tab, classes] of tabs) {
+      search.current = `tab=${tab}`;
+      const page = render(
+        <TicketPageStore project="shop" ticketId="101" client={fakeHub().client} api={ticketApi}>
+          <TicketPage />
+        </TicketPageStore>,
+      );
+      const root = screen.getByTestId("ticket-page");
+      await screen.findByTestId(`ticket-tab-${tab}`);
+      await screen.findByText(tab === "conversation" ? "Add one" : tab === "specs" ? "Revisions" : "Acceptance", { selector: tab === "conversation" ? ".mb" : "h2" });
+      for (const cls of classes) {
+        expect(root.querySelector(cls), `ticket ${tab} tab missing ${cls}`).not.toBeNull();
+      }
+      page.unmount();
+    }
+    search.current = "";
+  });
+
+  it("MockParity_TicketAttemptsCost_StructuralClassesPresent", async () => {
+    const parked = segment({
+      endedAt: "2026-09-04T14:10:00Z", endStatus: "waiting_for_input",
+      park: { kind: "question", askedAt: "2026-09-04T14:09:00Z", questionId: "1", answeredAt: "2026-09-04T16:00:00Z", answeredBy: "h", resumedAt: "2026-09-04T16:00:00Z" },
+    });
+    const ticketApi = {
+      detail: () => Promise.resolve(detail([attempt(), attempt({ number: 2, runId: "r-2", cost: 9.4 })])),
+      series: (_p: string, _t: string, runId: string | null) => Promise.resolve(series(runId ?? "r-2", [spec()])),
+      conversation: () => Promise.resolve(conversation([])),
+      passes: (runId: string) => Promise.resolve(passes(runId, { s1: [pass()] })),
+      run: (runId: string) => Promise.resolve(runDetail(runId, { budgetCapUsd: runId === "r-1" ? 5 : 15 })),
+      compute: (runId: string) => Promise.resolve(compute(runId, {
+        segments: [parked, segment({ startedAt: "2026-09-04T16:00:00Z", endedAt: "2026-09-04T16:30:00Z" })],
+      })),
+    };
+    const tabs: Array<[string, string, string[]]> = [
+      ["attempts", "attempts-timeline", [".next-card", ".bi", ".bt", ".bs", ".section-head", ".tl", ".att", ".dot", ".card", ".a-top", ".a-name", ".an", ".pill", ".rid", ".a-why", ".cause", ".a-num", ".a-body", ".kv", ".k", ".v", ".links", ".chg", ".line"]],
+      ["cost", "compute-table", [".costs", ".cr", ".cl", ".track", ".bar", ".parts", ".cv", ".cr.total", ".capmark", ".health.four", ".metric", ".metric.hot", ".banner.need", ".compute", ".c-head", ".c-row", ".c-a", ".c-track", ".c-bar", ".seg", ".park", ".c-figs", ".c-pods", ".pd", ".c-n", ".c-legend"]],
+    ];
+    for (const [tab, ready, classes] of tabs) {
+      search.current = `tab=${tab}`;
+      const page = render(
+        <TicketPageStore project="shop" ticketId="101" client={fakeHub().client} api={ticketApi}>
+          <TicketPage />
+        </TicketPageStore>,
+      );
+      const root = screen.getByTestId("ticket-page");
+      await screen.findByTestId(ready);
+      await screen.findAllByText(/LLM calls|call time/);
+      for (const cls of classes) {
+        expect(root.querySelector(cls), `ticket ${tab} tab missing ${cls}`).not.toBeNull();
+      }
+      page.unmount();
+    }
+    search.current = "";
   });
 
   it("TraceDrawer_HostsExistingMasterDetail", async () => {

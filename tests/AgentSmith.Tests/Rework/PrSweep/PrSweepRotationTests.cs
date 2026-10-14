@@ -50,7 +50,7 @@ public sealed class PrSweepRotationTests : IDisposable
         };
         var admission = new PrCommentCommandAdmission(new AgentSmith.Application.Webhooks.CommentIntentParser(Mock.Of<IIntentParser>()),
             new ServerContext("c.yml"), Mock.Of<IPrCommandLaunch>(), Mock.Of<IPrTicketOwner>(), Mock.Of<IReworkNudges>(),
-            NullLogger<PrCommentCommandAdmission>.Instance);
+            AgentSmith.Tests.Webhooks.PrRecordNudges.Of(), NullLogger<PrCommentCommandAdmission>.Instance);
         var actions = new AgentSmith.Server.Services.Sweep.PrSweepActions(new PrTriggerLabelResolver(), new PrRunContextFactory(),
             Mock.Of<IDetachedPipelineLauncher>(), admission, Mock.Of<IServiceProvider>());
         var sweep = new AgentSmith.Server.Services.Sweep.PrSweep(_store.ScopeFactory, sources.Object, actions, new PrTriggerLabelResolver(), _clock,

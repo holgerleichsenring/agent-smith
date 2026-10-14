@@ -2,9 +2,12 @@ using AgentSmith.Application.Webhooks;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Reviews;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Sweep;
 using AgentSmith.Contracts.Webhooks;
+using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Infrastructure.Persistence.Services.Translators;
 using AgentSmith.Infrastructure.Services.Webhooks;
@@ -61,18 +64,33 @@ public sealed class PrSweepPassTests : IDisposable
 
     private Task CycleAsync(DateTimeOffset now, params OpenPullRequest[] prs) => RunAsync(now, new OpenPullRequestsPage(prs));
 
-    private async Task RunAsync(DateTimeOffset now, OpenPullRequestsPage page)
+    private readonly Mock<IPrTicketOwner> _owners = new();
+    private readonly List<ReworkNudgeRequest> _nudged = [];
+
+    private IReworkNudges Nudges()
+    {
+        var nudges = new Mock<IReworkNudges>();
+        nudges.Setup(n => n.EnqueueAsync(It.IsAny<ReworkNudgeRequest>(), It.IsAny<CancellationToken>()))
+            .Callback<ReworkNudgeRequest, CancellationToken>((r, _) => _nudged.Add(r)).Returns(Task.CompletedTask);
+        return nudges.Object;
+    }
+
+    private async Task RunAsync(DateTimeOffset now, OpenPullRequestsPage page, string? resume = null)
     {
         _page = page;
         using var ctx = _store.Context();
         var store = new PrSweepStore(ctx, new SqliteUniqueViolationTranslator());
         var admission = new PrCommentCommandAdmission(new CommentIntentParser(_intents.Object), new ServerContext("c.yml"),
-            _commands.Object, Mock.Of<IPrTicketOwner>(), Mock.Of<IReworkNudges>(), NullLogger<PrCommentCommandAdmission>.Instance);
+            _commands.Object, _owners.Object, Nudges(), AgentSmith.Tests.Webhooks.PrRecordNudges.Of(_owners.Object, Nudges()),
+            NullLogger<PrCommentCommandAdmission>.Instance);
         var trust = new Mock<IPrCommentAuthorTrust>();
         trust.Setup(t => t.IsTrustedAsync(It.IsAny<PrCommentAuthor>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
         var keyed = new ServiceCollection().AddKeyedSingleton("github", trust.Object).BuildServiceProvider();
         var actions = new PrSweepActions(new PrTriggerLabelResolver(), new PrRunContextFactory(), _launcher.Object, admission, keyed);
-        await new PrSweepPass(store, actions, new PrTriggerLabelResolver()).RunAsync(Target(), _lister.Object, null, Interval, now, 1, CancellationToken.None);
+        using var scope = _store.ScopeFactory.CreateScope();
+        var records = new PrSweepRecordNudge(scope.ServiceProvider.GetRequiredService<PrReviewRecordRepository>(), Nudges());
+        await new PrSweepPass(store, actions, new PrTriggerLabelResolver(), records)
+            .RunAsync(Target(), _lister.Object, resume, Interval, now, 1, CancellationToken.None);
     }
 
     private void VerifyLaunched(string pipeline, Times times) =>
@@ -167,5 +185,68 @@ public sealed class PrSweepPassTests : IDisposable
         using var read = _store.Context();
         var states = await new PrSweepStore(read, new SqliteUniqueViolationTranslator()).StatesAsync("github.com/o/r", CancellationToken.None);
         states.Keys.Should().BeEquivalentTo(["4"], "the cut list pruned nothing; the complete one pruned the closed pull request");
+    }
+
+    private async Task RecordAsync(string number, string state)
+    {
+        await using var ctx = _store.Context();
+        var url = $"https://github.com/o/r/pull/{number}";
+        ctx.Add(new PrReviewRecord
+        {
+            PrKey = PrKey.Of(url), Url = url, Repo = "r", RepoKey = RepoKey.Of(Repo.Url!), Number = number,
+            Project = "p", TicketId = "12", RunId = "run-1", State = state,
+        });
+        await ctx.SaveChangesAsync();
+    }
+
+    [Fact]
+    public async Task PrSweep_RecordOpenButNotListed_NudgesRefresh_NeverRecordedPrToo()
+    {
+        await RecordAsync("4", PrReviewStates.Open);
+        await RecordAsync("8", PrReviewStates.Open);
+
+        // 8 was merged before any sweep listed it open: it has no sweep row, only its record.
+        await CycleAsync(Noon, Pr("4", "h1"));
+
+        _nudged.Should().ContainSingle().Which.Should().Match<ReworkNudgeRequest>(n => n.Project == "p" && n.TicketId == "12"
+            && n.PrUrl == "https://github.com/o/r/pull/8" && n.Origin == ReworkNudgeOrigin.Refresh && n.IsLate);
+    }
+
+    [Fact]
+    public async Task PrSweep_ResumedList_NudgesNoOpenRecord()
+    {
+        await RecordAsync("8", PrReviewStates.Open);
+
+        await RunAsync(Noon, new OpenPullRequestsPage([Pr("4", "h1")]), resume: "2");
+        await RunAsync(Noon.AddMinutes(1), new OpenPullRequestsPage([Pr("4", "h1")], Cut: true, Resume: "2"));
+
+        _nudged.Should().BeEmpty("a list that is cut or resumed does not show what is no longer open");
+    }
+
+    [Fact]
+    public async Task PrSweep_ReopenedPr_NudgesRefreshWithItsUrl()
+    {
+        await RecordAsync("4", PrReviewStates.Merged);
+        await RecordAsync("5", PrReviewStates.Closed);
+
+        await RunAsync(Noon, new OpenPullRequestsPage([Pr("5", "h1")], Cut: true, Resume: "2"));
+
+        _nudged.Select(n => n.PrUrl).Should().Equal("https://github.com/o/r/pull/5");
+    }
+
+    [Fact]
+    public async Task PrSweep_PlainComment_NudgesRefresh()
+    {
+        _owners.Setup(o => o.FindAsync(It.IsAny<string>(), "12", It.IsAny<IReadOnlySet<string>?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ConfiguredRepo("p", new ResolvedProject(), Repo));
+        var pr = Pr("4", "h1") with { HeadBranch = "agent-smith/12", SameRepository = true };
+        await CycleAsync(Noon, pr);
+        _comments = [new PrSweepComment("4", "c1", Noon.AddSeconds(30), "looks good", new PrCommentAuthor("https://github.com/o/r", "o/r", "bob", "bob"))];
+
+        await CycleAsync(Noon.AddMinutes(1), pr);
+
+        _nudged.Should().ContainSingle().Which.Should().Match<ReworkNudgeRequest>(n => n.Origin == ReworkNudgeOrigin.Refresh
+            && n.PrUrl == "https://github.com/o/r/pull/4" && !n.FromDelivery);
+        _commands.VerifyNoOtherCalls();
     }
 }

@@ -1,6 +1,8 @@
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Specs;
+using AgentSmith.Domain.Models;
+using DeclinedCriteriaLedger = AgentSmith.Application.Services.Handlers.DeclinedCriteriaLedger;
 
 namespace AgentSmith.Application.Services.Specs;
 
@@ -8,6 +10,9 @@ namespace AgentSmith.Application.Services.Specs;
 /// p0466: the one writer of a spec's standing. Updates the pipeline's per-spec table
 /// (which the pull request renders) and publishes the same fact as an event, because the
 /// event stream is the only DB channel a spawned orchestrator has.
+/// 2026-10-13-9a59e: every change carries the spec's own acceptance as it stands — that spec's accounts
+/// and declined criteria, rendered as the run detail renders them — so a spec's verdict is readable when
+/// it ends, not only at run end. A spec that has no account yet carries none.
 /// </summary>
 public sealed class SpecProgressRecorder(IEventPublisher eventPublisher) : ISpecProgressRecorder
 {
@@ -43,6 +48,14 @@ public sealed class SpecProgressRecorder(IEventPublisher eventPublisher) : ISpec
         var title = set.Specs.FirstOrDefault(x => x.SpecId == specId)?.Draft.Goal ?? specId;
         return eventPublisher.PublishAsync(
             new SpecStateChangedEvent(
-                runId, specId, ordinal, title, state, verdict, DateTimeOffset.UtcNow), ct);
+                runId, specId, ordinal, title, state, verdict, DateTimeOffset.UtcNow,
+                AcceptanceOf(pipeline, specId)), ct);
+    }
+
+    private static string? AcceptanceOf(PipelineContext pipeline, string specId)
+    {
+        var accounts = RunAccountLedger.Current(pipeline).Specs.Where(s => s.SpecId == specId).ToList();
+        var declined = DeclinedCriteriaLedger.Current(pipeline).All.Where(d => d.SpecId == specId).ToList();
+        return AcceptanceSnapshot.Build(accounts.Count > 0 ? new RunAccounts(accounts) : null, declined);
     }
 }

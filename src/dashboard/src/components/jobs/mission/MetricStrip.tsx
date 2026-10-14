@@ -4,7 +4,7 @@ import type { MissionMetrics } from "./missionBuckets";
 
 // p0343: the mission-control metric strip. Every value is derived client-side
 // from the same run list the sections render, so the strip and the sections can
-// never disagree. "Needs you" glows amber (mock .metric.hot) only when non-zero.
+// never disagree. "Waiting for input" glows amber (mock .metric.hot) only when non-zero.
 // p0343c (pixel identity): emits the runs-list.html .health/.metric DOM
 // verbatim — 5 honest cells (the mock's capacity cell has no live data source
 // on the overview payload and is omitted rather than faked).
@@ -23,7 +23,7 @@ function money(usd: number): string {
 
 export function MetricStrip({ metrics }: { metrics: MissionMetrics }) {
   const cells: Cell[] = [
-    { label: "Needs you", value: metrics.needsYou, hot: metrics.needsYou > 0, testId: "metric-needs-you" },
+    { label: "Waiting for input", value: metrics.needsYou, hot: metrics.needsYou > 0, testId: "metric-needs-you" },
     { label: "Running", value: metrics.running, testId: "metric-running" },
     { label: "Queued", value: metrics.queued, testId: "metric-queued" },
     {

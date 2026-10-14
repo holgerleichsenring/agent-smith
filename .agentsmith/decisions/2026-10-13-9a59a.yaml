@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-9a59a
+
+decisions:
+  - category: Architecture
+    chose: "The has-step test is an explicit EXISTS over RunStep by RunId"
+    over: "r.Steps.Any(), as the light read was first written"
+    reason: |
+      Run.Steps is an unmapped in-memory holder (RunChildConfiguration ignores every Run.* collection),
+      so EF evaluated it client-side as an empty list and every cancelled attempt that had started a
+      step read as never started. The detail test caught it; both the list and the detail query spell
+      the subquery out over uow.Set<RunStep>().
+  - category: Implementation
+    chose: "DEVIATION: the scope sentence 'a FAILED row with no RunStep ... is listed among the ticket's other runs as never started, so it is never numbered' is not followed; a failed no-step row is a numbered attempt"
+    over: "Listing it as a never-started other run"
+    reason: |
+      The same scope paragraph, the ATTEMPTS decision and the done line ('A reserved launch that failed
+      in its prologue shows as a failed attempt, never as a never-started other run') all say it IS an
+      attempt; the contradicting clause belongs to the cancelled no-step case, which is what lands in
+      otherRuns with neverStarted true (TicketAttempts.IsAttempt).
+  - category: Implementation
+    chose: "useSystemExecutionTree.tsx's private describeSystemEvent also gains the TicketActivityChanged case"
+    over: "Touching only useSubsystemActivity.ts as the step names"
+    reason: |
+      A second exhaustive switch over SystemEventType lives in useSystemExecutionTree.tsx; without the
+      case strict TypeScript failed pnpm build ('lacks ending return statement'). It returns "" for the
+      same reason: the type never reaches the System page.
+  - category: Implementation
+    chose: "Remove the twelve retired 2026-09-09 specs' facts rows from spec-name-baseline.tsv"
+    over: "Leaving the baseline as the series spec commit left it"
+    reason: |
+      The series spec commit moved those specs to done/, and SpecFacts_StaleBaselineRow_Fails requires a
+      facts row to leave once its spec is no longer planned or active; the suite was red at HEAD.
+  - category: Contract
+    chose: "TicketDetailView nests the list row as Summary; the needs-you question rides as pendingQuestion {runId, question}"
+    over: "Flattening the summary fields into the detail, or adding runId into PendingQuestionInfo"
+    reason: |
+      One composer (TicketSummaryComposer) builds the row for both reads, so the header cannot disagree
+      with the list; PendingQuestionInfo is shared with the run surfaces and stays unchanged.
+  - category: Contract
+    chose: "TicketCountsView carries explicit NeedsYou, Working, Running, Queued, Idle properties"
+    over: "A dictionary keyed by bucket name"
+    reason: "Typed fields read the same in C# and TypeScript; 9a59b and 9a59h add their buckets as properties."
+  - category: Implementation
+    chose: "A ticket's cost is the sum over its code runs; the month cost sums every run of the filtered project(s), any pipeline"
+    over: "Adding pr-review and scan runs into the ticket's cost"
+    reason: "The list reads code runs only (the ceiling read), and the detail must show the same number the list did."
+  - category: Implementation
+    chose: "An unknown ?bucket= is a 400; the detail route decodes only %2F in its segments"
+    over: "Ignoring an unknown bucket, or Uri.UnescapeDataString on an already-decoded segment"
+    reason: |
+      Routing decodes every escape except an encoded slash; unescaping again would corrupt a literal '%'.
+      A misspelt bucket answering with every ticket would read as a filter that matched everything.
+  - category: Implementation
+    chose: "RunSnapshot stays at its 130-line baseline by shortening two of its own comments; RunSnapshotMapper stays at 117 by appending both arguments to its last line"
+    over: "Raising the baseline"
+    reason: "The ratchet allows a baseline file only to shrink."

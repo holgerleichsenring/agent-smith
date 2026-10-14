@@ -18,7 +18,7 @@ internal static class RunSpecQueryEndpoints
     {
         app.MapGet("/api/runs/{runId}/specs", GetRunSpecsAsync).Needs(Permissions.RunsRead);
         app.MapGet("/api/runs/{runId}/specs/{specId}", GetRunSpecAsync).Needs(Permissions.RunsRead);
-        return app;
+        return app.MapRunPassEndpoints(); // 2026-10-13-9a59f: the passes inside each spec
     }
 
     internal static async Task<IResult> GetRunSpecsAsync(

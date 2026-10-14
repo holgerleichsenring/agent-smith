@@ -39,18 +39,9 @@ public static class OutcomeShapes
     private static readonly DialogChoice IntoABugTicket =
         new("Make it a bug ticket", "smaller than a spec");
 
-    /// <summary>
-    /// 2026-09-25-8e51e: not a size at all — the same cut, written onto the ticket this
-    /// conversation BELONGS to instead of filed as a new one. It rides beside the ladder because
-    /// this is the one question the operator is asked about a proposal, and it is read as its own
-    /// confirmation result rather than as an edit note.
-    /// </summary>
-    public static readonly DialogChoice AmendTheTicket =
-        new("Amend this ticket", "rewrite it from this specification");
-
     /// <summary>Every shape the framework offers, so a bound is taken over all of them at once.</summary>
     public static IReadOnlyList<DialogChoice> All { get; } =
-        [IntoSeveralSpecs, IntoOneSpec, IntoASpec, IntoABugTicket, AmendTheTicket];
+        [IntoSeveralSpecs, IntoOneSpec, IntoASpec, IntoABugTicket];
 
     static OutcomeShapes()
     {
@@ -71,27 +62,17 @@ public static class OutcomeShapes
     }
 
     /// <summary>
-    /// The shapes offered beside approve and reject for this proposal.
-    /// <para>
-    /// 2026-09-25-8e51e: <paramref name="ticketBound"/> adds the amendment, and ONLY for the two
-    /// kinds that are filed from an approved set. A bug ticket carries no set and is rendered by
-    /// another renderer, so there is no region on the bound ticket for it to replace — offering it
-    /// there would promise a write that cannot be made.
-    /// </para>
+    /// The shapes offered beside approve and reject for this proposal. 2026-10-13-9a59l: a ticket's
+    /// own conversation is offered the same ladder — approving there continues the ticket itself.
     /// </summary>
-    /// <param name="ticketBound">Whether this conversation belongs to a ticket of its own.</param>
-    public static IReadOnlyList<DialogChoice> For(OutcomeProposal proposal, bool ticketBound = false) =>
+    public static IReadOnlyList<DialogChoice> For(OutcomeProposal proposal) =>
         proposal switch
         {
             BugOutcome => [IntoASpec],
-            SpecOutcome => Amendable([IntoSeveralSpecs, IntoABugTicket], ticketBound),
-            EpicOutcome => Amendable([IntoOneSpec], ticketBound),
+            SpecOutcome => [IntoSeveralSpecs, IntoABugTicket],
+            EpicOutcome => [IntoOneSpec],
             // An answer never reaches a confirmation, and a kind added later offers nothing until
             // it says what its neighbours are.
             _ => [],
         };
-
-    private static IReadOnlyList<DialogChoice> Amendable(
-        IReadOnlyList<DialogChoice> shapes, bool ticketBound) =>
-        ticketBound ? [.. shapes, AmendTheTicket] : shapes;
 }

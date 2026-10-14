@@ -46,7 +46,8 @@ Every route sits under one header and one rail. The header names the place you a
 
 The rail shows the running system and nothing that is a setting:
 
-- **Monitor**: All runs, Needs you, Running, Queued and Finished, each with a live count. Clicking one filters the runs page, and the filter lives in the URL (`?bucket=`), so a filtered view is linkable. Below them, **Pull requests**.
+- **Work**: **Tickets**, then Needs you, Working, Waiting on review, Stuck, Ended and Done, each with the count the server computed over every ticket. Clicking one filters the ticket list (`/tickets?bucket=`). See [Tickets](#tickets).
+- **Monitor**: All runs, Waiting for input, Running, Queued and Finished, each with a live count. Clicking one filters the runs page, and the filter lives in the URL (`?bucket=`), so a filtered view is linkable. Below them, **Pull requests**.
 - **Design**: **Work it out**, the design conversation with the agent. It has its own page: [Work it out](../../how-it-works/work-it-out.md).
 - **System**: the tracker (named after the tracker it has actually seen polling), webhooks, chat dispatchers, config file reads, and the skill catalog.
 - **Insight**: the Overview.
@@ -57,9 +58,9 @@ Three banners can appear above every page. A blocking startup finding shows "Run
 
 ## Runs
 
-The home page is split into the same buckets as the rail, under a strip of counts (needs you, running, queued, finished today, cost today):
+The home page is split into the same buckets as the rail, under a strip of counts (waiting for input, running, queued, finished today, cost today):
 
-- **Needs you** holds runs parked on a question. Each card opens in place with the question, quick replies and a free-text box, and **Send & resume run** resumes the same run without leaving the page. More on parking in [durable dialogue](../../how-it-works/expectations.md).
+- **Waiting for input** lists runs parked on a question. A row opens the run, where the question is answered; a ticket's question is also answered on the ticket list. More on parking in [durable dialogue](../../how-it-works/expectations.md).
 - **Running** shows each run's step progress, cost so far and age, and its story beat when the server sends one.
 - **Queued** shows each run's place in line (`pos 3`) and the reason it's waiting. A parked run whose answer is in and whose relaunch is waiting for a slot moves here too and reads `resuming · pos 2`, instead of still claiming to need you.
 - **Finished** pages back through history with **Load more**. Its header carries **clear finished**, which deletes every finished, failed and cancelled run at once (see [Deleting runs](#deleting-runs)); it shows only while there is a finished run, and not to a signed-in caller without `runs.delete`.
@@ -108,9 +109,38 @@ curl -X DELETE "https://agentsmith.example.com/api/runs?state=terminal"   # ever
 
 The bulk form only ever touches terminal runs, so it can't kill a live one. It is what **clear finished** on the runs board calls; its confirming second click says that the finished runs and their verdict history go.
 
-### Retrying a handed-back ticket
+### Retrying after an infrastructure end
 
-A ticket the agent judged not implementable is parked and doesn't come back on a comment the way a question does. `POST /api/runs/{runId}/retry` (needs `runs.control`) moves its ticket back to a trigger status, and the poller claims it from there. The answer says whether that worked: when the tracker offers no move for the ticket, the retry is refused and the ticket keeps the hold that says why it isn't being picked up.
+`POST /api/runs/{runId}/retry` (needs `runs.control`) starts the same work again, unchanged, and only when the run ended on infrastructure: it was interrupted (no process drove it any more), its replica went away (`stale-lease-reaped`), or a sandbox of its last launch vanished or was OOM-killed. The run must be the ticket's latest attempt and finished. A `202` means the retry is recorded and queued: the rework worker moves the ticket from `failed_status` back to the first trigger status and starts one attempt, whose cause names you with channel `retry`. If the worker can't start it (the tracker offers no move, say), it says so on the ticket, and you can retry again.
+
+Every refusal is a `409` with one body, `{reason, text, project, ticketId}`. `reason` is `not-latest`, `handed-back`, `not-finished`, `not-infrastructure`, `closed-for-work` or `starting`; `text` is the sentence to show. A hand-back and an attempt that ended on its own work are answered in the ticket conversation, where approving a change starts the next attempt; a ticket a person closed in its tracker gets a linked follow-up from an approval there instead of being reopened. A `503` means the tracker couldn't be read, and nothing was recorded.
+
+## Tickets
+
+`/tickets` lists every ticket agent-smith has worked, a ticket being a project and a ticket id with at least one code run; each run is one attempt at it. It needs `runs.read`. Tickets are grouped by who acts next, under six tiles (needs you with the oldest wait, working, waiting on review with the open pull requests, stuck, done this month with attempts per ticket, and this month's spend):
+
+- **Needs you**: the newest attempt is parked. A question is answered in place, and **Send & resume attempt n** resumes that attempt. A hand-back shows the words it posted and leads into the ticket's conversation in Work it out, because there is no paused run to resume.
+- **Working**: an attempt is running or waits for capacity.
+- **Waiting on review**: a pull request is open and a person owns the next move. The row names the review decision and who made it, and says when a request for changes came from someone who is not a trusted reviewer.
+- **Stuck**: the last attempt failed and a check saw the ticket unchanged and untouched since.
+- **Ended**: no next step is running or waiting, such as a cancelled attempt or a success without a pull request. The dot follows how the last attempt ended.
+- **Done**: every pull request merged or closed, collapsed to this month's count until **Show done**.
+
+Each row shows the series strip (one cell per spec of the current series, then one per pull request), a mark per attempt, the summed cost and the age, and opens the ticket's page. A section holding more tickets than the page loaded ends with **Show all**, which opens its bucket view. On the runs home, a code run of a ticket opens the same page; any other run opens its run viewer.
+
+### A ticket's page
+
+`/tickets/{project}/{ticketId}` opens on **Summary**. The header names the ticket, links its tracker, says which tracker status the newest attempt read, which attempt is running and the work branch; **Cancel attempt n** ends a running attempt. Four cells describe the chosen attempt: what started it, its series revision with how many specs it carried and how many it cut new, the ticket's pull requests with their review state, and its wall time, cost and repositories. A banner names the specs an attempt carried from earlier attempts at no cost.
+
+Below is the attempt's flow graph, one tab per attempt: ticket, derive (with a count of the cuts the reviewer refused), then either the hand-back or the spec gate, one row per spec of that attempt's cut, and the ship or end node. A carried spec is one small dashed node. A spec that ran gets build and verify, one lane per master pass, numbered within the spec, with the reason the master went back on the return edge; **folded** shows only the last pass. A question hangs off the build of the pass that parked. Choosing a node, by click or Enter, explains it from that attempt's own records below the graph; a node with nothing recorded says so. An attempt from before attempts recorded their cut has no graph and links to its run viewer. The page follows a running attempt without a reload.
+
+**Conversation** holds every exchange about the ticket in order: its comments and text edits, the run questions and their answers, pull-request reviews, the spec cut's reviews and hand-backs, and the ticket's own Work it out conversation, grouped under the attempt they belong to. Chips filter by source, and an entry that started an attempt says so. A waiting run question heads the tab. Below the thread, **Continue on this ticket** is that Work it out conversation. Opening the tab changes nothing; the first thing you do there (focus the field, send, approve, discard) reopens the ticket's conversation, on its own dialog, so your Work it out conversation stays where you left it. With a proposal open, the line above the buttons says what approving does: continue the series, file a follow-up for a closed ticket, and when the next attempt starts. **Retry unchanged** appears after an attempt ended on infrastructure. Without `dialog.write` on an installation that enforces it, the ticket's own conversation is not shown. The header's **Continue in conversation** opens this tab.
+
+**Specs** shows the series as read-only documents: per spec a cell for every attempt (not run, done in n passes, carried, failed, working, not started), and for the selected spec its goal, steps as worked with the attempt and pass that completed each, and its done criteria; then the revisions. A spec changes only through the conversation. **Acceptance** lists each spec's done criteria with the attempt that verified them; an operator's overrule shows beside the verdict.
+
+**Attempts** lists every attempt, newest first: what started it (the channel, who, where, how many specs it carried, the questions it asked and how long they waited), its wall time, cost and specs done — or, for the running attempt, the spec and step it is on, or *deriving* until its own cut exists. Opening a card shows what the attempt did (each cut with the reviewer's verdict, the pull requests it opened, each spec's outcome with its passes, questions and resumes) and why it ended (finished, failed with the failing spec's last pass reason, handed back with its case, cancelled), with links to the run viewer and to its trace. Between two cards stands the change that started the newer one; **read** opens the Conversation tab at that entry. The next attempt starts from the conversation.
+
+**Cost & compute** draws one bar per attempt on one scale — the largest run cap, or the largest cost where no attempt has a cap — split into derive, each spec with its passes, pull requests, other and not attributed; a run whose own cap is smaller has it marked on its row, and carried specs are written at $0. Below, pod time, memory reserved (the run detail's reservation, finished attempts only), model call time (summed call durations, which overlap when sub-agents run in parallel) and time waiting on you (question and hand-back parks only; a wait for capacity is shown apart). A pod no close event reached is counted to the end of its launch; the tile names the run detail's figure, which counts it to the run's end. When waiting on you took longer than all model work, a banner names each wait. Per attempt a wall-clock bar shows each launch, the parks and capacity waits between them, and the pods with how each ended.
 
 ## Pull requests
 

@@ -11,15 +11,15 @@ import { mergeNewestFirst } from "@/lib/runs/mergeNewestFirst";
 import { ClearTerminalRunsButton } from "./ClearTerminalRunsButton";
 import { bucketRuns, deriveMetrics } from "./mission/missionBuckets";
 import { MetricStrip } from "./mission/MetricStrip";
-import { NeedsYouCard } from "./mission/NeedsYouCard";
 import { Section } from "./mission/Section";
 import { useRunBucketFilter, type RunBucket } from "@/lib/RunBucketFilter";
 import { RenderBoundary } from "@/components/shell/RenderBoundary";
 import { RefusalSurface } from "@/components/shell/RefusalSurface";
 
-// p0343: mission control — the home screen ranks tickets-worked-as-jobs by what
-// needs the operator: Needs-you (answer inline, no navigation) → Running →
-// Queued → Finished. Empty sections are omitted so the screen shows only live
+// p0343: mission control — the home screen ranks runs by what needs the
+// operator: Waiting for input → Running → Queued → Finished.
+// 2026-10-13-9a59p: a parked run is a plain row here. A ticket's question is
+// answered on the ticket list, a ticketless run's in the run viewer. Empty sections are omitted so the screen shows only live
 // buckets — except a reassuring "nothing waiting on you" when the top priority
 // is clear.
 // p0343c (pixel identity): emits the runs-list.html DOM verbatim — .health
@@ -30,7 +30,7 @@ import { RefusalSurface } from "@/components/shell/RefusalSurface";
 
 // What each bucket says when the operator asked for it and it holds nothing.
 const EMPTY_LINE: Record<RunBucket, string> = {
-  "needs-you": "Nothing waiting on you.",
+  "needs-you": "No run is waiting for input.",
   running: "Nothing is running right now.",
   queued: "Nothing is queued.",
   finished: "No run has finished yet.",
@@ -118,20 +118,16 @@ export function MissionControl() {
 
       {shows("needs-you") && (
         <Section
-          title="Needs you"
+          title="Waiting for input"
           id="needs-you"
           count={buckets.needsYou.length}
           amber={buckets.needsYou.length > 0}
           testId="section-needs-you"
-          hint="answer here — the run resumes immediately"
+          hint="a run is parked on a question — open it to answer"
           alwaysShow
           emptyLine={EMPTY_LINE["needs-you"]}
         >
-          {buckets.needsYou.map((run) => (
-            <RenderBoundary key={run.runId} surface={`run ${run.runId}`}>
-              <NeedsYouCard snapshot={run} />
-            </RenderBoundary>
-          ))}
+          <RowList runs={buckets.needsYou} />
         </Section>
       )}
 
@@ -191,8 +187,8 @@ export function MissionControl() {
       )}
 
       <footer>
-        Row click opens the run’s story view · “Needs you” answers resume the run without leaving
-        this page.
+        Row click opens the run’s story view · a ticket’s questions are answered on Tickets, any
+        other run’s in its run view.
       </footer>
     </div>
   );

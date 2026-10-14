@@ -46,7 +46,7 @@ public sealed class ReferenceUploadTests : IDisposable
         _context = MigratedStoreTemplate.Context(_connection);
         _repository = new SpecDialogSessionRepository(_context);
         _sessions = new SpecDialogSessionManager(
-            _repository, AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
+            _repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
             NullLogger<SpecDialogSessionManager>.Instance);
         _ownership = new SpecDialogOwnership(_repository);
     }

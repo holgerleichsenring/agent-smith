@@ -70,7 +70,7 @@ public sealed class ReworkAppendRuleTests
     public void Decide_ReworkOnUnapprovedSet_RecordsNone() => Decide(Executed(2)).Approval.Should().BeNull();
 
     private static SpecSourceResolver.Decision Decide(SpecSet set) =>
-        new SpecSourceResolver(new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance),
+        new SpecSourceResolver(new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance), AgentSmith.Tests.TestSupport.ApprovedSetDoubles.Continuation(),
                 new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance), NullLogger<SpecSourceResolver>.Instance)
             .Decide(SpecSetOnBranch.Answered(new SpecSetReadResult(set, "sha")), Ticket(),
                 new SpecSetPointer("k", "primary", "sha", 1), WithAct(ReworkChannel.PullRequest), "k",

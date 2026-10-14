@@ -1,0 +1,209 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-9a59h
+goal: "One read per ticket returns its conversation in time order, grouped by attempt, and a failed ticket nobody touched since its last attempt is shown as Stuck."
+
+applies_to: "backend (ticket read model, between-attempts check, persistence, spec-dialog read rule)"
+
+requires: [2026-10-13-9a59a, 2026-10-13-9a59b, 2026-10-13-9a59d, 2026-10-13-9a59e, 2026-10-13-9a59g]
+
+facts:
+  - claim: "A ticket's Work it out conversation is one SpecDialogSession per (Tracker, TicketKey), unique and filtered on SQL Server; turns live in TranscriptJson, the open proposal in LatestProposalJson."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/SpecDialogSession.cs:26,39,64-67, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/TicketConversationIdentityConfiguration.cs:19-30"
+  - claim: "A transcript turn is role, text, time, kind and decision — no author; a bound session is shared by everyone who reaches the dialog surface, so its UserId is not a turn's author."
+    evidence: "src/backend/AgentSmith.Server/Models/TranscriptTurn.cs:10-12, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOwnership.cs:65-70"
+  - claim: "The session is found by (tracker name, TicketKey.For(type, id)) without a tracker call; the existing binder reads the tracker first only to refuse an unknown ticket and take its title."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SpecDialogSessionRepository.cs:32-37, src/backend/AgentSmith.Contracts/Specs/TicketKey.cs:13-25, src/backend/AgentSmith.Server/Services/SpecDialog/TicketConversationBinder.cs:42-46,61-70"
+  - claim: "Today a ticket maps only to its conversation's identifiers, under dialog.write; the content is read per dialog."
+    evidence: "src/backend/AgentSmith.Server/Extensions/TicketConversationEndpoints.cs:15-27,84-90, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:74"
+  - claim: "An in-handler permission check resolves the caller through CallerIdentityResolver and treats a non-enforcing installation as granted."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogEndpoints.cs:56-62, src/backend/AgentSmith.Server/Security/Permissions.cs:18,68"
+  - claim: "Answers are durable per (DialogueJobId, QuestionId) with author and time, and a run's DialogueJobId is its run id."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/DialogueAnswerEntry.cs:9-18, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/DialogueAnswerEntryConfiguration.cs:19, src/backend/AgentSmith.Application/Services/Resume/DialogueJobIdentity.cs:15-20"
+  - claim: "A deadline answer is written to the same inbox as answered by 'system' with comment 'timeout'."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/DialogueResumeSweeper.cs:97-101, src/backend/AgentSmith.Contracts/Dialogue/DialogAnswer.cs:3-8"
+  - claim: "Every answer a PR command gets starts with the command marker; Started and Queued name the run, the others say 'started nothing'."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/PrCommandTexts.cs:8-28"
+  - claim: "The run's re-cut demand is the last foreign comment opening with the demand line after our cut marker and the set's approval, PR notes included; the approval it records is (comment time, empty conversation, author)."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRecutDemand.cs:55-59,83-84"
+  - claim: "The ticket thread is read live through the tracker (author, time, body); our own comments are told by marker."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ITicketProvider.cs:115-117, src/backend/AgentSmith.Domain/Entities/TicketComment.cs:9-12, src/backend/AgentSmith.Application/Services/Prompts/OwnTicketComment.cs:49-53"
+  - claim: "The rework worker answers on the pull request a review stands on, otherwise as a ticket comment, through ReworkSpeech once per (run, act, kind)."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkSpeech.cs:20-33"
+  - claim: "A person's status move into the trigger statuses is read from the tracker's history with the token's own identity excluded, against the previous attempt's cutoff (acts read, else start, minus a 5 s skew)."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ITicketStatusHistory.cs:10-14, src/backend/AgentSmith.Application/Services/Rework/TrackerIdentity.cs:17, src/backend/AgentSmith.Application/Services/Rework/StatusBackActReader.cs:24-26, src/backend/AgentSmith.Contracts/Runs/PreviousAttempt.cs:17-27"
+  - claim: "The fingerprint covers title, description and criteria, whitespace-normalised."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/TicketTextFingerprint.cs:16-24"
+  - claim: "JobsHubFanout sends RunsChanged on every snapshot, so a read refetched on that nudge runs many times during a live run."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/JobsHubFanout.cs:18-19"
+  - claim: "TicketRecordConfigurations groups the tables keyed by a TICKET rather than by a run; run children get their indexed RunId from RunChildConfiguration (46 lines) and are deleted in DeleteChildrenAsync; RunDeletionRepository is 86 lines."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Configurations/TicketRecordConfigurations.cs:5-20, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunChildConfiguration.cs:26-45, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunDeletionRepository.cs:54-64"
+  - claim: "Run.StartedAt is overwritten when a waiting row resumes (PromoteToRunningAsync), while Run.ActsReadAt is set once at the first fetch and kept across a resume; every entity carries an insert-stamped CreatedAt."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunRowFamily.cs:33, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunStartProjection.cs:26-31, src/backend/AgentSmith.Infrastructure.Persistence/Services/QueuedRunProjection.cs:23, src/backend/AgentSmith.Contracts/Runs/PreviousAttempt.cs:4-6,15-17, src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:20-23, src/backend/AgentSmith.Infrastructure.Persistence/Entities/EntityBase.cs:10"
+  - claim: "A posted hand-back is headed 'Agent Smith — ' plus one of three stable markers, which OwnTicketComment treats as ours and as awaiting an answer; the same comment is posted on the run's pull requests."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecHandbackComment.cs:40-46,89,95,115, src/backend/AgentSmith.Application/Services/Prompts/OwnTicketComment.cs:28-36,38-47,49, src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackPark.cs:42-45"
+  - claim: "SpecRecutDemand reads the ticket comments and the PR notes, so a demand can stand on a pull request."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRecutDemand.cs:44-47,55-59"
+  - claim: "A per-replica tracker read cache already exists: CachedTicketSearch keeps a project's open tickets in IMemoryCache for 60 s, registered by AddMemoryCache."
+    evidence: "src/backend/AgentSmith.Server/Services/CachedTicketSearch.cs:13-20,42-43, src/backend/AgentSmith.Server/Services/Handlers/IntentExtensions.cs:60"
+  - claim: "The seeded data-archive tests hard-code 44 tables and 90 rows (after 2026-10-13-9a59g), two seeded rows per table in the model."
+    evidence: "tests/AgentSmith.Tests/Persistence/DataArchiveRoundTripTests.cs:33-34,54,81, tests/AgentSmith.Tests/Persistence/DataArchiveSchemaTests.cs:63, tests/AgentSmith.Tests/TestSupport/FullStoreSeed.cs:38-43"
+  - claim: "A review note carries IsSystem as the host says it, and the act reader counts a system note as no person."
+    evidence: "src/backend/AgentSmith.Contracts/Reviews/PrReviewNote.cs:7-10, src/backend/AgentSmith.Application/Services/Rework/PrStandingAct.cs:56"
+  - claim: "ClearProposalAsync nulls LatestProposalJson on the open session, which is the field this read returns as the open proposal."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogLatestOutcomeStore.cs:42-43, src/backend/AgentSmith.Infrastructure.Persistence/Entities/SpecDialogSession.cs:64-67"
+
+assumptions:
+  - "2026-10-13-9a59a provides TicketListQuery / TicketBucketRule / TicketCounts, TicketSummaryView and TicketDetailView, attempts as code runs ordered by run id, the TicketActivityChanged nudge, and since = null for a hand-back."
+  - "2026-10-13-9a59b provides the Contracts port IPrReviewRecordReader.ByTicketAsync(project, ticketId): records with PrKey = PrKey.Of(url) (SHA-256 hex of the trimmed URL), Url (the readable URL), State, and their PrReviewEntry rows (one per (PrKey, HostId): Kind comment|review|decision, Decision, Standing, AuthorLogin, Trusted, IsOurs, IsBot, IsSystem, File, Line, Resolved, ThreadHostId, Body capped with Truncated, At). A decision's HostId IS the HostId of the note the thread reader returns for the same object, so a decision with a body is one row, and a Kind decision row exists only when no note carries that id."
+  - "2026-10-13-9a59l (built later) clears the open proposal (ClearProposalAsync) once a bound approval acted on it — continue, amend-never-worked or follow-up-closed; refused-over-cap keeps it."
+  - "2026-10-13-9a59d provides RunAttempt per run (cause {channel, actor, at, source}, fingerprint, revision with cause, worked approval instant/conversation/principal) and comment ids on TicketComment."
+  - "2026-10-13-9a59e provides RunSeriesCut per run and the hand-back case on it; 2026-10-13-9a59g provides RunConversationEntry rows (ticket-text, question, hand-back, cut-review)."
+
+scope:
+  in: >
+    READ: GET /api/tickets/{project}/{ticketId}/conversation (runs.read; route-permission-baseline.tsv regenerated).
+    Unknown project or a ticket with no code run and no bound session: 404. TicketConversationReader returns entries
+    {id, source (ticket | question | pr-review | spec-cut | conversation), kind, role (person | agent | system |
+    reviewer), author (only where recorded), isOurs, at, attemptRunId | group (before | now), text, file, line,
+    detail}, attempt markers {runId, number, cause, revision} from 9a59d's RunAttempt, sessionId + openDialogId, the
+    open proposal with its drafts (ids, goal, repos, done) — null when none is open, and so null after a bound approval
+    acted on it (2026-10-13-9a59l clears it) — and transcriptHidden, an explicit boolean: true exactly when a bound
+    session exists and the caller lacks dialog.write on an enforcing install (2026-10-13-9a59r gates on this field,
+    never on absent turns). ENTRY ID: {source}:{scope}:{sourceId}, unique within the
+    ticket — ticket:{commentId}, pr-review:{PrKey}:{HostId} (PrKey the hash, the entry's url the record's readable Url;
+    a decision entry's id is its note's HostId per 9a59b, so a decision with a body is one entry carrying its
+    decision), question:{runId}:{questionId}; entries with no source id
+    (ticket-text edits, cut reviews, hand-backs, Work it out turns) keep a derived id (run id + event seq, or session id
+    + turn index). Each entry also carries sourceId and prKey; the dashboard joins 9a59d's cause.source (kind, url, id)
+    on (source, prKey or url, sourceId), and on url plus host time where d's source has no id. SOURCES: 9a59g's rows — ticket-text becomes an 'edited'
+    entry only where consecutive attempts' recorded fingerprints differ (diff of title from Run.TicketTitle,
+    description, criteria; timed at the later fetch; no author), question rows joined to the inbox by (run id,
+    question id) with a deadline answer marked default and role system, hand-backs, cut reviews (accepted and
+    refused); 9a59b's PR entries read through IPrReviewRecordReader.ByTicketAsync (never its tables) with file, line
+    and decision — an IsSystem entry (an Azure DevOps vote comment, a GitLab system note) has role system and no
+    author, never person or reviewer; an isOurs entry whose body starts with PrCommandTexts.Marker
+    and says 'started nothing' is 'command answered, no attempt', one naming 'run `X`' is attached to attempt X; the
+    live ticket thread (read through a per-replica IMemoryCache entry per (project, ticketId) for 60 s, fail-soft as
+    'ticket thread unavailable'; a thread comment that is ours (OwnTicketComment.IsOurs) and carries a hand-back marker,
+    created within 10 minutes after a hand-back row's At, folds into that row, and so does an isOurs PR entry with the
+    marker; our own comments — the worker's later answers (refused, not a rework, withheld) that
+    ReworkSpeech posts as ticket comments for an approval or a retry, and a follow-up's cross-naming comment — are
+    ticket entries with source ticket, role agent and isOurs true, never transcript turns); the bound Work it out turns (role only) and proposal. GROUPING: run-keyed
+    entries by run; others by the newest attempt whose anchor (Run.ActsReadAt ?? Run.CreatedAt, never Run.StartedAt,
+    which a resume overwrites) precedes them; before the first attempt: 'before'; Work it
+    out turns newer than the last attempt's worked approval instant: 'now'. A status move or pickup shows as the
+    attempt marker's cause (9a59d), not as a separate entry. DEMAND: for an attempt whose revision cause is
+    RecutDemand, the demanding comment is the thread comment or 9a59b PR entry whose author equals the recorded
+    approval's principal and whose time equals its instant (conversation empty). READ RULE: turns and proposal are included when
+    CallerIdentityResolver grants dialog.write or TokenAuthorityConfig.Enforce is false; otherwise turns and proposal are left out and
+    transcriptHidden is true; with no bound session it is false. CHECK: TicketBetweenAttemptsCheck (RunId of the last attempt, unique;
+    CheckedAt, FingerprintUnchanged, ActsJson = tracker acts since the cutoff {kind comment | status-move, who, at}; an edit is FingerprintUnchanged =
+    false, not an act), in RunChildConfiguration.Children with its configuration (unique RunId) applied from
+    RunChildConfiguration.Apply beside 9a59d's RunAttemptConfiguration, migration in both sets, deleted in
+    DeleteChildrenAsync. It runs from 9a59a's DETAIL read, and is kicked from the LIST read for the failed tickets of the page (main-thread
+    decision 2): at most once per ticket per 5 minutes (per-replica IMemoryCache gate), at most 10 per list read,
+    queued to a hosted TicketCheckKicks worker so the list never waits; only when the last attempt is terminal and
+    failed, and reused while under 5 minutes old: one ticket read (fingerprint vs RunAttempt's), one comment read (persons'
+    comments after the cutoff), one status-history read; written as an upsert that re-reads on a unique violation;
+    a changed result publishes 9a59a's TicketActivityChanged. A failed read writes nothing. STUCK: TicketBucket
+    gains stuck, with the precedence needs_you > working > waiting_on_review > stuck > done > idle — last attempt failed AND a check under 24 hours old with FingerprintUnchanged, no tracker acts,
+    AND no non-ours, non-bot PR entry after the cutoff; otherwise idle with 'not checked since'. The list and counts
+    read the check row, never the tracker; the summary gains unchangedSinceLastAttempt and checkedAt, the detail
+    actedSince (tracker acts, an 'edit' derived from FingerprintUnchanged = false at CheckedAt, plus PR entries). A hand-back in needs_you takes its since from 9a59g's hand-back row, and TicketSummaryView gains handback {text,
+    at} from that same row (Text = the posted words, At), null otherwise, so 2026-10-13-9a59p renders it with no per-row
+    conversation fetch.
+  out: >
+    Recording the rows — 2026-10-13-9a59g. The Conversation tab — 2026-10-13-9a59r. Approval, continuation and the
+    composer's actions — 2026-10-13-9a59l and 2026-10-13-9a59m. Park segments — 2026-10-13-9a59j. Who edited a ticket
+    and a turn's author — not recorded anywhere; dropped by operator decision 3, so the mock's 'h.operator ... edited'
+    shows no name. A ticket edit not yet read by an attempt appears only as an actedSince 'edit' without a diff or author, timed at the check.
+
+decisions:
+  - key: "SPLIT FROM ONE EARLIER DRAFT (review cut 1): this half reads what 2026-10-13-9a59g records, plus the tracker and the PR record."
+  - key: "COMMAND ANSWERS BY THEIR TEXT (review cut 2): 9a59d's cause references the person's command note, never our answer, so the answer's own text decides: 'started nothing' is no attempt, a named run attaches to it."
+  - key: "THE DEMAND IS MATCHED EXACTLY (review cut 3): the run recorded the demand as its worked approval (author, instant, empty conversation); a re-run of SpecRecutDemand without its cut anchor, PR notes and approval bound could name another comment."
+  - key: "THE CHECK IS BOUNDED (review cut 4): only after a terminal failed attempt, reused for 5 minutes like 9a59b's refresh, so a detail refetched on every RunsChanged does not read the tracker during a live run."
+  - key: "UPSERT ACROSS REPLICAS (review F4): two replicas may check the same ticket; the unique RunId decides and the loser re-reads, as RunAttempt does."
+  - key: "STUCK IS OBSERVED, NOT ASSUMED: nothing watches a ticket between attempts in webhook mode; unknown (no check, a failed read, older than 24 hours) never counts as unchanged."
+  - key: "PR ACTS ARE NOT COPIED INTO THE CHECK: 9a59b's entries are read at query time; the check stores only what the tracker said, so no datum is persisted twice."
+  - key: "ROLE, NOT AUTHOR (operator decision 3, review cut 6): turns show person or Agent Smith; ticket edits carry no author and are timed at the fetch that saw them."
+  - key: "ENTRY ID IS SCOPED, THE JOIN IS ON SOURCE FIELDS (review3 F2, replaces 'entry id = source id'): a PR HostId is unique only per PR (9a59b keys PrReviewEntry on (PrKey, HostId)), a ticket comment id and a HostId share no namespace, and 9a59d's source may carry no id. The id {source}:{scope}:{sourceId} is unique per ticket for React keys; 2026-10-13-9a59r joins cause.source on (source, prKey or url, sourceId), falling back to url plus host time."
+  - key: "GROUP BY THE ACTS-READ ANCHOR (review3 F1): Run.StartedAt is overwritten on resume (QueuedRunProjection.cs:23), which moved a park's comments to the previous attempt; ActsReadAt is kept across a resume (RunRowFamily.cs:33), CreatedAt stands in before the first fetch."
+  - key: "THE LIVE THREAD IS CACHED 60 s PER REPLICA (review3 F3): 2026-10-13-9a59r refetches at >= 2 s on RunsChanged; an IMemoryCache entry like CachedTicketSearch's bounds tracker reads to one per minute per ticket per replica without shared state."
+  - key: "FOLD BY MARKER, NOT EQUALITY (review3 F4): trackers that store wiki markup or HTML return a different body; the hand-back heading's marker is stable and is already how OwnTicketComment recognises it. The 10-minute window ties the comment to its hand-back row."
+  - key: "EDIT IS NOT AN ACT (review3 F5b): no tracker read gives an edit's who or at (operator decision 3); the check's FingerprintUnchanged already records it, so ActsJson keeps comment and status-move only — no datum twice."
+  - key: "BUCKET PRECEDENCE needs_you > working > waiting_on_review > stuck > done > idle (review3 F5c): a person's open review is the next move, so a failed attempt with an open PR waits on review; 2026-10-13-9a59a and 2026-10-13-9a59b order their arms the same way."
+  - key: "THE CHECK IS A RUN CHILD (review3 F5d): it is keyed by the last attempt's RunId, so it registers like 9a59d's RunAttempt from RunChildConfiguration.Apply, not in TicketRecordConfigurations (the ticket-keyed tables, TicketRecordConfigurations.cs:5-9)."
+  - key: "STUCK FROM THE LIST (main-thread decision 2, 2026-10-13): without a kick from the list the Stuck tile reads 0 until someone opens each detail; the kick is throttled per ticket (5 min), per read (10) and asynchronous, and the check's own 5-minute reuse bounds it across replicas."
+  - key: "SIZE (review3 F5f): ten steps and the largest backend member; the source readers stay one step because each is a query over rows the earlier members wrote, with the thread the only tracker read."
+  - key: "AN EXPLICIT transcriptHidden (series pass 2026-10-13): absent turns cannot tell 'hidden' from 'no session' or 'no turn yet', so 2026-10-13-9a59r would guess; the read states it as a boolean."
+  - key: "PR ENTRIES THROUGH b's PORT, SYSTEM NOTES AS SYSTEM (series pass 2026-10-13): IPrReviewRecordReader is the Contracts read 9a59b ships for h and o; IsSystem notes are host events, not people (PrStandingAct.cs:56), so they render as system."
+  - key: "HANDBACK ON THE SUMMARY (series pass 2026-10-13): the list row already reads 9a59g's hand-back row for since; carrying its text and time there spares 2026-10-13-9a59p one conversation read per row."
+  - key: "PERMISSION LIKE MayStartRuns (review cut 7): CallerIdentityResolver with Enforce honoured, so a non-enforcing install shows the transcript instead of hiding it from everyone."
+
+steps:
+  - id: models
+    action: "TicketConversationView (transcriptHidden boolean, nullable proposal), entry and attempt-marker records; TicketBucket.Stuck; summary unchangedSinceLastAttempt/checkedAt/handback {text, at}; detail actedSince."
+  - id: check-store
+    action: "TicketBetweenAttemptsCheck entity (ActsJson kinds comment | status-move) in RunChildConfiguration.Children with its configuration (unique RunId) applied from RunChildConfiguration.Apply beside RunAttemptConfiguration; migration in both sets; DeleteChildrenAsync deletes it (RunDeletionRepository about 95 -> 96 of 120); DataArchiveRoundTripTests.cs:33,54,81 and DataArchiveSchemaTests.cs:63 table count +1 and DataArchiveRoundTripTests.cs:34 row count +2 on what b, d, e, f and g left (running total 44 -> 45 tables, 90 -> 92 rows)."
+  - id: check
+    action: "TicketBetweenAttemptsCheck service: terminal-failed gate, 5-minute reuse, three tracker reads, upsert tolerant of the unique violation, nudge on change."
+  - id: kicks
+    action: "TicketCheckKicks: the list read offers its page's failed tickets, at most 10 per read and once per ticket per 5 minutes (IMemoryCache gate), to a hosted worker that runs the check in its own scope; the list never awaits it."
+  - id: buckets
+    action: "9a59a's detail read runs the check; TicketBucketRule and TicketCounts gain stuck from the row and PR entries with the precedence needs_you > working > waiting_on_review > stuck > done > idle; hand-back since from 9a59g's row."
+  - id: sources
+    action: "Readers: questions with answers, ticket edits by fingerprint, hand-backs and cut reviews, PR entries through IPrReviewRecordReader (IsSystem as role system) with command answers, the live thread through a 60 s per-replica cache with the marker fold (thread and PR entries); scoped entry ids with sourceId and prKey."
+  - id: group
+    action: "Attempt markers from RunAttempt, grouping before/attempt/now on ActsReadAt ?? CreatedAt, demand match by recorded approval over thread comments and PR entries."
+  - id: transcript
+    action: "Bound session by tracker name and TicketKey; turns and proposal behind the read rule."
+  - id: endpoint
+    action: "GET /api/tickets/{project}/{ticketId}/conversation in its own endpoint class; route-permission baseline regenerated."
+  - id: tests
+    action: "Red first, one per test name below."
+
+tests:
+  - "TicketConversation_QuestionWithDeadlineAnswer_MarkedDefault"
+  - "TicketConversation_FingerprintChanged_ShowsCriteriaDiffWithoutAuthor"
+  - "TicketConversation_PrReviewEntry_CarriesFileAndLine"
+  - "TicketConversation_CommandStartedNothing_LabelledNoAttempt"
+  - "TicketConversation_CommandStartedRun_AttachedToThatAttempt"
+  - "TicketConversation_TrackerDown_ThreadUnavailable_RestServed"
+  - "TicketConversation_WorkerLaterAnswerComment_IsOursTicketEntry"
+  - "TicketConversation_WithoutDialogWrite_TranscriptHiddenTrue"
+  - "TicketConversation_NoBoundSession_TranscriptHiddenFalse"
+  - "TicketConversation_SystemPrNote_RoleSystem"
+  - "TicketConversation_DecisionWithBody_OneEntryIdIsNoteHostId"
+  - "TicketConversation_ProposalCleared_ProposalNull"
+  - "TicketSummary_Handback_CarriesTextAndAt"
+  - "TicketConversation_NonEnforcing_TranscriptShown"
+  - "TicketConversation_BoundSession_FoundWithoutTrackerRead"
+  - "TicketConversation_EntriesGroupedByAttemptInRunIdOrder"
+  - "TicketConversation_RecutAttempt_NamesTheDemandingComment"
+  - "TicketStuck_FailedUnchangedNoActChecked_IsStuck"
+  - "TicketStuck_NoCheckOrTrackerDown_IsUnknownNotStuck"
+  - "TicketStuck_PersonPrReviewAfterCheck_IsNotStuck"
+  - "TicketList_ReadsCheckRow_NeverTheTracker"
+  - "TicketDetail_LiveAttempt_ReadsNoTracker"
+  - "BetweenAttemptsCheck_YoungerThanFiveMinutes_Reused"
+  - "BetweenAttemptsCheck_ConcurrentWriters_OneRow"
+  - "BetweenAttemptsCheck_Changed_PublishesTicketActivity"
+  - "TicketNeedsYou_Handback_SinceIsRecordedTime"
+  - "TicketConversation_EntryIds_JoinCauseSourcesIncludingTwoPrsWithOneHostId"
+  - "TicketConversation_CommentDuringPark_StaysWithTheParkedAttempt"
+  - "TicketConversation_RefetchWithinAMinute_ReadsTheTrackerOnce"
+  - "TicketConversation_HandbackRewrittenByTracker_FoldsByMarker"
+  - "TicketConversation_RecutDemandOnPr_NamesThePrEntry"
+  - "TicketBucket_FailedWithOpenReview_IsWaitingOnReviewNotStuck"
+  - "TicketList_FailedTicketsInPage_KickAtMostTenChecksWithoutWaiting"
+  - "TicketList_SameTicketWithinFiveMinutes_KickedOnce"
+  - "RunDeletion_RemovesBetweenAttemptsCheck"
+
+done:
+  - "For a ticket with a hand-back, an answered question, a refused and an accepted cut, a criteria edit and a PR review, the read returns each once, in time order, under the right attempt."
+  - "A ticket whose last attempt failed, unchanged and untouched since, is Stuck after the list or its detail was read (the list never waits for the check); a person's comment or PR review takes it out."
+  - "An answer given on the ticket while an attempt was parked is shown under that attempt; a conversation tab refetched every 2 s reads the tracker at most once a minute per replica."
+  - "Opening the detail of a ticket with a live attempt makes no tracker call."
+  - "A caller with runs.read but without dialog.write gets everything except the Work it out turns, with transcriptHidden true."
+  - "A list row of a handed-back ticket carries the hand-back's words and time; an Azure DevOps vote comment shows as system, not as a person."

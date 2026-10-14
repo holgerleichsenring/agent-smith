@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-9a59o
+
+decisions:
+  - category: Architecture
+    chose: "TicketRunsFacts reads in its own scope (IServiceScopeFactory) and is registered scoped on BoundTicketReaders' line"
+    over: "Injecting the scoped IUnitOfWork and IPrReviewRecordReader directly"
+    reason: |
+      The tool runs inside the turn's agent loop, and FiledWorkRunsReader and TicketConversationReader already read
+      through a scope of their own for that reason; a scoped unit of work shared with the turn would carry whatever
+      the turn tracked. The registration rides line 74 of SpecDialogExtensions, which is 119 lines.
+  - category: Implementation
+    chose: "A snapshot whose JSON parses but lacks criteria ({}) reads as unreadable (null accounts), caught as ArgumentNullException"
+    over: "Relying on RunStoryJson.TryDeserialize alone"
+    reason: |
+      AcceptanceView lifts its criteria in property initialisers, so a parsed snapshot without Criteria throws
+      ArgumentNullException outside the JsonException the helper catches. The spec says undecodable JSON never
+      throws; the theory test pins both 'not json' and '{}'.
+  - category: Implementation
+    chose: "The 40-entry cap orders by entry time across all records, then each record's kept entries ascend; every record stays listed even with no entry kept"
+    over: "A per-pull-request cap"
+    reason: |
+      The spec bounds the whole answer (40 entries over ALL pull requests); a record whose entries all fell out of
+      the window is still a pull request of the ticket with a state the agent can name.
+  - category: Implementation
+    chose: "The domain answer is new Domain records (TicketRunCause, TicketRunSpec, TicketRunCriterion, TicketRunDeclined, TicketRunUnmeasured, TicketPullRequestReview, TicketReviewEntry)"
+    over: "Returning Contracts views (AcceptanceView, PrReviewEntryView) from the Domain record"
+    reason: |
+      TicketRunsResult lives in AgentSmith.Domain, which references nothing; the mapping also renames to the tool's
+      vocabulary (Text -> criterion, Reason -> note) and leaves out the PrKey hash and host ids the agent cannot use.

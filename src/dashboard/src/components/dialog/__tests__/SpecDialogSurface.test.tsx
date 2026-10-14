@@ -122,6 +122,13 @@ vi.mock("@/lib/referenceFilesApi", () => ({
   fetchHeldContent: () => Promise.resolve([]),
 }));
 
+// 2026-10-13-9a59r: a ticket-bound conversation's approval card reads what approving does.
+const fetchApprovalPreview = vi.fn<(project: string, ticketId: string, signal?: AbortSignal) => Promise<unknown>>();
+vi.mock("@/lib/ticketsApi", async (original) => ({
+  ...(await original<typeof import("@/lib/ticketsApi")>()),
+  fetchApprovalPreview: (project: string, ticketId: string, signal?: AbortSignal) => fetchApprovalPreview(project, ticketId, signal),
+}));
+
 vi.mock("@/lib/specDialogApi", () => ({
   uploadSpecDialogReferences: (dialogId: string, project: string, files: File[]) =>
     uploadSpecDialogReferences(dialogId, project, files),
@@ -2716,6 +2723,29 @@ describe("SpecDialogSurface", () => {
 
     expect(await screen.findByTestId("dialog-answer-yes")).toBeInTheDocument();
     expect(screen.queryByTestId("dialog-approval-summary")).toBeNull();
+  });
+
+  // 2026-10-13-9a59r: on a TICKET-BOUND conversation "Approve & file … One ticket." is false — the approval
+  // continues the ticket or files a follow-up — so the card says what the preview says it does.
+  it("SpecDialogSurface_ABoundSessionsApprovalCard_ShowsThePreviewsFollowUpClosedLabel", async () => {
+    const bound = view().session!;
+    fetchSpecDialog.mockResolvedValue(view({
+      session: { ...bound, ticket: { ticketId: "101", title: "Fix the login", text: "", readAt: "2026-09-15T10:00:00Z", truncated: false } },
+    }));
+    fetchApprovalPreview.mockReset();
+    fetchApprovalPreview.mockResolvedValue({
+      project: "sample", ticketId: "101", effect: "follow-up-closed", reason: "", executed: 1, unstarted: 0,
+      basisRunId: null, specs: [], start: { kind: "start-now" },
+    });
+    await renderSurface();
+    act(() => proposals.emit(proposal()));
+    act(() => questions.emit(question({ text: "" })));
+
+    const surface = await screen.findByTestId("dialog-question");
+    await waitFor(() => expect(within(surface).getByTestId("dialog-approval-summary"))
+      .toHaveTextContent("Approving files a follow-up ticket linked to this closed one."));
+    expect(within(surface).getByTestId("dialog-answer-approve")).toHaveTextContent(/^Approve$/);
+    expect(fetchApprovalPreview).toHaveBeenCalledWith("sample", "101", expect.anything());
   });
 
   // 2026-09-22-355b: the server names the other SHAPES a proposal of this kind could take and

@@ -36,6 +36,11 @@ public sealed class ReworkLedgerRepository(IUnitOfWork uow, IUniqueViolationTran
         return ticks is { } t ? new DateTimeOffset(t, TimeSpan.Zero) : null;
     }
 
+    /// <summary>2026-10-13-9a59t: whether a key was already marked — a follow-up key is its act's served mark.</summary>
+    public async Task<bool> IsSpokenAsync(string project, string ticket, string key, CancellationToken ct) =>
+        (await uow.Set<ReworkLedger>().AsNoTracking().Where(l => l.Project == project && l.TicketId == ticket)
+            .Select(l => l.SpokenKeys).FirstOrDefaultAsync(ct))?.Split('\n').Contains(key, StringComparer.Ordinal) == true;
+
     public async Task<bool> TryMarkSpokenAsync(string project, string ticket, string key, CancellationToken ct)
     {
         var row = await uow.Set<ReworkLedger>().FirstOrDefaultAsync(l => l.Project == project && l.TicketId == ticket, ct);

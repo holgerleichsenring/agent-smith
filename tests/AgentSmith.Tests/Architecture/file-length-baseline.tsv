@@ -3,7 +3,7 @@
 # From here the list may only SHRINK and a listed file may only get SHORTER.
 # Fix a file, drop its line — the test fails if a fixed file is still listed.
 # lines	path (relative to src/backend)
-922	AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs
+747	AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs
 617	AgentSmith.Application/Services/ExecutePipelineUseCase.cs
 617	AgentSmith.Application/Services/Tools/FilesystemToolHost.cs
 541	AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs
@@ -18,10 +18,9 @@
 343	AgentSmith.Application/Services/Handlers/BootstrapDiscoverHandler.cs
 335	AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs
 342	AgentSmith.Application/Services/Handlers/SetupRegistryAuthHandler.cs
-159	AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs
 311	AgentSmith.Server/Services/Events/JobsBroadcaster.cs
 319	AgentSmith.Application/Services/SandboxGitOperations.cs
-314	AgentSmith.Application/Services/PipelineSandboxCoordinator.cs
+298	AgentSmith.Application/Services/PipelineSandboxCoordinator.cs
 188	AgentSmith.Application/Services/Prompts/AgentPromptBuilder.cs
 260	AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs
 281	AgentSmith.Infrastructure/Services/Output/SummaryOutputStrategy.cs
@@ -34,7 +33,7 @@
 234	AgentSmith.Sandbox.Agent/Services/FileStepHandler.cs
 194	AgentSmith.Application/Services/Handlers/BootstrapRoundHandler.cs
 232	AgentSmith.Application/Services/Loop/SkillCallRuntime.cs
-225	AgentSmith.Server/Extensions/RelationalPersistenceExtensions.cs
+223	AgentSmith.Server/Extensions/RelationalPersistenceExtensions.cs
 218	AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs
 130	AgentSmith.Server/Services/Events/RunSnapshot.cs
 218	AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs
@@ -46,14 +45,14 @@
 182	AgentSmith.Application/Services/MasterVerificationParser.cs
 200	AgentSmith.Infrastructure/Services/Events/EventPublishingChatClient.cs
 198	AgentSmith.Infrastructure.Core/Services/Configuration/Studio/RawConfigPatch.cs
-194	AgentSmith.Server/Extensions/RunControlEndpoints.cs
+151	AgentSmith.Server/Extensions/RunControlEndpoints.cs
 193	AgentSmith.Application/Services/Tools/WriteContextYamlToolHost.cs
-193	AgentSmith.Server/Services/Sandbox/SandboxLivenessWatcher.cs
+160	AgentSmith.Server/Services/Sandbox/SandboxLivenessWatcher.cs
 184	AgentSmith.Application/Services/PipelineErrorHandler.cs
 191	AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabTicketProvider.cs
 190	AgentSmith.Application/Services/Handlers/InitCommitHandler.cs
 189	AgentSmith.Application/Services/Handlers/FetchTicketHandler.cs
-189	AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketProvider.cs
+188	AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketProvider.cs
 187	AgentSmith.Infrastructure.Core/Services/SkillMdParser.cs
 187	AgentSmith.Infrastructure/Services/Security/GitHistoryScanner.cs
 184	AgentSmith.Application/Services/Tools/SpawnAgentToolHost.cs
@@ -71,7 +70,6 @@
 175	AgentSmith.Cli/Commands/ValidateConceptsCommand.cs
 174	AgentSmith.Application/Services/Handlers/AnalyzeProjectHandler.cs
 173	AgentSmith.Contracts/Runs/RunMetricsContracts.cs
-123	AgentSmith.Application/Services/Events/SandboxEventProjector.cs
 160	AgentSmith.Infrastructure.Persistence/Repositories/ActiveRunRepository.cs
 166	AgentSmith.Contracts/Progress/LedgerMergePolicy.cs
 166	AgentSmith.Server/Extensions/TeamsEndpoints.cs

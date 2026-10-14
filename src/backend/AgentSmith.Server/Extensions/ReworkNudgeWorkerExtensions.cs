@@ -17,7 +17,8 @@ internal static class ReworkNudgeWorkerExtensions
         services.AddSingleton<ReworkSpeech>();
         services.AddSingleton<ReworkWithheld>();
         services.AddSingleton<ReworkFallbackSpawn>();
-        services.AddSingleton<ReworkNudgeHandler>();
+        services.AddSingleton<ReworkNudgeHandler>().AddSingleton<ClosedTicketActFollowUp>(); // 2026-10-13-9a59t
+        services.AddSingleton<PrReviewEntryBuilder>().AddSingleton<PrReviewRecordRefresh>(); // 2026-10-13-9a59b
         services.AddSingleton<ReworkNudgeWorker>();
         return services.AddHostedService(sp => sp.GetRequiredService<ReworkNudgeWorker>());
     }

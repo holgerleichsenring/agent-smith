@@ -30,6 +30,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 public sealed class SpecSourceResolver(
     ApprovedSetHandoff handoff,
+    ApprovedContinuation continuation, // 2026-10-13-9a59l
     FiledTicketSpecGate filedGate,
     ILogger<SpecSourceResolver> logger)
 {
@@ -49,9 +50,10 @@ public sealed class SpecSourceResolver(
     /// the stored hand-back rather than a fallback.</param>
     /// <param name="Failure">2026-10-12-f5f7f: set when the run cannot go on — a member of the series
     /// is outside the run's checkout.</param>
+    /// <param name="Discarded">2026-10-13-9a59l: what an approval's merge did not apply, for the kept notice.</param>
     public sealed record Decision(
-        SpecSource Source, SpecSet? Set, bool NeedsModel, string? Cause = null,
-        SpecHandback? Handback = null, SpecApproval? Approval = null, bool Expired = false, string? Failure = null)
+        SpecSource Source, SpecSet? Set, bool NeedsModel, string? Cause = null, SpecHandback? Handback = null,
+        SpecApproval? Approval = null, bool Expired = false, string? Failure = null, string? Discarded = null)
     {
         /// <summary>The set a derivation that yields nothing keeps instead of a fresh fallback: one over an
         /// executed head, whose record of work a fresh set would drop (2026-10-08-f114), or an expired
@@ -81,6 +83,7 @@ public sealed class SpecSourceResolver(
         if (branch.Read is { } read)
         {
             var artifact = read with { Set = SpecRecutDemand.PreviousOf(read) };
+            if (continuation.Decide(artifact.Set, record, cause) is { } continued) return continued;
             var amend = SpecAmendmentRule.NeedsModel(cause, artifact.Set, foreignCommitSinceHandback);
             var expired = foreignCommitSinceHandback && artifact.Set.IsHandedBack;
             logger.LogInformation(

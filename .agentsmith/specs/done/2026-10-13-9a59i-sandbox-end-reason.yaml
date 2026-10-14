@@ -1,0 +1,189 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-9a59i
+goal: "Every recorded sandbox says how it ended on every backend, the first end wins, a replay adds no pod, and a run's spawns are readable at /api/runs/{runId}/compute."
+
+applies_to: "backend (sandbox contracts and backends, sandbox release, sandbox projection family, persistence, run compute endpoint) + dashboard compute type mirror"
+
+requires: [2026-10-13-9a59d, p0201, p0332, p0348, p0355, 2026-08-25-61f1]
+
+facts:
+  - claim: "SandboxDisposedEvent carries an optional exit code and no end state, and its only producer always sends ExitCode null."
+    evidence: "src/backend/AgentSmith.Contracts/Events/L1SandboxEvents.cs:18-23, src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs:301-313"
+  - claim: "The projection writes Status 'failed' for every disposed sandbox, because a null exit code is not 0; no production path writes 'ok'."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSandboxProjection.cs:48-56"
+  - claim: "The vanish handler overwrites Status with 'vanished', and the comment above it says a vanished sandbox never gets a SandboxDisposedEvent."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSandboxProjection.cs:58-68"
+  - claim: "The comment is false: the watcher publishes the vanish and cancels the run but leaves the sandbox in the coordinator, whose DisposeAsync then disposes every sandbox and publishes SandboxDisposed for each — so today a vanish is overwritten with 'failed'."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/SandboxLivenessWatcher.cs:108-133, src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs:280-299, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSandboxProjection.cs:48-56"
+  - claim: "Run end, park teardown and cancel all leave through the coordinator's DisposeAsync, which runs when PipelineExecutor returns — before ExecutePipelineUseCase publishes RunFinished."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineExecutor.cs:61-62, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:94-97,238"
+  - claim: "SandboxVanishedEvent carries the container state label, not the exit code; exit code and OOM flag reach only the log and the in-memory cancel detail."
+    evidence: "src/backend/AgentSmith.Contracts/Events/SandboxVanishedEvent.cs:11-19, src/backend/AgentSmith.Server/Services/Sandbox/SandboxLivenessWatcher.cs:112-143"
+  - claim: "Docker's inspect probe tells three outcomes apart: Running, an exit with facts (exit code, OOMKilled), and Gone/Unknown/ProbeError with no facts."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/SandboxLivenessWatcher.cs:145-172,188-192"
+  - claim: "Only Docker sandboxes get a liveness watcher; Kubernetes and in-process run with the no-op supervisor."
+    evidence: "src/backend/AgentSmith.Contracts/Sandbox/ISandboxLivenessProbeTarget.cs:3-9, src/backend/AgentSmith.Application/Services/Pipeline/PipelineExecutionExtensions.cs:46-47, src/backend/AgentSmith.Server/Services/Sandbox/DockerSandboxRegistrations.cs:74-76, src/backend/AgentSmith.Server/Services/Sandbox/DockerSandbox.cs:22, src/backend/AgentSmith.Server/Services/Sandbox/KubernetesSandbox.cs:21"
+  - claim: "The supervisor finds the Docker container by casting the sandbox it is given to ISandboxLivenessProbeTarget; the coordinator hands it the projector, which forwards the inner probe id."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/SandboxLivenessSupervisor.cs:26-30, src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs:186-190,268, src/backend/AgentSmith.Application/Services/Events/SandboxEventProjector.cs:17-35"
+  - claim: "A Kubernetes sandbox's dispose sends Shutdown and deletes the pod without reading its state; the toolchain container's terminated state (exit code, reason) is read only while waiting for readiness."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/KubernetesSandbox.cs:46-58,74-80, src/backend/AgentSmith.Server/Services/Sandbox/KubernetesPodWatcher.cs:35,86-88,109-118"
+  - claim: "Neither backend removes an exited container on its own, so the exit is still readable at release: Docker AutoRemove is false and the pod's RestartPolicy is Never."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/DockerContainerSpecBuilder.cs:89-104, src/backend/AgentSmith.Server/Services/Sandbox/PodSpecBuilder.cs:26"
+  - claim: "The Kubernetes corpse reaper deletes orphan pods and publishes no event, so a reaped pod's row keeps DisposedAt null."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/KubernetesSandboxCorpseReaper.cs:43-48,85-100"
+  - claim: "The sandbox agent's idle exit (code 2) fires only once the run has left the active set, so 'idle-killed while the run worked' is not a case today's code produces."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Services/JobLoop.cs:11,47-64"
+  - claim: "RunSandbox has no trail position; (RunId, EventSeq) is unique only on RunStep, RunLlmCall and RunDecision, filtered on SQL Server; the sandbox create inserts without an idempotency check while the others ask ProjectedEventRecords."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunSandbox.cs:4-33, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunRecordIdentityConfiguration.cs:18-35, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSandboxProjection.cs:37-46, src/backend/AgentSmith.Infrastructure.Persistence/Services/ProjectedEventRecords.cs:19-26"
+  - claim: "The applier routes the three sandbox lifetime events without their trail position; the drain hands it every event's position, and only the terminal reconciler applies a RunFinished without one — and only a terminal one."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunEventApplier.cs:36-44, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSandboxFamily.cs:19-22, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunDbProjector.cs:34-41, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunTerminalReconciler.cs:24-40"
+  - claim: "Dispose and vanish close the latest row per (run, repo), so a duplicated create leaves an open twin that reserved capacity charges to run end."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSandboxProjection.cs:70-74, src/backend/AgentSmith.Server/Services/Events/ReservedCapacityCalculator.cs:24-35"
+  - claim: "Dispose and vanish resolve their row by (run, repo) alone, never by position, so a replayed close of an earlier launch lands on a later launch's row of the same repo; DisposedAt is set with ??= and reserved capacity charges each row to DisposedAt or run end."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSandboxProjection.cs:48-55,63-67,70-74, src/backend/AgentSmith.Server/Services/Events/ReservedCapacityCalculator.cs:34"
+  - claim: "A capacity rejection publishes RunFinished 'queued' after the executor's coordinator already disposed the sandboxes it spawned, and RunStatuses.IsWaiting counts queued as a pause beside waiting_for_input."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:194-198, src/backend/AgentSmith.Application/Services/PipelineExecutor.cs:61-62, src/backend/AgentSmith.Contracts/Runs/RunStatuses.cs:11-12,24"
+  - claim: "The coordinator is a transient DI registration; a run's data-copy migration quotes identifiers per provider in the Persistence set (backticks for MySQL, double quotes otherwise) and uses bracketed SQL in the SqlServer set."
+    evidence: "src/backend/AgentSmith.Application/Services/Pipeline/PipelineExecutionExtensions.cs:45, src/backend/AgentSmith.Infrastructure.Persistence/Migrations/20261012181922_AddRunSpecIdColumns.cs:33-42, src/backend/AgentSmith.Infrastructure.Persistence.SqlServer/Migrations/20261012181926_AddRunSpecIdColumns.cs:29-32"
+  - claim: "A run's trail positions are re-minted from the store's highest Seq when a buffer is created, so a re-delivered event keeps its position only when the buffer re-seeds at the same point."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunTrailBuffers.cs:49-57"
+  - claim: "The archive round-trip seeds two generated rows per table and pins 45 tables / 92 rows (after 2026-10-13-9a59h); this spec adds columns, not a table."
+    evidence: "tests/AgentSmith.Tests/TestSupport/FullStoreSeed.cs:33-46, tests/AgentSmith.Tests/Persistence/DataArchiveRoundTripTests.cs:33-34"
+  - claim: "A RunFinished is set-once for terminal statuses; a waiting status keeps FinishedAt null, so a park's RunFinished is applied again on every replay."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:29-39,65-73"
+  - claim: "The run snapshot's LiveCompute keeps only the latest row per repository with its Status, and the runs list maps every listed run through it with sandbox rows hydrated for the whole page."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/RunComputeView.cs:20-41,58, src/backend/AgentSmith.Server/Services/Events/RunSnapshotMapper.cs:89, src/backend/AgentSmith.Server/Services/Events/RunListComposer.cs:45,70,73, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunRepository.cs:68-69"
+  - claim: "RunComputePod is hand-mirrored in hub-events.ts (not a Contracts event, so gen:hub-events does not compare it); the side rail renders name, image and resources of each pod and never reads its status, and its test fixtures carry status."
+    evidence: "src/dashboard/src/types/hub-events.ts:875-889, src/dashboard/src/components/jobs/RunSideRail.tsx:112,138,393-399, src/dashboard/src/components/jobs/__tests__/RunSideRail.test.tsx:53-54"
+  - claim: "Only the pipeline coordinator publishes SandboxCreatedEvent; the source-scope opener (run_in_reference, templates), the browser opener and the preflight round-trip probe create sandboxes that leave no row."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs:227-239, src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeOpener.cs:55, src/backend/AgentSmith.Application/Services/Browser/BrowserSandboxOpener.cs:64, src/backend/AgentSmith.Application/Services/Preflight/SandboxRoundTripProbe.cs:31"
+  - claim: "A run-scoped read has its own endpoint class mapped from RunQueryEndpoints under runs.read, and every route's permission is pinned in route-permission-baseline.tsv."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RunSpecQueryEndpoints.cs:15-22, src/backend/AgentSmith.Server/Extensions/RunQueryEndpoints.cs:25-34, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:54-56"
+  - claim: "Run deletion removes RunSandbox rows by run id; run-keyed children register through RunChildConfiguration and the (RunId, EventSeq) identity through RunRecordIdentityConfiguration, both applied by the context."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunDeletionRepository.cs:54-64, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunChildConfiguration.cs:24-47, src/backend/AgentSmith.Infrastructure.Persistence/AgentSmithDbContext.cs:78"
+  - claim: "Line room: PipelineSandboxCoordinator 314, SandboxLivenessWatcher 193 and SandboxEventProjector 123 sit at their file-length baselines and may only shrink; RunQueryEndpoints is 111 of 120, KubernetesSandbox 86, DockerSandbox 97, RunSandboxProjection 75."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:24,51,74, src/backend/AgentSmith.Server/Extensions/RunQueryEndpoints.cs:1-111, src/backend/AgentSmith.Server/Services/Sandbox/KubernetesSandbox.cs:1-86, src/backend/AgentSmith.Server/Services/Sandbox/DockerSandbox.cs:1-97, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSandboxProjection.cs:1-75"
+
+assumptions:
+  - "2026-10-13-9a59d has split RunEventApplier into a dispatcher over projection families and the sandbox family receives each event with its trail position; this spec adds arms to that family and never grows the dispatcher."
+  - "Events of one run reach the projector in publish order, so a sandbox's dispose is applied before the RunFinished that follows it (the coordinator disposes before the use case publishes RunFinished)."
+
+scope:
+  in: >
+    CONTRACTS (AgentSmith.Contracts/Sandbox): SandboxExitRead (State Running|Exited|Gone, ExitCode, OomKilled) and
+    an optional marker ISandboxExitReader { ReadExitAsync } — Gone = not found or unreadable, never folded into
+    Running. ISandboxWrapper { Inner } lets a caller reach the backend behind a decorator. SandboxDisposedEvent gains
+    trailing optional ExitState ('running'|'exited'|'gone', null = no evidence) and OomKilled beside its ExitCode;
+    SandboxVanishedEvent gains trailing optional ExitCode and OomKilled (null when the probe had no facts). No new
+    EventType; gen:hub-events green. BACKENDS: DockerContainerProbe is extracted from SandboxLivenessWatcher (the
+    inspect call and its verdict record move; the watcher shrinks and its vanish carries the exit facts);
+    DockerSandbox implements ISandboxExitReader through it; KubernetesPodExitReader reads the pod's 'toolchain'
+    container (Terminated: exit code, reason OOMKilled; Running/Waiting: Running; 404 or failure: Gone) and
+    KubernetesSandbox implements the marker through it; in-process has no marker. RELEASE: SandboxRelease takes the
+    coordinator's dispose loop and PublishDisposedAsync, reads the exit through the unwrapped sandbox BEFORE each
+    dispose, and publishes it. SandboxRelease is a transient DI service registered beside IPipelineSandboxCoordinator
+    (PipelineExecutionExtensions) and injected into the coordinator (one ctor parameter; the move takes about 25
+    lines out); the run id passes per call, nothing is newed with a logger. SandboxEventProjector implements ISandboxWrapper and drops its probe-id forwarder;
+    SandboxLivenessSupervisor unwraps ISandboxWrapper before its ISandboxLivenessProbeTarget check. PERSISTENCE:
+    RunSandbox gains EndReason, ExitCode, OomKilled, EventSeq; Status is dropped, and the migration copies the one
+    recorded fact it held (Status 'vanished' -> EndReason 'vanished'), every other old row reads null. The copy runs
+    before Status is dropped, in both sets: provider-quoted in Persistence as AddRunSpecIdColumns.cs:33-42 does
+    (backticks for MySQL, double quotes for SQLite and PostgreSQL), bracketed in Persistence.SqlServer. Unique
+    (RunId, EventSeq) on RunSandbox in RunRecordIdentityConfiguration (filtered on SQL Server). One migration per
+    set (Persistence, Persistence.SqlServer). No table and no event type is added, so the archive counts (37 tables
+    / 76 seed rows before this series) and FilterRail.tsx are untouched by this spec. PROJECTION (9a59d's sandbox
+    family): the create asks ProjectedEventRecords and stores the seq. CLOSES ARE BOUNDED BY POSITION: a dispose or
+    vanish closes the latest row of (RunId, RepoName) whose EventSeq is below the close event's own position; when
+    no positioned row qualifies (a run in flight across the deploy) or the close has no position (none today), the
+    latest position-less row is closed as LatestAsync does now. FIRST END WINS: a dispose or vanish writes
+    EndReason only while it is null or 'released'; vanish -> 'oom-killed' when OomKilled, else 'vanished'; dispose ->
+    'exited' / 'oom-killed' (ExitState exited), 'gone' (ExitState gone), 'released' (running or no evidence); a
+    later close only fills ExitCode/OomKilled where null and DisposedAt where null. The false comment at
+    RunSandboxProjection.cs:58-60 goes. SandboxEndFold, a RunFinished arm of the sandbox family, is BOUNDED by the
+    RunFinished's own trail position: it touches only rows of the run with EventSeq below that position (rows of
+    later launches are untouched) and maps by status — 'released' becomes 'released-at-park' (waiting_for_input),
+    'released-at-requeue' (queued: a capacity rejection put the run back in the queue, no person is waited on) or
+    'released-at-end' (terminal); a row with no close event becomes 'unobserved' and keeps DisposedAt null. A position-less RunFinished
+    (terminal only, the reconciler) folds every positioned row, since nothing follows a terminal end. Rows without
+    a position (written before this spec) are never folded. READ: GET /api/runs/{runId}/compute (runs.read,
+    RunComputeEndpoints, one map line in RunQueryEndpoints, route baseline regenerated) served by RunComputeReader:
+    spawns [{repo, spawnedAt, disposedAt, memory, endReason, exitCode, oomKilled}] in spawn order, and uncounted
+    [source-scope, browser, preflight] named. The snapshot's RunComputePod swaps Status for EndReason, ExitCode,
+    OomKilled; list hydration and the per-repo grouping stay as they are. hub-events.ts RunComputePod mirror and
+    RunSideRail.test.tsx fixtures follow.
+  out: >
+    Segments, parks and model time on the compute endpoint — 2026-10-13-9a59j. The sandbox arm of InfrastructureEnd
+    (vanished/oom-killed inside the run's last segment) — 2026-10-13-9a59n. The ticket's Cost & compute tab and the
+    endpoint's dashboard types — 2026-10-13-9a59s. Attempt cause and the applier split — 2026-10-13-9a59d. Not built by any member of this series: a
+    Kubernetes liveness watcher (a pod dying mid-run is read at release, not the moment it dies). Recording the
+    source-scope, browser and preflight sandboxes as rows — named, not counted. Backfilling EndReason on rows written
+    before this spec beyond the copied 'vanished': they read null, never a guess.
+
+decisions:
+  - key: "READ THE EXIT BEFORE RELEASING. A pod or container that died mid-run is still there at release (AutoRemove false, RestartPolicy Never); reading it then gives OOM and exit code on every backend without a second watcher."
+  - key: "THREE OUTCOMES, NOT NULL (review F2). Running and Gone both carry no exit facts; collapsing them under null would record a pod deleted mid-run as an ordinary release. Gone ends the row 'gone'."
+  - key: "FIRST END WINS (review F1). The vanish is the one infrastructure signal of the two and arrives first; the dispose that follows it may add exit facts, never replace the reason."
+  - key: "ONE FIELD. Status is dropped, not repaired: two columns about one ending would disagree. Its one true value ('vanished') is copied by the migration; 'failed' was never a fact and is not carried."
+  - key: "THE FOLD IS BOUNDED BY THE FINISHING EVENT'S POSITION (review F4). Rows of a launch all sit below the RunFinished that closed it and above the previous one, whose fold already relabelled its own; an upper bound alone keeps a replayed park RunFinished off the later launch's rows, without needing segment rows (2026-10-13-9a59j)."
+  - key: "A CLOSE IS BOUNDED BY ITS OWN POSITION (review3 F1). A replayed dispose of launch 1 must not land on launch 2's row of the same repo: the close picks the latest row created BELOW its position, the same bound the fold uses, so neither EndReason, ExitCode nor DisposedAt of a later launch can be written by an earlier event."
+  - key: "A REQUEUE IS NOT A PARK (review3 F2, main thread 2026-10-13). A RunFinished 'queued' is a capacity rejection; its released sandboxes read 'released-at-requeue', never 'released-at-park', so 2026-10-13-9a59s never counts them as waiting on a person. The vocabulary is exited, oom-killed, vanished, gone, released-at-park, released-at-requeue, released-at-end, unobserved (released is transient)."
+  - key: "AN UNOBSERVED ROW'S LIFETIME, PER READER (review3 F5). The fold leaves DisposedAt null. The run detail's reserved Gi-minutes charge it to run end, as ReservedCapacityCalculator.cs:34 does today; a per-segment view (2026-10-13-9a59s on 2026-10-13-9a59j's segments) clips it at the end of the segment it was spawned in. The two numbers differ for such a row on purpose, and 2026-10-13-9a59s names the difference."
+  - key: "REPLAY SAFETY IS 61f1'S CONTAINMENT. Every bound here assumes a re-delivered event keeps its position, which holds when the buffer re-seeds at the same point (RunTrailBuffers.cs:49-57); a re-read that mints new, higher positions is outside what any position bound can catch, as 2026-08-25-61f1 already accepts."
+  - key: "THE RUN'S END NAMES THE RELEASE. The coordinator disposes only when the executor returns, before RunFinished; the RunFinished status (waiting_for_input, queued or terminal) is therefore the release's reason, and the coordinator needs no status of its own."
+  - key: "OWN ENDPOINT, NOT THE SNAPSHOT (review F3). The snapshot is built for every listed run and pushed live; spawns and later segments are read once per attempt by 2026-10-13-9a59s, so they live at /api/runs/{runId}/compute and the snapshot only swaps Status for the end."
+  - key: "A WRAPPER INTERFACE, NOT A CONCRETE UNWRAP (review F7). The supervisor lives in Server and the projector in Application; ISandboxWrapper in Contracts lets both the release and the supervisor reach the backend, and the projector shrinks by dropping its probe-id forwarder."
+  - key: "NO IDLE-KILL REASON. Since p0360b the idle exit fires only after the run left the active set; a reason nothing produces would be a label for a story the code no longer tells."
+  - key: "SPLIT FROM ONE SPEC (review F8, cut 6). The end reason and the per-launch segments share no class; the segment half is 2026-10-13-9a59j, which adds to this endpoint. The infrastructure arm moved to 2026-10-13-9a59n by the series contract, which needs the last segment from 9a59j."
+
+steps:
+  - id: contracts
+    action: "SandboxExitRead, ISandboxExitReader, ISandboxWrapper; trailing ExitState/OomKilled on Disposed and ExitCode/OomKilled on Vanished; pnpm gen:hub-events."
+  - id: docker
+    action: "Extract DockerContainerProbe from SandboxLivenessWatcher (shrinks below 193); DockerSandbox implements ReadExitAsync; the vanish event carries exit facts."
+  - id: kubernetes
+    action: "KubernetesPodExitReader (toolchain container: Terminated/OOMKilled, Running, 404 -> Gone); KubernetesSandbox implements the marker (86 -> under 100)."
+  - id: release
+    action: "SandboxRelease (transient DI service beside IPipelineSandboxCoordinator in PipelineExecutionExtensions, injected) takes the dispose loop and PublishDisposedAsync out of PipelineSandboxCoordinator (314 -> about 290); the projector implements ISandboxWrapper and drops the forwarder (below 123); SandboxLivenessSupervisor unwraps."
+  - id: schema
+    action: "RunSandbox EndReason/ExitCode/OomKilled/EventSeq; 'vanished' copied before Status is dropped (provider-quoted as AddRunSpecIdColumns.cs:33-42, bracketed on SQL Server); Unique<RunSandbox> in RunRecordIdentityConfiguration; one migration per set; no table, archive counts unchanged."
+  - id: projection
+    action: "Sandbox family: create by seq (idempotent); dispose and vanish close the latest row below their own position, first end wins; SandboxEndFold (own class) on RunFinished bounded by its position, queued -> released-at-requeue; delete the false comment. RunSandboxProjection 75 -> about 105 of 120."
+  - id: read
+    action: "RunComputeReader + RunComputeEndpoints (GET /api/runs/{runId}/compute, runs.read), one map line in RunQueryEndpoints (111 -> 113), route baseline regenerated; RunComputePod swaps Status for the end; hub-events.ts mirror and RunSideRail fixtures."
+  - id: tests
+    action: "Red first for every test below; index tests on SQLite and SQL Server."
+
+tests:
+  - "SandboxRelease_LiveContainer_PublishesRunningState"
+  - "SandboxRelease_DockerContainerExited_PublishesExitedWithCode"
+  - "SandboxRelease_DockerContainerGone_PublishesGone"
+  - "SandboxRelease_KubernetesPodOomKilled_PublishesOomKilledWithExitCode"
+  - "SandboxRelease_KubernetesPodDeleted_PublishesGone"
+  - "SandboxRelease_InProcess_PublishesNoEvidence"
+  - "SandboxLivenessSupervisor_WrappedDockerSandbox_StartsWatcher"
+  - "Vanished_CarriesExitCodeAndOom"
+  - "SandboxDispose_AfterVanish_KeepsVanished_FillsExitCode"
+  - "SandboxDispose_GoneContainer_EndsGone"
+  - "SandboxEndFold_WaitingForInput_MarksReleasedAtPark"
+  - "SandboxEndFold_Terminal_MarksReleasedAtEnd"
+  - "SandboxEndFold_NoCloseEvent_MarksUnobserved_KeepsDisposedAtNull"
+  - "SandboxEndFold_ReplayedParkFinished_LeavesLaterLaunchRowsReleased"
+  - "SandboxEndFold_QueuedFinished_MarksReleasedAtRequeue_NotAPark"
+  - "SandboxDispose_ReplayedAfterRelaunch_LeavesLaterLaunchRowUntouched"
+  - "SandboxDispose_NoPositionedRow_ClosesLatestPositionlessRow"
+  - "SandboxEndFold_PositionlessTerminal_FoldsEveryPositionedRow"
+  - "RunSandbox_ReplayedCreate_AddsNoRow"
+  - "RunSandbox_UniqueIndex_FilteredOnSqlServer"
+  - "RunSandboxMigration_CopiesVanishedStatus"
+  - "RunComputeEndpoint_RespawnedPod_ShowsEachSpawnWithItsTimes"
+  - "RunComputeEndpoint_NamesUncountedSandboxes"
+  - "RunComputeView_PodCarriesEndReason"
+  - "RunSideRail renders pods from fixtures without status"
+
+done:
+  - "A run that parks once and finishes shows its first sandbox 'released-at-park' and its second 'released-at-end' at /api/runs/{runId}/compute, each spawn with its own times."
+  - "A Kubernetes pod killed for memory mid-run shows 'oom-killed' with exit code 137; the same on Docker; a pod deleted under the run shows 'gone'."
+  - "A Docker sandbox that vanished keeps 'vanished' after the run's dispose, with its exit code filled."
+  - "No row reads 'failed'; replaying a run's trail (positions kept) leaves its sandbox rows and reserved Gi-minutes unchanged, also when the run relaunched onto the same repo."
+  - "A run put back in the capacity queue shows its released sandboxes 'released-at-requeue', never 'released-at-park'."
+  - "The compute endpoint names the reference, browser and preflight sandboxes as not counted; the runs list payload is unchanged apart from the pod's end fields."

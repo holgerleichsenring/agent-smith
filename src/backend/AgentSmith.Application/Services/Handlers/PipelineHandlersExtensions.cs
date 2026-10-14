@@ -40,7 +40,7 @@ public static class PipelineHandlersExtensions
         // 2026-10-08-e8b9d: the review on the previous attempt's pull requests; nobody is trusted
         // where no per-host trust is registered.
         services.AddTransient<IPrReviewFeedbackFetcher, Rework.PrReviewFeedbackFetcher>();
-        services.AddSingleton<Rework.TrackerIdentity>().AddTransient<Rework.StatusBackActReader>(); // 2026-10-08-2123
+        services.AddSingleton<Rework.TrackerIdentity>().AddTransient<Rework.StatusBackActReader>().AddTransient<Rework.AttemptCauseReader>().AddTransient<Tickets.TicketClosure>();
         services.TryAddSingleton<IPrReviewAuthorTrust, Rework.UntrustingReviewAuthorTrust>();
         services.AddTransient<TicketExtrasFetcher>().AddTransient<EpicGroundFetcher>().AddTransient<SpecDialog.EpicParentReader>();
         // p0331: ticket→repo scope classification + pre-checkout context inventory.
@@ -109,7 +109,7 @@ public static class PipelineHandlersExtensions
         // p0401: shared scanner-observation service (severity mapping + warn-once).
         services.AddSingleton<ScannerObservationFactory>();
         services.AddTransient<ICommandHandler<ApprovalContext>, ApprovalHandler>();
-        services.AddTransient<ICommandHandler<AgenticMasterContext>, AgenticMasterHandler>();
+        services.AddTransient<ICommandHandler<AgenticMasterContext>, AgenticMasterHandler>().AddMasterPasses(); // 9a59f
         services.AddTransient<ITicketDocumentMaterializer, TicketDocumentMaterializer>();
         services.AddTransient<GitBranchPusher>(); // p0422
         services.AddTransient<SandboxGitOperations>();

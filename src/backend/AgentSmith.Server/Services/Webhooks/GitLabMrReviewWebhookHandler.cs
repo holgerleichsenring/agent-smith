@@ -11,10 +11,12 @@ namespace AgentSmith.Server.Services.Webhooks;
 /// first request changes the reviewer list; a repeated one changes nothing, so the delivery is taken
 /// when it carries no oldrev (a push) and no change besides the reviewers. Registered after the
 /// label handler. 2026-10-08-0781: it nudges the ticket; the worker reads GitLab's own
-/// "requested changes" note for the act and its time.
+/// "requested changes" note for the act and its time. A reviewers-only update that is no admitted
+/// request for changes asks only for the merge request's record to be read again.
 /// </summary>
 public sealed class GitLabMrReviewWebhookHandler(
-    PrReworkAdmission admission, ILogger<GitLabMrReviewWebhookHandler> logger, TriggerModeGate? modeGate = null) : IWebhookHandler
+    PrReworkAdmission admission, PrRecordNudge records, ILogger<GitLabMrReviewWebhookHandler> logger,
+    TriggerModeGate? modeGate = null) : IWebhookHandler
 {
     public bool CanHandle(string platform, string eventType) =>
         platform == "gitlab" && eventType == "merge_request";
@@ -26,18 +28,23 @@ public sealed class GitLabMrReviewWebhookHandler(
         {
             using var doc = JsonDocument.Parse(payload);
             var root = doc.RootElement;
-            if (!GitLabReviewDelivery.IsReviewSubmission(root, out var requesting))
+            if (!GitLabReviewDelivery.IsReviewersOnlyUpdate(root))
                 return WebhookResult.NotHandled("not a submitted request for changes");
+            GitLabReviewDelivery.IsReviewSubmission(root, out var requesting);
             var mr = root.GetProperty("object_attributes");
             var author = Number(mr, "author_id");
             var reviewer = requesting.FirstOrDefault(r => r != author);
-            if (reviewer is null) return WebhookResult.NotHandled("only the author requests changes");
             var repoUrl = PayloadActTime.Text(root, "project", "web_url") ?? string.Empty;
             if (modeGate?.RepoRefusal(repoUrl) is { } polled) return polled; // 2026-10-08-101b
-            return await admission.AdmitAsync(new PrReviewRequest(RepoType.GitLab, repoUrl, PayloadActTime.Text(mr, "source_branch"),
+            var request = new PrReviewRequest(RepoType.GitLab, repoUrl, PayloadActTime.Text(mr, "source_branch"),
                 Number(mr, "source_project_id") == Number(mr, "target_project_id"),
-                new PrCommentAuthor(repoUrl, Number(root.GetProperty("project"), "id") ?? string.Empty, reviewer, reviewer),
-                author, PayloadActTime.Text(mr, "url") ?? string.Empty), cancellationToken);
+                new PrCommentAuthor(repoUrl, Number(root.GetProperty("project"), "id") ?? string.Empty, reviewer ?? string.Empty, reviewer ?? string.Empty),
+                author, PayloadActTime.Text(mr, "url") ?? string.Empty);
+            var result = reviewer is null
+                ? WebhookResult.NotHandled(requesting.Count == 0 ? "not a submitted request for changes" : "only the author requests changes")
+                : await admission.AdmitAsync(request, cancellationToken);
+            return result.Handled || !await records.NudgeAsync(PrRecordDelivery.Of(request), cancellationToken)
+                ? result : WebhookResult.HandledNoRoute();
         }
         catch (Exception ex)
         {

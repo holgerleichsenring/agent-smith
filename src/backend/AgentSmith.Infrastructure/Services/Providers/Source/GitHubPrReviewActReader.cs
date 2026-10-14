@@ -14,7 +14,7 @@ public sealed class GitHubPrReviewActReader(IGitHubClient client, string owner, 
 {
     private const string Query =
         "query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){"
-        + "author{login} latestReviews(first:100){nodes{state author{__typename login} authorAssociation submittedAt}}}}}";
+        + "author{login} latestReviews(first:100){nodes{id state author{__typename login} authorAssociation submittedAt}}}}}";
 
     public async Task<IReadOnlyList<PrReviewNote>> ChangesRequestedAsync(string prUrl, CancellationToken cancellationToken)
     {
@@ -39,7 +39,8 @@ public sealed class GitHubPrReviewActReader(IGitHubClient client, string owner, 
         if (login is null) return null;
         return new PrReviewNote(
             new PrCommentAuthor(repoUrl, $"{owner}/{repo}", login, login) { Association = Str(review, "authorAssociation") },
-            Str(author, "__typename") == "Bot", false, DateTimeOffset.Parse(Str(review, "submittedAt")!), string.Empty);
+            Str(author, "__typename") == "Bot", false, DateTimeOffset.Parse(Str(review, "submittedAt")!), string.Empty)
+            { HostId = Str(review, "id") ?? string.Empty };
     }
 
     private static string? Str(JsonElement e, string name) =>

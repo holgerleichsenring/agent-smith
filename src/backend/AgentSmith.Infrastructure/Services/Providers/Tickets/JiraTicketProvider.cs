@@ -83,7 +83,7 @@ public sealed class  JiraTicketProvider : ITicketProvider, ITicketStatusHistory,
         _logger.LogDebug("Jira GetTicket #{Ticket}: GET {Url}", ticketId.Value, url);
         using var doc = await _http.SendForJsonAsync(HttpMethod.Get, url, null, cancellationToken)
             ?? throw new TicketNotFoundException(ticketId);
-        var ticket = _mapper.Map(ticketId, doc.RootElement);
+        var ticket = _mapper.Map(ticketId, doc.RootElement).With(webUrl: _creator.BrowseUrl(ticketId.Value));
         _logger.LogDebug("Jira GetTicket #{Ticket}: status={Status} labels={Count}",
             ticketId.Value, ticket.Status, ticket.Labels?.Count ?? 0);
         return ticket;
@@ -188,6 +188,7 @@ public sealed class  JiraTicketProvider : ITicketProvider, ITicketStatusHistory,
     public Task<TicketStatusMove?> NewestPersonMoveIntoAsync(
         TicketId ticketId, IReadOnlyCollection<string> statuses, TrackerActor? self, CancellationToken cancellationToken) =>
         new JiraStatusHistory(_http, _baseUrl, _endpoints).NewestPersonMoveIntoAsync(ticketId, statuses, self, cancellationToken);
+    public Task<TicketStatusMove?> NewestMoveIntoAsync(TicketId ticketId, string status, CancellationToken ct) => new JiraStatusHistory(_http, _baseUrl, _endpoints).NewestMoveIntoAsync(ticketId, status, ct);
 
     public Task<TrackerActor?> SelfAsync(CancellationToken cancellationToken) =>
         new JiraStatusHistory(_http, _baseUrl, _endpoints).SelfAsync(cancellationToken);

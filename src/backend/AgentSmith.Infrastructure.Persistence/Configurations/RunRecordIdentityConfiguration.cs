@@ -25,6 +25,12 @@ public sealed class RunRecordIdentityConfiguration(string? providerName)
         Unique<RunStep>(modelBuilder);
         Unique<RunLlmCall>(modelBuilder);
         Unique<RunDecision>(modelBuilder);
+        Unique<RunSeriesCut>(modelBuilder); // 2026-10-13-9a59e
+        Unique<RunPass>(modelBuilder); // 2026-10-13-9a59f
+        Unique<RunLedgerTransition>(modelBuilder);
+        Unique<RunConversationEntry>(modelBuilder); // 2026-10-13-9a59g
+        Unique<RunSandbox>(modelBuilder); // 2026-10-13-9a59i
+        Unique<RunSegment>(modelBuilder); // 2026-10-13-9a59j
     }
 
     private void Unique<T>(ModelBuilder modelBuilder) where T : class

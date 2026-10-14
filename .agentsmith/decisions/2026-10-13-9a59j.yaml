@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-9a59j
+
+decisions:
+  - category: Architecture
+    chose: "RunSegment (table RunSegments): RunId, EventSeq (the launch's RunStarted position, the identity), StartedAt, EndSeq, EndedAt, EndStatus — registered in RunChildConfiguration.Children with a ToTable line and as Unique<RunSegment> in RunRecordIdentityConfiguration; migration AddRunSegments in both sets"
+    over: "Reading launches back from the RunEvent trail, or a park row that copies the question and answer"
+    reason: |
+      The trail ages out after 90 days while call and sandbox rows stay, and the checkpoint keeps only the last
+      park. When each launch began and ended is the one datum nothing keeps durably; the question is g's
+      conversation entry and the answer is the inbox row, so neither is stored again.
+  - category: Architecture
+    chose: "RunSegmentProjection IS the family (IRunEventFamily over RunStarted and RunFinished), registered last in AddRunProjections"
+    over: "A RunSegmentFamily wrapping a separate projection class"
+    reason: |
+      One projection, two events, no shared state with another family — the shape 2026-10-13-9a59g's
+      RunConversationProjection already took. RunStarted now reaches [RunRowFamily, RunSegmentProjection] and
+      RunFinished [RunRowFamily, RunSandboxFamily, RunSegmentProjection].
+  - category: Architecture
+    chose: "A RunFinished closes the latest segment opened below its own position, and only while that segment is open; a position-less RunFinished closes the latest open segment only when it is terminal; a RunStarted without a position opens no segment"
+    over: "Closing whichever segment is open, or inserting a position-less segment"
+    reason: |
+      Bounding by position is what makes a replayed park RunFinished land on its own (already closed) launch
+      instead of the later one — the same rule SandboxEndFold uses. Only the terminal reconciler applies a
+      RunFinished without a position (RunTerminalReconciler.cs:24-40) and it never applies RunStarted, so a
+      position-less start has nothing to bound it and is not segmented rather than guessed.
+  - category: Architecture
+    chose: "DEVIATION: unattributedCalls counts every call that lies in no segment — a call with no position AND a positioned call below the first segment (a run in flight across this deploy)"
+    over: "Counting only position-less calls, as the spec's scope.in words it"
+    reason: |
+      A positioned call made before the run's first recorded launch belongs to no segment either; counting only
+      position-less calls would drop it from both the segments and the count, so the response would silently
+      under-report call time. The spec's decision 'a call without a position belongs to no segment, so it is
+      named once on the response' is the rule; the superset applies it to every call no segment holds
+      (RunSegmentsReader.ReadAsync).
+  - category: Architecture
+    chose: "An open segment's end (live, or closed by the reconciler without a position) reaches the next segment's start when one exists, else is unbounded"
+    over: "A strictly open end"
+    reason: |
+      Normally only the last segment is open; if a launch was never closed (a crash before its RunFinished
+      drained) the next launch's start is the bound its calls cannot cross, so no call counts twice.
+  - category: Architecture
+    chose: "Park read by RunParkReader: a hand-back entry inside the segment wins over a question entry; the latest entry of the kind is used; resumedAt is the next segment's start for a question or unknown park and null for a hand-back; the hand-back's next attempt is the first code run of the same (project, ticket id) with a greater run id that has a RunAttempt row"
+    over: "Reading the checkpoint row, or answering from the next run id whatever its state"
+    reason: |
+      A hand-back finishes waiting with no checkpoint and is never resumed — the next fetched attempt's cause
+      (2026-10-13-9a59d) is what ended the wait; a queued reservation has no RunAttempt row yet, so it answers
+      nothing. The checkpoint is overwritten by every park and cannot say what an earlier one waited on.
+  - category: Architecture
+    chose: "Views RunComputeSegmentView(StartedAt, EndedAt, EndStatus, ModelMs, Park) and RunComputeParkView(Kind question|handback|null, AskedAt, QuestionId, AnsweredAt, AnsweredBy, ResumedAt), appended as trailing Segments and UnattributedCalls on RunComputeRecordView"
+    over: "A second endpoint for segments"
+    reason: |
+      2026-10-13-9a59i's compute endpoint is the run-scoped compute read and the series contract names segments
+      as its trailing members; no route is added and the route baseline is unchanged.

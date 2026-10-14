@@ -1,0 +1,208 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-9a59p
+goal: "Tickets get their own list, grouped by who acts next and answerable inline, with the series strip and attempt marks of the vendored mock; the runs list stays the machine view."
+
+applies_to: "dashboard (ticket list route, app rail, places table, runs home Waiting-for-input section, vendored mock + mock-parity layer) + DESIGN.md state palette"
+
+requires:
+  - 2026-10-13-9a59a
+  - 2026-10-13-9a59b
+  - 2026-10-13-9a59d
+  - 2026-10-13-9a59e
+  - 2026-10-13-9a59g
+  - 2026-10-13-9a59h
+
+facts:
+  - claim: "The root route renders MissionControl under the heading Runs inside the .mock-shell.mock-runs scope."
+    evidence: "src/dashboard/src/app/page.tsx:9-23"
+  - claim: "The runs home answers a parked run inline: its Needs-you section renders NeedsYouCard, whose hint promises an answer here, and the footer repeats it."
+    evidence: "src/dashboard/src/components/jobs/MissionControl.tsx:14,119-135,193-195"
+  - claim: "NeedsYouCard holds the question-fetch state (inline question, else one run-detail fetch, answered and unavailable states); MissionControl is its only importer."
+    evidence: "src/dashboard/src/components/jobs/mission/NeedsYouCard.tsx:30-66, src/dashboard/src/components/jobs/MissionControl.tsx:14"
+  - claim: "PendingQuestionCard posts the answer to /api/runs/{runId}/answer, which resumes the same run, and its button reads Send & resume run."
+    evidence: "src/dashboard/src/components/jobs/PendingQuestionCard.tsx:17-27,35-41,110"
+  - claim: "Answering a run needs runs.control, not runs.read."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs:38"
+  - claim: "Tracker comments and chat replies that ask a question link to the run viewer /jobs/{runId}."
+    evidence: "src/backend/AgentSmith.Application/Services/Dialogue/RunAnswerLink.cs:35"
+  - claim: "Each useJobsHub caller fetches GET /api/runs on its own and refetches on RunsChanged, coalesced to one fetch per 350 ms, and holds an overview subscription."
+    evidence: "src/dashboard/src/hooks/useJobsHub.ts:30-33,77-93,96-109,117-123"
+  - claim: "The hub client registers each hub message by name; RunsChanged carries the run id; there is no TicketActivityChanged handler; overview subscriptions are joined and left by key."
+    evidence: "src/dashboard/src/lib/JobsHubClient.ts:120,150,192-202,379-405"
+  - claim: "The rail's monitor counts reuse the home's merge and bucketing; a bucket is marked only on the home path; configuration routes switch the rail to catalog mode."
+    evidence: "src/dashboard/src/components/shell/AppRail.tsx:83,89-95,106-112,123"
+  - claim: "The rail today carries Monitor (All runs, Needs you, Running, Queued, Finished, Pull requests), Design (Work it out), System (five subsystems) and Insight (Overview); AppRail.tsx is 352 lines."
+    evidence: "src/dashboard/src/components/shell/AppRail.tsx:49-55,151-238"
+  - claim: "The bucket filter lives in the URL and is read through the History API because its provider sits in the root layout, where a search-param hook fails the static build."
+    evidence: "src/dashboard/src/lib/RunBucketFilter.tsx:14-41,52, src/dashboard/src/app/layout.tsx:50"
+  - claim: "The header names a place from one path table; a query is dropped before the lookup; run paths are matched by a function, not listed; a test asserts every rail href resolves to a place."
+    evidence: "src/dashboard/src/lib/places.ts:20-47,70-90, src/dashboard/src/lib/__tests__/places.test.tsx:70-80, src/dashboard/src/components/shell/AppHeader.tsx:16-25"
+  - claim: "A run row links to the run viewer /jobs/{runId}."
+    evidence: "src/dashboard/src/components/jobs/RunRow.tsx:67"
+  - claim: "RunSnapshot carries pipeline, ticketId and ticketTitle but no project, which is why the rail has no project section."
+    evidence: "src/dashboard/src/types/hub-events.ts:723,757-758, src/dashboard/src/components/shell/AppRail.tsx:40-41"
+  - claim: "A run's beat state is one of done, active, pending, failed, skipped; nothing in it says carried, asked or handed back."
+    evidence: "src/dashboard/src/types/hub-events.ts:611"
+  - claim: "A parked question carries its text, context, choices, default answer and deadline, but no spec and no repository."
+    evidence: "src/dashboard/src/types/hub-events.ts:598-607"
+  - claim: "Work it out opened with ?ticket=&project= reads the ticket's conversation and opens it, resumes it, or opens a new one bound to the ticket; posting into a conversation needs dialog.write."
+    evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:47-49,87-120, src/dashboard/src/lib/specDialogApi.ts:189-199,284-291, src/backend/AgentSmith.Server/Extensions/SpecDialogEndpoints.cs:19-20"
+  - claim: "The mock-parity layer ports ratified mockups' CSS verbatim under .mock-shell, names its sources and deviations in its header, and renames @keyframes pulse to mock-pulse; one vitest asserts each surface's structural mock classes, including the runs home's .need, .n-top, .q-item, .q-opt and .n-answer."
+    evidence: "src/dashboard/src/styles/mock-parity.css:1-23,60-67, src/dashboard/src/__tests__/mock-parity.test.tsx:147,176"
+  - claim: "The mock-parity token block has --run, --bad and --ok but no terminal token and no colour for a state that waits on a person."
+    evidence: "src/dashboard/src/styles/mock-parity.css:26-50"
+  - claim: "DESIGN.md's colours are primary plus the terminal set (accent, mute, link, string); the terminal panel allows no colouring beyond its two accents and a second chromatic accent is forbidden."
+    evidence: "DESIGN.md:6-24,204-211,517,584"
+  - claim: "pnpm build runs gen:tokens, which emits every DESIGN.md colour verbatim as a CSS custom property and into the dashboard's tokens.json."
+    evidence: "src/dashboard/package.json:8,15, tools/build-tokens.mjs:21-44,138-142,175-177"
+  - claim: "Tests pin the Needs-you label on the runs home section and the rail entries."
+    evidence: "src/dashboard/src/components/jobs/__tests__/MissionControl.test.tsx:120, src/dashboard/src/components/shell/__tests__/AppRail.test.tsx:166,193,199-200,208, src/dashboard/src/components/shell/__tests__/AppRailFilter.test.tsx:63, src/dashboard/src/components/jobs/mission/MetricStrip.tsx:26"
+  - claim: "RunsChanged goes to the overview group on every persisted, non-sandbox-detail run event, step and LLM call events included; the ticket store would sit in the root layout above every route."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/RunEventRouter.cs:24-31, src/backend/AgentSmith.Server/Services/Events/JobsHubFanout.cs:18-19, src/dashboard/src/app/layout.tsx:47-60"
+  - claim: "Without an inline question NeedsYouCard fetches the run detail once per card."
+    evidence: "src/dashboard/src/components/jobs/mission/NeedsYouCard.tsx:37-66"
+  - claim: "Five mockups are vendored (access, config-studio, project-card, run-viewer, runs-list); no tickets route exists; the ratified ticket mock v6.1 lists five Work buckets and no section for a stopped ticket."
+    evidence: "observed: 2026-10-13, ls of src/dashboard/design/mockups and src/dashboard/src/app; the scratchpad ticket-view.html list view and its Mock-only footer"
+
+assumptions:
+  - "Row fields and owners, read verbatim from the series contract: 9a59a project, ticketId, ticketKey, platform, title, bucket (needs_you, working, idle), kind (question|handback), since, attemptCount, cost, newestRunId, status, lastOutcome, queuePlace, specsDone, specsTotal, attempts[] {runId, status, endedOnInfrastructure, handedBack}; counts per bucket, working running/queued, oldestNeedsYouSince, monthCost, truncated; RunSnapshot.project."
+  - "9a59b adds bucket waiting_on_review and done, row pullRequests[] {number, url, repo, state open|merged|closed|unsupported|unread, decision none|approved|changes-requested|changes-requested-untrusted|rejected, by, lastActivityAt}, counts openPullRequests, doneThisMonth {tickets, attempts}, lastDone {ticketId, at}; 9a59d adds row cause, trackerState and webUrl; 9a59e adds seriesStrip = derive state cut|handed_back|deriving|none plus one cell per spec of done|carried|live|asked|failed|handed_back|not_started; 9a59h adds bucket stuck, unchangedSinceLastAttempt and checkedAt, the row's handback {text, at} from 9a59g's hand-back entry (the row it already reads for since; no tracker call), and its list read triggers the between-attempts check for failed tickets in its page (at most once per ticket per 5 min, at most 10 per read, async) so Stuck is filled from the list alone."
+  - "2026-10-13-9a59a's TicketSummaryView carries pendingQuestion (its PendingQuestionInfo) on a needs_you question row; where it is absent, useParkedQuestion falls back to one run-detail fetch for that row, as NeedsYouCard does today."
+  - "9a59a's TicketActivityChanged (project, ticketKey) reaches the overview group as a hub message; this spec adds only the client handler."
+
+scope:
+  in: >
+    VENDOR: the scratchpad mock v6.1 is copied to src/dashboard/design/mockups/ticket-view.html, the one copy every
+    member of this series cites; its Mock-only footers, the topbar list/detail switch and the composer's preview chips
+    stay, marked non-shipping. Its shell and list CSS is ported into mock-parity.css under .mock-shell.mock-tickets with
+    its class names, the header names the source (ticket-view.html -> .mock-tickets) and each deviation below; q, r and
+    s port the CSS of the sections they own under the same scope.
+    STATE PALETTE (operator decision 2): DESIGN.md gains four status colours beside the single brand accent, each a
+    light-surface and a terminal-panel variant written as hex derived from existing tokens — state-proven = primary /
+    terminal-accent (#22c55e); state-working = the dashboard's --run #a8741f / terminal-string #e8c46d; state-stopped =
+    the dashboard's --bad #c0392b / color-mix(--bad 78%, terminal-text) #c55b4e; state-person = color-mix(terminal-link
+    55%, ink) #426b96 / terminal-link #5eb1ff. A new "State palette" prose block says they mark state only, never a CTA,
+    and amends the terminal-panel line and the Don't-second-accent line to except them; the brand rule stays. The
+    mock-parity tokens --person/--person-wash and the --t-* set read these values; the mock's #2f6fb0 is a listed
+    deviation.
+    ROUTE: /tickets and /tickets?bucket=needs-you|working|waiting-on-review|stuck|ended|done, mapped to the server's
+    needs_you, working, waiting_on_review, stuck, idle, done in types/tickets.ts; a TicketBucketFilter like
+    RunBucketFilter (History API, provider in the root layout). places.ts names /tickets "Tickets" and matches
+    /tickets/{project}/{ticketId} as "Ticket" (a function like runPlace); the header shows the place name, no crumb.
+    RAIL: a WorkRailSection component (AppRail.tsx stays one import and one element larger): Tickets, Needs you (hot when
+    non-zero), Working, Waiting on review, Stuck, Ended, Done, each with the server count, hidden in config mode.
+    Monitor's Needs-you entry is labelled Waiting for input (query value needs-you kept).
+    STORE: TicketListProvider in the root layout holds the unfiltered first page plus counts for the rail and the list;
+    it refetches on JobsHubClient's new ticketActivityChanged subject (conn.on("TicketActivityChanged", project,
+    ticketKey)) coalesced to one fetch per 2 s, and on RunsChanged coalesced to one fetch per 2 s only while a
+    /tickets route is shown and to one per 15 s on every other route (there only the rail counts read it), on
+    reconnect and on mount, holds its own
+    overview subscription, and fetches nothing in config mode. A chosen bucket fetches GET /api/tickets?bucket=<b> with
+    its own cursor.
+    LIST: title and subtitle; six tiles (Needs you with oldest wait, Working running/queued, Waiting on review with
+    openPullRequests, Stuck, Done this month with attempts each from doneThisMonth, Spent this month = monthCost);
+    "truncated" says the list stopped at the server ceiling. Sections in order Needs you, Working, Waiting on review,
+    Stuck, Ended (sub-line "no next step is running or waiting"), Done; each head has its count from counts and a sub-line; a section whose count exceeds its loaded
+    rows ends with "Show all {n}" to its bucket view. A row: state dot (in Ended drawn from lastOutcome: success
+    = proven, failed or cancelled = stopped, none = idle grey), ticket key + title, activity line, series strip
+    (one cell per 9a59e cell value: done, carried, live, asked, failed, handed_back, not_started) followed by one PR
+    cell per pullRequests[] entry, drawn from the row and never stored in the strip (state and decision read as 9a59b's
+    exact strings; changes-requested-untrusted draws as not trusted, unsupported and unread as no review state),
+    attempt marks from attempts[] (handed back, failed, ok, running, stopped; endedOnInfrastructure drawn as stopped),
+    summed cost with attempt count, since age, chevron; Enter and click open the newest attempt's run viewer
+    /jobs/{newestRunId} until 2026-10-13-9a59q ships the ticket page and switches them. Activity
+    line from fields only: attempt n, spec x of y (specsDone/specsTotal), queue place, cause of the newest attempt, the
+    PR's state and decision with by and its age, "not a trusted reviewer" only where the record says untrusted, failed
+    attempt count from the marks, "unchanged since the last attempt" or "not checked since {checkedAt}" (Stuck), and
+    lastOutcome (Ended).
+    NEEDS YOU: a parked run shows PendingQuestionCard (state from a useParkedQuestion hook extracted from NeedsYouCard),
+    meta "asked in spec n" from the strip's asked cell, button "Send & resume attempt n" through a new optional label
+    prop; a 403 shows the card's existing error. A hand-back shows the row's handback.text and handback.at (2026-10-13-9a59h's
+    summary field; no per-row fetch) and a "Reply in the conversation" link to
+    /spec-dialog?ticket={ticketId}&project={project}, which already opens, resumes or binds the ticket's conversation and
+    owns the dialog.write refusal. DONE: collapsed to one line ("{doneThisMonth.tickets} merged or closed this month,
+    last {lastDone.at} ({lastDone.ticketId})") with Show done; the section head keeps counts.done. RUNS HOME: section, metric tile and rail entry
+    say Waiting for input; its rows are RunRow rows with no answer box, linking to the run viewer as today
+    (2026-10-13-9a59q switches code runs with a known project and ticket id to the ticket page); hint and footer reworded;
+    NeedsYouCard deleted. States: refused (runs.read) via RefusalSurface, loading, empty.
+  out: >
+    Ticket detail header, tabs, summary and graph — 2026-10-13-9a59q. Conversation, Specs and Acceptance tabs and the
+    in-ticket composer — 2026-10-13-9a59r. Attempts and Cost tabs — 2026-10-13-9a59s. Every backend field this list
+    reads — 2026-10-13-9a59a, 2026-10-13-9a59b, 2026-10-13-9a59d, 2026-10-13-9a59e, 2026-10-13-9a59h. Dropped, no
+    owner: the rail's NEW badge, "step x of y" and "verify, pass n" on the row (spec-ledger data is per run,
+    2026-10-13-9a59f serves it per run only), the question's repository, "unchanged since attempt N", the mock's three
+    System rail entries (the rail keeps five), the needs-you row's "sandboxes released, nothing is running" (no field
+    records it). The ticket list does not move onto /. Switching the row and runs-home links to
+    /tickets/{project}/{ticketId} — 2026-10-13-9a59q. The hand-back field on the row — 2026-10-13-9a59h. A keyword
+    comment on a closed ticket — 2026-10-13-9a59t.
+
+decisions:
+  - key: "STATE PALETTE RATIFIED (operator, 2026-10-13): DESIGN.md gains its own state palette (proven green, working amber, stopped red, waits-for-a-person blue), separate from the single brand accent."
+  - key: "ONE INBOX IS A LIST, NOT A COMPONENT COUNT — Needs you on tickets is the ticket inbox; a ticketless run is answered in the run viewer only, where RunAnswerLink points (brief decision 3)."
+  - key: "THE RUNS HOME KEEPS / — moving it breaks /?bucket= bookmarks, the rail's isChosen and every posted link; the ticket list is a new place beside it."
+  - key: "IDLE IS A SECTION: ENDED (review3 P3) — after b and h a cancelled run, a failed-but-unchecked one, a success without a PR and a ticket with no attempt are still idle; the mock is silent, so they get a sixth section and a rail entry rather than vanishing. Named Ended, not Stopped, and each dot drawn from lastOutcome, so a success is never painted in the stopped colour."
+  - key: "RAIL AND LIST READ ONE STORE, A BUCKET VIEW ITS OWN PAGES — counts and the unfiltered first page are shared; a filtered view needs the server's filter, or a section shows fewer rows than its count."
+  - key: "TICKET READS COALESCE BY ROUTE (review3 P1) — the list is computed from up to 5000 runs per request with no cache, and RunsChanged fires on every step and LLM call (RunEventRouter.cs:30-31), on every replica's tabs. RunsChanged refetches at 2 s only on /tickets and at 15 s elsewhere; TicketActivityChanged stays at 2 s; the 350 ms window stays for /api/runs only, and config mode fetches nothing."
+  - key: "HAND-BACK TEXT FROM THE ROW (review3 P2, preferred fix) — 9a59h already reads 9a59g's hand-back row for since; it serves handback {text, at} on the summary, so the list makes no conversation read and no tracker call per row."
+  - key: "ROWS LINK TO THE RUN VIEWER UNTIL q (review3 P4) — /tickets/{project}/{ticketId} exists only with 2026-10-13-9a59q; built in letter order, p links rows and the runs home to /jobs/{newestRunId}, and q switches them."
+  - key: "DONE LINE IS THIS MONTH (review3 P6) — the mock counts this month's merged or closed; doneThisMonth.tickets says that, counts.done (all-time, ceiling-bounded) stays on the section head."
+  - key: "THE STRIP IS THE SERIES, NOT THE BEATS — BeatState cannot say carried, asked or handed back; cells come from seriesStrip, never one request per row."
+  - key: "STATE PALETTE (operator decision 2, 2026-10-13) — four state colours with light and terminal variants derived from existing tokens, separate from the one brand accent, written once in DESIGN.md by this spec; q cites it."
+  - key: "MOCK FOR LAYOUT, TOKENS FOR COLOUR (brief decision 4, c7aed) — every colour on the page is a DESIGN.md or mock-parity token."
+  - key: "A HAND-BACK REPLY IS A LINK INTO THE CONVERSATION — the mock's inline box is replaced by the Work it out ticket handover, which already handles no session, open and closed sessions and the dialog.write refusal; an inline post would start a design turn whose answer this list cannot show, and a closed session resumes only on a page joined to its hub group. Listed as a mock-parity deviation."
+  - key: "NO EDITOR, NO RECORDS NOT KEPT (operator decisions 3 and 4) — no author where none is recorded, no 'PRs marked ready', no step/pass on the row."
+  - key: "REJECTED CUT: 'cut attempt marks or amend a' (review2-i F3) — neither: the series contract puts attempts[] marks on a's row, so the marks stay and the failed count derives from them."
+  - key: "REJECTED CUT: 'require 9a59g for the reply's effect' (review2-i F7) — kept as requires for g's hand-back entry, but continuing the ticket on approval is 2026-10-13-9a59l/m; the link promises only the conversation."
+
+steps:
+  - id: vendor
+    action: "Copy the mock to design/mockups/ticket-view.html; port shell and list CSS to mock-parity.css under .mock-tickets with the --t-* and --person tokens; header source and deviation lines."
+  - id: palette
+    action: "DESIGN.md: four state colours, light and terminal, in the colours frontmatter; State palette prose; amend the terminal-panel and second-accent lines; pnpm gen:tokens."
+  - id: types
+    action: "types/tickets.ts and lib/ticketsApi.ts for the list, counts and bucket query; URL<->server bucket map; absent fields optional."
+  - id: hub
+    action: "JobsHubClient: ticketActivityChanged subject and its conn.on registration."
+  - id: store
+    action: "TicketListProvider + TicketBucketFilter in the root layout: first page + counts, TicketActivityChanged at 2 s, RunsChanged at 2 s on /tickets and 15 s elsewhere, overview subscription, idle in config mode; bucket view pages on its own."
+  - id: route-and-places
+    action: "/tickets page with title, tiles and sections; places.ts names /tickets and matches the detail path (the page itself is 2026-10-13-9a59q's)."
+  - id: rail
+    action: "WorkRailSection with seven entries; Monitor's entry says Waiting for input; AppRail renders the section."
+  - id: rows
+    action: "TicketRow: dot (Ended from lastOutcome), key, title, activity line from fields, strip, marks, cost, age, chevron, link to /jobs/{newestRunId}; Show all link; Done this-month line; Ended section."
+  - id: needs-you
+    action: "useParkedQuestion hook from NeedsYouCard (row pendingQuestion, else one run-detail fetch); PendingQuestionCard label prop; hand-back text from the row's handback and the conversation link."
+  - id: runs-home
+    action: "Runs home: Waiting for input in section, tile and rail; RunRow rows linking to the run viewer; hint and footer reworded; NeedsYouCard deleted; tests and the runs-list deviation updated."
+  - id: tests
+    action: "Red first: the tests below; a ticket-list block in MockParity_StructuralClasses_PresentPerSurface; the runs-home block asserts .rrow instead of .need/.q-item."
+
+tests:
+  - "MockParity_StructuralClasses_PresentPerSurface (ticket list block, runs home without the answer card)"
+  - "dashboard: the rail's ticket counts and the list's section counts come from one response"
+  - "dashboard: a TicketActivityChanged hub message, driven through JobsHubClient, refetches the list once within the 2 s window, coalesced with RunsChanged"
+  - "dashboard: on /jobs/{id} a burst of RunsChanged fetches /api/tickets at most once per 15 s"
+  - "dashboard: the ticket store fetches nothing on a /config route"
+  - "dashboard: every rail href, including /tickets and its six buckets, resolves to a place"
+  - "dashboard: a row opens /jobs/{newestRunId}"
+  - "dashboard: /tickets?bucket=stuck fetches ?bucket=stuck, shows only Stuck, marks its rail entry and pages past the first page"
+  - "dashboard: a section with more tickets than loaded rows ends with Show all linking to its bucket"
+  - "dashboard: a cancelled ticket and an unchecked failed ticket are listed under Ended with their last outcome"
+  - "dashboard: a succeeded ticket without a PR is not drawn in the stopped colour"
+  - "dashboard: attempt marks draw handed back, failed, ok, running and infrastructure-stopped from attempts[]"
+  - "dashboard: a parked ticket answers through PendingQuestionCard to /api/runs/{id}/answer, labelled with its attempt number"
+  - "dashboard: a handed-back ticket shows the row's hand-back text without a conversation fetch and links to /spec-dialog with its ticket and project"
+  - "dashboard: the strip draws done, carried, live, asked, failed, handed_back and not_started cells from seriesStrip, and none without one"
+  - "dashboard: the PR cell after the strip is drawn from pullRequests[] for each of 9a59b's decision values and record states"
+  - "dashboard: Done is collapsed to this month's merged-or-closed count and last done until Show done is pressed"
+  - "dashboard: the runs home says Waiting for input, shows no answer box, links every row to the run viewer"
+  - "dashboard: a caller without runs.read sees the refusal surface on /tickets"
+
+done:
+  - "src/dashboard/design/mockups/ticket-view.html is vendored, carries no customer or target identifier, and mock-parity.css names its source and deviations."
+  - "DESIGN.md carries the four state colours with light and terminal variants, and pnpm gen:tokens emits them."
+  - "A reviewer comparing /tickets to the mock's list view finds the same layout, sections, row anatomy and wording, in the dashboard's tokens, apart from the listed deviations."
+  - "A parked question on a ticket is answered from the list and the run resumes; a hand-back leads into the ticket's conversation."
+  - "The runs home and every posted /jobs link still work; a ticketless run is answered in the run viewer."
+  - "Dashboard build and tests green; pnpm gen:hub-events green."

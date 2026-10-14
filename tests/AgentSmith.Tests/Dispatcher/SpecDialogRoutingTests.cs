@@ -53,7 +53,7 @@ public sealed class SpecDialogRoutingTests : IDisposable
         _adapter.SetupGet(a => a.Platform).Returns(Platform);
         var repository = new SpecDialogSessionRepository(_context);
         _sessions = new SpecDialogSessionManager(
-            repository, AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
+            repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(repository), AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
             NullLogger<SpecDialogSessionManager>.Instance);
         var messenger = new SpecDialogMessenger(
             [_adapter.Object], NullLogger<SpecDialogMessenger>.Instance);
@@ -81,7 +81,7 @@ public sealed class SpecDialogRoutingTests : IDisposable
 new DashboardOutcomeChannel(
                 new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
                 NullLogger<DashboardOutcomeChannel>.Instance),
-            new SpecDialogLatestOutcomeStore(repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance),
+            new SpecDialogLatestOutcomeStore(repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance),
             NullLogger<SpecDialogOutcomeFlow>.Instance);
         _router = new SpecDialogRouter(
             new SpecCommandParser(), _sessions, commandHandler,

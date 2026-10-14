@@ -61,6 +61,14 @@ public sealed class RunDeletionRepository(IUnitOfWork unitOfWork, IUniqueViolati
         await DeleteByRunIdAsync<RunArtifact>(ids, ct);
         await DeleteByRunIdAsync<RunSandbox>(ids, ct);
         await DeleteByRunIdAsync<RunSpec>(ids, ct); // p0466
+        await DeleteByRunIdAsync<RunAttempt>(ids, ct); // 2026-10-13-9a59d
+        await DeleteByRunIdAsync<RunSeriesCut>(ids, ct); // 2026-10-13-9a59e
+        await DeleteByRunIdAsync<RunPass>(ids, ct); // 2026-10-13-9a59f
+        await DeleteByRunIdAsync<RunLedgerTransition>(ids, ct);
+        await DeleteByRunIdAsync<RunConversationEntry>(ids, ct); // 2026-10-13-9a59g
+        await DeleteByRunIdAsync<TicketBetweenAttemptsCheck>(ids, ct); // 2026-10-13-9a59h
+        await DeleteByRunIdAsync<RunSegment>(ids, ct); // 2026-10-13-9a59j
+        await DeleteByRunIdAsync<RunRetryRequest>(ids, ct); // 2026-10-13-9a59n
     }
 
     private async Task DeleteSatellitesAsync(IReadOnlyCollection<string> ids, CancellationToken ct)
@@ -79,6 +87,10 @@ public sealed class RunDeletionRepository(IUnitOfWork unitOfWork, IUniqueViolati
             .Where(q => q.ReservedRunId != null && ids.Contains(q.ReservedRunId)).ExecuteDeleteAsync(ct);
         await unitOfWork.Set<ActiveRun>()
             .Where(a => a.RunId != null && ids.Contains(a.RunId)).ExecuteDeleteAsync(ct);
+        // 2026-10-13-9a59b: a pull request's record dies with its newest run; the next nudge rebuilds it.
+        var prKeys = unitOfWork.Set<PrReviewRecord>().Where(r => ids.Contains(r.RunId)).Select(r => r.PrKey);
+        await unitOfWork.Set<PrReviewEntry>().Where(e => prKeys.Contains(e.PrKey)).ExecuteDeleteAsync(ct);
+        await DeleteByRunIdAsync<PrReviewRecord>(ids, ct);
     }
 
     private Task DeleteByRunIdAsync<T>(IReadOnlyCollection<string> ids, CancellationToken ct) where T : class =>

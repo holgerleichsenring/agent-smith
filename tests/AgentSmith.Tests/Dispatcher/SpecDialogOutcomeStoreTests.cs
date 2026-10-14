@@ -49,7 +49,7 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
         _adapter.SetupGet(a => a.Platform).Returns(Platform);
         _repository = new SpecDialogSessionRepository(_context);
         _sessions = new SpecDialogSessionManager(
-            _repository, AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
+            _repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), AgentSmith.Tests.Sandbox.Holds.None(), TimeProvider.System,
             NullLogger<SpecDialogSessionManager>.Instance);
     }
 
@@ -158,11 +158,11 @@ public sealed class SpecDialogOutcomeStoreTests : IDisposable
             FiledWorkDoubles.Starter(), ApprovedSetDoubles.Kinds(), NullLogger<OutcomeTicketFiler>.Instance);
         return new TicketFilingOutcomeSink(
             new SpecDialogOutcomeStore(_repository, NullLogger<SpecDialogOutcomeStore>.Instance),
-            filer, TestSupport.Amendments.Unused(), _sessions, messenger, new SpecDialogOutcomeComposer(),
+            filer, TestSupport.Continuations.Unused(filer), _sessions, messenger, new SpecDialogOutcomeComposer(),
             new DashboardOutcomeChannel(
                 new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
                 NullLogger<DashboardOutcomeChannel>.Instance),
-            new SpecDialogLatestOutcomeStore(_repository, Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance),
+            new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance),
             NullLogger<TicketFilingOutcomeSink>.Instance);
     }
 

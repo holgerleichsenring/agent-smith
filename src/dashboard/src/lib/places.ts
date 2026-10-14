@@ -16,9 +16,12 @@ import { SETTING_KEYS, SETTING_LABEL } from "@/components/config/settings";
 
 const RUN_PLACE = "Run";
 const RUN_WHY_PLACE = "Run · why";
+const TICKET_PLACE = "Ticket";
 
 const FIXED_PLACES: Record<string, string> = {
   "/": "Runs",
+  // 2026-10-13-9a59p: the ticket list; its six bucket views are ?bucket= queries of one place.
+  "/tickets": "Tickets",
   "/pull-requests": "Pull requests",
   // 2026-09-15-cb3e: where the work is DESIGNED — a peer of the two above, not a
   // diagnostic under /system.
@@ -69,7 +72,7 @@ export const PLACES: Readonly<Record<string, string>> = Object.freeze({
  */
 export function placeForPath(pathname: string | null | undefined): string | null {
   const path = normalisePath(pathname);
-  return PLACES[path] ?? runPlace(path);
+  return PLACES[path] ?? runPlace(path) ?? ticketPlace(path);
 }
 
 // A run's id is minted per run, so the two run views are the one pair of places the table
@@ -79,6 +82,13 @@ function runPlace(path: string): string | null {
   if (segments[0] !== "jobs" || segments.length < 2) return null;
   if (segments.length === 2) return RUN_PLACE;
   return segments.length === 3 && segments[2] === "why" ? RUN_WHY_PLACE : null;
+}
+
+// 2026-10-13-9a59p: a ticket is (project, ticket id), both minted outside the dashboard, so its
+// page is matched like a run's rather than listed.
+function ticketPlace(path: string): string | null {
+  const segments = path.split("/").filter((segment) => segment.length > 0);
+  return segments[0] === "tickets" && segments.length === 3 ? TICKET_PLACE : null;
 }
 
 // A query is a view of a place, never a place of its own; a trailing slash is the same

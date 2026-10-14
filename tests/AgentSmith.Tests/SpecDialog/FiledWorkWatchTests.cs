@@ -326,7 +326,7 @@ public sealed class FiledWorkWatchTests : IDisposable
         new(new SpecDialogSessionRepository(_context));
 
     private SpecDialogLatestOutcomeStore Store() =>
-        new(new SpecDialogSessionRepository(_context),
+        new(new SpecDialogSessionRepository(_context), AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(new SpecDialogSessionRepository(_context)),
             NullLogger<SpecDialogLatestOutcomeStore>.Instance);
 
     private async Task SessionAsync(string owner, params FiledTicket[] filed)

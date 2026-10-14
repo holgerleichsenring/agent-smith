@@ -8,4 +8,8 @@ public enum ReworkChannel
     PullRequest,
     // 2026-10-08-2123: a person moved a finished ticket back into a trigger status.
     Status,
+    // 2026-10-13-9a59m: a person approved a change in the ticket's own conversation.
+    Operator,
+    // 2026-10-13-9a59n: a person asked for an unchanged attempt after an infrastructure end.
+    Retry,
 }

@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Models;
 using AgentSmith.Server.Models;
+using AgentSmith.Server.Services.SpecDialog.Continuation;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Server.Services.SpecDialog;
@@ -11,11 +12,16 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// available for a retry; a fully successful filing clears it. The thread and
 /// the durable dialogue trail both get the ticket references — or the honest
 /// failure report naming exactly what WAS created.
+/// <para>
+/// 2026-10-13-9a59l: a spec or an epic approved in a ticket's OWN conversation files nothing new for
+/// an open ticket — it goes to <see cref="TicketContinuationAct"/>, and is answered as a FILING turn,
+/// because the conversation has changed work on a tracker.
+/// </para>
 /// </summary>
 public sealed class TicketFilingOutcomeSink(
     SpecDialogOutcomeStore outcomeStore,
     OutcomeTicketFiler filer,
-    TicketAmendment amendment,
+    TicketContinuationAct continuation,
     SpecDialogSessionManager sessions,
     SpecDialogMessenger messenger,
     SpecDialogOutcomeComposer composer,
@@ -27,6 +33,11 @@ public sealed class TicketFilingOutcomeSink(
         ConversationState state, OutcomeProposal proposal, bool mayStartRuns,
         CancellationToken cancellationToken)
     {
+        if (state.TicketKey is not null && proposal is SpecOutcome or EpicOutcome)
+        {
+            await ContinueAsync(state, proposal, mayStartRuns, cancellationToken);
+            return;
+        }
         await outcomeStore.SetConfirmedAsync(
             state.Platform, state.ThreadId!, proposal, cancellationToken);
 
@@ -60,26 +71,24 @@ public sealed class TicketFilingOutcomeSink(
             SpecDialogTurnKind.Filing, null, cancellationToken);
     }
 
-    /// <summary>
-    /// 2026-09-25-8e51e: the amendment. Nothing is stored as CONFIRMED first — the durable-first
-    /// dance above exists so a tracker failure keeps an unfiled outcome retryable, while an
-    /// amendment that fails has changed nothing and the proposal is still on the session.
-    /// <para>
-    /// It is recorded as a FILING turn: the conversation has now changed work on a tracker, which
-    /// is exactly the fact the prompt's filed-work clause reads off the transcript.
-    /// </para>
-    /// </summary>
-    public async Task AmendAsync(
-        ConversationState state, OutcomeProposal proposal, CancellationToken cancellationToken)
+    private async Task ContinueAsync(
+        ConversationState state, OutcomeProposal proposal, bool mayStartRuns, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(state);
-        var notice = await amendment.ApplyAsync(state, proposal, cancellationToken);
+        var outcome = await continuation.ApplyAsync(state, proposal, mayStartRuns, cancellationToken);
         logger.LogInformation(
-            "Amendment for spec-dialog session {SessionId}: {Notice}", state.JobId, notice);
+            "Approval in ticket conversation {SessionId}: {Notice}", state.JobId, outcome.Notice);
+        if (outcome is { Filing: { } report, Filed: { } filed })
+        {
+            await latestOutcome.SetFilingAsync(state.Platform, state.ThreadId!, report, filed, cancellationToken);
+            await outcomeChannel.FiledAsync(state, report, cancellationToken);
+        }
+        // An acted-on proposal is over: the pane, the ticket's conversation and the preview must not offer it again.
+        if (outcome.Acted)
+            await latestOutcome.ClearProposalAsync(state.Platform, state.ThreadId!, cancellationToken);
         await messenger.SendAsync(
-            state.Platform, state.ChannelId, state.ThreadId!, notice, cancellationToken);
+            state.Platform, state.ChannelId, state.ThreadId!, outcome.Notice, cancellationToken);
         await sessions.AppendTurnAsync(
-            state.Platform, state.ThreadId!, TranscriptRole.Assistant, notice,
+            state.Platform, state.ThreadId!, TranscriptRole.Assistant, outcome.Notice,
             SpecDialogTurnKind.Filing, null, cancellationToken);
     }
 }

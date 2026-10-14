@@ -76,14 +76,46 @@ public sealed class StatusHistoryTests
         move!.Actor.Login.Should().Be("alice", "the bot's later reopen is no person's move");
     }
 
-    private static IssueEvent Reopen(string login, AccountType type, int hour)
+    [Fact]
+    public async Task StatusHistory_NewestMoveInto_ReturnsOwnAndAppActors()
+    {
+        var app = History.Replace("\"accountId\": \"alice-id\"", "\"accountId\": \"automation\", \"accountType\": \"app\"")
+            .Replace("12:00:00", "13:00:00");
+        var jira = Jira(_ => (HttpStatusCode.OK, $$"""{ "total": 2, "values": [ {{History}}, {{app}} ] }"""));
+
+        var any = await jira.NewestMoveIntoAsync(new TicketId("A-1"), "To Do", CancellationToken.None);
+        var person = await jira.NewestPersonMoveIntoAsync(new TicketId("A-1"), ToDo, null, CancellationToken.None);
+
+        any!.Actor.Id.Should().Be("automation", "the newest move by anyone");
+        any.Actor.IsApp.Should().BeTrue("the app flag is carried for the caller to judge");
+        person!.Actor.Id.Should().Be("alice-id", "the person read still skips the app");
+    }
+
+    [Fact]
+    public async Task GitHubHistory_NewestMoveIntoClosed_ReadsClosedEvent()
+    {
+        var client = new Mock<IGitHubClient>();
+        client.Setup(c => c.Issue.Events.GetAllForIssue("o", "r", 4))
+            .ReturnsAsync([Reopen("alice", AccountType.User, 13), Event("agent", AccountType.User, 11, EventInfoState.Closed),
+                Event("renovate[bot]", AccountType.Bot, 12, EventInfoState.Closed)]);
+
+        var move = await new GitHubStatusHistory(client.Object, "o", "r")
+            .NewestMoveIntoAsync(new TicketId("4"), "closed", CancellationToken.None);
+
+        move!.Actor.Should().Be(new TrackerActor("renovate[bot]", "renovate[bot]", IsApp: true));
+        move.Status.Should().Be("closed");
+    }
+
+    private static IssueEvent Reopen(string login, AccountType type, int hour) => Event(login, type, hour, EventInfoState.Reopened);
+
+    private static IssueEvent Event(string login, AccountType type, int hour, EventInfoState state)
     {
         var actor = (User)RuntimeHelpers.GetUninitializedObject(typeof(User));
         Set(actor, nameof(User.Login), login);
         Set(actor, nameof(User.Type), (AccountType?)type);
         var e = (IssueEvent)RuntimeHelpers.GetUninitializedObject(typeof(IssueEvent));
         Set(e, nameof(IssueEvent.Actor), actor);
-        Set(e, nameof(IssueEvent.Event), new StringEnum<EventInfoState>(EventInfoState.Reopened));
+        Set(e, nameof(IssueEvent.Event), new StringEnum<EventInfoState>(state));
         Set(e, nameof(IssueEvent.CreatedAt), new DateTimeOffset(2026, 10, 8, hour, 0, 0, TimeSpan.Zero));
         return e;
     }

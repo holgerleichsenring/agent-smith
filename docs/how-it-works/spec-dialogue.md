@@ -39,7 +39,7 @@ Before anything is created you're asked, as Slack blocks, a Teams card, or a car
 
 - **approve** it, which files it;
 - **reject** it, which files nothing;
-- pick another shape. A bug offers **Make it a spec**; a spec offers **Cut into several specs** and **Make it a bug ticket**; an epic offers **Make it one spec**. In a conversation about an existing ticket, specs and epics also offer **Amend this ticket** (see [Work it out](work-it-out.md#talking-about-an-existing-ticket)). Picking a shape files nothing. It starts a new turn in that shape, and you approve the result;
+- pick another shape. A bug offers **Make it a spec**; a spec offers **Cut into several specs** and **Make it a bug ticket**; an epic offers **Make it one spec**. In a conversation about an existing ticket the same shapes are offered, and approving continues that ticket instead of filing a new one (see [Work it out](work-it-out.md#talking-about-an-existing-ticket)). Picking a shape files nothing. It starts a new turn in that shape, and you approve the result;
 - reply with anything else, which is taken as a note, and the proposal is revised with it.
 
 If the buttons can't be shown, a text reply in the thread still works. The question waits fifteen minutes; after that nothing is filed and your next message starts a fresh turn.
@@ -63,7 +63,7 @@ A run on a filed spec or epic works the approved set as it stands. It doesn't de
 
 Comments and edits on the ticket never re-cut an approved set. There are two deliberate ways to change it:
 
-- **Approve again in the conversation.** In a ticket conversation on the dashboard, **Amend this ticket** rewrites the ticket from the new specification and records it as the approved set.
+- **Approve again in the conversation.** Approving a proposal in the ticket's own conversation continues the ticket by spec id: what ran stays, repeated ids are re-cut, new ids are appended, and the approval preview shows which before you approve. A ticket nobody has worked takes the approved series whole on every tracker, and a ticket a person closed gets a linked follow-up instead (see [Work it out](work-it-out.md#talking-about-an-existing-ticket)). With `runs.control`, the approval also starts the ticket's next attempt, waits for a run that holds it, or answers its hand-back; while a question waits, it records nothing and asks for the answer first (see [When the next attempt starts](work-it-out.md#when-the-next-attempt-starts)). Anyone who may write dialogs can continue a ticket's conversation.
 - **Ask on the ticket.** A comment that opens with the line `cut this specification again` makes the next run cut the specification again. It counts when it's newer than the last approval and than the run's last "this is how I understood the ticket" comment, and it's for people who can reach the ticket but not the branch. The new cut is recorded as approved by whoever wrote that comment.
 
 A conversation that has filed work is told, every turn, that it cannot change, close or re-cut what it filed, and that describing filed work as changed would be false. The one thing it can do is withdraw: close a ticket it filed that nothing has claimed yet. Once a run holds the ticket, that's refused and you stop the run from the run controls.

@@ -22,6 +22,14 @@ colors:
   terminal-mute: "#6b7280"
   terminal-link: "#5eb1ff"
   terminal-string: "#e8c46d"
+  state-proven: "#22c55e"
+  state-proven-terminal: "#22c55e"
+  state-working: "#a8741f"
+  state-working-terminal: "#e8c46d"
+  state-stopped: "#c0392b"
+  state-stopped-terminal: "#c55b4e"
+  state-person: "#426b96"
+  state-person-terminal: "#5eb1ff"
 
 typography:
   display-xl:
@@ -400,6 +408,13 @@ Cards are universally `{rounded.md}` 12 px. Buttons share the same 12 px radius 
 ### Semantic
 The brand doesn't surface a separate semantic palette on its marketing pages. Status / validation cues borrow from the ink + green hierarchy: green for success, ink for warning-by-emphasis, the rare `#dc2626` (not tokenised) reserved for hard validation errors inside `text-input` red borders.
 
+### State palette
+The operator surfaces mark **state** — what a run, a ticket or a spec is doing and who acts next — with four status colours. They are separate from the single brand accent: they mark state only, never a CTA, a link or a conversion target, and Smith Green stays the one accent a button may carry. Each has a light-surface variant and a `card-terminal-panel` variant, both derived from existing tokens rather than chosen as new hues.
+- **Proven** (`{colors.state-proven}` — `#22c55e`, terminal `{colors.state-proven-terminal}` — `#22c55e`): verified, merged, done. The brand green itself on light surfaces, `{colors.terminal-accent}` on the panel.
+- **Working** (`{colors.state-working}` — `#a8741f`, terminal `{colors.state-working-terminal}` — `#e8c46d`): something runs or waits for capacity. The dashboard's run amber on light surfaces, `{colors.terminal-string}` on the panel.
+- **Stopped** (`{colors.state-stopped}` — `#c0392b`, terminal `{colors.state-stopped-terminal}` — `#c55b4e`): failed or cancelled. The dashboard's `--bad` on light surfaces; on the panel `--bad` mixed 78 % with `{colors.terminal-text}`.
+- **Waits for a person** (`{colors.state-person}` — `#426b96`, terminal `{colors.state-person-terminal}` — `#5eb1ff`): a question, a hand-back or a review a person owns. `{colors.terminal-link}` mixed 55 % with `{colors.ink}` on light surfaces, `{colors.terminal-link}` on the panel.
+
 ## Typography
 
 ### Font Family
@@ -514,7 +529,7 @@ The brand's geometry is sober-editorial — `{rounded.md}` 12 px buttons disting
 
 **`card-feature-dark`** — polarity-flipped dark coffee card. Background `{colors.ink}`, text `{colors.on-primary}`.
 
-**`card-terminal-panel`** — *Agent Smith specific*. Dark-ink monospace surface for CLI output, YAML snippets, code samples. Background `{colors.terminal-bg}`, text `{colors.terminal-text}`, typography `{typography.mono-code}`, padding `{spacing.xl}`, shape `{rounded.md}`. Carries an accent (`{colors.terminal-accent}` Smith green) for prompt glyphs and an emphasis tone, and a mute (`{colors.terminal-mute}`) for comments. No syntax highlighting beyond these two accents — by design.
+**`card-terminal-panel`** — *Agent Smith specific*. Dark-ink monospace surface for CLI output, YAML snippets, code samples. Background `{colors.terminal-bg}`, text `{colors.terminal-text}`, typography `{typography.mono-code}`, padding `{spacing.xl}`, shape `{rounded.md}`. Carries an accent (`{colors.terminal-accent}` Smith green) for prompt glyphs and an emphasis tone, and a mute (`{colors.terminal-mute}`) for comments. No syntax highlighting beyond these two accents — by design; the one exception is the state palette's terminal variants, which mark the state of a node or an edge drawn on the panel and never colour code.
 
 **`pricing-card`** — the default pricing tier card. Background `{colors.canvas}`, 1 px solid `{colors.ink}` border, padding `{spacing.xl}`, shape `{rounded.md}`.
 
@@ -581,7 +596,7 @@ Rule of thumb: code-changing pipelines (fix / feature / legal / mad / init) are 
 - Don't replace cream canvas with pure white. The warmth IS the brand.
 - Don't use pure black ink. The coffee-warmth in `#201515` carries through every text color.
 - Don't render CTAs as pills. The brand's button is 12 px rounded rectangle.
-- Don't introduce a second chromatic accent. Smith-green + cream + coffee is the entire palette.
+- Don't introduce a second chromatic accent. Smith-green + cream + coffee is the entire brand palette; the four state-palette colours mark state only and never serve as a CTA or brand accent.
 - Don't substitute Inter with Helvetica or generic system-ui for displays. Inter weight 500 has the editorial proportions the brand expects.
 - Don't mix `card-terminal-panel` typography with Inter inside the same panel. Monospace stays mono, end to end.
 - Don't use the Smith-green as a body-text color — it's a CTA / accent only, never body type.

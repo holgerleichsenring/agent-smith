@@ -23,15 +23,18 @@ internal sealed class JiraStatusHistory(TicketProviderHttpClient http, string ba
     }
 
     public async Task<TicketStatusMove?> NewestPersonMoveIntoAsync(
-        TicketId ticketId, IReadOnlyCollection<string> statuses, TrackerActor? self, CancellationToken cancellationToken)
-    {
-        var histories = await HistoriesAsync(ticketId.Value, cancellationToken);
-        return histories
+        TicketId ticketId, IReadOnlyCollection<string> statuses, TrackerActor? self, CancellationToken cancellationToken) =>
+        (await MovesAsync(ticketId, statuses, cancellationToken)).Where(m => !m.Actor.IsApp && !m.Actor.Is(self)).MaxBy(m => m.At);
+
+    public async Task<TicketStatusMove?> NewestMoveIntoAsync(TicketId ticketId, string status, CancellationToken cancellationToken) =>
+        (await MovesAsync(ticketId, [status], cancellationToken)).MaxBy(m => m.At);
+
+    private async Task<IReadOnlyList<TicketStatusMove>> MovesAsync(
+        TicketId ticketId, IReadOnlyCollection<string> statuses, CancellationToken cancellationToken) =>
+        [.. (await HistoriesAsync(ticketId.Value, cancellationToken))
             .Select(h => (Actor: h.TryGetProperty("author", out var a) ? Actor(a) : null, Item: StatusInto(h, statuses), At: Time(h)))
-            .Where(m => m.Item is not null && m.Actor is not null && !m.Actor.IsApp && !m.Actor.Is(self))
-            .Select(m => new TicketStatusMove(m.Actor!, m.At, m.Item!))
-            .MaxBy(m => m.At);
-    }
+            .Where(m => m.Item is not null && m.Actor is not null)
+            .Select(m => new TicketStatusMove(m.Actor!, m.At, m.Item!))];
 
     private async Task<IReadOnlyList<JsonElement>> HistoriesAsync(string key, CancellationToken ct)
     {

@@ -44,6 +44,10 @@ export enum EventType {
   SpecRecorded = 80,
   SpecReviewed = 81,
   DesignRead = 82,
+  SpecSetPublished = 83,
+  MasterPassEnded = 84,
+  SpecHandedBack = 85,
+  SpecCutReviewed = 86,
 }
 
 interface RunEventBase {
@@ -94,6 +98,10 @@ export interface SandboxDisposedEvent extends RunEventBase {
   type: EventType.SandboxDisposed;
   repo: string;
   exitCode: number | null;
+  /** 2026-10-13-9a59i: what the backend read before the release — 'running' | 'exited' | 'gone';
+   *  null when it has no process to read. */
+  exitState: string | null;
+  oomKilled: boolean | null;
 }
 
 export interface StepStartedEvent extends RunEventBase {
@@ -262,6 +270,32 @@ export interface TicketFetchedEvent extends RunEventBase {
   source: string;
   /** 2026-10-08-0781: when the run began reading the ticket and its pull requests (the rework cutoff). */
   actsReadAt?: string | null;
+  /** 2026-10-13-9a59d: the act this attempt served. */
+  cause?: AttemptCause | null;
+  /** 2026-10-13-9a59d: fingerprint of the ticket text the attempt saw. */
+  ticketFingerprint?: string | null;
+  /** 2026-10-13-9a59d: where the ticket opens in its tracker. */
+  webUrl?: string | null;
+  /** 2026-10-13-9a59g: the ticket's acceptance criteria as text; null when it states none. */
+  acceptanceCriteria?: string | null;
+}
+
+/** 2026-10-13-9a59d: where the act an attempt served was made. Mirrors C# AttemptSource. */
+export interface AttemptSource {
+  /** comment | review | command | status | conversation (2026-10-13-9a59m: id = the session) */
+  kind: string;
+  url?: string | null;
+  id?: string | null;
+  detail?: string | null;
+}
+
+/** 2026-10-13-9a59d: why an attempt began. Mirrors C# AttemptCause. */
+export interface AttemptCause {
+  /** ticket_comment | pull_request | status_move | requested | retrigger | pickup | operator (2026-10-13-9a59m) */
+  channel: string;
+  actor?: string | null;
+  at?: string | null;
+  source?: AttemptSource | null;
 }
 
 /**
@@ -388,6 +422,9 @@ export interface SandboxVanishedEvent extends RunEventBase {
   lastHeartbeatAt: string | null;
   reason: string;
   containerState: string;
+  /** 2026-10-13-9a59i: the probe's exit facts; null when it had none. */
+  exitCode: number | null;
+  oomKilled: boolean | null;
 }
 
 /**
@@ -501,6 +538,8 @@ export interface SpecStateChangedEvent extends RunEventBase {
   title: string;
   state: number;
   verdict: string | null;
+  /** 2026-10-13-9a59e: the spec's own acceptance (serialised AcceptanceView); null while it has none. */
+  acceptanceJson?: string | null;
 }
 
 /**
@@ -537,6 +576,99 @@ export interface DesignReadEvent extends RunEventBase {
   nodeId: string;
   version: string;
   lastModified: string;
+}
+
+/**
+ * 2026-10-13-9a59d: a spec set was published once its placement held, written or not — the
+ * revision and approval the attempt works from. No revisionNumber: the publish carried no revision.
+ */
+export interface SpecSetPublishedEvent extends RunEventBase {
+  type: EventType.SpecSetPublished;
+  revisionNumber?: number | null;
+  revisionCause?: string | null;
+  seriesId?: string | null;
+  carriedSpecIds?: string[] | null;
+  approvalAt?: string | null;
+  approvalConversation?: string | null;
+  approvalPrincipal?: string | null;
+  committed: boolean;
+  /** 2026-10-13-9a59e: the cut — the set's key (the ticket key for a hand-back that never published). */
+  setKey?: string | null;
+  /** 2026-10-13-9a59e: the hand-back case (C# SpecHandbackCase name); null when not handed back. */
+  handbackCase?: string | null;
+  /** 2026-10-13-9a59e: every spec as published; empty for a hand-back. */
+  specs?: SpecCutEntry[] | null;
+}
+
+/**
+ * 2026-10-13-9a59f: one master pass of a spec ended — why it opened and ended (a re-engaged end names
+ * its reengageReason), the verdicts it reported itself and what it left open. The ordinal is run-wide.
+ */
+export interface MasterPassEndedEvent extends RunEventBase {
+  type: EventType.MasterPassEnded;
+  specId: string;
+  ordinal: number;
+  passInStep: number;
+  openedBecause: string;
+  endedBecause: string;
+  reengageReason?: string | null;
+  verdictEmitted: boolean;
+  criteriaMet?: number | null;
+  criteriaTotal?: number | null;
+  criteria?: MasterPassCriterion[] | null;
+  gateLine: string;
+  actionablePending: number;
+  unbackedDone: number;
+}
+
+/** 2026-10-13-9a59f: the master's disposition of one criterion in one pass. Mirrors C# MasterPassCriterion. */
+export interface MasterPassCriterion {
+  criterion: string;
+  status: string;
+  evidence: string;
+}
+
+/**
+ * 2026-10-13-9a59g: a hand-back was posted — the comment as the ticket received it and the ticket
+ * sentence it quotes. No case: the published cut carries it.
+ */
+export interface SpecHandedBackEvent extends RunEventBase {
+  type: EventType.SpecHandedBack;
+  text: string;
+  quote?: string | null;
+}
+
+/**
+ * 2026-10-13-9a59g: one review of a derived cut — every review, accepted ones too. `attempt` is the
+ * derivation attempt (1-based); an accepted review carries no findings.
+ */
+export interface SpecCutReviewedEvent extends RunEventBase {
+  type: EventType.SpecCutReviewed;
+  attempt: number;
+  deliverable: "accepted" | "refused";
+  findings: CutFinding[];
+}
+
+/** 2026-10-13-9a59g: why a spec of a cut cannot be delivered as written. Mirrors C# CutFinding. */
+export interface CutFinding {
+  specId: string;
+  criterion: string;
+  problem: string;
+  why: string;
+  conflictsWith?: string | null;
+  cites?: string | null;
+}
+
+/** 2026-10-13-9a59e: one spec of a published cut. Mirrors C# SpecCutEntry. */
+export interface SpecCutEntry {
+  specId: string;
+  ordinal: number;
+  fileStem: string;
+  goal: string;
+  repos: string[];
+  steps: { id: string; action: string; target?: string | null }[];
+  done: string[];
+  yaml: string;
 }
 
 export type RunEvent =
@@ -580,7 +712,11 @@ export type RunEvent =
   | SpecStateChangedEvent
   | SpecRecordedEvent
   | SpecReviewedEvent
-  | DesignReadEvent;
+  | DesignReadEvent
+  | SpecSetPublishedEvent
+  | MasterPassEndedEvent
+  | SpecHandedBackEvent
+  | SpecCutReviewedEvent;
 
 /** p0327: the pending question of a status="waiting_for_input" run, joined
  *  from its checkpoint row at query time (REST detail only). */
@@ -766,6 +902,9 @@ export interface RunSnapshot {
    *  shape was stated and on pre-p0413 rows. */
   workShape?: string | null;
   workShapeReason?: string | null;
+  /** 2026-10-13-9a59a: the run row's project and tracker platform (REST paths only). */
+  project?: string | null;
+  platform?: string | null;
 }
 
 /** p0350: one pull request a run opened, per repo. */
@@ -835,12 +974,17 @@ export interface RunFootprintView {
   reserved: boolean;
 }
 
-/** p0348: one pod the run actually spawned (a persisted RunSandbox row). */
+/** p0348: one pod the run actually spawned (a persisted RunSandbox row).
+ *  2026-10-13-9a59i: how it ended replaces the old status — endReason is one of exited,
+ *  oom-killed, vanished, gone, released-at-park, released-at-requeue, released-at-end,
+ *  unobserved (released while the run is still going); null while open or on older rows. */
 export interface RunComputePod {
   repo: string;
   image: string;
   mem: string;
-  status: string;
+  endReason: string | null;
+  exitCode: number | null;
+  oomKilled: boolean | null;
 }
 
 /** p0348: the pods a run actually spawned — the honest live-compute view. */

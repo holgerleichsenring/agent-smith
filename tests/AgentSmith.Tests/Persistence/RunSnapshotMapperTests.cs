@@ -185,12 +185,12 @@ public sealed class RunSnapshotMapperTests
                 new RunSandbox
                 {
                     Key = "server", RepoName = "server",
-                    ToolchainImage = "dotnet/sdk:8.0", MemoryRequest = "1Gi", Status = "created",
+                    ToolchainImage = "dotnet/sdk:8.0", MemoryRequest = "1Gi",
                 },
                 new RunSandbox
                 {
                     Key = "bgw", RepoName = "backgroundworker",
-                    ToolchainImage = "dotnet/sdk:8.0", MemoryRequest = "2Gi", Status = "created",
+                    ToolchainImage = "dotnet/sdk:8.0", MemoryRequest = "2Gi",
                 },
             ],
         };
