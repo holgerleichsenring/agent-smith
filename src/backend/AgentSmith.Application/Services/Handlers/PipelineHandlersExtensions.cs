@@ -157,9 +157,8 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ICommandHandler<CompileFindingsContext>, CompileFindingsHandler>();
         services.AddSingleton<IMasterOutputSchemaResolver, MasterOutputSchemaResolver>();
         services.AddSingleton<IScanMasterPromptFactory, ScanMasterPromptFactory>();
-        // p0315b: spec-dialog — transcript prompt, spec draft gate, tier-1
-        // cached code map, reply hand-back, lazy read-only source sandboxes.
-        services.AddTransient<ISpecDialogPromptFactory, SpecDialogPromptFactory>();
+        // p0315b: spec-dialog — transcript prompt, spec draft gate, tier-1 cached code map, reply hand-back.
+        services.AddTransient<ISpecDialogPromptFactory, SpecDialogPromptFactory>().AddTransient<ITicketStewardPromptFactory, TicketStewardPromptFactory>();
         services.AddSingleton<SpecSchemaProvider>();
         services.AddTransient<ISpecDraftValidator, SpecDraftValidator>();
         // p0315e: typed terminal outcome (answer | bug | spec | epic) —
@@ -169,7 +168,8 @@ public static class PipelineHandlersExtensions
         services.AddTransient<BugOutcomeParser>();
         services.AddTransient<EpicOutcomeParser>().AddTransient<DialogDraftRepos>().AddTransient<SpecDraftReposWriter>(); // 3a36e
         services.AddTransient<RequiresEdgeChecker>();
-        services.AddTransient<IOutcomeProposalResolver, OutcomeProposalResolver>().AddTransient<SpecDialogProposalRefusal>().AddTransient<SpecDialogProposalReview>();
+        services.AddTransient<IOutcomeProposalResolver, OutcomeProposalResolver>().AddTransient<SpecDialogProposalRefusal>().AddTransient<SpecDialogProposalReview>()
+            .AddTransient<SpecDialogOutcomeGate>().AddTransient<SpecDialogTurnFlow>();
         // 2026-10-02-3f06c: the proposal's cited files, read before its model review.
         services.AddTransient<EvidenceReferences>().AddTransient<EvidenceCheck>().AddTransient<EpicChildOrderer>().AddTransient<ProposalEvidenceReview>();
         services.AddTransient<ICommandHandler<LoadCachedCodeMapContext>, LoadCachedCodeMapHandler>();

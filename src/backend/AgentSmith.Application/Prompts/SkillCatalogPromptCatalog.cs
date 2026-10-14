@@ -12,7 +12,7 @@ namespace AgentSmith.Application.Prompts;
 /// never consults the masters, and an undeclared name is a handler-passed
 /// master-skill name resolved directly from the loaded catalog.
 /// </summary>
-public sealed class SkillCatalogPromptCatalog : IPromptCatalog
+public sealed class SkillCatalogPromptCatalog : IPromptCatalog, IMasterCatalog
 {
     private readonly IPromptCatalog _inner;
     private readonly ISkillLoader _skillLoader;
@@ -80,6 +80,9 @@ public sealed class SkillCatalogPromptCatalog : IPromptCatalog
 
         return content;
     }
+
+    /// <summary>Asked of the same cache Render resolves masters from, so the answer is what Render would load.</summary>
+    public bool HasMaster(string masterSkillName) => GetMasterCatalog()?.ContainsKey(masterSkillName) == true;
 
     private bool TryGetMasterBody(string masterName, out string body)
     {

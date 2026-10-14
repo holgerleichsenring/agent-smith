@@ -68,7 +68,12 @@ public sealed class BoundTicketReaders(
 /// <summary>What a BOUND turn may ask about its own ticket, from one lookup — and the start and series edit its poster may make.</summary>
 public sealed record BoundTicket(
     ITicketReader Reader, IBoundTicketWork Work, IBoundTicketRuns Runs, FrameworkFacts Facts, IAttemptStart? Start = null,
-    BoundSeries? Series = null);
+    BoundSeries? Series = null)
+{
+    /// <summary>A code attempt worked the ticket — the one predicate the series ports are built on, so the steward
+    /// leads exactly the turns that can read the series.</summary>
+    public bool Worked => Series is not null;
+}
 
 /// <summary>2026-09-28-1da5c: the linked-work port, closed over the ticket the turn is bound to.</summary>
 public sealed class BoundTicketWork(ITicketLinkedWork work, TicketId ticketId) : IBoundTicketWork

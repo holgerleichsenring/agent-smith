@@ -44,11 +44,8 @@ public sealed class AgenticMasterHandler(
     IMasterOutputSchemaResolver schemaResolver,
     IScanMasterPromptFactory scanPromptFactory,
     ScanMasterPasses scanPasses, // 2026-09-01-7df4/0e80: the scan's follow-up passes
-    ISpecDialogPromptFactory specDialogPromptFactory,
     ISpecExecutionPromptFactory specPromptFactory,
-    IOutcomeProposalResolver outcomeResolver,
-    SpecDialogProposalRefusal proposalRefusal, // 2026-09-17-042ec: no proposal before a discussion
-    SpecDialogProposalReview proposalReview, // 2026-09-17-042ed: the turn reviews what it proposes
+    SpecDialogTurnFlow dialogTurn, // the dialog turn's prompt and reply, by the master that leads it
     ITicketDocumentMaterializer documentMaterializer,
     MasterTemplateScopes templateScopes, // 2026-09-13-6f35: the templates this spec is built after
     WebToolHost webToolHost,
@@ -61,7 +58,6 @@ public sealed class AgenticMasterHandler(
     Memory.MemoryIndexReader memoryIndex, // 2026-10-13-8762m: re-read at every spec-execution start
     IDialogueTransport? dialogueTransport,
     MasterToolComposition composition, // which tool surface this master gets
-    ITurnActivityObserverAccessor turnActivity, // 2026-09-17-042ee: the turn's own steps
     TurnActivityTools reportingTools, // 2026-09-17-042ee: the surface those steps come from
     ILogger<AgenticMasterHandler> logger)
     : ICommandHandler<AgenticMasterContext>
@@ -339,7 +335,7 @@ public sealed class AgenticMasterHandler(
                 context, sandboxes[defaultKey], runRecordDir, repoPrefix, isScanMaster, cancellationToken);
 
         var userPrompt = isSpecDialog
-            ? specDialogPromptFactory.Build(context.Pipeline, dialog.Existing, dialog.Carried)
+            ? dialogTurn.Prompt(context, dialog)
             : isSpecExecution
                 ? specPromptFactory.Build(
                     context.Pipeline,
@@ -486,17 +482,10 @@ public sealed class AgenticMasterHandler(
             scanAnswer = passes.Answer;
         }
 
-        // p0315b/p0315e: a spec-dialog reply's typed terminal outcome (answer /
-        // bug / spec / epic) must resolve and validate BEFORE it is shown.
-        // Invalid → re-prompt the master ONCE with the exact error; still
-        // invalid → replace the reply with an honest failure notice. The raw
-        // invalid output never reaches the thread.
+        // p0315b/p0315e: a dialog reply's typed terminal outcome resolves BEFORE it is shown.
         if (isSpecDialog)
-            loopResult = await GateSpecOutcomeAsync(
-                context.Pipeline, request, userPrompt, loopResult, conversation, costTracker, cancellationToken);
-        if (isSpecDialog)
-            loopResult = await proposalReview.ReviewAsync(context.Pipeline, request, userPrompt, loopResult, conversation,
-                context.AgentConfig, costTracker, cancellationToken);
+            loopResult = await dialogTurn.ConcludeAsync(
+                context, request, userPrompt, loopResult, conversation, costTracker, cancellationToken);
 
         var changes = fs.GetChanges();
 
@@ -655,56 +644,6 @@ public sealed class AgenticMasterHandler(
             + "{DoneItems} ledger item(s) done, tokens/item {TokensPerItem}",
             context.MasterSkillName, report.TotalTokens, report.CachedShare, report.DoneItems,
             report.TokensPerDoneItem?.ToString() ?? "n/a");
-    }
-
-    // p0315b/p0315e: resolve the spec-dialog reply's typed terminal outcome and
-    // publish it for CollectSpecDialogReply; on failure re-prompt the master
-    // ONCE with the exact error (same pattern as the p0255/p0263 nudges), and
-    // on a second failure replace the reply with an honest notice — the raw
-    // invalid output is never surfaced.
-    private async Task<AgenticLoopResult> GateSpecOutcomeAsync(
-        PipelineContext pipeline, AgenticLoopRequest request, string userPrompt,
-        AgenticLoopResult loopResult, MasterConversation conversation, PipelineCostTracker costTracker, CancellationToken ct)
-    {
-        loopResult = await proposalRefusal.RefuseEarlyProposalAsync(pipeline, request, userPrompt, loopResult, conversation, costTracker, ct);
-        // 2026-10-12-3a36e: the turn's repositories, keyed by their configured names in the dialog.
-        IReadOnlyList<string> scope = [.. Specs.DerivationLookFactory.ProposalRepositories(pipeline)?.Keys ?? []];
-        var resolution = outcomeResolver.Resolve(loopResult.Response.Text ?? string.Empty, scope);
-        if (resolution is OutcomeResolved first)
-            return MasterOutcomes.PublishOutcome(pipeline, first.Proposal, loopResult);
-        var invalid = (OutcomeInvalid)resolution;
-
-        logger.LogWarning(
-            "Design-partner terminal outcome failed validation — re-prompting once: {Error}",
-            invalid.Error);
-        await turnActivity.ReportAsync(new TurnActivity(TurnActivityKind.Revising), ct);
-        AgenticLoopResult retry;
-        try
-        {
-            // 2026-09-24-3907: WITH the thread, like every sibling re-prompt. Without it the
-            // runner assembles [system] + nudge and nothing else, so a model told "do not repeat
-            // the invalid output" holds no copy of it and re-drafts the whole specification from
-            // a prompt that never said what the key it got wrong allows.
-            var nudge = specDialogPromptFactory.BuildOutcomeFixNudge(userPrompt, invalid.Error);
-            retry = await loopRunner.RunAsync(
-                request with { UserPrompt = nudge, PriorMessages = conversation.Thread() }, ct);
-            conversation.Continued(nudge, retry.Response);
-            costTracker.Track(retry.Response);
-        }
-        catch (Exception ex) when (!ct.IsCancellationRequested)
-        {
-            logger.LogWarning(ex, "Outcome-fix re-prompt failed");
-            return MasterOutcomes.FailOutcome(pipeline, loopResult, invalid.Error);
-        }
-
-        var retryResolution = outcomeResolver.Resolve(retry.Response.Text ?? string.Empty, scope);
-        if (retryResolution is OutcomeResolved second)
-            return MasterOutcomes.PublishOutcome(pipeline, second.Proposal, retry);
-
-        var stillInvalid = (OutcomeInvalid)retryResolution;
-        logger.LogWarning(
-            "Design-partner terminal outcome still invalid after re-prompt: {Error}", stillInvalid.Error);
-        return MasterOutcomes.FailOutcome(pipeline, retry, stillInvalid.Error);
     }
 
     // p0317: gathers what FetchTicket published — the conversation section, the

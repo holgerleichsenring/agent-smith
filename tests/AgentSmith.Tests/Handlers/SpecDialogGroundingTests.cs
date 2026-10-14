@@ -263,7 +263,7 @@ public sealed class SpecDialogGroundingTests
     // AgenticMasterHandler binds them — the heading is what this spec stops leaving empty.
     private static string DesignPartnerPrompt(PipelineContext pipeline)
     {
-        var master = (AgenticMasterContext)new AgenticMasterContextBuilder().Build(
+        var master = (AgenticMasterContext)new AgenticMasterContextBuilder(Mock.Of<AgentSmith.Contracts.Services.IMasterCatalog>()).Build(
             PipelineCommand.Simple(CommandNames.AgenticMaster), new ResolvedProject(), pipeline);
         return $"{MasterPromptSections.BuildProjectContextSection(master.ProjectContext)}\n"
                + $"## Coding Principles\n{master.CodingPrinciples}\n";

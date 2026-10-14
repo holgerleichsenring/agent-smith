@@ -15,12 +15,14 @@ public static class PromptCatalogExtensions
     {
         services.AddSingleton<IPromptOverrideSource, EnvDirectoryPromptOverrideSource>();
         services.AddSingleton<EmbeddedPromptCatalog>();
-        services.AddSingleton<IPromptCatalog>(sp => new SkillCatalogPromptCatalog(
+        services.AddSingleton(sp => new SkillCatalogPromptCatalog(
             sp.GetRequiredService<EmbeddedPromptCatalog>(),
             sp.GetRequiredService<ISkillLoader>(),
             sp.GetRequiredService<ISkillsCatalogPath>(),
             sp.GetRequiredService<ISkillBodyResolver>(),
             sp.GetRequiredService<ILogger<SkillCatalogPromptCatalog>>()));
+        services.AddSingleton<IPromptCatalog>(sp => sp.GetRequiredService<SkillCatalogPromptCatalog>());
+        services.AddSingleton<IMasterCatalog>(sp => sp.GetRequiredService<SkillCatalogPromptCatalog>());
         return services;
     }
 }

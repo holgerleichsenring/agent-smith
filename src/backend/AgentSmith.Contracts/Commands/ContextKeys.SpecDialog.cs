@@ -100,6 +100,10 @@ public static partial class ContextKeys
     /// for a poster holding runs.control.</summary>
     public const string SpecDialogSeriesEdit = "SpecDialogSeriesEdit";
 
+    /// <summary><c>bool</c> — the bound ticket was worked, so the ticket steward should lead the turn. Seeded on the
+    /// predicate the series read is seeded on; the master builder falls back when the catalog lacks the steward.</summary>
+    public const string SpecDialogSteward = "SpecDialogSteward";
+
     /// <summary>2026-10-01-7f7ab: <c>IReadOnlyList&lt;DesignSource&gt;</c> — the turn's project's
     /// design sources, by name and secret NAME; a run reads them off ProjectConfig instead.</summary>
     public const string SpecDialogDesignSources = "SpecDialogDesignSources";

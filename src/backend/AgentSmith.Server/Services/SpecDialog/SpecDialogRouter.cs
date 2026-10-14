@@ -108,7 +108,7 @@ public sealed class SpecDialogRouter(
             // then handed to the outcome sink (p0315c: ticket filing). Runs
             // inside the turn gate; the pending-question branch above routes
             // the approval answer.
-            var flowResult = await outcomeFlow.HandleAsync(current, result.Outcome, poster.MayStartRuns, ct);
+            var flowResult = await outcomeFlow.HandleAsync(current, result.Outcome, poster.MayStartRuns, ct, result.Stewarded);
             if (flowResult is not OutcomeFlowEditRequested edit) return;
             // p0315c edit: the turn re-runs on a re-read state. 2026-09-22-355b: the note travels
             // as a VALUE — a shape clicked on a chat surface never passed the place that appends.

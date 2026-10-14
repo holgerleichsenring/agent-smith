@@ -132,6 +132,7 @@ public sealed class PipelinePresetContextContractTests
     private static IEnumerable<KeyedContextBuilder> ResolveBuilders()
     {
         var services = new ServiceCollection();
+        services.AddSingleton(Moq.Mock.Of<AgentSmith.Contracts.Services.IMasterCatalog>());
         services.AddContextBuilders();
         return services.BuildServiceProvider().GetServices<KeyedContextBuilder>();
     }

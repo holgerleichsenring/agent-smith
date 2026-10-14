@@ -41,11 +41,12 @@ public sealed class BootstrapDiscoverContextBuilder : IContextBuilder
 /// <summary>
 /// p0179b/d: builder for the AgenticMaster step. Master skill name resolution:
 /// (1) PipelineCommand.SkillName when the caller named one explicitly,
-/// (2) the per-pipeline default from <see cref="PipelinePresets.MasterFor"/> —
+/// (2) the ticket steward when the turn asks for it and the loaded catalog has it,
+/// (3) the per-pipeline default from <see cref="PipelinePresets.MasterFor"/> —
 ///     p0408 moved that table next to the presets so the generated control-flow
 ///     diagram resolves the same master the run loads.
 /// </summary>
-public sealed class AgenticMasterContextBuilder : IContextBuilder
+public sealed class AgenticMasterContextBuilder(IMasterCatalog masters) : IContextBuilder
 {
     public ICommandContext Build(PipelineCommand command, ResolvedProject project, PipelineContext pipeline)
     {
@@ -66,10 +67,13 @@ public sealed class AgenticMasterContextBuilder : IContextBuilder
             ProjectContext: projectContext);
     }
 
-    private static string ResolveSkillName(PipelineCommand command, PipelineContext pipeline)
+    private string ResolveSkillName(PipelineCommand command, PipelineContext pipeline)
     {
         if (!string.IsNullOrWhiteSpace(command.SkillName))
             return command.SkillName;
+        if (pipeline.TryGet<bool>(ContextKeys.SpecDialogSteward, out var steward) && steward
+            && masters.HasMaster(PipelinePresets.TicketStewardMaster))
+            return PipelinePresets.TicketStewardMaster;
         return pipeline.TryGet<string>(ContextKeys.PipelineName, out var pipelineName)
             && pipelineName is not null
                 ? PipelinePresets.MasterFor(pipelineName)

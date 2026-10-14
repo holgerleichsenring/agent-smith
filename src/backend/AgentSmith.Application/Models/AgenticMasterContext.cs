@@ -18,4 +18,10 @@ public sealed record AgenticMasterContext(
     AgentConfig AgentConfig,
     PipelineContext Pipeline,
     IReadOnlyDictionary<string, string>? RepoCodeMaps = null,
-    string? ProjectContext = null) : ICommandContext;
+    string? ProjectContext = null) : ICommandContext
+{
+    /// <summary>The ticket steward leads this turn: a conversation on a worked ticket, answered and acted on, never
+    /// a proposal.</summary>
+    public bool IsTicketSteward =>
+        string.Equals(MasterSkillName, PipelinePresets.TicketStewardMaster, StringComparison.Ordinal);
+}

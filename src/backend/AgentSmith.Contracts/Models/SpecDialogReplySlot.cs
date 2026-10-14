@@ -20,4 +20,7 @@ public sealed class SpecDialogReplySlot
     /// 2026-09-17-042ec: set when the reply is a notice rather than what the outcome says.
     /// </summary>
     public SpecDialogTurnKind? Kind { get; set; }
+
+    /// <summary>The ticket steward led the turn, so its reply is an answer and a stored proposal is superseded.</summary>
+    public bool Stewarded { get; set; }
 }

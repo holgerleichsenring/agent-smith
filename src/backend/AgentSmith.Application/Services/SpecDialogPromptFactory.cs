@@ -1,4 +1,3 @@
-using System.Text;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
@@ -34,19 +33,14 @@ public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
 
     public string Build(PipelineContext pipeline, int imagesExisting, int imagesCarried)
     {
-        var transcript = pipeline.TryGet<IReadOnlyList<SpecDialogTurn>>(
-            ContextKeys.SpecDialogTranscript, out var t) && t is not null ? t : [];
-        if (transcript.Count == 0)
-            throw new InvalidOperationException(
-                "Spec-dialog run has an empty transcript — the turn runner must seed "
-                + $"ContextKeys.{nameof(ContextKeys.SpecDialogTranscript)} with at least the opening user turn.");
+        var transcript = DialogTranscriptSection.Of(pipeline);
 
         return $"""
             ## Design conversation
             The transcript of this design thread so far, oldest first. Respond to the
             LAST user turn; earlier turns are context you already produced or received.
 
-            {RenderTranscript(transcript)}
+            {DialogTranscriptSection.Render(transcript)}
             {SpecDialog.SeededTicketSection.Render(pipeline)}
             {SpecDialog.FrameworkFactsSection.Render(pipeline)}
             {SpecDialog.DialogScopeRepositoriesSection.Render(pipeline)}
@@ -108,12 +102,4 @@ public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
         + "of it, so it was NOT shown. Reply again with no ```yaml or ```outcome block. "
         + FirstAnswer + "\n\n"
         + "Original task:\n" + originalUserPrompt;
-
-    private static string RenderTranscript(IReadOnlyList<SpecDialogTurn> transcript)
-    {
-        var sb = new StringBuilder();
-        foreach (var turn in transcript)
-            sb.AppendLine(turn.Author is { } author ? $"[{turn.Role}: {author}] {turn.Text}" : $"[{turn.Role}] {turn.Text}");
-        return sb.ToString().TrimEnd();
-    }
 }
