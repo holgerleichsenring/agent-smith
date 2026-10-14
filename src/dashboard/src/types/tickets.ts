@@ -213,7 +213,7 @@ export interface TicketSpecStep {
 
 export interface TicketSeriesCriterion {
   text: string;
-  /** met | unmet | not_applicable; null while unjudged */
+  /** met | unmet | not_applicable | unproven; null while unjudged */
   verdict: string | null;
   note: string | null;
   citation: string | null;
@@ -231,7 +231,8 @@ export interface TicketSeriesStepWorked {
 export interface TicketSeriesSpec {
   specId: string;
   ordinal: number;
-  fileStem: string;
+  /** Null for a spec read from the run record: no cut named its file. */
+  fileStem: string | null;
   goal: string;
   repos: string[];
   steps: TicketSpecStep[];
@@ -243,6 +244,20 @@ export interface TicketSeriesSpec {
   done: TicketSeriesCriterion[];
   unmeasured: Array<{ repositories: string; reason: string | null }>;
   worked?: TicketSeriesStepWorked[] | null;
+  /** False when only the goal was recorded; recordNote says why. */
+  hasRecord?: boolean;
+  /** "no record" | "record unreadable"; null with a record. */
+  recordNote?: string | null;
+  /** False for a terminal spec none of whose criteria carries a verdict. */
+  verdictRecorded?: boolean;
+}
+
+/** Run acceptance a run-record read could not tie to one spec. */
+export interface TicketSeriesUnattributed {
+  runId: string;
+  attempt: number;
+  criteria: TicketSeriesCriterion[];
+  unmeasured: Array<{ repositories: string; reason: string | null }>;
 }
 
 export interface TicketSeries {
@@ -259,6 +274,9 @@ export interface TicketSeries {
   specs: TicketSeriesSpec[];
   revisions: Array<{ number: number; cause: string | null; runId: string; attempt: number; at: string | null }>;
   recorded: boolean;
+  /** cut | run-record — run-record when the attempts predate the cut and the specs come from their rows. */
+  source?: string;
+  unattributedCriteria?: TicketSeriesUnattributed[] | null;
 }
 
 export interface RunPassCost {

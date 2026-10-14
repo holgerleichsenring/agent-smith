@@ -164,3 +164,4 @@ Phase	listed	MIXED	the bare word: execution stage, triage stage, skill workflow 
 Phases	listed	MIXED	the bare word: execution stage, triage stage, skill workflow step, pod phase, tracker label word, served or stored member, quoted history — the file decides which
 phase	listed	MIXED	the bare word: execution stage, triage stage, skill workflow step, pod phase, tracker label word, served or stored member, quoted history — the file decides which
 phases	listed	MIXED	the bare word: execution stage, triage stage, skill workflow step, pod phase, tracker label word, served or stored member, quoted history — the file decides which
+TicketSeries_Read_RunWithoutCut_PhaseKeyedRecordWithCommentAccount_ServesStepsAndDoneList	anywhere	HISTORY	test that a spec record stored before the rename, keyed with the old noun, still reads

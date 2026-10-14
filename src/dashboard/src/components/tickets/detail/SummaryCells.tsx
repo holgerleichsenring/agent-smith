@@ -4,6 +4,7 @@ import { useTicketSeries } from "@/lib/tickets/TicketPageStore";
 import type { TicketAttempt, TicketDetail, TicketSeriesSpec } from "@/types/tickets";
 import { channelWords, money } from "../ticketFormat";
 import { clock, elapsed } from "./flowWords";
+import { isRunRecord } from "./specWords";
 import { useTicketTabGo } from "./useTicketTabGo";
 
 // 2026-10-13-9a59q: the mock's .sum cells and .banner for one attempt, from its own records — the
@@ -12,11 +13,12 @@ import { useTicketTabGo } from "./useTicketTabGo";
 
 export function SummaryCells({ detail, attempt }: { detail: TicketDetail; attempt: TicketAttempt }) {
   const cut = useTicketSeries(attempt.runId).data;
-  const specs = cut?.runId === attempt.runId ? cut.specs : [];
+  const own = cut?.runId === attempt.runId ? cut : null;
+  const specs = own?.specs ?? [];
   return (
     <div className="sum" data-testid="ticket-summary-cells">
       <Cell k={`Attempt ${attempt.number} started by`}>{causeLines(attempt)}</Cell>
-      <Cell k="Series">{seriesLines(attempt, specs)}</Cell>
+      <Cell k="Series">{seriesLines(attempt, specs, isRunRecord(own))}</Cell>
       <Cell k="Pull requests">{prLines(detail)}</Cell>
       <Cell k="This attempt">{attemptLines(attempt, specs)}</Cell>
     </div>
@@ -45,8 +47,9 @@ function causeLines(attempt: TicketAttempt) {
   );
 }
 
-function seriesLines(attempt: TicketAttempt, specs: TicketSeriesSpec[]) {
+function seriesLines(attempt: TicketAttempt, specs: TicketSeriesSpec[], runRecord: boolean) {
   if (specs.length === 0 && !attempt.revision) return <span className="dim">no cut recorded</span>;
+  if (runRecord) return <span data-testid="cell-series-run-record">{specs.length} specs · run record</span>;
   const revision = attempt.revision ? ` · revision ${attempt.revision.number}` : "";
   const carried = carriedOf(attempt, specs).length;
   return (

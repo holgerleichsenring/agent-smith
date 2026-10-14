@@ -16,6 +16,12 @@ public sealed class SpecDraftReader
         var map = OutcomeYamlReader.ReadMap(yaml);
         var specId = OutcomeYamlReader.GetString(map, "spec")
             ?? throw new InvalidOperationException("Schema-valid spec draft has no 'spec' field.");
+        return Read(map, specId, yaml);
+    }
+
+    /// <summary>The draft of an already parsed document whose spec id the caller names.</summary>
+    internal SpecDraft Read(IReadOnlyDictionary<string, object?> map, string specId, string yaml)
+    {
         var goal = OutcomeYamlReader.GetString(map, "goal")
             ?? throw new InvalidOperationException("Schema-valid spec draft has no 'goal' field.");
         return new SpecDraft(specId, goal, yaml.Trim(), SpecDraftLists.Strings(map, "requires"))

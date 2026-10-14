@@ -4,13 +4,14 @@ import { useAttemptReads, useTicketDetail, useTicketSeries } from "@/lib/tickets
 import type { TicketAttempt, TicketSeriesSpec } from "@/types/tickets";
 import { clock } from "./flowWords";
 import { SpecDocument } from "./SpecDocument";
-import { attemptCell, defaultSpec } from "./specWords";
+import { attemptCell, defaultSpec, isRunRecord, RUN_RECORD_LINE } from "./specWords";
 import { SPEC_PARAM, useTicketTabGo } from "./useTicketTabGo";
 
 // 2026-10-13-9a59r: the series as read-only documents — one list item per spec with a cell per attempt
 // (from that attempt's own cut and passes, read once per finished attempt through the page's store) beside
 // the selected spec's document; then the revisions the attempts recorded. Specs change only through the
-// conversation, so nothing here edits or fetches a spec file.
+// conversation, so nothing here edits or fetches a spec file. Attempts that predate the cut show the specs
+// their runs recorded, and say so.
 
 export function TicketSpecsTab() {
   const detail = useTicketDetail();
@@ -28,9 +29,11 @@ export function TicketSpecsTab() {
     );
   }
   const selected = specs.find((s) => s.specId === address.param(SPEC_PARAM)) ?? defaultSpec(specs);
+  const runRecord = isRunRecord(series.data);
   return (
     <>
       <SpecsHead specs={specs} />
+      {runRecord && <div className="msub" data-testid="specs-run-record">{RUN_RECORD_LINE}</div>}
       <div className="sp-grid">
         <div className="sp-list" aria-label="Specs of this ticket" data-testid="specs-list">
           {specs.map((spec) => (
@@ -48,7 +51,8 @@ export function TicketSpecsTab() {
             </button>
           ))}
         </div>
-        {selected && <SpecDocument spec={selected} attempts={attempts} onDiscuss={() => address.go("conversation")} />}
+        {selected && <SpecDocument spec={selected} attempts={attempts} runRecord={runRecord}
+          onDiscuss={() => address.go("conversation")} />}
       </div>
       <Revisions attempts={attempts} />
     </>
