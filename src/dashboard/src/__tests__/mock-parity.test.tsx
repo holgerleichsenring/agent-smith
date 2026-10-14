@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { Suspense } from "react";
 import { render, screen, within, fireEvent } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
@@ -13,6 +14,7 @@ import { TicketListProvider } from "@/lib/tickets/TicketListProvider";
 import { fakeHub, list, pr, ticket } from "@/components/tickets/__tests__/ticketFixtures";
 import { TicketPage } from "@/components/tickets/detail/TicketPage";
 import { TicketPageStore } from "@/lib/tickets/TicketPageStore";
+import { TicketGraph } from "@/components/tickets/graph/TicketGraph";
 import {
   attempt, compute, conversation, defaults, detail, entry, pass, passes, reviewRound, reviews, runDetail, segment, series, spec,
   ticketText,
@@ -90,6 +92,13 @@ vi.mock("@/lib/ticketsApi", () => ({
     project: "shop", ticketId: "101", effect: "continue", reason: "", executed: 1, unstarted: 0, basisRunId: "r-2",
     specs: [{ specId: "s1", goal: "Port", disposition: "kept" }], start: { kind: "start-now" },
   }),
+}));
+// 2026-10-14-dbcen: the requires graph, a ticket's requires and the done-by-hand mark.
+const graphApi = vi.hoisted(() => ({ graph: vi.fn(), requires: vi.fn() }));
+vi.mock("@/lib/ticketGraphApi", () => ({
+  fetchTicketGraph: (...args: unknown[]) => graphApi.graph(...args),
+  fetchTicketRequires: (...args: unknown[]) => graphApi.requires(...args),
+  markLandedByHand: vi.fn(),
 }));
 vi.mock("@/hooks/useRunExecutionTree", () => ({
   useRunExecutionTree: () => ({ nodes: [] }),
@@ -247,6 +256,7 @@ describe("Mock parity", () => {
       compute: () => Promise.reject(new Error("unused")),
       reviews: () => Promise.resolve(reviews()),
       defaults: () => Promise.resolve(defaults()),
+      requires: () => Promise.resolve({ requires: [], requiredBy: [] }),
     };
     const ticketPage = render(
       <TicketPageStore project="shop" ticketId="101" client={fakeHub().client} api={ticketApi}>
@@ -315,6 +325,7 @@ describe("Mock parity", () => {
         ] }],
       })),
       defaults: () => Promise.resolve(defaults()),
+      requires: () => Promise.resolve({ requires: [], requiredBy: [] }),
     };
     const tabs: Array<[string, string[]]> = [
       ["conversation", [".section-head", ".conv-tools", ".chip", ".conv", ".c-att", ".msg", ".msg.internal", ".av", ".mh", ".where", ".mb", ".diff", ".proposal", ".ph", ".pb", ".composer", ".cp-head", ".cp-actions", ".cp-input"]],
@@ -358,6 +369,7 @@ describe("Mock parity", () => {
       })),
       reviews: () => Promise.resolve(reviews()),
       defaults: () => Promise.resolve(defaults()),
+      requires: () => Promise.resolve({ requires: [], requiredBy: [] }),
     };
     const tabs: Array<[string, string, string[]]> = [
       ["attempts", "attempts-timeline", [".next-card", ".bi", ".bt", ".bs", ".section-head", ".tl", ".att", ".dot", ".card", ".a-top", ".a-name", ".an", ".pill", ".rid", ".a-why", ".cause", ".a-num", ".a-body", ".kv", ".k", ".v", ".links", ".chg", ".line"]],
@@ -379,6 +391,71 @@ describe("Mock parity", () => {
       page.unmount();
     }
     search.current = "";
+  });
+
+  // 2026-10-14-dbcen: ticket-graph.html's list buckets, graph view, never-run page and done-by-hand dialog.
+  it("MockParity_TicketGraphSurfaces_CarryTicketGraphHtmlsStructuralClasses", async () => {
+    const mock = readFileSync("design/mockups/ticket-graph.html", "utf8");
+    const drawn = (root: Element, surface: string, classes: string[]) => {
+      for (const cls of classes) {
+        expect(root.querySelector(cls), `${surface} missing ${cls}`).not.toBeNull();
+        for (const name of cls.split(/[ .]/).filter(Boolean)) expect(mock, `ticket-graph.html lacks ${name}`).toContain(name);
+      }
+    };
+    const neverRun = (ticketId: string, bucket: "blocked" | "filed") => ticket({
+      ticketId, ticketKey: `github-${ticketId}`, bucket, status: "", newestRunId: "", attemptCount: 0, cost: 0, attempts: [],
+      waitsFor: bucket === "blocked" ? [{ ticketId: "58", project: "shop", key: "#58", title: "#58" }] : [], ticketText: true,
+    });
+
+    tickets.fetch.mockResolvedValue(list([neverRun("59", "blocked"), neverRun("61", "filed")], { blocked: 1, filed: 1 }));
+    const listView = render(<TicketListProvider client={fakeHub().client}><TicketsPage /></TicketListProvider>);
+    await screen.findByTestId("ticket-list");
+    drawn(screen.getByTestId("tickets-home"), "list buckets",
+      [".m-head", ".viewsw", ".vs", ".section-head", ".cnt.person", ".rows", ".trow", ".sd.blocked", ".sd.filed", ".rmain", ".tick", ".ttl", ".act", ".norun", ".when", ".chev"]);
+    listView.unmount();
+
+    graphApi.graph.mockResolvedValue({
+      nodes: [
+        { id: "a", project: "shop", ticketId: "59", key: "#59", title: "UI", state: "blocked", bucket: "blocked", hasPage: true },
+        { id: "b", project: "shop", ticketId: "41", key: "#41", title: "#41", state: "idle", bucket: "idle", hasPage: false },
+      ],
+      edges: [{ from: "a", to: "b" }],
+    });
+    const graphView = render(<div className="mock-shell mock-tickets" data-testid="graph-root"><TicketGraph /></div>);
+    await screen.findByTestId("ticket-graph");
+    fireEvent.click(screen.getByTestId("ticket-graph-node-41"));
+    drawn(screen.getByTestId("graph-root"), "graph view",
+      [".tgraph", ".tg-canvas", ".tg-edge", ".tg-node.blocked", ".tg-node.idle", ".tg-key", ".tg-title", ".tg-state", ".tg-legend", ".tg-panel", ".pt", ".pr"]);
+    graphView.unmount();
+
+    graphApi.requires.mockResolvedValue({
+      requires: [{ ticketId: "58", key: "#58", title: "API", state: "ready", hasPage: true }],
+      requiredBy: [{ ticketId: "60", key: "#60", title: "Export", state: "blocked", hasPage: true }],
+    });
+    const summary = neverRun("59", "blocked");
+    const ticketApi = {
+      detail: () => Promise.resolve(detail([], { summary })),
+      series: () => Promise.resolve(series("", [], { runId: null, gate: null, recorded: false })),
+      conversation: () => Promise.resolve(conversation([])),
+      text: () => Promise.resolve(ticketText()),
+      passes: () => Promise.reject(new Error("unused")),
+      run: () => Promise.reject(new Error("unused")),
+      compute: () => Promise.reject(new Error("unused")),
+      reviews: () => Promise.resolve(reviews()),
+      defaults: () => Promise.resolve(defaults()),
+      requires: () => graphApi.requires(),
+    };
+    render(
+      <TicketPageStore project="shop" ticketId="59" client={fakeHub().client} api={ticketApi}>
+        <TicketPage />
+      </TicketPageStore>,
+    );
+    await screen.findByTestId("ticket-waits-for");
+    fireEvent.click(screen.getByTestId("done-by-hand-58"));
+    drawn(screen.getByTestId("ticket-page"), "never-run page and dialog",
+      [".t-head", ".ticon.blocked", ".tsub", ".t-act", ".waits", ".wf-h", ".wf-row", ".wk", ".ws", ".filed-line",
+        ".dbh-back", ".dbh", ".dbh-sub", ".dbh-acts"]);
+    expect(screen.getByTestId("ticket-page").querySelector(".tabs")).toBeNull();
   });
 
   it("TraceDrawer_HostsExistingMasterDetail", async () => {

@@ -32,6 +32,12 @@ export class TicketOwnRead<T> {
     this.abort.abort();
   }
 
+  /** 2026-10-14-dbcen: one re-read now, past any pending window — after this page's own act. */
+  now(): void {
+    this.tick.cancel();
+    void this.read();
+  }
+
   /** One re-read within the window, however many nudges ask for it. */
   within(windowMs: number): void {
     this.tick.within(windowMs);

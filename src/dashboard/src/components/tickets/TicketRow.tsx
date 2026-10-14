@@ -7,11 +7,13 @@ import { TicketActivity } from "./TicketActivity";
 import { TicketAttemptMarks } from "./TicketAttemptMarks";
 import { TicketStrip } from "./TicketStrip";
 import { ticketDot } from "./ticketDot";
-import { age, attempts, money, ticketLabel } from "./ticketFormat";
+import { age, attempts, isNeverRun, money, ticketLabel } from "./ticketFormat";
 
 // 2026-10-13-9a59p: one ticket on the list, in the mock's .trow anatomy — state dot, key and
 // title over the activity line, series strip with its PR cells, attempt marks, summed cost, age,
 // chevron. The whole row opens the ticket's page (2026-10-13-9a59q); Enter does the same, being a link.
+// 2026-10-14-dbcen: a ticket with no run on record has no strip, marks or cost — what it waits for, by
+// tracker key, or "no run on record" stands in their place.
 
 export function ticketHref(t: TicketSummary): string {
   return ticketPath(t.project, t.ticketId);
@@ -34,14 +36,41 @@ export function TicketRow({ ticket }: { ticket: TicketSummary }) {
         </div>
         <TicketActivity ticket={ticket} />
       </div>
-      <TicketStrip strip={ticket.seriesStrip} pullRequests={ticket.pullRequests ?? []} />
-      <TicketAttemptMarks marks={ticket.attempts} count={ticket.attemptCount} />
-      <div className="cost hidesm">
-        {money(ticket.cost)}
-        <small>{attempts(ticket.attemptCount)}</small>
-      </div>
+      {isNeverRun(ticket) ? (
+        <NoRun ticket={ticket} />
+      ) : (
+        <>
+          <TicketStrip strip={ticket.seriesStrip} pullRequests={ticket.pullRequests ?? []} />
+          <TicketAttemptMarks marks={ticket.attempts} count={ticket.attemptCount} />
+          <div className="cost hidesm">
+            {money(ticket.cost)}
+            <small>{attempts(ticket.attemptCount)}</small>
+          </div>
+        </>
+      )}
       <div className="when hidesm">{when ?? ""}</div>
       <span className="chev">›</span>
     </Link>
+  );
+}
+
+function NoRun({ ticket }: { ticket: TicketSummary }) {
+  const waits = ticket.waitsFor ?? [];
+  return (
+    <div className="norun hidesm" data-testid="ticket-norun">
+      {waits.length > 0 ? (
+        <>
+          waits for{" "}
+          {waits.map((w, i) => (
+            <span key={w.ticketId}>
+              {i > 0 && ", "}
+              <b>{w.key}</b>
+            </span>
+          ))}
+        </>
+      ) : (
+        "no run on record"
+      )}
+    </div>
   );
 }

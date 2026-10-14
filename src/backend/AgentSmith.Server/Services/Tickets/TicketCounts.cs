@@ -9,7 +9,7 @@ namespace AgentSmith.Server.Services.Tickets;
 /// or a parked run whose relaunch holds a place or a fresh lease.
 /// <para>2026-10-13-9a59b: and the review side — waiting on review, done, open pull requests, the
 /// tickets done this calendar month (UTC) with the attempts they took, and the last one done.</para>
-/// <para>2026-10-13-9a59h: and the stuck ones.</para>
+/// <para>2026-10-13-9a59h: and the stuck ones. 2026-10-14-dbcen: and the blocked and filed never-run ones.</para>
 /// </summary>
 public sealed class TicketCounts(TimeProvider clock)
 {
@@ -34,7 +34,9 @@ public sealed class TicketCounts(TimeProvider clock)
             tickets.Sum(t => t.PullRequests.Count(p => p.State == PrReviewStates.Open)),
             DoneThisMonth(done),
             done.MaxBy(t => t.Since) is { } last ? new TicketLastDone(last.Project, last.TicketId, last.Since!.Value) : null,
-            tickets.Count(t => t.Bucket == TicketBucket.Stuck));
+            tickets.Count(t => t.Bucket == TicketBucket.Stuck),
+            tickets.Count(t => t.Bucket == TicketBucket.Blocked),
+            tickets.Count(t => t.Bucket == TicketBucket.Filed));
     }
 
     private TicketDoneCount DoneThisMonth(IReadOnlyList<TicketSummaryView> done)

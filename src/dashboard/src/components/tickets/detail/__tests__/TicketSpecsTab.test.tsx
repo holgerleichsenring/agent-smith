@@ -63,6 +63,7 @@ const api = {
   compute: vi.fn(() => Promise.reject(new Error("unused"))),
   reviews: vi.fn(() => Promise.resolve(world.reviews)),
   defaults: vi.fn(() => Promise.resolve(defaults())),
+  requires: vi.fn(() => Promise.resolve({ requires: [], requiredBy: [] })),
 };
 
 const settle = async () => {

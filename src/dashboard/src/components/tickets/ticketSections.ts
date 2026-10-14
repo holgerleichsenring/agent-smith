@@ -9,7 +9,7 @@ export interface TicketSectionSpec {
   title: string;
   sub: string;
   /** The mock's .cnt colour, applied while the section holds any ticket. */
-  tone?: "amber" | "red" | "green";
+  tone?: "amber" | "red" | "green" | "person";
   empty: string;
   count: (counts: TicketCounts) => number;
 }
@@ -41,6 +41,20 @@ export const TICKET_SECTIONS: Readonly<Record<TicketBucket, TicketSectionSpec>> 
     empty: "No ticket is stuck.",
     count: (c) => c.stuck,
   },
+  // 2026-10-14-dbcen: filed tickets with no run on record (ticket-graph.html, list-buckets).
+  blocked: {
+    title: "Waits for another ticket",
+    sub: "filed, held until what it requires is merged or marked done by hand",
+    tone: "person",
+    empty: "No filed ticket waits for another.",
+    count: (c) => c.blocked ?? 0,
+  },
+  filed: {
+    title: "Filed, no run on record",
+    sub: "filed here, nothing it requires is open, no run recorded",
+    empty: "No filed ticket is without a run.",
+    count: (c) => c.filed ?? 0,
+  },
   ended: {
     title: "Ended",
     sub: "no next step is running or waiting",
@@ -58,5 +72,5 @@ export const TICKET_SECTIONS: Readonly<Record<TicketBucket, TicketSectionSpec>> 
 
 /** Every ticket the counts cover: each ticket is in exactly one bucket. */
 export function totalTickets(c: TicketCounts): number {
-  return c.needsYou + c.working + c.waitingOnReview + c.stuck + c.idle + c.done;
+  return c.needsYou + c.working + c.waitingOnReview + c.stuck + (c.blocked ?? 0) + (c.filed ?? 0) + c.idle + c.done;
 }

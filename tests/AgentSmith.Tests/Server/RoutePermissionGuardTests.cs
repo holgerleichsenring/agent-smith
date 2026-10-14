@@ -140,6 +140,14 @@ public sealed class RoutePermissionGuardTests
     public void RoutePermissionGuard_LandedByHand_NeedsRunsControl() =>
         Declaration("POST", "/api/tickets/{project}/{ticketId}/landed-by-hand").Should().Equal(Permissions.RunsControl);
 
+    // 2026-10-14-dbcen: the graph and a ticket's requires are ticket state, read like the list.
+    [Fact]
+    public void RoutePermissionGuard_TicketGraphAndRequires_NeedRunsRead()
+    {
+        Declaration("GET", "/api/tickets/graph").Should().Equal(Permissions.RunsRead);
+        Declaration("GET", "/api/tickets/{project}/{ticketId}/requires").Should().Equal(Permissions.RunsRead);
+    }
+
     // 2026-10-13-8762r: a mock is the conversation's own material, like its uploads.
     [Fact]
     public void RoutePermission_MockShot_NeedsDialogWrite() =>

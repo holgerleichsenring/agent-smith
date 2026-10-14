@@ -1,13 +1,16 @@
 import { ApiResponseError, type ApiRefusal } from "@/lib/apiResponse";
 import { fetchRun } from "@/lib/runsApi";
 import { isRunLive } from "@/lib/runLiveness";
+import { fetchTicketRequires } from "@/lib/ticketGraphApi";
 import {
   fetchRunCompute, fetchRunPasses, fetchTicketConversation, fetchTicketDefaults, fetchTicketDetail, fetchTicketReviews,
   fetchTicketSeries,
   fetchTicketText,
 } from "@/lib/ticketsApi";
 import type { RunSnapshot } from "@/types/hub-events";
-import type { RunCompute, RunPasses, TicketConversation, TicketDefaults, TicketDetail, TicketReviews, TicketSeries, TicketText } from "@/types/tickets";
+import type {
+  RunCompute, RunPasses, TicketConversation, TicketDefaults, TicketDetail, TicketRequires, TicketReviews, TicketSeries, TicketText,
+} from "@/types/tickets";
 import { CoalescedRefetch } from "./CoalescedRefetch";
 import { failure } from "./readFailure";
 import { TicketOwnRead } from "./TicketOwnRead";
@@ -21,6 +24,8 @@ import { TicketOwnRead } from "./TicketOwnRead";
 // more per-run reads under the same rules.
 // The ticket text reads the tracker, so it has its own tick: the page's start and this ticket's
 // TicketActivityChanged (or a reconnect), never a RunsChanged.
+// 2026-10-14-dbcen: what the ticket waits for and what waits for it, on the ticket's own nudge; a mark made on
+// this page re-reads it and the detail at once, because the landing nudges the marked ticket, not this one.
 
 export const TICKET_READ_MS = 2000;
 
@@ -41,6 +46,7 @@ export interface TicketPageSnapshot {
   reviews: Read<TicketReviews>;
   defaults: Read<TicketDefaults>;
   text: Read<TicketText>;
+  requires: Read<TicketRequires>;
   runSeries: Readonly<Record<string, Read<TicketSeries>>>;
   runPasses: Readonly<Record<string, Read<RunPasses>>>;
   runRun: Readonly<Record<string, Read<RunSnapshot>>>;
@@ -54,6 +60,7 @@ export interface TicketPageApi {
   reviews(project: string, ticketId: string, signal?: AbortSignal): Promise<TicketReviews>;
   defaults(project: string, ticketId: string, signal?: AbortSignal): Promise<TicketDefaults>;
   text(project: string, ticketId: string, signal?: AbortSignal): Promise<TicketText>;
+  requires(project: string, ticketId: string, signal?: AbortSignal): Promise<TicketRequires>;
   passes(runId: string, signal?: AbortSignal): Promise<RunPasses>;
   /** The run detail; a 404 rejects like any other read. */
   run(runId: string, signal?: AbortSignal): Promise<RunSnapshot>;
@@ -68,6 +75,7 @@ export const TICKET_PAGE_API: TicketPageApi = {
   reviews: (project, ticketId, signal) => fetchTicketReviews(project, ticketId, signal),
   defaults: (project, ticketId, signal) => fetchTicketDefaults(project, ticketId, signal),
   text: (project, ticketId, signal) => fetchTicketText(project, ticketId, signal),
+  requires: (project, ticketId, signal) => fetchTicketRequires(project, ticketId, signal),
   passes: (runId, signal) => fetchRunPasses(runId, signal),
   run: async (runId, signal) => {
     const run = await fetchRun(runId, signal);
@@ -91,7 +99,7 @@ const PENDING: Read<never> = { data: null, failed: false, refusal: null, loading
 
 export class TicketPageReads {
   private snap: TicketPageSnapshot = {
-    detail: PENDING, series: PENDING, conversation: PENDING, reviews: PENDING, defaults: PENDING, text: PENDING,
+    detail: PENDING, series: PENDING, conversation: PENDING, reviews: PENDING, defaults: PENDING, text: PENDING, requires: PENDING,
     runSeries: {}, runPasses: {}, runRun: {}, runCompute: {},
   };
   private readonly wanted = new Set<string>();
@@ -105,6 +113,8 @@ export class TicketPageReads {
     () => this.snap.defaults, (defaults) => this.publish({ ...this.snap, defaults })); // 2026-10-13-8762q
   private readonly text = new TicketOwnRead((signal) => this.api.text(this.project, this.ticketId, signal),
     () => this.snap.text, (text) => this.publish({ ...this.snap, text }));
+  private readonly requires = new TicketOwnRead((signal) => this.api.requires(this.project, this.ticketId, signal),
+    () => this.snap.requires, (requires) => this.publish({ ...this.snap, requires }));
   private lastStatuses: string | null = null;
   private disposed = false;
   private generation = 0;
@@ -128,6 +138,7 @@ export class TicketPageReads {
     this.reviews.start();
     this.defaults.start();
     this.text.start();
+    this.requires.start();
     for (const key of this.wanted) {
       const [kind, runId] = splitKey(key);
       if (!this.perRun(kind)[runId]?.data && !this.inFlight.has(key)) this.readPerRun(kind, runId);
@@ -144,6 +155,7 @@ export class TicketPageReads {
     this.reviews.dispose();
     this.defaults.dispose();
     this.text.dispose();
+    this.requires.dispose();
     this.abort.abort();
   }
 
@@ -154,6 +166,14 @@ export class TicketPageReads {
     this.reviews.within(TICKET_READ_MS);
     this.defaults.within(TICKET_READ_MS);
     this.text.within(TICKET_READ_MS);
+    this.requires.within(TICKET_READ_MS);
+  }
+
+  /** (g) 2026-10-14-dbcen: a ticket was marked done by hand from this page — its requires and its detail, at once. */
+  landedHere(): void {
+    this.ticketTick.cancel();
+    this.requires.now();
+    this.readTicket();
   }
 
   /** (b) a RunsChanged — counted only for one of this ticket's attempts; never the conversation. */

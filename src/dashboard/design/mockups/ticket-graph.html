@@ -1,6 +1,6 @@
 <!-- Ticket graph mock for 2026-10-14-dbcek (proposal section, ticket-text model, main-thread
-     decision D1); 2026-10-14-dbcen extends this file with the list buckets, the graph view, "waits for" on the ticket
-     header and the done-by-hand dialog.
+     decision D1); 2026-10-14-dbcen extends it with the list buckets, the graph view, the never-run ticket page
+     and the done-by-hand dialog.
      Sibling of ticket-view.html: same tokens (repo-root DESIGN.md + mock-parity.css), same shell.
      NON-SHIPPING: every "Mock only" footer and the "Mock · preview state" chips exist to review the mock. -->
 <title>agent-smith · ticket graph</title>
@@ -122,6 +122,84 @@
   .finding.cut { border-left-color:var(--run); background:var(--run-wash); }
   .finding.applied { border-left-color:var(--ok); background:var(--ok-wash); }
   .notice { border:1px solid var(--line); border-radius:var(--r-s); background:var(--panel); padding:10px 12px; font-size:12.5px; }
+
+  /* ===== 2026-10-14-dbcen: the ticket list's never-run buckets, the graph view, the never-run page, done by hand ===== */
+  .m-head { display:flex; align-items:flex-end; gap:16px; margin:34px 0 16px; flex-wrap:wrap; }
+  .m-head h1 { font-size:23px; margin:0; font-weight:680; letter-spacing:-.02em; }
+  .m-head .msub { font-size:13px; color:var(--ink-3); margin-top:4px; max-width:70ch; }
+  .section-head { display:flex; align-items:center; gap:10px; padding:0 2px 11px; border-bottom:1px solid var(--line); margin:26px 0 14px; flex-wrap:wrap; }
+  .section-head h2 { font-size:16px; font-weight:660; margin:0; }
+  .cnt { font-size:11.5px; font-weight:650; padding:2px 9px; border-radius:20px; background:var(--panel-2); color:var(--ink-2); }
+  .cnt.person { background:var(--person-wash); color:var(--person); }
+  .section-head .sh-sub { font-size:12px; color:var(--ink-3); margin-left:auto; }
+  .rows { display:flex; flex-direction:column; }
+  .trow { display:grid; grid-template-columns:14px minmax(0,1fr) 128px 76px 86px 70px 14px; gap:16px; align-items:center; padding:13px 16px; background:var(--panel); border:1px solid var(--line); border-top:0; cursor:pointer; color:inherit; text-decoration:none; }
+  .rows > .trow:first-child { border-top:1px solid var(--line); border-radius:var(--r) var(--r) 0 0; }
+  .rows > .trow:last-child { border-radius:0 0 var(--r) var(--r); }
+  .rows > .trow:only-child { border-radius:var(--r); }
+  @media (max-width:900px){ .trow{ grid-template-columns:14px minmax(0,1fr) auto 14px; } .trow .hidesm{ display:none; } }
+  .sd { width:10px; height:10px; border-radius:50%; }
+  .sd.blocked { background:var(--bg); border:2px solid var(--person); }
+  .sd.filed { background:var(--bg); border:2px solid var(--idle); }
+  .rmain { min-width:0; }
+  .rt { display:flex; align-items:baseline; gap:9px; min-width:0; }
+  .tick { font-family:var(--mono); font-size:11.5px; color:var(--ink-3); flex:none; }
+  .ttl { font-size:13.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .act { font-size:11.5px; color:var(--ink-3); margin-top:2px; }
+  .trow .norun { grid-column:span 3; font-size:11.5px; color:var(--ink-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .trow .norun b { font-family:var(--mono); font-weight:500; color:var(--person); }
+  .trow .when { font-size:11.5px; color:var(--ink-3); text-align:right; }
+  .trow .chev { color:var(--ink-3); font-size:13px; }
+  .viewsw { display:inline-flex; border:1px solid var(--line); border-radius:9px; overflow:hidden; margin-left:auto; }
+  .viewsw .vs { font:inherit; font-size:12.5px; font-weight:560; padding:6px 14px; border:0; background:var(--bg); color:var(--ink-2); cursor:pointer; }
+  .viewsw .vs[aria-pressed="true"] { background:var(--ink); color:var(--bg); }
+  .tgraph { border:1px solid var(--line); border-radius:var(--r); background:var(--panel); padding:14px; overflow-x:auto; }
+  .tg-canvas { display:block; min-width:640px; }
+  .tg-edge { fill:none; stroke:var(--ink-3); stroke-width:1.4; }
+  .tg-node rect { fill:var(--bg); stroke:var(--line); stroke-width:1.2; rx:9; }
+  .tg-node { cursor:pointer; }
+  .tg-node .tg-key { font-family:var(--mono); font-size:11px; fill:var(--ink-3); }
+  .tg-node .tg-title { font-size:12px; font-weight:600; fill:var(--ink); }
+  .tg-node .tg-state { font-size:10.5px; font-weight:650; letter-spacing:.04em; text-transform:uppercase; }
+  .tg-node.merged rect, .tg-node.done-by-hand rect { stroke:var(--ok); fill:var(--ok-wash); } .tg-node.merged .tg-state, .tg-node.done-by-hand .tg-state { fill:var(--ok); }
+  .tg-node.running rect { stroke:var(--run); fill:var(--run-wash); } .tg-node.running .tg-state { fill:var(--run); }
+  .tg-node.blocked rect { stroke:var(--person); stroke-dasharray:4 3; } .tg-node.blocked .tg-state { fill:var(--person); }
+  .tg-node.ready rect { stroke:var(--ink-3); } .tg-node.ready .tg-state { fill:var(--ink-2); }
+  .tg-node.idle rect { stroke:var(--idle); stroke-dasharray:2 3; } .tg-node.idle .tg-state { fill:var(--ink-3); }
+  .tg-legend { display:flex; gap:14px; flex-wrap:wrap; font-size:11.5px; color:var(--ink-3); margin-top:10px; }
+  .tg-legend i { display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px; border:1.5px solid var(--line); }
+  .tg-legend i.merged { background:var(--ok-wash); border-color:var(--ok); } .tg-legend i.running { background:var(--run-wash); border-color:var(--run); }
+  .tg-legend i.blocked { border:1.5px dashed var(--person); } .tg-legend i.ready { border-color:var(--ink-3); } .tg-legend i.idle { border:1.5px dashed var(--idle); }
+  .tg-panel { border:1px solid var(--line); border-radius:var(--r); background:var(--bg); padding:12px 14px; margin-top:12px; display:flex; flex-direction:column; gap:6px; max-width:520px; }
+  .tg-panel .key { font-family:var(--mono); font-size:12px; color:var(--ink-3); }
+  .tg-panel .pt { font-size:14px; font-weight:640; }
+  .tg-panel .pr { font-size:12px; color:var(--ink-2); }
+  .t-head { display:flex; align-items:flex-start; gap:14px; margin-bottom:6px; flex-wrap:wrap; }
+  .t-head .ticon { width:22px; height:22px; border-radius:50%; margin-top:5px; flex:none; }
+  .t-head .ticon.blocked { background:var(--bg); border:3px solid var(--person); }
+  .t-head .ticon.filed { background:var(--bg); border:3px solid var(--idle); }
+  .t-head .tt { min-width:0; flex:1 1 360px; }
+  .t-head h1 { margin:0; font-size:21px; font-weight:680; letter-spacing:-.02em; line-height:1.25; }
+  .t-head h1 .key { font-family:var(--mono); font-weight:500; font-size:17px; color:var(--ink-2); margin-right:8px; }
+  .t-head .tsub { font-size:12.5px; color:var(--ink-3); margin-top:4px; display:flex; gap:8px; flex-wrap:wrap; }
+  .t-head .t-act { display:flex; gap:8px; flex:none; flex-wrap:wrap; }
+  .waits { border:1px solid var(--line); border-radius:var(--r); background:var(--panel); margin-top:14px; overflow:hidden; }
+  .waits .wf-h { font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); font-weight:600; padding:10px 14px 6px; }
+  .waits .wf-row { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:10px; align-items:center; padding:8px 14px; border-top:1px solid var(--line-2); font-size:12.5px; }
+  .waits .wf-row .wk { font-family:var(--mono); font-size:12px; color:var(--ink); margin-right:6px; }
+  .waits .wf-row .ws { color:var(--ink-3); }
+  .waits .wf-row .ws.landed { color:var(--ok); font-weight:600; }
+  .waits .wf-row .wb { display:block; font-size:11.5px; color:var(--ink-3); }
+  .waits .wf-none { padding:8px 14px 10px; font-size:12.5px; color:var(--ink-3); }
+  .filed-line { margin-top:14px; font-size:13px; color:var(--ink-2); display:flex; gap:14px; align-items:baseline; flex-wrap:wrap; }
+  .filed-line a { color:var(--ink); font-weight:600; }
+  .dbh-back { position:relative; background:color-mix(in srgb, var(--ink) 18%, transparent); border-radius:var(--r); padding:28px 16px; display:grid; place-items:center; }
+  .dbh { background:var(--bg); border:1px solid var(--line); border-radius:var(--r); padding:16px 18px; width:min(460px,100%); display:flex; flex-direction:column; gap:10px; box-shadow:0 8px 30px rgba(32,21,21,.12); }
+  .dbh h3 { margin:0; font-size:15px; font-weight:660; }
+  .dbh .dbh-sub { font-size:12.5px; color:var(--ink-3); }
+  .dbh textarea { font:inherit; font-size:13px; border:1px solid var(--line); border-radius:var(--r-s); padding:8px 10px; min-height:72px; resize:vertical; background:var(--panel); color:var(--ink); }
+  .dbh .dbh-said { border-left:3px solid var(--bad); background:var(--bad-wash); padding:6px 10px; font-size:12.5px; border-radius:0 var(--r-s) var(--r-s) 0; }
+  .dbh .dbh-acts { display:flex; gap:8px; justify-content:flex-end; }
 </style>
 
 <div class="app">
@@ -230,6 +308,110 @@
       </div>
     </section>
 
+    <!-- ===== 2026-10-14-dbcen: the ticket list after filing — the two never-run buckets (TicketSection, TicketRow) ===== -->
+    <section id="list-buckets" data-section="list-buckets">
+      <div class="m-head">
+        <div><h1>Tickets</h1><div class="msub">After Approve &amp; file: the three tickets appear before any run, under who or what they wait for.</div></div>
+        <div class="viewsw" role="group" aria-label="View"><button class="vs" type="button" aria-pressed="true">List</button><button class="vs" type="button" aria-pressed="false">Graph</button></div>
+      </div>
+      <div class="section-head"><h2>Waits for another ticket</h2><span class="cnt person">2</span><span class="sh-sub">filed, held until what it requires is merged or marked done by hand</span></div>
+      <div class="rows">
+        <a class="trow"><span class="sd blocked"></span>
+          <div class="rmain"><div class="rt"><span class="tick">#59</span><span class="ttl">Orders: list and detail screens on the API</span></div><div class="act">filed 12m ago</div></div>
+          <div class="norun hidesm">waits for <b>#58</b>, <b>#41</b></div>
+          <div class="when hidesm">12m</div><span class="chev">›</span></a>
+        <a class="trow"><span class="sd blocked"></span>
+          <div class="rmain"><div class="rt"><span class="tick">#60</span><span class="ttl">Orders: nightly CSV export</span></div><div class="act">filed 12m ago</div></div>
+          <div class="norun hidesm">waits for <b>#58</b>, <b>#59</b></div>
+          <div class="when hidesm">12m</div><span class="chev">›</span></a>
+      </div>
+      <div class="section-head"><h2>Filed, no run on record</h2><span class="cnt">1</span><span class="sh-sub">filed here, nothing it requires is open, no run recorded</span></div>
+      <div class="rows">
+        <a class="trow"><span class="sd filed"></span>
+          <div class="rmain"><div class="rt"><span class="tick">#61</span><span class="ttl">Orders: API reference page</span></div><div class="act">filed 12m ago</div></div>
+          <div class="norun hidesm">no run on record</div>
+          <div class="when hidesm">12m</div><span class="chev">›</span></a>
+      </div>
+    </section>
+
+    <!-- ===== the graph view: /tickets?view=graph (TicketGraph, ticketGraphLayout, TicketRequiresPanel) ===== -->
+    <section id="graph-view" data-section="graph-view">
+      <div class="m-head">
+        <div><h1>Tickets</h1><div class="msub">Every ticket that requires or is required, an arrow from each ticket to what it requires.</div></div>
+        <div class="viewsw" role="group" aria-label="View"><button class="vs" type="button" aria-pressed="false">List</button><button class="vs" type="button" aria-pressed="true">Graph</button></div>
+      </div>
+      <div class="tgraph">
+        <svg class="tg-canvas" viewBox="0 0 760 236" width="760" height="236" role="img" aria-label="Tickets and what they require">
+          <defs><marker id="tg-arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#939084"/></marker></defs>
+          <path class="tg-edge" d="M280,38 C245,38 235,38 200,38" marker-end="url(#tg-arrow)"/>
+          <path class="tg-edge" d="M280,38 C240,38 240,114 200,114" marker-end="url(#tg-arrow)"/>
+          <path class="tg-edge" d="M280,148 C240,148 240,38 200,38" marker-end="url(#tg-arrow)"/>
+          <path class="tg-edge" d="M280,148 C240,148 240,190 200,190" marker-end="url(#tg-arrow)"/>
+          <path class="tg-edge" d="M550,32 C480,2 270,2 200,32" marker-end="url(#tg-arrow)"/>
+          <path class="tg-edge" d="M550,38 C520,38 500,38 470,38" marker-end="url(#tg-arrow)"/>
+          <g class="tg-node merged" transform="translate(10,10)"><rect width="190" height="56"/><text class="tg-key" x="12" y="18">#58</text><text class="tg-title" x="12" y="34">Orders: create, read, cancel</text><text class="tg-state" x="12" y="49">merged</text></g>
+          <g class="tg-node idle" transform="translate(10,86)"><rect width="190" height="56"/><text class="tg-key" x="12" y="18">#41</text><text class="tg-title" x="12" y="34">#41</text><text class="tg-state" x="12" y="49">no run · no page</text></g>
+          <g class="tg-node done-by-hand" transform="translate(10,162)"><rect width="190" height="56"/><text class="tg-key" x="12" y="18">#40</text><text class="tg-title" x="12" y="34">Auth: token refresh</text><text class="tg-state" x="12" y="49">done by hand</text></g>
+          <g class="tg-node running" transform="translate(280,10)"><rect width="190" height="56"/><text class="tg-key" x="12" y="18">#59</text><text class="tg-title" x="12" y="34">Orders: list and detail</text><text class="tg-state" x="12" y="49">running</text></g>
+          <g class="tg-node ready" transform="translate(280,120)"><rect width="190" height="56"/><text class="tg-key" x="12" y="18">#61</text><text class="tg-title" x="12" y="34">Orders: API reference</text><text class="tg-state" x="12" y="49">ready</text></g>
+          <g class="tg-node blocked" transform="translate(550,10)"><rect width="190" height="56"/><text class="tg-key" x="12" y="18">#60</text><text class="tg-title" x="12" y="34">Orders: nightly CSV export</text><text class="tg-state" x="12" y="49">blocked</text></g>
+        </svg>
+        <div class="tg-legend"><span><i class="merged"></i>merged or done by hand</span><span><i class="running"></i>running</span><span><i class="blocked"></i>blocked</span><span><i class="ready"></i>ready</span><span><i class="idle"></i>no run, no page</span></div>
+      </div>
+      <div class="tg-panel" role="region" aria-label="#41">
+        <span class="key">#41</span>
+        <span class="pt">#41</span>
+        <span class="pr">No run and no filing here — the ticket lives only on the tracker. Required by <b>#59</b>.</span>
+        <div><button class="btn" type="button">Mark done by hand</button></div>
+      </div>
+    </section>
+
+    <!-- ===== the never-run ticket page: /tickets/{project}/{id} with no attempt (TicketPage, TicketHeader, TicketWaitsFor) ===== -->
+    <section id="never-run-page" data-section="never-run-page">
+      <div class="m-head"><div><h1>A ticket with no run</h1><div class="msub">No runway and no tabs: nothing has been derived, attempted or spent yet.</div></div></div>
+      <div class="t-head">
+        <span class="ticon blocked" aria-hidden="true"></span>
+        <div class="tt">
+          <h1><span class="key">#59</span>Orders: list and detail screens on the API</h1>
+          <div class="tsub"><a>GitHub ↗</a><span>·</span><span>filed 12m ago</span></div>
+        </div>
+        <div class="t-act"><button class="btn" type="button">Mark done by hand</button></div>
+      </div>
+      <div class="waits">
+        <div class="wf-h">Waits for</div>
+        <div class="wf-row"><span><span class="wk">#58</span>Orders: create, read and cancel over the API <span class="ws">(not merged)</span></span><button class="btn" type="button">Mark done by hand</button></div>
+        <div class="wf-row"><span><span class="wk">#41</span>#41 <span class="ws">(not merged)</span></span><button class="btn" type="button">Mark done by hand</button></div>
+        <div class="wf-row"><span><span class="wk">#40</span>Auth: token refresh <span class="ws landed">(done by hand)</span><span class="wb">by Hanna Operator, 2026-10-14 08:02 — "shipped in the 3.2 hotfix"</span></span></div>
+      </div>
+      <div class="waits">
+        <div class="wf-h">Required by</div>
+        <div class="wf-row"><span><span class="wk">#60</span>Orders: nightly CSV export <span class="ws">(blocked)</span></span></div>
+      </div>
+      <div class="filed-line"><span>Filed, no run on record — its specs are derived when its first run starts.</span><a>Settle its specs first in Work it out →</a></div>
+      <div class="filed-line"><span class="mono" style="font-size:11px;color:var(--ink-3)">a filed spec or epic:</span><span>Filed, no run on record</span><a>Settle its specs first in Work it out →</a></div>
+    </section>
+
+    <!-- ===== done by hand (DoneByHandDialog) ===== -->
+    <section id="done-by-hand" data-section="done-by-hand">
+      <div class="m-head"><div><h1>Mark done by hand</h1><div class="msub">For a ticket something waits for: merged elsewhere, shipped by hand, or no longer needed.</div></div></div>
+      <div class="chips" role="group" aria-label="Preview the dialog state">
+        <span class="lbl">Mock · preview state</span>
+        <button class="chip dbh-chip" type="button" data-dbh="empty" aria-pressed="true">no note yet</button>
+        <button class="chip dbh-chip" type="button" data-dbh="409" aria-pressed="false">already marked (409)</button>
+        <button class="chip dbh-chip" type="button" data-dbh="503" aria-pressed="false">tracker unreachable (503)</button>
+      </div>
+      <div class="dbh-back">
+        <div class="dbh" role="dialog" aria-modal="true" aria-labelledby="dbh-t">
+          <h3 id="dbh-t">Mark #58 done by hand</h3>
+          <div class="dbh-sub">Tickets that wait for #58 stop waiting. This cannot be undone.</div>
+          <textarea placeholder="Why does this ticket count as landed?" aria-label="Note"></textarea>
+          <div class="dbh-said" data-dbh-show="409" hidden>58 is already marked done by Hanna Operator at 2026-10-14 08:02:11Z: shipped in the 3.2 hotfix.</div>
+          <div class="dbh-said" data-dbh-show="503" hidden>The tracker gh could not be read (unreachable); nothing was recorded.</div>
+          <div class="dbh-acts"><button class="btn" type="button">Cancel</button><button class="btn primary" type="button" id="dbh-send" disabled>Mark done</button></div>
+        </div>
+      </div>
+    </section>
+
     <div class="mockfoot">
       <h4>Mock only · what each element reads</h4>
       <ol>
@@ -244,7 +426,10 @@
         <li><b>In Slack and Teams</b> the confirmation is the compact list — key, title, number of done items, waits-for — and points here for the full texts.</li>
         <li><b>The ticket's own conversation</b>, opened after filing, keeps the files uploaded here: its approval carries this conversation's citations forward (2026-10-14-dbcel).</li>
         <li><b>Approve &amp; file / Reject</b> are the approval card's pair in a conversation bound to no ticket (<code>DialogQuestionCard</code>); the offered shape sends the partner round again as one ticket's series.</li>
-        <li>2026-10-14-dbcen adds: the list's <code>blocked</code> / <code>filed</code> buckets, the graph view, “waits for #X” on the ticket header and the done-by-hand dialog.</li>
+        <li><b>List buckets</b> (2026-10-14-dbcen) read <code>GET /api/tickets</code>: a filed ticket with no run is a row of bucket <code>blocked</code> (a requirement unmet, as the claim gate reads it) or <code>filed</code>; it leads the first page only, carries no series strip, attempt marks or cost, and names what it waits for by tracker key.</li>
+        <li><b>Graph view</b> reads <code>GET /api/tickets/graph?project=</code>: nodes with their state (merged / done by hand &gt; running &gt; blocked &gt; ready &gt; the list bucket), edges from the dependent; a node with a page opens it, a page-less one opens the requires panel with the act.</li>
+        <li><b>Never-run page</b> reads <code>GET /api/tickets/{project}/{id}</code> (a detail with no attempt) and <code>GET /api/tickets/{project}/{id}/requires</code>: header, what it waits for, what waits for it, the filed line by kind (a list ticket says its specs come with its first run) and the Work it out link; no runway, no tabs.</li>
+        <li><b>Done by hand</b> posts <code>POST /api/tickets/{project}/{id}/landed-by-hand</code> (runs.control, note required); every refusal (400, 404, 409, 503) is the server's sentence shown as is, and a 200 re-reads the page's requires and detail at once.</li>
       </ol>
     </div>
   </main>
@@ -252,7 +437,7 @@
 
 <script>
   (function () {
-    var chips = document.querySelectorAll('.chip');
+    var chips = document.querySelectorAll('.chip[data-st]');
     function show(st) {
       chips.forEach(function (c) { c.setAttribute('aria-pressed', String(c.dataset.st === st)); });
       ['missing', 'cut', 'bound', 'uncovered'].forEach(function (k) {
@@ -267,5 +452,11 @@
         : '<b>File these 3 tickets?</b> 1 has nothing to wait for; the rest wait until what they require is merged.';
     }
     chips.forEach(function (c) { c.addEventListener('click', function () { show(c.dataset.st); }); });
+    var dbh = document.querySelectorAll('.dbh-chip');
+    dbh.forEach(function (c) { c.addEventListener('click', function () {
+      dbh.forEach(function (o) { o.setAttribute('aria-pressed', String(o === c)); });
+      document.querySelectorAll('[data-dbh-show]').forEach(function (e) { e.hidden = e.dataset.dbhShow !== c.dataset.dbh; });
+      document.getElementById('dbh-send').disabled = c.dataset.dbh === 'empty';
+    }); });
   })();
 </script>
