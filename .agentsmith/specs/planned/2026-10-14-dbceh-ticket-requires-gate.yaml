@@ -1,0 +1,264 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-14-dbceh
+goal: "No path starts a ticket while a ticket it requires has not landed, and the landing of its last requirement starts the held ticket by itself, durably, when its approver could start runs."
+
+applies_to: "backend (RequiresUnmetGate as the third gate in ClaimRefusal and ahead of the funnel's capacity reservation, UnmetTicketRequirements, ClaimRejectionReason.TicketRequiresUnmet, ReworkNudgeOrigin.RequirementsMet, DependentsWake called by the landing recorder and recovered by the PR re-read, RequirementsMetStart in the rework handler's no-attempt branch, OperatorStart's never-worked arm, their registrations)"
+
+requires: [2026-10-14-dbcef, 2026-10-14-dbceg]
+
+facts:
+  - claim: "ClaimRefusal is the one seam that answers what the claim would refuse: the config pre-check, then UnmovedTicketGate, then BoundaryStopGate; it is constructed with new from injected collaborators by the claim service and by the funnel's deferral; it is 36 lines."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/ClaimRefusal.cs:7-35, src/backend/AgentSmith.Application/Services/Claim/TicketClaimService.cs:14-22, src/backend/AgentSmith.Application/Services/Claim/TicketClaimService.cs:34, src/backend/AgentSmith.Application/Services/Spawning/SpawnLeaseDeferral.cs:18-28, observed: 2026-10-14, wc -l in this worktree: ClaimRefusal.cs 36, TicketClaimService.cs 68, SpawnLeaseDeferral.cs 44"
+  - claim: "The spawn funnel builds its deferral from the injected stores and refuses rather than queues a ticket the claim would refuse, so a refused ticket never becomes a capacity-queue head; the funnel is 144 lines against a baseline of 150."
+    evidence: "src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs:34-36, src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs:48-54, src/backend/AgentSmith.Application/Services/Spawning/SpawnLeaseDeferral.cs:11-17, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:94"
+  - claim: "BoundaryStopGate gates the code pipeline only and admits a start by name or a series auto-start through AdmitsStart."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/BoundaryStopGate.cs:18-32"
+  - claim: "A rejection carries a reason and a detail sentence, and the chat start shows the detail of a rejected claim; a chat start marks the envelope RequestedByName."
+    evidence: "src/backend/AgentSmith.Contracts/Models/ClaimResult.cs:13-14, src/backend/AgentSmith.Contracts/Models/ClaimRejectionReason.cs:3-23, src/backend/AgentSmith.Server/Services/ChatLaunch/ChatTicketRunLauncher.cs:32-37, src/backend/AgentSmith.Server/Services/ChatLaunch/ChatTicketRunLauncher.cs:57"
+  - claim: "The poller calls the spawn funnel for every claimable ticket each cycle, and polling runs only for trackers with polling enabled; a webhook delivery calls the funnel once and discards its result."
+    evidence: "src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs:171, src/backend/AgentSmith.Server/Services/PollerFactory.cs:32, src/backend/AgentSmith.Server/Services/Webhooks/WebhookSpawnDispatcher.cs:59-60"
+  - claim: "The claim service and the spawn funnel are registered only in the server's dispatcher composition (87 lines)."
+    evidence: "src/backend/AgentSmith.Server/Services/DispatcherExtensions.cs:72, src/backend/AgentSmith.Server/Services/DispatcherExtensions.cs:83-84, observed: 2026-10-14, wc -l in this worktree: DispatcherExtensions.cs 87"
+  - claim: "The deleted PredecessorGate held a spawn in the funnel and could never refuse one; it read predecessor stamps."
+    evidence: "src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs:27-32"
+  - claim: "The rework handler finishes a nudge for a ticket with no attempt, so the nudge path cannot start a never-run ticket today; it has ten constructor parameters and is 116 lines; its only read of the origin is the keyword-comment fallback."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeHandler.cs:23-38, src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeHandler.cs:106, observed: 2026-10-14, wc -l in this worktree: ReworkNudgeHandler.cs 116"
+  - claim: "Nudge origins rank a merge — the higher survives a merge, a claim and a reschedule; the last value is Operator = 5."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/ReworkNudgeOrigin.cs:3-20, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReworkNudgeRepository.cs:36, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReworkNudgeRepository.cs:58-68"
+  - claim: "The worker handles each nudge under the per-ticket lock, runs the refresh first, and reschedules a nudge whose handling threw."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeWorker.cs:59-73, src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeWorker.cs:76-90"
+  - claim: "FiledWorkMove.StartExistingAsync starts a ticket that already exists: it reads the labels the ticket carries, adds the project's routing tag, resolves it as the poller would, and moves it into the first trigger status only with mayStartRuns; it answers Started without a move when the project names no trigger status or the status already triggers; it is scoped."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkMove.cs:24-43, src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkMove.cs:62-64, src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkMove.cs:73-81, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogExtensions.cs:51"
+  - claim: "ReworkFallbackSpawn starts what the poller would, read from the ticket now: envelope, the project's match, its trigger, the current status, then the spawn funnel; it is a singleton of the rework worker."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkFallbackSpawn.cs:12-41, src/backend/AgentSmith.Server/Extensions/ReworkNudgeWorkerExtensions.cs:20-21"
+  - claim: "A nudge is enqueued through IReworkNudges with project, ticket and origin."
+    evidence: "src/backend/AgentSmith.Contracts/Services/IReworkNudges.cs:6-9, src/backend/AgentSmith.Contracts/Runs/ReworkNudgeRequest.cs:7-13"
+  - claim: "The ticket key is TicketKey.For(tracker type lowercased, ticket id); the claim request carries the project name and the ticket id; an unknown project is refused by the pre-check before any gate reads config.Projects."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/TicketKey.cs:9, src/backend/AgentSmith.Contracts/Models/ClaimRequest.cs:8-19, src/backend/AgentSmith.Application/Services/Claim/ClaimRefusal.cs:28-29"
+  - claim: "In the funnel's admitted branch the claim, and with it every gate, runs only after ReserveAsync, which records a footprint (a remote language inventory per repository), may evict a design conversation's held sandboxes, reaps corpses and probes the sandbox host; the poller then puts a TicketTriggered event with the claim's outcome on the System ring every cycle."
+    evidence: "src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs:65-77, src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs:107-125, src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs:171-182"
+  - claim: "OperatorStart answers an approval on a never-worked ticket by tagging and moving it through StartExistingAsync and telling the thread 'Ticket X's first attempt starts'; it is scoped and 45 lines, and a test helper constructs it with new."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/OperatorStart.cs:15-31, src/backend/AgentSmith.Server/Services/SpecDialog/TicketContinuationRegistrations.cs:29, tests/AgentSmith.Tests/TestSupport/Continuations.cs:39, observed: 2026-10-14, wc -l in this worktree: OperatorStart.cs 45"
+  - claim: "Three more test sites construct the changed types with new: ClaimRefusal in PreviousAttemptBoundaryTests, SpawnLeaseDeferral in SpawnLeaseDeferralTests, and ReworkNudgeHandler in the ReworkHandlers helper (used by six test files)."
+    evidence: "tests/AgentSmith.Tests/Rework/PreviousAttemptBoundaryTests.cs:64, tests/AgentSmith.Tests/Rework/SpawnLeaseDeferralTests.cs:25, tests/AgentSmith.Tests/TestSupport/ReworkHandlers.cs:11-16, observed: 2026-10-14, grep -rln 'ReworkHandlers.' tests in this worktree: 6 files"
+  - claim: "The Redis publisher throws on a Redis failure; the ticket-page nudge publishes through it."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Events/RedisSystemEventPublisher.cs:21-37, src/backend/AgentSmith.Application/Services/Events/SystemStreamTicketActivityNudge.cs:10-18"
+  - claim: "Whether a ticket has a code attempt, a queued code run or a live lease is answered by IPreviousAttemptReader (LatestAsync, HasQueuedAsync) and IActiveRunLease.GetByTicketAsync; the approval store is a server singleton read by tracker connection and ticket key."
+    evidence: "src/backend/AgentSmith.Contracts/Services/IPreviousAttemptReader.cs:10-18, src/backend/AgentSmith.Contracts/Services/IActiveRunLease.cs:44, src/backend/AgentSmith.Contracts/Specs/ISpecApprovalStore.cs:16-18, src/backend/AgentSmith.Server/Extensions/RelationalPersistenceExtensions.cs:127"
+  - claim: "With an attempt, the only origin read is the keyword-comment fallback: a NotARework outcome starts the fallback spawn only for origin Ticket."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeHandler.cs:106-108"
+  - claim: "Twelve test files construct TicketClaimService or SpawnPipelineRunsUseCase with new."
+    evidence: "observed: 2026-10-14, grep -rln 'new TicketClaimService(\\|new SpawnPipelineRunsUseCase(' tests in this worktree: 12 files"
+  - claim: "Ticket.IsClosed is the tracker's own closed or done category on every tracker; agent-smith's own closes are told apart only for a ticket it worked, so a closed ticket that never ran was closed by a person; on Azure DevOps and Jira StartExistingAsync moves any non-triggering status, a closed one included, into the first trigger status."
+    evidence: "src/backend/AgentSmith.Domain/Entities/Ticket.cs:45-51, src/backend/AgentSmith.Application/Services/Tickets/TicketClosure.cs:10-16, src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkMove.cs:68-84"
+  - claim: "Tickets are read through the singleton ITicketProviderFactory.Create(project.Tracker).GetTicketAsync."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/TicketProvidersExtensions.cs:21, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/OperatorStart.cs:27, src/backend/AgentSmith.Contracts/Providers/ITicketProvider.cs:27"
+  - claim: "Every entity's CreatedAt is stamped by the context when its row is inserted, independent of any host time the row carries."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/EntityBase.cs:8-10, src/backend/AgentSmith.Infrastructure.Persistence/AgentSmithDbContext.cs:113-116"
+  - claim: "An approval on a never-worked ticket records the amended approval before OperatorStart runs, so by then the ticket's approval record exists."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/TicketContinuationAct.cs:39-44"
+  - claim: "Tickets are named '#n' on every tracker but Jira, whose id is written as is; that rule is internal to the server."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledTicketKey.cs:23, src/backend/AgentSmith.Server/Services/SpecDialog/FiledTicketKey.cs:34-35"
+  - claim: "Rejection reasons are documented as never succeeding as-is."
+    evidence: "src/backend/AgentSmith.Contracts/Models/ClaimRejectionReason.cs:3-6"
+  - claim: "The claim takes a Redis claim lock, the worker a Redis per-ticket lock that throws when Redis is unreachable, and a leader job's lease is Redis-gated."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/TicketClaimService.cs:15, src/backend/AgentSmith.Application/Services/Claim/TicketClaimService.cs:24-28, src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeWorker.cs:57-60, src/backend/AgentSmith.Infrastructure/Services/Queue/RedisClaimLock.cs:19-24, src/backend/AgentSmith.Server/Services/LeaderSubsystemRunner.cs:16-28"
+  - claim: "Two existing tests build AddLongRunningServices without AddReworkNudgeWorker under ValidateOnBuild, and ChangeSweepHostedService resolves its collaborators from IServiceProvider at run time."
+    evidence: "tests/AgentSmith.Tests/Server/ServerDiLifetimeTests.cs:37-44, tests/AgentSmith.Tests/Server/ServerDiLifetimeTests.cs:330-352, tests/AgentSmith.Tests/Architecture/NonDiCtorRuleTests.cs:204-223, src/backend/AgentSmith.Server/Services/Sweep/ChangeSweepHostedService.cs:16-20, src/backend/AgentSmith.Server/Services/Sweep/ChangeSweepHostedService.cs:43-45"
+  - claim: "A composition test builds the real server provider with ServerCompositionBuilder.ConfigureServices under the environment collection."
+    evidence: "tests/AgentSmith.Tests/SpecDialog/Ratification/MockRatificationCompositionTests.cs:13-24"
+  - claim: "The refresh harness constructs PrReviewRecordRefresh with new; the amendment notice an approval returns already says the series under the ticket is the one just approved."
+    evidence: "tests/AgentSmith.Tests/Rework/Records/PrReviewRefreshHarness.cs:51-53, src/backend/AgentSmith.Server/Services/SpecDialog/TicketAmendment.cs:88-89, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/TicketContinuationAct.cs:41-45"
+  - claim: "A sharded collection class carries the TestProcess trait with one of env-1, env-2 or env-3."
+    evidence: "tests/AgentSmith.Tests/Architecture/TestProcessTraitRuleTests.cs:26-28, tests/AgentSmith.Tests/SpecDialog/Ratification/MockRatificationCompositionTests.cs:13"
+
+assumptions:
+  - "2026-10-14-dbcef lands ITicketRequirementStore (RequiredOfAsync, DependentsOfAsync) and TicketRequirementEdge (Tracker, TicketKey, TicketId, Project, RequiredTicketKey, RequiredTicketId, StartsWhenMet, FiledAt, FiledInConversation) as a server singleton."
+  - "2026-10-14-dbceg lands ITicketLandingStore.LandedAsync(tracker, keys) -> TicketLandingFact list; TicketLandingRecorder whose private RecordAsync, only when TryRecordAsync inserted, logs and then publishes (event, page nudge) each fire-and-warn, leaving the slot between insert and publishes for this spec's wake; and PrRecordReReadHostedService with ReReadOnceAsync reading the live configuration every five minutes; registered in AddReworkNudgeWorker (28 lines)."
+  - "2026-10-14-dbcel (as rewritten for the ticket-text graph) files each ticket as create, then edges, then its ticket-text approval record (GraphTicketApproval, saved through ApprovalCitations into the ApprovedSeries row); the record is written LAST and marks the filing COMPLETE. A ticket with edges and no record is an incomplete filing, which l reports 'do not trigger it; close it' and never tags or moves."
+
+scope:
+  in: >
+    CONTRACT: ClaimRejectionReason.TicketRequiresUnmet with a dated summary saying that, unlike the type's other
+    reasons (ClaimRejectionReason.cs:3-6), this refusal lifts once the required tickets land (23 -> at most 27); ReworkNudgeOrigin.RequirementsMet
+    = 6 with a summary saying it is served only for a ticket without an attempt (20 -> at most 24). ONE READ:
+    UnmetTicketRequirements (Application/Services/Claim, public sealed, at most 50 lines) over ITicketRequirementStore and
+    ITicketLandingStore: OfAsync(tracker, ticketKey, ct) -> (bool HasRequirements, IReadOnlyList<TicketRequirementEdge>
+    Unmet), Unmet being the edges whose RequiredTicketKey has no landing of either kind; with no requirement rows it
+    answers (false, []) after the one requirement read and reads no landing, so "no rows" and "every row landed" are
+    told apart; and FiledCompletelyAsync(tracker, ticketKey, ct) -> whether the ticket's filing finished: its
+    ticket-text approval record is stored (ISpecApprovalStore.GetAsync is not null; 2026-10-14-dbcel writes that record
+    last, after the ticket and its edges; contract section 5 default 31), documented as asked only for a ticket with
+    rows, so an ordinary ticket without an approval record is never asked. GATE:
+    RequiresUnmetGate (public sealed, at most 45 lines): RefusalAsync(request, config, ct) returns null for any
+    pipeline but code or a project config does not name (the claim's pre-check refuses that one); otherwise tracker =
+    config.Projects[request.ProjectName].Tracker.Name and key =
+    TicketKey.For(tracker type lowercased, request.TicketId.Value); without rows it returns null; a ticket WITH
+    requirement rows whose filing is not complete (every row landed or not) refuses with
+    ClaimResult.Rejected(TicketRequiresUnmet, "This ticket's filing did not finish; close it and approve the list
+    again.") — so neither a start by name nor a trigger works an incomplete graph ticket without its material — and a
+    non-empty unmet list refuses with ClaimResult.Rejected(TicketRequiresUnmet, Sentence(unmet)), Sentence being "This ticket waits for #A, #B to be merged
+    first; merge them, or mark them done by hand." over the required tickets' own ids, each named "#n" when the id
+    is numeric and as written otherwise ("DPG-12" on Jira), the rule FiledTicketKey.cs:34-35 applies inside the server
+    and dbcek uses, restated here because that class is internal to the server. STRICT: no AdmitsStart, so a start
+    by name and a series auto-start are refused too (contract §5 default 10, pending operator ratification). ClaimRefusal
+    takes UnmetTicketRequirements and asks the gate third, after BoundaryStopGate (36 -> at most 40); TicketClaimService
+    (68 -> 69), SpawnLeaseDeferral (44 -> 45) and SpawnPipelineRunsUseCase (144 -> 145 of its 150 baseline) pass it on;
+    UnmetTicketRequirements is registered as a singleton beside the claim service in DispatcherExtensions (87 -> 88); the
+    twelve test files that construct the claim service or the funnel, PreviousAttemptBoundaryTests.cs:64 (ClaimRefusal)
+    and SpawnLeaseDeferralTests.cs:25 (SpawnLeaseDeferral) pass one over empty stores. BEFORE THE RESERVATION:
+    SpawnPipelineRunsUseCase.ExecuteAsync asks RequiresUnmetGate right after ValidateForSpawn, over the probe request
+    SpawnRequestBuilder already builds for the deferral, and returns `new SpawnResult([refusal])` before the footprint,
+    the queue peek and ReserveAsync (144 -> at most 148 of its 150 baseline), so a held ticket costs one indexed read per
+    poll, not a footprint, a capacity row, a sandbox probe or an eviction. The capacity pump, the poller, every webhook
+    and a chat start reach the gate through those doors; the chat shows the sentence through ChatTicketRunLauncher.cs:57,
+    unchanged. A poll refusal repeats each cycle at the existing Information claim log and one Rejected TicketTriggered
+    event on the System ring (TrackerPoller.cs:171-182). OPERATOR START: OperatorStart's never-worked arm (an approval in
+    a held ticket's own conversation, the path a person uses to fix a graph ticket's specs before it runs) asks
+    UnmetTicketRequirements.OfAsync first, and no filing check: the approval is recorded before OperatorStart runs
+    (TicketContinuationAct.cs:39-44), so that approval itself completes an incomplete filing, with this conversation's
+    set and material; when anything is unmet it answers RequiresUnmetGate.Sentence(unmet) alone — the amendment notice before it
+    already says the approval was recorded — and neither tags nor moves (45 -> at most 50); TestSupport/Continuations.cs:39
+    passes one over empty stores. WAKE: DependentsWake (Server/Services/Rework, at most 40 lines): WakeAsync(TicketLandingFact
+    landed, ct) enqueues one ReworkNudgeRequest(edge.Project, edge.TicketId, RequirementsMet) per distinct dependent of
+    DependentsOfAsync(landed.Tracker, landed.TicketKey). TicketLandingRecorder takes DependentsWake and calls it in its
+    RecordAsync after a WON insert only, BEFORE the Redis publishes (2026-10-14-dbceg's slot; the file grows by at most 2
+    lines), so a Redis failure after the insert cannot lose the wake. RECOVERY: DependentsWake.RecoverAsync(projects,
+    ct) closes the window a crash or a failed enqueue leaves after the insert. It reads the dependents in ONE join,
+    ITicketLandingStore.DependentsOfLandingsSinceAsync(since, projects, take, ct), added by this spec to
+    2026-10-14-dbceg's port and repository (at most +14 lines there): one TicketRequirementEdge per distinct dependent
+    of a configured project whose edge is StartsWhenMet, whose (Tracker, RequiredTicketKey) has a LandedTickets row
+    WRITTEN in the last 24 hours (EntityBase.CreatedAt, stamped at insert, AgentSmithDbContext.cs:113-116 — not
+    LandedAt, the host's merge time, which a late or backfilled landing carries from long ago), and which has no
+    landing row of its own; newest landing first, at most 50 dependents, so no cap over landings can drop a dependent.
+    For each it enqueues one RequirementsMet nudge when every one of its edges is StartsWhenMet, its requirements are
+    all landed, its filing is complete, it has no code attempt (LatestAsync null), no queued run (HasQueuedAsync false)
+    and no lease (GetByTicketAsync null). A closed dependent needs no tracker read here: the nudge it sends ends at
+    RequirementsMetStart's closed check. PrRecordReReadHostedService.ReReadOnceAsync resolves DependentsWake from its
+    IServiceProvider at call time (ChangeSweepHostedService.cs:43-45), never by constructor, and calls it after its own
+    two lists with the configured project names it already loaded (the service grows by at most 3 lines). DependentsWake is at most 100 lines. The 24-hour
+    window bounds how long a dependent that cannot start (its tracker refuses the move) is retried. START:
+    RequirementsMetStart (Server/Services/Rework, singleton, at most 95 lines): StartAsync(project, nudge, ct), run under
+    the worker's lock on the dependent: reads the dependent's requirements; none -> Finish; the dependent has a landing
+    row of its own (ITicketLandingStore.LandedAsync(tracker, [its key]), a person marked it done by hand) -> logs at
+    Information -> Finish; any unmet per UnmetTicketRequirements -> Finish (a later landing wakes it again); filing not
+    complete (UnmetTicketRequirements.FiledCompletelyAsync) -> logs at Warning that the ticket's filing is incomplete
+    -> Finish; not every row StartsWhenMet -> logs at Information that the ticket waits for a start by name -> Finish
+    (contract §5 default 11, pending operator ratification); reads the ticket
+    (ITicketProviderFactory.Create(project.Tracker).GetTicketAsync): IsClosed -> logs at Information "closed; not
+    started" -> Finish, so a ticket a person closed is never moved out of Closed or Done, and a read failure logs at
+    Warning -> Finish (the recovery retries); else, in a scope, FiledWorkMove.StartExistingAsync(provider of project.Tracker, project, ticketId,
+    mayStartRuns: true, ct) — a tag on GitHub and GitLab, a status move on Azure DevOps and Jira — and when that answers
+    Started, ReworkFallbackSpawn.SpawnAsync(project, ticketId, ct) claims it now; NotStarted is logged at Warning with its
+    reason; it returns Finish, and an exception propagates so the worker reschedules. HANDLER: ReworkNudgeHandler takes
+    RequirementsMetStart, and its no-attempt line becomes `if (attempt is null) return nudge.Origin ==
+    ReworkNudgeOrigin.RequirementsMet ? await start.StartAsync(project, nudge, ct) : ReworkNudgeDisposition.Finish;` (116
+    -> at most 119); with an attempt a RequirementsMet nudge takes the existing path unchanged. TestSupport/ReworkHandlers.cs:11-16
+    gains an optional `RequirementsMetStart? start = null` parameter. DependentsWake and
+    RequirementsMetStart are registered as singletons in AddReworkNudgeWorker (28 -> 29). The handler's summary records
+    the reversal of 2026-09-22-766b's removal in one sentence.
+  out: >
+    Storing the requirement rows and StartsWhenMet at filing, filing held tickets untagged and unmoved, and starting the
+    tickets whose requirements are already landed at filing — 2026-10-14-dbcel. The landing of a by-hand mark, which wakes
+    dependents through the same recorder — 2026-10-14-dbcei. "Waits for #X" and "needs a start" on the ticket page and
+    the blocked bucket — 2026-10-14-dbcen. A ticket comment telling the person why a status move or a poll was refused —
+    nobody: the webhook dispatcher discards the claim result (WebhookSpawnDispatcher.cs:59-60) and the ticket page shows
+    what it waits for (2026-10-14-dbcen); default, pending operator ratification. Quieter logging of the repeated poll
+    refusal and its Rejected TicketTriggered event — nobody: contract decision 11 accepts the churn, which this spec
+    cuts to one indexed read by checking before the reservation. A ticket whose filing stays incomplete — nobody: the
+    filing report of 2026-10-14-dbcel names it "do not trigger it; close it", and the gate refuses it at every door,
+    a start by name included, with "This ticket's filing did not finish; close it and approve the list again."; a
+    person closes it on the tracker. Gating a non-code pipeline — nobody: a requirement orders
+    merged code, and a scan or a design conversation on the ticket builds nothing on it. A requirement on a ticket of
+    another tracker — nobody: contract decision 5. Restoring PredecessorGate or its labels — nobody: contract §0, its job
+    is redone here on a stored edge.
+
+decisions:
+  - key: "REVERSES 2026-09-22-766b's REMOVAL, DIFFERENTLY. a72a's PredecessorGate held a child in the spawn funnel until its predecessor LEFT trigger_statuses, read from labels anyone can edit; it could only hold, never refuse (SpawnPipelineRunsUseCase.cs:27-32). This gate reads a stored edge (2026-10-14-dbcef), counts a requirement met only when LANDED (2026-10-14-dbceg), and sits in ClaimRefusal, so it REFUSES at every door and the funnel refuses rather than queues — a held ticket never becomes the capacity queue's head."
+  - key: "STRICT, NO START-BY-NAME BYPASS (contract decision 7, §5 default 10, §8 answer 2, pending operator ratification). The operator's rule is 'that one must be merged first'; a start by name that slipped past would build on code that is not there. The deliberate override is 'Mark done by hand' (2026-10-14-dbcei), which lands the required ticket and so lifts the gate everywhere at once."
+  - key: "CODE PIPELINE ONLY, as BoundaryStopGate. A requirement is about merged code; another pipeline on the ticket is not held."
+  - key: "NO ROWS, NO CHANGE. A ticket without requirement rows costs one indexed read and is never refused, so behaviour without a graph is unchanged (contract decision 7)."
+  - key: "ONE READ FOR THE GATE AND THE WAKE. UnmetTicketRequirements is the single answer to 'is this ticket held', asked by the gate and again by RequirementsMetStart under the dependent's lock, so the wake never starts what the gate would refuse."
+  - key: "THE WAKE RUNS ONLY ON A WON INSERT (contract decision 12), BEFORE ANY REDIS CALL. The unique landing row means one replica decides; DependentsWake enqueues one RequirementsMet nudge per dependent, the nudge upsert merges duplicates, the per-ticket lock serves it on one replica, and the claim lock plus the lease insert guard the claim. Once the row exists every later TryRecordAsync answers false, so a wake skipped by a Redis throw (RedisSystemEventPublisher.cs:21-37) would be lost for good; it therefore precedes the publishes."
+  - key: "A LOST WAKE IS RECOVERED, NOT TRUSTED. A crash between the insert and the last enqueue, or one failed enqueue of N, leaves held tickets untagged and unmoved with no poller in webhook mode (PollerFactory.cs:32). The five-minute re-read (2026-10-14-dbceg) therefore re-derives the wake from the two tables: a dependent all of whose requirements landed in the last day, filed completely, StartsWhenMet, never attempted, not queued and not leased gets a RequirementsMet nudge. A duplicate of a wake in flight merges into the ticket's one nudge row or ends AlreadyClaimed; the 24-hour window and the 50 cap bound the retries of a ticket that cannot start (contract section 5 default 28, pending operator ratification)."
+  - key: "AN INCOMPLETE FILING IS NEVER WOKEN OR CLAIMED (contract decision 23, section 5 default 31: completion as 2026-10-14-dbcel defines it, the ticket-text approval record, written last). The gate checks completion only for a ticket WITH requirement rows: a root ticket without rows cannot be told from any ordinary ticket, and l never starts one whose record failed. Filing stores a ticket's edges right after creating it, before its material record, so that nothing can start it ungated; a ticket whose filing then failed has edges but not everything its run needs. RequirementsMetStart and the recovery both skip it; see the assumption on 2026-10-14-dbcel for what complete means."
+  - key: "THE REQUIRES CHECK RUNS BEFORE THE RESERVATION (reviewer cut; contract decision 11's cost). Checked only inside the claim, a held ticket on a tracker whose created status triggers would cost a footprint, a capacity row, possibly a held-sandbox eviction and a quota probe every poll cycle (SpawnPipelineRunsUseCase.cs:65-77,107-125). The gate is asked once more inside ClaimRefusal, which every other door goes through; the double read for an admitted ticket is one indexed read."
+  - key: "NO ROWS AND ALL LANDED ARE DIFFERENT ANSWERS. OfAsync returns whether rows exist beside the unmet edges; with the unmet list alone, a ticket whose every requirement landed reads like a ticket without rows, and the gate would have to either skip the completeness check (an incomplete filing claimed) or ask every ordinary ticket for an approval record it never had (every discovered ticket refused). A tuple, so no type is minted."
+  - key: "THE WAKE NEVER STARTS A TICKET A PERSON FINISHED OR CLOSED. A dependent marked done by hand (2026-10-14-dbcei, offered on every waits-for entry by 2026-10-14-dbcen) has its own landing row, and its requirements' later landing must not rebuild what the person declared done; a dependent the tracker counts closed was closed by a person, since agent-smith never closes a held, never-run ticket (TicketClosure.cs:10-16), and StartExistingAsync would move it out of Closed or Done on Azure DevOps and Jira (FiledWorkMove.cs:68-84). Both are skipped by RequirementsMetStart, the landing also by the recovery's query; closing the dependents stays the remedy for a mistaken by-hand mark (contract decision 15)."
+  - key: "THE RECOVERY WINDOW IS THE ROW'S WRITE TIME, NEWEST FIRST. LandedAt is the host's merge time, so a landing written late by 2026-10-14-dbceg's recovery or backfill, or one a ticket: requirement found already merged, would fall outside a window on LandedAt exactly when its wake is most likely lost. The cap counts dependents, not landings, in one join. REJECTED: oldest landing first, as the reviewer proposed: dependents that already ran stay in the window for 24 hours and, oldest first, fifty of them would hold every slot and starve a wake lost this cycle; newest first, a lost wake is retried in the first cycle after it is lost unless more than fifty dependents were freed since."
+  - key: "OperatorStart ASKS THE GATE FIRST. An approval in a held ticket's own conversation would otherwise tag and move it and say 'its first attempt starts' while the gate refuses the claim, silently in webhook mode (WebhookSpawnDispatcher.cs:59-60). It now says what the ticket waits for and moves nothing; the wake starts it later. It does not check the filing: the approval it answers is recorded first (TicketContinuationAct.cs:39-44), which completes an incomplete filing, so that branch could never run."
+  - key: "A RequirementsMet NUDGE MERGED WITH A KEYWORD COMMENT ON A TICKET WITH AN ATTEMPT answers 'not a rework' instead of the comment's fallback start (ReworkNudgeHandler.cs:106-108, the merge keeps the higher origin). Accepted: a dependent has an attempt only when it ran before its edges existed, a filing race."
+  - key: "RequirementsMet = 6 RANKS ABOVE EVERY ORIGIN. A merge keeps the higher origin (ReworkNudgeRepository.cs:36,58-68), so a wake merged with a person's act on a never-run ticket is still served as a wake — which starts it, the act's intent. With an attempt the origin is read only at the keyword-comment fallback (ReworkNudgeHandler.cs:106), so a RequirementsMet nudge there takes the existing path."
+  - key: "THE APPROVER'S runs.control DECIDES THE AUTOMATIC START (contract §5 default 11, pending operator ratification). StartsWhenMet records it at filing; without it the ticket stays held and a person starts it by name, which the gate then admits."
+  - key: "START, THEN CLAIM NOW. StartExistingAsync answers Started without a move when the ticket already sits in a trigger status (FiledWorkMove.cs:62-64,73-74); in webhook mode nothing then delivers an event and no poller runs (PollerFactory.cs:32), so the ticket would wait for ever. RequirementsMetStart therefore follows a Started answer with ReworkFallbackSpawn, the poller's own route; in polling mode a racing poll ends as AlreadyClaimed at the claim lock or the lease. No name is minted for this."
+  - key: "FiledWorkMove IS SCOPED, RequirementsMetStart IS A SINGLETON. It resolves FiledWorkMove in a scope per start, as the handler's other collaborators are singletons."
+
+steps:
+  - id: contract
+    action: "ClaimRejectionReason.TicketRequiresUnmet (23 -> at most 27) and ReworkNudgeOrigin.RequirementsMet = 6 (20 -> at most 24), each with a dated summary."
+  - id: unmet
+    action: "UnmetTicketRequirements.OfAsync -> (HasRequirements, Unmet) over the two stores and FiledCompletelyAsync over ISpecApprovalStore, documented as asked only with rows (at most 55 lines): the requirement read first, the landing read only when rows exist, the unmet edges in the stored order."
+  - id: gate
+    action: "RequiresUnmetGate with RefusalAsync (no rows -> null; rows and filing incomplete -> the incomplete sentence; unmet -> Sentence) and the static Sentence(unmet) naming '#n' for a numeric id and the id as written otherwise (at most 45 lines); ClaimRefusal takes UnmetTicketRequirements and asks it third (36 -> at most 40); its summary names the third gate."
+  - id: doors
+    action: "TicketClaimService (68 -> 69), SpawnLeaseDeferral (44 -> 45) and SpawnPipelineRunsUseCase take and pass UnmetTicketRequirements, and the funnel asks RequiresUnmetGate before the footprint and ReserveAsync (144 -> at most 148 of 150); DispatcherExtensions registers it as a singleton (87 -> 88); the twelve constructing test files, PreviousAttemptBoundaryTests.cs:64 and SpawnLeaseDeferralTests.cs:25 pass one over empty stores."
+  - id: wake
+    action: "DependentsWake.WakeAsync and RecoverAsync (at most 100 lines); TicketLandingRecorder takes it and calls WakeAsync after a won insert, before the publishes (at most +2 lines); ITicketLandingStore.DependentsOfLandingsSinceAsync and its one-join repository query on the landing's CreatedAt (at most +14 lines); PrRecordReReadHostedService resolves DependentsWake from IServiceProvider and calls RecoverAsync each cycle (at most +3 lines); registered in AddReworkNudgeWorker; PrReviewRefreshHarness.cs:51-53, which builds the refresh and from 2026-10-14-dbceg the recorder with new, passes a DependentsWake over the harness store and nudges."
+  - id: start
+    action: "RequirementsMetStart.StartAsync (at most 95 lines): requirements, own landing, unmet, filing complete, StartsWhenMet, the ticket's closed state, StartExistingAsync in a scope, ReworkFallbackSpawn on Started, logging on NotStarted; registered in AddReworkNudgeWorker (28 -> 29); OperatorStart's never-worked arm asks UnmetTicketRequirements.OfAsync only (45 -> at most 50) and Continuations.cs:39 passes it."
+  - id: handler
+    action: "ReworkNudgeHandler takes RequirementsMetStart and routes the no-attempt line by origin (116 -> at most 119); one summary sentence records the reversal of 766b's removal; ReworkHandlers.cs:11-16 gains the optional parameter."
+  - id: tests
+    action: "Red first, then green, for every test below; the composition test's class carries [Trait(\"TestProcess\", \"env-3\")] with EnvVarCollection; run the Claim, Spawning, Rework, Continuation, Sweep and ChatLaunch classes touched, ServerDiLifetimeTests and NonDiCtorRuleTests with --filter."
+
+tests:
+  - "Claim_TicketWithoutRequirementRows_IsUnchanged"
+  - "Claim_RequirementNotLanded_IsRefusedNamingTheRequiredTicket"
+  - "Claim_TwoRequirementsOneLanded_SentenceNamesOnlyTheUnlandedOne"
+  - "Claim_RequirementLandedByMerge_IsAdmitted"
+  - "Claim_RequirementLandedByHand_IsAdmitted"
+  - "Claim_PersonsStartByName_IsRefusedToo"
+  - "Claim_SeriesAutoStart_IsRefusedToo"
+  - "Claim_NonCodePipeline_IsNotGated"
+  - "Poll_HeldTicket_IsRefusedEveryCycleAndNeverQueued"
+  - "Spawn_HeldTicket_IsRefusedBeforeAnyFootprintOrReservation"
+  - "Spawn_BehindANonEmptyQueue_HeldTicket_IsRefusedNotQueued"
+  - "ChatStartByName_HeldTicket_ChatSaysWhichTicketsItWaitsFor"
+  - "DependentsWake_Landing_EnqueuesOneRequirementsMetNudgePerDependent"
+  - "TicketLandingRecorder_TwoRacingReplicas_WakeTheDependentsOnce"
+  - "TicketLandingRecorder_LostInsert_WakesNothing"
+  - "TicketLandingRecorder_EventPublishThrows_DependentsStillWoken"
+  - "ReRead_HeldDependentAllLandedNoRun_EnqueuesOneRequirementsMetNudge"
+  - "ReRead_DependentAlreadyAttemptedQueuedOrLeased_IsNotNudged"
+  - "ReRead_DependentWithoutStartsWhenMetOrOfAnUnconfiguredProject_IsNotNudged"
+  - "ReRead_LandingRecordedMoreThanADayAgo_IsNotRecovered"
+  - "ReRead_LandingRecordedTodayOfAnOldMerge_IsRecovered"
+  - "ReRead_DependentLandedByHand_IsNotNudged"
+  - "ReRead_SixtyFreedDependents_NudgesTheFiftyOfTheNewestLandings"
+  - "RequirementsMetStart_FilingIncomplete_StartsNothing"
+  - "Claim_TicketWithEdgesButNoApprovalRecord_IsRefusedAsAnIncompleteFiling"
+  - "Claim_TicketWithEdgesAllLandedButNoApprovalRecord_IsRefusedAsAnIncompleteFiling"
+  - "Claim_TicketWithoutRowsOrApprovalRecord_IsUnchanged"
+  - "Claim_JiraRequirementNotLanded_SentenceNamesDPG12WithoutAHash"
+  - "RequirementsMetStart_DependentAlreadyLandedByHand_StartsNothing"
+  - "RequirementsMetStart_DependentClosedOnJira_IsNotMovedOrClaimed"
+  - "OperatorStart_ApprovalInAnIncompleteFilingsConversation_StartsOnceItsRequirementsLanded"
+  - "OperatorStart_HeldNeverWorkedTicket_SaysWhatItWaitsForAndMovesNothing"
+  - "RequirementsMetStart_LastRequirementLanded_TagsTheGitHubTicketAndClaimsIt"
+  - "RequirementsMetStart_LastRequirementLanded_MovesTheJiraTicketIntoItsTriggerStatus"
+  - "RequirementsMetStart_StatusAlreadyTriggers_ClaimsThroughTheFallbackSpawn"
+  - "RequirementsMetStart_OneRequirementStillUnlanded_StartsNothing"
+  - "RequirementsMetStart_ApproverLackedRunsControl_StaysHeldAndLogsIt"
+  - "ReworkNudgeHandler_RequirementsMetOnTicketWithAnAttempt_TakesTheExistingPath"
+  - "ReworkNudgeHandler_OtherOriginOnTicketWithoutAttempt_StillFinishes"
+  - "ReworkNudgeOrigin_RequirementsMetMergedWithOperator_IsServedAsRequirementsMet"
+  - "RequiresGate_ServerComposition_ResolvesClaimServiceFunnelRecorderHandlerAndReRead (integration, ServerCompositionBuilder; TestProcess env-3 + EnvVarCollection)"
+
+done:
+  - "A ticket that requires another ticket is not started by the poller, a webhook, the capacity queue, a start by name in chat or an approval in its own conversation until the required ticket has landed; the chat answer names the tickets it waits for."
+  - "A held ticket is never placed in the capacity queue, and a poll that meets it reserves no capacity and probes no sandbox host."
+  - "When the last ticket it requires lands, a held ticket whose approver could start runs is tagged or moved and claimed without anyone acting, on GitHub, GitLab, Azure DevOps and Jira, in polling and in webhook mode; with several servers it starts once; if a server fails between the landing and the wake, it still starts within about five minutes; while Redis is down nothing starts (the worker's lock, the claim lock and the re-read's lease are Redis), and it starts once Redis answers. A held ticket a person marked done by hand or closed is never started or moved by the wake."
+  - "A held ticket whose approver could not start runs stays held by the wake after its requirements land: nothing moves, tags or claims it on its behalf, and it can be started by name; a ticket whose status or stamp already routes it is claimed by the poller or a webhook once its requirements land, as any filed ticket is today."
+  - "A graph ticket whose filing did not finish is never started by the wake, a trigger or a start by name: the refusal says to close it and approve the list again; an approval in its own conversation records a set and so completes it."
+  - "A ticket with no requirements starts exactly as before."
+  - "Build green, full suite green, dashboard gen/test/build green."

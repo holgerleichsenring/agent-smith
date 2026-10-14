@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-14-dbcec
+goal: "Spec review cuts a 'no file contains X' criterion to the source tree outside .agentsmith/, because the committed spec itself quotes X and the whole-tree criterion can never hold."
+
+applies_to: "backend (SpecAttackPrompt's decidability lens, read by every attack reviewer at run time and in the design turn)"
+
+requires: []
+
+facts:
+  - claim: "The decidability lens asks every attack reviewer whether the agent can make each done criterion true and observe it, and calls an unsatisfiable criterion a cut or a refusal; it says nothing about absence criteria."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecAttackPrompt.cs:25-29"
+  - claim: "The lens is rendered right after the plugin's brief in every attack prompt."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecAttackPrompt.cs:34-40"
+  - claim: "Every attack reviewer asks with SpecAttackPrompt.For, and both the run-time review panel and the design turn's proposal panel call that reviewer."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecAttackReviewer.cs:38, src/backend/AgentSmith.Application/Services/Specs/Review/SpecReviewPanel.cs:13, src/backend/AgentSmith.Application/Services/Specs/Review/ProposalAttackPanel.cs:12-33"
+  - claim: "Specs live under .agentsmith/specs on the work branch; the methodology directory's root is the one constant ProjectMetaPaths.Root."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SeriesPaths.cs:11-12, src/backend/AgentSmith.Contracts/Services/ProjectMetaPaths.cs:11-14"
+  - claim: "grep_in_tree excludes build and vendor directories but not .agentsmith, and that list is also the one the design partner searches with."
+    evidence: "src/backend/AgentSmith.Sandbox.Wire/GrepScope.cs:14-22"
+  - claim: "The existing lens test pins the lens text's two questions and its place after the brief."
+    evidence: "tests/AgentSmith.Tests/Specs/Review/SpecAttackPromptTests.cs:53-61"
+  - claim: "Admission keeps a cut only when it rests on the reviewer's own read at a line that read returned; in the design turn the attack look holds only the turn's repositories, so a cut resting on the draft spec (not in the tree) is discarded."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/SpecAttackAdmission.cs:46-48, src/backend/AgentSmith.Application/Services/Specs/Review/SpecAttackAdmission.cs:62-67, src/backend/AgentSmith.Application/Services/Specs/DerivationLookFactory.cs:100-107"
+  - claim: "In the field a filed spec's done item read 'No file contains SendManualNotificationContext or ManualNotificationResult', which the work branch's own committed spec makes false."
+    evidence: "observed: 2026-10-14, Work it out transcript t_7566d37c turn 96 (dbce defect research section 3)"
+
+assumptions:
+  - "An attack reviewer that sees the lens cuts an absence criterion with a replacement scoped outside .agentsmith/, and the reviser applies it as any other cut."
+
+scope:
+  in: >
+    LENS: SpecAttackPrompt.DecidabilityLens gains one sentence: "A criterion that no file contains X (or that X is
+    gone from the repository) can never hold over the whole tree, because the spec committed under .agentsmith/
+    quotes X; cut it to 'no file outside .agentsmith/ contains X', resting the cut on your read of a file that
+    holds X today." The directory is spelled from ProjectMetaPaths.Root inside the const. The read it names is
+    one admission accepts in the design turn too, where the draft spec is not in the tree.
+    SpecAttackPrompt 103 -> at most 107 (limit 120).
+  out: >
+    GrepScope.ExcludedDirsText — nobody: the design partner and review looks must keep reading specs under
+    .agentsmith/. The design partner writing absence criteria scoped from the start, and the coding master judging
+    an absence criterion with the methodology directory excluded — 2026-10-14-dbcep (skills). A mechanical
+    absence check over the tree — nobody: absence is judged by the master and the reviewers, and no field case
+    asks for a checker.
+
+decisions:
+  - key: "THE REVIEW CUTS IT; THE GREP SCOPE STAYS. Adding .agentsmith to GrepScope would hide specs and run records from the design partner, which must read them. The lens is the one place every attack reviewer reads, run time and design turn alike, so one sentence there turns every whole-tree absence criterion into a cut. Contract section 5 default 3 (default, pending operator ratification)."
+  - key: "THE CUT RESTS ON A FILE THAT HOLDS X TODAY. Admission drops a cut without an own read at a returned line (SpecAttackAdmission.cs:46-48), and the design-turn look cannot read the draft spec (DerivationLookFactory.cs:100-107); a file holding X must exist because the criterion asks for X's removal, so the lens names that read."
+  - key: "THE SCOPE IS .agentsmith/, NOT .agentsmith/specs/. The committed spec is the first file that quotes X, but decisions and run records under the same root quote it too; the criterion is scoped to the whole methodology directory, spelled from ProjectMetaPaths.Root rather than SeriesPaths.SpecsRoot. DEVIATION (wider): contract section 1 row c names SeriesPaths.SpecsRoot as the reason; the sentence names the whole root."
+
+steps:
+  - id: lens
+    action: "SpecAttackPrompt.DecidabilityLens gains the sentence in scope, built from ProjectMetaPaths.Root (using AgentSmith.Contracts.Services; 103 -> at most 107)."
+  - id: tests
+    action: "SpecAttackPromptTests gains the lens test below; the existing AttackBrief_CarriesTheDecidabilityLens stays as is."
+
+tests:
+  - "AttackBrief_AbsenceCriterion_IsCutToOutsideTheMethodologyDirectory (the rendered prompt carries 'no file outside .agentsmith/ contains', the reason that the committed spec quotes it, and 'a file that holds X' as the read the cut rests on)"
+
+done:
+  - "Every spec attack round, at run time and in Work it out, asks the reviewer to cut a whole-tree 'no file contains X' criterion to 'no file outside .agentsmith/ contains X'."
+  - "The design partner can still search and read specs under .agentsmith/."
+  - "Build green, full suite green, dashboard gen/test/build green."

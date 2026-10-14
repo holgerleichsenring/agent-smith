@@ -1,0 +1,236 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-14-dbceg
+goal: "When a ticket's pull requests end with one merged, a permanent landing row is written once and survives run deletion; a five-minute re-read finds merges and landings a lost delivery missed."
+
+applies_to: "backend (the LandedTickets table, its port and repository, TicketLandingRecorder at the end of the pull-request refresh, SystemEventType 57 TicketLanded, the periodic re-read of open pull-request records under its own leader lease, migrations in both sets, archive counts) and the dashboard's system-event mirror"
+
+requires: [2026-10-14-dbcef]
+
+facts:
+  - claim: "PrReviewRecordRefresh is the only writer of pull-request records, run by the nudge worker under the ticket's lock; it deletes records no run names any more, re-reads an ended record only when the nudge names it or it ended within a day, and tells the ticket's pages when anything changed; it is 87 lines."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:15-22, src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:32-48, src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:54-57, observed: 2026-10-14, wc -l in this worktree: PrReviewRecordRefresh.cs 87"
+  - claim: "The worker takes the per-ticket lock agentsmith:rework-nudge:{project}:{ticket}, runs the refresh for every nudge whose project is configured, and stops a Refresh-origin nudge right after it."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeWorker.cs:59-60, src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeWorker.cs:80-84"
+  - claim: "Nothing reports a record going from open to merged: the refresh only ORs a changed flag and nudges the pages."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:43-47"
+  - claim: "TicketLanding.Of is the one landing rule: merged when every record ended and at least one merged, unmerged when every record ended and none merged, null otherwise; it reads only each view's State, and TicketReviewState maps a record's State into the view unchanged."
+    evidence: "src/backend/AgentSmith.Server/Models/TicketLanding.cs:5-20, src/backend/AgentSmith.Server/Services/Tickets/TicketReviewState.cs:25-34, src/backend/AgentSmith.Contracts/Reviews/PrReviewStates.cs:9-10, src/backend/AgentSmith.Contracts/Reviews/PrReviewStates.cs:19"
+  - claim: "The ticket list's done time is the newest StateAt of the pull requests when the landing is merged."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketBucketRule.cs:44-45"
+  - claim: "A record dies with its newest run, and the run deletion removes it."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/PrReviewRecord.cs:31-32, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunDeletionRepository.cs:92-95"
+  - claim: "The records of one ticket are read through the scoped IPrReviewRecordReader.ByTicketAsync."
+    evidence: "src/backend/AgentSmith.Contracts/Reviews/IPrReviewRecordReader.cs:10, src/backend/AgentSmith.Infrastructure.Persistence/Extensions/ServerStateExtensions.cs:26-27"
+  - claim: "Periodic merge detection exists only in polling mode (the PR sweep under agentsmith:leader:change-sweep, which idles when no tracker polls); in webhook mode only a page read nudges a stale record."
+    evidence: "src/backend/AgentSmith.Server/Services/Sweep/ChangeSweepHostedService.cs:22-41, src/backend/AgentSmith.Server/Services/Sweep/PrSweepRecordNudge.cs:9-31, src/backend/AgentSmith.Server/Services/Tickets/TicketPullRequestReader.cs:56-62"
+  - claim: "A leader job is a BackgroundService that runs its work through LeaderSubsystemRunner with its lease key and a SubsystemHealth, registered as singleton, hosted service and ISubsystemHealth in AddLongRunningServices (60 lines)."
+    evidence: "src/backend/AgentSmith.Server/Services/Sweep/ChangeSweepHostedService.cs:16-32, src/backend/AgentSmith.Server/Services/LeaderSubsystemRunner.cs:14-29, src/backend/AgentSmith.Server/Services/Hosting/PollingExtensions.cs:37-41, observed: 2026-10-14, wc -l in this worktree: PollingExtensions.cs 60"
+  - claim: "The refresh's last line tells the pages only when something changed, through ITicketActivityNudge, which publishes to Redis; the Redis publisher throws on a Redis failure, so today anything after that line is skipped when Redis is down."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:47, src/backend/AgentSmith.Application/Services/Events/SystemStreamTicketActivityNudge.cs:10-18, src/backend/AgentSmith.Infrastructure/Services/Events/RedisSystemEventPublisher.cs:21-37"
+  - claim: "The worker swallows a refresh failure for every origin but Refresh, and finishes a nudge whose project is not configured before any refresh runs."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeWorker.cs:80-83, src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeWorker.cs:93-104"
+  - claim: "A host failure on an EXISTING record leaves it exactly as it is, CheckedAtTicks included, and an existing test pins that; a failure on a new record inserts it as unread; the writer is 69 lines; unread and unsupported are states that are not ended."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordWriter.cs:17-34, src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:73-77, tests/AgentSmith.Tests/Rework/Records/PrReviewRecordRefreshTests.cs:116-129, src/backend/AgentSmith.Contracts/Reviews/PrReviewStates.cs:13-19, observed: 2026-10-14, wc -l in this worktree: PrReviewRecordWriter.cs 69"
+  - claim: "A nudge that names a pull request makes the refresh re-read it even when it ended long ago, and a successful read advances CheckedAtTicks by compare-and-set."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:54-57, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordWriter.cs:22-25"
+  - claim: "A leader job reads the live configuration through IConfigurationLoader and ServerContext."
+    evidence: "src/backend/AgentSmith.Server/Services/Sweep/ChangeSweepHostedService.cs:16-29"
+  - claim: "The refresh test harness constructs PrReviewRecordRefresh with new, so a new constructor parameter must be passed there."
+    evidence: "tests/AgentSmith.Tests/Rework/Records/PrReviewRefreshHarness.cs:51-53"
+  - claim: "A Refresh nudge is enqueued through IReworkNudges with the project, ticket and pull-request URL; nudges of one ticket upsert into one row."
+    evidence: "src/backend/AgentSmith.Contracts/Services/IReworkNudges.cs:6-9, src/backend/AgentSmith.Contracts/Runs/ReworkNudgeRequest.cs:7-13, src/backend/AgentSmith.Server/Services/Sweep/PrSweepRecordNudge.cs:25"
+  - claim: "PrReviewRecords is indexed on PrKey, (Project, TicketId), RunId and (RepoKey, Number); State and CheckedAtTicks are plain columns; the repository is 54 lines and reads through one private ReadAsync over a query."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Configurations/PrReviewRecordConfiguration.cs:27-30, src/backend/AgentSmith.Infrastructure.Persistence/Entities/PrReviewRecord.cs:35-38, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordRepository.cs:16-31, observed: 2026-10-14, wc -l in this worktree: PrReviewRecordRepository.cs 54"
+  - claim: "The last system event is TicketActivityChanged = 56, a ticket refresh signal the stream routes to the overview group instead of the System page's ring; every other system event joins the ring; the resolver maps each code to its record."
+    evidence: "src/backend/AgentSmith.Contracts/Events/SystemEventType.cs:34-36, src/backend/AgentSmith.Contracts/Events/TicketActivityChangedEvent.cs:11-16, src/backend/AgentSmith.Server/Services/Events/SystemEventStream.cs:46-48, src/backend/AgentSmith.Server/Services/Events/SystemEventStream.cs:74-80, src/backend/AgentSmith.Infrastructure/Services/Events/EventTypeResolver.cs:82, observed: 2026-10-14, wc -l in this worktree: SystemEventType.cs 37, EventTypeResolver.cs 85, EventType.cs 120"
+  - claim: "Ticket pages are nudged through ITicketActivityNudge.ChangedAsync(project, ticketKey), which publishes TicketActivityChanged on the system stream; system events are published through ISystemEventPublisher."
+    evidence: "src/backend/AgentSmith.Contracts/Services/ITicketActivityNudge.cs:7-11, src/backend/AgentSmith.Application/Services/Events/SystemStreamTicketActivityNudge.cs:10-18, src/backend/AgentSmith.Contracts/Events/ISystemEventPublisher.cs:14-17"
+  - claim: "pnpm gen:hub-events compares SystemEventType and every SystemEvent record against src/dashboard/src/types/system-events.ts; two dashboard switches describe every system event type."
+    evidence: "tools/build-hub-event-types.mjs:45-51, src/dashboard/src/types/system-events.ts:155-174, src/dashboard/src/hooks/useSystemExecutionTree.tsx:184-186, src/dashboard/src/hooks/useSubsystemActivity.ts:146-148"
+  - claim: "Both System-page hooks keep only events whose type a subsystem lists in its kinds, and SystemView renders only those slices; the tracker subsystem lists the five polling events; a type no switch arm names reads as kind 'obs'."
+    evidence: "src/dashboard/src/hooks/useSubsystemActivity.ts:23-35, src/dashboard/src/hooks/useSubsystemActivity.ts:79-84, src/dashboard/src/hooks/useSystemExecutionTree.tsx:22-33, src/dashboard/src/hooks/useSystemExecutionTree.tsx:65-70, src/dashboard/src/hooks/useSubsystemEvents.ts:22-23, src/dashboard/src/components/system/SystemView.tsx:70-72, src/dashboard/src/hooks/useSystemExecutionTree.tsx:138-155"
+  - claim: "Every refresh runs under the per-ticket Redis lock, which throws when Redis is unreachable, and every leader job's lease is Redis-gated; while Redis is down no refresh and no re-read runs."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeWorker.cs:57-60, src/backend/AgentSmith.Infrastructure/Services/Queue/RedisClaimLock.cs:19-24, src/backend/AgentSmith.Server/Services/LeaderSubsystemRunner.cs:16-28"
+  - claim: "One ticket may match two projects of one tracker connection, one approval record serving both; the landing is keyed by tracker connection and ticket key, a project's tracker connection being project.Tracker."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/ISpecApprovalStore.cs:4-7, src/backend/AgentSmith.Contracts/Models/Configuration/ResolvedProject.cs:15"
+  - claim: "Polling mode's PR sweep nudges an OPEN record the open list no longer names and an ended one it names again, for the projects of polling trackers only; it never nudges an unread record; a tracker polls when its Polling.Enabled is set."
+    evidence: "src/backend/AgentSmith.Server/Services/Sweep/PrSweepRecordNudge.cs:19-31, src/backend/AgentSmith.Server/Services/Sweep/PrSweep.cs:57-60, src/backend/AgentSmith.Server/Services/Sweep/ChangeSweepHostedService.cs:36, src/backend/AgentSmith.Contracts/Models/Configuration/TrackerConnection.cs:60"
+  - claim: "Each refresh reads the pull request's state, lists its threads and runs the author-trust reads, and re-reads the ticket's other open records too."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:45, src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:62-71"
+  - claim: "The pull-request record repository is scoped and IReworkNudges a singleton, both registered by AddServerState; two existing tests build AddLongRunningServices without AddServerState or AddReworkNudgeWorker under ValidateOnBuild, and ChangeSweepHostedService avoids that by taking IServiceProvider and resolving its collaborators at run time."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Extensions/ServerStateExtensions.cs:26-31, tests/AgentSmith.Tests/Server/ServerDiLifetimeTests.cs:37-44, tests/AgentSmith.Tests/Server/ServerDiLifetimeTests.cs:330-352, tests/AgentSmith.Tests/Architecture/NonDiCtorRuleTests.cs:204-223, src/backend/AgentSmith.Server/Services/Sweep/ChangeSweepHostedService.cs:16-20, src/backend/AgentSmith.Server/Services/Sweep/ChangeSweepHostedService.cs:43-45"
+  - claim: "A unique index decides two replicas: the loser's insert raises a unique violation that IUniqueViolationTranslator recognises."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunRetryRequestRepository.cs:12-36"
+  - claim: "The refresh and the worker's collaborators are singletons registered in AddReworkNudgeWorker (27 lines)."
+    evidence: "src/backend/AgentSmith.Server/Extensions/ReworkNudgeWorkerExtensions.cs:15-25"
+  - claim: "Ticket-keyed tables are applied in TicketRecordConfigurations, and the archive tests pin the table and generated-key counts and the seeded rows."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Configurations/TicketRecordConfigurations.cs:13-23, tests/AgentSmith.Tests/Persistence/DataArchiveSchemaTests.cs:63, tests/AgentSmith.Tests/Persistence/DataArchiveSchemaTests.cs:163, tests/AgentSmith.Tests/Persistence/DataArchiveRoundTripTests.cs:33-34, tests/AgentSmith.Tests/Persistence/DataArchiveRefusalTests.cs:103"
+  - claim: "A polling sweep lists at most 100 open pull requests per GitHub page over 10 pages, and flags an open record the list no longer names only when the list is complete."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubOpenPullRequests.cs:15, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubOpenPullRequests.cs:30, src/backend/AgentSmith.Server/Services/Sweep/ChangeSweepCycle.cs:16, src/backend/AgentSmith.Server/Services/Sweep/PrSweepRecordNudge.cs:22, src/backend/AgentSmith.Server/Services/Sweep/PrSweepRecordNudge.cs:28-30"
+  - claim: "A sharded collection class carries the TestProcess trait with one of env-1, env-2 or env-3."
+    evidence: "tests/AgentSmith.Tests/Architecture/TestProcessTraitRuleTests.cs:26-28, tests/AgentSmith.Tests/SpecDialog/Ratification/MockRatificationCompositionTests.cs:13"
+
+assumptions:
+  - "2026-10-14-dbcef has landed: AddTicketFactStores registers the requirement store (27 lines), TicketRecordConfigurations is 25 lines, and the archive counts stand at 50 tables, 40 generated-key tables and 102 seeded rows (round-trip and refusal tests)."
+  - "The host's merged state is final for a pull request: a merged pull request is never reopened."
+
+scope:
+  in: >
+    CONTRACT: TicketLandingKinds (Contracts/Tickets) with Merged = "merged" and ByHand = "by-hand"; TicketLandingFact
+    (Contracts/Tickets, record: Tracker, TicketKey, TicketId, Project, Kind, LandedAt, By?, Note?, PrUrl?); ITicketLandingStore
+    (Contracts/Services): TryRecordAsync(TicketLandingFact, ct) -> bool inserted, and LandedAsync(tracker,
+    IReadOnlyCollection<string> ticketKeys, ct) -> the stored facts of those keys on that tracker connection. TABLE:
+    LandedTicket : EntityBase (Id long, Tracker, TicketKey, TicketId, Project, Kind, LandedAt, By?, Note?, PrUrl?) with
+    LandedTicketConfiguration (ToTable("LandedTickets"), IndexedString caps on the keyed strings, Kind at 16, Note
+    unbounded, UNIQUE (Tracker, TicketKey), index (Project)) applied from TicketRecordConfigurations.Apply (25 -> 26). No
+    DbSet; RunDeletionRepository untouched, so a landing outlives every run. REPOSITORY: LandedTicketRepository
+    (IServiceScopeFactory) : ITicketLandingStore, a singleton opening a scope per operation: TryRecordAsync returns false
+    when the key is stored, else inserts, and returns false on a unique violation (entry detached); insert only, no
+    update and no delete. Registered in AddTicketFactStores (27 -> 29). RULE: TicketLanding gains OfStates(IReadOnlyList<string>
+    states), and Of delegates to it (21 -> at most 27), so the read-time projection and the recorder share one rule.
+    RECORDER: TicketLandingRecorder (Server/Services/Rework, singleton, at most 80 lines): RecordMergedAsync(ResolvedProject,
+    ticketId, ct) reads the ticket's records through IPrReviewRecordReader in its own scope; when OfStates says merged it
+    builds the fact (Tracker = project.Tracker.Name, TicketKey = TicketKey.For(tracker type lowercased, ticketId), Kind
+    merged, LandedAt = the newest StateAt of the records else now, By and Note null, PrUrl = the url of the newest merged
+    record) and hands it to one private RecordAsync: TryRecordAsync, and ONLY when it inserted, log the landing at
+    Information, then publish TicketLandedEvent and call ITicketActivityNudge.ChangedAsync, EACH in its own try/catch
+    that logs a Warning and goes on: the row is the fact, Redis only announces it, so a Redis failure never fails the
+    call and never skips what follows the insert. The slot between the insert and the publishes is where
+    2026-10-14-dbceh's wake goes (the wake writes to the database, the publishes to Redis). It returns whether it
+    inserted. PrReviewRecordRefresh takes the recorder and calls RecordMergedAsync BEFORE its own pages' nudge (the
+    existing `if (changed) ... ChangedAsync` at :47), whether or not this refresh changed a record (87 -> at most 90).
+    A landing the refresh still misses (the database fails mid-call, or the worker swallows a non-Refresh refresh
+    failure) is found by the re-read's recovery below. Registered in AddReworkNudgeWorker (27 -> 28). EVENT: SystemEventType.TicketLanded = 57
+    with a dated comment (37 -> at most 41); TicketLandedEvent(Source, Project, TicketKey, TicketId, Kind, By, Timestamp) :
+    SystemEvent in Contracts/Events/TicketLandedEvent.cs, Source "ticket-landing"; EventTypeResolver maps 57 (85 -> 86); it
+    joins the System page's ring like every event but TicketActivityChanged. No EventType is minted (EventType.cs stays
+    120). DASHBOARD MIRROR: system-events.ts gains TicketLanded = 57, TicketLandedEvent (project, ticketKey, ticketId,
+    kind, by: string | null) and its union member; useSystemExecutionTree.tsx and useSubsystemActivity.ts each gain one
+    describe arm "landed · {project}/{name} · {kind}" plus " by {by}" when present, {name} being "#" plus the id for an
+    all-digit id and the id as written otherwise (a Jira key never gains a "#"), and SystemEventType.TicketLanded
+    joins the tracker subsystem's kinds in BOTH registries (SUBSYSTEMS, useSubsystemActivity.ts:23-35; REGISTRY,
+    useSystemExecutionTree.tsx:22-33), without which neither hook keeps the event; the kind switches' default reads it
+    as 'obs', so no kind arm is added. FAILED READS ADVANCE: PrReviewRecordWriter.MarkUnreadAsync(record, readStartTicks, ct) inserts a new record as
+    unread as today, and on an EXISTING record advances only CheckedAtTicks by the same compare-and-set WriteAsync uses,
+    state and entries unchanged, answering false (nothing a reader shows changed) (69 -> at most 74); the refresh passes
+    its read start (:76). RE-READ: PrReviewRecordRepository gains two reads over the CONFIGURED project names it is
+    handed, so a record of a project no longer configured is never selected: OpenUncheckedAsync(webhookProjects,
+    projects, checkedBeforeTicks, take, ct) — records whose State is open and whose project's tracker does NOT poll
+    (polling mode's PR sweep already re-reads open records, PrSweepRecordNudge.cs:28-31), or whose State is unread in
+    any configured project (the sweep never nudges an unread record), CheckedAtTicks before the bound — and
+    UnlandedMergedAsync(tracker, projects, checkedBeforeTicks, take, ct), asked once per tracker connection with that
+    connection's configured projects — merged records of a ticket none of whose records is open, unread or unsupported
+    and that has no LandedTickets row of the same Tracker and TicketId, so a ticket landed under another project of the
+    same connection (one approval record serves both, ISpecApprovalStore.cs:4-7) is never selected again; each oldest
+    check first, at most take (54 -> at most 70). PrRecordReReadHostedService (Server/Services/Sweep, at most 80 lines):
+    constructor IServiceProvider, ServerContext, IConfigurationLoader, TimeProvider and its logger only, resolving the
+    repository in a scope and IReworkNudges per cycle as ChangeSweepHostedService.cs:43-45 does, so the compositions of
+    ServerDiLifetimeTests and NonDiCtorRuleTests (no AddServerState, no AddReworkNudgeWorker) still validate; lease
+    agentsmith:leader:pr-record-reread, health name pr-record-reread, run through LeaderSubsystemRunner; every 5 minutes
+    ReReadOnceAsync(ct) loads the live configuration (IConfigurationLoader + ServerContext), reads at most 50 open or
+    unread records unchecked for 15 minutes and at most 50 unlanded merged records over all connections, and enqueues
+    ONE Refresh nudge per (project, ticket) with that record's URL; it returns the number enqueued. A named URL makes the refresh re-read the record, so every selected
+    record's CheckedAtTicks advances (or, read failing, advances through MarkUnreadAsync) and it goes to the back of
+    the list: no record can hold its place. Interval, staleness and the two caps are constants on the class (contract
+    §5 default 9, both caps, pending operator ratification).
+    Registered in AddLongRunningServices as singleton, hosted service and ISubsystemHealth (60 -> 64).
+    MIGRATIONS: AddLandedTickets in both migrations sets. ARCHIVE: DataArchiveSchemaTests.cs:63 50 -> 51, :163 40 -> 41
+    with the suffix "dbceg: + LandedTickets"; DataArchiveRoundTripTests.cs:33, :54 (message "fifty-one"), :81 50 -> 51 and
+    :34 102 -> 104; DataArchiveRefusalTests.cs:103 102 -> 104.
+  out: >
+    The by-hand landing, RecordByHandAsync on this recorder and its endpoint — 2026-10-14-dbcei; the ticket list reading
+    a landing as done — 2026-10-14-dbcei. Waking the tickets that require a landed ticket (one call after a won insert,
+    added to this recorder's RecordAsync) and the claim gate reading LandedAsync — 2026-10-14-dbceh. Showing landings on
+    the ticket page and the graph — 2026-10-14-dbcen. A ticket that merged before this spec shipped is
+    recorded by the re-read's recovery within a cycle when its records still exist and its project is configured;
+    making that immediate for a `ticket:` requirement read at filing — nobody: the
+    dependent is held by the gate until then, and the recovery bounds the wait at about one cycle. A required ticket whose records are gone lands only by hand — 2026-10-14-dbcei.
+    A target-branch column on the records — nobody: contract decision 6; a graph ticket never carries spec-parent:, so it
+    PRs into the default branch. Undoing a landing — nobody: contract decision 15. Re-reading unsupported records
+    periodically — nobody: no reader exists to read them, and such a ticket is marked done by hand (2026-10-14-dbcei).
+    Waking a dependent whose wake was lost — 2026-10-14-dbceh, which adds its recovery call to this re-read service. A run event for a landing —
+    nobody: a landing is a ticket fact, and EventType.cs is at its 120-line cap (contract §2.2).
+
+decisions:
+  - key: "THE ROW IS THE DURABLE OUTPUT, THE RECORDS STAY THE INPUT. PrReviewRecords die with their newest run and with a refresh that finds no run naming them (RunDeletionRepository.cs:92-95, PrReviewRecordRefresh.cs:41-42); a requirement must hold after either, so the landing is written once into its own table and never deleted (contract §5 default 8, pending operator ratification)."
+  - key: "THE UNIQUE INSERT IS THE TRANSITION. UNIQUE (Tracker, TicketKey) means exactly one replica's insert succeeds; only that replica publishes the event and, from 2026-10-14-dbceh on, wakes the dependents. No compare of old and new record state is needed, and none is attempted: the writer's bool says only that something changed."
+  - key: "THE RECORDER RUNS AT THE END OF EVERY REFRESH, NOT INSIDE THE WRITER. The refresh already runs on every nudge under the ticket's lock (ReworkNudgeWorker.cs:80-84) and sees all of the ticket's records; the writer sees one record at a time and cannot apply a rule over all of them. Calling it on every refresh rather than only on a change costs one indexed read and one indexed existence check. It runs BEFORE the pages' Redis nudge, so a Redis failure cannot skip the database write."
+  - key: "THE PUBLISHES ARE FIRE-AND-WARN, THE INSERT IS NOT. RedisSystemEventPublisher throws on a Redis failure (RedisSystemEventPublisher.cs:21-37), and the operator's estate treats Redis as volatile; the landing and (from 2026-10-14-dbceh) the wake are database facts and must not depend on it. A lost announcement costs a page refresh; the next TicketActivityChanged or a reload shows the row."
+  - key: "MISSED LANDINGS ARE RECOVERED, NOT ASSUMED. Once every record has ended, no open-record re-read reaches the ticket again, and the worker swallows refresh failures of non-Refresh nudges (ReworkNudgeWorker.cs:93-104), so 'the next refresh' may never come. The re-read therefore also selects merged tickets with no landing row and nudges a Refresh naming the record; that refresh re-reads it, advances its check time and records the landing. The same read backfills tickets merged before this spec shipped."
+  - key: "NO RECORD HOGS THE RE-READ. Records of unconfigured projects are filtered in the query (the worker would finish their nudge before any refresh, ReworkNudgeWorker.cs:80-81), and a failed host read of an existing record now advances its check time (it left it unchanged, PrReviewRecordWriter.cs:31-34), so the oldest-first cap rotates through every record instead of nudging the same dead fifty each cycle. Unread records are re-read too: one blocks TicketLanding as long as it stands. The existing test pinning the old behaviour is renamed and inverted."
+  - key: "ONE LANDING RULE. TicketLanding.OfStates is what Of already computes; the recorder and the ticket list therefore cannot disagree on what merged means (contract decision 6: at least one merged, every one ended)."
+  - key: "LANDED AT IS THE HOST'S TIME. The newest StateAt of the records, the time TicketBucketRule.DoneAt already shows (TicketBucketRule.cs:44-45); the clock only when the host gave none."
+  - key: "WHOEVER MERGED IT. The host's merged state is the fact; a person who pushed commits onto the branch and merged it lands the ticket exactly as an approved agent pull request does."
+  - key: "A SYSTEM EVENT, NOT A RUN EVENT. A landing has no run (the run may be deleted), so it is SystemEventType 57 in the System page's ring, plus the existing TicketActivityChanged that refreshes the ticket list and page (contract §2.2)."
+  - key: "THE PERIODIC RE-READ HAS ITS OWN LEASE; ITS OPEN LIST COVERS WEBHOOK MODE ONLY (contract decision 16, §5 default 9, pending operator ratification). Webhook mode has no other periodic read of an open record, so a lost merge delivery would hold every dependent until someone opened the ticket; polling mode's PR sweep idles without a polling tracker and is not the place. Each re-read costs at least two host calls (state, threads) plus the author-trust reads and re-reads the ticket's other open records (PrReviewRecordRefresh.cs:45,62-71); 150 open pull requests cost at least 1,200 calls an hour, so a polling tracker's projects, whose open records the PR sweep already re-reads from one list per repository (PrSweepRecordNudge.cs:9-31), are left out of the open list. Unread records of every mode and the unlanded-merged recovery stay in, since the sweep reaches neither. A polling repository with more than 1,000 open pull requests never yields a complete sweep list (100 per page, 10 pages), so a merge there is seen only by a page read or a later delivery; accepted and named here rather than re-read."
+  - key: "DEPLOY-TIME BACKFILL. The first cycles after this spec ships select every historically merged ticket whose records still exist and that has no landing: at most 50 host re-reads and 50 TicketLanded events per five-minute cycle until the backlog is gone; each lands once, so the burst ends by itself."
+  - key: "THE RECOVERY ANTI-JOINS ON THE TRACKER CONNECTION, AS THE LANDING IS KEYED. A landing is unique on (Tracker, TicketKey); keyed on Project, the second project of one connection would find no row for ever and be re-read every cycle. A merge seen under one project still lands the ticket while the other project's pull request is open, since the recorder reads that project's records only; accepted, as one approval record already treats the two as the same work."
+  - key: "THE RE-READ RESOLVES ITS COLLABORATORS AT RUN TIME. It is registered in AddLongRunningServices, which two composition tests build without the scoped record repository or the rework worker's registrations (ServerDiLifetimeTests.cs:330-352, NonDiCtorRuleTests.cs:204-223); ChangeSweepHostedService takes IServiceProvider for the same reason (ChangeSweepHostedService.cs:16-20,43-45)."
+  - key: "THE REPOSITORY IS THE SINGLETON PORT, as 2026-10-14-dbcef's: the recorder, the gate and the wake are singletons; a scope per operation avoids a facade class."
+  - key: "DEVIATION: TicketLandingFact IS MINTED HERE. Contract §2.5 names ITicketLandingStore's two members but no type for a landing to travel in; nine positional arguments on TryRecordAsync would be the alternative. 2026-10-14-dbceh, 2026-10-14-dbcei and 2026-10-14-dbcen read and write landings as TicketLandingFact (Contracts/Tickets/TicketLandingFact.cs). Reported for the contract's §2.5."
+
+steps:
+  - id: contract
+    action: "TicketLandingKinds, TicketLandingFact (Contracts/Tickets) and ITicketLandingStore (Contracts/Services), each documented."
+  - id: table
+    action: "LandedTicket entity and LandedTicketConfiguration (each at most 50 lines); applied from TicketRecordConfigurations.Apply with a `// 2026-10-14-dbceg` comment (25 -> 26)."
+  - id: repository
+    action: "LandedTicketRepository : ITicketLandingStore (at most 80 lines), a scope per operation, existence check then insert, a unique violation detached and answered false; LandedAsync AsNoTracking over the tracker and the key list; registered as a singleton in AddTicketFactStores (27 -> 29)."
+  - id: rule
+    action: "TicketLanding.OfStates(states); Of(pullRequests) delegates to it with pullRequests' states (21 -> at most 27)."
+  - id: event
+    action: "SystemEventType.TicketLanded = 57 (37 -> at most 41), TicketLandedEvent record, EventTypeResolver arm (85 -> 86); system-events.ts enum value, interface and union member; one describe arm each in useSystemExecutionTree.tsx and useSubsystemActivity.ts and TicketLanded in both registries' tracker kinds; `pnpm gen:hub-events` reports no drift."
+  - id: recorder
+    action: "TicketLandingRecorder.RecordMergedAsync and the private RecordAsync (insert; only when inserted: log, then the event and the page nudge, each try/catch Warning); registered in AddReworkNudgeWorker (27 -> 28)."
+  - id: refresh-hook
+    action: "PrReviewRecordRefresh takes TicketLandingRecorder and calls RecordMergedAsync(project, ticketId, ct) before the pages' nudge at :47, and passes its read start to MarkUnreadAsync at :76 (87 -> at most 90); PrReviewRecordWriter.MarkUnreadAsync advances an existing record's CheckedAtTicks only (69 -> at most 74); PrReviewRefreshHarness.cs:51-53 constructs the recorder over the harness store; the refresh summary gains one sentence naming the landing."
+  - id: re-read
+    action: "PrReviewRecordRepository.OpenUncheckedAsync (open records of non-polling projects, unread records of all) and UnlandedMergedAsync per tracker connection (54 -> at most 70); PrRecordReReadHostedService over IServiceProvider with ReReadOnceAsync (live configuration, both lists, one nudge per ticket), the constants and the lease; registered in AddLongRunningServices (60 -> 64)."
+  - id: migrations
+    action: "`dotnet ef migrations add AddLandedTickets` in both migrations projects; read both Up/Down and confirm only the table and its two indexes."
+  - id: archive-counts
+    action: "DataArchiveSchemaTests.cs:63 50 -> 51, :163 40 -> 41 (suffix `dbceg: + LandedTickets`); DataArchiveRoundTripTests.cs:33, :54 ('fifty-one'), :81 50 -> 51, :34 102 -> 104; DataArchiveRefusalTests.cs:103 102 -> 104."
+  - id: tests
+    action: "Red first, then green, for every test below; the existing PrReviewRecordRefresh_HostFailure_WritesUnreadOnce_KeepsAnExistingRecord (PrReviewRecordRefreshTests.cs:116-129) becomes ..._KeepsTheStateAndAdvancesItsCheckTime; the composition test's class carries [Trait(\"TestProcess\", \"env-2\")] with EnvVarCollection; run the Rework, Sweep, Persistence and Events classes touched, ServerDiLifetimeTests and NonDiCtorRuleTests, and `pnpm test` for the two hooks."
+
+tests:
+  - "TicketLandingRecorder_EveryRecordEndedOneMerged_RecordsOneMergedLanding"
+  - "TicketLandingRecorder_OneRecordStillOpen_RecordsNothing"
+  - "TicketLandingRecorder_EveryRecordClosedUnmerged_RecordsNothing"
+  - "TicketLandingRecorder_LandedAt_IsTheNewestHostStateAt"
+  - "TicketLandingRecorder_SecondRefreshOfALandedTicket_InsertsAndPublishesNothing"
+  - "TicketLandingRecorder_TwoRacingReplicas_OneInsertOneEventOneNudge"
+  - "TicketLandingRecorder_PersonPushedCommitsThenMerged_CountsAsMerged"
+  - "PrReviewRecordRefresh_RecordTurnsMerged_LandingRecordedInThatRefresh"
+  - "PrReviewRecordRefresh_PagesNudgeThrowsWhenTheMergeIsSeen_LandingStillRecorded"
+  - "TicketLandingRecorder_RedisPublishThrows_RowStoredAndCallReturnsInserted"
+  - "PrReviewRecordWriter_FailedReadOfAnExistingRecord_AdvancesOnlyItsCheckTime"
+  - "PrRecordReRead_MergedTicketWithoutLanding_EnqueuesARefreshThatRecordsIt"
+  - "PrRecordReRead_MergedTicketWithAnOpenRecord_IsNotInTheRecoveryList"
+  - "PrRecordReRead_FiftyRecordsWhoseReadFails_DoNotStarveTheRest"
+  - "PrRecordReRead_RecordsOfAnUnconfiguredProject_AreNotSelected"
+  - "PrRecordReRead_UnreadRecordUncheckedFifteenMinutes_IsReRead"
+  - "PrRecordReRead_TicketLandedUnderAnotherProjectOfTheSameTracker_IsNotSelected"
+  - "PrRecordReRead_OpenRecordOfAPollingTracker_IsLeftToThePrSweep"
+  - "PrRecordReRead_UnlandedMergedTicketOfAPollingTracker_IsStillRecovered"
+  - "LandedTicket_DeletingEveryRunOfTheTicket_KeepsTheRow"
+  - "LandedTicketStore_LandedAsync_ReturnsOnlyTheNamedKeysOfThatTracker"
+  - "TicketLanding_OfStates_AgreesWithOfOverViews"
+  - "PrRecordReRead_OpenRecordUncheckedFifteenMinutes_EnqueuesOneRefreshNudge"
+  - "PrRecordReRead_RecentlyCheckedOrEndedRecord_EnqueuesNothing"
+  - "PrRecordReRead_SixtyStaleRecords_NudgesOnlyTheFiftyOldest"
+  - "PrRecordReRead_TwoStaleRecordsOfOneTicket_EnqueueOneNudge"
+  - "EventTypeResolver_TicketLanded_ResolvesTicketLandedEvent"
+  - "describeSystemEvent_TicketLanded_NamesTheTicketKindAndPerson (dashboard)"
+  - "systemTree_TicketLanded_AppearsInTheTrackerBucket (dashboard)"
+  - "subsystemActivity_TicketLanded_IsTheTrackerTail (dashboard)"
+  - "TicketLanding_ServerComposition_ResolvesStoreRecorderRefreshAndReReadService (integration, ServerCompositionBuilder; TestProcess env-2 + EnvVarCollection)"
+  - "DataArchive round-trip, schema and refusal tests at fifty-one tables and 104 seeded rows (existing tests, counts updated)"
+
+done:
+  - "When the last open pull request of a ticket ends and one of them merged, the ticket is recorded as landed exactly once, even with several servers running; a Redis failure after the insert neither loses it nor skips what follows it; while Redis is down no refresh runs (the worker's lock is Redis), and the landing is written once it answers; the System page's tracker entry shows 'landed' for it."
+  - "Deleting every run of a landed ticket leaves it landed."
+  - "In webhook mode, a merge whose delivery was lost, or whose landing write failed, is recorded within about twenty minutes without anyone opening the ticket, while fewer than about 150 pull requests are open; beyond that later, at 50 per five minutes; in polling mode an open pull request is re-read by the PR sweep alone, and a merged ticket without a landing is recovered by the re-read as in webhook mode."
+  - "A pull request the host can no longer read, or a project removed from the configuration, never keeps other pull requests from being re-read."
+  - "`agentsmith database migrate` creates LandedTickets on every provider, and a data archive export then import carries it."
+  - "Build green, full suite green, dashboard gen/test/build green."

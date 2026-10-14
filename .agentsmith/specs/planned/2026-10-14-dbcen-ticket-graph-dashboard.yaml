@@ -1,0 +1,244 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-14-dbcen
+goal: "Filed tickets with no run appear on the ticket list as blocked or filed, a graph view draws tickets and their requires, and every ticket waited on can be marked done by hand."
+
+applies_to: "dashboard (the extended ticket-graph.html mock FIRST, list sections, the Graph view on /tickets, waits-for with a per-entry done-by-hand act, the never-run ticket page, the page-less node panel) + backend (never-run ticket rows, the buckets blocked and filed, one shared summary read for list and graph, the graph and requires reads and their endpoints, the detail of a never-run ticket)"
+
+requires: [2026-10-14-dbcef, 2026-10-14-dbceg, 2026-10-14-dbceh, 2026-10-14-dbcei, 2026-10-14-dbcek, 2026-10-14-dbcel]
+
+facts:
+  - claim: "GET /api/tickets and GET /api/tickets/{project}/{ticketId} are the ticket read surface, both under runs.read; an unknown bucket filter is a 400."
+    evidence: "src/backend/AgentSmith.Server/Extensions/TicketQueryEndpoints.cs:16-18, src/backend/AgentSmith.Server/Extensions/TicketQueryEndpoints.cs:26-27"
+  - claim: "The list reads only CODE runs that carry a ticket, newest first, up to a ceiling of 5000; a ticket that was filed but never ran has no row there."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketListQuery.cs:18, src/backend/AgentSmith.Server/Services/Tickets/TicketListQuery.cs:26-29"
+  - claim: "The list's first half composes EVERY ticket's summary from the run rows, the live state, every pull-request record and the standings; the second half pages, then enriches only the page's rows."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketListReader.cs:38-46, src/backend/AgentSmith.Server/Services/Tickets/TicketListReader.cs:47-61"
+  - claim: "Paging filters by bucket and by a cursor that is the newest run id, and the next cursor exists only when the filtered rows outnumber the page."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketListReader.cs:66-79"
+  - claim: "The buckets are needs_you, working, waiting_on_review, stuck, done and idle; All is the filter's accepted set."
+    evidence: "src/backend/AgentSmith.Server/Models/TicketBucket.cs:8-35"
+  - claim: "The counts take a done ticket's Since as its done date for 'done this month' and 'last done'."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketCounts.cs:22, src/backend/AgentSmith.Server/Services/Tickets/TicketCounts.cs:35-36, src/backend/AgentSmith.Server/Services/Tickets/TicketCounts.cs:40-44"
+  - claim: "The counts record has one field per bucket plus running, queued and the month figures; its last field is optional, the pattern a new count follows."
+    evidence: "src/backend/AgentSmith.Server/Models/TicketCountsView.cs:12-26"
+  - claim: "One summary record serves the list row and the detail header; it requires a newest run id and a status, and its later fields are optional."
+    evidence: "src/backend/AgentSmith.Server/Models/TicketSummaryView.cs:25-52, src/backend/AgentSmith.Server/Services/Tickets/TicketSummaryComposer.cs:24-47"
+  - claim: "The detail returns null for a pair with no code run; the page then renders no header and no act, only 'No attempt at this ticket is recorded.'"
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketDetailReader.cs:31-36, src/dashboard/src/components/tickets/detail/TicketPage.tsx:25-49"
+  - claim: "With a detail, the page renders the header, the series runway and the tabs over the detail's attempts."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketPage.tsx:25-33"
+  - claim: "An approved series row is identified by tracker connection and ticket key, never by project — one ticket matching two projects of one tracker is the same work."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/ApprovedSeries.cs:22-28"
+  - claim: "Run deletion never touches approved series rows, so a ticket whose runs were deleted keeps its filing row and looks like one that never ran."
+    evidence: "observed: 2026-10-14, grep -c ApprovedSeries src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunDeletionRepository.cs = 0 in this worktree"
+  - claim: "A ticket key is resolved from the run's platform or the project's tracker type; a project's tracker connection is read from the configuration."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketKeyResolver.cs:12-23, src/backend/AgentSmith.Server/Services/Tickets/TicketProjects.cs:10-14"
+  - claim: "A person's name for a ticket is FiledTicketKey: the Jira id as it is, every other tracker's number behind a hash; the dashboard's ticketLabel falls back to '#' plus the id."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledTicketKey.cs:34-35, src/dashboard/src/components/tickets/ticketFormat.ts:26-27"
+  - claim: "Every ticket reader is registered transient in one extension; the store harness resolves the readers from a real ServiceProvider."
+    evidence: "src/backend/AgentSmith.Server/Extensions/TicketReadExtensions.cs:19-69, tests/AgentSmith.Tests/Tickets/TicketStoreHarness.cs:40, tests/AgentSmith.Tests/Tickets/TicketStoreHarness.cs:95-96"
+  - claim: "An act's principal is the OIDC sub first; the server keeps every caller it has seen with both the sub and the configured name claim's value, and a name claim other than sub is a readable one."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOwnership.cs:31-32, src/backend/AgentSmith.Contracts/Services/IObservedCallerStore.cs:16, src/backend/AgentSmith.Contracts/Models/Access/ObservedCaller.cs:20-23, src/backend/AgentSmith.Server/Security/ReadableName.cs:21-24"
+  - claim: "A list row always renders the series strip, the attempt marks and a cost cell with 'N attempts'."
+    evidence: "src/dashboard/src/components/tickets/TicketRow.tsx:37-42, src/dashboard/src/components/tickets/ticketFormat.ts:21-23"
+  - claim: "runs.read and runs.control are the read and act permissions."
+    evidence: "src/backend/AgentSmith.Server/Security/Permissions.cs:18, src/backend/AgentSmith.Server/Security/Permissions.cs:26"
+  - claim: "The dashboard's buckets are a fixed tuple mapped to the server words; the list shows one section per bucket with a count, and the total sums the six counts."
+    evidence: "src/dashboard/src/types/tickets.ts:18-25, src/dashboard/src/components/tickets/TicketList.tsx:42-58, src/dashboard/src/components/tickets/ticketSections.ts:17-62"
+  - claim: "The ticket header composes a subline of recorded facts and an act area; an act is hidden only from a caller known to lack runs.control, and a 409 from an act is shown as the server's text."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketHeader.tsx:24-68, src/dashboard/src/components/tickets/detail/RetryUnchanged.tsx:12-19, src/dashboard/src/lib/ticketsApi.ts:112-119"
+  - claim: "The state dot is one function over the summary's bucket; every dot class has a rule under the list's .sd and the header's .ticon in mock-parity.css."
+    evidence: "src/dashboard/src/components/tickets/ticketDot.ts:7-28, src/dashboard/src/styles/mock-parity.css:296-304, src/dashboard/src/styles/mock-parity.css:518-524"
+  - claim: "Every ticket-page read is held once per page and re-read on the ticket's activity nudge through a coalesced window."
+    evidence: "src/dashboard/src/lib/tickets/TicketPageReads.ts:15-25"
+  - claim: "The attempt flow graph is a pure layout function painted as hand-drawn SVG; the dashboard has no graph library."
+    evidence: "src/dashboard/src/components/tickets/detail/FlowCanvas.tsx:1-10, src/dashboard/package.json:17-35"
+  - claim: "A mock-parity test renders each redesigned surface and asserts the ratified mock's structural classes."
+    evidence: "src/dashboard/src/__tests__/mock-parity.test.tsx:21-23"
+  - claim: "An approved series row's content of record is its ContentJson; every other column is projected at save and never read back into a record, and the sanctioned read of the content is SpecApprovalJson.Read, which the repository already applies row by row."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/ApprovedSeries.cs:13-16, src/backend/AgentSmith.Contracts/Specs/SpecApprovalJson.cs:31, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ApprovedSeriesRepository.cs:90-94"
+  - claim: "A spec set's Goal is the series' goal the manifest carries, or null when nothing set one."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:60-62"
+  - claim: "The ticket summary carries an optional TicketKey and Platform beside the project and ticket id."
+    evidence: "src/backend/AgentSmith.Server/Models/TicketSummaryView.cs:25-29"
+  - claim: "A ticket page re-reads on a TicketActivityChanged whose key equals its summary's ticketKey or its raw ticket id; a run start nudges with TicketKey.For(platform, id), a '<provider>-<id>' key that never equals a raw id."
+    evidence: "src/dashboard/src/lib/tickets/TicketPageStore.tsx:58-64, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunStartProjection.cs:64"
+  - claim: "A ticket's Work it out conversation is addressed as /spec-dialog?ticket=&project= through TICKET_PARAM and PROJECT_PARAM; the needs-you card already links there."
+    evidence: "src/dashboard/src/components/tickets/TicketNeedsYou.tsx:62-64, src/dashboard/src/lib/specDialogAddress.ts:4-5"
+  - claim: "The dashboard has no measured structure limit."
+    evidence: ".agentsmith/contexts/dashboard/principles.md:3-4"
+
+assumptions:
+  - "2026-10-14-dbcel's GraphTicketApproval stores, as the LAST act of filing each list ticket, its ticket-text approval record (contract section 2.3): a SpecApprovalRecord with an empty set whose goal is the ticket's title, TicketText = true, the tracker's own TicketId and Project, saved as the ApprovedSeries row keyed by tracker connection and ticket key with Project and ApprovedAt projected (2026-10-14-dbcef). 2026-10-14-dbcef projects Project on EVERY approval recorded after it, so a single-spec or epic filing that has not run yet has such a row too. FiledTicketRows reads every row with a Project and tells the two apart by the record's TicketText flag. A list ticket created without its record (an incomplete filing, named 'do not trigger it' by l) is not listed."
+  - "2026-10-14-dbcef lands ITicketRequirementStore (RequiredOfAsync(tracker, ticketKey), DependentsOfAsync(tracker, requiredKey), ByProjectAsync(project)) returning TicketRequirementEdge rows carrying Tracker, TicketKey, TicketId, Project, RequiredTicketKey, RequiredTicketId."
+  - "2026-10-14-dbceg lands ITicketLandingStore.LandedAsync(tracker, keys) returning each landed key's row (Kind merged or by-hand, LandedAt, By, Note, PrUrl), and fires TicketActivityChanged on every landing."
+  - "2026-10-14-dbceh lands UnmetTicketRequirements.OfAsync(tracker, ticketKey, ct) -> (HasRequirements, Unmet), the one read the gate uses; this spec reads its .Unmet (and HasRequirements where it needs to know rows exist), and never re-derives 'unmet'."
+  - "2026-10-14-dbcei lands POST /api/tickets/{project}/{ticketId}/landed-by-hand (body { note }; 200 the landing; every other answer a plain sentence: 400 'A note is required: say why this ticket counts as landed.', 404 'No project <name> is configured.' or 'No ticket <id> on <tracker>.', 409 '<id> already counts as landed: merged on <LandedAt>.' or '<id> is already marked done by <By> at <LandedAt>: <Note>.' (also to the loser of a race, naming the winner), 503 'The tracker <tracker> could not be read (<class>); nothing was recorded.'), accepting a ticket that has no run and no filing record (a person's ticket named by ticket:<id>), storing By as the caller's OIDC sub first, and TicketBucketRule reading a landing of either kind as done for a ticket with runs."
+  - "2026-10-14-dbcek ships src/dashboard/design/mockups/ticket-graph.html with ticket-view.html's tokens and shell, a NON-SHIPPING header comment, the proposal section (ticket texts, each ticket's waits-for by tracker key, 'have nothing to wait for' for roots) and a mock-only footer; this spec appends its sections before that footer."
+
+scope:
+  in: >
+    MOCK FIRST: ticket-graph.html gains, before any code, the sections list-buckets (blocked and filed rows, each
+    waits-for entry by tracker key with its own 'Mark done by hand'), graph-view (every state, edges, the List | Graph
+    switch, a page-less node opening the requires panel), never-run-page (header, waits-for, required-by, the filed
+    line by kind, the Work it out link, no runway, no tabs) and done-by-hand (the dialog, the 409 sentence); the operator ratifies it before the
+    backend steps; the commit ships it. BUCKETS: TicketBucket.Blocked = "blocked" (a requirement unmet) and
+    TicketBucket.Filed = "filed" (no run on record, nothing unmet), both in All; TicketCountsView gains Blocked and
+    Filed (optional, 0). NEVER-RUN ROWS: FiledTicketRows reads every ApprovedSeries row with a non-empty Project
+    (project filter applied) whose (tracker connection, ticket key) has NO code run, each row's ContentJson parsed once
+    through SpecApprovalJson.Read (an unreadable one skipped and logged) — the anti-join is on that identity,
+    each run's key resolved through TicketKeyResolver and its project's tracker connection, so a ticket filed under one
+    project and run under another is listed once, as the run-bearing row. Each is a TicketSummaryView: bucket blocked
+    when UnmetTicketRequirements.OfAsync's Unmet names any, filed otherwise, done when a landing of either kind is recorded; Title =
+    the stored record's Set.Goal (a list ticket's title), else its tracker key; TicketKey = the row's TicketKey and
+    Platform = the project's tracker platform, so the page's activity filter matches the nudges of its own landing and
+    its own first start; TicketText = the record's flag (new optional field, null on every run-bearing row); Since =
+    ApprovedAt for blocked and filed, the landing's LandedAt for done; AttemptCount 0, Cost 0, NewestRunId and Status
+    empty; WaitsFor = the unlanded required tickets, each {ticketId, project?, key (FiledTicketKey), title (else the
+    key)} (new optional field, null on every run-bearing row). The unmet read is UnmetTicketRequirements.OfAsync(...).Unmet per
+    never-run row (an edge read plus a landing read), accepted at the list's caps rather than a batch read that would
+    be a second answer to "unmet". ONE SUMMARY READ: lines 38-46 of TicketListReader become TicketListReader.AllAsync(project, ct) -> every
+    run-bearing (rows, summary) plus every never-run summary; ReadAsync pages and TicketGraphReader calls it, so a node
+    and its row are composed by one path. LIST: the cursor, the paging and NextCursor stay over the filtered RUN rows
+    and the run-row page only; never-run rows are added AFTER paging, on the first page only (no cursor), and only
+    blocked and filed ones lead it unfiltered; a never-run done row is listed only under the done filter; the counts
+    include every never-run row. DETAIL: a pair with no code run but a never-run row returns a detail with that summary,
+    no attempts, no branch runs; null only when neither exists. GRAPH: GET /api/tickets/graph?project= (runs.read) ->
+    { nodes: [{project, ticketId, key, title, state, bucket, hasPage}], edges: [{from, to}] }, from = the dependent;
+    nodes are every ticket on either end of the project's edges (each configured project's when absent); state: merged
+    / done-by-hand (a landing) > running (the working bucket) > blocked (unmet) > ready (no run, nothing unmet) > the
+    list bucket; a node with neither a run nor a filing record and no landing reads idle with hasPage false. REQUIRES:
+    GET /api/tickets/{project}/{ticketId}/requires (runs.read) -> { requires, requiredBy }, each {ticketId, key, title,
+    state, hasPage, landedKind?, landedBy?, landedByName?, landedAt?, note?}; 404 only for an unknown project.
+    landedByName is read, never stored: the observed caller (IObservedCallerStore.AllAsync, once per read) whose
+    Subject equals landedBy, its NameValue when its NameClaim is readable (ReadableName.Is); absent otherwise, and the
+    page then shows landedBy as stored. Both in a new
+    TicketGraphEndpoints chained from TicketQueryEndpoints. DASHBOARD: tickets.ts gains the buckets, counts, waitsFor,
+    graph and requires types; lib/ticketGraphApi.ts holds fetchTicketGraph, fetchTicketRequires and markLandedByHand
+    (every non-200 answer from 2026-10-14-dbcei is a plain sentence — 400, 404, 409 naming the landing that
+    stands, 503 — which the dialog shows as is; a non-2xx without a sentence throws). After a 200 the page re-reads its
+    requires and its detail at once, so a waiting ticket's own page shows the landing even when nothing starts it. List sections "Waits for another ticket" (blocked) and "Filed, no run on record" (filed), the
+    row's "waits for DPG-12, #41" by key. A never-run row (attemptCount 0, no newest run) renders no series strip, no
+    attempt marks and no cost cell — never "0 specs", "0 attempts" or "$0.00" — and shows its waits-for line or "no
+    run on record" in their place. DOT: TICKET_DOT_CLASSES gains "blocked" and "filed" with rules under
+    .mock-tickets .sd and .mock-tickets .t-head .ticon in src/dashboard/src/styles/mock-parity.css (blocked a hollow
+    --person ring, filed a hollow --idle ring), and the graph's, waits-for's and dialog's classes go in the same file.
+    /tickets gains a List | Graph switch (?view=graph) drawing TicketGraph from a pure layered layout
+    (ticketGraphLayout.ts) as SVG; a node with a page opens it, a page-less node opens TicketRequiresPanel (its key,
+    title, what requires it, and the act). DONE BY HAND, ON EVERY TICKET WAITED ON: TicketWaitsFor lists each
+    requirement ("DPG-12 (not merged)", "#41 (done by hand)") and gives each UNLANDED entry its own DoneByHandAct for
+    THAT ticket (its project and id, runs.control, note required, every non-200 sentence shown as the server's text); the header keeps
+    the act for the page's own ticket; the act is hidden from a caller known to lack runs.control and on a landed
+    ticket. NEVER-RUN PAGE: TicketHeader (title, key, the dot, "filed <age> ago"), TicketWaitsFor, required-by, the
+    filed line chosen by the summary's TicketText flag — a list ticket "Filed, no run on record — its specs are derived
+    when its first run starts", a filed spec or epic plainly "Filed, no run on record" — and a link "Settle its specs
+    first in Work it out" to /spec-dialog?ticket=&project= built as TicketNeedsYou's conversationHref builds it; no
+    SeriesRunway and no tabs.
+  out: >
+    The requirement table, ApprovedSeries.Project and the store — 2026-10-14-dbcef. The landing table, the recorder and
+    the event — 2026-10-14-dbceg. The gate and the wake — 2026-10-14-dbceh. The by-hand route and TicketBucketRule's done
+    for a landing — 2026-10-14-dbcei. The proposal card and the mock file's proposal section — 2026-10-14-dbcek. Filing,
+    the per-ticket record and the edges' rows — 2026-10-14-dbcel. Tracker links — 2026-10-14-dbcem. Never-run filings
+    made before 2026-10-14-dbcef (no Project on their row) — nobody: contract section 8 answer 3, they stay unlisted. A
+    durable "first claimed" fact that would tell "never ran" from "runs deleted" — nobody: the bucket says what is
+    known ("no run on record"), and no member mints such a fact (default, pending operator ratification). Undoing a
+    by-hand landing — nobody: contract decision 15. A filed ticket a person closed on the tracker without a run —
+    nobody: the list reads no tracker (TicketListReader's own rule); it stays filed until marked done by hand, which
+    this page now offers. A graph across trackers — nobody: contract decision 5 supports none. Showing a never-run
+    ticket's requirement text on its page — nobody: the tracker holds it, and the header links there. TicketBucketRule
+    — untouched here (budget n ≤60 unused). A required ticket that ran under ANOTHER project of the same tracker —
+    nobody: requires entries carry no project, so its link and its act use the page's project (contract decision 5:
+    same project), and its page there shows it as never-run.
+
+decisions:
+  - key: "MOCK FIRST, AS THE FIRST STEP (round-1 cut, main-thread D5). Contract section 2.9 says the operator iterates on the mock, and the series rule is to check a spec against what a person will see; the sections are drawn and ratified before any backend step, and the commit ships them. Contract section 5 default 27 (default, pending operator ratification)."
+  - key: "DONE BY HAND ON EVERY TICKET WAITED ON (round-1 cut, D5; contract section 5 default 33, pending operator ratification). A required ticket can be a person's ticket, a filing from before 2026-10-14-dbcef, or one whose runs were deleted; none of them has a page, and the strict gate (contract decision 7) would hold its dependent forever if the act lived only on a ticket's own page. The act goes on each unlanded waits-for entry and on a page-less graph node's panel."
+  - key: "'FILED, NO RUN ON RECORD', NOT 'NOT STARTED' (round-1 cut, D5). Run deletion leaves the filing record (RunDeletionRepository never touches ApprovedSeries), so 'never ran' cannot be known; the copy says what is known. The field that would know is a 'first claimed' fact nobody mints (default, pending operator ratification)."
+  - key: "ONLY BLOCKED AND FILED ROWS LEAD PAGE ONE, AND TAKE NO CURSOR (round-1 cut, D5). The list pages by the newest run id, which a never-run ticket lacks; a sort key across two id spaces would page wrongly at the seam. Blocked and filed tickets are what a person acts on next. A never-run done ticket would otherwise lead every first page forever; it appears under the done filter and in the counts, dated by its landing (default, pending operator ratification)."
+  - key: "ONE SUMMARY READ FOR LIST AND GRAPH (round-1 cut, D5). A graph reader that copied half of the list's inputs would drift (without standings, stuck and by-hand done never show). TicketListReader.AllAsync is the one path; the graph calls it."
+  - key: "ANTI-JOIN ON THE FILING IDENTITY, NOT (PROJECT, TICKET ID). ApprovedSeries is identified by tracker connection and ticket key; joining on the project would list a ticket filed under one project and run under another twice."
+  - key: "NEVER-RUN ROWS COME FROM THE FILING RECORD, NOT FROM THE TRACKER. Reading the tracker per list read would make the list as slow as the slowest tracker. Contract section 2.3 and section 5 default 7; section 8 answer 3: older filings stay invisible (default, pending operator ratification)."
+  - key: "BLOCKED AND FILED ARE BUCKETS OF NEVER-RUN TICKETS ONLY. A ticket the gate refuses never gets a run (2026-10-14-dbceh; ClaimRefusal writes nothing), so a run-bearing ticket's requirements were met when it started; its bucket stays the list rule's. Contract section 5 default 21 (default, pending operator ratification)."
+  - key: "UNMET IS 2026-10-14-dbceh's READ. The list, the graph and the requires read call UnmetTicketRequirements, the read the gate refuses by, so the page never says ready while the gate refuses."
+  - key: "TICKETS ARE NAMED BY TRACKER KEY (round-1 cut). '#DPG-12' is wrong on Jira; the server sends FiledTicketKey's form on every waits-for, requires and node entry, and a required ticket with no recorded title shows its key."
+  - key: "A NEVER-RUN PAGE HAS NO TABS (round-1 cut, D5). Under the ticket-text graph a ticket has no specs, attempts or cost until its first run derives them; every tab would render an empty state, so the page shows the header, what it waits for, what waits for it and the filed line."
+  - key: "GRAPH STATE IS COMPUTED PER READ, NEVER STORED (contract section 2.3). A landing outranks every other state because it is permanent (contract decision 15). The graph view is a view switch on /tickets, not a route (section 5 default 22, pending operator ratification)."
+  - key: "BY IS SHOWN BY NAME WHEN ONE IS KNOWN (contract section 2.6, section 5 default 33, pending operator ratification). 2026-10-14-dbcei stores the OIDC sub, which is stable but no name; the server already keeps every caller it has seen with the configured name claim's value, so the requires read looks it up per read and stores nothing twice. An observation pruned or a name claim of sub leaves the stored value on the page."
+  - key: "A NEVER-RUN ROW SHOWS NO ZERO COUNTS. The row's strip, marks and cost cell describe runs; a ticket with none shows what it waits for instead of '0 attempts' or '$0.00', and no spec count, because its specs do not exist until its run derives them."
+  - key: "A FILED SPEC IS NOT A TICKET TEXT (round-2 cut). 2026-10-14-dbcef projects Project on every approval, so a single-spec or epic filing that has not run yet is a never-run row too; telling it its specs 'are derived when its first run starts' would be false. The flag lives only in ContentJson (the table's columns are projections never read back), so FiledTicketRows reads the record through SpecApprovalJson.Read, the one sanctioned parse, and takes the title from the same record."
+  - key: "THE NEVER-RUN SUMMARY CARRIES ITS TICKET KEY (round-2 cut). The page re-reads only on a nudge naming its own key; without it, a never-run page missed its own landing and its own first start."
+  - key: "A MARK RE-READS THE PAGE IT WAS MADE ON (round-2 cut). The landing nudges the REQUIRED ticket, not the dependent whose page holds the act; when the dependent does not start by itself (no recorded runs.control at filing) its page would otherwise keep saying 'not merged'."
+  - key: "THE WAY TO SETTLE SPECS FIRST IS ONE LINK AWAY (round-2 cut). Contract D1 sends a person who wants a ticket's specs before its run to Work it out on that ticket; the never-run page links there with the address the needs-you card already uses."
+  - key: "NO GRAPH LIBRARY. The flow graph's precedent (FlowCanvas) is a pure layout plus SVG; a graph of at most a few dozen nodes does not justify a dependency."
+
+steps:
+  - id: mock
+    action: "src/dashboard/design/mockups/ticket-graph.html (2026-10-14-dbcek's shell, proposal section untouched): append before the mock-only footer list-buckets, graph-view, never-run-page and done-by-hand as scope.in lists, one footer line per section naming the endpoint it reads; operator ratifies before the next step."
+  - id: buckets
+    action: "TicketBucket.Blocked and .Filed in All (36 -> about 44); TicketCountsView gains int Blocked = 0, int Filed = 0 (26 -> 28); TicketCounts counts both (46 -> 48); TicketSummaryView gains WaitsFor = null and TicketText = null (52 -> 55); TicketWaitsForView in Server/Models."
+  - id: filed-rows
+    action: "FiledTicketRows (Server/Services/Tickets, at most 100 lines): ListAsync(project?) and OneAsync(project, ticketId) over l's per-ticket filing records, anti-joined on (tracker connection, ticket key), content via SpecApprovalJson.Read (title, TicketText), TicketKey and Platform set, unmet via UnmetTicketRequirements.OfAsync's Unmet, landings via ITicketLandingStore.LandedAsync, keys via FiledTicketKey; composes as scope.in says."
+  - id: list
+    action: "TicketListReader: lines 38-46 become AllAsync(project, ct) returning run-bearing (rows, summary) and never-run summaries; ReadAsync pages run rows only (NextCursor over the filtered run rows and the run-row page), then prepends blocked/filed never-run rows on the first page, done ones only under the done filter (80 -> at most 95, wc -l)."
+  - id: detail
+    action: "TicketDetailReader: no code run -> FiledTicketRows.OneAsync -> a detail with no attempts; null only when neither (66 -> at most 72)."
+  - id: graph-reader
+    action: "TicketGraphReader (at most 110 lines): edges via ITicketRequirementStore.ByProjectAsync, summaries via TicketListReader.AllAsync, landings via LandedAsync; TicketRequiresReader (at most 90) via RequiredOfAsync / DependentsOfAsync, landedByName via IObservedCallerStore.AllAsync; views TicketGraphView, TicketGraphNodeView, TicketGraphEdgeView, TicketRequiresView, TicketRequirementView in Server/Models."
+  - id: endpoints
+    action: "TicketGraphEndpoints (graph, requires; runs.read) chained from TicketQueryEndpoints.MapTicketQueryEndpoints (45 -> at most 48); FiledTicketRows, TicketGraphReader, TicketRequiresReader registered in TicketReadExtensions (70 -> at most 74)."
+  - id: dashboard-types
+    action: "tickets.ts: 'blocked' and 'filed' in TICKET_BUCKETS and SERVER_BUCKET, counts, TicketSummary.waitsFor, TicketGraph and TicketRequires types; lib/ticketGraphApi.ts: fetchTicketGraph, fetchTicketRequires, markLandedByHand (every non-200 sentence -> an answer carrying it as is, a non-2xx without one throws)."
+  - id: list-ui
+    action: "ticketSections.ts: the two sections, totalTickets sums eight counts; ticketDot: 'blocked'/'filed' classes with .sd and .ticon rules in src/dashboard/src/styles/mock-parity.css; TicketRow shows waits-for by key and, for a never-run row, no strip, marks or cost cell; /tickets List | Graph switch; TicketGraph.tsx + ticketGraphLayout.ts (layered by longest path, Kahn order for ties) as SVG; TicketRequiresPanel for page-less nodes."
+  - id: page-ui
+    action: "useTicketRequires in TicketPageReads/TicketPageStore (re-read on the activity nudge); TicketWaitsFor with a per-entry DoneByHandAct, DoneByHandDialog (note required), the header act (TicketHeader 70 -> at most 74, mock-parity.css classes); after a 200 the page re-reads requires and detail; TicketPage renders the never-run layout (filed line by TicketText, the Work it out link, no runway, no tabs) when the detail has no attempt."
+  - id: tests
+    action: "Red first, then green, for every test below; run the Tickets classes and pnpm test for the touched dashboard folders."
+  - id: verify
+    action: "Full suite, dashboard gen:hub-events / test / build."
+
+tests:
+  - "TicketList_FiledTicketWithNoRun_IsListedAsFiled (TicketStoreHarness, real ServiceProvider)"
+  - "TicketList_FiledTicketWithUnlandedRequirement_IsBlockedAndNamesWhatItWaitsForByTrackerKey"
+  - "TicketList_FiledTicketWhoseRunsWereDeleted_IsListedAsFiled"
+  - "TicketList_NeverRunTicketLandedByHand_IsDoneOnlyUnderTheDoneFilterAndDatedByItsLanding"
+  - "TicketList_FilingBeforeProjectColumn_IsNotListed"
+  - "TicketList_BlockedAndFiledRows_LeadTheFirstPageAndTakeNoCursor"
+  - "TicketList_NextCursor_ComputedOverRunRowsOnly (a full run page plus never-run rows still yields the cursor)"
+  - "TicketList_TicketFiledUnderOneProjectRunUnderAnother_IsListedOnce"
+  - "TicketList_Counts_IncludeBlockedAndFiled"
+  - "TicketQueryEndpoints_BucketBlockedAndFiled_AreAccepted"
+  - "TicketDetail_NeverRunFiledTicket_ReturnsADetailWithNoAttempts"
+  - "TicketDetail_NoRunAndNoFiling_IsNotFound"
+  - "TicketGraph_TwoTicketsOneEdge_ReturnsBothNodesAndTheEdgeFromTheDependent"
+  - "TicketGraph_StatePrecedence_LandingOverRunningOverBlockedOverReady"
+  - "TicketGraph_RunBearingNode_HasTheListRowsBucketIncludingStuck (one AllAsync path)"
+  - "TicketGraph_RequiredTicketWithoutRunOrFiling_IsIdleWithNoPage"
+  - "TicketGraph_NoProject_ReadsEveryConfiguredProject"
+  - "TicketRequires_ReturnsRequiresAndRequiredByWithKeysAndLandingFacts"
+  - "TicketRequires_UnknownProject_Is404"
+  - "TicketGraphEndpoints_ResolveFromTheRealServiceProvider (integration)"
+  - "ticketGraphLayout: a chain lays out in increasing layers; a diamond puts the join one layer past its longest input"
+  - "TicketList: blocked and filed sections render with their counts, their dots and waits-for by key"
+  - "TicketWaitsFor_UnlandedRequirementWithoutAPage_CanBeMarkedDoneByHand"
+  - "TicketGraph_NodeWithoutAPage_OffersTheAct"
+  - "DoneByHandAct: hidden without runs.control and on a landed ticket; an empty note cannot be sent; a 409 ('<id> is already marked done by … at …: …' or '<id> already counts as landed: merged on …'), a 404 and a 503 show the server's sentence as is"
+  - "TicketWaitsFor_MarkedDoneByHand_ReReadsAndShowsTheLanding"
+  - "TicketList_FiledSpecTicketWithNoRun_IsFiledWithoutTheDerivationLine"
+  - "TicketList_NeverRunRow_CarriesTicketKeyPlatformAndTitleFromTheStoredRecord"
+  - "TicketPageStore: a never-run page re-reads on a TicketActivityChanged naming its own '<provider>-<id>' key"
+  - "TicketRequires_LandedByHand_NamesThePersonByTheObservedNameValueElseTheStoredSubject"
+  - "TicketRow: a never-run row shows waits-for and no series strip, attempt marks, '0 attempts' or cost"
+  - "TicketPage: a ticket with no attempt shows header, waits-for, required-by, the filed line by kind and the Work it out link (?ticket=&project=), and renders no runway and no tabs"
+  - "ticketDot: every TICKET_DOT_CLASSES member has a rule under .sd and under .t-head .ticon in mock-parity.css"
+  - "mock-parity: list buckets, graph view, never-run page and the done-by-hand dialog carry ticket-graph.html's structural classes"
+
+done:
+  - "src/dashboard/design/mockups/ticket-graph.html shows the list buckets, the graph view, the never-run ticket page and the done-by-hand dialog, ratified by the operator before the code, and the page renders what it shows."
+  - "A ticket filed from a list of tickets appears on the ticket list before any run: under 'Waits for another ticket' naming what it waits for by tracker key (DPG-12, #41), or under 'Filed, no run on record' when nothing it requires is open."
+  - "Switching /tickets to the Graph view draws every ticket of a project that requires or is required, an arrow from each dependent to what it requires, and each one's state: blocked, ready, running, merged, done by hand, or its list bucket."
+  - "Every ticket something waits for can be marked done by hand from the waiting ticket's page or the graph, even one that never ran or was never filed here; the dependent then stops waiting; a second mark, a ticket the tracker does not have and an unreachable tracker are each answered with the server's sentence; who marked it is shown by name where the server knows one."
+  - "A ticket with no run has a page showing what it waits for, what waits for it, that it is filed with no run on record (saying its specs come with its first run only for a ticket from a list), and a link to settle its specs first in Work it out."
+  - "After a person marks a waited-on ticket done by hand, the waiting ticket's page shows it as done by hand at once."
+  - "Never-run filings made before 2026-10-14-dbcef are not listed (contract section 8 answer 3)."
+  - "Build green, full suite green, dashboard gen/test/build green."

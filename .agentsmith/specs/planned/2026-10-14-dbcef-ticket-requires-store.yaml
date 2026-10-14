@@ -1,0 +1,155 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-14-dbcef
+goal: "A database table records which filed ticket must wait for which other ticket to be merged, and every newly approved series records the project it was filed into."
+
+applies_to: "backend (the TicketRequirements table, its entity, configuration, port and repository; SpecApprovalRecord.Project and the projected ApprovedSeries.Project column; one migration in each migrations set; the data-archive counts)"
+
+requires: []
+
+facts:
+  - claim: "An approved series is one row per (tracker connection name, ticket key); the project is not part of that identity; ContentJson is the content of record and every other column except the identity and SatisfiedAt is projected out of it at save and never read back."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/ApprovedSeries.cs:12-17, src/backend/AgentSmith.Infrastructure.Persistence/Entities/ApprovedSeries.cs:23-29, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/ApprovedSeriesConfiguration.cs:29"
+  - claim: "ApprovedSeriesRepository.Apply writes ContentJson and projects SeriesId, TicketId, Repositories, CarryingRepo and the approval fields from the record; the class is 111 lines."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ApprovedSeriesRepository.cs:97-110, observed: 2026-10-14, wc -l in this worktree: ApprovedSeriesRepository.cs 111"
+  - claim: "SpecApprovalRecord is positional with every later field appended last for the positional construction site; ReviewRounds is already an init property on it; the file is 88 lines."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecApprovalRecord.cs:45-49, src/backend/AgentSmith.Contracts/Specs/SpecApprovalRecord.cs:68-88, observed: 2026-10-14, wc -l in this worktree: SpecApprovalRecord.cs 88"
+  - claim: "The record is serialized whole with the web defaults, so a public init property rides in ContentJson and an older row without it reads its default."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecApprovalJson.cs:17-23, src/backend/AgentSmith.Contracts/Specs/SpecApprovalJson.cs:31-41"
+  - claim: "ApprovedSpecSetRecorder.RecordAsync holds the ResolvedProject and builds the record with an object initializer on one line; the file is 119 lines."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSpecSetRecorder.cs:64-66, src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSpecSetRecorder.cs:80-81, src/backend/AgentSmith.Contracts/Models/Configuration/ResolvedProject.cs:13, observed: 2026-10-14, wc -l in this worktree: ApprovedSpecSetRecorder.cs 119"
+  - claim: "The ticket key is TicketKey.For(tracker type lowercased, ticket id), and the tracker connection's name is TrackerConnection.Name."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/TicketKey.cs:9, src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSpecSetRecorder.cs:113-114, src/backend/AgentSmith.Contracts/Models/Configuration/TrackerConnection.cs:10"
+  - claim: "Tables keyed by a ticket rather than a run are applied in TicketRecordConfigurations.Apply (24 lines); PrReviewRecords has a table name and no DbSet, read through IUnitOfWork.Set; AgentSmithDbContext is at 120 lines."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Configurations/TicketRecordConfigurations.cs:5-23, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/PrReviewRecordConfiguration.cs:17, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordRepository.cs:30, observed: 2026-10-14, wc -l in this worktree: AgentSmithDbContext.cs 120, TicketRecordConfigurations.cs 24"
+  - claim: "Indexed strings are capped at 191 characters for MySQL utf8mb4; ApprovedSeries caps every indexed column so."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Models/PersistenceLimits.cs:10, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/ApprovedSeriesConfiguration.cs:13, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/ApprovedSeriesConfiguration.cs:22-28"
+  - claim: "Two replicas meeting at a unique index are handled by catching the provider's unique violation through IUniqueViolationTranslator, detaching the losing entry and re-reading."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunRetryRequestRepository.cs:12-36"
+  - claim: "Ticket facts read by singletons are served by a singleton that opens a scope per operation; they are registered in AddTicketFactStores (25 lines), which the server's relational persistence calls; the server always wires the relational store and the CLI never does."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/DbUnmovedTicketStore.cs:13-20, src/backend/AgentSmith.Infrastructure.Persistence/Extensions/TicketFactStoreExtensions.cs:17-24, src/backend/AgentSmith.Server/Extensions/RelationalPersistenceExtensions.cs:27-34, src/backend/AgentSmith.Server/Extensions/RelationalPersistenceExtensions.cs:128"
+  - claim: "The run-deletion path deletes a run's children by explicit table, the PR records among them; it names no ticket-keyed table such as ApprovedSeries."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunDeletionRepository.cs:88-95"
+  - claim: "The last ticket-ordering gate held a child on labels: a predecessor stamp read from the ticket, deleted in 2026-09-22-766b."
+    evidence: "src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs:27-32"
+  - claim: "Every migration lands in both sets, the default one and the SQL Server one; the newest is AddRunDefaultDecisions in each."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Migrations/20261014112331_AddRunDefaultDecisions.cs:1, src/backend/AgentSmith.Infrastructure.Persistence.SqlServer/Migrations/20261014112333_AddRunDefaultDecisions.cs:1"
+  - claim: "The archive tests pin 49 tables, 100 seeded rows (in the round-trip test AND in the refusal test's manifest sum) and 39 generated-key tables; the seed fills every table from the model, two rows per table, so a new table needs only the counts."
+    evidence: "tests/AgentSmith.Tests/Persistence/DataArchiveSchemaTests.cs:63, tests/AgentSmith.Tests/Persistence/DataArchiveSchemaTests.cs:163, tests/AgentSmith.Tests/Persistence/DataArchiveRoundTripTests.cs:33-34, tests/AgentSmith.Tests/Persistence/DataArchiveRoundTripTests.cs:54, tests/AgentSmith.Tests/Persistence/DataArchiveRoundTripTests.cs:81, tests/AgentSmith.Tests/TestSupport/FullStoreSeed.cs:8-16, tests/AgentSmith.Tests/TestSupport/FullStoreSeed.cs:34-41, tests/AgentSmith.Tests/Persistence/DataArchiveRefusalTests.cs:96-103"
+  - claim: "A composition test builds the real server provider with ServerCompositionBuilder.ConfigureServices; its class carries the TestProcess trait env-1 beside the environment collection, the pair TestProcessTraitRuleTests demands."
+    evidence: "tests/AgentSmith.Tests/SpecDialog/Ratification/MockRatificationCompositionTests.cs:13-24"
+  - claim: "EntityBase.CreatedAt is stamped on insert by SaveChanges, so a row already carries the time it was written."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/EntityBase.cs:4-10, src/backend/AgentSmith.Infrastructure.Persistence/AgentSmithDbContext.cs:110-118"
+  - claim: "A unique violation rolls back the whole SaveChanges: the existing translator pattern detaches every entry the failed save added."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordWriter.cs:44-57"
+  - claim: "The tests force a replica race deterministically: RacingUnitOfWork runs another writer before every save, and ServerStateStore registers it as the scope's IUnitOfWork beside the SQLite unique-violation translator, as DbWebhookDeliveryTrackerTests does."
+    evidence: "tests/AgentSmith.Tests/TestSupport/RacingUnitOfWork.cs:8-28, tests/AgentSmith.Tests/TestSupport/ServerStateStore.cs:22-39, tests/AgentSmith.Tests/Persistence/DbWebhookDeliveryTrackerTests.cs:76-86"
+
+assumptions:
+  - "2026-10-14-dbcel is the only writer of requirement rows (contract §2.3); this spec ships the table, the port and the repository with no production caller of AddAsync."
+  - "A unique index over three 191-character strings fits every provider: 3 x 191 x 4 bytes = 2,292 bytes under InnoDB's 3,072, and 3 x 191 x 2 bytes = 1,146 under SQL Server's 1,700 for a nonclustered key."
+
+scope:
+  in: >
+    ENTITY: TicketRequirement : EntityBase (Infrastructure.Persistence/Entities) with Id (long), Tracker (the tracker
+    CONNECTION name), TicketKey (TicketKey.For of the dependent), TicketId (the tracker's own spelling of the dependent),
+    Project (the filing project), RequiredTicketKey, RequiredTicketId, StartsWhenMet (bool: the approver held
+    runs.control at filing), FiledInConversation; no FiledAt column: the edge's FiledAt is the row's CreatedAt, which
+    SaveChanges stamps on insert. Project, TicketId and FiledInConversation are COPIES taken at filing and never
+    updated (a later re-approval of the dependent upserts ApprovedSeries, never an edge). CONFIGURATION: TicketRequirementConfiguration,
+    ToTable("TicketRequirements"), every string capped at PersistenceLimits.IndexedString, UNIQUE (Tracker, TicketKey,
+    RequiredTicketKey), index (Tracker, RequiredTicketKey) for the dependents read, index (Project); applied from
+    TicketRecordConfigurations.Apply (24 -> 25). No DbSet. PORT: TicketRequirementEdge (Contracts/Tickets, a record of the
+    nine fields Tracker, TicketKey, TicketId, Project, RequiredTicketKey,
+    RequiredTicketId, StartsWhenMet, FiledAt (read from CreatedAt; ignored on write) and FiledInConversation) and ITicketRequirementStore (Contracts/Services): AddAsync(IReadOnlyList<TicketRequirementEdge>
+    edges, ct) -> int added; RequiredOfAsync(tracker, ticketKey, ct) -> the dependent's edges; DependentsOfAsync(tracker,
+    requiredTicketKey, ct) -> every edge naming that ticket as required; ByProjectAsync(project, ct) -> the project's
+    edges. REPOSITORY: TicketRequirementRepository(IServiceScopeFactory) : ITicketRequirementStore, a SINGLETON that opens a
+    scope per operation and resolves IUnitOfWork and IUniqueViolationTranslator in it. AddAsync takes the edges of ONE
+    dependent (one Tracker and TicketKey, else ArgumentException), refuses an edge whose RequiredTicketKey is its own
+    TicketKey (ArgumentException), refuses a batch whose edges disagree on StartsWhenMet (ArgumentException), skips
+    edges already stored, and inserts the rest in one SaveChanges; a unique violation from a racing writer rolls that
+    save back, so the entries are detached, the dependent's edges re-read, and the edges STILL missing inserted once
+    more; a second violation propagates. It returns the total this call added. Insert only: no update
+    and no delete member. Registered in AddTicketFactStores (25 -> 27): AddSingleton<ITicketRequirementStore,
+    TicketRequirementRepository>. FILING PROJECT: SpecApprovalRecord gains `public string Project { get; init; } =
+    string.Empty;` beside ReviewRounds (88 -> 89); ApprovedSpecSetRecorder sets `Project = project.Name` in the existing
+    initializer on line 81 (119 kept); ApprovedSeries gains Project (string, documented as projected; 66 -> 70);
+    ApprovedSeriesConfiguration caps it at IndexedString and indexes it (34 -> 36); ApprovedSeriesRepository.Apply adds
+    `row.Project = record.Project;` (111 -> 112). MIGRATIONS: AddTicketRequirements generated with `dotnet ef migrations
+    add` in AgentSmith.Infrastructure.Persistence/Migrations and AgentSmith.Infrastructure.Persistence.SqlServer/Migrations
+    (the table with its three indexes, ApprovedSeries.Project non-null with default '' and its index), each with its
+    designer file and model snapshot. ARCHIVE: DataArchiveSchemaTests.cs:63 49 -> 50 and :163 39 -> 40 with the comment
+    suffix "dbcef: + TicketRequirements"; DataArchiveRoundTripTests.cs:33 and :54 and :81 49 -> 50 ("fifty" in :54's
+    message), :34 100 -> 102; DataArchiveRefusalTests.cs:103 100 -> 102.
+  out: >
+    Writing requirement rows at filing, StartsWhenMet from the filing's mayStartRuns, and the per-ticket order of those
+    writes — 2026-10-14-dbcel. Reading the rows in the claim gate and in the wake — 2026-10-14-dbceh. The landing table a
+    requirement is met by — 2026-10-14-dbceg. Reading ByProjectAsync and ApprovedSeries.Project for the ticket list's
+    never-run rows and the graph — 2026-10-14-dbcen. The tracker's own link between the two tickets — 2026-10-14-dbcem.
+    Backfilling Project on series approved before this spec — nobody: contract §5 default 7; an older row's ContentJson
+    names no project, and a ticket matching two projects of one tracker has no single answer to infer. Editing or
+    deleting an edge after filing — nobody: edges are written once at filing (contract §2.3); a requirement that should
+    not hold is overcome by marking the required ticket done by hand (2026-10-14-dbcei). A cycle check in the store —
+    2026-10-14-dbcej's TicketGraphChecker refuses a cyclic graph before anything is filed; the store refuses only a
+    ticket requiring itself. An in-memory store for the CLI — nobody: the readers are the claim service and the spawn
+    funnel, both registered only in the server (src/backend/AgentSmith.Server/Services/DispatcherExtensions.cs:72), and
+    the server always wires the relational store.
+
+decisions:
+  - key: "A TABLE, NEVER LABELS (contract §5 default 6, pending operator ratification). A label is editable by anyone with tracker access and travels in the poll envelope, which is how the deleted a72a gate read it; the requirement is the approver's decision and lives where only the filer writes it. A tracker link (2026-10-14-dbcem) is a view of it for people, never read back."
+  - key: "KEYED BY TRACKER CONNECTION AND TICKET KEY, THE ApprovedSeries IDENTITY. The ticket key carries only the tracker type, so two Jira instances numbering alike would collide on it alone; the project is a column because one ticket matching two projects of one tracker is the same work (ApprovedSeries.cs:23-29)."
+  - key: "REGISTERED IN TicketRecordConfigurations, NOT RunChildConfiguration, AND WITHOUT A DbSet. The rows must outlive every run of both tickets; AgentSmithDbContext is at 120 lines, and PrReviewRecords already shows a table read through IUnitOfWork.Set alone."
+  - key: "THE REPOSITORY IS THE SINGLETON PORT. The claim service and the wake are singletons, so a scoped repository cannot be injected; instead of a third Db…Store facade class, TicketRequirementRepository opens a scope per operation itself (the shape DbUnmovedTicketStore uses inside its facade). No name beyond the contract's is minted."
+  - key: "INSERT ONLY AND IDEMPOTENT. A filing retried after a crash may hand the same edges again; a stored edge is skipped, and a racing duplicate is the unique index's to refuse, so AddAsync never throws for an edge that is already there."
+  - key: "ONE DEPENDENT PER AddAsync CALL, ONE SaveChanges. 2026-10-14-dbcel stores each ticket's edges right after creating it (contract decision 10); one transaction per dependent means a crash leaves a ticket with all of its edges or none."
+  - key: "StartsWhenMet IS STORED ON EACH ROW, ONE VALUE PER DEPENDENT. Whether the wake may move a held ticket is the approver's runs.control at filing (contract §2.3); the wake runs long after the approver's request, so the fact is stored with the edges it concerns. It is one fact about the dependent, so AddAsync refuses a batch whose rows disagree, and 2026-10-14-dbceh reads it as 'every row'. A retried filing under another principal adds only missing edges, which carry that filing's value; the two can then differ, and h's 'every row' reading holds the ticket (the stricter answer)."
+  - key: "RACING WRITERS LEAVE NO EDGE UNWRITTEN. A unique violation rolls the whole save back (PrReviewRecordWriter.cs:44-57 shows the detach this needs), so a call whose batch only partly overlaps another writer's would otherwise return having stored nothing of its own; the re-read and one more insert of the still-missing edges close it, and a second violation is a real fault and throws."
+  - key: "NO FiledAt COLUMN (reported for contract §2.3). EntityBase.CreatedAt is the insert time (EntityBase.cs:4-10); a second column with the same instant is a datum stored twice. The edge record still carries FiledAt, read from CreatedAt."
+  - key: "THE FILING PROJECT IS CONTENT, PROJECTED. SpecApprovalRecord.Project rides in ContentJson like every other approval field and ApprovedSeries.Project is projected at save, never read back, the existing rule (ApprovedSeries.cs:12-17). It is an init property because the record's positional constructor has one production call site whose string arguments would silently shift."
+  - key: "ApprovedSeries.Project IS INDEXED. 2026-10-14-dbcen lists a project's never-run filings from it on every ticket-list read; the index is added in this member's migration so no second migration touches the table."
+  - key: "OLDER ROWS STAY WITHOUT A PROJECT (contract §5 default 7, pending operator ratification). Nothing in an older row names the filing project."
+
+steps:
+  - id: entity-config
+    action: "TicketRequirement entity (at most 50 lines with docs, no FiledAt; Project, TicketId and FiledInConversation documented as filing-time copies; its summary says the required ticket lives on the dependent's tracker connection, one Tracker column for both ends, so a cross-tracker requirement is not supported, contract §8 answer 5) and TicketRequirementConfiguration (at most 40 lines): table TicketRequirements, IndexedString caps, UNIQUE (Tracker, TicketKey, RequiredTicketKey), index (Tracker, RequiredTicketKey), index (Project); applied from TicketRecordConfigurations.Apply with a `// 2026-10-14-dbcef` comment (24 -> 25)."
+  - id: port
+    action: "TicketRequirementEdge record in Contracts/Tickets/TicketRequirementEdge.cs and ITicketRequirementStore in Contracts/Services/ITicketRequirementStore.cs with AddAsync, RequiredOfAsync, DependentsOfAsync and ByProjectAsync, each documented with what it returns for an unknown ticket (empty)."
+  - id: repository
+    action: "TicketRequirementRepository : ITicketRequirementStore in Infrastructure.Persistence/Repositories (at most 100 lines): a scope per operation; AddAsync refuses a batch naming two dependents, an edge requiring its own ticket, or rows that disagree on StartsWhenMet, skips stored edges, inserts the rest in one SaveChanges, and on a unique violation detaches, re-reads and inserts the still-missing edges once more (a second violation throws), returning the total added; the three reads AsNoTracking, mapped to TicketRequirementEdge with FiledAt = CreatedAt."
+  - id: registration
+    action: "AddTicketFactStores registers ITicketRequirementStore -> TicketRequirementRepository as a singleton (25 -> 27)."
+  - id: filing-project
+    action: "SpecApprovalRecord.Project init property (88 -> 89); ApprovedSpecSetRecorder line 81 initializer gains `Project = project.Name` (119 kept); ApprovedSeries.Project with a projected-column summary (66 -> 70); ApprovedSeriesConfiguration HasMaxLength(IndexedString) and HasIndex(Project) (34 -> 36); ApprovedSeriesRepository.Apply projects it (111 -> 112)."
+  - id: migrations
+    action: "`dotnet ef migrations add AddTicketRequirements` in each migrations project (default and SqlServer), designer and snapshot included; read both generated Up/Down and confirm the table, its three indexes and ApprovedSeries.Project (default '') with its index, nothing else."
+  - id: archive-counts
+    action: "DataArchiveSchemaTests.cs:63 49 -> 50, :163 39 -> 40 with the suffix `dbcef: + TicketRequirements`; DataArchiveRoundTripTests.cs:33, :54 (message 'fifty'), :81 49 -> 50 and :34 100 -> 102; DataArchiveRefusalTests.cs:103 100 -> 102."
+  - id: tests
+    action: "Red first, then green, for every test below; the composition test's class carries [Trait(\"TestProcess\", \"env-1\")] and [Collection(EnvVarCollection.Name)] as MockRatificationCompositionTests does; run the Persistence, SpecDialog and Contracts classes touched with --filter, then the archive tests (round-trip, schema and refusal). The two race tests build the repository over a ServerStateStore whose unitOfWork hook wraps the scope's IUnitOfWork in TestSupport/RacingUnitOfWork, so the competing batch lands before this call's save and the violation, detach, re-read and re-insert path runs every time: the racing-writers test lets the race fire once (it overlaps the batch partly); the second-violation test's race inserts another still-missing edge of the batch before each save, so the retry violates again and throws."
+
+tests:
+  - "TicketRequirementStore_AddThenRequiredOf_ReturnsThatTicketsEdgesOnly"
+  - "TicketRequirementStore_DependentsOf_ReturnsEveryTicketRequiringTheKey"
+  - "TicketRequirementStore_ByProject_ReturnsOnlyThatProjectsEdges"
+  - "TicketRequirementStore_SameEdgeTwice_StoresOneRowAndReportsNoneAdded"
+  - "TicketRequirementStore_TwoRacingWritersWithOverlappingUnequalBatches_StoreEveryEdgeOfBothOnce (RacingUnitOfWork; the race fires once)"
+  - "TicketRequirementStore_SecondUniqueViolation_Throws (RacingUnitOfWork; the race fires before both saves)"
+  - "TicketRequirementStore_BatchWithMixedStartsWhenMet_IsRefused"
+  - "TicketRequirementStore_FiledAt_IsTheRowsInsertTime"
+  - "TicketRequirementStore_EdgeRequiringItsOwnTicket_IsRefused"
+  - "TicketRequirementStore_BatchNamingTwoDependents_IsRefused"
+  - "TicketRequirementStore_SameTicketKeyOnTwoTrackerConnections_AreTwoTickets"
+  - "TicketRequirementStore_DeletingEveryRunOfBothTickets_LeavesTheEdge"
+  - "TicketRequirementStore_StartsWhenMet_RoundTrips"
+  - "ApprovedSeries_NewApproval_ProjectsTheFilingProject"
+  - "ApprovedSeries_RowWrittenBeforeThisSpec_ReadsAnEmptyProject"
+  - "SpecApprovalJson_RoundTrip_KeepsTheProject"
+  - "ApprovedSpecSetRecorder_Record_CarriesTheProjectName"
+  - "TicketRequirementStore_ServerComposition_ResolvesTheRelationalSingleton (integration, ServerCompositionBuilder; TestProcess env-1 + EnvVarCollection)"
+  - "DataArchive round-trip, schema and refusal tests at fifty tables and 102 seeded rows (existing tests, counts updated)"
+
+done:
+  - "A requirement between two tickets can be stored once and read back by the dependent ticket, by the required ticket and by project, and it is still there after every run of both tickets is deleted."
+  - "Every series approved after this spec shows the project it was filed into on its ApprovedSeries row; a series approved earlier shows an empty project and still reads as before."
+  - "`agentsmith database migrate` creates TicketRequirements and ApprovedSeries.Project on SQLite, PostgreSQL, MySQL and SQL Server, and a data archive export then import carries the new table."
+  - "Build green, full suite green, dashboard gen/test/build green."

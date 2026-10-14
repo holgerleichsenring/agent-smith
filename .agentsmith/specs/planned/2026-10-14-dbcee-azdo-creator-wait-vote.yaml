@@ -1,0 +1,106 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-14-dbcee
+goal: "On Azure DevOps a 'Wait for author' vote starts the rework even when cast by the identity that created the pull request, because agent-smith itself only ever votes Approve."
+
+applies_to: "backend (the Azure DevOps review-vote webhook, the rework admission's author rule as that webhook feeds it, the Azure Repos poll sweep, the standing vote acts and the pull request's recorded decisions, and the two review-reader port summaries in Contracts/Reviews) and docs (pr-comments)"
+
+requires: []
+
+facts:
+  - claim: "agent-smith's only vote is the +10 approval it casts as the pull request's creator before arming auto-complete; the creator IS the token's identity because our run opened the pull request."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposAutoComplete.cs:15-21, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposAutoComplete.cs:26, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposAutoComplete.cs:39, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposAutoComplete.cs:57-58"
+  - claim: "The review-vote webhook picks the first -5 voter who is not the creator, and passes the creator as the pull request's author."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/AzureDevOpsPrReviewVoteWebhookHandler.cs:40-45"
+  - claim: "With no such voter the delivery is NotHandled with the reason 'no Wait-for-author vote in this delivery', and only a record refresh is nudged."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/AzureDevOpsPrReviewVoteWebhookHandler.cs:46-50"
+  - claim: "The rework admission refuses a review whose reviewer is the pull request's author ('often our own token'); a refusal's reason is what the dashboard's webhook list shows."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/PrReworkAdmission.cs:8-12, src/backend/AgentSmith.Server/Services/Webhooks/PrReworkAdmission.cs:23-24, src/backend/AgentSmith.Server/Services/Webhooks/WebhookRequestProcessor.cs:41-45"
+  - claim: "PrReviewRequest's PrAuthorId is already nullable, and the Azure vote handler is the only Azure DevOps caller of PrReworkAdmission."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/PrReviewRequest.cs:11-18, src/backend/AgentSmith.Server/Services/Webhooks/AzureDevOpsPrReviewVoteWebhookHandler.cs:48"
+  - claim: "The poll sweep drops the creator from the reviewer list before it looks for -5 voters, and names its refresh item by the remaining reviewers' votes."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposChangedPullRequests.cs:6-12, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposChangedPullRequests.cs:33-40"
+  - claim: "The standing vote acts the worker serves skip the creator's -5 too; their only caller passes pr.CreatedBy."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposVoteActs.cs:8-29, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposReviewReads.cs:26-34"
+  - claim: "The worker still trust-checks the voter of every standing act before it serves it."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/PrStandingAct.cs:17-26"
+  - claim: "The pull request's recorded decisions exclude every vote by the creator and by the token's own identity, so a creator's -5 never shows as 'changes requested' on the ticket page."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposVoteDecisions.cs:8-24"
+  - claim: "Today's tests pin the skip: a creator's -5 only refreshes, a creator's -5 is no standing act, the creator's +10 auto-complete vote is no approval, and a pull request whose only reviewer is the creator at +10 lists nothing in the sweep."
+    evidence: "tests/AgentSmith.Tests/Rework/PrReworkAdmissionTests.cs:134-140, tests/AgentSmith.Tests/Rework/PrReworkActTests.cs:83-92, tests/AgentSmith.Tests/Rework/Records/PrReviewStateReaderTests.cs:67-77, tests/AgentSmith.Tests/Rework/Sweep/ChangedListRefreshTests.cs:43-50"
+  - claim: "The docs say voting Wait for author starts a rework, and six lines later that the pull request's own author never counts as a reviewer, so a person whose account is the token's has his Request changes ignored."
+    evidence: "docs/reference/integrations/pr-comments.md:75, docs/reference/integrations/pr-comments.md:81"
+  - claim: "The sweep returns nothing for a pull request whose reviewers, creator removed, are none; so a sole creator's reset of his -5 lists no refresh item in polling mode."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposChangedPullRequests.cs:35-36"
+  - claim: "Webhook mode nudges a record refresh for a vote delivery with no -5 voter, so a withdrawal there already re-reads the record."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/AzureDevOpsPrReviewVoteWebhookHandler.cs:46-50"
+  - claim: "The sweep's vote item is named by pull request and voters with no vote time, and the sweep sources drop a name already nudged for the life of the epoch's instance, so a repeated -5 by the same voter within one epoch is not served by polling, for every voter."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposChangedPullRequests.cs:37-38, src/backend/AgentSmith.Server/Services/Sweep/ChangeSweepSources.cs:27, src/backend/AgentSmith.Server/Services/Sweep/ChangeSweepSources.cs:57"
+  - claim: "AzureReposVoteActs.Standing is called by AzureReposReviewReads and by four test call sites, each passing a creator id."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposReviewReads.cs:32, tests/AgentSmith.Tests/Rework/PrReworkActTests.cs:77, tests/AgentSmith.Tests/Rework/PrReworkActTests.cs:88, tests/AgentSmith.Tests/Rework/PrReworkActTests.cs:90, tests/AgentSmith.Tests/Rework/Records/PrReviewHostIdTests.cs:70"
+  - claim: "The two review-reader ports state the author exclusion for every host: the state reader says the author, the token's identity and bots are never among the decisions; the act reader says the pull request's own author is never among the acts."
+    evidence: "src/backend/AgentSmith.Contracts/Reviews/IPrReviewStateReader.cs:5-6, src/backend/AgentSmith.Contracts/Reviews/IPrReviewActReader.cs:6"
+
+assumptions:
+  - "The field pull requests were opened with the operator's own identity, so his Wait for author votes were skipped as the creator's. Unverified: research section 4 names a missing X-AgentSmith-Change vote subscription header as the other candidate, and with it missing this spec changes nothing for the operator (AzureDevOpsPrReviewVoteWebhookHandler.cs:33 returns NotHandled first)."
+  - "A person who shares the token's identity is the only one who can cast a -5 as the creator; no automation of ours or the host's casts -5."
+
+scope:
+  in: >
+    WEBHOOK: the voter is the first -5 voter, creator included, and the request carries PrAuthorId null — the
+    author rule exists to skip our own act and a -5 is never ours (58 -> at most 62). RECORD: PrReviewRequest's
+    summary says when PrAuthorId is null (18 -> at most 20). ADMISSION: unchanged; a null author matches no
+    reviewer. SWEEP: AzureReposChangedPullRequests.cs:35 keeps a creator in the reviewer list while his vote is -5
+    (45 -> at most 46); its summary says so in place. The vote item counts every -5 voter, creator included;
+    the RefreshOnly item is named over EVERY reviewer, creator included, whatever his vote, so a sole creator's
+    reset or +10 changes the refresh name and re-reads the record. ACTS: AzureReposVoteActs drops the creator condition and its
+    creatorId parameter, AzureReposReviewReads.cs:32 drops the argument (AzureReposVoteActs 36 -> at most 36; AzureReposReviewReads 47 shrinks). DECISIONS:
+    AzureReposVoteDecisions keeps a -5 from the creator or the token's identity; every other vote by them stays
+    excluded, so the +10 auto-complete approval is still no approval (58 -> at most 60). PORTS: the summaries of IPrReviewStateReader (:5-6) and IPrReviewActReader (:6)
+    say in place that on Azure DevOps a -5 counts whoever cast it (12 lines each, unchanged). DOCS: pr-comments.md
+    states the rule. The four tests that pinned the skip are inverted, the +10 test stays.
+  out: >
+    A readiness finding that names the identity collision — nobody: the alternative was rejected (contract
+    decision 13), since a creator's -5 is now acted on. The webhook's SkipReason for a delivery with no -5 vote
+    — nobody: it already exists (AzureDevOpsPrReviewVoteWebhookHandler.cs:47). The service-hook subscription and
+    its X-AgentSmith-Change header in the operator's Azure DevOps — nobody in this repo: it is the operator's
+    configuration, and the webhooks page documents it. GitHub and GitLab reviews by the pull request's author —
+    nobody: their rule is unchanged. Checking the operator's service-hook subscription and its header — the
+    operator, nobody in this repo; it is the first thing to check if a Wait for author still starts nothing
+    after this ships. A repeated -5 by the same voter within one sweep epoch not being served by polling
+    (ChangeSweepSources.cs:57) — nobody: pre-existing for every voter; in webhook mode a reset followed by a
+    new -5 is a fresh delivery and is served; the docs' "reset your vote first" advice stays.
+
+decisions:
+  - key: "ACT ON A CREATOR'S -5, DON'T REPORT IT. agent-smith casts only +10 (AzureReposAutoComplete.cs:26), so a -5 from the creator identity is a person sharing the token's identity, not our own act. The rejected alternative, a readiness finding naming the collision, would leave the person's vote ignored. The -5 voter still passes the worker's trust check (PrStandingAct.cs:23). Contract decision 13 and section 5 default 5; main-thread answer 1 (default, pending operator ratification)."
+  - key: "THE ADMISSION'S AUTHOR RULE IS MET BY A NULL AUTHOR, NOT BY A HOST SWITCH. PrReworkAdmission refuses a reviewer equal to the pull request's author for every host; for an Azure DevOps -5 the handler states there is no author to exclude by passing null, documented on the record. A host check inside the shared admission would be a second rule in the one place all hosts share. DEVIATION (addition): contract section 1 row e names three places; the admission's author rule (PrReworkAdmission.cs:23) is a fourth that blocked the webhook path, and the recorded decisions (AzureReposVoteDecisions.cs:21-22) a fifth."
+  - key: "THE TICKET PAGE SHOWS THE VOTE THAT STARTED THE REWORK. A creator's -5 is recorded as 'changes requested' so the page names the act that started the next attempt; the creator's and the token's other votes stay excluded, which keeps 9a59b's +10 rule (PrReviewState_AzureDevOps_CreatorAutoCompleteVote_IsNoApproval)."
+
+steps:
+  - id: webhook
+    action: "AzureDevOpsPrReviewVoteWebhookHandler: voter = AzureDevOpsPrUrl.VotersAt(pr, -5).FirstOrDefault(); the creator read at :40 goes; PrReviewRequest gets PrAuthorId null; the class summary drops 'other than the creator' (58 -> at most 62). PrReviewRequest's summary states that PrAuthorId is null for an Azure DevOps vote (18 -> at most 20)."
+  - id: sweep
+    action: "AzureReposChangedPullRequests.cs:35 drops the creator filter: the vote item lists every reviewer at -5, the RefreshOnly item names every reviewer's vote, creator included; :36 yields nothing only when there is no reviewer at all; the summary at :6-12 says so (45 -> at most 46)."
+  - id: acts
+    action: "AzureReposVoteActs.Standing loses creatorId and the creator condition; AzureReposReviewReads.cs:32 drops pr.CreatedBy?.Id; the summary's 'The pull request's creator is skipped' becomes 'A -5 counts whoever cast it: we never vote -5' (AzureReposVoteActs 36 -> at most 36; AzureReposReviewReads 47 shrinks). The four test callers (PrReworkActTests.cs:77, :88, :90; PrReviewHostIdTests.cs:70) drop the creator argument. IPrReviewActReader.cs:6 is reworded in place: the author exclusion holds on GitHub; an Azure DevOps -5 counts whoever cast it."
+  - id: decisions
+    action: "AzureReposVoteDecisions.Read keeps a reviewer whose vote is -5 even when it is the creator or selfId; other votes by them stay excluded; summary updated in place (58 -> at most 60). IPrReviewStateReader.cs:5-6 is reworded in place: '…bots are never among the decisions; on Azure DevOps a -5 counts whoever cast it, since agent-smith only votes +10'."
+  - id: docs
+    action: "docs/reference/integrations/pr-comments.md: :75 states a Wait for author vote counts whoever cast it, the pull request's creator included, because agent-smith only ever votes Approve; :81 is rewritten so the author rule is GitHub's and GitLab's only, and on Azure DevOps a person whose account is the token's still starts a rework with Wait for author."
+  - id: tests
+    action: "Invert AzureDevOpsPr_CreatorsOwnVote_OnlyRefreshes and the creator half of AzureVotes_VoteResetOrCreator_NoAct; update ChangedPullRequests_AzureDevOpsApproval_RefreshItem_MinusFiveItemUnchanged (ChangedListRefreshTests.cs:43-50: a creator at +10 now lists one refresh item, harmless because a refresh is compare-and-set); add the sweep and decisions tests below; PrReviewState_AzureDevOps_CreatorAutoCompleteVote_IsNoApproval stays unchanged and green."
+
+tests:
+  - "AzureDevOpsPr_CreatorsWaitForAuthorVote_NudgesTheTicket (replaces AzureDevOpsPr_CreatorsOwnVote_OnlyRefreshes)"
+  - "AzureDevOpsPr_CreatorsApproval_OnlyRefreshes"
+  - "AzureVotes_CreatorAtMinusFive_IsAStandingAct (replaces the creator half of AzureVotes_VoteResetOrCreator_NoAct; the reset half stays)"
+  - "ChangedPullRequests_AzureDevOps_CreatorAtMinusFive_ListsTheVoteItem"
+  - "ChangedPullRequests_AzureDevOpsApproval_RefreshItem_MinusFiveItemUnchanged (existing, updated: creator at +10 now lists one refresh item)"
+  - "ChangedPullRequests_AzureDevOps_SoleCreatorResetsMinusFive_ListsARefreshItem"
+  - "PrReviewState_AzureDevOps_CreatorWaitForAuthor_IsChangesRequested"
+  - "PrReviewState_AzureDevOps_CreatorAutoCompleteVote_IsNoApproval (existing, unchanged)"
+
+done:
+  - "On Azure DevOps, voting Wait for author on an agent-smith pull request starts the rework also when the voter's account is the one agent-smith's token uses, through the webhook and through the poll sweep; when he withdraws the vote as the only reviewer, the ticket page stops showing changes requested in both modes."
+  - "The ticket page lists that vote as changes requested; agent-smith's own auto-complete approval is still not listed as an approval."
+  - "The pull-request comments docs state that a Wait for author vote counts whoever cast it, and no longer say the token owner's own review is ignored on Azure DevOps."
+  - "Build green, full suite green, dashboard gen/test/build green."

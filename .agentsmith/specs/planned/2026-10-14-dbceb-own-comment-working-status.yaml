@@ -1,0 +1,86 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-14-dbceb
+goal: "The working status comment a run posts on its ticket reads as ours everywhere, so a parked question is never answered by it and no webhook routes it as a person's comment."
+
+applies_to: "backend (the working status text, OwnTicketComment's markers, and every reader of 'is this comment ours' through it: the parked-question answer reader, the comment webhooks, IsAnswered and ForeignAfter)"
+
+requires: []
+
+facts:
+  - claim: "Every non-relaunch run start posts the working status through PostWorkingStatusAsync, whose text is the literal 'Agent Smith is working on this issue...'."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineExecutor.cs:55-59, src/backend/AgentSmith.Application/Services/PipelineErrorHandler.cs:47-52"
+  - claim: "It is posted as an ordinary ticket comment through UpdateStatusAsync; on Azure DevOps that is a System.History write."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineErrorHandler.cs:125-141, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs:164-165"
+  - claim: "A comment is ours only when its body contains one of five markers: the open-questions markers, 'Agent Smith —', its HTML-entity form, and 'Agent Smith - '. 'Agent Smith is working on this issue...' contains none of them."
+    evidence: "src/backend/AgentSmith.Application/Services/Prompts/OwnTicketComment.cs:28-36, src/backend/AgentSmith.Application/Services/Prompts/OwnTicketComment.cs:50-55, src/backend/AgentSmith.Application/Services/Prompts/OwnTicketComment.cs:91-93"
+  - claim: "There is no author check: IsOurs reads the body only, and the bot and the operator may post with one identity."
+    evidence: "src/backend/AgentSmith.Application/Services/Prompts/OwnTicketComment.cs:50-55"
+  - claim: "The parked-question answer reader takes the OLDEST comment after the question that is not IsOurs, so the next run's working comment is read as the operator's answer."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/ParkedTicketDialogue.cs:75-92"
+  - claim: "The Azure DevOps work-item comment webhook skips a comment only when IsOurs says so, so our working comment is routed as a person's comment; a skip's reason is what the dashboard's webhook list shows."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/AzureDevOpsWorkItemCommentWebhookHandler.cs:38-42, src/backend/AgentSmith.Server/Services/Webhooks/WebhookRequestProcessor.cs:41-45"
+  - claim: "IsAnswered and ForeignAfter exclude our comments through the same IsOurs, so a working comment after a hand-back counts as a person's reply."
+    evidence: "src/backend/AgentSmith.Application/Services/Prompts/OwnTicketComment.cs:61-80"
+  - claim: "The failure comments PipelineErrorHandler posts all start with '<b>Agent Smith — Failed</b>', which the 'Agent Smith —' marker already matches."
+    evidence: "src/backend/AgentSmith.Application/Services/FailureTicketComment.cs:21-38"
+  - claim: "All four comment webhooks (Azure DevOps, GitHub, GitLab, Jira) skip a comment through the same IsOurs, so the one marker fix reaches every tracker in webhook mode."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/AzureDevOpsWorkItemCommentWebhookHandler.cs:41, src/backend/AgentSmith.Server/Services/Webhooks/GitHubIssueCommentWebhookHandler.cs:47, src/backend/AgentSmith.Server/Services/Webhooks/GitLabIssueCommentWebhookHandler.cs:43, src/backend/AgentSmith.Server/Services/Webhooks/JiraCommentWebhookHandler.cs:39"
+  - claim: "DialogueResumeSweeperTests drives the sweeper with fake IParkedTicketDialogue implementations that never read a comment, so they cannot observe the marker; AnAnswerOnTheTicketReachesTheRunTests builds a real ParkedTicketDialogue over ticket comments and already holds the sibling case for our question comment."
+    evidence: "tests/AgentSmith.Tests/Server/DialogueResumeSweeperTests.cs:311-336, tests/AgentSmith.Tests/Specs/AnAnswerOnTheTicketReachesTheRunTests.cs:42-52, tests/AgentSmith.Tests/Specs/AnAnswerOnTheTicketReachesTheRunTests.cs:121-128"
+  - claim: "The webhook own-comment case lives in TicketCommentHandlerTests over the AzDO, GitHub and GitLab fixture handlers; Jira's handler has its own test class."
+    evidence: "tests/AgentSmith.Tests/Webhooks/Routing/TicketCommentHandlerTests.cs:76-89, tests/AgentSmith.Tests/Webhooks/JiraCommentWebhookHandlerTests.cs:16"
+  - claim: "The only existing assertion on the working text checks that it contains 'working on'."
+    evidence: "tests/AgentSmith.Tests/Services/PipelineErrorHandlerTests.cs:356"
+  - claim: "PipelineErrorHandler is 176 lines against a baseline of 184; OwnTicketComment is 94 and not baselined (120 applies)."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:51"
+  - claim: "In the field a ticket had four runs cancelled in 23 minutes, each resumed by the previous run's working comment read as the answer; another showed the same ten-minute cadence."
+    evidence: "observed: 2026-10-14, read-only SELECT on the test database, tickets 19438 (2026-10-07 08:30-08:53) and 19470 (2026-10-12), dbce defect research section 2"
+
+assumptions:
+  - "Comments already on tickets carry the old text and stay there; reading them as ours needs the old text as a marker."
+
+scope:
+  in: >
+    TEXT: OwnTicketComment gains public const WorkingStatus = "Agent Smith — working on this issue…", which the
+    existing "Agent Smith —" marker matches; PipelineErrorHandler.cs:52 passes that constant (net zero, 176 lines).
+    LEGACY: Ours gains "Agent Smith is working on this issue" so the comments already posted read as ours
+    (OwnTicketComment 94 -> 96). READERS: none changes — ParkedTicketDialogue, the four comment webhooks,
+    IsAnswered / ForeignAfter and every other caller already go through IsOurs; the tests prove the two that
+    failed in the field.
+  out: >
+    An author-identity check on comments — nobody: the bot and a person may share one identity (contract
+    decision 14), so the body is the only signal. Rewording the failure comments — nobody: they already carry
+    "Agent Smith —". The AzDO "Wait for author" vote by the creator identity — 2026-10-14-dbcee.
+
+decisions:
+  - key: "OURS BY TEXT, IN THE FORM EVERY READER ALREADY KNOWS. The working comment is reworded into the 'Agent Smith —' form rather than adding a sixth unrelated marker, so one marker family covers every comment we post. Contract decision 14 and section 5 default 2 (default, pending operator ratification)."
+  - key: "THE OLD TEXT STAYS A MARKER. Without it, every ticket that already carries the old working comment keeps the loop until a new comment is posted; the marker is the substring 'Agent Smith is working on this issue', which a person's reply does not contain unless it quotes ours."
+  - key: "THE GUARD PINS PipelineErrorHandler's LITERALS, NOT EVERY POSTER. The other UpdateStatusAsync / FinalizeAsync texts already carry 'Agent Smith —'; a guard over every poster in the code base would be a new mechanism this defect does not need (no over-engineering). Accepted gap: a future poster that drops the marker is caught only by its own test."
+  - key: "THE CONSTANT LIVES IN OwnTicketComment. Placing it beside the markers lets one test assert IsOurs over every literal PipelineErrorHandler posts, and keeps PipelineErrorHandler at net zero (contract section 4)."
+
+steps:
+  - id: constant
+    action: "OwnTicketComment: public const string WorkingStatus = \"Agent Smith — working on this issue…\" and the legacy marker \"Agent Smith is working on this issue\" in Ours (94 -> 96, limit 120)."
+  - id: poster
+    action: "PipelineErrorHandler.cs:52 passes OwnTicketComment.WorkingStatus (176 -> 176, baseline 184); IPipelineErrorHandler's summary is unchanged."
+  - id: marker-tests
+    action: "OwnTicketCommentTests gains the IsOurs tests over WorkingStatus, the legacy text, and FailureTicketComment.ForStep / ForFatal / ForMessage outputs; PipelineErrorHandlerTests asserts the posted text equals WorkingStatus."
+  - id: reader-tests
+    action: "AnAnswerOnTheTicketReachesTheRunTests (real ParkedTicketDialogue) gains: our working comment (new and legacy text) as the only comment after the question delivers nothing; a person's reply after it is the answer. TicketCommentHandlerTests feeds WorkingStatus and the legacy text to the AzDO, GitHub and GitLab handlers (NotHandled, AzDO reason 'the comment is agent-smith's own'); JiraCommentWebhookHandlerTests gains the same case."
+
+tests:
+  - "OwnTicketComment_WorkingStatus_IsOurs"
+  - "OwnTicketComment_LegacyWorkingStatus_IsOurs"
+  - "OwnTicketComment_EveryCommentPipelineErrorHandlerPosts_IsOurs"
+  - "OwnTicketComment_WorkingCommentAfterHandback_IsNotAnAnswer (IsAnswered false)"
+  - "PipelineErrorHandler_PostWorkingStatus_PostsWorkingStatusText"
+  - "OurWorkingComment_IsNeverReadAsTheAnswer (new and legacy text; AnAnswerOnTheTicketReachesTheRunTests)"
+  - "APersonsReplyAfterOurWorkingComment_IsTheAnswer (AnAnswerOnTheTicketReachesTheRunTests)"
+  - "CommentHandlers_OurWorkingStatus_NotHandled (AzDO, GitHub, GitLab; new and legacy text; AzDO skip reason asserted; TicketCommentHandlerTests)"
+  - "HandleAsync_OurWorkingStatus_NotHandled (JiraCommentWebhookHandlerTests)"
+
+done:
+  - "A run's start comment on the ticket reads 'Agent Smith — working on this issue…'."
+  - "A run parked on a question stays parked when the next run's working comment is the only thing after the question, on new and on already-posted comments; a person's reply still resumes it."
+  - "On Azure DevOps, our working comment no longer reaches the comment webhook's routing; the webhook list shows it skipped as agent-smith's own. GitHub, GitLab and Jira comment webhooks skip it too."
+  - "Build green, full suite green, dashboard gen/test/build green."

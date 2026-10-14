@@ -1,0 +1,261 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-14-dbcek
+goal: "A proposed list of tickets is reviewed as a plan, its cuts applied to the ticket texts, and shown in merge order with what each ticket waits for, in chat and on the dashboard."
+
+applies_to: "backend (the plan review of a ticket list, the ticket:<id> existence read, the proposal text, the pane push, the offered shapes) and dashboard (the proposal panel and card, the approval summary, the conversation delete copy, the mock ticket-graph.html)"
+
+requires: [2026-10-14-dbcej]
+
+facts:
+  - claim: "The design turn's proposal review returns at once for a proposal with no drafts, which a ticket list of texts is; the class is 119 lines and its private DraftsOf only forwards to ProposalSpecSet.Drafts."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalReview.cs:31-37, src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalReview.cs:116-119"
+  - claim: "The review reads spec_review live, runs one whole-set model call and then the rounds, or a single review when rounds is 0; a review that cannot be taken blocks nothing."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalReview.cs:14-20, src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalReview.cs:40-47, src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalReview.cs:93-115"
+  - claim: "The whole-set reviewer is a fresh instance on the reasoning model, with the proposal review's look over the turn's repositories as tools, charged to the turn's cost tracker, and guarded on the run's token."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecCutReviewer.cs:57-87, src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalReview.cs:97-98"
+  - claim: "A re-prompt of the design partner after a review continues the turn's thread, tracks its cost, and resolves the reply like the turn's own; a failed call or an unresolvable reply answers null; a revised proposal is published with MasterOutcomes.PublishOutcome."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/Review/ProposalCutsReprompt.cs:13-39, src/backend/AgentSmith.Application/Services/Specs/Review/ProposalRoundRevision.cs:26-37"
+  - claim: "A finding carries a spec id, a problem, why, an optional quote and optional evidence, and the confirmation lists every finding above the question."
+    evidence: "src/backend/AgentSmith.Contracts/Models/ProposalFinding.cs:21-26, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeComposer.cs:37-49"
+  - claim: "The design turn is seeded with the transcript as role-tagged turns, the bound ticket only in a ticket's own conversation, and the turn's ResolvedProject."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:48, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:73, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:87, src/backend/AgentSmith.Contracts/Commands/ContextKeys.SpecDialog.cs:68-73, src/backend/AgentSmith.Contracts/Commands/ContextKeys.SpecDialog.cs:95-97, src/backend/AgentSmith.Contracts/Models/SpecDialogTurn.cs:9-12"
+  - claim: "A ticket read by id is GetTicketAsync; Azure DevOps throws a VssServiceException carrying TF401232 for a missing work item, so its `?? throw TicketNotFoundException` never fires; TicketReadFailureReason classifies that, TicketNotFoundException and HTTP 404 as not-found and keeps SDK text off the wire; it lives in the Server, which the Application project cannot reference."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ITicketProvider.cs:27, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs:85-87, src/backend/AgentSmith.Server/Services/Tickets/Text/TicketReadFailureReason.cs:9-27, tests/AgentSmith.Tests/Tickets/TicketReadFailureReasonTests.cs:20, src/backend/AgentSmith.Application/AgentSmith.Application.csproj:4-5"
+  - claim: "An optional constructor dependency with a null default is an existing pattern for a collaborator only some hosts register."
+    evidence: "src/backend/AgentSmith.Application/Services/Lifecycle/TicketLifecycle.cs:35"
+  - claim: "The confirmation text has shapes for bug, spec and epic and throws on any other kind; the epic shape is composed inline in the 119-line composer."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeComposer.cs:82-104"
+  - claim: "The pane push carries a kind string and bug, spec, parent and children slots, and an unknown kind is not pushed."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogProposalComposer.cs:15-58, src/backend/AgentSmith.Server/Models/SpecDialogProposalPush.cs:25-46"
+  - claim: "The offered shapes are a ladder keyed on the proposal kind; a kind not listed offers nothing; labels may hold no colon, at most 40 characters, and no approval word."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeShapes.cs:31-77"
+  - claim: "The ratified-mock stamp rewrites a spec's or an epic's drafts and passes any other kind through untouched."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/RatifiedMockStamp.cs:21-44"
+  - claim: "The review and the resolver are registered on one line of PipelineHandlersExtensions (218 of 218); the server's filer registrations sit on adjacent lines of SpecDialogExtensions (119 lines)."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs:172, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:37, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogExtensions.cs:57-62"
+  - claim: "The dashboard proposal panel renders a bug, a spec, an epic parent and its slices from the push, and the card's strip lists the children."
+    evidence: "src/dashboard/src/components/dialog/DialogProposalPanel.tsx:43-88, src/dashboard/src/components/dialog/DialogProposalCard.tsx:37-46"
+  - claim: "The approval card's primary button reads 'Approve & file' in a conversation bound to no ticket and sits beside Reject; its one counting line knows a bug, an epic and a spec; the delete copy knows spec and epic."
+    evidence: "src/dashboard/src/components/dialog/DialogQuestionCard.tsx:151-157, src/dashboard/src/components/dialog/DialogQuestionCard.tsx:182-194, src/dashboard/src/components/dialog/conversationDelete.ts:37-50"
+  - claim: "The push's TypeScript mirror is hand-written and names bug, spec and epic as kinds."
+    evidence: "src/dashboard/src/types/spec-dialog.ts:365-382"
+  - claim: "The proposal review's look holds only the turn's repository sandboxes: the filter drops every template key and every uploaded-reference key, so a reviewer on it cannot read the operator's uploads; the uploads are the turn's sandboxes under the reference: prefix, and the look's constructor is public."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationLookFactory.cs:97-118, src/backend/AgentSmith.Application/Services/Specs/Review/SpecReviewRepositories.cs:15-18, src/backend/AgentSmith.Application/Services/Specs/ReferenceScopeName.cs:15, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogReadOnlyScopes.cs:50-54, src/backend/AgentSmith.Application/Services/Specs/DerivationLook.cs:43-47, src/backend/AgentSmith.Application/Services/Specs/DerivationLookTerms.cs:51-52"
+  - claim: "DerivationLookFactory is at 120 lines and takes its file reader, ecosystem detector, turn-activity tools and logger by constructor."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationLookFactory.cs:16-23, observed: 2026-10-14, wc -l DerivationLookFactory.cs = 120"
+  - claim: "In chat the confirmation is the approval question's text, and Slack renders it unclipped in one section block; a failed post only logs 'Approval buttons unavailable', so the question never reaches the channel; on the dashboard page the confirmation wording is empty."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeConfirmer.cs:36-40, src/backend/AgentSmith.Server/Services/Adapters/SlackTypedQuestionBlockBuilder.cs:86-95, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeConfirmer.cs:81-86, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeComposer.cs:24-31"
+  - claim: "The offered shapes know only the proposal, and the confirmer asks for them the same way in a ticket's own conversation; the sink tells that conversation by state.TicketKey."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeShapes.cs:64-77, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeConfirmer.cs:39, src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:36"
+  - claim: "The approval card lists every finding whatever its key, and hides Approve in a bound conversation that cannot approve; the card's title falls back to the kind word."
+    evidence: "src/dashboard/src/components/dialog/DialogProposalFindings.tsx:12-27, src/dashboard/src/components/dialog/DialogQuestionCard.tsx:112, src/dashboard/src/components/dialog/DialogQuestionCard.tsx:151-153, src/dashboard/src/components/dialog/DialogProposalCard.tsx:51-53"
+  - claim: "In a ticket's own conversation the card's preview is TicketContinuation.Decide, which answers any kind but bug, spec and epic with a plain Refused and no start arm; the card drops Approve only for the start arm refused-question-pending, so a bound list would show Approve under the sentence 'the proposed cut has no order its specs can run in'."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketApprovalPreview.cs:19-28, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/TicketContinuation.cs:24-25, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/TicketContinuation.cs:33-37, src/dashboard/src/lib/tickets/approvalEffect.ts:12, src/dashboard/src/lib/tickets/approvalEffect.ts:35-42, src/dashboard/src/components/dialog/DialogQuestionCard.tsx:80, src/dashboard/src/components/dialog/DialogQuestionCard.tsx:86, src/dashboard/src/components/dialog/DialogQuestionCard.tsx:151-154"
+  - claim: "Three test sites construct SpecDialogProposalReview directly, and one test pins the unbound epic's offered shapes to 'Make it one spec' alone under a name saying the ladder is unchanged."
+    evidence: "tests/AgentSmith.Tests/Handlers/MasterHandlerFixture.cs:57-66, tests/AgentSmith.Tests/SpecDialog/ProposalReview/ProposalReviewRig.cs:145-148, tests/AgentSmith.Tests/SpecDialog/SpecDialogProposalReviewTests.cs:218-225, tests/AgentSmith.Tests/SpecDialog/OutcomeShapeOfferTests.cs:194-203"
+  - claim: "The Slack question section's text is the icon, the question text in bold markers, all in one string; the existing shapes declare each DialogChoice over two lines."
+    evidence: "src/backend/AgentSmith.Server/Services/Adapters/SlackTypedQuestionBlockBuilder.cs:87-92, src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeShapes.cs:33-40"
+  - claim: "The spec_review settings are read through ISpecReviewSettingsReader, invalid or unreadable ones meaning one review; the turn reports TurnActivityKind.Reviewing before reviewing."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalReview.cs:25, src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalReview.cs:39, src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalReview.cs:57-71, src/backend/AgentSmith.Contracts/Turns/TurnActivityKind.cs:17"
+  - claim: "A static composition orders an epic's children with a fresh EpicChildOrderer, without injecting it."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/TicketContinuation.cs:36"
+  - claim: "The ticket view mock is the token source of the mocks: its tokens come from DESIGN.md and mock-parity.css."
+    evidence: "src/dashboard/design/mockups/ticket-view.html:1-30"
+
+assumptions:
+  - "2026-10-14-dbcej lands TicketGraphOutcome(Tickets) of GraphTicket(Key, Title, Requirement, Done, Requires, Repos), GraphTicketRequire.ExistingPrefix/ExistingId, TicketGraphOrderer.Order -> (Tickets, Error), the kind \"tickets\" in the stored JSON, and a resolver that re-prompts a cut-off list."
+  - "Slack limits a section block's text to 3,000 characters; Teams renders the question in an Adaptive Card text block with no comparable per-block limit, so one clip at Slack's limit covers both channels."
+  - "A ticket list of texts is small enough to be re-proposed whole in one reply (twenty realistic texts measured at about 5,100 to 6,800 tokens in 2026-10-14-dbcej), so applying cuts by re-prompt does not hit the output cap that a list of full specs would."
+
+scope:
+  in: >
+    PLAN REVIEW (main-thread decision D1, default pending operator ratification): the list is reviewed as a PLAN, never
+    spec by spec. SpecDialogProposalReview (119 -> at most 120): the private DraftsOf is inlined to free its lines, and a
+    TicketGraphOutcome goes to TicketPlanReview.ReviewAsync(turn, graph, loopResult, ct) before the no-drafts return;
+    the class takes TicketPlanReview on an existing constructor line. TicketPlanReview (Application/Services/SpecDialog,
+    at most 110 lines) reads ISpecReviewSettingsReader itself (invalid or unreadable settings mean rounds 0: findings, no
+    re-prompt, as SpecDialogProposalReview treats them) and reports TurnActivityKind.Reviewing first: (1) a conversation
+    that belongs to a ticket (ContextKeys.SpecDialogTicket seeded) is not reviewed and gets one LIST-LEVEL finding "a list
+    of tickets is filed from Work it out without a ticket; this conversation continues its own ticket" (filing refuses it
+    too, 2026-10-14-dbcel); (2) TicketPlanReviewer reviews the list once; with spec_review.rounds above 0 and at least one
+    admitted cut, the design partner is re-prompted ONCE through ProposalCutsReprompt with TicketPlanReviewPrompt.CutsNudge,
+    and a re-proposal that resolves to a TicketGraphOutcome with the same set of keys is published
+    (MasterOutcomes.PublishOutcome) and reviewed once more, whose findings stand with no further re-prompt; any other reply
+    keeps the last valid list; (3) on the FINAL list — the published re-proposal, else the original — every distinct
+    ticket:<id> is read once through ITicketExistence for the seeded ResolvedProject, so a requirement the re-proposal
+    added is checked and one it dropped leaves no stale finding: each missing id is a finding under the requiring
+    ticket's key ("required ticket not found"), every missing id named; an unreadable one is a finding naming the id and
+    its class ("unauthorized", "unreachable"), never SDK text; no project seeded or no ITicketExistence registered checks
+    nothing. Findings land on the final proposal's Findings, a ticket key in ProposalFinding.SpecId, or the list-level key
+    TicketPlanReviewPrompt.ListKey = "the list" (not a valid ticket key, so it never collides) for a finding about the
+    whole list. At most two reviewer calls and one re-prompt per turn. REVIEWER: TicketPlanReviewer
+    (Application/Services/SpecDialog, at most 100 lines), the SpecCutReviewer call shape: TaskType.Reasoning, role
+    "ticket-plan-reviewer", guarded on the run's token, null on a failed or unreadable answer; its look is its OWN
+    DerivationLook (public constructor, terms DerivationLookTerms.ProposalReview, no audit, the turn-activity tools) over
+    the turn's repository sandboxes PLUS its uploaded-reference sandboxes (keys under ReferenceScopeName.Prefix), so the
+    uploaded material the operator's requirements live in is readable; DerivationLookFactory (120 of 120) is not touched.
+    TicketPlanReviewPrompt (static, at most 90 lines) asks four questions per ticket against the operator's requirements —
+    the user turns AND the uploaded material, named by their reference: addresses — and the repositories —
+    can it be merged on its own, is it ordered after what it needs, does the list cover every requirement the operator
+    stated, is it small enough for one run (the field's sub-phase tickets took 15 to 28 minutes; whole-phase tickets
+    failed) — and wants a JSON array of {ticket, problem (merge | order | missing | size | other), why, quote, replacement}.
+    The operator's requirements are the user turns of ContextKeys.SpecDialogTranscript, oldest first, within 40,000
+    characters: over that, the first turn and the newest that fit, with a line naming how many were left out (code
+    constant, pending operator ratification). The prompt says that a requirement met by a ticket:<id> requirement, or
+    one the conversation says is left for a later list, is not missing. Admission: a "missing" finding — a requirement no
+    ticket covers — carries the list-level key and is a finding only; any other finding naming no ticket of the list is
+    dropped and logged; one whose quote is not verbatim in that ticket's title, requirement or done items keeps its
+    finding but carries no cut. A size finding can only remove scope: a split changes the keys, which the re-proposal
+    must keep, so a split is the operator's edit or the design partner's next turn, never a review cut. CutsNudge lists per ticket key the quote
+    and replacement to apply exactly and ends "Re-propose the whole list, in the same shape, every ticket in it, the keys
+    unchanged." EXISTENCE: ITicketExistence (Contracts/Services) CheckAsync(ResolvedProject, IReadOnlyList<string> ids, ct)
+    -> TicketExistenceResult(Missing, Unreadable as id plus class); TicketExistence (Server/Services/SpecDialog) reads each
+    id with GetTicketAsync on the project's tracker and classifies a throw with TicketReadFailureReason.Of, so an Azure
+    DevOps TF401232 is not-found. 2026-10-14-dbcel reads it again at filing. TEXT (chat only — on the dashboard page the
+    confirmation wording is empty and the pane shows the full texts): TicketGraphProposalText (static,
+    Server/Services/SpecDialog) orders with a fresh TicketGraphOrderer (new TicketGraphOrderer().Order, as
+    TicketContinuation orders an epic) and writes a COMPACT list: "Proposed outcome: N tickets, in the order they must
+    merge", then one line per ticket — its number, key, title, its done-item count and "waits for" naming sibling keys
+    and existing tickets as #<id> when the id is numeric and as written otherwise (a Jira key), or "nothing to wait for"
+    — then "The full ticket texts are on the dashboard's proposal pane." CHANNEL LIMIT: SlackTypedQuestionBlockBuilder's
+    question section clips the WHOLE section text — the icon, the bold markers and the closing "… the rest is on the
+    dashboard" counted in — at Slack's 3,000-character section limit, cutting the question at a line end (112 -> at most 116), so no confirmation of any kind fails to post on its length. SpecDialogOutcomeComposer moves its epic text into EpicProposalText and adds the
+    graph arm (119 -> at most 112). PANE: SpecDialogProposalComposer.TicketsKind = "tickets", KindOf and Shape map a graph
+    to a push whose Tickets list SpecDialogGraphTicketView {key, title, requirement, done, requires, repos} in
+    TicketGraphOrderer order (a fresh orderer; the mapping is the record's static SpecDialogGraphTicketView.Of, so the
+    composer stays at most 85); SpecDialogProposalPush gains Tickets as an init property (47 -> at most
+    48). SHAPES: OutcomeShapes.For(proposal, bound = false) — the confirmer passes
+    state.TicketKey is not null on its existing line 39 (net zero), the sink's own test; a graph offers "Make it one
+    ticket's series"; an epic offers "Make it one spec" and, only when not bound, "Cut into several tickets", because a
+    ticket's own conversation refuses a list (78 -> at most 83, each new DialogChoice on two lines as :33-40). REGISTRATION: TicketPlanReview, TicketPlanReviewer chained onto
+    PipelineHandlersExtensions.cs:172 (net zero); TicketGraphExtensions.AddTicketGraph() (Server/Services/SpecDialog)
+    registers TicketExistence as ITicketExistence (scoped), chained onto SpecDialogExtensions' OutcomeTicketFiler line
+    (net zero). DASHBOARD: spec-dialog.ts gains SpecDialogGraphTicket and tickets?: on the push and the kind doc names
+    tickets; DialogProposalGraph.tsx (new) renders the tickets in merge order, each a card with its key, title,
+    requirement, done items, waits-for, repositories and its findings, and a line saying each ticket's specs are derived by
+    its run when it starts; DialogProposalPanel renders it for kind tickets (197 -> at most 199); DialogProposalGraph shows list-level
+    findings (key "the list") above the tickets; DialogProposalCard's strip lists keys and titles with waits-for and its
+    title reads "N tickets"; DialogQuestionCard.summaryOf says "File these N tickets? M have nothing to
+    wait for; the rest wait until what they require is merged."; in a BOUND conversation a proposal of kind tickets
+    gets no Approve from controlsFor — Reject and the shapes only — and its summary reads "A list of tickets is filed from
+    Work it out without a ticket; this conversation continues its own ticket." in place of bound.summary, since the
+    preview there is TicketContinuation's plain Refused with no start arm, which the card would read as approvable
+    (194 -> about 200; TicketContinuation is not touched); conversationDelete.survives treats tickets as spec and
+    epic. MOCK: src/dashboard/design/mockups/ticket-graph.html, from the draft the operator reviews, ships the proposal
+    section in the ticket-text model, with a Jira state (PROJ-41), a list-level "missing" finding naming an uploaded
+    requirement, and the bound state with Approve hidden as the card hides it.
+  out: >
+    Filing the list, the ticket body, the record that carries the material, the Held start state and the refusal at
+    approval in a ticket-bound conversation — 2026-10-14-dbcel. The list buckets, the graph view, waits-for on the ticket
+    header and the done-by-hand dialog in the same mock file — 2026-10-14-dbcen. The skill text that writes kind: tickets
+    and applies a list's cuts — 2026-10-14-dbcep. Reviewing each ticket's specs — the ticket's own run, at DeriveSpec,
+    with the existing cut review and review loop (2026-10-13-8762g); a person who wants them fixed first opens the
+    ticket's own conversation, whose proposal the existing 8762i rounds review. Counting the plan review against the
+    review share — nobody: it is at most two calls per turn and the share bounds the per-spec rounds a list no longer
+    has. Telling whether a ticket:<id> requirement has LANDED at design time — nobody: the proposal only needs it to exist;
+    landing is read at filing (2026-10-14-dbcel) and at the gate (2026-10-14-dbceh). Ratifying a mock per ticket in the
+    pane — nobody: a mock is ratified on a spec, and a list carries none; the ticket's own conversation ratifies one.
+    Splitting a ticket the review finds too large — nobody as a review cut: the keys are the identity; the operator's
+    edit note or the design partner's next turn splits it. The full ticket texts in chat — nobody: a chat channel gets the
+    compact list, the dashboard pane the texts. A ``` fence inside a ticket text ending the block early — 2026-10-14-dbcep's
+    skill text says no fence inside a ticket text.
+
+decisions:
+  - key: "ONE PLAN REVIEW, NOT PER-SPEC ROUNDS (main-thread decision D1, pending operator ratification). A list carries ticket texts, so the 8762i loop has nothing to attack; the questions that matter at this stage are about the plan — independently mergeable, ordered, complete against what the operator asked, small enough for one run. A fresh reasoning instance answers them once, its cuts are applied by the design partner once, and the revised list is checked once more."
+  - key: "CUTS ARE QUOTED, OR THEY ARE FINDINGS. A cut is applied only when its quote is verbatim in that ticket's text, the admission rule SpecCutReviewer applies to criteria; a finding that names no ticket is dropped, one that names a missing requirement is shown and not applied, because nothing in the list can be quoted for what is absent."
+  - key: "THE KEYS ARE THE IDENTITY. A re-proposal must keep the set of keys; requires, texts and order may change. A list that dropped or renamed a ticket is not the list that was reviewed, so the last valid one stands, as 8762i's guard keeps the last valid proposal."
+  - key: "THE REVIEWER READS THE UPLOADS (round-2 cut K-r2-1, main-thread decision R2). The operator brings requirements as uploaded files and as messages; a coverage question answered from the messages alone gives false 'missing' findings and misses gaps. DerivationLookFactory is at 120 lines, so TicketPlanReviewer builds its own look through the public DerivationLook constructor over the repository and reference sandboxes; the per-spec reviews keep theirs."
+  - key: "EXISTENCE IS READ ON THE FINAL LIST (round-2 cut K-r2-3). The re-proposal may change requires; reading the first list would miss an id it added (filing would then refuse the whole list) and keep a finding for an id it dropped."
+  - key: "A LIST-LEVEL FINDING KEY (round-2 cut K-r2-4). A requirement no ticket covers names no ticket, and neither does the bound-conversation finding; both carry 'the list', which the ticket-key shape can never take, and the card lists findings whatever their key."
+  - key: "CHAT GETS THE COMPACT LIST (round-2 cut K-r2-2, main-thread decision R2). Twenty ticket texts are about 20,000 characters and Slack posts at most 3,000 in a section, failing the whole question; key, title, done count and waits-for fit, and the dashboard pane carries the texts. The Slack clip guards every kind, the epic's long text included."
+  - key: "SHAPES KNOW A BOUND CONVERSATION (round-2 cut K-r2-5). 'Cut into several tickets' in a ticket's own conversation asks for a list that conversation refuses; For takes the bound flag with a default so the existing callers and tests stand."
+  - key: "EXISTENCE IS A PORT THE SERVER IMPLEMENTS. The classification that makes Azure DevOps' TF401232 a not-found lives in the Server (TicketReadFailureReason) and the review runs in the Application, which cannot reference it; ITicketExistence is read here and by 2026-10-14-dbcel at filing, one classification for both. A host that does not register it checks nothing, the TicketLifecycle precedent."
+  - key: "A BOUND CONVERSATION IS TOLD AT PROPOSAL TIME. Filing refuses a list there (2026-10-14-dbcel); reviewing it first would spend the review for nothing, so the review is skipped and the finding says where a list is filed."
+  - key: "THE CARD HIDES APPROVE FOR A BOUND LIST (round-3 cut). TicketContinuation stays untouched (contract section 2.4, the bound-conversation row): its preview answers a list with the generic Refused effect and no start arm, so the card offered Approve under a sentence naming the wrong cause. The card knows the kind from the push, so it hides Approve and says where a list is filed, as the mock shows; a click would have been refused by 2026-10-14-dbcel's sink anyway."
+  - key: "THE EPIC LADDER TEST CHANGES ITS NAME. OutcomeShapes_TheSizeLadder_IsUnchangedForEveryExistingKind pins the unbound epic to 'Make it one spec' alone; this spec adds 'Cut into several tickets' there, so the expectation and the name change together (OutcomeShapes_TheSizeLadder_SpecAndBugUnchangedEpicGainsSeveralTickets); the bound test beside it still holds."
+  - key: "EXISTING TICKETS READ AS #<id> OR AS WRITTEN. The confirmation has no tracker type in hand; a numeric id is shown with a hash, anything else (a Jira key) as written — the same result FiledTicketKey gives for the trackers this repository supports."
+  - key: "TicketGraphProposalText IS STATIC; THE SERVER EXTENSION STARTS HERE. It is pure composition, like FiledWorkStart's Note, and orders with a fresh TicketGraphOrderer as TicketContinuation does with EpicChildOrderer, so neither composer gains a constructor parameter (17 and 14 test sites construct them with new). TicketGraphExtensions is created by this member for TicketExistence and extended by 2026-10-14-dbcel."
+  - key: "SHAPE LABELS. 'Make it one ticket's series' (27 characters) and 'Cut into several tickets' (24): no colon, under 40, no approval word; the static constructor enforces all three and OutcomeShapeOfferTests reads the table."
+  - key: "APPROVAL COPY. 'File these N tickets? M have nothing to wait for; the rest wait until what they require is merged.' The proposal cannot say a ticket starts when filed: that depends on the landing of its ticket:<id> requirements, read at filing, and on routing and permission (FiledWorkMove)."
+  - key: "REJECTED CUT (round 1, K2: admit round-1 drafts ticket by ticket within the share) — the list carries no drafts and no per-spec rounds (D1); SpecDialogProposalReview.cs:36-37 is where a list now leaves the spec path."
+  - key: "REJECTED CUT (round 1, K3: tell a dependent ticket's spec attacks what it waits for) — no spec of a list is attacked at design time (D1); the plan reviewer sees every ticket's requires in one prompt instead."
+  - key: "REJECTED CUT (round 1, K4: ParentNamed as a set) — a list has no epic parents; ProposalReProposalGuard (ProposalReviewLoop.cs:32) is not on the list's path."
+  - key: "REJECTED CUT (round 1, K6.5: the pane passes the ratify strip per spec) — a list carries no spec to ratify (RatifiedMockStamp.cs:21-44 passes other kinds through); out-item above."
+  - key: "Defaults pending operator ratification: D1 (contract section 5 default 13), the plan review with its four questions, one re-prompt, at most two calls and the 40,000-character requirement window (default 30, decision 21), the bound-conversation finding (default 19), the approval copy, contract section 5 default 27 (the UI follows the mock shipped here)."
+
+steps:
+  - id: mock
+    action: "src/dashboard/design/mockups/ticket-graph.html from the reviewed draft: ticket-view.html's tokens and shell, a NON-SHIPPING header comment, the proposal section in the ticket-text model — the conversation card, each ticket in merge order with key, title, requirement, done items, distinct ticket ids, waits-for by tracker key (a sibling key, an existing ticket as #41 on GitHub, GitLab or Azure DevOps and as PROJ-41 on Jira, a preview state), roots that 'have nothing to wait for', repositories, the plan review's finding, the list-level missing finding and the not-found finding, the approval summary, Approve & file / Reject / the offered shape, Approve hidden in the bound state — and a mock-only footer naming what each element reads and that chat shows the compact list."
+  - id: existence
+    action: "ITicketExistence and TicketExistenceResult in Contracts/Services; TicketExistence in Server/Services/SpecDialog (TicketReadFailureReason.Of per id, at most 70 lines); TicketGraphExtensions.AddTicketGraph() registers it, chained onto SpecDialogExtensions' OutcomeTicketFiler line (wc -l stays 119)."
+  - id: reviewer
+    action: "TicketPlanReviewPrompt (For with the uploads named, CutsNudge, requirement window, ListKey) and TicketPlanReviewer (its own look over repository and reference sandboxes, call, JSON reading, admission with the list-level key), each under its line cap."
+  - id: review
+    action: "TicketPlanReview (settings read, Reviewing reported, bound finding, review, one re-prompt through ProposalCutsReprompt, re-review, publish, existence findings on the final list); SpecDialogProposalReview inlines DraftsOf and routes a TicketGraphOutcome to it (119 -> at most 120, wc -l); both chained onto PipelineHandlersExtensions.cs:172 (218 kept)."
+  - id: text
+    action: "EpicProposalText extracted from SpecDialogOutcomeComposer (DescribeEpic and FormatRequires); TicketGraphProposalText.Describe(graph, markup), the compact list; the composer's Describe gains the graph arm (119 -> at most 112, wc -l); SlackTypedQuestionBlockBuilder clips the question section at 3,000 characters (112 -> at most 116, wc -l)."
+  - id: pane-shapes
+    action: "SpecDialogProposalComposer: TicketsKind, KindOf, Shape -> push with Tickets (78 -> at most 85); SpecDialogGraphTicketView record with its static Of; SpecDialogProposalPush.Tickets (47 -> at most 48); OutcomeShapes.For(proposal, bound = false), two new shapes and the graph and epic arms (78 -> at most 83); SpecDialogOutcomeConfirmer passes the bound flag on line 39 (112 kept)."
+  - id: dashboard-types
+    action: "src/dashboard/src/types/spec-dialog.ts: SpecDialogGraphTicket {key, title, requirement, done, requires, repos} and SpecDialogProposalPush.tickets?; the kind comment names tickets."
+  - id: dashboard-ui
+    action: "DialogProposalGraph.tsx (new) for kind tickets as the mock shows it; DialogProposalPanel renders it (197 -> at most 199); list-level findings above the tickets; DialogProposalCard strip lists keys and titles and its title reads N tickets; DialogQuestionCard.summaryOf graph line, and for kind tickets in a bound conversation no Approve and the where-to-file summary; conversationDelete.survives covers tickets."
+  - id: tests
+    action: "Backend tests in tests/AgentSmith.Tests/SpecDialog and SpecDialog/ProposalReview; dashboard tests beside DialogProposalPanel.test.tsx; a DI test resolving SpecDialogProposalReview from the real service collection and reviewing a list with a stubbed reviewer, and one resolving ITicketExistence from the server composition. Existing tests: pass a TicketPlanReview at MasterHandlerFixture.cs:57, ProposalReviewRig.cs:145 and SpecDialogProposalReviewTests.cs:218; in OutcomeShapeOfferTests.cs:199-200 expect \"Make it one spec\", \"Cut into several tickets\" for the unbound epic and rename the test to OutcomeShapes_TheSizeLadder_SpecAndBugUnchangedEpicGainsSeveralTickets. The twenty-ticket chat test reads 2026-10-14-dbcej's committed fixture tests/AgentSmith.Tests/Validation/fixtures/ticket-graph-20-tickets.md; at the field maxima the compact list passes 3,000 characters, which the Slack clip covers."
+
+tests:
+  - "TicketPlanReview_CleanList_OneReviewerCallNoRePrompt"
+  - "TicketPlanReview_AdmittedCut_RePromptsOnceAndPublishesTheRevisedList"
+  - "TicketPlanReview_RevisedList_ReviewedOnceMoreAndItsFindingsStand"
+  - "TicketPlanReview_RePromptChangesTheKeys_LastValidListKept"
+  - "TicketPlanReview_RoundsZero_FindingsOnlyNoRePrompt"
+  - "TicketPlanReview_BoundConversation_NoReviewAndOneFindingSayingWhereToFile"
+  - "TicketPlanReview_ReviewerFails_ProposalUnchangedNothingBlocked"
+  - "TicketPlanReviewer_FindingForUnknownTicket_Dropped"
+  - "TicketPlanReviewer_QuoteNotInTheTicket_FindingKeptWithoutCut"
+  - "TicketPlanReviewer_MissingRequirement_FindingOnly"
+  - "TicketPlanReviewer_MissingRequirementNamingNoTicket_KeptAsListFinding"
+  - "TicketPlanReviewer_UploadedRequirements_ReadableThroughTheLook"
+  - "TicketPlanReviewPrompt_For_NamesTheUploadsAndSaysExistingAndLaterRequirementsAreNotMissing"
+  - "TicketPlanReview_RePromptAddsTicketRequirement_ItIsReadForExistence"
+  - "TicketPlanReview_RePromptDropsAMissingRequirement_NoStaleFinding"
+  - "TicketPlanReview_InvalidSettings_ReviewsOnceWithoutRePrompt"
+  - "TicketPlanReview_ReportsReviewingBeforeTheCall"
+  - "TicketPlanReviewPrompt_RequirementsOverTheWindow_KeepsFirstTurnAndNamesTheOmitted"
+  - "TicketPlanReviewPrompt_CutsNudge_ListsQuoteAndReplacementPerKeyAndKeepsKeys"
+  - "TicketExistence_AzureDevOpsTf401232_IsMissing"
+  - "TicketExistence_GitHubNotFound_IsMissing"
+  - "TicketExistence_JiraAndGitLabNotFound_AreMissing"
+  - "TicketExistence_Unauthorized_IsUnreadableWithItsClassAndNoSdkText"
+  - "TicketPlanReview_TwoMissingTickets_BothNamedUnderTheirRequiringTickets"
+  - "TicketPlanReview_NoExistenceRegistered_ChecksNothing"
+  - "SpecDialogProposalReview_SpecAndEpic_UnchangedAfterDraftsOfInlined"
+  - "SpecDialogOutcomeComposer_TicketGraph_ConfirmationListsTicketsInMergeOrderWithWaitsFor"
+  - "SpecDialogOutcomeComposer_JiraKeyRequirement_ShownAsWritten"
+  - "SpecDialogOutcomeComposer_Epic_ConfirmationTextUnchanged"
+  - "SpecDialogOutcomeComposer_TicketGraph_TwentyTickets_ChatTextUnder3000Chars"
+  - "SlackTypedQuestionBlockBuilder_ApprovalTextOver3000_ClippedAtALineEndNamingTheDashboard"
+  - "SpecDialogProposalComposer_TicketGraph_PushKindTicketsWithOrderedTicketTexts"
+  - "OutcomeShapes_TicketGraph_OffersOneTicketsSeries"
+  - "OutcomeShapes_Epic_OffersOneSpecAndSeveralTickets"
+  - "OutcomeShapes_EpicInBoundConversation_DoesNotOfferSeveralTickets"
+  - "SpecDialogOutcomeConfirmer_BoundConversation_PassesTheBoundFlag"
+  - "SpecDialogProposalReview_FromRealServiceCollection_ReviewsATicketList"
+  - "TicketExistence_ServerComposition_ResolvesThePort (integration, ServerCompositionBuilder)"
+  - "DialogProposalPanel_TicketsKind_RendersTicketTextsInMergeOrderWithWaitsFor"
+  - "DialogProposalCard_TicketsKind_StripListsTicketKeysAndTitlesUnderNTickets"
+  - "DialogProposalPanel_TicketsKind_ListLevelFindingAboveTheTickets"
+  - "DialogQuestionCard_TicketsKind_SummarySaysHowManyHaveNothingToWaitFor"
+  - "DialogQuestionCard_UnboundConversation_ApproveReadsApproveAndFile"
+  - "DialogQuestionCard_TicketsKindInBoundConversation_NoApproveAndSaysWhereAListIsFiled"
+  - "OutcomeShapes_TheSizeLadder_SpecAndBugUnchangedEpicGainsSeveralTickets (renamed from OutcomeShapes_TheSizeLadder_IsUnchangedForEveryExistingKind, epic expectation updated)"
+  - "conversationDelete_TicketsKind_SaysTheFiledTicketsStay"
+
+done:
+  - "A design turn that proposes a list of tickets has the list reviewed as a plan — mergeable on its own, ordered, covering what the operator asked in messages and uploaded files, small enough for one run — and the reviewer's quoted cuts applied to the ticket texts before the operator approves; what is left shows as findings under the ticket it concerns, and a requirement no ticket covers shows as a finding about the whole list."
+  - "A ticket:<id> requirement in the list the operator approves — also one the revised list added — naming a ticket the tracker does not have shows as a finding under the requiring ticket on Azure DevOps, Jira, GitLab and GitHub alike, every missing id named and no tracker error text shown."
+  - "A list proposed in a ticket's own conversation is not reviewed, says where a list of tickets is filed, and its approval card on the dashboard offers no Approve."
+  - "In Slack and Teams the confirmation lists the tickets in the order they must merge, each with its key, title, number of done items and what it waits for, points to the dashboard for the full texts, posts even for twenty tickets, and offers to make it one ticket's series; an epic additionally offers to cut it into several tickets, except in a ticket's own conversation."
+  - "On the dashboard the proposal pane and the conversation card show the ticket texts and their requires, and the approval card says how many tickets would be filed and how many have nothing to wait for."
+  - "src/dashboard/design/mockups/ticket-graph.html shows the list proposal as the pane renders it."
+  - "Build green, full suite green, dashboard gen/test/build green."

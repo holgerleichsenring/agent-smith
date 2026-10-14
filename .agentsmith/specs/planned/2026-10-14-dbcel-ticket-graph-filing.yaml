@@ -1,0 +1,296 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-14-dbcel
+goal: "Approving a list of tickets files each as a work ticket whose body is its text, stores its requires and the conversation's material, and starts only those with nothing left to wait for."
+
+applies_to: "backend (the graph arm of the filing sink, the graph filer and its start pass, the ticket body, the ticket-text approval record and the run's reading of it, the material carried before a ticket text's derivation, the Held start state, the filed and failure texts, the refusal in a ticket-bound conversation) and dashboard (the Held label on a filed ticket)"
+
+requires: [2026-10-14-dbcef, 2026-10-14-dbceg, 2026-10-14-dbceh, 2026-10-14-dbcej, 2026-10-14-dbcek]
+
+facts:
+  - claim: "The sink sends a spec or epic approved in a ticket-bound conversation to the continuation, and every other approval to OutcomeTicketFiler after storing the confirmed proposal; the stored filing, the push, the notice and the Filing turn all run on the caller's token."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:32-72"
+  - claim: "OutcomeTicketFiler files one ticket per approval by kind and throws on any other kind; it lets the caller's cancellation escape; it is at the 120-line limit; its project is the conversation's active-scope project resolved from the catalog."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:30-73"
+  - claim: "A bug is filed with no label and then tagged and started through FiledWorkStarter, so the project's own rules decide which pipeline claims it."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:75-86"
+  - claim: "ApprovedSetTicketFiler decides the one label a filing writes — the tracker's approved-set stamp — creates the ticket, stores the approval record, writes the ticket branch and starts it last, so nothing can claim it before its record exists."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSetTicketFiler.cs:26-45, src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSetTicketFiler.cs:68-79"
+  - claim: "Routing binds a ticket to the code pipeline on the approved-set stamp or on the existence of an approval record, which the envelope carries."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/FiledTicketLabels.cs:78-93, src/backend/AgentSmith.Application/Services/Triggers/ProjectResolver.cs:64-73, src/backend/AgentSmith.Application/Services/Polling/PolledTicketEnvelope.cs:30-31"
+  - claim: "The material reaches a run only through the ticket's approval record: at approval every set and image the conversation holds is cited into it, re-checked after the save; the run publishes the record and MaterializeReferenceSets, after DeriveSpec, writes the cited sets into the carrying repository's sandbox, the earliest spec's repository first."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSpecSetRecorder.cs:60, src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSpecSetRecorder.cs:80-83, src/backend/AgentSmith.Server/Services/SpecDialog/ApprovalCitations.cs:16-39, src/backend/AgentSmith.Application/Services/Specs/ApprovedSpecSetResolver.cs:32-54, src/backend/AgentSmith.Application/Services/Handlers/MaterializeReferenceSetsHandler.cs:36-38, src/backend/AgentSmith.Application/Services/Handlers/MaterializeReferenceSetsHandler.cs:79-82, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Code.cs:56, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Code.cs:66"
+  - claim: "ScopeRepos, before checkout, already resolves and publishes the approval record for every later step; DeriveSpec runs after checkout and before MaterializeReferenceSets; with no spec set published the handler carries into the record's carrying repository, and the carrier of an empty set is the only repository or none."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Code.cs:41-42, src/backend/AgentSmith.Application/Services/Scope/ApprovedRepoScope.cs:58, src/backend/AgentSmith.Application/Services/Specs/ApprovedSpecSetResolver.cs:41-42, src/backend/AgentSmith.Application/Services/Specs/ApprovedSpecSetResolver.cs:50-54, src/backend/AgentSmith.Application/Services/Handlers/MaterializeReferenceSetsHandler.cs:36-43, src/backend/AgentSmith.Application/Services/Handlers/MaterializeReferenceSetsHandler.cs:79-82, src/backend/AgentSmith.Application/Services/Specs/SeriesRepos.cs:38-43"
+  - claim: "The derivation's opening message is the ticket prompt, the look section and the scope section; its look reads the run's repository sandboxes; the master's carried-material section is ReferencePromptSection.Carried; the carry services are registered in one 25-line extension; DeriveSpecHandler is at its 143-line baseline and SpecSetDeriver is 115 lines."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecDerivationMessages.cs:19-29, src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:59-65, src/backend/AgentSmith.Application/Services/Specs/DerivationLookFactory.cs:82, src/backend/AgentSmith.Application/Services/Handlers/ReferencePromptSection.cs:45-46, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:316-318, src/backend/AgentSmith.Application/Services/Handlers/ReferenceSetCarryServiceCollectionExtensions.cs:15-24, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:104, observed: 2026-10-14, wc -l in this worktree: SpecSetDeriver.cs 115, SpecDerivationMessages.cs 34, MaterializeReferenceSetsHandler.cs 98"
+  - claim: "A run scopes itself to the repositories an approval record names."
+    evidence: "src/backend/AgentSmith.Application/Services/Scope/ApprovedRepoScope.cs:58-59, src/backend/AgentSmith.Application/Services/Scope/ApprovedRepoScope.cs:78"
+  - claim: "With nothing at the spec path, a stored record's set is handed over as the run's set without a model; failing that, any record (or the stamp) parks the ticket as a missing set; only a ticket with neither derives its own spec."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSourceResolver.cs:107-117, src/backend/AgentSmith.Application/Services/Specs/ApprovedSetHandoff.cs:25-41, src/backend/AgentSmith.Application/Services/Specs/FiledTicketSpecGate.cs:55-75"
+  - claim: "A bound conversation compares the ticket's text with the goals of its record's specs before each turn."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSetDivergence.cs:27-36"
+  - claim: "An approval in a never-worked ticket's own conversation takes the approved series whole and lists the record's specs beside it."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/TicketContinuation.cs:56-67"
+  - claim: "Settling a never-worked ticket's specs in its own conversation re-records its approval under that conversation: the recorder loads the previous record, then cites only the sets and images the CURRENT conversation holds and re-checks them after the save, so the uploads of the conversation that filed it are dropped."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/TicketContinuation.cs:56-68, src/backend/AgentSmith.Server/Services/SpecDialog/TicketAmendment.cs:80, src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSpecSetRecorder.cs:72-73, src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSpecSetRecorder.cs:82-83, src/backend/AgentSmith.Server/Services/SpecDialog/ApprovalCitations.cs:16-39"
+  - claim: "The set and image carriers read every cited id from the record's approval conversation, because a set is stored and read by session; TicketAmendment is at 120 lines, ApprovalCitations 40, each carrier 52."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetCarrier.cs:27-31, src/backend/AgentSmith.Application/Services/Sandbox/ReferenceImageCarrier.cs:34-43, src/backend/AgentSmith.Contracts/Sandbox/IReferenceSetReader.cs:9-10, observed: 2026-10-14, wc -l TicketAmendment.cs 120, ApprovalCitations.cs 40, ReferenceSetCarrier.cs 52, ReferenceImageCarrier.cs 52"
+  - claim: "A conversation's uploads are protected from removal and from the conversation's delete only while a record APPROVED in that conversation cites them."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ApprovedSeriesRepository.cs:88-95, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceUploadDeletion.cs:71-72, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogConversationDeleter.cs:36-37"
+  - claim: "The run's carry writes ONE copy, because the master reads every sandbox by repository prefix; with several repositories and none named the existing step refuses to pick by position; the derivation's look reads every sandbox of the run."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MaterializeReferenceSetsHandler.cs:76-78, src/backend/AgentSmith.Application/Services/Handlers/MaterializeReferenceSetsHandler.cs:84-96, src/backend/AgentSmith.Application/Services/Specs/DerivationLookFactory.cs:24-32"
+  - claim: "The carried keys ReferenceSets and ReferenceImages are checkpointed — only the sandbox keys are excluded — and a resume re-runs MaterializeReferenceSets in a fresh sandbox over the restored context; the existing re-run test runs the handler twice on one sandbox."
+    evidence: "src/backend/AgentSmith.Application/Services/Resume/PipelineContextSerializer.cs:27-40, src/backend/AgentSmith.Application/Services/Resume/DialogueCheckpointWriter.cs:26-31, src/backend/AgentSmith.Application/Services/Resume/DialogueCheckpointWriter.cs:82-85, src/backend/AgentSmith.Application/Services/Sandbox/UploadImageAttachments.cs:12-13, tests/AgentSmith.Tests/References/MaterialRunCarryTests.cs:47-56"
+  - claim: "With no spec naming a repository and no carrying repository the step refuses rather than pick one; a carry merges its images by replacing the upload entries already present."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MaterializeReferenceSetsHandler.cs:38-42, src/backend/AgentSmith.Application/Services/Sandbox/UploadImageAttachments.cs:22-28"
+  - claim: "A re-recorded approval moves the row's ApprovedInConversation to the new approval's conversation, and a carrier refuses the run when a cited set cannot be read."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ApprovedSeriesRepository.cs:97-106, src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetCarrier.cs:30-33"
+  - claim: "The carried-material section writes '— attached to this message' after every image marked Shown, and a carry marks Shown the images it attaches; the master passes prefixed when it addresses more than one sandbox; the derivation names only ticket attachments by name; the section is 78 lines."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ReferencePromptSection.cs:45-59, src/backend/AgentSmith.Application/Services/Sandbox/UploadImageAttachments.cs:24-28, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:318, src/backend/AgentSmith.Application/Services/Specs/SpecPromptComposer.cs:89-99, observed: 2026-10-14, wc -l ReferencePromptSection.cs = 78"
+  - claim: "Amending a ticket rewrites only the region FramedTicketRegion marks and reports 'The ticket's description was not rewritten' otherwise; a ticket branch is cut at the default branch's head when absent, and a run on a reused ticket branch merges its base in."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketAmendment.cs:96-102, src/backend/AgentSmith.Contracts/Providers/ITicketRewriter.cs:28-36, src/backend/AgentSmith.Application/Services/Specs/FiledSpecBranch.cs:11-18, src/backend/AgentSmith.Application/Services/Sandbox/SandboxWorkBranchCheckout.cs:51-64"
+  - claim: "The derivation is a text call: its opening messages are text, and an image reaches a model as a picture only through ContextKeys.Attachments, which the carry step sets for the master."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecDerivationMessages.cs:19-29, src/backend/AgentSmith.Application/Services/Handlers/MaterializeReferenceSetsHandler.cs:64-73"
+  - claim: "The failure notice says nothing was created when the report holds no ticket, and ends with the retry line."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeComposer.cs:65-74"
+  - claim: "SpecApprovalRecord is positional with init properties appended last and is 88 lines; the recorder builds the set, the approval and the record in one place and keeps its key and repository rules private; it is 119 lines."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecApprovalRecord.cs:68-88, src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSpecSetRecorder.cs:71-83, src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSpecSetRecorder.cs:113-118"
+  - claim: "The ApprovedSeries projection of a record tolerates a set with no series id, and a save marks the row outstanding until a run satisfies it; outstanding records are admitted into discovery up to fifty ids per tracker."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ApprovedSeriesRepository.cs:97-110, src/backend/AgentSmith.Application/Services/Polling/ApprovedTicketAdmission.cs:30-39, src/backend/AgentSmith.Application/Services/Lifecycle/TicketLifecycle.cs:24-28"
+  - claim: "A ticket body states when it is done under the acceptance-criteria heading, where only list items are read back as criteria; a filed spec's body names the conversation it was approved in."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/AcceptanceCriteriaSection.cs:5-17, src/backend/AgentSmith.Application/Services/SpecDialog/BugTicketRenderer.cs:16-22, src/backend/AgentSmith.Application/Services/SpecDialog/SpecTicketRenderer.cs:72-80"
+  - claim: "FiledWorkStarter tags the ticket with the project's routing tag, then moves it, and stamps the start onto the report entry; it never throws."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkStarter.cs:36-52"
+  - claim: "The start states are serialized by name and the label switch names every one; the dashboard map of them is exhaustive over the union."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkStart.cs:10-49, src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkStart.cs:90-98, src/dashboard/src/components/dialog/DialogFiledTicket.tsx:56-64, src/dashboard/src/types/spec-dialog.ts:410"
+  - claim: "A filed ticket's display key is the Jira id as written and #<id> on every other tracker."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledTicketKey.cs:23-35"
+  - claim: "A filing report lists every created ticket in creation order, with notes, even when it carries an error; the filed and failure notices list them with their start notes, the failure notice always ends with 'ask again to re-propose and retry', and the filed summary has an arm per kind that throws on any other."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FilingReport.cs:13-64, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeComposer.cs:62-80, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeComposer.cs:106-118"
+  - claim: "The filers and the sink are registered on adjacent lines of SpecDialogExtensions, which has 119 lines."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogExtensions.cs:57-62"
+
+assumptions:
+  - "2026-10-14-dbcef lands ITicketRequirementStore.AddAsync(edges of ONE dependent, ct), insert-only and idempotent, TicketRequirementEdge with the nine contract fields, and SpecApprovalRecord.Project projected to ApprovedSeries.Project."
+  - "2026-10-14-dbceh lands UnmetTicketRequirements.OfAsync(tracker, ticketKey, ct) -> (HasRequirements, Unmet), Unmet the stored edges whose required ticket has not landed ((false, []) with no rows), registered as a server singleton; its wake and its by-name start skip a ticket whose filing is not complete as this spec defines it."
+  - "2026-10-14-dbcej lands TicketGraphOutcome, GraphTicket(Key, Title, Requirement, Done, Requires, Repos), GraphTicketRequire.ExistingId and TicketGraphOrderer.Order -> (Tickets, Error)."
+  - "2026-10-14-dbcek lands ITicketExistence (TicketReadFailureReason classification), TicketGraphExtensions.AddTicketGraph(), and leaves SpecDialogOutcomeComposer at most 112 lines with the \"tickets\" push kind."
+
+scope:
+  in: >
+    TICKET TEXT, NO SPEC (main-thread decision D1, default pending operator ratification). FILER (TicketGraphFiler,
+    Server/Services/SpecDialog, at most 108 lines): resolves the project as OutcomeTicketFiler does; BEFORE creating
+    anything reads every distinct ticket:<id> through ITicketExistence — any missing or unreadable id refuses the whole
+    filing, naming every missing id and each unreadable id with its class, never tracker text; orders the tickets
+    (TicketGraphOrderer); then per ticket, in order: (1) creates it with role Work, the labels ApprovedSetTicketFiler.Labels(project)
+    decides (the existing filer's approved-set stamp, extracted and shared, 107 -> at most 110) and the body GraphTicketBody
+    renders; (2) stores its edges in ONE ITicketRequirementStore.AddAsync — one per requires, RequiredTicketId the
+    sibling's created id or the existing id, StartsWhenMet = mayStartRuns, FiledInConversation the session id; (3) stores
+    its approval record through GraphTicketApproval. A ticket whose three acts all returned is COMPLETE; its stored
+    approval record is the durable mark of it, written last. A failure stops the loop and is the report's error; the
+    tickets not created are named in a note by key and title. Cancellation before the first creation escapes as today;
+    after it, the loop stops, the error says the filing was interrupted after N of M tickets, and everything after runs
+    without the caller's token. STARTS (TicketGraphStarts, Server/Services/SpecDialog, at most 90 lines; 2026-10-14-dbcem's link call takes it to at most 92), ONCE over the
+    created prefix — after the last ticket and after a failure alike, on CancellationToken.None, holding the project, the
+    report, the labels and each created ticket's stored edges: a ticket that is not complete gets FiledWorkStart(NotStarted,
+    "created but not stored — do not trigger it; close it") and is never tagged or moved; a complete ticket that
+    UnmetTicketRequirements.OfAsync answers an empty Unmet for goes through FiledWorkStarter.StampAsync with the labels from step
+    (1); any other gets FiledWorkStart(Held, "waits for <keys> to be merged or marked done by hand"), keys by FiledTicketKey,
+    and is not tagged or moved. BODY (GraphTicketBody, Server/Services/SpecDialog, at most 60 lines): Render(ticket,
+    required, conversation, labelNote) -> SpecTicketContent: title TicketTitle.Fit(title); body the requirement, then
+    AcceptanceCriteriaSection.Heading with one list item per done item, then "## Requires" under "Merge these first; this
+    ticket starts once each is merged or marked done by hand." with each required ticket's key (and a sibling's title),
+    omitted for none, then "Filed from design conversation `<id>`; its specs are derived by the run that starts it.", then
+    the label note. RECORD (GraphTicketApproval, Server/Services/SpecDialog, at most 70 lines): RecordAsync(state, project,
+    ticketId, ticket, ct) stores a SpecApprovalRecord under the ticket's key and tracker connection with an EMPTY set
+    carrying the approval (now, conversation, principal) and the ticket's title as its goal, the ticket's repos or else the
+    conversation's repositories (ApprovedSpecSetRecorder's rule, made internal, 119 kept), the carrying repository
+    SeriesRepos.CarrierOf([], repositories) (the only repository, else none; SeriesScope reads it, so it is not reused as
+    a flag), the tracker's own ticket id,
+    Project = project.Name and TicketText = true, cited and saved through ApprovalCitations — so routing, discovery, repo
+    scope, the ApprovedSeries row and the material work exactly as for a filed spec. CONTRACTS:
+    SpecApprovalRecord.TicketText, `public bool TicketText { get; init; }` (89 after 2026-10-14-dbcef -> at most 90): the
+    approval filed a ticket text and the run derives its specs. RUN SIDE: ApprovedSetHandoff hands nothing over for a
+    TicketText record (55 -> at most 56); FiledTicketSpecGate returns null for a TicketText record whatever the stamp (76
+    -> at most 78), so the run derives; ApprovedSetDivergence answers null for one (45 -> at most 46). A stamp with no
+    record yet still parks, as for every filing. MATERIAL FIRST (main-thread decision, contract decision 22):
+    ReferenceMaterializer (Application/Services/Handlers, at most 110 lines) takes MaterializeReferenceSetsHandler's body
+    unchanged as CarryAsync(pipeline, ct) -> CommandResult, and adds CarryForDerivationAsync(pipeline, ct), which acts
+    only when the published record (ApprovedSpecSetResolver.Published) is a TicketText record that cites material: it
+    carries ONE copy into the record's carrying repository, else the FIRST of the record's repositories (the ticket's
+    own, else the conversation's) that has a sandbox — one copy serves every repository, as the existing step says — and
+    carries the sets and images exactly as CarryAsync does, publishing ContextKeys.ReferenceSets / ReferenceImages; the
+    images reach the derivation as named files in that sandbox (the derivation is a text call) and reach the master as
+    pictures through the attachments the same carry sets; a refusal or a throw is logged at Warning and leaves the derivation
+    without the material, and the later step then fails the run with it as today. SpecSetDeriver calls it once before
+    the opening messages (115 -> at most 118); SpecDerivationMessages.Opening appends ReferencePromptSection.Carried(pipeline, prefixed, attached: false)
+    (34 -> at most 36), prefixed true when the derivation's look holds more than one sandbox (the master's
+    allAddresses.Count > 1), empty for every run that carried nothing yet; Carried gains `bool attached = true`, and with
+    false an image is listed as a file without "— attached to this message", because the derivation call attaches
+    nothing (ReferencePromptSection 78 -> at most 80). MaterializeReferenceSetsHandler delegates to CarryAsync and
+    CARRIES ON EVERY RUN OF THE STEP, as today — no skip on a published key: the keys are checkpointed and a resume
+    re-runs the step in a fresh sandbox, so a published key does not mean the files are there; the carry is idempotent
+    (same paths; UploadImageAttachments.Merge replaces upload entries). For a TicketText record whose published set names
+    no single-repository spec and whose CarryingRepo is empty, CarryAsync targets the early carry's rule — the first
+    record repository with a sandbox — through one private method both use, where today the step refuses; when the
+    derived set's earliest spec names another repository, that one gets the run's copy and the keys are rewritten to
+    it, the early copy staying outside the commit (98 -> at most 60);
+    ReferenceMaterializer registered in AddReferenceSetCarry (25 -> at most 26). MATERIAL KEPT ON A LATER APPROVAL
+    (main-thread decision R3): a re-recorded approval keeps the previous record's citations that came from ANOTHER
+    conversation, beside what its own conversation holds now. SpecApprovalRecord gains `CitedFrom` (init, set or image id
+    -> the conversation it was uploaded in; an id not in it is the approval's own) and `ConversationOf(id)` (88 -> at most
+    92 with TicketText). ApprovalCitations.CiteAsync(record, conversation, ct, previous = null) unions the previous
+    record's ids whose ConversationOf differs from this conversation AND that their conversation still holds — one
+    SetIdsAsync and one ImageSetIdsAsync per distinct foreign conversation — recording each in CitedFrom; SaveAsync's
+    re-check drops only ids of this conversation (40 -> at most 62). A carried-forward upload that was removed, or whose
+    conversation was deleted, is dropped at the next approval, so approving again is the way out of a run that refuses
+    "cannot read". ApprovedSpecSetRecorder passes the `previous` it already loads
+    on its existing line 83 (119 kept). ReferenceSetCarrier and ReferenceImageCarrier read each id, and its note, from
+    record.ConversationOf(id) (52 -> at most 56, 52 -> at most 55). TicketAmendment (120) is not touched. The same rule
+    serves every amendment from a ticket's own conversation, a filed spec's as well as a ticket text's: neither lost
+    material before by intent. The code preset, DeriveSpecHandler
+    (143, at its baseline) and every run whose record is not a TicketText record are unchanged. SINK (TicketFilingOutcomeSink, 94 -> at most 110): a TicketGraphOutcome
+    in a ticket-bound conversation files nothing and answers with a Notice turn "This conversation belongs to <ticket>;
+    approving here continues that ticket. File a list of tickets from Work it out without a ticket, or make this one
+    ticket's series."; otherwise a graph goes to TicketGraphFiler through the same store-confirmed, report, push, notice
+    and Filing-turn path; once the report holds a created ticket, the stored filing, the push, the notice and the turn run
+    on CancellationToken.None; the failure notice is ComposeFilingFailure(report, proposal). TEXT (SpecDialogOutcomeComposer,
+    at most 117): Summarize graph arm "a list of N tickets, in the order they must merge"; a graph's failure footer, ONLY
+    when the report holds a created ticket, says "Approving again files the whole list again: close the created tickets,
+    or propose the rest naming them with ticket:<id>." instead of the retry line; with nothing created (the existence
+    refusal, a failed first create) the existing retry line stands. STATE: FiledStartState.Held with the label "held" (99 -> at most 104);
+    spec-dialog.ts adds "Held" to SpecDialogFiledStart.state; DialogFiledTicket's map says "waits". REGISTRATION:
+    TicketGraphFiler, TicketGraphStarts and GraphTicketApproval scoped in 2026-10-14-dbcek's TicketGraphExtensions.
+  out: >
+    The requirement table and its store — 2026-10-14-dbcef. The landing fact — 2026-10-14-dbceg. The gate that holds a
+    filed dependent which a poll, a webhook or a person reaches, the wake that starts it when its requires land, and both
+    skipping a ticket whose filing is not complete (no stored approval record) — 2026-10-14-dbceh. The tracker links
+    between the tickets, called once from TicketGraphStarts after the start pass over the created prefix's stored edges —
+    2026-10-14-dbcem. The list's blocked and filed buckets, the graph view and waits-for on the ticket page —
+    2026-10-14-dbcen. Specs for a ticket before its run — nobody: decision D1; the run derives them at DeriveSpec with the
+    existing cut review, and a person who wants them fixed first opens the ticket's own conversation, whose approval takes
+    the approved series whole (TicketContinuation NeverWorked) and keeps the list conversation's material (MATERIAL KEPT
+    ON A LATER APPROVAL above); the gate still holds the ticket. Images shown to the derivation as pictures — nobody: the
+    derivation is a text call (SpecDerivationMessages), so an uploaded image reaches it as a named file in the sandbox;
+    the run's master sees it as a picture through the attachments. Protecting the uploads of the conversation that filed a
+    ticket once the ticket's approval is re-recorded in its own conversation — a list ticket or a single filed spec
+    alike, protection being lost at that re-approval — nobody: protection reads records approved IN that conversation
+    (ApprovedSeriesRepository.CitedSetsAsync), and a citation index across conversations is a column this series does
+    not add; once that conversation is deleted or its upload removed, the run refuses loudly with the existing "cannot
+    read" reason, never silently, and approving again in the ticket's conversation records without the vanished upload. Re-filing only the uncreated rest of a failed list —
+    nobody: the report names what was created and what was not, and the proposal can name the created ones with
+    ticket:<id> (contract decision 10). Updating a Held entry on the stored filing when the wake starts the ticket —
+    nobody: the filing records what the approval did; the run list beside each filed ticket (DialogFiledTicket) and
+    2026-10-14-dbcen's ticket page show what happened after. A per-ticket choice of cited material — nobody: contract
+    decision 8. A target branch other than the default for a dependent — nobody: contract decision 6; no spec-parent
+    stamp is set.
+
+decisions:
+  - key: "A TICKET-TEXT APPROVAL RECORD CARRIES THE MATERIAL (D1, decided from the code). The material reaches a run only through the ticket's approval record (ApprovalCitations, ApprovedSpecSetResolver, MaterializeReferenceSets), and the same record is what routes the ticket to the code pipeline, admits it to discovery, scopes the run's repositories and gives the ApprovedSeries row the project 2026-10-14-dbcen lists never-run tickets by. A second citation store would repeat all five. The record therefore keeps its shape with an empty set and an explicit TicketText flag — the flag, not an empty-set inference, is what the run reads."
+  - key: "THE MATERIAL REACHES THE DERIVATION (main-thread decision, contract decision 22 and section 5 default 32, pending operator ratification). The code preset carries the cited material only after DeriveSpec (PipelinePresets.Code.cs:56,66), which suits a filed spec whose specs were drafted beside the material; a ticket text's specs are drafted by the run, so its derivation must see what the operator uploaded. The record is already published at ScopeRepos and the sandboxes exist after checkout, so the deriver carries it first for a TicketText record only and names it in the opening message; the preset, DeriveSpecHandler (at its baseline) and every other run stay as they are. A new pipeline step was rejected: it would add a command name, a context builder and a registration to PipelineHandlersExtensions (218 of 218) for one record kind, and the dashboard's run rail would show a second materialize step on every code run."
+  - key: "ONE COPY, INTO THE FIRST REPOSITORY (round-2 cut L-r2-3, accepted by the main thread in place of its first rule of a copy per named repository; contract decision 22). The early carry no longer needs a single carrier: it writes one copy into the record's carrying repository, else the first of its repositories with a sandbox — the ticket's first named one, else the conversation's first. One copy serves every repository: the master reads every sandbox by prefix (MaterializeReferenceSetsHandler.cs:76-78) and so does the derivation's look (DerivationLookFactory.cs:24-32). A copy per named repository would add nothing either reads and name each set once per repository in the opening message, and the run cannot tell a named list from the conversation's without a further field (CarryingRepo is read by SeriesScope, so it cannot be the flag)."
+  - key: "IMAGES REACH THE DERIVATION AS FILES (round-2 cut L-r2-2, main-thread decision R3). The derivation is a text call; an uploaded image is written into the sandbox and named there, and the master sees it as a picture later. Attaching images to the derivation would change SpecDerivationMessages beyond its budget for a model that may not take vision."
+  - key: "A LATER APPROVAL KEEPS THE MATERIAL (round-2 cut L-r2-1, main-thread decision R3, owned here). The promised way to settle a list ticket's specs first — its own conversation — re-recorded the approval citing only that conversation's uploads and dropped the list's. Sets are stored and read by conversation, so the union records where each carried-forward id lives (CitedFrom) and both carriers read it from there. The recorder already loads the previous record and passes it on an existing line; TicketAmendment (120 of 120) stays untouched. An id of the approval's own conversation keeps today's rule (what it holds now), so a removed upload is not resurrected. A carried-forward id is kept only while its own conversation still holds it (round-3 cut L-r3-2): the re-approval moves the row's ApprovedInConversation away, so nothing protects that upload any more; without the check every later approval would cite a vanished id again and the ticket could never run."
+  - key: "THE STEP ALWAYS CARRIES (round-3 cut L-r3-1, amends contract decision 22). A first draft answered 'already carried' when the keys were published, but the keys are checkpointed and a resume re-runs the step in a fresh sandbox, so the skip would have left every resumed run with cited material — filed specs included — naming files that are not there, and the existing re-run test (one sandbox) would have stayed green. The carry is idempotent, so the step carries every time; a TicketText record with several repositories and none named uses the early carry's first-repository rule instead of the refusal the skip used to hide."
+  - key: "THE DERIVATION IS TOLD NOTHING IS ATTACHED (round-3 cut L-r3-3). The early carry marks the images it would attach as Shown, and the section would tell the derivation they are 'attached to this message'; the derivation call attaches nothing, so it passes attached: false and reads them as files."
+  - key: "SETTLING A LIST TICKET IN ITS OWN CONVERSATION. The amendment answers 'The ticket's description was not rewritten' because GraphTicketBody writes no FramedTicketRegion markers; that is true and harmless (the run reads the record and the branch, never the description). Settling before the requirements land cuts the ticket branch at that moment; the run later merges the base into the reused branch, so it still builds on the merged requirement."
+  - key: "THE FAILURE FOOTER NEEDS A CREATED TICKET (round-2 cut L-r2-4). With nothing created, approving again files nothing twice, so the existing retry line is the right advice."
+  - key: "THE RUN DERIVES FOR A TicketText RECORD. Without a change the hand-off would publish the empty set as approved and the spec gate would park the ticket as a missing set. Both answer for the flag, and the divergence check stays silent, so the run derives from the ticket text against the code merged by then, with the cut review it already runs."
+  - key: "THE STAMP IS THE EXISTING FILER'S DECISION (round-1 cut L7). ApprovedSetTicketFiler.Labels(project) is the one place that decides it, for a filed spec and a ticket text alike. With the stamp on and no record yet, a claim in the seconds before the record parks rather than derives without the material — the hazard every filing already has; once the record exists the ticket derives."
+  - key: "CREATE, EDGES, RECORD — THEN STARTS (round-1 cuts L1, L2). Edges are stored right after creation, before anything could start the ticket; the record comes last and marks the filing complete. The start pass covers only complete tickets: one whose edges or record failed is reported 'do not trigger it; close it' and never tagged or moved. 2026-10-14-dbceh reads the same mark, so its wake never starts a ticket whose filing did not finish (contract amendment)."
+  - key: "ONE EXISTENCE READ, CLASSIFIED (round-1 cut L3). ITicketExistence (2026-10-14-dbcek) reads each ticket:<id> and classifies through TicketReadFailureReason, so an Azure DevOps TF401232 is a missing id, every missing id is named, and no SDK text with host or organisation names reaches the notice. The filer reads again because the tracker can change between proposal and approval."
+  - key: "A GRAPH'S FAILURE FOOTER IS ITS OWN (round-1 cut L4). 'Ask again to retry' would file the whole list a second time; the graph footer says to close the created tickets or propose the rest by ticket:<id>."
+  - key: "CANCELLATION-SAFE ONCE A TICKET EXISTS (round-1 cut L5). A rolling deploy mid-filing used to leave created tickets with no report, no notice and no starts — a root never started, so its dependents never woke. After the first creation the loop stops on the token, and the start pass, the report and the stored filing run on CancellationToken.None. The sink applies the same rule to every filing that returns a created ticket. CancellationToken.None does not outlive the host's shutdown timeout (round-2 cut L-r2-5): a root the pass did not reach is never started by 2026-10-14-dbceh's recovery, which wakes only dependents of landings, and it shows in 2026-10-14-dbcen's 'Filed, no run on record' bucket, where a person's start by name — which the gate admits for a root — starts it."
+  - key: "THE SINK BUDGET IS 110 (round-2 cut L-r2-6). The bound refusal composes, sends and appends a Notice turn as ContinueAsync does (about seven lines), plus the graph arm, a constructor parameter and the post-creation token local: about 105-106 against the old 104; the file is not baselined."
+  - key: "TWO CLASSES (round-1 cut L6). TicketGraphFiler (at most 108 lines) creates and stores; TicketGraphStarts (at most 90) decides starts and is where 2026-10-14-dbcem's link pass is called, so neither file is spent twice."
+  - key: "WAITS-FOR NAMES TRACKER KEYS (round-1 cut L8). The Held reason and the Requires section use FiledTicketKey: '#12' on GitHub, GitLab and Azure DevOps, 'PROJ-12' on Jira."
+  - key: "THE HELD WORD IS HISTORY (round-1 L9, accepted). The filed panel keeps 'waits' after the wake started the ticket; the run list beside each filed ticket is the truth, and the ticket page (2026-10-14-dbcen) shows its live state."
+  - key: "DISCOVERY ADMISSION. A list's records are outstanding until a run satisfies them, so a twenty-ticket list holds twenty of the fifty ids discovery names per tracker (ApprovedTicketAdmission) until its tickets run; beyond fifty, the existing warning names the omitted count."
+  - key: "ROLLING DEPLOY. An older replica ignores TicketText and would hand the empty set over; no master proposes a list before 2026-10-14-dbcep ships, so a list's runs meet only replicas that read the flag. An older replica also ignores CitedFrom and reads every cited id from the approval conversation, refusing 'cannot read' for a carried-forward one: that hits an amended filed spec from this spec's merge on, not only a ticket text, for the length of the rollout."
+  - key: "REJECTED CUT (round 1, L7 as written: onCreated receives the labels) — there is no onCreated: ApprovedSetTicketFiler.FileAsync is not called for a ticket text (it stores a set and writes a branch, ApprovedSetTicketFiler.cs:76-77); the labels are shared by extracting the decision instead."
+  - key: "Defaults pending operator ratification: D1 (ticket texts, specs derived by each run; contract section 5 default 13), 31 (filing complete = the record stored last), 32 (material before the derivation), contract section 5 defaults 15 (a missing ticket:<id> refuses the whole filing), 16 (held tickets untagged and unmoved), 17 (a partial filing starts the ready complete tickets of its prefix and names every ticket), 18 (every ticket cites all the conversation's material), 19 (a list is refused in a ticket-bound conversation)."
+
+steps:
+  - id: record-flag
+    action: "SpecApprovalRecord.TicketText init property with a dated comment (at most 90, wc -l); ApprovedSetHandoff, FiledTicketSpecGate and ApprovedSetDivergence answer for it (at most 56, 78, 46)."
+  - id: approval
+    action: "GraphTicketApproval.RecordAsync (at most 70 lines); ApprovedSpecSetRecorder's KeyFor and Repositories become internal (119 kept, wc -l)."
+  - id: body-labels
+    action: "GraphTicketBody.Render (at most 60 lines); ApprovedSetTicketFiler.Labels(project) extracted and used at its own create (107 -> at most 110)."
+  - id: state
+    action: "FiledStartState.Held with its doc and the label arm (99 -> at most 104); spec-dialog.ts SpecDialogFiledStart.state adds \"Held\"; DialogFiledTicket STARTED_LABEL gains Held: \"waits\"."
+  - id: material-first
+    action: "ReferenceMaterializer (CarryAsync moved from MaterializeReferenceSetsHandler, CarryForDerivationAsync for a TicketText record, at most 110 lines) registered in AddReferenceSetCarry (at most 26); SpecSetDeriver calls it before the opening (115 -> at most 118); SpecDerivationMessages.Opening appends ReferencePromptSection.Carried with attached: false (34 -> at most 36; ReferencePromptSection 78 -> at most 80); the handler delegates and carries on every run, no skip, with the TicketText first-repository fallback shared with the early carry (98 -> at most 60); the early carry targets the carrying repository, else the record's first repository with a sandbox; wc -l each, DeriveSpecHandler untouched."
+  - id: citations-forward
+    action: "SpecApprovalRecord.CitedFrom and ConversationOf (at most 92, wc -l); ApprovalCitations.CiteAsync unions the previous record's foreign citations its conversation still holds and SaveAsync re-checks only own ids (40 -> at most 62); ApprovedSpecSetRecorder passes previous on line 83 (119 kept); ReferenceSetCarrier and ReferenceImageCarrier read by ConversationOf (at most 56, 55); wc -l each, TicketAmendment untouched."
+  - id: filer
+    action: "TicketGraphFiler.FileAsync(state, graph, mayStartRuns, ct) -> FilingReport: project, existence read, order, create-edges-record per ticket, the not-created note, the interruption rule, then TicketGraphStarts (at most 108 lines, wc -l)."
+  - id: starts
+    action: "TicketGraphStarts.SettleAsync over the created prefix on CancellationToken.None: not complete -> NotStarted 'do not trigger it'; unmet none -> FiledWorkStarter.StampAsync; else Held by FiledTicketKey (at most 90 lines)."
+  - id: sink-text
+    action: "TicketFilingOutcomeSink: the bound-conversation refusal, the graph arm, the post-creation token rule, ComposeFilingFailure(report, proposal) (94 -> at most 110); SpecDialogOutcomeComposer: Summarize graph arm and the graph failure footer when something was created (at most 117, wc -l)."
+  - id: registration
+    action: "TicketGraphFiler, TicketGraphStarts and GraphTicketApproval registered scoped in TicketGraphExtensions (SpecDialogExtensions stays at most 120)."
+  - id: tests
+    action: "Tests below in tests/AgentSmith.Tests/SpecDialog (filer, starts, body, record, sink against fake trackers of all four types that throw what each real client throws, an in-memory requirement store and landing store), Specs (hand-off, gate, divergence, the deriver's early carry, the handler's re-carry on resume), the dashboard label test, and a DI test resolving IOutcomeSink from the real server composition and filing a two-ticket list."
+
+tests:
+  - "TicketGraphFiler_TwoTickets_FiledInMergeOrderAsWorkTicketsWithTheStamp"
+  - "TicketGraphFiler_Dependent_EdgesStoredBeforeItsApprovalRecord"
+  - "TicketGraphFiler_RootStarted_DependentHeldNamingWhatItWaitsFor"
+  - "TicketGraphFiler_RequiresLandedExistingTicket_StartedAtFiling"
+  - "TicketGraphFiler_RequiresUnlandedExistingTicket_Held"
+  - "TicketGraphFiler_MissingExistingTickets_NothingCreatedAndEveryMissingIdNamed"
+  - "TicketGraphFiler_AzureDevOpsTf401232_IsAMissingIdNotTrackerText"
+  - "TicketGraphFiler_SecondTicketCreateFails_FirstStartedIfReady_RestNamedAsNotCreated"
+  - "TicketGraphFiler_RecordStoreFailsOnSecondTicket_ItIsNeverTaggedOrMoved"
+  - "TicketGraphFiler_EdgeStoreFails_CreatedTicketNamedDoNotTriggerAndNotStarted"
+  - "TicketGraphFiler_CancelledAfterFirstTicket_ReportsAndStartsTheReadyPrefix"
+  - "TicketGraphFiler_CancelledBeforeAnyTicket_Escapes"
+  - "TicketGraphFiler_StartsWhenMet_CopiedFromMayStartRuns"
+  - "TicketGraphFiler_NoSpecParentStampAndNoBranchWrite"
+  - "TicketGraphFiler_EachTrackerType_FilesStoresEdgesAndRecords"
+  - "TicketGraphStarts_HeldReasonOnJira_NamesTheJiraKeys"
+  - "GraphTicketBody_Render_RequirementCriteriaRequiresAndConversation"
+  - "GraphTicketBody_DoneItems_ReadBackByAcceptanceCriteriaSection"
+  - "GraphTicketApproval_Record_CitesEverySetAndImageWithTheProjectAndTicketText"
+  - "GraphTicketApproval_TicketWithoutRepos_TakesTheConversationsRepositories"
+  - "ApprovedSetTicketFiler_Labels_SameStampTheSpecFilingWrites"
+  - "SpecSourceResolver_TicketTextRecordAndEmptyPath_DerivesWithTheModel"
+  - "FiledTicketSpecGate_StampWithoutRecord_StillParks"
+  - "ApprovedSetDivergence_TicketTextRecord_SaysNothing"
+  - "MaterializeReferenceSets_TicketTextRecord_CarriesTheCitedSets"
+  - "SpecSetDeriver_TicketTextRecord_CarriesTheMaterialBeforeTheModelAndNamesItInTheOpening"
+  - "SpecSetDeriver_FiledSpecRecord_CarriesNothingBeforeTheModel"
+  - "SpecSetDeriver_TicketTextRecordOverTwoRepos_CarriesIntoTheFirstBeforeTheModel"
+  - "SpecSetDeriver_TicketTextRecordWithImages_NamesTheImageFilesInTheOpening (asserts no 'attached to this message')"
+  - "SpecSetDeriver_TicketTextRecordWithNoSandboxOfItsRepositories_DerivesWithoutTheMaterial"
+  - "ApprovalCitations_CiteWithPreviousFromAnotherConversation_KeepsItsIdsWithTheirConversation"
+  - "ApprovalCitations_CiteWithPreviousFromTheSameConversation_RemovedUploadNotResurrected"
+  - "ApprovalCitations_SaveRecheck_KeepsForeignIds"
+  - "ApprovalCitations_CiteWithPreviousWhoseSourceUploadWasRemoved_DropsIt"
+  - "ReferenceSetCarrier_CarriedForwardSet_ReadFromItsOwnConversation"
+  - "ReferenceImageCarrier_CarriedForwardImage_ReadFromItsOwnConversation"
+  - "TicketAmendment_ListTicketSettledInItsOwnConversation_KeepsTheListUploads (integration, real recorder and in-memory stores)"
+  - "SpecApprovalJson_CitedFrom_RoundTrips"
+  - "MaterializeReferenceSets_ResumedWithKeysRestoredIntoAFreshSandbox_WritesTheFilesAgain (a filed spec and a ticket text)"
+  - "MaterializeReferenceSets_TicketTextOverTwoReposWithNoSingleRepoSpec_CarriesIntoTheFirst"
+  - "SpecSetDeriver_FromRealServiceCollection_ResolvesTheMaterializer (integration)"
+  - "TicketFilingOutcomeSink_GraphInBoundConversation_FilesNothingAndSaysWhere"
+  - "TicketFilingOutcomeSink_GraphCancelledAfterCreation_StoresTheFilingAndSendsTheNotice"
+  - "SpecDialogOutcomeComposer_GraphFiled_SummaryCountsTicketsAndHeldNotesShown"
+  - "SpecDialogOutcomeComposer_GraphFilingFailure_SaysNotToRetryWhole"
+  - "SpecDialogOutcomeComposer_GraphRefusedBeforeCreation_KeepsTheRetryLine"
+  - "FiledWorkStart_Held_SerializedByNameAndLabelled"
+  - "DialogFiledTicket_HeldStart_ShowsWaitsWithReason"
+  - "TicketFilingOutcomeSink_FromRealServiceCollection_FilesATwoTicketList (integration, ServerCompositionBuilder)"
+
+done:
+  - "Approving a list of tickets in a Work it out conversation that belongs to no ticket creates every ticket on the project's tracker (Azure DevOps, Jira, GitLab or GitHub) in the order they must merge, each a work ticket whose body is its requirement, its done items as acceptance criteria, a Requires section naming what must merge first, and the conversation it came from."
+  - "Each filed ticket's run gets the conversation's uploaded material and repositories as a filed spec's run does, and derives its own specs from the ticket text when it starts, with the uploaded sets in its sandbox and the images named as files there — in a project with several repositories too; a run of any other ticket carries its material exactly as before."
+  - "Settling a filed ticket's specs in its own conversation before it runs keeps the material uploaded in the conversation that filed it."
+  - "The tickets with nothing left to wait for start at once; every other ticket is reported as waiting, naming the tickets it waits for by their tracker keys, and is not tagged or moved."
+  - "A requires naming a ticket the tracker does not have files nothing, and the notice names every missing ticket."
+  - "When filing fails or is interrupted part-way, the notice lists every ticket created, which started, which wait and which must not be triggered, names the tickets not created, and says how to go on without filing the list twice; when nothing was created it says to ask again and retry."
+  - "Approving a list of tickets in a ticket's own conversation files nothing and says where to file it instead."
+  - "Build green, full suite green, dashboard gen/test/build green."
