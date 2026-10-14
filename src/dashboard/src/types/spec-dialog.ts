@@ -45,6 +45,20 @@ export interface SpecDialogImage {
 }
 
 /**
+ * 2026-10-13-8762r: one version of a spec's HTML mock the design partner wrote. Addressed by spec and
+ * version; its screenshot and its page are routes of their own, so the per-message read carries no bytes.
+ */
+export interface SpecDialogMock {
+  specId: string;
+  version: number;
+  /** `{specId}-mock-v{n}` — the downloaded page is this name plus `.html`. */
+  name: string;
+  at: string;
+  /** False until a render stored its desktop screenshot. */
+  hasShot: boolean;
+}
+
+/**
  * 2026-10-01-283db: one website the operator uploaded — a set of files with their paths, shown
  * as one chip. 2026-10-09-86e1: its name is the folder every file sits under, else the one file's
  * name, else "<first file> + N more" — never "site".
@@ -130,6 +144,8 @@ export interface SpecDialogSession {
   seesImages?: boolean;
   seesUploadedImages?: boolean;
   imageCount?: number;
+  /** 2026-10-13-8762r: the design partner's mock versions, oldest first; null with none. */
+  mocks?: SpecDialogMock[] | null;
   /** 2026-09-27-481bc: the ticket this conversation is bound to, or null when it is bound to none. */
   ticket: SpecDialogSessionTicket | null;
 }

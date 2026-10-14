@@ -15,6 +15,11 @@ internal sealed class BrowserFakeSandbox : IHoldableSandbox
 {
     public static readonly byte[] Jpeg = [0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10];
 
+    /// <summary>2026-10-13-8762r: the viewports the report names, in its order; each shot's bytes end in its index.</summary>
+    public string[] Viewports { get; init; } = ["desktop"];
+
+    public static byte[] JpegOf(string viewport) => viewport == "desktop" ? Jpeg : [.. Jpeg, (byte)viewport.Length];
+
     private readonly InMemoryFileSandbox _files = new();
 
     public Dictionary<string, byte[]> Files => _files.Files;
@@ -33,13 +38,14 @@ internal sealed class BrowserFakeSandbox : IHoldableSandbox
         var request = JsonDocument.Parse(Files[step.Args![1]]).RootElement.Clone();
         Requests.Add(request);
         var outDir = request.GetProperty("outDir").GetString()!;
-        Files[$"{outDir}/desktop.jpg.b64"] = Encoding.UTF8.GetBytes(Convert.ToBase64String(Jpeg));
+        foreach (var viewport in Viewports)
+            Files[$"{outDir}/{viewport}.jpg.b64"] = Encoding.UTF8.GetBytes(Convert.ToBase64String(JpegOf(viewport)));
         Files[$"{outDir}/result.json"] = Encoding.UTF8.GetBytes(
             request.TryGetProperty("compare", out var job) && job.ValueKind == JsonValueKind.Object ? Compared(job) : Result(request));
         return new StepResult(StepResult.CurrentSchemaVersion, step.StepId, 0, false, 0.1, null, string.Empty);
     }
 
-    private static string Result(JsonElement request) => JsonSerializer.Serialize(new
+    private string Result(JsonElement request) => JsonSerializer.Serialize(new
     {
         url = request.GetProperty("url").GetString() ?? "http://127.0.0.1:41234/index.html",
         title = "Fixture",
@@ -52,7 +58,7 @@ internal sealed class BrowserFakeSandbox : IHoldableSandbox
         consoleErrors = new[] { "Uncaught TypeError: x is undefined" },
         failedRequests = Array.Empty<object>(),
         refused = new[] { new { url = "http://127.0.0.1:6379/", reason = "127.0.0.1 is loopback" } },
-        shots = new[] { new { viewport = "desktop", file = "desktop.jpg.b64", width = 1440, height = 900, pageHeight = 900, capturedHeight = 900 } },
+        shots = Viewports.Select(v => new { viewport = v, file = $"{v}.jpg.b64", width = 1440, height = 900, pageHeight = 900, capturedHeight = 900 }),
     });
 
     // 2026-10-01-283di: a comparison — h1 computes 16px on the reference and 15px on the candidate,

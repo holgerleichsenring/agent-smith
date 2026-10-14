@@ -65,6 +65,8 @@ GET	/api/runs/{runId}/trace	runs.read
 GET	/api/runs/{runId}/trace/{sequence:int}/{label}	runs.read
 GET	/api/runs/{runId}/trail	runs.read
 GET	/api/spec-dialog/conversations	dialog.write
+GET	/api/spec-dialog/conversations/{sessionId}/mocks/{specId}/{version:int}/html	dialog.write
+GET	/api/spec-dialog/conversations/{sessionId}/mocks/{specId}/{version:int}/shot	dialog.write
 GET	/api/spec-dialog/images/{imageId:long}	dialog.write
 GET	/api/spec-dialog/references	dialog.write
 GET	/api/spec-dialog/references/hashes	dialog.write

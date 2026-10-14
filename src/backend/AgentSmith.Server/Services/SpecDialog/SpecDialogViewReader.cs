@@ -16,7 +16,8 @@ public sealed class SpecDialogViewReader(
     SpecDialogSessionManager sessions, SpecDialogProjectCatalog projects,
     SpecDialogPendingQuestions pendingQuestions, SpecDialogLatestOutcomeStore latestOutcome,
     SpecDialogProposalComposer proposalComposer, SpecDialogTurnGate turns,
-    SpecDialogTicketTextRepository ticketText, ConversationUploads uploads)
+    SpecDialogTicketTextRepository ticketText, ConversationUploads uploads,
+    AgentSmith.Contracts.Sandbox.IConversationMockReader? mocks = null)
 {
     private const string Platform = DispatcherDefaults.PlatformDashboard;
 
@@ -43,6 +44,7 @@ public sealed class SpecDialogViewReader(
                 SeesImages = held.Sight?.Images ?? true,
                 SeesUploadedImages = held.Sight?.UploadedImages ?? true,
                 ImageCount = held.ImageCount,
+                Mocks = await MocksAsync(state.JobId, cancellationToken), // 2026-10-13-8762r: no bytes
             },
             projects.All(),
             asked,
@@ -90,6 +92,10 @@ public sealed class SpecDialogViewReader(
             card,
             ticket);
     }
+
+    private async Task<IReadOnlyList<SpecDialogMockView>?> MocksAsync(string sessionId, CancellationToken ct) =>
+        mocks is null ? null : (await mocks.ListAsync(sessionId, ct)) is { Count: > 0 } held
+            ? [.. held.Select(m => new SpecDialogMockView(m.SpecId, m.Version, m.Name, m.At, m.HasShot))] : null;
 
     /// <summary>The stored row as the pane reads it; a conversation bound to no ticket has none.</summary>
     private static SpecDialogTicketView? Ticket(

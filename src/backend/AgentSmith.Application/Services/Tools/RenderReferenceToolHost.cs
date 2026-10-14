@@ -38,9 +38,7 @@ public sealed class RenderReferenceToolHost(RenderReferenceServices services, Re
         try
         {
             var (output, failure) = await services.Renderer.RenderAsync(scope, parsed, chosen, ct);
-            return output is null
-                ? $"render_reference failed: {failure}"
-                : services.Text.Render(output.Result, Deposit(output)) + NotesOf(output);
+            return output is null ? $"render_reference failed: {failure}" : Answer(services, output);
         }
         finally
         {
@@ -48,11 +46,15 @@ public sealed class RenderReferenceToolHost(RenderReferenceServices services, Re
         }
     }
 
+    /// <summary>2026-10-13-8762r: the render's text, with every screenshot deposited — write_mock answers the same.</summary>
+    internal static string Answer(RenderReferenceServices services, BrowserRenderOutput output) =>
+        services.Text.Render(output.Result, Deposit(services, output)) + NotesOf(output);
+
     // 2026-10-01-283dh: a page copied out of a repository names every file that could not travel.
     private static string NotesOf(BrowserRenderOutput output) =>
         output.Notes is { Count: > 0 } notes ? "\nCopying the page:\n" + string.Concat(notes.Select(n => $"- {n}\n")) : string.Empty;
 
-    private List<string> Deposit(BrowserRenderOutput output) =>
+    private static List<string> Deposit(RenderReferenceServices services, BrowserRenderOutput output) =>
         [.. output.Result.Shots.Zip(output.Shots, (shot, bytes) =>
         {
             var caption = $"{shot.Viewport} screenshot of {output.Result.Url}, {shot.CapturedHeight} of {shot.PageHeight} px page height";

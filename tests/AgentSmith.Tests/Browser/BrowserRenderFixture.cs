@@ -35,6 +35,9 @@ internal sealed class BrowserRenderFixture(bool spawnsContainers = true)
     public List<string> SessionsRead { get; } = [];
     public IHeldSandboxRegister Holds { get; } = AgentSmith.Tests.Sandbox.Holds.Live();
 
+    /// <summary>2026-10-13-8762r: the viewports each spawned browser reports, in its order.</summary>
+    public string[] Viewports { get; set; } = ["desktop"];
+
     public RenderReferenceServices Services() =>
         new(new RenderSourceParser(), new RenderUrlGuard(this, new PublicAddressRule()),
             new ReferenceRenderer(Opener(), Stager(), new BrowserRenderInvocation(Files)), this, new RenderResultText());
@@ -44,8 +47,12 @@ internal sealed class BrowserRenderFixture(bool spawnsContainers = true)
         new(Services(), new ReferenceComparer(Opener(), Stager(), new BrowserRenderInvocation(Files)),
             new StyleDifferenceComparer(), new VisualComparisonRecorder(new SandboxBinaryFileWriter(), NullLogger<VisualComparisonRecorder>.Instance));
 
-    public RenderReferenceToolFactory Factory() =>
-        new(Services(), CompareServices(), new ReferenceDesignTools(new SandboxContainerRuntime(spawnsContainers)));
+    public RenderReferenceToolFactory Factory(IConversationMocks? mocks = null, IConversationMockReader? reader = null) =>
+        new(Services(), CompareServices(), new ReferenceDesignTools(new SandboxContainerRuntime(spawnsContainers)), mocks, reader);
+
+    /// <summary>2026-10-13-8762r: write_mock and read_mock over this fixture's browser and a store.</summary>
+    public MockWriteToolHost MockHost(IConversationMocks mocks, IConversationMockReader reader) =>
+        new(Services(), new RenderReferenceScope(Project, Conversation, new Dictionary<string, ISandbox>(), []), mocks, reader);
 
     private static SandboxFileReaderFactory Files { get; } = new();
 
@@ -72,7 +79,7 @@ internal sealed class BrowserRenderFixture(bool spawnsContainers = true)
     public Task<ISandbox> CreateAsync(SandboxSpec spec, CancellationToken cancellationToken)
     {
         Specs.Add(spec);
-        var sandbox = new BrowserFakeSandbox();
+        var sandbox = new BrowserFakeSandbox { Viewports = Viewports };
         Spawned.Add(sandbox);
         return Task.FromResult<ISandbox>(sandbox);
     }
