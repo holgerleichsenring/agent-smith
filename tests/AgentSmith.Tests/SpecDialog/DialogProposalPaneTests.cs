@@ -240,7 +240,7 @@ public sealed class DialogProposalPaneTests : IDisposable
                 AgentSmith.Tests.TestSupport.UnreviewedApprovals.Unused(), NullLogger<SpecDialogOutcomeConfirmer>.Instance),
             Mock.Of<IOutcomeSink>(), composer, messenger, Channel(),
             new SpecDialogLatestOutcomeStore(new SpecDialogSessionRepository(_context), AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(new SpecDialogSessionRepository(_context)), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance),
-            NullLogger<SpecDialogOutcomeFlow>.Instance);
+            AgentSmith.Tests.TestSupport.RatifiedMockStamps.Over(new SpecDialogSessionRepository(_context)), NullLogger<SpecDialogOutcomeFlow>.Instance);
     }
 
     private static DialogAnswer Answer(string questionId, ConfirmationResult scripted) =>

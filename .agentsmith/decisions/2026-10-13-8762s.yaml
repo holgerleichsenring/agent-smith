@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-8762s
+
+decisions:
+  - category: Architecture
+    chose: "The ratification is a user transcript turn (Kind MockRatified = 7, TranscriptTurn.Mock = MockRatificationTurn(SpecId, Version, By)) until filing, and the spec yaml's ratified_mock after it; RatifiedMocks.Of answers spec id -> version, newest turn wins"
+    over: "Editing the in-memory proposal held by the approval wait, or the proposal pane's stored copy"
+    reason: "The approval files an in-memory object on one replica and the pane's copy is display state; the transcript is durable, per session, read by every replica and by the model (series contract section 2.2, amended)."
+  - category: API
+    chose: "POST /api/spec-dialog/conversations/{sessionId}/mocks/{specId}/ratify body {version}, dialog.write, in 8762r's SpecDialogMockEndpoints; MockRatification answers 404 for an unreachable conversation, 404 naming the version when ListAsync does not hold it, 409 only while Liveness(sessionId).Computing, and never takes the turn gate"
+    over: "TryEnter/Exit on the turn gate (409 on the replica running the turn during the approval wait, 200 on any other)"
+    reason: "Series main-thread decision 10. The gate stays entered across the approval wait, which is exactly when the proposal is on screen; computing is the span of real work. Default, pending operator ratification (contract section 5 default 60)."
+  - category: Architecture
+    chose: "SpecDialogSessionRepository.GetOpenByThreadAsync re-reads a found row with unitOfWork.Update(open).ReloadAsync(ct) (119 -> 120 lines); the manager is untouched"
+    over: "Reloading only in the manager's two transcript writers (manager at 120/120); a new repository method (repository at 127); AsNoTracking reads (every writer would save nothing)"
+    reason: "The turn's scope tracks the session from its first append and EF hands back that tracked copy, so its later appends wrote a stale transcript over any turn another scope added — today's lost approval answer, and a ratification here. Every caller reads only, or reads, changes and saves in sequence. Proven red-then-green by TranscriptReloadTests."
+  - category: Architecture
+    chose: "RatifiedMockStamp reads the transcript through a FRESH scope (IServiceScopeFactory) and, per draft of a spec or epic proposal, sets ratified_mock to the ratified version or removes the key; SpecDialogOutcomeFlow stamps before AcceptAsync"
+    over: "Reading through the turn's scope, or keeping a value the model wrote"
+    reason: "Only a person stamps it: the field means a person ratified that version. The turn's scope holds a tracked copy that predates a ratification made while the approval waited."
+  - category: Data
+    chose: "ratified_mock is a version number (schema: integer, minimum 1); the file is {filed id}-mock-v{n}.html under specs/planned, named from the frozen id and the number"
+    over: "A file name in the yaml"
+    reason: "The id is re-minted at filing and rewritten in the yaml; a number survives the rewrite and one datum names the file."
+  - category: Architecture
+    chose: "FiledSeries.Sources (init, filed id -> proposal id, inverse of SeriesDraftIds.Map) bridges filing to the conversation's mocks; FiledSpecBranch takes IConversationMockReader? mocks = null last and WriteAsync takes the sources as one optional parameter after the token (the 8762k precedent); FiledSeriesWrite adds each spec's mock to the member whose sub-series holds it"
+    over: "Storing the bytes on the approval record; a required reader"
+    reason: "The record is the stored set and would hold a second copy of the reference file; the CLI composes FiledSpecBranch through AddSpecDerivation with ValidateOnBuild and holds no conversation store."
+  - category: Architecture
+    chose: "DEVIATION: RatifiedMockFiles is a sealed class constructed over the optional reader (new RatifiedMockFiles(mocks).ReadAsync(record, sources, ct)), with static PathOf/Beside, not a static helper handed the reader"
+    over: "A static class whose ReadAsync takes the reader, as the spec's files step wrote it"
+    reason: "NoStaticStateRuleTests.StaticClasses_TakeNoCollaborators refuses a static method taking IConversationMockReader (tests/AgentSmith.Tests/Architecture/NoStaticStateRuleTests.cs). Same behaviour and call site; no registration line changes."
+  - category: Behaviour
+    chose: "What cannot be written is a note: BranchWriteResult.Notes (appended last, default null) carries 'the ratified mock was not written' for a missing reader or a version gone from the conversation; FiledSpecBranchWrite adds them to the filing notes and its failure note says the mock was not written when a spec carries one; TicketAmendment interpolates them inline in its recorded sentence (stays 120)"
+    over: "An error that unfiles or tells the operator to retry"
+    reason: "The ticket and the record are complete; the run's later publish from the stored record carries no bytes, so the failure must say so."
+  - category: Behaviour
+    chose: "THE COMPARE IS A FINDING. RatifiedMockReview resolves the ratified mock (the set's DerivedSpec by id, {id}-mock-v{n}.html in MockPaths) and candidates (every .html in the diff outside .agentsmith/, repository-qualified); with both and the browser, the reviewer gets RenderReferenceToolFactory.Tools(pipeline, false), MaxIterations + 3 and the SpecReview terms with Allowance + 1, taken on the existing OnTerms line"
+    over: "A verify stage that fails the spec on a pixel difference"
+    reason: "Default, pending operator ratification (contract decision 21): a pixel or style difference is judgement and rides the diff review's one fix pass. The admission keeps only findings on a read line, so the prompt asks for that read and the allowance pays for it."
+  - category: Behaviour
+    chose: "The step result says why no compare happened: 'not beside the spec', 'the spec built no static page', 'the run has no browser', or 'offered, not compared' when no comparison was recorded (VisualComparisonRecorder.Recorded counted before and after)"
+    over: "Counting an offer as a compare"
+    reason: "A compare must be checkable or it is said not to have happened."
+  - category: Testing
+    chose: "DerivedSpecBuilder_ModelElementNamesRatifiedMock_DraftCarriesNone pins that a run's derivation never carries ratified_mock"
+    over: "Dropping the key in DerivedSpecBuilder"
+    reason: "The derivation renders the yaml from named fields only (DerivedSpecBuilder, DerivedSpecYamlRenderer, SpecFallback), so the pin guards it instead of code."

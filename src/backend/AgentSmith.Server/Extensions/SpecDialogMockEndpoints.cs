@@ -17,12 +17,14 @@ namespace AgentSmith.Server.Extensions;
 internal static class SpecDialogMockEndpoints
 {
     private const string Sandboxed = "sandbox";
-    private const string Version = "/api/spec-dialog/conversations/{sessionId}/mocks/{specId}/{version:int}";
+    private const string Mocks = "/api/spec-dialog/conversations/{sessionId}/mocks/{specId}";
+    private const string Version = Mocks + "/{version:int}";
 
     internal static WebApplication MapSpecDialogMockEndpoints(this WebApplication app)
     {
         app.MapGet($"{Version}/shot", (Delegate)ShotAsync).Needs(Security.Permissions.DialogWrite);
         app.MapGet($"{Version}/html", (Delegate)HtmlAsync).Needs(Security.Permissions.DialogWrite);
+        app.MapPost($"{Mocks}/ratify", (Delegate)RatifyAsync).Needs(Security.Permissions.DialogWrite);
         return app;
     }
 
@@ -48,6 +50,17 @@ internal static class SpecDialogMockEndpoints
         return Results.File(System.Text.Encoding.UTF8.GetBytes(page.Html), "application/octet-stream", $"{page.Version.Name}.html");
     }
 
+    /// <summary>A person ratifies one version of the spec's mock; see <see cref="MockRatification"/>.</summary>
+    internal static async Task<IResult> RatifyAsync(HttpContext http, string sessionId, string specId,
+        MockRatifyRequest body, SpecDialogOwnership ownership, MockRatification ratification, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(http);
+        ArgumentNullException.ThrowIfNull(body);
+        var result = await ratification.RatifyAsync(
+            sessionId, specId, body.Version, ownership.OwnerOf(http.User), cancellationToken);
+        return result.Text is null ? Results.StatusCode(result.Status) : Results.Text(result.Text, statusCode: result.Status);
+    }
+
     private static async Task<bool> ReachesAsync(
         ClaimsPrincipal user, string sessionId, SpecDialogOwnership ownership, CancellationToken ct) =>
         await ownership.MayReachSessionAsync(sessionId, ownership.OwnerOf(user), ct);
@@ -58,3 +71,6 @@ internal static class SpecDialogMockEndpoints
         http.Response.Headers.ContentSecurityPolicy = Sandboxed;
     }
 }
+
+/// <summary>The body of a mock ratification: the version a person ratifies.</summary>
+internal sealed record MockRatifyRequest(int Version);

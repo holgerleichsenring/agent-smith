@@ -15,4 +15,5 @@ public enum SpecDialogTurnKind
     Failure = 4,
     Notice = 5,
     Filing = 6,
+    MockRatified = 7,
 }

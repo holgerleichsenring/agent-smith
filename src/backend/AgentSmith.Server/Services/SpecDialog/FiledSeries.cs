@@ -13,4 +13,7 @@ public sealed record FiledSeries(string Id, IReadOnlyList<SpecDraft> Drafts)
 
     /// <summary>2026-10-13-8762l: the approved proposal's review rounds, re-keyed onto the filed ids.</summary>
     public IReadOnlyList<ProposalReviewRound> ReviewRounds { get; init; } = [];
+
+    /// <summary>The filed id of each draft mapped to the spec id the proposal gave it; null read as empty.</summary>
+    public IReadOnlyDictionary<string, string>? Sources { get; init; }
 }

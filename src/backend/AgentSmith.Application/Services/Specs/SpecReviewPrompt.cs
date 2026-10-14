@@ -24,7 +24,7 @@ public static class SpecReviewPrompt
 
     public static string For(
         SpecDraft draft, string? principles, IReadOnlyList<SpecDiff> diffs, DerivationLook? look,
-        Contracts.Specs.SeriesContract? contract = null)
+        Contracts.Specs.SeriesContract? contract = null, RatifiedMockOffer? mock = null)
     {
         ArgumentNullException.ThrowIfNull(draft);
         ArgumentNullException.ThrowIfNull(diffs);
@@ -52,7 +52,7 @@ public static class SpecReviewPrompt
 
             ## The spec this diff was written to
             {{draft.Yaml.TrimEnd()}}
-            {{Principles(principles)}}{{SpecReviewContractSection.Render(contract, draft.SpecId, MaxContractChars)}}{{DerivationLookPromptSection.Render(look)}}
+            {{Principles(principles)}}{{SpecReviewContractSection.Render(contract, draft.SpecId, MaxContractChars)}}{{DerivationLookPromptSection.Render(look)}}{{mock?.PromptSection}}
             ## The diff
             {{Diffs(diffs)}}
             """;

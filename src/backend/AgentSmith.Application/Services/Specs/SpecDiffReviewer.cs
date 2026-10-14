@@ -35,7 +35,8 @@ public sealed class SpecDiffReviewer(
     public async Task<SpecReviewReport> ReviewAsync(
         SpecDraft draft, string? principles, IReadOnlyList<SpecDiff> diffs, DerivationLook? look,
         AgentConfig agent, PipelineCostTracker costTracker, CancellationToken cancellationToken,
-        SeriesContract? contract = null) // 2026-10-13-8762k: the set's contract, a rule source of its own
+        SeriesContract? contract = null, // 2026-10-13-8762k: the set's contract, a rule source of its own
+        RatifiedMockOffer? mock = null)
     {
         ArgumentNullException.ThrowIfNull(draft);
         ArgumentNullException.ThrowIfNull(diffs);
@@ -45,8 +46,8 @@ public sealed class SpecDiffReviewer(
             return SpecReviewReport.NotTaken("this spec changed no reviewable file");
 
         var answer = await AskAsync(
-            SpecReviewPrompt.For(draft, principles, diffs, look, contract), draft.SpecId, look, agent,
-            costTracker, cancellationToken);
+            SpecReviewPrompt.For(draft, principles, diffs, look, contract, mock), draft.SpecId, look, agent,
+            costTracker, cancellationToken, mock ?? RatifiedMockOffer.None);
         if (answer is null)
         {
             logger.LogWarning("The spec review of {Spec} returned nothing readable", draft.SpecId);
@@ -63,18 +64,18 @@ public sealed class SpecDiffReviewer(
 
     private async Task<IReadOnlyList<SpecFinding>?> AskAsync(
         string prompt, string key, DerivationLook? look, AgentConfig agent,
-        PipelineCostTracker costTracker, CancellationToken ct)
+        PipelineCostTracker costTracker, CancellationToken ct, RatifiedMockOffer mock)
     {
         try
         {
-            var chat = chatClientFactory.Create(
-                agent, TaskType.Reasoning, look is null ? null : MaxIterations);
+            var chat = chatClientFactory.Create(agent, TaskType.Reasoning,
+                look is null ? null : MaxIterations + (mock.IsOffered ? RatifiedMockOffer.ExtraIterations : 0));
             using var _ = costTracker.BeginCall(RoleName, RoleName, SkillExecutionPhase.Verify, key);
             using var _scope = runContext.BeginCallScope(
                 RoleName, SkillExecutionPhase.Verify.ToString(), key);
             var response = await chat.GetResponseAsync(
                 [new ChatMessage(ChatRole.User, prompt)],
-                new ChatOptions { Tools = DerivationTools.For(look) }, ct);
+                new ChatOptions { Tools = mock.IsOffered ? [.. DerivationTools.For(look) ?? [], .. mock.Tools] : DerivationTools.For(look) }, ct);
             costTracker.Track(response);
             return SpecReviewAnswerReader.Read(
                 response.Messages.LastOrDefault(m => !string.IsNullOrWhiteSpace(m.Text))?.Text

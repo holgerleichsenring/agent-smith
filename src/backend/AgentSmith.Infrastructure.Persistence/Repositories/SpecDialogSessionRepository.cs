@@ -17,12 +17,13 @@ public sealed class SpecDialogSessionRepository(IUnitOfWork unitOfWork)
         await unitOfWork.SaveChangesAsync(ct);
     }
 
-    public Task<SpecDialogSession?> GetOpenByThreadAsync(
-        string platform, string threadId, CancellationToken ct) =>
-        unitOfWork.Set<SpecDialogSession>()
-            .Where(s => s.Platform == platform && s.ThreadId == threadId && s.IsOpen)
-            .OrderByDescending(s => s.Id)
-            .FirstOrDefaultAsync(ct);
+    public async Task<SpecDialogSession?> GetOpenByThreadAsync(string platform, string threadId, CancellationToken ct)
+    {
+        var open = await unitOfWork.Set<SpecDialogSession>().Where(s => s.Platform == platform && s.ThreadId == threadId
+            && s.IsOpen).OrderByDescending(s => s.Id).FirstOrDefaultAsync(ct);
+        if (open is not null) await unitOfWork.Update(open).ReloadAsync(ct);
+        return open;
+    }
 
     /// <summary>
     /// 2026-09-25-8e51b: the conversation a ticket has, open or CLOSED. Open-only would miss the

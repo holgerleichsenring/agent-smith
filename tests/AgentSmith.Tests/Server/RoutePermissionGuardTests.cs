@@ -144,6 +144,11 @@ public sealed class RoutePermissionGuardTests
     public void RoutePermission_MockHtml_NeedsDialogWrite() =>
         Declaration("GET", "/api/spec-dialog/conversations/{sessionId}/mocks/{specId}/{version:int}/html").Should().Equal(Permissions.DialogWrite);
 
+    // 2026-10-13-8762s: ratifying a mock is the approve answer's act, so it needs the approve answer's permission.
+    [Fact]
+    public void RoutePermission_MockRatify_NeedsDialogWrite() =>
+        Declaration("POST", "/api/spec-dialog/conversations/{sessionId}/mocks/{specId}/ratify").Should().Equal(Permissions.DialogWrite);
+
     // The config/secrets split holds for direct entity CRUD and leaks here: the change
     // feed carries the secret's id and changed field names, revert takes no type filter
     // at all, export serializes the secret entities, and import writes them.

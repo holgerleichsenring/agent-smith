@@ -56,12 +56,13 @@ public static class SpecPromptSection
             sb.AppendLine(spec.Markdown.TrimEnd());
         }
 
-        AppendMocks(sb, spec.MockPaths ?? []);
+        AppendMocks(sb, spec.MockPaths ?? [], RatifiedMockFiles.Beside(spec));
         return sb.ToString();
     }
 
     // 2026-10-01-283dh: a mock beside the spec is what this spec's screen should look like.
-    private static void AppendMocks(StringBuilder sb, IReadOnlyList<string> mocks)
+    // The one a person ratified in the design conversation is the target the others only illustrate.
+    private static void AppendMocks(StringBuilder sb, IReadOnlyList<string> mocks, string? ratified)
     {
         if (mocks.Count == 0) return;
         sb.AppendLine();
@@ -71,6 +72,7 @@ public static class SpecPromptSection
             + "carries the spec set. It shows what this spec's screen should look like. Read its CSS with "
             + "read_file for the exact values; when render_reference is on your surface, pass the path as "
             + "its source to see the mock and read its computed styles. It is a reviewer's file: never edit or delete it.");
-        foreach (var mock in mocks) sb.AppendLine($"- `{mock}`");
+        foreach (var mock in mocks)
+            sb.AppendLine(mock == ratified ? $"- `{mock}` — ratified by a person — build against this one" : $"- `{mock}`");
     }
 }

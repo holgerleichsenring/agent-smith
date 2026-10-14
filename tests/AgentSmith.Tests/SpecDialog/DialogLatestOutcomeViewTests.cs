@@ -300,7 +300,7 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
             new SpecDialogOutcomeConfirmer(transport.Object, messenger, new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)),
                 composer, AgentSmith.Tests.TestSupport.UnreviewedApprovals.Unused(), NullLogger<SpecDialogOutcomeConfirmer>.Instance),
             Sink(messenger, composer, channel, latest), composer, messenger, channel, latest,
-            NullLogger<SpecDialogOutcomeFlow>.Instance);
+            AgentSmith.Tests.TestSupport.RatifiedMockStamps.Over(_repository), NullLogger<SpecDialogOutcomeFlow>.Instance);
     }
 
     private TicketFilingOutcomeSink Sink(

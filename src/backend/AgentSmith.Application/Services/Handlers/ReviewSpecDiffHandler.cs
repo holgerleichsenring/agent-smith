@@ -31,6 +31,7 @@ public sealed class ReviewSpecDiffHandler(
     DerivationLookFactory looks,
     SpecDiffReviewer reviewer,
     SpecReviewPublisher publisher,
+    RatifiedMockReview ratifiedMocks,
     ILogger<ReviewSpecDiffHandler> logger)
     : ICommandHandler<ReviewSpecDiffContext>
 {
@@ -60,14 +61,15 @@ public sealed class ReviewSpecDiffHandler(
 
         var diffs = await specDiffs.TakeAsync(
             pipeline, sandboxes.Where(s => !sandboxTargets.IsSecondary(pipeline, s.Key)).ToDictionary(), cancellationToken);
-        await using var look = looks.OnTerms(pipeline, DerivationLookTerms.SpecReview);
+        var mock = ratifiedMocks.Offer(pipeline, draft, diffs);
+        await using var look = looks.OnTerms(pipeline, mock.Terms);
         var principles = pipeline.TryGet<string>(ContextKeys.CodingPrinciples, out var p) ? p : null;
         var contract = pipeline.TryGet<SpecSet>(ContextKeys.SpecSet, out var set) ? set?.Contract : null;
         var report = await reviewer.ReviewAsync(
-            draft, principles, diffs, look, context.AgentConfig, tracker, cancellationToken, contract);
+            draft, principles, diffs, look, context.AgentConfig, tracker, cancellationToken, contract, mock);
 
         return await RecordAsync(
-            pipeline, draft, report, Summary(report, diffs), sandboxes, cancellationToken);
+            pipeline, draft, report, Summary(report, diffs) + mock.After(pipeline), sandboxes, cancellationToken);
     }
 
     /// <summary>

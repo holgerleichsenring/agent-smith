@@ -55,23 +55,25 @@ internal static class ApprovedSetDoubles
     /// </summary>
     internal static ApprovedSetTicketFiler SetFiler(
         ISpecApprovalStore? store = null, FiledWorkStarter? starter = null,
-        RecordingBranchSources? sources = null, ISpecSetPointerStore? pointers = null) =>
+        RecordingBranchSources? sources = null, ISpecSetPointerStore? pointers = null,
+        AgentSmith.Contracts.Sandbox.IConversationMockReader? mocks = null) =>
         new(Recorder(store),
             new FiledSpecBranchWrite(
-                Branch(sources, pointers), NullLogger<FiledSpecBranchWrite>.Instance),
+                Branch(sources, pointers, mocks), NullLogger<FiledSpecBranchWrite>.Instance),
             starter ?? FiledWorkDoubles.Starter(), Kinds(),
             NullLogger<ApprovedSetTicketFiler>.Instance);
 
     /// <summary>2026-09-22-b6ad: the real branch write over a remote that records what it was
     /// handed — what filing does between storing the record and starting the ticket.</summary>
     internal static FiledSpecBranch Branch(
-        RecordingBranchSources? sources = null, ISpecSetPointerStore? pointers = null)
+        RecordingBranchSources? sources = null, ISpecSetPointerStore? pointers = null,
+        AgentSmith.Contracts.Sandbox.IConversationMockReader? mocks = null)
     {
         var store = pointers ?? new InMemorySpecSetPointerStore();
         return new(new FiledSeriesWrite(sources ?? new RecordingBranchSources(), new SeriesFiles(new SeriesManifest())),
             store, new SeriesRepos(),
             new SpecSetPointerRecorder(store, NullLogger<SpecSetPointerRecorder>.Instance),
-            NullLogger<FiledSpecBranch>.Instance);
+            NullLogger<FiledSpecBranch>.Instance, mocks);
     }
 
     /// <summary>2026-10-13-9a59l: the run's merge of an approval given in a ticket's own conversation.</summary>

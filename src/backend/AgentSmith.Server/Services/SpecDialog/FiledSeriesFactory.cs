@@ -24,7 +24,11 @@ public sealed class FiledSeriesFactory(SeriesIdFactory ids, SeriesDraftIds draft
     public FiledSeries Under(string series, IReadOnlyList<SpecDraft> ordered, OutcomeProposal? source)
     {
         var map = SeriesDraftIds.Map(series, ordered);
-        var filed = new FiledSeries(series, draftIds.Assign(series, ordered)) { ReviewRounds = ApprovedReviewRounds.Rekey(source?.ReviewRounds ?? [], map, logger, series) };
+        var filed = new FiledSeries(series, draftIds.Assign(series, ordered))
+        {
+            ReviewRounds = ApprovedReviewRounds.Rekey(source?.ReviewRounds ?? [], map, logger, series),
+            Sources = map.ToDictionary(pair => pair.Value, pair => pair.Key, StringComparer.Ordinal),
+        };
         if ((source as EpicOutcome)?.Contract is not { } contract) return filed;
         var within = contract.Rekeyed(map).Within(filed.Drafts.Select(d => d.SpecId));
         if (within.Removed.Count > 0)

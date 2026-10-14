@@ -190,7 +190,7 @@ public sealed class ReviewSpecDiffHandlerTests
     private static ReviewSpecDiffContext Context(PipelineContext pipeline) =>
         new(new AgentConfig(), pipeline);
 
-    private static ReviewSpecDiffHandler Handler(Contracts.Services.IChatClientFactory factory)
+    internal static ReviewSpecDiffHandler Handler(Contracts.Services.IChatClientFactory factory, RatifiedMockReview? mocks = null)
     {
         var targets = new SandboxTargets();
         return new ReviewSpecDiffHandler(
@@ -207,6 +207,7 @@ public sealed class ReviewSpecDiffHandlerTests
             new SpecDiffReviewer(
                 factory, new AsyncLocalRunContextAccessor(), NullLogger<SpecDiffReviewer>.Instance),
             new SpecReviewPublisher(new NoOpEventPublisher()),
+            mocks ?? new RatifiedMockReview(new AgentSmith.Tests.Browser.BrowserRenderFixture().Factory()),
             NullLogger<ReviewSpecDiffHandler>.Instance);
     }
 

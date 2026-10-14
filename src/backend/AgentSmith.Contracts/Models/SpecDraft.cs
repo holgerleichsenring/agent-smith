@@ -64,6 +64,12 @@ public sealed record SpecDraft(
     /// derivation or a design dialog cuts it; empty on a spec written before specs named them.
     /// </summary>
     public IReadOnlyList<string> Repos { get; init; } = [];
+
+    /// <summary>
+    /// The version of the design mock a person ratified, read from the spec's top-level
+    /// <c>ratified_mock</c> key; the file <c>{spec}-mock-v{n}.html</c> lies beside the spec. Null when none.
+    /// </summary>
+    public int? RatifiedMock { get; init; }
 }
 
 /// <summary>

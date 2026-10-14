@@ -300,7 +300,7 @@ public sealed class OutcomeShapeOfferTests : IDisposable
             new DashboardOutcomeChannel(
                 new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
                 NullLogger<DashboardOutcomeChannel>.Instance),
-            store, NullLogger<SpecDialogOutcomeFlow>.Instance);
+            store, AgentSmith.Tests.TestSupport.RatifiedMockStamps.Over(repository), NullLogger<SpecDialogOutcomeFlow>.Instance);
         return (flow, store, state);
     }
 

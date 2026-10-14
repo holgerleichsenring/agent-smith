@@ -108,7 +108,7 @@ public static class SpecDerivationRegistrations
     // diff, the instance that reads it, and the undo of a fix pass that was not green.
     services.AddTransient<SpecStartHeads>();
     services.AddTransient<SpecDiffs>();
-    services.AddTransient<SpecDiffReviewer>();
+    services.AddTransient<SpecDiffReviewer>().AddTransient<RatifiedMockReview>();
     services.AddTransient<SpecReviewRevert>();
         return services;
     }
