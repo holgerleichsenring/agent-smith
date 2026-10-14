@@ -12,7 +12,7 @@ import { ResultCodeBlock } from "@/components/jobs/ResultCodeBlock";
 // design tokens: real headings, bordered GFM tables, lists, links. Fenced code
 // routes through ResultCodeBlock (DESIGN.md terminal surface, p0219).
 
-const components = {
+export const markdownComponents = {
   h1: (p: { children?: ReactNode }) => (
     <h1 className="dsh-h2 mt-4 mb-2 font-semibold tracking-tight text-stone-900">{p.children}</h1>
   ),
@@ -55,7 +55,7 @@ export function Markdown({ children }: { children: string }) {
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         rehypePlugins={[rehypeSanitize]}
-        components={components}
+        components={markdownComponents}
       >
         {children}
       </ReactMarkdown>

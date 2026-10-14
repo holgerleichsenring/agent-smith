@@ -541,6 +541,11 @@
 .mock-tickets .msg .mf .eff { color:var(--person); font-weight:600; }
 .mock-tickets .msg .mf .eff.run { color:var(--run); }
 .mock-tickets .msg.internal .mb { font-size:12.5px; color:var(--ink-2); }
+/* An entry body never outranks the page's own headings, and its blocks read at the body's size and colour. */
+.mock-tickets .msg .mb h1, .mock-tickets .msg .mb h2, .mock-tickets .msg .mb h3 { font-size:inherit; line-height:1.4; font-weight:650; color:inherit; margin:6px 0 2px; letter-spacing:normal; }
+.mock-tickets .msg .mb p, .mock-tickets .msg .mb li, .mock-tickets .msg .mb ul, .mock-tickets .msg .mb ol { font-size:inherit; color:inherit; }
+.mock-tickets .msg .mb p { margin:4px 0; }
+.mock-tickets .msg .mb .cut { display:block; font-size:11px; color:var(--ink-3); margin-top:3px; }
 .mock-tickets .diff { font-family:var(--mono); font-size:11.5px; border:1px solid var(--line); border-radius:var(--r-s); background:var(--panel); padding:8px 10px; margin-top:6px; overflow-x:auto; }
 .mock-tickets .diff .rm { color:var(--bad); } .mock-tickets .diff .ad { color:#1a7f43; }
 

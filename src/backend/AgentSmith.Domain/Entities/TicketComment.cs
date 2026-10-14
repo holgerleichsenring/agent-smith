@@ -1,3 +1,5 @@
+using AgentSmith.Domain.Models;
+
 namespace AgentSmith.Domain.Entities;
 
 /// <summary>
@@ -16,4 +18,7 @@ public sealed record TicketComment(
     /// recorded from a keyword comment stores it as its source id.
     /// </summary>
     public string? Id { get; init; }
+
+    /// <summary>One of <see cref="TicketTextFormat"/>: what the tracker returned the body as.</summary>
+    public string Format { get; init; } = TicketTextFormat.Text;
 }

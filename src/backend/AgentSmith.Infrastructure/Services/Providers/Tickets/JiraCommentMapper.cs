@@ -1,12 +1,13 @@
 using System.Text.Json;
 using AgentSmith.Domain.Entities;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 
 /// <summary>
 /// p0317: maps a Jira Cloud REST v3 <c>/issue/{key}/comment</c> response onto the
 /// canonical <see cref="TicketComment"/>. Comment bodies arrive as ADF and are
-/// flattened to plain text via <see cref="JiraAdfParser"/>. Stateless and tolerant
+/// written as markdown by <see cref="JiraAdfMarkdown"/>. Stateless and tolerant
 /// of missing fields, mirroring <see cref="JiraFieldMapper"/>.
 /// </summary>
 public sealed class JiraCommentMapper
@@ -33,11 +34,11 @@ public sealed class JiraCommentMapper
             ? ts
             : DateTimeOffset.MinValue;
         var body = comment.TryGetProperty("body", out var b)
-            ? JiraAdfParser.ExtractText(b)
+            ? JiraAdfMarkdown.Write(b)
             : string.Empty;
         var id = comment.TryGetProperty("id", out var i) && i.ValueKind == JsonValueKind.String
             ? i.GetString()
             : null;
-        return new TicketComment(author, createdAt, body) { Id = id };
+        return new TicketComment(author, createdAt, body) { Id = id, Format = TicketTextFormat.Markdown };
     }
 }

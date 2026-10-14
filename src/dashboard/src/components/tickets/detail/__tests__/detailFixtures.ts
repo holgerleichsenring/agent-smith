@@ -68,7 +68,7 @@ export function entry(over: Partial<TicketConversationEntry> = {}): TicketConver
   return {
     id: "e-1", sourceId: null, prKey: null, source: "question", kind: "question", role: "agent", author: null,
     isOurs: false, at: "2026-09-04T14:10:00Z", attemptRunId: "r-1", group: null, text: "Keep the outbox?",
-    ...over,
+    format: "text", ...over,
   };
 }
 

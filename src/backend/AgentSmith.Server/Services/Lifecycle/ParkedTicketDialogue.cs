@@ -38,7 +38,7 @@ public sealed class ParkedTicketDialogue(
         if (reply is null) return false;
 
         var answer = new DialogAnswer(
-            checkpoint.QuestionId, reply.Body.Trim(), "ticket-comment", reply.CreatedAt, reply.Author);
+            checkpoint.QuestionId, reply.Body.Trim(), DialogAnswer.FromTicketComment, reply.CreatedAt, reply.Author);
         var delivered = await inbox.TryDeliverAsync(checkpoint.DialogueJobId, answer, ct);
         if (delivered)
             logger.LogInformation(

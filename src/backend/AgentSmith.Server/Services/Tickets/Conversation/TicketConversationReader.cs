@@ -36,7 +36,7 @@ public sealed class TicketConversationReader(
         var comments = await thread.ReadAsync(resolved, ticketId, ct);
         var hidden = session is not null && !mayReadTranscript;
 
-        var entries = new List<TicketConversationEntryView>(ConversationRunEntries.Of(ordered, rows));
+        var entries = new List<TicketConversationEntryView>(ConversationRunEntries.Of(ordered, rows, comments ?? []));
         entries.AddRange(ConversationPrEntries.Of(await PrRecordsAsync(project, ticketId, ct), runIds.ToHashSet(StringComparer.Ordinal)));
         entries.AddRange(ConversationAssembly.Thread(comments ?? []));
         if (session is not null && !hidden) entries.AddRange(transcript.Turns(session));

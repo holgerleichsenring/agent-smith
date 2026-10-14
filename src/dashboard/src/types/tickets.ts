@@ -321,6 +321,9 @@ export interface RunPasses {
 /** ticket | question | pr-review | spec-cut | conversation */
 export type TicketConversationSource = string;
 
+/** How a tracker or conversation text was written, as its source names it. */
+export type TicketTextFormat = "html" | "markdown" | "text";
+
 export interface TicketConversationEntry {
   id: string;
   sourceId: string | null;
@@ -340,6 +343,7 @@ export interface TicketConversationEntry {
   line?: number | null;
   detail?: unknown;
   url?: string | null;
+  format: TicketTextFormat;
 }
 
 export interface TicketConversationAttempt {

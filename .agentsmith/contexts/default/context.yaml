@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-14-9f80a: "TICKET CONVERSATION BODIES RENDER BY FORMAT (comment mappers, conversation read, dashboard TrackerText). Comments carry html/markdown/text from their tracker (Azure DevOps by its Format, Jira ADF written as markdown); entries carry it per source and render sanitized, never as tag or markdown source. -> .agentsmith/specs/done/2026-10-14-9f80a-conversation-body-format.yaml"
     2026-10-13-9a59t: "CLOSED TICKET FOLLOW-UP (rework worker: park check, entry, handler, ledger; docs). A keyword comment or PR act on a ticket a person closed files one linked follow-up carrying its text instead of reopening it; once per tracker ticket, a waiting attempt is superseded, a followed-up act never reworks. -> .agentsmith/specs/done/2026-10-13-9a59t-keyword-followup.yaml"
     2026-10-13-9a59s: "TICKET ATTEMPTS AND COST (dashboard ticket page: Attempts, Cost & compute tabs; run and compute reads in the page store). Per attempt what started it, what it did and why it stopped; cost per spec and pass on the run-cap scale; pods with end reasons, call time and time waiting on you. -> .agentsmith/specs/done/2026-10-13-9a59s-dashboard-ticket-attempts-cost.yaml"
     2026-10-13-9a59r: "TICKET CONVERSATION (dashboard ticket page: Conversation, Specs, Acceptance tabs; Work it out dialog-id source; bound approval card). One thread per ticket with the ticket's own Work it out composer, moving nothing until the first act; specs as read-only documents; acceptance per spec. -> .agentsmith/specs/done/2026-10-13-9a59r-dashboard-ticket-conversation.yaml"
@@ -1183,7 +1184,6 @@ state:
     2026-10-13-3890f: "THE CODING MASTER INSTALLS A MISSING TOOL (skills v5.15.1, embedded pin). The skill says a missing ecosystem tool is installed with run_command and is never a reason for not_applicable or blocked; the no-install line covers only the injected python3. Pin, tarball and doc examples moved to v5.15.1. -> .agentsmith/specs/done/2026-10-13-3890f-skill-tools-are-work.yaml"
   active: {}
   planned:
-    2026-10-14-9f80a: "TICKET CONVERSATION BODIES RENDER BY FORMAT (comment mappers, conversation read, dashboard). Entries carry html/markdown/text from their source and render sanitized. -> .agentsmith/specs/planned/2026-10-14-9f80a-conversation-body-format.yaml"
     2026-10-14-9f80b: "UNCUT TICKETS SHOW THEIR SPECS (ticket series read, dashboard). Specs and acceptance from RunSpec rows, spec records and run acceptance when no cut exists. -> .agentsmith/specs/planned/2026-10-14-9f80b-series-run-record-read.yaml"
     2026-10-14-9f80c: "THE TICKET PAGE SHOWS THE TICKET (ticket text read, dashboard Summary). Description and tracker criteria, live through a 60 s cache, snapshot fallback. -> .agentsmith/specs/planned/2026-10-14-9f80c-ticket-text-panel.yaml"
     2026-10-14-9f80d: "ONE STATE DOT, DONE MEANS MERGED (ticket bucket rule, list + header). Shared dot function, Landing field, PR fate in the header subline. -> .agentsmith/specs/planned/2026-10-14-9f80d-ticket-state-dot.yaml"

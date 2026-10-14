@@ -318,7 +318,7 @@ describe("Mock parity", () => {
       );
       const root = screen.getByTestId("ticket-page");
       await screen.findByTestId(`ticket-tab-${tab}`);
-      await screen.findByText(tab === "conversation" ? "Add one" : tab === "specs" ? "Revisions" : "Acceptance", { selector: tab === "conversation" ? ".mb" : "h2" });
+      await screen.findByText(tab === "conversation" ? "Add one" : tab === "specs" ? "Revisions" : "Acceptance", { selector: tab === "conversation" ? ".mb [data-testid='tracker-text']" : "h2" });
       for (const cls of classes) {
         expect(root.querySelector(cls), `ticket ${tab} tab missing ${cls}`).not.toBeNull();
       }
