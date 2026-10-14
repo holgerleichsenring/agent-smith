@@ -128,7 +128,9 @@ internal sealed class ReviewLoopRig
 
     public ReviewSpecsHandler Handler(ISpecReviewSettingsReader reader) => new(reader,
         new ApprovedSpecSetResolver(Mock.Of<ISpecApprovalStore>(), NullLogger<ApprovedSpecSetResolver>.Instance),
-        Loop(), NullLogger<ReviewSpecsHandler>.Instance);
+        Loop(), new ReviewExhaustion(NullLogger<ReviewExhaustion>.Instance),
+        new ReviewObjectionPark(new SpecReviewRevision(Publisher.Object), NullLogger<ReviewObjectionPark>.Instance),
+        NullLogger<ReviewSpecsHandler>.Instance);
 
     public async Task<CommandResult> ExecuteAsync(SpecReviewSettings settings, AgentSmith.Domain.Entities.Ticket? ticket = null)
     {

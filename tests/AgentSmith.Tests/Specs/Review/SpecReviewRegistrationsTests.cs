@@ -40,4 +40,20 @@ public sealed class SpecReviewRegistrationsTests
         scope.ServiceProvider.GetRequiredService<SpecRevisionGuard>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<SpecCutResidues>().Should().NotBeNull();
     }
+
+    [Fact]
+    public void ReviewExhaustionAndPark_ResolveWithTheReviewStepFromTheRealServiceProvider()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
+        ServerCompositionBuilder.ConfigureServices(services, "agentsmith.yml");
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        scope.ServiceProvider.GetRequiredService<ReviewExhaustion>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<ReviewObjectionPark>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<
+            AgentSmith.Contracts.Commands.ICommandHandler<AgentSmith.Application.Models.ReviewSpecsContext>>()
+            .Should().BeOfType<AgentSmith.Application.Services.Handlers.ReviewSpecsHandler>();
+    }
 }

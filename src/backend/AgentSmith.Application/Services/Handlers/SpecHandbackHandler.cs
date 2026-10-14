@@ -101,8 +101,7 @@ public sealed class SpecHandbackHandler(
             $"awaiting_user_input: not implementable as specified — {handback.Reason}"),
         SpecHandbackCase.Refused => CommandResult.Ok(
             $"awaiting_user_input: refused — {handback.Reason}"),
-        SpecHandbackCase.Question => CommandResult.Ok(
-            $"awaiting_user_input: the ticket reads two ways — {handback.Reason}"),
+        SpecHandbackCase.Question => CommandResult.Ok($"awaiting_user_input: {Specs.Review.ReviewObjectionComment.HeadingOf(handback)} — {handback.Reason}"),
         _ => CommandResult.Ok($"awaiting_user_input: handed back ({handback.Case})"),
     };
 

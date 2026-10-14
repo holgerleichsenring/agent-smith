@@ -16,11 +16,8 @@ namespace AgentSmith.Application.Services.Specs;
 /// status; the next run's scope call reads the reply beside the ticket text. No spec
 /// link: nothing was derived.
 /// </para>
-/// <para>
-/// The QUESTION case lists the readings and names the one the run takes if nobody
-/// answers. Its heading carries <see cref="QuestionMarker"/>, so the next run's
-/// conversation section keeps the question in view while it is still unanswered.
-/// </para>
+/// <para>The QUESTION case lists the readings and the one taken if nobody answers, headed by
+/// <see cref="QuestionMarker"/>; a review objection is <see cref="Review.ReviewObjectionComment"/>'s.</para>
 /// <para>
 /// 2026-09-22-6ad7: the MISSING-SPECIFICATION case gets an arm of its own, because the default
 /// arm renders every unnamed case as the contradiction — which of a filed ticket's own approval
@@ -62,7 +59,8 @@ public static class SpecHandbackComment
         {
             SpecHandbackCase.NotImplementable => Verdict(handback) + spec + waiting,
             SpecHandbackCase.Refused => Refused(handback) + waiting,
-            SpecHandbackCase.Question => Question(handback) + spec + waiting,
+            SpecHandbackCase.Question => (handback.QuestionKind == SpecQuestionKind.ReviewObjection
+                ? Review.ReviewObjectionComment.Build(handback) : Question(handback)) + spec + waiting,
             SpecHandbackCase.SpecificationMissingFromBranch => Missing(handback) + waiting,
             SpecHandbackCase.ScopeUnassigned => ScopeUnassigned(handback) + waiting,
             SpecHandbackCase.SeriesOutOfStep => SeriesOutOfStepComment.Build(handback) + waiting,

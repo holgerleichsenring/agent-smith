@@ -65,7 +65,7 @@ public static class SpecAttackPrompt
             - Anything resting on a file you did not open is discarded, and so is a verdict that rests on it.
             {{Today(input.DescribesToday)}}
             ## What the evidence check found before you
-            {{Evidence(input)}}{{Residues(input.PriorResidues)}}
+            {{Evidence(input)}}{{Residues(input.PriorResidues)}}{{input.QuestionPin}}
             ## The spec
             {{input.Draft.Yaml.TrimEnd()}}
             {{DerivationLookPromptSection.Render(look)}}

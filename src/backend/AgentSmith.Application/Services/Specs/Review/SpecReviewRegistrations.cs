@@ -28,6 +28,7 @@ public static class SpecReviewRegistrations
             .AddTransient<SpecReviewPanel>().AddTransient<SpecReviewRevision>()
             .AddTransient<ISpecRederiver, SpecRederiver>().AddTransient<SpecReviewLoop>()
             .AddSingleton<ISpecReviewSettingsReader, LoaderSpecReviewSettingsReader>()
+            .AddTransient<ReviewExhaustion>().AddTransient<ReviewObjectionPark>() // 2026-10-13-8762h
             .AddTransient<ICommandHandler<ReviewSpecsContext>, Handlers.ReviewSpecsHandler>();
     }
 }

@@ -30,7 +30,8 @@ public sealed class SpecGateHandler(ILogger<SpecGateHandler> logger)
                 $"No spec for ticket {context.Ticket.Id.Value}: DeriveSpec produced "
                 + "neither a branch artifact nor a derived set."));
 
-        if (set.IsHandedBack)
+        // 2026-10-13-8762h: a review objection is the one hand-back that still builds the specs before it.
+        if (set.IsHandedBack && set.Handback!.QuestionKind != SpecQuestionKind.ReviewObjection)
             return Task.FromResult(CommandResult.Ok(
                 $"The derivation handed ticket {context.Ticket.Id.Value} back "
                 + $"({set.Handback!.Case}) — nothing to gate"));

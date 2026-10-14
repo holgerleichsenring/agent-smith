@@ -25,7 +25,7 @@ public static class ConversationAssembly
     [
         SpecHandbackComment.QuestionMarker, SpecHandbackComment.ContradictionMarker, SpecHandbackComment.ScopeUnassignedMarker,
         SeriesOutOfStepComment.Marker, "not implementable as specified", "refused: the ticket asks for something that must not be done",
-        "the approved specification is not on the ticket branch",
+        "the approved specification is not on the ticket branch", Application.Services.Specs.Review.ReviewObjectionComment.Marker,
     ];
 
     public static IEnumerable<TicketConversationEntryView> Thread(IReadOnlyList<TicketComment> comments) =>

@@ -17,6 +17,8 @@ namespace AgentSmith.Application.Services.Specs.Review;
 /// <param name="NotChecked">Citations the round could not check, minted look lines included.</param>
 /// <param name="CitationsTotal">Every citation the round counted.</param>
 /// <param name="PriorResidues">Wording the previous round's cuts left standing in another register.</param>
+/// <param name="QuestionPin">2026-10-13-8762h: the run's <see cref="Contracts.Commands.ContextKeys.SpecQuestionPin"/> — a
+/// question the author was asked and left unanswered — or null.</param>
 public sealed record SpecAttackInput(
     SpecDraft Draft,
     string Scope,
@@ -27,7 +29,8 @@ public sealed record SpecAttackInput(
     IReadOnlyList<SpecEvidenceProblem> EvidenceProblems,
     int NotChecked,
     int CitationsTotal,
-    IReadOnlyList<SpecReviewResidue> PriorResidues)
+    IReadOnlyList<SpecReviewResidue> PriorResidues,
+    string? QuestionPin = null)
 {
     /// <summary>Sandbox key to repository name (<see cref="SpecReviewRepositories.Names"/>): a look names
     /// a sandbox key, stored evidence names the repository. A key missing here is stored as itself.</summary>

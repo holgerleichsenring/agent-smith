@@ -33,6 +33,7 @@ public sealed class SeriesManifestDocument
     public string? HandbackReason { get; set; }
     public List<string> HandbackReadings { get; set; } = [];
     public int HandbackTaken { get; set; }
+    public string? HandbackQuestionKind { get; set; } // 2026-10-13-8762h: null reads Reading
 
     /// <summary>2026-09-08-5cd2: the ticket text this revision was cut from.</summary>
     public string? TicketFingerprint { get; set; }

@@ -37,6 +37,9 @@ public sealed record SpecHandback(
     /// to a look is how a grep line became a park that later runs replayed.</summary>
     public IReadOnlyList<string> Cites { get; init; } = [];
 
+    /// <summary>2026-10-13-8762h: which question a Question asks; Reading for every other case.</summary>
+    public SpecQuestionKind QuestionKind { get; init; }
+
     /// <summary>The reading the run takes when nobody answers; null unless this is a question.</summary>
     public string? TakenReading =>
         Case == SpecHandbackCase.Question && Taken >= 0 && Taken < Readings.Count

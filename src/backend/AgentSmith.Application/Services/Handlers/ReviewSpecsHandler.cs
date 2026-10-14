@@ -12,11 +12,11 @@ namespace AgentSmith.Application.Services.Handlers;
 /// 2026-10-13-8762g: every unbuilt spec whose text is not the one a person approved, reviewed in order through
 /// <see cref="SpecReviewLoop"/> on settings read once, live. The share never stops the first reviewed spec; once
 /// spent, the first spec not cleared is the <see cref="ContextKeys.SpecSequenceStop"/> — left, with every spec
-/// after it, to the next attempt.
+/// after it, to the next attempt. 8762h: a REFUSE standing at the end is asked once (<see cref="ReviewExhaustion"/>).
 /// </summary>
 public sealed class ReviewSpecsHandler(
     ISpecReviewSettingsReader settings, ApprovedSpecSetResolver approvals, SpecReviewLoop loop,
-    ILogger<ReviewSpecsHandler> logger) : ICommandHandler<ReviewSpecsContext>
+    ReviewExhaustion exhaustion, ReviewObjectionPark park, ILogger<ReviewSpecsHandler> logger) : ICommandHandler<ReviewSpecsContext>
 {
     public async Task<CommandResult> ExecuteAsync(ReviewSpecsContext context, CancellationToken cancellationToken)
     {
@@ -57,6 +57,7 @@ public sealed class ReviewSpecsHandler(
     private async Task<CommandResult> WalkAsync(SpecReviewRun run, IReadOnlyList<DerivedSpec> tail, CancellationToken ct)
     {
         var lines = new List<string>();
+        var objections = new List<StandingObjection>();
         foreach (var spec in tail)
         {
             var first = lines.Count == 0;
@@ -64,12 +65,15 @@ public sealed class ReviewSpecsHandler(
             var outcome = spent is null ? await loop.RunAsync(run, spec, first, ct) : null;
             if (outcome?.Failure is { } failure) return CommandResult.Fail(failure);
             if (outcome is not null) lines.Add(Describe(outcome));
+            if (outcome is not null && StandingObjection.Of(outcome) is { } objection) objections.Add(objection);
             if ((spent ?? outcome!.BudgetStop) is not { } stop) continue;
             run.Pipeline.Set(ContextKeys.SpecSequenceStop, new SpecSequenceStop(spec.SpecId, stop, Park: false));
             lines.Add($"stopped before {spec.SpecId}, which is left to the next attempt with every spec after it: {stop}");
             break;
         }
-        return Done(string.Join("; ", lines));
+        var ask = exhaustion.Decide(objections, run.Pipeline);
+        lines.AddRange(objections.Except(ask).Select(o => $"{o.MarkerKey}: its objection was asked before, built as reviewed"));
+        return await park.ApplyAsync(run.Pipeline, ask, Done(string.Join("; ", lines)), ct);
     }
 
     private static string Describe(SpecReviewOutcome o) => o.StandingVerdict is null
