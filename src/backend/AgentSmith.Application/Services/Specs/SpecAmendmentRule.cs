@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Specs;
 
 namespace AgentSmith.Application.Services.Specs;
@@ -38,14 +39,16 @@ namespace AgentSmith.Application.Services.Specs;
 public static class SpecAmendmentRule
 {
     /// <summary>True when the deriver has to run over the set the branch carries.</summary>
+    /// <param name="series">2026-10-13-8762u: the series block; a set is full at series.max_specs executed.</param>
     /// <param name="foreignCommitSinceHandback">2026-10-12-3a36b: a scoped branch got a commit by
     /// somebody else since the hand-back the set carries was parked.</param>
-    public static bool NeedsModel(string cause, SpecSet set, bool foreignCommitSinceHandback = false)
+    public static bool NeedsModel(string cause, SpecSet set, SeriesConfig series, bool foreignCommitSinceHandback = false)
     {
         ArgumentNullException.ThrowIfNull(set);
+        ArgumentNullException.ThrowIfNull(series);
         if (foreignCommitSinceHandback && set.IsHandedBack) return true;
         // 2026-10-08-f114: a full, fully executed set has no room for an appended spec.
-        if (IsAppend(cause, set) && set.Executed.Count >= SpecSet.MaxSpecs) return false;
+        if (IsAppend(cause, set) && set.Executed.Count >= series.MaxSpecs) return false;
         if (string.Equals(cause, SpecRevisionCause.RecutDemand, StringComparison.Ordinal)
             || string.Equals(cause, SpecRevisionCause.Rework, StringComparison.Ordinal)
             || string.Equals(cause, SpecRevisionCause.Overrule, StringComparison.Ordinal)) return true;

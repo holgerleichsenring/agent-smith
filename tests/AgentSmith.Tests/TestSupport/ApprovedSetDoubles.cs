@@ -78,7 +78,7 @@ internal static class ApprovedSetDoubles
 
     /// <summary>2026-10-13-9a59l: the run's merge of an approval given in a ticket's own conversation.</summary>
     internal static ApprovedContinuation Continuation() =>
-        new(new ContinuationMerge(new SpecDraftIdRewriter()), NullLogger<ApprovedContinuation>.Instance);
+        new(new ContinuationMerge(new SpecDraftIdRewriter()), SeriesSettingsDoubles.Reader(), NullLogger<ApprovedContinuation>.Instance);
 
     internal static ApprovedSpecSetRecorder Recorder(ISpecApprovalStore? store = null) =>
         new(store ?? Store(), new NoReferenceSetReader(), new SeriesRepos(), TimeProvider.System, NullLogger<ApprovedSpecSetRecorder>.Instance);

@@ -27,7 +27,7 @@ public sealed class ReviewObjectionSourceTests
 
     private readonly SpecSourceResolver _resolver = new(
         new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance), TestSupport.ApprovedSetDoubles.Continuation(),
-        new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance), NullLogger<SpecSourceResolver>.Instance);
+        new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), NullLogger<SpecSourceResolver>.Instance);
 
     [Fact]
     public void Source_UnansweredReviewObjection_UsesTheReviewedSetWithoutHandback()
@@ -48,7 +48,7 @@ public sealed class ReviewObjectionSourceTests
 
         decision.Cause.Should().Be(SpecRevisionCause.Comment);
         decision.NeedsModel.Should().BeTrue();
-        PreviousCutPromptSection.Render(decision.Set, decision.Cause!)
+        PreviousCutPromptSection.Render(decision.Set, decision.Cause!, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults)
             .Should().Contain($"{First} (EXECUTED — keep exactly as it is)").And.Contain($"{Second} (not started)");
     }
 

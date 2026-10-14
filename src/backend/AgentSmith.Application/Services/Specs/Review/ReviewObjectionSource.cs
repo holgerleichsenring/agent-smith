@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Specs;
 
 namespace AgentSmith.Application.Services.Specs.Review;
@@ -12,15 +13,16 @@ namespace AgentSmith.Application.Services.Specs.Review;
 /// </summary>
 public static class ReviewObjectionSource
 {
-    public static (SpecSet Set, bool NeedsModel) Decide(SpecSet set, string cause, PipelineContext pipeline, bool foreign)
+    public static (SpecSet Set, bool NeedsModel) Decide(
+        SpecSet set, string cause, PipelineContext pipeline, bool foreign, SeriesConfig series)
     {
         ArgumentNullException.ThrowIfNull(set);
         ArgumentNullException.ThrowIfNull(pipeline);
         if (set.Handback is not { Case: SpecHandbackCase.Question, QuestionKind: SpecQuestionKind.ReviewObjection })
-            return (set, SpecAmendmentRule.NeedsModel(cause, set, foreign));
+            return (set, SpecAmendmentRule.NeedsModel(cause, set, series, foreign));
         var stripped = set with { Handback = null };
         var proceed = string.Equals(cause, SpecRevisionCause.Retrigger, StringComparison.Ordinal)
             && ReviewObjectionComment.AskedAndUnanswered(pipeline);
-        return (stripped, !proceed && SpecAmendmentRule.NeedsModel(cause, stripped, foreign));
+        return (stripped, !proceed && SpecAmendmentRule.NeedsModel(cause, stripped, series, foreign));
     }
 }

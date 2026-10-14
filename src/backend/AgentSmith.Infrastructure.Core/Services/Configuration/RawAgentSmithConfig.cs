@@ -56,4 +56,5 @@ public sealed class RawAgentSmithConfig
     public TraceConfig Trace { get; set; } = new();
     public PipelineCostCapConfig PipelineCostCap { get; set; } = new();
     public SpecReviewConfig SpecReview { get; set; } = new(); // 2026-10-13-8762g
+    public SeriesConfig Series { get; set; } = new(); // 2026-10-13-8762u
 }

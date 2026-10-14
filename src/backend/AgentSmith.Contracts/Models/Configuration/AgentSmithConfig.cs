@@ -36,6 +36,7 @@ public sealed class AgentSmithConfig
     /// <summary>p0423: whether a run records its conversation, not only its numbers.</summary>
     public TraceConfig Trace { get; init; } = new();
     public SpecReviewConfig SpecReview { get; init; } = new(); // 2026-10-13-8762g
+    public SeriesConfig Series { get; init; } = new(); // 2026-10-13-8762u
 
     /// <summary>
     /// Empty placeholder. Used by DI default registration when no real config

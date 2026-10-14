@@ -21,7 +21,7 @@ using Moq;
 
 namespace AgentSmith.Tests.Commands;
 
-public class CommitAndPRHandlerTests
+public partial class CommitAndPRHandlerTests
 {
     private readonly Mock<ISourceProviderFactory> _sourceFactoryMock = new();
     private readonly Mock<ITicketProviderFactory> _ticketFactoryMock = new();
@@ -83,7 +83,8 @@ public class CommitAndPRHandlerTests
                 NullLogger<ShortfallDelivery>.Instance),
             new CompletedRunTicketSummary(),
             AgentSmith.Tests.Structure.StructureGateFixture.Publisher(),
-            NullLogger<CommitAndPRHandler>.Instance);
+            AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Banners(_ticketFactoryMock.Object),
+            AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.ChunkStop(_ticketFactoryMock.Object), NullLogger<CommitAndPRHandler>.Instance);
     }
 
     [Fact]

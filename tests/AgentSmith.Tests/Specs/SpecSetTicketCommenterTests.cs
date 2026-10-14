@@ -33,7 +33,7 @@ public sealed class SpecSetTicketCommenterTests
     {
         var set = Set();
 
-        var body = SpecSetComment.Render(set, new Dictionary<string, string> { ["api"] = "https://example.test/pr/1" });
+        var body = SpecSetComment.Render(set, new Dictionary<string, string> { ["api"] = "https://example.test/pr/1" }, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults);
 
         body.Should().StartWith(SpecSetComment.Marker);
         body.Should().Contain("2026-10-06-9106a — Raise the direct package floors the audit names");
@@ -55,7 +55,7 @@ public sealed class SpecSetTicketCommenterTests
         var set = Set(contexts: "\"contexts\": [\"frontend\"],",
             discardedContexts: """[{"context": "backend", "reason": "the audit flags nothing there"}]""");
 
-        var body = SpecSetComment.Render(set, null);
+        var body = SpecSetComment.Render(set, null, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults);
 
         body.Should().Contain("**Contexts:** frontend");
         body.Should().Contain("## Contexts left out").And.Contain("- backend: the audit flags nothing there");
@@ -65,7 +65,7 @@ public sealed class SpecSetTicketCommenterTests
     [Fact]
     public void Comment_ACutDeclaringNoContexts_RendersNoContextsBlock()
     {
-        var body = SpecSetComment.Render(Set(), null);
+        var body = SpecSetComment.Render(Set(), null, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults);
 
         body.Should().NotContain("Contexts left out").And.NotContain("**Contexts:**");
     }
@@ -80,7 +80,7 @@ public sealed class SpecSetTicketCommenterTests
             "spec: p19106a\ngoal: g\nassumptions:\n  - claim: \"the cache is warm\"\n    check: \"read it\"\n");
         var spec = set.Specs[0] with { Draft = set.Specs[0].Draft with { Assumptions = read.Assumptions } };
 
-        var body = SpecSetComment.Render(set with { Specs = [spec] }, null);
+        var body = SpecSetComment.Render(set with { Specs = [spec] }, null, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults);
 
         body.Should().Contain("- the cache is warm").And.NotContain("System.Collections");
     }
@@ -95,7 +95,7 @@ public sealed class SpecSetTicketCommenterTests
         pipeline.Set(ContextKeys.Ticket, new Ticket(
             id: new TicketId("19106"), title: "upgrade", description: Ticket,
             acceptanceCriteria: null, status: "open", source: "test"));
-        var commenter = new SpecSetTicketCommenter(factory.Object, Moq.Mock.Of<AgentSmith.Contracts.Reviews.IFullSetPrNotice>(), NullLogger<SpecSetTicketCommenter>.Instance);
+        var commenter = new SpecSetTicketCommenter(factory.Object, Moq.Mock.Of<AgentSmith.Contracts.Reviews.IFullSetPrNotice>(), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), NullLogger<SpecSetTicketCommenter>.Instance);
 
         await commenter.PostAsync(pipeline, new TrackerConnection(), Set(), CancellationToken.None);
 
@@ -121,7 +121,7 @@ public sealed class SpecSetTicketCommenterTests
         {
             ["Server"] = "https://x/server/pull/1", ["Client"] = "https://x/client/pull/2", ["Worker"] = "https://x/worker/pull/3",
         });
-        var commenter = new SpecSetTicketCommenter(factory.Object, Moq.Mock.Of<AgentSmith.Contracts.Reviews.IFullSetPrNotice>(), NullLogger<SpecSetTicketCommenter>.Instance);
+        var commenter = new SpecSetTicketCommenter(factory.Object, Moq.Mock.Of<AgentSmith.Contracts.Reviews.IFullSetPrNotice>(), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), NullLogger<SpecSetTicketCommenter>.Instance);
 
         await commenter.PostAsync(pipeline, new TrackerConnection(), Set() with { SeriesRepos = ["Server", "Client"] }, CancellationToken.None);
 

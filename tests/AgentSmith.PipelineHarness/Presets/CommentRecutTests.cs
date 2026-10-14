@@ -115,7 +115,7 @@ public sealed class CommentRecutTests
 
     // What the previous run posted when it cut the set, and what the operator said after.
     private static TicketComment OurCut() => new(
-        "agent-smith", DateTimeOffset.UtcNow.AddHours(-2), SpecSetComment.Render(Previous(null), null));
+        "agent-smith", DateTimeOffset.UtcNow.AddHours(-2), SpecSetComment.Render(Previous(null), null, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults));
 
     private static TicketComment OperatorObjection() => new(
         "operator", DateTimeOffset.UtcNow.AddHours(-1),

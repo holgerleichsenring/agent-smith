@@ -306,7 +306,7 @@ public sealed class MultiRepoHandlerTests
                 NullLogger<ShortfallDelivery>.Instance),
             new CompletedRunTicketSummary(),
             AgentSmith.Tests.Structure.StructureGateFixture.Publisher(),
-            NullLogger<CommitAndPRHandler>.Instance);
+            AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Banners(), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.ChunkStop(), NullLogger<CommitAndPRHandler>.Instance);
             var repository = new Repository(new BranchName("agent-smith/ticket-42"), "primary");
             var ticket = new Ticket(new TicketId("42"), "title", "desc", null, "Open", "GitHub");
             var changes = new List<CodeChange> { new(new FilePath("f.md"), "x", "Created") };

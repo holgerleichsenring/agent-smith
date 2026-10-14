@@ -117,7 +117,7 @@ public sealed class UnansweredQuestionTests
 
         var prompt = SpecPromptComposer.Compose(
             Ticket(), TicketSegmenter.Segment("Adopt the newest versions, even breaking."),
-            previous, SpecRevisionCause.Retrigger, pipeline);
+            previous, SpecRevisionCause.Retrigger, pipeline, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults);
 
         prompt.Should().Contain("## The question from the last run was left unanswered");
         prompt.Should().Contain("Reading (a) is");

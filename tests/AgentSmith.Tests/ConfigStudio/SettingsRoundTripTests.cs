@@ -27,6 +27,7 @@ public sealed class SettingsRoundTripTests
             // 2026-08-25-1806: what a role name means is application configuration too.
             "pipeline_data_flow", "role_mapping", "trace",
             "spec_review", // 2026-10-13-8762g
+            "series", // 2026-10-13-8762u
         });
         h.Store.SettingTypes.Should().NotContain("persistence").And.NotContain("secret");
     }

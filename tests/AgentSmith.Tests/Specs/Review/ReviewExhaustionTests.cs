@@ -183,7 +183,7 @@ public sealed class ReviewExhaustionTests
         result.InsertNext.Should().BeNull();
         rig.Pipeline.Get<SpecSequenceStop>(ContextKeys.SpecSequenceStop).Should().Match<SpecSequenceStop>(
             s => s.BeforeSpecId == Third && s.Park);
-        var spliced = await new SpecSequenceHandler(NullLogger<SpecSequenceHandler>.Instance)
+        var spliced = await new SpecSequenceHandler(AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), TimeProvider.System, NullLogger<SpecSequenceHandler>.Instance)
             .ExecuteAsync(new SpecSequenceContext(rig.Pipeline), default);
         spliced.InsertNext!.Where(c => c.SpecId is not null).Select(c => c.SpecId).Distinct()
             .Should().Equal(First, Second);

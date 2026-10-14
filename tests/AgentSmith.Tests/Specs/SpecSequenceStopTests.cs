@@ -41,7 +41,7 @@ public sealed class SpecSequenceStopTests
         var pipeline = Pipeline(new SpecSequenceStop("p0001c", Reason, Park: false));
 
         await Sequence(pipeline);
-        var table = SpecPrBody.RenderStatus(pipeline.Get<SpecSequenceProgress>(ContextKeys.SpecSequenceProgress));
+        var table = SpecStatusTable.Render(pipeline.Get<SpecSequenceProgress>(ContextKeys.SpecSequenceProgress));
 
         table.Should().Contain($"| p0001c | Goal of p0001c | ⬜ not started — {Reason} |");
         table.Should().Contain("| p0001a | Goal of p0001a | ⬜ not started |");
@@ -88,6 +88,6 @@ public sealed class SpecSequenceStopTests
     }
 
     private static Task<CommandResult> Sequence(PipelineContext pipeline) =>
-        new SpecSequenceHandler(NullLogger<SpecSequenceHandler>.Instance)
+        new SpecSequenceHandler(AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), TimeProvider.System, NullLogger<SpecSequenceHandler>.Instance)
             .ExecuteAsync(new SpecSequenceContext(pipeline), CancellationToken.None);
 }

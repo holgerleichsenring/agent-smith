@@ -20,6 +20,11 @@ public sealed record SpecSequenceProgress(IReadOnlyList<SpecProgress> Specs)
     /// <summary>True while any spec is anything other than done — the half-migrated state.</summary>
     public bool IsPartial => Specs.Any(p => p.State != SpecRunState.Done);
 
+    /// <summary>2026-10-13-8762u: the attempt ended at a boundary — at least one spec is left to the next attempt and
+    /// every other spec is done; a chunk boundary and a review-share stop alike.</summary>
+    public bool StoppedAtChunk =>
+        Specs.Any(p => p.NextAttempt) && Specs.All(p => p.NextAttempt || p.State == SpecRunState.Done);
+
     /// <summary>2026-10-13-8762g: the specs this attempt does not build, seeded not started for the next
     /// attempt with <paramref name="reason"/> as their note — the one way a step ends an attempt at a boundary.</summary>
     public SpecSequenceProgress Deferring(IReadOnlyCollection<string> ids, string reason) =>

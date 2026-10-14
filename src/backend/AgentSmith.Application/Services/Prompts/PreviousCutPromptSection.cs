@@ -1,5 +1,6 @@
 using System.Text;
 using AgentSmith.Application.Services.Specs;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Specs;
 
 namespace AgentSmith.Application.Services.Prompts;
@@ -21,8 +22,10 @@ public static class PreviousCutPromptSection
 {
     public const string ContractMembers = "Repeat the series contract, amended as needed; name members by their position in your reply; only executed specs keep their ids.";
 
-    public static string Render(SpecSet? previous, string cause)
+    /// <param name="series">2026-10-13-8762u: the series block an append's room is computed from.</param>
+    public static string Render(SpecSet? previous, string cause, SeriesConfig series)
     {
+        ArgumentNullException.ThrowIfNull(series);
         if (previous is null || previous.IsHandedBack) return string.Empty;
         var sb = new StringBuilder();
         sb.AppendLine();
@@ -33,7 +36,7 @@ public static class PreviousCutPromptSection
         if (cause == SpecRevisionCause.Rework) sb.AppendLine(ReworkParagraph(previous));
         if (cause == SpecRevisionCause.StatusBack) sb.AppendLine(StatusBackParagraph(previous));
         if (cause == SpecRevisionCause.Overrule) sb.AppendLine(OverruleParagraph(previous));
-        if (SpecAmendmentRule.IsAppend(cause, previous)) sb.AppendLine(AppendParagraph(previous, cause));
+        if (SpecAmendmentRule.IsAppend(cause, previous)) sb.AppendLine(AppendParagraph(previous, cause, series));
         foreach (var spec in previous.Specs)
         {
             var executed = previous.Executed.Contains(spec.SpecId, StringComparer.Ordinal);
@@ -63,10 +66,11 @@ public static class PreviousCutPromptSection
         + "asks. Executed specs stay exactly as they are.";
 
     // 2026-10-08-f114: with nothing left to run, the only place the input can go is AFTER the head.
-    private static string AppendParagraph(SpecSet previous, string cause) =>
+    // 2026-10-13-8762u: at most the series' room, and no more than one attempt runs.
+    private static string AppendParagraph(SpecSet previous, string cause, SeriesConfig series) =>
         $"Every spec above has executed. Repeat them unchanged and ADD new specs after them that carry out "
         + $"what {Source(cause)} "
-        + $"asks — at most {SpecSet.MaxSpecs - previous.Executed.Count} new spec(s).";
+        + $"asks — at most {series.AppendRoom(previous.Executed.Count)} new spec(s).";
 
     private static string Source(string cause) => cause switch
     {

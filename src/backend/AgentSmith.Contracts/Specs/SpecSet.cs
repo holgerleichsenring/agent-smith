@@ -57,18 +57,6 @@ public sealed record SpecSet(
     public IReadOnlyList<DerivedSpec> ExecutedHead =>
         [.. Specs.TakeWhile(p => Executed.Contains(p.SpecId, StringComparer.Ordinal))];
 
-    /// <summary>
-    /// Cap on the specs one ticket may split into. Beyond this cap a ticket is a
-    /// programme and belongs in the spec dialogue, not in one coding run.
-    /// <para>
-    /// 2026-09-17-0e79e: the executor's command-execution guard is no longer a fixed
-    /// number this cap has to fit under — the budget follows the spec count
-    /// (<see cref="Pipeline.StepBudget"/>), so raising the cap raises the guard with it.
-    /// What the cap still decides is how much work one run may be asked to do.
-    /// </para>
-    /// </summary>
-    public const int MaxSpecs = 8;
-
     /// <summary>2026-10-06-03c7d: the series' goal the manifest carries — an epic's own goal, or
     /// null when nothing set one.</summary>
     public string? Goal { get; init; }

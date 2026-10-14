@@ -260,7 +260,7 @@ public sealed class SeriesContractRoundTests
 
     private static async Task<IReadOnlyList<string?>> Built(ReviewLoopRig rig)
     {
-        var spliced = await new SpecSequenceHandler(NullLogger<SpecSequenceHandler>.Instance)
+        var spliced = await new SpecSequenceHandler(AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), TimeProvider.System, NullLogger<SpecSequenceHandler>.Instance)
             .ExecuteAsync(new SpecSequenceContext(rig.Pipeline), default);
         return [.. spliced.InsertNext!.Where(c => c.SpecId is not null).Select(c => c.SpecId).Distinct()];
     }

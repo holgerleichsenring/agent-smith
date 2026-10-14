@@ -29,7 +29,7 @@ public sealed class SpecNamedOutcomeKindTests
         var reader = new SpecDraftReader();
         var resolver = new OutcomeProposalResolver(
             validator, reader, new BugOutcomeParser(),
-            new EpicOutcomeParser(validator, reader, new RequiresEdgeChecker(), DialogTestRepos.Real(), AgentSmith.Tests.TestSupport.SeriesContracts.Reader()),
+            new EpicOutcomeParser(validator, reader, new RequiresEdgeChecker(), DialogTestRepos.Real(), AgentSmith.Tests.TestSupport.SeriesContracts.Reader(), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader()),
             DialogTestRepos.Real());
 
         return resolver.Resolve($"Here.\n\n```outcome\nkind: {kind}\n```", []);

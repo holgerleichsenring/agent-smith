@@ -37,6 +37,6 @@ internal static class Continuations
             Amendments.Unused(), new ClosedTicketFollowUp(filer, new FollowUpLink(trackers, NullLogger<FollowUpLink>.Instance)),
             ApprovedSetDoubles.Recorder(), Mock.Of<ITicketActivityNudge>(),
             new OperatorStart(Mock.Of<IReworkNudges>(), trackers, FiledWorkDoubles.Move(), NullLogger<OperatorStart>.Instance),
-            NullLogger<TicketContinuationAct>.Instance);
+            SeriesSettingsDoubles.Reader(), NullLogger<TicketContinuationAct>.Instance);
     }
 }

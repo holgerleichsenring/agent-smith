@@ -139,7 +139,7 @@ internal sealed class ReviewLoopRig
         return Handler(reader.Object);
     }
 
-    public ReviewSpecsHandler Handler(ISpecReviewSettingsReader reader) => new(reader,
+    public ReviewSpecsHandler Handler(ISpecReviewSettingsReader reader, AgentSmith.Application.Services.Specs.ISeriesSettingsReader? series = null) => new(reader, series ?? AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(),
         new ApprovedSpecSetResolver(Mock.Of<ISpecApprovalStore>(), NullLogger<ApprovedSpecSetResolver>.Instance),
         Loop(), new ReviewExhaustion(NullLogger<ReviewExhaustion>.Instance),
         new ReviewObjectionPark(new SpecReviewRevision(Publisher.Object), NullLogger<ReviewObjectionPark>.Instance),

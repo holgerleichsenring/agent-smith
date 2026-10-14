@@ -22,6 +22,7 @@ public static class RunOutcomeWordingExtensions
         services.AddTransient<PullRequestOutcomePublisher>();
         services.AddTransient<FailureTicketComment>();
         services.AddTransient<ShortfallDelivery>();
+        services.AddTransient<SeriesChunkStop>().AddTransient<CodePullRequestBanner>(); // 2026-10-13-8762u
         services.AddTransient<UnverifiedWorkReverter>();
         services.AddTransient<Specs.VerifiedHeads>();
         return services;

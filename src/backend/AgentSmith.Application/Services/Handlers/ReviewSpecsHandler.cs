@@ -17,7 +17,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// joins the spec objections in the same decision, so one question lists both.
 /// </summary>
 public sealed class ReviewSpecsHandler(
-    ISpecReviewSettingsReader settings, ApprovedSpecSetResolver approvals, SpecReviewLoop loop,
+    ISpecReviewSettingsReader settings, ISeriesSettingsReader attempt, ApprovedSpecSetResolver approvals, SpecReviewLoop loop,
     ReviewExhaustion exhaustion, ReviewObjectionPark park, SeriesContractRound series, ILogger<ReviewSpecsHandler> logger) : ICommandHandler<ReviewSpecsContext>
 {
     public async Task<CommandResult> ExecuteAsync(ReviewSpecsContext context, CancellationToken cancellationToken)
@@ -27,7 +27,8 @@ public sealed class ReviewSpecsHandler(
         if (current is null) return CommandResult.Fail(failure!);
         var set = context.Pipeline.TryGet<SpecSet>(ContextKeys.SpecSet, out var s) ? s : null;
         var approved = approvals.Published(context.Pipeline);
-        var tail = set?.UnexecutedTail.Where(spec => !SpecApprovedText.Matches(approved, spec)).ToList() ?? [];
+        // 2026-10-13-8762u: only what this attempt can build — never a spec its chunk defers.
+        var tail = set?.UnexecutedTail.Take(attempt.Current().Series.SpecsPerAttempt).Where(spec => !SpecApprovedText.Matches(approved, spec)).ToList() ?? [];
         if (Skip(current, set, tail) is { } skip) return Done($"spec review skipped: {skip}");
         var run = new SpecReviewRun(context.Pipeline, current, context.AgentConfig, SpecReviewWiderGoal.Of(context.Ticket, set!));
         return await WalkAsync(run, tail, cancellationToken);

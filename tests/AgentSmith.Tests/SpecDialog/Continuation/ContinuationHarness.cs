@@ -73,6 +73,8 @@ internal sealed class ContinuationHarness : IDisposable
         services.AddScoped<TicketFilingOutcomeSink>();
         Loader.Setup(l => l.LoadConfig(It.IsAny<string>())).Returns(() => Config);
         services.AddSingleton(Loader.Object).AddSingleton(new ServerContext("config.yml"));
+        services.AddSingleton<AgentSmith.Application.Services.Specs.ISeriesSettingsReader,
+            AgentSmith.Application.Services.Specs.LoaderSeriesSettingsReader>(); // 2026-10-13-8762u: Config's series block
         services.AddTransient<TicketProjects>().AddTransient<TicketTranscriptReader>();
         services.AddScoped(_ => FiledWorkDoubles.Move(Routing)); // 2026-10-13-9a59m: before the registration's TryAdd
         services.AddScoped<FiledWorkStarter>().AddTransient<TicketKindResolver>(); // 2026-10-13-9a59t: a closed ticket's act files

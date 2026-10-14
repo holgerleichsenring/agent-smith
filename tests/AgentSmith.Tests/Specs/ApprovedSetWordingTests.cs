@@ -24,7 +24,7 @@ public sealed class ApprovedSetWordingTests
     [Fact]
     public void CutComment_ApprovedSet_PointsAtTheBranchSpecsInsteadOfAnAmendment()
     {
-        var body = SpecSetComment.Render(Set(approved: true), null);
+        var body = SpecSetComment.Render(Set(approved: true), null, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults);
 
         body.Should().Contain("edit the specs on the ticket branch")
             .And.Contain("will NOT change the specification");
@@ -37,7 +37,7 @@ public sealed class ApprovedSetWordingTests
     [Fact]
     public void CutComment_UnapprovedSet_KeepsTodaysWording()
     {
-        var body = SpecSetComment.Render(Set(approved: false), null);
+        var body = SpecSetComment.Render(Set(approved: false), null, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults);
 
         body.Should().Contain("comment if the cut is wrong")
             .And.Contain("re-cuts the unstarted tail");
@@ -47,8 +47,8 @@ public sealed class ApprovedSetWordingTests
     [Fact]
     public void CutComment_BothWordings_CarryTheCutMarker_AndAreNotTheSameSentence()
     {
-        var approved = SpecSetComment.Render(Set(approved: true), null);
-        var derived = SpecSetComment.Render(Set(approved: false), null);
+        var approved = SpecSetComment.Render(Set(approved: true), null, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults);
+        var derived = SpecSetComment.Render(Set(approved: false), null, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults);
 
         approved.Should().Contain(SpecSetComment.CutMarker);
         derived.Should().Contain(SpecSetComment.CutMarker);
@@ -72,7 +72,7 @@ public sealed class ApprovedSetWordingTests
     public void ApprovedSetNotice_NextRun_DoesNotReadItAsAForeignComment()
     {
         var cut = new TicketComment(
-            "agent-smith", ApprovedSets.Noon, SpecSetComment.Render(Set(approved: true), null));
+            "agent-smith", ApprovedSets.Noon, SpecSetComment.Render(Set(approved: true), null, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults));
         var notice = new TicketComment(
             "agent-smith", ApprovedSets.Noon.AddMinutes(1),
             ApprovedSetKept.Notice(Set(approved: true), SpecRevisionCause.Comment)!);

@@ -92,6 +92,8 @@ public sealed class TicketAwarePipelineLifecycleCoordinator(
         {
             if (_failed) return TicketLifecycleStatus.Failed;
             if (RunPark.IsWaitingForOperator(context)) return TicketLifecycleStatus.Waiting;
+            // 2026-10-13-8762u: an attempt that stopped at a series boundary is not finished — never Done, never parked.
+            if (context.TryGet<SpecSequenceProgress>(ContextKeys.SpecSequenceProgress, out var p) && p?.StoppedAtChunk == true) return TicketLifecycleStatus.Waiting;
             return RunShortfall.DeliveredOn(context) is null
                 ? TicketLifecycleStatus.Done
                 : TicketLifecycleStatus.Shortfall;

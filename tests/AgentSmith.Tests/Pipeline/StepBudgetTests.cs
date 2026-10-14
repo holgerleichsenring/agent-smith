@@ -24,7 +24,7 @@ public sealed class StepBudgetTests
     {
         // 22 literal commands + 8 specs x (6 block + 4 repair) = 102 today, and about 160
         // once the premise check and the review/fix pass join the block.
-        var budget = StepBudget.ForSpecs(SpecSet.MaxSpecs);
+        var budget = StepBudget.ForSpecs(AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults.SpecsPerAttempt);
 
         budget.Limit.Should().BeGreaterThan(StepBudget.Default,
             "a set at the spec cap does not fit the number a sequence-less preset has");
@@ -125,7 +125,7 @@ public sealed class StepBudgetTests
     }
 
     private static SpecSequenceHandler Sequence() =>
-        new(NullLogger<SpecSequenceHandler>.Instance);
+        new(AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), TimeProvider.System, NullLogger<SpecSequenceHandler>.Instance);
 
     private static Ticket Ticket() =>
         new(new TicketId("42"), "A ticket", "Its description", null, "Open", "Stub");

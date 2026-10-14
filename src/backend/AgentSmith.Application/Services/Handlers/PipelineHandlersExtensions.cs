@@ -182,7 +182,7 @@ public static class PipelineHandlersExtensions
         // p0504: the image ordering and which commands verify a repo — each its own type.
         // 2026-08-25-014d: the registry boundary reads configuration (per decision, 6bfab), so it is a service.
         services.AddSingleton<Sandbox.ISandboxSettingsReader, Sandbox.LoaderSandboxSettingsReader>()
-            .AddSingleton<Sandbox.IImageRegistryTrust, Sandbox.ImageRegistryTrust>();
+            .AddSingleton<Sandbox.IImageRegistryTrust, Sandbox.ImageRegistryTrust>().AddSingleton<Specs.ISeriesSettingsReader, Specs.LoaderSeriesSettingsReader>();
         services.AddSingleton<AgentSmith.Application.Services.Sandbox.SandboxImageChain>();
         services.AddTransient<DeclaredStagePresence>();
         services.AddTransient<VerifyStageResolver>().AddTransient<StageRelevance>();

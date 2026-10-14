@@ -12,7 +12,8 @@ namespace AgentSmith.Server.Services.Tickets;
 /// the ticket has no conversation, or the conversation holds no open proposal.
 /// </summary>
 public sealed class TicketApprovalPreview(
-    TicketProjects projects, TicketTranscriptReader transcript, TicketContinuationStateReader reader)
+    TicketProjects projects, TicketTranscriptReader transcript, TicketContinuationStateReader reader,
+    Application.Services.Specs.ISeriesSettingsReader series)
 {
     /// <param name="mayStartRuns">2026-10-13-9a59m: whether the caller holds runs.control — the start arm differs.</param>
     public async Task<TicketApprovalPreviewRead?> ReadAsync(string project, string ticketId, bool mayStartRuns, CancellationToken ct)
@@ -22,7 +23,7 @@ public sealed class TicketApprovalPreview(
         if (Proposal(json) is not { } proposal) return null;
         var read = await reader.ReadAsync(project, ticketId, mayStartRuns, ct);
         if (read.State is not { } state) return new(null, read.Failure);
-        var decision = TicketContinuation.Decide(state, proposal);
+        var decision = TicketContinuation.Decide(state, proposal, series.Current());
         return new(new TicketApprovalPreviewView(project, ticketId, decision.Effect, decision.Reason,
             decision.Executed, decision.Unstarted, decision.BasisRunId, decision.Specs, decision.Start), null);
     }

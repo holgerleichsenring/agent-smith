@@ -12,7 +12,8 @@ namespace AgentSmith.Application.Services.Specs;
 /// ids, the chained requires-edges, the schema-valid yaml and the byte-exact
 /// markdown companions.
 /// </summary>
-public sealed class SpecDerivationParser(DerivedSpecSequence specs, SpecDerivationEnvelope envelope, SeriesContractReader contracts)
+public sealed class SpecDerivationParser(
+    DerivedSpecSequence specs, SpecDerivationEnvelope envelope, SeriesContractReader contracts, ISeriesSettingsReader series)
 {
     /// <param name="Uncited">2026-10-12-3a36b: why a contradiction hand-back cites no look this derivation
     /// took; it is still parsed, and whether it is asked again or parks is the deriver's call.</param>
@@ -82,9 +83,9 @@ public sealed class SpecDerivationParser(DerivedSpecSequence specs, SpecDerivati
         if (specElements.Count == 0)
             return new Parsed(null,
                 envelope.HandbackRejection(root) ?? "the reply carried neither a spec nor a hand-back");
-        if (specElements.Count > SpecSet.MaxSpecs)
-            return new Parsed(null,
-                $"{specElements.Count} specs exceed the maximum of {SpecSet.MaxSpecs} — merge the smaller ones");
+        // 2026-10-13-8762u: a fresh cut runs in one attempt; a re-cut repeats the head and is bounded by the series.
+        if (series.Current().Series.DerivationRefusal(source != SpecSource.Derived, specElements.Count) is { } over)
+            return new Parsed(null, over);
 
         // 2026-10-08-f114: the head's positions are discarded, but a reply that does not even reach
         // past them dropped the set it was asked to repeat — refused, so the deriver asks again.

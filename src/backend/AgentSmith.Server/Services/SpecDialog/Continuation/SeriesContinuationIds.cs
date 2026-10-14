@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Specs;
 
 namespace AgentSmith.Server.Services.SpecDialog.Continuation;
@@ -15,14 +16,16 @@ namespace AgentSmith.Server.Services.SpecDialog.Continuation;
 public static class SeriesContinuationIds
 {
     public static TicketContinuationDecision Continue(
-        TicketContinuationState state, IReadOnlyList<SpecDraft> drafts, bool epic)
+        TicketContinuationState state, IReadOnlyList<SpecDraft> drafts, bool epic, SeriesSettings settings)
     {
+        ArgumentNullException.ThrowIfNull(settings);
         var executed = state.ExecutedIds.ToHashSet(StringComparer.Ordinal);
         var basis = state.Basis.GroupBy(b => b.SpecId, StringComparer.Ordinal).ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
         var taken = new HashSet<string>(basis.Keys.Concat(executed), StringComparer.Ordinal);
         taken.UnionWith(state.Record?.Set.Specs.Select(s => s.SpecId) ?? []);
         var ids = new Dictionary<string, string>(StringComparer.Ordinal);
         var specs = new List<TicketContinuationSpec>();
+        var pastZ = false;
         foreach (var draft in drafts.Where(d => !ids.ContainsKey(d.SpecId)))
         {
             ids[draft.SpecId] = draft.SpecId;
@@ -34,7 +37,8 @@ public static class SeriesContinuationIds
                     unstarted.Yaml == draft.Yaml ? SpecDispositionKinds.Kept : SpecDispositionKinds.Recut));
             else
             {
-                var next = SeriesIdFactory.NextFree(state.Series ?? string.Empty, 0, taken).Id;
+                var (next, index) = SeriesIdFactory.NextFree(state.Series ?? string.Empty, 0, taken);
+                pastZ |= index >= SeriesConfig.MemberLetters; // 2026-10-13-8762u: dropped ids stay taken
                 taken.Add(next);
                 ids[draft.SpecId] = next;
                 specs.Add(new(next, draft.Goal, SpecDispositionKinds.Appended));
@@ -47,14 +51,15 @@ public static class SeriesContinuationIds
 
         var unstartedCount = specs.Count(s => s.Disposition != SpecDispositionKinds.Dropped && !executed.Contains(s.SpecId));
         var recorded = Reid(drafts.Where(d => !executed.Contains(d.SpecId)).DistinctBy(d => d.SpecId), ids);
-        if (executed.Count + unstartedCount > SpecSet.MaxSpecs)
-            return new(TicketContinuationEffects.RefusedOverCap,
-                $"The series of ticket {state.TicketId} would hold {executed.Count} executed and {unstartedCount} unstarted "
-                    + $"spec(s), more than the {SpecSet.MaxSpecs} one ticket may hold. Nothing was recorded; propose fewer specs.",
-                executed.Count, unstartedCount, state.BasisRunId, specs, recorded) { Ids = ids };
-        return new(TicketContinuationEffects.Continue,
-            $"Ticket {state.TicketId}'s next attempt works its series continued by this approval: {executed.Count} spec(s) "
-                + $"already ran and stay as they ran, {unstartedCount} are still to run.",
+        // 2026-10-13-8762u: the series cap and the member letters, read live; an invalid block refuses naming its field.
+        var over = pastZ ? $"has used its {SeriesConfig.MemberLetters} member letters (a..z); an appended spec would need one more"
+            : executed.Count + unstartedCount > settings.Series.MaxSpecs ? $"would hold {executed.Count} executed and {unstartedCount} "
+                + $"unstarted spec(s), more than series.max_specs ({settings.Series.MaxSpecs})" : null;
+        var (effect, reason) = settings.Refusal() is { } invalid ? (TicketContinuationEffects.Refused, $"{invalid}. Nothing was recorded.")
+            : over is not null ? (TicketContinuationEffects.RefusedOverCap, $"The series of ticket {state.TicketId} {over}. Nothing was recorded; propose fewer specs.")
+            : (TicketContinuationEffects.Continue, $"Ticket {state.TicketId}'s next attempt works its series continued by this approval: "
+                + $"{executed.Count} spec(s) already ran and stay as they ran, {unstartedCount} are still to run.");
+        return new(effect, reason,
             executed.Count, unstartedCount, state.BasisRunId, specs, recorded) { Ids = ids };
     }
 

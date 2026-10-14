@@ -20,7 +20,8 @@ namespace AgentSmith.Server.Services.SpecDialog.Continuation;
 public sealed class TicketContinuationAct(
     AgentSmithConfig config, SpecDialogTicketTextRepository ticketText, TicketContinuationStateReader reader,
     TicketAmendment amendment, ClosedTicketFollowUp followUp, ApprovedSpecSetRecorder approvals,
-    ITicketActivityNudge activity, OperatorStart starter, ILogger<TicketContinuationAct> logger)
+    ITicketActivityNudge activity, OperatorStart starter, Application.Services.Specs.ISeriesSettingsReader series,
+    ILogger<TicketContinuationAct> logger)
 {
     public async Task<TicketContinuationOutcome> ApplyAsync(
         ConversationState state, OutcomeProposal proposal, bool mayStartRuns, CancellationToken ct)
@@ -32,7 +33,7 @@ public sealed class TicketContinuationAct(
                 + "ticket to continue. Nothing was recorded.", false);
         var read = await reader.ReadAsync(name, ticketId, mayStartRuns, ct);
         if (read.State is not { } current) return new(read.Failure!, false);
-        var decision = TicketContinuation.Decide(current, proposal);
+        var decision = TicketContinuation.Decide(current, proposal, series.Current());
         logger.LogInformation("Approval in conversation {Session} on ticket {Ticket}: {Effect}", state.JobId, ticketId, decision.Effect);
         switch (decision.Effect)
         {

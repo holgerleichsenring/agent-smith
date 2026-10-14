@@ -58,6 +58,8 @@ internal sealed class TicketStoreHarness : IDisposable
         Loader.Setup(l => l.LoadConfig(It.IsAny<string>())).Returns(() => Config);
         Trackers.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(() => Tracker.Object);
         services.AddSingleton(Loader.Object).AddSingleton(new ServerContext("config.yml"));
+        services.AddSingleton<AgentSmith.Application.Services.Specs.ISeriesSettingsReader,
+            AgentSmith.Application.Services.Specs.LoaderSeriesSettingsReader>(); // 2026-10-13-8762u
         services.AddSingleton(Trackers.Object).AddSingleton(Activity.Object);
         services.AddSingleton<TrackerIdentity>();
         services.AddScoped<IPrReviewRecordReader>(sp => sp.GetRequiredService<PrReviewRecordRepository>());

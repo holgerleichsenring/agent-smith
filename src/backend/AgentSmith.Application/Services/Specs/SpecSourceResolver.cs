@@ -32,6 +32,7 @@ public sealed class SpecSourceResolver(
     ApprovedSetHandoff handoff,
     ApprovedContinuation continuation, // 2026-10-13-9a59l
     FiledTicketSpecGate filedGate,
+    ISeriesSettingsReader series, // 2026-10-13-8762u
     ILogger<SpecSourceResolver> logger)
 {
     /// <summary>What the run should work from, and whether the model has to be called.</summary>
@@ -85,7 +86,7 @@ public sealed class SpecSourceResolver(
             var artifact = read with { Set = SpecRecutDemand.PreviousOf(read) };
             if (continuation.Decide(artifact.Set, record, cause) is { } continued) return continued;
             // 2026-10-13-8762h: a review-objection question is stripped; a bare re-trigger over it, asked, builds unchanged.
-            var (set, amend) = Review.ReviewObjectionSource.Decide(artifact.Set, cause, pipeline, foreignCommitSinceHandback);
+            var (set, amend) = Review.ReviewObjectionSource.Decide(artifact.Set, cause, pipeline, foreignCommitSinceHandback, series.Current().Series);
             var expired = foreignCommitSinceHandback && set.IsHandedBack;
             logger.LogInformation(
                 "Spec set {Key} came off the ticket branch ({Specs} spec(s)); {Mode}",

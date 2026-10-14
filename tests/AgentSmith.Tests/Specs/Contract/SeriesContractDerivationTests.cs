@@ -111,7 +111,7 @@ public sealed class SeriesContractDerivationTests
     [Fact]
     public void PreviousCutPromptSection_PreviousContract_IsRendered()
     {
-        var section = PreviousCutPromptSection.Render(Previous(), SpecRevisionCause.Retrigger);
+        var section = PreviousCutPromptSection.Render(Previous(), SpecRevisionCause.Retrigger, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults);
 
         section.Should().Contain("## The series contract")
             .And.Contain($"- name: event 'SpecReviewRound' = 87, owner {Series}a, writers {Series}b");
@@ -120,9 +120,9 @@ public sealed class SeriesContractDerivationTests
     [Fact]
     public void PreviousCutPromptSection_PreviousContract_SaysMembersByPosition()
     {
-        PreviousCutPromptSection.Render(Previous(), SpecRevisionCause.Retrigger)
+        PreviousCutPromptSection.Render(Previous(), SpecRevisionCause.Retrigger, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults)
             .Should().Contain("name members by their position in your reply; only executed specs keep their ids");
-        PreviousCutPromptSection.Render(Previous() with { Contract = null }, SpecRevisionCause.Retrigger)
+        PreviousCutPromptSection.Render(Previous() with { Contract = null }, SpecRevisionCause.Retrigger, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults)
             .Should().NotContain("series contract");
     }
 
@@ -135,7 +135,7 @@ public sealed class SeriesContractDerivationTests
             AgentSmith.Tests.TestSupport.CutReviewSteps.Of(new CleanReviewer()),
             new SpecDerivationCall(new CappingFactory(provider), new AsyncLocalRunContextAccessor(), Proof()),
             Factory(), new FixedPrompt(), DerivationTestParsers.Real(), new ScopedContextCoverage(),
-            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Gate(), NullLogger<SpecSetDeriver>.Instance);
+            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Gate(), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), NullLogger<SpecSetDeriver>.Instance);
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.Sandboxes, (IReadOnlyDictionary<string, ISandbox>)
             new Dictionary<string, ISandbox> { [Repo] = new CountingSandbox(0) });

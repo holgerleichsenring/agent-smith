@@ -321,6 +321,8 @@ public sealed class ServerDiLifetimeTests
                 // p0315a: production always wires the relational store (p0246g);
                 // mirroring it here keeps scoped repo chains (spec-dialog) valid.
                 .AddRelationalPersistence()
+                // 2026-10-13-8762u: the access store's admin route — the stored series reader reads the config store.
+                .AddCallerIdentity()
                 .AddSandbox()
                 .AddSandboxOptions(configuration)
                 .AddSandboxGlobalConfig()

@@ -143,7 +143,7 @@ public sealed class SeriesContractFilingTests
     {
         var validator = new SpecDraftValidator(new SpecSchemaProvider());
         var parser = new EpicOutcomeParser(validator, new SpecDraftReader(), new RequiresEdgeChecker(),
-            DialogTestRepos.Real(), SeriesContracts.Reader());
+            DialogTestRepos.Real(), SeriesContracts.Reader(), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader());
         return parser.Parse(OutcomeYamlReader.ReadMap($"""
             kind: epic
             parent:

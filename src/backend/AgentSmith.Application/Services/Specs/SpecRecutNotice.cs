@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Specs;
 
 namespace AgentSmith.Application.Services.Specs;
@@ -18,9 +19,11 @@ namespace AgentSmith.Application.Services.Specs;
 /// </summary>
 public static class SpecRecutNotice
 {
-    public static string Render(SpecSet set)
+    /// <param name="series">2026-10-13-8762u: the series block; a set is full at series.max_specs executed.</param>
+    public static string Render(SpecSet set, SeriesConfig series)
     {
         ArgumentNullException.ThrowIfNull(set);
+        ArgumentNullException.ThrowIfNull(series);
         var (since, source) = set.Current.Cause switch
         {
             SpecRevisionCause.TicketEdit => ("The ticket text changed since", "from the current text"),
@@ -36,9 +39,9 @@ public static class SpecRecutNotice
         };
         if (since is null) return string.Empty;
         // 2026-10-08-f114: at the cap the model did not run, so nothing was cut again or added.
-        if (set.UnexecutedTail.Count == 0 && set.Executed.Count >= SpecSet.MaxSpecs)
-            return $"{since} revision {set.Current.Number - 1} was cut, but all {SpecSet.MaxSpecs} specs of this set "
-                + "have run — the most one set can hold — so nothing was added. File the feedback as a new ticket.\n\n";
+        if (set.UnexecutedTail.Count == 0 && set.Executed.Count >= series.MaxSpecs)
+            return $"{since} revision {set.Current.Number - 1} was cut, but all {series.MaxSpecs} specs of this series "
+                + "have run — the most one series can hold — so nothing was added. File the feedback as a new ticket.\n\n";
         return $"{since} revision {set.Current.Number - 1} was cut: {Kept(set)} {source}.\n\n";
     }
 

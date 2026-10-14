@@ -264,6 +264,20 @@
         }
       }
     },
+    "series": {
+      "type": "object",
+      "description": "A ticket's spec series: how many specs it may hold, how many one attempt runs, and the measured seconds of one spec block the attempt is sized against the run wall clock by. Global; read live per run.",
+      "additionalProperties": false,
+      "properties": {
+        "max_specs": { "type": "integer", "minimum": 1, "maximum": 26, "description": "The most specs one series may hold (member letters a..z). Default 24." },
+        "specs_per_attempt": { "type": "integer", "minimum": 1, "maximum": 18, "description": "The most specs one attempt runs; at most max_specs and the 18 the step guard holds. The rest stay not started and the ticket waits. Default 8." },
+        "seconds_per_spec": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The measured seconds of ONE WHOLE spec block (master, premise, verify, review, fix pass, record). An attempt runs at most (seconds left / seconds_per_spec) - 1 specs, one block reserved for the commit-and-PR tail; two blocks must fit orchestrator.max_run_wall_time_seconds. 0 = not measured: the attempt is specs_per_attempt. This repository measured 1294 (a lower bound). Default 0."
+        }
+      }
+    },
     "dialogue": {
       "type": "object",
       "description": "How a run waits for a person, and where that person answers.",

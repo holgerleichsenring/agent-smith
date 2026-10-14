@@ -41,6 +41,7 @@ public sealed class SpecSetDeriver(
     SpecDerivationParser parser,
     ScopedContextCoverage coverage,
     ContradictionHandbackGate handbacks,
+    ISeriesSettingsReader seriesSettings,
     ILogger<SpecSetDeriver> logger) : ISpecSetDeriver
 {
     /// <summary>Name of the pinned master skill carrying the judgement prompt.</summary>
@@ -59,8 +60,9 @@ public sealed class SpecSetDeriver(
         await using var owned = look; // 2026-09-13-84c0: it owns any template scope it made
 
         var named = pipeline.TryGet<ScopeNamedContexts>(ContextKeys.ScopeNamedContexts, out var n) ? n : null;
+        var block = seriesSettings.Current().Series; // 2026-10-13-8762u: a fresh cut runs in one attempt, a re-cut in the series
         var messages = SpecDerivationMessages.Opening(
-            RenderSystemPrompt(), ticket, segments, previous, cause, pipeline, look, repositories);
+            RenderSystemPrompt(block.DerivationLimit(previous is not null)), ticket, segments, previous, cause, pipeline, look, repositories, block);
 
         var attempts = new DerivationAttempts(MaxAttempts);
         for (var attempt = 1; attempt <= attempts.Bound; attempt++)
@@ -106,8 +108,8 @@ public sealed class SpecSetDeriver(
         return attempts.Exhausted;
     }
 
-    private string RenderSystemPrompt() => prompts.Render(SkillName, new Dictionary<string, string>
+    private string RenderSystemPrompt(int maxSpecs) => prompts.Render(SkillName, new Dictionary<string, string>
     {
-        ["MaxSpecs"] = SpecSet.MaxSpecs.ToString(),
+        ["MaxSpecs"] = maxSpecs.ToString(System.Globalization.CultureInfo.InvariantCulture),
     });
 }

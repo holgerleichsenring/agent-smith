@@ -42,6 +42,8 @@ internal static class ServerSandboxExtensions
         services.AddSingleton<ISandboxSettingsReader, StoredSandboxSettingsReader>();
         services.RemoveAll<Application.Services.Specs.Review.ISpecReviewSettingsReader>(); // 2026-10-13-8762g
         services.AddSingleton<Application.Services.Specs.Review.ISpecReviewSettingsReader, StoredSpecReviewSettingsReader>();
+        services.RemoveAll<Application.Services.Specs.ISeriesSettingsReader>(); // 2026-10-13-8762u
+        services.AddSingleton<Application.Services.Specs.ISeriesSettingsReader, StoredSeriesSettingsReader>();
         return services;
     }
 

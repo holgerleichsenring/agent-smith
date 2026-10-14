@@ -66,7 +66,7 @@ public sealed class OverruleCauseTests
             Ticket(), Pipeline(Attempt(Overruled(30))));
 
         cause.Should().Be(SpecRevisionCause.Overrule);
-        SpecAmendmentRule.NeedsModel(cause, Executed(2, Prior)).Should().BeTrue("an overrule re-derives an approved, executed set");
+        SpecAmendmentRule.NeedsModel(cause, Executed(2, Prior), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults).Should().BeTrue("an overrule re-derives an approved, executed set");
         SpecAmendmentRule.IsAppend(cause, Executed(2)).Should().BeTrue();
         SpecRevisionCause.For(new SpecSetReadResult(Executed(2), "sha"), new SpecSetPointer("k", "primary", "sha", 1),
             Ticket(), Pipeline(Attempt(Overruled(-10)))).Should().Be(SpecRevisionCause.Retrigger);
@@ -75,15 +75,15 @@ public sealed class OverruleCauseTests
     [Fact]
     public void SpecRecutNotice_Overrule_FullSet_SaysNothingWasAdded()
     {
-        SpecRecutNotice.Render(Executed(SpecSet.MaxSpecs, cause: SpecRevisionCause.Overrule))
+        SpecRecutNotice.Render(Executed(AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults.MaxSpecs, cause: SpecRevisionCause.Overrule), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults)
             .Should().StartWith("A default was overruled on the ticket after").And.Contain("nothing was added");
-        SpecRecutNotice.Render(Executed(2, cause: SpecRevisionCause.Overrule)).Should().Contain("with the overrule in view");
+        SpecRecutNotice.Render(Executed(2, cause: SpecRevisionCause.Overrule), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults).Should().Contain("with the overrule in view");
     }
 
     [Fact]
     public void PreviousCutPrompt_Overrule_AppendNamesTheOverruledDefaultsSection()
     {
-        var rendered = PreviousCutPromptSection.Render(Executed(2), SpecRevisionCause.Overrule);
+        var rendered = PreviousCutPromptSection.Render(Executed(2), SpecRevisionCause.Overrule, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults);
 
         rendered.Should().Contain("A person overruled a default").And.Contain("ADD new specs after them that carry out what the overruled defaults section asks");
     }
@@ -92,7 +92,7 @@ public sealed class OverruleCauseTests
     public void SpecSourceResolver_Overrule_KeepsTheApproval_AndReDerives()
     {
         var decision = new SpecSourceResolver(new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance), ApprovedSetDoubles.Continuation(),
-                new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance), NullLogger<SpecSourceResolver>.Instance)
+                new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), NullLogger<SpecSourceResolver>.Instance)
             .Decide(SpecSetOnBranch.Answered(new SpecSetReadResult(Executed(2, Prior), "sha")), Ticket(),
                 new SpecSetPointer("k", "primary", "sha", 1), Pipeline(Attempt(Overruled(30))), "k",
                 AgentSmith.Contracts.Tickets.TicketLabelVocabulary.ForOptional(null));
