@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-09-19-c511c
+
+decisions:
+  - category: Architecture
+    chose: "MaximumConsecutiveErrorsPerRequest = 3, declared once in ToolLoopErrorTolerance and applied by every factory that builds a tool loop"
+    over: "Raising it to buy tolerance for a broken tool; leaving the framework default; a decorator in SkillCallRuntime.WrapTools"
+    reason: |
+      The code gives no measured reason to move it. The one run it decided (2026-09-17T14-41-51-a3e2)
+      died on a broken sink, which 2026-09-19-c511b fixed in the sink. Three answers "the loop is stuck",
+      and a tool whose failure is recoverable returns that in its result (FilesystemToolHost routing,
+      the decision sink). Pinned at the call count: the fourth consecutive failure is the fourth and
+      last provider request, and it rethrows.
+  - category: Security
+    chose: "IncludeDetailedErrors = true: the model reads the failed tool's exception message"
+    over: "Keeping the generic 'function failed' text"
+    reason: |
+      The model could not see why a call failed, so it could only reword it. The detail is the exception
+      message only (Microsoft.Extensions.AI 10.3.0: no stack, no inner exception). It reaches nobody
+      new. Tool results already carry raw command output and file contents to the same provider, unmasked.
+      WebToolHost.cs:84 and EnsureRepoSandboxToolHost.cs:64 already return ex.Message as their result.
+      EventPublishingAIFunction and TracingAIFunction already record it for operators. The only tool whose
+      result is a secret (get_artifact_credentials) hands the secret to the model on success. Its tool
+      message is scrubbed from later turns by call id, whether it failed or not
+      (SensitiveToolHistoryScrubChatClient).
+  - category: Implementation
+    chose: "Re-grounded citations: ChatClientFactory.cs:177 is now :203, ReplayChatClientFactory.cs:29 is now :31, SkillCallRuntime.cs:134 is now :133; MasterLoopHooks.cs:62 still names MasterBudgetExhaustedException (now :67)"
+    over: "Building against the line numbers in the spec"
+    reason: |
+      The spec was written 2026-09-19. Every cited site still has the same meaning, so the scope is unchanged.
+      The master does not run through SkillCallRuntime. It runs AgenticLoopRunner, and
+      AgenticMasterHandler.cs:412-440 catches the rethrow. Budget exhaustion gets its own catch. Any
+      other exception becomes MasterOutcomes.DescribeMasterFailure. So the at-the-limit test pins that
+      classification, not OutcomeClassifier.
+  - category: Implementation
+    chose: "The harness ScriptedChatClientFactoryAdapter applies the same declaration as the replay factory"
+    over: "Changing only the replay factory, as the spec names"
+    reason: |
+      The adapter says it wraps 'the same FunctionInvokingChatClient as production'. A scripted run that
+      survived a failure a live run does not would prove the wrong thing. The two LLM eval factories
+      (ToolLoopChatFactory, AccountEvalChatFactory) measure answer quality, not failure semantics, so they
+      stay as they are.
+  - category: Implementation
+    chose: "Removed the stale spec-name-baseline.tsv rows for 2026-09-05-c4e1, 2026-09-15-7d3c and 2026-09-19-c511c"
+    over: "Leaving SpecFacts_StaleBaselineRow_Fails red"
+    reason: |
+      c4e1 and 7d3c moved to done/ in the planning commit b97025134, which left their baseline rows stale
+      and the suite red. This commit moves c511c to done/, which does the same to its row.

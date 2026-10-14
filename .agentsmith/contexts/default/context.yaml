@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-09-19-c511c: "TOOL-LOOP ERROR TOLERANCE IS DECLARED, NOT INHERITED (chat-client factories). Three consecutive failing tool iterations, then the fourth rethrows and ends the master as a classified failure; the model reads the exception message. Live, replay and scripted loops share one declaration. -> .agentsmith/specs/done/2026-09-19-c511c-loop-error-tolerance-declared.yaml"
     2026-09-20-443a: "RETIRED (2026-10-14, superseded before it was built by 2026-10-13-8762c): absorbed into the 8762 series written from the current code. Moved to done/ as historical record, never implemented. -> .agentsmith/specs/done/2026-09-20-443a-verify-stages-declared.yaml"
     2026-09-05-c4e1: "RETIRED (2026-10-14, superseded before it was built by 2026-10-13-8762g): absorbed into the 8762 series written from the current code. Moved to done/ as historical record, never implemented. -> .agentsmith/specs/done/2026-09-05-c4e1-spec-review-unsatisfiable.yaml"
     2026-09-15-7d3c: "RETIRED (2026-10-14, superseded before it was built by 2026-10-13-8762h): absorbed into the 8762 series written from the current code. Moved to done/ as historical record, never implemented. -> .agentsmith/specs/done/2026-09-15-7d3c-review-objection-asks-once.yaml"
