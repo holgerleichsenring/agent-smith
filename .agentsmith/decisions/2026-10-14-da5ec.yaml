@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-14-da5ec
+
+decisions:
+  - category: Implementation
+    chose: "THE RECORD ENDS THE WAIT: post records {read count, transcript length}; a read issued after it that shows computing false, a longer transcript and an assistant turn last ends the wait (recordedReply.ts, one pure rule)"
+    over: "A poll while awaiting; comparing the reply's timestamp with the post time"
+    reason: |
+      The read on Connected already happens after a reconnect, which is when a push is lost. Positions
+      need no clock, so a server and a browser that disagree on the time cannot end or hold the wait wrongly.
+  - category: Implementation
+    chose: "The read that ends the wait clears the working state only; it does not add the reply to the hook's entries"
+    over: "Reseeding entries from that read, or appending the stored turn"
+    reason: |
+      The ticket page renders its thread from the ticket store, not from the hook's entries. Reseeding drops
+      framework lines and an append would be doubled by a late push. Work it out still shows the reply text
+      only once its push or a reload arrives.
+  - category: Implementation
+    chose: "A failed dialog join is remembered inside the subscription effect and re-issued on Connected (once, not while one is in flight); success clears exactly that failure and runs the queued resume"
+    over: "Retrying in JobsHubClient.join for every group"
+    reason: |
+      The resume waits for the join, so the ticket composer's queued send stood still for ever. The hook
+      owns both the failure and the queue; the client's rejoin covers only groups that once succeeded.
+  - category: Architecture
+    chose: "Child tools wrapped with TurnActivityTools.Reporting where MasterToolComposition composes them; SubAgentRunner opens SubAgentActivityFrame.Open(spec.Name) per child; NamedTurnActivityObserver rewrites Name to 'child › tool'"
+    over: "Prefixing the detail; wrapping inside SubAgentRunner"
+    reason: |
+      The line renders 'name detail', so a named tool keeps its detail readable. The runner already exceeds
+      the length limit; the frame is one using line and the naming lives in its own types.
+  - category: Implementation
+    chose: "The composer renders DialogWorking in a cp-body mock-dialog wrapper that keeps the ticket-working test id"
+    over: "A ticket-specific progress component"
+    reason: |
+      Work it out and the ticket conversation are one hook and one turn; the same component shows the same
+      readings, steps, elapsed seconds and step count.
+  - category: Implementation
+    chose: "SubAgentRunner stays at its 242-line ratchet baseline: three phase-history comment lines were condensed to pay for the using, the constructor parameter and the frame line"
+    over: "Raising the baseline; extracting the loop-request builder in this spec"
+    reason: |
+      The baseline may only shrink, and the spec allows no other change to the class; condensing comments
+      changes no behaviour.

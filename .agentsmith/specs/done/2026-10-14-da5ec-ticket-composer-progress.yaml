@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-14-da5ec
+goal: "While the agent works on a ticket conversation the composer shows what it is doing, and the waiting line ends as soon as a reply is recorded even if its push was lost."
+
+applies_to: "dashboard (ticket composer, useSpecDialog, hub subscription) + backend (sub-agent tool activity)"
+
+requires:
+  - 2026-10-13-9a59r
+
+facts:
+  - claim: "The ticket composer shows only a static 'Agent Smith is writing a reply…' while dialog.working, although useSpecDialog exposes activity, readings and workingSince."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketComposer.tsx:50-68, src/dashboard/src/hooks/useSpecDialog.ts:104-116,221-229,650-654"
+  - claim: "Work it out renders DialogWorking (readings, step lines, elapsed time, step count) from the same hook."
+    evidence: "src/dashboard/src/components/dialog/SpecDialogSurface.tsx:400-402, src/dashboard/src/components/dialog/DialogWorking.tsx:44-60"
+  - claim: "awaiting is set after the POST and cleared only by a matching SpecDialogMessage push; reloads update computing only."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:298,429,469,477-479"
+  - claim: "A dialog subscription that fails while the hub reconnects is dropped and only retried when the dialog id changes."
+    evidence: "src/dashboard/src/lib/JobsHubClient.ts:170-184,355, src/dashboard/src/hooks/useSpecDialog.ts:420-500"
+  - claim: "Sub-agent tool calls are not announced as turn activity; only the spawn_agents call is."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:104, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:381-384"
+  - claim: "In production a bound turn ran about 80 seconds with only the static line visible."
+    evidence: "observed: 2026-10-14, production SpecDialogSessions row of ticket azuredevops-19478, user turn 15:13:39, reply 15:14:57"
+
+scope:
+  in: >
+    TicketComposer renders DialogWorking inside a mock-dialog wrapper in place of the static line, fed by the hook's
+    activity, readings and workingSince. useSpecDialog records the transcript length at post time and clears awaiting
+    when a read issued after the post shows computing false, a transcript longer than that position and an assistant
+    turn last — so a lost reply push ends on the next read; the trigger is the existing read on Connected, no poll is
+    added. A dialog subscription that failed while the hub reconnected is re-issued on Connected; a successful re-join
+    clears the join failure and runs the queued resume. Sub-agent tools are wrapped for activity reporting where the
+    child tool list is composed, and SubAgentRunner opens a named observer frame per child so its lines name the
+    sub-agent, adding no code to that class beyond opening the frame.
+  out: >
+    A SignalR backplane: production runs one server replica. Answers that are pushed but never stored (a refused
+    turn, a failed turn, no dialog open) stay push-only; they end the wait when they arrive, as today.
+
+decisions:
+  - key: "THE RECORD ENDS THE WAIT — a push is a hint; the stored assistant turn is the fact, so a read that shows it ends the waiting state."
+
+steps:
+  - id: composer
+    action: "TicketComposer renders DialogWorking."
+  - id: awaiting
+    action: "useSpecDialog clears awaiting from a load that shows the reply."
+  - id: resubscribe
+    action: "Re-issue the dialog subscription on Connected after a failed join."
+  - id: child-activity
+    action: "Wrap the child tool list with the reporting wrapper where it is composed; SubAgentRunner opens a named observer frame per child."
+  - id: tests
+    action: "Red first: the tests below."
+
+tests:
+  - "TicketComposer: while working it shows the readings and step lines and the elapsed time"
+  - "useSpecDialog: a read after the post showing a longer transcript ending in an assistant turn clears the waiting state without a push; the previous reply still last does not; server and browser clocks do not matter"
+  - "useSpecDialog: a failed join is re-issued when the hub reconnects, clears the failure, and the ticket composer's queued send then goes out"
+  - "SpecDialogSubAgent: a child's tool call is reported as activity naming the sub-agent"
+
+done:
+  - "A ticket conversation turn that reads code shows each file and search as it happens, and never stays on the waiting line after the reply is stored."
+  - "Backend and dashboard build and tests green."

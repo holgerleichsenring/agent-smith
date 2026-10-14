@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Persistence.Extensions;
 using System.Reflection;
 using AgentSmith.Application.Services.RedisDisabled;
 using AgentSmith.Contracts.Models;
@@ -213,6 +214,8 @@ public sealed class NonDiCtorRuleTests
                 // p0315a: production always wires the relational store (p0246g);
                 // mirroring it here keeps scoped repo chains (spec-dialog) valid.
                 .AddRelationalPersistence()
+                // 2026-10-14-da5ed: as production does — the conversation's start asks through RunRetry's store.
+                .AddServerState()
                 .AddSandbox()
                 .AddSandboxOptions(configuration)
                 .AddSandboxGlobalConfig()

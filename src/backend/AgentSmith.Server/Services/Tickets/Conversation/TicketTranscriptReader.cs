@@ -13,8 +13,8 @@ namespace AgentSmith.Server.Services.Tickets.Conversation;
 
 /// <summary>
 /// 2026-10-13-9a59h: the ticket's bound Work it out conversation, found by (tracker name, TicketKey) without
-/// asking the tracker. A turn names its role, never an author: a bound conversation is shared by everyone who
-/// reaches the dialog surface, so the session's owner is not a turn's author.
+/// asking the tracker. A bound conversation is shared by everyone who reaches the dialog surface, so the session's
+/// owner is not a turn's author: a person's turn shows the name it recorded, and one that recorded none its role.
 /// </summary>
 public sealed class TicketTranscriptReader(IServiceScopeFactory scopes, ILogger<TicketTranscriptReader> logger)
 {
@@ -32,7 +32,7 @@ public sealed class TicketTranscriptReader(IServiceScopeFactory scopes, ILogger<
                 $"{TicketConversationSources.Conversation}:{session.SessionId}:{i}", null, null,
                 TicketConversationSources.Conversation, TicketConversationKinds.Turn,
                 turn.Role == TranscriptRole.User ? TicketConversationRoles.Person : TicketConversationRoles.Agent,
-                null, turn.Role == TranscriptRole.Assistant, turn.At, null, null, turn.Text,
+                turn.Author, turn.Role == TranscriptRole.Assistant, turn.At, null, null, turn.Text,
                 Format: turn.Role == TranscriptRole.User ? TicketTextFormat.Text : TicketTextFormat.Markdown));
 
     /// <summary>The open proposal and its drafts; null when none is open.</summary>

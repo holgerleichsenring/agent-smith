@@ -204,6 +204,30 @@ public sealed class DialogLatestOutcomeViewTests : IDisposable
             .Should().Be(SpecDialogLatestOutcome.None, "a turn must not fail for want of a record");
     }
 
+    [Fact]
+    public async Task StewardTakeover_ClearsAStoredProposal()
+    {
+        var state = await ConversationAsync((TranscriptRole.Assistant, Draft));
+        var latest = new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), NullLogger<SpecDialogLatestOutcomeStore>.Instance);
+        await latest.SetProposalAsync(Platform, Dialog, Proposal(), CancellationToken.None);
+
+        await Flow().HandleAsync(state, new AnswerOutcome(), false, CancellationToken.None, stewarded: true);
+
+        (await ReadAsync()).Proposal.Should().BeNull("the steward changes the series with edit_series, not a stale card");
+    }
+
+    [Fact]
+    public async Task DesignPartnerAnswer_KeepsAStoredProposal()
+    {
+        var state = await ConversationAsync((TranscriptRole.Assistant, Draft));
+        var latest = new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), NullLogger<SpecDialogLatestOutcomeStore>.Instance);
+        await latest.SetProposalAsync(Platform, Dialog, Proposal(), CancellationToken.None);
+
+        await Flow().HandleAsync(state, new AnswerOutcome(), false, CancellationToken.None);
+
+        (await ReadAsync()).Proposal.Should().NotBeNull("an answer leaves the proposal under discussion where it was");
+    }
+
     // 2026-09-17-042ed: the findings ride the proposal, so the confirmation the operator approves,
     // the pane push and a reload after it all carry what the turn's own review found.
     [Fact]

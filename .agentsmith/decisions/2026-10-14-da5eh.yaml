@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-14-da5eh
+
+decisions:
+  - category: Implementation
+    chose: "Embedded catalog pinned at v5.17.0, SHA256 6e5939015cf89cf265ca992af40c2f19e850583ad0b242e216e3d1f7ad4d04f4 (the release's .sha256 asset, checked against the downloaded tarball); v5.16.0's tarball removed"
+    over: "Letting the RestoreSkillsCatalog target download the tarball on the next build"
+    reason: "The tarball is checked in so offline and CI builds need no network; the hash is taken from the release and re-verified locally rather than computed from whatever arrived."
+  - category: Implementation
+    chose: "Known tools = the master surfaces a bound turn on a worked ticket composes for the design partner and for the steward through the real AgenticMasterHandler; a backticked identifier in the steward text that is a known tool must be on the steward surface"
+    over: "A hand-written allowlist of steward tools in the test; checking every backticked identifier"
+    reason: |
+      The allowed set comes from the composition, as StewardTurnTests reads it, so a change to TicketStewardTools moves the
+      test with it. The design partner's surface is the superset that carries decide_by_default, write_mock and
+      withdraw_filed_ticket — exactly the names a steward must not send the model after. Edit kinds the text backticks
+      (recut, drop, append) are not tools and are ignored rather than listed. A name that no backend tool carries at all
+      is not caught: it is unknown to both surfaces.
+  - category: Implementation
+    chose: "The bound-turn seeds and handler run moved from StewardTurnTests into a shared BoundDialogTurn helper with a MasterSurface read; StewardTurnTests forwards to it"
+    over: "Copying the seed block into TicketStewardSkillTests"
+    reason: "Two copies of the seeds would let the skill test read a different surface than the turn tests prove."
+  - category: Scope
+    chose: "Doc and example-config pin examples (skills-catalog.md, airgap.md, your-own-skills.md, agentsmith.example.yml) moved to v5.17.0; your-own-skills.md's counts are the example overlay's and stay"
+    over: "Leaving the examples at v5.16.0 under the spec's 'nothing else'"
+    reason: "Every earlier pin bump (3890f, 8762x) moved them; an operator copying the example would otherwise pin a catalog without the steward."

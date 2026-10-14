@@ -51,8 +51,10 @@ public sealed class TicketContinuationStateReader(
         var basisRun = worked.LastOrDefault();
         var pointer = basisRun is null ? null : await pointers.GetAsync(basisRun.Run.Project,
             TicketKey.For(project.Tracker.Type.ToString().ToLowerInvariant(), ticketId).Value, ct);
+        var carried = cut is null ? [] : TicketSeriesCuts.Carried(records, cut.RunId);
         IReadOnlyList<BasisSpec> basis = cut is not null
-            ? [.. TicketSeriesCuts.Entries(cut).Select(e => new BasisSpec(e.SpecId, e.Goal, e.Yaml))]
+            ? [.. TicketSeriesCuts.Entries(cut).Select(e => new BasisSpec(e.SpecId, e.Goal, e.Yaml,
+                TicketSeriesCuts.StateOf(records, cut.RunId, carried, e.SpecId)))]
             : [.. record?.Set.Specs.Select(s => new BasisSpec(s.SpecId, s.Draft.Goal, s.Draft.Yaml)) ?? []];
         var executed = pointer is null ? []
             : pointer.ExecutedIds is { Count: > 0 } ids ? ids : [.. basis.Take(pointer.ExecutedThrough).Select(b => b.SpecId)];
@@ -60,7 +62,7 @@ public sealed class TicketContinuationStateReader(
             ?? pointer?.SeriesId ?? record?.Set.Series;
         var scope = new ContinuationBasis(
             pointer is not null ? [.. pointer.ShaByRepo.Keys] : record?.Repositories ?? [],
-            NonEmpty(pointer?.CarryingRepo) ?? NonEmpty(record?.CarryingRepo));
+            NonEmpty(pointer?.CarryingRepo) ?? NonEmpty(record?.CarryingRepo)) { Shas = pointer?.ShaByRepo };
         var start = await startArm.ReadAsync(projectName, ticketId, mayStartRuns, ct);
         return new(new TicketContinuationState(ticketId, closed, basisRun?.Run.Id, series, basis, executed, scope, record, start), null);
     }

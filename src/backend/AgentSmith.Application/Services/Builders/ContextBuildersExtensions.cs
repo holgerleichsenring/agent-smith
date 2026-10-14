@@ -40,7 +40,8 @@ public static class ContextBuildersExtensions
         AddBuilder<CheckSpecPremisesContextBuilder>(services, CommandNames.CheckSpecPremises); // 0e79c
         AddBuilder<EmptyPlanCheckContextBuilder>(services, CommandNames.EmptyPlanCheck);
         AddBuilder<ApprovalContextBuilder>(services, CommandNames.Approval);
-        AddBuilder<AgenticMasterContextBuilder>(services, CommandNames.AgenticMaster);
+        services.AddSingleton(sp => new KeyedContextBuilder(
+            CommandNames.AgenticMaster, new AgenticMasterContextBuilder(sp.GetRequiredService<IMasterCatalog>())));
         AddBuilder<LoadCachedCodeMapContextBuilder>(services, CommandNames.LoadCachedCodeMap);
         AddBuilder<GroundSpecDialogContextBuilder>(services, CommandNames.GroundSpecDialog); // 4c1f
         AddBuilder<CollectSpecDialogReplyContextBuilder>(services, CommandNames.CollectSpecDialogReply);

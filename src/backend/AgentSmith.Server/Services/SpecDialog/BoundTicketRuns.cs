@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Domain.Models;
+using AgentSmith.Server.Models;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Server.Services.SpecDialog;
@@ -15,6 +16,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// <para>
 /// 2026-10-13-9a59o: each run carries why it started and each spec what its judge said, and the
 /// answer carries the ticket's pull request reviews — composed from <see cref="TicketRunsFacts"/>.
+/// Each run also says how it ended: summary, cancel reason, end time, failed step and sandbox end.
 /// </para>
 /// </summary>
 public sealed class BoundTicketRuns(
@@ -30,11 +32,7 @@ public sealed class BoundTicketRuns(
                 ticketId, cancellationToken);
             var read = await facts.ReadAsync(
                 project.Name, ticketId, [.. found.Select(run => run.RunId)], cancellationToken);
-            return new TicketRunsResult([.. found.Select(run => new TicketRun(
-                run.RunId, run.Project, run.Pipeline, run.Status, run.StartedAt,
-                read.Causes.GetValueOrDefault(run.RunId), run.PendingQuestion?.Text,
-                [.. run.Specs.Select(spec => read.Spec(run.RunId, spec.SpecId, spec.Status, spec.Verdict))],
-                [.. run.PullRequests.Select(pr => pr.Url ?? pr.Repo)]))], read.Reviews);
+            return new TicketRunsResult([.. found.Select(run => Compose(run, read))], read.Reviews);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
@@ -42,5 +40,16 @@ public sealed class BoundTicketRuns(
             logger.LogWarning(ex, "The run record for ticket {Ticket} could not be read", ticketId);
             return TicketRunsResult.None;
         }
+    }
+
+    private static TicketRun Compose(FiledWorkRunView run, TicketRunsFactsRead read)
+    {
+        var ending = read.Ending(run.RunId);
+        return new TicketRun(
+            run.RunId, run.Project, run.Pipeline, run.Status, run.StartedAt,
+            read.Causes.GetValueOrDefault(run.RunId), run.PendingQuestion?.Text,
+            [.. run.Specs.Select(spec => read.Spec(run.RunId, spec.SpecId, spec.Status, spec.Verdict))],
+            [.. run.PullRequests.Select(pr => pr.Url ?? pr.Repo)],
+            ending.Summary, ending.CancelReason, run.FinishedAt, ending.FailedStep, ending.SandboxEnd);
     }
 }

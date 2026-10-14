@@ -40,6 +40,8 @@ public sealed class CollectSpecDialogReplyHandler : ICommandHandler<CollectSpecD
         slot.Outcome = outcome;
         slot.Kind = context.Pipeline.TryGet<SpecDialogTurnKind>(ContextKeys.SpecDialogReplyKind, out var kind)
             ? kind : null;
+        slot.Stewarded = context.Pipeline.TryGet<string>(ContextKeys.MasterSkillName, out var master)
+            && string.Equals(master, PipelinePresets.TicketStewardMaster, StringComparison.Ordinal);
         return Task.FromResult(CommandResult.Ok("Spec-dialog reply collected"));
     }
 }

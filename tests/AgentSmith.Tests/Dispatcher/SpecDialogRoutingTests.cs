@@ -69,7 +69,7 @@ public sealed class SpecDialogRoutingTests : IDisposable
         // a pass-through here — its confirm/sink deps are never touched.
         _turnRunner = new Mock<ISpecDialogTurnRunner>();
         _turnRunner
-            .Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(SpecDialogTurnResult.On(Platform, CannedReply, new AnswerOutcome()));
         var outcomeComposer = new SpecDialogOutcomeComposer();
         var outcomeFlow = new SpecDialogOutcomeFlow(
@@ -140,7 +140,7 @@ new DashboardOutcomeChannel(
     {
         var draft = new SpecDraft("p9999", "widget goal", "spec: p9999\ngoal: \"widget goal\"", []);
         _turnRunner.SetupSequence(r =>
-                r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
+                r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(SpecDialogTurnResult.On(Platform, "draft reply", new SpecOutcome(draft)))
             .ReturnsAsync(SpecDialogTurnResult.On(Platform, "revised reply", new AnswerOutcome()));
         _dialogueTransport.Setup(t => t.WaitForAnswerAsync(
@@ -152,7 +152,7 @@ new DashboardOutcomeChannel(
         await _router.TryRouteAsync("draft the spec", "U1", Channel, "th-edit", Platform, false, CancellationToken.None);
 
         _turnRunner.Verify(r =>
-                r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()),
+                r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()),
             Times.Exactly(2), "the edit note re-prompts the master with a fresh turn");
         _outcomeSink.Verify(s2 => s2.AcceptAsync(
                 It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), false, It.IsAny<CancellationToken>()),
@@ -166,7 +166,7 @@ new DashboardOutcomeChannel(
     [Fact]
     public async Task Router_KeptTurn_RecordsTheKindTheTurnProduced()
     {
-        _turnRunner.Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
+        _turnRunner.Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(SpecDialogTurnResult.On(Platform, "turn failed", new AnswerOutcome(), SpecDialogTurnKind.Failure));
 
         await _router.TryRouteAsync("/spec", "U1", Channel, "th-kind", Platform, false, CancellationToken.None);
@@ -189,8 +189,8 @@ new DashboardOutcomeChannel(
         var answer = new TaskCompletionSource<AgentSmith.Contracts.Dialogue.DialogAnswer?>(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var turns = 0;
-        _turnRunner.Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
-            .Returns(async (ConversationState state, CancellationToken _) =>
+        _turnRunner.Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()))
+            .Returns(async (ConversationState state, TurnPoster ___, CancellationToken _) =>
             {
                 if (Interlocked.Increment(ref turns) == 1)
                     return SpecDialogTurnResult.On(Platform, "draft reply", new SpecOutcome(draft));
@@ -239,8 +239,8 @@ new DashboardOutcomeChannel(
         var draft = new SpecDraft("p9999", "widget goal", "spec: p9999\ngoal: \"widget goal\"", []);
         ConversationState? reRun = null;
         var turns = 0;
-        _turnRunner.Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
-            .Returns((ConversationState state, CancellationToken _) =>
+        _turnRunner.Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()))
+            .Returns((ConversationState state, TurnPoster ___, CancellationToken _) =>
             {
                 if (Interlocked.Increment(ref turns) == 1)
                     return Task.FromResult(
@@ -278,8 +278,8 @@ new DashboardOutcomeChannel(
         var answer = new TaskCompletionSource<AgentSmith.Contracts.Dialogue.DialogAnswer?>(
             TaskCreationOptions.RunContinuationsAsynchronously);
         var turns = 0;
-        _turnRunner.Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
-            .Returns((ConversationState _, CancellationToken __) => Task.FromResult(
+        _turnRunner.Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()))
+            .Returns((ConversationState _, TurnPoster ___, CancellationToken __) => Task.FromResult(
                 Interlocked.Increment(ref turns) == 1
                     ? SpecDialogTurnResult.On(Platform, "draft reply", new SpecOutcome(draft))
                     : SpecDialogTurnResult.On(Platform, "revised reply", new AnswerOutcome())));
@@ -332,8 +332,7 @@ new DashboardOutcomeChannel(
         _dialogueTransport.Verify(t => t.PublishAnswerAsync(opened.JobId,
             It.Is<AgentSmith.Contracts.Dialogue.DialogAnswer>(a => a.QuestionId == "q-gate"),
             It.IsAny<CancellationToken>()), Times.Once);
-        _turnRunner.Verify(r => r.RunTurnAsync(
-            It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()), Times.Never);
+        _turnRunner.Verify(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()), Times.Never);
         var state = await _sessions.GetOpenByThreadAsync(Platform, "th-gate", CancellationToken.None);
         state!.Transcript.Should().ContainSingle().Which.Decision.Should().Be(SpecDialogDecision.Approved);
     }

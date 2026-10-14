@@ -22,10 +22,15 @@ public sealed class SpecDialogOutcomeFlow(
     RatifiedMockStamp ratifiedMocks,
     ILogger<SpecDialogOutcomeFlow> logger)
 {
+    /// <summary>
+    /// <paramref name="stewarded"/>: the ticket steward led the turn. A proposal stored before it took over is
+    /// cleared, so the series changes through edit_series alone and no stale card can be approved beside it.
+    /// </summary>
     public async Task<OutcomeFlowResult> HandleAsync(
         ConversationState state, OutcomeProposal proposal, bool mayStartRuns,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, bool stewarded = false)
     {
+        if (stewarded) await SupersedeStoredProposalAsync(state, cancellationToken);
         // The pane shows what would be filed BEFORE the approval is asked, so the person
         // holding the question reads the proposal itself rather than a summary of it. An
         // answer proposes nothing and publishes nothing — the channel decides that, because
@@ -79,6 +84,13 @@ public sealed class SpecDialogOutcomeFlow(
                     $"Confirmation result '{confirmation.GetType().Name}' has no outcome flow — "
                     + "a new result must say what it does with the stored proposal.");
         }
+    }
+
+    private async Task SupersedeStoredProposalAsync(ConversationState state, CancellationToken ct)
+    {
+        if ((await latestOutcome.ReadAsync(state.Platform, state.ThreadId!, ct)).Proposal is null) return;
+        await latestOutcome.ClearProposalAsync(state.Platform, state.ThreadId!, ct);
+        logger.LogInformation("The ticket steward leads spec-dialog session {SessionId}; its stored proposal is cleared", state.JobId);
     }
 
     private Task SendAsync(ConversationState state, ComposedReply notice, CancellationToken ct) =>

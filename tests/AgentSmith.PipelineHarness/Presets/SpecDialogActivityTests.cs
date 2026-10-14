@@ -96,6 +96,6 @@ public sealed class SpecDialogActivityTests
     {
         await using var scope = harness.Services.CreateAsyncScope();
         await scope.ServiceProvider.GetRequiredService<ISpecDialogTurnRunner>()
-            .RunTurnAsync(state, CancellationToken.None);
+            .RunTurnAsync(state, new TurnPoster("U1", false), CancellationToken.None);
     }
 }

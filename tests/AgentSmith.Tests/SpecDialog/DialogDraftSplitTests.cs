@@ -193,8 +193,8 @@ public sealed class DialogDraftSplitTests : IDisposable
     private void Replies(params (string Reply, OutcomeProposal Outcome)[] replies)
     {
         var queue = new Queue<(string Reply, OutcomeProposal Outcome)>(replies);
-        _turnRunner.Setup(runner => runner.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((ConversationState state, CancellationToken _) =>
+        _turnRunner.Setup(runner => runner.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ConversationState state, TurnPoster ___, CancellationToken _) =>
             {
                 _turns.Add(state);
                 var (reply, outcome) = queue.Count > 1 ? queue.Dequeue() : queue.Peek();

@@ -72,7 +72,7 @@ internal static class SpecDialogExtensions
         // manager's own scoped unit of work, and the dispatcher is the one way in.
         services.AddScoped<SpecDialogOwnership>().AddScoped<MockRatification>();
         services.AddScoped<TicketConversationBinder>().AddScoped<BoundTicketReaders>().AddScoped<TicketRunsFacts>()
-            .AddScoped<TicketSearchAcrossTrackers>();  // 8e51b, 481ba, 5c1eb, 9a59o
+            .AddScoped<TicketSearchAcrossTrackers>().AddTransient<TicketRunEndingsReader>();  // 8e51b, 481ba, 5c1eb, 9a59o
         services.AddScoped<TicketTextForConversation>().AddScoped<TicketMovedCheck>()
             .AddScoped<ApprovedSetDivergence>();  // 8e51c, 481ba, 8e51e
         services.AddScoped<TicketProjectChoice>().AddScoped<TicketProjectForTracker>();  // 8e51a, 481bb

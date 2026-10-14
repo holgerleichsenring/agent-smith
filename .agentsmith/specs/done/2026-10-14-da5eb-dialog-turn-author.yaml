@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-14-da5eb
+goal: "A person's turn in a dialog records who wrote it, and the ticket conversation and the model's transcript show that name instead of 'person'."
+
+applies_to: "backend (transcript turn, dialog admission, ticket conversation read, dialog prompt transcript) + dashboard (none beyond the read)"
+
+requires:
+  - 2026-10-13-9a59h
+
+facts:
+  - claim: "A transcript turn is Role, Text, At, Kind and Decision; it has no author."
+    evidence: "src/backend/AgentSmith.Server/Models/TranscriptTurn.cs:10-12"
+  - claim: "Admission has the poster's userId but does not pass it to AppendTurnAsync."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogAnswerAdmission.cs:29-45, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSessionManager.cs:68-82"
+  - claim: "The dialog endpoint passes only the owner key (sub) on; CallerIdentityResolver gives a Subject and whether it is a readable name, and the endpoint already calls it for runs.control."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogEndpoints.cs:27-62, src/backend/AgentSmith.Server/Security/CallerIdentityResolver.cs:34-52, src/backend/AgentSmith.Server/Security/ReadableName.cs:23-24"
+  - claim: "The installation's name claim defaults to sub, and production configures none."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/TokenAuthorityConfig.cs:49-54; observed: 2026-10-14, production ConfigEntities hold no name_claim"
+  - claim: "The model reads transcript turns as SpecDialogTurn (role, text, kind), mapped in MapTranscript and rendered as [role]."
+    evidence: "src/backend/AgentSmith.Contracts/Models/SpecDialogTurn.cs:9, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:91-94, src/backend/AgentSmith.Application/Services/SpecDialogPromptFactory.cs:112-117"
+  - claim: "The ticket conversation maps user turns to role person with Author null; the dashboard shows author, else the role name."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Conversation/TicketTranscriptReader.cs:14-36, src/dashboard/src/components/tickets/detail/conversationWords.ts:26-40"
+  - claim: "A ticket-bound session is reachable by every caller, so several people can write into one conversation."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOwnership.cs:68-73"
+
+scope:
+  in: >
+    TranscriptTurn and SpecDialogTurn (Contracts) gain an optional Author (null on old rows). The dialog endpoint takes
+    the poster's display name from the token — the OIDC name claim, else preferred_username, else upn, never sub —
+    resolving the identity once and reusing it for runs.control, and threads it as an optional parameter (default
+    null, so Slack and Teams call sites stay) through DashboardDialogDispatcher, the router and admission into
+    AppendTurnAsync for the person's turn; SpecDialogEditReload passes it for its edit note. TicketTranscriptReader
+    sets the entry's Author from it. SpecDialogTurnSeeds.MapTranscript carries it and SpecDialogPromptFactory renders
+    "[user: <name>]" where one is recorded, so a shared conversation tells its people apart.
+  out: >
+    Names for chat platforms (Slack, Teams) — their adapters already carry a user id; this spec covers the dashboard
+    surface.
+
+decisions:
+  - key: "SUPERSEDES 9a59h's 'A TURN NAMES ITS ROLE, NEVER AN AUTHOR' — it held because no author was recorded; once the poster's readable name is recorded at the door, the shared conversation can say who wrote what."
+  - key: "A DISPLAY NAME, NOT THE ATTRIBUTION CLAIM — the installation's name_claim (default sub, unchanged in production) names a caller for audit; the conversation shows the token's own display name, which Entra and other OIDC issuers carry as name. A token with none of name, preferred_username or upn keeps no author and reads as before."
+
+steps:
+  - id: turn
+    action: "TranscriptTurn.Author; AppendTurnAsync takes it; admission and router pass it."
+  - id: endpoint
+    action: "SpecDialogEndpoints resolves the display name once with the identity; DashboardDialogDispatcher, router, admission and SpecDialogEditReload carry it as an optional parameter."
+  - id: read
+    action: "TicketTranscriptReader sets Author; SpecDialogTurn.Author through MapTranscript; RenderTranscript writes it."
+  - id: tests
+    action: "Red first: the tests below."
+
+tests:
+  - "SpecDialog_PersonTurn_RecordsTheDisplayName (name, else preferred_username, else upn); a sub-only token records none"
+  - "TicketConversation_TurnWithAuthor_ShowsTheName; an old turn without one stays role-named"
+  - "SpecDialogPrompt_TranscriptLine_CarriesTheAuthor"
+
+done:
+  - "On the ticket page the operator's own turn shows their name, not 'person'."
+  - "Backend build and tests green."

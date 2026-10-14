@@ -203,7 +203,7 @@ public sealed class TicketRunsFactsTests : IDisposable
         var broken = new Mock<IServiceScopeFactory>();
         broken.Setup(f => f.CreateScope()).Throws(new InvalidOperationException("store down"));
 
-        var answer = await Bound(new TicketRunsFacts(broken.Object)).ForAsync(CancellationToken.None);
+        var answer = await Bound(new TicketRunsFacts(broken.Object, new TicketRunEndingsReader())).ForAsync(CancellationToken.None);
 
         answer.Should().BeSameAs(TicketRunsResult.None);
     }

@@ -16,8 +16,17 @@ public static class RetryRefusals
     public const string NotInfrastructure = "not-infrastructure";
     public const string ClosedForWork = "closed-for-work";
     public const string Starting = "starting";
+    public const string Delivered = "delivered";
 
     public const string HandedBackText = "a hand-back is answered in the ticket conversation";
+
+    public const string HandedBackConversationText =
+        "the latest attempt handed the ticket back and waits — say what should change; a recorded change answers the hand-back";
+
+    public const string DeliveredText =
+        "the latest attempt delivered its work — say what should change before another attempt starts";
+
+    public const string StartingText = "an attempt is already starting on this ticket";
 
     public const string NotInfrastructureText =
         "only an infrastructure end retries unchanged — say what should change in the ticket conversation";

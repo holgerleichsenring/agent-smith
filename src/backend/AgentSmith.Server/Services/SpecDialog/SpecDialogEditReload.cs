@@ -32,9 +32,11 @@ namespace AgentSmith.Server.Services.SpecDialog;
 public sealed class SpecDialogEditReload(
     SpecDialogSessionManager sessions, ILogger<SpecDialogEditReload> logger)
 {
-    /// <summary>The state the next turn runs on, or null when the session is gone.</summary>
+    /// <summary>The state the next turn runs on, or null when the session is gone. An appended note
+    /// records <paramref name="author"/>, the display name of the person whose turn this is.</summary>
     public async Task<ConversationState?> RefreshedAsync(
-        ConversationState current, OutcomeProposal revising, string note, CancellationToken ct)
+        ConversationState current, OutcomeProposal revising, string note, CancellationToken ct,
+        string? author = null)
     {
         ArgumentNullException.ThrowIfNull(current);
         var refreshed = current.ThreadId is null
@@ -47,7 +49,7 @@ public sealed class SpecDialogEditReload(
                 current.JobId);
             return null;
         }
-        refreshed = await CarryingTheNoteAsync(refreshed, note, ct);
+        refreshed = await CarryingTheNoteAsync(refreshed, note, author, ct);
         if (refreshed is null)
         {
             logger.LogWarning(
@@ -66,14 +68,14 @@ public sealed class SpecDialogEditReload(
     /// typed, or the one it becomes when the note arrived off the transcript.
     /// </summary>
     private async Task<ConversationState?> CarryingTheNoteAsync(
-        ConversationState refreshed, string note, CancellationToken ct)
+        ConversationState refreshed, string note, string? author, CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(note) || EndsWithTheNote(refreshed, note)) return refreshed;
         logger.LogInformation(
             "Appending the edit note to session {SessionId} — it was answered off the transcript",
             refreshed.JobId);
         return await sessions.AppendTurnAsync(
-            refreshed.Platform, refreshed.ThreadId!, TranscriptRole.User, note, null, null, ct);
+            refreshed.Platform, refreshed.ThreadId!, TranscriptRole.User, note, null, null, ct, author);
     }
 
     private static bool EndsWithTheNote(ConversationState refreshed, string note) =>

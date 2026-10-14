@@ -28,6 +28,9 @@ using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Lifecycle;
 using AgentSmith.Server.Services.Rework;
 using AgentSmith.Server.Services.SpecDialog;
+using AgentSmith.Server.Services.SpecDialog.Continuation;
+using AgentSmith.Contracts.Dialogue;
+using AgentSmith.Contracts.Specs;
 using AgentSmith.Tests.SpecDialog.Continuation;
 using AgentSmith.Tests.TestHelpers;
 using AgentSmith.Tests.TestSupport;
@@ -71,12 +74,17 @@ internal sealed class RetryHarness : IDisposable
             .AddSingleton<IDecidedDefaults, DecidedDefaults>(); // 2026-10-13-8762p
         services.AddSingleton(new TokenAuthorityConfig()).AddSingleton(TimeProvider.System);
         services.AddTicketReaders().AddRunRetry();
+        // 2026-10-14-da5ed: the conversation's start — the pending edit as its approval, else a conversation Retry.
+        services.AddSingleton<ISpecApprovalStore>(Approvals).AddSingleton(Activity.Object).AddScoped(_ => FiledWorkDoubles.Move());
+        services.AddScoped<OperatorStartArm>().AddScoped<OperatorStart>().AddTransient<PendingSeriesEditReader>();
+        services.AddScoped<PendingEditStart>().AddScoped<BoundAttemptStarts>();
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
 
     public FakeTicketTracker Tracker { get; } = new() { Status = "Failed" };
     public Mock<IReworkLaunch> Launch { get; } = new();
     public InMemorySpecApprovalStore Approvals { get; } = new();
+    public Mock<ITicketActivityNudge> Activity { get; } = new();
 
     public AgentSmithConfig Config { get; } = new()
     {
@@ -120,6 +128,14 @@ internal sealed class RetryHarness : IDisposable
         };
         return await RetryEndpoints.RetryAsync(runId, http, scope.ServiceProvider.GetRequiredService<RunRetry>(), default);
     }
+
+    /// <summary>2026-10-14-da5ed: a Retry asked in the ticket's conversation.</summary>
+    public Task<RunRetryResult> ConversationRetryAsync(string runId, string principal = Principal) =>
+        InScopeAsync(sp => sp.GetRequiredService<RunRetry>().RetryAsync(runId, principal, RetryOrigin.Conversation, default));
+
+    /// <summary>2026-10-14-da5ed: the start port a bound turn of conversation "s-1" on ticket 42 is seeded with.</summary>
+    public Task<IAttemptStart?> StartPortAsync(TurnPoster poster) =>
+        InScopeAsync(sp => sp.GetRequiredService<BoundAttemptStarts>().ForAsync(Project, "42", "s-1", poster, default));
 
     public async Task<T> InScopeAsync<T>(Func<IServiceProvider, Task<T>> act)
     {

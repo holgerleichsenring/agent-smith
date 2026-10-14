@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-14-da5eb
+
+decisions:
+  - category: Architecture
+    chose: "DisplayName (Server/Security) is a static pure read of the token — name, else preferred_username, else upn, trimmed, blanks skipped — beside ReadableName; the endpoint calls it once and threads the value down"
+    over: "Taking CallerIdentity.Subject from CallerIdentityResolver; a DI-registered service with an interface"
+    reason: |
+      The Subject is the installation's name_claim, which defaults to sub and is unset in production, so it
+      would record a directory identifier. The display claims are read directly off the principal
+      (MapInboundClaims is off, so the raw OIDC names apply). The identity resolver is therefore still called
+      only once, for runs.control, and only on an enforcing installation; no second resolve was needed.
+  - category: Implementation
+    chose: "author is an optional trailing parameter (default null) on DashboardDialogDispatcher.DispatchAsync, SpecDialogRouter.TryRouteAsync, SpecDialogAnswerAdmission.AdmitAsync, SpecDialogEditReload.RefreshedAsync and SpecDialogSessionManager.AppendTurnAsync"
+    over: "A required parameter at every call site; an author carried on ConversationState"
+    reason: |
+      Slack, Teams and the assistant/filing appends keep compiling unchanged, and a concurrent change to the
+      router's turn signature merges against one added argument rather than a reshaped call chain. The author
+      belongs to one message, not to the session, so it does not live on the state.
+  - category: Implementation
+    chose: "The edit note SpecDialogEditReload appends carries the author of the message whose turn produced the edit request"
+    over: "No author on the re-appended note"
+    reason: |
+      The spec asks the edit note to carry it. On the dashboard a typed note is already stored by admission
+      with its own author and is not appended twice; the re-append path serves answers clicked off the
+      transcript, where the turn's poster is the closest known writer.
+  - category: Implementation
+    chose: "TranscriptTurn.Author and SpecDialogTurn.Author are trailing optional record members; old JSON rows read null; RenderTranscript writes '[user: <name>]' only when one is recorded"
+    over: "A migration back-filling the session owner; always writing a name slot"
+    reason: |
+      The owner of a ticket-bound session is not the author of its turns, so back-filling would lie; an old
+      turn keeps reading as role-named in both the ticket conversation and the prompt.
+  - category: Implementation
+    chose: "The dashboard is unchanged: TicketTranscriptReader now fills the entry's Author and conversationWords already prefers entry.author over the role name"
+    over: "A dashboard change"
+    reason: |
+      Verified by the existing ticket detail tests (94 green); the read model carried the field already.

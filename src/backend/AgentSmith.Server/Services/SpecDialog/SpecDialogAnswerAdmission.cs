@@ -25,16 +25,18 @@ public sealed class SpecDialogAnswerAdmission(
     SpecDialogPendingQuestions pendingQuestions,
     IDialogueTransport dialogueTransport)
 {
-    /// <summary>The stored message and whether it answered; null when the thread has no open session.</summary>
+    /// <summary>The stored message and whether it answered; null when the thread has no open session.
+    /// The author is the poster's display name, recorded on the stored turn.</summary>
     public async Task<SpecDialogAdmitted?> AdmitAsync(
-        string text, string userId, string platform, string threadId, CancellationToken ct)
+        string text, string userId, string platform, string threadId, CancellationToken ct,
+        string? author = null)
     {
         var open = await sessions.GetOpenByThreadAsync(platform, threadId, ct);
         if (open is null) return null;
         var asked = pendingQuestions.TryPeek(open.JobId, out var peeked) ? peeked : null;
         var decision = asked is null ? null : SpecDialogAnswerWords.DecisionOn(asked.Question, text);
         var state = await sessions.AppendTurnAsync(
-            platform, threadId, TranscriptRole.User, text, null, decision, ct);
+            platform, threadId, TranscriptRole.User, text, null, decision, ct, author);
         if (state is null) return null;
         if (asked is null || !pendingQuestions.TryTake(state.JobId, asked))
             return new(await UndecidedAsync(state, platform, threadId, ct), Answered: false);

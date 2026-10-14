@@ -13,6 +13,7 @@ namespace AgentSmith.Application.Services.Tools;
 /// done" and "the board says it is done" are not one claim, and a single answer carrying both
 /// would be more confident than either source.
 /// </para>
+/// <para>Each run says how it ended, so a conversation does not continue past a failure it never saw.</para>
 /// </summary>
 public sealed class TicketRunsToolHost(IBoundTicketRuns runs) : IToolHost
 {
@@ -27,7 +28,11 @@ public sealed class TicketRunsToolHost(IBoundTicketRuns runs) : IToolHost
         "What THIS FRAMEWORK did about this conversation's ticket: the runs it made, the specs "
         + "they worked and the pull requests they opened. Each run carries why it started (cause "
         + "channel ticket_comment, pull_request, status_move, requested, retrigger, pickup, operator "
-        + "or retry, with who and when); each spec its status, verdict, criteria outcomes (met, unmet, "
+        + "or retry, with who and when) and how it ended: summary, cancelReason, finishedAt, failedStep "
+        + "(index, name, message — the message only when it differs from the summary) and sandboxEnd "
+        + "(reason, exitCode, oomKilled — a sandbox that vanished or was killed rather than released). "
+        + "A failed step or the summary names what stopped the attempt: read them before answering what "
+        + "to do next on a ticket whose attempt failed. Each spec its status, verdict, criteria outcomes (met, unmet, "
         + "not_applicable, unproven, with note and citation), declined criteria and unmeasured accounts "
         + "such as a red build. pullRequestReviews lists every pull request's review entries — kind "
         + "(comment, review, decision), decision, author, file and line: an entry with trusted false "

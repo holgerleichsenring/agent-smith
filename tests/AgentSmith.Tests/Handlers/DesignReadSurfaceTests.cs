@@ -1,4 +1,3 @@
-using System.Text.Json;
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Loop;
 using AgentSmith.Contracts.Commands;
@@ -7,7 +6,6 @@ using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
-using Microsoft.Extensions.AI;
 using Moq;
 
 namespace AgentSmith.Tests.Handlers;
@@ -25,7 +23,7 @@ public sealed class DesignReadSurfaceTests
     [Fact]
     public async Task MasterToolComposition_ProjectWithoutDesignSource_HasNoDesignRead()
     {
-        var loop = new CapturingLoop();
+        var loop = new SurfaceCapturingLoop();
         var context = MasterHandlerFixture.BuildContext(CodingMaster);
         context.Pipeline.Set(ContextKeys.ProjectConfig, new ResolvedProject { Name = "p" });
 
@@ -37,7 +35,7 @@ public sealed class DesignReadSurfaceTests
     [Fact]
     public async Task CodingMaster_ProjectWithFigmaSource_CarriesDesignRead_ItsChildrenDoNot()
     {
-        var loop = new CapturingLoop(spawn: true);
+        var loop = new SurfaceCapturingLoop(spawn: true);
         var children = new MasterHandlerFixture.StubSubAgentRunner();
         var context = MasterHandlerFixture.BuildContext(CodingMaster);
         context.Pipeline.Set(ContextKeys.ProjectConfig, new ResolvedProject { Name = "p", DesignSources = [Figma] });
@@ -52,7 +50,7 @@ public sealed class DesignReadSurfaceTests
     [Fact]
     public async Task DesignTurn_SeededFigmaSource_CarriesDesignRead_ItsChildrenDoNot()
     {
-        var loop = new CapturingLoop(spawn: true);
+        var loop = new SurfaceCapturingLoop(spawn: true);
         var children = new MasterHandlerFixture.StubSubAgentRunner();
         var context = DesignContext();
         context.Pipeline.Set<IReadOnlyList<DesignSource>>(ContextKeys.SpecDialogDesignSources, [Figma]);
@@ -66,7 +64,7 @@ public sealed class DesignReadSurfaceTests
     [Fact]
     public async Task ScanMaster_ProjectWithFigmaSource_HasNoDesignRead()
     {
-        var loop = new CapturingLoop();
+        var loop = new SurfaceCapturingLoop();
         var context = MasterHandlerFixture.BuildContext("security-master");
         context.Pipeline.Set(ContextKeys.ProjectConfig, new ResolvedProject { Name = "p", DesignSources = [Figma] });
 
@@ -76,7 +74,7 @@ public sealed class DesignReadSurfaceTests
     }
 
     private static Task Run(
-        CapturingLoop loop, string master, AgenticMasterContext context,
+        SurfaceCapturingLoop loop, string master, AgenticMasterContext context,
         MasterHandlerFixture.StubSubAgentRunner? children = null, int maxSubAgents = 0,
         LoopLimitsConfig? limits = null, string? schema = null) =>
         MasterHandlerFixture.Build(loop, new MasterHandlerFixture.StubPromptCatalog(master, "body"), schema,
@@ -95,32 +93,5 @@ public sealed class DesignReadSurfaceTests
             new SpecDialogTurn(SpecDialogTurn.UserRole, "build the checkout frame"),
         ]);
         return context;
-    }
-
-    /// <summary>Records the master's tools and, when asked, spawns one child so its surface is seen.</summary>
-    private sealed class CapturingLoop(bool spawn = false) : IAgenticLoopRunner
-    {
-        private const string OneTask = "[{\"name\":\"RepoScout\",\"activity\":\"read the sources\","
-            + "\"task_description\":\"answer one question\",\"inherited_context\":"
-            + "{\"pipeline_goal\":\"cut the spec\",\"prior_context_slice\":\"the transcript\"}}]";
-
-        public IReadOnlyList<string> MasterTools { get; private set; } = [];
-
-        public async Task<AgenticLoopResult> RunAsync(AgenticLoopRequest request, CancellationToken cancellationToken)
-        {
-            if (MasterTools.Count == 0)
-            {
-                MasterTools = [.. request.Tools!.OfType<AIFunction>().Select(t => t.Name)];
-                if (spawn)
-                    await request.Tools!.OfType<AIFunction>().Single(t => t.Name == "spawn_agents").InvokeAsync(
-                        new AIFunctionArguments { ["tasks"] = JsonDocument.Parse(OneTask).RootElement }, cancellationToken);
-            }
-            return new AgenticLoopResult(
-                new ChatResponse(new ChatMessage(ChatRole.Assistant, "An answer with no outcome block."))
-                {
-                    Usage = new UsageDetails { InputTokenCount = 10, OutputTokenCount = 5 },
-                },
-                TimeSpan.FromSeconds(1));
-        }
     }
 }

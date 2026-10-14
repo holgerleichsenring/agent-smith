@@ -46,24 +46,8 @@ internal static class MasterHandlerFixture
             new StubSchemaResolver(masterSchema),
             new AgentSmith.Application.Services.ScanMasterPromptFactory(),
             BuildScanPasses(loop),
-            new AgentSmith.Application.Services.SpecDialogPromptFactory(),
             new AgentSmith.Application.Services.SpecExecutionPromptFactory(),
-            BuildOutcomeResolver(),
-            new AgentSmith.Application.Services.SpecDialog.SpecDialogProposalRefusal(
-                loop, new AgentSmith.Application.Services.SpecDialogPromptFactory(),
-                AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
-                NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalRefusal>.Instance),
-            // 2026-09-17-042ed: the review of a proposal — no reviewer call unless a test proposes.
-            new AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview(
-                Mock.Of<AgentSmith.Application.Services.Specs.ISpecCutReviewer>(),
-                AgentSmith.Tests.Specs.DerivationTestLooks.Factory(),
-                AgentSmith.Tests.SpecDialog.ProposalEvidenceTestReview.Create(),
-                // 2026-10-13-8762i: rounds 0 — the single review; the rounds have their own rig.
-                AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig.Reader(
-                    () => AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig.Of(rounds: 0)),
-                new AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig().Loop(),
-                AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
-                NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview>.Instance),
+            TurnFlow(loop),
             new NoOpTicketDocumentMaterializer(),
             // 2026-09-13-6f35: no template declared unless a test hands one in — the default
             // factory throws, so a run that reaches it by accident says so instead of passing.
@@ -98,9 +82,32 @@ internal static class MasterHandlerFixture
                 NullLogger<AgentSmith.Application.Services.Memory.MemoryIndexReader>.Instance),
             dialogueTransport: null,
             Composition(maxSubAgents, subAgents, limits, figma, render),
-            AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
             AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Tools(),
             NullLogger<AgenticMasterHandler>.Instance);
+
+    /// <summary>The dialog turn's prompt and reply handling: both prompt contracts, the outcome gate and the
+    /// proposal review over the same loop — no reviewer call unless a test proposes.</summary>
+    internal static AgentSmith.Application.Services.SpecDialog.SpecDialogTurnFlow TurnFlow(IAgenticLoopRunner loop) =>
+        new(new AgentSmith.Application.Services.SpecDialogPromptFactory(),
+            new AgentSmith.Application.Services.SpecDialog.TicketStewardPromptFactory(),
+            new AgentSmith.Application.Services.SpecDialog.SpecDialogOutcomeGate(
+                loop, new AgentSmith.Application.Services.SpecDialogPromptFactory(), BuildOutcomeResolver(),
+                new AgentSmith.Application.Services.SpecDialog.SpecDialogProposalRefusal(
+                    loop, new AgentSmith.Application.Services.SpecDialogPromptFactory(),
+                    AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
+                    NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalRefusal>.Instance),
+                AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
+                NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogOutcomeGate>.Instance),
+            new AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview(
+                Mock.Of<AgentSmith.Application.Services.Specs.ISpecCutReviewer>(),
+                AgentSmith.Tests.Specs.DerivationTestLooks.Factory(),
+                AgentSmith.Tests.SpecDialog.ProposalEvidenceTestReview.Create(),
+                // 2026-10-13-8762i: rounds 0 — the single review; the rounds have their own rig.
+                AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig.Reader(
+                    () => AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig.Of(rounds: 0)),
+                new AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig().Loop(),
+                AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
+                NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview>.Instance));
 
     /// <summary>2026-10-13-8762m: the record tools of a master start, over the stub repositories.</summary>
     internal static AgentSmith.Application.Services.Tools.MasterRecordToolHosts RecordHosts(
@@ -159,9 +166,20 @@ internal static class MasterHandlerFixture
                 NullLogger<AgentSmith.Application.Services.Tools.DesignReadToolHostFactory>.Instance),
             // 2026-10-01-283de: a turn that seeds no project never builds the host.
             render ?? new AgentSmith.Tests.Browser.BrowserRenderFixture(spawnsContainers: false).Factory(),
+            new AgentSmith.Application.Services.Tools.TicketActToolsFactory(Verification()),
+            AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Tools(),
             AgentSmith.Tests.TestHelpers.TestTreeSync.GateStage(),
             AgentSmith.Tests.TestHelpers.TestSanity.Wrapper(),
             NullLogger<MasterToolComposition>.Instance);
+
+    /// <summary>The series verification a design master's verify_series runs — no scope opened, no review taken,
+    /// unless a test hands in its own.</summary>
+    internal static AgentSmith.Application.Services.SpecDialog.SeriesVerification Verification(
+        ISourceScopeSandboxFactory? scopes = null, AgentSmith.Application.Services.Specs.ISpecCutReviewer? reviewer = null) =>
+        new(scopes ?? new NoTemplateScopes(), AgentSmith.Tests.SpecDialog.ProposalEvidenceTestReview.Create(),
+            reviewer ?? Mock.Of<AgentSmith.Application.Services.Specs.ISpecCutReviewer>(),
+            AgentSmith.Tests.Specs.DerivationTestLooks.Factory(),
+            NullLogger<AgentSmith.Application.Services.SpecDialog.SeriesVerification>.Instance);
 
     /// <summary>2026-09-13-6f35: the run that declares no template spawns nothing.</summary>
     private sealed class NoTemplateScopes : ISourceScopeSandboxFactory

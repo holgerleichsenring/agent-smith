@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-14-da5eh
+goal: "The backend embeds the skills release that carries ticket-steward-master, and a test pins the steward's tool names to the tools the backend offers."
+
+applies_to: "backend (embedded skills catalog pin, skill content tests)"
+
+requires:
+  - 2026-10-14-da5eg
+
+facts:
+  - claim: "The embedded catalog is pinned by SkillsCatalogVersion and SkillsCatalogSha256 in a csproj and downloaded and validated on build."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:46-93"
+  - claim: "Content tests read a master from the pinned tarball through PackagedMaster and gate on a release version."
+    evidence: "tests/AgentSmith.Tests/Prompts/PackagedMaster.cs:22-56, tests/AgentSmith.Tests/Skills/DesignPartnerDialogRulesTests.cs:20-48"
+
+scope:
+  in: >
+    Bump SkillsCatalogVersion and SkillsCatalogSha256 to the release of 2026-10-14-da5eg, on top of 8762x's pin, and
+    replace the checked-in tarball. TicketStewardSkillTests reads the packaged master and asserts that every
+    backticked snake_case token in it that names a known tool is on the composed steward surface (taken from the
+    composition, as MasterHandlerFixture does), and that it names start_next_attempt, read_series, edit_series,
+    verify_series and ticket_runs.
+  out: >
+    Nothing else.
+
+decisions:
+  - key: "BUILT AFTER 8762 (PR #739) — skills main already names tools only that series adds; releasing or pinning before it merges would put ghost tools in every master."
+  - key: "THE SKILL CANNOT NAME A GHOST TOOL — a test over the packaged text keeps the master and the surface in step, which the design partner's decide_by_default shows is not automatic."
+
+steps:
+  - id: pin
+    action: "Bump version and sha, replace the tarball, build."
+  - id: test
+    action: "TicketStewardSkillTests over PackagedMaster."
+
+tests:
+  - "TicketStewardSkill_NamesOnlyToolsTheStewardOffers"
+  - "TicketStewardSkill_IsInThePinnedCatalog"
+
+done:
+  - "The embedded catalog carries the steward; a deployment whose config pins an older skills version needs that pin raised."
+  - "Backend build and tests green."
