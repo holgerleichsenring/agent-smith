@@ -15,6 +15,7 @@ import type {
   TicketReviewRound,
   TicketReviews,
   TicketSeries,
+  TicketSeriesBudget,
   TicketSeriesSpec,
 } from "@/types/tickets";
 
@@ -47,6 +48,10 @@ export function series(runId: string, specs: TicketSeriesSpec[], over: Partial<T
     handback: null, gate: { status: "passed", specCount: specs.length, runId }, specs, revisions: [], recorded: true,
     ...over,
   };
+}
+
+export function budget(over: Partial<TicketSeriesBudget> = {}): TicketSeriesBudget {
+  return { spentUsd: 42.5, capUsd: 150, elapsedHours: 3.25, capHours: 12, chainFrom: 1, next: "start", heldBecause: null, ...over };
 }
 
 export function pass(over: Partial<RunPass> = {}): RunPass {

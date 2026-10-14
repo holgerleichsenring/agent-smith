@@ -271,6 +271,27 @@ export interface TicketSeries {
   specs: TicketSeriesSpec[];
   revisions: Array<{ number: number; cause: string | null; runId: string; attempt: number; at: string | null }>;
   recorded: boolean;
+  /** The series runway on the default read; null for a one-chunk ticket or a per-attempt read. */
+  budget?: TicketSeriesBudget | null;
+}
+
+/** start | hold | complete */
+export type SeriesNext = string;
+
+/** off | misconfigured | handed-back | cancelled | incomplete | no-progress | budget-usd | wall-clock |
+ *  default-pending | refused | closed */
+export type SeriesHeldReason = string;
+
+/** Spend and summed run time of the chain of attempts against the series caps, and whether the next starts. */
+export interface TicketSeriesBudget {
+  spentUsd: number;
+  capUsd: number;
+  elapsedHours: number;
+  capHours: number;
+  /** The chain's first attempt number. */
+  chainFrom: number;
+  next: SeriesNext;
+  heldBecause: SeriesHeldReason | null;
 }
 
 export interface RunPassCost {

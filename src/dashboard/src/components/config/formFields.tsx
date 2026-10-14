@@ -2,7 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
-import type { StudioEntity } from "@/lib/configApi";
+import type { SettingKey, SettingShapes, SettingValue, StudioEntity } from "@/lib/configApi";
 
 // p0345: form field primitives for the studio drawer. RefSelect / MultiRefSelect
 // are the load-bearing pieces — a reference is only ever CHOSEN from the catalog
@@ -361,4 +361,15 @@ export function ListField({
       />
     </div>
   );
+}
+
+// A patcher bound to a settings shape — merges a partial into the current value.
+export function patcher<T extends SettingShapes[SettingKey]>(value: T, onChange: (v: SettingValue) => void) {
+  return (patch: Partial<T>) => onChange({ ...value, ...patch } as SettingValue);
+}
+
+// A required number that is momentarily emptied keeps its current value rather than
+// collapsing to 0; the operator select-all-retypes and the loaded value stays visible.
+export function keep(v: number | undefined, current: number): number {
+  return v ?? current;
 }
