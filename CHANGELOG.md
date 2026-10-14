@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.163.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.162.0...v0.163.0) (2026-10-14)
+
+
+### Features
+
+* an Azure DevOps HTML field or comment without markup reads as markdown, so a markdown description renders formatted (2026-10-14-30c6) ([51ad512](https://github.com/holgerleichsenring/agent-smith/commit/51ad5126da77804cc5ea3fb6a3b244657c53e0b8))
+
+
+### Bug Fixes
+
+* an untagged Azure DevOps HTML field reads as markdown (2026-10-14-30c6) ([1168fab](https://github.com/holgerleichsenring/agent-smith/commit/1168fab521260aa65504ed8c161955e68572b960))
+
 ## [0.162.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.161.0...v0.162.0) (2026-10-14)
 
 
