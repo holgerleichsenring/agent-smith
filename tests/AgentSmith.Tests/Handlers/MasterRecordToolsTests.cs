@@ -60,6 +60,27 @@ public sealed class MasterRecordToolsTests
             .Should().BeOfType<AgenticMasterHandler>();
     }
 
+    [Fact]
+    public async Task MasterRecordToolHosts_DefaultDecision_ResolvedThroughTheRealServiceProvider()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
+        ServerCompositionBuilder.ConfigureServices(services, "agentsmith.yml");
+        var events = new AgentSmith.Tests.TestHelpers.RecordingEventPublisher();
+        services.AddSingleton<AgentSmith.Contracts.Events.IEventPublisher>(events);
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+        var pipeline = TwoRepositories();
+        pipeline.Set(ContextKeys.RunId, "2026-10-14T1100-di");
+
+        var records = scope.ServiceProvider.GetRequiredService<MasterRecordToolHosts>().Create(pipeline, "/work");
+        var answer = await records.DefaultDecision!.DecideByDefault("q", "c", ["d"], "w");
+
+        answer.Should().StartWith("Taken by default");
+        events.Events.OfType<AgentSmith.Contracts.Events.DefaultDecisionTakenEvent>().Should().ContainSingle()
+            .Which.RunId.Should().Be("2026-10-14T1100-di");
+    }
+
     private static PipelineContext TwoRepositories()
     {
         var pipeline = new PipelineContext();

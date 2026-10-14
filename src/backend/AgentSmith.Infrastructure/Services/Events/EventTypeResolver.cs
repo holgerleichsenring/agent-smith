@@ -59,6 +59,7 @@ public static class EventTypeResolver
         EventType.SpecHandedBack => typeof(SpecHandedBackEvent), // 2026-10-13-9a59g
         EventType.SpecCutReviewed => typeof(SpecCutReviewedEvent), // 2026-10-13-9a59g
         EventType.SpecReviewRound => typeof(SpecReviewRoundEvent), // 2026-10-13-8762e
+        EventType.DefaultDecisionTaken => typeof(DefaultDecisionTakenEvent), // 2026-10-13-8762o
         _ => null
     };
 

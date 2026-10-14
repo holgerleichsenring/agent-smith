@@ -116,4 +116,5 @@ public enum EventType
     SpecHandedBack = 85,
     SpecCutReviewed = 86,
     SpecReviewRound = 87,
+    DefaultDecisionTaken = 88,
 }

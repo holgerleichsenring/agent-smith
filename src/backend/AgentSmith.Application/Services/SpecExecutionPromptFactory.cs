@@ -70,8 +70,8 @@ public sealed class SpecExecutionPromptFactory : ISpecExecutionPromptFactory
             You are implementing SPEC {draft.SpecId} — this spec and nothing after it.
             The spec above is the plan of record: its steps are your checklist (the progress
             ledger is seeded from them) and you own how each step lands in this codebase.
-            Log every non-obvious choice via log_decision as you go. Where the spec names
-            tests, write them; run the repository's build and automated tests as usual.
+            Take a choice a person might overrule with decide_by_default; log every other non-obvious choice via log_decision
+            as you go. Where the spec names tests, write them; run the repository's build and automated tests as usual.
             {SpecExecutionPromptBlocks.DoneCriteria(draft)}
             Before you emit your verdict, verify EACH done criterion above out loud —
             a criterion you cannot satisfy makes the run red, not silently smaller.

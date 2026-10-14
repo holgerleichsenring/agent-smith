@@ -23,6 +23,7 @@ export const L2_TYPES: ReadonlySet<EventType> = new Set([
   EventType.DecisionLogged, EventType.GateChecked, EventType.TriageRoute,
   EventType.LlmCallStarted, EventType.LlmCallFinished,
   EventType.DesignRead, // 2026-10-01-7f7ae: which design version the master read
+  EventType.DefaultDecisionTaken, // 2026-10-13-8762o: a choice taken by default, pending a person
 ]);
 
 export const L3_TYPES: ReadonlySet<EventType> = new Set([
@@ -70,6 +71,7 @@ const TYPE_KEYS: Record<string, EventType> = {
   SpecHandedBack: EventType.SpecHandedBack, // 2026-10-13-9a59g
   SpecCutReviewed: EventType.SpecCutReviewed, // 2026-10-13-9a59g
   SpecReviewRound: EventType.SpecReviewRound, // 2026-10-13-8762e
+  DefaultDecisionTaken: EventType.DefaultDecisionTaken, // 2026-10-13-8762o
 };
 
 const KEY_BY_TYPE: Record<EventType, string> = Object.fromEntries(

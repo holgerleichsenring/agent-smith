@@ -18,8 +18,11 @@ namespace AgentSmith.Application.Services.Tools;
 /// whose commit lands this run — a memory-only change opens no pull request, so a write
 /// anywhere else would never reach git. That case is answered, not written.
 /// </para>
+/// <para>2026-10-13-8762o: a feedback entry also publishes a pointer row — slug and file, never the body —
+/// through <paramref name="proposals"/>, so a person learns the proposal exists.</para>
 /// </summary>
-public sealed class MemoryWriteToolHost(IRunRepositories repositories, string repoRoot, ILogger? logger = null)
+public sealed class MemoryWriteToolHost(
+    IRunRepositories repositories, string repoRoot, ILogger? logger = null, DefaultDecisionRecorder? proposals = null)
     : IToolHost
 {
     private const string ProposedStatus = "proposed";
@@ -59,6 +62,8 @@ public sealed class MemoryWriteToolHost(IRunRepositories repositories, string re
         var status = entryType == MemoryEntryType.Feedback ? ProposedStatus : null;
         await new MemoryStore(files, repoRoot, logger)
             .UpsertAsync(new MemoryEntry(slug, description, entryType, body, status), ct);
+        if (entryType == MemoryEntryType.Feedback && proposals is not null)
+            await proposals.ProposeMemoryAsync(slug, $"{pick.Name}/.agentsmith/memory/{slug}.md", ct);
         return entryType == MemoryEntryType.Feedback
             ? $"Memory '{slug}' recorded in {pick.Name} as PROPOSED feedback — it becomes policy only after operator ratification."
             : $"Memory '{slug}' recorded in {pick.Name} ({MemoryEntryTypes.ToSlug(entryType)}).";

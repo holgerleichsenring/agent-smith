@@ -49,6 +49,7 @@ export enum EventType {
   SpecHandedBack = 85,
   SpecCutReviewed = 86,
   SpecReviewRound = 87,
+  DefaultDecisionTaken = 88,
 }
 
 interface RunEventBase {
@@ -679,6 +680,24 @@ export interface SpecReviewRoundEvent extends RunEventBase {
   revisionNumber?: number | null;
 }
 
+/**
+ * 2026-10-13-8762o: a choice a master took by default, or (kind "memory-proposal") a feedback memory it
+ * proposed — the slug as `chosen` and the file as `pointerPath`, never the body. `conversation` is the
+ * design turn's conversation, null in a coding run.
+ */
+export interface DefaultDecisionTakenEvent extends RunEventBase {
+  type: EventType.DefaultDecisionTaken;
+  specId?: string | null;
+  question: string;
+  chosen: string;
+  alternatives: string[];
+  why: string;
+  holdsSeries: boolean;
+  kind: "decision" | "memory-proposal";
+  pointerPath?: string | null;
+  conversation?: string | null;
+}
+
 /** 2026-10-13-8762e: one cut a reviewer named; evidence is "repo/path:line [Aid]". Mirrors C# SpecReviewCut. */
 export interface SpecReviewCut {
   register: string;
@@ -764,7 +783,8 @@ export type RunEvent =
   | MasterPassEndedEvent
   | SpecHandedBackEvent
   | SpecCutReviewedEvent
-  | SpecReviewRoundEvent;
+  | SpecReviewRoundEvent
+  | DefaultDecisionTakenEvent;
 
 /** p0327: the pending question of a status="waiting_for_input" run, joined
  *  from its checkpoint row at query time (REST detail only). */

@@ -41,6 +41,12 @@ describe("FilterRail", () => {
     expect(screen.getByTestId("filter-toggle-DesignRead")).toBeChecked();
   });
 
+  it("labels DefaultDecisionTaken among the L2 decisions, on by default (2026-10-13-8762o)", () => {
+    render(<EventFilterProvider><FilterRail /></EventFilterProvider>);
+    expect(screen.getByTestId("filter-toggle-DefaultDecisionTaken")).toBeChecked();
+    expect(screen.getByText("DefaultDecisionTaken")).toBeInTheDocument();
+  });
+
   it("clicking a toggle writes the URL via router.replace", () => {
     render(<EventFilterProvider><FilterRail /></EventFilterProvider>);
     fireEvent.click(screen.getByTestId("filter-toggle-ToolCall"));

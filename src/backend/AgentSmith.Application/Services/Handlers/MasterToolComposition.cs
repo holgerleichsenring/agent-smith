@@ -70,6 +70,8 @@ public sealed class MasterToolComposition(
                     recall: records.Recall, remember: records.Remember);
 
         var master = BaseSurface();
+        // 2026-10-13-8762o: decide_by_default — coding master and design partner, outside BaseSurface: no child.
+        if (!isScanMaster) master = [.. master, .. records.DefaultDecision?.GetTools(null, null) ?? []];
         // 2026-10-01-7f7ab: design_read joins design and coding masters of a project with a figma
         // source — the MASTER only, outside BaseSurface: children fanning out over one file would
         // multiply calls against one rate limit, so no child surface derived from it carries it.

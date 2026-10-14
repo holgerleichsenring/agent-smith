@@ -32,5 +32,6 @@ internal static class RunEventAppliers
         new RunConversationProjection(new()), // 2026-10-13-9a59g
         new RunSegmentProjection(new()), // 2026-10-13-9a59j
         new RunSpecReviewRoundProjection(new()), // 2026-10-13-8762e
+        new RunDefaultDecisionProjection(new()), // 2026-10-13-8762o
     ];
 }

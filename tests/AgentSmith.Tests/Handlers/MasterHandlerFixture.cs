@@ -35,8 +35,9 @@ internal static class MasterHandlerFixture
         AgentSmith.Application.Services.Tools.RenderReferenceToolFactory? render = null,
         AgentSmith.Contracts.Events.IEventPublisher? passEvents = null,
         AgentSmith.Contracts.Events.IRunContextAccessor? runContext = null,
-        IDecisionLogger? decisions = null) =>
-        new(loop, prompts, RecordHosts(decisions ?? new NoOpDecisionLogger()), AgentSmithConfig.Empty(),
+        IDecisionLogger? decisions = null,
+        AgentSmith.Contracts.Events.IEventPublisher? recordEvents = null) =>
+        new(loop, prompts, RecordHosts(decisions ?? new NoOpDecisionLogger(), recordEvents), AgentSmithConfig.Empty(),
             new AgentSmith.Infrastructure.Services.ContextYamlSerializer(
                 new AgentSmith.Infrastructure.Services.ContextYamlBuilders()),
             AgentSmith.Tests.TestHelpers.ContextGates.Build(),
@@ -102,8 +103,10 @@ internal static class MasterHandlerFixture
             NullLogger<AgenticMasterHandler>.Instance);
 
     /// <summary>2026-10-13-8762m: the record tools of a master start, over the stub repositories.</summary>
-    internal static AgentSmith.Application.Services.Tools.MasterRecordToolHosts RecordHosts(IDecisionLogger decisions) =>
-        new(decisions, Repositories(), NullLogger<AgentSmith.Application.Services.Tools.MasterRecordToolHosts>.Instance);
+    internal static AgentSmith.Application.Services.Tools.MasterRecordToolHosts RecordHosts(
+        IDecisionLogger decisions, AgentSmith.Contracts.Events.IEventPublisher? events = null) =>
+        new(decisions, Repositories(), events ?? new AgentSmith.Application.Services.Events.NoOpEventPublisher(),
+            NullLogger<AgentSmith.Application.Services.Tools.MasterRecordToolHosts>.Instance);
 
     private static AgentSmith.Application.Services.Repositories.RunRepositoriesFactory Repositories() =>
         new(new SandboxTargets(), new AgentSmith.Tests.TestHelpers.StubSandboxFileReaderFactory(),

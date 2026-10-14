@@ -40,6 +40,7 @@ public sealed class RunEventApplierFamiliesTests
         [typeof(SpecHandedBackEvent)] = ["RunConversationProjection"],
         [typeof(SpecCutReviewedEvent)] = ["RunConversationProjection"],
         [typeof(SpecReviewRoundEvent)] = ["RunSpecReviewRoundProjection"],
+        [typeof(DefaultDecisionTakenEvent)] = ["RunDefaultDecisionProjection"],
     };
 
     [Fact]
