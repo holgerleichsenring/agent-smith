@@ -87,6 +87,7 @@ integrations:
 
 state:
   done:
+    2026-10-13-8762x: "SKILLS PIN v5.16.0 (embedded skills catalog). The embedded catalog moves to the release carrying every master rule of series 8762 (review cuts, contract:, hand_forward, decide_by_default, write_mock, series sizes) plus 5.15.1's fix; SeriesSkillRulesTests reads each rule from the pinned masters. -> .agentsmith/specs/done/2026-10-13-8762x-skills-catalog-pin-series.yaml"
     2026-10-13-8762w: "SERIES STRIP AND SERIES SETTINGS (dashboard ticket page, Config Studio). Above the tabs a strip shows the chain's spend and run time against the series caps, its automatic starts and whether the next attempt starts by itself or why it holds; Config Studio edits spec_review and series. -> .agentsmith/specs/done/2026-10-13-8762w-series-runner-dashboard.yaml"
     2026-10-13-8762v: "SERIES AUTO CONTINUE (rework worker, ticket series read, spawn cause, series config). With no person's act waiting, agent-smith starts the series' next attempt itself (cause series / agent-smith) inside series.budget_usd 150 and wall_clock_hours 12 per chain; a hold is said once, and the read carries the runway. -> .agentsmith/specs/done/2026-10-13-8762v-series-auto-continue.yaml"
     2026-10-13-8762u: "SERIES CAP PER ATTEMPT (series config, spec sequence, commit-and-PR, lifecycle). series.max_specs 24 caps a series, one attempt runs at most specs_per_attempt 8 sized by seconds_per_spec against the wall clock left; the rest wait as next attempt, the PR stays a draft, the ticket Waiting. -> .agentsmith/specs/done/2026-10-13-8762u-series-cap-per-attempt.yaml"
@@ -1224,7 +1225,6 @@ state:
     2026-10-14-30c6: "AN UNTAGGED AZURE DEVOPS HTML FIELD READS AS MARKDOWN (Azure DevOps field + comment mappers, shared tag rule). HtmlMarkup in Domain is the one rule TicketHtmlConverter and the format marking use. -> .agentsmith/specs/done/2026-10-14-30c6-ticket-html-field-markdown.yaml"
   active: {}
   planned:
-    2026-10-13-8762x: "SKILLS CATALOG PIN SERIES (series 2026-10-13-8762). One skills release carries every master edit of this series, the embedded pin moves to it, and tests read each rule the series put into the masters from the pinned catalog. -> .agentsmith/specs/planned/2026-10-13-8762x-skills-catalog-pin-series.yaml"
     2026-10-04-6807: "A TICKET CAN ASK AN INIT TO REFRESH PRINCIPLES (ticket routing, config). A configured refresh label on the init ticket sets the same flag as the chip. -> .agentsmith/specs/planned/2026-10-04-6807-init-refresh-ticket-label.yaml"
     2026-10-03-0fca: "OVERLAYS REACH SUBPROJECTS AND NOTEBOOKS (overlay detection, discovery). sbt and Gradle multi-project declarations scoped per subproject; notebook-only repositories become components. -> .agentsmith/specs/planned/2026-10-03-0fca-overlay-detection-gaps.yaml"
     2026-10-02-60ca: "DECISION FILES MEET THEIR SCHEMA (decision schema, architecture tests). 296 of 905 fail and 25 do not parse; repair, settle the category vocabulary with the operator, ratchet the rest. -> .agentsmith/specs/planned/2026-10-02-60ca-decision-file-schema.yaml"
