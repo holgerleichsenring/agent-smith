@@ -88,7 +88,7 @@ internal sealed class FileStepHandler(ILogger<FileStepHandler> logger)
         string content, int? startLine, int? lineCount, bool withLineNumbers,
         out int totalLines, out int firstEmittedLine)
     {
-        var lines = content.Split('\n');
+        var lines = !withLineNumbers ? content.Split('\n') : content.Length == 0 ? [] : (content.EndsWith('\n') ? content[..^1] : content).Split('\n');
         totalLines = lines.Length;
         var start = Math.Max(1, startLine ?? 1);
         var count = lineCount ?? int.MaxValue;
