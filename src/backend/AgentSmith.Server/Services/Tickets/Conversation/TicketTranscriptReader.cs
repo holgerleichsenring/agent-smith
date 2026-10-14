@@ -34,18 +34,23 @@ public sealed class TicketTranscriptReader(IServiceScopeFactory scopes, ILogger<
                 null, turn.Role == TranscriptRole.Assistant, turn.At, null, null, turn.Text));
 
     /// <summary>The open proposal and its drafts; null when none is open.</summary>
-    public TicketConversationProposalView? Proposal(SpecDialogSession session) =>
-        session.LatestProposalJson is not { } json ? null
-            : Read<TicketConversationProposalView?>(session, () => Of(OutcomeProposalJson.Read(json)), null);
-
-    private static TicketConversationProposalView Of(OutcomeProposal proposal) => (proposal switch
+    public TicketConversationProposalView? Proposal(SpecDialogSession session)
     {
-        SpecOutcome spec => new TicketConversationProposalView("spec", [Draft(spec.Draft)]),
-        EpicOutcome epic => new("epic", [Draft(epic.Parent), .. epic.Children.Select(Draft)]),
+        if (session.LatestProposalJson is not { } json) return null;
+        var ratified = Read(session, () => RatifiedMocks.Of(SpecDialogSessionMapper.ReadTranscript(session.TranscriptJson)),
+            new Dictionary<string, int>());
+        return Read<TicketConversationProposalView?>(session, () => Of(OutcomeProposalJson.Read(json), ratified), null);
+    }
+
+    private static TicketConversationProposalView Of(OutcomeProposal proposal, IReadOnlyDictionary<string, int> ratified) => (proposal switch
+    {
+        SpecOutcome spec => new TicketConversationProposalView("spec", [Draft(spec.Draft, ratified)]),
+        EpicOutcome epic => new("epic", [Draft(epic.Parent, ratified), .. epic.Children.Select(c => Draft(c, ratified))]),
         _ => new("bug", []),
     }) with { Findings = proposal.Findings, ReviewRounds = proposal.ReviewRounds, NotReviewed = proposal.NotReviewed };
 
-    private static TicketConversationDraftView Draft(SpecDraft draft) => new(draft.SpecId, draft.Goal, draft.Repos, draft.Done);
+    private static TicketConversationDraftView Draft(SpecDraft draft, IReadOnlyDictionary<string, int> ratified) =>
+        new(draft.SpecId, draft.Goal, draft.Repos, draft.Done, ratified.TryGetValue(draft.SpecId, out var v) ? v : null);
 
     private T Read<T>(SpecDialogSession session, Func<T> read, T fallback)
     {

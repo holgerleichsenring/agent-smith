@@ -38,4 +38,12 @@ describe("ProposalBlock review", () => {
     expect(screen.queryByTestId("dialog-proposal-findings")).toBeNull();
     expect(screen.getByTestId("proposal-draft-2026-10-14-9000b")).toHaveTextContent("first slice");
   });
+
+  // 2026-10-13-8762t
+  it("ProposalBlock names the ratified mock version", () => {
+    const drafts = [{ ...proposal.drafts[0], ratifiedMock: 3 }, proposal.drafts[1]];
+    render(<ProposalBlock proposal={{ kind: "epic", drafts }} preview={null} />);
+    expect(screen.getByTestId("proposal-ratified-mock-2026-10-14-9000b")).toHaveTextContent("mock v3 ratified");
+    expect(screen.queryByTestId("proposal-ratified-mock-2026-10-14-9000c")).toBeNull();
+  });
 });

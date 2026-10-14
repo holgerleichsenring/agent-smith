@@ -86,6 +86,26 @@ export async function resumeSpecDialogConversation(
 }
 
 /**
+ * 2026-10-13-8762t: a person ratifies one mock version of a spec in the conversation. A 404 (that
+ * version is not held) or a 409 (the partner is computing a turn) throws the server's own sentence,
+ * which the strip shows in place.
+ */
+export async function ratifySpecMock(sessionId: string, specId: string, version: number): Promise<void> {
+  const path = `/api/spec-dialog/conversations/${encodeURIComponent(sessionId)}/mocks/${encodeURIComponent(specId)}/ratify`;
+  const res = await apiFetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ version }),
+  });
+  if (res.ok) return;
+  if (res.status === 404 || res.status === 409) {
+    const sentence = (await res.text()).trim();
+    if (sentence) throw new Error(sentence);
+  }
+  throw await refused(res, path);
+}
+
+/**
  * 2026-09-20-3af8: one image into the conversation on this dialog id. The body IS the image —
  * nothing is bound from it, so an over-size upload is refused on its declared length before the
  * bytes are read — and the project rides the query because an upload may be the FIRST thing on

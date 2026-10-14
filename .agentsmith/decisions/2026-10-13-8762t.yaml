@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-8762t
+
+decisions:
+  - category: API
+    chose: "SpecDialogSessionView.RatifiedMocks (last positional, null when nothing is ratified) set in SpecDialogViewReader's with-block from RatifiedMocks.Of(state.Transcript); the versions stay 8762r's Mocks field"
+    over: "A list route of its own for the strip, or listing versions with their mark a second time"
+    reason: "The page refetches one view after every reply, so the mark arrives with the proposal it belongs to; a second read could disagree with the first. Only image bytes need a route, and 8762r's shot route serves them."
+  - category: Architecture
+    chose: "TicketTranscriptReader.Proposal reads the transcript once through its own Read guard (an unreadable transcript yields no marks, the proposal still shows) and passes the map into the static Of and Draft; TicketConversationDraftView.RatifiedMock is a last positional defaulting to null"
+    over: "Reading the transcript inside the proposal's guard, where an unreadable transcript would hide the whole proposal"
+    reason: "The mark is secondary to the proposal; losing it must not lose the drafts."
+  - category: UX
+    chose: "MockVersions draws each version's desktop screenshot through AuthedImage over mockPath(..., \"shot\"); the ratified one gets a state-proven outline and a 'ratified' label, the others a Ratify button; a filed proposal (DialogPane's filed !== null) shows no Ratify and the note 'filed with v{n}; a new ratification reaches the spec only through a new approval of this ticket'"
+    over: "Opening the mock HTML in the strip, or keeping Ratify after filing"
+    reason: "A model-authored page on the dashboard origin would run as the dashboard; a ratification after filing would mark a version the filed yaml never carries (8762s files once, at the approval)."
+  - category: API
+    chose: "ratifySpecMock throws an Error carrying the server's plain-text sentence on 404 and 409; any other failure (or an empty body) goes through the shared refused()"
+    over: "refused() for every status, whose ApiResponseError message prefixes 'HTTP 409 — '"
+    reason: "The strip shows the refusal in place as the server worded it; the spec asks for the server's sentence."
+  - category: Architecture
+    chose: "DialogProposalPanel takes the strip props as one optional bag (mocks, ratifiedMocks, sessionId, onRatified, filed) handed to Spec and Slice, which render the strip after Sections keyed by specId; nothing is drawn without a sessionId or versions for that spec, so the epic's parent shows none"
+    over: "Threading five separate props through each sub-component"
+    reason: "One bag keeps the existing callers (and tests) that render the panel with the proposal alone unchanged."

@@ -146,6 +146,8 @@ export interface SpecDialogSession {
   imageCount?: number;
   /** 2026-10-13-8762r: the design partner's mock versions, oldest first; null with none. */
   mocks?: SpecDialogMock[] | null;
+  /** 2026-10-13-8762t: spec id -> the mock version a person ratified, from the transcript; null with none. */
+  ratifiedMocks?: Record<string, number> | null;
   /** 2026-09-27-481bc: the ticket this conversation is bound to, or null when it is bound to none. */
   ticket: SpecDialogSessionTicket | null;
 }

@@ -2,8 +2,10 @@
 
 import type {
   SpecDraftProposal,
+  SpecDialogMock,
   SpecDialogProposalPush,
 } from "@/types/spec-dialog";
+import { MockVersions } from "./MockVersions";
 
 // 2026-09-15-6d9c: WHAT WOULD BE FILED, rendered by kind. The proposal is the part of a
 // turn that is typed — the reply beside it is prose the transcript already carries, and a
@@ -26,8 +28,19 @@ import type {
 //
 // 2026-09-17-042ef: every heading above a list is the studio's field label and every slice is
 // its panel card, so the local eyebrow this file declared is gone.
+//
+// 2026-10-13-8762t: a spec with mock versions shows them as a strip beside its sections, with Ratify.
 
-export function DialogProposalPanel({ proposal }: { proposal: SpecDialogProposalPush }) {
+/** What the strip needs, handed through to every spec and slice; absent, no strip is drawn. */
+interface MockStrip {
+  mocks?: SpecDialogMock[] | null;
+  ratifiedMocks?: Record<string, number> | null;
+  sessionId?: string | null;
+  onRatified?: () => Promise<void>;
+  filed?: boolean;
+}
+
+export function DialogProposalPanel({ proposal, ...strip }: { proposal: SpecDialogProposalPush } & MockStrip) {
   const specs = [proposal.parent, proposal.spec, ...proposal.children].filter(
     (spec): spec is SpecDraftProposal => spec !== null,
   );
@@ -40,15 +53,15 @@ export function DialogProposalPanel({ proposal }: { proposal: SpecDialogProposal
           <p className="mt-1 dsh-body whitespace-pre-wrap text-ink">{proposal.bug.body}</p>
         </div>
       )}
-      {proposal.spec && <Spec spec={proposal.spec} label="One spec" />}
-      {proposal.parent && <Spec spec={proposal.parent} label="The work ticket — one run works every slice" />}
+      {proposal.spec && <Spec spec={proposal.spec} label="One spec" strip={strip} />}
+      {proposal.parent && <Spec spec={proposal.parent} label="The work ticket — one run works every slice" strip={strip} />}
       {proposal.children.length > 0 && (
         <div>
           <Label>Slices, in the order they will be filed</Label>
           <ol data-testid="dialog-proposal-children" className="ml-5 flex list-decimal flex-col gap-2 marker:font-mono marker:text-body">
             {proposal.children.map((child, index) => (
               <li key={child.specId}>
-                <Slice slice={child} siblings={proposal.children} open={index === 0} />
+                <Slice slice={child} siblings={proposal.children} open={index === 0} strip={strip} />
               </li>
             ))}
           </ol>
@@ -74,13 +87,14 @@ export function DialogProposalPanel({ proposal }: { proposal: SpecDialogProposal
   );
 }
 
-function Spec({ spec, label }: { spec: SpecDraftProposal; label: string }) {
+function Spec({ spec, label, strip }: { spec: SpecDraftProposal; label: string; strip: MockStrip }) {
   return (
     <div data-testid={`dialog-proposal-spec-${spec.specId}`}>
       <Label>{label}</Label>
       <h3 className="dsh-h3 font-semibold text-ink">{spec.goal}</h3>
       <div className="fv">{spec.specId}</div>
       <Sections spec={spec} />
+      <Mocks specId={spec.specId} strip={strip} />
     </div>
   );
 }
@@ -89,10 +103,12 @@ function Slice({
   slice,
   siblings,
   open,
+  strip,
 }: {
   slice: SpecDraftProposal;
   siblings: SpecDraftProposal[];
   open: boolean;
+  strip: MockStrip;
 }) {
   return (
     <details
@@ -113,6 +129,7 @@ function Slice({
           })}
         />
         <Sections spec={slice} withoutRequires />
+        <Mocks specId={slice.specId} strip={strip} />
       </div>
     </details>
   );
@@ -128,6 +145,15 @@ function Sections({ spec, withoutRequires }: { spec: SpecDraftProposal; withoutR
       <RestsOn spec={spec} />
       <Lines label="Assumed, not looked at" items={spec.assumptions ?? []} />
     </>
+  );
+}
+
+function Mocks({ specId, strip }: { specId: string; strip: MockStrip }) {
+  const versions = (strip.mocks ?? []).filter((mock) => mock.specId === specId).sort((a, b) => a.version - b.version);
+  if (!strip.sessionId || versions.length === 0) return null;
+  return (
+    <MockVersions specId={specId} mocks={versions} ratified={strip.ratifiedMocks?.[specId] ?? null}
+      sessionId={strip.sessionId} onRatified={strip.onRatified} filed={strip.filed ?? false} />
   );
 }
 

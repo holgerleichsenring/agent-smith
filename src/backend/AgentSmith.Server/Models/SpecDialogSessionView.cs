@@ -36,6 +36,7 @@ namespace AgentSmith.Server.Models;
 /// <param name="SeesUploadedImages">2026-10-08-e8b9j: and images inside sets, which reach it as a tool's result.</param>
 /// <param name="ImageCount">2026-10-08-e8b9j: Image-entry images plus image files inside sets, counted by the server.</param>
 /// <param name="Mocks">2026-10-13-8762r: the design partner's mock versions, oldest first, never their bytes; null with none.</param>
+/// <param name="RatifiedMocks">2026-10-13-8762t: spec id -> the version a person ratified, read from the transcript; null with none.</param>
 /// <param name="ProposalTurn">
 /// The index in <paramref name="Transcript"/> of the turn the proposal card belongs on — the
 /// last assistant turn that carried a draft. Null when there is no proposal.
@@ -57,7 +58,8 @@ public sealed record SpecDialogSessionView(
     bool SeesImages = true,
     bool SeesUploadedImages = true,
     int ImageCount = 0,
-    IReadOnlyList<SpecDialogMockView>? Mocks = null);
+    IReadOnlyList<SpecDialogMockView>? Mocks = null,
+    IReadOnlyDictionary<string, int>? RatifiedMocks = null);
 
 /// <summary>2026-10-13-8762r: one mock version, addressed by its spec and number; its screenshot is a route of its own.</summary>
 public sealed record SpecDialogMockView(string SpecId, int Version, string Name, DateTimeOffset At, bool HasShot);

@@ -371,7 +371,8 @@ export interface TicketConversation {
   openDialogId: string | null;
   proposal: {
     kind: string;
-    drafts: Array<{ specId: string; goal: string; repos: string[]; done: string[] }>;
+    /** 2026-10-13-8762t: ratifiedMock is the mock version a person ratified for the draft's spec. */
+    drafts: Array<{ specId: string; goal: string; repos: string[]; done: string[]; ratifiedMock?: number | null }>;
     /** 2026-10-13-8762i: what still stands, every review round, and what is not reviewed yet. */
     findings?: SpecDialogProposalFinding[];
     reviewRounds?: SpecDialogReviewRound[];

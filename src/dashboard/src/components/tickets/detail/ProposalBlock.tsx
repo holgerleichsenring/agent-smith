@@ -9,6 +9,7 @@ import type { TicketApprovalPreview, TicketConversation } from "@/types/tickets"
 // when) marked with 9a59l's disposition, then the series' other specs as the preview keeps or drops them.
 // No revision number: none is served for a proposal not yet approved.
 // 2026-10-13-8762i: each draft's review rounds, what still stands, and what is not reviewed yet.
+// 2026-10-13-8762t: the mock version a person ratified for a draft; ratifying is the conversation's act.
 
 const DISPOSITION_CLASS: Record<string, string> = { kept: "keep", recut: "recut", appended: "add", dropped: "drop" };
 
@@ -44,6 +45,9 @@ export function ProposalBlock({ proposal, preview }: Props) {
                 {kind ? ` · ${kind}` : ""}
               </span>
               {draft.done.length > 0 && <span className="done-when">Done when: {draft.done.join("; ")}</span>}
+              {draft.ratifiedMock != null && (
+                <span className="pill ok" data-testid={`proposal-ratified-mock-${draft.specId}`}>mock v{draft.ratifiedMock} ratified</span>
+              )}
               {waiting.includes(draft.specId) && (
                 <span className="pill amber" data-testid={`proposal-not-reviewed-${draft.specId}`}>not reviewed yet</span>
               )}

@@ -17,5 +17,6 @@ public sealed record TicketConversationProposalView(string Kind, IReadOnlyList<T
 }
 
 /// <summary>2026-10-13-9a59h: one drafted spec of an open proposal.</summary>
+/// <param name="RatifiedMock">2026-10-13-8762t: the mock version a person ratified for this spec; null with none.</param>
 public sealed record TicketConversationDraftView(
-    string SpecId, string Goal, IReadOnlyList<string> Repos, IReadOnlyList<string> Done);
+    string SpecId, string Goal, IReadOnlyList<string> Repos, IReadOnlyList<string> Done, int? RatifiedMock = null);

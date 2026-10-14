@@ -45,6 +45,7 @@ public sealed class SpecDialogViewReader(
                 SeesUploadedImages = held.Sight?.UploadedImages ?? true,
                 ImageCount = held.ImageCount,
                 Mocks = await MocksAsync(state.JobId, cancellationToken), // 2026-10-13-8762r: no bytes
+                RatifiedMocks = RatifiedMocks.Of(state.Transcript) is { Count: > 0 } ratified ? ratified : null,
             },
             projects.All(),
             asked,
