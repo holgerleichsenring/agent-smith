@@ -16,6 +16,7 @@ namespace AgentSmith.Application.Services.Rework;
 /// <para>2026-10-13-9a59m: beside them, the ticket's stored approval when it is an operator act
 /// (<see cref="OperatorAct"/>), read by the tracker connection and the ticket key a run resolves.</para>
 /// <para>2026-10-13-9a59n: and the attempt's own stored Retry (<see cref="RetryAct"/>), newest-wins with the rest.</para>
+/// <para>2026-10-13-8762p: and the ticket's overruled defaults (<see cref="OverruleAct"/>), carrying every note.</para>
 /// </summary>
 public sealed class ReworkPendingActs(
     ITicketProviderFactory tickets, ISourceProviderFactory sources, IPrReviewAuthorTrust trust,
@@ -25,9 +26,10 @@ public sealed class ReworkPendingActs(
 
     public async Task<PendingReworkAct?> NewestAsync(
         ResolvedProject project, string ticketId, PreviousAttempt since, CancellationToken cancellationToken) =>
-        Newer(Newer(await KeywordActAsync(project, ticketId, since, cancellationToken),
+        Newer(Newer(Newer(await KeywordActAsync(project, ticketId, since, cancellationToken),
             await NewestHandbackAnswerAsync(project, ticketId, since, cancellationToken)),
-            RetryAct.Of(since) is { } retry ? new PendingReworkAct(retry) : null);
+            RetryAct.Of(since) is { } retry ? new PendingReworkAct(retry) : null),
+            OverruleAct.Of(since) is { } overrule ? new PendingReworkAct(overrule, Text: OverruleAct.TextOf(since)) : null);
 
     public async Task<PendingReworkAct?> NewestHandbackAnswerAsync(
         ResolvedProject project, string ticketId, PreviousAttempt since, CancellationToken cancellationToken)

@@ -65,6 +65,7 @@ internal sealed class TicketStoreHarness : IDisposable
         services.AddSingleton<IUniqueViolationTranslator, SqliteUniqueViolationTranslator>();
         services.AddSingleton<AgentSmith.Contracts.Specs.ISpecApprovalStore>(Approvals); // 2026-10-13-8762l
         services.AddTicketReaders();
+        services.AddTicketDefaults(); // 2026-10-13-8762p
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
     }
 
@@ -92,6 +93,10 @@ internal sealed class TicketStoreHarness : IDisposable
     public TicketSeriesReader Series => _provider.GetRequiredService<TicketSeriesReader>();
     public TicketConversationReader Conversation => _provider.GetRequiredService<TicketConversationReader>();
     public TicketReviewsReader Reviews => _provider.GetRequiredService<TicketReviewsReader>();
+    public AgentSmith.Server.Services.Tickets.Defaults.TicketDefaultsReader Defaults =>
+        _provider.GetRequiredService<AgentSmith.Server.Services.Tickets.Defaults.TicketDefaultsReader>();
+    public AgentSmith.Server.Services.Tickets.Defaults.DefaultVerdictWriter Verdicts =>
+        _provider.GetRequiredService<AgentSmith.Server.Services.Tickets.Defaults.DefaultVerdictWriter>();
     public TicketBetweenAttemptsChecker Checker => _provider.GetRequiredService<TicketBetweenAttemptsChecker>();
     public TicketCheckKicks Kicks => _provider.GetRequiredService<TicketCheckKicks>();
     public IServiceProvider Services => _provider;
@@ -101,6 +106,12 @@ internal sealed class TicketStoreHarness : IDisposable
         await using var ctx = new AgentSmithDbContext(Options());
         foreach (var row in rows) ctx.Add(row);
         await ctx.SaveChangesAsync();
+    }
+
+    public async Task<List<T>> ReadAllAsync<T>() where T : class
+    {
+        await using var ctx = new AgentSmithDbContext(Options());
+        return await ctx.Set<T>().AsNoTracking().ToListAsync();
     }
 
     public async Task DeleteRunAsync(string runId)

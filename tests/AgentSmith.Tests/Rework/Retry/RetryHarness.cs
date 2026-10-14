@@ -67,7 +67,8 @@ internal sealed class RetryHarness : IDisposable
         services.AddScoped<RunDeletionRepository>();
         services.AddScoped<ReworkNudgeRepository>().AddScoped<ReworkLedgerRepository>().AddScoped<RunCheckpointRepository>();
         services.AddSingleton<IActiveRunLease, DbActiveRunLease>().AddSingleton<IRunCheckpointStore, DbRunCheckpointStore>();
-        services.AddSingleton<IPreviousAttemptReader, DbPreviousAttemptReader>().AddSingleton<IReworkNudges, DbReworkNudges>();
+        services.AddSingleton<IPreviousAttemptReader, DbPreviousAttemptReader>().AddSingleton<IReworkNudges, DbReworkNudges>()
+            .AddSingleton<IDecidedDefaults, DecidedDefaults>(); // 2026-10-13-8762p
         services.AddSingleton(new TokenAuthorityConfig()).AddSingleton(TimeProvider.System);
         services.AddTicketReaders().AddRunRetry();
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });

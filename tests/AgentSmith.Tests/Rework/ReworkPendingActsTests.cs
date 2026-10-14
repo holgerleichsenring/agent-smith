@@ -126,6 +126,37 @@ public sealed class ReworkPendingActsTests
         answer.Should().BeNull("a retry never answers a hand-back");
     }
 
+    /// <summary>2026-10-13-8762p: an overruled default beside the ticket's keyword comment — the newer is the act, carrying every note.</summary>
+    [Fact]
+    public async Task ReworkPendingActs_NewerOverrule_WinsOverOlderKeywordAct()
+    {
+        var tracker = new Mock<ITicketProvider>();
+        tracker.Setup(t => t.GetCommentsAsync(It.IsAny<AgentSmith.Domain.Models.TicketId>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync([new AgentSmith.Domain.Entities.TicketComment("bob", Start.AddMinutes(10), "agentsmith again") { Id = "c-1" }]);
+        var tickets = new Mock<ITicketProviderFactory>();
+        tickets.Setup(t => t.Create(It.IsAny<TrackerConnection>())).Returns(tracker.Object);
+        var project = new ResolvedProject
+        {
+            Name = "p", Tracker = new TrackerConnection { Name = "gh", Type = TrackerType.GitHub },
+            GithubTrigger = new WebhookTriggerConfig { CommentKeyword = "agentsmith" },
+        };
+        var acts = new ReworkPendingActs(tickets.Object, Mock.Of<ISourceProviderFactory>(), Mock.Of<IPrReviewAuthorTrust>(), _approvals);
+        PreviousAttempt Overruled(int minutes) => new("run-1", "success", Start, true)
+        {
+            Overrules = [new(7, "run-1", "2026-10-13-1234a", "Which queue?", "polling", "overruled", "use the bus", "ana", Start.AddMinutes(minutes))],
+        };
+
+        var overrule = await acts.NewestAsync(project, "7", Overruled(20), CancellationToken.None);
+        var comment = await acts.NewestAsync(project, "7", Overruled(5), CancellationToken.None);
+
+        overrule!.Act.Should().Be(new ReworkAct("ana", Start.AddMinutes(20), ReworkChannel.Overrule)
+        {
+            Source = new AttemptSource(AttemptSourceKinds.Default, Id: "7"),
+        });
+        overrule.Text.Should().Contain("Which queue?").And.Contain("polling").And.Contain("use the bus");
+        comment!.Act.Channel.Should().Be(ReworkChannel.Ticket, "the comment at 10 is newer than the overrule at 5");
+    }
+
     // 2026-10-13-9a59t: the pull-request act carries what the note says; a keyword act carries its comment.
     [Fact]
     public async Task ReworkPendingActs_PullRequestAct_CarriesNoteBody()

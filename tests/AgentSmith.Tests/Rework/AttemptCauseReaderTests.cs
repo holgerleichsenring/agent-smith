@@ -193,6 +193,22 @@ public sealed class AttemptCauseReaderTests
         (await ReadAsync()).Should().Be(new AttemptCause(AttemptChannels.Retry, "ops-1", Start.AddMinutes(20)));
     }
 
+    // 2026-10-13-8762p: an overruled default ranks below the act slot and above a Retry.
+    [Fact]
+    public async Task AttemptCause_Overrule_IsChannelOverrule_WithTheDefaultAsSource()
+    {
+        _pipeline.Set(ContextKeys.PreviousAttempt, new PreviousAttempt("run-1", "success", Start, true)
+        {
+            RetryRequestedBy = "ops-1", RetryRequestedAt = Start.AddMinutes(30),
+            Overrules = [new(7, "run-1", null, "Which queue?", "polling", "overruled", null, "ana", Start.AddMinutes(20))],
+        });
+
+        (await ReadAsync()).Should().Be(new AttemptCause(AttemptChannels.Overrule, "ana", Start.AddMinutes(20),
+            new AttemptSource(AttemptSourceKinds.Default, Id: "7")));
+        KeywordComment(10);
+        (await ReadAsync()).Channel.Should().Be(AttemptChannels.TicketComment, "an act in the slot outranks an overrule");
+    }
+
     [Fact]
     public async Task AttemptCause_NoActWithPreviousAttempt_IsRetrigger()
     {

@@ -31,6 +31,7 @@ public static class SpecRecutNotice
                 ("Changes were requested on the pull request after", "with the review in view"),
             SpecRevisionCause.StatusBack =>
                 ("The ticket was moved back to work after", "with the feedback since in view"),
+            SpecRevisionCause.Overrule => ("A default was overruled on the ticket after", "with the overrule in view"),
             _ => (null, null),
         };
         if (since is null) return string.Empty;

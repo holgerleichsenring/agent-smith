@@ -74,7 +74,8 @@ public sealed class PreviousAttemptBoundaryTests : IDisposable
     {
         var services = new ServiceCollection();
         services.AddScoped<IUnitOfWork>(_ => Db());
-        return new DbPreviousAttemptReader(services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>());
+        var scopes = services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
+        return new DbPreviousAttemptReader(scopes, new DecidedDefaults(scopes));
     }
 
     private async Task SeedAsync(string status, string? cancelReason, string specStatus)

@@ -12,7 +12,7 @@ internal static class TicketReviewEndpoints
     internal static WebApplication MapTicketReviewEndpoints(this WebApplication app)
     {
         app.MapGet("/api/tickets/{project}/{ticketId}/reviews", ReviewsAsync).Needs(Permissions.RunsRead);
-        return app;
+        return app.MapTicketDefaultsEndpoints(); // 2026-10-13-8762p
     }
 
     // Internal so the endpoint tests drive the real reader without a host.

@@ -18,8 +18,8 @@ namespace AgentSmith.Server.Services.Rework;
 /// text instead of reopening it. One per tracker ticket: under the tracker ticket's own lock the act's key is
 /// marked on the ledger row of the first project (by name) sharing the tracker, FIRST — a key already marked
 /// files nothing, so a redelivery or a second matching project stays silent, and a failed create is never
-/// repeated. The spent key is the act's served mark. An operator approval or a retry is answered on the
-/// ticket instead: a follow-up of a closed ticket is filed from its conversation.
+/// repeated. The spent key is the act's served mark. An overruled default (2026-10-13-8762p) is followed up the
+/// same way, its notes the body; an operator approval or a retry is answered on the ticket instead.
 /// </summary>
 public sealed class ClosedTicketActFollowUp(
     IServiceScopeFactory scopes, IRedisClaimLock locks, ITicketProviderFactory tickets, ReworkSpeech speech,
@@ -38,7 +38,7 @@ public sealed class ClosedTicketActFollowUp(
     public async Task<ReworkNudgeDisposition> AnswerAsync(
         ResolvedProject project, string ticketId, PendingReworkAct act, string runId, CancellationToken ct)
     {
-        if (act.Act.Channel is not (ReworkChannel.Ticket or ReworkChannel.PullRequest))
+        if (act.Act.Channel is not (ReworkChannel.Ticket or ReworkChannel.PullRequest or ReworkChannel.Overrule))
         {
             await speech.SayOnceAsync(project, ticketId, act, runId, "closed", ReworkTexts.TicketRefusal(ReworkTexts.ClosedRefusal),
                 ReworkTexts.PrRefused(ticketId, ReworkTexts.ClosedRefusal), ct);

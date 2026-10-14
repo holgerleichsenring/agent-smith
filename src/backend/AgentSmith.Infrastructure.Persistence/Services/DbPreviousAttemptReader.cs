@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Decisions;
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence.Contracts;
@@ -13,7 +14,7 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 /// time-sortable and SQLite cannot ORDER BY a DateTimeOffset). A queued row is a capacity
 /// reservation, never an attempt; a scan is not an attempt at the ticket's work.
 /// </summary>
-public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory) : IPreviousAttemptReader
+public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory, IDecidedDefaults decided) : IPreviousAttemptReader
 {
     public async Task<PreviousAttempt?> LatestAsync(
         string project, string ticketId, string? excludingRunId, CancellationToken cancellationToken)
@@ -44,6 +45,9 @@ public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory) :
             // 2026-10-13-9a59m: the approval this attempt published as worked (its RunAttempt row).
             WorkedApprovalAt = await uow.Set<RunAttempt>().AsNoTracking().Where(a => a.RunId == run.Id)
                 .Select(a => a.ApprovalAt).FirstOrDefaultAsync(cancellationToken),
+            // 2026-10-13-8762p: the overruled defaults of the ticket's code runs, the act an overrule is.
+            Overrules = [.. (await decided.ReadAsync(project, ticketId, null, cancellationToken))
+                .Where(d => d.Verdict == DefaultDecisionVerdicts.Overruled)],
         };
     }
 

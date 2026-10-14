@@ -97,7 +97,7 @@ public sealed class SpecSourceResolver(
                 // approval, conversation included, rides along; an unapproved set records none.
                 // 2026-10-12-3a36b: so does an expired hand-back's, onto the set derived again.
                 Approval: SpecRecutDemand.ApprovalFor(cause, set, pipeline)
-                    ?? (expired || cause is SpecRevisionCause.Rework or SpecRevisionCause.StatusBack
+                    ?? (expired || cause is SpecRevisionCause.Rework or SpecRevisionCause.StatusBack or SpecRevisionCause.Overrule
                         ? set.Approval : null),
                 Expired: expired);
         }

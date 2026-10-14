@@ -32,6 +32,7 @@ public static class PreviousCutPromptSection
         if (cause == SpecRevisionCause.Comment) sb.AppendLine(CommentParagraph(previous));
         if (cause == SpecRevisionCause.Rework) sb.AppendLine(ReworkParagraph(previous));
         if (cause == SpecRevisionCause.StatusBack) sb.AppendLine(StatusBackParagraph(previous));
+        if (cause == SpecRevisionCause.Overrule) sb.AppendLine(OverruleParagraph(previous));
         if (SpecAmendmentRule.IsAppend(cause, previous)) sb.AppendLine(AppendParagraph(previous, cause));
         foreach (var spec in previous.Specs)
         {
@@ -71,6 +72,7 @@ public static class PreviousCutPromptSection
     {
         SpecRevisionCause.Rework => "the pull request review section",
         SpecRevisionCause.StatusBack => "the ticket conversation, the current ticket text and the pull request review section",
+        SpecRevisionCause.Overrule => "the overruled defaults section",
         _ => "the ticket conversation and the current ticket text",
     };
 
@@ -78,6 +80,12 @@ public static class PreviousCutPromptSection
     private static string StatusBackParagraph(SpecSet previous) =>
         $"A person moved the ticket back to work after revision {previous.Current.Number} ran — what they want is in the "
         + "ticket conversation, the current ticket text and the pull request review section above.";
+
+    // 2026-10-13-8762p: the question, the default taken and the person's note are in their own section.
+    private static string OverruleParagraph(SpecSet previous) =>
+        $"A person overruled a default taken after revision {previous.Current.Number} was cut — the question, the "
+        + "answer taken by default and their note are in the overruled defaults section above. Amend the specs that "
+        + "have not started so they no longer rest on the overruled choice. Executed specs stay exactly as they are.";
 
     private static string CommentParagraph(SpecSet previous) =>
         $"The ticket was commented on after revision {previous.Current.Number} was cut — the comment "

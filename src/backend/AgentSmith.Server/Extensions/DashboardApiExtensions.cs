@@ -45,6 +45,7 @@ internal static class DashboardApiExtensions
         services.AddDashboardReaders();
         services.AddTicketReaders(); // 2026-10-13-9a59a: GET /api/tickets
         services.AddRunRetry(); // 2026-10-13-9a59n: POST /api/runs/{runId}/retry
+        services.AddTicketDefaults(); // 2026-10-13-8762p: GET/POST /api/tickets/{project}/{ticketId}/defaults
         services.AddProjectInit(); // p0489: POST /api/projects/{name}/init
         services.AddDashboardSwagger();
         return services;

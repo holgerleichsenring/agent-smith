@@ -99,7 +99,7 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<Services.Configuration.RawConfigYaml>();
         services.AddSingleton<Services.Configuration.Studio.ConfigDocJson>();
         services.AddSingleton<Services.Configuration.Studio.ConfigYamlExporter>();
-        services.AddSingleton<IDecisionLogger, RepositoryDecisionLogger>();
+        services.AddSingleton<IDecisionLogger, RepositoryDecisionLogger>().AddSingleton<IDefaultVerdictFile, RepositoryVerdictFile>();
 
         services.AddSingleton<IAgentSmithPaths, AgentSmithPaths>();
         // p0182: disk-backed ProjectMap cache is the CLI-safe default.

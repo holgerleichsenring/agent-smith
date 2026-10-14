@@ -66,7 +66,7 @@ internal static class SeriesDoubles
     /// <summary>2026-10-06-03c7e: the record step as production composes it.</summary>
     internal static WriteSpecRecordHandler RecordHandler(
         ISandboxFileReaderFactory files, ISpecSetPointerStore pointers, SandboxGitOperations? git = null,
-        AgentSmith.Contracts.Events.IEventPublisher? events = null)
+        AgentSmith.Contracts.Events.IEventPublisher? events = null, DefaultVerdictRecord? verdicts = null)
     {
         var targets = new SandboxTargets();
         var indexWriter = new SpecIndexWriter(
@@ -75,9 +75,14 @@ internal static class SeriesDoubles
         var commit = new SeriesRecordCommit(files, git ?? Git(files),
             new SpecSetPointerRecorder(pointers, NullLogger<SpecSetPointerRecorder>.Instance));
         var recorder = new SpecDoneRecorder(files, targets, new SpecDoneFiles(), indexWriter,
-            new SeriesFiles(new SeriesManifest()), commit, NullLogger<SpecDoneRecorder>.Instance);
+            new SeriesFiles(new SeriesManifest()), commit, verdicts ?? NoVerdicts(), NullLogger<SpecDoneRecorder>.Instance);
         return new WriteSpecRecordHandler(
             new SpecRecordPublisher(events ?? EventTestStubs.Recording()), new SpecRecordIndexLine(), recorder,
             new SeriesRepos());
     }
+
+    /// <summary>2026-10-13-8762p: the record's verdict copy as a composition without a database has it.</summary>
+    internal static DefaultVerdictRecord NoVerdicts() =>
+        new(new AgentSmith.Application.Services.Resume.NullDecidedDefaults(),
+            Moq.Mock.Of<AgentSmith.Contracts.Decisions.IDefaultVerdictFile>(), NullLogger<DefaultVerdictRecord>.Instance);
 }

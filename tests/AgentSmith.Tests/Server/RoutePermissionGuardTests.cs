@@ -127,6 +127,14 @@ public sealed class RoutePermissionGuardTests
     public void RoutePermission_TicketReviews_NeedsRunsRead() =>
         Declaration("GET", "/api/tickets/{project}/{ticketId}/reviews").Should().Equal(Permissions.RunsRead);
 
+    // 2026-10-13-8762p: reading the defaults is ticket state; deciding them starts work, like Retry.
+    [Fact]
+    public void RoutePermission_DefaultsRoutes_ReadAndControl()
+    {
+        Declaration("GET", "/api/tickets/{project}/{ticketId}/defaults").Should().Equal(Permissions.RunsRead);
+        Declaration("POST", "/api/tickets/{project}/{ticketId}/defaults/verdicts").Should().Equal(Permissions.RunsControl);
+    }
+
     // The config/secrets split holds for direct entity CRUD and leaks here: the change
     // feed carries the secret's id and changed field names, revert takes no type filter
     // at all, export serializes the secret entities, and import writes them.

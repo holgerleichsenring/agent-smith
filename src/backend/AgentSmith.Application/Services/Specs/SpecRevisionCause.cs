@@ -1,4 +1,5 @@
 using AgentSmith.Application.Services.Prompts;
+using AgentSmith.Application.Services.Rework;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Specs;
@@ -60,6 +61,7 @@ public static class SpecRevisionCause
     public const string Approval = "approved in design conversation";
     public const string SeriesContractReview = "series contract review"; // 2026-10-13-8762k: the set-scope round's cuts
     public const string CitationsRegrounded = "citations re-grounded in"; // 2026-10-13-8762n: "{this} {specId}: {old} -> {new}; …"
+    public const string Overrule = "default overruled on the ticket"; // 2026-10-13-8762p: read off the previous attempt
 
     /// <summary>
     /// A previous revision whose last commit is NOT the sha this system recorded was
@@ -75,6 +77,8 @@ public static class SpecRevisionCause
         if (!resuming && Demanded(previous.Set, pipeline) is not null) return RecutDemand;
         if (!resuming && pipeline.TryGet<ReworkAct>(ContextKeys.ReworkAct, out var act)
             && act?.Channel == ReworkChannel.PullRequest) return Rework;
+        if (!resuming && OverruleAct.Of(pipeline.TryGet<PreviousAttempt>(ContextKeys.PreviousAttempt, out var attempt)
+            ? attempt : null) is not null) return Overrule;
         if (!resuming && StatusBackCause.Applies(previous.Set, ticket, pipeline)) return StatusBack;
         if (!resuming && IsEdited(previous.Set, ticket)) return TicketEdit;
         if (!resuming && IsCommented(pipeline)) return Comment;
