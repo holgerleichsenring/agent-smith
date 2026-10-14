@@ -77,8 +77,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
             _repository, _turnGate, _pendingQuestions, TimeProvider.System,
             NullLogger<SpecDialogResumer>.Instance);
         _turnRunner
-            .Setup(runner => runner.RunTurnAsync(
-                It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
+            .Setup(runner => runner.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(SpecDialogTurnResult.On(Platform, CannedReply, new AnswerOutcome()));
 
         var messenger = new SpecDialogMessenger(
@@ -119,8 +118,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
 
         await SendAsync("a widget that reads the ledger");
 
-        _turnRunner.Verify(runner => runner.RunTurnAsync(
-            It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()), Times.Once);
+        _turnRunner.Verify(runner => runner.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()), Times.Once);
         _hub.Pushes.Last().Group.Should().Be(HubGroups.SpecDialog(Dialog));
         LastText().Should().Be(CannedReply);
         var state = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
@@ -135,8 +133,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
         var entered = new TaskCompletionSource();
         var release = new TaskCompletionSource();
         _turnRunner
-            .Setup(runner => runner.RunTurnAsync(
-                It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
+            .Setup(runner => runner.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()))
             .Returns(async () =>
             {
                 entered.TrySetResult();
@@ -268,8 +265,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
         var release = new TaskCompletionSource();
         var entered = new TaskCompletionSource();
         _turnRunner
-            .Setup(runner => runner.RunTurnAsync(
-                It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
+            .Setup(runner => runner.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()))
             .Returns(async () =>
             {
                 entered.TrySetResult();
@@ -387,8 +383,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
             It.Is<DialogAnswer>(answer =>
                 answer.QuestionId == "q-approval" && answer.Answer == "yes"),
             It.IsAny<CancellationToken>()), Times.Once);
-        _turnRunner.Verify(runner => runner.RunTurnAsync(
-            It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()), Times.Never);
+        _turnRunner.Verify(runner => runner.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -398,8 +393,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
         var release = new TaskCompletionSource();
         var entered = new TaskCompletionSource();
         _turnRunner
-            .Setup(runner => runner.RunTurnAsync(
-                It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
+            .Setup(runner => runner.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()))
             .Returns(async () =>
             {
                 entered.TrySetResult();
@@ -416,8 +410,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
         LastText().Should().Contain("Still working on the previous turn");
         release.SetResult();
         await Settle(opened + 2);
-        _turnRunner.Verify(runner => runner.RunTurnAsync(
-            It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()), Times.Once,
+        _turnRunner.Verify(runner => runner.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()), Times.Once,
             "the second message informs the next turn rather than starting one");
     }
 
@@ -428,8 +421,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
 
         LastText().Should().Contain("No spec dialog is open here",
             "a dedicated page has no other conversation to fall through to");
-        _turnRunner.Verify(runner => runner.RunTurnAsync(
-            It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()), Times.Never);
+        _turnRunner.Verify(runner => runner.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     // 2026-09-17-042ek: this path exists only on the dashboard, so the one thing it must not
@@ -461,8 +453,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
 
         (await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None))
             .Should().NotBeNull("the message that named a project opened its own conversation");
-        _turnRunner.Verify(runner => runner.RunTurnAsync(
-            It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()), Times.Once,
+        _turnRunner.Verify(runner => runner.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()), Times.Once,
             "and then ran, in the same task that opened it");
         LastText().Should().Be(CannedReply);
         AllTexts().Should().NotContain(text => text.Contains(NoOpenDialog, StringComparison.Ordinal));
@@ -500,8 +491,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
         LastText().Should().Contain(NoOpenDialog);
         (await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None))
             .Should().BeNull("nothing was named to open a conversation on");
-        _turnRunner.Verify(runner => runner.RunTurnAsync(
-            It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()), Times.Never);
+        _turnRunner.Verify(runner => runner.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     // Opening over an open session IS the fork, so the resolve must stop at the session it found —
@@ -538,8 +528,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
             "the reason is the whole answer — the tutorial does not follow it");
         (await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None))
             .Should().BeNull("a project nobody configured opens nothing");
-        _turnRunner.Verify(runner => runner.RunTurnAsync(
-            It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()), Times.Never);
+        _turnRunner.Verify(runner => runner.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]

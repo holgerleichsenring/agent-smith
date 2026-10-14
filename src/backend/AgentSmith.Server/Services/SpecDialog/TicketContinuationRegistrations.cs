@@ -1,3 +1,4 @@
+using AgentSmith.Server.Extensions;
 using AgentSmith.Server.Services.SpecDialog.Continuation;
 using AgentSmith.Server.Services.Tickets;
 using Microsoft.Extensions.DependencyInjection;
@@ -8,7 +9,8 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// <summary>
 /// 2026-10-13-9a59l: what an approval in a ticket's own conversation needs. The ticket readers it
 /// shares with the dashboard API are added only when that API did not add them — a server with the UI
-/// API off still runs conversations on chat. The approval preview's read lives here beside the act it previews.
+/// API off still runs conversations on chat. The approval preview's read lives here beside the act it previews,
+/// and the start a bound turn may ask for beside the approval it reuses.
 /// </summary>
 internal static class TicketContinuationRegistrations
 {
@@ -21,6 +23,8 @@ internal static class TicketContinuationRegistrations
         services.TryAddTransient<Tickets.Conversation.TicketTranscriptReader>();
         services.TryAddScoped<FiledWorkTagger>();
         services.TryAddScoped<FiledWorkMove>();
+        // Starting the next attempt from a bound turn: the pending edit as its approval, else a conversation Retry.
+        services.AddRunRetry().AddTransient<PendingSeriesEditReader>().AddScoped<PendingEditStart>().AddScoped<BoundAttemptStarts>();
         return services.AddScoped<TicketContinuationStateReader>()
             .AddScoped<TicketApprovalPreview>()
             .AddScoped<TicketContinuationAct>()

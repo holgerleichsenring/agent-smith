@@ -67,7 +67,7 @@ public sealed class SpecDialogRouter(
         }
         try
         {
-            await RunTurnAsync(state, channelId, threadId, platform, mayStartRuns, ct);
+            await RunTurnAsync(state, channelId, threadId, platform, new TurnPoster(userId, mayStartRuns), ct);
         }
         finally
         {
@@ -78,7 +78,7 @@ public sealed class SpecDialogRouter(
 
     private async Task RunTurnAsync(
         ConversationState state, string channelId, string threadId,
-        string platform, bool mayStartRuns, CancellationToken ct)
+        string platform, TurnPoster poster, CancellationToken ct)
     {
         var current = state;
         while (true)
@@ -86,7 +86,7 @@ public sealed class SpecDialogRouter(
             SpecDialogTurnResult result;
             try
             {
-                result = await turnRunner.RunTurnAsync(current, ct);
+                result = await turnRunner.RunTurnAsync(current, poster, ct);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -108,7 +108,7 @@ public sealed class SpecDialogRouter(
             // then handed to the outcome sink (p0315c: ticket filing). Runs
             // inside the turn gate; the pending-question branch above routes
             // the approval answer.
-            var flowResult = await outcomeFlow.HandleAsync(current, result.Outcome, mayStartRuns, ct);
+            var flowResult = await outcomeFlow.HandleAsync(current, result.Outcome, poster.MayStartRuns, ct);
             if (flowResult is not OutcomeFlowEditRequested edit) return;
             // p0315c edit: the turn re-runs on a re-read state. 2026-09-22-355b: the note travels
             // as a VALUE — a shape clicked on a chat surface never passed the place that appends.

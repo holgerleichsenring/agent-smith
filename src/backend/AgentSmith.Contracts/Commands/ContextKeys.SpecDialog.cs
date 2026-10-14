@@ -88,6 +88,10 @@ public static partial class ContextKeys
     /// rendered from the code that decides them, so nothing can restate and then drift.</summary>
     public const string SpecDialogFrameworkFacts = "SpecDialogFrameworkFacts";
 
+    /// <summary><c>IAttemptStart</c> — starting the bound ticket's next attempt as the turn's poster. Seeded only
+    /// for a ticket with an attempt and a poster holding runs.control, so no other turn carries the tool.</summary>
+    public const string SpecDialogAttemptStart = "SpecDialogAttemptStart";
+
     /// <summary>2026-10-01-7f7ab: <c>IReadOnlyList&lt;DesignSource&gt;</c> — the turn's project's
     /// design sources, by name and secret NAME; a run reads them off ProjectConfig instead.</summary>
     public const string SpecDialogDesignSources = "SpecDialogDesignSources";

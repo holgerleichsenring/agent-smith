@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Persistence.Extensions;
 using System.Collections.Concurrent;
 using AgentSmith.Application.Services.RedisDisabled;
 using AgentSmith.Contracts.Dialogue;
@@ -238,6 +239,19 @@ public sealed class ServerDiLifetimeTests
         scope.ServiceProvider.GetRequiredService<AgentSmith.Contracts.Reviews.IPrReviewRecordReader>().Should().NotBeNull();
     }
 
+    // 2026-10-14-da5ed: a bound turn's start port and what it asks through resolve from the real composition.
+    [Fact]
+    public void ServerDi_ConversationAttemptStart_ResolvesFromTheRealComposition()
+    {
+        using var provider = BuildServerLikeServices().BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        using var scope = provider.CreateScope();
+
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.SpecDialog.BoundAttemptStarts>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.SpecDialog.Continuation.PendingSeriesEditReader>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.SpecDialog.Continuation.PendingEditStart>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.Rework.RunRetry>().Should().NotBeNull();
+    }
+
     [Fact]
     public async Task ServerShapedDi_ConcurrentJiraTransitions_SecondGetsPreconditionFailed()
     {
@@ -321,6 +335,8 @@ public sealed class ServerDiLifetimeTests
                 // p0315a: production always wires the relational store (p0246g);
                 // mirroring it here keeps scoped repo chains (spec-dialog) valid.
                 .AddRelationalPersistence()
+                // 2026-10-14-da5ed: as production does — a conversation's start asks through RunRetry's store.
+                .AddServerState()
                 .AddSandbox()
                 .AddSandboxOptions(configuration)
                 .AddSandboxGlobalConfig()

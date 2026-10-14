@@ -79,6 +79,7 @@ internal static class SpecDialogTurnSeeds
             seeds[ContextKeys.SpecDialogTicketWork] = bound.Work;
             seeds[ContextKeys.SpecDialogTicketRuns] = bound.Runs;
             seeds[ContextKeys.SpecDialogFrameworkFacts] = bound.Facts;
+            if (bound.Start is not null) seeds[ContextKeys.SpecDialogAttemptStart] = bound.Start;
         }
         // 2026-10-01-7f7ab: the project's design sources — names and secret NAMES, never a token —
         // from which the master builds design_read; a project with none seeds nothing.

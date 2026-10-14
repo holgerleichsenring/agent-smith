@@ -137,7 +137,7 @@ public sealed class SpecDialogTests
         var runner = scope.ServiceProvider.GetRequiredService<ISpecDialogTurnRunner>();
         // p0315e: the turn result carries a typed outcome too; these p0315b
         // tests stay about the reply (SpecDialogOutcomeTests covers outcomes).
-        return (await runner.RunTurnAsync(state, CancellationToken.None)).Reply;
+        return (await runner.RunTurnAsync(state, new TurnPoster("U1", false), CancellationToken.None)).Reply;
     }
 
     private static ConversationState State(string userTurn) => new()

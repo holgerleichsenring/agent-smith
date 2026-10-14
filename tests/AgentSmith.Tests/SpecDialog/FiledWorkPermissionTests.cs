@@ -96,6 +96,9 @@ public sealed class FiledWorkPermissionTests : IDisposable
         _sink.Verify(s => s.AcceptAsync(
             It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), true,
             It.IsAny<CancellationToken>()), Times.Once);
+        // 2026-10-14-da5ed: and the turn itself runs as its poster, with the poster's right.
+        _turnRunner.Verify(r => r.RunTurnAsync(
+            It.IsAny<ConversationState>(), new TurnPoster("U1", true), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -152,8 +155,7 @@ public sealed class FiledWorkPermissionTests : IDisposable
             "approve", "U1", "C1", "th-2", "slack", true, CancellationToken.None);
 
         handled.Should().BeTrue();
-        _turnRunner.Verify(r => r.RunTurnAsync(
-            It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()), Times.Never);
+        _turnRunner.Verify(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()), Times.Never);
         _sink.Verify(s => s.AcceptAsync(
             It.IsAny<ConversationState>(), It.IsAny<OutcomeProposal>(), It.IsAny<bool>(),
             It.IsAny<CancellationToken>()), Times.Never,
@@ -221,8 +223,8 @@ public sealed class FiledWorkPermissionTests : IDisposable
                 new DialogAnswer(questionId, "approve", null, DateTimeOffset.UtcNow, "U1"));
         var turnRunner = _turnRunner;
         turnRunner
-            .Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((ConversationState state, CancellationToken _) =>
+            .Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ConversationState state, TurnPoster ___, CancellationToken _) =>
                 SpecDialogTurnResult.On(state.Platform, "drafted", new SpecOutcome(
                     new SpecDraft("p9000a", "a slice",
                         "spec: p9000a\ngoal: \"a slice\"\ndone:\n  - \"done\"", [])

@@ -266,6 +266,6 @@ public sealed class SpecDialogTurnLivenessTests
     {
         await using var scope = harness.Services.CreateAsyncScope();
         await scope.ServiceProvider.GetRequiredService<ISpecDialogTurnRunner>()
-            .RunTurnAsync(state, ct);
+            .RunTurnAsync(state, new TurnPoster("U1", false), ct);
     }
 }

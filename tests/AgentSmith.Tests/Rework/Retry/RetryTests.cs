@@ -96,15 +96,77 @@ public sealed class RetryTests : IDisposable
     }
 
     [Fact]
-    public async Task Retry_NewerQueuedReservation_409NamesIt()
+    public async Task Retry_NewerQueuedReservation_409AlreadyStarting()
     {
         await _h.AttemptAsync("r-1", Cancelled, "interrupted");
         await _h.AddAsync(TicketStoreHarness.Run("r-2", status: RunStatuses.Queued));
 
         var refusal = await RefusedAsync("r-1");
 
-        refusal.Reason.Should().Be(RetryRefusals.NotLatest);
-        refusal.Text.Should().Contain("r-2").And.Contain("queued");
+        refusal.Reason.Should().Be(RetryRefusals.Starting, "a queued run is an attempt already on its way");
+        refusal.Text.Should().Contain("already starting").And.Contain("r-2");
+    }
+
+    [Fact]
+    public async Task RunRetry_ConversationOrigin_AfterAPreflightFailure_Requests()
+    {
+        await _h.AttemptAsync("r-1", RunStatuses.Failed);
+        (await RefusedAsync("r-1")).Reason.Should().Be(RetryRefusals.NotInfrastructure, "the button keeps its rule");
+
+        var result = await _h.ConversationRetryAsync("r-1");
+
+        result.Kind.Should().Be(RunRetryResultKind.Requested);
+        (await _h.HandleNextAsync()).Should().Be(ReworkNudgeDisposition.Finish);
+        _h.Launch.Verify(l => l.LaunchAsync("alpha", "42", "code", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Theory]
+    [InlineData(RunStatuses.Success, RetryRefusals.Delivered)]
+    [InlineData("running", RetryRefusals.NotFinished)]
+    public async Task RunRetry_ConversationOrigin_DeliveredOrLiveAttempt_Refused(string status, string code)
+    {
+        await _h.AttemptAsync("r-1", status);
+
+        var result = await _h.ConversationRetryAsync("r-1");
+
+        result.Refusal!.Reason.Should().Be(code);
+        (await _h.RequestsAsync()).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task RunRetry_ConversationOrigin_Shortfall_Requests()
+    {
+        await _h.AttemptAsync("r-1", RunStatuses.Shortfall);
+
+        (await _h.ConversationRetryAsync("r-1")).Kind.Should().Be(RunRetryResultKind.Requested);
+    }
+
+    [Fact]
+    public async Task RunRetry_ConversationOrigin_ClosedTicket_Refused()
+    {
+        await _h.AttemptAsync("r-1", RunStatuses.Failed);
+        _h.Tracker.Status = "Closed";
+        _h.Tracker.IsClosed = true;
+
+        (await _h.ConversationRetryAsync("r-1")).Refusal!.Reason.Should().Be(RetryRefusals.ClosedForWork);
+        (await _h.NudgesAsync()).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task RunRetry_CancelledReservationAfterFailedAttempt_RefusedForBothOrigins()
+    {
+        await _h.AttemptAsync("r-1", RunStatuses.Failed, null,
+            new RunSegment { RunId = "r-1", EventSeq = 1, StartedAt = TicketStoreHarness.T },
+            new RunSandbox { RunId = "r-1", Key = "api", RepoName = "api", EventSeq = 12, EndReason = SandboxEndReasons.Vanished });
+        await _h.AddAsync(TicketStoreHarness.Run("r-2", status: Cancelled, cancelReason: "operator"));
+
+        var button = await RefusedAsync("r-1");
+        var conversation = await _h.ConversationRetryAsync("r-1");
+
+        button.Reason.Should().Be(RetryRefusals.NotLatest, "the worker reads r-2 and would never see a request on r-1");
+        button.Text.Should().Contain("r-2");
+        conversation.Refusal!.Reason.Should().Be(RetryRefusals.NotLatest);
+        (await _h.RequestsAsync()).Should().BeEmpty();
     }
 
     [Fact]

@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-14-da5ed
+
+decisions:
+  - category: Architecture
+    chose: "TurnPoster(Id, MayStartRuns) in Server/Models, built by the router from the message's user id and permission and passed to ISpecDialogTurnRunner.RunTurnAsync; BoundTicketReaders takes it and the seeds receive what it allows through BoundTicket.Start"
+    over: "Handing the seeds the poster itself; reading the conversation owner (state.UserId) as the principal"
+    reason: |
+      The turn acts on the ticket as the person who posted, never as the conversation's owner. The seeds only place
+      ports; the decision what a poster may do sits in the reader that builds them, which da5ee extends for its edit
+      port. The runner's signature change keeps it at its 120 lines.
+  - category: Implementation
+    chose: "RetryOrigin (Button | Conversation) on RunRetry.RetryAsync and RunRetryGate.CheckAsync; Conversation skips InfrastructureEnd and refuses only a delivered success (reason 'delivered'); the button keeps its infrastructure-only rule"
+    over: "A new act or channel for a conversation start"
+    reason: |
+      RunRetry already stores a content-less act, refuses closed tickets and racing starts and enters through the
+      rework entry; only the infrastructure test was the button's rule. The cause reads 'retry by <poster>'.
+  - category: Implementation
+    chose: "The gate refuses for both origins when IPreviousAttemptReader's latest attempt is not the run asked (NotLatest naming the worker's run); a newer queued head answers Starting ('already starting') instead of NotLatest"
+    over: "Teaching the worker's reader the gate's attempt rule; leaving the disagreement silent"
+    reason: |
+      A failed attempt followed by a cancelled reservation that never ran a step: the gate's head skips the
+      reservation, the worker reads it, so a stored request on the failed run would never be served. Refusing names
+      the run the worker reads. Retry_NewerQueuedReservation now expects Starting — a behavior change for the button.
+  - category: Architecture
+    chose: "PendingSeriesEditReader (Server, Continuation): the stored approval record when its Continuation has a BasisRunId and its approval is newer than the latest attempt's WorkedApprovalAt; it reads the store by tracker connection and ticket key, not through ApprovedSpecSetRecorder"
+    over: "Reading the full TicketContinuationStateReader; building da5ee's merged-series reader now"
+    reason: |
+      The start only needs to know whether an unworked edit exists; da5ee extends this reader into the series as the
+      next attempt will read it. Reading the store directly keeps its graph to the store and the attempt reader.
+  - category: Implementation
+    chose: "PendingEditStart saves the pending record again with a new SpecApproval(now, this conversation, poster) and Continuation.StartsAttempt true, nudges ticket activity, then OperatorStart with the Continue arm; a checkpointed question refuses and records nothing"
+    over: "ApprovedSpecSetRecorder.RecordAsync, which re-derives the set, repositories and citations from a ConversationState"
+    reason: |
+      The edit's content is already the record; only the approval and the start change. Re-recording through the
+      recorder would re-cite the conversation's sets and take the owner as principal. The OperatorAct then reads it
+      with the conversation as source and answers a waiting hand-back, as a card approval does.
+  - category: Implementation
+    chose: "The pending-edit branch does not read the tracker; a closed ticket is answered by the worker (an operator act on a closed ticket files a follow-up, 9a59t) and the tool says 'requested'"
+    over: "A tracker read in the start port"
+    reason: |
+      REQUESTED, NOT STARTED: the worker can decline or follow up and says so on the ticket. The retry branch still
+      refuses a closed ticket because RunRetry reads closure before it records.
+  - category: Architecture
+    chose: "ConversationAttemptStart (IAttemptStart) opens its own DI scope per ask and resolves PendingSeriesEditReader, PendingEditStart, IPreviousAttemptReader and RunRetry there; BoundAttemptStarts builds it only for a poster with runs.control on a ticket with a code attempt"
+    over: "Resolving RunRetry in the turn's scope"
+    reason: |
+      The port lives in the pipeline context of an in-process turn; its writes must not share the turn's unit of work.
+  - category: Implementation
+    chose: "AddRunRetry became TryAdd-only and brings its readers (TicketAttempts, TicketRunsQuery, InfrastructureEnd, TicketLaunchEnds); AddTicketContinuation chains it, so a chat-only server can start too. The DI mirrors in ServerDiLifetimeTests and NonDiCtorRuleTests now add AddServerState as production does"
+    over: "Registering RunRetry only with the dashboard API"
+    reason: |
+      The conversation runs on chat with the UI API off; RunRetryRequestRepository lives in AddServerState, which the
+      mirrors had drifted from.
+  - category: Implementation
+    chose: "start_next_attempt is added in MasterToolComposition after BaseSurface for a spec-dialog master whose pipeline carries SpecDialogAttemptStart; AgenticMasterHandler is unchanged"
+    over: "A tool-host parameter on Compose built in AgenticMasterHandler"
+    reason: |
+      Children derive from BaseSurface, so the tool never reaches them; AgenticMasterHandler sits one line under its
+      file-length baseline.
+  - category: TradeOff
+    chose: "The done criterion is proven by invoking the start_next_attempt function over the port BoundAttemptStarts builds, on the RetryHarness store, then one pass of the real rework nudge handler and entry; the cause is read with the real AttemptCauseReader"
+    over: "A full RealCompositionHarness dialog turn with a scripted model calling the tool"
+    reason: |
+      The surface tests prove the master gets the tool exactly when the port is seeded; the harness proves the tool's
+      ask reaches the worker and starts. Whether a live model calls it on 'go on' depends on the steward master
+      (2026-10-14-da5ef/da5eg).

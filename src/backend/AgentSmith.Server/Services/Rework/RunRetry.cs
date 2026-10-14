@@ -12,7 +12,8 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Server.Services.Rework;
 
 /// <summary>
-/// 2026-10-13-9a59n: Retry — an unchanged attempt, only after an infrastructure end. The runs decide first
+/// 2026-10-13-9a59n: Retry — an unchanged attempt: from the button only after an infrastructure end, from the
+/// ticket's conversation after any end but a delivered success (<see cref="RetryOrigin"/>). The runs decide first
 /// (<see cref="RunRetryGate"/>), then the tracker, read once: a ticket a person closed is not reopened. While an
 /// attempt is already starting the request is refused, naming who asked. Otherwise the request is stored as a
 /// row of the run and an Operator nudge goes through the rework queue, whose worker enters through the rework
@@ -31,7 +32,7 @@ public sealed class RunRetry(
     TimeProvider clock,
     ILogger<RunRetry> logger)
 {
-    public async Task<RunRetryResult> RetryAsync(string runId, string principal, CancellationToken ct)
+    public async Task<RunRetryResult> RetryAsync(string runId, string principal, RetryOrigin origin, CancellationToken ct)
     {
         var run = await runs.GetRunDetailAsync(runId, ct);
         if (run is null) return RunRetryResult.UnknownRun;
@@ -41,7 +42,7 @@ public sealed class RunRetry(
         if (!config.Projects.TryGetValue(run.Project, out var project))
             return RunRetryResult.Invalid($"Project '{run.Project}' is not configured.");
         var ticketId = run.TicketId;
-        if (await gate.CheckAsync(project.Name, ticketId, runId, ct) is { } refused) return RunRetryResult.Refused(refused);
+        if (await gate.CheckAsync(project.Name, ticketId, runId, origin, ct) is { } refused) return RunRetryResult.Refused(refused);
         bool closed;
         try
         {
@@ -60,8 +61,8 @@ public sealed class RunRetry(
         await requests.UpsertAsync(runId, principal, clock.GetUtcNow(), ct);
         await nudges.EnqueueAsync(new ReworkNudgeRequest(
             project.Name, ticketId, ReworkNudgeOrigin.Operator, Channel: ReworkChannel.Retry), ct);
-        logger.LogInformation("Retry of run {RunId} of {Project}/#{Ticket} requested by {Principal}",
-            runId, project.Name, ticketId, principal);
+        logger.LogInformation("Retry of run {RunId} of {Project}/#{Ticket} requested by {Principal} from the {Origin}",
+            runId, project.Name, ticketId, principal, origin);
         return RunRetryResult.Requested(ticketId);
     }
 
@@ -72,6 +73,6 @@ public sealed class RunRetry(
             && !await attempts.HasQueuedAsync(project, ticketId, ct)) return null;
         return await requests.ForRunAsync(runId, ct) is { } first
             ? $"an attempt is already starting — {first.RequestedBy} retried this run at {first.RequestedAt:u}"
-            : "an attempt is already starting on this ticket";
+            : RetryRefusals.StartingText;
     }
 }
