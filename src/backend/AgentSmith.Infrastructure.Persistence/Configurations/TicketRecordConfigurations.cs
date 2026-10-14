@@ -20,5 +20,6 @@ public sealed class TicketRecordConfigurations
         modelBuilder.ApplyConfiguration(new PrReviewRecordConfiguration()); // 2026-10-13-9a59b
         modelBuilder.ApplyConfiguration(new PrReviewEntryConfiguration());
         modelBuilder.ApplyConfiguration(new RunRetryRequestConfiguration()); // 2026-10-13-9a59n
+        modelBuilder.ApplyConfiguration(new TicketRequirementConfiguration()); // 2026-10-14-dbcef
     }
 }

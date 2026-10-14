@@ -92,6 +92,11 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<string>("Project")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Repositories")
                         .IsRequired()
                         .HasColumnType("TEXT");
@@ -123,6 +128,8 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("Project");
 
                     b.HasIndex("Tracker", "SatisfiedAt");
 
@@ -2465,6 +2472,68 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .IsUnique();
 
                     b.ToTable("TicketBetweenAttemptsChecks", (string)null);
+                });
+
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.TicketRequirement", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FiledInConversation")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Project")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RequiredTicketId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RequiredTicketKey")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("StartsWhenMet")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TicketId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TicketKey")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Tracker")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Project");
+
+                    b.HasIndex("Tracker", "RequiredTicketKey");
+
+                    b.HasIndex("Tracker", "TicketKey", "RequiredTicketKey")
+                        .IsUnique();
+
+                    b.ToTable("TicketRequirements", (string)null);
                 });
 
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.TicketSeries", b =>

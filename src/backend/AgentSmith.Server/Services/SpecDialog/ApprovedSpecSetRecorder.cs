@@ -78,7 +78,7 @@ public sealed class ApprovedSpecSetRecorder(
         // 2026-09-25-c1f7: the ticket id as GIVEN (discovery names it in a tracker query; the key
         // re-spelled it). 2026-10-01-283df/e8b9k: the sets and images held NOW — the approval freezes them.
         var uncited = new SpecApprovalRecord(key.Value, set, repositories, project.Tracker.Name, basis?.Carrier
-            ?? placement.CarrierOf(series.Drafts, repositories), ticketId ?? string.Empty, Continuation: continuation) { ReviewRounds = ApprovedReviewRounds.Merge(previous, series, continuation) };
+            ?? placement.CarrierOf(series.Drafts, repositories), ticketId ?? string.Empty, Continuation: continuation) { Project = project.Name, ReviewRounds = ApprovedReviewRounds.Merge(previous, series, continuation) };
         var record = await _citations.SaveAsync(
             await _citations.CiteAsync(uncited, state.JobId, cancellationToken), state.JobId, cancellationToken);
         logger.LogInformation(

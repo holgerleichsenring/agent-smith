@@ -84,5 +84,6 @@ public sealed record SpecApprovalRecord(
 
     /// <summary>2026-10-08-e8b9k: the cited image set ids, empty when the record cites none.</summary>
     public IReadOnlyList<string> CitedImages => Images ?? [];
+    public string Project { get; init; } = string.Empty; // 2026-10-14-dbcef: the project the series was filed into; empty on an older record
     public IReadOnlyList<Models.ProposalReviewRound>? ReviewRounds { get; init; } // 2026-10-13-8762l: the conversation's rounds by filed id ("series" for the set); stripped on the way into a run
 }
