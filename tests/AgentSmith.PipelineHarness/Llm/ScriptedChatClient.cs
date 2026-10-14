@@ -42,6 +42,11 @@ public sealed class ScriptedChatClient : IChatClient
     /// drove. The scope classification is not excluded: it is a PRELUDE, so a preset whose
     /// only call is that one still reads it here, exactly as it did before the review existed.
     /// </summary>
+    /// <summary>2026-10-13-8762i: the calls the script answered — every call but the framework's own spec-review
+    /// and attack-review calls, which a design turn now makes after its proposal.</summary>
+    public int ScriptedInvocationCount =>
+        _callMessages.Count(m => !SpecReviewScript.Answers(m) && !SpecAttackScript.Answers(m));
+
     public IReadOnlyList<ChatMessage> LastScriptedMessages =>
         _callMessages.LastOrDefault(m => !SpecReviewScript.Answers(m) && !SpecAttackScript.Answers(m))
         ?? Array.Empty<ChatMessage>();

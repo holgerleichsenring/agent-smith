@@ -38,12 +38,12 @@ public sealed class TicketTranscriptReader(IServiceScopeFactory scopes, ILogger<
         session.LatestProposalJson is not { } json ? null
             : Read<TicketConversationProposalView?>(session, () => Of(OutcomeProposalJson.Read(json)), null);
 
-    private static TicketConversationProposalView Of(OutcomeProposal proposal) => proposal switch
+    private static TicketConversationProposalView Of(OutcomeProposal proposal) => (proposal switch
     {
-        SpecOutcome spec => new("spec", [Draft(spec.Draft)]),
+        SpecOutcome spec => new TicketConversationProposalView("spec", [Draft(spec.Draft)]),
         EpicOutcome epic => new("epic", [Draft(epic.Parent), .. epic.Children.Select(Draft)]),
         _ => new("bug", []),
-    };
+    }) with { Findings = proposal.Findings, ReviewRounds = proposal.ReviewRounds, NotReviewed = proposal.NotReviewed };
 
     private static TicketConversationDraftView Draft(SpecDraft draft) => new(draft.SpecId, draft.Goal, draft.Repos, draft.Done);
 

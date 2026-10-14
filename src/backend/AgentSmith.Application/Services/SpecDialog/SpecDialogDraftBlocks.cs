@@ -53,17 +53,33 @@ public static partial class SpecDialogDraftBlocks
     /// The reply as prose: every draft block removed, the blank lines it leaves collapsed.
     /// A reply that was nothing but a draft becomes empty.
     /// </summary>
-    public static string Strip(string? reply)
+    public static string Strip(string? reply) =>
+        Contains(reply) ? OutsideDocumentsRewritten(reply!, StripDrafts) : reply ?? string.Empty;
+
+    /// <summary>2026-10-13-8762i: the reply with its first draft block replaced by <paramref name="block"/> and
+    /// every other draft block removed, its documents left where they stood.</summary>
+    public static string Replace(string reply, string block)
     {
-        if (!Contains(reply)) return reply ?? string.Empty;
+        var placed = false;
+        string Place(Match _) => placed ? string.Empty : Placed();
+        string Placed()
+        {
+            placed = true;
+            return block;
+        }
+        return OutsideDocumentsRewritten(reply, prose => BlankRun().Replace(AnyDraftBlock().Replace(prose, Place), "\n\n"));
+    }
+
+    private static string OutsideDocumentsRewritten(string reply, Func<string, string> rewrite)
+    {
         var shown = new StringBuilder();
         var at = 0;
-        foreach (Match document in DocumentBlock().Matches(reply!))
+        foreach (Match document in DocumentBlock().Matches(reply))
         {
-            shown.Append(StripDrafts(reply![at..document.Index])).Append(document.Value);
+            shown.Append(rewrite(reply[at..document.Index])).Append(document.Value);
             at = document.Index + document.Length;
         }
-        return shown.Append(StripDrafts(reply![at..])).ToString().Trim();
+        return shown.Append(rewrite(reply[at..])).ToString().Trim();
     }
 
     private static string StripDrafts(string prose) =>

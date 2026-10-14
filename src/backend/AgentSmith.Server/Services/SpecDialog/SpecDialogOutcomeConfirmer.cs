@@ -25,6 +25,7 @@ public sealed class SpecDialogOutcomeConfirmer(
     SpecDialogMessenger messenger,
     SpecDialogPendingQuestions pendingQuestions,
     SpecDialogOutcomeComposer composer,
+    SpecDialogUnreviewedApproval unreviewed, // 2026-10-13-8762i: never approved unreviewed
     ILogger<SpecDialogOutcomeConfirmer> logger)
 {
     private static readonly TimeSpan ConfirmationTimeout = TimeSpan.FromMinutes(15);
@@ -48,7 +49,7 @@ public sealed class SpecDialogOutcomeConfirmer(
         {
             var answer = await dialogueTransport.WaitForAnswerAsync(
                 state.JobId, question.QuestionId, ConfirmationTimeout, cancellationToken);
-            return Interpret(state, answer);
+            return await InterpretAsync(state, proposal, answer, cancellationToken);
         }
         finally
         {
@@ -85,7 +86,8 @@ public sealed class SpecDialogOutcomeConfirmer(
         }
     }
 
-    private ConfirmationResult Interpret(ConversationState state, DialogAnswer? answer)
+    private async Task<ConfirmationResult> InterpretAsync(
+        ConversationState state, OutcomeProposal proposal, DialogAnswer? answer, CancellationToken ct)
     {
         if (answer is null)
         {
@@ -100,6 +102,8 @@ public sealed class SpecDialogOutcomeConfirmer(
         // 2026-10-13-9a59l: in a ticket's own conversation the approval itself continues the ticket.
         return SpecDialogAnswerWords.DecisionIn(answer.Answer) switch
         {
+            SpecDialogDecision.Approved when proposal.NotReviewed is { Count: > 0 } waiting =>
+                await unreviewed.HoldAsync(state, waiting, ct),
             SpecDialogDecision.Approved => new OutcomeConfirmed(),
             SpecDialogDecision.Rejected => new OutcomeRejected(),
             _ => new OutcomeEditRequested(answer.Answer.Trim()),

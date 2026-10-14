@@ -498,9 +498,9 @@ public sealed class AgenticMasterHandler(
         if (isSpecDialog)
             loopResult = await GateSpecOutcomeAsync(
                 context.Pipeline, request, userPrompt, loopResult, conversation, costTracker, cancellationToken);
-        // 2026-09-17-042ed: a spec or epic the gate ADMITTED is reviewed against the turn's repositories.
         if (isSpecDialog)
-            await proposalReview.ReviewAsync(context.Pipeline, context.AgentConfig, costTracker, cancellationToken);
+            loopResult = await proposalReview.ReviewAsync(context.Pipeline, request, userPrompt, loopResult, conversation,
+                context.AgentConfig, costTracker, cancellationToken);
 
         var changes = fs.GetChanges();
 

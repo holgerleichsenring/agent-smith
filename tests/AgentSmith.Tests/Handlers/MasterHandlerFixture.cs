@@ -57,6 +57,10 @@ internal static class MasterHandlerFixture
                 Mock.Of<AgentSmith.Application.Services.Specs.ISpecCutReviewer>(),
                 AgentSmith.Tests.Specs.DerivationTestLooks.Factory(),
                 AgentSmith.Tests.SpecDialog.ProposalEvidenceTestReview.Create(),
+                // 2026-10-13-8762i: rounds 0 — the single review; the rounds have their own rig.
+                AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig.Reader(
+                    () => AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig.Of(rounds: 0)),
+                new AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig().Loop(),
                 AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
                 NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview>.Instance),
             new NoOpTicketDocumentMaterializer(),
@@ -207,7 +211,7 @@ internal static class MasterHandlerFixture
 
     // p0315e: the real resolver chain over the real schema — the handler gate
     // resolves a typed outcome instead of validating only the draft.
-    private static AgentSmith.Application.Services.SpecDialog.OutcomeProposalResolver BuildOutcomeResolver()
+    internal static AgentSmith.Application.Services.SpecDialog.OutcomeProposalResolver BuildOutcomeResolver()
     {
         var validator = new AgentSmith.Application.Services.SpecDialog.SpecDraftValidator(
             new AgentSmith.Application.Services.Validation.SpecSchemaProvider());

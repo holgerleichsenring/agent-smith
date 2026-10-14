@@ -26,6 +26,13 @@ public abstract record OutcomeProposal
     /// review and a review that could not be taken alike: neither is a fault.
     /// </summary>
     public IReadOnlyList<ProposalFinding> Findings { get; init; } = [];
+
+    /// <summary>2026-10-13-8762i: every review round of the proposal's drafts, beside its findings.</summary>
+    public IReadOnlyList<ProposalReviewRound> ReviewRounds { get; init; } = [];
+
+    /// <summary>2026-10-13-8762i: the spec ids (or <see cref="ProposalReviewTokens.Series"/>) not reviewed yet,
+    /// which cannot be approved; null when all were.</summary>
+    public IReadOnlyList<string>? NotReviewed { get; init; }
 }
 
 /// <summary>A grounded answer — the turn ends with no artifact.</summary>

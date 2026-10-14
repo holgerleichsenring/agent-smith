@@ -76,7 +76,7 @@ public sealed class SpecDialogRoutingTests : IDisposable
             new SpecDialogOutcomeConfirmer(
                 _dialogueTransport.Object,
                 messenger, pendingQuestions, outcomeComposer,
-                NullLogger<SpecDialogOutcomeConfirmer>.Instance),
+                AgentSmith.Tests.TestSupport.UnreviewedApprovals.Unused(), NullLogger<SpecDialogOutcomeConfirmer>.Instance),
             _outcomeSink.Object, outcomeComposer, messenger,
 new DashboardOutcomeChannel(
                 new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),

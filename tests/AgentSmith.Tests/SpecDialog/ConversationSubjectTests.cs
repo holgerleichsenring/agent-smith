@@ -288,7 +288,7 @@ public sealed class ConversationSubjectTests : IDisposable
         var outcomeFlow = new SpecDialogOutcomeFlow(
             new SpecDialogOutcomeConfirmer(
                 Mock.Of<AgentSmith.Contracts.Dialogue.IDialogueTransport>(), messenger,
-                pendingQuestions, outcomeComposer, NullLogger<SpecDialogOutcomeConfirmer>.Instance),
+                pendingQuestions, outcomeComposer, AgentSmith.Tests.TestSupport.UnreviewedApprovals.Unused(), NullLogger<SpecDialogOutcomeConfirmer>.Instance),
             Mock.Of<IOutcomeSink>(), outcomeComposer, messenger,
             new DashboardOutcomeChannel(
                 new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),

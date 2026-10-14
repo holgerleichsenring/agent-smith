@@ -35,7 +35,11 @@ internal static class OutcomeProposalJson
         EpicOutcome epic => new Dto("epic", null, null, epic.Parent, epic.Children),
         _ => throw new InvalidOperationException(
             $"Outcome kind '{proposal.GetType().Name}' cannot be stored on a session."),
-    }) with { Templates = proposal.Templates, Findings = proposal.Findings };
+    }) with
+    {
+        Templates = proposal.Templates, Findings = proposal.Findings,
+        ReviewRounds = proposal.ReviewRounds.Count == 0 ? null : proposal.ReviewRounds, NotReviewed = proposal.NotReviewed,
+    };
 
     private static OutcomeProposal FromDto(Dto dto) => (OutcomeProposal)(dto.Kind switch
     {
@@ -44,7 +48,11 @@ internal static class OutcomeProposalJson
         "epic" => new EpicOutcome(dto.Parent!, dto.Children!),
         _ => throw new InvalidOperationException(
             $"Stored outcome JSON carries unknown kind '{dto.Kind}'."),
-    }) with { Templates = dto.Templates ?? [], Findings = dto.Findings ?? [] };
+    }) with
+    {
+        Templates = dto.Templates ?? [], Findings = dto.Findings ?? [], ReviewRounds = dto.ReviewRounds ?? [],
+        NotReviewed = dto.NotReviewed,
+    };
 
     /// <param name="Findings">
     /// 2026-09-17-042ed: what the review of this proposal found, on the same column and for the
@@ -64,5 +72,7 @@ internal static class OutcomeProposalJson
         SpecDraft? Parent,
         IReadOnlyList<SpecDraft>? Children,
         IReadOnlyList<TemplateProvenance>? Templates = null,
-        IReadOnlyList<ProposalFinding>? Findings = null);
+        IReadOnlyList<ProposalFinding>? Findings = null,
+        IReadOnlyList<ProposalReviewRound>? ReviewRounds = null, // 2026-10-13-8762i: absent on an older row
+        IReadOnlyList<string>? NotReviewed = null);
 }

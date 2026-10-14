@@ -56,4 +56,23 @@ public sealed class SpecReviewRegistrationsTests
             AgentSmith.Contracts.Commands.ICommandHandler<AgentSmith.Application.Models.ReviewSpecsContext>>()
             .Should().BeOfType<AgentSmith.Application.Services.Handlers.ReviewSpecsHandler>();
     }
+
+    [Fact]
+    public void ProposalReviewRounds_AndTheHeldApproval_ResolveFromTheRealServiceProvider()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
+        ServerCompositionBuilder.ConfigureServices(services, "agentsmith.yml");
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        scope.ServiceProvider.GetRequiredService<ProposalReviewLoop>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<ProposalReProposalGuard>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview>()
+            .Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.SpecDialog.SpecDialogOutcomeConfirmer>()
+            .Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.SpecDialog.SpecDialogUnreviewedApproval>()
+            .Should().NotBeNull();
+    }
 }

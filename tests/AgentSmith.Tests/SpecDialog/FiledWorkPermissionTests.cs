@@ -230,7 +230,7 @@ public sealed class FiledWorkPermissionTests : IDisposable
         var flow = new SpecDialogOutcomeFlow(
             new SpecDialogOutcomeConfirmer(
                 transport.Object, messenger, pending, composer,
-                NullLogger<SpecDialogOutcomeConfirmer>.Instance),
+                AgentSmith.Tests.TestSupport.UnreviewedApprovals.Unused(), NullLogger<SpecDialogOutcomeConfirmer>.Instance),
             _sink.Object, composer, messenger,
             new DashboardOutcomeChannel(
                 new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),

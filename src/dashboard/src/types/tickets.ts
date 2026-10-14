@@ -1,4 +1,5 @@
 import type { PendingQuestionInfo } from "@/types/hub-events";
+import type { SpecDialogProposalFinding, SpecDialogReviewRound } from "@/types/spec-dialog";
 
 // 2026-10-13-9a59p: the ticket list as GET /api/tickets serves it (TicketListView and the records
 // under it in AgentSmith.Server/Models, camelCase). Fields a later member of the series added are
@@ -360,6 +361,10 @@ export interface TicketConversation {
   proposal: {
     kind: string;
     drafts: Array<{ specId: string; goal: string; repos: string[]; done: string[] }>;
+    /** 2026-10-13-8762i: what still stands, every review round, and what is not reviewed yet. */
+    findings?: SpecDialogProposalFinding[];
+    reviewRounds?: SpecDialogReviewRound[];
+    notReviewed?: string[] | null;
   } | null;
   transcriptHidden: boolean;
   threadUnavailable: boolean;

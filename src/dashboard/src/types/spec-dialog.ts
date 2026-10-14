@@ -2,6 +2,8 @@
 // GET the page opens with, and the two hub pushes the conversation arrives through. Kept
 // by hand (unlike types/hub-events.ts, whose generator walks Contracts/Events only).
 
+import type { SpecReviewCut, SpecReviewFinding, SpecReviewResidue } from "@/types/hub-events";
+
 /** One template a turn of this conversation may read. */
 export interface SpecDialogTemplate {
   name: string;
@@ -355,6 +357,23 @@ export interface SpecDialogProposalPush {
   /** What the turn's review found; empty for a clean review and for one that could not be taken,
    * and absent altogether on a proposal stored before the review shipped. */
   findings?: SpecDialogProposalFinding[];
+  /** 2026-10-13-8762i: every review round of the proposal's drafts; absent on an older proposal. */
+  reviewRounds?: SpecDialogReviewRound[];
+  /** 2026-10-13-8762i: spec ids (or "series") not reviewed yet — the proposal cannot be approved. */
+  notReviewed?: string[] | null;
+}
+
+/** 2026-10-13-8762i: one review round of one draft (or "series"), as it stays on the proposal. */
+export interface SpecDialogReviewRound {
+  specId: string;
+  round: number;
+  verdict: string;
+  /** Each reviewer's verdict in order; null where a reviewer was not taken. */
+  reviewerVerdicts: (string | null)[];
+  cuts: SpecReviewCut[];
+  findings: SpecReviewFinding[];
+  /** Cut wording still standing after the design partner re-proposed. */
+  residues: SpecReviewResidue[];
 }
 
 /**

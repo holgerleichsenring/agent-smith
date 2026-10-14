@@ -42,7 +42,7 @@ internal static class SpecDialogExtensions
         // store. p0315c: the sink files real tickets via the active scope's
         // tracker (renderer + filer), replacing the session-store default.
         services.AddTransient<SpecDialogOutcomeComposer>();
-        services.AddTransient<SpecDialogOutcomeConfirmer>();
+        services.AddTransient<SpecDialogOutcomeConfirmer>().AddTransient<SpecDialogUnreviewedApproval>(); // 2026-10-13-8762i
         services.AddTransient<SpecTicketRenderer>();
         services.AddTransient<BugTicketRenderer>();
         // 2026-09-17-042eg: what makes a filed work ticket actually start, and what says why it did not.
