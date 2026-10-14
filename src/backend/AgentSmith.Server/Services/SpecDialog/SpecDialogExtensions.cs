@@ -42,7 +42,7 @@ internal static class SpecDialogExtensions
         // store. p0315c: the sink files real tickets via the active scope's
         // tracker (renderer + filer), replacing the session-store default.
         services.AddTransient<SpecDialogOutcomeComposer>();
-        services.AddTransient<SpecDialogOutcomeConfirmer>();
+        services.AddTransient<SpecDialogOutcomeConfirmer>().AddTransient<SpecDialogUnreviewedApproval>(); // 2026-10-13-8762i
         services.AddTransient<SpecTicketRenderer>();
         services.AddTransient<BugTicketRenderer>();
         // 2026-09-17-042eg: what makes a filed work ticket actually start, and what says why it did not.
@@ -60,7 +60,7 @@ internal static class SpecDialogExtensions
         services.AddScoped<OutcomeTicketFiler>().AddScoped<TicketAmendment>().AddTicketContinuation(); // 8e51e, 9a59l
         services.AddTransient<FiledSeriesFactory>(); // 2026-10-06-03c7c
         services.AddScoped<IOutcomeSink, TicketFilingOutcomeSink>();
-        services.AddScoped<SpecDialogOutcomeFlow>();
+        services.AddScoped<SpecDialogOutcomeFlow>().AddTransient<RatifiedMockStamp>();
         // 2026-09-20-4b0af: the subject a conversation is headed with, minted by the router in
         // the same act that persists the first assistant turn. Scoped for the session
         // repository's unit of work, which is where it stores what it minted. The edit re-entry
@@ -70,7 +70,7 @@ internal static class SpecDialogExtensions
         services.AddScoped<SpecDialogRouter>();
         // 2026-09-15-9033: the dashboard channel — the ownership guard rides the session
         // manager's own scoped unit of work, and the dispatcher is the one way in.
-        services.AddScoped<SpecDialogOwnership>();
+        services.AddScoped<SpecDialogOwnership>().AddScoped<MockRatification>();
         services.AddScoped<TicketConversationBinder>().AddScoped<BoundTicketReaders>().AddScoped<TicketRunsFacts>()
             .AddScoped<TicketSearchAcrossTrackers>().AddTransient<TicketRunEndingsReader>();  // 8e51b, 481ba, 5c1eb, 9a59o
         services.AddScoped<TicketTextForConversation>().AddScoped<TicketMovedCheck>()

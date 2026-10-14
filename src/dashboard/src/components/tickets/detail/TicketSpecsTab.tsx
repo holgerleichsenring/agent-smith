@@ -3,6 +3,7 @@
 import { useAttemptReads, useTicketDetail, useTicketSeries } from "@/lib/tickets/TicketPageStore";
 import type { TicketAttempt, TicketSeriesSpec } from "@/types/tickets";
 import { clock } from "./flowWords";
+import { SeriesContractReview } from "./SeriesContractReview";
 import { SpecDocument } from "./SpecDocument";
 import { attemptCell, defaultSpec, isRunRecord, RUN_RECORD_LINE } from "./specWords";
 import { SPEC_PARAM, useTicketTabGo } from "./useTicketTabGo";
@@ -54,6 +55,7 @@ export function TicketSpecsTab() {
         {selected && <SpecDocument spec={selected} attempts={attempts} runRecord={runRecord}
           onDiscuss={() => address.go("conversation")} />}
       </div>
+      <SeriesContractReview onSelect={(specId) => address.go("specs", { [SPEC_PARAM]: specId })} />
       <Revisions attempts={attempts} />
     </>
   );

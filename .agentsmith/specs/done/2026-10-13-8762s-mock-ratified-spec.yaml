@@ -1,0 +1,254 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-8762s
+goal: "A person ratifies one mock version per spec in the design conversation; filing names it in ratified_mock and writes it beside the spec, and the diff review compares a built static page with it."
+
+applies_to: "backend (spec-dialog ratify endpoint and transcript turn, the filing stamp and branch write, SpecDraft/spec schema, the spec diff review's tools and prompt)"
+
+requires: [2026-10-13-8762r]
+
+facts:
+  - claim: "A design-conversation approval waits up to 15 minutes in memory for the thread's next answer and then files the proposal object it was asked about."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeConfirmer.cs:30-59, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:53-60"
+  - claim: "The proposal pane's stored proposal is display state only, not the confirmed-outcome handoff."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogLatestOutcomeStore.cs:10-15"
+  - claim: "A transcript turn is (role, text, at, kind, decision), stored as TranscriptJson on the session row with tolerant string enums; SpecDialogTurnKind ends at Filing = 6."
+    evidence: "src/backend/AgentSmith.Server/Models/TranscriptTurn.cs:10-12, src/backend/AgentSmith.Infrastructure.Persistence/Entities/SpecDialogSession.cs:26, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSessionMapper.cs:23-25, src/backend/AgentSmith.Contracts/Models/SpecDialogTurnKind.cs:9-18"
+  - claim: "SpecDialogSessionManager appends a turn by read-modify-write of TranscriptJson and is 120 lines, at the limit."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSessionManager.cs:68-83"
+  - claim: "Filing re-ids the approved drafts under a code-minted series base by POSITION, rewriting each draft's yaml, before anything renders; an amendment re-ids under the kept base the same way."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledSeriesFactory.cs:13-20, src/backend/AgentSmith.Application/Services/SpecDialog/SeriesDraftIds.cs:14-27, src/backend/AgentSmith.Server/Services/SpecDialog/AmendedSpecification.cs:33-34, src/backend/AgentSmith.Server/Services/SpecDialog/AmendedSpecification.cs:58"
+  - claim: "FiledSeries carries only the base id and the re-id'd drafts."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledSeries.cs:9"
+  - claim: "A new filing stores the record and then writes the set onto the ticket branch through FiledSpecBranchWrite; an amendment writes through FiledSpecBranch directly; TicketAmendment is 120 lines."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSetTicketFiler.cs:73-78, src/backend/AgentSmith.Server/Services/SpecDialog/FiledSpecBranchWrite.cs:32-40, src/backend/AgentSmith.Server/Services/SpecDialog/TicketAmendment.cs:80-84"
+  - claim: "The checkout-free branch write commits, per repository member, exactly the files SeriesFiles renders for that member's sub-series: the manifest, and yaml plus companion of each unexecuted spec under specs/planned."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/FiledSeriesWrite.cs:13-35, src/backend/AgentSmith.Application/Services/Specs/SeriesFiles.cs:22-34"
+  - claim: "A failed branch write leaves a note and the run later publishes the set from the stored record; the orchestrator's only channel to the database is the event stream."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledSpecBranchWrite.cs:40-47, src/backend/AgentSmith.Application/Services/Specs/SpecProgressRecorder.cs:9-12"
+  - claim: "The approval record names the conversation it was given in (SpecApproval.Conversation = the session's job id)."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecApproval.cs:18-22, src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSpecSetRecorder.cs:72"
+  - claim: "Any .html beside a spec whose file name starts with the spec id and '-' or '.' is that spec's mock; the reader hands them to DerivedSpec.MockPaths, the record step moves planned mocks to done, and a revision keeps a planned mock while its spec is unexecuted in the series and removes it once the spec left the series."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecMocks.cs:10-29, src/backend/AgentSmith.Contracts/Specs/SeriesPaths.cs:55-58, src/backend/AgentSmith.Application/Services/Specs/SeriesSpecFileReader.cs:64-66, src/backend/AgentSmith.Application/Services/SpecExecution/SpecDoneFiles.cs:27-39, src/backend/AgentSmith.Application/Services/Specs/SeriesStaleFiles.cs:6-11, src/backend/AgentSmith.Application/Services/Specs/SeriesStaleFiles.cs:32-38"
+  - claim: "The coding master's spec section lists every mock beside the spec without saying which one is binding."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecPromptSection.cs:59-75"
+  - claim: "SpecDraft carries parsed fields as init properties beside its positional id, goal, yaml and requires; SpecDraftReader fills them from the yaml map."
+    evidence: "src/backend/AgentSmith.Contracts/Models/SpecDraft.cs:9-66, src/backend/AgentSmith.Application/Services/SpecDialog/SpecDraftReader.cs:17-40"
+  - claim: "The spec schema is embedded into the Application assembly and requires spec and goal."
+    evidence: "src/backend/AgentSmith.Application/AgentSmith.Application.csproj:63, .agentsmith/spec.schema.json:7-10"
+  - claim: "ReviewSpecDiff asks one fresh instance with read-only look tools, keeps only findings on files it read, never fails the spec, and a finding earns one fix pass."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ReviewSpecDiffHandler.cs:13-27, src/backend/AgentSmith.Application/Services/Handlers/ReviewSpecDiffHandler.cs:63-66, src/backend/AgentSmith.Application/Services/Handlers/ReviewSpecDiffHandler.cs:85-97, src/backend/AgentSmith.Application/Services/Specs/SpecDiffReviewer.cs:23-59"
+  - claim: "The diff reviewer's tool list is the look's tools only, and its iteration cap is the look allowance plus two."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecDiffReviewer.cs:30-32, src/backend/AgentSmith.Application/Services/Specs/SpecDiffReviewer.cs:75"
+  - claim: "compare_reference renders a reference and a candidate (reference:<name>, [<repo>/]<path>.html or a URL) in the run's browser sandbox, reports style differences and pixel mismatch, gates nothing, and records the comparison on the run; result.md lists recorded comparisons."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/CompareReferenceToolHost.cs:11-16, src/backend/AgentSmith.Application/Services/Tools/CompareReferenceToolHost.cs:56-66, src/backend/AgentSmith.Application/Services/Handlers/VisualComparisonSection.cs:8-23"
+  - claim: "A run gets render_reference and compare_reference only when its project's sandbox enables the browser; RenderReferenceToolFactory builds them from the pipeline."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/RenderReferenceToolFactory.cs:34-57"
+  - claim: "Spec-dialog conversation routes need dialog.write, address the conversation by session id and check reach before acting."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogResumeEndpoints.cs:36-40, src/backend/AgentSmith.Server/Extensions/SpecDialogDeletionEndpoints.cs:28-33, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOwnership.cs:76-81, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:108"
+  - claim: "The turn gate stays ENTERED across the approval wait: the router enters it, runs the turn, hands the outcome to the approval flow and exits only after; the gate is per process."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnGate.cs:10-21, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:63-75, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:111"
+  - claim: "The COMPUTING span is opened and closed around the computation alone, before the approval wait, and Liveness(sessionId).Computing reports it; the view reader already reads it so."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs:69-86, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnGate.cs:61-66, src/backend/AgentSmith.Server/Models/SpecDialogTurnLivenessView.cs:21-25, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogViewReader.cs:49-51"
+  - claim: "The router and the outcome flow are scoped, each dashboard message runs in a scope of its own, and the unit of work is the scoped DbContext; the session repository's reads are tracking queries."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogExtensions.cs:63, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogExtensions.cs:70, src/backend/AgentSmith.Server/Extensions/SpecDialogEndpoints.cs:84, src/backend/AgentSmith.Infrastructure.Persistence/Extensions/RunRecordingExtensions.cs:35, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SpecDialogSessionRepository.cs:20-42"
+  - claim: "The turn's scope loads the session when it appends the assistant turn, and filing appends the Filing turn in the same scope by read-modify-write of the whole transcript column; the repository is 119 lines."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:99, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSessionManager.cs:68-79, src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:69-71, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SpecDialogSessionRepository.cs:119"
+  - claim: "A reader that must not see a scope's tracked copy reads the session through a fresh scope."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Conversation/TicketTranscriptReader.cs:18-26"
+  - claim: "BoundSessionNudge saves the session and nudges the bound ticket's pages; a save straight through the repository nudges nothing."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/BoundSessionNudge.cs:13-29"
+  - claim: "Spec-dialog endpoint groups are mapped in ServerEndpointExtensions (74 lines)."
+    evidence: "src/backend/AgentSmith.Server/Extensions/ServerEndpointExtensions.cs:44-52"
+  - claim: "Planned specs live under .agentsmith/specs/planned (SeriesPaths.Planned), and a spec's mocks are found in the spec's own directory."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SeriesPaths.cs:11-18, src/backend/AgentSmith.Application/Services/Specs/SeriesSpecFileReader.cs:64-66"
+  - claim: "FiledSeries is built positionally in two product sites and one test, so a new member is an init property."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/AmendedSpecification.cs:68, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/TicketContinuationAct.cs:64, tests/AgentSmith.Tests/Persistence/ApprovedSeriesTests.cs:75"
+  - claim: "FiledSpecBranch.WriteAsync (106 lines) takes the record, whose Approval names the conversation; a branch write answers only a commit or an error."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/FiledSpecBranch.cs:46-76, src/backend/AgentSmith.Contracts/Specs/SpecApprovalRecord.cs:68-80, src/backend/AgentSmith.Contracts/Providers/BranchWrite.cs:22-29"
+  - claim: "TicketAmendment writes the branch on one line and returns a sentence, not a note list."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketAmendment.cs:84-92"
+  - claim: "The review admission keeps a finding only when it cites a read that ran, of a path in the diff, at a line inside that read; compare_reference returns text and records a comparison but mints no read."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecReviewAdmission.cs:22-43, src/backend/AgentSmith.Application/Services/Tools/CompareReferenceToolHost.cs:22-46"
+  - claim: "A repository candidate is a static html file copied out of the repository; a URL candidate must be public; a run's recorded comparisons are readable off the pipeline."
+    evidence: "src/backend/AgentSmith.Application/Services/Browser/RenderSource.cs:3-16, src/backend/AgentSmith.Application/Services/Browser/RenderSourceStager.cs:23-30, src/backend/AgentSmith.Application/Services/Tools/CompareReferenceToolHost.cs:48-54, src/backend/AgentSmith.Application/Services/Browser/VisualComparisonRecorder.cs:20-22"
+  - claim: "Every dashboard message runs in a fresh scope; the approval answer is appended there while the turn's scope waits, and the turn's scope appends the assistant turn and the Filing turn through AppendTurnAsync, a read-modify-write of the whole transcript column over a tracking read."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogEndpoints.cs:79-87, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogAnswerAdmission.cs:32-37, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:58, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:99, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSessionManager.cs:68-103, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SpecDialogSessionRepository.cs:20-25"
+  - claim: "EF Core 9 is the persistence package, and IUnitOfWork exposes no Entry, only Set, Add, Update, Remove, SaveChangesAsync and BeginTransactionAsync."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/AgentSmith.Infrastructure.Persistence.csproj:17, src/backend/AgentSmith.Infrastructure.Persistence/Contracts/IUnitOfWork.cs:15-25"
+  - claim: "Every product caller of the repository's GetOpenByThreadAsync either only reads, or reads, changes and saves in sequence; none holds an unsaved change across a second read."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeStore.cs:19-24, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeStore.cs:35-38, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogLatestOutcomeStore.cs:101-112, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSubjectMinter.cs:107-112, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSessionManager.cs:58, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSessionManager.cs:116-117, src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkBoundTicket.cs:32-36, src/backend/AgentSmith.Server/Services/References/ConversationReferenceFiles.cs:18, src/backend/AgentSmith.Server/Extensions/SpecDialogReferenceEndpoints.cs:49, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOwnership.cs:50, src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSetForConversation.cs:24"
+  - claim: "The turn gate's liveness is an in-process dictionary; a second replica learns nothing of a turn another replica computes."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnGate.cs:18-27"
+  - claim: "A review finding must cite a look, and looks are capped by the look's own allowance (SpecReviewAllowance 8); the reviewer's MaxIterations is only the chat loop's ceiling; DerivationLookTerms is a record, so a with-expression changes the allowance."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationLookBudget.cs:26-29, src/backend/AgentSmith.Application/Services/Specs/DerivationLookTerms.cs:26-28, src/backend/AgentSmith.Application/Services/Specs/DerivationLookTerms.cs:79, src/backend/AgentSmith.Application/Services/Specs/DerivationLookTerms.cs:88-92, src/backend/AgentSmith.Application/Services/Specs/SpecDiffReviewer.cs:32, src/backend/AgentSmith.Application/Services/Specs/SpecDiffReviewer.cs:69, src/backend/AgentSmith.Application/Services/Specs/SpecReviewAdmission.cs:27-35, src/backend/AgentSmith.Application/Services/Handlers/ReviewSpecDiffHandler.cs:61"
+  - claim: "FiledSpecBranch is an Application service registered by AddSpecDerivation, which the CLI composes with ValidateOnBuild; the conversation-backed reference services are registered only in the Server; an optional collaborator defaults to null by precedent."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/FiledSpecBranch.cs:37-42, src/backend/AgentSmith.Application/Services/Specs/SpecDerivationRegistrations.cs:52, src/backend/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs:97, src/backend/AgentSmith.Cli/ServiceProviderFactory.cs:90, src/backend/AgentSmith.Server/Extensions/RelationalPersistenceExtensions.cs:85, src/backend/AgentSmith.Application/Services/Tools/ReferenceDesignTools.cs:19"
+  - claim: "A run's derivation renders each spec's yaml from named fields only (id, goal, requires, steps, done, companion, carried segments, ticket, facts, contexts, repos), so a key the model invents never reaches the yaml; the fallback composes its yaml the same way."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivedSpecBuilder.cs:44-50, src/backend/AgentSmith.Application/Services/Specs/DerivedSpecBuilder.cs:53-63, src/backend/AgentSmith.Application/Services/Specs/DerivedSpecYamlRenderer.cs:18-24, src/backend/AgentSmith.Application/Services/Specs/SpecFallback.cs:47-49"
+  - claim: "RenderReferenceToolFactory.Tools(pipeline, false) also yields the run's view_reference_image outside the browser gate; rendering a repository page copies its whole directory, bounded at 500 files; ReviewSpecDiff runs before WriteSpecRecord."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/RenderReferenceToolFactory.cs:34-40, src/backend/AgentSmith.Application/Services/Browser/RepoRenderSource.cs:20-35, src/backend/AgentSmith.Contracts/Sandbox/ReferenceSetLimits.cs:10, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Parking.cs:58-59"
+  - claim: "ReviewSpecDiff reads the current spec as a bare SpecDraft; the mock paths live on the set's DerivedSpec, found by spec id as SpecPromptSection does; the reviewer's cap is a constant."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ReviewSpecDiffHandler.cs:41-42, src/backend/AgentSmith.Contracts/Specs/DerivedSpec.cs:17-22, src/backend/AgentSmith.Application/Services/Specs/SpecPromptSection.cs:22-28, src/backend/AgentSmith.Application/Services/Specs/SpecDiffReviewer.cs:32"
+
+assumptions:
+  - "2026-10-13-8762r stores each mock version as ReferenceFile rows of Kind mock in the conversation named {specId}.html and {specId}.jpg (one set per version, at most 100 versions per conversation), with the spec id the conversation's proposal carries; the version number and the {specId}-mock-v{n} names are DERIVED at read from the rows' Id rank, never stored; it exposes ONE reader over them, IConversationMockReader (ListAsync per conversation; HtmlAsync by session, spec id and version), and the file SpecDialogMockEndpoints; this spec adds no second reader."
+  - "A ratified mock is static HTML plus files it links inside its own directory, which render_reference already serves from a repository path."
+
+scope:
+  in: >
+    RATIFY: POST /api/spec-dialog/conversations/{sessionId}/mocks/{specId}/ratify body {version}, dialog.write
+    (the approve answer's permission), added to 2026-10-13-8762r's SpecDialogMockEndpoints.
+    MockRatification checks MayReachSessionAsync (404 otherwise), that IConversationMockReader.ListAsync holds that
+    version for that spec id in that conversation (404 naming the version otherwise), and refuses with 409 ONLY
+    while the session's turn is COMPUTING (SpecDialogTurnGate.Liveness(sessionId).Computing), which only the
+    replica running the turn knows; on any other replica it is accepted and, by the TRANSCRIPT RELOAD below,
+    kept. It never calls TryEnter/Exit, so a ratification during the approval wait — the only time the
+    proposal is on screen waiting — is accepted on every replica. It appends ONE transcript turn: role User, text "Ratified mock v{n}
+    of {specId}.", Kind = SpecDialogTurnKind.MockRatified (7), TranscriptTurn.Mock = MockRatificationTurn(SpecId,
+    Version, By) (appended LAST, null on every other turn), reading the row through the repository and saving
+    through BoundSessionNudge.SaveAsync, so a bound ticket's page refreshes; SpecDialogSessionManager (120) is
+    untouched. A later ratification of the same spec supersedes an earlier one; RatifiedMocks.Of(transcript)
+    answers spec id -> version, newest turn wins. The design partner reads the turn like any other user turn.
+    STAMP: SpecDraft.RatifiedMock (int?, init), read by SpecDraftReader from a top-level ratified_mock integer;
+    .agentsmith/spec.schema.json gains ratified_mock (integer, minimum 1, "the version of the design mock a
+    person ratified; the file {spec}-mock-v{n}.html lies beside the spec"). Before SpecDialogOutcomeFlow hands an
+    approved proposal to the sink, RatifiedMockStamp reads the session's transcript through a FRESH scope
+    (IServiceScopeFactory, as TicketTranscriptReader does) — the turn's scope holds a tracked copy that predates a
+    ratification made while the approval waited — and, per draft, sets ratified_mock to the ratified version or
+    REMOVES the key when no person ratified one; a value the model wrote never survives. TRANSCRIPT RELOAD
+    (fixes today's lost approval-answer turn too): the turn's scope tracks the session, so its later appends — the
+    assistant turn and the Filing turn — write back a stale transcript column over any turn another scope added
+    meanwhile (the approval answer today, a ratification here). SpecDialogSessionRepository.GetOpenByThreadAsync
+    becomes a block that runs the same query and, when a row is found, re-reads its current values with
+    unitOfWork.Update(open).ReloadAsync(ct) (IUnitOfWork has no Entry): the expression-bodied 6 lines become 7
+    (one-line signature, the query on two lines, the reload, the return, braces), so the repository goes 119 -> 120;
+    the manager (120) is untouched. It applies to every caller: each one reads only, or reads, changes and saves in
+    sequence, so none loses a staged change; a reader pays one extra round trip. Limit: a write landing between the
+    reload and the same method's save still races, as any unversioned row does. FILES: FiledSeries.Sources
+    (minted id -> the proposal's spec id), an INIT property beside 2026-10-13-8762j's Contract and
+    2026-10-13-8762l's ReviewRounds (null read as empty, so the two product constructions and the one test keep
+    compiling), filled by FiledSeriesFactory.Mint/Under(ordered, OutcomeProposal? source) from j's
+    SeriesDraftIds.Map. FiledSpecBranch.WriteAsync takes
+    the sources (one new optional parameter); FiledSpecBranch's constructor takes IConversationMockReader? mocks =
+    null (last, the IReferenceNotes? notes = null precedent), because the CLI composes it through
+    AddSpecDerivation with ValidateOnBuild and only the Server registers the reader; no registration line changes.
+    Through RatifiedMockFiles (a static helper in Application/Services/Specs, handed the reader), it reads each
+    stamped draft's version via IConversationMockReader.HtmlAsync(record.Approval.Conversation, sourceId, n) — (spec id, version) is resolved
+    only through that reader — and adds RepoFile({SeriesPaths.Planned}/{mintedId}-mock-v{n}.html, html), the
+    derived name written as a file name for the first time to the member's files; FiledSeriesWrite adds to
+    each repository member's commit the mocks of the specs in that member's sub-series. With no reader the branch write
+    adds the note "the ratified mock was not written: this process holds no conversation store". A version gone
+    from the conversation is a sentence in BranchWriteResult.Notes (appended LAST, default null), not an error:
+    FiledSpecBranchWrite adds the notes to the filing notes, TicketAmendment puts them into its existing recorded
+    sentence, interpolated inline on that line (TicketAmendment.cs:88-89; one argument on the WriteAsync line, no
+    helper method, stays at 120). When the branch
+    write FAILS, FiledSpecBranchWrite's existing note also says the ratified mock was not written, because the run's
+    later publish from the stored record carries no bytes. RUN: SpecPromptSection marks the ratified mock
+    "ratified by a person — build against this one". REVIEW: a new RatifiedMockReview resolves, for the current
+    spec, the ratified mock (the set's DerivedSpec by spec id, RatifiedMock n, {id}-mock-v{n}.html in its MockPaths)
+    and the CANDIDATES — every .html file in this spec's diff outside .agentsmith/ (a mock or a spec companion
+    there is never a candidate); all are listed in the prompt and the reviewer compares the one that renders the
+    ratified page. With both and the browser on, the diff reviewer gets the list RenderReferenceToolFactory.Tools(
+    pipeline, false) builds (render_reference, compare_reference and the run's view_reference_image, which that
+    factory adds outside the browser gate), its iteration cap grows by THREE (render, compare, and the read a
+    finding must cite), and its look opens on DerivationLookTerms.SpecReview with { Allowance =
+    SpecReviewAllowance + 1 }, so the read a compare finding cites is never refused for want of a look — the terms
+    come from RatifiedMockReview on the existing OnTerms line (ReviewSpecDiffHandler.cs:61), no line added. The
+    prompt section says: compare the built page with the ratified mock; a difference the done-list does not excuse is a finding that cites YOUR READ
+    of the built file's line that renders it, or it is not admitted. After the review RatifiedMockReview counts the
+    run's recorded comparisons (VisualComparisonRecorder.Recorded) before and after; none recorded means the step's
+    result says "ratified mock vN offered, not compared". Without a candidate the result says "ratified mock vN not
+    compared: the spec built no static page" and no tools are added; without the browser or the file beside the
+    spec it says so likewise.
+  out: >
+    The version strip, its screenshots, the Ratify button and the proposal block naming the ratified
+    version — 2026-10-13-8762t. Writing mock versions, numbering them and rendering them in the turn —
+    2026-10-13-8762r. A ratified mock's bytes in a WORKED ticket's continuation approval: the record is applied by
+    the run, which holds no reference-file bytes, so the yaml names ratified_mock and the diff review reports the
+    file as not beside the spec — nobody: closing it needs a server-side branch write on the continuation path,
+    which no member of this series builds. The ratified mock after a FAILED branch write — nobody: the record holds
+    no bytes by decision, and the filing note says so. Re-stamping after filing: a ratification made after the
+    approval was filed reaches the spec only through an amendment of that ticket — nobody: filing is the moment the
+    yaml becomes the record. Comparing a page that only a running app renders (a React/Vite page has no built
+    .html) — nobody: rendering a running app needs the app served inside the browser sandbox, which no member
+    builds; the step result says the compare did not happen. A compare as a verify stage — nobody: contract
+    decision 21 makes it a finding. Releasing any skill text — nobody: nothing here needs a skill (the partner
+    reads the ratification turn as text).
+
+decisions:
+  - key: "THE RATIFICATION IS A TRANSCRIPT TURN UNTIL FILING, THE SPEC YAML AFTER IT. The approval files an in-memory proposal held on one replica, so a ratification cannot edit that object, and the proposal pane's stored copy is display state. The transcript is per-session, durable and read by every replica and by the model. Series contract section 2.2, amended: 'which mock version is ratified' is the ratification turn in the conversation transcript before filing and the spec yaml after it."
+  - key: "ONLY A PERSON STAMPS IT. The stamp sets ratified_mock from the turn and removes any value the model wrote, so the field means a person ratified that version, never that a model claimed so."
+  - key: "RATIFIED_MOCK IS A VERSION NUMBER, NOT A FILE NAME. The id is re-minted at filing and rewritten in the yaml; a number survives the rewrite untouched and the file name follows from the frozen id plus the number, so one datum names the file."
+  - key: "THE BYTES ARE READ AT THE BRANCH WRITE, NEVER STORED ON THE RECORD. The approval record is the stored set; copying the html into it would be a second copy of the reference file. FiledSeries.Sources is the only bridge, in memory for the length of one filing."
+  - key: "THE COMPARE IS A FINDING. Default, pending operator ratification (contract decision 21): a pixel or style difference is judgement, so it rides the existing diff review and its one fix pass; it never fails a spec."
+  - key: "NO EVENT. The compare lands in SpecReviewed (81) findings and the recorded visual comparison; the ratification is a transcript turn the conversation view already serves."
+  - key: "RATIFY IS REFUSED ONLY WHILE THE TURN COMPUTES (series main-thread decision 10). The gate stays entered across the approval wait, which is exactly when the proposal and its strip are on screen; taking the gate would answer 409 on the replica running the turn and 200 on any other. Liveness(...).Computing is the span of real work, and a ratification during it would race the model's own proposal. Alternative rejected: TryEnter (unreachable done criterion, replica-dependent)."
+  - key: "THE 409 IS PER REPLICA, AND THE RELOAD IS WHAT KEEPS A RATIFICATION ELSEWHERE. Liveness is in-process (SpecDialogTurnGate.cs:18-27), so the refusal holds on the replica running the turn; a ratification accepted on another replica during the computation is kept because the turn's later appends re-read the row first. Multi-replica is a requirement, so the guarantee is the kept turn, not the refusal."
+  - key: "THE RELOAD IS UNCONDITIONAL AND LIVES IN THE REPOSITORY READ. Today the turn's scope already overwrites the approval answer appended by the answer's own scope (SpecDialogAnswerAdmission.cs:36-37, TicketFilingOutcomeSink.cs:69-71); this is not a ratification-only race. Alternatives rejected: reloading only in the manager's two transcript writers (the manager is 120/120 and the writers need one more line each); a new repository method (8 lines, repository at 127); AsNoTracking reads (every writer would save nothing)."
+  - key: "A COMPARE BUYS ITS OWN LOOK. The citing read is a look, capped by the look's allowance, not by MaxIterations; a reviewer that spent its eight looks on the diff would get 'No look left' and its compare finding would be discarded. One more look and three more iterations when the compare is offered; otherwise the terms are unchanged."
+  - key: "THE MOCK READER IS OPTIONAL. FiledSpecBranch is composed by the CLI too, which has no conversation store; a required reader would fail ValidateOnBuild. Without one, the branch write says the mock was not written."
+  - key: "REJECTED CUT: 'the run's derivation drops RatifiedMock and the ratified_mock key from model output in DerivedSpecBuilder' — the run's derivation never copies a model key into the yaml: DerivedSpecBuilder renders the yaml through DerivedSpecYamlRenderer from named fields only (DerivedSpecBuilder.cs:44-50, 53-63; DerivedSpecYamlRenderer.cs:18-24) and SpecFallback does the same (SpecFallback.cs:47-49), so a Rework re-cut or a bare-ticket derivation cannot carry ratified_mock. The pin test DerivedSpecBuilder_ModelElementNamesRatifiedMock_DraftCarriesNone guards it instead of code. A ratified_mock a reviewer writes into the branch file beside a mock is the existing hand-placed path, a person's act."
+  - key: "REVIEWED BEFORE THE RECORD STEP. Rendering a repository page copies its whole directory (RepoRenderSource.cs:20-35, at most 500 files, ReferenceSetLimits.cs:10); specs/planned holds 142 files here, specs/done 1165. ReviewSpecDiff precedes WriteSpecRecord (PipelinePresets.Parking.cs:58-59), which moves the mock to done/; reordering them would make every compare refused."
+  - key: "THE STAMP READS THROUGH A FRESH SCOPE. The turn's scope tracks the session row since it appended the assistant turn, and EF hands back that tracked copy on every later query, so a ratification written in another request's scope would be invisible. Alternative rejected: AsNoTracking on every repository read (changes the save semantics of every caller)."
+  - key: "A COMPARE MUST BE CHECKABLE OR IT IS SAID NOT TO HAVE HAPPENED. The admission keeps only findings on a read line, so the prompt asks for that read and the cap pays for it; a reviewer that had the tools and recorded no comparison is reported, never silently counted as a compare. Only a static .html in the diff is a candidate today."
+  - key: "SAVED THROUGH BoundSessionNudge (series main-thread decision 10). A ratification is a turn of the ticket's conversation; a plain repository save would leave the bound ticket's page stale until some unrelated write."
+
+steps:
+  - id: contracts
+    action: "SpecDialogTurnKind.MockRatified = 7; MockRatificationTurn record; TranscriptTurn.Mock (last); SpecDraft.RatifiedMock; SpecDraftReader reads ratified_mock (87 -> about 89); spec.schema.json property; FiledSeries.Sources (init property, beside j's Contract and l's ReviewRounds); BranchWriteResult.Notes (last, default null)."
+  - id: ratified-read
+    action: "RatifiedMocks.Of(transcript) — newest MockRatified turn per spec id."
+  - id: ratify
+    action: "MockRatification (reach, version exists via IConversationMockReader, 409 only while Liveness(...).Computing, append and save through BoundSessionNudge) and its route in 2026-10-13-8762r's SpecDialogMockEndpoints; ServerEndpointExtensions untouched; regenerate route-permission-baseline.tsv."
+  - id: stamp
+    action: "RatifiedMockStamp (fresh scope read; set or remove the top-level key in each draft's yaml, refresh RatifiedMock); SpecDialogOutcomeFlow calls it before AcceptAsync (83 -> about 86)."
+  - id: transcript-reload
+    action: "SpecDialogSessionRepository.GetOpenByThreadAsync becomes a 7-line block: one-line signature, the same query, unitOfWork.Update(open).ReloadAsync(ct) when found, return (119 -> 120); the 14 product callers (facts) need no change; integration tests through the real ServiceProvider for the ratification, the assistant append and the approval answer."
+  - id: files
+    action: "FiledSeriesFactory.Mint/Under fills Sources from SeriesDraftIds.Map; RatifiedMockFiles; FiledSpecBranch takes IConversationMockReader? mocks = null and WriteAsync takes the sources and reads the mocks through the static RatifiedMockFiles, noting a missing reader (106 -> at most 115); FiledSeriesWrite (37) commits them per member; FiledSpecBranchWrite (61) passes the sources, surfaces Notes and names the mock in its failure note; ApprovedSetTicketFiler (107) passes series.Sources; TicketAmendment (120, stays at 120) passes amended.Set.Sources and carries Notes in its sentence."
+  - id: run-prompt
+    action: "SpecPromptSection names the ratified mock (76 -> about 79)."
+  - id: review
+    action: "RatifiedMockReview (new: target, candidate, tools, prompt section, after-review sentence); ReviewSpecDiffHandler (about 111 after 2026-10-13-8762a and 2026-10-13-8762k) gains one ctor parameter and about 4 lines, stays at or under 120; the OnTerms line takes the review's terms (allowance + 1 when offered); candidates exclude .agentsmith/; SpecDiffReviewer (about 91 after k) takes extra tools and a cap of MaxIterations + 3 for them; SpecReviewPrompt (about 86 after k) gains the compare section."
+  - id: tests
+    action: "Red first, then green, for every test below; run the SpecDialog, Specs, Server, Persistence and Architecture classes touched."
+
+tests:
+  - "MockRatify_UnknownVersion_Is404NamingIt"
+  - "MockRatify_UnreachableConversation_Is404"
+  - "MockRatify_WhileTurnComputes_Is409"
+  - "MockRatify_DuringApprovalWait_IsAccepted"
+  - "MockRatify_AppendsOneTypedTurn_AndNudgesTheBoundTicket"
+  - "RatifiedMocks_LaterRatification_Supersedes"
+  - "RatifiedMockStamp_RatifiedInAnotherScopeDuringTheApprovalWait_IsStamped"
+  - "Filing_AfterRatificationInAnotherScope_KeepsTheRatificationTurn (integration, real ServiceProvider)"
+  - "Filing_AfterApprovalAnswerInItsOwnScope_KeepsTheAnswerTurn (integration, real ServiceProvider)"
+  - "MockRatify_DuringComputeOnAnotherScope_TurnSurvivesTheAssistantAppend (integration, real ServiceProvider)"
+  - "SessionRepository_GetOpenByThread_TrackedRowChangedElsewhere_ReturnsCurrentValues"
+  - "FiledSpecBranch_NoMockReader_NotesTheMockWasNotWritten"
+  - "DerivedSpecBuilder_ModelElementNamesRatifiedMock_DraftCarriesNone"
+  - "ReviewSpecDiff_RatifiedMock_LookAllowanceGrowsByOne"
+  - "ReviewSpecDiff_HtmlUnderAgentsmith_IsNoCandidate"
+  - "RatifiedMockStamp_ModelWrittenValueWithoutRatification_IsRemoved"
+  - "SpecDraftReader_RatifiedMock_IsRead"
+  - "SpecSchema_RatifiedMock_AcceptsPositiveIntegerOnly"
+  - "FiledSeriesFactory_Sources_MapMintedIdsToProposalIds"
+  - "Filing_RatifiedMock_WrittenUnderSpecsPlannedWithTheMintedId"
+  - "Filing_RatifiedMockGoneFromConversation_IsANoteNotAnError"
+  - "Filing_BranchWriteFailed_NoteSaysTheMockWasNotWritten"
+  - "Amendment_RatifiedMock_WrittenBesideTheSpec"
+  - "SeriesWrite_TwoRepositories_EachMockGoesToItsSpecsRepository"
+  - "SpecPromptSection_RatifiedMock_IsNamedAsTheTarget"
+  - "ReviewSpecDiff_RatifiedMockAndStaticPageInDiff_ReviewerGetsCompareAndCapPlusThree"
+  - "ReviewSpecDiff_NoStaticPageInDiff_SaysNotComparedAndAddsNoTools"
+  - "ReviewSpecDiff_ToolsOfferedNoComparisonRecorded_SaysOfferedNotCompared"
+  - "ReviewSpecDiff_RatifiedMockWithoutBrowser_SaysNotComparedAndStillReviews"
+  - "ReviewSpecDiff_NoRatifiedMock_ToolsUnchanged (the expected list built by RenderReferenceToolFactory.Tools(pipeline, false) the same way)"
+  - "RoutePermission_MockRatify_NeedsDialogWrite"
+
+done:
+  - "In a design conversation, ratifying mock v2 of a spec leaves a turn the conversation shows and the partner reads; ratifying v3 afterwards replaces it; a ratification while the partner is computing is refused with 409 on the replica running the turn; elsewhere it is accepted and, by the reload, kept."
+  - "Approving that proposal files a spec whose yaml says ratified_mock: 2 and whose ticket branch carries .agentsmith/specs/planned/{spec id}-mock-v2.html under the minted spec id, also when the ratification happened in another request while the approval question was open, and the transcript still holds the ratification turn and the approval answer turn after filing."
+  - "A spec the model marked ratified_mock without a person's ratification is filed without the key."
+  - "The run's master is told which mock is the ratified target; when the spec built a static page, its diff review compares that page with the mock and admitted differences earn the one fix pass; otherwise the step result says why the mock was not compared (no static page, no browser, not beside the spec, or offered and not compared)."
+  - "Build green, full suite green, dashboard gen:hub-events/test/build green."

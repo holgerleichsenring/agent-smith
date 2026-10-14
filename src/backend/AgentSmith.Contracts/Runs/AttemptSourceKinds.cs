@@ -17,4 +17,7 @@ public static class AttemptSourceKinds
 
     /// <summary>2026-10-13-9a59m: an approval in a design conversation; the id is the session.</summary>
     public const string Conversation = "conversation";
+
+    /// <summary>2026-10-13-8762p: an overruled default; the id is its row.</summary>
+    public const string Default = "default";
 }

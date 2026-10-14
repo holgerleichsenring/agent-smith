@@ -199,8 +199,9 @@ public sealed class ChatClientFactory(
         // 2026-10-01-283dd: the tool loop also places a tool's deposited image after the tool
         // result, once; the builder says whether its transport delivers it, the agent whether it sees.
         var delivery = ToolImageDelivery.For(builder.AcceptsImageAfterToolResult, agent.SupportsVision);
-        return new ToolImages.ToolImageFunctionInvokingChatClient(loopInner, toolImages, delivery, loggerFactory)
-            { MaximumIterationsPerRequest = maxIterations ?? MaxIterationsPerRequest };
+        return ToolLoopErrorTolerance.Apply(
+            new ToolImages.ToolImageFunctionInvokingChatClient(loopInner, toolImages, delivery, loggerFactory)
+                { MaximumIterationsPerRequest = maxIterations ?? MaxIterationsPerRequest });
     }
 
     // p0341d: the compactor's summarizer — a cheap, non-tool Summarization-task client

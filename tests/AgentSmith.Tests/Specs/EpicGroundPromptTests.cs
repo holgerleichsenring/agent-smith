@@ -96,7 +96,7 @@ public sealed class EpicGroundPromptTests
     private static string Compose(PipelineContext pipeline) =>
         SpecPromptComposer.Compose(
             new Ticket(new TicketId("42"), "Widget storage", TicketBody, null, "open", "test"),
-            TicketSegmenter.Segment(TicketBody), previous: null, cause: string.Empty, pipeline);
+            TicketSegmenter.Segment(TicketBody), previous: null, cause: string.Empty, pipeline, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults);
 
     private const string Yaml = """
         spec: p9000

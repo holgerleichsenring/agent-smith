@@ -55,4 +55,6 @@ public sealed class RawAgentSmithConfig
     /// <summary>p0423: whether a run records its conversation, not only its numbers.</summary>
     public TraceConfig Trace { get; set; } = new();
     public PipelineCostCapConfig PipelineCostCap { get; set; } = new();
+    public SpecReviewConfig SpecReview { get; set; } = new(); // 2026-10-13-8762g
+    public SeriesConfig Series { get; set; } = new(); // 2026-10-13-8762u
 }

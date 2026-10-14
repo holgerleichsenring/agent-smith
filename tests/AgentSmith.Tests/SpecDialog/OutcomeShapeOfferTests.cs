@@ -271,7 +271,7 @@ public sealed class OutcomeShapeOfferTests : IDisposable
             transport.Object,
             new SpecDialogMessenger([], NullLogger<SpecDialogMessenger>.Instance),
             pending, new SpecDialogOutcomeComposer(),
-            NullLogger<SpecDialogOutcomeConfirmer>.Instance);
+            AgentSmith.Tests.TestSupport.UnreviewedApprovals.Unused(), NullLogger<SpecDialogOutcomeConfirmer>.Instance);
 
         var result = await confirmer.ConfirmAsync(State(bound), proposal, CancellationToken.None);
         return (result, asked);
@@ -295,12 +295,12 @@ public sealed class OutcomeShapeOfferTests : IDisposable
             new SpecDialogOutcomeConfirmer(
                 Mock.Of<IDialogueTransport>(), messenger,
                 new SpecDialogPendingQuestions(new SpecDialogTurnGate(TimeProvider.System)),
-                composer, NullLogger<SpecDialogOutcomeConfirmer>.Instance),
+                composer, AgentSmith.Tests.TestSupport.UnreviewedApprovals.Unused(), NullLogger<SpecDialogOutcomeConfirmer>.Instance),
             sink ?? Mock.Of<IOutcomeSink>(), composer, messenger,
             new DashboardOutcomeChannel(
                 new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
                 NullLogger<DashboardOutcomeChannel>.Instance),
-            store, NullLogger<SpecDialogOutcomeFlow>.Instance);
+            store, AgentSmith.Tests.TestSupport.RatifiedMockStamps.Over(repository), NullLogger<SpecDialogOutcomeFlow>.Instance);
         return (flow, store, state);
     }
 

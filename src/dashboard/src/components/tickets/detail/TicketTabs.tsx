@@ -1,6 +1,6 @@
 "use client";
 
-import { useTicketConversation, useTicketSeries } from "@/lib/tickets/TicketPageStore";
+import { useTicketConversation, useTicketDefaults, useTicketSeries } from "@/lib/tickets/TicketPageStore";
 import type { TicketDetail } from "@/types/tickets";
 import { ticketTabs, type TicketTab } from "./ticketTabTable";
 
@@ -13,7 +13,7 @@ interface Props {
 }
 
 export function TicketTabs({ detail, selected, onSelect }: Props) {
-  const reads = { conversation: useTicketConversation().data, series: useTicketSeries().data };
+  const reads = { conversation: useTicketConversation().data, series: useTicketSeries().data, defaults: useTicketDefaults().data };
   return (
     <div className="tabs" role="tablist" aria-label="Ticket sections">
       {ticketTabs.map((tab) => {

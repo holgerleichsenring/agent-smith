@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeHub, pr } from "../../__tests__/ticketFixtures";
-import { attempt, conversation, detail, entry, pass, passes, series, spec, ticketText } from "./detailFixtures";
+import { attempt, budget, conversation, defaults, detail, entry, pass, passes, reviews, series, spec, ticketText } from "./detailFixtures";
 import { EventType, type RunEvent } from "@/types/hub-events";
 import type { RunPasses, TicketConversation, TicketDetail, TicketSeries } from "@/types/tickets";
 
@@ -46,6 +46,8 @@ const api = {
   passes: vi.fn((runId: string) => Promise.resolve(world.passes[runId] ?? passes(runId, {}, 0))),
   run: vi.fn(() => Promise.reject(new Error("unused"))),
   compute: vi.fn(() => Promise.reject(new Error("unused"))),
+  reviews: vi.fn(() => Promise.resolve(reviews())),
+  defaults: vi.fn(() => Promise.resolve(defaults())),
 };
 
 const settle = (ms = 0) => act(() => vi.advanceTimersByTimeAsync(ms));
@@ -262,5 +264,49 @@ describe("Ticket page", () => {
     await settle(2000);
     await settle();
     expect(screen.getByTestId("attempt-switch-2")).toBeInTheDocument();
+  });
+
+  // 2026-10-13-8762w: the series strip sits between the header and the tabs, only for a real, budgeted series.
+  const defaultSeries = (over: Parameters<typeof budget>[0] | null) =>
+    series("r-1", [spec()], { budget: over === null ? null : budget(over) });
+
+  it("TicketPage_NoBudget_RendersNoStrip", async () => {
+    world.series.default = defaultSeries(null);
+    await open();
+    expect(screen.getByTestId("ticket-head")).toBeInTheDocument();
+    expect(screen.queryByTestId("series-runway")).toBeNull();
+  });
+
+  it("TicketPage_BudgetOff_RendersNoStrip", async () => {
+    world.series.default = defaultSeries({ next: "hold", heldBecause: "off" });
+    await open();
+    expect(screen.queryByTestId("series-runway")).toBeNull();
+  });
+
+  it("TicketPage_ActivityNudge_RefreshesTheStrip", async () => {
+    world.series.default = defaultSeries({ next: "start" });
+    const hub = await open();
+    const strip = screen.getByTestId("series-runway");
+    expect(strip.previousElementSibling).toBe(screen.getByTestId("ticket-head"));
+    expect(strip.nextElementSibling).toHaveAttribute("role", "tablist");
+    expect(screen.getByTestId("series-next")).toHaveTextContent("starts by itself");
+
+    // The run ended (RunsChanged), and only afterwards the worker marks the ticket closed (TicketActivityChanged).
+    act(() => hub.runsChanged.emit("r-1"));
+    await settle(2000);
+    await settle();
+    expect(screen.getByTestId("series-next")).toHaveTextContent("starts by itself");
+    world.series.default = defaultSeries({ next: "hold", heldBecause: "closed" });
+    act(() => hub.ticketActivityChanged.emit({ project: "shop", ticketKey: "GH-101" }));
+    await settle(2000);
+    await settle();
+    expect(screen.getByTestId("series-next")).toHaveTextContent("held — a person closed the ticket");
+  });
+
+  it("TicketPage_HeldOnDefault_SelectsTheDefaultsTab", async () => {
+    world.series.default = defaultSeries({ next: "hold", heldBecause: "default-pending" });
+    await open();
+    fireEvent.click(screen.getByTestId("series-go-defaults"));
+    expect(nav.replace).toHaveBeenCalledWith(expect.stringContaining("tab=defaults"), { scroll: false });
   });
 });

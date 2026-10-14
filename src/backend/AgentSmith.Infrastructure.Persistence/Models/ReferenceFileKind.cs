@@ -12,6 +12,9 @@ public static class ReferenceFileKind
     /// <summary>2026-10-02-075dd: what the design partner worked out about one set — at most one per set.</summary>
     public const string Note = "note";
 
+    /// <summary>2026-10-13-8762r: one version of a spec's HTML mock the design partner wrote, and its screenshot.</summary>
+    public const string Mock = "mock";
+
     /// <summary>The column's width: the longest kind with room to grow.</summary>
     public const int MaxLength = 16;
 }

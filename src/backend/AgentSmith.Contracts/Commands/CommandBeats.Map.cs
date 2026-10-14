@@ -50,6 +50,7 @@ public static partial class CommandBeats
         // same beat as the plan, immediately before it.
             [CommandNames.DeriveSpec] = RunBeat.Plan,
             [CommandNames.SpecHandback] = RunBeat.Plan,
+            [CommandNames.ReviewSpecs] = RunBeat.Plan,
             [CommandNames.SpecSequence] = RunBeat.Plan,
             [CommandNames.SelectSpec] = RunBeat.Plan,
             [CommandNames.EmptyPlanCheck] = RunBeat.Plan,

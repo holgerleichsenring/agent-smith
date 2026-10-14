@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-8762v
+
+decisions:
+  - category: Implementation
+    chose: "series.budget_usd 150 (0 = automatic continuation off) and series.wall_clock_hours 12 of summed RUN time per chain, appended to SeriesConfig with two Problems() checks (below 0); per-run caps unchanged. Defaults pending operator ratification (contract decisions 18, section 5 default 65)"
+    over: "Calendar time across the chain, or a fourth on/off key"
+    reason: "The supervised session ran about 20 specs in about 9 h; one knob (budget 0) turns the behaviour off, and run time lets a series held overnight on a default start when the default is ratified."
+  - category: Scope
+    chose: "series.continue_after_wall_time true: the runway continues only on an end 8762g's SeriesBoundaryEnd allows (success, or cancelled by watchdog | watchdog-wall-time), the wall-time arm only with a done spec and the flag on; everything else holds. Pending operator ratification (contract decision 19, section 5 default 66)"
+    over: "A list of continuing ends owned by the runway"
+    reason: "One allow-list shared with the claim gate, so the ends the poller is kept off and the ends the runway continues cannot drift apart, and a new way to end cannot slip through as continue."
+  - category: Scope
+    chose: "The chain starts at the newest attempt whose RunAttempt.CauseChannel is not series (a missing row counts as not series); spend and elapsed are summed over the chain, a queued or waiting attempt adds nothing, a running one counts to now. Pending operator ratification (section 5 default 67)"
+    over: "Every attempt of the ticket, or a stored series datum"
+    reason: "A person's act begins a new chain with a fresh budget, which is also how a held series is resumed; computed per read, nothing to keep in sync."
+  - category: Scope
+    chose: "Only runway holds are spoken (no-progress, budget-usd, wall-clock, default-pending, misconfigured), once per (newest run, code) through ReworkSpeech.SayOnTicketOnceAsync, naming reason, spend against cap, run hours and specs left, and 'A comment on the ticket or an approval in its conversation starts the next attempt.'; no Retry is named. Pending operator ratification (section 5 default 68)"
+    over: "Speaking every hold, or naming Retry"
+    reason: "A hand-back, a failure and a cancel are told by the attempt's own end; off is the operator's choice; Retry refuses every end a spoken hold follows."
+  - category: Architecture
+    chose: "The series start is a named start (ChatTicketRunLauncher sets RequestedByName on every start) told apart by ContextKeys.SeriesAutoStart (ContextKeys.Series.cs), seeded by SpawnRequestBuilder from IncomingTicketEnvelope.SeriesAutoStart, read in both shapes by IsSeriesAutoStart; AttemptCauseReader answers series / agent-smith after Retry and before requested; BoundaryStopGate.AdmitsStart = IsRequestedByName || IsSeriesAutoStart. No new ReworkNudgeOrigin. Pending operator ratification (section 5 default 69)"
+    over: "A new nudge origin, or writing the RunAttempt cause from the server"
+    reason: "Origins rank a merge of acts and a series start is not an act; the cause is read inside the run from its initial context, so the fetch fields stay the run's; AdmitsStart names the series flag so a later launcher that stops setting RequestedByName does not silently close the series."
+  - category: Scope
+    chose: "The series budget pays each attempt's review of its unbuilt tail: spend is the chain's Run.CostTotalUsd, which already holds the review calls. Pending operator ratification (section 5 default 70)"
+    over: "Excluding review spend"
+    reason: "One clock for one series; the review is part of what the attempt costs."
+  - category: Implementation
+    chose: "ConfigSettingsAccess.Normalize throws a ConfigurationException with the bound series or spec_review block's Problems() after binding (a 400 naming the field, nothing saved); the cross-section wall-clock fit stays the run's refusal. Config is read live per nudge and per read through ISeriesSettingsReader and refused where read (hold misconfigured, the problems said once), never clamped (section 5 default 71)"
+    over: "Clamping, or checking only at startup"
+    reason: "The rule lives on the Contracts types so Infrastructure.Core and the runway call one copy; a Blocking startup finding does not stop the process."
+  - category: Architecture
+    chose: "ISeriesAutoStart (Server/Contracts) over SeriesAutoStart; ReworkNoActTail takes the interface"
+    over: "ReworkNoActTail taking the concrete SeriesAutoStart"
+    reason: "The tail is built by hand in five rework test fixtures that have no runway reader behind their scopes; the interface lets them pass a no-op (TestSupport/ReworkHandlers) while SeriesAutoStart itself is tested over the real runway reader and store. The spec names no interface; this one is the seam IReworkLaunch already models."
+  - category: Architecture
+    chose: "SeriesAutoStart resolves SeriesRunwayReader from a scope it opens per call; the reader composes runs, records(full: false), holds (TicketDefaultsReader pendingHoldingSeries), the ledger watermark, the refused/closed ledger keys and the live settings once, for the worker and TicketSeriesReader alike"
+    over: "Capturing the transient reader chain in the singleton"
+    reason: "The worker singleton captures no scoped reader (spec step auto-start); the page and the worker answer from one function."
+  - category: Scope
+    chose: "A live newest attempt is still answered off / misconfigured before the caps"
+    over: "Judging a live attempt on budget-usd, wall-clock and default-pending only, literally"
+    reason: "With budget_usd 0 the spend check would otherwise answer budget-usd for a live attempt; off and misconfigured are the settings' state, not the attempt's end, so they rank first for every attempt as in the hold order."
+  - category: Scope
+    chose: "Specs left = the latest cut's entries minus the ids its attempt carried in and every spec done in that attempt or a later one; a mark is published (TicketActivityChanged) only when the ledger key is new"
+    over: "Counting done rows of the cut's attempt only; nudging the page on every nudge"
+    reason: "An attempt that published no cut of its own still finishes specs of the latest cut; a repeated nudge changes nothing the page shows."
+  - category: Implementation
+    chose: "DEVIATION: the example config had no series block (8762u added none), so this member adds a full series block with all six keys at their defaults to config/agentsmith.example.yml"
+    over: "Adding only the three new keys to a block that does not exist"
+    reason: "The spec asks the example's series block to gain the three keys; the block is created with the defaults the schema states (config/agentsmith.example.yml, before pipeline_data_flow)."

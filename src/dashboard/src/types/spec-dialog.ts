@@ -2,6 +2,8 @@
 // GET the page opens with, and the two hub pushes the conversation arrives through. Kept
 // by hand (unlike types/hub-events.ts, whose generator walks Contracts/Events only).
 
+import type { SpecReviewCut, SpecReviewFinding, SpecReviewResidue } from "@/types/hub-events";
+
 /** One template a turn of this conversation may read. */
 export interface SpecDialogTemplate {
   name: string;
@@ -40,6 +42,20 @@ export interface SpecDialogImage {
   bytes?: number | null;
   /** 2026-10-08-e8b9g: an approval of the conversation cites it, so it cannot be removed. */
   cited?: boolean;
+}
+
+/**
+ * 2026-10-13-8762r: one version of a spec's HTML mock the design partner wrote. Addressed by spec and
+ * version; its screenshot and its page are routes of their own, so the per-message read carries no bytes.
+ */
+export interface SpecDialogMock {
+  specId: string;
+  version: number;
+  /** `{specId}-mock-v{n}` — the downloaded page is this name plus `.html`. */
+  name: string;
+  at: string;
+  /** False until a render stored its desktop screenshot. */
+  hasShot: boolean;
 }
 
 /**
@@ -128,6 +144,10 @@ export interface SpecDialogSession {
   seesImages?: boolean;
   seesUploadedImages?: boolean;
   imageCount?: number;
+  /** 2026-10-13-8762r: the design partner's mock versions, oldest first; null with none. */
+  mocks?: SpecDialogMock[] | null;
+  /** 2026-10-13-8762t: spec id -> the mock version a person ratified, from the transcript; null with none. */
+  ratifiedMocks?: Record<string, number> | null;
   /** 2026-09-27-481bc: the ticket this conversation is bound to, or null when it is bound to none. */
   ticket: SpecDialogSessionTicket | null;
 }
@@ -355,6 +375,23 @@ export interface SpecDialogProposalPush {
   /** What the turn's review found; empty for a clean review and for one that could not be taken,
    * and absent altogether on a proposal stored before the review shipped. */
   findings?: SpecDialogProposalFinding[];
+  /** 2026-10-13-8762i: every review round of the proposal's drafts; absent on an older proposal. */
+  reviewRounds?: SpecDialogReviewRound[];
+  /** 2026-10-13-8762i: spec ids (or "series") not reviewed yet — the proposal cannot be approved. */
+  notReviewed?: string[] | null;
+}
+
+/** 2026-10-13-8762i: one review round of one draft (or "series"), as it stays on the proposal. */
+export interface SpecDialogReviewRound {
+  specId: string;
+  round: number;
+  verdict: string;
+  /** Each reviewer's verdict in order; null where a reviewer was not taken. */
+  reviewerVerdicts: (string | null)[];
+  cuts: SpecReviewCut[];
+  findings: SpecReviewFinding[];
+  /** Cut wording still standing after the design partner re-proposed. */
+  residues: SpecReviewResidue[];
 }
 
 /**

@@ -18,13 +18,17 @@ public sealed class CliRunRecordingTests
     [Fact]
     public void AnUnwritableStore_FallsBackToTheUserStore_AndSaysSo()
     {
+        // A directory under a regular FILE cannot be created by any user — a root-owned system
+        // path can, by a test running as root in a sandbox.
+        var file = Path.GetTempFileName();
         var config = new PersistenceConfig
         {
             Provider = "sqlite",
-            ConnectionString = "Data Source=/var/lib/agentsmith/agentsmith.db",
+            ConnectionString = $"Data Source={file}/agentsmith/agentsmith.db",
         };
 
         var options = CliRunStoreLocation.Resolve(config, out var fellBackTo);
+        File.Delete(file);
 
         fellBackTo.Should().NotBeNull("a silent fallback is the same failure in a new place");
         fellBackTo.Should().Contain(".agentsmith");

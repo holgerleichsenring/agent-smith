@@ -71,6 +71,9 @@ internal sealed class ContextYamlReadShape
 
         // Read via the shared UnderscoredNamingConvention as `when_present`.
         public string? WhenPresent { get; set; }
+
+        // Read as `when_changed`: globs over the repository's changed paths.
+        public List<string>? WhenChanged { get; set; }
     }
 
     internal sealed class DerivedFromBlock

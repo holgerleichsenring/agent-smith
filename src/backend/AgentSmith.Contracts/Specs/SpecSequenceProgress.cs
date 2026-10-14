@@ -20,6 +20,18 @@ public sealed record SpecSequenceProgress(IReadOnlyList<SpecProgress> Specs)
     /// <summary>True while any spec is anything other than done — the half-migrated state.</summary>
     public bool IsPartial => Specs.Any(p => p.State != SpecRunState.Done);
 
+    /// <summary>2026-10-13-8762u: the attempt ended at a boundary — at least one spec is left to the next attempt and
+    /// every other spec is done; a chunk boundary and a review-share stop alike.</summary>
+    public bool StoppedAtChunk =>
+        Specs.Any(p => p.NextAttempt) && Specs.All(p => p.NextAttempt || p.State == SpecRunState.Done);
+
+    /// <summary>2026-10-13-8762g: the specs this attempt does not build, seeded not started for the next
+    /// attempt with <paramref name="reason"/> as their note — the one way a step ends an attempt at a boundary.</summary>
+    public SpecSequenceProgress Deferring(IReadOnlyCollection<string> ids, string reason) =>
+        new([.. Specs.Select(p => ids.Contains(p.SpecId)
+            ? p with { State = SpecRunState.NotStarted, Note = reason, NextAttempt = true }
+            : p)]);
+
     public SpecSequenceProgress With(
         string specId, SpecRunState state, string? failingCommand = null, string? note = null) =>
         new([.. Specs.Select(p => p.SpecId == specId
@@ -36,12 +48,14 @@ public sealed record SpecSequenceProgress(IReadOnlyList<SpecProgress> Specs)
 /// <param name="Note">p0460: why the standing is what it is, where the state alone would
 /// mislead — a spec found already satisfied on entry is DONE and did no work, and a
 /// reader of the table has to be able to tell that from a spec that ran.</param>
+/// <param name="NextAttempt">2026-10-13-8762g: the spec is left to the next attempt, never built in this one.</param>
 public sealed record SpecProgress(
     string SpecId,
     string Goal,
     SpecRunState State,
     string? FailingCommand = null,
-    string? Note = null);
+    string? Note = null,
+    bool NextAttempt = false);
 
 /// <summary>p0393a: the states a reviewer must be able to tell apart.</summary>
 public enum SpecRunState

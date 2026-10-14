@@ -81,26 +81,25 @@ public sealed class SubAgentRunner(
             var request = BuildLoopRequest(spec, subAgentId, context);
             var loopResult = await loopRunner.RunAsync(request, ct);
 
-            // The child's final answer, for the master to pull back via read_sub_agent_observations.
+            // p0280: the master pulls the child's final answer back via read_sub_agent_observations.
             context.AnswerStore.Store(subAgentId, loopResult.Response.Text ?? string.Empty);
+            var status = string.IsNullOrWhiteSpace(loopResult.Response.Text) ? SubAgentStatus.Empty : SubAgentStatus.Succeeded;
 
             // Each child's cost rolls up against the shared per-run tracker.
             context.CostTracker.Track(loopResult.Response);
-            // p0341e: the child's OWN per-run cost — from its response usage at the shared
-            // tracker's pricing (race-free under concurrent children; not a before/after
-            // Track-delta they would corrupt). Replaces the old stub that always returned 0m,
-            // which surfaced "cost $0.0000" on the decision even for a succeeded child.
+            // The child's own cost, from its response usage at the shared tracker's pricing — race-free under
+            // concurrent children, unlike a before/after delta of the shared tracker.
             var costUsd = context.CostTracker.EstimateResponseCostUsd(loopResult.Response);
             var observationsCount = CountObservations(loopResult.Response);
             var toolCalls = CountToolCalls(loopResult.Response);
 
             await PublishCompletedAsync(
-                subAgentId, context, SubAgentStatus.Succeeded,
+                subAgentId, context, status,
                 observationsCount, findings: 0, files: 0, toolCalls, costUsd, ct);
 
             return new SubAgentResult(
                 TaskIndex: index,
-                Status: SubAgentStatus.Succeeded,
+                Status: status,
                 SubAgentId: subAgentId,
                 Name: spec.Name,
                 ObservationsCount: observationsCount,

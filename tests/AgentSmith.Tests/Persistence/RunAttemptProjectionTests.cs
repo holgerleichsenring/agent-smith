@@ -18,7 +18,7 @@ namespace AgentSmith.Tests.Persistence;
 
 /// <summary>
 /// 2026-10-13-9a59d: the attempt record through the composition root's own registration, over a
-/// migrated SQLite store — the cause is set once, the revision is the last publish's, the row dies
+/// migrated SQLite store — the cause and the revision are set once, the row dies
 /// with its run, and a new attempt's start names its ticket.
 /// </summary>
 public sealed class RunAttemptProjectionTests : IDisposable
@@ -100,14 +100,16 @@ public sealed class RunAttemptProjectionTests : IDisposable
     }
 
     [Fact]
-    public async Task RunAttemptProjection_PublishEvent_RecordsRevisionCarriedIdsAndApprovalInstant()
+    public async Task RunAttemptProjection_MidRunRevision_KeepsTheAttemptsFirstRevisionAndCause()
     {
-        await ApplyAsync(new SpecSetPublishedEvent(RunId, T, 1, "initial", "2026-10-13-1234", [], Committed: true));
-        await ApplyAsync(new SpecSetPublishedEvent(RunId, T.AddMinutes(5), 2, "ticket edited", "2026-10-13-1234",
+        await ApplyAsync(new SpecSetPublishedEvent(RunId, T, 2, "ticket edited", "2026-10-13-1234",
+            ["2026-10-13-1234a"], T.AddMinutes(-10), "session-7", "carol", Committed: true));
+        await ApplyAsync(new SpecSetPublishedEvent(RunId, T.AddMinutes(5), 3,
+            "spec review round 1 of 2026-10-13-1234b: build-with-cuts", "2026-10-13-1234",
             ["2026-10-13-1234a"], T.AddMinutes(-10), "session-7", "carol", Committed: true));
 
         var row = (await RowsAsync()).Single();
-        row.RevisionNumber.Should().Be(2);
+        row.RevisionNumber.Should().Be(2, "the attempt records the revision it began from, not a review's");
         row.RevisionCause.Should().Be("ticket edited");
         row.SeriesId.Should().Be("2026-10-13-1234");
         row.CarriedSpecIdsJson.Should().Be("[\"2026-10-13-1234a\"]");

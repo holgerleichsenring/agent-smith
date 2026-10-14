@@ -16,7 +16,8 @@ namespace AgentSmith.Server.Services.SpecDialog.Continuation;
 /// </summary>
 public sealed class SeriesEditAct(
     NextAttemptSeriesReader series, SeriesEditList list, SpecDialogSessionRepository sessions,
-    ApprovedSpecSetRecorder approvals, ITicketActivityNudge activity, ILogger<SeriesEditAct> logger)
+    ApprovedSpecSetRecorder approvals, ITicketActivityNudge activity, Application.Services.Specs.ISeriesSettingsReader settings,
+    ILogger<SeriesEditAct> logger)
 {
     /// <summary>The sentence the conversation is told.</summary>
     public async Task<string> EditAsync(ResolvedProject project, string ticketId, string conversation, string principal,
@@ -32,7 +33,7 @@ public sealed class SeriesEditAct(
         // The edited list is the whole series, so the previous record's ids need not stay reserved: an id it
         // appended is minted the same again.
         var decision = TicketContinuation.Decide(state with { Record = null },
-            new EpicOutcome(new SpecDraft(state.Series ?? ticketId, goal, string.Empty, []), drafts));
+            new EpicOutcome(new SpecDraft(state.Series ?? ticketId, goal, string.Empty, []), drafts), settings.Current());
         if (decision.Effect != TicketContinuationEffects.Continue) return decision.Reason;
         if (decision.Start is { Kind: TicketStartArms.QuestionPending } waiting)
             return $"Run {waiting.RunId} is waiting for an answer to its question, so nothing was recorded: answer it first, then edit again.";

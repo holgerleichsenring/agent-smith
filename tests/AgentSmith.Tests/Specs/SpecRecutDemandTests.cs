@@ -122,7 +122,7 @@ public sealed class SpecRecutDemandTests
     [Fact]
     public void CutComment_AnApprovedSet_NamesTheDoorAndStopsClaimingNobodyCanRecut()
     {
-        var body = SpecSetComment.Render(Set(approved: true), null);
+        var body = SpecSetComment.Render(Set(approved: true), null, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults);
 
         body.Should().Contain(SpecSetComment.RecutDemand);
         body.Should().NotContain("no run re-cuts a set somebody approved",

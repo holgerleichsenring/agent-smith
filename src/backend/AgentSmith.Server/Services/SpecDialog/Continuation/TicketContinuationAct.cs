@@ -20,7 +20,8 @@ namespace AgentSmith.Server.Services.SpecDialog.Continuation;
 public sealed class TicketContinuationAct(
     AgentSmithConfig config, SpecDialogTicketTextRepository ticketText, TicketContinuationStateReader reader,
     TicketAmendment amendment, ClosedTicketFollowUp followUp, ApprovedSpecSetRecorder approvals,
-    ITicketActivityNudge activity, OperatorStart starter, ILogger<TicketContinuationAct> logger)
+    ITicketActivityNudge activity, OperatorStart starter, Application.Services.Specs.ISeriesSettingsReader series,
+    ILogger<TicketContinuationAct> logger)
 {
     public async Task<TicketContinuationOutcome> ApplyAsync(
         ConversationState state, OutcomeProposal proposal, bool mayStartRuns, CancellationToken ct)
@@ -32,7 +33,7 @@ public sealed class TicketContinuationAct(
                 + "ticket to continue. Nothing was recorded.", false);
         var read = await reader.ReadAsync(name, ticketId, mayStartRuns, ct);
         if (read.State is not { } current) return new(read.Failure!, false);
-        var decision = TicketContinuation.Decide(current, proposal);
+        var decision = TicketContinuation.Decide(current, proposal, series.Current());
         logger.LogInformation("Approval in conversation {Session} on ticket {Ticket}: {Effect}", state.JobId, ticketId, decision.Effect);
         switch (decision.Effect)
         {
@@ -59,9 +60,13 @@ public sealed class TicketContinuationAct(
     {
         var goal = proposal is EpicOutcome epic ? epic.Parent.Goal
             : current.Record?.Set.Goal ?? decision.Drafts.FirstOrDefault()?.Goal ?? string.Empty;
+        var contract = ContinuedContract.Of(proposal, decision, current); // 2026-10-13-8762j
+        if (contract.Removed.Count > 0)
+            logger.LogInformation("Ticket {Ticket}: contract entries naming no spec of the continued series removed: {Removed}", ticketId, string.Join("; ", contract.Removed));
         try
         {
-            await approvals.RecordAsync(state, project, ticketId, new FiledSeries(current.Series ?? string.Empty, decision.Drafts),
+            await approvals.RecordAsync(state, project, ticketId, new FiledSeries(current.Series ?? string.Empty, decision.Drafts)
+                { Contract = contract.Contract, ReviewRounds = ApprovedReviewRounds.Rekey(proposal.ReviewRounds, decision.Ids, logger, ticketId) },
                 goal, ct, decision.Continuation, current.Scope);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)

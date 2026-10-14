@@ -1,0 +1,190 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-8762r
+goal: "The design partner writes a spec's HTML mock as numbered versions, each rendered in the conversation's browser; the operator sees each version's screenshot, can open its page, and replies."
+
+applies_to: "backend (design-turn tools write_mock and read_mock beside render_reference, a mock store and its one reader over ReferenceFile, the render stager, the dialog view, a mock screenshot route and a sandboxed mock-HTML download route) + the dashboard dialog transcript and spec-dialog types + the design-partner-master skill"
+
+requires: []
+
+facts:
+  - claim: "A design turn's tools beside render_reference come from RenderReferenceToolFactory.Tools: render_reference and compare_reference over one scope, plus the design tools; the composer adds them to every non-scan master."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/RenderReferenceToolFactory.cs:34-40, src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:80"
+  - claim: "A design turn's render scope is its project plus ContextKeys.DialogueJobId, which the turn seeds with the conversation's session id."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/RenderReferenceToolFactory.cs:47-51, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:54"
+  - claim: "render_reference parses the source, judges a URL, takes the scope's serial lock, renders through ReferenceRenderer and deposits each screenshot to the loop (the model sees it; nothing is stored)."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/RenderReferenceToolHost.cs:33-48, src/backend/AgentSmith.Application/Services/Tools/RenderReferenceToolHost.cs:55-63, src/backend/AgentSmith.Application/Services/Browser/RenderReferenceScope.cs:28-32"
+  - claim: "ReferenceRenderer opens the conversation's browser sandbox and stages the source through RenderSourceStager, which knows three sources: an uploaded set, a repository page, a URL."
+    evidence: "src/backend/AgentSmith.Application/Services/Browser/ReferenceRenderer.cs:16-32, src/backend/AgentSmith.Application/Services/Browser/RenderSourceStager.cs:17-31, src/backend/AgentSmith.Application/Services/Browser/RenderSource.cs:11-19"
+  - claim: "ReferenceSetMaterialiser.WriteUnderAsync writes already-read files under a root of the browser sandbox, text or bytes, with a marker."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ReferenceSetMaterialiser.cs:44-58, src/backend/AgentSmith.Contracts/Sandbox/ReferenceSetFile.cs:4"
+  - claim: "ReferenceFile is the conversation's byte store, keyed by SessionId and SetId, with a Kind (image, site, note today; the column holds 16 characters)."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/ReferenceFile.cs:17-45, src/backend/AgentSmith.Infrastructure.Persistence/Models/ReferenceFileKind.cs:4-16"
+  - claim: "Every existing read filters by kind: images by Image, uploads by Site, the byte cap by Site or Image. A row of a new kind is invisible to all of them."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceFileRepository.cs:54-57, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceSetRepository.cs:43-47, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceUsageRepository.cs:38-41"
+  - claim: "A conversation's delete removes every ReferenceFile row of its session except the site, note and image rows of sets an approval cites."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceFileRepository.cs:81-90"
+  - claim: "Uploaded bytes are never served as a page from the dashboard's origin; the image route serves one stored image by id after an owner check."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogReferenceFileEndpoints.cs:14-17, src/backend/AgentSmith.Server/Extensions/SpecDialogImageEndpoints.cs:37-38, src/backend/AgentSmith.Server/Extensions/SpecDialogImageEndpoints.cs:64-77"
+  - claim: "The dialog view (read after every message) carries the session's images and upload sets; the dashboard places each image and set into the transcript by its time."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogViewReader.cs:31-45, src/backend/AgentSmith.Server/Models/SpecDialogSessionView.cs:42-57, src/dashboard/src/components/dialog/transcriptImages.ts:12-28, src/dashboard/src/hooks/useSpecDialog.ts:683"
+  - claim: "The transcript renders an image entry as an authed <img> from the image route."
+    evidence: "src/dashboard/src/components/dialog/DialogTranscript.tsx:79-80, src/dashboard/src/components/dialog/DialogTranscript.tsx:109-120"
+  - claim: "A design turn's spec ids are placeholders until approval, when SeriesDraftIds maps each to the series id."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SeriesDraftIds.cs:6-11"
+  - claim: "SpecMocks names a file beside a spec as its mock when it is .html and its name starts with the spec id then '.' or '-'."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecMocks.cs:5-29"
+  - claim: "One design turn per session runs at a time, in process; a second replica does not learn of it."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnGate.cs:6-21"
+  - claim: "note_reference is the precedent for a design-turn write: an optional store port in Contracts (IReferenceNotes), a Db implementation registered in AddReferenceFiles, a host that answers errors as text."
+    evidence: "src/backend/AgentSmith.Contracts/Sandbox/IReferenceNotes.cs:3-17, src/backend/AgentSmith.Application/Services/Tools/ReferenceNoteToolHost.cs:21-37, src/backend/AgentSmith.Server/Extensions/ReferenceFileExtensions.cs:25-26"
+  - claim: "The browser render returns each screenshot as JPEG bytes, and render_reference deposits them as image/jpeg."
+    evidence: "src/backend/AgentSmith.Application/Services/Browser/BrowserRenderOutput.cs:4, src/backend/AgentSmith.Application/Services/Tools/RenderReferenceToolHost.cs:59-61"
+  - claim: "A refetch after a reply does not re-seed the transcript: an unarmed read only settles pending decisions and returns; reseed is armed by an upload, a refresh or a switch."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:46-47, src/dashboard/src/hooks/useSpecDialog.ts:235-245, src/dashboard/src/hooks/useSpecDialog.ts:702-718"
+  - claim: "A render's screenshots come in report order, each report shot naming its viewport; render_reference captions them by that viewport."
+    evidence: "src/backend/AgentSmith.Application/Services/Browser/BrowserRenderOutput.cs:4-8, src/backend/AgentSmith.Application/Services/Browser/BrowserShot.cs:7-8, src/backend/AgentSmith.Application/Services/Tools/RenderReferenceToolHost.cs:55-58"
+  - claim: "A ReferenceFile row has no spec column; its RelativePath holds up to 240 characters and SetId is indexed."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/ReferenceFile.cs:17-45, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/ReferenceFileConfiguration.cs:33-41"
+  - claim: "The dialog view is read after every message, so whatever it loads is paid per message."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogViewReader.cs:31-35"
+  - claim: "The upload byte cap counts Site and Image rows only, so nothing bounds a conversation's mock rows unless the mock store does."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceUsageRepository.cs:38-41"
+  - claim: "Spec-dialog conversation routes need dialog.write, address the conversation by session id and check reach before acting."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogResumeEndpoints.cs:36-40, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOwnership.cs:76-81"
+  - claim: "Every tool result in a loop is cut to ToolResultBound.DefaultBudget (100 000 characters) by keeping its head and tail; the wrap is applied to each tool with that default budget."
+    evidence: "src/backend/AgentSmith.Contracts/Services/ToolResultBound.cs:24, src/backend/AgentSmith.Contracts/Services/ToolResultBound.cs:31-37, src/backend/AgentSmith.Application/Services/Loop/SkillCallRuntime.cs:150-156, src/backend/AgentSmith.Application/Services/Loop/BoundedResultAIFunction.cs:30-32"
+  - claim: "A conversation's uploaded HTML is already served safely: an octet-stream attachment under its own name, with nosniff and Content-Security-Policy sandbox, never inline."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogReferenceFileEndpoints.cs:13-17, src/backend/AgentSmith.Server/Extensions/SpecDialogReferenceFileEndpoints.cs:54-66"
+  - claim: "The dashboard downloads such a file through the bearer token as a blob and saves it under its own name."
+    evidence: "src/dashboard/src/components/dialog/UploadPreviewDialog.tsx:89-97, src/dashboard/src/lib/referenceFilesApi.ts:24"
+  - claim: "A render reports, per screenshot, the page's height and how much of it the shot covers."
+    evidence: "src/backend/AgentSmith.Application/Services/Browser/BrowserShot.cs:7-8"
+  - claim: "DialogTranscript.tsx is 196 lines, already over the principles' 120-line limit."
+    evidence: "src/dashboard/src/components/dialog/DialogTranscript.tsx:196, .agentsmith/contexts/default/principles.md:25"
+  - claim: "The design-partner-master skill (agent-smith-skills origin/main, v1.15.1 inside release 5.15.1) mentions a mock only as input: an .html beside a spec that it can read and render."
+    evidence: "observed: 2026-10-14, git show origin/main:skills/_masters/design-partner-master/SKILL.md lines 138-141 in /Users/da5id/develop/source/others/agent-smith/agent-smith-skills"
+
+assumptions:
+  - "A design turn's transcript keeps the turns' text, not their tool calls, so a later turn cannot see a mock's HTML unless a tool reads it back."
+  - "Within one process write_mock holds the scope's serial lock across store and render, so a turn numbers its own versions in order."
+
+scope:
+  in: >
+    STORE: ReferenceFileKind.Mock = "mock". Two ports in Contracts/Sandbox, one implementation: the WRITER
+    IConversationMocks — AddAsync(session, specId, html) -> MockVersion (SetId, SpecId, Version, Name, At);
+    SetShotAsync(session, setId, jpeg) — and the ONE READER IConversationMockReader — ListAsync(session) -> every
+    version (SetId, SpecId, Version, Name, At, HasShot), projected without Content (HasShot an Any over the set's jpeg
+    row), so the per-message view never loads bytes; HtmlAsync(session, specId, version?) -> one version's html (newest
+    by default); ShotAsync(session, specId, version) -> the screenshot bytes or null, resolving the version to its SetId
+    first. 2026-10-13-8762s and 2026-10-13-8762t read mocks through this reader only and address a version as (specId,
+    version), which only this reader resolves. DbConversationMocks (Persistence) implements both: each version is its
+    own SetId (mock-<guid>) holding the HTML row (RelativePath {specId}.html) and, once rendered, ONE screenshot row
+    ({specId}.jpg, image/jpeg — the render emits JPEG only). THE VERSION NUMBER IS NEVER STORED: it is derived at read
+    as the rank by Id of the spec's HTML rows in the session, and the names {specId}-mock-v{n}.html / .jpg are derived
+    from it (filing, 2026-10-13-8762s, writes the derived name). AddAsync saves, then returns the number from the
+    committed rank. Caps: HTML at most 90 000 characters (below ToolResultBound.DefaultBudget, so read_mock returns it whole), at most 20 versions per spec and at most 100 versions per
+    conversation, each refusal naming its cap. Registered in AddReferenceFiles. TOOLS: MockWriteToolHost on design
+    turns only, built by RenderReferenceToolFactory.Tools when the store is registered. write_mock(spec_id, html):
+    validates the id ([A-Za-z0-9][A-Za-z0-9-]{0,63}) and caps, then under the scope's serial lock (held across both)
+    stores the version and renders it through ReferenceRenderer as a new inline source (RenderSource gains Inline; RenderSourceStager writes it
+    with WriteUnderAsync under mocks/<setId>), deposits both screenshots to the loop as render_reference does, stores
+    the screenshot whose report shot's Viewport is desktop (by viewport, never by position) through SetShotAsync with
+    the version's SetId, and answers the version, its name and render_reference's text; a failed render keeps the
+    version and says why. read_mock(spec_id?, version?): no id lists every spec's versions; an id returns that
+    version's HTML (newest by default) after ONE header line naming the spec, the version and its name, not the list. VIEW: SpecDialogSessionView gains Mocks
+    (SpecDialogMockView: specId, version, name, at, hasShot; appended last, null with none) from ListAsync, no bytes. SHOT: a new
+    SpecDialogMockEndpoints maps GET /api/spec-dialog/conversations/{sessionId}/mocks/{specId}/{version}/shot
+    (dialog.write, MayReachSessionAsync, 404 otherwise or without a screenshot), serving the stored JPEG as image/jpeg
+    with nosniff and the sandbox policy. HTML: GET .../mocks/{specId}/{version}/html in the same file (dialog.write,
+    MayReachSessionAsync, 404 otherwise) serves the stored HTML as an application/octet-stream attachment named
+    {specId}-mock-v{n}.html with nosniff and Content-Security-Policy: sandbox, exactly as
+    SpecDialogReferenceFileEndpoints.ContentAsync serves an upload; never inline. ServerEndpointExtensions maps the file; route-permission-baseline.tsv regenerated.
+    2026-10-13-8762s adds its ratify route to this file and 2026-10-13-8762t's strip draws this route. DASHBOARD:
+    SpecDialogMock type; withImages places mocks by time as kind mock (key mock-{specId}-v{n}); useSpecDialog.load
+    merges, on EVERY read (armed or not), the mock entries whose key it does not yet hold (and refreshes a held one whose hasShot changed), placed by the withImages
+    rule, so a mock written in a turn shows without a reload; the transcript shows an agent-side entry 'Mock v{n} — {specId}' with the screenshot (AuthedImage over the shot route),
+    or 'not rendered', and an 'Open HTML' link that downloads the page through the bearer token as
+    UploadPreviewDialog's download does (lib/referenceFilesApi gains fetchMockHtmlBlob); the entry is its own MockShot
+    component, so DialogTranscript (196) grows by its one case line. SKILL: design-partner-master on skills branch spec/2026-10-13-8762 (the build note quotes the
+    exact sentence added): author a mock with write_mock when a page's look
+    is the question, show the version, read_mock before revising, write the whole page again as the next version.
+  out: >
+    Ratifying a version, ratified_mock in the spec, writing the version beside the spec at filing (mapping the
+    placeholder id through SeriesDraftIds) and compare_reference at ReviewSpecDiff — 2026-10-13-8762s. The version strip
+    and the Ratify button — 2026-10-13-8762t. The skills release and pin — 2026-10-13-8762x. Rendering a stored version
+    again by an address in render_reference or compare_reference — nobody: write_mock renders every version and keeps
+    its screenshot; a filed mock renders by its repository path. Showing a mock before the turn's reply lands — nobody:
+    the view is read after every message, and that read merges new mocks. Deleting one version — nobody: the conversation's delete removes them all.
+    Opening the mock inline in the dashboard — nobody: served from this origin it would run as the dashboard; it opens
+    only as a downloaded, sandboxed file. A turn of one conversation running on two replicas at once may renumber a
+    version written in the overlap — nobody: the turn gate is in-process (SpecDialogTurnGate.cs:6-21); known limit.
+
+decisions:
+  - key: "A MOCK IS A REFERENCE FILE OF KIND mock (contract 2.2). Every existing read filters by kind, so a mock never shows as an upload, never counts against the operator's upload cap and never reaches the model as an operator image; the conversation's delete removes it."
+  - key: "ONE SET PER VERSION, NUMBERED BY ROW ORDER, NEVER STORED. A stored number would need a unique index across four providers, or an insert-count-update whose count can miss a concurrent uncommitted write and store v1 twice; a number derived at read from the Id rank is the single source, and every name carrying it is derived with it."
+  - key: "THE SCREENSHOT IS ADDRESSED BY ITS SET. A version number repeats across specs (v2 of a and v2 of b), so SetShotAsync takes the SetId that MockVersion carries; only the reader turns (specId, version) into a set."
+  - key: "NEW MOCKS MERGE ON EVERY READ. The transcript re-seeds only when armed (useSpecDialog.ts:46-47, :235-245); a mock written by the agent arms nothing, so without the merge it would appear only after a reload — the operator could not reply to the version the turn just showed."
+  - key: "write_mock RENDERS THROUGH render_reference's MACHINERY. Contract 'renders each through render_reference': same ReferenceRenderer, same browser sandbox, same serial lock, same deposit and result text — a fourth staged source (inline bytes) rather than a second renderer."
+  - key: "THE HTML IS NEVER SERVED INLINE (round-2 cut 2). The stored shot is the desktop one, at most 2700 px of page height downscaled (BrowserShot.cs:7-8 reports what it covers), so the operator also opens the whole page: the html route serves it as a sandboxed, never-sniffed attachment, the precedent SpecDialogReferenceFileEndpoints.cs:54-66 already sets for an uploaded .html. The desktop screenshot is stored in the version's set as {specId}.jpg (served under the derived name {specId}-mock-v{n}.jpg) by the shot route, which never serves an html row. JPEG, not PNG: the render emits JPEG bytes only (BrowserRenderOutput.cs:4), and re-encoding would add an image library for no reader that needs PNG."
+  - key: "ONE READER, ONE ROUTE (series contract 2.2 and 2.6, amended). IConversationMockReader is the only read of mock rows, used by this spec's tool and view and by 2026-10-13-8762s and t; the shot route is minted here because this spec's transcript is the first surface that draws a screenshot, and 2026-10-13-8762t's strip reuses it."
+  - key: "read_mock IS THE SECOND TOOL (series contract 2.5, amended). The transcript keeps text, so without it a revision in a later turn starts from nothing; it lives in MockWriteToolHost over IConversationMockReader."
+  - key: "THE TURN'S OWN SPEC ID NAMES THE MOCK. It is a placeholder until approval; 2026-10-13-8762s maps it at filing. The id is only shape-checked because a mock may come before the proposal that holds the spec."
+  - key: "CAPS: 90 000 characters per mock (round-2 cut 1: every tool result is cut to 100 000 characters keeping head and tail, ToolResultBound.cs:24,31-37, so a larger mock would read back through read_mock with its middle missing and the next version would be built from a damaged copy; series contract decision 21 and section 5 default 59 carry the new number), 20 versions per spec and 100 versions per conversation (main-thread decision 10). Spec ids are free-form until approval and mock rows are outside the upload byte cap, so without the conversation cap invented ids would store without bound. Default, pending operator ratification."
+  - key: "SHOWN WHERE IT WAS MADE. A mock entry sits in the transcript at its time, as images do; the per-spec strip is 2026-10-13-8762t's."
+  - key: "ROOM: RenderReferenceToolFactory 73 -> ~79, RenderSourceStager 32 -> ~40, RenderSource 19 -> ~22, ReferenceFileKind 17 -> ~20, SpecDialogViewReader 100 -> ~104, SpecDialogSessionView 73 -> ~76, ServerEndpointExtensions 74 -> 75, ReferenceFileExtensions 35 -> 36, DialogTranscript.tsx 196 -> ~197 (no dashboard ratchet; the entry is its own MockShot component); SpecDialogMockEndpoints and MockShot are new. None is baselined; each stays under 120. SpecDialogImageEndpoints, SpecDialogTurnRunner and MasterToolComposition are not touched (contract section 4)."
+
+steps:
+  - id: contracts
+    action: "Contracts/Sandbox: IConversationMocks (writer, with its three caps; SetShotAsync by SetId), IConversationMockReader (ListAsync, HtmlAsync, ShotAsync), MockVersion (SetId, SpecId, Version, Name, At); ReferenceFileKind.Mock."
+  - id: store
+    action: "DbConversationMocks over ReferenceFile (one set per version, rows {specId}.html and {specId}.jpg, version and {specId}-mock-v{n} names derived at read by Id rank, ListAsync projected without Content, caps) as both ports; registered in AddReferenceFiles."
+  - id: stage
+    action: "RenderSource.Inline (appended, optional) and OfInline; RenderSourceStager writes it under mocks/<setId> with ReferenceSetMaterialiser.WriteUnderAsync."
+  - id: tool
+    action: "MockWriteToolHost: write_mock (under scope.Serial: store, render, deposit, store the desktop-viewport shot by SetId, answer) and read_mock; RenderReferenceToolFactory takes IConversationMocks? and IConversationMockReader? and adds the host on design turns only."
+  - id: view
+    action: "SpecDialogMockView; SpecDialogSessionView.Mocks (appended); SpecDialogViewReader fills it from the reader; SpecDialogMockEndpoints with the shot route and the html attachment route, mapped in ServerEndpointExtensions; route-permission-baseline.tsv regenerated."
+  - id: dashboard
+    action: "types/spec-dialog.ts SpecDialogMock and session.mocks; transcriptImages.withImages takes mocks (kind mock); useSpecDialog passes session.mocks in seed and merges unheld mock entries on every read; DialogTranscript renders MockShot (AuthedImage over the shot route, an 'Open HTML' download via fetchMockHtmlBlob)."
+  - id: skill
+    action: "agent-smith-skills, on skills branch spec/2026-10-13-8762: design-partner-master gains the mock authoring paragraph (write_mock, read_mock, one whole page per version, show it and ask), frontmatter version NOT bumped (2026-10-13-8762x bumps each master once); the build note quotes the exact sentence."
+  - id: tests
+    action: "Red first for each test below, then green; backend classes touched, pnpm gen:hub-events, pnpm test, pnpm build."
+
+tests:
+  - "ConversationMocks_Add_NumbersVersionsPerSpec"
+  - "ConversationMocks_TwoWritesSameSpec_GetDistinctNumbers"
+  - "ConversationMocks_OverCaps_Refused"
+  - "ConversationMocks_OverConversationCap_Refused"
+  - "ConversationMocks_VersionNumberAndName_DerivedAtRead_NothingStoresTheNumber"
+  - "ConversationMocks_List_LoadsNoContent"
+  - "ConversationMocks_SetShot_AddressesTheSet_NotAVersionNumber"
+  - "ConversationMocks_MockRows_InvisibleToImagesUploadsAndByteCap"
+  - "ConversationMocks_ConversationDelete_RemovesThem"
+  - "RenderSourceStager_Inline_WritesUnderMocksRoot"
+  - "WriteMock_StoresRendersAndKeepsTheDesktopShot"
+  - "WriteMock_ShotsInAnotherOrder_StillKeepsTheDesktopViewport"
+  - "WriteMock_RenderFails_KeepsTheVersionAndSaysWhy"
+  - "WriteMock_BadSpecId_IsAnError_NothingStored"
+  - "ReadMock_NoId_ListsVersions_IdReturnsNewestHtmlWithOneHeaderLine"
+  - "ReadMock_MockAtTheCap_ReadsBackWhole"
+  - "RenderReferenceToolFactory_DesignTurn_HasWriteMock_RunHasNot"
+  - "SpecDialogView_CarriesMocksWithShotIds"
+  - "MockShot_ServesTheJpeg_NeverTheHtml_ReachChecked"
+  - "MockShot_VersionWithoutScreenshot_Is404"
+  - "RoutePermission_MockShot_NeedsDialogWrite"
+  - "MockHtml_ServedAsSandboxedAttachment_NeverInline"
+  - "RoutePermission_MockHtml_NeedsDialogWrite"
+  - "DialogTranscript_MockEntry_OpenHtml_DownloadsThePage (dashboard)"
+  - "withImages_PlacesMocksByTime (dashboard)"
+  - "DialogTranscript_MockEntry_ShowsScreenshotWithVersion (dashboard)"
+  - "useSpecDialog_ReplyWithNewMock_ShowsItWithoutReload (dashboard)"
+
+done:
+  - "Asked for a page's look, the design partner writes a mock and the operator sees its screenshot in the conversation labelled with the spec and version."
+  - "When the operator answers with a change, the partner's next mock is the next version of the same spec, and the earlier versions' screenshots stay in the conversation."
+  - "The operator can open any version's whole page from the transcript as a downloaded file."
+  - "A mock never appears among the operator's uploads, never counts toward the upload cap, and its HTML is never served inline as a page."
+  - "A mock the partner may write reads back whole when it revises it."
+  - "Deleting the conversation deletes its mocks."
+  - "Build green, full suite green, dashboard gen/test/build green."

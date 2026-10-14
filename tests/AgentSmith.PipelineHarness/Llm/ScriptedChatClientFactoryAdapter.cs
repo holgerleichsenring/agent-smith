@@ -50,7 +50,7 @@ internal sealed class ScriptedChatClientFactoryAdapter(
             : new MasterLoopGovernorChatClient(inner, masterLoopHooks);
         var iterations = maxIterations ?? 25;
         return new ChatClientBuilder(loopInner)
-            .UseFunctionInvocation(configure: c => c.MaximumIterationsPerRequest = iterations)
+            .UseFunctionInvocation(configure: c => ToolLoopErrorTolerance.Apply(c).MaximumIterationsPerRequest = iterations)
             .Build();
     }
 

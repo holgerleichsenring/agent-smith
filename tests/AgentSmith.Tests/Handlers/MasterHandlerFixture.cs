@@ -35,8 +35,9 @@ internal static class MasterHandlerFixture
         AgentSmith.Application.Services.Tools.RenderReferenceToolFactory? render = null,
         AgentSmith.Contracts.Events.IEventPublisher? passEvents = null,
         AgentSmith.Contracts.Events.IRunContextAccessor? runContext = null,
-        IDecisionLogger? decisions = null) =>
-        new(loop, prompts, decisions ?? new NoOpDecisionLogger(), AgentSmithConfig.Empty(),
+        IDecisionLogger? decisions = null,
+        AgentSmith.Contracts.Events.IEventPublisher? recordEvents = null) =>
+        new(loop, prompts, RecordHosts(decisions ?? new NoOpDecisionLogger(), recordEvents), AgentSmithConfig.Empty(),
             new AgentSmith.Infrastructure.Services.ContextYamlSerializer(
                 new AgentSmith.Infrastructure.Services.ContextYamlBuilders()),
             AgentSmith.Tests.TestHelpers.ContextGates.Build(),
@@ -57,6 +58,10 @@ internal static class MasterHandlerFixture
                 Mock.Of<AgentSmith.Application.Services.Specs.ISpecCutReviewer>(),
                 AgentSmith.Tests.Specs.DerivationTestLooks.Factory(),
                 AgentSmith.Tests.SpecDialog.ProposalEvidenceTestReview.Create(),
+                // 2026-10-13-8762i: rounds 0 — the single review; the rounds have their own rig.
+                AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig.Reader(
+                    () => AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig.Of(rounds: 0)),
+                new AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig().Loop(),
                 AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
                 NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview>.Instance),
             new NoOpTicketDocumentMaterializer(),
@@ -89,14 +94,23 @@ internal static class MasterHandlerFixture
                     new AgentSmith.Application.Services.Handlers.SandboxTargets(),
                     NullLogger<AgentSmith.Application.Services.RepoWorkPusher>.Instance),
                 NullLogger<AgentSmith.Application.Services.RunWorkCheckpointer>.Instance),
-            new AgentSmith.Application.Services.Repositories.RunRepositoriesFactory(
-                new SandboxTargets(), new AgentSmith.Tests.TestHelpers.StubSandboxFileReaderFactory(),
-                new SandboxWorkingTreeReader(NullLogger<SandboxWorkingTreeReader>.Instance)),
+            new AgentSmith.Application.Services.Memory.MemoryIndexReader(Repositories(),
+                NullLogger<AgentSmith.Application.Services.Memory.MemoryIndexReader>.Instance),
             dialogueTransport: null,
             Composition(maxSubAgents, subAgents, limits, figma, render),
             AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
             AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Tools(),
             NullLogger<AgenticMasterHandler>.Instance);
+
+    /// <summary>2026-10-13-8762m: the record tools of a master start, over the stub repositories.</summary>
+    internal static AgentSmith.Application.Services.Tools.MasterRecordToolHosts RecordHosts(
+        IDecisionLogger decisions, AgentSmith.Contracts.Events.IEventPublisher? events = null) =>
+        new(decisions, Repositories(), events ?? new AgentSmith.Application.Services.Events.NoOpEventPublisher(),
+            NullLogger<AgentSmith.Application.Services.Tools.MasterRecordToolHosts>.Instance);
+
+    private static AgentSmith.Application.Services.Repositories.RunRepositoriesFactory Repositories() =>
+        new(new SandboxTargets(), new AgentSmith.Tests.TestHelpers.StubSandboxFileReaderFactory(),
+            new SandboxWorkingTreeReader(NullLogger<SandboxWorkingTreeReader>.Instance));
 
     /// <summary>2026-10-13-9a59f: the open loop the handler drives, over the same loop runner.</summary>
     internal static MasterReengagementLoop Reengagement(
@@ -147,6 +161,8 @@ internal static class MasterHandlerFixture
             render ?? new AgentSmith.Tests.Browser.BrowserRenderFixture(spawnsContainers: false).Factory(),
             new AgentSmith.Application.Services.Tools.TicketActToolsFactory(Verification()),
             AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Tools(),
+            AgentSmith.Tests.TestHelpers.TestTreeSync.GateStage(),
+            AgentSmith.Tests.TestHelpers.TestSanity.Wrapper(),
             NullLogger<MasterToolComposition>.Instance);
 
     /// <summary>The series verification a design master's verify_series runs — no scope opened, no review taken,
@@ -216,7 +232,7 @@ internal static class MasterHandlerFixture
 
     // p0315e: the real resolver chain over the real schema — the handler gate
     // resolves a typed outcome instead of validating only the draft.
-    private static AgentSmith.Application.Services.SpecDialog.OutcomeProposalResolver BuildOutcomeResolver()
+    internal static AgentSmith.Application.Services.SpecDialog.OutcomeProposalResolver BuildOutcomeResolver()
     {
         var validator = new AgentSmith.Application.Services.SpecDialog.SpecDraftValidator(
             new AgentSmith.Application.Services.Validation.SpecSchemaProvider());
@@ -227,7 +243,7 @@ internal static class MasterHandlerFixture
             new AgentSmith.Application.Services.SpecDialog.EpicOutcomeParser(
                 validator, reader,
                 new AgentSmith.Application.Services.SpecDialog.RequiresEdgeChecker(),
-                AgentSmith.Tests.SpecDialog.DialogTestRepos.Real()),
+                AgentSmith.Tests.SpecDialog.DialogTestRepos.Real(), AgentSmith.Tests.TestSupport.SeriesContracts.Reader(), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader()),
             AgentSmith.Tests.SpecDialog.DialogTestRepos.Real());
     }
 

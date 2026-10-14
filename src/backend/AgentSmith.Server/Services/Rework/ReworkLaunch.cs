@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Commands;
 using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Services.ChatLaunch;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,11 +13,19 @@ namespace AgentSmith.Server.Services.Rework;
 /// </summary>
 public sealed class ReworkLaunch(IServiceScopeFactory scopes) : IReworkLaunch
 {
-    public async Task<ReworkOutcome> LaunchAsync(string project, string ticketId, string pipeline, CancellationToken cancellationToken)
+    public Task<ReworkOutcome> LaunchAsync(string project, string ticketId, string pipeline, CancellationToken cancellationToken) =>
+        StartAsync(project, ticketId, pipeline, cancellationToken, seriesAutoStart: false);
+
+    /// <summary>2026-10-13-8762v: the series' next attempt — the same funnel, marked so its cause reads series.</summary>
+    public Task<ReworkOutcome> StartSeriesAttemptAsync(string project, string ticketId, CancellationToken cancellationToken) =>
+        StartAsync(project, ticketId, PipelinePresets.CodeName, cancellationToken, seriesAutoStart: true);
+
+    private async Task<ReworkOutcome> StartAsync(
+        string project, string ticketId, string pipeline, CancellationToken cancellationToken, bool seriesAutoStart)
     {
         using var scope = scopes.CreateScope();
         var result = await scope.ServiceProvider.GetRequiredService<ChatTicketRunLauncher>()
-            .LaunchAsync(project, ticketId, pipeline, cancellationToken);
+            .LaunchAsync(project, ticketId, pipeline, cancellationToken, seriesAutoStart);
         if (result.RunId is not null || result.TakenByAnother) return ReworkOutcome.Started(result.RunId);
         return ReworkOutcome.Refused(result.Refusal ?? "the run could not be started");
     }

@@ -2,6 +2,7 @@ using System.Text;
 using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Entities;
 
@@ -17,7 +18,7 @@ internal static class SpecPromptComposer
 {
     public static string Compose(
         Ticket ticket, IReadOnlyList<TicketSegment> segments, SpecSet? previous, string cause,
-        PipelineContext pipeline)
+        PipelineContext pipeline, SeriesConfig series)
     {
         var sb = new StringBuilder();
         // p0316: ticket fields are untrusted — delimited so an embedded injection reads
@@ -39,7 +40,7 @@ internal static class SpecPromptComposer
         AppendQuestionPin(sb, pipeline);
         // 2026-09-13-7d9f: the epic this ticket is one slice of — the WHAT that binds them all.
         sb.Append(EpicGroundPromptSection.Build(pipeline));
-        sb.Append(PreviousCutPromptSection.Render(previous, cause));
+        sb.Append(PreviousCutPromptSection.Render(previous, cause, series));
         return sb.ToString();
     }
 

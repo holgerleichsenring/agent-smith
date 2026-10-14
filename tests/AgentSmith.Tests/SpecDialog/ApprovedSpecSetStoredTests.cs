@@ -87,30 +87,29 @@ public sealed class ApprovedSpecSetStoredTests
     /// store, so a refusal at store time would leave a filed ticket with no set.
     /// </summary>
     [Fact]
-    public void Proposal_OverMaxSpecs_IsRefusedBeforeAnythingIsFiled()
+    public void EpicOutcomeParser_TwentyFourChildren_Accepted_TwentyFiveRefusedNamingTheCap()
     {
-        var parser = new EpicOutcomeParser(
-            new SpecDraftValidator(new SpecSchemaProvider()),
-            new SpecDraftReader(),
-            new RequiresEdgeChecker(), DialogTestRepos.Real());
+        var parser = Parser(AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader());
 
-        var resolution = parser.Parse(OutcomeYamlReader.ReadMap(EpicYaml(SpecSet.MaxSpecs + 1)), []);
-
-        resolution.Should().BeOfType<OutcomeInvalid>()
-            .Which.Error.Should().Contain(SpecSet.MaxSpecs.ToString());
+        parser.Parse(OutcomeYamlReader.ReadMap(EpicYaml(24)), []).Should().BeOfType<OutcomeResolved>();
+        parser.Parse(OutcomeYamlReader.ReadMap(EpicYaml(25)), []).Should().BeOfType<OutcomeInvalid>()
+            .Which.Error.Should().Contain("25 children").And.Contain("series.max_specs = 24");
     }
 
+    /// <summary>2026-10-13-8762u: an invalid series block is refused where it is read, naming the field.</summary>
     [Fact]
-    public void Proposal_AtTheCap_IsStillAccepted()
+    public void EpicOutcomeParser_InvalidSeriesConfig_RefusedNamingTheField()
     {
-        var parser = new EpicOutcomeParser(
-            new SpecDraftValidator(new SpecSchemaProvider()),
-            new SpecDraftReader(),
-            new RequiresEdgeChecker(), DialogTestRepos.Real());
+        var parser = Parser(AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(
+            new AgentSmith.Contracts.Models.Configuration.SeriesConfig { MaxSpecs = 27 }));
 
-        parser.Parse(OutcomeYamlReader.ReadMap(EpicYaml(SpecSet.MaxSpecs)), [])
-            .Should().BeOfType<OutcomeResolved>();
+        parser.Parse(OutcomeYamlReader.ReadMap(EpicYaml(2)), []).Should().BeOfType<OutcomeInvalid>()
+            .Which.Error.Should().Contain("series.max_specs is 27");
     }
+
+    private static EpicOutcomeParser Parser(AgentSmith.Application.Services.Specs.ISeriesSettingsReader series) => new(
+        new SpecDraftValidator(new SpecSchemaProvider()), new SpecDraftReader(), new RequiresEdgeChecker(),
+        DialogTestRepos.Real(), AgentSmith.Tests.TestSupport.SeriesContracts.Reader(), series);
 
     private static string EpicYaml(int children)
     {

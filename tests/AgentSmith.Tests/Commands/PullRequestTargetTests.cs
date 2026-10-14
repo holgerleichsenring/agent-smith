@@ -241,11 +241,11 @@ public sealed class PullRequestTargetTests
             new FailedRunPersistence(new WipCommitMessage()),
             new SpecOnlyPullRequests(sourceFactory, new PullRequestOutcomePublisher(EventTestStubs.NoOp), NullLogger<SpecOnlyPullRequests>.Instance),
             new ShortfallDelivery(
-                new UnverifiedWorkReverter(GitOps(), NullLogger<UnverifiedWorkReverter>.Instance),
+                new UnverifiedWorkReverter(GitOps(), new SandboxTargets(), NullLogger<UnverifiedWorkReverter>.Instance),
                 NullLogger<ShortfallDelivery>.Instance),
             new CompletedRunTicketSummary(),
             AgentSmith.Tests.Structure.StructureGateFixture.Publisher(),
-            NullLogger<CommitAndPRHandler>.Instance);
+            AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Banners(), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.ChunkStop(), NullLogger<CommitAndPRHandler>.Instance);
 
     private static SandboxGitOperations GitOps() =>
         new(new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance,

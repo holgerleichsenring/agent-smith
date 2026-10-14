@@ -19,11 +19,13 @@ namespace AgentSmith.Application.Services.Tools;
 /// </para>
 /// <para>
 /// 2026-10-02-075dc: a design turn also gets <see cref="ReferenceDesignTools"/> — the uploads'
-/// own containers, beside the browser that renders them.
+/// own containers, beside the browser that renders them. 2026-10-13-8762r: and write_mock/read_mock
+/// where a store keeps mocks.
 /// </para>
 /// </summary>
 public sealed class RenderReferenceToolFactory(
-    RenderReferenceServices services, CompareReferenceServices compare, ReferenceDesignTools? design = null)
+    RenderReferenceServices services, CompareReferenceServices compare, ReferenceDesignTools? design = null,
+    IConversationMocks? mocks = null, IConversationMockReader? mockReader = null)
 {
     /// <summary>The host for a design turn (<paramref name="isDesignTurn"/>) or a run's coding master, or null.</summary>
     public RenderReferenceToolHost? Create(PipelineContext pipeline, bool isDesignTurn) =>
@@ -35,7 +37,9 @@ public sealed class RenderReferenceToolFactory(
         [.. Scope(pipeline, isDesignTurn) is { } scope
             ? [.. new RenderReferenceToolHost(services, scope).GetTools(null, null),
                .. new CompareReferenceToolHost(compare, scope).GetTools(null, null),
-               .. isDesignTurn && design is not null ? design.For(pipeline) : []]
+               .. isDesignTurn && design is not null ? design.For(pipeline) : [],
+               .. isDesignTurn && mocks is not null && mockReader is not null
+                   ? new MockWriteToolHost(services, scope, mocks, mockReader).GetTools(null, null) : []]
             : Array.Empty<AITool>(),
          .. !isDesignTurn && design is not null ? design.ForRun(pipeline) : []];
 

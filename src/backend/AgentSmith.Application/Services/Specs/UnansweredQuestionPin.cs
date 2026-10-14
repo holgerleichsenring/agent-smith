@@ -31,9 +31,12 @@ public sealed class UnansweredQuestionPin(ILogger<UnansweredQuestionPin> logger)
         if (question is null || question.TakenReading is not { } taken) return null;
         var comments = pipeline.TryGet<IReadOnlyList<TicketComment>>(
             ContextKeys.TicketComments, out var c) ? c : null;
-        if (OwnTicketComment.IsAnswered(comments, SpecHandbackComment.QuestionMarker))
+        // 2026-10-13-8762h: a review objection pins only when it was posted and nobody answered it, here or on a PR.
+        if (question.QuestionKind == SpecQuestionKind.ReviewObjection
+                ? !Review.ReviewObjectionComment.AskedAndUnanswered(pipeline)
+                : OwnTicketComment.IsAnswered(comments, SpecHandbackComment.QuestionMarker))
         {
-            logger.LogInformation("The question on {Key} was answered — deriving on the answer", previous!.Key);
+            logger.LogInformation("The question on {Key} was answered or never posted — no pin", previous!.Key);
             return null;
         }
         var unanswered = new UnansweredQuestion(

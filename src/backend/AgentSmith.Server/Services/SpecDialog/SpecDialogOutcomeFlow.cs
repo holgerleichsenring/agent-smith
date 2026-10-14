@@ -19,6 +19,7 @@ public sealed class SpecDialogOutcomeFlow(
     SpecDialogMessenger messenger,
     DashboardOutcomeChannel outcomeChannel,
     SpecDialogLatestOutcomeStore latestOutcome,
+    RatifiedMockStamp ratifiedMocks,
     ILogger<SpecDialogOutcomeFlow> logger)
 {
     public async Task<OutcomeFlowResult> HandleAsync(
@@ -56,7 +57,9 @@ public sealed class SpecDialogOutcomeFlow(
         switch (confirmation)
         {
             case OutcomeConfirmed:
-                await outcomeSink.AcceptAsync(state, proposal, mayStartRuns, cancellationToken);
+                // Only a person's ratification names a mock: stamped from the transcript as it stands now.
+                var stamped = await ratifiedMocks.StampAsync(state, proposal, cancellationToken);
+                await outcomeSink.AcceptAsync(state, stamped, mayStartRuns, cancellationToken);
                 return new OutcomeFlowCompleted();
             case OutcomeEditRequested edit:
                 await SendAsync(state, composer.ComposeEditAck(edit.Note), cancellationToken);

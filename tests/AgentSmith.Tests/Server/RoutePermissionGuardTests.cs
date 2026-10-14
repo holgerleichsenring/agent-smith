@@ -122,6 +122,33 @@ public sealed class RoutePermissionGuardTests
         Declaration("GET", "/api/tickets/{project}/{ticketId}").Should().Equal(Permissions.RunsRead);
     }
 
+    // 2026-10-13-8762l: the review rounds are run records of the ticket's attempts and its approval.
+    [Fact]
+    public void RoutePermission_TicketReviews_NeedsRunsRead() =>
+        Declaration("GET", "/api/tickets/{project}/{ticketId}/reviews").Should().Equal(Permissions.RunsRead);
+
+    // 2026-10-13-8762p: reading the defaults is ticket state; deciding them starts work, like Retry.
+    [Fact]
+    public void RoutePermission_DefaultsRoutes_ReadAndControl()
+    {
+        Declaration("GET", "/api/tickets/{project}/{ticketId}/defaults").Should().Equal(Permissions.RunsRead);
+        Declaration("POST", "/api/tickets/{project}/{ticketId}/defaults/verdicts").Should().Equal(Permissions.RunsControl);
+    }
+
+    // 2026-10-13-8762r: a mock is the conversation's own material, like its uploads.
+    [Fact]
+    public void RoutePermission_MockShot_NeedsDialogWrite() =>
+        Declaration("GET", "/api/spec-dialog/conversations/{sessionId}/mocks/{specId}/{version:int}/shot").Should().Equal(Permissions.DialogWrite);
+
+    [Fact]
+    public void RoutePermission_MockHtml_NeedsDialogWrite() =>
+        Declaration("GET", "/api/spec-dialog/conversations/{sessionId}/mocks/{specId}/{version:int}/html").Should().Equal(Permissions.DialogWrite);
+
+    // 2026-10-13-8762s: ratifying a mock is the approve answer's act, so it needs the approve answer's permission.
+    [Fact]
+    public void RoutePermission_MockRatify_NeedsDialogWrite() =>
+        Declaration("POST", "/api/spec-dialog/conversations/{sessionId}/mocks/{specId}/ratify").Should().Equal(Permissions.DialogWrite);
+
     // The config/secrets split holds for direct entity CRUD and leaks here: the change
     // feed carries the secret's id and changed field names, revert takes no type filter
     // at all, export serializes the secret entities, and import writes them.

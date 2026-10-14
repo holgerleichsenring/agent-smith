@@ -851,7 +851,9 @@ export type SettingKey =
   | "registries"
   | "primary_provider"
   | "pipeline_data_flow"
-  | "trace";
+  | "trace"
+  | "spec_review"
+  | "series";
 
 export interface OrchestratorSetting {
   maxRunWallTimeSeconds: number;
@@ -974,6 +976,24 @@ export interface TraceSetting {
   enabled: boolean;
 }
 
+/** The run-time spec review (agentsmith.yml spec_review:). The server refuses a value the run would refuse. */
+export interface SpecReviewSetting {
+  rounds: number;
+  reviewers: number;
+  maxConcurrent: number;
+  budgetSharePercent: number;
+}
+
+/** A ticket's spec series and its automatic continuation (agentsmith.yml series:). */
+export interface SeriesSetting {
+  maxSpecs: number;
+  specsPerAttempt: number;
+  secondsPerSpec: number;
+  budgetUsd: number;
+  wallClockHours: number;
+  continueAfterWallTime: boolean;
+}
+
 /** Maps each settings key to its wire shape. */
 export interface SettingShapes {
   orchestrator: OrchestratorSetting;
@@ -988,6 +1008,8 @@ export interface SettingShapes {
   primary_provider: PrimaryProviderSetting;
   pipeline_data_flow: PipelineDataFlowSetting;
   trace: TraceSetting;
+  spec_review: SpecReviewSetting;
+  series: SeriesSetting;
 }
 
 export type SettingValue = SettingShapes[SettingKey];

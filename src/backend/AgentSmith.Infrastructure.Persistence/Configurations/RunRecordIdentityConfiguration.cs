@@ -31,6 +31,8 @@ public sealed class RunRecordIdentityConfiguration(string? providerName)
         Unique<RunConversationEntry>(modelBuilder); // 2026-10-13-9a59g
         Unique<RunSandbox>(modelBuilder); // 2026-10-13-9a59i
         Unique<RunSegment>(modelBuilder); // 2026-10-13-9a59j
+        Unique<RunSpecReviewRound>(modelBuilder); // 2026-10-13-8762e
+        Unique<RunDefaultDecision>(modelBuilder); // 2026-10-13-8762o
     }
 
     private void Unique<T>(ModelBuilder modelBuilder) where T : class

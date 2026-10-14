@@ -53,13 +53,13 @@ public sealed class ReworkAppendRuleTests
 
     [Fact]
     public void NeedsModel_ReworkOnApprovedSet_True() =>
-        SpecAmendmentRule.NeedsModel(SpecRevisionCause.Rework, Executed(2, Prior)).Should().BeTrue();
+        SpecAmendmentRule.NeedsModel(SpecRevisionCause.Rework, Executed(2, Prior), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults).Should().BeTrue();
 
     [Fact]
     public void NeedsModel_FullSetAtCap_False()
     {
-        SpecAmendmentRule.NeedsModel(SpecRevisionCause.Comment, Executed(SpecSet.MaxSpecs)).Should().BeFalse();
-        SpecAmendmentRule.NeedsModel(SpecRevisionCause.Rework, Executed(SpecSet.MaxSpecs)).Should().BeFalse();
+        SpecAmendmentRule.NeedsModel(SpecRevisionCause.Comment, Executed(AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults.MaxSpecs), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults).Should().BeFalse();
+        SpecAmendmentRule.NeedsModel(SpecRevisionCause.Rework, Executed(AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults.MaxSpecs), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults).Should().BeFalse();
     }
 
     [Fact]
@@ -71,7 +71,7 @@ public sealed class ReworkAppendRuleTests
 
     private static SpecSourceResolver.Decision Decide(SpecSet set) =>
         new SpecSourceResolver(new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance), AgentSmith.Tests.TestSupport.ApprovedSetDoubles.Continuation(),
-                new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance), NullLogger<SpecSourceResolver>.Instance)
+                new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), NullLogger<SpecSourceResolver>.Instance)
             .Decide(SpecSetOnBranch.Answered(new SpecSetReadResult(set, "sha")), Ticket(),
                 new SpecSetPointer("k", "primary", "sha", 1), WithAct(ReworkChannel.PullRequest), "k",
                 AgentSmith.Contracts.Tickets.TicketLabelVocabulary.ForOptional(null));
@@ -79,24 +79,24 @@ public sealed class ReworkAppendRuleTests
     [Fact]
     public void PreviousCut_FullyExecutedTicketEdit_RendersAppendWithRoom()
     {
-        var rendered = PreviousCutPromptSection.Render(Executed(3), SpecRevisionCause.TicketEdit);
+        var rendered = PreviousCutPromptSection.Render(Executed(3), SpecRevisionCause.TicketEdit, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults);
 
-        rendered.Should().Contain("ADD new specs after them").And.Contain($"at most {SpecSet.MaxSpecs - 3} new spec(s)");
+        rendered.Should().Contain("ADD new specs after them").And.Contain($"at most {AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults.AppendRoom(3)} new spec(s)");
     }
 
     [Fact]
     public void PreviousCut_Rework_NamesThePullRequestReview() =>
-        PreviousCutPromptSection.Render(Executed(2), SpecRevisionCause.Rework).Should().Contain("pull request review section");
+        PreviousCutPromptSection.Render(Executed(2), SpecRevisionCause.Rework, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults).Should().Contain("pull request review section");
 
     [Fact]
     public void Notice_CommentAtCap_SaysFull()
     {
-        var set = Executed(SpecSet.MaxSpecs) with
+        var set = Executed(AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults.MaxSpecs) with
         {
             Revisions = [new SpecRevision(1, SpecRevisionCause.Initial, Now), new SpecRevision(2, SpecRevisionCause.Comment, Now)],
         };
 
-        SpecRecutNotice.Render(set).Should().Contain("nothing was added").And.NotContain("cut again");
+        SpecRecutNotice.Render(set, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults).Should().Contain("nothing was added").And.NotContain("cut again");
     }
 
     [Fact]

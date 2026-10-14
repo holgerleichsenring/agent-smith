@@ -368,7 +368,7 @@ public sealed class ApprovedSetNotRecutTests
                 Key, [ApprovedSets.Spec("p19106a")], SpecAccounting.Empty,
                 [new SpecRevision(1, SpecRevisionCause.Initial, ApprovedSets.Noon)],
                 SpecSource.BranchArtifact),
-            null));
+            null, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults));
 
     private static TicketComment Operator(string body) =>
         new("operator", DateTimeOffset.UtcNow.AddHours(-1), body);

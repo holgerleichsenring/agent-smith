@@ -93,4 +93,26 @@ public sealed class SandboxTargetsTests
         new SandboxTargets().SandboxesForRepo(ctx, new RepoConnection { Name = "svc-client" })
             .Should().ContainSingle().Which.Value.Should().BeSameAs(ctxScoped);
     }
+    [Fact]
+    public void SandboxTargets_IsSecondary_FirstMatchIsNot_LaterMatchIs_SingleSandboxRepositoryIsNot()
+    {
+        var ctx = TwoRepoContext(
+            new Dictionary<string, ISandbox>
+            {
+                ["svc-server-csharp"] = new StubSandbox(),
+                ["svc-server-typescript"] = new StubSandbox(),
+                ["svc-client"] = new StubSandbox(),
+            },
+            new Dictionary<string, string>
+            {
+                ["svc-server-csharp"] = "svc-server",
+                ["svc-server-typescript"] = "svc-server",
+                ["svc-client"] = "svc-client",
+            });
+        var targets = new SandboxTargets();
+
+        targets.IsSecondary(ctx, "svc-server-csharp").Should().BeFalse("the first match is the primary");
+        targets.IsSecondary(ctx, "svc-server-typescript").Should().BeTrue();
+        targets.IsSecondary(ctx, "svc-client").Should().BeFalse("a repository with one sandbox has no secondary");
+    }
 }

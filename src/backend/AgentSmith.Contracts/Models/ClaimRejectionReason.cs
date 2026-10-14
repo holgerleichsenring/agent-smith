@@ -15,5 +15,9 @@ public enum ClaimRejectionReason
     /// the configured value is one this tracker will refuse again. Lifted by changing the
     /// tracker's or the project's configuration, which is the fix.
     /// </summary>
-    TicketLastLeftUnmoved
+    TicketLastLeftUnmoved,
+
+    /// <summary>2026-10-13-8762g: the ticket's last attempt stopped at a boundary with specs left; only a
+    /// person's start picks it up again.</summary>
+    TicketStoppedAtBoundary
 }

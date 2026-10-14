@@ -21,7 +21,7 @@ using Moq;
 
 namespace AgentSmith.Tests.Commands;
 
-public class CommitAndPRHandlerTests
+public partial class CommitAndPRHandlerTests
 {
     private readonly Mock<ISourceProviderFactory> _sourceFactoryMock = new();
     private readonly Mock<ITicketProviderFactory> _ticketFactoryMock = new();
@@ -78,11 +78,13 @@ public class CommitAndPRHandlerTests
             new ShortfallDelivery(
                 new UnverifiedWorkReverter(
                     new SandboxGitOperations(new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
+                    new SandboxTargets(),
                     NullLogger<UnverifiedWorkReverter>.Instance),
                 NullLogger<ShortfallDelivery>.Instance),
             new CompletedRunTicketSummary(),
             AgentSmith.Tests.Structure.StructureGateFixture.Publisher(),
-            NullLogger<CommitAndPRHandler>.Instance);
+            AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Banners(_ticketFactoryMock.Object),
+            AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.ChunkStop(_ticketFactoryMock.Object), NullLogger<CommitAndPRHandler>.Instance);
     }
 
     [Fact]

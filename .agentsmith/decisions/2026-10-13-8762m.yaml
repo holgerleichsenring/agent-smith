@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-8762m
+
+decisions:
+  - category: Architecture
+    chose: "The spec record is the build note's only home; this run's notes wait in ContextKeys.SpecBuildNotes (also in the resume checkpoint, like every key) and a later attempt reads the note back from the executed spec's yaml"
+    over: "A table or event of its own for the note"
+    reason: "Series contract 2.2: nothing is stored twice. The record already reaches specs/done/ and the record artifact (event 80); the ticket page reads the note out of that artifact."
+  - category: Architecture
+    chose: "Four string lists (renamed, moved, persisted, deviations); renamed and moved entries must read '<old> -> <new>', an entry without the arrow refused by name"
+    over: "A free-text note"
+    reason: "A list can be checked against the series contract (2026-10-13-8762n splits the arrow); a paragraph would be read and trusted."
+  - category: Implementation
+    chose: "A master that made no hand_forward call is recorded as 'missing' and the next spec is told 'no note'; the run goes on"
+    over: "Blocking the record step on a missing note"
+    reason: "Contract section 5 default 45 (decision 12), pending operator ratification."
+  - category: Implementation
+    chose: "A spec whose sequence row carries SelectSpecHandler.AlreadySatisfiedNote gets no hand_forward key in its record"
+    over: "Recording 'missing' for it"
+    reason: "It ran no master, so 'missing' would be false; its standing note already says why."
+  - category: Architecture
+    chose: "MemoryIndexReader extracted from LoadMemoryIndexHandler; AgenticMasterHandler re-reads the index only when the master executes a spec, right after isSpecExecution is known"
+    over: "Splicing a second LoadMemoryIndex into the spec block"
+    reason: "A second step would change Effective(), the run-rail beats and the gate-order and control-flow goldens for one file read; design turns and scans never re-read."
+  - category: Architecture
+    chose: "The memory index is rendered into the spec-execution user prompt in code (MasterPromptSections.BuildMemoryIndexSection); the body binding stays"
+    over: "Relying on a {MemoryIndexSection} skill placeholder"
+    reason: "No master in the catalog carries the placeholder, so the body binding reaches no model (contract 2.8: tools and prompts work without the skill text)."
+  - category: Implementation
+    chose: "SpecBuildNoteSection bounded at 8000 characters, oldest notes dropped first, one line naming each dropped spec and its done/ file; the bound may drop every note"
+    over: "An unbounded section, or always keeping the newest note"
+    reason: "Default, pending operator ratification. A single note can reach 80 entries of 300 characters, so 'at most 8000' holds only if the newest note can be dropped too; it stays one read away."
+  - category: Architecture
+    chose: "DEVIATION: MasterRecordTools carries a fifth member, IDecisionLogger Decisions, after HandForward"
+    over: "The record exactly as {Log, Recall, Remember, HandForward?}"
+    reason: "The open loop records its stop line through the decision logger (ReengageSession.Decisions, MasterReengagementLoop.cs:96 -> MasterSurrenderChallenge.RecordAsync), and the spec takes IDecisionLogger out of AgenticMasterHandler's constructor. The logger rides with the record it built the hosts from; 2026-10-13-8762o appends DefaultDecision after it."
+  - category: Implementation
+    chose: "DEVIATION: the coding-agent-master sentence is handed to 2026-10-13-8762x through the build notes, not written on the skills branch here"
+    over: "Editing coding-agent-master's '## Your verdict' on spec/2026-10-13-8762 in this spec"
+    reason: |
+      The series build brief reserves every skills edit for 2026-10-13-8762x (as 8762i and 8762j did). The tool description and the spec contract line in the user prompt carry the whole contract until then (contract 2.8). The sentence handed on: "Before your verdict, call `hand_forward` once with what this spec renamed, moved, persisted and deviated from — each renamed or moved entry as `<old> -> <new>` — so the next spec's master starts from it."
+  - category: Architecture
+    chose: "Registration joins the existing chain at PipelineHandlersExtensions.cs:106-107; AgenticMasterHandler's baseline row lowered 747 -> 742"
+    over: "New registration lines"
+    reason: "PipelineHandlersExtensions stays at 218 (contract 2.4). Constructor arithmetic net 0, the record-host block became one line, the refresh added one."
+  - category: Implementation
+    chose: "Backend context"
+    over: "A context of its own"
+    reason: "Contract section 5 default 72 (decision 23), pending operator ratification."

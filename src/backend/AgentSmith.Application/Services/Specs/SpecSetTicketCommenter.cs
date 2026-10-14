@@ -25,6 +25,7 @@ namespace AgentSmith.Application.Services.Specs;
 public sealed class SpecSetTicketCommenter(
     ITicketProviderFactory ticketFactory,
     AgentSmith.Contracts.Reviews.IFullSetPrNotice fullSetPrNotice,
+    ISeriesSettingsReader series,
     ILogger<SpecSetTicketCommenter> logger)
 {
     public async Task PostAsync(
@@ -40,7 +41,7 @@ public sealed class SpecSetTicketCommenter(
         {
             // 2026-10-12-f5f7e: every series repository's spec pull request, and a dropped one's.
             await ticketFactory.Create(tracker).UpdateStatusAsync(
-                ticket.Id, SpecSetComment.Render(set, SpecPullRequests.Of(pipeline)), ct);
+                ticket.Id, SpecSetComment.Render(set, SpecPullRequests.Of(pipeline), series.Current().Series), ct);
             logger.LogInformation(
                 "Posted the derived cut of {Key} ({Specs} spec(s)) to ticket {Ticket}",
                 set.Key, set.Specs.Count, ticket.Id.Value);

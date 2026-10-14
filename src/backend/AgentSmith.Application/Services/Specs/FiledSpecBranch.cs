@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -33,19 +34,23 @@ namespace AgentSmith.Application.Services.Specs;
 /// repository, else the approval's. What already ran is read BY ID — a series over several
 /// repositories has no leading count — so an amendment never writes an executed spec back.
 /// </para>
+/// <para>The ratified mock of each spec is read from the conversation (<see cref="RatifiedMockFiles"/>) and
+/// written beside it; the reader is optional because the CLI composes this class with no conversation store.</para>
 /// </summary>
 public sealed class FiledSpecBranch(
     FiledSeriesWrite writes,
     ISpecSetPointerStore stored,
     SeriesRepos placer,
     SpecSetPointerRecorder pointers,
-    ILogger<FiledSpecBranch> logger)
+    ILogger<FiledSpecBranch> logger,
+    IConversationMockReader? mocks = null)
 {
     /// <param name="ticket">The ticket as the TRACKER stored it, which is what the set is
     /// fingerprinted from — never the body we rendered.</param>
+    /// <param name="sources">Filed id to the proposal's spec id, through which a ratified mock is read.</param>
     public async Task<BranchWriteResult> WriteAsync(
         ResolvedProject project, SpecApprovalRecord record, TicketId ticketId, Ticket? ticket,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken, IReadOnlyDictionary<string, string>? sources = null)
     {
         ArgumentNullException.ThrowIfNull(project);
         ArgumentNullException.ThrowIfNull(record);
@@ -65,7 +70,8 @@ public sealed class FiledSpecBranch(
         if (placement.Refusal is { } refused) return BranchWriteResult.Failed(refused);
         try
         {
-            return await WriteAsync(project, placement, ticketId, cancellationToken);
+            var ratified = await new RatifiedMockFiles(mocks).ReadAsync(record, sources, cancellationToken);
+            return await WriteAsync(project, placement, ticketId, ratified, cancellationToken);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
@@ -75,10 +81,10 @@ public sealed class FiledSpecBranch(
     }
 
     private async Task<BranchWriteResult> WriteAsync(
-        ResolvedProject project, SeriesPlacement placement, TicketId ticketId, CancellationToken ct)
+        ResolvedProject project, SeriesPlacement placement, TicketId ticketId, RatifiedMockSet ratified, CancellationToken ct)
     {
         var set = placement.Set;
-        var written = await writes.WriteAsync(placement, TicketBranchNamer.Compose(ticketId), ct);
+        var written = await writes.WriteAsync(placement, TicketBranchNamer.Compose(ticketId), ct, ratified.BySpec);
         if (!written.Written)
         {
             logger.LogWarning("The approved set {Key} was not written to the ticket branch of {Repos}: {Error}",
@@ -89,7 +95,7 @@ public sealed class FiledSpecBranch(
         logger.LogInformation(
             "The approved set {Key} ({Specs} spec(s)) was written to the ticket branch of {Repos} as {Shas}",
             set.Key, set.Specs.Count, string.Join(", ", placement.Names), string.Join(", ", written.Shas.Values));
-        return BranchWriteResult.Ok(written.CommitSha!);
+        return BranchWriteResult.Ok(written.CommitSha!) with { Notes = ratified.Notes.Count > 0 ? ratified.Notes : null };
     }
 
     // 2026-10-06-03c7f: the manifest's goal and approval are the stored row's, carried on its set

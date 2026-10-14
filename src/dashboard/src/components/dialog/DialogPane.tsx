@@ -125,7 +125,10 @@ export function DialogPane({
         className="d-body d-panel"
       >
         {tab === "filed" && <DialogFiledPanel filed={filed} work={work} />}
-        {tab === "proposal" && shownProposal && <DialogProposalPanel proposal={shownProposal} />}
+        {tab === "proposal" && shownProposal && (
+          <DialogProposalPanel proposal={shownProposal} mocks={session?.mocks} ratifiedMocks={session?.ratifiedMocks}
+            sessionId={session?.sessionId} onRatified={onRefresh} filed={filed !== null} />
+        )}
         {tab === "scope" && (
           <DialogScopePanel session={session} projects={projects} starting={starting} />
         )}

@@ -36,11 +36,12 @@ internal sealed class RepositoryDecisionFile(ILogger logger)
 
     private readonly SemaphoreSlim _lock = new(1, 1);
 
+    /// <param name="unlessPresent">2026-10-13-8762p: a marker the file already holding writes nothing (false).</param>
     internal async Task<bool> AppendAsync(
         ISandboxFileReader files, DecisionFileLabel label,
-        DecisionCategory category, string decision, CancellationToken ct)
+        DecisionCategory category, string decision, CancellationToken ct, string? unlessPresent = null)
     {
-        var path = $"{DecisionsDir}/{label.FileName}";
+        var path = PathOf(label);
         if (!await _lock.WaitAsync(TimeSpan.FromSeconds(LockWaitSeconds), ct))
         {
             logger.LogWarning(
@@ -51,7 +52,8 @@ internal sealed class RepositoryDecisionFile(ILogger logger)
         try
         {
             var existing = await ReadExistingAsync(files, label, path, ct);
-            if (existing is null) return false;
+            if (existing is null || unlessPresent is not null && existing.Contains(unlessPresent, StringComparison.Ordinal))
+                return false;
 
             await files.WriteAsync(path, existing + DecisionYamlFormatter.FormatItem(category, decision), ct);
             logger.LogDebug("Logged decision [{File}/{Category}]: {Decision}",
@@ -109,6 +111,8 @@ internal sealed class RepositoryDecisionFile(ILogger logger)
             + "replacing it with a fresh one", path);
         return null;
     }
+
+    internal static string PathOf(DecisionFileLabel label) => $"{DecisionsDir}/{label.FileName}";
 
     internal static bool Cancelled(Exception ex, CancellationToken ct) =>
         ex is OperationCanceledException && ct.IsCancellationRequested;

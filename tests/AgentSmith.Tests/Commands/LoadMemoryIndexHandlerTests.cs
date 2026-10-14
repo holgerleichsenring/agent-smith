@@ -45,6 +45,21 @@ public sealed class LoadMemoryIndexHandlerTests
     }
 
     [Fact]
+    public async Task LoadMemoryIndexHandler_DelegatesToTheReader_KeepsItsMessages()
+    {
+        // 2026-10-13-8762m: the read moved into MemoryIndexReader; the step's lines stay as they were.
+        var present = new Mock<ISandboxFileReader>();
+        present.Setup(r => r.TryReadAsync(IndexPath, It.IsAny<CancellationToken>())).ReturnsAsync("- [a](a.md) — one line");
+        var absent = new Mock<ISandboxFileReader>();
+
+        var loaded = await MakeHandler(present.Object).ExecuteAsync(MakeContext(), CancellationToken.None);
+        var empty = await MakeHandler(absent.Object).ExecuteAsync(MakeContext(), CancellationToken.None);
+
+        loaded.Message.Should().Be("Loaded memory index from 1 of 1 repositor(ies)");
+        empty.Message.Should().Be("No memory store present — empty index");
+    }
+
+    [Fact]
     public async Task ExecuteAsync_NoSandboxes_SkipsWithEmptyIndex()
     {
         var context = new LoadMemoryIndexContext(
@@ -61,12 +76,12 @@ public sealed class LoadMemoryIndexHandlerTests
     {
         var factory = new Mock<ISandboxFileReaderFactory>();
         factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(reader);
-        return new LoadMemoryIndexHandler(
+        return new LoadMemoryIndexHandler(new AgentSmith.Application.Services.Memory.MemoryIndexReader(
             new AgentSmith.Application.Services.Repositories.RunRepositoriesFactory(
                 new SandboxTargets(), factory.Object,
                 new AgentSmith.Application.Services.Sandbox.SandboxWorkingTreeReader(
                     NullLogger<AgentSmith.Application.Services.Sandbox.SandboxWorkingTreeReader>.Instance)),
-            NullLogger<LoadMemoryIndexHandler>.Instance);
+            NullLogger<AgentSmith.Application.Services.Memory.MemoryIndexReader>.Instance));
     }
 
     private static LoadMemoryIndexContext MakeContext()

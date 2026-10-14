@@ -21,7 +21,7 @@ public static class SpecExecutionExtensions
         // 2026-10-06-03c7e: the record moves the spec to done/ in one series commit.
         services.AddTransient<SpecDoneFiles>();
         services.AddTransient<SeriesRecordCommit>();
-        services.AddTransient<SpecDoneRecorder>();
+        services.AddTransient<SpecDoneRecorder>().AddTransient<DefaultVerdictRecord>();
         // p0466's server copy, its own type since 2026-08-26-31e5.
         services.AddTransient<SpecRecordPublisher>();
         services.AddTransient<SpecReviewPublisher>(); // 2026-09-17-042eh

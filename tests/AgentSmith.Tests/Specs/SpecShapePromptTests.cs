@@ -59,5 +59,5 @@ public sealed class SpecShapePromptTests
     private static string Compose(PipelineContext pipeline) =>
         SpecPromptComposer.Compose(
             new Ticket(new TicketId("42"), "Update the declared set", Ticket, null, "open", "test"),
-            TicketSegmenter.Segment(Ticket), previous: null, cause: string.Empty, pipeline);
+            TicketSegmenter.Segment(Ticket), previous: null, cause: string.Empty, pipeline, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults);
 }

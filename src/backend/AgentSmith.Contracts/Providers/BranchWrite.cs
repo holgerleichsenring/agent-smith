@@ -19,7 +19,8 @@ public sealed record RepoFile(string Path, string Content);
 /// wrote files but has no commit to name must therefore say <see cref="Failed"/>.
 /// </para>
 /// </summary>
-public sealed record BranchWriteResult(string? CommitSha, string? Error)
+/// <param name="Notes">Sentences about files the write left out without failing; null when none.</param>
+public sealed record BranchWriteResult(string? CommitSha, string? Error, IReadOnlyList<string>? Notes = null)
 {
     public bool Written => Error is null && !string.IsNullOrWhiteSpace(CommitSha);
 

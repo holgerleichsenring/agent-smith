@@ -13,6 +13,7 @@ namespace AgentSmith.Server.Models;
 /// <param name="Source">cut, or run-record when no cut is in scope and the specs come from the attempts'
 /// spec rows, spec records and acceptance (<see cref="TicketSeriesSources"/>).</param>
 /// <param name="UnattributedCriteria">Run acceptance a run-record read could not tie to one spec, per run.</param>
+/// <param name="Budget">2026-10-13-8762v: the series runway on the default read of a real series, else null.</param>
 public sealed record TicketSeriesView(
     string Project,
     string TicketId,
@@ -26,4 +27,5 @@ public sealed record TicketSeriesView(
     IReadOnlyList<TicketSeriesRevisionView> Revisions,
     bool Recorded,
     string Source = TicketSeriesSources.Cut,
-    IReadOnlyList<TicketSeriesUnattributedView>? UnattributedCriteria = null);
+    IReadOnlyList<TicketSeriesUnattributedView>? UnattributedCriteria = null,
+    TicketSeriesBudgetView? Budget = null);

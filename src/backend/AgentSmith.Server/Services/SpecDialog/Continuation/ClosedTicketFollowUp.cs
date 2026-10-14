@@ -20,7 +20,7 @@ public sealed class ClosedTicketFollowUp(OutcomeTicketFiler filer, FollowUpLink 
         if (decision.Drafts.Count == 0) return new(decision.Reason, Acted: true);
         OutcomeProposal left = proposal is EpicOutcome epic && decision.Drafts.Count > 1
             ? epic with { Children = decision.Drafts }
-            : new SpecOutcome(decision.Drafts[0]);
+            : new SpecOutcome(decision.Drafts[0]) { ReviewRounds = proposal.ReviewRounds };
         var report = await filer.FileAsync(state, left, mayStartRuns, ct);
         if (report.Filed.Count == 0)
             return new($"Ticket {ticketId} was closed by a person, and filing its follow-up failed: {report.Error}. "

@@ -14,7 +14,7 @@ internal static class TicketConversationReadEndpoints
     internal static WebApplication MapTicketConversationReadEndpoints(this WebApplication app)
     {
         app.MapGet("/api/tickets/{project}/{ticketId}/conversation", ConversationAsync).Needs(Permissions.RunsRead);
-        return app.MapTicketTextEndpoints();
+        return app.MapTicketTextEndpoints().MapTicketReviewEndpoints(); // 2026-10-13-8762l
     }
 
     // Internal so the endpoint tests drive the real reader without a host.

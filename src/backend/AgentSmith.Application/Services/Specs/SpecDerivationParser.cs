@@ -13,12 +13,12 @@ namespace AgentSmith.Application.Services.Specs;
 /// markdown companions.
 /// </summary>
 public sealed class SpecDerivationParser(
-    DerivedSpecSequence specs,
-    SpecDerivationEnvelope envelope)
+    DerivedSpecSequence specs, SpecDerivationEnvelope envelope, SeriesContractReader contracts, ISeriesSettingsReader series)
 {
     /// <param name="Uncited">2026-10-12-3a36b: why a contradiction hand-back cites no look this derivation
     /// took; it is still parsed, and whether it is asked again or parks is the deriver's call.</param>
-    public sealed record Parsed(SpecDerivation? Derivation, string? Error, string? Uncited = null);
+    /// <param name="ContractProblem">2026-10-13-8762j: why the reply's series contract was refused; the set beside it is built without one.</param>
+    public sealed record Parsed(SpecDerivation? Derivation, string? Error, string? Uncited = null, string? ContractProblem = null);
 
     /// <param name="series">2026-10-06-03c7c: the series' base id; spec ids are it plus a letter.</param>
     /// <param name="executedHead">
@@ -83,9 +83,9 @@ public sealed class SpecDerivationParser(
         if (specElements.Count == 0)
             return new Parsed(null,
                 envelope.HandbackRejection(root) ?? "the reply carried neither a spec nor a hand-back");
-        if (specElements.Count > SpecSet.MaxSpecs)
-            return new Parsed(null,
-                $"{specElements.Count} specs exceed the maximum of {SpecSet.MaxSpecs} — merge the smaller ones");
+        // 2026-10-13-8762u: a fresh cut runs in one attempt; a re-cut repeats the head and is bounded by the series.
+        if (series.Current().Series.DerivationRefusal(source != SpecSource.Derived, specElements.Count) is { } over)
+            return new Parsed(null, over);
 
         // 2026-10-08-f114: the head's positions are discarded, but a reply that does not even reach
         // past them dropped the set it was asked to repeat — refused, so the deriver asks again.
@@ -98,21 +98,21 @@ public sealed class SpecDerivationParser(
 
         var accounting = SpecAccountingBuilder.Build(
             built, envelope.Discarded(root), segments, envelope.DiscardedContexts(root));
+        var contract = contracts.FromReply(root, built, executedHead);
         return new Parsed(
             new SpecDerivation(
                 new SpecSet(
                     owner.Key, built, accounting, [Initial()], source,
                     ExecutedSpecIds: [.. executedHead.Select(p => p.SpecId)],
-                    Series: owner.Series),
+                    Series: owner.Series) { Contract = contract.Contract },
                 envelope.IgnoredInstructions(root)),
-            null);
+            null, ContractProblem: contract.Problem);
     }
 
     /// <summary>The ticket key and the series' base id the parsed set belongs to.</summary>
     private sealed record SeriesOf(string Key, string Series);
 
-    private sealed record SpecInputs(
-        IReadOnlyList<string>? Evidence, IReadOnlyList<string> Scope, IReadOnlyList<string> Taken);
+    private sealed record SpecInputs(IReadOnlyList<string>? Evidence, IReadOnlyList<string> Scope, IReadOnlyList<string> Taken);
 
     private static SpecRevision Initial() =>
         new(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow);

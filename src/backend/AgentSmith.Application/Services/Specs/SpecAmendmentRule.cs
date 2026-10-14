@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Specs;
 
 namespace AgentSmith.Application.Services.Specs;
@@ -28,6 +29,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// 2026-10-12-3a36b: and a HAND-BACK somebody else's commit has since changed the ground under is
 /// derived again, approved or not — the claim it parks on was made about code that is gone.
 /// </para>
+/// <para>2026-10-13-8762p: an overruled default re-derives like a pull-request rework, approved or not.</para>
 /// <para>
 /// Extracted from <see cref="SpecSourceResolver"/>: choosing the SOURCE and deciding whether the
 /// chosen set is amended are two questions, and only the second one has a rule worth this much
@@ -37,16 +39,19 @@ namespace AgentSmith.Application.Services.Specs;
 public static class SpecAmendmentRule
 {
     /// <summary>True when the deriver has to run over the set the branch carries.</summary>
+    /// <param name="series">2026-10-13-8762u: the series block; a set is full at series.max_specs executed.</param>
     /// <param name="foreignCommitSinceHandback">2026-10-12-3a36b: a scoped branch got a commit by
     /// somebody else since the hand-back the set carries was parked.</param>
-    public static bool NeedsModel(string cause, SpecSet set, bool foreignCommitSinceHandback = false)
+    public static bool NeedsModel(string cause, SpecSet set, SeriesConfig series, bool foreignCommitSinceHandback = false)
     {
         ArgumentNullException.ThrowIfNull(set);
+        ArgumentNullException.ThrowIfNull(series);
         if (foreignCommitSinceHandback && set.IsHandedBack) return true;
         // 2026-10-08-f114: a full, fully executed set has no room for an appended spec.
-        if (IsAppend(cause, set) && set.Executed.Count >= SpecSet.MaxSpecs) return false;
+        if (IsAppend(cause, set) && set.Executed.Count >= series.MaxSpecs) return false;
         if (string.Equals(cause, SpecRevisionCause.RecutDemand, StringComparison.Ordinal)
-            || string.Equals(cause, SpecRevisionCause.Rework, StringComparison.Ordinal)) return true;
+            || string.Equals(cause, SpecRevisionCause.Rework, StringComparison.Ordinal)
+            || string.Equals(cause, SpecRevisionCause.Overrule, StringComparison.Ordinal)) return true;
         // 2026-10-08-2123: a move back amends only by appending to a fully executed set.
         if (string.Equals(cause, SpecRevisionCause.StatusBack, StringComparison.Ordinal)) return IsAppend(cause, set);
         if (set.Approval is not null) return false;
@@ -63,5 +68,6 @@ public static class SpecAmendmentRule
     public static bool IsAppend(string cause, SpecSet set) =>
         set.UnexecutedTail.Count == 0 && set.Executed.Count > 0
         && cause is SpecRevisionCause.Comment or SpecRevisionCause.TicketEdit
-            or SpecRevisionCause.RecutDemand or SpecRevisionCause.Rework or SpecRevisionCause.StatusBack;
+            or SpecRevisionCause.RecutDemand or SpecRevisionCause.Rework or SpecRevisionCause.StatusBack
+            or SpecRevisionCause.Overrule;
 }

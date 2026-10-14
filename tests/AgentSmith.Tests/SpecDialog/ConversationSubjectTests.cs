@@ -288,14 +288,14 @@ public sealed class ConversationSubjectTests : IDisposable
         var outcomeFlow = new SpecDialogOutcomeFlow(
             new SpecDialogOutcomeConfirmer(
                 Mock.Of<AgentSmith.Contracts.Dialogue.IDialogueTransport>(), messenger,
-                pendingQuestions, outcomeComposer, NullLogger<SpecDialogOutcomeConfirmer>.Instance),
+                pendingQuestions, outcomeComposer, AgentSmith.Tests.TestSupport.UnreviewedApprovals.Unused(), NullLogger<SpecDialogOutcomeConfirmer>.Instance),
             Mock.Of<IOutcomeSink>(), outcomeComposer, messenger,
             new DashboardOutcomeChannel(
                 new SpecDialogProposalComposer(new EpicChildOrderer(), new BugTicketRenderer()),
                 NullLogger<DashboardOutcomeChannel>.Instance),
             new SpecDialogLatestOutcomeStore(
                 _repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), NullLogger<SpecDialogLatestOutcomeStore>.Instance),
-            NullLogger<SpecDialogOutcomeFlow>.Instance);
+            AgentSmith.Tests.TestSupport.RatifiedMockStamps.Over(_repository), NullLogger<SpecDialogOutcomeFlow>.Instance);
         return new SpecDialogRouter(
             new SpecCommandParser(), _sessions,
             new SpecDialogCommandHandler(

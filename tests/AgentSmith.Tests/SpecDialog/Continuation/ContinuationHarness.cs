@@ -73,6 +73,8 @@ internal sealed class ContinuationHarness : IDisposable
         services.AddScoped<TicketFilingOutcomeSink>();
         Loader.Setup(l => l.LoadConfig(It.IsAny<string>())).Returns(() => Config);
         services.AddSingleton(Loader.Object).AddSingleton(new ServerContext("config.yml"));
+        services.AddSingleton<AgentSmith.Application.Services.Specs.ISeriesSettingsReader,
+            AgentSmith.Application.Services.Specs.LoaderSeriesSettingsReader>(); // 2026-10-13-8762u: Config's series block
         services.AddTransient<TicketProjects>().AddTransient<TicketTranscriptReader>();
         services.AddScoped(_ => FiledWorkDoubles.Move(Routing)); // 2026-10-13-9a59m: before the registration's TryAdd
         services.AddScoped<FiledWorkStarter>().AddTransient<TicketKindResolver>(); // 2026-10-13-9a59t: a closed ticket's act files
@@ -80,7 +82,8 @@ internal sealed class ContinuationHarness : IDisposable
         // 2026-10-13-9a59m: the start arm's reads and the nudge queue, over the same store.
         services.AddScoped<RunCheckpointRepository>().AddScoped<ReworkNudgeRepository>().AddScoped<ReworkLedgerRepository>();
         services.AddSingleton<IActiveRunLease, DbActiveRunLease>().AddSingleton<IRunCheckpointStore, DbRunCheckpointStore>();
-        services.AddSingleton<IPreviousAttemptReader, DbPreviousAttemptReader>().AddSingleton<IReworkNudges, DbReworkNudges>();
+        services.AddSingleton<IPreviousAttemptReader, DbPreviousAttemptReader>().AddSingleton<IReworkNudges, DbReworkNudges>()
+            .AddSingleton<IDecidedDefaults, DecidedDefaults>(); // 2026-10-13-8762p
         services.AddSingleton(new TokenAuthorityConfig());
         // 2026-10-14-da5ee: the series tools' merge, reader and schema check, as the Application registers them.
         services.AddTransient<SpecDraftIdRewriter>().AddTransient<ContinuationMerge>().AddTransient<SpecDraftReader>()

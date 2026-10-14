@@ -8,8 +8,8 @@ namespace AgentSmith.Infrastructure.Persistence.Services;
 
 /// <summary>
 /// 2026-10-13-9a59d: writes the run's one <see cref="RunAttempt"/> row. The fetch fields are set ONCE —
-/// a resumed run fetches again and must not rewrite why the attempt began. The revision fields are
-/// the last publish's; a publish that carries no revision leaves them as they are. Two writers
+/// a resumed run fetches again and must not rewrite why the attempt began. 2026-10-13-8762g: so are the
+/// revision fields — the first revision-carrying publish's; a mid-run revision rides its cut list only. Two writers
 /// inserting the same run's row meet at the unique RunId index, and the loser updates the winner's.
 /// </summary>
 public sealed class RunAttemptProjection(IUniqueViolationTranslator? violations = null)
@@ -35,6 +35,7 @@ public sealed class RunAttemptProjection(IUniqueViolationTranslator? violations 
     {
         if (e.RevisionNumber is null) return;
         var row = await RowAsync(uow, e.RunId, ct);
+        if (row.RevisionNumber is not null) return;
         row.RevisionNumber = e.RevisionNumber;
         row.RevisionCause = e.RevisionCause;
         row.SeriesId = e.SeriesId;

@@ -1,4 +1,5 @@
-import type { PendingQuestionInfo } from "@/types/hub-events";
+import type { PendingQuestionInfo, SpecEvidenceProblem, SpecReviewResidue } from "@/types/hub-events";
+import type { SpecDialogProposalFinding, SpecDialogReviewRound } from "@/types/spec-dialog";
 
 // 2026-10-13-9a59p: the ticket list as GET /api/tickets serves it (TicketListView and the records
 // under it in AgentSmith.Server/Models, camelCase). Fields a later member of the series added are
@@ -246,12 +247,23 @@ export interface TicketSeriesSpec {
   done: TicketSeriesCriterion[];
   unmeasured: Array<{ repositories: string; reason: string | null }>;
   worked?: TicketSeriesStepWorked[] | null;
+  /** 2026-10-13-8762m: the executing attempt's record's build note; null when there is no record. */
+  buildNote?: TicketSeriesBuildNote | null;
   /** False when only the goal was recorded; recordNote says why. */
   hasRecord?: boolean;
   /** "no record" | "record unreadable"; null with a record. */
   recordNote?: string | null;
   /** False for a terminal spec none of whose criteria carries a verdict. */
   verdictRecorded?: boolean;
+}
+
+/** 2026-10-13-8762m: what a spec's master handed forward; `missing` when it left no note. */
+export interface TicketSeriesBuildNote {
+  missing: boolean;
+  renamed: string[];
+  moved: string[];
+  persisted: string[];
+  deviations: string[];
 }
 
 /** Run acceptance a run-record read could not tie to one spec. */
@@ -279,6 +291,27 @@ export interface TicketSeries {
   /** cut | run-record — run-record when the attempts predate the cut and the specs come from their rows. */
   source?: string;
   unattributedCriteria?: TicketSeriesUnattributed[] | null;
+  /** The series runway on the default read; null for a one-chunk ticket or a per-attempt read. */
+  budget?: TicketSeriesBudget | null;
+}
+
+/** start | hold | complete */
+export type SeriesNext = string;
+
+/** off | misconfigured | handed-back | cancelled | incomplete | no-progress | budget-usd | wall-clock |
+ *  default-pending | refused | closed */
+export type SeriesHeldReason = string;
+
+/** Spend and summed run time of the chain of attempts against the series caps, and whether the next starts. */
+export interface TicketSeriesBudget {
+  spentUsd: number;
+  capUsd: number;
+  elapsedHours: number;
+  capHours: number;
+  /** The chain's first attempt number. */
+  chainFrom: number;
+  next: SeriesNext;
+  heldBecause: SeriesHeldReason | null;
 }
 
 export interface RunPassCost {
@@ -409,11 +442,120 @@ export interface TicketConversation {
   openDialogId: string | null;
   proposal: {
     kind: string;
-    drafts: Array<{ specId: string; goal: string; repos: string[]; done: string[] }>;
+    /** 2026-10-13-8762t: ratifiedMock is the mock version a person ratified for the draft's spec. */
+    drafts: Array<{ specId: string; goal: string; repos: string[]; done: string[]; ratifiedMock?: number | null }>;
+    /** 2026-10-13-8762i: what still stands, every review round, and what is not reviewed yet. */
+    findings?: SpecDialogProposalFinding[];
+    reviewRounds?: SpecDialogReviewRound[];
+    notReviewed?: string[] | null;
   } | null;
   transcriptHidden: boolean;
   threadUnavailable: boolean;
 }
+
+// 2026-10-13-8762l: every pre-build review round of a ticket (GET …/reviews, runs.read) — each attempt's
+// rounds and the approved set's design-conversation rounds, already keyed by filed ids. Evidence strings are
+// as stored ("repo/path:line [Aid]" or "repo search:'pattern' [Aid]") and are rendered, never parsed.
+
+export interface TicketReviewCut {
+  specId: string | null;
+  register: string;
+  quote: string;
+  replacement: string | null;
+  evidence: string;
+}
+
+export interface TicketReviewFinding {
+  text: string;
+  evidence: string;
+}
+
+export interface TicketReviewer {
+  reviewer: number;
+  /** null where a conversation round's reviewer was not taken. */
+  verdict: string | null;
+  cuts: TicketReviewCut[];
+  findings: TicketReviewFinding[];
+  evidenceProblems: SpecEvidenceProblem[];
+  residues: SpecReviewResidue[];
+}
+
+/** scope "spec" | "series" (a run's) | "conversation"; a conversation round carries its merged lists at round
+ *  level and its reviewers' verdicts only, and its specId "series" is the set's contract review. */
+export interface TicketReviewRound {
+  scope: string;
+  specId: string | null;
+  round: number;
+  verdict: string;
+  reviewers: TicketReviewer[];
+  cuts: TicketReviewCut[];
+  findings: TicketReviewFinding[];
+  residues: SpecReviewResidue[];
+  revisionNumber: number | null;
+  at: string | null;
+}
+
+export interface TicketReviewAttempt {
+  runId: string;
+  number: number;
+  rounds: TicketReviewRound[];
+}
+
+export interface TicketReviews {
+  project: string;
+  ticketId: string;
+  attempts: TicketReviewAttempt[];
+  conversation: { approvalAt: string | null; rounds: TicketReviewRound[] } | null;
+}
+
+// 2026-10-13-8762q: a ticket's defaults (GET …/defaults, runs.read) — those its runs took and those of the
+// design conversation bound to it, in the server's order: pending holding the series, pending, decided.
+
+/** pending | ratified | overruled */
+export type DefaultVerdict = string;
+
+export interface TicketDefault {
+  id: number;
+  runId: string;
+  /** The attempt number of its run; null for a run that is not an attempt and for a design turn's row. */
+  attempt: number | null;
+  /** The design conversation that took it; null in a coding run. */
+  conversation: string | null;
+  specId: string | null;
+  /** A conversation row's text is null unless the caller may read the transcript. */
+  question: string | null;
+  chosen: string | null;
+  alternatives: string[] | null;
+  why: string | null;
+  holdsSeries: boolean;
+  /** decision | memory-proposal */
+  kind: string;
+  pointerPath: string | null;
+  takenAt: string;
+  verdict: DefaultVerdict;
+  verdictBy: string | null;
+  verdictAt: string | null;
+  verdictNote: string | null;
+  /** A memory proposal of a finished run: whether that run left a pull request; null otherwise. */
+  landed: boolean | null;
+}
+
+export interface TicketDefaults {
+  pending: number;
+  pendingHoldingSeries: number;
+  entries: TicketDefault[];
+}
+
+/** One item of a verdict batch (POST …/defaults/verdicts, runs.control). */
+export interface DefaultVerdictItem {
+  id: number;
+  verdict: "ratified" | "overruled";
+  note?: string | null;
+}
+
+export type DefaultVerdictAnswer =
+  | { kind: "applied"; applied: number[]; alreadyDecided: { id: number; verdict: DefaultVerdict }[] }
+  | { kind: "refused"; text: string };
 
 // 2026-10-13-9a59r: what approving the ticket's open proposal would do (GET …/approval-preview,
 // dialog.write; 404 when no proposal is open) — 9a59l's effect and per-spec dispositions, 9a59m's start arm.

@@ -1,0 +1,81 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-8762a
+
+decisions:
+  - category: Architecture
+    chose: "Hub and spoke through the primary: fold every secondary's change into the first SandboxesForRepo match, commit the union through RunWorkCheckpointer.PushNowAsync, then spread it back"
+    over: "A peer-to-peer merge between clones; picking a new carrier of the branch"
+    reason: |
+      The primary is already the sandbox every commit path treats as the repository (CommitAndPR,
+      RepoWorkPusher, the master's alias), so nothing new decides who carries the branch.
+  - category: Architecture
+    chose: "Conflict = one path with two DIFFERENT post-images (git diff --raw --no-abbrev), decided before anything is applied; red, never resolved (contract decision 10, default, pending operator ratification)"
+    over: "Letting git apply merge non-overlapping hunks; red on any path changed in two sandboxes"
+    reason: |
+      A gate that silently merges guesses; two clones holding the same bytes disagree about nothing, and a
+      fold whose spread stopped must not stay red until a revert.
+  - category: Architecture
+    chose: "BASE is the secondaries' HEAD^{tree}; a level repository (every sandbox wrote the primary's tree) takes no OWN, conflict or apply step and joins the push only when the primary's index differs from HEAD"
+    over: "A commit-based base; computing OWN for sandboxes sharing one directory"
+    reason: |
+      Independent base merges give equal trees with different SHAs, and --source-path shares one working
+      directory; both are level. The level primary goes through the same secret scan before any secondary
+      commits, so a declined scan is never committed through a shared directory.
+  - category: Architecture
+    chose: "Transport: git diff --binary into .git/agentsmith-sync.out, read back as base64, decoded in C#, written through ISandboxBinaryFileWriter; an encoded text reaching 1,000,000 characters is red naming the sandbox"
+    over: "Plain-text diff over stdout; chunking past the stdout ceiling"
+    reason: |
+      Stdout is captured line by line and re-joined with a bare newline, which strips a CRLF file's carriage
+      returns; base64 carries none. The PR-time consolidation has the same ceiling, so the limit is named, not raised.
+  - category: Implementation
+    chose: "DEVIATION: the read side runs `base64 < file` instead of `base64 file` (SandboxTreeGit.cs DiffThenEncode)"
+    over: "The spec's `base64 .git/agentsmith-sync.out`"
+    reason: |
+      macOS base64 (the in-process sandbox on a developer machine) refuses a positional file ("invalid
+      argument"); stdin is read the same way by GNU coreutils, busybox and BSD, so one command works in every image.
+  - category: Implementation
+    chose: "DEVIATION: with three or more sandboxes whose secondaries stand on different HEAD trees, the sync is red naming them (SandboxTreeSync.cs PlanAsync)"
+    over: "A per-secondary BASE, with the primary's own change computed once per base"
+    reason: |
+      The spec names one BASE per repository. Secondaries diverge only after an earlier red spread, which
+      already failed its spec; a per-base fold would multiply the conflict rule for a state that is already red.
+  - category: Architecture
+    chose: "Check every fold with git apply --check --index before any is applied, across all repositories, then fold, push once, and ask each primary whether it is still dirty"
+    over: "Folding repository by repository; trusting PushNowAsync's silence"
+    reason: |
+      A half-folded primary would be committed by the next checkpoint and make the PR-time consolidation
+      re-apply a hunk. PushNowAsync reports nothing when the secret scan or the push declines, so the
+      primary's own status is the proof, as SpecReviewRevert proves its undo.
+  - category: Architecture
+    chose: "The tree hash is the proof of the spread: a secondary must write the primary's committed union tree, then commits locally with --no-verify, never pushed"
+    over: "Trusting a clean git apply"
+    reason: "An equal tree hash is the only mechanical statement that two clones hold the same files."
+  - category: Architecture
+    chose: "UnverifiedWorkReverter commits a restored secondary locally (SandboxTargets.IsSecondary); SpecReviewRevert.cs and ShortfallDelivery.cs untouched"
+    over: "Leaving the secondary's sync commit as HEAD after the restore"
+    reason: |
+      PushNowAsync commits only the primary; without the local commit SpecReviewRevert's head..HEAD proof
+      fails the spec the revert exists to keep, the next sync sees reverted paths as changed in both, and a
+      shortfall's PR consolidation folds the revert.
+  - category: Architecture
+    chose: "After a green sync the account, the entry account and the spec review read only the sandboxes that are not IsSecondary — one diff per repository"
+    over: "Passing every sandbox, as before"
+    reason: |
+      A secondary's diff is then byte-identical to its primary's; both would double the accountant's windows
+      and the reviewer's input and could report one finding under two keys.
+  - category: Architecture
+    chose: "Behaviour change named: a mixed-stack repository's secondary stages now run whenever the repository changed, and such a spec has a verified head in every sandbox, so the review's fix pass can splice"
+    over: "Keeping secondary stages skipped because the secondary clone never changed"
+    reason: |
+      Measured in SandboxTreeSyncVerifyTests: the node sandbox's declared stage ran after the sync.
+      when_changed (2026-10-13-8762b) is how an estate narrows it.
+  - category: Architecture
+    chose: "Two images stay, so the sync is needed (default, pending operator ratification)"
+    over: "One combined .NET plus node image for this repository"
+    reason: |
+      The sync is a general mechanism every mixed-stack target repository needs; a combined image would
+      remove it only here and would have to be a trusted image nobody maintains today.
+  - category: Implementation
+    chose: "New types SandboxTreeGit (112 lines), SandboxTreeConflicts (pure), SandboxTreeSync (115), SandboxTreeSpread (the one helper, which also holds the Plan and Patch records) and SandboxTreeSyncResult; SandboxGitOperations not grown"
+    over: "Growing SandboxGitOperations (318/319)"
+    reason: "The 120-line limit and the file-length ratchet; the conflict rule stays testable without git."

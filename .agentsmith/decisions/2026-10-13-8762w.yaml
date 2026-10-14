@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-8762w
+
+decisions:
+  - category: Architecture
+    chose: "SeriesRunway is a pure component (budget, attempts, onDefaults); TicketPage reads the default series through the existing useTicketSeries() and passes the budget, and selects the Defaults tab through its own select()"
+    over: "A strip that reads the store and the router itself"
+    reason: "The strip fetches nothing (the store's default series read already carries the budget and refreshes on TicketActivityChanged), and a pure component is tested without a store or a router. TicketPage 47 -> 50."
+  - category: Implementation
+    chose: "Each held code has a reason phrase and a go-on sentence in seriesWords' HELD_WORDS; every go-on is GO_ON (\"A comment on the ticket or an approval in its conversation starts the next attempt.\", the same text as v's SeriesTexts.HowToGoOn) except default-pending (\"Ratify it in the Defaults tab.\", a button selecting that tab) and misconfigured (\"Fix them in the Series settings in Config Studio.\", a link to /config/settings/series); an unknown code is shown raw with GO_ON"
+    over: "One sentence per code with the go-on folded in; naming the misconfigured field"
+    reason: "The spec's go-on sentence is shared by every hold a person's act resolves; the budget block carries only the code, so the strip points at the section instead of claiming a field. No sentence names Retry (RunRetryGate.cs:28-29)."
+  - category: Implementation
+    chose: "The chain is every attempt numbered from budget.chainFrom to the newest, an arrow into an attempt whose cause channel is series marked 'auto'; a bar is hot (--bad) when its value is at or past its cap, a zero cap reading full"
+    over: "Eliding the middle of a long chain; the run colour for a reached cap"
+    reason: "Attempts are few per chain and the strip wraps; a reached cap is a stop, like the cost tab's .capmark.over. Look is a default, pending operator ratification (contract section 5 default 74)."
+  - category: Implementation
+    chose: "The forms show the server's 400 through the existing settings-save-error (saveSetting already throws the guard's {error} text); no client-side bound and no settingRefusal case"
+    over: "Bounding the inputs in the form"
+    reason: "ONE rule on the server (ConfigSettingsAccess.Normalize, 8762v); a TypeScript copy would drift."
+  - category: Tooling
+    chose: "SettingsStudio_Rail_ListsSpecReviewAndSeries lives in AppRailConfig.test.tsx, which renders the rail; it asserts both entries, their routes and their place right after Dialogue"
+    over: "Asserting SETTING_KEYS inside SettingsStudio.test.tsx"
+    reason: "The settings rail is AppRail over SETTING_KEYS; SettingsStudio renders no rail, so the test there would prove the array, not the rail."
+  - category: Tooling
+    chose: "Owned extra from the brief: TicketDefaultsRead_DisposeOfThePageReads_CancelsItsRefetch already exists under that spec name (lib/tickets/__tests__/TicketDefaultsRead.test.ts:63, from 8762q); verified it fails when TicketPageReads.dispose()'s this.defaults.dispose() is removed (expected 1 defaults read, got 2), so no second test was added"
+    over: "Adding a duplicate test under the same name"
+    reason: "The brief's premise named a test 'TicketDefaultsRead_DisposeAfterDefaultTaken_CancelsTheReread' that does not exist in the tree; the spec-named test is present and proves the call (defaultTaken() schedules the coalesced re-read, dispose() of the page reads must cancel it)."
+  - category: Implementation
+    chose: "keep and patcher moved to formFields.tsx, exported, beside NumberField; SettingsForm 529 -> 524"
+    over: "Duplicating them in SeriesSettingsForms.tsx"
+    reason: "The spec's step; the new forms use the same draft discipline as every other settings form."

@@ -8,7 +8,8 @@ import { useRunEvents } from "@/hooks/useRunEvents";
 import { isRunLive } from "@/lib/runLiveness";
 import { EventType, type RunEvent, type RunSnapshot } from "@/types/hub-events";
 import type {
-  RunCompute, RunPasses, TicketApprovalPreview, TicketAttempt, TicketConversation, TicketDetail, TicketSeries, TicketText,
+  RunCompute, RunPasses, TicketApprovalPreview, TicketAttempt, TicketConversation, TicketDefaults, TicketDetail, TicketReviews, TicketSeries,
+  TicketText,
 } from "@/types/tickets";
 import {
   TicketPageReads, type PerRunRead, type Read, type TicketPageApi, type TicketPageSnapshot,
@@ -87,7 +88,9 @@ export function TicketPageStore({ project, ticketId, children, client, api }: Pr
   const current = snapshot ?? reads.snapshot;
   const liveAttempt = newestLive(current.detail.data);
   const liveEvents = useRunEvents(liveAttempt?.runId ?? null);
-  useCutReviews(liveEvents, reads);
+  useNewEvents(liveEvents, EventType.SpecCutReviewed, reads, "cutReviewed");
+  useNewEvents(liveEvents, EventType.SpecReviewRound, reads, "reviewRound"); // 2026-10-13-8762l
+  useNewEvents(liveEvents, EventType.DefaultDecisionTaken, reads, "defaultTaken"); // 2026-10-13-8762q
 
   const value = useMemo<StoreValue>(
     () => ({ project, ticketId, snapshot: current, reads, liveAttempt, liveEvents, activity }),
@@ -96,14 +99,15 @@ export function TicketPageStore({ project, ticketId, children, client, api }: Pr
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
-/** (d): each SpecCutReviewed the live stream gains re-reads the conversation once. */
-function useCutReviews(events: RunEvent[], reads: TicketPageReads): void {
+/** (d): each SpecCutReviewed the live stream gains re-reads the conversation once; (e) each SpecReviewRound the
+ *  review rounds; (f) each DefaultDecisionTaken the defaults. */
+function useNewEvents(events: RunEvent[], type: EventType, reads: TicketPageReads, nudge: "cutReviewed" | "reviewRound" | "defaultTaken"): void {
   const seen = useRef<number | null>(null);
-  const count = events.filter((e) => e.type === EventType.SpecCutReviewed).length;
+  const count = events.filter((e) => e.type === type).length;
   useEffect(() => {
-    if (seen.current !== null && count > seen.current) reads.cutReviewed();
+    if (seen.current !== null && count > seen.current) reads[nudge]();
     seen.current = count;
-  }, [count, reads]);
+  }, [count, reads, nudge]);
 }
 
 function newestLive(detail: TicketDetail | null): TicketAttempt | null {
@@ -135,6 +139,17 @@ export function useTicketSeries(runId?: string | null): Read<TicketSeries> {
 
 export function useTicketConversation(): Read<TicketConversation> {
   return useStore().snapshot.conversation;
+}
+
+/** 2026-10-13-8762l: every attempt's review rounds and the approved set's conversation rounds. */
+export function useTicketReviews(): Read<TicketReviews> {
+  return useStore().snapshot.reviews;
+}
+
+/** 2026-10-13-8762q: the ticket's defaults, pending ones first; changed() re-reads them after this page's own verdict. */
+export function useTicketDefaults(): Read<TicketDefaults> & { changed: () => void } {
+  const { snapshot, reads } = useStore();
+  return { ...snapshot.defaults, changed: () => reads.defaultsChanged() };
 }
 
 /** The ticket itself — description, criteria and fields — read on its own tick, never on a RunsChanged. */

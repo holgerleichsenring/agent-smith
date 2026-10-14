@@ -41,6 +41,7 @@ public sealed class SpecSetDeriver(
     SpecDerivationParser parser,
     ScopedContextCoverage coverage,
     ContradictionHandbackGate handbacks,
+    ISeriesSettingsReader seriesSettings,
     ILogger<SpecSetDeriver> logger) : ISpecSetDeriver
 {
     /// <summary>Name of the pinned master skill carrying the judgement prompt.</summary>
@@ -59,8 +60,9 @@ public sealed class SpecSetDeriver(
         await using var owned = look; // 2026-09-13-84c0: it owns any template scope it made
 
         var named = pipeline.TryGet<ScopeNamedContexts>(ContextKeys.ScopeNamedContexts, out var n) ? n : null;
+        var block = seriesSettings.Current().Series; // 2026-10-13-8762u: a fresh cut runs in one attempt, a re-cut in the series
         var messages = SpecDerivationMessages.Opening(
-            RenderSystemPrompt(), ticket, segments, previous, cause, pipeline, look, repositories);
+            RenderSystemPrompt(block.DerivationLimit(previous is not null)), ticket, segments, previous, cause, pipeline, look, repositories, block);
 
         var attempts = new DerivationAttempts(MaxAttempts);
         for (var attempt = 1; attempt <= attempts.Bound; attempt++)
@@ -84,6 +86,11 @@ public sealed class SpecSetDeriver(
                 messages.Add(attempts.Reject("Your cut was rejected", parsed.Error));
                 continue;
             }
+            if (DerivedContractRule.Problem(parsed, previous) is { } contract) // 2026-10-13-8762j: yields to the cut on the last attempt
+            {
+                if (!attempts.IsLast(attempt)) { messages.Add(attempts.Reject("Your series contract was rejected", contract)); continue; }
+                logger.LogWarning("Spec derivation attempt {Attempt}: the series contract is dropped, the cut kept: {Problem}", attempt, contract);
+            }
             var gated = await handbacks.JudgeAsync(parsed.Derivation, parsed.Uncited, look,
                 attempts.IsLast(attempt), attempts.Refuted, agentConfig, pipeline, cancellationToken);
             if (gated.Step == HandbackGateStep.Park) return (parsed.Derivation, null);
@@ -101,8 +108,8 @@ public sealed class SpecSetDeriver(
         return attempts.Exhausted;
     }
 
-    private string RenderSystemPrompt() => prompts.Render(SkillName, new Dictionary<string, string>
+    private string RenderSystemPrompt(int maxSpecs) => prompts.Render(SkillName, new Dictionary<string, string>
     {
-        ["MaxSpecs"] = SpecSet.MaxSpecs.ToString(),
+        ["MaxSpecs"] = maxSpecs.ToString(System.Globalization.CultureInfo.InvariantCulture),
     });
 }

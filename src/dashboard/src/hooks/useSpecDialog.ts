@@ -18,7 +18,7 @@ import { HELD_DIALOG_ID, type DialogIdSource } from "@/lib/specDialogSession";
 // "which steps belong to the turn running now" is a rule of its own with its own tests.
 import { mergedSteps, ofTurn } from "@/components/dialog/turnSteps";
 // 2026-09-20-3af8: nothing ties an image to a turn, so where it sits is a rule of its own.
-import { withImages } from "@/components/dialog/transcriptImages";
+import { withImages, withMocks } from "@/components/dialog/transcriptImages";
 import { replyRecorded, type AwaitedReply } from "@/components/dialog/recordedReply";
 import { refusedNote, storedNote, type UploadNote } from "@/components/dialog/uploadNote";
 import type { PickLeftOut } from "@/components/dialog/referenceSelection";
@@ -26,6 +26,7 @@ import type {
   SpecDialogDecision,
   SpecDialogFilingPush,
   SpecDialogImage,
+  SpecDialogMock,
   SpecDialogReferenceSet,
   SpecDialogProposalPush,
   SpecDialogActivityPush,
@@ -52,7 +53,10 @@ import type {
 // it says what was stored: the entry then becomes that decision, or goes, and the question card comes
 // back from the same read when the question is still open.
 
-export type DialogEntryKind = "user" | "agent" | "decision" | "image" | "reference";
+export type DialogEntryKind = "user" | "agent" | "decision" | "image" | "reference" | "mock";
+
+/** 2026-10-13-8762r: a mock version with the conversation its routes are addressed under. */
+export type TranscriptMock = SpecDialogMock & { sessionId: string };
 
 export interface DialogEntry {
   key: string;
@@ -70,6 +74,8 @@ export interface DialogEntry {
   image?: SpecDialogImage;
   /** 2026-10-01-283db: set on a reference entry — a website the operator uploaded, as one set. */
   reference?: SpecDialogReferenceSet;
+  /** 2026-10-13-8762r: set on a mock entry — a version the design partner wrote. */
+  mock?: TranscriptMock;
 }
 
 export interface PendingDecision {
@@ -246,7 +252,7 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
       // reload has to take it back from the read or the approval gate loses its card.
       if (askedAtRead.current === null || askedAtRead.current < issued) setQuestion(next.question);
       turnsRead.current = next.session?.transcript.length ?? 0;
-      setEntries((held) => settled(held, next, issued));
+      setEntries((held) => withMocks(settled(held, next, issued), mocksOf(next)));
       const armed = reseed.current;
       const live = known.current;
       const learnedBefore = live !== null && live.read < issued;
@@ -712,7 +718,13 @@ function upsertReading(
  *  2026-09-20-3af8: the conversation's images take their place among the turns by their moment. */
 function seed(view: SpecDialogView): DialogEntry[] {
   const session = view.session;
-  return withImages(turns(view), session?.images ?? [], session?.references ?? []);
+  return withImages(turns(view), session?.images ?? [], session?.references ?? [], mocksOf(view));
+}
+
+/** 2026-10-13-8762r: the read's mock versions, each with the conversation its routes address. */
+function mocksOf(view: SpecDialogView): TranscriptMock[] {
+  const session = view.session;
+  return session ? (session.mocks ?? []).map((mock) => ({ ...mock, sessionId: session.sessionId })) : [];
 }
 
 function turns(view: SpecDialogView): DialogEntry[] {

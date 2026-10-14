@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { TICKETS_PATH } from "@/lib/TicketBucketFilter";
-import { useTicketDetail } from "@/lib/tickets/TicketPageStore";
+import { useTicketDetail, useTicketSeries } from "@/lib/tickets/TicketPageStore";
+import { SeriesRunway } from "./SeriesRunway";
 import { TicketHeader } from "./TicketHeader";
 import { TicketTabs } from "./TicketTabs";
 import { TAB_PARAM, ticketTab } from "./ticketTabTable";
@@ -13,6 +14,7 @@ import { CAUSE_PARAM, useTicketTabGo } from "./useTicketTabGo";
 
 export function TicketPage() {
   const detail = useTicketDetail();
+  const budget = useTicketSeries().data?.budget; // 2026-10-13-8762w: the series strip above the tabs
   const address = useTicketTabGo();
   const tab = ticketTab(address.param(TAB_PARAM));
   const select = (id: string) => address.go(id, { [CAUSE_PARAM]: null });
@@ -23,6 +25,7 @@ export function TicketPage() {
         {detail.data ? (
           <>
             <TicketHeader detail={detail.data} />
+            <SeriesRunway budget={budget} attempts={detail.data.attempts} onDefaults={() => select("defaults")} />
             <TicketTabs detail={detail.data} selected={tab} onSelect={select} />
             <section className="tabpane" id={`tab-${tab.id}`} role="tabpanel" aria-labelledby={`t-${tab.id}`}>
               <tab.Pane />

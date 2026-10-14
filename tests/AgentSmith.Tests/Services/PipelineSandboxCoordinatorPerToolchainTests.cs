@@ -138,6 +138,28 @@ public sealed class PipelineSandboxCoordinatorPerToolchainTests
         sandboxes.Keys.Should().NotContain(k => k.EndsWith("-2", StringComparison.Ordinal));
     }
 
+    /// <summary>The root-workdir context's group represents the repository, whatever order the
+    /// provider lists the contexts in: 'dashboard' sorts before 'default'.</summary>
+    [Fact]
+    public async Task PipelineSandboxCoordinator_DashboardListedFirst_DefaultSandboxIsTheRepositoryAlias()
+    {
+        _resolverMock.Setup(r => r.ResolveAllAsync(It.IsAny<RepoConnection>(), It.IsAny<ContextReadBranches>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[]
+            {
+                new RemoteContextDiscovery("dashboard", "src/dashboard", "typescript", ToolchainImage: "node:20-bookworm"),
+                new RemoteContextDiscovery("default", ".", "csharp", ToolchainImage: "mcr.microsoft.com/dotnet/sdk:10.0"),
+            });
+        _factoryMock.Setup(f => f.CreateAsync(It.IsAny<SandboxSpec>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => new Mock<ISandbox>().Object);
+        var context = new PipelineContext();
+        context.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, new[] { new RepoConnection { Name = "agent-smith" } });
+
+        var sandboxes = await NewSut().EnsureSandboxesAsync(new ResolvedProject(), context, CancellationToken.None);
+
+        sandboxes.Keys.First().Should().Be("default");
+        context.Get<ISandbox>(ContextKeys.Sandbox).Should().BeSameAs(sandboxes["default"]);
+    }
+
     private PipelineSandboxCoordinator NewSut() => new(
         _factoryMock.Object,
         _specBuilder,

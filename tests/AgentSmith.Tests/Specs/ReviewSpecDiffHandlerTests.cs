@@ -68,6 +68,29 @@ public sealed class ReviewSpecDiffHandlerTests
     }
 
     [Fact]
+    public async Task ReviewSpecDiff_AfterGreenSync_ReviewerReadsOneDiffPerRepository()
+    {
+        var factory = new ScriptedChatClientFactory(() => new ChatResponse(
+            new ChatMessage(ChatRole.Assistant, "[]")));
+        var pipeline = Verified();
+        pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
+            ContextKeys.Sandboxes,
+            new Dictionary<string, ISandbox>(StringComparer.Ordinal)
+            {
+                [Key] = new DiffingSandbox(),
+                ["api-node"] = new DiffingSandbox(),
+            });
+        pipeline.Set<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxRepos,
+            new Dictionary<string, string>(StringComparer.Ordinal) { [Key] = "api", ["api-node"] = "api" });
+        pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, [new RepoConnection { Name = "api" }]);
+
+        var result = await Handler(factory).ExecuteAsync(Context(pipeline), CancellationToken.None);
+
+        result.Message.Should().Contain("read 1 changed file(s)",
+            "after a green sync the secondary's diff is its primary's, so the reviewer reads it once");
+    }
+
+    [Fact]
     public async Task SpecReview_CallFailed_IsRecordedAsNotReviewedNotAsClean()
     {
         var factory = new ScriptedChatClientFactory(
@@ -141,6 +164,23 @@ public sealed class ReviewSpecDiffHandlerTests
         result.Message.Should().Contain("No spec is current");
     }
 
+    [Fact]
+    public async Task ReviewSpecDiffHandler_SetContract_ReachesTheReviewer()
+    {
+        var factory = new PromptCapture();
+        var pipeline = Verified();
+        pipeline.Set(ContextKeys.SpecSet, new Contracts.Specs.SpecSet("api-1", [], Contracts.Specs.SpecAccounting.Empty,
+            [new Contracts.Specs.SpecRevision(1, "initial derivation", DateTimeOffset.UtcNow)], Contracts.Specs.SpecSource.Derived)
+        {
+            Contract = new([new Contracts.Specs.SeriesContractName("OrderExported", "event", 87, SpecId)], [], [], []),
+        });
+
+        await Handler(factory).ExecuteAsync(Context(pipeline), CancellationToken.None);
+
+        factory.Prompts.Should().ContainSingle().Which.Should().Contain("## The series contract " + SpecId)
+            .And.Contain($"- name: event 'OrderExported' = 87, owner {SpecId}");
+    }
+
     private static string Answer() =>
         """[{"repository":"api","path":"src/Api/Handler.cs","line":4,"rule":"r","why":"w","cites":"P1"}]""";
 
@@ -150,7 +190,7 @@ public sealed class ReviewSpecDiffHandlerTests
     private static ReviewSpecDiffContext Context(PipelineContext pipeline) =>
         new(new AgentConfig(), pipeline);
 
-    private static ReviewSpecDiffHandler Handler(ScriptedChatClientFactory factory)
+    internal static ReviewSpecDiffHandler Handler(Contracts.Services.IChatClientFactory factory, RatifiedMockReview? mocks = null)
     {
         var targets = new SandboxTargets();
         return new ReviewSpecDiffHandler(
@@ -167,7 +207,36 @@ public sealed class ReviewSpecDiffHandlerTests
             new SpecDiffReviewer(
                 factory, new AsyncLocalRunContextAccessor(), NullLogger<SpecDiffReviewer>.Instance),
             new SpecReviewPublisher(new NoOpEventPublisher()),
+            mocks ?? new RatifiedMockReview(new AgentSmith.Tests.Browser.BrowserRenderFixture().Factory()),
             NullLogger<ReviewSpecDiffHandler>.Instance);
+    }
+
+    /// <summary>2026-10-13-8762k: a chat client factory that keeps every prompt and answers an empty finding list.</summary>
+    private sealed class PromptCapture : Contracts.Services.IChatClientFactory, IChatClient
+    {
+        public List<string> Prompts { get; } = [];
+
+        public IChatClient Create(AgentConfig agent, Contracts.Providers.TaskType task, int? maxIterations = null,
+            Contracts.Providers.MasterLoopHooks? masterLoopHooks = null) => this;
+
+        public int GetMaxOutputTokens(AgentConfig agent, Contracts.Providers.TaskType task) => 4096;
+
+        public string GetModel(AgentConfig agent, Contracts.Providers.TaskType task) => "stub-model";
+
+        public Task<ChatResponse> GetResponseAsync(
+            IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default)
+        {
+            Prompts.Add(string.Join("\n", messages.Select(m => m.Text)));
+            return Task.FromResult(new ChatResponse(new ChatMessage(ChatRole.Assistant, "[]")));
+        }
+
+        public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+            IEnumerable<ChatMessage> messages, ChatOptions? options = null, CancellationToken cancellationToken = default) =>
+            throw new NotSupportedException();
+
+        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+
+        public void Dispose() { }
     }
 
     /// <summary>A sandbox whose spec diff carries one changed file, so the review has

@@ -7,10 +7,15 @@ namespace AgentSmith.Application.Services.Browser;
 /// — in a run that is the approval's conversation, not a conversation the run has.
 /// 2026-10-01-283dh: or an HTML file in a repository — <see cref="RepoPath"/> inside <see cref="Repo"/>,
 /// or inside whichever repository holds it when the path named none.
+/// 2026-10-13-8762r: or a page the design partner wrote (<see cref="Inline"/>), staged under its set id.
 /// </summary>
 public sealed record RenderSource(
-    string? SetId, string Page, Uri? Url, string Session = "", string? RepoPath = null, string? Repo = null)
+    string? SetId, string Page, Uri? Url, string Session = "", string? RepoPath = null, string? Repo = null,
+    IReadOnlyList<Contracts.Sandbox.ReferenceSetFile>? Inline = null)
 {
+    public static RenderSource OfInline(string setId, string page, IReadOnlyList<Contracts.Sandbox.ReferenceSetFile> files) =>
+        new(setId, page, null, Inline: files);
+
     public static RenderSource OfSet(string setId, string page, string session) => new(setId, page, null, session);
 
     public static RenderSource OfRepo(string? repo, string path) => new(null, string.Empty, null, RepoPath: path, Repo: repo);

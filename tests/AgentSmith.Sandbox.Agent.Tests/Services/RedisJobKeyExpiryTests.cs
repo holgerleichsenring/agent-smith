@@ -11,6 +11,7 @@ namespace AgentSmith.Sandbox.Agent.Tests.Services;
 /// agent's own writes carry the job-key expiry instead of living forever.
 /// </summary>
 [Collection(nameof(RedisJobBusCollection))]
+[Trait("Category", "NeedsDocker")]
 public sealed class RedisJobKeyExpiryTests(RedisJobBusFixture fixture)
 {
     [Fact]

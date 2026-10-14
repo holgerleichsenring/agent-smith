@@ -27,8 +27,8 @@ public sealed class ReplayChatClientFactory(IChatClient replay, int defaultItera
         MasterLoopHooks? masterLoopHooks = null) =>
         ChatClientFactory.ToolBearingTasks.Contains(task)
             ? new ChatClientBuilder(replay)
-                .UseFunctionInvocation(configure: c =>
-                    c.MaximumIterationsPerRequest = maxIterations ?? defaultIterations)
+                .UseFunctionInvocation(configure: c => ToolLoopErrorTolerance.Apply(c)
+                    .MaximumIterationsPerRequest = maxIterations ?? defaultIterations)
                 .Build()
             : replay;
 

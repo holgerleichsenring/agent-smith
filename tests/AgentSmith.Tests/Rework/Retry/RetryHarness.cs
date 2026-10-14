@@ -70,7 +70,8 @@ internal sealed class RetryHarness : IDisposable
         services.AddScoped<RunDeletionRepository>();
         services.AddScoped<ReworkNudgeRepository>().AddScoped<ReworkLedgerRepository>().AddScoped<RunCheckpointRepository>();
         services.AddSingleton<IActiveRunLease, DbActiveRunLease>().AddSingleton<IRunCheckpointStore, DbRunCheckpointStore>();
-        services.AddSingleton<IPreviousAttemptReader, DbPreviousAttemptReader>().AddSingleton<IReworkNudges, DbReworkNudges>();
+        services.AddSingleton<IPreviousAttemptReader, DbPreviousAttemptReader>().AddSingleton<IReworkNudges, DbReworkNudges>()
+            .AddSingleton<IDecidedDefaults, DecidedDefaults>(); // 2026-10-13-8762p
         services.AddSingleton(new TokenAuthorityConfig()).AddSingleton(TimeProvider.System);
         services.AddTicketReaders().AddRunRetry();
         // 2026-10-14-da5ed: the conversation's start — the pending edit as its approval, else a conversation Retry.
@@ -203,7 +204,7 @@ internal sealed class RetryHarness : IDisposable
         var entry = new ReworkEntry(leases, attempts, new ReworkParkCheck(Tracker, Mock.Of<IUnmovedTicketStore>(), sp.GetRequiredService<TicketClosure>()),
             new TicketReopener(new InMemorySpecSetPointerStore(), Approvals, Mock.Of<IUnmovedTicketStore>()), Launch.Object,
             Mock.Of<IWaitingRunCloser>(), NullLogger<ReworkEntry>.Instance);
-        return new ReworkNudgeHandler(leases, attempts, pending, entry, speech, fallback,
+        return ReworkHandlers.Of(leases, attempts, pending, entry, speech, fallback,
             new ReworkWithheld(scopes, speech), sp.GetRequiredService<IRunCheckpointStore>(), ClosedTicketFollowUps.Of(scopes, Tracker, speech));
     }
 

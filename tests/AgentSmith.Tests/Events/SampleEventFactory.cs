@@ -1,4 +1,5 @@
 using System.Reflection;
+using AgentSmith.Contracts.Events;
 
 namespace AgentSmith.Tests.Events;
 
@@ -45,6 +46,14 @@ internal static class SampleEventFactory
             return new[] { new AgentSmith.Contracts.Passes.MasterPassCriterion("it builds", "met", "src/A.cs") };
         if (declared == typeof(IReadOnlyList<AgentSmith.Domain.Models.CutFinding>)) // 2026-10-13-9a59g
             return new[] { new AgentSmith.Domain.Models.CutFinding("2026-10-13-1234a", "it builds", "two goals", "why", "c2", "E1") };
+        if (declared == typeof(IReadOnlyList<SpecReviewCut>)) // 2026-10-13-8762e
+            return new[] { new SpecReviewCut("goal", "the four word run", "a new run", "api/src/A.cs:3 [A1]", "2026-10-13-1234a") };
+        if (declared == typeof(IReadOnlyList<SpecReviewFinding>))
+            return new[] { new SpecReviewFinding("no caller reads it", "api search:'Reads' [A2]") };
+        if (declared == typeof(IReadOnlyList<SpecEvidenceProblem>))
+            return new[] { new SpecEvidenceProblem("it exists", "not a file (missing, or a directory): src/A.cs") };
+        if (declared == typeof(IReadOnlyList<SpecReviewResidue>))
+            return new[] { new SpecReviewResidue("done", "the four word run") };
         if (type == typeof(AgentSmith.Contracts.Runs.AttemptCause)) // 2026-10-13-9a59d
             return new AgentSmith.Contracts.Runs.AttemptCause("pull_request", "alice", Timestamp,
                 new AgentSmith.Contracts.Runs.AttemptSource("review", "https://example.test/pull/4", "PRR_1", "detail"));

@@ -110,11 +110,11 @@ internal sealed class RepoCommitFixture
                 new SandboxTargets(), NullLogger<SpecDeliveryAccounting>.Instance),
             new FailedRunPersistence(new WipCommitMessage()),
             new SpecOnlyPullRequests(factory.Object, new PullRequestOutcomePublisher(Events), NullLogger<SpecOnlyPullRequests>.Instance),
-            new ShortfallDelivery(new UnverifiedWorkReverter(gitOps, NullLogger<UnverifiedWorkReverter>.Instance),
+            new ShortfallDelivery(new UnverifiedWorkReverter(gitOps, new SandboxTargets(), NullLogger<UnverifiedWorkReverter>.Instance),
                 NullLogger<ShortfallDelivery>.Instance),
             new CompletedRunTicketSummary(),
             AgentSmith.Tests.Structure.StructureGateFixture.Publisher(),
-            NullLogger<CommitAndPRHandler>.Instance);
+            AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Banners(), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.ChunkStop(), NullLogger<CommitAndPRHandler>.Instance);
     }
 
     private static SandboxGitOperations GitOps() =>

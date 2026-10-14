@@ -199,13 +199,13 @@ public sealed class DeriveSpecHandlerTests
             new SpecSourceResolver(
                 new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance), AgentSmith.Tests.TestSupport.ApprovedSetDoubles.Continuation(),
                 new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
-                NullLogger<SpecSourceResolver>.Instance),
+                AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), NullLogger<SpecSourceResolver>.Instance),
             new SpecFallback(validator, draftReader, new DerivedSpecYamlRenderer()),
             new SpecCoverageRefusal(
                 new SpecCutGate(events, NullLogger<SpecCutGate>.Instance),
                 new SpecFallback(validator, draftReader, new DerivedSpecYamlRenderer())),
             new SpecSetTicketCommenter(
-                Mock.Of<ITicketProviderFactory>(), Moq.Mock.Of<AgentSmith.Contracts.Reviews.IFullSetPrNotice>(), NullLogger<SpecSetTicketCommenter>.Instance),
+                Mock.Of<ITicketProviderFactory>(), Moq.Mock.Of<AgentSmith.Contracts.Reviews.IFullSetPrNotice>(), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), NullLogger<SpecSetTicketCommenter>.Instance),
             ApprovedSetDoubles.KeptNotice(),
             new SpecCutGate(events, NullLogger<SpecCutGate>.Instance),
             new UnansweredQuestionPin(NullLogger<UnansweredQuestionPin>.Instance),

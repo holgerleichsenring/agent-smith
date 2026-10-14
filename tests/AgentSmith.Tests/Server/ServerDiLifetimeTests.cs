@@ -226,6 +226,22 @@ public sealed class ServerDiLifetimeTests
         filing.Link.Should().NotBeNull();
     }
 
+    // 2026-10-13-8762v: the series start is a worker singleton; the runway reader it asks resolves in its own scope.
+    [Fact]
+    public void ServerDi_SeriesAutoStart_ResolvesWithItsRunwayReaderInAScope()
+    {
+        var services = AgentSmith.Infrastructure.Persistence.Extensions.ServerStateExtensions.AddServerState(BuildServerLikeServices())
+            .AddDashboardApi();
+        services.AddReworkNudgeWorker();
+        using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+
+        provider.GetRequiredService<AgentSmith.Server.Contracts.ISeriesAutoStart>().Should()
+            .BeOfType<AgentSmith.Server.Services.Rework.SeriesAutoStart>();
+        provider.GetRequiredService<AgentSmith.Server.Services.Rework.ReworkNoActTail>().Should().NotBeNull();
+        using var scope = provider.CreateScope();
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.Tickets.Runway.SeriesRunwayReader>().Should().NotBeNull();
+    }
+
     // 2026-10-13-9a59o: a bound turn's run record reads its facts through the real composition.
     [Fact]
     public void ServerDi_BoundTicketRunFacts_ResolveFromTheRealComposition()
@@ -337,6 +353,8 @@ public sealed class ServerDiLifetimeTests
                 .AddRelationalPersistence()
                 // 2026-10-14-da5ed: as production does — a conversation's start asks through RunRetry's store.
                 .AddServerState()
+                // 2026-10-13-8762u: the access store's admin route — the stored series reader reads the config store.
+                .AddCallerIdentity()
                 .AddSandbox()
                 .AddSandboxOptions(configuration)
                 .AddSandboxGlobalConfig()

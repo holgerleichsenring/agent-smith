@@ -52,8 +52,9 @@ public sealed class RepositoryDecisionLoggerTests
         outcome.Should().Be(DecisionLogOutcome.Recorded);
         _repository.Files.Keys.Should().ContainSingle().Which.Should().Be(RunFile,
             "the decision is written where the repository is — inside the run's sandbox");
-        Directory.Exists("/work").Should().BeFalse(
-            "nothing may create the sandbox mount on the machine running this process");
+        File.Exists(Path.Combine("/work", RunFile)).Should().BeFalse(
+            "nothing may write the sandbox mount on the machine running this process — which, inside a sandbox, "
+            + "is the clone's own /work");
     }
 
     [Fact]

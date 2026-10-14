@@ -15,6 +15,6 @@ public interface ISpecPremiseChecker
 {
     Task<PremiseCheck> CheckAsync(
         SpecDraft draft, SpecPremises premises, DerivationLook look,
-        IReadOnlyList<SpecProgress> alreadyRan, string key, AgentConfig agent,
+        IReadOnlyList<SpecProgress> alreadyRan, IReadOnlyList<PrecedingNote> notes, string key, AgentConfig agent,
         PipelineCostTracker costTracker, CancellationToken cancellationToken);
 }

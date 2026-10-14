@@ -37,7 +37,7 @@ internal sealed class TicketStoreHarness : IDisposable
     private readonly SqliteConnection _connection = MigratedStoreTemplate.OpenCopy();
     private readonly ServiceProvider _provider;
 
-    public TicketStoreHarness()
+    public TicketStoreHarness(Action<IServiceCollection>? configure = null)
     {
         Lease.Setup(l => l.GetByTicketAsync(It.IsAny<string>(), It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => HeldLease);
@@ -52,18 +52,24 @@ internal sealed class TicketStoreHarness : IDisposable
         services.AddSingleton(Config);
         services.AddTransient<FiledWorkSpecReviews>().AddTransient<FiledWorkRunsReader>().AddTransient<TicketRunEndingsReader>();
         services.AddScoped<PrReviewRecordRepository>().AddScoped<NamedPullRequestReader>();
+        services.AddScoped<ReworkLedgerRepository>(); // 2026-10-13-8762v: the runway reads the ledger
         services.AddSingleton(Nudges.Object);
         // 2026-10-13-9a59h: the tracker, the configuration loader and the activity nudge are the check's and the
         // conversation's substitutes; the session store and the pull-request read port are real.
         Loader.Setup(l => l.LoadConfig(It.IsAny<string>())).Returns(() => Config);
         Trackers.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(() => Tracker.Object);
         services.AddSingleton(Loader.Object).AddSingleton(new ServerContext("config.yml"));
+        services.AddSingleton<AgentSmith.Application.Services.Specs.ISeriesSettingsReader,
+            AgentSmith.Application.Services.Specs.LoaderSeriesSettingsReader>(); // 2026-10-13-8762u
         services.AddSingleton(Trackers.Object).AddSingleton(Activity.Object);
         services.AddSingleton<TrackerIdentity>();
         services.AddScoped<IPrReviewRecordReader>(sp => sp.GetRequiredService<PrReviewRecordRepository>());
         services.AddScoped<SpecDialogSessionRepository>();
         services.AddSingleton<IUniqueViolationTranslator, SqliteUniqueViolationTranslator>();
+        services.AddSingleton<AgentSmith.Contracts.Specs.ISpecApprovalStore>(Approvals); // 2026-10-13-8762l
         services.AddTicketReaders();
+        services.AddTicketDefaults(); // 2026-10-13-8762p
+        configure?.Invoke(services);
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
     }
 
@@ -75,6 +81,7 @@ internal sealed class TicketStoreHarness : IDisposable
     public Mock<ITicketProvider> Tracker { get; } = new();
     public Mock<ITicketActivityNudge> Activity { get; } = new();
     public Dictionary<string, int> Positions { get; } = new(StringComparer.Ordinal);
+    public AgentSmith.Application.Services.Persistence.InMemorySpecApprovalStore Approvals { get; } = new();
     public StaleLease? HeldLease { get; set; }
 
     public AgentSmithConfig Config { get; } = new()
@@ -89,6 +96,11 @@ internal sealed class TicketStoreHarness : IDisposable
     public TicketDetailReader Detail => _provider.GetRequiredService<TicketDetailReader>();
     public TicketSeriesReader Series => _provider.GetRequiredService<TicketSeriesReader>();
     public TicketConversationReader Conversation => _provider.GetRequiredService<TicketConversationReader>();
+    public TicketReviewsReader Reviews => _provider.GetRequiredService<TicketReviewsReader>();
+    public AgentSmith.Server.Services.Tickets.Defaults.TicketDefaultsReader Defaults =>
+        _provider.GetRequiredService<AgentSmith.Server.Services.Tickets.Defaults.TicketDefaultsReader>();
+    public AgentSmith.Server.Services.Tickets.Defaults.DefaultVerdictWriter Verdicts =>
+        _provider.GetRequiredService<AgentSmith.Server.Services.Tickets.Defaults.DefaultVerdictWriter>();
     public TicketBetweenAttemptsChecker Checker => _provider.GetRequiredService<TicketBetweenAttemptsChecker>();
     public TicketCheckKicks Kicks => _provider.GetRequiredService<TicketCheckKicks>();
     public IServiceProvider Services => _provider;
@@ -98,6 +110,12 @@ internal sealed class TicketStoreHarness : IDisposable
         await using var ctx = new AgentSmithDbContext(Options());
         foreach (var row in rows) ctx.Add(row);
         await ctx.SaveChangesAsync();
+    }
+
+    public async Task<List<T>> ReadAllAsync<T>() where T : class
+    {
+        await using var ctx = new AgentSmithDbContext(Options());
+        return await ctx.Set<T>().AsNoTracking().ToListAsync();
     }
 
     public async Task DeleteRunAsync(string runId)

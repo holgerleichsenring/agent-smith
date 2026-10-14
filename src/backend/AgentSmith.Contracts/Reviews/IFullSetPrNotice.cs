@@ -5,7 +5,7 @@ namespace AgentSmith.Contracts.Reviews;
 
 /// <summary>
 /// 2026-10-08-e8b9c: tells the pull request a Request changes came from that its specification is full
-/// — every one of SpecSet.MaxSpecs specs has run — so the review was not cut into it.
+/// — every one of series.max_specs specs has run — so the review was not cut into it.
 /// </summary>
 public interface IFullSetPrNotice
 {

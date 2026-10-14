@@ -37,7 +37,7 @@ public sealed partial class SpecDialogOutcomeTests
         finding.Why.Should().Be("the spec also forbids touching the service");
         finding.Quote.Should().Be("GET /widget returns the widget");
         finding.Evidence.Should().BeNull("a contradiction quotes the spec; it cites no look");
-        harness.ChatClient.InvocationCount.Should().Be(1, "the review is not drawn from the master's script");
+        harness.ChatClient.ScriptedInvocationCount.Should().Be(1, "the review is not drawn from the master's script");
     }
 
     [Fact]

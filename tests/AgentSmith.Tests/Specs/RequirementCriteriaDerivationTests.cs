@@ -35,7 +35,7 @@ public sealed class RequirementCriteriaDerivationTests
         var ticket = new Ticket(new TicketId("42"), "p9000a: Widget storage layer", Body, null, "open", "test");
 
         var prompt = SpecPromptComposer.Compose(
-            ticket, TicketSegmenter.Segment(Body), previous: null, cause: string.Empty, new PipelineContext());
+            ticket, TicketSegmenter.Segment(Body), previous: null, cause: string.Empty, new PipelineContext(), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults);
 
         prompt.Should().Contain("**Acceptance Criteria:** \n- the table exists\n- the repository reads it back");
         prompt.Should().NotContain("None specified");

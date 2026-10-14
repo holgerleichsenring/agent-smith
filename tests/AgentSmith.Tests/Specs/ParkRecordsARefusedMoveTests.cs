@@ -270,7 +270,7 @@ public sealed class ParkRecordsARefusedMoveTests
         transitionerFactory.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
             .Returns(transitioner.Object);
         return new TicketClaimService(
-            claimLock.Object, _store, transitionerFactory.Object, Mock.Of<IRedisJobQueue>(),
+            claimLock.Object, _store, new AgentSmith.Application.Services.Resume.NullPreviousAttemptReader(), transitionerFactory.Object, Mock.Of<IRedisJobQueue>(),
             new NoOpActiveRunLease(), new InMemoryTakenTicketStore(),
             NullLogger<TicketClaimService>.Instance);
     }

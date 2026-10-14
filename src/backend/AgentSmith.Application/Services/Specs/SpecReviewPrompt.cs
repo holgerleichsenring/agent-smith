@@ -19,8 +19,12 @@ public static class SpecReviewPrompt
     /// part, and the reviewer is told so rather than quoting a rule it half read.</summary>
     public const int MaxPrinciplesChars = 40_000;
 
+    /// <summary>2026-10-13-8762k: the series contract's share of the prompt (<see cref="SpecReviewContractSection"/>).</summary>
+    public const int MaxContractChars = 20_000;
+
     public static string For(
-        SpecDraft draft, string? principles, IReadOnlyList<SpecDiff> diffs, DerivationLook? look)
+        SpecDraft draft, string? principles, IReadOnlyList<SpecDiff> diffs, DerivationLook? look,
+        Contracts.Specs.SeriesContract? contract = null, RatifiedMockOffer? mock = null)
     {
         ArgumentNullException.ThrowIfNull(draft);
         ArgumentNullException.ThrowIfNull(diffs);
@@ -48,7 +52,7 @@ public static class SpecReviewPrompt
 
             ## The spec this diff was written to
             {{draft.Yaml.TrimEnd()}}
-            {{Principles(principles)}}{{DerivationLookPromptSection.Render(look)}}
+            {{Principles(principles)}}{{SpecReviewContractSection.Render(contract, draft.SpecId, MaxContractChars)}}{{DerivationLookPromptSection.Render(look)}}{{mock?.PromptSection}}
             ## The diff
             {{Diffs(diffs)}}
             """;

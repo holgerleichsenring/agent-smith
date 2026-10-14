@@ -1,5 +1,6 @@
 using System.Text;
 using AgentSmith.Application.Services.Specs;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Specs;
 
 namespace AgentSmith.Application.Services.Prompts;
@@ -19,8 +20,12 @@ namespace AgentSmith.Application.Services.Prompts;
 /// </summary>
 public static class PreviousCutPromptSection
 {
-    public static string Render(SpecSet? previous, string cause)
+    public const string ContractMembers = "Repeat the series contract, amended as needed; name members by their position in your reply; only executed specs keep their ids.";
+
+    /// <param name="series">2026-10-13-8762u: the series block an append's room is computed from.</param>
+    public static string Render(SpecSet? previous, string cause, SeriesConfig series)
     {
+        ArgumentNullException.ThrowIfNull(series);
         if (previous is null || previous.IsHandedBack) return string.Empty;
         var sb = new StringBuilder();
         sb.AppendLine();
@@ -30,7 +35,8 @@ public static class PreviousCutPromptSection
         if (cause == SpecRevisionCause.Comment) sb.AppendLine(CommentParagraph(previous));
         if (cause == SpecRevisionCause.Rework) sb.AppendLine(ReworkParagraph(previous));
         if (cause == SpecRevisionCause.StatusBack) sb.AppendLine(StatusBackParagraph(previous));
-        if (SpecAmendmentRule.IsAppend(cause, previous)) sb.AppendLine(AppendParagraph(previous, cause));
+        if (cause == SpecRevisionCause.Overrule) sb.AppendLine(OverruleParagraph(previous));
+        if (SpecAmendmentRule.IsAppend(cause, previous)) sb.AppendLine(AppendParagraph(previous, cause, series));
         foreach (var spec in previous.Specs)
         {
             var executed = previous.Executed.Contains(spec.SpecId, StringComparer.Ordinal);
@@ -38,6 +44,8 @@ public static class PreviousCutPromptSection
                 $"- {spec.SpecId} ({(executed ? "EXECUTED — keep exactly as it is" : "not started")}): "
                 + spec.Draft.Goal);
         }
+        if (previous.Contract is not null) // 2026-10-13-8762j
+            sb.Append(SeriesContractPromptSection.Render(previous.Contract)).AppendLine(ContractMembers);
         sb.AppendLine();
         sb.AppendLine(
             "Return the WHOLE set again. Repeat every executed spec unchanged — same goal, "
@@ -58,15 +66,17 @@ public static class PreviousCutPromptSection
         + "asks. Executed specs stay exactly as they are.";
 
     // 2026-10-08-f114: with nothing left to run, the only place the input can go is AFTER the head.
-    private static string AppendParagraph(SpecSet previous, string cause) =>
+    // 2026-10-13-8762u: at most the series' room, and no more than one attempt runs.
+    private static string AppendParagraph(SpecSet previous, string cause, SeriesConfig series) =>
         $"Every spec above has executed. Repeat them unchanged and ADD new specs after them that carry out "
         + $"what {Source(cause)} "
-        + $"asks — at most {SpecSet.MaxSpecs - previous.Executed.Count} new spec(s).";
+        + $"asks — at most {series.AppendRoom(previous.Executed.Count)} new spec(s).";
 
     private static string Source(string cause) => cause switch
     {
         SpecRevisionCause.Rework => "the pull request review section",
         SpecRevisionCause.StatusBack => "the ticket conversation, the current ticket text and the pull request review section",
+        SpecRevisionCause.Overrule => "the overruled defaults section",
         _ => "the ticket conversation and the current ticket text",
     };
 
@@ -74,6 +84,12 @@ public static class PreviousCutPromptSection
     private static string StatusBackParagraph(SpecSet previous) =>
         $"A person moved the ticket back to work after revision {previous.Current.Number} ran — what they want is in the "
         + "ticket conversation, the current ticket text and the pull request review section above.";
+
+    // 2026-10-13-8762p: the question, the default taken and the person's note are in their own section.
+    private static string OverruleParagraph(SpecSet previous) =>
+        $"A person overruled a default taken after revision {previous.Current.Number} was cut — the question, the "
+        + "answer taken by default and their note are in the overruled defaults section above. Amend the specs that "
+        + "have not started so they no longer rest on the overruled choice. Executed specs stay exactly as they are.";
 
     private static string CommentParagraph(SpecSet previous) =>
         $"The ticket was commented on after revision {previous.Current.Number} was cut — the comment "

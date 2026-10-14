@@ -1,11 +1,15 @@
 "use client";
 
+import { DialogProposalFindings } from "@/components/dialog/DialogProposalFindings";
+import { DialogProposalRounds, notReviewedLabel } from "@/components/dialog/DialogProposalRounds";
 import { dispositionMark } from "@/lib/tickets/approvalEffect";
 import type { TicketApprovalPreview, TicketConversation } from "@/types/tickets";
 
 // 2026-10-13-9a59r: the open proposal of the ticket's conversation — each draft (goal, repository, done
 // when) marked with 9a59l's disposition, then the series' other specs as the preview keeps or drops them.
 // No revision number: none is served for a proposal not yet approved.
+// 2026-10-13-8762i: each draft's review rounds, what still stands, and what is not reviewed yet.
+// 2026-10-13-8762t: the mock version a person ratified for a draft; ratifying is the conversation's act.
 
 const DISPOSITION_CLASS: Record<string, string> = { kept: "keep", recut: "recut", appended: "add", dropped: "drop" };
 
@@ -19,6 +23,7 @@ export function ProposalBlock({ proposal, preview }: Props) {
   const drafted = new Set(proposal.drafts.map((d) => d.specId));
   const others = (preview?.specs ?? []).filter((s) => !drafted.has(s.specId));
   const refused = preview?.effect.startsWith("refused") === true;
+  const waiting = proposal.notReviewed ?? [];
   return (
     <div className="proposal" data-testid="ticket-proposal">
       <div className="ph">
@@ -40,9 +45,21 @@ export function ProposalBlock({ proposal, preview }: Props) {
                 {kind ? ` · ${kind}` : ""}
               </span>
               {draft.done.length > 0 && <span className="done-when">Done when: {draft.done.join("; ")}</span>}
+              {draft.ratifiedMock != null && (
+                <span className="pill ok" data-testid={`proposal-ratified-mock-${draft.specId}`}>mock v{draft.ratifiedMock} ratified</span>
+              )}
+              {waiting.includes(draft.specId) && (
+                <span className="pill amber" data-testid={`proposal-not-reviewed-${draft.specId}`}>not reviewed yet</span>
+              )}
+              <DialogProposalRounds rounds={proposal.reviewRounds?.filter((r) => r.specId === draft.specId)} />
             </div>
           );
         })}
+        <DialogProposalRounds rounds={proposal.reviewRounds?.filter((r) => !drafted.has(r.specId))} />
+        {waiting.filter((entry) => !drafted.has(entry)).map((entry) => (
+          <span key={entry} className="pill amber" data-testid={`proposal-not-reviewed-${entry}`}>{notReviewedLabel(entry)}</span>
+        ))}
+        <DialogProposalFindings findings={proposal.findings} />
       </div>
     </div>
   );

@@ -34,7 +34,7 @@ namespace AgentSmith.Application.Services.Handlers;
 public sealed class AgenticMasterHandler(
     IAgenticLoopRunner loopRunner,
     IPromptCatalog prompts,
-    IDecisionLogger decisionLogger,
+    MasterRecordToolHosts recordHosts, // 2026-10-13-8762m: log_decision, recall, remember, hand_forward
     AgentSmithConfig config,
     IContextYamlSerializer contextYamlSerializer,
     ContextDocumentGate contextDocumentGate, // 2026-08-25-c9c7: judges write_context_yaml's document
@@ -58,7 +58,7 @@ public sealed class AgenticMasterHandler(
     MasterReengagementLoop reengagement, // 2026-10-13-9a59f: the open loop, lifted out
     Passes.MasterPassRecorder passes, // 2026-10-13-9a59f: every master pass of a spec, recorded
     RunWorkCheckpointer checkpointer, // p0360: mid-run work durability
-    Repositories.RunRepositoriesFactory runRepositories, // 2026-10-12-f5f7c: memory + decision files per repository
+    Memory.MemoryIndexReader memoryIndex, // 2026-10-13-8762m: re-read at every spec-execution start
     IDialogueTransport? dialogueTransport,
     MasterToolComposition composition, // which tool surface this master gets
     ITurnActivityObserverAccessor turnActivity, // 2026-09-17-042ee: the turn's own steps
@@ -99,6 +99,7 @@ public sealed class AgenticMasterHandler(
         // selects this prompt. Same master (coding-agent-master), spec-specific user
         // prompt + a ticket-parking ask_human instead of the live transport.
         var isSpecExecution = context.Pipeline.Has(ContextKeys.CurrentSpec);
+        if (isSpecExecution) await memoryIndex.RefreshAsync(context.Pipeline, cancellationToken); // what spec N remembered
         // p0244: give the master the per-run record dir so it writes plan.md /
         // decisions.md DIRECTLY into .agentsmith/runs/{runId}/ (the same dir the
         // framework writes result.md to + reads the plan back from), instead of a
@@ -240,12 +241,7 @@ public sealed class AgenticMasterHandler(
             keyToRepo: keyToRepo, logger: logger)
         { Commands = Specs.SpecRunCommandScope.Open(context.Pipeline) };
         templates.AttachTo(fs); // 2026-09-13-6f35: reachable by name, refused on write by kind
-        // p0380 / 2026-10-12-f5f7c: decisions, recall and remember are backed per REPOSITORY,
-        // resolved on every call so a repository ensure_repo_sandbox adds mid-run counts.
-        var repositories = runRepositories.For(context.Pipeline);
-        var log = new LogDecisionToolHost(decisionLogger, repositories);
-        var recall = new MemoryRecallToolHost(repositories, context.Repository.LocalPath, logger);
-        var remember = new MemoryWriteToolHost(repositories, context.Repository.LocalPath, logger);
+        var records = recordHosts.Create(context.Pipeline, context.Repository.LocalPath);
         // p0315b: the dialogue job id (spec-dialog: the session id) makes ask_human
         // live — questions publish on job:{id}:out and the thread's answers come
         // back on job:{id}:in. Absent (run jobs today) → the tool reports itself
@@ -371,7 +367,7 @@ public sealed class AgenticMasterHandler(
             costTracker.EstimateCostUsd, context.AgentConfig.VerdictOwedAfterIterations, logger);
         var masterHooks = isScanMaster || isSpecDialog
             ? null
-            : MasterLoopHooksFactory.Build(context, costTracker, () => progress.GetLedger(), log, verdictOwed);
+            : MasterLoopHooksFactory.Build(context, costTracker, () => progress.GetLedger(), records.Log, verdictOwed);
         var iterationCeiling = isScanMaster || isSpecDialog
             ? (int?)null
             : context.AgentConfig.MaxMasterLoopIterations;
@@ -379,8 +375,8 @@ public sealed class AgenticMasterHandler(
         // 2026-09-17-042ee/2026-09-22-5891: ONLY the design surface reports, wrapped where it
         // is CONSUMED — it has two exits now, and a turn that spawns nothing must still report.
         var composed = composition.Compose(
-            isScanMaster, isSpecDialog, fs, log, human, credentials, writeContextYaml, web,
-            progress, recall, remember, withdraw, readTicket, ticketWork, ticketRuns, context);
+            isScanMaster, isSpecDialog, fs, records, human, credentials, writeContextYaml, web,
+            progress, withdraw, readTicket, ticketWork, ticketRuns, context);
         var masterTools = isSpecDialog ? reportingTools.Reporting(composed) : composed;
 
         var request = new AgenticLoopRequest(
@@ -416,7 +412,7 @@ public sealed class AgenticMasterHandler(
             // (the pipeline finalizes with a record/partial PR). Never a laundered green.
             context.Pipeline.Set(ContextKeys.CodeChanges, fs.GetChanges());
             context.Pipeline.Set(ContextKeys.ProgressLedger, progress.GetLedger());
-            var partial = log.GetDecisions();
+            var partial = records.Log.GetDecisions();
             if (partial.Count > 0) context.Pipeline.AppendDecisions(partial);
             logger.LogWarning(
                 "Master '{Skill}' stopped on the per-pipeline cost budget: {Reason}",
@@ -435,7 +431,7 @@ public sealed class AgenticMasterHandler(
             // instead of a bare ".NET "A task was canceled.".
             context.Pipeline.Set(ContextKeys.CodeChanges, fs.GetChanges());
             context.Pipeline.Set(ContextKeys.ProgressLedger, progress.GetLedger());
-            var partialDecisions = log.GetDecisions();
+            var partialDecisions = records.Log.GetDecisions();
             if (partialDecisions.Count > 0) context.Pipeline.AppendDecisions(partialDecisions);
             var reason = MasterOutcomes.DescribeMasterFailure(ex);
             logger.LogWarning(ex, "Master skill '{Skill}' failed: {Reason}", context.MasterSkillName, reason);
@@ -461,7 +457,7 @@ public sealed class AgenticMasterHandler(
         if (ticketClarifications?.Captured is { } masterQuestion)
         {
             context.Pipeline.Set(ContextKeys.CodeChanges, fs.GetChanges());
-            var partial = log.GetDecisions();
+            var partial = records.Log.GetDecisions();
             if (partial.Count > 0) context.Pipeline.AppendDecisions(partial);
             context.Pipeline.Set<IReadOnlyList<Domain.Entities.PlanOpenQuestion>>(
                 ContextKeys.MasterOpenQuestions, [masterQuestion]);
@@ -498,9 +494,9 @@ public sealed class AgenticMasterHandler(
         if (isSpecDialog)
             loopResult = await GateSpecOutcomeAsync(
                 context.Pipeline, request, userPrompt, loopResult, conversation, costTracker, cancellationToken);
-        // 2026-09-17-042ed: a spec or epic the gate ADMITTED is reviewed against the turn's repositories.
         if (isSpecDialog)
-            await proposalReview.ReviewAsync(context.Pipeline, context.AgentConfig, costTracker, cancellationToken);
+            loopResult = await proposalReview.ReviewAsync(context.Pipeline, request, userPrompt, loopResult, conversation,
+                context.AgentConfig, costTracker, cancellationToken);
 
         var changes = fs.GetChanges();
 
@@ -535,7 +531,7 @@ public sealed class AgenticMasterHandler(
             }
         }
 
-        var decisions = log.GetDecisions();
+        var decisions = records.Log.GetDecisions();
 
         context.Pipeline.Set(ContextKeys.CodeChanges, changes);
         // p0341: the final ledger for the done-status diagnostic (WriteRunResult) + result.md.
@@ -592,13 +588,13 @@ public sealed class AgenticMasterHandler(
         // p0341c: the OPEN loop's re-engagement — MasterReengagementLoop; it ends pass 0 with its first decision.
         pass0?.Dispose();
         (loopResult, changes, verification) = await reengagement.RunAsync(
-            new ReengageSession(context, request, userPrompt, pipelineName, progress, fs, log, verdictOwed,
-                costTracker, TrackMasterResponse, ticketClarifications, conversation, p => masterPass = p, decisionLogger),
+            new ReengageSession(context, request, userPrompt, pipelineName, progress, fs, records.Log, verdictOwed,
+                costTracker, TrackMasterResponse, ticketClarifications, conversation, p => masterPass = p, records.Decisions),
             new ReengageState(loopResult, changes, verification), pass0, verification, cancellationToken);
         if (ticketClarifications?.Captured is { } reengageQuestion)
         {
             context.Pipeline.Set(ContextKeys.CodeChanges, changes);
-            var partialQ = log.GetDecisions();
+            var partialQ = records.Log.GetDecisions();
             if (partialQ.Count > 0) context.Pipeline.AppendDecisions(partialQ);
             context.Pipeline.Set<IReadOnlyList<Domain.Entities.PlanOpenQuestion>>(
                 ContextKeys.MasterOpenQuestions, [reengageQuestion]);

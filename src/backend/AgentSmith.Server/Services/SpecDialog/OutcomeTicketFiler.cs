@@ -43,7 +43,7 @@ public sealed class OutcomeTicketFiler(
                     provider, project, bug.Ticket, filed, mayStartRuns, cancellationToken),
                 // 2026-10-06-03c7c: the series is minted and re-id'd BEFORE anything renders.
                 SpecOutcome spec => FileSpecAsync(provider, state, project,
-                    seriesFiling.Mint([spec.Draft]), filed, notes, mayStartRuns, cancellationToken),
+                    seriesFiling.Mint([spec.Draft], proposal), filed, notes, mayStartRuns, cancellationToken),
                 EpicOutcome epic => FileEpicAsync(
                     provider, state, project, epic, filed, notes, mayStartRuns, cancellationToken),
                 _ => throw new InvalidOperationException(
@@ -109,7 +109,7 @@ public sealed class OutcomeTicketFiler(
         var order = orderer.Order(epic.Children);
         if (order.Error is not null)
             throw new InvalidOperationException($"The epic cannot be filed: {order.Error}.");
-        var series = seriesFiling.Mint(order.Children);
+        var series = seriesFiling.Mint(order.Children, epic);
         return sets.FileAsync(
             provider, state, project, TicketFilingRole.Work,
             // 2026-09-13-ed5a: the work ticket records what the analysis read while it cut.

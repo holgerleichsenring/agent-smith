@@ -206,7 +206,34 @@ public sealed class SubAgentRunnerTests
         stub.SeenRequests[0].MaxIterations.Should().Be(6);
     }
 
-    private static SubAgentRunner BuildRunner(
+    [Theory]
+    [InlineData("")]
+    [InlineData("  \n ")]
+    [InlineData(null)]
+    public async Task SubAgentRunner_ChildWithBlankAnswer_IsEmptyNotSucceeded(string? answer)
+    {
+        var publisher = new RecordingEventPublisher();
+        var sut = BuildRunner(new StubLoopRunner(answer: answer), publisher: publisher);
+
+        var results = await sut.RunAsync(new[] { Spec("RepoScout") }, BuildContext(), CancellationToken.None);
+
+        results.Single().Status.Should().Be(SubAgentStatus.Empty);
+        publisher.Events.OfType<SubAgentCompletedEvent>().Single().Status.Should().Be("Empty");
+    }
+
+    [Fact]
+    public async Task SubAgentRunner_ChildWithAnswer_StaysSucceeded()
+    {
+        var publisher = new RecordingEventPublisher();
+        var sut = BuildRunner(new StubLoopRunner(answer: "two endpoints found"), publisher: publisher);
+
+        var results = await sut.RunAsync(new[] { Spec("RepoScout") }, BuildContext(), CancellationToken.None);
+
+        results.Single().Status.Should().Be(SubAgentStatus.Succeeded);
+        publisher.Events.OfType<SubAgentCompletedEvent>().Single().Status.Should().Be("Succeeded");
+    }
+
+    internal static SubAgentRunner BuildRunner(
         IAgenticLoopRunner loopRunner,
         int maxConcurrent = 4,
         IEventPublisher? publisher = null)
@@ -219,7 +246,7 @@ public sealed class SubAgentRunnerTests
             NullLogger<SubAgentRunner>.Instance);
     }
 
-    private static SubAgentContext BuildContext(
+    internal static SubAgentContext BuildContext(
         IReadOnlyDictionary<string, ISandbox>? sandboxes = null)
     {
         var pipeline = new PipelineContext();
@@ -252,6 +279,7 @@ internal sealed class StubLoopRunner : IAgenticLoopRunner
     private readonly bool _reverseOrderDelays;
     private readonly bool _holdGate;
     private readonly string? _failOnName;
+    private readonly string? _answer;
     private readonly TaskCompletionSource _gate = new();
     private int _inFlight;
     private int _peakInFlight;
@@ -261,11 +289,13 @@ internal sealed class StubLoopRunner : IAgenticLoopRunner
     public StubLoopRunner(
         bool reverseOrderDelays = false,
         bool holdGate = false,
-        string? failOnName = null)
+        string? failOnName = null,
+        string? answer = "ok")
     {
         _reverseOrderDelays = reverseOrderDelays;
         _holdGate = holdGate;
         _failOnName = failOnName;
+        _answer = answer;
     }
 
     public int PeakInFlight { get { lock (_lock) return _peakInFlight; } }
@@ -295,7 +325,7 @@ internal sealed class StubLoopRunner : IAgenticLoopRunner
 
             if (_holdGate) await _gate.Task;
 
-            var response = new ChatResponse(new ChatMessage(ChatRole.Assistant, "ok"))
+            var response = new ChatResponse(new ChatMessage(ChatRole.Assistant, _answer))
             {
                 Usage = new UsageDetails { InputTokenCount = 100, OutputTokenCount = 20 },
             };

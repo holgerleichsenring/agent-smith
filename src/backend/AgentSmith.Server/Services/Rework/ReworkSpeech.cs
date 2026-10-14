@@ -22,7 +22,7 @@ public sealed class ReworkSpeech(
         string ticketText, string prText, CancellationToken ct)
     {
         var key = $"{runId}|{act.Act.At.UtcTicks}|{kind}";
-        if (!await MarkAsync(project.Name, ticketId, key, ct)) return;
+        if (!await MarkOnceAsync(project.Name, ticketId, key, ct)) return;
         try
         {
             if (act.Repo is not null && PullRequestNumber.FromUrl(act.PrUrl) is { } pr
@@ -37,7 +37,20 @@ public sealed class ReworkSpeech(
         }
     }
 
-    private async Task<bool> MarkAsync(string project, string ticketId, string key, CancellationToken ct)
+    /// <summary>2026-10-13-8762v: says the text on the ticket once per key; true when the key was new.</summary>
+    public async Task<bool> SayOnTicketOnceAsync(ResolvedProject project, string ticketId, string key, string text, CancellationToken ct)
+    {
+        if (!await MarkOnceAsync(project.Name, ticketId, key, ct)) return false;
+        try { await tickets.Create(project.Tracker).UpdateStatusAsync(new TicketId(ticketId), text, ct); }
+        catch (Exception ex) when (!ct.IsCancellationRequested)
+        {
+            logger.LogWarning(ex, "Could not say '{Key}' on {Project}/#{Ticket}", key, project.Name, ticketId);
+        }
+        return true;
+    }
+
+    /// <summary>Spends <paramref name="key"/> in the ticket's ledger; false when it was already spent.</summary>
+    public async Task<bool> MarkOnceAsync(string project, string ticketId, string key, CancellationToken ct)
     {
         using var scope = scopes.CreateScope();
         return await scope.ServiceProvider.GetRequiredService<ReworkLedgerRepository>().TryMarkSpokenAsync(project, ticketId, key, ct);

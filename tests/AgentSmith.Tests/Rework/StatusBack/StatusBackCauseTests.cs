@@ -53,7 +53,7 @@ public sealed class StatusBackCauseTests
     [Fact]
     public void NeedsModel_StatusBackWithUnexecutedTail_False()
     {
-        SpecAmendmentRule.NeedsModel(SpecRevisionCause.StatusBack, Set(3, 2)).Should().BeFalse();
-        SpecAmendmentRule.NeedsModel(SpecRevisionCause.StatusBack, Set(2, 2)).Should().BeTrue();
+        SpecAmendmentRule.NeedsModel(SpecRevisionCause.StatusBack, Set(3, 2), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults).Should().BeFalse();
+        SpecAmendmentRule.NeedsModel(SpecRevisionCause.StatusBack, Set(2, 2), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults).Should().BeTrue();
     }
 }

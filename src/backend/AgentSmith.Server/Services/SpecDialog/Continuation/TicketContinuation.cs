@@ -14,7 +14,8 @@ namespace AgentSmith.Server.Services.SpecDialog.Continuation;
 /// </summary>
 public static class TicketContinuation
 {
-    public static TicketContinuationDecision Decide(TicketContinuationState state, OutcomeProposal proposal)
+    /// <param name="settings">2026-10-13-8762u: the series settings the continuation is capped by, read by the caller.</param>
+    public static TicketContinuationDecision Decide(TicketContinuationState state, OutcomeProposal proposal, SeriesSettings settings)
     {
         ArgumentNullException.ThrowIfNull(state);
         ArgumentNullException.ThrowIfNull(proposal);
@@ -24,7 +25,7 @@ public static class TicketContinuation
         if (error is not null) return Plain(Refused, $"The proposal cannot be recorded: {error}.", state);
         if (state.ClosedForWork) return FollowUp(state, drafts);
         var decision = state.Worked
-            ? SeriesContinuationIds.Continue(state, drafts, proposal is EpicOutcome)
+            ? SeriesContinuationIds.Continue(state, drafts, proposal is EpicOutcome, settings)
             : NeverWorked(state, drafts);
         return decision with { Start = OperatorStartArm.Of(state.Start, decision.Effect) }; // 2026-10-13-9a59m
     }

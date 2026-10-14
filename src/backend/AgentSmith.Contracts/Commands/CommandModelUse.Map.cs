@@ -40,6 +40,7 @@ public static partial class CommandModelUse
         // and the principles, with the read-only look of its own terms.
         [CommandNames.ReviewSpecDiff] = new(
             ModelUse.Call, "spec-review prompt", "findings on a file the reviewer read, cited"),
+        [CommandNames.ReviewSpecs] = new(ModelUse.Call, "spec attack brief", "per reviewer: a verdict, cited cuts and findings"),
         [CommandNames.DeriveSpec] = new(
             ModelUse.Call, "spec-derivation-master", "an ordered set of specs, as anchors"),
         [CommandNames.BootstrapDocument] = new(

@@ -1,0 +1,121 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-8762t
+goal: "The design conversation's proposal shows each spec's mock versions as a strip of screenshots with a Ratify button, and both proposal views name the version a person ratified."
+
+applies_to: "dashboard (dialog proposal panel, a new MockVersions strip, the ticket conversation's ProposalBlock, the spec-dialog API client and types) + backend (the conversation view's ratified marks, the ticket proposal draft view)"
+
+requires: [2026-10-13-8762s]
+
+facts:
+  - claim: "The dialog page reads one view per dialog id, refetched after every reply; its session view is built in SpecDialogViewReader and already carries the conversation's images and uploads beside the transcript and the proposal."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogViewReader.cs:23-51, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogViewReader.cs:70-93, src/backend/AgentSmith.Server/Models/SpecDialogSessionView.cs:42-58, src/dashboard/src/components/dialog/SpecDialogSurface.tsx:269"
+  - claim: "SpecDialogViewReader is 100 lines."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogViewReader.cs:100"
+  - claim: "The dashboard's dialog hook exposes refresh(), and the spec-dialog API client posts conversation acts by session id (resume) with apiFetch."
+    evidence: "src/dashboard/src/hooks/useSpecDialog.ts:126, src/dashboard/src/hooks/useSpecDialog.ts:543, src/dashboard/src/lib/specDialogApi.ts:68-82"
+  - claim: "The proposal tab renders DialogProposalPanel with the proposal alone; the panel renders Spec (for a spec and for an epic's parent) and Slice, and each of those renders the shared Sections block."
+    evidence: "src/dashboard/src/components/dialog/DialogPane.tsx:128, src/dashboard/src/components/dialog/DialogProposalPanel.tsx:30-51, src/dashboard/src/components/dialog/DialogProposalPanel.tsx:77-121"
+  - claim: "DialogPane already takes onRefresh and passes it on, and SpecDialogSurface already supplies the hook's refresh to it."
+    evidence: "src/dashboard/src/components/dialog/DialogPane.tsx:54, src/dashboard/src/components/dialog/DialogPane.tsx:75, src/dashboard/src/components/dialog/DialogPane.tsx:137, src/dashboard/src/components/dialog/SpecDialogSurface.tsx:456"
+  - claim: "The ticket page re-reads its conversation on this ticket's TicketActivityChanged, which a conversation save sends only through BoundSessionNudge."
+    evidence: "src/dashboard/src/lib/tickets/TicketPageStore.tsx:20-23, src/dashboard/src/lib/tickets/TicketPageStore.tsx:227, src/backend/AgentSmith.Server/Services/SpecDialog/BoundSessionNudge.cs:13-29"
+  - claim: "TicketTranscriptReader builds the proposal's drafts through static Of and Draft over the stored proposal alone; Turns reads the transcript through SpecDialogSessionMapper.ReadTranscript."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Conversation/TicketTranscriptReader.cs:28-29, src/backend/AgentSmith.Server/Services/Tickets/Conversation/TicketTranscriptReader.cs:37-48"
+  - claim: "The turn gate stays entered across the approval wait, while the computing span covers the computation alone."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnGate.cs:10-16, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs:69-86"
+  - claim: "DialogPane receives the open session."
+    evidence: "src/dashboard/src/components/dialog/DialogPane.tsx:42, src/dashboard/src/components/dialog/DialogPane.tsx:56"
+  - claim: "The ticket page's conversation tab shows the open proposal through ProposalBlock, whose drafts carry spec id, goal, repos and done, read by TicketTranscriptReader from the session's stored proposal."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketConversationTab.tsx:49, src/dashboard/src/components/tickets/detail/ProposalBlock.tsx:12-48, src/dashboard/src/types/tickets.ts:360-363, src/backend/AgentSmith.Server/Services/Tickets/Conversation/TicketTranscriptReader.cs:36-48, src/backend/AgentSmith.Server/Models/TicketConversationProposalView.cs:5-9"
+  - claim: "An image the API serves is drawn from bytes fetched with the bearer token by AuthedImage."
+    evidence: "src/dashboard/src/components/dialog/AuthedImage.tsx:6-15"
+  - claim: "Conversation files are never served as a page: raster images inline, everything else as an attachment, both with nosniff and a sandbox content-security policy; the upload routes read Kind site only."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogReferenceFileEndpoints.cs:10-14, src/backend/AgentSmith.Server/Extensions/SpecDialogReferenceFileEndpoints.cs:54-63, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceSetRepository.cs:64-66"
+  - claim: "Spec-dialog conversation routes need dialog.write and check reach by session id."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogResumeEndpoints.cs:36-40, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOwnership.cs:76-81"
+  - claim: "A new filing keeps the stored proposal (only a reject, a timeout or an acted ticket continuation clears it), and the hook keeps it beside the filing; DialogPane receives filed, which heldOutcome sets when the filing is newer than the proposal."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:36-55, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:64-72, src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:85-87, src/dashboard/src/hooks/useSpecDialog.ts:471-472, src/dashboard/src/hooks/useSpecDialog.ts:756-762, src/dashboard/src/components/dialog/DialogPane.tsx:46, src/dashboard/src/components/dialog/DialogPane.tsx:61"
+  - claim: "The turn gate's liveness is in-process; a second replica learns nothing of a turn another replica computes."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnGate.cs:18-27"
+  - claim: "The dialog types are hand-written in spec-dialog.ts; the session type lists images and references beside the proposal."
+    evidence: "src/dashboard/src/types/spec-dialog.ts:101-129"
+
+assumptions:
+  - "2026-10-13-8762r keeps, beside each mock version's html row ({specId}.html), its screenshot row ({specId}.jpg) in the same Kind mock storage, the version number derived at read from Id rank and never stored; its view field SpecDialogSessionView.Mocks lists every version (specId, version, name, at, hasShot) through IConversationMockReader, and its route GET /api/spec-dialog/conversations/{sessionId}/mocks/{specId}/{version}/shot serves the screenshot; a version without one shows its number and 'no screenshot'."
+  - "2026-10-13-8762s's RatifiedMocks.Of(transcript) and its POST …/mocks/{specId}/ratify route exist as that spec states: the route refuses with 409 only while the turn COMPUTES (SpecDialogTurnGate.Liveness), on the replica running the turn only; a ratification accepted on another replica is kept by s's transcript reload (GetOpenByThreadAsync re-reads the row before the turn's appends); a ratification while the approval waits is accepted, and it saves through BoundSessionNudge, so a bound ticket's page is nudged."
+  - "The ratified map is keyed by the design turn's spec id; a re-proposal that renames a spec id loses that spec's ratification in the strip and at the stamp, and the person ratifies again."
+
+scope:
+  in: >
+    VIEW: SpecDialogSessionView gains RatifiedMocks (spec id -> ratified version; appended LAST, null when no
+    version is ratified) from 2026-10-13-8762s's RatifiedMocks.Of(state.Transcript), set in SpecDialogViewReader's
+    existing with-block; the versions themselves are 2026-10-13-8762r's Mocks field, never listed twice. SHOT: the
+    strip draws 2026-10-13-8762r's shot route; this spec mints no route. TICKET VIEW:
+    TicketConversationDraftView gains RatifiedMock (int?, LAST): TicketTranscriptReader.Proposal reads the
+    session's transcript once (SpecDialogSessionMapper.ReadTranscript, as Turns does), computes RatifiedMocks.Of
+    and passes the map into Of and Draft, which stay static. DASHBOARD: spec-dialog.ts SpecDialogSession.ratifiedMocks
+    (beside 2026-10-13-8762r's mocks); tickets.ts draft ratifiedMock; specDialogApi.ts ratifySpecMock(sessionId,
+    specId, version) posting {version} and throwing the server's sentence on 404/409. MockVersions.tsx: per
+    spec (r's Mocks grouped by specId in version order) a horizontal strip of v1..vN, each an AuthedImage of its shot (or "v{n} — no screenshot"), the
+    ratified one outlined and labelled "ratified", every other one with a Ratify button; a click posts,
+    disables the strip until it answers, calls the pane's refresh on success and shows the refusal sentence
+    in place otherwise. FILED: when DialogPane holds a filing for the shown proposal (its filed prop, set by the
+    hook's heldOutcome when the filing is newer than the proposal), the strip is read-only — the ratified mark,
+    no Ratify buttons — plus one line: "filed with v{n}; a new ratification reaches the spec only through a new
+    approval of this ticket" ("filed; …" when none was ratified). DialogProposalPanel takes mocks, ratifiedMocks,
+    sessionId, onRatified and filed (a boolean) and hands them to
+    Spec and Slice, which render MockVersions next to Sections keyed by spec.specId (nothing for a spec with no
+    versions, so the epic's parent shows none); DialogPane passes session.mocks, session.ratifiedMocks,
+    session.sessionId, its EXISTING onRefresh as onRatified and filed !== null. SpecDialogSurface is untouched. ProposalBlock
+    adds "mock v{n} ratified" to a draft with ratifiedMock and nothing otherwise.
+  out: >
+    Writing, numbering and rendering mock versions and storing their screenshots — 2026-10-13-8762r. The
+    ratify act, the transcript turn, the stamp at filing and the compare at review — 2026-10-13-8762s.
+    Ratifying from the ticket page — nobody: the ticket page reads runs.read and ratifying is a design act of
+    the conversation (dialog.write); ProposalBlock only names it. Opening a mock as a live page — nobody: the
+    origin never serves conversation html as a page (SpecDialogReferenceFileEndpoints), so the strip shows
+    screenshots. Recording this member in contexts/dashboard — nobody: the record rules read contexts/default,
+    where every member records (contract decision 23, amended).
+
+decisions:
+  - key: "SCREENSHOTS, NEVER THE HTML. A model-authored page opened from the dashboard origin would run its script as the dashboard; the upload routes refuse that for every html, and a mock is no different. The strip shows the JPEG screenshot 2026-10-13-8762r stored for each version."
+  - key: "THE STRIP READS THE CONVERSATION VIEW, NOT A ROUTE OF ITS OWN. The page refetches one view after every reply, so the versions and the ratified mark arrive with the proposal they belong to; a separate list route would be a second read that can disagree with the first. Only the image bytes need a route."
+  - key: "ONE VERSION LIST, ONE SHOT ROUTE (series contract 2.2 and 2.6, amended). The versions and their screenshots are 2026-10-13-8762r's datum, read through its IConversationMockReader and served by its shot route; this spec adds only the ratified mark, which is computed from the transcript and stored nowhere new."
+  - key: "RATIFY LIVES ON THE PROPOSAL, NOT THE TRANSCRIPT. The decision is about what will be filed, and the proposal tab is where the spec it binds is shown; the transcript shows the resulting turn as it shows every other."
+  - key: "A FILED PROPOSAL OFFERS NO RATIFY. A new filing keeps the proposal on the pane, so a Ratify there would mark a version the filed yaml and the ticket branch never carry; 2026-10-13-8762s files the yaml once, at the approval."
+  - key: "THE 409 IS THE TURN REPLICA'S. The vitest pins the client's handling of a refusal, not the server's guarantee; across replicas the guarantee is that an accepted ratification is never lost (2026-10-13-8762s's reload)."
+  - key: "NO EVENT AND NO PUSH. A ratification is the operator's own click; the pane refreshes on its answer, and another viewer sees it on the view's next read, as every transcript turn."
+
+steps:
+  - id: view
+    action: "SpecDialogSessionView.RatifiedMocks (about 76 after 2026-10-13-8762r -> about 77); SpecDialogViewReader sets it from s's RatifiedMocks.Of in the with-block (about 104 after r, stays at or under 120)."
+  - id: ticket-view
+    action: "TicketConversationDraftView.RatifiedMock; TicketTranscriptReader.Proposal reads the transcript once and passes RatifiedMocks.Of into Of/Draft (about 64 after 2026-10-13-8762i -> about 68)."
+  - id: types-api
+    action: "spec-dialog.ts and tickets.ts mirrors; ratifySpecMock in specDialogApi.ts."
+  - id: strip
+    action: "MockVersions.tsx; DialogProposalPanel props threaded into Spec and Slice, which render the strip beside Sections; DialogPane passes mocks, ratifiedMocks, sessionId, its existing onRefresh and filed !== null; a filed proposal's strip is read-only with its note; SpecDialogSurface untouched."
+  - id: proposal-block
+    action: "ProposalBlock names the ratified version."
+  - id: tests
+    action: "Red first, then green, for every test below; pnpm gen:hub-events, pnpm test and pnpm build green; run the Server classes touched."
+
+tests:
+  - "SpecDialogView_RatifiedMocks_NewestRatificationPerSpec"
+  - "SpecDialogView_NothingRatified_HasNoRatifiedMocks"
+  - "TicketTranscriptReader_ProposalDraft_CarriesTheRatifiedMock"
+  - "MockVersions renders one thumbnail per version and marks the ratified one (vitest)"
+  - "MockVersions Ratify posts the version and refreshes on success (vitest)"
+  - "MockVersions shows the server's refusal sentence on 409 (the partner is computing) and leaves the strip unchanged (vitest)"
+  - "MockVersions shows 'no screenshot' for a version without one (vitest)"
+  - "DialogProposalPanel renders the strip only for the spec or slice that has versions, never for an epic's parent (vitest)"
+  - "TicketTranscriptReader_RatificationTurnAfterProposal_MarksTheDraft"
+  - "ProposalBlock names the ratified mock version (vitest)"
+  - "MockVersions_AfterFiling_ShowsNoRatifyButton (vitest: ratified mark kept, the filed note shown)"
+
+done:
+  - "In the design conversation's proposal, every spec with mock versions shows v1..vN as screenshots; clicking Ratify on one marks it ratified and the transcript gains the ratification turn without a reload."
+  - "Ratifying while the partner is computing is refused on the replica running the turn, and the strip shows the server's sentence and changes nothing; after the proposal was filed the strip shows the ratified version and no Ratify button; ratifying while the approval question waits is accepted."
+  - "The ticket page's conversation tab names the ratified mock version beside each proposed spec that has one, refreshed by the ratification itself (2026-10-13-8762s saves through BoundSessionNudge)."
+  - "No mock html is ever opened as a page on the dashboard origin."
+  - "Build green, full suite green, dashboard gen:hub-events/test/build green."

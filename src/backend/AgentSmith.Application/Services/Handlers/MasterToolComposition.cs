@@ -18,7 +18,8 @@ namespace AgentSmith.Application.Services.Handlers;
 /// the base surface (read-only Review for a scan master, content-reads for a design
 /// turn, read/write for a coding master), the escalation valve and the progress ledger
 /// where they belong, and the spawn / read-observations pair under the fan-out count
-/// that turn gates on.
+/// that turn gates on. Every function on the master's and the children's surface carries the
+/// sanity annotations.
 /// </summary>
 public sealed class MasterToolComposition(
     AgenticToolSurface toolSurface,
@@ -33,21 +34,16 @@ public sealed class MasterToolComposition(
     RenderReferenceToolFactory renderReference, // 2026-10-01-283de
     TicketActToolsFactory ticketActs,
     TurnActivityTools reportingTools,
+    GateStageToolHost gateStage,
+    Loop.Sanity.ToolResultSanityWrapper sanity,
     ILogger<MasterToolComposition> logger)
 {
-    // p0280: the master surface = its base surface (read-only Review for a scan master,
-    // read/write for a coding master) PLUS spawn_agents + read_sub_agent_observations when
-    // sub-agents are enabled. Children SHARE this fs (so their reads/writes aggregate into
-    // the master's read-set + changes) and get the same base surface — never spawn_agents.
-    // p0315b: the spec-dialog surface is content-reads + ask_human only.
-    // 2026-09-22-5891: a design turn fans out too, under its OWN count and child ceiling, and
-    // is excluded BY NAME below from the escalation valve (which would spawn a WRITABLE
-    // sandbox into a read-only turn) and the ledger.
+    // Children share the master's filesystem and base surface, never spawn_agents. A design turn fans out under its
+    // own count and child ceiling and is kept off the escalation valve (a writable sandbox) and the ledger.
     public IList<AITool> Compose(
-        bool isScanMaster, bool isSpecDialog, FilesystemToolHost fs, LogDecisionToolHost log, IToolHost human,
+        bool isScanMaster, bool isSpecDialog, FilesystemToolHost fs, MasterRecordTools records, IToolHost human,
         GetArtifactCredentialsToolHost credentials, WriteContextYamlToolHost writeContextYaml,
         WebToolHost? web, ProgressLedgerToolHost progress,
-        MemoryRecallToolHost recall, MemoryWriteToolHost remember,
         WithdrawFiledTicketToolHost? withdraw, ReadTicketToolHost? readTicket,
         TicketWorkToolHost? ticketWork, TicketRunsToolHost? ticketRuns,
         AgenticMasterContext context)
@@ -58,7 +54,7 @@ public sealed class MasterToolComposition(
         // AgenticToolSurface — only a design turn with a dialogue identity has one, and that is
         // what this method decides.
         IList<AITool> BaseSurface() => isSpecDialog
-            ? [.. toolSurface.SpecDialog(fs, human, web, recall, remember),
+            ? [.. toolSurface.SpecDialog(fs, human, web, records.Recall, records.Remember),
                .. withdraw?.GetTools(null, null) ?? [],
                // 2026-09-27-481ba: and reading the ticket the turn was seeded with, on the same
                // gate — only a BOUND design turn carries the port this is built from.
@@ -66,12 +62,14 @@ public sealed class MasterToolComposition(
                .. ticketWork?.GetTools(null, null) ?? [],
                .. ticketRuns?.GetTools(null, null) ?? []]
             : isScanMaster
-                ? toolSurface.Review(fs, log, web, recall, remember)
+                ? toolSurface.Review(fs, records.Log, web, records.Recall, records.Remember)
                 : toolSurface.ReadWriteWithHuman(
-                    fs, log, human, web: web, credentials: credentials, writeContextYaml: writeContextYaml,
-                    recall: recall, remember: remember);
+                    fs, records.Log, human, web: web, credentials: credentials, writeContextYaml: writeContextYaml,
+                    recall: records.Recall, remember: records.Remember);
 
         var master = BaseSurface();
+        // 2026-10-13-8762o: decide_by_default — coding master and design partner, outside BaseSurface: no child.
+        if (!isScanMaster) master = [.. master, .. records.DefaultDecision?.GetTools(null, null) ?? []];
         // 2026-10-01-7f7ab: design_read joins design and coding masters of a project with a figma
         // source — the MASTER only, outside BaseSurface: children fanning out over one file would
         // multiply calls against one rate limit, so no child surface derived from it carries it.
@@ -94,11 +92,13 @@ public sealed class MasterToolComposition(
             master = master
                 .Concat(ensureRepoSandboxFactory.Create(context.Pipeline, fs, logger).GetTools(null, null))
                 .Concat(progress.GetTools(null, null))
+                .Concat(gateStage.Tools(context.Pipeline))
+                .Concat(records.HandForward?.GetTools(null, null) ?? []) // 8762m: a spec's master only, never a child
                 .ToList();
 
         // A design turn gates on ITS OWN count, so it fans out with the run-wide number at 0.
         var fanOut = isSpecDialog ? loopLimits.MaxSubAgentsPerDialogTurn : loopLimits.MaxSubAgentsPerRun;
-        if (fanOut <= 0) return master;
+        if (fanOut <= 0) return sanity.Wrap(master, context.Pipeline);
 
         // The injected budget's capacity is frozen from the run-wide number, so a turn that
         // only READ its own count would still be granted twenty. It builds the budget it gates
@@ -108,12 +108,12 @@ public sealed class MasterToolComposition(
         var sandboxes = context.Pipeline.Get<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes);
         var subCtx = new SubAgentContext(
             context.Pipeline, sandboxes, PipelineCostTracker.GetOrCreate(context.Pipeline), runId,
-            ChildTools: [.. isSpecDialog ? reportingTools.Reporting(SpecDialogChildTools.Of(BaseSurface())) : BaseSurface()],
+            ChildTools: sanity.Wrap(isSpecDialog ? reportingTools.Reporting(SpecDialogChildTools.Of(BaseSurface())) : BaseSurface(), context.Pipeline),
             AnswerStore: childAnswerStore, Budget: budget, AgentConfig: context.AgentConfig,
             // No governor hooks on a child: how far it may go bounds the whole wave.
             ChildIterationCeiling: isSpecDialog ? loopLimits.MaxDialogSubAgentLoopIterations : null);
         var spawn = new SpawnAgentToolHost(subAgentRunner, budget, subAgentNameValidator, decisionLogger, subCtx);
         var readObs = new ReadSubAgentObservationsToolHost(childAnswerStore);
-        return master.Concat(spawn.GetTools(null, null)).Concat(readObs.GetTools(null, null)).ToList();
+        return sanity.Wrap(master.Concat(spawn.GetTools(null, null)).Concat(readObs.GetTools(null, null)), context.Pipeline);
     }
 }

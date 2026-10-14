@@ -89,7 +89,7 @@ public sealed class SpecDialogTests
         var reply = await RunTurnAsync(harness, Discussed("draft the widget spec now"));
 
         reply.Should().Contain("spec: p9999", "a schema-valid draft is shown as-is");
-        harness.ChatClient.InvocationCount.Should().Be(1, "a valid draft needs no re-prompt");
+        harness.ChatClient.ScriptedInvocationCount.Should().Be(1, "a valid draft needs no re-prompt");
     }
 
     [Fact]
@@ -102,7 +102,7 @@ public sealed class SpecDialogTests
 
         var reply = await RunTurnAsync(harness, Discussed("draft the widget spec now"));
 
-        harness.ChatClient.InvocationCount.Should().Be(2,
+        harness.ChatClient.ScriptedInvocationCount.Should().Be(2,
             "the invalid draft re-prompts the master exactly once with the schema error");
         reply.Should().Contain("spec: p9999", "the corrected draft is what surfaces");
         reply.Should().NotContain("not-a-valid-spec-id", "the invalid draft is never surfaced raw");

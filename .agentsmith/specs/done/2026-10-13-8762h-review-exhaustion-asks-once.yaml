@@ -1,0 +1,202 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-8762h
+goal: "A REFUSE standing after the review rounds asks the author once, after the specs before it are built; once asked it proceeds, and any answer is read by the next derivation."
+
+applies_to: "backend (ReviewSpecs' exhaustion rule decided from the ticket thread, a question hand-back of its own kind, its comment, per-spec marker, pin and persisted field, the park at the objected spec, the re-trigger that builds the reviewed set unchanged) + the attack reviewer's input"
+
+requires: [2026-10-13-8762g]
+
+facts:
+  - claim: "A hand-back is a case, a reason, an optional quote, typed readings and the index of the one taken when nobody answers; TakenReading exists only for a Question."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecHandback.cs:9-23, src/backend/AgentSmith.Contracts/Specs/SpecHandback.cs:40-44, src/backend/AgentSmith.Contracts/Specs/SpecHandback.cs:78-83"
+  - claim: "The case values are persisted as integers and only appended; a new case would also stop TakenReading, which is gated on Case == Question."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecHandback.cs:47-56, src/backend/AgentSmith.Contracts/Specs/SpecHandback.cs:41-44"
+  - claim: "The framework already turns a standing objection into a question: two typed readings, the first taken, the cut's specs and executed list cleared."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ScopedContextQuestion.cs:16-35"
+  - claim: "The comment for a Question is headed with QuestionMarker, 'the ticket reads two ways', lists the readings and says the next run proceeds on the taken one."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecHandbackComment.cs:39-40, src/backend/AgentSmith.Application/Services/Specs/SpecHandbackComment.cs:61-70, src/backend/AgentSmith.Application/Services/Specs/SpecHandbackComment.cs:110-119"
+  - claim: "A marker is read in four places: the pin's answered test, the awaiting-answer list that keeps our comment in the next run's view, the conversation's hand-back headings, and the handler's park line."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/UnansweredQuestionPin.cs:34, src/backend/AgentSmith.Application/Services/Prompts/OwnTicketComment.cs:38-47, src/backend/AgentSmith.Server/Services/Tickets/Conversation/ConversationAssembly.cs:23-28, src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs:104-105"
+  - claim: "'Answered' is mechanical: a comment by somebody other than us after our LAST comment carrying the given marker, on the ticket or its pull requests; with no marked comment of ours any foreign comment counts as an answer."
+    evidence: "src/backend/AgentSmith.Application/Services/Prompts/OwnTicketComment.cs:58-79, src/backend/AgentSmith.Application/Services/Prompts/OwnTicketComment.cs:82-85"
+  - claim: "The pin is set in DeriveSpec from the previous set's question when nobody answered after our marked comment, as a rendered string for any unanswered Question whatever it asked; its only reader is the derivation prompt."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:77, src/backend/AgentSmith.Application/Services/Specs/UnansweredQuestionPin.cs:27-46, src/backend/AgentSmith.Application/Services/Prompts/UnansweredQuestionPromptSection.cs:12-26, src/backend/AgentSmith.Application/Services/Specs/SpecPromptComposer.cs:64-71"
+  - claim: "The hand-back is persisted in the series manifest field by field (case, reason, readings, taken); its Cites are not."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesManifest.cs:89-94, src/backend/AgentSmith.Application/Services/Specs/SeriesManifest.cs:108-114, src/backend/AgentSmith.Application/Services/Specs/SeriesManifestDocument.cs:32-35"
+  - claim: "A step after DeriveSpec parks by putting the hand-back on the context and splicing SpecHandback in behind itself; the only reader of the context hand-back is SpecHandbackHandler, which parks through OpenQuestionsAwaitingAnswer, the flag that halts the pipeline."
+    evidence: "src/backend/AgentSmith.Application/Services/Scope/ScopeRefusalRecorder.cs:24-30, src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs:49-51, src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackPark.cs:50, src/backend/AgentSmith.Application/Services/PipelineExecutorPolicy.cs:17-24"
+  - claim: "A park inside the spec sequence already exists: the per-spec block carries MasterOpenQuestions, which parks through the same flag after the earlier specs' work was committed."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Parking.cs:42-55, src/backend/AgentSmith.Application/Services/Triage/MasterOpenQuestionsHandler.cs:62"
+  - claim: "SpecGate passes a handed-back set through without publishing a CurrentSpec."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecution/SpecGateHandler.cs:33-36"
+  - claim: "A bare re-trigger of an unapproved set re-derives it only when nothing is executed; SpecSourceResolver otherwise uses the branch set unchanged, and DeriveSpec then publishes the decided set and posts the proceed notice from the pin."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecAmendmentRule.cs:42-58, src/backend/AgentSmith.Application/Services/Specs/SpecSourceResolver.cs:84-96, src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:79-92, src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:131-136"
+  - claim: "Only the contradiction case can be stopped as a repeat; a Question parks whenever it is raised."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecHandbackRepeat.cs:30-35"
+  - claim: "The proceed notice names the taken reading by label and text, whatever the question was."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/UnansweredQuestionNotice.cs:45-51"
+  - claim: "Our hand-back comment is posted only by SpecHandbackHandler, which runs after the last spliced block; a failed step returns from the executor before it, and the finalizer tail does not include it."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs:79-80, src/backend/AgentSmith.Application/Services/PipelineExecutor.cs:162-165"
+  - claim: "The ticket page reads a cut that carries a hand-back case as the gate 'skipped' and the newest such cut as the ticket's hand-back; a pass-through SpecGate answers Ok for a handed-back set, so the gate step's status cannot tell the two apart; the published cut carries the hand-back case as a string."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketSeriesReader.cs:55-61, src/backend/AgentSmith.Server/Services/Tickets/TicketSeriesCuts.cs:24-26, src/backend/AgentSmith.Application/Services/Specs/SpecSetAnnouncer.cs:53-61, src/backend/AgentSmith.Application/Services/Specs/SpecCutContent.cs:20-21"
+  - claim: "The pin is computed from the branch's previous set whatever the resolver decided, and its answered test passes no pull-request notes; with no marked comment of ours every foreign comment counts, so a never-posted question reads as unanswered only when nobody commented."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:77, src/backend/AgentSmith.Application/Services/Specs/UnansweredQuestionPin.cs:34, src/backend/AgentSmith.Application/Services/Prompts/OwnTicketComment.cs:76-78"
+  - claim: "A ticket edit or a person's comment makes the revision cause TicketEdit or Comment, and the amendment rule re-derives an unapproved set on either; a bare re-trigger re-derives only when nothing is executed."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRevisionCause.cs:77-78, src/backend/AgentSmith.Application/Services/Specs/SpecAmendmentRule.cs:52-56"
+  - claim: "The previous-cut prompt section renders nothing for a handed-back previous set, so the deriver loses the 'EXECUTED — keep exactly as it is' lines."
+    evidence: "src/backend/AgentSmith.Application/Services/Prompts/PreviousCutPromptSection.cs:24, src/backend/AgentSmith.Application/Services/Prompts/PreviousCutPromptSection.cs:34-39"
+  - claim: "A set used unchanged is republished as is, and the publisher puts any hand-back it carries on the context, where SpecHandback parks on it."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:81, src/backend/AgentSmith.Application/Services/Specs/SpecSetPublisher.cs:77-78, src/backend/AgentSmith.Application/Services/Handlers/SpecHandbackHandler.cs:49-50"
+  - claim: "An approval in the conversation continues the branch set with its hand-back cleared, before the amendment rule is asked."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSourceResolver.cs:86-87, src/backend/AgentSmith.Application/Services/Specs/ApprovedContinuation.cs:41-42"
+  - claim: "Markers are matched by substring, case-insensitive."
+    evidence: "src/backend/AgentSmith.Application/Services/Prompts/OwnTicketComment.cs:90-92"
+  - claim: "SpecHandbackComment.cs and SpecHandbackHandler.cs are at the 120-line limit; neither is baselined."
+    evidence: "observed: 2026-10-14, wc -l in this worktree: SpecHandbackComment.cs 120, SpecHandbackHandler.cs 120, SpecHandback.cs 109, SeriesManifest.cs 118, SeriesManifestDocument.cs 49, OwnTicketComment.cs 93, UnansweredQuestionPin.cs 47, UnansweredQuestionPromptSection.cs 28, SpecSourceResolver.cs 117, SpecGateHandler.cs 56, ConversationAssembly.cs 72"
+
+assumptions:
+  - "2026-10-13-8762g's loop returns per spec its standing verdict, its admitted findings with their file:line evidence and its residues; its handler walks the tail in order and ends in one place this spec adds one call to; its outcome says whether a spec's loop was cut short by the budget (a budget stop) rather than ending on its rounds or a second REFUSE; it ships SpecReviewRevision.PublishAsync(pipeline, replacements, cause, ct, handback = null) and ContextKeys.SpecSequenceStop = SpecSequenceStop(BeforeSpecId, Reason, Park), where Park true seeds the stop spec HandedBack and appends SpecHandback after the last block."
+  - "A reviewer told in its prompt that the author was asked and stayed silent mostly does not raise the objection again; the mechanical rule below does not depend on it."
+  - "2026-10-13-8762k builds the series' StandingObjection with SpecId null and SeriesPrefixHead = the first member of the cleared prefix it reviewed (review 8762k r3 cut 4)."
+
+scope:
+  in: >
+    RULE: ReviewExhaustion.Decide(objections, pipeline) -> the objections to ASK (empty = proceed), called ONCE by
+    ReviewSpecsHandler after the tail's review, over the UNION of the per-spec standing objections and
+    2026-10-13-8762k's series objections (SpecId null; k never calls Decide itself). A StandingObjection is (SpecId?,
+    Findings with evidence), the admitted REFUSE findings a loop ended on BY SPENDING ITS ROUNDS OR BY A SECOND REFUSE —
+    never a loop 8762g's budget cut short (its outcome's budget stop) — and only for specs BEFORE an existing
+    SpecSequenceStop (g's spent share); series objections are always considered. Decided per objection from the ticket thread
+    only: ASKED = a comment of ours carries ReviewObjectionComment.MarkerFor(objection.MarkerKey), where
+    StandingObjection(SpecId?, Findings, SeriesPrefixHead?) has MarkerKey = SpecId ?? "series:" + SeriesPrefixHead, so a
+    series objection on a later prefix asks again. An objection already asked PROCEEDS, answered or not (named in the
+    step's line, the spec built); the answer, if any, is read by the next derivation through its Comment or TicketEdit
+    cause (RE-TRIGGER below); every objection not yet asked is asked.
+    ContextKeys.SpecQuestionPin is NOT the basis (it is set for any unanswered Question and lives one run). ASK: ONE
+    question for the objections to ask: ReviewObjectionQuestion.For builds SpecHandback(Question, reason = each
+    objection's spec id (or 'the series'), finding and evidence line, readings ['build the spec as reviewed; the
+    objection stays on record', 'change the spec as the objection asks'], Taken 0) with QuestionKind = ReviewObjection;
+    ReviewSpecsHandler publishes the set with its reviewed specs and that hand-back through 8762g's
+    SpecReviewRevision.PublishAsync(…, handback) (cause 'spec review: a standing objection asked once'). PARK AT THE
+    EARLIEST ASKED SPEC: when it is the first spec of the tail, or the objection is the series' own, the handler returns
+    OkAndContinueWith(SpecHandback) as ScopeRefusalRecorder does; otherwise it sets SpecSequenceStop(specId, reason,
+    Park true), so the specs before it are built and the run parks there. A park never moves an existing stop later:
+    the asked spec is always before g's stop (the rule above), and at equal position Park true wins. The ask-and-park
+    branches live in ReviewObjectionPark.ApplyAsync(pipeline, ask, ct) (Services/Specs/Review, registered in
+    SpecReviewRegistrations), so ReviewSpecsHandler gains one line. SpecGate gates
+    a set whose hand-back is a ReviewObjection question like an unhanded one (CurrentSpec = the first spec). Standing
+    cuts the reviser could not apply never ask. KIND: enum SpecQuestionKind { Reading = 0, ReviewObjection = 1 } in its
+    own file; SpecHandback.QuestionKind (init, default Reading). PERSISTED: SeriesManifestDocument.HandbackQuestionKind
+    (string, null reads Reading); SeriesManifest writes and reads it. COMMENT: ReviewObjectionComment (Marker 'a
+    reviewer's objection to the spec stands', MarkerFor(id) 'a reviewer's objection to spec {id} stands', Build) in
+    its own file; the comment carries the heading Marker and one MarkerFor line per objected spec;
+    SpecHandbackComment's Question arm dispatches on the kind. MARKER registered in OwnTicketComment.AwaitingAnswer, ConversationAssembly.HandbackHeadings and
+    SpecHandbackHandler's park line. PIN: for a ReviewObjection hand-back UnansweredQuestionPin sets the pin and returns the
+    question ONLY when ReviewObjectionComment.AskedAndUnanswered(pipeline) holds, else null (no pin, no proceed
+    notice); the Reading kind is unchanged. UnansweredQuestionPromptSection renders the review kind as 'the author was
+    asked about this objection and did not answer; keep the spec as it stands, do not change it for this objection and
+    do not raise it again'; ReviewSpecsHandler hands ContextKeys.SpecQuestionPin to every 8762e reviewer call as
+    SpecAttackInput.QuestionPin, appended LAST (after NotChecked, CitationsTotal and PriorResidues), and the attack
+    prompt renders it. ASKED AND UNANSWERED = our comment carrying ReviewObjectionComment.Marker EXISTS on the ticket and
+    OwnTicketComment.IsAnswered(comments, Marker, PrNotes(pipeline)) is false. RE-TRIGGER: after continuation.Decide,
+    SpecSourceResolver makes ONE call, ReviewObjectionSource.Decide(set, cause, pipeline, foreign) (static, beside
+    ReviewObjectionComment): a branch set whose hand-back is a ReviewObjection question ALWAYS continues with Handback
+    null; NeedsModel is forced false only when cause == SpecRevisionCause.Retrigger and AskedAndUnanswered holds; in
+    every other case SpecAmendmentRule.NeedsModel(cause, strippedSet, foreign) decides, so a derivation sees the
+    previous cut and its executed head; any other set goes to the amendment rule as today. SpecAmendmentRule is not
+    changed.
+    RETIRE: 2026-09-15-7d3c moves to specs/done with a RETIRED state.done line.
+  out: >
+    The rounds loop, the publisher's hand-back parameter and the sequence stop it parks through —
+    2026-10-13-8762g. The derivation's own cut-review loop and its least-objected cut — nobody: contract §0 leaves
+    SpecSetDeriver.cs:92-94 as it is. A set-scope standing refusal reaching this rule — 2026-10-13-8762k calls
+    ReviewExhaustion with SpecId null. The design-turn refusal — nobody: shown on the card, not asked
+    (2026-10-13-8762i). Showing the question on the ticket page — nobody: the page already renders a question hand-back
+    by its case (flowWords.ts:39). A fifth or eighth hand-back case — nobody: refused below. Persisting Cites — nobody:
+    the evidence line is quoted in the reason, which is persisted. Holding the automatic next attempt while the question
+    stands — 2026-10-13-8762v (a hand-back is one of its holds). The ticket page reading the gate 'skipped' while the prefix of a review-objection set builds — 2026-10-13-8762l, which publishes that cut's case as ReviewObjection (SpecCutContent.CaseOf) and reads the gate from the gate step for that case; until it lands the page shows the gate skipped and the hand-back from the revision on.
+
+decisions:
+  - key: "ABSORBS 2026-09-15-7d3c. Kept: a standing code-grounded objection asks once and proceeds on silence; the taken reading is 'build it'; a question, never a new case, because TakenReading and the pin need Case == Question; the hand-back names which question it is and the comment tells the truth instead of 'the ticket reads two ways'; the pin reaches the reviewer as an explicit argument; the marker is registered everywhere a marker is read; the field is additive. Changed: it applies to the new loop's exhaustion, not to LeastObjectedCut (contract §0); the marker sits in FOUR places; the persistence site is the series manifest."
+  - key: "ASKED ONCE IS READ FROM THE THREAD, PER SPEC. Our own objection comment naming that spec is the fact 'asked' — already on the ticket, so nothing is stored twice. The run-scoped pin is not the basis: it is set for any unanswered Question (a Reading question too) and lives one run (review 8762h finding 1). A NEW objection on another spec, or a series objection on a later prefix (marker key 'series:' + the prefix's first member, review 8762k r3 cut 4), still asks once. Main-thread decision 7, default, pending operator ratification."
+  - key: "AN ASKED OBJECTION PROCEEDS, ANSWERED OR NOT (review 8762h r3 cut 3). Asking again after an answer had no loop bound: an author answering 'build it' would be parked every run, so only silence ended the asks. The answer is read by the next derivation on its Comment or TicketEdit cause instead. Trade-off: a new objection on a spec rewritten from the answer proceeds without a second ask. Re-asking would need a stated bound (once per answer, never on unchanged text). Main-thread decision for h, default, pending operator ratification."
+  - key: "THE PASSING PREFIX IS BUILT FIRST. A REFUSE on spec n of an attempt builds specs 1..n-1 and parks at spec n, as the supervised session took a refused spec back without stopping the specs that passed (review 8762h finding 4). The park inside the sequence is the existing mechanism MasterOpenQuestions uses. The whole tail is still reviewed first (within 8762g's review share) so ONE Decide over the union of spec and series objections (2026-10-13-8762k) asks every standing objection in one question; a series objection parks before any spec is built. Main-thread decision 7, default, pending operator ratification."
+  - key: "RE-TRIGGER BUILDS THE REVIEWED SET UNCHANGED. The taken reading is 'build the spec as reviewed', so a bare re-trigger over an asked, unanswered objection re-derives nothing (review 8762h cut 2): the branch set is used with its hand-back cleared, ReviewSpecs re-reviews the tail, and the objection, if raised again, proceeds by the thread rule. REJECTED: 'AN UNANSWERED REVIEW QUESTION IS RE-DERIVED ON THE PIN' — it paid a full derivation and could replace the reviewed text the pin tells the deriver to keep. Main-thread decision 7."
+  - key: "ONLY EXHAUSTED LOOPS ASK, NEVER PAST g's STOP. A loop the budget cut short has not had its rounds or its re-derivation, so asking about it is premature (contract decision 4 asks 'when the rounds run out'); an objection after g's stop would move the stop later and build unreviewed specs between. Decide therefore takes only loops that spent their rounds or ended on a second REFUSE, only for specs before an existing stop, and a park never moves a stop later; at equal position Park true wins. Main-thread decision 3, review 8762h r2 cut 1."
+  - key: "RE-TRIGGER REQUIRES THAT WE ASKED, AND THE HAND-BACK IS ALWAYS STRIPPED. The hand-back reaches the branch at ReviewSpecs time but the comment only at SpecHandback (SpecHandbackHandler.cs:79), after the prefix; a run that dies before it leaves a question nobody was asked. The review hand-back is a question about a set we keep, so it never reaches the amendment rule or the deriver as 'handed back': kept, it would hide the previous cut from the deriver (PreviousCutPromptSection.cs:24) and, on a set used unchanged, be republished and park again over an answer (SpecSetPublisher.cs:77-78). Only a bare re-trigger over an asked, unanswered objection is forced unchanged; a ticket edit or a comment follows the amendment rule (SpecAmendmentRule.cs:52-56), so an author who answers by editing the ticket is heard. The arm sits after continuation.Decide, whose approval already clears the hand-back (ApprovedContinuation.cs:42). Main-thread decision for h, review 8762h r3 cut 2."
+  - key: "THE PIN ONLY FOR WHAT WAS ASKED. UnansweredQuestionPin reads the branch's previous set whatever the resolver decided (DeriveSpecHandler.cs:77) and counts an unanchored thread as unanswered; for a never-posted objection it would tell every reviewer not to raise it and post that a question nobody saw went unanswered. The review kind therefore pins only on AskedAndUnanswered, which also counts an answer on the pull request (UnansweredQuestionPin.cs:34 passes none today). Review 8762h r3 cut 1."
+  - key: "NOTE FOR 2026-10-13-8762g (review 8762h r3 finding 4, not h's claim): a parked attempt never reaches WriteRunResult and CommitAndPR (PipelinePresets.Code.cs:70-71, PipelineExecutor.cs:166), so a FailingCommand row for a Park stop is never rendered; h's done lines do not depend on the code PR — the prefix reaches the branch through CommitSpecWork."
+  - key: "REJECTED CUT (review 8762h r2 cut 3, gate view in place): 'TicketSeriesReader.Gate returns skipped only when the run has no GateSteps status' — SpecGate answers Ok for every handed-back set it passes through (TicketSeriesReader.cs:55), so that change would show a classic hand-back's gate as 'passed'; the published cut carries only the case string (SpecCutContent.cs:20-21), not the question kind, so telling the two apart is a ticket-page change, named as an out-item for 2026-10-13-8762l, the reviewer's own alternative."
+  - key: "ONE HELPER FOR THE PARK. The publish-with-hand-back, the SpecHandback splice and the Park-true stop are three branches; they live in ReviewObjectionPark so ReviewSpecsHandler stays within g's budget with one line for h (contract §2.4). Main-thread decision 3, review 8762h r2 cut 4."
+  - key: "ONE DECIDE, THE UNION. Spec and series objections go through one call, so a ticket parks once per run with every objection the author must see; k's series round runs before it, inside the review share."
+  - key: "THE HAND-BACK RIDES 8762g's PUBLISHER. SpecReviewRevision.PublishAsync gains handback = null (2026-10-13-8762g), so the set on the branch carries the question the next run reads, through the one mid-run publisher (review 8762h cut 3)."
+  - key: "THE SPECS STAY BESIDE THE QUESTION. ScopedContextQuestion clears the specs because its question is about the cut; this one is about a spec the author must be able to read, and the comment links the spec pull request. Clearing would also drop an executed head."
+  - key: "SPECGATE GATES A REVIEW-OBJECTION SET. With the hand-back on the set before the sequence, SpecGate's pass-through (SpecGateHandler.cs:33-36) would leave no CurrentSpec for the specs before the park; a review objection is the one hand-back that still builds a prefix."
+  - key: "UNAPPLIED CUTS NEVER ASK. Only a REFUSE says the spec should not be built as written. Contract decision 4, default, pending operator ratification."
+  - key: "ROOM AT THE LIMIT. SpecHandbackComment stays at 120 by compressing its class summary by the lines the dispatch adds; SpecHandbackHandler stays at 120 because the Question arm's two lines become one naming the heading of the kind; SeriesManifest grows 118 -> at most 120, and 2026-10-13-8762j's contract key then joins an existing initializer line, net zero; SpecSourceResolver 117 -> at most 120 (the helper call replaces the amend line and the later uses read the stripped set in place); UnansweredQuestionPin 47 -> about 50."
+
+steps:
+  - id: kind-persist
+    action: "SpecQuestionKind (own file); SpecHandback.QuestionKind (109 -> about 112); SeriesManifestDocument.HandbackQuestionKind (49 -> 50); SeriesManifest writes and reads it (118 -> at most 120); an old manifest reads Reading."
+  - id: question
+    action: "StandingObjection (SpecId?, Findings, SeriesPrefixHead?, MarkerKey), ReviewObjectionQuestion.For and ReviewObjectionComment (Marker, MarkerFor, Build, AskedAndUnanswered), each its own file under Services/Specs/Review."
+  - id: markers
+    action: "SpecHandbackComment's Question arm dispatches on the kind (stays at 120); UnansweredQuestionPin pins a ReviewObjection hand-back only on AskedAndUnanswered (47 -> about 50); OwnTicketComment.AwaitingAnswer (93 -> 94); ConversationAssembly.HandbackHeadings (72 -> at most 73); SpecHandbackHandler's park line (stays at 120)."
+  - id: pin
+    action: "UnansweredQuestionPromptSection renders the ReviewObjection kind (28 -> about 40); SpecAttackInput (8762e) gains QuestionPin, appended last; SpecAttackPrompt renders it; ReviewSpecsHandler passes ContextKeys.SpecQuestionPin to every reviewer call."
+  - id: rule
+    action: "ReviewExhaustion.Decide over the union of spec and series objections: an objection whose MarkerFor(MarkerKey) comment exists proceeds, every other is asked (at most 60 lines)."
+  - id: park
+    action: "ReviewObjectionPark.ApplyAsync (at most 70 lines): on a non-empty ask, publish with the hand-back through SpecReviewRevision, then splice SpecHandback (first spec of the tail or a series objection) or set SpecSequenceStop with Park true at the earliest asked spec, never later than an existing stop; ReviewSpecsHandler gains one line after the tail (and k's series round) calling Decide and the park; SpecGate gates a ReviewObjection set (56 -> at most 60)."
+  - id: retrigger
+    action: "ReviewObjectionSource.Decide (static, Services/Specs/Review): a ReviewObjection hand-back is always stripped; NeedsModel false only for Retrigger + AskedAndUnanswered, else SpecAmendmentRule on the stripped set; SpecSourceResolver calls it once after continuation.Decide (117 -> at most 120); SpecAmendmentRule untouched."
+  - id: registration
+    action: "ReviewExhaustion and ReviewObjectionPark in Services/Specs/Review/SpecReviewRegistrations.cs."
+  - id: retire
+    action: "Move 2026-09-15-7d3c-review-objection-asks-once.yaml to specs/done; its state.done line starts 'RETIRED (2026-10-…, superseded before it was built by 2026-10-13-8762h)'."
+  - id: tests
+    action: "Red first, then green, for every test below; run the Specs, Prompts, Handlers and Server Tickets classes touched."
+
+tests:
+  - "Exhaustion_StandingRefuse_NoObjectionComment_Asks"
+  - "Exhaustion_UnansweredObjectionCommentForThisSpec_Proceeds"
+  - "Exhaustion_ObjectionCommentAnswered_Proceeds"
+  - "Exhaustion_ReadingQuestionPin_StillAsksTheObjection"
+  - "Exhaustion_LaterAttemptWithoutPin_UnansweredObjection_DoesNotParkAgain"
+  - "Exhaustion_ObjectionOnAnotherSpec_AsksOnce"
+  - "Exhaustion_UnionOfSpecAndSeriesObjections_OneQuestionListingEach"
+  - "ReviewSpecs_SeriesObjection_ParksBeforeAnySpecIsBuilt"
+  - "ReviewSpecs_SeriesObjectionOnALaterPrefix_AsksAgain"
+  - "Exhaustion_ResiduesOnly_NeverAsks"
+  - "Question_Reason_QuotesTheEvidenceLine"
+  - "Question_TakenReading_IsBuildTheSpecAsReviewed"
+  - "Question_KeepsTheReviewedSpecsAndTheExecutedHead"
+  - "ReviewSpecs_RefuseOnFirstTailSpec_SplicesSpecHandbackAndParks"
+  - "ReviewSpecs_RefuseOnThirdSpec_BuildsTheFirstTwoThenParksAtTheThird"
+  - "SpecGate_ReviewObjectionSet_PublishesTheFirstSpec"
+  - "Comment_ReviewObjection_HeadsWithItsOwnMarkerAndNamesEachSpec"
+  - "Pin_ReviewObjectionUnanswered_IsFoundByItsOwnMarker"
+  - "Pin_ReviewObjectionNeverPosted_SetsNoPinAndPostsNoNotice"
+  - "Pin_ReviewObjectionAnsweredOnThePullRequest_SetsNoPin"
+  - "OwnTicketComment_ReviewObjection_AwaitsAnAnswer"
+  - "Conversation_ReviewObjectionHeading_IsFolded"
+  - "Manifest_QuestionKind_RoundTrips_AndAnOldManifestReadsReading"
+  - "PinSection_ReviewObjection_SaysKeepTheSpecAndDoNotRaiseItAgain"
+  - "Reviewer_GivenThePin_ItsPromptCarriesIt"
+  - "Source_UnansweredReviewObjection_UsesTheReviewedSetWithoutHandback"
+  - "Source_AnsweredReviewObjection_DerivesOverTheRenderedPreviousCut"
+  - "Source_AnsweredReviewObjectionWithoutDerivation_DoesNotParkAgain"
+  - "Source_TicketEditedAfterUnansweredObjection_FollowsTheAmendmentRule"
+  - "Source_ReviewObjectionNeverPosted_StripsTheHandbackAndFollowsTheAmendmentRule"
+  - "Exhaustion_BudgetStoppedSpec_IsNotAsked"
+  - "Exhaustion_ObjectionAfterTheBudgetStop_DoesNotMoveTheStop"
+
+done:
+  - "A spec whose review ends on REFUSE parks the ticket once, after the specs before it are built, with a comment headed as a reviewer's objection to that spec, quoting the finding and its file:line and naming the reading the run takes."
+  - "A run that ends before its question was posted does not count as having asked: the next run tells no reviewer and no ticket that a question went unanswered, and asks it afresh."
+  - "A spec the review budget stopped short is never asked about, and an objection never lets specs nobody reviewed be built."
+  - "Re-triggered with no answer, the run builds the reviewed set unchanged, says it proceeds on that reading, and does not park a second time even if a reviewer raises the objection again — in that attempt or any later one."
+  - "An answer on the ticket is read by the next derivation over the previous cut and its built specs, and never parks the ticket again; an objection on another spec, or a series objection on a later prefix, asks once."
+  - "Cuts that could not be applied never park a ticket."
+  - "A manifest written before this spec reads back unchanged; 2026-09-15-7d3c is in specs/done marked retired by this spec."
+  - "Build green, full suite green, dashboard gen/test/build green."

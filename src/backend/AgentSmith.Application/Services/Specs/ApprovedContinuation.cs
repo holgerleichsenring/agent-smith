@@ -15,7 +15,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// </para>
 /// </summary>
 public sealed class ApprovedContinuation(
-    ContinuationMerge merge, ILogger<ApprovedContinuation> logger)
+    ContinuationMerge merge, ISeriesSettingsReader series, ILogger<ApprovedContinuation> logger)
 {
     /// <summary>The decision over the merged set, or null when the record continues nothing here.</summary>
     public SpecSourceResolver.Decision? Decide(SpecSet branch, SpecApprovalRecord? record, string cause)
@@ -26,11 +26,13 @@ public sealed class ApprovedContinuation(
 
         var (specs, notes) = merge.Apply(branch, record.Set, continuation);
         var unstarted = specs.Count(s => !branch.Executed.Contains(s.SpecId, StringComparer.Ordinal));
-        if (branch.Executed.Count + unstarted > SpecSet.MaxSpecs)
+        var settings = series.Current(); // 2026-10-13-8762u: the series cap, read live; an invalid block refuses
+        var invalid = settings.Refusal();
+        if (invalid is not null || branch.Executed.Count + unstarted > settings.Series.MaxSpecs)
         {
-            var why = $"the approval given in design conversation {approval.Conversation} was not merged: the "
-                + $"series would hold {branch.Executed.Count} executed and {unstarted} unstarted spec(s), over "
-                + $"the cap of {SpecSet.MaxSpecs}; approve a smaller series in the ticket's conversation";
+            var why = $"the approval given in design conversation {approval.Conversation} was not merged: " + (invalid
+                ?? $"the series would hold {branch.Executed.Count} executed and {unstarted} unstarted spec(s), over "
+                + $"series.max_specs ({settings.Series.MaxSpecs}); approve a smaller series in the ticket's conversation");
             logger.LogWarning("Spec set {Key}: {Why}", branch.Key, why);
             return new SpecSourceResolver.Decision(SpecSource.BranchArtifact, branch, false, Cause: cause, Discarded: why);
         }

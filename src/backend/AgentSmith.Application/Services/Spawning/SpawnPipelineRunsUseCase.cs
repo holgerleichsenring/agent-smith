@@ -47,11 +47,11 @@ public sealed class SpawnPipelineRunsUseCase(
     IRunListNudge runListNudge, // 2026-09-20-9f00: a deferred row announces itself
     IUnmovedTicketStore unmovedTickets, // 2026-09-21-77d6: what the claim would refuse
     IActiveRunLease leases, // 2026-10-08-e8b9e: a live run is answered, not queued behind
-    ILogger<SpawnPipelineRunsUseCase> logger) : ISpawnPipelineRunsUseCase
+    ILogger<SpawnPipelineRunsUseCase> logger, IPreviousAttemptReader previousAttempts) : ISpawnPipelineRunsUseCase
 {
     private readonly SpawnLeaseDeferral _deferral = new(
         new CapacityDeferral(capacityQueue, capacityBudget, approvedSets, runListNudge, logger),
-        unmovedTickets, leases, TimeProvider.System, logger);
+        unmovedTickets, leases, TimeProvider.System, logger, previousAttempts);
 
     public async Task<SpawnResult> ExecuteAsync(
         AgentSmithConfig config,

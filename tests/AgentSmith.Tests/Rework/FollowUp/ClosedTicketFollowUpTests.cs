@@ -184,6 +184,24 @@ public sealed class ClosedTicketFollowUpTests : IDisposable
         _h.Tracker.Created.Should().BeEmpty();
     }
 
+    // 2026-10-13-8762p: an overruled default on a ticket a person closed is followed up like a keyword comment.
+    [Fact]
+    public async Task ClosedTicket_Overrule_FiledFollowUpCarriesTheNote()
+    {
+        await AttemptAsync("r-1", RunStatuses.Success);
+        var attempt = new PreviousAttempt("r-1", RunStatuses.Success, TicketStoreHarness.T, true)
+        {
+            Overrules = [new(7, "r-1", null, "Which queue?", "polling", "overruled", "use the bus", "ana", Later)],
+        };
+        var act = new PendingReworkAct(Application.Services.Rework.OverruleAct.Of(attempt)!, Text: Application.Services.Rework.OverruleAct.TextOf(attempt));
+
+        (await HandleAsync(Pending(act))).Should().Be(ReworkNudgeDisposition.Finish);
+
+        _h.Tracker.Created.Should().ContainSingle().Which.Should().Contain("Which queue?").And.Contain("use the bus").And.Contain("ana");
+        _h.Tracker.Status.Should().Be("Closed");
+        _launch.VerifyNoOtherCalls();
+    }
+
     [Fact]
     public Task ClosedTicket_OperatorAct_RefusedNamingConversation() => RefusedNamingConversationAsync(ReworkChannel.Operator);
 
@@ -266,7 +284,7 @@ public sealed class ClosedTicketFollowUpTests : IDisposable
             new TicketReopener(new InMemorySpecSetPointerStore(), _h.Approvals, Mock.Of<IUnmovedTicketStore>()),
             _launch.Object, _closer.Object, NullLogger<ReworkEntry>.Instance);
         pending ??= new ReworkPendingActs(_h.Tracker, _sources.Object, Mock.Of<IPrReviewAuthorTrust>(), _h.Approvals);
-        return new ReworkNudgeHandler(leases, attempts, pending, entry, speech, fallback, new ReworkWithheld(scopes, speech),
+        return ReworkHandlers.Of(leases, attempts, pending, entry, speech, fallback, new ReworkWithheld(scopes, speech),
             sp.GetRequiredService<IRunCheckpointStore>(), ClosedTicketFollowUps.Of(scopes, _h.Tracker, speech, _locks));
     }
 }

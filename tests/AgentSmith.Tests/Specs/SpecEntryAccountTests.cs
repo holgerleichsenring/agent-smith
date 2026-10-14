@@ -160,7 +160,7 @@ public sealed class SpecEntryAccountTests
 
     private static Task<CommandResult> Select(ISpecAccountant accountant, PipelineContext pipeline) =>
         new SelectSpecHandler(
-                Entry(accountant), StartHeads(), new SpecProgressRecorder(new NoOpEventPublisher()),
+                Entry(accountant), StartHeads(), new SpecProgressRecorder(new NoOpEventPublisher()), new AgentSmith.Tests.TestHelpers.PassThroughEntryGrounding(),
                 NullLogger<SelectSpecHandler>.Instance)
             .ExecuteAsync(new SelectSpecContext("p1", pipeline), CancellationToken.None);
 

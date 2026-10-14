@@ -1,3 +1,5 @@
+using AgentSmith.Application.Services.Specs;
+using AgentSmith.Application.Services.Tools;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Domain.Entities;
@@ -46,13 +48,31 @@ public static class SpecExecutionPromptBlocks
         if (!pipeline.TryGet<List<string>>(ContextKeys.OutstandingCriteria, out var outstanding)
             || outstanding is not { Count: > 0 })
             return string.Empty;
-        return "\n**This is a REPAIR pass. A fresh reviewer read the branch against this "
-            + "spec's ratified criteria and found these NOT satisfied:**\n"
+        return "\n**This is a REPAIR pass. The verification of the branch against this "
+            + "spec found these NOT satisfied:**\n"
             + string.Join("\n", outstanding.Select(c => "- " + c))
-            + "\nClose exactly these. The rest of the spec is already accounted for — "
-            + "adding more is scope you were not given. If one of them cannot be satisfied, "
-            + "say which and why rather than working around it.";
+            + "\nClose exactly these. " + (outstanding.Any(c => c.StartsWith(StageRepair.ItemPrefix, StringComparison.Ordinal))
+                ? "No criterion has been accounted for yet; the verification after this pass takes the account. "
+                : "The rest of the spec is already accounted for — adding more is scope you were not given. ")
+            + "If one of them cannot be satisfied, say which and why rather than working around it.";
     }
+
+    /// <summary>Every declared stage and the tool that runs it, read through the tool's own
+    /// predicate: empty exactly when run_gate_stage is not offered.</summary>
+    public static string DeclaredGate(PipelineContext pipeline) =>
+        GateStageToolHost.Declared(pipeline) is not { Count: > 0 } declared
+            ? string.Empty
+            : "\n**Declared gate stages (repository context/label):**\n"
+              + string.Join("\n", declared.Select(d => $"- {d.Repository} {d.Context}/{d.Label}"))
+              + $"\nRun each of these with {GateStageToolHost.Name} before your verdict; verification runs exactly these.";
+
+    /// <summary>2026-10-13-8762n: the entered spec's citations whose lines changed and whose text was found
+    /// nowhere — no reviewer runs after entry, so the master is where they are told.</summary>
+    public static string StaleCitations(PipelineContext pipeline) =>
+        !pipeline.TryGet<IReadOnlyList<string>>(ContextKeys.StaleCitations, out var stale) || stale is not { Count: > 0 }
+            ? string.Empty
+            : "\n**Stale citations — these citations' lines changed since they were written and their text was found "
+              + "nowhere: verify the claim before relying on it.**\n" + string.Join("\n", stale.Select(s => "- " + s));
 
     /// <summary>
     /// 2026-10-01-f5c3a: the draft's done list, already in its line form — the yaml is not

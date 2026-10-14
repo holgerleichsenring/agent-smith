@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
+using AgentSmith.Infrastructure.Persistence.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -31,7 +32,19 @@ public sealed class TicketSeriesRecordsReader(IServiceScopeFactory scopes)
                 .Where(j => runIds.Contains(j.RunId)).OrderBy(j => j.Id).ToListAsync(ct),
             checkpointed.ToHashSet(StringComparer.Ordinal),
             await uow.Set<RunLedgerTransition>().AsNoTracking() // 2026-10-13-9a59f
-                .Where(t => runIds.Contains(t.RunId) && t.SpecId != null).OrderBy(t => t.Id).ToListAsync(ct));
+                .Where(t => runIds.Contains(t.RunId) && t.SpecId != null).OrderBy(t => t.Id).ToListAsync(ct),
+            await RecordsAsync(uow, runIds, ct));
+    }
+
+    // 2026-10-13-8762m: every spec record of the attempts, one set query; the record carries the build note.
+    private static async Task<IReadOnlyDictionary<(string RunId, string SpecId), string>> RecordsAsync(
+        IUnitOfWork uow, IReadOnlyList<string> runIds, CancellationToken ct)
+    {
+        var rows = await uow.Set<RunArtifact>().AsNoTracking()
+            .Where(a => runIds.Contains(a.RunId) && a.Kind.StartsWith(RunSpecProjection.RecordKindPrefix))
+            .OrderBy(a => a.Id).Select(a => new { a.RunId, a.Kind, a.Content }).ToListAsync(ct);
+        return rows.GroupBy(a => (a.RunId, a.Kind[RunSpecProjection.RecordKindPrefix.Length..]))
+            .ToDictionary(g => g.Key, g => g.Last().Content ?? string.Empty);
     }
 
     // The newest SpecGate step of each run, by row id: a resumed run gates again.

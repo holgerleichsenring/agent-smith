@@ -14,7 +14,8 @@ import { fakeHub, list, pr, ticket } from "@/components/tickets/__tests__/ticket
 import { TicketPage } from "@/components/tickets/detail/TicketPage";
 import { TicketPageStore } from "@/lib/tickets/TicketPageStore";
 import {
-  attempt, compute, conversation, detail, entry, pass, passes, runDetail, segment, series, spec, ticketText,
+  attempt, compute, conversation, defaults, detail, entry, pass, passes, reviewRound, reviews, runDetail, segment, series, spec,
+  ticketText,
 } from "@/components/tickets/detail/__tests__/detailFixtures";
 
 // p0343c: PIXEL IDENTITY guard — each redesigned surface renders the ratified
@@ -244,6 +245,8 @@ describe("Mock parity", () => {
       passes: (runId: string) => Promise.resolve(passes(runId, { s2: [pass()] })),
       run: () => Promise.reject(new Error("unused")),
       compute: () => Promise.reject(new Error("unused")),
+      reviews: () => Promise.resolve(reviews()),
+      defaults: () => Promise.resolve(defaults()),
     };
     const ticketPage = render(
       <TicketPageStore project="shop" ticketId="101" client={fakeHub().client} api={ticketApi}>
@@ -305,10 +308,19 @@ describe("Mock parity", () => {
       passes: (runId: string) => Promise.resolve(passes(runId, { s2: [pass()] })),
       run: () => Promise.reject(new Error("unused")),
       compute: () => Promise.reject(new Error("unused")),
+      reviews: () => Promise.resolve(reviews({
+        attempts: [{ runId: "r-2", number: 2, rounds: [
+          reviewRound({ specId: "s2", verdict: "build-with-cuts" }),
+          reviewRound({ scope: "series", specId: null, verdict: "refuse" }),
+        ] }],
+      })),
+      defaults: () => Promise.resolve(defaults()),
     };
     const tabs: Array<[string, string[]]> = [
       ["conversation", [".section-head", ".conv-tools", ".chip", ".conv", ".c-att", ".msg", ".msg.internal", ".av", ".mh", ".where", ".mb", ".diff", ".proposal", ".ph", ".pb", ".composer", ".cp-head", ".cp-actions", ".cp-input"]],
-      ["specs", [".sp-grid", ".sp-list", ".sp-item", ".si-top", ".si-cells", ".cell", ".spdoc", ".sh", ".sb", ".blk", ".steps", ".stp", ".crit", ".ci", ".ro-note", ".revs", ".rv"]],
+      ["specs", [".sp-grid", ".sp-list", ".sp-item", ".si-top", ".si-cells", ".cell", ".spdoc", ".sh", ".sb", ".blk", ".steps", ".stp", ".crit", ".ci", ".ro-note", ".revs", ".rv",
+        // 2026-10-13-8762l: the review rounds block and the series contract review, composed from mock classes.
+        ".spdoc .blk .crit .ci .pill.amber", ".section-head .cnt", ".blk .crit .ci .pill.bad"]],
       ["acceptance", [".doc", ".crit", ".ci", ".m", ".cw"]],
     ];
     for (const [tab, classes] of tabs) {
@@ -344,6 +356,8 @@ describe("Mock parity", () => {
       compute: (runId: string) => Promise.resolve(compute(runId, {
         segments: [parked, segment({ startedAt: "2026-09-04T16:00:00Z", endedAt: "2026-09-04T16:30:00Z" })],
       })),
+      reviews: () => Promise.resolve(reviews()),
+      defaults: () => Promise.resolve(defaults()),
     };
     const tabs: Array<[string, string, string[]]> = [
       ["attempts", "attempts-timeline", [".next-card", ".bi", ".bt", ".bs", ".section-head", ".tl", ".att", ".dot", ".card", ".a-top", ".a-name", ".an", ".pill", ".rid", ".a-why", ".cause", ".a-num", ".a-body", ".kv", ".k", ".v", ".links", ".chg", ".line"]],

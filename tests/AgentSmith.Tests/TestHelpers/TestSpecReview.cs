@@ -21,7 +21,7 @@ internal static class TestSpecReview
             new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance));
         return new SpecReviewRevert(
             resolved,
-            new UnverifiedWorkReverter(gitOps, NullLogger<UnverifiedWorkReverter>.Instance),
+            new UnverifiedWorkReverter(gitOps, resolved, NullLogger<UnverifiedWorkReverter>.Instance),
             new RunWorkCheckpointer(
                 new RepoWorkPusher(
                     gitOps, new SecretPatternScanner(), resolved,

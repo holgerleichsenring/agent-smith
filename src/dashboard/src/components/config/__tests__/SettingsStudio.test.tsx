@@ -24,6 +24,8 @@ const FIXTURES: Record<string, unknown> = {
   },
   registries: [],
   trace: { enabled: false },
+  spec_review: { rounds: 4, reviewers: 2, maxConcurrent: 2, budgetSharePercent: 40 },
+  series: { maxSpecs: 24, specsPerAttempt: 8, secondsPerSpec: 0, budgetUsd: 150, wallClockHours: 12, continueAfterWallTime: true },
   sandbox: {
     agentRegistry: "ghcr.io/x",
     agentVersion: "0.48.0",
@@ -49,7 +51,7 @@ const FIXTURES: Record<string, unknown> = {
   },
 };
 
-const saveSetting = vi.fn((_key: string, value: unknown) => Promise.resolve(value));
+const saveSetting = vi.fn((_key: string, value: unknown): Promise<unknown> => Promise.resolve(value));
 
 // 2026-10-12-6bfab: the boundary in force, as the server reports it for an unset block.
 const fetchImageTrust = vi.fn(() =>
@@ -307,5 +309,53 @@ describe("SettingsStudio", () => {
       }),
     );
     await waitFor(() => expect(fetchImageTrust).toHaveBeenCalledTimes(2));
+  });
+
+  // 2026-10-13-8762w: the spec review and series blocks are edited here; the server holds the one rule.
+  it("SettingsStudio_SpecReviewForm_EditsRoundsReviewersConcurrencyAndBudgetShare", async () => {
+    render(<SettingsStudio settingKey="spec_review" />);
+    const rounds = await screen.findByTestId("setting-specreview-rounds");
+    expect(rounds).toHaveValue(4);
+    expect(screen.getByRole("heading", { name: /Spec review/ })).toBeInTheDocument();
+    expect(screen.getByText("adversarial review rounds before a spec is built; 0 = off")).toBeInTheDocument();
+    expect(screen.getByText("share of the run's cost cap and wall clock review may use")).toBeInTheDocument();
+    fireEvent.change(rounds, { target: { value: "0" } });
+    fireEvent.change(screen.getByTestId("setting-specreview-reviewers"), { target: { value: "3" } });
+    fireEvent.change(screen.getByTestId("setting-specreview-concurrent"), { target: { value: "1" } });
+    fireEvent.change(screen.getByTestId("setting-specreview-share"), { target: { value: "25" } });
+    fireEvent.click(screen.getByTestId("settings-save"));
+    await waitFor(() => expect(saveSetting).toHaveBeenCalledTimes(1));
+    expect(saveSetting).toHaveBeenCalledWith("spec_review",
+      { rounds: 0, reviewers: 3, maxConcurrent: 1, budgetSharePercent: 25 });
+  });
+
+  it("SettingsStudio_SeriesForm_EditsCapsBudgetAndWallClock", async () => {
+    render(<SettingsStudio settingKey="series" />);
+    const maxSpecs = await screen.findByTestId("setting-series-maxspecs");
+    expect(maxSpecs).toHaveValue(24);
+    expect(screen.getByText(/the whole spec block .* 0 = not measured/)).toBeInTheDocument();
+    fireEvent.change(maxSpecs, { target: { value: "20" } });
+    fireEvent.change(screen.getByTestId("setting-series-perattempt"), { target: { value: "6" } });
+    fireEvent.change(screen.getByTestId("setting-series-seconds"), { target: { value: "600" } });
+    fireEvent.change(screen.getByTestId("setting-series-budget"), { target: { value: "0" } });
+    fireEvent.change(screen.getByTestId("setting-series-hours"), { target: { value: "8.5" } });
+    fireEvent.click(screen.getByTestId("setting-series-continue"));
+    fireEvent.click(screen.getByTestId("settings-save"));
+    await waitFor(() => expect(saveSetting).toHaveBeenCalledTimes(1));
+    expect(saveSetting).toHaveBeenCalledWith("series", {
+      maxSpecs: 20, specsPerAttempt: 6, secondsPerSpec: 600, budgetUsd: 0, wallClockHours: 8.5, continueAfterWallTime: false,
+    });
+  });
+
+  it("SettingsStudio_SeriesForm_ServerRefusal_IsShownInline", async () => {
+    const reason = "Invalid 'series' settings: series.max_specs is 30; it must be between 1 and 26";
+    saveSetting.mockImplementationOnce(() => Promise.reject(new Error(reason)));
+    render(<SettingsStudio settingKey="series" />);
+    fireEvent.change(await screen.findByTestId("setting-series-maxspecs"), { target: { value: "30" } });
+    // No copy of the rule in the form: the value is sent and the server's reason is shown.
+    expect(screen.queryByTestId("settings-refusal")).toBeNull();
+    fireEvent.click(screen.getByTestId("settings-save"));
+    expect(await screen.findByTestId("settings-save-error")).toHaveTextContent(reason);
+    expect(saveSetting).toHaveBeenCalledWith("series", expect.objectContaining({ maxSpecs: 30 }));
   });
 });

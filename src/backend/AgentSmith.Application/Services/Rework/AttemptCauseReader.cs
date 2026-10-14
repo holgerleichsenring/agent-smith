@@ -20,6 +20,8 @@ namespace AgentSmith.Application.Services.Rework;
 /// applies <see cref="OperatorAct"/> against the previous attempt.</para>
 /// <para>2026-10-13-9a59n: a Retry of the previous attempt carries no change, so it ranks below every act with
 /// content and above a run asked for by name, a re-trigger and a pickup.</para>
+/// <para>2026-10-13-8762p: an overruled default ranks below the act slot and a status move, above Retry.</para>
+/// <para>2026-10-13-8762v: a series' automatic start ranks below Retry and above a start by name, which it also is.</para>
 /// </summary>
 public sealed class AttemptCauseReader(
     TrackerIdentity identity, ApprovedSpecSetResolver approvals, ILogger<AttemptCauseReader> logger)
@@ -34,7 +36,9 @@ public sealed class AttemptCauseReader(
         if (act is not null && (act.Channel != ReworkChannel.Ticket || statusBack is null)) return Of(act);
         if (statusBack is not null) return Of(statusBack);
         var previous = pipeline.TryGet<PreviousAttempt>(ContextKeys.PreviousAttempt, out var p) ? p : null;
+        if (OverruleAct.Of(previous) is { } overrule) return Of(overrule);
         if (RetryAct.Of(previous) is { } retry) return Of(retry);
+        if (pipeline.IsSeriesAutoStart()) return new AttemptCause(AttemptChannels.Series, AttemptChannels.SeriesActor);
         if (pipeline.IsRequestedByName()) return new AttemptCause(AttemptChannels.Requested);
         if (previous is not null) return new AttemptCause(AttemptChannels.Retrigger);
         return await PickupAsync(provider, context, cancellationToken);
@@ -82,6 +86,7 @@ public sealed class AttemptCauseReader(
         ReworkChannel.Status => AttemptChannels.StatusMove,
         ReworkChannel.Operator => AttemptChannels.Operator,
         ReworkChannel.Retry => AttemptChannels.Retry,
+        ReworkChannel.Overrule => AttemptChannels.Overrule,
         _ => AttemptChannels.TicketComment,
     };
 }

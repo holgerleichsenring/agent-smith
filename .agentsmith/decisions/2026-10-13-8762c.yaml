@@ -1,0 +1,79 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-8762c
+
+decisions:
+  - category: Architecture
+    chose: "MEASURED FIRST: prerequisites and the six declared stage commands in one container per image (mcr.microsoft.com/dotnet/sdk:10.0, node:20-bookworm) under docker run --cpus=1 --memory=4g, NUGET_PACKAGES / NUGET_HTTP_CACHE_PATH / NPM_CONFIG_CACHE under /pkgcache as PackageCacheCatalog mounts them"
+    over: "Measuring on the host, or re-running in the tree the cold run left"
+    reason: |
+      Host: Apple M2 Max, 12 cores, arm64; Docker VM 6 CPUs (aarch64), each container capped at 1 CPU and 4 GB. The
+      cluster's CPUs may differ, so every number is an estimate for 2026-10-13-8762u. COLD = fresh clone, empty caches.
+      WARM = git clean -xdf in the clone, ~/.cache, ~/.local/share/pnpm, the corepack shims and /tmp removed, build
+      servers shut down, so only the three mounted caches survive. Every run exited 0 and git status --porcelain was
+      empty after every shape (next build leaves next-env.d.ts unchanged).
+      .NET (seconds, build / test): cold 206.3 / 310.9; warm1 159.4 / 288.7; warm2 251.7 / 287.9. Slowest warm verify
+      539.6 (warm2); spread 448.1-539.6.
+      node (seconds, prerequisites / install / mirror / test / build): cold 1.1 / 24.4 / 0.2 / 178.0 / 96.8; warm1 1.0 /
+      22.1 / 0.4 / 200.5 / 103.8; warm2 1.9 / 23.3 / 0.2 / 224.6 / 95.0; warm3 1.1 / 18.7 / 0.3 / 182.6 / 77.3;
+      incremental (same tree) - / 0.9 / 0.2 / 176.0 / 63.2. Warm stage sets 326.8 / 343.1 / 278.9; slowest 343.1.
+      pnpm --version at the repository root after the prerequisites: 10.15.0 in every shape.
+      No stage came near the 900 s step cap (slowest single step: dotnet test 310.9 s cold), so no
+      sandbox.step_timeout_seconds and no resources block are recommended for this project.
+  - category: Architecture
+    chose: "DEVIATION: two warm .NET runs, not three — the coordinator capped the remaining measurement at about 20 minutes"
+    over: "Running warm3 (about 9 more minutes at 1 CPU)"
+    reason: |
+      The first .NET seed was red (see the next decision) and was re-measured on the final tree, which consumed the
+      time. The node image has its three warm runs. The .NET spread is two samples; the slowest of them is used.
+  - category: Implementation
+    chose: "DEVIATION: the first measured suite was red on two environment-fragile tests; both were made environment-proof instead of handing back"
+    over: "Handing the spec back, or excluding a second category from the declared suite"
+    reason: |
+      In the .NET image the suite ran as root with the clone under /work, as every sandbox does
+      (SandboxSecurityContext RunAsUser null; Repository.SandboxWorkPath). CliRunRecordingTests.AnUnwritableStore...
+      expected /var/lib/agentsmith to be uncreatable, which root can create; RepositoryDecisionLoggerTests...
+      NotTheHostFilesystem asserted that /work does not exist. Both would be red in every sandbox. Each now keeps its
+      intent without the host assumption: the unwritable store sits under a regular file, and the logger test asserts
+      the decision file is absent under /work. A third failure, SpecRecord_EveryPointer_ResolvesToAFile, was the
+      half-moved spec file of the seed itself, not a defect. The declared suite still differs from the human gate's
+      only by Category!=NeedsDocker; the re-measured cold and warm suites exited 0.
+  - category: Implementation
+    chose: "NEGATIVE CONTROL: a public sealed record NegativeControlProbeEvent : RunEvent added under Contracts/Events without a TypeScript mirror turns pnpm --dir src/dashboard run gen:hub-events red"
+    over: "Trusting the script's --check flag unproven"
+    reason: |
+      Exit 1. First error line: "hub-events.ts (records) drift detected:" followed by "missing in TS:
+      NegativeControlProbeEvent" and "event-types drift detected — fail."
+  - category: Architecture
+    chose: "series.seconds_per_spec = 1294, a LOWER bound (default, pending operator ratification)"
+    over: "A number taken from this repository's own runs in the operator's server store"
+    reason: |
+      slowest warm verify 882.7 (.NET 539.6 + node 343.1; one sandbox after the other) x median VerifySpec steps per
+      done spec 1, + median (spec row duration - all its VerifySpec durations) 67.5, + one slowest warm dashboard set
+      343.1 (the master's own run_gate_stage run) = 1293.3. Source of the two medians: the local CLI run store
+      ~/.agentsmith/runs.db, 19 done RunSpecs rows from 2026-09-01 to 2026-10-13 (rest range 25-682 s), read by SpecId
+      and CommandName; the operator's server store was not reachable from here, and none of those specs ran over THIS
+      repository. It is a lower bound because that history predates run_gate_stage and the stage repair: a stage repair
+      adds a master, a commit and a verify no stored spec carries, so an attempt sized from it can still overrun,
+      which 2026-10-13-8762v's continue_after_wall_time absorbs.
+      orchestrator.max_run_wall_time_seconds that fits eight blocks plus the reserved commit-and-PR block
+      (2026-10-13-8762u: AttemptSize = secondsLeft / seconds_per_spec - 1): 9 x 1294 = 11646.
+  - category: Architecture
+    chose: "OPERATOR PRECONDITION: the agent-smith project sets no sandbox.toolchain_image and no sandbox.images entry for C# or TypeScript"
+    over: "One combined .NET plus node image"
+    reason: |
+      Either override wins over the contexts' stack.image (SandboxImageChain.Decide) and collapses both contexts into
+      one image, where the node stages find no pnpm. Pinned by
+      SandboxImageChain_ThisRepositorysContexts_WithNoProjectImageOverride_ResolveToTwoImages. Nothing is written to a
+      deployment config (contract decision 9).
+  - category: Architecture
+    chose: "A stage repair's continuation goes through VerifySpecHandler.RecordAsync, like the account repair"
+    over: "Returning StageRepair.Offer's result directly"
+    reason: |
+      RecordAsync records a spliced repair as InProgress and runs the review revert; returning the continuation bare
+      would skip the progress record the account repair already writes. Same one line, net zero.
+  - category: Architecture
+    chose: "StageRepair offers the pass only for a DECLARED stage (label and command found in the sandbox's context list)"
+    over: "Any red outcome in the ran list"
+    reason: |
+      The ran list also carries the analyzer's inferred build/test pair; the spec repairs a declared stage, and the
+      existing red-build tests over inferred commands keep failing the spec as before.

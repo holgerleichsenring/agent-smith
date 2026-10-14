@@ -112,6 +112,20 @@ public sealed class CliShapedDiTests
     }
 
     [Fact]
+    public void VerifySpecHandler_FromTheComposedContainer_Resolves()
+    {
+        using var provider = AgentSmith.Cli.ServiceProviderFactory.Build(
+            configPath: string.Empty, verbose: false, headless: true);
+
+        var handler = provider.GetRequiredService<AgentSmith.Contracts.Commands.ICommandHandler<
+            AgentSmith.Application.Models.VerifySpecContext>>();
+
+        handler.Should().BeOfType<AgentSmith.Application.Services.Handlers.VerifySpecHandler>(
+            "the verify gate takes the sandbox tree sync, and the real composition must provide it");
+        provider.GetRequiredService<AgentSmith.Application.Services.Sandbox.SandboxTreeSync>().Should().NotBeNull();
+    }
+
+    [Fact]
     public void Cli_RealServiceProviderFactoryBuild_ResolvesPipelineExecutor()
     {
         // Mirrors AgentSmith.Cli's actual production composition (the same call

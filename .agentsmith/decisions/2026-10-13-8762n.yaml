@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-8762n
+
+decisions:
+  - category: Architecture
+    chose: "The entered spec is re-grounded in SelectSpecHandler after the set lookup and before CurrentSpec and SpecStartHeads.RecordAsync: `(spec, var stepNote) = await entryGrounding.GroundAsync(...)`, the Ok line continued with the step note (119 lines)"
+    over: "A second re-ground before review round 1 in ReviewSpecs"
+    reason: "At entry every predecessor of the attempt has landed, and a revision published before the start heads is in no spec's own diff (spec decision 1, main-thread decision 6)."
+  - category: Implementation
+    chose: "DEVIATION: the deconstruction names the second element `stepNote` and the Ok line appends `stepNote`, not `grounding.StepNote`"
+    over: "The spec's literal `(spec, var grounding)` + `grounding.StepNote`"
+    reason: "Deconstructing the positional SpecEntryGround(Spec, StepNote) into (spec, var grounding) makes `grounding` the StepNote string itself; `grounding.StepNote` does not compile. Same line count, same behaviour (SelectSpecHandler.cs:46, :70)."
+  - category: Implementation
+    chose: "DEVIATION: the pickaxe's right boundary is `([^0-9,-]|,[^0-9]|,$|$)` instead of the spec's `([^0-9,-]|$)`"
+    over: "The spec's boundary as written"
+    reason: "Evidence lines separate citations with ', ' (`EvidenceCheck.cs:27-48, src/...`), so a token followed by a comma never matched the spec's boundary and the writing commit was never found — most citations would have been 'not checked'. A comma before a non-digit or at the line end ends the token; ',14' still continues it, so `Foo.cs:12` is not counted inside `Foo.cs:12,14` (SpecCitationHistory.cs:21; test LongerTokenContainingTheToken covers both)."
+  - category: Implementation
+    chose: "DEVIATION: the named harness test Harness_TwoSpecSeries_SpecOneMovesLinesSpecTwoCites_SpecTwoEntersRegroundedAndItsDiffCarriesNoSpecsPath runs in AgentSmith.Tests (Specs/Review/SpecEntryGroundingTests) over a real git clone: real SelectSpecHandler, real grounding and regrounder, real SpecStartHeads and SpecDiffs, the publisher a real commit of the spec file"
+    over: "A PipelineHarness preset run"
+    reason: "The harness's StubSandbox answers every git step with exit 0 and no output (tests/AgentSmith.Tests/TestHelpers/StubSandbox.cs:77-96) and a run-derived set cites minted [Ln] look lines only, so a harness run can reach neither the history nor a path:line citation. The PipelineHarness preset suite was run green to show SelectSpec's new step leaves every existing run unchanged."
+  - category: Architecture
+    chose: "Not checked is silent: a git step that fails, times out or throws, a citation git cannot date, a base it cannot find, a bare path no or several repositories hold at their base — all leave the citation alone; only lines that changed and whose text is found nowhere are STALE"
+    over: "Reporting every unanswerable citation as stale"
+    reason: "A missed check costs less than a false finding (the SandboxEvidenceProbe rule); the master is told only what was proven to have changed."
+  - category: Implementation
+    chose: "A moved citation whose evidence cannot be rewritten verbatim (an escaped scalar) is listed stale with the location its text was found at; a token with a ':'-continuation found in another file likewise"
+    over: "Dropping such a move silently"
+    reason: "Spec: a token is spliced in every fact or none, and a continuation-bound token never moves files; the master still has to learn where the text went."
+  - category: Implementation
+    chose: "Candidate reads are charged before they run (all candidates of a citation at once); when they do not fit the 24-pair budget the citation is counted unchecked rather than read partially"
+    over: "Reading candidates until the budget runs out"
+    reason: "A partial read cannot prove a unique match, so it could only produce a false 'found nowhere'. Budget 24 is the contract default, pending operator ratification (contract section 5, default 48)."
+  - category: Implementation
+    chose: "A failed re-ground publish does not fail SelectSpec: the handed-in set is put back into ContextKeys.SpecSet, the spec runs on its original text, each moved citation is listed stale ('its text is now at …; the re-ground revision was not published') and the step note names the failed publish"
+    over: "Failing SelectSpec as g's own rounds fail their step"
+    reason: "Contract default, pending operator ratification (contract section 5 default 49, decision 30)."
+  - category: Implementation
+    chose: "BuildNoteContractCheck marks a deviation DECLARED when one of the note's deviations names its subject (the datum, the contract name, the move's destination) by whole word, case-insensitively"
+    over: "Requiring the whole entry to be quoted"
+    reason: "A deviation is written as prose; naming what was deviated from is what declares it."
+  - category: Implementation
+    chose: "EvidenceReferences gained Cited(evidence) — every path token with the text it was read from, in reading order (EvidenceToken) — and Read now walks the same loop"
+    over: "A second tokenizer in the re-ground"
+    reason: "The re-ground must select exactly the tokens the evidence check reads, and know which one a ':'-continuation binds to; two tokenizers would drift."

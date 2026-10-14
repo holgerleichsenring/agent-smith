@@ -9,7 +9,7 @@ namespace AgentSmith.Application.Services.SpecDialog;
 /// spec schema (each child is a filable spec in its own right) and
 /// the requires: edges for consistency before the shape is proposed.
 /// <para>
-/// 2026-09-17-0e79a: the spec CAP is checked here, on the proposal, before any ticket exists.
+/// 2026-09-17-0e79a: the spec CAP (2026-10-13-8762u: series.max_specs) is checked here, on the proposal, before any ticket exists.
 /// The filers create and then store, so a refusal at store time would leave a filed ticket with
 /// no set; and a run that met an over-cap set could only refuse it or truncate it. A cut this
 /// long is a programme, and the place a person can split it is the conversation.
@@ -19,7 +19,9 @@ public sealed class EpicOutcomeParser(
     ISpecDraftValidator draftValidator,
     SpecDraftReader draftReader,
     RequiresEdgeChecker edgeChecker,
-    DialogDraftRepos draftRepos)
+    DialogDraftRepos draftRepos,
+    Specs.SeriesContractReader contracts,
+    Specs.ISeriesSettingsReader series)
 {
     /// <param name="scope">2026-10-12-3a36e: the turn's repository names each child's repos is
     /// checked against or filled from; the parent names none.</param>
@@ -33,10 +35,13 @@ public sealed class EpicOutcomeParser(
                 "epic outcome needs 'children' with at least two spec entries — "
                 + "a single slice is just a spec; emit the bare ```yaml draft instead");
 
-        if (childMaps.Count > SpecSet.MaxSpecs)
+        // 2026-10-13-8762u: the SERIES cap, read live; an invalid series block refuses naming its field.
+        var settings = series.Current();
+        if (settings.Refusal() is { } invalid) return new OutcomeInvalid(invalid);
+        if (childMaps.Count > settings.Series.MaxSpecs)
             return new OutcomeInvalid(
-                $"epic outcome has {childMaps.Count} children and one work ticket runs at most "
-                + $"{SpecSet.MaxSpecs} specs — propose the first {SpecSet.MaxSpecs} as this "
+                $"epic outcome has {childMaps.Count} children and one series holds at most series.max_specs = "
+                + $"{settings.Series.MaxSpecs} specs — propose the first {settings.Series.MaxSpecs} as this "
                 + "epic and the rest as a second one, cut after this one has delivered");
 
         var (parent, parentError) = ReadDraft(parentMap, "parent");
@@ -66,10 +71,12 @@ public sealed class EpicOutcomeParser(
                 $"epic child #{missing + 1} ('{children[missing].SpecId}') has no 'done' list — every epic "
                 + "child needs 'done:' with at least one outcome that is true once the slice is finished");
 
-        var edgeError = edgeChecker.Check(parent, children);
-        return edgeError is null
-            ? new OutcomeResolved(new EpicOutcome(parent, children))
-            : new OutcomeInvalid(edgeError);
+        if (edgeChecker.Check(parent, children) is { } edgeError) return new OutcomeInvalid(edgeError);
+        // 2026-10-13-8762j: a colliding contract is re-prompted with every collision named.
+        var contract = contracts.FromOutcome(map, children);
+        return contract.Problem is { } problem
+            ? new OutcomeInvalid(problem)
+            : new OutcomeResolved(new EpicOutcome(parent, children, contract.Contract));
     }
 
     private (SpecDraft? Draft, string? Error) ReadDraft(object node, string role)

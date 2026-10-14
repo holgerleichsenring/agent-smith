@@ -165,7 +165,7 @@ public sealed class SeriesEditTests : IDisposable
     [Fact]
     public async Task EditSeries_OverTheCap_RefusedWhole()
     {
-        var members = Enumerable.Range(0, SpecSet.MaxSpecs).Select(i => Series + (char)('a' + i)).ToList();
+        var members = Enumerable.Range(0, new AgentSmith.Contracts.Models.Configuration.SeriesConfig().MaxSpecs).Select(i => Series + (char)('a' + i)).ToList();
         await _h.WorkedAsync("r-1", "alpha", Series, members, executed: [members[0]], status: RunStatuses.Failed);
         await _h.BindAsync(null);
 
@@ -173,7 +173,7 @@ public sealed class SeriesEditTests : IDisposable
             new SeriesEdit(SeriesEditKinds.Recut, members[1], Spec(members[1], "re-cut")),
             new SeriesEdit(SeriesEditKinds.Append, Yaml: Spec("2026-10-14-0000", "One too many")));
 
-        answer.Should().Contain("Nothing was recorded").And.Contain($"{SpecSet.MaxSpecs}");
+        answer.Should().Contain("Nothing was recorded").And.Contain($"{new AgentSmith.Contracts.Models.Configuration.SeriesConfig().MaxSpecs}");
         (await _h.RecordAsync()).Should().BeNull("an over-cap edit records none of its changes");
     }
 

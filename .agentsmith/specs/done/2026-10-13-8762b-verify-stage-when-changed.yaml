@@ -1,0 +1,178 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-8762b
+goal: "A declared verify stage may name when_changed globs; it runs when the repository's branch changed a matching path, even in a sandbox that changed nothing itself, and is skipped, saying so, when none."
+
+applies_to: "backend (context.yaml verify stage contract, reader, schema and tool description; VerifySpec's per-sandbox skip) + the operator reference page and the context template"
+
+requires: [2026-10-13-8762a]
+
+facts:
+  - claim: "A declared stage is a label, a command and an optional when_present path; its doc comment argues that a fourth field would be the one inventing a taxonomy."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/ContextYamlVerifyStage.cs:13-27"
+  - claim: "The verify block is read through ContextYamlReadShape.VerifyBlock (label, command, when_present) and turned into stages by ContextYamlVerifyReader, which drops a stage without label or command."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/ContextYamlReadShape.cs:66-74, src/backend/AgentSmith.Infrastructure/Services/ContextYamlVerifyReader.cs:16-27"
+  - claim: "VerifySpec skips a whole sandbox whose own branch carries no source change, before it even reads the sandbox's declared stages."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:95-111"
+  - claim: "HasSomethingToProve is per sandbox key: Source or Undetermined is true, Nothing is false."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/DeliveredWork.cs:26-46"
+  - claim: "The delivery diffs of every sandbox are taken before the per-sandbox loop, so the handler holds all of a repository's diffs when it decides one sandbox."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:87-91"
+  - claim: "Which sandbox belongs to which repository is decided by SandboxTargets.KeyBelongsToRepo over ContextKeys.SandboxRepos."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SandboxTargets.cs:61-79"
+  - claim: "The delivery diff is the full git diff --no-color of the whole branch against the first comparable ref (origin/<base>, <base>, the run's start commit, else HEAD), and the result carries the ref it was taken against as BaseRef, null only for the HEAD rung."
+    evidence: "src/backend/AgentSmith.Application/Services/DeliveryDiff.cs:54-61, src/backend/AgentSmith.Application/Services/DeliveryDiff.cs:68-79, src/backend/AgentSmith.Application/Services/DeliveryDiff.cs:97-98, src/backend/AgentSmith.Application/Services/DeliveryDiffCandidates.cs:16-37"
+  - claim: "A run step's captured stdout stops at 1,000,000 characters, so a branch diff longer than that reaches the handler cut off; git orders paths, so src/backend/** comes before src/dashboard/**."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Services/StepExecutor.cs:57-63, src/backend/AgentSmith.Sandbox.Wire/SizeLimits.cs:35-37"
+  - claim: "One table-adding member alone adds a migration Designer file of about 85 KB per provider, so a long series' cumulative branch diff passes that cap."
+    evidence: "observed: 2026-10-14, wc -c src/backend/AgentSmith.Infrastructure.Persistence/Migrations/20261013200657_AddRunRetryRequests.Designer.cs = 85,567 bytes"
+  - claim: "Header paths parsed from diff text miss a pure rename and a binary change without --binary, which print no ---/+++ header."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/CitedFileIndex.cs:32, src/backend/AgentSmith.Application/Services/Specs/CitedFileIndex.cs:76-98"
+  - claim: "write_context_yaml deserializes the model's document into ContextYamlDocument, whose Verify is a list of ContextYamlVerifyStage, judges it with the context gate and serializes it back through IContextYamlSerializer."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/WriteContextYamlToolHost.cs:130-150, src/backend/AgentSmith.Contracts/Models/Configuration/ContextYamlDocument.cs:29-32, src/backend/AgentSmith.Infrastructure/Services/ContextYamlSerializer.cs:19-26"
+  - claim: "The resolver takes the declared contexts as given: a non-empty list is authoritative and an empty one falls through to the analyzer's pair; a declared stage whose when_present path is absent is skipped and noted."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifyStageResolver.cs:41-64, src/backend/AgentSmith.Application/Services/Handlers/VerifyStageResolver.cs:72-95"
+  - claim: "ContextVerifyStages carries the context name, its stages and its derivation record; the drift reporter reads the derivation record."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ContextVerifyStages.cs:22-24, src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:111-116"
+  - claim: "Searched notes reach the operator only through the UNVERIFIED verdict, when no command ran over a delivery."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifyResolutionNotes.cs:44-54, src/backend/AgentSmith.Application/Services/Handlers/DeliveredWork.cs:53-64"
+  - claim: "The schema's verify item has exactly label, command and when_present, additionalProperties false, and its three descriptions say the commands run at this context's workdir."
+    evidence: ".agentsmith/context.schema.json:401-446"
+  - claim: "The code runs every declared stage, and reads its when_present path, at the repository root."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifyStageResolver.cs:90, src/backend/AgentSmith.Application/Services/Handlers/DeclaredStagePresence.cs:53-57"
+  - claim: "An architecture test pins the verify item's keys to label, command, when_present and forbids any enum under verify."
+    evidence: "tests/AgentSmith.Tests/Architecture/ContextVocabularyTests.cs:93-104"
+  - claim: "The write_context_yaml tool description names the stage shape { label, command, when_present? } in two places."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/WriteContextYamlToolDescription.cs:14, src/backend/AgentSmith.Application/Services/Tools/WriteContextYamlToolDescription.cs:45-50"
+  - claim: "The context template and the operator reference page show the verify block with when_present."
+    evidence: ".agentsmith/template.context.yaml:60-79, docs/reference/concepts/context-file.md:88-108"
+  - claim: "No glob matcher with ** exists in the backend; the only one treats * as the sole wildcard over repository names."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/RepoGlobMatcher.cs:10-19"
+  - claim: "git prints a path with a byte above 0x7F C-quoted under its default core.quotePath, so a glob over the raw name never matches the printed form."
+    evidence: "observed: 2026-10-14, git config --help, core.quotePath: default true; diff quotes bytes larger than 0x80 and always escapes double-quotes, backslash and control characters; -z prints path names verbatim"
+  - claim: "VerifySpec's two-repository test fixture sets no ContextKeys.Repos and no ContextKeys.SandboxRepos, so a sandbox there belongs to no listed repository."
+    evidence: "tests/AgentSmith.Tests/Commands/VerifySpecHandlerTests.cs:89-106"
+  - claim: "A run that delivered something and ran no command fails as UNVERIFIED; the outcome message already carries extra lines the way stale derivations ride along with the verdict."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/DeliveredWork.cs:53-64, src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:133-135, src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:155-156, src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:278-284"
+  - claim: "The verify array's description says a .NET tree needs no declaration because its entry point is discovered."
+    evidence: ".agentsmith/context.schema.json:404"
+  - claim: "observed: 2026-10-14, wc -l in this worktree: ContextYamlVerifyStage.cs 27, ContextYamlReadShape.cs 108, ContextYamlVerifyReader.cs 48, VerifyResolutionNotes.cs 60, WriteContextYamlToolDescription.cs 81, VerifyStageResolver.cs 120 (none baselined, limit 120); VerifySpecHandler.cs 298 before 8762a (baseline 335)."
+    evidence: "observed: 2026-10-14, wc -l + grep of tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv"
+
+assumptions:
+  - "After 2026-10-13-8762a every sandbox of a repository carries the union, so a sandbox's own delivery and the repository's coincide in the normal case; the repository rule still decides where 8762a did nothing (one sandbox) or could not read a diff."
+  - "git diff --name-only --no-renames -z lists a renamed file under both its old and its new path and lists a changed binary file by name, NUL-separated. A list whose length reaches the 1,000,000-character stdout cap may be cut, so that repository is Undetermined and every guarded stage runs."
+
+scope:
+  in: >
+    FIELD: verify[].when_changed — a list of globs, relative to the REPOSITORY ROOT, '**' any number of path segments,
+    '*' within one segment, matched ordinally against the repository's changed paths. A path predicate like
+    when_present, never a kind. ContextYamlVerifyStage gains WhenChanged (IReadOnlyList<string>?, appended last, null
+    = no condition); the read shape and reader carry it (trimmed, blank entries dropped, an empty list = null). SCHEMA:
+    the verify item gains when_changed (array of strings, minItems 1, no enum), and the three descriptions on that
+    item say "repository root" instead of "this context's workdir", which is what the code does; the vocabulary test
+    pins the four keys. CHANGED PATHS (StageRelevance.ReadAsync, once per verify): per sandbox, git -c core.quotePath=false diff
+    --name-only --no-renames -z <its DiffResult.BaseRef, or HEAD when that is null>, split on NUL (so a non-ASCII path
+    is matched as written) — the same comparison the delivery diff took,
+    working tree included, but read from git rather than from the capped diff text, so renames, binaries and paths
+    past the 1,000,000-character cap all count. The REPOSITORY's changed paths are the union over every sandbox
+    belonging to that repository (SandboxTargets.KeyBelongsToRepo over ContextKeys.Repos; a sandbox placed in no
+    repository of that key, or a run without the key, is its own repository); it is undetermined when any of those
+    delivery diffs failed, the name-only read exits non-zero, or its output reaches
+    SizeLimits.RunStepCapturedStdoutMaxChars. These are the branch's paths, cumulative over every spec on it. RULE (StageRelevance.Select,
+    replacing the predicate at VerifySpecHandler.cs:99): Per declared stage: with when_changed, it runs when a glob matches a
+    changed path or the repository is undetermined, and is skipped otherwise, whatever the sandbox's own state; without
+    when_changed, it runs exactly when the sandbox HasSomethingToProve, as today. A sandbox with no declaration keeps
+    today's rule. A sandbox left with no stage is skipped, and a declared sandbox never falls through to the analyzer's
+    pair because when_changed removed its stages. Every stage skipped by when_changed adds one Searched note
+    ("<key>: <label> skipped — its when_changed globs [<g1>, <g2>] match nothing this repository's branch changed").
+    NO STAGE APPLIES: a repository whose every declared stage was skipped, at least one by its when_changed, ran
+    nothing and is GREEN, not UNVERIFIED — VerifyResolutionNotes.NoStageApplies gets "<repository>: no stage applies
+    to this change — when_changed globs [<g1>, …] match nothing its branch changed", the handler counts such a
+    repository as answered when it asks DeliveredWork.Unverified, and the note rides along on the verify outcome
+    message as stale derivations do. The drift reporter
+    still reads the full declaration. DOCS: the tool description, the context template and the reference page show
+    when_changed beside when_present; the verify array description's ".NET tree needs none, because its entry point
+    is discovered" becomes "a .NET tree may omit it; its entry point is then discovered" (owned here, not by
+    2026-10-13-8762c).
+  out: >
+    Making every sandbox carry the union — 2026-10-13-8762a. Declaring when_changed on this repository's stages —
+    2026-10-13-8762c. Negated or brace globs — nobody: the inclusion form covers every guard 8762c needs, and each
+    added syntax is more grammar the model must write correctly. Changing DeliveryDiff — nobody: the account and the
+    keystone read its text; StageRelevance reads paths from git with the ref the diff carries. Teaching when_changed in
+    the project-bootstrap skill (agent-smith-skills skills/_masters/project-bootstrap/SKILL.md teaches when_present)
+    — nobody: the write_context_yaml tool description carries the field's contract (contract 2.8, every tool works
+    without the skill text), and a skill edit outside contract 2.8's table would need a contract amendment first. The other
+    stale "workdir" and ".NET discovery" carriers 2026-09-20-443a assigned to 2026-09-20-e92c (handler comments, the
+    rest of the schema, Contracts doc comments, the reference page's other sections) — nobody: e92c was never
+    written; this spec corrects only the three descriptions on the node it edits. Changing VerifyStageResolver — nobody: when_changed is decided
+    outside the resolver (contract section 4).
+
+decisions:
+  - key: "THE REPOSITORY'S DIFF, NOT THE SANDBOX'S (contract letter map b, default, pending operator ratification). A stage guards what its command READS, and the generated-mirror check reads C# contracts another toolchain's sandbox delivers; asking only the sandbox that runs it is the blind spot the human gate's always-on dashboard step exists for."
+  - key: "CHANGED PATHS FROM GIT, NOT FROM THE DIFF TEXT (review cut 1). The delivery diff text is cut at 1,000,000 characters and git lists src/backend before src/dashboard, so once a series' branch diff passes the cap a dashboard change would vanish and its guarded stage be skipped as untouched: a false green in exactly the long-series case. A name-only read against the ref the delivery diff carries costs one git step per sandbox and also counts renames and binaries."
+  - key: "THE DELIVERED DIFF IS THE BRANCH'S, CUMULATIVE OVER EVERY SPEC ON IT (review cut 2). Once any earlier spec on the branch touched a guarded path, every later spec runs that stage. That is conservative and intended: a later backend change can still break what the earlier dashboard change relies on."
+  - key: "UNION OF THE REPOSITORY'S DIFFS, SO IT HOLDS WITH OR WITHOUT 8762a. After a green sync each sandbox's diff is the repository's; the union is the same answer then and still the right one for a repository 8762a leaves alone."
+  - key: "A STAGE WITHOUT WHEN_CHANGED KEEPS TODAY'S MEANING. Changing every existing declaration's behaviour to repository scope would turn a context's build into a run on every other context's change; the new field is opt-in and the old rule stays the default."
+  - key: "PATHS READ UNQUOTED AND NUL-SEPARATED (review round 2 cut 1). With git's default core.quotePath a non-ASCII path prints C-quoted, no glob matches it, and the guarded stage is skipped as untouched: the false green the git read was introduced to remove."
+  - key: "A NAME LIST AT THE STDOUT CAP IS UNDETERMINED (review round 2 cut 2). The capture stops silently at 1,000,000 characters; a vendored or generated tree can reach it, and a cut list would drop paths exactly as the capped diff text did. One comparison makes the cut visible and runs the stage."
+  - key: "NO REPOSITORY MAP, EACH SANDBOX IS ITS OWN REPOSITORY (review round 2 cut 4). Older pipelines and VerifySpec's own two-repository fixture carry neither ContextKeys.Repos nor SandboxRepos; an empty repository there would skip every guarded stage. Each sandbox standing alone is today's per-sandbox answer."
+  - key: "NO STAGE APPLIES IS GREEN WITH A NOTE, NOT UNVERIFIED (review round 2 finding 5; main-thread decision 8, default, pending operator ratification). A declaration whose guards say nothing here needs proving for these paths has answered the question; failing the run as UNVERIFIED would punish a docs-only spec for a declaration that is right. The note names the globs, so the operator sees why nothing ran."
+  - key: "UNDETERMINED RUNS THE STAGE. A repository whose diff could not be read is not unchanged (DeliveredWork's rule); skipping a guarded stage there would pass exactly the repositories nobody could check."
+  - key: "NEVER FALL THROUGH TO THE ANALYZER. Handing the resolver an empty declared list would let the analyzer's guess run in place of a declaration that deliberately ran nothing; the sandbox is skipped and the note says why."
+  - key: "A FOURTH FIELD THAT IS A PATH PREDICATE, NOT A TAXONOMY. ContextYamlVerifyStage's own argument is against a kind or category; when_changed names paths, like when_present, so the vocabulary test keeps forbidding every enum."
+  - key: "THE THREE DESCRIPTIONS ON THIS NODE ARE CORRECTED HERE. Adding a field described as repository-root-relative beside two siblings described as workdir-relative would ship a contradiction inside one node; the rest of e92c's carriers stays unowned and is reported."
+  - key: "A SMALL PURE MATCHER, NO PACKAGE. Microsoft.Extensions.FileSystemGlobbing is not referenced by the backend; segment-wise ** and * is about thirty lines and fully tested."
+
+steps:
+  - id: contract
+    action: "ContextYamlVerifyStage gains WhenChanged (IReadOnlyList<string>?, last positional, default null) and its doc comment states the path-predicate rule; the file stays at or under 40 lines."
+  - id: read
+    action: "ContextYamlReadShape.VerifyBlock gains List<string>? WhenChanged (read as when_changed; 108 -> at most 112 lines); ContextYamlVerifyReader passes the trimmed, non-blank globs, empty -> null (48 -> at most 56)."
+  - id: schema
+    action: ".agentsmith/context.schema.json verify item: when_changed {type array, items string minLength 1, minItems 1, description with the repository-root rule and an example}; the verify, command and when_present descriptions say repository root, and the verify description's .NET clause reads 'a .NET tree may omit it; its entry point is then discovered'. ContextVocabularyTests pins label, command, when_present, when_changed."
+  - id: glob
+    action: "ChangedPathGlob (Application/Services/Handlers, pure): IsMatch(glob, path) with ** = zero or more segments, * = any run within one segment, ordinal, leading ./ and / trimmed on both."
+  - id: relevance
+    action: "StageRelevance (at most 120 lines): ReadAsync(pipeline, sandboxes, diffs, ct) runs the unquoted -z name-only read per sandbox and returns each repository's changed paths or Undetermined (repositories via SandboxTargets.KeyBelongsToRepo, a sandbox in no repository its own; a list at the stdout cap Undetermined); Select(key, declared, repositoryPaths, delivered) returns the declared contexts with only the stages that run, or null when the sandbox is skipped; VerifyResolutionNotes gains NotTouched (the note names the globs) and NoStageApplies (60 -> at most 70 lines)."
+  - id: handler
+    action: "VerifySpecHandler: StageRelevance.ReadAsync once after the delivery diffs; the declared stages are read before the skip; StageRelevance.Select replaces the HasSomethingToProve predicate; the drift reporter keeps the full declaration; the resolver receives the filtered list; DeliveredWork.Unverified is asked with ran.Count > 0 || notes.NoStageApplies.Count > 0, and the NoStageApplies lines ride on the outcome beside notes.Stale. The file stays at or under 317 lines with 8762a in (baseline 335)."
+  - id: docs
+    action: "WriteContextYamlToolDescription names when_changed beside when_present (81 -> at most 85 lines); .agentsmith/template.context.yaml and docs/reference/concepts/context-file.md show one guarded stage and the repository-root rule."
+  - id: tests
+    action: "Red first, then green; run the Verify, ContextYaml, Tools and Architecture classes touched."
+
+tests:
+  - "ChangedPathGlob_DoubleStar_MatchesAnyDepth_IncludingZero"
+  - "ChangedPathGlob_SingleStar_StaysInOneSegment"
+  - "ChangedPathGlob_LeadingDotSlash_IsIgnored"
+  - "ContextYamlVerifyBlock_WhenChanged_IsReadTrimmed_BlankDropped"
+  - "ContextYamlVerifyBlock_NoWhenChanged_IsNull"
+  - "Schema_TheVerifyBlock_AddsNoClosedVocabulary (four keys)"
+  - "Schema_VerifyItem_WhenChangedEmptyList_IsRefused"
+  - "StageRelevance_GuardedStage_OtherSandboxChangedAMatchingPath_RunsInAnUnchangedSandbox"
+  - "StageRelevance_GuardedStage_NoMatchingPath_IsSkippedWithANote"
+  - "StageRelevance_GuardedStage_RepositoryUndetermined_Runs"
+  - "StageRelevance_UnguardedStage_SandboxUnchanged_IsSkippedAsToday"
+  - "StageRelevance_EveryStageSkipped_SkipsTheSandbox_NeverInfers"
+  - "StageRelevance_OtherRepositoryChanged_DoesNotTrigger"
+  - "StageRelevance_DeletedFileUnderGlob_Runs"
+  - "StageRelevance_DashboardPathBeyondTheStdoutCap_StillRuns"
+  - "StageRelevance_PureRenameIntoGlob_Runs"
+  - "StageRelevance_BinaryFileUnderGlob_Runs"
+  - "StageRelevance_NameOnlyReadFails_RepositoryUndetermined_Runs"
+  - "WriteContextYamlTool_WhenChanged_RoundTripsThroughTheSerializer"
+  - "VerifySpec_GuardedStageSkipped_DriftStillReadsTheFullDeclaration"
+  - "VerifySpec_OnlyGuardedStagesAndNoneMatched_IsGreenWithANoStageAppliesNoteNamingTheGlobs"
+  - "StageRelevance_GuardedStageSkipped_NoteNamesTheGlobs"
+  - "StageRelevance_NonAsciiPathUnderGlob_Runs"
+  - "StageRelevance_NameOnlyListAtTheStdoutCap_IsUndetermined_Runs"
+  - "StageRelevance_NoRepositoryMap_EachSandboxIsItsOwnRepository"
+  - "WriteContextYamlToolDescription_NamesWhenChanged"
+
+done:
+  - "A context.yaml stage carrying when_changed runs in its sandbox whenever the branch changed a matching path anywhere in that repository — renames, binary files and a branch diff larger than the stdout cap included — even when that sandbox's own branch changed nothing."
+  - "A guarded stage whose globs the delivery does not touch is skipped with a note naming its globs; a repository whose every stage is skipped that way is green with the note 'no stage applies to this change', never UNVERIFIED."
+  - "A non-ASCII path under a glob, a changed-path list at the stdout cap, and a run without a repository map all run the guarded stage or judge per sandbox, never a false skip."
+  - "Every existing declaration without when_changed verifies exactly as before."
+  - "write_context_yaml accepts when_changed, writes it back unchanged and refuses an empty list; the template and the reference page show it."
+  - "Build green, full suite green, dashboard gen:hub-events / test / build green."

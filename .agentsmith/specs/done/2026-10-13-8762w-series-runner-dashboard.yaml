@@ -1,0 +1,144 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-8762w
+goal: "The ticket page shows a series' spend and run time against their caps, its chained attempts and whether the next starts by itself or why it holds; Config Studio edits spec_review and series."
+
+applies_to: "dashboard (ticket page series strip, Config Studio settings forms)"
+
+requires: [2026-10-13-8762g, 2026-10-13-8762q, 2026-10-13-8762u, 2026-10-13-8762v]
+
+facts:
+  - claim: "The ticket page renders TicketHeader, then the tab bar, then the selected pane, under .mock-shell.mock-tickets."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketPage.tsx:14-37"
+  - claim: "TicketHeader shows the key, title and a subline of recorded facts (tracker link, tracker status, the live or newest attempt, the branch)."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketHeader.tsx:23-39"
+  - claim: "The page store reads the default series once and re-reads everything on this ticket's TicketActivityChanged; a RunsChanged of one of its attempts re-reads the default series."
+    evidence: "src/dashboard/src/lib/tickets/TicketPageStore.tsx:18-23, src/dashboard/src/lib/tickets/TicketPageStore.tsx:127-134"
+  - claim: "The TicketSeries mirror is hand-kept and carries no budget today; an attempt carries its cause as {channel, actor, at, source}."
+    evidence: "src/dashboard/src/types/tickets.ts:248-262, src/dashboard/src/types/tickets.ts:61-66"
+  - claim: "Channel words for an attempt's cause come from one table; a channel missing from it is shown raw."
+    evidence: "src/dashboard/src/components/tickets/ticketFormat.ts:30-43"
+  - claim: "money() renders a dollar amount with two decimals."
+    evidence: "src/dashboard/src/components/tickets/ticketFormat.ts:17-19"
+  - claim: "The Specs tab head already counts done of total for the series."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketSpecsTab.tsx:58-66"
+  - claim: "Config Studio's settings rail is SETTING_KEYS with a label, a subtitle and an icon per key; each key has one typed form case in SettingsForm."
+    evidence: "src/dashboard/src/components/config/settings.ts:12-76, src/dashboard/src/components/config/SettingsForm.tsx:41-96"
+  - claim: "SettingKey and SettingShapes mirror the C# settings models camelCase on the wire; fetchSetting and saveSetting read and write /api/config/settings/{key}."
+    evidence: "src/dashboard/src/lib/configApi.ts:842-854, src/dashboard/src/lib/configApi.ts:980-993, src/dashboard/src/lib/configApi.ts:995-1021"
+  - claim: "The settings endpoints expose every taxonomy singleton except persistence and role_mapping, and a save is attributed, versioned and applied live."
+    evidence: "src/backend/AgentSmith.Server/Extensions/ConfigSettingsEndpoints.cs:21-43, src/backend/AgentSmith.Server/Extensions/ConfigSettingsEndpoints.cs:54-55, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigSettingsAccess.cs:16-19"
+  - claim: "Every block the loader binds must be a stored taxonomy document, so the member that adds a block adds its singleton descriptor in the same commit."
+    evidence: "tests/AgentSmith.Tests/ConfigStudio/ConfigTaxonomyCoverageTests.cs:30-38, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigDocumentTaxonomy.cs:28-50"
+  - claim: "ConfigSnapshotMapper maps ConfigGlobals (sandbox, orchestrator, limits, cost cap, persistence provider) and sits at 145 of its 150-line baseline."
+    evidence: "src/backend/AgentSmith.Server/Services/Config/ConfigSnapshotMapper.cs:106-115, src/backend/AgentSmith.Server/Services/Config/ConfigGlobals.cs:8-13, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:96"
+  - claim: "No dashboard component reads the snapshot's globals; ConfigView and ProjectDetailPanel read projects and their resolved settings only."
+    evidence: "observed: 2026-10-14, grep -rn 'globals' src/dashboard/src outside __tests__ finds only globals.css imports; src/dashboard/src/components/system/ProjectDetailPanel.tsx:161 reads resolved.costCap"
+  - claim: "SettingsForm.tsx is 529 lines; the file-length ratchet covers backend sources only."
+    evidence: "observed: 2026-10-14, wc -l src/dashboard/src/components/config/SettingsForm.tsx = 529; tests/AgentSmith.Tests/Architecture/FileLengthRatchetTests.cs:80-84"
+  - claim: "Ticket page and Config Studio tests exist to extend."
+    evidence: "src/dashboard/src/components/tickets/detail/__tests__/TicketPage.test.tsx:76, src/dashboard/src/components/tickets/detail/__tests__/detailFixtures.ts:40, src/dashboard/src/components/config/__tests__/SettingsStudio.test.tsx:87"
+  - claim: "The ticket page's look lives in mock-parity.css under .mock-tickets."
+    evidence: "src/dashboard/src/styles/mock-parity.css:361-363"
+
+  - claim: "patcher and keep are private functions of SettingsForm.tsx; NumberField is exported from formFields.tsx and takes no bounds."
+    evidence: "src/dashboard/src/components/config/SettingsForm.tsx:98-107, src/dashboard/src/components/config/formFields.tsx:228-244"
+  - claim: "A failed settings save surfaces the server's error text inline under the Save button; the one client-side refusal today is the sandbox's."
+    evidence: "src/dashboard/src/lib/configApi.ts:1016-1019, src/dashboard/src/components/config/SettingsStudio.tsx:30-34, src/dashboard/src/components/config/SettingsStudio.tsx:84-88, src/dashboard/src/components/config/settingsRefusal.ts:12-23"
+  - claim: "A settings PUT saves through the write guard, which turns a ConfigurationException into a 400; no series rule is on that path today."
+    evidence: "src/backend/AgentSmith.Server/Extensions/ConfigSettingsEndpoints.cs:35-43, src/backend/AgentSmith.Server/Services/Config/ConfigStudioWriteGuard.cs:62-66"
+  - claim: "Retry is refused for any end that is not an infrastructure end."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/RunRetryGate.cs:28-29"
+  - claim: "The ticket tabs are one table with no defaults row today; 2026-10-13-8762q appends it."
+    evidence: "src/dashboard/src/components/tickets/detail/ticketTabTable.ts:36-62"
+
+assumptions:
+  - "2026-10-13-8762v has landed TicketSeriesView.Budget = {spentUsd, capUsd, elapsedHours, capHours, chainFrom, next: start | hold | complete, heldBecause} on the default series read, null for a ticket that is not more than one chunk, with heldBecause one of off, misconfigured, handed-back, cancelled, incomplete, no-progress, budget-usd, wall-clock, default-pending, refused, closed; elapsedHours is summed run time, not calendar time."
+  - "2026-10-13-8762v's write check refuses a series or spec_review settings save the run would refuse, as a 400 naming the field (ConfigSettingsAccess.Normalize)."
+  - "2026-10-13-8762v publishes TicketActivityChanged on every series mark (held, refused, closed), so the page re-reads the series after the worker decides, not only on the attempt's RunsChanged."
+  - "2026-10-13-8762v and 2026-10-13-8762g's boundary claim gate keep the poller off a boundary ticket, so the chain's automatic attempts are series starts, not retriggers."
+  - "2026-10-13-8762g and 2026-10-13-8762u have landed SpecReviewConfig {rounds, reviewers, maxConcurrent, budgetSharePercent} and SeriesConfig {maxSpecs, specsPerAttempt, secondsPerSpec} with their taxonomy singletons spec_review and series; 8762v appended budgetUsd, wallClockHours, continueAfterWallTime. Both are read live per run through the config store."
+  - "2026-10-13-8762q has appended the Defaults tab {id defaults} to ticketTabs."
+
+scope:
+  in: >
+    MIRROR: types/tickets.ts TicketSeries gains budget: TicketSeriesBudget | null with the fields above.
+    STRIP: a new SeriesRunway.tsx rendered in TicketPage between TicketHeader and the tab bar, only when budget is
+    non-null and heldBecause is not off. One line: "Series" · spend against cap (money of both) with a thin bar ·
+    run time against cap in hours · the chain as A{chainFrom} → … → A{newest}, an automatic attempt's arrow marked
+    "auto" (its cause channel is series, read from detail.attempts) · the next attempt: "starts by itself" (start),
+    "held — {reason}" (hold) or "complete". A bar at or past its cap is in the hot colour. Each held reason has one
+    sentence in a seriesWords table, none naming Retry: the go-on sentence is "a comment on the ticket or an
+    approval in its conversation starts the next attempt"; default-pending says "ratify it in the Defaults tab"
+    and links the defaults tab id; refused says the last automatic start was refused; closed says a person closed
+    the ticket; misconfigured points at the Series settings in Config Studio (the ticket comment names the field; the
+    budget block carries only the code). The strip refreshes through the store's
+    existing reads; it fetches nothing itself.
+    CAUSE WORDS: ticketFormat CHANNEL_WORDS gains series: "series, started automatically".
+    CONFIG STUDIO: configApi.ts SettingKey gains spec_review and series, with SpecReviewSetting {rounds,
+    reviewers, maxConcurrent, budgetSharePercent} and SeriesSetting {maxSpecs, specsPerAttempt, secondsPerSpec, budgetUsd,
+    wallClockHours, continueAfterWallTime} in SettingShapes; settings.ts gains their label, subtitle and icon,
+    placed after dialogue. keep and patcher move from SettingsForm.tsx to formFields.tsx, exported. A new
+    SeriesSettingsForms.tsx holds SpecReviewForm (rounds, 0 = off said beside it; reviewers; max concurrent; budget share percent with help
+    "share of the run's cost cap and wall clock review may use") and
+    SeriesForm (max specs, specs per attempt, seconds per spec with 0 = not measured and help saying it is the
+    whole spec block, budget USD with 0 = off, wall-clock hours of run time, continue after a wall-time cancel).
+    A value the run would refuse is refused by the server's 400 and shown inline in the existing save error;
+    the forms hold no copy of the rule. SettingsForm gains two cases (529 -> at most 534 lines).
+  out: >
+    The budget block, its held reasons, the chain rule and the settings write check — 2026-10-13-8762v. The
+    spec_review and series config classes, their rules, taxonomy singletons and schema keys — 2026-10-13-8762g and
+    2026-10-13-8762u. The Defaults tab itself — 2026-10-13-8762q. The rounds per spec on the Specs tab —
+    2026-10-13-8762l. The snapshot globals (ConfigSnapshotMapper / ConfigGlobals) — nobody: nothing on the
+    dashboard renders them. A ticket-list strip for the series budget — nobody: the list row already carries the
+    spec strip and the page carries this one.
+
+decisions:
+  - key: "CONFIG STUDIO IS THE SETTINGS FORMS, NOT THE SNAPSHOT (series contract 2.7 and section 4, amended). No dashboard component reads the snapshot's globals; the place an operator sees and edits a settings singleton is SettingsStudio over /api/config/settings. Mapping both sections into ConfigGlobals would add a datum nobody renders to a file at 145/150."
+  - key: "THE TAXONOMY ENTRIES BELONG TO THE MEMBERS THAT ADD THE BLOCKS. ConfigTaxonomyCoverageTests fails the commit that binds a block without a stored document, so 2026-10-13-8762g (spec_review) and 2026-10-13-8762u (series) add the singleton descriptors; this member renders what the settings endpoint already serves."
+  - key: "ONE RULE, ON THE SERVER (main-thread decision 4). A save is checked by the same rule the run applies, in the settings write path (2026-10-13-8762v); the form shows the 400 inline through the existing save error. REJECTED CUT: bounding the inputs to 1..26 / 1..min(max specs, 18) in the form — a TypeScript copy of 8762u's rule drifts from it, and the per-attempt count is now derived from seconds_per_spec and the run wall clock (SettingsStudio.tsx:84-88 already shows the server's refusal)."
+  - key: "THE STRIP SITS ABOVE THE TABS, NOT IN THE SPECS TAB. Whether the next attempt starts by itself is a fact about the ticket, read on every tab, like the header's live attempt. Contract 2.9 allows the header or the Specs tab head; the header's subline stays one line of recorded facts."
+  - key: "THE PAGE SHOWS WHAT THE SERVER DECIDED. next and heldBecause come from 8762v's SeriesRunwayReader, the one function the worker acts on; a refused launch or a person's close is a ledger mark the read maps to refused / closed, so start is shown only while the worker would start."
+  - key: "MISCONFIGURED IS WORDED BY SECTION. The budget block carries the code only (2026-10-13-8762v READ, contract 2.6); the field is named in v's ticket comment, so the strip points at the Series settings instead of claiming a field it does not know."
+  - key: "THE REFRESH RESTS ON v's MARK NUDGE. The store re-reads the series on a RunsChanged of the attempt (TicketPageStore.tsx:18-23), which precedes the worker's decision; only v's TicketActivityChanged on every mark keeps 'starts by itself' from outliving a close."
+  - key: "NO STRIP ON AN ORDINARY TICKET. budget is null for a one-chunk ticket and off renders nothing, so a 2-3 spec ticket or a turned-off budget shows no series line."
+  - key: "NO RETRY IN THE SENTENCES. RunRetryGate refuses every end but an infrastructure one, and the spoken holds follow a success or a wall-time cancel."
+  - key: "LOOK IS A DEFAULT. No mock was ratified for the strip; it is built from the ticket page's existing classes and colours. Default, pending operator ratification."
+  - key: "RECORDED IN THE default CONTEXT. Contract decision 23 (amended): every member records in contexts/default, whose state.done the record rules read."
+
+steps:
+  - id: mirror
+    action: "types/tickets.ts: TicketSeriesBudget and TicketSeries.budget; detailFixtures.series accepts a budget."
+  - id: words
+    action: "seriesWords.ts: next and held-reason sentences (no Retry), the chain label; ticketFormat CHANNEL_WORDS gains series."
+  - id: strip
+    action: "SeriesRunway.tsx (at most 90 lines) with its bars and chain; TicketPage renders it between header and tabs when budget is non-null and not off (47 -> about 49); its styles appended under .mock-tickets in mock-parity.css."
+  - id: settings-types
+    action: "configApi.ts: SettingKey, SpecReviewSetting, SeriesSetting, SettingShapes; settings.ts label, subtitle, icon after dialogue."
+  - id: settings-forms
+    action: "Move keep and patcher to formFields.tsx, exported; SeriesSettingsForms.tsx (SpecReviewForm, SeriesForm); SettingsForm gains two cases and loses the two helpers (at most 534 lines)."
+  - id: tests
+    action: "Red first for every test below, then green; pnpm gen:hub-events, pnpm test and pnpm build."
+
+tests:
+  - "SeriesRunway_Start_ShowsSpendRunTimeAndStartsByItself (dashboard, SeriesRunway.test.tsx)"
+  - "SeriesRunway_HeldOnBudget_NamesTheReasonAndHowToGoOn_WithoutRetry"
+  - "SeriesRunway_HeldOnDefault_PointsAtTheDefaultsTab"
+  - "SeriesRunway_HeldRefusedOrClosed_SaysSo"
+  - "SeriesRunway_Complete_SaysTheSeriesIsComplete"
+  - "SeriesRunway_Chain_MarksAutomaticAttempts"
+  - "SeriesRunway_BarAtCap_IsHot"
+  - "TicketPage_NoBudget_RendersNoStrip (TicketPage.test.tsx)"
+  - "TicketPage_BudgetOff_RendersNoStrip"
+  - "TicketPage_ActivityNudge_RefreshesTheStrip (incl. a closed mark arriving after the run end)"
+  - "ChannelWords_Series_IsAutomaticSeriesStart"
+  - "SettingsStudio_SpecReviewForm_EditsRoundsReviewersConcurrencyAndBudgetShare (SettingsStudio.test.tsx)"
+  - "SettingsStudio_SeriesForm_EditsCapsBudgetAndWallClock"
+  - "SettingsStudio_SeriesForm_ServerRefusal_IsShownInline"
+  - "SettingsStudio_Rail_ListsSpecReviewAndSeries"
+
+done:
+  - "On a ticket whose series runs over several attempts, the page shows the dollars and run hours spent against both caps, which attempts were chained automatically, and whether the next one starts by itself or why it is held."
+  - "A held series says in one sentence what holds it and what a person does to go on, never pointing at Retry; a series with nothing left reads complete; a one-chunk ticket or a turned-off budget shows no strip."
+  - "After an automatic attempt starts or a series holds, an open ticket page updates without a reload."
+  - "Config Studio lists Spec review and Series in its settings rail; an operator changes rounds, reviewers, concurrency, the review budget share, the series caps, budget and wall clock there and the change applies to the next run; a value the run would refuse is refused on save with the server's reason shown."
+  - "Build green, full suite green, dashboard gen/test/build green."

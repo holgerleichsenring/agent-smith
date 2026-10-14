@@ -14,12 +14,14 @@ import type {
   QueueSetting,
   RegistriesSetting,
   SandboxSetting,
+  SeriesSetting,
   SettingKey,
-  SettingShapes,
   SettingValue,
   SkillsSetting,
+  SpecReviewSetting,
 } from "@/lib/configApi";
-import { CheckField, DrawerSection, NumberField, TextField } from "./formFields";
+import { CheckField, DrawerSection, NumberField, TextField, keep, patcher } from "./formFields";
+import { SeriesForm, SpecReviewForm } from "./SeriesSettingsForms";
 import { SandboxImageTrustFields } from "./SandboxImageTrustFields";
 
 // p0353: the per-settings typed forms. One case per settings key — flat docs are a
@@ -92,18 +94,11 @@ export function SettingsForm({
       return <PipelineDataFlowForm value={value as PipelineDataFlowSetting} onChange={onChange} />;
     case "trace":
       return <TraceForm value={value as TraceSetting} onChange={onChange} />;
+    case "spec_review":
+      return <SpecReviewForm value={value as SpecReviewSetting} onChange={onChange} />;
+    case "series":
+      return <SeriesForm value={value as SeriesSetting} onChange={onChange} />;
   }
-}
-
-// A patcher bound to a shape — merges a partial into the current value.
-function patcher<T extends SettingShapes[SettingKey]>(value: T, onChange: (v: SettingValue) => void) {
-  return (patch: Partial<T>) => onChange({ ...value, ...patch } as SettingValue);
-}
-
-// A required number that is momentarily emptied keeps its current value rather than
-// collapsing to 0; the operator select-all-retypes and the loaded value stays visible.
-function keep(v: number | undefined, current: number): number {
-  return v ?? current;
 }
 
 function OrchestratorForm({

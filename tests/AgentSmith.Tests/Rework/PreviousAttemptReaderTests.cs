@@ -26,7 +26,8 @@ public sealed class PreviousAttemptReaderTests : IDisposable
     {
         var services = new ServiceCollection();
         services.AddScoped<IUnitOfWork>(_ => Db());
-        return new DbPreviousAttemptReader(services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>());
+        var scopes = services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
+        return new DbPreviousAttemptReader(scopes, new DecidedDefaults(scopes));
     }
 
     private async Task SeedAsync(params (string Id, string Pipeline, string Status, int Minutes, bool Finished)[] runs)
@@ -76,4 +77,35 @@ public sealed class PreviousAttemptReaderTests : IDisposable
         (await Reader().LatestAsync("other", "42", null, CancellationToken.None)).Should().BeNull();
         (await Reader().LatestAsync("p", "7", null, CancellationToken.None)).Should().BeNull();
     }
+
+    // 2026-10-13-8762p: the overruled defaults of every code run of the ticket, oldest decision first; pending,
+    // ratified, scan and other-ticket rows are not overrules.
+    [Fact]
+    public async Task PreviousAttempt_CarriesOverruledDefaultsOfTheTicket()
+    {
+        await SeedAsync(
+            ("2026-10-08T09-00-00-a", "code", "success", 0, true),
+            ("2026-10-08T09-10-00-b", "security-scan", "success", 10, true),
+            ("2026-10-08T09-20-00-c", "code", "success", 20, true));
+        await using (var db = Db())
+        {
+            db.AddRange(
+                Row(1, "2026-10-08T09-00-00-a", "overruled", 50), Row(2, "2026-10-08T09-20-00-c", "overruled", 40),
+                Row(3, "2026-10-08T09-20-00-c", "ratified", 45), Row(4, "2026-10-08T09-20-00-c", "pending", null),
+                Row(5, "2026-10-08T09-10-00-b", "overruled", 30), Row(6, "elsewhere", "overruled", 30));
+            await db.SaveChangesAsync();
+        }
+
+        var attempt = await Reader().LatestAsync("p", "42", null, CancellationToken.None);
+
+        attempt!.Overrules.Select(o => (o.Id, o.By, o.At, o.Note)).Should().Equal(
+            (2L, "ana", T0.AddMinutes(40), "no"), (1L, "ana", T0.AddMinutes(50), "no"));
+    }
+
+    private static RunDefaultDecision Row(long id, string runId, string verdict, int? minutes) => new()
+    {
+        Id = id, RunId = runId, Question = "q", Chosen = "c", Kind = "decision", TakenAt = T0, Verdict = verdict,
+        VerdictBy = minutes is null ? null : "ana", VerdictAt = minutes is { } m ? T0.AddMinutes(m) : null,
+        VerdictNote = minutes is null ? null : "no",
+    };
 }

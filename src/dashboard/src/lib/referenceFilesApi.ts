@@ -36,6 +36,16 @@ export async function fetchHeldContent(dialogId: string): Promise<SpecDialogHeld
   return getJson<SpecDialogHeldContent[]>(`/api/spec-dialog/references/hashes?dialogId=${encodeURIComponent(dialogId)}`);
 }
 
+/** 2026-10-13-8762r: one mock version's screenshot or whole page, by its conversation, spec and number. */
+export function mockPath(sessionId: string, specId: string, version: number, part: "shot" | "html"): string {
+  return `/api/spec-dialog/conversations/${encodeURIComponent(sessionId)}/mocks/${encodeURIComponent(specId)}/${version}/${part}`;
+}
+
+/** The whole page, served only as a sandboxed attachment — saved, never opened from this origin. */
+export async function fetchMockHtmlBlob(sessionId: string, specId: string, version: number): Promise<Blob> {
+  return fetchBlob(mockPath(sessionId, specId, version, "html"));
+}
+
 /** Bytes behind the bearer token, for a blob URL. */
 export async function fetchBlob(path: string): Promise<Blob> {
   const res = await apiFetch(path);

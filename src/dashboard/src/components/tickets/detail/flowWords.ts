@@ -41,6 +41,7 @@ const CASE_WORDS: Record<string, string> = {
   SpecificationMissingFromBranch: "spec missing from the branch",
   ScopeUnassigned: "scope unassigned",
   SeriesOutOfStep: "series out of step",
+  ReviewObjection: "review objection", // 2026-10-13-8762l
 };
 
 export function handbackCaseWords(handbackCase: string): string {

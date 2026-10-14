@@ -72,7 +72,7 @@ public sealed class SpecDialogSessionManager(
         var session = await repository.GetOpenByThreadAsync(platform, threadId, ct);
         if (session is null) return null;
 
-        var turn = new TranscriptTurn(role, text, timeProvider.GetUtcNow(), kind, decision, author);
+        var turn = new TranscriptTurn(role, text, timeProvider.GetUtcNow(), kind, decision, Author: author);
         var transcript = SpecDialogSessionMapper.ReadTranscript(session.TranscriptJson);
         session.TranscriptJson = SpecDialogSessionMapper.WriteTranscript([.. transcript, turn]);
         session.LastActivityAt = turn.At;

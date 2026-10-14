@@ -31,7 +31,7 @@ internal sealed record AmendedSpecification(
         proposal switch
         {
             SpecOutcome spec => FromSpec(
-                rendering.Series.Under(series, [spec.Draft]), conversation, rendering, Note(vocabulary)),
+                rendering.Series.Under(series, [spec.Draft], spec), conversation, rendering, Note(vocabulary)),
             EpicOutcome epic => FromEpic(epic, series, conversation, rendering, Note(vocabulary)),
             // A bug ticket is filed from another renderer and carries no approved set, so there
             // is no region of ours on the bound ticket for it to replace.
@@ -55,7 +55,7 @@ internal sealed record AmendedSpecification(
         var order = rendering.Orderer.Order(epic.Children);
         if (order.Error is not null)
             return Refused($"The amended cut cannot be ordered: {order.Error}.");
-        var set = rendering.Series.Under(series, order.Children);
+        var set = rendering.Series.Under(series, order.Children, epic);
         return new(
             set,
             rendering.Renderer.RenderEpicParent(

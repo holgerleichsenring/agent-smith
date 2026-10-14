@@ -1,11 +1,12 @@
 import type { ComponentType } from "react";
-import type { TicketConversation, TicketDetail, TicketSeries } from "@/types/tickets";
+import type { TicketConversation, TicketDefaults, TicketDetail, TicketSeries } from "@/types/tickets";
 import { money } from "../ticketFormat";
 import { specsCounter, acceptanceTally } from "./specWords";
 import { TicketAcceptanceTab } from "./TicketAcceptanceTab";
 import { TicketAttemptsTab } from "./TicketAttemptsTab";
 import { TicketConversationTab } from "./TicketConversationTab";
 import { TicketCostTab } from "./TicketCostTab";
+import { TicketDefaultsTab } from "./TicketDefaultsTab";
 import { TicketSpecsTab } from "./TicketSpecsTab";
 import { TicketSummaryTab } from "./TicketSummaryTab";
 
@@ -24,6 +25,8 @@ export interface TicketTabCounter {
 export interface TicketTabReads {
   conversation: TicketConversation | null;
   series: TicketSeries | null;
+  /** 2026-10-13-8762q */
+  defaults: TicketDefaults | null;
 }
 
 export interface TicketTab {
@@ -59,6 +62,13 @@ export const ticketTabs: TicketTab[] = [
   {
     id: "cost", label: "Cost & compute", Pane: TicketCostTab,
     counter: (detail) => ({ text: money(detail.attempts.reduce((sum, a) => sum + a.cost, 0)) }),
+  },
+  {
+    // 2026-10-13-8762q: appended last; hot only while a pending default holds the series (a pending one never blocks).
+    id: "defaults", label: "Defaults", Pane: TicketDefaultsTab,
+    counter: (_detail, { defaults }) => defaults && defaults.entries.length > 0
+      ? { text: String(defaults.pending), hot: defaults.pendingHoldingSeries > 0 }
+      : null,
   },
 ];
 

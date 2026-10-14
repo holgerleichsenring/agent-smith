@@ -1,0 +1,217 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-8762e
+goal: "A spec's cited evidence is checked, a fresh reviewer that opens the code answers BUILD, BUILD WITH CUTS or REFUSE with file:line evidence, and each answer is stored on the run as event 87."
+
+applies_to: "backend (spec review: evidence check, attack reviewer on a look its caller opens, admission, the round publisher, event 87 and its RunSpecReviewRounds projection, two migrations) + the dashboard's run-event mirror"
+
+requires: []
+
+facts:
+  - claim: "The plugin's review loop is: run the evidence script, spawn ONE fresh reviewer with a fixed attack brief, answer BUILD / BUILD WITH CUTS / REFUSE with file:line evidence, apply cuts, grep the old wording in every register, repeat until BUILD."
+    evidence: "observed: 2026-10-13, skills/review-spec/SKILL.md lines 12-39 of the spec-first plugin checkout at 965aa65"
+  - claim: "The attack brief, verbatim, is the quoted paragraph at line 31."
+    evidence: "observed: 2026-10-13, skills/review-spec/SKILL.md line 31 of the spec-first plugin checkout at 965aa65"
+  - claim: "Today's cut reviewer judges only deliverability and is told to say nothing about style, ordering or how many specs; it reviews the whole set in one call."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecCutReviewPrompt.cs:30-60, src/backend/AgentSmith.Application/Services/Specs/SpecCutReviewer.cs:38-55"
+  - claim: "A framework review is a port called with a fresh chat client per call, a cost scope, a call scope and a guard on the run's token so a provider timeout never kills the caller."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ISpecCutReviewer.cs:21-26, src/backend/AgentSmith.Application/Services/Specs/SpecCutReviewer.cs:57-87"
+  - claim: "A look's holder is named by DerivationLookTerms (actor, allowance, evidence letter, numbered reads, stage runs); letters L, R, P, M and C are taken, and the spec review numbers its reads because its findings name a line."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationLookTerms.cs:26-28, src/backend/AgentSmith.Application/Services/Specs/DerivationLookTerms.cs:37-92"
+  - claim: "DerivationLookFactory.OnTerms builds a template-free look over the run's sandboxes on any holder's terms, null when the run has none; ProposalRepositories is the run's sandboxes minus templates and references."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationLookFactory.cs:58-73, src/backend/AgentSmith.Application/Services/Specs/DerivationLookFactory.cs:103-115"
+  - claim: "A design turn publishes ContextKeys.SandboxRepos with every template under its own key, and with more than one repository a bare cited path goes to BareAsync, so a template holding the path would answer for it; ProposalRepositories drops template and reference keys by their prefixes."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:34, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:62-63, src/backend/AgentSmith.Application/Services/Specs/SandboxEvidenceProbe.cs:44-53, src/backend/AgentSmith.Application/Services/Specs/DerivationLookFactory.cs:111-112"
+  - claim: "A read look mints an id with the repository, the path and how many numbered lines it returned."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationEvidence.cs:37-53, src/backend/AgentSmith.Application/Services/Specs/RepositoryFileReadTool.cs:53-63"
+  - claim: "SpecReviewAdmission keeps a finding only when it cites a read of its own that exited 0, of exactly that repository and path, with the line inside what the read returned; its read matching and path normalising are private to it."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecReviewAdmission.cs:6-48, src/backend/AgentSmith.Application/Services/Specs/SpecReviewAdmission.cs:45-65"
+  - claim: "A look records a search as its own kind with its exit code, beside reads, audits and stage runs."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/EvidenceRecord.cs:22-38, src/backend/AgentSmith.Application/Services/Specs/RepositorySearchTool.cs:58-59"
+  - claim: "grep exits 1 because it found nothing and that is the proof of absence; the search look records Ran for exit 0 or 1, and a read of a missing file is minted with exit 1 and Ran true."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SearchOutcome.cs:8-11, src/backend/AgentSmith.Application/Services/Specs/SearchOutcome.cs:34, src/backend/AgentSmith.Application/Services/Specs/RepositorySearchTool.cs:58-59, src/backend/AgentSmith.Application/Services/Specs/RepositoryFileReadTool.cs:22-23, src/backend/AgentSmith.Application/Services/Specs/RepositoryFileReadTool.cs:57-60"
+  - claim: "A derived spec's fact evidence is the minted look line it cites; EvidenceReferences sorts a minted [Ln] segment into Minted, never into References, and the product policy allows minted lines, so they are neither probed nor reported."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/FactResolver.cs:32-33, src/backend/AgentSmith.Application/Services/Specs/DerivedSpecYamlRenderer.cs:63-67, src/backend/AgentSmith.Application/Services/Specs/EvidenceReferences.cs:26-27, src/backend/AgentSmith.Application/Services/Specs/EvidenceGrammar.cs:26-27, src/backend/AgentSmith.Application/Services/Specs/EvidenceCheck.cs:18-19, src/backend/AgentSmith.Application/Services/Specs/EvidencePolicy.cs:37-43"
+  - claim: "A SpecSet holds its members in Specs and the executed ones in Executed."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:25-27, src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:44"
+  - claim: "SampleEventFactory throws for a list type it was not taught; RunEventApplierFamiliesTests.Expected and RunEventAppliers.Families name every projection family by hand."
+    evidence: "tests/AgentSmith.Tests/Events/SampleEventFactory.cs:40-52, tests/AgentSmith.Tests/Persistence/RunEventApplierFamiliesTests.cs:13-26, tests/AgentSmith.Tests/TestSupport/RunEventAppliers.cs:20-33"
+  - claim: "Under the product policy a probe answer of NotChecked is no problem at all, and SandboxEvidenceProbe answers NotChecked for a bare path that several sandboxes hold and for a prefix matching no key."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/EvidenceCheck.cs:41-48, src/backend/AgentSmith.Application/Services/Specs/SandboxEvidenceProbe.cs:31-58"
+  - claim: "One repository with two toolchain groups gets two sandboxes keyed by context name, and the coordinator records each key's repository name in the SandboxRepos map it publishes."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxKeyComposer.cs:51-64, src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs:161-169, src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs:119"
+  - claim: "A look's allowance counts every look taken, searches and reads alike, and a look holds three read-only tools and no shell."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationLookBudget.cs:29, src/backend/AgentSmith.Application/Services/Specs/DerivationTools.cs:6-9"
+  - claim: "DerivationLookTerms is a record, so a holder's terms can be copied with another allowance; the cut reviewer bounds its iterations as its allowance plus two."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationLookTerms.cs:26-28, src/backend/AgentSmith.Application/Services/Specs/SpecCutReviewer.cs:36"
+  - claim: "Each spec's premises are checked again by CheckSpecPremises right after SelectSpec, before its work starts."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Parking.cs:44-48, src/backend/AgentSmith.Application/Services/Handlers/CheckSpecPremisesHandler.cs:11-25"
+  - claim: "The members of this series cite between 23 and 44 distinct files each in their facts."
+    evidence: "observed: 2026-10-14, distinct paths in the evidence lines of 2026-10-13-8762a, e, g and n in this worktree: 24, 38, 44, 23"
+  - claim: "EvidenceCheck checks one fact's evidence against a probe under a policy; the product policy accepts minted look lines and reports what it cannot route as not checked; SandboxEvidenceProbe routes a cited path over a map of sandboxes."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/EvidenceCheck.cs:9-25, src/backend/AgentSmith.Application/Services/Specs/EvidencePolicy.cs:32-43, src/backend/AgentSmith.Application/Services/Specs/SandboxEvidenceProbe.cs:18-50"
+  - claim: "Only a spec that describes today is evidence-checked: one whose requires name a spec not yet built cites files its predecessors create."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/ProposalEvidenceReview.cs:12-18, src/backend/AgentSmith.Application/Services/SpecDialog/ProposalEvidenceReview.cs:45-53"
+  - claim: "EvidenceCheck, EvidenceReferences and EpicChildOrderer are registered in PipelineHandlersExtensions; the spec-set services in SpecDerivationRegistrations."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs:174, src/backend/AgentSmith.Application/Services/Specs/SpecDerivationRegistrations.cs:15-20"
+  - claim: "A spec's text is SpecDraft.Yaml; SpecDraftReader reads goal, done, steps, tests, facts, assumptions, contexts and repos from it through OutcomeYamlReader.ReadMap — scope and decisions are not read."
+    evidence: "src/backend/AgentSmith.Contracts/Models/SpecDraft.cs:9-13, src/backend/AgentSmith.Application/Services/SpecDialog/SpecDraftReader.cs:14-41"
+  - claim: "SpecQuotableText.IsRunIn admits a quote that is a run of at least two of a text's words, compared word by word."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecQuotableText.cs:16-26, src/backend/AgentSmith.Application/Services/Specs/SpecQuotableText.cs:77-80"
+  - claim: "EventType ends at SpecCutReviewed = 86 and the file is 119 lines against a 120 limit; EventTypeResolver maps each type at 83 lines."
+    evidence: "src/backend/AgentSmith.Contracts/Events/EventType.cs:106-119, src/backend/AgentSmith.Infrastructure/Services/Events/EventTypeResolver.cs:59-62, observed: 2026-10-13, wc -l in this worktree: EventType.cs 119, EventTypeResolver.cs 83"
+  - claim: "SpecCutReviewedEvent and its constants sit in one events file; RunConversationProjection inserts one row per event guarded by ProjectedEventRecords."
+    evidence: "src/backend/AgentSmith.Contracts/Events/SpecConversationEvents.cs:16-35, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunConversationProjection.cs:18-48, src/backend/AgentSmith.Infrastructure.Persistence/Services/ProjectedEventRecords.cs:17-26"
+  - claim: "A run-child table is registered in RunChildConfiguration.Children with a ToTable name, made unique on (RunId, EventSeq) in RunRecordIdentityConfiguration, deleted by RunDeletionRepository, and its family registered in RunProjectionsExtensions."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunChildConfiguration.cs:26-57, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunRecordIdentityConfiguration.cs:23-38, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunDeletionRepository.cs:68-71, src/backend/AgentSmith.Infrastructure.Persistence/Extensions/RunProjectionsExtensions.cs:42-53"
+  - claim: "A table arrives by one migration of one name in each of the two migration sets, and the archive test counts the tables with generated keys (37 today)."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Migrations/20261013175757_AddRunConversationEntries.cs, src/backend/AgentSmith.Infrastructure.Persistence.SqlServer/Migrations/20261013175803_AddRunConversationEntries.cs, tests/AgentSmith.Tests/Conversation/RunConversationEntryMigrationTests.cs:15-36, tests/AgentSmith.Tests/Persistence/DataArchiveSchemaTests.cs:163"
+  - claim: "gen:hub-events fails on a C# event record without a TS interface; FilterRail's LABELS is a Record over every EventType, so a new value without a label fails the build; eventFilterQuery names each type for the URL."
+    evidence: "tools/build-hub-event-types.mjs:2-19, src/dashboard/src/components/jobs/FilterRail.tsx:8, src/dashboard/src/components/jobs/FilterRail.tsx:53, src/dashboard/src/lib/eventFilterQuery.ts:71, src/dashboard/src/types/hub-events.ts:50, src/dashboard/src/types/hub-events.ts:645-660"
+  - claim: "SpecDerivationRegistrations.cs is 114 lines, RunChildConfiguration.cs 59, RunRecordIdentityConfiguration.cs 41, RunDeletionRepository.cs 98, RunProjectionsExtensions.cs 55, DerivationLookTerms.cs 93; none is baselined."
+    evidence: "observed: 2026-10-13, wc -l in this worktree and grep of tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv"
+
+assumptions:
+  - "An allowance of the spec's distinct cited paths plus 12, never below 24, lets one reviewer open every cited file once and follow a dozen fields to their sinks; a spec that needs more is reviewed on what was opened, and its reviewer says so."
+  - "A round without a look (a run with no sandbox) has nothing to attack with and is not taken; a code run always holds its repositories' sandboxes."
+
+scope:
+  in: >
+    EVENT: EventType.SpecReviewRound = 87 and SpecReviewRoundEvent in Contracts/Events/SpecReviewEvents.cs with the
+    contract's fields (RunId, Timestamp, SpecId?, Scope, Round, Reviewer, Verdict, Cuts, Findings, EvidenceProblems,
+    Residues, RevisionNumber?), the value records SpecReviewCut(Register, Quote, Replacement?, Evidence, SpecId?) — SpecId appended last, null on a spec-scope round
+    and naming the member on a set-scope one (2026-10-13-8762k fills it, 2026-10-13-8762l reads it),
+    SpecReviewFinding(Text, Evidence), SpecEvidenceProblem(Claim, Problem), SpecReviewResidue(Register, Quote), and
+    constants SpecReviewVerdicts (build, build-with-cuts, refuse), SpecReviewScopes (spec, series), SpecRegisterNames
+    (goal, scope, decisions, steps, tests, done, facts). EventTypeResolver arm; hub-events.ts mirrors all five records,
+    the enum value and the union; FilterRail LABELS and eventFilterQuery TYPE_KEYS gain the type. REGISTERS:
+    SpecRegisters reads a spec's yaml into the seven registers' texts (scope = in + out; decisions = each entry's
+    key; steps = id + action; facts = claim + evidence). TODAY: SpecToday.Describes(SpecDraft draft, SpecSet set) — true when
+    every spec id in requires is in set.Executed OR is not a member of set.Specs (the one signature 2026-10-13-8762g,
+    i and n call). EVIDENCE: SpecRoundEvidence runs EvidenceCheck under EvidencePolicy.Product
+    over every fact, with a SandboxEvidenceProbe over ONE sandbox per repository — ContextKeys.SandboxRepos key ->
+    name, the first sandbox of each name, keyed by the name, with every key starting with TemplateScopeName.Prefix or
+    ReferenceScopeName.Prefix dropped by the same filter as DerivationLookFactory.ProposalRepositories (a design turn
+    publishes its templates in SandboxRepos) — falling back to DerivationLookFactory.ProposalRepositories
+    when no map is published, only when the spec describes today; a counting decorator around the probe counts the
+    references answered NotChecked, and each minted look line in a fact's evidence (EvidenceReading.Minted) counts as
+    one citation in Total and in Unchecked, so it returns SpecRoundEvidenceResult(Problems, Unchecked, Total). REVIEWER: DerivationLookTerms.AttackReview (actor
+    "attack review", letter A, numbered, no stage) and DerivationLookTerms.AttackReviewFor(draft) = AttackReview with
+    { Allowance = distinct cited paths + 12, never below 24 }, MaxIterations following from it; ISpecAttackReviewer.ReviewAsync(SpecAttackInput, look,
+    ct) + SpecAttackReviewer — one fresh Reasoning call on the look its CALLER passes, as ISpecCutReviewer takes its
+    look per call; a null look is a review not taken. SpecAttackInput(Draft, Scope, Round, Reviewer, WiderGoal?,
+    DescribesToday, EvidenceProblems, NotChecked, CitationsTotal, PriorResidues) — 2026-10-13-8762h appends the question pin last. A run's caller
+    opens one look per reviewer with DerivationLookFactory.OnTerms(pipeline, DerivationLookTerms.AttackReviewFor(draft));
+    2026-10-13-8762i adds DerivationLookFactory.ForProposalAttack for a design turn. SpecAttackPrompt quotes the plugin brief verbatim and adds the
+    answer shape, the registers' names, the round's evidence problems, "N of M citations were not checked" (open
+    those yourself, minted [Ln] look lines included: open what they claim), that every quote is a run of at least
+    four of its register's words, the prior round's residues, the today rule, the wider goal, that a cut which adds text quotes
+    an anchor run in its register and gives a replacement holding the anchor and the addition, and that a finding
+    of absence may cite a search of its own; SpecAttackAnswerReader; the read-matching half of SpecReviewAdmission
+    (own read that exited 0, same repository and path, normalised, line inside what was returned) is extracted into
+    one internal OwnReadRule that SpecReviewAdmission and SpecAttackAdmission both call; SpecAttackAdmission keeps a
+    cut whose quote is a run in the register it names AND whose evidence passes OwnReadRule, and a finding that
+    passes OwnReadRule OR cites a search of its own that Ran (exit 0 or 1, EvidenceLook.Ran; stored as
+    "repo search:'pattern' [Aid]") OR a read of its own of exactly that path that Ran with exit 1 (the file is absent);
+    the verdict is the most severe its admitted content supports (refuse needs an admitted finding, build-with-cuts
+    an admitted cut, otherwise build), and Evidence is stored as "repo/path:line [Aid]" with the repository NAME from
+    SandboxRepos, never the sandbox key.
+    PUBLISH: SpecReviewRoundPublisher.PublishAsync(pipeline, round fields) publishes one SpecReviewRoundEvent per
+    reviewer answer (only inside a run, a publish failure logged, never thrown). No bundled round type: the caller
+    (2026-10-13-8762g) runs SpecRoundEvidence once, the reviewers, the cuts and then the publisher. PERSISTENCE: RunSpecReviewRound entity (Id, RunId, EventSeq, SpecId,
+    Scope, Round, Reviewer, Verdict, At, CutsJson, FindingsJson, EvidenceProblemsJson, ResiduesJson,
+    RevisionNumber) in table RunSpecReviewRounds, written only by RunSpecReviewRoundProjection; migration
+    AddRunSpecReviewRounds in both sets. REGISTRATION: Services/Specs/Review/SpecReviewRegistrations.AddSpecReview(),
+    called once from SpecDerivationRegistrations.
+  out: >
+    Applying cuts, the register residue check and filling Residues — 2026-10-13-8762f. Composing a round
+    (evidence once, several reviewers, merging them), the rounds loop, the ReviewSpecs command and publishing a
+    revision — 2026-10-13-8762g.
+    What a standing REFUSE does when the rounds run out — 2026-10-13-8762h. The design-turn review — 2026-10-13-8762i.
+    Set-scope rounds (Scope = series) — 2026-10-13-8762k; this spec declares the value only. The endpoint and the
+    ticket view that read RunSpecReviewRounds — 2026-10-13-8762l. Re-grounding a moved citation — 2026-10-13-8762n, when the spec is entered in SelectSpecHandler, after review; this check reports a moved citation as a problem and never re-grounds it. Checking a spec whose requires name an unbuilt member of its own set — nobody at review time: its
+    citations describe a tree its predecessors leave; CheckSpecPremises checks it at its own start and the next
+    attempt re-reviews the unbuilt tail. Replacing the derivation's cut review — nobody:
+    contract decision 6 keeps it. A skill for the brief — nobody: contract decision 7 keeps it in code.
+
+decisions:
+  - key: "THE BRIEF IS THE PLUGIN'S, VERBATIM, IN CODE. Contract decision 7 (default, pending operator ratification): no skills release is needed mid-series; tuning costs an agent-smith release. The plugin's text is what the supervised session ran, and a paraphrase would be a second brief to drift."
+  - key: "FILE:LINE MEANS A READ THE FRAMEWORK MINTED. The brief asks for file:line evidence; SpecReviewAdmission already decides when a model's file:line is true — a read of its own of that path that returned that line. A path alone is what a reviewer produces without opening anything, which is the failure the brief names."
+  - key: "A CUT QUOTES ITS REGISTER. A cut is admitted only when its quote is a run of the register it names, so 2026-10-13-8762f can find the text it replaces and its residue check knows where the wording came from. The seven registers are the plugin's list."
+  - key: "THE VERDICT FOLLOWS WHAT WAS ADMITTED. A REFUSE whose every finding is discarded rested on nothing the framework could see; it is stored as what its admitted content supports, and the discards are logged. A BUILD carrying an admitted cut is a BUILD WITH CUTS: a named cut is a cut."
+  - key: "EVIDENCE PROBLEMS ARE THE ROUND'S, NOT THE REVIEWER'S. The mechanical check runs once per round before any reviewer and its problems ride the event beside the verdict; the reviewer is shown them. The stop rule (contract decision 3, default, pending operator ratification) needs the check clean, so it is a field, never folded into a verdict."
+  - key: "TODAY RULE REUSED, NARROWED TO THE SET. A spec whose requires name an unbuilt member of its own set cites files that predecessor creates; ProposalEvidenceReview skips those, and so does this check. A requires id outside the set (a done spec, a series predecessor such as 2026-09-19-c511c) is not in set.Specs, so it counts as built: otherwise most members of a series would never be checked (review 8762e C3). The reviewer is told such facts describe the state the requires leave."
+  - key: "ONE SANDBOX PER REPOSITORY FOR THE CHECK. Two toolchain sandboxes of one repository hold the same tree, so a bare citation probed over both is NotChecked and the product policy makes that silence a pass — the check would be vacuous on this very repository once 2026-10-13-8762c adds the dashboard context (review 8762e C1). The SandboxRepos map names each key's repository."
+  - key: "UNCHECKED IS COUNTED, NOT HIDDEN. The plugin says never treat a check that did not run as a pass. The round's result counts its NotChecked references and the reviewer is told 'N of M citations were not checked'; 2026-10-13-8762g's 'evidence clean' means no problem among the citations that were checked, and the count asks the reviewer to open the rest. A derived spec's facts cite minted [Ln] look lines that no probe can route, so each minted line is counted in Total and Unchecked and the reviewer is told to open what it claims, rather than reporting 0 of 0 (review r2 8762e C2). No event field: the contract's event 87 is unchanged (review 8762e C2)."
+  - key: "THE REVIEWER IS THE MAIN CHECK ON DERIVED SPECS. Derived specs cite minted lines and most members of a fresh series require an unbuilt member, so the mechanical check probes little on them; the fresh reviewer with its allowance of cited paths plus 12 is the real check there, unlike the session, which ran the evidence script on every spec (review r2 8762e finding 5)."
+  - key: "A FINDING MAY REST ON A SEARCH. 'No caller reads X' and 'the cited file does not exist' are proven by a search, not a read, and they are the commonest grounds for a REFUSE; admitting only reads would downgrade them to BUILD. grep exits 1 exactly when it found nothing and a read of a missing file exits 1, so a search that Ran (exit 0 or 1) and a read of its own that Ran with exit 1 are admissible; exit 0 alone would drop both classes (review r2 8762e C1). A cut still needs an exit-0 read, because it changes text about a line (review 8762e C5)."
+  - key: "QUOTES OF AT LEAST FOUR WORDS, ASKED IN THE PROMPT. IsRunIn admits a two-word run, and a two-word quote ('event 87') also occurs legitimately elsewhere in its register, so its residue never clears; the prompt asks for four words, and admission keeps IsRunIn unchanged (main-thread decision 11)."
+  - key: "ONE READ RULE, EXTRACTED. SpecAttackAdmission needs SpecReviewAdmission's read matching without the diff; a copy would be a second rule to drift, so the matching moves into OwnReadRule and both admissions call it (review 8762e C9)."
+  - key: "REGISTRATION FILE UNDER Review/. Contract 2.4 says Services/Specs/, section 4 says Services/Specs/Review/; this spec takes Services/Specs/Review/SpecReviewRegistrations.cs, where its sibling types live, and contract 2.4 is amended to match (review 8762e C8)."
+  - key: "ITS OWN LETTER AND ALLOWANCE. Letter A is unused. The allowance is the spec's distinct cited paths plus 12, never below 24, because the brief says open every cited file and follow fields to their sinks, and this series' members cite 23 to 44 files each; a flat 12 would let a reviewer verify about a third of one spec (review 8762e C4). Searches and reads share the allowance. Default, pending operator ratification."
+  - key: "ROOM IN EventType.cs (contract section 4). The file is 119 of 120 lines: SpecReviewRound = 87 goes in as ONE line and the three-line 042eh comment above SpecReviewed (EventType.cs:106-108) is shortened to two, so the file stays at 119 and 2026-10-13-8762o adds value 88 as one line, to 120."
+  - key: "THE CALLER OPENS THE LOOK, AND NO BUNDLED ROUND. ISpecCutReviewer takes its look per call (ISpecCutReviewer.cs:11-25), so a run and a design turn each open the look they can (OnTerms finds no discoveries in a turn); 2026-10-13-8762g publishes a round only after its cuts were applied, so a round type that published before the cuts would be a second, unused path."
+  - key: "A TABLE, PROJECTED. Contract 2.2: rounds live only in RunSpecReviewRounds, written only by the event-87 projection, unique on (RunId, EventSeq) so a replayed drain inserts nothing twice; no DbSet."
+
+steps:
+  - id: event
+    action: "SpecReviewEvents.cs (event, four value records, three constant classes); EventType 87 with EventType.cs kept at 119; EventTypeResolver arm (83 -> 84); hub-events.ts enum, five interfaces and union; FilterRail LABELS and eventFilterQuery TYPE_KEYS rows; SampleEventFactory learns the four new list types; pnpm gen:hub-events green."
+  - id: registers
+    action: "SpecRegisters (yaml -> the seven register texts) and SpecToday.Describes(draft, set) (outside-the-set requires count as built), each its own file under Services/Specs/Review."
+  - id: evidence
+    action: "SpecRoundEvidence: EvidenceCheck under EvidencePolicy.Product with a SandboxEvidenceProbe over one sandbox per repository name (SandboxRepos minus template and reference keys, the ProposalRepositories filter; ProposalRepositories when no map), wrapped in a counting probe; minted look lines count as unchecked citations; returns problems, unchecked and total; empty when the spec does not describe today."
+  - id: terms
+    action: "DerivationLookTerms.AttackReview (minimum allowance 24) and AttackReviewFor(draft) (distinct cited paths + 12, never below 24) (93 -> at most 104 lines)."
+  - id: reviewer
+    action: "SpecAttackInput, ISpecAttackReviewer (ReviewAsync(input, look, ct)), SpecAttackReviewer (fresh Reasoning call on the passed look; null look -> not taken), SpecAttackResult (verdict, admitted cuts, admitted findings), SpecAttackPrompt, SpecAttackAnswerReader, SpecAttackAdmission, and OwnReadRule extracted from SpecReviewAdmission (74 -> below 60, behaviour unchanged, its tests green); each file at most 120 lines."
+  - id: publisher
+    action: "SpecReviewRoundPublisher: one SpecReviewRoundEvent per reviewer answer with the round's evidence problems, residues and revision number; a publish failure logged."
+  - id: registration
+    action: "SpecReviewRegistrations.AddSpecReview() registers every type above; SpecDerivationRegistrations gains exactly the one call (114 -> 115)."
+  - id: persistence
+    action: "RunSpecReviewRound entity; RunSpecReviewRoundProjection (IRunEventFamily, HoldsAsync before insert); RunChildConfiguration Children + ToTable (59 -> 61); RunRecordIdentityConfiguration Unique (41 -> 42); RunDeletionRepository delete (98 -> 99); RunProjectionsExtensions family (55 -> 56); RunEventApplierFamiliesTests.Expected gains [typeof(SpecReviewRoundEvent)] = [RunSpecReviewRoundProjection] and RunEventAppliers.Families gains the projection."
+  - id: migrations
+    action: "AddRunSpecReviewRounds in AgentSmith.Infrastructure.Persistence/Migrations and AgentSmith.Infrastructure.Persistence.SqlServer/Migrations; DataArchiveSchemaTests count 37 -> 38."
+  - id: tests
+    action: "Red first, then green, for every test below; run the Specs, Persistence, Conversation and Events classes touched, and pnpm test for the mirror."
+
+tests:
+  - "SpecAttackPrompt_CarriesThePluginBriefVerbatim"
+  - "SpecAttackPrompt_ShowsEvidenceProblemsAndPriorResidues"
+  - "SpecAttackAdmission_CutQuotingItsRegister_WithOwnRead_IsKept"
+  - "SpecAttackAdmission_CutQuotingAnotherRegister_IsDiscarded"
+  - "SpecAttackAdmission_EvidenceCitingNoReadOfItsOwn_IsDiscarded"
+  - "SpecAttackAdmission_LinePastWhatTheReadReturned_IsDiscarded"
+  - "SpecAttackAdmission_RefuseWithNoAdmittedFinding_IsStoredAsWhatItSupports"
+  - "SpecAttackAdmission_BuildCarryingAnAdmittedCut_IsBuildWithCuts"
+  - "SpecRegisters_ReadsAllSevenRegisters"
+  - "SpecToday_RequiresAnUnbuiltSpec_DoesNotDescribeToday"
+  - "SpecToday_RequiresASpecOutsideTheSet_DescribesToday"
+  - "SpecRoundEvidence_OneRepositoryTwoToolchainSandboxes_ChecksTheCitation"
+  - "SpecRoundEvidence_UnroutableCitation_IsCountedUnchecked"
+  - "SpecRoundEvidence_TemplateKeyInSandboxRepos_IsNotProbed"
+  - "SpecRoundEvidence_DerivedSpecMintedFacts_AreCountedUnchecked"
+  - "SpecAttackAdmission_FindingCitingItsOwnExitOneSearch_IsKept"
+  - "SpecAttackAdmission_FindingCitingAReadOfAMissingFile_IsKept"
+  - "SpecAttackAdmission_CutCitingOnlyASearch_IsDiscarded"
+  - "SpecAttackAdmission_EvidenceNamesTheRepositoryNotTheSandboxKey"
+  - "SpecAttackPrompt_SaysHowManyCitationsWereNotChecked"
+  - "SpecAttackPrompt_AsksForQuotesOfAtLeastFourWords"
+  - "DerivationLookTerms_AttackReviewFor_IsCitedPathsPlusTwelveNeverBelow24"
+  - "SpecRoundEvidence_MissingCitedFile_IsAProblemNamingTheClaim"
+  - "SpecRoundEvidence_SpecNotDescribingToday_IsNotChecked"
+  - "SpecAttackReviewer_NoLook_IsNotTaken"
+  - "SpecAttackReviewer_CallFails_ReturnsNothingAndDoesNotThrow"
+  - "SpecReviewRoundPublisher_PublishesOneEvent87PerAnswer_CutsCarrySpecId"
+  - "RunSpecReviewRoundProjection_SameEventTwice_OneRow"
+  - "RunSpecReviewRound_Migrations_ApplyOnSqliteAndSqlServer"
+  - "RunDeletion_DeletesReviewRounds"
+  - "EventTypeResolver_ResolvesSpecReviewRound"
+  - "SpecReviewRegistrations_ResolveFromTheRealServiceProvider (integration)"
+
+done:
+  - "One reviewer call over one spec yields one verdict — build, build-with-cuts or refuse — with every cut quoting the register it changes and every cut and finding citing a file and line that reviewer actually read; its publish stores exactly one row."
+  - "A cited file or line that does not exist in the run's repositories is named by its fact by SpecRoundEvidence, before any reviewer is asked, also on a repository with several toolchain sandboxes; citations it could not check, minted look lines included, are counted and the reviewer is told how many."
+  - "A reviewer that invents a path, quotes text the spec does not state or cites a line it never read has that item dropped, a finding of absence proven by its own search (exit 0 or 1) or by its own read of a missing file is kept, and the stored verdict is only as severe as what remained."
+  - "A failing or unreadable reviewer call never fails the run."
+  - "Deleting a run deletes its review rounds; both migration sets apply."
+  - "Build green, full suite green, dashboard gen/test/build green."

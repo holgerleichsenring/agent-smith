@@ -36,7 +36,10 @@ public sealed class SpecDialogProposalComposer(
         // 2026-09-17-042ed: the findings ride the proposal, so every pane that reads one — the
         // live push and the reload alike — shows what the review said without being told twice.
         var push = Shape(dialogId, proposal, at);
-        return push is null ? null : push with { Findings = proposal.Findings };
+        return push is null ? null : push with
+        {
+            Findings = proposal.Findings, ReviewRounds = proposal.ReviewRounds, NotReviewed = proposal.NotReviewed,
+        };
     }
 
     private SpecDialogProposalPush? Shape(

@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Entities;
 using Microsoft.Extensions.AI;
@@ -18,11 +19,11 @@ internal static class SpecDerivationMessages
     public static List<ChatMessage> Opening(
         string systemPrompt, Ticket ticket, IReadOnlyList<TicketSegment> segments,
         SpecSet? previous, string cause, PipelineContext pipeline, DerivationLook? look,
-        IReadOnlyList<string> scope) =>
+        IReadOnlyList<string> scope, SeriesConfig series) =>
     [
         new(ChatRole.System, systemPrompt),
         new(ChatRole.User,
-            SpecPromptComposer.Compose(ticket, segments, previous, cause, pipeline)
+            SpecPromptComposer.Compose(ticket, segments, previous, cause, pipeline, series)
             + DerivationLookPromptSection.Render(look)
             + ScopeRepositoriesPromptSection.Render(scope)),
     ];

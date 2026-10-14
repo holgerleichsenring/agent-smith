@@ -36,6 +36,8 @@ const CHANNEL_WORDS: Record<string, string> = {
   pickup: "pickup",
   operator: "approval in the conversation",
   retry: "retry",
+  overrule: "overruled default",
+  series: "series, started automatically",
 };
 
 export function channelWords(channel: string): string {

@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services.Rework;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Services.Rework;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -19,6 +20,7 @@ internal static class ReworkNudgeWorkerExtensions
         services.AddSingleton<ReworkFallbackSpawn>();
         services.AddSingleton<ReworkNudgeHandler>().AddSingleton<ClosedTicketActFollowUp>(); // 2026-10-13-9a59t
         services.AddSingleton<PrReviewEntryBuilder>().AddSingleton<PrReviewRecordRefresh>(); // 2026-10-13-9a59b
+        services.AddSingleton<ReworkNoActTail>().AddSingleton<ISeriesAutoStart, SeriesAutoStart>(); // 2026-10-13-8762v
         services.AddSingleton<ReworkNudgeWorker>();
         return services.AddHostedService(sp => sp.GetRequiredService<ReworkNudgeWorker>());
     }

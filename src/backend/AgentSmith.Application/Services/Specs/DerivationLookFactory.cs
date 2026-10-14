@@ -43,11 +43,9 @@ public sealed class DerivationLookFactory(
         OnTerms(pipeline, DerivationLookTerms.CutReview);
 
     /// <summary>
-    /// 2026-09-17-0e79c: the look a spec's stated premises are checked with, before its work
-    /// starts. The run's repositories on the premise check's own terms and, for the cut
-    /// review's reason, no template scope: a template says what work should FOLLOW, and a
-    /// premise is what the spec ASSUMES about the target. Null when the run has no sandbox —
-    /// every verdict this check can reach needs a look that ran, so there is nothing to ask.
+    /// The look a spec's stated premises are checked with before its work starts: the run's repositories on the premise
+    /// check's terms and no template scope (a premise is what the spec assumes, not what it follows). Null when the run
+    /// has no sandbox.
     /// </summary>
     public DerivationLook? ForPremiseCheck(PipelineContext pipeline)
     {
@@ -56,11 +54,8 @@ public sealed class DerivationLookFactory(
     }
 
     /// <summary>
-    /// 2026-09-17-042eh: the run's repositories on any holder's own terms, with NO template
-    /// scope — the member <see cref="ForCutReview"/> is now one caller of. A second holder
-    /// wanting a template-free look over the same sandboxes was a copy of this method with one
-    /// constant changed; the terms ARE the difference, so they are the parameter.
-    /// Null when the run has no sandbox.
+    /// The run's repositories on any holder's own terms, with no template scope; the terms are what tell the holders
+    /// apart. Null when the run has no sandbox.
     /// </summary>
     public DerivationLook? OnTerms(
         PipelineContext pipeline, DerivationLookTerms terms, DerivationLookStages? stages = null)
@@ -73,9 +68,7 @@ public sealed class DerivationLookFactory(
     }
 
     /// <summary>
-    /// 2026-09-20-9c74: what each repository of the run DECLARED, read out of the pipeline
-    /// HERE — the per-sandbox context list is a pipeline reading, and the look never sees a
-    /// pipeline. The two collaborators reach it as one already-resolved thing.
+    /// What each repository of the run declared, read out of the pipeline here, because the look never sees one.
     /// </summary>
     private DerivationLookStages Declared(PipelineContext pipeline)
     {
@@ -94,14 +87,23 @@ public sealed class DerivationLookFactory(
     /// are dropped — and 2026-10-01-283dc an uploaded website under <see cref="ReferenceScopeName.Prefix"/> too. No audit: every entry is a read-only source scope that runs no command.
     /// Null when the turn has no repository, and the review is the text-against-text one.
     /// </summary>
-    public DerivationLook? ForProposalReview(PipelineContext pipeline) =>
-        ProposalRepositories(pipeline) is { } repositories ? ForReview(repositories) : null;
+    public DerivationLook? ForProposalReview(PipelineContext pipeline) => ForProposal(pipeline, DerivationLookTerms.ProposalReview);
 
     /// <summary>The proposal review's look over repositories the caller opened and disposes — a series
     /// verified at the ticket branch rather than at the turn's default branch.</summary>
     public DerivationLook ForReview(IReadOnlyDictionary<string, ISandbox> repositories) =>
         new(repositories, files, ecosystems, logger, templates: null,
             DerivationLookTerms.ProposalReview, audits: false, activity: turnActivity);
+
+    /// <summary>2026-10-13-8762i: one attack reviewer's look at one proposal draft, on that draft's attack terms.</summary>
+    public DerivationLook? ForProposalAttack(PipelineContext pipeline, Contracts.Models.SpecDraft draft) =>
+        ForProposal(pipeline, DerivationLookTerms.AttackReviewFor(draft));
+
+    private DerivationLook? ForProposal(PipelineContext pipeline, DerivationLookTerms terms) =>
+        ProposalRepositories(pipeline) is { } repositories
+            ? new DerivationLook(repositories, files, ecosystems, logger, templates: null,
+                terms, audits: false, activity: turnActivity)
+            : null;
 
     /// <summary>2026-10-02-3f06c: the turn's repositories as the proposal review reads them, one
     /// filter for the look and the evidence probe alike. Null when the turn holds none.</summary>
@@ -110,9 +112,7 @@ public sealed class DerivationLookFactory(
         ArgumentNullException.ThrowIfNull(pipeline);
         if (!pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, out var map)
             || map is null) return null;
-        var repositories = map
-            .Where(entry => !entry.Key.StartsWith(TemplateScopeName.Prefix, StringComparison.Ordinal)
-                && !entry.Key.StartsWith(ReferenceScopeName.Prefix, StringComparison.Ordinal)) // 283dc
+        var repositories = map.Where(entry => Review.SpecReviewRepositories.IsRepositoryKey(entry.Key))
             .ToDictionary(entry => entry.Key, entry => entry.Value, StringComparer.Ordinal);
         return repositories.Count == 0 ? null : repositories;
     }

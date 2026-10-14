@@ -142,6 +142,28 @@ public sealed class TicketAmendmentTests : IDisposable
             .Goal.Should().Be("the widget is reliable");
     }
 
+    /// <summary>2026-10-13-8762s: an amendment writes the ratified version beside the spec under its kept id,
+    /// read from the conversation by the id the proposal gave it.</summary>
+    [Fact]
+    public async Task Amendment_RatifiedMock_WrittenBesideTheSpec()
+    {
+        var tracker = await BoundAsync();
+        var store = ApprovedSetDoubles.Store();
+        var sources = new RecordingBranchSources();
+        var mocks = new AgentSmith.Tests.Browser.MemoryMocks();
+        await mocks.AddAsync(Session, "p9001", "<p>v1</p>", default);
+        await mocks.AddAsync(Session, "p9001", "<p>v2</p>", default);
+        var draft = new SpecDraft("p9001", "the widget stops dropping",
+            "spec: p9001\ngoal: the widget stops dropping\nratified_mock: 2", []) { RatifiedMock = 2 };
+
+        var notice = (await Amendment(tracker, sources, store, mocks).ApplyAsync(State(), new SpecOutcome(draft), default)).Notice;
+
+        var id = (await store.GetAsync(Tracker, Key, default))!.Set.Specs[0].SpecId;
+        sources.Writes.Should().ContainSingle().Which.ContentOf($"{SeriesPaths.Planned}/{id}-mock-v2.html")
+            .Should().Be("<p>v2</p>");
+        notice.Should().NotContain("was not written");
+    }
+
     private static SpecDraft Child(string id, string goal) =>
         new(id, goal, $"spec: {id}\ngoal: {goal}", []) { Done = ["It is done."] };
 
@@ -362,12 +384,13 @@ public sealed class TicketAmendmentTests : IDisposable
     }
 
     private TicketAmendment Amendment(
-        FakeTracker tracker, RecordingBranchSources? sources = null, ISpecApprovalStore? store = null) =>
+        FakeTracker tracker, RecordingBranchSources? sources = null, ISpecApprovalStore? store = null,
+        AgentSmith.Contracts.Sandbox.IConversationMockReader? mocks = null) =>
         new(Config(), Scopes(), new FiledWorkTrackerProjects(Config()),
             new SpecDialogTicketTextRepository(_context), ApprovedSetDoubles.Recorder(store),
             tracker, new SpecTicketRenderer(), new EpicChildOrderer(),
             ApprovedSetDoubles.SeriesFiling(),
-            ApprovedSetDoubles.Branch(sources ?? new RecordingBranchSources()),
+            ApprovedSetDoubles.Branch(sources ?? new RecordingBranchSources(), mocks: mocks),
             NullLogger<TicketAmendment>.Instance);
 
     private ActiveRunRepository Leases() => new(

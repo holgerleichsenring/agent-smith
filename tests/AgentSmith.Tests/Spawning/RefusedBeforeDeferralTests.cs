@@ -172,7 +172,7 @@ public sealed class RefusedBeforeDeferralTests : IDisposable
         ApprovedSetDoubles.Carrier(),
         CapacityTestDoubles.NoNudge(),
         _store,
-        Moq.Mock.Of<AgentSmith.Contracts.Services.IActiveRunLease>(), NullLogger<SpawnPipelineRunsUseCase>.Instance);
+        Moq.Mock.Of<AgentSmith.Contracts.Services.IActiveRunLease>(), NullLogger<SpawnPipelineRunsUseCase>.Instance, new AgentSmith.Application.Services.Resume.NullPreviousAttemptReader());
 
     private ITicketClaimService CountingClaimService()
     {
@@ -213,7 +213,7 @@ public sealed class RefusedBeforeDeferralTests : IDisposable
         var factory = new Mock<ITicketStatusTransitionerFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(transitioner.Object);
         return new TicketClaimService(
-            claimLock.Object, _store, factory.Object, new Mock<IRedisJobQueue>().Object,
+            claimLock.Object, _store, new AgentSmith.Application.Services.Resume.NullPreviousAttemptReader(), factory.Object, new Mock<IRedisJobQueue>().Object,
             new NoOpActiveRunLease(), new InMemoryTakenTicketStore(),
             NullLogger<TicketClaimService>.Instance);
     }

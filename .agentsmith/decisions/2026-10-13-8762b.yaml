@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-8762b
+
+decisions:
+  - category: Architecture
+    chose: "A guarded stage is matched against the REPOSITORY's changed paths, the union over every sandbox serving it (default, pending operator ratification)"
+    over: "Matching only the sandbox that runs the stage"
+    reason: |
+      A stage guards what its command reads; the generated-mirror check reads C# contracts another toolchain's
+      sandbox delivers. Asking only the running sandbox is the blind spot the human gate's always-on dashboard
+      step exists for. After 2026-10-13-8762a the union is each sandbox's own diff anyway.
+  - category: Architecture
+    chose: "Changed paths read from git: git -c core.quotePath=false diff --name-only --no-renames -z <DiffResult.BaseRef or HEAD>"
+    over: "Parsing paths out of the delivery diff text"
+    reason: |
+      The diff text is cut at 1,000,000 characters and lists src/backend before src/dashboard, so a long series
+      would drop the dashboard path and skip its stage as untouched. -z with quotePath off keeps non-ASCII paths
+      matchable; --no-renames counts a rename under both names; binaries are listed by name.
+  - category: Architecture
+    chose: "Undetermined (failed delivery diff, non-zero name-only read, a list at SizeLimits.RunStepCapturedStdoutMaxChars) runs every guarded stage of that repository"
+    over: "Skipping, or trusting a possibly cut list"
+    reason: "Unknown is not unchanged (DeliveredWork's rule); skipping would pass exactly the repositories nobody could check."
+  - category: Architecture
+    chose: "No ContextKeys.Repos (or a sandbox in no listed repository) makes each sandbox its own repository"
+    over: "One empty repository for unmapped sandboxes"
+    reason: "Older pipelines and VerifySpec's own two-repository fixture carry no map; an empty repository there would skip every guarded stage."
+  - category: TradeOff
+    chose: "A repository whose every declared stage was skipped, at least one by when_changed, is GREEN with a 'no stage applies to this change' note naming the globs (main-thread decision 8, default, pending operator ratification)"
+    over: "Failing it as UNVERIFIED"
+    reason: |
+      A declaration whose guards say nothing here needs proving has answered the question; UNVERIFIED would punish
+      a docs-only spec for a right declaration. The note rides on the outcome message the way stale derivations do.
+  - category: Architecture
+    chose: "A stage without when_changed keeps today's per-sandbox rule; a declared sandbox left with no stage is skipped and never falls through to the analyzer"
+    over: "Repository scope for every stage; handing the resolver an empty declared list"
+    reason: "The field is opt-in. An empty declared list would let the analyzer's guess run in place of a declaration that deliberately ran nothing."
+  - category: Architecture
+    chose: "DEVIATION: StageRelevance.Select takes the VerifyResolutionNotes as a fifth argument, and ReadAsync returns a per-verification RepositoryChanges whose Conclude(notes) the handler calls once after the loop to add the NoStageApplies lines"
+    over: "Select(key, declared, repositoryPaths, delivered) as the spec step names it"
+    reason: |
+      The spec requires a Searched note per skipped stage and a per-REPOSITORY no-stage-applies judgment; Select
+      sees one sandbox at a time, so it needs the notes to write to and a place to remember, per repository,
+      whether any sandbox had a stage to run. RepositoryChanges is that place (src/backend/AgentSmith.Application/
+      Services/Handlers/RepositoryChanges.cs); VerifySpecHandler stays at 303 lines (budget 317).
+  - category: Architecture
+    chose: "ChangedPathGlob: a small pure matcher, '**' zero or more segments, '*' within one, ordinal, leading ./ and / ignored"
+    over: "Microsoft.Extensions.FileSystemGlobbing, negated or brace globs"
+    reason: "The backend does not reference the package; inclusion globs cover every guard 2026-10-13-8762c needs, and each added syntax is more grammar the model must write correctly."
+  - category: Scope
+    chose: "The three schema descriptions on the verify node say 'repository root', and the .NET clause reads 'a .NET tree may omit it; its entry point is then discovered'; the tool description says the same"
+    over: "Adding a root-relative field beside two workdir-relative siblings"
+    reason: "The code runs every stage and reads when_present at the repository root; the other stale workdir carriers stay unowned (2026-09-20-e92c was never written)."

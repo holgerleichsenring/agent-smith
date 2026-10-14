@@ -1,0 +1,140 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-8762f
+goal: "A round's cuts are applied by a fresh reviser that may change only text carrying a cut's wording; every register is then searched for it, and what still stands is a residue the next round sees."
+
+applies_to: "backend (spec review: the reviser call, the change guard, the register residue check)"
+
+requires: [2026-10-13-8762e]
+
+facts:
+  - claim: "The plugin applies every cut, then greps the old wording across goal, scope, decisions, steps, tests, done and facts — a cut left standing in another register is not applied — and re-runs the evidence check before a fresh reviewer."
+    evidence: "observed: 2026-10-13, skills/review-spec/SKILL.md lines 33-39 of the spec-first plugin checkout at 965aa65"
+  - claim: "Today's derivation revises by sending the rejection back into the SAME deriver conversation, not to a fresh instance."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:91-94"
+  - claim: "ISpecDraftValidator extracts exactly one fenced yaml block from a reply and validates it against the embedded spec schema, returning SpecDraftValid or SpecDraftInvalid."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/ISpecDraftValidator.cs:8-17, src/backend/AgentSmith.Application/Services/SpecDialog/SpecDraftValidator.cs:22-53, src/backend/AgentSmith.Application/Services/SpecDialog/SpecDraftOutcome.cs:13-16"
+  - claim: "SpecDraftReader turns a valid spec yaml into a SpecDraft carrying the yaml itself, parsing it with OutcomeYamlReader.ReadMap into a map of parsed values."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDraftReader.cs:14-41, src/backend/AgentSmith.Application/Services/SpecDialog/OutcomeYamlReader.cs:13"
+  - claim: "A step carries id, action and the optional path field as its target hint, which the master is given."
+    evidence: "src/backend/AgentSmith.Contracts/Models/SpecDraft.cs:69-74, src/backend/AgentSmith.Application/Services/SpecDialog/SpecDraftReader.cs:68-73"
+  - claim: "The plugin's fix for an evidence problem is to re-open the file and re-cite, or turn the fact into an assumption."
+    evidence: "observed: 2026-10-14, skills/review-spec/SKILL.md line 20 of the spec-first plugin checkout at 965aa65"
+  - claim: "SpecQuotableText compares word by word; IsRunIn admits a quote that is a run of at least two of a text's words."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecQuotableText.cs:16-26, src/backend/AgentSmith.Application/Services/Specs/SpecQuotableText.cs:77-80"
+  - claim: "A framework model call is guarded on the run's token, so a provider timeout returns nothing instead of failing the caller."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecCutReviewer.cs:57-87"
+  - claim: "OutcomeYamlReader.ReadMap deserialises untyped, so every scalar is a string, every mapping a dictionary and every list a list; a derived spec writes its steps with id and action only."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/OutcomeYamlReader.cs:13-19, src/backend/AgentSmith.Application/Services/Specs/DerivedSpecYamlRenderer.cs:56-58"
+  - claim: "A model assignment's MaxTokens defaults to 8192 and is applied when the client is built; the cut reviewer this reviser copies passes no MaxOutputTokens, while other framework calls read GetMaxOutputTokens into ChatOptions."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/ModelAssignment.cs:18, src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs:114, src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs:234, src/backend/AgentSmith.Application/Services/Specs/SpecCutReviewer.cs:69-71, src/backend/AgentSmith.Application/Services/Specs/SpecDerivationCall.cs:49-53"
+  - claim: "A reply with no fenced yaml block, which is what a reply cut at the output limit is, validates as SpecDraftAbsent."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDraftValidator.cs:24-27"
+  - claim: "The hand-written specs of this series are about 13.6k to 32.7k characters each."
+    evidence: "observed: 2026-10-14, wc -c in this worktree: 2026-10-13-8762f 13,650, 2026-10-13-8762e 26,971, 2026-10-13-8762g 32,718 before round 2"
+  - claim: "A set's revisions are numbered records naming their cause; a new one is appended, never rewritten."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:25-29, src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:100-105"
+
+assumptions:
+  - "A cut's wording that a reviser paraphrased elsewhere instead of removing is not caught by a word-run search; the next round's fresh reviewer is the check for that, as in the plugin."
+  - "One reviser call per spec per round is affordable beside two reviewer calls; it carries no tools."
+
+scope:
+  in: >
+    TWO SERVICES, nothing composed here: the REVISER (one spec + cuts -> revised spec) and the REGISTER CHECK (revised
+    spec + cuts -> residues); 2026-10-13-8762g calls them in that order. REVISER: ISpecCutReviser.ReviseAsync(SpecDraft,
+    cuts, problems, lastRound, ct) -> SpecCutRevision(Revised, Refusal?) + SpecCutReviser — one fresh Reasoning call without tools
+    per spec per round, handed the spec yaml, the round's admitted cuts (SpecReviewCut: register, quote, replacement, evidence) and its evidence
+    problems (SpecEvidenceProblem), and told: change only text that carries a cut's wording; replace it with the cut's
+    replacement where one is given; a cut with no replacement removes the quoted text (or its item) and writes no
+    new claim, step or done line; where the same wording stands in another of the seven registers, change it there
+    too; a quote may span a folded line, so match it by words; leave a fact with an evidence problem in place (a
+    reviewer with a look re-cites it next round through a facts cut), and only when lastRound is true move it to
+    assumptions as its claim; answer with the whole spec in ONE yaml block. The call's ChatOptions.MaxOutputTokens is at least the input
+    yaml's length in characters / 3 plus 2,000, never below the assignment's (GetMaxOutputTokens); a reply whose
+    FinishReason is Length is refused as "truncated", named as such. SpecCutRevisionPrompt lives in code. GUARD: SpecRevisionGuard compares the old and new yaml PARSED
+    (OutcomeYamlReader.ReadMap, compared structurally; formatting and comments are not compared). Register items
+    (registers per SpecRegisters, from 2026-10-13-8762e) are compared as whole items, every field included (a step's
+    path too); old and new list items are paired by a longest common subsequence over whole-item equality (steps
+    also by id), an unpaired old item is removed and an unpaired new item added, and within one gap old and new are
+    paired in order as changed, the surplus removed or added; a changed item must equal the old item with each occurrence of a cut's quote replaced by that cut's
+    replacement, or removed when it has none, word for word outside those runs; a removed item must carry a cut's
+    quote or a problem's claim; an added item is admitted only in a register a cut names and only when its words
+    stand in that cut's replacement, or in assumptions as the exact claim of a fact moved on the last round; every
+    other key's parsed value (spec, requires, applies_to, repos, contexts …) is equal. The new yaml must validate (ISpecDraftValidator) and keep its spec id. Anything else refuses
+    the WHOLE revision; the reviser re-reads an admitted yaml through SpecDraftReader and returns it as Revised. A
+    refused or failed revision returns the INPUT draft as Revised with the Refusal named. REGISTER CHECK:
+    SpecCutResidues.Of(revised, cuts, problems), an instance method of a registered service, searches the seven registers of the result for every cut's quote
+    (a cut whose replacement contains its quote removes nothing and is skipped) and reports every problem's fact whose
+    item (claim AND evidence) still stands unchanged in facts — a fact whose item holds a facts cut's replacement was
+    re-cited and is no residue; each hit is a SpecReviewResidue(Register, Quote). Over an unchanged (refused) draft every cut still stands, so
+    every cut is a residue without a special case. Both registered in SpecReviewRegistrations.
+  out: >
+    Publishing the revised spec as a SpecSet revision, carrying Residues into the next round's input, and stopping
+    the loop — 2026-10-13-8762g. Residues of the LAST revision, when no round follows, and what a standing cut does
+    then — 2026-10-13-8762g records them, 2026-10-13-8762h decides (contract decision 4). Applying cuts in the
+    design turn — 2026-10-13-8762i. Re-grounding a moved fact — 2026-10-13-8762n, when the spec is entered in SelectSpecHandler, after review; the problems this reviser receives are the round's own evidence check's. Deciding which round is the last — 2026-10-13-8762g passes lastRound. A table or event for a revision —
+    nobody: the spec text lives in the set (SpecSetPublished = 83), residues on the next round's event 87.
+
+decisions:
+  - key: "FRESH REVISER, NOT THE DERIVER'S CONVERSATION. Contract 2.8: the reviser prompt lives in code. A conversation that wrote the spec defends it; a fresh call with the cuts and the text has nothing to defend, which is the plugin's reason for a fresh reviewer applied to the edit."
+  - key: "'ONLY THE QUOTED TEXT' IS CHECKED, NOT TRUSTED. The reviser returns a whole document because yaml folds lines and a verbatim substring edit misses folded text; the guard then proves that a changed item differs from the old one ONLY in the quoted runs, each replaced by its cut's replacement. Admitting any change to an item that merely held a quote would let a reviser rewrite a whole 1,500-character scope paragraph (review 8762f C1). A revision that touched anything else is refused whole, never half-applied: a partial apply is a spec nobody wrote."
+  - key: "PARSED, NOT BYTES. The reviser re-emits the whole document, so folding, quoting, key order and the schema comment line differ even when nothing changed; a byte comparison would refuse every revision. Values are compared after OutcomeYamlReader.ReadMap (review 8762f C2)."
+  - key: "AN ITEM IS ALL ITS FIELDS. A step's path is the target hint the master is handed and is in no register's text; compared as whole items, a changed path without a cut refuses the revision (review 8762f C3)."
+  - key: "NO REPLACEMENT MEANS REMOVAL, NEVER INVENTION. The reviser holds no look; a cut on facts, steps or done without replacement text removes the quote and writes nothing new, and the guard refuses new words that are no cut's replacement (review 8762f C5)."
+  - key: "RESIDUE = THE QUOTE STILL STANDING AS A WORD RUN. The plugin's grep, done with the matcher the cut reviewer already uses, over the same seven registers. It is literal on purpose: a check that guessed at paraphrase would be the reviewer's job done badly."
+  - key: "A FACT WITH A BROKEN CITATION STAYS UNTIL THE LAST ROUND. The plugin's fix order is re-open and re-cite, or turn the fact into an assumption; the session re-cited. The reviser holds no look, so it leaves the fact in place and its problem rides into the next round, where a reviewer with a look re-cites it through a facts cut; assumptions are no register, so a fact moved early could never be quoted again. Only on the last round does it become an assumption (review 8762f C4)."
+  - key: "RESIDUES TRAVEL FORWARD, NOT SIDEWAYS. They are not stored by this spec: 2026-10-13-8762g hands them to the next round, whose event 87 carries them (contract 2.1, Residues filled by f). One datum, one place."
+  - key: "ITEMS ARE PAIRED BY LCS, NOT BY POSITION. done, facts, tests, decisions and steps are lists; paired by position, one removed middle item makes every later item 'changed' and refuses the very removal a no-replacement cut asks for. A longest common subsequence over whole-item equality (steps also by id) pairs the unchanged items and leaves only the real gap to judge (review r2 8762f C1)."
+  - key: "A RE-CITED FACT IS NO RESIDUE. A reviewer repairs a broken citation through a facts cut that replaces the evidence and keeps the claim; counting the standing claim alone would keep the fixed fact a residue and cost a round of N reviewers, while 2026-10-13-8762g re-runs the evidence check on the revised text anyway. A residue is a fact whose claim AND evidence both stand; since the guard admits a change to a fact only from a cut and a re-cite always carries a replacement, a fact item holding a facts cut's replacement is re-cited, and Of keeps the signature the contract names (review r2 8762f C2)."
+  - key: "THE OUTPUT BOUND FOLLOWS THE INPUT. The reviser re-emits the whole spec; at the default 8192 tokens a 27k to 33k character spec of this series is at or past the bound, and a cut reply has no closing fence, so every cut would stand and the loop would burn its rounds. MaxOutputTokens is sized from the input (characters / 3 plus 2,000, never below the assignment's) and a Length finish is refused by name, not read as a malformed reply (review r2 8762f C3)."
+  - key: "A FAILED REVISION BLOCKS NOTHING. An unreadable reply, an invalid yaml, a changed spec id or a guard refusal leaves the spec as it was and reports every cut as standing; contract decision 4 (default, pending operator ratification) builds with what applied."
+
+steps:
+  - id: contracts
+    action: "SpecCutRevision (Revised, Refusal?) and ISpecCutReviser (ReviseAsync(draft, cuts, problems, lastRound, ct)), each its own file under Services/Specs/Review."
+  - id: prompt
+    action: "SpecCutRevisionPrompt: the rules above, the cuts with their replacements and evidence, the evidence problems, the seven register names and the spec yaml; at most 120 lines."
+  - id: reviser
+    action: "SpecCutReviser: one fresh Reasoning call with no tools, a cost and call scope named spec-cut-reviser, guarded on the run's token, MaxOutputTokens = max(assignment's, input yaml characters / 3 + 2,000), a FinishReason of Length refused as truncated; the reply's yaml through ISpecDraftValidator.Validate, then SpecRevisionGuard, then SpecDraftReader; refused or failed returns the input draft and the refusal."
+  - id: guard
+    action: "SpecRevisionGuard: old vs new parsed through OutcomeYamlReader.ReadMap; register items whole (every field) paired by LCS (steps also by id), changed items equal to the old with quotes replaced, added items only from a replacement or a last-round move, other keys equal; returns null or the refusal reason."
+  - id: residues
+    action: "SpecCutResidues (instance service) .Of(revised, cuts, problems): each cut's quote searched in the seven registers of the revised draft with SpecQuotableText.IsRunIn, and each problem's fact a residue while its claim stands and its item holds no facts cut's replacement."
+  - id: registration
+    action: "SpecCutReviser (as ISpecCutReviser), SpecRevisionGuard and SpecCutResidues registered in SpecReviewRegistrations (+3 lines)."
+  - id: tests
+    action: "Red first, then green, for every test below; run the Specs classes touched."
+
+tests:
+  - "SpecCutRevisionPrompt_CarriesEveryCutAndProblem"
+  - "SpecRevisionGuard_ChangeOfTextCarryingTheQuote_IsAdmitted"
+  - "SpecRevisionGuard_ChangeOfTextWithoutAnyCutWording_RefusesTheRevision"
+  - "SpecRevisionGuard_RemovedMiddleDoneItemCarryingTheQuote_IsAdmitted"
+  - "SpecRevisionGuard_AddedStepInTheCutRegister_IsAdmitted"
+  - "SpecRevisionGuard_AddedItemInAnotherRegister_RefusesTheRevision"
+  - "SpecRevisionGuard_FactMovedToAssumptionsOnTheLastRound_IsAdmitted"
+  - "SpecRevisionGuard_FactMovedToAssumptionsBeforeTheLastRound_RefusesTheRevision"
+  - "SpecRevisionGuard_RewriteOfAnUnquotedSentenceInsideAQuotedItem_RefusesTheRevision"
+  - "SpecRevisionGuard_ChangedStepPathWithoutACut_RefusesTheRevision"
+  - "SpecRevisionGuard_ReformattedYamlWithEqualValues_IsAdmitted"
+  - "SpecRevisionGuard_NewFactWordsWithoutAReplacement_RefusesTheRevision"
+  - "SpecCutRevisionPrompt_SaysAQuoteMaySpanAFoldedLine"
+  - "SpecRevisionGuard_ChangedSpecIdOrRequires_RefusesTheRevision"
+  - "SpecCutResidues_QuoteStillInAnotherRegister_IsAResidueNamingThatRegister"
+  - "SpecCutResidues_ReplacementContainingTheQuote_IsNotAResidue"
+  - "SpecCutResidues_FactWithAProblemStillInFactsWithItsEvidence_IsAResidue"
+  - "SpecCutResidues_ReCitedFact_IsNotAResidue"
+  - "SpecCutReviser_InvalidYaml_ReturnsTheInputDraftAndTheRefusal"
+  - "SpecCutResidues_RefusedRevision_EveryCutIsAResidue"
+  - "SpecCutReviser_CallFails_DoesNotThrow"
+  - "SpecCutReviser_TruncatedReply_IsRefusedAsTruncated"
+  - "SpecCutReviser_CleanRevision_ReturnsTheRevisedDraft_ResiduesNone"
+  - "SpecCutReviserAndResidues_ResolveFromTheRealServiceProvider (integration)"
+
+done:
+  - "After a round with cuts, the spec's every register no longer carries a cut's removed wording, or the leftover is named as a residue with its register."
+  - "A reviser that rewrites a sentence no cut touched (also inside an item that holds a quote), changes a step's path, invents a claim for a cut without replacement, adds a step to an unrelated register or changes the spec's id or requirements gets its whole revision refused, and the spec stays as the reviewer saw it."
+  - "A fact whose citation does not resolve stays in facts and rides into the next round as a problem; only after the last round is it kept as an assumption; a fact re-cited by a cut is no residue."
+  - "A reviser reply cut at the output limit is refused as truncated, by name, and a spec of this series' size fits the call's output bound."
+  - "A failed or unreadable reviser call never fails the run."
+  - "Build green, full suite green, dashboard gen/test/build green."
