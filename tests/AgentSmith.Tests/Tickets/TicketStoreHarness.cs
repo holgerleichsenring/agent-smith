@@ -67,6 +67,7 @@ internal sealed class TicketStoreHarness : IDisposable
         services.AddScoped<SpecDialogSessionRepository>();
         services.AddSingleton<IUniqueViolationTranslator, SqliteUniqueViolationTranslator>();
         services.AddSingleton<AgentSmith.Contracts.Specs.ISpecApprovalStore>(Approvals); // 2026-10-13-8762l
+        services.AddSingleton<ITicketLandingStore, LandedTicketRepository>(); // 2026-10-14-dbcei: the rows read landings
         services.AddTicketReaders();
         services.AddTicketDefaults(); // 2026-10-13-8762p
         configure?.Invoke(services);

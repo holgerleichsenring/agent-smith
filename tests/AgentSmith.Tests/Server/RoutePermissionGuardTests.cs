@@ -135,6 +135,11 @@ public sealed class RoutePermissionGuardTests
         Declaration("POST", "/api/tickets/{project}/{ticketId}/defaults/verdicts").Should().Equal(Permissions.RunsControl);
     }
 
+    // 2026-10-14-dbcei: a by-hand landing wakes and may start every ticket that requires it, like a Retry.
+    [Fact]
+    public void RoutePermissionGuard_LandedByHand_NeedsRunsControl() =>
+        Declaration("POST", "/api/tickets/{project}/{ticketId}/landed-by-hand").Should().Equal(Permissions.RunsControl);
+
     // 2026-10-13-8762r: a mock is the conversation's own material, like its uploads.
     [Fact]
     public void RoutePermission_MockShot_NeedsDialogWrite() =>

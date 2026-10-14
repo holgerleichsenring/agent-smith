@@ -102,7 +102,7 @@ public sealed class ReworkNudgeHandler(
                 break;
             case ReworkOutcomeKind.Refused:
                 await speech.SayOnceAsync(project, nudge.TicketId, act, attempt.RunId, "refused",
-                    ReworkTexts.TicketRefusal(outcome.Reason!), ReworkTexts.PrRefused(nudge.TicketId, outcome.Reason!), ct);
+                    ReworkTexts.TicketRefusal(outcome.Reason!, act.Act.Channel), ReworkTexts.PrRefused(nudge.TicketId, outcome.Reason!), ct);
                 break;
             case ReworkOutcomeKind.ClosedForWork:
                 return await followUps.AnswerAsync(project, nudge.TicketId, act, attempt.RunId, ct);
@@ -111,7 +111,7 @@ public sealed class ReworkNudgeHandler(
                 break;
             case ReworkOutcomeKind.NotARework:
                 await speech.SayOnceAsync(project, nudge.TicketId, act, attempt.RunId, "not-a-rework",
-                    ReworkTexts.TicketRefusal(ReworkTexts.NotWaiting), ReworkTexts.PrRefused(nudge.TicketId, ReworkTexts.NotWaiting), ct);
+                    ReworkTexts.TicketRefusal(ReworkTexts.NotWaiting, act.Act.Channel), ReworkTexts.PrRefused(nudge.TicketId, ReworkTexts.NotWaiting), ct);
                 break;
         }
         return ReworkNudgeDisposition.Finish;

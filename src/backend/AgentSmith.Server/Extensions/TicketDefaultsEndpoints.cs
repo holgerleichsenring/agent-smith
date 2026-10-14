@@ -16,7 +16,7 @@ internal static class TicketDefaultsEndpoints
     {
         app.MapGet("/api/tickets/{project}/{ticketId}/defaults", DefaultsAsync).Needs(Permissions.RunsRead);
         app.MapPost("/api/tickets/{project}/{ticketId}/defaults/verdicts", VerdictsAsync).Needs(Permissions.RunsControl);
-        return app;
+        return app.MapTicketLandedByHandEndpoints();
     }
 
     // Internal so the endpoint tests drive the real reader and writer without a host.

@@ -78,13 +78,15 @@ internal sealed class RetryHarness : IDisposable
         services.AddSingleton<ISpecApprovalStore>(Approvals).AddSingleton(Activity.Object).AddScoped(_ => FiledWorkDoubles.Move());
         services.AddScoped<OperatorStartArm>().AddScoped<OperatorStart>().AddTransient<PendingSeriesEditReader>();
         services.AddScoped<PendingEditStart>().AddScoped<BoundAttemptStarts>();
-        services.AddSingleton(AgentSmith.Tests.TestSupport.TicketRequirementDoubles.None()); // 2026-10-14-dbceh: OperatorStart asks the requires gate
+        // 2026-10-14-dbceh: OperatorStart asks the requires gate; 2026-10-14-dbcei: so does the conversation's start.
+        services.AddSingleton(AgentSmith.Tests.TestSupport.TicketRequirementDoubles.Of(Facts, Approvals));
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
 
     public FakeTicketTracker Tracker { get; } = new() { Status = "Failed" };
     public Mock<IReworkLaunch> Launch { get; } = new();
     public InMemorySpecApprovalStore Approvals { get; } = new();
+    public AgentSmith.Tests.TestSupport.InMemoryTicketFacts Facts { get; } = new();
     public Mock<ITicketActivityNudge> Activity { get; } = new();
 
     public AgentSmithConfig Config { get; } = new()

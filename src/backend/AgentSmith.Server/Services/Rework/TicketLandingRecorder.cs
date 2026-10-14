@@ -15,6 +15,7 @@ namespace AgentSmith.Server.Services.Rework;
 /// rule is <see cref="TicketLanding.OfStates"/>, the one the ticket list reads. The unique insert is
 /// the transition: only the replica whose insert won logs it and announces it. The row is the fact,
 /// Redis only announces it, so a failed announcement is logged and never fails the call.
+/// 2026-10-14-dbcei: a person's by-hand mark goes through the same insert, wake and announcements.
 /// </summary>
 public sealed class TicketLandingRecorder(
     IServiceScopeFactory scopes,
@@ -37,10 +38,23 @@ public sealed class TicketLandingRecorder(
         var newestMerged = records.Where(r => r.State == PrReviewStates.Merged)
             .OrderBy(r => r.StateAt ?? DateTimeOffset.MinValue).Last();
         var landedAt = records.Max(r => r.StateAt) ?? clock.GetUtcNow();
-        var key = TicketKey.For(project.Tracker.Type.ToString().ToLowerInvariant(), ticketId).Value;
-        return await RecordAsync(new TicketLandingFact(
-            project.Tracker.Name, key, ticketId, project.Name, TicketLandingKinds.Merged, landedAt, null, null, newestMerged.Url), ct);
+        return await RecordAsync(new TicketLandingFact(project.Tracker.Name, KeyOf(project, ticketId), ticketId, project.Name,
+            TicketLandingKinds.Merged, landedAt, null, null, newestMerged.Url), ct);
     }
+
+    /// <summary>Records a person's mark that the ticket landed; the stored landing, or null when it had already landed.</summary>
+    public async Task<TicketLandingFact?> RecordByHandAsync(
+        ResolvedProject project, string ticketId, string by, string note, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(project);
+        ArgumentNullException.ThrowIfNull(note);
+        var landing = new TicketLandingFact(project.Tracker.Name, KeyOf(project, ticketId), ticketId, project.Name,
+            TicketLandingKinds.ByHand, clock.GetUtcNow(), by, note.Trim(), null);
+        return await RecordAsync(landing, ct) ? landing : null;
+    }
+
+    internal static string KeyOf(ResolvedProject project, string ticketId) =>
+        TicketKey.For(project.Tracker.Type.ToString().ToLowerInvariant(), ticketId).Value;
 
     private async Task<bool> RecordAsync(TicketLandingFact landing, CancellationToken ct)
     {

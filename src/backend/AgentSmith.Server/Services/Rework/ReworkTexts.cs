@@ -1,3 +1,5 @@
+using AgentSmith.Contracts.Runs;
+
 namespace AgentSmith.Server.Services.Rework;
 
 /// <summary>
@@ -6,8 +8,17 @@ namespace AgentSmith.Server.Services.Rework;
 /// </summary>
 public static class ReworkTexts
 {
-    public static string TicketRefusal(string reason) =>
-        $"Agent Smith — this comment did not start a rework: {reason}.";
+    /// <summary>2026-10-14-dbcei: the refusal names the act by the channel it came from.</summary>
+    public static string TicketRefusal(string reason, ReworkChannel channel = ReworkChannel.Ticket) =>
+        $"Agent Smith — {SourceOf(channel)} did not start a rework: {reason}.";
+
+    private static string SourceOf(ReworkChannel channel) => channel switch
+    {
+        ReworkChannel.Status => "this status change", ReworkChannel.Retry => "this retry",
+        ReworkChannel.Operator => "the request in this ticket's conversation",
+        ReworkChannel.Overrule => "this overrule", ReworkChannel.PullRequest => "this review",
+        _ => "this comment",
+    };
 
     /// <summary>2026-10-08-e8b9c: our PR comments open with this marker, so the review reader keeps them
     /// apart from what reviewers wrote.</summary>

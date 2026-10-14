@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Claim;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
@@ -13,7 +14,7 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// The bound ticket's next attempt, asked for in its conversation by the turn's poster. A series edit no attempt
 /// has worked starts as its approval (<see cref="PendingEditStart"/>); with none, the latest attempt is retried
 /// unchanged from the conversation (<see cref="RunRetry"/>), whose gate admits any end but a delivered success.
-/// Each ask runs in its own scope, apart from the turn's unit of work.
+/// Each ask runs in its own scope, apart from the turn's unit of work; a ticket waiting for an unlanded one queues nothing.
 /// </summary>
 public sealed class ConversationAttemptStart(
     IServiceScopeFactory scopes, ResolvedProject project, string ticketId, string conversation, string poster,
@@ -21,6 +22,7 @@ public sealed class ConversationAttemptStart(
 {
     public const string Requested =
         "requested — the next attempt starts through the rework queue; a refusal is posted on the ticket";
+    public const string NothingQueued = " Nothing was requested; ask again once they have landed.";
 
     public async Task<string> StartNextAsync(string reason, CancellationToken cancellationToken)
     {
@@ -28,6 +30,9 @@ public sealed class ConversationAttemptStart(
             project.Name, ticketId, poster, conversation, reason);
         await using var scope = scopes.CreateAsyncScope();
         var services = scope.ServiceProvider;
+        var key = TicketLandingRecorder.KeyOf(project, ticketId);
+        var (_, unmet) = await services.GetRequiredService<UnmetTicketRequirements>().OfAsync(project.Tracker.Name, key, cancellationToken);
+        if (unmet.Count > 0) return RequiresUnmetGate.Sentence(unmet) + NothingQueued;
         if (await services.GetRequiredService<PendingSeriesEditReader>().ReadAsync(project, ticketId, cancellationToken) is { } pending)
             return await services.GetRequiredService<PendingEditStart>()
                 .StartAsync(project, ticketId, pending, conversation, poster, cancellationToken);
