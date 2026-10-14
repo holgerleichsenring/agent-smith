@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.RegularExpressions;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Application.Services.Specs;
 
@@ -19,7 +20,7 @@ public static partial class TicketHtmlConverter
     public static string ToText(string? body)
     {
         if (string.IsNullOrWhiteSpace(body)) return body ?? string.Empty;
-        if (HtmlTag().IsMatch(body)) return Convert(body);
+        if (HtmlMarkup.IsPresent(body)) return Convert(body);
         // Entities without a single tag still mean the transport encoded the text:
         // nobody types `&quot;` into a ticket by hand.
         return HtmlEntity().IsMatch(body) ? Decode(body) : body;
@@ -62,12 +63,6 @@ public static partial class TicketHtmlConverter
     // &nbsp; decodes to U+00A0, which reads as a space but corrupts a pasted command.
     private static string Decode(string text) =>
         WebUtility.HtmlDecode(text).Replace('\u00A0', ' ');
-
-    [GeneratedRegex(
-        @"</?(p|div|br|li|ul|ol|h[1-6]|pre|code|span|table|thead|tbody|tr|td|th|b|i|u"
-        + @"|strong|em|a|img|blockquote|hr)(\s[^>]*)?/?>",
-        RegexOptions.IgnoreCase)]
-    private static partial Regex HtmlTag();
 
     [GeneratedRegex(@"&(quot|amp|lt|gt|nbsp|apos|#\d+|#x[0-9a-fA-F]+);")]
     private static partial Regex HtmlEntity();

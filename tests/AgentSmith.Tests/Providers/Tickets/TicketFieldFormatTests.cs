@@ -32,6 +32,18 @@ public sealed class TicketFieldFormatTests
     }
 
     [Fact]
+    public void AzureDevOpsFieldMapper_UntaggedDescriptionAndCriteria_AreMarkdown()
+    {
+        var fields = AzureFields();
+        fields["System.Description"] = "Goal\n====\n\n*   **Export** the report.";
+        fields["Microsoft.VSTS.Common.AcceptanceCriteria"] = "- A CSV file.";
+
+        var ticket = new AzureDevOpsFieldMapper().Map(new TicketId("17"), fields);
+
+        (ticket.DescriptionFormat, ticket.CriteriaFormat).Should().Be((TicketTextFormat.Markdown, TicketTextFormat.Markdown));
+    }
+
+    [Fact]
     public void GitHubAndGitLabFieldMappers_Description_IsMarkdown()
     {
         var github = new GitHubFieldMapper().Map(new TicketId("7"),

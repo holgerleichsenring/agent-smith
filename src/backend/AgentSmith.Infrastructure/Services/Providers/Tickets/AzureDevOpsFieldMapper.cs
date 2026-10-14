@@ -21,19 +21,21 @@ public sealed class AzureDevOpsFieldMapper : ITicketFieldMapper<IDictionary<stri
         string[] labels = string.IsNullOrEmpty(tagsRaw)
             ? []
             : tagsRaw.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var description = ReadDescription(fields);
+        var criteria = ReadOrNull(fields, "Microsoft.VSTS.Common.AcceptanceCriteria");
         return new Ticket(
             ticketId,
             Read(fields, "System.Title"),
-            ReadDescription(fields),
-            ReadOrNull(fields, "Microsoft.VSTS.Common.AcceptanceCriteria"),
+            description,
+            criteria,
             Read(fields, "System.State"),
             "AzureDevOps",
             labels,
             ReadIdentity(fields, "System.AssignedTo"),
             ReadIdentity(fields, "System.CreatedBy"),
             ReadOrNull(fields, "System.WorkItemType"),
-            descriptionFormat: TicketTextFormat.Html,
-            criteriaFormat: TicketTextFormat.Html);
+            descriptionFormat: TicketTextFormat.OfHtmlField(description),
+            criteriaFormat: TicketTextFormat.OfHtmlField(criteria));
     }
 
     // p0454: an @-mention only reaches an Azure DevOps inbox with the identity GUID, so
