@@ -1,0 +1,282 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-8762c
+goal: "A run over this repository is gated close to a human spec commit: build and suite in the .NET image, and the dashboard's install, mirror check, tests and build in a node image when its inputs change."
+
+applies_to: "this repository's declarations (default context verify block, a new dashboard context with principles) + the sandbox coordinator's group order + a NeedsDocker category + backend: a master tool running a declared stage and one repair pass for a red stage"
+
+requires: [2026-10-13-8762a, 2026-10-13-8762b]
+
+facts:
+  - claim: "This repository has one context, default, whose image is the .NET 10 SDK and which declares no verify, prerequisites or format key."
+    evidence: ".agentsmith/contexts/default/context.yaml:12-19; observed: 2026-10-14, ls .agentsmith/contexts = default only, grep '^verify' finds nothing"
+  - claim: "The human gate runs, in order: the dashboard (pnpm install --frozen-lockfile, gen:hub-events when package.json declares it, test, build in src/dashboard), the build (dotnet build AgentSmith.sln -clp:ErrorsOnly) and the suite (dotnet test AgentSmith.sln --no-build --filter \"Category!=LiveLLM\"); a tree with a dashboard and no pnpm is blocked."
+    evidence: ".claude/hooks/spec-gate.sh:232-261, .claude/hooks/spec-gate.sh:264-269, .claude/hooks/spec-gate.sh:275, .claude/hooks/spec-gate.sh:300-306, .claude/hooks/spec-gate.sh:424-428"
+  - claim: "The dashboard pins pnpm 10.15.0 through packageManager; build runs gen:tokens and gen:types first, and gen:hub-events runs the mirror check from ../../tools."
+    evidence: "src/dashboard/package.json:5-15"
+  - claim: "The mirror check reads the C# event contracts under src/backend/AgentSmith.Contracts/Events and the dashboard's hub-events.ts and system-events.ts; the token generator reads the repository root's DESIGN.md."
+    evidence: "tools/build-hub-event-types.mjs:26-49, tools/build-tokens.mjs:10-17"
+  - claim: "The dashboard's CI runs on node 20 with pnpm 10 and is path-filtered on src/dashboard/**, tools/build-tokens.mjs, tools/build-hub-event-types.mjs, src/backend/AgentSmith.Contracts/Events/**, DESIGN.md and its own workflow file."
+    evidence: ".github/workflows/dashboard.yml:10-24, .github/workflows/dashboard.yml:35-43"
+  - claim: "The dashboard's own image is node:20-alpine; the catalog's node image is node:20-bookworm, and the sandbox agent binary needs glibc, which alpine lacks."
+    evidence: "src/dashboard/Dockerfile:7-9, src/dashboard/Dockerfile:20, src/backend/AgentSmith.Application/Services/Sandbox/ToolchainImageCatalog.cs:51, src/backend/AgentSmith.Application/Services/Sandbox/SandboxImageChain.cs:27-31"
+  - claim: "The repository root has no package.json, so a corepack shim run at the root does not see the dashboard's packageManager pin; only commands run inside src/dashboard do."
+    evidence: "observed: 2026-10-14, ls package.json at the worktree root: no such file; src/dashboard/package.json:5"
+  - claim: "A context's prerequisites command is tokenized and executed directly, not through a shell, so a chained command needs its own sh -c; a verify stage runs through /bin/sh -c, where an unquoted & would background the command."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/EnsurePrerequisitesHandler.cs:75-86, src/backend/AgentSmith.Application/Services/Handlers/VerifyCommandRunner.cs:48-55"
+  - claim: "A sandbox runs as the image's own user unless a RunAsUser is set, and it is null by default."
+    evidence: "src/backend/AgentSmith.Contracts/Sandbox/SandboxSecurityContext.cs:3"
+  - claim: "The solution's test projects include AgentSmith.Sandbox.Agent.Tests, whose RedisJobBusCollection starts a Testcontainers Redis for RedisJobBusTests and RedisJobKeyExpiryTests, with no Category and no skip without Docker; Testcontainers is referenced by no other test project."
+    evidence: "AgentSmith.sln:28, tests/AgentSmith.Sandbox.Agent.Tests/Services/RedisJobBusFixture.cs:5-21, tests/AgentSmith.Sandbox.Agent.Tests/Services/RedisJobBusTests.cs:10-11, tests/AgentSmith.Sandbox.Agent.Tests/Services/RedisJobKeyExpiryTests.cs:13-14, tests/AgentSmith.Sandbox.Agent.Tests/AgentSmith.Sandbox.Agent.Tests.csproj:20"
+  - claim: "The harness's Docker tier runs only when AGENTSMITH_HARNESS_DOCKER=1 and a daemon answers, so it needs no exclusion."
+    evidence: "tests/AgentSmith.PipelineHarness/Presets/DockerAvailability.cs:13-26"
+  - claim: "The toolchain probe derives one binary per bare declared stage and lists every other stage as unprobed; it does not fail on one."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/DeclaredStageBinaries.cs:13-27"
+  - claim: "The project's toolchain_image, then a per-language sandbox.images entry, win over a context's declared stack.image, so either one set for this project collapses both contexts into one image."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxImageChain.cs:34-45"
+  - claim: "Everything the dashboard's generators write is gitignored; next-env.d.ts is tracked."
+    evidence: "src/dashboard/.gitignore:1-9, .gitignore:71-73; observed: 2026-10-14, git ls-files src/dashboard/next-env.d.ts lists it"
+  - claim: "A context's operator prerequisites command runs once per sandbox at the repository root after SpecGate and before the master, and the toolchain probe runs at master start, after it."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/EnsurePrerequisitesHandler.cs:54-66, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Code.cs:59-70, src/backend/AgentSmith.Application/Services/Sandbox/SandboxToolchainProbe.cs:15-18"
+  - claim: "The toolchain probe reads only a bare binary; a command with a chain, a quote or a redirect is not read and is reported as unread."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/BareCommandBinary.cs:23-40"
+  - claim: "Contexts of one repository are grouped by toolchain image in the order the provider lists the contexts directory; the master's repository alias, its default run_command target and the one capability line per repository all take the FIRST group's sandbox."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxLanguageResolver.cs:76-81, src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs:105-116, src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:92-102, src/backend/AgentSmith.Application/Services/Sandbox/SandboxToolchainProbe.cs:40-42"
+  - claim: "A discovery carries its meta.workdir, and StructureWorkdir.Normalize turns the repository root into the empty string."
+    evidence: "src/backend/AgentSmith.Contracts/Sandbox/RemoteContextDiscovery.cs:53-54, src/backend/AgentSmith.Application/Services/Structure/StructureWorkdir.cs:12-18"
+  - claim: "The bootstrap check requires context.yaml AND principles.md for every context."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/BootstrapCheckHandler.cs:17-20"
+  - claim: "Every context.yaml under .agentsmith/contexts is judged against the schema by the shipped-context tests."
+    evidence: "tests/AgentSmith.Tests/Architecture/ShippedContextFiles.cs:20-49"
+  - claim: "The spec record rules read state.done of contexts/default only, and fail a spec in done/ that default does not record."
+    evidence: "tests/AgentSmith.Tests/Architecture/SpecRecordFile.cs:18-19, tests/AgentSmith.Tests/Architecture/SpecRecord.cs:126-128, tests/AgentSmith.Tests/Architecture/SpecRecordRuleTests.cs:37-41"
+  - claim: "A sandbox step is clamped to 900 s by default and a sandbox gets one CPU and 4Gi of memory, OOM-killed past it; a project overrides the step cap and the resources block, which is all-or-nothing; a verify stage asks for 1800 s and is clamped."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/SandboxGlobalConfig.cs:41, src/backend/AgentSmith.Contracts/Sandbox/ResourceLimits.cs:19, src/backend/AgentSmith.Contracts/Sandbox/ResourceLimits.cs:24-32, src/backend/AgentSmith.Contracts/Models/Configuration/SandboxConfig.cs:24-31, src/backend/AgentSmith.Contracts/Models/Configuration/SandboxConfig.cs:54, src/backend/AgentSmith.Application/Services/Handlers/VerifyCommandRunner.cs:26, src/backend/AgentSmith.Server/Services/Sandbox/SandboxStepCap.cs:22"
+  - claim: "A run's spec row records when the spec started and ended, and each step row records its spec, its typed command name and its duration, so a spec block's master, verify and record time can be read per spec."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunSpec.cs:30-35, src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunStep.cs:20-36"
+  - claim: "A run is cancelled after 1800 s of wall time by default."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/OrchestratorGlobalConfig.cs:17"
+  - claim: "The sandbox mounts an npm cache but no pnpm store, so a pnpm install in a fresh sandbox is cold."
+    evidence: "src/backend/AgentSmith.Contracts/Sandbox/PackageCacheCatalog.cs:28-48"
+  - claim: "A declaration wins over the analyzer's pair; the analyzer is an LLM whose ci commands vary between runs."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifyStageResolver.cs:41-52, tests/AgentSmith.PipelineHarness/Evals/AnalyzerCiCommandReport.cs:7-12"
+  - claim: "A test may read the gate script: an architecture test already does."
+    evidence: "tests/AgentSmith.Tests/Architecture/SpecSeriesIdTests.cs:41"
+  - claim: "Skills-dependent tests self-skip where no skills checkout is present."
+    evidence: "tests/AgentSmith.Tests/TestSupport/TestSkillsRoot.cs:21-40"
+  - claim: "The default principles carry no Limits fence, so the structure gate sets no limit for this repository; a context without one sets none."
+    evidence: "src/backend/AgentSmith.Application/Services/Structure/StructureLimits.cs:19-31; observed: 2026-10-14, grep '## Limits' .agentsmith/contexts/default/principles.md finds nothing"
+  - claim: "The master is told repository names only, every name is aliased to the first sandbox, and run_command defaults to it; in a two-image repository the master therefore cannot run the other image's stages on its work."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:72-82, src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:72-77, src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:92-102"
+  - claim: "A red declared stage is recorded as the spec's failure with the end of its output and gets no repair; the one repair pass hands outstanding account criteria back through ContextKeys.OutstandingCriteria and splices the repair steps, once per spec."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:136-143, src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:183-204, src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:257-272, src/backend/AgentSmith.Application/Services/Specs/SpecVerdict.cs:93-96"
+  - claim: "The repair prompt block renders OutstandingCriteria as what a fresh reviewer found not satisfied; a spec's repair state is cleared at the next spec, and the review's fix pass marks the repair spent."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecutionPromptBlocks.cs:43-55, src/backend/AgentSmith.Application/Services/SpecRepairScope.cs:24-28, src/backend/AgentSmith.Application/Services/Specs/SpecReviewFixPass.cs:77"
+  - claim: "A run_verify_stage tool already exists for the premise checker's look, one run per check, resolving what may run through the gate's own resolver with a null project map."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/VerifyStageRunTool.cs:24-63, src/backend/AgentSmith.Application/Services/Specs/DerivationLookStages.cs:49-57"
+  - claim: "VerifyCommandRunner runs one stage through /bin/sh -c and returns its exit code and output; a sandbox's declared contexts come from ContextVerifyStagesResolver.For and a VerifyStage carries stage, command and cwd but no context."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifyCommandRunner.cs:32-81, src/backend/AgentSmith.Application/Services/Handlers/ContextVerifyStagesResolver.cs:18-30, src/backend/AgentSmith.Application/Services/Handlers/VerifyStage.cs:9"
+  - claim: "MasterToolComposition adds factory-built tools to a coding master after its base surface, and children receive the base surface only; VerifyCommandRunner is registered alone on one line."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:74-90, src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:104, src/backend/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs:181"
+  - claim: "The sandbox mounts NUGET_PACKAGES, NUGET_HTTP_CACHE_PATH and NPM_CONFIG_CACHE under /pkgcache, outside the clone."
+    evidence: "src/backend/AgentSmith.Contracts/Sandbox/PackageCacheCatalog.cs:26-38"
+  - claim: "gen:hub-events runs the mirror check with --check, which exits 1 when a C# RunEvent record has no TypeScript interface."
+    evidence: "src/dashboard/package.json:14, tools/build-hub-event-types.mjs:70-75, tools/build-hub-event-types.mjs:104-121"
+  - claim: "observed: 2026-10-14, wc -l: PipelineSandboxCoordinator.cs 298 with a baseline of 298; MasterToolComposition.cs 112, SpecExecutionPromptBlocks.cs 89 and SpecExecutionPromptFactory.cs 78 (neither baselined, limit 120). This spec takes SpecExecutionPromptBlocks to at most 101 (DeclaredGate about 10, the stage-repair sentence 2), so 2026-10-13-8762n's StaleCitations bound reads as at most what c leaves plus 11; the factory goes to 79."
+    evidence: "observed: 2026-10-14, wc -l + tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:23"
+  - claim: "The spec-execution prompt tells the master only to run the repository's build and automated tests as usual; it names no declared stage and no gate tool."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecutionPromptFactory.cs:52-75"
+  - claim: "The coding master skill tells the master to work out the build command from the repository and run it with run_command, and run_command reaches the repository's first sandbox only."
+    evidence: "observed: 2026-10-14, agent-smith-skills skills/_masters/coding-agent-master/SKILL.md lines 314-321; src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:72-77"
+  - claim: "The repair block's tail says the rest of the spec is already accounted for, yet a red mechanical gate returns before the account is taken."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecutionPromptBlocks.cs:52-54, src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:136-149"
+  - claim: "A resolution finding wins over a red outcome in the aggregate, and findings and ran outcomes are gathered over every repository of the run, so both can stand together."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:236-246, src/backend/AgentSmith.Application/Services/Handlers/VerifyStageResolver.cs:76-86, src/backend/AgentSmith.Application/Services/Handlers/VerifyResolutionNotes.cs:21-22"
+  - claim: "The account repair's continuation carries the message 'N criterion(s) outstanding; one repair pass follows'; the mechanical failure's first line names repository, stage, command, exit and cwd."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:200-203, src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:270-272"
+  - claim: "A declared stage whose when_present path is absent is skipped by the resolver and does not appear in what it returns; run_verify_stage answers an unknown label with the runnable labels."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifyStageResolver.cs:88-90, src/backend/AgentSmith.Application/Services/Specs/VerifyStageRunTool.cs:52-59, src/backend/AgentSmith.Application/Services/Specs/VerifyStageRunTool.cs:112-116"
+  - claim: "A checkpoint whose staged diff matches a secret pattern is not committed or pushed."
+    evidence: "src/backend/AgentSmith.Application/Services/RepoWorkPusher.cs:39-46"
+  - claim: "Each sandbox key maps to its owning repository name through ContextKeys.SandboxRepos, published by the coordinator; a sandbox's full context list is at ContextKeys.SandboxContexts."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/ContextKeys.cs:45-52, src/backend/AgentSmith.Contracts/Commands/ContextKeys.cs:65-73, src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs:119, src/backend/AgentSmith.Application/Services/Handlers/SandboxContextList.cs:21-30"
+
+assumptions:
+  - "The sandbox reaches nuget.org and the npm registry; the measurement proves it for both images or the spec hands back."
+  - "corepack install --global pnpm@10.15.0 after corepack enable makes 10.15.0 the pnpm every later step of that sandbox runs at the repository root, and inside src/dashboard the packageManager pin names the same version; the measurement records pnpm --version at the root and proves it."
+  - "The operator's agent-smith project sets neither sandbox.toolchain_image nor a sandbox.images entry for C# or TypeScript; with either set, both contexts resolve to one image and the node stages run where pnpm does not exist."
+
+scope:
+  in: >
+    MEASURE FIRST (443a's precondition, extended): in ONE container per image (mcr.microsoft.com/dotnet/sdk:10.0 and
+    node:20-bookworm) under the sandbox's default limits (docker run --cpus=1 --memory=4g), with NUGET_PACKAGES,
+    NUGET_HTTP_CACHE_PATH and NPM_CONFIG_CACHE pointed outside the clone as PackageCacheCatalog mounts them. COLD = a
+    fresh clone with empty caches, once. WARM = three runs, each after git clean -xdf in the clone, so only those three
+    caches survive (no pnpm store, node_modules, .next, bin or obj) — what a sandbox's first verify of an attempt
+    meets. An INCREMENTAL time (verify straight after a build in the same tree) may be recorded as a third number,
+    never in place of warm. Each candidate command (the node prerequisites first) runs in each shape; every run exits
+    0 and git status --porcelain is empty afterwards (next build must not leave the tracked next-env.d.ts changed).
+    NEGATIVE CONTROL: on a scratch copy in the node container, one public sealed record deriving RunEvent is added
+    under src/backend/AgentSmith.Contracts/Events/ without a TypeScript mirror and pnpm --dir src/dashboard run
+    gen:hub-events must exit non-zero; its first error line goes into the decision file, else the spec hands back.
+    Every time, the spread of the warm runs, pnpm --version at the root and the measuring host's CPU model, core count
+    and architecture (the cluster's may differ, so the numbers are an estimate for 2026-10-13-8762u) go into
+    .agentsmith/decisions/2026-10-13-8762c.yaml. A non-zero exit in ANY run or a dirtied tree lands nothing and hands
+    back to whoever owns the red. A stage whose slowest WARM run is over the 900 s cap still lands: the commands are measured again at the
+    cpu_limit the spec then recommends, and the spec states the measured sandbox.step_timeout_seconds and a COMPLETE
+    resources block (cpu_request, cpu_limit, memory_request, memory_limit) for this project in the operator's
+    agentsmith.yml (contract decision 9). SPEC BLOCK TIME: series.seconds_per_spec = the slowest warm verify (build +
+    test + the four dashboard stages) times the median number of VerifySpec steps per done spec, plus the median of
+    (spec row duration minus ALL its VerifySpec step durations), both read from RunStep rows by SpecId and
+    CommandName in the operator's run store, plus one slowest warm dashboard-stage set (the master's own
+    run_gate_stage run before its verdict, which no stored spec contains); with no such spec there, the decision
+    file records the verify part as a lower bound and says so. The value is recorded as a LOWER bound while the run
+    store's history predates run_gate_stage and the stage repair (a stage repair adds a master, a commit and a
+    verify no stored spec carries). DOCKER-ONLY TESTS: RedisJobBusTests and
+    RedisJobKeyExpiryTests carry [Trait("Category", "NeedsDocker")]. DEFAULT: verify = build `dotnet build
+    AgentSmith.sln -clp:ErrorsOnly`, test `dotnet test AgentSmith.sln --filter
+    "Category!=LiveLLM&Category!=NeedsDocker"` (quoted, because the stage runs under /bin/sh -c); no when_changed, no
+    when_present. DASHBOARD: a new
+    .agentsmith/contexts/dashboard/context.yaml — meta (project agent-smith, workdir src/dashboard), stack (Node 20,
+    TypeScript, image node:20-bookworm, testing vitest), prerequisites `sh -c "corepack enable &&
+    COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack install --global pnpm@10.15.0"`, verify = install `pnpm --dir
+    src/dashboard install --frozen-lockfile`, mirror `pnpm --dir src/dashboard run gen:hub-events`, test `pnpm --dir
+    src/dashboard run test`, build `pnpm --dir src/dashboard run build`, each with when_changed = the dashboard
+    workflow's path filter minus the workflow file; no state block. Its principles.md states only rules the tree
+    already enforces (English only, no customer names, strict TypeScript, vitest tests under src/**/*.test.ts(x), a C#
+    event record needs its TypeScript mirror, pnpm with the frozen lockfile) and no Limits fence. GROUP ORDER: the
+    coordinator puts a repository's group holding a root-workdir context first, else keeps listing order, so this
+    repository's alias, default run_command and capability line stay the .NET sandbox. TESTS pin the declarations to
+    the gate, the workflow and the dashboard's packageManager pin. MASTER TOOL run_gate_stage(repository, label,
+    context?): offered to a coding master (never a child, a scan master or a design turn) when a sandbox of the run
+    declares a stage; it first runs 2026-10-13-8762a's SandboxTreeSync.SyncAsync (a red sync runs nothing and returns
+    its message), then resolves the label per declared context of each of the repository's sandboxes through
+    VerifyStageResolver with a null map (an undeclared label, or one two contexts share without a context argument, is
+    refused listing context/label pairs, nothing run), runs it through VerifyCommandRunner in THAT context's sandbox and
+    returns the exit code and the last 4,000 characters of output; when_changed does not filter what the master asks
+    for. A label declared but skipped by its when_present guard is refused as "declared, not runnable: its
+    when_present path is absent", not as undeclared. The tool description says that a stage in the repository's
+    first sandbox can also be run with run_command, which needs no sync (a checkpoint the secret scan declines makes
+    every later sync red). GATE PROMPT: SpecExecutionPromptBlocks.DeclaredGate(pipeline) renders one line per
+    declared `<repository> <context>/<label>` and "run each of these with run_gate_stage before your verdict;
+    verification runs exactly these"; it reads the same declarations through the same predicate that offers the
+    tool (GateStageToolHost.Declared(pipeline)) and is empty exactly when the tool is not offered;
+    SpecExecutionPromptFactory renders it beside OutstandingCriteria. STAGE REPAIR: a declared stage that ran and exited non-zero earns the spec's one repair pass when
+    SpecRepairAttempted is unset and no resolution finding stands — OutstandingCriteria gets one item, starting with
+    StageRepair.ItemPrefix, naming key, stage, command, exit and cwd with the end of the output, the repair steps are
+    spliced, and the continuation's message is the mechanical failure's first line followed by "; one repair pass
+    follows". The repair prompt's intro says the verification (not only a reviewer) found these not satisfied, and
+    when an item carries StageRepair.ItemPrefix the tail "The rest of the spec is already accounted for — adding
+    more is scope you were not given" is replaced by "No criterion has been accounted for yet; the verification
+    after this pass takes the account". A resolution failure (also beside a red stage of another repository), a red
+    sync and a red stage in a review fix pass (whose spent repair flag already stands) are not repaired. RETIRE 2026-09-20-443a.
+  out: >
+    Making every sandbox see the union — 2026-10-13-8762a. The when_changed field — 2026-10-13-8762b. The hook's own
+    Python tests, the CLI dry-runs and the harness presets — nobody: they prove the commit gate script, which a run
+    never executes, and a preset FAIL is a valid outcome (contract decision 8). pnpm lint, which CI runs and the gate
+    does not — nobody: the run's gate matches the human gate. A pnpm store cache mount — nobody: the warm numbers say
+    whether a cold install is worth one; a mount changes every node sandbox. Committing step or CPU numbers to any
+    deployment config — nobody: contract decision 9. Refusing an attempt size whose verify time cannot fit the run's
+    1800 s wall clock — 2026-10-13-8762u (it derives the attempt size from series.seconds_per_spec); continuing after a
+    wall-time cancel — 2026-10-13-8762v (continue_after_wall_time). The run_verify_stage premise tool and its one-run
+    limit — unchanged: it settles a premise before the master, run_gate_stage serves the master. A repair pass for a red
+    sync conflict — nobody: two writers of one file is not a fault a master pass can be told to close (contract
+    decision 10). The verify array description's .NET clause — 2026-10-13-8762b, which rewrites that description.
+    Probing every sandbox of a repository for its
+    declared binaries (today only the first per repository name is probed) — nobody: the probe only reports, and every
+    declared stage still runs in every sandbox at verify, where a missing binary is a red stage naming its command. The stale "workdir" and ".NET discovery" documents 443a gave
+    to 2026-09-20-e92c — nobody: e92c was never written; 2026-10-13-8762b corrects the verify node only. Recording
+    dashboard specs in contexts/dashboard — nobody: the record rules read contexts/default only, and contract decision 23
+    now records every member in default. A Docker-capable sandbox that runs the NeedsDocker tests — nobody: no sandbox
+    backend offers a Docker daemon, and the excluded collection is named as the run gate's one difference from the
+    human gate's suite. Setting the operator's project config (no toolchain_image, no sandbox.images for C#/TypeScript,
+    the measured resources and seconds_per_spec) — nobody: it is operator config by contract decision 9; this spec
+    states the values and the precondition.
+
+decisions:
+  - key: "ABSORBS 2026-09-20-443a, RETIRED UNBUILT. Kept: a declaration authored once over the analyzer's run-to-run guess; the gate's intent, not its text; no --no-build in a stage (a stage runs alone and a stale tree would pass green); two stages, not one; no when_present; the measurement as a precondition that also checks the exit code; the drift test pins solution, category exclusion and absence of --no-build. Refuted: the dashboard as out of scope (a node context of its own now carries it), e92c as the owner of the stale documents (it exists nowhere), and the unquoted filter (a second exclusion needs &, which /bin/sh -c would treat as background; the probe then lists the test stage as unprobed and still reads dotnet from the build stage)."
+  - key: "THE RUN'S GATE IS THE HUMAN GATE MINUS WHAT A RUN NEVER EXECUTES, WITH TWO NAMED NARROWINGS (contract decision 8, default, pending operator ratification): backend build, full suite, dashboard install / gen:hub-events / test / build. Narrowing one: the dashboard stages run when the branch touches the dashboard workflow's inputs, not on every commit as the commit gate does; the branch diff is cumulative (2026-10-13-8762b), so in a series it is close to always-on. Narrowing two: the suite excludes Category NeedsDocker, the one Testcontainers collection, because no sandbox has a Docker daemon."
+  - key: "DOCKER-ONLY TESTS GET A CATEGORY OF THEIR OWN (main-thread decision, default, pending operator ratification; the category name NeedsDocker is a contract amendment). A sandbox has no Docker daemon, so the declared suite would fail with certainty on RedisJobBusCollection; deciding it here, and pinning that the declared filter differs from the gate's by exactly that exclusion, beats discovering it at the measure step and handing back."
+  - key: "RESOURCES ARE OPERATOR CONFIG (contract decision 9, default, pending operator ratification). A stage over the cap still lands, and the spec names the numbers the operator sets for this project; stack.resources in a context would bind every estate that runs this repository."
+  - key: "WHEN_CHANGED = THE DASHBOARD WORKFLOW'S OWN PATH FILTER. Those five paths are what this repository already decided can break the dashboard; a test pins the two lists so they cannot drift. The default context's stages carry none: the human gate runs build and suite on every commit, and a missed glob there would be an unverified C# change."
+  - key: "PNPM PINNED IN PREREQUISITES, STAGES WITHOUT A CHAIN (review cut 2). corepack enable alone installs a shim that resolves the version from the nearest package.json, and the stages run at the root, which has none; corepack install --global pnpm@10.15.0 makes the root and src/dashboard run the same pnpm, the version a test pins to packageManager. The prerequisites are executed without a shell, so the chain carries its own sh -c; the download prompt is switched off because a step has no TTY. pnpm --dir keeps every stage a bare command the probe can read."
+  - key: "NODE 20 BOOKWORM. It is the catalog's node image and carries glibc, which the agent binary needs; CI runs node 20 (a test pins the major); the dashboard's own image is node:20-alpine and is irrelevant here."
+  - key: "TWO IMAGES STAY (main-thread decision, default, pending operator ratification). The cross-sandbox sync of 2026-10-13-8762a is a general mechanism every mixed-stack target repository needs; one combined .NET plus node image would remove it only for this repository and would have to be a trusted, published image nobody maintains today. The precondition that the operator sets no project image override is stated and tested. Its price (review round 2 cut 1): the master's run_command reaches only the first sandbox, so without this spec's tool it could never run the node stages on its own TypeScript, and a red declared stage was terminal, so every dashboard regression would fail its spec at the first verify and stop the series (contract decision 19); run_gate_stage and the stage repair below are the remedy, owned here (contract section 1, section 2.5 and section 2.7 'Two images stay' amended)."
+  - key: "THE MASTER RUNS ANY DECLARED STAGE BEFORE IT FINISHES (main-thread decision 7a, default, pending operator ratification). The supervised session ran the dashboard tests before it committed; the run's master meets the same gate only if it can run each stage in that stage's own image over its own work, which needs the sync first. A new name, run_gate_stage, because run_verify_stage is the premise checker's one-shot look tool with evidence ids; one DI type, GateStageToolHost, joins MasterToolComposition as the render and design factories do (112 -> at most 114 lines, shifting 2026-10-13-8762d to 116, 2026-10-13-8762m to 118 and 2026-10-13-8762o to 120; contract section 4 amended) and registers on VerifyCommandRunner's line (PipelineHandlersExtensions stays 218)."
+  - key: "A RED STAGE EARNS THE ONE REPAIR PASS (main-thread decision 7b, default, pending operator ratification). Like an outstanding criterion, a red stage with its output is the most actionable thing a run produces; one pass per spec, shared with the account repair through SpecRepairAttempted, keeps the cost bounded and needs no new key. The intro of the repair prompt is reworded so it is true for both causes, and for a stage repair its tail no longer claims an account that was never taken (review round 3 cut 2: a red stage returns at VerifySpecHandler.cs:142 before accounting.TakeAsync at :146). The cause travels as StageRepair.ItemPrefix on the item, a constant both sides share, so no new context key is minted. Offer takes notes.Findings and declines while one stands (review round 3 cut 3), so a two-repository run with a finding in one and a red stage in the other is not repaired, as the aggregate already reports the finding (:242-246). The continuation carries the red stage's first line (review round 3 cut 5), so the rail does not show a green VerifySpec over a red build. VerifySpecHandler changes the return line at :142 in place (net zero lines)."
+  - key: "THE MASTER IS TOLD THE GATE (review round 3 cut 1). The prompt says only 'run the repository's build and automated tests as usual' (SpecExecutionPromptFactory.cs:68) and the skill sends it to run_command, which reaches the first sandbox; a tool description among about 30 tools does not make the master run the node stages. DeclaredGate names every declared stage and the tool in the prompt, under the tool's own predicate, so the block and the tool cannot disagree. Chosen over a coding-agent-master skill line via 2026-10-13-8762x: the stage list is per run, which a skill cannot state, and x's member list stays unchanged."
+  - key: "WARM MEANS A CLEANED TREE WITH THE MOUNTED CACHES (review round 2 cut 2). Re-running in the tree a cold run left makes dotnet build a no-op and finds node_modules and .next in place, understating what a sandbox's first verify meets; that error lands a spec without a step cap and clamps the first verify of every attempt red."
+  - key: "BLOCK TIME COUNTS EVERY VERIFY (review round 2 cut 4). A repair or a review fix pass runs VerifySpec again as its own RunStep row, so subtracting one verify double- or under-counts; the whole-block definition is contract section 2.7's."
+  - key: "MEASURED AS THE SANDBOX RUNS (review cut 3). The default sandbox is 1 CPU and 4Gi with an OOM kill past it, dotnet test runs assemblies in parallel processes and next build is memory-heavy, so a measurement without the memory bound proves nothing about the sandbox; three warm runs show the spread and catch a flake an unattended series would stop on."
+  - key: "ROOT-WORKDIR GROUP FIRST (contract section 4: PipelineSandboxCoordinator.cs, 298/298, net zero through ToolchainGroupOrder). Today the representative is whichever context the provider lists first; 'dashboard' sorts before 'default', so without this the master's default sandbox in a run over this repository would be the node image, where dotnet does not exist. The root context is the one whose files are everywhere, so its sandbox represents the repository."
+  - key: "NO STATE BLOCK IN THE DASHBOARD CONTEXT (contract decision 23: every member, dashboard ones included, records in contexts/default). Every record rule reads contexts/default; a dashboard spec recorded elsewhere fails SpecRecord_EveryDoneSpec_IsRecordedInTheContext."
+  - key: "THE WHOLE SPEC BLOCK IS MEASURED, NOT ONLY VERIFY (main-thread decision, default, pending operator ratification). A spec block is master + verify + record, and an attempt must fit the 1800 s run wall clock (OrchestratorGlobalConfig.cs:17); the slowest warm verify times the median verify count, plus the median rest of the block, from the run store, is the series.seconds_per_spec value the operator sets, from which 2026-10-13-8762u derives the specs one attempt runs as min(series.specs_per_attempt, run wall clock / series.seconds_per_spec). The number is a LOWER bound (review round 3 cut 4): the stored done specs predate run_gate_stage and the stage repair, so none carries the master's own dashboard-stage run or a stage repair's extra master, commit and verify; one slowest warm dashboard-stage set is added to the rest-of-block term, and the decision file tells 2026-10-13-8762u that an attempt sized from it can still overrun, which 2026-10-13-8762v's continue_after_wall_time absorbs. The spec also states the orchestrator.max_run_wall_time_seconds (config/agentsmith.schema.json:245) that would fit eight. Nothing is committed to a deployment config."
+  - key: "DASHBOARD PRINCIPLES STATE ONLY WHAT IS ALREADY ENFORCED, AND NO LIMITS. The bootstrap check needs the file; a Limits fence would switch on a structure gate over TypeScript nobody measured."
+
+steps:
+  - id: docker-category
+    action: "RedisJobBusTests and RedisJobKeyExpiryTests carry [Trait(\"Category\", \"NeedsDocker\")]; a test in AgentSmith.Sandbox.Agent.Tests reflects over its own assembly and fails a class in RedisJobBusCollection without that trait."
+  - id: measure
+    action: "Before anything else lands: run the prerequisites and the six stage commands as scoped above, --cpus=1 --memory=4g, cold once and warm three times after git clean -xdf with only the three mounted caches kept, exit codes and git status --porcelain checked, pnpm --version at the root, the negative control's non-zero exit and first error line, the host's CPU model, cores and architecture; write every time, the warm spread, the slowest warm verify, the median VerifySpec count and the rest-of-block median plus one slowest warm dashboard-stage set (or the lower-bound note) and the resulting series.seconds_per_spec, marked as a lower bound with the reason into .agentsmith/decisions/2026-10-13-8762c.yaml, with the orchestrator.max_run_wall_time_seconds that fits eight specs. A red in any run, a dirtied tree or a green negative control: hand back, nothing lands. Slowest warm over 900 s: measure again at the recommended cpu_limit and state the step_timeout_seconds and the complete resources block."
+  - id: default-block
+    action: ".agentsmith/contexts/default/context.yaml gains verify (build, test) after stack, as scoped."
+  - id: dashboard-context
+    action: ".agentsmith/contexts/dashboard/context.yaml (schema header, meta, stack, prerequisites, verify with when_changed) and principles.md as scoped; both pass the shipped-context schema test and the bootstrap check."
+  - id: group-order
+    action: "ToolchainGroupOrder (Application/Services/Sandbox, pure): orders a repository's image groups with a root-workdir context first, stable otherwise; PipelineSandboxCoordinator.cs line 105 calls it in place and stays at 298 lines."
+  - id: pins
+    action: "RepositoryVerifyDeclarationTests (Architecture, reads the context files, .claude/hooks/spec-gate.sh and .github/workflows/dashboard.yml): both default commands name AgentSmith.sln; the test command's filter is the gate's filter read from the gate plus exactly Category!=NeedsDocker, and carries no --no-build, with the reason in the failure message; the build command is bare (the probe reads dotnet from it); the prerequisites install the pnpm version src/dashboard/package.json's packageManager names; the dashboard stages are the gate's four in its order; when_changed equals the workflow's path filter minus the workflow file; the image's node major equals the workflow's node-version."
+  - id: gate-stage-tool
+    action: "GateStageToolHost (Application/Services/Tools, at most 120 lines; SandboxTreeSync, SandboxTargets, ContextVerifyStagesResolver, VerifyStageResolver, VerifyCommandRunner): static Declared(pipeline) lists (repository, context, label) for every sandbox key from ContextKeys.SandboxRepos and each sandbox's declared contexts; Tools(pipeline) returns run_gate_stage as scoped (description with the run_command and secret-scan sentence, the when_present refusal), or nothing when Declared is empty; registered as a transient on PipelineHandlersExtensions.cs:181's line."
+  - id: master-surface
+    action: "MasterToolComposition takes GateStageToolHost and adds its tools in the coding-master branch beside ensure_repo_sandbox and update_progress, never to BaseSurface (112 -> at most 114 lines); SpecExecutionPromptBlocks.DeclaredGate(pipeline) renders from GateStageToolHost.Declared and SpecExecutionPromptFactory places it beside OutstandingCriteria (78 -> 79 lines)."
+  - id: stage-repair
+    action: "StageRepair (Application/Services/Specs, pure, at most 60 lines): Offer(pipeline, ran, findings, mechanical) returns null when a finding stands or SpecRepairAttempted is set, else the continuation for the first non-zero ran outcome (setting the flag and OutstandingCriteria with one ItemPrefix item, splicing SpecVerdict.RepairSteps, message = mechanical's first line + '; one repair pass follows'); at VerifySpecHandler.cs:142 the handler returns StageRepair.Offer(..., notes.Findings, mechanical) when it is non-null, else the existing RecordAsync(context, mechanical, ...) call (in place, at most 2 lines); SpecExecutionPromptBlocks.OutstandingCriteria's intro names the verification instead of a reviewer and, for an ItemPrefix item, swaps the 'already accounted for' sentence (at most 2 lines)."
+  - id: retire
+    action: "Move 2026-09-20-443a to specs/done; state.done gains its 'RETIRED (2026-10-…, superseded before it was built by 2026-10-13-8762c)' line and this spec's line, each at most 400 characters."
+  - id: tests
+    action: "Red first, then green: the tool over two InProcessSandbox clones (ExternalProcessCollection, TestProcess=serial), the composition and repair tests listed below; run the Tools, Verify, Specs and Architecture classes touched."
+
+tests:
+  - "Context_TheDefaultContext_DeclaresABuildAndATestStage"
+  - "Context_BothDefaultCommands_NameTheSolution"
+  - "Context_TheDeclaredTestCommand_ExcludesTheGatesCategoryPlusExactlyNeedsDocker"
+  - "Context_TheDefaultBuildStage_IsABareCommandTheProbeReads"
+  - "Context_ThePrerequisitesPnpmVersion_IsTheDashboardPackageManagerPin"
+  - "RedisJobBusCollection_EveryClass_CarriesTheNeedsDockerCategory"
+  - "SandboxImageChain_ThisRepositorysContexts_WithNoProjectImageOverride_ResolveToTwoImages"
+  - "Context_TheDeclaredTestCommand_DoesNotCarryNoBuild"
+  - "Context_TheDashboardStages_AreTheGatesFourInOrder"
+  - "Context_TheDashboardWhenChanged_IsTheWorkflowPathFilter"
+  - "Context_TheDashboardImage_RunsTheWorkflowsNodeMajor"
+  - "Context_EveryDashboardStage_IsABareCommandTheProbeReads"
+  - "ToolchainGroupOrder_RootWorkdirGroup_IsFirst"
+  - "ToolchainGroupOrder_NoRootContext_KeepsListingOrder"
+  - "PipelineSandboxCoordinator_DashboardListedFirst_DefaultSandboxIsTheRepositoryAlias"
+  - "GateStageTool_DashboardStage_RunsInTheNodeSandboxOverTheMastersSyncedWork"
+  - "GateStageTool_SyncRed_RunsNothingAndReturnsTheSyncMessage"
+  - "GateStageTool_LabelInTwoContextsWithoutContext_ListsThePairs_RunsNothing"
+  - "GateStageTool_UndeclaredLabel_RunsNothing"
+  - "GateStageTool_NoDeclaredStage_OffersNoTool"
+  - "GateStageTool_WhenPresentSkippedLabel_IsDeclaredNotRunnable"
+  - "MasterToolComposition_CodingMaster_CarriesRunGateStage_ChildScanAndDesignTurnDoNot"
+  - "VerifySpec_RedDeclaredStage_SplicesOneRepairPassCarryingTheStageOutput"
+  - "VerifySpec_RedStageAfterItsRepair_FailsTheSpec"
+  - "VerifySpec_RedStageInReviewFixPass_IsRevertedNotRepaired"
+  - "VerifySpec_ResolutionFailure_IsNotRepaired (single repository, and two repositories: one finding plus one red stage)"
+  - "VerifySpec_RedDeclaredStage_ContinuationMessageStartsWithTheRedStagesLine"
+  - "SpecExecutionPrompt_StageRepair_NamesTheVerificationAndCarriesTheOutput (asserts the 'already accounted for' sentence is absent)"
+  - "SpecExecutionPrompt_AccountRepair_KeepsTheAlreadyAccountedForSentence"
+  - "SpecExecutionPrompt_DeclaredStages_NamesRunGateStageAndEveryContextLabelPair"
+  - "SpecExecutionPrompt_NoDeclaredStage_RendersNoGateBlock"
+
+done:
+  - "A run over this repository is gated by the declared build and full suite in the .NET image, and — when a dashboard input changed — by install, gen:hub-events, test and build in the node image."
+  - "A C# event record without its TypeScript mirror turns gen:hub-events red: proven by the measure step's negative control, whose non-zero exit and first error line are in the decision file."
+  - "The coding master's prompt names every declared stage and run_gate_stage, and the master can run any declared stage — the dashboard's included — in its own image over its synced work before it finishes; a red declared stage gets one repair pass with its output before it fails the spec."
+  - "A run whose branch touches none of the dashboard's inputs runs no dashboard stage."
+  - "In a run over this repository the master's default sandbox is still the .NET one."
+  - "Every measured time (cold, three warm after git clean -xdf, under 1 CPU and 4 GB) and the measuring host's CPU and architecture are recorded and every run exited 0 with a clean tree — or nothing landed and the spec handed back; any stage over 900 s comes with the step cap and the complete resources block the operator sets, and the decision file names series.seconds_per_spec as a lower bound with its reason."
+  - "The declared suite differs from the human gate's only by the NeedsDocker exclusion, and every dashboard stage runs the pnpm version the dashboard pins."
+  - "The decision file and this spec state the operator precondition: no toolchain_image and no sandbox.images entry for C# or TypeScript on the agent-smith project."
+  - "2026-09-20-443a is in specs/done with its RETIRED line."
+  - "Build green, full suite green, dashboard gen:hub-events / test / build green."

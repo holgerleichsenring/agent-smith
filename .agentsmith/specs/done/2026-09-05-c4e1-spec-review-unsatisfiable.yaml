@@ -9,6 +9,7 @@ scope:
   out: "Whether the spec is FAITHFUL to the ticket — a different question with a different input, deliberately deferred. A per-project dimension for the knob: the machinery has none and this phase does not invent one. And the missing attribution inside MasterAcceptanceGate, which is real but is its own phase; nothing here depends on it."
 
 decisions:
+  - key: "RETIRED 2026-10-14, never built: absorbed into 2026-10-13-8762g (the review loop step) when the 8762 series was written from the code."
   - key: |
       THE FAILURE THIS PHASE EXISTS FOR IS A RUN THAT COULD NOT FINISH AND DID NOT KNOW IT.
       A dependency-upgrade ticket derived a phase whose done-criterion required the package manifest

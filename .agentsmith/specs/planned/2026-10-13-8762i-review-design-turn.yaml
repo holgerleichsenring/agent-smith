@@ -1,0 +1,272 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-8762i
+goal: "A design turn's spec or epic proposal goes through the same review rounds, cuts applied by the design partner, before a person can approve it; the proposal shows every round."
+
+applies_to: "backend (the design turn's proposal review: rounds loop within the review share, the cuts re-prompt and its guard, the proposal's stored rounds and not-reviewed list, the approval refusal for an unreviewed proposal, the ticket conversation's proposal view) + dashboard (the approval card and the ticket page's proposal block) + skills (design-partner-master)"
+
+requires: [2026-10-13-8762f, 2026-10-13-8762g]
+
+facts:
+  - claim: "A set a person approved is never re-cut at run time, so a design-turn proposal is the only place an approved set can still be reviewed."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:26-27"
+  - claim: "The turn reviews its proposal once, inside the turn because the read-only scopes are disposed when the runner ends: the mechanical evidence check, then one ISpecCutReviewer call over ALL the drafts at once, the findings set on the proposal; a review that fails blocks nothing."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalReview.cs:11-29, src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalReview.cs:37-59, src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalReview.cs:68-84"
+  - claim: "Today's proposal evidence check works on the whole proposal (a spec without spec-id requires, or an epic's parent and first child) and returns ProposalFinding, not a per-draft problem list."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/ProposalEvidenceReview.cs:25-43, src/backend/AgentSmith.Application/Services/SpecDialog/ProposalEvidenceReview.cs:45-53"
+  - claim: "A spec proposal reviews its draft, an epic its parent and every child; an answer or a bug is not reviewed."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalReview.cs:87-94"
+  - claim: "The master handler gates the outcome and then calls the review, both only for a design turn; the review call takes no loop result, returns nothing and sits under a one-line comment."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:498-503"
+  - claim: "A re-prompt of the design partner continues the turn's thread, tracks its cost and reports Revising; an outcome is resolved by IOutcomeProposalResolver and published onto the context by MasterOutcomes.PublishOutcome."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalRefusal.cs:33-51, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:670-697, src/backend/AgentSmith.Application/Services/SpecDialog/IOutcomeProposalResolver.cs:14-17, src/backend/AgentSmith.Application/Services/Handlers/MasterOutcomes.cs:22-29"
+  - claim: "Today the findings reach the design partner only in the NEXT turn, through the revision section of the proposal being revised."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogRevisionSection.cs:7-35"
+  - claim: "The findings ride the base OutcomeProposal and its stored JSON, so the confirmation, the pane push, the stored row and a reload carry them; ProposalFinding is SpecId, Problem, Why, Quote, Evidence."
+    evidence: "src/backend/AgentSmith.Contracts/Models/OutcomeProposal.cs:21-28, src/backend/AgentSmith.Contracts/Models/ProposalFinding.cs:21-26, src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeProposalJson.cs:31-47, src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeProposalJson.cs:49-67, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogProposalComposer.cs:32-39, src/backend/AgentSmith.Server/Models/SpecDialogProposalPush.cs:34-40"
+  - claim: "The ticket page's proposal view is kind and drafts only; it carries no findings."
+    evidence: "src/backend/AgentSmith.Server/Models/TicketConversationProposalView.cs:3-9, src/backend/AgentSmith.Server/Services/Tickets/Conversation/TicketTranscriptReader.cs:37-47, src/dashboard/src/types/tickets.ts:360-363, src/dashboard/src/components/tickets/detail/ProposalBlock.tsx:17-46"
+  - claim: "The approval card lists the findings, renders nothing for an absent field, and already drops its Approve control when the proposal is not approvable."
+    evidence: "src/dashboard/src/components/dialog/DialogProposalFindings.tsx:12-15, src/dashboard/src/components/dialog/DialogQuestionCard.tsx:108, src/dashboard/src/components/dialog/DialogQuestionCard.tsx:147-150, src/dashboard/src/types/spec-dialog.ts:333-358"
+  - claim: "Every approval answer, button or text, is interpreted in one place: an approval word confirms, a rejection rejects, anything else is an edit note that sends the master round again."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeConfirmer.cs:32-51, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeConfirmer.cs:88-106"
+  - claim: "A run's template-free look resolves through SandboxTargets, which needs the run's discoveries; the turn's review look is built over ProposalRepositories (the turn's sandboxes minus templates and references) instead, as a five-line method."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationLookFactory.cs:65-73, src/backend/AgentSmith.Application/Services/Handlers/SandboxTargets.cs:22-27, src/backend/AgentSmith.Application/Services/Specs/DerivationLookFactory.cs:97-115"
+  - claim: "A framework reviewer takes its look per call, so the caller decides what it reads."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ISpecCutReviewer.cs:11-25"
+  - claim: "A design turn is a run started through ExecutePipelineUseCase, so it carries RunStartedAt, the per-run cost tracker and the live wall-clock watchdog."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs:59, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs:73, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:271, src/backend/AgentSmith.Server/Services/Lifecycle/CancelEnforcer.cs:35-40"
+  - claim: "OutcomeProposal is an abstract base record whose cross-kind facts (Templates, Findings) are init properties, so an object initializer on any kind sets them; a proposal's drafts are a spec's draft or an epic's parent and children."
+    evidence: "src/backend/AgentSmith.Contracts/Models/OutcomeProposal.cs:10-29, src/backend/AgentSmith.Contracts/Models/OutcomeProposal.cs:38-44, src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalReview.cs:87-94"
+  - claim: "An edit note, an approval answer turned edit included, re-runs the turn with the proposal being revised carried as Revising, which the turn seeds as ContextKeys.SpecDialogRevisedProposal; the turn reads it there."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeConfirmer.cs:97-106, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogEditReload.cs:28-61, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:69-70, src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogRevisionSection.cs:18-21"
+  - claim: "A SpecSet is built from drafts alone elsewhere already: DerivedSpec per draft, SpecAccounting.Empty, no revisions."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSpecSetRecorder.cs:74-76, src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:25-36"
+  - claim: "The turn reports Reviewing and Revising as activity kinds."
+    evidence: "src/backend/AgentSmith.Contracts/Turns/TurnActivityKind.cs:17-20"
+  - claim: "AgenticMasterHandler is at its 747-line ratchet; DerivationLookFactory is 116 lines, SpecDialogProposalReview 95, OutcomeProposalJson 68, SpecDialogProposalPush 41, OutcomeProposal 44, TicketTranscriptReader 62, SpecDialogOutcomeConfirmer 108, DialogQuestionCard.tsx 190, ProposalBlock.tsx 49."
+    evidence: "observed: 2026-10-14, wc -l in this worktree and tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv"
+  - claim: "design-partner-master on the skills repo's main says nothing about review findings; its Outcomes section starts at line 208."
+    evidence: "observed: 2026-10-14, git show origin/main:skills/_masters/design-partner-master/SKILL.md in agent-smith-skills"
+  - claim: "An epic's parent is never built: the series is minted from the ordered children alone and the parent becomes the work ticket's body; a child that requires the parent is refused, because the parent aggregates the children."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:108-118, src/backend/AgentSmith.Application/Services/SpecDialog/RequiresEdgeChecker.cs:34-44"
+  - claim: "The turn publishes ContextKeys.SandboxRepos with every template under its own name, ProposalRepositories is the filter that drops template and reference keys, and with more than one entry a bare cited path goes to BareAsync, which passes a path found only in a template."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:34, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:62-63, src/backend/AgentSmith.Application/Services/Specs/DerivationLookFactory.cs:105-115, src/backend/AgentSmith.Application/Services/Specs/SandboxEvidenceProbe.cs:46-53, src/backend/AgentSmith.Application/Services/SpecDialog/ProposalEvidenceReview.cs:30-34"
+  - claim: "The turn's reply is the loop result's response text, stored beside the outcome; on Slack and Teams the reply is the one place a draft's steps and done-list are read, and the dashboard strips its draft blocks."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:549-550, src/backend/AgentSmith.Application/Services/Handlers/CollectSpecDialogReplyHandler.cs:25, src/backend/AgentSmith.Application/Services/Handlers/CollectSpecDialogReplyHandler.cs:39-40, src/backend/AgentSmith.Server/Models/SpecDialogTurnResult.cs:15-17, src/backend/AgentSmith.Server/Models/SpecDialogTurnResult.cs:28-33"
+  - claim: "A draft is a ```yaml block and an epic an ```outcome block whose parent and children are spec mappings, each serialized back to yaml by OutcomeYamlReader.ToYaml."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogDraftBlocks.cs:25-29, src/backend/AgentSmith.Application/Services/SpecDialog/EpicOutcomeParser.cs:28-30, src/backend/AgentSmith.Application/Services/SpecDialog/EpicOutcomeParser.cs:77, src/backend/AgentSmith.Application/Services/SpecDialog/OutcomeYamlReader.cs:37-38"
+  - claim: "A proposal's Templates are stamped by the turn runner after the master returns, never read from a reply."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogReadOnlyScopes.cs:78-90"
+  - claim: "The chat confirmation lists only Findings and always offers Approve; SpecDialogOutcomeComposer is 119 lines."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeComposer.cs:24-31, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeComposer.cs:37-48"
+  - claim: "A typed approval is stored with its decision at admission, and SpecDialogSessionManager.ClearDecisionAsync takes a stored turn's decision back; an edit note not ending the transcript is appended as a user turn."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogAnswerAdmission.cs:35-37, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogAnswerAdmission.cs:48-52, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSessionManager.cs:89-99, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogEditReload.cs:71-76"
+  - claim: "The watchdog's wall-clock ceiling defaults to 1800 seconds."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/OrchestratorGlobalConfig.cs:17"
+
+assumptions:
+  - "2026-10-13-8762e's SpecToday.Describes(SpecDraft draft, SpecSet set) is the one today rule (main-thread decision 2)."
+  - "2026-10-13-8762e's ISpecAttackReviewer.ReviewAsync(SpecAttackInput, look, ct) takes its look as an argument, DerivationLookTerms.AttackReviewFor(draft) sizes its allowance per spec (distinct cited paths + 12, at least 24), and SpecRoundEvidence returns SpecRoundEvidenceResult(Problems, Unchecked, Total) per draft."
+  - "2026-10-13-8762e's SpecRoundEvidence drops ContextKeys.SandboxRepos keys starting with TemplateScopeName.Prefix or ReferenceScopeName.Prefix, the same filter as DerivationLookFactory.ProposalRepositories, so a turn with a template still finds a missing cited file (amendment to e, review 8762i r3 cut 2)."
+  - "2026-10-13-8762k records its design-turn series round under ProposalReviewTokens.Series (SpecId = 'series'), never under the epic parent's id; i's carry-over never carries a round under 'series' — k records a fresh one each turn (k's decision, review 8762k r3 cut 1)."
+  - "2026-10-13-8762g ships ISpecReviewSettingsReader, SpecReviewMerge, SpecReviewStopRule.IsDone and SpecReviewBudget.Spent as public types; 2026-10-13-8762g ships SpecIdentityRule.Holds(old, revised) (spec id, requires, repos and applies_to byte-identical), the rule its re-deriver applies; 2026-10-13-8762f ships SpecCutResidues.Of and SpecRevisionGuard (old draft, new draft, cuts, problems, lastRound -> null or the refusal)."
+
+scope:
+  in: >
+    ENTRY: SpecDialogProposalReview.ReviewAsync takes the turn's request, user prompt, loop result and MasterConversation
+    and returns the loop result; settings come from 8762g's ISpecReviewSettingsReader per turn (live, never the
+    AgentSmithConfig singleton); spec_review.rounds 0 keeps today's single review exactly. DELIVERABILITY: today's
+    whole-set ISpecCutReviewer call still runs once, before round 1, its findings into Findings (the attack is per draft
+    and does not replace it). DRAFTS: the rounds, the re-prompt and the guard run over a lone spec's draft or an epic's
+    CHILDREN only. The epic parent is never built; it gets SpecRoundEvidence once (its problems as Findings) plus the
+    whole-set call, and no rounds, so no ProposalReviewRound is ever keyed by the parent's id. LOOP: ProposalReviewLoop; before every round and every re-prompt
+    SpecReviewBudget.Spent(pipeline, settings) is checked — spent, the loop stops on the last valid proposal and every
+    draft that has not reached the stop rule is listed in OutcomeProposal.NotReviewed. FLOOR: the share never stops the
+    FIRST open draft of the turn; it is reviewed to its stop rule, bounded by rounds, the run cap
+    (PipelineCostTracker.IsBudgetExhausted) and the watchdog — it starts no round or re-prompt once elapsed time since
+    RunStartedAt plus the previous round's duration would pass max_run_wall_time_seconds, and then stops as not reviewed
+    (in NotReviewed) with what it has; every turn otherwise makes progress. CARRY-OVER: the loop seeds from
+    ContextKeys.SpecDialogRevisedProposal — a draft byte-identical (Yaml, ordinal) to a draft that has rounds there and is
+    not in its NotReviewed keeps those ProposalReviewRounds and counts as stopped; drafts listed in its NotReviewed are
+    reviewed first; a round under ProposalReviewTokens.Series is never carried (k records a fresh one each turn)
+    (ProposalReviewCarryOver, its own file if ProposalReviewLoop would pass 120). Per round: every open draft (not
+    yet stopped) is checked by 8762e's SpecRoundEvidence (template and reference keys filtered, as ProposalRepositories;
+    DescribesToday = SpecToday.Describes(draft, ProposalSpecSet.Of(proposal)), a SpecSet of the proposal's drafts with
+    nothing executed, so a child's requires on a sibling is unbuilt) and reviewed by spec_review.reviewers 8762e calls,
+    each on its own DerivationLookFactory.ForProposalAttack(pipeline, draft) look (ProposalRepositories on
+    AttackReviewFor(draft)), all calls under one SemaphoreSlim of max_concurrent; merged per draft by SpecReviewMerge; a
+    draft stops on SpecReviewStopRule.IsDone, or when a round left its text unchanged (its cuts ignored or its change
+    reverted) — it stops with its residues and is not reviewed again in this turn, as g's loop does; Reviewing reported.
+    Open drafts with cuts or a REFUSE: ONE re-prompt of the design partner with ProposalCutsNudge (per draft with cuts:
+    each cut's register, quote, replacement and evidence and 'apply exactly these cuts, change nothing else'; per draft
+    refused without an admitted cut: its REFUSE findings and 'rewrite this draft from the findings, keeping its id and
+    requires'; per draft its evidence problems, and on the last round f's rule 'move a fact with a problem to
+    assumptions as its claim'; each draft reverted in the previous round, named with its current yaml;
+    're-propose the whole outcome'), Revising reported, the thread continued, cost tracked, the reply resolved by
+    IOutcomeProposalResolver. GUARD: drafts are matched by spec id; a re-proposal whose kind, set of spec ids or child
+    order differ is invalid as a whole — the loop ends on the last valid proposal; the merged proposal takes everything
+    but the drafts from the last valid proposal (2026-10-13-8762j extends this to its contract block). Per changed
+    draft: a draft with admitted cuts goes through 8762f's SpecRevisionGuard with that round's cuts, that round's
+    evidence problems and lastRound = (round == rounds); a draft refused without cuts is guarded by g's SpecIdentityRule
+    only; the epic parent is admitted, under SpecIdentityRule, only when the whole-set findings name its id; any other
+    changed draft — no admitted cut and no REFUSE this round (stopped, carried, waiting, or the parent) — is reverted. A
+    draft the guard refuses (requires edges changed included) is reverted to its last valid text, alone; the other drafts
+    keep their applied changes; the merged proposal is published by MasterOutcomes.PublishOutcome and SpecCutResidues.Of
+    gives each draft's residues. LAST ROUND: the last round's cuts are applied too — one final re-prompt under the
+    guard, then residues and evidence on the result with no further review, as g's reviser does with lastRound. An
+    invalid reply, a failed call or a reply that changed no draft ends the loop on the last valid proposal. REPLY: the
+    returned loop result carries the published proposal's drafts — ProposalReplyText (own file) keeps the prose of the
+    turn's first proposal reply and replaces its draft blocks with blocks rendered from the published proposal (the
+    ```yaml block for a spec; for an epic the ```outcome block with parent and children set to the published drafts'
+    mappings, through OutcomeYamlReader.ToYaml), used whenever the published proposal is not exactly the last reply's
+    resolution (a revert, an early end), so the reply stored, shown on Slack and Teams and replayed next turn is what
+    gets filed. RECORD: ProposalReviewRound(SpecId, Round, Verdict, ReviewerVerdicts,
+    Cuts, Findings, Residues) appended per draft per round to OutcomeProposal.ReviewRounds; Findings keeps only what
+    still stands (final evidence problems, the deliverability findings, the last round's standing findings, and one
+    ProposalFinding 'not reviewed yet' per spec id in NotReviewed, so the chat confirmation lists it with no change to
+    SpecDialogOutcomeComposer);
+    ProposalReviewRound and OutcomeProposal.ReviewRounds and NotReviewed are init properties on the OutcomeProposal BASE
+    record (beside Findings), so new SpecOutcome(…) { ReviewRounds = … } compiles for every kind. OutcomeProposal.NotReviewed
+    holds spec ids only, null when all reviewed, plus the reserved token 'series' (ProposalReviewTokens.Series) that
+    2026-10-13-8762k adds when its series round was not taken (with its own finding), rendered by the card and the ticket
+    block as 'the series contract is not reviewed yet'; k also appends one ProposalReviewRound under
+    ProposalReviewTokens.Series. APPROVAL: SpecDialogOutcomeConfirmer hands an approval answer on a proposal with NotReviewed to
+    SpecDialogUnreviewedApproval (own file), which clears the recorded decision on that transcript turn through
+    SpecDialogSessionManager.ClearDecisionAsync and returns the edit note '(held, not approved) review the specs not
+    reviewed yet: …', so the next turn reviews them; never approved unreviewed. CARRIED:
+    OutcomeProposalJson's Dto, SpecDialogProposalPush and its composer, TicketConversationProposalView (Findings,
+    ReviewRounds, NotReviewed) and TicketTranscriptReader. CALL: AgenticMasterHandler assigns the returned loop result;
+    the comment line at :501 pays for the longer call, net zero. DASHBOARD: spec-dialog.ts and tickets.ts gain the
+    optional fields; a new DialogProposalRounds renders, per draft, round by round the reviewer verdicts, the cuts, the
+    findings and any residue, beside DialogProposalFindings in DialogQuestionCard; drafts in notReviewed show 'not
+    reviewed yet', the 'series' token shows 'the series contract is not reviewed yet', and the card drops its Approve control as it does for a non-approvable bound proposal; ProposalBlock
+    renders each draft's rounds, the standing findings and 'not reviewed yet'. SKILL: design-partner-master's Outcomes
+    section gains a short paragraph — a review may answer with cuts quoting your draft; apply exactly those, change
+    nothing else, and re-propose the whole outcome — on skills branch spec/2026-10-13-8762 (agent-smith-skills, cut from
+    origin/main), with NO frontmatter version bump (2026-10-13-8762x bumps each master once); the build note quotes the
+    exact sentence added, which 2026-10-13-8762x's test asserts.
+  out: >
+    The reviewer, its brief, its allowance and the evidence result — 2026-10-13-8762e. The reviser used at run time and
+    the revision guard — 2026-10-13-8762f; in the turn the design partner applies the cuts. The run-time loop, the merge,
+    the stop rule, the budget share and the config reader — 2026-10-13-8762g. Asking the author once in the turn —
+    nobody: the person who decides is reading the proposal, so a standing REFUSE is shown, not handed back
+    (2026-10-13-8762h is the run-time rule). The set-scope contract round in the turn and its 'not reviewed yet' finding
+    — 2026-10-13-8762k, which adds one call to ProposalReviewLoop. Re-keying the rounds' spec ids at filing and MOVING
+    them onto the approval record (SpecApprovalRecord.ReviewRounds via FiledSeries.ReviewRounds) — 2026-10-13-8762l;
+    never two copies. Event 87 and RunSpecReviewRounds for a turn — nobody: a turn's run names no ticket, and contract
+    §2.2 homes design-turn rounds on the proposal. The skills release, the master's version bump and the pin —
+    2026-10-13-8762x. Mock versions on the proposal — 2026-10-13-8762t. Guarding the epic's contract block in a re-proposal —
+    2026-10-13-8762j, which extends this guard. Guarding Templates — nobody: the turn runner stamps them after the
+    master returns, never from a reply. Changing SpecDialogTurnRunner — nobody: contract
+    §4.
+
+decisions:
+  - key: "THE PARTNER APPLIES THE CUTS, NOT THE REVISER. The turn's thread holds why each line of the draft was written; a fresh reviser would edit text it did not write while its author is still in the conversation. At run time no author is left, which is why 2026-10-13-8762g uses 2026-10-13-8762f's reviser."
+  - key: "THE PARTNER IS HELD TO THE CUTS MECHANICALLY, DRAFT BY DRAFT. 'Change nothing else' is a prompt, so the re-proposal is checked: same kind and spec ids for the whole, and each changed draft through the run's own SpecRevisionGuard (with lastRound) or, for a draft refused without cuts, through g's identity rule — the guard admits only a cut's quote replaced, so a refused draft's rewrite would otherwise invalidate every other draft's applied cuts and cap the turn at one round. A refused change reverts only its own draft. Main-thread decision 4, review 8762i r2 cuts 1 and 4; supersedes 'invalid as a whole' (review 8762i cut 3)."
+  - key: "TURNS CARRY OVER; EVERY TURN MAKES PROGRESS. An unreviewed draft makes approval an edit note, which re-runs the turn; without carry-over the next turn starts at round 1 and the same drafts run out of share again, so a large epic could never be approved. The revised proposal's stored rounds (ContextKeys.SpecDialogRevisedProposal) are the datum: an unchanged stopped draft keeps them, the NotReviewed drafts go first, and the first open draft is reviewed to its stop whatever the share. Main-thread decision 4, review 8762i r2 cut 2."
+  - key: "THE LAST ROUND'S CUTS ARE APPLIED IN THE TURN. The turn is the only review an approved set gets (contract decision 5), so it is held to the run's standard: g applies the last round's cuts through its reviser, the turn through one final re-prompt under the guard. Main-thread decision 4, review 8762i r2 cut 3."
+  - key: "NOTREVIEWED IS IDS PLUS ONE RESERVED TOKEN. The card matches entries to drafts by id; a sentence entry would match nothing. 'series' cannot be a spec id (ids are minted dates), so k's not-reviewed series contract is that token. Main-thread decision 4, review 8762i r2 cut 5."
+  - key: "ROUNDS RIDE THE PROPOSAL, BESIDE ITS FINDINGS. Contract §2.2: design-turn rounds live on the proposal, never a table. A round carries its own reviewer verdicts and findings, so a REFUSE a later round fixed still shows why (review 8762i cut 4); Findings keeps only what still stands. Nothing is stored twice; at filing the rounds move onto the approval record (2026-10-13-8762l)."
+  - key: "SAME KNOBS, STOP RULE, BUDGET AND LIVE READ AS THE RUN. spec_review's keys, SpecReviewMerge, SpecReviewStopRule and SpecReviewBudget apply in the turn too, read per turn through ISpecReviewSettingsReader, so a Studio edit applies to the next turn without a restart (main-thread decision 4). Rounds 0 restores today exactly."
+  - key: "THE REVIEW SHARE BOUNDS THE TURN; UNREVIEWED IS NOT APPROVABLE. A turn is a run under the watchdog (review 8762i finding 1); when the share of its cap or wall clock is spent the loop stops on the last valid proposal, so the watchdog never destroys a reply, and every draft not reviewed is listed as 'not reviewed yet' and cannot be approved until a later turn reviews it. The refusal sits in SpecDialogOutcomeConfirmer, the one place every approval answer passes, so neither a button nor a typed 'approve' slips past. Main-thread decision 5, default, pending operator ratification."
+  - key: "THE WHOLE-SET CHECK STAYS. ISpecCutReviewer judges the set as a whole (ordering, cross-draft deliverability); the attack is per draft and k's round is contract-only, so dropping it would leave an approved epic never checked as a whole (review 8762i finding 5). It runs once, before round 1 (contract decision 6)."
+  - key: "ONE EVIDENCE PATH. Rounds use 8762e's SpecRoundEvidence per draft, the same check the run uses, not ProposalEvidenceReview, whose whole-proposal shape and today-rule differ (review 8762i cut 2); rounds 0 keeps ProposalEvidenceReview."
+  - key: "ONE RE-PROMPT PER ROUND FOR THE WHOLE OUTCOME. An epic is one reply; at most rounds re-prompts per turn, the last applying the last round's cuts."
+  - key: "A REPLY THAT CANNOT BE USED ENDS THE LOOP ON THE LAST VALID PROPOSAL. An invalid, failed or guard-refused re-proposal must not replace a valid one the person could approve."
+  - key: "A STANDING REFUSE IN THE TURN IS SHOWN, NOT ASKED. The person deciding is reading the card; contract decision 4's ask-once rule exists for a run nobody watches."
+  - key: "ITS OWN LOOK, ONE FACTORY PATH. The turn's sandboxes have no discoveries, so OnTerms returns null there; ForProposalReview and ForProposalAttack become one-line callers of a private ForProposal(pipeline, terms), the attack's terms sized per draft by AttackReviewFor (review 8762i cut 6)."
+  - key: "ONLY CHILDREN GET ROUNDS (review 8762i r3 cut 1). The parent is never built and no child may require it, so attacking it as a draft would key rounds by the parent's id, the key k's series round and l's re-keying need for the set; the parent gets one evidence check and the whole-set call."
+  - key: "THE REPLY IS THE PUBLISHED PROPOSAL (review 8762i r3 cut 3). After a revert the published proposal mixes texts from two replies; on Slack and Teams the reply is the only place the draft is read, and it is the thread's memory next turn, so ProposalReplyText renders the reply from what will be filed."
+  - key: "A CHANGED DRAFT NEEDS A REASON TO CHANGE (review 8762i r3 cut 4). A draft without an admitted cut or a REFUSE in this round is reverted alone, so 're-propose the whole outcome' cannot rewrite a stopped, carried or waiting draft."
+  - key: "A DRAFT STOPS WHEN A ROUND LEFT IT UNCHANGED (review 8762i r3 cut 5), as g's loop does: re-reviewing byte-identical text is reviewer shopping. This also bounds a REFUSE-without-cuts draft, which the partner may rewrite every round where g re-derives once — accepted, because the partner is the author and each rewrite is reviewed."
+  - key: "THE PARTNER IS TOLD WHAT g's REVISER IS TOLD (review 8762i r3 cut 6): the evidence problems, the last-round move rule and which drafts were reverted, with their current yaml — otherwise a broken citation always survives and a reverted draft is re-emitted."
+  - key: "NOT REVIEWED IS A FINDING TOO, AND A HELD APPROVAL RECORDS NO DECISION (review 8762i r3 cut 8). Chat surfaces show only Findings and SpecDialogOutcomeComposer has no room (119 lines); the converted approval clears its recorded decision as SpecDialogAnswerAdmission does for an answer that answered nothing. The note appended as a user turn says '(held, not approved)', so the transcript does not read as the person's words."
+  - key: "THE FLOOR IS BOUNDED BY THE WATCHDOG (review 8762i r3 minor). The floor is exempt from the share, not from max_run_wall_time_seconds; a cancelled run loses the reply, so the floor draft stops as not reviewed before it would pass the ceiling."
+  - key: "NO SKILL VERSION BUMP HERE. 2026-10-13-8762x bumps each master once for the whole release."
+
+steps:
+  - id: contracts
+    action: "ProposalReviewRound (Contracts/Models, own file; cuts, findings and residues as 8762e's SpecReviewCut, SpecReviewFinding and SpecReviewResidue); OutcomeProposal.ReviewRounds and NotReviewed as init properties on the base record (44 -> about 50); ProposalReviewTokens.Series = \"series\"; ProposalSpecSet.Of(proposal) (at most 25 lines)."
+  - id: storage
+    action: "OutcomeProposalJson Dto + both mappings (68 -> about 74); SpecDialogProposalPush.ReviewRounds and NotReviewed (41 -> about 46) and its composer; TicketConversationProposalView gains Findings, ReviewRounds and NotReviewed, defaulted; TicketTranscriptReader maps them (62 -> about 65)."
+  - id: look
+    action: "ForProposalReview and ForProposalAttack(pipeline, draft) as one-line callers of a private ForProposal(pipeline, terms) in DerivationLookFactory (116 -> at most 120)."
+  - id: nudge-guard
+    action: "ProposalCutsNudge (own file, at most 80 lines: cuts, REFUSE findings, evidence problems, the last-round move rule, the drafts reverted last round with their yaml); ProposalReProposalGuard (kind, ids, child order, requires edges, SpecRevisionGuard with cuts, problems and lastRound per cut draft, the identity rule for a refused draft and a parent the whole-set findings name, revert for any other changed draft; at most 70 lines); ProposalReplyText (own file, at most 60 lines)."
+  - id: loop
+    action: "ProposalReviewLoop over a lone spec or an epic's children (the parent: one SpecRoundEvidence, no rounds): carry-over seeding from the revised proposal (never a 'series' round), the first-open-draft floor bounded by the watchdog, budget check, open drafts, the per-draft unchanged-text stop, SpecRoundEvidence, the throttled reviewer calls, merge, stop rule, the re-prompt (the last round's included), the per-draft guard and revert, publish, residues, the rounds record, NotReviewed with one 'not reviewed yet' finding per spec id, the reply through ProposalReplyText; at most 120 lines, the re-prompt in a ProposalCutsReprompt of its own if it does not fit."
+  - id: entry
+    action: "SpecDialogProposalReview: the new signature, the settings reader, rounds 0 keeps today's path, rounds > 0 runs the whole-set call then the loop and sets Findings, ReviewRounds and NotReviewed (95 -> at most 120)."
+  - id: master-call
+    action: "AgenticMasterHandler assigns the review's returned loop result, the comment at :501 removed to pay for the longer call (stays 747); MasterHandlerFixture updated."
+  - id: approval
+    action: "SpecDialogUnreviewedApproval (Server/Services/SpecDialog, own file, at most 45 lines): clears the approved turn's recorded decision through SpecDialogSessionManager.ClearDecisionAsync and returns the '(held, not approved)' edit note naming those specs; SpecDialogOutcomeConfirmer hands it an approval answer on a proposal with NotReviewed (108 -> at most 115)."
+  - id: registration
+    action: "ProposalReviewLoop, ProposalReProposalGuard and the reprompt in Services/Specs/Review/SpecReviewRegistrations.cs; SpecDialogUnreviewedApproval beside the confirmer's registration."
+  - id: dashboard
+    action: "spec-dialog.ts (reviewRounds, notReviewed on the push), tickets.ts (findings, reviewRounds, notReviewed on the proposal); DialogProposalRounds.tsx; DialogQuestionCard renders it beside the findings and drops Approve while notReviewed is non-empty (190 -> at most 200); ProposalBlock renders rounds, standing findings and 'not reviewed yet'; pnpm gen:hub-events, test and build green."
+  - id: skill
+    action: "On skills branch spec/2026-10-13-8762: the paragraph in design-partner-master's Outcomes section, frontmatter version untouched; the build note quotes the exact sentence; released by 2026-10-13-8762x."
+  - id: tests
+    action: "Red first, then green, for every test below; run the SpecDialog, Server SpecDialog, Server Tickets and Handlers classes touched, and pnpm test for the components."
+
+tests:
+  - "ProposalReview_RoundsZero_IsTodaysSingleReview"
+  - "ProposalReview_RoundsOn_StillRunsTheWholeSetCutReviewOnce"
+  - "ProposalReview_FirstRoundBuild_NoRePrompt_OneRoundRecorded"
+  - "ProposalReview_Cuts_RePromptsThePartnerOnceWithTheCutsAndTheThread"
+  - "ProposalReview_RevisedProposal_IsReviewedAgain_UntilBuild"
+  - "ProposalReview_InvalidReProposal_KeepsTheLastValidProposal"
+  - "ProposalReview_ReProposalChangedIdsOrKind_KeepsLastValid"
+  - "ProposalReview_ReProposalChangedUncutText_RevertsThatDraftOnly"
+  - "ProposalReview_RefuseWithoutCuts_PartnerRewrite_IsAdmittedUnderTheIdentityRule"
+  - "ProposalReview_OneDraftRefusedByTheGuard_OthersKeepTheirCuts"
+  - "ProposalReview_EditTurnAfterNotReviewed_ReviewsOnlyTheUnreviewedDrafts"
+  - "ProposalReview_ShareSpentBeforeReview_FirstOpenDraftStillReviewed"
+  - "ProposalReview_LastRoundCuts_AreAppliedWithoutAFurtherReview"
+  - "ProposalReview_ChildRequiringAnUnbuiltSibling_DoesNotDescribeToday"
+  - "ProposalReview_EpicParent_GetsNoAttackRounds"
+  - "ProposalReview_EpicWithContract_SeriesRoundIsNotAParentRound"
+  - "ProposalReview_UnchangedParentCarriedOver_SeriesRoundNotDuplicated"
+  - "ProposalReview_TurnWithTemplate_MissingCitedFileIsStillAProblem"
+  - "ProposalReview_DraftReverted_ReplyTextCarriesThePublishedDraft"
+  - "ProposalReview_LoopEndsOnEarlierProposal_ReplyIsThatProposal"
+  - "ProposalReview_StoppedDraftRewrittenWithoutCuts_IsReverted"
+  - "ProposalReview_ChildOrderChanged_KeepsLastValid"
+  - "ProposalReview_DraftUnchangedAfterRePrompt_StopsWithResidues"
+  - "ProposalReview_FloorDraft_StopsAsNotReviewedBeforeTheWallClockCeiling"
+  - "ProposalCutsNudge_LastRound_TellsTheMoveAndNamesRevertedDrafts"
+  - "OutcomeComposer_NotReviewed_IsListedAmongTheFindings"
+  - "OutcomeConfirmer_ConvertedApproval_RecordsNoApprovedDecision"
+  - "ProposalReview_ReProposalChangedNothing_EndsTheLoop"
+  - "ProposalReview_ResidueAfterRePrompt_IsRecordedOnTheRound"
+  - "ProposalReview_RoundKeepsItsReviewerVerdictsAndFindings"
+  - "ProposalReview_EpicDrafts_ReviewedConcurrentlyUnderMaxConcurrent"
+  - "ProposalReview_StoppedDraftUnchanged_IsNotReviewedAgain"
+  - "ProposalReview_BudgetExhausted_StopsOnLastValidProposal_ListsNotReviewed"
+  - "ProposalReview_TimeShareSpent_NoFurtherRound"
+  - "ProposalReview_StoreEditOfRounds_AppliesToTheNextTurn"
+  - "ProposalReview_StandingRefuse_IsAFinding_NothingHandedBack"
+  - "ProposalReview_ReviewerFails_BlocksNothing"
+  - "OutcomeConfirmer_ApproveWithNotReviewed_BecomesAnEditNote"
+  - "ProposalCutsNudge_NamesRegisterQuoteReplacementAndEvidence"
+  - "ForProposalAttack_NoTurnRepositories_IsNull"
+  - "OutcomeProposalJson_ReviewRoundsAndNotReviewed_RoundTrip_AndAnOldRowReadsNone"
+  - "ProposalComposer_PushCarriesReviewRounds"
+  - "TicketTranscriptReader_ProposalCarriesFindingsRoundsAndNotReviewed"
+  - "DialogProposalRounds_RendersVerdictsCutsFindingsAndResiduePerRound (dashboard)"
+  - "DialogProposalRounds_NoRoundsField_RendersNothing (dashboard)"
+  - "DialogQuestionCard_NotReviewed_HasNoApproveControl (dashboard)"
+  - "DialogQuestionCard_SeriesToken_SaysTheSeriesContractIsNotReviewedYet (dashboard)"
+  - "ProposalBlock_RendersRoundsStandingFindingsAndNotReviewed (dashboard)"
+
+done:
+  - "A spec or an epic's children proposed in a design turn reach the approval card only after their review rounds ran, with each round's cuts applied by the design partner and checked against the cuts; the epic parent gets one evidence check and the whole-set check."
+  - "On Slack and Teams the reply a person reads, and the next turn replays, carries exactly the drafts that will be filed, and a draft not reviewed yet is listed among the findings."
+  - "The approval card and the ticket page's proposal block show, per draft, every round's verdicts, cuts, findings and anything a cut left standing, and below them what still stands."
+  - "When review has used its share of the turn's cost cap or wall clock, the card shows the specs not reviewed yet and they cannot be approved until a later turn reviews them."
+  - "A draft the design partner changes wrongly keeps its last valid text while the other drafts keep their applied cuts; a draft a reviewer refused can be rewritten by the partner under the same id and requires."
+  - "An epic too large for one turn's share is reviewed across turns: each turn reviews at least one more draft and keeps what earlier turns cleared, until it can be approved."
+  - "With spec_review.rounds 0 a design turn reviews exactly as it does today, and a config-store edit applies to the next turn without a restart."
+  - "A proposal stored before this spec opens unchanged on the card and on the ticket page."
+  - "Build green, full suite green, dashboard gen/test/build green."

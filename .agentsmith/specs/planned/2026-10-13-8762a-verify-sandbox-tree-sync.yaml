@@ -1,0 +1,196 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-8762a
+goal: "Before VerifySpec runs a stage, every sandbox of one repository holds the union of its sandboxes' work; two sandboxes that changed one file differently make verify red, naming the file."
+
+applies_to: "backend (VerifySpec, a new sandbox tree sync beside the sandbox git services, the unverified-work reverter, the account and review inputs after a sync)"
+
+requires: []
+
+facts:
+  - claim: "A repository whose contexts resolve to different toolchain images gets one sandbox per image, each an independent clone; with one repository the keys are the representatives' context names."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs:105-116, src/backend/AgentSmith.Application/Services/Sandbox/SandboxKeyComposer.cs:51-63"
+  - claim: "The master addresses a repository by name and that name is aliased to ONE representative sandbox; run_command dispatches to the default unless the repo argument names another key. Edits made through the alias never reach the other toolchain's clone during the run."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:76-77, src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:92-102"
+  - claim: "The pre-gate commit and every checkpoint commit and push only the FIRST sandbox of a repository; a secondary sandbox's edits stay uncommitted in its own clone."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecution/CommitSpecWorkHandler.cs:47-51, src/backend/AgentSmith.Application/Services/RepoWorkPusher.cs:29-37"
+  - claim: "Secondary sandboxes are folded into the primary only at PR time (and at InitCommit): stage all in the secondary, read its staged diff, write it into the primary's .git and git apply it; a failed apply is logged, not thrown."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:77-84, src/backend/AgentSmith.Application/Services/SandboxGitOperations.cs:139-176, src/backend/AgentSmith.Application/Services/Handlers/InitCommitHandler.cs:58"
+  - claim: "The staged diff the consolidation carries is taken without --binary, so a binary file's change does not survive it."
+    evidence: "src/backend/AgentSmith.Application/Services/SandboxGitOperations.cs:129-137"
+  - claim: "VerifySpec takes each sandbox's delivery diff, then runs the declared or inferred stages in each sandbox on its OWN clone; the CodeSpecBlock runs CommitSpecWork immediately before VerifySpec."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:72-75, src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:87-128, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Parking.cs:42-60"
+  - claim: "The delivery diff is git diff against a base ref, so it includes the sandbox's uncommitted work but nothing another clone did."
+    evidence: "src/backend/AgentSmith.Application/Services/DeliveryDiff.cs:47-79"
+  - claim: "A mechanical failure records the problem in the account ledger and is written as the spec's Failed state through RecordAsync."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:133-143, src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:211-231"
+  - claim: "A verified head is recorded only for a sandbox whose source tree is clean; a mixed-stack run's secondary clone is never committed, so it never has one and the review's fix pass is never spliced for such a run."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/VerifiedHeads.cs:52-67, src/backend/AgentSmith.Application/Services/Specs/SpecReviewFixPass.cs:48-65"
+  - claim: "The structure gate already judges each secondary clone against its own merge-base and folds one unit seen in two clones into one finding."
+    evidence: "src/backend/AgentSmith.Application/Services/Structure/StructureRepoSandboxes.cs:19-39"
+  - claim: "SandboxesForRepo returns a repository's sandboxes from the authoritative key-to-repo map; the first match is the one every commit path treats as primary. SandboxTargets is registered as a singleton."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SandboxTargets.cs:46-79, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:70-80, src/backend/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs:105"
+  - claim: "RunWorkCheckpointer.PushNowAsync commits and pushes every repository's primary sandbox through the secret scan, whatever the checkpoint interval says; it swallows every push exception, and a secret-scan match returns without committing, so its caller learns neither."
+    evidence: "src/backend/AgentSmith.Application/Services/RunWorkCheckpointer.cs:54-87, src/backend/AgentSmith.Application/Services/RepoWorkPusher.cs:39-51"
+  - claim: "HasWorkingChangesAsync is git status --porcelain non-empty, so it answers whether a sandbox still carries uncommitted work."
+    evidence: "src/backend/AgentSmith.Application/Services/SandboxGitOperations.cs:122-127"
+  - claim: "Each sandbox of a repository is cloned and switched to the work branch on its own; on a reused ticket branch each one merges the base into it with its own git merge --no-edit, so two sandboxes can hold two merge commits with equal trees and different SHAs, none of them pushed at checkout."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SandboxRepoCloner.cs:60-71, src/backend/AgentSmith.Application/Services/Sandbox/SandboxWorkBranchCheckout.cs:62-64, src/backend/AgentSmith.Application/Services/Sandbox/WorkBranchBaseMerger.cs:44-48"
+  - claim: "With a host source path (--source-path) every sandbox of the run is given the same InitialSourcePath, and the in-process factory reuses that one directory as each sandbox's work directory."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineSandboxCoordinator.cs:247-250, src/backend/AgentSmith.Infrastructure/Services/Sandbox/InProcessSandboxFactory.cs:19-24"
+  - claim: "A run step's captured stdout is capped at 1,000,000 characters and assembled line by line from a line reader and re-joined with a bare newline, so a carriage return in the output does not survive; the in-process sandbox reads lines the same way. A file read is capped at 1 MiB."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Services/StepExecutor.cs:57-63, src/backend/AgentSmith.Sandbox.Agent/Services/ProcessRunner.cs:119, src/backend/AgentSmith.Infrastructure/Services/Sandbox/InProcessSandbox.cs:120, src/backend/AgentSmith.Sandbox.Wire/SizeLimits.cs:5-6, src/backend/AgentSmith.Sandbox.Wire/SizeLimits.cs:35-37"
+  - claim: "ISandboxBinaryFileWriter places bytes into a sandbox through WriteBytes steps decoded by the receiver in C#, with no shell, up to 25 MB; it is registered with TryAddTransient."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ISandboxBinaryFileWriter.cs:5-16, src/backend/AgentSmith.Application/Services/Sandbox/SandboxBinaryFileWriter.cs:6-21, src/backend/AgentSmith.Sandbox.Wire/SizeLimits.cs:8-12, src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeExtensions.cs:23"
+  - claim: "A fix pass that is not green is undone by restoring each sandbox's index to its verified head and then calling PushNowAsync, which commits the primary only; the undo is then proven per sandbox by diffing the verified head against HEAD, and any source path left there fails the spec."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecReviewRevert.cs:69-107, src/backend/AgentSmith.Application/Services/UnverifiedWorkReverter.cs:27-52"
+  - claim: "A shortfall delivery restores every sandbox through the same reverter before the pull request is consolidated."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ShortfallDelivery.cs:35-41"
+  - claim: "The committing identity is ensured by SandboxGitIdentity, registered with the other sandbox git services in AddSandboxGitServices, which PipelineHandlersExtensions calls once; the cloner ensures it on every sandbox before the branch switch."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxGitIdentity.cs:30-37, src/backend/AgentSmith.Application/Services/Sandbox/SandboxGitServicesExtensions.cs:15-28, src/backend/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs:116, src/backend/AgentSmith.Application/Services/Handlers/SandboxRepoCloner.cs:64-67"
+  - claim: "InProcessSandbox runs real processes and translates /work to its own directory, so two of them over two clones of one local repository are a real-git test double."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Sandbox/InProcessSandbox.cs:148-162, tests/AgentSmith.Tests/Integration/GitSandboxExecutionTests.cs:16-17"
+  - claim: "The account gathers one delivery diff per sandbox key into one text, and the spec review takes one spec diff per sandbox key; VerifySpec, the entry account and ReviewSpecDiff hand them every resolved sandbox."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DeliveryEvidence.cs:41-51, src/backend/AgentSmith.Application/Services/Specs/SpecDiffs.cs:31-45, src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:146-147, src/backend/AgentSmith.Application/Services/Specs/SpecEntryAccount.cs:40-47, src/backend/AgentSmith.Application/Services/Handlers/ReviewSpecDiffHandler.cs:56-60"
+  - claim: "A sandbox's stages run only when that sandbox's own branch delivers something; a red mechanical outcome is recorded as Failed and is never repaired, the repair pass covering outstanding account criteria only."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/DeliveredWork.cs:42-43, src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:95-104, src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:136-143, src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:183-188"
+  - claim: "observed: 2026-10-14, wc -l in this worktree: VerifySpecHandler.cs 298 (baseline 335), ReviewSpecDiffHandler.cs 109, SpecEntryAccount.cs 80, SandboxGitOperations.cs 318 (baseline 319), PipelineHandlersExtensions.cs 218 (baseline 218), SandboxGitServicesExtensions.cs 28, UnverifiedWorkReverter.cs 108, SandboxTargets.cs 112, SpecReviewRevert.cs 119 (the last four not baselined, limit 120)."
+    evidence: "observed: 2026-10-14, wc -l + tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:19, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:22, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:37"
+
+assumptions:
+  - "Every sandbox image that carries git also carries a base64 encoder on PATH (coreutils on Debian images, busybox on Alpine); the read side uses it, the write side decodes in C#. A missing encoder is a red sync naming the sandbox, never a fallback to plain text."
+  - "No sandbox of a repository commits on its own except the primary (checkpoints), the secondaries' sync commits and the reverter's local commit this spec adds."
+
+scope:
+  in: >
+    SYNC: VerifySpec, after TryResolve and before any delivery diff is taken, asks SandboxTreeSync to level every
+    repository that has two or more sandboxes (SandboxesForRepo over ContextKeys.Repos, primary = the first match). A
+    repository with one sandbox takes an early return and runs no git step. TREES: each sandbox stages all (git add -A)
+    and writes its tree (git write-tree). LEVEL: when every sandbox wrote the primary's tree (two clones holding the
+    same files, or sandboxes sharing one working directory under --source-path), the repository is level — no conflict
+    check, no apply. If the primary's index then differs from its HEAD, the level repository joins the same
+    PushNowAsync and dirty-primary check as a fold (a primary still dirty is red with the same message), and only after
+    that check passes does each secondary make its local sync commit when its index differs from its HEAD — so content
+    the secret scan declined is never committed through a shared working directory. BASE = the
+    secondary's HEAD^{tree} (never a commit, so two independent base-merge commits with one tree compare equal); a BASE
+    the primary's object store lacks (git cat-file -e) is red, naming the sandbox. OWN(sandbox) = each path changed
+    between BASE and that sandbox's tree with its post-image (mode and blob, or deleted), read with git -c
+    core.quotePath=false diff --raw --no-abbrev --no-renames -z BASE <tree>; the run-record paths take part like any
+    other. CONFLICT: a path in OWN of two sandboxes with DIFFERENT post-images is red — "Sandbox tree sync: <path> was
+    changed in both <keyA> and <keyB>", every conflicting path listed — and nothing is applied anywhere. A path two
+    sandboxes changed to the same post-image (the same edit in two clones, or a fold whose spread never ran) is no
+    conflict: a patch never carries a path in its receiver's own OWN, and a path several senders carry with one
+    post-image is carried by the first in SandboxesForRepo order only, both through :(exclude)<path> pathspecs.
+    TRANSPORT: a change leaves its sandbox as git diff --binary BASE <tree> written to .git/agentsmith-sync.out and
+    only then read through base64 (so git's own exit code decides, and line-wise stdout capture cannot strip a
+    carriage return); a failing git diff is red naming the sandbox, never an empty change. It is decoded in C# and arrives through
+    ISandboxBinaryFileWriter as .git/agentsmith-sync.patch; an encoded text reaching 1,000,000 characters is red,
+    naming the sandbox and the limit, before anything is applied. FOLD: every secondary's patch is checked with git
+    apply --check --index in the primary before ANY is applied, then applied --index; RunWorkCheckpointer.PushNowAsync
+    commits and pushes the union once after every repository folded, and the sync then asks each primary whether it
+    still carries uncommitted work — if so the result is red: "the union could not be committed (secret scan or push
+    declined)". SPREAD: every secondary receives the primary's own change plus every OTHER secondary's change (each
+    relative to BASE), applied --index, and must then write exactly the primary's union tree — a different tree is red
+    naming that sandbox; on a match it commits locally (git commit --no-verify), never pushed. VERIFY: a red sync is a
+    mechanical failure — recorded in the account ledger and as the spec's Failed state, as a red stage is. After a
+    green sync every sandbox of a repository carries one tree, so each delivers the repository's diff, every sandbox is
+    clean, and VerifiedHeads records a head for secondaries as well. ONE DIFF PER REPOSITORY: after a green sync the
+    account (VerifySpec's accounting.TakeAsync), the entry account and the spec review (ReviewSpecDiff's
+    SpecDiffs.TakeAsync) are handed the sandboxes that are not SandboxTargets.IsSecondary — one per repository — so
+    neither the accountant windows nor the reviewer read a repository twice, nor report one finding under two keys.
+    API: SandboxTreeSync.SyncAsync(pipeline, ct) is public, so 2026-10-13-8762c's master tool runs the same sync
+    before a stage. REVERT: UnverifiedWorkReverter.RestoreAsync, after
+    restoring a sandbox that is a secondary of its repository (SandboxTargets.IsSecondary), commits the restored index
+    locally (git commit --no-verify, no push), so SpecReviewRevert's head..HEAD proof passes, the next sync's BASE is
+    the restored tree, and a shortfall's PR consolidation folds nothing. PR-time consolidation is unchanged and then
+    carries only what a secondary did after the last sync.
+  out: >
+    Deciding which STAGE runs over that union (when_changed, a stage in a sandbox whose own branch changed nothing) —
+    2026-10-13-8762b. Declaring this repository's own stages and a dashboard context — 2026-10-13-8762c. Resolving a
+    conflict (a merge tool deciding semantics would be a gate that guesses) — nobody: a conflict is red by contract
+    decision 10. Carrying a delta over 1,000,000 encoded characters in chunks — nobody: the PR-time consolidation has
+    the same stdout ceiling (SandboxGitOperations.cs:169) and this spec names the limit instead of raising it. Syncing
+    mid-master — 2026-10-13-8762c: its master tool calls SyncAsync before it runs a declared stage. Syncing at
+    CheckSpecPremises — nobody: the next spec's master inherits the union because the secondaries commit it. Changing PR-time or InitCommit consolidation —
+    nobody: it still folds what follows the last sync and stays the safety net. Proving the push itself reached the
+    remote — nobody: the sync proves the union is COMMITTED on the primary; reaching the remote stays the checkpoint's
+    best effort, as for every checkpoint (RunWorkCheckpointer.cs:80-85). One image carrying both toolchains for this
+    repository — nobody: two images stay (decision TWO IMAGES STAY). An event for a sync conflict — nobody:
+    contract 2.1, a sync conflict is a red verify outcome.
+
+decisions:
+  - key: "HUB AND SPOKE THROUGH THE PRIMARY. The primary is already the sandbox every commit path treats as the repository (CommitAndPR, RepoWorkPusher, the alias), so the union is built there and nothing new decides who carries the branch."
+  - key: "THE UNION IS COMMITTED ON THE PRIMARY BEFORE THE STAGES RUN, AND THAT IS CHECKED. RunWorkCheckpointer.PushNowAsync is the one secret-scanned commit path CommitSpecWork uses, but it reports nothing when it declines; the sync asks the primary afterwards whether it is still dirty, as SpecReviewRevert proves its own undo, and a dirty primary is red. Reaching the remote stays best effort, as for every checkpoint."
+  - key: "BASE IS THE SECONDARY'S HEAD TREE, NOT A COMMIT (review cut 1). Each sandbox merges the base into a reused branch on its own, so two sandboxes hold different merge commits with one tree; a commit-based base would be unknown to the primary on every continuation attempt and every rework after the base moved. After a sync commit HEAD^{tree} is the union tree, which the primary wrote itself, so no marker in a commit message is needed."
+  - key: "LEVEL BEFORE OWN (review cut 2). Sandboxes sharing one working directory, as the in-process factory does under --source-path, write one tree; computing OWN there would report every changed path as changed in both. Equal trees mean nothing to carry."
+  - key: "BASE64 OVER STDOUT, DECODED IN C# (review cut 3). Stdout is assembled from a line reader and re-joined with a bare newline, which strips every carriage return; a CRLF file's patch would fail git apply or write another tree, a permanent red. Base64 has no carriage return to lose, and the write side reuses ISandboxBinaryFileWriter, which replaced a shell base64 -d for the same reason."
+  - key: "THE TREE HASH IS THE PROOF. A secondary must write the primary's union tree after the spread; an equal tree hash is the only mechanical statement that the two clones hold the same files."
+  - key: "THE REVERTER COMMITS A SECONDARY LOCALLY (review cut 4). The undo restores the index and commits only the primary through PushNowAsync; a secondary would keep its sync commit as HEAD, SpecReviewRevert's head..HEAD proof would fail the spec the revert exists to keep, and the next sync would see the reverted paths as changed in both. SpecReviewRevert.cs (119/120) is not touched."
+  - key: "CONFLICT = THE SAME PATH WITH TWO DIFFERENT POST-IMAGES, decided before anything is applied (contract decision 10, default, pending operator ratification; review round 2 cut 2). Two different edits to one file in two clones is two writers of one truth; git apply might merge non-overlapping hunks, but a gate that silently merges is a gate that guesses. Two clones holding the same bytes for a path disagree about nothing: red there would say 'changed in both' over files that agree, and a fold whose spread stopped would stay red until a revert."
+  - key: "THE LEVEL CASE IS COMMITTED THROUGH THE SAME SCAN (review round 2 cut 1). Under --source-path every sandbox shares one directory, so a secondary's sync commit would commit what PushNowAsync's secret scan declined (RepoWorkPusher.cs:39-46), and the next checkpoint would find a clean tree and scan nothing."
+  - key: "ONE DIFF PER REPOSITORY FOR THE ACCOUNT AND THE REVIEW (review round 2 cut 3; main-thread decision 9, owner a). After a green sync a secondary's diff is byte-identical to its primary's, so passing both doubles the accountant's windows and the reviewer's input for every mixed-stack spec and can report one finding twice; the structure gate already de-duplicates the same case. SandboxTargets.IsSecondary is the filter, the same one the reverter uses."
+  - key: "BEHAVIOUR CHANGE NAMED: SECONDARY STAGES NOW RUN (review round 2 cut 4). Before this spec a secondary sandbox's stages ran only when that clone's own branch changed, which within an attempt was almost never, because the master writes through the alias into the primary. After a green sync every declared stage of a mixed-stack repository's secondary runs whenever the repository changed — more time per spec, and declared stages that never ran may now go red. when_changed (2026-10-13-8762b) is how an estate narrows it."
+  - key: "CHECK ALL, THEN APPLY. git apply --check over every secondary first, so the primary is never left half-folded; a half-folded primary would be committed by the next checkpoint and make PR-time consolidation re-apply a hunk and fail."
+  - key: "TWO IMAGES STAY, SO THE SYNC IS NEEDED (main-thread decision, default, pending operator ratification). The cross-sandbox sync is a general mechanism every mixed-stack target repository needs, whatever this repository does; one combined .NET plus node image would remove it only here, and it would have to be a trusted published image nobody maintains today."
+  - key: "ONE NEW TYPE CALLED BY VERIFYSPECHANDLER (contract section 4). SandboxGitOperations (318/319) is not grown: the tree primitives live in a new SandboxTreeGit; the conflict rule is a pure SandboxTreeConflicts so it is testable without git; SandboxTreeSync may split its spread into one helper type it alone calls (review round 2 cut 6). VerifySpecHandler grows to at most 308 lines (306 for the sync call plus 2 for the one-diff-per-repository filter; contract section 4 amended)."
+  - key: "BEHAVIOUR CHANGE NAMED: after a green sync a mixed-stack spec has a verified head in every sandbox, so SpecReviewFixPass can splice its one fix pass for such runs, which it never could before; the reverter change above is what keeps that fix pass's revert sound."
+
+steps:
+  - id: tree-git
+    action: "SandboxTreeGit (Application/Services/Sandbox, at most 120 lines): StageAndWriteTreeAsync (git add -A, git write-tree), HeadTreeAsync (git rev-parse HEAD^{tree}), HasObjectAsync (git cat-file -e), PostImagesAsync(from, to) (git -c core.quotePath=false diff --raw --no-abbrev --no-renames -z: path -> mode+blob or deleted), EncodedDiffAsync(from, to, excluded) (sh -c 'git diff --binary FROM TO -- . :(exclude)… > .git/agentsmith-sync.out && base64 .git/agentsmith-sync.out'; a non-zero exit is a failure naming the sandbox; null when the text reaches 1,000,000 characters), ApplyAsync(encoded, checkOnly) (decoded with Convert.FromBase64String, written through ISandboxBinaryFileWriter to .git/agentsmith-sync.patch, git apply [--check] --index), SyncCommitAsync (git commit --no-verify -m 'agent-smith tree sync', skipped when nothing is staged against HEAD). SandboxGitOperations.cs stays at 318."
+  - id: conflicts
+    action: "SandboxTreeConflicts (pure): given key -> OWN post-images, returns every path two or more keys changed to DIFFERENT post-images, with those keys, ordinal order, and per receiver the paths its patches exclude (its own OWN, and a shared same-post-image path for every sender but the first); SandboxTreeSyncResult (null message = level) as its own record file."
+  - id: sync
+    action: "SandboxTreeSync and at most one helper type it alone calls, each at most 120 lines; public SyncAsync(pipeline, ct). Per repository with two or more sandboxes: trees, level short-circuit (a dirty level primary joins the push), BASE and its presence, OWN, conflicts, encoded size, check-all then fold into the primary; PushNowAsync once after every repository folded or levelled dirty, then the dirty-primary check; only then spread to each secondary, union-tree check, local sync commit. Returns the first red message, naming repository, path or sandbox."
+  - id: secondary
+    action: "SandboxTargets.IsSecondary(pipeline, key): true when the key belongs to a repository of ContextKeys.Repos with two or more sandboxes and is not that repository's first match (112 -> at most 120 lines)."
+  - id: reverter
+    action: "UnverifiedWorkReverter takes SandboxTargets; RestoreAsync, after a successful restore of a secondary whose index differs from HEAD, commits it locally (git commit --no-verify, no push). The file stays at or under 118 lines; SpecReviewRevert.cs and ShortfallDelivery.cs are not touched."
+  - id: verify-wiring
+    action: "VerifySpecHandler: one constructor parameter (SandboxTreeSync) and one call after TryResolve and before the delivery diffs; a red result goes through RunAccountLedger.RecordProblem and RecordAsync like a red stage; accounting.TakeAsync receives the sandboxes that are not IsSecondary. The file stays at or under 308 lines (baseline 335). ReviewSpecDiffHandler (109 -> 110) and SpecEntryAccount (80 -> 81) pass the same filtered map to SpecDiffs.TakeAsync and accounting.TakeAsync."
+  - id: registration
+    action: "SandboxGitServicesExtensions registers SandboxTreeGit and SandboxTreeSync (28 -> 30 lines); PipelineHandlersExtensions.cs is not touched (218/218)."
+  - id: tests
+    action: "Red first, then green: real-git tests over two InProcessSandbox clones of one local bare origin, in ExternalProcessCollection with Trait TestProcess=serial (TestProcessTraitRuleTests); pure tests for SandboxTreeConflicts and SandboxTargets.IsSecondary; a composition test resolving ICommandHandler<VerifySpecContext> from the real container. Run the Verify, Sandbox, Specs and Architecture classes touched."
+
+tests:
+  - "SandboxTreeSync_SingleSandboxRepository_RunsNoGitStep"
+  - "SandboxTreeSync_PrimaryChangedCSharp_SecondarySeesItBeforeItsStages"
+  - "SandboxTreeSync_SecondaryChangedTypeScript_PrimaryCarriesItAndItIsCommitted"
+  - "SandboxTreeSync_BothChangedOneFile_IsRedNamingFileAndBothKeys_NothingApplied"
+  - "SandboxTreeSync_SecondSync_CarriesOnlyWorkSinceTheFirst"
+  - "SandboxTreeSync_BinaryFileChange_ReachesEverySandbox"
+  - "SandboxTreeSync_CrlfFileChange_ReachesEverySandboxByteForByte"
+  - "SandboxTreeSync_SandboxesWithIndependentBaseMergeCommits_SameTree_IsLevel"
+  - "SandboxTreeSync_SandboxesSharingOneWorkingDirectory_IsLevel"
+  - "SandboxTreeSync_SharedWorkingDirectory_SecretScanDeclined_IsRedAndCommitsNothing"
+  - "SandboxTreeSync_FoldedButNotSpread_NextSyncIsGreen"
+  - "SandboxTreeSync_GitDiffFails_IsRedNamingTheSandbox"
+  - "SandboxTreeSync_EncodedDeltaAtTheStdoutLimit_IsRedBeforeAnythingIsApplied"
+  - "SandboxTreeSync_BaseTreeUnknownToThePrimary_IsRed"
+  - "SandboxTreeSync_ApplyCheckFailsForOneSecondary_PrimaryIsUntouched"
+  - "SandboxTreeSync_PrimaryStillDirtyAfterThePush_IsRed"
+  - "SandboxTreeSync_SpreadProducesAnotherTree_IsRedNamingTheSandbox"
+  - "SandboxTreeSync_AfterSync_PrConsolidationFindsNothingToFold"
+  - "SandboxTreeConflicts_PathInTwoKeys_IsReportedOnce_WithBothKeys"
+  - "SandboxTreeConflicts_DisjointPaths_IsEmpty"
+  - "SandboxTreeConflicts_SamePathSameBlob_IsNoConflict"
+  - "SandboxTargets_IsSecondary_FirstMatchIsNot_LaterMatchIs_SingleSandboxRepositoryIsNot"
+  - "SpecReviewRevert_MixedStackFixPassRedAfterGreenSync_SpecStaysDone_NextSyncIsLevel"
+  - "ShortfallDelivery_AfterGreenSync_PrConsolidationFoldsNothing"
+  - "VerifySpec_SyncConflict_FailsTheSpecAndRecordsTheProblem"
+  - "VerifySpec_AfterGreenSync_RecordsAVerifiedHeadForTheSecondary"
+  - "VerifySpec_AfterGreenSync_AccountReadsOneDiffPerRepository"
+  - "ReviewSpecDiff_AfterGreenSync_ReviewerReadsOneDiffPerRepository"
+  - "VerifySpecHandler_FromTheComposedContainer_Resolves"
+
+done:
+  - "In a run over a repository with two toolchain sandboxes, a change written in one sandbox is in the other sandbox's tree, byte for byte (CRLF and binary files included), when that sandbox's verify stages run."
+  - "When two sandboxes of one repository changed the same file differently, the spec fails at verify with a message naming the file and both sandboxes, and no sandbox was changed by the sync; the same change in two sandboxes is not a conflict."
+  - "Under --source-path, work the secret scan declined is never committed by the sync."
+  - "After a green sync the account and the spec review read each repository's diff once."
+  - "After this spec every declared stage of a mixed-stack repository's secondary sandbox runs whenever the repository changed, unless its when_changed (2026-10-13-8762b) says otherwise."
+  - "A continuation attempt on a reused branch whose base moved, and a local run with --source-path, verify without a false conflict."
+  - "After a green verify the primary has committed every sandbox's work, or the spec is red saying the union could not be committed; the next spec's master finds the earlier spec's work in whichever sandbox it uses."
+  - "A mixed-stack fix pass that goes red after a green sync is reverted and the spec stays done."
+  - "A repository with one sandbox verifies exactly as before, with no added git step."
+  - "Build green, full suite green, dashboard gen:hub-events / test / build green."

@@ -1,0 +1,317 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-8762u
+goal: "A ticket's series may hold series.max_specs specs (24) while one attempt runs at most what fits series.specs_per_attempt (8) and the run wall clock; the rest stay not started and the ticket waits."
+
+applies_to: "backend (spec-set caps at every reader, the spec sequence's chunk, the commit-and-PR end of a chunked attempt, the series config section) + two skill wordings"
+
+requires: [2026-10-13-8762g]
+
+facts:
+  - claim: "SpecSet.MaxSpecs is one compile-time constant of 8, documented as the cap on the specs one ticket may split into AND on how much work one run may be asked to do."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:60-70"
+  - claim: "The derivation parser refuses a reply carrying more than MaxSpecs specs, counting the executed head the reply repeats."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecDerivationParser.cs:80-88"
+  - claim: "The epic parser of the design conversation refuses more than MaxSpecs children and tells the partner to split the programme into a second epic."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/EpicOutcomeParser.cs:36-40"
+  - claim: "An approval that continues a worked series is not merged when executed plus unstarted specs exceed MaxSpecs."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovedContinuation.cs:27-36"
+  - claim: "The continuation preview and act refuse the same over-cap series by spec id, as RefusedOverCap."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/SeriesContinuationIds.cs:48-54"
+  - claim: "TicketContinuation.Decide is static and is called by the approval preview and the continuation act."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/TicketContinuation.cs:15-30, src/backend/AgentSmith.Server/Services/Tickets/TicketApprovalPreview.cs:25, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/TicketContinuationAct.cs:35"
+  - claim: "The amendment rule answers 'no model' for an append on a fully executed set once Executed reaches MaxSpecs; it is static and its one product caller is SpecSourceResolver."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecAmendmentRule.cs:42-47, src/backend/AgentSmith.Application/Services/Specs/SpecAmendmentRule.cs:63-66, src/backend/AgentSmith.Application/Services/Specs/SpecSourceResolver.cs:87"
+  - claim: "The recut notice, the append paragraph of the derivation prompt and the full-set pull-request notice each restate MaxSpecs as 'the most one set can hold'."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRecutNotice.cs:37-40, src/backend/AgentSmith.Application/Services/Prompts/PreviousCutPromptSection.cs:60-64, src/backend/AgentSmith.Application/Services/Rework/FullSetPrNotice.cs:20-38"
+  - claim: "The derivation master's system prompt fills its {MaxSpecs} token from the constant."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:104-107"
+  - claim: "The two static renderers are reached from DI classes: PreviousCutPromptSection from SpecPromptComposer, SpecSetComment (which appends SpecRecutNotice) from SpecSetTicketCommenter."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecPromptComposer.cs:42, src/backend/AgentSmith.Application/Services/Specs/SpecSetComment.cs:46, src/backend/AgentSmith.Application/Services/Specs/SpecSetTicketCommenter.cs:40-43"
+  - claim: "SpecSequence splices one block per spec of the WHOLE unexecuted tail and sizes the step budget from that count."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecSequenceHandler.cs:38-61"
+  - claim: "The step budget is 40 + 20 per spec, clamped at an absolute ceiling of 400 — so above 18 specs one run's guard is clamped below its computed need."
+    evidence: "src/backend/AgentSmith.Contracts/Pipeline/StepBudget.cs:28-62"
+  - claim: "The progress table seeds every not-executed spec NotStarted; SpecProgress carries an optional Note for a standing the state alone would misrepresent; IsPartial is true while any spec is not Done."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSequenceProgress.cs:13-21, src/backend/AgentSmith.Contracts/Specs/SpecSequenceProgress.cs:35-44"
+  - claim: "A partial progress with no failure reason is never a shortfall: RunShortfall needs a reason."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/RunShortfall.cs:34-42"
+  - claim: "CommitAndPR drafts the pull request of a partial sequence without a shortfall as half-migrated, and a keystone-satisfied, unfailed run then finalizes the ticket with its done status."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:118-127, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:206-207, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:394-410"
+  - claim: "The keystone scores the CURRENT spec's done-list only, so a chunk whose last spec verified is keystone-satisfied."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/AcceptanceCriteria.cs:20-25, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:214-225"
+  - claim: "A draft PR that is not a failure and not a shortfall gets the 'Verification red' banner."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:244-249"
+  - claim: "Finalizing with a null done status closes the ticket ('<close>')."
+    evidence: "src/backend/AgentSmith.Application/Services/Lifecycle/TicketLifecycle.cs:37-53"
+  - claim: "The PR status table renders a partial, undelivered progress as 'Half-migrated — DO NOT MERGE' and every NotStarted spec as 'not started'; SpecPrBody is 119 lines against the 120 limit."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecPrBody.cs:72-118"
+  - claim: "CommitAndPRHandler is 431 lines against a ratchet of 436."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:10"
+  - claim: "ShortfallDelivery is the precedent: a collaborator of CommitAndPR that owns one end's banner and step result."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:39, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:170-176"
+  - claim: "A ticket comment is posted through ITicketProvider.UpdateStatusAsync(ticketId, comment)."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ITicketProvider.cs:60-61, src/backend/AgentSmith.Application/Services/Specs/SpecSetTicketCommenter.cs:40-43"
+  - claim: "A run's next attempt resumes at the unexecuted tail: a retrigger on a set with executed specs needs no model, and SpecSequence splices only UnexecutedTail."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecAmendmentRule.cs:53-57, src/backend/AgentSmith.Application/Services/Handlers/SpecSequenceHandler.cs:38"
+  - claim: "A ticket whose newest attempt finished with an open pull request reads waiting_on_review."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketBucketRule.cs:31-32"
+  - claim: "Series member ids are the base plus (char)('a' + index), so a 27th member would not be a lowercase letter."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesIdFactory.cs:30-31"
+  - claim: "NextFree walks the letter index up past every taken id with no ceiling and returns the index it took; the continuation keeps every basis id taken, dropped ones included, and gives an appended draft NextFree's id."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesIdFactory.cs:38-43, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/SeriesContinuationIds.cs:20-23, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/SeriesContinuationIds.cs:36-40"
+  - claim: "The deriver parses a reply as SpecSource.Derived when there is no previous set and as BranchArtifact otherwise, and renders the system prompt inside DeriveAsync, where the previous set is in scope."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:51-53, src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:62-63, src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:76-80"
+  - claim: "A re-cut reply must repeat the executed head before its tail, so a Rework at 8 executed of 24 replies with 24 specs."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecDerivationParser.cs:90-94"
+  - claim: "CommitAndPR returns for a delivered shortfall and for a failed run before the keystone's refusal, and finalizes after it."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:171-181, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:188-207"
+  - claim: "The wall-time watchdog cancels a running run by its database StartedAt, whatever step it is in."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/CancelEnforcer.cs:91-108"
+  - claim: "SpecSequenceHandler takes only a logger today and is synchronous; TimeProvider.System is registered beside the spec derivation services."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecSequenceHandler.cs:22-31, src/backend/AgentSmith.Application/Services/Specs/SpecDerivationRegistrations.cs:72"
+  - claim: "A config section is a class on AgentSmithConfig, copied from RawAgentSmithConfig by ResolvedConfigComposer, stored as a singleton doc through ConfigDocTypes and ConfigDocumentTaxonomy, and declared in config/agentsmith.schema.json."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/AgentSmithConfig.cs:23-37, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ResolvedConfigComposer.cs:17-37, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/RawAgentSmithConfig.cs:55-57, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigDocTypes.cs:27-31, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigDocumentTaxonomy.cs:39-45, config/agentsmith.schema.json:163-166"
+  - claim: "Handlers read sections off the injected AgentSmithConfig (ExecutePipelineUseCase reads config.Dialogue; AgenticMasterHandler injects AgentSmithConfig)."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:294-295, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:38"
+  - claim: "Startup config findings are collected by AgentSmithConfigValidator (177 lines, at its 177 ratchet) from per-section validators such as SkillsConfigValidator."
+    evidence: "src/backend/AgentSmith.Application/Services/Configuration/AgentSmithConfigValidator.cs:18-33, src/backend/AgentSmith.Application/Services/Configuration/SkillsConfigValidator.cs:11-26, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:65"
+  - claim: "A run is cancelled after orchestrator.max_run_wall_time_seconds, 1800 by default; the run loads its configuration per run, and the server's cancel scan reads the value live."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/OrchestratorGlobalConfig.cs:17, config/agentsmith.schema.json:245, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:261, src/backend/AgentSmith.Server/Services/Lifecycle/CancelEnforcer.cs:33-40"
+  - claim: "Neither startup-finding severity stops the process; a Blocking finding has an effect only through the per-project trigger query, so a global finding naming no project blocks nothing."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/StartupFindingSeverity.cs:3-12, src/backend/AgentSmith.Contracts/Services/StartupFindingsQueries.cs:16-26"
+  - claim: "A setting read live per call has a reader pattern: an Application reader over the loader for the CLI, replaced in the server by a reader over the config store's assembled document."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/ISandboxSettingsReader.cs:5-14, src/backend/AgentSmith.Application/Services/Sandbox/LoaderSandboxSettingsReader.cs:13-21, src/backend/AgentSmith.Server/Services/Sandbox/StoredSandboxSettingsReader.cs:15-20, src/backend/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs:184-185, src/backend/AgentSmith.Server/Services/Sandbox/ServerSandboxExtensions.cs:41-42"
+  - claim: "PipelineHandlersExtensions is 218 lines at its 218 ratchet."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:37"
+  - claim: "A Config Studio settings write binds the document through ConfigSettingsAccess.Normalize, whose ConfigurationException is the client's refusal."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigSettingsAccess.cs:25-43, src/backend/AgentSmith.Server/Extensions/ConfigSettingsEndpoints.cs:35-42"
+  - claim: "On dispose, the lifecycle coordinator moves every unfailed, unparked run InProgress -> Done unless a delivered shortfall exists; a parked run gets Waiting (p0454); the coordinator is wired in the server and is 100 lines."
+    evidence: "src/backend/AgentSmith.Application/Services/Lifecycle/TicketAwarePipelineLifecycleCoordinator.cs:65-98, src/backend/AgentSmith.Server/Services/DispatcherExtensions.cs:45-48"
+  - claim: "TicketLifecycleStatus.Waiting exists as 'not finished' and has its own label."
+    evidence: "src/backend/AgentSmith.Contracts/Models/TicketLifecycleStatus.cs:15-20, src/backend/AgentSmith.Contracts/Tickets/LifecycleLabels.cs:24"
+  - claim: "Finalizing skips an inline ticket, which exists only on its run."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:400-402"
+  - claim: "A Rework cause re-derives before the approval check, so a Request changes on a draft PR re-cuts even an approved set's tail; at a full set the PR notice says 'file a new ticket'."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecAmendmentRule.cs:47-52, src/backend/AgentSmith.Application/Services/Rework/FullSetPrNotice.cs:22, src/backend/AgentSmith.Application/Services/Rework/FullSetPrNotice.cs:36-38"
+  - claim: "Tests read SpecSet.MaxSpecs in four more classes."
+    evidence: "tests/AgentSmith.Tests/Rework/ReworkAppendRuleTests.cs:61-62, tests/AgentSmith.Tests/Rework/ReworkAppendRuleTests.cs:84, tests/AgentSmith.Tests/Rework/ReworkAppendRuleTests.cs:94, tests/AgentSmith.Tests/SpecDialog/ApprovedSpecSetStoredTests.cs:90-111, tests/AgentSmith.Tests/SpecDialog/Continuation/TicketContinuationActTests.cs:156, tests/AgentSmith.Tests/Specs/SpecDerivationCoverageTests.cs:116-123"
+  - claim: "AgentSmithConfigValidator collects the skills findings on one AddRange line."
+    evidence: "src/backend/AgentSmith.Application/Services/Configuration/AgentSmithConfigValidator.cs:18-32"
+  - claim: "StepBudgetTests sizes its budget from SpecSet.MaxSpecs."
+    evidence: "tests/AgentSmith.Tests/Pipeline/StepBudgetTests.cs:27"
+  - claim: "A polled ticket is gated per ticket only by its native status being in trigger_statuses and by a held lease; the claim refuses only on the config pre-check and the unmoved-ticket gate; a processed ticket must leave its trigger status or it is re-claimed."
+    evidence: "src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs:145-153, src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs:162-169, src/backend/AgentSmith.Application/Services/Claim/ClaimRefusal.cs:22-34, src/backend/AgentSmith.Contracts/Models/Configuration/WebhookTriggerConfig.cs:25-33"
+  - claim: "FinalizeTicketAsync is what moves the native status at run end (the done_status transition with the summary)."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:394-409"
+  - claim: "The run's start time is in the pipeline context under ContextKeys.RunStartedAt, set when the run starts."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/ContextKeys.Pipeline.cs:24, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:271"
+  - claim: "The sandbox reader registration is one chained statement ending on PipelineHandlersExtensions line 185; the stored sandbox reader throws a sentence naming the block when the setting has the wrong type; the validator's skills findings sit on line 31."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs:184-185, src/backend/AgentSmith.Server/Services/Sandbox/StoredSandboxSettingsReader.cs:17-19, src/backend/AgentSmith.Application/Services/Configuration/AgentSmithConfigValidator.cs:31"
+  - claim: "The released design-partner skill tells the partner an epic has 'between two and eight ordered children'; the spec-derivation skill says 'At most {MaxSpecs} specs — beyond that the ticket is a programme and belongs in a design conversation'."
+    evidence: "observed: 2026-10-14, agent-smith-skills origin/main f9655e8, skills/_masters/design-partner-master/SKILL.md line 438 and skills/_masters/spec-derivation-master/SKILL.md line 78"
+
+assumptions:
+  - "2026-10-13-8762g, built first, lands SpecProgress.NextAttempt (appended last, default false), SpecSequenceProgress.Deferring(ids, reason) — the ONE way a step ends an attempt at a boundary — and ContextKeys.SpecSequenceStop, read by SpecSequenceHandler, which splices only the tail before the stop and defers the rest; this spec mints none of the three."
+  - "A person's act on the ticket (keyword comment, pull-request act, an approval in the ticket's conversation, a move back) starts the next attempt today, and 2026-10-13-8762v starts it automatically; this spec only makes the boundary an ordinary end of an attempt."
+  - "A ticket stopped at a boundary keeps its native trigger status and its outstanding approval, so without a gate the next poll, a webhook or the pump would re-claim it. 2026-10-13-8762g, built first, owns the ONE boundary claim gate, BoundaryStopGate, beside UnmovedTicketGate in ClaimRefusal (the door poller, webhooks and pump all pass): a ticket whose newest attempt ended at a boundary (SpecProgress.NextAttempt rows) is not claimed unless the start is a person's act, pinned by g's Poll_TicketStoppedAtBoundary_IsNotReclaimed; a chunk boundary ends through g's Deferring, so it is covered by that gate and this spec adds no gate of its own. 2026-10-13-8762v adds its own automatic start as allowed."
+
+scope:
+  in: >
+    CONFIG: SeriesConfig (Contracts/Models/Configuration) with MaxSpecs = 24 (series.max_specs),
+    SpecsPerAttempt = 8 (series.specs_per_attempt) and SecondsPerSpec = 0 (series.seconds_per_spec, the measured
+    seconds of ONE WHOLE SPEC BLOCK — master, premise, verify, review, fix pass and record — 0 = not measured), on
+    AgentSmithConfig.Series, RawAgentSmithConfig, ResolvedConfigComposer, ConfigDocTypes.Series = "series", one
+    ConfigDocumentTaxonomy singleton row and config/agentsmith.schema.json (max_specs and specs_per_attempt
+    integers minimum 1, seconds_per_spec integer minimum 0). THE RULE lives on SeriesConfig itself (Contracts, pure, so
+    Infrastructure.Core can call it): Problems() = one sentence per field when max_specs is
+    outside 1..26 (member letters a..z), specs_per_attempt outside 1..min(max_specs, (StepBudget.AbsoluteCeiling -
+    BaseAllowance) / PerSpecAllowance = 18), or seconds_per_spec negative; Problems(runWallSeconds) adds one
+    when seconds_per_spec > 0 and two blocks (one spec plus the reserved tail) exceed
+    orchestrator.max_run_wall_time_seconds (naming both fields); AttemptSize(secondsLeft) = specs_per_attempt when
+    seconds_per_spec is 0, else min(specs_per_attempt, secondsLeft / seconds_per_spec - 1), the minus one being ONE
+    BLOCK RESERVED for the commit-and-PR tail (commit, push, open/keep the PR, the boundary comment, the finalizer
+    tail), which no block counts and the watchdog's cancel by StartedAt would otherwise cut. SeriesSettings(SeriesConfig Series, int RunWallSeconds) carries both into
+    a reader's caller — the attempt is DERIVED
+    so it fits the configured run wall clock; SpecSequenceHandler passes AttemptSize the REMAINING wall seconds
+    (orchestrator.max_run_wall_time_seconds minus the time since ContextKeys.RunStartedAt, measured through an
+    injected TimeProvider so the tests are deterministic), because checkout,
+    derivation, hand-back, the gate and g's review have already spent part of it, while Problems(runWallSeconds)
+    keeps the configured total for the startup and settings checks. LIVE READ: ISeriesSettingsReader.Current() -> SeriesSettings, with
+    LoaderSeriesSettingsReader (Application, the LoaderSandboxSettingsReader pattern: loader per call with a
+    config path, else options) registered by appending .AddSingleton<ISeriesSettingsReader, LoaderSeriesSettingsReader>() to the
+    sandbox-reader chain's last line, PipelineHandlersExtensions.cs:185 (218, stays at 218; a new line breaks it), and StoredSeriesSettingsReader (Server, modelled on StoredSandboxSettingsReader: IConfigStore.GetSetting of
+    series and orchestrator, its wrong-type throw naming which of the two documents it was, as
+    StoredSandboxSettingsReader.cs:17-19 names the sandbox block) replacing it beside the sandbox reader (ServerSandboxExtensions 97 after 2026-10-13-8762g -> 99). Every reader below takes the settings from
+    this reader in its DI caller, never from the AgentSmithConfig singleton. REFUSED WHERE READ: SpecSequenceHandler
+    fails its step with the settings' Problems when any (never clamps); EpicOutcomeParser and the continuation
+    (ApprovedContinuation, SeriesContinuationIds) refuse with the same sentence. AT STARTUP: SeriesConfigValidator
+    (static) yields each of SeriesConfig.Problems(run wall seconds) as a Blocking finding and, with seconds_per_spec 0, one Advisory finding
+    saying the attempt is not sized against the wall clock; it rides AgentSmithConfigValidator's existing AddRange
+    line (177, stays at 177, no constructor change): AgentSmithConfigValidator.cs:31 becomes
+    errors.AddRange([.. skills.Findings(config.Skills), .. SeriesConfigValidator.Findings(config)]). CAPS: SpecSet.MaxSpecs is DELETED. SERIES CAP (max_specs) — EpicOutcomeParser
+    (children), ApprovedContinuation and SeriesContinuationIds (executed + unstarted; SeriesContinuationIds.Continue also
+    refuses as RefusedOverCap, naming that the series has used its 26 member letters, when any NextFree index it
+    takes exceeds 25 — dropped basis ids stay taken, so 24 specs can need a 27th letter; TicketContinuation.Decide takes
+    the settings from its two callers; TicketContinuationAct and SeriesContinuationIds keep room for
+    2026-10-13-8762j's TicketContinuationDecision.Ids exposure, which this spec neither adds nor renames), SpecAmendmentRule.NeedsModel/IsAppend (full at Executed >= max_specs;
+    SpecSourceResolver passes it), SpecRecutNotice via SpecSetComment.Render and FullSetPrNotice ("all N specs ...
+    the most one series can hold"). DERIVATION BOUND (never the wall-derived AttemptSize: squeezing a cut by wall time
+    yields fewer, larger specs, each less likely to fit seconds_per_spec, and the chunk already handles time) —
+    a FRESH cut (source Derived, no previous set) is refused above specs_per_attempt specs; a RE-CUT of an existing
+    set (source BranchArtifact: Rework, RecutDemand, TicketEdit, Comment, StatusBack) is refused only above
+    max_specs in all, because its reply repeats the executed head and may re-cut a tail longer than one attempt;
+    one bound per source through one SeriesConfig helper, one refusal string each, replacing the branch at
+    SpecDerivationParser.cs:86-88. SpecSetDeriver fills {MaxSpecs} the same way (specs_per_attempt with no previous
+    set, max_specs with one); PreviousCutPromptSection's append paragraph says at most min(max_specs - executed,
+    specs_per_attempt) new spec(s). CHUNK: SpecSequenceHandler splices only the first
+    min(AttemptSize, the specs before 2026-10-13-8762g's ContextKeys.SpecSequenceStop when one is set) specs of
+    UnexecutedTail and sizes StepBudget.ForSpecs from that count. When AttemptSize is 0 or less (the time left is
+    under two blocks) it fails its step with one sentence naming series.seconds_per_spec, the seconds left and
+    orchestrator.max_run_wall_time_seconds — never floored to 1 (no clamp); a chunk of 0 because g's stop sits at
+    the first tail spec is g's end (a Park parks; otherwise g's deferral), not a chunk boundary. The specs after the
+    chunk are deferred through g's SpecSequenceProgress.Deferring(ids, reason), which seeds them NotStarted with g's
+    SpecProgress.NextAttempt true (reused, never minted again); the chunk's reason is "beyond this attempt's chunk of
+    k spec(s) (series.specs_per_attempt and the wall clock left)". When g's stop lies after the chunk end, the specs
+    from the chunk end to the stop carry the chunk's reason and the specs from the stop on carry g's; a Park stop
+    beyond the chunk end is NOT applied this attempt — its spec is deferred with the rest (no HandedBack seed, no
+    SpecHandback appended) and the next attempt's review reaches it again. SpecSequenceProgress.StoppedAtChunk
+    (minted here) is true when at least one spec is NextAttempt and every other spec is Done — a chunk boundary or a
+    review-share stop alike. REVIEW WALK: g's ReviewSpecsHandler walks only the first specs_per_attempt specs of the
+    tail (one Take through the injected ISeriesSettingsReader), so it never reviews or revises a spec this attempt
+    defers. A chunk boundary is an ordinary end:
+    CommitAndPR keeps the pull request a draft, its banner (SeriesChunkStop.PullRequestBanner, through the
+    CodePullRequestBanner type the banner moves into) names "series in progress: k of M specs built; the next
+    attempt continues with {id}" (no attempt number: the run carries PreviousAttempt but no count of attempts)
+    instead of "Verification red", the status table (moved out of SpecPrBody into
+    SpecStatusTable, its callers migrated) heads "Series in progress — do not merge until it is through" and marks
+    NextAttempt specs "next attempt" only when the progress StoppedAtChunk (a shortfall or failed run that also
+    carries NextAttempt specs finalizes or fails, so its row shows g's note instead), and SeriesChunkStop.ReportAsync (skipping an inline ticket as finalizing does)
+    posts ONE ticket comment naming the specs built, the specs left, the spec the next attempt starts with, and that
+    a change to the remaining specs is a comment on the ticket — a "Request changes" review on the draft re-cuts
+    the series' tail; it does NOT call FinalizeTicketAsync and returns CommandResult.Ok with the same sentence. The chunk
+    arm sits after the delivered-shortfall and failed-run returns (CommitAndPRHandler.cs:171-181) and before the
+    keystone's refusal (:188-204), so a failed chunk keeps today's failure path. The
+    run ends completed; RunShortfall stays null; the lifecycle coordinator's TerminalStatus returns the existing
+    TicketLifecycleStatus.Waiting through its OWN arm when the progress StoppedAtChunk — never through RunPark,
+    which would park the run as waiting_for_input with no run-end nudge — so the run ends success with FinishedAt
+    set, the ticket wears the Waiting label, and a native Jira done status is not set after attempt 1. SKILLS (one wording edit each, on skills branch spec/2026-10-13-8762 released by
+    2026-10-13-8762x; the build note quotes each exact sentence): design-partner-master "between two and eight
+    ordered children" -> "two or more ordered children; the epic parser states the series cap when a cut exceeds
+    it"; spec-derivation-master keeps {MaxSpecs}, which now means the specs one attempt runs. No frontmatter version
+    bump: 2026-10-13-8762x bumps each master once.
+  out: >
+    Starting the next attempt automatically (from a ticket in Waiting), the series budget and wall clock, and
+    continue_after_wall_time — 2026-10-13-8762v (it appends budget_usd, wall_clock_hours, continue_after_wall_time
+    to SeriesConfig). Refusing a Config Studio save of a series document whose SeriesConfig.Problems() fail (the
+    cross-section wall-clock fit stays the run's refusal, because the orchestrator document is saved separately) —
+    2026-10-13-8762v, which wires the settings write check for series and spec_review. The review-share stop and the
+    progress marks it defers through — 2026-10-13-8762g. Measuring seconds_per_spec for this repository — 2026-10-13-8762c. The ticket page's series
+    strip and the Config Studio form for series: — 2026-10-13-8762w. The ticket bucket of an attempt stopped at a
+    chunk boundary still reads waiting_on_review (its draft PR is open) — 2026-10-13-8762w shows the series as
+    mid-way; no bucket arm is added. Releasing the skill wording and bumping the pin — 2026-10-13-8762x. A new
+    skill token for the series cap and a SkillsConfigValidator minimum bump — nobody: the wording carries no
+    number. A per-project seconds_per_spec — nobody: one global value is the first cut; a larger repository's
+    value shrinks every project's attempt, which is safe (smaller attempts, more of them) and is said in a decision.
+    Re-cutting a derivation from a bare ticket beyond one attempt in one reply — nobody: a larger programme comes
+    through the design conversation, as today.
+
+decisions:
+  - key: "TWO NUMBERS, NOT ONE RAISED. The constant meant both 'how many specs a ticket may hold' and 'how much one run may be asked to do'. Raising it to 24 would make one run splice 24 blocks (520 steps, clamped at 400) inside one 30-minute wall clock; splitting keeps the per-run size and lets the series grow. Default, pending operator ratification (contract decision 17): 24 and 8."
+  - key: "A FRESH CUT STAYS AT ONE ATTEMPT; A RE-CUT IS BOUNDED BY THE SERIES CAP. A fresh cut (no previous set) is bounded by specs_per_attempt; a re-cut repeats the executed head (SpecDerivationParser.cs:90-94) and may re-cut a tail longer than one attempt, so it is bounded by max_specs in all. Alternative rejected (review 8762u r3 cut 1): 'reply count minus the executed head <= AttemptSize' — at the first boundary of a 24-spec epic a Rework re-cuts 16 and was refused, so the 'Request changes' the boundary comment invites was never applied. A bare ticket that stopped at 8 and told the person 'file a new ticket' (FullSetPrNotice) now accepts appends up to 24 — operator-visible, chosen because a long series is the goal; the notice says it at 24."
+  - key: "THE DERIVATION BOUND IS specs_per_attempt, NOT THE WALL-DERIVED AttemptSize. A cut squeezed by wall time has fewer, larger specs, each less likely to fit seconds_per_spec, which defeats the measurement; the chunk already handles time."
+  - key: "ONE BLOCK IS RESERVED FOR THE COMMIT-AND-PR TAIL. Commit, push, opening or keeping the PR, the boundary comment and the finalizer tail run after the last block and are in no block; the watchdog cancels by StartedAt (CancelEnforcer.cs:91-108), so a chunk sized to fill the time left exactly can be cancelled in CommitAndPR — cancelled, not delivered, and g's gate does not hold it. One whole block over-reserves (the tail is shorter than a spec), which costs at most one spec per attempt. Default, pending operator ratification."
+  - key: "A ZERO CHUNK FAILS, NEVER FLOORS. Flooring at 1 would start a block the watchdog cancels; letting 0 through defers every spec as a 'chunk boundary' that built nothing, which either fails at the keystone (re-claimed) or loops automatic attempts (2026-10-13-8762v). The step fails naming the three numbers, consistent with REFUSED WHERE READ."
+  - key: "26 IS A LETTER CEILING, NOT ONLY A COUNT. Dropped basis ids stay taken (SeriesContinuationIds.cs:20-23), so a continuation can need a letter past z while holding 24 specs; Member has no ceiling (SeriesIdFactory.cs:30-31). The continuation refuses an index above 25 instead of minting an id the spec-id rule and file names cannot hold."
+  - key: "THE REVIEW WALKS ONLY WHAT THIS ATTEMPT CAN BUILD. g's ReviewSpecs runs before SpecSequence; walking the whole 24-spec tail spends the review share on specs this attempt defers, revises yaml that is then reviewed again next attempt, and shrinks the chunk through time. It walks the first specs_per_attempt (not AttemptSize: the time left is measured at SpecSequence, after the review)."
+  - key: "A PARK STOP BEYOND THE CHUNK END IS NOT APPLIED. Parking to ask about a spec this attempt would not reach holds the ticket on a question about later work; the spec is deferred with the rest and the next attempt's review reaches it again."
+  - key: "THE CAP IS PASSED, NEVER READ FROM A STATIC, AND READ LIVE (main-thread decision 4). Every static rule takes SeriesSettings as a required parameter from a DI caller that holds ISeriesSettingsReader; a Config Studio save applies to the next run without a restart, as the sandbox block does. Tests construct SeriesSettings with new SeriesConfig() and 1800."
+  - key: "REFUSED WHERE READ, NOT AT STARTUP (main-thread decision 3). A Blocking startup finding with no project blocks nothing and never stops the process, so the startup finding only reports (2026-10-13-8762v reads the same Problems()); the first run, epic parse or continuation that reads a bad value fails naming the field. Never a clamp, which would run something other than what the operator configured."
+  - key: "THE ATTEMPT IS DERIVED FROM THE MEASURED SPEC BLOCK (main-thread decision 3; contract 2.7 amended: the key is series.seconds_per_spec, the whole spec block, not verify alone). Verify alone is a fraction of a block (master, premise, review, fix pass, record), so a verify-only number lets the watchdog cancel the attempt before its boundary. AttemptSize = min(specs_per_attempt, seconds left / seconds_per_spec - 1 reserved tail block). Unmeasured (0) is advisory: the attempt is specs_per_attempt and may end at the watchdog, which 2026-10-13-8762v's continue_after_wall_time carries."
+  - key: "ONE GLOBAL seconds_per_spec. The gate it measures is per repository, so the largest project's value shrinks every project's attempt. Accepted: a smaller attempt is safe, it only means more attempts."
+  - key: "THE BOUNDARY MARKS THE PROGRESS, NOT INFERRED. A NotStarted spec after a red verify and one held for the next attempt look alike; SpecProgress.NextAttempt is set through Deferring by the writer that decided the boundary, so CommitAndPR and the lifecycle coordinator read a fact. No ContextKeys entry is added (ContextKeys.cs is at 152/152)."
+  - key: "THE BOUNDARY NEVER FINALIZES AND NEVER SAYS DONE (main-thread decision 3). FinalizeTicketAsync would report a series of 24 done after 8 or close it, and the lifecycle coordinator would move the ticket to Done — native Done on Jira — the p0454 mistake again. The boundary is Waiting; the approval stays outstanding; one comment says where it continues."
+  - key: "THE BOUNDARY IS HELD BY g's CLAIM GATE, NOT BY THE NATIVE STATUS. The boundary skips FinalizeTicketAsync, the only thing that moves the native status (CommitAndPRHandler.cs:394-409), so the ticket stays in its trigger status with its approval outstanding and no lease; the poller gates only on status and lease (TrackerPoller.cs:145-169). The re-claim is refused by 2026-10-13-8762g's BoundaryStopGate in ClaimRefusal (series main-thread decision 1). Alternative rejected: moving the native status at the boundary (needs a transition-only provider call and says done where done_status means Done)."
+  - key: "THE CHUNK IS SIZED FROM THE TIME LEFT. The spec block starts after checkout, derivation, the hand-back, the gate and g's review (up to 40% by default), so sizing against the configured total lets the watchdog cancel a chunk that 'fits'."
+  - key: "THE PR STAYS A DRAFT ACROSS ATTEMPTS. The repository holds part of a series, the half-migrated state p0393a makes unmergeable by construction; only the banner and the table heading change."
+  - key: "SkillsConfigValidator IS NOT TOUCHED (series contract 2.8, amended). The chosen wording carries no number."
+  - key: "CONTRACT ADDITION (types internal to u, no cross-member event): SeriesConfig.Problems/AttemptSize, SeriesSettings, ISeriesSettingsReader (+ Loader/Stored), SeriesConfigValidator, SeriesChunkStop, SpecStatusTable, CodePullRequestBanner and SpecSequenceProgress.StoppedAtChunk. SpecProgress.NextAttempt and SpecSequenceProgress.Deferring are 2026-10-13-8762g's, reused here. StoppedAtChunk is read inside the run; 2026-10-13-8762v reads its EFFECT from the database, never the in-memory flag; 2026-10-13-8762w's form meets SeriesConfig.Problems() through 2026-10-13-8762v's settings write check."
+
+steps:
+  - id: config
+    action: "SeriesConfig (MaxSpecs 24, SpecsPerAttempt 8, SecondsPerSpec 0) on AgentSmithConfig (46 after 2026-10-13-8762g -> 48), RawAgentSmithConfig (59 -> 61), ResolvedConfigComposer (48 -> 49), ConfigDocTypes (37 -> 38), ConfigDocumentTaxonomy (84 -> 85), config/agentsmith.schema.json series object."
+  - id: rule-reader
+    action: "SeriesConfig.Problems()/Problems(runWallSeconds) (two blocks must fit)/AttemptSize(secondsLeft) (one block reserved for the tail)/the derivation bound helper (fresh: specs_per_attempt; re-cut: max_specs); SeriesSettings; ISeriesSettingsReader, LoaderSeriesSettingsReader (appended to the chain's last line PipelineHandlersExtensions.cs:185, stays 218), StoredSeriesSettingsReader (wrong-type throw names the document; ServerSandboxExtensions 97 after 2026-10-13-8762g -> 99); static SeriesConfigValidator spread into AgentSmithConfigValidator.cs:31's AddRange (stays 177)."
+  - id: progress
+    action: "SpecSequenceProgress.StoppedAtChunk only; NextAttempt and Deferring(ids, reason) are 2026-10-13-8762g's (the file is at most 80 lines after g and stays under 120)."
+  - id: chunk
+    action: "SpecSequenceHandler injects ISeriesSettingsReader and TimeProvider, fails on Problems and on an AttemptSize of 0 or less (naming series.seconds_per_spec, the seconds left, orchestrator.max_run_wall_time_seconds), splices the first min(AttemptSize(seconds left since ContextKeys.RunStartedAt), the specs before g's SpecSequenceStop) of UnexecutedTail, defers the rest through g's Deferring(ids, reason) with the chunk's reason up to g's stop and g's from it, does not apply a Park stop beyond the chunk end, sizes StepBudget.ForSpecs(chunk), logs 'k of M; next attempt starts at {id}' (at most 80 after g, at most 95 after this). ReviewSpecsHandler (g, at most 85; h and k add one call each) takes the reader and walks only the first specs_per_attempt of the tail (+2 at most)."
+  - id: caps
+    action: "Delete SpecSet.MaxSpecs; migrate EpicOutcomeParser (refuses on Problems), ApprovedContinuation and SeriesContinuationIds (refuse on Problems; SeriesContinuationIds also refuses a NextFree index above 25, 75 -> about 79) + TicketContinuation.Decide (+ TicketApprovalPreview, TicketContinuationAct), SpecAmendmentRule (+ SpecSourceResolver, at most 120 after 2026-10-13-8762h, stays at or under 120), SpecSetComment/SpecRecutNotice (+ SpecSetTicketCommenter), FullSetPrNotice, IFullSetPrNotice doc."
+  - id: derivation
+    action: "SpecDerivationParser: the bound by source (fresh: specs_per_attempt; re-cut: max_specs in all) through one helper on SeriesConfig, replacing the branch at :86-88, net zero lines (at most 120 after 2026-10-13-8762j); SpecSetDeriver fills {MaxSpecs} the same way from its previous set; PreviousCutPromptSection's append room via SpecPromptComposer (118, stays at or under 120)."
+  - id: status-table
+    action: "Move RenderStatus and Describe from SpecPrBody (119) into SpecStatusTable; migrate SpecPrBodySection and SpecSequenceTests; add the 'Series in progress' heading and the 'next attempt' row, rendered only when the progress StoppedAtChunk (else g's note)."
+  - id: chunk-stop
+    action: "Move CommitAndPRHandler's Banner into CodePullRequestBanner (431 against 436 cannot absorb the ctor, chunk arm and banner signature); SeriesChunkStop (PullRequestBanner with no attempt number, ReportAsync skipping an inline ticket, one comment through UpdateStatusAsync, StepResult); CommitAndPR's chunk arm sits after the shortfall and failed-run returns (:171-181) and before the keystone's refusal (:188-204), so before FinalizeTicketAsync."
+  - id: lifecycle
+    action: "TicketAwarePipelineLifecycleCoordinator.TerminalStatus returns Waiting when the run's SpecSequenceProgress StoppedAtChunk (100 -> about 102)."
+  - id: skills
+    action: "On the series' skills branch: design-partner-master epic wording, spec-derivation-master {MaxSpecs} sentence ('the specs one attempt runs'). No token added; no frontmatter version bump (2026-10-13-8762x bumps once)."
+  - id: tests
+    action: "Red first, then green, for every test below; migrate StepBudgetTests, ReworkAppendRuleTests, ApprovedSpecSetStoredTests, TicketContinuationActTests and SpecDerivationCoverageTests off SpecSet.MaxSpecs; run the Specs, Rework, SpecDialog, Pipeline, Lifecycle, Configuration and Architecture classes touched."
+
+tests:
+  - "SeriesConfig_Defaults_Are24And8AndUnmeasured"
+  - "SeriesConfig_Problems_PerAttemptAboveStepCeiling_NamesTheField"
+  - "SeriesConfig_Problems_MaxSpecsAbove26_NamesTheField"
+  - "SeriesConfig_Problems_PerAttemptAboveMaxSpecs_NamesTheField"
+  - "SeriesConfig_Problems_TwoBlocksBeyondRunWallClock_NamesBothFields"
+  - "SeriesConfig_AttemptSize_IsTheSmallerOfConfiguredAndWhatFitsTheWallClock"
+  - "SeriesConfig_AttemptSize_ReservesOneBlockForTheCommitAndPrTail"
+  - "SeriesConfigValidator_Problem_IsBlocking_Unmeasured_IsAdvisory"
+  - "StoredSeriesSettingsReader_StudioSave_IsReadByTheNextCall"
+  - "ConfigStore_SeriesSection_RoundTripsAsSingletonDoc"
+  - "SpecSequence_InvalidSeriesConfig_FailsNamingTheField"
+  - "SpecSequence_TwentyFourSpecs_SplicesEightAndMarksSixteenNextAttempt"
+  - "SpecSequence_MeasuredBlocks_SplicesOnlyWhatFitsTheWallClock"
+  - "SpecSequence_ResumedSeries_SplicesTheNextChunkFromTheTail"
+  - "SpecSequence_StepBudget_SizedFromTheChunk"
+  - "SpecSequence_ElapsedWallClock_ShrinksTheChunk"
+  - "SpecSequence_NoBlockFitsTheTimeLeft_FailsNamingTheFields"
+  - "SpecSequence_StopAfterTheChunkEnd_DefersWithTheChunkReasonThenTheStopReason"
+  - "SpecSequence_ParkStopBeyondTheChunkEnd_DeferredNotParked"
+  - "ReviewSpecs_TwentyFourSpecTail_WalksOnlySpecsPerAttempt"
+  - "StoredSeriesSettingsReader_WrongTypeDocument_NamesWhichDocument"
+  - "SpecSequence_ReviewStopBeforeTheChunkEnd_SplicesOnlyTheSpecsBeforeTheStop"
+  - "SpecSequenceProgress_StoppedAtChunk_FalseWhenAChunkSpecFailed"
+  - "CommitAndPR_ChunkBoundary_DraftPrWithSeriesBanner_TicketNotFinalized"
+  - "CommitAndPR_ChunkBoundary_PostsOneCommentNamingTheNextSpec"
+  - "CommitAndPR_ChunkBoundary_InlineTicket_PostsNothing"
+  - "CommitAndPR_LastChunk_FinalizesTheTicketAsToday"
+  - "CommitAndPR_FailedChunk_TakesTheFailedRunPathNotTheChunkArm"
+  - "Lifecycle_ChunkBoundary_IsWaitingNotDone_RunNotParked"
+  - "SpecStatusTable_NextAttemptSpecs_ReadNextAttemptNotNotStarted"
+  - "SpecStatusTable_FailedRunWithNextAttemptSpecs_ShowsTheNoteNotNextAttempt"
+  - "SpecDerivationParser_FreshCutOfNine_RefusedAtSpecsPerAttempt"
+  - "SpecDerivationParser_ReworkOfSixteenSpecTail_Accepted"
+  - "SpecDerivationParser_AppendOnSixteenExecuted_AcceptsEightMore"
+  - "SpecDerivationParser_TotalAboveMaxSpecs_Refused"
+  - "EpicOutcomeParser_TwentyFourChildren_Accepted_TwentyFiveRefusedNamingTheCap"
+  - "EpicOutcomeParser_InvalidSeriesConfig_RefusedNamingTheField"
+  - "ApprovedContinuation_OverSeriesCap_NotMerged"
+  - "TicketContinuation_OverSeriesCap_RefusedOverCapNamingBothCounts"
+  - "TicketContinuation_AppendPastLetterZ_Refused"
+  - "SpecAmendmentRule_EightExecutedOfTwentyFour_AppendNeedsTheModel"
+  - "SpecAmendmentRule_SeriesCapExecuted_AppendNeedsNoModel"
+  - "PreviousCutPromptSection_AppendRoom_IsTheSmallerOfCapRoomAndAttempt"
+  - "SpecSetDeriver_SkillTemplate_FreshCutSpecsPerAttempt_ReCutMaxSpecs"
+  - "FullSetPrNotice_SaysTheSeriesCap"
+
+done:
+  - "A design-conversation epic of up to 24 children is accepted; a 25th child is refused with a message naming the series cap."
+  - "With series.seconds_per_spec measured and orchestrator.max_run_wall_time_seconds raised so eight blocks fit plus the run's prefix (checkout, derivation, review share) and the one block reserved for the commit-and-PR tail, a run of a 24-spec series (the executed prefix plus the tail, counted together) builds the first 8 specs, ends completed, keeps its pull request a draft whose banner says which spec the next attempt starts with, and leaves the other 16 not started, never failed; with a measured value the wall clock LEFT at the spec block cannot fit 8 times plus the reserved block, the attempt is that smaller count, and when not even one fits, the run fails naming the three numbers."
+  - "At that boundary the ticket gets one comment naming the specs built, the specs left and where the next attempt continues, its lifecycle reads Waiting (never Done), its approval stays outstanding, and the next poll does not re-claim it (2026-10-13-8762g's boundary claim gate); the series' last attempt finalizes the ticket as today."
+  - "The next attempt of that ticket builds the next chunk of the tail without re-cutting the executed ones."
+  - "A derivation from a bare ticket cuts at most series.specs_per_attempt specs in one reply; a 'Request changes' on the draft at the first boundary of a 24-spec series re-cuts its 16-spec tail."
+  - "series.max_specs, series.specs_per_attempt and series.seconds_per_spec are read live from agentsmith.yml and the config store; a value outside its bounds is reported at startup and refused by the first run, epic parse or continuation that would use it, each naming the field."
+  - "Build green, full suite green, dashboard gen:hub-events/test/build green."

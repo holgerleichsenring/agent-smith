@@ -1,0 +1,262 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-8762p
+goal: "A person ratifies or overrules many of a ticket's defaults at once; an overrule re-derives the next attempt with its note, and every verdict reaches the ticket branch."
+
+applies_to: "backend (Server ticket endpoints and the verdict writer, the rework act readers and the revision cause in Application, the previous-attempt read in Persistence, the ticket prompt section, the spec record step's decision-file copy, the closed-ticket follow-up)"
+
+requires: [2026-10-13-8762o]
+
+facts:
+  - claim: "A rework nudge carries no act: the worker reads the act itself, so whatever an overrule is must be readable as an act, not pushed into the nudge."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/ReworkNudgeRequest.cs:3-13"
+  - claim: "The worker's newest act is the newer of the ticket keyword act, the hand-back answer (stored approval or pull-request act) and the attempt's stored Retry."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/ReworkPendingActs.cs:26-30"
+  - claim: "A stored Retry IS the act: a row of the run, read off the attempt while the attempt may not have seen it; a stored approval likewise, with nothing else persisted for it."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/RetryAct.cs:5-15, src/backend/AgentSmith.Application/Services/Rework/OperatorAct.cs:6-11"
+  - claim: "The previous-attempt read attaches the Retry row of the newest code attempt; PreviousAttempt carries it as RetryRequestedBy/At and decides 'may be after what the attempt read' with Precedes."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPreviousAttemptReader.cs:32-44, src/backend/AgentSmith.Contracts/Runs/PreviousAttempt.cs:23-37"
+  - claim: "A comment agent-smith itself writes is never an act: the keyword reader drops our own comments. Posting the overrule to the tracker would therefore never start a rework."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/ReworkActReader.cs:24-31"
+  - claim: "The worker hands the newest act of a finished attempt to the rework entry; a live or waiting attempt is told once and its end nudges again."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeHandler.cs:42-50"
+  - claim: "The rework entry never carries the act into the run; the run reads it itself."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkEntry.cs:13-16"
+  - claim: "Inside the run, the attempt's cause ranks the operator approval, then the ReworkAct slot and a status move, then Retry, then request/retrigger/pickup; each channel maps to an AttemptChannels word."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/AttemptCauseReader.cs:27-41, src/backend/AgentSmith.Application/Services/Rework/AttemptCauseReader.cs:77-86"
+  - claim: "The ticket's words reach the derivation and master through one section: the comment thread, then the pull-request review."
+    evidence: "src/backend/AgentSmith.Application/Services/Prompts/TicketConversationPromptSection.cs:51-59, src/backend/AgentSmith.Application/Services/Prompts/PrReviewFeedbackPromptSection.cs:14-23"
+  - claim: "Retry is the existing stored-act-plus-nudge shape: the row is upserted, then an Operator nudge with its own channel is queued; the endpoint names the caller with SpecDialogOwnership.PrincipalOf and needs runs.control."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/RunRetry.cs:60-62, src/backend/AgentSmith.Server/Extensions/RetryEndpoints.cs:16-23, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOwnership.cs:31-32"
+  - claim: "Nudge origins rank a merge and Operator is a person's act; channels are a separate enum whose value a nudge row stores as a string."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/ReworkNudgeOrigin.cs:3-19, src/backend/AgentSmith.Contracts/Runs/ReworkChannel.cs:5-15, src/backend/AgentSmith.Infrastructure.Persistence/Entities/ReworkNudge.cs:14"
+  - claim: "The ticket page reads 'operator' as 'approval in the conversation'; an overrule riding that channel would be misnamed on the Attempts tab."
+    evidence: "src/dashboard/src/components/tickets/ticketFormat.ts:30-43, src/backend/AgentSmith.Contracts/Runs/AttemptChannels.cs:19-23"
+  - claim: "A closed ticket's act becomes a follow-up whose body is the act's Text."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ClosedTicketActFollowUp.cs:72-73"
+  - claim: "Only a Ticket or PullRequest act is followed up on a closed ticket; every other channel is answered with the closed refusal, as the class doc says of an approval or a retry."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ClosedTicketActFollowUp.cs:21-22, src/backend/AgentSmith.Server/Services/Rework/ClosedTicketActFollowUp.cs:41-46"
+  - claim: "ReworkAct carries author, time, channel and Source but no text; the text a follow-up reads is PendingReworkAct.Text."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/ReworkAct.cs:10-14, src/backend/AgentSmith.Contracts/Runs/PendingReworkAct.cs:11"
+  - claim: "The run's revision cause knows a pull-request act in the ReworkAct slot and a comment in the thread; anything else on a re-run falls through to Retrigger."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRevisionCause.cs:68-82"
+  - claim: "A Retrigger re-derives only a set that has executed nothing and never an approved set; Rework re-derives approved or not and counts as an append on a fully executed set."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecAmendmentRule.cs:42-58, src/backend/AgentSmith.Application/Services/Specs/SpecAmendmentRule.cs:63-66"
+  - claim: "A Rework or StatusBack re-derivation keeps the prior approval (the arm in the branch-artifact decision)."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSourceResolver.cs:98-100"
+  - claim: "A cause read off the previous attempt is precedented: StatusBackCause reads ContextKeys.PreviousAttempt, which the ticket extras fetch sets at the run's start."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/StatusBackCause.cs:24, src/backend/AgentSmith.Application/Services/Handlers/TicketExtrasFetcher.cs:50"
+  - claim: "The previous-cut prompt section words Rework and StatusBack with a paragraph each and names their source."
+    evidence: "src/backend/AgentSmith.Application/Services/Prompts/PreviousCutPromptSection.cs:31-32, src/backend/AgentSmith.Application/Services/Prompts/PreviousCutPromptSection.cs:66-70"
+  - claim: "ApprovedSetKept words only Comment and TicketEdit as kept inputs; any other cause maps to null there."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovedSetKept.cs:72-77"
+  - claim: "The previous-attempt read receives only project, ticket and an excluded run: it cannot resolve a conversation bound by tracker name and ticket key."
+    evidence: "src/backend/AgentSmith.Contracts/Services/IPreviousAttemptReader.cs:12-13"
+  - claim: "With no code attempt yet the worker finishes a nudge at once, so an overrule of a design-turn default before the first attempt would never be served."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeHandler.cs:35-36"
+  - claim: "The conversation transcript on the ticket page is shown only to a caller holding dialog.write (or with enforcement off)."
+    evidence: "src/backend/AgentSmith.Server/Extensions/TicketConversationReadEndpoints.cs:24-25, src/backend/AgentSmith.Server/Extensions/TicketConversationReadEndpoints.cs:29-34"
+  - claim: "A refusal that is an answer goes back as a plain text body: Retry's invalid case is Results.BadRequest(text)."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RetryEndpoints.cs:27"
+  - claim: "An approved set's SpecApproval names its conversation, the design session's JobId; a design turn seeds the same JobId as ContextKeys.DialogueJobId, which 2026-10-13-8762o stores as the row's Conversation."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecApproval.cs:22, src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSpecSetRecorder.cs:72, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:54"
+  - claim: "The record step writes the done file, index line and manifest through the carrier's sandbox files and commits a staged list in one series commit."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecution/SpecDoneRecorder.cs:54-66"
+  - claim: "The repository decision file is .agentsmith/decisions/<label>.yaml, read-append-written through the sandbox under one lock, reporting rather than throwing; the label is a spec id when the source is spec-shaped, else the run id."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/RepositoryDecisionFile.cs:19, src/backend/AgentSmith.Infrastructure.Core/Services/RepositoryDecisionFile.cs:39-60, src/backend/AgentSmith.Infrastructure.Core/Services/DecisionFileLabel.cs:14-21"
+  - claim: "IDecisionLogger also mirrors every entry to the run's event stream, so routing a verdict copy through it would add a third record of it on the recording run."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/RepositoryDecisionLogger.cs:45-51"
+  - claim: "The ticket page finds the ticket's bound design conversation by (tracker name, TicketKey.For(tracker type, ticket id)); a session stores that pair, null for an unbound one."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Conversation/TicketTranscriptReader.cs:20-26, src/backend/AgentSmith.Infrastructure.Persistence/Entities/SpecDialogSession.cs:64-67"
+  - claim: "Ticket routes chain off MapTicketSeriesEndpoints into MapTicketConversationReadEndpoints and decode their segments with TicketQueryEndpoints.Decoded."
+    evidence: "src/backend/AgentSmith.Server/Extensions/TicketSeriesEndpoints.cs:14-15, src/backend/AgentSmith.Server/Extensions/TicketConversationReadEndpoints.cs:14-18, src/backend/AgentSmith.Server/Extensions/TicketQueryEndpoints.cs:43-44"
+  - claim: "A ticket's runs (every pipeline, by run id) come from TicketRunsQuery; which of them are attempts, oldest first, from TicketAttempts."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketRunsQuery.cs:16-27, src/backend/AgentSmith.Server/Services/Tickets/TicketAttempts.cs:21-26"
+  - claim: "The page refresh is ITicketActivityNudge.ChangedAsync(project, ticketKey), with the key from TicketKeyResolver."
+    evidence: "src/backend/AgentSmith.Contracts/Services/ITicketActivityNudge.cs:7-10, src/backend/AgentSmith.Server/Services/Tickets/TicketKeyResolver.cs:14-18"
+  - claim: "A conditional, provider-safe update is already used for a race between replicas: ExecuteUpdateAsync over a Where that names the expected state."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReworkNudgeRepository.cs:38-43"
+  - claim: "The route permission baseline lists every ticket route with its permission."
+    evidence: "tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:80-84"
+  - claim: "The dashboard API registrations are one line per surface; Retry's is there."
+    evidence: "src/backend/AgentSmith.Server/Extensions/DashboardApiExtensions.cs:46-47"
+  - claim: "SpecDoneRecorder is registered for every composition, but the DB-backed previous-attempt reader only in the Server; the DB-free composition gets a TryAdd null reader, 'null when the composition has no database'."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecution/SpecExecutionExtensions.cs:24, src/backend/AgentSmith.Server/Extensions/RelationalPersistenceExtensions.cs:137, src/backend/AgentSmith.Application/Services/Resume/ResumeRegistrations.cs:31, src/backend/AgentSmith.Contracts/Services/IPreviousAttemptReader.cs:6-8"
+  - claim: "RelationalPersistenceExtensions.cs is baselined at its length (223 lines, may only shrink), and its :137 is already a chained AddSingleton line."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:36, src/backend/AgentSmith.Server/Extensions/RelationalPersistenceExtensions.cs:137"
+  - claim: "SpecRecutNotice tells the author on the ticket that their input took, with one arm per re-deriving cause and nothing for any other; at a full executed set it says nothing was added and to file a new ticket."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRecutNotice.cs:24-36, src/backend/AgentSmith.Application/Services/Specs/SpecRecutNotice.cs:37-40"
+  - claim: "A full, fully executed set never reaches the model for an append cause: MaxSpecs is 8."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecAmendmentRule.cs:46-47, src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:70"
+  - claim: "The append paragraph names where the input is through Source(cause), which answers 'the ticket conversation and the current ticket text' for any cause it does not know."
+    evidence: "src/backend/AgentSmith.Application/Services/Prompts/PreviousCutPromptSection.cs:61-64, src/backend/AgentSmith.Application/Services/Prompts/PreviousCutPromptSection.cs:66-71"
+  - claim: "RepositoryDecisionFile's lock is an instance field, and its only instance is built inside the singleton logger: a second instance gets a second lock."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/RepositoryDecisionFile.cs:37, src/backend/AgentSmith.Infrastructure.Core/Services/RepositoryDecisionLogger.cs:42, src/backend/AgentSmith.Infrastructure.Core/ServiceCollectionExtensions.cs:102"
+  - claim: "A decision entry needs a category; TradeOff is one of the four."
+    evidence: "src/backend/AgentSmith.Contracts/Decisions/IDecisionLogger.cs:24-30"
+  - claim: "Any unmapped pipeline runs the coding master, but the previous-attempt read and the attempt numbering take only code-pipeline runs."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Masters.cs:30-31, src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPreviousAttemptReader.cs:24-26, src/backend/AgentSmith.Server/Services/Tickets/TicketAttempts.cs:21-22"
+  - claim: "A ticket run row carries the Run entity, whose FinishedAt and PullRequestsJson say whether it ended and with which pull requests; HasPullRequest says a status means one exists on the host."
+    evidence: "src/backend/AgentSmith.Server/Models/TicketRunRow.cs:9, src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:21, src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:66, src/backend/AgentSmith.Contracts/Runs/PullRequestStatuses.cs:41-42"
+
+assumptions:
+  - "2026-10-13-8762o's RunDefaultDecision row carries Id (long), RunId, EventSeq, SpecId, Question, Chosen, AlternativesJson, Why, HoldsSeries, Kind, PointerPath, TakenAt, and the verdict columns Verdict (DefaultDecisionVerdicts: pending | ratified | overruled, default pending), VerdictBy, VerdictAt, VerdictNote; its projection only inserts, so a replay never resets a verdict."
+  - "2026-10-13-8762o's row carries Conversation (the design turn's session id, null in a coding run); a design turn's run row names no ticket, so its defaults reach a ticket only through the conversation bound to it."
+  - "2026-10-13-8762o's out-items defer marking a memory-proposal row whose run delivered no pull request as 'not landed' in the read to this spec; this spec takes it as the landed flag."
+  - "A ticket holds at most a few hundred defaults across its attempts; one read of them, filtered in memory, is cheap."
+
+scope:
+  in: >
+    READ: GET /api/tickets/{project}/{ticketId}/defaults (runs.read) -> TicketDefaultsReader: the ticket's runs
+    (TicketRunsQuery) and its bound conversation (TicketTranscriptReader.SessionAsync), their RunDefaultDecision rows
+    in one query (RunId IN the runs OR Conversation = the bound session's id; series contract decision 24), composed as
+    TicketDefaultsView {pending, pendingHoldingSeries, entries[]}; each TicketDefaultView = id, runId, attempt
+    (TicketAttempts number, null for a run that is not an attempt and for a design turn's row), conversation (the row's
+    Conversation, null in a coding run), specId, question, chosen, alternatives, why, holdsSeries, kind, pointerPath,
+    takenAt, verdict, verdictBy, verdictAt, verdictNote, landed (bool?: on a memory-proposal row of a finished run,
+    whether that run's PullRequestsJson names a pull request PullRequestStatuses.HasPullRequest accepts; null on every
+    other row and while the run is live). A conversation row's question, chosen, alternatives and why are
+    filled only when TicketConversationReadEndpoints.MayReadTranscript holds; otherwise they are null. Order: pending
+    holding the series, other pending, then decided; newest first within each. 404 for a pair with no run. WRITE: POST
+    .../defaults/verdicts (runs.control), body [{id, verdict: ratified|overruled, note?}] -> DefaultVerdictWriter. All
+    items are validated first: 1..100 items, a known verdict, a note of at most 2000 characters, every id a default THIS
+    ticket lists, no overruled on a row with Conversation set, and no overruled on a row whose run is not an attempt
+    (attempt null, worded "only an attempt's default can be overruled": DecidedDefaults reads code runs only); any failure is 400 with a plain text body
+    (Results.BadRequest(text)) naming the items, the conversation case worded "answer it in the design conversation",
+    and nothing is written. Each item is then one conditional update (Id = id AND Verdict = pending) setting Verdict,
+    VerdictBy (PrincipalOf), VerdictAt (TimeProvider), VerdictNote; an item that matched nothing is reported
+    alreadyDecided with the standing verdict, never overwritten. 200 {applied[], alreadyDecided[]}. After the updates,
+    if any overrule or any verdict on a holdsSeries row applied: ONE ReworkNudgeRequest(project, ticket, Operator,
+    Channel: Overrule when an overrule applied, else none); if anything applied: ONE TicketActivityChanged (56) through
+    ITicketActivityNudge. THE OVERRULE IS THE ACT: DecidedDefaults (Persistence, one query, used by both readers below)
+    reads the decided RunDefaultDecision rows of the ticket's code runs, plus, when a conversation is given, of that
+    conversation, as DecidedDefault (id, runId, specId, question, chosen, verdict, note, by, at); PreviousAttempt gains
+    Overrules (the overruled ones of the code runs; VerdictAt filtered in memory). OverruleAct.Of(attempt) returns the
+    newest overrule the attempt Precedes as ReworkAct(by, at, ReworkChannel.Overrule) {Source = (default, id)};
+    OverruleAct.TextOf(attempt) names every such overrule; ReworkPendingActs.NewestAsync wraps them as
+    PendingReworkAct(act, Text: TextOf) newest-wins with the others; AttemptCauseReader ranks it below the ReworkAct
+    slot and a status move, above Retry, as channel overrule. THE OVERRULE RE-DERIVES: SpecRevisionCause.Overrule =
+    "default overruled on the ticket", returned by For when not resuming and OverruleAct.Of(PreviousAttempt) is
+    non-null, ranked after Rework and before StatusBack; SpecAmendmentRule.NeedsModel treats it as Rework (re-derive,
+    approved or not; counted in IsAppend); SpecSourceResolver's Rework/StatusBack approval arm takes it too (in place,
+    0 lines); SpecRecutNotice.Render gains an Overrule arm ("A default was overruled on the ticket after", "with the
+    overrule in view"), so its existing cap branch tells the person a full set added nothing; PreviousCutPromptSection
+    gets an Overrule paragraph and Source gains Overrule => "the overruled defaults section", both pointing at
+    OverruledDefaultsPromptSection, which
+    renders every overrule the previous attempt Precedes after the pull-request review in
+    TicketConversationPromptSection. CLOSED TICKET: ClosedTicketActFollowUp files the follow-up for an Overrule act as
+    for Ticket and PullRequest, its body the act's Text; class doc updated. VERDICTS IN GIT (main-thread decision 9):
+    the record step copies every decided row into the ticket branch. SpecDoneRecorder calls DefaultVerdictRecord, which
+    reads DecidedDefaults for the run's project, ticket and SpecSet.Approval?.Conversation and writes each row through
+    a new port IDefaultVerdictFile (Contracts/Decisions; RepositoryVerdictFile in Infrastructure.Core over
+    RepositoryDecisionFile, never IDecisionLogger) as one DecisionCategory.TradeOff entry "[default #<id>] <verdict> by <by> at <at>: <question>
+    -> <chosen>; note: <note>" in .agentsmith/decisions/<specId>.yaml when SpecId names a spec of the set placed in the
+    recorded spec's repository, else in .agentsmith/decisions/<row runId>.yaml when the recorded spec's repository is
+    the set's first spec's; an entry whose "[default #<id>]" marker the file already holds is skipped in the same
+    read-append-write (RepositoryDecisionFile.AppendAsync gains an optional unlessPresent marker). RepositoryVerdictFile
+    holds its own RepositoryDecisionFile, whose lock is not the logger's (RepositoryDecisionFile.cs:37); nothing
+    contends, because the record step runs after the spec's master and one ticket holds one lease. The written paths join the
+    record's staged list, so the copy rides the existing series commit. Route baseline regenerated.
+  out: >
+    The Defaults tab, its counter and the channel word for overrule — 2026-10-13-8762q. The decide_by_default tool, event
+    88, the RunDefaultDecisions table, its migration and projection — 2026-10-13-8762o. What a ticket with no act does
+    when the nudge for a holdsSeries verdict arrives (continuing the series) — 2026-10-13-8762v; until then the worker
+    finishes it. Editing a memory file's status after a ratified memory proposal — nobody: decision 16 leaves it a
+    branch change the next rework makes. Undoing a verdict — nobody: a decided row is final; a person who changes their
+    mind writes a keyword comment. An overrule answering a hand-back park — nobody: it waits like a keyword comment does.
+    Overruling a design-turn default — nobody: the conversation is where it is answered, and the set it shaped is
+    approved; before the first attempt the worker finishes the nudge (ReworkNudgeHandler.cs:36), so the act would be
+    lost. A verdict given after the ticket's last attempt reaches the branch only with a later attempt's record; until
+    then the row is its only home — nobody: no attempt runs to carry it and a server-side branch write has no owner
+    (contract decision 21 names the same gap for mocks); flagged for the operator. Telling the master to stop logging a
+    default with log_decision — 2026-10-13-8762o (its skill step). A live ticket-page refresh per default taken in a
+    design turn — 2026-10-13-8762q's out-items.
+
+decisions:
+  - key: "THE STORED VERDICT IS THE ACT. Like Retry and the conversation approval, no act is written for an overrule: the row's VerdictBy/VerdictAt/VerdictNote are the act (the decision-file copy below is a record, never read as an act), read off PreviousAttempt by the worker and by the run. A tracker comment cannot be the act (ours are dropped) and a second act table would persist the overrule twice."
+  - key: "A NEW CHANNEL, NOT A NEW ORIGIN. The nudge rides ReworkNudgeOrigin.Operator (a person's act; contract decision 20 forbids a new origin). ReworkChannel.Overrule and AttemptChannels.Overrule = \"overrule\" are appended so the Attempts tab does not call an overrule an approval in the conversation; AttemptSourceKinds.Default = \"default\" with the row id (series contract 2.6, amended)."
+  - key: "CONDITIONAL UPDATE PER ITEM. Two replicas or two people ratifying one row: the Verdict = pending predicate lets exactly one win, so one overrule never files two acts; the loser's item reads alreadyDecided."
+  - key: "VALIDATE ALL, THEN WRITE. A batch that names a foreign id or an unknown verdict writes nothing; a batch interrupted mid-write is safe to resend because a decided row is skipped."
+  - key: "A DECIDED ROW IS FINAL. Re-deciding would file a second rework act for a choice already reworked; a change of mind goes through the ticket like any other request. Default, pending operator ratification."
+  - key: "NOTE OPTIONAL, AT MOST 2000 CHARACTERS. The contract body has note?; an overrule without one still names the question, the chosen answer and the alternatives, which is enough for the rework to derive the change. Default, pending operator ratification."
+  - key: "AN OVERRULE FILES A REWORK ACT CARRYING ITS NOTE, AND REVERTS NOTHING (contract decision 15). Default, pending operator ratification."
+  - key: "MEMORY PROPOSALS ARE ROWS LIKE ANY DEFAULT (contract decision 16): ratifying marks the row only; overruling one is an act like any overrule. Default, pending operator ratification."
+  - key: "A VERDICT ON A HOLDS-SERIES ROW NUDGES THE TICKET. A held series must be checked again once its default is decided; the nudge is the existing Operator one and costs nothing when there is no act (the worker finishes it). What the check then starts is 2026-10-13-8762v's."
+  - key: "RUNS.READ TO READ, RUNS.CONTROL TO DECIDE. The read is ticket state like the series; deciding starts work, like Retry."
+  - key: "AN OVERRULE IS ITS OWN REVISION CAUSE. Read off PreviousAttempt it is neither the ReworkAct slot nor a thread comment, so SpecRevisionCause.For fell through to Retrigger and SpecAmendmentRule kept every executed or approved set unchanged: an attempt that reworked nothing (SpecRevisionCause.cs:74-81, SpecAmendmentRule.cs:52-56). It re-derives like Rework, which needed its own cause for the same reason (SpecRevisionCause.cs:49-51)."
+  - key: "DESIGN-TURN DEFAULTS ARE RATIFY-ONLY HERE. An overrule needs an attempt to serve it and a set it may re-cut; before the first attempt there is none (ReworkNudgeHandler.cs:36), after approval the set is not re-cut by such a cause, and the previous-attempt read cannot reach a bound conversation (IPreviousAttemptReader.cs:12-13). A ResolvedProject-aware overrule port across the readers is a redesign, not a cut. Default, pending operator ratification."
+  - key: "VERDICTS SURVIVE IN GIT (main-thread decision 9). The row stays the live home the endpoints read and update; the record step of the next attempt copies each decided row into the spec's decisions file on the ticket branch, so deleting a run loses no verdict an attempt has since recorded. The copy is written once (its marker is checked in the same read-append-write) and goes through RepositoryDecisionFile, not IDecisionLogger, whose event mirror would add a third record on the recording run. Default, pending operator ratification."
+  - key: "CONVERSATION CONTENT FOLLOWS THE TRANSCRIPT'S PERMISSION. A design-turn row's question and reasons are design-conversation content, which the ticket page shows only to dialog.write (TicketConversationReadEndpoints.cs:29-34); runs.read sees that a default exists and its verdict."
+  - key: "ROOM: ReworkPendingActs 66 -> ~70, AttemptCauseReader 87 -> ~91, DbPreviousAttemptReader 74 after 2026-10-13-8762g -> ~79 (the decided-rows query lives in DecidedDefaults), PreviousAttempt 41 after 2026-10-13-8762g -> ~45, TicketConversationPromptSection 106 -> ~108, DashboardApiExtensions 89 -> 90, TicketConversationReadEndpoints 35 -> 35 (its return chains the new map after 2026-10-13-8762l's reviews map), SpecRevisionCause at most 113 after 2026-10-13-8762n -> ~116, SpecRecutNotice 50 -> ~52, ResumeRegistrations 36 -> 37, Infrastructure.Core ServiceCollectionExtensions 115 -> 116, SpecAmendmentRule 67 -> ~69, SpecSourceResolver net zero after 2026-10-13-8762h (the approval arm, :99 today, is extended in place), PreviousCutPromptSection about 84 after 2026-10-13-8762j -> ~89, ClosedTicketActFollowUp 101 -> ~101 (:41 extended in place, doc :21-22 reworded), SpecDoneRecorder 84 -> ~86, RepositoryDecisionFile 115 -> <=119. ApprovedSetKept (120) is not touched. None of these is baselined; each stays under 120. RelationalPersistenceExtensions IS baselined at 223/223 (file-length-baseline.tsv:36): DecidedDefaults joins the chained line :137, net zero lines. Contract section 4 lists both."
+  - key: "A NULL DEFAULT FOR COMPOSITIONS WITHOUT A DATABASE. SpecDoneRecorder runs in every composition (SpecExecutionExtensions.cs:24), DecidedDefaults only in the Server, so NullDecidedDefaults (no rows) is TryAdd-registered beside NullPreviousAttemptReader (ResumeRegistrations.cs:31) and the Server's registration replaces it; the CLI and the composition harness record no verdicts."
+  - key: "THE OVERRULE ANSWERS ON THE TICKET. Every re-deriving cause has a SpecRecutNotice arm; without one an overrule on a full executed set (the main case: a finished ticket) starts an attempt that adds nothing and tells nobody (SpecRecutNotice.cs:34-40, SpecAmendmentRule.cs:47). The arm reuses the cap branch's 'nothing was added' words, as a pull-request act gets FullSetPrNotice."
+  - key: "ONLY AN ATTEMPT'S DEFAULT CAN BE OVERRULED. A non-code pipeline can run the coding master (PipelinePresets.Masters.cs:30-31) and take a default, but the act reads code runs only (DbPreviousAttemptReader.cs:25-26); accepting its overrule would file nothing and finish the nudge. Refused with 400 instead; ratifying it stays allowed. Default, pending operator ratification."
+  - key: "NOT LANDED IS A FLAG ON THE READ (2026-10-13-8762o's out-item). The reader already holds each run's Run entity (TicketRunRow.cs:9), so landed is computed from its FinishedAt and PullRequestsJson with PullRequestStatuses.HasPullRequest, no new query and no stored column; 2026-10-13-8762q shows it."
+  - key: "THE VERDICT COPY CLAIMS NO SHARED LOCK. RepositoryVerdictFile's RepositoryDecisionFile is its own instance, so its lock is not the logger's (RepositoryDecisionFile.cs:37, RepositoryDecisionLogger.cs:42). Making it one shared singleton would put an internal type on the public RepositoryDecisionLogger constructor and change three tests that build that logger; the record step runs after the master under the ticket's one lease, so no write contends and the claim is dropped instead."
+
+steps:
+  - id: contracts
+    action: "Contracts: DecidedDefault record; IDecidedDefaults (Contracts/Services); IDefaultVerdictFile (Contracts/Decisions); PreviousAttempt.Overrules (init, empty default); ReworkChannel.Overrule (appended); AttemptChannels.Overrule; AttemptSourceKinds.Default."
+  - id: previous-attempt
+    action: "DecidedDefaults (Persistence, implements IDecidedDefaults, chained onto RelationalPersistenceExtensions.cs:137, net zero lines); NullDecidedDefaults (Application) TryAdd-registered beside NullPreviousAttemptReader in ResumeRegistrations: the decided rows of the ticket's code runs and an optional conversation, VerdictAt filtered in memory (no DateTimeOffset in SQL); DbPreviousAttemptReader fills Overrules from it."
+  - id: act
+    action: "OverruleAct.Of and TextOf (Application/Services/Rework); ReworkPendingActs.NewestAsync wraps it as PendingReworkAct with Text; AttemptCauseReader gains its arm."
+  - id: cause
+    action: "SpecRevisionCause.Overrule and its arm in For; SpecAmendmentRule NeedsModel and IsAppend; SpecSourceResolver's approval arm (in place); SpecRecutNotice's Overrule arm; PreviousCutPromptSection's Overrule paragraph and Source arm."
+  - id: prompt
+    action: "OverruledDefaultsPromptSection (delimited like the review section); TicketConversationPromptSection appends it after the review."
+  - id: reader
+    action: "Server/Models TicketDefaultsView, TicketDefaultView (with conversation); Server/Services/Tickets/Defaults/TicketDefaultsReader (order, attempt numbers, counts, conversation text only when MayReadTranscript, landed on finished memory-proposal rows)."
+  - id: writer
+    action: "DefaultVerdictWriter: validation (conversation rows and rows of runs that are not attempts ratify-only), conditional ExecuteUpdateAsync per item, then one rework nudge and one ticket nudge; DefaultVerdictRequest/Result models."
+  - id: closed
+    action: "ClosedTicketActFollowUp: an Overrule act is followed up like Ticket and PullRequest (:41 in place); class doc :21-22 reworded."
+  - id: git-copy
+    action: "RepositoryDecisionFile.AppendAsync's unlessPresent marker; RepositoryVerdictFile (Infrastructure.Core) registered as IDefaultVerdictFile; DefaultVerdictRecord (Application/Services/SpecExecution) called from SpecDoneRecorder, its paths joined to the staged list."
+  - id: endpoints
+    action: "TicketDefaultsEndpoints (GET runs.read, POST runs.control, Decoded segments, 400/404 as scoped), chained from MapTicketConversationReadEndpoints; AddTicketDefaults() in its own extension, one line in DashboardApiExtensions; route-permission-baseline.tsv regenerated."
+  - id: tests
+    action: "Red first for each test below, then green; run the Server, Rework, Specs, SpecExecution, Prompts, Infrastructure.Core and Persistence classes touched, SQLite provider."
+
+tests:
+  - "TicketDefaults_Read_PendingHoldingSeriesFirst_ThenPending_ThenDecided"
+  - "TicketDefaults_Read_NumbersAttempts_AndCountsPending"
+  - "TicketDefaults_Read_UnknownTicket_Is404"
+  - "TicketDefaults_Read_BoundConversationDefault_IsListedWithoutAttempt_WithItsConversation"
+  - "TicketDefaults_Read_ConversationRowText_OnlyWhenTheCallerMayReadTheTranscript"
+  - "DefaultVerdicts_ForeignId_Is400_AndWritesNothing"
+  - "DefaultVerdicts_UnknownVerdictOrLongNote_Is400"
+  - "DefaultVerdicts_OverruleOfAConversationRow_Is400_AnswerItInTheDesignConversation"
+  - "DefaultVerdicts_OverruleOfANonAttemptRow_Is400"
+  - "TicketDefaults_Read_MemoryProposalOfAFinishedRunWithoutPullRequest_IsNotLanded"
+  - "DefaultVerdicts_Ratify_SetsVerdictByAndAt"
+  - "DefaultVerdicts_DecidedRow_IsAlreadyDecided_NotOverwritten"
+  - "DefaultVerdicts_TwoWritersOneRow_ExactlyOneApplies"
+  - "DefaultVerdicts_Overrule_QueuesOneOperatorNudgeWithOverruleChannel"
+  - "DefaultVerdicts_RatifyOfHoldsSeriesRow_QueuesANudge_PlainRatifyDoesNot"
+  - "DefaultVerdicts_Applied_PublishesOneTicketActivityChanged"
+  - "PreviousAttempt_CarriesOverruledDefaultsOfTheTicket"
+  - "OverruleAct_OlderThanTheAttemptsRead_IsNoAct"
+  - "ReworkPendingActs_NewerOverrule_WinsOverOlderKeywordAct"
+  - "AttemptCause_Overrule_IsChannelOverrule_WithTheDefaultAsSource"
+  - "SpecRevisionCause_OverruleAfterTheAttempt_IsOverrule_AndAmendsAnExecutedSet"
+  - "SpecRecutNotice_Overrule_FullSet_SaysNothingWasAdded"
+  - "PreviousCutPrompt_Overrule_AppendNamesTheOverruledDefaultsSection"
+  - "SpecDoneRecorder_WithoutADatabase_ResolvesAndRecordsNoVerdict"
+  - "SpecSourceResolver_Overrule_KeepsTheApproval_AndReDerives"
+  - "TicketConversationPrompt_RendersOverruledDefaultsWithTheirNotes"
+  - "ClosedTicket_Overrule_FiledFollowUpCarriesTheNote"
+  - "SpecDoneRecorder_DecidedDefaults_WrittenToTheSpecsDecisionFile_InTheSeriesCommit"
+  - "DefaultVerdictRecord_RowAlreadyInTheFile_IsNotWrittenTwice"
+  - "DefaultVerdictRecord_RowNamingNoSpecOfTheSet_GoesToTheRunsDecisionFile_InTheFirstSpecsRepository"
+  - "RoutePermission_DefaultsRoutes_ReadAndControl"
+
+done:
+  - "GET /api/tickets/{project}/{ticketId}/defaults lists a ticket's defaults, pending holding-series ones first, each with its attempt and verdict."
+  - "Ratifying or overruling several defaults in one POST decides each once; a second POST of the same ids reports them already decided and changes nothing."
+  - "An overrule starts one rework attempt on a finished ticket; that attempt re-derives the set with the overruled question, chosen answer and note in view, and its Attempts entry names the overrule and who made it."
+  - "A default from the design conversation can be ratified on the ticket page; overruling it is refused with 'answer it in the design conversation'."
+  - "After the next attempt records a spec, every ratified or overruled default of the ticket appears once in .agentsmith/decisions/ on the ticket branch, so deleting the run that took it loses no verdict."
+  - "An overrule on a ticket a person closed files a follow-up carrying the note instead of reopening it."
+  - "An overrule whose attempt cannot add a spec (a full executed set) says so on the ticket instead of passing in silence."
+  - "After a verdict the open ticket page re-reads without a reload."
+  - "Build green, full suite green, dashboard gen/test/build green."

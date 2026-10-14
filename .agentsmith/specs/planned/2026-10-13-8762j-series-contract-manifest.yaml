@@ -1,0 +1,239 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-8762j
+goal: "A series carries a contract — shared names, numbers, data owners, file areas, per-member line budgets — and a cut or epic whose contract collides is refused with every collision named."
+
+applies_to: "backend (Contracts/Specs series contract, the derivation parser, the epic outcome parser, filing, the series manifest) + the derivation and design-partner skill text"
+
+requires: [2026-10-13-8762g, 2026-10-13-8762i]
+
+facts:
+  - claim: "SpecSet is a positional record whose later fields (Goal, SeriesRepos) are init properties, and OfRepository keeps every series-wide field when it narrows the set to one repository."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:25-36, src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:72-87"
+  - claim: "The series manifest is SeriesManifestDocument, serialized and parsed by SeriesManifest with one YamlDotNet configuration that ignores unmatched properties; SeriesManifest.cs is 118 lines."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesManifestDocument.cs:13-49, src/backend/AgentSmith.Application/Services/Specs/SeriesManifest.cs:14-45"
+  - claim: "The run reads the set back from the newest manifest; SetOf copies the manifest's series-wide fields onto the SpecSet."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesReader.cs:84-92"
+  - claim: "work-spec.schema.json describes the p0390 work spec (key, goal, requirements, revisions), not the series manifest; it is embedded but no code reads it."
+    evidence: "src/backend/AgentSmith.Application/AgentSmith.Application.csproj:67-70, .agentsmith/schemas/work-spec.schema.json:5-9"
+  - claim: "No source file other than the csproj names work-spec.schema.json."
+    evidence: "observed: 2026-10-14, grep -rn 'work-spec.schema' over src/ and tests/ in the 8762 worktree finds only the csproj embed and a SourceFileEnumeratorTests path string"
+  - claim: "The derivation reply is one JSON object; the parser computes spec ids by position and rejects a reply with more than SpecSet.MaxSpecs specs; SpecDerivationParser.cs is 119 lines."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecDerivationParser.cs:82-108"
+  - claim: "A rejected parse goes back to the deriver as 'Your cut was rejected' with the reason, inside the shared attempt budget."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:80-84"
+  - claim: "Every derived spec requires the one before it, so a derived set is a single chain."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivedSpecBuilder.cs:57-61"
+  - claim: "The derivation reply shape the pinned skill teaches carries specs, discarded, discarded_contexts, ignored_instructions and handback — no contract."
+    evidence: "observed: 2026-10-14, git show v5.15.0:skills/_masters/spec-derivation-master/SKILL.md lines 21-41 in agent-smith-skills"
+  - claim: "EpicOutcomeParser reads parent and children from the outcome map, refuses with OutcomeInvalid, and ends with the requires-edge check."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/EpicOutcomeParser.cs:26-73"
+  - claim: "An invalid design-turn outcome is re-prompted once with its error; a second invalid one fails the outcome."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:677-711"
+  - claim: "RequiresEdgeChecker accepts only sibling ids, unique ids and no cycle; free-text requires pass through."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/RequiresEdgeChecker.cs:20-51"
+  - claim: "EpicOutcome is a positional record of Parent and Children on the OutcomeProposal base, which carries Templates and Findings as init properties."
+    evidence: "src/backend/AgentSmith.Contracts/Models/OutcomeProposal.cs:10-44"
+  - claim: "A proposal is stored on the session through OutcomeProposalJson's Dto, whose epic arm carries only Parent and Children."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeProposalJson.cs:31-47, src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeProposalJson.cs:60-67"
+  - claim: "Filing re-ids the approved drafts onto the series base; the id map is built inside SeriesDraftIds.Assign and applied to ids, requires and yaml."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledSeriesFactory.cs:13-20, src/backend/AgentSmith.Application/Services/SpecDialog/SeriesDraftIds.cs:14-27"
+  - claim: "An epic is filed as ONE set of its ordered children (the parent is the ticket), through seriesFiling.Mint; OutcomeTicketFiler.cs is 120 lines."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:102-119"
+  - claim: "The approval record builds the stored SpecSet from FiledSeries and sets Goal as an init property; ApprovedSpecSetRecorder.cs is 119 lines."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSpecSetRecorder.cs:64-76"
+  - claim: "The approval record is written and read with System.Text.Json's web defaults, so a public init property of SpecSet round-trips."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecApprovalJson.cs:17-23"
+  - claim: "An amendment re-ids an epic under the ticket's kept base; a continuation records new FiledSeries(current.Series, decision.Drafts)."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/AmendedSpecification.cs:50-64, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/TicketContinuationAct.cs:64"
+  - claim: "ModelOutputParsingRuleTests scans an explicit list of model-output parsers for unchecked number reads."
+    evidence: "tests/AgentSmith.Tests/Architecture/ModelOutputParsingRuleTests.cs:22-34"
+  - claim: "An epic's children are put in dependency order by Kahn's algorithm with ties broken by the cut's own order, and the filer files that order as ONE set; children that share a file without a requires: edge still run one after the other."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/EpicChildOrderer.cs:24-47, src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:108-118"
+  - claim: "A worked ticket's approval is continued by spec id: SeriesContinuationIds builds a proposal-id to filed-id map, gives an unknown id the next free member id, drops an unstarted id an epic leaves out, and the act records new FiledSeries(current.Series, decision.Drafts)."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/TicketContinuation.cs:26-28, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/SeriesContinuationIds.cs:24-46, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/TicketContinuationAct.cs:60-65"
+  - claim: "TicketContinuationDecision is a positional record of Effect, Reason, Executed, Unstarted, BasisRunId, Specs, Drafts and Start; it carries no id map."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/TicketContinuationDecision.cs:16-28"
+  - claim: "A closed ticket's follow-up files `epic with { Children = decision.Drafts }`, the executed children removed, through the ordinary filer."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/ClosedTicketFollowUp.cs:21-24"
+  - claim: "A re-cut opens with the previous cut rendered by PreviousCutPromptSection (each spec, executed or not, and 'Return the WHOLE set again'); the deriver rejects a parse defect back into the same conversation; SpecSetDeriver.cs is 108 lines."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecDerivationMessages.cs:18-28, src/backend/AgentSmith.Application/Services/Prompts/PreviousCutPromptSection.cs:22-46, src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:76-86"
+  - claim: "A later spec may legitimately lower a file's line count: AgenticMasterHandler's ratchet row is 747, the file is 747 lines, and the ratchet only refuses growth."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:6"
+  - claim: "A re-cut's opening shows the model every previous spec by its minted id, executed or not."
+    evidence: "src/backend/AgentSmith.Application/Services/Prompts/PreviousCutPromptSection.cs:34-39"
+  - claim: "On every parse the executed head keeps its ids and every later spec is given the next free id by position, so after a merge or split an unexecuted spec's old id can name a different spec."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivedSpecSequence.cs:30-42"
+  - claim: "A hand-back reply parses into a set with no specs (and so no contract) before any spec is built."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecDerivationParser.cs:70-79"
+  - claim: "The derivation takes MaxAttempts = 3; a parse rejection keeps no cut, and once the attempts run out with no kept cut the deriver answers no derivation."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:49, src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:81-86, src/backend/AgentSmith.Application/Services/Specs/DerivationAttempts.cs:58-59"
+  - claim: "DerivationAttempts.IsLast(attempt) tells the loop whether the current attempt is its last."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationAttempts.cs:27-29"
+  - claim: "A spec draft names its repositories in Repos (empty when none is named), and a series spans repositories: OfRepository narrows the set to the specs naming one repository."
+    evidence: "src/backend/AgentSmith.Contracts/Models/SpecDraft.cs:66, src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:82-87"
+  - claim: "A lone spec is filed through seriesFiling.Mint([spec.Draft]) and amended through Series.Under(series, [spec.Draft]); an epic through Mint(order.Children) and Under(series, order.Children)."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:46, src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:112, src/backend/AgentSmith.Server/Services/SpecDialog/AmendedSpecification.cs:34, src/backend/AgentSmith.Server/Services/SpecDialog/AmendedSpecification.cs:58"
+
+assumptions:
+  - "A series may hold up to series.max_specs = 24 members (2026-10-13-8762u), so a contract is NOT assumed small: the check is linear in its entries, and the prompts that render it are bounded by 2026-10-13-8762k's character cap, never by a member count."
+  - "The model writes positions in the derivation reply for every spec that has not run, and may name an executed spec by its id, whose position is fixed; on a re-cut it sees every previous id (PreviousCutPromptSection), so a string naming an unexecuted id is refused rather than trusted. In an epic block it writes child ids (it already writes them in requires:)."
+
+scope:
+  in: >
+    SHAPE: SeriesContract (Contracts/Specs) = Names[{Name, Kind, Number?, Owner, Writers[]?}], Data[{Datum, LivesIn,
+    Owner, Writers[]?}], Areas[{Spec, Paths[]}], Budgets[{Path, Spec, MaxLines}]; Kind is a CLOSED list (event,
+    system-event, table, context-key, endpoint, config, command, tool, type), read case-insensitively, and numbers
+    collide only within one kind. Owner, Writers and Spec are spec ids of the set; Writers names members that write a
+    datum or extend a name the Owner declared. Paths are repository-relative files, or directories ending in '/'; a
+    '*' is refused. SpecSet gains `Contract { get; init; }`
+    (null = none declared); Rekeyed(map) returns the contract with every spec id mapped. READ: SeriesContractReader —
+    FromReply(JsonElement root, built specs, executed head) for the derivation's "contract" object, where a member is a
+    1-based position (integer) in THIS reply, or a spec id (string) only when it names a spec of the executed head
+    (whose position is fixed); a string naming any other id is a reply defect, because ids after the head are
+    re-assigned by position on every parse; FromOutcome(map, children) for the epic
+    block's top-level `contract:`, members by child id or position. JSON via SpecJsonReader only. CHECK:
+    SeriesContractCheck over (contract, members as (id, repos) pairs) returns every problem in one message: an Owner, Writer or Spec
+    that is not a member; an unknown kind; two entries that each claim Owner of one datum (trimmed, case-insensitive)
+    or of one (kind, name); two names of one kind with one number; one (path, spec) budget with two numbers, or a
+    number below 1; a FILE path claimed by two or more members' areas (equal path, or a file under a claimed
+    directory counted for that directory's member) where any claimant has no budget entry for that file. A file is
+    shared only between claimants whose repos intersect (a member with empty Repos intersects every member), since
+    Areas are repository-relative and two repositories' package.json are two files. Overlap itself is never refused. SeriesContract.Within(member ids) returns the contract with every entry naming a
+    non-member removed, and the removed entries. WIRING: SpecDerivationParser refuses a colliding contract like any other
+    reply defect (the deriver asks again) — the problem rides Parsed.ContractProblem beside the set built WITHOUT the
+    contract, and SpecSetDeriver rejects it on every attempt but the last; on the last (DerivationAttempts.IsLast) it
+    drops the block, logs the problem and keeps the cut; EpicOutcomeParser returns OutcomeInvalid (the turn re-prompts once);
+    EpicOutcome gains `Contract { get; init; }` and OutcomeProposalJson's Dto carries it; FiledSeries gains Contract;
+    FiledSeriesFactory.Mint/Under(ordered, OutcomeProposal? source) re-key an epic source's contract with the SAME
+    map SeriesDraftIds applies (SeriesDraftIds.Map extracted from Assign), then apply Within(filed ids) and log what
+    it removed — so a follow-up for a closed ticket, whose executed children were removed, files a contract naming
+    only its members; the proposal (of any kind; only the contract arm reads EpicOutcome) is passed at all four
+    call sites, each a same-line edit: OutcomeTicketFiler.cs:46 and :112, AmendedSpecification.cs:34 and :58
+    (2026-10-13-8762l moves review rounds through the same parameter, a lone spec's included);
+    ApprovedSpecSetRecorder sets Contract beside Goal. CONTINUATION: TicketContinuationDecision gains Ids (init,
+    the proposal-id to filed-id map SeriesContinuationIds already builds); TicketContinuationAct records
+    epic.Contract re-keyed with decision.Ids and passed through Within(filed ids plus every disposition that is not
+    Dropped), logging what it removed; the basis record's contract is used only when the proposal carries none.
+    RE-CUT: PreviousCutPromptSection renders previous.Contract through SeriesContractPromptSection (minted here,
+    reused by 2026-10-13-8762k) followed by the sentence "name members by their position in your reply; only executed
+    specs keep their ids"; SpecSetDeriver rejects a reply that drops a contract the previous cut had ("repeat the
+    series contract, amended as needed") into the same conversation, only when !Set.IsHandedBack (a hand-back carries
+    no specs and so no contract), and like a contract defect yields to the cut on the last attempt. MANIFEST:
+    SeriesManifestDocument gains `contract` (SeriesContractDocument, snake_case like the rest) written by
+    SeriesManifest.Serialize and read by SeriesReader.SetOf through SeriesContractYaml; absent writes no key. SKILLS:
+    spec-derivation-master's reply shape and design-partner-master's epic block gain the optional `contract`, on the
+    skills branch spec/2026-10-13-8762; the build note quotes the exact sentence added to each master.
+  out: >
+    The set-scope reviewer round and the diff reviewer reading the contract — 2026-10-13-8762k. Showing contract
+    findings on the ticket page — 2026-10-13-8762l. Checking build notes against the contract —
+    2026-10-13-8762n. The skills release and pin bump — 2026-10-13-8762x. A JSON schema for the series manifest —
+    nobody: no schema validates the manifest today and SeriesManifest's IgnoreUnmatchedProperties is the
+    compatibility rule. work-spec.schema.json, and its stale handback_case enum (four values at
+    .agentsmith/schemas/work-spec.schema.json:76-80 against eight SpecHandbackCase values, SpecHandback.cs:59-108) —
+    nobody: this spec does not edit that file (decision below), it describes another document and no code reads it. Showing the contract
+    in the proposal block — nobody: it is the checks' input; their findings are what a person reads (k, l). Checking a
+    diff's line count against a budget mechanically — nobody: the budget is the reviewer's datum (k), and the file
+    ratchet already gates C# lines. Rendering the contract into the set-scope and diff review prompts, and the size
+    cap there — 2026-10-13-8762k. Re-running the check when a member's build changes the contract — nobody: a
+    contract change arrives as a new filing, amendment or continuation, and each of those runs the check
+    (decision below).
+
+decisions:
+  - key: "CONTRACT §2.7 (AMENDED): `contract:` is NOT added to .agentsmith/schemas/work-spec.schema.json. That file is the p0390 work-spec schema, embedded and read by no code; the series manifest (SeriesManifestDocument) has no JSON schema. The block lives on the manifest document and the derivation/epic shapes the skills teach."
+  - key: "MEMBERS BY POSITION, IDS ONLY FOR THE EXECUTED HEAD (round-2 cut 1, main-thread decision 18). The derivation model DOES see minted ids on a re-cut (PreviousCutPromptSection.cs:34-39), and ids after the head are re-assigned by position on every parse (DerivedSpecSequence.cs:30-42), so a copied old id of an unexecuted spec would silently name another spec after a merge or split. Only an executed spec's id is fixed, so only it may be a string; the design partner writes child placeholder ids. One reader stores only ids, so every later reader (k, n) sees one shape."
+  - key: "A HAND-BACK IS NOT A DROPPED CONTRACT (round-2 cut 2). A hand-back parses into a set with no specs (SpecDerivationParser.cs:70-79); rejecting it for a missing contract would burn the three attempts (SpecSetDeriver.cs:49) on a correct hand-back."
+  - key: "A CONTRACT DEFECT NEVER SINKS THE CUT (round-2 cut 3, main-thread decision 18). Three parse rejections leave no kept cut and the step falls back (DerivationAttempts.cs:58-59); an optional block must not cost a valid derived cut. On every attempt but the last a contract defect is sent back; on the last the block is dropped, logged, and the cut kept without a contract. Default, pending operator ratification."
+  - key: "SHARED FILES PER REPOSITORY (round-2 cut 4). Areas are repository-relative and a series spans repositories (SpecDraft.cs:66, SpecSet.cs:82-87); two members in different repositories both touching package.json touch two files. The check takes members with their Repos and counts a file shared only between claimants whose Repos intersect; empty Repos (not yet placed) intersects all, so an unplaced member is never let through."
+  - key: "THE SOURCE AT EVERY FILING SITE (round-2 cut 5). A lone spec files through OutcomeTicketFiler.cs:46 and amends through AmendedSpecification.cs:34; 2026-10-13-8762l moves review rounds through the same source, so passing it only on the epic lines would move nothing for a one-spec approval. Same-line edits, so OutcomeTicketFiler stays at 120."
+  - key: "RE-KEYED WITH THE FILING MAP — placeholder ids die at filing; a contract keyed by them would name nothing. The map SeriesDraftIds already applies to ids, requires and yaml is the one applied to the contract, so the text and the contract cannot disagree."
+  - key: "OVERLAP IS ALLOWED, BUDGETS MAKE IT SAFE (round-1 cut, main-thread decision 11). The requires-path area rule is deleted: every epic runs its children one after another in one set (EpicChildOrderer, OutcomeTicketFiler), so 'unordered' never meant concurrent, and the rule refused this series' own contract (MasterToolComposition shared by d, m, o; EventType by e, o). A shared FILE is accepted when each claimant has its own {Path, Spec, MaxLines} budget — how the supervised session chained shared files. Directories carry no line count, so a directory overlap is never checked."
+  - key: "REJECTED CUT (part of review cut 2): 'refuse a later member's MaxLines below an earlier member's on the same path'. A later member may lower a file by extraction — this series' m extracts from AgenticMasterHandler, ratcheted at 747 (file-length-baseline.tsv:6) — and the ratchet itself refuses only growth. Only two numbers for one (path, spec) and a number below 1 are refused."
+  - key: "SHARED OWNERSHIP BY WRITERS (round-1 cut 3). One Owner declares a datum or name; Writers[] names the members that also write or extend it (this series: RunDefaultDecisions owned by o, written by p; the series config section owned by u, appended by v). Only two entries each claiming Owner of the same thing are refused."
+  - key: "CLOSED KIND LIST (round-1 cut 4). A free-text kind let 'event' and 'events' hold one number twice; the check is only as good as the key it collides on. The list is the nine kinds this series' own contract uses; an unknown kind is a problem the model fixes in its re-prompt."
+  - key: "THE APPROVED CONTRACT SURVIVES A CONTINUATION (round-1 cut 5, main-thread decision 11). The continuation is the long-series path; keeping the basis contract kept ids an epic dropped and missed the appended ones. The proposal's contract is re-keyed with the map SeriesContinuationIds already builds, so its ids and the recorded drafts' ids cannot disagree; the basis contract is the fallback only for a proposal that carries none."
+  - key: "RE-CHECKED AT EVERY FILING (round-1 cut 6). Re-keying leaves an unmapped id as it was, and a follow-up removes executed children; Within drops entries naming a non-member and logs them rather than refusing a filing a person already approved."
+  - key: "A RE-CUT REPEATS THE CONTRACT (round-1 cut 7, adjusted). The previous contract is rendered into the opening, and a reply that drops it is rejected into the same conversation. REJECTED CUT: 'the parser keeps previous.Contract when the reply has no block' — derived ids are assigned by position (SpecDerivationParser.cs:95-96), so after a merge or split an old contract keyed by old positions would attach its entries to the wrong spec."
+  - key: "SELF-TEST (round-1 cut 8). This series' own contract (events 87/88, the two tables with o owning and p writing RunDefaultDecisions, the series config owned by u and written by v, the EventType.cs and MasterToolComposition.cs budgets per member) is a test fixture that must pass the check, so the check cannot again refuse the contract it imitates."
+  - key: "A TWICE-INVALID CONTRACT COSTS THE TURN'S PROPOSAL (review finding 9, ratify knowingly). AgenticMasterHandler.cs:677-711 re-prompts an invalid outcome once and a second invalid one fails the outcome; an optional block that is malformed twice therefore costs the proposal, the same as every other OutcomeInvalid check. Default, pending operator ratification."
+  - key: "EVERY PROBLEM IN ONE MESSAGE — the epic gets one re-prompt and the derivation shares three attempts with other checks; naming one collision per attempt would spend them."
+  - key: "OPTIONAL BLOCK — a set or epic with no contract is unchanged. Default, pending operator ratification: making it required would refuse every proposal of the pinned skill until 2026-10-13-8762x releases."
+  - key: "SERIES-WIDE LIKE THE GOAL — each sub-series manifest at one revision carries it, as OfRepository keeps every series-wide field; the newest manifest is read. That is the manifest's existing rule for Goal and Approval, not a second store (contract §2.2: 'the set manifest's contract: on the branch'). The approval record holds the approved set it always held."
+  - key: "NO WILDCARDS IN AREAS — glob-versus-glob overlap is undecidable in a simple check; a file or a '/'-ended directory is exact, and a model that needs a wider area names the directory."
+  - key: "Contract defaults relied on: one skills release at the end (decision 22) and the contract block location on the manifest (§2.2) — default, pending operator ratification."
+
+steps:
+  - id: contract-model
+    action: "Contracts/Specs: SeriesContract with its four entry records and Rekeyed(map); SpecSet gains Contract as an init property (105 -> about 109 lines)."
+  - id: check
+    action: "Application/Services/Specs/SeriesContractCheck: members (Owner, Writers, Spec), closed kind list, two Owner claims on one datum or (kind, name), number per kind, budgets per (path, spec), a shared file without every claimant's budget, counted only between claimants whose Repos intersect (members passed as (id, repos)); returns all problems joined, null when clean. SeriesContract.Within(members) for the filing re-check. SeriesContractPromptSection (renders names, data, areas, budgets; empty for null)."
+  - id: reader
+    action: "SeriesContractReader: FromReply (JSON via SpecJsonReader, member as integer position, or string id of the executed head only) and FromOutcome (YAML map via OutcomeYamlReader); '*' refused; add the file to ModelOutputParsingRuleTests' parser list."
+  - id: derivation
+    action: "SpecDerivationParser: read and check after specs.Build; Parsed gains ContractProblem (same record line) carrying the check's message beside the set built without the contract; a clean contract is set on the built SpecSet; the constructor's three parameters on one line and SpecInputs on one line keep the file at or under 120 lines (119 now; 2026-10-13-8762u then changes it net zero)."
+  - id: epic
+    action: "EpicOutcomeParser reads `contract:` after the edge check and returns OutcomeInvalid on a problem; EpicOutcome gains Contract (OutcomeProposal.cs, after 2026-10-13-8762i's ReviewRounds, about 48 -> at most 52); OutcomeProposalJson's Dto carries it both ways (after 8762i, about 72 -> at most 76)."
+  - id: filing
+    action: "SeriesDraftIds.Map extracted from Assign; FiledSeries gains Contract (init); FiledSeriesFactory.Mint/Under(ordered, source) re-key and apply Within, logging removals (26 -> about 34). The proposal is passed at OutcomeTicketFiler.cs:46 and :112 and AmendedSpecification.cs:34 and :58, each on its existing line; OutcomeTicketFiler (120) and ApprovedSpecSetRecorder (119) keep their line counts."
+  - id: continuation
+    action: "TicketContinuationDecision gains Ids (init); SeriesContinuationIds sets it from its map (75 -> about 76); TicketContinuationAct re-keys epic.Contract with it, applies Within and logs removals (89 -> at most 95)."
+  - id: recut
+    action: "PreviousCutPromptSection appends SeriesContractPromptSection.Render(previous.Contract) with the positions sentence (82 -> about 84); SpecSetDeriver rejects a ContractProblem and, when the set is not handed back, a reply without the contract the previous cut had — both only before the last attempt, on which the cut is kept without a contract and the drop logged (108 -> at most 114)."
+  - id: manifest
+    action: "SeriesContractDocument + SeriesContractYaml (write/read); SeriesManifestDocument gains Contract; SeriesManifest.Serialize sets Contract on the existing TicketFingerprint initializer line (SeriesManifest.cs:40), net zero at 2026-10-13-8762h's 120; SeriesReader.SetOf one line (93 -> 94)."
+  - id: skills
+    action: "On skills branch spec/2026-10-13-8762: spec-derivation-master's reply shape and design-partner-master's epic block gain the optional contract with one example each and the four rules the check enforces; frontmatter versions NOT bumped (2026-10-13-8762x bumps each master once); the build note quotes the exact sentence added to each master."
+  - id: tests
+    action: "SeriesContractReader and SeriesContractCheck registered in Services/Specs/Review/SpecReviewRegistrations.cs (AddSpecReview). Red first for every test below, then green, including the self-test fixture of this series' contract; run the Specs, SpecDialog, Server and Architecture classes touched."
+  - id: record
+    action: "Decision file .agentsmith/decisions/2026-10-13-8762j.yaml; one state.done line of at most 400 characters in the default context."
+
+tests:
+  - "SeriesContractCheck_DatumListedTwice_IsDuplicateOwner"
+  - "SeriesContractCheck_NameWithTwoOwners_IsRefused"
+  - "SeriesContractCheck_SameNumberSameKind_Collides"
+  - "SeriesContractCheck_SameNumberOtherKind_Passes"
+  - "SeriesContractCheck_SharedFileWithEveryClaimantsBudget_Passes"
+  - "SeriesContractCheck_SharedFileMissingOneClaimantsBudget_IsRefused"
+  - "SeriesContractCheck_FileUnderClaimedDirectory_CountsAsShared"
+  - "SeriesContractCheck_LaterMemberLowerBudget_Passes"
+  - "SeriesContractCheck_OwnerPlusWriters_Passes"
+  - "SeriesContractCheck_TwoOwnerClaims_AreRefused"
+  - "SeriesContractCheck_UnknownKind_IsRefused"
+  - "SeriesContractCheck_KindCaseInsensitive_EventAndEVENTCollide"
+  - "SeriesContractCheck_Series8762OwnContract_Passes"
+  - "SeriesContract_Within_RemovesEntriesNamingNonMembers"
+  - "SeriesContractCheck_OwnerNotAMember_IsRefused"
+  - "SeriesContractCheck_BudgetTwoNumbersForOnePathAndSpec_IsRefused"
+  - "SeriesContractCheck_ThreeProblems_AllNamedInOneMessage"
+  - "SeriesContractReader_ReplyPositionAndId_ResolveToBuiltIds"
+  - "SeriesContractReader_WildcardPath_IsRefused"
+  - "SeriesContractReader_OutcomeMap_ReadsEverySection"
+  - "SeriesContract_Rekeyed_MapsOwnersAndAreas"
+  - "SpecDerivationParser_CollidingContract_IsRejectedWithTheReason"
+  - "SpecDerivationParser_NoContract_ParsesAsBefore"
+  - "EpicOutcomeParser_CollidingContract_IsOutcomeInvalid"
+  - "EpicOutcomeParser_Contract_RidesOnTheOutcome"
+  - "OutcomeProposalJson_EpicContract_RoundTrips"
+  - "FiledSeriesFactory_Mint_ContractFollowsTheReid"
+  - "FiledSeriesFactory_FollowUpWithoutExecutedChildren_DropsTheirEntries"
+  - "PreviousCutPromptSection_PreviousContract_IsRendered"
+  - "SpecSetDeriver_ReplyDropsPreviousContract_IsRejectedWithTheReason"
+  - "SpecSetDeriver_HandbackOnRecutWithPreviousContract_IsNotRejected"
+  - "SpecSetDeriver_ContractDefectOnLastAttempt_KeepsTheCutWithoutContract"
+  - "SeriesContractReader_ReplyNamesUnexecutedOldId_IsRejected"
+  - "SeriesContractCheck_SamePathInTwoRepositories_IsNotShared"
+  - "PreviousCutPromptSection_PreviousContract_SaysMembersByPosition"
+  - "OutcomeTicketFiler_LoneSpec_PassesTheProposalAsSource"
+  - "ApprovedSpecSetRecorder_EpicContract_IsOnTheStoredSet"
+  - "SeriesManifest_Contract_RoundTripsThroughSeriesReader"
+  - "SeriesManifest_NoContract_WritesNoKey"
+  - "TicketContinuationAct_EpicContract_RekeyedOntoContinuedIds"
+  - "TicketContinuationAct_ProposalWithoutContract_KeepsTheBasisContract"
+  - "AddSpecReview_ResolvesContractReaderAndCheck (real ServiceProvider)"
+
+done:
+  - "A design turn proposing an epic whose contract gives one event number to two names, or one file to two children without each one's line budget, is re-prompted with every collision named; a clean one, including this series' own contract, is proposed unchanged."
+  - "A derivation reply whose contract names one datum twice is sent back with that reason, and the next clean reply is cut; on the last attempt the cut is kept without the contract and the drop logged; a hand-back on a re-cut is never asked for the contract."
+  - "An approved epic with a contract is filed with the contract keyed by the series' minted ids, and the run reads it back from the branch's series manifest; a continuation approval records its own contract keyed by the continued ids."
+  - "A proposal or derivation with no contract behaves exactly as before."
+  - "Build green, full suite green, dashboard gen/test/build green."

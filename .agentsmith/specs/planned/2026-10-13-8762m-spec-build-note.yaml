@@ -1,0 +1,189 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-8762m
+goal: "Each spec ends with a build note of what it renamed, moved, persisted and deviated from; the next spec's master, premise check and ticket page show it, and its prompt carries the fresh memory index."
+
+applies_to: "backend (master record tools, spec record outcome block, spec-execution prompt, premise-check prompt, memory index, ticket series read) + the dashboard spec document + the coding-agent-master skill on the series' skills branch"
+
+requires: []
+
+facts:
+  - claim: "AgenticMasterHandler builds the three record tool hosts inline from the decision logger and the run's repositories."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:243-248, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:37, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:61"
+  - claim: "The decision host is read again after the loop: by the loop hooks, the re-engagement session and the decisions the handler appends."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:374, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:419, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:538, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:596"
+  - claim: "AgenticMasterHandler sits at its file-length baseline of 747 lines, PipelineHandlersExtensions at 218, ContextKeys at 152; the limit for an unlisted file is 120."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:6, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:37, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:77, tests/AgentSmith.Tests/Architecture/FileLengthRatchetTests.cs:19"
+  - claim: "MasterToolComposition.Compose takes log, recall and remember as three parameters; only the coding master (not scan, not design) gets the escalation valve and the ledger, and a child's surface is BaseSurface, so a tool added after BaseSurface never reaches a sub-agent."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:42-49, src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:86-90, src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:104"
+  - claim: "MasterToolComposition is registered on one chained line beside AgenticToolSurface and DesignReadToolHostFactory."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs:106-107"
+  - claim: "A spec-execution master is recognised by ContextKeys.CurrentSpec being present."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:101"
+  - claim: "ContextKeys is a partial class split by area; CurrentSpec lives in its own partial."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/ContextKeys.cs:9, src/backend/AgentSmith.Contracts/Commands/ContextKeys.SpecExecution.cs:8"
+  - claim: "What the sequence knows of a spec that ran is its id, goal, state, failing command and a note; the note today holds only why a standing is what it is."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSequenceProgress.cs:36-44"
+  - claim: "PrecedingSpecs returns the specs ordered before the current one that ran, in this run (sequence table) or an earlier one (SpecSet.Executed)."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/PrecedingSpecs.cs:23-49"
+  - claim: "The premise-check prompt names each preceding spec by id and goal only."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/PremiseCheckPrompt.cs:94-103"
+  - claim: "ISpecPremiseChecker.CheckAsync takes the preceding specs as IReadOnlyList<SpecProgress>; the harness implements the port with its own double."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ISpecPremiseChecker.cs:14-19, tests/AgentSmith.PipelineHarness/Composition/HarnessFrameworkCalls.cs:72"
+  - claim: "The spec-execution user prompt is composed of the spec block, the working repository and the spec contract, with its optional blocks from SpecExecutionPromptBlocks."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecutionPromptFactory.cs:52-75"
+  - claim: "The spec record is the spec's yaml followed by an outcome block of run, delivered and review; that body is what WriteSpecRecord publishes and writes."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRecordBody.cs:19-34, src/backend/AgentSmith.Application/Services/Specs/SpecOutcomeBlock.cs:13-28, src/backend/AgentSmith.Application/Services/SpecExecution/WriteSpecRecordHandler.cs:40-42"
+  - claim: "The record body is mirrored as SpecRecordedEvent (80)."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecution/SpecRecordPublisher.cs:19-26"
+  - claim: "A spec read back from specs/done/ keeps the whole file as its draft yaml, outcome block included, and reads as executed."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesSpecFileReader.cs:58-66, src/backend/AgentSmith.Application/Services/SpecDialog/SpecDraftReader.cs:21"
+  - claim: "Recording a spec in this run adds its id to SpecSet.Executed only; the in-memory draft keeps no outcome block."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecution/SpecDoneRecorder.cs:61"
+  - claim: "A spec found already satisfied on entry is recorded Done with AlreadySatisfiedNote and drops its work steps, the master among them."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SelectSpecHandler.cs:33, src/backend/AgentSmith.Application/Services/Handlers/SelectSpecHandler.cs:91-98"
+  - claim: "LoadMemoryIndex runs once in the code preset, before SpecSequence; the handler binds ContextKeys.MemoryIndex to the master body's MemoryIndexSection placeholder, and the legacy prompt builder binds it empty."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Code.cs:49, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Code.cs:70, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:214, src/backend/AgentSmith.Application/Services/Handlers/MasterPromptSections.cs:62-70, src/backend/AgentSmith.Application/Services/Prompts/AgentPromptBuilder.cs:64"
+  - claim: "observed: 2026-10-14, agent-smith-skills origin/main (v5.15.1, f9655e8): no skill carries {MemoryIndexSection}; coding-agent-master's inputs list and body leave it out, so today the index reaches no master."
+    evidence: "observed: 2026-10-14, git grep MemoryIndexSection origin/main (no hit) and git show origin/main:skills/_masters/coding-agent-master/SKILL.md lines 1-17"
+  - claim: "The spec-execution user prompt is built only when the master has a current spec, by the dependency-free SpecExecutionPromptFactory, from the handler."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:101, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:345-349, src/backend/AgentSmith.Application/Services/SpecExecutionPromptFactory.cs:24-31"
+  - claim: "The harness's ScriptedChatClient keeps every call's messages as text, so a test can assert what the master was actually sent."
+    evidence: "tests/AgentSmith.PipelineHarness/Llm/ScriptedChatClient.cs:47-49"
+  - claim: "AgenticMasterHandler's constructor takes IDecisionLogger and RunRepositoriesFactory; both are read only at the record-host lines, whose first two lines are a comment."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:37, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:61, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:243-248"
+  - claim: "The sequence's per-spec table is ContextKeys.SpecSequenceProgress, and an already-satisfied spec's row carries SelectSpecHandler.AlreadySatisfiedNote; the record step runs for that spec too, because it is not among SpecWorkSteps."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/ContextKeys.Spec.cs:32, src/backend/AgentSmith.Application/Services/Handlers/SelectSpecHandler.cs:33, src/backend/AgentSmith.Application/Services/Handlers/SelectSpecHandler.cs:91-93, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Parking.cs:59-72"
+  - claim: "SpecRecordBody receives only the draft and the pipeline."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRecordBody.cs:19"
+  - claim: "The record body is stored per run and spec as a RunArtifact of kind 'spec_record:{specId}'."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSpecProjection.cs:21, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSpecProjection.cs:55-63"
+  - claim: "The ticket page's spec document renders the cut's goal, steps and done; its yaml comes from the cut, not the record, and the series read joins cuts, RunSpec rows, attempts, gate steps, judgements and transitions — no record artifact."
+    evidence: "src/dashboard/src/components/tickets/detail/SpecDocument.tsx:17-77, src/backend/AgentSmith.Server/Services/Tickets/TicketSeriesSpecComposer.cs:32-37, src/backend/AgentSmith.Server/Services/Tickets/TicketSeriesRecordsReader.cs:15-35, src/backend/AgentSmith.Server/Models/TicketSeriesSpecView.cs:14-27"
+  - claim: "LoadMemoryIndexHandler reads MEMORY.md per repository and labels each index by repository name when there are several."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/LoadMemoryIndexHandler.cs:29-76"
+  - claim: "remember writes the memory file and updates MEMORY.md in the sandbox of the repository it is about."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/MemoryWriteToolHost.cs:52-61, src/backend/AgentSmith.Application/Services/Memory/MemoryStore.cs:17"
+  - claim: "remember answers 'not recorded' without writing when the chosen repository has no code change yet."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/MemoryWriteToolHost.cs:56-57"
+  - claim: "The run's resume checkpoint serializes every context key not on the serializer's exclusion list."
+    evidence: "src/backend/AgentSmith.Application/Services/Resume/PipelineContextSerializer.cs:27-40, src/backend/AgentSmith.Application/Services/Resume/PipelineContextSerializer.cs:46-49"
+  - claim: "observed: 2026-10-13, agent-smith-skills origin/main (5.15.1; the pin is v5.15.0): coding-agent-master's '## Your verdict' section says the verdict is the last message; nothing asks for a note to the next spec."
+    evidence: "observed: 2026-10-13, git show origin/main:skills/_masters/coding-agent-master/SKILL.md lines 454-516; src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54"
+  - claim: "observed: 2026-10-13, wc -l in this worktree: MasterToolComposition.cs 112, AgenticToolSurface.cs 119, SpecExecutionPromptFactory.cs 78, PremiseCheckPrompt.cs 104, SpecOutcomeBlock.cs 45, SpecRecordBody.cs 35, PrecedingSpecs.cs 50, LoadMemoryIndexHandler.cs 77; none is baselined."
+    evidence: "observed: 2026-10-13, wc -l + grep of tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv"
+
+assumptions:
+  - "Four short string lists cover what a later spec must know: renamed, moved, persisted and deviations; a free-text field would be read as prose and checked against nothing."
+  - "Rereading MEMORY.md once per spec-execution master start is cheap: one small file read per repository."
+
+scope:
+  in: >
+    RECORD TOOLS: MasterRecordToolHosts (Application/Services/Tools) creates, per master start, a MasterRecordTools
+    record {Log, Recall, Remember, HandForward?} from the decision logger and RunRepositoriesFactory — the inline
+    construction at AgenticMasterHandler.cs:243-248 moves there. AgenticMasterHandler takes it instead of IDecisionLogger
+    and RunRepositoriesFactory and reads records.Log where it read log. MasterToolComposition.Compose takes the record
+    instead of log, recall and remember. AgenticToolSurface is untouched. NOTE: SpecBuildNote(SpecId, Renamed, Moved,
+    Persisted, Deviations), every list of strings, in Contracts/Specs. ContextKeys.SpecBuildNotes =
+    IReadOnlyDictionary<string, SpecBuildNote> in the new partial ContextKeys.HandForward.cs, kept in the run (stored nowhere but the run's resume checkpoint, like every context key). TOOL:
+    hand_forward(renamed[], moved[], persisted[], deviations[]) on HandForwardToolHost; offered only to a coding master
+    with a CurrentSpec, after BaseSurface (never to a child, a scan master or a design turn). A call replaces the
+    current spec's note (the last call wins); at most 20 entries per list and 300 characters per entry, an excess
+    refused by name. A renamed or moved entry has the form `<old> -> <new>` (an old name or path, the
+    two-character arrow with a space each side, the new one); an entry without ` -> ` is refused by name, so
+    2026-10-13-8762n can split it. Its description carries the whole contract, the entry format included, so it works
+    without the skill text. RECORD: the outcome
+    block gains hand_forward. SpecRecordBody decides from what it already receives: when the current spec's row in
+    ContextKeys.SpecSequenceProgress carries SelectSpecHandler.AlreadySatisfiedNote it writes no key; else, when
+    ContextKeys.SpecBuildNotes has no entry for the spec, the scalar `missing`; else the mapping of the four lists. READ: SpecBuildNoteReader reads outcome.hand_forward
+    out of an executed spec's draft yaml; PrecedingSpecs.NotesOf(pipeline, specId) gives, per preceding spec that ran,
+    this run's note from the context key, else the note in its record, else "no note". RENDER: SpecBuildNoteSection
+    renders those notes, at most 8000 characters; the oldest are dropped first, and a line names each dropped spec and
+    its done/ file. The section goes into the spec-execution user prompt (with one line asking for hand_forward before
+    the verdict) and into the premise-check prompt's "already run" block. MEMORY: MemoryIndexReader (extracted from
+    LoadMemoryIndexHandler, which delegates to it) refreshes ContextKeys.MemoryIndex in AgenticMasterHandler only when
+    isSpecExecution (AgenticMasterHandler.cs:101), before the user prompt is built — never for a design turn or a scan.
+    SpecExecutionPromptFactory renders MasterPromptSections.BuildMemoryIndexSection(pipeline) into the spec-execution
+    user prompt in code, so the index reaches the master without any skill placeholder; a memory spec N wrote is in
+    spec N+1's prompt. TICKET PAGE: TicketSeriesRecordsReader's full read also loads the attempts' 'spec_record:'
+    RunArtifacts (one set query); TicketSeriesSpecComposer reads the executing run's record through SpecBuildNoteReader
+    and appends BuildNote (the four lists, `missing`, or null when no record) LAST to TicketSeriesSpecView; the
+    dashboard's TicketSeriesSpec gains buildNote and SpecDocument renders a "Build note" block (four lists, or "no
+    note") above the read-only note. SKILL: coding-agent-master's verdict section asks
+    for hand_forward once before the verdict, on the skills branch spec/2026-10-13-8762; the build note quotes the exact
+    sentence added.
+  out: >
+    Re-grounding a spec's moved citations when it is entered, and checking a note against the series contract — 2026-10-13-8762n. decide_by_default and its host beside these — 2026-10-13-8762o. Releasing the skill edit and
+    bumping the pin — 2026-10-13-8762x. Rendering the memory index through a {MemoryIndexSection} skill placeholder — nobody: it is rendered in code
+    (contract 2.8: tools and prompts work without the skill text). Persisting a note anywhere but the record — nobody: section 2.2 of the
+    series contract names the record as its only home. Compaction of a long master pass — 2026-09-28-23a2c.
+
+decisions:
+  - key: "THE RECORD IS THE NOTE'S ONLY HOME. It is part of specs/done/{stem}.yaml, which SpecRecorded (80) already mirrors; this run's notes wait in a context key that is stored nowhere but the run's resume checkpoint, as every context key is (PipelineContextSerializer); that copy only lets a run resumed between master and record keep its note, and is never read as the note. A later attempt reads them back from the executed spec's yaml, so a resumed series loses nothing and nothing is stored twice (series contract 2.2)."
+  - key: "STRUCTURED LISTS, NOT PROSE. renamed, moved, persisted and deviations are what a later premise or contract check can match a citation or a datum against; a paragraph would be read and trusted, never checked."
+  - key: "A MISSING NOTE IS REPORTED, NOT BLOCKING. The record says `missing` and the next spec is told 'no note'; the run is not stopped. Contract section 5 default 45 (decision 12), pending operator ratification."
+  - key: "ALREADY-SATISFIED SPECS CARRY NO KEY. They ran no master, so 'missing' would be false; their standing note already says why."
+  - key: "MEMORY REFRESHED WHERE IT IS READ, FOR SPEC EXECUTION ONLY. The index is reloaded at a spec-execution master start rather than by splicing LoadMemoryIndex into CodeSpecBlock: a second LoadMemoryIndex in the block would change Effective(), the run-rail beats and the gate-order and control-flow goldens for a file read. Design turns and scans never loaded the index, so they pay no read."
+  - key: "THE INDEX IS RENDERED IN CODE, IN THE USER PROMPT. No master in the catalog carries {MemoryIndexSection}, so the body binding at AgenticMasterHandler.cs:214 reaches no model; refreshing it alone would change nothing the master sees. The spec-execution user prompt is code, so the index is proven where the master reads it (harness PromptsSeen). The body binding stays; a master that later adds the placeholder would show the index twice, which the skill edit for that master has to weigh."
+  - key: "THE TICKET PAGE READS THE NOTE OUT OF THE RECORD ARTIFACT. The record is the note's only home (contract 2.2); the series read already joins per-attempt rows in one set query each, so one more query over RunArtifact by kind prefix shows the note without a second copy. This spec owns that small server + dashboard change."
+  - key: "EXTRACT FIRST, FOR A NET REMOVAL. AgenticMasterHandler is at its 747-line baseline. Moving the record hosts out, and replacing two constructor parameters with one, makes room for the memory refresh line and leaves the handler shorter; the baseline row is lowered to the measured count. Contract section 2.5."
+  - key: "MASTERRECORDTOOLS IS THE PRODUCT TYPE. The contract names the factory, MasterRecordToolHosts; the record it returns is named MasterRecordTools so 2026-10-13-8762o appends its host as one more member (series contract 2.5, amended)."
+  - key: "NO REGISTRATION LINE ADDED. MasterRecordToolHosts and MemoryIndexReader join the existing chain at PipelineHandlersExtensions.cs:106-107, so the file stays at 218."
+  - key: "PROMPT BOUND 8000 CHARACTERS, OLDEST DROPPED FIRST. A 24-spec series would otherwise grow every master prompt without limit; the nearest predecessors matter most, and a dropped note stays one read_file away. Default, pending operator ratification."
+  - key: "RENAMED AND MOVED ENTRIES ARE `<old> -> <new>`. 2026-10-13-8762n checks a renamed entry's old name and a moved entry's destination against the series contract; a free sentence gives it nothing to split. The format is stated in the tool description and the skill sentence, and an entry without the arrow is refused by name (main-thread decision 6, round-2 review of 8762n F7)."
+  - key: "TOOL TEXT CARRIES THE CONTRACT. The skill edit lands with 2026-10-13-8762x; the description and the spec contract line in the user prompt make the tool usable before that release (contract 2.8)."
+  - key: "BACKEND CONTEXT. Recorded in the default context (contract section 5 default 72, decision 23, pending operator ratification)."
+
+steps:
+  - id: record-hosts
+    action: "MasterRecordToolHosts + MasterRecordTools; AgenticMasterHandler and MasterToolComposition switch to it; registered on PipelineHandlersExtensions.cs:106-107 (file stays 218). Constructor arithmetic: MasterRecordToolHosts and MemoryIndexReader replace IDecisionLogger and RunRepositoriesFactory (net 0); lines 243-248, comment lines 243-244 included, become one line; the spec-execution refresh adds one, so AgenticMasterHandler ends at or below 744 and its baseline row is set to the measured count; MasterToolComposition (116 after 2026-10-13-8762c and 2026-10-13-8762d) stays at or under 118."
+  - id: note-contract
+    action: "SpecBuildNote (Contracts/Specs) and ContextKeys.HandForward.cs with SpecBuildNotes; ContextKeys.cs untouched (152)."
+  - id: tool
+    action: "HandForwardToolHost: hand_forward with the bounds above and the `<old> -> <new>` entry format for renamed and moved (an entry without ` -> ` refused by name), writes the current spec's note into ContextKeys.SpecBuildNotes; added in MasterToolComposition's coding-only block when CurrentSpec is present."
+  - id: record
+    action: "SpecOutcomeBlock.Render gains the hand_forward key; SpecRecordBody decides no key (progress row note == AlreadySatisfiedNote), `missing` (no context-key entry) or the mapping. Both stay under 70 lines."
+  - id: read-back
+    action: "SpecBuildNoteReader (outcome.hand_forward of an executed spec's yaml) and PrecedingSpecs.NotesOf (context key, else record, else no note); PrecedingSpecs stays under 80 lines."
+  - id: render
+    action: "SpecBuildNoteSection (static, pure) with the 8000-character bound; SpecExecutionPromptFactory renders it, the hand_forward line and BuildMemoryIndexSection (stays under 90 lines)."
+  - id: premise
+    action: "ISpecPremiseChecker.CheckAsync gains the preceding notes; SpecPremiseChecker, HarnessSpecPremiseChecker and CheckSpecPremisesHandler (stays at or under 120) pass them; PremiseCheckPrompt.AlreadyRan renders them (stays at or under 108)."
+  - id: memory
+    action: "MemoryIndexReader extracted from LoadMemoryIndexHandler; AgenticMasterHandler refreshes ContextKeys.MemoryIndex when isSpecExecution, before building the user prompt."
+  - id: ticket-view
+    action: "TicketSeriesRecords appends Records (run id + spec id -> record body) filled by TicketSeriesRecordsReader's full read; TicketSeriesSpecView appends BuildNote; TicketSeriesSpecComposer fills it (stays under 70 lines); dashboard types/tickets.ts buildNote, SpecDocument 'Build note' block (stays under 110 lines); pnpm test and build green."
+  - id: skill
+    action: "coding-agent-master '## Your verdict': call hand_forward once before the verdict, renamed and moved entries as `<old> -> <new>` — on skills branch spec/2026-10-13-8762, frontmatter version NOT bumped (2026-10-13-8762x bumps each master once), the build note quoting the exact sentence; released by 2026-10-13-8762x."
+  - id: tests
+    action: "Red first for every test below, then green; run the Tools, Specs, Memory, Handlers and Architecture classes touched."
+
+tests:
+  - "MasterRecordToolHosts_Create_BuildsLogRecallRememberPerRepository"
+  - "MasterToolComposition_CodingMasterWithSpec_CarriesHandForward"
+  - "MasterToolComposition_ScanDesignAndChildSurfaces_CarryNoHandForward"
+  - "HandForward_SecondCall_ReplacesTheNote"
+  - "HandForward_OverBound_IsRefusedByName"
+  - "HandForward_RenamedEntryWithoutArrow_IsRefusedByName"
+  - "SpecOutcomeBlock_WithNote_RendersFourLists"
+  - "SpecRecordBody_MasterRanWithoutNote_RecordsMissing"
+  - "SpecRecordBody_AlreadySatisfiedRow_RecordsNoHandForwardKey"
+  - "SpecBuildNoteReader_ExecutedSpecYaml_ReadsTheNote"
+  - "PrecedingSpecs_NotesOf_ContextFirstThenRecordThenNoNote"
+  - "SpecBuildNoteSection_OverBound_DropsOldestAndNamesTheirFiles"
+  - "SpecExecutionPrompt_SecondSpec_ShowsFirstSpecsNote"
+  - "PremiseCheckPrompt_AlreadyRan_RendersNotes"
+  - "MemoryIndexReader_ResolvesThroughTheRealServiceProvider (integration)"
+  - "Harness_TwoSpecSeries_SpecTwoMasterPromptCarriesMemoryRememberedInSpecOne (RealCompositionHarness + ScriptedChatClient.PromptsSeen; spec 1's script writes a file before it calls remember, because remember refuses a repository with no code change, MemoryWriteToolHost.cs:56-57, and the test asserts remember's answer says recorded)"
+  - "AgenticMaster_DesignTurnAndScan_DoNotRereadTheMemoryIndex"
+  - "TicketSeriesSpecComposer_ExecutedSpec_CarriesTheRecordsBuildNote"
+  - "SpecDocument_RendersBuildNoteOrNoNote (dashboard)"
+  - "LoadMemoryIndexHandler_DelegatesToTheReader_KeepsItsMessages"
+
+done:
+  - "A spec's specs/done/ file carries an outcome.hand_forward block listing what its master said it renamed, moved, persisted and deviated from."
+  - "The next spec's master prompt and premise-check prompt show that note, including after the run parked and a new attempt resumed the series."
+  - "A spec whose master made no hand_forward call is recorded as `missing`, the next spec is told 'no note', and the run goes on."
+  - "A memory remembered while spec 1 ran appears in the user prompt spec 2's master is actually sent (harness), and no design turn or scan reads the index again."
+  - "An executed spec's document on the ticket page shows its build note, or says it has none."
+  - "AgenticMasterHandler is shorter than 747 lines and its baseline row says so."
+  - "Build green, full suite green, dashboard gen:hub-events/test/build green."

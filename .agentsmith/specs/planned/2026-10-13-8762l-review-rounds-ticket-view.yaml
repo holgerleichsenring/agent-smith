@@ -1,0 +1,214 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-8762l
+goal: "A ticket's Specs tab shows every pre-build review round of each spec and of the set — verdicts, cuts, what still stands, contract findings — from one server read."
+
+applies_to: "dashboard (ticket Specs tab, the page's read store) + backend (Server ticket reviews endpoint and reader; the approval record carries the approved proposal's review rounds)"
+
+requires: [2026-10-13-8762k]
+
+facts:
+  - claim: "A published cut carries its hand-back case as SpecCutContent.CaseOf's string, the enum case name only; the ticket page's gate reads 'skipped' for any cut with a case and the step's status otherwise, and the dashboard words a case through CASE_WORDS."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecCutContent.cs:19-21, src/backend/AgentSmith.Application/Services/Specs/SpecSetAnnouncer.cs:36, src/backend/AgentSmith.Application/Services/Specs/SpecSetAnnouncer.cs:60, src/backend/AgentSmith.Server/Services/Tickets/TicketSeriesReader.cs:55-61, src/dashboard/src/components/tickets/detail/flowWords.ts:35-47"
+  - claim: "Ticket routes are runs.read and chain from MapTicketSeriesEndpoints into MapTicketConversationReadEndpoints, which returns the app; segments are decoded with TicketQueryEndpoints.Decoded."
+    evidence: "src/backend/AgentSmith.Server/Extensions/TicketSeriesEndpoints.cs:12-25, src/backend/AgentSmith.Server/Extensions/TicketConversationReadEndpoints.cs:14-18"
+  - claim: "TicketSeriesReader numbers a ticket's attempts from TicketRunsQuery rows of the code pipeline through TicketAttempts, and answers null (404) for a pair that is no ticket or a run that is not one of its attempts."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketSeriesReader.cs:22-29"
+  - claim: "Ticket readers open their own scope and read projected rows through uow.Set<T>() in one set query per table."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketSeriesRecordsReader.cs:13-24"
+  - claim: "The ticket readers are registered transient in AddTicketReaders (56 lines)."
+    evidence: "src/backend/AgentSmith.Server/Extensions/TicketReadExtensions.cs:16-55"
+  - claim: "Every ticket route is listed with its permission in the route-permission baseline."
+    evidence: "tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:80-84"
+  - claim: "The Specs tab lists the series' specs with a cell per attempt beside the selected spec's document, then the revisions; it fetches no spec file."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketSpecsTab.tsx:15-56"
+  - claim: "SpecDocument renders a spec as blocks (.blk with an h4) of steps and done criteria (.crit/.ci rows with a mark, text and who), then the read-only note."
+    evidence: "src/dashboard/src/components/tickets/detail/SpecDocument.tsx:33-73"
+  - claim: "TicketPageReads holds detail, series and conversation as ticket-level reads; a TicketActivityChanged re-reads all of them and a SpecCutReviewed in the live stream re-reads the conversation."
+    evidence: "src/dashboard/src/lib/tickets/TicketPageReads.ts:35-43, src/dashboard/src/lib/tickets/TicketPageReads.ts:128-142, src/dashboard/src/lib/tickets/TicketPageReads.ts:167-175"
+  - claim: "TicketPageStore counts SpecCutReviewed events in the live attempt's stream and calls reads.cutReviewed() on each new one."
+    evidence: "src/dashboard/src/lib/tickets/TicketPageStore.tsx:87-107"
+  - claim: "Ticket reads go through ticketsApi helpers on /api plus ticketPath(project, ticketId)."
+    evidence: "src/dashboard/src/lib/ticketsApi.ts:40-56"
+  - claim: "An attempt's revision carries approvalAt, the approval the published set came from."
+    evidence: "src/dashboard/src/types/tickets.ts:160-180"
+  - claim: "The parity test asserts the Specs tab's mock classes (.sp-grid ... .blk, .crit, .ci, .revs, .rv); the vendored ticket-view mock and mock-parity.css name their source and every deviation."
+    evidence: "src/dashboard/src/__tests__/mock-parity.test.tsx:309, src/dashboard/src/styles/mock-parity.css:1-10"
+  - claim: "The ratified ticket-view mock has no review-round surface: the cut reviewer appears only as conversation entries and a revision cause."
+    evidence: "src/dashboard/design/mockups/ticket-view.html:846-849, src/dashboard/design/mockups/ticket-view.html:941"
+  - claim: "The C# line ratchet lists no dashboard file."
+    evidence: "observed: 2026-10-14, grep -c 'dashboard' tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv = 0"
+  - claim: "SpecCutReviewed is the last run event the dashboard mirrors (86)."
+    evidence: "src/dashboard/src/types/hub-events.ts:50"
+  - claim: "A new filing stores the approved proposal as ConfirmedOutcomeJson and CLEARS it once filing succeeded; that column means 'approved and not fully filed'."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:41-47, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeStore.cs:29-38"
+  - claim: "An approval in a ticket's own conversation never writes ConfirmedOutcomeJson and clears LatestProposalJson once acted on; the ticket's conversation tab reads only LatestProposalJson."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:36-39, src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:85-87, src/backend/AgentSmith.Server/Services/Tickets/Conversation/TicketTranscriptReader.cs:36-39"
+  - claim: "A conversation is bound to a ticket only when it is opened with one; a conversation that files a NEW ticket stays unbound."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSessionManager.cs:26-40"
+  - claim: "The approval record is a positional record ending in an optional Continuation, persisted whole as ApprovedSeries.ContentJson and read back by (tracker, key) through ISpecApprovalStore.GetAsync."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecApprovalRecord.cs:68-77, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ApprovedSeriesRepository.cs:97-99, src/backend/AgentSmith.Contracts/Specs/ISpecApprovalStore.cs:18"
+  - claim: "The recorder loads the previous record of the ticket before it builds and saves the new one from the FiledSeries it is given."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSpecSetRecorder.cs:73-83"
+  - claim: "The approval record travels into a run as JSON under ContextKeys.ApprovedSpecSet."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovedSpecSetResolver.cs:42"
+  - claim: "TicketPageReads holds two coalesced refetches, one for the ticket reads and one for the conversation; TicketPageReads.ts is 259 lines and TicketPageStore.tsx 242, over the principles' 120-line class limit."
+    evidence: "src/dashboard/src/lib/tickets/TicketPageReads.ts:88-89, .agentsmith/contexts/default/principles.md:26"
+  - claim: "TicketSpecsTab.tsx is 94 lines; seven test files build a fake of the ticket page's reads (TicketSpecsTab, TicketConversationTab, TicketPage, TicketAttemptsCost, costCompute, mock-parity, TicketPageStore)."
+    evidence: "observed: 2026-10-14, wc -l and grep -rln 'compute: ' over src/dashboard/src test files in the 8762 worktree"
+  - claim: "A lone spec is filed through seriesFiling.Mint([spec.Draft]) and amended through Series.Under(series, [spec.Draft]); a closed ticket's follow-up with one draft left files new SpecOutcome(decision.Drafts[0]), built from the draft alone."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:46, src/backend/AgentSmith.Server/Services/SpecDialog/AmendedSpecification.cs:34, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/ClosedTicketFollowUp.cs:21-23"
+  - claim: "A continuation's record names a disposition per spec — kept, recut, appended or dropped; a filing carries no Continuation."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecDispositionKinds.cs:7-13, src/backend/AgentSmith.Contracts/Specs/SpecApprovalRecord.cs:63-77"
+  - claim: "Filing re-ids by position in the ordered drafts, so an id a never-worked amendment drops can be given to a different spec later."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SeriesDraftIds.cs:14-27"
+  - claim: "The carrier writes the whole stored record into the run's initial context, and the resolver publishes the winning record whole on the pipeline; the only writer back to the store from a record is the Server's ApprovalCitations."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovedSpecSetCarrier.cs:32-37, src/backend/AgentSmith.Application/Services/Specs/ApprovedSpecSetResolver.cs:37-42, src/backend/AgentSmith.Server/Services/SpecDialog/ApprovalCitations.cs:23-37"
+  - claim: "A new-ticket filing records the filing beside the proposal and never clears LatestProposalJson; only a ticket conversation's acted-on approval clears it."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:41-55, src/backend/AgentSmith.Server/Services/SpecDialog/TicketFilingOutcomeSink.cs:85-87"
+  - claim: "TicketPageReads declares each read as a snapshot field and an API member and each refetch as a field, and start(), dispose() and ticketChanged() name the reads and refetches one line each — so a new read costs about ten lines there."
+    evidence: "src/dashboard/src/lib/tickets/TicketPageReads.ts:35-89, src/dashboard/src/lib/tickets/TicketPageReads.ts:103-133"
+
+assumptions:
+  - "2026-10-13-8762e's RunSpecReviewRound row carries Id, RunId, EventSeq, SpecId, Scope, Round, Reviewer, Verdict, At, CutsJson, FindingsJson, EvidenceProblemsJson, ResiduesJson and RevisionNumber, and e's hub-events.ts mirror names EventType.SpecReviewRound = 87."
+  - "Each cut carries SpecId? (2026-10-13-8762e declares it, 2026-10-13-8762k fills it on a series round), so a series cut shows its member."
+  - "2026-10-13-8762g's SpecReviewMerge (static: most severe verdict, cuts by register and quote) is callable from the Server; this reader calls it rather than restating the rule."
+  - "2026-10-13-8762e stores a cut's and a finding's evidence as one string naming the repository — 'repo/path:line [Aid]' or 'repo search:'pattern' [Aid]' — so the page renders it as given and never parses it."
+  - "2026-10-13-8762k records the design turn's series round as a ProposalReviewRound keyed by 2026-10-13-8762i's ProposalReviewTokens.Series (\"series\"), never by the epic parent's id, with each cut naming its member's proposal id in SpecId; i never carries that round over to a later turn."
+  - "2026-10-13-8762i's ProposalReviewRound(SpecId, Round, Verdict, ReviewerVerdicts, Cuts, Findings, Residues) rides OutcomeProposal.ReviewRounds keyed by the proposal's draft ids; 2026-10-13-8762j's FiledSeriesFactory.Mint/Under(ordered, source) and TicketContinuationDecision.Ids carry the proposal-id to filed-id map."
+
+scope:
+  in: >
+    SERVER: GET /api/tickets/{project}/{ticketId}/reviews (runs.read), mapped in a new TicketReviewEndpoints chained
+    from MapTicketConversationReadEndpoints' return; TicketReviewsReader numbers the attempts exactly as
+    TicketSeriesReader does (TicketRunsQuery + TicketAttempts), reads RunSpecReviewRounds of those run ids in one
+    query ordered by EventSeq, and returns TicketReviewsView(project, ticketId, attempts[{runId, number,
+    rounds[{scope, specId?, round, verdict (merged through g's SpecReviewMerge), reviewers[{reviewer, verdict, cuts[{specId?,
+    register, quote, replacement?, evidence}], findings[{text, evidence}], evidenceProblems[], residues[]}],
+    cuts[]?, findings[]?, residues[]?, revisionNumber?, at}]}], conversation: {approvalAt, rounds[…same round shape,
+    scope 'conversation']}?). A conversation round (8762i's ProposalReviewRound holds MERGED cuts, findings and
+    residues plus verdict-only ReviewerVerdicts) fills the round-level cuts, findings and residues, and its reviewers[]
+    carries verdicts only; a run round leaves the round-level lists empty; 404 for a
+    pair with neither a code run nor an approval record; an attempt with no round is listed with none. APPROVED ROUNDS: a set approved in the
+    design conversation was reviewed there (2026-10-13-8762i) and never at run time, and after approval its proposal
+    is gone from the session. So FiledSeries gains ReviewRounds (init): j's FiledSeriesFactory re-keys the source
+    proposal's ReviewRounds with the same map it applies to ids, and TicketContinuationAct re-keys them with
+    decision.Ids; a round whose SpecId the map names is re-keyed, a round whose SpecId is ProposalReviewTokens.Series
+    (2026-10-13-8762k's series round) stays under `series` and the SpecId of every SpecReviewCut inside it is re-keyed
+    through the same map, and every other round — the epic parent's own per-draft rounds included — is dropped and
+    logged. j passes the source at all four filing sites (OutcomeTicketFiler.cs:46 and :112, AmendedSpecification.cs:34
+    and :58), so a lone spec's rounds move too; ClosedTicketFollowUp.cs:23's single-draft arm becomes
+    `new SpecOutcome(decision.Drafts[0]) { ReviewRounds = proposal.ReviewRounds }`. SpecApprovalRecord gains
+    ReviewRounds (init, last); ApprovedSpecSetRecorder stores them on its existing record line through
+    ApprovedReviewRounds.Merge(previous, series, continuation) — the new rounds of a spec replace its old ones, and an
+    old round is kept ONLY for an id the new record's Continuation marks Kept (executed, or a basis spec left as is);
+    with no Continuation (a filing, a never-worked amendment) nothing old is kept, so a dropped or reused id never
+    inherits rounds of text it does not carry. STRIP ON THE WAY INTO A RUN: no run step reads ReviewRounds, so ApprovedSpecSetCarrier.cs:37 and ApprovedSpecSetResolver.cs:42 write `record with { ReviewRounds = null }`. GATE VIEW (2026-10-13-8762h's out-item): SpecCutContent.CaseOf returns 'ReviewObjection' for a Question hand-back whose QuestionKind is ReviewObjection, so every published cut of such a set carries that case; TicketSeriesReader.Gate answers 'skipped' for every other case and, for ReviewObjection, reads the gate step as passed or failed (its line 58 changed in place, net zero); flowWords' CASE_WORDS gains ReviewObjection: 'review objection'.
+    TicketReviewsReader reads the record through ISpecApprovalStore.GetAsync(tracker name, ticket key) and returns
+    its rounds as the conversation group, already keyed by filed ids; a conversation round under `series` is the
+    set's series round. Models
+    in Server/Models; reader registered in AddTicketReaders; route-permission-baseline.tsv regenerated. DASHBOARD:
+    types and fetchTicketReviews; a new TicketReviewsRead (lib/tickets) owns the `reviews` read and its own 2 s
+    CoalescedRefetch, composed by TicketPageReads; ticketChanged() and reviewRound() schedule that refetch only, and
+    TicketPageStore calls reviewRound() for each new SpecReviewRound in the live stream, beside the existing
+    cut-review counter; useTicketReviews(). Every test fake of the page's reads gains a `reviews` stub. ReviewRounds.tsx
+    renders one spec's rounds as a SpecDocument block 'Review before build': per attempt, each round's verdict pill
+    (BUILD ok, BUILD WITH CUTS amber, REFUSE bad), its reviewers, each cut as register · quoted text → replacement
+    with its evidence string in mono exactly as stored (a path:line or a repo search, both naming the repository),
+    each residue marked 'still stands', each evidence problem, and the revision it produced; the conversation group
+    renders under 'Reviewed in the conversation before approval'. With no round in any group: 'no review round was
+    recorded'. A new SeriesContractReview.tsx, placed by TicketSpecsTab, renders a 'Series contract review' section
+    between the grid and Revisions, shown only when a series round exists — a run round of scope series, or the
+    conversation's `series` round, which renders under 'Reviewed in the conversation before approval': its
+    verdict, findings with evidence, and cuts naming their member, the member a button that selects that spec. Every element uses existing mock classes
+    (.section-head, .cnt, .blk, h4, .crit, .ci, .pill); mock-parity.css's header gains one deviation line naming
+    this surface as composed from those classes with no mock; the parity test gains the classes for the new block.
+  out: >
+    The rounds themselves, their event and table — 2026-10-13-8762e; series rounds and the cut SpecId —
+    2026-10-13-8762k. The OPEN proposal's rounds in the proposal block — 2026-10-13-8762i. A mock's FiledSeries.Sources
+    map — 2026-10-13-8762s (it may derive it from j's SeriesDraftIds.Map; this spec needs no position join). The contract's own text on the page
+    — nobody: what a person acts on is the finding, and the contract is on the branch. A mock version of this surface
+    — nobody: it composes ratified classes; if the operator wants one drawn first, 2026-10-13-8762r's mock loop
+    is the way. The Defaults tab — 2026-10-13-8762q; the series strip — 2026-10-13-8762w.
+
+decisions:
+  - key: "ONE READ FOR ALL ATTEMPTS — rounds are few per spec and the tab compares attempts; one ticket-level read keeps the page's one-store rule (TicketPageStore) instead of a per-run read per attempt."
+  - key: "MERGED VERDICT FROM g's MERGE — contract decision 2 is g's rule; the reader calls it so the page and the run cannot disagree on a round's verdict, and nothing is stored twice."
+  - key: "APPROVED ROUNDS ON THE APPROVAL RECORD (round-1 cut 1; CONTRACT §2.2 AMENDED: design-turn rounds live on OutcomeProposal.ReviewRounds while the proposal is open and are COPIED at filing, re-keyed, onto SpecApprovalRecord.ReviewRounds; the conversation row keeps its pre-filing copy, which no ticket surface reads — a new-ticket filing never clears LatestProposalJson, TicketFilingOutcomeSink.cs:41-55, round-2 cut 6). The goal promises every pre-build round, and for an approved set those are the only rounds there are."
+  - key: "LONE SPECS MOVE THEIR ROUNDS TOO (round-2 cut 1, main-thread decision 18). A lone spec files and amends through OutcomeTicketFiler.cs:46 and AmendedSpecification.cs:34, and a closed ticket's one-draft follow-up builds a fresh SpecOutcome (ClosedTicketFollowUp.cs:21-23); 8762i reviews lone specs too, so without the source there and the rounds carried on that arm a one-spec approval would show none. j passes the source at all four sites; this spec carries the rounds on the follow-up's single-draft arm."
+  - key: "MERGE KEEPS ONLY WHAT THE CONTINUATION KEPT (round-2 cut 2, main-thread decision 18). Re-iding is positional (SeriesDraftIds.cs:14-27) and a dropped letter can be minted again, so 'keep rounds of specs this approval does not carry' let a new spec inherit an old spec's rounds. Only an id the new record's Continuation marks Kept (SpecDispositionKinds.cs:9) keeps old rounds; without a Continuation nothing old is kept."
+  - key: "THE TURN'S SERIES ROUND IS STORED UNDER `series` (round-2 cut 3; round-3 cut 1 of 2026-10-13-8762k's review). k records it under ProposalReviewTokens.Series, never the epic parent's id — the turn reviews the parent as a draft (SpecDialogProposalReview.cs:89-94), so the parent's id keys the parent's own attack rounds, which a parent-id rule would have shown as the series review. The series round keeps its key; its cuts' SpecIds are re-keyed through the filing's map so a member button selects a filed spec; the parent's rounds (the parent is the ticket, never a filed member) and rounds of drafts the filing left out (a follow-up's executed children) are dropped."
+  - key: "REJECTED CUT (main-thread decision 13 and review cut 1): reading the rounds from the bound session's ConfirmedOutcomeJson, joined to filed ids by filed order. That column is cleared once a new filing succeeds (TicketFilingOutcomeSink.cs:45-47, SpecDialogOutcomeStore.cs:33-38), is never written on a ticket conversation's approval (TicketFilingOutcomeSink.cs:36-39, :74-87), and a conversation that files a new ticket is bound to none (SpecDialogSessionManager.cs:38-40) — so the rounds would be read from nowhere. The approval record is keyed by the ticket on every path and re-keyed at filing with the map the ids use, so no position join and no wait for 2026-10-13-8762s's Sources is needed."
+  - key: "STRIPPED ON THE WAY INTO A RUN (round-2 cut 4, main-thread decision 18). The record travels into a run whole (ApprovedSpecSetCarrier.cs:32-37, ApprovedSpecSetResolver.cs:37-42); 24 members x up to 4 rounds of merged cuts, findings and residues reach hundreds of kilobytes. No run step reads the rounds and the only record writer back to the store is the Server's ApprovalCitations (ApprovalCitations.cs:23-37), so the carrier and the resolver write `record with { ReviewRounds = null }` and lose nothing. The store keeps them; no second store."
+  - key: "DASHBOARD BUDGETS (round-1 cut 2). TicketPageReads.ts (259) and TicketPageStore.tsx (242) are already over the principles' 120-line limit and no ratchet guards them; this spec does not grow them freely: the read lives in TicketReviewsRead, TicketPageReads grows by at most 10 lines (round-2 cut 5: snapshot field, API member, API entry, the composed read, start, dispose, ticketChanged, reviewRound with its doc line) and TicketPageStore by at most 8, and the series section is its own component. CONTRACT §2.9/§4 amended: TicketPageReads <= 269; 2026-10-13-8762q's defaults read counts from there."
+  - key: "CONVERSATION ROUNDS KEEP CUTS AT ROUND LEVEL (round-2 cut 7). 8762i's ProposalReviewRound holds merged cuts, findings and residues and verdict-only ReviewerVerdicts; the view gains round-level cuts, findings and residues that conversation rounds fill, and their reviewers carry verdicts only — no invented per-reviewer split."
+  - key: "EVIDENCE AS GIVEN (2026-10-13-8762e's round-1 change). A cut's evidence names the repository and may be a repo search rather than a path:line; the page renders the stored string, so a new evidence form needs no page change."
+  - key: "NO NEW MOCK, RATIFIED CLASSES — the ratified mock has no review surface; composing its .blk/.ci/.pill classes keeps the look and the parity test meaningful. Default, pending operator ratification: the alternative is a mock iteration before build."
+  - key: "SERIES SECTION OUTSIDE THE DOCUMENT — a series round belongs to the set, not one spec; its cuts link to the member they edit."
+  - key: "LIVE BY EVENT 87, NOT POLLING — the same pattern as SpecCutReviewed: each new round in the live stream re-reads once through the 2 s coalesced window — the reviews read's own, so a round never re-reads detail and series (round-1 cut 4)."
+  - key: "RECORDED IN THE default CONTEXT — contract decision 23 (amended: every member records in contexts/default, whose state.done the record rules read); the backend half is the read model the tab needs and ships in the same commit."
+
+steps:
+  - id: models
+    action: "Server/Models: TicketReviewsView, TicketReviewAttemptView, TicketReviewRoundView, TicketReviewerView, TicketReviewCutView, TicketReviewFindingView."
+  - id: approval-rounds
+    action: "FiledSeries.ReviewRounds (init), re-keyed in j's FiledSeriesFactory (members re-keyed, the `series` round kept with its cuts' SpecIds re-keyed, the parent's own rounds and the rest dropped and logged; about 34 -> at most 40) and TicketContinuationAct (at most 95 -> at most 97); ClosedTicketFollowUp's single-draft arm carries proposal.ReviewRounds (same line); SpecApprovalRecord.ReviewRounds (init, 87 -> 88); ApprovedReviewRounds.Merge(previous, series, continuation) keeping old rounds only for Kept ids; ApprovedSpecSetRecorder changes its existing record line only (stays 119); ApprovedSpecSetCarrier.cs:37 and ApprovedSpecSetResolver.cs:42 strip ReviewRounds, same lines; SpecCutContent.CaseOf names ReviewObjection (22 -> at most 26) and TicketSeriesReader.Gate reads that case's gate step (line 58 in place, 71 stays); flowWords CASE_WORDS gains the word."
+  - id: reader
+    action: "TicketReviewsReader: the approval record's rounds as the conversation group; attempts as TicketSeriesReader numbers them, one RunSpecReviewRounds query, grouped by attempt and (scope, spec, round), verdict through g's SpecReviewMerge; registered in AddTicketReaders (TicketReadExtensions.cs 56 -> 57; 2026-10-13-8762v later 57 -> 58)."
+  - id: endpoint
+    action: "TicketReviewEndpoints.MapTicketReviewEndpoints, chained from MapTicketConversationReadEndpoints (35 -> 35, the return line changes; 2026-10-13-8762p later chains its defaults map after this one); route-permission-baseline.tsv regenerated."
+  - id: client-read
+    action: "types/tickets.ts and ticketsApi.fetchTicketReviews; TicketReviewsRead with its own refetch; TicketPageReads composes it, ticketChanged() and reviewRound() schedule it (259 -> at most 269); TicketPageStore counts SpecReviewRound like SpecCutReviewed (242 -> at most 250); useTicketReviews(); the seven test fakes gain a reviews stub."
+  - id: spec-block
+    action: "ReviewRounds.tsx: the selected spec's rounds per attempt and its conversation rounds (round-level cuts, findings and residues; reviewers as verdicts), the verdict pill, cuts, evidence strings as stored, residues, evidence problems, revision, and the empty text; SpecDocument renders it before the read-only note (one line; stays under 110 after 2026-10-13-8762m's build-note block)."
+  - id: series-section
+    action: "SeriesContractReview.tsx: the 'Series contract review' section, placed by TicketSpecsTab between grid and Revisions when a run series round or the conversation's `series` round exists (94 -> at most 98); member buttons select the spec."
+  - id: parity
+    action: "mock-parity.css header deviation line; mock-parity.test.tsx specs case asserts the new block's classes."
+  - id: tests
+    action: "Red first for every test below, then green; run the Server ticket classes, route-permission tests, and pnpm test for the touched dashboard files; pnpm gen:hub-events and pnpm build green."
+  - id: record
+    action: "Decision file .agentsmith/decisions/2026-10-13-8762l.yaml; one state.done line of at most 400 characters in the default context."
+
+tests:
+  - "TicketReviews_UnknownPair_Is404"
+  - "TicketReviews_ApprovedNeverRun_ReturnsConversationRoundsNot404"
+  - "TicketReviews_RoundsGroupedByAttemptAndSpec_InEventOrder"
+  - "TicketReviews_TwoReviewers_RoundVerdictIsTheMostSevere"
+  - "TicketReviews_SeriesRound_HasNoSpecIdAndCutsNameMembers"
+  - "TicketReviews_AttemptWithoutRounds_IsListedEmpty"
+  - "TicketReviews_PrReviewRun_IsNotAnAttempt"
+  - "TicketReviews_ApprovedSet_ReturnsTheRecordsConversationRounds"
+  - "FiledSeriesFactory_Mint_ReviewRoundsFollowTheReid"
+  - "TicketContinuationAct_ProposalRounds_RekeyedOntoContinuedIds"
+  - "ApprovedReviewRounds_Merge_NewReplaceOldKeepsExecutedHead"
+  - "ApprovedReviewRounds_Merge_DroppedOrReusedIdLosesOldRounds"
+  - "TicketReviews_ApprovedLoneSpec_ReturnsItsConversationRounds"
+  - "ClosedTicketFollowUp_SingleDraftLeft_CarriesTheProposalRounds"
+  - "FiledSeriesFactory_Mint_SeriesRoundKept_ParentRoundsAndOtherUnmappedDropped"
+  - "FiledSeriesFactory_SeriesRoundCuts_AreReKeyed"
+  - "ApprovedSpecSetCarrier_RecordWithRounds_CarriesNone"
+  - "ApprovedSpecSetResolver_PublishedRecord_CarriesNoRounds"
+  - "TicketReviews_ConversationRound_FillsRoundLevelCutsAndReviewerVerdictsOnly"
+  - "SpecApprovalJson_ReviewRounds_RoundTrip_AndAnOldRecordReadsNone"
+  - "RoutePermission_TicketReviews_NeedsRunsRead"
+  - "SpecCutContent_ReviewObjectionQuestion_CaseIsReviewObjection"
+  - "TicketSeries_ReviewObjectionCut_GateReadFromTheGateStep_OtherHandbackSkipped"
+  - "handbackCaseWords_ReviewObjection_IsReviewObjection (dashboard)"
+  - "TicketPageReads_TicketChanged_RereadsReviews (dashboard)"
+  - "TicketPageStore_SpecReviewRound_RereadsReviewsOnce (dashboard)"
+  - "ReviewRounds_CutsResiduesAndVerdict_Rendered (dashboard)"
+  - "ReviewRounds_ApprovedSet_ShowsConversationRounds (dashboard)"
+  - "ReviewRounds_RepoSearchEvidence_RenderedAsStored (dashboard)"
+  - "ReviewRounds_NoRoundAnywhere_SaysNoneRecorded (dashboard)"
+  - "TicketPageReads_ReviewRound_RereadsOnlyReviews (dashboard)"
+  - "TicketSpecsTab_SeriesRound_MemberButtonSelectsSpec (dashboard)"
+  - "TicketSpecsTab_ApprovedSetSeriesRound_IsShown (dashboard)"
+  - "MockParity_TicketConversationSpecsAcceptance_StructuralClassesPresent (extended)"
+
+done:
+  - "While the prefix of a set handed back with a review objection builds, the Specs tab shows the gate passed or failed and the hand-back as a review objection, never the gate as skipped."
+  - "On a ticket whose run reviewed its specs, the Specs tab shows each spec's rounds per attempt with verdict, cuts, residues marked as still standing, and the revision each round produced."
+  - "A series contract round appears as its own section, and clicking a member it cut opens that spec."
+  - "A new review round during a live attempt appears on the open page within a few seconds without reload."
+  - "A spec of a set approved in the design conversation shows the rounds it was reviewed in there, under 'Reviewed in the conversation before approval', also for a lone spec, after a continuation approval and on a ticket filed from an unbound conversation; the set's contract review from the conversation shows in the series section; a spec that took a dropped spec's id shows none of its rounds."
+  - "Build green, full suite green, dashboard gen/test/build green."

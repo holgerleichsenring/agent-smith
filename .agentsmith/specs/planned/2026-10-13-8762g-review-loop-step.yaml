@@ -1,0 +1,340 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-8762g
+goal: "Before the master builds, each unbuilt spec whose text is not the one a person approved is attacked by parallel fresh reviewers for up to four rounds, cuts applied each round, within a budget share."
+
+applies_to: "backend (a new ReviewSpecs pipeline command between SpecHandback and SpecGate, the per-spec rounds loop, the reviewer panel and merge, the one re-derivation of a refused spec, the round revision, the review budget share, the sequence stop, the spec_review: config section, its live readers and its schema, the PR table reason, the boundary claim gate and its shared end rule, and the attempt record's first-publish rule)"
+
+requires: [2026-10-13-8762e, 2026-10-13-8762f]
+
+facts:
+  - claim: "The code preset runs DeriveSpec, then SpecHandback, then SpecGate, all before the master; nothing between derivation and the gate reviews the specs one by one."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Code.cs:56-58"
+  - claim: "Today's only pre-build review is inside the derivation: up to three attempts, shared with parse rejections and the hand-back gate, each one fresh reviewer over the whole cut, handed the ticket text; a rejection goes back into the same deriver conversation."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:49, src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:91-94, src/backend/AgentSmith.Application/Services/Specs/CutReviewStep.cs:26-30, src/backend/AgentSmith.Application/Services/Specs/SpecCutReviewTicketText.cs:17-25"
+  - claim: "A set a person approved in the design conversation is never re-cut; the set carries that approval, null for a set nobody approved; an epic's goal rides the set as Goal, null unless an epic set it."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:26-27, src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:18-21, src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:35, src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:72-74"
+  - claim: "An executed spec is append-only; UnexecutedTail is the specs no run has started, the only ones a correction may re-cut."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:38-49"
+  - claim: "A revision is a header (Number, Cause, At) appended to the set's list; the run works from the latest."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:89-91, src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:98-105, src/backend/AgentSmith.Application/Services/Specs/SpecRevisionHeader.cs:35-43"
+  - claim: "ISpecSetPublisher places the set, puts it and any hand-back it carries on the run context, announces it (event 83), and only on a written commit sets SpecRevisionSha, records the pointer and opens the PR; a single-repository write it cannot make returns Ok and the run continues in memory, a refused, rolled-back or multi-repository one fails."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetPublisher.cs:35-56, src/backend/AgentSmith.Application/Services/Specs/SpecSetPublisher.cs:61-79"
+  - claim: "A spec's repos come from its yaml's repos: key; placement fills a spec without one in memory only, and WriteSpecRecord's scope makes the carrier the legacy repository."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDraftReader.cs:40, src/backend/AgentSmith.Application/Services/Specs/SeriesRepos.cs:27, src/backend/AgentSmith.Application/Services/SpecExecution/WriteSpecRecordHandler.cs:50-52"
+  - claim: "SpecGate reads ContextKeys.SpecSet, passes a handed-back set through, and publishes the first spec as CurrentSpec."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecution/SpecGateHandler.cs:28-46"
+  - claim: "SpecSequence splices one block per spec of the whole unexecuted tail, seeds the progress table from the set (executed Done, the rest NotStarted) and sizes the step budget from the tail."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecSequenceHandler.cs:38-61, src/backend/AgentSmith.Contracts/Specs/SpecSequenceProgress.cs:16-32"
+  - claim: "A sequence that ends with a spec not Done is partial; the pull request is then a draft headed 'Half-migrated — DO NOT MERGE' with every spec's state in a table."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSequenceProgress.cs:21, src/backend/AgentSmith.Application/Services/Specs/SpecPrBody.cs:84-94, src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:124-128"
+  - claim: "The fan-out pattern already in the product: a SemaphoreSlim bounded by a config value read as at least 1, Task.WhenAll, results kept in input order."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/SubAgentRunner.cs:38-44"
+  - claim: "The run's cost tracker guards its counters with a lock, exposes the cap, the spend in USD and the cache-weighted tokens, and is reached per run through GetOrCreate; a sibling model step skips with CostCapStop's sentence when the cap is spent."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineCostTracker.cs:22, src/backend/AgentSmith.Application/Services/PipelineCostTracker.cs:68-79, src/backend/AgentSmith.Application/Services/PipelineCostTracker.cs:126-129, src/backend/AgentSmith.Application/Services/PipelineCostTracker.Seeding.cs:21, src/backend/AgentSmith.Application/Services/PipelineCostTracker.Seeding.cs:67, src/backend/AgentSmith.Application/Services/CostCapStop.cs:34-38, src/backend/AgentSmith.Application/Services/Handlers/CheckSpecPremisesHandler.cs:49-50"
+  - claim: "Every run carries its start instant on ContextKeys.RunStartedAt, and the watchdog's wall-clock ceiling is orchestrator.max_run_wall_time_seconds, read live through the configuration loader per scan."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:271, src/backend/AgentSmith.Contracts/Models/Configuration/OrchestratorGlobalConfig.cs:17, src/backend/AgentSmith.Server/Services/Lifecycle/CancelEnforcer.cs:35-40"
+  - claim: "The server's AgentSmithConfig is a singleton loaded once at composition, while the live-read pattern re-reads the loader with the ServerContext path on each call and falls back to composed options without one."
+    evidence: "src/backend/AgentSmith.Server/Services/ServerCompositionBuilder.cs:79-80, src/backend/AgentSmith.Application/Services/Sandbox/LoaderSandboxSettingsReader.cs:13-21, src/backend/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs:184"
+  - claim: "A Config Studio settings save is PUT /api/config/settings/{type}, which saves the document with no type-specific validation."
+    evidence: "src/backend/AgentSmith.Server/Extensions/ConfigSettingsEndpoints.cs:35-43"
+  - claim: "The derivation's own look terms (12 reads, prefix L) are an existing DerivationLookTerms member a caller can open with OnTerms."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationLookTerms.cs:37-38, src/backend/AgentSmith.Application/Services/Specs/DerivationLookFactory.cs:65-73"
+  - claim: "The spec-review context keys have their own partial, outside ContextKeys.cs's ratchet."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/ContextKeys.SpecReview.cs:8-44"
+  - claim: "A pipeline command needs a name, a context builder keyed by that name, a handler, and one row in the beat, step-class, model-use, display-name and progress-label maps."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/CommandNames.SpecBlock.cs:9-35, src/backend/AgentSmith.Application/Services/Builders/ContextBuildersExtensions.cs:36, src/backend/AgentSmith.Application/Services/Builders/ContextBuildersExtensions.cs:99-101, src/backend/AgentSmith.Contracts/Commands/CommandBeats.Map.cs:51-52, src/backend/AgentSmith.Contracts/Commands/CommandStepClasses.Map.cs:22, src/backend/AgentSmith.Contracts/Commands/CommandModelUse.Map.cs:43-44, src/backend/AgentSmith.Contracts/Commands/CommandDisplayNames.Labels.cs:30-31, src/backend/AgentSmith.Contracts/Commands/CommandProgressLabels.cs:39-40"
+  - claim: "A root config section is a property on AgentSmithConfig and RawAgentSmithConfig, copied by ResolvedConfigComposer and stored as a singleton config document."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/AgentSmithConfig.cs:26-37, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/RawAgentSmithConfig.cs:29, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ResolvedConfigComposer.cs:30-36, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigDocumentTaxonomy.cs:33, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigDocTypes.cs:23"
+  - claim: "Two tests pin the config surface: every raw root property has a taxonomy descriptor, and the store's setting types are an exact list."
+    evidence: "tests/AgentSmith.Tests/ConfigStudio/ConfigTaxonomyCoverageTests.cs:30-35, tests/AgentSmith.Tests/ConfigStudio/SettingsRoundTripTests.cs:18-31"
+  - claim: "The config schema closes every section with additionalProperties false; limits is the model for an integer-only section."
+    evidence: "config/agentsmith.schema.json:7, config/agentsmith.schema.json:110-114"
+  - claim: "The spec-set services register in SpecDerivationRegistrations, which is 114 lines; PipelineHandlersExtensions is at its 218-line ratchet."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecDerivationRegistrations.cs:15-20, src/backend/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs:95-96, observed: 2026-10-14, wc -l in this worktree: SpecDerivationRegistrations.cs 114, PipelineHandlersExtensions.cs 218, PipelinePresets.Code.cs 74, CommandBeats.Map.cs 117, CommandStepClasses.Map.cs 114, CommandModelUse.Map.cs 89, CommandDisplayNames.Labels.cs 112, CommandProgressLabels.cs 118, ContextBuildersExtensions.cs 102, AgentSmithConfig.cs 45, RawAgentSmithConfig.cs 58, ResolvedConfigComposer.cs 47, ConfigDocumentTaxonomy.cs 83, ConfigDocTypes.cs 36, SpecSequenceHandler.cs 63, ContextKeys.SpecReview.cs 44"
+  - claim: "An approved record hands its set over as the run's set unchanged, and later steps read the published record back off ContextKeys.ApprovedSpecSet through ApprovedSpecSetResolver.Published."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ApprovedSetHandoff.cs:37-40, src/backend/AgentSmith.Application/Services/Specs/ApprovedSpecSetResolver.cs:39-54, src/backend/AgentSmith.Contracts/Commands/ContextKeys.Spec.cs:92-100"
+  - claim: "A set the model re-derives at run time can still carry an approval: Rework, StatusBack and an expired hand-back keep the old approval on the re-cut set, RecutDemand and Rework need the model even on an approved set, and a demand stamps a new approval with an empty conversation."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSourceResolver.cs:93-101, src/backend/AgentSmith.Application/Services/Specs/SpecAmendmentRule.cs:48-52, src/backend/AgentSmith.Application/Services/Specs/SpecRecutDemand.cs:70-84"
+  - claim: "A spec's yaml is a field of its draft, so two drafts of one id compare by text."
+    evidence: "src/backend/AgentSmith.Contracts/Models/SpecDraft.cs:9-12, src/backend/AgentSmith.Contracts/Specs/DerivedSpec.cs:17-28"
+  - claim: "The run's cost tracker answers IsBudgetExhausted against the run cap."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineCostTracker.cs:68"
+  - claim: "In the server the configuration loader is the DB loader, which answers an unreadable or unusable store with an empty configuration; the sandbox reader reads the config store's assembled document instead and throws when it holds no block, registered in ServerSandboxExtensions; IConfigStore.GetSetting returns a singleton document by type, orchestrator among them."
+    evidence: "src/backend/AgentSmith.Server/Services/ServerCompositionBuilder.cs:71-72, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/DbConfigurationLoader.cs:48-58, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/DbConfigurationLoader.cs:72-78, src/backend/AgentSmith.Server/Services/Sandbox/StoredSandboxSettingsReader.cs:8-19, src/backend/AgentSmith.Server/Services/Sandbox/ServerSandboxExtensions.cs:37-43, src/backend/AgentSmith.Contracts/Services/IConfigStore.cs:71, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigDocumentTaxonomy.cs:38, observed: 2026-10-14, wc -l in this worktree: ServerSandboxExtensions.cs 95"
+  - claim: "The PR status table renders NotStarted as a bare 'not started' and ignores its Note, and renders HandedBack with FailingCommand or 'a premise no longer holds'; SpecPrBody is 119 lines."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecPrBody.cs:110-118, observed: 2026-10-14, wc -l in this worktree: SpecPrBody.cs 119"
+  - claim: "A parked run returns from the executor right after the step that parked it, so WriteRunResult and CommitAndPR, which follow SpecSequence in the code preset, never run for it."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineExecutor.cs:166, src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Code.cs:70-71"
+  - claim: "SpecProgress carries Note and FailingCommand; With keeps every other field of the row it changes."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSequenceProgress.cs:23-33, src/backend/AgentSmith.Contracts/Specs/SpecSequenceProgress.cs:39-44"
+  - claim: "ClaimRefusal is the one door the poller, the webhook dispatcher and the capacity pump pass, asked by the claim service and by the spawn funnel before it defers; it asks the config pre-check and then UnmovedTicketGate, and is constructed with new from an injected IUnmovedTicketStore."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/UnmovedTicketGate.cs:7-14, src/backend/AgentSmith.Application/Services/Claim/ClaimRefusal.cs:22-34, src/backend/AgentSmith.Application/Services/Claim/TicketClaimService.cs:14-34, src/backend/AgentSmith.Application/Services/Spawning/SpawnLeaseDeferral.cs:18-27, src/backend/AgentSmith.Application/Services/Spawning/SpawnPipelineRunsUseCase.cs:48-54, src/backend/AgentSmith.Contracts/Models/ClaimRejectionReason.cs:18, observed: 2026-10-14, wc -l in this worktree: ClaimRefusal.cs 35, TicketClaimService.cs 67, SpawnLeaseDeferral.cs 43, SpawnPipelineRunsUseCase.cs 144 (baseline 150)"
+  - claim: "The claim request carries the run's initial context, the pump included; a start by name in chat and a rework act (a comment on the ticket) both start through ChatTicketRunLauncher, which marks RequestedByName, read in both its seeded and its JSON shape."
+    evidence: "src/backend/AgentSmith.Contracts/Models/ClaimRequest.cs:8-19, src/backend/AgentSmith.Server/Services/CapacityQueuePump.cs:124-128, src/backend/AgentSmith.Application/Services/Spawning/SpawnRequestBuilder.cs:73, src/backend/AgentSmith.Server/Services/ChatLaunch/ChatTicketRunLauncher.cs:32-37, src/backend/AgentSmith.Server/Services/Rework/ReworkLaunch.cs:7-20, src/backend/AgentSmith.Contracts/Commands/RequestedByNameExtensions.cs:12-24"
+  - claim: "IPreviousAttemptReader.LatestAsync returns the newest non-queued code run of a ticket with its status and whether it finished, a null reader in compositions without a database; every published cut stands a not_started RunSpec row for each spec this run has not executed; success and shortfall are the delivered statuses."
+    evidence: "src/backend/AgentSmith.Contracts/Services/IPreviousAttemptReader.cs:10-13, src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPreviousAttemptReader.cs:16-45, src/backend/AgentSmith.Application/Services/Resume/ResumeRegistrations.cs:31, src/backend/AgentSmith.Contracts/Runs/PreviousAttempt.cs:9-27, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSeriesCutProjection.cs:10-20, src/backend/AgentSmith.Contracts/Runs/RunStatuses.cs:11-21, observed: 2026-10-14, wc -l in this worktree: DbPreviousAttemptReader.cs 71, PreviousAttempt.cs 38"
+  - claim: "A shortfall run can leave not_started rows: a red VerifySpec after a done spec is delivered as a shortfall, the run ends shortfall, and the specs after it keep the not_started row the cut stood; a success run cannot, because SpecSequence splices the whole tail."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:111-116, src/backend/AgentSmith.Contracts/Specs/RunShortfall.cs:34-41, src/backend/AgentSmith.Contracts/Runs/RunTerminalStatus.cs:20, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSeriesCutProjection.cs:43-56, src/backend/AgentSmith.Application/Services/Handlers/SpecSequenceHandler.cs:38-51"
+  - claim: "A wall-time cancel lands on the run row as status cancelled with CancelReason watchdog (in-process) or watchdog-wall-time (the DB enforcer)."
+    evidence: "src/backend/AgentSmith.Application/Services/Lifecycle/PipelineRunWatchdog.cs:59-63, src/backend/AgentSmith.Server/Services/Lifecycle/CancelEnforcer.cs:106-108, src/backend/AgentSmith.Server/Services/Lifecycle/CancelEnforcer.cs:122, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunRowFamily.cs:62-67, src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:17, src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:34"
+  - claim: "Retry is refused for a run that ended success or was cancelled by the watchdog: the retry gate admits only an infrastructure end (interrupted, stale lease, a vanished sandbox)."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/RunRetry.cs:44, src/backend/AgentSmith.Server/Services/Rework/RunRetryGate.cs:29, src/backend/AgentSmith.Server/Services/Tickets/InfrastructureEnd.cs:27-31"
+  - claim: "A refused claim reaches nobody: the webhook dispatcher discards the spawn's result and the claim service only logs it."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/StatusBackGate.cs:29, src/backend/AgentSmith.Server/Services/Webhooks/WebhookSpawnDispatcher.cs:60-61, src/backend/AgentSmith.Application/Services/Claim/TicketClaimService.cs:59-65"
+  - claim: "Every raw root config section is initialised with new(), and a settings read returns the raw property's value."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/RawAgentSmithConfig.cs:31-34, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigSettingsAccess.cs:22-23, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/DbConfigStore.cs:110-113"
+  - claim: "A run that ends success moves its ticket to Done unless it is parked waiting for the operator."
+    evidence: "src/backend/AgentSmith.Application/Services/Lifecycle/TicketAwarePipelineLifecycleCoordinator.cs:91-97"
+  - claim: "The attempt row's revision fields are rewritten by every publish that carries a revision, while its fetch fields are set once; today only DeriveSpec publishes; RunAttemptProjection is 67 lines."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunAttemptProjection.cs:9-14, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunAttemptProjection.cs:20, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunAttemptProjection.cs:34-45, src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:36, tests/AgentSmith.Tests/Persistence/RunAttemptProjectionTests.cs:102-117, observed: 2026-10-14, wc -l in this worktree: RunAttemptProjection.cs 67"
+  - claim: "The ticket page attributes a spec to the newest attempt whose row left not_started, so a new RunSpec status would re-attribute it."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketSeriesSpecComposer.cs:10-17"
+  - claim: "A person's move back of a finished ticket is dispatched by StatusBackGate without RequestedByName."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/StatusBackGate.cs:10-30"
+  - claim: "The plugin's loop stops on BUILD, or on BUILD WITH CUTS with every cut applied and the evidence script clean, re-runs the evidence check after every change, hands the reviewer the wider goal, and rewrites or splits a refused spec."
+    evidence: "observed: 2026-10-14, specification-first-agentic-development/skills/review-spec/SKILL.md lines 25 and 33-39"
+
+assumptions:
+  - "2026-10-13-8762e lands ISpecAttackReviewer.ReviewAsync(SpecAttackInput, look, ct) with SpecAttackInput(Draft, Scope, Round, Reviewer, WiderGoal?, DescribesToday, EvidenceProblems, NotChecked, CitationsTotal, PriorResidues), DerivationLookTerms.AttackReviewFor(draft), SpecToday.Describes(draft, SpecSet set) (main-thread decision 2: the one signature for e, g, i and n), SpecRoundEvidence returning SpecRoundEvidenceResult(Problems, Unchecked, Total), SpecReviewRoundPublisher and the SpecReviewVerdicts constants, all registered in Services/Specs/Review/SpecReviewRegistrations.cs; it ships no bundled round."
+  - "2026-10-13-8762f lands ISpecCutReviser.ReviseAsync(SpecDraft, cuts, problems, lastRound, ct) -> SpecCutRevision(Revised, Refusal?) and SpecCutResidues.Of (revised draft, cuts, problems -> the residues still standing)."
+  - "A typical set is at most eight unbuilt specs; most specs stop at round one or two, and the review share bounds the rest."
+
+scope:
+  in: >
+    COMMAND: CommandNames.ReviewSpecs = "ReviewSpecsCommand" in CommandNames.SpecBlock.cs; placed in PipelinePresets.Code
+    between SpecHandback and SpecGate, NOT in CodeSpecBlock; ReviewSpecsContext(Ticket?, Repos, AgentConfig, Pipeline) and
+    ReviewSpecsContextBuilder in files of their own; one map row each (RunBeat.Plan, Milestone, model-use Call "spec attack
+    brief", "Review the specs", "Reviewing the specs"). CONFIG, READ LIVE: SpecReviewConfig (rounds 4, reviewers 2,
+    max_concurrent 2, budget_share_percent 40) as AgentSmithConfig.SpecReview and RawAgentSmithConfig.SpecReview, both initialised = new() as every sibling is, so a
+    store without a spec_review document reads the defaults, copied by
+    ResolvedConfigComposer, a singleton config document spec_review, the schema object, SettingsRoundTripTests' list.
+    SpecReviewConfig.Problems() (pure, in Contracts) is THE rule (rounds >= 0, reviewers >= 1, max_concurrent >= 1,
+    budget_share_percent 1..100); ISpecReviewSettingsReader.Current() -> SpecReviewSettings(Review, MaxRunWallTimeSeconds)
+    with LoaderSpecReviewSettingsReader re-reading IConfigurationLoader.LoadConfig(ServerContext.ConfigPath) per call (the
+    LoaderSandboxSettingsReader pattern; the injected AgentSmithConfig without a path) for the CLI, and in the server
+    StoredSpecReviewSettingsReader (AgentSmith.Server, the StoredSandboxSettingsReader pattern: IConfigStore.GetSetting of
+    spec_review and orchestrator per call, throwing when either is not its block) registered in
+    ServerSandboxExtensions.AddSandboxGlobalConfig with RemoveAll + AddSingleton (95 -> 97), so a store failure fails the
+    step instead of reading the DB loader's empty defaults. The handler reads it once per run;
+    a config with a problem FAILS the step naming it (where the value is read), never a silent clamp. HANDLER:
+    ReviewSpecsHandler skips, with the reason as its Ok line, when rounds is 0, there is no set, the set is handed back,
+    or the tail is empty; otherwise it walks the tail in order through SpecReviewLoop. APPROVED TEXT: a tail spec is
+    skipped ONLY when ApprovedSpecSetResolver.Published(pipeline) holds a record whose Set has a spec of the same id
+    with an ordinal-equal Draft.Yaml (SpecApprovedText.Matches, static); every other tail spec is reviewed, an approved
+    set's spec the run's model re-cut (Rework, StatusBack, an expired hand-back, a RecutDemand, a p overrule) or a person
+    edited on the branch included; a step whose every tail spec matches skips with that reason. BUDGET:
+    SpecReviewBudget.Spent(pipeline, settings) -> reason or null: the run's spend (USD and cache-weighted tokens against
+    the cap's arms) or its elapsed time since RunStartedAt has reached budget_share_percent of the cap or of
+    max_run_wall_time_seconds; checked before every spec and every round. Spent carries NO exemption (2026-10-13-8762i
+    calls it in the design turn, where "first reviewed spec" has no meaning). PROGRESS FLOOR, in the caller: while it
+    reviews the FIRST tail spec that is reviewed, the handler and SpecReviewLoop skip the Spent check; that spec runs to
+    its stop rule, bounded by spec_review.rounds, the run cap (PipelineCostTracker.IsBudgetExhausted) and the run's
+    wall-time ceiling (orchestrator.max_run_wall_time_seconds since RunStartedAt), both read by
+    SpecReviewBudget.Exhausted(pipeline, settings) before every round, where the loop stops it as cut mid-review; a round
+    already started can still be cancelled by the watchdog, and the next attempt then starts from the last revision on
+    the branch. The share applies from the second reviewed spec on. When spent, the review ends, the remaining
+    specs are NOT built in this attempt: the handler sets ContextKeys.SpecSequenceStop = SpecSequenceStop(BeforeSpecId,
+    Reason, Park false) at the first spec not cleared, and a spec cut mid-review counts as not cleared. SEQUENCE STOP:
+    SpecSequenceHandler splices only the tail before BeforeSpecId and sizes the step budget from it; the stop spec is
+    seeded HandedBack when Park is true, and every spec from the stop on (the stop spec too when Park is false) is
+    deferred to the next attempt through SpecSequenceProgress.Deferring(ids, reason), which this spec mints: SpecProgress gains
+    NextAttempt (appended LAST, default false) and Deferring seeds those specs NotStarted with NextAttempt true and
+    Reason as their note, and a parked stop spec HandedBack with the stop's Reason as its FailingCommand — the ONE way a step ends an attempt at a boundary, reused by 2026-10-13-8762u's chunk; with Park true it appends PipelineCommand.Simple(CommandNames.SpecHandback) after the last block (the
+    asks-once park of 2026-10-13-8762h). LOOP (per spec): a round runs the panel (spec_review.reviewers ISpecAttackReviewer
+    calls, each on its own OnTerms(pipeline, DerivationLookTerms.AttackReviewFor(draft)) look, under a SemaphoreSlim of
+    max_concurrent, Task.WhenAll, input order kept, a reviewer not taken left out; input WiderGoal =
+    SpecCutReviewTicketText.Of(ticket) plus set.Goal when present, DescribesToday = SpecToday.Describes(draft,
+    set), the evidence result's Problems, Unchecked and Total, the prior residues), merged by SpecReviewMerge
+    (refuse > build-with-cuts > build; cuts unioned, deduplicated by register and quote, lower reviewer kept; a cut on
+    done with no replacement is turned into a finding, never applied; findings unioned). Cuts go to ISpecCutReviser with
+    lastRound = (round == rounds); SpecCutResidues.Of gives the residues; when the text changed, SpecRoundEvidence runs
+    once more on the revised draft and its result is both the stop input and the next round's evidence. REFUSE WITHOUT
+    CUTS: once per spec, ISpecRederiver rewrites that one spec fresh from the code with the REFUSE findings as input, then
+    a fresh round follows (counted against rounds); a second REFUSE ends the loop standing. STOP:
+    SpecReviewStopRule.IsDone(merged, residues, evidenceAfter) — build, or build-with-cuts with every cut applied, no
+    residue and no problem among the CHECKED citations of the revised text; or a round that changed no text; or no
+    reviewer taken; or the rounds spent. REVISION: SpecReviewRevision.PublishAsync(pipeline, replacements, cause, ct,
+    handback = null) keeps each replaced spec's placed Repos on the revised draft and the set's Approval unchanged, swaps it in, appends one revision with
+    the cause, sets the hand-back on the set when given, and publishes through ISpecSetPublisher with the
+    WriteSpecRecordHandler scope; it fails the step when the publish fails OR SpecRevisionSha did not change. It is the
+    series' ONE mid-run revision publisher (2026-10-13-8762h with its hand-back, 2026-10-13-8762k, 2026-10-13-8762n with
+    cause CitationsRegrounded, from SelectSpec when a spec is entered). ATTEMPT RECORD: a mid-run revision must not
+    rewrite the attempt's recorded revision, cause or approval, so RunAttemptProjection.ApplyPublishAsync sets the
+    revision fields ONCE, as ApplyFetchAsync sets the fetch fields: the first revision-carrying publish of the run (the
+    DeriveSpec publish) writes them and a later one returns after RowAsync (one guard line, 67 -> 68, the class summary
+    reworded in place); a later publish is recorded in its event-83 cut list only. A resumed run's re-publish then keeps
+    the attempt's first revision too, the same "why the attempt began" rule the fetch fields follow.
+    Each reviewer's SpecReviewRoundEvent is published after the round's cuts, with its evidence problems, residues and
+    revision number. Exhausted, the spec is built with what applied and its standing verdict named in the step's line.
+    PR REASON: SpecPrBody.Describe's default arm, in place (119 lines kept), renders "⬜ not started — {Note}" when a Note
+    is present, so a deferred spec names why. A parked stop's HandedBack row with its FailingCommand lives in the run's
+    progress only: a parked attempt returns from the executor at SpecHandback (PipelineExecutor.cs:166) and never reaches
+    WriteRunResult or CommitAndPR (PipelinePresets.Code.cs:70-71), so no PR table shows it; the objection reaches the
+    person through 2026-10-13-8762h's comment.
+    BOUNDARY CLAIM GATE (main-thread decision 1): ONE shared end rule, SeriesBoundaryEnd (Contracts/Runs, static, at most
+    30 lines): Ends(status, cancelReason) holds for status success, or status cancelled with CancelReason watchdog or
+    watchdog-wall-time; a shortfall, a failure and any other cancel do not hold. 2026-10-13-8762v reuses it for the ends
+    that continue and adds no clause of its own. PreviousAttempt gains StoppedAtBoundary (init, default false), set by
+    DbPreviousAttemptReader.LatestAsync when the newest code run is finished, SeriesBoundaryEnd.Ends(Status,
+    CancelReason) holds AND it holds a not_started RunSpec row; the RunSpec read runs only when Ends holds, so other
+    callers of LatestAsync pay no extra query (CancelReason added to the existing Select; 71 -> at most 74).
+    BoundaryStopGate (Services/Claim, beside UnmovedTicketGate) refuses a claim with
+    ClaimRejectionReason.TicketStoppedAtBoundary and the sentence "This ticket stopped at a boundary; start it by name in
+    chat or with a comment on the ticket." when LatestAsync(project, ticket, request.ExistingRunId) is
+    StoppedAtBoundary, unless BoundaryStopGate.AdmitsStart(request.InitialContext) — today IsRequestedByName() (a start
+    by name in chat, a rework act), the one predicate 2026-10-13-8762v extends with its automatic start. No Retry is
+    named: Retry refuses a success or watchdog end (RunRetryGate.cs:29). REACH: the refusal is a ClaimResult that the
+    webhook dispatcher discards and the claim service logs (TicketClaimService.cs:59-65), so a refused status move or
+    poll tells the person nothing beyond the log line; default, pending operator ratification. ClaimRefusal asks it after UnmovedTicketGate and takes IPreviousAttemptReader beside the unmoved
+    store; TicketClaimService, SpawnLeaseDeferral and SpawnPipelineRunsUseCase pass it (one line each).
+    LENS and RETIRE: c4e1's decidability question appended to 8762e's attack brief; 2026-09-05-c4e1 moves to specs/done
+    with a RETIRED state.done line.
+  out: >
+    The single round, the attack brief, event 87 and its table — 2026-10-13-8762e. The reviser and the register check —
+    2026-10-13-8762f. A standing REFUSE when the rounds run out asking the author once, and the park it rides
+    (SpecSequenceStop with Park true) — 2026-10-13-8762h; until it lands the spec is built and the refusal named. The
+    design-turn loop and its use of SpecReviewBudget and SpecReviewStopRule — 2026-10-13-8762i. The set-scope contract
+    round — 2026-10-13-8762k. The rounds on the ticket page — 2026-10-13-8762l. Re-grounding moved citations of the spec being
+    entered, in SelectSpecHandler — 2026-10-13-8762n, which does not touch this step: the panel keeps calling
+    2026-10-13-8762e's SpecRoundEvidence. StoppedAtChunk, the Waiting status, the chunk banner and the
+    per-attempt chunk over Deferring — 2026-10-13-8762u; until it lands a deferred spec leaves a draft PR whose status
+    table names every unbuilt spec and why. Sizing the attempt from the wall-clock time LEFT since RunStartedAt, so the
+    review share is not counted twice (contract §2.7 AttemptSize) — 2026-10-13-8762u (main-thread decision 2). Admitting
+    the series' own automatic start through BoundaryStopGate.AdmitsStart — 2026-10-13-8762v. Bounding this step's walk
+    to the first series.specs_per_attempt specs of the tail, so it never reviews a spec the attempt defers —
+    2026-10-13-8762u (at most two lines on ReviewSpecsHandler, inside the 120 left after h's and k's calls); until it
+    lands the walk is the whole tail, bounded by the review share. The spec_review: form in Config Studio — 2026-10-13-8762w;
+    refusing a Studio save SpecReviewConfig.Problems() rejects (ConfigSettingsAccess.Normalize) — 2026-10-13-8762v. Replacing the derivation's cut review — nobody: contract
+    decision 6 keeps it. Reviewing a spec whose text is still the approved one at run time — nobody: contract
+    decision 5. A person's status move back of a ticket stopped at a boundary (StatusBackGate dispatches it unmarked) —
+    nobody: it is refused; the webhook path logs the refusal and tells the person nothing, and the person's way on is a
+    start by name in chat or a comment on the ticket; default, pending operator ratification. A ticket comment on that
+    refusal — nobody: the claim result never reaches a writer that could post it (WebhookSpawnDispatcher.cs:60-61).
+    Finalizing a deferring run's ticket as Waiting instead of Done — 2026-10-13-8762u; until it lands a deferred run
+    ends success and the lifecycle coordinator moves the ticket to Done (TicketAwarePipelineLifecycleCoordinator.cs:91-97).
+    Parallel review of several
+    specs at once — nobody: a revision publish per spec keeps one writer on the branch. A per-project round count —
+    nobody: the machinery has no project dimension for a global knob (2026-09-05-c4e1's finding, still true). The ticket
+    comment DeriveSpec posts on the cut before this step revises it (DeriveSpecHandler.cs:137) — nobody: DeriveSpecHandler
+    is at its 143-line ratchet, and each revision is on the branch and its cause on event 83 and the spec pull request.
+
+decisions:
+  - key: "ABSORBS 2026-09-05-c4e1. Kept: a FRESH instance with the repository in hand judges the spec before it binds; a correction lands as an appended SpecSet revision; the knob is global; zero turns it off. Kept as a lens: can the agent make this criterion true by working, and can it see that it is? Refuted: 'one round is enough' — a cut can carry a new defect and the next round finds it. Replaced: its limits: knob by spec_review.rounds; its RequirementsContradictRepository hand-back by 2026-10-13-8762h's question. Placed after SpecHandback, so a derivation hand-back parks before any review is paid for."
+  - key: "ITS OWN COMMAND, NOT INSIDE DERIVESPEC. DeriveSpecHandler is at its 143-line ratchet; the attack is per spec, after the cut is final, and must run when the set came off the branch unchanged too. Contract §2.4."
+  - key: "CONFIG IS READ LIVE PER RUN, NOT OFF THE AgentSmithConfig SINGLETON. The server builds AgentSmithConfig once (ServerCompositionBuilder.cs:79-80), so injecting it would make a Studio edit wait for a restart; the reader re-reads the loader per call as LoaderSandboxSettingsReader and CancelEnforcer do. A Studio save is refused by the same SpecReviewConfig.Problems() the run applies (2026-10-13-8762v hooks it into ConfigSettingsAccess.Normalize). Main-thread decision 4, default, pending operator ratification. REJECTED alternative (review 8762g cut 1b): reword done to 'after a restart'."
+  - key: "A BAD VALUE FAILS THE STEP, NOT A SILENT CLAMP. The value is refused where it is read; a clamp (the earlier 'below 1 reads as 1') would run a review the operator did not configure without a word."
+  - key: "REVIEW BUDGET SHARE: 40% of the run's cap and wall clock. Before every spec and round the loop checks the run's spend and elapsed time against budget_share_percent. When spent, the remaining specs are NOT built in this attempt — never 'not reviewed but built'; the next attempt reviews them. Main-thread decision 5, default, pending operator ratification. The spend counted is the run's whole spend so far, the derivation included: the share bounds when review must stop, so the rest is left for building."
+  - key: "THE FIRST REVIEWED SPEC IS ALWAYS REVIEWED TO ITS STOP. The share counts the derivation's spend and the stop lives in memory only, so without a floor an attempt whose share is spent before or during its first spec builds nothing and the next attempt repeats it. The first reviewed tail spec therefore runs to its stop rule bounded by rounds, the run cap (PipelineCostTracker.cs:68) and the wall-time ceiling the watchdog enforces (CancelEnforcer.cs:35-40), so it stops as cut instead of being killed; the share applies from the second on. The exemption lives in the handler and loop, not in SpecReviewBudget.Spent, because 2026-10-13-8762i calls Spent where no spec is first. Main-thread decision 2, review 8762g r2 cut 2, r3 cuts 4 and 5."
+  - key: "THE SERVER READS THE STORE, NOT THE DB LOADER. DbConfigurationLoader answers a store failure with AgentSmithConfig.Empty() (DbConfigurationLoader.cs:48-58,72-78), which would silently read spec_review's defaults and 1800 s; StoredSpecReviewSettingsReader throws instead, as StoredSandboxSettingsReader does (6bfab). The loader reader stays for the CLI. Contract §2.4 and §4 amended: ServerSandboxExtensions 95 -> 97 by g, then 97 -> 99 by 2026-10-13-8762u. Review 8762g r2 cut 3."
+  - key: "BOUNDARY CLAIM GATE IN CLAIMREFUSAL. Main-thread decision 1: a ticket whose newest attempt ended at a boundary is not claimed again by the poller, a webhook or the pump unless a person starts it; ClaimRefusal is the one door all three pass (UnmovedTicketGate.cs:7-13), so the gate sits beside UnmovedTicketGate. It reads the EFFECT from the run rows as contract §2.2 says: a finished run whose end SeriesBoundaryEnd holds (success, or a watchdog cancel) with a not_started RunSpec row. A shortfall is NOT a boundary even with not_started rows (CommitAndPRHandler.cs:111-116, RunSeriesCutProjection.cs:43-56): taking IsDelivered would refuse every person's status move back of a shortfall ticket, historical rows included (review 8762g r3 cut 1). ONE rule type so 2026-10-13-8762v's runway reads the same ends. The gate names a start by name in chat or a comment on the ticket, never Retry, which refuses these ends (RunRetryGate.cs:29; r3 cut 2). The refusal reaches a log line only (r3 cut 3). REJECTED alternative: persist NextAttempt as a RunSpec status 'next_attempt' — the ticket page attributes a spec to the newest attempt whose row left not_started (TicketSeriesSpecComposer.cs:10-17), so a new status would re-attribute deferred specs, and the event and its TS mirror would grow a field. 2026-10-13-8762u and 2026-10-13-8762v reference this gate instead of their own. Default, pending operator ratification."
+  - key: "THE STOP IS A CONTEXT KEY READ BY SPECSEQUENCE. SpecSequence is where the spliced work is decided (SpecSequenceHandler.cs:38-61), so a stop datum it reads keeps one place deciding what this attempt builds; ContextKeys.SpecSequenceStop goes in the existing ContextKeys.SpecReview.cs partial (contract §2.3 amended). It is in-memory, never persisted: the next attempt reviews afresh. The boundary itself is SpecSequenceProgress.Deferring, minted HERE because this spec is built before 2026-10-13-8762u (letter order, contract §1); u reuses it for its chunk (min(specs_per_attempt, the specs before the stop)) instead of minting it. REJECTED CUT (coordinator, u round): 'g calls u's Deferring' — u is built after g, so g cannot call a type that does not exist yet; the same single mechanism is kept by moving its minting into g. Writers of the stop: g (spent share) and 2026-10-13-8762h (park); 2026-10-13-8762k never moves it, and h never moves g's stop later."
+  - key: "THE PR TABLE NAMES THE REASON, IN PLACE. SpecPrBody is 119 of 120 lines; its NotStarted arm gains the Note in the same line. A parked stop spec is seeded HandedBack with the stop's Reason as FailingCommand so the run's progress names the objection, but no PR table renders it: a parked attempt never reaches WriteRunResult or CommitAndPR (PipelinePresets.Code.cs:70-71, PipelineExecutor.cs:166), so the HandedBack arm's wording is not changed for it. Review 8762g r2 cut 5, corrected by review 8762h r3 finding 4."
+  - key: "REFUSE WITHOUT CUTS IS RE-DERIVED ONCE. A REFUSE that names no admitted cut gives the reviser nothing, so the loop would end at round 1 with the refusal standing — not what the supervised session did (it rewrote the spec). ISpecRederiver makes one fresh call on the derivation's look terms with the refusal findings, keeping spec id, requires, repos and applies_to byte-identical (else the rewrite is refused and the refusal stands); a fresh round follows; a second REFUSE goes to 2026-10-13-8762h. Main-thread decision 6, default, pending operator ratification."
+  - key: "EVERY ATTEMPT REVIEWS THE UNBUILT TAIL. The code under it moved since the last attempt's review (contract rule 13). A tail that still holds costs one round, paid out of the attempt's run cost and so out of series.budget_usd (2026-10-13-8762v). Default, pending operator ratification."
+  - key: "ONLY THE APPROVED TEXT IS SKIPPED. Contract decision 5 holds for the text the design turn reviewed (2026-10-13-8762i), not for the set's Approval field: Rework, StatusBack and an expired hand-back carry the approval onto a set the model re-derived (SpecSourceResolver.cs:93-101), a RecutDemand stamps a fresh one (SpecRecutDemand.cs:70-84), and p's overrule re-derives as Rework does — none of those tails was seen by a design turn. So a spec is skipped only when its yaml is ordinal-equal to the same id's spec in the approved record (ContextKeys.ApprovedSpecSet). A serialisation difference costs a review, never a skip. A branch edit by a person is not an approval either. Main-thread decision 2, review 8762g r2 cut 1."
+  - key: "TWO PARALLEL REVIEWERS, MOST SEVERE WINS, DEDUPLICATED BY REGISTER AND QUOTE. Contract decision 2 is amended from 'by quote' (review 8762g cut 9): the same quote in two registers is two places to change. Default, pending operator ratification."
+  - key: "THE DONE REGISTER IS NOT CUT AWAY. c4e1 warned that a critic free to reshape what it is judged by will make it satisfiable; nobody sees a run-time cut before the build. A cut on done must carry a replacement; a deletion is kept as a finding, so a criterion is never dropped silently (review 8762g finding 10)."
+  - key: "FOUR ROUNDS. Contract decision 1 (default, pending operator ratification); 0 turns the step off."
+  - key: "STOP RULE, ONE TYPE. Contract decision 3, the plugin's own: BUILD, or every cut applied with the register check clean and the evidence check clean on the REVISED text, 'clean' meaning no problem among the citations that were checked (unchecked ones are told to the reviewer, not counted as a pass or a fail). SpecReviewStopRule is public so 2026-10-13-8762i applies the same rule. A round whose cuts changed nothing ends the loop: a second reviewer over the same text is reviewer shopping."
+  - key: "EVIDENCE ONCE PER TEXT VERSION. The check runs on the text the reviewers see and again only when a round changed it; that second result is both the stop input and the next round's input."
+  - key: "ONE WRITER ON THE BRANCH. Specs are reviewed one after another; only reviewers inside a round run in parallel; each changed round is one revision, so the branch, event 83 and the PR show what each round changed."
+  - key: "A ROUND THAT CHANGED NOTHING WRITES NO REVISION. The verdict of a BUILD round lives in its event-87 rows only (contract §2.2)."
+  - key: "THE ATTEMPT RECORDS ITS FIRST REVISION, NOT ITS LAST. The attempt row says which revision and cause the attempt began from; g's publisher (and h, k and n through it) publishes later revisions in the same run, which would rewrite that row (RunAttemptProjection.cs:34-45). The revision fields are therefore set once, as the fetch fields are (RunAttemptProjection.cs:20); the later revisions stay visible on event 83's cut list and the branch. REJECTED alternative: a mid-run flag on SpecSetPublishedEvent — it grows the event and its TS mirror for a fact the row can decide alone. Main-thread decision (n's review), default, pending operator ratification."
+  - key: "A REVISION THAT CANNOT BE WRITTEN FAILS THE STEP. The publisher returns Ok for a single-repository write it could not make (SpecSetPublisher.cs:61-70), so the revision also checks that SpecRevisionSha moved: building from a reviewed text nobody can read back would build a contract the branch does not state (review 8762g cut 4, the fail option chosen)."
+  - key: "THE PLACED REPOSITORY SURVIVES A REVISION. The reviser's draft is read back from yaml, and a spec whose yaml names no repos was placed in memory only (SeriesRepos.cs:27); the revision copies the old draft's Repos so a multi-repo series is not re-placed on the carrier."
+  - key: "EXHAUSTION, BEFORE 2026-10-13-8762h: the spec is built with what applied and the step's line names the standing verdict; this spec ships complete on its own."
+
+steps:
+  - id: command
+    action: "CommandNames.ReviewSpecs (SpecBlock.cs 35 -> about 38); PipelinePresets.Code places it after SpecHandback (74 -> 75); one row each in CommandBeats.Map (117 -> 118), CommandStepClasses.Map (114 -> 115), CommandModelUse.Map (89 -> 90), CommandDisplayNames.Labels (112 -> 113), CommandProgressLabels (118 -> 119), no comment lines; GateSilence only if its coverage test demands it; ReviewSpecsContext and its builder in own files, ContextBuildersExtensions 102 -> 103."
+  - id: config
+    action: "SpecReviewConfig (four keys); AgentSmithConfig.SpecReview and RawAgentSmithConfig.SpecReview { get; set; } = new() (45 -> 46, 58 -> 59), ResolvedConfigComposer (47 -> 48), ConfigDocTypes (36 -> 37), ConfigDocumentTaxonomy (83 -> 84); spec_review in config/agentsmith.schema.json; SettingsRoundTripTests' list; SpecReviewConfig.Problems() (pure)."
+  - id: reader
+    action: "ISpecReviewSettingsReader, SpecReviewSettings(Review, MaxRunWallTimeSeconds), LoaderSpecReviewSettingsReader (loader + ServerContext per call, the injected config otherwise) and StoredSpecReviewSettingsReader (Server, IConfigStore.GetSetting of spec_review and orchestrator, throwing when either is missing; ServerSandboxExtensions 95 -> 97), each at most 40 lines."
+  - id: merge-panel-budget
+    action: "SpecReviewMerge (verdict severity, cuts by register and quote, a replacement-less done cut turned into a finding) and SpecReviewStopRule.IsDone, static, at most 80 lines together; SpecReviewPanel (reviewers under the semaphore on per-spec AttackReviewFor looks, input order kept, untaken left out; at most 90 lines); SpecReviewBudget.Spent (cost arms and wall clock against the share, no exemption) and SpecReviewBudget.Exhausted (run cap or wall-time ceiling), at most 50 lines; SpecApprovedText.Matches (approved record's same-id yaml, ordinal; at most 30 lines)."
+  - id: revision
+    action: "SpecReviewRevision.PublishAsync(pipeline, replacements, cause, ct, handback = null): Repos kept, drafts swapped, one revision, the hand-back set on the set when given, ISpecSetPublisher with the WriteSpecRecordHandler scope, fail on a failed publish or an unmoved SpecRevisionSha; at most 80 lines. RunAttemptProjection.ApplyPublishAsync sets the revision fields once (67 -> 68) and RunAttemptProjectionTests' publish test asserts the first revision kept."
+  - id: rederive
+    action: "ISpecRederiver + SpecRederiver + SpecRederivePrompt (in code): one fresh Reasoning call on an OnTerms(pipeline, DerivationLookTerms.Derivation) look; the reply validated by SpecIdentityRule.Holds(old, revised) (public static: spec id, requires, repos and applies_to byte-identical, reused by 2026-10-13-8762i's turn guard) or refused; each file at most 100 lines."
+  - id: loop
+    action: "SpecReviewLoop: rounds, budget check (Spent skipped for the first reviewed spec, Exhausted always), panel, merge, reviser with lastRound, residues, evidence on a changed text, the one re-derivation, the stop rule, events after the cuts; outcome SpecReviewOutcome (final spec, rounds, standing verdict, standing findings, residues, budget stop); at most 120 lines."
+  - id: handler-stop
+    action: "ReviewSpecsHandler (skip rules, config problems fail, the tail in order, the share not checked before the first reviewed spec, the stop key on a spent share, the summary line; at most 85 lines so 2026-10-13-8762h and 2026-10-13-8762k each add one call within 120); ContextKeys.SpecSequenceStop in ContextKeys.SpecReview.cs (44 -> about 48); SpecSequenceStop record in Contracts/Specs; SpecProgress.NextAttempt and SpecSequenceProgress.Deferring(ids) (67 -> at most 80); SpecSequenceHandler splices before the stop, defers the rest, seeds a parked stop HandedBack with the Reason and appends SpecHandback on Park (63 -> at most 80); SpecPrBody's NotStarted arm names the Note in place (stays 119)."
+  - id: claim-gate
+    action: "SeriesBoundaryEnd.Ends (Contracts/Runs, at most 30 lines); PreviousAttempt.StoppedAtBoundary (38 -> at most 41) set by DbPreviousAttemptReader (71 -> at most 74, the RunSpec read only when Ends holds); ClaimRejectionReason.TicketStoppedAtBoundary (19 -> at most 23); BoundaryStopGate with AdmitsStart and the sentence naming a start by name in chat or a comment on the ticket (at most 45 lines) asked by ClaimRefusal after UnmovedTicketGate (35 -> at most 38); IPreviousAttemptReader passed by TicketClaimService, SpawnLeaseDeferral and SpawnPipelineRunsUseCase (144 -> 145, baseline 150); the test constructions of those three pass NullPreviousAttemptReader."
+  - id: registration
+    action: "Every type above in Services/Specs/Review/SpecReviewRegistrations.cs (8762e's file), the reader as a singleton as PipelineHandlersExtensions.cs:184 does for the sandbox reader; the handler as ICommandHandler<ReviewSpecsContext> there, PipelineHandlersExtensions untouched."
+  - id: lens-retire
+    action: "Append c4e1's decidability question as one paragraph to 8762e's attack brief after the plugin's verbatim text; move 2026-09-05-c4e1-spec-review-unsatisfiable.yaml to specs/done with a state.done line starting 'RETIRED (2026-10-…, superseded before it was built by 2026-10-13-8762g)'."
+  - id: tests
+    action: "Red first, then green, for every test below; run the Specs, Contracts, ConfigStudio and Handlers classes touched."
+
+tests:
+  - "ReviewSpecs_RoundsZero_SkipsAndSaysSo"
+  - "ReviewSpecs_SpecEqualToTheApprovedText_IsNotReviewed"
+  - "ReviewSpecs_ApprovedSetReDerivedByRework_IsReviewed"
+  - "ReviewSpecs_ShareSpentBeforeFirstSpec_FirstSpecStillReviewedToItsStop"
+  - "StoredSpecReviewSettingsReader_StoreThatNeverLoaded_Throws"
+  - "StoredSpecReviewSettingsReader_StoreWithoutASpecReviewDocument_ReadsTheDefaults"
+  - "SpecSequence_DeferredSpec_PrTableNamesTheReason"
+  - "Poll_TicketStoppedAtBoundary_IsNotReclaimed"
+  - "Claim_PersonsStartOfATicketStoppedAtBoundary_IsAdmitted"
+  - "PreviousAttempt_SuccessRunWithNotStartedRow_IsStoppedAtBoundary"
+  - "PreviousAttempt_ShortfallWithNotStartedRow_IsNotStoppedAtBoundary"
+  - "Poll_TicketWallTimeCancelledWithTail_IsNotReclaimed"
+  - "SeriesBoundaryEnd_SuccessAndWatchdogCancelHold_ShortfallFailureAndOperatorCancelDoNot"
+  - "BoundaryStopGate_Refusal_NamesAStartByNameOrACommentAndNotRetry"
+  - "RunAttemptProjection_MidRunRevision_KeepsTheAttemptsFirstRevisionAndCause"
+  - "ReviewSpecs_FirstSpecPastTheWallTimeCeiling_StopsAsCutMidReview"
+  - "SpecReviewBudget_Spent_HasNoFirstSpecExemption"
+  - "ReviewSpecs_HandedBackSet_IsNotReviewed"
+  - "ReviewSpecs_ExecutedHead_IsNeverReviewed_TailIs"
+  - "ReviewSpecs_ConfigWithAProblem_FailsTheStepNamingIt"
+  - "ReviewSpecs_StoreEditOfRounds_AppliesToTheNextRunWithoutRebuildingTheProvider (integration)"
+  - "ReviewSpecs_CostShareSpent_StopsAndSetsTheSequenceStopAtTheFirstUnclearedSpec"
+  - "ReviewSpecs_WallClockShareSpent_StopsBeforeTheNextRound"
+  - "SpecSequence_Stop_SplicesOnlyTheSpecsBeforeIt_TheRestDeferredWithTheReason"
+  - "SequenceProgress_Deferring_SeedsNotStartedWithNextAttempt"
+  - "SpecSequence_StopWithPark_SeedsHandedBackAndAppendsSpecHandback"
+  - "ReviewLoop_FirstRoundBuild_StopsWithoutRevision"
+  - "ReviewLoop_CutsAppliedAndRevisedTextEvidenceClean_StopsAfterThatRound"
+  - "ReviewLoop_ResidueLeft_RunsAnotherRound"
+  - "ReviewLoop_RoundChangedNothing_EndsTheLoop"
+  - "ReviewLoop_LastRound_PassesLastRoundToTheReviser"
+  - "ReviewLoop_RefuseWithoutCuts_RederivesOnceThenAFreshRound"
+  - "ReviewLoop_SecondRefuse_EndsStandingWithoutASecondRederive"
+  - "ReviewLoop_RoundsSpent_BuildsWithWhatAppliedAndNamesTheStandingVerdict"
+  - "ReviewLoop_EachReviewer_PublishesOneEventAfterTheCutsWithResidues"
+  - "ReviewPanel_EvidenceCheck_RunsOncePerTextVersion"
+  - "ReviewPanel_TwoReviewers_RunConcurrentlyUnderMaxConcurrent_OnPerSpecLooks"
+  - "ReviewPanel_ReviewerNotTaken_IsLeftOut_SiblingsKept"
+  - "ReviewPanel_Input_CarriesTicketTextSetGoalAndDescribesToday"
+  - "ReviewMerge_MostSevereVerdictWins"
+  - "ReviewMerge_SameRegisterAndQuoteTwice_IsOneCutFromTheLowerReviewer"
+  - "ReviewMerge_DoneCutWithoutReplacement_BecomesAFinding"
+  - "Rederiver_ChangedRequiresOrId_IsRefused"
+  - "SpecIdentityRule_ChangedRequiresReposOrAppliesTo_DoesNotHold"
+  - "Revision_ChangedRound_PublishesOneRevisionNamingTheRound"
+  - "Revision_SpecYamlWithoutRepos_KeepsItsPlacedRepository"
+  - "Revision_WriteNotMade_FailsTheStep"
+  - "Revision_WithHandback_PublishesTheSetCarryingIt"
+  - "Revision_ApprovedSet_KeepsItsApproval"
+  - "SpecReviewConfig_Problems_RejectsShareOutsideOneToHundredAndReviewersBelowOne"
+  - "SpecReviewConfig_Defaults_AreFourRoundsTwoReviewersTwoConcurrentFortyPercent"
+  - "AttackBrief_CarriesTheDecidabilityLens"
+  - "CodePreset_ReviewSpecs_SitsBetweenSpecHandbackAndSpecGate"
+  - "ReviewSpecsHandler_ResolvesFromTheRealServiceProvider (integration)"
+
+done:
+  - "On a ticket nobody approved, the run reviews each unbuilt spec before the master starts, and every round's verdict from every reviewer is stored on the run."
+  - "A round that changed a spec appears on the ticket branch as a new spec revision whose cause names the round, the spec and the verdict."
+  - "A spec stops being reviewed at BUILD, or once its cuts are applied with nothing left standing and its checked citations resolve; it is never reviewed more than four rounds; a REFUSE without cuts is rewritten once and reviewed afresh."
+  - "When review has used its share of the run's cost cap or wall clock, the specs it did not clear are not built in this run, and the pull request names each one and why."
+  - "A spec whose text is still the one a person approved, a handed-back set and a set with nothing left to build run no review, and the step says which; an approved set re-cut by the run's model is reviewed."
+  - "Every attempt clears at least its first reviewed spec, however much of the share the steps before review spent, unless the run's cost cap or wall-time ceiling ends the review first."
+  - "A revision made during a run does not change which revision and cause the ticket page records for that attempt."
+  - "A ticket whose last attempt stopped at a boundary is not picked up again by the poller, a webhook or the queue; a start by name in chat or a comment on the ticket still starts it; a run that ended as a shortfall is not such a stop."
+  - "Setting spec_review.rounds to 0 in agentsmith.yml or the config store turns the step off for the next run without a restart; a store without a spec_review document reads the defaults; an invalid spec_review value, or a config store that never loaded, fails the step with the problem named."
+  - "2026-09-05-c4e1 is in specs/done marked retired by this spec."
+  - "Build green, full suite green, dashboard gen/test/build green."

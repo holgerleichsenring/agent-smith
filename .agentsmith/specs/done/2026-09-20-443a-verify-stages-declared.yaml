@@ -41,6 +41,7 @@ scope:
     absent deliberately.
 
 decisions:
+  - key: "RETIRED 2026-10-14, never built: absorbed into 2026-10-13-8762c (verify runs the whole declared tree) when the 8762 series was written from the code."
   - key: |
       A DECLARATION IS AUTHORED ONCE AND REPLAYED; A GUESS IS NOT. Without a `verify:` block the
       resolver falls through to what the analyzer emitted for that run, and the resolver's own note

@@ -1,0 +1,221 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-8762k
+goal: "A fresh reviewer checks a whole set against its series contract before build, and the diff reviewer flags a built spec that breaks the contract."
+
+applies_to: "backend (Application/Services/Specs review round at set scope, ReviewSpecs, the design-turn review, ReviewSpecDiff's reviewer and prompt)"
+
+requires: [2026-10-13-8762j, 2026-10-13-8762h]
+
+facts:
+  - claim: "The existing cut reviewer is told to say nothing about ordering or how many specs there are, and keeps only findings that quote a spec verbatim."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecCutReviewPrompt.cs:42-48"
+  - claim: "The diff reviewer is one fresh call per verified spec, given the spec yaml, the principles, the diffs and a look; ReviewAsync takes no series-level input."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecDiffReviewer.cs:34-47"
+  - claim: "SpecReviewPrompt renders the spec, the principles, the look and the diffs, and asks for findings naming repository, path, line, the quoted rule and the read's evidence id."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecReviewPrompt.cs:22-54"
+  - claim: "ReviewSpecDiffHandler takes the diffs, opens a look on DerivationLookTerms.SpecReview, reads the principles from the pipeline and calls the reviewer; ReviewSpecDiffHandler.cs is 109 lines."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ReviewSpecDiffHandler.cs:60-64"
+  - claim: "A kept diff finding earns the one fix pass; the review never fails the spec."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ReviewSpecDiffHandler.cs:85-96"
+  - claim: "The run's set is on the pipeline under ContextKeys.SpecSet."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/ContextKeys.Spec.cs:8, src/backend/AgentSmith.Application/Services/Specs/SpecSetPublisher.cs:74"
+  - claim: "The design turn's proposal review runs inside the turn, adds findings to OutcomeProposal.Findings, and reviews the parent and children of an epic."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalReview.cs:37-59, src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalReview.cs:89-94"
+  - claim: "A proposal finding carries SpecId, Problem, Why, an optional verbatim Quote and the resolved evidence line."
+    evidence: "src/backend/AgentSmith.Contracts/Models/ProposalFinding.cs:21-26"
+  - claim: "Evidence ids a proposal reviewer cites are resolved to minted look lines where the review is taken, never later."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalFindings.cs:25-44"
+  - claim: "The turn's look over its repositories comes from DerivationLookFactory.ForProposalReview; a run's look over its sandboxes from OnTerms."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationLookFactory.cs:65-66, src/backend/AgentSmith.Application/Services/Specs/DerivationLookFactory.cs:97-101"
+  - claim: "A filed epic's set holds its ordered children; the parent is the work ticket, not a member."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:108-118"
+  - claim: "A set a person approved carries its Approval on the SpecSet."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:18-21, src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:35"
+  - claim: "ModelOutputParsingRuleTests scans an explicit list of model-output parsers."
+    evidence: "tests/AgentSmith.Tests/Architecture/ModelOutputParsingRuleTests.cs:22-30"
+  - claim: "SpecReviewPrompt caps the principles it renders at MaxPrinciplesChars = 40 000 and tells the reviewer when they are shown in part."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecReviewPrompt.cs:18-20"
+  - claim: "EpicOutcome is a positional record of Parent and Children; the parent is a SpecDraft."
+    evidence: "src/backend/AgentSmith.Contracts/Models/OutcomeProposal.cs:44"
+  - claim: "The run carries the approval record under ContextKeys.ApprovedSpecSet."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/ContextKeys.Spec.cs:100, src/backend/AgentSmith.Application/Services/Specs/ApprovedSpecSetResolver.cs:42"
+  - claim: "SpecReviewAdmission keeps a diff finding on its own successful read, a path in the diff and a line inside what the read returned; it never inspects the finding's rule text."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecReviewAdmission.cs:22-43"
+  - claim: "The design turn reviews an epic's Parent as a draft beside its children, so a round keyed by the parent's id is the parent's own round."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalReview.cs:89-94"
+  - claim: "That an executed spec is append-only is stated only in a doc comment; Executed and UnexecutedTail are plain properties and nothing on SpecSet refuses replacing an executed spec."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:38-49"
+  - claim: "The run cap is PipelineCostTracker.IsBudgetExhausted, true once the estimated cost passes the configured USD cap."
+    evidence: "src/backend/AgentSmith.Application/Services/PipelineCostTracker.cs:68-75"
+
+assumptions:
+  - "2026-10-13-8762e publishes SpecReviewRoundEvent (87) through SpecReviewRoundPublisher with Scope, a nullable SpecId and cuts carrying SpecId?, and projects it to RunSpecReviewRounds; 2026-10-13-8762f's ISpecCutReviser revises ONE draft and SpecCutResidues.Of reports what still stands."
+  - "2026-10-13-8762g's ReviewSpecs handler runs the per-spec loop over an unapproved set and publishes each changed round through SpecReviewRevision.PublishAsync; 2026-10-13-8762i runs the same loop inside the design turn on DerivationLookFactory.ForProposalAttack looks."
+  - "2026-10-13-8762h's ReviewExhaustion.Decide(standing objections, pipeline) takes StandingObjection(SpecId?, Findings with evidence, SeriesPrefixHead?) — SpecId null reserved for this spec's round, SeriesPrefixHead filled by this spec — and is called ONCE by ReviewSpecsHandler, turning standing REFUSEs into one question hand-back whose taken reading is 'build it'; it decides 'already asked' per objection from the ticket thread through ReviewObjectionComment.MarkerFor(MarkerKey), where MarkerKey = SpecId ?? 'series:' + SeriesPrefixHead, and an objection already asked proceeds whether answered or not (h's mirror of round-3 cut 4)."
+  - "2026-10-13-8762e's SpecAttackAdmission keeps a cut only when its quote is a run of the register it names and its evidence is a read of its own; 2026-10-13-8762f's reviser keeps every non-register key (requires, applies_to, the id) byte-identical."
+  - "2026-10-13-8762g checks the run's spent cost and wall clock against the share reserved for review before each round and, when it is spent, sets ContextKeys.SpecSequenceStop at the first spec not cleared, so the rest is deferred to the next attempt; per main-thread decision 2 it skips review only for a spec whose yaml equals the same spec in the approved record (ContextKeys.ApprovedSpecSet). 2026-10-13-8762i bounds a design turn's review by the same share, lists drafts not reviewed in the turn in OutcomeProposal.NotReviewed (spec ids plus a reserved `series` token), turns an approval answer on a proposal with NotReviewed into an edit note, and records ProposalReviewRound(SpecId, Round, Verdict, ReviewerVerdicts, Cuts, Findings, Residues) in OutcomeProposal.ReviewRounds; DerivationLookFactory.ForProposalAttack(pipeline, draft) is i's."
+  - "2026-10-13-8762i ships ProposalReviewTokens.Series = \"series\" and its carry-over never carries a ProposalReviewRound keyed by that token over to the next turn; 2026-10-13-8762l stores a proposal round keyed by that token as the set's series round, drops the epic parent's own rounds, and re-keys the SpecId of every cut inside the series round through the filing's id map (round-3 cut 1 mirror)."
+
+scope:
+  in: >
+    SET-SCOPE ROUND: SeriesContractReviewer — one fresh instance with a read-only look its caller passes (a
+    run: DerivationLookFactory.OnTerms(pipeline, DerivationLookTerms.AttackReview with { Allowance = cleared members
+    + 12, never below 24 }), sized as e's AttackReviewFor is, no factory line; a turn:
+    DerivationLookFactory.ForProposalAttack(pipeline, epic.Parent), 2026-10-13-8762i's per-draft overload sized for the
+    parent, which aggregates the set — no set-level overload), given the contract and every member's yaml, prompted by SeriesContractPrompt (in
+    code, beside SpecCutReviewPrompt): does a member mint a name, number or table the contract gives another member or
+    does not list, persist a datum anywhere but its declared home, touch an area another member claims, or contradict
+    a line budget. Answer: verdict build | build-with-cuts | refuse, cuts [{spec_id, register, quote, replacement?,
+    cites}], findings [{text, cites}]; read by SeriesContractAnswerReader (added to ModelOutputParsingRuleTests' list).
+    SIZE: SeriesContractPrompt renders each member as its goal, scope and steps, plus every fact and done line whose
+    text names a path, name or datum of the contract; whole yamls are rendered only while the prompt stays under
+    SeriesContractPrompt.MaxMembersChars = 60 000, and the prompt says which members are shown in part, as
+    SpecReviewPrompt does for principles. In a run every member is rendered marked executed, cleared or not cleared,
+    so a clash with a later member is visible. ADMISSION: 2026-10-13-8762e's SpecAttackAdmission rule, applied to the
+    member a cut names: a cut naming no member is dropped; in a run a cut is admitted only on a member g reviewed in
+    this attempt's cleared prefix — a cut naming an executed member (SpecSet's append-only rule is a comment only) or
+    a member at or after g's stop is dropped as an evidence problem, and a cut naming a cleared member g skipped as
+    unchanged from the approved record becomes a finding on the round and is never applied (contract decision 5);
+    its quote must be a run of the register it names in that
+    member (a cut quoting a non-register key — requires, applies_to, the id — is dropped as an evidence problem,
+    because f keeps those byte-identical); in a run its evidence is a read of its own in one of the run's
+    repositories (that member's yaml or the series manifest), stored as e stores it, naming the repository; in a turn, where the drafts exist only in the proposal,
+    its evidence is the contract entry it breaks, quoted verbatim from the rendered contract. Dropped cuts are
+    recorded as evidence problems. j's SeriesContractPromptSection renders the contract for this prompt and the diff
+    prompt. RUN (ReviewSpecs): after g's per-spec loop ended — by its stop rule, or by a spent share that set
+    SpecSequenceStop — ONE round over the CLEARED PREFIX: the unexecuted members before g's stop (all of them when g
+    set none), whether g reviewed them or skipped them as unchanged from the approved record, with the contract as
+    context. It is taken when the set has a contract and two or more unexecuted members, at least one cleared member
+    remains, and g reviewed at least one of them in this attempt; this one bounded call may exceed the share
+    (default, pending operator ratification). The round NEVER moves g's stop: the stop stays where g put it, the
+    cleared prefix is built every attempt, and only a standing series REFUSE parks, through h. Its cuts (each naming its member in SpecId) are grouped by member and
+    applied through 2026-10-13-8762f's ISpecCutReviser and SpecCutResidues.Of; the result is published as ONE
+    SpecSet revision with cause SpecRevisionCause.SeriesContractReview ('series contract review', 110 -> 111 lines) through 2026-10-13-8762g's SpecReviewRevision.PublishAsync;
+    THEN event 87 is published (Scope series, SpecId null, Round 1, Reviewer 0) carrying the residues and that
+    revision number — g's events-after-the-cuts rule. A standing REFUSE is returned as StandingObjection(SpecId:
+    null, its admitted findings with evidence, SeriesPrefixHead = the first member id of the cleared prefix); h's thread
+    check reads it through ReviewObjectionComment.MarkerFor(MarkerKey), MarkerKey = 'series:' + SeriesPrefixHead, so a series
+    objection already asked proceeds like a spec's, answered or not, and an objection over a LATER prefix (members 5-8 after 1-4 were built) asks
+    again, as a new spec objection does; no marker of its own. SeriesContractRound never calls ReviewExhaustion: ReviewSpecsHandler runs the series
+    round BEFORE its single ReviewExhaustion.Decide and passes the union of the per-spec and series objections, so
+    one question lists both. Skipped (no round, no event) for a set without a contract, a single unexecuted member, an empty
+    cleared prefix, or a prefix g reviewed none of (an approved set left unchanged; its contract was reviewed in the
+    turn); the step's summary line says which. NOT TAKEN: a failed call or a spent run cap
+    (PipelineCostTracker.IsBudgetExhausted; the share is waived, the cap is not) publishes no round and no event, and
+    the step's summary line says 'series contract round not taken: {reason}'; the cleared prefix is still built
+    (default, pending operator ratification — deferring the prefix instead is the alternative). TURN — FINDINGS ONLY: in 2026-10-13-8762i's loop, after the per-spec
+    rounds of an epic with a contract and inside i's review share, the same reviewer over a ForProposalAttack look;
+    nothing is re-prompted. Each admitted cut becomes ProposalFinding(SpecId = its member, Problem 'series-contract',
+    Why = the cut and its replacement wording when given, Quote = the quoted text, Evidence = the contract entry); a
+    REFUSE or build-with-cuts verdict adds one finding under the parent's id naming it. Beside the findings the round
+    appends ONE ProposalReviewRound to OutcomeProposal.ReviewRounds (SpecId = ProposalReviewTokens.Series, never the
+    parent's id, which keys the parent's own per-draft rounds; Round 1, the merged verdict, the reviewer's verdict,
+    cuts carrying their member's SpecId, findings, no residues). i never carries a round under the token over, so k
+    records a fresh one each turn; 2026-10-13-8762l moves it onto the approval record as the set's series round and
+    re-keys its cuts' SpecIds to the filed ids. When i's share is spent the round is
+    not taken: one 'series-contract' finding under the parent says the contract was not reviewed yet AND i's reserved
+    `series` token is added to OutcomeProposal.NotReviewed, so i's confirmer turns an approval into an edit note —
+    never approved with the contract unreviewed. The person reads them before approving. DIFF:
+    ReviewSpecDiffHandler reads the set's Contract and hands it to SpecDiffReviewer.ReviewAsync, which passes it to
+    SpecReviewPrompt.For; the prompt renders the entries naming the spec under review first, then the rest up to
+    SpecReviewPrompt.MaxContractChars = 20 000 (said when shown in part), and says a finding may quote a contract
+    entry as its rule. Admission is SpecReviewAdmission unchanged — it checks the read, path and line, never the
+    rule text — and the fix pass and record are unchanged.
+  out: >
+    The contract block, its parse and mechanical checks — 2026-10-13-8762j. The per-spec rounds, the reviser and the
+    asks-once rule — 2026-10-13-8762e, 2026-10-13-8762f, 2026-10-13-8762h. Showing series rounds on the ticket page
+    — 2026-10-13-8762l. Showing series findings in the proposal block — 2026-10-13-8762i (its block renders
+    OutcomeProposal.Findings). Checking build notes against the contract — 2026-10-13-8762n. A second series round
+    after its cuts — nobody: the contract names one round (decision below), and the register check catches what a
+    cut left standing. Applying series cuts inside the design turn — nobody: the turn shows them as findings
+    (decision below); a person who wants them applied asks the design partner in the next message. Re-cutting an approved set at run time — nobody: an approved set is never re-cut
+    (contract decision 5).
+
+decisions:
+  - key: "CUTS NAME THEIR MEMBER (contract §2.1, amended): SpecReviewCut carries SpecId? (null on a spec-scope round, where the round's SpecId names the member). A set-scope round has SpecId null, yet its cuts land on members; without the field nobody can tell which member a series cut edits. 2026-10-13-8762e declares it, this spec fills it, 2026-10-13-8762l reads it."
+  - key: "REQUIRES 2026-10-13-8762h (contract letter map, amended): a standing series REFUSE needs the same asks-once rule a spec's has (contract decision 4), and h is where that rule lives."
+  - key: "ONE DECIDE (round-1 cut 1, main-thread decision 12). The series round returns its standing objections and ReviewSpecsHandler passes them with the per-spec ones to its ONE ReviewExhaustion.Decide call. Calling Decide inside the round either never ran (the handler had already returned on a per-spec hand-back) or asked a second question, breaking h's one-question rule."
+  - key: "e's ADMISSION (round-1 cut 2). A series cut obeys the same register rule as a spec cut; otherwise a cut quoting requires: or the id passes admission and f's reviser, which keeps those keys byte-identical, refuses the member's whole revision in silence. A run's evidence is a framework-minted read, as e requires; a turn has no branch to read the drafts from, so there the broken contract entry, quoted verbatim, is the evidence."
+  - key: "TURN = FINDINGS ONLY (round-1 cut 3, main-thread decision 12). A re-prompt after i's loop ended would change drafts no per-spec round reviews again and would need its own record; findings carry member, quote and replacement on the proposal the person approves. Default, pending operator ratification."
+  - key: "SIZE BY CHARACTERS, NOT MEMBERS (round-1 cut 4). A series may hold 24 members (2026-10-13-8762u), so the earlier 'at most 8 members' bound is gone. 60 000 characters for the set prompt and 20 000 for the contract in the diff prompt follow SpecReviewPrompt's 40 000-character principles cap and its 'shown in part' sentence. Default, pending operator ratification."
+  - key: "EVENT AFTER THE REVISION (round-1 cut 5). g's rule: a round's row carries its residues and revision number, so the publish follows the applied cuts."
+  - key: "NEVER MOVE g's STOP EARLIER (round-2 cut 1, main-thread decision 5; supersedes 'the review share covers this round'). Moving the stop back to the first unexecuted member when the share was spent built NOTHING whenever an attempt's per-spec review of the tail outran the share — and every attempt re-reviews the tail (g's 'every attempt reviews the unbuilt tail'), so a long set never progressed while v's auto-continue spent series.budget_usd. The series round instead reviews the cleared prefix in one bounded call that may exceed the share; only a standing series REFUSE parks, through h. CONTRACT §2.3: 'k's untaken series round' is no longer a SpecSequenceStop writer. Default, pending operator ratification."
+  - key: "APPROVED-UNCHANGED SKIPS, NOT 'APPROVED' (main-thread decision 2). g now reviews an approved set's specs whose yaml differs from the approved record; the series round follows g: taken when g reviewed at least one cleared member, skipped when it reviewed none (an approved set left as approved, whose contract the turn round reviewed)."
+  - key: "NOT REVIEWED BLOCKS APPROVAL (round-2 cut 2, main-thread decision 5). A finding does not block an approval; 2026-10-13-8762i's NotReviewed does (its confirmer turns the approval into an edit note). The untaken turn round therefore adds i's reserved `series` token beside its finding; i's 'a stopped draft unchanged is not reviewed again' makes the follow-up turn cheap enough to converge."
+  - key: "THE TURN ROUND IS RECORDED (round-2 cut 3, main-thread decision 5). Findings ride only the open proposal; after approval only ReviewRounds move to the approval record (2026-10-13-8762l). One ProposalReviewRound under ProposalReviewTokens.Series is what survives approval, so the set's contract review stays visible on the ticket. CONTRACT §2.2 amended: series findings ride Findings AND one ProposalReviewRound under `series`."
+  - key: "THE TURN ROUND IS KEYED BY THE TOKEN, NOT THE PARENT (round-3 cut 1). The turn reviews the parent as a draft (SpecDialogProposalReview.cs:89-94), so the parent's id already keys its own attack rounds and ProposalReviewRound has no scope field: under that id i's carry-over piled a series round onto every turn, the card showed it as a second 'Round 1' of the parent, and l moved the parent's attack rounds into the series section. Keyed by ProposalReviewTokens.Series: i never carries it over, l stores it under `series`, drops the parent's own rounds and re-keys the cut SpecIds inside it, so a filed member button selects a spec that exists. CONTRACT §2.2 row 'design-turn review rounds' needs the same amendment (main thread)."
+  - key: "RUN CUTS ONLY ON MEMBERS g REVIEWED THIS ATTEMPT (round-3 cut 2, main-thread decision k). The reviewer sees every member, so it can name an executed one (append-only is a comment, SpecSet.cs:38-44, refused by nothing), one past g's stop (text g has not cleared) or an approved-unchanged one (re-cutting approved text at run time, against contract decision 5 and this spec's out-item). The first two are dropped as evidence problems; the third is a finding, because the conflict is real and the person should see it, while the fix belongs in the member that is not approved. Default, pending operator ratification."
+  - key: "A ROUND NOT TAKEN IS NAMED (round-3 cut 3). A failed call or a spent run cap leaves the cleared prefix built without a series review; g's rule is 'never not reviewed but built', so the step line says 'series contract round not taken: {reason}' and done line 1 is qualified. Building the prefix anyway, rather than deferring it, is a default pending operator ratification (contract section 5 needs a line; main thread)."
+  - key: "THE SERIES MARKER IS KEYED BY ITS PREFIX (round-3 cut 4, main-thread decision h/k). One 'series' marker for the ticket's lifetime let every later series REFUSE proceed once any was asked and left unanswered — on the long u/v path where a fresh contract conflict appears over a later prefix. 'series:' + the prefix's first member asks once per prefix, as a spec objection asks once per spec; h mirrors it in MarkerFor."
+  - key: "RUN LOOK SIZED BY THE PREFIX (round-3 cut 5, main-thread decision k). Each run cut needs its own read of the member yaml; AttackReview's floor of 24 reads is tight for a 24-member series, so the allowance is cleared members + 12, never below 24, a `with` on e's terms that needs no factory line. Default, pending operator ratification."
+  - key: "NO EVENT IN THE TURN (contract letter map, amended): a turn's run names no ticket, so no ticket page would read its rows, and contract §2.2 homes design-turn rounds on the proposal, never a table. The turn's series round rides OutcomeProposal.Findings and one OutcomeProposal.ReviewRounds entry."
+  - key: "THE TURN LOOK IS i's PER-DRAFT OVERLOAD ON THE PARENT (round-2 cut 4). DerivationLookFactory is at or under 120 lines after 2026-10-13-8762i, so a set-level overload has no room; epic.Parent is a SpecDraft (OutcomeProposal.cs:44) and aggregates the set."
+  - key: "THE CAUSE IS A CONSTANT (round-2 finding 5). Every other revision cause is a SpecRevisionCause constant (SpecRevisionCause.cs:36-60); SeriesContractReview = 'series contract review' joins them (110 -> 111, leaving room for 2026-10-13-8762n's and 2026-10-13-8762p's)."
+  - key: "ONE ROUND, ONE REVIEWER — the letter map's 'one fresh reviewer round at SET scope'. Default, pending operator ratification; spec_review.reviewers applies to per-spec rounds only."
+  - key: "AFTER THE PER-SPEC LOOPS — the members' text is settled before the set is compared to its contract; a series cut applied earlier would be re-cut by a later spec round."
+  - key: "SKIPPED, SAID ONCE — no contract, one member, an approved set left unchanged, or a round not taken publishes no round; the step's line says so rather than publishing an empty round that reads as 'reviewed clean'."
+  - key: "SET-WIDE FINDINGS UNDER THE PARENT IN THE TURN — ProposalFinding needs a SpecId; the epic parent aggregates the set, so a finding with no member is filed under it."
+  - key: "THE DIFF REVIEWER GETS THE CONTRACT, ITS OWN ENTRIES FIRST — a diff breaks the contract by using what ANOTHER member owns as often as by missing its own, so the rest follows up to the 20 000-character cap."
+  - key: "BRIEF IN CODE — contract decision 7: no skills release mid-series; tuning it is an agent-smith release."
+
+steps:
+  - id: prompt-reader
+    action: "SeriesContractPrompt (set-scope attack brief, j's SeriesContractPromptSection, members within MaxMembersChars, look section, JSON answer shape) and SeriesContractAnswerReader (JSON via SpecJsonReader); the reader joins ModelOutputParsingRuleTests' list."
+  - id: reviewer
+    action: "SeriesContractReviewer: one call under its own cost role and call scope, admission by e's SpecAttackAdmission on the named member (run: own read of the member yaml or manifest, evidence naming the repository; turn: the contract entry quoted), returns a round result; a failed call is a round not taken, reported to the caller with its reason."
+  - id: run-round
+    action: "SeriesContractRound: skip rules (no contract, one unexecuted member, empty cleared prefix, none reviewed by g this attempt), the cleared prefix before g's stop (never moved), every member rendered executed/cleared/not cleared, the reviewer over an AttackReview run look sized cleared members + 12 (at least 24), cuts admitted only on members g reviewed this attempt (executed or past-the-stop dropped, approved-unchanged turned into findings), a failed call or spent run cap named 'series contract round not taken: {reason}' in the step line, cuts per member through f, one revision through g's SpecReviewRevision.PublishAsync, THEN event 87 Scope series with residues and revision number; returns its standing objections with SeriesPrefixHead = the prefix's first member (h's MarkerKey 'series:' + SeriesPrefixHead). ReviewSpecsHandler calls it once before its single ReviewExhaustion.Decide over the union (stays at or under 120 lines)."
+  - id: turn-round
+    action: "In i's design-turn loop, inside i's review share: one call after the per-spec rounds of an epic with a contract, on ForProposalAttack(pipeline, epic.Parent); cuts and verdict become 'series-contract' findings plus one ProposalReviewRound under ProposalReviewTokens.Series (never the parent's id), never a re-prompt; a round not taken adds the not-reviewed-yet finding and the `series` token to NotReviewed; the file i's loop lives in stays at or under 120 lines (extract if not)."
+  - id: diff
+    action: "ReviewSpecDiffHandler reads set.Contract (110 after 2026-10-13-8762a -> about 111); SpecDiffReviewer.ReviewAsync gains the contract (90 -> about 91); SpecReviewPrompt.For renders it own-entries-first within MaxContractChars and one sentence on contract findings (81 -> at most 90)."
+  - id: registration
+    action: "SeriesContractReviewer, SeriesContractRound and the reader registered in Services/Specs/Review/SpecReviewRegistrations.cs (AddSpecReview)."
+  - id: tests
+    action: "Red first for every test below, then green; run the Specs, SpecDialog, Handlers and Architecture classes touched."
+  - id: record
+    action: "Decision file .agentsmith/decisions/2026-10-13-8762k.yaml; one state.done line of at most 400 characters in the default context."
+
+tests:
+  - "SeriesContractPrompt_CarriesContractAndEveryMember"
+  - "SeriesContractAnswerReader_NullOrStringNumber_DoesNotThrow"
+  - "SeriesContractPrompt_TwentyFourMembers_StaysUnderTheCap"
+  - "SeriesContractReviewer_CutQuotingTextNotInItsMember_IsDroppedAsEvidenceProblem"
+  - "SeriesContractReviewer_CutQuotingRequires_IsDroppedAsEvidenceProblem"
+  - "SeriesContractReviewer_RunCutWithoutOwnRead_IsDropped"
+  - "SeriesContractReviewer_CutNamingNoMember_IsDropped"
+  - "SeriesContractReviewer_CallFails_RoundNotTaken"
+  - "SeriesContractRound_SetWithContract_PublishesOneSeriesRoundAfterTheRevision"
+  - "SeriesContractRound_ShareSpent_ReviewsOnlyTheClearedPrefix"
+  - "ReviewSpecs_TailReviewExceedsShare_BuildsTheClearedPrefixEveryAttempt"
+  - "SeriesContractRound_NoContract_TakesNoRoundAndSaysSo"
+  - "SeriesContractRound_ApprovedSetUnchanged_TakesNoRound"
+  - "SeriesContractRound_CutsOnTwoMembers_PublishOneRevision"
+  - "SeriesContractRound_CutOnExecutedMember_IsDropped"
+  - "SeriesContractRound_CutPastTheStop_IsDropped"
+  - "SeriesContractRound_CutOnApprovedUnchangedMember_BecomesAFinding"
+  - "SeriesContractRound_CallFails_StepLineSaysNotTaken"
+  - "SeriesContractRound_RunCapSpent_StepLineSaysNotTaken"
+  - "SeriesContractRound_RunLook_AllowanceIsClearedMembersPlusTwelveNeverBelow24"
+  - "ReviewSpecs_SpecAndSeriesRefusals_OneQuestionListingBoth"
+  - "ReviewSpecs_SeriesObjectionAlreadyAsked_ProceedsOnThePrefixMarker"
+  - "ReviewSpecs_SeriesObjectionOnALaterPrefix_AsksAgain"
+  - "ProposalReview_EpicWithContract_AddsSeriesContractFindingsWithoutReprompt"
+  - "ProposalReview_ShareSpent_ListsContractInNotReviewed"
+  - "ProposalReview_EpicWithContract_RecordsOneSeriesRoundUnderTheSeriesToken"
+  - "ProposalReview_EpicWithContract_SeriesRoundIsNotAParentRound"
+  - "ProposalReview_UnchangedParentCarriedOver_SeriesRoundNotDuplicated"
+  - "ProposalReview_LoneSpec_TakesNoSeriesRound"
+  - "SpecReviewPrompt_WithContract_RendersItAsARuleSource"
+  - "SpecReviewPrompt_NoContract_RendersAsBefore"
+  - "SpecReviewPrompt_LargeContract_OwnEntriesFirstAndSaidInPart"
+  - "SpecReviewAdmission_ContractQuotedRule_IsAdmittedOnAReadOfTheDiffPath"
+  - "ReviewSpecDiffHandler_SetContract_ReachesTheReviewer"
+  - "AddSpecReview_ResolvesSeriesContractRound (real ServiceProvider)"
+
+done:
+  - "A run of a set with a contract shows one series review round over the cleared members before build, or the step's line says why none was taken; a run cut never edits an executed, uncleared or approved-unchanged member (the last shows as a finding); and an attempt whose per-spec review outran its share still builds what was cleared; a member that used another member's event number is revised, or the residue is shown on the round; a standing series REFUSE and a standing spec REFUSE ask one question listing both, and a series REFUSE over a later prefix asks again."
+  - "A design-turn epic whose children contradict its contract carries 'series-contract' findings, each naming its member and quote, on the proposal before anyone can approve it; a 24-member epic's prompt stays under its cap."
+  - "A built spec whose diff persists a datum where the contract does not home it gets a diff-review finding quoting the contract entry, and the one fix pass follows."
+  - "A set without a contract, of one member, or approved and unchanged takes no series round, and the run's step line says why; a design-turn epic whose contract was not reviewed cannot be approved until it is."
+  - "Build green, full suite green, dashboard gen/test/build green."
