@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Preflight;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Domain.Entities;
 using AgentSmith.Sandbox.Wire;
 using Microsoft.Extensions.Logging;
 
@@ -21,10 +22,15 @@ namespace AgentSmith.Application.Services.Preflight.Run;
 /// as they are a poisoned base — failing here would refuse the resume the framework
 /// created.
 /// </para>
+/// <para>
+/// 2026-10-13-3890c: only what the branch carries BEYOND its base counts. Read over HEAD's
+/// recent history alone, every framework commit another ticket had merged into the base read
+/// as this branch's earlier run. The exclusion is ForeignCommitProbe's: merge commits by
+/// <c>--no-merges</c>, the base's own history by <c>--not &lt;base&gt;</c>.
+/// </para>
 /// </summary>
-public sealed class BranchStateCheck(ILogger<BranchStateCheck> logger) : IRunPreflightCheck
+public sealed class BranchStateCheck(SandboxBaseLadder ladder, ILogger<BranchStateCheck> logger) : IRunPreflightCheck
 {
-    private const int HistoryDepth = 50;
     private const int TimeoutSeconds = 60;
 
     public string Name => "branch-state";
@@ -37,9 +43,10 @@ public sealed class BranchStateCheck(ILogger<BranchStateCheck> logger) : IRunPre
             return RunPreflightFinding.Pass(Name, "no sandboxes in this run — no branch to read");
 
         var carried = new List<string>();
+        var parent = RunParentTicket.Of(pipeline);
         foreach (var (key, sandbox) in sandboxes)
         {
-            var commits = await CountFrameworkCommitsAsync(sandbox, cancellationToken);
+            var commits = await CountFrameworkCommitsAsync(sandbox, parent, cancellationToken);
             if (commits > 0) carried.Add($"{key}: {commits}");
         }
 
@@ -47,10 +54,9 @@ public sealed class BranchStateCheck(ILogger<BranchStateCheck> logger) : IRunPre
             ? RunPreflightFinding.Pass(Name, $"{BranchLabel(pipeline)} carries no earlier run's commits")
             : RunPreflightFinding.Warn(
                 Name,
-                $"{BranchLabel(pipeline)} already carries commits from an earlier run "
-                + $"({string.Join(", ", carried)}, last {HistoryDepth} inspected) — that work counts as "
-                + "delivered, so those specs will be skipped. The base branch's newer commits are "
-                + "merged in on checkout (p0496); deleting the branch would discard the earlier "
+                $"{BranchLabel(pipeline)} already carries commits from an earlier run beyond its base "
+                + $"({string.Join(", ", carried)}) — that work stays on the branch. The base branch's newer "
+                + "commits are merged in on checkout (p0496); deleting the branch would discard the earlier "
                 + "run's work and close the pull request hanging off it");
     }
 
@@ -61,23 +67,24 @@ public sealed class BranchStateCheck(ILogger<BranchStateCheck> logger) : IRunPre
             : "the checked-out branch";
 
     /// <summary>
-    /// Commits authored by the framework identity in the branch's recent history — the
-    /// signal that needs no comparison against a base ref, so it reads the same in a
-    /// sandbox clone and in a host checkout.
-    /// <para>
-    /// p0496: <c>--no-merges</c>, because checkout now merges the base branch in under the
-    /// same identity. Those merge commits are this run's own bookkeeping, and counting them
-    /// would report an earlier run's work that does not exist.
-    /// </para>
+    /// Commits authored by the framework identity that the branch carries beyond its base. No
+    /// resolvable base means no count: a count over the base's own history is the false report
+    /// this replaced.
     /// </summary>
-    private async Task<int> CountFrameworkCommitsAsync(ISandbox sandbox, CancellationToken ct)
+    private async Task<int> CountFrameworkCommitsAsync(ISandbox sandbox, string? parent, CancellationToken ct)
     {
         try
         {
+            if ((await ladder.ResolveAsync(sandbox, parent, ct)).Ref is not { } baseRef)
+            {
+                logger.LogDebug("No base ref in sandbox {JobId} — this sandbox contributes no branch report", sandbox.JobId);
+                return 0;
+            }
             var step = new Step(
                 Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
                 Command: "git",
-                Args: ["log", "--no-merges", "--format=%ae", "-n", HistoryDepth.ToString()],
+                Args: ["rev-list", "--no-merges", "--format=%ae", "HEAD", "--not", baseRef],
+                WorkingDirectory: Repository.SandboxWorkPath,
                 TimeoutSeconds: TimeoutSeconds);
             var result = await sandbox.RunStepAsync(step, null, ct);
             if (result.ExitCode != 0) return 0;

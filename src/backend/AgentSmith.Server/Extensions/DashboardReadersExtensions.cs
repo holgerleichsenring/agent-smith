@@ -18,6 +18,7 @@ internal static class DashboardReadersExtensions
     internal static IServiceCollection AddDashboardReaders(this IServiceCollection services)
     {
         services.AddSingleton<TrailReader>();
+        services.AddSingleton<StepSubAgentLifecycleReader>(); // 2026-10-13-3890e
         services.AddSingleton<SystemBacklogReader>(); // 2026-09-15-9033: was inline in JobsHub
         services.AddSingleton<RunStepAggregatesReader>(); // p0404
         services.AddSingleton<RunRailComposer>(); // p0405

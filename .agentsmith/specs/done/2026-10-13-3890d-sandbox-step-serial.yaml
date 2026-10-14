@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-3890d
+goal: "Concurrent callers of one sandbox never lose each other's step results or output, and a sandbox timeout reaches the calling model as an error it can answer."
+
+applies_to: "backend (sandbox channel, sub-agent runner, tool error surfacing)"
+
+requires: []
+
+facts:
+  - claim: "WaitForResultAsync pops the next result from the job's shared list and discards one that belongs to another step."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/SandboxRedisChannel.cs:52-76,94-111"
+  - claim: "Docker and Kubernetes sandboxes push and wait without any per-sandbox serialisation; sub-agents share the master's sandboxes."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/DockerSandbox.cs:36-43, src/backend/AgentSmith.Server/Services/Sandbox/KubernetesSandbox.cs:37-44, src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:102-104"
+  - claim: "The agent runs one step at a time."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Services/JobLoop.cs:42-76"
+  - claim: "The event drain keeps one cursor per channel and forwards only the caller's step, so concurrent waiters drop each other's output."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/SandboxEventDrain.cs:25-69"
+  - claim: "SandboxStepRunner is the common path for file and command tools."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/SandboxStepRunner.cs:14-112"
+  - claim: "The repository's convention returns a tool failure as an error string instead of throwing."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:110-117"
+  - claim: "observed: two of three concurrent sub-agents failed on 'Sandbox step ... did not produce a result within 60s/90s' while the master waited 31 minutes."
+    evidence: "observed: 2026-10-13, operator run 6fd1 SubAgentCompleted and DecisionLogged events"
+
+assumptions: []
+
+scope:
+  in: >
+    SandboxRedisChannel gets one entry point that takes a per-channel lock (honouring cancellation), pushes the step,
+    then waits with the deadline computed after the lock is held; both event drains run inside it. Docker and Kubernetes
+    sandboxes call only that entry point; the shutdown push in DisposeAsync stays outside the lock. In SandboxStepRunner
+    (read, write, list, tree, grep, execute, RunProgramAsync) a TimeoutException becomes error text to the calling model
+    (a ProgramRun with a non-zero exit for RunProgramAsync), naming the step and the wait; OperationCanceledException
+    still propagates.
+  out: "Changing the agent's wire protocol (agents are pinned per project). A per-child wall-clock budget. A failed child's tool-call count and cost (no source exists when the loop throws)."
+
+decisions:
+  - key: "SERIALISE ON THE SERVER. The agent already executes one step at a time, so a lock loses no throughput and needs no agent upgrade."
+  - key: "ERRORS ARE ANSWERS. A tool failure the model can read lets it retry or change course; an exception after three ends the child."
+
+steps:
+  - id: lock
+    action: "SandboxRedisChannel serialises push+wait per channel."
+  - id: tool-errors
+    action: "SandboxStepRunner turns a sandbox TimeoutException into error text."
+  - id: tests
+    action: "Red first: two concurrent steps on one channel both get their own result; the second step is pushed only after the first result is taken; a timed-out tool call returns text."
+
+tests:
+  - "Channel_TwoConcurrentSteps_EachGetsItsOwnResult"
+  - "ToolCall_SandboxTimeout_ReturnsErrorText"
+
+done:
+  - "Three sub-agents working one sandbox at once all receive their own results."

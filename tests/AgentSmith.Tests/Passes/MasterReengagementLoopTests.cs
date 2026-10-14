@@ -103,6 +103,28 @@ public sealed class MasterReengagementLoopTests
         rig.Runner.Calls.Should().Be(0, "nothing was left to re-engage for");
     }
 
+    [Fact]
+    public async Task PassRecorder_SurrenderChallenge_IsAPassOpenedBecauseChallenged()
+    {
+        var runContext = new AsyncLocalRunContextAccessor();
+        using var step = runContext.BeginStepScope(3, Spec);
+        const string declinedJson = "[ { \"criterion\": \"it is documented\", \"status\": \"not_applicable\", \"evidence\": \"not written\" } ]";
+        var rig = new LoopRig(SpecPipeline("it is documented"), ProgressStatus.Done, runContext,
+            ScriptedPasses.Text(Verdict("green", declinedJson)));
+        var declined = Green with
+        {
+            AcceptanceDispositions = [new AcceptanceDisposition("it is documented", AcceptanceStatus.NotApplicable, "not written")],
+        };
+
+        await rig.RunAsync(declined);
+
+        var (first, challenged) = (rig.Events.Ends[0], rig.Events.Ends[1]);
+        rig.Events.Ends.Should().HaveCount(2, "the restated stop after the one challenge is respected");
+        (first.EndedBecause, first.ReengageReason).Should().Be((MasterPassReasons.Reengaged, MasterPassReasons.Challenged));
+        (challenged.PassInStep, challenged.OpenedBecause, challenged.EndedBecause).Should().Be(
+            (1, MasterPassReasons.Challenged, MasterPassReasons.NothingLeft));
+    }
+
     private static int Expected(string exit) => exit switch
     {
         MasterPassReasons.NothingLeft or MasterPassReasons.RedAccepted => 1,

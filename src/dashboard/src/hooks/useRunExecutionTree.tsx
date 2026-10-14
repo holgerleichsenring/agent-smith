@@ -151,6 +151,9 @@ function ingestSubAgentSpawn(
   e: Extract<RunEvent, { type: EventType.SubAgentSpawned }>,
   spawnStepIndex: number,
 ): void {
+  // 2026-10-13-3890e: a step's newest page carries its older sub-agent lifecycle, and "load older"
+  // may deliver the same Spawned again — it must not reset a sub-agent that already completed.
+  if (subAgents.has(e.subAgentId)) return;
   subAgents.set(e.subAgentId, {
     id: e.subAgentId, name: e.name, activity: e.activity,
     spawnStepIndex, startMs: Date.parse(e.timestamp), endMs: null, status: "run",

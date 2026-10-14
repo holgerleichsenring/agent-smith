@@ -34,7 +34,9 @@ public static class ExpectationPromptSection
         + "true — is neither fought pass after pass nor accepted in silence: dispose of it as\n"
         + "`not_applicable`, and let its evidence carry the EVALUATED MEANING of not doing it — what is\n"
         + "lost, and what would have to change elsewhere for it to hold. A bare \"N/A\" with no such\n"
-        + "reason does not count. Every declined criterion is reported to the ticket author.";
+        + "reason does not count. Every declined criterion is reported to the ticket author.\n"
+        // 2026-10-13-3890a: what is work, not impossibility — one live master declined over a missing tool.
+        + Handlers.MasterChallengeNudge.WorkNotReasons;
 
     public static string Build(PipelineContext pipeline)
     {

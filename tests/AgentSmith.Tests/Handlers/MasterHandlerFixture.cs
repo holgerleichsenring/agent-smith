@@ -34,8 +34,9 @@ internal static class MasterHandlerFixture
         AgentSmith.Contracts.Providers.IFigmaClient? figma = null,
         AgentSmith.Application.Services.Tools.RenderReferenceToolFactory? render = null,
         AgentSmith.Contracts.Events.IEventPublisher? passEvents = null,
-        AgentSmith.Contracts.Events.IRunContextAccessor? runContext = null) =>
-        new(loop, prompts, new NoOpDecisionLogger(), AgentSmithConfig.Empty(),
+        AgentSmith.Contracts.Events.IRunContextAccessor? runContext = null,
+        IDecisionLogger? decisions = null) =>
+        new(loop, prompts, decisions ?? new NoOpDecisionLogger(), AgentSmithConfig.Empty(),
             new AgentSmith.Infrastructure.Services.ContextYamlSerializer(
                 new AgentSmith.Infrastructure.Services.ContextYamlBuilders()),
             AgentSmith.Tests.TestHelpers.ContextGates.Build(),

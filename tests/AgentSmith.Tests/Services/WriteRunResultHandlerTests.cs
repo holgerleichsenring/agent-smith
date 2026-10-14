@@ -46,7 +46,7 @@ public sealed class WriteRunResultHandlerTests
 
         _sut = new WriteRunResultHandler(factory.Object, _dialogueTrail, new InMemoryRunArtifactStore(), new AgentSmith.Tests.Events.RecordingEventPublisher(),
             new AgentSmith.Application.Services.Memory.RunNarrativeMemoryWriter(NullLogger<AgentSmith.Application.Services.Memory.RunNarrativeMemoryWriter>.Instance),
-            new SandboxTargets(), NullLogger<WriteRunResultHandler>.Instance);
+            new SandboxTargets(), AgentSmith.Tests.TestHelpers.TestRunResultChanges.Create(), NullLogger<WriteRunResultHandler>.Instance);
     }
 
     [Fact]
@@ -93,7 +93,7 @@ public sealed class WriteRunResultHandlerTests
             ["primary"] = new("claude-sonnet-4-20250514", 38150, 6320, 16100, 0.36m)
         };
         pipeline.Set(ContextKeys.RunCostSummary, new RunCostSummary(phases.AsReadOnly(), 0.38m));
-        pipeline.Set(ContextKeys.RunDurationSeconds, 145);
+        pipeline.Set(ContextKeys.RunStartedAt, DateTimeOffset.UtcNow.AddSeconds(-145));
 
         var context = CreateContext("Add login feature", pipeline);
 
@@ -102,7 +102,7 @@ public sealed class WriteRunResultHandlerTests
         var resultEntry = _written.First(kv => kv.Key.EndsWith("result.md"));
         var content = resultEntry.Value;
 
-        content.Should().Contain("duration_seconds: 145");
+        content.Should().MatchRegex("duration_seconds: 14[56]\\b");
         content.Should().Contain("tokens:");
         content.Should().Contain("  input: 42350");
         content.Should().Contain("  output: 8120");

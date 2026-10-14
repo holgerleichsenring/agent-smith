@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-3890c
+goal: "The preflight branch-state check counts only framework commits the branch carries beyond its base, so merged work of other tickets is never reported as an earlier run's."
+
+applies_to: "backend (run preflight)"
+
+requires: []
+
+facts:
+  - claim: "BranchStateCheck counts framework-authored commits among the last 50 non-merge commits of HEAD, with no base excluded."
+    evidence: "src/backend/AgentSmith.Application/Services/Preflight/Run/BranchStateCheck.cs:60-95"
+  - claim: "ForeignCommitProbe excludes the base with rev-list --no-merges ... --not <baseRef>, the base resolved by the ladder."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ForeignCommitProbe.cs:15-25,50-62"
+  - claim: "observed: a run whose branch held no earlier run reported 'commits from an earlier run (9, 1, 42)' — framework commits merged into develop by other tickets."
+    evidence: "observed: 2026-10-13, operator run 6fd1 RunPreflight step and PR 9506 commit list"
+
+assumptions: []
+
+scope:
+  in: >
+    BranchStateCheck lists framework commits with `rev-list --no-merges --format=%ae HEAD --not <baseRef>`, the base
+    resolved by SandboxBaseLadder as ForeignCommitProbe does; no resolvable base means no report for that sandbox
+    (logged), never a count over the base's history. The message stops promising that specs will be skipped — that is
+    decided by the spec set, not by this count.
+  out: "How delivered specs are skipped (SpecSet.Executed)."
+
+decisions:
+  - key: "SAME EXCLUSION AS FOREIGNCOMMITPROBE. Merge commits and the base's own history are both excluded; the probe already learned why."
+
+steps:
+  - id: count
+    action: "Range-limited rev-list against the ladder's base; skip when no base."
+  - id: text
+    action: "The warning states the count and that the work stays on the branch; no skip promise."
+  - id: tests
+    action: "Red first: framework commits only on the base report nothing; commits beyond the base are counted; no base reports nothing."
+
+tests:
+  - "BranchState_FrameworkCommitsOnlyOnBase_ReportNothing"
+  - "BranchState_FrameworkCommitsBeyondBase_AreCounted"
+  - "BranchState_NoBase_ReportsNothing"
+
+done:
+  - "A first run on a fresh ticket branch cut from a base full of merged agent-smith commits reports no earlier run."

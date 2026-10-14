@@ -33,7 +33,7 @@ public sealed class RunResultFidelityTests
         md.Should().Contain("result: failed");
         md.Should().NotContain("result: success");
         md.Should().NotContain(".agentsmith");          // record artifacts excluded
-        md.Should().Contain("Completed 0 change(s)");
+        md.Should().Contain("Did not complete; 0 file(s) changed"); // 3890b: never "Completed"
         md.Should().Contain("produced no code changes"); // the keystone reason surfaces
     }
 
