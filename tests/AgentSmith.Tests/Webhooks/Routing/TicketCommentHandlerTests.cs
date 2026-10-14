@@ -88,6 +88,27 @@ public sealed class TicketCommentHandlerTests
             .Handled.Should().BeFalse();
     }
 
+    [Theory]
+    [InlineData("Agent Smith — working on this issue… @agent-smith")]
+    [InlineData("Agent Smith is working on this issue... @agent-smith")]
+    public async Task CommentHandlers_OurWorkingStatus_NotHandled(string working)
+    {
+        var azure = new TicketCommentHandlerFixture(TrackerType.AzureDevOps);
+        var github = new TicketCommentHandlerFixture(TrackerType.GitHub);
+        var gitlab = new TicketCommentHandlerFixture(TrackerType.GitLab);
+
+        var azureResult = await azure.AzureDevOpsComment().HandleAsync(AzureCommented(working), TicketCommentHandlerFixture.NoHeaders);
+        azureResult.Handled.Should().BeFalse();
+        azureResult.SkipReason.Should().Be("the comment is agent-smith's own");
+        azure.VerifySpawned("5", Times.Never());
+        (await github.GitHubComment().HandleAsync(GitHubComment(working, pullRequest: false), TicketCommentHandlerFixture.NoHeaders))
+            .Handled.Should().BeFalse();
+        github.VerifySpawned("7", Times.Never());
+        (await gitlab.GitLabComment().HandleAsync(GitLabNote(working, "Issue"), TicketCommentHandlerFixture.NoHeaders))
+            .Handled.Should().BeFalse();
+        gitlab.VerifySpawned("3", Times.Never());
+    }
+
     [Fact]
     public async Task GitHubIssueComment_KeywordOnPullRequestIssue_NotHandled()
     {

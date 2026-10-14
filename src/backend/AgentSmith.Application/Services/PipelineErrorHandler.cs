@@ -49,7 +49,7 @@ public sealed class PipelineErrorHandler(
         PipelineContext context,
         CancellationToken cancellationToken)
         => PostTicketStatusAsync(projectConfig, context,
-            "Agent Smith is working on this issue...", cancellationToken);
+            Prompts.OwnTicketComment.WorkingStatus, cancellationToken);
 
     /// <summary>
     /// p0269: a thrown exception (sandbox spawn quota, Redis down, config throw)

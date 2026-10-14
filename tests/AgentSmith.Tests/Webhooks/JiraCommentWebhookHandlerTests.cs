@@ -179,4 +179,21 @@ public sealed class JiraCommentWebhookHandlerTests
             It.IsAny<string>(), It.IsAny<IncomingTicketEnvelope>(), It.IsAny<WebhookTriggerConfig>(),
             It.IsAny<CancellationToken>(), It.IsAny<Dictionary<string, string>?>()), Times.Never);
     }
+
+    [Theory]
+    [InlineData("Agent Smith — working on this issue… @agent-smith")]
+    [InlineData("Agent Smith is working on this issue... @agent-smith")]
+    public async Task HandleAsync_OurWorkingStatus_NotHandled(string working)
+    {
+        var (sut, resolver, spawn) = CreateHandler(BuildConfig());
+        resolver.Setup(r => r.Resolve(It.IsAny<AgentSmithConfig>(), It.IsAny<IncomingTicketEnvelope>()))
+            .Returns(new[] { new ProjectMatch("my-project", "code", "jira") });
+
+        var result = await sut.HandleAsync(BuildPayload(commentText: working), EmptyHeaders);
+
+        result.Handled.Should().BeFalse();
+        spawn.Verify(s => s.ExecuteAsync(It.IsAny<AgentSmithConfig>(), It.IsAny<ResolvedProject>(),
+            It.IsAny<string>(), It.IsAny<IncomingTicketEnvelope>(), It.IsAny<WebhookTriggerConfig>(),
+            It.IsAny<CancellationToken>(), It.IsAny<Dictionary<string, string>?>()), Times.Never);
+    }
 }

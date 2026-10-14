@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-14-dbceb
+
+decisions:
+  - category: Architecture
+    chose: "Reword the working status to 'Agent Smith — working on this issue…' so the existing 'Agent Smith —' marker matches it (contract decision 14, section 5 default 2; default, pending operator ratification)"
+    over: "A sixth, unrelated marker for the old wording, or an author-identity check"
+    reason: |
+      One marker family covers every comment we post. An author check cannot work: the bot and a person may
+      post with one identity, so the body is the only signal.
+  - category: Architecture
+    chose: "Keep the old text 'Agent Smith is working on this issue' as a marker in OwnTicketComment.Ours"
+    over: "Relying on the new text alone"
+    reason: |
+      Tickets already carry the old working comment; without the legacy marker they keep the loop until a new
+      comment is posted. A person's reply does not contain the substring unless it quotes ours.
+  - category: Architecture
+    chose: "The constant WorkingStatus lives in OwnTicketComment beside the markers; PipelineErrorHandler references it as Prompts.OwnTicketComment.WorkingStatus"
+    over: "A literal in PipelineErrorHandler, or a using directive there"
+    reason: |
+      One test asserts IsOurs over every literal PipelineErrorHandler posts. The qualified name keeps
+      PipelineErrorHandler at 176 lines (net zero, contract section 4); a using line would have made it 177.
+  - category: Testing
+    chose: "Pin only PipelineErrorHandler's posts (WorkingStatus, ForStep, ForFatal, ForMessage) with IsOurs"
+    over: "A guard over every UpdateStatusAsync / FinalizeAsync poster in the code base"
+    reason: |
+      The other posters already carry 'Agent Smith —'; a code-wide guard is a new mechanism this defect does not
+      need. Accepted gap: a future poster that drops the marker is caught only by its own test.

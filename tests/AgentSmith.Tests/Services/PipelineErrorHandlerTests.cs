@@ -356,4 +356,21 @@ public sealed class PipelineErrorHandlerTests
             It.Is<string>(s => s.Contains("working on")),
             It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    [Fact]
+    public async Task PipelineErrorHandler_PostWorkingStatus_PostsWorkingStatusText()
+    {
+        var ticketProvider = new Mock<ITicketProvider>();
+        _ticketFactoryMock.Setup(f => f.Create(It.IsAny<TrackerConnection>()))
+            .Returns(ticketProvider.Object);
+        var context = new PipelineContext();
+        context.Set(ContextKeys.TicketId, new TicketId("42"));
+
+        await _sut.PostWorkingStatusAsync(new ResolvedProject(), context, CancellationToken.None);
+
+        ticketProvider.Verify(t => t.UpdateStatusAsync(
+            It.IsAny<TicketId>(),
+            AgentSmith.Application.Services.Prompts.OwnTicketComment.WorkingStatus,
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
 }
