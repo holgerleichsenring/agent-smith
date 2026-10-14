@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-8762f
+
+decisions:
+  - category: Architecture
+    chose: "DEVIATION (signature): ISpecCutReviser.ReviseAsync(draft, cuts, problems, lastRound, AgentConfig agent, PipelineCostTracker costTracker, ct)"
+    over: "ReviseAsync(draft, cuts, problems, lastRound, ct) as the spec names it"
+    reason: |
+      A model call needs the agent's assignment and the run's cost ledger, and neither is reachable from a
+      SpecDraft. 2026-10-13-8762e's ISpecAttackReviewer.ReviewAsync took the same two parameters for the same
+      reason, so g composes both services with the arguments it already holds
+      (src/backend/AgentSmith.Application/Services/Specs/Review/ISpecAttackReviewer.cs:14-16).
+  - category: Architecture
+    chose: "A changed string is admitted when a word-level walk can turn the old words into the new ones by copying words or replacing a run of any cut's quote with that cut's replacement (none: dropped); each occurrence may be applied or left"
+    over: "Requiring every occurrence of every cut applied, or comparing characters"
+    reason: |
+      Word for word outside the quoted runs is the spec's rule; a reviser that applied one of two cuts in an
+      item leaves the other standing, and the residue check names it, so a partial apply inside an item is
+      not a rewrite. Words are SpecQuotableText's (Words and ContainsRun made internal), so folding and
+      punctuation never decide.
+  - category: Architecture
+    chose: "A fact removed for an evidence problem alone is admitted only on the last round"
+    over: "Admitting a removal that carries a problem's claim in any round"
+    reason: |
+      The spec's own decision is that a fact with a broken citation stays until the last round; admitting its
+      removal earlier would let a reviser drop the fact the next round's reviewer is meant to re-cite.
+  - category: Architecture
+    chose: "Mappings and lists inside an item are judged field by field (same keys, same length); every top-level key outside the seven registers and assumptions must be parsed-equal"
+    over: "Listing spec, requires, applies_to, repos and contexts by name"
+    reason: |
+      A closed list misses the next key a spec gains; equality of everything the cuts cannot name is the
+      rule the spec states.
+  - category: Architecture
+    chose: "No call when there is nothing to apply — no cut, and no last-round fact move"
+    over: "One call per spec per round regardless"
+    reason: |
+      With no cut and no move the only admissible reply is the input itself; the call would cost tokens to
+      prove nothing.
+  - category: Architecture
+    chose: "Guard split into SpecRevisionGuard (keys, goal, scope), SpecRevisionLists (LCS pairing per list register, assumptions) and SpecRevisionEdit (word-level and structural comparison)"
+    over: "One guard class"
+    reason: |
+      The 120-line class limit; each part answers one question. Contract decision 4 (default, pending
+      operator ratification) is untouched: a refused revision returns the input draft and every cut is then
+      a residue for g to carry.

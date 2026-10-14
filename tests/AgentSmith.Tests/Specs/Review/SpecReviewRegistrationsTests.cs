@@ -26,4 +26,18 @@ public sealed class SpecReviewRegistrationsTests
         scope.ServiceProvider.GetRequiredService<SpecAttackAdmission>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<SpecReviewRoundPublisher>().Should().NotBeNull();
     }
+
+    [Fact]
+    public void SpecCutReviserAndResidues_ResolveFromTheRealServiceProvider()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
+        ServerCompositionBuilder.ConfigureServices(services, "agentsmith.yml");
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        scope.ServiceProvider.GetRequiredService<ISpecCutReviser>().Should().BeOfType<SpecCutReviser>();
+        scope.ServiceProvider.GetRequiredService<SpecRevisionGuard>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<SpecCutResidues>().Should().NotBeNull();
+    }
 }
