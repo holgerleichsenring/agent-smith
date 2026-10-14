@@ -50,6 +50,12 @@ public sealed class Ticket
     /// </summary>
     public bool IsClosed { get; }
 
+    /// <summary>The format the description was written in, one of <see cref="TicketTextFormat"/>.</summary>
+    public string DescriptionFormat { get; }
+
+    /// <summary>The format the acceptance criteria were written in, one of <see cref="TicketTextFormat"/>.</summary>
+    public string CriteriaFormat { get; }
+
     public Ticket(
         TicketId id,
         string title,
@@ -62,7 +68,9 @@ public sealed class Ticket
         TicketPerson? reporter = null,
         string? kind = null,
         string? webUrl = null,
-        bool isClosed = false)
+        bool isClosed = false,
+        string descriptionFormat = TicketTextFormat.Text,
+        string criteriaFormat = TicketTextFormat.Text)
     {
         Id = id;
         Title = title;
@@ -76,6 +84,8 @@ public sealed class Ticket
         Kind = kind;
         WebUrl = webUrl;
         IsClosed = isClosed;
+        DescriptionFormat = descriptionFormat;
+        CriteriaFormat = criteriaFormat;
     }
 
     /// <summary>
@@ -85,5 +95,5 @@ public sealed class Ticket
     /// </summary>
     public Ticket With(string? description = null, string? webUrl = null, bool? isClosed = null) =>
         new(Id, Title, description ?? Description, AcceptanceCriteria, Status, Source, Labels,
-            Assignee, Reporter, Kind, webUrl ?? WebUrl, isClosed ?? IsClosed);
+            Assignee, Reporter, Kind, webUrl ?? WebUrl, isClosed ?? IsClosed, DescriptionFormat, CriteriaFormat);
 }

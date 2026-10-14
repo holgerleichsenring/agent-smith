@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using AgentSmith.Contracts.Reviews;
+using AgentSmith.Domain.Models;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Webhooks;
 using Roles = AgentSmith.Server.Models.TicketConversationRoles;
@@ -28,7 +29,7 @@ public static partial class ConversationPrEntries
             RoleOf(entry), entry.IsSystem ? null : entry.AuthorLogin, entry.IsOurs, entry.At, null, null, entry.Body,
             entry.File, entry.Line,
             new { entry.Decision, entry.Standing, entry.Resolved, entry.ThreadHostId, entry.Truncated, entry.IsBot },
-            record.Url);
+            record.Url, TicketTextFormat.Markdown);
         if (!entry.IsOurs || !entry.Body.TrimStart().StartsWith(PrCommandTexts.Marker, StringComparison.Ordinal)) return view;
         if (entry.Body.Contains(StartedNothing, StringComparison.OrdinalIgnoreCase))
             return view with { Kind = TicketConversationKinds.CommandAnswer, Detail = new { StartedNothing = true } };

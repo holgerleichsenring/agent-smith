@@ -30,7 +30,9 @@ public sealed class JiraFieldMapper : ITicketFieldMapper<JsonElement>
             // 2026-09-27-481bf: the project's own word for it — "Bug", "Story", anything an
             // administrator named. Absent when the fetch did not ask for the field.
             ReadNested(fields, "issuetype", "name"),
-            isClosed: IsDoneCategory(fields));
+            isClosed: IsDoneCategory(fields),
+            // The description stays flattened text: it is what the ticket fingerprint is taken over.
+            descriptionFormat: TicketTextFormat.Text);
     }
 
     // The status's own category, never its name: an administrator may call any status "Done", and

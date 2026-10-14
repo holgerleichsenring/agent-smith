@@ -2,13 +2,18 @@
 
 import type { ReactNode } from "react";
 import type { TicketConversationEntry } from "@/types/tickets";
+import { TrackerText } from "@/components/ui/TrackerText";
 import { avatarOf, decisionPill, isQuote, nameOf, whereOf } from "./conversationWords";
 import { clock } from "./flowWords";
 
 // 2026-10-13-9a59r: one entry of the ticket's conversation, the mock's .msg — avatar by role, the name
 // (author only where recorded), where-label, time, body (a person's words as a quote), a review comment's
 // file and line, the detail block (a ticket-text diff, a hand-back's quote, a cut review's findings) and
-// the footer. Keyed and anchored on 9a59h's composite id. Spec-cut entries are drawn internal.
+// the footer. Keyed and anchored on 9a59h's composite id. Spec-cut entries are drawn internal. The body renders
+// in the format its source named.
+
+/** The cap the pull-request record cuts a note's body at. */
+const PR_BODY_CAP = 4000;
 
 interface Props {
   entry: TicketConversationEntry;
@@ -53,10 +58,13 @@ function Body({ entry }: { entry: TicketConversationEntry }) {
   }
   const where = entry.file ? `${entry.file}${entry.line != null ? ` · line ${entry.line}` : ""}` : null;
   if (!entry.text && !where) return null;
+  const truncated = entry.source === "pr-review"
+    && (entry.detail as { truncated?: unknown } | null | undefined)?.truncated === true;
   return (
     <div className={isQuote(entry) ? "mb quote" : "mb"}>
       {where && <span className="file" data-testid="conv-file">{where}</span>}
-      {entry.text}
+      {entry.text && <TrackerText text={entry.text} format={entry.format} />}
+      {truncated && <span className="cut" data-testid="conv-cut">… (cut at {PR_BODY_CAP} characters)</span>}
     </div>
   );
 }

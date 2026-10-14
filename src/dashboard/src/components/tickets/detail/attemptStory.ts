@@ -5,6 +5,7 @@ import type {
 import { channelWords } from "../ticketFormat";
 import { prNumber } from "./conversationWords";
 import { handbackCaseWords, passEndWords, type CutReviewDetail } from "./flowWords";
+import { isRunRecord } from "./specWords";
 
 // 2026-10-13-9a59s: an attempt card's sentences, composed from recorded fields only — 9a59a's attempt row,
 // 9a59d's cause and revision, 9a59e's cut and hand-back case, 9a59f's passes, 9a59h's cut-review entries and
@@ -33,7 +34,7 @@ const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? o
 export function liveSpec(attempt: TicketAttempt, cut: TicketSeries | null): {
   spec: TicketSeriesSpec; of: number; step: number | null; steps: number; rest: TicketSeriesSpec[];
 } | null {
-  if (!cut?.recorded || cut.runId !== attempt.runId || cut.specs.length === 0) return null;
+  if (!cut?.recorded || isRunRecord(cut) || cut.runId !== attempt.runId || cut.specs.length === 0) return null;
   const specs = [...cut.specs].sort((l, r) => l.ordinal - r.ordinal);
   const open = specs.filter((s) => s.state !== "done" && s.state !== "carried");
   const spec = open.find((s) => s.state === "in_progress") ?? open[0];

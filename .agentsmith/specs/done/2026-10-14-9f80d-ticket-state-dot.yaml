@@ -1,0 +1,90 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-14-9f80d
+goal: "A ticket's state dot means one thing on list and header — Done only when a pull request was merged — and the header subline names the pull requests' fate beside the attempt's."
+
+applies_to: "backend (ticket bucket rule, ticket summary) + dashboard (ticket list row, ticket header)"
+
+requires:
+  - 2026-10-13-9a59a
+  - 2026-10-13-9a59b
+  - 2026-10-13-9a59p
+  - 2026-10-13-9a59q
+
+facts:
+  - claim: "done is every pull-request record ended, merged or closed alike, with no attempt started after the last end; attempt outcome plays no part."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketBucketRule.cs:22-46, src/backend/AgentSmith.Contracts/Reviews/PrReviewStates.cs:9-19, .agentsmith/specs/done/2026-10-13-9a59b-pr-review-record.yaml:121-124"
+  - claim: "LastOutcome is set only in the stuck and idle arms."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketBucketRule.cs:31-38, src/backend/AgentSmith.Server/Models/TicketBucketState.cs:6-12"
+  - claim: "List row and detail header share one TicketSummaryComposer."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketSummaryComposer.cs:6-10, src/backend/AgentSmith.Server/Services/Tickets/TicketDetailReader.cs:49, src/backend/AgentSmith.Server/Services/Tickets/TicketListReader.cs:44,57"
+  - claim: "The list row's dotClass and the header's iconClass are two functions that disagree: the header has no waiting_on_review, queued, shortfall or cancelled case and takes liveness from the client."
+    evidence: "src/dashboard/src/components/tickets/TicketRow.tsx:15-38, src/dashboard/src/components/tickets/detail/TicketHeader.tsx:68-75"
+  - claim: "The header subline names the newest attempt's status and never the pull requests; the dot never reads attempt status outside idle."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketHeader.tsx:29-39,49-51"
+  - claim: "The list's Done section is worded 'every pull request merged or closed' in the proven green."
+    evidence: "src/dashboard/src/components/tickets/ticketSections.ts:3-5,43-55"
+  - claim: "The stuck arm is checked before done and fires on a failed, unchanged, unacted ticket; a merge is a record state, not an entry, so it does not count as an act."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketBucketRule.cs:34-37, src/backend/AgentSmith.Server/Services/Tickets/Checks/TicketStuckRule.cs:18-20,41-46"
+  - claim: "The header's live attempt is the newest attempt of the same detail whose status isRunLive, which counts queued and waiting_for_input."
+    evidence: "src/dashboard/src/lib/tickets/TicketPageStore.tsx:88,109-112, src/dashboard/src/lib/runLiveness.ts:1-20"
+  - claim: "The state palette is proven green, working amber, stopped red, waits-for-a-person blue."
+    evidence: ".agentsmith/specs/done/2026-10-13-9a59p-dashboard-ticket-list.yaml:140"
+  - claim: "No test pins the header dot; no test covers a ticket whose pull requests all closed unmerged."
+    evidence: "src/dashboard/src/components/tickets/detail/__tests__/TicketPage.test.tsx:77-109, tests/AgentSmith.Tests/Tickets/TicketReviewReadTests.cs:52-77"
+
+scope:
+  in: >
+    BACKEND: Landing is computed once from the pull-request records before the bucket arms, so every arm carries it:
+    merged = every record ended and at least one merged; unmerged = every record ended and none merged; null otherwise
+    (no record, or any record open, unsupported or unread). TicketBucketRule's done arm requires Landing merged; the
+    stuck arm does not fire when Landing is merged and the newest attempt started at or before the newest end — that
+    ticket is done; a ticket whose records all ended with none merged falls to idle. TicketBucketState and
+    TicketSummaryView carry Landing; types/tickets.ts mirrors it as optional (landing?). Doc comments that say "merged
+    or closed" (TicketBucket.cs, TicketBucketRule.cs, TicketSummaryView.cs) are corrected.
+    DASHBOARD: one ticketDot(summary) in components/tickets/ticketDot.ts, used by TicketRow and TicketHeader, returning
+    one class vocabulary — need, run, queued, human, ok, bad, idle: needs_you need, working run when status is running
+    else queued, waiting_on_review human, stuck bad, done ok, idle with Landing unmerged bad, idle otherwise by
+    lastOutcome (success or shortfall ok, failed or cancelled bad, none idle). The header stops passing its live
+    attempt into the dot; Cancel keeps using it. mock-parity.css gains .t-head .ticon.need/.run/.queued/.human so every
+    class has a rule under both .sd and .ticon, and .ticon.person goes; only run and need pulse, every other .ticon
+    class sets animation:none. The header subline gains the pull requests' fate after the attempt as one part
+    (data-testid ticket-pr-fate): counts per state in the fixed order merged, open, closed unmerged, joined with ", ",
+    unsupported and unread left out — "2 PRs merged", "1 PR merged, 1 open", "3 PRs closed unmerged". Wording: the
+    Done section reads "a pull request merged, every one ended"; TicketSection's "merged or closed this month" becomes
+    "merged this month" (TicketList.test.tsx expects it); ticketSections.ts's header comment and
+    docs/reference/operations/dashboard.md's Done and Ended lines name the closed-unmerged case.
+  out: >
+    The summary cell's per-PR lines (#n repo · state · decision) stay as they are. Treating a tracker-closed ticket as
+    done: the bucket stays a projection over runs and pull requests.
+
+decisions:
+  - key: "DONE MEANS LANDED — green is the palette's 'proven'; a ticket whose every pull request was closed unmerged proved nothing, whatever its attempt reported."
+  - key: "ONE DOT FUNCTION — list and header drawing the same ticket in two colours is the defect; a shared function makes the parity a test, not a habit."
+  - key: "THE SUBLINE SAYS BOTH — an attempt that failed and a pull request a person merged anyway are both true; the header names both instead of letting the dot pick one."
+  - key: "A PR CLOSED BECAUSE THE CHANGE LANDED ANOTHER WAY STAYS IDLE AND STOPPED — agent-smith's own pull requests proved nothing; tracker closure is not done (out of scope) and the subline's 'closed unmerged' tells the person why."
+  - key: "LANDING IS A FIELD, NOT A CLIENT COUNT — the rule that decides the bucket computes it from the same records, so dot and section can never disagree with the server."
+
+steps:
+  - id: rule
+    action: "Landing computed before the arms; done arm requires Landing merged; stuck yields to a landed merge; Landing on TicketBucketState and TicketSummaryView; types/tickets.ts mirrors as optional; doc comments corrected."
+  - id: dot
+    action: "ticketDot(summary) in components/tickets/ticketDot.ts; TicketRow and TicketHeader use it; .ticon rules for need, run, queued, human, .ticon.person removed; header ticket-pr-fate part; section, month-count, ticketSections comment and docs wording."
+  - id: tests
+    action: "Red first: the tests below."
+
+tests:
+  - "TicketBuckets_AllPrsClosedUnmerged_IsIdleWithLandingUnmerged"
+  - "TicketBuckets_OneMergedOneClosed_IsDoneWithLandingMerged"
+  - "TicketBuckets_MergedPrFailedAttempts_IsDone"
+  - "TicketBuckets_OnePrOpen_LandingNull; a working ticket carries Landing too"
+  - "ticketDot: every bucket and landing maps to one class, and every class it can return has a rule under .sd and .ticon"
+  - "dashboard: a ticket with a failed attempt and merged pull requests shows an ok dot, the attempt part 'attempt 2 failed' and the PR part '2 PRs merged'"
+  - "dashboard: a succeeded attempt whose pull requests all closed unmerged shows a bad dot and the PR part '3 PRs closed unmerged'"
+  - "dashboard: one merged and one open pull request read '1 PR merged, 1 open' in the ticket-pr-fate part"
+  - "TicketBuckets_MergedAfterFailedAttempt_StuckObserved_IsDone"
+  - "ticketDot: a working summary with status queued is queued in both TicketRow and TicketHeader; every .ticon class but run and need sets animation:none"
+  - "dashboard: the Done section's month count reads 'merged this month'"
+
+done:
+  - "No ticket's dot is green while every pull request it opened was closed unmerged; list and header draw the same dot for the same summary."
+  - "Backend and dashboard build and tests green."

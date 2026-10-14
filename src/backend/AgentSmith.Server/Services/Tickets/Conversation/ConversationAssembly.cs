@@ -33,7 +33,7 @@ public static class ConversationAssembly
             c.Id is { } id ? $"{Sources.Ticket}:{id}" : $"{Sources.Ticket}:at:{c.CreatedAt.UtcTicks}:{i}", c.Id, null,
             Sources.Ticket, TicketConversationKinds.Comment,
             OwnTicketComment.IsOurs(c) ? TicketConversationRoles.Agent : TicketConversationRoles.Person,
-            c.Author, OwnTicketComment.IsOurs(c), c.CreatedAt, null, null, c.Body));
+            c.Author, OwnTicketComment.IsOurs(c), c.CreatedAt, null, null, c.Body, Format: c.Format));
 
     /// <summary>Drops the posted copies of a recorded hand-back.</summary>
     public static IEnumerable<TicketConversationEntryView> Folded(IReadOnlyList<TicketConversationEntryView> entries)

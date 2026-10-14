@@ -14,7 +14,7 @@ import { fakeHub, list, pr, ticket } from "@/components/tickets/__tests__/ticket
 import { TicketPage } from "@/components/tickets/detail/TicketPage";
 import { TicketPageStore } from "@/lib/tickets/TicketPageStore";
 import {
-  attempt, compute, conversation, detail, entry, pass, passes, runDetail, segment, series, spec,
+  attempt, compute, conversation, detail, entry, pass, passes, runDetail, segment, series, spec, ticketText,
 } from "@/components/tickets/detail/__tests__/detailFixtures";
 
 // p0343c: PIXEL IDENTITY guard — each redesigned surface renders the ratified
@@ -240,6 +240,7 @@ describe("Mock parity", () => {
         spec({ state: "carried" }), spec({ specId: "s2", ordinal: 2 }),
       ])),
       conversation: () => Promise.resolve(conversation([])),
+      text: () => Promise.resolve(ticketText()),
       passes: (runId: string) => Promise.resolve(passes(runId, { s2: [pass()] })),
       run: () => Promise.reject(new Error("unused")),
       compute: () => Promise.reject(new Error("unused")),
@@ -300,6 +301,7 @@ describe("Mock parity", () => {
         sessionId: "s-1",
         proposal: { kind: "spec", drafts: [{ specId: "s3", goal: "Import consumer", repos: ["w"], done: ["caps"] }] },
       }),
+      text: () => Promise.resolve(ticketText()),
       passes: (runId: string) => Promise.resolve(passes(runId, { s2: [pass()] })),
       run: () => Promise.reject(new Error("unused")),
       compute: () => Promise.reject(new Error("unused")),
@@ -318,7 +320,7 @@ describe("Mock parity", () => {
       );
       const root = screen.getByTestId("ticket-page");
       await screen.findByTestId(`ticket-tab-${tab}`);
-      await screen.findByText(tab === "conversation" ? "Add one" : tab === "specs" ? "Revisions" : "Acceptance", { selector: tab === "conversation" ? ".mb" : "h2" });
+      await screen.findByText(tab === "conversation" ? "Add one" : tab === "specs" ? "Revisions" : "Acceptance", { selector: tab === "conversation" ? ".mb [data-testid='tracker-text']" : "h2" });
       for (const cls of classes) {
         expect(root.querySelector(cls), `ticket ${tab} tab missing ${cls}`).not.toBeNull();
       }
@@ -336,6 +338,7 @@ describe("Mock parity", () => {
       detail: () => Promise.resolve(detail([attempt(), attempt({ number: 2, runId: "r-2", cost: 9.4 })])),
       series: (_p: string, _t: string, runId: string | null) => Promise.resolve(series(runId ?? "r-2", [spec()])),
       conversation: () => Promise.resolve(conversation([])),
+      text: () => Promise.resolve(ticketText()),
       passes: (runId: string) => Promise.resolve(passes(runId, { s1: [pass()] })),
       run: (runId: string) => Promise.resolve(runDetail(runId, { budgetCapUsd: runId === "r-1" ? 5 : 15 })),
       compute: (runId: string) => Promise.resolve(compute(runId, {

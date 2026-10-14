@@ -29,7 +29,7 @@ public sealed class TicketTrackerObserver(
         try
         {
             var provider = providers.Create(project.Tracker);
-            var ticket = await provider.GetTicketAsync(ticketId, ct);
+            var ticket = TicketLabelNoteStripper.Strip(await provider.GetTicketAsync(ticketId, ct));
             var comments = await provider.GetCommentsAsync(ticketId, ct);
             var acts = comments.Where(c => !OwnTicketComment.IsOurs(c) && cutoff.Precedes(c.CreatedAt))
                 .Select(c => new TicketTrackerAct(TicketTrackerAct.Comment, c.Author, c.CreatedAt)).ToList();

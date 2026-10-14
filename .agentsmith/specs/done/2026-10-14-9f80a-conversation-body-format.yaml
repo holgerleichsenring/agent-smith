@@ -1,0 +1,110 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-14-9f80a
+goal: "Every conversation entry on the ticket page carries the format its source wrote it in and renders as formatted, sanitized text, never as raw HTML or raw markdown source."
+
+applies_to: "backend (ticket comment mappers, ticket conversation read) + dashboard (ticket Conversation tab, shared tracker-text renderer)"
+
+requires:
+  - 2026-10-13-9a59h
+  - 2026-10-13-9a59r
+
+facts:
+  - claim: "The conversation entry view has Text, File, Line, Detail and Url and no field naming the body's format."
+    evidence: "src/backend/AgentSmith.Server/Models/TicketConversationEntryView.cs:16-32"
+  - claim: "A ticket comment entry's Text is the tracker body as returned, unconverted."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Conversation/ConversationAssembly.cs:31-36, src/backend/AgentSmith.Server/Services/Tickets/Conversation/TicketThreadReader.cs:22-42"
+  - claim: "Azure DevOps work-item comments are mapped with their text as delivered and the SDK comment's Format (Markdown | Html) is not read."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsCommentMapper.cs:6-21, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs:153-162; observed: 2026-10-14, Microsoft.TeamFoundation.WorkItemTracking.WebApi.xml in microsoft.teamfoundationserver.client 19.225.2 documents Comment.Format and CommentFormat Markdown/Html"
+  - claim: "TicketComment is a positional record with Id as an init property, constructed in about 43 places; TicketConversationEntryView is built by position in 6."
+    evidence: "src/backend/AgentSmith.Domain/Entities/TicketComment.cs:9-19, src/backend/AgentSmith.Server/Models/TicketConversationEntryView.cs:16-32"
+  - claim: "Jira comments posted by us are markdown sent as ADF text (only <b> and <br/> become marks), and read back by ExtractText, which keeps only text nodes and ignores hardBreak."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraAdfRenderer.cs:33-45, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraAdfParser.cs:19-43"
+  - claim: "Our failure comment carries inline <b> and <br/> inside markdown."
+    evidence: "src/backend/AgentSmith.Application/Services/FailureTicketComment.cs:21,28,54"
+  - claim: "An answer read from a parked ticket's comment is stored as the raw tracker body, and the answer row has no format column."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/ParkedTicketDialogue.cs:40-41,110, src/backend/AgentSmith.Server/Services/Tickets/Conversation/ConversationRunEntries.cs:43-49"
+  - claim: "Jira comment bodies are read by the prompt, the rework keyword, the recut demand, the our-comment markers and the hand-back fold."
+    evidence: "src/backend/AgentSmith.Application/Services/Prompts/TicketConversationPromptSection.cs:105, src/backend/AgentSmith.Application/Services/Prompts/OwnTicketComment.cs:28-35,92, src/backend/AgentSmith.Server/Services/Tickets/Conversation/ConversationAssembly.cs:43"
+  - claim: "In the dialog transcript a person's turn is plain text with line breaks kept; only agent turns go through Markdown."
+    evidence: "src/dashboard/src/components/dialog/DialogTranscript.tsx:83-102"
+  - claim: "Our own completion comment is built as markdown and posted to Azure DevOps as HTML rendered by Markdig, which is where the '<h2 id=...>' source in the conversation comes from."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CompletedRunTicketSummary.cs:19-52, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs:182-183,198-204"
+  - claim: "GitHub and GitLab issue comments are mapped from their markdown body; Jira comments are ADF flattened to plain text."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubCommentMapper.cs:16-20, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabCommentMapper.cs:14-40, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraCommentMapper.cs:6-10,35-37"
+  - claim: "PR review entries carry the host's markdown body, cut at 4000 characters with Truncated set in detail."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Conversation/ConversationPrEntries.cs:24-31, src/backend/AgentSmith.Server/Services/Rework/PrReviewEntryBuilder.cs:62-68"
+  - claim: "Hand-back headings are markdown; dialog turns are the stored transcript text unchanged."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecHandbackComment.cs:77-115, src/backend/AgentSmith.Server/Services/Tickets/Conversation/TicketTranscriptReader.cs:28-34"
+  - claim: "ConversationEntry's Body renders entry.text as a raw text node."
+    evidence: "src/dashboard/src/components/tickets/detail/ConversationEntry.tsx:50-62"
+  - claim: "The dashboard has a sanitizing markdown renderer (react-markdown, remark-gfm, rehype-sanitize) used by the dialog transcript and the run result; inline HTML in its input is dropped, because rehype-sanitize removes raw nodes before react-markdown would print them."
+    evidence: "src/dashboard/src/components/ui/Markdown.tsx:52-64, src/dashboard/src/components/dialog/DialogTranscript.tsx:95-102, src/dashboard/package.json:17-31"
+  - claim: "The dashboard's TicketConversationEntry type is hand-written, mirroring the API DTO; gen:hub-events does not cover it."
+    evidence: "src/dashboard/src/types/tickets.ts:324-343, tools/build-hub-event-types.mjs:27"
+
+scope:
+  in: >
+    FORMAT IS RECORDED WHERE IT IS KNOWN: TicketComment gains Format (html | markdown | text) as an init property
+    defaulting to text. Azure DevOps maps it from the SDK comment's Format (CommentFormat.Html html, CommentFormat.Markdown markdown — the enum is non-nullable with Markdown = 0, so an absent field reads as markdown, which the markdown path below still renders when the body holds HTML);
+    GitHub and GitLab markdown; Jira's comment body goes through a new JiraAdfMarkdown, which writes ADF as markdown
+    (paragraphs, hardBreak, headings, bullet and ordered lists, task lists, strong, em, code, code blocks, links;
+    inlineCard and blockCard as a link from attrs.url, mention as attrs.text, emoji as attrs.text or shortName,
+    blockquote as "> ", rule as "---", any other node recursing into its content) and marks markdown, so our own
+    markdown comments posted as ADF text render too. Text-node content is written verbatim except "<", written "\\<",
+    because ADF text is never HTML; every marker and keyword in a body keeps matching. TicketConversationEntryView gains
+    Format as a trailing parameter with a default, and the dashboard type mirrors it: a ticket comment carries its
+    comment's format; agent turns, questions, hand-backs and PR review entries are markdown; a person's turns are text; an answer is text, except an answer whose Comment is "ticket-comment" (read from
+    the tracker by ParkedTicketDialogue), which takes the format of the thread comment with the same author and time,
+    html when none matches; an edited entry's detail stays text.
+    RENDERING: ConversationEntry's body goes through one TrackerText component — markdown through react-markdown with
+    remark-gfm, rehype-raw then rehype-sanitize (so inline <b> and <br/> render and anything unsafe is removed); html
+    parsed as a fragment by rehype-parse, sanitized with the same schema and rendered by hast-util-to-jsx-runtime;
+    text with white-space pre-wrap. Both rich paths use Markdown.tsx's element map, exported and extended with li,
+    disabled task-list input, blockquote and strong; images in tracker html render as a link, because tracker
+    attachments need the tracker's sign-in. A truncated PR body ends with "… (cut at 4000 characters)". Inside .mb,
+    headings h1 to h3 render at entry-body scale with a specific enough override, so an entry never outranks the
+    page's own headings; p, li, ul and ol take the entry body's font size and colour there too. The shared Markdown component used by the dialog and the run result is unchanged.
+  out: >
+    Changing how comments are written to Azure DevOps or Jira: the read renders what is there, including every comment
+    already posted. The ticket description — 2026-10-14-9f80c renders it
+    with the TrackerText component and JiraAdfMarkdown this spec adds.
+
+decisions:
+  - key: "THE PROVIDER NAMES THE FORMAT, THE CLIENT DOES NOT SNIFF — only the mapper knows whether its tracker returns HTML; a client guess on '<' would misread a markdown comment that quotes a tag."
+  - key: "HTML IS RENDERED, NOT FLATTENED — TicketHtmlConverter.ToText loses headings, lists and links, which is exactly the structure that makes our completion comment readable; parse, sanitize, render."
+  - key: "THE SDK'S FORMAT, NOT A CONSTANT — an Azure DevOps comment written in its markdown editor comes back as markdown; only the SDK's Format field tells the two apart."
+  - key: "JIRA KEEPS ITS STRUCTURE — flattening ADF to bare text made both a person's rich comment and our own markdown unreadable; writing ADF as markdown lets one renderer serve Jira too."
+  - key: "JIRA BODY IS MARKDOWN FOR EVERY READER — TicketComment.Body also feeds the prompt, the spec dialog, the rework keyword, the recut demand, the our-comment markers and the hand-back fold; verbatim text nodes keep every one of them matching, and the model reads structure it could not before."
+  - key: "RAW HTML INSIDE MARKDOWN IS RENDERED, THEN SANITIZED — GitHub and GitLab bodies and our failure comment mix inline HTML into markdown; dropping it ran their lines together."
+  - key: "ONE SANITIZER — the html path uses rehype-sanitize's schema the markdown path already uses; no dangerouslySetInnerHTML anywhere (there is none today)."
+
+steps:
+  - id: comment-format
+    action: "TicketTextFormat values; TicketComment.Format init property; Azure DevOps mapper from comment.Format; GitHub and GitLab markdown; JiraAdfMarkdown for Jira comments; mapper tests per tracker."
+  - id: entry-format
+    action: "TicketConversationEntryView.Format (trailing, defaulted) filled per source in ConversationAssembly, ConversationRunEntries, ConversationPrEntries and the transcript entries; types/tickets.ts mirrors it."
+  - id: renderer
+    action: "TrackerText (markdown | html | text) beside Markdown.tsx; export and extend the element map; add rehype-raw, rehype-parse and hast-util-to-jsx-runtime as direct dependencies with the lockfile."
+  - id: entry-body
+    action: "ConversationEntry's Body renders through TrackerText; truncated note; .mb heading and pre-wrap CSS."
+  - id: tests
+    action: "Red first: the tests below."
+
+tests:
+  - "AzureDevOpsCommentMapper_MapMany_TakesTheCommentFormat (an Html and a Markdown comment)"
+  - "GitHubCommentMapper and GitLabCommentMapper mark markdown"
+  - "JiraAdfMarkdown: paragraphs, hardBreak, a heading, a bullet and a task list, strong and a link become markdown; JiraCommentMapper marks markdown"
+  - "JiraAdfMarkdown: an inlineCard becomes a link; a text node 'List<string>' survives TrackerText"
+  - "JiraCommentMapper: our comment posted through JiraAdfRenderer.CommentBody ('[agent-smith open questions]') reads back with OwnTicketComment.IsOurs true, and a recut demand still demands"
+  - "TicketConversation_EntryFormat_FollowsItsSource (ticket comment carries the comment's format; agent turn, question, hand-back and PR entry markdown; a person's turn and a dashboard answer text; a ticket-comment answer takes its comment's format, html when unmatched)"
+  - "TrackerText: an html body with h2, ul and a renders a heading, a list and a link, and shows no tag source"
+  - "TrackerText: a markdown body with inline <b> and <br/> renders bold and a line break"
+  - "TrackerText: script, iframe, on* attributes and javascript: links in an html or markdown body are removed"
+  - "TrackerText: an img in an html body renders as a link"
+  - "TrackerText: a text body keeps its line breaks"
+  - "ConversationEntry: a truncated PR body ends with the cut note"
+
+done:
+  - "The Azure DevOps 'Agent Smith - Completed across 2 repo(s)' comment reads as a heading, a list of pull-request links and a checklist on the ticket page."
+  - "No conversation entry on any tracker shows tag or markdown source."
+  - "Backend and dashboard build and tests green."

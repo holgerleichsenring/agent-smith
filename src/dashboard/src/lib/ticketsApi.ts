@@ -14,6 +14,7 @@ import type {
   TicketListView,
   TicketSeries,
   TicketServerBucket,
+  TicketText,
 } from "@/types/tickets";
 
 export interface TicketListQuery {
@@ -53,6 +54,11 @@ export function fetchTicketConversation(
   project: string, ticketId: string, signal?: AbortSignal,
 ): Promise<TicketConversation> {
   return getJson<TicketConversation>(`/api${ticketPath(project, ticketId)}/conversation`, signal);
+}
+
+/** The ticket itself, read from its tracker (a minute's cache on the server), else an attempt's copy. */
+export function fetchTicketText(project: string, ticketId: string, signal?: AbortSignal): Promise<TicketText> {
+  return getJson<TicketText>(`/api${ticketPath(project, ticketId)}/text`, signal);
 }
 
 export function fetchRunPasses(runId: string, signal?: AbortSignal): Promise<RunPasses> {

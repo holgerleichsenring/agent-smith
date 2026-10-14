@@ -1,0 +1,130 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-14-9f80b
+goal: "A ticket whose attempts recorded no cut still shows its specs and acceptance on the ticket page, built from the spec rows, spec records and acceptance its runs did record."
+
+applies_to: "backend (ticket series read) + dashboard (ticket Specs, Acceptance and Summary tabs)"
+
+requires:
+  - 2026-10-13-9a59e
+  - 2026-10-13-9a59q
+  - 2026-10-13-9a59r
+
+facts:
+  - claim: "With no cut carrying specs the series read returns no specs and Recorded false, discarding the RunSpec rows it already loaded."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketSeriesReader.cs:34,37-39, src/backend/AgentSmith.Server/Services/Tickets/TicketSeriesRecordsReader.cs:15-46"
+  - claim: "9a59e chose this on purpose: 'Runs before this spec have no cut row; their series read is empty and says so.'"
+    evidence: ".agentsmith/specs/done/2026-10-13-9a59e-series-published-read.yaml:111, .agentsmith/decisions/2026-10-13-9a59e.yaml:86-88"
+  - claim: "Every content field of a served spec (goal, repos, steps, yaml, done list) comes from the cut's SpecCutEntry; state and verdicts from RunSpec rows; overrules joined by CriterionKey."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketSeriesSpecComposer.cs:24-53"
+  - claim: "A RunSpec row holds SpecId, Ordinal, Title (the goal), Status, StartedAt, EndedAt, Verdict and AcceptanceJson, and no repos, steps or done list."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunSpec.cs:13-50, src/backend/AgentSmith.Application/Services/Specs/SpecProgressRecorder.cs:41-52"
+  - claim: "RunSpec.AcceptanceJson only came with 9a59e; every row in the local database written before it is null."
+    evidence: "src/backend/AgentSmith.Contracts/Events/SpecLifecycleEvents.cs:22-34; observed: 2026-10-14, local test database, 14 RunSpecs rows, AcceptanceJson NULL on all"
+  - claim: "A spec that reached the record step has its YAML stored as RunArtifact spec_record:{SpecId}; SpecDraftReader turns a spec:-keyed YAML into goal, done list, steps and repos and throws on a body without the spec: key."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSpecProjection.cs:21,55-64, src/backend/AgentSmith.Application/Services/SpecDialog/SpecDraftReader.cs:14-42"
+  - claim: "Records written before 2026-10-06-03c7b are keyed phase:, with the account appended as '# ' comment lines; none of the local records carries repos."
+    evidence: "observed: 2026-10-14, local test database, spec_record bodies of p19222a-c and 2026-09-24-d4e1 begin with phase:, 2026-10-07-1891a with spec:"
+  - claim: "The ticket surface reads code-pipeline runs only; the four phase:-keyed local records belong to add-feature and phase-execution runs, and 11 of the 14 local RunSpec rows are on non-code runs, so locally the fallback reaches p19413a and 2026-10-07-1891a."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketSeriesReader.cs:24-26, src/backend/AgentSmith.Server/Services/Tickets/TicketAttempts.cs:21-22; observed: 2026-10-14, local test database, Runs.Pipeline of the RunSpecs rows"
+  - claim: "The series endpoint catches nothing, so a throwing composer answers 500."
+    evidence: "src/backend/AgentSmith.Server/Extensions/TicketSeriesEndpoints.cs:19-25"
+  - claim: "Every per-attempt consumer compares the series' runId to the attempt's: attemptCell, SummaryCells, the carried banner, the graph layout, liveSpec and the gate detail."
+    evidence: "src/dashboard/src/components/tickets/detail/specWords.ts:49-69, src/dashboard/src/components/tickets/detail/SummaryCells.tsx:13-21, src/dashboard/src/components/tickets/detail/attemptFlowLayout.ts:72-76, src/dashboard/src/components/tickets/detail/attemptStory.ts:36"
+  - claim: "An unjudged criterion reads 'verify pending' unless its spec is not_started."
+    evidence: "src/dashboard/src/components/tickets/detail/specWords.ts:77-86"
+  - claim: "The list strip reads an in_progress spec of an ended run as failed."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/SeriesStripReader.cs:56"
+  - claim: "The list strip and the continuation basis read cuts only."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/SeriesStripReader.cs:33-38, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/TicketContinuationStateReader.cs:54-56"
+  - claim: "Run.AcceptanceJson is the run-end acceptance over every spec: criteria {text, status, reason, citation} without a spec id, declined entries with one."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs:97-118, src/backend/AgentSmith.Contracts/Runs/AcceptanceView.cs:24-48, src/backend/AgentSmith.Contracts/Runs/RunStoryContracts.cs:74-78"
+  - claim: "In the local database a done spec has its spec_record, a failed or handed-back one has none; Run.AcceptanceJson is set on 4 of the 14 rows' runs."
+    evidence: "observed: 2026-10-14, local test database, RunSpecs joined to RunArtifacts and Runs"
+  - claim: "The dashboard tabs empty themselves on !recorded or no specs; acceptanceTally and specsCounter need recorded; attemptCell needs the per-run read's runId."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketSpecsTab.tsx:19-27, src/dashboard/src/components/tickets/detail/TicketAcceptanceTab.tsx:12-22, src/dashboard/src/components/tickets/detail/specWords.ts:24-69"
+  - claim: "The graph falls back to the run-viewer link for a terminal attempt with no revision and no cut."
+    evidence: "src/dashboard/src/components/tickets/detail/attemptFlowLayout.ts:72-76, src/dashboard/src/components/tickets/detail/AttemptFlowGraph.tsx:82-88"
+  - claim: "TicketSeries_Read_RunWithoutCut_IsEmpty pins today's empty answer."
+    evidence: "tests/AgentSmith.Tests/Tickets/TicketSeriesReadTests.cs:117-126"
+
+scope:
+  in: >
+    BACKEND: where no cut row exists in scope (scoped.Count == 0; a scope holding only hand-back cuts is unchanged), it composes the
+    specs from the attempts' RunSpec rows (TicketRunRecordSpecComposer): one spec per distinct SpecId, ordered by its
+    first attempt then Ordinal, served Ordinal = its position in that order. STATE: the newest attempt's row for that
+    SpecId; in_progress on a run that is not live is served as failed (the strip's rule); never carried; ExecutedBy the
+    newest row that is not not_started. CONTENT: the newest spec_record:{SpecId}, read tolerantly — phase: accepted as
+    an alias of spec:, the spec id taken from the row, a YamlException or InvalidOperationException caught; parsed it
+    gives goal, steps, done list and repos (HasRecord true), unreadable it gives the goal from Title and RecordNote
+    "record unreadable", absent the goal from Title and RecordNote "no record". Yaml is the stored record body as written when a record
+    was read, empty otherwise. VERDICTS: the spec's
+    RunSpec.AcceptanceJson when set, else the executing run's Run.AcceptanceJson — a spec with a done list joins
+    criteria by CriterionKey; a single-spec run whose spec has no record takes the run's criteria as its done rows; the
+    run's Unmeasured goes to its only spec, and on a run with more than one spec to UnattributedCriteria.unmeasured; whatever matches no spec is served as UnattributedCriteria {runId,
+    attempt, criteria[], unmeasured[]}; overrules joined as today. A terminal spec none of whose criteria carries a verdict is served
+    VerdictRecorded false. VIEW: Source cut | run-record; Recorded = a cut exists or a run-record spec is served (a
+    hand-back-only cut ticket stays Recorded with no specs); FileStem null for run-record specs; HasRecord and
+    RecordNote per spec. The default run-record read has RunId, Attempt, At, SetKey and Gate null; ?runId= scopes to
+    that run's rows with RunId the asked run and Attempt its number. A ticket with no RunSpec row stays Recorded false.
+    DASHBOARD: Specs and Acceptance render run-record specs with a line "as the runs recorded them — these attempts
+    predate the cut"; SpecDocument hides the file stem when null, shows the RecordNote ("no spec record — only the
+    goal was recorded" / "the spec record could not be read") when HasRecord is false, and drops the read-only note
+    and Discuss in conversation for run-record specs; a criterion of a VerdictRecorded-false spec reads "no verdict
+    recorded", never "verify pending", and acceptanceTally counts only specs with recorded verdicts and says how many
+    have none; Acceptance lists unattributed criteria under "Run criteria, not tied to a spec · attempt n"; the
+    Summary Series cell reads "n specs · run record". The graph falls back to the run-viewer link when
+    !live && !attempt.revision && (!cut || cut.source === "run-record"); liveSpec requires source cut. types/tickets.ts
+    mirrors the new fields as optional and adds unproven to the verdict comment.
+  out: >
+    Backfilling cut, attempt or revision rows for old runs: nothing new is written. Cause ("started by"), revisions,
+    gate and steps-worked stay unrecorded for these attempts and keep saying so. The list strip (9a59p) and the
+    continuation basis (9a59l) keep reading cuts only: a run-record spec is history, not a series an approval continues. Runs on the add-feature and phase-execution
+    pipelines stay off the ticket surface; widening attempts beyond the code pipeline would renumber attempts across
+    list, detail, conversation and strip.
+
+decisions:
+  - key: "SUPERSEDES 9a59e's EMPTY-UNCUT DECISION — 'says so' was honest about the cut and false about the ticket: the spec rows, records and acceptance exist, and the page showed none of them for every ticket that ran before 9a59."
+  - key: "READ, DON'T BACKFILL — a projection over rows already stored keeps old runs as they were recorded; a migration that fabricates cuts would put records in the database that no run wrote."
+  - key: "ONE READ SERVES BOTH SHAPES — the fallback lives in the series read, so attemptCell, the summary cells and both tabs need one Source switch, not a second client fetch per attempt."
+  - key: "OLD RECORDS ARE READ AS THEY WERE WRITTEN — code runs from 2026-09-30 to 2026-10-06 wrote phase:-keyed records; reading them tolerantly is the read's job, and a body that still fails degrades to the goal instead of failing the page."
+  - key: "AN ENDED RUN IS NOT WORKING — an in_progress row on a run that ended reads failed, as the strip already reads it; amber on a finished run would claim work that is not happening."
+  - key: "NO VERDICT IS NOT A PENDING VERDICT — a finished run that recorded no acceptance says so; 'verify pending' would promise a check no one will run."
+  - key: "LOSS IS SHOWN, NOT HIDDEN — a spec without a record shows only its goal and says why; criteria that cannot be tied to a spec are listed as run criteria, never guessed onto one."
+
+steps:
+  - id: view
+    action: "TicketSeriesView.Source and UnattributedCriteria; TicketSeriesSpecView FileStem nullable, HasRecord, RecordNote, VerdictRecorded; types/tickets.ts mirrors as optional."
+  - id: record-read
+    action: "Tolerant spec-record read (phase: alias, id from the row, parse failures caught) beside SpecDraftReader."
+  - id: composer
+    action: "TicketRunRecordSpecComposer over records.Specs, spec_record artifacts (one set query) and Run.AcceptanceJson: state, content, verdicts and attribution as scoped; TicketSeriesReader calls it where cut is null; Recorded rule."
+  - id: dashboard
+    action: "Specs, Acceptance, SpecDocument, SummaryCells, specWords (criterionRow, acceptanceTally), attemptFlowLayout and attemptStory read Source, HasRecord and VerdictRecorded."
+  - id: tests
+    action: "Red first: the tests below; TicketSeries_Read_RunWithoutCut_IsEmpty becomes the no-RunSpec case."
+
+tests:
+  - "TicketSeries_Read_RunWithoutCut_ServesTheRunSpecRows_SourceRunRecord"
+  - "TicketSeries_Read_RunWithoutCut_SpecKeyedRecord_ServesStepsDoneListAndRepos"
+  - "TicketSeries_Read_RunWithoutCut_PhaseKeyedRecordWithCommentAccount_ServesStepsAndDoneList"
+  - "TicketSeries_Read_RunWithoutCut_MalformedRecord_ServesTheGoalWithRecordUnreadable"
+  - "TicketSeries_Read_RunWithoutCut_WithoutSpecRecord_ServesTheGoalOnly"
+  - "TicketSeries_Read_RunWithoutCut_InProgressOnAnEndedRun_IsFailed"
+  - "TicketSeries_Read_RunWithoutCut_SingleSpecRunWithoutRecord_TakesTheRunsCriteria"
+  - "TicketSeries_Read_RunWithoutCut_MultiSpecRunNoAcceptance_VerdictRecordedFalse"
+  - "TicketSeries_Read_RunWithoutCut_CriterionMatchingNoSpec_IsUnattributed; a multi-spec run's unmeasured goes there too"
+  - "TicketSeries_Read_RunWithoutCut_AppliesOperatorJudgement"
+  - "TicketSeries_Read_RunWithoutCut_SameOrdinalInTwoAttempts_ServesDistinctOrdinals"
+  - "TicketSeries_Read_RunWithoutCut_ScopedRead_CarriesTheRunIdAndAttempt; the default read carries none"
+  - "TicketSeries_Read_HandbackOnlyCut_StaysRecordedWithoutSpecs (an earlier pre-cut attempt carries RunSpec rows)"
+  - "TicketSeries_Read_NoRunSpecRows_IsEmpty"
+  - "dashboard: a run-record series shows its specs with the run-record line, no file stem and no Discuss in conversation"
+  - "dashboard: Acceptance shows a run-record spec's verdicts, 'no verdict recorded' for a spec without any, and the unattributed run criteria block"
+  - "dashboard: a run-record attempt keeps the run-viewer link instead of a graph"
+  - "dashboard: a live deriving attempt on a ticket whose default series is run-record reads deriving, not a spec of the old set"
+
+done:
+  - "A ticket whose runs predate the cut — 2026-10-07-1891a on its ticket — shows its spec with goal, steps, done list and the verdicts its run recorded on Specs and Acceptance."
+  - "A failed spec with no record shows its goal and says only the goal was recorded."
+  - "A code-pipeline ticket whose multi-spec run recorded phase:-keyed records and no acceptance shows its specs with steps and done lists and says no verdict was recorded (the phase-keyed and no-acceptance tests above)."
+  - "Backend and dashboard build and tests green."

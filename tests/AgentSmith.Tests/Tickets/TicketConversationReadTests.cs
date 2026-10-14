@@ -219,6 +219,34 @@ public sealed class TicketConversationReadTests : IDisposable
         (await ReadAsync()).Attempts.Single(a => a.RunId == "r-2").DemandEntryId.Should().Be($"pr-review:{PrKey.Of(PrUrl("7"))}:n-4");
     }
 
+    [Fact]
+    public async Task TicketConversation_EntryFormat_FollowsItsSource()
+    {
+        await _h.AddAsync(Attempt("r-1", 0), Record("7"), Note("7", "n-1", "**Rename** this.", 10),
+            Row("r-1", 3, RunConversationKinds.Question, 5, "Which **branch**?", "q-1"), Answer("r-1", "q-1", "main", "ann", null, 6),
+            Row("r-1", 4, RunConversationKinds.Question, 7, "Which repo?", "q-2"), Answer("r-1", "q-2", "api", "jane", "ticket-comment", 8),
+            Row("r-1", 5, RunConversationKinds.Question, 9, "Which port?", "q-3"), Answer("r-1", "q-3", "80", "joe", "ticket-comment", 11),
+            Row("r-1", 6, RunConversationKinds.HandBack, 20, "## Agent Smith — refused"),
+            Session(null, Turn(TranscriptRole.User, "Can it be faster?", 90), Turn(TranscriptRole.Assistant, "**Yes.**", 91)));
+        Thread(Comment("c-1", "carol", 2, "<h2>Plan</h2>") with { Format = TicketTextFormat.Html },
+            Comment("c-2", "jane", 8, "api") with { Format = TicketTextFormat.Markdown });
+
+        var entries = (await ReadAsync()).Entries;
+
+        string Of(Func<TicketConversationEntryView, bool> which) => entries.Single(which).Format;
+        Of(e => e.Id == "ticket:c-1").Should().Be(TicketTextFormat.Html, "a ticket comment carries its comment's format");
+        Of(e => e.Kind == RunConversationKinds.Question && e.SourceId == "q-1").Should().Be(TicketTextFormat.Markdown);
+        Of(e => e.Kind == RunConversationKinds.HandBack).Should().Be(TicketTextFormat.Markdown);
+        Of(e => e.Source == TicketConversationSources.PrReview).Should().Be(TicketTextFormat.Markdown);
+        Of(e => e.Kind == TicketConversationKinds.Turn && e.Role == TicketConversationRoles.Agent).Should().Be(TicketTextFormat.Markdown);
+        Of(e => e.Kind == TicketConversationKinds.Turn && e.Role == TicketConversationRoles.Person).Should().Be(TicketTextFormat.Text);
+        Of(e => e.Kind == TicketConversationKinds.Answer && e.SourceId == "q-1").Should().Be(TicketTextFormat.Text, "a dashboard answer is plain text");
+        Of(e => e.Kind == TicketConversationKinds.Answer && e.SourceId == "q-2").Should().Be(TicketTextFormat.Markdown,
+            "an answer read from the tracker takes the format of the comment it was read from");
+        Of(e => e.Kind == TicketConversationKinds.Answer && e.SourceId == "q-3").Should().Be(TicketTextFormat.Html,
+            "an answer whose comment is gone is read as the html the polled tracker writes");
+    }
+
     private static RunAttempt Demanded(string runId, int minutes) => new()
     {
         RunId = runId, RevisionNumber = 2, RevisionCause = AgentSmith.Application.Services.Specs.SpecRevisionCause.RecutDemand,

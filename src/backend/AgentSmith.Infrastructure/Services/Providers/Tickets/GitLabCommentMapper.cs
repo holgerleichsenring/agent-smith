@@ -1,11 +1,12 @@
 using System.Text.Json;
 using AgentSmith.Domain.Entities;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Tickets;
 
 /// <summary>
 /// p0317: maps a GitLab REST v4 <c>/issues/{iid}/notes</c> response onto the
-/// canonical <see cref="TicketComment"/>. System notes ("changed label X",
+/// canonical <see cref="TicketComment"/>, the body as the markdown GitLab stores. System notes ("changed label X",
 /// state events) are tracker bookkeeping, not conversation — they are skipped.
 /// Stateless and tolerant of missing fields, mirroring <see cref="GitLabFieldMapper"/>.
 /// </summary>
@@ -36,7 +37,7 @@ public sealed class GitLabCommentMapper
             ? i.GetInt64().ToString()
             : null;
         return new TicketComment(
-            author.Length > 0 ? author : "unknown", createdAt, ReadString(note, "body")) { Id = id };
+            author.Length > 0 ? author : "unknown", createdAt, ReadString(note, "body")) { Id = id, Format = TicketTextFormat.Markdown };
     }
 
     private static string ReadString(JsonElement el, string name) =>

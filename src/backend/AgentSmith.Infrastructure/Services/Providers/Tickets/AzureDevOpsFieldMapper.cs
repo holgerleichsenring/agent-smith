@@ -31,7 +31,9 @@ public sealed class AzureDevOpsFieldMapper : ITicketFieldMapper<IDictionary<stri
             labels,
             ReadIdentity(fields, "System.AssignedTo"),
             ReadIdentity(fields, "System.CreatedBy"),
-            ReadOrNull(fields, "System.WorkItemType"));
+            ReadOrNull(fields, "System.WorkItemType"),
+            descriptionFormat: TicketTextFormat.Html,
+            criteriaFormat: TicketTextFormat.Html);
     }
 
     // p0454: an @-mention only reaches an Azure DevOps inbox with the identity GUID, so
