@@ -103,28 +103,9 @@ public sealed class StewardTurnTests
 
     private static Task Run(
         IAgenticLoopRunner loop, AgenticMasterContext context, MasterHandlerFixture.StubSubAgentRunner? children = null) =>
-        MasterHandlerFixture.Build(loop, new MasterHandlerFixture.StubPromptCatalog(context.MasterSkillName, "body"), null,
-                0, subAgents: children ?? new MasterHandlerFixture.StubSubAgentRunner(), limits: new LoopLimitsConfig())
-            .ExecuteAsync(context, CancellationToken.None);
+        BoundDialogTurn.Run(loop, context, children);
 
-    /// <summary>A bound turn on a worked ticket, its poster holding runs.control, led by <paramref name="master"/>.</summary>
-    private static AgenticMasterContext TurnContext(string master)
-    {
-        var context = MasterHandlerFixture.BuildContext(master, includeTicket: false);
-        var pipeline = context.Pipeline;
-        pipeline.Set(ContextKeys.PipelineName, PipelinePresets.SpecDialogName);
-        pipeline.Set(ContextKeys.RunId, "run-da5ef");
-        pipeline.Set(ContextKeys.DialogueJobId, "s-da5ef");
-        pipeline.Set<IReadOnlyList<SpecDialogTurn>>(ContextKeys.SpecDialogTranscript,
-            [new SpecDialogTurn(SpecDialogTurn.UserRole, "why did attempt 2 stop?")]);
-        pipeline.Set(ContextKeys.SpecDialogWithdrawal, Mock.Of<IFiledTicketWithdrawal>());
-        pipeline.Set(ContextKeys.SpecDialogTicketReader, Mock.Of<ITicketReader>());
-        pipeline.Set(ContextKeys.SpecDialogTicketRuns, Mock.Of<IBoundTicketRuns>());
-        pipeline.Set(ContextKeys.SpecDialogAttemptStart, Mock.Of<IAttemptStart>());
-        pipeline.Set(ContextKeys.SpecDialogSeriesRead, Mock.Of<ISeriesRead>());
-        pipeline.Set(ContextKeys.SpecDialogSeriesEdit, Mock.Of<ISeriesEdit>());
-        return context;
-    }
+    private static AgenticMasterContext TurnContext(string master) => BoundDialogTurn.Context(master);
 
     /// <summary>Records every request it is handed and answers each with the same reply.</summary>
     private sealed class ReplyingLoop(string reply) : IAgenticLoopRunner
