@@ -35,6 +35,7 @@ internal static class ConfigCapabilityEndpoints
                     BuiltInRoles = [.. BuiltInRoles.All.Keys],
                     // 2026-10-12-6bfae: which price-list ids each agent type's API accepts as written.
                     AgentProviderPriceLists = builders.PriceListProvidersByType(),
+                    TierCostCapDefaults = PipelineCostCapConfig.TierDefaults.ToDictionary(t => t.Key.ToString(), t => t.Value),
                 }))
            .Needs(Permissions.ConfigRead);
 

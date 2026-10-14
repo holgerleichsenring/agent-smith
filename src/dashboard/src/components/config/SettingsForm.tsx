@@ -302,6 +302,35 @@ function CostCapValuesFields({
   );
 }
 
+/** 2026-10-14-dbced: a tier left out of the stored perTier keeps its own code default, which
+ *  the server's descriptor carries (an older server sends none, so Default stands in). The
+ *  field shows that ceiling marked default; editing it stores only this tier. */
+function TierCapField({
+  tier,
+  value,
+  capabilities,
+  onChange,
+}: {
+  tier: string;
+  value: PipelineCostCapSetting;
+  capabilities: ConfigCapabilities | null;
+  onChange: (v: CostCapValues) => void;
+}) {
+  const stored = value.perTier[tier];
+  const shown = stored ?? capabilities?.tierCostCapDefaults?.[tier] ?? value.default;
+  return (
+    <div className="field" data-testid={`setting-costcap-tier-${tier}`}>
+      <label>{tier}</label>
+      <CostCapValuesFields value={shown} onChange={onChange} testId={`setting-costcap-tier-${tier}`} />
+      {!stored && (
+        <span className="help" data-testid={`setting-costcap-tier-${tier}-default`}>
+          default — a run never gets less than the Default cap (${value.default.usd} / {value.default.tokens} tokens)
+        </span>
+      )}
+    </div>
+  );
+}
+
 function PipelineCostCapForm({
   value,
   onChange,
@@ -336,14 +365,8 @@ function PipelineCostCapForm({
       <DrawerSection title="Per-tier caps" summary={`${TIER_ORDER.length} tiers`} defaultOpen
         testId="setting-costcap-tiers">
         {TIER_ORDER.map((tier) => (
-          <div key={tier} className="field" data-testid={`setting-costcap-tier-${tier}`}>
-            <label>{tier}</label>
-            <CostCapValuesFields
-              value={value.perTier[tier] ?? value.default}
-              onChange={(v) => setPerTier(tier, v)}
-              testId={`setting-costcap-tier-${tier}`}
-            />
-          </div>
+          <TierCapField key={tier} tier={tier} value={value} capabilities={capabilities}
+            onChange={(v) => setPerTier(tier, v)} />
         ))}
       </DrawerSection>
 

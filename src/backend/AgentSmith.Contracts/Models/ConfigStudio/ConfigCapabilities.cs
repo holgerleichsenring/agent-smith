@@ -37,6 +37,10 @@ public sealed record ConfigCapabilities(
     /// </summary>
     public IReadOnlyDictionary<string, IReadOnlyList<string>> AgentProviderPriceLists { get; init; } =
         new Dictionary<string, IReadOnlyList<string>>();
+
+    /// <summary>2026-10-14-dbced: per tier name, the cost ceiling a tier left out of per_tier keeps.</summary>
+    public IReadOnlyDictionary<string, Configuration.CostCapValues> TierCostCapDefaults { get; init; } =
+        new Dictionary<string, Configuration.CostCapValues>();
 }
 
 /// <summary>

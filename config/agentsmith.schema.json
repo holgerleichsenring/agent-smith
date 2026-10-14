@@ -173,7 +173,7 @@
         },
         "per_tier": {
           "type": "object",
-          "description": "Complexity tier (Trivial, Small, Medium, Large) -> the cap a run of that estimated size may be raised to. Defaults $1/$2/$8/$25.",
+          "description": "Complexity tier (Trivial, Small, Medium, Large) -> the cap a run of that estimated size may be raised to. Defaults $1/$2/$8/$25; a tier left out keeps its default.",
           "additionalProperties": { "$ref": "#/$defs/costCap" }
         }
       }

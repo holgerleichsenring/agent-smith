@@ -291,6 +291,9 @@ export interface ConfigCapabilities {
   /** 2026-10-12-6bfae: per lower-case agent type, the price-list providers whose ids that
    *  type's API accepts as written. Absent from an older server: nothing is ranked first. */
   agentProviderPriceLists?: Record<string, string[]>;
+  /** 2026-10-14-dbced: per ComplexityTier name, the cost ceiling a tier left out of perTier
+   *  keeps. Absent from an older server: an unset tier shows the Default cap. */
+  tierCostCapDefaults?: Record<string, CostCapValues>;
 }
 
 export async function fetchCapabilities(signal?: AbortSignal): Promise<ConfigCapabilities> {

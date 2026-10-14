@@ -69,6 +69,38 @@ public sealed class RepoScopeTierTests
     }
 
     [Fact]
+    public void ForTier_PerTierWithOnlyLarge_MediumResolvesToCodeDefault()
+    {
+        var config = new PipelineCostCapConfig
+        {
+            PerTier = new Dictionary<ComplexityTier, CostCapValues>
+            {
+                [ComplexityTier.Large] = new() { Usd = 40m, Tokens = 8_000_000 },
+            },
+        };
+
+        // A configured per_tier replaces the map; an omitted tier keeps its code default.
+        config.ForTier(ComplexityTier.Medium).Usd.Should().Be(8m);
+        config.ForTier(ComplexityTier.Medium).Tokens.Should().Be(1_500_000);
+        config.PerTier.Should().ContainSingle("nothing is merged into the stored map");
+    }
+
+    [Fact]
+    public void ForTier_ConfiguredTier_WinsOverCodeDefault()
+    {
+        var config = new PipelineCostCapConfig
+        {
+            PerTier = new Dictionary<ComplexityTier, CostCapValues>
+            {
+                [ComplexityTier.Medium] = new() { Usd = 3m, Tokens = 300_000 },
+            },
+        };
+
+        config.ForTier(ComplexityTier.Medium).Usd.Should().Be(3m);
+        config.ForTier(ComplexityTier.Medium).Tokens.Should().Be(300_000);
+    }
+
+    [Fact]
     public void RaisedTo_ABiggerEstimate_EnlargesEachDimension()
     {
         var resolved = new CostCapValues { Usd = 5m, Tokens = 500_000 };

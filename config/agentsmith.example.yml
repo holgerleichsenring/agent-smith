@@ -624,7 +624,8 @@ limits:
 # model calls short-circuit with a `cost-cap-exhausted` observation and the run
 # delivers what it has. Defaults shown. per_tier (defaults $1 / $2 / $8 / $25 for
 # Trivial / Small / Medium / Large) is the ceiling a run's estimated size may RAISE
-# its cap to — never lower it. See docs/reference/configuration/pipeline-cost-cap.md.
+# its cap to — never lower it. A tier left out of per_tier keeps its default.
+# See docs/reference/configuration/pipeline-cost-cap.md.
 pipeline_cost_cap:
   default:
     usd: 5
