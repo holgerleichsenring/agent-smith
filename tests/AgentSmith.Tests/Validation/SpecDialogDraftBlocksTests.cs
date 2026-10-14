@@ -59,4 +59,14 @@ public sealed class SpecDialogDraftBlocksTests
     public void On_AChatPlatform_ShowsTheReplyUnchanged(string platform) =>
         SpecDialogTurnResult.On(platform, "Here.\n" + SpecDraft, new AnswerOutcome())
             .Shown.Should().Be("Here.\n" + SpecDraft);
+
+    [Fact]
+    public void SpecDialogDraftBlocks_HasUnclosedOutcome_FalseForAClosedBlockAndForAFenceQuotedInADocument()
+    {
+        SpecDialogDraftBlocks.HasUnclosedOutcome("Here.\n" + OutcomeDraft).Should().BeFalse();
+        SpecDialogDraftBlocks.HasUnclosedOutcome("````document\n# Hand-off\n```outcome\nkind: bug\n````").Should().BeFalse();
+        SpecDialogDraftBlocks.HasUnclosedOutcome("Mention an ```outcome block in prose.").Should().BeFalse();
+        SpecDialogDraftBlocks.HasUnclosedOutcome("Here.\n```outcome\nkind: tickets\ntickets:\n  - key: \"a").Should().BeTrue();
+        SpecDialogDraftBlocks.HasUnclosedOutcome(OutcomeDraft + "\n```outcome\nkind: bug\n").Should().BeTrue();
+    }
 }

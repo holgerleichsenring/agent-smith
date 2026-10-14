@@ -16,4 +16,5 @@ public enum SpecDialogTurnKind
     Notice = 5,
     Filing = 6,
     MockRatified = 7,
+    TicketGraphProposal = 8,
 }

@@ -49,3 +49,6 @@ public sealed record SpecOutcome(SpecDraft Draft) : OutcomeProposal;
 /// linked by requires: edges, each schema-valid on its own. 2026-10-13-8762j: <c>Contract</c> is its series contract, keyed by child ids.
 /// </summary>
 public sealed record EpicOutcome(SpecDraft Parent, IReadOnlyList<SpecDraft> Children, Specs.SeriesContract? Contract = null) : OutcomeProposal;
+
+/// <summary>2026-10-14-dbcej: 2 to 20 ticket texts joined by requires; each ticket's run derives its own specs.</summary>
+public sealed record TicketGraphOutcome(IReadOnlyList<GraphTicket> Tickets) : OutcomeProposal;

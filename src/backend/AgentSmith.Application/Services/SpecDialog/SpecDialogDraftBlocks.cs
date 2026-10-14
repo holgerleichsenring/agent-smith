@@ -43,6 +43,9 @@ public static partial class SpecDialogDraftBlocks
     /// <summary>The ```yaml blocks of a reply, outside its documents.</summary>
     public static MatchCollection YamlBlocks(string? reply) => YamlBlock().Matches(OutsideDocuments(reply));
 
+    /// <summary>2026-10-14-dbcej: an ```outcome fence opens outside the documents and no closing fence follows it.</summary>
+    public static bool HasUnclosedOutcome(string? reply) => Regex.IsMatch(OutcomeBlock().Replace(OutsideDocuments(reply), string.Empty), "```outcome\\s*\\n");
+
     public static bool Contains(string? reply) =>
         !string.IsNullOrEmpty(reply) && AnyDraftBlock().IsMatch(OutsideDocuments(reply));
 

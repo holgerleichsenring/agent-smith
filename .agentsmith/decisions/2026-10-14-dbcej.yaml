@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-14-dbcej
+
+decisions:
+  - category: Architecture
+    chose: "A list proposal carries ticket TEXTS (key, title, requirement, done, requires, repos) and no spec; each ticket's run derives its specs at start (main-thread decision D1, default pending operator ratification)"
+    over: "A graph of tickets each holding full spec mappings"
+    reason: |
+      The design reply is capped at 8192 output tokens; twenty tickets of full specs cannot fit, and a run that derives
+      against the code merged when it starts reads a truer base than a spec written weeks earlier.
+  - category: Architecture
+    chose: "TicketGraphLimits as code constants: 2..20 tickets, title 120, requirement 1200, 1..8 done items of 240 (contract section 5 defaults 12, 13, 14, 25, 29, pending operator ratification)"
+    over: "Configurable caps and bounds"
+    reason: |
+      The committed 20-ticket fixture measures 21,175 characters for its outcome block, pinned at or under 24,000 by
+      OutcomeProposalResolver_TwentyRealisticTicketTexts_ResolveWhole, so the cap of 20 is checked by the suite.
+  - category: Implementation
+    chose: "An opened ```outcome fence with no closing fence (outside documents) is an OutcomeInvalid naming the output limit, checked first in OutcomeProposalResolver.Resolve"
+    over: "Letting a cut-off block fall to the bare-draft path, where it resolved as an answer"
+    reason: |
+      The existing one re-prompt then asks for fewer tickets instead of keeping half a list as an answer. The opening
+      fence needs its newline, so prose that mentions an ```outcome block is not mistaken for one.
+  - category: Implementation
+    chose: "The parser refuses a non-string field or item ('quote the item') and a scalar or mapping where a list belongs ('write it as a list: [x]'); only absent or null lists read as empty"
+    over: "Reading a wrong-shaped field as empty"
+    reason: |
+      The resolver runs outside any try in the design turn, so the parser never throws on the block's shape; and
+      'requires: order-api' read as empty would file a dependent ticket as a root that starts at once.
+  - category: Implementation
+    chose: "GraphTicketRequire.ExistingId strips one leading '#', and the checker treats ticket:41 and ticket:#41 as the same requirement when checking duplicates"
+    over: "Passing the '#' through to the tracker"
+    reason: |
+      GitHub and Azure DevOps parse the id as a bare number and answer not found for '#41'; the proposal shows numeric ids as #41.
+  - category: Implementation
+    chose: "Repos are checked case-insensitively against the turn's scope, and not checked when the scope is empty"
+    over: "Refusing every named repository when no scope is known"
+    reason: |
+      SpecReposRule passes the stated repos through for an empty scope; a list follows the same rule as a lone spec.
+  - category: Implementation
+    chose: "TicketGraphOrderer as its own class beside EpicChildOrderer"
+    over: "A generic orderer over drafts and tickets"
+    reason: |
+      Both are one Kahn loop over different records; a generic would be a wrapper for one loop.
+  - category: Implementation
+    chose: "DEVIATION: a fifth direct resolver construction, tests/AgentSmith.Tests/Handlers/MasterHandlerFixture.cs:247, also gets the new parser"
+    over: "Only the four constructions the spec names"
+    reason: |
+      The spec's existing-tests step counted four; the build found a fifth, which must pass the new constructor parameter.
