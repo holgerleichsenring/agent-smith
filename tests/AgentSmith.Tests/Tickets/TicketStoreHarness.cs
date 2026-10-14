@@ -50,7 +50,7 @@ internal sealed class TicketStoreHarness : IDisposable
         services.AddSingleton(Queue.Object).AddSingleton(Lease.Object);
         services.AddSingleton<TimeProvider>(new FixedClock(T.AddHours(3)));
         services.AddSingleton(Config);
-        services.AddTransient<FiledWorkSpecReviews>().AddTransient<FiledWorkRunsReader>();
+        services.AddTransient<FiledWorkSpecReviews>().AddTransient<FiledWorkRunsReader>().AddTransient<TicketRunEndingsReader>();
         services.AddScoped<PrReviewRecordRepository>().AddScoped<NamedPullRequestReader>();
         services.AddSingleton(Nudges.Object);
         // 2026-10-13-9a59h: the tracker, the configuration loader and the activity nudge are the check's and the

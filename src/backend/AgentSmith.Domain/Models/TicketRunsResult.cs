@@ -7,10 +7,16 @@ namespace AgentSmith.Domain.Models;
 /// <param name="Specs">The specs it worked, in the order it worked them.</param>
 /// <param name="PullRequests">What it opened, as the run recorded it — which is not the same as
 /// what the board shows: a pull request opened by hand is invisible here.</param>
+/// <param name="Summary">The run's closing summary, cut with a note when long.</param>
+/// <param name="FailedStep">The first failed step; null when no step failed.</param>
+/// <param name="SandboxEnd">The last sandbox that ended other than by a release; null when every
+/// sandbox was released.</param>
 public sealed record TicketRun(
     string RunId, string Project, string Pipeline, string Status, DateTimeOffset StartedAt,
     TicketRunCause? Cause, string? PendingQuestion,
-    IReadOnlyList<TicketRunSpec> Specs, IReadOnlyList<string> PullRequests);
+    IReadOnlyList<TicketRunSpec> Specs, IReadOnlyList<string> PullRequests,
+    string? Summary, string? CancelReason, DateTimeOffset? FinishedAt,
+    TicketRunFailedStep? FailedStep, TicketRunSandboxEnd? SandboxEnd);
 
 /// <summary>
 /// 2026-09-28-1da5d: what this framework did about a ticket, kept apart from what the tracker
