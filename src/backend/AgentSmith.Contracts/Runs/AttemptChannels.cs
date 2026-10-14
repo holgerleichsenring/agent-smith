@@ -24,4 +24,10 @@ public static class AttemptChannels
 
     /// <summary>2026-10-13-8762p: a default overruled on the ticket page.</summary>
     public const string Overrule = "overrule";
+
+    /// <summary>2026-10-13-8762v: agent-smith continued the ticket's spec series itself.</summary>
+    public const string Series = "series";
+
+    /// <summary>2026-10-13-8762v: the actor a series start names.</summary>
+    public const string SeriesActor = "agent-smith";
 }

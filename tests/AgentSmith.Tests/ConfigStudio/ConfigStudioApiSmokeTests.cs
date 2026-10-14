@@ -477,6 +477,44 @@ public sealed class ConfigStudioApiSmokeTests
         }
     }
 
+    // 2026-10-13-8762v: a series or spec_review block the run would refuse is a 400 naming the field, and nothing is saved.
+    [Fact]
+    public Task ConfigSettings_SeriesWithNegativeBudget_Is400AndNotSaved() =>
+        RefusedAndNotSavedAsync("series", """{"maxSpecs":24,"specsPerAttempt":8,"secondsPerSpec":0,"budgetUsd":-5,"wallClockHours":-1}""",
+            "series.budget_usd", "series.wall_clock_hours");
+
+    [Fact]
+    public Task ConfigSettings_SeriesPerAttemptAboveMaxSpecs_Is400AndNotSaved() =>
+        RefusedAndNotSavedAsync("series", """{"maxSpecs":4,"specsPerAttempt":6}""", "series.specs_per_attempt");
+
+    [Fact]
+    public Task ConfigSettings_SpecReviewWithZeroReviewers_Is400AndNotSaved() =>
+        RefusedAndNotSavedAsync("spec_review", """{"reviewers":0}""", "spec_review.reviewers");
+
+    private static async Task RefusedAndNotSavedAsync(string type, string body, params string[] fields)
+    {
+        var path = Path.Combine(Path.GetTempPath(), $"agentsmith-smoke-refused-{Guid.NewGuid():N}.yml");
+        File.WriteAllText(path, Yaml);
+        try
+        {
+            await using var app = await StartAppAsync(path);
+            using var http = NewClient(app);
+            var before = await http.GetStringAsync($"/api/config/settings/{type}");
+
+            var put = await http.PutAsync($"/api/config/settings/{type}", JsonBody(body));
+
+            put.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            var refusal = await put.Content.ReadAsStringAsync();
+            foreach (var field in fields) refusal.Should().Contain(field);
+            (await http.GetStringAsync($"/api/config/settings/{type}")).Should().Be(before, "a refused block is never saved");
+            await app.StopAsync();
+        }
+        finally
+        {
+            DeleteConfigAndDb(path);
+        }
+    }
+
     private static StringContent JsonBody(string json) => new(json, Encoding.UTF8, "application/json");
 
     private static StringContent YamlBody(string yaml) => new(yaml, Encoding.UTF8, "text/yaml");

@@ -37,7 +37,7 @@ internal sealed class TicketStoreHarness : IDisposable
     private readonly SqliteConnection _connection = MigratedStoreTemplate.OpenCopy();
     private readonly ServiceProvider _provider;
 
-    public TicketStoreHarness()
+    public TicketStoreHarness(Action<IServiceCollection>? configure = null)
     {
         Lease.Setup(l => l.GetByTicketAsync(It.IsAny<string>(), It.IsAny<TicketId>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => HeldLease);
@@ -52,6 +52,7 @@ internal sealed class TicketStoreHarness : IDisposable
         services.AddSingleton(Config);
         services.AddTransient<FiledWorkSpecReviews>().AddTransient<FiledWorkRunsReader>();
         services.AddScoped<PrReviewRecordRepository>().AddScoped<NamedPullRequestReader>();
+        services.AddScoped<ReworkLedgerRepository>(); // 2026-10-13-8762v: the runway reads the ledger
         services.AddSingleton(Nudges.Object);
         // 2026-10-13-9a59h: the tracker, the configuration loader and the activity nudge are the check's and the
         // conversation's substitutes; the session store and the pull-request read port are real.
@@ -68,6 +69,7 @@ internal sealed class TicketStoreHarness : IDisposable
         services.AddSingleton<AgentSmith.Contracts.Specs.ISpecApprovalStore>(Approvals); // 2026-10-13-8762l
         services.AddTicketReaders();
         services.AddTicketDefaults(); // 2026-10-13-8762p
+        configure?.Invoke(services);
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
     }
 

@@ -44,7 +44,7 @@ public sealed class ReworkNudgeHandlerTests : IDisposable
         var fallback = new ReworkFallbackSpawn(Mock.Of<IConfigurationLoader>(), new ServerContext("c.yml"), tickets.Object,
             new PolledTicketEnvelope(ApprovedRecordProbes.None()), Mock.Of<IEnvelopeProjectResolver>(),
             Mock.Of<ISpawnPipelineRunsUseCase>(), NullLogger<ReworkFallbackSpawn>.Instance);
-        return new ReworkNudgeHandler(_leases.Object, _attempts.Object, _pending.Object, rework, speech, fallback,
+        return ReworkHandlers.Of(_leases.Object, _attempts.Object, _pending.Object, rework, speech, fallback,
             new ReworkWithheld(_store.ScopeFactory, speech), _checkpoints.Object, ClosedTicketFollowUps.Of(_store.ScopeFactory, tickets.Object, speech));
     }
 

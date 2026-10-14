@@ -21,7 +21,7 @@ public sealed class ChatTicketRunLauncher(
     ILogger<ChatTicketRunLauncher> logger)
 {
     public async Task<ChatLaunchResult> LaunchAsync(
-        string projectName, string ticketId, string pipeline, CancellationToken ct)
+        string projectName, string ticketId, string pipeline, CancellationToken ct, bool seriesAutoStart = false)
     {
         var config = configLoader.LoadConfig(serverContext.ConfigPath);
         if (!config.Projects.TryGetValue(projectName, out var project))
@@ -34,6 +34,7 @@ public sealed class ChatTicketRunLauncher(
             TicketId = ticketId.TrimStart('#'),
             Platform = project.Tracker.Type.ToString().ToLowerInvariant(),
             RequestedByName = true,
+            SeriesAutoStart = seriesAutoStart, // 2026-10-13-8762v: agent-smith continues the series itself
         };
         var trigger = TriggerSelectionHelper.ByTrackerType(project, project.Tracker.Type)
             ?? new WebhookTriggerConfig();

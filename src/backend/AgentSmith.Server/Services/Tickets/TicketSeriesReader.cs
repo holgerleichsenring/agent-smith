@@ -14,7 +14,8 @@ public sealed class TicketSeriesReader(
     TicketRunsQuery runQuery,
     TicketAttempts attempts,
     TicketSeriesRecordsReader recordsReader,
-    TicketSeriesSpecComposer specs)
+    TicketSeriesSpecComposer specs,
+    Runway.SeriesRunwayReader runway)
 {
     private const string Success = "success";
 
@@ -44,7 +45,7 @@ public sealed class TicketSeriesReader(
             project, ticketId, cut.RunId, numbers[cut.RunId], cut.At, cut.SetKey,
             Handback(handback, numbers), Gate(cut, entries.Count, records),
             [.. entries.Select(e => specs.Compose(e, cut.RunId, carried, records, numbers))],
-            revisions, Recorded: true);
+            revisions, Recorded: true, runId is null ? (await runway.ReadAsync(project, ticketId, ct))?.Page : null);
     }
 
     private static TicketSeriesHandbackView? Handback(RunSeriesCut? cut, IReadOnlyDictionary<string, int> numbers) =>

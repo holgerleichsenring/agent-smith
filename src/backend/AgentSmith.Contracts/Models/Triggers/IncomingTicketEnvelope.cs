@@ -36,4 +36,8 @@ public sealed record IncomingTicketEnvelope
     /// (ContextKeys.RequestedByName), where the claim and the capacity queue read it.
     /// </summary>
     public bool RequestedByName { get; init; }
+
+    /// <summary>2026-10-13-8762v: agent-smith continues the ticket's spec series itself — seeded as
+    /// ContextKeys.SeriesAutoStart, which the attempt's cause reads.</summary>
+    public bool SeriesAutoStart { get; init; }
 }

@@ -641,6 +641,17 @@ pipeline_cost_cap:
   #     usd: 40
   #     tokens: 8000000
 
+# A ticket's spec series. One attempt runs at most specs_per_attempt specs; when it ends with
+# work left and no person's act waiting, agent-smith starts the next attempt itself until the
+# chain has spent budget_usd or wall_clock_hours of run time (budget_usd 0 = off). Defaults shown.
+series:
+  max_specs: 24
+  specs_per_attempt: 8
+  seconds_per_spec: 0
+  budget_usd: 150
+  wall_clock_hours: 12
+  continue_after_wall_time: true
+
 # p0128c data-flow gating.
 pipeline_data_flow:
   enforce: false

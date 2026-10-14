@@ -45,6 +45,30 @@ public sealed class BoundaryStopGateTests
         BoundaryStopGate.AdmitsStart(byName.InitialContext).Should().BeTrue();
     }
 
+    // 2026-10-13-8762v: the series' automatic start is admitted, and not only through the launcher's name flag.
+    [Fact]
+    public async Task BoundaryClaimGate_SeriesAutoStart_IsAdmitted()
+    {
+        var series = Request() with
+        {
+            InitialContext = new() { [ContextKeys.RequestedByName] = true, [ContextKeys.SeriesAutoStart] = true },
+        };
+
+        (await new BoundaryStopGate(Stopped(true).Object).RefusalAsync(series, CancellationToken.None)).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task BoundaryClaimGate_SeriesAutoStartWithoutRequestedByName_IsStillAdmitted()
+    {
+        var queued = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, object>>("{\"SeriesAutoStart\":true}")!;
+        var series = Request() with { InitialContext = queued };
+        var (sut, _) = Service(Stopped(true));
+
+        BoundaryStopGate.AdmitsStart(queued).Should().BeTrue("the flag is read in its queue-row shape too");
+        (await sut.ClaimAsync(series, Config(), CancellationToken.None)).Rejection
+            .Should().NotBe(ClaimRejectionReason.TicketStoppedAtBoundary);
+    }
+
     [Fact]
     public async Task BoundaryStopGate_Refusal_NamesAStartByNameOrACommentAndNotRetry()
     {

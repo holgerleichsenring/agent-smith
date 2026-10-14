@@ -10,6 +10,7 @@ namespace AgentSmith.Server.Models;
 /// <param name="Handback">A hand-back as the current state: newer than the cut with specs, or the
 /// asked attempt's own case.</param>
 /// <param name="Recorded">False when no attempt published a cut — runs from before the record.</param>
+/// <param name="Budget">2026-10-13-8762v: the series runway on the default read of a real series, else null.</param>
 public sealed record TicketSeriesView(
     string Project,
     string TicketId,
@@ -21,4 +22,5 @@ public sealed record TicketSeriesView(
     TicketSeriesGateView? Gate,
     IReadOnlyList<TicketSeriesSpecView> Specs,
     IReadOnlyList<TicketSeriesRevisionView> Revisions,
-    bool Recorded);
+    bool Recorded,
+    TicketSeriesBudgetView? Budget = null);

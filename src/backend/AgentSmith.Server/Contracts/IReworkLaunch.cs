@@ -6,4 +6,7 @@ namespace AgentSmith.Server.Contracts;
 public interface IReworkLaunch
 {
     Task<ReworkOutcome> LaunchAsync(string project, string ticketId, string pipeline, CancellationToken cancellationToken);
+
+    /// <summary>2026-10-13-8762v: the next attempt of the ticket's spec series, started by agent-smith itself.</summary>
+    Task<ReworkOutcome> StartSeriesAttemptAsync(string project, string ticketId, CancellationToken cancellationToken);
 }

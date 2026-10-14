@@ -23,6 +23,15 @@ public sealed class SeriesConfig
     /// <summary>The measured seconds of one whole spec block; 0 = not measured.</summary>
     public int SecondsPerSpec { get; set; }
 
+    /// <summary>2026-10-13-8762v: the USD one chain of attempts may spend before the next is held; 0 = no automatic continuation.</summary>
+    public decimal BudgetUsd { get; set; } = 150m;
+
+    /// <summary>2026-10-13-8762v: the summed run hours of one chain before the next attempt is held.</summary>
+    public double WallClockHours { get; set; } = 12;
+
+    /// <summary>2026-10-13-8762v: whether an attempt the wall clock cancelled after a done spec continues.</summary>
+    public bool ContinueAfterWallTime { get; set; } = true;
+
     /// <summary>The most specs one attempt can run under the step guard's ceiling.</summary>
     public static int StepCeilingSpecs => (StepBudget.AbsoluteCeiling - StepBudget.BaseAllowance) / StepBudget.PerSpecAllowance;
 
@@ -38,6 +47,8 @@ public sealed class SeriesConfig
             problems.Add($"series.specs_per_attempt is {SpecsPerAttempt}; it must be between 1 and {perAttempt} "
                 + $"(series.max_specs, and the {StepCeilingSpecs} specs the step guard's ceiling holds)");
         if (SecondsPerSpec < 0) problems.Add($"series.seconds_per_spec is {SecondsPerSpec}; it must be 0 or more");
+        if (BudgetUsd < 0) problems.Add($"series.budget_usd is {BudgetUsd}; it must be 0 (off) or more");
+        if (WallClockHours < 0) problems.Add($"series.wall_clock_hours is {WallClockHours}; it must be 0 or more");
         return problems;
     }
 

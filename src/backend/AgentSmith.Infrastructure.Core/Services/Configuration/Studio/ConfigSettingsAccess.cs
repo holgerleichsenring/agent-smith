@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Domain.Exceptions;
 
 namespace AgentSmith.Infrastructure.Core.Services.Configuration.Studio;
@@ -39,7 +40,11 @@ internal static class ConfigSettingsAccess
         {
             throw new ConfigurationException($"Invalid '{type}' settings document: {ex.Message}");
         }
-        return descriptor.Read(scratch).Single().Value;
+        var value = descriptor.Read(scratch).Single().Value;
+        // 2026-10-13-8762v: a block the run would refuse is never saved — the one rule, read where it is used.
+        var problems = value switch { SeriesConfig series => series.Problems(), SpecReviewConfig review => review.Problems(), _ => [] };
+        return problems.Count == 0 ? value
+            : throw new ConfigurationException($"Invalid '{type}' settings: {string.Join("; ", problems)}");
     }
 
     private static ConfigDocDescriptor Descriptor(string type) =>

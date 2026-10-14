@@ -188,7 +188,7 @@ internal sealed class RetryHarness : IDisposable
         var entry = new ReworkEntry(leases, attempts, new ReworkParkCheck(Tracker, Mock.Of<IUnmovedTicketStore>(), sp.GetRequiredService<TicketClosure>()),
             new TicketReopener(new InMemorySpecSetPointerStore(), Approvals, Mock.Of<IUnmovedTicketStore>()), Launch.Object,
             Mock.Of<IWaitingRunCloser>(), NullLogger<ReworkEntry>.Instance);
-        return new ReworkNudgeHandler(leases, attempts, pending, entry, speech, fallback,
+        return ReworkHandlers.Of(leases, attempts, pending, entry, speech, fallback,
             new ReworkWithheld(scopes, speech), sp.GetRequiredService<IRunCheckpointStore>(), ClosedTicketFollowUps.Of(scopes, Tracker, speech));
     }
 

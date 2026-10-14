@@ -275,7 +275,10 @@
           "type": "integer",
           "minimum": 0,
           "description": "The measured seconds of ONE WHOLE spec block (master, premise, verify, review, fix pass, record). An attempt runs at most (seconds left / seconds_per_spec) - 1 specs, one block reserved for the commit-and-PR tail; two blocks must fit orchestrator.max_run_wall_time_seconds. 0 = not measured: the attempt is specs_per_attempt. This repository measured 1294 (a lower bound). Default 0."
-        }
+        },
+        "budget_usd": { "type": "number", "minimum": 0, "description": "The USD one chain of attempts may spend (each attempt's run cost, its review of the unbuilt tail included) before agent-smith holds the next automatic attempt. 0 turns automatic continuation off. Default 150." },
+        "wall_clock_hours": { "type": "number", "minimum": 0, "description": "The summed RUN hours of one chain of attempts (time held between attempts not counted) before the next automatic attempt is held. Default 12." },
+        "continue_after_wall_time": { "type": "boolean", "description": "Whether an attempt the wall clock cancelled after at least one done spec continues automatically. Default true." }
       }
     },
     "dialogue": {

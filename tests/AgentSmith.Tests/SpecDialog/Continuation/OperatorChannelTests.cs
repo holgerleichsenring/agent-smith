@@ -280,7 +280,7 @@ public sealed class OperatorChannelTests : IDisposable
             new PolledTicketEnvelope(ApprovedRecordProbes.None()), Mock.Of<IEnvelopeProjectResolver>(),
             Mock.Of<ISpawnPipelineRunsUseCase>(), NullLogger<ReworkFallbackSpawn>.Instance);
         var pending = new ReworkPendingActs(_h.Tracker, Mock.Of<ISourceProviderFactory>(), Mock.Of<IPrReviewAuthorTrust>(), _h.Approvals);
-        return new ReworkNudgeHandler(sp.GetRequiredService<IActiveRunLease>(), sp.GetRequiredService<IPreviousAttemptReader>(),
+        return ReworkHandlers.Of(sp.GetRequiredService<IActiveRunLease>(), sp.GetRequiredService<IPreviousAttemptReader>(),
             pending, _entry.Object, speech, fallback, new ReworkWithheld(scopes, speech), sp.GetRequiredService<IRunCheckpointStore>(),
             ClosedTicketFollowUps.Of(scopes, _h.Tracker, speech));
     }

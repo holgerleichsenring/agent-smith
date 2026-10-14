@@ -15,9 +15,10 @@ internal sealed class BoundaryStopGate(IPreviousAttemptReader attempts)
     public const string Sentence =
         "This ticket stopped at a boundary; start it by name in chat or with a comment on the ticket.";
 
-    /// <summary>The starts the gate lets through: a person's — a start by name in chat, a rework act.</summary>
+    /// <summary>The starts the gate lets through: a person's — a start by name in chat, a rework act — and a
+    /// series' automatic start (2026-10-13-8762v).</summary>
     public static bool AdmitsStart(IReadOnlyDictionary<string, object>? initialContext) =>
-        initialContext.IsRequestedByName();
+        initialContext.IsRequestedByName() || initialContext.IsSeriesAutoStart();
 
     /// <summary>The refusal, or null when the ticket may be claimed.</summary>
     public async Task<ClaimResult?> RefusalAsync(ClaimRequest request, CancellationToken cancellationToken)

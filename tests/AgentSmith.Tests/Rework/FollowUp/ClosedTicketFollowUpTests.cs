@@ -284,7 +284,7 @@ public sealed class ClosedTicketFollowUpTests : IDisposable
             new TicketReopener(new InMemorySpecSetPointerStore(), _h.Approvals, Mock.Of<IUnmovedTicketStore>()),
             _launch.Object, _closer.Object, NullLogger<ReworkEntry>.Instance);
         pending ??= new ReworkPendingActs(_h.Tracker, _sources.Object, Mock.Of<IPrReviewAuthorTrust>(), _h.Approvals);
-        return new ReworkNudgeHandler(leases, attempts, pending, entry, speech, fallback, new ReworkWithheld(scopes, speech),
+        return ReworkHandlers.Of(leases, attempts, pending, entry, speech, fallback, new ReworkWithheld(scopes, speech),
             sp.GetRequiredService<IRunCheckpointStore>(), ClosedTicketFollowUps.Of(scopes, _h.Tracker, speech, _locks));
     }
 }

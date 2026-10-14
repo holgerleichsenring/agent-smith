@@ -168,6 +168,28 @@ public sealed class AttemptCauseReaderTests
         (await ReadAsync()).Should().Be(new AttemptCause(AttemptChannels.Requested));
     }
 
+    // 2026-10-13-8762v: the series' own start is a named start too; its cause is asked first.
+    [Fact]
+    public async Task AttemptCauseReader_SeriesAutoStart_IsSeriesByAgentSmith()
+    {
+        PreviousAttempt();
+        _pipeline.Set(ContextKeys.RequestedByName, true);
+        _pipeline.Set(ContextKeys.SeriesAutoStart, System.Text.Json.JsonSerializer.SerializeToElement(true));
+
+        (await ReadAsync()).Should().Be(new AttemptCause(AttemptChannels.Series, AttemptChannels.SeriesActor));
+    }
+
+    [Fact]
+    public async Task AttemptCauseReader_ActBeatsSeriesAutoStart()
+    {
+        PreviousAttempt();
+        _pipeline.Set(ContextKeys.RequestedByName, true);
+        _pipeline.Set(ContextKeys.SeriesAutoStart, true);
+        KeywordComment(30);
+
+        (await ReadAsync()).Channel.Should().Be(AttemptChannels.TicketComment, "a person's act read by the attempt outranks the series");
+    }
+
     // 2026-10-13-9a59n: a Retry carries no change — an act with content wins, a name or a re-trigger loses.
     private void RetriedAttempt(int minutes) =>
         _pipeline.Set(ContextKeys.PreviousAttempt, new PreviousAttempt("run-1", "cancelled", Start, true)
