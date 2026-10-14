@@ -22,16 +22,20 @@ namespace AgentSmith.Server.Models;
 /// answer outcome, and neither is a discussion the operator could have replied to.
 /// </para>
 /// </summary>
+/// <para>
+/// <paramref name="Stewarded"/>: the ticket steward led the turn. Its reply proposes nothing, so a ```yaml block in
+/// it is quoted text the person reads — never stripped as a draft the pane would show.
+/// </para>
 public sealed record SpecDialogTurnResult(
-    string Reply, OutcomeProposal Outcome, string Shown, SpecDialogTurnKind Kind)
+    string Reply, OutcomeProposal Outcome, string Shown, SpecDialogTurnKind Kind, bool Stewarded = false)
 {
     public static SpecDialogTurnResult On(
-        string platform, string reply, OutcomeProposal outcome, SpecDialogTurnKind? kind = null) =>
+        string platform, string reply, OutcomeProposal outcome, SpecDialogTurnKind? kind = null, bool stewarded = false) =>
         new(reply, outcome,
-            string.Equals(platform, DispatcherDefaults.PlatformDashboard, StringComparison.OrdinalIgnoreCase)
+            !stewarded && string.Equals(platform, DispatcherDefaults.PlatformDashboard, StringComparison.OrdinalIgnoreCase)
                 ? SpecDialogDraftBlocks.Strip(reply)
                 : reply,
-            kind ?? KindOf(outcome));
+            kind ?? KindOf(outcome), stewarded);
 
     public static SpecDialogTurnKind KindOf(OutcomeProposal outcome) => outcome switch
     {

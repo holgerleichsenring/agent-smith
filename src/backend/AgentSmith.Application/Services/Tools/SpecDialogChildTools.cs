@@ -3,33 +3,29 @@ using Microsoft.Extensions.AI;
 namespace AgentSmith.Application.Services.Tools;
 
 /// <summary>
-/// 2026-09-22-5891: the surface a CHILD of a design turn runs under — the design surface
-/// (<see cref="AgenticToolSurface.SpecDialog"/>) minus the two tools a concurrent child
-/// cannot use.
+/// The surface a CHILD of a dialog turn runs under: the read tools of its parent's base surface, by name, and
+/// nothing else. An allowlist rather than a list of exclusions, so a tool that joins the base surface later — an
+/// act on the ticket, a write, a question to the person — reaches no child until it is named a read here.
 /// <para>
-/// <c>ask_human</c>, because a session holds exactly one pending question keyed by the
-/// session: a second child's question replaces the first's and the answer is delivered only
-/// to the question still standing, so two children asking would strand each other.
-/// </para>
-/// <para>
-/// <c>remember</c>, because the read-only source scope refuses that write by THROWING rather
-/// than answering it — a refusal the model cannot read is not a refusal, and a child that
-/// insists dies on consecutive tool errors.
-/// </para>
-/// <para>
-/// A pure function over the parent's list rather than a method on the surface: that class
-/// stands at the 120-line limit, and the child list is DERIVED from what the parent was
-/// granted — deriving it here keeps the two from drifting apart.
+/// What it leaves out, and why: <c>ask_human</c>, because a session holds one pending question and two children
+/// asking would strand each other; <c>remember</c>, because the read-only scope refuses that write by throwing;
+/// <c>http_request</c>, because it sends any method; <c>withdraw_filed_ticket</c> and every act on the ticket,
+/// because a child acts on no person's word.
 /// </para>
 /// </summary>
 public static class SpecDialogChildTools
 {
-    /// <summary>The design surface without the two tools a child cannot use.</summary>
+    /// <summary>The tools a child may read with.</summary>
+    public static readonly IReadOnlySet<string> ReadTools = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "read_file", "grep_in_file", "grep_in_tree", "find_files", "list_directory", "directory_tree",
+        "web_fetch", "recall", "read_ticket", "ticket_work", "ticket_runs",
+    };
+
+    /// <summary>The read tools of the parent's surface.</summary>
     public static IList<AITool> Of(IList<AITool> specDialogSurface)
     {
         ArgumentNullException.ThrowIfNull(specDialogSurface);
-        return [.. specDialogSurface.Where(tool =>
-            !string.Equals(tool.Name, "ask_human", StringComparison.Ordinal)
-            && !string.Equals(tool.Name, "remember", StringComparison.Ordinal))];
+        return [.. specDialogSurface.Where(tool => ReadTools.Contains(tool.Name))];
     }
 }

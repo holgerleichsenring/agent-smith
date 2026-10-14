@@ -5,8 +5,11 @@ namespace AgentSmith.Contracts.Models;
 /// server → pipeline boundary (p0315b). Role is "user" or "assistant".
 /// 2026-09-17-042ec: <paramref name="Kind"/> is what an assistant turn produced, null for an
 /// operator message and for a turn kept before kinds were recorded.
+/// <paramref name="Author"/> is the display name of the person who wrote a user turn, null when
+/// none was recorded.
 /// </summary>
-public sealed record SpecDialogTurn(string Role, string Text, SpecDialogTurnKind? Kind = null)
+public sealed record SpecDialogTurn(
+    string Role, string Text, SpecDialogTurnKind? Kind = null, string? Author = null)
 {
     public const string UserRole = "user";
     public const string AssistantRole = "assistant";

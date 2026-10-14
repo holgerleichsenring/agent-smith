@@ -50,7 +50,7 @@ internal sealed class TicketStoreHarness : IDisposable
         services.AddSingleton(Queue.Object).AddSingleton(Lease.Object);
         services.AddSingleton<TimeProvider>(new FixedClock(T.AddHours(3)));
         services.AddSingleton(Config);
-        services.AddTransient<FiledWorkSpecReviews>().AddTransient<FiledWorkRunsReader>();
+        services.AddTransient<FiledWorkSpecReviews>().AddTransient<FiledWorkRunsReader>().AddTransient<TicketRunEndingsReader>();
         services.AddScoped<PrReviewRecordRepository>().AddScoped<NamedPullRequestReader>();
         services.AddScoped<ReworkLedgerRepository>(); // 2026-10-13-8762v: the runway reads the ledger
         services.AddSingleton(Nudges.Object);

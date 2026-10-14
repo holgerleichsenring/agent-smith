@@ -442,7 +442,7 @@ public sealed partial class SpecDialogOutcomeTests
     {
         await using var scope = harness.Services.CreateAsyncScope();
         var runner = scope.ServiceProvider.GetRequiredService<ISpecDialogTurnRunner>();
-        return await runner.RunTurnAsync(state, CancellationToken.None);
+        return await runner.RunTurnAsync(state, new TurnPoster("U1", false), CancellationToken.None);
     }
 
     private static async Task<OutcomeFlowResult> RunFlowAsync(

@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-14-da5ef
+goal: "A conversation bound to a ticket that has run is led by the ticket-steward master with its own prompt contract and tools, and falls back to the design partner when the catalog lacks it."
+
+applies_to: "backend (dialog master selection, prompt contract, tool surface for steward turns)"
+
+requires:
+  - 2026-10-14-da5ed
+  - 2026-10-14-da5ee
+
+facts:
+  - claim: "The master is chosen by pipeline name only: spec-dialog maps to design-partner-master; SkillName on the command overrides it."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Masters.cs:14-31, src/backend/AgentSmith.Application/Services/Builders/SkillContextBuilders.cs:69-77"
+  - claim: "Every dialog turn runs the spec-dialog pipeline; the handler's dialog branch keys on the pipeline name."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs:58-60, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:88-95"
+  - claim: "A turn is bound for tools when the session holds ticket text."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/BoundTicketReaders.cs:39-58"
+  - claim: "The prompt contract tells a turn it MAY or MAY NOT propose, and an early proposal is refused and re-prompted."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialogPromptFactory.cs:68-95, src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalRefusal.cs:33-68"
+  - claim: "Masters are loaded by walking skills/_masters/*/SKILL.md; an unknown name falls through to prompt-not-found."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/YamlSkillLoader.cs:150-195, src/backend/AgentSmith.Application/Prompts/SkillCatalogPromptCatalog.cs:46-60"
+  - claim: "Sub-agents of a dialog turn get the base surface minus ask_human and remember, so they inherit withdraw_filed_ticket."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/SpecDialogChildTools.cs:28-34, src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:56-58"
+  - claim: "PipelineRequest carries no skill name and the preset's AgenticMaster step is a plain command, so SkillContextBuilders sees no SkillName on a dialog turn."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.SpecDialog.cs:19-26, src/backend/AgentSmith.Application/Services/Builders/SkillContextBuilders.cs:69-77"
+  - claim: "GateSpecOutcomeAsync is the only publisher of the dialog outcome, and CollectSpecDialogReply fails the turn without one; an AnswerOutcome passes the outcome flow with no side effect."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:676-678, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeFlow.cs:31-32"
+  - claim: "Masters are cached once per catalog singleton, and IPromptCatalog offers only Get and Render."
+    evidence: "src/backend/AgentSmith.Application/Prompts/SkillCatalogPromptCatalog.cs:93-115"
+
+scope:
+  in: >
+    PipelinePresets names TicketStewardMaster = "ticket-steward-master". The seeds of a bound turn whose ticket is
+    worked (the same predicate that seeds da5ee's series ports) carry a ContextKey asking for the steward;
+    SkillContextBuilders.ResolveSkillName reads it before the pipeline-name fallback and keeps the design partner when
+    SkillCatalogPromptCatalog — through a has-master query on the same cache Render uses — lacks the steward; the
+    steward is not added to the required masters. One collaborator extracted from AgenticMasterHandler owns the
+    dialog turn's prompt choice and after-loop handling: a steward turn renders its own contract class ("## Ticket
+    conversation", transcript, ticket seed, framework facts, repositories, image note; answer the person, act with
+    the tools when asked, no proposal), and after the loop publishes MasterOutcomes.PublishOutcome(AnswerOutcome)
+    instead of the outcome gate, so no proposal rule, refusal, draft parse or proposal review runs and a quoted yaml
+    block is never read as a draft. The steward surface is the bound tools plus start_next_attempt, read_series,
+    edit_series, verify_series, spawn_agents and read_sub_agent_observations, without withdraw_filed_ticket. The
+    sub-agent surface of every dialog turn becomes an allowlist of read tools, so no child gets
+    withdraw_filed_ticket, start_next_attempt, edit_series or verify_series. A proposal stored before the steward
+    took over is cleared when the steward first leads the conversation, so edit_series is the one write path.
+  out: >
+    The master's text — 2026-10-14-da5eg. The embedded pin — 2026-10-14-da5eh.
+
+decisions:
+  - key: "A TICKET THAT HAS RUN IS NOT DESIGNED, IT IS STEWARDED (operator, 2026-10-14) — Work it out forms work before it exists; on an active ticket the conversation knows the attempts, changes the series and starts the next one, so it gets its own master and contract."
+  - key: "SAME PIPELINE, OTHER MASTER — the handler's dialog machinery keys on the pipeline; a second pipeline would lose the transcript, seeds and activity, so the choice is SkillName on the same pipeline."
+  - key: "BUILT ON 8762 — the self-review series (PR #739) rewrites the master tool composition and the proposal review the steward routes around; this spec is built after it merges."
+  - key: "FALL BACK, NEVER FAIL — a runtime-pinned catalog without the steward would fail a turn with prompt-not-found; the design partner leads instead."
+
+steps:
+  - id: routing
+    action: "TicketStewardMaster; steward ContextKey seeded for bound worked turns; ResolveSkillName reads it; has-master query with fallback."
+  - id: turn-collaborator
+    action: "Extract the dialog turn's prompt choice and after-loop handling from AgenticMasterHandler; steward contract class; AnswerOutcome for steward turns."
+  - id: tools
+    action: "Steward surface; child allowlist of read tools; stale proposal cleared on steward takeover."
+  - id: tests
+    action: "Red first: the tests below."
+
+tests:
+  - "SpecDialogTurn_BoundWorkedTicket_UsesTheSteward; unbound or never-worked uses the design partner"
+  - "SpecDialogTurn_CatalogWithoutSteward_FallsBackToTheDesignPartner"
+  - "StewardTurn_PromptHasNoProposeContract_AndPublishesAnAnswerOutcome; a quoted yaml block is not a draft"
+  - "StewardTurn_Tools_HaveSeriesAndStart_NotWithdraw"
+  - "SpecDialogSubAgent_ChildTools_AreReadToolsOnly"
+  - "StewardTakeover_ClearsAStoredProposal"
+
+done:
+  - "A conversation on a ticket that has run is answered by the steward with the series and start tools; Work it out conversations are unchanged."
+  - "Backend build and tests green."

@@ -1,8 +1,10 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Loop;
 using AgentSmith.Application.Services.Tools;
+using AgentSmith.Application.Services.Turns;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Decisions;
+using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
@@ -30,18 +32,14 @@ public sealed class MasterToolComposition(
     IChildAnswerStore childAnswerStore,
     DesignReadToolHostFactory designRead, // 2026-10-01-7f7ab
     RenderReferenceToolFactory renderReference, // 2026-10-01-283de
+    TicketActToolsFactory ticketActs,
+    TurnActivityTools reportingTools,
     GateStageToolHost gateStage,
     Loop.Sanity.ToolResultSanityWrapper sanity,
     ILogger<MasterToolComposition> logger)
 {
-    // p0280: the master surface = its base surface (read-only Review for a scan master,
-    // read/write for a coding master) PLUS spawn_agents + read_sub_agent_observations when
-    // sub-agents are enabled. Children SHARE this fs (so their reads/writes aggregate into
-    // the master's read-set + changes) and get the same base surface — never spawn_agents.
-    // p0315b: the spec-dialog surface is content-reads + ask_human only.
-    // 2026-09-22-5891: a design turn fans out too, under its OWN count and child ceiling, and
-    // is excluded BY NAME below from the escalation valve (which would spawn a WRITABLE
-    // sandbox into a read-only turn) and the ledger.
+    // Children share the master's filesystem and base surface, never spawn_agents. A design turn fans out under its
+    // own count and child ceiling and is kept off the escalation valve (a writable sandbox) and the ledger.
     public IList<AITool> Compose(
         bool isScanMaster, bool isSpecDialog, FilesystemToolHost fs, MasterRecordTools records, IToolHost human,
         GetArtifactCredentialsToolHost credentials, WriteContextYamlToolHost writeContextYaml,
@@ -82,6 +80,10 @@ public sealed class MasterToolComposition(
         // coding master of a project whose config enables the browser; the factory decides.
         // 2026-10-01-283di: with compare_reference beside it.
         if (!isScanMaster) master = [.. master, .. renderReference.Tools(context.Pipeline, isSpecDialog)];
+        // The bound-ticket acts (start_next_attempt, the series tools) join the design MASTER outside BaseSurface:
+        // a child acts on no one's word, so no child surface carries them.
+        if (isSpecDialog) master = [.. master, .. ticketActs.Tools(context)];
+        if (context.IsTicketSteward) master = TicketStewardTools.Of(master); // answers and acts, files nothing
         // p0331: coding masters get the ensure_repo_sandbox escalation valve — the
         // counterpart to ScopeRepos' conservative narrowing. Scan masters read
         // everything anyway (full scope, no narrowing) and must not spawn.
@@ -107,7 +109,7 @@ public sealed class MasterToolComposition(
         var sandboxes = context.Pipeline.Get<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes);
         var subCtx = new SubAgentContext(
             context.Pipeline, sandboxes, PipelineCostTracker.GetOrCreate(context.Pipeline), runId,
-            ChildTools: sanity.Wrap(isSpecDialog ? SpecDialogChildTools.Of(BaseSurface()) : BaseSurface(), context.Pipeline),
+            ChildTools: sanity.Wrap(isSpecDialog ? reportingTools.Reporting(SpecDialogChildTools.Of(BaseSurface())) : BaseSurface(), context.Pipeline),
             AnswerStore: childAnswerStore, Budget: budget, AgentConfig: context.AgentConfig,
             // No governor hooks on a child: how far it may go bounds the whole wave.
             ChildIterationCeiling: isSpecDialog ? loopLimits.MaxDialogSubAgentLoopIterations : null);

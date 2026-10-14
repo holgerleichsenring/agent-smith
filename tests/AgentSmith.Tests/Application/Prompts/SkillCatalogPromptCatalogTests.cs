@@ -197,6 +197,31 @@ public sealed class SkillCatalogPromptCatalogTests
             .WithMessage("*coding-agent-master*");
     }
 
+    [Fact]
+    public void HasMaster_TheLoadedCatalogHasIt_IsTrue()
+    {
+        var sut = Build(skills: [Master("ticket-steward-master", "BODY")], embeddedFallback: new Dictionary<string, string>());
+
+        sut.HasMaster("ticket-steward-master").Should().BeTrue();
+    }
+
+    [Fact]
+    public void HasMaster_TheLoadedCatalogLacksIt_IsFalse()
+    {
+        var sut = Build(skills: [Master("design-partner-master", "BODY")], embeddedFallback: new Dictionary<string, string>());
+
+        sut.HasMaster("ticket-steward-master").Should().BeFalse();
+    }
+
+    [Fact]
+    public void HasMaster_CatalogNotBootstrapped_IsFalse()
+    {
+        var sut = Build(skills: [Master("ticket-steward-master", "BODY")], embeddedFallback: new Dictionary<string, string>(),
+            catalogReady: false);
+
+        sut.HasMaster("ticket-steward-master").Should().BeFalse();
+    }
+
     private static RoleSkillDefinition Master(string name, string body) => new()
     {
         Name = name,

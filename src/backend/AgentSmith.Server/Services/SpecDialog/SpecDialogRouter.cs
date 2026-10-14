@@ -26,16 +26,16 @@ public sealed class SpecDialogRouter(
     ILogger<SpecDialogRouter> logger)
 {
     /// <summary>
-    /// Routes the message if it belongs to the spec-dialog flow. Returns true
-    /// when handled; false hands the message back to the normal intent path.
+    /// Routes the message if it belongs to the spec-dialog flow. Returns true when handled; false hands
+    /// the message back to the normal intent path. The poster's display name is recorded on its turn.
     /// </summary>
     public async Task<bool> TryRouteAsync(
         string text, string userId, string channelId, string? threadId,
-        string platform, bool mayStartRuns, CancellationToken ct)
+        string platform, bool mayStartRuns, CancellationToken ct, string? author = null)
     {
         var command = parser.Parse(text);
         if (command is null)
-            return await TryContinueThreadAsync(text, userId, channelId, threadId, platform, mayStartRuns, ct);
+            return await TryContinueThreadAsync(text, userId, channelId, threadId, platform, mayStartRuns, author, ct);
 
         if (threadId is null)
         {
@@ -49,13 +49,13 @@ public sealed class SpecDialogRouter(
 
     private async Task<bool> TryContinueThreadAsync(
         string text, string userId, string channelId, string? threadId,
-        string platform, bool mayStartRuns, CancellationToken ct)
+        string platform, bool mayStartRuns, string? author, CancellationToken ct)
     {
         if (threadId is null) return false;
 
         // A live question wins: the running master is blocked on it, so this message IS the
         // answer (it stays in the transcript either way).
-        var admitted = await admission.AdmitAsync(text, userId, platform, threadId, ct);
+        var admitted = await admission.AdmitAsync(text, userId, platform, threadId, ct, author);
         if (admitted is null) return false;
         if (admitted.Answered) return true;
         var state = admitted.State;
@@ -67,7 +67,7 @@ public sealed class SpecDialogRouter(
         }
         try
         {
-            await RunTurnAsync(state, channelId, threadId, platform, mayStartRuns, ct);
+            await RunTurnAsync(state, channelId, threadId, platform, new TurnPoster(userId, mayStartRuns), author, ct);
         }
         finally
         {
@@ -78,7 +78,7 @@ public sealed class SpecDialogRouter(
 
     private async Task RunTurnAsync(
         ConversationState state, string channelId, string threadId,
-        string platform, bool mayStartRuns, CancellationToken ct)
+        string platform, TurnPoster poster, string? author, CancellationToken ct)
     {
         var current = state;
         while (true)
@@ -86,7 +86,7 @@ public sealed class SpecDialogRouter(
             SpecDialogTurnResult result;
             try
             {
-                result = await turnRunner.RunTurnAsync(current, ct);
+                result = await turnRunner.RunTurnAsync(current, poster, ct);
             }
             catch (Exception ex) when (ex is not OperationCanceledException)
             {
@@ -108,11 +108,11 @@ public sealed class SpecDialogRouter(
             // then handed to the outcome sink (p0315c: ticket filing). Runs
             // inside the turn gate; the pending-question branch above routes
             // the approval answer.
-            var flowResult = await outcomeFlow.HandleAsync(current, result.Outcome, mayStartRuns, ct);
+            var flowResult = await outcomeFlow.HandleAsync(current, result.Outcome, poster.MayStartRuns, ct, result.Stewarded);
             if (flowResult is not OutcomeFlowEditRequested edit) return;
             // p0315c edit: the turn re-runs on a re-read state. 2026-09-22-355b: the note travels
             // as a VALUE — a shape clicked on a chat surface never passed the place that appends.
-            if (await edits.RefreshedAsync(current, result.Outcome, edit.Note, ct)
+            if (await edits.RefreshedAsync(current, result.Outcome, edit.Note, ct, author)
                 is not { } refreshed) return;
             current = refreshed;
         }

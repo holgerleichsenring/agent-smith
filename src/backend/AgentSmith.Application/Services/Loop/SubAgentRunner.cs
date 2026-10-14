@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Turns;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
@@ -24,6 +25,7 @@ public sealed class SubAgentRunner(
     IAgenticLoopRunner loopRunner,
     IEventPublisher eventPublisher,
     LoopLimitsConfig loopLimits,
+    SubAgentActivityFrame activityFrame,
     ILogger<SubAgentRunner> logger) : ISubAgentRunner
 {
     public async Task<IReadOnlyList<SubAgentResult>> RunAsync(
@@ -69,6 +71,7 @@ public sealed class SubAgentRunner(
     private async Task<SubAgentResult> ExecuteAsync(
         SubAgentSpec spec, int index, SubAgentContext context, CancellationToken ct)
     {
+        using var frame = activityFrame.Open(spec.Name);
         var subAgentId = $"sa-{Guid.NewGuid():N}".Substring(0, 8);
         var contextHash = HashInheritedContext(spec.InheritedContext);
         await PublishSpawnedAsync(spec, subAgentId, context, contextHash, ct);
@@ -84,10 +87,8 @@ public sealed class SubAgentRunner(
 
             // Each child's cost rolls up against the shared per-run tracker.
             context.CostTracker.Track(loopResult.Response);
-            // p0341e: the child's OWN per-run cost — from its response usage at the shared
-            // tracker's pricing (race-free under concurrent children; not a before/after
-            // Track-delta they would corrupt). Replaces the old stub that always returned 0m,
-            // which surfaced "cost $0.0000" on the decision even for a succeeded child.
+            // The child's own cost, from its response usage at the shared tracker's pricing — race-free under
+            // concurrent children, unlike a before/after delta of the shared tracker.
             var costUsd = context.CostTracker.EstimateResponseCostUsd(loopResult.Response);
             var observationsCount = CountObservations(loopResult.Response);
             var toolCalls = CountToolCalls(loopResult.Response);
@@ -125,15 +126,13 @@ public sealed class SubAgentRunner(
     private AgenticLoopRequest BuildLoopRequest(
         SubAgentSpec spec, string subAgentId, SubAgentContext context)
     {
-        // p0280: the master grants the child tool surface (read-only for a scan master,
-        // read/write for a coding master; never spawn_agents). Fixes the prior
-        // hosts: Array.Empty that left children tool-less.
+        // The master grants the child tool surface: read-only for a scan master, read/write
+        // for a coding master, never spawn_agents.
         var tools = context.ChildTools.ToList();
         var systemPrompt = BuildSystemPrompt(spec);
         var userPrompt = BuildUserPrompt(spec);
-        // The master's real AgentConfig, passed explicitly on the context — NOT looked up
-        // from the pipeline (the coding-master path never publishes it there, which made
-        // the lookup fall back to an empty config and fail every child at Create).
+        // The master's real AgentConfig, passed on the context: the coding-master path never
+        // publishes it to the pipeline, so a lookup there would fail every child at Create.
         var agentConfig = context.AgentConfig;
         return new AgenticLoopRequest(
             AgentConfig: agentConfig,

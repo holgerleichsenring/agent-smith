@@ -40,7 +40,7 @@ public sealed class SpecDialogTurnRunner(
     ILogger<SpecDialogTurnRunner> logger) : ISpecDialogTurnRunner
 {
     public async Task<SpecDialogTurnResult> RunTurnAsync(
-        ConversationState state, CancellationToken cancellationToken)
+        ConversationState state, TurnPoster poster, CancellationToken cancellationToken)
     {
         var project = ResolveProject(state.Project);
         var scopeRepos = ResolveScopeRepos(project, state.Scope);
@@ -54,7 +54,7 @@ public sealed class SpecDialogTurnRunner(
         var seeds = SpecDialogTurnSeeds.Build(
             state, scopeRepos, sandboxes, slot, await images.OfAsync(state.JobId, cancellationToken),
             withdrawal, await ticketText.HeldAsync(state.JobId, project, DialogTarget.Reporting(state), cancellationToken),
-            await readers.ForAsync(state.JobId, project, cancellationToken), project.DesignSources, project);
+            await readers.ForAsync(state.JobId, project, poster, cancellationToken), project.DesignSources, project);
         var request = new PipelineRequest(
             ProjectName: state.Project, PipelineName: PipelinePresets.SpecDialogName,
             Headless: true, Context: seeds);
@@ -76,7 +76,7 @@ public sealed class SpecDialogTurnRunner(
             // The stamp rides the outcome because the scopes below are gone by filing time.
             return slot is { Reply: not null, Outcome: not null }
                 ? SpecDialogTurnResult.On(
-                    state.Platform, slot.Reply, readOnlyScopes.Stamp(slot.Outcome, project, templates), slot.Kind)
+                    state.Platform, slot.Reply, readOnlyScopes.Stamp(slot.Outcome, project, templates), slot.Kind, slot.Stewarded)
                 : SpecDialogTurnResult.On(
                     state.Platform, ComposeFailureReply(state, result), new AnswerOutcome(),
                     SpecDialogTurnKind.Failure);

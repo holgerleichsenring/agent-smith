@@ -6,6 +6,7 @@ using AgentSmith.Application.Services;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence.Repositories;
+using AgentSmith.Server.Models;
 using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Server.Services.SpecDialog;
@@ -24,6 +25,8 @@ public sealed class BoundTicketReaders(
     SpecDialogTicketTextRepository store,
     FiledWorkRunsReader runs,
     TicketRunsFacts facts,
+    BoundAttemptStarts starts,
+    BoundSeriesPorts series,
     ILoggerFactory loggerFactory)
 {
     private static FrameworkFacts Facts(ResolvedProject project, string ticketId)
@@ -37,7 +40,7 @@ public sealed class BoundTicketReaders(
     }
 
     public async Task<BoundTicket?> ForAsync(
-        string sessionId, ResolvedProject? project, CancellationToken ct)
+        string sessionId, ResolvedProject? project, TurnPoster poster, CancellationToken ct)
     {
         if (project is null) return null;
         var held = await store.GetAsync(sessionId, ct);
@@ -54,13 +57,23 @@ public sealed class BoundTicketReaders(
                 runs, facts, project, held.TicketId, loggerFactory.CreateLogger<BoundTicketRuns>()),
             // 2026-09-28-1da5e: and what this framework's own rules produce for this ticket,
             // taken from the code that decides them rather than restated anywhere.
-            Facts(project, held.TicketId));
+            Facts(project, held.TicketId),
+            // And starting its next attempt — as the poster, only when the poster could.
+            await starts.ForAsync(project, held.TicketId, sessionId, poster, ct),
+            // And its series as the next attempt will read it — editable as the poster, only when the poster could.
+            await series.ForAsync(project, held.TicketId, sessionId, poster, ct));
     }
 }
 
-/// <summary>The two things a BOUND turn may ask about its own ticket, from one lookup.</summary>
+/// <summary>What a BOUND turn may ask about its own ticket, from one lookup — and the start and series edit its poster may make.</summary>
 public sealed record BoundTicket(
-    ITicketReader Reader, IBoundTicketWork Work, IBoundTicketRuns Runs, FrameworkFacts Facts);
+    ITicketReader Reader, IBoundTicketWork Work, IBoundTicketRuns Runs, FrameworkFacts Facts, IAttemptStart? Start = null,
+    BoundSeries? Series = null)
+{
+    /// <summary>A code attempt worked the ticket — the one predicate the series ports are built on, so the steward
+    /// leads exactly the turns that can read the series.</summary>
+    public bool Worked => Series is not null;
+}
 
 /// <summary>2026-09-28-1da5c: the linked-work port, closed over the ticket the turn is bound to.</summary>
 public sealed class BoundTicketWork(ITicketLinkedWork work, TicketId ticketId) : IBoundTicketWork

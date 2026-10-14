@@ -42,7 +42,8 @@ internal static class SpecDialogEndpoints
         }
 
         await EmitChatAsync(ctx, body.DialogId, actioned: true, skipReason: null);
-        Dispatch(ctx, body.DialogId, body.Text.Trim(), owner, MayStartRuns(ctx), body.Project, body.TicketId);
+        Dispatch(ctx, body.DialogId, body.Text.Trim(), owner, MayStartRuns(ctx), body.Project, body.TicketId,
+            Security.DisplayName.Of(ctx.User));
         return Results.Accepted();
     }
 
@@ -71,7 +72,7 @@ internal static class SpecDialogEndpoints
     /// </summary>
     private static void Dispatch(
         HttpContext ctx, string dialogId, string text, string owner, bool mayStartRuns,
-        string? project, string? ticketId)
+        string? project, string? ticketId, string? author)
     {
         var scopeFactory = ctx.RequestServices.GetRequiredService<IServiceScopeFactory>();
         var logger = ctx.RequestServices.GetRequiredService<ILoggerFactory>()
@@ -84,7 +85,7 @@ internal static class SpecDialogEndpoints
                 await using var scope = scopeFactory.CreateAsyncScope();
                 await scope.ServiceProvider.GetRequiredService<DashboardDialogDispatcher>()
                     .DispatchAsync(
-                        dialogId, text, owner, mayStartRuns, project, CancellationToken.None, ticketId);
+                        dialogId, text, owner, mayStartRuns, project, CancellationToken.None, ticketId, author);
             }
             catch (Exception ex)
             {

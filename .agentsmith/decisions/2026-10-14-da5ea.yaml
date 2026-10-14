@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-14-da5ea
+
+decisions:
+  - category: Architecture
+    chose: "TicketRunEndingsReader (Server/SpecDialog) owns the three set queries — Run summary/cancel reason, first failed RunStep, last non-release RunSandbox — on the unit of work TicketRunsFacts already opened; TicketRunsFacts injects it and TicketRunsFactsRead carries Endings"
+    over: "Three more queries inline in TicketRunsFacts; a second scope per read"
+    reason: |
+      Cause, judgement and reviews are one responsibility; how a run ended is another. One scope keeps the
+      read a single store visit, and the reader stays a DI-resolved instance (registered in SpecDialogExtensions
+      and in TicketStoreHarness, which registers the ticket readers piecemeal).
+  - category: Implementation
+    chose: "The five fields are flat trailing positional parameters of TicketRun; FinishedAt comes from FiledWorkRunView, the rest from the endings read; a run without a Run row reads TicketRunEnding.None"
+    over: "A nested 'ending' object; optional parameters with defaults"
+    reason: |
+      The spec names the fields on the run, and the model reads them where status already is. No defaults so
+      a new constructor caller cannot silently drop them.
+  - category: Implementation
+    chose: "First failed step = lowest StepIndex then lowest row id with Status 'failed'; its message is null when it equals the summary after trimming, otherwise cut like the summary"
+    over: "The newest failed step; comparing after the cut"
+    reason: |
+      The first failure stopped the attempt; later failures follow from it. Comparing raw text keeps a long
+      preflight message from reappearing just because both copies were cut.
+  - category: Implementation
+    chose: "Sandbox end = highest EventSeq (then id) among rows whose EndReason is set and not released/released-at-park/requeue/end; exited and unobserved count as abnormal"
+    over: "Only vanished/oom-killed; including still-open rows"
+    reason: |
+      The spec says 'not a release'. An open sandbox has no end to report.
+  - category: Implementation
+    chose: "TicketRunText.Cut: 2000 characters, then ' … [cut at 2000 of N characters]'; a static pure function beside TicketRunsReviews"
+    over: "A truncated flag field like the review entries"
+    reason: |
+      The spec asks for a note in the text; the length tells the model how much it is missing.

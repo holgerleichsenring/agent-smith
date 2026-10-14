@@ -45,7 +45,8 @@ public sealed class TicketRunsToolTests
     {
         var run = new TicketRun(
             "r-1", "sample", "code", "success", DateTimeOffset.UtcNow, null, null,
-            [new TicketRunSpec("2026-09-24-d4e1", "done", null, null, null, null)], ["https://pr/9335"]);
+            [new TicketRunSpec("2026-09-24-d4e1", "done", null, null, null, null)], ["https://pr/9335"],
+            null, null, null, null, null);
 
         new TicketRunsResult([run], []).Runs.Should().ContainSingle()
             .Which.Should().BeEquivalentTo(run);
@@ -60,6 +61,15 @@ public sealed class TicketRunsToolTests
             .And.Contain("unmeasured").And.Contain("file and line").And.Contain("decision")
             .And.Contain("operator").And.Contain("retry").And.Contain("trusted false")
             .And.Contain("system entry").And.Contain("framework's OWN record").And.Contain("repeating an id");
+    }
+
+    [Fact]
+    public void TicketRunsTool_Description_NamesHowEachRunEnded()
+    {
+        var description = new TicketRunsToolHost(new Bound()).GetTools(null, null).Single().Description;
+
+        description.Should().Contain("summary").And.Contain("cancelReason").And.Contain("finishedAt")
+            .And.Contain("failedStep").And.Contain("sandboxEnd").And.Contain("names what stopped the attempt");
     }
 
     private sealed class Bound : IBoundTicketRuns

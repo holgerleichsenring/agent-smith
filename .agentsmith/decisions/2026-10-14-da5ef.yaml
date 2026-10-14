@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-14-da5ef
+
+decisions:
+  - category: Architecture
+    chose: "The steward ContextKey (SpecDialogSteward, bool) is seeded when BoundTicket.Worked — defined as Series is not null, the predicate BoundSeriesPorts builds the series read on"
+    over: "A third LatestAsync call in the seeds; a shared WorkedTicket predicate class used by BoundAttemptStarts, BoundSeriesPorts and the seeds"
+    reason: |
+      The steward leads exactly the turns that can read the series, and the series port is only built for a ticket a
+      code attempt worked. Reading the port's presence reuses that one predicate without a further database read.
+      BoundAttemptStarts keeps its own check because it also needs runs.control.
+  - category: Architecture
+    chose: "IMasterCatalog.HasMaster (Contracts) implemented by SkillCatalogPromptCatalog over the cache Render resolves from; the singleton is registered once and IPromptCatalog and IMasterCatalog both forward to it; AgenticMasterContextBuilder takes it by constructor and is registered through a factory"
+    over: "Adding HasMaster to IPromptCatalog; a second master cache like MasterOutputSchemaResolver's; deciding the fallback in the handler"
+    reason: |
+      IPromptCatalog has many stubs and decorators that would all have to answer a question only the skill catalog can.
+      One cache means the answer is what Render would load. Every other builder stays new(); the master builder is the
+      only one that needs a service, so only its registration changes. A harness that replaces IPromptCatalog still
+      resolves IMasterCatalog to the real catalog, whose unbootstrapped answer is false — the design partner leads.
+  - category: Architecture
+    chose: "SpecDialogTurnFlow owns the dialog turn's prompt choice and after-loop handling; the outcome gate moved out of AgenticMasterHandler into SpecDialogOutcomeGate unchanged"
+    over: "Branching on the steward inside AgenticMasterHandler; one collaborator holding both the routing and the gate"
+    reason: |
+      The handler had no headroom (742 lines over the ratchet); it now holds one prompt call and one conclude call for a
+      dialog turn and dropped five constructor parameters (681 lines, baseline lowered). The gate is a responsibility of
+      its own — refusal, resolve, one fix re-prompt — so the flow only decides which path a turn takes.
+  - category: Implementation
+    chose: "A steward turn publishes MasterOutcomes.PublishOutcome(AnswerOutcome) and returns; no proposal rule, refusal, outcome resolver, fix nudge or proposal review (and so no 8762 review rounds) runs"
+    over: "Running the gate and discarding a draft it finds"
+    reason: "A quoted ```yaml block in a steward reply is text the person reads; parsing it at all is what could turn it into a card."
+  - category: Implementation
+    chose: "TicketStewardPromptFactory renders '## Ticket conversation', the transcript, the seeded ticket, framework facts, repositories, the image note and an answer/act/no-proposal contract; the transcript rendering moved to DialogTranscriptSection, shared with the design partner"
+    over: "Copying RenderTranscript into the steward factory; a flag on SpecDialogPromptFactory"
+    reason: "The steward contract is a different class, as the spec says; the transcript line format (with da5eb's author) must not drift between the two."
+  - category: Implementation
+    chose: "Steward master surface = the bound design master's surface filtered by TicketStewardTools: without withdraw_filed_ticket, decide_by_default, write_mock and read_mock; with read tools, recall/remember, web_fetch, http_request, ask_human, design_read, render_reference/compare_reference and the reference design tools, start_next_attempt, read_series, verify_series, edit_series, spawn_agents and read_sub_agent_observations"
+    over: "Building a separate steward surface; keeping 8762's decide_by_default on the steward"
+    reason: |
+      8762 ADAPTATION: decide_by_default files a pending decision row and write_mock stores a mock for a proposed spec —
+      the steward files nothing and proposes nothing, and the person it would default for is in the conversation.
+      hand_forward is a spec-execution master's only, so a dialog turn never had it. Reads, the browser render and
+      memory are harmless in a conversation and stay. Filtering by name after composition keeps MasterToolComposition
+      within its 120 lines and the design partner's surface byte for byte as before.
+  - category: Implementation
+    chose: "SpecDialogChildTools is an allowlist: read_file, grep_in_file, grep_in_tree, find_files, list_directory, directory_tree, web_fetch, recall, read_ticket, ticket_work, ticket_runs"
+    over: "Extending the exclusion list with withdraw_filed_ticket"
+    reason: |
+      An exclusion list let withdraw_filed_ticket reach children; an allowlist keeps every later act off them by
+      construction. Children also lose http_request, which sends any method including DELETE, so it is not a read.
+  - category: Implementation
+    chose: "The slot carries Stewarded (CollectSpecDialogReply compares ContextKeys.MasterSkillName with the steward); SpecDialogTurnResult carries it; the router passes it to SpecDialogOutcomeFlow.HandleAsync, which clears a stored LatestProposal on a steward turn when one exists"
+    over: "Clearing in the turn runner (at 120 lines); clearing on the seed request, before knowing the catalog had the steward"
+    reason: |
+      Only the turn that actually ran under the steward supersedes the card, so a fallback turn leaves it. Reading
+      first makes later steward turns a no-op instead of a save and a ticket nudge per turn.
+  - category: Implementation
+    chose: "A stewarded SpecDialogTurnResult shows the reply unstripped on the dashboard"
+    over: "Stripping ```yaml blocks from every dashboard reply"
+    reason: "The strip exists because the pane shows the design partner's draft; a steward reply has no pane draft, so stripping would hide the series text it quotes."
+  - category: TradeOff
+    chose: "Tests written beside the implementation rather than strictly before it; both catalog shapes covered with a real SkillCatalogPromptCatalog over a stub loader holding a ticket-steward-master stub"
+    over: "A mocked IMasterCatalog only"
+    reason: "The fallback depends on the cache Render uses; a mock would not prove it. Whether a live model uses the steward's tools well waits on its SKILL.md (2026-10-14-da5eg) and the pin (2026-10-14-da5eh)."

@@ -20,7 +20,8 @@ internal static class RetryEndpoints
     internal static async Task<IResult> RetryAsync(string runId, HttpContext ctx, RunRetry retry, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(ctx);
-        var result = await retry.RetryAsync(runId, SpecDialogOwnership.PrincipalOf(ctx.User), cancellationToken);
+        var result = await retry.RetryAsync(
+            runId, SpecDialogOwnership.PrincipalOf(ctx.User), RetryOrigin.Button, cancellationToken);
         return result.Kind switch
         {
             RunRetryResultKind.UnknownRun => Results.NotFound(),

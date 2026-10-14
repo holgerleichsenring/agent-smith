@@ -1,0 +1,87 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-14-da5ee
+goal: "In a ticket conversation the agent can read the ticket's series, change, drop or add specs, and verify the result against the code, without a proposal card."
+
+applies_to: "backend (series ports and tools for bound dialog turns: read_series, edit_series, verify_series)"
+
+requires:
+  - 2026-10-13-9a59l
+  - 2026-10-14-da5ed
+
+facts:
+  - claim: "TicketContinuationStateReader reads closure, whether the ticket was worked, the basis (latest published cut with specs, else the approved set), executed ids, series id and start inputs."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/TicketContinuationStateReader.cs:27-66"
+  - claim: "TicketContinuation.Decide is the one function preview and act share; for a worked ticket SeriesContinuationIds keeps executed ids, recuts a repeated unstarted id, appends an unknown id under NextFree, drops an omitted unstarted id for an epic and refuses over the cap."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/TicketContinuation.cs:17-30, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/SeriesContinuationIds.cs:17-59"
+  - claim: "ApprovedSpecSetRecorder only stores the approval record (principal = the session's UserId); TicketContinuationAct.ContinueAsync records, then nudges activity and calls OperatorStart, and refuses while a checkpointed question pends."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/ApprovedSpecSetRecorder.cs:58-79, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/TicketContinuationAct.cs:47-48,64-73"
+  - claim: "The next attempt applies an approved continuation whose BasisRunId is set and which is newer than the branch set's, through ApprovedContinuation and ContinuationMerge, without the in-run cut review; StartsAttempt only decides whether the record counts as an operator act."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSourceResolver.cs:86, src/backend/AgentSmith.Application/Services/Specs/ApprovedContinuation.cs:21-44, src/backend/AgentSmith.Application/Services/Rework/OperatorAct.cs:16"
+  - claim: "The continuation basis is the latest published cut with specs, else the approval record's set; with neither it is empty while BasisRunId is still the latest attempt, and a next run with an appended continuation then fails in ApprovedSetHandoff."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/TicketContinuationStateReader.cs:54-65, src/backend/AgentSmith.Application/Services/Specs/ApprovedSetHandoff.cs:29-32"
+  - claim: "Omitted ids drop only for an EpicOutcome, which needs a parent; SpecDraftReader takes the id from the yaml's spec field; a recut whose yaml carries another id becomes an append."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/TicketContinuation.cs:27-37, src/backend/AgentSmith.Application/Services/SpecDialog/SpecDraftReader.cs:7-19, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/SeriesContinuationIds.cs:35-45"
+  - claim: "RunSpec states are done, failed, handed_back, in_progress and not_started, plus a computed carried; what ran is the pointer's ExecutedIds."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketSeriesSpecComposer.cs:17-27, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/TicketContinuationStateReader.cs:57-58"
+  - claim: "The proposal review reads the turn's sandboxes, which are created without a revision (default branch), and checks only the parent and first child; ISourceScopeSandboxFactory takes a revision and the pointer holds a sha per repository."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/ProposalEvidenceReview.cs:45-52, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs:50-51"
+  - claim: "SpecDialogProposalReview runs the mechanical ProposalEvidenceReview and the model ISpecCutReviewer over drafts and attaches findings; ISpecCutReviewer takes plain drafts."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalReview.cs:30-85, src/backend/AgentSmith.Application/Services/Specs/ISpecCutReviewer.cs:21-26"
+  - claim: "The conversation has no tool that reads series content; only a read-only HTTP route serves it."
+    evidence: "src/backend/AgentSmith.Server/Extensions/TicketSeriesEndpoints.cs:14"
+
+scope:
+  in: >
+    THE SERIES AS THE NEXT ATTEMPT WILL READ IT, one definition for all three tools: the continuation basis plus the
+    stored approval record when that record has a BasisRunId and its approval is newer than the latest attempt's
+    WorkedApprovalAt, merged with ContinuationMerge (sibling projects included, as the continuation reader reads).
+    read_series (Server port) returns it: series id, and per spec its id, goal, yaml, the RunSpec state verbatim
+    (done, failed, handed_back, in_progress, not_started, carried) and ran (in ExecutedIds — what an edit cannot
+    change). edit_series(edits[]) takes recut {specId, yaml}, drop {specId} and append {yaml}: every yaml is validated
+    against the spec schema first and a recut's spec field must equal specId; the full list is built from the merged
+    series and wrapped in an EpicOutcome whose parent goal is the record's set goal, else the series goal; it runs
+    TicketContinuation.Decide and records only on the Continue effect, with decision.Continuation StartsAttempt false,
+    then nudges ticket activity — exactly ContinueAsync minus the start; a pending checkpointed question, a closed or
+    never-worked ticket, an over-cap or a child-order refusal answers with its reason and records nothing; an empty
+    basis (no cut, no record) is refused, because the next run could not hand the continuation off. The answer lists
+    every disposition with final ids (appended ids are re-minted). The record carries the poster as principal, from
+    da5ed's TurnPoster. edit_series needs runs.control. verify_series (Application tool host,
+    using the turn's pipeline, agent config and cost tracker) reviews only the unstarted specs of the merged series
+    with ProposalEvidenceReview and ISpecCutReviewer, in sandboxes created at the ticket branch's sha per repository
+    from the pointer; without a pointer it says verification reads the default branch and skips the evidence check.
+  out: >
+    Never-worked tickets: their series is formed in Work it out. Starting after an edit — start_next_attempt
+    (2026-10-14-da5ed) runs the recorded series.
+
+decisions:
+  - key: "AN EDIT IS AN APPROVAL WITHOUT A START — the approval record is already the content of record the next attempt merges by id; recording it from a tool reuses every append-only rule instead of writing a second path."
+  - key: "AN EDIT OUTSIDE THE CARD NEEDS RUNS.CONTROL — a card approval without the right records and starts nothing; an edit the agent writes on a person's word is held to the right that would start it."
+  - key: "VERIFY AT THE BRANCH — unstarted specs cite files executed specs created on the ticket branch; reviewing them against the default branch would report false misses."
+  - key: "THE PERSON ASKED, THE AGENT WROTE — the conversation is the review; the tool's answer lists every disposition so the person sees what changed before saying go."
+  - key: "VERIFY WHAT WILL RUN — an approved continuation skips the in-run cut review, so the conversation-time verification is the only check on an edited series; it reviews the merged set, not the edit alone."
+
+steps:
+  - id: merged-series
+    action: "One reader of the series as the next attempt will read it (basis + pending record via ContinuationMerge) in Server."
+  - id: ports
+    action: "ISeriesRead and ISeriesEdit in Contracts with Server implementations; edit mirrors ContinueAsync minus the start, with the poster as principal."
+  - id: tools
+    action: "ReadSeries and EditSeries tool hosts over the ports; VerifySeries tool host in Application with branch-sha sandboxes; seeded for bound turns of worked tickets, edit only with runs.control."
+  - id: tests
+    action: "Red first: the tests below."
+
+tests:
+  - "ReadSeries_WorkedTicket_ListsSpecsWithTheirStateRanAndYaml"
+  - "EditSeries_RecutDropAppend_RecordsWithoutStarting_AndNudgesActivity"
+  - "EditSeries_SecondEdit_KeepsTheFirst"
+  - "EditSeries_ExecutedSpec_IsDiscardedWithTheReason"
+  - "EditSeries_RecutWithAnotherId_Refused; invalid yaml refused"
+  - "EditSeries_EmptyBasis_Refused; closed ticket refused; pending question refused"
+  - "EditSeries_OverTheCap_RefusedWhole"
+  - "VerifySeries_ReviewsOnlyUnstartedSpecs_AtTheTicketBranch (an unstarted spec citing a file an executed spec created resolves)"
+  - "SeriesTools_NeverWorkedTicket_NotOffered"
+  - "NextAttempt_AfterEditAndStart_RunsTheEditedSeries"
+
+done:
+  - "In a worked ticket's conversation the agent changes a spec, reports the dispositions and the verification findings, and the next attempt runs the changed series."
+  - "Backend build and tests green."

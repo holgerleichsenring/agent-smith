@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-14-da5eg
+goal: "The skills catalog gains ticket-steward-master: it reads an active ticket's attempts and series, changes and verifies the series, and starts the next attempt when the person asks."
+
+applies_to: "skills (agent-smith-skills: skills/_masters/ticket-steward-master/SKILL.md, release)"
+
+requires:
+  - 2026-10-14-da5ef
+
+facts:
+  - claim: "A master is a directory skills/_masters/<name>/SKILL.md with frontmatter name, description (one line, at most 200 characters), role master, version and metadata.inputs; the body starts with its input tokens."
+    evidence: "observed: 2026-10-14, agent-smith-skills origin/main 6430f13 (v5.16.0), skills/_masters/design-partner-master/SKILL.md:1-13, skills/description-cap.txt"
+  - claim: "Shared fragments live in the top-level references/ folder and are pulled in as {{ref:name}}, e.g. spawn-budget."
+    evidence: "observed: 2026-10-14, agent-smith-skills origin/main 6430f13 (v5.16.0), references/spawn-budget.md:7-24, skills/_masters/coding-agent-master/SKILL.md:44"
+  - claim: "The design partner names only its read tools and decide_by_default, which no backend tool implements."
+    evidence: "observed: 2026-10-14, agent-smith-skills origin/main 6430f13 (v5.16.0), skills/_masters/design-partner-master/SKILL.md:46-60,203-208"
+  - claim: "Releases go through release-please; the release workflow validates and packages the catalog."
+    evidence: "observed: 2026-10-14, agent-smith-skills origin/main 6430f13 (v5.16.0), .github/workflows/release-please.yml:12-60, scripts/validate-skills.sh:48-78"
+
+scope:
+  in: >
+    skills/_masters/ticket-steward-master/SKILL.md, version 1.0.0, inputs ProjectContextSection, CodingPrinciples,
+    CodeMapSection, RepoNames matching the body's placeholders, description under 200 characters, and the
+    untrusted-input note masters that read ticket text carry. The body states what the steward CAN do, naming its
+    tools: it reads before it answers (ticket_runs for how each attempt ended and why, read_series, read_ticket,
+    ticket_work); a person saying the cause is fixed and asking to go on is answered by checking the failed step
+    against what they said and calling start_next_attempt — no re-analysis of the repositories; a person asking to
+    change the work is answered with edit_series, then verify_series, the dispositions and findings reported, and a
+    start only when asked; executed specs are history and stay; checks that span repositories go to named
+    sub-agents, at most four per turn; when start_next_attempt or edit_series is not offered it says the person needs
+    runs.control to start or change the work; replies are short and name what was done and what happens next.
+    Released as a minor version through release-please with a conventional PR title, after the 8762 backend merged.
+  out: >
+    The backend pin — 2026-10-14-da5eh.
+
+decisions:
+  - key: "BUILT AFTER 8762 (PR #739) — skills main already names tools only that series adds; releasing or pinning before it merges would put ghost tools in every master."
+  - key: "CAPABILITIES, NOT PROHIBITIONS — the master says what it can do with which tool; the design partner's rules about proposing do not apply and are not repeated."
+  - key: "THE PER-TURN BUDGET, NOT THE RUN FRAGMENT — the shared spawn-budget fragment speaks of a run's twenty children; a dialog turn gets four, so the steward states its own number."
+  - key: "NO TOOL THE BACKEND LACKS — the steward names only tools 2026-10-14-da5ea..f provide; decide_by_default is not named."
+
+steps:
+  - id: skill
+    action: "Write SKILL.md in a branch of agent-smith-skills; run scripts/validate-skills.sh."
+  - id: release
+    action: "PR with a conventional title; after merge the release-please PR cuts the minor release with the packaged catalog."
+
+tests:
+  - "scripts/validate-skills.sh passes with the new master"
+  - "The description is at most 200 characters"
+
+done:
+  - "A tagged skills release contains skills/_masters/ticket-steward-master/SKILL.md."

@@ -282,7 +282,7 @@ public sealed class ConversationSubjectTests : IDisposable
         var pendingQuestions = new SpecDialogPendingQuestions(_turnGate);
         var turnRunner = new Mock<ISpecDialogTurnRunner>();
         turnRunner
-            .Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<CancellationToken>()))
+            .Setup(r => r.RunTurnAsync(It.IsAny<ConversationState>(), It.IsAny<TurnPoster>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(() => SpecDialogTurnResult.On(Platform, _reply, new AnswerOutcome(), _turnKind));
         var outcomeComposer = new SpecDialogOutcomeComposer();
         var outcomeFlow = new SpecDialogOutcomeFlow(

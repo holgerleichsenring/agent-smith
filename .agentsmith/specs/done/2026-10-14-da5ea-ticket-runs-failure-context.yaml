@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-14-da5ea
+goal: "A ticket-bound conversation knows why each attempt ended: ticket_runs carries the run's summary, cancel reason, end time, failed step and the last sandbox's end reason."
+
+applies_to: "backend (ticket_runs tool result and description, BoundTicketRuns, TicketRunsFacts)"
+
+requires:
+  - 2026-10-13-9a59o
+  - 2026-10-13-9a59i
+
+facts:
+  - claim: "ticket_runs returns per run id, project, pipeline, status, start, cause, pending question, specs and PR urls, plus PR reviews; no summary, cancel reason, end time, failed step or sandbox end."
+    evidence: "src/backend/AgentSmith.Domain/Models/TicketRunsResult.cs:10-33, src/backend/AgentSmith.Server/Services/SpecDialog/BoundTicketRuns.cs:24-37, src/backend/AgentSmith.Server/Services/SpecDialog/TicketRunsFacts.cs:18-39"
+  - claim: "Run carries Summary, CancelReason, Status and FinishedAt; RunStep carries StepIndex, StepName, Status and ResultMessage (the failure reason)."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:17-91, src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunStep.cs:17-37"
+  - claim: "A preflight failure's text lands in the failing step's result: 'Preflight failed — …' with each check, message and lever."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/RunPreflightHandler.cs:63-71"
+  - claim: "RunSandbox records EndReason, ExitCode, OomKilled and StepIndex per launch."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunSandbox.cs:12-45"
+  - claim: "Our own failure comment on the ticket is filtered out of the seed and read_ticket as one of our comments, so the conversation never sees why an attempt failed."
+    evidence: "src/backend/AgentSmith.Application/Services/Prompts/OwnTicketComment.cs:28-36, src/backend/AgentSmith.Application/Services/SpecDialog/TicketTextComposer.cs:44,70"
+  - claim: "In production the bound conversation of a ticket whose attempt failed on preflight answered 'go on' with a fresh analysis and no word of the failure."
+    evidence: "observed: 2026-10-14, production SpecDialogSessions row of ticket azuredevops-19478, transcript turns at 15:13:39 and 15:14:57"
+
+scope:
+  in: >
+    Each run in TicketRunsResult gains Summary (cut at 2000 characters with a note), CancelReason, FinishedAt (taken
+    from the FiledWorkRunView the reader already builds), FailedStep {index, name, message} — the first step whose
+    status is failed; its message only when it differs from the summary, cut like it — and SandboxEnd {reason,
+    exitCode, oomKilled}: the run's RunSandbox with the highest EventSeq whose EndReason is not a release, null when
+    every sandbox was released. TicketRunsFacts reads Summary, CancelReason, the failed RunStep and the abnormal
+    RunSandbox in one set query per table over the ticket's runs. TicketRunsToolHost's description says the fields
+    exist and that a failed step or the summary names what stopped the attempt.
+  out: >
+    Showing the failure on the ticket page (the attempt card already links the run viewer).
+
+decisions:
+  - key: "THE RECORD, NOT OUR COMMENT — the failure comment stays filtered as ours; the run rows are the source of truth and carry more than the comment did."
+
+steps:
+  - id: result
+    action: "TicketRunsResult run record gains the five fields; BoundTicketRuns maps them."
+  - id: facts
+    action: "TicketRunsFacts reads Summary and CancelReason, the first failed RunStep and the last abnormal RunSandbox per run, set-based; FinishedAt from the FiledWorkRunView."
+  - id: tests
+    action: "Red first: the tests below."
+
+tests:
+  - "TicketRuns_FailedOnPreflight_CarriesTheSummaryAndTheFailedStep_MessageOnlyWhenItDiffers"
+  - "TicketRuns_SandboxVanished_CarriesTheSandboxEnd; a run whose sandboxes were all released has none"
+  - "TicketRuns_SucceededRun_HasNoFailedStep"
+  - "TicketRuns_LongStepMessage_IsCutWithANote"
+
+done:
+  - "A bound conversation's ticket_runs answer names attempt 1's failed step and the preflight text for a ticket like 19478."
+  - "Backend build and tests green."

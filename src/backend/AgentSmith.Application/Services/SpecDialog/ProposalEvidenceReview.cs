@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Turns;
 
 namespace AgentSmith.Application.Services.SpecDialog;
@@ -28,9 +29,17 @@ public sealed class ProposalEvidenceReview(
         ArgumentNullException.ThrowIfNull(pipeline);
         ArgumentNullException.ThrowIfNull(proposal);
         var drafts = Checked(proposal);
-        if (drafts.Count == 0 || DerivationLookFactory.ProposalRepositories(pipeline) is not { } repositories)
-            return [];
+        return drafts.Count == 0 || DerivationLookFactory.ProposalRepositories(pipeline) is not { } repositories
+            ? []
+            : await FindingsAsync(drafts, repositories, ct);
+    }
 
+    /// <summary>The cited files of <paramref name="drafts"/> read in <paramref name="repositories"/> — the caller
+    /// has decided that every one of them describes what those repositories hold.</summary>
+    public async Task<IReadOnlyList<ProposalFinding>> FindingsAsync(
+        IReadOnlyList<SpecDraft> drafts, IReadOnlyDictionary<string, ISandbox> repositories, CancellationToken ct)
+    {
+        ArgumentNullException.ThrowIfNull(drafts);
         var probe = new SandboxEvidenceProbe(repositories, activity);
         var findings = new List<ProposalFinding>();
         foreach (var draft in drafts)
