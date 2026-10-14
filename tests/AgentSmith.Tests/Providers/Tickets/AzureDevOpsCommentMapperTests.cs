@@ -59,6 +59,16 @@ public sealed class AzureDevOpsCommentMapperTests
     }
 
     [Fact]
+    public void AzureDevOpsCommentMapper_HtmlDeclaredWithoutMarkup_IsMarkdown()
+    {
+        var mapped = new AzureDevOpsCommentMapper().MapMany([
+            new Comment { Id = 3, Text = "**Done**\n\n- one", Format = CommentFormat.Html },
+        ]);
+
+        mapped[0].Format.Should().Be(TicketTextFormat.Markdown);
+    }
+
+    [Fact]
     public void MapMany_Null_ReturnsEmpty() =>
         new AzureDevOpsCommentMapper().MapMany(null).Should().BeEmpty();
 }

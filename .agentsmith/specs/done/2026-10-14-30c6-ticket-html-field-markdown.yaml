@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-14-30c6
+goal: "An Azure DevOps HTML field or comment that carries no HTML markup is marked markdown, so a description written as markdown renders formatted instead of as one run-on paragraph."
+
+applies_to: "backend (Azure DevOps field and comment mappers, HTML detection shared with TicketHtmlConverter)"
+
+requires:
+  - 2026-10-14-9f80a
+  - 2026-10-14-9f80c
+
+facts:
+  - claim: "The Azure DevOps field mapper marks description and criteria html unconditionally."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsFieldMapper.cs:24-36"
+  - claim: "The comment mapper takes html whenever the SDK says CommentFormat.Html."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsCommentMapper.cs:23-28"
+  - claim: "TicketHtmlConverter already treats a body with no HTML tag as text or markdown and passes it through, so the agent reads such a description as markdown."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/TicketHtmlConverter.cs:19-26,66-70"
+  - claim: "Work item 19413's System.Description is markdown with no HTML tag in a field Azure DevOps reports as HTML (multilineFieldsFormat empty); its first revision was written through the API under the operator's account. Work item 19446's description is real HTML."
+    evidence: "observed: 2026-10-14, Azure DevOps REST wit/workitems/19413 and /19413/updates and wit/workitems/19446, api-version 7.1"
+  - claim: "The ticket page rendered 19413's description as one paragraph with markdown source, because the html path collapses newlines."
+    evidence: "observed: 2026-10-14, operator screenshot of the ticket page Summary tab on the image built from spec/2026-10-14-9f80"
+  - claim: "Infrastructure references Domain but not Application."
+    evidence: "src/backend/AgentSmith.Infrastructure/AgentSmith.Infrastructure.csproj:4-6"
+
+scope:
+  in: >
+    One markup rule: HtmlMarkup.IsPresent(string?) in Domain carries the tag pattern TicketHtmlConverter uses today,
+    and TicketHtmlConverter calls it instead of its own copy. TicketTextFormat.OfHtmlField(string?) answers html when
+    the value carries markup, markdown otherwise. The Azure DevOps field mapper marks description and criteria with it;
+    the comment mapper does the same for a comment the SDK declares Html. Markdown-declared comments stay markdown.
+  out: >
+    Rewriting the stored work item, or how agent-smith writes descriptions it files: the read renders what is there.
+
+decisions:
+  - key: "THE CONTENT OUTRANKS THE DECLARATION ONLY WHERE THE DECLARATION CANNOT BE TRUE — an HTML field without a single tag is not HTML in any reading; the agent's converter already passes it through as written, and the page now agrees with it."
+  - key: "ONE TAG RULE — the page's format and the agent's conversion read the same pattern, so the two can never disagree about whether a body is HTML."
+
+steps:
+  - id: rule
+    action: "Domain HtmlMarkup.IsPresent and TicketTextFormat.OfHtmlField; TicketHtmlConverter uses HtmlMarkup."
+  - id: mappers
+    action: "AzureDevOpsFieldMapper and AzureDevOpsCommentMapper mark through OfHtmlField."
+  - id: tests
+    action: "Red first: the tests below."
+
+tests:
+  - "HtmlMarkup: a body with <p> is markup; a markdown body with '**', '`' and '<' in text is not"
+  - "TicketTextFormat.OfHtmlField: tagged value html, untagged value markdown, null markdown"
+  - "AzureDevOpsFieldMapper: a description without tags is markdown, one with <p> is html; criteria likewise"
+  - "AzureDevOpsCommentMapper: an Html-declared comment without tags is markdown"
+  - "TicketHtmlConverter: existing tests stay green"
+
+done:
+  - "Work item 19413's description renders on the ticket page as a heading, paragraphs and bullet list."
+  - "Backend build and tests green."

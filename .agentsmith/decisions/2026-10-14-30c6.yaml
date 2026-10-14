@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-14-30c6
+
+decisions:
+  - category: Implementation
+    chose: "An Azure DevOps field or comment declared HTML is marked html only when it carries a tag the converter recognises; otherwise markdown"
+    over: "Trusting the declaration (the page rendered a markdown description as one run-on paragraph); sniffing on the client"
+    reason: |
+      Work item 19413's description is markdown in a field Azure DevOps reports as HTML. An HTML field without a
+      single recognised tag is not HTML in any reading, and the agent's TicketHtmlConverter already passed such a
+      body through as written — the page now agrees with what the agent reads.
+  - category: Architecture
+    chose: "HtmlMarkup.IsPresent in Domain is the one tag rule; TicketHtmlConverter calls it and TicketTextFormat.OfHtmlField uses it"
+    over: "A second copy of the tag pattern in Infrastructure, which does not reference Application"
+    reason: |
+      Two copies could disagree about whether a body is HTML, and then the page and the agent would read one ticket
+      two ways. The rule is a list of tag names, not any tag: a markdown body that names a listed tag inside
+      backticks still counts as HTML, which matches the converter and is pinned by a test.
