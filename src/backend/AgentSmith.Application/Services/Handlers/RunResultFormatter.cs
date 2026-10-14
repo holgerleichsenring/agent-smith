@@ -86,7 +86,10 @@ public static class RunResultFormatter
         sb.AppendLine("## Summary");
         // p0196: post-p0179b coding presets retired GeneratePlan; plan is
         // null then. Use a benign placeholder so result.md still emits.
-        sb.AppendLine(plan?.Summary ?? $"Completed {realChanges.Count} change(s).");
+        // 2026-10-13-3890b: a failed run did not complete, whatever its files.
+        sb.AppendLine(plan?.Summary ?? (string.IsNullOrWhiteSpace(failureReason)
+            ? $"Completed {realChanges.Count} change(s)."
+            : $"Did not complete; {realChanges.Count} file(s) changed on the branch."));
 
         RunContractSections.AppendAccount(sb, account);
         RunContractSections.AppendDeclined(sb, declined);

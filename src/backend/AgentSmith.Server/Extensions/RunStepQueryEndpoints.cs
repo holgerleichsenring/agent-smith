@@ -51,7 +51,7 @@ internal static class RunStepQueryEndpoints
     /// </summary>
     internal static async Task<IResult> GetRunStepEventsAsync(
         string runId, int stepIndex, long? sinceSeq, long? beforeSeq, int? limit,
-        TrailReader trailReader, CancellationToken cancellationToken)
+        TrailReader trailReader, StepSubAgentLifecycleReader lifecycle, CancellationToken cancellationToken)
     {
         if (sinceSeq is > 0)
         {
@@ -65,9 +65,14 @@ internal static class RunStepQueryEndpoints
 
         var page = await trailReader.ReadStepBackwardsAsync(
             runId, stepIndex, beforeSeq, limit, cancellationToken);
+        // 2026-10-13-3890e: the newest page also carries the step's older sub-agent lifecycle,
+        // ahead of it; the cursors stay the page's own, so "load older" still walks without a gap.
+        var older = beforeSeq is null && page.HasOlder
+            ? await lifecycle.ReadOlderAsync(runId, stepIndex, page.OldestSeq, cancellationToken)
+            : [];
         return Results.Ok(new
         {
-            events = page.Events,
+            events = older.Concat(page.Events).ToList(),
             oldestSeq = page.OldestSeq,
             newestSeq = page.NewestSeq,
             hasOlder = page.HasOlder,

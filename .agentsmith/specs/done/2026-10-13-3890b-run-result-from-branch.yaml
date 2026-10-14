@@ -1,0 +1,74 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-3890b
+goal: "A run that commits its own work reports in result.md the files its branch carries, its wall-clock duration, and the run-level failure text once."
+
+applies_to: "backend (run result writer, ledger coverage, master handler context keys)"
+
+requires: []
+
+facts:
+  - claim: "Changed Files, the summary count, the memory narrative and the ledger coverage read ContextKeys.CodeChanges, which each master invocation overwrites with its own tool writes."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/RunResultFormatter.cs:77-89, src/backend/AgentSmith.Application/Services/Tools/ProgressLedgerCoverage.cs:18-37, src/backend/AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs:129-140,186-209, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:609"
+  - claim: "Work committed in checkpoint commits before a later master pass is absent from CodeChanges; checkpoints push only a repository's first sandbox."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecution/CommitSpecWorkHandler.cs:48, src/backend/AgentSmith.Application/Services/RepoWorkPusher.cs:31-69"
+  - claim: "WriteRunResult reads one sandbox per repository."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs:413-418"
+  - claim: "The delivery diff's ladder (base, else run start) is reusable; the diff itself returns patch text only."
+    evidence: "src/backend/AgentSmith.Application/Services/DeliveryDiff.cs:47-78"
+  - claim: "A pipeline means to change code exactly when it commits its work and delivers no opinion."
+    evidence: "src/backend/AgentSmith.Application/Services/WorkBranchPersistPolicy.cs:14-26"
+  - claim: "RunDurationSeconds is written once, by the master per loop pass, and read once, for duration_seconds."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:534, src/backend/AgentSmith.Application/Services/Handlers/WriteRunResultHandler.cs:420-433"
+  - claim: "A mechanical verify failure becomes every sandbox's account problem; the account section is shared with the PR body and the ticket comment."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:141, src/backend/AgentSmith.Application/Services/Specs/RunAccountLedger.cs:32-38, src/backend/AgentSmith.Application/Services/Specs/RunAccountSection.cs:20-35"
+  - claim: "observed: a failed run's result.md listed 1 changed file of ~50 on its branch, 13 false 'absent from the diff' lines, duration 245 s for a 49-minute run, and the test output 4 times."
+    evidence: "observed: 2026-10-13, operator run 6fd1 result.md and PR commits"
+
+assumptions: []
+
+scope:
+  in: >
+    For a pipeline WorkBranchPersistPolicy.IntendedToChangeCode says changes code — command names from
+    PipelinePresets.TryResolve(ContextKeys.PipelineName) — a branch file reader takes, per sandbox of a repository,
+    `git diff --name-status <ref>` against the delivery diff's ladder (base, else run start, else HEAD) plus
+    `git ls-files --others --exclude-standard`, and unions them per repository. That list feeds Changed Files, the
+    summary fallback and the memory narrative per repository; ledger coverage checks the union over all repositories,
+    always written `<repo.Name>/<path>`, single-repo included. A sandbox whose list cannot be taken falls back to its
+    share of CodeChanges and says so; the other sandboxes keep their lists. Other pipelines keep CodeChanges.
+    duration_seconds is wall clock from RunStartedAt (a parked-then-resumed run counts its parked time);
+    RunDurationSeconds and its doc are removed and the RunStartedAt doc says what it now feeds. In result.md only — a
+    WriteRunResult-side option, RunAccountSection.Build unchanged for PR body and ticket comment — an account whose
+    problem equals the Outcome's failure text says "see Outcome". A failed run's summary fallback never says
+    "Completed". Limit stated: when the review-revert replaced the result, or on the early-keystone path, the texts
+    differ and the duplication remains.
+  out: "What CodeChanges means inside the master loop. The delivery gate's own per-repository text."
+
+decisions:
+  - key: "THE BRANCH IS THE RECORD for runs that commit; for runs that only read, the branch is someone else's and their tool writes stay the record."
+  - key: "NAMES FROM GIT, NOT PATCH TEXT. --name-status is uncapped in practice and carries the change type."
+
+steps:
+  - id: reader
+    action: "BranchChangedFiles over all sandboxes of a repository: name-status against the ladder + untracked."
+  - id: wire
+    action: "WriteRunResult uses it for code-changing pipelines: Changed Files, summary, narrative, coverage union."
+  - id: duration
+    action: "Wall-clock duration_seconds; RunDurationSeconds removed."
+  - id: once
+    action: "result.md accounts point to Outcome when the problem text is the Outcome's."
+  - id: tests
+    action: "Red first: files from a checkpointed earlier pass and from a secondary sandbox and untracked files are listed; pr-review keeps tool writes; mad-discussion uses the branch; coverage across two repos and in a single repo raises nothing; duration is wall clock; failure text once in result.md, unchanged in PR body. Update AgenticMasterHandlerTests:66, WriteRunResultHandlerTests:96 and WriteRunResultInitProjectTests:117 for the removed key."
+
+tests:
+  - "RunResult_FilesFromACheckpointedPass_AreListed"
+  - "RunResult_SecondarySandboxAndUntrackedFiles_AreListed"
+  - "RunResult_PrReview_KeepsToolWrites"
+  - "LedgerCoverage_TargetInAnotherRepository_NoWarning"
+  - "LedgerCoverage_SingleRepoPrefixedTarget_NoWarning"
+  - "RunResult_OneSandboxUnreadable_OthersKeepTheirLists"
+  - "RunResult_Duration_IsWallClock"
+  - "RunResult_MechanicalFailure_RenderedOnceInResultMd"
+  - "RunResult_FailedRun_SummaryDoesNotSayCompleted"
+
+done:
+  - "A failed multi-pass code run's result.md lists every file its branch changed, per repository, with its real duration and the failure text once."

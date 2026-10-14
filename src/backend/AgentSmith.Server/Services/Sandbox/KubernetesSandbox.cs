@@ -43,9 +43,7 @@ public sealed class KubernetesSandbox(
         // on the clamped step and reports why it killed the command; the host wait only
         // covers a sandbox that has gone silent.
         var capped = SandboxStepCap.Clamp(step, stepTimeoutCapSeconds);
-        await channel.PushStepAsync(capped, cancellationToken);
-        return await channel.WaitForResultAsync(
-            capped.StepId, progress, SandboxStepCap.ChannelWait(capped), cancellationToken);
+        return await channel.RunStepAsync(capped, progress, SandboxStepCap.ChannelWait(capped), cancellationToken);
     }
 
     public async ValueTask DisposeAsync()

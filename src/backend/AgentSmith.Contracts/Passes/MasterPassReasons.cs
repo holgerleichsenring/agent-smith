@@ -26,6 +26,7 @@ public static class MasterPassReasons
     public const string RedWithOpenSteps = "red-with-open-steps";
     public const string UnbackedDone = "unbacked-done";
     public const string GateUnsatisfied = "gate-unsatisfied";
+    public const string Challenged = "challenged";
 
     // Opened because, for a pass that is not a re-engagement.
     public const string First = "first";

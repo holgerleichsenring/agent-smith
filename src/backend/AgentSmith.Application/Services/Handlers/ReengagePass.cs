@@ -18,7 +18,8 @@ public sealed class ReengagePass(
     ILogger<ReengagePass> logger)
 {
     internal async Task<ReengagePassResult> RunAsync(
-        ReengageSession s, ReengageState state, IReadOnlyList<string> criteria, CancellationToken ct)
+        ReengageSession s, ReengageState state, IReadOnlyList<string> criteria, CancellationToken ct,
+        string? challengeNudge = null)
     {
         var skill = s.Context.MasterSkillName;
         var (loopResult, changes, verification) = state;
@@ -38,10 +39,9 @@ public sealed class ReengagePass(
         try
         {
             // p0411: the working tree, read once per pass, so the nudge opens with the changed paths.
-            var changedPaths = await ReadChangedPathsAsync(s.Context.Pipeline, ct);
-            var nudge = MasterNudges.BuildReengageNudge(
+            var nudge = challengeNudge ?? MasterNudges.BuildReengageNudge(
                 s.UserPrompt, s.Progress.GetLedger(), s.Log.GetDecisions(), verification,
-                changedPaths, MasterPipelineFacts.StagedRegistries(s.Context.Pipeline));
+                await ReadChangedPathsAsync(s.Context.Pipeline, ct), MasterPipelineFacts.StagedRegistries(s.Context.Pipeline));
             var reengaged = await loopRunner.RunAsync(
                 s.Request with { UserPrompt = nudge, PriorMessages = s.Conversation.Thread() }, ct);
             s.Conversation.Continued(nudge, reengaged.Response);
@@ -85,7 +85,7 @@ public sealed class ReengagePass(
             ReengageOutcome.StopBlocked => MasterPassReasons.Blocked,
             ReengageOutcome.StopSelfRefilled => MasterPassReasons.SelfRefilled,
             _ => MasterPassReasons.Idle,
-        });
+        }, outcome, blockedClaim);
     }
 
     // p0411: the run's changed paths, repo-prefixed as the master addresses them.

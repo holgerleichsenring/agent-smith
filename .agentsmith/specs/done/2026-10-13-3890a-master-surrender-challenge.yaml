@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-3890a
+goal: "A master that stops on its own word while criteria are unmet and budget remains is driven once more with its own reasons, and the run records which stop ended its loop."
+
+applies_to: "backend (master re-engagement loop, nudges)"
+
+requires: []
+
+facts:
+  - claim: "Three stops accept any non-blank model text: a red verdict on a drained ledger, a blocked claim with a blocker, and not_applicable with evidence."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterReengagementPolicy.cs:64-110, src/backend/AgentSmith.Application/Services/Handlers/ReengageProgressPolicy.cs:45-54,97-98, src/backend/AgentSmith.Application/Services/Handlers/AcceptanceJudgement.cs:15-27"
+  - claim: "The loop breaks on either policy and only logs the reason to the server log."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:730-829,858-870"
+  - claim: "The re-engagement nudge carries ledger, decisions and verdict but no per-criterion surrender reasons."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterNudges.cs:57-80"
+  - claim: "The decline rule given to the master does not say what a missing tool is."
+    evidence: "src/backend/AgentSmith.Application/Services/Expectations/ExpectationPromptSection.cs:25-37"
+  - claim: "observed: a live master stopped with 12 criteria declined for unfinished work and a missing dotnet-ef, at $1.83 of $45; which stop ended it is not recorded anywhere."
+    evidence: "observed: 2026-10-13, operator run 6fd1 result.md, trail and decisions"
+
+assumptions: []
+
+scope:
+  in: >
+    A MasterSurrenderChallenge class classifies how the loop is ending: budget (exhausted, also mid-pass), red-drained,
+    blocker, declined (the gate is satisfied and at least one pairing is not_applicable), verdictless, question, idle,
+    self-refilled, satisfied, cap. A pass that called no tool is classified by its verdict first — red-drained or
+    declined — and only otherwise idle. The kind is derived once, reusing ShouldReengage's predicates (ShouldReengage
+    returns its reason rather than a bool). Criteria are paired with AcceptancePairing.Pair over the verdict's
+    dispositions; a missing disposition is not Met; with zero ratified criteria nothing is challenged. When the kind is
+    red-drained, blocker or declined, the budget is not exhausted, not every criterion is Met and this master invocation
+    has not been challenged, the loop runs ONE challenge pass in place without consulting ShouldReengage first. Its
+    nudge (built in the new class) lists each criterion not Met with the master's own reason (decline evidence, blocker,
+    red status) and states that a missing command the repository's ecosystem installs (a dotnet tool, an npm dev
+    dependency, a pip package in a venv) is work to do with run_command, a red test is work, an unwritten test is work.
+    A stop after that pass is respected as today. For pipelines that expect code changes, the loop end is recorded once
+    through decisionLogger.LogAsync(null, ...) — a DecisionLogged on the trail, never a repository decisions file —
+    naming the kind and whether it was challenged. ExpectationPromptSection's decline rule carries the tool sentence.
+    AgenticMasterHandler keeps one stop variable and stays within its file-length baseline.
+  out: "Judging a decline's reason mechanically (9749: not machine checkable). The skills text — 2026-10-13-3890f."
+
+decisions:
+  - key: "CHALLENGE, DON'T CLASSIFY. A reason-text rule is gameable and wrong at the edges; one pass that confronts the master with its own reasons costs one pass and catches every surrender path."
+  - key: "ONCE. A second identical stop is the master's considered answer; the existing gates bound everything after it."
+  - key: "RECORD THE STOP. The run that motivated this could not tell which stop ended it; the trail must."
+
+steps:
+  - id: policy
+    action: "MasterSurrenderChallenge: decides from stop kind, verdict, criteria, budget and whether the challenge was used; builds the challenge nudge."
+  - id: loop
+    action: "AgenticMasterHandler consults it at both stop points and runs the one challenge pass."
+  - id: record
+    action: "Each loop end logs a decision naming the stop."
+  - id: prompt
+    action: "ExpectationPromptSection: a missing installable tool is work, not a decline."
+  - id: tests
+    action: "Red first: declined stop with budget is challenged once; a blocked stop with a FAILED verdict on a drained ledger is challenged once; a tool-less pass with a declining verdict is challenged; a restated stop after the challenge ends the loop; budget-exhausted and truly idle stops are not challenged; no criteria means no challenge; the stop decision is recorded for code pipelines only."
+
+tests:
+  - "Challenge_DeclinedCriteriaWithBudget_DrivesOnePass"
+  - "Challenge_RespectedBlocker_DrivesOnePass"
+  - "Challenge_RestatedStop_EndsTheLoop"
+  - "Challenge_BudgetExhaustedOrIdle_NotChallenged"
+  - "Challenge_ToolLessPassWithDecliningVerdict_IsChallenged"
+  - "Challenge_NoRatifiedCriteria_NotChallenged"
+  - "MasterLoop_End_RecordsTheStop"
+  - "DeclineRule_NamesInstallableToolsAsWork"
+
+done:
+  - "A master that declines criteria for unfinished work or a missing tool with budget left is driven once more with those reasons in front of it."
+  - "Every master step's trail says which stop ended it."
