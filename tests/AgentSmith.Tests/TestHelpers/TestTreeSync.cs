@@ -21,6 +21,8 @@ internal static class TestTreeSync
                 NullLogger<RepoWorkPusher>.Instance),
             NullLogger<RunWorkCheckpointer>.Instance);
 
+    public static StageRelevance Relevance() => new(new SandboxTargets(), NullLogger<StageRelevance>.Instance);
+
     public static SandboxTreeSync Create(SandboxTargets? targets = null, ISecretPatternScanner? scanner = null)
     {
         var resolved = targets ?? new SandboxTargets();

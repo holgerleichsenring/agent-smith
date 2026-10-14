@@ -35,6 +35,7 @@ public sealed class VerifySpecHandlerTests
             NullLogger<VerifyDerivationDrift>.Instance),
         new SandboxTargets(),
         AgentSmith.Tests.TestHelpers.TestTreeSync.Create(),
+        AgentSmith.Tests.TestHelpers.TestTreeSync.Relevance(),
         new VerifyCommandRunner(NullLogger<VerifyCommandRunner>.Instance),
         AgentSmith.Tests.TestHelpers.TestGit.Delivery,
         new SpecDeliveryAccounting(
@@ -534,6 +535,40 @@ public sealed class VerifySpecHandlerTests
             "an absent condition path skips its own stage, never the ones behind it");
     }
 
+    [Fact]
+    public async Task VerifySpec_GuardedStageSkipped_DriftStillReadsTheFullDeclaration()
+    {
+        var web = Declaring("web", ".", new ContextYamlVerifyStage("web-test", "npm test", WhenChanged: ["web/**"]))
+            with { VerifyDerivedFrom = new ContextYamlVerifyDerivation([".github/workflows/web.yml"], "sha256:recorded") };
+        var (context, sandbox) = Setup(Map("csharp", new CiConfig(false, null, null, null)),
+            contexts: [web, Declaring("api", ".", new ContextYamlVerifyStage("build", "dotnet build"))]);
+        sandbox.NameOnlyOutput = "src/Api/Program.cs\0\n";
+
+        var result = await Handler().ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue(result.Message);
+        sandbox.RanSteps.Should().NotContain(s => CommandLineOf(s) == "npm test", "web/** matched nothing");
+        sandbox.RanSteps.Should().Contain(s => CommandLineOf(s) == "dotnet build");
+        result.Message.Should().Contain("context 'web' derived its verify block",
+            "the drift reporter reads the declaration, not the stages that happen to run");
+    }
+
+    [Fact]
+    public async Task VerifySpec_OnlyGuardedStagesAndNoneMatched_IsGreenWithANoStageAppliesNoteNamingTheGlobs()
+    {
+        var (context, sandbox) = Setup(Map("generic", new CiConfig(false, null, null, null)),
+            contexts: [Declaring("web", ".",
+                new ContextYamlVerifyStage("web-test", "npm test", WhenChanged: ["web/**", "contracts/**"]))]);
+        sandbox.NameOnlyOutput = "docs/guide.md\0\n";
+
+        var result = await Handler().ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeTrue(result.Message);
+        result.Message.Should().NotContain("UNVERIFIED").And.Contain(
+            "server: no stage applies to this change — when_changed globs [web/**, contracts/**] match nothing its branch changed");
+        sandbox.RanSteps.Should().NotContain(s => CommandLineOf(s) == "npm test");
+    }
+
     /// <summary>
     /// 2026-09-03-ee12: no declaration falls to the analyzer's inferred pair and then to
     /// nothing — the same two rungs for every language. The .NET entry-point search that
@@ -592,6 +627,8 @@ public sealed class VerifySpecHandlerTests
         public HashSet<string> MissingPaths { get; } = new(StringComparer.Ordinal);
         /// <summary>A shell command line whose run exits non-zero.</summary>
         public string? FailingCommand { get; set; }
+        /// <summary>What the -z name-only read answers; null = the diff body above.</summary>
+        public string? NameOnlyOutput { get; set; }
 
         public Task<StepResult> RunStepAsync(
             Step step, IProgress<StepEvent>? progress, CancellationToken cancellationToken)
@@ -616,6 +653,8 @@ public sealed class VerifySpecHandlerTests
             var output = step.Kind switch
             {
                 StepKind.ListFiles => ListFilesJson,
+                StepKind.Run when step.Command == "git" && step.Args!.Contains("--name-only")
+                    && NameOnlyOutput is not null => NameOnlyOutput,
                 StepKind.Run when step.Command == "git" && step.Args!.Contains("diff")
                     => GitStatusOutput,
                 StepKind.Run when step.Command == "git" && step.Args!.Contains("status")

@@ -185,7 +185,7 @@ public static class PipelineHandlersExtensions
             .AddSingleton<Sandbox.IImageRegistryTrust, Sandbox.ImageRegistryTrust>();
         services.AddSingleton<AgentSmith.Application.Services.Sandbox.SandboxImageChain>();
         services.AddTransient<DeclaredStagePresence>();
-        services.AddTransient<VerifyStageResolver>();
+        services.AddTransient<VerifyStageResolver>().AddTransient<StageRelevance>();
         // 2026-08-31-26d4/7097: what each context declared, and what it named that the
         // image does not carry.
         services.AddTransient<ContextVerifyStagesResolver>()

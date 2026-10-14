@@ -163,6 +163,7 @@ public sealed class SandboxTreeSyncVerifyTests
             new VerifyDerivationDigest(new SandboxFileReaderFactory()), NullLogger<VerifyDerivationDrift>.Instance),
         new SandboxTargets(),
         TestTreeSync.Create(),
+        TestTreeSync.Relevance(),
         new VerifyCommandRunner(NullLogger<VerifyCommandRunner>.Instance),
         TestGit.Delivery,
         new SpecDeliveryAccounting(TestGit.Delivery, accountant, new SandboxTargets(), NullLogger<SpecDeliveryAccounting>.Instance),

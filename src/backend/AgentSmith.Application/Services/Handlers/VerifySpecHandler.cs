@@ -52,6 +52,7 @@ public sealed class VerifySpecHandler(
     VerifyDerivationDrift derivationDrift,
     SandboxTargets sandboxTargets,
     SandboxTreeSync treeSync,
+    StageRelevance relevance,
     VerifyCommandRunner commandRunner,
     DeliveryDiff deliveryDiff,
     SpecDeliveryAccounting accounting,
@@ -97,26 +98,20 @@ public sealed class VerifySpecHandler(
         foreach (var (key, sandbox) in sandboxes)
             diffs[key] = await deliveryDiff.ForBranchAsync(sandbox, basis, cancellationToken);
         var delivered = DeliveredWork.Of(diffs);
+        var changes = await relevance.ReadAsync(context.Pipeline, sandboxes, diffs, cancellationToken);
 
         var outcomes = new List<VerifyOutcome>();
         var notes = new VerifyResolutionNotes();
         foreach (var (key, sandbox) in sandboxes)
         {
-            // A repo whose BRANCH carries no source change has nothing for a build to
-            // prove — running it would gate the spec on pre-existing state.
-            if (!delivered.HasSomethingToProve(key))
-            {
-                logger.LogInformation(
-                    "{Key}: this branch carries no source change — skipping build/test", key);
-                continue;
-            }
-
-            var map = context.RepoProjectMaps.TryGetValue(key, out var m) ? m : null;
-
             // 2026-08-31-26d4: the PER-SANDBOX CONTEXT LIST, not the sandbox's
             // representative discovery — two contexts resolving one image collapse into
             // one sandbox, and both declarations are honoured.
             var declared = declaredStages.For(context.Pipeline, key);
+            // A stage runs over what its own branch changed, or a guarded one over what its
+            // repository changed; nothing left to run — the run would gate pre-existing state.
+            if (relevance.Select(key, declared, changes, delivered, notes) is not { } selected) continue;
+            var map = context.RepoProjectMaps.TryGetValue(key, out var m) ? m : null;
             // 2026-09-01-e14d: the declaration is executed as written, and the run says
             // once whether the pipeline it was derived from has moved since. Reading a
             // handful of files is cheap enough to do every run; re-deriving is not, and
@@ -124,7 +119,7 @@ public sealed class VerifySpecHandler(
             await derivationDrift.ReportAsync(key, sandbox, declared, notes, cancellationToken);
 
             foreach (var stage in await stageResolver.ResolveAsync(
-                key, map, sandbox, declared, notes, cancellationToken))
+                key, map, sandbox, selected, notes, cancellationToken))
             {
                 var outcome = await commandRunner.RunAsync(
                     key, stage.Stage, sandbox, stage.Cwd, stage.Command, cancellationToken);
@@ -138,9 +133,10 @@ public sealed class VerifySpecHandler(
         // p0420: the mechanical gates answer HARM; the account answers DELIVERY. A red
         // build wins first — an account taken over a tree that does not compile would be
         // an opinion about work nobody can ship.
+        changes.Conclude(notes);
         var ran = outcomes.Where(o => !o.Skipped).ToList();
         var mechanical = WithStaleDerivations(
-            BuildAggregateResult(ran, notes.Findings, delivered.Anything), notes.Stale);
+            BuildAggregateResult(ran, notes.Findings, delivered.Anything), [.. notes.Stale, .. notes.NoStageApplies]);
         if (!mechanical.IsSuccess)
         {
             // The spec's account IS the mechanical failure. Without this the run reports
@@ -162,7 +158,7 @@ public sealed class VerifySpecHandler(
         // report "no spec measured itself" — the wrong cause, and the loss of the most
         // actionable thing a run produces. The run fails carrying its account.
         var verdict = SpecVerdict.From(
-            mechanical, accounts, delivered.Unverified(ran.Count > 0, notes.Searched));
+            mechanical, accounts, delivered.Unverified(ran.Count > 0 || notes.NoStageApplies.Count > 0, notes.Searched));
         // p0439: a spec that is through names the state it verified — the commit each
         // sandbox stands at — so a run that stops later can deliver exactly that state. A
         // repair pass is not through yet; its verdict comes from the verification after it.

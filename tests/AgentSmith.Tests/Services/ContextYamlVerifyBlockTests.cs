@@ -100,6 +100,57 @@ public sealed class ContextYamlVerifyBlockTests
             "a half-record would travel to the resolver as something it has to re-check");
     }
 
+    [Fact]
+    public void ContextYamlVerifyBlock_WhenChanged_IsReadTrimmed_BlankDropped()
+    {
+        var summary = new ContextYamlSerializer(new ContextYamlBuilders()).Parse("""
+            meta:
+              workdir: "."
+            verify:
+              - label: "web-test"
+                command: "cd web && npm test"
+                when_changed: [" web/** ", "", "  ", "src/Contracts/**"]
+              - label: "docs"
+                command: "make docs"
+                when_changed: ["  "]
+            """).Summary;
+
+        summary!.Verify![0].WhenChanged.Should().Equal("web/**", "src/Contracts/**");
+        summary.Verify[1].WhenChanged.Should().BeNull("a guard left with no glob is no condition");
+    }
+
+    [Fact]
+    public async Task ContextYamlVerifyBlock_NoWhenChanged_IsNull()
+    {
+        var discoveries = await Resolver(out _).ResolveAllAsync(Source, ContextReadBranches.None, CancellationToken.None);
+
+        discoveries.Single().Verify!.Should().OnlyContain(stage => stage.WhenChanged == null);
+    }
+
+    [Fact]
+    public void WriteContextYamlTool_WhenChanged_RoundTripsThroughTheSerializer()
+    {
+        var gate = TestHelpers.ContextGates.Build();
+        gate.TryRead(System.Text.Json.JsonDocument.Parse("""
+            {
+              "meta": { "workdir": "." },
+              "stack": { "lang": "typescript", "image": "node:20-bookworm" },
+              "verify": [ { "label": "web-test", "command": "cd web && npm test", "when_changed": ["web/**", "src/Contracts/**"] } ]
+            }
+            """).RootElement, out var typed, out var defect).Should().BeTrue("{0}", defect);
+        gate.Defect(typed!).Should().BeNull();
+
+        var yaml = TestHelpers.ContextGates.Serializer().Serialize(typed!);
+
+        new ContextYamlSerializer(new ContextYamlBuilders()).Parse(yaml).Summary!.Verify!.Single().WhenChanged
+            .Should().Equal("web/**", "src/Contracts/**");
+        gate.TryRead(System.Text.Json.JsonDocument.Parse("""
+            { "meta": { "workdir": "." }, "stack": { "lang": "typescript", "image": "node:20-bookworm" },
+              "verify": [ { "label": "web-test", "command": "npm test", "when_changed": [] } ] }
+            """).RootElement, out var empty, out _).Should().BeTrue();
+        gate.Defect(empty!).Should().Contain("when_changed", "a guard naming no glob is refused");
+    }
+
     /// <summary>
     /// The tool description now asks a model for the block, so the write path has to emit
     /// one the reader gets back — the schema refuses what it does not declare, and the

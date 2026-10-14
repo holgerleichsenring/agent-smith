@@ -64,8 +64,13 @@ stack:
 # present — where that path is absent the stage is skipped and says so, so one
 # declaration serves repositories of different shapes.
 #
+# A stage may also name when_changed globs ('**' any number of path segments, '*'
+# within one). It then runs only when the REPOSITORY's branch changed a matching
+# path — in any of its sandboxes — and is skipped, saying so, otherwise. A
+# repository whose every stage was skipped that way ran nothing and is green.
+#
 # Every command runs FROM THE REPOSITORY ROOT, and so does every path below
-# (when_present, verify_derived_from.files). meta.workdir does not move them: a
+# (when_present, when_changed, verify_derived_from.files). meta.workdir does not move them: a
 # repository puts its tests where it puts them, and only the tree says where. Give a
 # command that needs another directory its own `cd`, e.g. `cd frontend && npm test`.
 #
@@ -77,6 +82,9 @@ stack:
 #   - label: lint
 #     command: npm run lint
 #     when_present: package.json
+#   - label: web-test
+#     command: cd web && npm test
+#     when_changed: ["web/**", "src/Contracts/**"]
 
 # Where those commands came from, and a hash of it. A run re-reads these files and says
 # once — without changing what it runs — that the block above may be out of date when
