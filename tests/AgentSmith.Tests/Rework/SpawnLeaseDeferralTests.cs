@@ -25,7 +25,7 @@ public sealed class SpawnLeaseDeferralTests
         var deferral = new SpawnLeaseDeferral(
             new CapacityDeferral(queue.Object, Mock.Of<ICapacityBudget>(), TestSupport.ApprovedSetDoubles.Carrier(),
                 CapacityTestDoubles.NoNudge(), NullLogger.Instance),
-            CapacityTestDoubles.NoStandingRefusal(), leases.Object, TimeProvider.System, NullLogger.Instance);
+            CapacityTestDoubles.NoStandingRefusal(), leases.Object, TimeProvider.System, NullLogger.Instance, new AgentSmith.Application.Services.Resume.NullPreviousAttemptReader());
         var project = new ResolvedProject { Name = "p", Tracker = new TrackerConnection { Type = TrackerType.GitHub } };
         var config = new AgentSmithConfig { Projects = new Dictionary<string, ResolvedProject> { ["p"] = project } };
 

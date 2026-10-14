@@ -43,11 +43,11 @@ public sealed class HandbackHeadsRecordTests
     {
         var approved = Set(handedBack: true) with { Approval = new SpecApproval(DateTimeOffset.UtcNow, "c", "p") };
 
-        SpecAmendmentRule.NeedsModel(SpecRevisionCause.Retrigger, approved).Should().BeFalse();
-        SpecAmendmentRule.NeedsModel(SpecRevisionCause.Retrigger, approved, foreignCommitSinceHandback: true)
+        SpecAmendmentRule.NeedsModel(SpecRevisionCause.Retrigger, approved, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults).Should().BeFalse();
+        SpecAmendmentRule.NeedsModel(SpecRevisionCause.Retrigger, approved, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults, foreignCommitSinceHandback: true)
             .Should().BeTrue();
         SpecAmendmentRule.NeedsModel(SpecRevisionCause.Retrigger,
-            Set(handedBack: false) with { Approval = approved.Approval }, foreignCommitSinceHandback: true)
+            Set(handedBack: false) with { Approval = approved.Approval }, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults, foreignCommitSinceHandback: true)
             .Should().BeFalse("only a hand-back expires");
     }
 

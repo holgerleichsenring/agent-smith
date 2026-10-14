@@ -94,10 +94,16 @@ public sealed class DerivationLookFactory(
     /// are dropped — and 2026-10-01-283dc an uploaded website under <see cref="ReferenceScopeName.Prefix"/> too. No audit: every entry is a read-only source scope that runs no command.
     /// Null when the turn has no repository, and the review is the text-against-text one.
     /// </summary>
-    public DerivationLook? ForProposalReview(PipelineContext pipeline) =>
+    public DerivationLook? ForProposalReview(PipelineContext pipeline) => ForProposal(pipeline, DerivationLookTerms.ProposalReview);
+
+    /// <summary>2026-10-13-8762i: one attack reviewer's look at one proposal draft, on that draft's attack terms.</summary>
+    public DerivationLook? ForProposalAttack(PipelineContext pipeline, Contracts.Models.SpecDraft draft) =>
+        ForProposal(pipeline, DerivationLookTerms.AttackReviewFor(draft));
+
+    private DerivationLook? ForProposal(PipelineContext pipeline, DerivationLookTerms terms) =>
         ProposalRepositories(pipeline) is { } repositories
             ? new DerivationLook(repositories, files, ecosystems, logger, templates: null,
-                DerivationLookTerms.ProposalReview, audits: false, activity: turnActivity)
+                terms, audits: false, activity: turnActivity)
             : null;
 
     /// <summary>2026-10-02-3f06c: the turn's repositories as the proposal review reads them, one
@@ -107,9 +113,7 @@ public sealed class DerivationLookFactory(
         ArgumentNullException.ThrowIfNull(pipeline);
         if (!pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, out var map)
             || map is null) return null;
-        var repositories = map
-            .Where(entry => !entry.Key.StartsWith(TemplateScopeName.Prefix, StringComparison.Ordinal)
-                && !entry.Key.StartsWith(ReferenceScopeName.Prefix, StringComparison.Ordinal)) // 283dc
+        var repositories = map.Where(entry => Review.SpecReviewRepositories.IsRepositoryKey(entry.Key))
             .ToDictionary(entry => entry.Key, entry => entry.Value, StringComparer.Ordinal);
         return repositories.Count == 0 ? null : repositories;
     }

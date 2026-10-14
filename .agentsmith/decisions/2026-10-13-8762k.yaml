@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-8762k
+
+decisions:
+  - category: Architecture
+    chose: "SeriesContractRound (run) and ProposalSeriesRound (turn) share ONE reviewer behind the port ISeriesContractReviewer; SeriesContractAdmission applies 8762e's SpecAttackAdmission per named member (register check on that member, own read in a run) and, in a turn, takes the contract line the cut quotes verbatim as its evidence"
+    over: "A concrete reviewer class only, or a second admission rule"
+    reason: "The round tests script the reviewer the way ISpecAttackReviewer is scripted; the admission stays e's rule applied to the member, and only the turn's evidence differs because its drafts exist only in the proposal."
+  - category: Architecture
+    chose: "DEVIATION: SeriesContractPrompt, SeriesContractMembers and SeriesContractAnswerReader live in Services/Specs/Review beside the reviewer, not in Services/Specs beside SpecCutReviewPrompt; the reader joins ModelOutputParsingRuleTests as Services/Specs/Review/SeriesContractAnswerReader.cs"
+    over: "Splitting the series review across two folders"
+    reason: "Every type of the set-scope review is in the series' Review namespace; 'in code' (no skills release mid-series) is what the spec's placement asked for and is kept."
+  - category: Behaviour
+    chose: "A run cut's evidence is e's own-read rule (OwnReadRule: a read of its own that returned the cited line, named by repository); the prompt tells the reviewer to read the member's spec file or the series manifest, the admission does not check which path was read"
+    over: "Admitting only reads of a path under .agentsmith/specs or the manifest"
+    reason: "Where a member's yaml lives on the branch differs per repository and per set; a path rule would be a second, guessed copy of the layout. The register check already ties the cut to its member's text."
+  - category: Behaviour
+    chose: "The run round applies each member's landing cuts through the reviser with lastRound true and no evidence problems, publishes ONE revision with SpecRevisionCause.SeriesContractReview, and only then event 87 (Scope series, SpecId null, Round 1, Reviewer 0) with the dropped cuts as evidence problems and the residues; a revision the branch did not take FAILS the step, as g's does"
+    over: "Publishing the event before the cuts, or carrying on when the revision was not written"
+    reason: "g's events-after-the-cuts rule; the series round is the one round, so it is its last; a reviewed text nobody can read back must not be built."
+  - category: Behaviour
+    chose: "The run round is called once by ReviewSpecsHandler after the per-spec walk with the ids g reviewed this attempt; the cleared prefix is read from the pipeline's SpecSequenceStop, which the round never writes; its standing REFUSE joins the per-spec objections before the ONE ReviewExhaustion.Decide"
+    over: "The round deciding its own question or moving the stop"
+    reason: "Spec decisions ONE DECIDE and NEVER MOVE g's STOP; ReviewSpecsHandler is 95 lines."
+  - category: Behaviour
+    chose: "In a design turn a FAILED series call is treated like a spent share: a 'series-contract' finding under the parent and the series token in NotReviewed"
+    over: "Letting a turn whose series call failed be approved"
+    reason: "Done line 4: a design-turn epic whose contract was not reviewed cannot be approved until it is. Default, pending operator ratification."
+  - category: Behaviour
+    chose: "Members are first rendered in part (goal, scope, steps, and fact and done lines naming a contract term); then shown whole, in order, while the prompt stays within SeriesContractPrompt.MaxMembersChars = 60 000; still in part is named, and a text past the budget even in part is cut off and says so"
+    over: "Whole members until the cap, then nothing"
+    reason: "Every member stays visible, so a clash with a later member is seen; the cap holds for 24 members (spec decision SIZE BY CHARACTERS). Default, pending operator ratification."
+  - category: Architecture
+    chose: "SeriesContractPromptSection gained Lines(contract) — each entry's text with the members it names; Render uses it, the turn's admission matches a quoted entry against it, and SpecReviewContractSection orders the diff prompt's entries by it (own entries first, MaxContractChars = 20 000)"
+    over: "A second renderer of the contract for the diff prompt"
+    reason: "One spelling of an entry, so the entry a reviewer quotes is the entry the framework rendered."
+  - category: Architecture
+    chose: "SpecDiffReviewer.ReviewAsync and SpecReviewPrompt.For take the contract as an optional LAST parameter (null renders the prompt byte-identical to before)"
+    over: "A required parameter at every call site"
+    reason: "Only ReviewSpecDiffHandler has a set; the harness and prompt tests that call these keep their meaning unchanged."
+  - category: Behaviour
+    chose: "The review-objection markers carry no apostrophe: Marker = 'an objection from the spec review stands', MarkerFor(key) = 'an objection from the spec review to {key} stands'"
+    over: "\"a reviewer's objection to the spec stands\" (8762h)"
+    reason: "OwnTicketComment and ReviewObjectionComment.IsAsked match a marker as a plain case-insensitive substring of the stored body, with no unescaping; a tracker that stores comments HTML-escaped (AzDO, which is why OwnTicketComment already lists 'Agent Smith &#8212;') would store the apostrophe as &#39; and every objection would be asked again on every attempt. Test: Exhaustion_ObjectionCommentStoredHtmlEscaped_StillReadsAsAsked."

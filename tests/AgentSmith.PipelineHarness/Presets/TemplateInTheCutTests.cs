@@ -26,8 +26,10 @@ public sealed class TemplateInTheCutTests
         };
         await runner.RunAsync("code");
 
-        // The run makes several calls; the derivation is the one carrying the look section.
+        // The run makes several calls; the derivation is the one carrying the look section that is not
+        // an attack reviewer's (2026-10-13-8762g: their prompt opens with the brief).
         var derivationPrompt = harness.ChatClient.PromptsSeen
+            .Where(prompt => !prompt.StartsWith(AgentSmith.Application.Services.Specs.Review.SpecAttackPrompt.Brief, StringComparison.Ordinal))
             .Should().ContainSingle(prompt => prompt.Contains("## Repositories you may look into"))
             .Subject;
         derivationPrompt.Should().Contain("## Templates this project is built after");

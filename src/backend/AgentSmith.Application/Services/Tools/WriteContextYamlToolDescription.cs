@@ -11,7 +11,7 @@ internal static class WriteContextYamlToolDescription
     public const string Document =
         "Document object: { meta: { workdir, type?: [archetype,…], purpose? }, " +
         "stack?: { lang?, image?, resources? }, " +
-        "verify?: [ { label, command, when_present? }, … ], " +
+        "verify?: [ { label, command, when_present?, when_changed? }, … ], " +
         "verify_derived_from?: { files: [path,…] }, " +
         "probe?: { target, command }, " +
         "format?: { command, when_present? }, " +
@@ -43,11 +43,14 @@ internal static class WriteContextYamlToolDescription
         // 2026-08-31-26d4: the gate the repository owns, ahead of anything a
         // model emits for a single run.
         "verify is the ORDERED list of commands that prove a change in this context holds — " +
-        "each { label, command, when_present? }, run at the REPOSITORY ROOT, stopping at " +
-        "the first non-zero exit. Every command must be able to FAIL: a declared 'echo ...' " +
-        "or 'true' stops the run at resolution. Use when_present for a stage that only means " +
-        "something when a path exists; an absent path skips that stage instead of reddening " +
-        "it. Omit verify for a .NET tree — its entry point is discovered from files that exist. " +
+        "each { label, command, when_present?, when_changed? }, run at the REPOSITORY ROOT, " +
+        "stopping at the first non-zero exit. Every command must be able to FAIL: a declared " +
+        "'echo ...' or 'true' stops the run at resolution. Use when_present for a stage that only " +
+        "means something when a path exists; an absent path skips that stage instead of reddening " +
+        "it. Use when_changed — a non-empty list of globs relative to the REPOSITORY ROOT, '**' any " +
+        "number of path segments, '*' within one — for a stage that only proves something about " +
+        "those paths: it runs when the repository's branch changed a matching path and is skipped, " +
+        "said so, otherwise. A .NET tree may omit verify; its entry point is then discovered. " +
         // 2026-09-01-e14d: adoption, not invention — and a record of what was adopted.
         "DERIVE those commands from what this repository already runs: its CI definition " +
         "(azure-pipelines.yml, .github/workflows/*, .gitlab-ci.yml, Jenkinsfile), its " +

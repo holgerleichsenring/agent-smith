@@ -248,6 +248,39 @@
         }
       }
     },
+    "spec_review": {
+      "type": "object",
+      "description": "The run-time review of each unbuilt spec before the master builds it: rounds of fresh reviewers whose cuts are applied each round. Global; read live per run.",
+      "additionalProperties": false,
+      "properties": {
+        "rounds": { "type": "integer", "minimum": 0, "description": "Rounds per spec. 0 turns the review off. Default 4." },
+        "reviewers": { "type": "integer", "minimum": 1, "description": "Fresh reviewers per round. Default 2." },
+        "max_concurrent": { "type": "integer", "minimum": 1, "description": "Reviewers running at once. Default 2." },
+        "budget_share_percent": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "description": "The share of the run's cost cap and wall clock the review may use; the specs it did not clear are left to the next attempt. The first reviewed spec always runs to its stop. Default 40."
+        }
+      }
+    },
+    "series": {
+      "type": "object",
+      "description": "A ticket's spec series: how many specs it may hold, how many one attempt runs, and the measured seconds of one spec block the attempt is sized against the run wall clock by. Global; read live per run.",
+      "additionalProperties": false,
+      "properties": {
+        "max_specs": { "type": "integer", "minimum": 1, "maximum": 26, "description": "The most specs one series may hold (member letters a..z). Default 24." },
+        "specs_per_attempt": { "type": "integer", "minimum": 1, "maximum": 18, "description": "The most specs one attempt runs; at most max_specs and the 18 the step guard holds. The rest stay not started and the ticket waits. Default 8." },
+        "seconds_per_spec": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "The measured seconds of ONE WHOLE spec block (master, premise, verify, review, fix pass, record). An attempt runs at most (seconds left / seconds_per_spec) - 1 specs, one block reserved for the commit-and-PR tail; two blocks must fit orchestrator.max_run_wall_time_seconds. 0 = not measured: the attempt is specs_per_attempt. This repository measured 1294 (a lower bound). Default 0."
+        },
+        "budget_usd": { "type": "number", "minimum": 0, "description": "The USD one chain of attempts may spend (each attempt's run cost, its review of the unbuilt tail included) before agent-smith holds the next automatic attempt. 0 turns automatic continuation off. Default 150." },
+        "wall_clock_hours": { "type": "number", "minimum": 0, "description": "The summed RUN hours of one chain of attempts (time held between attempts not counted) before the next automatic attempt is held. Default 12." },
+        "continue_after_wall_time": { "type": "boolean", "description": "Whether an attempt the wall clock cancelled after at least one done spec continues automatically. Default true." }
+      }
+    },
     "dialogue": {
       "type": "object",
       "description": "How a run waits for a person, and where that person answers.",

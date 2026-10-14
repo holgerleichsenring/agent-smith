@@ -38,4 +38,10 @@ public sealed record SpecDialogProposalPush(
     /// composer's three shapes are unchanged and the dashboard type gains one optional field.
     /// </summary>
     public IReadOnlyList<ProposalFinding> Findings { get; init; } = [];
+
+    /// <summary>2026-10-13-8762i: every review round of the proposal's drafts.</summary>
+    public IReadOnlyList<ProposalReviewRound> ReviewRounds { get; init; } = [];
+
+    /// <summary>2026-10-13-8762i: the spec ids (or "series") not reviewed yet; null when all were.</summary>
+    public IReadOnlyList<string>? NotReviewed { get; init; }
 }

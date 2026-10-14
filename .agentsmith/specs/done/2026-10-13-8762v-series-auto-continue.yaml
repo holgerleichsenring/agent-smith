@@ -1,0 +1,257 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-8762v
+goal: "When an attempt ends with work left in its series and no person's act waiting, agent-smith starts the next attempt itself, inside a series budget, and says once on the ticket why it held."
+
+applies_to: "backend (Server rework worker tail, ticket series read, spawn funnel cause marker, series config)"
+
+requires: [2026-10-13-8762g, 2026-10-13-8762n, 2026-10-13-8762o, 2026-10-13-8762p, 2026-10-13-8762u]
+
+facts:
+  - claim: "ChatTicketRunLauncher marks every start it makes RequestedByName and ReworkLaunch starts a rework attempt through it; RequestedByName skips the claim's label check and the queue pump's still-triggered check, and AttemptCauseReader reads it as the requested channel after Retry."
+    evidence: "src/backend/AgentSmith.Server/Services/ChatLaunch/ChatTicketRunLauncher.cs:32-37, src/backend/AgentSmith.Server/Services/Rework/ReworkLaunch.cs:15-19, src/backend/AgentSmith.Application/Services/Claim/ClaimPreChecker.cs:21-25, src/backend/AgentSmith.Server/Services/CapacityQueuePump.cs:76-78, src/backend/AgentSmith.Application/Services/Rework/AttemptCauseReader.cs:37-38"
+  - claim: "One rework nudge is handled under the ticket's own lock on whichever replica claims it; a busy lock makes the nudge wait."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeWorker.cs:12-17"
+  - claim: "Every code run that reaches a terminal row with a ticket upserts a RunEnd rework nudge, so the worker looks at the ticket after every attempt."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:43-47"
+  - claim: "ReworkNudgeHandler serves a hand-back answer, a live or waiting run and a queued reservation first; only then, for a finished attempt, it reads the newest act, and a missing act finishes the nudge without doing anything."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeHandler.cs:33-51, src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeHandler.cs:89-90"
+  - claim: "ReworkNudgeHandler.cs is 119 lines with no baseline row, so it is held to 120."
+    evidence: "observed: 2026-10-14, wc -l src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeHandler.cs = 119; no row in tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv"
+  - claim: "The poller gates a candidate on its native status against trigger_statuses and on the lease only, then spawns; a chunk-boundary attempt leaves the status unmoved and releases its lease, so without a claim gate the next poll claims the ticket again."
+    evidence: "src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs:75-79, src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs:145, src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs:163, src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs:171"
+  - claim: "Every claim (poller, webhook dispatcher, capacity pump) passes ClaimRefusal, which asks the pre-check and then UnmovedTicketGate with the ClaimRequest, whose InitialContext carries the run's seeded flags."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/UnmovedTicketGate.cs:7-14, src/backend/AgentSmith.Application/Services/Claim/ClaimRefusal.cs:25-33, src/backend/AgentSmith.Contracts/Models/ClaimRequest.cs:8-13"
+  - claim: "A run that leaves a waiting status gets a new StartedAt when it is promoted to running."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunStartProjection.cs:29-31, src/backend/AgentSmith.Infrastructure.Persistence/Services/QueuedRunProjection.cs:18-23"
+  - claim: "The latest cut with specs is null for a ticket none of whose attempts published one."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketSeriesCuts.cs:21-22"
+  - claim: "TicketSeriesView.Attempt is an attempt's number, from 1 by run id."
+    evidence: "src/backend/AgentSmith.Server/Models/TicketSeriesView.cs:9, src/backend/AgentSmith.Server/Models/TicketSeriesView.cs:17"
+  - claim: "Nudge origins rank a merge of nudges; Operator is a person's act."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/ReworkNudgeOrigin.cs:3-19"
+  - claim: "The rework launch starts an attempt through ChatTicketRunLauncher in its own scope; a ticket another claimer took counts as started."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkLaunch.cs:13-22, src/backend/AgentSmith.Server/Contracts/IReworkLaunch.cs:6-9"
+  - claim: "ChatTicketRunLauncher builds an envelope marked RequestedByName and hands it to the spawn funnel; the funnel seeds the flag into the run's initial context."
+    evidence: "src/backend/AgentSmith.Server/Services/ChatLaunch/ChatTicketRunLauncher.cs:32-40, src/backend/AgentSmith.Application/Services/Spawning/SpawnRequestBuilder.cs:67-73"
+  - claim: "The flag survives the capacity queue's JSON round-trip and is read in both shapes; a run named this way is not dropped by the pump when the ticket sits outside its trigger statuses."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/RequestedByNameExtensions.cs:10-25, src/backend/AgentSmith.Server/Services/CapacityQueuePump.cs:76-78"
+  - claim: "IncomingTicketEnvelope carries RequestedByName as an init-only bool."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Triggers/IncomingTicketEnvelope.cs:33-38"
+  - claim: "An attempt's cause is read once FetchTicket has run: an operator approval, the act slot, a status move back, a Retry, then requested-by-name, retrigger, pickup — channel strings from AttemptChannels."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/AttemptCauseReader.cs:27-41, src/backend/AgentSmith.Contracts/Runs/AttemptChannels.cs:4-24"
+  - claim: "RunAttempt keeps CauseChannel and CauseActor, written once from TicketFetchedEvent."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunAttempt.cs:15-18, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunAttemptProjection.cs:17-23"
+  - claim: "A Retry stores a request row and enqueues an Operator nudge; it is refused while an attempt is already starting."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/RunRetry.cs:58-62, src/backend/AgentSmith.Server/Services/Rework/RunRetry.cs:68-76"
+  - claim: "TicketClosure answers whether a PERSON closed a ticket for work; agent-smith's own park and done statuses do not count."
+    evidence: "src/backend/AgentSmith.Application/Services/Tickets/TicketClosure.cs:10-27"
+  - claim: "Speech on a ticket is keyed once per ticket in the rework ledger; TryMarkSpokenAsync returns false for a key already spent."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkSpeech.cs:20-37, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReworkLedgerRepository.cs:44-50"
+  - claim: "The rework side already publishes TicketActivityChanged with the key spelled from the project's tracker type."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:47-52, src/backend/AgentSmith.Contracts/Services/ITicketActivityNudge.cs:7-10"
+  - claim: "GET /api/tickets/{project}/{ticketId}/series returns TicketSeriesView, a positional record of eleven fields, built by TicketSeriesReader from the ticket's code attempts and their series records."
+    evidence: "src/backend/AgentSmith.Server/Extensions/TicketSeriesEndpoints.cs:14-25, src/backend/AgentSmith.Server/Models/TicketSeriesView.cs:13-24, src/backend/AgentSmith.Server/Services/Tickets/TicketSeriesReader.cs:22-47"
+  - claim: "The series records read returns cuts, RunSpec rows and RunAttempt rows for a set of attempts in one scope; the latest cut with specs is the series, and an attempt's carried ids come from its attempt record."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketSeriesRecordsReader.cs:15-28, src/backend/AgentSmith.Server/Services/Tickets/TicketSeriesCuts.cs:21-32"
+  - claim: "A spec counts done on a RunSpec row with status done."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/SeriesStripReader.cs:51-58"
+  - claim: "The code attempts of a ticket are its code runs by run id except a cancelled run that never started a step; cancelled is the status every cancel path finalizes with."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketAttempts.cs:16-26, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:588-589"
+  - claim: "Run carries StartedAt, FinishedAt, CostTotalUsd and CancelReason."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:20-21, src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:30-34"
+  - claim: "A wall-time cancel reaches the run row as reason watchdog from the in-process watchdog and watchdog-wall-time from the DB enforcer."
+    evidence: "src/backend/AgentSmith.Application/Services/Lifecycle/PipelineRunWatchdog.cs:59-63, src/backend/AgentSmith.Server/Services/Lifecycle/CancelEnforcer.cs:106-108"
+  - claim: "The cancel reason reaches the run row from RunCancelRequestedEvent; a cooperative cancel finalizes the ticket only when its status is failed, and only sandbox-vanished maps to failed, so a cooperative wall-time cancel leaves the ticket in its trigger status with no finalize."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunRowFamily.cs:62-67, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:130-133, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:588-589"
+  - claim: "A claim with no RequestedByName on a ticket with a previous attempt reads as the retrigger channel."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/AttemptCauseReader.cs:37-39"
+  - claim: "Run statuses: success, failed, shortfall (a delivered part of the contract), queued and waiting_for_input."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/RunStatuses.cs:11-24"
+  - claim: "A spec is marked executed only when its record is committed; the sequence splices only the unexecuted tail, so a spec cut off mid-way is worked again by the next attempt."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecution/SpecDoneRecorder.cs:61-65, src/backend/AgentSmith.Application/Services/Handlers/SpecSequenceHandler.cs:31-34"
+  - claim: "Re-entry never regenerates a set: it reads the last revision and writes a new one naming its cause."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:90-97"
+  - claim: "Per-run caps: $5 by default, up to $25 for the Large tier, and a 1800 s wall-time ceiling."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/PipelineCostCapConfig.cs:16, src/backend/AgentSmith.Contracts/Models/Configuration/PipelineCostCapConfig.cs:54, src/backend/AgentSmith.Contracts/Models/Configuration/OrchestratorGlobalConfig.cs:17"
+  - claim: "The config schema closes every object and must declare every key the loader binds."
+    evidence: "tests/AgentSmith.Tests/Configuration/ConfigSchemaCoverageTests.cs:43-51, tests/AgentSmith.Tests/Configuration/ConfigSchemaCoverageTests.cs:68-69, config/agentsmith.schema.json:251-269"
+  - claim: "Rework singletons are registered in AddReworkNudgeWorker; the ticket readers are transient in TicketReadExtensions."
+    evidence: "src/backend/AgentSmith.Server/Extensions/ReworkNudgeWorkerExtensions.cs:14-23, src/backend/AgentSmith.Server/Extensions/TicketReadExtensions.cs:37-40"
+  - claim: "observed: 2026-10-14, wc -l in this worktree: AttemptCauseReader.cs 87, AttemptChannels.cs 24, IncomingTicketEnvelope.cs 39, SpawnRequestBuilder.cs 96, RequestedByNameExtensions.cs 25, ChatTicketRunLauncher.cs 60, ReworkLaunch.cs 23, IReworkLaunch.cs 9, TicketSeriesView.cs 24, TicketSeriesReader.cs 71, ReworkNudgeWorkerExtensions.cs 25, TicketReadExtensions.cs 56, ReworkSpeech.cs 45, ConfigSettingsAccess.cs 50; none has a baseline row, so each is held to 120."
+    evidence: "observed: 2026-10-14, wc -l + grep of tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv"
+
+assumptions:
+  - "2026-10-13-8762u has landed SeriesConfig (series: max_specs, specs_per_attempt, seconds_per_spec — the whole spec block, master + verify + record), its per-attempt spec count derived so an attempt fits the run wall clock, its read-time refusal rule as a pure SeriesConfig.Problems() in Contracts, and a live series settings reader on the StoredSandboxSettingsReader pattern (ISeriesSettingsReader; server: config store)."
+  - "2026-10-13-8762u ends an attempt at its chunk boundary with run status success and FinishedAt set (so the RunEnd nudge fires) and the ticket's lifecycle label Waiting (never Done) — through its own arm of TerminalStatus, never through RunPark, which would park the run waiting_for_input with no nudge."
+  - "2026-10-13-8762o has landed RunDefaultDecisions with HoldsSeries and a Verdict column that reads pending until a person ratifies or overrules it, and 2026-10-13-8762p's TicketDefaultsReader answers pendingHoldingSeries over the ticket's runs and its bound conversation."
+  - "2026-10-13-8762g has landed the boundary claim gate BoundaryStopGate beside UnmovedTicketGate in ClaimRefusal, with BoundaryStopGate.AdmitsStart(initial context) = IsRequestedByName() today: a ticket whose newest attempt ended at a chunk or review boundary (SpecProgress.NextAttempt) is not claimed by the poller, a webhook or the pump unless the start is a person's act (RequestedByName), pinned by Poll_TicketStoppedAtBoundary_IsNotReclaimed."
+  - "2026-10-13-8762g owns ONE shared boundary rule type (SeriesBoundaryEnd, main-thread decision g, round 3) that both its DbPreviousAttemptReader.StoppedAtBoundary and this member's runway call: a code run that ended success with a not_started RunSpec row, OR ended cancelled with CancelReason watchdog | watchdog-wall-time with a not_started row; a shortfall run is no boundary. g pins the watchdog arm with Poll_TicketWallTimeCancelledWithTail_IsNotReclaimed. This member adds no clause to DbPreviousAttemptReader and amends nothing in g."
+  - "2026-10-13-8762g exposes its spec_review read-time rule as a pure SpecReviewConfig.Problems() in Contracts, so the settings write path below can call it."
+  - "A series rarely spans more than a few dozen attempts, so reading a ticket's code runs and their series rows per nudge stays cheap; the per-ticket lock already serialises the work."
+
+scope:
+  in: >
+    CONFIG: SeriesConfig (8762u's class) gains budget_usd (decimal, 150), wall_clock_hours (double, 12) and
+    continue_after_wall_time (bool, true), appended to the class, config/agentsmith.schema.json's series object
+    (minimum 0) and the example config's series block. budget_usd 0 turns automatic continuation off. Read LIVE per
+    nudge and per read through 8762u's ISeriesSettingsReader (config store on the server), never from the
+    AgentSmithConfig singleton. SeriesConfig.Problems() (8762u's rule) gains "budget_usd below 0" and
+    "wall_clock_hours below 0"; the runway refuses where it reads: a config with problems answers hold
+    `misconfigured`, said once naming the field. WRITE CHECK: ConfigSettingsAccess.Normalize, after binding, throws a
+    ConfigurationException with the problems of the bound series or spec_review block (SeriesConfig.Problems,
+    8762g's SpecReviewConfig.Problems), so a Studio save the run would refuse is a 400 and nothing is saved; this
+    member is the ONE owner of the settings write check (8762u leaves it here).
+    NEWEST: the newest code run of the ticket that is not queued (DbPreviousAttemptReader's rule), a cancelled run
+    with no step included. CHAIN: TicketAttempts.Of, newest last, back to and including the newest attempt whose
+    RunAttempt.CauseChannel is not series. Spend = the chain's CostTotalUsd summed; elapsed = the sum over the chain
+    of each attempt's own run time, (FinishedAt, or now while it runs) minus StartedAt; a queued or
+    waiting_for_input attempt adds nothing, so time held between attempts is not counted. Computed per read, never stored.
+    A resumed attempt counts from its resume (StartedAt is reset on promotion).
+    RUNWAY (SeriesRunway, pure) answers TicketSeriesBudgetView {spentUsd, capUsd, elapsedHours, capHours, chainFrom
+    (int, the chain's first attempt number, from 1 by run id as TicketSeriesView.Attempt), next: start | hold |
+    complete, heldBecause}. complete when the ticket has no cut with specs, or no spec of the latest cut is left;
+    otherwise hold, first match (the ends that may continue are exactly 8762g's SeriesBoundaryEnd: success, or cancelled
+    by watchdog | watchdog-wall-time — no own list here), heldBecause one of eleven codes: off (budget_usd 0; never spoken, the strip shows nothing),
+    misconfigured, handed-back (newest waiting_for_input), cancelled (newest cancelled for any reason but a
+    wall-time cancel with continue_after_wall_time true — a queue drop or a queued cancel included — OR the ticket's
+    watermark is at or after the newest run's StartedAt: an operator cancelled or deleted a run), incomplete
+    (failed or shortfall), no-progress (newest finished with no done RunSpec), budget-usd, wall-clock,
+    default-pending (TicketDefaultsReader pendingHoldingSeries > 0), refused or closed (the worker's spent
+    {newest}|series-refused or {newest}|series-closed ledger key). A live attempt (running or queued) is judged only
+    on budget-usd, wall-clock and default-pending. Else start. A chunk-boundary attempt is read by its effect on the
+    rows (success, done specs, a tail left), never the in-memory StoppedAtChunk; its Waiting label is no close.
+    SeriesRunwayReader composes the inputs (runs, records(full: false), holds, watermark, ledger keys, settings)
+    ONCE for both the worker and the read, so the page and the worker answer from one function.
+    RE-CHECK: 8762p queues one Operator nudge after a verdict on a holds_series row; a ratify reaches this tail.
+    START: ReworkNoActTail is extracted FIRST from ReworkNudgeHandler (unfinished reschedule, act read,
+    spent/withheld finish). With no act, the tail asks SeriesAutoStart: runway start -> read the ticket once through
+    its tracker; a ticket a person closed is marked {newest}|series-closed and left alone silently; a tracker that
+    cannot be read reschedules; else IReworkLaunch.StartSeriesAttemptAsync (Started without a run id reschedules).
+    A launch the funnel refuses is said once under {newest}|series-refused. TicketActivityChanged is published on
+    EVERY series mark the worker writes (series-held, series-refused, series-closed), so the page re-reads.
+    CLAIM GATE: 2026-10-13-8762g's BoundaryStopGate is the only thing keeping the poller, webhooks and the pump off a boundary ticket; that holds for a wall-time end too because g's SeriesBoundaryEnd carries the watchdog-cancel arm (a cooperative wall-time cancel leaves the ticket claimable, ExecutePipelineUseCase.cs:130-133, and an ungated poller claim would read as retrigger and open a fresh chain). The series start goes through ChatTicketRunLauncher, which marks every start it makes RequestedByName, so g's AdmitsStart already admits it; this member extends AdmitsStart to IsRequestedByName() || IsSeriesAutoStart(), so the admission does not rest on the launcher's flag alone. The gate admits both alike and never tells them apart; the CAUSE does, because AttemptCauseReader asks IsSeriesAutoStart before IsRequestedByName. The continuation is SeriesAutoStart's alone and no poller attempt opens a fresh chain.
+    CAUSE: IncomingTicketEnvelope.SeriesAutoStart; ChatTicketRunLauncher sets it beside the RequestedByName it sets on every start (so the claim's label check and the pump's still-triggered check are skipped for a series start as for any named start);
+    SpawnRequestBuilder seeds ContextKeys.SeriesAutoStart (ContextKeys.Series.cs); IsSeriesAutoStart reads both
+    shapes; AttemptCauseReader returns AttemptCause(AttemptChannels.Series = "series", Actor "agent-smith") after
+    Retry and before requested-by-name. An act read by the new attempt still outranks it.
+    HOLD SPEECH: no-progress, budget-usd, wall-clock, default-pending and misconfigured are said ONCE on the ticket
+    under {newest}|series-held|{code} through ReworkSpeech.SayOnTicketOnceAsync, naming the reason, spend against
+    cap, elapsed hours, specs left and how to go on: "a comment on the ticket or an approval in its conversation
+    starts the next attempt", plus "ratify it on the ticket page" for default-pending. No Retry is named.
+    READ: TicketSeriesView gains Budget (appended last) on the default read; null unless the latest cut holds more
+    specs than 8762u's per-attempt count or the chain has more than one attempt.
+  out: >
+    The series strip, the chain marks and the Config Studio form — 2026-10-13-8762w. series.max_specs,
+    series.specs_per_attempt, series.seconds_per_spec and the chunk boundary — 2026-10-13-8762u. The holds_series flag
+    and its verdict — 2026-10-13-8762o (row), 2026-10-13-8762p (verdict). Build notes reaching the next spec —
+    2026-10-13-8762m; re-grounded facts — 2026-10-13-8762n. Compaction of a long master pass — 2026-09-28-23a2c,
+    untouched by this series (contract section 0). A per-series event — nobody: the attempt's own start and
+    TicketActivityChanged already tell every replica. A cost-cap marker on the Run row — nobody: the row has only
+    Summary text, and reading it would be a heuristic; a cost-cap stop holds as incomplete.
+
+decisions:
+  - key: "SERIES BUDGET $150 AND 12 H OF RUN TIME ACROSS ATTEMPTS, PER-RUN CAPS UNCHANGED. Contract decision 18; the session itself ran about 20 specs in about 9 h. Default, pending operator ratification."
+  - key: "UNDER DEFAULT RUN CAPS A CHUNK ENDS ON A PER-RUN CAP. $5 per code run ($25 at the Large tier) and 1800 s cannot hold an 8-spec chunk with its review rounds. A chunk that ends on its cost cap holds incomplete; one that ends on the wall clock after a done spec continues (continue_after_wall_time), pinned by SeriesRunway_WallTimeCancelWithProgress_IsStart_UnlessContinueAfterWallTimeIsOff; without a done spec it holds no-progress. Done item 1 names the raised run caps it assumes; nothing raises them for the operator."
+  - key: "CONTINUE ONLY ON A FULL CHUNK OR A WALL-TIME CANCEL WITH PROGRESS. Contract decision 19, an allow-list over the run row (success, or cancelled with reason watchdog | watchdog-wall-time), so a new way to end cannot slip through as continue. The list is 8762g's SeriesBoundaryEnd, called by the runway, so the ends the claim gate keeps the poller off and the ends the runway continues cannot drift apart. Default, pending operator ratification."
+  - key: "A WALL-TIME END WITH A TAIL IS NO LONGER RETRIGGERED. Consequence of 8762g's watchdog arm, on every ticket with a cut tail: the poller stops reclaiming it (today's unbounded retrigger, AttemptCauseReader.cs:39); SeriesAutoStart continues it after a done spec, else it holds no-progress, said once."
+  - key: "REJECTED CUT (round 3, cut 1, owner part): a StoppedAtBoundary clause in DbPreviousAttemptReader (Select at DbPreviousAttemptReader.cs:29) and a SeriesContinueEnds constant owned here, plus an amended contract decision 26 — the main thread gave the rule to 8762g (SeriesBoundaryEnd, with the watchdog arm and its test); this member only calls it. The behaviour the cut asked for is kept."
+  - key: "AN OPERATOR'S STOP HOLDS. Newest is judged on the newest non-queued code run (the previous-attempt reader's rule), not TicketAttempts, so a queue drop or queued cancel is seen; a delete removes the run from both reads, so the watermark an operator's cancel or delete raises holds the series. Deleting ANY code run of the ticket holds it, as it already withholds acts."
+  - key: "ELAPSED IS RUN TIME, NOT CALENDAR TIME. Summed per attempt, so a series held overnight on a default starts when the default is ratified. Alternative: calendar time with a verdict re-heading the chain — not taken (two rules for one clock). Default, pending operator ratification."
+  - key: "NAMED SeriesAutoStart, NOT SeriesContinuation. SeriesContinuation is the approval-continuation record (Contracts.Specs); one name meaning two things would also clash on import. Contract 2.3 amended."
+  - key: "THE CAUSE IS series / agent-smith, NO NEW NUDGE ORIGIN. Contract decision 20: origins rank a merge of acts and a series start is not an act. Default, pending operator ratification."
+  - key: "ONE NEW CONTEXT KEY (series contract 2.3, amended). The cause is read inside the run from its initial context (AttemptCauseReader); writing the RunAttempt row from the server would block the fetch fields. ContextKeys.SeriesAutoStart lives in ContextKeys.Series.cs, written only by SpawnRequestBuilder, read only by AttemptCauseReader."
+  - key: "THE CHAIN STARTS AT THE NEWEST ATTEMPT A PERSON (OR A TRIGGER) STARTED. A ticket lives for weeks of reworks; a person's act begins a new chain with a fresh budget, which is also how a held series is resumed. Default, pending operator ratification."
+  - key: "THE CAP IS CHECKED BETWEEN ATTEMPTS. A running attempt is bounded by its own per-run cap, so the series may overrun by at most one attempt's per-run cap; stopping a live run on a series cap would be a second cost cap beside CostCapStop."
+  - key: "PERSON'S ACT WINS. The tail asks for the series only when no act is pending; an act read later by the started attempt outranks the series cause (contract decision 19)."
+  - key: "THE READ AND THE WORKER AGREE. Closure is asked only at start; a close or a refused launch is marked in the rework ledger under the newest run, and the read maps that mark to closed / refused, so the strip never promises a start the worker declined."
+  - key: "WAITING IS A START POINT. A chunk boundary leaves the ticket labelled Waiting (8762u, main-thread decision 3); a label is no close, so SeriesAutoStart starts from it unchanged. The poller does not: the status stays in trigger_statuses (TrackerPoller.cs:145), and 2026-10-13-8762g's BoundaryStopGate refuses an automatic claim of a boundary ticket, a wall-time cancel with a tail included (SeriesBoundaryEnd); SeriesAutoStart is the one automatic start it admits (main-thread decision 1, round 2)."
+  - key: "ONLY RUNWAY HOLDS ARE SPOKEN, ONCE PER REASON. A hand-back, a failure and a cancel are told by the attempt's own end; off is the operator's own choice and unspoken. The key carries the code, so a later different hold on the same attempt is said too. Default, pending operator ratification."
+  - key: "THE SERIES START IS A NAMED START, TOLD APART BY ITS CAUSE. Every launch through ChatTicketRunLauncher carries RequestedByName, and ReworkLaunch starts through it, so BoundaryStopGate admits the series start through IsRequestedByName already and the claim skips its label check as for a chat start, which is right: no label routes a series start. AdmitsStart still names IsSeriesAutoStart, so a later launcher that stops setting RequestedByName does not silently close the series; the attempt's cause reads series / agent-smith because AttemptCauseReader asks SeriesAutoStart before RequestedByName. Default, pending operator ratification."
+  - key: "NO RETRY IN THE SPEECH. RunRetryGate refuses every end that is not infrastructure, and every spoken hold follows a success or a wall-time cancel; naming Retry would point at a refusing button."
+  - key: "THE BUDGET BLOCK ONLY FOR A REAL SERIES. A one-chunk ticket gets null, so the strip does not appear on every ticket."
+  - key: "next IS start | hold | complete, WITH chainFrom AS AN ATTEMPT NUMBER (int, series contract 2.6, amended): heldBecause is one of eleven codes, off, misconfigured, handed-back, cancelled, incomplete, no-progress, budget-usd, wall-clock, default-pending, refused or closed."
+  - key: "LIVE CONFIG AND ONE RULE (main-thread decision 4). Read through the config-store reader per nudge; the rule lives on SeriesConfig in Contracts so ConfigSettingsAccess (Infrastructure.Core cannot reference Application) and the runway call one copy; a Blocking startup finding does not stop the process, so refusal is at the read. This member wires the write check for series and spec_review because it is the last backend member on the settings path; w shows the 400."
+  - key: "THE BUDGET PAYS THE REVIEW TOO. Each attempt re-reviews its unbuilt tail (2026-10-13-8762g), so spend counts those calls with the build. Default, pending operator ratification."
+  - key: "A RESUMED ATTEMPT COUNTS FROM ITS RESUME. Promotion out of a waiting status resets StartedAt (QueuedRunProjection.cs:23), so an attempt that parked and was answered drops its pre-park run time; accepted, summing RunSegment spans would be a second clock."
+  - key: "EVERY MARK REFRESHES THE PAGE. The page last read the series on the attempt's RunsChanged, before the worker decided; a silent closed or refused mark would leave the strip promising a start, so every series mark publishes TicketActivityChanged."
+  - key: "NO CUT IS COMPLETE. Every act-less RunEnd nudge of every ticket reaches SeriesAutoStart; a ticket with no cut with specs (TicketSeriesCuts.cs:21-22) answers complete, so an ordinary ticket is never relaunched."
+  - key: "budget_usd 0 IS OFF. One knob turns the behaviour off without a fourth key; it answers hold off, unspoken."
+  - key: "NO DATUM STORED. Spend and elapsed are computed from the runs per read (contract 2.2); the hold, refusal and close marks live in the existing rework ledger, which is speech bookkeeping, not series state."
+
+steps:
+  - id: config
+    action: "SeriesConfig gains BudgetUsd, WallClockHours, ContinueAfterWallTime and two Problems() checks; schema series object (minimum 0) and the example config block gain the three keys."
+  - id: write-check
+    action: "ConfigSettingsAccess.Normalize throws the bound series or spec_review block's Problems() as a ConfigurationException (50 -> at most 60 lines)."
+  - id: extract-tail
+    action: "Extract ReworkNoActTail (lines 45-48) returning a disposition or the act; handler 119 -> at most 118 lines, behaviour unchanged, ReworkNudgeHandlerTests green before anything else."
+  - id: cause
+    action: "ContextKeys.Series.cs (SeriesAutoStart); 2026-10-13-8762g's BoundaryStopGate.AdmitsStart admits IsSeriesAutoStart beside IsRequestedByName (one line); IncomingTicketEnvelope.SeriesAutoStart (39 -> about 43); SpawnRequestBuilder seeds it (96 -> at most 100); RequestedByNameExtensions.IsSeriesAutoStart for both shapes (25 -> about 33); AttemptChannels.Series and SeriesActor; AttemptCauseReader arm after Retry (about 92)."
+  - id: launch
+    action: "ChatTicketRunLauncher.LaunchAsync takes an optional seriesAutoStart flag (60 -> about 62); IReworkLaunch.StartSeriesAttemptAsync and ReworkLaunch implements it in the same scope (23 -> about 30)."
+  - id: speech
+    action: "ReworkSpeech gains SayOnTicketOnceAsync(project, ticketId, key, text, ct) and a public MarkOnceAsync (45 -> at most 60)."
+  - id: runway
+    action: "SeriesRunway (pure, at most 110 lines; its continue arms call 8762g's SeriesBoundaryEnd), TicketSeriesBudgetView, SeriesHeldReasons (the eleven codes), SeriesHolds (TicketDefaultsReader), SeriesRunwayReader (runs, records, holds, watermark, ledger marks, live settings; at most 90 lines)."
+  - id: auto-start
+    action: "SeriesAutoStart: SeriesRunwayReader, closure check and mark, StartSeriesAttemptAsync, hold, refusal and misconfigured speech with SeriesTexts, TicketActivityChanged on every series mark (held, refused, closed). Registered in AddReworkNudgeWorker (25 -> 27); captures no scoped reader."
+  - id: read
+    action: "TicketSeriesView appends Budget; TicketSeriesReader asks SeriesRunwayReader on the default read (71 -> at most 76); SeriesHolds and SeriesRunwayReader registered in TicketReadExtensions (57 after 2026-10-13-8762l -> 59)."
+  - id: tests
+    action: "Red first for every test below, then green; run the Rework, Tickets, ConfigStudio, Configuration and Architecture classes touched."
+
+tests:
+  - "ReworkNoActTail_UnfinishedAttempt_Reschedules"
+  - "ReworkNoActTail_ActFollowedUpOrWithheld_Finishes"
+  - "ReworkNudgeHandler_PendingAct_IsServedBeforeTheSeries"
+  - "SeriesRunway_FullChunkWithTail_IsStart"
+  - "SeriesRunway_NothingLeft_IsComplete"
+  - "SeriesRunway_NoCut_IsComplete"
+  - "SeriesRunway_HandedBack_IsHeld"
+  - "SeriesRunway_FailedOrShortfall_IsHeldIncomplete"
+  - "SeriesRunway_OperatorCancel_IsHeldCancelled"
+  - "SeriesRunway_QueuedAttemptCancelledByOperator_IsHeldCancelled"
+  - "SeriesRunway_NewestAttemptDeleted_IsHeldByTheWatermark"
+  - "SeriesRunway_WallTimeCancelWithProgress_IsStart_UnlessContinueAfterWallTimeIsOff"
+  - "SeriesRunway_NoDoneSpec_IsHeldNoProgress"
+  - "SeriesRunway_SpendAtCap_IsHeldBudget"
+  - "SeriesRunway_ElapsedAtCap_IsHeldWallClock"
+  - "SeriesRunway_RatifyAfterLongHold_Starts"
+  - "SeriesRunway_PendingHoldsSeriesDefault_IsHeld"
+  - "SeriesRunway_ChainStartsAtTheNewestNonSeriesAttempt"
+  - "SeriesRunway_LiveAttempt_JudgedOnBudgetAndHoldsOnly"
+  - "SeriesRunway_BudgetZero_IsHeldOff"
+  - "SeriesRunway_NegativeBudget_IsHeldMisconfigured"
+  - "SeriesRunway_RefusedOrClosedMark_IsHeldSo"
+  - "SeriesAutoStart_Start_StartsAnAttemptMarkedSeries"
+  - "SeriesAutoStart_StartsFromAWaitingLabelledTicket"
+  - "SeriesAutoStart_RatifyOfTheHoldingDefault_NudgeRechecksAndStarts"
+  - "SeriesAutoStart_PersonClosedTicket_StartsNothingSaysNothingAndMarksClosed (asserts the TicketActivityChanged nudge)"
+  - "SeriesAutoStart_RefusedLaunch_MarksAndNudgesThePage"
+  - "BoundaryClaimGate_SeriesAutoStart_IsAdmitted"
+  - "BoundaryClaimGate_SeriesAutoStartWithoutRequestedByName_IsStillAdmitted"
+  - "Poll_TicketStoppedAtBoundary_IsNotReclaimed (2026-10-13-8762g's test, still green with the admitted series start)"
+  - "Poll_TicketWallTimeCancelledWithTail_IsNotReclaimed (2026-10-13-8762g's test, still green with the admitted series start)"
+  - "SeriesAutoStart_TrackerUnreadable_Reschedules"
+  - "SeriesAutoStart_RunwayHold_IsSaidOnceAndNudges_WithoutRetry"
+  - "SeriesAutoStart_AttemptEndHold_IsNotSaid"
+  - "ConfigSettings_SeriesWithNegativeBudget_Is400AndNotSaved"
+  - "ConfigSettings_SeriesPerAttemptAboveMaxSpecs_Is400AndNotSaved"
+  - "ConfigSettings_SpecReviewWithZeroReviewers_Is400AndNotSaved"
+  - "AttemptCauseReader_SeriesAutoStart_IsSeriesByAgentSmith"
+  - "AttemptCauseReader_ActBeatsSeriesAutoStart"
+  - "SpawnRequestBuilder_SeriesAutoStart_RidesTheQueueRow"
+  - "TicketSeriesRead_DefaultRead_CarriesTheBudget"
+  - "TicketSeriesRead_SingleChunkTicket_HasNoBudget"
+  - "ConfigSchema_DeclaresEveryKeyTheLoaderBinds (existing, covers the three keys)"
+
+done:
+  - "With the run caps raised for one chunk (pipeline_cost_cap.per_pipeline code at or above a chunk's cost; orchestrator.max_run_wall_time_seconds at or above eight blocks of series.seconds_per_spec plus the run's prefix (checkout, derivation, review share) and the one block 2026-10-13-8762u reserves for the commit-and-PR tail), a series of 20 specs (the executed prefix plus the tail, counted together) approved in a ticket's conversation runs as consecutive attempts of 8, 8 and 4 without a person starting the second or third, and each automatic attempt's cause reads series by agent-smith; the poller never claims the ticket between attempts."
+  - "Under the default run caps, a chunk that ends on its cost cap holds as incomplete and the ticket page says so; one that ends on the wall clock after a done spec continues (unless continue_after_wall_time is false), and without a done spec holds as no-progress."
+  - "A comment or approval on the ticket while an attempt runs is served by the next attempt as the person's act, never overtaken by an automatic one."
+  - "A series whose chain has spent its budget or its run time stops, and the ticket carries one comment saying why, what was spent and how to go on (a comment or an approval); a second nudge says nothing more."
+  - "A pending default marked holds_series stops the next automatic attempt until a person ratifies or overrules it, however long it waited."
+  - "A hand-back, a red verify, a cost cap, an operator cancel or delete, or a queue drop ends the series' automatic run; a wall-time cancel after a done spec continues it, and the poller does not claim the ticket first."
+  - "A Config Studio save of a negative series budget or wall clock is refused with the field named; a value the run would refuse is never saved."
+  - "GET /api/tickets/{project}/{ticketId}/series answers, for a ticket with more than one chunk, spend, run time, both caps and whether the next attempt starts by itself, holds (and why, including a refused launch or a person's close) or the series is complete."
+  - "Build green, full suite green, dashboard gen/test/build green."

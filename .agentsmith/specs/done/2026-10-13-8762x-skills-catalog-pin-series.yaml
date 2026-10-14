@@ -1,0 +1,118 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-8762x
+goal: "One skills release carries every master edit of this series, the embedded pin moves to it, and tests read each rule the series put into the masters from the pinned catalog."
+
+applies_to: "backend (embedded skills pin, pinned-master tests) + the agent-smith-skills release"
+
+requires: [2026-10-13-8762i, 2026-10-13-8762j, 2026-10-13-8762m, 2026-10-13-8762o, 2026-10-13-8762r, 2026-10-13-8762u, 2026-10-13-8762w]
+
+facts:
+  - claim: "The pin is SkillsCatalogVersion v5.15.0 with its SHA256; the tarball is checked in under Resources/ and the build downloads a missing one, re-verifies the hash and validates master descriptions against the loader cap."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:41-58, src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:66-93"
+  - claim: "Resources/ holds agentsmith-skills-v5.15.0.tar.gz (86 729 bytes)."
+    evidence: "observed: 2026-10-14, ls -la src/backend/AgentSmith.Infrastructure.Core/Resources/"
+  - claim: "Tests read a master as the pinned catalog ships it, and the pin is parsed for tests that name the release a rule ships from."
+    evidence: "tests/AgentSmith.Tests/Prompts/PackagedMaster.cs:22-31, tests/AgentSmith.Tests/Skills/DesignPartnerDialogRulesTests.cs:17-22"
+  - claim: "Every placeholder a master of the catalog uses must be declared in MasterPromptTokens, or the test fails."
+    evidence: "tests/AgentSmith.Tests/Prompts/MasterPromptTokenDriftTests.cs:20-35, src/backend/AgentSmith.Application/Prompts/MasterPromptTokens.cs:10"
+  - claim: "SkillsConfigValidator refuses a pulled pin older than v5.13.0; its tests name v5.15.0 among the accepted pins."
+    evidence: "src/backend/AgentSmith.Application/Services/Configuration/SkillsConfigValidator.cs:11-26, tests/AgentSmith.Tests/Configuration/SkillsConfigValidatorTests.cs:28-34"
+  - claim: "A configured skills block OVERRIDES the embedded catalog: a pin older than the embedded release downgrades every skill, and only a pulled pin is judged, against v5.13.0."
+    evidence: "config/agentsmith.example.yml:590-599, src/backend/AgentSmith.Application/Services/Configuration/SkillsConfigValidator.cs:16-20"
+  - claim: "The pinned version string also stands in the example config and the skills docs."
+    evidence: "config/agentsmith.example.yml:598, docs/how-it-works/skills-catalog.md:20, docs/how-it-works/skills-catalog.md:37, docs/how-it-works/skills-catalog.md:58-59, docs/how-it-works/skills-catalog.md:73, docs/how-it-works/skills-catalog.md:85, docs/reference/skills/airgap.md:18, docs/reference/skills/airgap.md:30, docs/reference/skills/airgap.md:45, docs/reference/skills/your-own-skills.md:15, docs/reference/skills/your-own-skills.md:71"
+  - claim: "The last pin bump moved the csproj, the tarball, the example config and the skills docs in one commit."
+    evidence: "observed: 2026-10-14, git show --stat 392344205 (2026-10-13-50c7, skills pin v5.15.0)"
+  - claim: "A session's skill edits went on one pull request so one release carried them and the pin moved once."
+    evidence: ".agentsmith/specs/done/2026-10-01-aeb6d-skills-pin-document-binding.yaml:28-29"
+  - claim: "agent-smith-skills releases through release-please (release type simple, version.txt) on push to main; the release job packages the tarball and its sha256 inline, and a squash merge whose title is not conventional produces no release."
+    evidence: "observed: 2026-10-14, git show origin/main:release-please-config.json, :.github/workflows/release-please.yml and :.github/workflows/package-release.yml in /Users/da5id/develop/source/others/agent-smith/agent-smith-skills"
+  - claim: "origin/main is release 5.15.1 (f9655e8): after v5.15.0 it added a coding-agent-master fix (#228, a missing ecosystem tool is installed, never a reason to decline) and a validator rule (#227) that refuses the word phase outside scripts/phase-word-allowlist.tsv."
+    evidence: "observed: 2026-10-14, git log origin/main --oneline -5 and git diff --stat v5.15.0 origin/main in agent-smith-skills"
+  - claim: "Master versions on origin/main: coding-agent-master 1.31.0, design-partner-master 1.15.1, spec-derivation-master 1.7.1; scripts/validate-skills.sh checks frontmatter, the description cap, metadata.inputs against the body, references and the phase word."
+    evidence: "observed: 2026-10-14, git show origin/main:skills/_masters/<name>/SKILL.md and origin/main:scripts/validate-skills.sh in agent-smith-skills"
+  - claim: "The local skills checkout sits on feat/design-partner-asks-at-the-threshold with one commit (cea5d3c, 2026-09-21, 'the design partner cuts by branch state, not by size') that origin/main does not hold."
+    evidence: "observed: 2026-10-14, git branch --show-current and git log origin/main..HEAD in agent-smith-skills"
+  - claim: "your-own-skills.md:71 is an example of the Load-catalog step's output for a run with an overlay; the step builds it at run time from the loaded roles and concepts, and the base tarball alone holds 14 masters, so the line's counts include the example overlay's files."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/LoadCatalogHandler.cs:48-69, docs/reference/skills/your-own-skills.md:69-76"
+  - claim: "The earlier pin bump moved only the version in that line and kept its example counts."
+    evidence: "observed: 2026-10-14, git show baccdff3d -- docs/reference/skills/your-own-skills.md (catalog v4.7.0 -> v5.15.0, counts unchanged); tar -tzf of the checked-in v5.15.0 tarball lists 14 master SKILL.md files"
+
+assumptions:
+  - "Each skill-editing member (2026-10-13-8762i, j, m, o, r, u) committed its master edit on the one skills branch spec/2026-10-13-8762 cut from origin/main WITHOUT bumping the master's frontmatter version, ran scripts/validate-skills.sh on its own commit (the phase-word rule is in force), and its build note names the exact sentence its rule added."
+  - "The operator merges the skills pull request and the release-please release pull request; this spec waits on both."
+
+scope:
+  in: >
+    SKILLS RELEASE: the branch spec/2026-10-13-8762 in agent-smith-skills, rebased on origin/main; ONE frontmatter
+    version bump per touched master in one commit, each "one minor above the master's version on origin/main at the
+    rebase" (expected today: coding-agent-master 1.31.0 -> 1.32.0, design-partner-master 1.15.1 -> 1.16.0,
+    spec-derivation-master 1.7.1 -> 1.8.0; expected values, not fixed targets); passes
+    scripts/validate-skills.sh (description cap, inputs, references, phase word); every sentence a member's build
+    note quotes is grepped on the rebased branch and the step fails on one missing or changed; ONE pull request whose title is
+    conventional ("feat: …", so the squash merge releases a minor version); after the merge, the release-please
+    pull request is merged and the release carries the tarball and its sha256.
+    PIN: SkillsCatalogVersion and SkillsCatalogSha256 move to that release — whatever tag release-please cuts
+    from this pull request, a minor above origin/main's version at the rebase (5.15.1 today), never a number fixed in advance; the v5.15.0 tarball is deleted and the
+    new one checked in; the example config's commented version and the version strings in skills-catalog.md,
+    airgap.md and your-own-skills.md follow (your-own-skills.md:71: the version only — the line is example
+    output of a run with an overlay, its counts are the example's, as the previous bump kept them).
+    VALIDATOR: SkillsConfigValidatorTests' accepted pins name the new tag; MinimumVersion stays v5.13.0.
+    TESTS: SeriesSkillRulesTests reads, from the pinned masters, each rule the series added — design-partner applies
+    a review round's cuts and re-proposes (8762i), emits contract: with a set or epic (8762j, design-partner and
+    spec-derivation), authors mocks with write_mock (8762r), the epic size wording (8762u); coding-agent ends each
+    spec with hand_forward (8762m); both masters take a choice that needs no person with decide_by_default
+    (8762o); spec-derivation's sentence on what one attempt runs (8762u) — each assertion quoting the exact sentence the member's build note names (members i, j, m, o, r, u, each on
+    skills branch spec/2026-10-13-8762). MasterPromptTokenDriftTests and
+    the composed-principles goldens run against the new pin; a golden that changed is regenerated and the change
+    named in the commit.
+  out: >
+    The skill text itself — 2026-10-13-8762i, 2026-10-13-8762j, 2026-10-13-8762m, 2026-10-13-8762o, 2026-10-13-8762r and 2026-10-13-8762u. The tool contracts the rules describe — 2026-10-13-8762i, 2026-10-13-8762j, 2026-10-13-8762m, 2026-10-13-8762o, 2026-10-13-8762r and 2026-10-13-8762u; every tool works without the text (contract 2.8). The unmerged local commit cea5d3c on
+    feat/design-partner-asks-at-the-threshold — nobody: it predates the phase-word rule and is not
+    on origin/main, so it does not ride this release unless the operator merges it first. Moving a deployed config's
+    skills.version to the new tag — nobody in this repo: operator config (it is not committed); the PR body and
+    the commit name the tag to set.
+
+decisions:
+  - key: "ONE RELEASE AT THE END. Contract decision 22: one release for the whole series, so the pin moves once and no member waits mid-series on an operator merge. The alternative (a release after 8762k so live design turns emit contract: earlier) is not taken. Default, pending operator ratification."
+  - key: "MINIMUM VERSION STAYS v5.13.0. Every tool of this series carries its contract in its description (contract 2.8), so an older pulled pin still runs; only its masters do not ask for the new tools. Raising the floor would refuse a working configuration."
+  - key: "THE PIN CARRIES 5.15.1 TOO. origin/main already holds #228 (a coding-agent-master behaviour change) and #227; the series release is cut on top of them, so the commit says the pin also brings that fix."
+  - key: "TESTS QUOTE THE MEMBER'S OWN SENTENCE. The rule text is authored on the skills branch; quoting it from each member's build note (hand-forward) keeps the assertion on what was written, not on a paraphrase of the plan."
+  - key: "A NAMED SPEC, BECAUSE THE PIN WAITS ON TWO MERGES THE OPERATOR PERFORMS. As 2026-10-01-aeb6d did."
+  - key: "ONE VERSION BUMP PER MASTER, HERE (main-thread decision 16). Five members edit design-partner-master on one unreleased branch; a bump each would leave a version history naming nothing that shipped. The members leave the version alone and this step bumps each touched master once. Default, pending operator ratification."
+  - key: "QUOTES ARE CHECKED AFTER THE REBASE, BEFORE THE PULL REQUEST. A conflict resolution in a master can reword a member's sentence; grepping the rebased branch catches it while it is cheap, not after the release."
+  - key: "REJECTED CUT: a regeneration command for your-own-skills.md:71. None exists: the line is what LoadCatalogHandler prints at run time for a run with an overlay, and its counts belong to the example overlay (the base tarball has 14 masters, the line says 15). The previous bump (baccdff3d) moved the version and kept the counts; this one does the same and says so in the commit."
+  - key: "BUMPS ARE RELATIVE, PINS ARE THE OPERATOR'S. origin/main may move again before the rebase, so a fixed target number could already be taken; the bump is 'one minor above origin/main at the rebase', like the release tag. A configured skills.version overrides the embedded catalog (example config :590-599), so a deployment pinned at v5.15.x keeps the old masters with every test green; the commit and PR name the tag to set."
+  - key: "w IN requires ORDERS THE WORK, IT IS NO SKILL EDGE. 2026-10-13-8762w edits no skill; the pin moves last."
+
+steps:
+  - id: skills-branch
+    action: "agent-smith-skills: rebase spec/2026-10-13-8762 on origin/main; bump the three touched masters' versions once, each to one minor above its origin/main version at the rebase; run scripts/validate-skills.sh green; grep every build-note sentence on the rebased branch (fail on any missing or changed); open one PR with a conventional feat: title naming every member's master edit."
+  - id: release
+    action: "After the operator merges it and the release-please PR, confirm the release lists agentsmith-skills-<tag>.tar.gz and its .sha256."
+  - id: pin
+    action: "csproj SkillsCatalogVersion + SkillsCatalogSha256; delete Resources/agentsmith-skills-v5.15.0.tar.gz; build downloads and validates the new tarball; check it in."
+  - id: version-strings
+    action: "config/agentsmith.example.yml, docs/how-it-works/skills-catalog.md, docs/reference/skills/airgap.md, docs/reference/skills/your-own-skills.md (version only on line 71, example counts kept); SkillsConfigValidatorTests' accepted pin."
+  - id: rule-tests
+    action: "SeriesSkillRulesTests (at most 120 lines; split per master if longer): one test per member rule, read through PackagedMaster."
+  - id: tests
+    action: "Run the Skills, Prompts and Configuration classes, then the full suite and the dashboard checks."
+
+tests:
+  - "EmbeddedSkills_DesignPartnerMaster_AppliesReviewCutsAndReproposes"
+  - "EmbeddedSkills_DesignPartnerMaster_EmitsASeriesContract"
+  - "EmbeddedSkills_SpecDerivationMaster_EmitsASeriesContract"
+  - "EmbeddedSkills_DesignPartnerMaster_AuthorsMocksWithWriteMock"
+  - "EmbeddedSkills_DesignPartnerMaster_SaysTheSeriesAndAttemptSize"
+  - "EmbeddedSkills_CodingAgentMaster_EndsEachSpecWithHandForward"
+  - "EmbeddedSkills_Masters_TakeAChoiceNeedingNoPersonByDefault"
+  - "EmbeddedSkills_SpecDerivationMaster_SaysWhatOneAttemptRuns"
+  - "EveryPlaceholderUsedByAMaster_IsDeclaredInMasterPromptTokens (existing, against the new pin)"
+  - "SkillsConfigValidator_PinAtOrAbove5_13_OrNotAVersion_Passes (existing, new tag added)"
+
+done:
+  - "A server built from this commit runs the masters of the series' skills release with no skills: block configured, and its startup names that version; a deployment whose config pins skills.version carries the series' masters only once that pin is moved to the new tag or removed."
+  - "A design turn or coding run on the new pin is asked by its master to use the series' tools (review cuts, contract:, hand_forward, decide_by_default, write_mock)."
+  - "Every version string an operator copies from the docs or the example config names the new release."
+  - "Build green, full suite green, dashboard gen/test/build green."

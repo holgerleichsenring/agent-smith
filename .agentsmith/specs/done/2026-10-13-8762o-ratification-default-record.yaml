@@ -1,0 +1,184 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-8762o
+goal: "A master takes a choice no person must make with decide_by_default and goes on at once; each such default and each proposed feedback memory becomes a pending row a person can ratify later."
+
+applies_to: "backend (decide_by_default tool, event 88, RunDefaultDecisions projection and migrations on both providers, remember's pointer row) + the dashboard's hub-events mirror + the coding-agent-master and design-partner-master skills on the series' skills branch"
+
+requires: [2026-10-13-8762e, 2026-10-13-8762m]
+
+facts:
+  - claim: "A question with a default answer blocks: the gate waits hot, then parks, and applies the default only when the deadline passes."
+    evidence: "src/backend/AgentSmith.Contracts/Dialogue/DialogQuestion.cs:3-11, src/backend/AgentSmith.Application/Services/Resume/DialogueAskGate.cs:9-13, src/backend/AgentSmith.Application/Services/Resume/DialogueAskGate.cs:25"
+  - claim: "log_decision records a categorised one-line decision on the run and in the repository's decision file; it has no notion of a person ratifying it."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/LogDecisionToolHost.cs:53-75"
+  - claim: "remember flags a feedback entry status proposed and writes it into the sandbox of a repository with a code change; nothing else learns that a proposal exists."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/MemoryWriteToolHost.cs:52-64, src/backend/AgentSmith.Application/Services/Memory/MemoryStore.cs:37"
+  - claim: "remember is an upsert by slug, and the memory reaches git only through this run's commit of the repository it names."
+    evidence: "src/backend/AgentSmith.Application/Services/Memory/MemoryStore.cs:35-41, src/backend/AgentSmith.Application/Services/Tools/MemoryWriteToolHost.cs:17-20"
+  - claim: "A coding master's children get BaseSurface, which carries remember; a design turn's children get the design surface without remember."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:66-68, src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:104, src/backend/AgentSmith.Application/Services/Tools/AgenticToolSurface.cs:31, src/backend/AgentSmith.Application/Services/Tools/SpecDialogChildTools.cs:28-34"
+  - claim: "Every (RunId, EventSeq) unique index is declared in RunRecordIdentityConfiguration, which filters it to '[EventSeq] IS NOT NULL' on SQL Server because that provider treats two NULLs as equal; projected rows carry EventSeq as long?."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunRecordIdentityConfiguration.cs:11-15, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunRecordIdentityConfiguration.cs:23-40, src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunSegment.cs:14"
+  - claim: "A repository's decisions are YAML files under .agentsmith/decisions/ per spec or per run."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/RepositoryDecisionLogger.cs:8-14"
+  - claim: "The spec-execution user prompt tells the master to log every non-obvious choice via log_decision."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecutionPromptFactory.cs:67"
+  - claim: "A design turn has no code change, so remember answers 'not recorded' there."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/MemoryWriteToolHost.cs:56-57, src/backend/AgentSmith.Application/Services/Tools/MemoryWriteToolHost.cs:67-77"
+  - claim: "A tool-side recorder publishes its run event best-effort and logs a failure without failing the tool."
+    evidence: "src/backend/AgentSmith.Application/Services/Design/DesignReadRecorder.cs:13-29"
+  - claim: "A design turn runs as a pipeline through ExecutePipelineUseCase, which sets ContextKeys.RunId for every run."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs:58-73, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:270"
+  - claim: "The design surface is built in BaseSurface's spec-dialog branch, children get BaseSurface, and the scan master gets the read-only Review surface."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:56-68, src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:104"
+  - claim: "EventType ends at SpecCutReviewed = 86 and the file is 119 lines; the three-line 042eh comment above SpecReviewed is the one 2026-10-13-8762e shortens."
+    evidence: "src/backend/AgentSmith.Contracts/Events/EventType.cs:106-110, src/backend/AgentSmith.Contracts/Events/EventType.cs:116-119"
+  - claim: "EventTypeResolver maps every run EventType to its record; an unmapped one resolves to null."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Events/EventTypeResolver.cs:58-62"
+  - claim: "Every pipeline publishes RunStartedEvent with the request's ticket id, and a design turn's request carries none, so a turn is a run whose row names no ticket; the turn seeds its conversation's session id as ContextKeys.DialogueJobId."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:542, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:554-566, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnRunner.cs:58-60, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:54"
+  - claim: "A run's child rows are deleted by RunDeletionRepository one DeleteByRunIdAsync line per table, and the archive test counts the tables with generated keys (37 before 2026-10-13-8762e)."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunDeletionRepository.cs:66-71, tests/AgentSmith.Tests/Persistence/DataArchiveSchemaTests.cs:163"
+  - claim: "Run children are listed in RunChildConfiguration with an indexed RunId and no enforced key; tables are named there or in an IEntityTypeConfiguration."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunChildConfiguration.cs:24-58, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunRetryRequestConfiguration.cs:12-20"
+  - claim: "A projection that inserts a row per event skips one the trail position already wrote, through ProjectedEventRecords.HoldsAsync."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSegmentProjection.cs:17-33, src/backend/AgentSmith.Infrastructure.Persistence/Services/ProjectedEventRecords.cs:19-25"
+  - claim: "Event families are IRunEventFamily singletons registered in RunProjectionsExtensions."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Extensions/RunProjectionsExtensions.cs:44-52"
+  - claim: "observed: 2026-10-13, the newest migrations are AddRunRetryRequests in both AgentSmith.Infrastructure.Persistence/Migrations (20261013200657) and AgentSmith.Infrastructure.Persistence.SqlServer/Migrations (20261013200703), each with its snapshot."
+    evidence: "observed: 2026-10-13, ls of both Migrations directories"
+  - claim: "The dashboard mirrors EventType and every run event record in hub-events.ts; gen:hub-events fails on a record or an enum entry with no mirror."
+    evidence: "src/dashboard/src/types/hub-events.ts:49-50, src/dashboard/src/types/hub-events.ts:645-650, src/dashboard/src/types/hub-events.ts:718-719, tools/build-hub-event-types.mjs:12-17, src/dashboard/package.json:14"
+  - claim: "FilterRail's LABELS is a Record over EventType, so strict TypeScript fails the build on an enum member without a label; eventFilterQuery keeps a key per type."
+    evidence: "src/dashboard/src/components/jobs/FilterRail.tsx:8, src/dashboard/src/components/jobs/FilterRail.tsx:53, src/dashboard/src/lib/eventFilterQuery.ts:41, src/dashboard/src/lib/eventFilterQuery.ts:71"
+  - claim: "observed: 2026-10-14, agent-smith-skills origin/main (v5.15.1): coding-agent-master tells the master to record each non-obvious choice in decisions.md AND via log_decision (lines 291-292), 'Otherwise, decide and log.' (294), to call log_decision on every non-trivial implementation decision (598), to prefer log_decision over asking (606) and 'decide and log in decisions.md' (617); design-partner-master keeps ask_human for genuine ambiguity only (202-206)."
+    evidence: "observed: 2026-10-14, git show origin/main:skills/_masters/coding-agent-master/SKILL.md lines 291-294, 598, 606, 617 and skills/_masters/design-partner-master/SKILL.md lines 202-206"
+  - claim: "observed: 2026-10-13, wc -l in this worktree: AgentSmithDbContext.cs 120, RunChildConfiguration.cs 59, RunProjectionsExtensions.cs 55, EventTypeResolver.cs 83, MemoryWriteToolHost.cs 78, MasterToolComposition.cs 112; none is baselined."
+    evidence: "observed: 2026-10-13, wc -l + grep of tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv"
+
+assumptions:
+  - "2026-10-13-8762e lands EventType 87 as one line and shortens the 042eh comment by one, leaving EventType.cs at 119 lines."
+  - "2026-10-13-8762m lands MasterRecordToolHosts returning a MasterRecordTools record this spec can append a member to."
+  - "2026-10-13-8762e takes RunRecordIdentityConfiguration from 41 to 42 lines; this spec adds one Unique line, 42 -> 43."
+  - "2026-10-13-8762p reads the rows as DecidedDefault (id, runId, specId, question, chosen, verdict, note, by, at) and writes each decided one into decisions/<specId>.yaml as '[default #<id>]'; the columns below are what it reads."
+
+scope:
+  in: >
+    EVENT: DefaultDecisionTakenEvent (Contracts/Events/DefaultDecisionEvents.cs), EventType.DefaultDecisionTaken = 88,
+    fields exactly as series contract 2.1: RunId, Timestamp, SpecId?, Question, Chosen, Alternatives[], Why,
+    HoldsSeries, Kind (decision | memory-proposal), PointerPath?, Conversation? (appended last: the design turn's
+    ContextKeys.DialogueJobId, null in a coding run). Constants DefaultDecisionKinds and
+    DefaultDecisionVerdicts (pending | ratified | overruled) in Contracts/Decisions. EventTypeResolver arm. RECORDER:
+    DefaultDecisionRecorder(IEventPublisher publisher, string runId, string? specId, string? conversation), built per
+    master start by MasterRecordToolHosts from ContextKeys.RunId, CurrentSpec and DialogueJobId; publishes best-effort
+    and returns whether it published. TOOL: decide_by_default(question, chosen, alternatives[], why, holds_series) on
+    DefaultDecisionToolHost; each text required, question and chosen at most 500 characters, why at most 1000, one to
+    eight alternatives of at most 300; returns at once — "taken by default, recorded for ratification" or, when the
+    publish failed, "NOT recorded" with the choice repeated; never waits. Its description states the contract: a choice
+    a person might overrule but need not make first; holds_series true holds only the next automatic attempt; a choice
+    that needs a person before work continues stays ask_human; a default is not also logged with log_decision or
+    written to decisions.md.
+    SURFACES: MasterRecordTools gains DefaultDecision, built by MasterRecordToolHosts where a run id exists;
+    MasterToolComposition adds it after BaseSurface for the coding master and the design partner, never for a scan
+    master or a child. POINTER ROW: MemoryWriteToolHost takes the recorder (optional) and, after writing a feedback
+    entry — from any surface that carries remember, a coding master's children included — publishes event 88 with Kind memory-proposal, Chosen = the slug, PointerPath = "{repository}/.agentsmith/memory/{slug}.md",
+    a fixed question, empty Why and no alternatives — never the body or the description. TABLE: RunDefaultDecision
+    (Id long, RunId, EventSeq long?, SpecId, Question, Chosen, AlternativesJson, Why, HoldsSeries, Kind, PointerPath, TakenAt,
+    Verdict default pending, VerdictBy, VerdictAt, VerdictNote, Conversation) in Children of RunChildConfiguration,
+    configured by RunDefaultDecisionConfiguration: table RunDefaultDecisions, indexed-string lengths on SpecId, Kind,
+    Verdict and Conversation (indexed); the unique (RunId, EventSeq) is Unique<RunDefaultDecision> in
+    RunRecordIdentityConfiguration, so SQL Server gets its NULL filter. DESIGN TURN: the row is keyed by the turn's own run id
+    like any run's and carries the conversation; 2026-10-13-8762p lists it on the ticket the conversation is bound to,
+    resolved when read. RunDeletionRepository deletes the rows; DataArchiveSchemaTests' count 38 -> 39. PROJECTION: RunDefaultDecisionProjection : IRunEventFamily inserts one row per event with a
+    trail position, skipping one HoldsAsync finds, and skipping a memory-proposal whose run already holds a PENDING
+    memory-proposal row with the same PointerPath (a second remember of one slug); it never updates. MIGRATIONS: AddRunDefaultDecisions in both
+    providers with their snapshots. MIRROR: hub-events.ts enum 88, DefaultDecisionTakenEvent, union member; FilterRail
+    LABELS and eventFilterQuery TYPE_KEYS rows. ONE PLACE PER CHOICE: SpecExecutionPromptFactory.cs:67
+    becomes "Take a choice a person might overrule with decide_by_default; log every other non-obvious choice via
+    log_decision as you go." (net zero lines). SKILLS on skills branch spec/2026-10-13-8762 (the build note quotes
+    each exact sentence): coding-agent-master lines 291-292 ("… decisions.md … and also via log_decision") gain
+    "except a choice taken with decide_by_default, which is recorded only there", 294 "decide and log" becomes
+    "decide_by_default for a choice a person might overrule, log_decision for an implementation choice", and 598,
+    606 and 617 name decide_by_default the same way; design-partner-master names decide_by_default beside ask_human.
+  out: >
+    Reading the rows per ticket and writing Verdict, VerdictBy, VerdictAt and VerdictNote —
+    2026-10-13-8762p. The Defaults tab — 2026-10-13-8762q. Holding the next automatic attempt on a pending
+    holds_series default — 2026-10-13-8762v. Writing a ratified or overruled default into decisions/<specId>.yaml on the ticket branch as
+    "[default #<id>]" at the next attempt's record step, so deleting a run loses nothing a person decided —
+    2026-10-13-8762p. Marking a memory-proposal row of a finished run that delivered no pull request as not landed (TicketDefaultView.landed false) in the read — 2026-10-13-8762p (the row names its run). Editing a memory file's status after ratification — nobody:
+    a branch change made by the next rework (series contract section 5 default 52, decision 16). Listing an UNBOUND design turn's default anywhere but
+    that turn's own tool answer — nobody: no ticket exists to list it on (series contract decision 24). The hand_forward host and the
+    extraction it rides on — 2026-10-13-8762m. Releasing the skill edits — 2026-10-13-8762x. A SystemEventType —
+    nobody: none is minted (series contract 2.1).
+
+decisions:
+  - key: "THE MASTER RECORDS A DEFAULT IN ONE PLACE; GIT GETS THE DECIDED ONE. The master never also logs a default with log_decision or into decisions.md — the prompt and skill texts that said 'log every choice' are rewritten so. RunDefaultDecisions holds the pending default and its verdict; once a person ratifies or overrules it, 2026-10-13-8762p writes that decided default into decisions/<specId>.yaml as '[default #<id>]', so a deleted run loses nothing a person decided (main-thread decision 9, default, pending operator ratification). A pending default is never written to git: it would disagree the moment it is overruled."
+  - key: "THE UNIQUE INDEX GOES WHERE EVERY OTHER ONE IS. Unique<RunDefaultDecision> in RunRecordIdentityConfiguration with EventSeq long?, as RunSegment, so SQL Server (production) gets '[EventSeq] IS NOT NULL'; an entity configuration cannot see the provider."
+  - key: "ONE PENDING POINTER PER FILE PER RUN. remember upserts by slug, so a second feedback write of one slug is the same proposal; the projection skips it while the first row is pending."
+  - key: "CHILDREN'S MEMORY PROPOSALS COUNT. A coding child carries remember through BaseSurface; its feedback write is a proposal like the master's and publishes a pointer row. decide_by_default stays off children."
+  - key: "NEVER BLOCKS. The tool returns in the same call; holds_series only flags the row for 2026-10-13-8762v. Series contract section 5 default 50 (decision 14), pending operator ratification."
+  - key: "POINTER, NOT BODY. A memory proposal's row carries the path and the slug; the body and its index line stay in the memory files, which are what a ratification is about. Series contract section 5 default 52 (decision 16), pending operator ratification."
+  - key: "THE PROJECTION ONLY INSERTS. The verdict columns are declared here and written only by 2026-10-13-8762p's endpoint, so a replayed event can never reset a verdict."
+  - key: "decide_by_default NOT ON SCAN MASTERS OR CHILDREN. A scan reviews read-only and a child's choice belongs to its master."
+  - key: "BOUNDS AS SHOWN (500 / 1000 / 8 x 300). A row is read in a batch list; an unbounded text makes the list unreadable. Default, pending operator ratification."
+  - key: "A FAILED PUBLISH IS SAID, NOT HIDDEN. The tool answers NOT recorded, as log_decision does when its log is unavailable, so the master can ask instead of believing a person will see it."
+  - key: "EVENTTYPE.CS GOES TO 120 (series contract section 4). 2026-10-13-8762e keeps the file at 119 while adding 87; this spec adds DefaultDecisionTaken = 88 as ONE line, 119 -> 120, and folds no comment."
+  - key: "A DESIGN TURN'S DEFAULT IS KEYED BY ITS CONVERSATION (series contract decision 24, default, pending operator ratification). The turn is a run whose row names no ticket, so a row keyed by run id alone reaches no ticket page. Chosen: one nullable Conversation column filled from ContextKeys.DialogueJobId, which the turn already seeds; the binding is resolved when 8762p reads, so a conversation bound after the default still lists it. Refused: a nullable RunId (every event and projection is keyed by a run) and a sibling store (a second table for one datum)."
+  - key: "REQUIRES 2026-10-13-8762e, NOT ONLY m (round-2 review note). The line arithmetic (EventType 119 -> 120, RunRecordIdentityConfiguration 42 -> 43), the archive count 38 -> 39 and the migration after AddRunSpecReviewRounds all assume e landed; the edge states what letter order already guarantees."
+  - key: "THE DESIGN CHILD'S remember EXCLUSION FILTERS BY TOOL NAME (SpecDialogChildTools.cs:31-33). 2026-10-13-8762d's sanity wrapper wraps every master and child tool, so it must keep each tool's Name, or a design child would publish pointer rows; that is d's to hold (round-2 review note, no cut here)."
+  - key: "BACKEND CONTEXT. Recorded in the default context (series contract section 5 default 72, decision 23)."
+
+steps:
+  - id: contracts
+    action: "DefaultDecisionTakenEvent (Conversation? last), EventType 88 as one line (EventType.cs 119 -> 120), EventTypeResolver arm (stays at or under 86), DefaultDecisionKinds, DefaultDecisionVerdicts."
+  - id: recorder-tool
+    action: "DefaultDecisionRecorder(publisher, runId, specId?, conversation?) and DefaultDecisionToolHost with the bounds and answers above; SpecExecutionPromptFactory line 67 reworded in place."
+  - id: surfaces
+    action: "MasterRecordTools.DefaultDecision built by MasterRecordToolHosts; MasterToolComposition adds it for coding and design masters (118 after 2026-10-13-8762c, d and m -> at most 120); AgenticMasterHandler untouched."
+  - id: pointer
+    action: "MemoryWriteToolHost publishes the memory-proposal row after a feedback write (file stays at or under 90)."
+  - id: table
+    action: "RunDefaultDecision entity (EventSeq long?, Conversation nullable), RunDefaultDecisionConfiguration, RunChildConfiguration Children + configure call (stays at or under 63); Unique<RunDefaultDecision> in RunRecordIdentityConfiguration (42 -> 43); RunDeletionRepository one delete line; DataArchiveSchemaTests 38 -> 39; AgentSmithDbContext untouched."
+  - id: projection
+    action: "RunDefaultDecisionProjection (insert-only, HoldsAsync, pending-pointer dedupe) registered in RunProjectionsExtensions (stays at or under 57)."
+  - id: migrations
+    action: "AddRunDefaultDecisions for SQLite and SQL Server, snapshots regenerated."
+  - id: mirror
+    action: "hub-events.ts enum, interface and union; FilterRail LABELS; eventFilterQuery TYPE_KEYS; pnpm gen:hub-events, test and build green."
+  - id: skills
+    action: "coding-agent-master lines 291-294, 598, 606, 617 and design-partner-master wording on skills branch spec/2026-10-13-8762, frontmatter version NOT bumped (2026-10-13-8762x bumps each master once), the build note quoting each exact sentence; released by 2026-10-13-8762x."
+  - id: tests
+    action: "Red first for every test below, then green; run the Tools, Persistence, Events, Handlers and Architecture classes touched, and the dashboard tests."
+
+tests:
+  - "DecideByDefault_ReturnsAtOnce_AndPublishesEvent88"
+  - "DecideByDefault_PublishFails_AnswersNotRecorded"
+  - "DecideByDefault_OverBounds_IsRefusedByName"
+  - "DecideByDefault_CarriesTheCurrentSpecId"
+  - "DecideByDefault_InADesignTurn_RowCarriesTheConversation"
+  - "RunDeletion_DeletesDefaultDecisions"
+  - "MasterToolComposition_CodingAndDesignMasters_CarryDecideByDefault"
+  - "MasterToolComposition_ScanMasterAndChildren_CarryNoDecideByDefault"
+  - "Remember_FeedbackEntry_PublishesPointerRowWithoutBody"
+  - "Remember_ProjectEntry_PublishesNothing"
+  - "Remember_FromACodingChild_PublishesPointerRow"
+  - "RunDefaultDecisionProjection_SecondPendingProposalSamePointer_WritesOnce"
+  - "SpecExecutionPrompt_NoLongerSaysLogEveryChoiceUnqualified"
+  - "RunDefaultDecisions_SqlServerMigration_UniqueIndexFilteredOnEventSeq"
+  - "RunDefaultDecisionProjection_InsertsPendingRow"
+  - "RunDefaultDecisionProjection_ReplayedPosition_WritesOnce"
+  - "RunDefaultDecisionProjection_ReplayAfterVerdict_KeepsTheVerdict"
+  - "EventTypeResolver_ResolvesDefaultDecisionTaken"
+  - "Persistence_RunDefaultDecisions_RoundTripOnSqlite (SQL Server where AGENTSMITH_TEST_DB_CONNSTR is set)"
+  - "MasterRecordToolHosts_DefaultDecision_ResolvedThroughTheRealServiceProvider (integration)"
+  - "FilterRail_LabelsDefaultDecisionTaken (dashboard)"
+
+done:
+  - "A master that takes a default keeps working in the same turn, and the run's RunDefaultDecisions table holds a pending row with the question, the choice, the alternatives, why, and whether it holds the series."
+  - "A proposed feedback memory appears as a pending row naming its file and slug, and its body appears nowhere but the memory file."
+  - "Replaying a run's trail adds no second row and leaves a verdict already written untouched."
+  - "A scan master's and a sub-agent's tool lists do not contain decide_by_default."
+  - "No prompt or skill text the coding master reads tells it to log a decide_by_default choice again with log_decision or in decisions.md."
+  - "The SQL Server migration's unique (RunId, EventSeq) index on RunDefaultDecisions is filtered to EventSeq IS NOT NULL."
+  - "Both providers migrate to a schema with RunDefaultDecisions."
+  - "Build green, full suite green, dashboard gen:hub-events/test/build green."

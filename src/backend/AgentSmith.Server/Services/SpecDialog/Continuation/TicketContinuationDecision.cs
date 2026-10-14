@@ -23,6 +23,10 @@ public sealed record TicketContinuationDecision(
     IReadOnlyList<SpecDraft> Drafts,
     TicketContinuationStart? Start = null)
 {
+    /// <summary>2026-10-13-8762j: each proposal id to the id the continuation records it under; empty when no
+    /// id was continued.</summary>
+    public IReadOnlyDictionary<string, string> Ids { get; init; } = new Dictionary<string, string>();
+
     /// <summary>The dispositions the approval record carries, and whether it starts an attempt.</summary>
     public SeriesContinuation Continuation =>
         new([.. Specs.Select(s => new SpecDisposition(s.SpecId, s.Disposition))], BasisRunId, Start?.StartsAttempt ?? false);

@@ -34,6 +34,7 @@ public static class ContextBuildersExtensions
         AddBuilder<PostPrCommentsContextBuilder>(services, CommandNames.PostPrComments);
         AddBuilder<DeriveSpecContextBuilder>(services, CommandNames.DeriveSpec); // p0393a
         AddBuilder<SpecHandbackContextBuilder>(services, CommandNames.SpecHandback); // p0393a
+        AddBuilder<ReviewSpecsContextBuilder>(services, CommandNames.ReviewSpecs); // 2026-10-13-8762g
         AddBuilder<SpecSequenceContextBuilder>(services, CommandNames.SpecSequence); // p0393a
         AddBuilder<SelectSpecContextBuilder>(services, CommandNames.SelectSpec); // p0393a
         AddBuilder<CheckSpecPremisesContextBuilder>(services, CommandNames.CheckSpecPremises); // 0e79c

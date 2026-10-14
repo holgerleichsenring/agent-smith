@@ -14,7 +14,7 @@ namespace AgentSmith.Application.Services.Specs;
 /// because a citation of a different file is a plausible path attached to a real id; and the
 /// line must lie inside what that read returned, because a line past the bound is a number
 /// nobody can check. The path must also be in the diff this review was shown, or the finding
-/// is about work this spec did not do.
+/// is about work this spec did not do. 2026-10-13-8762e: the read matching is <see cref="OwnReadRule"/>.
 /// </para>
 /// </summary>
 internal sealed class SpecReviewAdmission(ILogger logger)
@@ -24,45 +24,26 @@ internal sealed class SpecReviewAdmission(ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(answer);
         ArgumentNullException.ThrowIfNull(diffs);
-        var reads = (look?.Evidence.Looks ?? [])
-            .Where(l => l.Ran && l.ExitCode == 0 && l.Kind == EvidenceRecord.Read)
-            .ToDictionary(l => l.Id, l => l, StringComparer.Ordinal);
+        var reads = OwnReadRule.Reads(look);
         return [.. answer.Where(finding => Admitted(finding, diffs, reads))];
     }
 
     private bool Admitted(
         SpecFinding finding, IReadOnlyList<SpecDiff> diffs, IReadOnlyDictionary<string, EvidenceLook> reads)
     {
-        if (Read(finding, reads) is not { } read)
+        if (OwnReadRule.Read(finding.Cites, finding.Repository, finding.Path, reads) is not { } read)
             return Discard(finding, $"no read of its own that ran minted {finding.Cites ?? "nothing"}");
         if (!InTheDiff(finding, diffs))
             return Discard(finding, "that path is not in the diff this review was shown");
-        if (finding.Line < 1 || finding.Line > read.LinesReturned)
+        if (!OwnReadRule.Within(finding.Line, read))
             return Discard(finding, $"line {finding.Line} is past the {read.LinesReturned} line(s) [{read.Id}] returned");
         return true;
     }
 
-    private static EvidenceLook? Read(SpecFinding finding, IReadOnlyDictionary<string, EvidenceLook> reads) =>
-        DerivationEvidence.CitationsIn(finding.Cites)
-            .Select(id => reads.TryGetValue(id, out var read) ? read : null)
-            .FirstOrDefault(read => read is not null && Same(read, finding));
-
-    private static bool Same(EvidenceLook read, SpecFinding finding) =>
-        string.Equals(read.Repository, finding.Repository, StringComparison.Ordinal)
-        && string.Equals(Normalize(read.Path), Normalize(finding.Path), StringComparison.Ordinal);
-
     private static bool InTheDiff(SpecFinding finding, IReadOnlyList<SpecDiff> diffs) =>
         diffs.Any(d => string.Equals(d.SandboxKey, finding.Repository, StringComparison.Ordinal)
-            && d.Paths.Any(p => string.Equals(Normalize(p), Normalize(finding.Path), StringComparison.Ordinal)));
-
-    // The read tool contains a path to its "./x" form; a diff spells it "x". One spelling, or
-    // an honest finding on the file it really read is discarded for a leading dot.
-    private static string Normalize(string? path)
-    {
-        var text = (path ?? string.Empty).Trim().Replace('\\', '/');
-        while (text.StartsWith("./", StringComparison.Ordinal)) text = text[2..];
-        return text.TrimStart('/');
-    }
+            && d.Paths.Any(p => string.Equals(
+                OwnReadRule.Normalize(p), OwnReadRule.Normalize(finding.Path), StringComparison.Ordinal)));
 
     private bool Discard(SpecFinding finding, string why)
     {

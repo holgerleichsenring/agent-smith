@@ -1,0 +1,70 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-8762d
+
+decisions:
+  - category: Architecture
+    chose: "Annotate, never block: a flagged result passes with '[framework] ' lines appended at its end; an exception passes through unchanged"
+    over: "Blocking, retrying or rewriting a flagged call"
+    reason: |
+      Contract decision 11 (default, pending operator ratification): a false alarm costs a sentence. The wrapper
+      rethrows the inner exception as-is, so the consecutive-error count of 2026-09-19-c511c counts exactly what
+      it counted before, and the model still reads "Error: Function failed. Exception: <message>" for a throw.
+      Appending keeps the line inside the head-and-tail bound every loop applies.
+  - category: Architecture
+    chose: "The scope is read from the pipeline on every call (CurrentSpec, SandboxRepos), through a Func handed to each wrapped tool"
+    over: "Freezing the scope when the master's surface is composed"
+    reason: |
+      SelectSpec replaces CurrentSpec per spec and ensure_repo_sandbox adds repositories mid-run; a frozen scope
+      would judge spec 3's writes against spec 2.
+  - category: Architecture
+    chose: "Wrap every AIFunction of the master's list (both returns) and the children's list in MasterToolComposition through one injected ToolResultSanityWrapper"
+    over: "Wrapping in AgenticMasterHandler (747 ratchet) or in SkillCallRuntime.WrapTools (never sees a master tool); wrapping only the nine tools a rule names"
+    reason: |
+      One wrapper reaches both surfaces. Wrapping all functions keeps the wrapper free of a second tool-name list
+      that would drift from the rules; a result no rule flags comes back as the same object, so an unwatched tool
+      is unchanged. MasterToolComposition 114 -> 116.
+  - category: Implementation
+    chose: "SubAgentStatus.Empty = 2, chosen where Succeeded was written (null or whitespace final text); net zero lines in SubAgentRunner (242)"
+    over: "Reporting an empty child as Failed"
+    reason: |
+      An empty child ran and cost money; it simply proves nothing. The completed event, the spawn_agents row and
+      the decision line read the same status. The dashboard maps 'empty' to 'shortfall' (statusFromString returned
+      'wait', which would show a finished child as never finished); ActivityRow already crosses any non-Succeeded status.
+  - category: Implementation
+    chose: "Paths are normalised before comparing: leading ./ and /work/ dropped, a leading sandbox key or repository name (longest match over SandboxRepos keys and values) stripped and kept as the path's repository; an evidence qualifier ('repo:path') is the cited path's repository"
+    over: "Comparing raw strings"
+    reason: |
+      The tools accept a repo-prefixed and a bare path for one file and spec facts cite bare paths; raw comparison
+      would never fire on the prefixed form the master prompt teaches. Host-shaped evidence references and a
+      cited '.' are dropped from the cited set.
+  - category: Implementation
+    chose: "Zero hits are flagged only on a cited path or inside a cited directory; an ancestor or the root is not flagged, and the line stays neutral ('a path this spec cites')"
+    over: "Flagging every zero-hit search, or saying the spec claims the thing exists"
+    reason: |
+      A whole-tree or ancestor search that finds nothing is often the right answer, e.g. confirming a new type
+      name is free. Zero hits = the result text is empty or whitespace (the grep and find renderers' empty form).
+  - category: Implementation
+    chose: "The cd rule reads the command lexically: segments split on &&, ||, ;, | and newline; only cd/pushd as first word; no absolute-path arm outside /work"
+    over: "Modelling a shell, or flagging any cd to an absolute host path"
+    reason: |
+      In CLI mode the shell runs in the host checkout, so a cd to a host path is legitimate; judging only climbs
+      above /work keeps the rule free of false observations in both modes. A cd with no argument, ~, -, an option
+      or a $ expansion, or to an absolute path outside /work, ends the judging of that command — a missed
+      observation, never a false one.
+  - category: Implementation
+    chose: "One error test, the host's own: a result starting with 'Error' passes the wrapper untouched and is never a 'succeeded' write"
+    over: "Parsing each tool's failure shapes"
+    reason: |
+      FilesystemToolHost tests its own writes the same way, so a failed multi_edit ('Error in edit #2') is never
+      reported as a write into an unnamed repository. A multi_edit with dry_run true is not a write.
+  - category: Implementation
+    chose: "ToolResultSanity catches and logs a rule that throws, and the result passes unannotated by that rule"
+    over: "Letting a rule's exception fail the tool call"
+    reason: |
+      An observation is a sentence; a malformed result reaching a rule must never stop, slow or retry a run.
+  - category: Scope
+    chose: "Four rule classes on the master's loop and its children; nothing else is flagged"
+    over: "Covering '0 tests passed' runs or a 'file not found' read of a cited path"
+    reason: |
+      Contract decision 11 names four classes. Weaker than the session's own doubt, knowingly. No event, no table,
+      no skill text: the observation explains itself in the result, and the trail records it as part of that result.

@@ -1,0 +1,168 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-8762d
+goal: "A master reading an empty sub-agent answer, a zero-hit search of a path its spec cites, a write to a repository its spec does not name or a cd above /work is told so in that result."
+
+applies_to: "backend (the master's tool surface: one wrapping tool type, four rules, the sub-agent status; no event, no table, no prompt) and src/dashboard (one status mapping)"
+
+requires: [2026-09-19-c511c]
+
+facts:
+  - claim: "A sub-agent's final text is stored as given, an empty string included, and the child is reported Succeeded whatever that text is; SubAgentStatus knows only Succeeded and Failed."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/SubAgentRunner.cs:83, src/backend/AgentSmith.Application/Services/Loop/SubAgentRunner.cs:95-101, src/backend/AgentSmith.Application/Services/Loop/SubAgentStatus.cs:10-14"
+  - claim: "spawn_agents returns per child its status string, ids, counts and cost and never the child's text; read_sub_agent_observations returns the stored answer as JSON, an empty one included."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/SpawnAgentToolHost.cs:12-19, src/backend/AgentSmith.Application/Services/Tools/SpawnAgentToolHost.cs:80-91, src/backend/AgentSmith.Application/Services/Tools/ReadSubAgentObservationsToolHost.cs:37-40"
+  - claim: "SubAgentCompletedEvent carries the status as a string, and the trail row marks every status other than Succeeded with a cross at warn severity, so a new status value renders without a dashboard edit."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/SubAgentRunner.cs:194-202, src/dashboard/src/components/jobs/ActivityRow.tsx:381-389"
+  - claim: "The master's tool list is composed in MasterToolComposition.Compose, which returns at two points, and children get BaseSurface() as their tools; the list reaches the loop unwrapped."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:42-49, src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:94, src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:102-110, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:381-394, src/backend/AgentSmith.Application/Services/Loop/AgenticLoopRunner.cs:52-56"
+  - claim: "SkillCallRuntime.WrapTools wraps only the tools of a skill call; the master loop never passes through it."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/SkillCallRuntime.cs:122-124, src/backend/AgentSmith.Application/Services/Loop/SkillCallRuntime.cs:150-156"
+  - claim: "A tool wrapper is a DelegatingAIFunction that reads the result through ToolResultBound.TextOf, because AIFunctionFactory hands a string back as a JSON string."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/BoundedResultTool.cs:15-28, src/backend/AgentSmith.Contracts/Services/ToolResultBound.cs:81-82"
+  - claim: "Every tool loop bounds each result keeping its head and its tail, so a line appended at the end survives the bound."
+    evidence: "src/backend/AgentSmith.Contracts/Services/ToolResultBound.cs:7-13, src/backend/AgentSmith.Infrastructure/Services/ToolImages/ToolImageFunctionInvokingChatClient.cs:35-45"
+  - claim: "A zero-hit grep renders as an empty string and a zero-hit find_files as an empty join; a find that did not run says so instead."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/GrepResultRenderer.cs:13-33, src/backend/AgentSmith.Application/Services/Tools/FileSearchStep.cs:38-48"
+  - claim: "The search tools are grep_in_file (path), grep_in_tree and find_files (root); the writing tools are write_file, edit and multi_edit; run_command takes a command and a repo and no working directory."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:450-451, src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:470-474, src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:300-302, src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:503-508, src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:545-558"
+  - claim: "A container sandbox's repository root is /work; CLI mode's InProcessSandbox runs the shell in the host work directory and translates /work only for a step's paths, so a model there can see and use host paths."
+    evidence: "src/backend/AgentSmith.Domain/Entities/Repository.cs:5-16, src/backend/AgentSmith.Infrastructure/Services/Sandbox/InProcessSandbox.cs:148-161, src/backend/AgentSmith.Infrastructure/Services/Sandbox/InProcessSandbox.cs:374-379"
+  - claim: "The filesystem tools accept a repo-prefixed path even on a single repository and strip the prefix, a bare path falls through to the default repository when one runner exists, and repository names are aliased onto sandbox keys from the key-to-name map."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:99-102, src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:118-134"
+  - claim: "A sandbox key is 'default' for one repository with one toolchain group, the context name for one repository with several groups, the repository name or '<repo>-<context>' on a multi-repository run."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxKeyComposer.cs:51-64"
+  - claim: "The filesystem host's own success test for a write is that the result does not start with 'Error'; a failed multi_edit edit returns 'Error in edit #N: …' and a failed multi_edit write keeps the 'Error' head before its 'Applied' summary."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:257, src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:346, src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:406, src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:414-416"
+  - claim: "On a single-repository run grep_in_file and grep_in_tree pass a path matching no key through as-is, so a /work-rooted path runs; find_files refuses an absolute root."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:131-132, src/backend/AgentSmith.Application/Services/Specs/ContainedPath.cs:27-29"
+  - claim: "multi_edit with dry_run true returns a 'dry_run:' text and writes nothing."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:411"
+  - claim: "read_sub_agent_observations answers a null answer with a note for an unknown sub-agent id."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/ReadSubAgentObservationsToolHost.cs:40"
+  - claim: "The run execution tree maps a completed sub-agent's status through statusFromString, which knows no 'empty' and returns 'wait' for it."
+    evidence: "src/dashboard/src/hooks/useRunExecutionTree.tsx:184, src/dashboard/src/hooks/execution-tree/buckets.ts:73-80"
+  - claim: "A multi-repository path is routed by the longest registered key it starts with, and the master reads the sandbox-key to repository-name map from ContextKeys.SandboxRepos."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/RepoPathRouter.cs:5-23, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:74-80"
+  - claim: "SelectSpec publishes each spec's draft as ContextKeys.CurrentSpec; the draft carries its facts (claim + evidence), its steps with an optional target path, and the repositories it names."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SelectSpecHandler.cs:47-49, src/backend/AgentSmith.Contracts/Commands/ContextKeys.SpecExecution.cs:5-8, src/backend/AgentSmith.Contracts/Models/SpecDraft.cs:44, src/backend/AgentSmith.Contracts/Models/SpecDraft.cs:66, src/backend/AgentSmith.Contracts/Models/SpecDraft.cs:74"
+  - claim: "EvidenceReferences reads one evidence line into the paths it cites, pure and tolerant of punctuation."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/EvidenceReferences.cs:3-38"
+  - claim: "The function-invoking client sets only MaximumIterationsPerRequest, in the live and the replay factory; the consecutive-error limit is the framework's default."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs:202-203, src/backend/AgentSmith.Infrastructure/Services/Factories/ReplayChatClientFactory.cs:31"
+  - claim: "SubAgentRunner.cs sits at its baseline of 242 and SpawnAgentToolHost.cs at 181 of 184; MasterToolComposition.cs (112) and LoopRuntimeExtensions.cs (100) are held to 120."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:32, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:58, observed: 2026-10-13, wc -l in this worktree: SubAgentRunner.cs 242, SpawnAgentToolHost.cs 181, MasterToolComposition.cs 112, LoopRuntimeExtensions.cs 100"
+  - claim: "MasterToolComposition is registered transient and constructed by hand, positionally, in MasterHandlerFixture."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs:106, tests/AgentSmith.Tests/Handlers/MasterHandlerFixture.cs:116-147"
+
+assumptions:
+  - "A master changes directory with cd or pushd as the first word of a shell segment; a command that leaves /work any other way (a script, an absolute path argument, a cd to an absolute path not under /work) is not detected, and that is a missed observation, never a false one."
+  - "A spec's cited paths are the paths in its facts' evidence and its steps' target hints; a spec citing none turns the zero-hit rule off for that spec."
+
+scope:
+  in: >
+    STATUS: SubAgentStatus gains Empty = 2; SubAgentRunner reports Empty when the child's final text is null or
+    whitespace, in the slot where it writes Succeeded today, so the completed event, the spawn_agents row and the
+    decision line all carry it. WRAPPER: SanityAnnotatedTool (a DelegatingAIFunction) invokes the inner tool,
+    reads the text result, asks ToolResultSanity for at most one observation per rule, and returns the text with
+    each observation appended as its own line starting "[framework] "; a non-text result, a result starting
+    with "Error" (the host's own success test, which also covers multi_edit's "Error in edit #N") and a thrown
+    exception pass through unchanged. SCOPE: ToolResultSanityScope is read at CALL time from the
+    pipeline — CurrentSpec (cited paths via EvidenceReferences plus step targets; Repos) and SandboxRepos — so a
+    master built for one spec and a run with no spec both read what is current. RULES, one class each, nothing
+    else flagged: EmptySubAgentAnswerRule (a spawn_agents row whose status is Empty; a read_sub_agent_observations
+    answer that is blank); UncitedZeroHitRule (grep_in_file, grep_in_tree or find_files returned an empty text and
+    its path or root equals a cited path or lies inside a cited directory; both the tool's path/root and each
+    cited path are normalised first: a leading ./ or /work/ is dropped, and a leading repository name or sandbox key,
+    matched by the longest-key rule over SandboxRepos keys and values, is stripped and kept as the path's
+    repository; they match when the repositories agree or either side has none); UnnamedRepositoryWriteRule
+    (write_file, edit or multi_edit succeeded, meaning its result does not start with "Error", on a path that routes, by the longest-key rule over sandbox keys
+    and repository names, mapped to names through SandboxRepos, to a repository the spec's Repos does not name;
+    a multi_edit with dry_run true is not a write; an unprefixed path routes to the default repository on a
+    single-repository run and is not judged on a multi-repository one; off when Repos is empty);
+    OutsideWorkCommandRule (a run_command segment, split on &&, ||, ;, | and newline, whose first word is cd or
+    pushd and whose target resolves lexically above /work: a relative target resolves against /work, updated by
+    each earlier cd segment of the same command, or an absolute target under /work whose .. climbs out; cd with
+    no argument, ~, - or a $ expansion, and an absolute target not under /work, are not judged, and a segment
+    after an unjudged cd ends the judging of that command). EmptySubAgentAnswerRule does not flag a null answer
+    (unknown id). DASHBOARD: buckets.ts statusFromString maps empty to shortfall. WIRING: MasterToolComposition
+    wraps the master list at both returns and the children's list, through one injected ToolResultSanityWrapper;
+    registered in LoopRuntimeExtensions.
+  out: >
+    Blocking, retrying or rewriting a flagged call — nobody: contract decision 11, a false alarm costs a sentence.
+    The consecutive-error limit and what a failed tool tells the model — 2026-09-19-c511c. A trail event or a
+    table for an annotation — nobody: contract 2.1, the annotation is part of the tool result in the trail. The
+    skill text —
+    nobody: the observation explains itself in the result. Rules beyond the four, and the skill-call surface
+    (SkillCallRuntime) — nobody: the contract names four classes on the master's loop.
+
+decisions:
+  - key: "ANNOTATE, NEVER BLOCK. Contract decision 11 (default, pending operator ratification): a flagged result passes with a framework line appended. The wrapper returns the inner exception unchanged, so the consecutive-error count 2026-09-19-c511c declares counts exactly what it counted before."
+  - key: "AT CALL TIME, NOT AT COMPOSITION. The scope is read from the pipeline on every call: SelectSpec replaces CurrentSpec per spec, and ensure_repo_sandbox adds repositories mid-run, so a scope frozen at composition would judge spec 3's writes against spec 2."
+  - key: "WRAPPED IN MasterToolComposition, NOT IN AgenticMasterHandler. The handler is at its 747 ratchet and the composition is where both the master's and the children's lists are made; one wrapper there reaches both. SkillCallRuntime.WrapTools is the skill-call path and never sees a master tool."
+  - key: "EMPTY REPLACES SUCCEEDED IN PLACE. The status is chosen where Succeeded is written today, net zero lines in the 242-line runner (contract section 4); MasterToolComposition grows by two over 2026-10-13-8762c's 114. An empty child is not Failed: it ran and cost money; it simply proves nothing."
+  - key: "LEXICAL cd ONLY. The command rule reads the shell text the model wrote, never runs it, and recognises only cd and pushd as a segment's first word. A rule that tried to model a shell would be the per-language parser the principles forbid; this one names one observable shape and misses the rest silently."
+  - key: "ZERO HITS ONLY WHERE THE SPEC POINTS. A whole-tree search that finds nothing is often the right answer; one in a cited file or under a cited directory is worth a second look, the session's 'verify before relying' moment, though it is also the legitimate check for a symbol about to be added, so the line stays neutral and never says 'the spec says this exists' (review r2 8762d finding 3). A search of an ANCESTOR of a cited path (src, src/backend) is not flagged: the commonest such search confirms a new type name is still free (review 8762d C2)."
+  - key: "PATHS ARE NORMALISED BEFORE THEY ARE COMPARED. The tools accept a repo-prefixed and a bare path for one file, and spec facts cite bare paths, so a rule comparing raw strings would never fire on the prefixed form the master prompt teaches (review 8762d C1)."
+  - key: "NO ABSOLUTE-PATH ARM IN THE COMMAND RULE. In CLI mode the shell runs in the host checkout, so a cd to a host path inside it is legitimate; judging only climbs above /work keeps the rule free of false observations in both modes, at the cost of missing a cd to /tmp in a container (review 8762d C4, first option)."
+  - key: "EMPTY IS A SHORTFALL ON THE EXECUTION TREE. statusFromString returned 'wait' for an unknown status, so an Empty child would show as never finished; 'shortfall' is the existing completed-but-incomplete state (review 8762d C3)."
+  - key: "WEAKER THAN THE SESSION, KNOWINGLY. The session doubted any suspicious result; this member names four mechanical shapes. A test run reporting success with 0 tests and a 'file not found' read of a cited path are not covered — nobody: contract decision 11 names four classes and nothing else is flagged."
+  - key: "ONE ERROR TEST, THE HOST'S OWN. The wrapper's pass-through and the write rule's 'succeeded' are both 'does not start with Error', the test FilesystemToolHost applies to its own writes, so a failed multi_edit ('Error in edit #2') is never reported as a write into an unnamed repository (review r2 8762d C1)."
+  - key: "/work/ IS STRIPPED LIKE ./. Steps and command output speak /work-rooted paths and the grep tools run them on a single repository, so without stripping a /work/src/x search never matches a cited src/x — a silent miss (review r2 8762d C2)."
+  - key: "THE LINE SAYS WHAT TO DO. Each observation names the fact and one action ('verify the pattern and the path before concluding absence'), so the tool works without any skill text (contract 2.8)."
+
+steps:
+  - id: status
+    action: "SubAgentStatus gains Empty = 2 (14 -> 16 lines). SubAgentRunner picks Empty or Succeeded where it writes Succeeded today and shortens the p0280 comment by one line; the file stays at or under 242."
+  - id: scope
+    action: "ToolResultSanityScope (cited paths, named repositories, key-to-repository map) and ToolResultSanityScopeReader (pipeline -> scope, empty when no CurrentSpec), each its own file under Services/Loop/Sanity."
+  - id: rules
+    action: "IToolResultSanityRule and EmptySubAgentAnswerRule, UncitedZeroHitRule, UnnamedRepositoryWriteRule, OutsideWorkCommandRule, each one file of at most 60 lines; ToolResultSanity runs them in that order and returns the observations."
+  - id: wrapper
+    action: "SanityAnnotatedTool (DelegatingAIFunction; text via ToolResultBound.TextOf; appends '[framework] ' lines; results starting with 'Error', non-text results and exceptions pass through) and ToolResultSanityWrapper.Wrap(tools, pipeline)."
+  - id: dashboard
+    action: "buckets.ts statusFromString maps 'empty' to 'shortfall' (one line; the file stays at or under 180) with a test in src/hooks/__tests__."
+  - id: wiring
+    action: "MasterToolComposition takes ToolResultSanityWrapper and wraps the list at both returns and ChildTools (114 after 2026-10-13-8762c -> at most 116); LoopRuntimeExtensions registers the scope reader, the four rules (chained Add calls, in the order they run), ToolResultSanity and the wrapper (100 -> at most 104); MasterHandlerFixture.Composition passes the wrapper."
+  - id: tests
+    action: "Red first, then green, for every test below; run the Loop, Tools and Handlers classes touched."
+
+tests:
+  - "SubAgentRunner_ChildWithBlankAnswer_IsEmptyNotSucceeded"
+  - "SubAgentRunner_ChildWithAnswer_StaysSucceeded"
+  - "SpawnAgents_EmptyChild_RowCarriesEmptyAndAFrameworkLine"
+  - "ReadSubAgentObservations_BlankAnswer_GetsAFrameworkLine"
+  - "ReadSubAgentObservations_UnknownIdNullAnswer_IsNotFlagged"
+  - "statusFromString maps empty to shortfall (vitest)"
+  - "UncitedZeroHit_GrepUnderACitedDirectory_IsFlagged"
+  - "UncitedZeroHit_GrepInACitedFile_IsFlagged"
+  - "UncitedZeroHit_SearchOfTheRepositoryRoot_IsNotFlagged"
+  - "UncitedZeroHit_RepoPrefixedSearchOfABareCitedPath_IsFlagged"
+  - "UncitedZeroHit_SearchOfAnAncestorOfACitedFile_IsNotFlagged"
+  - "UncitedZeroHit_WorkRootedSearchOfACitedPath_IsFlagged"
+  - "UncitedZeroHit_SearchWithHits_IsNotFlagged"
+  - "UncitedZeroHit_NoCurrentSpec_IsOff"
+  - "UnnamedRepositoryWrite_WriteToARepositoryTheSpecDoesNotName_IsFlagged"
+  - "UnnamedRepositoryWrite_SpecNamesNoRepositories_IsOff"
+  - "UnnamedRepositoryWrite_FailedWrite_IsNotFlagged"
+  - "UnnamedRepositoryWrite_MultiEditDryRun_IsNotFlagged"
+  - "UnnamedRepositoryWrite_MultiEditErrorInEdit_IsNotFlagged"
+  - "UnnamedRepositoryWrite_UnprefixedPathOnAMultiRepositoryRun_IsNotJudged"
+  - "UnnamedRepositoryWrite_ToolchainKeyOfANamedRepository_IsNotFlagged"
+  - "OutsideWorkCommand_CdToAbsoluteWorkPathClimbingOut_IsFlagged"
+  - "OutsideWorkCommand_CdToAbsoluteHostPath_IsNotJudged"
+  - "OutsideWorkCommand_RelativeCdAfterAnEarlierCd_ResolvesAgainstIt"
+  - "OutsideWorkCommand_CdHomeDashOrVariable_IsNotJudged"
+  - "OutsideWorkCommand_CdDotDotAboveWork_IsFlagged"
+  - "OutsideWorkCommand_CdInsideWork_IsNotFlagged"
+  - "SanityAnnotatedTool_InnerThrows_ExceptionPassesUnchanged"
+  - "SanityAnnotatedTool_JsonStringResult_IsAnnotatedAsText"
+  - "SanityAnnotatedTool_NothingFlagged_ResultIsByteIdentical"
+  - "ToolResultSanityScope_SpecChangesMidRun_NextCallReadsTheNewSpec"
+  - "MasterToolComposition_MasterAndChildTools_AreWrapped (integration, real ServiceProvider)"
+
+done:
+  - "A sub-agent that answers nothing shows as Empty on the run's trail, in spawn_agents' result and in the decision line, never as Succeeded, and the execution tree shows it finished short, not waiting."
+  - "A master whose search of a path its spec cites, with or without the repository prefix, finds nothing reads, in that same result, a framework line naming the cited path and telling it to verify before concluding absence."
+  - "A master that writes into a repository its spec does not name, or runs a command whose cd climbs above /work, reads a framework line saying so, and the call's effect is unchanged."
+  - "No run is stopped, slowed or retried by a sanity observation; a result nothing flags is byte-identical to today's."
+  - "Build green, full suite green, dashboard gen/test/build green."

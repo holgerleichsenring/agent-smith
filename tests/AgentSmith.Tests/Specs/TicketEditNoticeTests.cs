@@ -19,7 +19,7 @@ public sealed class TicketEditNoticeTests
     {
         var previous = Set(SpecRevisionCause.Initial, SpecRevisionCause.Retrigger);
 
-        var section = PreviousCutPromptSection.Render(previous, SpecRevisionCause.TicketEdit);
+        var section = PreviousCutPromptSection.Render(previous, SpecRevisionCause.TicketEdit, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults);
 
         section.Should().Contain("The ticket text changed since revision 2 was cut.");
         section.Should().Contain("cut the specs that have not started from it");
@@ -30,7 +30,7 @@ public sealed class TicketEditNoticeTests
     [Fact]
     public void PreviousCut_AnyOtherCause_SaysNothingAboutAnEdit()
     {
-        var section = PreviousCutPromptSection.Render(Set(SpecRevisionCause.Initial), SpecRevisionCause.Retrigger);
+        var section = PreviousCutPromptSection.Render(Set(SpecRevisionCause.Initial), SpecRevisionCause.Retrigger, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults);
 
         section.Should().NotContain("The ticket text changed");
     }
@@ -38,7 +38,7 @@ public sealed class TicketEditNoticeTests
     [Fact]
     public void Comment_ATicketEditRevision_NamesTheRecutAndTheKeptSpecs()
     {
-        var body = SpecSetComment.Render(Set(SpecRevisionCause.Initial, SpecRevisionCause.TicketEdit), null);
+        var body = SpecSetComment.Render(Set(SpecRevisionCause.Initial, SpecRevisionCause.TicketEdit), null, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults);
 
         body.Should().Contain(
             "The ticket text changed since revision 1 was cut: p1a already ran and stayed as it was; "
@@ -50,13 +50,13 @@ public sealed class TicketEditNoticeTests
     {
         var set = Set(SpecRevisionCause.Initial, SpecRevisionCause.TicketEdit) with { Executed = [] };
 
-        SpecSetComment.Render(set, null).Should().Contain("no spec had run yet, so the whole set was cut again");
+        SpecSetComment.Render(set, null, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults).Should().Contain("no spec had run yet, so the whole set was cut again");
     }
 
     [Fact]
     public void Comment_AnyOtherRevision_SaysNothingAboutAnEdit()
     {
-        SpecSetComment.Render(Set(SpecRevisionCause.Initial), null).Should().NotContain("The ticket text changed");
+        SpecSetComment.Render(Set(SpecRevisionCause.Initial), null, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults).Should().NotContain("The ticket text changed");
     }
 
     [Fact]

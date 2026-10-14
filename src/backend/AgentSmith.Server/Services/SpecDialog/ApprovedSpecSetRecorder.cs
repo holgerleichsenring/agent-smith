@@ -73,12 +73,12 @@ public sealed class ApprovedSpecSetRecorder(
         var previous = await store.GetAsync(project.Tracker.Name, key.Value, cancellationToken);
         var set = new SpecSet(
             key.Value, [.. series.Drafts.Select(d => new DerivedSpec(d, LabelOf(d, previous), string.Empty, []))],
-            SpecAccounting.Empty, [], SpecSource.Approved, Approval: approval, Series: series.Id) { Goal = goal };
+            SpecAccounting.Empty, [], SpecSource.Approved, Approval: approval, Series: series.Id) { Goal = goal, Contract = series.Contract };
         var repositories = Repositories(state, project, basis);
         // 2026-09-25-c1f7: the ticket id as GIVEN (discovery names it in a tracker query; the key
         // re-spelled it). 2026-10-01-283df/e8b9k: the sets and images held NOW — the approval freezes them.
         var uncited = new SpecApprovalRecord(key.Value, set, repositories, project.Tracker.Name, basis?.Carrier
-            ?? placement.CarrierOf(series.Drafts, repositories), ticketId ?? string.Empty, Continuation: continuation);
+            ?? placement.CarrierOf(series.Drafts, repositories), ticketId ?? string.Empty, Continuation: continuation) { ReviewRounds = ApprovedReviewRounds.Merge(previous, series, continuation) };
         var record = await _citations.SaveAsync(
             await _citations.CiteAsync(uncited, state.JobId, cancellationToken), state.JobId, cancellationToken);
         logger.LogInformation(

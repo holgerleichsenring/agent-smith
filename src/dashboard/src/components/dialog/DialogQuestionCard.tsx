@@ -1,6 +1,7 @@
 "use client";
 
 import { DialogProposalFindings } from "@/components/dialog/DialogProposalFindings";
+import { DialogProposalRounds } from "@/components/dialog/DialogProposalRounds";
 import { Markdown } from "@/components/ui/Markdown";
 import type { TicketApprovalEffect } from "@/lib/tickets/approvalEffect";
 import type {
@@ -77,7 +78,9 @@ export function DialogQuestionCard({
 }) {
   const expired = hasExpired(question);
   const bound = question.kind === "approval" && ticketEffect ? ticketEffect : null;
-  const controls = expired ? [] : controlsFor(question, bound);
+  // 2026-10-13-8762i: a proposal with specs not reviewed yet cannot be approved — the server holds it anyway.
+  const unreviewed = (proposal?.notReviewed?.length ?? 0) > 0;
+  const controls = expired ? [] : controlsFor(question, bound, unreviewed);
   const decision = question.kind === "approval" && !expired;
   const shapes = decision && question.choices.length > 0;
   const summary = decision ? (bound ? bound.summary : proposal ? summaryOf(proposal) : null) : null;
@@ -105,6 +108,7 @@ export function DialogQuestionCard({
             : "Nothing was saved about this proposal, so this page cannot show it. Reject it and ask for a fresh one."}
         </p>
       )}
+      {decision && proposal && <DialogProposalRounds rounds={proposal.reviewRounds} notReviewed={proposal.notReviewed} />}
       {decision && proposal && <DialogProposalFindings findings={proposal.findings} />}
       {question.text.trim().length > 0 && <Markdown>{question.text}</Markdown>}
       <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -144,9 +148,9 @@ export function DialogQuestionCard({
   );
 }
 
-function controlsFor(question: SpecDialogQuestionPush, bound: TicketApprovalEffect | null): Control[] {
+function controlsFor(question: SpecDialogQuestionPush, bound: TicketApprovalEffect | null, unreviewed: boolean): Control[] {
   if (question.kind === "approval") {
-    const approve: Control[] = bound && !bound.approvable ? []
+    const approve: Control[] = unreviewed || (bound && !bound.approvable) ? []
       : [{ label: bound ? "Approve" : "Approve & file", answer: "approve", primary: true, decision: "approved" }];
     return [
       ...approve,

@@ -20,7 +20,7 @@ public sealed class TicketContinuationDecideTests
     {
         var state = Worked(executed: [A], Basis(A), Basis(B));
 
-        var decision = TicketContinuation.Decide(state, Lone(Draft(A, "spec: a\ngoal: rewritten after it ran")));
+        var decision = TicketContinuation.Decide(state, Lone(Draft(A, "spec: a\ngoal: rewritten after it ran")), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Settings());
 
         decision.Effect.Should().Be(TicketContinuationEffects.Continue);
         decision.Specs.Single(s => s.SpecId == A).Should().Match<TicketContinuationSpec>(s =>
@@ -33,11 +33,11 @@ public sealed class TicketContinuationDecideTests
     {
         var state = Worked(executed: [A], Basis(A), Basis(B), Basis(C));
 
-        var decision = TicketContinuation.Decide(state, Lone(Draft(B, "spec: b\ngoal: a better b")));
+        var decision = TicketContinuation.Decide(state, Lone(Draft(B, "spec: b\ngoal: a better b")), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Settings());
 
         Kinds(decision).Should().Equal(
             (B, SpecDispositionKinds.Recut), (A, SpecDispositionKinds.Kept), (C, SpecDispositionKinds.Kept));
-        TicketContinuation.Decide(state, Lone(Draft(B, Yaml(B)))).Specs.Single(s => s.SpecId == B)
+        TicketContinuation.Decide(state, Lone(Draft(B, Yaml(B))), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Settings()).Specs.Single(s => s.SpecId == B)
             .Disposition.Should().Be(SpecDispositionKinds.Kept, "a byte-identical repeat changes nothing");
     }
 
@@ -53,7 +53,7 @@ public sealed class TicketContinuationDecideTests
             Draft("new-one", "spec: new-one\nrequires:\n  - " + C + "\n", [C]),
             Draft("new-two", "spec: new-two\nrequires:\n  - new-one\n", ["new-one"])]);
 
-        var decision = TicketContinuation.Decide(state, epic);
+        var decision = TicketContinuation.Decide(state, epic, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Settings());
 
         decision.Specs.Where(s => s.Disposition == SpecDispositionKinds.Appended).Select(s => s.SpecId)
             .Should().Equal(Series + "e", Series + "f");
@@ -68,7 +68,7 @@ public sealed class TicketContinuationDecideTests
         var state = Worked(executed: [A], Basis(A), Basis(B), Basis(C));
 
         var decision = TicketContinuation.Decide(state,
-            new EpicOutcome(Draft("p-parent", "spec: p-parent"), [Draft(B, "spec: b\ngoal: changed")]));
+            new EpicOutcome(Draft("p-parent", "spec: p-parent"), [Draft(B, "spec: b\ngoal: changed")]), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Settings());
 
         Kinds(decision).Should().Equal(
             (B, SpecDispositionKinds.Recut), (A, SpecDispositionKinds.Kept), (C, SpecDispositionKinds.Dropped));
@@ -80,11 +80,25 @@ public sealed class TicketContinuationDecideTests
     {
         var state = Worked(executed: []) with { ClosedForWork = true, BasisRunId = null };
 
-        var decision = TicketContinuation.Decide(state, Lone(Draft("x", "spec: x")));
+        var decision = TicketContinuation.Decide(state, Lone(Draft("x", "spec: x")), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Settings());
 
         decision.Effect.Should().Be(TicketContinuationEffects.FollowUpClosed);
         decision.Drafts.Should().ContainSingle();
         decision.Reason.Should().Contain("closed by a person");
+    }
+
+    /// <summary>2026-10-13-8762u: dropped basis ids stay taken, so a series of few specs can still need a 27th letter.</summary>
+    [Fact]
+    public void TicketContinuation_AppendPastLetterZ_Refused()
+    {
+        var letters = Enumerable.Range(0, 26).Select(i => $"{Series}{(char)('a' + i)}").ToArray();
+        var state = Worked(executed: [A], [.. letters.Select(Basis)]);
+        var epic = new EpicOutcome(Draft("p", "spec: p"), [Draft(A, Yaml(A)), Draft("new-one", "spec: new-one", [A])]);
+
+        var decision = TicketContinuation.Decide(state, epic, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Settings());
+
+        decision.Effect.Should().Be(TicketContinuationEffects.RefusedOverCap);
+        decision.Reason.Should().Contain("has used its 26 member letters (a..z)").And.Contain("Nothing was recorded");
     }
 
     private static IEnumerable<(string, string)> Kinds(TicketContinuationDecision decision) =>

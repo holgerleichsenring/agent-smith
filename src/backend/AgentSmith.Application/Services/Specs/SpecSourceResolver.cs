@@ -32,6 +32,7 @@ public sealed class SpecSourceResolver(
     ApprovedSetHandoff handoff,
     ApprovedContinuation continuation, // 2026-10-13-9a59l
     FiledTicketSpecGate filedGate,
+    ISeriesSettingsReader series, // 2026-10-13-8762u
     ILogger<SpecSourceResolver> logger)
 {
     /// <summary>What the run should work from, and whether the model has to be called.</summary>
@@ -84,20 +85,21 @@ public sealed class SpecSourceResolver(
         {
             var artifact = read with { Set = SpecRecutDemand.PreviousOf(read) };
             if (continuation.Decide(artifact.Set, record, cause) is { } continued) return continued;
-            var amend = SpecAmendmentRule.NeedsModel(cause, artifact.Set, foreignCommitSinceHandback);
-            var expired = foreignCommitSinceHandback && artifact.Set.IsHandedBack;
+            // 2026-10-13-8762h: a review-objection question is stripped; a bare re-trigger over it, asked, builds unchanged.
+            var (set, amend) = Review.ReviewObjectionSource.Decide(artifact.Set, cause, pipeline, foreignCommitSinceHandback, series.Current().Series);
+            var expired = foreignCommitSinceHandback && set.IsHandedBack;
             logger.LogInformation(
                 "Spec set {Key} came off the ticket branch ({Specs} spec(s)); {Mode}",
-                key, artifact.Set.Specs.Count,
+                key, set.Specs.Count,
                 amend ? "amending it with the new input" : "using it unchanged");
             return new Decision(
-                SpecSource.BranchArtifact, artifact.Set, amend, Cause: cause,
+                SpecSource.BranchArtifact, set, amend, Cause: cause,
                 // 2026-10-08-f114: a Request changes re-derives but does not re-approve — the prior
                 // approval, conversation included, rides along; an unapproved set records none.
                 // 2026-10-12-3a36b: so does an expired hand-back's, onto the set derived again.
-                Approval: SpecRecutDemand.ApprovalFor(cause, artifact.Set, pipeline)
-                    ?? (expired || cause is SpecRevisionCause.Rework or SpecRevisionCause.StatusBack
-                        ? artifact.Set.Approval : null),
+                Approval: SpecRecutDemand.ApprovalFor(cause, set, pipeline)
+                    ?? (expired || cause is SpecRevisionCause.Rework or SpecRevisionCause.StatusBack or SpecRevisionCause.Overrule
+                        ? set.Approval : null),
                 Expired: expired);
         }
 

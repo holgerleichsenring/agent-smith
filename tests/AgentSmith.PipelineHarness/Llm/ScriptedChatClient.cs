@@ -20,6 +20,7 @@ public sealed class ScriptedChatClient : IChatClient
     private readonly List<ScriptedToolCall> _toolCalls = new();
     private readonly ScopeClassificationScript _scopeScript = new();
     private readonly SpecReviewScript _specReviewScript = new();
+    private readonly SpecAttackScript _specAttackScript = new(); // 2026-10-13-8762g
     private int _toolCallCounter;
 
     public int InvocationCount { get; private set; }
@@ -41,8 +42,14 @@ public sealed class ScriptedChatClient : IChatClient
     /// drove. The scope classification is not excluded: it is a PRELUDE, so a preset whose
     /// only call is that one still reads it here, exactly as it did before the review existed.
     /// </summary>
+    /// <summary>2026-10-13-8762i: the calls the script answered — every call but the framework's own spec-review
+    /// and attack-review calls, which a design turn now makes after its proposal.</summary>
+    public int ScriptedInvocationCount =>
+        _callMessages.Count(m => !SpecReviewScript.Answers(m) && !SpecAttackScript.Answers(m));
+
     public IReadOnlyList<ChatMessage> LastScriptedMessages =>
-        _callMessages.LastOrDefault(m => !SpecReviewScript.Answers(m)) ?? Array.Empty<ChatMessage>();
+        _callMessages.LastOrDefault(m => !SpecReviewScript.Answers(m) && !SpecAttackScript.Answers(m))
+        ?? Array.Empty<ChatMessage>();
 
     /// <summary>Each call's messages joined to one string, in order.</summary>
     public IReadOnlyList<string> PromptsSeen =>
@@ -123,6 +130,8 @@ public sealed class ScriptedChatClient : IChatClient
             return Task.FromResult(_scopeScript.Next());
         if (SpecReviewScript.Answers(LastMessages))
             return Task.FromResult(_specReviewScript.Next());
+        if (SpecAttackScript.Answers(LastMessages))
+            return Task.FromResult(_specAttackScript.Next());
         if (_responses.Count == 0) return Task.FromResult(DefaultEmpty());
         var next = _responses.Dequeue();
         if (next is Func<ChatResponse> deferred)

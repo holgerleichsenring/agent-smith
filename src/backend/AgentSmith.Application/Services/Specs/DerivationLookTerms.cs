@@ -90,4 +90,15 @@ public sealed record DerivationLookTerms(
         "Report only on the files you did read; say nothing about the rest.",
         "a finding you report cites that id in \"cites\", and one that cites none is discarded.",
         NumberedReads: true, MayRunAStage: false);
+
+    /// <summary>2026-10-13-8762e: a fresh reviewer attacking a spec before it is built; at least 24 looks.</summary>
+    public static DerivationLookTerms AttackReview { get; } = new(
+        "attack review", 24, "A", "Answer on what you opened; claim nothing about a cited file you did not open.",
+        "a cut or finding you report cites that id in \"cites\", and one that cites none is discarded.",
+        NumberedReads: true, MayRunAStage: false);
+
+    /// <summary>2026-10-13-8762e: sized to one spec — its distinct cited paths plus 12, never below 24.</summary>
+    public static DerivationLookTerms AttackReviewFor(Contracts.Models.SpecDraft draft) =>
+        AttackReview with
+        { Allowance = Math.Max(AttackReview.Allowance, Review.SpecCitations.DistinctPaths(draft) + 12) };
 }

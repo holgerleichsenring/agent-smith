@@ -9,8 +9,13 @@ import type {
   TicketAttempt,
   TicketConversation,
   TicketConversationEntry,
+  TicketDefault,
+  TicketDefaults,
   TicketDetail,
+  TicketReviewRound,
+  TicketReviews,
   TicketSeries,
+  TicketSeriesBudget,
   TicketSeriesSpec,
   TicketText,
 } from "@/types/tickets";
@@ -44,6 +49,10 @@ export function series(runId: string, specs: TicketSeriesSpec[], over: Partial<T
     handback: null, gate: { status: "passed", specCount: specs.length, runId }, specs, revisions: [], recorded: true,
     ...over,
   };
+}
+
+export function budget(over: Partial<TicketSeriesBudget> = {}): TicketSeriesBudget {
+  return { spentUsd: 42.5, capUsd: 150, elapsedHours: 3.25, capHours: 12, chainFrom: 1, next: "start", heldBecause: null, ...over };
 }
 
 export function pass(over: Partial<RunPass> = {}): RunPass {
@@ -115,6 +124,33 @@ export function compute(runId: string, over: Partial<RunCompute> = {}): RunCompu
     runId, spawns: [spawn()], segments: [segment()], unattributedCalls: 0,
     uncounted: [{ kind: "browser", label: "browser sandboxes" }],
     ...over,
+  };
+}
+
+// 2026-10-13-8762l: the review rounds read — no attempt and no approval record by default.
+export function reviews(over: Partial<TicketReviews> = {}): TicketReviews {
+  return { project: "shop", ticketId: "101", attempts: [], conversation: null, ...over };
+}
+
+export function reviewRound(over: Partial<TicketReviewRound> = {}): TicketReviewRound {
+  return {
+    scope: "spec", specId: "s1", round: 1, verdict: "build", reviewers: [], cuts: [], findings: [], residues: [],
+    revisionNumber: null, at: "2026-09-04T14:00:00Z", ...over,
+  };
+}
+
+// 2026-10-13-8762q: the defaults read — none by default; a pending decision default of attempt 1.
+export function defaults(entries: TicketDefault[] = [], over: Partial<TicketDefaults> = {}): TicketDefaults {
+  const pending = entries.filter((e) => e.verdict === "pending");
+  return { pending: pending.length, pendingHoldingSeries: pending.filter((e) => e.holdsSeries).length, entries, ...over };
+}
+
+export function defaultEntry(over: Partial<TicketDefault> = {}): TicketDefault {
+  return {
+    id: 1, runId: "r-1", attempt: 1, conversation: null, specId: "s1", question: "Which header names?",
+    chosen: "IETF draft", alternatives: ["X-RateLimit-*"], why: "The draft is what clients read.", holdsSeries: false,
+    kind: "decision", pointerPath: null, takenAt: "2026-09-04T14:00:00Z", verdict: "pending", verdictBy: null,
+    verdictAt: null, verdictNote: null, landed: null, ...over,
   };
 }
 

@@ -96,6 +96,11 @@ public sealed class ContextYamlFormatTests
         WriteContextYamlToolDescription.Document.Should()
             .Contain("format?: { command, when_present? }").And.Contain("{files}");
 
+    [Fact]
+    public void WriteContextYamlToolDescription_NamesWhenChanged() =>
+        WriteContextYamlToolDescription.Document.Should()
+            .Contain("{ label, command, when_present?, when_changed? }").And.Contain("'**' any number of path segments");
+
     private static JsonElement Document(string command) => JsonDocument.Parse($$"""
         {
           "meta": { "workdir": "." },

@@ -41,4 +41,9 @@ public static partial class ContextKeys
     /// (<see cref="Domain.Models.RunSpecReviews"/>), kept like the account ledger because the
     /// pull request is built once at the end and the per-spec keys clear at SelectSpec.</summary>
     public const string RunSpecReviews = "RunSpecReviews";
+
+    /// <summary>2026-10-13-8762g: where this attempt stops building
+    /// (<see cref="Specs.SpecSequenceStop"/>) — the first spec the review did not clear. In memory
+    /// only; SpecSequence splices the specs before it and defers the rest.</summary>
+    public const string SpecSequenceStop = "SpecSequenceStop";
 }

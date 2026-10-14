@@ -94,10 +94,10 @@ public sealed class HandbackExpiryTests
             new SpecSourceResolver(
                 new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance), AgentSmith.Tests.TestSupport.ApprovedSetDoubles.Continuation(),
                 new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
-                NullLogger<SpecSourceResolver>.Instance),
+                AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), NullLogger<SpecSourceResolver>.Instance),
             fallback, new SpecCoverageRefusal(gate, fallback),
             new SpecSetTicketCommenter(tickets.Object, Mock.Of<AgentSmith.Contracts.Reviews.IFullSetPrNotice>(),
-                NullLogger<SpecSetTicketCommenter>.Instance),
+                AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), NullLogger<SpecSetTicketCommenter>.Instance),
             ApprovedSetDoubles.KeptNotice(), gate,
             new UnansweredQuestionPin(NullLogger<UnansweredQuestionPin>.Instance),
             new UnansweredQuestionNotice(tickets.Object, NullLogger<UnansweredQuestionNotice>.Instance),

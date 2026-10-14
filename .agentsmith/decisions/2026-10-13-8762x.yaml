@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-8762x
+
+decisions:
+  - category: Process
+    chose: "One skills release (v5.16.0) carries every master edit of the series; the embedded pin moves once, at the end"
+    over: "An earlier release after 8762k so live design turns emit contract: sooner"
+    reason: |
+      Contract decision 22: the pin moves once and no member waits mid-series on an operator merge.
+      Default, pending operator ratification.
+  - category: Process
+    chose: "DEVIATION: x cut the skills branch fresh from origin/main (f9655e8, release 5.15.1) and applied all 13 member sentences itself, in one commit"
+    over: "Rebasing a skills branch carrying the members' own commits, as the spec's assumption describes"
+    reason: |
+      Members i, j, m, o, r and u did not commit their master edits on skills branch spec/2026-10-13-8762 — the
+      build brief reserved skills edits for x — and handed their exact sentences forward in the build notes
+      instead. With no member commits there was nothing to rebase, so the skills-branch step became "cut and
+      apply". Every build-note sentence was grepped verbatim on the branch (13/13), validate-skills.sh was green
+      and the three masters carry no "phase". PR #230 (squash 8f6037a), release PR #231, tag v5.16.0.
+  - category: Process
+    chose: "One frontmatter version bump per touched master, made here: coding-agent-master 1.31.0 -> 1.32.0, design-partner-master 1.15.1 -> 1.16.0, spec-derivation-master 1.7.1 -> 1.8.0; descriptions unchanged"
+    over: "A bump per member edit"
+    reason: |
+      Five members edited design-partner-master on one unreleased branch; a bump each would leave a version
+      history naming nothing that shipped. Main-thread decision 16. Default, pending operator ratification.
+  - category: Implementation
+    chose: "Each sentence sits on ONE line of its master, placed beside its siblings: 8762r as a list bullet after **A design mock.**; 8762j design-partner as a Rules bullet after the first rule of ## Proposing an epic; 8762j spec-derivation as its own paragraph after the JSON shape and the question hand-back example; 8762i as its own paragraph after the outcome list; 8762m directly under ## Your verdict; 8762o design-partner as a bullet after the ask_human bullet; 8762u's spec-derivation sentence rejoined onto one line"
+    over: "Wrapping the sentences across lines like the surrounding prose"
+    reason: |
+      A raw Contains assertion over the packaged master matches only a sentence kept on one line, and each
+      placement keeps the shape of the list or section it joins.
+  - category: Implementation
+    chose: "Pin v5.16.0 with SHA256 95fe7ffb…a318, verified against the release's .sha256 asset and recomputed locally; the v5.15.1 tarball is deleted and the build's RestoreSkillsCatalog downloaded the new one (byte-identical to the gh download)"
+    over: "Moving from v5.15.0 as the spec's facts state"
+    reason: |
+      main had already moved the pin to v5.15.1 (with #228's coding-agent-master fix and #227's validator rule)
+      before this commit, so the move is from v5.15.1; the release is cut on top of 5.15.1 and the pin brings
+      that fix with it.
+  - category: Implementation
+    chose: "MinimumVersion stays v5.13.0; SkillsConfigValidatorTests' accepted pin v5.15.0 is replaced by v5.16.0"
+    over: "Raising the floor to the new release"
+    reason: |
+      Every tool of the series carries its contract in its description (contract 2.8), so an older pulled pin
+      still runs; raising the floor would refuse a working configuration.
+  - category: Implementation
+    chose: "your-own-skills.md:71 moves the version only, keeping the example overlay's counts"
+    over: "Regenerating the line's counts from the base tarball"
+    reason: |
+      The line is LoadCatalogHandler's run-time output for a run with an overlay; its counts belong to the
+      example overlay (the base tarball has 14 masters, the line says 15). The previous bump did the same.
+  - category: Testing
+    chose: "SeriesSkillRulesTests (107 lines, one file) quotes each member's exact build-note sentence and reads it through PackagedMaster; the epic size test also asserts the old \"between two and eight\" wording is gone"
+    over: "Paraphrased keyword assertions, or one file per master"
+    reason: |
+      Quoting the member's own sentence keeps the assertion on what was written. The file stays under the
+      120-line limit, so the spec's split-per-master clause does not apply. MasterPromptTokenDriftTests and the
+      composed-principles goldens pass on v5.16.0 unchanged — the new brace groups are lowercase and no golden
+      moved.
+  - category: Process
+    chose: "A deployment whose config pins skills.version keeps its pinned masters; the commit names v5.16.0 as the tag to set"
+    over: "Touching operator config from this repo"
+    reason: |
+      A configured skills block overrides the embedded catalog; deployed config is the operator's and is not committed.

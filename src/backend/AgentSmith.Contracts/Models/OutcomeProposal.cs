@@ -26,6 +26,13 @@ public abstract record OutcomeProposal
     /// review and a review that could not be taken alike: neither is a fault.
     /// </summary>
     public IReadOnlyList<ProposalFinding> Findings { get; init; } = [];
+
+    /// <summary>2026-10-13-8762i: every review round of the proposal's drafts, beside its findings.</summary>
+    public IReadOnlyList<ProposalReviewRound> ReviewRounds { get; init; } = [];
+
+    /// <summary>2026-10-13-8762i: the spec ids (or <see cref="ProposalReviewTokens.Series"/>) not reviewed yet,
+    /// which cannot be approved; null when all were.</summary>
+    public IReadOnlyList<string>? NotReviewed { get; init; }
 }
 
 /// <summary>A grounded answer — the turn ends with no artifact.</summary>
@@ -39,6 +46,6 @@ public sealed record SpecOutcome(SpecDraft Draft) : OutcomeProposal;
 
 /// <summary>
 /// A feature too big for one spec: a parent spec plus ordered child specs
-/// linked by requires: edges, each schema-valid on its own.
+/// linked by requires: edges, each schema-valid on its own. 2026-10-13-8762j: <c>Contract</c> is its series contract, keyed by child ids.
 /// </summary>
-public sealed record EpicOutcome(SpecDraft Parent, IReadOnlyList<SpecDraft> Children) : OutcomeProposal;
+public sealed record EpicOutcome(SpecDraft Parent, IReadOnlyList<SpecDraft> Children, Specs.SeriesContract? Contract = null) : OutcomeProposal;

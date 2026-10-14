@@ -18,7 +18,7 @@ namespace AgentSmith.Application.Services.Configuration;
 public sealed class AgentSmithConfigValidator(SkillsConfigValidator skills)
 {
     public IReadOnlyList<string> Validate(AgentSmithConfig config) =>
-        Findings(config).Select(f => f.Reason).ToList();
+        Findings(config).Where(f => f.IsBlocking).Select(f => f.Reason).ToList();
 
     public IReadOnlyList<StartupFinding> Findings(AgentSmithConfig config)
     {
@@ -28,7 +28,7 @@ public sealed class AgentSmithConfigValidator(SkillsConfigValidator skills)
         ValidateProjectResolutionPresence(config.Projects, errors);
         ValidateRepoStrategySingleRepo(config.Projects, errors);
         ValidatePipelineOverrides(config.Projects, errors);
-        errors.AddRange(skills.Findings(config.Skills));
+        errors.AddRange([.. skills.Findings(config.Skills), .. SeriesConfigValidator.Findings(config)]);
         return errors;
     }
 

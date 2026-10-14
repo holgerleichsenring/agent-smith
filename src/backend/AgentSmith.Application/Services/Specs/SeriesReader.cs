@@ -89,5 +89,6 @@ public sealed class SeriesReader(
             executed, manifest.FingerprintOf(doc), manifest.ApprovalOf(doc), seriesBase)
         {
             Goal = string.IsNullOrWhiteSpace(doc.Goal) ? null : doc.Goal,
+            Contract = SeriesContractYaml.Read(doc.Contract), // 2026-10-13-8762j
         };
 }

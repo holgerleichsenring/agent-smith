@@ -117,6 +117,18 @@ describe("AppRail Configuration mode", () => {
     );
   });
 
+  // 2026-10-13-8762w: the spec review and the series are settings singletons, listed right after Dialogue.
+  it("SettingsStudio_Rail_ListsSpecReviewAndSeries", async () => {
+    renderRail();
+    const review = screen.getByTestId("app-rail-item-Spec review");
+    const series = screen.getByTestId("app-rail-item-Series");
+    expect(review).toHaveAttribute("href", "/config/settings/spec_review");
+    expect(series).toHaveAttribute("href", "/config/settings/series");
+    const order = (el: Element) => [...document.querySelectorAll("[data-testid^='app-rail-item-']")].indexOf(el);
+    expect(order(review)).toBe(order(screen.getByTestId("app-rail-item-Dialogue")) + 1);
+    expect(order(series)).toBe(order(review) + 1);
+  });
+
   it("AppRail_SettingsRoute_MarksTheActiveSettingsItem", async () => {
     usePathname.mockReturnValue("/config/settings/orchestrator");
     renderRail();

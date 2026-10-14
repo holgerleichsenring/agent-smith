@@ -29,7 +29,7 @@ public static class PremiseCheckPrompt
 
     public static string For(
         SpecDraft draft, SpecPremises premises, DerivationLook look,
-        IReadOnlyList<SpecProgress> alreadyRan)
+        IReadOnlyList<SpecProgress> alreadyRan, IReadOnlyList<PrecedingNote>? notes = null)
     {
         ArgumentNullException.ThrowIfNull(draft);
         ArgumentNullException.ThrowIfNull(premises);
@@ -76,7 +76,7 @@ public static class PremiseCheckPrompt
                 "cites": "<the evidence id of the look that shows it, e.g. {{look.Terms.EvidencePrefix}}2; null when you could not look>"}]
 
             An empty array means every premise below still holds.
-            {{DerivationLookPromptSection.Render(look)}}{{AlreadyRan(alreadyRan)}}
+            {{DerivationLookPromptSection.Render(look)}}{{AlreadyRan(alreadyRan, notes ?? [])}}
             THE SPEC
             {{SpecQuotableText.Render(draft)}}
 
@@ -89,9 +89,9 @@ public static class PremiseCheckPrompt
     /// The predecessors whose work is already in the repositories. A set is cut as a sequence and
     /// each spec commits before the next is entered, so a later spec's premises are written
     /// against the state the earlier ones leave — and a reader who is not told this reports every
-    /// one of them as broken.
+    /// one of them as broken. 2026-10-13-8762m: with the build notes they handed forward.
     /// </summary>
-    private static string AlreadyRan(IReadOnlyList<SpecProgress> alreadyRan)
+    private static string AlreadyRan(IReadOnlyList<SpecProgress> alreadyRan, IReadOnlyList<PrecedingNote> notes)
     {
         if (alreadyRan.Count == 0) return string.Empty;
         return "\n## Specs of this series that have already run\n"
@@ -99,6 +99,7 @@ public static class PremiseCheckPrompt
             + "\nTheir work is COMMITTED in the repositories you are looking at, and the spec "
             + "below was written against the state they leave. A premise is not broken merely "
             + "because one of them changed what it describes — that is the sequence working. "
-            + "Report a premise only where what the spec rests on is not so even after they ran.\n";
+            + "Report a premise only where what the spec rests on is not so even after they ran.\n"
+            + SpecBuildNoteSection.Render(notes);
     }
 }

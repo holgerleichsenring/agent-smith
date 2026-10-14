@@ -55,6 +55,7 @@ public static partial class PipelinePresets
         // findable once the code has been read.
         CommandNames.DeriveSpec,
         CommandNames.SpecHandback,        // not implementable / contradicts the repo => park
+        CommandNames.ReviewSpecs, // 2026-10-13-8762g: each unbuilt spec attacked before it binds
         CommandNames.SpecGate,       // spec validated before a single master token
         CommandNames.EnsurePrerequisites, // p0202e: analyzer-derived, before the master
         // 2026-09-01-379a: after the prerequisites installed the CLI the probe calls,

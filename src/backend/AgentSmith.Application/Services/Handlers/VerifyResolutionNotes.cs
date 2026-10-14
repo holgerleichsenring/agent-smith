@@ -53,6 +53,16 @@ public sealed class VerifyResolutionNotes
             + "because the when_present path each of them needs is absent from this "
             + "repository — nothing was left to run.");
 
+    /// <summary>Repositories whose every stage when_changed skipped: answered, and green.</summary>
+    public List<string> NoStageApplies { get; } = [];
+
+    public void NotTouched(string key, string label, IReadOnlyList<string> globs) => Searched.Add(
+        $"{Named(key)}: {label} skipped — its when_changed globs [{string.Join(", ", globs)}] match nothing this repository's branch changed");
+
+    public void NothingApplies(string repository, IReadOnlyList<string> globs) =>
+        NoStageApplies.Add($"{Named(repository)}: no stage applies to this change — when_changed globs "
+            + $"[{string.Join(", ", globs)}] match nothing its branch changed");
+
     private static string Named(string key) => string.IsNullOrEmpty(key) ? "(default)" : key;
 
     private static string Language(string? primaryLanguage) =>

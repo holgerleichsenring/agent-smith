@@ -239,7 +239,7 @@ public sealed class UnmovedTicketClaimTests : IDisposable
         var transitionerFactory = new Mock<ITicketStatusTransitionerFactory>();
         transitionerFactory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(transitioner.Object);
         return new TicketClaimService(
-            claimLock.Object, _store, transitionerFactory.Object, _jobQueue.Object,
+            claimLock.Object, _store, new AgentSmith.Application.Services.Resume.NullPreviousAttemptReader(), transitionerFactory.Object, _jobQueue.Object,
             new NoOpActiveRunLease(), new InMemoryTakenTicketStore(),
             NullLogger<TicketClaimService>.Instance);
     }
@@ -254,7 +254,7 @@ public sealed class UnmovedTicketClaimTests : IDisposable
         ApprovedSetDoubles.Carrier(),
         CapacityTestDoubles.NoNudge(),
         _store,
-        Moq.Mock.Of<AgentSmith.Contracts.Services.IActiveRunLease>(), NullLogger<SpawnPipelineRunsUseCase>.Instance);
+        Moq.Mock.Of<AgentSmith.Contracts.Services.IActiveRunLease>(), NullLogger<SpawnPipelineRunsUseCase>.Instance, new AgentSmith.Application.Services.Resume.NullPreviousAttemptReader());
 
     private CapacityQueuePump Pump(out Mock<IRedisJobQueue> resumeQueue)
     {

@@ -2,12 +2,15 @@
 
 import { isRunLive } from "@/lib/runLiveness";
 import type { TicketAttempt, TicketSeriesSpec } from "@/types/tickets";
+import { BuildNote } from "./BuildNote";
+import { ReviewRounds } from "./ReviewRounds";
 import { criterionRow, overruleWords, recordNoteWords, specStatePill } from "./specWords";
 
 // 2026-10-13-9a59r: one spec as a document — spec n, state, repository, the attempt that executed it, the
 // goal as heading (no separate title is served), the file stem, steps as worked (9a59f: the attempt and
-// pass that completed each), done when, and the read-only note. A spec read from the run record has no file
-// stem and nothing to discuss, and one without a readable record says only its goal was kept.
+// pass that completed each), done when, the build note (8762m), the review rounds (8762l) and the read-only
+// note. A spec read from the run record has no file stem and nothing to discuss, and one without a readable
+// record says only its goal was kept.
 
 interface Props {
   spec: TicketSeriesSpec;
@@ -72,6 +75,8 @@ export function SpecDocument({ spec, attempts, runRecord = false, onDiscuss }: P
             })}
           </div>
         </div>
+        {spec.buildNote && <BuildNote note={spec.buildNote} />}
+        <ReviewRounds specId={spec.specId} />
         {!runRecord && (
           <div className="ro-note">
             <span>Read-only. A spec changes only through the ticket conversation, and an executed spec never changes.</span>

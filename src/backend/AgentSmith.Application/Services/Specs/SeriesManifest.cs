@@ -37,7 +37,7 @@ public sealed class SeriesManifest
             {
                 Number = r.Number, Cause = r.Cause, At = r.At.ToString("O", CultureInfo.InvariantCulture),
             })],
-            TicketFingerprint = set.TicketFingerprint,
+            TicketFingerprint = set.TicketFingerprint, Contract = SeriesContractYaml.Write(set.Contract), // 2026-10-13-8762j
         };
         WriteAccounting(doc, set.Accounting);
         WriteHandbackAndApproval(doc, set);
@@ -92,6 +92,7 @@ public sealed class SeriesManifest
             ? new SpecHandback(
                 parsed, doc.HandbackReason ?? string.Empty,
                 Readings: doc.HandbackReadings, Taken: doc.HandbackTaken)
+            { QuestionKind = Enum.TryParse<SpecQuestionKind>(doc.HandbackQuestionKind, true, out var kind) ? kind : default }
             : null;
 
     private static void WriteAccounting(SeriesManifestDocument doc, SpecAccounting accounting)
@@ -111,6 +112,7 @@ public sealed class SeriesManifest
         doc.HandbackReason = set.Handback?.Reason;
         doc.HandbackReadings = [.. set.Handback?.Readings ?? []];
         doc.HandbackTaken = set.Handback?.Taken ?? 0;
+        doc.HandbackQuestionKind = set.Handback?.QuestionKind is { } kind and not SpecQuestionKind.Reading ? kind.ToString() : null;
         doc.ApprovedAt = set.Approval?.At.ToString("O", CultureInfo.InvariantCulture);
         doc.ApprovedInConversation = set.Approval?.Conversation;
         doc.ApprovedBy = set.Approval?.Principal;

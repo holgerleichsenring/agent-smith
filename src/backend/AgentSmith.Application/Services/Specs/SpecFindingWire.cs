@@ -17,7 +17,7 @@ internal sealed record SpecFindingWire(
         new(Repository ?? string.Empty, Path ?? string.Empty, LineNumber(Line),
             Rule ?? string.Empty, Why ?? string.Empty, CitationText(Cites));
 
-    private static int LineNumber(JsonElement? line) => line?.ValueKind switch
+    internal static int LineNumber(JsonElement? line) => line?.ValueKind switch
     {
         JsonValueKind.Number => line.Value.TryGetInt32(out var n) ? n : 0,
         JsonValueKind.String => Digits(line.Value.GetString()),
@@ -30,7 +30,7 @@ internal sealed record SpecFindingWire(
                 .TakeWhile(char.IsAsciiDigit).ToArray()),
             out var n) ? n : 0;
 
-    private static string? CitationText(JsonElement? cites) => cites?.ValueKind switch
+    internal static string? CitationText(JsonElement? cites) => cites?.ValueKind switch
     {
         JsonValueKind.String => cites.Value.GetString(),
         JsonValueKind.Array => string.Join(", ", cites.Value.EnumerateArray()

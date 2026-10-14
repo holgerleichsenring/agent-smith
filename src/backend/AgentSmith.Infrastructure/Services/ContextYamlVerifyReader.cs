@@ -21,7 +21,8 @@ internal static class ContextYamlVerifyReader
             .Where(block => !string.IsNullOrWhiteSpace(block.Label)
                             && !string.IsNullOrWhiteSpace(block.Command))
             .Select(block => new ContextYamlVerifyStage(
-                block.Label!.Trim(), block.Command!.Trim(), Trimmed(block.WhenPresent)))
+                block.Label!.Trim(), block.Command!.Trim(), Trimmed(block.WhenPresent),
+                Globs(block.WhenChanged)))
             .ToList();
         return stages.Count > 0 ? stages : null;
     }
@@ -41,6 +42,13 @@ internal static class ContextYamlVerifyReader
         return files is { Count: > 0 }
             ? new ContextYamlVerifyDerivation(files, Trimmed(block!.Hash))
             : null;
+    }
+
+    // Trimmed, blank entries dropped; nothing left is no condition.
+    private static IReadOnlyList<string>? Globs(IReadOnlyList<string>? globs)
+    {
+        var kept = globs?.Where(glob => !string.IsNullOrWhiteSpace(glob)).Select(glob => glob.Trim()).ToList();
+        return kept is { Count: > 0 } ? kept : null;
     }
 
     private static string? Trimmed(string? value) =>

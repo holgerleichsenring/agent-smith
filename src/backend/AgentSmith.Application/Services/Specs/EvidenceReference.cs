@@ -17,3 +17,9 @@ public sealed record EvidenceReference(
     public bool IsHostShaped =>
         EvidenceGrammar.HostSegment().IsMatch(Path.Split('/', 2)[0]);
 }
+
+/// <summary>2026-10-13-8762n: one path token of an evidence line as written, and what it was read as.</summary>
+public sealed record EvidenceToken(string Text, EvidenceReference Reference)
+{
+    public bool IsContinuation => Text.StartsWith(':');
+}

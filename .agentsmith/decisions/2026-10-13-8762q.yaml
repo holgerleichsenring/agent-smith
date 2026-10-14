@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-8762q
+
+decisions:
+  - category: Architecture
+    chose: "One defaults read in the page store, in its own TicketDefaultsRead (a copy of TicketReviewsRead's shape) composed by TicketPageReads; ticketChanged(), defaultTaken() (each new DefaultDecisionTaken in the live stream, through useNewEvents) and defaultsChanged() (after this page's own POST, exposed as useTicketDefaults().changed) schedule only it"
+    over: "A fetch in the pane, or the read inlined into TicketPageReads"
+    reason: "The tab counter needs the defaults whether the pane is open or not, the store's rule is one read per endpoint per page, and TicketPageReads (273) and TicketPageStore (256) stay inside the spec's +6/+8 budgets over 268/249 only with the read in its own class."
+  - category: Implementation
+    chose: "The +6 budget on TicketPageReads is met by folding the ticketsApi import block and two one-statement members (snapshot getter, perRun) onto one line each; defaultTaken() and defaultsChanged() are one-line members"
+    over: "Raising the budget, or merging the two nudges into one name"
+    reason: "The spec names both nudges and binds the budget; folding lines changes no behaviour."
+  - category: Implementation
+    chose: "Counter = pending count, hot only while pendingHoldingSeries > 0, absent when the ticket has no defaults at all (a ticket whose defaults are all decided shows 0)"
+    over: "Hot on any pending default, or hiding a zero counter"
+    reason: "A pending default never stops the run (contract decision 14); only a held series waits on a person. Default, pending operator ratification."
+  - category: Implementation
+    chose: "One note field per act, sent (trimmed) with every overrule of that act and with no ratify; the pane keeps the server's order and does not re-sort"
+    over: "A per-row note editor; a client-side sort"
+    reason: "Overruling one default with its own note is selecting one row. Default, pending operator ratification."
+  - category: Implementation
+    chose: "A conversation row (conversation set) is ratify-only: Overrule is disabled while the selection holds one and the bar says 'answer it in the design conversation'; the origin wording keys on conversation, a row with neither conversation nor attempt shows 'run <id>'"
+    over: "Sending a mixed batch and showing the server's 400, or keying on a missing attempt"
+    reason: "The server validates the whole batch first, so a mixed selection would fail entirely; a ticket lists every pipeline's runs and only some are attempts."
+  - category: Implementation
+    chose: "The 'holds the series' mark and the --person row edge are drawn on PENDING holds-series rows only; a decided row shows its verdict pill, who, when and note"
+    over: "Marking a decided row that once held the series"
+    reason: "A decided default no longer holds anything; the person colour means waits for a person on this page."
+  - category: Implementation
+    chose: "postDefaultVerdicts returns a 400's JSON-string body as {kind: refused, text} (Results.BadRequest(string) serialises the refusal as a JSON string), every other non-2xx throws; a thrown failure is shown in the same place as a refusal; the store re-reads the defaults after every answer"
+    over: "Throwing on 400, or re-reading only after an applied answer"
+    reason: "The refusal is the sentence the person needs (retryAttempt's 409 pattern); a refused or failed act may still race another person's verdict, so re-reading costs one coalesced read."
+  - category: Implementation
+    chose: "Styles .df-* under .mock-tickets in mock-parity.css, composed from the ticket-view tokens (--person, --person-wash, --line, --panel, .pill, .cp-note, .section-head); the header lists it as an additive deviation"
+    over: "A new design"
+    reason: "The ticket-view mock has no Defaults tab; the existing tokens keep it on DESIGN.md's palette."
+  - category: Process
+    chose: "Seven hand-written TicketPageApi fakes gained the defaults stub (TicketSpecsTab, TicketPage, TicketAttemptsCost, TicketConversationTab, mock-parity x3 objects, TicketPageStore, TicketPageReads) plus fetchTicketDefaults in TicketAttemptReads' module mock; detailFixtures gained defaults(entries, over) and defaultEntry(over)"
+    over: "Making the api member optional"
+    reason: "The spec counted six; TicketPageReads.test.ts (added by 2026-10-13-8762l) is the seventh and fails the type-check without it."

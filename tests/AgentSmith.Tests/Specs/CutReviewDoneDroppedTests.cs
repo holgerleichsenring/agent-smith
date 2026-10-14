@@ -75,7 +75,7 @@ public sealed class CutReviewDoneDroppedTests
                 DerivationTestLooks.Proof()),
             DerivationTestLooks.Factory(), new FixedPrompt(), DerivationTestParsers.Real(),
             new ScopedContextCoverage(), AgentSmith.Tests.TestSupport.HandbackTestDoubles.Gate(),
-            NullLogger<SpecSetDeriver>.Instance);
+            AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), NullLogger<SpecSetDeriver>.Instance);
 
         var (derivation, error) = await deriver.DeriveAsync(
             new Ticket(new TicketId("1"), "guard", Ticket, null, "open", "test"),

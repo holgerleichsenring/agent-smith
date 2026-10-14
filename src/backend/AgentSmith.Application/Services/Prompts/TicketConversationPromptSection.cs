@@ -53,9 +53,9 @@ public static class TicketConversationPromptSection
         var conversation = pipeline.TryGet<PreviousAttempt>(ContextKeys.PreviousAttempt, out var attempt) && attempt is not null
             ? TicketConversationSplit.Render(comments, attempt) ?? Render(comments)
             : Render(comments);
-        // 2026-10-08-e8b9d: the pull-request review follows the ticket's own words.
-        var review = PrReviewFeedbackPromptSection.Render(pipeline);
-        return review.Length == 0 ? conversation : conversation.Length == 0 ? review : $"{conversation}\n\n{review}";
+        // 2026-10-08-e8b9d: the pull-request review follows the ticket's own words; 2026-10-13-8762p: the overrules follow it.
+        return string.Join("\n\n", new[] { conversation, PrReviewFeedbackPromptSection.Render(pipeline),
+            OverruledDefaultsPromptSection.Render(pipeline) }.Where(part => part.Length > 0));
     }
 
     public static string Render(IReadOnlyList<TicketComment>? comments)

@@ -134,6 +134,44 @@ public sealed class TicketSeriesReadTests : IDisposable
             .Should().BeOfType<NotFound>();
     }
 
+    [Fact]
+    public async Task TicketSeries_ReviewObjectionCut_GateReadFromTheGateStep_OtherHandbackSkipped()
+    {
+        var objected = Cut(R1, 3, Entry(A, 1));
+        objected.HandbackCase = "ReviewObjection";
+        await _store.AddAsync(Run(R1, status: "waiting_for_input"), Step(R1), objected, Gate(R1, "success"),
+            Run(R2, status: "waiting_for_input"), Step(R2), Handback(R2, 4, "Question"), Gate(R2, "success"));
+
+        (await ReadAsync(R1)).Gate.Should().Be(new TicketSeriesGateView("passed", 1, R1), "the prefix before the objection was gated");
+        (await ReadAsync(R2)).Gate.Should().Be(new TicketSeriesGateView("skipped", 0, R2));
+    }
+
+    // 2026-10-13-8762v: the default read carries the runway for a real series only.
+    [Fact]
+    public async Task TicketSeriesRead_DefaultRead_CarriesTheBudget()
+    {
+        await _store.AddAsync(Run(R1, cost: 4m), Step(R1), Cut(R1, 3, Entry(A, 1), Entry(B, 2)), SpecRow(R1, A, "done"),
+            Run(R2, cost: 6m), Step(R2), Cut(R2, 5, Entry(A, 1), Entry(B, 2)), SpecRow(R2, B, "not_started"),
+            new RunAttempt { RunId = R2, CauseChannel = AgentSmith.Contracts.Runs.AttemptChannels.Series, CarriedSpecIdsJson = $"[\"{A}\"]" });
+
+        var budget = (await ReadAsync()).Budget;
+
+        budget.Should().NotBeNull("the chain holds two attempts");
+        budget!.SpentUsd.Should().Be(10m);
+        (budget.CapUsd, budget.CapHours, budget.ChainFrom).Should().Be((150m, 12d, 1));
+        budget.ElapsedHours.Should().Be(1, "two attempts of thirty minutes each");
+        (budget.Next, budget.HeldBecause).Should().Be(("hold", "no-progress"), "the second attempt finished no spec");
+        (await ReadAsync(R1)).Budget.Should().BeNull("an attempt's own read carries no runway");
+    }
+
+    [Fact]
+    public async Task TicketSeriesRead_SingleChunkTicket_HasNoBudget()
+    {
+        await _store.AddAsync(Run(R1), Step(R1), Cut(R1, 3, Entry(A, 1), Entry(B, 2)), SpecRow(R1, A, "done"), SpecRow(R1, B, "done"));
+
+        (await ReadAsync()).Budget.Should().BeNull("one attempt within one chunk is no series to run on");
+    }
+
     private static RunStep Gate(string runId, string status) => new()
     {
         RunId = runId, StepIndex = 5, StepName = "Validate the spec", CommandName = CommandNames.SpecGate, Status = status,

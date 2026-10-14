@@ -153,10 +153,10 @@ public sealed class TicketContinuationActTests : IDisposable
     }
 
     [Fact]
-    public async Task BoundApproval_OverMaxSpecs_RefusedNamingBothCounts_ProposalKept()
+    public async Task TicketContinuation_OverSeriesCap_RefusedOverCapNamingBothCounts()
     {
-        var ids = Enumerable.Range(0, 8).Select(i => $"{Series}{(char)('a' + i)}").ToList();
-        await _h.WorkedAsync("r-1", "alpha", Series, ids, executed: ids.Take(6).ToList());
+        var ids = Enumerable.Range(0, 24).Select(i => $"{Series}{(char)('a' + i)}").ToList();
+        await _h.WorkedAsync("r-1", "alpha", Series, ids, executed: ids.Take(22).ToList());
         var proposal = Lone(Draft("new-one", "One more"));
         await _h.BindAsync(proposal);
 
@@ -164,7 +164,7 @@ public sealed class TicketContinuationActTests : IDisposable
 
         (await _h.RecordAsync()).Should().BeNull();
         (await _h.OpenProposalJsonAsync()).Should().NotBeNull();
-        (await TranscriptAsync()).Should().Contain("6 executed").And.Contain("3 unstarted");
+        (await TranscriptAsync()).Should().Contain("22 executed").And.Contain("3 unstarted").And.Contain("series.max_specs (24)");
     }
 
     [Fact]

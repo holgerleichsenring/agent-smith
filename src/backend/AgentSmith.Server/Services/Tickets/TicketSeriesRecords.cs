@@ -7,6 +7,7 @@ namespace AgentSmith.Server.Services.Tickets;
 /// the RunSpec standings, the attempt records, and (for the full read) each attempt's spec-gate step
 /// status and operator judgements; the strip asks only which attempts hold a checkpoint.
 /// 2026-10-13-9a59f: the full read also carries the attempts' ledger transitions, for the steps as worked.
+/// 2026-10-13-8762m: and the attempts' spec record bodies by (run id, spec id), for the build notes.
 /// </summary>
 public sealed record TicketSeriesRecords(
     IReadOnlyList<RunSeriesCut> Cuts,
@@ -15,4 +16,5 @@ public sealed record TicketSeriesRecords(
     IReadOnlyDictionary<string, string> GateSteps,
     IReadOnlyList<RunCriterionJudgement> Judgements,
     IReadOnlySet<string> Checkpointed,
-    IReadOnlyList<RunLedgerTransition>? Transitions = null);
+    IReadOnlyList<RunLedgerTransition>? Transitions = null,
+    IReadOnlyDictionary<(string RunId, string SpecId), string>? Records = null);

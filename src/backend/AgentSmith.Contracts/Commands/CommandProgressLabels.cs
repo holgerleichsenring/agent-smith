@@ -38,6 +38,7 @@ public static partial class CommandNames
         [AnalyzeCode] = "Analyzing codebase",
         [DeriveSpec] = "Deriving the specs",
         [SpecHandback] = "Handing the ticket back",
+        [ReviewSpecs] = "Reviewing the specs",
         [SpecSequence] = "Planning the spec sequence",
         [SelectSpec] = "Starting the spec",
         [ReviewSpecDiff] = "Reviewing the spec's diff",

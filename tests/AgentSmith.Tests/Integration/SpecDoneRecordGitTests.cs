@@ -10,6 +10,7 @@ using AgentSmith.Domain.Models;
 using AgentSmith.Tests.Architecture;
 using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
+using Moq;
 
 namespace AgentSmith.Tests.Integration;
 
@@ -156,6 +157,38 @@ public sealed class SpecDoneRecordGitTests
             "a repository not carrying the series gets neither the file nor the index line");
     }
 
+    // 2026-10-13-8762p: the ticket's decided defaults ride the record's one series commit — a row of the recorded
+    // spec into its decision file, a row naming no spec of the set into its run's decision file.
+    [Fact]
+    public async Task SpecDoneRecorder_DecidedDefaults_WrittenToTheSpecsDecisionFile_InTheSeriesCommit()
+    {
+        await using var git = await SeriesGitRepo.CreateAsync(Seed, Base);
+        if (git is null) return;
+        var set = await PublishAsync(git, Set(("a", "first"), ("b", "second")));
+        git.Pipeline.Set(ContextKeys.TicketId, new TicketId("7"));
+        var decided = new Moq.Mock<AgentSmith.Contracts.Services.IDecidedDefaults>();
+        decided.Setup(d => d.ReadAsync(Project, "7", null, Moq.It.IsAny<CancellationToken>())).ReturnsAsync(
+        [
+            new AgentSmith.Contracts.Decisions.DecidedDefault(11, "2026-10-05T09-00-00-0001", A, "Which queue?", "polling",
+                "overruled", "use the bus", "ana", DateTimeOffset.UtcNow),
+            new AgentSmith.Contracts.Decisions.DecidedDefault(12, "2026-10-05T09-00-00-0001", null, "Name?", "Widget",
+                "ratified", null, "ben", DateTimeOffset.UtcNow),
+        ]);
+        var verdicts = new AgentSmith.Application.Services.SpecExecution.DefaultVerdictRecord(decided.Object,
+            new AgentSmith.Infrastructure.Core.Services.RepositoryVerdictFile(
+                Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Infrastructure.Core.Services.RepositoryVerdictFile>.Instance),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Application.Services.SpecExecution.DefaultVerdictRecord>.Instance);
+
+        var result = await RecordAsync(git, git.Pipeline, set, [Primary], new InMemorySpecSetPointerStore(), verdicts);
+
+        result.IsSuccess.Should().BeTrue(result.Message);
+        (await git.GitAsync("rev-list", "--count", "HEAD")).Trim().Should().Be("3", "the copy rides the ONE series commit");
+        (await git.GitAsync("show", "--name-only", "--format=", "HEAD")).Should()
+            .Contain($".agentsmith/decisions/{A}.yaml").And.Contain(".agentsmith/decisions/2026-10-05T09-00-00-0001.yaml");
+        File.ReadAllText(Path.Combine(git.WorkDir, $".agentsmith/decisions/{A}.yaml"))
+            .Should().Contain("[default #11] overruled by ana").And.Contain("Which queue? -> polling; note: use the bus");
+    }
+
     private static async Task<SpecSet> PublishAsync(SeriesGitRepo git, SpecSet set, RepoConnection? repo = null)
     {
         var write = await SeriesDoubles.Writer(git.Files, git.Ops)
@@ -166,13 +199,13 @@ public sealed class SpecDoneRecordGitTests
 
     private static Task<CommandResult> RecordAsync(
         SeriesGitRepo git, PipelineContext pipeline, SpecSet set, IReadOnlyList<RepoConnection> repos,
-        InMemorySpecSetPointerStore pointers)
+        InMemorySpecSetPointerStore pointers, AgentSmith.Application.Services.SpecExecution.DefaultVerdictRecord? verdicts = null)
     {
         pipeline.Set(ContextKeys.RunId, RunId);
         pipeline.Set(ContextKeys.ProjectName, Project);
         pipeline.Set(ContextKeys.SpecSet, set);
         pipeline.Set(ContextKeys.CurrentSpec, set.Specs[0].Draft);
-        return SeriesDoubles.RecordHandler(git.Files, pointers, git.Ops).ExecuteAsync(
+        return SeriesDoubles.RecordHandler(git.Files, pointers, git.Ops, verdicts: verdicts).ExecuteAsync(
             new WriteSpecRecordContext(pipeline.Get<Repository>(ContextKeys.Repository), pipeline, repos), default);
     }
 

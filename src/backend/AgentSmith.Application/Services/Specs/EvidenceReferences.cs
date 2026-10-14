@@ -16,9 +16,19 @@ public sealed class EvidenceReferences
 
     public EvidenceReading Read(string evidence)
     {
-        var references = new List<EvidenceReference>();
         var observations = new List<string>();
         var minted = new List<string>();
+        var cited = Walk(evidence, observations, minted);
+        return new EvidenceReading([.. cited.Select(c => c.Reference)], observations, minted);
+    }
+
+    /// <summary>2026-10-13-8762n: every path token in reading order with the text it was read from — a
+    /// ':'-continuation's text starts with ':' and its reference carries the path it binds to.</summary>
+    public IReadOnlyList<EvidenceToken> Cited(string evidence) => Walk(evidence, [], []);
+
+    private static List<EvidenceToken> Walk(string evidence, List<string> observations, List<string> minted)
+    {
+        var cited = new List<EvidenceToken>();
         EvidenceReference? previous = null;
         foreach (var raw in (evidence ?? string.Empty).Split(';'))
         {
@@ -30,11 +40,11 @@ public sealed class EvidenceReferences
                 {
                     var reference = Reference(token, previous);
                     if (reference is null) continue;
-                    references.Add(reference);
+                    cited.Add(new EvidenceToken(token, reference));
                     previous = reference;
                 }
         }
-        return new EvidenceReading(references, observations, minted);
+        return cited;
     }
 
     private static IEnumerable<string> Tokens(string segment) =>

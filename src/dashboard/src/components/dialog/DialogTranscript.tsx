@@ -6,6 +6,7 @@ import { specDialogImageUrl } from "@/lib/specDialogApi";
 import { isDecision, type DialogEntry } from "@/hooks/useSpecDialog";
 import type { SpecDialogImage, SpecDialogProposalPush, SpecDialogReferenceSet } from "@/types/spec-dialog";
 import { AuthedImage } from "./AuthedImage";
+import { MockShot } from "./MockShot";
 import { DialogProposalCard } from "./DialogProposalCard";
 import { DialogDocumentCard } from "./DialogDocumentCard";
 import { documentBlocks } from "./documentBlocks";
@@ -78,6 +79,7 @@ function Turn({
   if (entry.kind === "decision" && isDecision(entry.decision)) return <Decision entry={entry} />;
   if (entry.kind === "image" && entry.image) return <Attached image={entry.image} />;
   if (entry.kind === "reference" && entry.reference) return <ReferenceSetChip set={entry.reference} onOpen={onOpenUpload} />;
+  if (entry.kind === "mock" && entry.mock) return <MockShot mock={entry.mock} />;
   const mine = entry.kind !== "agent";
   const said = entry.text.trim().length > 0;
   return (
@@ -147,7 +149,6 @@ function ReferenceSetChip({ set, onOpen }: { set: SpecDialogReferenceSet; onOpen
     </DialogMessage>
   );
 }
-
 
 function Decision({ entry }: { entry: DialogEntry }) {
   const approved = entry.decision === "approved";

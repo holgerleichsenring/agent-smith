@@ -74,7 +74,7 @@ public sealed class SpecExecutionTests
                 // the set has not seen, so the seeded spec is worked unamended.
                 new TicketComment(
                     "agent-smith", new DateTimeOffset(2026, 7, 1, 10, 0, 0, TimeSpan.Zero),
-                    AgentSmith.Application.Services.Specs.SpecSetComment.Render(SeededSet(), null)),
+                    AgentSmith.Application.Services.Specs.SpecSetComment.Render(SeededSet(), null, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults)),
             ]);
         await using var harness = BuildHarness(tickets);
         harness.ChatClient

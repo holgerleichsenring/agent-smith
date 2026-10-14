@@ -24,6 +24,10 @@ internal static class ReferenceFileExtensions
         services.AddSingleton<IReferenceSetReader, DbReferenceSetReader>();
         services.AddScoped<ReferenceNoteRepository>(); // 2026-10-02-075dd
         services.AddSingleton<IReferenceNotes, DbReferenceNotes>();
+        services.AddScoped<ConversationMockRepository>().AddScoped<ConversationMockReadRepository>() // 2026-10-13-8762r
+            .AddSingleton<DbConversationMocks>() // one store, two ports
+            .AddSingleton<IConversationMocks>(sp => sp.GetRequiredService<DbConversationMocks>())
+            .AddSingleton<IConversationMockReader>(sp => sp.GetRequiredService<DbConversationMocks>());
         services.AddScoped<LegacyAttachmentCopy>();
         // The copy switches identity insertion the way the archive import does; the archive
         // graph is not wired in every composition, so the two it needs are offered here too.

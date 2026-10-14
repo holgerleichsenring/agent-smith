@@ -20,6 +20,7 @@ public static partial class CommandStepClasses
         [CommandNames.BootstrapProject] = Milestone,     // retired; old records still classify
         [CommandNames.AnalyzeCode] = Milestone,
         [CommandNames.DeriveSpec] = Milestone,
+        [CommandNames.ReviewSpecs] = Milestone,
         ["GeneratePlanCommand"] = Milestone,     // retired p0394a; old records still classify
         [CommandNames.Approval] = Milestone,
         [CommandNames.AgenticExecute] = Milestone,

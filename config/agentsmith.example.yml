@@ -595,7 +595,7 @@ tool_runner:
 # docs/reference/configuration/skills.md.
 # skills:
 #   source: default
-#   version: v5.15.1
+#   version: v5.16.0
 #   # cache_dir defaults to $XDG_CACHE_HOME/agentsmith/skills, then ~/.cache/agentsmith/skills.
 #   cache_dir: /var/lib/agentsmith/skills
 
@@ -640,6 +640,17 @@ pipeline_cost_cap:
   #   Large:
   #     usd: 40
   #     tokens: 8000000
+
+# A ticket's spec series. One attempt runs at most specs_per_attempt specs; when it ends with
+# work left and no person's act waiting, agent-smith starts the next attempt itself until the
+# chain has spent budget_usd or wall_clock_hours of run time (budget_usd 0 = off). Defaults shown.
+series:
+  max_specs: 24
+  specs_per_attempt: 8
+  seconds_per_spec: 0
+  budget_usd: 150
+  wall_clock_hours: 12
+  continue_after_wall_time: true
 
 # p0128c data-flow gating.
 pipeline_data_flow:

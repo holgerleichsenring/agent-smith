@@ -95,12 +95,23 @@ public sealed class ContextVocabularyTests
         var stage = Resolve("/properties/verify/items")!;
 
         stage["properties"]!.AsObject().Select(pair => pair.Key)
-            .Should().BeEquivalentTo(["label", "command", "when_present"]);
+            .Should().BeEquivalentTo(["label", "command", "when_present", "when_changed"],
+                "the two optional fields are path predicates, never kinds");
         Walk(Resolve("/properties/verify")!, string.Empty)
             .Where(entry => entry.Node["enum"] is not null)
             .Should().BeEmpty("an enumerated field would be a closed list of somebody else's words");
         Pointers(node => node["enum"] is not null).Should().BeEquivalentTo(Closed,
             "the closed vocabularies are still the four 167c named");
+    }
+
+    /// <summary>A guard that names no glob would skip its stage everywhere; it is refused.</summary>
+    [Fact]
+    public void Schema_VerifyItem_WhenChangedEmptyList_IsRefused()
+    {
+        const string head = "meta:\n  workdir: \".\"\nverify:\n  - label: \"build\"\n    command: \"make build\"\n";
+
+        ContextSchemaFile.Validate(head + "    when_changed: []\n").Should().NotBeEmpty();
+        ContextSchemaFile.Validate(head + "    when_changed: [\"src/**\"]\n").Should().BeEmpty();
     }
 
     [Theory]

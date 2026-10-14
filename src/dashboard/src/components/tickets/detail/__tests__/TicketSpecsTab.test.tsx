@@ -1,9 +1,9 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeHub } from "../../__tests__/ticketFixtures";
-import { attempt, conversation, detail, pass, passes, series, spec, ticketText } from "./detailFixtures";
+import { attempt, conversation, defaults, detail, pass, passes, reviewRound, reviews, series, spec, ticketText } from "./detailFixtures";
 import type { RunEvent } from "@/types/hub-events";
-import type { RunPasses, TicketDetail, TicketSeries } from "@/types/tickets";
+import type { RunPasses, TicketDetail, TicketReviewer, TicketReviews, TicketSeries } from "@/types/tickets";
 
 // 2026-10-13-9a59r: the Specs and Acceptance tabs — the series as read-only documents with a cell per
 // attempt from that attempt's own cut, steps as worked, revisions, acceptance per spec — and the cross-link
@@ -51,6 +51,7 @@ const world = {
   passes: {} as Record<string, RunPasses>,
   run: () => Promise.reject(new Error("unused")),
   compute: () => Promise.reject(new Error("unused")),
+  reviews: reviews() as TicketReviews,
 };
 const api = {
   detail: vi.fn(() => Promise.resolve(world.detail)),
@@ -60,6 +61,8 @@ const api = {
   passes: vi.fn((runId: string) => Promise.resolve(world.passes[runId] ?? passes(runId, {}, 0))),
   run: vi.fn(() => Promise.reject(new Error("unused"))),
   compute: vi.fn(() => Promise.reject(new Error("unused"))),
+  reviews: vi.fn(() => Promise.resolve(world.reviews)),
+  defaults: vi.fn(() => Promise.resolve(defaults())),
 };
 
 const settle = async () => {
@@ -90,6 +93,7 @@ beforeEach(() => {
     "r-3": series("r-3", [s1, s2, s3], { attempt: 3 }),
   };
   world.passes = { "r-1": passes("r-1", { s1: [pass(), pass({ ordinal: 2, passInSpec: 2 })] }) };
+  world.reviews = reviews();
 });
 afterEach(() => vi.useRealTimers());
 
@@ -159,6 +163,114 @@ describe("Ticket specs and acceptance tabs", () => {
     expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?tab=conversation", { scroll: false });
     fireEvent.click(screen.getByTestId("ticket-open-specs"));
     expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?tab=specs", { scroll: false });
+  });
+});
+
+// 2026-10-13-8762l: the pre-build review rounds on the Specs tab — one spec's rounds per attempt and from the
+// design conversation, and the set's series contract review with member buttons.
+
+const cut = { specId: null, register: "goal", quote: "the old goal", replacement: "the new goal", evidence: "shop/src/A.cs:3 [A1]" };
+const reviewer = (over: Partial<TicketReviewer> = {}): TicketReviewer => ({
+  reviewer: 0, verdict: "build", cuts: [], findings: [], evidenceProblems: [], residues: [], ...over,
+});
+
+describe("Ticket specs tab review rounds", () => {
+  it("ReviewRounds_CutsResiduesAndVerdict_Rendered", async () => {
+    nav.search = "tab=specs&spec=s1";
+    world.reviews = reviews({
+      attempts: [{ runId: "r-1", number: 1, rounds: [reviewRound({
+        verdict: "refuse", revisionNumber: 2, reviewers: [
+          reviewer({ verdict: "build-with-cuts", cuts: [cut], residues: [{ register: "steps", quote: "old words" }],
+            evidenceProblems: [{ claim: "A claim", problem: "no such file" }] }),
+          reviewer({ reviewer: 1, verdict: "refuse", findings: [{ text: "The endpoint exists", evidence: "shop/src/B.cs:9 [A3]" }] }),
+        ],
+      })] }],
+    });
+    await open();
+    const block = screen.getByTestId("review-rounds");
+    expect(within(block).getByText("Attempt 1")).toBeInTheDocument();
+    expect(within(block).getAllByTestId("review-verdict")[0]).toHaveTextContent("refuse");
+    expect(within(block).getByTestId("review-cut")).toHaveTextContent("goal · “the old goal” → “the new goal” shop/src/A.cs:3 [A1]");
+    expect(within(block).getByTestId("review-residue")).toHaveTextContent("steps · “old words” still stands");
+    expect(within(block).getByTestId("review-evidence-problem")).toHaveTextContent("A claim — no such file");
+    expect(within(block).getByTestId("review-finding")).toHaveTextContent("The endpoint exists shop/src/B.cs:9 [A3]");
+    expect(within(block).getByTestId("review-round")).toHaveTextContent("rev 2");
+    expect(within(block).getByTestId("review-round")).toHaveTextContent("reviewers: build-with-cuts, refuse");
+  });
+
+  it("ReviewRounds_ApprovedSet_ShowsConversationRounds", async () => {
+    nav.search = "tab=specs&spec=s1";
+    world.reviews = reviews({ conversation: { approvalAt: null, rounds: [reviewRound({
+      scope: "conversation", verdict: "build-with-cuts", cuts: [cut], reviewers: [reviewer({ verdict: "build-with-cuts" }), reviewer({ reviewer: 1, verdict: null })],
+    })] } });
+    await open();
+    const block = screen.getByTestId("review-rounds");
+    expect(within(block).getByText("Reviewed in the conversation before approval")).toBeInTheDocument();
+    expect(within(block).getByTestId("review-cut")).toHaveTextContent("“the new goal”");
+    expect(within(block).getByTestId("review-round")).toHaveTextContent("reviewers: build-with-cuts, not taken");
+  });
+
+  it("ReviewRounds_RepoSearchEvidence_RenderedAsStored", async () => {
+    nav.search = "tab=specs&spec=s1";
+    world.reviews = reviews({ attempts: [{ runId: "r-1", number: 1, rounds: [reviewRound({
+      reviewers: [reviewer({ cuts: [{ ...cut, evidence: "shop search:'Widget' [A2]" }] })],
+    })] }] });
+    await open();
+    expect(screen.getByTestId("review-cut")).toHaveTextContent("shop search:'Widget' [A2]");
+  });
+
+  it("ReviewRounds_NoRoundAnywhere_SaysNoneRecorded", async () => {
+    nav.search = "tab=specs&spec=s2";
+    world.reviews = reviews({ attempts: [{ runId: "r-1", number: 1, rounds: [reviewRound({ specId: "s1" })] }] });
+    await open();
+    expect(screen.getByTestId("review-rounds-none")).toHaveTextContent("no review round was recorded");
+    expect(screen.queryByTestId("series-review")).toBeNull();
+  });
+
+  it("TicketSpecsTab_SeriesRound_MemberButtonSelectsSpec", async () => {
+    nav.search = "tab=specs&spec=s1";
+    world.reviews = reviews({ attempts: [{ runId: "r-2", number: 2, rounds: [reviewRound({
+      scope: "series", specId: null, verdict: "build-with-cuts",
+      reviewers: [reviewer({ verdict: "build-with-cuts", cuts: [{ ...cut, specId: "s2" }], findings: [{ text: "Two owners of one event", evidence: "shop/src/E.cs:1 [A4]" }] })],
+    })] }] });
+    await open();
+    const section = screen.getByTestId("series-review");
+    expect(within(section).getByTestId("review-finding")).toHaveTextContent("Two owners of one event");
+    fireEvent.click(within(section).getByTestId("series-member-s2"));
+    expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?tab=specs&spec=s2", { scroll: false });
+  });
+
+  it("TicketSpecsTab_ApprovedSetSeriesRound_IsShown", async () => {
+    world.reviews = reviews({ conversation: { approvalAt: null, rounds: [reviewRound({
+      scope: "conversation", specId: "series", verdict: "refuse", findings: [{ text: "The contract misses a budget", evidence: "shop/src/A.cs:1 [A5]" }],
+    })] } });
+    await open();
+    const section = screen.getByTestId("series-review");
+    expect(within(section).getByText("Reviewed in the conversation before approval")).toBeInTheDocument();
+    expect(within(section).getByTestId("review-verdict")).toHaveTextContent("refuse");
+    expect(within(screen.getByTestId("review-rounds")).queryByText("The contract misses a budget")).toBeNull();
+  });
+});
+
+describe("Ticket specs tab build note", () => {
+  it("SpecDocument_RendersBuildNoteOrNoNote", async () => {
+    nav.search = "tab=specs&spec=s1";
+    const note = { missing: false, renamed: ["Bus -> MessageBus"], moved: [], persisted: ["table RunDefaults"], deviations: [] };
+    world.series = { ...world.series, default: series("r-3", [{ ...s1, buildNote: note }, { ...s2, buildNote: { ...note, missing: true, renamed: [], persisted: [] } }, s3], { attempt: 3 }) };
+    await open();
+    const block = screen.getByTestId("spec-build-note");
+    expect(block).toHaveTextContent("Build note");
+    expect(block).toHaveTextContent("Bus -> MessageBus");
+    expect(block).toHaveTextContent("table RunDefaults");
+    expect(block).not.toHaveTextContent("Moved");
+    cleanup();
+    nav.search = "tab=specs&spec=s2";
+    await open();
+    expect(screen.getByTestId("spec-build-note")).toHaveTextContent("no note");
+    cleanup();
+    nav.search = "tab=specs&spec=s3";
+    await open();
+    expect(screen.queryByTestId("spec-build-note")).toBeNull();
   });
 });
 

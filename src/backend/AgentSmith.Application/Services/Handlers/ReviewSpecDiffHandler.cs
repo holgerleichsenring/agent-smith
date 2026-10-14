@@ -4,6 +4,7 @@ using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
@@ -30,6 +31,7 @@ public sealed class ReviewSpecDiffHandler(
     DerivationLookFactory looks,
     SpecDiffReviewer reviewer,
     SpecReviewPublisher publisher,
+    RatifiedMockReview ratifiedMocks,
     ILogger<ReviewSpecDiffHandler> logger)
     : ICommandHandler<ReviewSpecDiffContext>
 {
@@ -57,14 +59,17 @@ public sealed class ReviewSpecDiffHandler(
             return await NotTakenAsync(
                 pipeline, draft, "no sandbox was in the pipeline context", cancellationToken);
 
-        var diffs = await specDiffs.TakeAsync(pipeline, sandboxes, cancellationToken);
-        await using var look = looks.OnTerms(pipeline, DerivationLookTerms.SpecReview);
+        var diffs = await specDiffs.TakeAsync(
+            pipeline, sandboxes.Where(s => !sandboxTargets.IsSecondary(pipeline, s.Key)).ToDictionary(), cancellationToken);
+        var mock = ratifiedMocks.Offer(pipeline, draft, diffs);
+        await using var look = looks.OnTerms(pipeline, mock.Terms);
         var principles = pipeline.TryGet<string>(ContextKeys.CodingPrinciples, out var p) ? p : null;
+        var contract = pipeline.TryGet<SpecSet>(ContextKeys.SpecSet, out var set) ? set?.Contract : null;
         var report = await reviewer.ReviewAsync(
-            draft, principles, diffs, look, context.AgentConfig, tracker, cancellationToken);
+            draft, principles, diffs, look, context.AgentConfig, tracker, cancellationToken, contract, mock);
 
         return await RecordAsync(
-            pipeline, draft, report, Summary(report, diffs), sandboxes, cancellationToken);
+            pipeline, draft, report, Summary(report, diffs) + mock.After(pipeline), sandboxes, cancellationToken);
     }
 
     /// <summary>

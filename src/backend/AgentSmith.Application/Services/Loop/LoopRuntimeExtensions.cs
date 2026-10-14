@@ -95,6 +95,9 @@ public static class LoopRuntimeExtensions
         services.AddSingleton<DiscoveryOutputValidator>();
         services.AddSingleton<SkillOutputValidatorFactory>();
         services.TryAddSingleton<IRunArtifactStore>(_ => new InMemoryRunArtifactStore());
+        services.AddTransient<Sanity.IToolResultSanityRule, Sanity.EmptySubAgentAnswerRule>().AddTransient<Sanity.IToolResultSanityRule, Sanity.UncitedZeroHitRule>()
+            .AddTransient<Sanity.IToolResultSanityRule, Sanity.UnnamedRepositoryWriteRule>().AddTransient<Sanity.IToolResultSanityRule, Sanity.OutsideWorkCommandRule>();
+        services.AddTransient<Sanity.ToolResultSanityScopeReader>().AddTransient<Sanity.ToolResultSanity>().AddTransient<Sanity.ToolResultSanityWrapper>();
         return services;
     }
 }

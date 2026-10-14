@@ -74,7 +74,7 @@ public sealed class ApprovedSetTicketFiler(
             content.Title, content.Body, labels, kinds.For(project, role), ct);
         filed.Add(FiledTicket.Of(created, content.Title, project));
         var record = await StoreAsync(state, project, created, series, goal, ct);
-        await branches.WriteAsync(provider, project, created, record, notes, ct);
+        await branches.WriteAsync(provider, project, created, record, series.Sources, notes, ct);
         await starter.StampAsync(provider, project, created, labels, mayStartRuns, filed, ct);
     }
 

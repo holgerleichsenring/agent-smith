@@ -40,6 +40,10 @@ internal static class ServerSandboxExtensions
         // 2026-10-12-6bfab: the image boundary reads the store per decision, not these options.
         services.RemoveAll<ISandboxSettingsReader>();
         services.AddSingleton<ISandboxSettingsReader, StoredSandboxSettingsReader>();
+        services.RemoveAll<Application.Services.Specs.Review.ISpecReviewSettingsReader>(); // 2026-10-13-8762g
+        services.AddSingleton<Application.Services.Specs.Review.ISpecReviewSettingsReader, StoredSpecReviewSettingsReader>();
+        services.RemoveAll<Application.Services.Specs.ISeriesSettingsReader>(); // 2026-10-13-8762u
+        services.AddSingleton<Application.Services.Specs.ISeriesSettingsReader, StoredSeriesSettingsReader>();
         return services;
     }
 

@@ -1,17 +1,16 @@
-import { ApiResponseError, refusalIn, type ApiRefusal } from "@/lib/apiResponse";
+import { ApiResponseError, type ApiRefusal } from "@/lib/apiResponse";
 import { fetchRun } from "@/lib/runsApi";
 import { isRunLive } from "@/lib/runLiveness";
 import {
-  fetchRunCompute,
-  fetchRunPasses,
-  fetchTicketConversation,
-  fetchTicketDetail,
+  fetchRunCompute, fetchRunPasses, fetchTicketConversation, fetchTicketDefaults, fetchTicketDetail, fetchTicketReviews,
   fetchTicketSeries,
   fetchTicketText,
 } from "@/lib/ticketsApi";
 import type { RunSnapshot } from "@/types/hub-events";
-import type { RunCompute, RunPasses, TicketConversation, TicketDetail, TicketSeries, TicketText } from "@/types/tickets";
+import type { RunCompute, RunPasses, TicketConversation, TicketDefaults, TicketDetail, TicketReviews, TicketSeries, TicketText } from "@/types/tickets";
 import { CoalescedRefetch } from "./CoalescedRefetch";
+import { failure } from "./readFailure";
+import { TicketOwnRead } from "./TicketOwnRead";
 
 // 2026-10-13-9a59q: every read of one ticket page, held once for the page's life. Detail, the default
 // series and the conversation are ticket-level; series?runId= and passes are per attempt. A terminal
@@ -39,6 +38,8 @@ export interface TicketPageSnapshot {
   detail: Read<TicketDetail>;
   series: Read<TicketSeries>;
   conversation: Read<TicketConversation>;
+  reviews: Read<TicketReviews>;
+  defaults: Read<TicketDefaults>;
   text: Read<TicketText>;
   runSeries: Readonly<Record<string, Read<TicketSeries>>>;
   runPasses: Readonly<Record<string, Read<RunPasses>>>;
@@ -50,6 +51,8 @@ export interface TicketPageApi {
   detail(project: string, ticketId: string, signal?: AbortSignal): Promise<TicketDetail>;
   series(project: string, ticketId: string, runId: string | null, signal?: AbortSignal): Promise<TicketSeries>;
   conversation(project: string, ticketId: string, signal?: AbortSignal): Promise<TicketConversation>;
+  reviews(project: string, ticketId: string, signal?: AbortSignal): Promise<TicketReviews>;
+  defaults(project: string, ticketId: string, signal?: AbortSignal): Promise<TicketDefaults>;
   text(project: string, ticketId: string, signal?: AbortSignal): Promise<TicketText>;
   passes(runId: string, signal?: AbortSignal): Promise<RunPasses>;
   /** The run detail; a 404 rejects like any other read. */
@@ -62,6 +65,8 @@ export const TICKET_PAGE_API: TicketPageApi = {
   detail: (project, ticketId, signal) => fetchTicketDetail(project, ticketId, signal),
   series: (project, ticketId, runId, signal) => fetchTicketSeries(project, ticketId, runId, signal),
   conversation: (project, ticketId, signal) => fetchTicketConversation(project, ticketId, signal),
+  reviews: (project, ticketId, signal) => fetchTicketReviews(project, ticketId, signal),
+  defaults: (project, ticketId, signal) => fetchTicketDefaults(project, ticketId, signal),
   text: (project, ticketId, signal) => fetchTicketText(project, ticketId, signal),
   passes: (runId, signal) => fetchRunPasses(runId, signal),
   run: async (runId, signal) => {
@@ -86,14 +91,20 @@ const PENDING: Read<never> = { data: null, failed: false, refusal: null, loading
 
 export class TicketPageReads {
   private snap: TicketPageSnapshot = {
-    detail: PENDING, series: PENDING, conversation: PENDING, text: PENDING, runSeries: {}, runPasses: {}, runRun: {}, runCompute: {},
+    detail: PENDING, series: PENDING, conversation: PENDING, reviews: PENDING, defaults: PENDING, text: PENDING,
+    runSeries: {}, runPasses: {}, runRun: {}, runCompute: {},
   };
   private readonly wanted = new Set<string>();
   private readonly inFlight = new Set<string>();
   private readonly again = new Set<string>();
   private readonly ticketTick = new CoalescedRefetch(() => this.readTicket());
   private readonly conversationTick = new CoalescedRefetch(() => this.readConversation());
-  private readonly textTick = new CoalescedRefetch(() => this.readText());
+  private readonly reviews = new TicketOwnRead((signal) => this.api.reviews(this.project, this.ticketId, signal),
+    () => this.snap.reviews, (reviews) => this.publish({ ...this.snap, reviews })); // 2026-10-13-8762l
+  private readonly defaults = new TicketOwnRead((signal) => this.api.defaults(this.project, this.ticketId, signal),
+    () => this.snap.defaults, (defaults) => this.publish({ ...this.snap, defaults })); // 2026-10-13-8762q
+  private readonly text = new TicketOwnRead((signal) => this.api.text(this.project, this.ticketId, signal),
+    () => this.snap.text, (text) => this.publish({ ...this.snap, text }));
   private lastStatuses: string | null = null;
   private disposed = false;
   private generation = 0;
@@ -106,9 +117,7 @@ export class TicketPageReads {
     private readonly api: TicketPageApi = TICKET_PAGE_API,
   ) {}
 
-  get snapshot(): TicketPageSnapshot {
-    return this.snap;
-  }
+  get snapshot(): TicketPageSnapshot { return this.snap; }
 
   /** Restartable: React's strict mode disposes and starts an effect once more. */
   start(): void {
@@ -116,7 +125,9 @@ export class TicketPageReads {
     this.abort = new AbortController();
     this.readTicket();
     this.readConversation();
-    this.readText();
+    this.reviews.start();
+    this.defaults.start();
+    this.text.start();
     for (const key of this.wanted) {
       const [kind, runId] = splitKey(key);
       if (!this.perRun(kind)[runId]?.data && !this.inFlight.has(key)) this.readPerRun(kind, runId);
@@ -130,7 +141,9 @@ export class TicketPageReads {
     this.again.clear();
     this.ticketTick.cancel();
     this.conversationTick.cancel();
-    this.textTick.cancel();
+    this.reviews.dispose();
+    this.defaults.dispose();
+    this.text.dispose();
     this.abort.abort();
   }
 
@@ -138,7 +151,9 @@ export class TicketPageReads {
   ticketChanged(): void {
     this.ticketTick.within(TICKET_READ_MS);
     this.conversationTick.within(TICKET_READ_MS);
-    this.textTick.within(TICKET_READ_MS);
+    this.reviews.within(TICKET_READ_MS);
+    this.defaults.within(TICKET_READ_MS);
+    this.text.within(TICKET_READ_MS);
   }
 
   /** (b) a RunsChanged — counted only for one of this ticket's attempts; never the conversation. */
@@ -151,6 +166,15 @@ export class TicketPageReads {
     this.conversationTick.within(TICKET_READ_MS);
   }
 
+  /** (e) 2026-10-13-8762l: a SpecReviewRound in the live attempt's stream re-reads the review rounds only. */
+  reviewRound(): void {
+    this.reviews.within(TICKET_READ_MS);
+  }
+
+  /** (f) 2026-10-13-8762q: a DefaultDecisionTaken in the live stream, or this page's own verdict: the defaults only. */
+  defaultTaken(): void { this.defaults.within(TICKET_READ_MS); }
+  defaultsChanged(): void { this.defaults.within(TICKET_READ_MS); }
+
   /** A view shows this attempt's per-run read: fetched once when terminal, kept fresh while live. */
   want(kind: PerRunRead, runId: string): void {
     const key = `${kind}:${runId}`;
@@ -160,9 +184,7 @@ export class TicketPageReads {
     this.readPerRun(kind, runId);
   }
 
-  private perRun(kind: PerRunRead): Readonly<Record<string, Read<unknown>>> {
-    return this.snap[PER_RUN_FIELD[kind]];
-  }
+  private perRun(kind: PerRunRead): Readonly<Record<string, Read<unknown>>> { return this.snap[PER_RUN_FIELD[kind]]; }
 
   private loader(kind: PerRunRead, runId: string): () => Promise<unknown> {
     const signal = this.abort.signal;
@@ -186,10 +208,6 @@ export class TicketPageReads {
 
   private readConversation(): void {
     void this.read("conversation", () => this.api.conversation(this.project, this.ticketId, this.abort.signal));
-  }
-
-  private readText(): void {
-    void this.read("text", () => this.api.text(this.project, this.ticketId, this.abort.signal));
   }
 
   /** (c) a changed attempt status — a park, a hand-back, an end — re-reads the conversation, and a
@@ -239,7 +257,7 @@ export class TicketPageReads {
     this.publish({ ...this.snap, [field]: { ...this.snap[field], [runId]: read } });
   }
 
-  private async read<K extends "detail" | "series" | "conversation" | "text">(
+  private async read<K extends "detail" | "series" | "conversation">(
     field: K, load: () => Promise<NonNullable<TicketPageSnapshot[K]["data"]>>, after?: (data: never) => void,
   ): Promise<void> {
     const generation = this.generation;
@@ -263,11 +281,4 @@ export class TicketPageReads {
 function splitKey(key: string): [PerRunRead, string] {
   const at = key.indexOf(":");
   return [key.slice(0, at) as PerRunRead, key.slice(at + 1)];
-}
-
-/** A failed re-read keeps what an earlier read showed; only the flags say it failed. */
-function failure<T>(thrown: unknown, held: Read<T> | undefined): Read<T> {
-  const refusal = refusalIn(thrown);
-  const notFound = thrown instanceof ApiResponseError && thrown.status === 404;
-  return { data: held?.data ?? null, failed: refusal === null, refusal, loading: false, notFound };
 }

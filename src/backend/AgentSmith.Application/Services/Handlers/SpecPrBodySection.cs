@@ -28,7 +28,7 @@ public static class SpecPrBodySection
         var sb = new StringBuilder();
         sb.AppendLine();
         sb.AppendLine();
-        if (progress is not null) sb.AppendLine(SpecPrBody.RenderStatus(progress, shortfall is not null));
+        if (progress is not null) sb.AppendLine(SpecStatusTable.Render(progress, shortfall is not null));
         sb.AppendLine(SpecPrBody.RenderDiscarded(set));
         return sb.ToString() + ShortfallSection.Build(shortfall);
     }

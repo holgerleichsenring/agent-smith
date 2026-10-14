@@ -138,12 +138,12 @@ public sealed class DeriveSpecCommentRecutTests
             new SpecSourceResolver(
                 new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance), AgentSmith.Tests.TestSupport.ApprovedSetDoubles.Continuation(),
                 new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
-                NullLogger<SpecSourceResolver>.Instance),
+                AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), NullLogger<SpecSourceResolver>.Instance),
             new SpecFallback(validator, draftReader, new DerivedSpecYamlRenderer()),
             new SpecCoverageRefusal(
                 new SpecCutGate(new NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
                 new SpecFallback(validator, draftReader, new DerivedSpecYamlRenderer())),
-            new SpecSetTicketCommenter(tickets.Object, Moq.Mock.Of<AgentSmith.Contracts.Reviews.IFullSetPrNotice>(), NullLogger<SpecSetTicketCommenter>.Instance),
+            new SpecSetTicketCommenter(tickets.Object, Moq.Mock.Of<AgentSmith.Contracts.Reviews.IFullSetPrNotice>(), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), NullLogger<SpecSetTicketCommenter>.Instance),
             ApprovedSetDoubles.KeptNotice(),
             new SpecCutGate(new NoOpEventPublisher(), NullLogger<SpecCutGate>.Instance),
             new UnansweredQuestionPin(NullLogger<UnansweredQuestionPin>.Instance),
@@ -173,7 +173,7 @@ public sealed class DeriveSpecCommentRecutTests
 
     private static TicketComment OurCut() => new(
         "agent-smith", DateTimeOffset.UtcNow.AddHours(-2),
-        SpecSetComment.Render(RecutTail().Set, null));
+        SpecSetComment.Render(RecutTail().Set, null, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults));
 
     private static TicketComment Operator(string body) =>
         new("operator", DateTimeOffset.UtcNow.AddHours(-1), body);

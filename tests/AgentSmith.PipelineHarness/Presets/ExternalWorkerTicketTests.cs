@@ -28,6 +28,8 @@ public sealed class ExternalWorkerTicketTests
     private const string ScopeEstimateReply =
         """{"repos":[{"name":"csharp-fixture","affected":true,"confidence":0.95}],"complexity":"small","shape":"deterministic","shape_reason":"one guard clause, checked by building and testing"}""";
 
+    private const string AttackBuild = """{"verdict": "BUILD", "cuts": [], "findings": []}""";
+
     private const string GreenVerdict =
         """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled in the change"},{"criterion":"criterion 2","status":"met","evidence":"existing behaviour preserved"}]}""";
 
@@ -38,6 +40,8 @@ public sealed class ExternalWorkerTicketTests
             // worker mode the worker answers that call like every other.
             .EnqueueText(ScopeEstimateReply)
             .EnqueueText(SpecDerivationFixture.DerivationJson)
+            // 2026-10-13-8762g: ReviewSpecs asks spec_review.reviewers (2) fresh reviewers before the master.
+            .EnqueueText(AttackBuild).EnqueueText(AttackBuild)
             .EnqueueToolCall("write_file", """{"path":"primary/src/Patch.cs","content":"// real fix"}""")
             .EnqueueToolCall("run_command", """{"command":"dotnet build","repo":"primary"}""")
             .EnqueueToolCall("update_progress",

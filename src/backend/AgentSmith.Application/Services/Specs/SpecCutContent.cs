@@ -16,7 +16,10 @@ public static class SpecCutContent
             spec.Draft.Steps, spec.Draft.Done, spec.Draft.Yaml))];
     }
 
-    /// <summary>The case of a handed-back set, as the cut stores it; null for a set that was not.</summary>
-    public static string? CaseOf(SpecHandback? handback) =>
-        handback is { Case: not SpecHandbackCase.None } ? handback.Case.ToString() : null;
+    /// <summary>The case of a handed-back set, as the cut stores it; null for a set that was not. 2026-10-13-8762l: a
+    /// question hand-back of a standing review objection is published as <see cref="ReviewObjection"/>.</summary>
+    public static string? CaseOf(SpecHandback? handback) => handback is { Case: SpecHandbackCase.Question, QuestionKind: SpecQuestionKind.ReviewObjection }
+        ? ReviewObjection : handback is { Case: not SpecHandbackCase.None } ? handback.Case.ToString() : null;
+
+    public const string ReviewObjection = nameof(SpecQuestionKind.ReviewObjection);
 }

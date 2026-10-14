@@ -58,6 +58,13 @@ public sealed class SandboxTargets
             .ToList();
     }
 
+    /// <summary>True when the key is one of several sandboxes of a repository of the run and not its
+    /// first match — the primary every commit path treats as the repository.</summary>
+    public bool IsSecondary(PipelineContext pipeline, string sandboxKey) =>
+        pipeline.TryGet<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, out var repos) && repos is not null
+        && repos.Select(repo => SandboxesForRepo(pipeline, repo))
+            .Any(matches => matches.Count > 1 && matches.Skip(1).Any(kv => kv.Key == sandboxKey));
+
     /// <summary>
     /// p0322b: the ONE key→repo ownership test. Authoritative when the
     /// coordinator's ContextKeys.SandboxRepos map is present (it records the

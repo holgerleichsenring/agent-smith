@@ -1,0 +1,243 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-8762n
+goal: "Each spec, when it is entered, has its moved path:line citations re-grounded as a visible set revision before its work starts, and a build note that conflicts with the series contract is flagged."
+
+applies_to: "backend (spec entry: citation re-grounding by git history and exact text, its revision through the series' one mid-run publisher, stale citations in the master prompt; build-note contract check)"
+
+requires: [2026-10-13-8762e, 2026-10-13-8762g, 2026-10-13-8762j, 2026-10-13-8762m]
+
+facts:
+  - claim: "The evidence check proves only that a cited path is a file and every cited range lies inside its length; it never compares what the lines say."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/EvidenceCheck.cs:27-48, src/backend/AgentSmith.Application/Services/Specs/EvidenceLineBounds.cs:9-20"
+  - claim: "The sandbox read step reads a file of at most 1 MB and can slice it by start line and line count, numbered or not."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Services/FileStepHandler.cs:52-74, src/backend/AgentSmith.Sandbox.Wire/SizeLimits.cs:5"
+  - claim: "Framework code runs git in a run's sandbox as a Run step and reads its stdout from OutputContent, captured up to 1,000,000 characters."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/ForeignCommitProbe.cs:93-97, src/backend/AgentSmith.Sandbox.Agent/Services/StepExecutor.cs:57-64, src/backend/AgentSmith.Sandbox.Agent/Services/StepExecutor.cs:90"
+  - claim: "A run's clone carries the whole history; a design turn's read-only source scope is a depth-1, single-branch clone of the default branch at turn time that refuses every step but four reads."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CheckoutStepFactory.cs:19-33"
+  - claim: "An evidence line is split on ';' into observations, minted look lines and path tokens; a minted segment is skipped whole; a token is path[:lines] with an optional repository qualifier, a token starting with ':' continues the previous path, and lines are comma-separated ranges."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/EvidenceReferences.cs:17-67, src/backend/AgentSmith.Application/Services/Specs/EvidenceReferences.cs:27, src/backend/AgentSmith.Application/Services/Specs/EvidenceReference.cs:8-14, src/backend/AgentSmith.Application/Services/Specs/EvidenceLines.cs:12-25"
+  - claim: "A ':'-continuation binds to the previous path token read, and that previous token carries across ';' segments."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/EvidenceReferences.cs:22, src/backend/AgentSmith.Application/Services/Specs/EvidenceReferences.cs:34, src/backend/AgentSmith.Application/Services/Specs/EvidenceReferences.cs:48-49"
+  - claim: "A run's derivation keeps a fact only when it cites a minted look id, and stores the minted look line ('[Ln] repo: … ran … exited …') as its evidence; the product policy accepts such lines."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/FactResolver.cs:32-33, src/backend/AgentSmith.Application/Services/Specs/DerivationEvidence.cs:49, src/backend/AgentSmith.Application/Services/Specs/EvidencePolicy.cs:37-43"
+  - claim: "observed: 2026-10-14, agent-smith-skills origin/main (v5.15.1, f9655e8): the design partner writes a fact's evidence as a repository-relative path and, where it has it, the line range."
+    evidence: "observed: 2026-10-14, git show origin/main:skills/_masters/design-partner-master/SKILL.md lines 325, 345-346"
+  - claim: "A cited path is routed as the filesystem tools route it: the longest repository name it starts with (the name stripped before the read), else the only repository, else the one repository whose working tree holds it; a qualified path is not checked."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SandboxEvidenceProbe.cs:31-58, src/backend/AgentSmith.Application/Services/Specs/SandboxEvidenceProbe.cs:70-71"
+  - claim: "A draft is re-read from yaml by SpecDraftReader, which keeps the yaml text as written; YamlDotNet's representation model is already used in this assembly."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDraftReader.cs:14-41, src/backend/AgentSmith.Application/Services/Specs/SpecOutcomeBlock.cs:2, src/backend/AgentSmith.Application/AgentSmith.Application.csproj:19"
+  - claim: "An executed spec is append-only; only the unexecuted tail may change. A set revision is a numbered header with a cause and an instant; a set can carry the approval it was ratified by."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:35, src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:38-49, src/backend/AgentSmith.Contracts/Specs/SpecSet.cs:98-105"
+  - claim: "A spec draft names its repositories in Repos, empty when none is named."
+    evidence: "src/backend/AgentSmith.Contracts/Models/SpecDraft.cs:66"
+  - claim: "An approval records one instant, At, the moment a person approved the set in the design conversation."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecApproval.cs:18-22"
+  - claim: "An approved set reaches the ticket branch as a commit at filing, or by the first run's hand-off when the branch holds nothing; either can be later than the turn that read the code."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/FiledSpecBranch.cs:81-88, src/backend/AgentSmith.Application/Services/Specs/SpecSourceResolver.cs:106-108"
+  - claim: "Spec files live under .agentsmith/specs in a state directory, named by the spec id followed by '-' or '.'."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SeriesPaths.cs:12, src/backend/AgentSmith.Contracts/Specs/SeriesPaths.cs:33, src/backend/AgentSmith.Contracts/Specs/SeriesPaths.cs:55-58"
+  - claim: "The revision causes are string constants on SpecRevisionCause, a 110-line file that is not baselined."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRevisionCause.cs:34-60, observed: 2026-10-14, wc -l in this worktree and grep of tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv"
+  - claim: "Every spec block starts with SelectSpec, which sets ContextKeys.CurrentSpec from the set's draft and then records the spec's start heads; the spec's diff review diffs from those heads, filtering only the run record directory."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Parking.cs:42-48, src/backend/AgentSmith.Application/Services/Handlers/SelectSpecHandler.cs:39-49, src/backend/AgentSmith.Application/Services/Handlers/SelectSpecHandler.cs:56, src/backend/AgentSmith.Application/Services/Specs/SpecStartHeads.cs:31-44, src/backend/AgentSmith.Application/Services/Specs/SpecDiffs.cs:33-35, src/backend/AgentSmith.Application/Services/Specs/SpecDiffText.cs:41"
+  - claim: "SelectSpecHandler is 116 lines, not baselined (limit 120), registered as a transient, and built directly by three tests; its Ok line is the third line of one return expression."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SelectSpecHandler.cs:22-26, src/backend/AgentSmith.Application/Services/Handlers/SelectSpecHandler.cs:65-67, src/backend/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs:94, tests/AgentSmith.Tests/Specs/SpecSequenceTests.cs:55-57, tests/AgentSmith.Tests/Specs/SpecSequenceTests.cs:80-82, tests/AgentSmith.Tests/Specs/SpecEntryAccountTests.cs:162-164, observed: 2026-10-14, wc -l in this worktree and grep of tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv"
+  - claim: "A set publish commits and pushes, records the pointer and sets ContextKeys.SpecRevisionSha."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetPublisher.cs:10-11, src/backend/AgentSmith.Application/Services/Specs/SpecSetPublisher.cs:52"
+  - claim: "The pointer records the last sha this system wrote per repository of the series, so a revision this system publishes is not read back as a person's edit."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/SpecSetPointer.cs:27-31, src/backend/AgentSmith.Contracts/Specs/SpecSetPointer.cs:38-49"
+  - claim: "Every publish is announced as SpecSetPublished with the set's current revision and its whole cut; the store writes one RunSeriesCut row per publish event, and today rewrites the attempt row's revision fields from every publish that carries a revision."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetAnnouncer.cs:53-61, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunSeriesCutProjection.cs:10-31, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunAttemptProjection.cs:9-13, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunAttemptProjection.cs:34-45"
+  - claim: "The spec-execution user prompt carries its optional blocks from SpecExecutionPromptBlocks (89 lines, not baselined); CurrentSpec lives in ContextKeys.SpecExecution.cs (19 lines); the factory holds the pipeline the set is read from."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecutionPromptFactory.cs:26-31, src/backend/AgentSmith.Application/Services/SpecExecutionPromptFactory.cs:59-61, src/backend/AgentSmith.Application/Services/SpecExecutionPromptBlocks.cs:22-89, src/backend/AgentSmith.Contracts/Commands/ContextKeys.SpecExecution.cs:8, src/backend/AgentSmith.Contracts/Commands/ContextKeys.Spec.cs:8"
+
+assumptions:
+  - "2026-10-13-8762e lands Services/Specs/Review/SpecReviewRegistrations.cs."
+  - "2026-10-13-8762g lands SpecReviewRevision.PublishAsync(pipeline, replacements, cause, ct, handback = null) as the series' one mid-run revision publisher: the set's Approval kept, the revised draft swapped into ContextKeys.SpecSet, a failing CommandResult returned on a failed publish or an unmoved SpecRevisionSha."
+  - "2026-10-13-8762g (main-thread decision, owner g) amends RunAttemptProjection so only the attempt's first publish sets RunAttempt's revision fields; a later mid-run publish, this spec's included, is recorded in the cut list (RunSeriesCut) only."
+  - "2026-10-13-8762j lands SpecSet.Contract = SeriesContract with Names[{Name, Kind, Number?, Owner, Writers[]?}], Data[{Datum, LivesIn, Owner, Writers[]?}], Areas[{Spec, Paths[]}] and Budgets; areas carry no Writers and may overlap; a shared file counts only between members whose Repos intersect (empty intersects all)."
+  - "2026-10-13-8762m lands SpecBuildNote(SpecId, Renamed, Moved, Persisted, Deviations), HandForwardToolHost refusing a renamed or moved entry without ` -> `, PrecedingSpecs.NotesOf(pipeline, specId), and SpecBuildNoteSection, rendered by SpecExecutionPromptFactory and by PremiseCheckPrompt.AlreadyRan."
+  - "2026-10-13-8762c leaves SpecExecutionPromptBlocks at about 101 lines (89 plus about 12)."
+  - "A path:line citation was true in the tree its writer read: for a spec the run or a person wrote on the branch, the tree of the newest commit that changed the citation's count in that spec's own file; for an approved set's filed text, the default branch as of the approval instant."
+
+scope:
+  in: >
+    WHERE: SelectSpecHandler re-grounds the ENTERED spec after the set lookup and before CurrentSpec is set and the
+    start heads are recorded (SelectSpecHandler.cs:43-56): `(spec, var grounding) = await entryGrounding.GroundAsync(
+    context.Pipeline, set, spec, cancellationToken)`; CurrentSpec and everything after read the grounded draft. There is
+    no 'describes today' gate (SpecToday is not consulted): a citation is compared with the tree it was WRITTEN against,
+    so a file a predecessor will create fails git show and is not checked, and code a predecessor moved is exactly the
+    move this finds. Every spec that runs is re-grounded when it runs, after every predecessor of its attempt landed.
+    WHAT IT TOUCHES: unqualified path:lines tokens in facts' evidence; minted look lines, observations, path-only,
+    ':'-continuation and qualified tokens are skipped. A run-derived spec cites minted [Ln] look lines
+    (FactResolver.cs:32-33), so it is out of reach by design; this applies to design-partner sets and hand-written specs.
+    CONTINUATIONS: a ':'-continuation binds to the previous path token, across ';' (EvidenceReferences.cs:22, :34,
+    :48-49), so a token followed by a continuation before the next path token is re-grounded only within its own file,
+    its path unchanged; a move of such a token to another file is listed as a stale citation with the found location.
+    HISTORY: SpecCitationHistory (git as Run steps in the run's full clone, on the run's token; a failure is 'not
+    checked'). Writing commit: `git log -1 --format=%H%x20%cI --pickaxe-regex -S'<regex-escaped token>([^0-9,-]|$)' --
+    '.agentsmith/specs/*/<specId>-*' '.agentsmith/specs/*/<specId>.*'`, asked of each repository sandbox in turn until
+    one answers — scoped to this spec's own file, so another spec's re-ground or record never re-dates it, and bounded on
+    the right, so `Foo.cs:12` is not counted inside `Foo.cs:120-125`. Base: that commit in the carrying repository; in
+    another cited repository `git rev-list -1 --first-parent --before=<its date> HEAD`. APPROVED: when the set carries
+    an Approval and the writing commit is the one that added the spec's file (`git log -1 --diff-filter=A --format=%H`
+    over the same pathspec), the base in every cited repository is `git rev-list -1 --first-parent
+    --before=<Approval.At> origin/HEAD`, the default branch the partner read — --first-parent so a side-branch commit
+    dated before the approval and merged after it is never the base. ROUTING: a path that starts with a repository name,
+    or any path in a one-repository set, is routed as SandboxEvidenceProbe routes it (SandboxEvidenceProbe.cs:31-47); a
+    bare path in a multi-repository set is routed by existence AT ITS BASE — the one repository where `git cat-file -e
+    <base>:<path>` succeeds — because a file a predecessor moved away is held by no working tree; none or more than one
+    is 'not checked'. Unchanged: `git diff --quiet <base> -- <path>` exits 0, no read. Old text: `git show
+    <base>:<path>`. LOCATE: SpecCitationLocator (pure): a range still holds when its current lines equal the old ones
+    (trailing whitespace trimmed); else the old block is searched in the current file (whole read, 1 MB), found when it
+    occurs exactly once; else the candidate files are tried: first the new side of each `moved` entry of a preceding
+    spec's build note (PrecedingSpecs.NotesOf, 2026-10-13-8762m) whose old side equals the cited path, then the
+    SearchLine — the longest trimmed line of the block, at least 20 characters, else no search — through `git grep -l
+    -F -e <line>` over the repository's tracked files; more than 10 candidate files is not found; the block found
+    exactly once in exactly one candidate gives the new path. A range keeps its length; a token is re-grounded only when
+    every range in it lands in one file. TOKEN FORM: a re-grounded token keeps the old token's repository-name prefix,
+    or its absence — the prefix is put back in front of git grep's repository-relative path — so the next entry routes
+    it as it routed the old one. REGROUND: SpecCitationRegrounder over the entered spec: at most 24 distinct
+    (repository, path) pairs, each candidate file read counted as one more pair; past the bound counted unchecked and
+    logged. A token that moved is spliced in EVERY fact that carries it, or in none. A citation whose lines changed and
+    whose text is found nowhere is a STALE citation. SPLICE: SpecFactRegrounding.Apply(yaml, factIndex, oldToken,
+    newToken) replaces the token inside that fact's evidence scalar only, by the scalar's source span from YamlDotNet's
+    representation model, whole-token match; null when the token is not verbatim in the span (an escaped scalar).
+    ENTRY: SpecEntryGrounding.GroundAsync returns SpecEntryGround(DerivedSpec Spec, string StepNote); when any token
+    moved it publishes ONE revision through 2026-10-13-8762g's SpecReviewRevision.PublishAsync with cause
+    SpecRevisionCause.CitationsRegrounded ("citations re-grounded in {specId}: {old} -> {new}", '; '-joined, at most
+    five named then "and {n} more", formatted in SpecEntryGrounding), the Approval kept, and returns the revised spec;
+    nothing moved publishes nothing. A FAILED PUBLISH does not fail SelectSpec (contract default, pending operator
+    ratification): the set it was handed is put back into ContextKeys.SpecSet, the spec continues with its original
+    text, each moved citation is listed as stale with the location its text was found at, and the step note names the
+    failed publish. It sets ContextKeys.StaleCitations (IReadOnlyList<string>, in ContextKeys.SpecExecution.cs,
+    replaced on every entry) to one line per stale citation; StepNote is empty, or the stale count with the first three
+    and the failed publish when there was one. READERS OF A STALE CITATION: SpecExecutionPromptBlocks.StaleCitations
+    renders them into the master's spec-execution prompt ("these citations' lines changed since they were written and
+    their text was found nowhere: verify the claim before relying on it"), and SelectSpec's Ok line ends with StepNote.
+    CONTRACT CHECK: BuildNoteContractCheck.Deviations(note, specId, set), static and pure, reading set.Contract and the
+    members' Draft.Repos, matching case-insensitively by whole-word containment of a contract name or datum in an
+    entry: a persisted entry naming a datum whose Owner is another spec and whose Writers do not name this spec; a
+    renamed entry whose old side (left of ` -> `) names a contract name; a moved entry whose destination (right of
+    ` -> `) equals or lies under a path of another spec's area — counted only when that spec's Repos intersect this
+    spec's, empty intersecting all, as 2026-10-13-8762j counts a shared file — and under none of this spec's areas.
+    Each is marked declared when the note's deviations name it. HandForwardToolHost lists them in its answer;
+    SpecBuildNoteSection gains an optional `SpecSet? set = null` and, given one, marks each preceding note's undeclared
+    deviations (by the note's SpecId); SpecExecutionPromptFactory's call passes the pipeline's ContextKeys.SpecSet;
+    PremiseCheckPrompt.AlreadyRan's call is left as it is, so the premise check shows the notes unmarked. Nothing new
+    is persisted. REGISTRATION: SpecCitationHistory, SpecCitationRegrounder and ISpecEntryGrounding/SpecEntryGrounding
+    in Services/Specs/Review/SpecReviewRegistrations.cs; the locator, the splice and the contract check are static.
+  out: >
+    The evidence check and event 87 — 2026-10-13-8762e. The review loop, the panel and the revision publisher —
+    2026-10-13-8762g. Keeping the attempt row's opening revision when a mid-run revision is published, and its test
+    RunAttempt_MidRunRevision_KeepsTheOpeningRevisionCause — 2026-10-13-8762g (main-thread decision). The build note and
+    its entry format — 2026-10-13-8762m. Parsing and checking the contract — 2026-10-13-8762j. Re-grounding before the
+    reviewers in ReviewSpecs — nobody: ReviewSpecs runs before SpecSequence, so inside an attempt no predecessor has
+    moved anything yet; a grounded draft there would have to become the review loop's draft or the reviser republishes
+    the stale text; and every spec is re-grounded at its entry anyway. Re-grounding in a design turn — nobody: its
+    source scope is a depth-1 clone that refuses git (CheckoutStepFactory.cs:26-33). Re-grounding a run-derived spec's
+    facts — nobody: they cite minted look lines, not path:line. Path-only, ':'-continuation and qualified tokens —
+    nobody: they name no line text or no repository this check can address. Re-grounding a claim, an assumption, a
+    decision, a goal, a step or a done criterion — nobody: only the citation moves (contract decision 13). A ticket
+    notice or an event — nobody: the revision on the branch, its cause on event 83, the step line and the master prompt
+    are the record. Marking deviations in the premise-check prompt — nobody: PremiseCheckPrompt is not touched here
+    (contract section 5). Blocking on a contract deviation — nobody: shown, not enforced (contract decision 12).
+
+decisions:
+  - key: "THE ENTERED SPEC IS RE-GROUNDED IN SELECTSPEC, BEFORE ITS START HEADS (main-thread decision 6, round-2 review F1; contract decision 13 and sections 2 and 4 amended). ReviewSpecs runs before SpecSequence, so a re-ground there could only ever reach the first spec of an attempt — 3 of a 24-spec series at eight per attempt. At entry every predecessor of the attempt has landed, which is the session's 'planned specs re-ground their citations after the previous member lands'. The revision is published before SpecStartHeads.RecordAsync, so it precedes this spec's start heads and no spec's own diff contains it. REJECTED: keeping a second call before review round 1 (round-2 F9) — the grounded draft would have to become SpecReviewLoop's draft inside g's 120-line budget, and it could only catch moves from earlier attempts, which entry grounding catches too."
+  - key: "NO TODAY GATE. The history check compares a citation with the tree it was written against, not with today: a cited file a predecessor will create fails git show and is not checked; existing code a predecessor moved is the move to find (round-2 F1). SpecToday — Describes(draft, SpecSet set) in e, g and i — is not consulted here."
+  - key: "THE PICKAXE IS SCOPED TO THE SPEC'S OWN FILE AND BOUNDED ON THE RIGHT (round-2 F3, round-3 F7). Over the whole specs directory, another spec's re-ground of the same token, a predecessor's record or an older series could post-date the move, and the citation would read as 'unchanged since written' — a stale citation certified current. A plain -S counts substrings, so `Foo.cs:12` inside `Foo.cs:120-125` would re-date it; --pickaxe-regex with ([^0-9,-]|$) after the escaped token does not. KNOWN LIMITS: an occurrence of the same token outside facts' evidence (scope or decision prose) that a later revision changes still re-dates it."
+  - key: "FIRST-PARENT HISTORY (round-3 F2). Without --first-parent, rev-list --before walks every merged parent and can return a feature-branch commit dated before the instant but merged after it, whose tree the default branch never held. Both date-based base lookups take --first-parent."
+  - key: "A TOKEN WITH A CONTINUATION STAYS IN ITS FILE (round-3 F1). The parser binds ':40-45' to the previous path across ';' segments; re-pointing 'Foo.cs:12-20' to Bar.cs would silently make the untouched continuation read as Bar.cs:40-45 — a wrong citation written by the framework. Such a token is re-grounded only within its own file; a cross-file move is a stale citation with its found location."
+  - key: "BARE PATHS IN A MULTI-REPOSITORY SERIES ROUTE BY THE BASE (round-3 F3). The probe routes a bare path to the one working tree that holds it (SandboxEvidenceProbe.cs:53-58); a file a predecessor moved away is held by none, so the case this spec exists for would be 'not checked'. git cat-file -e at each repository's base finds where the citation was written. Prefixed paths and one-repository sets keep the probe's routing."
+  - key: "THE TOKEN KEEPS ITS FORM (round-3 F4). Routing strips a repository-name prefix (SandboxEvidenceProbe.cs:35-38, :70-71) and git grep -l answers repository-relative; the new token carries the old token's prefix or none, so the next entry routes it to the same repository."
+  - key: "THE BUILD NOTE'S MOVES ARE CANDIDATES FIRST (main-thread decision, round-3 'deliver' note). A preceding spec's `moved` entry `<old> -> <new>` is the hint the session used; its new side is tried before git grep, read and counted against the 24-pair budget like any candidate. It only adds a candidate: the exact-text, unique-match rule still decides."
+  - key: "A FAILED RE-GROUND PUBLISH DOES NOT FAIL THE SPEC (main-thread decision, round-3 F5; contract default, pending operator ratification). Re-grounding is optional; failing a whole series run on a push failure of an optional step inverts the usual risk. The set is put back, the spec runs on its original text — the text the branch states — and the moved citations are listed as stale with where their text was found, so the master still sees them. ALTERNATIVE REJECTED: failing SelectSpec as g's own rounds fail their step. GroundAsync therefore returns the spec and a step note rather than a failure, and SelectSpecHandler stays at 119 lines."
+  - key: "AN APPROVED SET'S FILED TEXT IS DATED BY ITS APPROVAL (round-2 F4). The partner read a depth-1 clone of the default branch at turn time; the filing or hand-off commit can be later and on a later branch. When the writing commit is the one that added the spec's file and the set carries an Approval, the base is the default branch as of Approval.At. KNOWN LIMITS: commits landing on the default branch between the partner's read and the approval; and an approved file amended in place after filing, which is dated by that amending commit."
+  - key: "WHERE IT APPLIES (round-2 F2). Run-derived sets cite minted [Ln] look lines (FactResolver.cs:32-33), which the reference parser skips whole (EvidenceReferences.cs:27); they are out of reach by design, and their reviewers are told to open those looks (2026-10-13-8762e). Path:line citations come from design-partner sets and hand-written specs — the approved path a long series takes."
+  - key: "A STALE CITATION HAS READERS (round-2 F5). No reviewer runs after entry, so 'changed and found nowhere' goes into the master's spec-execution prompt, where the spec is acted on, and into SelectSpec's step line in the run trail. It is never rewritten: a wrong citation written by the framework would be worse than a stale one the master is told about."
+  - key: "BOUNDED CANDIDATE SEARCH (round-2 F8). The search line is the block's longest trimmed line of at least 20 characters, never a '}' or 'return;'; more than 10 candidate files is not found; each candidate read counts against the 24-pair budget; the line is passed after -e so a leading '-' is not an option."
+  - key: "MECHANICAL, NO MODEL. The old text comes from git, the new place from an exact match. A model asked where a line went would be one more claim to check."
+  - key: "EXACT TEXT, UNIQUE MATCH. Trailing whitespace aside, the block must occur exactly once; a re-indented or edited line, or a block found twice, is not re-grounded and becomes a stale citation."
+  - key: "BUDGET PER DISTINCT CITED FILE. 24 (repository, path) pairs per entered spec, candidate reads included; the reads are the framework's own whole-file reads (1 MB), not a model's numbered reads. Default, pending operator ratification (contract section 5, default 48)."
+  - key: "ONE PUBLISH PATH. The revision goes through SpecReviewRevision.PublishAsync (2026-10-13-8762g): placed, committed, pointed at and announced as SpecSetPublished (83), the approval kept. Each such publish also writes one RunSeriesCut row with the whole cut (RunSeriesCutProjection.cs:27-31) — at most one per entered spec, accepted. Until g keeps the attempt row's opening revision (assumption above), each would rewrite RunAttempt's revision fields (RunAttemptProjection.cs:34-45); this spec depends on g's amendment and does not touch the projection."
+  - key: "AN APPROVED SPEC THAT WAS RE-GROUNDED IS REVIEWED IF IT RUNS AGAIN. Its yaml no longer equals the approved record's, so a later attempt's ReviewSpecs (2026-10-13-8762g, main-thread decision 2) reviews it; that is the price of a visible revision and is accepted."
+  - key: "THE CONTRACT CHECK MATCHES j'S SHAPE (round-2 F6, F7; round-3 F8). Areas carry no Writers and may overlap, so a move deviates only when its destination lies in another spec's area and in none of this spec's; areas are repository-relative, so another spec's area counts only when its Repos intersect this spec's, as j counts shared files. A persisted datum deviates only when its Owner is another spec and its Writers leave this spec out. Entries are split on m's ` -> `; a name matches by whole-word, case-insensitive containment, because equality never matches a sentence and bare containment matches a short name everywhere."
+  - key: "THE CONTRACT CHECK IS A MECHANICAL HINT (round-3 F8). Data datums are often phrases that whole-word containment in a 300-character entry rarely hits; the session's cross-member consistency pass is 2026-10-13-8762k's series reviewer, not this check."
+  - key: "DEVIATIONS ARE COMPUTED, NOT STORED, AND STATIC. The note lives in the record and the contract on the branch; a stored list would be a third copy. Its callers are a host built with new and two static renderers; SpecBuildNoteSection takes the set as an optional argument so PremiseCheckPrompt's call (contract section 5: n does not touch it) needs no edit (round-3 F9)."
+  - key: "NO EVENT. The re-grounding rides on SpecSetPublished (83) as the revision cause (series contract 2.1)."
+  - key: "BACKEND CONTEXT. Recorded in the default context (contract decision 23)."
+
+steps:
+  - id: history
+    action: "SpecCitationHistory: writing commit (--pickaxe-regex on the escaped token with a right boundary, on the spec's own file), added-commit probe, base (writing commit, other repository by date, or the default branch at Approval.At; both date lookups --first-parent), cat-file existence at a base, unchanged probe, old text, git grep -l -F -e candidates; each a Run step whose failure is 'not checked'; at most 110 lines."
+  - id: locate
+    action: "SpecCitationLocator (static): still holds / moved in file / moved to one other file / not found, candidates in order (build-note moved destinations, then git grep), SearchLine (longest trimmed line, at least 20 characters), ranges keep their length; at most 90 lines."
+  - id: splice
+    action: "SpecFactRegrounding.Apply (static): whole-token replace inside the fact's evidence scalar span; null when not verbatim; a token's occurrences across facts all applied or none."
+  - id: reground
+    action: "SpecCitationRegrounder: token selection; routing as SandboxEvidenceProbe routes for prefixed paths and one-repository sets, by cat-file at the base for a bare path in a multi-repository set; a token with a ':'-continuation kept in its file; the new token keeps the old prefix form; the 24-pair budget with candidate reads counted, the 10-candidate cap, stale citations; at most 120 lines."
+  - id: entry
+    action: "ISpecEntryGrounding + SpecEntryGrounding.GroundAsync returning SpecEntryGround(Spec, StepNote): one revision through SpecReviewRevision.PublishAsync; on a failing result the handed-in set put back into ContextKeys.SpecSet, the original spec returned and the moved citations listed stale with their found location; ContextKeys.StaleCitations set per entry; the cause text formatted here. SpecRevisionCause.CitationsRegrounded (111 after 2026-10-13-8762k -> at most 113); at most 90 lines."
+  - id: select-spec
+    action: "SelectSpecHandler: 116 + one constructor line (ISpecEntryGrounding) + one line `(spec, var grounding) = await entryGrounding.GroundAsync(context.Pipeline, set, spec, cancellationToken);` after the null check at :44-45 + one line continuing the Ok line at :67 with grounding.StepNote = 119. The three direct constructions in SpecSequenceTests.cs and SpecEntryAccountTests.cs pass a pass-through grounding, one argument on an existing line."
+  - id: prompt
+    action: "ContextKeys.StaleCitations in ContextKeys.SpecExecution.cs (19 -> about 24); SpecExecutionPromptBlocks.StaleCitations, at most 11 lines over what 2026-10-13-8762c leaves (about 101 -> at most 112, limit 120); one line in SpecExecutionPromptFactory (at most one line over what 2026-10-13-8762m leaves)."
+  - id: contract-check
+    action: "BuildNoteContractCheck.Deviations(note, specId, set) (static) over set.Contract and the members' Repos with the three rules and whole-word matching; HandForwardToolHost lists the deviations in its answer; SpecBuildNoteSection gains `SpecSet? set = null` and marks the undeclared ones; SpecExecutionPromptFactory passes the pipeline's set on m's existing call (counted in the prompt step's line); PremiseCheckPrompt's call unchanged."
+  - id: register
+    action: "SpecCitationHistory, SpecCitationRegrounder and ISpecEntryGrounding in Services/Specs/Review/SpecReviewRegistrations.cs, transient like SelectSpecHandler."
+  - id: tests
+    action: "Red first for every test below, then green; run the Specs, Review, Handlers and Architecture classes touched, and the harness class."
+
+tests:
+  - "SpecCitationLocator_LinesUnchanged_Holds"
+  - "SpecCitationLocator_BlockMovedDownInFile_NewRangeSameLength"
+  - "SpecCitationLocator_BlockFoundTwice_NotFound"
+  - "SpecCitationLocator_BlockInOneOtherFile_NewPath"
+  - "SpecCitationLocator_BuildNoteMovedDestination_IsTriedBeforeGrep"
+  - "SpecCitationLocator_ReindentedLine_NotFound"
+  - "SpecCitationLocator_SearchLine_BracesOnlyBlock_HasNone"
+  - "SpecFactRegrounding_ReplacesOnlyThatToken_RestOfFileByteIdentical"
+  - "SpecFactRegrounding_EscapedScalar_ReturnsNull"
+  - "SpecFactRegrounding_RangeToken_KeepsTheRange"
+  - "SpecFactRegrounding_TokenInTwoFactsOneEscaped_NoneReplaced"
+  - "SpecCitationHistory_RealGitRepo_FindsWritingCommitAndOldText (temp git repo, real git)"
+  - "SpecCitationHistory_RealGitRepo_OtherSpecFileRewritingTheToken_DoesNotMoveTheWritingCommit"
+  - "SpecCitationHistory_RealGitRepo_LongerTokenContainingTheToken_DoesNotMoveTheWritingCommit"
+  - "SpecCitationHistory_RealGitRepo_ApprovedFileAddedAtFiling_BaseIsDefaultBranchAtApproval"
+  - "SpecCitationHistory_RealGitRepo_FeatureCommitMergedAfterApproval_IsNotTheBase"
+  - "SpecCitationHistory_RealGitRepo_ElevenCandidates_NotFound"
+  - "SpecCitationRegrounder_ChangedLinesFoundNowhere_IsAStaleCitation"
+  - "SpecCitationRegrounder_TokenWithContinuation_MovedToOtherFile_IsStaleNotSpliced"
+  - "SpecCitationRegrounder_MultiRepo_BareFileMovedAway_IsRegrounded"
+  - "SpecCitationRegrounder_RepositoryPrefixedToken_NewTokenKeepsThePrefix"
+  - "SpecCitationRegrounder_MintedLookLines_AreUntouched"
+  - "SpecCitationRegrounder_OverPairBudget_CountsUnchecked"
+  - "SpecEntryGrounding_MovedCitation_OneRevisionWithCause_ApprovalKept"
+  - "SpecEntryGrounding_NothingMoved_PublishesNothing"
+  - "SpecEntryGrounding_PublishFails_OriginalSpecAndSetKept_MovedCitationsListedStale"
+  - "SelectSpec_MovedCitation_CurrentSpecIsGroundedAndPublishedBeforeStartHeads"
+  - "SelectSpec_GroundingPublishFails_StepSucceedsAndNamesIt"
+  - "SpecExecutionPrompt_StaleCitations_AreListed"
+  - "Harness_TwoSpecSeries_SpecOneMovesLinesSpecTwoCites_SpecTwoEntersRegroundedAndItsDiffCarriesNoSpecsPath"
+  - "BuildNoteContractCheck_PersistedDatumOwnedByAnotherSpec_IsADeviation"
+  - "BuildNoteContractCheck_PersistedDatumListingThisSpecAsWriter_IsNoDeviation"
+  - "BuildNoteContractCheck_MoveIntoAnotherSpecsAreaOnly_IsADeviation"
+  - "BuildNoteContractCheck_MoveIntoAreaSharedWithThisSpec_IsNoDeviation"
+  - "BuildNoteContractCheck_MoveIntoAreaOfSpecInDisjointRepos_IsNoDeviation"
+  - "BuildNoteContractCheck_RenamedContractName_IsADeviation"
+  - "BuildNoteContractCheck_DeclaredInDeviations_IsMarkedDeclared"
+  - "SpecBuildNoteSection_WithSet_MarksUndeclaredDeviations_WithoutSet_Unmarked"
+  - "HandForward_ConflictWithContract_AnswerNamesIt"
+  - "SpecReviewRegistrations_ResolveTheRegroundServices (integration through the real ServiceProvider)"
+
+done:
+  - "A spec whose path:line citations were moved by a predecessor of its own attempt is entered already citing the new path:line: its master prompt shows the re-grounded text and the ticket branch carries one revision whose cause names each old and new citation."
+  - "A citation whose lines now say something else and whose old text is found nowhere is listed in the master's spec-execution prompt and in SelectSpec's step line, never silently kept or rewritten; a continuation-bound token is never re-pointed to another file."
+  - "A re-ground revision that cannot be published leaves the spec running on its original text, with the moved citations listed as stale and the failed publish named in SelectSpec's step line."
+  - "No spec's own diff review contains a re-ground revision."
+  - "An approved set's citations are re-grounded against the first-parent default branch as of its approval, with the approval kept."
+  - "A build note that persists a datum the contract gives to another spec is named in the hand_forward answer and, unless declared, marked in the next spec's prompt."
+  - "Build green, full suite green, dashboard gen:hub-events/test/build green."

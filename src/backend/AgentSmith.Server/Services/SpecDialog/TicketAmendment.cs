@@ -81,12 +81,12 @@ public sealed class TicketAmendment(
         // Read back AFTER the rewrite: the fingerprint the branch set carries is of the ticket as the
         // TRACKER stored it, and a stale one reads as a ticket edit on the next run. 2026-10-12-f5f7d:
         // each spec is written into the repository it names; what already ran stays out by id.
-        var branch = await branches.WriteAsync(project, record, id, await ReadBackAsync(project, id, ct), ct);
+        var branch = await branches.WriteAsync(project, record, id, await ReadBackAsync(project, id, ct), ct, amended.Set.Sources);
         logger.LogInformation(
             "Approval recorded under ticket {Ticket} from conversation {Session}: {Specs} spec(s), branch {State}",
             ticketId, state.JobId, amended.Set.Drafts.Count, branch.Written ? "written" : branch.Error);
         var recorded = $"The approved series under ticket {ticketId} is the one you just approved "
-            + $"({amended.Set.Drafts.Count} spec(s)). {rewrite}";
+            + $"({amended.Set.Drafts.Count} spec(s)). {rewrite}{string.Concat((branch.Notes ?? []).Select(n => " " + n))}";
         return branch.Written ? recorded
             : $"{recorded} The series is NOT on the ticket branch yet ({branch.Error}); a run that claims "
                 + "this ticket works the set the branch still carries — approve again once it can be written.";

@@ -44,6 +44,7 @@ public sealed class SpecDraftReader
             Contexts = SpecDraftLists.Strings(map, "contexts"),
             // 2026-10-12-3a36e: the repositories the spec declares it changes.
             Repos = SpecDraftLists.Strings(map, "repos"),
+            RatifiedMock = int.TryParse(OutcomeYamlReader.GetString(map, "ratified_mock"), out var mock) && mock > 0 ? mock : null,
         };
     }
 

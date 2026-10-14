@@ -1,0 +1,47 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-8762r
+
+decisions:
+  - category: Architecture
+    chose: "A mock is a ReferenceFile of kind mock, one set per version (mock-<guid>) with {specId}.html and, once rendered, {specId}.jpg; no migration (the 16-character kind column holds 'mock')"
+    over: "A table of its own, or rows of kind site/image"
+    reason: |
+      Every existing read filters by its own kinds, so a mock never shows as an upload, never counts against the
+      upload cap and never reaches the model as an operator image; the conversation delete already sweeps every
+      row of the session except kept site/note/image rows, so mocks go with it.
+  - category: Data
+    chose: "The version number and the names {specId}-mock-v{n} are derived at read as the rank by Id of the spec's html rows; AddAsync returns the committed rank"
+    over: "Storing the number (needs a unique index on four providers, or an insert-count-update that can store v1 twice)"
+    reason: "One source for the number; two overlapping writes get two numbers once both are committed. A deleted row renumbers what is left, which nobody does (no single-version delete)."
+  - category: Architecture
+    chose: "DbConversationMocks implements both IConversationMocks (writer) and IConversationMockReader (the one reader) over a scoped writer (ConversationMockRepository) and reader (ConversationMockReadRepository) sharing MockRows' filters; both ports resolve to the same singleton"
+    over: "Two implementations, or the logic in the scope-opening class"
+    reason: "Follows DbReferenceNotes/ReferenceNoteRepository; keeps each class under 120 lines. s and t read mocks through IConversationMockReader only."
+  - category: API
+    chose: "IConversationMocks.AddAsync returns (MockVersion? Version, string? Refusal); MockVersion carries an optional HasShot set by the list read; HtmlAsync returns MockPage(Version, Html)"
+    over: "AddAsync -> MockVersion throwing on a cap, a second listing record"
+    reason: "A cap is an expected refusal the tool answers as text naming the cap, not an exception; one version record serves the writer, the reader and the view."
+  - category: Architecture
+    chose: "write_mock renders through ReferenceRenderer with a fourth staged source (RenderSource.Inline, written by RenderSourceStager under /work/mocks/<setId> via WriteUnderAsync) and answers with RenderReferenceToolHost.Answer (extracted, internal static) — the same deposit and text"
+    over: "A second renderer or a copy of render_reference's deposit"
+    reason: "Contract 'renders each through render_reference': same browser sandbox, same serial lock (held across store and render), same deposit and result text."
+  - category: Behaviour
+    chose: "The stored screenshot is the one whose report shot's Viewport is desktop, chosen by viewport never by position; a failed render (refusal or exception) keeps the version and says why"
+    over: "Taking Shots[0]; discarding the version on a failed render"
+    reason: "Report order is not a contract; the version is the operator's material even when the browser could not run."
+  - category: Security
+    chose: "GET .../mocks/{specId}/{version:int}/shot serves image/jpeg with nosniff + CSP sandbox; .../html serves the page as an application/octet-stream attachment named {specId}-mock-v{n}.html with nosniff + CSP sandbox; both dialog.write + MayReachSessionAsync, 404 otherwise"
+    over: "Serving the html inline or opening it in an iframe"
+    reason: "Served from this origin the model's HTML would run as the dashboard; the precedent is SpecDialogReferenceFileEndpoints.ContentAsync. The route template carries ':int' so a non-number version is a 404 before the handler."
+  - category: Defaults
+    chose: "Caps 90 000 characters per mock, 20 versions per spec, 100 versions per conversation, each refusal naming its cap — default, pending operator ratification"
+    over: "No caps, or the 100 000-character tool-result bound itself"
+    reason: "Every tool result is cut to 100 000 characters keeping head and tail; a mock at 90 000 plus read_mock's one header line reads back whole (ReadMock_MockAtTheCap_ReadsBackWhole). Mock rows are outside the upload byte cap, so without the conversation cap invented spec ids would store without bound."
+  - category: UI
+    chose: "Mock entries carry the conversation's session id (TranscriptMock = SpecDialogMock & {sessionId}); useSpecDialog merges unheld mock entries on EVERY read (withMocks) and refreshes a held one whose hasShot changed"
+    over: "A sessionId prop threaded through DialogTranscript, or showing mocks only after an armed reseed"
+    reason: "A mock written by the agent arms nothing, so without the merge it appears only after a reload. Carrying the session on the entry keeps DialogTranscript's change to one case line (+1 import, one stray blank line removed: 196 -> 197)."
+  - category: Process
+    chose: "DEVIATION: the design-partner-master skill paragraph is NOT written here; its exact text is handed to 2026-10-13-8762x via the build notes"
+    over: "Editing agent-smith-skills on branch spec/2026-10-13-8762 in this spec (steps.skill)"
+    reason: "The series build brief reserves every skills edit for 8762x, which bumps each master once and asserts the sentences in its test."

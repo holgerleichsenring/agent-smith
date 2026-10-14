@@ -39,6 +39,8 @@ public sealed class CommitAndPRHandler(
     ShortfallDelivery shortfallDelivery,
     CompletedRunTicketSummary completedSummary,
     Structure.StructureDivergencePublisher divergences,
+    CodePullRequestBanner banners,
+    SeriesChunkStop chunkStop,
     ILogger<CommitAndPRHandler> logger)
     : ICommandHandler<CommitAndPRContext>
 {
@@ -157,7 +159,7 @@ public sealed class CommitAndPRHandler(
         }
 
         await KeepSpecPullRequestsAsync(
-            context, opened, bodies, Banner(failureReason, shortfall, isDraft), !isDraft && !failed, progress, shortfall, cancellationToken);
+            context, opened, bodies, banners.For(failureReason, shortfall, isDraft, progress), !isDraft && !failed, progress, shortfall, cancellationToken);
 
         context.Pipeline.Set<IReadOnlyList<OpenedPullRequest>>(ContextKeys.OpenedPullRequests, opened);
         context.Pipeline.Set<IReadOnlyDictionary<string, string>>(ContextKeys.OpenedPullRequestBodies, bodies);
@@ -179,6 +181,10 @@ public sealed class CommitAndPRHandler(
         // step is the run's report; the error path posts it with what was kept.
         if (failureReason is not null)
             return failedRun.StepResult(failureReason, opened);
+        // 2026-10-13-8762u: an attempt stopped at a series boundary keeps its draft, says where the series
+        // continues, and never finalizes — the ticket keeps its status and its approval for the next attempt.
+        if (progress?.StoppedAtChunk == true)
+            return await chunkStop.ReportAsync(context, progress, cancellationToken);
 
         // p0241 keystone: a fix/feature run that shipped no code, or whose
         // build/tests are not verified green, must NOT be reported as success and
@@ -236,17 +242,6 @@ public sealed class CommitAndPRHandler(
         foreach (var kept in await specOnlyPrs.KeepAsync(context.Pipeline, context.Configs, opened, body, ready, ct))
             bodies[kept.RepoName] = body;
     }
-
-    // A red run's PR is a draft and says so at the top of the body, so a reviewer
-    // sees "verification red" before the ticket text — not a change that looks ready.
-    // 2026-09-07-f420: a FAILED run's draft names the failure instead; p0439: a
-    // delivered shortfall leads with what it delivers and what it lacks.
-    private string Banner(string? failureReason, RunShortfall? shortfall, bool isDraft) =>
-        shortfall is not null ? shortfallDelivery.PullRequestBanner(shortfall)
-        : failureReason is not null ? failedRun.PullRequestBanner(failureReason)
-        : isDraft
-            ? "> ⚠️ **Verification red** — build/tests did not pass. Draft for review, do not merge as-is.\n\n"
-            : string.Empty;
 
     private async Task<(OpenedPullRequest Result, string? Body)> OpenOneAsync(
         CommitAndPRContext context, ISandbox sandbox, RepoConnection repo, bool isDraft,
@@ -319,7 +314,7 @@ public sealed class CommitAndPRHandler(
             return (new OpenedPullRequest(repo.Name, Url: null, OpenStatus.Failed, PullRequestOutcomeText.FirstLine(ex.Message)), null);
         }
 
-        var body = CodePullRequestBody.Compose(context, Banner(failureReason, shortfall, isDraft), progress, shortfall, repo.Name);
+        var body = CodePullRequestBody.Compose(context, banners.For(failureReason, shortfall, isDraft, progress), progress, shortfall, repo.Name);
         try
         {
             var provider = sourceFactory.Create(repo);

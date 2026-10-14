@@ -16,7 +16,8 @@ namespace AgentSmith.Application.Services.Spawning;
 /// admitted branch still has only the claim's INSERT as its guard; this check only avoids the queue.
 /// </summary>
 internal sealed class SpawnLeaseDeferral(
-    CapacityDeferral deferral, IUnmovedTicketStore unmovedTickets, IActiveRunLease leases, TimeProvider clock, ILogger logger)
+    CapacityDeferral deferral, IUnmovedTicketStore unmovedTickets, IActiveRunLease leases, TimeProvider clock, ILogger logger,
+    IPreviousAttemptReader previousAttempts)
 {
     public async Task<SpawnResult> DeferAsync(
         AgentSmithConfig config, ResolvedProject project, string pipelineName, IncomingTicketEnvelope envelope,
@@ -24,7 +25,7 @@ internal sealed class SpawnLeaseDeferral(
         CapacityQueueEntry? head, string runId, CapacityDecision? admission, CancellationToken ct)
     {
         var probe = SpawnRequestBuilder.BuildRequest(project, pipelineName, envelope, matchedTrigger, planAnswers, existingRunId: null);
-        if (await new Claim.ClaimRefusal(unmovedTickets).ForAsync(probe, config, ct) is { } refusal)
+        if (await new Claim.ClaimRefusal(unmovedTickets, previousAttempts).ForAsync(probe, config, ct) is { } refusal)
         {
             logger.LogInformation("Spawn refused rather than queued for project={Project} ticket={Ticket}: {Rejection}",
                 project.Name, envelope.TicketId, refusal.Rejection);

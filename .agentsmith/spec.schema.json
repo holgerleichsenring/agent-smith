@@ -74,6 +74,11 @@
         }
       ]
     },
+    "ratified_mock": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "The version of the design mock a person ratified; the file {spec}-mock-v{n}.html lies beside the spec. Stamped at filing from the person's ratification only; a value a model writes is removed."
+    },
     "facts": {
       "type": [
         "array",

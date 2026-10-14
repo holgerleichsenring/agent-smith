@@ -20,6 +20,14 @@ public static class RequestedByNameExtensions
     public static bool IsRequestedByName(this PipelineContext pipeline) =>
         pipeline.TryGet<object>(ContextKeys.RequestedByName, out var value) && IsTrue(value);
 
+    /// <summary>2026-10-13-8762v: <see cref="ContextKeys.SeriesAutoStart"/> in both shapes.</summary>
+    public static bool IsSeriesAutoStart(this IReadOnlyDictionary<string, object>? context) =>
+        context is not null && context.TryGetValue(ContextKeys.SeriesAutoStart, out var value) && IsTrue(value);
+
+    /// <summary>2026-10-13-8762v: the same flag on a running pipeline.</summary>
+    public static bool IsSeriesAutoStart(this PipelineContext pipeline) =>
+        pipeline.TryGet<object>(ContextKeys.SeriesAutoStart, out var value) && IsTrue(value);
+
     private static bool IsTrue(object? value) =>
         value is true || value is JsonElement { ValueKind: JsonValueKind.True };
 }

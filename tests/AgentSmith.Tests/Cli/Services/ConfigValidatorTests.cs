@@ -82,7 +82,9 @@ public sealed class ConfigValidatorTests : IDisposable
 
         var findings = NewValidator(out _).Validate(_tempFile);
 
-        findings.Should().BeEmpty();
+        // 2026-10-13-8762u: an unmeasured series block is advisory — it reports, it never fails the check.
+        findings.Should().ContainSingle().Which.Field.Should().Be("series.seconds_per_spec");
+        findings.Should().NotContain(f => f.IsBlocking);
     }
 
     [Fact]

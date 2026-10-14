@@ -16,4 +16,8 @@ public static partial class ContextKeys
     /// (IReadOnlyList&lt;SpecFormatFailure&gt;), each carrying its repository — accumulated over the
     /// run and read by that repository's code PR body.</summary>
     public const string SpecFormatFailures = "SpecFormatFailures";
+
+    /// <summary>2026-10-13-8762n: the entered spec's citations whose lines changed and whose text was found
+    /// nowhere (IReadOnlyList&lt;string&gt;, one line each) — replaced at every spec entry, read by the master prompt.</summary>
+    public const string StaleCitations = "StaleCitations";
 }

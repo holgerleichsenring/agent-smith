@@ -19,7 +19,7 @@ public sealed class CommentRecutNoticeTests
     {
         var previous = Set(SpecRevisionCause.Initial, SpecRevisionCause.Retrigger);
 
-        var section = PreviousCutPromptSection.Render(previous, SpecRevisionCause.Comment);
+        var section = PreviousCutPromptSection.Render(previous, SpecRevisionCause.Comment, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults);
 
         section.Should().Contain("Cause of the revision you are writing now: comment on the ticket");
         section.Should().Contain("The ticket was commented on after revision 2 was cut");
@@ -31,7 +31,7 @@ public sealed class CommentRecutNoticeTests
     [Fact]
     public void PreviousCut_AnyOtherCause_SaysNothingAboutAComment()
     {
-        var section = PreviousCutPromptSection.Render(Set(SpecRevisionCause.Initial), SpecRevisionCause.Retrigger);
+        var section = PreviousCutPromptSection.Render(Set(SpecRevisionCause.Initial), SpecRevisionCause.Retrigger, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults);
 
         section.Should().NotContain("was commented on");
     }
@@ -39,7 +39,7 @@ public sealed class CommentRecutNoticeTests
     [Fact]
     public void Comment_ACommentRevision_NamesTheRecutAndTheKeptSpecs()
     {
-        var body = SpecSetComment.Render(Set(SpecRevisionCause.Initial, SpecRevisionCause.Comment), null);
+        var body = SpecSetComment.Render(Set(SpecRevisionCause.Initial, SpecRevisionCause.Comment), null, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults);
 
         body.Should().Contain(
             "The ticket was commented on after revision 1 was cut: p1a already ran and stayed as it was; "
@@ -51,14 +51,14 @@ public sealed class CommentRecutNoticeTests
     {
         var set = Set(SpecRevisionCause.Initial, SpecRevisionCause.Comment) with { Executed = [] };
 
-        SpecSetComment.Render(set, null).Should().Contain(
+        SpecSetComment.Render(set, null, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults).Should().Contain(
             "no spec had run yet, so the whole set was cut again with the comment in view.");
     }
 
     [Fact]
     public void Comment_TheHeading_CarriesTheCutMarkerAndReadsAsOurs()
     {
-        var body = SpecSetComment.Render(Set(SpecRevisionCause.Initial), null);
+        var body = SpecSetComment.Render(Set(SpecRevisionCause.Initial), null, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults);
         var posted = new TicketComment("agent-smith", DateTimeOffset.UtcNow, body);
 
         body.Should().Contain(SpecSetComment.CutMarker);

@@ -1,4 +1,5 @@
 using System.Text;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Specs;
 
 namespace AgentSmith.Application.Services.Specs;
@@ -34,7 +35,8 @@ public static class SpecSetComment
 
     /// <param name="pullRequests">2026-10-12-f5f7e: repository → spec pull request; a repository the
     /// set no longer names is listed as dropped.</param>
-    public static string Render(SpecSet set, IReadOnlyDictionary<string, string>? pullRequests)
+    /// <param name="series">2026-10-13-8762u: the series block the recut notice states the cap from.</param>
+    public static string Render(SpecSet set, IReadOnlyDictionary<string, string>? pullRequests, SeriesConfig series)
     {
         ArgumentNullException.ThrowIfNull(set);
         var sb = new StringBuilder();
@@ -43,7 +45,7 @@ public static class SpecSetComment
         sb.AppendLine();
         sb.AppendLine(SpecSetCommentPreamble.For(set));
         sb.AppendLine();
-        sb.Append(SpecRecutNotice.Render(set));
+        sb.Append(SpecRecutNotice.Render(set, series));
         sb.Append(RenderSpecs(set));
         sb.AppendLine();
         sb.Append(SpecPrBody.RenderDiscarded(set));

@@ -53,7 +53,7 @@ public sealed class SpecSequenceTests
         pipeline.Set(ContextKeys.SpecSet, TwoSpecSet());
 
         var result = await new SelectSpecHandler(
-                NoEntryAccount(), StartHeads(), new SpecProgressRecorder(new NoOpEventPublisher()),
+                NoEntryAccount(), StartHeads(), new SpecProgressRecorder(new NoOpEventPublisher()), new AgentSmith.Tests.TestHelpers.PassThroughEntryGrounding(),
                 NullLogger<SelectSpecHandler>.Instance)
             .ExecuteAsync(new SelectSpecContext("p0001b", pipeline), default);
 
@@ -78,7 +78,7 @@ public sealed class SpecSequenceTests
             .Record("api", "grep -rn 'Sample' src", "exit_code: 0\n");
 
         await new SelectSpecHandler(
-                NoEntryAccount(), StartHeads(), new SpecProgressRecorder(new NoOpEventPublisher()),
+                NoEntryAccount(), StartHeads(), new SpecProgressRecorder(new NoOpEventPublisher()), new AgentSmith.Tests.TestHelpers.PassThroughEntryGrounding(),
                 NullLogger<SelectSpecHandler>.Instance)
             .ExecuteAsync(new SelectSpecContext("p0001b", pipeline), default);
 
@@ -94,7 +94,7 @@ public sealed class SpecSequenceTests
             .With("p0001b", SpecRunState.Failed, "dotnet build exited 1");
 
         progress.IsPartial.Should().BeTrue("a half-migrated repository is the dangerous state");
-        var table = Application.Services.Specs.SpecPrBody.RenderStatus(progress);
+        var table = Application.Services.Specs.SpecStatusTable.Render(progress);
         table.Should().Contain("DO NOT MERGE");
         table.Should().Contain("✅ done");
         table.Should().Contain("dotnet build exited 1", "the failing command is named, not implied");
@@ -110,7 +110,7 @@ public sealed class SpecSequenceTests
             .With("p0001a", SpecRunState.Done)
             .With("p0001b", SpecRunState.Failed, "dotnet build exited 1");
 
-        var table = Application.Services.Specs.SpecPrBody.RenderStatus(progress, delivered: true);
+        var table = Application.Services.Specs.SpecStatusTable.Render(progress, delivered: true);
 
         table.Should().NotContain("DO NOT MERGE");
         table.Should().Contain("## Spec status").And.Contain("Not delivered");
@@ -126,7 +126,7 @@ public sealed class SpecSequenceTests
             .With("p0001a", SpecRunState.Failed, "dotnet build exited 1")
             .With("p0001b", SpecRunState.HandedBack, "False premise in p0001b: \"…\" — [M1] …");
 
-        var table = Application.Services.Specs.SpecPrBody.RenderStatus(progress);
+        var table = Application.Services.Specs.SpecStatusTable.Render(progress);
 
         table.Should().Contain("handed back, never built")
             .And.Contain("False premise in p0001b")
@@ -145,7 +145,7 @@ public sealed class SpecSequenceTests
     }
 
     private static SpecSequenceHandler Sequence() =>
-        new(NullLogger<SpecSequenceHandler>.Instance);
+        new(AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), TimeProvider.System, NullLogger<SpecSequenceHandler>.Instance);
 
     // p0460: no sandboxes in this pipeline, so the entry account resolves nothing and the
     // spec is entered the way it always was. SpecEntryAccountTests owns the account.

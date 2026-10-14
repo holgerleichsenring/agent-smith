@@ -29,6 +29,7 @@ public static partial class CommandDisplayNames
         [CommandNames.AnalyzeCode] = "Analyze codebase",
         [CommandNames.DeriveSpec] = "Derive the specs",
         [CommandNames.SpecHandback] = "Hand the ticket back",
+        [CommandNames.ReviewSpecs] = "Review the specs",
         [CommandNames.SpecSequence] = "Plan the spec sequence",
         [CommandNames.SelectSpec] = "Start the spec",
         [CommandNames.EmptyPlanCheck] = "Check plan is non-empty",

@@ -18,6 +18,7 @@ namespace AgentSmith.Server.Services.Rework;
 /// it and starts the rework. A checkpointed question keeps waiting for its answer.</para>
 /// <para>2026-10-13-9a59t: on a ticket a person closed an act files a follow-up (<see cref="ClosedTicketActFollowUp"/>),
 /// superseding a waiting attempt; an act already followed up is served and never reworks the ticket.</para>
+/// <para>2026-10-13-8762v: the end of a finished attempt is <see cref="ReworkNoActTail"/>'s, the series' auto-start included.</para>
 /// </summary>
 public sealed class ReworkNudgeHandler(
     IActiveRunLease leases,
@@ -28,7 +29,8 @@ public sealed class ReworkNudgeHandler(
     ReworkFallbackSpawn fallback,
     ReworkWithheld withheld,
     IRunCheckpointStore checkpoints,
-    ClosedTicketActFollowUp followUps)
+    ClosedTicketActFollowUp followUps,
+    ReworkNoActTail tail)
 {
     public async Task<ReworkNudgeDisposition> HandleAsync(ResolvedProject project, ClaimedReworkNudge nudge, CancellationToken ct)
     {
@@ -42,12 +44,10 @@ public sealed class ReworkNudgeHandler(
         if (live is not null || attempt.Status == RunStatuses.WaitingForInput)
             return await WhileRunningAsync(project, nudge, attempt, live?.RunId ?? attempt.RunId, live is not null, ct);
         if (await attempts.HasQueuedAsync(project.Name, nudge.TicketId, ct)) return ReworkNudgeDisposition.Finish;
-        if (!attempt.Finished) return ReworkNudgeDisposition.Reschedule;
-        var act = await pending.NewestAsync(project, nudge.TicketId, attempt, ct);
-        if (await SpentAsync(project, nudge, act, ct) || await withheld.SaysAsync(project, nudge.TicketId, act!, attempt, ct))
-            return ReworkNudgeDisposition.Finish;
-        return await AnswerAsync(project, nudge, attempt, act!,
-            await rework.EnterAsync(project, nudge.TicketId, act!.Act, PipelinePresets.CodeName, ct), ct);
+        var ended = await tail.ReadAsync(project, nudge, attempt, ct);
+        if (ended.Act is not { } act) return ended.Disposition;
+        return await AnswerAsync(project, nudge, attempt, act,
+            await rework.EnterAsync(project, nudge.TicketId, act.Act, PipelinePresets.CodeName, ct), ct);
     }
 
     // A closed ticket's waiting attempt is answered by nobody; its newest act supersedes it. Spent: no act, or one followed up.
@@ -56,7 +56,7 @@ public sealed class ReworkNudgeHandler(
     {
         if (attempt.Status != RunStatuses.WaitingForInput) return null;
         var act = await pending.NewestAsync(project, nudge.TicketId, attempt, ct);
-        if (await SpentAsync(project, nudge, act, ct) || await withheld.IsWithheldAsync(project, nudge.TicketId, act!, ct)) return null;
+        if (await tail.SpentAsync(project, nudge, act, ct) || await withheld.IsWithheldAsync(project, nudge.TicketId, act!, ct)) return null;
         return await rework.SupersedeIfClosedAsync(project, nudge.TicketId, attempt, ct) is { } outcome
             ? await AnswerAsync(project, nudge, attempt, act, outcome, ct) : null;
     }
@@ -83,11 +83,8 @@ public sealed class ReworkNudgeHandler(
         if (attempt.Status != RunStatuses.WaitingForInput || await checkpoints.GetByRunIdAsync(attempt.RunId, ct) is not null)
             return null;
         var act = await pending.NewestHandbackAnswerAsync(project, nudge.TicketId, attempt, ct);
-        return !await SpentAsync(project, nudge, act, ct) && !await withheld.SaysAsync(project, nudge.TicketId, act!, attempt, ct) ? act : null;
+        return !await tail.SpentAsync(project, nudge, act, ct) && !await withheld.SaysAsync(project, nudge.TicketId, act!, attempt, ct) ? act : null;
     }
-
-    private async Task<bool> SpentAsync(ResolvedProject project, ClaimedReworkNudge nudge, PendingReworkAct? act, CancellationToken ct) =>
-        act is null || await followUps.IsFollowedUpAsync(project, nudge.TicketId, act, ct);
 
     private async Task<ReworkNudgeDisposition> AnswerAsync(ResolvedProject project, ClaimedReworkNudge nudge,
         PreviousAttempt attempt, PendingReworkAct act, ReworkOutcome outcome, CancellationToken ct)

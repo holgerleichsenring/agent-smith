@@ -10,10 +10,10 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// executed unchanged, which is what makes it a second opinion.
 /// </para>
 /// <para>
-/// Three fields, and the fourth would be the one that invents a taxonomy. What a
-/// stage IS follows from its command; a <c>kind</c> or a <c>category</c> would have to
-/// be a closed list, and a closed list of somebody else's estate vocabulary is the
-/// idea this repository has now lost three times.
+/// No field invents a taxonomy. What a stage IS follows from its command; a <c>kind</c>
+/// or a <c>category</c> would have to be a closed list, and a closed list of somebody
+/// else's estate vocabulary is the idea this repository has now lost three times. The
+/// two optional fields are path predicates, never kinds.
 /// </para>
 /// </summary>
 /// <param name="Label">What this stage is called in the run's outcome ("build", "lint").</param>
@@ -23,5 +23,9 @@ namespace AgentSmith.Contracts.Models.Configuration;
 /// needs in order to mean anything. Absent path =&gt; the stage is skipped and reported, never
 /// failed: verification stops at the first non-zero exit, so a red it was never measured
 /// for would hide every real gate behind it.</param>
+/// <param name="WhenChanged">Optional globs, relative to the repository root ('**' any number of
+/// segments, '*' within one). The stage runs only when the repository's branch changed a
+/// matching path, in whichever of its sandboxes. Null = no condition.</param>
 public sealed record ContextYamlVerifyStage(
-    string Label, string Command, string? WhenPresent = null);
+    string Label, string Command, string? WhenPresent = null,
+    IReadOnlyList<string>? WhenChanged = null);

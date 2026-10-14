@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-8762g
+
+decisions:
+  - category: Architecture
+    chose: "ReviewSpecs is its own command between SpecHandback and SpecGate, walking the unexecuted tail in order through SpecReviewLoop"
+    over: "Reviewing inside DeriveSpec"
+    reason: |
+      DeriveSpecHandler is at its ratchet, the attack is per spec after the cut is final, and it must run when the set
+      came off the branch unchanged too. After SpecHandback, so a derivation hand-back parks before any review is paid.
+  - category: Architecture
+    chose: "Settings read live per run through ISpecReviewSettingsReader: LoaderSpecReviewSettingsReader (CLI), StoredSpecReviewSettingsReader (server, IConfigStore.GetSetting of spec_review and orchestrator, throwing)"
+    over: "Injecting the AgentSmithConfig singleton, or the DB loader that answers a store failure with empty defaults"
+    reason: |
+      A Studio edit applies to the next run without a restart; a store that never loaded fails the step by name.
+      SpecReviewConfig.Problems() is the one rule and a bad value fails the step, never a silent clamp. Defaults
+      (rounds 4, reviewers 2, max_concurrent 2, budget_share_percent 40) pending operator ratification.
+  - category: Architecture
+    chose: "DEVIATION: ISpecRoundEvidence, an interface over 8762e's SpecRoundEvidence, is what the loop depends on"
+    over: "Injecting the sealed SpecRoundEvidence"
+    reason: |
+      The loop's tests must count evidence checks per text version (ReviewPanel_EvidenceCheck_RunsOncePerTextVersion),
+      and the principles want an interface for an injected service. SpecRoundEvidence still registers as itself for
+      i and n; it is also registered as ISpecRoundEvidence.
+  - category: Architecture
+    chose: "DEVIATION: SpecReviewOutcome carries a Failure (a revision the branch did not take) beside the spec's listed fields; the round's input template is passed to SpecReviewPanel and each reviewer gets it with its own index"
+    over: "Throwing from the loop, or a panel signature of loose arguments"
+    reason: |
+      SpecReviewRevision returns a failed CommandResult when the publish fails or SpecRevisionSha did not move; the step
+      must fail with that message, and an outcome field carries it without exceptions for control flow.
+  - category: Architecture
+    chose: "SpecReviewRevision takes the run's repositories from ContextKeys.Repos (empty when absent) and the carrier from ContextKeys.SpecRepo for the WriteSpecRecordHandler scope"
+    over: "Adding a repos parameter to PublishAsync"
+    reason: |
+      The spec fixes the signature (pipeline, replacements, cause, ct, handback) for h, k and n; ScopeRepos sets
+      ContextKeys.Repos on every code run, the same source the context builders read first.
+  - category: Architecture
+    chose: "Budget: SpecReviewBudget.Spent (share of cost cap USD/tokens or of max_run_wall_time_seconds since RunStartedAt, no exemption) and Exhausted (run cap or wall-time ceiling); the first reviewed spec skips Spent in the handler and loop"
+    over: "An exemption inside Spent"
+    reason: |
+      8762i calls Spent where no spec is first. Every attempt clears its first reviewed spec unless the run cap or
+      ceiling stops it, then it is cut mid-review and deferred. 40% share pending operator ratification.
+  - category: Architecture
+    chose: "A spent share sets ContextKeys.SpecSequenceStop at the first spec not cleared; SpecSequence splices only the specs before it and defers the rest through SpecSequenceProgress.Deferring with SpecProgress.NextAttempt (minted here, appended last)"
+    over: "Building uncleared specs unreviewed"
+    reason: |
+      Never 'not reviewed but built'. A parked stop (h) is seeded HandedBack with the reason and SpecHandback is
+      appended after the last block. The PR table's not-started arm names the note in place (SpecPrBody stays 119).
+  - category: Architecture
+    chose: "Only a spec whose yaml is ordinal-equal to the same id in the approved record (ApprovedSpecSetResolver.Published) is skipped"
+    over: "Skipping on the set's Approval field"
+    reason: |
+      Rework, StatusBack, an expired hand-back and a RecutDemand carry the approval onto text no design turn reviewed.
+      Pending operator ratification.
+  - category: Architecture
+    chose: "Merge: most severe verdict, cuts deduplicated by register and quote (lower reviewer kept), a done cut without replacement kept as a finding"
+    over: "Deduplicating by quote only, or applying done deletions"
+    reason: "The same quote in two registers is two places to change; a criterion is never dropped silently. Pending operator ratification."
+  - category: Architecture
+    chose: "A REFUSE without cuts is rewritten once by ISpecRederiver on the derivation look terms; SpecIdentityRule.Holds (id, requires, repos, applies_to compared parsed) admits the rewrite; a second REFUSE stands"
+    over: "Ending the loop at the first REFUSE"
+    reason: "What the supervised session did. Pending operator ratification."
+  - category: Architecture
+    chose: "RunAttemptProjection sets the revision fields once, on the first revision-carrying publish (one guard line); RunAttemptProjectionTests' publish test now asserts the first revision and cause kept"
+    over: "A mid-run flag on SpecSetPublishedEvent"
+    reason: "A mid-run revision must not rewrite why the attempt began; the row decides alone. Pending operator ratification."
+  - category: Architecture
+    chose: "BoundaryStopGate in ClaimRefusal after UnmovedTicketGate, reading PreviousAttempt.StoppedAtBoundary (SeriesBoundaryEnd.Ends + a not_started RunSpec row, read only when Ends holds); admitted when IsRequestedByName; applied to the code pipeline only"
+    over: "A gate per caller, or IsDelivered as the end rule"
+    reason: |
+      ClaimRefusal is the one door of poller, webhook and pump. A shortfall is no boundary. The refusal names a start
+      by name in chat or a comment on the ticket, never Retry, and reaches a log line only. Restricting it to the code
+      pipeline (the only one LatestAsync reads) keeps a scan of the same ticket claimable. Pending operator ratification.
+  - category: Architecture
+    chose: "RETIRE 2026-09-05-c4e1: its decidability question is SpecAttackPrompt.DecidabilityLens, one paragraph after the verbatim brief"
+    over: "Building c4e1's single-round reviewer"
+    reason: "Absorbed into the multi-round loop; its round knob is spec_review.rounds. Its state.done RETIRED line and spec-name-baseline cleanup already landed (c511c)."

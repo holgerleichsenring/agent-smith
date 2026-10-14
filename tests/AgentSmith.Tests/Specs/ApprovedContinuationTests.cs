@@ -89,17 +89,31 @@ public sealed class ApprovedContinuationTests
     }
 
     [Fact]
-    public void ApprovedContinuation_OverCap_NotMergedNoticeSaysWhy()
+    public void ApprovedContinuation_OverSeriesCap_NotMerged()
     {
-        var ran = Enumerable.Range(0, 8).Select(i => SeriesIdFactory.Member(Series, i)).ToList();
+        var ran = Enumerable.Range(0, 24).Select(i => SeriesIdFactory.Member(Series, i)).ToList();
         var branch = Branch(ran, [.. ran.Select(id => Spec(id, id))]);
         var record = Record([Spec("x", "x", "One too many")], ("x", SpecDispositionKinds.Appended));
 
         var decision = _sut.Decide(branch, record, SpecRevisionCause.Retrigger)!;
 
-        decision.Set!.Specs.Should().HaveCount(8, "nothing is merged");
+        decision.Set!.Specs.Should().HaveCount(24, "nothing is merged");
         decision.Approval.Should().BeNull();
-        decision.Discarded.Should().Contain("not merged").And.Contain("8 executed").And.Contain("1 unstarted");
+        decision.Discarded.Should().Contain("not merged").And.Contain("24 executed").And.Contain("1 unstarted")
+            .And.Contain("series.max_specs (24)");
+    }
+
+    [Fact]
+    public void ApprovedContinuation_InvalidSeriesConfig_NotMergedNamingTheField()
+    {
+        var sut = new ApprovedContinuation(new ContinuationMerge(new AgentSmith.Application.Services.SpecDialog.SpecDraftIdRewriter()),
+            SeriesSettingsDoubles.Reader(new() { MaxSpecs = 30 }), NullLogger<ApprovedContinuation>.Instance);
+        var record = Record([Spec(B, "b", "B, re-cut")], (B, SpecDispositionKinds.Recut));
+
+        var decision = sut.Decide(Branch([A], Spec(A, "a"), Spec(B, "b")), record, SpecRevisionCause.Retrigger)!;
+
+        decision.Approval.Should().BeNull();
+        decision.Discarded.Should().Contain("series.max_specs is 30");
     }
 
     [Fact]
@@ -122,7 +136,7 @@ public sealed class ApprovedContinuationTests
     {
         var resolver = new SpecSourceResolver(new ApprovedSetHandoff(NullLogger<ApprovedSetHandoff>.Instance),
             ApprovedSetDoubles.Continuation(), new FiledTicketSpecGate(NullLogger<FiledTicketSpecGate>.Instance),
-            NullLogger<SpecSourceResolver>.Instance);
+            AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), NullLogger<SpecSourceResolver>.Instance);
 
         var decision = resolver.Decide(SpecSetOnBranch.Nothing, Ticket(), null, new PipelineContext(), Key,
             TicketLabelVocabulary.Default, Record([Spec("x", "x", "New")], ("x", SpecDispositionKinds.Appended)));

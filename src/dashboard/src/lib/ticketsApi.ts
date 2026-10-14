@@ -5,13 +5,17 @@
 import { apiFetch, getJson, refused } from "@/lib/apiResponse";
 import { ticketPath } from "@/lib/tickets/ticketAddress";
 import type {
+  DefaultVerdictAnswer,
+  DefaultVerdictItem,
   RetryRefusal,
   RunCompute,
   RunPasses,
   TicketApprovalPreview,
   TicketConversation,
+  TicketDefaults,
   TicketDetail,
   TicketListView,
+  TicketReviews,
   TicketSeries,
   TicketServerBucket,
   TicketText,
@@ -54,6 +58,31 @@ export function fetchTicketConversation(
   project: string, ticketId: string, signal?: AbortSignal,
 ): Promise<TicketConversation> {
   return getJson<TicketConversation>(`/api${ticketPath(project, ticketId)}/conversation`, signal);
+}
+
+/** 2026-10-13-8762l: every attempt's review rounds and the approved set's conversation rounds. */
+export function fetchTicketReviews(project: string, ticketId: string, signal?: AbortSignal): Promise<TicketReviews> {
+  return getJson<TicketReviews>(`/api${ticketPath(project, ticketId)}/reviews`, signal);
+}
+
+/** 2026-10-13-8762q: the ticket's defaults, pending ones first. */
+export function fetchTicketDefaults(project: string, ticketId: string, signal?: AbortSignal): Promise<TicketDefaults> {
+  return getJson<TicketDefaults>(`/api${ticketPath(project, ticketId)}/defaults`, signal);
+}
+
+/** 2026-10-13-8762q: ratify or overrule several defaults in one act (runs.control). A 400 is an answer: its
+ *  JSON-string body names the refused items. Every other non-2xx throws. */
+export async function postDefaultVerdicts(
+  project: string, ticketId: string, items: DefaultVerdictItem[],
+): Promise<DefaultVerdictAnswer> {
+  const path = `/api${ticketPath(project, ticketId)}/defaults/verdicts`;
+  const res = await apiFetch(path, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(items),
+  });
+  if (res.status === 400) return { kind: "refused", text: String(await res.json()) };
+  if (!res.ok) throw await refused(res, path);
+  const body = (await res.json()) as Omit<Extract<DefaultVerdictAnswer, { kind: "applied" }>, "kind">;
+  return { kind: "applied", applied: body.applied, alreadyDecided: body.alreadyDecided };
 }
 
 /** The ticket itself, read from its tracker (a minute's cache on the server), else an attempt's copy. */

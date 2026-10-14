@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-8762i
+
+decisions:
+  - category: Architecture
+    chose: "The design partner applies a round's cuts in ONE re-prompt per round (ProposalCutsReprompt over the turn's thread), held draft by draft by ProposalReProposalGuard: SpecRevisionGuard for a draft with cuts, SpecIdentityRule for one refused without cuts or the epic parent the whole-set findings name, revert for any other changed draft"
+    over: "8762f's fresh reviser in the turn, or refusing a re-proposal as a whole when one draft goes beyond its cuts"
+    reason: |
+      The partner wrote the drafts and holds why; a whole-proposal refusal would cap the turn at one round as soon as one
+      draft misbehaves. Kind, spec ids and child order still invalidate the whole reply. Main-thread decision 4,
+      default pending operator ratification.
+  - category: Architecture
+    chose: "Rounds run over a lone spec or an epic's CHILDREN; the parent gets one SpecRoundEvidence check and the whole-set ISpecCutReviewer call (run once, before round 1)"
+    over: "Attacking the parent as a draft, or dropping the whole-set call"
+    reason: "The parent is never built and no child may require it; the whole-set call is the only check of the set as a whole (review 8762i r3 cut 1, finding 5)."
+  - category: Architecture
+    chose: "ProposalRoundGate before every round and every re-prompt: run cap or a ceiling the next round would pass (elapsed since RunStartedAt plus the previous round's duration, measured on the injected TimeProvider) stops every open draft; a spent share stops all but the floor (the first open draft, NotReviewed drafts of the revised proposal ordered first)"
+    over: "Exempting the floor from the wall-clock ceiling too, or no floor"
+    reason: "Every turn makes progress, and a cancelled run would lose the reply. Main-thread decision 5, default pending operator ratification."
+  - category: Architecture
+    chose: "A draft stops on SpecReviewStopRule.IsDone after its re-prompt, on unchanged text, on BUILD, on a BUILD WITH CUTS whose merge left no cut, or when no reviewer was taken (no round recorded, not listed as not reviewed)"
+    over: "Re-reviewing every draft each round"
+    reason: "As g's loop: re-reviewing identical text is reviewer shopping; a failed review blocks nothing."
+  - category: Architecture
+    chose: "Carry-over from ContextKeys.SpecDialogRevisedProposal: a byte-identical draft with rounds there and not in its NotReviewed keeps them and counts as stopped; a 'series' round is never carried"
+    over: "Starting at round 1 every turn"
+    reason: "Without it a large epic could never be approved (main-thread decision 4, review 8762i r2 cut 2)."
+  - category: Architecture
+    chose: "Findings after rounds = standing evidence problems (parent's included), the last round's findings of a draft its rounds did not clear (not BUILD, and not BUILD WITH CUTS without residues), one 'not reviewed yet' finding per NotReviewed id, then the whole-set findings"
+    over: "Listing every round's findings"
+    reason: "Rounds keep their own findings; Findings keeps only what still stands, so chat surfaces list 'not reviewed yet' with no change to SpecDialogOutcomeComposer."
+  - category: Architecture
+    chose: "ProposalReplyText renders the first reply's prose around blocks built from the published proposal whenever that proposal is not exactly the last reply's resolution; SpecDialogDraftBlocks.Replace swaps the first draft block outside documents"
+    over: "Returning the last re-prompt's reply"
+    reason: "On Slack and Teams the reply is where a draft is read and the next turn replays it (review 8762i r3 cut 3)."
+  - category: Architecture
+    chose: "Unreadable or invalid spec_review settings fall back to today's single review with a warning"
+    over: "Failing the turn as ReviewSpecs fails its step"
+    reason: "A design turn must not lose its reply over a review setting; rounds 0 already means the single review."
+  - category: Architecture
+    chose: "SpecDialogUnreviewedApproval clears the Approved decision of the transcript's last user turn and returns the edit note '(held, not approved) review the specs not reviewed yet: …' ('series' read as 'the series contract'); the dashboard card also drops Approve"
+    over: "A refusal message without a new turn"
+    reason: "The next turn reviews what was not reviewed; never approved unreviewed (main-thread decision 5, default pending operator ratification)."
+  - category: Implementation
+    chose: "MasterHandlerFixture and the existing SpecDialogProposalReviewTests run the review with rounds 0; the rounds have their own rig (ProposalReviewRig) over the real loop, guard, resolver and residues"
+    over: "Scripting attack answers into every master-handler test"
+    reason: "Rounds 0 is exactly today's review, which those tests pin."
+  - category: Scope
+    chose: "DEVIATION: the design-partner-master paragraph is NOT written on the skills branch here; its exact sentence is handed to 2026-10-13-8762x through the build notes"
+    over: "Editing agent-smith-skills in this spec as its skill step says"
+    reason: "The series build brief reserves every skills edit for 8762x, which also bumps the master once; the sentence it must add and assert is fixed here."

@@ -18,6 +18,7 @@ public static class SpecDerivationRegistrations
     {
     services.AddTransient<ISpecCutReviewer, SpecCutReviewer>(); // p0422: the cut is reviewed before it is built
     services.AddTransient<CutReviewStep>(); // 2026-10-13-9a59g: and every review is published
+    Review.SpecReviewRegistrations.AddSpecReview(services); // 2026-10-13-8762e: the spec review rounds
         // 2026-09-17-0e79c: and each spec's stated premises are checked before it is worked
         services.AddTransient<ISpecPremiseChecker, SpecPremiseChecker>();
         services.AddTransient<PremiseHandbackNotice>();
@@ -107,7 +108,7 @@ public static class SpecDerivationRegistrations
     // diff, the instance that reads it, and the undo of a fix pass that was not green.
     services.AddTransient<SpecStartHeads>();
     services.AddTransient<SpecDiffs>();
-    services.AddTransient<SpecDiffReviewer>();
+    services.AddTransient<SpecDiffReviewer>().AddTransient<RatifiedMockReview>();
     services.AddTransient<SpecReviewRevert>();
         return services;
     }

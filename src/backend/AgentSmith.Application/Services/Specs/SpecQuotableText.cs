@@ -106,13 +106,13 @@ public static class SpecQuotableText
         return ContainsRun(stated, quote);
     }
 
-    private static bool ContainsRun(string[] text, string[] quote)
+    internal static bool ContainsRun(string[] text, string[] quote)
     {
         for (var i = 0; i + quote.Length <= text.Length; i++)
             if (text.AsSpan(i, quote.Length).SequenceEqual(quote)) return true;
         return false;
     }
 
-    private static string[] Words(string? text) =>
+    internal static string[] Words(string? text) =>
         [.. Regex.Matches(text ?? string.Empty, @"[\p{L}\p{N}]+").Select(m => m.Value.ToLowerInvariant())];
 }

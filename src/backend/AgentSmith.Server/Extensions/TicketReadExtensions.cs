@@ -2,6 +2,7 @@ using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Server.Services.Tickets;
 using AgentSmith.Server.Services.Tickets.Checks;
 using AgentSmith.Server.Services.Tickets.Conversation;
+using AgentSmith.Server.Services.Tickets.Runway;
 using AgentSmith.Server.Services.Tickets.Text;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -41,6 +42,8 @@ internal static class TicketReadExtensions
             .AddTransient<TicketSeriesRecordsReader>()
             .AddTransient<TicketSeriesSpecComposer>()
             .AddTransient<TicketSeriesReader>()
+            .AddTransient<SeriesHolds>().AddTransient<SeriesRunwayReader>() // 2026-10-13-8762v
+            .AddTransient<TicketReviewsReader>() // 2026-10-13-8762l
             .AddTransient<TicketSpecRecordsReader>()
             .AddTransient<TicketRunRecordVerdicts>()
             .AddTransient<TicketRunRecordSpecComposer>()

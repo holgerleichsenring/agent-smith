@@ -5,10 +5,12 @@ namespace AgentSmith.Application.Services.Loop;
 /// agentic loop returned a non-error response; <see cref="Failed"/> for
 /// loop exceptions, name-validation rejections, budget exhaustion. A
 /// failed child does NOT cancel siblings — the master sees the status
-/// and decides what to do.
+/// and decides what to do. <see cref="Empty"/>: it ran, cost money and
+/// answered nothing, so it proves nothing.
 /// </summary>
 public enum SubAgentStatus
 {
     Succeeded = 0,
     Failed = 1,
+    Empty = 2,
 }

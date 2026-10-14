@@ -104,7 +104,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ProjectMapCacheKey>();
         services.AddSingleton<SandboxTargets>().AddTransient<Repositories.RunRepositoriesFactory>(); // f5f7c
         services.AddSingleton<Tools.AgenticToolSurface>().AddTransient<MasterToolComposition>()
-            .AddTransient<Tools.DesignReadToolHostFactory>(); // 2026-10-01-7f7ab
+            .AddTransient<Tools.DesignReadToolHostFactory>().AddTransient<Tools.MasterRecordToolHosts>().AddTransient<Memory.MemoryIndexReader>(); // 7f7ab, 8762m
         services.AddSingleton<Polling.PipelineResolver>();
         // p0401: shared scanner-observation service (severity mapping + warn-once).
         services.AddSingleton<ScannerObservationFactory>();
@@ -178,14 +178,14 @@ public static class PipelineHandlersExtensions
         // park and the specs/done/ record. 2026-10-06-03c7d: no spec is read from a ticket's text.
         services.AddTransient<ISpecExecutionPromptFactory, SpecExecutionPromptFactory>();
         services.AddTransient<ICommandHandler<SpecGateContext>, SpecGateHandler>();
-        services.AddTransient<VerifyCommandRunner>(); // p0419
+        services.AddTransient<VerifyCommandRunner>().AddTransient<Tools.GateStageToolHost>(); // p0419
         // p0504: the image ordering and which commands verify a repo — each its own type.
         // 2026-08-25-014d: the registry boundary reads configuration (per decision, 6bfab), so it is a service.
         services.AddSingleton<Sandbox.ISandboxSettingsReader, Sandbox.LoaderSandboxSettingsReader>()
-            .AddSingleton<Sandbox.IImageRegistryTrust, Sandbox.ImageRegistryTrust>();
+            .AddSingleton<Sandbox.IImageRegistryTrust, Sandbox.ImageRegistryTrust>().AddSingleton<Specs.ISeriesSettingsReader, Specs.LoaderSeriesSettingsReader>();
         services.AddSingleton<AgentSmith.Application.Services.Sandbox.SandboxImageChain>();
         services.AddTransient<DeclaredStagePresence>();
-        services.AddTransient<VerifyStageResolver>();
+        services.AddTransient<VerifyStageResolver>().AddTransient<StageRelevance>();
         // 2026-08-31-26d4/7097: what each context declared, and what it named that the
         // image does not carry.
         services.AddTransient<ContextVerifyStagesResolver>()

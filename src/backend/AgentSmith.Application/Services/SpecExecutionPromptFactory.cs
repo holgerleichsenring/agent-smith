@@ -20,6 +20,8 @@ namespace AgentSmith.Application.Services;
 /// </para>
 /// Operator answers from a prior clarification park (PlanAnswers, re-triggered run) are
 /// rendered authoritative.
+/// <para>2026-10-13-8762m: the build notes of the specs that already ran and the memory index, in code —
+/// no master carries the index placeholder, so the user prompt is where the master reads it.</para>
 /// </summary>
 public sealed class SpecExecutionPromptFactory : ISpecExecutionPromptFactory
 {
@@ -58,17 +60,23 @@ public sealed class SpecExecutionPromptFactory : ISpecExecutionPromptFactory
             **Sandbox keys:** {string.Join(", ", sandboxKeys)}
             {SpecExecutionPromptBlocks.StagedRegistries(pipeline)}
             {SpecExecutionPromptBlocks.OutstandingCriteria(pipeline)}
+            {SpecExecutionPromptBlocks.DeclaredGate(pipeline)}
             {SpecExecutionPromptBlocks.StructureFindings(pipeline)}
+            {SpecExecutionPromptBlocks.StaleCitations(pipeline)}
+            {Specs.SpecBuildNoteSection.Render(Specs.PrecedingSpecs.NotesOf(pipeline, draft.SpecId), set: pipeline.TryGet<Contracts.Specs.SpecSet>(ContextKeys.SpecSet, out var set) ? set : null)}
+            {Handlers.MasterPromptSections.BuildMemoryIndexSection(pipeline)}
 
             ## Spec contract
             You are implementing SPEC {draft.SpecId} — this spec and nothing after it.
             The spec above is the plan of record: its steps are your checklist (the progress
             ledger is seeded from them) and you own how each step lands in this codebase.
-            Log every non-obvious choice via log_decision as you go. Where the spec names
-            tests, write them; run the repository's build and automated tests as usual.
+            Take a choice a person might overrule with decide_by_default; log every other non-obvious choice via log_decision
+            as you go. Where the spec names tests, write them; run the repository's build and automated tests as usual.
             {SpecExecutionPromptBlocks.DoneCriteria(draft)}
             Before you emit your verdict, verify EACH done criterion above out loud —
             a criterion you cannot satisfy makes the run red, not silently smaller.
+            Before the verdict, call hand_forward once with what you renamed and moved (each
+            `<old> -> <new>`), persisted and deviated from: the next spec's master reads it.
             When you are genuinely blocked on missing input, call ask_human once: the
             question is posted to the ticket and this run pauses for the answer.
             {AgentPromptBuilder.BuildOperatorAnswersSection(answers)}

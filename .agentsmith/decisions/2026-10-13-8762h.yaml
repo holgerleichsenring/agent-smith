@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-8762h
+
+decisions:
+  - category: Architecture
+    chose: "'Asked' is read per objection from the thread: a comment of ours carrying ReviewObjectionComment.MarkerFor(MarkerKey), MarkerKey = SpecId ?? 'series:' + SeriesPrefixHead; an asked objection proceeds, answered or not"
+    over: "The run-scoped SpecQuestionPin as the basis, or re-asking after an answer"
+    reason: |
+      The pin is set for any unanswered question and lives one run; the thread already holds the fact. Asking again
+      after an answer had no loop bound. Main-thread decisions 7 and h, defaults pending operator ratification.
+  - category: Architecture
+    chose: "One question hand-back (Case Question, QuestionKind ReviewObjection, readings 'build as reviewed' / 'change as asked', taken 0) published through SpecReviewRevision.PublishAsync(..., handback), parked at the earliest asked spec: SpecHandback spliced for the first unbuilt spec or a series objection, else SpecSequenceStop(Park true) never later than an existing stop"
+    over: "A new hand-back case, or clearing the specs as ScopedContextQuestion does"
+    reason: |
+      TakenReading and the pin need Case == Question; the specs are what the question is about and the executed head
+      must survive. The prefix that passed is built first (main-thread decision 7, pending operator ratification).
+  - category: Architecture
+    chose: "Only a REFUSE standing after the loop spent its rounds or ended on a second REFUSE asks (StandingObjection.Of: no BudgetStop, no Failure); specs at or after an existing stop are dropped by Decide"
+    over: "Asking for residues or for a loop the budget cut short"
+    reason: "Contract decision 4 (unapplied cuts never ask), default pending operator ratification; a budget-cut loop had not had its rounds."
+  - category: Architecture
+    chose: "ReviewObjectionSource.Decide after continuation.Decide strips a ReviewObjection hand-back always; NeedsModel false only for Retrigger + AskedAndUnanswered, else SpecAmendmentRule on the stripped set"
+    over: "Re-deriving an unanswered review question on the pin, or keeping the hand-back on the read set"
+    reason: |
+      Kept, the hand-back hides the previous cut from the deriver (PreviousCutPromptSection.cs:24) and is republished
+      and parks again on a set used unchanged (SpecSetPublisher.cs:77-78). An answer by comment or edit is derived over.
+  - category: Architecture
+    chose: "UnansweredQuestionPin pins a ReviewObjection hand-back only when ReviewObjectionComment.AskedAndUnanswered (our Marker comment exists and IsAnswered with PR notes is false)"
+    over: "The Reading rule, which counts an unanchored thread as unanswered and passes no PR notes"
+    reason: "A never-posted question must not tell the reviewers or the ticket it went unanswered."
+  - category: Architecture
+    chose: "DEVIATION (placement): the pin reaches every reviewer call through SpecReviewRun.QuestionPin (read from ContextKeys.SpecQuestionPin), which SpecReviewLoop passes as SpecAttackInput.QuestionPin, appended last"
+    over: "ReviewSpecsHandler reading the pin and passing it explicitly"
+    reason: |
+      The reviewer input is built in SpecReviewLoop.Input (SpecReviewLoop.cs:102-108), not in the handler; the run record
+      the handler builds is what every reviewer call (and k's series round) shares, so the handler's budget stays free.
+  - category: Architecture
+    chose: "DEVIATION (signature): ReviewObjectionPark.ApplyAsync(pipeline, ask, CommandResult done, ct) returns done when nothing is asked, else the step's result carrying done's lines plus the park"
+    over: "ApplyAsync(pipeline, ask, ct) as written"
+    reason: |
+      The first-spec park must return OkAndContinueWith(SpecHandback) as the step's result while the per-spec lines stay
+      in the step's line; passing the summary in keeps ReviewSpecsHandler to one return (88 lines).
+  - category: Architecture
+    chose: "The manifest writes handback_question_kind only for a non-Reading kind (OmitNull)"
+    over: "Always writing the kind"
+    reason: "A manifest written before this spec, and every reading question, reads and writes back unchanged."
+  - category: Process
+    chose: "2026-09-15-7d3c retirement verified: already in specs/done with its RETIRED state.done line, and spec-name-baseline.tsv carries no row for it (removed by 2026-09-19-c511c)"
+    over: "Moving it again"
+    reason: "The planning commit moved it; nothing was left to do but check."

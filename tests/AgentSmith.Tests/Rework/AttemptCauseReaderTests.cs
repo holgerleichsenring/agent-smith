@@ -168,6 +168,28 @@ public sealed class AttemptCauseReaderTests
         (await ReadAsync()).Should().Be(new AttemptCause(AttemptChannels.Requested));
     }
 
+    // 2026-10-13-8762v: the series' own start is a named start too; its cause is asked first.
+    [Fact]
+    public async Task AttemptCauseReader_SeriesAutoStart_IsSeriesByAgentSmith()
+    {
+        PreviousAttempt();
+        _pipeline.Set(ContextKeys.RequestedByName, true);
+        _pipeline.Set(ContextKeys.SeriesAutoStart, System.Text.Json.JsonSerializer.SerializeToElement(true));
+
+        (await ReadAsync()).Should().Be(new AttemptCause(AttemptChannels.Series, AttemptChannels.SeriesActor));
+    }
+
+    [Fact]
+    public async Task AttemptCauseReader_ActBeatsSeriesAutoStart()
+    {
+        PreviousAttempt();
+        _pipeline.Set(ContextKeys.RequestedByName, true);
+        _pipeline.Set(ContextKeys.SeriesAutoStart, true);
+        KeywordComment(30);
+
+        (await ReadAsync()).Channel.Should().Be(AttemptChannels.TicketComment, "a person's act read by the attempt outranks the series");
+    }
+
     // 2026-10-13-9a59n: a Retry carries no change — an act with content wins, a name or a re-trigger loses.
     private void RetriedAttempt(int minutes) =>
         _pipeline.Set(ContextKeys.PreviousAttempt, new PreviousAttempt("run-1", "cancelled", Start, true)
@@ -191,6 +213,22 @@ public sealed class AttemptCauseReaderTests
         _pipeline.Set(ContextKeys.RequestedByName, true);
 
         (await ReadAsync()).Should().Be(new AttemptCause(AttemptChannels.Retry, "ops-1", Start.AddMinutes(20)));
+    }
+
+    // 2026-10-13-8762p: an overruled default ranks below the act slot and above a Retry.
+    [Fact]
+    public async Task AttemptCause_Overrule_IsChannelOverrule_WithTheDefaultAsSource()
+    {
+        _pipeline.Set(ContextKeys.PreviousAttempt, new PreviousAttempt("run-1", "success", Start, true)
+        {
+            RetryRequestedBy = "ops-1", RetryRequestedAt = Start.AddMinutes(30),
+            Overrules = [new(7, "run-1", null, "Which queue?", "polling", "overruled", null, "ana", Start.AddMinutes(20))],
+        });
+
+        (await ReadAsync()).Should().Be(new AttemptCause(AttemptChannels.Overrule, "ana", Start.AddMinutes(20),
+            new AttemptSource(AttemptSourceKinds.Default, Id: "7")));
+        KeywordComment(10);
+        (await ReadAsync()).Channel.Should().Be(AttemptChannels.TicketComment, "an act in the slot outranks an overrule");
     }
 
     [Fact]

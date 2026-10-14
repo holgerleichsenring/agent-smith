@@ -75,7 +75,7 @@ public sealed class SpecRevisionCauseCommentTests
     }
 
     private static TicketComment OurCut(DateTimeOffset at) =>
-        new("agent-smith", at, SpecSetComment.Render(Previous().Set, null));
+        new("agent-smith", at, SpecSetComment.Render(Previous().Set, null, AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Defaults));
 
     private static TicketComment Operator(DateTimeOffset at) =>
         new("operator", at, "spec b is wrong: the callers stay where they are");

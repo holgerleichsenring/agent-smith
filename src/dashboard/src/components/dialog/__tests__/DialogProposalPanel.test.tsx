@@ -49,4 +49,17 @@ describe("DialogProposalPanel", () => {
     expect(screen.queryByTestId("dialog-proposal-facts-p9001")).toBeNull();
     expect(screen.queryByText("Assumed, not looked at")).toBeNull();
   });
+
+  // 2026-10-13-8762t: the strip is drawn beside the spec or slice whose versions the conversation holds.
+  it("renders the strip only for the spec or slice that has versions, never for an epic's parent", () => {
+    const slice = (specId: string): SpecDraftProposal => ({ ...spec, specId });
+    const epic: SpecDialogProposalPush = { ...push(spec), kind: "epic", spec: null, parent: slice("parent"), children: [slice("c-1"), slice("c-2")] };
+    const mocks = [{ specId: "c-2", version: 1, name: "c-2-mock-v1", at: "2026-10-13T10:00:00Z", hasShot: false }];
+
+    render(<DialogProposalPanel proposal={epic} mocks={mocks} ratifiedMocks={null} sessionId="s-1" filed={false} />);
+
+    expect(screen.getByTestId("dialog-mock-versions-c-2")).toBeInTheDocument();
+    expect(screen.queryByTestId("dialog-mock-versions-c-1")).toBeNull();
+    expect(screen.queryByTestId("dialog-mock-versions-parent")).toBeNull();
+  });
 });

@@ -1,0 +1,143 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-8762q
+goal: "The ticket page has a Defaults tab: pending defaults first, series-holding ones in the waits-for-a-person colour, and a person ratifies or overrules a selection in one act."
+
+applies_to: "dashboard (ticket page store and reads, ticket tab table, a new Defaults tab, the attempt cause words, mock-parity styles)"
+
+requires: [2026-10-13-8762o, 2026-10-13-8762p]
+
+facts:
+  - claim: "The ticket page's tabs are ONE table; later members append a row, and a counter may be hot (drawn in the waits-for-a-person colour). A counter reads the detail plus TicketTabReads, which today holds the conversation and the default series."
+    evidence: "src/dashboard/src/components/tickets/detail/ticketTabTable.ts:14-34, src/dashboard/src/components/tickets/detail/ticketTabTable.ts:36-63"
+  - claim: "The tab bar builds TicketTabReads from the store's hooks and draws a hot counter with class tc hot."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketTabs.tsx:15-35"
+  - claim: "The hot counter is the person colour, --person, DESIGN.md's waits-for-a-person state."
+    evidence: "src/dashboard/src/styles/mock-parity.css:72-77, src/dashboard/src/styles/mock-parity.css:375"
+  - claim: "TicketPageReads holds every ticket-level read once per page: each has its own 2 s coalesced refetch; a TicketActivityChanged naming the ticket re-reads every ticket-level read, a RunsChanged only the detail side, and a SpecCutReviewed in the live stream only the conversation."
+    evidence: "src/dashboard/src/lib/tickets/TicketPageReads.ts:15-21, src/dashboard/src/lib/tickets/TicketPageReads.ts:128-142, src/dashboard/src/lib/tickets/TicketPageReads.ts:167-179"
+  - claim: "The store routes this ticket's TicketActivityChanged to reads.ticketChanged() and turns each new SpecCutReviewed in the live attempt's events into reads.cutReviewed()."
+    evidence: "src/dashboard/src/lib/tickets/TicketPageStore.tsx:60-66, src/dashboard/src/lib/tickets/TicketPageStore.tsx:99-107"
+  - claim: "A control that starts work is hidden only from a caller KNOWN to lack runs.control; the server decides for everyone else."
+    evidence: "src/dashboard/src/hooks/useLacksPermission.ts:6-12, src/dashboard/src/components/tickets/detail/RetryUnchanged.tsx:12-19"
+  - claim: "A ticket POST whose refusal is an answer returns it as a value and throws every other non-2xx."
+    evidence: "src/dashboard/src/lib/ticketsApi.ts:75-85"
+  - claim: "Ticket reads are addressed under /api plus the page's own ticket path."
+    evidence: "src/dashboard/src/lib/ticketsApi.ts:38-56"
+  - claim: "An attempt's cause is worded from a channel table; an unknown channel prints as its raw value."
+    evidence: "src/dashboard/src/components/tickets/ticketFormat.ts:30-43"
+  - claim: "The TS mirror of run events carries SpecCutReviewed = 86 as the newest value; 2026-10-13-8762o adds DefaultDecisionTaken = 88 there."
+    evidence: "src/dashboard/src/types/hub-events.ts:50"
+  - claim: "Live events reach the page only from the newest live CODE attempt's stream; a design turn's events are not on it."
+    evidence: "src/dashboard/src/lib/tickets/TicketPageStore.tsx:109-111"
+  - claim: "The page reads' private read helper is typed over detail, series and conversation; the snapshot's PENDING start and dispose() list each ticket-level read and its tick."
+    evidence: "src/dashboard/src/lib/tickets/TicketPageReads.ts:228, src/dashboard/src/lib/tickets/TicketPageReads.ts:82-89, src/dashboard/src/lib/tickets/TicketPageReads.ts:118-126"
+  - claim: "The page's reads go through the TicketPageApi interface, which the page tests implement by hand (six fakes) or replace by mocking the ticketsApi module (TicketAttemptReads)."
+    evidence: "src/dashboard/src/lib/tickets/TicketPageReads.ts:45-53, src/dashboard/src/components/tickets/detail/__tests__/TicketPage.test.tsx:40-47, src/dashboard/src/components/tickets/detail/__tests__/TicketAttemptReads.test.tsx:18-29"
+  - claim: "TicketPageReads.ts is 259 lines and TicketPageStore.tsx 242, both over the principles' 120-line class limit."
+    evidence: "src/dashboard/src/lib/tickets/TicketPageReads.ts:259, src/dashboard/src/lib/tickets/TicketPageStore.tsx:242, .agentsmith/contexts/default/principles.md:25"
+  - claim: "Every pipeline's runs of a ticket are listed and only some are attempts, so a row with no attempt is not necessarily a design turn's."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketRunsQuery.cs:22-24, src/backend/AgentSmith.Server/Services/Tickets/TicketAttempts.cs:21-22"
+
+assumptions:
+  - "2026-10-13-8762p's GET .../defaults returns {pending, pendingHoldingSeries, entries[]} in display order, each entry with conversation (null in a coding run) and, for a conversation row read without dialog.write, null question/chosen/alternatives/why; POST .../defaults/verdicts answers 200 {applied, alreadyDecided} or 400 whose body is a JSON string naming the bad items (Results.BadRequest(text)); an overrule of a conversation row is such a 400."
+  - "2026-10-13-8762l puts its ticket-level reviews read in its own TicketReviewsRead (lib/tickets) with its own 2 s CoalescedRefetch, composed by TicketPageReads, and leaves TicketPageReads at most 269 and TicketPageStore at most 250 lines."
+  - "2026-10-13-8762p's TicketDefaultView carries landed (bool?): false on a memory-proposal row whose finished run named no pull request, null on every other row."
+  - "2026-10-13-8762p publishes TicketActivityChanged after every applied verdict, so another person's verdict reaches an open page through the existing listener."
+
+scope:
+  in: >
+    TYPES and API: TicketDefaults, TicketDefault (with conversation: string | null), DefaultVerdictItem in
+    types/tickets.ts; fetchTicketDefaults and postDefaultVerdicts in ticketsApi.ts (a 400's body parsed as a JSON
+    string and returned as {kind: refused, text}, the way retryAttempt returns a 409; other non-2xx throws). READS:
+    a new TicketDefaultsRead (lib/tickets), shaped like 2026-10-13-8762l's TicketReviewsRead, owns the defaults read,
+    its snapshot and its own 2 s CoalescedRefetch; TicketPageReads composes it and its ticketChanged(), defaultTaken()
+    (one per new DefaultDecisionTaken in the live stream, the cutReviewed pattern) and defaultsChanged() (after this
+    page's own POST) schedule only that read; never on RunsChanged; read at start; dispose() cancels it. TicketPageReads
+    grows by at most 6 lines and TicketPageStore by at most 8 over what 2026-10-13-8762l leaves. TicketPageStore:
+    useTicketDefaults() and the live-stream hook. TEST FAKES: the six hand-written TicketPageApi fakes (TicketSpecsTab,
+    TicketPage, TicketAttemptsCost, TicketConversationTab, mock-parity, TicketPageStore tests) gain a defaults stub
+    resolving to an empty TicketDefaults, and TicketAttemptReads' mocked ticketsApi module gains fetchTicketDefaults. TAB: the defaults row {id defaults, label Defaults} is APPENDED at the end of ticketTabs (series
+    contract 2.9); TicketTabReads gains defaults;
+    counter = pending count, hot when pendingHoldingSeries > 0, absent when the ticket has no defaults. PANE
+    (TicketDefaultsTab): Pending, then Decided. A row shows the question, the chosen answer, the alternatives, why,
+    spec id and attempt; a row whose conversation is set says 'in the design conversation' (series contract decision
+    24), with no body when the server sent none; a row with no attempt and no conversation shows its run id; a memory
+    proposal shows its pointer path and slug instead of a body, and 'not landed' when landed is false; a holds-series row
+    carries a 'holds the series' mark in --person and its row edge in the same colour. Pending rows have a checkbox
+    and a select-all; a batch bar offers Ratify selected and Overrule selected with one note field that goes with
+    every overrule of that act; a conversation row is ratify-only (no Overrule for it; Overrule is disabled while the
+    selection holds one, saying 'answer it in the design conversation'); the bar and checkboxes are hidden from a
+    caller known to lack runs.control. After the
+    POST the pane says how many applied and lists the already-decided ones by their standing verdict; a 400 shows its
+    text. Decided rows show verdict, who, when and the note. WORDS: CHANNEL_WORDS gains overrule -> 'overruled
+    default'. Styles in mock-parity.css under .mock-tickets.
+  out: >
+    The endpoints, the act and the nudges — 2026-10-13-8762p. The event 88 mirror in hub-events.ts —
+    2026-10-13-8762o. A per-row note editor — nobody: one note per act is the default below. A Defaults count on the
+    ticket LIST row or the needs-you bucket — nobody: a pending default never blocks (contract decision 14), so it is
+    not work waiting on a person; the series strip says a held series — 2026-10-13-8762w. Showing defaults in the
+    design conversation — nobody: the ticket page is the queue. A default taken in the design conversation reaching
+    an open ticket page live — nobody: it arrives on the next ticket nudge or reload, because 2026-10-13-8762o mints
+    no ticket nudge per default (contract 2.1) and the page streams only the newest live code attempt.
+
+decisions:
+  - key: "ONE READ IN THE PAGE STORE, NOT A FETCH IN THE PANE. The tab bar's counter needs the defaults whether or not the pane is open, and the store's rule is one read per endpoint per page."
+  - key: "REFRESH ON EVENT 88 IN THE LIVE STREAM. A running attempt takes defaults while the page is open; the SpecCutReviewed pattern re-reads within 2 s without a ticket nudge per default (contract 2.1 mints no system event)."
+  - key: "COUNTER COUNTS PENDING, HOT ONLY FOR A HELD SERIES. A pending default does not stop the run (contract decision 14); only one with holds_series stops the next automatic attempt, which is what the person colour means on this page."
+  - key: "ONE NOTE PER ACT. The body allows a note per item; the bar sends the same note with every overrule of the act, so overruling one default with its own note is selecting one row. Default, pending operator ratification."
+  - key: "PENDING FIRST, HELD SERIES ON TOP — as the server orders them; the pane does not re-sort. Default, pending operator ratification."
+  - key: "RECORDED IN THE default CONTEXT (contract decision 23, amended): its state.done line goes to .agentsmith/contexts/default/context.yaml, whose state.done the record rules read; the dashboard context 2026-10-13-8762c creates carries no state block."
+  - key: "THE DESIGN-CONVERSATION WORDING KEYS ON conversation, NOT ON A MISSING ATTEMPT. A ticket lists every pipeline's runs and only some are attempts (TicketRunsQuery.cs:22-24, TicketAttempts.cs:21-22); a null attempt alone would call a non-attempt run's default a design-turn one."
+  - key: "CONVERSATION ROWS ARE RATIFY-ONLY IN THE PANE, as 2026-10-13-8762p refuses their overrule. The server validates the whole batch first, so a mixed selection sent as is would fail entirely; the bar disables Overrule instead."
+  - key: "THE TAB IS APPENDED, as series contract 2.9 says; no other member adds a tab, so the position costs nothing to keep binding."
+  - key: "THE READ IS ITS OWN CLASS (round-2 cut 1). TicketPageReads (259) and TicketPageStore (242) are already over the 120-line class limit (principles.md:25) and no ratchet guards them; 2026-10-13-8762l moved its read out for that reason, so this spec does the same and takes the same budgets (+6 and +8 over what l leaves). Contract section 4's row carries these budgets (TicketPageReads at most 275, TicketPageStore at most 258)."
+  - key: "EVERY FAKE GETS A STUB (round-2 cut 2). A required defaults member breaks the six hand-written TicketPageApi fakes' type-check, and TicketAttemptReads replaces the whole ticketsApi module (TicketAttemptReads.test.tsx:29), so its missing fetchTicketDefaults would throw at start; the review counted six, the seventh is that module mock."
+  - key: "THE OVERRULE CHANNEL GETS ITS WORDS HERE. 2026-10-13-8762p names the channel overrule; without a word the Attempts tab prints the raw value."
+
+steps:
+  - id: types-api
+    action: "types/tickets.ts: TicketDefaults, TicketDefault, DefaultVerdictItem, DefaultVerdictAnswer; ticketsApi.ts: fetchTicketDefaults, postDefaultVerdicts."
+  - id: reads
+    action: "TicketDefaultsRead (lib/tickets): the defaults snapshot, api.defaults and its own CoalescedRefetch; TicketPageReads composes it (at most +6 lines over 2026-10-13-8762l), ticketChanged(), defaultTaken() and defaultsChanged() schedule only it, dispose() cancels it; TICKET_PAGE_API binds defaults."
+  - id: fakes
+    action: "The six TicketPageApi test fakes gain a defaults stub resolving to an empty TicketDefaults; TicketAttemptReads.test.tsx's mocked ticketsApi gains fetchTicketDefaults."
+  - id: store
+    action: "TicketPageStore (at most +8 lines over 2026-10-13-8762l): useTicketDefaults(); a hook turning each new DefaultDecisionTaken in liveEvents into reads.defaultTaken()."
+  - id: tab-row
+    action: "ticketTabTable: TicketTabReads.defaults and the defaults row appended last with its counter; TicketTabs passes useTicketDefaults().data."
+  - id: pane
+    action: "TicketDefaultsTab (list, selection, batch bar with conversation rows ratify-only, not-landed mark, outcome line) with a DefaultRow component; mock-parity.css rules under .mock-tickets using --person and --person-wash."
+  - id: words
+    action: "ticketFormat.ts CHANNEL_WORDS: overrule -> 'overruled default'."
+  - id: tests
+    action: "Red first for each test below, then green; pnpm gen:hub-events, pnpm test, pnpm build."
+
+tests:
+  - "TicketDefaultsRead_ReadAtStart_AndOnTicketChanged_NotOnRunsChanged"
+  - "TicketDefaultsRead_DisposeOfThePageReads_CancelsItsRefetch"
+  - "TicketPageStore_DefaultDecisionTakenInLiveStream_RereadsDefaultsOnce"
+  - "ticketTabs_DefaultsCounter_CountsPending_HotOnlyWhenOneHoldsTheSeries"
+  - "ticketTabs_NoDefaults_NoCounter"
+  - "TicketDefaultsTab_PendingBeforeDecided_HeldSeriesMarked"
+  - "TicketDefaultsTab_MemoryProposal_ShowsPointerNotBody"
+  - "TicketDefaultsTab_MemoryProposalNotLanded_SaysNotLanded"
+  - "TicketDefaultsTab_ConversationDefault_SaysInTheDesignConversation"
+  - "TicketDefaultsTab_NonAttemptRunRow_ShowsItsRunId"
+  - "TicketDefaultsTab_ConversationRow_OffersRatifyOnly"
+  - "TicketDefaultsTab_RatifySelected_PostsOneBatch_AndShowsApplied"
+  - "TicketDefaultsTab_OverruleSelected_SendsTheNoteWithEveryItem"
+  - "TicketDefaultsTab_AlreadyDecided_IsSaidWithItsStandingVerdict"
+  - "TicketDefaultsTab_Refused400_ShowsTheServerText"
+  - "postDefaultVerdicts_400_ReturnsTheJsonStringAsRefused"
+  - "ticketTabs_DefaultsRow_IsLast"
+  - "TicketDefaultsTab_CallerLackingRunsControl_SeesNoActions"
+  - "channelWords_Overrule_IsOverruledDefault"
+
+done:
+  - "The ticket page shows a Defaults tab whose counter is the pending count, in the person colour while a pending default holds the series."
+  - "A person selects several pending defaults, ratifies or overrules them in one click, and sees which applied and which someone else had already decided."
+  - "A default taken by the running attempt, or a verdict given on another screen, appears in the open tab within a few seconds without a reload."
+  - "A default from the design conversation is marked as such and can only be ratified from this tab."
+  - "A caller without runs.control sees the defaults but no ratify or overrule controls."
+  - "An attempt started by an overrule reads 'overruled default by <person>' on the Attempts tab."
+  - "Build green, full suite green, dashboard gen/test/build green."

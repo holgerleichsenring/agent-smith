@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-8762p
+
+decisions:
+  - category: Architecture
+    chose: "The stored verdict is the act: an overrule writes VerdictBy/VerdictAt/VerdictNote on its RunDefaultDecision row and nothing else; DecidedDefaults reads the decided rows (code runs of the ticket, plus a named conversation) and DbPreviousAttemptReader carries the overruled ones as PreviousAttempt.Overrules, read by OverruleAct in the worker (ReworkPendingActs) and the run (AttemptCauseReader, SpecRevisionCause, the prompt section)"
+    over: "A tracker comment as the act, or a second act table"
+    reason: "Our own comments are dropped by the keyword reader, and a second table persists the overrule twice. Default, pending operator ratification."
+  - category: Architecture
+    chose: "A new channel, not a new origin: ReworkChannel.Overrule, AttemptChannels.Overrule = 'overrule', AttemptSourceKinds.Default with the row id; the nudge rides ReworkNudgeOrigin.Operator"
+    over: "Riding the Operator channel"
+    reason: "The ticket page reads 'operator' as an approval in the conversation; contract decision 20 forbids a new origin."
+  - category: Implementation
+    chose: "Validate the whole batch first (1..100 items, ratified|overruled, note <= 2000, every id listed by this ticket, conversation rows and rows of runs that are not attempts ratify-only), then one ExecuteUpdateAsync per item WHERE Id = id AND Verdict = pending; an item that matches nothing is reported alreadyDecided with its standing verdict"
+    over: "Read-modify-write per row, or writing valid items of a partly invalid batch"
+    reason: "The pending predicate lets exactly one of two writers win, so one overrule files one act; a refused batch writes nothing and a resent batch is safe. A decided row is final and the note is optional at most 2000 characters — defaults, pending operator ratification."
+  - category: Implementation
+    chose: "An overrule is its own revision cause (SpecRevisionCause.Overrule), ranked after Rework and before StatusBack, re-deriving like Rework (approved or not, counted as an append on a fully executed set), keeping the prior approval in SpecSourceResolver, with a SpecRecutNotice arm and a PreviousCutPromptSection paragraph pointing at OverruledDefaultsPromptSection, which follows the pull-request review in TicketConversationPromptSection"
+    over: "Letting it fall through to Retrigger"
+    reason: "Read off PreviousAttempt it is neither the act slot nor a comment, so Retrigger would rework nothing on an executed or approved set; an overrule reverts nothing (contract decision 15), default, pending operator ratification."
+  - category: Implementation
+    chose: "A closed ticket's overrule is followed up like a keyword comment, its body OverruleAct.TextOf (question, default taken, note of every overrule the attempt may not have seen)"
+    over: "The closed refusal an approval or a retry gets"
+    reason: "The overrule carries content a follow-up can act on; an approval or a retry is answered in its conversation."
+  - category: Architecture
+    chose: "Verdicts survive in git: SpecDoneRecorder calls DefaultVerdictRecord, which writes each decided row through IDefaultVerdictFile (RepositoryVerdictFile over its own RepositoryDecisionFile, never IDecisionLogger) as one TradeOff entry '[default #<id>] <verdict> by <by> at <at>: <question> -> <chosen>; note: <note>', skipped when the file already holds the marker (RepositoryDecisionFile.AppendAsync unlessPresent, same read-append-write); the written paths join the staged list of the one series commit. A failed read or write is logged, never fails the record"
+    over: "Routing the copy through IDecisionLogger, or a shared singleton decision file"
+    reason: "Main-thread decision 9, default, pending operator ratification. The logger's event mirror would add a third record on the recording run; the record step runs after the master under the ticket's one lease, so no lock is shared."
+  - category: Implementation
+    chose: "DEVIATION: a row naming a spec of the set is copied ONLY in that spec's own repository; a row naming no spec of the set goes to its run's decision file in the repository of the set's first spec (DefaultVerdictRecord.FileOf)"
+    over: "The spec's literal 'else' branch, which also copies a spec-of-the-set row placed in ANOTHER repository into the first repository's run file"
+    reason: "Literal reading writes a multi-repository set's row twice (spec file in its repo, run file in the first); the spec's own test name (RowNamingNoSpecOfTheSet_GoesToTheRunsDecisionFile) and its 'appears once' done line both mean the narrower rule."
+  - category: Implementation
+    chose: "DEVIATION: GET .../defaults answers 404 only for an unknown project or a pair with neither a run nor a bound conversation (TicketDefaultsReader.ReadAsync), not for every pair without a run"
+    over: "404 for a pair with no run (scope.in)"
+    reason: "The done line 'a default from the design conversation can be ratified on the ticket page' must hold for an approved ticket that never ran yet; the same widening is what 2026-10-13-8762l's reviews read does for its approval record."
+  - category: Implementation
+    chose: "Design-turn rows and rows of runs that are not attempts are ratify-only (400 'answer it in the design conversation' / 'only an attempt's default can be overruled'); a design turn's question, chosen answer, alternatives and reasons are returned only when TicketConversationReadEndpoints.MayReadTranscript holds; landed is computed on a finished memory-proposal row from Run.PullRequestsJson with PullRequestStatuses.HasPullRequest"
+    over: "Overruling them, or showing conversation text to runs.read"
+    reason: "The act reads code runs only and an overrule before the first attempt would be lost (ReworkNudgeHandler.cs:36); conversation content follows the transcript's permission. Defaults, pending operator ratification."
+  - category: Implementation
+    chose: "A verdict applied on a holds-series row, or any applied overrule, queues ONE ReworkNudgeRequest(Operator, Channel Overrule when an overrule applied, else none); anything applied publishes ONE TicketActivityChanged through ITicketActivityNudge with the key from TicketKeyResolver"
+    over: "A nudge per item"
+    reason: "One batch is one act for the worker and one refresh for the page; with no act the worker finishes the nudge (what a held series then does is 2026-10-13-8762v's)."
+  - category: Tooling
+    chose: "NullDecidedDefaults TryAdd-registered beside NullPreviousAttemptReader; DecidedDefaults joins the chained line in RelationalPersistenceExtensions (223 lines unchanged); AddTicketDefaults() is its own extension, one line in DashboardApiExtensions; the routes chain from TicketReviewEndpoints' return"
+    over: "Registering the reader beside the ticket readers"
+    reason: "The record step runs in every composition; RelationalPersistenceExtensions is baselined at 223/223; the series contract names AddTicketDefaults."

@@ -29,14 +29,16 @@ public sealed class FiledSpecBranchWrite(
     /// filing's error: the ticket and the record are complete, so an error would tell the operator
     /// to retry and the retry files a SECOND ticket with a second stored set.
     /// </param>
+    /// <param name="sources">Filed id to the proposal's spec id, through which a ratified mock is read.</param>
     public async Task WriteAsync(
         ITicketProvider provider, ResolvedProject project, CreatedTicket created,
-        SpecApprovalRecord record, List<string> notes, CancellationToken ct)
+        SpecApprovalRecord record, IReadOnlyDictionary<string, string>? sources, List<string> notes, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(created);
         ArgumentNullException.ThrowIfNull(notes);
         var result = await branches.WriteAsync(
-            project, record, created.Id, await ReadBackAsync(provider, created, ct), ct);
+            project, record, created.Id, await ReadBackAsync(provider, created, ct), ct, sources);
+        notes.AddRange(result.Notes ?? []);
         if (result.Written) return;
         logger.LogWarning(
             "The approved set of ticket {Ticket} is not on its branch: {Error}",
@@ -44,7 +46,9 @@ public sealed class FiledSpecBranchWrite(
         notes.Add(
             $"The specification of {created.Reference} is not on its ticket branch yet "
             + $"({result.Error}). The ticket and its approved set are complete — the run that "
-            + "claims it publishes the set to the branch from the stored record, as it did before.");
+            + "claims it publishes the set to the branch from the stored record, as it did before."
+            + (record.Set.Specs.Any(s => s.Draft.RatifiedMock is not null)
+                ? " The ratified mock was not written: the stored record carries no mock." : ""));
     }
 
     private async Task<Ticket?> ReadBackAsync(

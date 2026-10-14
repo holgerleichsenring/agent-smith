@@ -110,24 +110,28 @@ public sealed class SpecDerivationCoverageTests
         prompt.Should().Contain("## Contexts the scope call named").And.Contain("- backend");
     }
 
-    /// <summary>2026-10-12-967aa: the skill template is filled with the token a later skill
-    /// release names beside the one the pinned release names, so either release renders whole.</summary>
+    /// <summary>2026-10-12-967aa: the skill template is filled with the token the pinned release names.
+    /// 2026-10-13-8762u: a fresh cut is bounded by one attempt, a re-cut by the series.</summary>
     [Fact]
-    public async Task Deriver_TheSkillTemplate_IsFilledWithMaxSpecs()
+    public async Task SpecSetDeriver_SkillTemplate_FreshCutSpecsPerAttempt_ReCutMaxSpecs()
     {
-        var prompts = new RecordingPrompt();
+        var fresh = new RecordingPrompt();
+        var recut = new RecordingPrompt();
 
-        await Derive(new ScriptedClient(Cut("frontend", "backend")), Named("frontend", "backend"), prompts);
+        await Derive(new ScriptedClient(Cut("frontend", "backend")), Named("frontend", "backend"), fresh);
+        await Derive(new ScriptedClient(Cut("frontend", "backend")), Named("frontend", "backend"), recut,
+            new SpecSet("k", [], SpecAccounting.Empty, [new SpecRevision(1, SpecRevisionCause.Initial, DateTimeOffset.UnixEpoch)],
+                SpecSource.BranchArtifact));
 
-        var max = SpecSet.MaxSpecs.ToString();
-        prompts.Tokens.Should().Contain("MaxSpecs", max).And.HaveCount(1);
+        fresh.Tokens.Should().Contain("MaxSpecs", "8").And.HaveCount(1);
+        recut.Tokens.Should().Contain("MaxSpecs", "24").And.HaveCount(1);
     }
 
     private static ScopeNamedContexts Named(params string[] contexts) =>
         new(contexts, "both contexts need dependency auditing");
 
     private static async Task<(SpecDerivation? Derivation, string? Error)> Derive(
-        ScriptedClient client, ScopeNamedContexts named, IPromptCatalog? prompts = null)
+        ScriptedClient client, ScopeNamedContexts named, IPromptCatalog? prompts = null, SpecSet? previous = null)
     {
         var deriver = new SpecSetDeriver(
             AgentSmith.Tests.TestSupport.CutReviewSteps.Of(new CleanReviewer()),
@@ -138,14 +142,14 @@ public sealed class SpecDerivationCoverageTests
             prompts ?? new FixedPrompt(),
             DerivationTestParsers.Real(),
             new ScopedContextCoverage(),
-            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Gate(), NullLogger<SpecSetDeriver>.Instance);
+            AgentSmith.Tests.TestSupport.HandbackTestDoubles.Gate(), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), NullLogger<SpecSetDeriver>.Instance);
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.ScopeNamedContexts, named);
         var ticket = new Ticket(
             id: new TicketId("19106"), title: "advisories", description: Ticket,
             acceptanceCriteria: null, status: "open", source: "test");
         return await deriver.DeriveAsync(
-            ticket, TicketSegmenter.Segment(Ticket), previous: null, series: "2026-10-06-0a0a", cause: "initial derivation",
+            ticket, TicketSegmenter.Segment(Ticket), previous, series: "2026-10-06-0a0a", cause: "initial derivation",
             repositories: [], new AgentConfig(), pipeline, CancellationToken.None);
     }
 
