@@ -436,6 +436,55 @@ export interface TicketReviews {
   conversation: { approvalAt: string | null; rounds: TicketReviewRound[] } | null;
 }
 
+// 2026-10-13-8762q: a ticket's defaults (GET …/defaults, runs.read) — those its runs took and those of the
+// design conversation bound to it, in the server's order: pending holding the series, pending, decided.
+
+/** pending | ratified | overruled */
+export type DefaultVerdict = string;
+
+export interface TicketDefault {
+  id: number;
+  runId: string;
+  /** The attempt number of its run; null for a run that is not an attempt and for a design turn's row. */
+  attempt: number | null;
+  /** The design conversation that took it; null in a coding run. */
+  conversation: string | null;
+  specId: string | null;
+  /** A conversation row's text is null unless the caller may read the transcript. */
+  question: string | null;
+  chosen: string | null;
+  alternatives: string[] | null;
+  why: string | null;
+  holdsSeries: boolean;
+  /** decision | memory-proposal */
+  kind: string;
+  pointerPath: string | null;
+  takenAt: string;
+  verdict: DefaultVerdict;
+  verdictBy: string | null;
+  verdictAt: string | null;
+  verdictNote: string | null;
+  /** A memory proposal of a finished run: whether that run left a pull request; null otherwise. */
+  landed: boolean | null;
+}
+
+export interface TicketDefaults {
+  pending: number;
+  pendingHoldingSeries: number;
+  entries: TicketDefault[];
+}
+
+/** One item of a verdict batch (POST …/defaults/verdicts, runs.control). */
+export interface DefaultVerdictItem {
+  id: number;
+  verdict: "ratified" | "overruled";
+  note?: string | null;
+}
+
+export type DefaultVerdictAnswer =
+  | { kind: "applied"; applied: number[]; alreadyDecided: { id: number; verdict: DefaultVerdict }[] }
+  | { kind: "refused"; text: string };
+
 // 2026-10-13-9a59r: what approving the ticket's open proposal would do (GET …/approval-preview,
 // dialog.write; 404 when no proposal is open) — 9a59l's effect and per-spec dispositions, 9a59m's start arm.
 

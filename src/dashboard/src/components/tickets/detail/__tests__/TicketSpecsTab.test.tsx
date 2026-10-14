@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeHub } from "../../__tests__/ticketFixtures";
-import { attempt, conversation, detail, pass, passes, reviewRound, reviews, series, spec } from "./detailFixtures";
+import { attempt, conversation, defaults, detail, pass, passes, reviewRound, reviews, series, spec } from "./detailFixtures";
 import type { RunEvent } from "@/types/hub-events";
 import type { RunPasses, TicketDetail, TicketReviewer, TicketReviews, TicketSeries } from "@/types/tickets";
 
@@ -61,6 +61,7 @@ const api = {
   run: vi.fn(() => Promise.reject(new Error("unused"))),
   compute: vi.fn(() => Promise.reject(new Error("unused"))),
   reviews: vi.fn(() => Promise.resolve(world.reviews)),
+  defaults: vi.fn(() => Promise.resolve(defaults())),
 };
 
 const settle = async () => {

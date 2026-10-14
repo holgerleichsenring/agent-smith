@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeHub } from "../../__tests__/ticketFixtures";
-import { attempt, compute, conversation, detail, entry, pass, passes, reviews, runDetail, segment, series, spec } from "./detailFixtures";
+import { attempt, compute, conversation, defaults, detail, entry, pass, passes, reviews, runDetail, segment, series, spec } from "./detailFixtures";
 import type { RunEvent, RunSnapshot } from "@/types/hub-events";
 import type { RunCompute, RunPasses, TicketConversation, TicketDetail, TicketSeries } from "@/types/tickets";
 
@@ -36,6 +36,7 @@ const api = {
   run: vi.fn((runId: string) => Promise.resolve(world.runs[runId] ?? runDetail(runId))),
   compute: vi.fn((runId: string) => Promise.resolve(world.compute[runId] ?? compute(runId))),
   reviews: vi.fn(() => Promise.resolve(reviews())),
+  defaults: vi.fn(() => Promise.resolve(defaults())),
 };
 
 const settle = async () => {

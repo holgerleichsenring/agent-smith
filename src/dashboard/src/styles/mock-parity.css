@@ -44,7 +44,8 @@
      Specs and Acceptance tabs' own deviations are listed in their section (2026-10-13-9a59r), the
      Attempts and Cost & compute tabs' in theirs (2026-10-13-9a59s). The Specs tab's review rounds and
      series contract review have no mock: composed from .section-head, .cnt, .blk h4, .crit, .ci and .pill,
-     adding no rule (2026-10-13-8762l). */
+     adding no rule (2026-10-13-8762l). The Defaults tab has no mock: its .df-* rules are composed from the
+     same tokens (2026-10-13-8762q). */
 
 /* ===== shared shell: tokens + primitives (identical across all three mocks) == */
 .mock-shell {
@@ -727,6 +728,27 @@
 .mock-tickets .c-legend i.park { background:repeating-linear-gradient(135deg,var(--person) 0 4px,var(--person-wash) 4px 8px); }
 .mock-tickets .c-legend i.over { background:var(--idle); }
 .mock-tickets .c-figs { font-size:11px; color:var(--ink-2); font-family:var(--mono); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+/* ===== defaults (2026-10-13-8762q: no mock — composed from .doc, .section-head, .pill and .cp-note; a pending
+   default holding the series takes the waits-for-a-person colour on its mark and its row edge) ===== */
+.mock-tickets .df-bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; padding:10px 12px; margin-bottom:10px; border:1px solid var(--line); border-radius:var(--r-s); background:var(--bg); }
+.mock-tickets .df-bar .df-all { display:flex; gap:6px; align-items:center; font-size:12px; color:var(--ink-2); }
+.mock-tickets .df-bar .df-note-in { flex:1; min-width:180px; font:inherit; font-size:12.5px; padding:6px 10px; border:1px solid var(--line); border-radius:8px; background:var(--panel); color:var(--ink); }
+.mock-tickets .df-out { margin:0 0 10px; display:flex; flex-direction:column; gap:2px; }
+.mock-tickets .df-list { display:flex; flex-direction:column; gap:8px; }
+.mock-tickets .df-row { display:grid; grid-template-columns:16px minmax(0,1fr); gap:10px; font-size:12.5px; color:var(--ink-2); border:1px solid var(--line); border-left:3px solid var(--line); border-radius:var(--r-s); background:var(--panel); padding:10px 12px; }
+.mock-tickets .df-row.held { border-left-color:var(--person); background:color-mix(in srgb, var(--person-wash) 45%, var(--panel)); }
+.mock-tickets .df-row input[type="checkbox"], .mock-tickets .df-bar input[type="checkbox"] { width:15px; height:15px; margin:2px 0 0; accent-color:var(--accent); cursor:pointer; }
+.mock-tickets .df-main { display:flex; flex-direction:column; gap:6px; min-width:0; }
+.mock-tickets .df-meta { display:flex; gap:10px; flex-wrap:wrap; align-items:center; font-family:var(--mono); font-size:11px; color:var(--ink-3); }
+.mock-tickets .df-held { color:var(--person); font-weight:600; }
+.mock-tickets .df-q { color:var(--ink); font-weight:600; }
+.mock-tickets .df-body { display:grid; grid-template-columns:auto minmax(0,1fr); gap:3px 10px; margin:0; }
+.mock-tickets .df-body dt { font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); font-weight:600; padding-top:2px; }
+.mock-tickets .df-body dd { margin:0; }
+.mock-tickets .df-pointer { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+.mock-tickets .df-verdict { display:flex; gap:8px; align-items:center; flex-wrap:wrap; font-size:11.5px; color:var(--ink-3); }
+.mock-tickets .df-verdict .df-note { color:var(--ink-2); }
 
 /* =========================================================================
    RUN VIEWER — run-viewer.html

@@ -14,7 +14,7 @@ import { fakeHub, list, pr, ticket } from "@/components/tickets/__tests__/ticket
 import { TicketPage } from "@/components/tickets/detail/TicketPage";
 import { TicketPageStore } from "@/lib/tickets/TicketPageStore";
 import {
-  attempt, compute, conversation, detail, entry, pass, passes, reviewRound, reviews, runDetail, segment, series, spec,
+  attempt, compute, conversation, defaults, detail, entry, pass, passes, reviewRound, reviews, runDetail, segment, series, spec,
 } from "@/components/tickets/detail/__tests__/detailFixtures";
 
 // p0343c: PIXEL IDENTITY guard — each redesigned surface renders the ratified
@@ -244,6 +244,7 @@ describe("Mock parity", () => {
       run: () => Promise.reject(new Error("unused")),
       compute: () => Promise.reject(new Error("unused")),
       reviews: () => Promise.resolve(reviews()),
+      defaults: () => Promise.resolve(defaults()),
     };
     const ticketPage = render(
       <TicketPageStore project="shop" ticketId="101" client={fakeHub().client} api={ticketApi}>
@@ -310,6 +311,7 @@ describe("Mock parity", () => {
           reviewRound({ scope: "series", specId: null, verdict: "refuse" }),
         ] }],
       })),
+      defaults: () => Promise.resolve(defaults()),
     };
     const tabs: Array<[string, string[]]> = [
       ["conversation", [".section-head", ".conv-tools", ".chip", ".conv", ".c-att", ".msg", ".msg.internal", ".av", ".mh", ".where", ".mb", ".diff", ".proposal", ".ph", ".pb", ".composer", ".cp-head", ".cp-actions", ".cp-input"]],
@@ -351,6 +353,7 @@ describe("Mock parity", () => {
         segments: [parked, segment({ startedAt: "2026-09-04T16:00:00Z", endedAt: "2026-09-04T16:30:00Z" })],
       })),
       reviews: () => Promise.resolve(reviews()),
+      defaults: () => Promise.resolve(defaults()),
     };
     const tabs: Array<[string, string, string[]]> = [
       ["attempts", "attempts-timeline", [".next-card", ".bi", ".bt", ".bs", ".section-head", ".tl", ".att", ".dot", ".card", ".a-top", ".a-name", ".an", ".pill", ".rid", ".a-why", ".cause", ".a-num", ".a-body", ".kv", ".k", ".v", ".links", ".chg", ".line"]],

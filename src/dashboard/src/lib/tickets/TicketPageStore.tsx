@@ -8,7 +8,7 @@ import { useRunEvents } from "@/hooks/useRunEvents";
 import { isRunLive } from "@/lib/runLiveness";
 import { EventType, type RunEvent, type RunSnapshot } from "@/types/hub-events";
 import type {
-  RunCompute, RunPasses, TicketApprovalPreview, TicketAttempt, TicketConversation, TicketDetail, TicketReviews, TicketSeries,
+  RunCompute, RunPasses, TicketApprovalPreview, TicketAttempt, TicketConversation, TicketDefaults, TicketDetail, TicketReviews, TicketSeries,
 } from "@/types/tickets";
 import {
   TicketPageReads, type PerRunRead, type Read, type TicketPageApi, type TicketPageSnapshot,
@@ -89,6 +89,7 @@ export function TicketPageStore({ project, ticketId, children, client, api }: Pr
   const liveEvents = useRunEvents(liveAttempt?.runId ?? null);
   useNewEvents(liveEvents, EventType.SpecCutReviewed, reads, "cutReviewed");
   useNewEvents(liveEvents, EventType.SpecReviewRound, reads, "reviewRound"); // 2026-10-13-8762l
+  useNewEvents(liveEvents, EventType.DefaultDecisionTaken, reads, "defaultTaken"); // 2026-10-13-8762q
 
   const value = useMemo<StoreValue>(
     () => ({ project, ticketId, snapshot: current, reads, liveAttempt, liveEvents, activity }),
@@ -98,8 +99,8 @@ export function TicketPageStore({ project, ticketId, children, client, api }: Pr
 }
 
 /** (d): each SpecCutReviewed the live stream gains re-reads the conversation once; (e) each SpecReviewRound the
- *  review rounds. */
-function useNewEvents(events: RunEvent[], type: EventType, reads: TicketPageReads, nudge: "cutReviewed" | "reviewRound"): void {
+ *  review rounds; (f) each DefaultDecisionTaken the defaults. */
+function useNewEvents(events: RunEvent[], type: EventType, reads: TicketPageReads, nudge: "cutReviewed" | "reviewRound" | "defaultTaken"): void {
   const seen = useRef<number | null>(null);
   const count = events.filter((e) => e.type === type).length;
   useEffect(() => {
@@ -142,6 +143,12 @@ export function useTicketConversation(): Read<TicketConversation> {
 /** 2026-10-13-8762l: every attempt's review rounds and the approved set's conversation rounds. */
 export function useTicketReviews(): Read<TicketReviews> {
   return useStore().snapshot.reviews;
+}
+
+/** 2026-10-13-8762q: the ticket's defaults, pending ones first; changed() re-reads them after this page's own verdict. */
+export function useTicketDefaults(): Read<TicketDefaults> & { changed: () => void } {
+  const { snapshot, reads } = useStore();
+  return { ...snapshot.defaults, changed: () => reads.defaultsChanged() };
 }
 
 export function useAttemptPasses(runId: string | null): Read<RunPasses> {

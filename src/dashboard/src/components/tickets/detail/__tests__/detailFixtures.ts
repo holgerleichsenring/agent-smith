@@ -9,6 +9,8 @@ import type {
   TicketAttempt,
   TicketConversation,
   TicketConversationEntry,
+  TicketDefault,
+  TicketDefaults,
   TicketDetail,
   TicketReviewRound,
   TicketReviews,
@@ -128,5 +130,20 @@ export function reviewRound(over: Partial<TicketReviewRound> = {}): TicketReview
   return {
     scope: "spec", specId: "s1", round: 1, verdict: "build", reviewers: [], cuts: [], findings: [], residues: [],
     revisionNumber: null, at: "2026-09-04T14:00:00Z", ...over,
+  };
+}
+
+// 2026-10-13-8762q: the defaults read — none by default; a pending decision default of attempt 1.
+export function defaults(entries: TicketDefault[] = [], over: Partial<TicketDefaults> = {}): TicketDefaults {
+  const pending = entries.filter((e) => e.verdict === "pending");
+  return { pending: pending.length, pendingHoldingSeries: pending.filter((e) => e.holdsSeries).length, entries, ...over };
+}
+
+export function defaultEntry(over: Partial<TicketDefault> = {}): TicketDefault {
+  return {
+    id: 1, runId: "r-1", attempt: 1, conversation: null, specId: "s1", question: "Which header names?",
+    chosen: "IETF draft", alternatives: ["X-RateLimit-*"], why: "The draft is what clients read.", holdsSeries: false,
+    kind: "decision", pointerPath: null, takenAt: "2026-09-04T14:00:00Z", verdict: "pending", verdictBy: null,
+    verdictAt: null, verdictNote: null, landed: null, ...over,
   };
 }
