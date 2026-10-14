@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-3890d
+
+decisions:
+  - category: Architecture
+    chose: "One step per sandbox channel at a time: a lock around push and wait, the deadline counted once the lock is held"
+    over: "Routing results to waiters by step id, or per-step result keys in Redis"
+    reason: |
+      The agent already executes one step at a time, so serialising on the server loses no throughput, needs no agent
+      upgrade (agents are pinned per project) and fixes the shared event-drain cursor too. A router would keep the
+      queued step's clock running while it waits behind a sibling's long command.
+  - category: Architecture
+    chose: "A sandbox TimeoutException inside a tool step becomes a timed-out result the tool renders as error text"
+    over: "Raising MaximumConsecutiveErrorsPerRequest or enabling detailed errors on the chat client"
+    reason: "The repository's convention is that tool failures are answers; one place (SandboxStepRunner) covers every file and command tool."
+  - category: Implementation
+    chose: "Split the result-list pop out of SandboxRedisChannel into SandboxResultList"
+    over: "Growing the channel past the 120-line limit"
+    reason: "The channel took on serialising its callers; reading the list is its own job."

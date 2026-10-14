@@ -32,8 +32,9 @@ internal static class MasterHandlerFixture
         int maxSubAgents = 0, ISourceScopeSandboxFactory? templateScopes = null,
         ISubAgentRunner? subAgents = null, LoopLimitsConfig? limits = null,
         AgentSmith.Contracts.Providers.IFigmaClient? figma = null,
-        AgentSmith.Application.Services.Tools.RenderReferenceToolFactory? render = null) =>
-        new(loop, prompts, new NoOpDecisionLogger(), AgentSmithConfig.Empty(),
+        AgentSmith.Application.Services.Tools.RenderReferenceToolFactory? render = null,
+        IDecisionLogger? decisions = null) =>
+        new(loop, prompts, decisions ?? new NoOpDecisionLogger(), AgentSmithConfig.Empty(),
             new AgentSmith.Infrastructure.Services.ContextYamlSerializer(
                 new AgentSmith.Infrastructure.Services.ContextYamlBuilders()),
             AgentSmith.Tests.TestHelpers.ContextGates.Build(),

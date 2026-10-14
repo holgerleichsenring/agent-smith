@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-13-3890e
+goal: "A step's sub-agents appear in the run view whichever page of the step's events is loaded."
+
+applies_to: "backend (step event page) + dashboard (execution tree)"
+
+requires: []
+
+facts:
+  - claim: "The step event page returns the newest 100 events; older ones load on demand."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/TrailReader.cs:173-197, src/backend/AgentSmith.Server/Extensions/RunStepQueryEndpoints.cs:23-75"
+  - claim: "The tree creates a sub-agent node only from SubAgentSpawned and drops later sub-agent events without one."
+    evidence: "src/dashboard/src/hooks/useRunExecutionTree.tsx:149-182"
+  - claim: "observed: a 44-minute master step showed no sub-agents until older events were loaded, while its LLM count included theirs."
+    evidence: "observed: 2026-10-13, operator screenshot of run 6fd1 step 'Run master skill'"
+
+assumptions: []
+
+scope:
+  in: >
+    The newest page of a step's events (beforeSeq absent) also carries that step's SubAgentSpawned and SubAgentCompleted
+    events older than the page, in sequence order before it. The page's OldestSeq and HasOlder come from the contiguous
+    page only; the prepended events never move them. The tree keeps an existing sub-agent node when a Spawned event
+    arrives again (defensive).
+  out: "Paging other event types."
+
+decisions:
+  - key: "SERVER ADDS THE FEW, CLIENT STAYS. Spawned/Completed are a handful per step; the client already builds nodes from them."
+
+steps:
+  - id: server
+    action: "ReadStepBackwardsAsync prepends the step's older sub-agent lifecycle events on the newest page."
+  - id: client
+    action: "ingestSubAgentSpawn does not overwrite an existing bucket."
+  - id: tests
+    action: "Server: newest page carries older Spawned/Completed and its OldestSeq is unchanged. Dashboard: a re-delivered Spawned keeps the completed status."
+
+tests:
+  - "StepPage_Newest_CarriesOlderSubAgentLifecycle"
+  - "StepPage_PrependedLifecycle_DoesNotMoveOldestSeq"
+  - "useRunExecutionTree keeps a completed sub-agent when its Spawned arrives again"
+
+done:
+  - "Opening a long master step shows its sub-agents and their outcome without loading older events."

@@ -515,7 +515,7 @@ public sealed class AgenticMasterHandler(
                     cancellationToken);
                 conversation.Continued(applyNudge, applyResult.Response);
                 TrackMasterResponse(applyResult.Response);
-                loopResult = applyResult; // verdict + duration come from the apply pass
+                loopResult = applyResult; // the verdict comes from the apply pass
                 changes = fs.GetChanges();
             }
             catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
@@ -531,7 +531,6 @@ public sealed class AgenticMasterHandler(
         context.Pipeline.Set(ContextKeys.CodeChanges, changes);
         // p0341: the final ledger for the done-status diagnostic (WriteRunResult) + result.md.
         context.Pipeline.Set(ContextKeys.ProgressLedger, progress.GetLedger());
-        context.Pipeline.Set(ContextKeys.RunDurationSeconds, (int)loopResult.Duration.TotalSeconds);
 
         // p0267: publish the master's final answer + skill name so a downstream
         // findings-scrape (CollectMasterFindings on the api-security path) can route
@@ -727,12 +726,14 @@ public sealed class AgenticMasterHandler(
             CancellationToken cancellationToken)
     {
         var ratifiedCriteria = MasterReengagementPolicy.RatifiedCriteria(context.Pipeline);
+        var surrender = new MasterSurrenderChallenge();
+        var (stop, challengePass) = (MasterStopKind.Cap, false);
         for (var pass = 0; pass < ReengageHardSafetyCap; pass++)
         {
             // p0374a: pass 0 is the first loop, so a re-engagement pass is 1-based —
             // every ledger transition recorded from here carries the pass it happened in.
             setPass(pass + 1);
-            if (!MasterReengagementPolicy.ShouldReengage(
+            if (!challengePass && !MasterReengagementPolicy.ShouldReengage(
                     pipelineName, progress.GetLedger(), verification,
                     costTracker.IsBudgetExhausted, ratifiedCriteria, changes, pass + 1, verdictOwed.Demanded))
             {
@@ -744,10 +745,14 @@ public sealed class AgenticMasterHandler(
                         context.MasterSkillName, CostCapStop.Describe(costTracker));
                 LogVerdictlessStop(
                     context.MasterSkillName, verification, pass + 1, ratifiedCriteria.Count, verdictOwed.Demanded);
-                break;
+                stop = MasterSurrenderChallenge.ClassifyTop(
+                    costTracker.IsBudgetExhausted, verification, ratifiedCriteria, pass + 1, verdictOwed.Demanded);
+                challengePass = surrender.TryChallenge(stop, costTracker.IsBudgetExhausted, ratifiedCriteria, verification,
+                    MasterVerificationParser.TryParseBlockedClaim(loopResult.Response.Text));
+                if (!challengePass) break;
             }
             if (ticketClarifications?.Captured is not null)
-                break; // an operator question short-circuits — the caller parks the run
+            { stop = MasterStopKind.Question; break; } // an operator question short-circuits — the caller parks the run
 
             var passThrew = false;
             MasterBlockedClaim? blockedClaim = null;
@@ -768,9 +773,10 @@ public sealed class AgenticMasterHandler(
                 // p0411: read the working tree HERE, once per pass, so the nudge opens with
                 // the changed paths instead of leaving them to be asked for.
                 var changedPaths = await ReadChangedPathsAsync(context, cancellationToken);
-                var nudge = MasterNudges.BuildReengageNudge(
-                    userPrompt, progress.GetLedger(), log.GetDecisions(), verification,
-                    changedPaths, MasterPipelineFacts.StagedRegistries(context.Pipeline));
+                var nudge = challengePass ? surrender.Nudge(ratifiedCriteria, verification, userPrompt)
+                    : MasterNudges.BuildReengageNudge(userPrompt, progress.GetLedger(), log.GetDecisions(), verification,
+                        changedPaths, MasterPipelineFacts.StagedRegistries(context.Pipeline));
+                challengePass = false;
                 var reengaged = await loopRunner.RunAsync(
                     request with { UserPrompt = nudge, PriorMessages = conversation.Thread() },
                     cancellationToken);
@@ -793,6 +799,7 @@ public sealed class AgenticMasterHandler(
                 logger.LogWarning(
                     "Master '{Skill}' hit the cost budget mid re-engagement — stopping (partial work preserved): {Reason}",
                     context.MasterSkillName, budgetEx.Message);
+                stop = MasterStopKind.Budget;
                 break;
             }
             catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
@@ -804,7 +811,7 @@ public sealed class AgenticMasterHandler(
             }
 
             if (ticketClarifications?.Captured is not null)
-                break; // asked during the pass — caller parks
+            { stop = MasterStopKind.Question; break; } // asked during the pass — caller parks
 
             // p0365: the model controls the pass boundary and naturally alternates edit passes
             // and verify passes, so per-pass state deltas mis-judge progress. The one reliable
@@ -821,10 +828,13 @@ public sealed class AgenticMasterHandler(
             if (outcome != ReengageOutcome.Continue)
             {
                 LogReengageStop(context.MasterSkillName, outcome, blockedClaim);
-                break;
+                stop = surrender.ClassifyBottom(outcome, verification, progress.GetLedger(), ratifiedCriteria);
+                challengePass = surrender.TryChallenge(stop, costTracker.IsBudgetExhausted, ratifiedCriteria, verification, blockedClaim);
+                if (!challengePass) break;
             }
         }
 
+        await surrender.RecordAsync(decisionLogger, pipelineName, stop, cancellationToken);
         return (loopResult, changes, verification);
     }
 

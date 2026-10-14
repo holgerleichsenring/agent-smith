@@ -18,6 +18,7 @@ public static class RunAccountSection
 {
     private const string ScanHeading = "## What this scan looked for";
     private const string RunHeading = "## What this run accounted for";
+    private const string SeeOutcome = "see Outcome";
 
     public static string Build(PipelineContext pipeline)
     {
@@ -26,6 +27,26 @@ public static class RunAccountSection
         if (accounts.Count == 0) return string.Empty;
         return "\n\n" + SpecAccountRenderer.ToMarkdown(accounts, Heading(accounts)).TrimEnd();
     }
+
+    /// <summary>
+    /// 2026-10-13-3890b: result.md's reading — it already leads with the failure under
+    /// Outcome, so an account whose problem IS that text points there instead of repeating
+    /// it once per sandbox. The PR body and the ticket comment carry no Outcome and keep
+    /// <see cref="Build"/>.
+    /// </summary>
+    public static string BuildForResult(PipelineContext pipeline, string? outcome)
+    {
+        ArgumentNullException.ThrowIfNull(pipeline);
+        var accounts = RunAccountLedger.Current(pipeline).All
+            .Select(a => IsOutcome(a.Problem, outcome) ? a with { Problem = SeeOutcome } : a)
+            .ToList();
+        if (accounts.Count == 0) return string.Empty;
+        return "\n\n" + SpecAccountRenderer.ToMarkdown(accounts, Heading(accounts)).TrimEnd();
+    }
+
+    private static bool IsOutcome(string? problem, string? outcome) =>
+        !string.IsNullOrWhiteSpace(problem) && !string.IsNullOrWhiteSpace(outcome)
+        && string.Equals(problem.Trim(), outcome.Trim(), StringComparison.Ordinal);
 
     /// <summary>A scan's account is keyed "scan" by its accountant; a spec's is a repo.</summary>
     private static string Heading(IReadOnlyList<SpecAccount> accounts) =>

@@ -191,7 +191,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ContextVerifyStagesResolver>()
             .AddTransient<AgentSmith.Application.Services.Sandbox.ToolchainFindingReporter>();
         // p0420: delivery is accounted for against the branch, not inferred from the run.
-        services.AddTransient<DeliveryDiff>();
+        services.AddTransient<DeliveryDiff>().AddTransient<BranchChangedFiles>().AddTransient<RunResultChanges>();
         services.AddTransient<Specs.SpecAccountCall>().AddTransient<Specs.AccountCalls>();
         services.AddTransient<Specs.ISpecAccountant, Specs.SpecAccountant>();
         services.AddTransient<Specs.SpecDeliveryAccounting>().AddTransient<Specs.SpecEntryAccount>();

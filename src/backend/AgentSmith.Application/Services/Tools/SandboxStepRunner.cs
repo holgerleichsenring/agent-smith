@@ -12,6 +12,7 @@ namespace AgentSmith.Application.Services.Tools;
 internal sealed class SandboxStepRunner(ISandbox sandbox, RunCommandTimeout runCommandTimeout)
 {
     private const int FileTimeoutSeconds = 30;
+    private readonly SandboxStepCall _call = new(sandbox);
 
     public SandboxStepRunner(ISandbox sandbox, int? runCommandTimeoutSeconds = null)
         : this(sandbox, new RunCommandTimeout(runCommandTimeoutSeconds, stepTimeoutCapSeconds: null)) { }
@@ -22,7 +23,7 @@ internal sealed class SandboxStepRunner(ISandbox sandbox, RunCommandTimeout runC
         var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.ReadFile,
             TimeoutSeconds: FileTimeoutSeconds, Path: path,
             StartLine: startLine, LineCount: lineCount, WithLineNumbers: withLineNumbers);
-        var result = await sandbox.RunStepAsync(step, progress: null, ct);
+        var result = await _call.RunAsync(step, progress: null, ct);
         return result.ExitCode != 0
             ? $"Error: {result.ErrorMessage ?? "read_file failed"}"
             : result.OutputContent ?? string.Empty;
@@ -32,7 +33,7 @@ internal sealed class SandboxStepRunner(ISandbox sandbox, RunCommandTimeout runC
     {
         var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.WriteFile,
             TimeoutSeconds: FileTimeoutSeconds, Path: path, Content: content);
-        var result = await sandbox.RunStepAsync(step, progress: null, ct);
+        var result = await _call.RunAsync(step, progress: null, ct);
         return result.ExitCode != 0
             ? $"Error: {result.ErrorMessage ?? "write_file failed"}"
             : $"File written: {path}";
@@ -44,7 +45,7 @@ internal sealed class SandboxStepRunner(ISandbox sandbox, RunCommandTimeout runC
         var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.ListFiles,
             TimeoutSeconds: FileTimeoutSeconds, Path: path, MaxDepth: maxDepth,
             WithSizes: withSizes, SortBy: sortBy);
-        var result = await sandbox.RunStepAsync(step, progress: null, ct);
+        var result = await _call.RunAsync(step, progress: null, ct);
         if (result.ExitCode != 0 || result.OutputContent is null)
             return $"Error: {result.ErrorMessage ?? "list_files failed"}";
         return DirectoryListingRenderer.Render(result.OutputContent, withSizes);
@@ -56,7 +57,7 @@ internal sealed class SandboxStepRunner(ISandbox sandbox, RunCommandTimeout runC
         var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.DirectoryTree,
             TimeoutSeconds: FileTimeoutSeconds, Path: path, MaxDepth: maxDepth,
             ExcludeGlobs: excludeGlobs);
-        var result = await sandbox.RunStepAsync(step, progress: null, ct);
+        var result = await _call.RunAsync(step, progress: null, ct);
         return result.ExitCode != 0
             ? $"Error: {result.ErrorMessage ?? "directory_tree failed"}"
             : result.OutputContent ?? string.Empty;
@@ -70,7 +71,7 @@ internal sealed class SandboxStepRunner(ISandbox sandbox, RunCommandTimeout runC
             TimeoutSeconds: FileTimeoutSeconds, Path: path, Pattern: pattern, Glob: glob,
             HeadLimit: headLimit, ContextBefore: contextBefore, ContextAfter: contextAfter,
             OutputMode: outputMode);
-        var result = await sandbox.RunStepAsync(step, progress: null, ct);
+        var result = await _call.RunAsync(step, progress: null, ct);
         if (result.ExitCode != 0)
             return $"Error: {result.ErrorMessage ?? "grep failed"}";
         var effectiveLimit = headLimit ?? SizeLimits.GrepDefaultHeadLimit;
@@ -106,7 +107,7 @@ internal sealed class SandboxStepRunner(ISandbox sandbox, RunCommandTimeout runC
         // body to switch to, so it is still collected here.
         var streamed = new StreamedStepOutput();
         var startedAt = DateTimeOffset.UtcNow;
-        var result = await sandbox.RunStepAsync(step, streamed.Collector, ct);
+        var result = await _call.RunAsync(step, streamed.Collector, ct);
         var elapsedMs = (long)(DateTimeOffset.UtcNow - startedAt).TotalMilliseconds;
         return new ProgramRun(result.ExitCode, render(result, elapsedMs, streamed));
     }

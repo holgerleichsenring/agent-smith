@@ -13,13 +13,11 @@ public static partial class ContextKeys
     public const string DiscussionLog = "DiscussionLog";
     public const string PullRequestUrl = "PullRequestUrl";
     public const string RunCostSummary = "RunCostSummary";
-    public const string RunDurationSeconds = "RunDurationSeconds";
 
     /// <summary>
     /// <see cref="DateTimeOffset"/> stamped at pipeline start. WriteRunResultHandler
-    /// reads this to compute the run's wall-clock duration when no handler
-    /// explicitly wrote <see cref="RunDurationSeconds"/> (e.g. init-project, which
-    /// has no AgenticExecute step).
+    /// computes result.md's <c>duration_seconds</c> from it as wall clock — for every
+    /// pipeline, and including the time a parked run waited before it resumed.
     /// </summary>
     public const string RunStartedAt = "RunStartedAt";
 

@@ -19,7 +19,11 @@ public sealed class SandboxRedisChannel : IAsyncDisposable
     private readonly string _jobId;
     private readonly ILogger _logger;
     private readonly SandboxEventDrain _drain;
-    private readonly IWireProtocolWatcher _protocol;
+    private readonly SandboxResultList _results;
+    // 2026-10-13-3890d: the agent runs one step at a time and every result lands on one list,
+    // so a second caller waiting at the same time pops — and discards — the first one's result,
+    // and the shared drain cursor skips its output. One step per channel, end to end.
+    private readonly SemaphoreSlim _oneStep = new(1, 1);
 
     public SandboxRedisChannel(
         IConnectionMultiplexer multiplexer, string jobId, ILogger logger,
@@ -28,8 +32,28 @@ public sealed class SandboxRedisChannel : IAsyncDisposable
         _database = multiplexer.GetDatabase();
         _jobId = jobId;
         _logger = logger;
-        _protocol = protocol;
+        _results = new SandboxResultList(_database, jobId, logger, protocol);
         _drain = new SandboxEventDrain(_database, RedisKeys.EventsKey(jobId), logger);
+    }
+
+    /// <summary>
+    /// 2026-10-13-3890d: push a step and wait for its own result, one caller at a time. The wait
+    /// starts once this caller holds the channel, so a step queued behind a long sibling is not
+    /// timed out before the agent ever sees it.
+    /// </summary>
+    public async Task<StepResult> RunStepAsync(
+        Step step, IProgress<StepEvent>? progress, TimeSpan timeout, CancellationToken cancellationToken)
+    {
+        await _oneStep.WaitAsync(cancellationToken);
+        try
+        {
+            await PushStepAsync(step, cancellationToken);
+            return await WaitForResultAsync(step.StepId, progress, timeout, cancellationToken);
+        }
+        finally
+        {
+            _oneStep.Release();
+        }
     }
 
     public async Task PushStepAsync(Step step, CancellationToken cancellationToken)
@@ -60,7 +84,7 @@ public sealed class SandboxRedisChannel : IAsyncDisposable
         {
             cancellationToken.ThrowIfCancellationRequested();
             await _drain.DrainAsync(stepId, progress);
-            var result = await TryPopResultAsync(stepId, cancellationToken);
+            var result = await _results.TryPopAsync(stepId);
             if (result is not null)
             {
                 // p0491: the agent writes its last output lines just before pushing the
@@ -89,24 +113,5 @@ public sealed class SandboxRedisChannel : IAsyncDisposable
         {
             _logger.LogWarning(ex, "Failed to clean up Redis keys for job {JobId}", _jobId);
         }
-    }
-
-    private async Task<StepResult?> TryPopResultAsync(Guid stepId, CancellationToken cancellationToken)
-    {
-        var key = RedisKeys.ResultsKey(_jobId);
-        var value = await _database.ListRightPopAsync(key);
-        if (value.IsNull) return null;
-
-        var result = JsonSerializer.Deserialize<StepResult>((string)value!, WireFormat.Json);
-        if (result is null) return null;
-        // 2026-08-25-0d01: every step produces exactly one result, so this is the one place
-        // that hears from every agent that talks at all. What it declares here is the only
-        // evidence about the protocol an agent actually speaks — a tag is not evidence.
-        _protocol.Observe(result.SchemaVersion);
-        if (result.StepId == stepId) return result;
-
-        _logger.LogWarning("Discarded stale StepResult for step {StepId} (waiting for {WaitingFor})",
-            result.StepId, stepId);
-        return null;
     }
 }
