@@ -41,11 +41,11 @@ public sealed class DashboardDialogDispatcher(
     /// task, in order.
     /// </para></summary>
     /// <param name="ticketId">2026-09-25-8e51b: the ticket the page was opened on, when it was.
-    /// It rides with the project for the same reason: a FIRST message is what opens the
-    /// conversation, and a conversation that missed its binding can never be given one.</param>
+    /// It rides with the project: a FIRST message is what opens the conversation, and one that missed its
+    /// binding can never be given one.</param><param name="author">The poster's display name, kept on the turn.</param>
     public async Task DispatchAsync(
         string dialogId, string text, string userId, bool mayStartRuns,
-        string? project, CancellationToken cancellationToken, string? ticketId = null)
+        string? project, CancellationToken cancellationToken, string? ticketId = null, string? author = null)
     {
         try
         {
@@ -53,7 +53,7 @@ public sealed class DashboardDialogDispatcher(
             // The dialog id is both channel and thread: a browser page holds exactly one
             // conversation and has no channel above it to group them by.
             if (await router.TryRouteAsync(
-                    text, userId, dialogId, dialogId, Platform, mayStartRuns, cancellationToken))
+                    text, userId, dialogId, dialogId, Platform, mayStartRuns, cancellationToken, author))
                 return;
             await TellAsync(dialogId, NoOpenDialog, cancellationToken);
         }
