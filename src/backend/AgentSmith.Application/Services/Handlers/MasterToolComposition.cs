@@ -1,6 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Loop;
 using AgentSmith.Application.Services.Tools;
+using AgentSmith.Application.Services.Turns;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Decisions;
 using AgentSmith.Contracts.Models.Configuration;
@@ -29,6 +30,7 @@ public sealed class MasterToolComposition(
     IChildAnswerStore childAnswerStore,
     DesignReadToolHostFactory designRead, // 2026-10-01-7f7ab
     RenderReferenceToolFactory renderReference, // 2026-10-01-283de
+    TurnActivityTools reportingTools,
     ILogger<MasterToolComposition> logger)
 {
     // p0280: the master surface = its base surface (read-only Review for a scan master,
@@ -101,7 +103,7 @@ public sealed class MasterToolComposition(
         var sandboxes = context.Pipeline.Get<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes);
         var subCtx = new SubAgentContext(
             context.Pipeline, sandboxes, PipelineCostTracker.GetOrCreate(context.Pipeline), runId,
-            ChildTools: [.. isSpecDialog ? SpecDialogChildTools.Of(BaseSurface()) : BaseSurface()],
+            ChildTools: [.. isSpecDialog ? reportingTools.Reporting(SpecDialogChildTools.Of(BaseSurface())) : BaseSurface()],
             AnswerStore: childAnswerStore, Budget: budget, AgentConfig: context.AgentConfig,
             // No governor hooks on a child: how far it may go bounds the whole wave.
             ChildIterationCeiling: isSpecDialog ? loopLimits.MaxDialogSubAgentLoopIterations : null);

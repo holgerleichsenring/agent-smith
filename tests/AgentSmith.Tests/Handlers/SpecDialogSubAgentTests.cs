@@ -189,6 +189,20 @@ public sealed class SpecDialogSubAgentTests
     }
 
     [Fact]
+    public async Task SpecDialogTurn_AChildsToolCall_IsReportedAsActivityNamingTheSubAgent()
+    {
+        var recorder = new TurnActivityRecorder();
+        using var observing = TurnActivityRecorder.Silent().Observe(recorder);
+        var loop = new DesignLoopRunner(Tasks("RepoScout"));
+
+        await RunAsync(loop, DesignContext(), subAgents: RealRunner(new ToolCallingChildLoop("read_file")));
+
+        recorder.Seen.Should().Contain(
+            a => a.Kind == TurnActivityKind.Tool && a.Name == "RepoScout › read_file",
+            "a child's read is otherwise invisible for as long as the fan-out runs");
+    }
+
+    [Fact]
     public async Task CodingTurn_MasterFunctions_AreNotWrappedForTurnReporting()
     {
         var loop = new DesignLoopRunner();
@@ -222,6 +236,7 @@ public sealed class SpecDialogSubAgentTests
     private static SubAgentRunner RealRunner(IAgenticLoopRunner childLoop) =>
         new(childLoop, new AgentSmith.Tests.Events.RecordingEventPublisher(),
             new LoopLimitsConfig { MaxConcurrentSubAgents = 4 },
+            new SubAgentActivityFrame(TurnActivityRecorder.Silent()),
             NullLogger<SubAgentRunner>.Instance);
 
     private static IReadOnlyList<string> MasterTools(DesignLoopRunner loop) =>
@@ -302,6 +317,27 @@ public sealed class SpecDialogSubAgentTests
                     Usage = new UsageDetails { InputTokenCount = 10, OutputTokenCount = 5 },
                 },
                 TimeSpan.FromSeconds(1));
+        }
+    }
+
+    /// <summary>A child's loop that calls one of its granted tools once, whatever that tool answers.</summary>
+    private sealed class ToolCallingChildLoop(string toolName) : IAgenticLoopRunner
+    {
+        public async Task<AgenticLoopResult> RunAsync(
+            AgenticLoopRequest request, CancellationToken cancellationToken)
+        {
+            var tool = request.Tools!.OfType<AIFunction>().Single(t => t.Name == toolName);
+            try
+            {
+                await tool.InvokeAsync(new AIFunctionArguments { ["path"] = "README.md" }, cancellationToken);
+            }
+            catch (Exception)
+            {
+                // The report is made before the call; what the stub sandbox answers is not the subject.
+            }
+            return new AgenticLoopResult(
+                new ChatResponse(new ChatMessage(ChatRole.Assistant, "what the child read")),
+                TimeSpan.FromMilliseconds(1));
         }
     }
 

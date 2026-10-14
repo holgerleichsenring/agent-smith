@@ -19,6 +19,7 @@ import { HELD_DIALOG_ID, type DialogIdSource } from "@/lib/specDialogSession";
 import { mergedSteps, ofTurn } from "@/components/dialog/turnSteps";
 // 2026-09-20-3af8: nothing ties an image to a turn, so where it sits is a rule of its own.
 import { withImages } from "@/components/dialog/transcriptImages";
+import { replyRecorded, type AwaitedReply } from "@/components/dialog/recordedReply";
 import { refusedNote, storedNote, type UploadNote } from "@/components/dialog/uploadNote";
 import type { PickLeftOut } from "@/components/dialog/referenceSelection";
 import type {
@@ -196,6 +197,8 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
   const askedAtRead = useRef<number | null>(null);
   // How long the transcript was at the latest read — where a decision clicked now will be stored.
   const turnsRead = useRef(0);
+  // Where the conversation stood when this page last posted, until the reply ends the wait.
+  const awaitedReply = useRef<AwaitedReply | null>(null);
 
   // Reading the held id is a browser act, so it happens after the first render rather
   // than during it.
@@ -211,6 +214,16 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
   // roll the scope column back to a moment that has passed. The sequence number is what
   // says which answer is still the latest.
   const reads = useRef(0);
+
+  // The wait is over, whichever told the page so: the reply's push or a read showing it stored.
+  const endWait = useCallback(() => {
+    awaitedReply.current = null;
+    setAwaiting(false);
+    setComputing(false);
+    setWorkingSince(null);
+    setReadings([]);
+    setActivity([]);
+  }, []);
 
   const load = useCallback(async (id: string) => {
     const issued = (reads.current += 1);
@@ -228,6 +241,7 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
         setWorkingSince(Date.now() - turn.elapsedSeconds * 1000);
         setActivity((held) => mergedSteps(ofTurn(held, turn.turnStartedAt), turn.steps));
       }
+      if (replyRecorded(next, awaitedReply.current, issued)) endWait();
       // The question lives only in this state and in the server's in-memory wait, so a
       // reload has to take it back from the read or the approval gate loses its card.
       if (askedAtRead.current === null || askedAtRead.current < issued) setQuestion(next.question);
@@ -266,7 +280,7 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
     } catch (thrown) {
       if (issued === reads.current) setFailure(asError(thrown));
     }
-  }, []);
+  }, [endWait]);
 
   // What the operator typed is echoed, because the channel delivers replies and never a copy
   // of the message just sent. 2026-09-22-2a86: nothing else posts here any more — the two
@@ -283,6 +297,7 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
     setReadings([]);
     setActivity([]);
     setWorkingSince(Date.now());
+    const from = { read: reads.current, turns: turnsRead.current };
     try {
       // 2026-09-20-4b0aa: the project the page holds. The server opens the conversation with it
       // when none is open and routes this message after, in one task — so there is no second post
@@ -295,8 +310,10 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
           pending: { read: reads.current, fromTurn: turnsRead.current },
         });
       setQuestion(null);
+      awaitedReply.current = from;
       setAwaiting(true);
     } catch (thrown) {
+      awaitedReply.current = null;
       setAwaiting(false);
       setFailure(asError(thrown));
     }
@@ -426,11 +443,7 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
       if (message.dialogId !== dialogId) return;
       // Every message is answered — a reply, a refusal, or the turn-failed notice — so
       // this is where the waiting ends, whatever the answer turned out to be.
-      setAwaiting(false);
-      setComputing(false);
-      setWorkingSince(null);
-      setReadings([]);
-      setActivity([]);
+      endWait();
       // A reply that was nothing but a draft arrives empty: the proposal pane carries it.
       replyWasDraftOnly.current = message.text.trim().length === 0;
       if (!replyWasDraftOnly.current) append("agent", message.text, message.at);
@@ -474,18 +487,36 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
     // Everything pushed while the connection was down is gone — the reply that ends the turn
     // included. Without a read on the way back the page would keep counting up for a turn that
     // finished during the gap, and the next turn's steps would meet a list that outlived it.
+    // A join the hub refused while it reconnected is not retried by the client, so it is issued
+    // again once the hub is back; until then the failure stands and a queued resume waits.
+    let refused: Error | null = null;
+    let joining = false;
+    const join = () => {
+      joining = true;
+      client.subscribeSpecDialog(dialogId)
+        .then((cancel) => {
+          joining = false;
+          if (cancelled) return void cancel();
+          stop = cancel;
+          const cleared = refused;
+          refused = null;
+          if (cleared) setFailure((held) => (held === cleared ? null : held));
+          const queued = pending.current;
+          pending.current = null;
+          if (queued) void resume(dialogId, queued);
+        })
+        .catch((thrown) => {
+          joining = false;
+          refused = asError(thrown);
+          setFailure(refused);
+        });
+    };
     const offConnection = client.connectionState.add((connection) => {
-      if (connection === HubConnectionState.Connected) void load(dialogId);
+      if (connection !== HubConnectionState.Connected) return;
+      void load(dialogId);
+      if (refused && !joining) join();
     });
-    client.subscribeSpecDialog(dialogId)
-      .then((cancel) => {
-        if (cancelled) return void cancel();
-        stop = cancel;
-        const queued = pending.current;
-        pending.current = null;
-        if (queued) void resume(dialogId, queued);
-      })
-      .catch((thrown) => setFailure(asError(thrown)));
+    join();
     return () => {
       cancelled = true;
       offMessage();
@@ -497,7 +528,7 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
       offConnection();
       void stop?.();
     };
-  }, [dialogId, append, load, resume, loadConversations, listIsBehind]);
+  }, [dialogId, append, load, resume, loadConversations, listIsBehind, endWait]);
 
   /// 2026-09-20-4b0aa: ONE post, carrying the project. This used to be two — an opening command
   /// and then the message — and awaiting the first proved only that its background task had been
@@ -571,6 +602,7 @@ export function useSpecDialog(source: DialogIdSource = HELD_DIALOG_ID): SpecDial
   const switchTo = useCallback((resuming: string | null, awaited: boolean | string, to?: string) => {
     reseed.current = awaited;
     replyWasDraftOnly.current = false;
+    awaitedReply.current = null;
     known.current = null;
     askedAtRead.current = null;
     setEntries([]);
