@@ -1,0 +1,91 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-14-da5ed
+goal: "In a ticket conversation the agent can start the next attempt when the person asks, without an approval card: a pending series edit starts as its approval, an unchanged attempt as a retry."
+
+applies_to: "backend (retry act, a start port for bound dialog turns, start_next_attempt tool)"
+
+requires:
+  - 2026-10-13-9a59n
+  - 2026-10-13-9a59m
+  - 2026-10-14-da5ea
+
+facts:
+  - claim: "RunRetry checks the run is a code run of a configured project, asks RunRetryGate, refuses a ticket closed for work and an attempt already starting, then stores a RunRetryRequest and enqueues an Operator nudge on the Retry channel."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/RunRetry.cs:34-62"
+  - claim: "RunRetryGate admits only the latest finished, non-waiting code attempt that ended on infrastructure."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/RunRetryGate.cs:17-30, src/backend/AgentSmith.Server/Services/Tickets/InfrastructureEnd.cs:27-36"
+  - claim: "9a59n decided 'retry unchanged only after infrastructure; every other next attempt needs a change, and the change is the conversation'."
+    evidence: ".agentsmith/specs/done/2026-10-13-9a59n-retry-unchanged.yaml:116"
+  - claim: "The dialog agent has no tool that starts, retries or continues a run; only approving a proposal starts one, and a first bound turn may not propose."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:56-90, src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalRule.cs:20-30"
+  - claim: "runs.control is sampled from the dialog poster at the endpoint (MayStartRuns)."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogEndpoints.cs:50-62"
+  - claim: "A ticket in its failed status is reworkable and moved back to its first trigger status by the rework entry."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkParkCheck.cs:30-45"
+  - claim: "mayStartRuns reaches the router but the turn runs without it; ISpecDialogTurnRunner.RunTurnAsync takes only the state."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogRouter.cs:34,70,81,89, src/backend/AgentSmith.Server/Services/SpecDialog/ISpecDialogTurnRunner.cs:13"
+  - claim: "Sub-agent tools derive from the dialog base surface, which holds the bound tools; design_read is added after it and so stays on the master."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:56-68,104, src/backend/AgentSmith.Application/Services/Tools/SpecDialogChildTools.cs:30-34"
+  - claim: "A retry act's cause reads 'retry by <principal>' with no conversation source; an approval act records the conversation."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/AttemptCauseReader.cs:37,84, src/backend/AgentSmith.Application/Services/Rework/OperatorAct.cs:16-23"
+  - claim: "A waiting hand-back is answered only by a pull-request act or a starting approval, never a retry."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/ReworkPendingActs.cs:32-41, src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeHandler.cs:80-87"
+  - claim: "The gate's latest attempt skips a cancelled code run that never ran a step, while the worker's previous-attempt reader skips only queued runs."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketAttempts.cs:21-31, src/backend/AgentSmith.Infrastructure.Persistence/Services/DbPreviousAttemptReader.cs:24-30"
+  - claim: "Bound-turn ports are seeded per turn (ticket reader, work, runs, framework facts) and become tools only when seeded."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:54-82, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:271-294"
+
+scope:
+  in: >
+    PLUMBING: ISpecDialogTurnRunner.RunTurnAsync(state, TurnPoster poster, ct) where TurnPoster carries the poster's
+    id and mayStartRuns; the router passes it, BoundTicketReaders and the seeds receive it (da5ee reuses it for its
+    principal and right); SpecDialogTurnRunner stays within its 120 lines; the mocks of SpecDialogRoutingTests,
+    FiledWorkPermissionTests, DialogDraftSplitTests, ConversationSubjectTests, DashboardDialogChannelTests and the
+    harness SpecDialogTemplateTests follow. PORT: IAttemptStart (Contracts), Server implementation in its own scope,
+    built only for a bound turn whose ticket has at least one code attempt and whose poster holds runs.control.
+    StartNextAsync: when the series as the next attempt will read it holds a pending edit (da5ee's record, newer than
+    the latest attempt's worked approval) it records that approval again with StartsAttempt true and runs
+    OperatorStart — the conversation act, which also answers a waiting hand-back; otherwise it calls RunRetry with
+    the Conversation origin and the poster as principal. RunRetry's Conversation origin skips only the
+    InfrastructureEnd test and admits a failed, cancelled or shortfall latest attempt, not a delivered success; both
+    origins refuse when the worker's latest attempt (IPreviousAttemptReader) is not the run asked, so gate and worker
+    agree; a newer queued run answers "already starting". A waiting hand-back without a pending edit is answered:
+    say what should change. TOOL: start_next_attempt(reason), added after the base surface so sub-agents never get
+    it, answers "requested — the next attempt starts through the rework queue; a refusal is posted on the ticket", or
+    the refusal sentence. The Retry unchanged button keeps its infrastructure-only rule.
+  out: >
+    Changing specs — 2026-10-14-da5ee. Which master offers the tool — 2026-10-14-da5ef.
+
+decisions:
+  - key: "SUPERSEDES 9a59n's OPERATOR DECISION 8 FOR THE CONVERSATION — a fixed precondition (a registry added, a secret set) is a change that lives outside the ticket; the person saying 'go on' in the ticket's conversation is the act, and asking for a spec edit to start an unchanged attempt was ceremony."
+  - key: "THE RETRY PATH, NOT A NEW ACT — RunRetry already stores an act without content, refuses closed tickets and racing starts, and enters through the rework entry; only its infrastructure test is the button's rule, not the act's."
+  - key: "THE CAUSE TELLS THE TRUTH — a start that runs an edited series is the conversation's approval and reads as such; a start with nothing changed is a retry and reads 'retry'. No new column is needed for either."
+  - key: "REQUESTED, NOT STARTED — the tool queues the act; the worker can still decline (no move offered, closed), and says so on the ticket, so the tool never promises an attempt number."
+  - key: "NO TOOL WITHOUT THE RIGHT — the tool is not offered to a poster without runs.control, so the agent can never promise a start it cannot make."
+
+steps:
+  - id: plumbing
+    action: "TurnPoster through router, turn runner, BoundTicketReaders and seeds; test mocks follow."
+  - id: origin
+    action: "RetryOrigin (Button | Conversation); gate skips InfrastructureEnd for Conversation and refuses success; latest-run agreement for both origins; queued means already starting."
+  - id: port
+    action: "IAttemptStart in Contracts; Server implementation: pending edit -> approval with start + OperatorStart, else RunRetry Conversation."
+  - id: tool
+    action: "StartNextAttemptToolHost added after the base surface for bound turns of worked tickets."
+  - id: tests
+    action: "Red first: the tests below."
+
+tests:
+  - "RunRetry_ConversationOrigin_AfterAPreflightFailure_Requests; the button origin still refuses it"
+  - "RunRetry_ConversationOrigin_DeliveredSuccess_Refused; closed ticket refused; live attempt refused"
+  - "RunRetry_CancelledReservationAfterFailedAttempt_RefusedForBothOrigins"
+  - "AttemptStart_PendingEdit_RecordsTheApprovalWithStart_CauseIsTheConversation"
+  - "AttemptStart_NoEdit_RetriesUnchanged_CauseIsRetry"
+  - "AttemptStart_WaitingHandbackWithoutEdit_AsksWhatShouldChange"
+  - "AttemptStart_PosterWithoutRunsControl_ToolAbsent; never-worked ticket tool absent"
+  - "SpecDialogSubAgent_ChildTools_DoNotIncludeStartNextAttempt"
+  - "StartNextAttempt_Requested_SaysRequested"
+
+done:
+  - "Saying 'the registry is added, go on' in a failed ticket's conversation queues its next attempt, which the rework worker starts (proven through the worker in a harness test)."
+  - "Backend build and tests green."
