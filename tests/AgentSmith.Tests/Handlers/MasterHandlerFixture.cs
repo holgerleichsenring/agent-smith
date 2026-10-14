@@ -145,7 +145,17 @@ internal static class MasterHandlerFixture
                 NullLogger<AgentSmith.Application.Services.Tools.DesignReadToolHostFactory>.Instance),
             // 2026-10-01-283de: a turn that seeds no project never builds the host.
             render ?? new AgentSmith.Tests.Browser.BrowserRenderFixture(spawnsContainers: false).Factory(),
+            new AgentSmith.Application.Services.Tools.TicketActToolsFactory(Verification()),
             NullLogger<MasterToolComposition>.Instance);
+
+    /// <summary>The series verification a design master's verify_series runs — no scope opened, no review taken,
+    /// unless a test hands in its own.</summary>
+    internal static AgentSmith.Application.Services.SpecDialog.SeriesVerification Verification(
+        ISourceScopeSandboxFactory? scopes = null, AgentSmith.Application.Services.Specs.ISpecCutReviewer? reviewer = null) =>
+        new(scopes ?? new NoTemplateScopes(), AgentSmith.Tests.SpecDialog.ProposalEvidenceTestReview.Create(),
+            reviewer ?? Mock.Of<AgentSmith.Application.Services.Specs.ISpecCutReviewer>(),
+            AgentSmith.Tests.Specs.DerivationTestLooks.Factory(),
+            NullLogger<AgentSmith.Application.Services.SpecDialog.SeriesVerification>.Instance);
 
     /// <summary>2026-09-13-6f35: the run that declares no template spawns nothing.</summary>
     private sealed class NoTemplateScopes : ISourceScopeSandboxFactory

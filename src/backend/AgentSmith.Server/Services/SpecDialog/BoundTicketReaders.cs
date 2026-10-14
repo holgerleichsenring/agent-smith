@@ -26,6 +26,7 @@ public sealed class BoundTicketReaders(
     FiledWorkRunsReader runs,
     TicketRunsFacts facts,
     BoundAttemptStarts starts,
+    BoundSeriesPorts series,
     ILoggerFactory loggerFactory)
 {
     private static FrameworkFacts Facts(ResolvedProject project, string ticketId)
@@ -58,13 +59,16 @@ public sealed class BoundTicketReaders(
             // taken from the code that decides them rather than restated anywhere.
             Facts(project, held.TicketId),
             // And starting its next attempt — as the poster, only when the poster could.
-            await starts.ForAsync(project, held.TicketId, sessionId, poster, ct));
+            await starts.ForAsync(project, held.TicketId, sessionId, poster, ct),
+            // And its series as the next attempt will read it — editable as the poster, only when the poster could.
+            await series.ForAsync(project, held.TicketId, sessionId, poster, ct));
     }
 }
 
-/// <summary>What a BOUND turn may ask about its own ticket, from one lookup — and the start its poster may make.</summary>
+/// <summary>What a BOUND turn may ask about its own ticket, from one lookup — and the start and series edit its poster may make.</summary>
 public sealed record BoundTicket(
-    ITicketReader Reader, IBoundTicketWork Work, IBoundTicketRuns Runs, FrameworkFacts Facts, IAttemptStart? Start = null);
+    ITicketReader Reader, IBoundTicketWork Work, IBoundTicketRuns Runs, FrameworkFacts Facts, IAttemptStart? Start = null,
+    BoundSeries? Series = null);
 
 /// <summary>2026-09-28-1da5c: the linked-work port, closed over the ticket the turn is bound to.</summary>
 public sealed class BoundTicketWork(ITicketLinkedWork work, TicketId ticketId) : IBoundTicketWork

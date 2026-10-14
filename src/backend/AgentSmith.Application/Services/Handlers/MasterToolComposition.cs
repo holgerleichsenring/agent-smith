@@ -30,6 +30,7 @@ public sealed class MasterToolComposition(
     IChildAnswerStore childAnswerStore,
     DesignReadToolHostFactory designRead, // 2026-10-01-7f7ab
     RenderReferenceToolFactory renderReference, // 2026-10-01-283de
+    TicketActToolsFactory ticketActs,
     ILogger<MasterToolComposition> logger)
 {
     // p0280: the master surface = its base surface (read-only Review for a scan master,
@@ -79,10 +80,9 @@ public sealed class MasterToolComposition(
         // coding master of a project whose config enables the browser; the factory decides.
         // 2026-10-01-283di: with compare_reference beside it.
         if (!isScanMaster) master = [.. master, .. renderReference.Tools(context.Pipeline, isSpecDialog)];
-        // start_next_attempt joins the design MASTER of a bound turn its poster may start runs from, outside BaseSurface:
-        // a child acts on no one's word, so no child surface carries it.
-        if (isSpecDialog && context.Pipeline.TryGet<IAttemptStart>(ContextKeys.SpecDialogAttemptStart, out var start) && start is not null)
-            master = [.. master, .. new StartNextAttemptToolHost(start).GetTools(null, null)];
+        // The bound-ticket acts (start_next_attempt, the series tools) join the design MASTER outside BaseSurface:
+        // a child acts on no one's word, so no child surface carries them.
+        if (isSpecDialog) master = [.. master, .. ticketActs.Tools(context)];
         // p0331: coding masters get the ensure_repo_sandbox escalation valve — the
         // counterpart to ScopeRepos' conservative narrowing. Scan masters read
         // everything anyway (full scope, no narrowing) and must not spawn.

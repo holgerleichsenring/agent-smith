@@ -14,18 +14,14 @@ namespace AgentSmith.Server.Services.Tickets;
 /// </summary>
 public sealed class TicketSeriesSpecComposer
 {
-    private const string NotStarted = "not_started";
-    private const string Carried = "carried";
-
     public TicketSeriesSpecView Compose(
         SpecCutEntry spec, string cutRunId, IReadOnlyList<string> carried,
         TicketSeriesRecords records, IReadOnlyDictionary<string, int> attemptNumbers)
     {
         var rows = records.Specs.Where(r => r.SpecId == spec.SpecId && attemptNumbers.ContainsKey(r.RunId))
             .OrderBy(r => r.RunId, StringComparer.Ordinal).ToList();
-        var state = carried.Contains(spec.SpecId, StringComparer.Ordinal) ? Carried
-            : rows.LastOrDefault(r => r.RunId == cutRunId)?.Status ?? NotStarted;
-        var executed = rows.LastOrDefault(r => r.Status != NotStarted);
+        var state = TicketSeriesCuts.StateOf(records, cutRunId, carried, spec.SpecId);
+        var executed = rows.LastOrDefault(r => r.Status != TicketSeriesCuts.NotStarted);
         var ended = rows.LastOrDefault(r => r.EndedAt is not null && r.AcceptanceJson is not null);
         var acceptance = RunStoryJson.TryDeserialize<AcceptanceView>(ended?.AcceptanceJson);
         var judgements = ended is null ? [] : records.Judgements.Where(j => j.RunId == ended.RunId).ToList();

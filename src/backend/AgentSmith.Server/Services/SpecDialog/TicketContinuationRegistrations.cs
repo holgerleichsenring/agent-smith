@@ -25,6 +25,8 @@ internal static class TicketContinuationRegistrations
         services.TryAddScoped<FiledWorkMove>();
         // Starting the next attempt from a bound turn: the pending edit as its approval, else a conversation Retry.
         services.AddRunRetry().AddTransient<PendingSeriesEditReader>().AddScoped<PendingEditStart>().AddScoped<BoundAttemptStarts>();
+        // Reading and editing the series from a bound turn: the series as the next attempt reads it, an edit as an approval without a start.
+        services.AddScoped<NextAttemptSeriesReader>().AddTransient<SeriesEditList>().AddScoped<SeriesEditAct>().AddScoped<BoundSeriesPorts>();
         return services.AddScoped<TicketContinuationStateReader>()
             .AddScoped<TicketApprovalPreview>()
             .AddScoped<TicketContinuationAct>()

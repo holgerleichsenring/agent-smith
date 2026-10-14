@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Specs;
+using AgentSmith.Server.Services.Tickets;
 
 namespace AgentSmith.Server.Services.SpecDialog.Continuation;
 
@@ -28,7 +29,9 @@ public sealed record TicketContinuationState(
 }
 
 /// <summary>One spec of the series an approval is decided against.</summary>
-public sealed record BasisSpec(string SpecId, string Goal, string Yaml);
+/// <param name="State">Its state in the cut it was read from (TicketSeriesCuts.StateOf); not_started for a spec
+/// read from the approval record.</param>
+public sealed record BasisSpec(string SpecId, string Goal, string Yaml, string State = TicketSeriesCuts.NotStarted);
 
 /// <summary>The state, or why it could not be read — an approval over an unread ticket is refused.</summary>
 public sealed record TicketContinuationRead(TicketContinuationState? State, string? Failure)

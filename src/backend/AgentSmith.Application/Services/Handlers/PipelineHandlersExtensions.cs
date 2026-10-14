@@ -104,7 +104,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ProjectMapCacheKey>();
         services.AddSingleton<SandboxTargets>().AddTransient<Repositories.RunRepositoriesFactory>(); // f5f7c
         services.AddSingleton<Tools.AgenticToolSurface>().AddTransient<MasterToolComposition>()
-            .AddTransient<Tools.DesignReadToolHostFactory>(); // 2026-10-01-7f7ab
+            .AddTransient<Tools.DesignReadToolHostFactory>().AddTransient<Tools.TicketActToolsFactory>().AddTransient<SpecDialog.SeriesVerification>(); // 7f7ab
         services.AddSingleton<Polling.PipelineResolver>();
         // p0401: shared scanner-observation service (severity mapping + warn-once).
         services.AddSingleton<ScannerObservationFactory>();

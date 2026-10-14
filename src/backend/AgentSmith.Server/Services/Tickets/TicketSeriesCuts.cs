@@ -12,6 +12,17 @@ namespace AgentSmith.Server.Services.Tickets;
 /// </summary>
 public static class TicketSeriesCuts
 {
+    /// <summary>The state of a spec no attempt of the cut recorded.</summary>
+    public const string NotStarted = "not_started";
+
+    /// <summary>The state of a spec the cut's attempt carried in as executed.</summary>
+    public const string CarriedState = "carried";
+
+    /// <summary>A spec's state in a cut: carried when its attempt carried it, else that attempt's RunSpec status.</summary>
+    public static string StateOf(TicketSeriesRecords records, string cutRunId, IReadOnlyList<string> carried, string specId) =>
+        carried.Contains(specId, StringComparer.Ordinal) ? CarriedState
+            : records.Specs.LastOrDefault(r => r.SpecId == specId && r.RunId == cutRunId)?.Status ?? NotStarted;
+
     public static IReadOnlyList<RunSeriesCut> Ordered(IEnumerable<RunSeriesCut> cuts) =>
         [.. cuts.OrderBy(c => c.RunId, StringComparer.Ordinal).ThenBy(c => c.Id)];
 

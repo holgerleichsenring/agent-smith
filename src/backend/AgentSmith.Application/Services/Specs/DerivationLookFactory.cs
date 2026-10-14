@@ -95,10 +95,13 @@ public sealed class DerivationLookFactory(
     /// Null when the turn has no repository, and the review is the text-against-text one.
     /// </summary>
     public DerivationLook? ForProposalReview(PipelineContext pipeline) =>
-        ProposalRepositories(pipeline) is { } repositories
-            ? new DerivationLook(repositories, files, ecosystems, logger, templates: null,
-                DerivationLookTerms.ProposalReview, audits: false, activity: turnActivity)
-            : null;
+        ProposalRepositories(pipeline) is { } repositories ? ForReview(repositories) : null;
+
+    /// <summary>The proposal review's look over repositories the caller opened and disposes — a series
+    /// verified at the ticket branch rather than at the turn's default branch.</summary>
+    public DerivationLook ForReview(IReadOnlyDictionary<string, ISandbox> repositories) =>
+        new(repositories, files, ecosystems, logger, templates: null,
+            DerivationLookTerms.ProposalReview, audits: false, activity: turnActivity);
 
     /// <summary>2026-10-02-3f06c: the turn's repositories as the proposal review reads them, one
     /// filter for the look and the evidence probe alike. Null when the turn holds none.</summary>

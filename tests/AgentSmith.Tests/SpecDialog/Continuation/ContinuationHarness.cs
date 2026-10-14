@@ -82,6 +82,10 @@ internal sealed class ContinuationHarness : IDisposable
         services.AddSingleton<IActiveRunLease, DbActiveRunLease>().AddSingleton<IRunCheckpointStore, DbRunCheckpointStore>();
         services.AddSingleton<IPreviousAttemptReader, DbPreviousAttemptReader>().AddSingleton<IReworkNudges, DbReworkNudges>();
         services.AddSingleton(new TokenAuthorityConfig());
+        // 2026-10-14-da5ee: the series tools' merge, reader and schema check, as the Application registers them.
+        services.AddTransient<SpecDraftIdRewriter>().AddTransient<ContinuationMerge>().AddTransient<SpecDraftReader>()
+            .AddSingleton<AgentSmith.Application.Services.Validation.SpecSchemaProvider>()
+            .AddTransient<ISpecDraftValidator, SpecDraftValidator>();
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
 

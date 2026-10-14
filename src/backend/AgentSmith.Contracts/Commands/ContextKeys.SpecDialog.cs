@@ -92,6 +92,14 @@ public static partial class ContextKeys
     /// for a ticket with an attempt and a poster holding runs.control, so no other turn carries the tool.</summary>
     public const string SpecDialogAttemptStart = "SpecDialogAttemptStart";
 
+    /// <summary><c>ISeriesRead</c> — the bound ticket's series as its next attempt will read it. Seeded only for a
+    /// ticket a code attempt worked, so a never-worked ticket carries neither read_series nor verify_series.</summary>
+    public const string SpecDialogSeriesRead = "SpecDialogSeriesRead";
+
+    /// <summary><c>ISeriesEdit</c> — changing that series as the turn's poster. Seeded only beside the read and only
+    /// for a poster holding runs.control.</summary>
+    public const string SpecDialogSeriesEdit = "SpecDialogSeriesEdit";
+
     /// <summary>2026-10-01-7f7ab: <c>IReadOnlyList&lt;DesignSource&gt;</c> — the turn's project's
     /// design sources, by name and secret NAME; a run reads them off ProjectConfig instead.</summary>
     public const string SpecDialogDesignSources = "SpecDialogDesignSources";

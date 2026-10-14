@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-14-da5ee
+
+decisions:
+  - category: Architecture
+    chose: "NextAttemptSeriesReader (Server, Continuation): TicketContinuationStateReader's basis with PendingSeriesEditReader's record merged over it by ContinuationMerge, the branch set built from the basis and the pointer's executed ids; read, edit and verify all start from it"
+    over: "Extending PendingSeriesEditReader itself; reading TicketSeriesReader for the series view"
+    reason: |
+      One definition for all three tools, and the merge is the one the next attempt applies. PendingSeriesEditReader keeps
+      answering whether an unworked edit exists for the start. TicketSeriesReader is registered only with the dashboard
+      API and reads one project; the state reader already reads cuts, RunSpec rows and the pointer across sibling projects.
+  - category: Implementation
+    chose: "BasisSpec carries its cut state (TicketSeriesCuts.StateOf, which TicketSeriesSpecComposer now also calls) and ContinuationBasis carries the pointer's ShaByRepo"
+    over: "A second read of the series records and the pointer for read_series and verify_series"
+    reason: |
+      The state is the composer's rule verbatim (carried, else the cut attempt's RunSpec status, else not_started), so the
+      read tool and the dashboard cannot disagree. A spec only a pending edit names reads not_started.
+  - category: Implementation
+    chose: "A basis entry is turned into a draft with SpecDraftReader for its requires, keeping the cut's yaml byte for byte; an entry that is not a full spec document becomes a draft with no edges"
+    over: "Reading the trimmed yaml the reader returns"
+    reason: |
+      SeriesContinuationIds compares a re-cut with the basis yaml exactly; a trimmed copy would turn every untouched spec
+      into a re-cut.
+  - category: Implementation
+    chose: "edit_series decides the edited full list as an EpicOutcome with TicketContinuation.Decide over the state with its Record cleared, records via ApprovedSpecSetRecorder with the stored conversation as state and the poster as UserId, Continuation.StartsAttempt false, then nudges activity"
+    over: "Saving the record directly as PendingEditStart does; keeping the previous record's ids reserved"
+    reason: |
+      AN EDIT IS AN APPROVAL WITHOUT A START: unlike PendingEditStart, an edit has NEW content, so the recorder's labels,
+      repositories, carrier and citations are needed; loading the conversation row and replacing UserId keeps the principal
+      the poster, consistent with da5ed. The edited list is the whole series, so the superseded record's appended ids need
+      not stay taken — a second edit mints the first edit's appended specs to the same ids again (EditSeries_SecondEdit).
+  - category: Implementation
+    chose: "The parent goal is the stored record's set goal, else the first spec's goal"
+    over: "A series goal read from the branch manifest"
+    reason: |
+      The server reads no branch; the manifest's goal is the record's goal whenever an approval set one. This is the same
+      fallback TicketContinuationAct.ContinueAsync uses for a lone spec.
+  - category: Implementation
+    chose: "SeriesEditList validates each yaml against the spec schema, refuses a recut whose spec field differs, an unknown spec id, an unknown kind, and an append reusing an id the list holds; the first failing edit refuses the whole edit"
+    over: "Letting Decide treat a colliding append as a re-cut"
+    reason: |
+      SeriesContinuationIds skips a second draft with an id already seen, so a colliding append would vanish silently.
+      Dropping or re-cutting a spec that ran is not refused: Decide keeps it and the answer names it as discarded.
+  - category: Architecture
+    chose: "ISeriesRead and ISeriesEdit in Contracts/Dialogue, implemented by ConversationSeriesRead/ConversationSeriesEdit that open their own scope per call; BoundSeriesPorts builds them for a ticket with a latest attempt, the edit only for a poster with runs.control; BoundTicket carries them as BoundSeries"
+    over: "Resolving the act in the turn's scope"
+    reason: "The pattern of ConversationAttemptStart: the port lives in an in-process turn's pipeline context; its writes must not share the turn's unit of work."
+  - category: Architecture
+    chose: "TicketActToolsFactory (Application) builds start_next_attempt, read_series, verify_series and edit_series from the seeded ports; MasterToolComposition calls it for a design master after BaseSurface"
+    over: "Adding three more conditional blocks to MasterToolComposition"
+    reason: "MasterToolComposition sits at 117 of 120 lines; children derive from BaseSurface, so none of the tools reaches a sub-agent."
+  - category: Implementation
+    chose: "SeriesVerification opens one read-only scope per pointer repository at its sha (no conversation id, disposed after), checks evidence only for unstarted specs whose requires name no other unstarted spec, and gives the cut reviewer every unstarted spec; DerivationLookFactory.ForReview and ProposalEvidenceReview.FindingsAsync(drafts, repositories) take repositories the caller opened"
+    over: "Evidence-checking every unstarted spec; reusing the turn's default-branch sandboxes"
+    reason: |
+      VERIFY AT THE BRANCH. ProposalEvidenceReview's own rule — only what describes today is checked — applied to the branch:
+      a spec whose predecessors all ran describes the branch as it is, a later one what its predecessor leaves. Passing the
+      conversation id would hand the turn's held sandbox back at the wrong revision. Without a pointer the turn's
+      repositories are reviewed and the evidence check is skipped, and the answer says so.
+  - category: TradeOff
+    chose: "NextAttempt_AfterEditAndStart_RunsTheEditedSeries edits and starts through the ports on the ContinuationHarness store, then hands the stored record (re-keyed to the ApprovedSetHarness ticket) to the real DeriveSpecHandler over a branch whose head ran"
+    over: "One harness that both serves the conversation and runs the attempt"
+    reason: |
+      The two halves already have harnesses over different stores; the record is the only thing that crosses between them
+      in production, so copying it is the seam. Whether a live model calls the tools depends on the steward master
+      (2026-10-14-da5ef/da5eg).
