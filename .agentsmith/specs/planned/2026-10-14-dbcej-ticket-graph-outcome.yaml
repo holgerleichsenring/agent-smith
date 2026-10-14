@@ -16,7 +16,9 @@ facts:
   - claim: "A model's output cap defaults to 8192 tokens and the example catalog's sonnet sets 8192; a done spec records that a design reply is capped there and can arrive with its fence unclosed."
     evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/ModelAssignment.cs:18, config/agentsmith.example.yml:231, .agentsmith/specs/done/2026-10-01-aeb6b-dialog-document-outcome.yaml:22"
   - claim: "An invalid outcome re-prompts the design partner once with the exact error, and a second failure replaces the reply with an honest notice."
-    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:660-688"
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogOutcomeGate.cs:10-15, src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogOutcomeGate.cs:42-65"
+  - claim: "Only a design-partner turn reaches the outcome gate: a turn led by the ticket steward publishes an AnswerOutcome without parsing its reply, so a list is only ever read from a design-partner reply."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogTurnFlow.cs:32-40"
   - claim: "The outcome block's YAML is read through internal helpers for a map, a string, a nested map and a list."
     evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/OutcomeYamlReader.cs:11-37"
   - claim: "The block is deserialized untyped, so an unquoted ': ' inside an item makes a mapping; GetString answers null for any non-string value and GetList hands back raw objects whose items may be mappings."
@@ -26,7 +28,7 @@ facts:
   - claim: "An unquoted ': ' inside a mapping value such as a title or requirement is a YAML parse error, not a mapping; the resolver turns a YamlException into an OutcomeInvalid carrying the library's message, so it is re-prompted."
     evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/OutcomeProposalResolver.cs:60-67, observed: 2026-10-14, PyYAML safe_load of 'title: Orders: schema slice' raised 'mapping values are not allowed here' while the same unquoted ': ' inside a done list item read as a mapping"
   - claim: "The resolver is called outside any try in the design turn, so an exception from a parser fails the turn instead of re-prompting; only an OutcomeInvalid reaches the one re-prompt."
-    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:672-675, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:700"
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogOutcomeGate.cs:31-34, src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogOutcomeGate.cs:60-62"
   - claim: "A GitHub or Azure DevOps ticket read of an id like '#41' answers not found, because both parse the id as a bare number first."
     evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketProvider.cs:64, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs:82"
   - claim: "Four tests construct the resolver directly and one pins the unknown-kind text 'expected bug or epic'."
@@ -40,11 +42,11 @@ facts:
   - claim: "The stored proposal JSON is a kind discriminator plus a per-kind payload, the review fields ride on the base record, and an unknown kind fails loudly in both directions."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeProposalJson.cs:31-54, src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeProposalJson.cs:68-77"
   - claim: "The turn kind recorded for a kept turn follows the outcome, and an outcome with no turn kind throws."
-    evidence: "src/backend/AgentSmith.Server/Models/SpecDialogTurnResult.cs:36-44, src/backend/AgentSmith.Contracts/Models/SpecDialogTurnKind.cs:9-19"
+    evidence: "src/backend/AgentSmith.Server/Models/SpecDialogTurnResult.cs:40-48, src/backend/AgentSmith.Contracts/Models/SpecDialogTurnKind.cs:9-19"
   - claim: "The bound ticket page's proposal view names a spec or an epic with their drafts and reads everything else as a bug."
     evidence: "src/backend/AgentSmith.Server/Services/Tickets/Conversation/TicketTranscriptReader.cs:47-52"
   - claim: "The parsers are registered on three lines of PipelineHandlersExtensions, which is at its 218-line baseline."
-    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs:169-171, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:37"
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs:168-170, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:37"
   - claim: "Until a later member teaches them, the confirmation composer and the filer throw on an outcome kind they do not know."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeComposer.cs:82-91, src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:40-51"
   - claim: "A ticket's run derives its own specs at DeriveSpec when no approved set is handed to it, and the derived cut is reviewed before it is published."
@@ -97,9 +99,9 @@ scope:
     unclosed check and its message (82 -> at most 88; the file is not baselined, 120 applies). JSON (OutcomeProposalJson, 78 -> at most 86): kind
     "tickets" with Tickets as a list of the GraphTicket fields; the base record's templates, findings, rounds and
     not-reviewed ride as for every kind. TURN KIND: SpecDialogTurnKind.TicketGraphProposal = 8 (19 -> 20);
-    SpecDialogTurnResult.KindOf maps it (45 -> at most 46). TICKET PAGE: TicketTranscriptReader.Of maps a graph to kind
+    SpecDialogTurnResult.KindOf maps it (49 -> at most 50). TICKET PAGE: TicketTranscriptReader.Of maps a graph to kind
     "tickets" with no drafts (69 -> at most 70). REGISTRATION: parser, checker and orderer chained onto the existing lines
-    169-171, net zero.
+    168-170, net zero.
   out: >
     Reviewing the list, the ticket:<id> existence check, the proposal text, the pane push, the offered shapes and the
     dashboard proposal card — 2026-10-14-dbcek; until it lands a hand-typed kind: tickets block resolves and its
@@ -120,7 +122,7 @@ decisions:
   - key: "TICKET TEXTS, NOT SPECS (main-thread decision D1, pending operator ratification). The design reply is capped at 8192 output tokens; a graph of twenty tickets each holding full spec mappings cannot fit, and a truncated reply resolved silently as an answer. A ticket text — key, title, requirement, done list, requires, repos — is the unit the field case worked with (sub-phase tickets of 15 to 28 minutes); each run derives its specs against the code merged by then, which is also the original reason child tickets carried no spec (2026-09-13-a72a, retired)."
   - key: "MaxTickets STAYS 20, MEASURED. Twenty realistic ticket texts are about 5,100 to 6,800 tokens, inside the 8192 cap with room for the reply's prose; twenty tickets at the field maxima are not (6 to 8 fit). The unclosed-fence rule is what makes the difference visible: a list cut at the output limit is re-prompted with 'propose fewer tickets now', never kept as an answer."
   - key: "THE UNCLOSED FENCE IS INVALID, NOT ABSENT. SpecDialogDraftBlocks needs the closing fence for every block; without the new rule a cut-off ```outcome block falls to the bare-draft path and becomes an AnswerOutcome. Only an opened ```outcome fence counts, outside a ````document block, so a document that quotes the fence (aeb6b) is untouched."
-  - key: "SCALARS ONLY, NEVER A THROWN TURN. The untyped YAML read turns an unquoted 'GET /orders returns: 200' into a mapping, and the resolver runs outside any try in the design turn (AgenticMasterHandler.cs:672). A non-string field or item is therefore refused as an OutcomeInvalid naming the ticket, the field and 'quote the item', so the existing one re-prompt fixes it; 2026-10-14-dbcep's skill text quotes every string in its example. A field of the wrong SHAPE is refused the same way (round-3 cut): read as empty, `requires: order-api` would file the ticket as a root that starts at once, before what it needs has merged. An unquoted ': ' in a title or requirement is a YAML parse error, not a mapping, so it takes the resolver's YAML-error path, whose text now asks to quote every string that contains ': '."
+  - key: "SCALARS ONLY, NEVER A THROWN TURN. The untyped YAML read turns an unquoted 'GET /orders returns: 200' into a mapping, and the resolver runs outside any try in the design turn (SpecDialogOutcomeGate.cs:31). A non-string field or item is therefore refused as an OutcomeInvalid naming the ticket, the field and 'quote the item', so the existing one re-prompt fixes it; 2026-10-14-dbcep's skill text quotes every string in its example. A field of the wrong SHAPE is refused the same way (round-3 cut): read as empty, `requires: order-api` would file the ticket as a root that starts at once, before what it needs has merged. An unquoted ': ' in a title or requirement is a YAML parse error, not a mapping, so it takes the resolver's YAML-error path, whose text now asks to quote every string that contains ': '."
   - key: "ticket:#41 IS ticket:41. The proposal and filing texts show a numeric tracker id as #41; a model copying it into the next approval writes ticket:#41, which GitHub and Azure DevOps read as not found. ExistingId strips one leading '#', so both forms name the same ticket; the landing key was never affected (TicketKey slugs it)."
   - key: "ABSENT LISTS ARE EMPTY. A root ticket that omits requires: or repos:, or writes them as null, is valid; refusing it would re-prompt a correct list."
   - key: "THE MEASUREMENT LIVES IN THE REPO. The 20-ticket fixture is a committed test resource and its outcome block is pinned at or under 24,000 characters (about 6,000 tokens at the repository's 4 characters per token), so the reason the cap stays 20 is checked by the suite, not kept in a session scratchpad."
@@ -146,7 +148,7 @@ steps:
   - id: json-turn-page
     action: "OutcomeProposalJson: Dto gains Tickets, ToDto and FromDto the tickets arm (78 -> at most 86); SpecDialogTurnKind.TicketGraphProposal = 8; SpecDialogTurnResult.KindOf maps it; TicketTranscriptReader.Of maps a graph to kind \"tickets\" (69 -> at most 70)."
   - id: registration
-    action: "PipelineHandlersExtensions.cs:169-171: chain TicketGraphOutcomeParser onto the epic parser's line and TicketGraphChecker, TicketGraphOrderer onto RequiresEdgeChecker's line; the file stays at 218 (wc -l)."
+    action: "PipelineHandlersExtensions.cs:168-170: chain TicketGraphOutcomeParser onto the epic parser's line and TicketGraphChecker, TicketGraphOrderer onto RequiresEdgeChecker's line; the file stays at 218 (wc -l)."
   - id: existing-tests
     action: "Pass the new parser to the four direct resolver constructions (SpecNamedOutcomeKindTests.cs:30, SpecDialogDocumentTests.cs:23, DialogDraftReposTests.cs:157, OutcomeProposalResolverTests.cs:22) and update the pinned text at SpecNamedOutcomeKindTests.cs:24 to 'expected bug, epic or tickets'."
   - id: tests

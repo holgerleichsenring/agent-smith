@@ -37,8 +37,8 @@ facts:
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledTicketKey.cs:34-35, src/dashboard/src/components/tickets/ticketFormat.ts:26-27"
   - claim: "Every ticket reader is registered transient in one extension; the store harness resolves the readers from a real ServiceProvider."
     evidence: "src/backend/AgentSmith.Server/Extensions/TicketReadExtensions.cs:19-69, tests/AgentSmith.Tests/Tickets/TicketStoreHarness.cs:40, tests/AgentSmith.Tests/Tickets/TicketStoreHarness.cs:95-96"
-  - claim: "An act's principal is the OIDC sub first; the server keeps every caller it has seen with both the sub and the configured name claim's value, and a name claim other than sub is a readable one."
-    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOwnership.cs:31-32, src/backend/AgentSmith.Contracts/Services/IObservedCallerStore.cs:16, src/backend/AgentSmith.Contracts/Models/Access/ObservedCaller.cs:20-23, src/backend/AgentSmith.Server/Security/ReadableName.cs:21-24"
+  - claim: "A person's display name is read off the token's name, else preferred_username, else upn claim, never sub; an act's principal is the OIDC sub first."
+    evidence: "src/backend/AgentSmith.Server/Security/DisplayName.cs:5-18, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOwnership.cs:31-32"
   - claim: "A list row always renders the series strip, the attempt marks and a cost cell with 'N attempts'."
     evidence: "src/dashboard/src/components/tickets/TicketRow.tsx:37-42, src/dashboard/src/components/tickets/ticketFormat.ts:21-23"
   - claim: "runs.read and runs.control are the read and act permissions."
@@ -73,7 +73,7 @@ assumptions:
   - "2026-10-14-dbcef lands ITicketRequirementStore (RequiredOfAsync(tracker, ticketKey), DependentsOfAsync(tracker, requiredKey), ByProjectAsync(project)) returning TicketRequirementEdge rows carrying Tracker, TicketKey, TicketId, Project, RequiredTicketKey, RequiredTicketId."
   - "2026-10-14-dbceg lands ITicketLandingStore.LandedAsync(tracker, keys) returning each landed key's row (Kind merged or by-hand, LandedAt, By, Note, PrUrl), and fires TicketActivityChanged on every landing."
   - "2026-10-14-dbceh lands UnmetTicketRequirements.OfAsync(tracker, ticketKey, ct) -> (HasRequirements, Unmet), the one read the gate uses; this spec reads its .Unmet (and HasRequirements where it needs to know rows exist), and never re-derives 'unmet'."
-  - "2026-10-14-dbcei lands POST /api/tickets/{project}/{ticketId}/landed-by-hand (body { note }; 200 the landing; every other answer a plain sentence: 400 'A note is required: say why this ticket counts as landed.', 404 'No project <name> is configured.' or 'No ticket <id> on <tracker>.', 409 '<id> already counts as landed: merged on <LandedAt>.' or '<id> is already marked done by <By> at <LandedAt>: <Note>.' (also to the loser of a race, naming the winner), 503 'The tracker <tracker> could not be read (<class>); nothing was recorded.'), accepting a ticket that has no run and no filing record (a person's ticket named by ticket:<id>), storing By as the caller's OIDC sub first, and TicketBucketRule reading a landing of either kind as done for a ticket with runs."
+  - "2026-10-14-dbcei lands POST /api/tickets/{project}/{ticketId}/landed-by-hand (body { note }; 200 the landing; every other answer a plain sentence: 400 'A note is required: say why this ticket counts as landed.', 404 'No project <name> is configured.' or 'No ticket <id> on <tracker>.', 409 '<id> already counts as landed: merged on <LandedAt>.' or '<id> is already marked done by <By> at <LandedAt>: <Note>.' (also to the loser of a race, naming the winner), 503 'The tracker <tracker> could not be read (<class>); nothing was recorded.'), accepting a ticket that has no run and no filing record (a person's ticket named by ticket:<id>), storing By as the person's display name at write time (DisplayName.Of), else their principal, and TicketBucketRule reading a landing of either kind as done for a ticket with runs."
   - "2026-10-14-dbcek ships src/dashboard/design/mockups/ticket-graph.html with ticket-view.html's tokens and shell, a NON-SHIPPING header comment, the proposal section (ticket texts, each ticket's waits-for by tracker key, 'have nothing to wait for' for roots) and a mock-only footer; this spec appends its sections before that footer."
 
 scope:
@@ -109,10 +109,9 @@ scope:
     / done-by-hand (a landing) > running (the working bucket) > blocked (unmet) > ready (no run, nothing unmet) > the
     list bucket; a node with neither a run nor a filing record and no landing reads idle with hasPage false. REQUIRES:
     GET /api/tickets/{project}/{ticketId}/requires (runs.read) -> { requires, requiredBy }, each {ticketId, key, title,
-    state, hasPage, landedKind?, landedBy?, landedByName?, landedAt?, note?}; 404 only for an unknown project.
-    landedByName is read, never stored: the observed caller (IObservedCallerStore.AllAsync, once per read) whose
-    Subject equals landedBy, its NameValue when its NameClaim is readable (ReadableName.Is); absent otherwise, and the
-    page then shows landedBy as stored. Both in a new
+    state, hasPage, landedKind?, landedBy?, landedAt?, note?}; 404 only for an unknown project. landedBy is the
+    landing's By as stored — the person's display name, written by 2026-10-14-dbcei — and the page shows it as is,
+    with no lookup. Both in a new
     TicketGraphEndpoints chained from TicketQueryEndpoints. DASHBOARD: tickets.ts gains the buckets, counts, waitsFor,
     graph and requires types; lib/ticketGraphApi.ts holds fetchTicketGraph, fetchTicketRequires and markLandedByHand
     (every non-200 answer from 2026-10-14-dbcei is a plain sentence — 400, 404, 409 naming the landing that
@@ -163,7 +162,7 @@ decisions:
   - key: "TICKETS ARE NAMED BY TRACKER KEY (round-1 cut). '#DPG-12' is wrong on Jira; the server sends FiledTicketKey's form on every waits-for, requires and node entry, and a required ticket with no recorded title shows its key."
   - key: "A NEVER-RUN PAGE HAS NO TABS (round-1 cut, D5). Under the ticket-text graph a ticket has no specs, attempts or cost until its first run derives them; every tab would render an empty state, so the page shows the header, what it waits for, what waits for it and the filed line."
   - key: "GRAPH STATE IS COMPUTED PER READ, NEVER STORED (contract section 2.3). A landing outranks every other state because it is permanent (contract decision 15). The graph view is a view switch on /tickets, not a route (section 5 default 22, pending operator ratification)."
-  - key: "BY IS SHOWN BY NAME WHEN ONE IS KNOWN (contract section 2.6, section 5 default 33, pending operator ratification). 2026-10-14-dbcei stores the OIDC sub, which is stable but no name; the server already keeps every caller it has seen with the configured name claim's value, so the requires read looks it up per read and stores nothing twice. An observation pruned or a name claim of sub leaves the stored value on the page."
+  - key: "BY IS SHOWN AS STORED (contract section 2.6, section 5 default 33, amended after PR #740, pending operator ratification). 2026-10-14-dbcei stores the person's display name at write time, read as 2026-10-14-da5eb reads a turn's author, so the page shows By as it is. The read-time lookup of the observed caller's name claim is withdrawn: that claim defaults to sub and production configures none, so it found no name, and it cost a store read per requires read."
   - key: "A NEVER-RUN ROW SHOWS NO ZERO COUNTS. The row's strip, marks and cost cell describe runs; a ticket with none shows what it waits for instead of '0 attempts' or '$0.00', and no spec count, because its specs do not exist until its run derives them."
   - key: "A FILED SPEC IS NOT A TICKET TEXT (round-2 cut). 2026-10-14-dbcef projects Project on every approval, so a single-spec or epic filing that has not run yet is a never-run row too; telling it its specs 'are derived when its first run starts' would be false. The flag lives only in ContentJson (the table's columns are projections never read back), so FiledTicketRows reads the record through SpecApprovalJson.Read, the one sanctioned parse, and takes the title from the same record."
   - key: "THE NEVER-RUN SUMMARY CARRIES ITS TICKET KEY (round-2 cut). The page re-reads only on a nudge naming its own key; without it, a never-run page missed its own landing and its own first start."
@@ -183,7 +182,7 @@ steps:
   - id: detail
     action: "TicketDetailReader: no code run -> FiledTicketRows.OneAsync -> a detail with no attempts; null only when neither (66 -> at most 72)."
   - id: graph-reader
-    action: "TicketGraphReader (at most 110 lines): edges via ITicketRequirementStore.ByProjectAsync, summaries via TicketListReader.AllAsync, landings via LandedAsync; TicketRequiresReader (at most 90) via RequiredOfAsync / DependentsOfAsync, landedByName via IObservedCallerStore.AllAsync; views TicketGraphView, TicketGraphNodeView, TicketGraphEdgeView, TicketRequiresView, TicketRequirementView in Server/Models."
+    action: "TicketGraphReader (at most 110 lines): edges via ITicketRequirementStore.ByProjectAsync, summaries via TicketListReader.AllAsync, landings via LandedAsync; TicketRequiresReader (at most 85) via RequiredOfAsync / DependentsOfAsync, landedBy as stored; views TicketGraphView, TicketGraphNodeView, TicketGraphEdgeView, TicketRequiresView, TicketRequirementView in Server/Models."
   - id: endpoints
     action: "TicketGraphEndpoints (graph, requires; runs.read) chained from TicketQueryEndpoints.MapTicketQueryEndpoints (45 -> at most 48); FiledTicketRows, TicketGraphReader, TicketRequiresReader registered in TicketReadExtensions (70 -> at most 74)."
   - id: dashboard-types
@@ -227,7 +226,7 @@ tests:
   - "TicketList_FiledSpecTicketWithNoRun_IsFiledWithoutTheDerivationLine"
   - "TicketList_NeverRunRow_CarriesTicketKeyPlatformAndTitleFromTheStoredRecord"
   - "TicketPageStore: a never-run page re-reads on a TicketActivityChanged naming its own '<provider>-<id>' key"
-  - "TicketRequires_LandedByHand_NamesThePersonByTheObservedNameValueElseTheStoredSubject"
+  - "TicketRequires_LandedByHand_ShowsTheStoredByAsIs"
   - "TicketRow: a never-run row shows waits-for and no series strip, attempt marks, '0 attempts' or cost"
   - "TicketPage: a ticket with no attempt shows header, waits-for, required-by, the filed line by kind and the Work it out link (?ticket=&project=), and renders no runway and no tabs"
   - "ticketDot: every TICKET_DOT_CLASSES member has a rule under .sd and under .t-head .ticon in mock-parity.css"

@@ -1,17 +1,19 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-14-dbceo
-goal: "Past 60,000 characters a design turn's prompt carries a stored digest of the older turns plus the pinned and recent turns verbatim, so a long Work it out conversation stops resending everything."
+goal: "Past 60,000 characters a dialog turn's prompt, the design partner's and the ticket steward's alike, carries a stored digest of older turns plus the pinned and recent turns verbatim."
 
-applies_to: "backend (the transcript window the design prompt renders, the digest turn kind and its fold index, the turn keeper extracted from the router, the digest writer on the summarization model, their registration)"
+applies_to: "backend (the transcript window behind the one transcript section both dialog prompts render, the digest turn kind and its fold index, the turn keeper extracted from the router, the digest writer on the summarization model, their registration)"
 
 requires: [2026-10-14-dbcej]
 
 facts:
-  - claim: "The design prompt renders EVERY stored turn verbatim, oldest first, as '[role] text'."
-    evidence: "src/backend/AgentSmith.Application/Services/SpecDialogPromptFactory.cs:35-49, src/backend/AgentSmith.Application/Services/SpecDialogPromptFactory.cs:112-118"
-  - claim: "Each turn seeds the whole stored transcript, mapped to role, text and kind only; an operator turn's decision does not cross into the pipeline."
-    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:48, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:91-94, src/backend/AgentSmith.Contracts/Models/SpecDialogTurn.cs:9"
-  - claim: "Every append re-reads the open session, reads the whole stored transcript and writes it back whole; nothing caps, slices or summarises it."
+  - claim: "The design partner's prompt and the ticket steward's prompt both render the transcript through DialogTranscriptSection.Render: EVERY stored turn verbatim, oldest first, as '[role] text', or '[role: author] text' where a person's display name was recorded."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialogPromptFactory.cs:36,43, src/backend/AgentSmith.Application/Services/SpecDialog/TicketStewardPromptFactory.cs:24,30, src/backend/AgentSmith.Application/Services/SpecDialog/DialogTranscriptSection.cs:27-34"
+  - claim: "A conversation of a ticket that has run seeds the steward flag, and the same router, turn runner and transcript seeds serve it; the steward's prompt is a second factory over the same seeded transcript."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:85, src/backend/AgentSmith.Application/Services/SpecDialog/TicketStewardPromptFactory.cs:12-24"
+  - claim: "Each turn seeds the whole stored transcript, mapped to role, text, kind and author only; an operator turn's decision does not cross into the pipeline."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:48, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogTurnSeeds.cs:95-98, src/backend/AgentSmith.Contracts/Models/SpecDialogTurn.cs:11-12"
+  - claim: "Every append re-reads the open session, reads the whole stored transcript and writes it back whole with the turn's author; nothing caps, slices or summarises it."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSessionManager.cs:68-82"
   - claim: "Reading the open session by thread reloads the tracked row from the database, so a scoped repository never hands back a stale row."
     evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SpecDialogSessionRepository.cs:20-26"
@@ -29,13 +31,13 @@ facts:
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/DashboardDialogDispatcher.cs:55, src/backend/AgentSmith.Server/Services/Adapters/SlackMessageDispatcher.cs:45"
   - claim: "The subject minter calls the summarization task type on the project's own agent with an explicit output ceiling, tracks its cost only into a log line and swallows any failure but the caller's cancellation."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSubjectMinter.cs:48-66, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSubjectMinter.cs:68-91, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSubjectMinter.cs:98-103"
-  - claim: "A stored turn carries role, text, time, kind, decision and mock; the kinds end at MockRatified = 7 (2026-10-14-dbcej takes 8)."
-    evidence: "src/backend/AgentSmith.Server/Models/TranscriptTurn.cs:11-13, src/backend/AgentSmith.Contracts/Models/SpecDialogTurnKind.cs:9-19"
+  - claim: "A stored turn carries role, text, time, kind, decision, mock and the person's display name as Author (null on an assistant turn and on older rows); the kinds end at MockRatified = 7 (2026-10-14-dbcej takes 8)."
+    evidence: "src/backend/AgentSmith.Server/Models/TranscriptTurn.cs:12-14, src/backend/AgentSmith.Contracts/Models/SpecDialogTurnKind.cs:9-19"
   - claim: "A turn may propose only after an assistant Answer (or unkinded) turn is followed by an operator turn; filed work is recognised by a Filing turn anywhere in the transcript."
-    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalRule.cs:20-30, src/backend/AgentSmith.Application/Services/SpecDialogPromptFactory.cs:78-88"
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogProposalRule.cs:20-30, src/backend/AgentSmith.Application/Services/SpecDialogPromptFactory.cs:72-82"
   - claim: "The pane's proposal card sits on the LAST assistant turn whose text holds a draft block, and shown assistant text has its draft blocks stripped."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogShownTranscript.cs:13-31, src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogDraftBlocks.cs:46-56"
-  - claim: "The turn the pane receives carries role, text, time and decision, no kind; a ticket's conversation lists every stored turn as plain text or markdown."
+  - claim: "The turn the pane receives carries role, text, time and decision, no kind; a ticket's conversation lists every stored turn as plain text or markdown, under its recorded Author when it has one."
     evidence: "src/backend/AgentSmith.Server/Models/SpecDialogTurnView.cs:9, src/backend/AgentSmith.Server/Services/Tickets/Conversation/TicketTranscriptReader.cs:29-36"
   - claim: "A conversation is saved through BoundSessionNudge, which saves through the repository and tells a bound ticket's pages it changed; it nudges nothing for an unbound conversation."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/BoundSessionNudge.cs:13-29"
@@ -45,8 +47,8 @@ facts:
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSessionMapper.cs:20-23"
   - claim: "Tests that are not about minting build the minter through SilentSubjectMinter, whose model answers an empty line."
     evidence: "tests/AgentSmith.Tests/TestHelpers/SilentSubjectMinter.cs:12-23"
-  - claim: "SpecDialogRouter (120), SpecDialogPromptFactory (119) and SpecDialogTurnSeeds (95) are not baselined, so 120 applies."
-    evidence: "observed: 2026-10-14, wc -l of the three files and grep of tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv (no entry)"
+  - claim: "SpecDialogRouter (120), DialogTranscriptSection (35) and SpecDialogTurnSeeds (99) are not baselined, so 120 applies."
+    evidence: "observed: 2026-10-14 after the merge of PR #740, wc -l of the three files and grep of tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv (no entry)"
   - claim: "Five test files construct SpecDialogRouter directly."
     evidence: "observed: 2026-10-14, grep -rln 'new SpecDialogRouter(' tests/ (SpecDialogRoutingTests, FiledWorkPermissionTests, DialogDraftSplitTests, ConversationSubjectTests, DashboardDialogChannelTests)"
 
@@ -59,7 +61,9 @@ scope:
     KINDS: SpecDialogTurnKind.Digest = 9; TranscriptTurn.DigestThrough (int?, the index of the last turn the digest
     folds) and SpecDialogTurn.DigestThrough (int?), copied by SpecDialogTurnSeeds' mapping (made internal static for the
     writer). WINDOW: TranscriptWindow (Application/Services/SpecDialog, static, pure). Render(turns): when no digest turn
-    exists or the full rendering is at most VerbatimChars = 60000, the output is byte-identical to today's; otherwise it
+    exists or the full rendering is at most VerbatimChars = 60000, the output is byte-identical to today's, one Line(turn)
+    per turn ('[role] text', or '[role: author] text' where an Author is recorded, the line moved out of
+    DialogTranscriptSection.Render); otherwise it
     renders a line naming the folded range, the latest digest's text, then the PINNED turns at or before its
     DigestThrough verbatim, then every non-digest turn after it verbatim. Pinned: the FIRST operator turn (the
     requirement statement), Filing and MockRatified turns, the newest proposal-kind turn (BugProposal, SpecProposal,
@@ -68,15 +72,18 @@ scope:
     unless the verbatim tail (non-digest turns after the latest DigestThrough) renders above VerbatimChars; it folds the
     tail's oldest turns until the rest renders at most KeepRecentChars = 30000, never folding the newest
     MinRecentTurns = 2, and stops early at MaxFoldChars = 200000 of input (HYSTERESIS: after a fold at least 30,000
-    characters of new conversation pass before the next). PROMPT: SpecDialogPromptFactory.RenderTranscript delegates to
-    TranscriptWindow.Render; MayPropose and FiledWorkContract keep reading the full seeded transcript. INSTRUCTION:
-    SpecDialogDigestInstruction — the system text (keep the operator's decisions and corrections, settled facts with
-    their file:line, open questions, what was filed; never a fenced yaml or outcome block), Heading(from, through) and
-    Exchange(previous digest, folded turns). WRITER: SpecDialogDigestWriter.WriteAsync(state, ct) reads the open session
+    characters of new conversation pass before the next). Pinned and later turns keep their Author in their line. PROMPT:
+    DialogTranscriptSection.Render, the ONE seam both SpecDialogPromptFactory (design partner) and
+    TicketStewardPromptFactory (steward) call, delegates to TranscriptWindow.Render, so the window bounds both prompts
+    and neither factory changes; MayPropose and FiledWorkContract keep reading the full seeded transcript.
+    INSTRUCTION: SpecDialogDigestInstruction — the system text (keep the operator's decisions and corrections and WHO
+    made each, by the name on the turn; settled facts with their file:line, open questions, what was filed; never a
+    fenced yaml or outcome block), Heading(from, through), Exchange(previous digest, folded turns; each folded turn
+    rendered through TranscriptWindow.Line, so a person's name reaches the summary) and Author = "agent-smith". WRITER: SpecDialogDigestWriter.WriteAsync(state, ct) reads the open session
     through the scoped repository, asks TranscriptWindow.Fold, calls TaskType.Summarization on the project's agent with
     MaxOutputTokens = 4000, tracks and logs its cost as the minter does, strips draft blocks, and on a non-empty text
     re-reads the open session right before the append and appends ONE assistant turn (Heading + text, kind Digest,
-    DigestThrough) ONLY when the re-read row's SessionId equals state.JobId, saving through BoundSessionNudge; every
+    DigestThrough, Author = SpecDialogDigestInstruction.Author) ONLY when the re-read row's SessionId equals state.JobId, saving through BoundSessionNudge; every
     failure but the caller's cancellation is logged at Warning and swallowed. KEEPER: SpecDialogTurnKeeper.KeepAsync(state,
     result, platform, threadId, ct) is the router's append and subject mint (lines 99-105, their comment moved with
     them); FoldAsync(state, ct) calls the writer. The router takes the keeper in place of the minter and calls FoldAsync
@@ -106,17 +113,19 @@ decisions:
   - key: "THE DIGEST IS A VISIBLE ASSISTANT TURN WITH NO DRAFT BLOCK. Contract section 5 default 24 and section 8 answer 6. The pane's card follows the last assistant turn holding a draft (SpecDialogShownTranscript.CardTurn), so the writer strips draft blocks and the instruction forbids them; Digest is neither Answer nor Filing, so it unlocks no proposal and marks no filing. Nothing is sent: it shows on the conversation's next read."
   - key: "KNOWN EFFECTS, ACCEPTED. (1) A summarization model too small for the fold input fails on every reply past the bound; each failure is a Warning log line and costs no gate time. (2) A rolling deploy or rollback: an older replica reads kind digest as null (TolerantNullableEnumConverter), counts it as an answer and re-serialises the transcript without DigestThrough, so that digest becomes an ordinary turn and the next fold starts over; MockRatified carries the same risk today. (3) The digest's cost is logged, not accounted on any run, budget or dashboard, as the subject mint's is; it is small next to the roughly 120k tokens per turn it saves at 479 KB."
   - key: "TODAY'S PROMPT IS UNCHANGED BELOW THE BOUND. A conversation that never passes 60,000 characters renders byte-for-byte what it renders today, so short conversations and every existing prompt test are untouched."
+  - key: "THE WINDOW SITS AT THE SHARED SEAM (re-grounded after PR #740). Since 2026-10-14-da5ef a ticket that has run is led by the ticket steward, whose prompt renders the same transcript through DialogTranscriptSection.Render (TicketStewardPromptFactory.cs:24,30). A window in SpecDialogPromptFactory alone would leave the steward resending all of a long ticket conversation; the window behind DialogTranscriptSection.Render bounds both prompts with one change. The keeper and writer already serve both, because the router keeps every turn of either master."
+  - key: "THE AUTHOR SURVIVES THE FOLD (2026-10-14-da5eb). A person's turn renders '[user: <name>]' wherever it stays verbatim, and the folded turns reach the summarization model in that same line, with the instruction to keep who decided what, so a shared conversation's digest still tells its people apart. The digest turn itself is authored 'agent-smith': it is the system's text, not a person's, and the ticket conversation shows it by that name."
   - key: "THE KEEPER IS EXTRACTED, NOT GROWN. SpecDialogRouter is at 120 lines; the append, the mint and their ordering comment move into SpecDialogTurnKeeper, which also owns the fold, so the router shrinks (contract section 4: o at most 115)."
 
 steps:
   - id: kinds
-    action: "SpecDialogTurnKind.Digest = 9 (20 -> 21 after j); TranscriptTurn.DigestThrough int? = null (13 -> at most 15); SpecDialogTurn.DigestThrough int? = null (13 -> at most 15); SpecDialogTurnSeeds.MapTranscript copies it and becomes internal static (95 -> at most 96)."
+    action: "SpecDialogTurnKind.Digest = 9 (20 -> 21 after j); TranscriptTurn.DigestThrough int? = null (14 -> at most 15); SpecDialogTurn.DigestThrough int? = null (16 -> at most 17); SpecDialogTurnSeeds.MapTranscript copies it beside Author and becomes internal static (99 -> at most 100)."
   - id: window
-    action: "TranscriptWindow (at most 110 lines): VerbatimChars, KeepRecentChars, MinRecentTurns, MaxFoldChars, Render(turns), Fold(turns) as scope.in says; pure and static."
+    action: "TranscriptWindow (at most 115 lines): VerbatimChars, KeepRecentChars, MinRecentTurns, MaxFoldChars, Line(turn), Render(turns), Fold(turns) as scope.in says; pure and static."
   - id: prompt
-    action: "SpecDialogPromptFactory.RenderTranscript (112-118) delegates to TranscriptWindow.Render (119 -> at most 119)."
+    action: "DialogTranscriptSection.Render (27-34) delegates to TranscriptWindow.Render, its per-turn line moved to TranscriptWindow.Line (35 -> at most 32); SpecDialogPromptFactory (105) and TicketStewardPromptFactory (42) are not touched."
   - id: instruction
-    action: "SpecDialogDigestInstruction (Server/Services/SpecDialog, at most 60 lines): Text, Heading(from, through), Exchange(previous, folded)."
+    action: "SpecDialogDigestInstruction (Server/Services/SpecDialog, at most 62 lines): Text, Heading(from, through), Exchange(previous, folded) through TranscriptWindow.Line, Author."
   - id: writer
     action: "SpecDialogDigestWriter (at most 110 lines): IChatClientFactory, IConfigurationLoader, ServerContext, SpecDialogSessionRepository, BoundSessionNudge, ILogger; WriteAsync as scope.in says (re-read, SessionId check, append, save through the nudge)."
   - id: keeper
@@ -136,6 +145,7 @@ tests:
   - "TranscriptWindow_Pins_FilingMockRatifiedNewestProposalAndTheAnswerAfterAProposal"
   - "TranscriptWindow_Pins_TheOpeningOperatorTurn"
   - "TranscriptWindow_DigestTurns_AreNeverRenderedAsTurns"
+  - "TranscriptWindow_PersonTurnsWithAnAuthor_KeepTheNameVerbatimAndPinned"
   - "TranscriptWindow_Fold_TailAboveBound_FoldsUntilTheRestIsAtMost30000Chars"
   - "TranscriptWindow_Fold_TwoHugeNewestTurns_FoldsNeitherOfThem"
   - "TranscriptWindow_Fold_RightAfterAFold_IsNullUntilTheTailPassesTheBoundAgain"
@@ -144,15 +154,17 @@ tests:
   - "SpecDialogDigestWriter_FoldDue_AppendsOneDigestTurnWithDigestThroughAndKeepsEveryTurn"
   - "SpecDialogDigestWriter_SummaryCallFails_LeavesTheTranscriptAndTheNextKeepRetries"
   - "SpecDialogDigestWriter_SummaryWithADraftBlock_StoresItStripped"
+  - "SpecDialogDigestWriter_FoldedPersonTurns_ReachTheModelWithTheirAuthorAndTheDigestIsAuthoredAgentSmith"
   - "SpecDialogDigestWriter_OperatorTurnAdmittedDuringTheCall_IsKept"
   - "SpecDialogDigestWriter_SessionForkedDuringTheCall_AppendsNothing"
   - "SpecDialogRouter_KeptReplyPastTheBound_WritesTheDigestAfterTheGateIsReleased"
   - "SpecDialogRouter_ResolvesKeeperAndWriterFromTheRealServiceProvider (integration)"
   - "SpecDialogPromptFactory_LongConversationWithDigest_PromptIsUnderTheBoundPlusPinnedTurns"
+  - "TicketStewardPromptFactory_LongConversationWithDigest_PromptCarriesTheWindowNotEveryTurn"
 
 done:
-  - "A Work it out conversation whose transcript passes 60,000 characters keeps working: each later turn's prompt holds a digest of the older turns, the operator's opening message, the approved and filed turns and the latest proposal verbatim, and every recent turn."
-  - "The digest shows in the dashboard conversation and on the ticket's conversation as an ordinary assistant message (on its next read) saying which turns it summarises; every earlier turn is still there to read."
+  - "A Work it out conversation, or a ticket's conversation led by the ticket steward, whose transcript passes 60,000 characters keeps working: each later turn's prompt holds a digest of the older turns, the operator's opening message, the approved and filed turns and the latest proposal verbatim, and every recent turn."
+  - "The digest shows in the dashboard conversation and on the ticket's conversation as an ordinary message by agent-smith (on its next read) saying which turns it summarises and naming who decided what; every earlier turn is still there to read."
   - "A long conversation is digested about once per 30,000 characters of new conversation, not after every reply, and a message typed while a digest is written starts its turn as usual."
   - "A conversation under 60,000 characters gets exactly the prompt it gets today."
   - "When the digest call fails, the turn and the conversation are unaffected and the next reply tries again."
