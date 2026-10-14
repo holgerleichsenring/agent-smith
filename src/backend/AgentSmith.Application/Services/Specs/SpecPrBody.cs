@@ -114,6 +114,6 @@ public static class SpecPrBody
         SpecRunState.HandedBack =>
             $"↩️ handed back, never built — {spec.FailingCommand ?? "a premise no longer holds"}",
         SpecRunState.InProgress => "⏳ started, not finished",
-        _ => "⬜ not started",
+        _ => spec.Note is null ? "⬜ not started" : $"⬜ not started — {spec.Note}",
     };
 }

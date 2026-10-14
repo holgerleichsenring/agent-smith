@@ -34,6 +34,7 @@ public sealed class ResolvedConfigComposer
             Dialogue = raw.Dialogue, // p0327
             Persistence = raw.Persistence, Trace = raw.Trace, // p0423
             PipelineCostCap = raw.PipelineCostCap,
+            SpecReview = raw.SpecReview, // 2026-10-13-8762g
         };
 
     private static IReadOnlyList<RegistryConfig> BuildRegistries(RawAgentSmithConfig raw)

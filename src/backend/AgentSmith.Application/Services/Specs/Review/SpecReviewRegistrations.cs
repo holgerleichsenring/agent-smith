@@ -1,10 +1,12 @@
+using AgentSmith.Application.Models;
+using AgentSmith.Contracts.Commands;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Application.Services.Specs.Review;
 
 /// <summary>
 /// 2026-10-13-8762e: the spec review's services — the round's evidence check, the attack reviewer and its
-/// admission, the round publisher; the cut reviser, its guard and the residue check. Every review, contract and re-ground service of this series registers
+/// admission, the round publisher; the cut reviser, its guard and the residue check; 8762g's review loop step. Every review, contract and re-ground service of this series registers
 /// here, so <see cref="SpecDerivationRegistrations"/> holds one call for all of them.
 /// </summary>
 public static class SpecReviewRegistrations
@@ -19,6 +21,13 @@ public static class SpecReviewRegistrations
             .AddTransient<SpecReviewRoundPublisher>()
             .AddTransient<SpecRevisionGuard>()
             .AddTransient<SpecCutResidues>()
-            .AddTransient<ISpecCutReviser, SpecCutReviser>();
+            .AddTransient<ISpecCutReviser, SpecCutReviser>()
+            // 2026-10-13-8762g: the loop, its panel, the rewrite and the one mid-run revision publisher; the
+            // settings read live per call (the server replaces the loader reader with its store's).
+            .AddTransient<ISpecRoundEvidence, SpecRoundEvidence>()
+            .AddTransient<SpecReviewPanel>().AddTransient<SpecReviewRevision>()
+            .AddTransient<ISpecRederiver, SpecRederiver>().AddTransient<SpecReviewLoop>()
+            .AddSingleton<ISpecReviewSettingsReader, LoaderSpecReviewSettingsReader>()
+            .AddTransient<ICommandHandler<ReviewSpecsContext>, Handlers.ReviewSpecsHandler>();
     }
 }

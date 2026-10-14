@@ -49,4 +49,14 @@ public sealed class SpecAttackPromptTests
         prompt.Should().Contain("Every quote is a run of at least 4 consecutive words");
         foreach (var register in SpecRegisterNames.All) prompt.Should().Contain(register);
     }
+
+    [Fact]
+    public void AttackBrief_CarriesTheDecidabilityLens()
+    {
+        var prompt = SpecAttackPrompt.For(AttackReviewFixtures.Input(), null);
+
+        prompt.Should().Contain(SpecAttackPrompt.Brief + "\n\n" + SpecAttackPrompt.DecidabilityLens);
+        SpecAttackPrompt.DecidabilityLens.Should().Contain("can the agent make it true by working")
+            .And.Contain("can it see that it is true");
+    }
 }

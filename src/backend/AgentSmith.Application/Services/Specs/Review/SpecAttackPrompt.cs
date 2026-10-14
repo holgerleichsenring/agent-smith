@@ -22,6 +22,12 @@ public static class SpecAttackPrompt
         + "file:line evidence. For BUILD WITH CUTS name each cut precisely. REFUSE is a successful result "
         + "when the spec is wrong.";
 
+    /// <summary>2026-10-13-8762g: the lens 2026-09-05-c4e1 asked for, after the brief — a criterion the
+    /// repository makes false before any work starts drives a run that cannot finish.</summary>
+    public const string DecidabilityLens =
+        "For every done criterion ask: can the agent make it true by working on this repository, and can it see "
+        + "that it is true? A criterion no change can satisfy, or none can observe, is a cut or a refusal.";
+
     /// <summary>The fewest words a quote should carry: a shorter run also occurs elsewhere in its register.</summary>
     public const int QuoteWords = 4;
 
@@ -30,6 +36,8 @@ public static class SpecAttackPrompt
         ArgumentNullException.ThrowIfNull(input);
         return $$"""
             {{Brief}}
+
+            {{DecidabilityLens}}
 
             You are reviewer {{input.Reviewer + 1}} of round {{input.Round}} ({{input.Scope}} scope). You did not
             write this spec and have no stake in it.

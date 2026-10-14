@@ -43,6 +43,7 @@ internal static class ConfigDocumentTaxonomy
         // A server reads its configuration from the store, so a switch the store cannot hold
         // is one only the environment could flip. AGENTSMITH_TRACE still wins (TraceSwitch).
         ConfigDocDescriptor.Singleton(ConfigDocTypes.Trace, r => r.Trace, (r, v) => r.Trace = v),
+        ConfigDocDescriptor.Singleton(ConfigDocTypes.SpecReview, r => r.SpecReview, (r, v) => r.SpecReview = v),
         // 2026-08-25-1806: the role mapping is a singleton doc like any other, which is
         // what gives it the studio form, the attributed change row and the live epoch
         // without a second mechanism being written for it.

@@ -19,7 +19,7 @@ namespace AgentSmith.Application.Services.Claim;
 /// would drift; this is one call, and the claim path keeps its own reading of it.
 /// </para>
 /// </summary>
-internal sealed class ClaimRefusal(IUnmovedTicketStore unmovedTickets)
+internal sealed class ClaimRefusal(IUnmovedTicketStore unmovedTickets, IPreviousAttemptReader attempts)
 {
     /// <summary>The refusal this request would be given, or null when nothing refuses it.</summary>
     public async Task<ClaimResult?> ForAsync(
@@ -30,6 +30,7 @@ internal sealed class ClaimRefusal(IUnmovedTicketStore unmovedTickets)
 
         // 2026-09-18-c1a7: the ticket the last run could not move — one store read, before the
         // lock and before any tracker write.
-        return await new UnmovedTicketGate(unmovedTickets).RefusalAsync(request, config, cancellationToken);
+        return await new UnmovedTicketGate(unmovedTickets).RefusalAsync(request, config, cancellationToken)
+            ?? await new BoundaryStopGate(attempts).RefusalAsync(request, cancellationToken); // 2026-10-13-8762g
     }
 }

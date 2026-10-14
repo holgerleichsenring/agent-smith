@@ -26,6 +26,9 @@ public sealed record PreviousAttempt(string RunId, string Status, DateTimeOffset
     /// <summary>2026-10-13-9a59n: when the retry was asked for, by the server's clock.</summary>
     public DateTimeOffset? RetryRequestedAt { get; init; }
 
+    /// <summary>2026-10-13-8762g: finished at a <see cref="SeriesBoundaryEnd"/> with a spec it never started.</summary>
+    public bool StoppedAtBoundary { get; init; }
+
     /// <summary>2026-10-08-0781: what the run had seen: its read, else its start.</summary>
     public DateTimeOffset Cutoff => ActsReadAt ?? StartedAt;
 

@@ -230,7 +230,7 @@ public sealed class SingleRepoRegressionTests
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(transitioner.Object);
 
         var claimService = new TicketClaimService(
-            claimLock.Object, new InMemoryUnmovedTicketStore(), factory.Object, queue.Object,
+            claimLock.Object, new InMemoryUnmovedTicketStore(), new AgentSmith.Application.Services.Resume.NullPreviousAttemptReader(), factory.Object, queue.Object,
             new NoOpActiveRunLease(), new InMemoryTakenTicketStore(),
             NullLogger<TicketClaimService>.Instance);
         var spawn = new SpawnPipelineRunsUseCase(
@@ -244,7 +244,7 @@ public sealed class SingleRepoRegressionTests
             CapacityTestDoubles.NoNudge(),
             CapacityTestDoubles.NoStandingRefusal(),
             Moq.Mock.Of<AgentSmith.Contracts.Services.IActiveRunLease>(),
-            NullLogger<SpawnPipelineRunsUseCase>.Instance);
+            NullLogger<SpawnPipelineRunsUseCase>.Instance, new AgentSmith.Application.Services.Resume.NullPreviousAttemptReader());
 
         var providerFactory = new Mock<ITicketProviderFactory>();
         var dispatcher = new WebhookSpawnDispatcher(

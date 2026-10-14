@@ -40,24 +40,37 @@ public sealed class SpecSequenceHandler(ILogger<SpecSequenceHandler> logger)
             return Task.FromResult(CommandResult.Ok(
                 $"Every spec of {set.Key} already executed on this branch — nothing left to run"));
 
-        context.Pipeline.Set(ContextKeys.SpecSequenceProgress, SpecSequenceProgress.ForSet(set));
+        // 2026-10-13-8762g: a stop splices only the specs before it; the rest is left to the next attempt.
+        var stop = context.Pipeline.TryGet<SpecSequenceStop>(ContextKeys.SpecSequenceStop, out var s) ? s : null;
+        IReadOnlyList<DerivedSpec> building = stop is null ? pending : [.. pending.TakeWhile(p => p.SpecId != stop.BeforeSpecId)];
+        context.Pipeline.Set(ContextKeys.SpecSequenceProgress, Progress(set, pending.Skip(building.Count).ToList(), stop));
         // 2026-09-17-0e79e: the executor's loop guard is sized here, because this is where
-        // the work is known. The UNEXECUTED tail is the right number: on a re-trigger after
-        // four executed specs the set's own count is twice what this run will splice.
-        context.Pipeline.Set(ContextKeys.StepBudget, StepBudget.ForSpecs(pending.Count));
-        var commands = pending
+        // the work is known — the specs this attempt splices, never the set's own count.
+        context.Pipeline.Set(ContextKeys.StepBudget, StepBudget.ForSpecs(building.Count));
+        var commands = building
             .SelectMany(spec => PerSpec.Select(
                 name => new PipelineCommand(name) { SpecId = spec.SpecId }))
+            .Concat(stop is { Park: true } ? [PipelineCommand.Simple(CommandNames.SpecHandback)] : [])
             .ToArray();
 
         logger.LogInformation(
             "Spec set {Key}: {Pending} spec(s) to execute — {Steps} spliced steps ({Specs})",
-            set.Key, pending.Count, commands.Length,
-            string.Join(", ", pending.Select(p => p.SpecId)));
-
+            set.Key, building.Count, commands.Length, string.Join(", ", building.Select(p => p.SpecId)));
         return Task.FromResult(CommandResult.OkAndContinueWith(
-            $"{pending.Count} spec(s) to work through: "
-            + string.Join(", ", pending.Select(p => $"{p.SpecId} ({p.Draft.Goal})")),
+            $"{building.Count} spec(s) to work through: "
+            + string.Join(", ", building.Select(p => $"{p.SpecId} ({p.Draft.Goal})"))
+            + (stop is null ? string.Empty : $"; stopping before {stop.BeforeSpecId}: {stop.Reason}"),
             commands));
+    }
+
+    /// <summary>The progress table: the specs after the stop deferred to the next attempt, a parked stop
+    /// spec handed back with the stop's reason.</summary>
+    private static SpecSequenceProgress Progress(SpecSet set, IReadOnlyList<DerivedSpec> after, SpecSequenceStop? stop)
+    {
+        var progress = SpecSequenceProgress.ForSet(set);
+        if (stop is null || after.Count == 0) return progress;
+        var deferred = after.Select(p => p.SpecId).Where(id => !stop.Park || id != stop.BeforeSpecId).ToList();
+        progress = progress.Deferring(deferred, stop.Reason);
+        return stop.Park ? progress.With(stop.BeforeSpecId, SpecRunState.HandedBack, stop.Reason) : progress;
     }
 }

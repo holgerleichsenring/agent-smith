@@ -248,6 +248,22 @@
         }
       }
     },
+    "spec_review": {
+      "type": "object",
+      "description": "The run-time review of each unbuilt spec before the master builds it: rounds of fresh reviewers whose cuts are applied each round. Global; read live per run.",
+      "additionalProperties": false,
+      "properties": {
+        "rounds": { "type": "integer", "minimum": 0, "description": "Rounds per spec. 0 turns the review off. Default 4." },
+        "reviewers": { "type": "integer", "minimum": 1, "description": "Fresh reviewers per round. Default 2." },
+        "max_concurrent": { "type": "integer", "minimum": 1, "description": "Reviewers running at once. Default 2." },
+        "budget_share_percent": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100,
+          "description": "The share of the run's cost cap and wall clock the review may use; the specs it did not clear are left to the next attempt. The first reviewed spec always runs to its stop. Default 40."
+        }
+      }
+    },
     "dialogue": {
       "type": "object",
       "description": "How a run waits for a person, and where that person answers.",

@@ -32,4 +32,8 @@ public static partial class CommandNames
     /// done-list is satisfied; nothing asked whether what was written is sound. Findings that
     /// rest on a read the reviewer took get ONE fix pass and are recorded either way.</summary>
     public const string ReviewSpecDiff = "ReviewSpecDiffCommand";
+
+    /// <summary>2026-10-13-8762g: before the master builds, each unbuilt spec a person did not
+    /// approve as written is attacked by fresh reviewers, round by round, its cuts applied.</summary>
+    public const string ReviewSpecs = "ReviewSpecsCommand";
 }

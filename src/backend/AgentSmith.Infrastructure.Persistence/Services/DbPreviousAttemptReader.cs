@@ -26,7 +26,7 @@ public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory) :
                 && r.Pipeline == PipelinePresets.CodeName && r.Status != RunStatuses.Queued
                 && (excludingRunId == null || r.Id != excludingRunId))
             .OrderByDescending(r => r.Id)
-            .Select(r => new { r.Id, r.Status, r.StartedAt, r.FinishedAt, r.ActsReadAt })
+            .Select(r => new { r.Id, r.Status, r.StartedAt, r.FinishedAt, r.ActsReadAt, r.CancelReason })
             .FirstOrDefaultAsync(cancellationToken);
         if (run is null) return null;
         // 2026-10-13-9a59n: the Retry a person asked of this attempt, a row of the run.
@@ -38,6 +38,9 @@ public sealed class DbPreviousAttemptReader(IServiceScopeFactory scopeFactory) :
             RetryRequestedAt = retry?.RequestedAt,
             PullRequestUrls = await OpenedPullRequestsAsync(uow, project, ticketId, cancellationToken),
             ActsReadAt = run.ActsReadAt,
+            // 2026-10-13-8762g: the RunSpec read only when the end is one a boundary can be.
+            StoppedAtBoundary = run.FinishedAt is not null && SeriesBoundaryEnd.Ends(run.Status, run.CancelReason)
+                && await uow.Set<RunSpec>().AnyAsync(s => s.RunId == run.Id && s.Status == RunSeriesCutProjection.NotStarted, cancellationToken),
             // 2026-10-13-9a59m: the approval this attempt published as worked (its RunAttempt row).
             WorkedApprovalAt = await uow.Set<RunAttempt>().AsNoTracking().Where(a => a.RunId == run.Id)
                 .Select(a => a.ApprovalAt).FirstOrDefaultAsync(cancellationToken),

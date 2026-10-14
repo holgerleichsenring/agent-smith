@@ -16,7 +16,7 @@ namespace AgentSmith.Application.Services.Specs.Review;
 /// unbuilt member of its set cites files that member creates.
 /// </summary>
 public sealed class SpecRoundEvidence(
-    EvidenceCheck check, EvidenceReferences references, ITurnActivityObserverAccessor activity)
+    EvidenceCheck check, EvidenceReferences references, ITurnActivityObserverAccessor activity) : ISpecRoundEvidence
 {
     public async Task<SpecRoundEvidenceResult> CheckAsync(
         PipelineContext pipeline, SpecDraft draft, SpecSet set, CancellationToken ct)

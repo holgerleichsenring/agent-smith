@@ -14,6 +14,7 @@ namespace AgentSmith.Application.Services.Claim;
 public sealed class TicketClaimService(
     IRedisClaimLock claimLock,
     IUnmovedTicketStore unmovedTickets,
+    IPreviousAttemptReader previousAttempts, // 2026-10-13-8762g: the boundary a ticket stopped at
     ITicketStatusTransitionerFactory transitionerFactory,
     IRedisJobQueue jobQueue,
     IActiveRunLease lease,
@@ -30,7 +31,7 @@ public sealed class TicketClaimService(
         // 2026-09-21-77d6: the config pre-check and the standing-unmoved gate, in that order,
         // through the seam the spawn funnel also asks before it defers. Same refusals, same
         // order, same place — before the lock and before any tracker write.
-        var refusal = await new ClaimRefusal(unmovedTickets).ForAsync(request, config, ct);
+        var refusal = await new ClaimRefusal(unmovedTickets, previousAttempts).ForAsync(request, config, ct);
         if (refusal is not null) return LogOne(request, refusal);
 
         return await ClaimUnderLockAsync(request, config, ct);
