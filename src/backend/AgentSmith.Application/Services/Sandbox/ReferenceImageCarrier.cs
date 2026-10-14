@@ -31,10 +31,9 @@ public sealed class ReferenceImageCarrier(
         ArgumentNullException.ThrowIfNull(record);
         if (record.CitedImages.Count == 0) return [];
         await exclusion.EnsureAsync(sandbox, ct);
-        var session = record.Approval?.Conversation;
         var carried = new List<CarriedUploadImage>(record.CitedImages.Count);
-        foreach (var setId in record.CitedImages)
-            carried.Add(await CarryOneAsync(session, setId, sandbox, ct));
+        foreach (var setId in record.CitedImages) // 2026-10-14-dbcel: from the conversation it was uploaded in
+            carried.Add(await CarryOneAsync(record.ConversationOf(setId), setId, sandbox, ct));
         return carried;
     }
 

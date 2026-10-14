@@ -61,6 +61,7 @@ const STARTED_LABEL: Record<NonNullable<SpecDialogFiledStart["state"]>, string> 
   Record: "record",
   Withdrawn: "withdrawn",
   NotFiled: "not filed here",
+  Held: "waits",
 };
 
 // The state first, then why — a person scanning the list reads the verdicts, and only stops on

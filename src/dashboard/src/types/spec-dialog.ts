@@ -421,8 +421,9 @@ export interface SpecDialogReviewRound {
 export interface SpecDialogFiledStart {
   /** 2026-09-25-c4a6: `NotFiled` is the ticket this conversation is BOUND to and did not file —
    *  minted by the read for the row it draws, never stored, because what a ticket became at
-   *  filing time is a question about an act nobody here performed. */
-  state: "Started" | "NotStarted" | "Record" | "Withdrawn" | "NotFiled" | null;
+   *  filing time is a question about an act nobody here performed. 2026-10-14-dbcel: `Held` is a ticket of a
+   *  filed list that waits for the tickets it requires — neither tagged nor moved. */
+  state: "Started" | "NotStarted" | "Record" | "Withdrawn" | "NotFiled" | "Held" | null;
   reason: string;
 }
 

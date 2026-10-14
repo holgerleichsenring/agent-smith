@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-14-dbcel
+
+decisions:
+  - category: Architecture
+    chose: "A list ticket is filed as a TICKET TEXT with an empty-set approval record flagged TicketText; the run derives its specs"
+    over: "Specs drafted per ticket before filing, or a second citation store beside the approval record"
+    reason: |
+      Default pending operator ratification (D1, contract section 5 default 13). The approval record already routes the
+      ticket, admits it to discovery, scopes the run's repositories, gives the ApprovedSeries row its project and
+      carries the material; a second store would repeat all five. ApprovedSetHandoff, FiledTicketSpecGate and
+      ApprovedSetDivergence answer for the flag, never for an empty-set inference.
+  - category: Architecture
+    chose: "Per ticket: create, store its edges, store its record LAST (the filing-complete mark); then ONE start pass over the created prefix"
+    over: "Starting each ticket as it is created, or storing the record before the edges"
+    reason: |
+      Default pending operator ratification (31). Nothing can start a ticket before its edges exist, and dbceh's gate,
+      wake and recovery read the record as the mark that filing finished. An incomplete ticket is reported
+      "created but not stored — do not trigger it; close it" and is never tagged or moved.
+  - category: Implementation
+    chose: "Once a ticket exists, its edges and its record are stored on CancellationToken.None; the next create checks the caller's token"
+    over: "Passing the caller's token to the edge and record writes of a ticket already created"
+    reason: |
+      The spec says everything after the first creation runs without the caller's token. A created ticket whose edge
+      or record write was cancelled would be left incomplete although the tracker holds it; finishing its three acts is
+      what makes it startable. The loop stops before the NEXT create, so the interruption is reported as
+      "interrupted after N of M tickets" and the start pass covers the complete prefix.
+  - category: Implementation
+    chose: "The not-created note is written only when the filing stopped part-way (at least one ticket created)"
+    over: "Also naming every ticket as not created when nothing was created"
+    reason: |
+      With nothing created (an existence refusal, a failed first create) the notice already says "nothing was
+      created"; listing the whole list again adds nothing. The done item asks for the uncreated ones when filing
+      fails or is interrupted PART-WAY.
+  - category: Implementation
+    chose: "A start pass whose requirement read fails reports the ticket NotStarted with a reason instead of throwing"
+    over: "Letting the read's exception escape the pass"
+    reason: |
+      The pass runs after tickets exist; a throw there would cost the report, the notice and the stored filing of
+      every created ticket. FiledWorkStarter never throws for the same reason.
+  - category: Architecture
+    chose: "Material before the derivation for a TicketText record only (ReferenceMaterializer.CarryForDerivationAsync from SpecSetDeriver); the later step carries on every run"
+    over: "A new pipeline step, or an 'already carried' skip in MaterializeReferenceSets"
+    reason: |
+      Default pending operator ratification (contract decision 22, section 5 default 32). A new step would add a
+      command name, a context builder and a baseline-file registration for one record kind. The keys are checkpointed
+      and a resume re-runs the step in a fresh sandbox, so the step carries every time (idempotent). One copy goes into
+      the carrying repository, else the first record repository with a sandbox; a TicketText record over several
+      repositories with no single-repository spec uses that rule in the step too, where a filed spec still refuses.
+  - category: Implementation
+    chose: "The derivation's opening names the carried material with ReferencePromptSection.Carried(..., attached: false), prefixed when the look holds more than one repository"
+    over: "Attaching images to the derivation call"
+    reason: |
+      The derivation is a text call; an image reaches it as a named file in the sandbox and reaches the master as a
+      picture through the attachments the same carry sets.
+  - category: Architecture
+    chose: "A re-recorded approval keeps the previous record's foreign citations while their conversation still holds them (SpecApprovalRecord.CitedFrom, ConversationOf)"
+    over: "Citing only what the approving conversation holds now, or a cross-conversation citation index"
+    reason: |
+      Main-thread decision R3. Sets are stored and read by conversation, so each carried-forward id records where it
+      lives and both carriers read it from there. Own ids keep today's rule, so a removed upload is not resurrected; a
+      foreign id whose upload or conversation is gone is dropped at the next approval. The same rule serves every
+      amendment and the steward's edit_series, through the recorder's existing previous-record load.
+  - category: Implementation
+    chose: "OutcomeTicketFiler.ResolveProject became internal static (config, state) and is shared by TicketGraphFiler"
+    over: "A copy of the project resolution in the graph filer"
+    reason: |
+      The spec says the graph filer resolves the project as OutcomeTicketFiler does; OutcomeTicketFiler is at 120 lines,
+      and the change keeps its line count.
+  - category: Implementation
+    chose: "The bound-conversation refusal names the conversation's ticket by its spec-key spelling (state.TicketKey)"
+    over: "Reading the ticket's tracker key from the binding"
+    reason: |
+      ConversationState carries the tracker connection and the spec key, not the tracker type the display key needs;
+      a lookup for one sentence was not worth the sink's line budget (110 of 110).
+  - category: Process
+    chose: "Defaults pending operator ratification: D1, 31, 32 and contract section 5 defaults 15-19 are built as written"
+    over: "Waiting for ratification"
+    reason: |
+      The operator said build. A missing ticket:<id> refuses the whole filing (15), held tickets are untagged and
+      unmoved (16), a partial filing starts the ready complete tickets of its prefix and names every ticket (17), every
+      ticket cites all the conversation's material (18), a list is refused in a ticket-bound conversation (19).

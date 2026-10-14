@@ -120,7 +120,7 @@ public sealed class ContradictionHandbackDerivationTests
             AgentSmith.Tests.TestSupport.CutReviewSteps.Of(new CleanReviewer()),
             new SpecDerivationCall(new CappingFactory(provider), new AsyncLocalRunContextAccessor(), Proof()),
             Factory(), new FixedPrompt(), DerivationTestParsers.Real(), new ScopedContextCoverage(),
-            HandbackTestDoubles.Gate(checker), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), NullLogger<SpecSetDeriver>.Instance);
+            HandbackTestDoubles.Gate(checker), AgentSmith.Tests.TestSupport.SeriesSettingsDoubles.Reader(), AgentSmith.Tests.TestSupport.ReferenceCarryDoubles.Materializer(), NullLogger<SpecSetDeriver>.Instance);
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.Sandboxes, (IReadOnlyDictionary<string, ISandbox>)
             new Dictionary<string, ISandbox> { [Repo] = new CountingSandbox(0, "Server/SubmitAssetsRequest.cs:3") });

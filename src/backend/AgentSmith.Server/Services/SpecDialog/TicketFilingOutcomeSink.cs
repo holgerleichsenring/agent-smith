@@ -17,10 +17,13 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// an open ticket — it goes to <see cref="TicketContinuationAct"/>, and is answered as a FILING turn,
 /// because the conversation has changed work on a tracker.
 /// </para>
+/// <para>2026-10-14-dbcel: a list of tickets goes to <see cref="TicketGraphFiler"/> — and is refused in a ticket's own
+/// conversation, which continues that ticket. Once a ticket exists the rest runs on CancellationToken.None.</para>
 /// </summary>
 public sealed class TicketFilingOutcomeSink(
     SpecDialogOutcomeStore outcomeStore,
     OutcomeTicketFiler filer,
+    TicketGraphFiler graphs,
     TicketContinuationAct continuation,
     SpecDialogSessionManager sessions,
     SpecDialogMessenger messenger,
@@ -33,18 +36,23 @@ public sealed class TicketFilingOutcomeSink(
         ConversationState state, OutcomeProposal proposal, bool mayStartRuns,
         CancellationToken cancellationToken)
     {
-        if (state.TicketKey is not null && proposal is SpecOutcome or EpicOutcome)
+        if (state.TicketKey is not null && proposal is SpecOutcome or EpicOutcome or TicketGraphOutcome)
         {
-            await ContinueAsync(state, proposal, mayStartRuns, cancellationToken);
+            await (proposal is TicketGraphOutcome
+                ? RefuseBoundListAsync(state, cancellationToken) : ContinueAsync(state, proposal, mayStartRuns, cancellationToken));
             return;
         }
         await outcomeStore.SetConfirmedAsync(
             state.Platform, state.ThreadId!, proposal, cancellationToken);
 
-        var report = await filer.FileAsync(state, proposal, mayStartRuns, cancellationToken);
+        var report = proposal is TicketGraphOutcome graph
+            ? await graphs.FileAsync(state, graph, mayStartRuns, cancellationToken)
+            : await filer.FileAsync(state, proposal, mayStartRuns, cancellationToken);
+        // A created ticket must not lose its report, its notice or its turn to a cancellation.
+        var ct = report.Filed.Count > 0 ? CancellationToken.None : cancellationToken;
         if (report.Succeeded)
         {
-            await outcomeStore.ClearConfirmedAsync(state.Platform, state.ThreadId!, cancellationToken);
+            await outcomeStore.ClearConfirmedAsync(state.Platform, state.ThreadId!, ct);
             logger.LogInformation(
                 "Filed {Count} ticket(s) for spec-dialog session {SessionId}: {Refs}",
                 report.Filed.Count, state.JobId,
@@ -52,23 +60,31 @@ public sealed class TicketFilingOutcomeSink(
         }
 
         await latestOutcome.SetFilingAsync(
-            state.Platform, state.ThreadId!, report, proposal, cancellationToken);
+            state.Platform, state.ThreadId!, report, proposal, ct);
 
         // Published before the notice is composed: the pane is the record of what was
         // created, and a chat API that cannot be reached must not take it down with it.
-        await outcomeChannel.FiledAsync(state, report, cancellationToken);
+        await outcomeChannel.FiledAsync(state, report, ct);
 
         // The notice is both sent and kept: the transcript is the master's own context, so
         // it holds the line in the dialect the reader of this conversation sees.
         var notice = (report.Succeeded
             ? composer.ComposeFiled(proposal, report)
-            : composer.ComposeFilingFailure(report))
+            : composer.ComposeFilingFailure(report, proposal))
             .In(SpecDialogMarkup.For(state.Platform));
-        await messenger.SendAsync(
-            state.Platform, state.ChannelId, state.ThreadId!, notice, cancellationToken);
+        await messenger.SendAsync(state.Platform, state.ChannelId, state.ThreadId!, notice, ct);
         await sessions.AppendTurnAsync(
-            state.Platform, state.ThreadId!, TranscriptRole.Assistant, notice,
-            SpecDialogTurnKind.Filing, null, cancellationToken);
+            state.Platform, state.ThreadId!, TranscriptRole.Assistant, notice, SpecDialogTurnKind.Filing, null, ct);
+    }
+
+    private async Task RefuseBoundListAsync(ConversationState state, CancellationToken cancellationToken)
+    {
+        var notice = $"This conversation belongs to {state.TicketKey}; approving here continues that ticket. File a list "
+            + "of tickets from Work it out without a ticket, or make this one ticket's series.";
+        logger.LogInformation("A list approved in ticket conversation {SessionId} was not filed", state.JobId);
+        await messenger.SendAsync(state.Platform, state.ChannelId, state.ThreadId!, notice, cancellationToken);
+        await sessions.AppendTurnAsync(
+            state.Platform, state.ThreadId!, TranscriptRole.Assistant, notice, SpecDialogTurnKind.Notice, null, cancellationToken);
     }
 
     private async Task ContinueAsync(

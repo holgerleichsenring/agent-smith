@@ -29,7 +29,7 @@ public sealed class ApprovedSetDivergence(
         try
         {
             var record = await approvals.LoadAsync(project, ticketId, ct);
-            return record is null
+            return record is null || record.TicketText // 2026-10-14-dbcel: a ticket text has no specs to compare
                 ? null
                 : TicketSetDivergence.Between(
                     ticketText, [.. record.Set.Specs.Select(spec => spec.Draft.Goal)]);

@@ -137,13 +137,7 @@ public sealed class MaterialRunCarryTests
     }
 
     private MaterializeReferenceSetsHandler Handler(IReferenceSetReader reader)
-    {
-        var files = new SandboxFileReaderFactory();
-        return new MaterializeReferenceSetsHandler(ApprovedSetDoubles.Resolver(),
-            new ReferenceSetCarrier(reader, new ReferenceSetMaterialiser(reader, files, new SandboxBinaryFileWriter()), new ReferenceGitExclusion(files)),
-            new ReferenceImageCarrier(reader, new SandboxBinaryFileWriter(), new ReferenceGitExclusion(files)),
-            new UploadImageAttachments(), NullLogger<MaterializeReferenceSetsHandler>.Instance);
-    }
+        => new(ReferenceCarryDoubles.Materializer(reader));
 
     private PipelineContext Pipeline(IReadOnlyList<string> images, int ticketImages = 0)
     {

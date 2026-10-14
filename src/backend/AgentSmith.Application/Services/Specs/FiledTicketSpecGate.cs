@@ -57,6 +57,7 @@ public sealed class FiledTicketSpecGate(ILogger<FiledTicketSpecGate> logger)
         TicketLabelVocabulary vocabulary)
     {
         ArgumentNullException.ThrowIfNull(ticket);
+        if (record is { TicketText: true }) return null; // 2026-10-14-dbcel: a ticket text derives, whatever the stamp
         var labels = ticket.Labels ?? [];
         // 2026-09-25-3c7aa: the RECORD or the stamp. A record is the durable half — a label can be
         // taken off a board by anyone — and the stamp is still read because a run in a process that

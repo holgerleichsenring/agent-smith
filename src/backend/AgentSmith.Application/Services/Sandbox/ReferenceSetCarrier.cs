@@ -24,16 +24,18 @@ public sealed class ReferenceSetCarrier(
         SpecApprovalRecord record, string repo, ISandbox sandbox, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(record);
-        var session = record.Approval?.Conversation;
-        if (string.IsNullOrEmpty(session))
+        // 2026-10-14-dbcel: each id is read from the conversation it was uploaded in — a carried-forward one's own.
+        if (record.CitedSets.Any(id => string.IsNullOrEmpty(record.ConversationOf(id))))
             return ReferenceCarry.Refused(Refusal(record.CitedSets, "the approval names no conversation to read them from"));
         var read = new List<(string Id, IReadOnlyList<ReferenceSetFile> Files)>();
-        foreach (var id in record.CitedSets) read.Add((id, await sets.FilesAsync(session!, id, ct)));
+        foreach (var id in record.CitedSets) read.Add((id, await sets.FilesAsync(record.ConversationOf(id)!, id, ct)));
         if (read.Where(r => r.Files.Count == 0).Select(r => r.Id).ToList() is { Count: > 0 } unreadable)
             return ReferenceCarry.Refused(Refusal(unreadable, NoStoreReason));
         await exclusion.EnsureAsync(sandbox, ct);
         var addresses = ReferenceScopeName.For(read.Select(r => ReferenceSetName.Of(r.Files.Select(f => f.Path))));
-        var noted = notes is null ? new Dictionary<string, string>() : await notes.NotesAsync(session!, ct);
+        var noted = new Dictionary<string, string>();
+        foreach (var session in notes is null ? [] : record.CitedSets.Select(id => record.ConversationOf(id)!).Distinct())
+            foreach (var (id, note) in await notes!.NotesAsync(session, ct)) noted[id] = note;
         var carried = new List<CarriedReferenceSet>();
         for (var i = 0; i < read.Count; i++)
         {
@@ -41,7 +43,7 @@ public sealed class ReferenceSetCarrier(
             var path = ReferenceDirectory.ForSet(id);
             await materialiser.WriteUnderAsync(sandbox, files, path, ct);
             carried.Add(new CarriedReferenceSet(id, ReferenceSetName.Of(files.Select(f => f.Path)),
-                addresses[i], repo, path, session!, files.Count, noted.GetValueOrDefault(id)));
+                addresses[i], repo, path, record.ConversationOf(id)!, files.Count, noted.GetValueOrDefault(id)));
         }
         return new ReferenceCarry(carried, null);
     }

@@ -42,6 +42,7 @@ public sealed class SpecSetDeriver(
     ScopedContextCoverage coverage,
     ContradictionHandbackGate handbacks,
     ISeriesSettingsReader seriesSettings,
+    Handlers.ReferenceMaterializer materializer, // 2026-10-14-dbcel: a ticket text's material, before the model
     ILogger<SpecSetDeriver> logger) : ISpecSetDeriver
 {
     /// <summary>Name of the pinned master skill carrying the judgement prompt.</summary>
@@ -60,6 +61,7 @@ public sealed class SpecSetDeriver(
         await using var owned = look; // 2026-09-13-84c0: it owns any template scope it made
 
         var named = pipeline.TryGet<ScopeNamedContexts>(ContextKeys.ScopeNamedContexts, out var n) ? n : null;
+        await materializer.CarryForDerivationAsync(pipeline, cancellationToken);
         var block = seriesSettings.Current().Series; // 2026-10-13-8762u: a fresh cut runs in one attempt, a re-cut in the series
         var messages = SpecDerivationMessages.Opening(
             RenderSystemPrompt(block.DerivationLimit(previous is not null)), ticket, segments, previous, cause, pipeline, look, repositories, block);

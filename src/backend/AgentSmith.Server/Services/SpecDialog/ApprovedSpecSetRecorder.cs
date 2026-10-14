@@ -80,7 +80,7 @@ public sealed class ApprovedSpecSetRecorder(
         var uncited = new SpecApprovalRecord(key.Value, set, repositories, project.Tracker.Name, basis?.Carrier
             ?? placement.CarrierOf(series.Drafts, repositories), ticketId ?? string.Empty, Continuation: continuation) { Project = project.Name, ReviewRounds = ApprovedReviewRounds.Merge(previous, series, continuation) };
         var record = await _citations.SaveAsync(
-            await _citations.CiteAsync(uncited, state.JobId, cancellationToken), state.JobId, cancellationToken);
+            await _citations.CiteAsync(uncited, state.JobId, cancellationToken, previous), state.JobId, cancellationToken);
         logger.LogInformation(
             "Approved spec set {Key} stored: {Specs} spec(s) approved by {Principal} in conversation "
             + "{Conversation}, carried by {Repo}, citing {Sets} set(s) and {Images} image(s)", key.Value, set.Specs.Count,
@@ -110,10 +110,10 @@ public sealed class ApprovedSpecSetRecorder(
     private static string LabelOf(SpecDraft draft, SpecApprovalRecord? previous) =>
         previous?.Set.Specs.FirstOrDefault(p => p.SpecId == draft.SpecId)?.Slug ?? SpecIdFactory.Slug(draft.Goal);
 
-    private static TicketKey KeyFor(ResolvedProject project, string ticketId) =>
+    internal static TicketKey KeyFor(ResolvedProject project, string ticketId) =>
         TicketKey.For(project.Tracker.Type.ToString().ToLowerInvariant(), ticketId);
 
     // The scope's repositories when the session named some, the project's own otherwise; a continuation's basis first.
-    private static IReadOnlyList<string> Repositories(ConversationState state, ResolvedProject project, ContinuationBasis? basis) =>
+    internal static IReadOnlyList<string> Repositories(ConversationState state, ResolvedProject project, ContinuationBasis? basis) =>
         [.. (basis?.Repositories ?? []).Union(state.Scope?.Repos is { Count: > 0 } scoped ? scoped : project.Repos.Select(r => r.Name), StringComparer.OrdinalIgnoreCase)];
 }
