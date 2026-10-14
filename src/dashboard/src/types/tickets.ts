@@ -108,6 +108,8 @@ export interface TicketSummary {
   unchangedSinceLastAttempt?: boolean | null;
   checkedAt?: string | null;
   handback?: { text: string; at: string } | null;
+  /** merged | unmerged once every pull request ended; null while any is open or unread */
+  landing?: string | null;
 }
 
 export interface TicketCounts {

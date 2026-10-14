@@ -21,6 +21,7 @@ namespace AgentSmith.Server.Models;
 /// ticket unchanged and untouched, false when it saw an act or an edit, null when nothing observed it.</param>
 /// <param name="CheckedAt">2026-10-13-9a59h: when that check ran; null when none did.</param>
 /// <param name="Handback">2026-10-13-9a59h: the posted hand-back's words and time on a hand-back row.</param>
+/// <param name="Landing">How the pull requests ended: merged, unmerged, or null while any is open or unread.</param>
 public sealed record TicketSummaryView(
     string Project,
     string TicketId,
@@ -47,4 +48,5 @@ public sealed record TicketSummaryView(
     TicketSeriesStripView? SeriesStrip = null,
     bool? UnchangedSinceLastAttempt = null,
     DateTimeOffset? CheckedAt = null,
-    TicketHandbackView? Handback = null);
+    TicketHandbackView? Handback = null,
+    string? Landing = null);

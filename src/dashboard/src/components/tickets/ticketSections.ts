@@ -2,7 +2,8 @@ import type { TicketBucket, TicketCounts } from "@/types/tickets";
 
 // 2026-10-13-9a59p: the list's sections in the order it shows them — who acts next, then the
 // tickets no one has to act on. Ended is the server's idle: a cancelled attempt, a failed one
-// nobody checked, a success without a pull request.
+// nobody checked, a success without a pull request, pull requests that all closed unmerged. Done is
+// a merged pull request with every other one ended.
 
 export interface TicketSectionSpec {
   title: string;
@@ -48,7 +49,7 @@ export const TICKET_SECTIONS: Readonly<Record<TicketBucket, TicketSectionSpec>> 
   },
   done: {
     title: "Done",
-    sub: "every pull request merged or closed",
+    sub: "a pull request merged, every one ended",
     tone: "green",
     empty: "No ticket is done yet.",
     count: (c) => c.done,

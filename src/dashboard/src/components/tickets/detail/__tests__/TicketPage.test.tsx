@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fakeHub } from "../../__tests__/ticketFixtures";
+import { fakeHub, pr } from "../../__tests__/ticketFixtures";
 import { attempt, conversation, detail, entry, pass, passes, series, spec } from "./detailFixtures";
 import { EventType, type RunEvent } from "@/types/hub-events";
 import type { RunPasses, TicketConversation, TicketDetail, TicketSeries } from "@/types/tickets";
@@ -94,6 +94,40 @@ describe("Ticket page", () => {
     expect(within(head).getByRole("link")).toHaveAttribute("href", "https://example.test/101");
     expect(head).toHaveTextContent("tracker status Active at attempt 1");
     expect(head).toHaveTextContent("branch agent-smith/GH-101");
+  });
+
+  it("Header_FailedAttemptWithMergedPullRequests_IsOk_AndNamesBothFates", async () => {
+    world.detail = detail([attempt({ status: "failed" }), attempt({ number: 2, runId: "r-2", status: "failed" })]);
+    world.detail.summary = { ...world.detail.summary, bucket: "done", landing: "merged",
+      pullRequests: [pr({ state: "merged" }), pr({ number: "810", state: "merged" })] };
+    await open();
+    const head = screen.getByTestId("ticket-head");
+    expect(head.querySelector(".ticon")?.className).toBe("ticon ok");
+    expect(head).toHaveTextContent("attempt 2 failed");
+    expect(screen.getByTestId("ticket-pr-fate")).toHaveTextContent("2 PRs merged");
+  });
+
+  it("Header_SucceededAttemptWithEveryPullRequestClosedUnmerged_IsBad", async () => {
+    world.detail = detail([attempt()]);
+    world.detail.summary = { ...world.detail.summary, bucket: "idle", lastOutcome: "success", landing: "unmerged",
+      pullRequests: ["1", "2", "3"].map((number) => pr({ number, state: "closed" })) };
+    await open();
+    expect(screen.getByTestId("ticket-head").querySelector(".ticon")?.className).toBe("ticon bad");
+    expect(screen.getByTestId("ticket-pr-fate")).toHaveTextContent("3 PRs closed unmerged");
+  });
+
+  it("Header_OneMergedOneOpen_NamesBoth", async () => {
+    world.detail = detail([attempt()]);
+    world.detail.summary = { ...world.detail.summary, bucket: "waiting_on_review",
+      pullRequests: [pr({ state: "merged" }), pr({ number: "810", state: "open" })] };
+    await open();
+    expect(screen.getByTestId("ticket-pr-fate")).toHaveTextContent("1 PR merged, 1 open");
+  });
+
+  it("Header_AQueuedWorkingTicket_DrawsTheListRowsQueuedDot", async () => {
+    world.detail = detail([attempt({ status: "queued", finishedAt: null })]);
+    await open();
+    expect(screen.getByTestId("ticket-head").querySelector(".ticon")?.className).toBe("ticon queued");
   });
 
   it("CancelAttempt_ShowsOnlyForALiveAttempt_AndReadsCancellingAfterARunCancelRequested", async () => {
