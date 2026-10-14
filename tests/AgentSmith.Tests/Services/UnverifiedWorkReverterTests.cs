@@ -22,6 +22,7 @@ public sealed class UnverifiedWorkReverterTests
         new SandboxGitOperations(
             new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance,
             new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
+        new AgentSmith.Application.Services.Handlers.SandboxTargets(),
         NullLogger<UnverifiedWorkReverter>.Instance);
 
     [Fact]

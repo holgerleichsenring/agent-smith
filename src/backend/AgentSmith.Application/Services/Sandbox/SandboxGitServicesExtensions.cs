@@ -24,6 +24,8 @@ public static class SandboxGitServicesExtensions
         services.AddTransient<WorkBranchBaseMerger>();
         services.AddTransient<WorkBranchBaseMergeReport>();
         services.AddTransient<SandboxWorkBranchCheckout>();
+        services.AddTransient<SandboxTreeGit>().AddTransient<SandboxTreeSpread>();
+        services.AddTransient<SandboxTreeSync>();
         return services;
     }
 }

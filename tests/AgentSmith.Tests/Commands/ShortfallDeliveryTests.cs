@@ -29,6 +29,7 @@ public sealed class ShortfallDeliveryTests
             new SandboxGitOperations(
                 new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance,
                 new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
+            new SandboxTargets(),
             NullLogger<UnverifiedWorkReverter>.Instance),
         NullLogger<ShortfallDelivery>.Instance);
 

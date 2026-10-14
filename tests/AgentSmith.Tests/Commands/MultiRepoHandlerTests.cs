@@ -301,6 +301,7 @@ public sealed class MultiRepoHandlerTests
             new ShortfallDelivery(
                 new UnverifiedWorkReverter(
                     new SandboxGitOperations(new GitBranchPusher(), AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, NullLogger<SandboxGitOperations>.Instance, new StubSandboxFileReaderFactory(), new SandboxGitIdentity(NullLogger<SandboxGitIdentity>.Instance)),
+                    new SandboxTargets(),
                     NullLogger<UnverifiedWorkReverter>.Instance),
                 NullLogger<ShortfallDelivery>.Instance),
             new CompletedRunTicketSummary(),

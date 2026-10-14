@@ -44,7 +44,8 @@ public sealed class SpecEntryAccount(
         // the previous spec's commands are another spec's evidence — the p0444 leak. A
         // criterion that can only be closed by a command is therefore outstanding here,
         // and the spec runs: an entry account fails towards doing the work.
-        return await accounting.TakeAsync(pipeline, sandboxes, [], cancellationToken);
+        return await accounting.TakeAsync(
+            pipeline, sandboxes.Where(s => !sandboxTargets.IsSecondary(pipeline, s.Key)).ToDictionary(), [], cancellationToken);
     }
 
     /// <summary>

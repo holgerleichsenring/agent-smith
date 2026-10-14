@@ -68,6 +68,29 @@ public sealed class ReviewSpecDiffHandlerTests
     }
 
     [Fact]
+    public async Task ReviewSpecDiff_AfterGreenSync_ReviewerReadsOneDiffPerRepository()
+    {
+        var factory = new ScriptedChatClientFactory(() => new ChatResponse(
+            new ChatMessage(ChatRole.Assistant, "[]")));
+        var pipeline = Verified();
+        pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
+            ContextKeys.Sandboxes,
+            new Dictionary<string, ISandbox>(StringComparer.Ordinal)
+            {
+                [Key] = new DiffingSandbox(),
+                ["api-node"] = new DiffingSandbox(),
+            });
+        pipeline.Set<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxRepos,
+            new Dictionary<string, string>(StringComparer.Ordinal) { [Key] = "api", ["api-node"] = "api" });
+        pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, [new RepoConnection { Name = "api" }]);
+
+        var result = await Handler(factory).ExecuteAsync(Context(pipeline), CancellationToken.None);
+
+        result.Message.Should().Contain("read 1 changed file(s)",
+            "after a green sync the secondary's diff is its primary's, so the reviewer reads it once");
+    }
+
+    [Fact]
     public async Task SpecReview_CallFailed_IsRecordedAsNotReviewedNotAsClean()
     {
         var factory = new ScriptedChatClientFactory(

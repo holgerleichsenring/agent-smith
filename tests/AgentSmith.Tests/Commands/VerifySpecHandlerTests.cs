@@ -34,6 +34,7 @@ public sealed class VerifySpecHandlerTests
             new VerifyDerivationDigest(new SandboxFileReaderFactory()),
             NullLogger<VerifyDerivationDrift>.Instance),
         new SandboxTargets(),
+        AgentSmith.Tests.TestHelpers.TestTreeSync.Create(),
         new VerifyCommandRunner(NullLogger<VerifyCommandRunner>.Instance),
         AgentSmith.Tests.TestHelpers.TestGit.Delivery,
         new SpecDeliveryAccounting(

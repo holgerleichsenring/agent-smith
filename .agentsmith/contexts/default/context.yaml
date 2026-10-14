@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-13-8762a: "SANDBOX TREE SYNC BEFORE VERIFY (verify, sandbox git). Every sandbox of a mixed-stack repository is levelled to the union of their work, committed through the secret scan, before a stage runs; a file changed differently in two sandboxes fails verify naming both. -> .agentsmith/specs/done/2026-10-13-8762a-verify-sandbox-tree-sync.yaml"
     2026-09-19-c511c: "TOOL-LOOP ERROR TOLERANCE IS DECLARED, NOT INHERITED (chat-client factories). Three consecutive failing tool iterations, then the fourth rethrows and ends the master as a classified failure; the model reads the exception message. Live, replay and scripted loops share one declaration. -> .agentsmith/specs/done/2026-09-19-c511c-loop-error-tolerance-declared.yaml"
     2026-09-20-443a: "RETIRED (2026-10-14, superseded before it was built by 2026-10-13-8762c): absorbed into the 8762 series written from the current code. Moved to done/ as historical record, never implemented. -> .agentsmith/specs/done/2026-09-20-443a-verify-stages-declared.yaml"
     2026-09-05-c4e1: "RETIRED (2026-10-14, superseded before it was built by 2026-10-13-8762g): absorbed into the 8762 series written from the current code. Moved to done/ as historical record, never implemented. -> .agentsmith/specs/done/2026-09-05-c4e1-spec-review-unsatisfiable.yaml"
@@ -1187,7 +1188,6 @@ state:
     2026-10-13-3890f: "THE CODING MASTER INSTALLS A MISSING TOOL (skills v5.15.1, embedded pin). The skill says a missing ecosystem tool is installed with run_command and is never a reason for not_applicable or blocked; the no-install line covers only the injected python3. Pin, tarball and doc examples moved to v5.15.1. -> .agentsmith/specs/done/2026-10-13-3890f-skill-tools-are-work.yaml"
   active: {}
   planned:
-    2026-10-13-8762a: "VERIFY SANDBOX TREE SYNC (series 2026-10-13-8762). Before VerifySpec runs a stage, every sandbox of one repository holds the union of its sandboxes' work; two sandboxes that changed one file differently make verify red, naming the file. -> .agentsmith/specs/planned/2026-10-13-8762a-verify-sandbox-tree-sync.yaml"
     2026-10-13-8762b: "VERIFY STAGE WHEN CHANGED (series 2026-10-13-8762). A declared verify stage may name when_changed globs; it runs when the repository's branch changed a matching path, even in a sandbox that changed nothing itself, and is skipped, saying so, when none. -> .agentsmith/specs/planned/2026-10-13-8762b-verify-stage-when-changed.yaml"
     2026-10-13-8762c: "VERIFY REPO WHOLE TREE (series 2026-10-13-8762). A run over this repository is gated close to a human spec commit: build and suite in the .NET image, and the dashboard's install, mirror check, tests and build in a node image when its inputs change. -> .agentsmith/specs/planned/2026-10-13-8762c-verify-repo-whole-tree.yaml"
     2026-10-13-8762d: "TOOL RESULT SANITY (series 2026-10-13-8762). A master reading an empty sub-agent answer, a zero-hit search of a path its spec cites, a write to a repository its spec does not name or a cd above /work is told so in that result. -> .agentsmith/specs/planned/2026-10-13-8762d-tool-result-sanity.yaml"

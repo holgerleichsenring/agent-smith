@@ -57,7 +57,8 @@ public sealed class ReviewSpecDiffHandler(
             return await NotTakenAsync(
                 pipeline, draft, "no sandbox was in the pipeline context", cancellationToken);
 
-        var diffs = await specDiffs.TakeAsync(pipeline, sandboxes, cancellationToken);
+        var diffs = await specDiffs.TakeAsync(
+            pipeline, sandboxes.Where(s => !sandboxTargets.IsSecondary(pipeline, s.Key)).ToDictionary(), cancellationToken);
         await using var look = looks.OnTerms(pipeline, DerivationLookTerms.SpecReview);
         var principles = pipeline.TryGet<string>(ContextKeys.CodingPrinciples, out var p) ? p : null;
         var report = await reviewer.ReviewAsync(

@@ -1,5 +1,6 @@
 using CommandLineStringSplitter = System.CommandLine.Parsing.CommandLineStringSplitter;
 using AgentSmith.Application.Models;
+using AgentSmith.Application.Services.Sandbox;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
@@ -50,6 +51,7 @@ public sealed class VerifySpecHandler(
     ContextVerifyStagesResolver declaredStages,
     VerifyDerivationDrift derivationDrift,
     SandboxTargets sandboxTargets,
+    SandboxTreeSync treeSync,
     VerifyCommandRunner commandRunner,
     DeliveryDiff deliveryDiff,
     SpecDeliveryAccounting accounting,
@@ -73,6 +75,12 @@ public sealed class VerifySpecHandler(
             return await RecordAsync(
                 context, CommandResult.Ok("No sandboxes in pipeline context; nothing to verify."),
                 cancellationToken);
+        // Every sandbox of one repository holds the union of their work before a stage runs.
+        if (await treeSync.SyncAsync(context.Pipeline, cancellationToken) is { Message: { } unsynced })
+        {
+            RunAccountLedger.RecordProblem(context.Pipeline, sandboxes.Keys, unsynced);
+            return await RecordAsync(context, CommandResult.Fail(unsynced), cancellationToken);
+        }
 
         // p0422: whether the mechanical gates have anything to say is read from the
         // BRANCH, not from the working tree. Run 18 skipped both builds as "untouched"
@@ -143,8 +151,9 @@ public sealed class VerifySpecHandler(
         }
 
         var ranCommands = Specs.SpecEvidence.From(outcomes, context.Pipeline);
-        var accounts = await accounting.TakeAsync(
-            context.Pipeline, sandboxes, ranCommands, cancellationToken);
+        // After a green sync a secondary's diff is its primary's: one diff per repository.
+        var accounts = await accounting.TakeAsync(context.Pipeline,
+            sandboxes.Where(s => !sandboxTargets.IsSecondary(context.Pipeline, s.Key)).ToDictionary(), ranCommands, cancellationToken);
         context.Pipeline.Set(ContextKeys.SpecAccounts, accounts);
         RunAccountLedger.Record(context.Pipeline, accounts);
         // 2026-08-28-5f71: the unverified run fails HERE and not as a resolution failure.
