@@ -146,6 +146,7 @@ internal static class MasterHandlerFixture
             // 2026-10-01-283de: a turn that seeds no project never builds the host.
             render ?? new AgentSmith.Tests.Browser.BrowserRenderFixture(spawnsContainers: false).Factory(),
             new AgentSmith.Application.Services.Tools.TicketActToolsFactory(Verification()),
+            AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Tools(),
             NullLogger<MasterToolComposition>.Instance);
 
     /// <summary>The series verification a design master's verify_series runs — no scope opened, no review taken,

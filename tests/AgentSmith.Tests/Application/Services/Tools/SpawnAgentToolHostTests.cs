@@ -111,7 +111,10 @@ public sealed class SpawnAgentToolHostTests
     {
         var publisher = new RecordingEventPublisher();
         var limits = new LoopLimitsConfig { MaxConcurrentSubAgents = 4 };
-        var runner = new SubAgentRunner(loopRunner, publisher, limits, NullLogger<SubAgentRunner>.Instance);
+        var runner = new SubAgentRunner(loopRunner, publisher, limits,
+            new AgentSmith.Application.Services.Turns.SubAgentActivityFrame(
+                new AgentSmith.Application.Services.Turns.AsyncLocalTurnActivityObserverAccessor()),
+            NullLogger<SubAgentRunner>.Instance);
         var pipeline = new PipelineContext();
         var tracker = PipelineCostTracker.GetOrCreate(pipeline);
         var context = new SubAgentContext(

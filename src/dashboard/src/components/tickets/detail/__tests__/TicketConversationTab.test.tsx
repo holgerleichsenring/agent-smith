@@ -33,7 +33,18 @@ const dialogHub = vi.hoisted(() => {
   return {
     specDialogMessages: subject(), specDialogQuestions: subject<unknown>(), specDialogProposals: subject(),
     specDialogFilings: subject(), specDialogReadings: subject(), specDialogActivity: subject(),
-    connectionState: subject(), subscribeSpecDialog: async () => async () => {},
+    connectionState: subject(),
+    // How many of the next dialog joins the server refuses, as a reconnect race does.
+    failJoins: 0,
+    joins: [] as string[],
+    async subscribeSpecDialog(dialogId: string) {
+      this.joins.push(dialogId);
+      if (this.failJoins > 0) {
+        this.failJoins -= 1;
+        throw new Error("Invocation canceled due to the underlying connection being closed.");
+      }
+      return async () => {};
+    },
   };
 });
 vi.mock("@/lib/JobsHubClient", () => ({ getJobsHubClient: () => dialogHub }));
@@ -140,6 +151,8 @@ beforeEach(() => {
   world.conversation = conversation([]);
   world.sessions = {};
   world.questions = {};
+  dialogHub.failJoins = 0;
+  dialogHub.joins = [];
   for (const fn of [...Object.values(api), dialogApi.post, dialogApi.resume]) fn.mockClear();
   dialogApi.fetch.mockReset();
   dialogApi.fetch.mockImplementation(async (id: string) => dialogView(id));
@@ -182,6 +195,45 @@ describe("Ticket conversation tab", () => {
     expect(screen.queryByTestId("ticket-composer-failure")).toBeNull();
     expect(dialogApi.post).not.toHaveBeenCalled();
     expect(input()).toBeInTheDocument();
+  });
+
+  it("WhileWorking_TheComposerShowsTheReadingsTheStepLinesAndTheElapsedTime", async () => {
+    world.conversation = { ...conversation([]), sessionId: "s-1" };
+    dialogApi.resume.mockImplementation(async (_s: unknown, dialogId: unknown) => { world.sessions[dialogId as string] = session("s-1"); });
+    await open();
+    await sendText("Why did the last attempt fail?");
+    const dialogId = dialogApi.post.mock.calls[0][0] as string;
+    act(() => {
+      dialogHub.specDialogReadings.emit({ dialogId, kind: "repository", name: "portal-worker", state: "ready", at: "2026-09-04T14:00:00Z" });
+      dialogHub.specDialogActivity.emit({
+        dialogId, kind: "tool", name: "RepoScout › read_file", detail: "src/Consumer.cs",
+        at: "2026-09-04T14:00:01Z", seq: 1, turnStartedAt: "2026-09-04T14:00:00Z",
+      });
+    });
+    await settle(3000);
+    const working = within(screen.getByTestId("ticket-working"));
+    expect(working.getByTestId("dialog-reading")).toHaveTextContent("portal-worker: ready");
+    expect(working.getByTestId("dialog-activity-line")).toHaveTextContent("RepoScout › read_file src/Consumer.cs");
+    expect(working.getByTestId("dialog-working-pulse")).toHaveTextContent(/^3s · 1 step$/);
+  });
+
+  it("AJoinRefusedDuringAReconnect_IsReissuedOnConnected_AndTheQueuedSendThenGoesOut", async () => {
+    world.conversation = { ...conversation([]), sessionId: "s-1" };
+    dialogApi.resume.mockImplementation(async (_s: unknown, dialogId: unknown) => { world.sessions[dialogId as string] = session("s-1"); });
+    await open();
+    dialogHub.failJoins = 1;
+    await sendText("Go on");
+    expect(dialogApi.resume).not.toHaveBeenCalled();
+    expect(dialogApi.post).not.toHaveBeenCalled();
+
+    act(() => dialogHub.connectionState.emit("Connected"));
+    await settle();
+    await settle();
+
+    expect(dialogHub.joins.at(-1)).toBe(dialogHub.joins.at(-2));
+    expect(dialogApi.resume).toHaveBeenCalledTimes(1);
+    expect(dialogApi.post).toHaveBeenCalledWith(dialogApi.resume.mock.calls[0][1], "Go on", "shop", undefined);
+    expect(screen.queryByTestId("ticket-composer-failure")).toBeNull();
   });
 
   it("ACallerWhoIsNotTheOwnerButHoldsDialogWrite_ResumesAClosedTicketSessionOnTheFirstAct", async () => {

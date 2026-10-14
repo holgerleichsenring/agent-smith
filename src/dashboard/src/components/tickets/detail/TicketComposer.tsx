@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { DialogComposer } from "@/components/dialog/DialogComposer";
 import { DialogQuestionCard } from "@/components/dialog/DialogQuestionCard";
+import { DialogWorking } from "@/components/dialog/DialogWorking";
 import { approvalEffectLabel } from "@/lib/tickets/approvalEffect";
 import type { Read } from "@/lib/tickets/TicketPageReads";
 import type { TicketApprovalPreview, TicketAttempt, TicketConversation } from "@/types/tickets";
@@ -47,7 +48,7 @@ export function TicketComposer({ conversation, project, ticketId, preview, newes
         <h3>Continue on this ticket</h3>
         <span className="sh-sub">The ticket&apos;s conversation in Work it out: one per ticket, the same thread every attempt reads.</span>
       </div>
-      {(label || refusal || composer.missed || dialog.working) && (
+      {(label || refusal || composer.missed) && (
         <div className="cp-body">
           {label && (
             <div className="cp-effect" data-testid="ticket-effect">
@@ -65,7 +66,11 @@ export function TicketComposer({ conversation, project, ticketId, preview, newes
               <span>The approval question is no longer waiting — write below to ask for the proposal again.</span>
             </div>
           )}
-          {dialog.working && <div className="cp-note" data-testid="ticket-working">Agent Smith is writing a reply…</div>}
+        </div>
+      )}
+      {dialog.working && (
+        <div className="cp-body mock-dialog" data-testid="ticket-working">
+          <DialogWorking readings={dialog.readings} activity={dialog.activity} since={dialog.workingSince} />
         </div>
       )}
       {other && (

@@ -213,7 +213,10 @@ public sealed class SubAgentRunnerTests
     {
         var limits = new LoopLimitsConfig { MaxConcurrentSubAgents = maxConcurrent };
         var pub = publisher ?? new RecordingEventPublisher();
-        return new SubAgentRunner(loopRunner, pub, limits, NullLogger<SubAgentRunner>.Instance);
+        return new SubAgentRunner(loopRunner, pub, limits,
+            new AgentSmith.Application.Services.Turns.SubAgentActivityFrame(
+                new AgentSmith.Application.Services.Turns.AsyncLocalTurnActivityObserverAccessor()),
+            NullLogger<SubAgentRunner>.Instance);
     }
 
     private static SubAgentContext BuildContext(
