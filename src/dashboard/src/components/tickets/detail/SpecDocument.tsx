@@ -2,22 +2,26 @@
 
 import { isRunLive } from "@/lib/runLiveness";
 import type { TicketAttempt, TicketSeriesSpec } from "@/types/tickets";
-import { criterionRow, overruleWords, specStatePill } from "./specWords";
+import { criterionRow, overruleWords, recordNoteWords, specStatePill } from "./specWords";
 
 // 2026-10-13-9a59r: one spec as a document — spec n, state, repository, the attempt that executed it, the
 // goal as heading (no separate title is served), the file stem, steps as worked (9a59f: the attempt and
-// pass that completed each), done when, and the read-only note.
+// pass that completed each), done when, and the read-only note. A spec read from the run record has no file
+// stem and nothing to discuss, and one without a readable record says only its goal was kept.
 
 interface Props {
   spec: TicketSeriesSpec;
   attempts: TicketAttempt[];
+  /** True for a spec of a run-record series. */
+  runRecord?: boolean;
   onDiscuss: () => void;
 }
 
-export function SpecDocument({ spec, attempts, onDiscuss }: Props) {
+export function SpecDocument({ spec, attempts, runRecord = false, onDiscuss }: Props) {
   const [pill, word] = specStatePill(spec.state);
   const executing = spec.executedByAttempt != null ? `executed in A${spec.executedByAttempt}` : "not executed yet";
   const live = attempts.some((a) => a.runId === spec.executedBy && isRunLive(a.status));
+  const recordNote = recordNoteWords(spec);
   return (
     <div className="spdoc" aria-live="polite" data-testid="spec-doc">
       <div className="sh">
@@ -28,7 +32,8 @@ export function SpecDocument({ spec, attempts, onDiscuss }: Props) {
           <span>{executing}</span>
         </div>
         <h3 data-testid="spec-doc-goal">{spec.goal}</h3>
-        <div className="meta"><span className="mono">{spec.fileStem}.yaml</span></div>
+        {spec.fileStem && <div className="meta" data-testid="spec-doc-stem"><span className="mono">{spec.fileStem}.yaml</span></div>}
+        {recordNote && <div className="meta" data-testid="spec-doc-record-note"><span>{recordNote}</span></div>}
       </div>
       <div className="sb">
         <div className="blk">
@@ -67,10 +72,12 @@ export function SpecDocument({ spec, attempts, onDiscuss }: Props) {
             })}
           </div>
         </div>
-        <div className="ro-note">
-          <span>Read-only. A spec changes only through the ticket conversation, and an executed spec never changes.</span>
-          <button className="btn sm" type="button" onClick={onDiscuss} data-testid="spec-discuss">Discuss in conversation</button>
-        </div>
+        {!runRecord && (
+          <div className="ro-note">
+            <span>Read-only. A spec changes only through the ticket conversation, and an executed spec never changes.</span>
+            <button className="btn sm" type="button" onClick={onDiscuss} data-testid="spec-discuss">Discuss in conversation</button>
+          </div>
+        )}
       </div>
     </div>
   );

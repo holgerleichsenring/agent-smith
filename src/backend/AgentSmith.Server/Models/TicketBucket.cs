@@ -22,7 +22,7 @@ public static class TicketBucket
     /// </summary>
     public const string Stuck = "stuck";
 
-    /// <summary>2026-10-13-9a59b: every pull request is merged or closed and no attempt started since.</summary>
+    /// <summary>Every pull request ended and at least one merged, and no attempt started since.</summary>
     public const string Done = "done";
 
     /// <summary>Everything else; the row carries the newest attempt's status as its last outcome.</summary>

@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-14-9f80b
+
+decisions:
+  - category: Behaviour
+    chose: "SUPERSEDES 2026-10-13-9a59e's 'a ticket with no cut row answers 200 with Recorded=false and no specs': with no cut row in scope, the series read serves the specs the attempts recorded (Source run-record, Recorded true); only a ticket whose scoped attempts carry no RunSpec row stays Recorded false"
+    over: "Keeping the empty answer for every ticket that ran before the cut"
+    reason: |
+      The empty answer was honest about the cut and false about the ticket: the spec rows, records and
+      acceptance exist, and the page showed none of them. A scope holding only hand-back cuts is unchanged.
+  - category: Architecture
+    chose: "A projection over stored rows — TicketRunRecordSeriesReader (scope), TicketSpecRecordsReader (one set query over spec_record artifacts), TicketRunRecordSpecComposer (order, state, content), TicketRunRecordVerdicts (acceptance and attribution); TicketSeriesReader calls it only where scoped.Count == 0"
+    over: "Backfilling cut rows for old runs; one composer class for everything"
+    reason: |
+      A migration that fabricates cuts would put records in the database no run wrote. The split keeps each
+      class under the 120-line limit with one reason to change; the artifact query runs only on the
+      fallback path, so a cut read costs nothing more.
+  - category: Architecture
+    chose: "SpecRecordReader beside SpecDraftReader: the id from the row, a phase- or spec-keyed document accepted, YamlException and InvalidOperationException caught to null; SpecDraftReader gained an internal Read(map, specId, yaml) both share"
+    over: "Re-parsing goal, steps and done list in the server; accepting the old key in SpecDraftReader itself"
+    reason: |
+      A draft keyed with the old noun is still refused (SpecDraftReaderSpecKeyTests); only a stored record,
+      written before the rename, is read as it was written. The one parse of steps and done lines stays in
+      SpecDraftReader. The old key's literal is allowlisted in spec-word-files.tsv for this reader and its tests.
+  - category: Behaviour
+    chose: "Content: the newest attempt's spec_record parsed gives goal, repos, steps, done and Yaml = the body; unreadable gives the row's Title and RecordNote 'record unreadable'; absent gives the Title and 'no record'; Yaml is empty unless the record parsed"
+    over: "Serving the unreadable body as Yaml"
+    reason: "Loss is shown, not hidden: the page says why only the goal is there; a body that failed to read is not presented as the spec."
+  - category: Behaviour
+    chose: "State is the newest attempt's row; in_progress on a run that is not running or waiting reads failed; never carried. ExecutedBy is the newest row past not_started. Ordinals are re-served 1..n by first attempt, then that attempt's ordinal"
+    over: "Serving each row's own ordinal"
+    reason: "Two attempts each recorded an ordinal 1; the strip's rule already reads an ended in_progress spec as failed."
+  - category: Behaviour
+    chose: "Verdicts: the executing row's AcceptanceJson, else that run's Run.AcceptanceJson. A spec with a done list joins by CriterionKey; a spec without one takes every criterion only when the acceptance is wholly its own (its row's, or a run with one spec); the run's Unmeasured likewise. Run criteria and declined entries no spec took, and a multi-spec run's Unmeasured, go to UnattributedCriteria per run. A terminal spec with no verdict on any criterion is VerdictRecorded false"
+    over: "Spreading run criteria over specs by position or text similarity"
+    reason: "No verdict is not a pending verdict, and a criterion that cannot be tied to one spec is listed as the run's, never guessed onto one."
+  - category: Architecture
+    chose: "The criterion join (CriterionKey match, declined as not_applicable, the run's overrule) moved from TicketSeriesSpecComposer into TicketSeriesCriterionJoin, shared by the cut and run-record composers"
+    over: "A second copy in the run-record composer"
+    reason: "Both reads must join a criterion the same way; two copies would drift."
+  - category: Behaviour
+    chose: "Dashboard: isRunRecord(series) switches Specs and Acceptance to the run-record line, hides the file stem, the read-only note and Discuss; criterionRow says 'no verdict recorded' for a VerdictRecorded-false spec; acceptanceTally counts only judged specs and reports the rest; the graph and liveSpec treat a run-record read as no cut"
+    over: "A second client fetch per attempt, or a separate run-record page"
+    reason: "One read serves both shapes, so every consumer needs one Source switch; a run-record attempt keeps the run-viewer link instead of a graph it has no data for."

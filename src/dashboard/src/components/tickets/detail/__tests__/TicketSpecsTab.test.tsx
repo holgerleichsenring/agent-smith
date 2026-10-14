@@ -161,3 +161,65 @@ describe("Ticket specs and acceptance tabs", () => {
     expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?tab=specs", { scroll: false });
   });
 });
+
+// 2026-10-14-9f80b: attempts that predate the cut — the series their runs recorded, served as source run-record.
+describe("Ticket specs and acceptance tabs over a run-record series", () => {
+  const recorded = spec({
+    specId: "p1a", ordinal: 1, fileStem: null, goal: "Migrate the bus", repos: ["portal-api"], state: "done",
+    hasRecord: true, verdictRecorded: true,
+    done: [{ text: "Builds", verdict: "met", note: null, citation: null, overrule: null }],
+  });
+  const goalOnly = spec({
+    specId: "p1b", ordinal: 2, fileStem: null, goal: "Port the consumers", repos: [], steps: [], state: "failed",
+    hasRecord: false, recordNote: "no record", verdictRecorded: false,
+    done: [{ text: "Consumers ported", verdict: null, note: null, citation: null, overrule: null }],
+  });
+  const runRecord = (runId: string | null, attemptNo: number | null) => series(runId ?? "", [recorded, goalOnly], {
+    runId, attempt: attemptNo, at: null, setKey: null, gate: null, source: "run-record",
+    unattributedCriteria: [{
+      runId: "r-1", attempt: 1,
+      criteria: [{ text: "Docs updated", verdict: "unmet", note: null, citation: null, overrule: null }],
+      unmeasured: [{ repositories: "portal-worker", reason: "the build was red" }],
+    }],
+  });
+
+  beforeEach(() => {
+    world.detail = detail([attempt({ revision: null, status: "failed" })]);
+    world.series = { default: runRecord(null, null), "r-1": runRecord("r-1", 1) };
+  });
+
+  it("ShowsItsSpecsWithTheRunRecordLine_NoFileStem_AndNoDiscussInConversation", async () => {
+    nav.search = "tab=specs&spec=p1b";
+    await open();
+    expect(screen.getByTestId("specs-run-record")).toHaveTextContent("as the runs recorded them — these attempts predate the cut");
+    expect(screen.getByTestId("spec-item-p1a")).toBeInTheDocument();
+    expect(screen.getByTestId("spec-cell-p1a-1")).toHaveAttribute("data-kind", "done");
+    const doc = screen.getByTestId("spec-doc");
+    expect(within(doc).getByTestId("spec-doc-goal")).toHaveTextContent("Port the consumers");
+    expect(within(doc).queryByTestId("spec-doc-stem")).toBeNull();
+    expect(within(doc).getByTestId("spec-doc-record-note")).toHaveTextContent("no spec record — only the goal was recorded");
+    expect(within(doc).queryByTestId("spec-discuss")).toBeNull();
+  });
+
+  it("Acceptance_ShowsTheRecordedVerdicts_NoVerdictRecorded_AndTheUnattributedRunCriteria", async () => {
+    nav.search = "tab=acceptance";
+    await open();
+    expect(screen.getByTestId("acceptance-run-record")).toBeInTheDocument();
+    expect(screen.getByTestId("acceptance-tally")).toHaveTextContent("1 of 1 verified · 1 spec without a recorded verdict");
+    expect(screen.getByTestId("acceptance-spec-p1a")).toHaveTextContent("A1");
+    const none = screen.getByTestId("acceptance-spec-p1b");
+    expect(none).toHaveTextContent("no verdict recorded");
+    expect(none).not.toHaveTextContent("verify pending");
+    const run = screen.getByTestId("acceptance-run-r-1");
+    expect(run).toHaveTextContent("Run criteria, not tied to a spec · attempt 1");
+    expect(run).toHaveTextContent("Docs updated");
+    expect(within(run).getByTestId("acceptance-unmeasured")).toHaveTextContent("portal-worker could not be measured — the build was red");
+  });
+
+  it("TheSummarySeriesCell_ReadsRunRecord", async () => {
+    nav.search = "";
+    await open();
+    expect(screen.getByTestId("cell-series-run-record")).toHaveTextContent("2 specs · run record");
+    expect(screen.getByTestId("attempt-flow-fallback")).toBeInTheDocument();
+  });
+});

@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-14-9f80d
+
+decisions:
+  - category: Implementation
+    chose: "SUPERSEDES 2026-10-13-9a59b's 'done = every pull request merged or closed': done needs Landing merged — every record ended and at least one merged; records that all closed unmerged fall to idle and draw the stopped colour"
+    over: "Keeping closed-unmerged as done; colouring done by the last attempt's outcome"
+    reason: |
+      Green is the palette's 'proven'. Pull requests closed unmerged proved nothing, whatever the attempt
+      reported; a merge a person made after a failed attempt proved the change landed.
+  - category: Implementation
+    chose: "A landed merge outranks an observed stuck: the done arm is asked before stuck, so a merged ticket whose newest attempt started at or before the newest end is done even when the check saw it unchanged"
+    over: "Teaching the stuck rule that a merge is an act"
+    reason: |
+      A merge is a record state, not a person's entry, so the stuck rule cannot see it; precedence in the
+      bucket rule is the one place both facts meet.
+  - category: Architecture
+    chose: "TicketLanding (Models) holds the two words and computes them from the PR views once, before the arms; every TicketBucketState carries it and TicketSummaryView exposes it as an optional trailing parameter"
+    over: "Counting PR states on the client; a separate landing service injected into the rule"
+    reason: |
+      The rule deciding the bucket reads the same records, so dot and section never disagree with the
+      server; a pure function over the views needs no DI seam.
+  - category: Architecture
+    chose: "ticketDot(summary) in components/tickets/ticketDot.ts with TICKET_DOT_CLASSES; TicketRow and TicketHeader both use it, the header no longer reads its live attempt for the dot (Cancel still does)"
+    over: "Keeping iconClass beside dotClass"
+    reason: |
+      Two functions drew one ticket in two colours; one function plus a CSS test over its class list makes
+      the parity a test. .ticon.person went; .ticon.need/.run/.queued/.human mirror the .sd rules.
+  - category: Implementation
+    chose: "pullRequestFate in ticketFormat.ts: counts in the order merged, open, closed unmerged, the noun on the first part only ('1 PR merged, 1 open'); unsupported and unread left out; no part when none is known"
+    over: "One noun per part; listing every state"
+    reason: |
+      The spec's three examples fix the wording; unsupported and unread say nothing about a fate.

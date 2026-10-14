@@ -116,6 +116,14 @@ describe("layoutAttemptFlow", () => {
     expect(layout.nodes).toHaveLength(0);
   });
 
+  it("TerminalAttemptWithARunRecordRead_IsTheFallback", () => {
+    const layout = layoutAttemptFlow(input({
+      attempt: attempt({ revision: null, status: "failed" }),
+      series: series("r-1", [spec({ fileStem: null })], { gate: null, source: "run-record" }),
+    }), "unrolled");
+    expect(layout.fallback).toBe(true);
+  });
+
   it("DeriveBadge_CountsTheAttemptsRefusedCutReviews", () => {
     const review = (deliverable: string, id: string) =>
       entry({ id, source: "spec-cut", kind: "cut-review", detail: { attempt: 1, deliverable, findings: [] } });

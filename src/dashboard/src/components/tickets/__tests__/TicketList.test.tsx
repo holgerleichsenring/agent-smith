@@ -129,6 +129,13 @@ describe("TicketList", () => {
     expect(dot.className).not.toContain("bad");
   });
 
+  it("AQueuedWorkingTicket_DrawsTheQueuedDot", async () => {
+    serve(list([ticket({ bucket: "working", status: "queued" })], { working: 1, queued: 1 }));
+    renderTickets();
+    const dot = within(await screen.findByTestId("ticket-row-shop-101")).getByTestId("ticket-dot");
+    expect(dot.className).toBe("sd queued");
+  });
+
   it("AttemptMarks_DrawEveryEndFromAttempts", async () => {
     const mark = (runId: string, status: string, endedOnInfrastructure = false, handedBack = false) => ({ runId, status, endedOnInfrastructure, handedBack });
     serve(list([ticket({ attemptCount: 5, attempts: [mark("a", "waiting_for_input", false, true), mark("b", "failed"), mark("c", "cancelled", true), mark("d", "success"), mark("e", "running")] })], { working: 1 }));
@@ -209,7 +216,7 @@ describe("TicketList", () => {
     renderTickets();
 
     const line = await screen.findByTestId("ticket-done-line");
-    expect(line).toHaveTextContent("14 merged or closed this month, last 2h ago (301)");
+    expect(line).toHaveTextContent("14 merged this month, last 2h ago (301)");
     expect(screen.getByTestId("ticket-section-done-count")).toHaveTextContent("40");
     expect(screen.queryByTestId("ticket-row-shop-301")).toBeNull();
     expect(screen.getByTestId("ticket-metric-done")).toHaveTextContent("1.7 attempts each");

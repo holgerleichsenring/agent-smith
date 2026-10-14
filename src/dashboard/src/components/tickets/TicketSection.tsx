@@ -89,7 +89,7 @@ function DoneLine({ counts, onShow }: { counts: TicketCounts; onShow: () => void
   return (
     <div className="done-row" data-testid="ticket-done-line">
       <span>
-        <b>{counts.doneThisMonth.tickets} merged or closed this month</b>
+        <b>{counts.doneThisMonth.tickets} merged this month</b>
         {last && when ? `, last ${when} ago (${last.ticketId})` : ""}.
       </span>
       <button type="button" className="btn sm" onClick={onShow} data-testid="ticket-done-show">

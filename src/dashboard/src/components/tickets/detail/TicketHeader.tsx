@@ -4,13 +4,14 @@ import { CancelRunButton } from "@/components/jobs/CancelRunButton";
 import { useLiveAttempt } from "@/lib/tickets/TicketPageStore";
 import { EventType } from "@/types/hub-events";
 import type { TicketDetail } from "@/types/tickets";
-import { ticketLabel } from "../ticketFormat";
+import { ticketDot } from "../ticketDot";
+import { pullRequestFate, ticketLabel } from "../ticketFormat";
 import { statusWords } from "./flowWords";
 import { CAUSE_PARAM, useTicketTabGo } from "./useTicketTabGo";
 
 // 2026-10-13-9a59q: the mock's .t-head — key and title, then a subline of what is recorded: the
-// tracker link, the tracker status as the newest attempt read it, the live (or newest) attempt and
-// the branch, each only when present. Cancel ends the live attempt; its cancelling state comes from a
+// tracker link, the tracker status as the newest attempt read it, the live (or newest) attempt, how the
+// pull requests ended and the branch, each only when present. The dot is the list row's dot. Cancel ends the live attempt; its cancelling state comes from a
 // RunCancelRequested in that attempt's stream.
 
 const PLATFORM_WORDS: Record<string, string> = {
@@ -36,11 +37,13 @@ export function TicketHeader({ detail }: { detail: TicketDetail }) {
   }
   if (live.attempt) parts.push(<span key="live">attempt {live.attempt.number} {statusWords(live.attempt.status)}</span>);
   else if (newest) parts.push(<span key="newest">attempt {newest.number} {statusWords(newest.status)}</span>);
+  const fate = pullRequestFate(summary.pullRequests ?? []);
+  if (fate) parts.push(<span key="prs" data-testid="ticket-pr-fate">{fate}</span>);
   if (branch) parts.push(<span key="branch">branch <span className="mono">{branch}</span></span>);
 
   return (
     <div className="t-head" data-testid="ticket-head">
-      <span className={`ticon ${iconClass(detail, live.attempt !== null)}`} aria-hidden="true" />
+      <span className={`ticon ${ticketDot(summary)}`} aria-hidden="true" />
       <div className="tt">
         <h1>
           <span className="key">{ticketLabel(summary)}</span>
@@ -65,11 +68,3 @@ export function TicketHeader({ detail }: { detail: TicketDetail }) {
   );
 }
 
-/** The state of the ticket as the dot shows it: working, waits for a person, proven, stopped. */
-function iconClass(detail: TicketDetail, live: boolean): string {
-  if (detail.summary.bucket === "needs_you") return "person";
-  if (live) return "run";
-  if (detail.summary.bucket === "done" || detail.summary.lastOutcome === "success") return "ok";
-  if (detail.summary.bucket === "stuck" || detail.summary.lastOutcome === "failed") return "bad";
-  return "idle";
-}

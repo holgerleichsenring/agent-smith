@@ -511,7 +511,10 @@
 .mock-tickets .pill.amber { background: var(--run-wash); color: var(--run); }
 .mock-tickets .pill.q { background: var(--panel-2); color: var(--ink-3); }
 .mock-tickets .pill.person { background: var(--person-wash); color: var(--person); }
-.mock-tickets .t-head .ticon.person { background: var(--person); color: var(--person); animation: none; }
+.mock-tickets .t-head .ticon.need { background: var(--person); color: var(--person); animation: mock-pulse 1.2s infinite; }
+.mock-tickets .t-head .ticon.run { background: var(--run); color: var(--run); animation: mock-pulse 1.8s infinite; }
+.mock-tickets .t-head .ticon.queued { background: var(--bg); border: 3px solid var(--run); animation: none; }
+.mock-tickets .t-head .ticon.human { background: var(--ink-3); color: var(--ink-3); animation: none; }
 .mock-tickets .t-head .ticon.ok { background: var(--ok); color: var(--ok); animation: none; }
 .mock-tickets .t-head .ticon.bad { background: var(--bad); color: var(--bad); animation: none; }
 .mock-tickets .t-head .ticon.idle { background: var(--idle); color: var(--idle); animation: none; }
