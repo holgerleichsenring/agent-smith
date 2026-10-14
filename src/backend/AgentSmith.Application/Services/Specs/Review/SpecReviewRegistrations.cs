@@ -33,6 +33,9 @@ public static class SpecReviewRegistrations
             .AddTransient<ProposalAttackPanel>().AddTransient<ProposalCutsReprompt>()
             .AddTransient<ProposalReProposalGuard>().AddTransient<ProposalRoundRevision>().AddTransient<ProposalReviewLoop>()
             .AddTransient<SeriesContractCheck>().AddTransient<SeriesContractReader>() // 2026-10-13-8762j
+            // 2026-10-13-8762k: the set-scope round — reviewer, admission, the run's round and the turn's.
+            .AddTransient<SeriesContractAdmission>().AddTransient<ISeriesContractReviewer, SeriesContractReviewer>()
+            .AddTransient<SeriesContractRound>().AddTransient<ProposalSeriesRound>()
             .AddTransient<ICommandHandler<ReviewSpecsContext>, Handlers.ReviewSpecsHandler>();
     }
 }

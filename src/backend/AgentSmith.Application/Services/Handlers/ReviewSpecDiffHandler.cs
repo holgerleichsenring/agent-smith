@@ -4,6 +4,7 @@ using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Sandbox;
+using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
@@ -61,8 +62,9 @@ public sealed class ReviewSpecDiffHandler(
             pipeline, sandboxes.Where(s => !sandboxTargets.IsSecondary(pipeline, s.Key)).ToDictionary(), cancellationToken);
         await using var look = looks.OnTerms(pipeline, DerivationLookTerms.SpecReview);
         var principles = pipeline.TryGet<string>(ContextKeys.CodingPrinciples, out var p) ? p : null;
+        var contract = pipeline.TryGet<SpecSet>(ContextKeys.SpecSet, out var set) ? set?.Contract : null;
         var report = await reviewer.ReviewAsync(
-            draft, principles, diffs, look, context.AgentConfig, tracker, cancellationToken);
+            draft, principles, diffs, look, context.AgentConfig, tracker, cancellationToken, contract);
 
         return await RecordAsync(
             pipeline, draft, report, Summary(report, diffs), sandboxes, cancellationToken);

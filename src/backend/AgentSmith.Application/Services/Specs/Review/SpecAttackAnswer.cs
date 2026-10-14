@@ -24,7 +24,7 @@ internal sealed record SpecAttackWire(
             [.. (Findings ?? []).Select(f => f.ToItem())])
         : null;
 
-    private static string? VerdictOf(string? text) =>
+    internal static string? VerdictOf(string? text) =>
         string.Join(' ', (text ?? string.Empty).ToUpperInvariant()
             .Split([' ', '_', '-'], StringSplitOptions.RemoveEmptyEntries)) switch
         {

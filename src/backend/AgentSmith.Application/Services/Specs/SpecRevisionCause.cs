@@ -58,6 +58,7 @@ public static class SpecRevisionCause
     /// the conversation it was approved in, so the revision history says which approval this
     /// revision is.</summary>
     public const string Approval = "approved in design conversation";
+    public const string SeriesContractReview = "series contract review"; // 2026-10-13-8762k: the set-scope round's cuts
 
     /// <summary>
     /// A previous revision whose last commit is NOT the sha this system recorded was

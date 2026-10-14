@@ -29,6 +29,17 @@ public sealed class SpecReviewAdmissionTests
     }
 
     [Fact]
+    public void SpecReviewAdmission_ContractQuotedRule_IsAdmittedOnAReadOfTheDiffPath()
+    {
+        var look = Look();
+        var id = look.Evidence.Remember(Read(Path, lines: 80));
+        var finding = Finding(cites: id) with { Rule = "datum: 'review rounds' lives in RunSpecReviewRounds, owner 2026-10-13-8762e" };
+
+        Admit(finding, look).Should().ContainSingle("admission checks the read, the path and the line, never the rule text")
+            .Which.Rule.Should().StartWith("datum:");
+    }
+
+    [Fact]
     public void SpecReview_FindingOnAReadOfAnotherPath_IsDiscarded()
     {
         var look = Look();

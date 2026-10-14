@@ -77,6 +77,21 @@ public sealed class SpecReviewRegistrationsTests
     }
 
     [Fact]
+    public void AddSpecReview_ResolvesSeriesContractRound()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
+        ServerCompositionBuilder.ConfigureServices(services, "agentsmith.yml");
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        scope.ServiceProvider.GetRequiredService<SeriesContractRound>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<ISeriesContractReviewer>().Should().BeOfType<SeriesContractReviewer>();
+        scope.ServiceProvider.GetRequiredService<SeriesContractAdmission>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<ProposalSeriesRound>().Should().NotBeNull();
+    }
+
+    [Fact]
     public void AddSpecReview_ResolvesContractReaderAndCheck()
     {
         var services = new ServiceCollection();

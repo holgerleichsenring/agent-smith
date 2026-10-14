@@ -43,6 +43,13 @@ internal sealed class ReviewLoopRig
                 OnReview?.Invoke(input);
                 lock (_answers) return Task.FromResult(_answers.Count > 0 ? _answers.Dequeue() : Build());
             });
+        SeriesReviewer.Setup(r => r.ReviewAsync(It.IsAny<SeriesContractInput>(), It.IsAny<DerivationLook?>(),
+                It.IsAny<AgentConfig>(), It.IsAny<PipelineCostTracker>(), It.IsAny<CancellationToken>()))
+            .Returns((SeriesContractInput input, DerivationLook? look, AgentConfig _, PipelineCostTracker _, CancellationToken _) =>
+            {
+                SeriesCalls.Add((input, look?.Terms.Allowance));
+                return Task.FromResult(OnSeriesReview(input));
+            });
         Evidence.Setup(e => e.CheckAsync(It.IsAny<PipelineContext>(), It.IsAny<SpecDraft>(), It.IsAny<SpecSet>(),
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(new SpecRoundEvidenceResult([], 0, 1));
@@ -66,6 +73,12 @@ internal sealed class ReviewLoopRig
 
     public PipelineContext Pipeline { get; } = new();
     public Mock<ISpecAttackReviewer> Reviewer { get; } = new();
+    public Mock<ISeriesContractReviewer> SeriesReviewer { get; } = new();
+    public List<(SeriesContractInput Input, int? Allowance)> SeriesCalls { get; } = [];
+
+    /// <summary>2026-10-13-8762k: the series reviewer's answer; BUILD with nothing unless a test says otherwise.</summary>
+    public Func<SeriesContractInput, SeriesContractReview> OnSeriesReview { get; set; } =
+        _ => new SeriesContractReview(Build(), []);
     public Mock<ISpecRoundEvidence> Evidence { get; } = new();
     public Mock<ISpecCutReviser> Reviser { get; } = new();
     public Mock<ISpecRederiver> Rederiver { get; } = new();
@@ -130,7 +143,12 @@ internal sealed class ReviewLoopRig
         new ApprovedSpecSetResolver(Mock.Of<ISpecApprovalStore>(), NullLogger<ApprovedSpecSetResolver>.Instance),
         Loop(), new ReviewExhaustion(NullLogger<ReviewExhaustion>.Instance),
         new ReviewObjectionPark(new SpecReviewRevision(Publisher.Object), NullLogger<ReviewObjectionPark>.Instance),
-        NullLogger<ReviewSpecsHandler>.Instance);
+        SeriesRound(), NullLogger<ReviewSpecsHandler>.Instance);
+
+    public SeriesContractRound SeriesRound() => new(
+        SeriesReviewer.Object, DerivationTestLooks.Factory(), Reviser.Object, new SpecCutResidues(),
+        new SpecReviewRevision(Publisher.Object),
+        new SpecReviewRoundPublisher(Events, RunContext, NullLogger<SpecReviewRoundPublisher>.Instance));
 
     public async Task<CommandResult> ExecuteAsync(SpecReviewSettings settings, AgentSmith.Domain.Entities.Ticket? ticket = null)
     {

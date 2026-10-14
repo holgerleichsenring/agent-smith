@@ -32,6 +32,21 @@ public sealed class ReviewExhaustionTests
         Decide([Objection(First)], OurObjection(First)).Should().BeEmpty();
 
     [Fact]
+    public void Exhaustion_ObjectionCommentStoredHtmlEscaped_StillReadsAsAsked()
+    {
+        var ours = OurObjection(First);
+
+        Decide([Objection(First)], ours with { Body = System.Net.WebUtility.HtmlEncode(ours.Body) }).Should().BeEmpty("a tracker that escapes the comment must not ask again");
+    }
+
+    [Fact]
+    public void Markers_CarryNoCharacterAnHtmlTrackerEscapes()
+    {
+        foreach (var marker in new[] { ReviewObjectionComment.Marker, ReviewObjectionComment.MarkerFor("series:" + First) })
+            System.Net.WebUtility.HtmlEncode(marker).Should().Be(marker);
+    }
+
+    [Fact]
     public void Exhaustion_ObjectionCommentAnswered_Proceeds() =>
         Decide([Objection(First)], OurObjection(First), new TicketComment("author", Asked.AddHours(1), "build it"))
             .Should().BeEmpty("an asked objection proceeds; the answer is the next derivation's input");

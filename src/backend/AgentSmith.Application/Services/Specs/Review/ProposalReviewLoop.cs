@@ -11,11 +11,12 @@ namespace AgentSmith.Application.Services.Specs.Review;
 /// checked and attacked by spec_review.reviewers fresh reviewers, merged, and either stops (BUILD, nothing to
 /// apply, nothing taken) or goes into the round's ONE re-prompt of the design partner
 /// (<see cref="ProposalRoundRevision"/>). Drafts carried over from the proposal under revision count as
-/// stopped; <see cref="ProposalRoundGate"/> decides what the share and the ceiling still allow.
+/// stopped; <see cref="ProposalRoundGate"/> decides what the share and the ceiling still allow. 8762k: an epic with a
+/// contract then gets its findings-only series round (<see cref="ProposalSeriesRound"/>).
 /// </summary>
 public sealed class ProposalReviewLoop(
-    ProposalAttackPanel panel, ProposalRoundRevision revision, ITurnActivityObserverAccessor turnActivity,
-    TimeProvider clock)
+    ProposalAttackPanel panel, ProposalRoundRevision revision, ProposalSeriesRound series,
+    ITurnActivityObserverAccessor turnActivity, TimeProvider clock)
 {
     public async Task<ProposalReviewOutcome> RunAsync(
         ProposalTurn turn, SpecReviewSettings settings, OutcomeProposal proposal, AgenticLoopResult reply,
@@ -35,7 +36,7 @@ public sealed class ProposalReviewLoop(
         while (session.Round < settings.Review.Rounds
             && ProposalRoundGate.Admit(session, session.Open) is { Count: > 0 } open)
             if (!await RoundAsync(session, open, ct)) break;
-        return ProposalReviewSummary.Of(session, parentProblems);
+        return await series.AddAsync(session, ProposalReviewSummary.Of(session, parentProblems), ct);
     }
 
     /// <summary>False when the review ends after this round.</summary>

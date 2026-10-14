@@ -4,6 +4,7 @@ using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.Logging;
@@ -33,7 +34,8 @@ public sealed class SpecDiffReviewer(
 
     public async Task<SpecReviewReport> ReviewAsync(
         SpecDraft draft, string? principles, IReadOnlyList<SpecDiff> diffs, DerivationLook? look,
-        AgentConfig agent, PipelineCostTracker costTracker, CancellationToken cancellationToken)
+        AgentConfig agent, PipelineCostTracker costTracker, CancellationToken cancellationToken,
+        SeriesContract? contract = null) // 2026-10-13-8762k: the set's contract, a rule source of its own
     {
         ArgumentNullException.ThrowIfNull(draft);
         ArgumentNullException.ThrowIfNull(diffs);
@@ -43,7 +45,7 @@ public sealed class SpecDiffReviewer(
             return SpecReviewReport.NotTaken("this spec changed no reviewable file");
 
         var answer = await AskAsync(
-            SpecReviewPrompt.For(draft, principles, diffs, look), draft.SpecId, look, agent,
+            SpecReviewPrompt.For(draft, principles, diffs, look, contract), draft.SpecId, look, agent,
             costTracker, cancellationToken);
         if (answer is null)
         {

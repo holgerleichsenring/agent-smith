@@ -42,6 +42,9 @@ internal sealed class ProposalReviewRig
     public PipelineContext Pipeline { get; } = new();
     public SpecReviewSettings Settings { get; set; } = Of(rounds: 4);
     public Func<SpecAttackInput, SpecAttackResult?> OnReview { get; set; } = _ => Build();
+    public Func<SeriesContractInput, SeriesContractReview> OnSeriesReview { get; set; } =
+        _ => new SeriesContractReview(Build(), []);
+    public List<SeriesContractInput> SeriesReviewed { get; } = [];
     public Func<SpecDraft, SpecRoundEvidenceResult> OnEvidence { get; set; } = _ => SpecRoundEvidenceResult.None;
     public SpecCutReview WholeSet { get; set; } = SpecCutReview.Clean;
     public ConcurrentQueue<SpecAttackInput> Reviewed { get; } = new();
@@ -97,7 +100,8 @@ internal sealed class ProposalReviewRig
 
     public static string SpecReply(string yaml, string prose = "Here is the spec.") => $"{prose}\n\n```yaml\n{yaml}\n```\n";
 
-    public static string EpicReply(string parent, IEnumerable<string> children, string prose = "Here is the epic.")
+    public static string EpicReply(
+        string parent, IEnumerable<string> children, string prose = "Here is the epic.", object? contract = null)
     {
         var map = new Dictionary<object, object?>
         {
@@ -105,12 +109,23 @@ internal sealed class ProposalReviewRig
             ["parent"] = Map(parent),
             ["children"] = children.Select(Map).ToList(),
         };
+        if (contract is not null) map["contract"] = contract;
         return $"{prose}\n\n```outcome\n{OutcomeYamlReader.ToYaml(map)}```\n";
     }
 
     public static string Epic(string? first = null, string? second = null, string? parent = null) =>
         EpicReply(parent ?? Yaml(Parent, "The export is rebuilt in two slices."),
             [first ?? Yaml(First), second ?? Yaml(Second, requires: [First])]);
+
+    /// <summary>2026-10-13-8762k: the two-child epic with a series contract — event 87 owned by the first child.</summary>
+    public static string ContractEpic() => EpicReply(Yaml(Parent, "The export is rebuilt in two slices."),
+        [Yaml(First), Yaml(Second, requires: [First])], contract: new Dictionary<object, object?>
+        {
+            ["names"] = new List<object?>
+            {
+                new Dictionary<object, object?> { ["name"] = "OrderExported", ["kind"] = "event", ["number"] = 87, ["owner"] = First },
+            },
+        });
 
     /// <summary>The proposal the gate admitted from <paramref name="reply"/>, published as the turn's outcome.</summary>
     public OutcomeProposal Propose(string reply)
@@ -164,7 +179,21 @@ internal sealed class ProposalReviewRig
             new SpecCutResidues(), Evidence(), NullLogger<ProposalRoundRevision>.Instance);
         return new ProposalReviewLoop(
             new ProposalAttackPanel(Attacker(), DerivationTestLooks.Factory(), NullLogger<ProposalAttackPanel>.Instance),
-            revision, TurnActivityRecorder.Silent(), Clock);
+            revision, new ProposalSeriesRound(SeriesReviewer(), DerivationTestLooks.Factory(),
+                NullLogger<ProposalSeriesRound>.Instance), TurnActivityRecorder.Silent(), Clock);
+    }
+
+    private ISeriesContractReviewer SeriesReviewer()
+    {
+        var reviewer = new Mock<ISeriesContractReviewer>();
+        reviewer.Setup(r => r.ReviewAsync(It.IsAny<SeriesContractInput>(), It.IsAny<DerivationLook?>(),
+                It.IsAny<AgentConfig>(), It.IsAny<PipelineCostTracker>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((SeriesContractInput input, DerivationLook? _, AgentConfig _, PipelineCostTracker _, CancellationToken _) =>
+            {
+                SeriesReviewed.Add(input);
+                return OnSeriesReview(input);
+            });
+        return reviewer.Object;
     }
 
     private ISpecAttackReviewer Attacker()

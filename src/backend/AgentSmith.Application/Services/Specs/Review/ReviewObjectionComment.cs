@@ -13,11 +13,12 @@ namespace AgentSmith.Application.Services.Specs.Review;
 /// </summary>
 public static class ReviewObjectionComment
 {
-    /// <summary>The phrase that marks a review-objection comment as still awaiting an answer.</summary>
-    public const string Marker = "a reviewer's objection to the spec stands";
+    /// <summary>The phrase that marks a review-objection comment as still awaiting an answer. Plain letters and
+    /// spaces only: a tracker that stores a comment HTML-escaped (an apostrophe as &amp;#39;) must still match it.</summary>
+    public const string Marker = "an objection from the spec review stands";
 
     /// <summary>The phrase naming one objection — a spec id, or "series:" and the prefix's first member.</summary>
-    public static string MarkerFor(string key) => $"a reviewer's objection to spec {key} stands";
+    public static string MarkerFor(string key) => $"an objection from the spec review to {key} stands";
 
     /// <summary>The heading phrase a question hand-back of this kind carries.</summary>
     public static string HeadingOf(SpecHandback handback) =>
