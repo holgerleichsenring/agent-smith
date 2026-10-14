@@ -89,7 +89,7 @@ internal sealed class HarnessSpecPremiseChecker : ISpecPremiseChecker
 
     public Task<PremiseCheck> CheckAsync(
         SpecDraft draft, SpecPremises premises, DerivationLook look,
-        IReadOnlyList<SpecProgress> alreadyRan, string key, AgentConfig agent,
+        IReadOnlyList<SpecProgress> alreadyRan, IReadOnlyList<PrecedingNote> notes, string key, AgentConfig agent,
         PipelineCostTracker costTracker, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(draft);
@@ -100,7 +100,7 @@ internal sealed class HarnessSpecPremiseChecker : ISpecPremiseChecker
         {
             Asked.Add(new PremiseAsked(
                 draft.SpecId, premises.Claims, [.. alreadyRan.Select(p => p.SpecId)],
-                look?.Repositories ?? []));
+                look?.Repositories ?? [], notes));
             call = Asked.Count;
         }
         PremiseFinding[]? against;
@@ -115,7 +115,7 @@ internal sealed class HarnessSpecPremiseChecker : ISpecPremiseChecker
 /// it was handed, the specs it was told had already run, and the repositories its look names.</summary>
 internal sealed record PremiseAsked(
     string SpecId, IReadOnlyList<string> Claims, IReadOnlyList<string> AlreadyRan,
-    IReadOnlyList<string> Repositories);
+    IReadOnlyList<string> Repositories, IReadOnlyList<PrecedingNote>? Notes = null);
 
 /// <summary>
 /// p0429: the finding refutation is the same kind of call and gets the same treatment.

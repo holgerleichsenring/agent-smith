@@ -56,6 +56,7 @@ public sealed class CheckSpecPremisesHandler(
 
         var check = await checker.CheckAsync(
             draft, premises, look, PrecedingSpecs.Of(context.Pipeline, draft.SpecId),
+            PrecedingSpecs.NotesOf(context.Pipeline, draft.SpecId), // 2026-10-13-8762m
             draft.SpecId, context.AgentConfig,
             PipelineCostTracker.GetOrCreate(context.Pipeline), cancellationToken);
         return check.False.Count == 0

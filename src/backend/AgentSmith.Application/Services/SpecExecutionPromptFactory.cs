@@ -20,6 +20,8 @@ namespace AgentSmith.Application.Services;
 /// </para>
 /// Operator answers from a prior clarification park (PlanAnswers, re-triggered run) are
 /// rendered authoritative.
+/// <para>2026-10-13-8762m: the build notes of the specs that already ran and the memory index, in code —
+/// no master carries the index placeholder, so the user prompt is where the master reads it.</para>
 /// </summary>
 public sealed class SpecExecutionPromptFactory : ISpecExecutionPromptFactory
 {
@@ -60,6 +62,8 @@ public sealed class SpecExecutionPromptFactory : ISpecExecutionPromptFactory
             {SpecExecutionPromptBlocks.OutstandingCriteria(pipeline)}
             {SpecExecutionPromptBlocks.DeclaredGate(pipeline)}
             {SpecExecutionPromptBlocks.StructureFindings(pipeline)}
+            {Specs.SpecBuildNoteSection.Render(Specs.PrecedingSpecs.NotesOf(pipeline, draft.SpecId))}
+            {Handlers.MasterPromptSections.BuildMemoryIndexSection(pipeline)}
 
             ## Spec contract
             You are implementing SPEC {draft.SpecId} — this spec and nothing after it.
@@ -70,6 +74,8 @@ public sealed class SpecExecutionPromptFactory : ISpecExecutionPromptFactory
             {SpecExecutionPromptBlocks.DoneCriteria(draft)}
             Before you emit your verdict, verify EACH done criterion above out loud —
             a criterion you cannot satisfy makes the run red, not silently smaller.
+            Before the verdict, call hand_forward once with what you renamed and moved (each
+            `<old> -> <new>`), persisted and deviated from: the next spec's master reads it.
             When you are genuinely blocked on missing input, call ask_human once: the
             question is posted to the ticket and this run pauses for the answer.
             {AgentPromptBuilder.BuildOperatorAnswersSection(answers)}

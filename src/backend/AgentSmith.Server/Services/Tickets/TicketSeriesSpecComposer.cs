@@ -10,7 +10,7 @@ namespace AgentSmith.Server.Services.Tickets;
 /// from the cut attempt's RunSpec row, or "carried" when that attempt carried the spec in executed; the
 /// attempt that executed it is the newest one whose row left not_started; each done criterion takes its
 /// verdict from the row of the newest attempt that ENDED the spec, matched by criterion text, and that
-/// run's operator judgement of it.
+/// run's operator judgement of it. 2026-10-13-8762m: and the build note of that attempt's record.
 /// </summary>
 public sealed class TicketSeriesSpecComposer
 {
@@ -34,8 +34,15 @@ public sealed class TicketSeriesSpecComposer
             executed?.RunId, executed is null ? null : attemptNumbers[executed.RunId],
             [.. spec.Done.Select(text => Criterion(text, acceptance, judgements))],
             acceptance?.Unmeasured ?? [],
-            StepsAsWorkedFold.Fold(spec, records.Transitions ?? [], attemptNumbers)); // 2026-10-13-9a59f
+            StepsAsWorkedFold.Fold(spec, records.Transitions ?? [], attemptNumbers), // 2026-10-13-9a59f
+            BuildNote(spec.SpecId, executed?.RunId, records));
     }
+
+    // 2026-10-13-8762m: the note lives in the executing attempt's record, its only home.
+    private static TicketSeriesBuildNoteView? BuildNote(string specId, string? runId, TicketSeriesRecords records) =>
+        runId is not null && records.Records?.TryGetValue((runId, specId), out var body) == true
+            ? TicketSeriesBuildNoteView.Of(Application.Services.Specs.SpecBuildNoteReader.Read(body, specId))
+            : null;
 
     private static TicketSeriesCriterionView Criterion(
         string text, AcceptanceView? acceptance, List<RunCriterionJudgement> judgements)

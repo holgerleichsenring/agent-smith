@@ -249,3 +249,25 @@ describe("Ticket specs tab review rounds", () => {
     expect(within(screen.getByTestId("review-rounds")).queryByText("The contract misses a budget")).toBeNull();
   });
 });
+
+describe("Ticket specs tab build note", () => {
+  it("SpecDocument_RendersBuildNoteOrNoNote", async () => {
+    nav.search = "tab=specs&spec=s1";
+    const note = { missing: false, renamed: ["Bus -> MessageBus"], moved: [], persisted: ["table RunDefaults"], deviations: [] };
+    world.series = { ...world.series, default: series("r-3", [{ ...s1, buildNote: note }, { ...s2, buildNote: { ...note, missing: true, renamed: [], persisted: [] } }, s3], { attempt: 3 }) };
+    await open();
+    const block = screen.getByTestId("spec-build-note");
+    expect(block).toHaveTextContent("Build note");
+    expect(block).toHaveTextContent("Bus -> MessageBus");
+    expect(block).toHaveTextContent("table RunDefaults");
+    expect(block).not.toHaveTextContent("Moved");
+    cleanup();
+    nav.search = "tab=specs&spec=s2";
+    await open();
+    expect(screen.getByTestId("spec-build-note")).toHaveTextContent("no note");
+    cleanup();
+    nav.search = "tab=specs&spec=s3";
+    await open();
+    expect(screen.queryByTestId("spec-build-note")).toBeNull();
+  });
+});

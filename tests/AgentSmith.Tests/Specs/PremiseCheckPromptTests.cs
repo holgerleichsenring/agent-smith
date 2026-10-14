@@ -145,6 +145,25 @@ public sealed class PremiseCheckPromptTests
     }
 
     [Fact]
+    public async Task PremiseCheckPrompt_AlreadyRan_RendersNotes()
+    {
+        // 2026-10-13-8762m: a premise written against what the predecessor renamed reads as broken
+        // to a reader who is not told it was renamed.
+        var h = For(Draft(), "[]");
+        SetWithAnExecutedPredecessor(h.Pipeline, Draft());
+        h.Pipeline.Set<IReadOnlyDictionary<string, Contracts.Specs.SpecBuildNote>>(Contracts.Commands.ContextKeys.SpecBuildNotes,
+            new Dictionary<string, Contracts.Specs.SpecBuildNote>
+            {
+                ["2026-09-17-0000"] = new("2026-09-17-0000", ["OrderSender -> OrderDispatcher"], [], [], []),
+            });
+
+        await h.RunAsync();
+
+        h.Provider.Prompts.Single().Should().Contain(SpecBuildNoteSection.Heading)
+            .And.Contain("### 2026-09-17-0000").And.Contain("- renamed: OrderSender -> OrderDispatcher");
+    }
+
+    [Fact]
     public async Task PremiseCheck_Prompt_FirstSpecOfASet_NamesNoPredecessor()
     {
         var h = For(Draft(), "[]");

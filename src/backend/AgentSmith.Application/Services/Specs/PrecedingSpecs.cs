@@ -36,6 +36,20 @@ internal static class PrecedingSpecs
             .Select(row => row!)];
     }
 
+    /// <summary>2026-10-13-8762m: the build note of every spec <see cref="Of"/> names — this run's note from
+    /// <see cref="ContextKeys.SpecBuildNotes"/>, else the note in its record, else none.</summary>
+    public static IReadOnlyList<PrecedingNote> NotesOf(PipelineContext pipeline, string specId)
+    {
+        var preceding = Of(pipeline, specId);
+        if (preceding.Count == 0) return [];
+        var set = pipeline.Get<SpecSet>(ContextKeys.SpecSet);
+        var held = pipeline.TryGet<IReadOnlyDictionary<string, SpecBuildNote>>(ContextKeys.SpecBuildNotes, out var n)
+            ? n : null;
+        return [.. preceding.Select(row => set.Specs.First(s => s.SpecId == row.SpecId)).Select(spec => new PrecedingNote(
+            spec.SpecId, SeriesPaths.Spec(SeriesPaths.Done, spec.FileStem),
+            held?.GetValueOrDefault(spec.SpecId) ?? SpecBuildNoteReader.Read(spec.Draft.Yaml, spec.SpecId).Note))];
+    }
+
     // Done in this run, or executed in an earlier one — either way its work is in the sandbox.
     private static SpecProgress? Standing(
         SpecSet set, SpecSequenceProgress? progress, string id)

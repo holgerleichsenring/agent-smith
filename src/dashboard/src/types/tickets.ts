@@ -244,6 +244,17 @@ export interface TicketSeriesSpec {
   done: TicketSeriesCriterion[];
   unmeasured: Array<{ repositories: string; reason: string | null }>;
   worked?: TicketSeriesStepWorked[] | null;
+  /** 2026-10-13-8762m: the executing attempt's record's build note; null when there is no record. */
+  buildNote?: TicketSeriesBuildNote | null;
+}
+
+/** 2026-10-13-8762m: what a spec's master handed forward; `missing` when it left no note. */
+export interface TicketSeriesBuildNote {
+  missing: boolean;
+  renamed: string[];
+  moved: string[];
+  persisted: string[];
+  deviations: string[];
 }
 
 export interface TicketSeries {

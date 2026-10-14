@@ -43,10 +43,9 @@ public sealed class MasterToolComposition(
     // is excluded BY NAME below from the escalation valve (which would spawn a WRITABLE
     // sandbox into a read-only turn) and the ledger.
     public IList<AITool> Compose(
-        bool isScanMaster, bool isSpecDialog, FilesystemToolHost fs, LogDecisionToolHost log, IToolHost human,
+        bool isScanMaster, bool isSpecDialog, FilesystemToolHost fs, MasterRecordTools records, IToolHost human,
         GetArtifactCredentialsToolHost credentials, WriteContextYamlToolHost writeContextYaml,
         WebToolHost? web, ProgressLedgerToolHost progress,
-        MemoryRecallToolHost recall, MemoryWriteToolHost remember,
         WithdrawFiledTicketToolHost? withdraw, ReadTicketToolHost? readTicket,
         TicketWorkToolHost? ticketWork, TicketRunsToolHost? ticketRuns,
         AgenticMasterContext context)
@@ -57,7 +56,7 @@ public sealed class MasterToolComposition(
         // AgenticToolSurface — only a design turn with a dialogue identity has one, and that is
         // what this method decides.
         IList<AITool> BaseSurface() => isSpecDialog
-            ? [.. toolSurface.SpecDialog(fs, human, web, recall, remember),
+            ? [.. toolSurface.SpecDialog(fs, human, web, records.Recall, records.Remember),
                .. withdraw?.GetTools(null, null) ?? [],
                // 2026-09-27-481ba: and reading the ticket the turn was seeded with, on the same
                // gate — only a BOUND design turn carries the port this is built from.
@@ -65,10 +64,10 @@ public sealed class MasterToolComposition(
                .. ticketWork?.GetTools(null, null) ?? [],
                .. ticketRuns?.GetTools(null, null) ?? []]
             : isScanMaster
-                ? toolSurface.Review(fs, log, web, recall, remember)
+                ? toolSurface.Review(fs, records.Log, web, records.Recall, records.Remember)
                 : toolSurface.ReadWriteWithHuman(
-                    fs, log, human, web: web, credentials: credentials, writeContextYaml: writeContextYaml,
-                    recall: recall, remember: remember);
+                    fs, records.Log, human, web: web, credentials: credentials, writeContextYaml: writeContextYaml,
+                    recall: records.Recall, remember: records.Remember);
 
         var master = BaseSurface();
         // 2026-10-01-7f7ab: design_read joins design and coding masters of a project with a figma
@@ -91,6 +90,7 @@ public sealed class MasterToolComposition(
                 .Concat(ensureRepoSandboxFactory.Create(context.Pipeline, fs, logger).GetTools(null, null))
                 .Concat(progress.GetTools(null, null))
                 .Concat(gateStage.Tools(context.Pipeline))
+                .Concat(records.HandForward?.GetTools(null, null) ?? []) // 8762m: a spec's master only, never a child
                 .ToList();
 
         // A design turn gates on ITS OWN count, so it fans out with the run-wide number at 0.

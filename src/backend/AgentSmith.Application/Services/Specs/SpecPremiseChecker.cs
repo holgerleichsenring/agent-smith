@@ -36,14 +36,14 @@ public sealed class SpecPremiseChecker(
 
     public async Task<PremiseCheck> CheckAsync(
         SpecDraft draft, SpecPremises premises, DerivationLook look,
-        IReadOnlyList<SpecProgress> alreadyRan, string key, AgentConfig agent,
+        IReadOnlyList<SpecProgress> alreadyRan, IReadOnlyList<PrecedingNote> notes, string key, AgentConfig agent,
         PipelineCostTracker costTracker, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(draft);
         ArgumentNullException.ThrowIfNull(premises);
         ArgumentNullException.ThrowIfNull(look);
 
-        var prompt = PremiseCheckPrompt.For(draft, premises, look, alreadyRan);
+        var prompt = PremiseCheckPrompt.For(draft, premises, look, alreadyRan, notes);
         var answer = await AskAsync(prompt, key, look, agent, costTracker, cancellationToken);
         // A call that failed or came back unreadable is NOT a skip: nothing was decided not to
         // ask, and an operator reading the run must be able to tell the two apart.

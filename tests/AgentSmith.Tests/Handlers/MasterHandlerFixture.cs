@@ -36,7 +36,7 @@ internal static class MasterHandlerFixture
         AgentSmith.Contracts.Events.IEventPublisher? passEvents = null,
         AgentSmith.Contracts.Events.IRunContextAccessor? runContext = null,
         IDecisionLogger? decisions = null) =>
-        new(loop, prompts, decisions ?? new NoOpDecisionLogger(), AgentSmithConfig.Empty(),
+        new(loop, prompts, RecordHosts(decisions ?? new NoOpDecisionLogger()), AgentSmithConfig.Empty(),
             new AgentSmith.Infrastructure.Services.ContextYamlSerializer(
                 new AgentSmith.Infrastructure.Services.ContextYamlBuilders()),
             AgentSmith.Tests.TestHelpers.ContextGates.Build(),
@@ -93,14 +93,21 @@ internal static class MasterHandlerFixture
                     new AgentSmith.Application.Services.Handlers.SandboxTargets(),
                     NullLogger<AgentSmith.Application.Services.RepoWorkPusher>.Instance),
                 NullLogger<AgentSmith.Application.Services.RunWorkCheckpointer>.Instance),
-            new AgentSmith.Application.Services.Repositories.RunRepositoriesFactory(
-                new SandboxTargets(), new AgentSmith.Tests.TestHelpers.StubSandboxFileReaderFactory(),
-                new SandboxWorkingTreeReader(NullLogger<SandboxWorkingTreeReader>.Instance)),
+            new AgentSmith.Application.Services.Memory.MemoryIndexReader(Repositories(),
+                NullLogger<AgentSmith.Application.Services.Memory.MemoryIndexReader>.Instance),
             dialogueTransport: null,
             Composition(maxSubAgents, subAgents, limits, figma, render),
             AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
             AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Tools(),
             NullLogger<AgenticMasterHandler>.Instance);
+
+    /// <summary>2026-10-13-8762m: the record tools of a master start, over the stub repositories.</summary>
+    internal static AgentSmith.Application.Services.Tools.MasterRecordToolHosts RecordHosts(IDecisionLogger decisions) =>
+        new(decisions, Repositories(), NullLogger<AgentSmith.Application.Services.Tools.MasterRecordToolHosts>.Instance);
+
+    private static AgentSmith.Application.Services.Repositories.RunRepositoriesFactory Repositories() =>
+        new(new SandboxTargets(), new AgentSmith.Tests.TestHelpers.StubSandboxFileReaderFactory(),
+            new SandboxWorkingTreeReader(NullLogger<SandboxWorkingTreeReader>.Instance));
 
     /// <summary>2026-10-13-9a59f: the open loop the handler drives, over the same loop runner.</summary>
     internal static MasterReengagementLoop Reengagement(
