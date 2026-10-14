@@ -50,10 +50,14 @@ internal sealed class TicketGraphRig
     public IReferenceSetReader References { get; set; } = new NoReferenceSetReader();
     public ResolvedProject Project => Config().Projects["proj"];
 
+    /// <summary>2026-10-14-dbcem: the tracker's requires link; it answers Done unless told otherwise.</summary>
+    public RecordingRequiresLink Links { get; } = new();
+
+    public TimeProvider Time { get; set; } = TimeProvider.System;
+
     public TicketGraphFiler Filer()
     {
-        var factory = new Mock<ITicketProviderFactory>();
-        factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(Tracker);
+        var factory = Factory();
         var config = Config();
         return new TicketGraphFiler(config, factory.Object, new TicketExistence(factory.Object, NullLogger<TicketExistence>.Instance),
             new TicketGraphOrderer(), Requirements,
@@ -63,7 +67,17 @@ internal sealed class TicketGraphRig
 
     public TicketGraphStarts Starts(AgentSmithConfig? config = null) => new(
         new UnmetTicketRequirements(Requirements, Facts, Approvals), FiledWorkDoubles.Starter(config ?? Config()),
-        NullLogger<TicketGraphStarts>.Instance);
+        LinkPass(), NullLogger<TicketGraphStarts>.Instance);
+
+    public TicketGraphLinks LinkPass() => new(Factory().Object, Time, NullLogger<TicketGraphLinks>.Instance);
+
+    private Mock<ITicketProviderFactory> Factory()
+    {
+        var factory = new Mock<ITicketProviderFactory>();
+        factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(Tracker);
+        factory.Setup(f => f.CreateRequiresLink(It.IsAny<TrackerConnection>())).Returns(Links);
+        return factory;
+    }
 
     public Task<FilingReport> FileAsync(TicketGraphOutcome graph, bool mayStartRuns = true, CancellationToken ct = default) =>
         Filer().FileAsync(State(), graph, mayStartRuns, ct);
@@ -223,4 +237,21 @@ internal sealed class WatchedRequirements(InMemoryTicketFacts facts) : ITicketRe
 
     public Task<IReadOnlyList<TicketRequirementEdge>> ByProjectAsync(string project, CancellationToken cancellationToken) =>
         facts.ByProjectAsync(project, cancellationToken);
+}
+
+/// <summary>2026-10-14-dbcem: a requires link that records each call, with what the tracker had been told by then; a
+/// test sets the answer per call.</summary>
+internal sealed class RecordingRequiresLink : ITicketRequiresLink
+{
+    public List<(string Dependent, string Required)> Calls { get; } = [];
+    public Func<int, CancellationToken, Task<RequiresLinkResult>> Answer { get; set; } =
+        (_, _) => Task.FromResult(RequiresLinkResult.Done);
+    public Action? OnCall { get; set; }
+
+    public Task<RequiresLinkResult> LinkAsync(TicketId dependent, TicketId required, CancellationToken cancellationToken)
+    {
+        OnCall?.Invoke();
+        Calls.Add((dependent.Value, required.Value));
+        return Answer(Calls.Count - 1, cancellationToken);
+    }
 }

@@ -45,6 +45,8 @@ public sealed class TicketProviderFactory(
     public ITicketLinkedWork CreateLinkedWork(TrackerConnection config) =>
         Capabilities.LinkedWork(config);
 
+    public ITicketRequiresLink CreateRequiresLink(TrackerConnection config) => Capabilities.RequiresLink(config);
+
     private AzureDevOpsTicketProvider CreateAzureDevOps(TrackerConnection config)
     {
         _logger.LogDebug("CreateAzureDevOps: org={Org} project={Project}", config.Organization, config.Project);

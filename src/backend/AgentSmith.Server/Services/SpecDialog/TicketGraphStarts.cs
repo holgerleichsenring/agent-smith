@@ -16,15 +16,18 @@ public sealed record CreatedGraphTicket(CreatedTicket Ticket, IReadOnlyList<Tick
 /// the last ticket and after a failure alike, never on the caller's token, because a root left unstarted is never
 /// started by anything else. A ticket whose filing is not complete is never tagged or moved; a complete one with
 /// nothing unmet is started as any filed ticket is; any other waits, naming what it waits for by tracker key.
+/// 2026-10-14-dbcem: then every stored edge of the prefix is shown on the tracker, after the starts so a slow tracker
+/// never delays one; what it refused or never reached comes back as filing notes.
 /// </summary>
 public sealed class TicketGraphStarts(
     UnmetTicketRequirements requirements,
     FiledWorkStarter starter,
+    TicketGraphLinks links,
     ILogger<TicketGraphStarts> logger)
 {
     internal const string Incomplete = "created but not stored — do not trigger it; close it";
 
-    public async Task SettleAsync(
+    public async Task<IReadOnlyList<string>> SettleAsync(
         ITicketProvider provider, ResolvedProject project, IReadOnlyList<CreatedGraphTicket> created,
         IReadOnlyList<string> labels, bool mayStartRuns, List<FiledTicket> filed)
     {
@@ -47,6 +50,7 @@ public sealed class TicketGraphStarts(
                     : new FiledWorkStart(FiledStartState.Held, $"waits for {string.Join(", ", unmet.Select(e =>
                         FiledTicketKey.Of(project.Tracker.Type, e.RequiredTicketId)))} to be merged or marked done by hand"));
         }
+        return await links.LinkAsync(project, [.. created.SelectMany(t => t.Edges)]);
     }
 
     // Null when the read failed: a start pass that throws would cost the report of every ticket already created.

@@ -8,6 +8,7 @@ using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Infrastructure.Persistence;
+using AgentSmith.Infrastructure.Services.Providers.Tickets;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Models;
@@ -49,6 +50,7 @@ public sealed class TicketGraphCompositionTests : IDisposable
         adapter.SetupGet(a => a.Platform).Returns("graph-test");
         var factory = new Mock<ITicketProviderFactory>();
         factory.Setup(f => f.Create(It.IsAny<TrackerConnection>())).Returns(rig.Tracker);
+        factory.Setup(f => f.CreateRequiresLink(It.IsAny<TrackerConnection>())).Returns(rig.Links);
         var approvals = new InMemorySpecApprovalStore();
         var services = Composition();
         services.AddSingleton(rig.Config()).AddSingleton(factory.Object).AddSingleton(adapter.Object)
@@ -70,6 +72,30 @@ public sealed class TicketGraphCompositionTests : IDisposable
         adapter.Verify(a => a.SendInfoAsync("C1", It.IsAny<string>(),
             It.Is<string>(t => t.Contains("Filed a list of 2 tickets") && t.Contains("held: waits for #101")),
             "th-1", It.IsAny<CancellationToken>()), Times.Once);
+        rig.Links.Calls.Should().Equal([("102", "101")]);
+    }
+
+    [Theory]
+    [InlineData(TrackerType.AzureDevOps, typeof(AzureDevOpsRequiresLink))]
+    [InlineData(TrackerType.Jira, typeof(JiraRequiresLink))]
+    [InlineData(TrackerType.GitLab, typeof(GitLabRequiresLink))]
+    [InlineData(TrackerType.GitHub, typeof(GitHubRequiresLink))]
+    public void TicketProviderFactory_FromRealServiceCollection_BuildsRequiresLinkPerTrackerType(TrackerType type, Type expected)
+    {
+        var credentials = new Mock<ICredentialResolver>();
+        credentials.Setup(c => c.For(It.IsAny<TrackerConnection>())).Returns("token");
+        var services = Composition();
+        services.AddSingleton(credentials.Object);
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+        var tracker = new TrackerConnection
+        {
+            Name = "sample-tracker", Type = type, Organization = "sample-org", Project = "group/app",
+            Url = type == TrackerType.GitHub ? "https://github.com/owner/repo" : "https://tracker.example", Email = "bot@example.com",
+        };
+
+        scope.ServiceProvider.GetRequiredService<ITicketProviderFactory>().CreateRequiresLink(tracker).Should().BeOfType(expected);
+        scope.ServiceProvider.GetRequiredService<TicketGraphLinks>().Should().NotBeNull();
     }
 
     [Fact]

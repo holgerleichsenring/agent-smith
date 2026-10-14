@@ -56,7 +56,7 @@ public sealed class TicketGraphFiler(
                 notes.Add($"Not created: {string.Join(", ", rest.Select(t => $"{t.Key} — {t.Title}"))}.");
         }
         if (project is not null && provider is not null && created.Count > 0)
-            await starts.SettleAsync(provider, project, created, labels, mayStartRuns, filed);
+            notes.AddRange(await starts.SettleAsync(provider, project, created, labels, mayStartRuns, filed));
         return new FilingReport(filed, error) { Notes = notes };
     }
 

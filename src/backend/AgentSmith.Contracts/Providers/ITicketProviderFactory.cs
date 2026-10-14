@@ -33,4 +33,11 @@ public interface ITicketProviderFactory
     /// need a secret rather than a question.
     /// </summary>
     ITicketLinkedWork CreateLinkedWork(TrackerConnection config);
+
+    /// <summary>
+    /// 2026-10-14-dbcem: shows on the tracker that one ticket requires another. A factory that builds none answers
+    /// with a link that refuses and names it, as the provider's own defaults answer rather than throw.
+    /// </summary>
+    ITicketRequiresLink CreateRequiresLink(TrackerConnection config) =>
+        new RefusingRequiresLink($"{GetType().Name} builds no tracker link");
 }

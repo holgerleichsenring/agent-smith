@@ -8,7 +8,7 @@ namespace AgentSmith.Infrastructure.Services.Factories;
 
 /// <summary>
 /// 2026-09-28-1da5c: the capability ports built BESIDE a ticket provider — the rewrite, the search,
-/// and what a tracker links to a ticket.
+/// what a tracker links to a ticket, and (2026-10-14-dbcem) the link showing one ticket requires another.
 /// <para>
 /// Extracted from <see cref="TicketProviderFactory"/> when a fourth capability would not fit: each
 /// is a documented four-armed switch of a dozen lines, the factory sat five under the per-file
@@ -79,6 +79,24 @@ internal sealed class TicketCapabilities(
         TrackerType.GitLab => new GitLabLinkedWork(
             connections.GitLab(config), httpClientFactory.CreateClient(),
             loggerFactory.CreateLogger<GitLabLinkedWork>()),
+        _ => throw new ConfigurationException($"Unknown ticket provider type: {config.Type}"),
+    };
+
+    /// <summary>
+    /// 2026-10-14-dbcem: the link that shows one ticket requires another — a Dependency on Azure DevOps, Blocks on Jira,
+    /// relates_to on GitLab, GitHub's own blocked-by with a comment where GitHub refuses it.
+    /// </summary>
+    public ITicketRequiresLink RequiresLink(TrackerConnection config) => config.Type switch
+    {
+        TrackerType.AzureDevOps => new AzureDevOpsRequiresLink(
+            connections.AzureDevOps(config), loggerFactory.CreateLogger<AzureDevOpsRequiresLink>()),
+        TrackerType.GitHub => new GitHubRequiresLink(
+            connections.GitHubClient(config), connections.GitHub(config),
+            loggerFactory.CreateLogger<GitHubRequiresLink>()),
+        TrackerType.Jira => new JiraRequiresLink(
+            connections.Jira(config), httpClientFactory.CreateClient(), loggerFactory.CreateLogger<JiraRequiresLink>()),
+        TrackerType.GitLab => new GitLabRequiresLink(
+            connections.GitLab(config), httpClientFactory.CreateClient(), loggerFactory.CreateLogger<GitLabRequiresLink>()),
         _ => throw new ConfigurationException($"Unknown ticket provider type: {config.Type}"),
     };
 }
