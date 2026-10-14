@@ -58,6 +58,7 @@ public sealed class SpecExecutionPromptFactory : ISpecExecutionPromptFactory
             **Sandbox keys:** {string.Join(", ", sandboxKeys)}
             {SpecExecutionPromptBlocks.StagedRegistries(pipeline)}
             {SpecExecutionPromptBlocks.OutstandingCriteria(pipeline)}
+            {SpecExecutionPromptBlocks.DeclaredGate(pipeline)}
             {SpecExecutionPromptBlocks.StructureFindings(pipeline)}
 
             ## Spec contract

@@ -29,6 +29,7 @@ public sealed class MasterToolComposition(
     IChildAnswerStore childAnswerStore,
     DesignReadToolHostFactory designRead, // 2026-10-01-7f7ab
     RenderReferenceToolFactory renderReference, // 2026-10-01-283de
+    GateStageToolHost gateStage,
     ILogger<MasterToolComposition> logger)
 {
     // p0280: the master surface = its base surface (read-only Review for a scan master,
@@ -87,6 +88,7 @@ public sealed class MasterToolComposition(
             master = master
                 .Concat(ensureRepoSandboxFactory.Create(context.Pipeline, fs, logger).GetTools(null, null))
                 .Concat(progress.GetTools(null, null))
+                .Concat(gateStage.Tools(context.Pipeline))
                 .ToList();
 
         // A design turn gates on ITS OWN count, so it fans out with the run-wide number at 0.

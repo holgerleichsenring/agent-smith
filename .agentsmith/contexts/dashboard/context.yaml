@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../context.schema.json
+meta:
+  project: agent-smith
+  type: [ui]
+  purpose: "The operator dashboard: runs, tickets, configuration and live events over the server's API and hub."
+  workdir: src/dashboard
+
+stack:
+  runtime: Node 20
+  lang: TypeScript
+  # The catalog's node image: it carries glibc, which the sandbox agent binary needs, and
+  # node 20 is the major the dashboard workflow runs.
+  image: node:20-bookworm
+  testing: [vitest]
+
+# corepack enable alone resolves pnpm from the nearest package.json, and every stage runs at
+# the repository root, which has none; the global install pins the root's pnpm to the version
+# src/dashboard/package.json names. Prerequisites run without a shell, so the chain has its own.
+prerequisites: sh -c "corepack enable && COREPACK_ENABLE_DOWNLOAD_PROMPT=0 corepack install --global pnpm@10.15.0"
+
+# The human spec gate's four dashboard steps, in its order. when_changed is the dashboard
+# workflow's own path filter (.github/workflows/dashboard.yml) minus the workflow file.
+verify:
+  - label: install
+    command: pnpm --dir src/dashboard install --frozen-lockfile
+    when_changed:
+      ["src/dashboard/**", "tools/build-tokens.mjs", "tools/build-hub-event-types.mjs", "src/backend/AgentSmith.Contracts/Events/**", "DESIGN.md"]
+  - label: mirror
+    command: pnpm --dir src/dashboard run gen:hub-events
+    when_changed:
+      ["src/dashboard/**", "tools/build-tokens.mjs", "tools/build-hub-event-types.mjs", "src/backend/AgentSmith.Contracts/Events/**", "DESIGN.md"]
+  - label: test
+    command: pnpm --dir src/dashboard run test
+    when_changed:
+      ["src/dashboard/**", "tools/build-tokens.mjs", "tools/build-hub-event-types.mjs", "src/backend/AgentSmith.Contracts/Events/**", "DESIGN.md"]
+  - label: build
+    command: pnpm --dir src/dashboard run build
+    when_changed:
+      ["src/dashboard/**", "tools/build-tokens.mjs", "tools/build-hub-event-types.mjs", "src/backend/AgentSmith.Contracts/Events/**", "DESIGN.md"]

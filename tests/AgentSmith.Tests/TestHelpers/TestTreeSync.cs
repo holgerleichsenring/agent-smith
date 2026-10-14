@@ -23,6 +23,17 @@ internal static class TestTreeSync
 
     public static StageRelevance Relevance() => new(new SandboxTargets(), NullLogger<StageRelevance>.Instance);
 
+    /// <summary>run_gate_stage over the real sync, resolver and runner.</summary>
+    public static AgentSmith.Application.Services.Tools.GateStageToolHost GateStage(
+        SandboxTargets? targets = null, ISecretPatternScanner? scanner = null)
+    {
+        var resolved = targets ?? new SandboxTargets();
+        return new(Create(resolved, scanner), resolved, new ContextVerifyStagesResolver(),
+            new VerifyStageResolver(new DeclaredStagePresence(new SandboxFileReaderFactory(),
+                NullLogger<DeclaredStagePresence>.Instance), NullLogger<VerifyStageResolver>.Instance),
+            new VerifyCommandRunner(NullLogger<VerifyCommandRunner>.Instance));
+    }
+
     public static SandboxTreeSync Create(SandboxTargets? targets = null, ISecretPatternScanner? scanner = null)
     {
         var resolved = targets ?? new SandboxTargets();

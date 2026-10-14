@@ -8,6 +8,7 @@ using StackExchange.Redis;
 namespace AgentSmith.Sandbox.Agent.Tests.Services;
 
 [Collection(nameof(RedisJobBusCollection))]
+[Trait("Category", "NeedsDocker")]
 public class RedisJobBusTests(RedisJobBusFixture fixture)
 {
     [Fact]

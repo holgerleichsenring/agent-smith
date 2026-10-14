@@ -102,7 +102,7 @@ public sealed class PipelineSandboxCoordinator(
                 .Select(d => (Discovery: d, Spec: sandboxSpecBuilder.Build(
                     projectConfig, d.Language, _pipelineName, d.ToolchainImage, d.Resources)))
                 .ToList();
-            var groups = specced.GroupBy(x => x.Spec.ToolchainImage, StringComparer.Ordinal).ToList();
+            var groups = ToolchainGroupOrder.RootFirst(specced.GroupBy(x => x.Spec.ToolchainImage, StringComparer.Ordinal), x => x.Discovery.Workdir).ToList();
             foreach (var group in groups)
             {
                 var members = group.ToList();

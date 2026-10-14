@@ -143,7 +143,7 @@ public sealed class VerifySpecHandler(
             // "nobody accounted for anything" over a build that failed loudly one step
             // earlier — true, useless, and pointing away from the cause.
             RunAccountLedger.RecordProblem(context.Pipeline, sandboxes.Keys, mechanical.Message);
-            return await RecordAsync(context, mechanical, cancellationToken);
+            return await RecordAsync(context, StageRepair.Offer(context.Pipeline, ran, notes.Findings, mechanical) ?? mechanical, cancellationToken);
         }
 
         var ranCommands = Specs.SpecEvidence.From(outcomes, context.Pipeline);

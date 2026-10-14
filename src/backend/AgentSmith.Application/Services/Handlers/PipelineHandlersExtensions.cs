@@ -178,7 +178,7 @@ public static class PipelineHandlersExtensions
         // park and the specs/done/ record. 2026-10-06-03c7d: no spec is read from a ticket's text.
         services.AddTransient<ISpecExecutionPromptFactory, SpecExecutionPromptFactory>();
         services.AddTransient<ICommandHandler<SpecGateContext>, SpecGateHandler>();
-        services.AddTransient<VerifyCommandRunner>(); // p0419
+        services.AddTransient<VerifyCommandRunner>().AddTransient<Tools.GateStageToolHost>(); // p0419
         // p0504: the image ordering and which commands verify a repo — each its own type.
         // 2026-08-25-014d: the registry boundary reads configuration (per decision, 6bfab), so it is a service.
         services.AddSingleton<Sandbox.ISandboxSettingsReader, Sandbox.LoaderSandboxSettingsReader>()
