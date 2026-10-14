@@ -13,13 +13,12 @@ namespace AgentSmith.Server.Services.SpecDialog;
 /// </summary>
 public sealed class SpecDialogRouter(
     SpecCommandParser parser,
-    SpecDialogSessionManager sessions,
     SpecDialogCommandHandler commandHandler,
     ISpecDialogTurnRunner turnRunner,
     SpecDialogOutcomeFlow outcomeFlow,
     SpecDialogTurnGate turnGate,
     SpecDialogAnswerAdmission admission,
-    SpecDialogSubjectMinter subjects,
+    SpecDialogTurnKeeper keeper,
     SpecDialogEditReload edits,
     SpecDialogReplyComposer composer,
     SpecDialogMessenger messenger,
@@ -73,6 +72,8 @@ public sealed class SpecDialogRouter(
         {
             turnGate.Exit(state.JobId);
         }
+        // Outside the gate: a message typed while the digest is written starts its own turn.
+        await keeper.FoldAsync(state, ct);
         return true;
     }
 
@@ -96,13 +97,7 @@ public sealed class SpecDialogRouter(
                 return;
             }
 
-            await sessions.AppendTurnAsync(platform, threadId, TranscriptRole.Assistant, result.Reply, result.Kind, null, ct);
-            // 2026-09-20-4b0af: between the two, and nowhere else. The trigger — a conversation
-            // with no subject and no assistant turn yet — is only true once its first assistant
-            // turn is persisted, and the reply below is what makes the page re-read the
-            // conversation, so a subject stored after it would be a read too late for a
-            // conversation that asks one question and never comes back.
-            await subjects.MintAsync(current, result.Kind, result.Reply, ct);
+            await keeper.KeepAsync(current, result, platform, threadId, ct);
             await messenger.SendAsync(platform, channelId, threadId, result.Shown, ct);
             // p0315e: a non-answer outcome is proposed + confirmed in-thread,
             // then handed to the outcome sink (p0315c: ticket filing). Runs

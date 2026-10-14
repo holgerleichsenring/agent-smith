@@ -67,7 +67,7 @@ public sealed class SpecDialogSubjectMinter(
 
     private async Task MintFromAsync(ConversationState state, string reply, CancellationToken ct)
     {
-        var agent = Agent(state.Project);
+        var agent = AgentOf(configLoader, serverContext, state.Project);
         var response = await chatClients.Create(agent, TaskType.Summarization).GetResponseAsync(
             [
                 new ChatMessage(ChatRole.System, SpecDialogSubjectInstruction.Text),
@@ -93,9 +93,9 @@ public sealed class SpecDialogSubjectMinter(
 
     /// <summary>
     /// The project's OWN agent configuration, so the mint runs on the provider, model registry
-    /// and pricing this conversation's turns run on, rather than on a bare fabricated one.
+    /// and pricing this conversation's turns run on, rather than on a bare fabricated one. The digest writer shares it.
     /// </summary>
-    private AgentConfig Agent(string projectName) =>
+    internal static AgentConfig AgentOf(IConfigurationLoader configLoader, ServerContext serverContext, string projectName) =>
         configLoader.LoadConfig(serverContext.ConfigPath).Projects
             .TryGetValue(projectName, out var project)
             ? project.Agent

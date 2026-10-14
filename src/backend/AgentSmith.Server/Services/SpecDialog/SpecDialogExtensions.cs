@@ -65,7 +65,7 @@ internal static class SpecDialogExtensions
         // the same act that persists the first assistant turn. Scoped for the session
         // repository's unit of work, which is where it stores what it minted. The edit re-entry
         // shares that unit of work for the same reason.
-        services.AddScoped<SpecDialogSubjectMinter>();
+        services.AddScoped<SpecDialogSubjectMinter>().AddSpecDialogDigest(); // dbceo: keeper and digest writer
         services.AddScoped<SpecDialogEditReload>();
         services.AddScoped<SpecDialogRouter>();
         // 2026-09-15-9033: the dashboard channel — the ownership guard rides the session

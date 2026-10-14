@@ -240,13 +240,13 @@ public sealed class FiledWorkPermissionTests : IDisposable
             new SpecDialogLatestOutcomeStore(repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(repository), NullLogger<SpecDialogLatestOutcomeStore>.Instance),
             AgentSmith.Tests.TestSupport.RatifiedMockStamps.Over(repository), NullLogger<SpecDialogOutcomeFlow>.Instance);
         return new SpecDialogRouter(
-            new SpecCommandParser(), _sessions,
+            new SpecCommandParser(),
             new SpecDialogCommandHandler(
                 _sessions, new SpecDialogScopeResolver(Loader()),
                 new SpecDialogReplyComposer(), messenger),
             turnRunner.Object, flow, turnGate,
             new SpecDialogAnswerAdmission(_sessions, pending, transport.Object),
-            SilentSubjectMinter.Over(repository, "proj"),
+            SilentTurnKeeper.Over(repository, _sessions, "proj"),
             new SpecDialogEditReload(_sessions, NullLogger<SpecDialogEditReload>.Instance),
             new SpecDialogReplyComposer(), messenger, NullLogger<SpecDialogRouter>.Instance);
     }
