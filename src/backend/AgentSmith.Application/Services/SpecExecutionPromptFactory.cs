@@ -62,7 +62,8 @@ public sealed class SpecExecutionPromptFactory : ISpecExecutionPromptFactory
             {SpecExecutionPromptBlocks.OutstandingCriteria(pipeline)}
             {SpecExecutionPromptBlocks.DeclaredGate(pipeline)}
             {SpecExecutionPromptBlocks.StructureFindings(pipeline)}
-            {Specs.SpecBuildNoteSection.Render(Specs.PrecedingSpecs.NotesOf(pipeline, draft.SpecId))}
+            {SpecExecutionPromptBlocks.StaleCitations(pipeline)}
+            {Specs.SpecBuildNoteSection.Render(Specs.PrecedingSpecs.NotesOf(pipeline, draft.SpecId), set: pipeline.TryGet<Contracts.Specs.SpecSet>(ContextKeys.SpecSet, out var set) ? set : null)}
             {Handlers.MasterPromptSections.BuildMemoryIndexSection(pipeline)}
 
             ## Spec contract

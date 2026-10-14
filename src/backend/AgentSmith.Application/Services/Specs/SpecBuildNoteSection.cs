@@ -14,11 +14,15 @@ public static class SpecBuildNoteSection
     public const string Heading = "## Build notes of the specs that already ran";
     public const string NoNote = "no note";
 
-    public static string Render(IReadOnlyList<PrecedingNote> notes, int maxChars = MaxChars)
+    public const string Undeclared = "undeclared deviation from the series contract";
+
+    /// <param name="set">2026-10-13-8762n: given, each note's deviations from the set's series contract that the
+    /// note does not declare are marked.</param>
+    public static string Render(IReadOnlyList<PrecedingNote> notes, int maxChars = MaxChars, SpecSet? set = null)
     {
         ArgumentNullException.ThrowIfNull(notes);
         if (notes.Count == 0) return string.Empty;
-        var blocks = notes.Select(Block).ToList();
+        var blocks = notes.Select(n => Block(n, set)).ToList();
         var dropped = 0;
         string text;
         do text = Compose(notes, blocks, dropped);
@@ -36,7 +40,7 @@ public static class SpecBuildNoteSection
         return sb.ToString();
     }
 
-    private static string Block(PrecedingNote preceding)
+    private static string Block(PrecedingNote preceding, SpecSet? set)
     {
         var sb = new StringBuilder($"### {preceding.SpecId}\n");
         if (preceding.Note is not { } note) return sb.Append(NoNote).Append('\n').ToString();
@@ -44,6 +48,9 @@ public static class SpecBuildNoteSection
         Lines(sb, "moved", note.Moved);
         Lines(sb, "persisted", note.Persisted);
         Lines(sb, "deviation", note.Deviations);
+        if (set is not null)
+            Lines(sb, Undeclared, [.. BuildNoteContractCheck.Deviations(note, preceding.SpecId, set)
+                .Where(d => !d.Declared).Select(d => $"\"{d.Entry}\" {d.Reason}")]);
         if (note.Renamed.Count + note.Moved.Count + note.Persisted.Count + note.Deviations.Count == 0)
             sb.Append("nothing renamed, moved, persisted or deviated from\n");
         return sb.ToString();

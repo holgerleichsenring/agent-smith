@@ -50,9 +50,20 @@ public sealed class HandForwardToolHost(PipelineContext pipeline, string specId)
         var notes = pipeline.TryGet<IReadOnlyDictionary<string, SpecBuildNote>>(ContextKeys.SpecBuildNotes, out var held)
             && held is not null ? new Dictionary<string, SpecBuildNote>(held, StringComparer.Ordinal)
             : new Dictionary<string, SpecBuildNote>(StringComparer.Ordinal);
-        notes[specId] = new SpecBuildNote(specId, lists[0].Entries, lists[1].Entries, lists[2].Entries, lists[3].Entries);
+        var note = notes[specId] = new SpecBuildNote(specId, lists[0].Entries, lists[1].Entries, lists[2].Entries, lists[3].Entries);
         pipeline.Set<IReadOnlyDictionary<string, SpecBuildNote>>(ContextKeys.SpecBuildNotes, notes);
-        return $"Build note for {specId} recorded ({lists.Sum(l => l.Entries.Count)} entries); a later call replaces it.";
+        return $"Build note for {specId} recorded ({lists.Sum(l => l.Entries.Count)} entries); a later call replaces it."
+            + Conflicts(note);
+    }
+
+    // 2026-10-13-8762n: what the note does against the series contract — shown, never refused.
+    private string Conflicts(SpecBuildNote note)
+    {
+        if (!pipeline.TryGet<SpecSet>(ContextKeys.SpecSet, out var set) || set is null) return string.Empty;
+        var deviations = Specs.BuildNoteContractCheck.Deviations(note, specId, set);
+        return deviations.Count == 0 ? string.Empty
+            : " It conflicts with the series contract: " + string.Join("; ", deviations.Select(d =>
+                $"\"{d.Entry}\" {d.Reason}{(d.Declared ? " (declared in your deviations)" : " (not declared in your deviations)")}")) + ".";
     }
 
     private static IReadOnlyList<string> Clean(string[]? entries) =>

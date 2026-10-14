@@ -36,6 +36,9 @@ public static class SpecReviewRegistrations
             // 2026-10-13-8762k: the set-scope round — reviewer, admission, the run's round and the turn's.
             .AddTransient<SeriesContractAdmission>().AddTransient<ISeriesContractReviewer, SeriesContractReviewer>()
             .AddTransient<SeriesContractRound>().AddTransient<ProposalSeriesRound>()
+            // 2026-10-13-8762n: the entered spec's citation re-ground — history, regrounder, entry.
+            .AddTransient<SpecCitationHistory>().AddTransient<SpecCitationRegrounder>()
+            .AddTransient<ISpecEntryGrounding, SpecEntryGrounding>()
             .AddTransient<ICommandHandler<ReviewSpecsContext>, Handlers.ReviewSpecsHandler>();
     }
 }

@@ -105,4 +105,20 @@ public sealed class SpecReviewRegistrationsTests
         scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.Specs.SpecDerivationParser>().Should().NotBeNull();
         scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.SpecDialog.FiledSeriesFactory>().Should().NotBeNull();
     }
+
+    [Fact]
+    public void SpecReviewRegistrations_ResolveTheRegroundServices()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
+        ServerCompositionBuilder.ConfigureServices(services, "agentsmith.yml");
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        scope.ServiceProvider.GetRequiredService<SpecCitationHistory>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<SpecCitationRegrounder>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<ISpecEntryGrounding>().Should().BeOfType<SpecEntryGrounding>();
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Contracts.Commands.ICommandHandler<
+            AgentSmith.Application.Models.SelectSpecContext>>().Should().NotBeNull("SelectSpec takes the entry grounding");
+    }
 }

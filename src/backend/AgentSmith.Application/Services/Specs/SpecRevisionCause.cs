@@ -59,6 +59,7 @@ public static class SpecRevisionCause
     /// revision is.</summary>
     public const string Approval = "approved in design conversation";
     public const string SeriesContractReview = "series contract review"; // 2026-10-13-8762k: the set-scope round's cuts
+    public const string CitationsRegrounded = "citations re-grounded in"; // 2026-10-13-8762n: "{this} {specId}: {old} -> {new}; …"
 
     /// <summary>
     /// A previous revision whose last commit is NOT the sha this system recorded was

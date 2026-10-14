@@ -23,6 +23,7 @@ public sealed class SelectSpecHandler(
     SpecEntryAccount entryAccount,
     SpecStartHeads startHeads,
     ISpecProgressRecorder progress,
+    Specs.Review.ISpecEntryGrounding entryGrounding,
     ILogger<SelectSpecHandler> logger)
     : ICommandHandler<SelectSpecContext>
 {
@@ -43,6 +44,7 @@ public sealed class SelectSpecHandler(
         var spec = set.Specs.FirstOrDefault(p => p.SpecId == context.SpecId);
         if (spec is null)
             return CommandResult.Fail($"Spec {context.SpecId} is not in spec set {set.Key}.");
+        (spec, var stepNote) = await entryGrounding.GroundAsync(context.Pipeline, set, spec, cancellationToken);
 
         // p0394a: the spec IS the plan — publishing the draft is all the handover the
         // master needs; its plan section and ledger seed both read this key.
@@ -64,7 +66,8 @@ public sealed class SelectSpecHandler(
         var accounts = await entryAccount.TakeAsync(context.Pipeline, cancellationToken);
         return Satisfied(accounts)
             ? await AlreadyDoneAsync(context.Pipeline, spec, accounts, cancellationToken)
-            : CommandResult.Ok($"Spec {spec.SpecId}: {spec.Draft.Goal}");
+            : CommandResult.Ok($"Spec {spec.SpecId}: {spec.Draft.Goal}"
+                + stepNote);
     }
 
     /// <summary>

@@ -53,7 +53,7 @@ public sealed class SpecSequenceTests
         pipeline.Set(ContextKeys.SpecSet, TwoSpecSet());
 
         var result = await new SelectSpecHandler(
-                NoEntryAccount(), StartHeads(), new SpecProgressRecorder(new NoOpEventPublisher()),
+                NoEntryAccount(), StartHeads(), new SpecProgressRecorder(new NoOpEventPublisher()), new AgentSmith.Tests.TestHelpers.PassThroughEntryGrounding(),
                 NullLogger<SelectSpecHandler>.Instance)
             .ExecuteAsync(new SelectSpecContext("p0001b", pipeline), default);
 
@@ -78,7 +78,7 @@ public sealed class SpecSequenceTests
             .Record("api", "grep -rn 'Sample' src", "exit_code: 0\n");
 
         await new SelectSpecHandler(
-                NoEntryAccount(), StartHeads(), new SpecProgressRecorder(new NoOpEventPublisher()),
+                NoEntryAccount(), StartHeads(), new SpecProgressRecorder(new NoOpEventPublisher()), new AgentSmith.Tests.TestHelpers.PassThroughEntryGrounding(),
                 NullLogger<SelectSpecHandler>.Instance)
             .ExecuteAsync(new SelectSpecContext("p0001b", pipeline), default);
 

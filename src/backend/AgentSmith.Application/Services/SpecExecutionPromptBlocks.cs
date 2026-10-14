@@ -66,6 +66,14 @@ public static class SpecExecutionPromptBlocks
               + string.Join("\n", declared.Select(d => $"- {d.Repository} {d.Context}/{d.Label}"))
               + $"\nRun each of these with {GateStageToolHost.Name} before your verdict; verification runs exactly these.";
 
+    /// <summary>2026-10-13-8762n: the entered spec's citations whose lines changed and whose text was found
+    /// nowhere — no reviewer runs after entry, so the master is where they are told.</summary>
+    public static string StaleCitations(PipelineContext pipeline) =>
+        !pipeline.TryGet<IReadOnlyList<string>>(ContextKeys.StaleCitations, out var stale) || stale is not { Count: > 0 }
+            ? string.Empty
+            : "\n**Stale citations — these citations' lines changed since they were written and their text was found "
+              + "nowhere: verify the claim before relying on it.**\n" + string.Join("\n", stale.Select(s => "- " + s));
+
     /// <summary>
     /// 2026-10-01-f5c3a: the draft's done list, already in its line form — the yaml is not
     /// re-read here, where a scenario entry would print as a dictionary's type name.
