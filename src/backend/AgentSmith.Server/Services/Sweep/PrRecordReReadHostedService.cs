@@ -17,6 +17,7 @@ namespace AgentSmith.Server.Services.Sweep;
 /// (polling mode's PR sweep re-reads those) and unread records of every configured project, unchecked
 /// for fifteen minutes, and for merged tickets with no landing — a lost delivery or a failed landing
 /// write. A named record is re-read, so its check time advances and it goes to the back of the list.
+/// 2026-10-14-dbceh: then it recovers a lost wake of the tickets the day's landings freed.
 /// Collaborators resolve at run time, as <see cref="ChangeSweepHostedService"/>'s do.
 /// </summary>
 public sealed class PrRecordReReadHostedService(
@@ -75,6 +76,7 @@ public sealed class PrRecordReReadHostedService(
         var perTicket = selected.DistinctBy(r => (r.Project, r.TicketId)).ToList();
         foreach (var record in perTicket)
             await nudges.EnqueueAsync(new ReworkNudgeRequest(record.Project, record.TicketId, ReworkNudgeOrigin.Refresh, record.Url), ct);
+        await services.GetRequiredService<Rework.DependentsWake>().RecoverAsync([.. projects.Select(p => p.Name)], ct); // 2026-10-14-dbceh
         return perTicket.Count;
     }
 }

@@ -47,6 +47,24 @@ public sealed class LandedTicketRepository(IServiceScopeFactory scopeFactory) : 
         return [.. rows.Select(Fact)];
     }
 
+    // SQLite cannot compare a DateTimeOffset: newest landing first (Id is insert order), stopping at the window.
+    public async Task<IReadOnlyList<TicketRequirementEdge>> DependentsOfLandingsSinceAsync(
+        DateTimeOffset since, IReadOnlyCollection<string> projects, int take, CancellationToken cancellationToken)
+    {
+        using var scope = scopeFactory.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
+        var found = new List<TicketRequirement>();
+        await foreach (var row in db.Set<TicketRequirement>().AsNoTracking().Where(r => r.StartsWhenMet && projects.Contains(r.Project)
+                && !db.Set<LandedTicket>().Any(own => own.Tracker == r.Tracker && own.TicketKey == r.TicketKey))
+            .Join(db.Set<LandedTicket>(), r => new { r.Tracker, Key = r.RequiredTicketKey }, l => new { l.Tracker, Key = l.TicketKey },
+                (r, l) => new { Edge = r, l.Id, l.CreatedAt }).OrderByDescending(x => x.Id).AsAsyncEnumerable().WithCancellation(cancellationToken))
+        {
+            if (row.CreatedAt < since || found.Count >= take) break;
+            if (!found.Exists(f => f.Tracker == row.Edge.Tracker && f.TicketKey == row.Edge.TicketKey)) found.Add(row.Edge);
+        }
+        return [.. found.Select(TicketRequirementRepository.Edge)];
+    }
+
     private static LandedTicket Row(TicketLandingFact f) => new()
     {
         Tracker = f.Tracker, TicketKey = f.TicketKey, TicketId = f.TicketId, Project = f.Project, Kind = f.Kind,

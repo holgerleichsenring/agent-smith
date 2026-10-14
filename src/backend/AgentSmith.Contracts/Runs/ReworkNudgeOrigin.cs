@@ -17,4 +17,8 @@ public enum ReworkNudgeOrigin
 
     /// <summary>2026-10-13-9a59m: an approval in the ticket's own conversation — a person's act, never late.</summary>
     Operator = 5,
+
+    /// <summary>2026-10-14-dbceh: the last ticket it requires landed. Served only for a ticket without an
+    /// attempt, which it starts; it ranks above every origin so a merge keeps the start.</summary>
+    RequirementsMet = 6,
 }

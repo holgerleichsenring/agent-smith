@@ -109,7 +109,7 @@ public sealed class BoundaryStopGateTests
         var claimLock = new Mock<IRedisClaimLock>();
         return (new TicketClaimService(claimLock.Object, new InMemoryUnmovedTicketStore(), attempts.Object,
             Mock.Of<ITicketStatusTransitionerFactory>(), Mock.Of<IRedisJobQueue>(), Mock.Of<IActiveRunLease>(),
-            new InMemoryTakenTicketStore(), NullLogger<TicketClaimService>.Instance), claimLock);
+            new InMemoryTakenTicketStore(), NullLogger<TicketClaimService>.Instance, AgentSmith.Tests.TestSupport.TicketRequirementDoubles.None()), claimLock);
     }
 
     private static ClaimRequest Request() => new("GitHub", "my-project", new TicketId("42"), "code");

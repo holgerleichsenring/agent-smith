@@ -91,7 +91,7 @@ public sealed class TicketRequirementRepository(IServiceScopeFactory scopeFactor
         StartsWhenMet = e.StartsWhenMet, FiledInConversation = e.FiledInConversation,
     };
 
-    private static TicketRequirementEdge Edge(TicketRequirement r) => new(
+    internal static TicketRequirementEdge Edge(TicketRequirement r) => new(
         r.Tracker, r.TicketKey, r.TicketId, r.Project, r.RequiredTicketKey, r.RequiredTicketId,
         r.StartsWhenMet, r.CreatedAt, r.FiledInConversation);
 }

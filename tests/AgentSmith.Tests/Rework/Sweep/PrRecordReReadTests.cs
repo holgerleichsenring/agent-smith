@@ -32,7 +32,7 @@ public sealed class PrRecordReReadTests : IDisposable
         var nudges = new Mock<IReworkNudges>();
         nudges.Setup(n => n.EnqueueAsync(It.IsAny<ReworkNudgeRequest>(), It.IsAny<CancellationToken>()))
             .Callback((ReworkNudgeRequest r, CancellationToken _) => _nudged.Add(r)).Returns(Task.CompletedTask);
-        _h = new PrReviewRefreshHarness(services => services.AddSingleton(nudges.Object));
+        _h = new PrReviewRefreshHarness(services => services.AddSingleton(nudges.Object).AddSingleton(_ => _h!.Wake()));
         Configure(Project("web", "hooks"), Project("web2", "hooks"), Project("poll", "poller", polling: true));
     }
 

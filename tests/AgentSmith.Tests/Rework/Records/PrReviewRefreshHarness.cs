@@ -1,3 +1,5 @@
+using AgentSmith.Application.Services.Claim;
+using AgentSmith.Application.Services.Persistence;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -5,6 +7,7 @@ using AgentSmith.Contracts.Reviews;
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Specs;
 using AgentSmith.Contracts.Webhooks;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
@@ -61,8 +64,26 @@ internal sealed class PrReviewRefreshHarness : IDisposable
         NullLogger<PrReviewRecordRefresh>.Instance);
 
     // 2026-10-14-dbceg: the landing recorder over the harness store.
-    public TicketLandingRecorder Recorder() => new(Store.ScopeFactory, new LandedTicketRepository(Store.ScopeFactory),
+    public TicketLandingRecorder Recorder() => new(Store.ScopeFactory, new LandedTicketRepository(Store.ScopeFactory), Wake(),
         Events.Object, Activity.Object, Clock, NullLogger<TicketLandingRecorder>.Instance);
+
+    // 2026-10-14-dbceh: the wake over the harness store and its nudges; attempts, leases and approvals are the harness's.
+    public Mock<IPreviousAttemptReader> Attempts { get; } = new();
+    public Mock<IActiveRunLease> Leases { get; } = new();
+    public InMemorySpecApprovalStore Approvals { get; } = new();
+
+    public DependentsWake Wake() =>
+        WakeOver(Store, Store.Services.GetRequiredService<IReworkNudges>(), Attempts.Object, Leases.Object, Approvals, Clock);
+
+    public static DependentsWake WakeOver(ServerStateStore store, IReworkNudges nudges, IPreviousAttemptReader? attempts = null,
+        IActiveRunLease? leases = null, ISpecApprovalStore? approvals = null, TimeProvider? clock = null)
+    {
+        var requirements = new TicketRequirementRepository(store.ScopeFactory);
+        var landings = new LandedTicketRepository(store.ScopeFactory);
+        return new(requirements, landings, new UnmetTicketRequirements(requirements, landings, approvals ?? new InMemorySpecApprovalStore()),
+            attempts ?? Mock.Of<IPreviousAttemptReader>(), leases ?? Mock.Of<IActiveRunLease>(), nudges, clock ?? TimeProvider.System,
+            NullLogger<DependentsWake>.Instance);
+    }
 
     public List<LandedTicket> Landings() => [.. Store.Context().Set<LandedTicket>().AsNoTracking().OrderBy(l => l.Id)];
 

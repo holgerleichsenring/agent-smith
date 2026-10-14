@@ -24,12 +24,8 @@ namespace AgentSmith.Application.Services.Spawning;
 /// Run row and returns Queued without claiming. The reservation is freed on terminal status
 /// (RunEventApplier) or if the claim fails.
 ///
-/// 2026-09-22-766b: the funnel no longer asks whether a ticket's predecessors have left the
-/// working set. Nothing the framework files has carried a predecessor stamp since
-/// 2026-09-17-0e79d — the order inside an approved cut is the sequence's, spec by spec, a
-/// successor held until its predecessor VERIFIED — and the gate could only ever HOLD a spawn,
-/// never refuse one. What that costs is stated rather than hidden: two legacy children of the
-/// withdrawn N-children shape may now run CONCURRENTLY and cut from the same parent rung.
+/// 2026-10-14-dbceh: the predecessor hold 2026-09-22-766b removed is redone on a stored edge — a ticket a
+/// required ticket has not landed for is REFUSED before the footprint, the queue peek and the reservation.
 ///
 /// 2026-09-21-77d6: the decision is three ways, not two — start, REFUSE, defer. A ticket the
 /// claim would refuse outright is refused instead of queued; queuing it mints a waiting run the
@@ -47,11 +43,12 @@ public sealed class SpawnPipelineRunsUseCase(
     IRunListNudge runListNudge, // 2026-09-20-9f00: a deferred row announces itself
     IUnmovedTicketStore unmovedTickets, // 2026-09-21-77d6: what the claim would refuse
     IActiveRunLease leases, // 2026-10-08-e8b9e: a live run is answered, not queued behind
-    ILogger<SpawnPipelineRunsUseCase> logger, IPreviousAttemptReader previousAttempts) : ISpawnPipelineRunsUseCase
+    ILogger<SpawnPipelineRunsUseCase> logger, IPreviousAttemptReader previousAttempts,
+    Claim.UnmetTicketRequirements requirements) : ISpawnPipelineRunsUseCase
 {
     private readonly SpawnLeaseDeferral _deferral = new(
         new CapacityDeferral(capacityQueue, capacityBudget, approvedSets, runListNudge, logger),
-        unmovedTickets, leases, TimeProvider.System, logger, previousAttempts);
+        unmovedTickets, leases, TimeProvider.System, logger, previousAttempts, requirements);
 
     public async Task<SpawnResult> ExecuteAsync(
         AgentSmithConfig config,
@@ -63,6 +60,13 @@ public sealed class SpawnPipelineRunsUseCase(
         Dictionary<string, string>? planAnswers = null)
     {
         ValidateForSpawn(project, envelope);
+        var probe = SpawnRequestBuilder.BuildRequest(project, pipelineName, envelope, matchedTrigger, planAnswers, existingRunId: null);
+        if (await new Claim.RequiresUnmetGate(requirements).RefusalAsync(probe, config, ct) is { } held)
+        {
+            logger.LogInformation("Spawn refused before any reservation for project={Project} ticket={Ticket}: {Rejection}",
+                project.Name, envelope.TicketId, held.Rejection);
+            return new SpawnResult([held]);
+        }
         var footprint = await footprintCalculator.CalculateAsync(
             project, pipelineName,
             ContextReadBranches.ForBranch(TicketBranchNamer.Compose(new TicketId(envelope.TicketId!))), ct);

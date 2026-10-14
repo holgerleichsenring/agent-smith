@@ -87,6 +87,7 @@ integrations:
 
 state:
   done:
+    2026-10-14-dbceh: "TICKET REQUIRES GATE (claim + funnel + rework worker). A ticket whose required ticket has not landed, or whose filing did not finish, is refused at every door before any reservation; the landing wakes it, the five-minute re-read recovers a lost wake, and it is tagged or moved and claimed. -> .agentsmith/specs/done/2026-10-14-dbceh-ticket-requires-gate.yaml"
     2026-10-14-dbceg: "TICKET LANDING FACT (backend + system events). A merged ticket gets one permanent LandedTickets row (unique insert, survives run deletion), announced by a TicketLanded system event; a leader re-read every five minutes recovers lost merges and missed landings. -> .agentsmith/specs/done/2026-10-14-dbceg-ticket-landing-fact.yaml"
     2026-10-14-dbcef: "TICKET REQUIRES STORE (persistence). A TicketRequirements table (one insert-only, race-safe row per edge, keyed by tracker connection and ticket key) behind the singleton ITicketRequirementStore; every newly approved series records its filing project in ApprovedSeries.Project. One migration per provider. -> .agentsmith/specs/done/2026-10-14-dbcef-ticket-requires-store.yaml"
     2026-10-14-dbcee: "AZURE DEVOPS WAIT FOR AUTHOR COUNTS WHOEVER CAST IT (rework). A -5 by the pull request's creator, the token's identity, now starts the rework via webhook and poll sweep and shows as changes requested; agent-smith only votes +10, whose auto-complete vote is still no approval. -> .agentsmith/specs/done/2026-10-14-dbcee-azdo-creator-wait-vote.yaml"
@@ -1232,7 +1233,6 @@ state:
     2026-10-14-30c6: "AN UNTAGGED AZURE DEVOPS HTML FIELD READS AS MARKDOWN (Azure DevOps field + comment mappers, shared tag rule). HtmlMarkup in Domain is the one rule TicketHtmlConverter and the format marking use. -> .agentsmith/specs/done/2026-10-14-30c6-ticket-html-field-markdown.yaml"
   active: {}
   planned:
-    2026-10-14-dbceh: "TICKET REQUIRES GATE (series 2026-10-14-dbce). No path starts a ticket while a ticket it requires has not landed, and the landing of its last requirement starts the held ticket by itself, durably, when its approver could start runs. -> .agentsmith/specs/planned/2026-10-14-dbceh-ticket-requires-gate.yaml"
     2026-10-14-dbcei: "TICKET LANDING BY HAND (series 2026-10-14-dbce). A person with runs.control can mark a ticket done by hand with a note; it then counts as landed for every ticket that requires it, wakes them, and lists as done. -> .agentsmith/specs/planned/2026-10-14-dbcei-ticket-landing-by-hand.yaml"
     2026-10-14-dbcej: "TICKET GRAPH OUTCOME (series 2026-10-14-dbce). A design turn can propose 2 to 20 ticket texts joined by requires; an invalid or cut-off list is re-prompted with the reason named. -> .agentsmith/specs/planned/2026-10-14-dbcej-ticket-graph-outcome.yaml"
     2026-10-14-dbcek: "TICKET GRAPH PROPOSAL REVIEW (series 2026-10-14-dbce). A proposed list of tickets is reviewed as a plan, its cuts applied to the ticket texts, and shown in merge order with what each ticket waits for, in chat and on the dashboard. -> .agentsmith/specs/planned/2026-10-14-dbcek-ticket-graph-proposal-review.yaml"

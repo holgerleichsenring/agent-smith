@@ -18,7 +18,7 @@ namespace AgentSmith.Server.Services.Rework;
 /// </summary>
 public sealed class TicketLandingRecorder(
     IServiceScopeFactory scopes,
-    ITicketLandingStore landings,
+    ITicketLandingStore landings, DependentsWake wake, // 2026-10-14-dbceh: the won insert wakes, before any Redis call
     ISystemEventPublisher events,
     ITicketActivityNudge activity,
     TimeProvider clock,
@@ -47,6 +47,7 @@ public sealed class TicketLandingRecorder(
         if (!await landings.TryRecordAsync(landing, ct)) return false;
         logger.LogInformation("Ticket {Project}/{Ticket} landed ({Kind}) at {LandedAt}",
             landing.Project, landing.TicketId, landing.Kind, landing.LandedAt);
+        await wake.WakeAsync(landing, ct);
         try
         {
             await events.PublishAsync(new TicketLandedEvent(Source, landing.Project, landing.TicketKey, landing.TicketId,

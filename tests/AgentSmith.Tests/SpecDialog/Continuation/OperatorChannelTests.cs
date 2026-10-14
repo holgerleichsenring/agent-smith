@@ -94,6 +94,49 @@ public sealed class OperatorChannelTests : IDisposable
         (await CauseOfNextAttemptAsync("r-1")).Channel.Should().Be(AttemptChannels.Operator, "the start's move never reads as pickup");
     }
 
+    // 2026-10-14-dbceh: a held ticket's approval says what it waits for; the wake starts it once that landed.
+    [Fact]
+    public async Task OperatorStart_HeldNeverWorkedTicket_SaysWhatItWaitsForAndMovesNothing()
+    {
+        _h.Routing = Routing("agentsmith-alpha");
+        _h.Config.Projects["alpha"] = _h.Routing.Projects["alpha"];
+        _h.Facts.Edges.Add(Requires("41"));
+        var proposal = Lone(Draft("p-1", "the widget stops dropping"));
+        await _h.BindAsync(proposal);
+
+        await _h.AcceptAsync(proposal, mayStartRuns: true);
+
+        (await TranscriptAsync()).Should().Contain("This ticket waits for #41 to be merged first")
+            .And.NotContain("first attempt starts");
+        _h.Tracker.Labels.Should().BeEmpty("nothing tags or moves a held ticket");
+        _h.Tracker.Moves.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task OperatorStart_ApprovalInAnIncompleteFilingsConversation_StartsOnceItsRequirementsLanded()
+    {
+        _h.Routing = Routing("agentsmith-alpha");
+        _h.Config.Projects["alpha"] = _h.Routing.Projects["alpha"];
+        _h.Facts.Edges.Add(Requires("41"));
+        var gate = new AgentSmith.Application.Services.Claim.RequiresUnmetGate(TicketRequirementDoubles.Of(_h.Facts, _h.Approvals));
+        var claim = new ClaimRequest("GitHub", "alpha", new TicketId("42"), "code");
+        (await gate.RefusalAsync(claim, _h.Config, default))!.Error.Should().Be(
+            AgentSmith.Application.Services.Claim.RequiresUnmetGate.IncompleteFiling, "edges without a record are an unfinished filing");
+        var proposal = Lone(Draft("p-1", "the widget stops dropping"));
+        await _h.BindAsync(proposal);
+
+        await _h.AcceptAsync(proposal, mayStartRuns: true);
+        _h.Facts.Landed.Add(new TicketLandingFact("gh", "github-41", "41", "alpha", TicketLandingKinds.Merged,
+            DateTimeOffset.UnixEpoch, null, null, null));
+
+        (await gate.RefusalAsync(claim, _h.Config, default)).Should().BeNull("the approval completed the filing and 41 landed");
+        _h.Tracker.Labels.Should().BeEmpty("the approval itself started nothing; the wake does");
+    }
+
+    private static TicketRequirementEdge Requires(string required) =>
+        new("gh", ContinuationHarness.Key, ContinuationHarness.TicketId, "alpha", $"github-{required}", required, true, default,
+            ContinuationHarness.SessionId);
+
     [Fact]
     public async Task BoundApproval_LiveRun_ServedByRunEndNudge()
     {

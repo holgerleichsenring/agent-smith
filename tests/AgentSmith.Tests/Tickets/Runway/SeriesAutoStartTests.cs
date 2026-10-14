@@ -231,7 +231,7 @@ public sealed class SeriesAutoStartTests : IDisposable
             CapacityTestDoubles.EmptyQueue(), CapacityTestDoubles.NoCorpses(), CapacityTestDoubles.NoHolds(),
             CapacityTestDoubles.AlwaysAdmit(), ApprovedSetDoubles.Carrier(), CapacityTestDoubles.NoNudge(),
             CapacityTestDoubles.NoStandingRefusal(), Mock.Of<IActiveRunLease>(), NullLogger<SpawnPipelineRunsUseCase>.Instance,
-            new AgentSmith.Application.Services.Resume.NullPreviousAttemptReader());
+            new AgentSmith.Application.Services.Resume.NullPreviousAttemptReader(), AgentSmith.Tests.TestSupport.TicketRequirementDoubles.None());
         return new ChatTicketRunLauncher(loader.Object, new ServerContext("c.yml"), funnel, NullLogger<ChatTicketRunLauncher>.Instance);
     }
 }

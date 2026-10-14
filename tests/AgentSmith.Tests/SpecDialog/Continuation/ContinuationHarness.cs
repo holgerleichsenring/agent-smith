@@ -85,11 +85,13 @@ internal sealed class ContinuationHarness : IDisposable
         services.AddSingleton<IPreviousAttemptReader, DbPreviousAttemptReader>().AddSingleton<IReworkNudges, DbReworkNudges>()
             .AddSingleton<IDecidedDefaults, DecidedDefaults>(); // 2026-10-13-8762p
         services.AddSingleton(new TokenAuthorityConfig());
+        services.AddSingleton(TicketRequirementDoubles.Of(Facts, Approvals)); // 2026-10-14-dbceh
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
     }
 
     public FakeTicketTracker Tracker { get; } = new();
     public InMemorySpecApprovalStore Approvals { get; } = new();
+    public InMemoryTicketFacts Facts { get; } = new(); // 2026-10-14-dbceh: the requirements a ticket waits for
     public InMemorySpecSetPointerStore Pointers { get; } = new();
     public RecordingBranchSources Sources { get; } = new();
     public Mock<ITicketActivityNudge> Activity { get; } = new();

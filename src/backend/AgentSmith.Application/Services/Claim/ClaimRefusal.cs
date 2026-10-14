@@ -6,8 +6,8 @@ namespace AgentSmith.Application.Services.Claim;
 
 /// <summary>
 /// 2026-09-21-77d6: the one seam that answers "would the claim refuse this request, and with
-/// what result?" — the config pre-check first, then the standing-unmoved gate, in the order the
-/// claim service has always asked them. The order is load-bearing: the gate reads
+/// what result?" — the config pre-check first, then the standing-unmoved gate, the boundary stop and
+/// (2026-10-14-dbceh) the requires gate third, in that order. The order is load-bearing: the gate reads
 /// config.Projects by name, so an unknown project has to be refused before it is reached.
 /// Both refusals are cheap and write nothing — a pure function of the request and the
 /// configuration, and one store read.
@@ -19,7 +19,8 @@ namespace AgentSmith.Application.Services.Claim;
 /// would drift; this is one call, and the claim path keeps its own reading of it.
 /// </para>
 /// </summary>
-internal sealed class ClaimRefusal(IUnmovedTicketStore unmovedTickets, IPreviousAttemptReader attempts)
+internal sealed class ClaimRefusal(
+    IUnmovedTicketStore unmovedTickets, IPreviousAttemptReader attempts, UnmetTicketRequirements requirements)
 {
     /// <summary>The refusal this request would be given, or null when nothing refuses it.</summary>
     public async Task<ClaimResult?> ForAsync(
@@ -31,6 +32,7 @@ internal sealed class ClaimRefusal(IUnmovedTicketStore unmovedTickets, IPrevious
         // 2026-09-18-c1a7: the ticket the last run could not move — one store read, before the
         // lock and before any tracker write.
         return await new UnmovedTicketGate(unmovedTickets).RefusalAsync(request, config, cancellationToken)
-            ?? await new BoundaryStopGate(attempts).RefusalAsync(request, cancellationToken); // 2026-10-13-8762g
+            ?? await new BoundaryStopGate(attempts).RefusalAsync(request, cancellationToken) // 2026-10-13-8762g
+            ?? await new RequiresUnmetGate(requirements).RefusalAsync(request, config, cancellationToken);
     }
 }
