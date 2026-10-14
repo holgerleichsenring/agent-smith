@@ -29,6 +29,9 @@ export enum SystemEventType {
   // 2026-10-13-9a59a — a ticket page refresh signal; routed to the overview group
   // as the hub message "TicketActivityChanged", never shown on the System page.
   TicketActivityChanged = 56,
+
+  // 2026-10-14-dbceg — a ticket landed: written once, announced by the winning replica.
+  TicketLanded = 57,
 }
 
 export interface SystemEventBase {
@@ -158,6 +161,17 @@ export interface TicketActivityChangedEvent extends SystemEventBase {
   ticketKey: string;
 }
 
+// 2026-10-14-dbceg ticket landing.
+
+export interface TicketLandedEvent extends SystemEventBase {
+  type: SystemEventType.TicketLanded;
+  project: string;
+  ticketKey: string;
+  ticketId: string;
+  kind: string;
+  by: string | null;
+}
+
 export type SystemEvent =
   | PollCycleStartedEvent
   | PollCycleFinishedEvent
@@ -171,4 +185,5 @@ export type SystemEvent =
   | ConceptVocabularyLoadedEvent
   | ConfigChangedEvent
   | ConfigReloadedEvent
-  | TicketActivityChangedEvent;
+  | TicketActivityChangedEvent
+  | TicketLandedEvent;

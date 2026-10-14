@@ -30,6 +30,7 @@ export const SUBSYSTEMS: SubsystemDef[] = [
       SystemEventType.TicketScanned,
       SystemEventType.TicketSkipped,
       SystemEventType.TicketTriggered,
+      SystemEventType.TicketLanded,
     ],
   },
   { id: "webhooks", label: "Webhooks", kinds: [SystemEventType.WebhookReceived] },
@@ -146,5 +147,7 @@ export function describeSystemEvent(e: SystemEvent): string {
     case SystemEventType.TicketActivityChanged:
       // 2026-10-13-9a59a: a refresh signal the server keeps off the System page.
       return "";
+    case SystemEventType.TicketLanded:
+      return `landed · ${e.project}/${/^\d+$/.test(e.ticketId) ? "#" + e.ticketId : e.ticketId} · ${e.kind}${e.by ? " by " + e.by : ""}`;
   }
 }

@@ -17,14 +17,16 @@ namespace AgentSmith.Server.Services.Rework;
 /// nudge worker under the ticket's lock, the only writer. Every pull request the ticket's runs named
 /// is read; a record no run names any more is deleted; a merged or closed one is read again only
 /// when the nudge names it or it ended within a day. A provider without a review reader records
-/// unsupported; a host failure records unread for a pull request never read and is logged. A
-/// refresh that changed anything tells the ticket's pages.
+/// unsupported; a host failure records unread for a pull request never read, advances an existing
+/// one's check time only, and is logged. Every refresh then records the ticket's landing when its
+/// pull requests ended with one merged; a refresh that changed anything tells the ticket's pages.
 /// </summary>
 public sealed class PrReviewRecordRefresh(
     IServiceScopeFactory scopes,
     ISourceProviderFactory sources,
     IPrReviewAuthorTrust trust,
     PrReviewEntryBuilder builder,
+    TicketLandingRecorder landing,
     ITicketActivityNudge activity,
     TimeProvider clock,
     ILogger<PrReviewRecordRefresh> logger)
@@ -44,6 +46,7 @@ public sealed class PrReviewRecordRefresh(
         var once = new PrReviewAuthorTrustOnce(trust);
         foreach (var pr in named.Where(n => IsDue(n, records.GetValueOrDefault(PrKey.Of(n.Url)), nudgedUrl)))
             changed |= await OneAsync(project, pr, writer, once, ct);
+        await landing.RecordMergedAsync(project, ticketId, ct);
         if (changed) await activity.ChangedAsync(project.Name, KeyOf(project, ticketId), ct);
     }
 
@@ -73,7 +76,7 @@ public sealed class PrReviewRecordRefresh(
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
             logger.LogWarning(ex, "Pull request {Url} of {Project}/#{Ticket} could not be read", pr.Url, pr.Project, pr.TicketId);
-            return await writer.MarkUnreadAsync(Record(pr, repo, PrReviewStates.Unread, null, null), ct);
+            return await writer.MarkUnreadAsync(Record(pr, repo, PrReviewStates.Unread, null, null), start, ct);
         }
     }
 

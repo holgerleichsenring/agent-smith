@@ -70,4 +70,11 @@ public sealed class EventTypeResolverCoverageTests
         EventTypeResolver.Resolve((EventType)9999).Should().BeNull();
         EventTypeResolver.ResolveSystem((SystemEventType)9999).Should().BeNull();
     }
+
+    [Fact]
+    public void EventTypeResolver_TicketLanded_ResolvesTicketLandedEvent()
+    {
+        EventTypeResolver.ResolveSystem(SystemEventType.TicketLanded).Should().Be(typeof(TicketLandedEvent));
+        ((int)SystemEventType.TicketLanded).Should().Be(57);
+    }
 }

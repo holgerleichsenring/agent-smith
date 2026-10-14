@@ -28,10 +28,14 @@ public sealed class PrReviewRecordWriter(IUnitOfWork unitOfWork, IUniqueViolatio
         return await unitOfWork.SaveChangesAsync(ct) > 0;
     }
 
-    /// <summary>A host failure on a pull request never read: the record says unread. An existing one is left as it is.</summary>
-    public async Task<bool> MarkUnreadAsync(PrReviewRecord record, CancellationToken ct) =>
-        !await unitOfWork.Set<PrReviewRecord>().AnyAsync(r => r.PrKey == record.PrKey, ct)
-        && await InsertAsync(record, [], ct);
+    /// <summary>A host failure: a new record is inserted unread; an existing one only advances its check time, no change shown.</summary>
+    public async Task<bool> MarkUnreadAsync(PrReviewRecord record, long readStartTicks, CancellationToken ct)
+    {
+        if (!await unitOfWork.Set<PrReviewRecord>().AnyAsync(r => r.PrKey == record.PrKey, ct)) return await InsertAsync(record, [], ct);
+        await unitOfWork.Set<PrReviewRecord>().Where(r => r.PrKey == record.PrKey && r.CheckedAtTicks < readStartTicks)
+            .ExecuteUpdateAsync(s => s.SetProperty(r => r.CheckedAtTicks, record.CheckedAtTicks), ct);
+        return false;
+    }
 
     /// <summary>Records no run of the ticket names any more, with their entries.</summary>
     public async Task DeleteAsync(IReadOnlyCollection<string> prKeys, CancellationToken ct)

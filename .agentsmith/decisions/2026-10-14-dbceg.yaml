@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-14-dbceg
+
+decisions:
+  - category: Architecture
+    chose: "A LandedTickets table, insert-only and never deleted, UNIQUE(Tracker, TicketKey), applied from TicketRecordConfigurations with no DbSet (contract §5 default 8, pending operator ratification)"
+    over: "Deriving the landing from the PrReviewRecords at read time only"
+    reason: |
+      The records die with their newest run (RunDeletionRepository) and with a refresh no run names any more; a
+      requirement must hold after either. The unique insert is the transition: exactly one replica wins.
+  - category: Architecture
+    chose: "TicketLandingRecorder runs at the end of every refresh, before the refresh's own pages' nudge"
+    over: "Inside PrReviewRecordWriter, or only when the refresh changed a record"
+    reason: |
+      The writer sees one record at a time; the rule is over all of a ticket's records. Running before the Redis
+      nudge means a Redis failure cannot skip the database write. Cost per refresh: one indexed read and one
+      indexed existence check.
+  - category: Reliability
+    chose: "After a won insert the TicketLanded publish and the activity nudge each run in their own try/catch that logs a Warning"
+    over: "Letting a Redis failure propagate out of the recorder"
+    reason: |
+      The row is the fact; Redis only announces it. A lost announcement costs a page refresh. The slot between
+      the insert and the publishes is where 2026-10-14-dbceh's wake goes.
+  - category: Architecture
+    chose: "TicketLanding.OfStates(states) is the one rule; Of(views) delegates to it"
+    over: "A second copy of the merged/ended rule in the recorder"
+    reason: "The recorder and the ticket list cannot disagree on what merged means (contract decision 6)."
+  - category: Reliability
+    chose: "MarkUnreadAsync advances an existing record's CheckedAtTicks by the same compare-and-set, state and entries unchanged, answering false"
+    over: "Leaving an existing record untouched on a host failure (the old behaviour; its test is renamed and inverted)"
+    reason: |
+      The re-read takes the oldest-checked records first; a record whose read keeps failing would otherwise hold
+      its place for ever and starve every record behind it.
+  - category: Architecture
+    chose: "PrRecordReReadHostedService under lease agentsmith:leader:pr-record-reread, every 5 minutes, open/unread records unchecked for 15 minutes capped at 50, unlanded merged records capped at 50 over all connections, one Refresh nudge per (project, ticket) (contract §5 default 9, pending operator ratification)"
+    over: "Folding the re-read into polling mode's change sweep, which idles without a polling tracker"
+    reason: |
+      Webhook mode had no periodic read of an open record. Open records of polling trackers are left to the PR
+      sweep (it re-reads them from one list per repository); unread records and the unlanded-merged recovery are
+      read for every configured project, since the sweep reaches neither. Records of an unconfigured project are
+      filtered in the query, since the worker would finish their nudge before any refresh.
+  - category: Architecture
+    chose: "The recovery read is asked per tracker connection and anti-joins LandedTickets on (Tracker, TicketId)"
+    over: "Anti-joining on Project"
+    reason: |
+      The landing is keyed by tracker connection; keyed on project, the second project of one connection would
+      find no row for ever and be re-read every cycle.
+  - category: Architecture
+    chose: "The re-read service takes IServiceProvider and resolves the scoped record repository and IReworkNudges at run time"
+    over: "Constructor-injecting PrReviewRecordRepository and IReworkNudges"
+    reason: |
+      AddLongRunningServices is built without AddServerState or AddReworkNudgeWorker under ValidateOnBuild by
+      ServerDiLifetimeTests and NonDiCtorRuleTests; ChangeSweepHostedService resolves at run time for the same reason.
+  - category: Architecture
+    chose: "The two re-read queries return record views without entries (OldestAsync), ordered by CheckedAtTicks then Id"
+    over: "Reusing ReadAsync, which loads every entry and orders by Id"
+    reason: "The re-read needs project, ticket and URL only; the oldest-first order is what rotates the cap."
+  - category: Architecture
+    chose: "DEVIATION: TicketLandingFact is minted here (Contracts/Tickets/TicketLandingFact.cs), as the spec itself records"
+    over: "Nine positional arguments on TryRecordAsync"
+    reason: "Contract §2.5 names the store's members but no type for a landing; dbceh, dbcei and dbcen read and write landings as TicketLandingFact."
+  - category: Testing
+    chose: "PrReviewRefreshHarness gained an optional configure hook, an Events mock, Recorder() and Landings(); its project's tracker connection is named gh-tracker"
+    over: "A second harness for the re-read tests"
+    reason: "The recovery test drives the re-read and then the real refresh over one store, end to end."

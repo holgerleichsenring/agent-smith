@@ -12,10 +12,14 @@ public static class TicketLanding
     public const string Merged = "merged";
     public const string Unmerged = "unmerged";
 
-    public static string? Of(IReadOnlyList<TicketPullRequestView> pullRequests)
+    public static string? Of(IReadOnlyList<TicketPullRequestView> pullRequests) =>
+        OfStates([.. (pullRequests ?? throw new ArgumentNullException(nameof(pullRequests))).Select(p => p.State)]);
+
+    /// <summary>2026-10-14-dbceg: the rule over the records' states alone, shared with the landing recorder.</summary>
+    public static string? OfStates(IReadOnlyList<string> states)
     {
-        ArgumentNullException.ThrowIfNull(pullRequests);
-        if (pullRequests.Count == 0 || !pullRequests.All(p => PrReviewStates.IsEnded(p.State))) return null;
-        return pullRequests.Any(p => p.State == PrReviewStates.Merged) ? Merged : Unmerged;
+        ArgumentNullException.ThrowIfNull(states);
+        if (states.Count == 0 || !states.All(PrReviewStates.IsEnded)) return null;
+        return states.Any(s => s == PrReviewStates.Merged) ? Merged : Unmerged;
     }
 }

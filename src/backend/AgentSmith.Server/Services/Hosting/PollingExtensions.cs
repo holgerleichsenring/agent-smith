@@ -40,6 +40,10 @@ internal static class PollingExtensions
         services.AddSingleton<ISubsystemHealth>(sp =>
             sp.GetRequiredService<AgentSmith.Server.Services.Sweep.ChangeSweepHostedService>().Health);
 
+        services.AddSingleton<AgentSmith.Server.Services.Sweep.PrRecordReReadHostedService>(); // 2026-10-14-dbceg
+        services.AddHostedService(sp => sp.GetRequiredService<AgentSmith.Server.Services.Sweep.PrRecordReReadHostedService>());
+        services.AddSingleton<ISubsystemHealth>(sp => sp.GetRequiredService<AgentSmith.Server.Services.Sweep.PrRecordReReadHostedService>().Health);
+
         // p0281a: keep the connection repo snapshot warm (warm-on-start + interval).
         services.AddHostedService<RepoDiscoveryRefreshHostedService>();
 

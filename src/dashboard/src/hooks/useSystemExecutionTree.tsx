@@ -29,6 +29,7 @@ const REGISTRY: Array<Pick<SystemBucket, "id" | "label" | "kinds">> = [
       SystemEventType.TicketScanned,
       SystemEventType.TicketSkipped,
       SystemEventType.TicketTriggered,
+      SystemEventType.TicketLanded,
     ],
   },
   {
@@ -184,6 +185,8 @@ function describeSystemEvent(e: SystemEvent): string {
     case SystemEventType.TicketActivityChanged:
       // 2026-10-13-9a59a: a refresh signal the server keeps off the System page.
       return "";
+    case SystemEventType.TicketLanded:
+      return `landed · ${e.project}/${/^\d+$/.test(e.ticketId) ? "#" + e.ticketId : e.ticketId} · ${e.kind}${e.by ? " by " + e.by : ""}`;
   }
 }
 

@@ -114,7 +114,7 @@ public sealed class PrReviewRecordRefreshTests : IDisposable
     }
 
     [Fact]
-    public async Task PrReviewRecordRefresh_HostFailure_WritesUnreadOnce_KeepsAnExistingRecord()
+    public async Task PrReviewRecordRefresh_HostFailure_WritesUnreadOnce_KeepsTheStateAndAdvancesItsCheckTime()
     {
         await _h.RunAsync("run-1", Pr1);
         _h.Provider.As<IPrReviewStateReader>().Setup(s => s.ReadAsync(Pr1, It.IsAny<CancellationToken>()))
@@ -126,7 +126,33 @@ public sealed class PrReviewRecordRefreshTests : IDisposable
         _h.Clock.Now += TimeSpan.FromMinutes(1);
         await _h.RefreshAsync();
 
-        _h.Records().Single().CheckedAtTicks.Should().Be(checkedAt, "a failure keeps an existing record as it was");
+        _h.Records().Should().ContainSingle().Which.Should().Match<PrReviewRecord>(r =>
+            r.State == PrReviewStates.Unread && r.CheckedAtTicks == checkedAt + TimeSpan.FromMinutes(1).Ticks,
+            "a failure keeps the record's state and moves it to the back of the re-read");
+    }
+
+    [Fact]
+    public async Task PrReviewRecordWriter_FailedReadOfAnExistingRecord_AdvancesOnlyItsCheckTime()
+    {
+        var writer = new PrReviewRecordWriter(_h.Store.Context(), new SqliteUniqueViolationTranslator());
+        PrReviewRecord Read(string state, long checkedAt) => new()
+        {
+            PrKey = PrKey.Of(Pr1), Url = Pr1, Project = "p", TicketId = "7", RunId = "run-1", State = state,
+            StateAtTicks = state == PrReviewStates.Merged ? 7 : null, CheckedAtTicks = checkedAt,
+        };
+        var entry = new PrReviewEntry { PrKey = PrKey.Of(Pr1), HostId = "C1", Kind = PrReviewEntryKinds.Comment, Body = "fix", AtTicks = 3 };
+        await writer.WriteAsync(Read(PrReviewStates.Merged, 10), [entry], readStartTicks: 5, CancellationToken.None);
+
+        (await new PrReviewRecordWriter(_h.Store.Context(), new SqliteUniqueViolationTranslator())
+            .MarkUnreadAsync(Read(PrReviewStates.Unread, 50), readStartTicks: 40, CancellationToken.None))
+            .Should().BeFalse("nothing a reader shows changed");
+        (await new PrReviewRecordWriter(_h.Store.Context(), new SqliteUniqueViolationTranslator())
+            .MarkUnreadAsync(Read(PrReviewStates.Unread, 45), readStartTicks: 30, CancellationToken.None))
+            .Should().BeFalse();
+
+        _h.Records().Single().Should().Match<PrReviewRecord>(r =>
+            r.State == PrReviewStates.Merged && r.StateAtTicks == 7 && r.CheckedAtTicks == 50, "an older read never moves it back");
+        _h.Entries().Should().ContainSingle().Which.Body.Should().Be("fix");
     }
 
     [Fact]
