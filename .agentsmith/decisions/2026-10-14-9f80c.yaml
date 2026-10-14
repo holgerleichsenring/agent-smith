@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-14-9f80c
+
+decisions:
+  - category: Architecture
+    chose: "Own endpoint GET /api/tickets/{project}/{ticketId}/text and its own page-store tick (start, this ticket's TicketActivityChanged, reconnect)"
+    over: "Fields on the ticket detail"
+    reason: |
+      The detail is refetched on every RunsChanged of a live attempt; a tracker read there would multiply tracker
+      load by the run's event rate. The text read sits behind a per-replica 60 s cache like the comment thread.
+  - category: Architecture
+    chose: "Live first (TicketTrackerTextReader: cache, then TicketLabelNoteStripper), snapshot second (newest ticket-text row among code attempts), unavailable third"
+    over: "Snapshot only"
+    reason: |
+      The ticket-text rows exist only for runs since 9a59g, so every ticket that ran before would show nothing.
+      Stripping before the cache keeps the page and the between-attempts observer — which now strips the live
+      ticket before fingerprinting — reading the ticket the fetch door reads.
+  - category: Architecture
+    chose: "Jira's description stays JiraAdfParser.ExtractText, marked text; Azure DevOps html, GitHub and GitLab markdown"
+    over: "Writing the Jira description through JiraAdfMarkdown"
+    reason: |
+      Ticket.Description feeds TicketTextFingerprint, which every in-flight series compares against; a format
+      change would read every Jira ticket as edited and re-cut it. Golden fingerprints per tracker pin it.
+  - category: Implementation
+    chose: "TicketReadFailureReason classifies by type and status: TicketNotFoundException, a 404 from HttpRequestException, Octokit.ApiException or VssServiceResponseException, and a VssServiceException carrying TF401232 are not-found; 401/403 from the same and VssUnauthorizedException are unauthorized; anything else unreachable"
+    over: "Matching Octokit NotFoundException and AuthorizationException by type only"
+    reason: |
+      Octokit's 403 is a ForbiddenException, not an AuthorizationException; reading ApiException.StatusCode
+      covers the spec's 401-or-403 rule for all three. TF401232 is the code Azure DevOps answers a missing or
+      unreadable work item with; the message itself is logged, never served.
+  - category: Implementation
+    chose: "A snapshot carries state and webUrl null as well as type, labels and assignee"
+    over: "Filling state from somewhere"
+    reason: |
+      The ticket-text row keeps only description and criteria (the title is on the run row); no stored field
+      holds the state the attempt saw, and a guessed one would claim a tracker state nobody read.
+  - category: Implementation
+    chose: "The newest snapshot row is picked in memory after a filtered query"
+    over: "ORDER BY At in SQL"
+    reason: |
+      SQLite cannot order by a DateTimeOffset column; the rows are one per attempt fetch, so the filtered set is small.
+  - category: Implementation
+    chose: "AzureDevOpsTicketProvider_GetTicket_KeepsHtmlFormat drives the provider's own rewrite (Map then With(webUrl, isClosed)); the Jira provider path is driven end to end over a fake HTTP handler"
+    over: "Driving AzureDevOpsTicketProvider.GetTicketAsync"
+    reason: |
+      The Azure DevOps provider builds its VssConnection internally from a static cache, with no seam for a fake
+      work-item client; the claim under test is that Ticket.With carries the format, which the rewrite proves.
+  - category: Implementation
+    chose: "The description collapses to twelve lines by max-height, and 'Show all' appears when the rendered body overflows"
+    over: "Counting source lines"
+    reason: |
+      Html and markdown source lines say nothing about rendered height; measuring the box is the only true answer.
+  - category: Implementation
+    chose: "ConversationRunEntries.Criteria became internal and is shared by the snapshot reader"
+    over: "A second parse of the ticket-text detail JSON"
+    reason: "One reading of the row's criteria shape; a second copy would drift from the edit diff that uses it."

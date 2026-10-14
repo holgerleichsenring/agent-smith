@@ -78,6 +78,7 @@ integrations:
 
 state:
   done:
+    2026-10-14-9f80c: "THE TICKET PAGE SHOWS THE TICKET (ticket text read, field mappers, dashboard Summary). GET .../text serves description and tracker criteria in their format, live through a 60 s cache with the label note stripped, else the newest attempt's copy, else a classified reason; the observer strips before fingerprinting. -> .agentsmith/specs/done/2026-10-14-9f80c-ticket-text-panel.yaml"
     2026-10-14-9f80a: "TICKET CONVERSATION BODIES RENDER BY FORMAT (comment mappers, conversation read, dashboard TrackerText). Comments carry html/markdown/text from their tracker (Azure DevOps by its Format, Jira ADF written as markdown); entries carry it per source and render sanitized, never as tag or markdown source. -> .agentsmith/specs/done/2026-10-14-9f80a-conversation-body-format.yaml"
     2026-10-13-9a59t: "CLOSED TICKET FOLLOW-UP (rework worker: park check, entry, handler, ledger; docs). A keyword comment or PR act on a ticket a person closed files one linked follow-up carrying its text instead of reopening it; once per tracker ticket, a waiting attempt is superseded, a followed-up act never reworks. -> .agentsmith/specs/done/2026-10-13-9a59t-keyword-followup.yaml"
     2026-10-13-9a59s: "TICKET ATTEMPTS AND COST (dashboard ticket page: Attempts, Cost & compute tabs; run and compute reads in the page store). Per attempt what started it, what it did and why it stopped; cost per spec and pass on the run-cap scale; pods with end reasons, call time and time waiting on you. -> .agentsmith/specs/done/2026-10-13-9a59s-dashboard-ticket-attempts-cost.yaml"
@@ -1185,7 +1186,6 @@ state:
   active: {}
   planned:
     2026-10-14-9f80b: "UNCUT TICKETS SHOW THEIR SPECS (ticket series read, dashboard). Specs and acceptance from RunSpec rows, spec records and run acceptance when no cut exists. -> .agentsmith/specs/planned/2026-10-14-9f80b-series-run-record-read.yaml"
-    2026-10-14-9f80c: "THE TICKET PAGE SHOWS THE TICKET (ticket text read, dashboard Summary). Description and tracker criteria, live through a 60 s cache, snapshot fallback. -> .agentsmith/specs/planned/2026-10-14-9f80c-ticket-text-panel.yaml"
     2026-10-14-9f80d: "ONE STATE DOT, DONE MEANS MERGED (ticket bucket rule, list + header). Shared dot function, Landing field, PR fate in the header subline. -> .agentsmith/specs/planned/2026-10-14-9f80d-ticket-state-dot.yaml"
     2026-10-04-6807: "A TICKET CAN ASK AN INIT TO REFRESH PRINCIPLES (ticket routing, config). A configured refresh label on the init ticket sets the same flag as the chip. -> .agentsmith/specs/planned/2026-10-04-6807-init-refresh-ticket-label.yaml"
     2026-10-03-0fca: "OVERLAYS REACH SUBPROJECTS AND NOTEBOOKS (overlay detection, discovery). sbt and Gradle multi-project declarations scoped per subproject; notebook-only repositories become components. -> .agentsmith/specs/planned/2026-10-03-0fca-overlay-detection-gaps.yaml"

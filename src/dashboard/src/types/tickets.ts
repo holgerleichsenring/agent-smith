@@ -324,6 +324,32 @@ export type TicketConversationSource = string;
 /** How a tracker or conversation text was written, as its source names it. */
 export type TicketTextFormat = "html" | "markdown" | "text";
 
+/** Where the ticket text came from: its tracker now, an attempt's copy, or neither. */
+export type TicketTextSource = "tracker" | "snapshot" | "unavailable";
+
+/** Why the tracker could not be read — a class, never the exception's text. */
+export type TicketTextReason = "not-found" | "unauthorized" | "unreachable" | "project-not-configured";
+
+/** GET /api/tickets/{project}/{ticketId}/text — the ticket itself. */
+export interface TicketText {
+  source: TicketTextSource;
+  title: string | null;
+  description: string | null;
+  descriptionFormat: TicketTextFormat;
+  acceptanceCriteria: string | null;
+  criteriaFormat: TicketTextFormat;
+  workItemType: string | null;
+  state: string | null;
+  labels: string[] | null;
+  assignee: string | null;
+  webUrl: string | null;
+  /** When the tracker was read, or when the attempt kept its copy. */
+  at: string | null;
+  runId?: string | null;
+  attempt?: number | null;
+  reason?: TicketTextReason | null;
+}
+
 export interface TicketConversationEntry {
   id: string;
   sourceId: string | null;

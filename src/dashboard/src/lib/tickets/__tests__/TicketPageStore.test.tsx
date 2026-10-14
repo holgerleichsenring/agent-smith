@@ -1,7 +1,7 @@
 import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeHub } from "@/components/tickets/__tests__/ticketFixtures";
-import { attempt, conversation, detail, passes, series } from "@/components/tickets/detail/__tests__/detailFixtures";
+import { attempt, conversation, detail, passes, series, ticketText } from "@/components/tickets/detail/__tests__/detailFixtures";
 import { EventType, type RunEvent } from "@/types/hub-events";
 import type { TicketDetail } from "@/types/tickets";
 
@@ -35,6 +35,7 @@ const api = {
   detail: vi.fn(() => Promise.resolve(current)),
   series: vi.fn((_p: string, _t: string, runId: string | null) => Promise.resolve(series(runId ?? "r-1", []))),
   conversation: vi.fn(() => Promise.resolve(conversation([]))),
+  text: vi.fn(() => Promise.resolve(ticketText())),
   passes: vi.fn((runId: string) => Promise.resolve(passes(runId, {}))),
   run: vi.fn(() => Promise.reject(new Error("unused"))),
   compute: vi.fn(() => Promise.reject(new Error("unused"))),
@@ -136,6 +137,27 @@ describe("TicketPageStore", () => {
     act(() => pushEvent({ runId: "r-2", type: EventType.SpecCutReviewed, timestamp: "t", attempt: 1, deliverable: "refused", findings: [] } as RunEvent));
     await settle(2000);
     expect(reads(api.conversation)).toBe(3);
+  });
+
+  it("RunsChangedBurst_IssuesNoTicketTextRead_ATicketActivityChangedIssuesOne_DisposeCancelsAPendingOne", async () => {
+    const { hub, view } = await mount();
+    expect(reads(api.text)).toBe(1);
+    current = detail([attempt({ runId: "r-1", status: "failed" }), attempt({ number: 2, runId: "r-2", status: "success" })]);
+    for (let i = 0; i < 5; i++) {
+      act(() => hub.runsChanged.emit("r-2"));
+      await settle(2000);
+    }
+    expect(reads(api.detail)).toBe(6);
+    expect(reads(api.text)).toBe(1);
+
+    for (let i = 0; i < 3; i++) act(() => hub.ticketActivityChanged.emit({ project: "shop", ticketKey: "GH-101" }));
+    await settle(2000);
+    expect(reads(api.text)).toBe(2);
+
+    act(() => hub.ticketActivityChanged.emit({ project: "shop", ticketKey: "GH-101" }));
+    view.unmount();
+    await settle(3000);
+    expect(reads(api.text)).toBe(2);
   });
 
   it("TicketActivityChanged_ForThisTicket_RereadsEverything_ForAnotherTicket_Nothing", async () => {

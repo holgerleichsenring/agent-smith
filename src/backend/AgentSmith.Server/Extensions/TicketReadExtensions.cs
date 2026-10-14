@@ -1,6 +1,7 @@
 using AgentSmith.Server.Services.Tickets;
 using AgentSmith.Server.Services.Tickets.Checks;
 using AgentSmith.Server.Services.Tickets.Conversation;
+using AgentSmith.Server.Services.Tickets.Text;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -50,6 +51,9 @@ internal static class TicketReadExtensions
             .AddSingleton<TicketThreadReader>()
             .AddTransient<TicketTranscriptReader>()
             .AddTransient<TicketConversationReader>()
+            .AddSingleton<TicketTrackerTextReader>()
+            .AddTransient<TicketTextSnapshotReader>()
+            .AddTransient<TicketTextReader>()
             .AddMemoryCache();
         return services;
     }

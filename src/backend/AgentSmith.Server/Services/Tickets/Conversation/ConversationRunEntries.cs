@@ -96,7 +96,7 @@ public static class ConversationRunEntries
             diff[field] = new { Before = before, After = after };
     }
 
-    private static string? Criteria(RunConversationEntry? row) =>
+    internal static string? Criteria(RunConversationEntry? row) =>
         Detail(row?.DetailJson) is { } detail && detail.TryGetProperty("acceptanceCriteria", out var criteria)
             && criteria.ValueKind == JsonValueKind.String ? criteria.GetString() : null;
 

@@ -7,9 +7,10 @@ import {
   fetchTicketConversation,
   fetchTicketDetail,
   fetchTicketSeries,
+  fetchTicketText,
 } from "@/lib/ticketsApi";
 import type { RunSnapshot } from "@/types/hub-events";
-import type { RunCompute, RunPasses, TicketConversation, TicketDetail, TicketSeries } from "@/types/tickets";
+import type { RunCompute, RunPasses, TicketConversation, TicketDetail, TicketSeries, TicketText } from "@/types/tickets";
 import { CoalescedRefetch } from "./CoalescedRefetch";
 
 // 2026-10-13-9a59q: every read of one ticket page, held once for the page's life. Detail, the default
@@ -19,6 +20,8 @@ import { CoalescedRefetch } from "./CoalescedRefetch";
 // scheduled through its own 2 s window, so a burst of nudges costs one fetch per read.
 // 2026-10-13-9a59s: the run detail (cap, LLM calls, reserved Gi-minutes) and the compute record are two
 // more per-run reads under the same rules.
+// The ticket text reads the tracker, so it has its own tick: the page's start and this ticket's
+// TicketActivityChanged (or a reconnect), never a RunsChanged.
 
 export const TICKET_READ_MS = 2000;
 
@@ -36,6 +39,7 @@ export interface TicketPageSnapshot {
   detail: Read<TicketDetail>;
   series: Read<TicketSeries>;
   conversation: Read<TicketConversation>;
+  text: Read<TicketText>;
   runSeries: Readonly<Record<string, Read<TicketSeries>>>;
   runPasses: Readonly<Record<string, Read<RunPasses>>>;
   runRun: Readonly<Record<string, Read<RunSnapshot>>>;
@@ -46,6 +50,7 @@ export interface TicketPageApi {
   detail(project: string, ticketId: string, signal?: AbortSignal): Promise<TicketDetail>;
   series(project: string, ticketId: string, runId: string | null, signal?: AbortSignal): Promise<TicketSeries>;
   conversation(project: string, ticketId: string, signal?: AbortSignal): Promise<TicketConversation>;
+  text(project: string, ticketId: string, signal?: AbortSignal): Promise<TicketText>;
   passes(runId: string, signal?: AbortSignal): Promise<RunPasses>;
   /** The run detail; a 404 rejects like any other read. */
   run(runId: string, signal?: AbortSignal): Promise<RunSnapshot>;
@@ -57,6 +62,7 @@ export const TICKET_PAGE_API: TicketPageApi = {
   detail: (project, ticketId, signal) => fetchTicketDetail(project, ticketId, signal),
   series: (project, ticketId, runId, signal) => fetchTicketSeries(project, ticketId, runId, signal),
   conversation: (project, ticketId, signal) => fetchTicketConversation(project, ticketId, signal),
+  text: (project, ticketId, signal) => fetchTicketText(project, ticketId, signal),
   passes: (runId, signal) => fetchRunPasses(runId, signal),
   run: async (runId, signal) => {
     const run = await fetchRun(runId, signal);
@@ -80,13 +86,14 @@ const PENDING: Read<never> = { data: null, failed: false, refusal: null, loading
 
 export class TicketPageReads {
   private snap: TicketPageSnapshot = {
-    detail: PENDING, series: PENDING, conversation: PENDING, runSeries: {}, runPasses: {}, runRun: {}, runCompute: {},
+    detail: PENDING, series: PENDING, conversation: PENDING, text: PENDING, runSeries: {}, runPasses: {}, runRun: {}, runCompute: {},
   };
   private readonly wanted = new Set<string>();
   private readonly inFlight = new Set<string>();
   private readonly again = new Set<string>();
   private readonly ticketTick = new CoalescedRefetch(() => this.readTicket());
   private readonly conversationTick = new CoalescedRefetch(() => this.readConversation());
+  private readonly textTick = new CoalescedRefetch(() => this.readText());
   private lastStatuses: string | null = null;
   private disposed = false;
   private generation = 0;
@@ -109,6 +116,7 @@ export class TicketPageReads {
     this.abort = new AbortController();
     this.readTicket();
     this.readConversation();
+    this.readText();
     for (const key of this.wanted) {
       const [kind, runId] = splitKey(key);
       if (!this.perRun(kind)[runId]?.data && !this.inFlight.has(key)) this.readPerRun(kind, runId);
@@ -122,13 +130,15 @@ export class TicketPageReads {
     this.again.clear();
     this.ticketTick.cancel();
     this.conversationTick.cancel();
+    this.textTick.cancel();
     this.abort.abort();
   }
 
-  /** (a) a TicketActivityChanged naming this ticket: everything, the conversation included. */
+  /** (a) a TicketActivityChanged naming this ticket: everything, the conversation and the ticket text included. */
   ticketChanged(): void {
     this.ticketTick.within(TICKET_READ_MS);
     this.conversationTick.within(TICKET_READ_MS);
+    this.textTick.within(TICKET_READ_MS);
   }
 
   /** (b) a RunsChanged — counted only for one of this ticket's attempts; never the conversation. */
@@ -178,6 +188,10 @@ export class TicketPageReads {
     void this.read("conversation", () => this.api.conversation(this.project, this.ticketId, this.abort.signal));
   }
 
+  private readText(): void {
+    void this.read("text", () => this.api.text(this.project, this.ticketId, this.abort.signal));
+  }
+
   /** (c) a changed attempt status — a park, a hand-back, an end — re-reads the conversation, and a
    *  per-run read of an attempt whose status moved once more, so its last passes land. */
   private detailLanded(detail: TicketDetail): void {
@@ -225,7 +239,7 @@ export class TicketPageReads {
     this.publish({ ...this.snap, [field]: { ...this.snap[field], [runId]: read } });
   }
 
-  private async read<K extends "detail" | "series" | "conversation">(
+  private async read<K extends "detail" | "series" | "conversation" | "text">(
     field: K, load: () => Promise<NonNullable<TicketPageSnapshot[K]["data"]>>, after?: (data: never) => void,
   ): Promise<void> {
     const generation = this.generation;

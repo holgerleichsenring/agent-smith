@@ -12,6 +12,7 @@ import type {
   TicketDetail,
   TicketSeries,
   TicketSeriesSpec,
+  TicketText,
 } from "@/types/tickets";
 
 // 2026-10-13-9a59q: ticket-page test data in the server's JSON shape.
@@ -113,6 +114,15 @@ export function compute(runId: string, over: Partial<RunCompute> = {}): RunCompu
   return {
     runId, spawns: [spawn()], segments: [segment()], unattributedCalls: 0,
     uncounted: [{ kind: "browser", label: "browser sandboxes" }],
+    ...over,
+  };
+}
+
+export function ticketText(over: Partial<TicketText> = {}): TicketText {
+  return {
+    source: "tracker", title: "Fix the login", description: "Users are signed out mid-session.", descriptionFormat: "text",
+    acceptanceCriteria: null, criteriaFormat: "text", workItemType: null, state: "Active", labels: [], assignee: null,
+    webUrl: null, at: "2026-09-04T15:00:00Z",
     ...over,
   };
 }
