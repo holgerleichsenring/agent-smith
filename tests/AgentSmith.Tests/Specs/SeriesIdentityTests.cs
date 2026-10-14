@@ -85,7 +85,7 @@ public sealed class SeriesIdentityTests
 
         factory.KeptOrMinted(record).Should().Be("2026-10-06-0001");
         factory.KeptOrMinted(null).Should().MatchRegex(@"^\d{4}-\d{2}-\d{2}-[0-9a-f]{4}$");
-        factory.Under("2026-10-06-0001", [new SpecDraft("x", "g", "spec: x", [])]).Drafts[0].SpecId
+        factory.Under("2026-10-06-0001", [new SpecDraft("x", "g", "spec: x", [])], null).Drafts[0].SpecId
             .Should().Be("2026-10-06-0001a");
     }
 

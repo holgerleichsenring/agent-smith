@@ -32,6 +32,7 @@ public static class SpecReviewRegistrations
             // 2026-10-13-8762i: the design turn's proposal rounds — panel, re-prompt, guard, revision, loop.
             .AddTransient<ProposalAttackPanel>().AddTransient<ProposalCutsReprompt>()
             .AddTransient<ProposalReProposalGuard>().AddTransient<ProposalRoundRevision>().AddTransient<ProposalReviewLoop>()
+            .AddTransient<SeriesContractCheck>().AddTransient<SeriesContractReader>() // 2026-10-13-8762j
             .AddTransient<ICommandHandler<ReviewSpecsContext>, Handlers.ReviewSpecsHandler>();
     }
 }

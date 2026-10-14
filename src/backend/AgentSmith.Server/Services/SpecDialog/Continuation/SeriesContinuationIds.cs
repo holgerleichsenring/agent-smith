@@ -51,11 +51,11 @@ public static class SeriesContinuationIds
             return new(TicketContinuationEffects.RefusedOverCap,
                 $"The series of ticket {state.TicketId} would hold {executed.Count} executed and {unstartedCount} unstarted "
                     + $"spec(s), more than the {SpecSet.MaxSpecs} one ticket may hold. Nothing was recorded; propose fewer specs.",
-                executed.Count, unstartedCount, state.BasisRunId, specs, recorded);
+                executed.Count, unstartedCount, state.BasisRunId, specs, recorded) { Ids = ids };
         return new(TicketContinuationEffects.Continue,
             $"Ticket {state.TicketId}'s next attempt works its series continued by this approval: {executed.Count} spec(s) "
                 + $"already ran and stay as they ran, {unstartedCount} are still to run.",
-            executed.Count, unstartedCount, state.BasisRunId, specs, recorded);
+            executed.Count, unstartedCount, state.BasisRunId, specs, recorded) { Ids = ids };
     }
 
     private static bool Changed(IReadOnlyDictionary<string, BasisSpec> basis, SpecDraft draft) =>

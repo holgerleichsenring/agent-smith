@@ -19,6 +19,8 @@ namespace AgentSmith.Application.Services.Prompts;
 /// </summary>
 public static class PreviousCutPromptSection
 {
+    public const string ContractMembers = "Repeat the series contract, amended as needed; name members by their position in your reply; only executed specs keep their ids.";
+
     public static string Render(SpecSet? previous, string cause)
     {
         if (previous is null || previous.IsHandedBack) return string.Empty;
@@ -38,6 +40,8 @@ public static class PreviousCutPromptSection
                 $"- {spec.SpecId} ({(executed ? "EXECUTED — keep exactly as it is" : "not started")}): "
                 + spec.Draft.Goal);
         }
+        if (previous.Contract is not null) // 2026-10-13-8762j
+            sb.Append(SeriesContractPromptSection.Render(previous.Contract)).AppendLine(ContractMembers);
         sb.AppendLine();
         sb.AppendLine(
             "Return the WHOLE set again. Repeat every executed spec unchanged — same goal, "

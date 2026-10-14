@@ -47,4 +47,7 @@ public sealed class SeriesManifestDocument
 
     /// <inheritdoc cref="ApprovedAt"/>
     public string? ApprovedBy { get; set; }
+
+    /// <summary>2026-10-13-8762j: the series contract; absent when the series declared none.</summary>
+    public SeriesContractDocument? Contract { get; set; }
 }

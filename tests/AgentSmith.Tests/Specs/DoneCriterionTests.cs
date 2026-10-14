@@ -72,7 +72,7 @@ public sealed class DoneCriterionTests
     [Fact]
     public void Parse_AnEpicChildWithOnlyScenarios_HasDone()
     {
-        var parser = new EpicOutcomeParser(Validator, new SpecDraftReader(), new RequiresEdgeChecker(), DialogTestRepos.Real());
+        var parser = new EpicOutcomeParser(Validator, new SpecDraftReader(), new RequiresEdgeChecker(), DialogTestRepos.Real(), AgentSmith.Tests.TestSupport.SeriesContracts.Reader());
         var yaml = """
             kind: epic
             parent: { spec: p9000, goal: Widget platform }

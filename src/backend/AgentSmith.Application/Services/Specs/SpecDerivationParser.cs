@@ -12,13 +12,12 @@ namespace AgentSmith.Application.Services.Specs;
 /// ids, the chained requires-edges, the schema-valid yaml and the byte-exact
 /// markdown companions.
 /// </summary>
-public sealed class SpecDerivationParser(
-    DerivedSpecSequence specs,
-    SpecDerivationEnvelope envelope)
+public sealed class SpecDerivationParser(DerivedSpecSequence specs, SpecDerivationEnvelope envelope, SeriesContractReader contracts)
 {
     /// <param name="Uncited">2026-10-12-3a36b: why a contradiction hand-back cites no look this derivation
     /// took; it is still parsed, and whether it is asked again or parks is the deriver's call.</param>
-    public sealed record Parsed(SpecDerivation? Derivation, string? Error, string? Uncited = null);
+    /// <param name="ContractProblem">2026-10-13-8762j: why the reply's series contract was refused; the set beside it is built without one.</param>
+    public sealed record Parsed(SpecDerivation? Derivation, string? Error, string? Uncited = null, string? ContractProblem = null);
 
     /// <param name="series">2026-10-06-03c7c: the series' base id; spec ids are it plus a letter.</param>
     /// <param name="executedHead">
@@ -98,21 +97,21 @@ public sealed class SpecDerivationParser(
 
         var accounting = SpecAccountingBuilder.Build(
             built, envelope.Discarded(root), segments, envelope.DiscardedContexts(root));
+        var contract = contracts.FromReply(root, built, executedHead);
         return new Parsed(
             new SpecDerivation(
                 new SpecSet(
                     owner.Key, built, accounting, [Initial()], source,
                     ExecutedSpecIds: [.. executedHead.Select(p => p.SpecId)],
-                    Series: owner.Series),
+                    Series: owner.Series) { Contract = contract.Contract },
                 envelope.IgnoredInstructions(root)),
-            null);
+            null, ContractProblem: contract.Problem);
     }
 
     /// <summary>The ticket key and the series' base id the parsed set belongs to.</summary>
     private sealed record SeriesOf(string Key, string Series);
 
-    private sealed record SpecInputs(
-        IReadOnlyList<string>? Evidence, IReadOnlyList<string> Scope, IReadOnlyList<string> Taken);
+    private sealed record SpecInputs(IReadOnlyList<string>? Evidence, IReadOnlyList<string> Scope, IReadOnlyList<string> Taken);
 
     private static SpecRevision Initial() =>
         new(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow);

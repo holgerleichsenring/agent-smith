@@ -17,6 +17,6 @@ internal static class DerivationTestParsers
                     new SpecDraftValidator(new SpecSchemaProvider()), new SpecDraftReader(),
                     new DerivedSpecYamlRenderer(), envelope, new FactResolver()),
                 new DerivedSpecRepos(envelope, new SpecReposRule())),
-            envelope);
+            envelope, AgentSmith.Tests.TestSupport.SeriesContracts.Reader());
     }
 }

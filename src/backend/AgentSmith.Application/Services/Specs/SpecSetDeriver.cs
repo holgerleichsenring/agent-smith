@@ -84,6 +84,11 @@ public sealed class SpecSetDeriver(
                 messages.Add(attempts.Reject("Your cut was rejected", parsed.Error));
                 continue;
             }
+            if (DerivedContractRule.Problem(parsed, previous) is { } contract) // 2026-10-13-8762j: yields to the cut on the last attempt
+            {
+                if (!attempts.IsLast(attempt)) { messages.Add(attempts.Reject("Your series contract was rejected", contract)); continue; }
+                logger.LogWarning("Spec derivation attempt {Attempt}: the series contract is dropped, the cut kept: {Problem}", attempt, contract);
+            }
             var gated = await handbacks.JudgeAsync(parsed.Derivation, parsed.Uncited, look,
                 attempts.IsLast(attempt), attempts.Refuted, agentConfig, pipeline, cancellationToken);
             if (gated.Step == HandbackGateStep.Park) return (parsed.Derivation, null);

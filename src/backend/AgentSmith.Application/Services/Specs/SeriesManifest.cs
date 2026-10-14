@@ -37,7 +37,7 @@ public sealed class SeriesManifest
             {
                 Number = r.Number, Cause = r.Cause, At = r.At.ToString("O", CultureInfo.InvariantCulture),
             })],
-            TicketFingerprint = set.TicketFingerprint,
+            TicketFingerprint = set.TicketFingerprint, Contract = SeriesContractYaml.Write(set.Contract), // 2026-10-13-8762j
         };
         WriteAccounting(doc, set.Accounting);
         WriteHandbackAndApproval(doc, set);

@@ -7,7 +7,8 @@ namespace AgentSmith.Application.Services.Specs.Review;
 /// another kind, other spec ids or another child order is invalid as a whole (null). Otherwise each changed
 /// draft passes <see cref="SpecRevisionGuard"/> with its cuts, or — refused without cuts, or the epic parent
 /// the whole-set findings named — <see cref="SpecIdentityRule"/>; any other change is reverted, alone.
-/// Everything but the drafts comes from the last valid proposal.
+/// Everything but the drafts comes from the last valid proposal — 2026-10-13-8762j: the epic's series contract
+/// included, which no draft's cut licenses; the published reply text keeps the first reply's contract block.
 /// </summary>
 public sealed class ProposalReProposalGuard(SpecRevisionGuard guard)
 {

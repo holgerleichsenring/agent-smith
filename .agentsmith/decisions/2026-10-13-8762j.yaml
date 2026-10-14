@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-8762j
+
+decisions:
+  - category: Architecture
+    chose: "SeriesContract (Contracts/Specs) of Names, Data, Areas, Budgets with a CLOSED kind list (SeriesContractKinds), Rekeyed(map) and Within(members); SpecSet.Contract, FiledSeries.Contract and the manifest's contract: block carry it, series-wide like the goal"
+    over: "A second store for the contract, or a free-text kind"
+    reason: "Contract §2.2: the set manifest's contract: on the branch, the approval record's set carrying it as it carries Goal. A free-text kind let 'event' and 'events' hold one number twice. The block is optional — default, pending operator ratification — because making it required would refuse every proposal of the pinned skill until 2026-10-13-8762x releases."
+  - category: Architecture
+    chose: "SeriesContractReader takes SeriesContractCheck and returns SeriesContractRead(Contract, Problem): read defects and collisions in ONE message, the contract null when either is found"
+    over: "The parser and the epic parser calling the reader and the check separately"
+    reason: "Spec step 'derivation' keeps SpecDerivationParser at three constructor parameters on one line (118 lines now); one composed call serves both parsers the same way. Both classes are registered in AddSpecReview."
+  - category: Architecture
+    chose: "Members in a derivation reply are 1-based positions (an integer or a digit string), a string id only for an executed-head spec; in an epic block a child id or position; any other string is a read defect"
+    over: "Accepting any member id the reply names"
+    reason: "Ids after the executed head are re-assigned by position on every parse (DerivedSpecSequence.cs:30-42) and a re-cut shows the model the previous ids (PreviousCutPromptSection.cs:34-39), so an old unexecuted id could name another spec after a merge or split."
+  - category: Behaviour
+    chose: "A contract defect, or a re-cut reply that dropped the previous contract, is sent back on every attempt but the last; on the last the block is dropped, the drop logged and the cut kept; a hand-back is never asked for a contract"
+    over: "Refusing the cut on every attempt"
+    reason: "Three parse rejections leave no kept cut (DerivationAttempts.cs:58-59); an optional block must not cost a valid derived cut. Default, pending operator ratification. A hand-back has no specs and so no contract (SpecDerivationParser.cs:70-79)."
+  - category: Behaviour
+    chose: "Overlap is allowed; refused are: a non-member owner/writer/spec, an unknown kind, two owner entries for one datum (trimmed, case-insensitive) or one (kind, name), one (kind, number) given to two names, one (path, spec) with two budgets, a budget below 1, and a FILE claimed by members whose repositories intersect without every such claimant's budget"
+    over: "The requires-path area rule, or refusing a later member's lower budget"
+    reason: "Every epic runs its children one after another in one set; budgets make a shared file safe. A later member may lower a file by extraction (the ratchet refuses only growth). Areas are repository-relative, so two repositories' package.json are two files; a member with empty Repos intersects every member."
+  - category: Architecture
+    chose: "FiledSeriesFactory.Mint/Under(ordered, OutcomeProposal? source) re-key an epic source's contract with SeriesDraftIds.Map (extracted from Assign) and narrow it with Within(filed ids), logging removals; the proposal is passed at all four call sites on their existing lines"
+    over: "Re-keying only on the epic lines, or keeping the placeholder ids"
+    reason: "Placeholder ids die at filing; the same map that rewrites ids, requires and yaml is applied to the contract, so text and contract cannot disagree. A follow-up without executed children files a contract naming only its members. OutcomeTicketFiler stays at 120, ApprovedSpecSetRecorder at 119."
+  - category: Behaviour
+    chose: "DEVIATION: Within removes an entry whose OWNER (or area/budget member) is not a member, but drops only a non-member WRITER from an entry whose owner stays, reporting each removal"
+    over: "Removing every entry that names a non-member anywhere (scope.in's literal wording)"
+    reason: "A follow-up whose executed child was only a writer (o owns RunDefaultDecisions, p writes it) would otherwise lose o's ownership of a datum o still has to build. The writer reference is still removed and logged, so no entry names a non-member (SeriesContract.cs, Within)."
+  - category: Behaviour
+    chose: "A continuation records the proposal's epic contract re-keyed with TicketContinuationDecision.Ids (the map SeriesContinuationIds already builds) and narrowed to the drafts plus every non-Dropped disposition (ContinuedContract.Of); the basis record's contract only when the proposal carries none"
+    over: "Keeping the basis contract"
+    reason: "The continuation is the long-series path; the basis contract kept ids an epic dropped and missed the appended ones (round-1 cut 5)."
+  - category: Architecture
+    chose: "DEVIATION: EpicOutcome takes Contract as a third positional parameter with default null, and OutcomeProposalJson's Dto as a last positional parameter, each on an existing line"
+    over: "An init property in a record body (scope.in's 'Contract { get; init; }')"
+    reason: "A positional record parameter IS a get/init property; the record-body form put OutcomeProposal.cs at 55 against the spec's 'at most 52' and OutcomeProposalJson.cs at 82 against 'at most 76' (both files now unchanged in length, 51 and 78). No code deconstructs EpicOutcome positionally."
+  - category: Behaviour
+    chose: "ProposalReProposalGuard.Merge keeps the last valid proposal's contract: a re-proposal's changed contract is not admitted, the published reply text keeps the first reply's contract block"
+    over: "Adopting the reply's contract"
+    reason: "No draft's cut licenses a contract change in a review round, and 'everything but the drafts comes from the last valid proposal' already held for Templates and Findings; the series round that may cut the contract is 2026-10-13-8762k's."
+  - category: Behaviour
+    chose: "A twice-invalid epic contract costs the turn's proposal like any other OutcomeInvalid check"
+    over: "Dropping the block on the second invalid outcome"
+    reason: "AgenticMasterHandler re-prompts an invalid outcome once and fails the second; the same holds for every other check. Default, pending operator ratification."
+  - category: Process
+    chose: "DEVIATION: the skill text (spec-derivation-master's reply shape, design-partner-master's epic block) is NOT edited here; the exact sentences are handed to 2026-10-13-8762x in the build notes"
+    over: "Editing the skills branch in this spec, as step 'skills' says"
+    reason: "The series build brief reserves every skills edit for 8762x, which bumps each master once and releases; the backend reads an absent block as no contract, so nothing breaks before x. Contract defaults relied on: one skills release at the end (decision 22) and the block's location on the manifest (§2.2) — default, pending operator ratification."
+  - category: Architecture
+    chose: "contract: is not added to .agentsmith/schemas/work-spec.schema.json; the series manifest has no JSON schema"
+    over: "Extending work-spec.schema.json (contract §2.7 before its amendment)"
+    reason: "That file is the p0390 work-spec schema, embedded and read by no code; SeriesManifest's IgnoreUnmatchedProperties is the manifest's compatibility rule."

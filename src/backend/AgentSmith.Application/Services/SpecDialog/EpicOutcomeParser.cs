@@ -19,7 +19,8 @@ public sealed class EpicOutcomeParser(
     ISpecDraftValidator draftValidator,
     SpecDraftReader draftReader,
     RequiresEdgeChecker edgeChecker,
-    DialogDraftRepos draftRepos)
+    DialogDraftRepos draftRepos,
+    Specs.SeriesContractReader contracts)
 {
     /// <param name="scope">2026-10-12-3a36e: the turn's repository names each child's repos is
     /// checked against or filled from; the parent names none.</param>
@@ -66,10 +67,12 @@ public sealed class EpicOutcomeParser(
                 $"epic child #{missing + 1} ('{children[missing].SpecId}') has no 'done' list — every epic "
                 + "child needs 'done:' with at least one outcome that is true once the slice is finished");
 
-        var edgeError = edgeChecker.Check(parent, children);
-        return edgeError is null
-            ? new OutcomeResolved(new EpicOutcome(parent, children))
-            : new OutcomeInvalid(edgeError);
+        if (edgeChecker.Check(parent, children) is { } edgeError) return new OutcomeInvalid(edgeError);
+        // 2026-10-13-8762j: a colliding contract is re-prompted with every collision named.
+        var contract = contracts.FromOutcome(map, children);
+        return contract.Problem is { } problem
+            ? new OutcomeInvalid(problem)
+            : new OutcomeResolved(new EpicOutcome(parent, children, contract.Contract));
     }
 
     private (SpecDraft? Draft, string? Error) ReadDraft(object node, string role)

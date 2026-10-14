@@ -46,6 +46,6 @@ public sealed record SpecOutcome(SpecDraft Draft) : OutcomeProposal;
 
 /// <summary>
 /// A feature too big for one spec: a parent spec plus ordered child specs
-/// linked by requires: edges, each schema-valid on its own.
+/// linked by requires: edges, each schema-valid on its own. 2026-10-13-8762j: <c>Contract</c> is its series contract, keyed by child ids.
 /// </summary>
-public sealed record EpicOutcome(SpecDraft Parent, IReadOnlyList<SpecDraft> Children) : OutcomeProposal;
+public sealed record EpicOutcome(SpecDraft Parent, IReadOnlyList<SpecDraft> Children, Specs.SeriesContract? Contract = null) : OutcomeProposal;

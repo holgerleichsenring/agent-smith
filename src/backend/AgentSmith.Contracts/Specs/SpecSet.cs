@@ -77,6 +77,10 @@ public sealed record SpecSet(
     /// manifest's <c>series_repos</c>; null on a set no write placed yet.</summary>
     public IReadOnlyList<string>? SeriesRepos { get; init; }
 
+    /// <summary>2026-10-13-8762j: the series contract the manifest carries — series-wide like the goal;
+    /// null when none was declared.</summary>
+    public SeriesContract? Contract { get; init; }
+
     /// <summary>2026-10-12-f5f7d: the sub-series of <paramref name="repo"/> — only the specs that
     /// name it, every series-wide field unchanged.</summary>
     public SpecSet OfRepository(string repo)

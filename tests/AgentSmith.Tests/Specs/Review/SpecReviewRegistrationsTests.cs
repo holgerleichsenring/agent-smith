@@ -75,4 +75,19 @@ public sealed class SpecReviewRegistrationsTests
         scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.SpecDialog.SpecDialogUnreviewedApproval>()
             .Should().NotBeNull();
     }
+
+    [Fact]
+    public void AddSpecReview_ResolvesContractReaderAndCheck()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
+        ServerCompositionBuilder.ConfigureServices(services, "agentsmith.yml");
+        using var provider = services.BuildServiceProvider();
+        using var scope = provider.CreateScope();
+
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.Specs.SeriesContractReader>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.Specs.SeriesContractCheck>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Application.Services.Specs.SpecDerivationParser>().Should().NotBeNull();
+        scope.ServiceProvider.GetRequiredService<AgentSmith.Server.Services.SpecDialog.FiledSeriesFactory>().Should().NotBeNull();
+    }
 }

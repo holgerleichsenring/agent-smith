@@ -27,6 +27,8 @@ public sealed class ModelOutputParsingRuleTests
         "Services/Handlers/RawObservation.cs",
         "Services/Handlers/GateObservationParser.cs",
         "Services/Prompts/PlanJsonElementMapper.cs",
+        "Services/Specs/SeriesContractReader.cs",
+        "Services/Specs/SeriesContractElements.cs",
     ];
 
     private static readonly Regex RawAccessor = new(

@@ -59,9 +59,12 @@ public sealed class TicketContinuationAct(
     {
         var goal = proposal is EpicOutcome epic ? epic.Parent.Goal
             : current.Record?.Set.Goal ?? decision.Drafts.FirstOrDefault()?.Goal ?? string.Empty;
+        var contract = ContinuedContract.Of(proposal, decision, current); // 2026-10-13-8762j
+        if (contract.Removed.Count > 0)
+            logger.LogInformation("Ticket {Ticket}: contract entries naming no spec of the continued series removed: {Removed}", ticketId, string.Join("; ", contract.Removed));
         try
         {
-            await approvals.RecordAsync(state, project, ticketId, new FiledSeries(current.Series ?? string.Empty, decision.Drafts),
+            await approvals.RecordAsync(state, project, ticketId, new FiledSeries(current.Series ?? string.Empty, decision.Drafts) { Contract = contract.Contract },
                 goal, ct, decision.Continuation, current.Scope);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)

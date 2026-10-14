@@ -92,7 +92,7 @@ public sealed class ApprovedSpecSetStoredTests
         var parser = new EpicOutcomeParser(
             new SpecDraftValidator(new SpecSchemaProvider()),
             new SpecDraftReader(),
-            new RequiresEdgeChecker(), DialogTestRepos.Real());
+            new RequiresEdgeChecker(), DialogTestRepos.Real(), AgentSmith.Tests.TestSupport.SeriesContracts.Reader());
 
         var resolution = parser.Parse(OutcomeYamlReader.ReadMap(EpicYaml(SpecSet.MaxSpecs + 1)), []);
 
@@ -106,7 +106,7 @@ public sealed class ApprovedSpecSetStoredTests
         var parser = new EpicOutcomeParser(
             new SpecDraftValidator(new SpecSchemaProvider()),
             new SpecDraftReader(),
-            new RequiresEdgeChecker(), DialogTestRepos.Real());
+            new RequiresEdgeChecker(), DialogTestRepos.Real(), AgentSmith.Tests.TestSupport.SeriesContracts.Reader());
 
         parser.Parse(OutcomeYamlReader.ReadMap(EpicYaml(SpecSet.MaxSpecs)), [])
             .Should().BeOfType<OutcomeResolved>();
