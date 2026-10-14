@@ -146,6 +146,7 @@ internal static class MasterHandlerFixture
             // 2026-10-01-283de: a turn that seeds no project never builds the host.
             render ?? new AgentSmith.Tests.Browser.BrowserRenderFixture(spawnsContainers: false).Factory(),
             AgentSmith.Tests.TestHelpers.TestTreeSync.GateStage(),
+            AgentSmith.Tests.TestHelpers.TestSanity.Wrapper(),
             NullLogger<MasterToolComposition>.Instance);
 
     /// <summary>2026-09-13-6f35: the run that declares no template spawns nothing.</summary>

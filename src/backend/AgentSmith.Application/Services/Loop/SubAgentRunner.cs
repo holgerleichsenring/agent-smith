@@ -78,9 +78,9 @@ public sealed class SubAgentRunner(
             var request = BuildLoopRequest(spec, subAgentId, context);
             var loopResult = await loopRunner.RunAsync(request, ct);
 
-            // p0280: store the child's final answer so the master can pull its findings
-            // back via read_sub_agent_observations and synthesise them.
+            // p0280: the master pulls the child's final answer back via read_sub_agent_observations.
             context.AnswerStore.Store(subAgentId, loopResult.Response.Text ?? string.Empty);
+            var status = string.IsNullOrWhiteSpace(loopResult.Response.Text) ? SubAgentStatus.Empty : SubAgentStatus.Succeeded;
 
             // Each child's cost rolls up against the shared per-run tracker.
             context.CostTracker.Track(loopResult.Response);
@@ -93,12 +93,12 @@ public sealed class SubAgentRunner(
             var toolCalls = CountToolCalls(loopResult.Response);
 
             await PublishCompletedAsync(
-                subAgentId, context, SubAgentStatus.Succeeded,
+                subAgentId, context, status,
                 observationsCount, findings: 0, files: 0, toolCalls, costUsd, ct);
 
             return new SubAgentResult(
                 TaskIndex: index,
-                Status: SubAgentStatus.Succeeded,
+                Status: status,
                 SubAgentId: subAgentId,
                 Name: spec.Name,
                 ObservationsCount: observationsCount,
