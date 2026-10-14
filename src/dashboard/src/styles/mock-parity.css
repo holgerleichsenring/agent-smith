@@ -386,6 +386,21 @@
 .mock-tickets .sum .v .dim { color:var(--ink-3); font-size:12px; }
 .mock-tickets .sum .v .mono { font-size:12px; }
 
+.mock-tickets .tt { background:var(--panel); border:1px solid var(--line); border-radius:var(--r); padding:12px 16px; margin-bottom:14px; }
+.mock-tickets .tt .k { font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); font-weight:600; }
+.mock-tickets .tt-h { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin-bottom:8px; }
+.mock-tickets .tt-chips { display:flex; flex-wrap:wrap; align-items:center; gap:6px; min-width:0; }
+.mock-tickets .tt .tchip { font-size:11.5px; font-weight:560; border:1px solid var(--line); background:var(--panel-2); color:var(--ink-2); padding:2px 9px; border-radius:20px; white-space:nowrap; }
+.mock-tickets .tt .tchip.label { font-family:var(--mono); font-size:11px; }
+.mock-tickets .tt-who { font-size:12px; color:var(--ink-3); }
+.mock-tickets .tt-note { font-size:12px; color:var(--ink-3); margin:2px 0 6px; }
+.mock-tickets .tt-body { font-size:13px; line-height:1.5; color:var(--ink); max-width:80ch; overflow-wrap:anywhere; }
+.mock-tickets .tt-body.clamp { max-height:calc(12 * 1.5em); overflow:hidden; }
+.mock-tickets .tt-body h1, .mock-tickets .tt-body h2, .mock-tickets .tt-body h3 { font-size:inherit; line-height:1.5; font-weight:650; color:inherit; margin:6px 0 2px; letter-spacing:normal; }
+.mock-tickets .tt-body p, .mock-tickets .tt-body li, .mock-tickets .tt-body ul, .mock-tickets .tt-body ol { font-size:inherit; color:inherit; }
+.mock-tickets .tt-body p { margin:4px 0; }
+.mock-tickets .tt-more { font:inherit; font-size:12px; font-weight:600; color:var(--ink-2); background:none; border:0; padding:4px 0; cursor:pointer; text-decoration:underline; }
+.mock-tickets .tt-ac { margin-top:10px; padding-top:10px; border-top:1px solid var(--line); display:flex; flex-direction:column; gap:4px; }
 .mock-tickets .banner { display:grid; grid-template-columns:auto minmax(0,1fr) auto; gap:12px; align-items:center; background:var(--panel); border:1px solid var(--line); border-left:3px solid var(--ink-3); border-radius:var(--r); padding:12px 16px; margin-bottom:14px; }
 .mock-tickets .banner.need { border-left-color:var(--person); }
 .mock-tickets .banner .bi { width:18px; height:18px; border-radius:50%; border:1.5px solid var(--ink-3); color:var(--ink-3); display:grid; place-items:center; font-size:11px; font-weight:700; }
@@ -500,7 +515,10 @@
 .mock-tickets .pill.amber { background: var(--run-wash); color: var(--run); }
 .mock-tickets .pill.q { background: var(--panel-2); color: var(--ink-3); }
 .mock-tickets .pill.person { background: var(--person-wash); color: var(--person); }
-.mock-tickets .t-head .ticon.person { background: var(--person); color: var(--person); animation: none; }
+.mock-tickets .t-head .ticon.need { background: var(--person); color: var(--person); animation: mock-pulse 1.2s infinite; }
+.mock-tickets .t-head .ticon.run { background: var(--run); color: var(--run); animation: mock-pulse 1.8s infinite; }
+.mock-tickets .t-head .ticon.queued { background: var(--bg); border: 3px solid var(--run); animation: none; }
+.mock-tickets .t-head .ticon.human { background: var(--ink-3); color: var(--ink-3); animation: none; }
 .mock-tickets .t-head .ticon.ok { background: var(--ok); color: var(--ok); animation: none; }
 .mock-tickets .t-head .ticon.bad { background: var(--bad); color: var(--bad); animation: none; }
 .mock-tickets .t-head .ticon.idle { background: var(--idle); color: var(--idle); animation: none; }
@@ -545,6 +563,11 @@
 .mock-tickets .msg .mf .eff { color:var(--person); font-weight:600; }
 .mock-tickets .msg .mf .eff.run { color:var(--run); }
 .mock-tickets .msg.internal .mb { font-size:12.5px; color:var(--ink-2); }
+/* An entry body never outranks the page's own headings, and its blocks read at the body's size and colour. */
+.mock-tickets .msg .mb h1, .mock-tickets .msg .mb h2, .mock-tickets .msg .mb h3 { font-size:inherit; line-height:1.4; font-weight:650; color:inherit; margin:6px 0 2px; letter-spacing:normal; }
+.mock-tickets .msg .mb p, .mock-tickets .msg .mb li, .mock-tickets .msg .mb ul, .mock-tickets .msg .mb ol { font-size:inherit; color:inherit; }
+.mock-tickets .msg .mb p { margin:4px 0; }
+.mock-tickets .msg .mb .cut { display:block; font-size:11px; color:var(--ink-3); margin-top:3px; }
 .mock-tickets .diff { font-family:var(--mono); font-size:11.5px; border:1px solid var(--line); border-radius:var(--r-s); background:var(--panel); padding:8px 10px; margin-top:6px; overflow-x:auto; }
 .mock-tickets .diff .rm { color:var(--bad); } .mock-tickets .diff .ad { color:#1a7f43; }
 

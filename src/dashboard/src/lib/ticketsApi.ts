@@ -18,6 +18,7 @@ import type {
   TicketReviews,
   TicketSeries,
   TicketServerBucket,
+  TicketText,
 } from "@/types/tickets";
 
 export interface TicketListQuery {
@@ -82,6 +83,11 @@ export async function postDefaultVerdicts(
   if (!res.ok) throw await refused(res, path);
   const body = (await res.json()) as Omit<Extract<DefaultVerdictAnswer, { kind: "applied" }>, "kind">;
   return { kind: "applied", applied: body.applied, alreadyDecided: body.alreadyDecided };
+}
+
+/** The ticket itself, read from its tracker (a minute's cache on the server), else an attempt's copy. */
+export function fetchTicketText(project: string, ticketId: string, signal?: AbortSignal): Promise<TicketText> {
+  return getJson<TicketText>(`/api${ticketPath(project, ticketId)}/text`, signal);
 }
 
 export function fetchRunPasses(runId: string, signal?: AbortSignal): Promise<RunPasses> {

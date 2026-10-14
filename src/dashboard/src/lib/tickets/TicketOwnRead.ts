@@ -1,21 +1,21 @@
-import type { TicketReviews } from "@/types/tickets";
 import { CoalescedRefetch } from "./CoalescedRefetch";
 import { failure } from "./readFailure";
 import type { Read } from "./TicketPageReads";
 
-// 2026-10-13-8762l: the ticket page's review-rounds read, composed by TicketPageReads with its own 2 s window,
-// so a new review round re-reads the rounds and never the detail, the series or the conversation.
+// A ticket-level read on its own 2 s window, composed by TicketPageReads: the review rounds (2026-10-13-8762l),
+// the defaults (2026-10-13-8762q) and the ticket text each re-read on their own nudges and never the
+// detail, the series or the conversation.
 
-export class TicketReviewsRead {
+export class TicketOwnRead<T> {
   private readonly tick = new CoalescedRefetch(() => void this.read());
   private disposed = false;
   private generation = 0;
   private abort = new AbortController();
 
   constructor(
-    private readonly load: (signal: AbortSignal) => Promise<TicketReviews>,
-    private readonly held: () => Read<TicketReviews>,
-    private readonly landed: (read: Read<TicketReviews>) => void,
+    private readonly load: (signal: AbortSignal) => Promise<T>,
+    private readonly held: () => Read<T>,
+    private readonly landed: (read: Read<T>) => void,
   ) {}
 
   /** Restartable, like the page's reads. */

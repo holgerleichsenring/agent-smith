@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-14-9f80a
+
+decisions:
+  - category: Architecture
+    chose: "The provider names the format (TicketComment.Format, html | markdown | text); the client never sniffs"
+    over: "Guessing html in the browser from a '<' in the body"
+    reason: |
+      Only the mapper knows whether its tracker returned HTML; a guess would misread a markdown comment that
+      quotes a tag. Azure DevOps reads the SDK comment's Format, because its markdown editor returns markdown.
+  - category: Architecture
+    chose: "HTML is parsed, sanitized and rendered; Jira ADF is written as markdown (JiraAdfMarkdown) and marked markdown"
+    over: "Flattening HTML through TicketHtmlConverter.ToText, keeping Jira's ADF-to-plain-text read"
+    reason: |
+      Flattening loses headings, lists and links — the structure that makes our completion comment readable —
+      and made a person's rich Jira comment and our own markdown (posted as ADF text) unreadable. Markdown lets
+      one renderer serve Jira, and every reader of TicketComment.Body (prompt, markers, rework keyword, recut
+      demand, hand-back fold) keeps matching because text nodes are written verbatim except '<'.
+  - category: Architecture
+    chose: "Markdown renders inline HTML (rehype-raw) and then sanitizes; html uses the same rehype-sanitize default schema; no dangerouslySetInnerHTML"
+    over: "Dropping raw HTML inside markdown, or a second sanitizer for the html path"
+    reason: |
+      GitHub and GitLab bodies and our failure comment mix <b> and <br/> into markdown; dropping them ran lines
+      together. One schema means one definition of what is safe.
+  - category: Implementation
+    chose: "JiraAdfMarkdown, JiraAdfInlineMarkdown and JiraAdfNode as internal static classes"
+    over: "One instance class registered in DI"
+    reason: |
+      They sit beside JiraAdfParser and JiraAdfRenderer, which are internal static pure transformations used by
+      mappers that are newed in their provider; one class for blocks, inline text and node reading would pass
+      the 120-line limit. 2026-10-14-9f80c reuses JiraAdfMarkdown for the description.
+  - category: Implementation
+    chose: "A hardBreak is written as a markdown hard break of two trailing spaces; code marks and code blocks are written unescaped"
+    over: "A backslash hard break; escaping '<' everywhere"
+    reason: |
+      A trailing backslash would end a recut demand's opening line in '\' and stop SpecRecutDemand matching;
+      trailing spaces are trimmed by its whole-line read. Inside a code span a backslash is shown literally, and
+      '<' there is never read as a tag.
+  - category: Implementation
+    chose: "An answer with Comment DialogAnswer.FromTicketComment takes the format of the thread comment with the same author and a time within one second; html when none matches"
+    over: "An exact timestamp match, or a format column on the answer row"
+    reason: |
+      The answer row has no format column and the spec adds none. The one-second window is the one
+      ConversationAssembly.Demand already uses for the same author-and-time join; html is what the only polled
+      tracker (Azure DevOps) writes from its discussion editor. The literal "ticket-comment" became
+      DialogAnswer.FromTicketComment, read by ParkedTicketDialogue and the conversation read — on the record
+      rather than on ParkedTicketDialogue, which sits at the 120-line file limit.
+  - category: Implementation
+    chose: "unified 11.0.5 added as a direct dependency beside rehype-raw 7.0.0, rehype-parse 9.0.1 and hast-util-to-jsx-runtime 2.3.6, all pinned exact"
+    over: "Only the three the spec names"
+    reason: |
+      rehype-parse and rehype-sanitize are unified plugins; running them for the html path needs a processor,
+      and pnpm's strict layout does not let the dashboard import the copy react-markdown carries. The version is
+      the one already in the lockfile, so nothing else moved.
+  - category: Implementation
+    chose: "Markdown.tsx exports its element map (markdownComponents); TrackerText spreads it and adds li, a disabled task-list input, blockquote, strong and img-as-link"
+    over: "Adding those elements to the exported map itself"
+    reason: |
+      The spec keeps the shared Markdown component used by the dialog and the run result unchanged; extending
+      the map in TrackerText gives both tracker paths one map without touching what Markdown renders.
+  - category: Implementation
+    chose: "The cut note is its own span after the body ('… (cut at 4000 characters)'), shown when a pr-review entry's detail says truncated"
+    over: "Appending the note to the text before rendering"
+    reason: |
+      Appended text would join the body's last markdown block (a list item, a code fence); a span ends the body
+      whatever its format.
+  - category: Implementation
+    chose: "The mock-parity conversation probe looks for the text inside the entry body's TrackerText; the entry fixture defaults to format text"
+    over: "Keeping '.mb' as the text's direct holder"
+    reason: |
+      The body now renders through TrackerText, so the words sit one element below .mb; the structural classes
+      the probe asserts are unchanged.

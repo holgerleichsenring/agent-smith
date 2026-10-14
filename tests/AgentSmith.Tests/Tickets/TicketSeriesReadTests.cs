@@ -114,13 +114,13 @@ public sealed class TicketSeriesReadTests : IDisposable
     }
 
     [Fact]
-    public async Task TicketSeries_Read_RunWithoutCut_IsEmpty()
+    public async Task TicketSeries_Read_NoRunSpecRows_IsEmpty()
     {
         await _store.AddAsync(Run(R1), Step(R1));
 
         var series = await ReadAsync();
 
-        series.Recorded.Should().BeFalse("runs from before the record published no cut");
+        series.Recorded.Should().BeFalse("the run published no cut and recorded no spec row");
         series.Specs.Should().BeEmpty();
         series.RunId.Should().BeNull();
     }

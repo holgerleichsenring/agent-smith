@@ -1,3 +1,4 @@
+using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Services.Providers.Tickets;
 using FluentAssertions;
 using Octokit;
@@ -31,6 +32,16 @@ public sealed class GitHubCommentMapperTests
         mapped[0].Author.Should().Be("jane-operator");
         mapped[0].CreatedAt.Should().Be(new DateTimeOffset(2026, 7, 1, 10, 15, 0, TimeSpan.Zero));
         mapped[0].Body.Should().Be("use approach B, not A");
+    }
+
+    [Fact]
+    public void MapMany_MarksMarkdown()
+    {
+        var comment = new SimpleJsonSerializer().Deserialize<IssueComment>("""
+            { "id": 3, "body": "**bold**", "created_at": "2026-07-01T10:15:00Z" }
+            """);
+
+        new GitHubCommentMapper().MapMany([comment]).Single().Format.Should().Be(TicketTextFormat.Markdown);
     }
 
     [Fact]

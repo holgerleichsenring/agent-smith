@@ -32,7 +32,7 @@ public sealed class TicketSeriesSpecComposer
         return new TicketSeriesSpecView(
             spec.SpecId, spec.Ordinal, spec.FileStem, spec.Goal, spec.Repos, spec.Steps, spec.Yaml, state,
             executed?.RunId, executed is null ? null : attemptNumbers[executed.RunId],
-            [.. spec.Done.Select(text => Criterion(text, acceptance, judgements))],
+            [.. spec.Done.Select(text => TicketSeriesCriterionJoin.Of(text, acceptance, judgements))],
             acceptance?.Unmeasured ?? [],
             StepsAsWorkedFold.Fold(spec, records.Transitions ?? [], attemptNumbers), // 2026-10-13-9a59f
             BuildNote(spec.SpecId, executed?.RunId, records));
@@ -43,19 +43,4 @@ public sealed class TicketSeriesSpecComposer
         runId is not null && records.Records?.TryGetValue((runId, specId), out var body) == true
             ? TicketSeriesBuildNoteView.Of(Application.Services.Specs.SpecBuildNoteReader.Read(body, specId))
             : null;
-
-    private static TicketSeriesCriterionView Criterion(
-        string text, AcceptanceView? acceptance, List<RunCriterionJudgement> judgements)
-    {
-        var key = CriterionKey.Of(text);
-        var row = acceptance?.Criteria.FirstOrDefault(c => CriterionKey.Of(c.Text) == key);
-        var declined = acceptance?.Declined?.FirstOrDefault(d => CriterionKey.Of(d.Text) == key);
-        var judged = judgements.LastOrDefault(j => j.CriterionKey == key);
-        return new TicketSeriesCriterionView(
-            text,
-            row?.Status ?? (declined is null ? null : AcceptanceCriterionStatuses.NotApplicable),
-            row?.Reason ?? declined?.Reason,
-            row?.Citation,
-            judged is null ? null : new TicketCriterionOverrule(judged.HumanStatus, judged.Reason, judged.Author, judged.RecordedAt));
-    }
 }

@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  attempt, conversation, defaultEntry, defaults, detail, passes, reviews, series,
+  attempt, conversation, defaultEntry, defaults, detail, passes, reviews, series, ticketText,
 } from "@/components/tickets/detail/__tests__/detailFixtures";
 import { TicketPageReads, type TicketPageSnapshot } from "../TicketPageReads";
 
@@ -13,6 +13,7 @@ const api = {
   conversation: vi.fn(() => Promise.resolve(conversation([]))),
   reviews: vi.fn(() => Promise.resolve(reviews())),
   defaults: vi.fn(() => Promise.resolve(defaults([defaultEntry()]))),
+  text: vi.fn(() => Promise.resolve(ticketText())),
   passes: vi.fn((runId: string) => Promise.resolve(passes(runId, {}))),
   run: vi.fn(() => Promise.reject(new Error("unused"))),
   compute: vi.fn(() => Promise.reject(new Error("unused"))),

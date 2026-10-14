@@ -65,6 +65,16 @@ describe("attemptStory", () => {
     expect(story.ended).toEqual({ lead: "Finished.", rest: null });
   });
 
+  it("ALiveDerivingAttempt_OnARunRecordSeries_ReadsDeriving_NotASpecOfTheOldSet", () => {
+    const live = attempt({ number: 2, runId: "r-2", status: "running", finishedAt: null });
+    const old = [spec({ specId: "p1a", fileStem: null, state: "in_progress" })];
+    const byDefault = series("", old, { runId: null, attempt: null, gate: null, source: "run-record" });
+    const scoped = series("r-2", old, { gate: null, source: "run-record" });
+    expect(liveSpec(live, byDefault)).toBeNull();
+    expect(liveSpec(live, scoped)).toBeNull();
+    expect(attemptStory({ attempt: live, passes: null, cutEntries: [], cut: byDefault }).doing).toEqual(["Deriving the series"]);
+  });
+
   it("TheLiveAttempt_SaysSpecNOfMFromItsOwnCut_AndDerivingWhileTheCutIsAnEarlierAttempts", () => {
     const live = attempt({ number: 2, runId: "r-2", status: "running", finishedAt: null });
     const own = series("r-2", [

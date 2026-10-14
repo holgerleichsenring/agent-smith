@@ -34,6 +34,35 @@ internal static class TicketSeriesFixtures
         AcceptanceJson = acceptanceJson,
     };
 
+    /// <summary>A RunSpec row of an attempt that published no cut, with its own ordinal and goal.</summary>
+    public static RunSpec RecordedRow(string runId, string specId, int ordinal, string status) =>
+        WithOrdinal(SpecRow(runId, specId, status), ordinal, $"Recorded goal of {specId}");
+
+    /// <summary>The spec record a run stored for one spec, as the record projection writes it.</summary>
+    public static RunArtifact SpecRecord(string runId, string specId, string body) => new()
+    {
+        RunId = runId, Kind = AgentSmith.Infrastructure.Persistence.Services.RunSpecProjection.RecordKindPrefix + specId,
+        Content = body,
+    };
+
+    public static Run WithAcceptance(Run run, string acceptanceJson)
+    {
+        run.AcceptanceJson = acceptanceJson;
+        return run;
+    }
+
+    public static string Acceptance(IReadOnlyList<UnmeasuredAccountView> unmeasured, params (string Text, string Status)[] criteria) =>
+        RunStoryJson.Serialize(new AcceptanceView(
+            [.. criteria.Select(c => new AcceptanceCriterionView(c.Text, c.Status, $"why {c.Status}", "src/A.cs"))],
+            ExpectationOutcomes.Verbatim, "the ratified spec", AcceptanceSources.DeliveryAccount, Unmeasured: unmeasured));
+
+    private static RunSpec WithOrdinal(RunSpec row, int ordinal, string title)
+    {
+        row.Ordinal = ordinal;
+        row.Title = title;
+        return row;
+    }
+
     public static RunAttempt Attempt(string runId, int revision, string cause, params string[] carried) => new()
     {
         RunId = runId, RevisionNumber = revision, RevisionCause = cause,

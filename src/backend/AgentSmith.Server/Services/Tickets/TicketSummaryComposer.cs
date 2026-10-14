@@ -43,7 +43,7 @@ public sealed class TicketSummaryComposer(
             headSpecs.Count(s => s == DoneSpec), headSpecs.Count,
             [.. ordered.Select(a => marker.Mark(a.Run, live, specStatuses, launches))], pullRequests,
             record?.Cause, record?.TrackerState, record?.WebUrl,
-            UnchangedSinceLastAttempt: unchanged, CheckedAt: check?.CheckedAt);
+            UnchangedSinceLastAttempt: unchanged, CheckedAt: check?.CheckedAt, Landing: state.Landing);
         return standing?.Apply(summary) ?? summary;
     }
 

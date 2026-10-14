@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { attempt, conversation, defaults, detail, passes, reviews, series } from "@/components/tickets/detail/__tests__/detailFixtures";
+import { attempt, conversation, defaults, detail, passes, reviews, series, ticketText } from "@/components/tickets/detail/__tests__/detailFixtures";
 import { TicketPageReads, type TicketPageSnapshot } from "../TicketPageReads";
 
 // 2026-10-13-8762l: the review rounds are a ticket-level read with their own 2 s window — re-read on a
@@ -11,6 +11,7 @@ const api = {
   conversation: vi.fn(() => Promise.resolve(conversation([]))),
   reviews: vi.fn(() => Promise.resolve(reviews())),
   defaults: vi.fn(() => Promise.resolve(defaults())),
+  text: vi.fn(() => Promise.resolve(ticketText())),
   passes: vi.fn((runId: string) => Promise.resolve(passes(runId, {}))),
   run: vi.fn(() => Promise.reject(new Error("unused"))),
   compute: vi.fn(() => Promise.reject(new Error("unused"))),

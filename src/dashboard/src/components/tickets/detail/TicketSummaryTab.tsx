@@ -4,9 +4,10 @@ import { useEffect, useState } from "react";
 import { useTicketDetail } from "@/lib/tickets/TicketPageStore";
 import { AttemptFlowGraph } from "./AttemptFlowGraph";
 import { CarriedBanner, SummaryCells } from "./SummaryCells";
+import { TicketTextSection } from "./TicketTextSection";
 
-// 2026-10-13-9a59q: the Summary tab — four cells and the carried/new banner for the chosen attempt,
-// then that attempt's flow graph. The newest attempt is chosen until the reader picks another.
+// 2026-10-13-9a59q: the Summary tab — the ticket itself, then four cells and the carried/new banner for
+// the chosen attempt, then that attempt's flow graph. The newest attempt is chosen until the reader picks another.
 
 export function TicketSummaryTab() {
   const detail = useTicketDetail().data;
@@ -26,6 +27,7 @@ export function TicketSummaryTab() {
   };
   return (
     <div data-testid="ticket-summary">
+      <TicketTextSection />
       <SummaryCells detail={detail} attempt={attempt} />
       <CarriedBanner attempt={attempt} />
       <AttemptFlowGraph detail={detail} attempt={attempt} onSelect={choose} />

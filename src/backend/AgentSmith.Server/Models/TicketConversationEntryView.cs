@@ -1,3 +1,5 @@
+using AgentSmith.Domain.Models;
+
 namespace AgentSmith.Server.Models;
 
 /// <summary>
@@ -13,6 +15,7 @@ namespace AgentSmith.Server.Models;
 /// <param name="AttemptRunId">The attempt the entry belongs to; null when <paramref name="Group"/> is set.</param>
 /// <param name="Group">before (ahead of the first attempt) or now (after the last attempt's approval).</param>
 /// <param name="Url">The pull request of a pr-review entry, as the record reads it.</param>
+/// <param name="Format">One of <see cref="TicketTextFormat"/>: how <paramref name="Text"/> was written.</param>
 public sealed record TicketConversationEntryView(
     string Id,
     string? SourceId,
@@ -29,4 +32,5 @@ public sealed record TicketConversationEntryView(
     string? File = null,
     int? Line = null,
     object? Detail = null,
-    string? Url = null);
+    string? Url = null,
+    string Format = TicketTextFormat.Text);

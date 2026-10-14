@@ -109,6 +109,8 @@ export interface TicketSummary {
   unchangedSinceLastAttempt?: boolean | null;
   checkedAt?: string | null;
   handback?: { text: string; at: string } | null;
+  /** merged | unmerged once every pull request ended; null while any is open or unread */
+  landing?: string | null;
 }
 
 export interface TicketCounts {
@@ -214,7 +216,7 @@ export interface TicketSpecStep {
 
 export interface TicketSeriesCriterion {
   text: string;
-  /** met | unmet | not_applicable; null while unjudged */
+  /** met | unmet | not_applicable | unproven; null while unjudged */
   verdict: string | null;
   note: string | null;
   citation: string | null;
@@ -232,7 +234,8 @@ export interface TicketSeriesStepWorked {
 export interface TicketSeriesSpec {
   specId: string;
   ordinal: number;
-  fileStem: string;
+  /** Null for a spec read from the run record: no cut named its file. */
+  fileStem: string | null;
   goal: string;
   repos: string[];
   steps: TicketSpecStep[];
@@ -246,6 +249,12 @@ export interface TicketSeriesSpec {
   worked?: TicketSeriesStepWorked[] | null;
   /** 2026-10-13-8762m: the executing attempt's record's build note; null when there is no record. */
   buildNote?: TicketSeriesBuildNote | null;
+  /** False when only the goal was recorded; recordNote says why. */
+  hasRecord?: boolean;
+  /** "no record" | "record unreadable"; null with a record. */
+  recordNote?: string | null;
+  /** False for a terminal spec none of whose criteria carries a verdict. */
+  verdictRecorded?: boolean;
 }
 
 /** 2026-10-13-8762m: what a spec's master handed forward; `missing` when it left no note. */
@@ -255,6 +264,14 @@ export interface TicketSeriesBuildNote {
   moved: string[];
   persisted: string[];
   deviations: string[];
+}
+
+/** Run acceptance a run-record read could not tie to one spec. */
+export interface TicketSeriesUnattributed {
+  runId: string;
+  attempt: number;
+  criteria: TicketSeriesCriterion[];
+  unmeasured: Array<{ repositories: string; reason: string | null }>;
 }
 
 export interface TicketSeries {
@@ -271,6 +288,9 @@ export interface TicketSeries {
   specs: TicketSeriesSpec[];
   revisions: Array<{ number: number; cause: string | null; runId: string; attempt: number; at: string | null }>;
   recorded: boolean;
+  /** cut | run-record — run-record when the attempts predate the cut and the specs come from their rows. */
+  source?: string;
+  unattributedCriteria?: TicketSeriesUnattributed[] | null;
   /** The series runway on the default read; null for a one-chunk ticket or a per-attempt read. */
   budget?: TicketSeriesBudget | null;
 }
@@ -354,6 +374,35 @@ export interface RunPasses {
 /** ticket | question | pr-review | spec-cut | conversation */
 export type TicketConversationSource = string;
 
+/** How a tracker or conversation text was written, as its source names it. */
+export type TicketTextFormat = "html" | "markdown" | "text";
+
+/** Where the ticket text came from: its tracker now, an attempt's copy, or neither. */
+export type TicketTextSource = "tracker" | "snapshot" | "unavailable";
+
+/** Why the tracker could not be read — a class, never the exception's text. */
+export type TicketTextReason = "not-found" | "unauthorized" | "unreachable" | "project-not-configured";
+
+/** GET /api/tickets/{project}/{ticketId}/text — the ticket itself. */
+export interface TicketText {
+  source: TicketTextSource;
+  title: string | null;
+  description: string | null;
+  descriptionFormat: TicketTextFormat;
+  acceptanceCriteria: string | null;
+  criteriaFormat: TicketTextFormat;
+  workItemType: string | null;
+  state: string | null;
+  labels: string[] | null;
+  assignee: string | null;
+  webUrl: string | null;
+  /** When the tracker was read, or when the attempt kept its copy. */
+  at: string | null;
+  runId?: string | null;
+  attempt?: number | null;
+  reason?: TicketTextReason | null;
+}
+
 export interface TicketConversationEntry {
   id: string;
   sourceId: string | null;
@@ -373,6 +422,7 @@ export interface TicketConversationEntry {
   line?: number | null;
   detail?: unknown;
   url?: string | null;
+  format: TicketTextFormat;
 }
 
 export interface TicketConversationAttempt {

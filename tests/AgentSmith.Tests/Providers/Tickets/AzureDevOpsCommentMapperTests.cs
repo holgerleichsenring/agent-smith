@@ -1,3 +1,4 @@
+using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Services.Providers.Tickets;
 using FluentAssertions;
 using Microsoft.TeamFoundation.WorkItemTracking.WebApi.Models;
@@ -44,6 +45,27 @@ public sealed class AzureDevOpsCommentMapperTests
 
         mapped[0].CreatedAt.Should().Be(new DateTimeOffset(2026, 7, 1, 10, 15, 0, TimeSpan.Zero));
         mapped[0].Author.Should().Be("unknown");
+    }
+
+    [Fact]
+    public void AzureDevOpsCommentMapper_MapMany_TakesTheCommentFormat()
+    {
+        var mapped = new AzureDevOpsCommentMapper().MapMany([
+            new Comment { Id = 1, Text = "<h2>Done</h2>", Format = CommentFormat.Html },
+            new Comment { Id = 2, Text = "## Done", Format = CommentFormat.Markdown },
+        ]);
+
+        mapped.Select(c => c.Format).Should().Equal(TicketTextFormat.Html, TicketTextFormat.Markdown);
+    }
+
+    [Fact]
+    public void AzureDevOpsCommentMapper_HtmlDeclaredWithoutMarkup_IsMarkdown()
+    {
+        var mapped = new AzureDevOpsCommentMapper().MapMany([
+            new Comment { Id = 3, Text = "**Done**\n\n- one", Format = CommentFormat.Html },
+        ]);
+
+        mapped[0].Format.Should().Be(TicketTextFormat.Markdown);
     }
 
     [Fact]

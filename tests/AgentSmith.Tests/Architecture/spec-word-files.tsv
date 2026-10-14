@@ -236,3 +236,6 @@ tests/AgentSmith.Tests/Tools/LogDecisionToolHostTests.cs	phase	4
 tests/AgentSmith.Tests/Triggers/EpicParentRoutingTests.cs	phase	1
 tests/AgentSmith.Tests/Triggers/SpecExecutionRoutingTests.cs	phase	1
 tests/AgentSmith.Tests/Workers/WorkerRequestCompositionTests.cs	Phase	1
+src/backend/AgentSmith.Application/Services/SpecDialog/SpecRecordReader.cs	phase	1
+tests/AgentSmith.Tests/SpecDialog/SpecRecordReaderTests.cs	phase	1
+tests/AgentSmith.Tests/Tickets/TicketSeriesRunRecordReadTests.cs	phase	1

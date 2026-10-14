@@ -1,5 +1,55 @@
 # Changelog
 
+## [0.163.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.162.0...v0.163.0) (2026-10-14)
+
+
+### Features
+
+* an Azure DevOps HTML field or comment without markup reads as markdown, so a markdown description renders formatted (2026-10-14-30c6) ([51ad512](https://github.com/holgerleichsenring/agent-smith/commit/51ad5126da77804cc5ea3fb6a3b244657c53e0b8))
+
+
+### Bug Fixes
+
+* an untagged Azure DevOps HTML field reads as markdown (2026-10-14-30c6) ([1168fab](https://github.com/holgerleichsenring/agent-smith/commit/1168fab521260aa65504ed8c161955e68572b960))
+
+## [0.162.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.161.0...v0.162.0) (2026-10-14)
+
+
+### Features
+
+* a fetched ticket says whether its tracker counts it closed, and a ticket reads closed for work only when a person closed it, not when agent-smith set the status (2026-10-13-9a59k) ([94dff02](https://github.com/holgerleichsenring/agent-smith/commit/94dff02077b1430e8689d301369d55f316dd6072))
+* a keyword comment or pull-request act on a ticket a person closed files one linked follow-up carrying its text instead of reopening it (2026-10-13-9a59t) ([181dc94](https://github.com/holgerleichsenring/agent-smith/commit/181dc94d62be072d858ab20718813b3dd2df4418))
+* a master that stops on its own word with criteria unmet and budget left is challenged once with its reasons, and every code run records its stop (2026-10-13-3890a) ([6975058](https://github.com/holgerleichsenring/agent-smith/commit/6975058e8ebb90494d499edc0032f6449db23bfe))
+* a ticket opens on its own page, with a header, four summary cells and per attempt a flow graph of the code pipeline whose every node explains what that attempt recorded; ticket rows and code runs link to it (2026-10-13-9a59q) ([b669a96](https://github.com/holgerleichsenring/agent-smith/commit/b669a96ce634940cedfe3f17eca5fda88f499a27))
+* a ticket's page gains Attempts — what started each attempt, what it did and why it stopped — and Cost & compute — cost per spec and pass on the run-cap scale, pods with how they ended, call time and time waiting on you (2026-10-13-9a59s) ([08f2a91](https://github.com/holgerleichsenring/agent-smith/commit/08f2a91413d0704211f37f7b348176ae84370ad0))
+* a ticket's page gains Conversation, Specs and Acceptance — every exchange in order with the ticket's own Work it out composer that moves nothing until you act, the series as read-only documents, and acceptance per spec; a bound conversation's approval card says what approving does (2026-10-13-9a59r) ([a8b3bbc](https://github.com/holgerleichsenring/agent-smith/commit/a8b3bbc06e6e6d2608d60713fd608554d07c646e))
+* a ticket's series is readable before and while it is worked — every cut spec with its goal, repository, steps and done criteria, its state, and each criterion's verdict as its spec ends (2026-10-13-9a59e) ([3d92bff](https://github.com/holgerleichsenring/agent-smith/commit/3d92bff633c17afcbf96d13e5de1bba28987154d))
+* approving in a ticket's own conversation continues its series by spec id, records a never-worked ticket's series on every tracker, and files a linked follow-up for a ticket a person closed (2026-10-13-9a59l) ([5f4ba4b](https://github.com/holgerleichsenring/agent-smith/commit/5f4ba4b57a729eeae97d5537e992d144e4cfb5ad))
+* approving in a ticket's own conversation starts its next attempt as an operator act, waits for a live run or answers a hand-back, and the attempt names the approval as its cause (2026-10-13-9a59m) ([5ce7f66](https://github.com/holgerleichsenring/agent-smith/commit/5ce7f66975013a5a5e659c603c73f9baa1da123a))
+* each code run records its ticket's conversation as it happens — ticket text with criteria, every question, the hand-back's words and every cut review — kept as long as the run (2026-10-13-9a59g) ([fc1fe0a](https://github.com/holgerleichsenring/agent-smith/commit/fc1fe0a16adcd23e6c12a8512add85d28df826b7))
+* every attempt records the act it served with its source, the ticket text it saw and the revision and approval it worked from; the ticket read model shows it (2026-10-13-9a59d) ([ad1a820](https://github.com/holgerleichsenring/agent-smith/commit/ad1a820cc31cbf2140ba8096dc67394f6da2c4a6))
+* every launch of a run is recorded as a segment, and a run's compute read serves each segment's model time and, when it parked, who it waited on and when the wait ended (2026-10-13-9a59j) ([e6f2a70](https://github.com/holgerleichsenring/agent-smith/commit/e6f2a70a4d41c3e44d6cfe62e6ae845945acdffd))
+* every master pass of a spec is recorded with why it opened and ended, its verdicts, the steps it worked and its cost, so spend reads per spec, pass and command across a park (2026-10-13-9a59f) ([6626aae](https://github.com/holgerleichsenring/agent-smith/commit/6626aae511eb85787b92bfb7de756c38443f9802))
+* every pull request of a ticket keeps a record of its state, decisions and comments, refreshed by the nudge worker without starting anything; tickets gain Waiting on review and Done (2026-10-13-9a59b) ([2997860](https://github.com/holgerleichsenring/agent-smith/commit/29978609d861ef30aaa561735e3761dd180ae7fa))
+* every recorded sandbox says how it ended on every backend — first end wins, a replay adds nothing — and a run's spawns are readable at /api/runs/{runId}/compute (2026-10-13-9a59i) ([40725da](https://github.com/holgerleichsenring/agent-smith/commit/40725da6ef0260616e3845e25e9b53acfff98ec9))
+* every review, vote, comment, merge, close and reopen on a ticket's pull request refreshes its record — on delivery with webhooks, within the sweeps when polling — and starts nothing (2026-10-13-9a59c) ([1be3053](https://github.com/holgerleichsenring/agent-smith/commit/1be3053915528888cfaa5a5fbcb6e88fd7926d00))
+* in a ticket's conversation the agent's ticket_runs answer carries each attempt's cause, each spec's verdict and criteria outcomes, and the pull request review record with file and line (2026-10-13-9a59o) ([f0c6def](https://github.com/holgerleichsenring/agent-smith/commit/f0c6def6d6af9625f4234d7bc60f85cacb30d71c))
+* one read returns a ticket's conversation in time order under each attempt, and a failed ticket nobody touched since its last attempt shows as Stuck (2026-10-13-9a59h) ([d4b1bfe](https://github.com/holgerleichsenring/agent-smith/commit/d4b1bfea2fe6ee871fd49fa6c80362c6a1e409ed))
+* Retry starts an unchanged attempt only after an infrastructure end, through the rework entry with the retrying person as its cause, and every other end answers 409 pointing at the ticket conversation (2026-10-13-9a59n) ([c6b21b3](https://github.com/holgerleichsenring/agent-smith/commit/c6b21b394b7cd2cf573652f9a5bc478e8129c819))
+* the coding master installs a missing ecosystem tool instead of declining, skills pin v5.15.1 (2026-10-13-3890f) ([303e0da](https://github.com/holgerleichsenring/agent-smith/commit/303e0dafc9329d50c37a8eaaa7e5b23a34a17b96))
+* the server answers which tickets exist, who must act next and what their attempts were — GET /api/tickets and the ticket detail, with a ticket nudge on the system stream (2026-10-13-9a59a) ([8a510f2](https://github.com/holgerleichsenring/agent-smith/commit/8a510f2e6dacc9ee142e62ebf712594eb71cf80b))
+* tickets become the dashboard's entity — list, flow graph, conversation with continuation, attempts and cost (2026-10-13-9a59) ([2c2b9eb](https://github.com/holgerleichsenring/agent-smith/commit/2c2b9eb8f8c643d0f8ea0311c3b4582692e1cc3e))
+* tickets get their own list, grouped by who acts next and answerable inline, with the series strip, PR cells and attempt marks; the runs home says Waiting for input and DESIGN.md gains a state palette (2026-10-13-9a59p) ([f05aae4](https://github.com/holgerleichsenring/agent-smith/commit/f05aae45fe38e86dcc8ad952fff7401c784234f4))
+
+
+### Bug Fixes
+
+* a giving-up master is challenged once, result.md reads the branch, preflight counts beyond the base, sandbox steps take turns, sub-agents always shown (2026-10-13-3890) ([8e91ab2](https://github.com/holgerleichsenring/agent-smith/commit/8e91ab23250411c5ab53e6112906a5ab391c6a71))
+* a step's sub-agents show in the run view on its newest page, without loading older events (2026-10-13-3890e) ([ce0a540](https://github.com/holgerleichsenring/agent-smith/commit/ce0a5406bed1a35d1eca5c95025017a421147bdb))
+* callers of one sandbox take turns, so no step's result or output is lost to a sibling, and a sandbox timeout reaches the model as text (2026-10-13-3890d) ([5fe2d4f](https://github.com/holgerleichsenring/agent-smith/commit/5fe2d4fcee5c246642a148130a5552f5c8b14533))
+* result.md lists the files a code run's branch carries, its wall-clock duration and its failure once (2026-10-13-3890b) ([8cff402](https://github.com/holgerleichsenring/agent-smith/commit/8cff40210c411e7f09605980e1e6bb2e5c223bd1))
+* the preflight branch-state check counts only framework commits beyond the base (2026-10-13-3890c) ([043c501](https://github.com/holgerleichsenring/agent-smith/commit/043c5012ca64ff9256ff5af42f8ea29975a4c45f))
+
 ## [0.161.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.160.0...v0.161.0) (2026-10-13)
 
 

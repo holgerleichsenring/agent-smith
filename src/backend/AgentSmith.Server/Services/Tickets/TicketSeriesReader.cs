@@ -8,13 +8,15 @@ namespace AgentSmith.Server.Services.Tickets;
 /// 2026-10-13-9a59e: a ticket's series as its attempts PUBLISHED it — the cut rows, never a git read.
 /// By default the latest cut with specs across the attempts, with a newer hand-back reported as the
 /// current state above it; asked for one attempt, that attempt's cut, its hand-back case and its gate.
-/// A reviewer's edit on the branch is not here until an attempt publishes it.
+/// A reviewer's edit on the branch is not here until an attempt publishes it. With no cut at all in
+/// scope, the series is what the attempts recorded instead (<see cref="TicketRunRecordSeriesReader"/>).
 /// </summary>
 public sealed class TicketSeriesReader(
     TicketRunsQuery runQuery,
     TicketAttempts attempts,
     TicketSeriesRecordsReader recordsReader,
     TicketSeriesSpecComposer specs,
+    TicketRunRecordSeriesReader runRecords,
     Runway.SeriesRunwayReader runway)
 {
     private const string Success = "success";
@@ -36,8 +38,13 @@ public sealed class TicketSeriesReader(
         var handback = runId is null ? TicketSeriesCuts.CurrentHandback(all) : scoped.LastOrDefault(c => c.HandbackCase is not null);
         var revisions = Revisions(records, all, numbers);
         if (cut is null)
-            return new TicketSeriesView(project, ticketId, null, null, null, null,
-                Handback(handback, numbers), null, [], revisions, all.Count > 0);
+            return scoped.Count == 0
+                   && await runRecords.ReadAsync(records, [.. code.Select(r => r.Run)], numbers, runId, ct) is { } fromRuns
+                ? new TicketSeriesView(project, ticketId, runId, runId is null ? null : numbers[runId], null, null,
+                    Handback(handback, numbers), null, fromRuns.Specs, revisions, Recorded: true,
+                    TicketSeriesSources.RunRecord, fromRuns.Unattributed)
+                : new TicketSeriesView(project, ticketId, null, null, null, null,
+                    Handback(handback, numbers), null, [], revisions, all.Count > 0);
 
         var carried = TicketSeriesCuts.Carried(records, cut.RunId);
         var entries = TicketSeriesCuts.Entries(cut);
@@ -45,7 +52,7 @@ public sealed class TicketSeriesReader(
             project, ticketId, cut.RunId, numbers[cut.RunId], cut.At, cut.SetKey,
             Handback(handback, numbers), Gate(cut, entries.Count, records),
             [.. entries.Select(e => specs.Compose(e, cut.RunId, carried, records, numbers))],
-            revisions, Recorded: true, runId is null ? (await runway.ReadAsync(project, ticketId, ct))?.Page : null);
+            revisions, Recorded: true, Budget: runId is null ? (await runway.ReadAsync(project, ticketId, ct))?.Page : null);
     }
 
     private static TicketSeriesHandbackView? Handback(RunSeriesCut? cut, IReadOnlyDictionary<string, int> numbers) =>

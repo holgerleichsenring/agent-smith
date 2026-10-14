@@ -1,4 +1,7 @@
 using System.Text.Json;
+using AgentSmith.Contracts.Dialogue;
+using AgentSmith.Domain.Entities;
+using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Server.Models;
 using Kinds = AgentSmith.Server.Models.TicketConversationKinds;
@@ -12,13 +15,17 @@ namespace AgentSmith.Server.Services.Tickets.Conversation;
 /// answer from the inbox (a deadline answer is the system's default); a hand-back and every cut review; and
 /// an edit only where consecutive attempts fetched different fingerprints — the changed fields of title,
 /// description and criteria, timed at the later fetch and with no author, which no tracker read gives.
+/// Questions, hand-backs and cut reviews are markdown; an answer is plain text unless it was read off a ticket
+/// comment, whose format it keeps.
 /// </summary>
 public static class ConversationRunEntries
 {
     private const string DeadlineComment = "timeout";
     private const string DeadlineAuthor = "system";
+    private static readonly TimeSpan SameMoment = TimeSpan.FromSeconds(1);
 
-    public static IEnumerable<TicketConversationEntryView> Of(IReadOnlyList<Run> attempts, ConversationRunRows rows)
+    public static IEnumerable<TicketConversationEntryView> Of(
+        IReadOnlyList<Run> attempts, ConversationRunRows rows, IReadOnlyList<TicketComment> thread)
     {
         foreach (var row in rows.Entries.OrderBy(e => e.At))
         {
@@ -28,7 +35,7 @@ public static class ConversationRunEntries
                     yield return Entry($"{Sources.Question}:{row.RunId}:{questionId}", questionId, Sources.Question,
                         row.Kind, Roles.Agent, row, row.Text);
                     if (rows.Answers.FirstOrDefault(a => a.DialogueJobId == row.RunId && a.QuestionId == questionId) is { } answer)
-                        yield return Answer(row.RunId, answer);
+                        yield return Answer(row.RunId, answer, thread);
                     break;
                 case RunConversationKinds.HandBack:
                 case RunConversationKinds.CutReview:
@@ -40,14 +47,21 @@ public static class ConversationRunEntries
         foreach (var edit in Edits(attempts, rows)) yield return edit;
     }
 
-    private static TicketConversationEntryView Answer(string runId, DialogueAnswerEntry answer)
+    private static TicketConversationEntryView Answer(string runId, DialogueAnswerEntry answer, IReadOnlyList<TicketComment> thread)
     {
         var deadline = answer.Comment == DeadlineComment && answer.AnsweredBy == DeadlineAuthor;
         return new TicketConversationEntryView($"{Sources.Question}:{runId}:{answer.QuestionId}:answer", answer.QuestionId,
             null, Sources.Question, deadline ? Kinds.DefaultAnswer : Kinds.Answer, deadline ? Roles.System : Roles.Person,
             deadline ? null : answer.AnsweredBy, false, answer.AnsweredAt, runId, null, answer.Answer,
-            Detail: new { answer.Comment, IsDefault = deadline });
+            Detail: new { answer.Comment, IsDefault = deadline }, Format: AnswerFormat(answer, thread));
     }
+
+    // The thread comment the answer was read from: same author and time. A comment no longer in the thread
+    // was written on Azure DevOps, the only tracker that is polled, whose discussion editor writes HTML.
+    private static string AnswerFormat(DialogueAnswerEntry answer, IReadOnlyList<TicketComment> thread) =>
+        answer.Comment != DialogAnswer.FromTicketComment ? TicketTextFormat.Text
+        : thread.FirstOrDefault(c => string.Equals(c.Author, answer.AnsweredBy, StringComparison.Ordinal)
+            && (c.CreatedAt - answer.AnsweredAt).Duration() < SameMoment)?.Format ?? TicketTextFormat.Html;
 
     private static IEnumerable<TicketConversationEntryView> Edits(IReadOnlyList<Run> attempts, ConversationRunRows rows)
     {
@@ -82,7 +96,7 @@ public static class ConversationRunEntries
             diff[field] = new { Before = before, After = after };
     }
 
-    private static string? Criteria(RunConversationEntry? row) =>
+    internal static string? Criteria(RunConversationEntry? row) =>
         Detail(row?.DetailJson) is { } detail && detail.TryGetProperty("acceptanceCriteria", out var criteria)
             && criteria.ValueKind == JsonValueKind.String ? criteria.GetString() : null;
 
@@ -101,5 +115,6 @@ public static class ConversationRunEntries
 
     private static TicketConversationEntryView Entry(string id, string? sourceId, string source, string kind, string role,
         RunConversationEntry row, string? text, object? detail = null) =>
-        new(id, sourceId, null, source, kind, role, null, false, row.At, row.RunId, null, text, Detail: detail);
+        new(id, sourceId, null, source, kind, role, null, false, row.At, row.RunId, null, text, Detail: detail,
+            Format: TicketTextFormat.Markdown);
 }

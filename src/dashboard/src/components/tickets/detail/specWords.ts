@@ -32,11 +32,21 @@ export function isVerified(criterion: TicketSeriesCriterion): boolean {
   return criterion.verdict === "met";
 }
 
-/** Verified criteria across every spec: the machine verdict — an operator judgement is a label beside it. */
-export function acceptanceTally(series: TicketSeries | null): { verified: number; total: number } | null {
+/** The line a run-record series is introduced by. */
+export const RUN_RECORD_LINE = "as the runs recorded them — these attempts predate the cut";
+
+/** A series read from the run record of attempts that predate the cut. */
+export function isRunRecord(series: TicketSeries | null | undefined): boolean {
+  return series?.source === "run-record";
+}
+
+/** Verified criteria across the specs whose verdicts were recorded: the machine verdict — an operator judgement
+ *  is a label beside it — and how many specs recorded none. */
+export function acceptanceTally(series: TicketSeries | null): { verified: number; total: number; unrecorded: number } | null {
   if (!series?.recorded || series.specs.length === 0) return null;
-  const done = series.specs.flatMap((s) => s.done);
-  return { verified: done.filter(isVerified).length, total: done.length };
+  const judged = series.specs.filter((s) => s.verdictRecorded !== false);
+  const done = judged.flatMap((s) => s.done);
+  return { verified: done.filter(isVerified).length, total: done.length, unrecorded: series.specs.length - judged.length };
 }
 
 export interface AttemptCell {
@@ -75,14 +85,31 @@ export function defaultSpec(specs: TicketSeriesSpec[]): TicketSeriesSpec | null 
 
 /** A criterion's mark, words and the attempt that verified it. */
 export function criterionRow(criterion: TicketSeriesCriterion, spec: TicketSeriesSpec): { mark: string; glyph: string; who: string } {
-  const by = spec.executedByAttempt != null ? `A${spec.executedByAttempt}` : "";
+  const unjudged = spec.verdictRecorded === false ? "no verdict recorded"
+    : spec.state === "not_started" ? "not started" : "verify pending";
+  return verdictRow(criterion, spec.executedByAttempt != null ? `A${spec.executedByAttempt}` : "", unjudged);
+}
+
+/** A criterion's mark and words from its verdict, by the attempt named; `unjudged` when it has none. */
+export function verdictRow(criterion: TicketSeriesCriterion, by: string, unjudged: string): { mark: string; glyph: string; who: string } {
   switch (criterion.verdict) {
     case "met": return { mark: "ok", glyph: "✓", who: by };
     case "unmet": return { mark: "bad", glyph: "✗", who: by };
     case "not_applicable": return { mark: "q", glyph: "–", who: by ? `${by} · not applicable` : "not applicable" };
     case "unproven": return { mark: "bad", glyph: "?", who: by ? `${by} · unproven` : "unproven" };
-    default: return { mark: "q", glyph: "·", who: spec.state === "not_started" ? "not started" : "verify pending" };
+    default: return { mark: "q", glyph: "·", who: unjudged };
   }
+}
+
+const RECORD_NOTES: Record<string, string> = {
+  "no record": "no spec record — only the goal was recorded",
+  "record unreadable": "the spec record could not be read",
+};
+
+/** Why a spec shows only its goal; null when its record was read. */
+export function recordNoteWords(spec: TicketSeriesSpec): string | null {
+  if (spec.hasRecord !== false) return null;
+  return RECORD_NOTES[spec.recordNote ?? ""] ?? RECORD_NOTES["no record"];
 }
 
 export function overruleWords(criterion: TicketSeriesCriterion): string | null {

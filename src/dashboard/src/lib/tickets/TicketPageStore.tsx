@@ -9,6 +9,7 @@ import { isRunLive } from "@/lib/runLiveness";
 import { EventType, type RunEvent, type RunSnapshot } from "@/types/hub-events";
 import type {
   RunCompute, RunPasses, TicketApprovalPreview, TicketAttempt, TicketConversation, TicketDefaults, TicketDetail, TicketReviews, TicketSeries,
+  TicketText,
 } from "@/types/tickets";
 import {
   TicketPageReads, type PerRunRead, type Read, type TicketPageApi, type TicketPageSnapshot,
@@ -149,6 +150,11 @@ export function useTicketReviews(): Read<TicketReviews> {
 export function useTicketDefaults(): Read<TicketDefaults> & { changed: () => void } {
   const { snapshot, reads } = useStore();
   return { ...snapshot.defaults, changed: () => reads.defaultsChanged() };
+}
+
+/** The ticket itself — description, criteria and fields — read on its own tick, never on a RunsChanged. */
+export function useTicketText(): Read<TicketText> {
+  return useStore().snapshot.text;
 }
 
 export function useAttemptPasses(runId: string | null): Read<RunPasses> {

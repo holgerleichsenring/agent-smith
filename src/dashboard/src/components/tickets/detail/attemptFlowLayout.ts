@@ -9,6 +9,7 @@ import type {
 } from "@/types/tickets";
 import { handbackCaseWords, money, passEndWords, refusedReviews } from "./flowWords";
 import { questionJoin, type QuestionPair } from "./questionJoin";
+import { isRunRecord } from "./specWords";
 
 // 2026-10-13-9a59q: one attempt of the code pipeline as a graph — a PURE function of the attempt's own
 // records, so its shape is tested without a DOM and the SVG only paints. Columns and row heights are
@@ -72,7 +73,8 @@ interface Cursor { x: number; y: number; state: FlowState; small: boolean; specY
 export function layoutAttemptFlow(input: AttemptFlowInput, mode: FlowMode): AttemptFlowLayout {
   const { attempt, series } = input;
   const live = isRunLive(attempt.status);
-  const cut = series?.runId === attempt.runId ? series : null;
+  // A run-record read is no cut: such an attempt keeps the run-viewer link.
+  const cut = series?.runId === attempt.runId && !isRunRecord(series) ? series : null;
   if (!live && !attempt.revision && !cut) return { fallback: true, nodes: [], edges: [], texts: [], lanes: [], height: 0 };
 
   const b: Builder = { nodes: [], edges: [], texts: [], lanes: [] };

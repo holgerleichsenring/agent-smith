@@ -17,6 +17,7 @@ import type {
   TicketSeries,
   TicketSeriesBudget,
   TicketSeriesSpec,
+  TicketText,
 } from "@/types/tickets";
 
 // 2026-10-13-9a59q: ticket-page test data in the server's JSON shape.
@@ -77,7 +78,7 @@ export function entry(over: Partial<TicketConversationEntry> = {}): TicketConver
   return {
     id: "e-1", sourceId: null, prKey: null, source: "question", kind: "question", role: "agent", author: null,
     isOurs: false, at: "2026-09-04T14:10:00Z", attemptRunId: "r-1", group: null, text: "Keep the outbox?",
-    ...over,
+    format: "text", ...over,
   };
 }
 
@@ -150,5 +151,14 @@ export function defaultEntry(over: Partial<TicketDefault> = {}): TicketDefault {
     chosen: "IETF draft", alternatives: ["X-RateLimit-*"], why: "The draft is what clients read.", holdsSeries: false,
     kind: "decision", pointerPath: null, takenAt: "2026-09-04T14:00:00Z", verdict: "pending", verdictBy: null,
     verdictAt: null, verdictNote: null, landed: null, ...over,
+  };
+}
+
+export function ticketText(over: Partial<TicketText> = {}): TicketText {
+  return {
+    source: "tracker", title: "Fix the login", description: "Users are signed out mid-session.", descriptionFormat: "text",
+    acceptanceCriteria: null, criteriaFormat: "text", workItemType: null, state: "Active", labels: [], assignee: null,
+    webUrl: null, at: "2026-09-04T15:00:00Z",
+    ...over,
   };
 }

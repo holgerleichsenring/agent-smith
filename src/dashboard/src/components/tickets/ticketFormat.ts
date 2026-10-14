@@ -1,4 +1,4 @@
-import type { AttemptCause, TicketAttemptMark, TicketSummary } from "@/types/tickets";
+import type { AttemptCause, TicketAttemptMark, TicketPullRequest, TicketSummary } from "@/types/tickets";
 
 // 2026-10-13-9a59p: the words a ticket row is written in, from recorded fields only.
 
@@ -65,4 +65,21 @@ const OUTCOME_WORDS: Record<string, string> = {
 
 export function outcomeWords(outcome: string): string {
   return OUTCOME_WORDS[outcome] ?? outcome;
+}
+
+/** The order the pull requests' fate is told in; unsupported and unread say nothing about it. */
+const FATE_ORDER: ReadonlyArray<readonly [string, string]> = [
+  ["merged", "merged"],
+  ["open", "open"],
+  ["closed", "closed unmerged"],
+];
+
+/** How the pull requests ended so far — "1 PR merged, 1 open"; null when none has a known state. */
+export function pullRequestFate(pullRequests: TicketPullRequest[]): string | null {
+  const parts = FATE_ORDER.map(([state, words]) => [pullRequests.filter((p) => p.state === state).length, words] as const)
+    .filter(([n]) => n > 0);
+  if (parts.length === 0) return null;
+  const [[first, firstWords], ...rest] = parts;
+  const head = `${first} ${first === 1 ? "PR" : "PRs"} ${firstWords}`;
+  return [head, ...rest.map(([n, words]) => `${n} ${words}`)].join(", ");
 }

@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Specs;
+using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Models;
@@ -31,7 +32,8 @@ public sealed class TicketTranscriptReader(IServiceScopeFactory scopes, ILogger<
                 $"{TicketConversationSources.Conversation}:{session.SessionId}:{i}", null, null,
                 TicketConversationSources.Conversation, TicketConversationKinds.Turn,
                 turn.Role == TranscriptRole.User ? TicketConversationRoles.Person : TicketConversationRoles.Agent,
-                null, turn.Role == TranscriptRole.Assistant, turn.At, null, null, turn.Text));
+                null, turn.Role == TranscriptRole.Assistant, turn.At, null, null, turn.Text,
+                Format: turn.Role == TranscriptRole.User ? TicketTextFormat.Text : TicketTextFormat.Markdown));
 
     /// <summary>The open proposal and its drafts; null when none is open.</summary>
     public TicketConversationProposalView? Proposal(SpecDialogSession session)

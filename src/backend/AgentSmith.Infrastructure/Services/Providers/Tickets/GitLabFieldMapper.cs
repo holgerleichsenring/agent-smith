@@ -29,7 +29,8 @@ public sealed class GitLabFieldMapper : ITicketFieldMapper<JsonElement>
             // never rendered raw: an enum token is not a word a person recognises.
             Kind(issue),
             ReadOrNull(issue, "web_url"),
-            isClosed: string.Equals(ReadString(issue, "state"), "closed", StringComparison.OrdinalIgnoreCase));
+            isClosed: string.Equals(ReadString(issue, "state"), "closed", StringComparison.OrdinalIgnoreCase),
+            descriptionFormat: TicketTextFormat.Markdown);
 
     private static string? Kind(JsonElement issue) =>
         ReadOrNull(issue, "issue_type") ?? Spoken(ReadOrNull(issue, "type"));

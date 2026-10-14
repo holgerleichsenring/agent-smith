@@ -55,14 +55,15 @@ public sealed class TicketSourceIdentityTests
     public void Ticket_With_CarriesEveryProperty()
     {
         var ticket = new Ticket(new TicketId("42"), "Title", "before", "criteria", "Open", "Jira", ["l"],
-            TicketPerson.From("Ann", "ann"), TicketPerson.From("Bo", "bo"), "Bug", "https://jira.example.com/browse/42", isClosed: true);
+            TicketPerson.From("Ann", "ann"), TicketPerson.From("Bo", "bo"), "Bug", "https://jira.example.com/browse/42", isClosed: true,
+            descriptionFormat: TicketTextFormat.Html, criteriaFormat: TicketTextFormat.Markdown);
 
         var copy = ticket.With(description: "after");
 
         copy.Should().BeEquivalentTo(ticket, o => o.Excluding(t => t.Description));
         copy.Description.Should().Be("after");
         ticket.With(webUrl: "https://other").WebUrl.Should().Be("https://other");
-        typeof(Ticket).GetProperties().Should().HaveCount(12,
+        typeof(Ticket).GetProperties().Should().HaveCount(14,
             "a property added to Ticket must be added to With and to this test");
     }
 

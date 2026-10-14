@@ -1,4 +1,5 @@
 using System.Text.Json;
+using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Reviews;
 using AgentSmith.Domain.Entities;
@@ -65,6 +66,19 @@ public sealed class TicketStuckTests : IDisposable
         var row = list.Tickets.Single();
         (row.Bucket, row.UnchangedSinceLastAttempt, row.CheckedAt).Should().Be((TicketBucket.Stuck, (bool?)true, (DateTimeOffset?)Now));
         list.Counts.Stuck.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task TicketTrackerObserver_LabelNoteOnAnOtherwiseUnchangedTicket_ReadsUnchanged()
+    {
+        await FailedAsync();
+        var noted = new Ticket(Text.Id, Text.Title, $"{Text.Description}\n\n{TicketLabelNote.Begin}\nbookkeeping\n{TicketLabelNote.End}",
+            Text.AcceptanceCriteria, Text.Status, Text.Source);
+        _h.Tracker.Setup(t => t.GetTicketAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>())).ReturnsAsync(noted);
+
+        await _h.Detail.ReadAsync("alpha", "42", default);
+
+        (await RowAsync()).UnchangedSinceLastAttempt.Should().BeTrue("our own label note is not an edit of the ticket");
     }
 
     [Fact]

@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeHub } from "../../__tests__/ticketFixtures";
-import { attempt, conversation, defaultEntry, defaults, detail, reviews, series } from "./detailFixtures";
+import { attempt, conversation, defaultEntry, defaults, detail, reviews, series, ticketText } from "./detailFixtures";
 import type { RunEvent } from "@/types/hub-events";
 import type { DefaultVerdictAnswer, TicketDefaults } from "@/types/tickets";
 
@@ -28,6 +28,7 @@ const api = {
   conversation: vi.fn(() => Promise.resolve(conversation([]))),
   reviews: vi.fn(() => Promise.resolve(reviews())),
   defaults: vi.fn(() => Promise.resolve(world.defaults)),
+  text: vi.fn(() => Promise.resolve(ticketText())),
   passes: vi.fn(() => Promise.reject(new Error("unused"))),
   run: vi.fn(() => Promise.reject(new Error("unused"))),
   compute: vi.fn(() => Promise.reject(new Error("unused"))),

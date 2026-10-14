@@ -1,7 +1,7 @@
 import { act, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeHub } from "../../__tests__/ticketFixtures";
-import { attempt, compute, conversation, defaults, detail, passes, runDetail, series, spec } from "./detailFixtures";
+import { attempt, compute, conversation, defaults, detail, passes, runDetail, series, spec, ticketText } from "./detailFixtures";
 import type { RunEvent } from "@/types/hub-events";
 
 // 2026-10-13-9a59s: the Attempts and Cost tabs read over HTTP through the page store's own bindings — the
@@ -21,6 +21,7 @@ const http = vi.hoisted(() => ({
   fetchTicketSeries: vi.fn(),
   fetchTicketConversation: vi.fn(),
   fetchTicketDefaults: vi.fn(),
+  fetchTicketText: vi.fn(),
   fetchRunPasses: vi.fn(),
   fetchRunCompute: vi.fn(),
   fetchApprovalPreview: vi.fn(),
@@ -42,6 +43,7 @@ beforeEach(() => {
   http.fetchTicketSeries.mockImplementation((_p: string, _t: string, runId: string | null) => Promise.resolve(series(runId ?? "r-2", [spec()])));
   http.fetchTicketConversation.mockResolvedValue(conversation([]));
   http.fetchTicketDefaults.mockResolvedValue(defaults());
+  http.fetchTicketText.mockResolvedValue(ticketText());
   http.fetchRunPasses.mockImplementation((runId: string) => Promise.resolve(passes(runId, {})));
   http.fetchRunCompute.mockImplementation((runId: string) => Promise.resolve(compute(runId)));
   http.fetchRun.mockImplementation((runId: string) => Promise.resolve(runDetail(runId)));

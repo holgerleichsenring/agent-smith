@@ -1,0 +1,119 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-14-9f80c
+goal: "The ticket page shows the ticket itself — description, the tracker's acceptance criteria, type, state, labels and assignee — read from the tracker, falling back to the last attempt's copy."
+
+applies_to: "backend (ticket text read endpoint, ticket field mappers) + dashboard (ticket Summary tab)"
+
+requires:
+  - 2026-10-13-9a59a
+  - 2026-10-13-9a59q
+  - 2026-10-14-9f80a
+
+facts:
+  - claim: "The ticket detail view holds Summary, Branch, Attempts, OtherRuns and ActedSince; no field carries the ticket's description or criteria."
+    evidence: "src/backend/AgentSmith.Server/Models/TicketDetailView.cs:8-13, src/dashboard/src/types/tickets.ts:200-206"
+  - claim: "The detail read is a projection over runs that reaches the tracker only for a failed head whose stored check is older than 5 minutes, and keeps only the fingerprint verdict."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketDetailReader.cs:32-55, src/backend/AgentSmith.Server/Services/Tickets/Checks/TicketBetweenAttemptsChecker.cs:33,39-48"
+  - claim: "The detail is refetched on every RunsChanged of the ticket (2 s window); the conversation only on TicketActivityChanged, because it reads the tracker."
+    evidence: "src/dashboard/src/lib/tickets/TicketPageReads.ts:15-23,128-142, src/dashboard/src/lib/tickets/TicketPageStore.tsx:18-23"
+  - claim: "ITicketProvider.GetTicketAsync returns a Ticket with Title, Description, AcceptanceCriteria, Status, Labels, Assignee, Kind, WebUrl and IsClosed."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ITicketProvider.cs:27, src/backend/AgentSmith.Domain/Entities/Ticket.cs:16-51"
+  - claim: "Azure DevOps description and acceptance criteria are raw HTML fields; GitHub and GitLab descriptions are markdown with no criteria; Jira's ADF description is flattened to text."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsFieldMapper.cs:24-34,56-62, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubFieldMapper.cs:18-30, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabFieldMapper.cs:15-32, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraFieldMapper.cs:12-13,20-33"
+  - claim: "Since 9a59g each fetch stores a ticket-text RunConversationEntry: Text the description, DetailJson the criteria, both already converted to text."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunConversationProjection.cs:29-40, src/backend/AgentSmith.Application/Services/Handlers/FetchTicketHandler.cs:133-153"
+  - claim: "Runs before 9a59g have no such row; the local database has none at all."
+    evidence: "observed: 2026-10-14, local test database, RunConversationEntry 0 rows over 102 runs"
+  - claim: "The comment thread is read live through a per-replica 60 s cache that also caches a failed read."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Conversation/TicketThreadReader.cs:19-42"
+  - claim: "The Summary tab renders SummaryCells, the carried banner and the attempt graph; the 9a59 mock had no ticket-text section on it."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketSummaryTab.tsx:11-33, src/dashboard/design/mockups/ticket-view.html:762-780"
+  - claim: "The existing Acceptance tab lists the cut specs' done criteria, not the tracker's acceptance criteria."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketAcceptanceTab.tsx:6-9,23-47"
+  - claim: "Ticket.With is the only copy of a ticket; a field left out of it is dropped, and the Azure DevOps and Jira providers call it right after mapping."
+    evidence: "src/backend/AgentSmith.Domain/Entities/Ticket.cs:53-65,86-88, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs:88, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketProvider.cs:86"
+  - claim: "The fetch path strips our label note before the ticket is used; a raw GetTicketAsync answer still carries it."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/FetchTicketHandler.cs:53-56, src/backend/AgentSmith.Application/Services/Specs/TicketLabelNoteStripper.cs:47"
+  - claim: "The between-attempts observer fingerprints the unstripped live ticket against the fingerprint the attempt recorded from the stripped one."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Checks/TicketTrackerObserver.cs:31-38, src/backend/AgentSmith.Application/Services/Handlers/FetchTicketHandler.cs:55,145"
+  - claim: "The detail read is 404 only when the pair has no code-pipeline run; a project removed from config still resolves."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketDetailReader.cs:34-36, src/backend/AgentSmith.Server/Services/Tickets/TicketKeyResolver.cs:6-10"
+  - claim: "The thread reader keeps a failed read as null plus a log line and exposes no exception text."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Conversation/TicketThreadReader.cs:37-41"
+  - claim: "The page store's generic read is typed to detail, series and conversation; RunsChanged fires ticketTick; TicketActivityChanged is filtered to this ticket."
+    evidence: "src/dashboard/src/lib/tickets/TicketPageReads.ts:107-137,228-229, src/dashboard/src/lib/tickets/TicketPageStore.tsx:60-71"
+  - claim: "Ticket.Description is hashed by TicketTextFingerprint, which revision causes and the between-attempts observer compare against stored fingerprints."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/TicketTextFingerprint.cs:18-30, src/backend/AgentSmith.Server/Services/Tickets/Checks/TicketTrackerObserver.cs:31-38"
+  - claim: "TicketSummary.kind already means question | handback on the dashboard."
+    evidence: "src/dashboard/src/types/tickets.ts:90-91"
+
+scope:
+  in: >
+    BACKEND: GET /api/tickets/{project}/{ticketId}/text under runs.read, 404 when the pair has no code-pipeline run
+    (the detail's rule). TicketTextReader resolves the project through TicketProjects.Of, as TicketConversationReader does (null is
+    project-not-configured), and reads GetTicketAsync
+    through a per-replica 60 s cache keyed (project, ticket) under its own prefix, failures cached too; the tracker
+    answer passes through TicketLabelNoteStripper before it is cached or served. It answers {title, description,
+    descriptionFormat, acceptanceCriteria, criteriaFormat, workItemType, state, labels, assignee, webUrl, source:
+    tracker, at = when the cache entry was filled}. Ticket gains DescriptionFormat and CriteriaFormat (html | markdown
+    | text, 9f80a's value set), set by the four field mappers and carried by Ticket.With; Jira's description stays JiraAdfParser.ExtractText with
+    format text, because Ticket.Description feeds TicketTextFingerprint, the prompts and the segmenter. When the tracker read fails
+    or the project is no longer configured, it answers the newest ticket-text entry among the ticket's code attempts
+    (title from Run.TicketTitle, criteria from the entry's detail, format text, source: snapshot, runId, attempt in the
+    detail's numbering, at = the entry's time) with workItemType, labels and assignee null; with neither, source:
+    unavailable and a classified reason — not-found, unauthorized, unreachable or project-not-configured — never the
+    exception text, which is logged: TicketNotFoundException, an HttpRequestException with 404, Octokit
+    NotFoundException and an Azure DevOps VssServiceException for a missing work item are not-found; 401 or 403,
+    VssUnauthorizedException and Octokit AuthorizationException are unauthorized; anything else is unreachable. TicketTrackerObserver fingerprints the live ticket after the same strip, so a
+    ticket carrying a label note no longer reads as changed.
+    DASHBOARD: the page store gains a ticket-text read on its own coalesced tick, fired by start() and ticketChanged()
+    (this ticket's TicketActivityChanged and reconnect), cancelled in dispose(), never by RunsChanged. The Summary tab
+    opens with a "The ticket" section above the cells: work-item type and "now: <state>" chips, labels, assignee, the
+    description through 9f80a's TrackerText (collapsed to twelve lines with "Show all"), and "Acceptance criteria (from
+    the ticket)" when the tracker has any; a snapshot reads "as attempt n read it, <time> — the tracker could not be
+    read"; unavailable shows its reason in words.
+  out: >
+    Editing the ticket from the page: the ticket changes in its tracker. The graph's TICKET node detail (which attempt
+    read which text) — it stays what 9a59q built.
+
+decisions:
+  - key: "LIVE FIRST, SNAPSHOT SECOND — the snapshot exists only for runs since 9a59g, so every ticket that ran before would show nothing; the tracker holds the current text, and the conversation already reads it per request under the same cache shape."
+  - key: "OWN ENDPOINT, NOT THE DETAIL — the detail is refetched on every RunsChanged of a live attempt; a tracker read there would multiply tracker load by the run's event rate."
+  - key: "RAW FIELD, NAMED FORMAT — the description is served as the tracker wrote it with its format, rendered by 9f80a's sanitizer; TicketHtmlConverter's text would drop the structure an Azure DevOps description is written in."
+  - key: "AN AZURE DEVOPS FIELD IN MARKDOWN MODE IS LABELLED HTML — the pinned SDK exposes no multilineFieldsFormat; such a field renders as unformatted but safe text."
+  - key: "STRIP ONCE, FOR BOTH READERS — the page and the between-attempts observer read the live ticket through the same strip the fetch door applies, so neither shows nor fingerprints our own label note."
+  - key: "A REASON, NOT AN EXCEPTION — SDK and HTTP messages carry organisation and host URLs; any runs.read caller sees a classified reason only."
+  - key: "JIRA DESCRIPTION STAYS TEXT HERE — it feeds the fingerprint every in-flight series compares against; writing it as markdown would read every Jira ticket as edited and re-cut it. A later spec, Jira description structure with a fingerprint migration, can lift that."
+  - key: "A DISTINCT LABEL — the tracker's criteria are 'Acceptance criteria (from the ticket)', because the Acceptance tab is the specs' done lists."
+
+steps:
+  - id: ticket-format
+    action: "Ticket.DescriptionFormat and CriteriaFormat as trailing optional parameters, carried by Ticket.With; the four field mappers set them."
+  - id: read
+    action: "TicketTextView, TicketTextReader (cache, strip, snapshot among code attempts, classified unavailable), endpoint under runs.read; route permission guard row; TicketTrackerObserver strips before fingerprinting."
+  - id: dashboard
+    action: "ticketsApi + page store ticket-text read on its own tick; TicketTextSection at the top of TicketSummaryTab; CSS."
+  - id: tests
+    action: "Red first: the tests below."
+
+tests:
+  - "AzureDevOpsFieldMapper marks description and criteria html; GitHub and GitLab mark markdown; Jira descriptions are unchanged text and mark text"
+  - "TicketTextFingerprint of a mapped Jira, GitHub, GitLab and Azure DevOps ticket is unchanged by this spec (golden fingerprint per tracker)"
+  - "AzureDevOpsTicketProvider_GetTicket_KeepsHtmlFormat and the Jira provider path keep their format through Ticket.With"
+  - "TicketText_Read_ServesTheTrackersTicketWithItsFormat"
+  - "TicketText_LabelNote_IsStripped"
+  - "TicketText_RefetchWithinAMinute_ReadsTheTrackerOnce"
+  - "TicketText_TrackerDown_ServesTheNewestCodeAttemptSnapshotWithItsAttempt"
+  - "TicketText_RemovedProject_ServesSnapshot"
+  - "TicketText_TrackerDownNoSnapshot_IsUnavailableWithAClassifiedReason"
+  - "TicketText_Unavailable_ClassifiesNotFoundAndUnauthorizedPerTracker"
+  - "TicketText_NoCodeRun_Is404"
+  - "TicketTrackerObserver: a ticket carrying a label note and otherwise unchanged reads unchanged"
+  - "RoutePermissionGuard: /api/tickets/{project}/{ticketId}/text needs runs.read"
+  - "dashboard: the Summary tab shows the description rendered, the tracker's criteria under their own label, and Show all expands"
+  - "dashboard: a RunsChanged burst issues no ticket-text read; a TicketActivityChanged issues one"
+  - "dashboard: a snapshot answer names the attempt and time it was read"
+
+done:
+  - "An Azure DevOps ticket's description and acceptance criteria read on the ticket page as formatted text, for tickets that ran before 9a59 as well."
+  - "Backend and dashboard build and tests green."
