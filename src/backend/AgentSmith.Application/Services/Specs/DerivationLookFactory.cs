@@ -107,9 +107,7 @@ public sealed class DerivationLookFactory(
         ArgumentNullException.ThrowIfNull(pipeline);
         if (!pipeline.TryGet<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, out var map)
             || map is null) return null;
-        var repositories = map
-            .Where(entry => !entry.Key.StartsWith(TemplateScopeName.Prefix, StringComparison.Ordinal)
-                && !entry.Key.StartsWith(ReferenceScopeName.Prefix, StringComparison.Ordinal)) // 283dc
+        var repositories = map.Where(entry => Review.SpecReviewRepositories.IsRepositoryKey(entry.Key))
             .ToDictionary(entry => entry.Key, entry => entry.Value, StringComparer.Ordinal);
         return repositories.Count == 0 ? null : repositories;
     }

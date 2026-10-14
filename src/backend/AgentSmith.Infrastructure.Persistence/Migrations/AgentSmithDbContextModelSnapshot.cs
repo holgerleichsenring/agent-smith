@@ -1970,6 +1970,75 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.ToTable("RunSpecs");
                 });
 
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.RunSpecReviewRound", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("At")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CutsJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("EventSeq")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("EvidenceProblemsJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FindingsJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ResiduesJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Reviewer")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("RevisionNumber")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Round")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RunId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Scope")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SpecId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Verdict")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("RunId");
+
+                    b.HasIndex("RunId", "EventSeq")
+                        .IsUnique();
+
+                    b.ToTable("RunSpecReviewRounds", (string)null);
+                });
+
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.RunStep", b =>
                 {
                     b.Property<long>("Id")

@@ -34,6 +34,7 @@ public sealed class RunChildConfiguration
         typeof(TicketBetweenAttemptsCheck), // 2026-10-13-9a59h
         typeof(RunSegment), // 2026-10-13-9a59j
         typeof(RunRetryRequest), // 2026-10-13-9a59n: unique by RunRetryRequestConfiguration
+        typeof(RunSpecReviewRound), // 2026-10-13-8762e
     ];
 
     public void Apply(ModelBuilder modelBuilder)
@@ -55,5 +56,6 @@ public sealed class RunChildConfiguration
         modelBuilder.Entity<RunPass>().ToTable("RunPasses");
         modelBuilder.Entity<RunLedgerTransition>().ToTable("RunLedgerTransitions");
         modelBuilder.Entity<RunSegment>().ToTable("RunSegments");
+        modelBuilder.Entity<RunSpecReviewRound>().ToTable("RunSpecReviewRounds");
     }
 }

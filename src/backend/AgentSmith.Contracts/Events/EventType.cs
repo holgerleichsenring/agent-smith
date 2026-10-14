@@ -103,9 +103,8 @@ public enum EventType
     // working tree. Mirrored into the artifact store so the server can serve
     // the record of a spec whose sandbox and branch are long gone.
     SpecRecorded = 80,
-    // 2026-09-17-042eh: what a fresh reviewer found in the spec's own diff, as JSON.
-    // Its own event and its own artifact row: the record body carries the findings as
-    // prose for a reader, and 2026-09-17-042ej reads them back as data.
+    // 2026-09-17-042eh: what a fresh reviewer found in the spec's own diff, as JSON — its own event and
+    // artifact row, because the record body carries the findings as prose and 042ej reads them as data.
     SpecReviewed = 81,
     // 2026-10-01-7f7ae: a design_read Figma answered — source, file, node and the version read.
     DesignRead = 82,
@@ -113,7 +112,8 @@ public enum EventType
     SpecSetPublished = 83,
     // 2026-10-13-9a59f: one master pass of a spec ended — why it opened and ended, and its verdicts.
     MasterPassEnded = 84,
-    // 2026-10-13-9a59g: a hand-back's posted words, and every review of a derived cut.
+    // 2026-10-13-9a59g: a hand-back's posted words, every review of a derived cut; 8762e: one spec review answer.
     SpecHandedBack = 85,
     SpecCutReviewed = 86,
+    SpecReviewRound = 87,
 }

@@ -48,6 +48,7 @@ export enum EventType {
   MasterPassEnded = 84,
   SpecHandedBack = 85,
   SpecCutReviewed = 86,
+  SpecReviewRound = 87,
 }
 
 interface RunEventBase {
@@ -659,6 +660,52 @@ export interface CutFinding {
   cites?: string | null;
 }
 
+/**
+ * 2026-10-13-8762e: one reviewer's answer in one review round of a spec (scope "spec") or of a series
+ * (scope "series", specId null). `reviewer` is 0-based; the verdict is only as severe as what was
+ * admitted; the evidence problems are the round's, found before any reviewer was asked.
+ */
+export interface SpecReviewRoundEvent extends RunEventBase {
+  type: EventType.SpecReviewRound;
+  specId?: string | null;
+  scope: "spec" | "series";
+  round: number;
+  reviewer: number;
+  verdict: "build" | "build-with-cuts" | "refuse";
+  cuts: SpecReviewCut[];
+  findings: SpecReviewFinding[];
+  evidenceProblems: SpecEvidenceProblem[];
+  residues: SpecReviewResidue[];
+  revisionNumber?: number | null;
+}
+
+/** 2026-10-13-8762e: one cut a reviewer named; evidence is "repo/path:line [Aid]". Mirrors C# SpecReviewCut. */
+export interface SpecReviewCut {
+  register: string;
+  quote: string;
+  replacement?: string | null;
+  evidence: string;
+  specId?: string | null;
+}
+
+/** 2026-10-13-8762e: one admitted finding with the look it rests on. Mirrors C# SpecReviewFinding. */
+export interface SpecReviewFinding {
+  text: string;
+  evidence: string;
+}
+
+/** 2026-10-13-8762e: a fact whose cited evidence does not resolve. Mirrors C# SpecEvidenceProblem. */
+export interface SpecEvidenceProblem {
+  claim: string;
+  problem: string;
+}
+
+/** 2026-10-13-8762e: replaced wording still standing in another register. Mirrors C# SpecReviewResidue. */
+export interface SpecReviewResidue {
+  register: string;
+  quote: string;
+}
+
 /** 2026-10-13-9a59e: one spec of a published cut. Mirrors C# SpecCutEntry. */
 export interface SpecCutEntry {
   specId: string;
@@ -716,7 +763,8 @@ export type RunEvent =
   | SpecSetPublishedEvent
   | MasterPassEndedEvent
   | SpecHandedBackEvent
-  | SpecCutReviewedEvent;
+  | SpecCutReviewedEvent
+  | SpecReviewRoundEvent;
 
 /** p0327: the pending question of a status="waiting_for_input" run, joined
  *  from its checkpoint row at query time (REST detail only). */

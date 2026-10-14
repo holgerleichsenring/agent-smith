@@ -1,0 +1,103 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-8762e
+
+decisions:
+  - category: Architecture
+    chose: "The attack brief is the spec-first plugin's line 31 (skills/review-spec/SKILL.md at 965aa65), verbatim, as SpecAttackPrompt.Brief in code"
+    over: "A skill carrying the brief, or a paraphrase"
+    reason: |
+      Contract decision 7 (default, pending operator ratification): no skills release mid-series, and a
+      paraphrase would be a second brief to drift from the one the supervised session ran. A test pins the
+      constant against the plugin's sentence.
+  - category: Architecture
+    chose: "File:line means a read the framework minted; the read matching moved into one internal OwnReadRule that SpecReviewAdmission and SpecAttackAdmission both call"
+    over: "Copying SpecReviewAdmission's private matching into the new admission"
+    reason: |
+      Two copies of one rule drift. SpecReviewAdmission went from 74 to 55 lines with its behaviour unchanged
+      (its tests stay green); OwnReadRule holds Reads, Read, Within, Same and Normalize.
+  - category: Architecture
+    chose: "A cut is admitted only when its quote is a run (SpecQuotableText.IsRunIn, unchanged) of one entry of the register it names, and it rests on an exit-0 read with the line inside it"
+    over: "Admitting a quote found anywhere in the spec, or a cut resting on a search"
+    reason: |
+      2026-10-13-8762f must find the text it replaces and know which register it came from. A run may not
+      span two entries of a register. The four-word minimum is asked in the prompt only (main-thread decision
+      11); a cut changes text about a line, so a search does not carry it.
+  - category: Architecture
+    chose: "A finding is admitted on an own exit-0 read, an own search that ran (exit 0 or 1), or an own read of exactly that path that ran with exit 1"
+    over: "Only exit-0 reads"
+    reason: |
+      'Nothing reads X' and 'the cited file does not exist' are the commonest grounds for a REFUSE and are
+      proven by a search or a missing-file read; exit 0 alone would downgrade both to BUILD. A search is
+      stored as "repo search:'pattern' [Aid]", the pattern taken from the minted 'grep -E' / 'rg' line; a
+      missing file as "repo/path [Aid]" (no line exists to name).
+  - category: Architecture
+    chose: "Verdict: refuse only when the reviewer said REFUSE and a finding was admitted; otherwise build-with-cuts when a cut was admitted; otherwise build"
+    over: "Promoting a BUILD that carries an admitted finding to refuse"
+    reason: |
+      The stored verdict is never more severe than what was admitted, and never more severe than the
+      reviewer's own answer except that a named cut is a cut (BUILD + admitted cut = BUILD WITH CUTS). A
+      finding on a BUILD answer is commentary, not a refusal. Every change of verdict is logged.
+  - category: Architecture
+    chose: "SpecRoundEvidence probes ONE sandbox per repository name (SandboxRepos minus template and reference keys, the first key of each name), falling back to ProposalRepositories when no map is published; SpecToday.Describes gates it"
+    over: "Probing every sandbox key, or ProposalRepositories alone"
+    reason: |
+      Two toolchain sandboxes of one repository hold the same tree, so a bare citation over both answers
+      NotChecked and the product policy makes that silence a pass. The key filter is
+      SpecReviewRepositories.IsRepositoryKey, which DerivationLookFactory.ProposalRepositories now calls too
+      (one filter; the factory shrank to 114 lines, leaving room for 2026-10-13-8762i's ForProposalAttack).
+  - category: Architecture
+    chose: "Unchecked is counted: a counting decorator around the probe counts NotChecked answers, each minted [Ln] line counts once in Total and Unchecked; SpecRoundEvidenceResult(Problems, Unchecked, Total)"
+    over: "Reporting 0 of 0 for a derived spec, or an event field for the count"
+    reason: |
+      The plugin says never treat a check that did not run as a pass. The reviewer is told "N of M citations
+      were not checked" and to open them; the contract's event 87 is unchanged. Total counts probe calls plus
+      minted lines; a citation whose lines do not parse is a problem, not a probe call.
+  - category: Architecture
+    chose: "SpecToday.Describes(draft, set): every requires id is in set.Executed or is not a member of set.Specs"
+    over: "ProposalEvidenceReview's rule (any spec-id requires skips the check)"
+    reason: |
+      A requires id outside the set (a done spec, a series predecessor such as 2026-09-19-c511c) counts as
+      built; otherwise most members of a series would never be checked.
+  - category: Architecture
+    chose: "DerivationLookTerms.AttackReview (actor 'attack review', letter A, numbered reads, no stage, floor 24) and AttackReviewFor(draft) = max(24, distinct cited paths + 12); the counting lives in Review/SpecCitations"
+    over: "A flat allowance of 12"
+    reason: |
+      Default, pending operator ratification (contract section 5 default 13). The brief says open every cited
+      file and follow fields to their sinks; members of this series cite 23-44 files. The count is
+      (qualifier, path) pairs over every fact's references. It lives outside DerivationLookTerms because the
+      file had a 104-line budget (now exactly 104).
+  - category: Architecture
+    chose: "DEVIATION: ISpecAttackReviewer.ReviewAsync(SpecAttackInput input, DerivationLook? look, AgentConfig agent, PipelineCostTracker costTracker, CancellationToken ct)"
+    over: "The spec's ReviewAsync(SpecAttackInput, look, ct)"
+    reason: |
+      A model call needs the agent config the chat client is built from and the run's cost tracker it is
+      charged to; ISpecCutReviewer, SpecDiffReviewer and every other framework review take both per call
+      (src/backend/AgentSmith.Application/Services/Specs/ISpecCutReviewer.cs:21-26). The input record's
+      contract fields stay as written, so 2026-10-13-8762h still appends its pin last. Callers (g, i, k) pass
+      their agent and PipelineCostTracker.GetOrCreate(pipeline).
+  - category: Architecture
+    chose: "DEVIATION: SpecAttackInput gains an init property RepositoryNames (sandbox key -> repository name), filled by the caller from SpecReviewRepositories.Names(pipeline)"
+    over: "Storing the sandbox key in evidence, or giving the reviewer the pipeline"
+    reason: |
+      A look names sandbox keys (DerivationLookGate is built over the run's sandbox map) and stored evidence
+      must name the repository. The reviewer has no pipeline, so the map rides the input as an init property,
+      which contract 2.7 allows for SpecAttackInput. A key missing from it is stored as itself.
+  - category: Architecture
+    chose: "DEVIATION: SpecReviewRoundPublisher.PublishAsync(SpecReviewRound round, IReadOnlyList<SpecAttackResult?> answers, ct) with no pipeline parameter"
+    over: "PublishAsync(pipeline, round fields)"
+    reason: |
+      The run id comes from IRunContextAccessor, as every other run-event publisher of this kind
+      (CutReviewStep, SpecHandbackPark); a pipeline parameter would be unread. A null answer is a reviewer not
+      taken and publishes nothing; the reviewer index is the answer's position.
+  - category: Architecture
+    chose: "EventType.cs keeps 119 lines: SpecReviewRound = 87 is one bare line, the 042eh comment went from three lines to two, and the 9a59g comment line names 8762e"
+    over: "A trailing comment on the 87 line"
+    reason: |
+      tools/build-hub-event-types.mjs matches enum members with ^\s*(\w+)\s*=\s*\d+,?\s*$ — a trailing comment
+      makes the member invisible and gen:hub-events reports the TS value as stale.
+  - category: Architecture
+    chose: "RunSpecReviewRounds: entity with JSON list columns, written only by RunSpecReviewRoundProjection (HoldsAsync before insert), ToTable in RunChildConfiguration, unique (RunId, EventSeq) in RunRecordIdentityConfiguration, deleted with the run; migration AddRunSpecReviewRounds generated in both sets by the pinned dotnet ef 9.0.17 (--no-build, project = startup)"
+    over: "A DbSet, or a projection inside an existing family"
+    reason: |
+      Contract 2.2: no DbSet (the context is at 120 lines), one family per projection, and a replayed drain
+      inserts nothing twice. Archive table counts 47 -> 48, generated keys 37 -> 38, archive rows 96 -> 98.

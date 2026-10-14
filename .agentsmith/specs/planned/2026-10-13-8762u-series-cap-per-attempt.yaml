@@ -68,7 +68,7 @@ facts:
   - claim: "The wall-time watchdog cancels a running run by its database StartedAt, whatever step it is in."
     evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/CancelEnforcer.cs:91-108"
   - claim: "SpecSequenceHandler takes only a logger today and is synchronous; TimeProvider.System is registered beside the spec derivation services."
-    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecSequenceHandler.cs:22-31, src/backend/AgentSmith.Application/Services/Specs/SpecDerivationRegistrations.cs:72"
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SpecSequenceHandler.cs:22-31, src/backend/AgentSmith.Application/Services/Specs/SpecDerivationRegistrations.cs:73"
   - claim: "A config section is a class on AgentSmithConfig, copied from RawAgentSmithConfig by ResolvedConfigComposer, stored as a singleton doc through ConfigDocTypes and ConfigDocumentTaxonomy, and declared in config/agentsmith.schema.json."
     evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/AgentSmithConfig.cs:23-37, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ResolvedConfigComposer.cs:17-37, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/RawAgentSmithConfig.cs:55-57, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigDocTypes.cs:27-31, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigDocumentTaxonomy.cs:39-45, config/agentsmith.schema.json:163-166"
   - claim: "Handlers read sections off the injected AgentSmithConfig (ExecutePipelineUseCase reads config.Dialogue; AgenticMasterHandler injects AgentSmithConfig)."

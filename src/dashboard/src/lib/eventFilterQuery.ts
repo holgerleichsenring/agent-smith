@@ -69,6 +69,7 @@ const TYPE_KEYS: Record<string, EventType> = {
   MasterPassEnded: EventType.MasterPassEnded, // 2026-10-13-9a59f
   SpecHandedBack: EventType.SpecHandedBack, // 2026-10-13-9a59g
   SpecCutReviewed: EventType.SpecCutReviewed, // 2026-10-13-9a59g
+  SpecReviewRound: EventType.SpecReviewRound, // 2026-10-13-8762e
 };
 
 const KEY_BY_TYPE: Record<EventType, string> = Object.fromEntries(

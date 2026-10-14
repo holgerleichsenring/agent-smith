@@ -39,6 +39,7 @@ public sealed class RunEventApplierFamiliesTests
         [typeof(LedgerTransitionsRecordedEvent)] = ["RunPassFamily"],
         [typeof(SpecHandedBackEvent)] = ["RunConversationProjection"],
         [typeof(SpecCutReviewedEvent)] = ["RunConversationProjection"],
+        [typeof(SpecReviewRoundEvent)] = ["RunSpecReviewRoundProjection"],
     };
 
     [Fact]

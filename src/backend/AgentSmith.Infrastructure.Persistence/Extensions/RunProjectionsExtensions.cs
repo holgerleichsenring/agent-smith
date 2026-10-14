@@ -50,6 +50,7 @@ public static class RunProjectionsExtensions
         services.AddSingleton<IRunEventFamily, RunPassFamily>();
         services.AddSingleton<IRunEventFamily, RunConversationProjection>(); // 2026-10-13-9a59g
         services.AddSingleton<IRunEventFamily, RunSegmentProjection>(); // 2026-10-13-9a59j
+        services.AddSingleton<IRunEventFamily, RunSpecReviewRoundProjection>(); // 2026-10-13-8762e
         return services;
     }
 }
