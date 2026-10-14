@@ -78,6 +78,19 @@ public sealed class TicketConversationTranscriptTests : IDisposable
         (view.SessionId, view.OpenDialogId).Should().Be(("s-1", "d-1"));
     }
 
+    // 2026-10-14-da5eb: a turn that recorded its author shows the name; an older one stays role-named.
+    [Fact]
+    public async Task TicketConversation_TurnWithAuthor_ShowsTheName()
+    {
+        await _h.AddAsync(Session(null,
+            Turn(TranscriptRole.User, "Older.", 4), Turn(TranscriptRole.User, "Faster?", 5) with { Author = "Ada Lovelace" }));
+
+        var view = await _h.Conversation.ReadAsync("alpha", "42", true, default);
+
+        view!.Entries.Select(e => (e.Role, e.Author)).Should().Equal(
+            (TicketConversationRoles.Person, null), (TicketConversationRoles.Person, "Ada Lovelace"));
+    }
+
     [Fact]
     public async Task TicketConversation_NoBoundSession_TranscriptHiddenFalse()
     {

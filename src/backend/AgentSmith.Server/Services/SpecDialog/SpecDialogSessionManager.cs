@@ -63,16 +63,16 @@ public sealed class SpecDialogSessionManager(
     /// Appends a turn to the open session of the given thread and persists it.
     /// Returns the updated state, or null when the thread has no open session.
     /// 2026-09-17-042el: the decision is required like the kind, null for any turn that is not
-    /// an approval answer.
+    /// an approval answer. The author is the display name of the person who wrote it, if known.
     /// </summary>
     public async Task<ConversationState?> AppendTurnAsync(
         string platform, string threadId, TranscriptRole role, string text,
-        SpecDialogTurnKind? kind, SpecDialogDecision? decision, CancellationToken ct)
+        SpecDialogTurnKind? kind, SpecDialogDecision? decision, CancellationToken ct, string? author = null)
     {
         var session = await repository.GetOpenByThreadAsync(platform, threadId, ct);
         if (session is null) return null;
 
-        var turn = new TranscriptTurn(role, text, timeProvider.GetUtcNow(), kind, decision);
+        var turn = new TranscriptTurn(role, text, timeProvider.GetUtcNow(), kind, decision, author);
         var transcript = SpecDialogSessionMapper.ReadTranscript(session.TranscriptJson);
         session.TranscriptJson = SpecDialogSessionMapper.WriteTranscript([.. transcript, turn]);
         session.LastActivityAt = turn.At;

@@ -128,6 +128,29 @@ public sealed class DashboardDialogChannelTests : IDisposable
             .Equal("a widget that reads the ledger", CannedReply);
     }
 
+    // 2026-10-14-da5eb: the person's turn records the token's display name; a sub-only token none.
+    [Theory]
+    [InlineData("name", "Ada Lovelace")]
+    [InlineData("preferred_username", "ada@example.org")]
+    [InlineData("upn", "ada.upn@example.org")]
+    [InlineData("sub", null)]
+    public async Task SpecDialog_PersonTurn_RecordsTheDisplayName(string claim, string? author)
+    {
+        await OpenAsync();
+        var caller = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim("sub", Owner), .. author is null ? Array.Empty<Claim>() : [new Claim(claim, author)]], "test"));
+
+        var before = _hub.Pushes.Count;
+        await SpecDialogEndpoints.IngestAsync(
+            new SpecDialogEndpoints.SpecDialogMessageRequest(Dialog, FirstSentence),
+            new DefaultHttpContext { RequestServices = _services, User = caller });
+        await Settle(before + 1);
+
+        var state = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
+        state!.Transcript.Select(turn => (turn.Text, turn.Author)).Should()
+            .Equal((FirstSentence, author), (CannedReply, (string?)null));
+    }
+
     [Fact]
     public async Task Ingest_DoesNotAwaitTheTurnOnTheRequest()
     {

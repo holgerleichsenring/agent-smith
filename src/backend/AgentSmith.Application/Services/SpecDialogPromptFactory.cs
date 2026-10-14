@@ -113,7 +113,7 @@ public sealed class SpecDialogPromptFactory : ISpecDialogPromptFactory
     {
         var sb = new StringBuilder();
         foreach (var turn in transcript)
-            sb.AppendLine($"[{turn.Role}] {turn.Text}");
+            sb.AppendLine(turn.Author is { } author ? $"[{turn.Role}: {author}] {turn.Text}" : $"[{turn.Role}] {turn.Text}");
         return sb.ToString().TrimEnd();
     }
 }
