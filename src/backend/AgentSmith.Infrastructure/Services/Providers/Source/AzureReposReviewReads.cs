@@ -29,7 +29,7 @@ public sealed class AzureReposReviewReads(
         var client = await connect(cancellationToken);
         var pr = await client.GetPullRequestAsync(project, repoName, prId, cancellationToken: cancellationToken);
         var threads = await client.GetThreadsAsync(project, repoName, prId, cancellationToken: cancellationToken);
-        return AzureReposVoteActs.Standing(threads, pr.Reviewers ?? [], pr.CreatedBy?.Id, repoUrl,
+        return AzureReposVoteActs.Standing(threads, pr.Reviewers ?? [], repoUrl,
             pr.Repository.Id.ToString(), pr.Repository.ProjectReference.Id.ToString());
     }
 

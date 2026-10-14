@@ -9,8 +9,8 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// 2026-10-08-e8b9c: Azure DevOps' standing "Wait for author" votes. A vote leaves a system thread
 /// (<see cref="AzureReposVoteThreads"/>); only the voter's NEWEST -5 thread counts, and only while the
 /// reviewer list still shows that voter at -5 — a reset vote, or our auto-complete's +10, leaves no
-/// standing act. The pull request's creator is skipped. 2026-10-13-9a59b: the act carries the vote
-/// comment's host id.
+/// standing act. A -5 counts whoever cast it: we never vote -5. 2026-10-13-9a59b: the act carries the
+/// vote comment's host id.
 /// </summary>
 public static class AzureReposVoteActs
 {
@@ -18,11 +18,10 @@ public static class AzureReposVoteActs
 
     public static IReadOnlyList<PrReviewNote> Standing(
         IEnumerable<GitPullRequestCommentThread> threads, IEnumerable<IdentityRefWithVote> reviewers,
-        string? creatorId, string repoUrl, string repositoryId, string projectId)
+        string repoUrl, string repositoryId, string projectId)
     {
         var all = threads.ToList();
-        return [.. reviewers.Where(r => r.Vote == WaitForAuthor && r.Id is not null
-                && !string.Equals(r.Id, creatorId, StringComparison.OrdinalIgnoreCase))
+        return [.. reviewers.Where(r => r.Vote == WaitForAuthor && r.Id is not null)
             .Select(r => AzureReposVoteThreads.Newest(all, r.Id!, WaitForAuthor))
             .OfType<(GitPullRequestCommentThread Thread, Comment Comment)>()
             .Select(v => Note(v.Thread, v.Comment, repoUrl, repositoryId, projectId))];

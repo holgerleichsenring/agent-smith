@@ -77,6 +77,18 @@ public sealed class PrReviewStateReaderTests
     }
 
     [Fact]
+    public void PrReviewState_AzureDevOps_CreatorWaitForAuthor_IsChangesRequested()
+    {
+        var at = new DateTime(2026, 10, 8, 10, 0, 0, DateTimeKind.Utc);
+        var pr = AzurePr(PullRequestStatus.Active, new() { Id = "creator", Vote = -5 }, new() { Id = "self", Vote = 10 });
+
+        var state = AzureReposVoteDecisions.Read(pr, [VoteThread(8, "creator", -5, at)], "self", "u");
+
+        state.Decisions.Select(d => (d.Author!.AuthorId, d.Decision, d.HostId)).Should().Equal(
+            ("creator", PrReviewDecisions.ChangesRequested, "8/1"));
+    }
+
+    [Fact]
     public async Task PrReviewState_GitLab_TokenUserApproval_IsExcluded()
     {
         var state = await ReadGitLab($"[{Note(5, 1, "approved this merge request", "2026-10-08T12:00:00Z")}, {Note(4, 9, "approved this merge request", "2026-10-08T11:00:00Z")}]");

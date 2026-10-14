@@ -4,11 +4,11 @@ using Microsoft.TeamFoundation.SourceControl.WebApi;
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
 
 /// <summary>
-/// 2026-10-08-9e6e: an Azure Repos repository's active pull requests with a reviewer other than the
-/// creator at "Wait for author" (-5). The list carries no vote time, so each is named by (pull
-/// request, voters) and the sweep nudges it once; a cut read resumes at the offset it stopped.
-/// Every pull request with a reviewer other than the creator is also listed RefreshOnly, named by
-/// every such reviewer's vote, zeros included — a changed or reset vote is a new name, listed again.
+/// 2026-10-08-9e6e: an Azure Repos repository's active pull requests with a reviewer at "Wait for
+/// author" (-5), the creator included — we never vote -5. The list carries no vote time, so each is
+/// named by (pull request, voters) and the sweep nudges it once; a cut read resumes at the offset it
+/// stopped. Every pull request with a reviewer is also listed RefreshOnly, named by every reviewer's
+/// vote, the creator's and zeros included — a changed or reset vote is a new name, listed again.
 /// </summary>
 public sealed class AzureReposChangedPullRequests(
     Func<CancellationToken, Task<GitHttpClient>> connect, string project, string repoName, string repoUrl)
@@ -32,7 +32,7 @@ public sealed class AzureReposChangedPullRequests(
 
     private IEnumerable<ChangedItem> Items(GitPullRequest pr)
     {
-        var reviewers = (pr.Reviewers ?? []).Where(r => r.Id != pr.CreatedBy?.Id).OrderBy(r => r.Id, StringComparer.Ordinal).ToList();
+        var reviewers = (pr.Reviewers ?? []).OrderBy(r => r.Id, StringComparer.Ordinal).ToList();
         if (reviewers.Count == 0) yield break;
         var voters = reviewers.Where(r => r.Vote == -5).Select(r => r.Id).OrderBy(i => i).ToList();
         if (voters.Count > 0) yield return Item(pr, $"{pr.PullRequestId}|{string.Join(',', voters)}", refreshOnly: false);

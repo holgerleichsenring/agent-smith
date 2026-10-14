@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-14-dbcee
+
+decisions:
+  - category: Behaviour
+    chose: "Act on an Azure DevOps -5 cast by the pull request's creator (the token's identity), in the webhook, the poll sweep, the standing acts and the recorded decisions"
+    over: "A readiness finding that names the identity collision and leaves the vote ignored"
+    reason: |
+      agent-smith only ever votes +10 (AzureReposAutoComplete), so a -5 from the creator identity is a
+      person sharing the token's identity, never our own act. The voter still passes the worker's trust
+      check (PrStandingAct). Contract decision 13 and section 5 default 5; main-thread answer 1
+      (default, pending operator ratification).
+  - category: Architecture
+    chose: "The Azure vote handler passes PrAuthorId null; PrReworkAdmission's author rule is unchanged and a null author matches no reviewer"
+    over: "A host switch inside the shared admission"
+    reason: |
+      The admission is the one place every host shares; a host check there would be a second rule. The record's
+      summary states that PrAuthorId is null for an Azure DevOps vote. DEVIATION (addition, as the spec states):
+      contract section 1 row e names three places; the admission's author rule (PrReworkAdmission.cs:23) and the
+      recorded decisions (AzureReposVoteDecisions) are a fourth and fifth.
+  - category: Behaviour
+    chose: "AzureReposVoteDecisions keeps a -5 from the creator or the token's identity; their other votes stay excluded"
+    over: "Dropping the creator/self exclusion entirely"
+    reason: |
+      The ticket page names the vote that started the rework, while the creator's +10 auto-complete vote is still
+      no approval (PrReviewState_AzureDevOps_CreatorAutoCompleteVote_IsNoApproval stays green unchanged).
+  - category: Behaviour
+    chose: "The sweep's RefreshOnly item is named over every reviewer, creator included, whatever his vote"
+    over: "Including the creator only while his vote is -5"
+    reason: |
+      A sole creator's reset of his -5 must change the refresh name, or polling mode never re-reads the record
+      and the ticket page keeps showing changes requested. A creator at +10 now lists one refresh item, harmless
+      because a refresh is compare-and-set.
+  - category: Scope
+    chose: "AzureReposReviewReads keeps 47 lines: the Standing call still wraps after dropping pr.CreatedBy?.Id"
+    over: "Joining the call onto one line of about 150 characters to make the file shrink"
+    reason: |
+      The spec's '47 shrinks' assumed the dropped argument frees a line; it does not, and the file does not grow.
+      DEVIATION (minor): line count unchanged instead of shrinking.
