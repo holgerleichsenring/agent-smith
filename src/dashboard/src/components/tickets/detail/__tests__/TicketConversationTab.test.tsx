@@ -1,7 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeHub } from "../../__tests__/ticketFixtures";
-import { attempt, conversation, detail, entry, series, spec } from "./detailFixtures";
+import { attempt, conversation, detail, entry, reviews, series, spec } from "./detailFixtures";
 import { ApiResponseError } from "@/lib/apiResponse";
 import type { RunEvent } from "@/types/hub-events";
 import type { SpecDialogQuestionPush, SpecDialogView } from "@/types/spec-dialog";
@@ -80,6 +80,7 @@ const api = {
   passes: vi.fn(() => Promise.reject(new Error("unused"))),
   run: vi.fn(() => Promise.reject(new Error("unused"))),
   compute: vi.fn(() => Promise.reject(new Error("unused"))),
+  reviews: vi.fn(() => Promise.resolve(reviews())),
 };
 
 const settle = async (ms = 0) => {

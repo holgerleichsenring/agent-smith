@@ -34,7 +34,7 @@ public sealed class ApprovedSpecSetCarrier(
             logger.LogInformation(
                 "Carrying the approved spec set {Key} ({Specs} spec(s)) onto the run's initial context",
                 record.Key, record.Set.Specs.Count);
-            return SpecApprovalJson.Write(record);
+            return SpecApprovalJson.Write(record with { ReviewRounds = null }); // 2026-10-13-8762l: no run step reads them
         }
         // A store this process cannot reach carries nothing; the run then resolves its own.
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)

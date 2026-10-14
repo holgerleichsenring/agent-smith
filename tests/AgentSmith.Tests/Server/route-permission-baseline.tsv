@@ -81,6 +81,7 @@ GET	/api/tickets	runs.read
 GET	/api/tickets/{project}/{ticketId}	runs.read
 GET	/api/tickets/{project}/{ticketId}/approval-preview	dialog.write
 GET	/api/tickets/{project}/{ticketId}/conversation	runs.read
+GET	/api/tickets/{project}/{ticketId}/reviews	runs.read
 GET	/api/tickets/{project}/{ticketId}/series	runs.read
 GET	/health	anonymous
 POST	/api/archive/import	archive.import

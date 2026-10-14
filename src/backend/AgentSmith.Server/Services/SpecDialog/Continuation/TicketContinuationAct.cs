@@ -64,7 +64,8 @@ public sealed class TicketContinuationAct(
             logger.LogInformation("Ticket {Ticket}: contract entries naming no spec of the continued series removed: {Removed}", ticketId, string.Join("; ", contract.Removed));
         try
         {
-            await approvals.RecordAsync(state, project, ticketId, new FiledSeries(current.Series ?? string.Empty, decision.Drafts) { Contract = contract.Contract },
+            await approvals.RecordAsync(state, project, ticketId, new FiledSeries(current.Series ?? string.Empty, decision.Drafts)
+                { Contract = contract.Contract, ReviewRounds = ApprovedReviewRounds.Rekey(proposal.ReviewRounds, decision.Ids, logger, ticketId) },
                 goal, ct, decision.Continuation, current.Scope);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !ct.IsCancellationRequested)

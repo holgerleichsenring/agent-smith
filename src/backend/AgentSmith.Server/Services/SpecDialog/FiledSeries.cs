@@ -10,4 +10,7 @@ public sealed record FiledSeries(string Id, IReadOnlyList<SpecDraft> Drafts)
 {
     /// <summary>2026-10-13-8762j: the series contract keyed by the filed ids; null when none.</summary>
     public AgentSmith.Contracts.Specs.SeriesContract? Contract { get; init; }
+
+    /// <summary>2026-10-13-8762l: the approved proposal's review rounds, re-keyed onto the filed ids.</summary>
+    public IReadOnlyList<ProposalReviewRound> ReviewRounds { get; init; } = [];
 }

@@ -1,7 +1,7 @@
 import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeHub } from "@/components/tickets/__tests__/ticketFixtures";
-import { attempt, conversation, detail, passes, series } from "@/components/tickets/detail/__tests__/detailFixtures";
+import { attempt, conversation, detail, passes, reviews, series } from "@/components/tickets/detail/__tests__/detailFixtures";
 import { EventType, type RunEvent } from "@/types/hub-events";
 import type { TicketDetail } from "@/types/tickets";
 
@@ -38,6 +38,7 @@ const api = {
   passes: vi.fn((runId: string) => Promise.resolve(passes(runId, {}))),
   run: vi.fn(() => Promise.reject(new Error("unused"))),
   compute: vi.fn(() => Promise.reject(new Error("unused"))),
+  reviews: vi.fn(() => Promise.resolve(reviews())),
 };
 
 const reads = (fn: { mock: { calls: unknown[][] } }, runId?: string) =>
@@ -115,6 +116,17 @@ describe("TicketPageStore", () => {
     await settle(1);
     expect(reads(api.detail)).toBe(2);
     expect(reads(api.series)).toBe(2);
+  });
+
+  it("TicketPageStore_SpecReviewRound_RereadsReviewsOnce", async () => {
+    await mount();
+    expect(reads(api.reviews)).toBe(1);
+    act(() => pushEvent({ runId: "r-2", type: EventType.SpecReviewRound, timestamp: "t", scope: "spec", round: 1, reviewer: 0, verdict: "build", cuts: [], findings: [], evidenceProblems: [], residues: [] } as RunEvent));
+    act(() => pushEvent({ runId: "r-2", type: EventType.SpecReviewRound, timestamp: "t", scope: "spec", round: 1, reviewer: 1, verdict: "refuse", cuts: [], findings: [], evidenceProblems: [], residues: [] } as RunEvent));
+    await settle(2000);
+    expect(reads(api.reviews)).toBe(2);
+    expect(reads(api.conversation)).toBe(1);
+    expect(reads(api.detail)).toBe(1);
   });
 
   it("RunsChangedBurst_IssuesNoConversationRead_AChangedStatusOrASpecCutReviewedIssuesOne", async () => {

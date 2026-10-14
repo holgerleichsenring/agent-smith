@@ -42,7 +42,9 @@
      light .pill set, the header dot's other states, .gd.infra, the legend swatch
      classes, .g-note and .doc .dim-line are added (2026-10-13-9a59q); the Conversation,
      Specs and Acceptance tabs' own deviations are listed in their section (2026-10-13-9a59r), the
-     Attempts and Cost & compute tabs' in theirs (2026-10-13-9a59s). */
+     Attempts and Cost & compute tabs' in theirs (2026-10-13-9a59s). The Specs tab's review rounds and
+     series contract review have no mock: composed from .section-head, .cnt, .blk h4, .crit, .ci and .pill,
+     adding no rule (2026-10-13-8762l). */
 
 /* ===== shared shell: tokens + primitives (identical across all three mocks) == */
 .mock-shell {

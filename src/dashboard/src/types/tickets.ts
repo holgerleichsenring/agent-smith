@@ -1,4 +1,4 @@
-import type { PendingQuestionInfo } from "@/types/hub-events";
+import type { PendingQuestionInfo, SpecEvidenceProblem, SpecReviewResidue } from "@/types/hub-events";
 import type { SpecDialogProposalFinding, SpecDialogReviewRound } from "@/types/spec-dialog";
 
 // 2026-10-13-9a59p: the ticket list as GET /api/tickets serves it (TicketListView and the records
@@ -368,6 +368,61 @@ export interface TicketConversation {
   } | null;
   transcriptHidden: boolean;
   threadUnavailable: boolean;
+}
+
+// 2026-10-13-8762l: every pre-build review round of a ticket (GET …/reviews, runs.read) — each attempt's
+// rounds and the approved set's design-conversation rounds, already keyed by filed ids. Evidence strings are
+// as stored ("repo/path:line [Aid]" or "repo search:'pattern' [Aid]") and are rendered, never parsed.
+
+export interface TicketReviewCut {
+  specId: string | null;
+  register: string;
+  quote: string;
+  replacement: string | null;
+  evidence: string;
+}
+
+export interface TicketReviewFinding {
+  text: string;
+  evidence: string;
+}
+
+export interface TicketReviewer {
+  reviewer: number;
+  /** null where a conversation round's reviewer was not taken. */
+  verdict: string | null;
+  cuts: TicketReviewCut[];
+  findings: TicketReviewFinding[];
+  evidenceProblems: SpecEvidenceProblem[];
+  residues: SpecReviewResidue[];
+}
+
+/** scope "spec" | "series" (a run's) | "conversation"; a conversation round carries its merged lists at round
+ *  level and its reviewers' verdicts only, and its specId "series" is the set's contract review. */
+export interface TicketReviewRound {
+  scope: string;
+  specId: string | null;
+  round: number;
+  verdict: string;
+  reviewers: TicketReviewer[];
+  cuts: TicketReviewCut[];
+  findings: TicketReviewFinding[];
+  residues: SpecReviewResidue[];
+  revisionNumber: number | null;
+  at: string | null;
+}
+
+export interface TicketReviewAttempt {
+  runId: string;
+  number: number;
+  rounds: TicketReviewRound[];
+}
+
+export interface TicketReviews {
+  project: string;
+  ticketId: string;
+  attempts: TicketReviewAttempt[];
+  conversation: { approvalAt: string | null; rounds: TicketReviewRound[] } | null;
 }
 
 // 2026-10-13-9a59r: what approving the ticket's open proposal would do (GET …/approval-preview,

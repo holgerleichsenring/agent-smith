@@ -134,6 +134,18 @@ public sealed class TicketSeriesReadTests : IDisposable
             .Should().BeOfType<NotFound>();
     }
 
+    [Fact]
+    public async Task TicketSeries_ReviewObjectionCut_GateReadFromTheGateStep_OtherHandbackSkipped()
+    {
+        var objected = Cut(R1, 3, Entry(A, 1));
+        objected.HandbackCase = "ReviewObjection";
+        await _store.AddAsync(Run(R1, status: "waiting_for_input"), Step(R1), objected, Gate(R1, "success"),
+            Run(R2, status: "waiting_for_input"), Step(R2), Handback(R2, 4, "Question"), Gate(R2, "success"));
+
+        (await ReadAsync(R1)).Gate.Should().Be(new TicketSeriesGateView("passed", 1, R1), "the prefix before the objection was gated");
+        (await ReadAsync(R2)).Gate.Should().Be(new TicketSeriesGateView("skipped", 0, R2));
+    }
+
     private static RunStep Gate(string runId, string status) => new()
     {
         RunId = runId, StepIndex = 5, StepName = "Validate the spec", CommandName = CommandNames.SpecGate, Status = status,

@@ -37,6 +37,7 @@ internal static class TicketReadExtensions
             .AddTransient<TicketSeriesRecordsReader>()
             .AddTransient<TicketSeriesSpecComposer>()
             .AddTransient<TicketSeriesReader>()
+            .AddTransient<TicketReviewsReader>() // 2026-10-13-8762l
             .AddTransient<SeriesStripReader>()
             .AddTransient<TicketProjects>() // 2026-10-13-9a59h
             .AddTransient<TicketStandings>()

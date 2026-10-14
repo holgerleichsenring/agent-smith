@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-13-8762l
+
+decisions:
+  - category: Architecture
+    chose: "One static ApprovedReviewRounds (Server/Services/SpecDialog) holds both the filing re-key (Rekey: a mapped round under its filed id, the `series` round kept with its cuts' SpecIds re-keyed, every other round dropped and logged) and the record merge (Merge: new rounds of a spec replace its old ones, an old round kept only for an id the continuation marks Kept, null when none)"
+    over: "The re-key inlined in FiledSeriesFactory and again in TicketContinuationAct"
+    reason: "Both filing paths apply the same rule with different maps (SeriesDraftIds.Map vs decision.Ids); one function keeps them from disagreeing and keeps FiledSeriesFactory at 40 lines and TicketContinuationAct at 93."
+  - category: Architecture
+    chose: "SpecApprovalRecord.ReviewRounds is a one-line init property with a trailing comment"
+    over: "A documented property with a summary block"
+    reason: "The spec's budget for SpecApprovalRecord.cs is 87 -> 88; the record's purpose is stated on the comment line and on ApprovedReviewRounds."
+  - category: Implementation
+    chose: "TicketReviewsReader answers null for an unknown project too (TicketProjects.Of), then 404 only when the pair has neither a code run nor an approval record; the record is read by (tracker connection name, TicketKey) exactly as the run and the transcript reader key it"
+    over: "Reading the record without resolving the project"
+    reason: "The record's identity is the tracker CONNECTION plus the key (SpecApprovalRecord.Tracker); only the configured project names the connection."
+  - category: Implementation
+    chose: "A run round's view groups RunSpecReviewRounds by (scope, spec, round) in EventSeq order; its verdict is SpecReviewMerge.Merge over each reviewer's row as a SpecAttackResult; RevisionNumber is the first a row carries and At the latest row's; the round-level cuts/findings/residues stay empty"
+    over: "Storing or recomputing a merged verdict elsewhere"
+    reason: "Decision 'MERGED VERDICT FROM g's MERGE': the page and the run cannot disagree, and nothing is stored twice."
+  - category: Implementation
+    chose: "The view reuses the contract records SpecEvidenceProblem and SpecReviewResidue for evidence problems and residues; cuts and findings get their own views (TicketReviewCutView, TicketReviewFindingView) as the spec's models step names"
+    over: "Six more view records"
+    reason: "The two contract records are already the wire shape the dashboard mirrors (hub-events.ts); the spec names exactly six models."
+  - category: Implementation
+    chose: "SpecCutContent.CaseOf publishes 'ReviewObjection' (const SpecCutContent.ReviewObjection = nameof(SpecQuestionKind.ReviewObjection)) only for a Question hand-back of that kind; TicketSeriesReader.Gate reads the gate step for that case and 'skipped' for every other case"
+    over: "A new SpecHandbackCase member"
+    reason: "The kind lives on SpecHandback.QuestionKind (8762h); the cut stores a string, so the published case names the kind without a second store or an enum change that every manifest and envelope parser would read."
+  - category: Implementation
+    chose: "TicketReviewsRead owns the reviews read with its own CoalescedRefetch, generation and abort; TicketPageReads composes it (268 lines, budget 269) and the shared failure() helper moved to lib/tickets/readFailure.ts so both use it; TicketPageStore's cut-review counter became useNewEvents(events, type, reads, nudge) used for SpecCutReviewed and SpecReviewRound (249 lines, budget 250)"
+    over: "A second copy of the counter hook, or the read inside TicketPageReads"
+    reason: "Decision 'DASHBOARD BUDGETS': the read lives in its own class and the two over-limit files grow within the stated bounds."
+  - category: Implementation
+    chose: "ReviewRounds.tsx exports roundGroups/roundLists/VerdictPill/CutLine/FindingLine, which SeriesContractReview.tsx reuses; group labels are 'Attempt n' and 'Reviewed in the conversation before approval'; the round mark .m is ok/bad/q (the mock has no amber mark) and the verdict pill ok/amber/bad. Default, pending operator ratification: no mock iteration before build (decision 'NO NEW MOCK, RATIFIED CLASSES')"
+    over: "Drawing a mock version first"
+    reason: "The surface composes .section-head, .cnt, .blk h4, .crit, .ci and .pill; mock-parity.css names it as a deviation and adds no rule."
+  - category: Implementation
+    chose: "The series section and the spec block render only once the Specs tab has a recorded cut; a ticket approved but never run shows its conversation rounds through the API but the tab still says no spec has been cut"
+    over: "Rendering a spec document from the approval record"
+    reason: "The tab lists specs from the published cut only (TicketSpecsTab, 9a59r); the reviews read itself answers for an approved, never-run ticket (TicketReviews_ApprovedNeverRun_ReturnsConversationRoundsNot404), and the rounds show as soon as the first attempt publishes the cut."

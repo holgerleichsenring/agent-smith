@@ -2,6 +2,7 @@
 
 import { isRunLive } from "@/lib/runLiveness";
 import type { TicketAttempt, TicketSeriesSpec } from "@/types/tickets";
+import { ReviewRounds } from "./ReviewRounds";
 import { criterionRow, overruleWords, specStatePill } from "./specWords";
 
 // 2026-10-13-9a59r: one spec as a document — spec n, state, repository, the attempt that executed it, the
@@ -67,6 +68,7 @@ export function SpecDocument({ spec, attempts, onDiscuss }: Props) {
             })}
           </div>
         </div>
+        <ReviewRounds specId={spec.specId} />
         <div className="ro-note">
           <span>Read-only. A spec changes only through the ticket conversation, and an executed spec never changes.</span>
           <button className="btn sm" type="button" onClick={onDiscuss} data-testid="spec-discuss">Discuss in conversation</button>

@@ -122,6 +122,11 @@ public sealed class RoutePermissionGuardTests
         Declaration("GET", "/api/tickets/{project}/{ticketId}").Should().Equal(Permissions.RunsRead);
     }
 
+    // 2026-10-13-8762l: the review rounds are run records of the ticket's attempts and its approval.
+    [Fact]
+    public void RoutePermission_TicketReviews_NeedsRunsRead() =>
+        Declaration("GET", "/api/tickets/{project}/{ticketId}/reviews").Should().Equal(Permissions.RunsRead);
+
     // The config/secrets split holds for direct entity CRUD and leaks here: the change
     // feed carries the secret's id and changed field names, revert takes no type filter
     // at all, export serializes the secret entities, and import writes them.

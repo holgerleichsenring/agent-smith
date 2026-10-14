@@ -63,6 +63,7 @@ internal sealed class TicketStoreHarness : IDisposable
         services.AddScoped<IPrReviewRecordReader>(sp => sp.GetRequiredService<PrReviewRecordRepository>());
         services.AddScoped<SpecDialogSessionRepository>();
         services.AddSingleton<IUniqueViolationTranslator, SqliteUniqueViolationTranslator>();
+        services.AddSingleton<AgentSmith.Contracts.Specs.ISpecApprovalStore>(Approvals); // 2026-10-13-8762l
         services.AddTicketReaders();
         _provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
     }
@@ -75,6 +76,7 @@ internal sealed class TicketStoreHarness : IDisposable
     public Mock<ITicketProvider> Tracker { get; } = new();
     public Mock<ITicketActivityNudge> Activity { get; } = new();
     public Dictionary<string, int> Positions { get; } = new(StringComparer.Ordinal);
+    public AgentSmith.Application.Services.Persistence.InMemorySpecApprovalStore Approvals { get; } = new();
     public StaleLease? HeldLease { get; set; }
 
     public AgentSmithConfig Config { get; } = new()
@@ -89,6 +91,7 @@ internal sealed class TicketStoreHarness : IDisposable
     public TicketDetailReader Detail => _provider.GetRequiredService<TicketDetailReader>();
     public TicketSeriesReader Series => _provider.GetRequiredService<TicketSeriesReader>();
     public TicketConversationReader Conversation => _provider.GetRequiredService<TicketConversationReader>();
+    public TicketReviewsReader Reviews => _provider.GetRequiredService<TicketReviewsReader>();
     public TicketBetweenAttemptsChecker Checker => _provider.GetRequiredService<TicketBetweenAttemptsChecker>();
     public TicketCheckKicks Kicks => _provider.GetRequiredService<TicketCheckKicks>();
     public IServiceProvider Services => _provider;

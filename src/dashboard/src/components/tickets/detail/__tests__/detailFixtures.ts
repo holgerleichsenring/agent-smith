@@ -10,6 +10,8 @@ import type {
   TicketConversation,
   TicketConversationEntry,
   TicketDetail,
+  TicketReviewRound,
+  TicketReviews,
   TicketSeries,
   TicketSeriesSpec,
 } from "@/types/tickets";
@@ -114,5 +116,17 @@ export function compute(runId: string, over: Partial<RunCompute> = {}): RunCompu
     runId, spawns: [spawn()], segments: [segment()], unattributedCalls: 0,
     uncounted: [{ kind: "browser", label: "browser sandboxes" }],
     ...over,
+  };
+}
+
+// 2026-10-13-8762l: the review rounds read — no attempt and no approval record by default.
+export function reviews(over: Partial<TicketReviews> = {}): TicketReviews {
+  return { project: "shop", ticketId: "101", attempts: [], conversation: null, ...over };
+}
+
+export function reviewRound(over: Partial<TicketReviewRound> = {}): TicketReviewRound {
+  return {
+    scope: "spec", specId: "s1", round: 1, verdict: "build", reviewers: [], cuts: [], findings: [], residues: [],
+    revisionNumber: null, at: "2026-09-04T14:00:00Z", ...over,
   };
 }

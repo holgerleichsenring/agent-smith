@@ -12,6 +12,7 @@ import type {
   TicketConversation,
   TicketDetail,
   TicketListView,
+  TicketReviews,
   TicketSeries,
   TicketServerBucket,
 } from "@/types/tickets";
@@ -53,6 +54,11 @@ export function fetchTicketConversation(
   project: string, ticketId: string, signal?: AbortSignal,
 ): Promise<TicketConversation> {
   return getJson<TicketConversation>(`/api${ticketPath(project, ticketId)}/conversation`, signal);
+}
+
+/** 2026-10-13-8762l: every attempt's review rounds and the approved set's conversation rounds. */
+export function fetchTicketReviews(project: string, ticketId: string, signal?: AbortSignal): Promise<TicketReviews> {
+  return getJson<TicketReviews>(`/api${ticketPath(project, ticketId)}/reviews`, signal);
 }
 
 export function fetchRunPasses(runId: string, signal?: AbortSignal): Promise<RunPasses> {

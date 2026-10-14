@@ -52,10 +52,10 @@ public sealed class TicketSeriesReader(
             ? new TicketSeriesHandbackView(handbackCase, cut.RunId, numbers[cut.RunId], cut.At)
             : null;
 
-    // "skipped" is read from the cut's case, not the step: the gate answers OK for a handed-back set.
+    // "skipped" is read from the cut's case, not the step: the gate answers OK for a handed-back set — but a review objection's prefix was gated (8762l).
     private static TicketSeriesGateView? Gate(RunSeriesCut cut, int specCount, TicketSeriesRecords records)
     {
-        if (cut.HandbackCase is not null) return new("skipped", specCount, cut.RunId);
+        if (cut.HandbackCase is { } handed && handed != Application.Services.Specs.SpecCutContent.ReviewObjection) return new("skipped", specCount, cut.RunId);
         return records.GateSteps.GetValueOrDefault(cut.RunId) is { } status
             ? new(status == Success ? "passed" : "failed", specCount, cut.RunId)
             : null;

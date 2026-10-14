@@ -39,7 +39,7 @@ public sealed class ApprovedSpecSetResolver(
         // Published back under the same key, so every later step reads the decision rather
         // than making it again — and a stale carried copy is replaced by the one that won.
         if (winner is not null)
-            pipeline.Set(ContextKeys.ApprovedSpecSet, SpecApprovalJson.Write(winner));
+            pipeline.Set(ContextKeys.ApprovedSpecSet, SpecApprovalJson.Write(winner with { ReviewRounds = null })); // 2026-10-13-8762l
         return winner;
     }
 

@@ -8,7 +8,7 @@ import { useRunEvents } from "@/hooks/useRunEvents";
 import { isRunLive } from "@/lib/runLiveness";
 import { EventType, type RunEvent, type RunSnapshot } from "@/types/hub-events";
 import type {
-  RunCompute, RunPasses, TicketApprovalPreview, TicketAttempt, TicketConversation, TicketDetail, TicketSeries,
+  RunCompute, RunPasses, TicketApprovalPreview, TicketAttempt, TicketConversation, TicketDetail, TicketReviews, TicketSeries,
 } from "@/types/tickets";
 import {
   TicketPageReads, type PerRunRead, type Read, type TicketPageApi, type TicketPageSnapshot,
@@ -87,7 +87,8 @@ export function TicketPageStore({ project, ticketId, children, client, api }: Pr
   const current = snapshot ?? reads.snapshot;
   const liveAttempt = newestLive(current.detail.data);
   const liveEvents = useRunEvents(liveAttempt?.runId ?? null);
-  useCutReviews(liveEvents, reads);
+  useNewEvents(liveEvents, EventType.SpecCutReviewed, reads, "cutReviewed");
+  useNewEvents(liveEvents, EventType.SpecReviewRound, reads, "reviewRound"); // 2026-10-13-8762l
 
   const value = useMemo<StoreValue>(
     () => ({ project, ticketId, snapshot: current, reads, liveAttempt, liveEvents, activity }),
@@ -96,14 +97,15 @@ export function TicketPageStore({ project, ticketId, children, client, api }: Pr
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
-/** (d): each SpecCutReviewed the live stream gains re-reads the conversation once. */
-function useCutReviews(events: RunEvent[], reads: TicketPageReads): void {
+/** (d): each SpecCutReviewed the live stream gains re-reads the conversation once; (e) each SpecReviewRound the
+ *  review rounds. */
+function useNewEvents(events: RunEvent[], type: EventType, reads: TicketPageReads, nudge: "cutReviewed" | "reviewRound"): void {
   const seen = useRef<number | null>(null);
-  const count = events.filter((e) => e.type === EventType.SpecCutReviewed).length;
+  const count = events.filter((e) => e.type === type).length;
   useEffect(() => {
-    if (seen.current !== null && count > seen.current) reads.cutReviewed();
+    if (seen.current !== null && count > seen.current) reads[nudge]();
     seen.current = count;
-  }, [count, reads]);
+  }, [count, reads, nudge]);
 }
 
 function newestLive(detail: TicketDetail | null): TicketAttempt | null {
@@ -135,6 +137,11 @@ export function useTicketSeries(runId?: string | null): Read<TicketSeries> {
 
 export function useTicketConversation(): Read<TicketConversation> {
   return useStore().snapshot.conversation;
+}
+
+/** 2026-10-13-8762l: every attempt's review rounds and the approved set's conversation rounds. */
+export function useTicketReviews(): Read<TicketReviews> {
+  return useStore().snapshot.reviews;
 }
 
 export function useAttemptPasses(runId: string | null): Read<RunPasses> {
