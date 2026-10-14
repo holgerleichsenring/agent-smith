@@ -1,0 +1,271 @@
+<!-- Ticket graph mock for 2026-10-14-dbcek (proposal section, ticket-text model, main-thread
+     decision D1); 2026-10-14-dbcen extends this file with the list buckets, the graph view, "waits for" on the ticket
+     header and the done-by-hand dialog.
+     Sibling of ticket-view.html: same tokens (repo-root DESIGN.md + mock-parity.css), same shell.
+     NON-SHIPPING: every "Mock only" footer and the "Mock · preview state" chips exist to review the mock. -->
+<title>agent-smith · ticket graph</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+  :root {
+    --bg:#fffefb; --panel:#f8f4f0; --panel-2:#efe9df;
+    --ink:#201515; --ink-2:#605d52; --ink-3:#939084;
+    --line:#e6dfd0; --line-2:#efe9dd;
+    --accent:#22c55e; --accent-ink:#fffefb; --accent-wash:#e7f6ec;
+    --run:#a8741f; --run-wash:#f4ecd9; --ok:#22c55e; --ok-wash:#e7f6ec; --bad:#c0392b; --bad-wash:#f6e6e2;
+    --idle:#c5c0b1;
+    --person:#2f6fb0; --person-wash:#e6eef7;
+    --r:12px; --r-s:6px;
+    --mono:"IBM Plex Mono", ui-monospace,"SF Mono",Menlo,monospace;
+    --sans:Inter, system-ui,-apple-system,"Segoe UI",sans-serif;
+    --topbar-h:52px;
+  }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased; }
+  .mono { font-family:var(--mono); }
+  [hidden] { display:none !important; }
+  button:focus-visible, a:focus-visible, [tabindex]:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+
+  /* ===== shell (as ticket-view.html) ===== */
+  .app { display:grid; grid-template-columns:236px minmax(0,1fr); grid-template-rows:auto 1fr; min-height:100vh; }
+  @media (max-width:860px){ .app{ grid-template-columns:minmax(0,1fr); } .side{ display:none; } }
+  .topbar { grid-column:1/-1; display:flex; align-items:center; gap:10px; height:var(--topbar-h); padding:0 18px; border-bottom:1px solid var(--line); background:var(--bg); }
+  .tb-place { font-size:13.5px; font-weight:620; display:flex; gap:8px; align-items:center; min-width:0; }
+  .tb-place .crumb { color:var(--ink-3); font-weight:500; }
+  .tb-place .sep { color:var(--idle); }
+  .side { border-right:1px solid var(--line); background:var(--panel); padding:14px 12px; display:flex; flex-direction:column; gap:2px; }
+  .brand { display:flex; align-items:center; gap:9px; padding:4px 10px 12px; }
+  .brand .logo { width:26px; height:26px; border-radius:8px; background:var(--accent); color:#fff; display:grid; place-items:center; font-weight:800; font-size:14px; }
+  .brand .bn { font-weight:680; }
+  .nav { display:flex; align-items:center; gap:10px; padding:7px 12px; border-radius:9px; color:var(--ink-2); font-size:13px; font-weight:520; text-decoration:none; }
+  .nav.on { background:var(--accent-wash); color:var(--accent); font-weight:620; }
+  .main { padding:24px 34px 60px; max-width:1480px; min-width:0; }
+  @media (max-width:640px){ .main{ padding:18px 16px 40px; } }
+
+  /* ===== Work it out: transcript beside the proposal pane ===== */
+  .wio { display:grid; grid-template-columns:minmax(0,1fr) minmax(0,1.15fr); gap:22px; align-items:start; }
+  @media (max-width:1100px){ .wio{ grid-template-columns:minmax(0,1fr); } }
+  .pane-h { font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); font-weight:600; margin:0 0 8px; }
+  .msg { display:grid; grid-template-columns:28px minmax(0,1fr); gap:10px; padding:10px 0; border-top:1px solid var(--line-2); }
+  .msg:first-of-type { border-top:0; }
+  .av { width:28px; height:28px; border-radius:50%; display:grid; place-items:center; font-size:11px; font-weight:700; }
+  .av.op { background:var(--person-wash); color:var(--person); }
+  .av.agent { background:var(--accent-wash); color:var(--accent); font-family:var(--mono); }
+  .mh { display:flex; gap:8px; align-items:baseline; font-size:12px; color:var(--ink-3); }
+  .mh b { color:var(--ink); font-weight:620; }
+  .mb { font-size:13px; color:var(--ink); margin-top:2px; }
+
+  /* the conversation card: a pointer to the proposal (DialogProposalCard) */
+  .ecard { border:1px solid var(--line); border-radius:var(--r-s); background:var(--panel); margin-top:8px; overflow:hidden; }
+  .ecard .ec-top { display:flex; align-items:center; gap:10px; padding:8px 12px; }
+  .ec-mark { font-family:var(--mono); font-size:10.5px; font-weight:600; padding:2px 7px; border-radius:5px; background:var(--panel-2); color:var(--ink-2); }
+  .ec-mark.filed { background:var(--accent-wash); color:var(--accent); }
+  .ec-name { flex:1; min-width:0; font-size:13px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .d-link { font-size:12px; color:var(--ink-2); background:none; border:0; cursor:pointer; font:inherit; font-size:12px; }
+  .d-strip { border-top:1px solid var(--line-2); padding:7px 12px; font-size:12px; color:var(--ink-2); display:flex; flex-direction:column; gap:2px; }
+  .d-strip b { font-family:var(--mono); font-weight:500; color:var(--ink); }
+
+  /* the proposal pane (DialogProposalPanel -> DialogProposalGraph) */
+  .fl { font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); font-weight:600; margin-bottom:2px; }
+  .gp { display:flex; flex-direction:column; gap:12px; }
+  .gp-head h3 { margin:0; font-size:16px; font-weight:660; }
+  .gp-head .sub { font-size:12.5px; color:var(--ink-3); margin-top:2px; max-width:70ch; }
+  .tk { border:1px solid var(--line); border-radius:var(--r); background:var(--panel); overflow:hidden; }
+  .tk > summary { list-style:none; cursor:pointer; display:grid; grid-template-columns:26px minmax(0,1fr) auto; gap:10px; align-items:center; padding:10px 14px; }
+  .tk > summary::-webkit-details-marker { display:none; }
+  .tk .n { width:24px; height:24px; border-radius:50%; display:grid; place-items:center; font-family:var(--mono); font-size:11px; font-weight:600; background:var(--bg); border:1px solid var(--line); color:var(--ink-2); }
+  .tk .t { min-width:0; }
+  .tk .key { font-family:var(--mono); font-size:11.5px; color:var(--ink-3); }
+  .tk .g { font-size:13.5px; font-weight:600; }
+  .tk .wait { font-size:11.5px; color:var(--ink-3); margin-top:1px; }
+  .tk .wait b { color:var(--run); font-weight:600; }
+  .tk .wait .none { color:var(--ok); font-weight:600; }
+  .tk-body { border-top:1px solid var(--line-2); padding:10px 14px 12px 50px; display:flex; flex-direction:column; gap:8px; background:var(--bg); }
+  .pill { font-size:10.5px; font-weight:650; letter-spacing:.04em; text-transform:uppercase; padding:3px 9px; border-radius:20px; white-space:nowrap; display:inline-block; }
+  .pill.ok { background:var(--ok-wash); color:var(--ok); }
+  .pill.amber { background:var(--run-wash); color:var(--run); }
+  .pill.q { background:var(--panel-2); color:var(--ink-3); }
+  .pill.bad { background:var(--bad-wash); color:var(--bad); }
+  .spec { border:1px solid var(--line); border-radius:var(--r-s); background:var(--panel); padding:8px 10px; }
+  .spec .sid { font-family:var(--mono); font-size:11px; color:var(--ink-3); }
+  .spec .sg { font-size:12.5px; font-weight:560; }
+  .spec ul { margin:4px 0 0; padding-left:18px; font-size:12px; color:var(--ink-2); }
+  .finding { border-left:3px solid var(--bad); background:var(--bad-wash); padding:6px 10px; font-size:12px; border-radius:0 var(--r-s) var(--r-s) 0; }
+  .finding b { font-weight:620; }
+  .edge { font-family:var(--mono); font-size:11.5px; color:var(--ink-2); }
+
+  /* the approval card (DialogQuestionCard) */
+  .approve { border:1px solid color-mix(in srgb, var(--accent) 40%, var(--line)); border-radius:var(--r); background:var(--panel); overflow:hidden; }
+  .approve .sum { padding:12px 16px; font-size:13px; }
+  .approve .sum b { font-weight:640; }
+  .approve .acts { display:flex; flex-wrap:wrap; gap:8px; padding:0 16px 14px; }
+  .btn { font:inherit; font-size:12.5px; font-weight:600; border-radius:9px; padding:8px 14px; cursor:pointer; border:1px solid var(--line); background:var(--bg); color:var(--ink); white-space:nowrap; }
+  .btn.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .btn[disabled] { opacity:.5; cursor:not-allowed; }
+  .btn .why { display:block; font-size:10.5px; font-weight:500; color:var(--ink-3); }
+
+  .chips { display:flex; gap:6px; flex-wrap:wrap; align-items:center; margin:0 0 14px; padding:8px 12px; border:1px dashed var(--line); border-radius:var(--r-s); }
+  .chips .lbl { font-size:10px; letter-spacing:.12em; text-transform:uppercase; color:var(--ink-3); font-weight:600; margin-right:4px; }
+  .chip { font:inherit; font-size:11.5px; padding:4px 10px; border-radius:20px; border:1px solid var(--line); background:var(--panel); cursor:pointer; color:var(--ink-2); }
+  .chip[aria-pressed="true"] { background:var(--ink); color:var(--bg); border-color:var(--ink); }
+
+  .mockfoot { margin-top:36px; border-top:1px dashed var(--line); padding-top:14px; font-size:12px; color:var(--ink-3); max-width:90ch; }
+  .mockfoot h4 { margin:0 0 8px; font-size:10.5px; letter-spacing:.12em; text-transform:uppercase; font-weight:600; }
+  .mockfoot ol { margin:0; padding-left:18px; display:flex; flex-direction:column; gap:4px; }
+  .mockfoot code { font-family:var(--mono); font-size:11px; color:var(--ink-2); }
+  /* ticket texts (D1): the requirement, its done list, repositories */
+  .req { font-size:12.5px; color:var(--ink); white-space:pre-line; }
+  .done { margin:0; padding-left:18px; font-size:12px; color:var(--ink-2); }
+  .done li { margin:1px 0; }
+  .meta { font-size:11.5px; color:var(--ink-3); display:flex; gap:12px; flex-wrap:wrap; }
+  .meta .mono { color:var(--ink-2); }
+  .derive { font-size:11.5px; color:var(--ink-3); font-style:italic; }
+  .finding.cut { border-left-color:var(--run); background:var(--run-wash); }
+  .finding.applied { border-left-color:var(--ok); background:var(--ok-wash); }
+  .notice { border:1px solid var(--line); border-radius:var(--r-s); background:var(--panel); padding:10px 12px; font-size:12.5px; }
+</style>
+
+<div class="app">
+  <header class="topbar">
+    <div class="tb-place"><span class="crumb">Work it out</span><span class="sep">/</span><span>Orders service — split into mergeable pieces</span></div>
+  </header>
+  <nav class="side" aria-label="Main">
+    <div class="brand"><span class="logo">A</span><span class="bn">agent-smith</span></div>
+    <a class="nav">Runs</a><a class="nav">Tickets</a><a class="nav on">Work it out</a><a class="nav">Projects</a><a class="nav">Config Studio</a>
+  </nav>
+
+  <main class="main">
+    <div class="chips" role="group" aria-label="Preview the proposal state">
+      <span class="lbl">Mock · preview state</span>
+      <button class="chip" type="button" data-st="clean" aria-pressed="true">reviewed, clean</button>
+      <button class="chip" type="button" data-st="cut" aria-pressed="false">a review finding</button>
+      <button class="chip" type="button" data-st="missing" aria-pressed="false">#41 not found</button>
+      <button class="chip" type="button" data-st="uncovered" aria-pressed="false">a requirement no ticket covers</button>
+      <button class="chip" type="button" data-st="jira" aria-pressed="false">on Jira</button>
+      <button class="chip" type="button" data-st="bound" aria-pressed="false">in a ticket's conversation</button>
+    </div>
+
+    <section class="wio">
+      <!-- ===== the conversation ===== -->
+      <div>
+        <div class="pane-h">Conversation</div>
+        <div class="msg"><span class="av op">H</span><div>
+          <div class="mh"><b>h.operator</b><span>Oct 14 · 09:12</span></div>
+          <div class="mb">Here are the requirements and our principles (uploaded). The order API has to be merged before anyone builds the UI on it, and the export can only come after both.</div></div></div>
+        <div class="msg"><span class="av agent">as</span><div>
+          <div class="mh"><b>Agent Smith</b><span>Oct 14 · 09:31</span></div>
+          <div class="mb">Three pieces must be merged one after another, so I propose three tickets joined by requires. The UI ticket also waits for <span class="ext">#41</span>, the auth ticket you filed last week. Each ticket's run writes its own specs when it starts, against the code merged by then.
+            <div class="ecard" data-kind="tickets">
+              <div class="ec-top"><span class="ec-mark filed">tickets</span><span class="ec-name">3 tickets, in the order they must merge</span><button class="d-link" type="button">Inspect →</button></div>
+              <div class="d-strip">
+                <div><b>order-api</b> Orders: create, read and cancel over the API · nothing to wait for</div>
+                <div><b>order-ui</b> Orders: list and detail screens on the API · waits for order-api, <span class="ext">#41</span></div>
+                <div><b>order-export</b> Orders: nightly CSV export · waits for order-api, order-ui</div>
+              </div>
+            </div></div></div></div>
+      </div>
+
+      <!-- ===== the proposal pane (DialogProposalPanel -> DialogProposalGraph) ===== -->
+      <div class="gp" data-kind="tickets">
+        <div class="gp-head">
+          <div class="fl">A list of tickets</div>
+          <h3>3 tickets, in the order they must merge</h3>
+          <div class="sub">Each ticket is one run and one pull request per repository. A ticket starts only when every ticket it waits for is merged, or a person marked it done by hand. Its specs are written by its run when it starts.</div>
+        </div>
+
+        <div class="finding" data-show="bound" hidden><b>the list — bound conversation</b>: a list of tickets is filed from Work it out without a ticket; this conversation continues its own ticket. The list was not reviewed; make it this ticket's series instead.</div>
+
+        <div class="finding" data-show="uncovered" hidden><b>the list — missing</b>: the uploaded <span class="mono">requirements.pdf</span> asks for refunds of cancelled orders; no ticket covers it. Ask for a ticket that does, or say it is left for a later list.</div>
+
+        <details class="tk" open>
+          <summary><span class="n">1</span><span class="t"><span class="key">order-api</span><div class="g">Orders: create, read and cancel over the API</div><div class="wait"><span class="none">nothing to wait for</span></div></span></summary>
+          <div class="tk-body">
+            <div class="req">Add the order entity with its migration and the create, read and cancel endpoints. Keep the existing HTTP conventions and the uploaded coding principles. The change stays inside src/Orders and its tests.</div>
+            <div class="fl">Done when</div>
+            <ul class="done">
+              <li>POST /orders returns 201 and GET /orders/{id} returns the order.</li>
+              <li>A cancelled order cannot be shipped (test).</li>
+              <li>Build and the full test suite are green.</li>
+            </ul>
+            <div class="meta"><span>repositories <span class="mono">orders-service</span></span></div>
+          </div>
+        </details>
+
+        <details class="tk" open>
+          <summary><span class="n">2</span><span class="t"><span class="key">order-ui</span><div class="g">Orders: list and detail screens on the API</div><div class="wait">waits for <b>order-api</b>, <b class="ext">#41</b> (an existing ticket)</div></span></summary>
+          <div class="tk-body">
+            <div class="finding" data-show="missing" hidden><b>order-ui — required ticket not found</b>: ticket <span class="ext-id">41</span> does not exist on this tracker. Filing would refuse the whole list.</div>
+            <div class="finding cut" data-show="cut" hidden><b>order-ui — size</b>: the list and the detail screen with its cancel action are two runs' worth; split it in your next note, the review never changes the keys. <span class="mono">it states: "with a cancel action"</span></div>
+            <div class="req" data-req="ui">Add the order list screen and the order detail screen with a cancel action, reading from the order API. Reuse the existing table component.</div>
+            <div class="fl">Done when</div>
+            <ul class="done">
+              <li>The list shows open orders from GET /orders.</li>
+              <li>Cancel on the detail screen calls the API and the state updates.</li>
+            </ul>
+            <div class="meta"><span>repositories <span class="mono">orders-web</span></span></div>
+          </div>
+        </details>
+
+        <details class="tk">
+          <summary><span class="n">3</span><span class="t"><span class="key">order-export</span><div class="g">Orders: nightly CSV export</div><div class="wait">waits for <b>order-api</b>, <b>order-ui</b></div></span></summary>
+          <div class="tk-body">
+            <div class="req">Export every order of the day to CSV at 02:00 into the configured export folder.</div>
+            <div class="fl">Done when</div>
+            <ul class="done">
+              <li>A CSV with every order of the day lands in the export folder at 02:00.</li>
+            </ul>
+            <div class="meta"><span>repositories <span class="mono">the conversation's (orders-service)</span></span></div>
+          </div>
+        </details>
+
+        <div class="derive">No specs yet: each ticket's run derives and reviews its own specs when it starts. To settle them earlier, open the ticket's own conversation after filing.</div>
+
+        <div class="approve" role="group" aria-label="Approve the proposal">
+          <div class="sum" id="sum"><b>File these 3 tickets?</b> 1 has nothing to wait for; the rest wait until what they require is merged.</div>
+          <div class="acts">
+            <button class="btn primary" type="button" id="approve">Approve &amp; file</button>
+            <button class="btn" type="button">Reject</button>
+            <button class="btn" type="button">Make it one ticket's series<span class="why">the pieces need no merge between them</span></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="mockfoot">
+      <h4>Mock only · what each element reads</h4>
+      <ol>
+        <li><b>Card and pane:</b> the push of kind <code>tickets</code> (<code>SpecDialogProposalPush.tickets</code>), each ticket's key, title, requirement, done items, requires and repositories, in <code>TicketGraphOrderer</code> order (2026-10-14-dbcej, 2026-10-14-dbcek). Keys are the identity; a list carries no spec ids.</li>
+        <li><b>“nothing to wait for”</b> is the proposal's own requires; whether an existing ticket like #41 has landed is read at filing (2026-10-14-dbcel), so the pane never says a ticket starts when filed.</li>
+        <li><b>“waits for #41”</b>: an existing ticket by its tracker key — <code>#&lt;id&gt;</code> when the id is numeric, as written otherwise (a Jira key).</li>
+        <li><b>“required ticket not found”</b> is the <code>ITicketExistence</code> finding (Azure DevOps' TF401232 included); filing refuses the whole list on it.</li>
+        <li><b>The size / order / merge / missing findings</b> come from the plan review (<code>TicketPlanReview</code>); a cut whose quote is verbatim in the ticket is applied by one re-prompt, the revised list is reviewed once more, and what that second review finds stands as findings. A size finding never splits a ticket: the keys are the identity.</li>
+        <li><b>“the list — missing”</b> is a finding about the whole list (key <code>the list</code>): a requirement from the messages or the uploaded files that no ticket covers. The reviewer reads the uploads; a requirement met by a <code>ticket:&lt;id&gt;</code> or left for a later list is not missing.</li>
+        <li><b>On Jira</b> an existing ticket reads as written (<code>PROJ-41</code>); everywhere else a numeric id reads <code>#41</code>.</li>
+        <li><b>In a ticket's conversation</b> the list is not reviewed and the notice says where a list is filed; Approve is not offered and approval files nothing (2026-10-14-dbcel).</li>
+        <li><b>In Slack and Teams</b> the confirmation is the compact list — key, title, number of done items, waits-for — and points here for the full texts.</li>
+        <li><b>The ticket's own conversation</b>, opened after filing, keeps the files uploaded here: its approval carries this conversation's citations forward (2026-10-14-dbcel).</li>
+        <li><b>Approve &amp; file / Reject</b> are the approval card's pair in a conversation bound to no ticket (<code>DialogQuestionCard</code>); the offered shape sends the partner round again as one ticket's series.</li>
+        <li>2026-10-14-dbcen adds: the list's <code>blocked</code> / <code>filed</code> buckets, the graph view, “waits for #X” on the ticket header and the done-by-hand dialog.</li>
+      </ol>
+    </div>
+  </main>
+</div>
+
+<script>
+  (function () {
+    var chips = document.querySelectorAll('.chip');
+    function show(st) {
+      chips.forEach(function (c) { c.setAttribute('aria-pressed', String(c.dataset.st === st)); });
+      ['missing', 'cut', 'bound', 'uncovered'].forEach(function (k) {
+        document.querySelectorAll('[data-show="' + k + '"]').forEach(function (e) { e.hidden = st !== k; });
+      });
+      var approve = document.getElementById('approve');
+      approve.hidden = st === 'bound';
+      document.querySelectorAll('.ext').forEach(function (e) { e.textContent = st === 'jira' ? 'PROJ-41' : '#41'; });
+      document.querySelectorAll('.ext-id').forEach(function (e) { e.textContent = st === 'jira' ? 'PROJ-41' : '41'; });
+      document.getElementById('sum').innerHTML = st === 'bound'
+        ? '<b>A list of tickets is filed from Work it out without a ticket; this conversation continues its own ticket.</b>'
+        : '<b>File these 3 tickets?</b> 1 has nothing to wait for; the rest wait until what they require is merged.';
+    }
+    chips.forEach(function (c) { c.addEventListener('click', function () { show(c.dataset.st); }); });
+  })();
+</script>

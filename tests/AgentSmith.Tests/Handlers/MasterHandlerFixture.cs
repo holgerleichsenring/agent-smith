@@ -90,14 +90,7 @@ internal static class MasterHandlerFixture
     internal static AgentSmith.Application.Services.SpecDialog.SpecDialogTurnFlow TurnFlow(IAgenticLoopRunner loop) =>
         new(new AgentSmith.Application.Services.SpecDialogPromptFactory(),
             new AgentSmith.Application.Services.SpecDialog.TicketStewardPromptFactory(),
-            new AgentSmith.Application.Services.SpecDialog.SpecDialogOutcomeGate(
-                loop, new AgentSmith.Application.Services.SpecDialogPromptFactory(), BuildOutcomeResolver(),
-                new AgentSmith.Application.Services.SpecDialog.SpecDialogProposalRefusal(
-                    loop, new AgentSmith.Application.Services.SpecDialogPromptFactory(),
-                    AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
-                    NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalRefusal>.Instance),
-                AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
-                NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogOutcomeGate>.Instance),
+            OutcomeGate(loop),
             new AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview(
                 Mock.Of<AgentSmith.Application.Services.Specs.ISpecCutReviewer>(),
                 AgentSmith.Tests.Specs.DerivationTestLooks.Factory(),
@@ -106,8 +99,19 @@ internal static class MasterHandlerFixture
                 AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig.Reader(
                     () => AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig.Of(rounds: 0)),
                 new AgentSmith.Tests.SpecDialog.ProposalReview.ProposalReviewRig().Loop(),
+                AgentSmith.Tests.SpecDialog.ProposalReview.TicketPlanReviewRig.Default(),
                 AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
                 NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalReview>.Instance));
+
+    /// <summary>The design turn's outcome gate over the given loop, with the real resolver and refusal.</summary>
+    internal static AgentSmith.Application.Services.SpecDialog.SpecDialogOutcomeGate OutcomeGate(IAgenticLoopRunner loop) =>
+        new(loop, new AgentSmith.Application.Services.SpecDialogPromptFactory(), BuildOutcomeResolver(),
+            new AgentSmith.Application.Services.SpecDialog.SpecDialogProposalRefusal(
+                loop, new AgentSmith.Application.Services.SpecDialogPromptFactory(),
+                AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
+                NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogProposalRefusal>.Instance),
+            AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Silent(),
+            NullLogger<AgentSmith.Application.Services.SpecDialog.SpecDialogOutcomeGate>.Instance);
 
     /// <summary>2026-10-13-8762m: the record tools of a master start, over the stub repositories.</summary>
     internal static AgentSmith.Application.Services.Tools.MasterRecordToolHosts RecordHosts(

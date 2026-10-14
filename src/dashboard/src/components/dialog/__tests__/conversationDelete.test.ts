@@ -19,6 +19,14 @@ function conversation(overrides: Partial<SpecDialogSessionSummary> = {}): SpecDi
 }
 
 describe("The deletion warning", () => {
+  // 2026-10-14-dbcek: a list of tickets is told as a spec and an epic are.
+  it("conversationDelete_TicketsKind_SaysTheFiledTicketsStay", () => {
+    const said = deletionWarning(conversation({ outcome: { kind: "tickets", tickets: 3, partial: false } }));
+
+    expect(said!).toContain("The tickets it filed stay in the tracker");
+    expect(said).toBe(deletionWarning(conversation({ outcome: { kind: "spec", tickets: 1, partial: false } })));
+  });
+
   // A filed spec — and an epic parent — carries a sentence in the tracker that names this
   // conversation, so the warning says that sentence stops resolving.
   it("DeletionWarning_ASpecFiling_SaysWhatSurvivesInTheTracker", () => {

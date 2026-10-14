@@ -3,15 +3,12 @@ using AgentSmith.Contracts.Dialogue;
 namespace AgentSmith.Server.Services.Adapters;
 
 /// <summary>
-/// Builds Slack Block Kit payloads for typed dialogue questions.
-/// Registered as Transient in DI.
+/// Builds Slack Block Kit payloads for typed dialogue questions. Registered as Transient in DI.
 /// <para>
 /// 2026-09-22-355b: an approval's action block carries the approve/reject pair and, beside it,
 /// one button per offered shape. The label travels in the ACTION ID, because the tail of the
 /// action id after the LAST colon is the only part of a clicked button this platform sends
 /// back — the value is never read — which is why a shape label may never contain a colon.
-/// The four block shapes were folded onto one section/context/actions/button vocabulary in the
-/// same spec, so a file already over the length limit came back under it.
 /// </para>
 /// </summary>
 public sealed class SlackTypedQuestionBlockBuilder
@@ -27,11 +24,7 @@ public sealed class SlackTypedQuestionBlockBuilder
     private static object[] ConfirmationBlocks(DialogQuestion question)
     {
         var blocks = Headed(question, ":thought_balloon:");
-        blocks.Add(ActionsBlock(question,
-        [
-            Button(question, "Yes \u2705", "yes", "primary"),
-            Button(question, "No \u274c", "no", "danger"),
-        ]));
+        blocks.Add(ActionsBlock(question, [Button(question, "Yes \u2705", "yes", "primary"), Button(question, "No \u274c", "no", "danger")]));
         return [.. blocks];
     }
 
@@ -41,8 +34,7 @@ public sealed class SlackTypedQuestionBlockBuilder
         var buttons = new List<object>();
         for (var i = 0; i < (question.Choices?.Count ?? 0); i++)
         {
-            // The choice branch answers by INDEX, not by label; 2026-09-22-355b touched only
-            // the approval branch and left this exactly as it was.
+            // The choice branch answers by INDEX, not by label.
             buttons.Add(new
             {
                 type = "button",
@@ -88,10 +80,20 @@ public sealed class SlackTypedQuestionBlockBuilder
     {
         var blocks = new List<object>
         {
-            new { type = "section", text = new { type = "mrkdwn", text = $"{icon} *{question.Text}*" } },
+            new { type = "section", text = new { type = "mrkdwn", text = Section(icon, question.Text) } },
         };
         if (!string.IsNullOrWhiteSpace(question.Context)) blocks.Add(ContextBlock(question.Context));
         return blocks;
+    }
+
+    /// <summary>2026-10-14-dbcek: a section over Slack's 3,000 characters never posts, so the whole text is cut at a line end.</summary>
+    internal static string Section(string icon, string text, int limit = 3000)
+    {
+        const string Rest = "\n… the rest is on the dashboard";
+        var room = limit - icon.Length - 3 - Rest.Length;
+        if (text.Length <= room + Rest.Length) return $"{icon} *{text}*";
+        var cut = text.LastIndexOf('\n', room);
+        return $"{icon} *{text[..(cut > 0 ? cut : room)].TrimEnd()}*{Rest}";
     }
 
     private static object ContextBlock(string text) =>

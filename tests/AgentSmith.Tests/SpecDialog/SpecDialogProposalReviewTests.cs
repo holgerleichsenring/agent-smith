@@ -220,7 +220,7 @@ public sealed class SpecDialogProposalReviewTests
         new(reviewer, DerivationTestLooks.Factory(activity: TurnActivityRecorder.Tools(activity)),
             ProposalEvidenceTestReview.Create(activity),
             ProposalReview.ProposalReviewRig.Reader(() => ProposalReview.ProposalReviewRig.Of(rounds: 0)),
-            new ProposalReview.ProposalReviewRig().Loop(),
+            new ProposalReview.ProposalReviewRig().Loop(), ProposalReview.TicketPlanReviewRig.Default(),
             activity ?? TurnActivityRecorder.Silent(),
             NullLogger<SpecDialogProposalReview>.Instance);
 

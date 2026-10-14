@@ -68,7 +68,7 @@ facts:
   - claim: "A filed ticket's display key is the Jira id as written and #<id> on every other tracker."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledTicketKey.cs:23-35"
   - claim: "A filing report lists every created ticket in creation order, with notes, even when it carries an error; the filed and failure notices list them with their start notes, the failure notice always ends with 'ask again to re-propose and retry', and the filed summary has an arm per kind that throws on any other."
-    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FilingReport.cs:13-64, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeComposer.cs:62-80, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeComposer.cs:106-118"
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FilingReport.cs:13-64, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeComposer.cs:62-80, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeComposer.cs:94-106"
   - claim: "The filers and the sink are registered on adjacent lines of SpecDialogExtensions, which has 119 lines."
     evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogExtensions.cs:57-62"
 

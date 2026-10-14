@@ -359,12 +359,25 @@ export interface SpecDialogProposalFinding {
 }
 
 /**
+ * 2026-10-14-dbcek: one ticket text of a proposed list — no spec inside; its run derives its specs when it starts.
+ * `requires` names sibling keys or `ticket:<id>` of a ticket already filed.
+ */
+export interface SpecDialogGraphTicket {
+  key: string;
+  title: string;
+  requirement: string;
+  done: string[];
+  requires: string[];
+  repos: string[];
+}
+
+/**
  * What this turn would file. An answer proposes nothing and is never pushed, so the pane
  * keeps whatever is still under discussion.
  */
 export interface SpecDialogProposalPush {
   dialogId: string;
-  /** "bug", "spec" or "epic" — the pane renders by it. */
+  /** "bug", "spec", "epic" or "tickets" — the pane renders by it. */
   kind: string;
   bug: SpecDialogBugProposal | null;
   spec: SpecDraftProposal | null;
@@ -379,6 +392,8 @@ export interface SpecDialogProposalPush {
   reviewRounds?: SpecDialogReviewRound[];
   /** 2026-10-13-8762i: spec ids (or "series") not reviewed yet — the proposal cannot be approved. */
   notReviewed?: string[] | null;
+  /** 2026-10-14-dbcek: a list's ticket texts in the order they must merge; absent or empty for every other kind. */
+  tickets?: SpecDialogGraphTicket[];
 }
 
 /** 2026-10-13-8762i: one review round of one draft (or "series"), as it stays on the proposal. */

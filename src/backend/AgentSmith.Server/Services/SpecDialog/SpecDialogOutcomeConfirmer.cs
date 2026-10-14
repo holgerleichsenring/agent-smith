@@ -36,7 +36,7 @@ public sealed class SpecDialogOutcomeConfirmer(
         var question = new DialogQuestion(
             Guid.NewGuid().ToString("N"), QuestionType.Approval,
             composer.ComposeConfirmation(proposal).In(SpecDialogMarkup.For(state.Platform)),
-            Context: null, Choices: OutcomeShapes.For(proposal), DefaultAnswer: "",
+            Context: null, Choices: OutcomeShapes.For(proposal, bound: state.TicketKey is not null), DefaultAnswer: "",
             ConfirmationTimeout);
 
         // The thread's next text message is the answer (router pending branch);

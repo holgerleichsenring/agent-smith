@@ -68,6 +68,7 @@ export function DialogQuestionCard({
   proposal,
   onAnswer,
   ticketEffect,
+  inTicket,
 }: {
   question: SpecDialogQuestionPush;
   proposal: SpecDialogProposalPush | null;
@@ -75,15 +76,20 @@ export function DialogQuestionCard({
   /** 2026-10-13-9a59r: on a TICKET-BOUND conversation "Approve & file … One ticket." is false — 9a59l
    *  continues the ticket or files a follow-up — so the card says what the preview says instead. */
   ticketEffect?: TicketApprovalEffect | null;
+  /** 2026-10-14-dbcek: the conversation belongs to a ticket, where a list of tickets is never filed. */
+  inTicket?: boolean;
 }) {
   const expired = hasExpired(question);
   const bound = question.kind === "approval" && ticketEffect ? ticketEffect : null;
   // 2026-10-13-8762i: a proposal with specs not reviewed yet cannot be approved — the server holds it anyway.
   const unreviewed = (proposal?.notReviewed?.length ?? 0) > 0;
-  const controls = expired ? [] : controlsFor(question, bound, unreviewed);
+  // 2026-10-14-dbcek: the preview there answers a list with a plain refusal and no start arm, which would read as
+  // approvable — so the card hides Approve itself and says where a list is filed.
+  const boundList = question.kind === "approval" && proposal?.kind === "tickets" && (inTicket === true || bound !== null);
+  const controls = expired ? [] : controlsFor(question, bound, unreviewed || boundList);
   const decision = question.kind === "approval" && !expired;
   const shapes = decision && question.choices.length > 0;
-  const summary = decision ? (bound ? bound.summary : proposal ? summaryOf(proposal) : null) : null;
+  const summary = decision ? (boundList ? BOUND_LIST : bound ? bound.summary : proposal ? summaryOf(proposal) : null) : null;
   // Only where the server said nothing AND the card has nothing of its own: a chat-shaped
   // confirmation that still carries its text keeps that text, and shows no second line.
   const unsummarised = decision && !summary && question.text.trim().length === 0;
@@ -148,9 +154,11 @@ export function DialogQuestionCard({
   );
 }
 
-function controlsFor(question: SpecDialogQuestionPush, bound: TicketApprovalEffect | null, unreviewed: boolean): Control[] {
+const BOUND_LIST = "A list of tickets is filed from Work it out without a ticket; this conversation continues its own ticket.";
+
+function controlsFor(question: SpecDialogQuestionPush, bound: TicketApprovalEffect | null, withoutApprove: boolean): Control[] {
   if (question.kind === "approval") {
-    const approve: Control[] = unreviewed || (bound && !bound.approvable) ? []
+    const approve: Control[] = withoutApprove || (bound && !bound.approvable) ? []
       : [{ label: bound ? "Approve" : "Approve & file", answer: "approve", primary: true, decision: "approved" }];
     return [
       ...approve,
@@ -181,6 +189,11 @@ function asShape(choice: SpecDialogChoice): Control {
 /** What the proposal says would be filed, and nothing it does not say. */
 function summaryOf(proposal: SpecDialogProposalPush): string | null {
   if (proposal.bug) return "File this bug? One bug ticket.";
+  if (proposal.kind === "tickets") {
+    // Not "starts when filed": that depends on the landing of what it requires, read at filing.
+    const [count, roots] = [proposal.tickets?.length ?? 0, (proposal.tickets ?? []).filter((t) => t.requires.length === 0).length];
+    return `File these ${count} tickets? ${roots} ${roots === 1 ? "has" : "have"} nothing to wait for; the rest wait until what they require is merged.`;
+  }
   if (proposal.parent) {
     const slices = proposal.children.length;
     // 2026-09-22-b3d7: the button files ONE ticket, whatever the slice count. The slices are

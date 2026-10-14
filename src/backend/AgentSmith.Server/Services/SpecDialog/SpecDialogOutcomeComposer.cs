@@ -85,23 +85,11 @@ public sealed class SpecDialogOutcomeComposer
             $"Proposed outcome: {m.Bold("bug ticket")} — {bug.Ticket.Title}\n{bug.Ticket.Description}",
         SpecOutcome spec =>
             $"Proposed outcome: {m.Bold("one spec")} — `{spec.Draft.SpecId}` {spec.Draft.Goal}",
-        EpicOutcome epic => DescribeEpic(epic, m),
+        EpicOutcome epic => EpicProposalText.Describe(epic, m),
+        TicketGraphOutcome graph => TicketGraphProposalText.Describe(graph, m),
         _ => throw new InvalidOperationException(
             $"Outcome kind '{proposal.GetType().Name}' has no confirmation shape."),
     };
-
-    private static string DescribeEpic(EpicOutcome epic, SpecDialogMarkup m)
-    {
-        var sb = new StringBuilder();
-        sb.AppendLine($"Proposed outcome: {m.Bold("epic")} `{epic.Parent.SpecId}` — {epic.Parent.Goal}");
-        sb.AppendLine("Slices, in order:");
-        foreach (var child in epic.Children)
-            sb.AppendLine($"- `{child.SpecId}` {child.Goal}{FormatRequires(child)}");
-        return sb.ToString().TrimEnd();
-    }
-
-    private static string FormatRequires(SpecDraft draft) =>
-        draft.Requires.Count == 0 ? string.Empty : $" (requires: {string.Join(", ", draft.Requires)})";
 
     private static string Summarize(OutcomeProposal proposal) => proposal switch
     {

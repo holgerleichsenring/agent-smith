@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-14-dbcek
+
+decisions:
+  - category: Architecture
+    chose: "A list of tickets is reviewed as ONE plan: one review, one re-prompt for quoted cuts, the revised list reviewed once more (D1, pending operator ratification)"
+    over: "The 8762i per-spec rounds, or admitting drafts ticket by ticket"
+    reason: |
+      A list carries ticket texts and no spec, so a per-spec attack has nothing to read. TicketPlanReview asks the
+      four plan questions once and applies quoted cuts by one ProposalCutsReprompt; the second review's findings
+      stand without a further re-prompt. At most two reviewer calls and one re-prompt per turn.
+  - category: Implementation
+    chose: "TicketPlanReviewer is a concrete class with the SpecCutReviewer call shape; tests drive it through a scripted chat client"
+    over: "An ITicketPlanReviewer interface for mocking"
+    reason: |
+      The spec names the class and nothing needs a second implementation; driving the real reviewer over a scripted
+      IChatClientFactory also proves the admission and the JSON reading in every TicketPlanReview test.
+  - category: Implementation
+    chose: "Cut admission: a cut needs a non-null replacement and an ordinal substring match of the quote in the ticket's title, requirement or a done item"
+    over: "SpecQuotableText's fuzzy word-run match"
+    reason: |
+      The design partner is told to apply the cut EXACTLY; a fuzzy match would admit a quote it cannot find. A
+      finding whose quote is not verbatim is kept without a cut, as the spec says. A size cut is limited to removing
+      scope by the prompt; the code does not judge what a replacement means.
+  - category: Implementation
+    chose: "The reviewer's look covers every turn sandbox except template keys: the repositories plus the reference: uploads, through DerivationLookFactory.ForReview"
+    over: "Widening ProposalRepositories or touching DerivationLookFactory (119 lines)"
+    reason: "The operator's requirements live in uploads too; the factory stays untouched and the per-spec reviews keep their repository-only look."
+  - category: Implementation
+    chose: "The bound-conversation finding carries key 'the list', problem 'bound conversation', and the spec's sentence as why; the existence findings use problems 'required ticket not found' and 'required ticket not read'"
+    over: "Free-form problem words"
+    reason: "The card lists findings as '<key> — <problem>: <why>'; fixed words keep the chat text, the pane and the mock in step."
+  - category: Implementation
+    chose: "ITicketExistence is registered scoped by TicketGraphExtensions.AddTicketGraph and taken by TicketPlanReview as an optional constructor parameter (default null)"
+    over: "A required dependency"
+    reason: "The TicketLifecycle precedent: a host that registers none (the CLI) checks nothing. The composition test resolves both from the server composition."
+  - category: Implementation
+    chose: "The Slack clip lives in SlackTypedQuestionBlockBuilder.Section and applies to every question's section, cutting at the last line end that fits and closing with '… the rest is on the dashboard'"
+    over: "Clipping only approvals"
+    reason: "Every question section shares Slack's 3,000-character limit and one over it never posts. Fitting 114 lines took compressing two comments and the confirmation block's button array onto one line."
+  - category: Implementation
+    chose: "The card hides Approve for kind tickets when the conversation is bound — told by a new inTicket prop from SpecDialogSurface, or by a ticket preview being present"
+    over: "Reading only ticketEffect"
+    reason: "ticketEffect is null until the preview loads; the bound flag the surface already holds makes the card right from the first render. TicketContinuation is untouched."
+  - category: Scope
+    chose: "DEVIATION: Confirmation_AMultiSpecProposal_OffersCuttingItIntoOne (OutcomeShapeOfferTests) also pinned the unbound epic to 'Make it one spec' alone and now expects 'Cut into several tickets' beside it"
+    over: "Leaving a test that contradicts the spec's epic ladder"
+    reason: "The spec names only the size-ladder test (renamed); this second pin of the same expectation had to change with it (tests/AgentSmith.Tests/SpecDialog/OutcomeShapeOfferTests.cs:63-69)."
+  - category: Scope
+    chose: "DEVIATION: the shipped mock drops the draft's 'as it will be filed' raw block, the per-ticket 'reviewed' pills and the 'Revised after review' banner"
+    over: "Shipping mock elements the pane does not render"
+    reason: |
+      The push carries ticket texts and findings, no raw YAML and no review rounds for a list (the second review's
+      findings replace the first). The mock shows the pane as built, which is what the operator iterates on.
+  - category: Implementation
+    chose: "MasterHandlerFixture gains OutcomeGate(loop), extracted from TurnFlow, so the steward-flow test builds a SpecDialogTurnFlow over a recording plan review"
+    over: "Reflection into the turn flow's primary-constructor field"
+    reason: "One construction of the gate for both callers."
+  - category: Implementation
+    chose: "The dbcel planned fact citing SpecDialogOutcomeComposer.cs:106-118 is re-grounded to :94-106"
+    over: "Leaving SpecEvidence_EveryPlannedFact_Resolves red"
+    reason: "Extracting EpicProposalText moved Summarize up twelve lines; the claim is unchanged."
+  - category: TradeOff
+    chose: "Defaults pending operator ratification, built as written: the four plan questions, one re-prompt, at most two calls, the 40,000-character requirement window (first turn + newest that fit), the bound-conversation finding, the approval copy and the mock"
+    over: "Waiting for ratification"
+    reason: "The operator said build; each stays a code constant or a single sentence to change."

@@ -408,6 +408,7 @@ export function SpecDialogSurface() {
                         question={dialog.question}
                         proposal={dialog.proposal}
                         ticketEffect={ticketEffect}
+                        inTicket={bound !== null}
                         onAnswer={(answer, decision) => void dialog.send(answer, project, decision)}
                       />
                     )}

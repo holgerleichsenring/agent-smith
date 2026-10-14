@@ -65,7 +65,7 @@ public sealed class OutcomeShapeOfferTests : IDisposable
         var asked = await AskedAsync(new EpicOutcome(Draft("p9000"), [Draft("p9000a")]));
 
         asked.Type.Should().Be(QuestionType.Approval);
-        asked.Choices!.Select(choice => choice.Label).Should().Equal("Make it one spec");
+        asked.Choices!.Select(choice => choice.Label).Should().Equal("Make it one spec", "Cut into several tickets");
     }
 
     [Fact]
@@ -189,15 +189,16 @@ public sealed class OutcomeShapeOfferTests : IDisposable
     /// <summary>
     /// 2026-09-25-8e51e: the amendment rides beside the ladder, and the ladder is untouched. A
     /// picked SHAPE is fed into the edit door — the master re-proposes in that shape — and an
-    /// amendment is not a re-proposal, so it must not change what a size means.
+    /// amendment is not a re-proposal, so it must not change what a size means. 2026-10-14-dbcek: an unbound epic
+    /// may also be cut into several tickets.
     /// </summary>
     [Fact]
-    public void OutcomeShapes_TheSizeLadder_IsUnchangedForEveryExistingKind()
+    public void OutcomeShapes_TheSizeLadder_SpecAndBugUnchangedEpicGainsSeveralTickets()
     {
         OutcomeShapes.For(new SpecOutcome(Draft("p9001"))).Select(s => s.Label)
             .Should().Equal("Cut into several specs", "Make it a bug ticket");
         OutcomeShapes.For(new EpicOutcome(Draft("p9000"), [Draft("p9000a")])).Select(s => s.Label)
-            .Should().Equal("Make it one spec");
+            .Should().Equal("Make it one spec", "Cut into several tickets");
         OutcomeShapes.For(new BugOutcome(new BugTicketDraft("t", "d", null))).Select(s => s.Label)
             .Should().Equal("Make it a spec");
     }
@@ -216,6 +217,32 @@ public sealed class OutcomeShapeOfferTests : IDisposable
         epic.Choices!.Select(c => c.Label).Should().Equal("Make it one spec");
         OutcomeShapes.All.Should().NotContain(c => c.Label == "Amend this ticket");
     }
+
+    [Fact]
+    public void OutcomeShapes_TicketGraph_OffersOneTicketsSeries() =>
+        OutcomeShapes.For(new TicketGraphOutcome([Ticket("order-api"), Ticket("order-ui")])).Select(s => s.Label)
+            .Should().Equal("Make it one ticket's series");
+
+    [Fact]
+    public void OutcomeShapes_Epic_OffersOneSpecAndSeveralTickets() =>
+        OutcomeShapes.For(new EpicOutcome(Draft("p9000"), [Draft("p9000a")])).Select(s => s.Label)
+            .Should().Equal("Make it one spec", "Cut into several tickets");
+
+    [Fact]
+    public void OutcomeShapes_EpicInBoundConversation_DoesNotOfferSeveralTickets() =>
+        OutcomeShapes.For(new EpicOutcome(Draft("p9000"), [Draft("p9000a")]), bound: true).Select(s => s.Label)
+            .Should().Equal("Make it one spec");
+
+    [Fact]
+    public async Task SpecDialogOutcomeConfirmer_BoundConversation_PassesTheBoundFlag()
+    {
+        var epic = new EpicOutcome(Draft("p9000"), [Draft("p9000a")]);
+
+        (await AskedAsync(epic, bound: true)).Choices!.Select(c => c.Label).Should().NotContain("Cut into several tickets");
+        (await AskedAsync(epic)).Choices!.Select(c => c.Label).Should().Contain("Cut into several tickets");
+    }
+
+    private static GraphTicket Ticket(string key) => new(key, $"Title of {key}", "scope", ["done"], [], []);
 
     /// <summary>2026-10-13-9a59l: the retired label typed in a bound thread is an ordinary edit note —
     /// it sends the master round again, it never writes the ticket.</summary>
@@ -236,6 +263,7 @@ public sealed class OutcomeShapeOfferTests : IDisposable
         new BugOutcome(new BugTicketDraft("t", "d", null)),
         new SpecOutcome(Draft("p9001")),
         new EpicOutcome(Draft("p9000"), [Draft("p9000a")]),
+        new TicketGraphOutcome([Ticket("order-api"), Ticket("order-ui")]),
     ];
 
     /// <summary>The question the confirmer actually asked, captured while the wait is open.</summary>
