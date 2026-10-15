@@ -16,6 +16,7 @@ public sealed class RawTrackerEntry
     public List<string> OpenStates { get; set; } = [];
     public string? DoneStatus { get; set; }
     public string? CloseTransitionName { get; set; }
+    public string? ClosedStatus { get; set; }
     public List<string> ExtraFields { get; set; } = [];
 
     /// <summary>

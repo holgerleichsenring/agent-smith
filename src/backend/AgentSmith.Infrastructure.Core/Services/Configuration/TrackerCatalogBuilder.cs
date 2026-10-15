@@ -37,6 +37,7 @@ public sealed class TrackerCatalogBuilder
                 OpenStates = entry.OpenStates,
                 DoneStatus = entry.DoneStatus,
                 CloseTransitionName = entry.CloseTransitionName,
+                ClosedStatus = entry.ClosedStatus,
                 ExtraFields = entry.ExtraFields,
                 TriggerStatuses = entry.TriggerStatuses,
                 FailedStatus = entry.FailedStatus,

@@ -41,7 +41,9 @@ public sealed record TrackerEntity(
     // Jira only: the REST paths that differ from the Jira Cloud v3 defaults. APPENDED.
     IReadOnlyDictionary<string, string>? Endpoints = null,
     // 2026-10-02-5f89a, Jira only: the account the API token belongs to. APPENDED.
-    string? Email = null)
+    string? Email = null,
+    // Jira and Azure DevOps: the status a close from agent-smith moves a ticket into. APPENDED.
+    string? ClosedStatus = null)
 {
     public TrackerEntity() : this(string.Empty, string.Empty, null) { }
 }

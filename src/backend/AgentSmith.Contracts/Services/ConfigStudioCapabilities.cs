@@ -158,6 +158,7 @@ public static class ConfigStudioCapabilities
         "needsClarificationStatus" => tracker.NeedsClarificationStatus,
         "notImplementableStatus" => tracker.NotImplementableStatus,
         "closeTransitionName" => tracker.CloseTransitionName,
+        "closedStatus" => tracker.ClosedStatus,
         "defaultPipeline" => tracker.DefaultPipeline,
         _ => null,
     };

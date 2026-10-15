@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-15-114fe
+
+decisions:
+  - category: Architecture
+    chose: "An optional per-tracker closed_status; 'also close on the tracker' posts the marked resolution through UpdateStatusAsync, then TransitionToAsync(closed_status); unset or blank keeps CloseTicketAsync (the done status)"
+    over: "Always closing into the done status, or a trigger-level closed status"
+    reason: |
+      Contract Q1, default pending operator ratification. 'I won't continue' is not a delivery, so a board that can
+      tell them apart should; the close act is per tracker connection, as the providers' done status is. The two
+      calls are the ones CloseTicketAsync makes on Jira, so the done-status close is untouched for every other caller.
+      A transition answering false is 'refused', a throw its class — the same outcomes 114fa's close answers.
+  - category: Architecture
+    chose: "TicketParkStatuses gains Closed (from the tracker's closed_status, blank is none), held by Own but not by IsRunEnd or IsHandbackPark"
+    over: "Adding it to the run-end statuses"
+    reason: |
+      Contract default 23, pending operator ratification. TicketClosure never reads an Own status as a person's
+      close, so a ticket agent-smith closed into it never lists as closed on the tracker or files a follow-up. Not
+      a run end: the rework park check then answers not-a-rework for a keyword comment on it instead of moving it
+      back to a trigger status. A person moving a ticket into that status by hand reads the same way.
+  - category: Architecture
+    chose: "Declared on the Jira and Azure DevOps arms only, Group Transition, optional; the close also ignores it on GitHub and GitLab"
+    over: "Declaring it in the shared workflow fields"
+    reason: |
+      GitHub and GitLab close to one state and GitHub would apply another word as a label; the field is declared
+      as workItemKinds is, and the coverage test unions keys across types. The transition group renders on the
+      outcomes tab, so the form needs no code.
