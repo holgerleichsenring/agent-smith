@@ -14,8 +14,8 @@ internal static class TicketCloseEndpoints
 {
     internal static WebApplication MapTicketCloseEndpoints(this WebApplication app)
     {
-        app.MapPost("/api/tickets/{project}/{ticketId}/close", CloseAsync).Needs(Permissions.RunsControl);
-        app.MapPost("/api/tickets/{project}/{ticketId}/reopen", ReopenAsync).Needs(Permissions.RunsControl);
+        app.MapPost("/api/tickets/{project}/{ticketId}/close", CloseAsync).Needs(Permissions.RunsControl).InProject(ProjectFrom.Route("project"));
+        app.MapPost("/api/tickets/{project}/{ticketId}/reopen", ReopenAsync).Needs(Permissions.RunsControl).InProject(ProjectFrom.Route("project"));
         return app;
     }
 

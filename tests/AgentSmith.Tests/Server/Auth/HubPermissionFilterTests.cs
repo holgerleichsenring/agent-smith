@@ -46,7 +46,7 @@ public sealed class HubPermissionFilterTests
     private static HubPermissionFilter Filter(bool enforce)
     {
         var auth = new TokenAuthorityConfig { Authority = "https://an-authority", Enforce = enforce };
-        return new HubPermissionFilter(auth, ResolverUnderTest.With(auth));
+        return new HubPermissionFilter(auth, ResolverUnderTest.With(auth), HubScopeUnderTest.Scope(auth));
     }
 
     // A hub whose one method no table entry names. Its own type is irrelevant: the filter

@@ -47,6 +47,6 @@ internal static class CallerIdentityExtensions
         // route reads it and that route is mapped unconditionally.
         services.AddSingleton<RefusedToken>();
         services.AddSingleton<RoleMappingMigration>();
-        return services;
+        return services.AddProjectScope(); // 2026-10-15-4a4db
     }
 }

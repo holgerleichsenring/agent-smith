@@ -148,6 +148,18 @@ public sealed class FiledWorkReadTests : IDisposable
     }
 
     [Fact]
+    public async Task FiledWork_ReachSpansAnUnreadableProject_ShowsNoRunsFromIt()
+    {
+        await FilingAsync(Filed(Work, "alpha"));
+        await RunsAsync(Run("r-alpha", "alpha", Work, T), Run("r-beta", "beta", Work, T));
+
+        var ticket = (await ReadAsync(AgentSmith.Infrastructure.Persistence.Contracts.ProjectScope.Of(["alpha"]))).Tickets.Single();
+
+        ticket.Runs.Select(r => r.Project).Should().Equal("alpha");
+        ticket.Project.Should().Be("alpha", "the conversation's own filing stays");
+    }
+
+    [Fact]
     public async Task FiledWork_RunInAProjectOnAnotherTracker_IsNotShown()
     {
         await FilingAsync(Filed(Work, "alpha"));
@@ -675,7 +687,8 @@ public sealed class FiledWorkReadTests : IDisposable
         await ctx.SaveChangesAsync();
     }
 
-    private Task<FiledWorkView> ReadAsync() => Reader().ReadAsync(Dialog, CancellationToken.None);
+    private Task<FiledWorkView> ReadAsync(AgentSmith.Infrastructure.Persistence.Contracts.ProjectScope? scope = null) =>
+        Reader().ReadAsync(Dialog, scope ?? AgentSmith.Infrastructure.Persistence.Contracts.ProjectScope.Everything, CancellationToken.None);
 
     private FiledWorkReader Reader()
     {

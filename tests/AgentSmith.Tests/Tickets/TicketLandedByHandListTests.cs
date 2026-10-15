@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Reviews;
 using AgentSmith.Contracts.Services;
@@ -116,5 +117,5 @@ public sealed class TicketLandedByHandListTests : IDisposable
     };
 
     private async Task<TicketSummaryView> RowAsync() =>
-        (await _h.List.ReadAsync(new TicketListRequest("alpha", null, null, null), default)).Tickets.Single();
+        (await _h.List.ReadAsync(new TicketListRequest(ProjectScope.Single("alpha"), null, null, null), default)).Tickets.Single();
 }

@@ -217,7 +217,7 @@ public sealed class TicketContinuationActTests : IDisposable
         _h.Tracker.ReadFails = new HttpRequestException("the tracker is down");
 
         var result = await _h.InScopeAsync(sp => TicketApprovalPreviewEndpoints.PreviewAsync(
-            "alpha", "42", ContinuationHarness.Http(sp), sp.GetRequiredService<TicketApprovalPreview>(), default));
+            "alpha", "42", ContinuationHarness.Http(sp), sp.GetRequiredService<TicketApprovalPreview>(), Scope(), default));
 
         var json = result.Should().BeAssignableTo<IStatusCodeHttpResult>().Subject;
         json.StatusCode.Should().Be(StatusCodes.Status502BadGateway);
@@ -246,10 +246,10 @@ public sealed class TicketContinuationActTests : IDisposable
     public async Task ApprovalPreview_NoConversationOrNoOpenProposal_404()
     {
         var none = await _h.InScopeAsync(sp => TicketApprovalPreviewEndpoints.PreviewAsync(
-            "alpha", "42", ContinuationHarness.Http(sp), sp.GetRequiredService<TicketApprovalPreview>(), default));
+            "alpha", "42", ContinuationHarness.Http(sp), sp.GetRequiredService<TicketApprovalPreview>(), Scope(), default));
         await _h.BindAsync(null);
         var noProposal = await _h.InScopeAsync(sp => TicketApprovalPreviewEndpoints.PreviewAsync(
-            "alpha", "42", ContinuationHarness.Http(sp), sp.GetRequiredService<TicketApprovalPreview>(), default));
+            "alpha", "42", ContinuationHarness.Http(sp), sp.GetRequiredService<TicketApprovalPreview>(), Scope(), default));
 
         none.Should().BeOfType<NotFound>();
         noProposal.Should().BeOfType<NotFound>();
@@ -263,4 +263,9 @@ public sealed class TicketContinuationActTests : IDisposable
 
     private static SpecDraft Draft(string id, string goal) =>
         new(id, goal, $"spec: {id}\ngoal: \"{goal}\"\ndone:\n  - \"{goal} works.\"\n", []) { Repos = ["api"], Done = [$"{goal} works."] };
+
+    // 2026-10-15-4a4db: whether the approval may start runs is the project scope's answer; this harness does not enforce.
+    private static AgentSmith.Server.Security.DialogMessageScope Scope() =>
+        AgentSmith.Tests.Server.Auth.ProjectScopeUnderTest.Scope(
+            AgentSmith.Tests.Server.Auth.ProjectScopeUnderTest.Access(new TokenAuthorityConfig()));
 }

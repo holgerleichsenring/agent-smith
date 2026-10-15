@@ -53,5 +53,6 @@ internal static class ServerRouteTable
             ",", endpoint.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods ?? ["*"]),
         endpoint.RoutePattern.RawText ?? string.Empty,
         endpoint.Metadata.GetMetadata<RequiresPermission>()?.Names ?? [],
-        endpoint.Metadata.GetMetadata<AnonymousRoute>()?.Reason);
+        endpoint.Metadata.GetMetadata<AnonymousRoute>()?.Reason,
+        endpoint.Metadata.GetMetadata<ProjectFrom>());
 }

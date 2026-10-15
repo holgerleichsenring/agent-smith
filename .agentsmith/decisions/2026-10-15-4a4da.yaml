@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-15-4a4da
+
+decisions:
+  - category: Architecture
+    chose: "ProjectBindings beside GroupRoles, PersonGrants and the role claim, which keep their exact meaning"
+    over: "An optional projects list on each existing grant"
+    reason: |
+      Every stored mapping keeps its meaning and no content migration exists; a projects list on a grant would
+      change what an existing grant means the day it is added.
+  - category: Architecture
+    chose: "ProjectBindingReader built once per saved mapping inside ResolvedRoleMapping, from the mapping, the name claim and the RoleCatalog"
+    over: "Resolving bindings in CallerIdentityResolver per request"
+    reason: |
+      The resolver sits at 111 of 120 lines and the resolved mapping is rebuilt once per save, so each binding's
+      bundle is cut to project-scopable permissions once; mirrors PersonGrantReader's shape.
+  - category: Architecture
+    chose: "Global-only permissions in a binding's roles are dropped silently; the reader reports no finding at all"
+    over: "A finding per dropped permission, or binding findings on /api/identity"
+    reason: |
+      Every built-in bundle carries catalog.read, diagnostics.read or identity.read, so a finding per drop would
+      flag every binding naming reader or operator; a binding finding names a project and /api/identity reaches
+      every caller. Every binding finding is composed on the access view by 2026-10-15-4a4df.
+  - category: Architecture
+    chose: "ProjectPermissions keyed under ConfigNames.Comparer; group and person values stay ordinal"
+    over: "Ordinal project keys"
+    reason: |
+      Configured project names fold case, so a binding for 'Billing' governs 'billing'; two bindings of one
+      project differing in case are unioned.
+  - category: Architecture
+    chose: "CallerIdentity.PermissionsIn(project) as a method: global unioned with that project's, global alone otherwise"
+    over: "Each later enforcement site deriving the union itself"
+    reason: |
+      The route handler, hub and list filters of 4a4db..d ask one method; as a method it adds nothing to the wire
+      answer beyond projectPermissions.
+  - category: Architecture
+    chose: "PersonRemover's field-by-field copy carries ProjectBindings deep-copied"
+    over: "Leaving the copy to 4a4df with the ref withdrawal"
+    reason: |
+      The copy would erase every binding on the first removal after this slice lands; withdrawing a removed
+      person's refs from bindings stays 4a4df's.
+  - category: Testing
+    chose: "RoleMappingAuthorityFixture substitutes IStoredRoleMapping with a StoredMappingStub (null until a case stores one) through a new AuthorityFixture.Services hook"
+    over: "Saving through AccessGrantWriter in the booted server"
+    reason: |
+      The booted test server migrates no database, so a config-store write fails with no ConfigEntities table and
+      the migration never adopts the store. A null stub keeps the file seed governing every other case; the
+      binding case stores the seed plus one binding and adopts the store, as the migration would.

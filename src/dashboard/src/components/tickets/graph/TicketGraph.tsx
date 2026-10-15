@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { NoProjectReach } from "@/components/shell/NoProjectReach";
 import { RefusalSurface } from "@/components/shell/RefusalSurface";
 import { refusalIn, type ApiRefusal } from "@/lib/apiResponse";
 import { fetchTicketGraph } from "@/lib/ticketGraphApi";
@@ -42,7 +43,7 @@ export function TicketGraph({ project }: { project?: string | null }) {
   if (load.kind === "failed") return <div className="msub" data-testid="ticket-graph-failed">The ticket graph could not be read.</div>;
   if (!graph || !layout) return <div className="msub" data-testid="ticket-graph-loading">Reading the ticket graph…</div>;
   if (graph.nodes.length === 0) {
-    return <div className="msub" data-testid="ticket-graph-empty">No ticket requires another yet. Requires are filed with a list of tickets.</div>;
+    return <NoProjectReach><div className="msub" data-testid="ticket-graph-empty">No ticket requires another yet. Requires are filed with a list of tickets.</div></NoProjectReach>;
   }
   const open = (node: TicketGraphNode) => (node.hasPage ? router.push(ticketPath(node.project, node.ticketId)) : setChosen(node.id));
   const panel = graph.nodes.find((n) => n.id === chosen && !n.hasPage) ?? null;

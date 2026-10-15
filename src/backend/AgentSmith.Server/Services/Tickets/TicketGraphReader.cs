@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Tickets;
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.SpecDialog;
 
@@ -17,10 +18,10 @@ public sealed class TicketGraphReader(
 {
     private sealed record End(string Tracker, string Key, string TicketId, string Project);
 
-    public async Task<TicketGraphView> ReadAsync(string? project, CancellationToken ct)
+    public async Task<TicketGraphView> ReadAsync(ProjectScope project, CancellationToken ct)
     {
         var configured = projects.All();
-        var names = string.IsNullOrEmpty(project) ? configured.Keys.ToList() : [project];
+        var names = project.Only ?? [.. configured.Keys];
         var edges = new List<TicketRequirementEdge>();
         foreach (var name in names) edges.AddRange(await requirements.ByProjectAsync(name, ct));
         if (edges.Count == 0) return new TicketGraphView([], []);

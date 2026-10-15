@@ -1,6 +1,7 @@
 using System.Globalization;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Models;
@@ -35,10 +36,10 @@ internal static class RunListComposer
     // page is finished runs), but the capacity footprint is joined so the detail panel
     // stays complete when opened from a paged row.
     internal static async Task<RunSnapshot[]> BuildPageBeforeAsync(
-        RunRepository runs, ICapacityBudget? capacityBudget, DateTimeOffset before, int limit,
+        RunRepository runs, ProjectScope scope, ICapacityBudget? capacityBudget, DateTimeOffset before, int limit,
         CancellationToken ct)
     {
-        var page = await runs.GetRunsBeforeAsync(before, limit, ct);
+        var page = await runs.GetRunsBeforeAsync(scope, before, limit, ct);
         var footprints = capacityBudget is null
             ? new Dictionary<string, RunCapacitySnapshot>()
             : await capacityBudget.GetManyAsync(page.Select(r => r.Id).ToList(), ct);
@@ -47,13 +48,13 @@ internal static class RunListComposer
     }
 
     internal static async Task<(RunSnapshot[] Active, RunSnapshot[] Recent)> BuildOverviewAsync(
-        RunRepository runs, ICapacityQueue capacityQueue, CancellationToken cancellationToken,
+        RunRepository runs, ProjectScope scope, ICapacityQueue capacityQueue, CancellationToken cancellationToken,
         IRunCheckpointStore? checkpoints = null,
         ICapacityBudget? capacityBudget = null, IActiveRunLease? activeRunLease = null,
         TimeProvider? clock = null)
     {
-        var active = await runs.GetActiveRunsAsync(cancellationToken);
-        var recent = await runs.GetRecentRunsAsync(RecentLimit, cancellationToken);
+        var active = await runs.GetActiveRunsAsync(scope, cancellationToken);
+        var recent = await runs.GetRecentRunsAsync(scope, RecentLimit, cancellationToken);
         var positions = await capacityQueue.GetPositionsByRunIdAsync(cancellationToken);
         // 2026-09-22-7c41c: the second carrier of "this parked run's relaunch is under way",
         // for the span between the queue entry's removal and the run starting. Only the

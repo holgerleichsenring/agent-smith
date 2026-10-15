@@ -108,7 +108,7 @@ public sealed record RunSnapshot(
     // p0413: the SHAPE the classifier stated (with the line saying why). Null when none.
     string? WorkShape = null,
     string? WorkShapeReason = null,
-    // 2026-10-13-9a59a: the run row's project and platform (REST only, not the live fold).
+    // 2026-10-13-9a59a: the run row's project and platform; 2026-10-15-4a4dc: the live fold carries Project.
     string? Project = null,
     string? Platform = null)
 {

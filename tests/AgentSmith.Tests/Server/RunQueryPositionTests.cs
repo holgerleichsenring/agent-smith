@@ -43,7 +43,7 @@ public sealed class RunQueryPositionTests : IDisposable
         var third = await EnqueueAsync("3", "2026-07-10T12-00-02-0003");
 
         var (active, _) = await RunListComposer.BuildOverviewAsync(
-            NewRepository(), _queue, CancellationToken.None);
+            NewRepository(), ProjectScope.Everything, _queue, CancellationToken.None);
 
         active.Should().HaveCount(3, "queued rows wait in the active set");
         active.Single(s => s.RunId == first).QueuePosition.Should().Be(1);
@@ -60,7 +60,7 @@ public sealed class RunQueryPositionTests : IDisposable
         await _queue.RemoveAsync("p1", "1", CancellationToken.None);
 
         var (active, _) = await RunListComposer.BuildOverviewAsync(
-            NewRepository(), _queue, CancellationToken.None);
+            NewRepository(), ProjectScope.Everything, _queue, CancellationToken.None);
 
         active.Single(s => s.RunId == second).QueuePosition
             .Should().Be(1, "positions are computed live from the drained queue");
@@ -80,7 +80,7 @@ public sealed class RunQueryPositionTests : IDisposable
         }
 
         var (active, _) = await RunListComposer.BuildOverviewAsync(
-            NewRepository(), _queue, CancellationToken.None);
+            NewRepository(), ProjectScope.Everything, _queue, CancellationToken.None);
 
         active.Single().QueuePosition.Should().BeNull();
     }

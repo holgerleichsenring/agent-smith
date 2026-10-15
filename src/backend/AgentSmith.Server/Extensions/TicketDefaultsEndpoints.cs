@@ -14,8 +14,8 @@ internal static class TicketDefaultsEndpoints
 {
     internal static WebApplication MapTicketDefaultsEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/tickets/{project}/{ticketId}/defaults", DefaultsAsync).Needs(Permissions.RunsRead);
-        app.MapPost("/api/tickets/{project}/{ticketId}/defaults/verdicts", VerdictsAsync).Needs(Permissions.RunsControl);
+        app.MapGet("/api/tickets/{project}/{ticketId}/defaults", DefaultsAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.Route("project"));
+        app.MapPost("/api/tickets/{project}/{ticketId}/defaults/verdicts", VerdictsAsync).Needs(Permissions.RunsControl).InProject(ProjectFrom.Route("project"));
         return app.MapTicketLandedByHandEndpoints();
     }
 

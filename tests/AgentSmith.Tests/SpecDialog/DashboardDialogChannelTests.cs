@@ -615,6 +615,7 @@ new DashboardOutcomeChannel(
         // dispatches. A non-enforcing authority answers without touching the identity resolver,
         // which is the installation these routing tests are about.
         services.AddSingleton(new TokenAuthorityConfig());
+        services.AddSingleton(NonEnforcingScope()); // 2026-10-15-4a4db: admits every message, as before
         services.AddSingleton<ISystemEventPublisher>(_events);
         // 2026-09-28-1da5b: the route dispatches through Task.Run and drops the handle. Nothing
         // is registered for this in production; here it is what makes the class deterministic.
@@ -662,7 +663,7 @@ new DashboardOutcomeChannel(
         SpecDialogResumeEndpoints.ResumeAsync(
             sessionId,
             new SpecDialogResumeEndpoints.SpecDialogResumeRequest(dialogId),
-            Principal(caller), _ownership, _resumer, CancellationToken.None);
+            Principal(caller), _ownership, _resumer, NonEnforcingScope(), CancellationToken.None);
 
     /// <summary>
     /// What "/spec new" used to do for these tests — a thread whose conversation has been
@@ -760,4 +761,7 @@ new DashboardOutcomeChannel(
         public override CancellationToken ConnectionAborted => CancellationToken.None;
         public override void Abort() { }
     }
+
+    private static AgentSmith.Server.Security.DialogMessageScope NonEnforcingScope() =>
+        Server.Auth.ProjectScopeUnderTest.Scope(Server.Auth.ProjectScopeUnderTest.Access(new TokenAuthorityConfig()));
 }

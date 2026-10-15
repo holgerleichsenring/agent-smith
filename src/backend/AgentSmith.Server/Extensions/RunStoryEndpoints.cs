@@ -16,10 +16,10 @@ internal static class RunStoryEndpoints
 {
     internal static WebApplication MapRunStoryEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/runs/{runId}/statistics", GetStatisticsAsync).Needs(Permissions.RunsRead);
-        app.MapGet("/api/runs/{runId}/trace", GetTraceAsync).Needs(Permissions.RunsRead);
+        app.MapGet("/api/runs/{runId}/statistics", GetStatisticsAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.Run);
+        app.MapGet("/api/runs/{runId}/trace", GetTraceAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.Run);
         app.MapGet("/api/runs/{runId}/trace/{sequence:int}/{label}", GetTraceEntryAsync)
-           .Needs(Permissions.RunsRead);
+           .Needs(Permissions.RunsRead).InProject(ProjectFrom.Run);
         return app;
     }
 

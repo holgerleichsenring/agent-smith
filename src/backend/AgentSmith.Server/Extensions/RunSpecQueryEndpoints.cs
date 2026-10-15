@@ -16,8 +16,8 @@ internal static class RunSpecQueryEndpoints
 {
     internal static WebApplication MapRunSpecQueryEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/runs/{runId}/specs", GetRunSpecsAsync).Needs(Permissions.RunsRead);
-        app.MapGet("/api/runs/{runId}/specs/{specId}", GetRunSpecAsync).Needs(Permissions.RunsRead);
+        app.MapGet("/api/runs/{runId}/specs", GetRunSpecsAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.Run);
+        app.MapGet("/api/runs/{runId}/specs/{specId}", GetRunSpecAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.Run);
         return app.MapRunPassEndpoints(); // 2026-10-13-9a59f: the passes inside each spec
     }
 

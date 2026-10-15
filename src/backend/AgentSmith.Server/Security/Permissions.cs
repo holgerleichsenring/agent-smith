@@ -74,4 +74,10 @@ internal static class Permissions
         ConfigImport, SecretsRead, SecretsWrite, IdentityRead, AccessRead, AccessWrite,
         ArchiveExport, ArchiveImport, DialogWrite,
     ];
+
+    // 2026-10-15-4a4da: what a project binding may grant — the acts on a run, a project's
+    // init and a dialog. Everything else is global-only: config and secrets stay admin
+    // business, and a project's member must not read the installation through one project.
+    internal static IReadOnlySet<string> ProjectScopable { get; } = new HashSet<string>(
+        [RunsRead, RunsWatch, RunsControl, RunsDelete, ProjectsInit, DialogWrite], StringComparer.Ordinal);
 }

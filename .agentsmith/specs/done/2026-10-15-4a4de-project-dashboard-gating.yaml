@@ -1,0 +1,158 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-15-4a4de
+goal: "The dashboard offers a project act only to a caller holding its permission globally or in that project, lists per-project permissions on the identity page, and names a caller reaching no project."
+
+applies_to: "dashboard (useLacksPermission and a pure project-permission helper, the CallerIdentity mirror, every runs.control / runs.delete gate that exists today, the identity page, the five list empty states, a client for GET /api/projects)"
+
+requires: [2026-10-15-4a4da, 2026-10-15-4a4dd]
+
+facts:
+  - claim: "The dashboard's one permission gate answers 'known to lack' from the flat global list only: identity present and permissions not containing the name. It takes no project."
+    evidence: "src/dashboard/src/hooks/useLacksPermission.ts:9-13; observed: 2026-10-15, wc -l useLacksPermission.ts 13"
+  - claim: "The CallerIdentity mirror is hand-written and carries roles, permissions and findings; nothing generates or checks it, and its one optional field is nameIsReadable."
+    evidence: "src/dashboard/src/lib/identityApi.ts:12-30, src/dashboard/src/lib/identityApi.ts:32-34; observed: 2026-10-15, wc -l identityApi.ts 34"
+  - claim: "The server answers /api/identity with the CallerIdentity record itself, so its ProjectPermissions member (project -> permissions) reaches the wire as projectPermissions with no endpoint change; the server configures no DictionaryKeyPolicy, so dictionary keys (project names) are written verbatim, not camel-cased. Identity_CallerInAProjectBinding_SeesProjectPermissions proves the field on the wire."
+    evidence: "src/backend/AgentSmith.Server/Extensions/IdentityEndpoints.cs:27-29, src/backend/AgentSmith.Server/Models/CallerIdentity.cs:18-33, tests/AgentSmith.Tests/Server/Auth/IdentityEndpointTests.cs:86-102; observed: 2026-10-15, grep -rn 'DictionaryKeyPolicy\\|ConfigureHttpJsonOptions\\|AddJsonOptions' src/backend/AgentSmith.Server -> no hit"
+  - claim: "An anonymous caller resolves to empty roles and permissions; an authenticated one always holds identity.read. Project names compare case-insensitively: the resolved projects map is built under ConfigNames.Comparer (OrdinalIgnoreCase), and ProjectBindingReader keys the held permissions under the same comparer in the binding's spelling, so a key may differ in case from the configured name a ticket or run carries."
+    evidence: "src/backend/AgentSmith.Server/Security/CallerIdentityResolver.cs:34-51, src/backend/AgentSmith.Server/Security/CallerIdentityResolver.cs:94-108, src/backend/AgentSmith.Contracts/Models/Configuration/ConfigNames.cs:24, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ConfigCatalogResolver.cs:75, src/backend/AgentSmith.Server/Security/ProjectBindingReader.cs:41"
+  - claim: "Every useLacksPermission call site is a runs.control gate on a ticket act, and each already has the project the act's route names in reach: TicketCloseAct and TicketReopenAct from ticket.project, DoneByHandAct from its project prop (rendered by TicketHeader, TicketWaitsFor and TicketRequiresPanel), TicketDefaultsTab from useTicketDetail, the conversation's PendingQuestion from detail.project, and RetryUnchanged from nothing — its two callers (TicketConversationTab, TicketComposer) hold the project."
+    evidence: "src/dashboard/src/components/tickets/closing/TicketCloseAct.tsx:16-19, src/dashboard/src/components/tickets/closing/TicketReopenAct.tsx:13-17, src/dashboard/src/components/tickets/landing/DoneByHandAct.tsx:20-23, src/dashboard/src/components/tickets/detail/TicketHeader.tsx:63-66, src/dashboard/src/components/tickets/detail/TicketWaitsFor.tsx:26-27, src/dashboard/src/components/tickets/graph/TicketRequiresPanel.tsx:23, src/dashboard/src/components/tickets/detail/TicketDefaultsTab.tsx:17-20, src/dashboard/src/components/tickets/detail/TicketConversationTab.tsx:19-20, src/dashboard/src/components/tickets/detail/TicketConversationTab.tsx:37, src/dashboard/src/components/tickets/detail/TicketConversationTab.tsx:56, src/dashboard/src/components/tickets/detail/TicketConversationTab.tsx:68-79, src/dashboard/src/components/tickets/detail/RetryUnchanged.tsx:12-19, src/dashboard/src/components/tickets/detail/TicketComposer.tsx:19-25, src/dashboard/src/components/tickets/detail/TicketComposer.tsx:95; observed: 2026-10-15, grep -rn 'useLacksPermission(' src/dashboard/src -> 6 components + the hook"
+  - claim: "The one other permission gate reads identity.permissions directly: ClearTerminalRunsButton hides itself from a caller without runs.delete; it sends DELETE /api/runs?state=terminal, a route with no project in it."
+    evidence: "src/dashboard/src/components/jobs/ClearTerminalRunsButton.tsx:15-19, src/dashboard/src/components/jobs/ClearTerminalRunsButton.tsx:30, src/dashboard/src/components/jobs/ClearTerminalRunsButton.tsx:40, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:12; observed: 2026-10-15, grep -rn 'identity\\.permissions' src/dashboard/src (non-test) -> ClaimFacts, ClearTerminalRunsButton, useLacksPermission"
+  - claim: "Seven test files mock useLacksPermission file-wide (vi.mock, hoisted) with a function of zero or one argument; a second argument leaves them compiling and unchanged, and none of them can observe the project passed. TicketClose.test.tsx is one of them, so a real-hook test cannot live in that file."
+    evidence: "src/dashboard/src/components/tickets/graph/__tests__/TicketGraph.test.tsx:14, src/dashboard/src/components/tickets/detail/__tests__/TicketDefaultsTab.test.tsx:19, src/dashboard/src/components/tickets/detail/__tests__/TicketHeaderClosed.test.tsx:18, src/dashboard/src/components/tickets/detail/__tests__/TicketConversationTab.test.tsx:75, src/dashboard/src/components/tickets/detail/__tests__/TicketNeverRunPage.test.tsx:20, src/dashboard/src/components/tickets/__tests__/TicketClosedList.test.tsx:14, src/dashboard/src/components/tickets/closing/__tests__/TicketClose.test.tsx:10"
+  - claim: "useCallerIdentity is a plain effect with no cache: every component calling useLacksPermission issues its own GET /api/identity."
+    evidence: "src/dashboard/src/hooks/useCallerIdentity.ts:33-52"
+  - claim: "The identity page lists roles and the flat permissions and says 'no role this installation maps' whenever roles is empty."
+    evidence: "src/dashboard/src/components/identity/ClaimFacts.tsx:34-40, src/dashboard/src/components/identity/ClaimFacts.tsx:58-66; observed: 2026-10-15, wc -l ClaimFacts.tsx 106"
+  - claim: "Five list surfaces state an empty server answer as 'nothing has happened yet', which a caller whose lists are filtered to zero projects would read as a fact about the installation."
+    evidence: "src/dashboard/src/components/tickets/TicketList.tsx:26-27, src/dashboard/src/components/jobs/MissionControl.tsx:100-106, src/dashboard/src/app/pull-requests/page.tsx:126-131, src/dashboard/src/components/system/ExpectationMetricsView.tsx:46-53, src/dashboard/src/components/tickets/graph/TicketGraph.tsx:43-45; observed: 2026-10-15, wc -l TicketList.tsx 77, MissionControl.tsx 210, page.tsx 280, ExpectationMetricsView.tsx 103, TicketGraph.tsx 88"
+  - claim: "Every project list the dashboard reads outside the spec dialog is a config read: the System Config view reads GET /api/config and the Config Studio reads GET /api/config/projects, both config.read; the project Initialize action is rendered only inside those two."
+    evidence: "src/dashboard/src/components/system/ConfigView.tsx:29-35, src/dashboard/src/components/system/ConfigView.tsx:104, src/dashboard/src/components/config/useConfigCatalog.ts:93, src/dashboard/src/components/config/EntityCard.tsx:19, src/dashboard/src/components/config/EntityCard.tsx:101, src/dashboard/src/components/system/ProjectDetailPanel.tsx:66, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:25, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:38, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:111"
+  - claim: "The spec dialog's project choice is fed by the server's dialog view, whose list is every configured project today; filtering it is a server read, not a dashboard one, and the dialog view endpoint narrows it to the projects where the caller holds dialog.write."
+    evidence: "src/dashboard/src/types/spec-dialog.ts:216-219, src/dashboard/src/components/dialog/SpecDialogSurface.tsx:185, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogProjectCatalog.cs:21-23, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogViewReader.cs:50, src/backend/AgentSmith.Server/Extensions/SpecDialogViewEndpoints.cs:47; observed: 2026-10-15"
+  - claim: "Run cancel, run delete, the run page's answer card and criterion judgements send their writes without any client gate today; the server's refusal answers."
+    evidence: "src/dashboard/src/components/jobs/CancelRunButton.tsx:41, src/dashboard/src/components/jobs/DeleteRunButton.tsx:31, src/dashboard/src/components/jobs/PendingQuestionCard.tsx:41; observed: 2026-10-15, grep -c 'useCallerIdentity\\|useLacksPermission\\|permissions' CancelRunButton.tsx DeleteRunButton.tsx PendingQuestionCard.tsx CriterionJudgementControl.tsx ProjectInitAction.tsx -> 0 each"
+  - claim: "A missing run reads as null from fetchRun and a missing ticket as notFound; both are what an out-of-project 404 will look like, so no new state is needed for a single resource."
+    evidence: "src/dashboard/src/lib/runsApi.ts:42-47, src/dashboard/src/components/tickets/detail/TicketPage.tsx:47, src/dashboard/src/components/tickets/detail/TicketPage.tsx:54-58"
+  - claim: "A refused run subscription needs no new dashboard handling: JobsHubClient.join drops the ref and rethrows, ScopeBuffer swallows the rejection and keeps the backlog, and GetTrail / Get*Markdown errors render the server's message — which the hub's project scope makes one sentence for an unknown and an out-of-project run."
+    evidence: "src/dashboard/src/lib/JobsHubClient.ts:170-183, src/dashboard/src/lib/eventStore/ScopeBuffer.ts:59-69, src/dashboard/src/hooks/useTrail.ts:31-43, src/dashboard/src/hooks/useResultMarkdown.ts:32-44, src/backend/AgentSmith.Server/Security/HubProjectScope.cs:42"
+  - claim: "The dashboard can tell whether the server enforces: GET /api/auth/requirements (anonymous) answers enforced, read by useAuthRequirements."
+    evidence: "src/dashboard/src/lib/authRequirementsApi.ts:12-17, src/dashboard/src/lib/authRequirementsApi.ts:45, src/dashboard/src/hooks/useAuthRequirements.ts:20-37"
+  - claim: "configApi already exports a projectsApi (the Config Studio's crud client for GET /api/config/projects); a new lib/projectsApi.ts would read as its home."
+    evidence: "src/dashboard/src/lib/configApi.ts:782, src/dashboard/src/components/config/useConfigCatalog.ts:93"
+  - claim: "Dashboard tests are vitest files next to the code; the dashboard principles state no line limit."
+    evidence: ".agentsmith/contexts/dashboard/principles.md"
+  - claim: "GET /api/projects (runs.read, declared across projects) answers a bare JSON array of configured project names sorted case-insensitively: every configured project when enforcement is off or runs.read is held globally, else the configured projects a binding grants runs.read in. A caller holding runs.read in no project at all is refused (403) by the coarse gate, as every runs.read list is."
+    evidence: "src/backend/AgentSmith.Server/Extensions/ProjectListEndpoints.cs:15-26, src/backend/AgentSmith.Server/Security/PermissionRequirementHandler.cs:44-48, src/backend/AgentSmith.Server/Security/ProjectAccess.cs:24-29, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:49"
+  - claim: "DELETE /api/runs?state=terminal is declared across projects and deletes only within the projects where the caller holds runs.delete, so a project-only holder passes the coarse gate."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RunDeletionEndpoints.cs:23, src/backend/AgentSmith.Server/Extensions/RunDeletionEndpoints.cs:57, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:12"
+
+assumptions: []
+
+scope:
+  in: >
+    MIRROR: lib/identityApi.ts CallerIdentity gains projectPermissions?: Record<string, string[]> (optional like
+    nameIsReadable, so the existing fixtures in IdentityView, AppHeader and ClearTerminalRunsButton tests compile
+    unchanged; 34 -> at most 40). HELPER: lib/projectPermissions.ts (at most 30 lines, pure) holds(identity, permission,
+    project?) = permissions includes it OR (project given AND projectPermissions[project] includes it), project matched
+    case-insensitively (as ConfigNames.Comparer does on the server); holdsInAnyProject(identity, permission) = permissions includes it OR any projectPermissions entry does.
+    HOOK: useLacksPermission(permission, project?) answers identity !== null && !holds(identity, permission, project)
+    (13 -> at most 16); with no project it is the global rule of today. CALL SITES (all six, plus one): TicketCloseAct
+    and TicketReopenAct pass ticket.project; DoneByHandAct passes its project prop (one change serves TicketHeader,
+    TicketWaitsFor and TicketRequiresPanel); TicketDefaultsTab passes the project it already reads; the conversation's
+    PendingQuestion takes project and TicketConversationTab passes detail.project; RetryUnchanged gains a project prop,
+    passed by TicketConversationTab:56 and TicketComposer:95. ClearTerminalRunsButton reads holdsInAnyProject(identity,
+    'runs.delete') instead of identity.permissions.includes (65 kept). IDENTITY PAGE: ClaimFacts gains a 'Per project'
+    block under 'What it resolved to' (data-testid identity-project-permissions), one row per project with its
+    permissions, omitted when projectPermissions is absent or empty; NoRolesYet shows only when roles is empty AND no
+    project carries a permission (106 -> at most 140). NO PROJECT REACHED: lib/readableProjectsApi.ts fetchReadableProjects
+    (GET /api/projects, reads the string[] body directly, at most 15 lines); hooks/useProjectReach.ts (at most 45 lines) answers 'none'
+    only for an authenticated identity that lacks runs.read globally, on a server whose /api/auth/requirements says
+    enforced, AND whose GET /api/projects answered an empty list, else 'unknown' (no identity or global runs.read held —
+    no request is made; not enforced — /api/projects is not read; any read pending, refused or failed);
+    components/shell/NoProjectReach.tsx (at most 30 lines) renders its children unless the reach is 'none', then
+    'Your sign-in reaches no project on this installation. An administrator grants projects under Access → Projects.'
+    (data-testid no-project-reach). It wraps the five empty states — TicketList tickets-empty, MissionControl
+    mission-empty, pull-requests pr-empty, ExpectationMetricsView expectations-empty, TicketGraph ticket-graph-empty —
+    and is rendered only inside the empty branch, so a non-empty list never issues the request. TEST MOCKS: the
+    TicketGraph and TicketConversationTab test files' useLacksPermission mocks become project-aware
+    ((permission, project) answered from a per-project lacks table), so their new cases fail when a call site omits the
+    project.
+  out: >
+    The model, ProjectPermissions on CallerIdentity and the catalog's scopable set — 2026-10-15-4a4da; every binding finding, on the access view only — 2026-10-15-4a4df.
+    Route project sources, the handler check and 404-not-403 on single resources — 2026-10-15-4a4db. Hub method project
+    resolution and per-project overview groups — 2026-10-15-4a4dc (the dashboard's SubscribeOverview call is
+    unchanged; membership is decided on the server). Filtering /api/runs, /api/tickets, /api/tickets/graph,
+    /api/pull-requests, /api/runs/expectations/metrics, the spec dialog's project choice (SpecDialogProjectCatalog.All)
+    and GET /api/projects itself — 2026-10-15-4a4dd. The Projects pane and PUT /api/access carrying bindings —
+    2026-10-15-4a4df. A new 'not yours' state on the run and ticket pages — nobody: an out-of-project resource is a
+    404 and the pages already render a missing one; any other wording would confirm it exists. Client gates on run
+    Cancel, Delete, the run page's answer card and criterion judgements — nobody: they are ungated today for global
+    permissions too and the server's refusal answers; adding them is a separate change, not a project one. A
+    non-config surface for the project Initialize action (projects.init is project-scopable but its only UI sits under
+    config.read) — not built in this series; raised to the operator as an open question. Caching /api/identity across
+    components — nobody in this series. A backend wire test for projectPermissions — 2026-10-15-4a4da already carries
+    Identity_CallerInAProjectBinding_SeesProjectPermissions; the client matches keys case-insensitively, so a key
+    policy cannot break a lookup. Handling a refused run subscription (4a4dc hands it here) — nobody: the client already
+    swallows the refusal and shows the server's one sentence (facts). The spec dialog view's project list
+    (SpecDialogViewReader.cs:50 calls SpecDialogProjectCatalog.All()) — 2026-10-15-4a4dd narrows it on the server; the
+    dashboard renders what it is sent.
+
+decisions:
+  - key: "GATE ON THE PROJECT THE ROUTE NAMES. Each act passes the project its own request path carries (ticket.project, the DoneByHandAct prop), so the client asks the same question the server's route check asks."
+  - key: "NO PROJECT MEANS GLOBAL, NOT ANY. useLacksPermission without a project keeps today's rule; 'held in any project' is a separate named helper used only where the route has no project (the bulk clear), so no call site widens by accident."
+  - key: "OPTIONAL FIELD IN THE MIRROR. projectPermissions is optional on the wire mirror like nameIsReadable: a server before 4a4da and every existing fixture read as 'no project grants', which is the true answer for both."
+  - key: "EMPTY STATES ASK ONLY WHEN EMPTY AND ONLY A NON-GLOBAL READER. The reach request is made inside the empty branch and skipped for a global runs.read holder and for an unknown caller, so an anonymous viewer, a global reader and every non-empty page issue no new request; an enforce-off installation reads only the anonymous /api/auth/requirements on an empty page and renders exactly as today."
+  - key: "REACH FROM /api/projects, NOT FROM THE IDENTITY. A binding may name a project that is no longer configured (4a4da applies it, 4a4df reports it on the access view); counting identity keys would tell such a caller they reach a project whose lists are empty. The server's configured list is the truth."
+  - key: "NO 'NOT YOURS' PAGE. A run or ticket outside the caller's projects answers 404 like a missing one, and the dashboard renders it like a missing one; a distinct state would leak existence the server took care to hide."
+  - key: "PROJECT NAMES FOLD CASE ON THE CLIENT TOO. Alternative: ordinal match. Why: the server resolves projects under OrdinalIgnoreCase and keys ProjectPermissions in the binding's spelling; an ordinal client lookup of the configured spelling would hide an act the server allows."
+  - key: "A CALLER HOLDING runs.read NOWHERE IS REFUSED, NOT EMPTY. As shipped, GET /api/projects and every runs.read list answer 403 to a caller with no runs.read in any project, so their pages show today's refusal surface; 'none' is reached by a caller whose runs.read sits only on bindings to projects no longer configured. useProjectReach treats the 403 as 'unknown'."
+  - key: "ENFORCED FIRST, THEN THE PROJECT LIST. Alternative: read /api/projects for every non-global caller. Why: with enforcement off an installation with no project configured answers an empty list, and the page would tell an unenforced caller their sign-in reaches nothing."
+
+steps:
+  - id: mirror-helper
+    action: "identityApi.ts gains projectPermissions? (34 -> at most 40); lib/projectPermissions.ts with holds and holdsInAnyProject (at most 30 lines); vitest first."
+  - id: hook
+    action: "useLacksPermission(permission, project?) over holds (13 -> at most 16)."
+  - id: call-sites
+    action: "TicketCloseAct (32 -> at most 33), TicketReopenAct (41 -> at most 42), DoneByHandAct (35 -> at most 36), TicketDefaultsTab (97 -> at most 98), TicketConversationTab PendingQuestion + RetryUnchanged project (87 -> at most 90), RetryUnchanged project prop (45 -> at most 46), TicketComposer passes project (113 -> at most 114), ClearTerminalRunsButton over holdsInAnyProject (65 -> at most 66)."
+  - id: identity-page
+    action: "ClaimFacts 'Per project' block and the NoRolesYet condition (106 -> at most 140)."
+  - id: no-reach
+    action: "lib/readableProjectsApi.ts (at most 15), hooks/useProjectReach.ts (at most 45), components/shell/NoProjectReach.tsx (at most 30); wrap the five empty states: TicketList (77 -> at most 80), MissionControl (210 -> at most 213), pull-requests page (280 -> at most 283), ExpectationMetricsView (103 -> at most 106), TicketGraph (88 -> at most 91)."
+  - id: tests
+    action: "Red first, then green, for every test below; run `pnpm --dir src/dashboard test` on the touched files."
+
+tests:
+  - "projectPermissions.test.ts: holds_GlobalPermission_HoldsInEveryProject"
+  - "projectPermissions.test.ts: holds_ProjectGrant_HoldsInThatProjectOnly"
+  - "projectPermissions.test.ts: holds_NoProjectGiven_IgnoresProjectGrants"
+  - "projectPermissions.test.ts: holds_ProjectNameDiffersInCase_Holds"
+  - "projectPermissions.test.ts: holds_IdentityWithoutProjectPermissions_IsTheGlobalRule"
+  - "projectPermissions.test.ts: holdsInAnyProject_OneProjectGrant_Holds"
+  - "useLacksPermission.test.tsx: NoIdentity_NeverLacks"
+  - "useLacksPermission.test.tsx: ProjectGrantInAnotherProject_Lacks"
+  - "TicketCloseActProject.test.tsx (new file: TicketClose.test.tsx mocks the hook file-wide): CloseAct_CallerHoldsRunsControlOnlyInTheTicketsProject_IsOffered (real useLacksPermission over mocked useAccessToken / useCallerIdentity)"
+  - "TicketCloseActProject.test.tsx: CloseAct_CallerHoldsRunsControlOnlyInAnotherProject_IsHidden"
+  - "TicketGraph.test.tsx: RequiresPanel_DoneByHand_GatedOnTheNodesProject"
+  - "TicketConversationTab.test.tsx: PendingQuestion_ProjectGrant_ShowsTheAnswerCard"
+  - "ClearTerminalRunsButton.test.tsx: RunsDeleteInOneProjectOnly_IsOffered"
+  - "ClearTerminalRunsButton.test.tsx: ClearTerminalRunsButton_CallerWithoutRunsDelete_IsNotOffered (existing case kept green, its fixture holding no project grant)"
+  - "IdentityView.test.tsx: ProjectPermissions_AreListedPerProject"
+  - "IdentityView.test.tsx: NoGlobalRolesButAProjectGrant_DoesNotSayNoRoleIsMapped"
+  - "useProjectReach.test.tsx: GlobalRunsReadHolder_MakesNoRequest"
+  - "useProjectReach.test.tsx: ProjectOnlyCaller_EmptyProjectList_IsNone"
+  - "useProjectReach.test.tsx: ProjectsReadRefused_IsUnknownNotNone"
+  - "useProjectReach.test.tsx: NotEnforced_IsUnknown_ProjectsNotRead"
+  - "useProjectReach.test.tsx: ProjectOnlyCaller_AProjectListed_IsUnknown"
+  - "useProjectReach.test.tsx: NoIdentity_IsUnknown_NothingRead"
+  - "TicketList / MissionControl / pull-requests / ExpectationMetricsView / TicketGraph: EmptyAndNoProjectReached_SaysSo, and EmptyForAGlobalReader_KeepsTodaysText (one pair per surface)"
+
+done:
+  - "A person whose role grants runs.control only in project A sees Close, Reopen, Done by hand, Retry unchanged, the verdict selection and the answer card on A's tickets, and none of them on the tickets of a project B they may read but not control."
+  - "A person holding runs.control globally sees exactly what they see today on every ticket."
+  - "The identity page lists, per project, the permissions a project binding gave the caller, and no longer tells a project-bound caller that no role is mapped."
+  - "A signed-in person bound to no configured project opens Runs, Tickets, the graph, Pull requests or Expectations and reads that their sign-in reaches no project, with where an administrator grants one; a global reader and an enforce-off installation see today's empty text."
+  - "Clear finished is offered to a person holding runs.delete in any project and hidden from one holding it nowhere."
+  - "Build green, full suite green, dashboard gen/test/build green."

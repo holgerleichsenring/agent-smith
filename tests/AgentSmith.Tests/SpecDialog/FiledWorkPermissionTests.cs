@@ -65,9 +65,9 @@ public sealed class FiledWorkPermissionTests : IDisposable
     [Fact]
     public void Ingest_AuthorityNotEnforcing_CarriesMayStartRuns()
     {
-        var ctx = Context(new TokenAuthorityConfig { Enforce = false }, permissions: []);
+        var auth = new TokenAuthorityConfig { Enforce = false };
 
-        SpecDialogEndpoints.MayStartRuns(ctx).Should().BeTrue(
+        MayStartRuns(auth, permissions: []).Should().BeTrue(
             "an installation that enforces nothing holds every caller to nothing, as the hub filter reads it");
     }
 
@@ -76,7 +76,7 @@ public sealed class FiledWorkPermissionTests : IDisposable
     {
         var auth = new TokenAuthorityConfig { Enforce = true };
 
-        SpecDialogEndpoints.MayStartRuns(Context(auth, [Permissions.DialogWrite])).Should().BeFalse(
+        MayStartRuns(auth, [Permissions.DialogWrite]).Should().BeFalse(
             "dialog.write posts into the conversation; it does not start runs");
     }
 
@@ -85,7 +85,7 @@ public sealed class FiledWorkPermissionTests : IDisposable
     {
         var auth = new TokenAuthorityConfig { Enforce = true };
 
-        SpecDialogEndpoints.MayStartRuns(Context(auth, [Permissions.RunsControl])).Should().BeTrue();
+        MayStartRuns(auth, [Permissions.RunsControl]).Should().BeTrue();
     }
 
     [Fact]
@@ -181,18 +181,11 @@ public sealed class FiledWorkPermissionTests : IDisposable
             .Should().NotBeNull("the turn that files runs inside an open session");
     }
 
-    private static HttpContext Context(TokenAuthorityConfig auth, string[] permissions)
-    {
-        var services = new ServiceCollection();
-        services.AddSingleton(auth);
-        services.AddSingleton(ResolverUnderTest.With(auth));
-        return new DefaultHttpContext
-        {
-            RequestServices = services.BuildServiceProvider(),
-            User = ResolverUnderTest.Caller(
-                auth, [.. permissions.Select(p => (PermissionClaims.Type, p))]),
-        };
-    }
+    // 2026-10-15-4a4db: the sample moved from the message route into its project scope; a message naming no
+    // project asks the global hold, which is what these cases always asked.
+    private static bool MayStartRuns(TokenAuthorityConfig auth, string[] permissions) =>
+        ProjectScopeUnderTest.Scope(ProjectScopeUnderTest.Access(auth)).MayStartRuns(
+            ResolverUnderTest.Caller(auth, [.. permissions.Select(p => (PermissionClaims.Type, p))]), []);
 
     /// <summary>The dispatcher resolves-or-opens before it routes. These dispatches name no
     /// project, so nothing is opened here — but the collaborator is real rather than null, so a

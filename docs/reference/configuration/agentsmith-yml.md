@@ -310,7 +310,7 @@ These blocks apply to every project unless a project overrides them. On a server
 | `trace` | `enabled`: record every model call's prompt and answer. `AGENTSMITH_TRACE`, when set, wins over it |
 | `spec_review` | `rounds` (4, `0` turns it off), `reviewers` (2), `max_concurrent` (2), `budget_share_percent` (40): the review each unbuilt spec gets before it is built |
 | `series` | `max_specs` (24, at most 26), `specs_per_attempt` (8, at most 18), `seconds_per_spec` (0 = not measured), `budget_usd` (150, `0` = no attempt starts by itself), `wall_clock_hours` (12), `continue_after_wall_time` (true) |
-| `role_mapping` | what a role name means: `role_claim`, `group_claim`, `group_roles`, `roles`, `person_grants`, `observation_retention_days`. Edited on the Access page |
+| `role_mapping` | what a role name means: `role_claim`, `group_claim`, `group_roles`, `roles`, `person_grants`, `project_bindings` (`project`, `groups`, `people` as `claim`/`value`, `roles`: roles held in that project only, their run, init and dialog permissions), `observation_retention_days`. Edited on the Access page |
 | `mcp_servers` | the studio's MCP server catalog: `transport`, `url`, `auth` |
 | `design_sources` | the design source catalog: `vendor` (`figma`), `auth` (a name from `secrets:`), `display_name`. See [Design sources](../../configure-it/design-sources.md) |
 

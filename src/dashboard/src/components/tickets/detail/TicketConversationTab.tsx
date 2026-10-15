@@ -34,7 +34,7 @@ export function TicketConversationTab() {
         {data && <span className="cnt">{data.entries.length}</span>}
         <span className="sh-sub">ticket comments, questions and answers, PR reviews, the spec cut review and the ticket conversation, in order</span>
       </div>
-      {asking && <PendingQuestion attempt={asking} />}
+      {asking && <PendingQuestion attempt={asking} project={detail.project} />}
       {!data && (
         <div className="msub" data-testid="conv-unread">
           {conversation.loading ? "Reading the conversation…" : "The conversation could not be read."}
@@ -53,7 +53,7 @@ export function TicketConversationTab() {
                 <h3>Continue on this ticket</h3>
                 <span className="sh-sub">The ticket conversation needs dialog.write: its turns and proposal are not shown.</span>
               </div>
-              <div className="cp-actions"><RetryUnchanged attempt={newest} /></div>
+              <div className="cp-actions"><RetryUnchanged attempt={newest} project={detail.project} /></div>
             </div>
           ) : (
             <TicketComposer conversation={data} project={detail.project} ticketId={detail.ticketId}
@@ -65,8 +65,8 @@ export function TicketConversationTab() {
   );
 }
 
-function PendingQuestion({ attempt }: { attempt: TicketAttempt }) {
-  const lacks = useLacksPermission(RUNS_CONTROL);
+function PendingQuestion({ attempt, project }: { attempt: TicketAttempt; project: string }) {
+  const lacks = useLacksPermission(RUNS_CONTROL, project);
   const [answered, setAnswered] = useState(false);
   const question = attempt.pendingQuestion;
   if (!question) return null;

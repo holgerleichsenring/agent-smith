@@ -57,6 +57,13 @@ describe("ClearTerminalRunsButton", () => {
     expect(screen.queryByTestId("clear-terminal-runs")).toBeNull();
   });
 
+  // 2026-10-15-4a4de: the bulk clear names no project; a binding's runs.delete in any project offers it.
+  it("RunsDeleteInOneProjectOnly_IsOffered", () => {
+    mockIdentity = { ...caller(["identity.read"]), projectPermissions: { alpha: ["runs.read"], beta: ["runs.delete"] } };
+    render(<ClearTerminalRunsButton />);
+    expect(screen.getByTestId("clear-terminal-runs")).toHaveTextContent("clear finished");
+  });
+
   it("ClearTerminalRunsButton_CallerWithRunsDelete_IsOffered", () => {
     mockIdentity = caller(["runs.read", "runs.delete"]);
     render(<ClearTerminalRunsButton />);

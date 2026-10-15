@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 
@@ -41,7 +42,7 @@ public sealed class RunDeleter(
     }
 
     // Bulk clear is terminal-only, so it never force-kills a live run.
-    public Task<int> DeleteTerminalAsync(CancellationToken ct) => deletion.DeleteTerminalAsync(ct);
+    public Task<int> DeleteTerminalAsync(ProjectScope scope, CancellationToken ct) => deletion.DeleteTerminalAsync(scope, ct);
 
     // Reuses the p0330 cancel-enforcement order: release the lease, drop the queue
     // entry — before the rows are removed.

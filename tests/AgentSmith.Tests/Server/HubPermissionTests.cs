@@ -95,4 +95,35 @@ public sealed class HubPermissionTests
         HubMethodPermissions.For("MethodThatDoesNotExist").Should().BeNull(
             "the caller decides what an unclassified method costs, and it refuses");
     }
+
+    // 2026-10-15-4a4dc: a method whose permission a project binding can carry says where its project comes from.
+    [Fact]
+    public void HubPermissions_EveryMethodWithAProjectScopablePermission_DeclaresAProjectSource() =>
+        HubMethodPermissions.MethodNames
+            .Where(name => HubMethodPermissions.For(name)!.Names.Any(Permissions.ProjectScopable.Contains))
+            .Where(name => HubMethodPermissions.SourceOf(name) is not
+                (HubProjectSource.AnyProject or HubProjectSource.RunArgument or HubProjectSource.DialogArgument))
+            .Should().BeEmpty("a project-scopable method is scoped by its argument or by any project");
+
+    [Fact]
+    public void HubPermissions_AGlobalSourceMethod_NamesOnlyGlobalOnlyPermissions() =>
+        HubMethodPermissions.MethodNames
+            .Where(name => HubMethodPermissions.SourceOf(name) == HubProjectSource.Global)
+            .Where(name => HubMethodPermissions.For(name)!.Names.Any(Permissions.ProjectScopable.Contains))
+            .Should().BeEmpty("a global method needs what no binding carries");
+
+    [Fact]
+    public void HubPermissions_EveryMethodWhoseFirstParameterIsRunId_IsRunArgument() =>
+        FirstParameterNamed("runId")
+            .Should().HaveCount(9)
+            .And.OnlyContain(name => HubMethodPermissions.SourceOf(name) == HubProjectSource.RunArgument);
+
+    [Fact]
+    public void HubPermissions_EveryMethodWhoseFirstParameterIsDialogId_IsDialogArgument() =>
+        FirstParameterNamed("dialogId")
+            .Should().HaveCount(2)
+            .And.OnlyContain(name => HubMethodPermissions.SourceOf(name) == HubProjectSource.DialogArgument);
+
+    private static IReadOnlyList<string> FirstParameterNamed(string parameter) =>
+        [.. PublicHubMethods().Where(m => m.GetParameters().FirstOrDefault()?.Name == parameter).Select(m => m.Name)];
 }

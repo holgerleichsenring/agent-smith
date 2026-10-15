@@ -11,7 +11,7 @@ internal static class TicketReviewEndpoints
 {
     internal static WebApplication MapTicketReviewEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/tickets/{project}/{ticketId}/reviews", ReviewsAsync).Needs(Permissions.RunsRead);
+        app.MapGet("/api/tickets/{project}/{ticketId}/reviews", ReviewsAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.Route("project"));
         return app.MapTicketDefaultsEndpoints(); // 2026-10-13-8762p
     }
 

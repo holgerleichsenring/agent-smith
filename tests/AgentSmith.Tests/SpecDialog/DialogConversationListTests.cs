@@ -92,6 +92,21 @@ public sealed class DialogConversationListTests : IDisposable
     }
 
     [Fact]
+    public async Task ConversationList_ProjectNoLongerReadable_IsHiddenAndNotCounted()
+    {
+        var readable = await OpenAsync("d-1");
+        await _sessions.OpenAsync(Platform, "d-2", "d-2", Owner,
+            new ActiveScope { Project = "other", Repos = ["repo-b"] }, CancellationToken.None);
+        var unscoped = await _sessions.OpenAsync(Platform, "d-3", "d-3", Owner,
+            new ActiveScope { Project = "", Repos = [] }, CancellationToken.None);
+
+        var page = await PageAsync(scope: AgentSmith.Infrastructure.Persistence.Contracts.ProjectScope.Of(["sample"]));
+
+        page.Conversations.Select(c => c.SessionId).Should().BeEquivalentTo([readable, unscoped.JobId]);
+        page.Total.Should().Be(2);
+    }
+
+    [Fact]
     public async Task List_ExcludesAnotherPrincipalsConversations()
     {
         var mine = await OpenAsync("d-1");
@@ -197,7 +212,7 @@ public sealed class DialogConversationListTests : IDisposable
             null,
             new ClaimsPrincipal(new ClaimsIdentity([new Claim("sub", Owner)], "test")),
             new SpecDialogOwnership(_repository),
-            new SpecDialogConversationList(_repository, new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance), new SpecDialogTicketTextRepository(_context)), CancellationToken.None);
+            new SpecDialogConversationList(_repository, new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance), new SpecDialogTicketTextRepository(_context)), AgentSmith.Tests.Server.Auth.ProjectScopeUnderTest.Unenforced(), CancellationToken.None);
 
         result.Should().BeOfType<Ok<SpecDialogConversationPage>>()
             .Which.Value!.Conversations.Select(summary => summary.SessionId).Should().Equal(mine);
@@ -417,8 +432,8 @@ public sealed class DialogConversationListTests : IDisposable
 
     /// <summary>2026-09-21-f237b: the rows AND the owner's whole count, which is what the
     /// conversations page says "the 20 most recent of 63" from.</summary>
-    private Task<SpecDialogConversationPage> PageAsync(int? limit = null) =>
-        new SpecDialogConversationList(_repository, new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance), new SpecDialogTicketTextRepository(_context)).ListAsync(Owner, limit, CancellationToken.None);
+    private Task<SpecDialogConversationPage> PageAsync(int? limit = null, AgentSmith.Infrastructure.Persistence.Contracts.ProjectScope? scope = null) =>
+        new SpecDialogConversationList(_repository, new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance), new SpecDialogTicketTextRepository(_context)).ListAsync(Owner, scope ?? AgentSmith.Infrastructure.Persistence.Contracts.ProjectScope.Everything, limit, CancellationToken.None);
 
     public void Dispose()
     {

@@ -28,7 +28,7 @@ internal static class SpecDialogDeletionEndpoints
     internal static WebApplication MapSpecDialogDeletionEndpoints(this WebApplication app)
     {
         app.MapDelete("/api/spec-dialog/conversations/{sessionId}", (Delegate)DeleteAsync)
-           .Needs(Security.Permissions.DialogWrite);
+           .Needs(Security.Permissions.DialogWrite).InProject(Security.ProjectFrom.Session);
         return app;
     }
 

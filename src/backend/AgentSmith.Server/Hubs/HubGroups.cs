@@ -8,6 +8,9 @@ namespace AgentSmith.Server.Hubs;
 public static class HubGroups
 {
     public const string Overview = "overview";
+
+    /// <summary>2026-10-15-4a4dc: one project's overview nudges; project names fold case, so this name does.</summary>
+    public static string OverviewOf(string project) => $"overview:project:{project.ToLowerInvariant()}";
     public static string Run(string runId) => $"run:{runId}";
     public static string Sandbox(string runId, string repo) => $"sandbox:{runId}:{repo}";
     /// <summary>

@@ -14,12 +14,12 @@ namespace AgentSmith.Infrastructure.Persistence.Repositories;
 /// </summary>
 public sealed class CriteriaMetRepository(IUnitOfWork unitOfWork)
 {
-    public async Task<IReadOnlyList<JudgedCodeRun>> GetJudgedCodeRunsAsync(CancellationToken ct)
+    public async Task<IReadOnlyList<JudgedCodeRun>> GetJudgedCodeRunsAsync(ProjectScope scope, CancellationToken ct)
     {
-        var runs = await FinishedCodeRuns()
+        var runs = await FinishedCodeRuns(scope)
             .Select(r => new { r.Id, r.Project, r.FinishedAt, r.AcceptanceJson })
             .ToListAsync(ct);
-        var overrules = await OverrulesByRunAsync(ct);
+        var overrules = await OverrulesByRunAsync(scope, ct);
         return runs
             .Select(r => new JudgedCodeRun(
                 r.Project, r.FinishedAt!.Value,
@@ -28,17 +28,18 @@ public sealed class CriteriaMetRepository(IUnitOfWork unitOfWork)
             .ToList();
     }
 
-    private IQueryable<Run> FinishedCodeRuns() =>
-        unitOfWork.Set<Run>().AsNoTracking()
+    // 2026-10-15-4a4dd: the caller's projects, for the runs and their judgements alike.
+    private IQueryable<Run> FinishedCodeRuns(ProjectScope scope) =>
+        unitOfWork.Set<Run>().AsNoTracking().Within(scope)
             .Where(r => r.Pipeline == PipelinePresets.CodeName
                         && r.FinishedAt != null && r.AcceptanceJson != null);
 
     // A join rather than a list of run ids: the id list of every coding run would outgrow
     // a provider's parameter limit long before the rows outgrow memory.
-    private async Task<ILookup<string, CriterionOverrule>> OverrulesByRunAsync(CancellationToken ct)
+    private async Task<ILookup<string, CriterionOverrule>> OverrulesByRunAsync(ProjectScope scope, CancellationToken ct)
     {
         var rows = await (from judgement in unitOfWork.Set<RunCriterionJudgement>().AsNoTracking()
-                          join run in FinishedCodeRuns() on judgement.RunId equals run.Id
+                          join run in FinishedCodeRuns(scope) on judgement.RunId equals run.Id
                           select new
                           {
                               judgement.RunId,

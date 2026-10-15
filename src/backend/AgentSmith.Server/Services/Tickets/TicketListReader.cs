@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Runs;
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Server.Models;
 
@@ -39,7 +40,7 @@ public sealed class TicketListReader(
         Array.Empty<string>().ToLookup(s => s, StringComparer.Ordinal);
 
     /// <summary>Every run-bearing ticket with its rows and summary, and every never-run ticket's summary.</summary>
-    public async Task<TicketListAll> AllAsync(string? project, CancellationToken ct)
+    public async Task<TicketListAll> AllAsync(ProjectScope project, CancellationToken ct)
     {
         var read = await query.ReadAsync(project, ct);
         var tickets = read.Rows.GroupBy(r => (r.Run.Project, r.Run.TicketId)).Select(g => g.ToList()).ToList();
@@ -56,7 +57,7 @@ public sealed class TicketListReader(
 
     public async Task<TicketListView> ReadAsync(TicketListRequest request, CancellationToken ct)
     {
-        var (all, neverRun, state, prRecords, standing, truncated) = await AllAsync(request.Project, ct);
+        var (all, neverRun, state, prRecords, standing, truncated) = await AllAsync(request.Projects, ct);
         var page = Page(all, request);
         kicks.Offer(page.Where(t => t.Summary.Status == RunStatuses.Failed && t.Summary.Kind != TicketClosedKinds.ByHand)
             .Select(t => new Checks.TicketCheckKick(t.Summary.Project, t.Summary.TicketId)));
@@ -72,7 +73,7 @@ public sealed class TicketListReader(
                     records, standing, launches))
                 .Select(s => s with { SeriesStrip = pageStrips.GetValueOrDefault(s.NewestRunId) })],
             NextCursor(all, page, request),
-            counts.Of([.. all.Select(t => t.Summary), .. neverRun], await monthCost.OfAsync(request.Project, ct), truncated));
+            counts.Of([.. all.Select(t => t.Summary), .. neverRun], await monthCost.OfAsync(request.Projects, ct), truncated));
     }
 
     private static bool Leads(TicketSummaryView neverRun, string? bucket) => string.IsNullOrEmpty(bucket)

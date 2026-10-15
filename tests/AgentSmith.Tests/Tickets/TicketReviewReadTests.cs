@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Contracts.Reviews;
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Infrastructure.Persistence.Entities;
@@ -55,7 +56,7 @@ public sealed class TicketReviewReadTests : IDisposable
             Step("r-42"), Step("r-43"), Step("r-44"),
             Record("42", PrReviewStates.Merged, T.AddHours(1)), Record("43", PrReviewStates.Open, T), Record("44", PrReviewStates.Open, T));
 
-        var tickets = (await _h.List.ReadAsync(new TicketListRequest("alpha", null, null, null), default)).Tickets.ToDictionary(t => t.TicketId);
+        var tickets = (await _h.List.ReadAsync(new TicketListRequest(ProjectScope.Single("alpha"), null, null, null), default)).Tickets.ToDictionary(t => t.TicketId);
 
         tickets["42"].Bucket.Should().Be(TicketBucket.Done);
         tickets["42"].Since.Should().Be(T.AddHours(1));
@@ -70,7 +71,7 @@ public sealed class TicketReviewReadTests : IDisposable
     {
         await _h.AddAsync(WithPr(Run("r-42", "42", status: "failed")), Step("r-42"), Record("42", PrReviewStates.Merged, T.AddHours(-1)));
 
-        var ticket = (await _h.List.ReadAsync(new TicketListRequest("alpha", null, null, null), default)).Tickets.Single();
+        var ticket = (await _h.List.ReadAsync(new TicketListRequest(ProjectScope.Single("alpha"), null, null, null), default)).Tickets.Single();
 
         ticket.Bucket.Should().Be(TicketBucket.Failed, "an attempt started after the merge is that attempt's ticket");
     }
@@ -91,7 +92,7 @@ public sealed class TicketReviewReadTests : IDisposable
         await _h.AddAsync(Run("r-41a", "41"), WithPr(Run("r-41b", "41")), WithPr(Run("r-42", "42")), Step("r-41a"), Step("r-41b"), Step("r-42"),
             Record("41", PrReviewStates.Merged, T.AddHours(2)), Record("42", PrReviewStates.Open, T));
 
-        var counts = (await _h.List.ReadAsync(new TicketListRequest("alpha", null, null, null), default)).Counts;
+        var counts = (await _h.List.ReadAsync(new TicketListRequest(ProjectScope.Single("alpha"), null, null, null), default)).Counts;
 
         counts.OpenPullRequests.Should().Be(1);
         counts.WaitingOnReview.Should().Be(1);
@@ -105,7 +106,7 @@ public sealed class TicketReviewReadTests : IDisposable
     {
         await _h.AddAsync(WithPr(Run("r-42", "42")), WithPr(Run("r-43", "43")), Step("r-42"), Step("r-43"), Record("43", PrReviewStates.Open, T));
 
-        await _h.List.ReadAsync(new TicketListRequest("alpha", null, null, null), default);
+        await _h.List.ReadAsync(new TicketListRequest(ProjectScope.Single("alpha"), null, null, null), default);
 
         _h.Nudges.Verify(n => n.EnqueueAsync(It.Is<ReworkNudgeRequest>(r =>
             r.Project == "alpha" && r.TicketId == "42" && r.Origin == ReworkNudgeOrigin.Refresh && r.IsLate), default), Times.Once);

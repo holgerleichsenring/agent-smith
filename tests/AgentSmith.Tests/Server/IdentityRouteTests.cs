@@ -50,7 +50,8 @@ public sealed class IdentityRouteTests
         golden.Should().HaveCountGreaterThanOrEqualTo(79,
             "the golden may gain routes and must never silently lose the ones it had");
         golden.Where(row => row.Contains(IdentityRoute, StringComparison.Ordinal))
-            .Should().ContainSingle().Which.Should().Be($"GET\t{IdentityRoute}\t{Permissions.IdentityRead}");
+            .Should().ContainSingle().Which.Should().Be($"GET\t{IdentityRoute}\t{Permissions.IdentityRead}\t-",
+                "2026-10-15-4a4db: the fourth column is the project source, and identity.read is global-only");
     }
 
     private static void MapAsTheHostDoes(WebApplication app)

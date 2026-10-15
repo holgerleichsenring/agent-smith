@@ -19,6 +19,8 @@ namespace AgentSmith.Server.Models;
 /// holder in common directory configurations, so a person who can change their own can
 /// claim a grant written for somebody else.
 /// </param>
+/// <param name="Projects">2026-10-15-4a4df: the configured project names, sorted as they compare.</param>
+/// <param name="ProjectScopable">2026-10-15-4a4df: the permissions a project binding can grant.</param>
 public sealed record AccessView(
     string RoleClaim,
     string GroupClaim,
@@ -30,4 +32,6 @@ public sealed record AccessView(
     IReadOnlyList<AccessGroupView> Groups,
     IReadOnlyList<AccessRoleView> Roles,
     IReadOnlyList<string> Permissions,
-    IReadOnlyList<string> Findings);
+    IReadOnlyList<string> Findings,
+    IReadOnlyList<string> Projects,
+    IReadOnlyList<string> ProjectScopable);

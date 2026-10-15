@@ -1,3 +1,4 @@
+using AgentSmith.Server.Security;
 using AgentSmith.Application.Services.SpecDialog;
 using System.Security.Claims;
 using AgentSmith.Contracts.Dialogue;
@@ -171,12 +172,38 @@ public sealed class DashboardDialogSurfaceTests : IDisposable
     }
 
     [Fact]
+    public async Task DialogView_ScopedCaller_OffersOnlyProjectsWhereTheyHoldDialogWrite()
+    {
+        var mapping = AgentSmith.Tests.Server.Auth.ProjectBindingTests.Mapping(
+            AgentSmith.Tests.Server.Auth.ProjectBindingTests.Binding("sample", groups: ["team"], roles: [BuiltInRoles.Reader]),
+            AgentSmith.Tests.Server.Auth.ProjectBindingTests.Binding("elsewhere", groups: ["team"], roles: [BuiltInRoles.Operator]));
+
+        var result = await SpecDialogViewEndpoints.ReadAsync(
+            Dialog, Caller("team"), _ownership, Reader(), EnforcingScope(mapping), CancellationToken.None);
+
+        result.Should().BeOfType<Ok<SpecDialogView>>().Which.Value!.Projects.Should().BeEmpty(
+            "a reader binding on sample carries no dialog.write, and elsewhere is not among the reader's projects");
+    }
+
+    [Fact]
+    public async Task DialogView_GlobalHolder_OffersEveryConfiguredProject()
+    {
+        var mapping = AgentSmith.Tests.Server.Auth.ProjectBindingTests.Mapping();
+        mapping.GroupRoles["admins"] = [BuiltInRoles.Admin];
+
+        var result = await SpecDialogViewEndpoints.ReadAsync(
+            Dialog, Caller("admins"), _ownership, Reader(), EnforcingScope(mapping), CancellationToken.None);
+
+        result.Should().BeOfType<Ok<SpecDialogView>>().Which.Value!.Projects.Select(p => p.Name).Should().Equal("sample");
+    }
+
+    [Fact]
     public async Task ReadAsync_AForeignDialogId_IsRefused()
     {
         await OpenAsync(Owner);
 
         var result = await SpecDialogViewEndpoints.ReadAsync(
-            Dialog, Principal(Intruder), _ownership, Reader(), CancellationToken.None);
+            Dialog, Principal(Intruder), _ownership, Reader(), AgentSmith.Tests.Server.Auth.ProjectScopeUnderTest.Unenforced(), CancellationToken.None);
 
         result.Should().BeOfType<StatusCodeHttpResult>()
             .Which.StatusCode.Should().Be(StatusCodes.Status403Forbidden);
@@ -387,6 +414,16 @@ public sealed class DashboardDialogSurfaceTests : IDisposable
         Project = "sample", TicketId = string.Empty, StartedAt = DateTimeOffset.UtcNow,
         Scope = new ActiveScope { Project = "sample", Repos = ["repo-a"] },
     };
+
+    private static readonly TokenAuthorityConfig Enforcing = new() { Enforce = true, NameClaim = "preferred_username" };
+
+    private static ClaimsPrincipal Caller(string group) =>
+        AgentSmith.Tests.Server.Auth.ResolverUnderTest.Caller(Enforcing, ("sub", Owner), ("groups", group));
+
+    private static CallerProjectScope EnforcingScope(RoleMappingConfig mapping) =>
+        new(AgentSmith.Tests.Server.Auth.ProjectScopeUnderTest.Access(Enforcing,
+            AgentSmith.Tests.Server.Auth.ResolverUnderTest.Over(Enforcing, new AgentSmith.Tests.Server.Auth.StoredMappingStub(mapping)),
+            "sample", "elsewhere"));
 
     private static ClaimsPrincipal Principal(string subject) =>
         new(new ClaimsIdentity([new Claim("sub", subject)], "test"));

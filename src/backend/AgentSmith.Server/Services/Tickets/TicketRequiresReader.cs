@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Contracts.Tickets;
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.SpecDialog;
 
@@ -25,7 +26,7 @@ public sealed class TicketRequiresReader(
         var requiredBy = (await requirements.DependentsOfAsync(tracker, key, ct))
             .Select(e => (Key: e.TicketKey, Id: e.TicketId)).ToList();
         if (requires.Count == 0 && requiredBy.Count == 0) return new TicketRequiresView([], []);
-        var summaries = TicketNodeStates.Summaries(await list.AllAsync(project, ct), p => projects.Of(p));
+        var summaries = TicketNodeStates.Summaries(await list.AllAsync(ProjectScope.Single(project), ct), p => projects.Of(p));
         var landed = await TicketNodeStates.LandedAsync(
             landings, requires.Concat(requiredBy).Select(e => (tracker, e.Key)), ct);
         TicketRequirementView Entry((string Key, string Id) e)

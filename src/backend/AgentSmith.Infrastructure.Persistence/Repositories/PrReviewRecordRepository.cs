@@ -15,9 +15,9 @@ public sealed class PrReviewRecordRepository(IUnitOfWork unitOfWork) : IPrReview
     public Task<IReadOnlyList<PrReviewRecordView>> ByTicketAsync(string project, string ticketId, CancellationToken cancellationToken) =>
         ReadAsync(Records().Where(r => r.Project == project && r.TicketId == ticketId), standingOnly: false, cancellationToken);
 
-    /// <summary>Every record of the project (all projects when null), entries cut to the standing decisions.</summary>
-    public Task<IReadOnlyList<PrReviewRecordView>> ForListAsync(string? project, CancellationToken ct) =>
-        ReadAsync(string.IsNullOrEmpty(project) ? Records() : Records().Where(r => r.Project == project), standingOnly: true, ct);
+    /// <summary>Every record of the scope's projects, entries cut to the standing decisions.</summary>
+    public Task<IReadOnlyList<PrReviewRecordView>> ForListAsync(ProjectScope project, CancellationToken ct) =>
+        ReadAsync(Records().Within(project), standingOnly: true, ct);
 
     public async Task<PrReviewRecordView?> ByPrKeyAsync(string prKey, CancellationToken ct) =>
         (await ReadAsync(Records().Where(r => r.PrKey == prKey), standingOnly: false, ct)).SingleOrDefault();

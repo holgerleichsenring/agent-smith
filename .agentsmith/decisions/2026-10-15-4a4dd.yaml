@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-15-4a4dd
+
+decisions:
+  - category: Architecture
+    chose: "Filter in the query: every list read takes a ProjectScope before its Take"
+    over: "Filtering the composed result"
+    reason: |
+      The run list takes 50, pull requests 200 and the ticket list 5000 rows; a filter after the Take hands a scoped
+      caller a short or empty page while other projects are busy. The booted test seeds sixty newer runs of another
+      project and fails when the scope is ignored.
+  - category: Architecture
+    chose: "ProjectScope.Everything returns the query instance unchanged; one name emits today's equality with the parameter named 'project'"
+    over: "One Contains predicate for every scope"
+    reason: |
+      Enforcement off and every global holder then run byte-identical SQL, ?project= included. A list-pattern
+      variable is captured under a compiler-generated name (@__5__2_0), so the one-name branch goes through a helper
+      whose parameter is called project; ProjectScopeQueries_OneName_EmitsTodaysEqualityPredicate pins ToQueryString.
+  - category: Architecture
+    chose: "ProjectAccess.ProjectsHolding(user, permission, configured?) — one resolve, one read of the configured keys (or the keys a caller already loaded); CallerProjectScope builds the scope from it"
+    over: "CallerProjectScope calling HoldsIn per configured project"
+    reason: |
+      Operator ruling: building a caller's filter loads the configuration once per request. HoldsIn reaches the loader
+      per call, so per-project calls loaded it once per project. HoldsIn keeps its semantics. Ticket search, resolve
+      and pick pass the keys of the configuration they loaded, so they load nothing extra; tests pin one load for the
+      scope and for GET /api/projects.
+  - category: Architecture
+    chose: "The coarse gate admits any declared project source on a hold in any project; ProjectFrom.IsPerResource removed"
+    over: "Keeping AcrossProjects global"
+    reason: |
+      Every AcrossProjects route now filters by caller, and the flip ships in the same commit as the filters.
+      A route with no declared source keeps the global check. IsPerResource had no other reader.
+  - category: Architecture
+    chose: "ProjectScope and ProjectScopeQueries in Infrastructure.Persistence/Contracts"
+    over: "Contracts/Models/Access plus a Persistence/Extensions class"
+    reason: |
+      Every touched repository already imports that namespace, so RunRepository (ratcheted at 143) and
+      SpecDialogSessionRepository (120) gain no using line.
+  - category: Testing
+    chose: "NoStaticStateRuleTests treats System.Linq interfaces as data contracts"
+    over: "Making the filters instance methods of ProjectScope"
+    reason: |
+      IQueryable is the query side of the collection contracts the rule already exempts; an instance method would
+      wrap every repository query in a call instead of chaining .Within(scope) on its existing Where line.
+  - category: Architecture
+    chose: "An unreadable ?project= reads as empty (Narrowed to no project), never 403 or 404"
+    over: "Refusing the filter"
+    reason: |
+      An unknown project already answers an empty list; a refusal would confirm the project exists.
+  - category: Architecture
+    chose: "Dialog view, conversation list, filed work and ticket search/resolve/pick scoped at the endpoint (view narrowed, catalogue narrowed by ProjectScopedCatalog)"
+    over: "Passing a scope into SpecDialogViewReader and the tracker services"
+    reason: |
+      The reader and the tracker services keep their callers; a narrowed configuration of the admitted projects and
+      the trackers they name is how TicketProjectForTracker already scopes the choice. A conversation without a project
+      stays its owner's.
+  - category: Architecture
+    chose: "Project-naming startup findings shown only to a config.read holder while enforcing; counts follow the shown list"
+    over: "Putting the anonymous findings route behind a permission"
+    reason: |
+      The route reports a broken authority and must stay anonymous; a finding with a Project names it.

@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Tickets;
 using AgentSmith.Tests.TestSupport;
@@ -19,9 +20,9 @@ public sealed class TicketListPagingTests : IDisposable
     {
         for (var i = 1; i <= 5; i++) await _store.AddAsync(Run(Id(i), ticket: $"{i}"), Step(Id(i)));
 
-        var first = await ListAsync(new TicketListRequest(null, null, null, 2));
-        var second = await ListAsync(new TicketListRequest(null, null, first.NextCursor, 2));
-        var third = await ListAsync(new TicketListRequest(null, null, second.NextCursor, 2));
+        var first = await ListAsync(new TicketListRequest(ProjectScope.Everything, null, null, 2));
+        var second = await ListAsync(new TicketListRequest(ProjectScope.Everything, null, first.NextCursor, 2));
+        var third = await ListAsync(new TicketListRequest(ProjectScope.Everything, null, second.NextCursor, 2));
 
         var seen = first.Tickets.Concat(second.Tickets).Concat(third.Tickets).Select(t => t.TicketId).ToList();
         seen.Should().Equal("5", "4", "3", "2", "1");
@@ -36,7 +37,7 @@ public sealed class TicketListPagingTests : IDisposable
             Run(Id(2), ticket: "2", status: "waiting_for_input"), Step(Id(2)),
             Run(Id(3), ticket: "3", status: "success"), Step(Id(3)));
 
-        var result = await ListAsync(new TicketListRequest(null, TicketBucket.Idle, null, 1));
+        var result = await ListAsync(new TicketListRequest(ProjectScope.Everything, TicketBucket.Idle, null, 1));
 
         result.Tickets.Should().ContainSingle().Which.TicketId.Should().Be("3");
         result.Counts.Should().BeEquivalentTo(new { NeedsYou = 1, Working = 1, Running = 1, Queued = 0, Idle = 1 });
@@ -68,11 +69,37 @@ public sealed class TicketListPagingTests : IDisposable
         await _store.AddAsync(
             Run(Id(1), ticket: "1", cost: 1m), Run(Id(2), ticket: "2", project: "beta", cost: 2m, status: "running"));
 
-        var result = await ListAsync(new TicketListRequest("alpha", null, null, null));
+        var result = await ListAsync(new TicketListRequest(ProjectScope.Single("alpha"), null, null, null));
 
         result.Tickets.Should().ContainSingle().Which.Project.Should().Be("alpha");
         result.Counts.MonthCost.Should().Be(1m);
         result.Counts.Working.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task TicketList_ScopedCaller_ListsAndCountsOnlyTheirProjects()
+    {
+        await _store.AddAsync(
+            Run(Id(1), ticket: "1", cost: 1m), Run(Id(2), ticket: "2", project: "beta", cost: 2m, status: "running"),
+            Run(Id(3), ticket: "3", project: "gamma", cost: 4m));
+
+        var result = await ListAsync(new TicketListRequest(ProjectScope.Of(["alpha", "gamma"]), null, null, null));
+
+        result.Tickets.Select(t => t.Project).Should().BeEquivalentTo(["alpha", "gamma"]);
+        result.Counts.MonthCost.Should().Be(5m, "beta's cost is not the caller's to see");
+        result.Counts.Working.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task TicketList_ScopedCallerAskingForAnotherProject_IsTheEmptyList()
+    {
+        await _store.AddAsync(Run(Id(1), ticket: "1", cost: 1m), Run(Id(2), ticket: "2", project: "beta", cost: 2m));
+
+        var foreign = await ListAsync(new TicketListRequest(ProjectScope.Of(["alpha"]).Narrowed("beta"), null, null, null));
+        var unknown = await ListAsync(new TicketListRequest(ProjectScope.Everything.Narrowed("nowhere"), null, null, null));
+
+        foreign.Tickets.Should().BeEmpty();
+        foreign.Counts.Should().BeEquivalentTo(unknown.Counts);
     }
 
     [Fact]
@@ -82,7 +109,7 @@ public sealed class TicketListPagingTests : IDisposable
             .Select(i => (object)Run($"2026-10-13T09-00-00-{i:x5}", ticket: $"{i}")).ToArray();
         await _store.AddAsync(rows);
 
-        (await ListAsync(new TicketListRequest(null, null, null, 1))).Counts.Truncated.Should().BeTrue();
+        (await ListAsync(new TicketListRequest(ProjectScope.Everything, null, null, 1))).Counts.Truncated.Should().BeTrue();
     }
 
     [Fact]
@@ -128,5 +155,5 @@ public sealed class TicketListPagingTests : IDisposable
     private static string Id(int i) => $"2026-10-13T09-00-0{i}-000{i}";
 
     private Task<TicketListView> ListAsync(TicketListRequest? request = null) =>
-        _store.List.ReadAsync(request ?? new TicketListRequest(null, null, null, null), CancellationToken.None);
+        _store.List.ReadAsync(request ?? new TicketListRequest(ProjectScope.Everything, null, null, null), CancellationToken.None);
 }

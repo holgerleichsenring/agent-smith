@@ -19,11 +19,11 @@ public sealed class RunDeletionRepository(IUnitOfWork unitOfWork, IUniqueViolati
     public Task<int> DeleteAsync(string runId, CancellationToken ct) =>
         DeleteManyAsync([runId], ct);
 
-    // Bulk "clear terminal runs" — success/failed/cancelled only (FinishedAt set).
-    public async Task<int> DeleteTerminalAsync(CancellationToken ct)
+    // Bulk "clear terminal runs" — success/failed/cancelled only (FinishedAt set), of the caller's projects.
+    public async Task<int> DeleteTerminalAsync(ProjectScope scope, CancellationToken ct)
     {
         var ids = await unitOfWork.Set<Run>().AsNoTracking()
-            .Where(r => r.FinishedAt != null).Select(r => r.Id).ToListAsync(ct);
+            .Where(r => r.FinishedAt != null).Within(scope).Select(r => r.Id).ToListAsync(ct);
         return ids.Count == 0 ? 0 : await DeleteManyAsync(ids, ct);
     }
 

@@ -22,34 +22,43 @@ namespace AgentSmith.Server.Security;
 /// refused by one decision rather than two that can disagree.
 /// </para>
 /// <para>
-/// Nothing here decides WHICH run a caller may watch. A permission on <c>SubscribeRun</c>
-/// says the caller may watch runs — the argument is a scope, and a different spec.
+/// 2026-10-15-4a4dc: WHICH run or dialog is decided for a caller who holds a missing permission
+/// only through a project binding — <see cref="HubProjectScope"/> resolves the invocation's project
+/// and asks there. Every other caller (enforce off, a global hold, no binding carrying what is
+/// missing) meets exactly the filter it met before, with no lookup.
 /// </para>
 /// </summary>
 internal sealed class HubPermissionFilter(
-    TokenAuthorityConfig auth, CallerIdentityResolver identities) : IHubFilter
+    TokenAuthorityConfig auth, CallerIdentityResolver identities, HubProjectScope scope) : IHubFilter
 {
-    public ValueTask<object?> InvokeMethodAsync(
+    public async ValueTask<object?> InvokeMethodAsync(
         HubInvocationContext invocation, Func<HubInvocationContext, ValueTask<object?>> next)
     {
-        var refusal = auth.Enforce ? Refusal(invocation) : null;
-        return refusal is null ? next(invocation) : throw new HubException(refusal);
+        var refusal = auth.Enforce ? await RefusalAsync(invocation) : null;
+        return refusal is null ? await next(invocation) : throw new HubException(refusal);
     }
 
+    /// <summary>The refusal naming what a caller lacks for a method.</summary>
+    internal static string Needs(string method, IEnumerable<string> missing) =>
+        $"'{method}' needs {string.Join(", ", missing)}, which this caller does not hold.";
+
     /// <summary>Why this caller may not invoke this method, or null when it may.</summary>
-    private string? Refusal(HubInvocationContext invocation)
+    private async Task<string?> RefusalAsync(HubInvocationContext invocation)
     {
         var method = invocation.HubMethodName;
         var required = HubMethodPermissions.For(method);
         if (required is null) return Unclassified(method);
-        var missing = Missing(required, invocation.Context.User);
-        return missing.Count == 0 ? null
-            : $"'{method}' needs {string.Join(", ", missing)}, which this caller does not hold.";
+        var caller = invocation.Context.User ?? new ClaimsPrincipal();
+        var missing = Missing(required, caller);
+        if (missing.Count == 0) return null;
+        return scope.Scopes(caller, method, missing)
+            ? await scope.RefusalAsync(invocation, caller, required)
+            : Needs(method, missing);
     }
 
-    private IReadOnlyList<string> Missing(RequiresPermission required, ClaimsPrincipal? caller)
+    private IReadOnlyList<string> Missing(RequiresPermission required, ClaimsPrincipal caller)
     {
-        var held = identities.Resolve(caller ?? new ClaimsPrincipal()).Permissions;
+        var held = identities.Resolve(caller).Permissions;
         return [.. required.Names.Where(name => !held.Contains(name, StringComparer.Ordinal))];
     }
 

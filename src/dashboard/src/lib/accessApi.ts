@@ -26,6 +26,20 @@ export interface PersonGrant {
   roles: string[];
 }
 
+/** 2026-10-15-4a4df: one person in a project binding, against the claim it was written for. */
+export interface PersonRef {
+  claim: string;
+  value: string;
+}
+
+/** 2026-10-15-4a4df: roles held in ONE project by directory groups and named people. */
+export interface ProjectBinding {
+  project: string;
+  groups: string[];
+  people: PersonRef[];
+  roles: string[];
+}
+
 /** The stored role mapping, exactly as the server holds it. What a save sends back. */
 export interface AccessDocument {
   roleClaim: string;
@@ -33,6 +47,7 @@ export interface AccessDocument {
   groupRoles: Record<string, string[]>;
   roles: Record<string, string[]>;
   personGrants: PersonGrant[];
+  projectBindings: ProjectBinding[];
   observationRetentionDays: number;
 }
 
@@ -78,6 +93,10 @@ export interface AccessView {
   roles: AccessRole[];
   permissions: string[];
   findings: string[];
+  /** 2026-10-15-4a4df: the configured project names, sorted as the server compares them. */
+  projects: string[];
+  /** 2026-10-15-4a4df: the permissions a project binding can grant; the rest stay global. */
+  projectScopable: string[];
 }
 
 const ROUTE = "/api/access";

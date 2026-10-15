@@ -17,7 +17,7 @@ export const ANSWER_IN_CONVERSATION = "answer it in the design conversation";
 export function TicketDefaultsTab() {
   const { project, ticketId } = useTicketDetail();
   const defaults = useTicketDefaults();
-  const lacks = useLacksPermission(RUNS_CONTROL);
+  const lacks = useLacksPermission(RUNS_CONTROL, project);
   const act = useDefaultVerdicts(project, ticketId, defaults.changed);
   const entries = defaults.data?.entries ?? [];
   const pending = entries.filter((e) => e.verdict === "pending");

@@ -117,6 +117,31 @@ describe("IdentityView", () => {
     expect(screen.queryByTestId("identity-no-roles")).toBeNull();
   });
 
+  // 2026-10-15-4a4de: what a project binding gave, per project, beside the global list.
+  it("ProjectPermissions_AreListedPerProject", async () => {
+    server.identity.mockResolvedValue(identity({
+      projectPermissions: { billing: ["runs.read", "runs.control"], shop: ["runs.read"] },
+    }));
+
+    renderView();
+
+    const block = await screen.findByTestId("identity-project-permissions");
+    expect(screen.getByTestId("identity-project-billing")).toHaveTextContent("billing");
+    expect(screen.getByTestId("identity-project-billing")).toHaveTextContent("runs.control");
+    expect(screen.getByTestId("identity-project-shop")).toHaveTextContent("runs.read");
+    expect(screen.getByTestId("identity-project-shop")).not.toHaveTextContent("runs.control");
+    expect(block).toHaveTextContent("Per project");
+  });
+
+  it("NoGlobalRolesButAProjectGrant_DoesNotSayNoRoleIsMapped", async () => {
+    server.identity.mockResolvedValue(identity({ projectPermissions: { billing: ["runs.read"] } }));
+
+    renderView();
+
+    expect(await screen.findByTestId("identity-project-permissions")).toBeInTheDocument();
+    expect(screen.queryByTestId("identity-no-roles")).toBeNull();
+  });
+
   it("Identity_TheServerRefusedTheRead_OffersASignIn", async () => {
     server.identity.mockRejectedValue(new ApiRefusal("/api/identity", 401, "sign-in", []));
 

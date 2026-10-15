@@ -1,3 +1,5 @@
+using AgentSmith.Server.Security;
+
 namespace AgentSmith.Tests.TestHelpers;
 
 /// <summary>
@@ -7,7 +9,8 @@ namespace AgentSmith.Tests.TestHelpers;
 /// visible diff in the golden rather than a count that still adds up.
 /// </summary>
 internal sealed record RouteFact(
-    string Method, string Pattern, IReadOnlyList<string> Permissions, string? AnonymousReason)
+    string Method, string Pattern, IReadOnlyList<string> Permissions, string? AnonymousReason,
+    ProjectFrom? Scope = null)
 {
     internal const string Anonymous = "anonymous";
 
@@ -16,5 +19,6 @@ internal sealed record RouteFact(
     internal string Declaration =>
         AnonymousReason is not null ? Anonymous : string.Join(",", Permissions);
 
-    internal string Row => $"{Method}\t{Pattern}\t{Declaration}";
+    /// <summary>2026-10-15-4a4db: where the route's project comes from, or "-".</summary>
+    internal string Row => $"{Method}\t{Pattern}\t{Declaration}\t{Scope?.Wire ?? "-"}";
 }

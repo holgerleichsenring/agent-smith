@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Infrastructure.Persistence;
@@ -100,11 +101,23 @@ public sealed class CriteriaMetQueryTests : IDisposable
         snapshot.Counts.Should().Be(new CriterionCounts(1, 0, 0, 0, 0, 0));
     }
 
-    private async Task<CriteriaMetSnapshot> ReadAsync()
+    private async Task<CriteriaMetSnapshot> ReadAsync(ProjectScope? scope = null)
     {
         await using var ctx = new AgentSmithDbContext(Options());
-        var runs = await new CriteriaMetRepository(ctx).GetJudgedCodeRunsAsync(CancellationToken.None);
+        var runs = await new CriteriaMetRepository(ctx).GetJudgedCodeRunsAsync(scope ?? ProjectScope.Everything, CancellationToken.None);
         return new CriteriaMetAggregator(new RunCriteriaCounter()).Aggregate(runs);
+    }
+
+    [Fact]
+    public async Task CriteriaMet_ScopedCaller_AggregatesOnlyTheirProjects()
+    {
+        SeedRun("run-a", "alpha", June, [Criterion("a", "met")]);
+        SeedRun("run-b", "beta", June, [Criterion("b", "unmet")]);
+
+        var snapshot = await ReadAsync(ProjectScope.Of(["alpha"]));
+
+        snapshot.Runs.Should().Be(1);
+        snapshot.Counts.Should().Be(new CriterionCounts(1, 0, 0, 0, 0, 0));
     }
 
     private static AcceptanceCriterionView Criterion(string text, string status) => new(text, status, null);

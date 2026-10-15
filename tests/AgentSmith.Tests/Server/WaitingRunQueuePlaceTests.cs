@@ -187,7 +187,7 @@ public sealed class WaitingRunQueuePlaceTests : IDisposable
 
     private Task<(RunSnapshot[] Active, RunSnapshot[] Recent)> BuildOverviewAsync() =>
         RunListComposer.BuildOverviewAsync(
-            NewRepository(), _queue, CancellationToken.None, activeRunLease: Lease(),
+            NewRepository(), ProjectScope.Everything, _queue, CancellationToken.None, activeRunLease: Lease(),
             clock: TimeProvider.System);
 
     private Task<string> EnqueueResumeAsync(string ticketId, string runId) =>

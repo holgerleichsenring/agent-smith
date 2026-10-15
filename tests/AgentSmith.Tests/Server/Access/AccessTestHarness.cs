@@ -34,7 +34,9 @@ internal sealed class AccessTestHarness : IDisposable
     private readonly SqliteConnection _connection;
     private readonly ServiceProvider _provider;
 
-    public AccessTestHarness(string? adminGrant = null, TokenAuthorityConfig? auth = null)
+    /// <param name="projects">2026-10-15-4a4df: the project names the configuration holds.</param>
+    public AccessTestHarness(
+        string? adminGrant = null, TokenAuthorityConfig? auth = null, IReadOnlyList<string>? projects = null)
     {
         Auth = auth ?? new TokenAuthorityConfig();
         _connection = new SqliteConnection("Data Source=:memory:");
@@ -74,8 +76,8 @@ internal sealed class AccessTestHarness : IDisposable
         Buffer = new CallerObservationBuffer(TimeProvider.System);
         Remover = new PersonRemover(Mapping, Observed, Buffer, Writer);
         Reader = new AccessSurfaceReader(
-            Mapping, Observed, new AccessViewComposer(new AccessPeopleComposer()),
-            NullLogger<AccessSurfaceReader>.Instance);
+            Mapping, Observed, new AccessViewComposer(new AccessPeopleComposer(), new ProjectBindingFindings()),
+            ProjectScopeUnderTest.Projects([.. projects ?? []]), NullLogger<AccessSurfaceReader>.Instance);
     }
 
     public TokenAuthorityConfig Auth { get; }

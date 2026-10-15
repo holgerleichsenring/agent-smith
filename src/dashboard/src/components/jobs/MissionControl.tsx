@@ -15,6 +15,7 @@ import { Section } from "./mission/Section";
 import { useRunBucketFilter, type RunBucket } from "@/lib/RunBucketFilter";
 import { RenderBoundary } from "@/components/shell/RenderBoundary";
 import { RefusalSurface } from "@/components/shell/RefusalSurface";
+import { NoProjectReach } from "@/components/shell/NoProjectReach";
 
 // p0343: mission control — the home screen ranks runs by what needs the
 // operator: Waiting for input → Running → Queued → Finished.
@@ -103,7 +104,7 @@ export function MissionControl() {
         <ConnectionState state={connectionState} refusal={refusal} />
         <div className="rows">
           <div className="rrow" style={{ cursor: "default", justifyContent: "center", display: "flex" }}>
-            No runs yet. Trigger one via the CLI, a webhook, or a poller.
+            <NoProjectReach>No runs yet. Trigger one via the CLI, a webhook, or a poller.</NoProjectReach>
           </div>
         </div>
       </div>

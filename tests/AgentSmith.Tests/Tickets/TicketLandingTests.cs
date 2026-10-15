@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Contracts.Reviews;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Server.Models;
@@ -22,7 +23,7 @@ public sealed class TicketLandingTests : IDisposable
     };
 
     private async Task<TicketSummaryView> RowAsync() =>
-        (await _h.List.ReadAsync(new TicketListRequest("alpha", null, null, null), default)).Tickets.Single();
+        (await _h.List.ReadAsync(new TicketListRequest(ProjectScope.Single("alpha"), null, null, null), default)).Tickets.Single();
 
     [Fact]
     public async Task TicketBuckets_AllPrsClosedUnmerged_IsPrClosedWithLandingUnmerged()

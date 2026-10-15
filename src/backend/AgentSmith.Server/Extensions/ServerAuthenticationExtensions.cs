@@ -71,6 +71,8 @@ internal static class ServerAuthenticationExtensions
         if (auth is not { IsUsable: true }) return app;
         app.UseAuthentication();
         app.UseAuthorization();
+        // 2026-10-15-4a4db: after authorization, where the endpoint is known; never on a non-enforcing one.
+        if (auth.Enforce) app.UseMiddleware<ProjectScopeMiddleware>();
         return app;
     }
 

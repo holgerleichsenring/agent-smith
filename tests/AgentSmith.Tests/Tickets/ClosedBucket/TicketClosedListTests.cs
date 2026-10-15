@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Contracts.Reviews;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Tickets;
@@ -49,7 +50,7 @@ public sealed class TicketClosedListTests : IDisposable
         await _h.AddAsync(Run("r-1", status: "failed"), Step("r-1"), Run("r-2", "43", status: "failed"), Step("r-2"));
         await _h.CloseAsync(ClosedAt);
 
-        await _h.List.ReadAsync(new TicketListRequest("alpha", null, null, null), default);
+        await _h.List.ReadAsync(new TicketListRequest(ProjectScope.Single("alpha"), null, null, null), default);
 
         _h.Kicks.Reader.TryRead(out var kick).Should().BeTrue();
         (kick!.TicketId, _h.Kicks.Reader.Count).Should().Be(("43", 0));
@@ -63,7 +64,7 @@ public sealed class TicketClosedListTests : IDisposable
             Run("r-4", "44", status: "cancelled"), Step("r-4"), Run("r-5", "45"), Step("r-5"));
         await _h.CloseAsync(ClosedAt, ticket: "41");
 
-        var counts = (await _h.List.ReadAsync(new TicketListRequest("alpha", null, null, null), default)).Counts;
+        var counts = (await _h.List.ReadAsync(new TicketListRequest(ProjectScope.Single("alpha"), null, null, null), default)).Counts;
 
         (counts.Closed, counts.Failed, counts.PrClosed, counts.Idle).Should().Be((1, 1, 1, 2));
     }

@@ -33,9 +33,9 @@ internal static class RunControlEndpoints
 {
     internal static WebApplication MapRunControlEndpoints(this WebApplication app)
     {
-        app.MapPost("/api/runs/{runId}/cancel", CancelAsync).Needs(Security.Permissions.RunsControl);
+        app.MapPost("/api/runs/{runId}/cancel", CancelAsync).Needs(Security.Permissions.RunsControl).InProject(Security.ProjectFrom.Run);
         // p0327: the dashboard's answer affordance for waiting_for_input runs.
-        app.MapPost("/api/runs/{runId}/answer", AnswerAsync).Needs(Security.Permissions.RunsControl);
+        app.MapPost("/api/runs/{runId}/answer", AnswerAsync).Needs(Security.Permissions.RunsControl).InProject(Security.ProjectFrom.Run);
         return app;
     }
 

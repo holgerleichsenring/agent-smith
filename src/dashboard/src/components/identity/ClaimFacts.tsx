@@ -9,6 +9,7 @@ import type { CallerIdentity } from "@/lib/identityApi";
 // and only one of the two is fixed by changing the directory.
 
 export function ClaimFacts({ identity }: { identity: CallerIdentity }) {
+  const projects = Object.entries(identity.projectPermissions ?? {}).filter(([, granted]) => granted.length > 0);
   return (
     <div className="space-y-6" data-testid="identity-facts">
       <section>
@@ -35,9 +36,10 @@ export function ClaimFacts({ identity }: { identity: CallerIdentity }) {
         <Heading>What it resolved to</Heading>
         <Values testId="identity-roles" label="Roles" values={identity.roles} />
         <Values testId="identity-permissions" label="Permissions" values={identity.permissions} />
+        {projects.length > 0 && <PerProject projects={projects} />}
       </section>
 
-      {identity.roles.length === 0 && <NoRolesYet />}
+      {identity.roles.length === 0 && projects.length === 0 && <NoRolesYet />}
 
       {identity.findings.length > 0 && (
         <section data-testid="identity-findings">
@@ -49,6 +51,23 @@ export function ClaimFacts({ identity }: { identity: CallerIdentity }) {
           </ul>
         </section>
       )}
+    </div>
+  );
+}
+
+// 2026-10-15-4a4de: what a project binding gave, per project — held there only, beside the global list above.
+function PerProject({ projects }: { projects: [string, string[]][] }) {
+  return (
+    <div className="mt-2 text-sm" data-testid="identity-project-permissions">
+      <span className="text-[var(--color-ink-mid)]">Per project</span>
+      <ul className="mt-1 space-y-0.5">
+        {projects.map(([project, granted]) => (
+          <li key={project} className="text-xs" data-testid={`identity-project-${project}`}>
+            <span className="font-semibold">{project}</span>{" "}
+            <span className="font-mono">{granted.join(", ")}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

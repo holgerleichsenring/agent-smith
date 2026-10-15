@@ -11,20 +11,20 @@ namespace AgentSmith.Infrastructure.Persistence.Repositories;
 /// </summary>
 public sealed class RunRepository(IUnitOfWork unitOfWork)
 {
-    public async Task<List<Run>> GetActiveRunsAsync(CancellationToken ct)
+    public async Task<List<Run>> GetActiveRunsAsync(ProjectScope scope, CancellationToken ct)
     {
         var runs = await unitOfWork.Set<Run>().AsNoTracking()
-            .Where(r => r.FinishedAt == null)
+            .Where(r => r.FinishedAt == null).Within(scope)
             .OrderByDescending(r => r.Id) // sortable run id (p0156) = newest-first, SQLite-safe
             .ToListAsync(ct);
         await HydrateListChildrenAsync(runs, ct);
         return runs;
     }
 
-    public async Task<List<Run>> GetRecentRunsAsync(int limit, CancellationToken ct)
+    public async Task<List<Run>> GetRecentRunsAsync(ProjectScope scope, int limit, CancellationToken ct)
     {
         var runs = await unitOfWork.Set<Run>().AsNoTracking()
-            .Where(r => r.FinishedAt != null)
+            .Where(r => r.FinishedAt != null).Within(scope)
             .OrderByDescending(r => r.Id)
             .Take(limit)
             .ToListAsync(ct);
@@ -38,10 +38,10 @@ public sealed class RunRepository(IUnitOfWork unitOfWork)
     // (same constraint as the cancel/wall-time scans), so the child-free run rows
     // are ordered by the sortable id and the cursor is applied client-side; only the
     // page's children are then hydrated.
-    public async Task<List<Run>> GetRunsBeforeAsync(DateTimeOffset before, int limit, CancellationToken ct)
+    public async Task<List<Run>> GetRunsBeforeAsync(ProjectScope scope, DateTimeOffset before, int limit, CancellationToken ct)
     {
         var finished = await unitOfWork.Set<Run>().AsNoTracking()
-            .Where(r => r.FinishedAt != null)
+            .Where(r => r.FinishedAt != null).Within(scope)
             .OrderByDescending(r => r.Id)
             .ToListAsync(ct);
         var page = finished.Where(r => r.StartedAt < before).Take(limit).ToList();

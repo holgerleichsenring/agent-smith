@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models.Access;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Security;
 
@@ -9,9 +10,11 @@ namespace AgentSmith.Server.Services.Access;
 /// claim names. Four panes over ONE document plus the observed callers, assembled here
 /// rather than by four routes, so no two panes can disagree about the same save.
 /// </summary>
-internal sealed class AccessViewComposer(AccessPeopleComposer people)
+internal sealed class AccessViewComposer(AccessPeopleComposer people, ProjectBindingFindings bindings)
 {
-    public AccessView Compose(ResolvedRoleMapping current, IReadOnlyList<ObservedCaller> observed)
+    /// <param name="projects">2026-10-15-4a4df: the configured project names, as the configuration reads now.</param>
+    public AccessView Compose(
+        ResolvedRoleMapping current, IReadOnlyList<ObservedCaller> observed, IReadOnlyList<string> projects)
     {
         ArgumentNullException.ThrowIfNull(current);
         ArgumentNullException.ThrowIfNull(observed);
@@ -24,7 +27,9 @@ internal sealed class AccessViewComposer(AccessPeopleComposer people)
             current.Mapping.ObservationRetentionDays,
             rows, groups, Roles(current, rows, groups),
             Security.Permissions.All,
-            [.. current.Catalog.Findings.Concat(current.Persons.Findings)]);
+            [.. current.Catalog.Findings.Concat(current.Persons.Findings).Concat(bindings.Of(current, projects))],
+            [.. projects.Order(ConfigNames.Comparer)],
+            [.. Security.Permissions.ProjectScopable.Order(StringComparer.Ordinal)]);
     }
 
     private static IReadOnlyList<AccessGroupView> Groups(

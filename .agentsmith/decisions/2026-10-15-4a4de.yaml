@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-15-4a4de
+
+decisions:
+  - category: Architecture
+    chose: "useLacksPermission(permission, project?) over a pure holds(identity, permission, project?) in lib/projectPermissions.ts; each ticket act passes the project its route names"
+    over: "A second hook per project, or asking 'held in any project' when no project is given"
+    reason: |
+      The client asks the question the server's route check asks. No project keeps today's global rule, so a call
+      site that forgets the project can only hide an act, never offer one the server refuses.
+  - category: Architecture
+    chose: "Project names fold case on the client (toLowerCase on both sides)"
+    over: "An ordinal key lookup"
+    reason: |
+      ProjectPermissions is keyed in the binding's spelling under ConfigNames.Comparer (OrdinalIgnoreCase), while a
+      ticket carries the configured spelling; an ordinal lookup would hide an act the server allows.
+  - category: Architecture
+    chose: "Clear finished asks holdsInAnyProject(identity, 'runs.delete')"
+    over: "useLacksPermission without a project"
+    reason: |
+      DELETE /api/runs?state=terminal names no project, admits a holder in any project and clears only within the
+      caller's projects (4a4dd); the global rule would hide a button the server honours.
+  - category: Architecture
+    chose: "useProjectReach reads /api/auth/requirements, then GET /api/projects (bare string array), only for a signed-in caller without global runs.read, and only inside an empty branch"
+    over: "Counting the identity's projectPermissions keys, or reading /api/projects for every caller"
+    reason: |
+      A binding may name a project no longer configured; the server's configured list is the truth. Enforce off and
+      global readers read nothing new. A 403 (runs.read held nowhere) stays 'unknown': those pages already show the
+      server's refusal, so 'none' is the caller whose runs.read sits only on unconfigured projects.
+  - category: Testing
+    chose: "The surfaces' empty-state pairs mock useProjectReach; the hook has its own tests over mocked identity and APIs"
+    over: "Driving the real hook through each surface's fetch mocks"
+    reason: |
+      Five surfaces mock their fetching in five different ways; the wrapping is what each surface adds, the reach
+      rule is tested once.

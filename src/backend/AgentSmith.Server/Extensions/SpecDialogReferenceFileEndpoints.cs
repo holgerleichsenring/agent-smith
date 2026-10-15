@@ -23,10 +23,10 @@ internal static class SpecDialogReferenceFileEndpoints
     internal static WebApplication MapSpecDialogReferenceFileEndpoints(this WebApplication app)
     {
         const string files = "/api/spec-dialog/references/{setId}/files";
-        app.MapGet("/api/spec-dialog/references/hashes", (Delegate)HashesAsync).Needs(Security.Permissions.DialogWrite);
-        app.MapGet(files, (Delegate)FilesAsync).Needs(Security.Permissions.DialogWrite);
-        app.MapGet($"{files}/preview", (Delegate)PreviewAsync).Needs(Security.Permissions.DialogWrite);
-        app.MapGet($"{files}/content", (Delegate)ContentAsync).Needs(Security.Permissions.DialogWrite);
+        app.MapGet("/api/spec-dialog/references/hashes", (Delegate)HashesAsync).Needs(Security.Permissions.DialogWrite).InProject(Security.ProjectFrom.Dialog);
+        app.MapGet(files, (Delegate)FilesAsync).Needs(Security.Permissions.DialogWrite).InProject(Security.ProjectFrom.Dialog);
+        app.MapGet($"{files}/preview", (Delegate)PreviewAsync).Needs(Security.Permissions.DialogWrite).InProject(Security.ProjectFrom.Dialog);
+        app.MapGet($"{files}/content", (Delegate)ContentAsync).Needs(Security.Permissions.DialogWrite).InProject(Security.ProjectFrom.Dialog);
         return app;
     }
 

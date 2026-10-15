@@ -34,11 +34,11 @@ internal static class SpecDialogUploadDeletionEndpoints
     internal static WebApplication MapSpecDialogUploadDeletionEndpoints(this WebApplication app)
     {
         app.MapDelete("/api/spec-dialog/references/{setId}", (Delegate)DeleteSetAsync)
-           .Needs(Security.Permissions.DialogWrite);
+           .Needs(Security.Permissions.DialogWrite).InProject(Security.ProjectFrom.Dialog);
         app.MapDelete("/api/spec-dialog/references/{setId}/files", (Delegate)DeleteFileAsync)
-           .Needs(Security.Permissions.DialogWrite);
+           .Needs(Security.Permissions.DialogWrite).InProject(Security.ProjectFrom.Dialog);
         app.MapDelete("/api/spec-dialog/images/{imageId:long}", (Delegate)DeleteImageAsync)
-           .Needs(Security.Permissions.DialogWrite);
+           .Needs(Security.Permissions.DialogWrite).InProject(Security.ProjectFrom.Dialog);
         return app;
     }
 

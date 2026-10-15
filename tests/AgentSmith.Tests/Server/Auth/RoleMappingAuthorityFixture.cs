@@ -1,3 +1,7 @@
+using AgentSmith.Server.Contracts;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
+
 namespace AgentSmith.Tests.Server.Auth;
 
 /// <summary>
@@ -14,6 +18,18 @@ public sealed class RoleMappingAuthorityFixture : AuthorityFixture
 
     /// <summary>A role this installation added: config.read and nothing else.</summary>
     public const string CustomRole = "config-viewer";
+
+    /// <summary>
+    /// 2026-10-15-4a4da: the stored mapping is STATED, because this boot migrates no database.
+    /// It answers nothing until a case stores a mapping, so the file seed governs as before.
+    /// </summary>
+    internal StoredMappingStub Stored { get; } = new(null);
+
+    protected override Action<IServiceCollection>? Services => services =>
+    {
+        services.RemoveAll<IStoredRoleMapping>();
+        services.AddSingleton<IStoredRoleMapping>(Stored);
+    };
 
     protected override string AuthYaml(string authority) => $"""
         auth:

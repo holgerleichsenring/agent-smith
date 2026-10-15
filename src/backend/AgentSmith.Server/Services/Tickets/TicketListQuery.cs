@@ -17,15 +17,14 @@ public sealed class TicketListQuery(IServiceScopeFactory scopes)
     /// <summary>Every ticket an operator works in a quarter; the response says when it bit.</summary>
     public const int Ceiling = 5000;
 
-    public async Task<TicketListRows> ReadAsync(string? project, CancellationToken ct)
+    public async Task<TicketListRows> ReadAsync(ProjectScope project, CancellationToken ct)
     {
         using var scope = scopes.CreateScope();
         var uow = scope.ServiceProvider.GetRequiredService<IUnitOfWork>();
         // Run.Steps is an unmapped holder (RunChildConfiguration), so the EXISTS is spelled out.
         var steps = uow.Set<RunStep>();
         var runs = uow.Set<Run>().AsNoTracking()
-            .Where(r => r.Pipeline == PipelinePresets.CodeName && r.TicketId != "");
-        if (!string.IsNullOrEmpty(project)) runs = runs.Where(r => r.Project == project);
+            .Where(r => r.Pipeline == PipelinePresets.CodeName && r.TicketId != "").Within(project);
         var rows = await runs.OrderByDescending(r => r.Id).Take(Ceiling + 1)
             .Select(r => new TicketRunRow(new Run
             {

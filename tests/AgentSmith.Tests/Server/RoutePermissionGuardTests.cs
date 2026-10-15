@@ -206,6 +206,11 @@ public sealed class RoutePermissionGuardTests
         Declaration("GET", "/api/config/connections/{id}/repos").Should().Equal(Permissions.ConfigRead);
     }
 
+    // 2026-10-15-4a4dd: the project names a caller may read — a list, filtered by caller.
+    [Fact]
+    public void RoutePermissionGuard_ProjectList_NeedsRunsRead() =>
+        Declaration("GET", "/api/projects").Should().Equal(Permissions.RunsRead);
+
     // 2026-10-02-5f89d: the init button's read of the live run is a run read — any viewer of
     // runs may see it; starting one still needs projects.init.
     [Fact]

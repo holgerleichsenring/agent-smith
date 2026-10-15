@@ -19,6 +19,7 @@ internal static class AccessSurfaceExtensions
         // Replaced by the EF store wherever relational persistence is wired in.
         services.TryAddSingleton<IObservedCallerStore, EmptyObservedCallerStore>();
         services.AddSingleton<AccessPeopleComposer>();
+        services.AddSingleton<ProjectBindingFindings>();
         services.AddSingleton<AccessViewComposer>();
         services.AddSingleton<AccessSurfaceReader>();
         services.AddSingleton<CustomRoleRules>();

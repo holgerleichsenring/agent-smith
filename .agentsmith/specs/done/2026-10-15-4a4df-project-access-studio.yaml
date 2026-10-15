@@ -1,0 +1,177 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-15-4a4df
+goal: "An administrator binds directory groups and people to roles per project in a Projects pane of the Access Studio, saved with the access document; forget and role removal respect bindings."
+
+applies_to: "dashboard (the Access Studio's Projects pane, accessApi types, derive helpers) and backend (AccessView with the configured projects and the project-scopable set, ProjectBindingFindings as the one producer of binding findings, the access save's binding check, PersonRemover and RoleRemovalGuard over ProjectBindings) and docs (access-control.md project bindings)"
+
+requires: [2026-10-15-4a4da, 2026-10-15-4a4dd]
+
+facts:
+  - claim: "The access surface is one GET and one whole-document PUT, both under access.* permissions, plus a DELETE that forgets a person; the PUT answers the freshly read view."
+    evidence: "src/backend/AgentSmith.Server/Extensions/AccessEndpoints.cs:24-27, src/backend/AgentSmith.Server/Extensions/AccessEndpoints.cs:32-40, src/backend/AgentSmith.Server/Extensions/AccessEndpoints.cs:44-52, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:3, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:19, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:133"
+  - claim: "The save binds the body to RoleMappingConfig to run the custom-role and role-removal checks, then hands it to SaveSetting, which normalizes it onto the typed model before storing; a field the model declares (ProjectBindings, from 4a4da) therefore round-trips through PUT /api/access without a route change, and an undeclared key is dropped."
+    evidence: "src/backend/AgentSmith.Server/Services/Access/AccessGrantWriter.cs:34-41, src/backend/AgentSmith.Server/Services/Access/AccessGrantWriter.cs:48-58, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/DbConfigStore.cs:115-116, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigSettingsAccess.cs:31-43"
+  - claim: "RoleMappingConfig holds RoleClaim, GroupClaim, GroupRoles, Roles, PersonGrants, ProjectBindings (4a4da, default empty) and ObservationRetentionDays; ProjectBinding is { Project, Groups, People: PersonRef { Claim, Value }, Roles }."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/RoleMappingConfig.cs:15-51, src/backend/AgentSmith.Contracts/Models/Configuration/ProjectBinding.cs:9-22, src/backend/AgentSmith.Contracts/Models/Configuration/PersonRef.cs:9-16"
+  - claim: "The binding reader skips a blank-project binding, keeps only a role's project-scopable permissions, ignores a person ref on another claim, and reports nothing — every binding finding is composed elsewhere."
+    evidence: "src/backend/AgentSmith.Server/Security/ProjectBindingReader.cs:13-16, src/backend/AgentSmith.Server/Security/ProjectBindingReader.cs:24-31, src/backend/AgentSmith.Server/Security/ProjectBindingReader.cs:55-59"
+  - claim: "The view carries the stored document verbatim (what a save sends back), the catalog's permission names, and findings concatenated from the role catalog and the person grants only."
+    evidence: "src/backend/AgentSmith.Server/Models/AccessView.cs:11-16, src/backend/AgentSmith.Server/Models/AccessView.cs:22-33, src/backend/AgentSmith.Server/Services/Access/AccessViewComposer.cs:20-27"
+  - claim: "The reader composes the view from the mapping in force and the observed callers; it knows nothing about configured projects."
+    evidence: "src/backend/AgentSmith.Server/Services/Access/AccessSurfaceReader.cs:13-20, observed: 2026-10-15, wc -l AccessSurfaceReader.cs 36, AccessViewComposer.cs 63, AccessView.cs 33"
+  - claim: "Configured project names are read from the live configuration through TicketProjects.All(), which is IConfigurationLoader.LoadConfig(ServerContext.ConfigPath).Projects; TicketProjects is registered by AddProjectScope."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketProjects.cs:10-16, src/backend/AgentSmith.Server/Extensions/ProjectScopeExtensions.cs:18, src/backend/AgentSmith.Contracts/Models/Configuration/AgentSmithConfig.cs:19, src/backend/AgentSmith.Server/Services/ServerCompositionBuilder.cs:34, src/backend/AgentSmith.Server/Services/ServerCompositionBuilder.cs:72"
+  - claim: "Project names compare case-INSENSITIVELY: the resolver keys Projects by ConfigNames.Comparer, which is OrdinalIgnoreCase. A binding naming 'Alpha' therefore addresses the configured 'alpha'."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ConfigCatalogResolver.cs:75, src/backend/AgentSmith.Contracts/Models/Configuration/ConfigNames.cs:24"
+  - claim: "The server's loader never throws from LoadConfig: an unusable or unreadable store answers a degraded EMPTY configuration (no projects) and records a startup finding."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/DbConfigurationLoader.cs:39-59"
+  - claim: "ResolvedRoleMapping is built from the mapping and the name claim alone, so no finding produced beside Catalog/Persons can know which projects are configured; a 'not configured' finding can only be composed where the configured names are read — the access view."
+    evidence: "src/backend/AgentSmith.Server/Security/ResolvedRoleMapping.cs:15-21"
+  - claim: "Forgetting a person writes a COPY of the mapping that lists every field by hand, ProjectBindings included since 4a4da; Withdraw compares person grants only, so the person's PersonRef entries in bindings are never withdrawn and a person held only by a binding is never saved away."
+    evidence: "src/backend/AgentSmith.Server/Services/Access/PersonRemover.cs:52-59, src/backend/AgentSmith.Server/Services/Access/PersonRemover.cs:64-77, observed: 2026-10-15, wc -l PersonRemover.cs 78"
+  - claim: "Removing a custom role is refused while a holder is visible, and the holders are person grants, mapped groups and observed callers only; a role held solely through a project binding would be removed silently."
+    evidence: "src/backend/AgentSmith.Server/Services/Access/RoleRemovalGuard.cs:30-46, src/backend/AgentSmith.Server/Services/Access/RoleRemovalGuard.cs:48-62, observed: 2026-10-15, wc -l RoleRemovalGuard.cs 89"
+  - claim: "The admin-reachable invariant counts person grants, group mappings, a read role claim and the environment grant; it judges the whole document on every role-mapping write. A project binding is not an admin route and needs no change there."
+    evidence: "src/backend/AgentSmith.Server/Security/AdminRoute.cs:24-35, src/backend/AgentSmith.Server/Services/Access/AdminReachableConfigDocumentStore.cs:57-63"
+  - claim: "The permission catalog is a flat list of twenty names; Permissions.ProjectScopable (4a4da) marks runs.read, runs.watch, runs.control, runs.delete, projects.init and dialog.write."
+    evidence: "src/backend/AgentSmith.Server/Security/Permissions.cs:70-82"
+  - claim: "The role catalog answers a role list's permission union (an unknown role contributing nothing), and the person grant reader reports a grant on a stale claim as a finding; the access-control reference documents grants, findings and the admin route, and has no project section."
+    evidence: "src/backend/AgentSmith.Server/Security/RoleCatalog.cs:36-41, src/backend/AgentSmith.Server/Security/PersonGrantReader.cs:54-57, docs/reference/security/access-control.md:203-212, docs/reference/security/access-control.md:221-227, observed: 2026-10-15, wc -l access-control.md 348"
+  - claim: "The studio is four tabs over one draft, saved whole when it differs from the stored document; findings render as warn lines above the tabs; the draft restarts from view.document on every load."
+    evidence: "src/dashboard/src/components/access/AccessStudio.tsx:19, src/dashboard/src/components/access/AccessStudio.tsx:28, src/dashboard/src/components/access/AccessStudio.tsx:35, src/dashboard/src/components/access/AccessStudio.tsx:83-94, observed: 2026-10-15, wc -l AccessStudio.tsx 151"
+  - claim: "The dashboard's AccessDocument and AccessView types list their fields explicitly and the save sends the AccessDocument as typed."
+    evidence: "src/dashboard/src/lib/accessApi.ts:30-37, src/dashboard/src/lib/accessApi.ts:68-81, src/dashboard/src/lib/accessApi.ts:89-94, observed: 2026-10-15, wc -l accessApi.ts 100"
+  - claim: "The panes' building blocks exist: RoleChips (granted chips with withdraw, a select offering the rest), groupsOf over carried and mapped group values, peopleOf over observed and hand-named people, and a person written against the claim callers are named by today."
+    evidence: "src/dashboard/src/components/access/RoleChips.tsx:7-28, src/dashboard/src/components/access/derive.ts:21-45, src/dashboard/src/components/access/PeoplePane.tsx:59-66, observed: 2026-10-15, wc -l derive.ts 95, RoleChips.tsx 74"
+  - claim: "Removing a custom role in the Roles pane deletes it from draft.roles only; the server's removal guard is what names the holders."
+    evidence: "src/dashboard/src/components/access/RoleEditor.tsx:52-54"
+  - claim: "The studio's styles live under .mock-access in mock-parity.css."
+    evidence: "src/dashboard/src/styles/mock-parity.css:1578, src/dashboard/src/styles/mock-parity.css:1588-1589, observed: 2026-10-15, wc -l mock-parity.css 1932"
+  - claim: "The access harness constructs the writer, remover and reader by hand over a migrated SQLite store with the admin invariant wrapped around it; the studio tests mock accessApi and build the view in one helper."
+    evidence: "tests/AgentSmith.Tests/Server/Access/AccessTestHarness.cs:53-78, src/dashboard/src/components/access/__tests__/AccessStudio.test.tsx:12-21, src/dashboard/src/components/access/__tests__/AccessStudio.test.tsx:29-39, src/dashboard/src/components/access/__tests__/AccessStudio.test.tsx:57-79, observed: 2026-10-15, wc -l AccessTestHarness.cs 121, AccessStudio.test.tsx 274, AccessSurfaceTests.cs 166"
+  - claim: "The dashboard's tsconfig includes every .ts/.tsx file, tests too, so pnpm build type-checks the test helpers: a new REQUIRED field on AccessDocument or AccessView fails the build until document() and viewWith() carry it."
+    evidence: "src/dashboard/tsconfig.json:22, src/dashboard/src/components/access/__tests__/AccessStudio.test.tsx:29-39, src/dashboard/src/components/access/__tests__/AccessStudio.test.tsx:56-79"
+  - claim: "Access services are registered unconditionally as singletons in AddAccessSurface."
+    evidence: "src/backend/AgentSmith.Server/Extensions/AccessSurfaceExtensions.cs:17-27"
+
+assumptions:
+  - "JSON on this surface is camelCase (the dashboard reads personGrants), so the field arrives as projectBindings with people entries { claim, value }."
+
+scope:
+  in: >
+    VIEW: AccessView gains Projects (the configured project names, sorted under ConfigNames.Comparer) and ProjectScopable (the catalog's
+    project-scopable permission names); AccessSurfaceReader takes TicketProjects and passes
+    All().Keys to the composer (no catch: the loader already degrades to an empty
+    configuration instead of throwing, and then every bound project honestly reads "not configured", which is what
+    the runtime applies too); AccessViewComposer appends ProjectBindingFindings.Of(current, projects) to Findings.
+    FINDINGS: ProjectBindingFindings (Server/Services/Access, an injected singleton, at most 60 lines) is the ONE producer of binding
+    findings, read only by AccessViewComposer (access.read) and never by /api/identity: (1) a binding whose Project is
+    blank or matches no configured name under ConfigNames.Comparer — "The project binding for '<project>' names no
+    configured project; it is kept and applies if the project is configured again."; (2) a binding whose roles'
+    current.Catalog.Permissions holds no name in Permissions.ProjectScopable — "The project binding for '<project>'
+    grants nothing: none of its roles carries a run, init or dialog permission."; (3) a PersonRef whose Claim is not
+    current.NameClaim — "A person in the project binding for '<project>' is written against the claim '<claim>', but
+    callers are named by '<name claim>'; it grants nothing until it is written again." A role's global-only
+    permissions are no finding (4a4da drops them silently; the pane shows them as ignored). With no bindings stored, Findings and every existing pane are unchanged, enforce on or off. SAVE: AccessGrantWriter.SaveAsync refuses, before storing, a binding whose Project is blank
+    ("A project binding names no project.") — the only refusal; an unknown project and a binding that grants nothing
+    (both this spec's findings) stay findings, because a project may be
+    recreated and a role may be edited. FORGET: PersonRemover, whose fresh copy carries ProjectBindings since 4a4da,
+    withdraws every PersonRef whose Value is one of the forgotten names from every binding; a binding THIS withdrawal
+    left with no groups and no people is dropped, while a binding that was already memberless is kept untouched (an
+    administrator may have saved one before naming its members); the mapping is saved when a grant OR a binding
+    entry went. ROLE REMOVAL: RoleRemovalGuard.Holders also names
+    "<group or claim:value> in <project> (project binding)" for every binding holding the role, so removing a custom
+    role held only through a binding is refused with the binding named. DASHBOARD: accessApi.ts gains PersonRef,
+    ProjectBinding, AccessDocument.projectBindings, AccessView.projects and AccessView.projectScopable.
+    projectBindings.ts (components/access) holds the pure draft operations: projectsOf(view, draft) = configured
+    projects ∪ projects named by draft bindings, matched case-insensitively as the server matches them (a binding
+    for 'Alpha' sits under the configured 'alpha' row, not in a second "not configured" row), each with its bindings
+    and configured: boolean; addBinding,
+    removeBinding, and set-groups/people/roles of one binding addressed by (project, index). ProjectsPane.tsx: a
+    PagedRows table, one row per project (search by name; filters All / Bound / Unbound / Not configured), the row
+    shows its bindings as cards, each with group chips (a select of view.groups values plus a typed value, as the
+    Groups pane adds one), people chips (a select of peopleOf names plus a typed value, written against
+    view.nameClaim as the People pane writes a grant), RoleChips over roles offered only when they carry at least
+    one project-scopable permission, and the effective project permissions of its roles listed under the card
+    (scopable only, and "ignored here: <global-only>" when a held role carries others); "Add binding" per project
+    and "Remove" per card; a project named only by bindings shows "not configured" beside its name. AccessStudio
+    gains the fifth tab "Projects" with the count of projects that have at least one binding; the draft, dirty check,
+    save and findings stay as they are. CSS: the card, member-chip and not-configured classes under .mock-access.
+    DOCS: docs/reference/security/access-control.md gains a "Project bindings" section (348 -> at most 400): bindings
+    beside the global grants, the six project-scopable permissions and that config.* / secrets.* stay global, names
+    compared case-insensitively, the three findings and where they show, a resource of another project answering like
+    a missing one, lists and live updates holding only the caller's projects, and that a tracker shared by two
+    projects is a shared trust boundary (2026-10-15-4a4db's decision). The series merges as one, so the section
+    describes the merged behaviour of 4a4db..4a4dd.
+  out: >
+    The ProjectBinding/PersonRef contracts, Permissions.ProjectScopable, the resolver's ProjectPermissions (4a4da
+    computes no finding), the store / Config Studio settings route / import / export round-trip and RoleMappingConfig.IsEmpty —
+    2026-10-15-4a4da. Route project sources, 404-not-403 and the guard column — 4a4db (the access routes carry only
+    global access.* permissions and need no project source). Hub methods and per-project fan-out — 4a4dc. List
+    filtering and GET /api/projects — 4a4dd (the studio reads configured projects from its own view, so it does not
+    wait on 4a4dd). /api/identity projectPermissions, useLacksPermission(p, project), project pickers elsewhere and
+    refusal states — 4a4de. Showing a person's project roles in the People pane, and counting binding holders in the
+    Roles pane's people/groups tallies — nobody: the Projects pane is where a binding is read. An enforce-off note in
+    the pane — nobody: no other pane carries one.
+
+decisions:
+  - key: "THE PICKER READS CONFIGURED PROJECTS FROM THE ACCESS VIEW. One GET answers everything the studio renders (the surface's own rule), and a binding naming a removed project must still render — so the pane unions configured names with bound ones instead of asking GET /api/projects, which 4a4dd adds for non-admin callers."
+  - key: "SEVERAL BINDINGS PER PROJECT. One binding is one member set times one role set; 'team A operates, team B reads' in one project needs two. The pane groups cards under the project row instead of forcing one binding per project, and the save refuses only a blank project."
+  - key: "OFFER ONLY ROLES THAT MEAN SOMETHING IN A PROJECT. A role with no project-scopable permission would grant nothing and be reported as a binding that grants nothing; the select hides it, and the card shows what is ignored for a role that carries both kinds, so the finding is rarely the first place an administrator learns it."
+  - key: "FORGET TAKES THE BINDINGS WITH IT. A forget is 'this person is gone'; keeping their PersonRef in a project binding would let a returning namesake inherit project rights the administrator thought were removed. The fresh-copy shape of PersonRemover is kept and gains the field, which is also what stops a forget erasing every binding."
+  - key: "A BINDING IS A HOLDER. Removing a custom role a binding still uses would silently strip that project's members; the existing guard's refusal names the binding like it names a grant or a group."
+  - key: "ONE PRODUCER OF BINDING FINDINGS, ON THE ACCESS VIEW. Alternative: the reader in 4a4da reports some and the composer the rest. Why: the not-configured finding needs the configured names, which only the access view reads; putting all three sentences in one class read by AccessViewComposer gives each one home, and the access view is access.read business while /api/identity reaches every caller and must name no project (operator ruling 1)."
+  - key: "NO SERVER-SIDE REFUSAL FOR AN UNKNOWN PROJECT. A project may be deleted and recreated under the same name; the binding is kept, applied, and reported as a finding composed by the access view (the only place that reads both the mapping and the configured names), and the pane marks the row 'not configured'."
+
+steps:
+  - id: view
+    action: "AccessView (33 -> at most 45) gains Projects and ProjectScopable; AccessSurfaceReader (36 -> at most 45) takes TicketProjects and reads the project names (no catch, see scope); AccessViewComposer (63 -> at most 72) takes the names, passes the scopable set and appends ProjectBindingFindings.Of; ProjectBindingFindings (new, at most 60 lines, every method at most 20 lines) composes the three findings; AccessTestHarness passes a TicketProjects over a stub IConfigurationLoader whose project names a test sets (121 -> at most 128)."
+  - id: save-check
+    action: "AccessGrantWriter (59 -> at most 70) refuses a blank-project binding with ConfigurationException before customRoles.Against."
+  - id: forget
+    action: "PersonRemover (78 -> at most 100) withdraws the forgotten names' PersonRefs, dropping emptied bindings; Withdraw answers true when a grant or a binding entry went; the binding withdrawal is its own private method and drops only bindings it emptied. Every method at most 20 lines."
+  - id: role-guard
+    action: "RoleRemovalGuard (89 -> at most 100) adds the binding holders to Holders through a private BindingHolders method, so Holders stays under 20 lines."
+  - id: api-types
+    action: "accessApi.ts (100 -> at most 120): PersonRef, ProjectBinding, AccessDocument.projectBindings, AccessView.projects, AccessView.projectScopable. AccessStudio.test.tsx's document() and viewWith() gain projectBindings: [], projects and projectScopable in the same step, or pnpm build fails type-checking the test."
+  - id: derive
+    action: "projectBindings.ts (new, at most 90 lines): projectsOf, addBinding, removeBinding, setBindingGroups, setBindingPeople, setBindingRoles, effectivePermissions(view, roles) answering {scoped, ignored}; every function pure over (view, draft)."
+  - id: pane
+    action: "ProjectsPane.tsx (new, at most 150 lines) over PagedRows with testId access-projects; BindingCard.tsx (new, at most 120 lines) with the member chips (MemberChips.tsx, new, at most 90 lines) and role chips and the effective-permission line; AccessStudio.tsx (151 -> at most 165) gains the Projects tab and pane; mock-parity.css (1932 -> at most 1950) under .mock-access."
+  - id: docs
+    action: "access-control.md gains the Project bindings section (348 -> at most 400)."
+  - id: tests
+    action: "Red first, then green, for every test below. The backend tests go in a NEW class ProjectBindingSurfaceTests (the pure findings ones in ProjectBindingFindingsTests, PersonRemover/RoleRemovalGuard ones in ProjectBindingHolderTests), each at most 120 lines — AccessSurfaceTests is already at 166; the vitest tests in a new __tests__/ProjectsPane.test.tsx plus projectBindings.test.ts. Run the Server.Access classes with --filter and pnpm test src/components/access."
+
+tests:
+  - "AccessSurface_View_CarriesConfiguredProjectsSortedAndTheScopableSet"
+  - "AccessSurface_DegradedEmptyConfig_ViewRendersWithNoProjectsAndTheBindingNotConfigured"
+  - "AccessSurface_BindingDifferingOnlyInCase_IsConfiguredAndCarriesNoFinding"
+  - "ProjectBindingFindings_RolesCarryingNoScopablePermission_GrantNothing"
+  - "ProjectBindingFindings_PersonRefOnAnotherClaim_IsReported"
+  - "ProjectBindingFindings_RoleCarryingGlobalOnlyPermissions_IsNoFinding"
+  - "AccessSurface_View_ShowsTheBindingFindings"
+  - "AccessSurface_SaveBindingWithBlankProject_IsRefusedAndStoresNothing"
+  - "AccessSurface_SaveBindingForUnconfiguredProject_IsStoredWithAFinding"
+  - "PersonRemover_Forget_KeepsOtherProjectBindings"
+  - "PersonRemover_Forget_WithdrawsThePersonFromEveryBindingAndDropsAnEmptiedOne"
+  - "PersonRemover_PersonOnlyInABinding_ForgetAnswersTrueAndSaves"
+  - "PersonRemover_Forget_KeepsABindingThatWasAlreadyMemberless"
+  - "RoleRemovalGuard_RoleHeldOnlyByAProjectBinding_IsRefusedNamingTheBinding"
+  - "projectsOf_UnionsConfiguredAndBoundProjects_MarksTheUnconfigured (vitest)"
+  - "projectsOf_BindingDifferingOnlyInCase_SitsUnderTheConfiguredRow (vitest)"
+  - "ProjectsPane_AddBindingWithGroupPersonAndRole_SavesTheWholeDocumentWithIt (vitest; asserts claim names, roles and personGrants unchanged in the PUT body)"
+  - "ProjectsPane_RoleWithoutScopablePermissions_IsNotOffered (vitest)"
+  - "ProjectsPane_RoleCarryingGlobalOnlyPermissions_ShowsThemAsIgnoredHere (vitest)"
+  - "ProjectsPane_TwoBindingsInOneProject_EditIndependently (vitest)"
+  - "ProjectsPane_BindingForUnconfiguredProject_ShowsNotConfigured (vitest)"
+  - "ProjectsPane_RemoveBinding_DropsItFromTheDraftOnly (vitest)"
+  - "AccessStudio_ProjectsTab_CountsBoundProjects (vitest)"
+
+done:
+  - "An administrator opens Access → Projects, sees every configured project, adds a binding with a directory group, a person and the operator role to one project, saves, and the binding is still there after a reload."
+  - "A role that grants nothing inside a project is not offered there; a role that also carries global permissions shows which of them are ignored in the project."
+  - "A binding for a project that no longer exists stays listed as 'not configured' with a finding; a binding that grants nothing and a person written against a stale claim are reported on the Access page and nowhere else; a blank project is refused with a sentence."
+  - "The access-control reference explains project bindings, what they admit, and that a tracker shared by two projects is one trust boundary."
+  - "Forgetting a person removes them from every project binding and leaves every other binding intact; removing a custom role a binding still uses is refused with the binding named."
+  - "Build green, full suite green, dashboard gen/test/build green."

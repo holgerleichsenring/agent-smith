@@ -1,3 +1,5 @@
+using AgentSmith.Tests.Server.Auth;
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Tickets;
 using AgentSmith.Server.Extensions;
@@ -45,6 +47,16 @@ public sealed class TicketNeverRunListTests : IDisposable
     }
 
     [Fact]
+    public async Task TicketList_ScopedCaller_ListsOnlyTheirProjectsFilings()
+    {
+        await _h.AddAsync(Filing("59"), Filing("70", project: "beta"));
+
+        var rows = (await _h.List.ReadAsync(new TicketListRequest(ProjectScope.Of(["alpha"]), null, null, null), default)).Tickets;
+
+        rows.Select(t => t.TicketId).Should().Equal("59");
+    }
+
+    [Fact]
     public async Task TicketList_FiledTicketWhoseRunsWereDeleted_IsListedAsFiled()
     {
         await _h.AddAsync(Filing("42"), Run("r-1"), Step("r-1"));
@@ -77,7 +89,7 @@ public sealed class TicketNeverRunListTests : IDisposable
         await _h.AddAsync(older);
 
         (await _h.ListAsync(null)).Tickets.Should().BeEmpty();
-        (await _h.List.ReadAsync(new TicketListRequest(null, null, null, null), default)).Tickets.Should().BeEmpty();
+        (await _h.List.ReadAsync(new TicketListRequest(ProjectScope.Everything, null, null, null), default)).Tickets.Should().BeEmpty();
     }
 
     [Fact]
@@ -116,7 +128,7 @@ public sealed class TicketNeverRunListTests : IDisposable
         };
         await _h.AddAsync(Filing("59", project: "alpha"), Run("r-1", "59", project: "beta"), Step("r-1"));
 
-        var all = await _h.List.ReadAsync(new TicketListRequest(null, null, null, null), default);
+        var all = await _h.List.ReadAsync(new TicketListRequest(ProjectScope.Everything, null, null, null), default);
 
         all.Tickets.Should().ContainSingle().Which.Project.Should().Be("beta", "the run-bearing row is the ticket");
         (await _h.ListAsync()).Tickets.Should().BeEmpty("alpha's filing ran under beta");
@@ -141,7 +153,7 @@ public sealed class TicketNeverRunListTests : IDisposable
         await _h.AddAsync(Filing("59"), Filing("60"));
         await _h.RequiresAsync("60", "59");
 
-        var result = await TicketQueryEndpoints.ListAsync("alpha", bucket, null, null, _h.List, default);
+        var result = await TicketQueryEndpoints.ListAsync("alpha", bucket, null, null, _h.List, ProjectScopeUnderTest.Nobody(), ProjectScopeUnderTest.Unenforced(), default);
 
         result.Should().BeOfType<Ok<TicketListView>>().Which.Value!.Tickets.Should().ContainSingle(t => t.Bucket == bucket);
     }

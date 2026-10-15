@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Contracts.Reviews;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
@@ -22,7 +23,7 @@ public sealed class PrReviewPersonEntryTests : IDisposable
             Entry("2", "e", T.AddHours(5), system: true, decision: PrReviewDecisions.Approved));
 
         using var scope = _h.Services.CreateScope();
-        var records = await scope.ServiceProvider.GetRequiredService<AgentSmith.Infrastructure.Persistence.Repositories.PrReviewRecordRepository>().ForListAsync("alpha", default);
+        var records = await scope.ServiceProvider.GetRequiredService<AgentSmith.Infrastructure.Persistence.Repositories.PrReviewRecordRepository>().ForListAsync(ProjectScope.Single("alpha"), default);
 
         records.Select(r => (r.Number, r.LastEntryAt, r.LastPersonEntryAt)).Should().Equal(
             ("1", T.AddHours(4), T.AddHours(1)), ("2", T.AddHours(5), T.AddHours(5)));

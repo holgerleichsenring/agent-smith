@@ -22,9 +22,9 @@ internal static class SpecDialogMockEndpoints
 
     internal static WebApplication MapSpecDialogMockEndpoints(this WebApplication app)
     {
-        app.MapGet($"{Version}/shot", (Delegate)ShotAsync).Needs(Security.Permissions.DialogWrite);
-        app.MapGet($"{Version}/html", (Delegate)HtmlAsync).Needs(Security.Permissions.DialogWrite);
-        app.MapPost($"{Mocks}/ratify", (Delegate)RatifyAsync).Needs(Security.Permissions.DialogWrite);
+        app.MapGet($"{Version}/shot", (Delegate)ShotAsync).Needs(Security.Permissions.DialogWrite).InProject(Security.ProjectFrom.Session);
+        app.MapGet($"{Version}/html", (Delegate)HtmlAsync).Needs(Security.Permissions.DialogWrite).InProject(Security.ProjectFrom.Session);
+        app.MapPost($"{Mocks}/ratify", (Delegate)RatifyAsync).Needs(Security.Permissions.DialogWrite).InProject(Security.ProjectFrom.Session);
         return app;
     }
 

@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 import { hasPullRequest, isOpenPullRequest, pullRequestStatusLabel } from "@/lib/prStatus";
 import { refusalIn } from "@/lib/apiResponse";
 import { RefusalSurface } from "@/components/shell/RefusalSurface";
+import { NoProjectReach } from "@/components/shell/NoProjectReach";
 
 // p0347: agent-smith's OUTPUT gets its own surface. The Pull Requests page lists
 // every PR the agent opened — per repo, so multi-repo runs keep all their PRs —
@@ -128,7 +129,7 @@ export default function PullRequestsPage() {
                   className="rrow"
                   style={{ cursor: "default", justifyContent: "center", display: "flex" }}
                 >
-                  No pull requests yet. When a run commits changes, its PR shows up here.
+                  <NoProjectReach>No pull requests yet. When a run commits changes, its PR shows up here.</NoProjectReach>
                 </div>
               </div>
             )}

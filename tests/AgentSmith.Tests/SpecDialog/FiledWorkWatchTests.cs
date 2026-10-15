@@ -276,7 +276,7 @@ public sealed class FiledWorkWatchTests : IDisposable
         await SessionAsync(Owner, Ticket("1001"));
 
         var refused = await SpecDialogViewEndpoints.ReadFiledWorkAsync(
-            Dialog, Principal(Stranger), Ownership(), null!, CancellationToken.None);
+            Dialog, Principal(Stranger), Ownership(), null!, AgentSmith.Tests.Server.Auth.ProjectScopeUnderTest.Unenforced(), CancellationToken.None);
 
         refused.Should().BeOfType<Microsoft.AspNetCore.Http.HttpResults.StatusCodeHttpResult>()
             .Which.StatusCode.Should().Be(StatusCodes.Status403Forbidden);

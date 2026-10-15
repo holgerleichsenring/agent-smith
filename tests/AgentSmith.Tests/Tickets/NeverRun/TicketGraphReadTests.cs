@@ -1,3 +1,5 @@
+using AgentSmith.Tests.Server.Auth;
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Entities;
@@ -29,7 +31,7 @@ public sealed class TicketGraphReadTests : IDisposable
     private TicketRequiresReader Requires => _h.Services.GetRequiredService<TicketRequiresReader>();
 
     private async Task<TicketGraphNodeView> NodeAsync(string id, string? project = "alpha") =>
-        (await Graph.ReadAsync(project, default)).Nodes.Single(n => n.TicketId == id);
+        (await Graph.ReadAsync(ProjectScope.Single(project), default)).Nodes.Single(n => n.TicketId == id);
 
     [Fact]
     public async Task TicketGraph_TwoTicketsOneEdge_ReturnsBothNodesAndTheEdgeFromTheDependent()
@@ -37,7 +39,7 @@ public sealed class TicketGraphReadTests : IDisposable
         await _h.AddAsync(Filing("58", "Orders: API"), Filing("59", "Orders: list screen"));
         await _h.RequiresAsync("59", "58");
 
-        var graph = await Graph.ReadAsync("alpha", default);
+        var graph = await Graph.ReadAsync(ProjectScope.Single("alpha"), default);
 
         graph.Nodes.Select(n => (n.TicketId, n.Key, n.Title)).Should().BeEquivalentTo(
             [("59", "#59", "Orders: list screen"), ("58", "#58", "Orders: API")]);
@@ -57,7 +59,7 @@ public sealed class TicketGraphReadTests : IDisposable
         await _h.RequiresAsync("62", "57");
         await _h.AddAsync(Filing("62"), Run("r-2", "57", status: "running"));
 
-        var states = (await Graph.ReadAsync("alpha", default)).Nodes.ToDictionary(n => n.TicketId, n => n.State);
+        var states = (await Graph.ReadAsync(ProjectScope.Single("alpha"), default)).Nodes.ToDictionary(n => n.TicketId, n => n.State);
 
         states["57"].Should().Be("merged", "a landing outranks a running attempt");
         states["61"].Should().Be("running", "a running attempt outranks an unmet requirement");
@@ -98,6 +100,24 @@ public sealed class TicketGraphReadTests : IDisposable
     }
 
     [Fact]
+    public async Task TicketGraph_ScopedCaller_HoldsOnlyEdgesOfTheirProjects()
+    {
+        _h.Config.Projects["beta"] = new ResolvedProject
+        {
+            Name = "beta", Tracker = new TrackerConnection { Name = Tracker, Type = TrackerType.GitHub },
+        };
+        await _h.AddAsync(Filing("59"), Filing("70", project: "beta"));
+        await _h.RequiresAsync("59", "58");
+        await _h.Services.GetRequiredService<AgentSmith.Contracts.Services.ITicketRequirementStore>().AddAsync(
+            [new TicketRequirementEdge(Tracker, KeyOf("70"), "70", "beta", KeyOf("71"), "71", true, default, "c")], default);
+
+        var graph = await Graph.ReadAsync(ProjectScope.Of(["alpha"]), default);
+
+        graph.Nodes.Select(n => n.TicketId).Should().BeEquivalentTo(["59", "58"]);
+        graph.Nodes.Should().OnlyContain(n => n.Project == "alpha");
+    }
+
+    [Fact]
     public async Task TicketGraph_NoProject_ReadsEveryConfiguredProject()
     {
         _h.Config.Projects["beta"] = new ResolvedProject
@@ -109,7 +129,7 @@ public sealed class TicketGraphReadTests : IDisposable
         await _h.Services.GetRequiredService<AgentSmith.Contracts.Services.ITicketRequirementStore>().AddAsync(
             [new TicketRequirementEdge(Tracker, KeyOf("70"), "70", "beta", KeyOf("71"), "71", true, default, "c")], default);
 
-        var graph = await TicketGraphEndpoints.GraphAsync(null, Graph, default);
+        var graph = await TicketGraphEndpoints.GraphAsync(null, Graph, ProjectScopeUnderTest.Nobody(), ProjectScopeUnderTest.Unenforced(), default);
 
         var nodes = graph.Should().BeOfType<Ok<TicketGraphView>>().Which.Value!.Nodes;
         nodes.Select(n => n.TicketId).Should().BeEquivalentTo(["59", "58", "70", "71"]);

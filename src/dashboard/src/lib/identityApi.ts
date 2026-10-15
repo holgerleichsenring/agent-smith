@@ -27,6 +27,9 @@ export interface CallerIdentity {
    *  value and falls back to the opaque one when the directory sent none, so it is always present
    *  and not always a name. Hand-written mirror: nothing checks this file. */
   nameIsReadable?: boolean;
+  /** 2026-10-15-4a4de: project -> what a project binding grants there, keys in the binding's spelling (the
+   *  server folds case). Optional: a server before 2026-10-15-4a4da sends none, which means no project grant. */
+  projectPermissions?: Record<string, string[]>;
 }
 
 export async function fetchIdentity(signal?: AbortSignal): Promise<CallerIdentity> {

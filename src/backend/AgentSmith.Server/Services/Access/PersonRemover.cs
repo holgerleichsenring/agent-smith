@@ -53,20 +53,47 @@ internal sealed class PersonRemover(
     {
         var current = mapping.Current().Mapping;
         var kept = current.PersonGrants.Where(grant => !names.Contains(grant.Value)).ToList();
-        if (kept.Count == current.PersonGrants.Count) return false;
-        writer.Save(Without(current, kept), by);
+        var bindings = Withdrawn(current.ProjectBindings, names);
+        if (kept.Count == current.PersonGrants.Count && Members(bindings) == Members(current.ProjectBindings))
+            return false;
+        writer.Save(Without(current, kept, bindings), by);
         return true;
     }
 
+    // 2026-10-15-4a4df: a ref left behind would hand a returning namesake the project rights an
+    // administrator thought were removed. A binding THIS withdrawal empties goes; one saved
+    // memberless stays, its members still to come.
+    private static List<ProjectBinding> Withdrawn(List<ProjectBinding> bindings, IReadOnlySet<string> names)
+    {
+        var kept = new List<ProjectBinding>();
+        foreach (var binding in bindings)
+        {
+            var people = binding.People.Where(p => !names.Contains(p.Value)).ToList();
+            if (people.Count < binding.People.Count && people.Count == 0 && binding.Groups.Count == 0) continue;
+            kept.Add(new ProjectBinding
+            {
+                Project = binding.Project, Groups = [.. binding.Groups], Roles = [.. binding.Roles],
+                People = [.. people.Select(p => new PersonRef { Claim = p.Claim, Value = p.Value })],
+            });
+        }
+
+        return kept;
+    }
+
+    private static int Members(List<ProjectBinding> bindings) => bindings.Sum(binding => binding.People.Count);
+
     // A copy, never the cached instance: the source hands the same object to every request
-    // and treats its identity as the "nothing changed" signal.
-    private static RoleMappingConfig Without(RoleMappingConfig current, List<PersonGrant> kept) => new()
+    // and treats its identity as the "nothing changed" signal. Every field is named, because
+    // one this copy leaves out is erased by the save.
+    private static RoleMappingConfig Without(
+        RoleMappingConfig current, List<PersonGrant> kept, List<ProjectBinding> bindings) => new()
     {
         RoleClaim = current.RoleClaim,
         GroupClaim = current.GroupClaim,
         GroupRoles = current.GroupRoles.ToDictionary(e => e.Key, e => e.Value.ToList()),
         Roles = current.Roles.ToDictionary(e => e.Key, e => e.Value.ToList()),
         PersonGrants = kept,
+        ProjectBindings = bindings,
         ObservationRetentionDays = current.ObservationRetentionDays,
     };
 }

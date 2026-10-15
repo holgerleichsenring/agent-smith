@@ -15,6 +15,9 @@ namespace AgentSmith.Server.Models;
 /// person recognises. It carries the NAME-CLAIM value, falling back to the opaque one when the
 /// directory sent none — so it is always present and not always a name, and a page that greets
 /// somebody must know which it has.</param>
+/// <param name="ProjectPermissions">2026-10-15-4a4da: project -> what a project binding grants
+/// there, keyed case-insensitively as project names are. Beside <paramref name="Permissions"/>,
+/// never inside it.</param>
 public sealed record CallerIdentity(
     bool Authenticated,
     string? Subject,
@@ -25,5 +28,13 @@ public sealed record CallerIdentity(
     IReadOnlyList<string> GroupClaimValues,
     IReadOnlyList<string> Roles,
     IReadOnlyList<string> Permissions,
+    IReadOnlyDictionary<string, IReadOnlyList<string>> ProjectPermissions,
     IReadOnlyList<string> Findings,
-    bool NameIsReadable = false);
+    bool NameIsReadable = false)
+{
+    /// <summary>What this caller holds in one project: the global permissions and that project's.</summary>
+    public IReadOnlyList<string> PermissionsIn(string project) =>
+        ProjectPermissions.TryGetValue(project, out var scoped)
+            ? [.. Permissions.Union(scoped, StringComparer.Ordinal).Order(StringComparer.Ordinal)]
+            : Permissions;
+}

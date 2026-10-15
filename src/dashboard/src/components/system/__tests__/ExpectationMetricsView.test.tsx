@@ -8,6 +8,9 @@ import * as api from "@/lib/expectationsApi";
 // with nothing judged shows a dash, never 0%), and an installation with no judged run
 // renders the empty state instead of zeros.
 
+// 2026-10-15-4a4de: whether this sign-in reaches a project is useProjectReach's question; here it is an answer.
+const reach = vi.hoisted(() => ({ value: "unknown" as "none" | "unknown" }));
+vi.mock("@/hooks/useProjectReach", () => ({ useProjectReach: () => reach.value }));
 vi.mock("@/lib/expectationsApi", () => ({ fetchExpectationMetrics: vi.fn() }));
 
 const mockedApi = api as unknown as {
@@ -26,7 +29,23 @@ function CriteriaPanel() {
 
 describe("ExpectationMetricsView", () => {
   beforeEach(() => {
+    reach.value = "unknown";
     mockedApi.fetchExpectationMetrics.mockReset();
+  });
+
+  it("EmptyAndNoProjectReached_SaysSo", async () => {
+    reach.value = "none";
+    mockedApi.fetchExpectationMetrics.mockResolvedValue({ runs: 0, counts: { ...zero, judged: 0, share: null }, projects: [] });
+    render(<CriteriaPanel />);
+    expect(await screen.findByTestId("no-project-reach")).toHaveTextContent("Your sign-in reaches no project on this installation");
+    expect(screen.queryByText(/No coding run has been judged/)).toBeNull();
+  });
+
+  it("EmptyForAGlobalReader_KeepsTodaysText", async () => {
+    mockedApi.fetchExpectationMetrics.mockResolvedValue({ runs: 0, counts: { ...zero, judged: 0, share: null }, projects: [] });
+    render(<CriteriaPanel />);
+    expect(await screen.findByTestId("expectations-empty")).toHaveTextContent(/No coding run has been judged/);
+    expect(screen.queryByTestId("no-project-reach")).toBeNull();
   });
 
   it("renders per-project shares and month tallies", async () => {
