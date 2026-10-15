@@ -150,4 +150,11 @@ public sealed class RunSnapshotMetadataTests
         snapshot.Title.Should().Be("Korrigieren der Antwort-Typen");
         snapshot.Title.Should().NotBe("unknown");
     }
+
+    // 2026-10-15-4a4dc: the live hub sends a run's nudge to its project's group, so the fold carries it.
+    [Fact]
+    public void RunSnapshotFold_RunStarted_CarriesTheProject() =>
+        RunSnapshot.Empty(RunId)
+            .Apply(new RunStartedEvent(RunId, "ticket", "code", ["backend"], DateTimeOffset.UtcNow, Project: "alpha"))
+            .Project.Should().Be("alpha");
 }

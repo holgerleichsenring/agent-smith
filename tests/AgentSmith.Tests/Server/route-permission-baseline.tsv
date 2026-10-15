@@ -1,5 +1,5 @@
-*	/hub/jobs	runs.read	across
-*	/hub/jobs/negotiate	runs.read	across
+*	/hub/jobs	runs.read	hub
+*	/hub/jobs/negotiate	runs.read	hub
 DELETE	/api/access/people/{id}	access.write	-
 DELETE	/api/config/agents/{id}	config.write	-
 DELETE	/api/config/connections/{id}	config.write	-

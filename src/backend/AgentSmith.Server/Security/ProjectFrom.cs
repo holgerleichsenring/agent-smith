@@ -30,11 +30,14 @@ internal sealed record ProjectFrom(ProjectSourceKind Kind, string Parameter)
     /// <summary>A list or aggregate across projects.</summary>
     internal static ProjectFrom AcrossProjects { get; } = new(ProjectSourceKind.AcrossProjects, string.Empty);
 
+    /// <summary>2026-10-15-4a4dc: /hub/jobs alone — admitted on any project, its filter scopes each invocation.</summary>
+    internal static ProjectFrom Hub { get; } = new(ProjectSourceKind.Hub, string.Empty);
+
     /// <summary>Whether this source names ONE resource's project, which the coarse gate may admit on.</summary>
     internal bool IsPerResource => Kind != ProjectSourceKind.AcrossProjects;
 
     /// <summary>Whether the route itself is checked before the handler runs.</summary>
-    internal bool IsCheckedAtTheRoute => Kind is not (ProjectSourceKind.Body or ProjectSourceKind.AcrossProjects);
+    internal bool IsCheckedAtTheRoute => Kind is not (ProjectSourceKind.Body or ProjectSourceKind.AcrossProjects or ProjectSourceKind.Hub);
 
     /// <summary>The spelling the route golden pins.</summary>
     internal string Wire => Kind switch

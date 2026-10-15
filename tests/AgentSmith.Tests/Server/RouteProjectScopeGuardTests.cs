@@ -59,6 +59,14 @@ public sealed class RouteProjectScopeGuardTests
                 "a body source is checked by its handler, which only the message route does");
 
     [Fact]
+    public void RouteProjectScopeGuard_TheHubKind_IsDeclaredOnTheHubRouteAlone() =>
+        Table(MapAsTheHostDoes)
+            .Where(fact => fact.Scope?.Kind == ProjectSourceKind.Hub)
+            .Select(fact => fact.Pattern).Order(StringComparer.Ordinal)
+            .Should().Equal(["/hub/jobs", "/hub/jobs/negotiate"],
+                "2026-10-15-4a4dc: only the hub's filter scopes every invocation behind an any-project admission");
+
+    [Fact]
     public void RouteProjectScopeGuard_AStowawayRunRouteWithoutAScope_Fails()
     {
         var withAStowaway = Table(app =>

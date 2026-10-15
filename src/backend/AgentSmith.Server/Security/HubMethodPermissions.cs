@@ -9,44 +9,44 @@ namespace AgentSmith.Server.Security;
 /// no authorization services. A table declares the same thing and enforces nothing; the
 /// filter of *the hub refuses what the caller may not do* is what reads it.
 /// <para>
-/// Nothing here decides which RUN a caller may watch. A permission on
-/// <c>SubscribeRun</c> says the caller may watch runs, not which one — that is a scope,
-/// and a different spec.
+/// 2026-10-15-4a4dc: each entry also says where the invocation's PROJECT comes from — the run
+/// or dialog its first argument names, any project, or none (global) — and the filter scopes
+/// a project-bound caller by it.
 /// </para>
 /// </summary>
 internal static class HubMethodPermissions
 {
-    private static readonly Dictionary<string, RequiresPermission> ByMethod =
+    private static readonly Dictionary<string, (RequiresPermission Required, HubProjectSource Source)> ByMethod =
         new(StringComparer.Ordinal)
         {
-            ["SubscribeOverview"] = new(Permissions.RunsRead),
+            ["SubscribeOverview"] = (new(Permissions.RunsRead), HubProjectSource.AnyProject),
 
             // The system feed is the installation talking about itself — tracker polls,
             // connection state — not a run, so it takes the diagnostics read rather than
             // the run read. Both sit in the reader bundle, so no shipped role changes.
-            ["SubscribeSystem"] = new(Permissions.DiagnosticsRead),
+            ["SubscribeSystem"] = (new(Permissions.DiagnosticsRead), HubProjectSource.Global),
 
-            ["SubscribeRun"] = new(Permissions.RunsRead),
+            ["SubscribeRun"] = (new(Permissions.RunsRead), HubProjectSource.RunArgument),
 
             // The pair mutates a process-global refcount other connections share.
-            ["ExpandSandbox"] = new(Permissions.RunsWatch),
-            ["CollapseSandbox"] = new(Permissions.RunsWatch),
+            ["ExpandSandbox"] = (new(Permissions.RunsWatch), HubProjectSource.RunArgument),
+            ["CollapseSandbox"] = (new(Permissions.RunsWatch), HubProjectSource.RunArgument),
 
             // 2026-09-15-9033: the dialog's own delivery group. The permission says the
             // caller may hold spec dialogs; WHICH dialog is the method's own check,
             // because a browser-minted dialog id is no boundary.
-            ["SubscribeSpecDialog"] = new(Permissions.DialogWrite),
+            ["SubscribeSpecDialog"] = (new(Permissions.DialogWrite), HubProjectSource.DialogArgument),
 
             // 2026-09-17-042ej: following a dialog's filed work means reading RUN state, so the
             // caller holds both. WHICH dialog is again the method's own owner check.
-            ["WatchFiledWork"] = new(Permissions.DialogWrite, Permissions.RunsRead),
+            ["WatchFiledWork"] = (new(Permissions.DialogWrite, Permissions.RunsRead), HubProjectSource.DialogArgument),
 
-            ["GetTrail"] = new(Permissions.RunsRead),
-            ["GetTrailPage"] = new(Permissions.RunsRead),
-            ["GetResultMarkdown"] = new(Permissions.RunsRead),
-            ["GetPlanMarkdown"] = new(Permissions.RunsRead),
-            ["GetSpecMarkdown"] = new(Permissions.RunsRead),
-            ["GetAnalyzeMarkdown"] = new(Permissions.RunsRead),
+            ["GetTrail"] = (new(Permissions.RunsRead), HubProjectSource.RunArgument),
+            ["GetTrailPage"] = (new(Permissions.RunsRead), HubProjectSource.RunArgument),
+            ["GetResultMarkdown"] = (new(Permissions.RunsRead), HubProjectSource.RunArgument),
+            ["GetPlanMarkdown"] = (new(Permissions.RunsRead), HubProjectSource.RunArgument),
+            ["GetSpecMarkdown"] = (new(Permissions.RunsRead), HubProjectSource.RunArgument),
+            ["GetAnalyzeMarkdown"] = (new(Permissions.RunsRead), HubProjectSource.RunArgument),
         };
 
     internal static IReadOnlyCollection<string> MethodNames => ByMethod.Keys;
@@ -57,5 +57,9 @@ internal static class HubMethodPermissions
     /// failure, so a gap at runtime means a method nobody has classified.
     /// </summary>
     internal static RequiresPermission? For(string methodName) =>
-        ByMethod.TryGetValue(methodName, out var required) ? required : null;
+        ByMethod.TryGetValue(methodName, out var entry) ? entry.Required : null;
+
+    /// <summary>2026-10-15-4a4dc: where the named method's project comes from; Global when the table does not name it.</summary>
+    internal static HubProjectSource SourceOf(string methodName) =>
+        ByMethod.TryGetValue(methodName, out var entry) ? entry.Source : HubProjectSource.Global;
 }

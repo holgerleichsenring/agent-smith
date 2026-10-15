@@ -1,7 +1,9 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Server.Hubs;
 using AgentSmith.Server.Security;
 using AgentSmith.Server.Services.Events;
+using AgentSmith.Server.Services.Tickets;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -26,6 +28,10 @@ internal static class DashboardApiExtensions
         // for. Registered unconditionally and silent while the enforce switch is off, so
         // it READS that switch rather than owning a second copy of it.
         services.AddSingleton<HubPermissionFilter>();
+        // 2026-10-15-4a4dc: the hub's project scope, and who an overview nudge and subscription reach.
+        services.AddSingleton<RunProjectIndex>().AddSingleton<OverviewAudience>().AddSingleton<HubProjectScope>();
+        services.AddTransient(sp => new OverviewSubscription(sp.GetRequiredService<TokenAuthorityConfig>(),
+            sp.GetRequiredService<CallerIdentityResolver>(), sp.GetRequiredService<TicketProjects>(), sp.GetRequiredService<JobsBroadcaster>()));
         // 2026-09-17-042ej: and the one that forgets a gone connection's filed-work watch.
         services.AddSingleton<FiledWorkDisconnectFilter>();
         services.AddSignalR(o =>

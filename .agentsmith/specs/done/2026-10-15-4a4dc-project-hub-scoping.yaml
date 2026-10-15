@@ -1,0 +1,225 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-15-4a4dc
+goal: "Live hub traffic honours project rights: run- and dialog-keyed hub methods check the caller's rights in that project, and overview nudges reach only callers who may read it."
+
+applies_to: "backend (the /hub/jobs route admission, the JobsHub method table and HubPermissionFilter, a hub project scope, the overview subscription, per-project overview groups in JobsHubFanout, the run-list nudge and the run-deletion nudge, a run-to-project index, the live snapshot fold)"
+
+requires: [2026-10-15-4a4da, 2026-10-15-4a4db]
+
+facts:
+  - claim: "The hub method table names thirteen methods and one permission set each; nothing in it says which project an invocation touches, and its own comment defers WHICH run to a later spec."
+    evidence: "src/backend/AgentSmith.Server/Security/HubMethodPermissions.cs:12-14, src/backend/AgentSmith.Server/Security/HubMethodPermissions.cs:19-50, src/backend/AgentSmith.Server/Security/HubMethodPermissions.cs:59-60, observed: 2026-10-15, wc -l HubMethodPermissions.cs 61"
+  - claim: "The filter is a singleton that, only with the enforce switch on, resolves the caller's FLAT permission set per invocation and refuses with a HubException naming what is missing; an unclassified method fails closed."
+    evidence: "src/backend/AgentSmith.Server/Security/HubPermissionFilter.cs:29-37, src/backend/AgentSmith.Server/Security/HubPermissionFilter.cs:40-54, src/backend/AgentSmith.Server/Security/HubPermissionFilter.cs:58-60, src/backend/AgentSmith.Server/Extensions/DashboardApiExtensions.cs:28, src/backend/AgentSmith.Server/Extensions/DashboardApiExtensions.cs:38, observed: 2026-10-15, wc -l HubPermissionFilter.cs 61"
+  - claim: "Every run-keyed hub method takes the run id as its FIRST argument (SubscribeRun, ExpandSandbox, CollapseSandbox, GetTrail, GetTrailPage and the four markdown reads), and both dialog-keyed methods take the dialog id first."
+    evidence: "src/backend/AgentSmith.Server/Hubs/JobsHub.cs:57, src/backend/AgentSmith.Server/Hubs/JobsHub.cs:65, src/backend/AgentSmith.Server/Hubs/JobsHub.cs:67, src/backend/AgentSmith.Server/Hubs/JobsHub.cs:79, src/backend/AgentSmith.Server/Hubs/JobsHub.cs:85, src/backend/AgentSmith.Server/Hubs/JobsHub.cs:96, src/backend/AgentSmith.Server/Hubs/JobsHub.cs:105, src/backend/AgentSmith.Server/Hubs/JobsHub.cs:114, src/backend/AgentSmith.Server/Hubs/JobsHub.cs:123, src/backend/AgentSmith.Server/Hubs/JobsHub.cs:132, src/backend/AgentSmith.Server/Hubs/JobsHub.cs:141"
+  - claim: "SubscribeOverview joins every caller to the ONE overview group and pushes the system rollup to it; the hub takes the broadcaster for that push only and is over the line limit and ratcheted."
+    evidence: "src/backend/AgentSmith.Server/Hubs/JobsHub.cs:14-23, src/backend/AgentSmith.Server/Hubs/JobsHub.cs:31-35, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:78, observed: 2026-10-15, wc -l JobsHub.cs 143"
+  - claim: "A sandbox expansion mutates a process-global refcount any connection shares; the trail and markdown reads return a run's content by id."
+    evidence: "src/backend/AgentSmith.Server/Hubs/JobsHub.cs:79-89, src/backend/AgentSmith.Server/Security/HubMethodPermissions.cs:31-33, src/backend/AgentSmith.Server/Hubs/JobsHub.cs:96-142"
+  - claim: "The dialog methods check the session OWNER and refuse with 'Spec dialog <id> belongs to another principal.'; an id with no open session passes; a ticket-bound conversation is reachable by anyone who reaches the surface at all; the session row carries its Project, empty by default."
+    evidence: "src/backend/AgentSmith.Server/Hubs/JobsHub.cs:57-63, src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkWatch.cs:25-33, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOwnership.cs:48-53, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOwnership.cs:68-73, src/backend/AgentSmith.Infrastructure.Persistence/Entities/SpecDialogSession.cs:18-20, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SpecDialogSessionRepository.cs:20-26"
+  - claim: "Every overview-family send goes to the one overview group: RunsChanged from the fanout, the run-list nudge and the run deletion; SystemActivityUpdated from the fanout; TicketActivityChanged with project and ticket key from the fanout."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/JobsHubFanout.cs:18-19, src/backend/AgentSmith.Server/Services/Events/JobsHubFanout.cs:33-38, src/backend/AgentSmith.Server/Services/Events/JobsHubRunListNudge.cs:13-16, src/backend/AgentSmith.Server/Extensions/RunDeletionEndpoints.cs:51-52, src/backend/AgentSmith.Server/Hubs/HubGroups.cs:10"
+  - claim: "The other sends are membership-gated by a subscribe the filter already sees: the run and sandbox groups, the spec-dialog group and the filed-work connections."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/JobsHubFanout.cs:21-31, src/backend/AgentSmith.Server/Services/SpecDialog/DashboardActivityChannel.cs:52, src/backend/AgentSmith.Server/Services/SpecDialog/DashboardReadingChannel.cs:58, src/backend/AgentSmith.Server/Services/SpecDialog/DashboardOutcomeChannel.cs:71, src/backend/AgentSmith.Server/Services/Adapters/DashboardAdapter.cs:86, src/backend/AgentSmith.Server/Services/Events/FiledWorkNudge.cs:36-42"
+  - claim: "The LIVE snapshot does not carry the project: RunSnapshot.Project is filled only on the REST path, the live fold of RunStartedEvent copies pipeline, trigger, repos, agent and ticket but not Project, although the event carries it from the pipeline use case."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/RunSnapshot.cs:111-113, src/backend/AgentSmith.Server/Services/Events/RunSnapshotMapper.cs:114, src/backend/AgentSmith.Server/Services/Events/RunSnapshotFold.cs:16-24, src/backend/AgentSmith.Contracts/Events/L1RunEvents.cs:24-29, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:555-567, observed: 2026-10-15, wc -l RunSnapshotFold.cs 119"
+  - claim: "A run the broadcaster picks up mid-stream (a restored cursor, a database discovery) starts from the empty seed, so even a folded project is absent for it; the router persists each event BEFORE the overview send, and a run row has a non-null Project defaulting to empty."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/JobsBroadcaster.cs:223-233, src/backend/AgentSmith.Server/Services/Events/JobsBroadcaster.cs:280-290, src/backend/AgentSmith.Server/Services/Events/RunSnapshotSeed.cs:10-14, src/backend/AgentSmith.Server/Services/Events/RunEventRouter.cs:30-31, src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:10-11"
+  - claim: "A singleton reads run rows through a scope and IUnitOfWork, as RunComputeReader does; RunRepository is scoped and has no project-only read."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/RunComputeReader.cs:24-28, src/backend/AgentSmith.Server/Extensions/RelationalPersistenceExtensions.cs:160, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunRepository.cs:75-85"
+  - claim: "SystemActivityUpdated is an installation-wide 24 h rollup of tracker polls, scans and webhooks keyed by sources that name tracker connections; on the dashboard only the System page reads it, and that page's own feed needs diagnostics.read."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/SystemActivitySnapshot.cs:14-22, src/backend/AgentSmith.Application/Services/Polling/TrackerPoller.cs:36, src/backend/AgentSmith.Server/Services/Events/SystemEventStream.cs:68-69, src/backend/AgentSmith.Server/Security/HubMethodPermissions.cs:24-27, src/dashboard/src/components/system/SystemView.tsx:62, src/dashboard/src/components/system/SystemView.tsx:102"
+  - claim: "TicketActivityChanged carries its project and is routed by the system stream to the overview group, never into the ring."
+    evidence: "src/backend/AgentSmith.Contracts/Events/TicketActivityChangedEvent.cs:11-16, src/backend/AgentSmith.Server/Services/Events/SystemEventStream.cs:73-83"
+  - claim: "The run deletion nudges AFTER the row is deleted, and the bulk clear sends the literal 'bulk'; the deleter reads the run's project only internally."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RunDeletionEndpoints.cs:25-49, src/backend/AgentSmith.Server/Services/Lifecycle/RunDeleter.cs:51-56"
+  - claim: "The run-list nudge port is called from capacity deferral, the dialogue-resume sweeper and the capacity-queue drop, by run id only."
+    evidence: "src/backend/AgentSmith.Contracts/Services/IRunListNudge.cs:19-26, src/backend/AgentSmith.Application/Services/Spawning/CapacityDeferral.cs:42, src/backend/AgentSmith.Server/Services/Lifecycle/DialogueResumeSweeper.cs:76, src/backend/AgentSmith.Server/Services/CapacityQueueDrop.cs:66"
+  - claim: "The configured projects are read live through TicketProjects, and the server's loader assembles the configuration from the store on EVERY call."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketProjects.cs:10-16, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/DbConfigurationLoader.cs:39-47, src/backend/AgentSmith.Server/Extensions/TicketReadExtensions.cs:54"
+  - claim: "The hub route itself demands runs.read globally, pinned in the route baseline."
+    evidence: "src/backend/AgentSmith.Server/Extensions/ServerEndpointExtensions.cs:41, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:1-2"
+  - claim: "The coarse route gate admits a project-scopable permission held in ANY project only on a per-resource source; /hub/jobs is declared AcrossProjects, which is not per-resource, so a caller holding runs.read through a project binding alone is refused at /hub/jobs/negotiate before any hub method runs."
+    evidence: "src/backend/AgentSmith.Server/Security/PermissionRequirementHandler.cs:42-46, src/backend/AgentSmith.Server/Security/ProjectFrom.cs:31-37, src/backend/AgentSmith.Server/Extensions/ServerEndpointExtensions.cs:41"
+  - claim: "ProjectAccess answers Enforcing, HoldsEverywhere(user, permissions), HoldsAnywhere(user, permission) and HoldsIn(user, permissions, project), the last refusing a project the live configuration no longer names to binding-only holders; CallerIdentity carries ProjectPermissions beside the global Permissions."
+    evidence: "src/backend/AgentSmith.Server/Security/ProjectAccess.cs:13-42, src/backend/AgentSmith.Server/Models/CallerIdentity.cs:21-39"
+  - claim: "ResourceProjectReader (scoped) answers a run's and an open dashboard dialog's Project column, null for no row and empty for a conversation grounded on no project; the route scope reads dialogs on the dashboard platform; both are registered by AddProjectScope."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ResourceProjectReader.cs:13-27, src/backend/AgentSmith.Server/Security/ProjectSourceResolver.cs:15, src/backend/AgentSmith.Server/Extensions/ProjectScopeExtensions.cs:15-23"
+  - claim: "The route scope middleware checks only a source that IsCheckedAtTheRoute; the route guard pins Body to the message route alone, and the route golden prints a source by its Wire spelling."
+    evidence: "src/backend/AgentSmith.Server/Security/ProjectScopeMiddleware.cs:23-32, tests/AgentSmith.Tests/Server/RouteProjectScopeGuardTests.cs:53-59, src/backend/AgentSmith.Server/Security/ProjectFrom.cs:39-45"
+  - claim: "Existing tests construct HubPermissionFilter by hand with two arguments, and a booted enforcing test expects ExpandSandbox on a run id that has no row to be refused with a sentence NAMING runs.watch."
+    evidence: "tests/AgentSmith.Tests/Server/Auth/HubPermissionFilterTests.cs:46-50, tests/AgentSmith.Tests/Server/Auth/HubEnforcementTests.cs:20-28"
+  - claim: "A dialog session's Project is empty until one is chosen; the ownership check passes an id with no open session and a ticket-bound session for anyone."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/SpecDialogSession.cs:19-20, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOwnership.cs:48-53, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOwnership.cs:68-73"
+  - claim: "A queued (capacity-deferred) run already has a Run row when the run-list nudge names it: the queue writes a queued run row in the same save."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/QueuedTicketRepository.cs:21-39, src/backend/AgentSmith.Application/Services/Spawning/CapacityDeferral.cs:37-42"
+  - claim: "Live snapshots are never served to a client: the hub sends the run id only, and the broadcaster's Active set is read by one control endpoint for existence."
+    evidence: "src/backend/AgentSmith.Server/Services/Events/JobsHubFanout.cs:18-19, src/backend/AgentSmith.Server/Services/Events/JobsBroadcaster.cs:44-45, src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs:101"
+  - claim: "The hub has tests for the table (enumeration, catalogued names), hand-built filter contexts, and a booted enforcing server driven over long polling under the env collection; one test builds JobsHub with ten null arguments."
+    evidence: "tests/AgentSmith.Tests/Server/HubPermissionTests.cs:28-56, tests/AgentSmith.Tests/Server/Auth/HubPermissionFilterTests.cs:20-49, tests/AgentSmith.Tests/Server/Auth/HubEnforcementTests.cs:13-16, tests/AgentSmith.Tests/Server/Auth/HubEnforcementTests.cs:31-39, tests/AgentSmith.Tests/SpecDialog/FiledWorkWatchTests.cs:351-353"
+  - claim: "The dashboard client listens for RunsChanged, TicketActivityChanged and SystemActivityUpdated on the one connection that invoked SubscribeOverview."
+    evidence: "src/dashboard/src/lib/JobsHubClient.ts:197, src/dashboard/src/lib/JobsHubClient.ts:382, src/dashboard/src/lib/JobsHubClient.ts:406-410"
+
+assumptions:
+  - "AGENTSMITH_ADMIN_GRANT and token permission claims land in the GLOBAL set (2026-10-15-4a4da), so every global holder keeps today's hub behaviour without a lookup."
+
+scope:
+  in: >
+    HUB ROUTE: ProjectFrom gains a Hub kind (wire spelling "hub") meaning "the hub filter scopes every invocation";
+    ServerEndpointExtensions.cs:41 declares it on its existing line in place of AcrossProjects (no line added);
+    PermissionRequirementHandler admits a project-scopable permission held anywhere (ProjectAccess.HoldsAnywhere) on a
+    Hub route as it does on a per-resource route; ProjectScopeMiddleware passes a Hub route untouched as it passes Body;
+    the route guard allows Hub on /hub/jobs alone; route-permission-baseline.tsv rows 1-2 change their scope column
+    from across to hub. All within 4a4db's budgets (ProjectFrom at most 50, handler at most 55, middleware at most 60).
+    TABLE: HubMethodPermissions gains a HubProjectSource per method (Security/HubProjectSource.cs, at most 25 lines:
+    Global, AnyProject, RunArgument, DialogArgument — the run or dialog id is the invocation's FIRST argument).
+    SubscribeSystem Global (diagnostics.read is global-only); SubscribeOverview AnyProject; SubscribeRun, ExpandSandbox,
+    CollapseSandbox, GetTrail, GetTrailPage, GetResultMarkdown, GetPlanMarkdown, GetSpecMarkdown, GetAnalyzeMarkdown
+    RunArgument; SubscribeSpecDialog and WatchFiledWork DialogArgument. For(name) keeps returning the RequiresPermission,
+    SourceOf(name) answers the source (61 -> at most 80).
+    FILTER: HubPermissionFilter keeps its order — enforce off: proceed with no resolution and no lookup; the caller's
+    GLOBAL set holds every required permission: proceed as today with no lookup; source Global, OR the caller's
+    CallerIdentity.ProjectPermissions is empty, OR a missing permission fails ProjectAccess.HoldsAnywhere: today's refusal text naming what
+    is missing, with no lookup (so every caller without a project binding — the admin grant, token claims, today's role
+    mappings — meets exactly today's filter, and the booted ExpandSandbox test on a row-less run still reads runs.watch).
+    Otherwise it asks HubProjectScope (Security/HubProjectScope.cs, singleton, at most 100 lines), which answers a refusal
+    or null through ProjectAccess (4a4db) rather than a union of its own: AnyProject — ProjectAccess.HoldsAnywhere(user, permission) for
+    every required permission; RunArgument — P = RunProjectIndex.OfAsync(runId, null, ct) (read-through, stores nothing); P null or empty, or the
+    caller unable to READ runs in P (ProjectAccess.HoldsIn runs.read, which refuses a project no longer configured) answers
+    the ONE sentence "No run '<runId>' is visible to this caller." (an unknown run and another project's run are
+    indistinguishable); a caller who may read runs in P but lacks another required permission there gets today's sentence
+    naming what is missing (they can already see the run, so naming it leaks nothing); DialogArgument — the open dashboard
+    session's project through ResourceProjectReader.OpenDialogAsync (4a4db), resolved from the invocation's own scoped
+    ServiceProvider; no open session, or a session with an EMPTY project (not grounded yet — 4a4db's dialog routes pass
+    it too): the AnyProject rule, and the method's own owner check still runs; a session with a project: ProjectAccess.HoldsIn
+    every required permission there, refused with today's owner sentence "Spec dialog '<id>' belongs to another
+    principal." so out-of-project and another person's dialog read alike. The filter takes HubProjectScope as a third
+    constructor argument and becomes async (61 -> at most 80).
+    OVERVIEW GROUPS: HubGroups.OverviewOf(project) = "overview:project:<project lowercased>" (27 -> at most 32). OverviewSubscription
+    (Hubs/OverviewSubscription.cs, at most 70 lines) does what SubscribeOverview did: enforce off, or runs.read in the
+    caller's GLOBAL set — join HubGroups.Overview and push SystemActivityUpdated exactly as today; otherwise join
+    OverviewOf(P) for every P whose ProjectPermissions include runs.read and that TicketProjects.All() names, and push NO
+    rollup. Membership is decided at subscribe time; a revoked binding takes effect on reconnect, the HTTP reads re-check
+    every time. JobsHub takes OverviewSubscription in the broadcaster's place (still ten parameters) and SubscribeOverview
+    becomes one line (143 -> at most 140).
+    RUN PROJECT: RunSnapshotFold copies RunStartedEvent.Project onto the live snapshot (119 -> 120). RunProjectIndex
+    (Services/Events/RunProjectIndex.cs, singleton, at most 60 lines), a cache bounded by the projector's live runs:
+    OfAsync(runId, known, ct) answers a non-empty known project, else the remembered one, else one
+    ResourceProjectReader.RunAsync (4a4db) through a new scope (a scope that resolves no IUnitOfWork, no row, or an empty
+    project: null) — and STORES NOTHING; LiveAsync(runId, known, ct) answers the same but remembers a non-empty project
+    read from the row, and is called only by JobsHubFanout for a snapshot without FinishedAt (a run the fold carries a
+    project for is never stored); Forget(runId), called by the fanout when the snapshot has a FinishedAt (RunFinished,
+    pause included, which is also when the broadcaster drops the run from its active set) and by the single delete.
+    The hub filter, the run-list nudge and the deletion read through and never add an entry, so a finished run read
+    over the hub, a queued run nudged by capacity deferral or a deleted run is never remembered. The
+    comment on RunSnapshot.Project ("REST only, not the live fold") is corrected on its line.
+    FAN-OUT: OverviewAudience (Services/Events/OverviewAudience.cs, singleton, at most 60 lines): with enforce off every
+    method answers [Overview] and reads nothing (no index, no configuration). Enforcing: OfProject(project) =
+    [Overview] plus OverviewOf(project) when non-empty; OfRunAsync(runId, known, ct) = OfProject(RunProjectIndex.OfAsync); OfLiveRunAsync(runId, known, ct) =
+    OfProject(RunProjectIndex.LiveAsync);
+    Everyone() = [Overview] plus OverviewOf of every project TicketProjects.All() names. JobsHubFanout (39 -> at most 50):
+    RunsChanged to Clients.Groups(OfLiveRunAsync(snapshot.RunId, snapshot.Project)) for an unfinished snapshot and
+    OfRunAsync for a finished one, then Forget when the snapshot has a
+    FinishedAt; TicketActivityChanged to Groups(OfProject(event.Project)); SystemActivityUpdated stays on the Overview
+    group alone; RunEvent, SandboxEvent, SandboxActivity and SystemEvent unchanged. JobsHubRunListNudge to
+    OfRunAsync(runId, null) (17 -> at most 22). RunDeletionEndpoints: the single delete reads the audience through
+    OverviewAudience.OfRunAsync BEFORE deleting, Forgets the run after, and nudges that audience; the bulk clear nudges Everyone() with "bulk" (53 -> at most
+    62). IRunEventFanout, IRunListNudge and every message name and payload are unchanged. DI in DashboardApiExtensions
+    (90 -> at most 96): RunProjectIndex, OverviewAudience, HubProjectScope singletons; OverviewSubscription transient through a factory (its constructor is internal, as CallerIdentityResolver is).
+    JobsHub's row in file-length-baseline.tsv is lowered to its new count.
+  out: >
+    CallerIdentity.ProjectPermissions, ProjectBinding and Permissions.ProjectScopable — 2026-10-15-4a4da. Every
+    HTTP route's project source other than the hub's, the 404-not-403 handler, SpecDialogOwnership
+    on the HTTP routes — 2026-10-15-4a4db. The bulk DELETE /api/runs deleting, for a project-only holder, only the
+    terminal runs of projects where they hold runs.delete — 2026-10-15-4a4dd (this spec only re-addresses its data-free
+    "bulk" nudge). Every list and aggregate read filtered by caller and GET /api/projects — 2026-10-15-4a4dd. The
+    dashboard's handling of a refused run subscription, its project-aware useLacksPermission and pickers —
+    2026-10-15-4a4de. The Access Studio Projects pane — 2026-10-15-4a4df. Evicting already-joined connections when a
+    binding is revoked — nobody: membership is decided at subscribe, the brief's ruling. The filed-work registry keyed by
+    ticket id alone (two projects with one ticket id share a data-free nudge whose refetch is re-checked) — nobody. A
+    SignalR backplane — nobody (RunsChanged still reaches the sender's replica only, as today).
+
+decisions:
+  - key: "THE HUB TABLE CARRIES ITS OWN PROJECT SOURCE. A hub method's project comes from an argument position, a route's from a route value; one enum for both would let a route claim an argument and a method claim a route value. The hub enum is small and its guard test lives beside the table's."
+  - key: "UNBOUND CALLERS NEVER LOOK UP. Alternative: resolve the run for every caller short of the global set. Why: a caller with no project binding (the admin grant, token claims, today's role mappings) can gain nothing from a lookup, and resolving would turn today's 'needs runs.watch' refusal into the unknown-run sentence; so enforce off, a full global hold, an empty ProjectPermissions or a permission held in no project all run today's path with no database or configuration read."
+  - key: "THE HUB ROUTE GETS ITS OWN KIND. Alternative: admit every AcrossProjects route on any-project holds. Why: 4a4db keeps AcrossProjects global until 4a4dd filters the lists, and hands the hub to this spec; a Hub kind admits the negotiate for a project reader exactly because the filter scopes every invocation behind it, without opening an unfiltered list route."
+  - key: "A DIALOG WITHOUT A PROJECT IS NOT REFUSED. Alternative: treat an empty session project like an unconfigured one. Why: a dashboard dialog has no project until one is chosen, so a project-only reader would be locked out of their own new conversation; 4a4db's dialog routes pass it for the same reason, and the owner check still guards it."
+  - key: "REUSE 4a4db's READERS AND ACCESS. Alternative: a second Run.Project query and a hub-local union. Why: ResourceProjectReader and ProjectAccess.HoldsIn already answer 'which project' and 'may this caller, unconfigured projects global-only'; two copies would disagree the day one changes."
+  - key: "ONE SENTENCE FOR UNKNOWN AND FOREIGN. A run in another project answers what an unknown run answers, so a project-only reader cannot probe run ids; a foreign dialog answers today's owner sentence, so it reads as another person's dialog."
+  - key: "AN UNCONFIGURED PROJECT IS GLOBAL-ONLY. A run or session whose project the configuration no longer names is refused to project-only callers (ProjectAccess.HoldsIn) and its group gains no member, per the brief; the cost is one configuration read per project-scoped invocation, never for an unbound caller."
+  - key: "MEMBERSHIP SPLITS THE GROUPS, SO NO CONNECTION HEARS TWICE. Global holders join only the overview group, project readers only their project groups; a run belongs to one project, so a send to [overview, overview:project:P] reaches each connection at most once."
+  - key: "SYSTEM ACTIVITY STAYS GLOBAL. The rollup counts tracker polls and webhooks across the installation and names tracker connections, which are shared config; only the System page reads it and that page needs diagnostics.read. It stays on the overview group, which project-only readers never join, and their subscribe pushes no seed."
+  - key: "THE LIVE PATH LEARNS THE PROJECT TWICE. The fold copies it from RunStarted for free; a run picked up mid-stream has no RunStarted, so the index reads the row once (the router persisted it before the send) and remembers it until the run finishes."
+  - key: "THE INDEX IS BOUNDED BY THE PROJECTOR, NOT BY A SIZE CAP. Alternatives: an LRU or TTL cap; read through on every send. Why: only the fanout's live, unfinished, project-less snapshots add an entry and the fanout forgets it on the FinishedAt the broadcaster drops the run at, so the cache holds at most the mid-stream runs in flight; every other caller reads through. A size cap would evict live runs and re-read them; reading through on every send would cost a row read per lifecycle event of every mid-stream run, since the router sends RunsChanged per persisted event. A run whose stream is lost without a RunFinished keeps one string until the process restarts — accepted."
+  - key: "ENFORCE OFF SENDS WHAT IT SENDS TODAY AND READS NOTHING NEW. The audience is the overview group alone while the switch is off, so no index read, no configuration read and no extra group send happen on an installation that never turned enforcement on."
+  - key: "THE DELETION READS BEFORE IT DELETES. After the delete the row is gone and the nudge could reach only the global group, leaving project readers' lists stale; the bulk 'bulk' nudge is data-free and goes to every configured project group."
+
+steps:
+  - id: hub-route
+    action: "ProjectFrom.Hub (wire 'hub'); ServerEndpointExtensions.cs:41 declares it on its line; PermissionRequirementHandler admits HoldsAnywhere on a Hub route; ProjectScopeMiddleware passes it; guard allows it on /hub/jobs only; regenerate route-permission-baseline.tsv and read the diff: rows 1-2 alone change. Within 4a4db's budgets."
+  - id: table
+    action: "HubProjectSource (at most 25 lines); HubMethodPermissions entries carry it and SourceOf(name) answers it (61 -> at most 80)."
+  - id: run-project
+    action: "RunSnapshotFold copies RunStartedEvent.Project (119 -> 120); RunProjectIndex (at most 60 lines) over a scope's ResourceProjectReader; RunSnapshot.Project's comment corrected."
+  - id: scope-and-filter
+    action: "HubProjectScope (at most 100 lines) with the AnyProject, RunArgument and DialogArgument rules and the two refusal sentences; HubPermissionFilter async, global first, unbound callers today's sentence, then the scope (61 -> at most 80)."
+  - id: overview-subscription
+    action: "HubGroups.OverviewOf (27 -> at most 32); OverviewSubscription (at most 70 lines); JobsHub swaps the broadcaster for it and SubscribeOverview delegates (143 -> at most 140)."
+  - id: fan-out
+    action: "OverviewAudience (at most 60 lines); JobsHubFanout (39 -> at most 50), JobsHubRunListNudge (17 -> at most 22) and RunDeletionEndpoints (53 -> at most 62) send through it; DI in DashboardApiExtensions (90 -> at most 96); lower JobsHub's baseline row."
+  - id: tests
+    action: "Red first, then green, for every test below; the booted-hub tests carry a TestProcess env trait with EnvVarCollection and 4a4db's ProjectScopeAuthorityFixture (one group bound as operator in alpha and team/alpha, beta configured too); run the Server/Auth, Server hub, Services/Events and SpecDialog hub classes with --filter."
+
+tests:
+  - "HubPermissions_EveryMethodWithAProjectScopablePermission_DeclaresAProjectSource"
+  - "HubPermissions_AGlobalSourceMethod_NamesOnlyGlobalOnlyPermissions"
+  - "HubPermissions_EveryMethodWhoseFirstParameterIsRunId_IsRunArgument (reflection over JobsHub)"
+  - "HubPermissions_EveryMethodWhoseFirstParameterIsDialogId_IsDialogArgument"
+  - "HubFilter_EnforceOff_ProceedsWithoutResolvingAProject (the index stub records no call)"
+  - "HubFilter_GlobalReader_ProceedsWithoutResolvingAProject"
+  - "HubFilter_UnboundCallerLackingWatch_ExpandSandbox_NamesTheMissingWatchWithoutResolvingAProject"
+  - "HubFilter_ProjectReader_SubscribeRunInTheirProject_Proceeds"
+  - "HubFilter_ProjectReader_SubscribeRunInAnotherProject_IsRefusedWithTheUnknownRunSentence"
+  - "HubFilter_ProjectReader_UnknownRun_IsRefusedWithTheSameSentence"
+  - "HubFilter_ProjectReader_RunOfAProjectNoLongerConfigured_IsRefused"
+  - "HubFilter_ProjectReaderWithoutWatch_ExpandSandboxInTheirProject_NamesTheMissingWatch"
+  - "HubFilter_ProjectWatcher_ExpandSandboxInAnotherProject_IsRefusedAndTheRefcountIsUnchanged"
+  - "HubFilter_ProjectReader_SubscribeSystem_IsRefused"
+  - "HubFilter_ProjectDialogHolder_FreshDialogId_Proceeds"
+  - "HubFilter_ProjectDialogHolder_OwnSessionWithNoProjectYet_Proceeds"
+  - "HubFilter_ProjectDialogHolder_SessionOfAnotherProject_IsRefusedWithTheOwnerSentence"
+  - "HubFilter_ProjectDialogHolder_WatchFiledWorkWithoutRunsReadInThatProject_IsRefused"
+  - "OverviewSubscription_EnforceOff_JoinsTheOverviewGroupAndPushesTheRollup"
+  - "OverviewSubscription_GlobalReader_JoinsTheOverviewGroupAndPushesTheRollup"
+  - "OverviewSubscription_ProjectReader_JoinsOnlyTheirConfiguredProjectGroupsAndGetsNoRollup"
+  - "RunSnapshotFold_RunStarted_CarriesTheProject"
+  - "RunProjectIndex_KnownProject_ReadsNothing"
+  - "RunProjectIndex_LiveSnapshotWithoutProject_ReadsTheRowOnceAndRemembersIt"
+  - "RunProjectIndex_OfAsync_ReadsThroughAndRemembersNothing (a finished run asked over the hub twice reads the row twice)"
+  - "RunProjectIndex_Forget_DropsTheEntry"
+  - "RunProjectIndex_NoRowOrEmptyProject_IsNull"
+  - "OverviewAudience_EnforceOff_IsTheOverviewGroupAloneAndReadsNothing"
+  - "JobsHubFanout_RunsChanged_GoesToTheOverviewGroupAndTheRunsProjectGroup"
+  - "JobsHubFanout_RunsChangedForAProjectlessRun_GoesToTheOverviewGroupOnly"
+  - "JobsHubFanout_FinishedSnapshot_ForgetsTheRun"
+  - "JobsHubFanout_TicketActivityChanged_GoesToTheOverviewGroupAndTheTicketsProjectGroup"
+  - "JobsHubFanout_SystemActivityUpdated_GoesToTheOverviewGroupOnly"
+  - "RunListNudge_RunsChanged_ReachesTheRunsProjectGroup"
+  - "RunDeletion_DeleteOne_NudgesTheDeletedRunsProjectGroup"
+  - "RunDeletion_ClearTerminal_NudgesEveryConfiguredProjectGroup"
+  - "RouteProjectScopeGuard_TheHubKind_IsDeclaredOnTheHubRouteAlone"
+  - "Enforce_SwitchOn_ProjectReader_NegotiatesTheHub (booted; runs.read only through a binding)"
+  - "Enforce_SwitchOn_ProjectReader_SubscribeOverview_Proceeds (booted hub, long polling; TestProcess env trait + EnvVarCollection)"
+  - "Enforce_SwitchOn_ProjectReader_SubscribeSystem_IsRefused (booted hub)"
+  - "HubEnforcementTests, HubEnforceSwitchOffTests and FiledWorkWatchTests unchanged and green; HubPermissionFilterTests' Filter helper passes the new third argument, its assertions unchanged and green"
+
+done:
+  - "With enforcement off, every dashboard sees exactly the live updates it sees today."
+  - "A person who may read only project A sees live run-list and ticket nudges for project A's runs and tickets and none for project B's."
+  - "That person cannot follow, page, expand or read the result, plan, spec or analysis of a project B run over the hub; the refusal reads exactly like the one for a run that does not exist."
+  - "That person cannot join a project B spec conversation; the refusal reads like another person's conversation."
+  - "A global reader or admin sees every project's live updates and the System page's rollup as today; a project-only reader receives no rollup."
+  - "Deleting a run nudges the lists of the people who may read its project."
+  - "Build green, full suite green, dashboard gen/test/build green."

@@ -38,7 +38,7 @@ internal static class ServerEndpointExtensions
     internal static WebApplication MapDashboardApi(this WebApplication app)
     {
         app.UseCors(DashboardConstants.CorsPolicy);
-        app.MapHub<JobsHub>("/hub/jobs").Needs(Permissions.RunsRead).InProject(ProjectFrom.AcrossProjects);
+        app.MapHub<JobsHub>("/hub/jobs").Needs(Permissions.RunsRead).InProject(ProjectFrom.Hub);
         app.MapRunControlEndpoints(); // p0506: cancel / answer
         app.MapRetryEndpoints(); // 2026-10-13-9a59n: retry after an infrastructure end
         app.MapSpecDialogEndpoints(); // 2026-09-15-9033: the dashboard's spec-dialog channel

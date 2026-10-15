@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-15-4a4dc
+
+decisions:
+  - category: Architecture
+    chose: "ProjectFrom.Hub (wire 'hub') on /hub/jobs, per-resource for the coarse gate and not checked at the route"
+    over: "Admitting every AcrossProjects route on a hold in any project"
+    reason: |
+      Lists stay global until 4a4dd filters them. The hub route can admit a project-only reader because its filter
+      scopes every invocation behind it. IsPerResource already excludes only AcrossProjects, so the handler needed
+      no new branch; IsCheckedAtTheRoute excludes Hub, so the middleware passes it as it passes Body.
+  - category: Architecture
+    chose: "HubMethodPermissions carries a HubProjectSource per method (Global, AnyProject, RunArgument, DialogArgument)"
+    over: "Reusing ProjectSourceKind for hub methods"
+    reason: |
+      A hub method's project comes from an argument position, a route's from a route value; one enum for both
+      would let a route claim an argument. Reflection tests pin every runId-first and dialogId-first method.
+  - category: Architecture
+    chose: "Callers without a binding that carries what is missing meet today's filter and today's sentence, with no lookup"
+    over: "Resolving the run's project for every caller short of the global set"
+    reason: |
+      Enforce off, a full global hold, a Global method or a missing permission held in no project never reach
+      HubProjectScope, so the admin grant, token claims and today's role mappings read no row and no configuration,
+      and the booted ExpandSandbox refusal still names runs.watch.
+  - category: Architecture
+    chose: "One sentence for an unknown and a foreign run ('No run <id> is visible to this caller.'); a foreign dialog answers today's owner sentence"
+    over: "Naming the missing permission for out-of-project runs"
+    reason: |
+      A project-bound reader cannot probe run ids or dialog ids. A caller who may read the run in its project but
+      lacks another permission there gets the permission named, because they already see the run.
+  - category: Architecture
+    chose: "A dialog with no open session or an empty project falls back to the any-project rule; the owner check still runs"
+    over: "Refusing an ungrounded dialog to project-only callers"
+    reason: |
+      A dashboard dialog has no project until one is chosen; refusing it would lock a project-only reader out of
+      their own new conversation. 4a4db's dialog routes pass it for the same reason.
+  - category: Architecture
+    chose: "RunProjectIndex remembers only the fan-out's live, unfinished runs and is forgotten on FinishedAt and on delete; every other reader reads through"
+    over: "An LRU or TTL cache; reading through on every send"
+    reason: |
+      The router sends RunsChanged per persisted event, so a mid-stream run would cost a row read per event; a
+      size cap would evict live runs. The fold copies RunStarted.Project, so most runs never touch the index.
+  - category: Architecture
+    chose: "Project readers join overview:project:<name> groups of configured projects; global readers only the overview group; SystemActivityUpdated stays on the overview group"
+    over: "Every caller in the overview group plus a per-caller filter on send"
+    reason: |
+      Membership splits the audience, so no connection hears a nudge twice. The rollup counts the whole
+      installation's tracker traffic and is read only by the System page, which needs diagnostics.read.
+      Membership is decided at subscribe time; a revoked binding takes effect on reconnect.
+  - category: Implementation
+    chose: "HubGroups.OverviewOf lowercases the project name"
+    over: "The name as given"
+    reason: |
+      Project names fold case (ConfigNames.Comparer is OrdinalIgnoreCase), and a run row, a ticket event and the
+      configuration key could spell one project differently; one group per project needs one spelling.
+  - category: Implementation
+    chose: "OverviewSubscription is public with an internal constructor, registered through a factory"
+    over: "Making JobsHub internal, or OverviewSubscription internal"
+    reason: |
+      JobsHub is public and used as IHubContext<JobsHub> by public fan-out types, so its constructor parameters
+      must be public; CallerIdentityResolver is internal. A factory registration keeps both as they are.
+  - category: Implementation
+    chose: "The single delete reads the audience before deleting and forgets the run after; the bulk clear nudges every configured project group"
+    over: "Nudging after the delete through the index"
+    reason: |
+      After the delete the row is gone and the nudge could reach only global readers. The bulk 'bulk' nudge
+      carries no data, so every project group may hear it.

@@ -1,6 +1,6 @@
 namespace AgentSmith.Server.Security;
 
-/// <summary>2026-10-15-4a4db: where a route's project comes from — see <see cref="ProjectFrom"/>.</summary>
+/// <summary>2026-10-15-4a4db: where a route's project comes from — see <see cref="ProjectFrom"/>. 2026-10-15-4a4dc adds Hub.</summary>
 internal enum ProjectSourceKind
 {
     Route,
@@ -10,4 +10,5 @@ internal enum ProjectSourceKind
     Image,
     Body,
     AcrossProjects,
+    Hub,
 }

@@ -1,5 +1,6 @@
 using AgentSmith.Server.Hubs;
 using AgentSmith.Server.Security;
+using AgentSmith.Server.Services.Events;
 using AgentSmith.Server.Services.Lifecycle;
 using Microsoft.AspNetCore.SignalR;
 
@@ -25,17 +26,23 @@ internal static class RunDeletionEndpoints
     internal static async Task<IResult> DeleteRunAsync(
         string runId,
         RunDeleter deleter,
+        OverviewAudience audience,
+        RunProjectIndex runs,
         IHubContext<JobsHub> hub,
         CancellationToken cancellationToken)
     {
+        // 2026-10-15-4a4dc: the audience is read BEFORE the row goes, or only global readers would hear it.
+        var audienceOfRun = await audience.OfRunAsync(runId, null, cancellationToken);
         var outcome = await deleter.DeleteAsync(runId, cancellationToken);
         if (outcome == RunDeleteOutcome.NotFound) return Results.NotFound();
-        await NudgeAsync(hub, runId, cancellationToken);
+        runs.Forget(runId);
+        await NudgeAsync(hub, audienceOfRun, runId, cancellationToken);
         return Results.NoContent();
     }
 
     internal static async Task<IResult> ClearTerminalAsync(
         RunDeleter deleter,
+        OverviewAudience audience,
         IHubContext<JobsHub> hub,
         string? state,
         CancellationToken cancellationToken)
@@ -44,10 +51,10 @@ internal static class RunDeletionEndpoints
         if (!string.Equals(state, "terminal", StringComparison.OrdinalIgnoreCase))
             return Results.BadRequest("only state=terminal is supported for bulk delete");
         var deleted = await deleter.DeleteTerminalAsync(cancellationToken);
-        await NudgeAsync(hub, "bulk", cancellationToken);
+        await NudgeAsync(hub, audience.Everyone(), "bulk", cancellationToken);
         return Results.Ok(new { deleted });
     }
 
-    private static Task NudgeAsync(IHubContext<JobsHub> hub, string runId, CancellationToken ct) =>
-        hub.Clients.Group(HubGroups.Overview).SendAsync("RunsChanged", runId, ct);
+    private static Task NudgeAsync(IHubContext<JobsHub> hub, IReadOnlyList<string> groups, string runId, CancellationToken ct) =>
+        hub.Clients.Groups(groups).SendAsync("RunsChanged", runId, ct);
 }

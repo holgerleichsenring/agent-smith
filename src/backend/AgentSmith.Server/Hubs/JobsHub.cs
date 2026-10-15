@@ -12,7 +12,7 @@ namespace AgentSmith.Server.Hubs;
 /// the oldest retained event as the start of their visible history.
 /// </summary>
 public sealed class JobsHub(
-    JobsBroadcaster broadcaster,
+    OverviewSubscription overview, // 2026-10-15-4a4dc: which overview groups, and the rollup
     SandboxExpansionRegistry expansionRegistry,
     TrailReader trailReader,
     ResultMarkdownReader resultReader,
@@ -28,11 +28,7 @@ public sealed class JobsHub(
     // event stream, the system feed, sandbox expansion, and the RunsChanged nudge
     // that tells the dashboard to refetch. result.md/plan.md still come from the
     // DB-backed artifact store (p0246e) via the markdown readers below.
-    public async Task SubscribeOverview()
-    {
-        await Groups.AddToGroupAsync(Context.ConnectionId, HubGroups.Overview);
-        await Clients.Caller.SendAsync("SystemActivityUpdated", broadcaster.GetSystemActivity());
-    }
+    public Task SubscribeOverview() => overview.JoinAsync(Context, Groups, Clients.Caller);
 
     /// <summary>
     /// p0173a / p0248: subscribes the caller to the system-level event group and seeds the

@@ -20,7 +20,7 @@ public static class RunSnapshotFold
             AgentName = e.AgentName ?? snapshot.AgentName,
             // p0211: ticket id at run start feeds the title fallback label
             // before any TicketFetchedEvent (and for runs that never fetch one).
-            TicketId = e.TicketId ?? snapshot.TicketId,
+            TicketId = e.TicketId ?? snapshot.TicketId, Project = e.Project ?? snapshot.Project, // 2026-10-15-4a4dc
         },
         // p0176b: RunFinished.CostUsd, when present, overrides the per-call
         // accumulation. Defence in depth: even if a producer leaked LLM
