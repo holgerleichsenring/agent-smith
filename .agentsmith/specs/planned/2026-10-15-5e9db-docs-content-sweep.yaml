@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-15-5e9db
+goal: "The docs describe what shipped since 2026-09-28: every WRONG sentence fixed, every MISSING feature on a page, and the figures on 'built by the method' recounted."
+
+applies_to: "docs (docs/ mkdocs pages, docs/mkdocs.yml nav, README.md)"
+
+requires: []
+
+facts:
+  - claim: "A read-only audit classified all 240 specs done since 2026-09-28: 38 covered, 17 partial, 36 missing, 12 wrong rows with 21 quoted wrong sentences, 58 internal."
+    evidence: ".agentsmith/notes/2026-10-15-5e9d-doc-delta.md"
+  - claim: "Six pages still describe the retired spec layout specs/<provider>-<ticket-id>/ with set.yaml."
+    evidence: "docs/how-it-works/lifecycle.md:15, docs/how-it-works/spec-dialogue.md:52, docs/how-it-works/methodology.md:52"
+  - claim: "Work it out's attach menu and tab count are described as before uploads and references shipped."
+    evidence: "docs/how-it-works/work-it-out.md:33, docs/how-it-works/work-it-out.md:58-60"
+  - claim: "The series cap is described as eight specs; it is series.max_specs, default 24."
+    evidence: "docs/how-it-works/work-it-out.md:94"
+
+assumptions:
+  - "The audit note's line numbers hold at the commit this spec starts from; the implementer re-reads each cited line before editing."
+
+scope:
+  in: >
+    Every WRONG sentence in the audit note corrected; rewrites of work-it-out.md, the Tickets part of
+    reference/operations/dashboard.md, configure-it/settings.md, configure-it/config-studio.md,
+    reference/pipelines/fix-and-feature.md with how-it-works/lifecycle.md, and how-it-works/multi-repo.md;
+    three new pages (structure limits, design sources and Figma, ticket dependencies) in the nav; the figures on
+    built-by-the-method.md recounted by its own method and carried to the website. Docs stay plain and readable.
+  out: >
+    Screenshots (2026-10-15-5e9dc embeds them). The website stage (2026-10-15-5e9da).
+
+decisions:
+  - key: "THE AUDIT NOTE IS THE WORK LIST. It names page, line and status per spec; the sweep works it top to bottom and marks each row done in the note."
+
+steps:
+  - id: wrong
+    action: "Fix every WRONG row, quoting the code location the audit cites."
+  - id: rewrite
+    action: "Rewrite the six pages the audit lists; add the three new pages to docs/mkdocs.yml."
+  - id: figures
+    action: "Recount built-by-the-method.md by its published method; update the website's numbers to match."
+
+tests:
+  - "mkdocs build --strict passes"
+
+done:
+  - "No sentence the audit marks WRONG remains, and every MISSING row points at a page that describes it."
+  - "The docs build passes strict mode."

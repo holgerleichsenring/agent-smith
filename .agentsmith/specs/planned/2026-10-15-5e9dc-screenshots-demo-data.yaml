@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-15-5e9dc
+goal: "Docs screenshots come from a committed demo seeder and a real Azure DevOps project, so every surface shipped since 2026-09-28 has a current picture that can be retaken."
+
+applies_to: "tools (a demo seeder and a screenshot script) and docs (docs/assets/screenshots, the pages that embed them)"
+
+requires: ["2026-10-15-5e9db"]
+
+facts:
+  - claim: "Every screenshot predates 2026-09-28; nine show UI that changed, five are referenced by no page, and the ticket list, ticket page, Work it out, Spec review and Series settings, Design sources and the connection test have none."
+    evidence: ".agentsmith/notes/2026-10-15-5e9d-doc-delta.md"
+  - claim: "The last screenshot rig was throwaway: a seeder and configs in a session scratchpad, now gone; Run children are separate DbSets and run ids must match RunIdGenerator.IsValid."
+    evidence: "observed: 2026-07-17 session notes (p0346 screenshot rig)"
+
+assumptions:
+  - "The operator's Azure DevOps organisation has a project the run may write work items and pull requests to; its token is provided to the session before this spec starts."
+
+scope:
+  in: >
+    A demo seeder under tools/ that writes one story into a scratch database: an Azure Boards ticket over two
+    repositories, a series of three specs, a hand-back answered from a work item comment, a rework after a Wait
+    for author vote, two merged pull requests. A script that starts server and dashboard against it and takes
+    the screenshots headless at 2x. Screenshots of the Azure DevOps side (work item with the agent's comments,
+    pull request with the rework) from the operator's organisation. All names anonymised (acme, Sample).
+  out: >
+    The operator's running deployment and its data — never touched. The website (it draws its panels).
+
+decisions:
+  - key: "THE RIG IS COMMITTED THIS TIME. A scratchpad rig was lost within a session; a committed seeder makes the next sweep a rerun."
+
+steps:
+  - id: seeder
+    action: "tools/demo-seed: one story as above, idempotent against an empty database."
+  - id: shoot
+    action: "tools/screenshots: server + dashboard on free ports, headless Chrome at 2x, one image per docs surface."
+  - id: azure
+    action: "Run the story once against the operator's Azure DevOps project and capture the work item and the pull request."
+  - id: embed
+    action: "Replace stale images, delete unreferenced ones, embed the new ones on the pages 5e9db wrote."
+
+tests:
+  - "the seeder runs twice against one database without error and without duplicating rows"
+
+done:
+  - "Every docs surface listed in the audit has a current screenshot, and no image in docs/assets/screenshots is unreferenced."
+  - "Running the two tools again reproduces the set."

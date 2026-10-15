@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="color-scheme" content="dark">
 <title>{{ title or (site.title + " — " + site.tagline) }}</title>
 <meta name="description" content="{{ description or site.description }}">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
@@ -10,35 +11,33 @@
 </head>
 <body>
 
-<!-- NAV -->
-<nav class="nav-bar">
-  <a href="/" class="nav-logo">
-    <span class="nav-logo-dot"></span>
-    agent-smith
-  </a>
-  <ul class="nav-links">
-    <li><a href="/#how">How it works</a></li>
-    <li><a href="/#why">Why I built it this way</a></li>
-    <li><a href="/#built">How it was built</a></li>
-    <li><a href="/#more">More pipelines</a></li>
-    <li><a href="{{ site.docsUrl }}">Docs</a></li>
-  </ul>
-  <div class="nav-cta">
-    <a href="https://github.com/{{ site.githubRepo }}" class="btn btn-text">GitHub</a>
-    <a href="{{ site.docsUrl }}/get-it-running/install/" class="btn btn-primary">Get started</a>
+<nav class="nav" aria-label="Main">
+  <div class="wrap">
+    <a class="logo" href="/"><i aria-hidden="true"></i>agent-smith</a>
+    <ul>
+      <li><a href="/#define">How it works</a></li>
+      <li><a href="/azure-devops/">Azure DevOps</a></li>
+      <li><a href="/#why">Why</a></li>
+      <li><a href="/#built">How it was built</a></li>
+      <li><a href="{{ site.docsUrl }}">Docs</a></li>
+      <li><a href="https://github.com/{{ site.githubRepo }}">GitHub</a></li>
+    </ul>
+    <a class="btn btn-go btn-sm" href="{{ site.docsUrl }}/get-it-running/install/">Get started</a>
   </div>
 </nav>
 
 {{ content | safe }}
 
-<footer class="footer-region">
-  <div class="footer-l">agent-smith · MIT License · © 2026 Holger Leichsenring</div>
-  <div class="footer-r">
-    <a href="{{ site.docsUrl }}">Docs</a>
-    <a href="{{ site.sentinelUrl }}">Sentinel</a>
-    <a href="https://github.com/{{ site.githubRepo }}">GitHub</a>
-    <a href="{{ site.blogUrl }}">Blog</a>
-    <a href="{{ site.partnerUrl }}">45level</a>
+<footer class="footer">
+  <div class="wrap">
+    <span>agent-smith · MIT License · © 2026 Holger Leichsenring</span>
+    <span class="footer-links">
+      <a href="{{ site.docsUrl }}">Docs</a>
+      <a href="{{ site.sentinelUrl }}">Sentinel</a>
+      <a href="https://github.com/{{ site.githubRepo }}">GitHub</a>
+      <a href="{{ site.blogUrl }}">Blog</a>
+      <a href="{{ site.partnerUrl }}">45level</a>
+    </span>
   </div>
 </footer>
 

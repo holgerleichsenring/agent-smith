@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-15-5e9da
+goal: "The landing page runs on a dark stage led by Azure DevOps: code rain, a headline that lands line by line, and four chapters on defining, running, answering and reviewing a ticket."
+
+applies_to: "website (website/src: layout, index, azure-devops page, static styles and script; DESIGN.md gains the stage layer)"
+
+requires: []
+
+facts:
+  - claim: "The landing page opens with the hero partial and a screenshot of the runs board, then one long prose section with two more screenshots and the light lifecycle picture."
+    evidence: "website/src/index.njk:5, website/src/_includes/partials/hero-lifecycle.njk:31, website/src/index.njk:29, website/src/index.njk:51, website/src/index.njk:64"
+  - claim: "The first-person sections the operator wrote stay part of the page: why it is built this way, built by the method, more pipelines, providers and deploy."
+    evidence: "website/src/index.njk:70, website/src/index.njk:102, website/src/index.njk:127"
+  - claim: "DESIGN.md is a light system: Inter only, IBM Plex Mono for mono surfaces, 12 px radius for buttons and cards, and a dark terminal panel; it has no dark marketing stage."
+    evidence: "DESIGN.md:4"
+  - claim: "tokens.css is generated from DESIGN.md for the website and the docs, and loads Inter from jsDelivr rather than Google Fonts."
+    evidence: "tools/build-tokens.mjs:1-15, website/src/static/tokens.css:4-10"
+  - claim: "The Azure DevOps page says an approved conversation files one work item and that dependencies are never split across work items; Work it out now proposes ticket lists that name what each requires."
+    evidence: "website/src/azure-devops.njk:66-70, .agentsmith/specs/done/2026-10-14-dbcef-ticket-requires-store.yaml"
+  - claim: "Every build ends in a link check over _site that fails on a local target the build did not write."
+    evidence: "website/package.json:10, website/check-links.mjs:1-41"
+  - claim: "The direction was settled on a mock the operator iterated nine versions on: dark, code rain, IBM Plex Mono Bold headline that slams in, no figure and no weapon, chapters for Work it out, the run, the ticket conversation and the PR review."
+    evidence: "observed: 2026-10-15, artifact LpwbwTtEggVFarkT5nb3fk v9, operator: 'so ist großartig, baue es so'"
+
+assumptions:
+  - "The figures in 'Built by the method' are recounted by the docs sweep (2026-10-15-5e9db), not here."
+
+scope:
+  in: >
+    The landing page and the Azure DevOps page on one dark stage: header with code rain and a two-line headline
+    (Work item in. / Pull request out.) that slams in and decodes; an example work item becoming two pull requests;
+    a word band; chapters 01 define (Work it out proposing tickets in merge order), 02 run (the lifecycle redrawn
+    dark and animated), 03 the ticket conversation, 04 the PR review; the platform grid with Azure DevOps first;
+    the operator's first-person sections restyled; the closing call. Product panels are drawn in HTML, marked as
+    examples. Fonts from jsDelivr (Inter, IBM Plex Mono). Motion stops under prefers-reduced-motion and pauses off
+    screen. DESIGN.md documents the stage as a layer of its own.
+  out: >
+    Screenshots of the dashboard (2026-10-15-5e9dc). The docs site and its pages (2026-10-15-5e9db). A dark theme
+    for the dashboard itself — nobody asked for it yet. The logo artwork — the operator dropped the figure.
+
+decisions:
+  - key: "THE STAGE IS A LAYER OF ITS OWN, NOT A CHANGE TO THE PRODUCT SYSTEM. The dashboard and the docs stay light and readable; only the marketing site goes dark. DESIGN.md gets a Website stage section and stage tokens, so the site still reads its colours from one source."
+  - key: "THE HEADLINE FACE IS IBM PLEX MONO BOLD, ALREADY IN THE SYSTEM. Doto, Sixtyfour, VT323, Handjet and Jersey were tried in the mock; the operator found the dot faces hard to read (their period renders as a plus)."
+  - key: "PANELS ARE DRAWN, NOT SCREENSHOTS. A drawn panel stays true to the dark stage and shows exactly one mechanism per chapter; the names and numbers in it are labelled as an example."
+  - key: "FONTS COME FROM JSDELIVR LIKE INTER ALREADY DOES, never from Google Fonts, so the site makes no request to Google."
+
+steps:
+  - id: design
+    action: "DESIGN.md: stage colour tokens in the frontmatter and a 'Website stage' section (palette, Plex Mono Bold display, motion rules, reduced motion)."
+  - id: layout
+    action: "base.njk: dark nav and footer, fonts, one script; nav anchors to the new sections."
+  - id: index
+    action: "index.njk: header, example strip, chapters 01-04 with drawn panels and notes, lifecycle SVG inline, platform grid, the existing first-person sections restyled, closing call. hero-lifecycle.njk, ui-*.png and the static lifecycle.svg are removed."
+  - id: azure-page
+    action: "azure-devops.njk on the same stage; the dependency paragraph says what Work it out does now: a ticket list in merge order, each ticket naming what it requires."
+  - id: script
+    action: "main.js: rain canvas, headline slam and decode, typed subline, example strip loop, scroll reveals, lifecycle pause, GitHub stars; all guarded for reduced motion."
+  - id: verify
+    action: "npm run build (tokens, eleventy, link check) green; headless render at 1400 and 400 px shows no horizontal overflow."
+
+tests:
+  - "website build: eleventy writes _site and check-links finds every local target"
+  - "a headless render at phone width reports document scrollWidth equal to the viewport width"
+
+done:
+  - "agent-smith.org opens on the dark stage with the code rain, the two-line headline and the four chapters, and every claim on it matches the product as shipped."
+  - "/azure-devops/ uses the same stage and no longer says dependencies are never split across work items."
+  - "With reduced motion, every element is visible and nothing moves."
+  - "Build green, full suite green, dashboard gen/test/build green."

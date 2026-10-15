@@ -132,8 +132,17 @@ function emitCss(tree) {
   lines.push("  font-style: normal;");
   lines.push("  font-weight: 100 900;");
   lines.push("  font-display: swap;");
-  lines.push("  src: url('https://cdn.jsdelivr.net/npm/@fontsource/inter@5.0.16/files/inter-latin-variable-wghtOnly-normal.woff2') format('woff2-variations');");
+  lines.push("  src: url('https://cdn.jsdelivr.net/npm/@fontsource-variable/inter@5.0.16/files/inter-latin-wght-normal.woff2') format('woff2-variations');");
   lines.push("}");
+  for (const weight of [400, 500, 700]) {
+    lines.push("@font-face {");
+    lines.push("  font-family: 'IBM Plex Mono';");
+    lines.push("  font-style: normal;");
+    lines.push(`  font-weight: ${weight};`);
+    lines.push("  font-display: swap;");
+    lines.push(`  src: url('https://cdn.jsdelivr.net/npm/@fontsource/ibm-plex-mono@5.0.13/files/ibm-plex-mono-latin-${weight}-normal.woff2') format('woff2');`);
+    lines.push("}");
+  }
   lines.push("");
   lines.push(":root {");
 
