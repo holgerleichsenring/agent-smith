@@ -88,6 +88,7 @@ nav:
     - The Config studio:         configure-it/config-studio.md
     - Project templates:         configure-it/templates.md
     - Settings:                  configure-it/settings.md
+    - Design sources (Figma):    configure-it/design-sources.md
     - agentsmith.yml:            configure-it/yaml.md
 
   - Connect your stuff:
@@ -118,8 +119,10 @@ nav:
     - The delivery account: how-it-works/delivery-account.md
     - Spec dialogue:  how-it-works/spec-dialogue.md
     - Work it out:    how-it-works/work-it-out.md
+    - Ticket dependencies: how-it-works/ticket-dependencies.md
     - Expectations & durable dialogue: how-it-works/expectations.md
     - Multi-repo:     how-it-works/multi-repo.md
+    - Structure limits: how-it-works/structure-limits.md
     - Skills catalog: how-it-works/skills-catalog.md
 
   - Reference:

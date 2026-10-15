@@ -124,7 +124,7 @@ The key is the spec id; the text after it is a one-line summary, and planned spe
 
 ### Specs in a code run
 
-A [`code` run](../pipelines/fix-and-feature.md) works the same way on your repository. It cuts the ticket into specs under `.agentsmith/specs/<provider>-<ticket-id>/` — one YAML spec and one Markdown companion per spec, plus `accounting.md` — with ids derived from the ticket: ticket 54 becomes `p54a`, `p54b`, and so on. When a spec is verified, the run writes its record to `.agentsmith/specs/done/<id>-<slug>.yaml` and adds the matching `state.done` line to the context, so the repository carries the same planned → done history this project keeps for itself.
+A [`code` run](../pipelines/fix-and-feature.md) works the same way on your repository. It cuts the ticket into a series of specs under `.agentsmith/specs/planned/`, one YAML spec and one Markdown companion each, plus a manifest at `.agentsmith/series/{base}.yaml` that records the ticket, the order and where every part of the ticket went. The series id is minted the same way this project mints its own, today's date plus four random hex digits (`2026-10-15-3f2a`), and its specs are that id plus a letter: `2026-10-15-3f2aa`, `2026-10-15-3f2ab`, and so on. When a spec has run, the run moves it to `.agentsmith/specs/done/` with an outcome block and adds the matching `state.done` line to the context, so the repository carries the same planned → done history this project keeps for itself.
 
 ## Runs
 

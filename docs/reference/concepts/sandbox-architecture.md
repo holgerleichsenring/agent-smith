@@ -48,11 +48,17 @@ Pod (RestartPolicy=Never)
 │   volumeMounts: /shared
 └── container toolchain            image: <toolchain image>
     command: [/shared/agent]
-    args: --redis-url $REDIS_URL --job-id $JOB_ID [--run-id $RUN_ID]
+    args: --job-id $JOB_ID [--run-id $RUN_ID]
     env: REDIS_URL, JOB_ID, GIT_TOKEN and sandbox.secrets.env (secretKeyRef)
     volumeMounts: /shared (ro), /work, sandbox.secrets.files (ro)
     workingDir: /work
 ```
+
+The Redis URL reaches the agent through `REDIS_URL` only, never on its command line, where
+every process in the container could read it. A command the agent runs (a build, a test, a
+shell line the model wrote) doesn't inherit `REDIS_URL` or `JOB_ID` unless the step sets
+them itself. That keeps them out of `env` and `ps`; it doesn't make them unreachable for a
+process that goes looking.
 
 The agent image tag is derived from the release the server is, unless
 `sandbox.agent_version` (or `deployment.version`) pins one. A pin is reported as an

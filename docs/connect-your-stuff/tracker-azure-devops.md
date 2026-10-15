@@ -16,11 +16,11 @@ Five things, in this order, because each one references the one before it:
 
 Open the dashboard, switch the rail to **Configuration**, and work down the catalogs.
 
-**Secrets.** New secret, name it `azure_devops_token`. You're registering the *name*. The value stays in the environment of the server process (or your k8s Secret), and the studio never sees it. Do the same for your provider key.
+**Secrets.** New secret, name it `AZURE_DEVOPS_TOKEN`, exactly like the environment variable that holds the PAT: a secret created in the studio reads the variable of its own name ([which variable a secret reads](../configure-it/config-studio.md#which-variable-a-secret-reads)). You're registering the *name*. The value stays in the environment of the server process (or your k8s Secret), and the studio never sees it. Do the same for your provider key, as `AZURE_OPENAI_API_KEY`.
 
-**Agents.** New agent, id `azure-openai-default`, provider `azure_openai`. Fill the endpoint and api version, pick the key secret from the dropdown, then set a model per role: a cheap one for `scout`, the good one for `primary` and `coding`. If you want dollar figures on your runs rather than just token counts, add the pricing section while you're in there.
+**Agents.** New agent, id `azure-openai-default`, provider `azure_openai`. Fill the endpoint and api version, pick the key secret from the dropdown, then add your deployments on the **Models** tab (a cheap one tiered `fast`, the good one `strong`) and pick one per activity on **Activities**: the good one for Coding, the cheap one for Quick lookups. A model the bundled price list knows is priced already; one it doesn't needs a price override, or the save is refused.
 
-**Repositories.** One entry per repo: the clone URL, and `azure_devops_token` as the auth. If you'd rather not list them one by one, add a **Connection** instead (organization plus project plus auth), and a project can then pull repos from that scope by name or wildcard rule.
+**Repositories.** One entry per repo: the clone URL, and `AZURE_DEVOPS_TOKEN` as the auth. If you'd rather not list them one by one, add a **Connection** instead (organization plus project plus auth), and a project can then pull repos from that scope by name or wildcard rule.
 
 **Trackers.** New tracker, type `azure_devops`. The form switches to the Azure fields once you pick the type: organization, project, URL, auth secret. Then the workflow, which the tracker owns for every project routed to it:
 
@@ -167,7 +167,7 @@ Set it in the environment:
 export AZURE_DEVOPS_TOKEN=...
 ```
 
-The tracker, the connections and the repos read it through the secret their `auth` names (`azure_devops_token: ${AZURE_DEVOPS_TOKEN}`), for API calls and for clone and push alike, so a second organization gets a secret and a variable of its own.
+The tracker, the connections and the repos read it through the secret their `auth` names (`azure_devops_token: ${AZURE_DEVOPS_TOKEN}`), for API calls and for clone and push alike, so a second organization gets a secret and a variable of its own. That pairing is the file's. A secret created in the studio reads the variable of its own name, which is why the studio walkthrough above names it `AZURE_DEVOPS_TOKEN`.
 
 The token rotates whenever you rotate it in Azure DevOps. Agent Smith reads it once at startup, so restart the orchestrator after a rotation. The studio holds the *name* of the secret, so there's nothing to change there.
 

@@ -220,6 +220,7 @@ A project wires one agent, one tracker and a set of repos, and says how a ticket
 | `coding_principles_path`, `skills_path` | project-level overrides |
 | `github_trigger`, `gitlab_trigger`, `azuredevops_trigger`, `jira_trigger` | a full trigger block, overriding the tracker field by field. Must match the tracker's type |
 | `sandbox` | per-project sandbox overrides, see below |
+| `design_sources` | names from `design_sources:` this project may read designs from. See [Design sources](../../configure-it/design-sources.md) |
 
 ### Trigger blocks
 
@@ -307,8 +308,11 @@ These blocks apply to every project unless a project overrides them. On a server
 | `skills` | an override for where the skill catalog comes from; normally unset |
 | `pipeline_data_flow` | whether the data-flow gate warns or enforces |
 | `trace` | `enabled`: record every model call's prompt and answer. `AGENTSMITH_TRACE`, when set, wins over it |
+| `spec_review` | `rounds` (4, `0` turns it off), `reviewers` (2), `max_concurrent` (2), `budget_share_percent` (40): the review each unbuilt spec gets before it is built |
+| `series` | `max_specs` (24, at most 26), `specs_per_attempt` (8, at most 18), `seconds_per_spec` (0 = not measured), `budget_usd` (150, `0` = no attempt starts by itself), `wall_clock_hours` (12), `continue_after_wall_time` (true) |
 | `role_mapping` | what a role name means: `role_claim`, `group_claim`, `group_roles`, `roles`, `person_grants`, `project_bindings` (`project`, `groups`, `people` as `claim`/`value`, `roles`: roles held in that project only, their run, init and dialog permissions), `observation_retention_days`. Edited on the Access page |
 | `mcp_servers` | the studio's MCP server catalog: `transport`, `url`, `auth` |
+| `design_sources` | the design source catalog: `vendor` (`figma`), `auth` (a name from `secrets:`), `display_name`. See [Design sources](../../configure-it/design-sources.md) |
 
 ## Bootstrap and file-only blocks
 

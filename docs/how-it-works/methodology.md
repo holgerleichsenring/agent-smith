@@ -17,7 +17,9 @@ Speculation surfaces; it doesn't get to pass as fact. And the framework enforces
 
 There is one coding pipeline, `code`. Its shape is simple to say: the ticket becomes a specification, and the specification is worked spec by spec, each spec checked before the next one starts.
 
-**The spec is the plan.** After the code has been read, `DeriveSpec` cuts the ticket into an ordered set of specs on the ticket branch — goal, steps, "done when" per spec. Before it writes, the derivation looks at the repository through read-only tools, and the cut it posts to the ticket separates facts (each backed by a look it took) from assumptions (stated without one). A fresh reviewer objects to the cut before it is kept. There is no second planning step and no approval gate: the master opens on the spec, and the spec is what gets verified. Details in [Expectations](expectations.md).
+**The spec is the plan.** After the code has been read, `DeriveSpec` cuts the ticket into an ordered set of specs on the ticket branch — goal, steps, "done when" per spec. Before it writes, the derivation looks at the repository through read-only tools, and the cut it posts to the ticket separates facts (each backed by a look it took) from assumptions (stated without one). A fresh reviewer objects to the cut before it is kept. When several specs share names, data or files, the series carries a contract that says who owns what, and a cut that collides is sent back. There is no second planning step and no approval gate: the master opens on the spec, and the spec is what gets verified. Details in [Expectations](expectations.md).
+
+**Attack each spec before building it.** Before the master starts, fresh reviewers open the code and answer BUILD, BUILD WITH CUTS or REFUSE for every spec a person hasn't approved word for word. Cuts are applied and the next round attacks the revised text, for up to four rounds, inside a share of the run's budget. A REFUSE that survives is asked once on the ticket. See [the code pipeline](../reference/pipelines/fix-and-feature.md#the-spec-review-before-building).
 
 **Hand it back instead of guessing.** A ticket that reads two ways, contradicts the repository, or can't be built as written is handed back at derivation, before any code. A ticket that asks for something that must not be done is refused even earlier, by the scope call, before a sandbox exists.
 
@@ -49,7 +51,7 @@ Every run leaves a record in the repository, committed with the change. The run 
 
 **Decisions** — non-obvious choices the agent made during the run. "Picked `400 BadRequest` over `404 Not Found` because the OpenAPI spec already documents 400 for malformed input". The agent records these with the `log_decision` tool when something would surprise a future reader; they land in `.agentsmith/decisions/<run-id>.yaml` and in the run's event stream.
 
-The specification itself lives next to the code, under `.agentsmith/specs/<provider>-<ticket-id>/`: one YAML spec and one Markdown companion per spec, plus `accounting.md`, which shows where every part of the ticket went. The run directories are what the [knowledge-base feature](../reference/concepts/knowledge-base.md) compiles when it builds the wiki across all your runs.
+The specification itself lives next to the code: one YAML spec and one Markdown companion per spec under `.agentsmith/specs/planned/`, moved to `.agentsmith/specs/done/` once it ran, and one manifest per series at `.agentsmith/series/{base}.yaml`, which also records where every part of the ticket went. The run directories are what the [knowledge-base feature](../reference/concepts/knowledge-base.md) compiles when it builds the wiki across all your runs.
 
 ## What about hallucinations
 

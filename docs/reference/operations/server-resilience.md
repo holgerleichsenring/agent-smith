@@ -83,6 +83,16 @@ Each of them is in one of four states:
 
 The Redis connection is built not to abort on a failed connect, so it reconnects on its own once Redis is reachable. While degraded, each subsystem checks every `queue.redis_retry_interval_seconds` (default 30) and starts its work as soon as the connection is up. Each state change writes one log line, which keeps the log readable during an outage.
 
+## When Redis is flushed
+
+Redis holds working copies; the database holds what a flush would otherwise lose. You can flush Redis, or replace it with an empty one, while runs are live, and the server rebuilds what it needs from the database:
+
+- A queued run's request is stored on its run row, ticketless and resumed runs included. A queue entry lost in the flush is enqueued again from that row, and a run that ends up queued twice still starts only once.
+- The set of active runs is rebuilt from the database by the housekeeping leader, at start and every 30 seconds after, from the runs whose heartbeat is fresh and that are neither finished nor parked. The live event feed finds running runs from the database too, so no live run is read as dead.
+- A chat command waiting for its **Confirm** is stored in the database with its expiry. Confirming one that expired, or one that's gone, answers "This request is no longer pending — please send it again."
+- The last webhook received per platform is stored in the database, so the Connection check still shows it after a flush instead of "never seen".
+- Each connection's discovery state (its repositories, its last success and its last error) is a database row too, shared by every replica.
+
 ## Webhooks while Redis is down
 
 A webhook that carries an answer to a parked run's question needs Redis to route it. While Redis is not up, that delivery gets:
