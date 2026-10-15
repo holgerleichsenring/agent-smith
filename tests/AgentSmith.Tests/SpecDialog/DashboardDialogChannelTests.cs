@@ -143,6 +143,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
             new SpecDialogEndpoints.SpecDialogMessageRequest(Dialog, FirstSentence),
             new DefaultHttpContext { RequestServices = _services, User = caller });
         await Settle(before + 1);
+        await _dispatched.SettleAsync();
 
         var state = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
         state!.Transcript.Select(turn => (turn.Text, turn.Author)).Should()
@@ -305,6 +306,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
         StatusOf(result).Should().Be(StatusCodes.Status409Conflict);
         release.SetResult();
         await Settle(before + 1);
+        await _dispatched.SettleAsync();
         var row = await _repository.GetBySessionIdAsync(opened.JobId, CancellationToken.None);
         row!.ThreadId.Should().Be(Dialog, "the conversation stays where its turn is running");
         (await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None))!
@@ -473,6 +475,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
         await Ingest(FirstSentence, Owner, Dialog, "sample");
         // 2026-09-28-1da5b: one push. Opening is no longer announced on this page.
         await Settle(before + 1);
+        await _dispatched.SettleAsync();
 
         (await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None))
             .Should().NotBeNull("the message that named a project opened its own conversation");
@@ -497,6 +500,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
         // notice and then by the turn — the notice arriving after the operator's description and
         // above the turn already working on it.
         await Settle(before + 1);
+        await _dispatched.SettleAsync();
 
         var state = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
         state!.Transcript.Select(turn => turn.Text).Should()
@@ -528,6 +532,7 @@ public sealed class DashboardDialogChannelTests : IDisposable
 
         await Ingest(FirstSentence, Owner, Dialog, "sample");
         await Settle(before + 1);
+        await _dispatched.SettleAsync();
 
         ForgetTracked();
         var still = await _sessions.GetOpenByThreadAsync(Platform, Dialog, CancellationToken.None);
