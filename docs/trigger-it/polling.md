@@ -32,8 +32,10 @@ Same shape for every tracker family (Azure DevOps, Jira, GitHub Issues, GitLab I
 Per poll, the framework asks the tracker for tickets in `open_states` that have been updated since the last poll. When the tracker has trigger labels configured (`pipeline_from_label`), discovery narrows the server-side query to tickets carrying one of those concrete labels — on a shared tracker (the realistic case: your whole team's board) untagged tickets never even reach the matching step. A tracker triggered by status/area-path alone receives everything in its trigger statuses. Either way, a ticket claimed by one run is never picked up for a second. The poller reacts to:
 
 - New tickets that match the project resolution rules and have a `pipeline_from_label`.
-- Status transitions that put a ticket into a `trigger_statuses` value.
+- Status transitions that put a ticket into a `trigger_statuses` value. A finished ticket a person moved back there is reworked ([how](webhooks.md#rework-a-finished-ticket)).
 - Label adds (a `pipeline_from_label` label appears).
+
+A ticket that waits for another ticket it requires is not started, whatever it carries; see [Labels](labels.md#tickets-that-wait-for-another-ticket).
 
 A polled ticket carries its labels and nothing else (no area path, no source repo), so a project is matched by its `tag` rule on this path; see [Project resolution](../reference/configuration/project-resolution.md).
 

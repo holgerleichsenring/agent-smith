@@ -6,30 +6,35 @@ Agent Smith isn't only a pipeline you point at finished tickets. It's also the t
 
 You can hold the conversation in three places, and it behaves the same in all of them:
 
-- **The dashboard.** The [Work it out](work-it-out.md) page, with a project picker, a ticket search, a live view of what each turn is doing, and a pane that follows what you filed. It's the fullest surface, and the only one that can talk about an existing ticket.
+- **The dashboard.** The [Work it out](work-it-out.md) page, with a project picker, a ticket search, uploads, a live view of what each turn is doing, and a pane that follows what you filed. It's the fullest surface, and the only one that can talk about an existing ticket or take uploaded material.
 - **Slack or Teams.** Send `@Agent Smith /spec my-project` in a channel. The conversation lives in that message's thread (in Teams, in that conversation), and every further message there goes to it; a new thread starts a separate one. `/spec` without a project works when only one project is configured, and lists the projects otherwise.
 
 Each conversation is a session stored in the relational database, so the transcript survives a Redis flush, a server restart, a weekend. A conversation is scoped to one project and reads that project's repositories.
 
 ## What grounds the answers
 
-The agent on the other end is the `design-partner-master`. It answers from your actual code, not from vibes:
+The agent on the other end is the `design-partner-master`. (A conversation about a ticket that has already run is led by the `ticket-steward-master` instead; see [Work it out](work-it-out.md#a-ticket-that-has-run-the-ticket-steward).) It answers from your actual code:
 
-- Each turn starts with the project's principles and context files, read straight from the repositories without a sandbox.
+- Each turn starts with the project's principles and context files, read straight from the repositories without a sandbox, and a repository's root `DESIGN.md` (design tokens as frontmatter, then prose) where there is one.
 - For anything deeper it opens read-only source sandboxes, one per repository. It can read, list, grep and search files, and fetch over HTTP through processes the server builds itself. It gets no shell, and nothing in a source sandbox is writable.
 - Sandboxes are held between turns, so only the first message of a conversation pays for spawning a container and cloning. The hold defaults to 180 seconds, set by `sandbox.hold_seconds` (or `SANDBOX_HOLD_SECONDS`) and overridable per project. A held sandbox is given up before a pipeline run is refused capacity. See [Sandbox architecture](../reference/concepts/sandbox-architecture.md).
 - A turn can fan out into read-only child agents to look at several things at once, bounded by `max_sub_agents_per_dialog_turn` and `max_dialog_sub_agent_loop_iterations`. See [Multi-agent orchestration](../reference/concepts/multi-agent-orchestration.md).
+- Material you hand it on the dashboard (uploaded sets and images, public URLs, Figma links once a design source is configured) is read, run and rendered with tools of its own. [Work it out](work-it-out.md#uploads) describes them.
+
+The design partner stays on its project and, in a ticket's conversation, on that ticket. A question about neither gets one sentence pointing back to the project, and no tool call.
 
 ## Discussion first, proposal after
 
-The first reply to a new piece of work is always a discussion: what it found in the code, the edge cases, the open questions. It won't propose anything until you've answered. Once you have, and the conversation has converged, a turn may end in one of four outcomes:
+The first reply to a new piece of work is always a discussion: what it found in the code, the edge cases, the open questions. It won't propose anything until you've answered. Once you have, and the conversation has converged, a turn may end in one of these outcomes:
 
 - **An answer.** Sometimes talking it through *is* the work. Nothing gets filed.
+- **A document.** You asked for a text to take elsewhere (a prompt, a summary, a brief), and it's written straight away. On the dashboard it shows with a **Copy** button. Nothing gets filed.
 - **A bug ticket.** Something's broken; a bug ticket lands in your tracker.
 - **A spec.** A schema-valid spec, the same YAML shape this project itself is built with.
 - **An epic.** A cut into several specs, in order, each with its `requires:` edges. It's still one piece of work: it files one ticket, and one run works the specs in order, a successor never starting before its predecessor verified.
+- **A list of tickets.** 2 to 20 ticket texts joined by `requires`, for work whose pieces should each merge on their own. Each ticket is filed separately and starts only once the tickets it requires have landed. Only a conversation with no ticket proposes one. See [Ticket dependencies](ticket-dependencies.md).
 
-A spec or epic proposal is reviewed inside the turn that made it, by a fresh instance reading the same repositories. What the review finds is shown next to the proposal when you're asked to approve it, with its evidence. A review that couldn't be taken blocks nothing.
+A spec or epic proposal goes through review rounds inside the turn that made it: fresh reviewers read each draft against the same repositories and answer build, build with cuts, or refuse, the design partner applies the cuts, and the draft is reviewed again, up to `spec_review.rounds` rounds. A list of tickets is reviewed as a plan instead. What the review finds is shown next to the proposal when you're asked to approve it, with its evidence. A review that couldn't be taken blocks nothing.
 
 Before that review, the framework checks every fact the proposal cites, without a model call: a cited file that isn't there, or a line past its end, becomes a finding *cited evidence does not resolve*. Paths are routed the way the agent's file tools route them, with or without the repository prefix. What can't be checked honestly stays unchecked rather than becoming a false finding — a repository the turn never opened, a path that exists in two repositories, a template or reference, a file over 1 MB. Later slices of an epic aren't checked, because they describe a state their predecessors haven't built yet. The proposal panel shows the facts with their evidence and the assumptions, so you see what the proposal rests on before you approve it.
 
@@ -46,10 +51,10 @@ If the buttons can't be shown, a text reply in the thread still works. The quest
 
 ## What approval files
 
-Approval files exactly one ticket into the project's tracker, on all four trackers (GitHub, GitLab, Azure DevOps, Jira), and reports its key and URL. For a spec or an epic, in this order:
+Approval of a bug, a spec or an epic files exactly one ticket into the project's tracker, on all four trackers (GitHub, GitLab, Azure DevOps, Jira), and reports its key and URL. (A list of tickets files one ticket per entry; what that writes is on [Ticket dependencies](ticket-dependencies.md#filing-a-list).) For a spec or an epic, in this order:
 
 1. **The ticket.** It carries one label, `spec:approved` (a tracker can rename it, see [labels](../trigger-it/labels.md#labels-the-framework-writes)), and a short note in its body explaining what that label means. The note is removed before any model or pull request reads the ticket. Its work-item type comes from the tracker's `work_item_kinds` map, keyed by filing role: `spec` (or `phase`) for a single spec, `work` for an epic's ticket, `bug` for a bug. Without a mapping the tracker's default type is used.
-2. **The approved set.** The server records the approved specs against the ticket, and writes them to the ticket's branch under `.agentsmith/specs/<provider>-<ticketId>/`, with a `set.yaml` index. If that branch write fails, the filing still stands and says so; the run that claims the ticket publishes the set from the stored record.
+2. **The approved set.** The server records the approved specs against the ticket, together with the uploads and images the conversation holds, and writes the specs to the ticket's branch: one file per spec as `.agentsmith/specs/planned/{id}-{label}.yaml`, a mock a person ratified beside its spec as `{id}-mock-v{n}.html`, and one manifest for the whole series at `.agentsmith/series/{base}.yaml`. Every file of a series starts with the series' base id, so one ticket's files sit next to every other ticket's after a merge. If that branch write fails, the filing still stands and says so; the run that claims the ticket publishes the set from the stored record.
 3. **The routing tag.** When the project resolves tickets by tag, that tag is added so the poller routes the ticket to this project. An empty value, or one the tracker's label syntax can't carry, is reported instead of sent.
 4. **The start.** If routing would claim the ticket, it's moved into the project's first trigger status, which starts the run. On the dashboard that move needs the `runs.control` permission. An approval from Slack or Teams never moves a ticket. Either way, a ticket created in a status that already triggers starts on its own. When the ticket isn't started, the filing says why and what would start it.
 
@@ -61,12 +66,17 @@ A run on a filed spec or epic works the approved set as it stands. It doesn't de
 
 ## Changing what was approved
 
-Comments and edits on the ticket never re-cut an approved set. There are two deliberate ways to change it:
+Comments and edits on the ticket never re-cut an approved set. There are three deliberate ways to change it:
 
+- **Ask the ticket steward.** Once a run has worked the ticket, its conversation on the dashboard is led by the ticket steward, which re-cuts, drops and appends specs that haven't run, checks the result against the code and starts the next attempt when you say so, without a proposal card. See [Work it out](work-it-out.md#a-ticket-that-has-run-the-ticket-steward).
 - **Approve again in the conversation.** Approving a proposal in the ticket's own conversation continues the ticket by spec id: what ran stays, repeated ids are re-cut, new ids are appended, and the approval preview shows which before you approve. A ticket nobody has worked takes the approved series whole on every tracker, and a ticket a person closed gets a linked follow-up instead (see [Work it out](work-it-out.md#talking-about-an-existing-ticket)). With `runs.control`, the approval also starts the ticket's next attempt, waits for a run that holds it, or answers its hand-back; while a question waits, it records nothing and asks for the answer first (see [When the next attempt starts](work-it-out.md#when-the-next-attempt-starts)). Anyone who may write dialogs can continue a ticket's conversation.
 - **Ask on the ticket.** A comment that opens with the line `cut this specification again` makes the next run cut the specification again. It counts when it's newer than the last approval and than the run's last "this is how I understood the ticket" comment, and it's for people who can reach the ticket but not the branch. The new cut is recorded as approved by whoever wrote that comment.
 
 A conversation that has filed work is told, every turn, that it cannot change, close or re-cut what it filed, and that describing filed work as changed would be false. The one thing it can do is withdraw: close a ticket it filed that nothing has claimed yet. Once a run holds the ticket, that's refused and you stop the run from the run controls.
+
+## Long conversations
+
+A conversation can run for days. Up to 60,000 characters, each turn reads the whole transcript. Past that, the older turns are folded into a digest, written by the summarisation model and stored as a turn of its own, and each turn reads the digest, then the important older turns word for word, then everything after the digest. The important ones are your first message (the requirement as you stated it), every filing and mock ratification, the newest proposal, and your answer to each proposal. A fold leaves about 30,000 characters of recent conversation in full and keeps at least the last two turns, so the next fold comes only after that much new conversation. Every turn stays stored; the digest only changes what a turn reads. The design partner and the ticket steward read through the same window.
 
 ## The ticket is a conversation, not a string
 

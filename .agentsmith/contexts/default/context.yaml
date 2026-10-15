@@ -87,6 +87,7 @@ integrations:
 
 state:
   done:
+    2026-10-15-5e9db: "THE DOCS DESCRIBE WHAT SHIPPED SINCE 2026-09-28 (docs, README, website figures). Every WRONG audit sentence fixed, six pages rewritten, ticket dependencies, structure limits and design sources pages added, studio secret naming corrected, figures recounted. -> .agentsmith/specs/done/2026-10-15-5e9db-docs-content-sweep.yaml"
     2026-10-15-5e9da: "THE WEBSITE RUNS ON A DARK STAGE LED BY AZURE DEVOPS (website, DESIGN.md, tokens). Code rain, a headline that lands line by line, four chapters with drawn panels, the lifecycle redrawn; claims fact-checked; Inter font URL fixed, Plex Mono loaded. -> .agentsmith/specs/done/2026-10-15-5e9da-website-dark-stage.yaml"
     2026-10-14-dbcep: "SKILLS CATALOG PIN v5.18.0 (embedded skills + master rule tests). The design partner proposes ticket lists in merge order and scopes absence criteria to the source tree, the coding master judges them there, the steward says what a waiting ticket waits for. -> .agentsmith/specs/done/2026-10-14-dbcep-skills-catalog-pin-graph.yaml"
     2026-10-14-dbceo: "CONVERSATION TRANSCRIPT DIGEST (dialog prompts + session store). Past 60,000 characters the design partner's and the ticket steward's prompt carry a stored digest of older turns, authored agent-smith, plus the pinned and recent turns; written after the turn gate. -> .agentsmith/specs/done/2026-10-14-dbceo-conversation-transcript-digest.yaml"
@@ -1250,7 +1251,6 @@ state:
     2026-10-14-da5eh: "SKILLS PIN v5.17.0 (embedded skills catalog, steward skill test). The embedded catalog carries ticket-steward-master; TicketStewardSkillTests holds every tool the packaged master names to the composed steward surface and requires start_next_attempt, read_series, edit_series, verify_series, ticket_runs. -> .agentsmith/specs/done/2026-10-14-da5eh-skills-pin-steward.yaml"
   active: {}
   planned:
-    2026-10-15-5e9db: "THE DOCS CATCH UP WITH 2026-09-28 ONWARD (docs). Every WRONG sentence of the audit note fixed, six pages rewritten, three new pages, the built-by-the-method figures recounted. -> .agentsmith/specs/planned/2026-10-15-5e9db-docs-content-sweep.yaml"
     2026-10-15-5e9dc: "SCREENSHOTS FROM A COMMITTED DEMO SEEDER AND A REAL AZURE DEVOPS PROJECT (tools, docs). One anonymised story, retakeable headless; stale and unreferenced images replaced. -> .agentsmith/specs/planned/2026-10-15-5e9dc-screenshots-demo-data.yaml"
     2026-10-04-6807: "A TICKET CAN ASK AN INIT TO REFRESH PRINCIPLES (ticket routing, config). A configured refresh label on the init ticket sets the same flag as the chip. -> .agentsmith/specs/planned/2026-10-04-6807-init-refresh-ticket-label.yaml"
     2026-10-03-0fca: "OVERLAYS REACH SUBPROJECTS AND NOTEBOOKS (overlay detection, discovery). sbt and Gradle multi-project declarations scoped per subproject; notebook-only repositories become components. -> .agentsmith/specs/planned/2026-10-03-0fca-overlay-detection-gaps.yaml"

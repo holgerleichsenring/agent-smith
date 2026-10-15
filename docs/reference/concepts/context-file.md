@@ -218,6 +218,9 @@ as `'./path'` so a path that starts with `-` is never read as an option; run rec
 left out. `{files}` is never quoted in the command — the schema refuses `'{files}'`. No changed file, no run. Each distinct command line runs once per
 sandbox. A non-zero exit — a formatter that is not installed included — is logged and
 said in the step result; it never fails the spec, and the work is pushed as written.
+The failure is also named at the top of that repository's code PR, under "Formatter
+failed", with the declared command, its exit code and the tail of its output, so a wrong
+command gets corrected in `context.yaml` once.
 A repository that runs no formatter omits the block.
 
 ## `sources` are the rest of the component
@@ -225,7 +228,7 @@ A repository that runs no formatter omits the block.
 `meta.workdir` points at the entry project. A component is usually more: the libraries its
 manifest references and the test projects that reference it. A context names those directories,
 relative to the repository root, so the structure baseline, the commit gate and the formatter
-cover them as they cover the workdir:
+cover them as they cover the workdir (see [Structure limits](../../how-it-works/structure-limits.md)):
 
 ```yaml
 meta:

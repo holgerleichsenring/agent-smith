@@ -19,19 +19,19 @@ seven months, by me and one model.
 
 | | |
 |---|---|
-| **968** | completed specs, each specified before a line of code existed |
-| **5,062** | recorded decisions, each naming the alternative it beat |
-| **432,267** | lines of C# across 4,803 files |
-| **7,038** | automated tests, gating every single commit |
-| **2,640** | commits, 659 merged PRs, 211 releases |
-| **~650 h** | of human time, roughly 40 minutes per completed spec |
+| **1,229** | completed specs, each specified before a line of code existed |
+| **6,908** | recorded decisions, each naming the alternative it beat |
+| **699,551** | lines of C# across 6,966 files |
+| **10,301** | automated tests, gating every single commit |
+| **3,106** | commits, 719 merged PRs, 225 releases |
+| **~750 h** | of human time, roughly 37 minutes per completed spec |
 
-That covers 18 February to 28 September 2026, so 222 calendar days. One human, one
+That covers 18 February to 15 October 2026, so 239 calendar days. One human, one
 model.
 
-Two ratios tell you more than the totals do. There are 229 lines of specification
-for every 1,000 lines of code, which makes the spec almost a quarter of everything
-written. And there is 0.75 of a line of test code for every line of production
+Two ratios tell you more than the totals do. There are 180 lines of specification
+for every 1,000 lines of code, which makes the spec almost a fifth of everything
+written. And there is 0.58 of a line of test code for every line of production
 code. That second one is deliberate, and the section on architecture tests below
 is where it pays off.
 
@@ -47,7 +47,7 @@ That last bit matters more than it looks. A spec you can edit afterwards tells
 you what you wish you had decided, which is a pretty useless thing to read six
 months later.
 
-Specs landed at about 4.4 a day and commits at 11.9. Alongside them 211
+Specs landed at about 5.1 a day and commits at 13.0. Alongside them 225
 releases, roughly seven a week, all automated.
 
 ## Steering the model
@@ -59,17 +59,17 @@ gates do the heavy lifting.
 | Layer | What it is |
 |---|---|
 | `CLAUDE.md` | the read order for context files, the ten step workflow, the rules that always hold |
-| `.agentsmith/contexts/*/principles.md` | 245 lines of quality rules: max 20 lines per method, max 120 per class, one type per file |
-| `.agentsmith/specs/{planned,active,done}/` | the backlog as a state machine, 1,070 schema validated specs |
+| `.agentsmith/contexts/*/principles.md` | 275 lines of quality rules: max 20 lines per method, max 120 per class, one type per file |
+| `.agentsmith/specs/{planned,active,done}/` | the backlog as a state machine, 1,345 schema validated specs |
 | `.agentsmith/decisions/p{NNNN}.yaml` | one file per spec, every entry naming what got chosen, what it beat, and why |
-| `.agentsmith/memory/` | 33 ratified behavioural rules, each traceable to a real correction |
+| `.agentsmith/memory/` | 33 behavioural rules, each traceable to a real correction, all still marked as proposals because I haven't ratified one yet |
 | spec-first plugin | the workflow as callable skills — `create-spec`, `review-spec`, `apply-spec`, `deliver-spec` — so it gets invoked rather than interpreted |
 | `.claude/hooks/spec-gate.sh` | the blocking commit gate |
 | `hooks/pre-commit` | a gate that lives outside the agent entirely |
 
 A hook intercepts every `git commit` whose message names a spec, and it lets the commit through once everything comes back
 green: the gate's own tests, the dashboard's build and tests, the backend build,
-all 7,038 tests, four CLI dry runs, and every harness preset running crash free.
+all 10,301 tests, four CLI dry runs, and every harness preset running crash free.
 
 CI would have told me about a break afterwards. The hook stops the commit from
 existing. Whatever the model believes about its own work, that belief has to get
@@ -112,8 +112,8 @@ So the limit stays non negotiable and the 187 files get a **ratchet** instead of
 an exemption. The baseline records each file's length at the moment the rule went
 in. From there a listed file may only get shorter, no new file may join the list,
 and a file that drops under the limit has to leave it. The debt moves one
-direction, and it does that without anybody scheduling a cleanup week. Two
-baselines run today, at 177 and 87 entries.
+direction, and it does that without anybody scheduling a cleanup week. Three
+baselines run today, at 124, 79 and 48 entries.
 
 ### Why this matters more with a model
 
@@ -151,7 +151,7 @@ discount it. So here are the dead ends.
 **95 skills, then 12.** The skill catalog holds the role definitions that tell
 the model what an architect or a reviewer does inside a run. Its first commit in
 late April already held 42, it reached 95 by the end of July, and the next day it
-dropped to 12 in one breaking release. 109 skill directories got created over the
+dropped to 12 in one breaking release. 110 skill directories got created over the
 project's life and 95 got deleted. The cliff in
 the git history is the deletion, though most of those had been sitting unused for
 weeks before anything removed them.
@@ -179,7 +179,7 @@ time and only the readout was wrong, so there was no failure to notice. It turne
 into a rule of its own. A stale declaration is a premise other decisions rest on,
 so fixing it reopens every one of them.
 
-**69 planned specs** are still open, sitting next to a `PARKED.md` of
+**116 planned specs** are still open, sitting next to a `PARKED.md` of
 architecture problems that outlived the slice that found them. One of the 33
 memory rules covers this: slice work openly and point at the named follow up,
 rather than letting scope disappear quietly.
@@ -277,24 +277,24 @@ that is the part you will want in six months.
 
 You should be able to reproduce all of this from a clone.
 
-- **Period.** 18 Feb to 28 Sep 2026, 222 calendar days. February and September are
+- **Period.** 18 Feb to 15 Oct 2026, 239 calendar days. February and October are
   partial months.
-- **Commits.** `git rev-list --count HEAD` gives 2,640. Take out the bot commits
-  and 2,429 come from a single human author.
+- **Commits.** `git rev-list --count HEAD` gives 3,106. Take out the bot commits
+  and 2,881 come from a single human author.
 - **Code.** Every `.cs` file under `src/` and `tests/`, leaving out `bin/` and
   `obj/`. Generated EF migrations are in there.
-- **Tests.** The count of `[Fact]` and `[Theory]` attributes, 6,860 plus 178. The
+- **Tests.** The count of `[Fact]` and `[Theory]` attributes, 9,996 plus 305. The
   number of executed cases runs higher, because Theory data rows expand.
-- **Decisions.** Entries across the 836 YAML files in `.agentsmith/decisions/`.
-- **Specs.** Files in `.agentsmith/specs/done/` (968) and `planned/` (102).
+- **Decisions.** Entries across the 1,091 YAML files in `.agentsmith/decisions/`.
+- **Specs.** Files in `.agentsmith/specs/done/` (1,229) and `planned/` (116).
 - **Releases.** Version headings in `CHANGELOG.md`.
 - **Skills.** The number of `SKILL.md` files per commit in the
   `agent-smith-skills` catalog repository.
-- **Working time.** Reconstructed from the timestamps of those 2,429 human
+- **Working time.** Reconstructed from the timestamps of those 2,881 human
   commits. Commits less than 90 minutes apart count as one session, and each
-  session gets 20 minutes of lead in. That gives 628 h across 335 sessions. A
-  60/15 minute threshold gives 500 h and a 120/30 minute one gives 745 h. The
-  figure I quote above is 650 h, sitting at the upper middle of that band,
+  session gets 20 minutes of lead in. That gives 725 h across 366 sessions. A
+  60/15 minute threshold gives 586 h and a 120/30 minute one gives 856 h. The
+  figure I quote above is 750 h, sitting at the upper middle of that band,
   because thinking time that produces no commit stays invisible to this method
   and there was plenty of it.
 
