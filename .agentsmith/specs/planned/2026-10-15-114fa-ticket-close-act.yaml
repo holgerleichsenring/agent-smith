@@ -1,0 +1,194 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-15-114fa
+goal: "A person closes a ticket with an optional note under runs.control, optionally closing its pull requests and tracker ticket; a closed ticket never starts by itself, and Reopen clears the mark."
+
+applies_to: "backend (the ClosedTickets table, its port and repository, IPullRequestCloser on GitHub / GitLab / Azure Repos, TicketCloseAct and its host acts, POST /api/tickets/{project}/{ticketId}/close and /reopen, the requirements-met start and its recovery holding a closed ticket, migrations in both sets, archive counts)"
+
+requires: [2026-10-14-dbcei]
+
+facts:
+  - claim: "No pull-request close exists: the source provider contract creates, finds, edits the body, takes out of draft and completes a pull request, and each host's updater holds body, draft and merge only; the GitHub updater is at 120 lines."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ISourceProvider.cs:35-42, src/backend/AgentSmith.Contracts/Providers/ISourceProvider.cs:87-118, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPullRequestUpdater.cs:14-17, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabMergeRequestUpdater.cs:15-18, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposPullRequestUpdater.cs:14-20, observed: 2026-10-15, wc -l GitHubPullRequestUpdater.cs 120, GitLabMergeRequestUpdater.cs 111, AzureReposPullRequestUpdater.cs 99"
+  - claim: "Pull-request capabilities beyond the contract are reached by casting the repository's provider, as the record refresh does with the state and thread readers; the record names its repository by name."
+    evidence: "src/backend/AgentSmith.Contracts/Reviews/IPrReviewStateReader.cs:3-9, src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:66-68, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubSourceProvider.cs:19, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabSourceProvider.cs:20, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposSourceProvider.cs:20-23, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/LocalSourceProvider.cs:14"
+  - claim: "The three providers are over the line limit and ratcheted, with room below their baselines."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:11-12, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:15, tests/AgentSmith.Tests/Architecture/FileLengthRatchetTests.cs:36-52, observed: 2026-10-15, wc -l GitHubSourceProvider.cs 333, GitLabSourceProvider.cs 370, AzureReposSourceProvider.cs 367"
+  - claim: "An Azure Repos pull request is updated through GitHttpClient.UpdatePullRequestAsync, and an abandoned one reads as closed; GitLab merge-request writes are PUTs with the PRIVATE-TOKEN header."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposPullRequestUpdater.cs:84-90, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposVoteDecisions.cs:26-31, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabMergeRequestUpdater.cs:94-102"
+  - claim: "Every tracker closes a ticket through CloseTicketAsync with a resolution comment and answers whether it closed; GitHub and GitLab move to closed, Jira and Azure DevOps move into the tracker connection's done status (Jira defaults to Done, Azure DevOps to Closed). The one caller today is the filing withdrawal, which treats a throw and a false alike as not closed."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ITicketProvider.cs:63-65, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketProvider.cs:133-137, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabTicketProvider.cs:157-161, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketProvider.cs:51-52, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketProvider.cs:171-175, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs:48, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs:167-168, src/backend/AgentSmith.Server/Services/SpecDialog/FiledTicketWithdrawal.cs:76-95"
+  - claim: "A failed ticket read is classed from the exception: not-found for a 404, unauthorized for a 401 or 403, and unreachable for EVERY other case, a host's 400, 405, 409 or 422 included; the reason words are declared in TicketTextReasons, which holds no unsupported or refused, and the classifier has two other callers."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Text/TicketReadFailureReason.cs:18-34, src/backend/AgentSmith.Server/Models/TicketTextReasons.cs:4-10, src/backend/AgentSmith.Server/Extensions/TicketLandedByHandEndpoints.cs:49, src/backend/AgentSmith.Server/Services/Tickets/Text/TicketTrackerTextReader.cs:39"
+  - claim: "The rule answers Done only when a merge (all records ended, one merged; done at the newest state time) or a stored landing exists AND the newest attempt started no later; an attempt started after the merge is that attempt's ticket, pinned as not Done by an existing test."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketBucketRule.cs:36, src/backend/AgentSmith.Server/Services/Tickets/TicketBucketRule.cs:43-46, tests/AgentSmith.Tests/Tickets/TicketReviewReadTests.cs:69-75"
+  - claim: "A ticket lands Merged as soon as every record ended with at least one merged, written by the refresh, and the won insert wakes every dependent; so closing the open rest of a partly merged ticket would land it."
+    evidence: "src/backend/AgentSmith.Server/Models/TicketLanding.cs:19-24, src/backend/AgentSmith.Server/Services/Rework/TicketLandingRecorder.cs:31-43, src/backend/AgentSmith.Server/Services/Rework/TicketLandingRecorder.cs:59-64, src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:49, src/backend/AgentSmith.Server/Services/Rework/DependentsWake.cs:32-48"
+  - claim: "A ticket's pull requests are every URL its code runs named; the refresh reads them from there, not from the records, and a record can be open, unread (host read failed, PR possibly still open), unsupported or ended; a named PR has no record until the refresh writes one."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/NamedPullRequestReader.cs:10-18, src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:40-48, src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:66-79, src/backend/AgentSmith.Infrastructure.Persistence/Entities/PrReviewRecord.cs:34-35"
+  - claim: "A requirements-met nudge starts a never-run ticket unless it has no edges, landed, has unmet requirements, an incomplete filing or waits for a start by name, or the tracker reads it closed; the recovery re-derives the same wake for 24 hours; neither reads any close mark."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/RequirementsMetStart.cs:30-44, src/backend/AgentSmith.Server/Services/Rework/RequirementsMetStart.cs:47-67, src/backend/AgentSmith.Server/Services/Rework/RequirementsMetStart.cs:70-82, src/backend/AgentSmith.Server/Services/Rework/DependentsWake.cs:55-77, observed: 2026-10-15, wc -l RequirementsMetStart.cs 83, DependentsWake.cs 81"
+  - claim: "A queued rework nudge may carry a delay and a run end continues a series by itself; the close act touches neither, so a nudge queued before a close can still start an attempt after it."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/ReworkNudgeRequest.cs:7-13, src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeWorker.cs:76-85, src/backend/AgentSmith.Server/Services/Rework/SeriesAutoStart.cs:14-19"
+  - claim: "A ticket comment carrying the trigger's comment keyword is routed as a rework unless it carries one of agent-smith's own markers; the markers are 'Agent Smith —' and its kin, not the word agent-smith, so a resolution reading 'Closed from agent-smith by …: <note>' with the keyword in the note would start a rework."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/GitHubIssueCommentWebhookHandler.cs:46-48, src/backend/AgentSmith.Server/Services/Webhooks/KeywordCommentRouter.cs:32-40, src/backend/AgentSmith.Server/Services/Webhooks/KeywordCommentRouter.cs:54-56, src/backend/AgentSmith.Application/Services/Prompts/OwnTicketComment.cs:29-38, src/backend/AgentSmith.Application/Services/Prompts/OwnTicketComment.cs:56-57"
+  - claim: "The closest sibling act is the by-hand landing: runs.control, live project resolution, plain-text refusals, only 200 is JSON, the write on CancellationToken.None, the display name as By; it is chained from the defaults mapping and returns app."
+    evidence: "src/backend/AgentSmith.Server/Extensions/TicketLandedByHandEndpoints.cs:14-27, src/backend/AgentSmith.Server/Extensions/TicketLandedByHandEndpoints.cs:54-66, src/backend/AgentSmith.Server/Extensions/TicketDefaultsEndpoints.cs:15-20, src/backend/AgentSmith.Server/Security/Permissions.cs:26"
+  - claim: "Every route is pinned by the route-permission golden table; the ticket POST rows sit together."
+    evidence: "tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:121-122, tests/AgentSmith.Tests/Server/RoutePermissionGuardTests.cs:140-141"
+  - claim: "Ticket-keyed fact tables are keyed by tracker connection plus ticket key with a unique index, applied from TicketRecordConfigurations, and their repositories are registered as singleton ports in AddTicketFactStores; the ticket harness registers the landing store itself."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/LandedTicket.cs:9-36, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/LandedTicketConfiguration.cs:12-27, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/TicketRecordConfigurations.cs:13-25, src/backend/AgentSmith.Infrastructure.Persistence/Extensions/TicketFactStoreExtensions.cs:17-28, tests/AgentSmith.Tests/Tickets/TicketStoreHarness.cs:70"
+  - claim: "A replica-safe upsert is an insert whose unique violation re-reads the winner's row and writes over it; the cited store throws when that re-read finds nothing, which for a mark is a Reopen deleting the row between the two writes."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Checks/TicketCheckStore.cs:29-57, src/backend/AgentSmith.Server/Services/Tickets/Checks/TicketCheckStore.cs:44-48"
+  - claim: "The archive tests pin the table count at 51, the generated-key count at 41 and the seeded rows at 104."
+    evidence: "tests/AgentSmith.Tests/Persistence/DataArchiveSchemaTests.cs:63, tests/AgentSmith.Tests/Persistence/DataArchiveSchemaTests.cs:163, tests/AgentSmith.Tests/Persistence/DataArchiveRoundTripTests.cs:33-34, tests/AgentSmith.Tests/Persistence/DataArchiveRoundTripTests.cs:54, tests/AgentSmith.Tests/Persistence/DataArchiveRoundTripTests.cs:81, tests/AgentSmith.Tests/Persistence/DataArchiveRefusalTests.cs:103"
+  - claim: "Both migration sets carry each table: the SQLite-family set and the SQL Server set."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Migrations/20261014201855_AddLandedTickets.cs, src/backend/AgentSmith.Infrastructure.Persistence.SqlServer/Migrations/20261014201910_AddLandedTickets.cs"
+  - claim: "A Refresh nudge re-reads every record that is not ended; pages learn of a change through the activity nudge keyed by ticket key."
+    evidence: "src/backend/AgentSmith.Contracts/Reviews/IPrReviewRecordReader.cs:8-11, src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:57-60, src/backend/AgentSmith.Contracts/Runs/ReworkNudgeRequest.cs:7-13, src/backend/AgentSmith.Contracts/Services/ITicketActivityNudge.cs:7-11"
+  - claim: "A ticket's runs are read with TicketRunsQuery.ForTicketAsync, every pipeline included, and its head is TicketAttempts.Head over the code rows as the detail reader picks it; a never-run filed ticket is read with FiledTicketRows.OneAsync; the live statuses are running, queued and waiting_for_input."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketRunsQuery.cs:16, src/backend/AgentSmith.Server/Services/Tickets/TicketDetailReader.cs:35-43, src/backend/AgentSmith.Server/Services/Tickets/TicketAttempts.cs:28-30, src/backend/AgentSmith.Server/Services/Tickets/FiledTicketRows.cs:32-40, src/backend/AgentSmith.Server/Services/Tickets/TicketBucketRule.cs:21, src/backend/AgentSmith.Contracts/Runs/RunStatuses.cs:11-12"
+  - claim: "A composition test builds the real server provider under the environment collection with a TestProcess env trait."
+    evidence: "tests/AgentSmith.Tests/Persistence/TicketLandingCompositionTests.cs:16-29"
+
+assumptions:
+  - "2026-10-14-dbce (PR #742) is merged or this branch stays on it: LandedTickets, ITicketLandingStore, TicketLandedByHandEndpoints, DependentsWake, RequirementsMetStart and the archive counts above are its."
+
+scope:
+  in: >
+    STORE: ClosedTicket entity and ClosedTicketConfiguration (table ClosedTickets; Tracker, TicketKey, TicketId, Project
+    and By at IndexedString; Note unbounded and nullable; ClosedPullRequestsJson default "[]"; TrackerClosed; ClosedAt;
+    UNIQUE(Tracker, TicketKey); index Project), applied from TicketRecordConfigurations.Apply (26 -> 27).
+    TicketClosedMark (Contracts/Tickets) and ITicketClosedMarkStore (Contracts/Services): SetAsync upserts (insert; on a
+    unique violation re-read and overwrite — last writer wins; when that re-read finds no row, a Reopen deleted it
+    between the two writes, and the insert is retried ONCE), ClearAsync deletes and answers whether a row went, OfAsync
+    reads the named keys of one tracker connection. ClosedTicketRepository is the singleton port, registered in
+    AddTicketFactStores (29 -> at most 31) and in TicketStoreHarness. Migrations AddClosedTickets in both sets; archive
+    counts 51 -> 52 tables, 41 -> 42 generated keys, 104 -> 106 seeded rows. PR CLOSE: IPullRequestCloser
+    (Contracts/Providers) CloseAsync(prUrl, ct), throwing on a host failure; GitHubPullRequestClose (Octokit
+    PullRequest.Update with State closed), GitLabMergeRequestClose (PUT merge_requests/{iid} state_event=close,
+    EnsureSuccessStatusCode), AzureReposPullRequestClose (UpdatePullRequestAsync Status Abandoned), each at most 50 lines
+    and parsing the URL with its updater's existing parser; the three providers declare the interface and delegate in
+    one line each (333 -> at most 336, 370 -> at most 373, 367 -> at most 370); the local provider does not.
+    REASONS: TicketCloseReasons (Server/Models) Unsupported "unsupported", Refused "refused", AlreadyClosed
+    "already-closed"; TicketCloseFailureReason.Of(ex) (Services/Tickets/Closing, at most 30 lines) answers
+    TicketReadFailureReason.Of(ex) unless the exception carries an HTTP status other than 404, 401 and 403
+    (Octokit.ApiException, HttpRequestException with a status, VssServiceResponseException), which answers refused;
+    TicketReadFailureReason itself is unchanged (its two callers keep their classes).
+    ACT: TicketCloseAct (Server/Services/Tickets/Closing, at most 110 lines) CloseAsync(project, ticketId, request, by)
+    and ReopenAsync(project, ticketId). Close, in order: project from the live configuration (TicketProjects.Of) else
+    404 "No project <name> is configured."; the ticket's code runs (head = TicketAttempts.Head over the code rows),
+    else its never-run filed row, else 404 "No ticket <id> is listed in <project>."; DONE: doneAt = (TicketLanding.OfStates
+    of its records' states is merged ? the newest record state time : null) ?? the stored landing's LandedAt — when
+    doneAt is set and the ticket is never-run or head.StartedAt <= doneAt, 409 "<id> already counts as landed (<merged
+    on|marked done by hand on> <date>); a landed ticket is done, not closed." (exactly the rule's Done arm; a ticket
+    re-worked after a merge is closable); LIVE: a head running, queued or waiting_for_input answers 409 "<id> has an
+    attempt running or waiting for an answer; stop it from the run controls first."; MERGED REST: with ClosePullRequests
+    and any record of the ticket merged, 409 "one of <id>'s pull requests merged; closing the rest would make it land —
+    mark it done by hand, or close without closing its pull requests." and nothing is closed. Then, on
+    CancellationToken.None, TicketCloseHostActs (Services/Tickets/Closing, at most 100 lines): with ClosePullRequests,
+    every URL NamedPullRequestReader.ByTicketAsync names for the ticket is answered once — a record in closed answers
+    closed with already-closed and is not tried; every other (open, unread, unsupported, or no record yet) is closed
+    through its repository's IPullRequestCloser (repository not configured or no closer: unsupported; a throw:
+    TicketCloseFailureReason.Of); with CloseOnTracker, ITicketProvider.CloseTicketAsync with the resolution
+    "Agent Smith — closed by <by>" plus ": <note>" when a note was given (it carries agent-smith's own marker, so no
+    webhook or sweep reads it as a person's comment or a rework keyword; false: refused; a throw: its class). Until
+    2026-10-15-114fe lands, the tracker close moves Jira and Azure DevOps into the connection's done status. Then
+    SetAsync(mark) with ClosedAt now, By, the trimmed note (blank -> null), the URLs this act closed and whether the
+    tracker closed; one Refresh nudge when any pull request closed; the activity nudge. 200 answers TicketCloseAnswer
+    (the mark, one outcome per named pull request, the tracker outcome or null). A second Close overwrites the mark.
+    Reopen: 404 unknown project; ClearAsync false answers 404 "<id> is not closed."; else the activity nudge and 200
+    with the cleared key; pull requests and the tracker ticket are not reopened. NO AUTOMATIC START: RequirementsMetStart.HeldAsync
+    holds a ticket with a close mark (logs "closed by <by>; not started", answers Finish; 83 -> at most 90) and
+    DependentsWake.ReadyAsync answers false for one (81 -> at most 86) — both serve never-run tickets only, where a
+    stored mark is always in force. ENDPOINTS: TicketCloseEndpoints (Server/Extensions, at most 80 lines) maps both
+    POST routes with Needs(Permissions.RunsControl); By is DisplayName.Of(ctx.User) else
+    SpecDialogOwnership.PrincipalOf(ctx.User); every non-200 is Results.Text with the status;
+    TicketLandedByHandEndpoints returns app.MapTicketCloseEndpoints() (67 kept). route-permission-baseline.tsv gains
+    both rows beside :122 and RoutePermissionGuardTests pins them.
+  out: >
+    The Closed bucket, the activity rule and the Failed / PR closed split — 2026-10-15-114fb. A pushed commit, a reopened
+    pull request and a person's tracker close as facts — 2026-10-15-114fc. The Close dialog, Reopen button and sections
+    — 2026-10-15-114fd. A per-tracker closed status for "also close on the tracker" — 2026-10-15-114fe. Reopening pull
+    requests or the tracker ticket on Reopen — nobody: Reopen undoes agent-smith's mark only, the host side is the
+    person's (contract default 9). Cancelling a rework nudge already queued, or a series continuation a run end
+    already asked for — nobody: an attempt it starts brings the ticket back by the rule (contract default 18). A system
+    event for a close — nobody (contract default 16).
+
+decisions:
+  - key: "CLOSED IS ITS OWN FACT, NOT A LANDING. The operator's rule: 'I won't continue' is not delivered. The mark lives in its own table so UnmetTicketRequirements, which reads only LandedTickets, keeps every dependent waiting without a line changed."
+  - key: "THE MARK IS UPSERTED, THE LANDING IS NOT. A landing is permanent (written once); a close is a timestamped decision a person may take again after the ticket came back, so the newest decision overwrites, and Reopen deletes. A Reopen landing between the insert and the re-read retries the insert once, so the person's latest Close is never lost to a throw."
+  - key: "REFUSE EXACTLY WHEN THE RULE SAYS DONE (contract default 3, amended). Refusing on any stored landing would refuse a ticket the list shows as Failed after a re-work, and checking only the stored landing would accept one whose records read merged before the landing row exists; the act therefore asks the Done arm's own question."
+  - key: "A CLOSE NEVER TURNS INTO A LANDING. With one pull request merged, closing the others makes every record ended with one merged, which the refresh writes as a Merged landing and which wakes the dependents; that request is refused with 409 instead (contract default 19)."
+  - key: "EVERY NAMED PULL REQUEST IS ANSWERED. The records alone miss an unread one still open on the host and one the refresh has not recorded yet; the act reads the URLs the runs named, as the refresh does, and the answer names each, so the person never believes a pull request closed that was skipped."
+  - key: "A REFUSING HOST IS NOT UNREACHABLE. A host status other than 404/401/403 is the host declining the close (completed, locked, already merged); it answers refused. The ticket-read classifier keeps its classes for its own callers."
+  - key: "HOST ACTS FIRST, THE MARK ALWAYS (contract default 6, pending ratification). The mark records what actually closed, so it is written after the host calls; a refused host call does not undo the person's decision to stop, and the answer names every failure by class."
+  - key: "A CLOSED TICKET IS NEVER STARTED AUTOMATICALLY. A Blocked filing a person closed would otherwise be tagged, moved and spawned the moment its requirement landed; the requirements-met start and its 24-hour recovery both hold it. A queued nudge or a run end's series continuation is not cancelled: what it starts is a new attempt, which by the operator's rule brings the ticket back."
+  - key: "THE RESOLUTION CARRIES OUR MARKER. 'Agent Smith — closed by …' is recognised as agent-smith's own comment by every comment webhook and the between-attempts observer, so a note that happens to contain the comment keyword never starts a rework and never counts as a person's act on the ticket."
+  - key: "A PORT CAST FROM THE PROVIDER, NOT A CONTRACT MEMBER. Closing is reached like the review readers (IPrReviewStateReader), so the local provider simply lacks it and ISourceProvider, already split into partials for length, is not widened."
+  - key: "ITS OWN CLASS PER HOST, AND THE HOST ACTS OUT OF THE ACT. GitHubPullRequestUpdater is at 120 lines; three small close classes keep every updater untouched, and TicketCloseHostActs keeps TicketCloseAct's refusals and mark within 110 lines."
+
+steps:
+  - id: store
+    action: "ClosedTicket entity, ClosedTicketConfiguration (each at most 50 lines) applied from TicketRecordConfigurations (26 -> 27); TicketClosedMark, ITicketClosedMarkStore and ClosedTicketRepository (at most 90 lines, the once-retried insert) registered in AddTicketFactStores (29 -> at most 31) and TicketStoreHarness."
+  - id: migrations
+    action: "`dotnet ef migrations add AddClosedTickets` in both migrations projects; read both Up/Down and confirm only the table and its two indexes."
+  - id: archive-counts
+    action: "DataArchiveSchemaTests.cs:63 51 -> 52 and :163 41 -> 42 (suffix `114fa: + ClosedTickets`); DataArchiveRoundTripTests.cs:33, :54 ('fifty-two'), :81 51 -> 52 and :34 104 -> 106; DataArchiveRefusalTests.cs:103 104 -> 106."
+  - id: pr-closers
+    action: "IPullRequestCloser; GitHubPullRequestClose, GitLabMergeRequestClose, AzureReposPullRequestClose (each at most 50 lines); the three providers declare and delegate (within the budgets above)."
+  - id: reasons
+    action: "TicketCloseReasons (unsupported, refused, already-closed) in Server/Models; TicketCloseFailureReason.Of (at most 30 lines) over TicketReadFailureReason.Of."
+  - id: act
+    action: "TicketCloseAct (at most 110 lines) with the refusal order (unknown, done-arm, live, merged rest), the mark write on CancellationToken.None, the Refresh and activity nudges, and Reopen; TicketCloseHostActs (at most 100 lines) closing every named pull request and the tracker ticket with the marked resolution; both registered beside the ticket readers."
+  - id: no-auto-start
+    action: "RequirementsMetStart.HeldAsync holds a ticket with a close mark (83 -> at most 90); DependentsWake.ReadyAsync answers false for one (81 -> at most 86); both take ITicketClosedMarkStore."
+  - id: endpoints
+    action: "TicketCloseRequest, TicketCloseAnswer and the two outcome records (Server/Models); TicketCloseEndpoints with both routes under runs.control (at most 80 lines); TicketLandedByHandEndpoints chains it (67 kept); route-permission-baseline.tsv and RoutePermissionGuardTests gain both rows."
+  - id: tests
+    action: "Red first, then green, for every test below; the composition test carries a TestProcess env trait with EnvVarCollection; run the Tickets, Rework, Persistence, Providers and Server route classes touched with --filter."
+
+tests:
+  - "ClosedTicketStore_SetTwice_KeepsOneRowWithTheSecondDecision"
+  - "ClosedTicketStore_TwoWritersRacing_KeepOneRow"
+  - "ClosedTicketStore_ReopenBetweenInsertAndReRead_RetriesTheInsertOnce"
+  - "ClosedTicketStore_Clear_AnswersWhetherARowWent"
+  - "ClosedTicketStore_OfAsync_ReturnsOnlyTheNamedKeysOfThatTracker"
+  - "TicketClose_HideOnly_StoresTheMarkAndTouchesNoHost"
+  - "TicketClose_WithANote_StoresWhoWhenAndTheTrimmedNote"
+  - "TicketClose_ClosePullRequests_ClosesEveryOpenRecordAndListsThemOnTheMark"
+  - "TicketClose_ClosePullRequests_TriesAnUnreadRecordAndANamedPullRequestWithoutARecord"
+  - "TicketClose_ClosePullRequests_AnswersAnAlreadyClosedOneWithoutTryingIt"
+  - "TicketClose_ClosePullRequestsWithOneMerged_Is409AndClosesNothing"
+  - "TicketClose_OnePullRequestRefused_StoresTheMarkWithTheOtherAndNamesTheClass (asserts no host text in the answer)"
+  - "TicketCloseFailureReason_HostStatus422_IsRefusedAnd404_IsNotFound"
+  - "TicketClose_PullRequestOfALocalRepository_IsUnsupported"
+  - "TicketClose_CloseOnTracker_CallsCloseTicketWithTheMarkedResolution"
+  - "TicketClose_ResolutionWithTheCommentKeyword_IsAgentSmithsOwnComment (OwnTicketComment.IsOurs on the resolution)"
+  - "TicketClose_TrackerAnswersFalse_IsRefusedAndTheMarkSaysNotClosed"
+  - "TicketClose_MergedAndNoLaterAttempt_Is409AndStoresNothing"
+  - "TicketClose_FailedAttemptAfterAMerge_StoresTheMark"
+  - "TicketClose_RecordsMergedBeforeTheLandingRow_Is409"
+  - "TicketClose_AttemptRunning_Is409AndStoresNothing"
+  - "TicketClose_UnknownProject_Is404WithTheSentence"
+  - "TicketClose_TicketNeitherRunNorFiled_Is404WithTheSentence"
+  - "TicketClose_SecondClose_OverwritesTheMark"
+  - "TicketClose_RequestCancelledAfterValidation_StillWritesTheMark"
+  - "TicketClose_PullRequestClosed_EnqueuesOneRefreshAndNudgesThePages"
+  - "TicketReopen_Closed_ClearsTheMarkAndNudgesThePages"
+  - "TicketReopen_NotClosed_Is404WithTheSentence"
+  - "RequirementsMetStart_ClosedTicket_IsNotStarted"
+  - "DependentsWake_RecoverAsync_ClosedDependent_IsNotWoken"
+  - "GitHubPullRequestClose_UpdatesTheStateToClosed"
+  - "GitLabMergeRequestClose_PutsStateEventClose"
+  - "AzureReposPullRequestClose_SetsStatusAbandoned"
+  - "RoutePermissionGuard_TicketCloseAndReopen_NeedRunsControl"
+  - "DataArchive round-trip, schema and refusal tests at fifty-two tables and 106 seeded rows (existing tests, counts updated)"
+  - "TicketClose_ServerComposition_ResolvesTheActTheStoreAndTheEndpointServices (integration, ServerCompositionBuilder; TestProcess env trait + EnvVarCollection)"
+
+done:
+  - "A person holding runs.control closes a ticket with or without a note; the mark records who, when and why, and nothing on the host changes unless they chose it."
+  - "Choosing 'also close its pull requests' closes every pull request the ticket's runs named that is still open on GitHub, GitLab or Azure Repos and names each one in the answer; choosing 'also close the ticket' closes it on the tracker; a host that refuses is named by a reason class, and the mark is stored anyway."
+  - "Closing a ticket the list shows as Done, one with a live attempt, or (with 'also close its pull requests') one whose pull request merged answers 409 with a sentence saying what to do instead; an unknown project or ticket answers 404; a person without runs.control is refused."
+  - "A closed ticket whose requirements land is not started; Reopen clears the mark; a ticket that is not closed answers 404 with a sentence."
+  - "`agentsmith database migrate` creates ClosedTickets on every provider, and a data archive export then import carries it."
+  - "Build green, full suite green, dashboard gen/test/build green."
