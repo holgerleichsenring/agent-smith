@@ -10,9 +10,9 @@ A run that is handed a branch instead of composing one from its ticket (a pull-r
 
 ## The specification on the ticket branch
 
-When a [spec dialogue](../../how-it-works/spec-dialogue.md) files a spec or an epic, the approved specification is written to the ticket's branch before any run starts, under `.agentsmith/specs/<provider>-<ticketId>/` with a `set.yaml` index. If the branch doesn't exist yet, it is created at the head of the default branch. The write is an ordinary commit and never forces.
+When a [spec dialogue](../../how-it-works/spec-dialogue.md) files a spec or an epic, the approved specification is written to the ticket's branch before any run starts, as a series: each spec under `.agentsmith/specs/planned/{id}-{label}.yaml`, and one manifest per series at `.agentsmith/series/{base}.yaml` that names the ticket. The layout is described on [Fix and feature](../pipelines/fix-and-feature.md#the-specification). If the branch doesn't exist yet, it is created at the head of the default branch. The write is an ordinary commit and never forces.
 
-The run that claims the ticket reads its specification from there. If the branch carries nothing (the write failed at filing time, say) and the server holds the approval record, the run publishes the set to the branch from that record. With neither, the ticket is parked, and the park names the path it found empty.
+The run that claims the ticket reads its specification from there. If the branch carries nothing (the write failed at filing time, say) and the server holds the approval record, the run publishes the set to the branch from that record. With neither, or when the branch holds a series the run can't read back, the ticket is parked, and the comment says which of the two happened.
 
 ## Cutting and reusing the branch
 

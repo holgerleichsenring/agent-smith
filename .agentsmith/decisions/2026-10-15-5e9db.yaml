@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-15-5e9db
+
+decisions:
+  - category: Implementation
+    chose: "Work the audit note in five file-disjoint clusters (Work it out, tickets and dashboard, pipeline and structure, config and settings, figures), then one pass for the rows that crossed cluster borders"
+    over: "One sequential sweep, or one writer per audit row"
+    reason: |
+      The rewrites touched about forty pages; disjoint file ownership let the clusters run side by side in one
+      tree without conflicts, and the cross-border rows were collected and done once at the end.
+  - category: Scope
+    chose: "Confirm every behaviour in code before writing it; the audit note and spec goals are pointers"
+    over: "Writing from the spec goals"
+    reason: |
+      Code differed from spec text in several places: a deleted conversation keeps uploads an approval cites,
+      the steward cannot edit a ticket a person closed, a studio-created secret reads the variable of exactly
+      its own name.
+  - category: Scope
+    chose: "Document the secret naming as it works today (name a studio secret after its variable) and leave the product behaviour unchanged"
+    over: "Changing how studio secrets resolve inside a docs spec"
+    reason: |
+      The docs paired a lowercase secret with an uppercase variable, which works only where the bootstrap file
+      carries a secrets block. The pages now say what works. Whether the studio should map names, and that
+      api_key_secret bypasses the secrets map, is a product question for its own spec.
+  - category: Implementation
+    chose: "Recount every figure on built-by-the-method by its published method, after re-running each method on the commit that set the old figures"
+    over: "Updating only the headline numbers"
+    reason: |
+      Re-running at the old commit reproduced the old figures, so the methods are trustworthy. Two methods were
+      inferred (spec lines per 1,000, test-to-code ratio) and one changed (ratchet baselines count entries,
+      not raw lines); the quoted hours stay a judgement scaled from the session count.
+  - category: Scope
+    chose: "Removed stale drawer screenshots from config-studio.md and ai-providers.md without replacing them"
+    over: "Keeping pictures of forms that no longer exist"
+    reason: |
+      They show the old agent and tracker drawers. New captures are 2026-10-15-5e9dc's job.

@@ -33,6 +33,12 @@ What this ticket deliberately leaves out, so nobody builds it by accident.
 
 A ticket says what is wanted, not how to get there. The run works out the steps from the repository it reads. When a ticket lists steps, each one is read as something the result must show, and a correct change that took a different route fails its own ticket.
 
+## A criterion is an outcome
+
+Each acceptance criterion says what is true once the work is done: what a user sees, what a caller gets back, what a command prints. A rule about the shape of the code is not one, however narrow you make it: the size of functions, classes or files, line length, indentation and wrapping, naming conventions. When a ticket lists such a rule among its criteria, the run carries it as a step of the work and says so, instead of holding the result to it. A size rule is enforced only where the project's principles declare it as a limit. Visual design values from a reference (a colour, a spacing) and a named change such as "rename `OrderList` to `OrderTable`" are outcomes and stay criteria.
+
+A ticket that has its own **Done when** (or **Definition of done**) list gets that list as the done list, one for one, even when the run cuts the ticket into a single spec. The review of the cut reports a spec set that drops one of those outcomes, quoting the ticket, so the outcome you wrote down is the one the run is held to.
+
 ## What is read as items
 
 Only the list under **Acceptance criteria** is read item by item. Each list item is one criterion the run is held to, and the pull request reports against each one. An indented line under an item belongs to that item. Prose, comments and code under the heading aren't criteria. The rest of the ticket is read as text.

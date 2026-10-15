@@ -116,7 +116,7 @@ Generate a Personal Access Token at `User Settings → Access Tokens` with scope
 export GITLAB_TOKEN=glpat-...
 ```
 
-The token reaches the tracker and the repos through the secret their `auth` names (`gitlab_token: ${GITLAB_TOKEN}` above), for API calls and for clone and push alike. A second instance gets its own secret and its own variable.
+The token reaches the tracker and the repos through the secret their `auth` names (`gitlab_token: ${GITLAB_TOKEN}` above), for API calls and for clone and push alike. A second instance gets its own secret and its own variable. In the studio, name the secret `GITLAB_TOKEN`: a secret created there reads the environment variable of exactly its name, so one named `gitlab_token` would read a variable called `gitlab_token`. The `gitlab_token: ${GITLAB_TOKEN}` pairing holds for a secret that came from a file, through import or the server's own `secrets:` block; see [which variable a secret reads](../configure-it/config-studio.md#which-variable-a-secret-reads).
 
 For org-scoped automation, prefer a Group Access Token instead of a personal one — it doesn't disappear when the user leaves.
 

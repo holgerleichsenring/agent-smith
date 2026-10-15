@@ -95,6 +95,10 @@ The database is the system of record for a run; the label on the ticket is a bes
 
 If you'd rather see real workflow states, a tracker can carry the lifecycle as native status transitions via a `lifecycle_status_names:` map on the tracker block (pending / enqueued / in-progress / done / failed → your status names). Labels stay as the always-available fallback.
 
+## Tickets that wait for another ticket
+
+A ticket filed with `requires` (from a ticket list approved in Work it out) doesn't start while a ticket it requires hasn't landed, meaning merged or marked done by hand. That holds for every way in: a trigger label, a trigger status, a webhook, the poller, a comment, a chat command, a start from the conversation and the series starting its own next attempt. So a labelled ticket that sits there untouched may simply be waiting; the dashboard lists it under **Waits for another ticket**. Where the start was asked for by someone, the answer names what it waits for: "This ticket waits for #12 to be merged first; merge them, or mark them done by hand." When the last ticket it waits for lands, the held ticket starts by itself, provided the person who approved the list was allowed to start runs. The full rules are on [Ticket dependencies](../how-it-works/ticket-dependencies.md).
+
 ## Parked tickets
 
 When a run needs input from you (a too-thin ticket, an open question, an expectation to ratify, a specification that turned out wrong), it posts the question as a comment, parks the run, and labels the ticket `agent-smith:waiting`. A ticket too thin to start moves to your configured `needs_clarification_status`. The comment mentions the ticket's assignee, or the reporter when nobody is assigned, using the tracker's own mention syntax so that person gets notified. With neither, the comment says nobody was notified. The run checkpoints until you answer. See [Spec dialogue](../how-it-works/spec-dialogue.md#the-clarification-gate).

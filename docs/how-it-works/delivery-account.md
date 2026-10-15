@@ -8,22 +8,29 @@ I built it this way because "the tests are green" and "the ticket is done" are t
 
 The account is the second half of `VerifySpec`. The first half runs the verify stages each repository declares in its context — build, test, lint, whatever the repo wrote down ([the `verify` block](../reference/concepts/context-file.md#verify-is-what-proves-a-change)). A red stage wins: an account taken over a tree that doesn't build would be an opinion about work nobody can ship, so the spec fails on the stage and names the command, the exit code and the directory it ran in.
 
+A repository whose contexts need two toolchain images is worked in two sandboxes, two separate clones, while the master writes through one of them. Before a stage runs, every sandbox of one repository is brought to the union of their work, so a build in the second sandbox sees what was written in the first. When two sandboxes changed the same file to different contents, nothing is applied anywhere and verify is red, naming the file.
+
 When the stages pass, the account is taken per repository, over the spec's ratified criteria. It is also taken first, when a spec is entered: a spec whose criteria the branch already satisfies is recorded as done and skipped.
 
 A run where no repository ran any verify command over a change it delivered fails, and says what was searched per repository. Nobody checked what shipped, and that isn't a pass.
 
 ## What a criterion can be
 
-Each row ends in one of four dispositions:
+The account ends each row in one of three dispositions:
 
 | Disposition | Shown as | Means |
 |---|---|---|
 | `met` | proven | The branch delivers it, and the row cites the evidence |
 | `unmet` | failed | The branch does not show it |
 | `not_applicable` | n/a | The criterion's condition does not hold in this repository, proven by a search of the base that ran and found nothing |
-| `unproven` | unproven | The account could not be taken at all — a red build, a diff that would not run — and the row says why |
 
-`unproven` and `unmet` are kept apart on purpose. A criterion nobody could measure and a criterion that failed are different facts, and you act on them differently.
+A fourth status, `unproven`, shows up only on runs that had no account and fell back to the agent's report on its own work: a criterion the agent reported nothing for is unproven.
+
+## When nothing could be measured
+
+Sometimes the account can't be taken at all. The build is red, the delivery diff wouldn't run, the accounting call failed. Such an account judged no criterion, so it isn't drawn as one. The Verify card shows it under "Acceptance could not be measured", naming the repository and the reason verbatim, marked "not measured", and it is counted in neither the proven nor the failed side of "N of M". The run's verify beat then reads "not measured", or "N of M proven · not measured" when other repositories were measured.
+
+I keep this apart from `unmet` on purpose. A criterion nobody could measure and a criterion that failed are different facts, and you act on them differently: the first usually wants the build fixed, the second wants the work redone. (A run from before this distinction stored the red build as an `unproven` row named after the repository; such stored rows are read the new way too.)
 
 ## Evidence, and how it is checked
 

@@ -7,7 +7,8 @@ run works them out again. The memory store is that somewhere.
 
 It lives in the target repository, under `.agentsmith/memory/`, as plain Markdown. Runs
 read it and propose additions to it; people review those additions in the pull request
-like any other change.
+like any other change. In a project with several repositories each one keeps its own store,
+for the facts about that repository.
 
 ## What's in the store
 
@@ -58,15 +59,23 @@ load `MEMORY.md` before the master starts and put it into the master's prompt as
 "Experiential memory index". Only the index goes in, so a big store stays cheap. The
 bodies stay on disk until they are asked for.
 
+In a run over several repositories the prompt carries every repository's index, each labelled
+with the repository's name.
+
 Two tools work on the store:
 
 - **`recall`** takes a query and returns the full bodies of matching memories. Plain
   text, a `[[slug]]` citation, and a `type:feedback` / `type:project` / `type:reference`
   facet all work. It is a pure read, so it is on every master surface, the read-only
-  scan surface included.
+  scan surface included. It searches every repository of the run and names the
+  repository each entry came from when there is more than one.
 - **`remember`** writes one memory (or updates one by name) and its index line. It
   writes nothing but `.agentsmith/memory/`, so it is available on scan surfaces too
-  without letting a scan change code. A `feedback` entry is recorded as proposed.
+  without letting a scan change code. It names the repository the fact is about and writes
+  there, and only into a repository whose code changes in this run: a change of nothing but
+  memory opens no pull request, so the tool says so instead of writing. A `feedback` entry
+  is recorded as proposed and also shows up as a pending default on the ticket page, so
+  someone learns the proposal exists.
 
 What a run remembers is committed with the rest of its run record and shows up in the
 pull request. Review it there: merge it and it holds for the next run, drop the file and

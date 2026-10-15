@@ -22,6 +22,14 @@ decisions:
     chose: "Return an empty array instead of 404: a collection endpoint with no results is not an error"
 ```
 
+## Which repository gets the file
+
+In a run over several repositories, the file copy goes to the repository the decision is about. `log_decision` takes an optional `repository` argument for that. With one repository in the run you leave it out. With more than one it is required: a call without it, or with a name that isn't one of the run's repositories, gets an error back that lists the run's repositories, and the decision is not logged anywhere until a call names one. A repository counts once even when it runs in two toolchain sandboxes, and a template or reference checkout is never a target. A repository the agent adds mid-run counts from that point on.
+
+During the documentation and test passes after the code is written, the choice is limited to the repositories the run changed.
+
+The run's own decision list, the one in `result.md` and on the dashboard, is not split: it holds every decision of the run whichever repository got the file.
+
 If the repository copy cannot be written, the decision is still recorded on the run and the agent carries on. A decision log never ends a run.
 
 ## Why, not what

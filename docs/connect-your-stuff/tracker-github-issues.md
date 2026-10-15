@@ -110,7 +110,7 @@ Use a fine-grained Personal Access Token with these repository permissions: Cont
 export GITHUB_TOKEN=ghp_...
 ```
 
-The tracker and the repos read the token through the secret their `auth` names (`github_token: ${GITHUB_TOKEN}`), for API calls and for clone and push alike, so a repo of another owner can carry a token of its own.
+The tracker and the repos read the token through the secret their `auth` names (`github_token: ${GITHUB_TOKEN}`), for API calls and for clone and push alike, so a repo of another owner can carry a token of its own. In the studio, name the secret `GITHUB_TOKEN`: a secret created there reads the environment variable of exactly its name, so one named `github_token` would read a variable called `github_token`. The `github_token: ${GITHUB_TOKEN}` pairing holds for a secret that came from a file, through import or the server's own `secrets:` block; see [which variable a secret reads](../configure-it/config-studio.md#which-variable-a-secret-reads).
 
 ## How tickets reach Agent Smith
 

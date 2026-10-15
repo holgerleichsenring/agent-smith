@@ -66,13 +66,13 @@ Agent Smith bootstraps an `.agentsmith/` directory into your repo: context, spec
 
 |  |  |
 |---|---|
-| **968** | completed specs, each specified before a line of code existed |
-| **5,062** | recorded decisions, each naming the alternative it beat |
-| **432,267** | lines of C# across 4,803 files |
-| **7,038** | automated tests, gating every single commit |
-| **~650 h** | of human time, roughly 40 minutes per completed spec |
+| **1,229** | completed specs, each specified before a line of code existed |
+| **6,908** | recorded decisions, each naming the alternative it beat |
+| **699,551** | lines of C# across 6,966 files |
+| **10,301** | automated tests, gating every single commit |
+| **~750 h** | of human time, roughly 37 minutes per completed spec |
 
-Two things did the actual steering. Ten coding principles turned into [architecture tests](tests/AgentSmith.Tests/Architecture/) that fail a build, and every one of them has a concrete thing that went wrong behind it. Then a [blocking commit hook](.claude/hooks/spec-gate.sh) that lets a spec commit through once the dashboard's build and tests, the backend build, all 7,038 tests, four CLI dry runs and every harness preset come back green. CI would have told me about a break afterwards. The hook stops the commit from existing, and the model has no way to wave itself through.
+Two things did the actual steering. Ten coding principles turned into [architecture tests](tests/AgentSmith.Tests/Architecture/) that fail a build, and every one of them has a concrete thing that went wrong behind it. Then a [blocking commit hook](.claude/hooks/spec-gate.sh) that lets a spec commit through once the dashboard's build and tests, the backend build, all 10,301 tests, four CLI dry runs and every harness preset come back green. CI would have told me about a break afterwards. The hook stops the commit from existing, and the model has no way to wave itself through.
 
 The `principles.md` I built this project under is the same file Agent Smith injects into its own agents at runtime. The methodology and the product turned out to be the same thing.
 
