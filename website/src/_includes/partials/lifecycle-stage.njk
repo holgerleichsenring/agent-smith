@@ -1,0 +1,86 @@
+<div class="stage" role="img" aria-label="Lifecycle: a work item from Azure Boards goes to Agent Smith, which derives and reviews specs, builds in one sandbox per repository, verifies every criterion, opens one pull request per repository in scope in Azure Repos and writes the links back to the work item.">
+  <svg id="life" viewBox="0 0 1100 440" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <path id="w1" class="s-wire live" d="M180 89 C 215 89, 210 210, 248 210"/>
+    <path id="w2a" class="s-wire live" d="M452 210 C 490 210, 490 112, 530 112"/>
+    <path id="w2b" class="s-wire live" d="M452 210 L 530 210"/>
+    <path id="w2c" class="s-wire" d="M452 210 C 490 210, 490 308, 530 308"/>
+    <path id="w3a" class="s-wire live" d="M700 112 C 730 112, 730 210, 760 210"/>
+    <path id="w3b" class="s-wire live" d="M700 210 L 760 210"/>
+    <path id="w3c" class="s-wire" d="M700 308 C 730 308, 730 210, 760 210"/>
+    <path id="w4a" class="s-wire live" d="M892 210 C 915 210, 915 150, 940 150"/>
+    <path id="w4b" class="s-wire live" d="M892 210 C 915 210, 915 270, 940 270"/>
+    <path id="w5" class="s-wire back" d="M1010 296 L 1010 398 Q 1010 414 994 414 L 106 414 Q 90 414 90 398 L 90 318"/>
+
+    <g class="st" style="animation-delay:0s">
+      <text x="20" y="40" class="s-lab" font-size="10">TICKET SOURCES</text>
+      <rect x="20" y="70" width="160" height="38" rx="9" class="s-azure"/>
+      <circle cx="38" cy="89" r="4" class="s-person"/>
+      <text x="50" y="94" class="s-txt" font-size="14" font-weight="600">Azure Boards</text>
+      <rect x="20" y="122" width="160" height="38" rx="9" class="s-box2"/><text x="38" y="146" class="s-mute" font-size="14">Jira</text>
+      <rect x="20" y="174" width="160" height="38" rx="9" class="s-box2"/><text x="38" y="198" class="s-mute" font-size="14">GitHub Issues</text>
+      <rect x="20" y="226" width="160" height="38" rx="9" class="s-box2"/><text x="38" y="250" class="s-mute" font-size="14">GitLab Issues</text>
+      <text x="20" y="300" class="s-mute s-mono" font-size="11">AB#1301 · approved</text>
+    </g>
+
+    <g class="st" style="animation-delay:.9s">
+      <text x="248" y="40" class="s-lab" font-size="10">AGENT SMITH · YOUR CLUSTER</text>
+      <rect x="248" y="100" width="204" height="220" rx="14" class="s-box"/>
+      <text x="268" y="132" class="s-txt" font-size="15" font-weight="700">Specs from the ticket</text>
+      <g font-size="12.5" class="s-mono">
+        <rect x="266" y="150" width="168" height="34" rx="7" class="s-box2"/><text x="280" y="172" class="s-txt">1 · derive specs</text>
+        <rect x="266" y="192" width="168" height="34" rx="7" class="s-box2"/><text x="280" y="214" class="s-txt">2 · review each spec</text>
+        <rect x="266" y="234" width="168" height="34" rx="7" class="s-box2"/><text x="280" y="256" class="s-txt">3 · work in order</text>
+      </g>
+      <text x="268" y="300" class="s-mute s-mono" font-size="11">asks you when it's unclear</text>
+    </g>
+
+    <g class="st" style="animation-delay:1.8s">
+      <text x="530" y="40" class="s-lab" font-size="10">ONE SANDBOX PER REPO IN SCOPE</text>
+      <rect x="530" y="76" width="170" height="72" rx="11" class="s-box"/>
+      <text x="546" y="100" class="s-txt" font-size="13.5" font-weight="600">acme-api</text>
+      <text x="546" y="118" class="s-mute s-mono" font-size="11">dotnet/sdk:8.0</text>
+      <rect x="546" y="130" width="138" height="4" rx="2" class="s-track"/><rect class="bar s-go" x="546" y="130" width="138" height="4" rx="2"/>
+      <rect x="530" y="174" width="170" height="72" rx="11" class="s-box"/>
+      <text x="546" y="198" class="s-txt" font-size="13.5" font-weight="600">acme-web</text>
+      <text x="546" y="216" class="s-mute s-mono" font-size="11">node:20</text>
+      <rect x="546" y="228" width="138" height="4" rx="2" class="s-track"/><rect class="bar s-go" style="animation-delay:.3s" x="546" y="228" width="138" height="4" rx="2"/>
+      <rect x="530" y="272" width="170" height="72" rx="11" class="s-box s-dim"/>
+      <text x="546" y="296" class="s-txt" font-size="13.5" font-weight="600">acme-worker</text>
+      <text x="546" y="314" class="s-faint s-mono" font-size="11">not in scope · no sandbox</text>
+    </g>
+
+    <g class="st" style="animation-delay:2.7s">
+      <text x="760" y="40" class="s-lab" font-size="10">VERIFY</text>
+      <rect x="760" y="120" width="132" height="180" rx="12" class="s-box"/>
+      <text x="776" y="146" class="s-txt" font-size="13" font-weight="600">Criteria</text>
+      <g font-size="12" class="s-mono">
+        <text x="776" y="174" class="s-go">✓</text><text x="794" y="174" class="s-mute">retries 5×</text>
+        <text x="776" y="198" class="s-go">✓</text><text x="794" y="198" class="s-mute">backoff ≤ 10m</text>
+        <text x="776" y="222" class="s-go">✓</text><text x="794" y="222" class="s-mute">status shown</text>
+        <text x="776" y="246" class="s-go">✓</text><text x="794" y="246" class="s-mute">tests green</text>
+        <text x="776" y="276" class="s-faint">+ 7 more</text>
+      </g>
+    </g>
+
+    <g class="st" style="animation-delay:3.6s">
+      <text x="940" y="40" class="s-lab" font-size="10">AZURE REPOS</text>
+      <rect x="940" y="122" width="140" height="56" rx="11" class="s-box"/>
+      <text x="956" y="145" class="s-txt s-mono" font-size="13" font-weight="500">PR !412</text>
+      <text x="956" y="164" class="s-mute" font-size="12">acme-api</text>
+      <rect x="940" y="242" width="140" height="56" rx="11" class="s-box"/>
+      <text x="956" y="265" class="s-txt s-mono" font-size="13" font-weight="500">PR !413</text>
+      <text x="956" y="284" class="s-mute" font-size="12">acme-web</text>
+      <text x="940" y="214" class="s-mute s-mono" font-size="10.5">cross-linked</text>
+    </g>
+
+    <text x="550" y="406" text-anchor="middle" class="s-mute s-mono" font-size="11">work item updated · every pull request link</text>
+
+    <g id="packets">
+      <circle r="5" class="s-person"><animateMotion dur="12s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.02;0.08;1" calcMode="linear"><mpath href="#w1"/></animateMotion><animate attributeName="opacity" dur="12s" repeatCount="indefinite" values="0;1;1;0;0" keyTimes="0;0.02;0.08;0.09;1"/></circle>
+      {% for w in ["w2a", "w2b"] %}<circle r="4" class="s-go"><animateMotion dur="12s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.15;0.21;1" calcMode="linear"><mpath href="#{{ w }}"/></animateMotion><animate attributeName="opacity" dur="12s" repeatCount="indefinite" values="0;1;1;0;0" keyTimes="0;0.15;0.21;0.22;1"/></circle>
+      {% endfor %}{% for w in ["w3a", "w3b"] %}<circle r="4" class="s-go"><animateMotion dur="12s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.4;0.45;1" calcMode="linear"><mpath href="#{{ w }}"/></animateMotion><animate attributeName="opacity" dur="12s" repeatCount="indefinite" values="0;1;1;0;0" keyTimes="0;0.4;0.45;0.46;1"/></circle>
+      {% endfor %}{% for w in ["w4a", "w4b"] %}<circle r="4" class="s-go"><animateMotion dur="12s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.55;0.6;1" calcMode="linear"><mpath href="#{{ w }}"/></animateMotion><animate attributeName="opacity" dur="12s" repeatCount="indefinite" values="0;1;1;0;0" keyTimes="0;0.55;0.6;0.61;1"/></circle>
+      {% endfor %}<circle r="5" class="s-person"><animateMotion dur="12s" repeatCount="indefinite" keyPoints="0;0;1;1" keyTimes="0;0.66;0.8;1" calcMode="linear"><mpath href="#w5"/></animateMotion><animate attributeName="opacity" dur="12s" repeatCount="indefinite" values="0;1;1;0;0" keyTimes="0;0.66;0.8;0.81;1"/></circle>
+    </g>
+  </svg>
+</div>

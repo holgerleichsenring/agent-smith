@@ -30,6 +30,14 @@ colors:
   state-stopped-terminal: "#c55b4e"
   state-person: "#426b96"
   state-person-terminal: "#5eb1ff"
+  stage-bg: "#090c12"
+  stage-panel: "#10151e"
+  stage-panel-raised: "#151b26"
+  stage-line: "#232c3b"
+  stage-text: "#e8ebf1"
+  stage-text-soft: "#c2c8d3"
+  stage-mute: "#8b94a7"
+  stage-faint: "#5a6375"
 
 typography:
   display-xl:
@@ -422,7 +430,7 @@ Two faces ladder the system:
 1. **Inter** — used for displays, sub-displays, body, links, buttons, and eyebrows. Weights 400 / 500 / 600 / 700.
 2. **IBM Plex Mono** — used for code, CLI output, YAML snippets, and the entire `card-terminal-panel` surface.
 
-Inter loads via `@font-face` in `tokens.css` (variable, jsdelivr CDN). IBM Plex Mono is referenced by name; pre-installed on most dev machines and degrades gracefully through `ui-monospace`.
+Both load via `@font-face` in `tokens.css` from jsDelivr: Inter as one variable file, IBM Plex Mono at 400, 500 and 700. Nothing loads from Google Fonts. The stacks fall back through `system-ui` and `ui-monospace`.
 
 ### Hierarchy
 
@@ -579,6 +587,17 @@ Rule of thumb: code-changing pipelines (fix / feature / legal / mad / init) are 
 **`badge-pill`** — inline pill for metadata / tag. Background `{colors.canvas-soft}`, text `{colors.ink}`, body in `{typography.body-sm}`, padding `{spacing.xs} {spacing.md}`, shape `{rounded.pill}`.
 
 **`badge-pill-green`** — emphasis pill (e.g. "new", "popular"). Background `{colors.primary}`, text `{colors.on-primary}`, body in `{typography.body-sm-strong}`.
+
+## Website stage
+
+The marketing site (agent-smith.org) runs on a dark stage of its own. The dashboard and the docs stay on the light system above: they are read for hours, the site is seen for seconds. The stage borrows the system's faces, accent and state palette and adds only its ground.
+
+- **Ground**: `{colors.stage-bg}` `#090c12`, panels `{colors.stage-panel}` and `{colors.stage-panel-raised}`, hairlines `{colors.stage-line}`. Text `{colors.stage-text}`, running text `{colors.stage-text-soft}`, labels `{colors.stage-mute}`, fine print `{colors.stage-faint}`. Neutrals lean blue, toward the person colour.
+- **Accent**: Smith Green stays the one colour a button carries. `{colors.state-person-terminal}` `#5eb1ff` marks Azure DevOps and the words a headline stresses; the state palette's terminal variants mark state on drawn panels.
+- **Display**: IBM Plex Mono 700, uppercase, tracking -0.05 em. This is the one place the brand uppercases a display: the monospace reads as a terminal line, not as shouting. Body stays Inter. Dot-matrix and pixel faces were tried and dropped: their period reads as a plus.
+- **Motion**: one ambient layer (green code rain behind the header, dimmed where text sits), one entrance (the headline lands line by line and decodes from random characters, with a rare chromatic glitch), and reveals as sections enter. Everything pauses off screen and stops under `prefers-reduced-motion`, where every element is visible at rest.
+- **Panels**: product surfaces on the site are drawn in HTML on `{colors.stage-panel}`, one mechanism per panel, labelled as an example. Screenshots belong to the docs.
+- **Radius**: `{rounded.md}` 12 px on buttons and panels, as everywhere; no pills.
 
 ## Do's and Don'ts
 

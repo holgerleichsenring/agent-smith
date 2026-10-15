@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-15-5e9da
+
+decisions:
+  - category: Architecture
+    chose: "A dark website stage as a layer of its own in DESIGN.md, with stage colour tokens; dashboard and docs stay on the light system"
+    over: "Turning the whole design system dark, or styling the site outside DESIGN.md"
+    reason: |
+      The site is seen for seconds and has to stop the reader; the dashboard and the docs are read for hours.
+      Tokens in DESIGN.md keep one source for every colour the site uses.
+  - category: TradeOff
+    chose: "IBM Plex Mono 700 uppercase as the display face"
+    over: "Archivo, Doto, Sixtyfour, VT323, Handjet, Jersey, Big Shoulders, Tektur (all tried in the mock)"
+    reason: |
+      Already in the system and reads as a terminal line. The operator found the dot and pixel faces hard to
+      read; Doto's period renders as a plus.
+  - category: TradeOff
+    chose: "Code rain without a figure behind the header"
+    over: "An ASCII agent drawn by the rain, and an army of copies"
+    reason: |
+      The operator: the figure only works if it looks like the logo artwork, and the army did not tell the
+      product's story. The rain carries the mood alone.
+  - category: TradeOff
+    chose: "Product surfaces drawn in HTML and labelled as examples"
+    over: "Dashboard screenshots on the site"
+    reason: |
+      The dashboard is light; screenshots would break the stage and age with every UI change. Each drawn panel
+      shows one mechanism. Screenshots stay the docs' job (2026-10-15-5e9dc).
+  - category: Scope
+    chose: "Every product claim checked against code and docs before shipping; nine reworded"
+    over: "Shipping the mock copy as written"
+    reason: |
+      A read-only check found the work item gets no cost (the ticket page does), '/as review' on Agent Smith's
+      own PR starts a rework, a PR opens as a draft before verification, an untouched repo gets no sandbox,
+      a decision entry carries no rejected alternative, and GitHub Issues polls too.
+  - category: Scope
+    chose: "The Azure DevOps page says Agent Smith files dependent work items with Dependency links and starts each when what it requires has merged"
+    over: "Keeping 'you don't split the dependency across work items'"
+    reason: |
+      Since 2026-10-14-dbce Work it out proposes ticket lists with requires, writes Dependency links in Azure
+      Boards and gates each ticket on its requirements landing. Microsoft's page (updated 2026-07-23) still lists
+      dependencies as a Copilot limitation.
+  - category: Tooling
+    chose: "Fix the Inter URL in build-tokens.mjs and load IBM Plex Mono from jsDelivr too"
+    over: "Leaving fonts as they were"
+    reason: |
+      The emitted Inter URL answered 404, so the site and the docs rendered in the system font. Plex Mono was
+      referenced by name only. Both now load from jsDelivr; nothing from Google Fonts.
