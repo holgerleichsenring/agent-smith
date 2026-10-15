@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-15-8a24
+
+decisions:
+  - category: Architecture
+    chose: "Get in contact links the 45level site through site.partnerUrl"
+    over: "Publishing an email address or a contact form on agent-smith.org"
+    reason: |
+      The operator named the company, not an address; the footer already links that site, and a form would need a backend the static site does not have.
+  - category: Scope
+    chose: "Services described by kind only (installation, wiring, maintenance and support)"
+    over: "Prices, service levels or response times"
+    reason: |
+      None were stated; a published SLA is a commitment the operator has to set, not the page.

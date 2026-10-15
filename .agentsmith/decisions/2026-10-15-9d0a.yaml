@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-15-9d0a
+
+decisions:
+  - category: Architecture
+    chose: "An Eleventy njk template with permalink /llms.txt reading site.json"
+    over: "A static llms.txt copied from src/static"
+    reason: |
+      The description, docs URL and repository already live in site.json; the template keeps one source with the landing page.
+  - category: Scope
+    chose: "llms.txt only, linking the website pages and the docs nav pages an LLM should read first"
+    over: "Also an llms-full.txt with the concatenated docs, or an mkdocs-side llms.txt"
+    reason: |
+      The operator asked for llms.txt on the website; a full concatenation would be a second copy of the docs to keep current.
+  - category: Scope
+    chose: "The eyebrow rename rides in this spec"
+    over: "A spec of its own"
+    reason: |
+      One line on the same page set, asked for in the same breath; a second spec would cost a second full gate for a single word change.

@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-15-9d0a
+goal: "The website serves /llms.txt, an llmstxt.org map linking the pages and docs an LLM should read first, and the landing eyebrow reads Software automation factory."
+
+applies_to: "website (one Eleventy template rendering /llms.txt from site.json)"
+
+requires: []
+
+facts:
+  - claim: "The website is an Eleventy site whose only template format is njk; files under src/static are copied to the site root."
+    evidence: "website/eleventy.config.js:2, website/eleventy.config.js:14"
+  - claim: "site.json already holds the one-paragraph description, the docs URL and the GitHub repository the pages link to."
+    evidence: "website/src/_data/site.json:1-10"
+  - claim: "The docs are an mkdocs site at https://docs.agent-smith.org with directory URLs; its nav names the install, how-it-works and reference pages."
+    evidence: "docs/mkdocs.yml:2, docs/CNAME:1"
+  - claim: "The site has two pages: the landing page and /azure-devops/."
+    evidence: "website/src/index.njk:1-3, website/src/azure-devops.njk:1-5"
+  - claim: "The landing eyebrow says Open source software factory; no other file in the repository uses the phrase."
+    evidence: "website/src/index.njk:7"
+  - claim: "The postbuild link check reads only .html files, so a .txt output is outside it."
+    evidence: "website/check-links.mjs:10-15"
+
+assumptions:
+  - "The site's own host is https://agent-smith.org, as README.md:26 links /azure-devops/ there."
+
+scope:
+  in: >
+    TEMPLATE: website/src/llms.txt.njk with permalink /llms.txt, no layout, excluded from collections: H1, blockquote
+    from site.description, then sections Start here, How it works, Hosting and configuration, Reference and Optional,
+    each a list of absolute links with a one-line note; every docs link is a page in docs/mkdocs.yml's nav.
+    EYEBROW: website/src/index.njk:7 reads "Software automation factory" instead of "Open source software factory"
+    (the operator's wording, 2026-10-15); the only occurrence in the repository.
+  out: >
+    llms-full.txt (concatenated docs) — not asked for. An mkdocs-side llms.txt on docs.agent-smith.org.
+
+decisions:
+  - key: "RENDERED FROM SITE.JSON, NOT A STATIC FILE. The summary and the docs URL keep one source with the landing page; a copy under src/static would drift."
+
+steps:
+  - id: template
+    action: "website/src/llms.txt.njk (at most 70 lines)."
+  - id: build
+    action: "npm run build in website; read _site/llms.txt and confirm every docs link names a page in docs/mkdocs.yml nav."
+
+tests:
+  - "npm run build in website succeeds (link check included) and writes _site/llms.txt starting with '# Agent Smith'."
+
+done:
+  - "https://agent-smith.org/llms.txt answers plain text in the llmstxt.org shape: a title, a one-paragraph summary, and sections of links to the website and docs pages."
+  - "The landing page's eyebrow reads Software automation factory."
+  - "Website build green; build green, full suite green, dashboard gen/test/build green."
