@@ -1,5 +1,29 @@
 # Changelog
 
+## [0.165.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.164.0...v0.165.0) (2026-10-15)
+
+
+### Features
+
+* a closed ticket lists under Closed until a later attempt, a person's pull-request entry or Done brings it back; Ended splits into Failed and PR closed, and a ticket waiting for a closed one says so (2026-10-15-114fb) ([f0017e6](https://github.com/holgerleichsenring/agent-smith/commit/f0017e66bd99798cfc56c274ba61b20f96df2693))
+* a commit pushed to or a reopen of a closed ticket's pull request brings it back, and a failed ticket a person closed on the tracker lists as Closed (2026-10-15-114fc) ([5a3feff](https://github.com/holgerleichsenring/agent-smith/commit/5a3feff6b87a47552812005b6fbf13665b00645f))
+* a Jira or Azure DevOps tracker may name a closed_status that 'also close on the tracker' moves a ticket into, set in agentsmith.yml or the Config Studio, and agent-smith reads it as its own status, never a person's close (2026-10-15-114fe) ([93be546](https://github.com/holgerleichsenring/agent-smith/commit/93be54628ad23e92944339014387a6153771e7a9))
+* a person closes a ticket with an optional note, optionally closing its pull requests and its tracker ticket; a landed, live or partly merged ticket is refused, a closed ticket never starts by itself, and Reopen clears the mark (2026-10-15-114fa) ([009c2c6](https://github.com/holgerleichsenring/agent-smith/commit/009c2c65495c97f41fc336c77ab0ef0d8b7c9570))
+* a ticket can be closed and reopened on the ticket list; a later change brings it back, and Ended splits into Failed and PR closed (2026-10-15-114f) ([e5e8535](https://github.com/holgerleichsenring/agent-smith/commit/e5e8535736a60184edfe3ea49c5230b5bae8e12f))
+* lists show only the caller's projects (2026-10-15-4a4dd) ([c41add5](https://github.com/holgerleichsenring/agent-smith/commit/c41add531b2ea41f1a3a7c8fbef5ea36a0166c91))
+* project bindings in the role mapping (2026-10-15-4a4da) ([dcc41cf](https://github.com/holgerleichsenring/agent-smith/commit/dcc41cf1f3f2db990cead2be8df534da9e3d0d1c))
+* project-scoped permissions (2026-10-15-4a4d a-f) ([57e3b77](https://github.com/holgerleichsenring/agent-smith/commit/57e3b77c8793cfb7f623d88ffc46884567ea9f16))
+* project-scoped permissions are enforced on routes (2026-10-15-4a4db) ([9f22560](https://github.com/holgerleichsenring/agent-smith/commit/9f2256047b5d33c3de1a53dc1bb13af3a729b21b))
+* the access studio grants roles per project (2026-10-15-4a4df) ([26b1023](https://github.com/holgerleichsenring/agent-smith/commit/26b1023320dfa470c5a09a19a45d923edb95eed9))
+* the dashboard gates acts per project (2026-10-15-4a4de) ([bbf1572](https://github.com/holgerleichsenring/agent-smith/commit/bbf1572509b0280818a03c71d0a08f7d8620f773))
+* the live hub is scoped to the caller's projects (2026-10-15-4a4dc) ([5b2a79c](https://github.com/holgerleichsenring/agent-smith/commit/5b2a79cbbdde77e1823972e1f77cb37e674abc51))
+* the ticket list, rail, graph and page show Closed, Failed and PR closed; a ticket is closed from its row or page with an optional note and, if chosen, its open pull requests and tracker ticket, and a close made here can be reopened (2026-10-15-114fd) ([46921c7](https://github.com/holgerleichsenring/agent-smith/commit/46921c7ba856d2c22ca9c431fbbef0a03edfc6e9))
+* the website offers services through 45level GmbH (2026-10-15-8a24) ([5e4dc08](https://github.com/holgerleichsenring/agent-smith/commit/5e4dc08a336bb5a78786c2a1e2bfe2ba8d46041a))
+* the website runs on a dark stage led by Azure DevOps — code rain, a headline that lands line by line, four chapters on defining, running, answering and reviewing a ticket, the lifecycle redrawn, every claim checked against the code; Inter loads again and Plex Mono with it (2026-10-15-5e9da) ([cdf2ffb](https://github.com/holgerleichsenring/agent-smith/commit/cdf2ffbbae462fdb3f152487aa45521ee2333cf3))
+* the website serves /llms.txt and calls itself a software automation factory (2026-10-15-9d0a) ([8468386](https://github.com/holgerleichsenring/agent-smith/commit/8468386f4dba6e311aec0189648d64e40e21d3c0))
+* website llms.txt, services page, software automation factory ([c3533e9](https://github.com/holgerleichsenring/agent-smith/commit/c3533e948a51367a87aaa9900f89e809981d11f6))
+* website on a dark stage led by Azure DevOps (2026-10-15-5e9da) ([314c8ba](https://github.com/holgerleichsenring/agent-smith/commit/314c8ba96f75490bdfecbdeecc54147f2a934927))
+
 ## [0.164.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.163.0...v0.164.0) (2026-10-15)
 
 
