@@ -1,0 +1,158 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-15-4a4da
+goal: "The role mapping gains project bindings giving groups and people roles in one project; the resolver answers per-project permissions beside the global ones, and nothing enforces them yet."
+
+applies_to: "backend (RoleMappingConfig.ProjectBindings with ProjectBinding and PersonRef, the project-scopable mark in the permission catalog, ProjectBindingReader in ResolvedRoleMapping, CallerIdentity.ProjectPermissions and PermissionsIn, no binding finding of its own (2026-10-15-4a4df composes every one on the access view), the person removal that must carry bindings, YAML export/import, the config schema and the field reference)"
+
+requires: []
+
+facts:
+  - claim: "The catalog is twenty flat names with no notion of scope; the six that act on a run, a project's init or a dialog are runs.read, runs.watch, runs.control, runs.delete, projects.init and dialog.write; config.*, secrets.*, identity.read, access.*, archive.*, catalog.read and diagnostics.* are the rest."
+    evidence: "src/backend/AgentSmith.Server/Security/Permissions.cs:16-30, src/backend/AgentSmith.Server/Security/Permissions.cs:34-45, src/backend/AgentSmith.Server/Security/Permissions.cs:53-68, src/backend/AgentSmith.Server/Security/Permissions.cs:70-76, observed: 2026-10-15, wc -l Permissions.cs 77"
+  - claim: "Every built-in role carries global-only permissions: reader bundles catalog.read, diagnostics.read and identity.read beside runs.read and runs.watch; operator adds diagnostics.probe; admin is the whole catalog."
+    evidence: "src/backend/AgentSmith.Server/Security/BuiltInRoles.cs:21-25, src/backend/AgentSmith.Server/Security/BuiltInRoles.cs:27-37, src/backend/AgentSmith.Server/Security/BuiltInRoles.cs:39-45"
+  - claim: "The role mapping holds the two claim names, GroupRoles, custom Roles, PersonGrants and the retention days; IsEmpty and the bootstrap seed read only the first four, so a seed never carries grants."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/RoleMappingConfig.cs:15-48, src/backend/AgentSmith.Contracts/Models/Configuration/RoleMappingConfig.cs:64-75, src/backend/AgentSmith.Server/Services/Startup/RoleMappingMigration.cs:47-51, observed: 2026-10-15, wc -l RoleMappingConfig.cs 76"
+  - claim: "A person grant is a claim name, a value and role names; it resolves only while its claim is the configured name claim, compares the value ordinally against Identity.Name, and reports a stale claim as a finding."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/PersonGrant.cs:15-25, src/backend/AgentSmith.Server/Security/PersonGrantReader.cs:27-34, src/backend/AgentSmith.Server/Security/PersonGrantReader.cs:40-52, src/backend/AgentSmith.Server/Security/PersonGrantReader.cs:54-57"
+  - claim: "Group values compare ordinally after one leading slash is trimmed, the same normalisation the access view applies."
+    evidence: "src/backend/AgentSmith.Server/Security/CallerRoleReader.cs:28-32, src/backend/AgentSmith.Server/Security/CallerRoleReader.cs:49-57, src/backend/AgentSmith.Server/Services/Access/AccessViewComposer.cs:60-62"
+  - claim: "The catalog turns role names into the union of their bundles, an unknown name contributing nothing, and its findings are configuration findings computed with the mapping."
+    evidence: "src/backend/AgentSmith.Server/Security/RoleCatalog.cs:24-41, src/backend/AgentSmith.Server/Security/RoleCatalog.cs:46-62"
+  - claim: "One ResolvedRoleMapping pairs the mapping with its readers and the name claim, and the source rebuilds it only when the stored mapping instance changes, so anything computed in it is computed once per save."
+    evidence: "src/backend/AgentSmith.Server/Security/ResolvedRoleMapping.cs:15-21, src/backend/AgentSmith.Server/Security/RoleMappingSource.cs:34-49"
+  - claim: "The resolver is at 111 lines; it unions role bundles, token permission claims and identity.read into one flat list, appends admin for the environment grant, concatenates the catalog, grant and person findings into every caller's answer, and answers an anonymous caller with empty lists."
+    evidence: "src/backend/AgentSmith.Server/Security/CallerIdentityResolver.cs:34-53, src/backend/AgentSmith.Server/Security/CallerIdentityResolver.cs:55-62, src/backend/AgentSmith.Server/Security/CallerIdentityResolver.cs:95-110, observed: 2026-10-15, wc -l CallerIdentityResolver.cs 111"
+  - claim: "CallerIdentity is a positional record and the very answer of GET /api/identity; the resolver's two constructions are its only ones in src and tests."
+    evidence: "src/backend/AgentSmith.Server/Models/CallerIdentity.cs:18-29, src/backend/AgentSmith.Server/Extensions/IdentityEndpoints.cs:27-29, src/backend/AgentSmith.Server/Security/CallerIdentityResolver.cs:43, src/backend/AgentSmith.Server/Security/CallerIdentityResolver.cs:107"
+  - claim: "Four places read the flat Permissions list to decide access: the route handler, the hub filter, the ticket conversation read and the spec dialog endpoint."
+    evidence: "src/backend/AgentSmith.Server/Security/PermissionRequirementHandler.cs:37-39, src/backend/AgentSmith.Server/Security/HubPermissionFilter.cs:50-54, src/backend/AgentSmith.Server/Extensions/TicketConversationReadEndpoints.cs:33, src/backend/AgentSmith.Server/Extensions/SpecDialogEndpoints.cs:62"
+  - claim: "Project names compare case-insensitively: the resolved projects map is built under ConfigNames.Comparer, which is OrdinalIgnoreCase; the studio's project entity id is the raw project key and is read from the in-memory catalog."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/ConfigNames.cs:24, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ConfigCatalogResolver.cs:75, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ProjectEntityMapping.cs:13-19, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/DbConfigStore.cs:45, src/backend/AgentSmith.Contracts/Services/IConfigStore.cs:36"
+  - claim: "The server's configuration loader assembles the whole configuration from the document store on every call, so the per-request resolver must not ask it which projects exist."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/DbConfigurationLoader.cs:39-47, src/backend/AgentSmith.Server/Services/Tickets/TicketProjects.cs:12-16"
+  - claim: "PUT /api/access binds the whole document onto RoleMappingConfig with case-insensitive property names and hands the element to SaveSetting, which binds it onto the typed model again and stores THAT re-serialised — so a key RoleMappingConfig does not declare is dropped on save; the dashboard sends back its draft, which is the served document spread with edits, so a field the dashboard does not know survives its saves once the model declares it."
+    evidence: "src/backend/AgentSmith.Server/Extensions/AccessEndpoints.cs:30-41, src/backend/AgentSmith.Server/Services/Access/AccessGrantWriter.cs:34-41, src/backend/AgentSmith.Server/Services/Access/AccessGrantWriter.cs:48-53, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/DbConfigStore.cs:115-127, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigSettingsAccess.cs:31-43, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigDocJson.cs:12-16, src/dashboard/src/components/access/AccessStudio.tsx:24-28, src/dashboard/src/components/access/AccessStudio.tsx:53, src/dashboard/src/components/access/PeoplePane.tsx:34, src/dashboard/src/lib/accessApi.ts:30-37"
+  - claim: "Removing a person rebuilds the mapping field by field, so a field the copy does not name is erased by the save; it withdraws grants by value whatever their claim, and saves nothing at all when no grant was dropped."
+    evidence: "src/backend/AgentSmith.Server/Services/Access/PersonRemover.cs:35-43, src/backend/AgentSmith.Server/Services/Access/PersonRemover.cs:52-71, observed: 2026-10-15, wc -l PersonRemover.cs 72"
+  - claim: "Removing a custom role is refused while a person grant, a mapped group or an observed caller holds it; a holder through any other part of the document is not looked for."
+    evidence: "src/backend/AgentSmith.Server/Services/Access/RoleRemovalGuard.cs:30-46, src/backend/AgentSmith.Server/Services/Access/RoleRemovalGuard.cs:48-62, observed: 2026-10-15, wc -l RoleRemovalGuard.cs 89"
+  - claim: "The admin-reachable invariant and the sign-in check count only person grants, mapped groups, the role claim and the environment grant as routes to admin, and every role-mapping write passes the invariant on the document store."
+    evidence: "src/backend/AgentSmith.Server/Security/AdminRoute.cs:24-39, src/backend/AgentSmith.Server/Services/Preflight/SignInFacts.cs:47-55, src/backend/AgentSmith.Server/Services/Access/AdminReachableConfigDocumentStore.cs:34-63"
+  - claim: "The role mapping is a settings singleton reachable only from the access routes; YAML export serialises RawAgentSmithConfig.RoleMapping with underscored names and RawConfigYaml deserialises it back."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigDocumentTaxonomy.cs:51-52, src/backend/AgentSmith.Server/Extensions/ConfigSettingsEndpoints.cs:54-55, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/RawAgentSmithConfig.cs:53, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigYamlExporter.cs:23-30, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/RawConfigYaml.cs:22-25"
+  - claim: "The access harness constructs the reader, composer, remover and guard by hand; the resolver harness stores a mapping through a stub and adopts the store."
+    evidence: "tests/AgentSmith.Tests/Server/Access/AccessTestHarness.cs:66-78, tests/AgentSmith.Tests/Server/Auth/ResolverUnderTest.cs:29-35, src/backend/AgentSmith.Server/Extensions/AccessSurfaceExtensions.cs:17-27"
+  - claim: "The shipped config schema closes role_mapping and each person grant with additionalProperties false, and ConfigSchemaCoverageTests fails while a key RawAgentSmithConfig binds is not declared there, so a new RoleMappingConfig property without a schema entry is a red suite and an exported project_bindings block a schema error."
+    evidence: "config/agentsmith.schema.json:357-392, tests/AgentSmith.Tests/Configuration/ConfigSchemaCoverageTests.cs:10-16, tests/AgentSmith.Tests/Configuration/ConfigSchemaCoverageTests.cs:43-46"
+  - claim: "The /api/identity answer's field names are pinned one by one, so a new CallerIdentity property is a red test until the list names it."
+    evidence: "tests/AgentSmith.Tests/Server/Auth/RefusalWireNamesTests.cs:39-44"
+  - claim: "The field reference lists the role_mapping keys in one table row."
+    evidence: "docs/reference/configuration/agentsmith-yml.md:310"
+
+assumptions:
+  - "An added field on the /api/identity answer is not a behaviour change; with auth.enforce off every refusal and every list stays as today, because nothing in this slice reads ProjectPermissions to decide anything."
+  - "A binding names its project by the configured project key; a project renamed is a project deleted and another created, so its binding is reported unknown (by 2026-10-15-4a4df) until edited."
+
+scope:
+  in: >
+    CONTRACTS: PersonRef (Contracts/Models/Configuration, Claim and Value, at most 20 lines); ProjectBinding (same
+    folder, Project, Groups List<string>, People List<PersonRef>, Roles List<string>, at most 30 lines);
+    RoleMappingConfig.ProjectBindings List<ProjectBinding> = [] (76 -> at most 84). IsEmpty and From stay as they
+    are: the bootstrap block has no bindings to seed. CATALOG: Permissions.ProjectScopable = runs.read, runs.watch,
+    runs.control, runs.delete, projects.init, dialog.write, an IReadOnlySet<string> under the ordinal comparer that
+    every later slice asks as Permissions.ProjectScopable.Contains(name) (77 -> at most 88); every other catalog name is
+    global-only. READER: ProjectBindingReader (Server/Security, at most 100 lines), built in ResolvedRoleMapping.From
+    from the mapping, the name claim and the RoleCatalog (22 -> at most 26). Per binding it keeps the role bundles'
+    project-scopable permissions and drops the rest; a caller matches a binding through a group value (ordinal,
+    one leading slash trimmed on both sides) or a person ref whose Claim is the name claim and whose Value equals
+    Identity.Name ordinally. Permissions(caller, groups) answers project -> sorted distinct permissions under
+    ConfigNames.Comparer, two bindings of one project unioned. The reader reports NOTHING: a role's global-only
+    permissions are dropped silently, a binding with a blank project is ignored, a person ref on another claim matches
+    no caller. Every binding finding (grants nothing, names no configured project, person ref on a stale claim) is
+    composed by 2026-10-15-4a4df on the access view (access.read) and never on the /api/identity answer every caller
+    reads, which would otherwise name projects to a caller who may not see them. IDENTITY: CallerIdentity gains
+    ProjectPermissions (IReadOnlyDictionary<string, IReadOnlyList<string>>, keyed under ConfigNames.Comparer) after
+    Permissions, and the method IReadOnlyList<string> PermissionsIn(string project) answering Permissions unioned with
+    ProjectPermissions[project] (29 -> at most 45). The resolver fills it for an
+    authenticated caller, an empty map for the anonymous one; its Findings are unchanged (111 -> at most 117).
+    RefusalWireNamesTests' identity field list gains projectPermissions. Token permission claims, identity.read and AGENTSMITH_ADMIN_GRANT stay in the global list
+    only. The access view is untouched by this slice. KEEPING BINDINGS: PersonRemover's field-by-field copy
+    carries ProjectBindings verbatim (deep-copied like GroupRoles), so a removal never erases a binding
+    (72 -> at most 78); withdrawing the removed person's refs is 4a4df's. AdminRoute and SignInFacts are unchanged: a binding never reaches admin. SCHEMA: config/agentsmith.schema.json
+    declares role_mapping.project_bindings as an array of closed objects (project, groups, people as closed
+    {claim, value} objects, roles). DOCS: the role_mapping row at agentsmith-yml.md:310 names project_bindings.
+  out: >
+    Route enforcement — the handler checking PermissionsIn for a route's project, route project sources, the list
+    marker, 404 instead of 403 and the guard column — 2026-10-15-4a4db. Hub method project resolution and
+    per-project overview groups — 2026-10-15-4a4dc. Filtering /api/runs, /api/tickets and every other list, and
+    GET /api/projects — 2026-10-15-4a4dd. The dashboard reading projectPermissions, useLacksPermission(p, project),
+    the identity page's per-project block and the empty states of a caller reaching no project (read from GET /api/projects) — 2026-10-15-4a4de.
+    The Projects pane in the Access Studio, the AccessDocument TypeScript type gaining projectBindings, the
+    project-scopable list served to the pane, and the access-control.md section on project scoping —
+    2026-10-15-4a4df — which also owns the access view's configured-project list and EVERY binding finding
+    (ProjectBindingFindings, appended by AccessViewComposer: grants nothing, names no configured project, person ref on
+    a stale claim), the blank-project refusal on save, the withdrawal of a removed person's refs from bindings,
+    and RoleRemovalGuard counting binding holders. Seeding bindings from the bootstrap auth block — nobody: the operator's ruling keeps
+    assignment on the access surface. Project-scoped config.* or secrets.* — nobody: config stays global admin
+    business (operator ruling 2).
+
+decisions:
+  - key: "BINDINGS BESIDE THE GLOBAL GRANTS, NOT A PROJECTS FIELD ON THEM — GroupRoles, PersonGrants and the role claim keep their exact meaning, so every stored mapping is unchanged and no content migration exists; the alternative, an optional projects list on each grant, would change what an existing grant means the day a list is added to it."
+  - key: "ONE READER IN THE RESOLVED MAPPING, NOT IN THE RESOLVER — the resolver is at 111 of 120 lines, and the resolved mapping is rebuilt once per save, so a binding's bundle is cut to project-scopable permissions once rather than per request; mirroring PersonGrantReader keeps one shape for 'what this document grants a caller'."
+  - key: "GLOBAL-ONLY PERMISSIONS ARE DROPPED SILENTLY — every built-in bundle carries catalog.read, diagnostics.read or identity.read, so reporting each dropped permission (the brief's rule) would put a finding on every binding that names reader or operator; the operator learns what a binding does from the pane (4a4df), and the one finding that matters, a binding that grants nothing, is 4a4df's."
+  - key: "BINDING FINDINGS ON THE ACCESS VIEW, NOT ON /api/identity — the identity answer reaches every authenticated caller and the catalog and grant findings already ride on it; a binding finding names a project, and operator ruling 1 says a caller without rights on a project must not see it. The alternative, filtering findings to the caller's own bindings, is per-request work for a diagnosis only an administrator can act on."
+  - key: "THIS SLICE COMPUTES NO FINDING — the unknown-project finding needs the configured names, which the per-request resolver must not load (the server loader assembles the whole configuration per call), so it can only be composed where the access view reads them (4a4df); composing the other binding findings here and that one there would give one sentence family two homes, and a finding computed here before 4a4df surfaces it would be a step that does nothing. The binding is applied either way, so a project recreated under its old name is governed at once."
+  - key: "PROJECT NAMES FOLD CASE — the resolved projects map uses ConfigNames.Comparer, so a binding for 'Billing' must govern runs of 'billing'; group values and person values stay ordinal as today."
+  - key: "PermissionsIn IS THE ONE UNION — 'global plus project' is stated once on CallerIdentity so the route handler, the hub and the list filters of 4a4db..d ask one method instead of re-deriving it; it is a method, so the wire answer gains only ProjectPermissions."
+  - key: "A BINDING NEVER REACHES ADMIN — admin in a binding means every project-scopable permission in that project; AdminRoute and SignInFacts keep counting global routes only, so a mapping whose only admin sits in a binding is refused by the invariant."
+  - key: "PERSON REMOVAL CARRIES BINDINGS HERE, WITHDRAWS REFS IN 4a4df — its field-by-field copy would erase every binding on the first removal after this slice lands, which is data loss and so cannot wait; withdrawing the person's refs (and dropping a binding the withdrawal leaves memberless) is a rule 4a4df states with its pane, and stating it twice would give two rules."
+
+steps:
+  - id: contracts
+    action: "PersonRef (at most 20 lines) and ProjectBinding (at most 30 lines) in Contracts/Models/Configuration; RoleMappingConfig.ProjectBindings (76 -> at most 84)."
+  - id: catalog
+    action: "Permissions.ProjectScopable with the six names (77 -> at most 88)."
+  - id: reader
+    action: "ProjectBindingReader (at most 100 lines, every method at most 20 lines) with Permissions(caller, groups) and no findings; ResolvedRoleMapping carries it as Projects (22 -> at most 26)."
+  - id: identity
+    action: "CallerIdentity.ProjectPermissions after Permissions plus PermissionsIn(project) (29 -> at most 45); CallerIdentityResolver fills it for both constructions, findings unchanged (111 -> at most 117); RefusalWireNamesTests names projectPermissions."
+  - id: keep-bindings
+    action: "PersonRemover.Without copies ProjectBindings deep (72 -> at most 78)."
+  - id: schema
+    action: "config/agentsmith.schema.json gains role_mapping.project_bindings, every object closed; ConfigSchemaCoverageTests stays green."
+  - id: docs
+    action: "agentsmith-yml.md:310 lists project_bindings with its four keys."
+  - id: tests
+    action: "Red first, then green, for every test below; run the Server.Auth, Server.Access, ConfigStudio and Configuration.ConfigSchemaCoverageTests classes with --filter. New test classes stay at most 120 lines each (FileLengthRatchetTests)."
+
+tests:
+  - "Permissions_ProjectScopable_IsTheSixRunAndDialogNamesAndASubsetOfTheCatalog"
+  - "ProjectBinding_GroupMember_HoldsTheRoleInThatProjectOnly"
+  - "ProjectBinding_PersonRefOnTheNameClaim_HoldsTheRoleInThatProject"
+  - "ProjectBinding_PersonRefOnAnotherClaim_GrantsNothing"
+  - "ProjectBinding_GroupWithALeadingSlash_MatchesTheUnprefixedValue"
+  - "ProjectBinding_OperatorRole_KeepsOnlyProjectScopablePermissions"
+  - "ProjectBinding_AdminRole_GrantsEveryProjectScopablePermissionAndNoConfigRead"
+  - "ProjectBinding_RolesWithNoScopablePermission_GrantNothing"
+  - "ProjectBinding_BlankProject_IsIgnored"
+  - "ProjectBinding_TwoBindingsOfOneProjectDifferingInCase_AreUnioned"
+  - "ProjectBinding_SavedInTheStore_ResolvesOnTheNextRequestWithoutARestart"
+  - "CallerIdentity_PermissionsIn_IsGlobalUnionProjectAndGlobalAloneForAnotherProject"
+  - "CallerIdentity_Anonymous_HasNoProjectPermissions"
+  - "CallerIdentity_TokenPermissionClaimAndAdminGrant_StayGlobal"
+  - "Identity_CallerInAProjectBinding_SeesProjectPermissions (IdentityEndpointTests, env-1 trait kept)"
+  - "Identity_BindingThatGrantsNothing_IsNotNamedInAnyCallersFindings"
+  - "Access_SaveWithProjectBindings_ReadsBackVerbatim"
+  - "Access_SaveWithoutProjectBindingsField_KeepsTheStoredMappingValid (an old dashboard body)"
+  - "PersonRemoval_OfAGrantedPerson_KeepsEveryProjectBinding"
+  - "Invariant_AdminOnlyInAProjectBinding_IsNoRouteToAdmin (role_claim blank, no person grant, no mapped group, no environment grant — AdminRoute counts a non-blank role claim as a route)"
+  - "RoleMapping_ProjectBindings_RoundTripThroughTheYamlExportAndImport"
+  - "RoleMapping_ExportWithProjectBindings_ValidatesAgainstTheShippedSchema"
+
+done:
+  - "An administrator stores a role mapping with project bindings (groups, people and roles per project) through PUT /api/access or a config import, and GET /api/access returns them verbatim; an existing mapping without bindings grants, reads and saves as before, and an export carrying bindings validates against the shipped schema."
+  - "A caller in a bound group or named in a binding sees projectPermissions on /api/identity holding only run, init and dialog permissions for that project; their global permissions are unchanged and nothing they could or could not do changes until 2026-10-15-4a4db."
+  - "A binding whose roles carry no project-scopable permission, a binding with no project and a person ref on another claim grant nothing; no caller's identity page names a project through a finding (the access view reports them from 2026-10-15-4a4df)."
+  - "Removing a person on the Access page leaves every project binding in place; a mapping whose only admin is in a binding (and that reads no role claim) is refused as having no route to admin."
+  - "Build green, full suite green, dashboard gen/test/build green."

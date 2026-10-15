@@ -59,7 +59,8 @@ internal sealed class PersonRemover(
     }
 
     // A copy, never the cached instance: the source hands the same object to every request
-    // and treats its identity as the "nothing changed" signal.
+    // and treats its identity as the "nothing changed" signal. Every field is named, because
+    // one this copy leaves out is erased by the save.
     private static RoleMappingConfig Without(RoleMappingConfig current, List<PersonGrant> kept) => new()
     {
         RoleClaim = current.RoleClaim,
@@ -67,6 +68,11 @@ internal sealed class PersonRemover(
         GroupRoles = current.GroupRoles.ToDictionary(e => e.Key, e => e.Value.ToList()),
         Roles = current.Roles.ToDictionary(e => e.Key, e => e.Value.ToList()),
         PersonGrants = kept,
+        ProjectBindings = [.. current.ProjectBindings.Select(b => new ProjectBinding
+        {
+            Project = b.Project, Groups = [.. b.Groups], Roles = [.. b.Roles],
+            People = [.. b.People.Select(p => new PersonRef { Claim = p.Claim, Value = p.Value })],
+        })],
         ObservationRetentionDays = current.ObservationRetentionDays,
     };
 }

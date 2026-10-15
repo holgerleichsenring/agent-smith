@@ -14,9 +14,13 @@ namespace AgentSmith.Server.Security;
 /// </summary>
 internal sealed record ResolvedRoleMapping(
     RoleMappingConfig Mapping, string NameClaim,
-    RoleCatalog Catalog, CallerRoleReader Reader, PersonGrantReader Persons)
+    RoleCatalog Catalog, CallerRoleReader Reader, PersonGrantReader Persons,
+    ProjectBindingReader Projects)
 {
-    public static ResolvedRoleMapping From(RoleMappingConfig mapping, string nameClaim) =>
-        new(mapping, nameClaim, new RoleCatalog(mapping), new CallerRoleReader(mapping),
-            new PersonGrantReader(mapping, nameClaim));
+    public static ResolvedRoleMapping From(RoleMappingConfig mapping, string nameClaim)
+    {
+        var catalog = new RoleCatalog(mapping);
+        return new(mapping, nameClaim, catalog, new CallerRoleReader(mapping),
+            new PersonGrantReader(mapping, nameClaim), new ProjectBindingReader(mapping, nameClaim, catalog));
+    }
 }

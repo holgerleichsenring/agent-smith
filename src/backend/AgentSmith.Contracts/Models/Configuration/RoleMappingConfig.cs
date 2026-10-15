@@ -41,6 +41,9 @@ public sealed class RoleMappingConfig
     /// </summary>
     public List<PersonGrant> PersonGrants { get; set; } = [];
 
+    /// <summary>2026-10-15-4a4da: roles held in one project only, beside the global grants.</summary>
+    public List<ProjectBinding> ProjectBindings { get; set; } = [];
+
     /// <summary>
     /// 2026-08-26-7a51: how long an observed caller is kept before the retention service
     /// drops the row. Zero or less keeps them forever.

@@ -1,3 +1,5 @@
+using Microsoft.Extensions.DependencyInjection;
+
 namespace AgentSmith.Tests.Server.Auth;
 
 /// <summary>
@@ -19,6 +21,9 @@ public abstract class AuthorityFixture : IAsyncLifetime
     /// <summary>The <c>auth:</c> block this configuration writes, or nothing at all.</summary>
     protected abstract string AuthYaml(string authority);
 
+    /// <summary>2026-10-15-4a4da: what this configuration substitutes in the composition, if anything.</summary>
+    protected virtual Action<IServiceCollection>? Services => null;
+
     public async Task InitializeAsync()
     {
         Issuer = await LocalTokenIssuer.StartAsync();
@@ -32,7 +37,7 @@ public abstract class AuthorityFixture : IAsyncLifetime
               connection_string: Data Source={dbPath}
 
             """ + AuthYaml(Issuer.Authority));
-        Server = await BootedServer.StartAsync(configPath);
+        Server = await BootedServer.StartAsync(new BootPlan(configPath) { Services = Services });
     }
 
     public async Task DisposeAsync()

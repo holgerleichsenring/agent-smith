@@ -2,9 +2,11 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using System.Security.Claims;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Security;
 using FluentAssertions;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AgentSmith.Tests.Server.Auth;
 
@@ -78,6 +80,25 @@ public sealed class IdentityEndpointTests(RoleMappingAuthorityFixture fixture)
         response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
         var body = await response.Content.ReadFromJsonAsync<ForbiddenPermissionResponse>();
         body!.MissingPermissions.Should().Equal(Permissions.SecretsRead);
+    }
+
+    // 2026-10-15-4a4da: the seed plus one binding; the other cases read the same global grants.
+    [Fact]
+    public async Task Identity_CallerInAProjectBinding_SeesProjectPermissions()
+    {
+        var source = fixture.Server.Services.GetRequiredService<RoleMappingSource>();
+        var seed = source.Current().Mapping;
+        fixture.Stored.Stored = new RoleMappingConfig
+        {
+            RoleClaim = seed.RoleClaim, GroupClaim = seed.GroupClaim, GroupRoles = seed.GroupRoles, Roles = seed.Roles,
+            ProjectBindings = [new() { Project = "billing", Groups = ["billing-team"], Roles = [BuiltInRoles.Reader] }],
+        };
+        source.AdoptStore();
+
+        var identity = await Identity(Token(new Claim("groups", "billing-team")));
+
+        identity.ProjectPermissions["billing"].Should().Equal(Permissions.RunsRead, Permissions.RunsWatch);
+        identity.Permissions.Should().Equal(Permissions.IdentityRead);
     }
 
     private string Token(params Claim[] claims) =>

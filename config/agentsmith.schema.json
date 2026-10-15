@@ -384,6 +384,30 @@
             }
           }
         },
+        "project_bindings": {
+          "type": "array",
+          "description": "Roles held in one project only, by groups and named people, beside the global grants. Only the roles' run, init and dialog permissions apply in the project.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "project": { "type": "string", "description": "The configured project key." },
+              "groups": { "type": "array", "items": {"type": "string"} },
+              "people": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "properties": {
+                    "claim": { "type": "string" },
+                    "value": { "type": "string" }
+                  }
+                }
+              },
+              "roles": { "type": "array", "items": {"type": "string"} }
+            }
+          }
+        },
         "observation_retention_days": {
           "type": "integer",
           "description": "How long an observed caller is kept. Default 90; 0 or less keeps them forever."

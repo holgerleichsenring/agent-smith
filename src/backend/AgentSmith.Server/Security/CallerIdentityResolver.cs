@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using AgentSmith.Contracts.Models.Access;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Models;
 
@@ -46,7 +47,7 @@ internal sealed class CallerIdentityResolver(
             Issuer: caller.FindFirst("iss")?.Value ?? caller.Claims.FirstOrDefault()?.Issuer,
             current.Mapping.RoleClaim, current.Mapping.GroupClaim,
             roleValues, groups,
-            held, Permissions(current, caller, held),
+            held, Permissions(current, caller, held), current.Projects.Permissions(caller, groups),
             [.. current.Catalog.Findings.Concat(grant.Findings).Concat(current.Persons.Findings)
                 .Concat(GroupOverageDetector.Findings(caller))],
             ReadableName.Is(current.NameClaim));
@@ -107,5 +108,5 @@ internal sealed class CallerIdentityResolver(
     private static CallerIdentity Anonymous(ResolvedRoleMapping current) => new(
         Authenticated: false, Subject: null, Issuer: null,
         current.Mapping.RoleClaim, current.Mapping.GroupClaim, [], [], [], [],
-        current.Catalog.Findings, ReadableName.Is(current.NameClaim));
+        new Dictionary<string, IReadOnlyList<string>>(ConfigNames.Comparer), current.Catalog.Findings, ReadableName.Is(current.NameClaim));
 }
