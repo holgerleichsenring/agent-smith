@@ -1,0 +1,125 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-15-114fc
+goal: "A commit pushed to or a reopen of a closed ticket's pull request brings it back, and a failed ticket a person closed on the tracker lists as Closed, from reads the server already makes."
+
+applies_to: "backend (PrReviewState / PrReviewRecord head sha, head-moved and reopened times on GitHub, GitLab and Azure Repos, the polling PR sweep comparing heads, the between-attempts check recording a person's close, the rule reading all three, one migration in both sets)"
+
+requires: [2026-10-15-114fb, 2026-10-15-114fe]
+
+facts:
+  - claim: "No commit is recorded for a pull request: a record holds state, state time and check time, its entries are comments, reviews and decisions, and the three state reads fetch no head commit."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/PrReviewRecord.cs:34-38, src/backend/AgentSmith.Contracts/Reviews/PrReviewEntryKinds.cs:4-11, src/backend/AgentSmith.Contracts/Reviews/PrReviewState.cs:3-9, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPrReviewStateReader.cs:18-21, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabMergeRequestRead.cs:11-21, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabMergeRequest.cs:3-6, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposReviewReads.cs:36-43, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposVoteDecisions.cs:18-32"
+  - claim: "The refresh writes an existing record by compare-and-set on its check time and copies a SUCCESSFUL read onto the stored row column by column; a failed read only advances the check time and keeps the old state; the unsupported path writes a record with no state read at all."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordWriter.cs:17-28, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordWriter.cs:32-38, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordCopy.cs:12-23, src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:62-79"
+  - claim: "An open pull request's state time is its creation time on every host, so a reopen does not move it."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPrReviewStateReader.cs:36-37, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabMrStateReader.cs:52-57, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposVoteDecisions.cs:26-31"
+  - claim: "The polling PR sweep lists every open pull request with its head sha on all three hosts and already walks every record of the repository against that list, nudging a Refresh for a mismatch, and nudging again each complete pass while the mismatch stays."
+    evidence: "src/backend/AgentSmith.Contracts/Sweep/OpenPullRequest.cs:5-7, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubOpenPullRequests.cs:25, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabOpenPullRequests.cs:46-47, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposOpenPullRequests.cs:54-55, src/backend/AgentSmith.Server/Services/Sweep/PrSweepRecordNudge.cs:9-31, src/backend/AgentSmith.Server/Services/Sweep/PrSweepPass.cs:35, observed: 2026-10-15, wc -l PrSweepRecordNudge.cs 32"
+  - claim: "Webhook projects' open records unchecked for fifteen minutes are re-read every five, sharing a cap of fifty with the unread records; no host's pull-request webhook carries a push: GitHub handles closed and reopened, GitLab close, merge, reopen and approvals, Azure Repos completion, abandon and merge attempts."
+    evidence: "src/backend/AgentSmith.Server/Services/Sweep/PrRecordReReadHostedService.cs:14-20, src/backend/AgentSmith.Server/Services/Sweep/PrRecordReReadHostedService.cs:30-33, src/backend/AgentSmith.Server/Services/Sweep/PrRecordReReadHostedService.cs:57-66, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordRepository.cs:28-33, src/backend/AgentSmith.Server/Services/Webhooks/GitHubPrStateWebhookHandler.cs:8-14, src/backend/AgentSmith.Server/Services/Webhooks/GitLabMrStateWebhookHandler.cs:12-18, src/backend/AgentSmith.Server/Services/Webhooks/AzureDevOpsPrStateWebhookHandler.cs:7-13"
+  - claim: "Whether a PERSON closed a ticket for work is TicketClosure's rule: closed on the tracker, not in a status agent-smith sets (TicketParkStatuses.Own), and then closed for work whenever a trigger done status is configured, else by the newest move into it by neither the token nor an app; Own holds the trigger's statuses only, so a tracker close into another status reads as a person's."
+    evidence: "src/backend/AgentSmith.Application/Services/Tickets/TicketClosure.cs:20-27, src/backend/AgentSmith.Application/Services/Tickets/TicketParkStatuses.cs:15-28, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketProvider.cs:51, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs:48, src/backend/AgentSmith.Server/Services/Rework/RunRetry.cs:50-58, src/backend/AgentSmith.Server/Services/Rework/ReworkParkCheck.cs:34"
+  - claim: "The list never reads the tracker; the only stored tracker observation is the between-attempts check, taken only when the last attempt failed, kicked from the list for the page's failed tickets at most once per five minutes, reading the ticket, its comments and its status history, and storing a fingerprint verdict and acts, not whether it is closed."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketListReader.cs:15-16, src/backend/AgentSmith.Server/Services/Tickets/TicketListReader.cs:58-59, src/backend/AgentSmith.Server/Services/Tickets/Checks/TicketBetweenAttemptsChecker.cs:39-48, src/backend/AgentSmith.Server/Services/Tickets/Checks/TicketCheckKicks.cs:6-15, src/backend/AgentSmith.Server/Services/Tickets/Checks/TicketTrackerObserver.cs:24-38, src/backend/AgentSmith.Infrastructure.Persistence/Entities/TicketBetweenAttemptsCheck.cs:9-23, src/backend/AgentSmith.Server/Services/Tickets/Checks/TicketCheckStore.cs:29-57"
+  - claim: "No issue webhook records a close: GitHub's issues handler takes labeled and reopened only, GitLab's update, open and reopen."
+    evidence: "src/backend/AgentSmith.Server/Services/Webhooks/GitHubIssueWebhookHandler.cs:38-41, src/backend/AgentSmith.Server/Services/Webhooks/GitLabIssueWebhookHandler.cs:38-40"
+  - claim: "TicketStandings already reads the stored checks of every failed head, so a column on the check costs the list no read."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketStandings.cs:26-32, src/backend/AgentSmith.Server/Models/TicketBetweenAttemptsState.cs:5-6"
+  - claim: "A method may not pass 20 lines; TicketBucketRule.Of was 19 before 2026-10-15-114fb moved its tail arms into a helper."
+    evidence: ".agentsmith/contexts/default/principles.md:24, src/backend/AgentSmith.Server/Services/Tickets/TicketBucketRule.cs:23-41"
+  - claim: "Sizes: TicketTrackerObserver 59, TicketCheckStore 65, PrReviewRecordCopy 43, GitHubPrReviewStateReader 63, GitLabMergeRequestRead 29, AzureReposVoteDecisions 59, PrSweepRecordNudge 32 lines."
+    evidence: "observed: 2026-10-15, wc -l in this worktree"
+
+assumptions:
+  - "2026-10-15-114fb lands TicketClosedRule, TicketClosedKinds.Tracker, TicketStanding.ClosedOf, the rule's tail helper, PrReviewRecordView.LastPersonEntryAt and the check offer that keeps tracker-closed rows; 2026-10-15-114fe lands TicketParkStatuses.Closed in Own."
+
+scope:
+  in: >
+    HEAD: PrReviewState gains `string? HeadSha = null`; GitHubPrReviewStateReader asks headRefOid in its query,
+    GitLabMergeRequestRead parses sha into GitLabMergeRequest and GitLabMrStateReader passes it, AzureReposVoteDecisions
+    passes pr.LastMergeSourceCommit?.CommitId (each at most 4 lines more). PrReviewRecord gains HeadSha (max 64,
+    nullable), HeadMovedAtTicks and ReopenedAtTicks (long?); PrReviewRecordRefresh's record carries the read sha.
+    PrReviewRecordCopy, on a successful read only (the failed-read path never reaches it): HeadMovedAtTicks = the read's
+    CheckedAtTicks when the stored and the read sha are both present and differ; ReopenedAtTicks = the read's
+    CheckedAtTicks when the stored state is closed or merged and the read state is open; the stored sha becomes
+    `read.HeadSha ?? stored.HeadSha`, so a read without a sha (the unsupported path) never erases it; the stamps are
+    taken before the columns are overwritten, in a helper so no method passes 20 lines (43 -> at most 54).
+    PrReviewRecordView gains init HeadSha, HeadMovedAt and ReopenedAt (PrReviewRecordRepository's View maps them; at
+    most 82 after 114fb); TicketPullRequestView gains HeadMovedAt and ReopenedAt through TicketReviewState (at most 48
+    after 114fb). TicketClosedRule adds: no pull request with HeadMovedAt later than ClosedAt, and none with ReopenedAt
+    later than ClosedAt. SWEEP: PrSweepRecordNudge also nudges a Refresh (late, with the record's URL) for an open
+    record the page lists whose listed HeadSha is present and differs from the record's HeadSha — a record with no
+    stored sha yet included, once, as its backfill (32 -> at most 40). Webhook projects need no change: their open
+    records are re-read every fifteen minutes already. TRACKER: TicketObservation and TicketBetweenAttemptsState gain
+    ClosedForWork; TicketTrackerObserver asks TicketClosure.ClosedForWorkAsync on the ticket it already read (59 -> at
+    most 66), so a ticket in a status agent-smith sets — 2026-10-15-114fe's closed status included — never reads closed
+    for work; TicketBetweenAttemptsCheck gains ClosedForWork (default false), written and compared by TicketCheckStore
+    (65 -> at most 70). TicketStanding gains ClosedForWorkOf(Run) = the head's own check's ClosedForWork.
+    TicketBucketRule.Of gains `bool trackerClosed = false` and answers Closed with kind tracker after done and before
+    stuck, inside 114fb's tail helper (every method at most 20 lines; file at most 72); TicketSummaryComposer passes it.
+    MIGRATION: AddClosedTicketFacts in both sets — the three PrReviewRecords columns and the check column only.
+  out: >
+    A person's tracker close on a ticket whose last attempt did not fail (PR closed, success, waiting on review) — not
+    read: the server reads that tracker for no such row today; widening the check to PR-closed rows is contract question
+    Q3 for the operator, and until answered nobody owns it. A push delivered by webhook — nobody: no host's pull-request
+    webhook handled today carries one (GitHub closed/reopened, GitLab close/merge/reopen/approvals, Azure Repos
+    completion/abandon/merge), and webhook projects already re-read open records every fifteen minutes. Re-reading
+    closed tickets' records in the re-read service — nobody: the sweep compares heads from a read it already makes, and
+    the re-read's shared cap of fifty would grow with every ticket ever closed. Sections and dot — 2026-10-15-114fd.
+
+decisions:
+  - key: "A HEAD MOVE IS A SHA CHANGE SEEN BY THE REFRESH, TIMED BY THE READ. Commits carry author dates a person can set; the record's own check time when the sha changed is when agent-smith learned it, and errs late, never early. The first read stores a sha without a move, so no existing record reads as moved."
+  - key: "A LATE READ BRINGS IT BACK ONCE. A push made just before the close but read after it stamps a move after ClosedAt and brings the ticket back; closing it again moves ClosedAt past the stamp and it stays closed. Accepted rather than reading commit dates."
+  - key: "A BOT PUSH COUNTS. A head move has no author, so an automatic rebase or 'update branch' brings a closed ticket back, unlike a bot's comment (114fb rule 3). Accepted: a pull request that is still being changed is not finished business."
+  - key: "POLLING READS THE HEAD FROM THE SWEEP, NOT FROM RE-READS. The PR sweep lists every open pull request with its head already; one comparison per record nudges a refresh only when the head moved, so the cost does not grow with the number of closed tickets and the webhook re-read keeps its cap. Latency: one sweep interval in polling projects, up to about twenty minutes in webhook projects."
+  - key: "A REOPEN IS A STORED TIME FROM A SUCCESSFUL READ. A reopened pull request keeps its creation time as its state time on every host, and a check time also advances on a failed read; the copy stamps ReopenedAt only when a read that succeeded sees an ended record open again, so neither a host error nor a refresh in flight across the close can bring a ticket back."
+  - key: "A PERSON'S TRACKER CLOSE ONLY WHERE THE TRACKER IS ALREADY READ (contract default 13). The operator's condition is no tracker read per row; the between-attempts check already reads the ticket for failed heads, so asking TicketClosure on that ticket adds at most one status-history read, only for a closed ticket with no done status configured."
+  - key: "AGENT-SMITH'S OWN TRACKER CLOSE IS NOT A PERSON'S. With 2026-10-15-114fe's closed status configured, 'also close on the tracker' lands in a status TicketParkStatuses.Own holds, and the arm stays quiet after a Reopen. Without it the close lands in the connection's done status, which TicketClosure reads as a person's whenever a trigger done status differs; such a ticket then shows 'closed on the tracker', which is true of the tracker, until the closed status is configured or the tracker ticket is reopened."
+  - key: "THE TRACKER ARM SITS BELOW REVIEW AND DONE (contract default 14). An open pull request is live work a person may still merge; a landing is a delivery. The by-hand mark, the person's explicit act in agent-smith, outranks both — the tracker close is an inference."
+
+steps:
+  - id: head-read
+    action: "PrReviewState.HeadSha; the three state reads fetch it (GitHub headRefOid, GitLab sha, Azure Repos LastMergeSourceCommit), each at most 4 lines more; run the provider review-read classes."
+  - id: record-stamps
+    action: "PrReviewRecord HeadSha, HeadMovedAtTicks, ReopenedAtTicks; PrReviewRecordRefresh carries the sha; PrReviewRecordCopy stamps a move and a reopen and keeps a stored sha over a null one (43 -> at most 54); PrReviewRecordView and TicketPullRequestView HeadMovedAt / ReopenedAt; TicketClosedRule reads both."
+  - id: sweep-head
+    action: "PrReviewRecordView.HeadSha; PrSweepRecordNudge nudges a Refresh for a listed head that differs from the stored one (32 -> at most 40); run the Rework.Sweep classes."
+  - id: tracker
+    action: "ClosedForWork on TicketObservation, TicketBetweenAttemptsState and TicketBetweenAttemptsCheck; TicketTrackerObserver asks TicketClosure (59 -> at most 66); TicketCheckStore writes and compares it (65 -> at most 70); TicketStanding.ClosedForWorkOf; the tracker arm in TicketBucketRule's tail helper; TicketSummaryComposer passes it."
+  - id: migration
+    action: "`dotnet ef migrations add AddClosedTicketFacts` in both migrations projects; read both Up/Down and confirm only the four columns."
+  - id: tests
+    action: "Red first, then green, for every test below; the composition test carries a TestProcess env trait with EnvVarCollection; run the Tickets, Rework, Sweep and Providers classes touched with --filter."
+
+tests:
+  - "GitHubPrReviewStateReader_ReadsTheHeadSha"
+  - "GitLabMrStateReader_ReadsTheHeadSha"
+  - "AzureReposVoteDecisions_ReadsTheLastMergeSourceCommit"
+  - "PrReviewRecordRefresh_FirstReadStoresTheShaWithoutAMove"
+  - "PrReviewRecordRefresh_ShaChanged_StampsTheMoveWithTheReadsCheckTime"
+  - "PrReviewRecordRefresh_ShaUnchanged_KeepsTheMove"
+  - "PrReviewRecordRefresh_ReadWithoutASha_KeepsTheStoredSha"
+  - "PrReviewRecordRefresh_ClosedRecordReadOpen_StampsTheReopen"
+  - "PrReviewRecordRefresh_ReadFailsAfterAClose_StampsNoReopen"
+  - "TicketClosedRule_HeadMovedAfterTheMark_IsNotInForce"
+  - "TicketClosedRule_PullRequestReopenedAfterTheMark_IsNotInForce"
+  - "TicketClosedRule_RefreshThatReadBeforeTheCloseWritesAfterIt_StaysInForce"
+  - "PrSweepRecordNudge_ListedHeadDiffers_NudgesARefresh"
+  - "PrSweepRecordNudge_SameHead_DoesNotNudge"
+  - "PrSweepRecordNudge_NoStoredSha_NudgesOnceAsBackfill"
+  - "TicketTrackerObserver_PersonClosedTheTicket_RecordsClosedForWork"
+  - "TicketTrackerObserver_AgentSmithClosedItWithNoDoneStatus_RecordsNotClosedForWork"
+  - "TicketTrackerObserver_TicketInTheTrackersClosedStatus_RecordsNotClosedForWork"
+  - "TicketCheckStore_ClosedForWorkChanged_AnswersChanged"
+  - "TicketBucketRule_FailedHeadClosedForWorkNoOpenPullRequest_IsClosedTracker"
+  - "TicketBucketRule_FailedHeadClosedForWorkWithAnOpenPullRequest_StaysWaitingOnReview"
+  - "TicketBucketRule_CheckOfAnOlderAttemptSaysClosed_IsNotClosed"
+  - "TicketList_FailedTicketAPersonClosedOnTheTracker_IsClosedAfterItsCheck"
+  - "TicketList_ClosedByTheActIntoTheClosedStatusThenReopened_IsFailed"
+  - "TicketCheck_ServerComposition_ResolvesTheObserverWithTicketClosure (integration, ServerCompositionBuilder; TestProcess env trait + EnvVarCollection)"
+
+done:
+  - "A commit pushed to, or a reopen of, a pull request of a ticket closed hide-only brings the ticket back to Waiting on review — within one PR-sweep interval in polling projects and about twenty minutes in webhook projects; a failed host read never does."
+  - "A failed ticket that a person closed on the tracker lists as Closed (closed on the tracker) once the list has checked it; a ticket agent-smith closed into its configured closed status, or with no done status configured, does not."
+  - "`agentsmith database migrate` adds the head, reopen and closed-for-work columns on every provider."
+  - "Build green, full suite green, dashboard gen/test/build green."

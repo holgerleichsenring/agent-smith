@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-15-114fe
+goal: "A Jira or Azure DevOps tracker may name a closed_status that 'also close on the tracker' moves a ticket into, and agent-smith counts it as its own status, never a person's close."
+
+applies_to: "backend and dashboard (closed_status on the raw tracker entry, TrackerConnection, the Config Studio tracker entity, mapper, patch and capability descriptor, the config schema and reference docs, TicketParkStatuses, the close act's tracker close, the studio tracker type)"
+
+requires: [2026-10-15-114fa]
+
+facts:
+  - claim: "A per-tracker status field travels raw entry -> catalog builder -> TrackerConnection, and raw entry <-> studio entity through the catalog mapper (positional, appended last) and the patch; close_transition_name is the template, the same path doneStatus takes."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/RawTrackerEntry.cs:17-18, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/TrackerCatalogBuilder.cs:38-39, src/backend/AgentSmith.Contracts/Models/Configuration/TrackerConnection.cs:19-21, src/backend/AgentSmith.Contracts/Models/ConfigStudio/TrackerEntity.cs:31, src/backend/AgentSmith.Contracts/Models/ConfigStudio/TrackerEntity.cs:35-44, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigCatalogMapper.cs:77, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigCatalogMapper.cs:86, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigCatalogMapper.cs:94, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/RawConfigPatch.cs:77"
+  - claim: "The Config Studio form is drawn from the capability descriptor, which a coverage test keeps level with every raw tracker property; a field declared on two tracker types counts as declared, and the transition group renders on the outcomes tab outside the compared run-outcome block."
+    evidence: "src/backend/AgentSmith.Contracts/Services/TrackerCapabilityFields.cs:21-58, src/backend/AgentSmith.Contracts/Services/TrackerCapabilityFields.cs:66-86, src/backend/AgentSmith.Contracts/Services/TrackerCapabilityFields.cs:88-93, src/backend/AgentSmith.Contracts/Services/ConfigStudioCapabilities.cs:149-163, tests/AgentSmith.Tests/ConfigStudio/CapabilityCoverageTests.cs:39-48, src/dashboard/src/components/config/trackerTabs.ts:8-18, src/dashboard/src/components/config/TrackerOutcomes.tsx:6-8, src/dashboard/src/components/config/__tests__/TrackerForm.test.tsx:36, src/dashboard/src/lib/configApi.ts:535-553"
+  - claim: "The config schema lists every tracker property and a test keeps it level with the raw model; the example config and the reference docs name close_transition_name."
+    evidence: "config/agentsmith.schema.json:646, tests/AgentSmith.Tests/Configuration/ConfigSchemaCoverageTests.cs:36, config/agentsmith.example.yml:454, docs/reference/configuration/agentsmith-yml.md:191"
+  - claim: "CloseTicketAsync on Jira and Azure DevOps moves into the connection's done status (defaults Done and Closed), the status a delivery also uses; TransitionToAsync moves to a named status on both and answers whether it moved; GitHub and GitLab close to one closed state, and GitHub applies any other status word as a label."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ITicketProvider.cs:59-69, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketProvider.cs:51, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketProvider.cs:171-175, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketProvider.cs:180, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs:48, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs:167-174, src/backend/AgentSmith.Infrastructure/Services/Factories/TicketProviderFactory.cs:61, src/backend/AgentSmith.Infrastructure/Services/Factories/TicketProviderFactory.cs:80, src/backend/AgentSmith.Contracts/Services/TrackerCapabilityFields.cs:88-91"
+  - claim: "TicketParkStatuses is the one place that names the statuses agent-smith sets; Own = run end or hand-back park, built from the trigger and tracker; TicketClosure never reads a ticket in an Own status as a person's close; the rework park check parks only run-end and hand-back statuses, so a ticket in any other status is not a rework."
+    evidence: "src/backend/AgentSmith.Application/Services/Tickets/TicketParkStatuses.cs:13-34, src/backend/AgentSmith.Application/Services/Tickets/TicketClosure.cs:23-26, src/backend/AgentSmith.Server/Services/Rework/ReworkParkCheck.cs:38-44, src/backend/AgentSmith.Server/Services/Rework/ReworkEntry.cs:77-79, tests/AgentSmith.Tests/Tickets/Closure/TicketParkStatusesTests.cs:28-41"
+  - claim: "DoneStatus appears in about twenty backend files (trigger and tracker, studio, snapshot, finalizers, discovery); only the files above carry a per-tracker status to the studio, the providers and TicketParkStatuses."
+    evidence: "observed: 2026-10-15, grep -rln DoneStatus src/backend 21 files"
+  - claim: "Sizes and ratchets: RawTrackerEntry 94, TrackerConnection 100, TrackerCatalogBuilder 79, TrackerEntity 50, TrackerCapabilityFields 94, TicketParkStatuses 40 lines; ConfigCatalogMapper 132 (baseline 181), RawConfigPatch 152 (baseline 198), ConfigStudioCapabilities 205 (baseline 259)."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:29, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:47, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:63, observed: 2026-10-15, wc -l in this worktree"
+
+assumptions:
+  - "2026-10-15-114fa lands TicketCloseHostActs, whose tracker close calls CloseTicketAsync with the resolution 'Agent Smith — closed by <by>[: <note>]'."
+
+scope:
+  in: >
+    CONFIG: tracker `closed_status` (optional string) on RawTrackerEntry, TrackerCatalogBuilder and TrackerConnection
+    (ClosedStatus); TrackerEntity gains `string? ClosedStatus = null` APPENDED after Email; ConfigCatalogMapper passes
+    it last; RawConfigPatch applies it; ConfigStudioCapabilities.FieldValue answers "closedStatus"; TrackerCapabilityFields
+    declares CapabilityField("closedStatus", "Closed status (a close from agent-smith)", Required: false, Group:
+    Transition) on the Azure DevOps and Jira arms only. config/agentsmith.schema.json gains closed_status ("Jira and
+    Azure DevOps: the status 'also close on the tracker' moves a ticket into; unset: the done status"); the example
+    config's Jira tracker and docs/reference/configuration/agentsmith-yml.md gain one line each. OWN: TicketParkStatuses
+    gains `string? Closed = null` from project.Tracker.ClosedStatus (blank is none); Own(status) also holds Closed;
+    IsRunEnd and IsHandbackPark are unchanged. CLOSE: TicketCloseHostActs, with CloseOnTracker on a Jira or Azure DevOps
+    tracker whose closed_status is set, posts the resolution through UpdateStatusAsync and moves the ticket with
+    TransitionToAsync(closed_status) (false: refused; a throw: its class); otherwise CloseTicketAsync as in 114fa.
+    DASHBOARD: StudioTracker gains `closedStatus?: string`; the field renders from the descriptor with no form code.
+  out: >
+    A closed status on GitHub or GitLab trackers — nobody: both have one closed state, and GitHub would apply another
+    word as a label. Reopening the tracker ticket from Reopen — nobody (contract default 9). A trigger-level closed
+    status — nobody: the close act is per tracker connection, as the providers' done status is. The Closed bucket's
+    reading of the field — 2026-10-15-114fc (TicketClosure through Own).
+
+decisions:
+  - key: "ITS OWN STATUS, FALLING BACK TO DONE. 'I won't continue' is not a delivery, so a board that can tell them apart should; a tracker without the field keeps 114fa's behaviour (the done status), so nothing changes until an operator sets it (contract Q1 answered: optional per tracker)."
+  - key: "AGENT-SMITH'S OWN, NOT A PERSON'S. The status is one agent-smith moves tickets into, so TicketParkStatuses.Own holds it and TicketClosure never reads it as a person's close — the Closed (tracker) arm stays quiet after a Reopen, and retry and rework do not file a follow-up for it. A person who moves a ticket into that status by hand on the board reads the same way — the price of one shared status."
+  - key: "NOT A RUN END. The status is not added to IsRunEnd, so the rework park check does not park it: a keyword comment on a ticket agent-smith closed into it answers not-a-rework instead of moving it back to a trigger status. A person who wants it worked again reopens it on the tracker, or uses Reopen and Retry."
+  - key: "JIRA AND AZURE DEVOPS ONLY. Their done status is a named workflow state a board may distinguish; GitHub and GitLab close to one state and the field is not declared for them, as workItemKinds is declared for two types only."
+  - key: "ONE TRANSITION, THE SAME COMMENT. The close posts the same marked resolution and then transitions, the two calls CloseTicketAsync makes on Jira; the done-status close is untouched for every other caller."
+
+steps:
+  - id: config
+    action: "ClosedStatus on RawTrackerEntry (94 -> 95), TrackerCatalogBuilder (79 -> 80), TrackerConnection (100 -> 101); TrackerEntity appended (50 -> at most 52); ConfigCatalogMapper and RawConfigPatch one line each; ConfigStudioCapabilities.FieldValue; TrackerCapabilityFields on the Azure DevOps and Jira arms."
+  - id: schema-docs
+    action: "config/agentsmith.schema.json closed_status; config/agentsmith.example.yml and docs/reference/configuration/agentsmith-yml.md one line each; run the Configuration and ConfigStudio coverage classes."
+  - id: own
+    action: "TicketParkStatuses.Closed from the tracker, held by Own (40 -> at most 44); run the Tickets.Closure classes."
+  - id: close
+    action: "TicketCloseHostActs moves into closed_status on Jira / Azure DevOps when it is set (at most 100 lines kept)."
+  - id: dashboard
+    action: "configApi.ts StudioTracker.closedStatus; a TrackerForm test that the field renders on the outcomes tab."
+  - id: tests
+    action: "Red first, then green, for every test below; run the Configuration, ConfigStudio, Tickets.Closure and ticket close classes touched with --filter; pnpm test the config components."
+
+tests:
+  - "TrackerCatalogBuilder_ClosedStatus_ReachesTheTrackerConnection"
+  - "ConfigCatalogMapper_ClosedStatus_RoundTripsThroughTheStudioEntity"
+  - "Capabilities_ClosedStatus_IsDeclaredForJiraAndAzureDevOpsOnly"
+  - "TicketParkStatuses_ClosedStatus_IsOwnButNotARunEnd"
+  - "TicketClosure_TicketInTheClosedStatus_IsNotClosedForWork"
+  - "TicketClose_CloseOnTrackerWithAClosedStatus_TransitionsIntoIt"
+  - "TicketClose_CloseOnTrackerWithoutAClosedStatus_ClosesIntoTheDoneStatus"
+  - "TicketClose_CloseOnAGitHubTracker_IgnoresTheClosedStatus"
+  - "TrackerForm_ClosedStatus_RendersOnTheOutcomesTab"
+  - "Existing coverage tests (CapabilityCoverageTests, ConfigSchemaCoverageTests, ExampleConfigSchemaTests) green with the new field"
+
+done:
+  - "An operator sets a closed status on a Jira or Azure DevOps tracker in agentsmith.yml or the Config Studio, and 'also close on the tracker' moves the ticket there; without it the ticket moves into the done status as before."
+  - "A ticket agent-smith closed into that status never reads as closed by a person — not on the ticket list, not to retry or rework."
+  - "Build green, full suite green, dashboard gen/test/build green."

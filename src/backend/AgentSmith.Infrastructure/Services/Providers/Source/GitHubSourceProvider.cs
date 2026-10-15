@@ -16,7 +16,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// the actual git clone happens sandbox-side via Step{Kind=Run, Command=git, ...}.
 /// Default-branch resolution stays here (it is metadata, not git plumbing).
 /// </summary>
-public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestHeadReader
+public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestHeadReader, IPullRequestCloser
 {
     private readonly string _owner;
     private readonly string _repo;
@@ -309,6 +309,8 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, 
 
     public Task<PrReviewState> ReadAsync(string prUrl, CancellationToken cancellationToken) =>
         new GitHubPrReviewStateReader(CreateGitHubClient(), _owner, _repo, _cloneUrl[..^4]).ReadAsync(prUrl, cancellationToken);
+
+    public Task CloseAsync(string prUrl, CancellationToken cancellationToken) => new GitHubPullRequestClose(_owner, _repo, CreateGitHubClient()).CloseAsync(prUrl, cancellationToken);
 
     public async Task<PullRequestHead> HeadAsync(string prNumber, CancellationToken cancellationToken)
     {

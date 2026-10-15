@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-15-114fd
+
+decisions:
+  - category: Architecture
+    chose: "Every list row is a .trow-wrap holding the row Link and a .trow-act beside it; the act cell hides itself when empty"
+    over: "A button inside the anchor, or wrapping only the rows that offer an act"
+    reason: |
+      A button inside an anchor is invalid and would also open the page. Wrapping every row keeps one radius and
+      hover rule set (.rows > .trow-wrap) instead of two row shapes in one section; .trow-act:empty draws nothing
+      on a done, live or tracker-closed row.
+  - category: Architecture
+    chose: "The list provider exposes reread() (the coalesced refetch at once); a row's Close or Reopen calls it, the page header calls requires.landed()"
+    over: "Waiting for the server's ticket-activity nudge"
+    reason: |
+      The act's own nudge reaches the list within two seconds, but the person who pressed the button expects the
+      row to move now. A bucket view refetches its own page on the version bump the reread causes.
+  - category: Architecture
+    chose: "Close is hidden on done, working, needs_you and closed buckets and from a caller known to lack runs.control; Reopen shows only on bucket closed with kind other than tracker"
+    over: "Offering Close on a closed row (the server overwrites)"
+    reason: |
+      Contract default 5: a second close adds nothing a person can see, so Reopen replaces Close there; a tracker
+      close is the tracker's to undo. Both host options start unchecked (operator: default hide only), and the
+      pull-request option counts and appears only for summary pull requests whose state is open. Pending operator
+      ratification (contract defaults 1, 5).
+  - category: Architecture
+    chose: "The dialog re-reads at once on 200 and closes itself when no host was asked; otherwise it lists one line per pull request and the tracker until Done"
+    over: "Closing the dialog on every 200"
+    reason: |
+      With hide only there is nothing to report; with a host asked, what closed and what was refused is the answer
+      the person needs. Outcome words: closed, already closed, or "not closed: <reason class>".
+  - category: Architecture
+    chose: "Closed collapses like Done, to a '<n> closed tickets' line with Show closed, and opens in its own bucket view"
+    over: "Reusing Done's this-month line"
+    reason: |
+      Done's line reads merged-this-month counts that have no closed counterpart; the count the server sends is all
+      the collapsed line needs.
+  - category: Architecture
+    chose: "DEVIATION: the graph legend's and node styles' mock entries live in ticket-graph.html, not ticket-view.html"
+    over: "Drawing the graph legend in ticket-view.html as the spec's mock step says"
+    reason: |
+      ticket-view.html has no graph view; the graph, its legend and the never-run waits-for chips are drawn in
+      ticket-graph.html (src/dashboard/design/mockups/ticket-graph.html, graph-view section), which the existing
+      parity test already reads for them. The new parity test checks the list, dialog and header against
+      ticket-view.html and the three node states and legend entries against ticket-graph.html.
+  - category: Architecture
+    chose: "Platform words moved from TicketHeader into ticketFormat.platformWords, read by the header and the Close dialog's tracker option"
+    over: "A second copy of the platform map in the dialog"
+    reason: "The tracker option reads 'Also close <key> on <tracker>' with the same name the header's tracker link shows."

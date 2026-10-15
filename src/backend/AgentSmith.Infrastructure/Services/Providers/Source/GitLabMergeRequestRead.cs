@@ -18,7 +18,8 @@ public sealed class GitLabMergeRequestRead(string baseUrl, string projectPath, s
         var root = mr.RootElement;
         var author = root.TryGetProperty("author", out var a) && a.ValueKind == JsonValueKind.Object
             && a.TryGetProperty("id", out var id) && id.ValueKind == JsonValueKind.Number ? id.GetInt64() : (long?)null;
-        return new GitLabMergeRequest(author, Str(root, "state") ?? "opened", Time(root, "created_at"), Time(root, "merged_at"), Time(root, "closed_at"));
+        return new GitLabMergeRequest(author, Str(root, "state") ?? "opened", Time(root, "created_at"), Time(root, "merged_at"), Time(root, "closed_at"),
+            Str(root, "sha"));
     }
 
     private static DateTimeOffset? Time(JsonElement e, string name) =>

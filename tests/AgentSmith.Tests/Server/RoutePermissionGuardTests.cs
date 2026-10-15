@@ -140,6 +140,14 @@ public sealed class RoutePermissionGuardTests
     public void RoutePermissionGuard_LandedByHand_NeedsRunsControl() =>
         Declaration("POST", "/api/tickets/{project}/{ticketId}/landed-by-hand").Should().Equal(Permissions.RunsControl);
 
+    // 2026-10-15-114fa: a close may close pull requests and tracker tickets, and a reopen undoes it.
+    [Fact]
+    public void RoutePermissionGuard_TicketCloseAndReopen_NeedRunsControl()
+    {
+        Declaration("POST", "/api/tickets/{project}/{ticketId}/close").Should().Equal(Permissions.RunsControl);
+        Declaration("POST", "/api/tickets/{project}/{ticketId}/reopen").Should().Equal(Permissions.RunsControl);
+    }
+
     // 2026-10-14-dbcen: the graph and a ticket's requires are ticket state, read like the list.
     [Fact]
     public void RoutePermissionGuard_TicketGraphAndRequires_NeedRunsRead()

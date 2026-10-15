@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Server.Services.Tickets;
 using AgentSmith.Server.Services.Tickets.Checks;
+using AgentSmith.Server.Services.Tickets.Closing;
 using AgentSmith.Server.Services.Tickets.Conversation;
 using AgentSmith.Server.Services.Tickets.Runway;
 using AgentSmith.Server.Services.Tickets.Text;
@@ -65,6 +66,7 @@ internal static class TicketReadExtensions
             .AddSingleton<TicketTrackerTextReader>()
             .AddTransient<TicketTextSnapshotReader>()
             .AddTransient<TicketTextReader>()
+            .AddTransient<TicketCloseHostActs>().AddTransient<TicketCloseAct>() // 2026-10-15-114fa
             .AddMemoryCache();
         return services;
     }

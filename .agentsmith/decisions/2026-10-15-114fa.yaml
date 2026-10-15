@@ -1,0 +1,79 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-15-114fa
+
+decisions:
+  - category: Architecture
+    chose: "The close mark lives in its own table ClosedTickets, upserted (last writer wins) and deleted by Reopen"
+    over: "A landing kind, or an insert-only row like LandedTickets"
+    reason: |
+      'I won't continue' is not delivered: UnmetTicketRequirements reads only LandedTickets, so every dependent
+      keeps waiting without a line changed. A close is a decision a person may take again, so the newest
+      overwrites it. A Reopen deleting the row between the insert's unique violation and the re-read retries the
+      insert once, so the person's latest Close is never lost to a throw.
+  - category: Architecture
+    chose: "Refuse a close exactly when the bucket rule's Done arm would answer (records merged, else the stored landing, and the newest attempt started no later)"
+    over: "Refusing on any stored landing, or on the stored landing only"
+    reason: |
+      Contract default 3 (amended r1), pending operator ratification. A stored landing alone would refuse a ticket
+      re-worked after a merge, which the list shows as not Done; the landing row alone would accept a ticket whose
+      records already read merged before the refresh wrote the row.
+  - category: Architecture
+    chose: "With 'also close its pull requests', any merged pull request of the ticket answers 409 and nothing is closed"
+    over: "Closing the open rest"
+    reason: |
+      Contract default 19, pending operator ratification. Closing the rest makes every record ended with one
+      merged, which the refresh writes as a Merged landing that wakes every dependent — a close must never turn
+      into a landing.
+  - category: Architecture
+    chose: "The host acts run first, the mark is always written after them on CancellationToken.None, and lists only what actually closed"
+    over: "Stopping on the first refused host call, or writing the mark before the hosts"
+    reason: |
+      Contract defaults 6 and 7, pending operator ratification. A refused pull request does not undo the person's
+      decision to stop; the 200 answer names each failure by a class (unsupported, refused, already-closed or a
+      read class), never the host's text.
+  - category: Architecture
+    chose: "Every pull-request URL the ticket's code runs named is answered once; a record already closed answers already-closed and is not tried"
+    over: "Closing only the open records"
+    reason: |
+      Contract default 20, pending operator ratification. The records miss an unread pull request that may still be
+      open and one the refresh has not recorded yet; reading the named URLs as the refresh does lets the answer
+      name every pull request, so nobody believes one closed that was skipped.
+  - category: Architecture
+    chose: "TicketCloseFailureReason answers refused for any host status other than 404/401/403 and defers to TicketReadFailureReason otherwise"
+    over: "Changing TicketReadFailureReason"
+    reason: |
+      A host's 405/409/422 on a close is the host declining (completed, locked, merged). The read classifier keeps
+      its classes for its two existing callers.
+  - category: Architecture
+    chose: "IPullRequestCloser is a port cast from the repository's source provider, implemented by GitHubPullRequestClose, GitLabMergeRequestClose and AzureReposPullRequestClose"
+    over: "A new ISourceProvider member, or new methods on the updaters"
+    reason: |
+      Closing is reached like the review readers (IPrReviewStateReader), so the local provider simply lacks it and
+      ISourceProvider is not widened. GitHubPullRequestUpdater is at 120 lines; three small classes reuse each
+      updater's URL parser and keep every updater untouched. Each provider delegates in one line.
+  - category: Architecture
+    chose: "The tracker resolution reads 'Agent Smith — closed by <by>[: <note>]'"
+    over: "A neutral 'Closed from agent-smith by …' text"
+    reason: |
+      It carries OwnTicketComment's marker, so a note containing the comment keyword never starts a rework and
+      never counts as a person's act on the ticket. Contract default 8: until 2026-10-15-114fe the tracker close is
+      CloseTicketAsync, which moves Jira and Azure DevOps into the connection's done status.
+  - category: Architecture
+    chose: "RequirementsMetStart holds and the DependentsWake recovery skips a never-run ticket with a close mark"
+    over: "Cancelling queued nudges or series continuations on close"
+    reason: |
+      Contract defaults 18 and 21, pending operator ratification. A Blocked filing a person closed would otherwise be
+      tagged, moved and spawned once its requirement landed. A queued nudge or a run end's continuation is not
+      cancelled: what it starts is a new attempt, which by the operator's rule brings the ticket back.
+  - category: Architecture
+    chose: "TicketCloseAct answers a TicketCloseResult (status, refusal sentence or body); the endpoint turns a refusal into plain text and 200 into JSON"
+    over: "The act returning IResult, or the endpoint holding the refusal order"
+    reason: |
+      Keeps the act free of the HTTP pipeline and testable over the real store harness, while every non-200 stays a
+      plain sentence like the by-hand landing. Reopen answers TicketReopenAnswer (project, ticket id, cleared key).
+  - category: Architecture
+    chose: "The close act's nudges (one Refresh when a pull request closed, the activity nudge) are logged, never thrown"
+    over: "Failing the request after the mark is stored"
+    reason: |
+      The mark is the fact; a lost nudge only delays a record refresh or a page update, which the next read or
+      refresh repairs.

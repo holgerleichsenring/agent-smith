@@ -22,7 +22,8 @@ namespace AgentSmith.Server.Services.Tickets;
 /// </summary>
 public sealed class FiledTicketRows(
     IServiceScopeFactory scopes, TicketProjects projects, TicketKeyResolver keys,
-    UnmetTicketRequirements requirements, ITicketLandingStore landings, ILogger<FiledTicketRows> logger)
+    UnmetTicketRequirements requirements, ITicketLandingStore landings, ITicketClosedMarkStore marks,
+    ILogger<FiledTicketRows> logger)
 {
     private sealed record Filing(string Tracker, string TicketKey, string TicketId, string Project, string ContentJson, DateTimeOffset ApprovedAt);
 
@@ -66,6 +67,7 @@ public sealed class FiledTicketRows(
             if (!ran.Contains((filing.Tracker, filing.TicketKey))) records.Add((filing, record));
         }
         var landed = await TicketNodeStates.LandedAsync(landings, records.Select(r => (r.Filing.Tracker, r.Filing.TicketKey)), ct);
+        var closed = await TicketNodeStates.ClosedAsync(marks, records.Select(r => (r.Filing.Tracker, r.Filing.TicketKey)), ct);
         var rows = new List<TicketSummaryView>(records.Count);
         foreach (var (filing, record) in records)
         {
@@ -75,17 +77,22 @@ public sealed class FiledTicketRows(
             var waits = unmet.Select(e => new TicketWaitsForView(e.RequiredTicketId, filing.Project, Name(e.RequiredTicketId),
                 titles.GetValueOrDefault((e.Tracker, e.RequiredTicketKey)) ?? Name(e.RequiredTicketId))).ToList();
             rows.Add(Compose(filing, record, landed.GetValueOrDefault((filing.Tracker, filing.TicketKey)), waits,
-                type?.ToString().ToLowerInvariant(), record.Set.Goal ?? Name(filing.TicketId)));
+                type?.ToString().ToLowerInvariant(), record.Set.Goal ?? Name(filing.TicketId),
+                closed.GetValueOrDefault((filing.Tracker, filing.TicketKey))));
         }
         return rows;
     }
 
+    // A landing makes it done; else a close mark closes it (a never-run ticket has no attempt or entry to bring it back).
     private static TicketSummaryView Compose(Filing filing, SpecApprovalRecord record, TicketLandingFact? landing,
-        IReadOnlyList<TicketWaitsForView> waits, string? platform, string title)
+        IReadOnlyList<TicketWaitsForView> waits, string? platform, string title, TicketClosedMark? closed)
     {
-        var bucket = landing is not null ? TicketBucket.Done : waits.Count > 0 ? TicketBucket.Blocked : TicketBucket.Filed;
-        return new TicketSummaryView(filing.Project, filing.TicketId, filing.TicketKey, platform, title, bucket, null,
-            landing?.LandedAt ?? filing.ApprovedAt, 0, 0m, string.Empty, string.Empty, null, null, null, 0, 0, [], [],
-            WaitsFor: waits, TicketText: record.TicketText);
+        var bucket = landing is not null ? TicketBucket.Done : closed is not null ? TicketBucket.Closed
+            : waits.Count > 0 ? TicketBucket.Blocked : TicketBucket.Filed;
+        var byHand = bucket == TicketBucket.Closed ? closed : null;
+        return new TicketSummaryView(filing.Project, filing.TicketId, filing.TicketKey, platform, title, bucket,
+            byHand is null ? null : TicketClosedKinds.ByHand, landing?.LandedAt ?? byHand?.ClosedAt ?? filing.ApprovedAt,
+            0, 0m, string.Empty, string.Empty, null, null, null, 0, 0, [], [],
+            WaitsFor: waits, TicketText: record.TicketText, Closed: TicketClosedView.Of(closed));
     }
 }

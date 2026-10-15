@@ -68,6 +68,24 @@ describe("TicketGraph", () => {
     expect(hoisted.graph).toHaveBeenCalledTimes(2);
   });
 
+  // 2026-10-15-114fd
+  it("TicketGraph_FailedPrClosedAndClosedNodes_ShowTheirWordsAndLegend", async () => {
+    hoisted.graph.mockResolvedValue({
+      nodes: [node("60", "blocked"), node("61", "failed"), node("62", "pr_closed"), node("63", "closed")],
+      edges: ["61", "62", "63"].map((id) => ({ from: "gh:github-60", to: `gh:github-${id}` })),
+    });
+    await open();
+
+    for (const [id, state, words] of [["61", "failed", "failed"], ["62", "pr_closed", "PR closed"], ["63", "closed", "closed"]]) {
+      const drawn = screen.getByTestId(`ticket-graph-node-${id}`);
+      expect(drawn.getAttribute("class")).toBe(`tg-node ${state}`);
+      expect(drawn.querySelector(".tg-state")).toHaveTextContent(words);
+    }
+    const legend = document.querySelector(".tg-legend") as HTMLElement;
+    for (const cls of ["failed", "pr_closed", "closed"]) expect(legend.querySelector(`i.${cls}`), cls).not.toBeNull();
+    expect(legend).toHaveTextContent("PR closed");
+  });
+
   it("TicketGraph_NoRequiresYet_SaysSo", async () => {
     hoisted.graph.mockResolvedValue({ nodes: [], edges: [] });
     render(<TicketGraph />);

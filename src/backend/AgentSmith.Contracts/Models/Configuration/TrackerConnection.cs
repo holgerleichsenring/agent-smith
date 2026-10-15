@@ -19,6 +19,7 @@ public sealed record TrackerConnection
     public IReadOnlyList<string> OpenStates { get; init; } = [];
     public string? DoneStatus { get; init; }
     public string? CloseTransitionName { get; init; }
+    public string? ClosedStatus { get; init; }
     public IReadOnlyList<string> ExtraFields { get; init; } = [];
 
     /// <summary>

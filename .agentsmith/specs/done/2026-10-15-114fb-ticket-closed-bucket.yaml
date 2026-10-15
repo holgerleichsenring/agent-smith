@@ -1,0 +1,142 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-15-114fb
+goal: "A closed ticket lists under Closed until a later attempt, a person's pull-request entry or the rule's Done brings it back; Ended splits into Failed and PR closed."
+
+applies_to: "backend (TicketBucket closed / failed / pr_closed, TicketClosedRule, TicketBucketRule, TicketStandings reading the marks, a person's newest pull-request entry on the records, TicketCounts, the closed mark on the summary, never-run closed rows, the waits-for flag and the check offer)"
+
+requires: [2026-10-15-114fa]
+
+facts:
+  - claim: "The bucket rule asks needs-you, working, waiting-on-review (any open pull request), done (merged or a stored landing, newest attempt started no later), stuck, then idle with the newest status as last outcome; Of is 19 lines of a 20-line ceiling and the file is 52."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketBucketRule.cs:23-41, src/backend/AgentSmith.Server/Services/Tickets/TicketBucketRule.cs:43-46, .agentsmith/contexts/default/principles.md:24, observed: 2026-10-15, wc -l TicketBucketRule.cs 52"
+  - claim: "Idle is every remainder: a cancelled attempt, a failed one nobody checked, a success without a pull request and pull requests that all closed unmerged; the dashboard calls it Ended and colours an unmerged landing as stopped."
+    evidence: "src/backend/AgentSmith.Server/Models/TicketBucket.cs:28-29, src/dashboard/src/components/tickets/ticketSections.ts:3-6, src/dashboard/src/components/tickets/ticketSections.ts:58-63, src/dashboard/src/components/tickets/ticketDot.ts:12-33, src/backend/AgentSmith.Server/Models/TicketLanding.cs:5-24"
+  - claim: "Existing tests pin a failed or all-closed-unmerged ticket as Idle and flip with the split: a failed attempt after a merge, three pull requests closed unmerged, and four failed-not-stuck rows; a success without a pull request stays Idle (the harness's default status is success)."
+    evidence: "tests/AgentSmith.Tests/Tickets/TicketReviewReadTests.cs:69-75, tests/AgentSmith.Tests/Tickets/TicketLandingTests.cs:28-35, tests/AgentSmith.Tests/Tickets/TicketStuckTests.cs:38-43, tests/AgentSmith.Tests/Tickets/TicketStuckTests.cs:88, tests/AgentSmith.Tests/Tickets/TicketStuckTests.cs:94, tests/AgentSmith.Tests/Tickets/TicketStuckTests.cs:106, tests/AgentSmith.Tests/Tickets/TicketStuckTests.cs:254, tests/AgentSmith.Tests/Tickets/TicketStoreHarness.cs:131-137, tests/AgentSmith.Tests/Tickets/TicketLandedByHandListTests.cs:35-40, tests/AgentSmith.Tests/Tickets/TicketListReaderTests.cs:155-161"
+  - claim: "Every list row and the detail header are composed by TicketSummaryComposer, which hands the rule what TicketStandings read for the head; TicketStandings is 92 lines, reads the landings from the one configuration load into a (tracker, key) projection, and TicketStanding carries them as an init dictionary."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketSummaryComposer.cs:29-33, src/backend/AgentSmith.Server/Services/Tickets/TicketStandings.cs:26-45, src/backend/AgentSmith.Server/Services/Tickets/TicketStandings.cs:72-82, src/backend/AgentSmith.Server/Services/Tickets/TicketListReader.cs:44-49, src/backend/AgentSmith.Server/Services/Tickets/TicketDetailReader.cs:41-44, observed: 2026-10-15, wc -l TicketStandings.cs 92, TicketSummaryComposer.cs 52"
+  - claim: "The list reads every record with only its standing entries, but the newest entry time is a second grouped read over all entries; the ticket view's last activity is that newest entry, else opened, else the state time."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordRepository.cs:18-20, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordRepository.cs:48-63, src/backend/AgentSmith.Contracts/Reviews/PrReviewRecordView.cs:10-22, src/backend/AgentSmith.Server/Models/TicketPullRequestView.cs:13-22, src/backend/AgentSmith.Server/Services/Tickets/TicketReviewState.cs:25-35"
+  - claim: "Entries carry whether they are ours, a bot's or a host system note; a decision a host wrote as a system note (a GitLab approval) is still a person's."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/PrReviewEntry.cs:15-24, src/backend/AgentSmith.Server/Services/Rework/PrReviewEntryBuilder.cs:34-42"
+  - claim: "The stuck rule's person entries exclude ours and bots' only and use a cutoff with a five-second skew margin."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Checks/TicketStuckRule.cs:41-46, src/backend/AgentSmith.Contracts/Runs/PreviousAttempt.cs:42-45"
+  - claim: "A record's check time also advances when a read FAILS, keeping its old state, and is stamped after the host read while the compare-and-set uses the read's start; so 'open and checked after the mark' cannot tell a reopen from a failed or in-flight read."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordWriter.cs:22-25, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordWriter.cs:32-38, src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:76-79, src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:83-89"
+  - claim: "Counts are taken over every ticket read, one count per bucket, and the view gives later buckets defaulted parameters."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketCounts.cs:18-40, src/backend/AgentSmith.Server/Models/TicketCountsView.cs:14-30, observed: 2026-10-15, wc -l TicketCounts.cs 48, TicketCountsView.cs 30"
+  - claim: "Never-run filed rows take their bucket from a landing, else unmet requirements, and build each waits-for entry with the DEPENDENT's project and the required ticket id; the list leads its first page with them and the graph and requires entries take a node state from the summary's bucket."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/FiledTicketRows.cs:68-90, src/backend/AgentSmith.Server/Services/Tickets/FiledTicketRows.cs:75-76, src/backend/AgentSmith.Server/Services/Tickets/TicketListReader.cs:40-52, src/backend/AgentSmith.Server/Services/Tickets/TicketListReader.cs:75-77, src/backend/AgentSmith.Server/Services/Tickets/TicketNodeStates.cs:18-26, observed: 2026-10-15, wc -l FiledTicketRows.cs 91, TicketListReader.cs 95"
+  - claim: "A requirement is keyed by (tracker connection, required ticket key) and read under the dependent's tracker, so a required ticket shares its dependent's tracker connection and its key is TicketKey.For(the tracker type, its id), as the filed rows build it; the graph keys every summary by (tracker, key)."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/UnmetTicketRequirements.cs:21-29, src/backend/AgentSmith.Contracts/Tickets/TicketRequirementEdge.cs:16-25, src/backend/AgentSmith.Server/Services/Tickets/FiledTicketRows.cs:35-36, src/backend/AgentSmith.Server/Services/Tickets/TicketNodeStates.cs:28-37, src/backend/AgentSmith.Server/Models/TicketWaitsForView.cs:6"
+  - claim: "The summary record ends in defaulted optional parameters, the place later members add to; its Kind is documented as question or handback only, and LastOutcome as an idle row's."
+    evidence: "src/backend/AgentSmith.Server/Models/TicketSummaryView.cs:9, src/backend/AgentSmith.Server/Models/TicketSummaryView.cs:13, src/backend/AgentSmith.Server/Models/TicketSummaryView.cs:27-56"
+  - claim: "The list offers its page's failed tickets to the background between-attempts check by newest status, not by bucket."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketListReader.cs:58-59, src/backend/AgentSmith.Server/Services/Tickets/Checks/TicketCheckKicks.cs:6-15"
+
+assumptions:
+  - "2026-10-15-114fa lands ITicketClosedMarkStore.OfAsync, TicketClosedMark (ClosedAt, By, Note, ClosedPullRequests, TrackerClosed), the ClosedTickets table, the resolution carrying agent-smith's marker, and the act's refusal of a close the Done arm would answer."
+
+scope:
+  in: >
+    BUCKETS: TicketBucket gains Closed "closed", Failed "failed", PrClosed "pr_closed", all in All; TicketClosedKinds
+    (Server/Models) ByHand "by-hand" and Tracker "tracker" (the tracker kind is set by 2026-10-15-114fc);
+    TicketSummaryView's Kind doc names both kinds on a closed row and LastOutcome's names the failed, PR-closed, closed
+    and idle rows. RECORDS: PrReviewRecordView gains init LastPersonEntryAt — the newest entry that is not ours, not a
+    bot's, and not a system note unless it carries a decision — from a second grouped read beside the existing newest
+    one (70 -> at most 78); TicketPullRequestView gains PersonActivityAt as a defaulted parameter, filled by
+    TicketReviewState (44 -> at most 46). RULE: TicketClosedRule (Server/Services/Tickets, at most 50 lines)
+    InForce(mark, newest, pullRequests, doneAt) where doneAt is the Done arm's own (DoneAt(records) ?? landedAt): the
+    Done arm would not answer (doneAt null, or newest.StartedAt > doneAt); newest.StartedAt <= mark.ClosedAt; no pull
+    request with PersonActivityAt later than ClosedAt + PreviousAttempt.SkewMargin. TicketBucketRule.Of gains
+    `TicketClosedMark? closed = null`; after working it answers Closed (kind by-hand, since = ClosedAt, last outcome the
+    newest status) when the mark is in force; the arms after done move into a helper (stuck, pr_closed for landing
+    unmerged, failed for a failed newest, idle) so no method passes 20 lines (52 -> at most 66). STANDINGS:
+    TicketStanding gains an init Closed dictionary (project, ticket id) -> mark and ClosedOf(Run); TicketStandings
+    reads it per tracker connection from the same configuration load and (tracker, key) projection LandedAsync builds,
+    the projection shared by both reads (92 -> at most 104); TicketSummaryComposer passes standing?.ClosedOf(head) and
+    sets the summary's Closed view whenever a mark is stored (52 -> at most 56). TicketSummaryView gains
+    `TicketClosedView? Closed = null` (At, By, Note, ClosedPullRequests, TrackerClosed). NEVER RUN: FiledTicketRows
+    reads the marks of its filings' keys (one call per tracker connection, beside TicketNodeStates.LandedAsync) and
+    answers Closed (kind by-hand) for a filing with a mark and no landing (91 -> at most 100). WAITS-FOR:
+    TicketWaitsForView gains `bool Closed = false`; a static helper ClosedRequirements (at most 30 lines) keys every
+    never-run row's entries by (the entry's project's tracker connection, TicketKey.For(that tracker type, entry
+    TicketId)) against TicketNodeStates.Summaries and sets Closed when that summary's bucket is closed;
+    TicketListReader.AllAsync applies it with TicketProjects.Of (95 -> at most 99); graph and requires entries show
+    the closed bucket through TicketNodeStates unchanged. CHECK OFFER: TicketListReader offers a failed page row to the
+    between-attempts check only when it is not closed by hand (a tracker-closed row stays offered, so a reopen on the
+    tracker is seen). COUNTS: TicketCountsView gains Closed, Failed, PrClosed (default 0) (30 -> at most 34);
+    TicketCounts counts them (48 -> at most 54); Idle keeps counting the remainder. MOVED ASSERTIONS:
+    TicketReviewReadTests.cs:75 Idle -> Failed; TicketLandingTests.cs:28-35 renamed
+    TicketBuckets_AllPrsClosedUnmerged_IsPrClosedWithLandingUnmerged, Idle -> PrClosed; TicketStuckTests.cs:88, :94,
+    :106, :254 Idle -> Failed.
+  out: >
+    A commit pushed after the mark, a reopened pull request and a person's tracker close — 2026-10-15-114fc (the
+    reopen is a stored time set by a successful read, because a check time cannot show it). Sections, dot, dialog and
+    Reopen — 2026-10-15-114fd. The requires gate's refusal sentence naming a closed ticket — nobody (contract default
+    15): the dependents say so on the graph, the requires list and the waits-for chips. Where cancelled attempts and a
+    success without a pull request go — they stay idle until the operator answers contract question Q2.
+
+decisions:
+  - key: "CLOSED RANKS BELOW LIVE WORK AND ABOVE REVIEW. A running or parked attempt is the newest truth and started after the mark (114fa refuses a close while live), so it shows as it is; above waiting-on-review because a hide-only close leaves the pull request open, and hiding it is the point."
+  - key: "THE MARK YIELDS TO DONE EXACTLY WHERE DONE ANSWERS. Done counts deliveries; a merge after the mark is the operator's 'a merge brings it back to Done'. A ticket that merged and then failed a re-work is not Done today, so a close of it is in force; the act refuses exactly the Done arm's cases."
+  - key: "ACTIVITY IS A PERSON'S, AFTER A MARGIN (contract defaults 10, 11). Our own notes, bots and the host's system note for the close itself would bring every closed ticket straight back; a decision written as a system note is a person's review. Five seconds past ClosedAt keeps a comment typed just before the close from undoing it, the inverse of the stuck rule's margin; replica clock skew between a run's StartedAt and the mark's ClosedAt has no margin and errs toward the attempt."
+  - key: "NO REOPEN BY CHECK TIME. A record's check time also advances on a failed read and on a refresh that read before the close, so 'open and checked after the mark' would flip a just-closed ticket back to Waiting on review; the reopen is 114fc's stored time, written only by a successful read that sees ended -> open."
+  - key: "THE MARK STAYS STORED WHEN ACTIVITY BRINGS THE TICKET BACK. Closed is a timestamped mark, not an end state; the rule decides from it every read, the summary still carries it so the page can say when it was closed, and only Reopen or a new Close changes it."
+  - key: "SPLIT BY THE EXISTING LANDING. pr_closed is TicketLanding unmerged, the same fact the dot already paints; failed is the newest status. pr_closed outranks failed, as the dot does, because a closed pull request is the decision that remains."
+  - key: "THE WAITS-FOR FLAG IS KEYED BY TRACKER AND KEY. The entry carries the dependent's project, so a (project, id) match misses a required ticket of another project on the same connection; the required key is rebuilt from the connection, the way the requirement edge stores it."
+  - key: "A TICKET CLOSED BY HAND COSTS NO TRACKER READ. The list offered every failed page row to the background check; a hidden one would keep being read every five minutes while the page is open. A tracker-closed row is still offered, since the check is how its reopen is seen."
+  - key: "A CLOSE NOTE STARTS NOTHING. Traced: a comment webhook routes a keyword comment unless OwnTicketComment marks it ours; 114fa's resolution opens with that marker, so the note never reaches the keyword test."
+
+steps:
+  - id: buckets
+    action: "TicketBucket Closed, Failed, PrClosed in All; TicketClosedKinds; TicketClosedView, TicketSummaryView.Closed and the Kind / LastOutcome docs (56 -> at most 60)."
+  - id: records
+    action: "PrReviewRecordView.LastPersonEntryAt from a second grouped read (70 -> at most 78); TicketPullRequestView PersonActivityAt from TicketReviewState (44 -> at most 46); run the Rework.Records and Tickets classes."
+  - id: rule
+    action: "TicketClosedRule.InForce over the Done arm's doneAt (at most 50 lines); TicketBucketRule closed arm after working and a tail helper for stuck / pr_closed / failed / idle, every method at most 20 lines (52 -> at most 66)."
+  - id: moved-assertions
+    action: "TicketReviewReadTests.cs:75, TicketLandingTests.cs:28-35 (renamed), TicketStuckTests.cs:88, :94, :106, :254 move to Failed / PrClosed; run those three classes."
+  - id: standings
+    action: "TicketStanding.Closed and ClosedOf; TicketStandings shares LandedAsync's (tracker, key) projection with the marks read (92 -> at most 104); TicketSummaryComposer passes the mark and fills Closed (52 -> at most 56)."
+  - id: never-run
+    action: "FiledTicketRows answers Closed for a marked, unlanded filing (91 -> at most 100); ClosedRequirements keys waits-for entries by (tracker, key) and TicketListReader.AllAsync applies it; the check offer skips a by-hand closed row (95 -> at most 99)."
+  - id: counts
+    action: "TicketCountsView Closed, Failed, PrClosed (30 -> at most 34); TicketCounts (48 -> at most 54)."
+  - id: tests
+    action: "Red first, then green, for every test below; run the Tickets, Rework.Records and Persistence classes touched with --filter."
+
+tests:
+  - "TicketClosedRule_MarkAfterTheNewestAttempt_IsInForce"
+  - "TicketClosedRule_AttemptStartedAfterTheMark_IsNotInForce"
+  - "TicketClosedRule_PersonCommentOnThePullRequestAfterTheMark_IsNotInForce"
+  - "TicketClosedRule_OurOwnOrABotsOrASystemNoteAfterTheMark_StaysInForce"
+  - "TicketClosedRule_ApprovalWrittenAsASystemNoteAfterTheMark_IsNotInForce"
+  - "TicketClosedRule_CommentWithinTheSkewMargin_StaysInForce"
+  - "TicketClosedRule_ClosedPullRequestReReadFailedAfterTheMark_StaysInForce"
+  - "TicketClosedRule_HideOnlyWithTheOpenPullRequestUntouched_StaysInForce"
+  - "TicketBucketRule_MarkInForceWithAnOpenPullRequest_IsClosedNotWaitingOnReview"
+  - "TicketBucketRule_MarkButMergedWithNoLaterAttempt_IsDone"
+  - "TicketBucketRule_MarkAfterAFailedReworkOfALandedTicket_IsClosed"
+  - "TicketBucketRule_MarkWithARunningAttempt_IsWorking"
+  - "TicketBucketRule_PullRequestsAllClosedUnmerged_IsPrClosed"
+  - "TicketBucketRule_FailedAttemptNoPullRequest_IsFailed"
+  - "TicketBucketRule_CancelledAttempt_IsIdle"
+  - "TicketBucketRule_StuckFailedAttempt_StaysStuck"
+  - "PrReviewRecordRepository_LastPersonEntryAt_SkipsOursBotsAndSystemNotesWithoutADecision"
+  - "TicketList_ClosedTicket_IsInTheClosedBucketWithWhoWhenAndNote"
+  - "TicketList_ClosedTicketWithALaterPersonReview_IsBackInWaitingOnReview"
+  - "TicketList_ClosedNeverRunFiling_IsInTheClosedBucket"
+  - "TicketList_TicketWaitingForAClosedTicket_StaysBlockedAndFlagsTheEntryClosed"
+  - "TicketList_WaitsForAClosedTicketOfAnotherProjectOnTheSameTracker_FlagsTheEntryClosed"
+  - "TicketList_FailedTicketClosedByHand_IsNotOfferedToTheCheck"
+  - "TicketList_Counts_CountClosedFailedAndPrClosedAndKeepIdleForTheRest"
+  - "TicketGraph_ClosedTicket_HasTheClosedNodeState"
+  - "TicketDetail_ClosedTicket_HeaderCarriesTheMark"
+
+done:
+  - "A ticket closed from the list or its page leaves Waiting on review, Failed or PR closed and appears under Closed with who closed it, when and why, while its pull request may still be open."
+  - "A person's comment or review on its pull request after the close, a merge with no later attempt, or a new attempt brings it back to Waiting on review, Done or the attempt's own bucket without anyone touching the mark; a failed record read never does."
+  - "A ticket whose pull requests all closed unmerged is under PR closed, one whose last attempt failed is under Failed, Ended keeps only what is neither (a cancelled attempt, a success without a pull request), and the counts say how many of each."
+  - "A ticket that waits for a closed ticket stays waiting, and its waits-for chip, the graph and the requires list say the required ticket is closed; a ticket closed by hand costs no background tracker read."
+  - "Build green, full suite green, dashboard gen/test/build green."

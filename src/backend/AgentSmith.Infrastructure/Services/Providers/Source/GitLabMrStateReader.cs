@@ -37,7 +37,7 @@ public sealed class GitLabMrStateReader(
             if (!await _users.IsBotAsync(note.AuthorId!.Value, cancellationToken))
                 decisions.Add(Decision(note));
         var (state, at) = State(mr);
-        return new PrReviewState(iid.ToString(CultureInfo.InvariantCulture), state, at, decisions);
+        return new PrReviewState(iid.ToString(CultureInfo.InvariantCulture), state, at, decisions, mr.Sha);
     }
 
     private PrReviewDecision Decision(GitLabNote note)

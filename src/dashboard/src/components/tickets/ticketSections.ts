@@ -1,9 +1,9 @@
 import type { TicketBucket, TicketCounts } from "@/types/tickets";
 
 // 2026-10-13-9a59p: the list's sections in the order it shows them — who acts next, then the
-// tickets no one has to act on. Ended is the server's idle: a cancelled attempt, a failed one
-// nobody checked, a success without a pull request, pull requests that all closed unmerged. Done is
-// a merged pull request with every other one ended.
+// tickets no one has to act on. Ended is the server's idle: a cancelled attempt or a success without a
+// pull request. Done is a merged pull request with every other one ended. 2026-10-15-114fd: PR closed
+// and Failed split out of Ended; Closed — a person stopped work on it — is last and grey.
 
 export interface TicketSectionSpec {
   title: string;
@@ -55,9 +55,23 @@ export const TICKET_SECTIONS: Readonly<Record<TicketBucket, TicketSectionSpec>> 
     empty: "No filed ticket is without a run.",
     count: (c) => c.filed ?? 0,
   },
+  "pr-closed": {
+    title: "PR closed",
+    sub: "every pull request was closed without a merge",
+    tone: "red",
+    empty: "No ticket's pull requests all closed unmerged.",
+    count: (c) => c.prClosed ?? 0,
+  },
+  failed: {
+    title: "Failed",
+    sub: "the last attempt failed",
+    tone: "red",
+    empty: "No ticket's last attempt failed.",
+    count: (c) => c.failed ?? 0,
+  },
   ended: {
     title: "Ended",
-    sub: "no next step is running or waiting",
+    sub: "cancelled, or finished without a pull request",
     empty: "No ticket has ended without a next step.",
     count: (c) => c.idle,
   },
@@ -68,9 +82,16 @@ export const TICKET_SECTIONS: Readonly<Record<TicketBucket, TicketSectionSpec>> 
     empty: "No ticket is done yet.",
     count: (c) => c.done,
   },
+  closed: {
+    title: "Closed",
+    sub: "a person stopped work on it; later activity brings it back",
+    empty: "No ticket is closed.",
+    count: (c) => c.closed ?? 0,
+  },
 };
 
 /** Every ticket the counts cover: each ticket is in exactly one bucket. */
 export function totalTickets(c: TicketCounts): number {
-  return c.needsYou + c.working + c.waitingOnReview + c.stuck + (c.blocked ?? 0) + (c.filed ?? 0) + c.idle + c.done;
+  return c.needsYou + c.working + c.waitingOnReview + c.stuck + (c.blocked ?? 0) + (c.filed ?? 0)
+    + (c.prClosed ?? 0) + (c.failed ?? 0) + c.idle + c.done + (c.closed ?? 0);
 }

@@ -568,6 +568,9 @@ export interface StudioTracker {
   endpoints?: Record<string, string>;
   // 2026-10-02-5f89a, Jira only: the account the API token belongs to.
   email?: string;
+  // 2026-10-15-114fe, Jira and Azure DevOps: the status "also close on the tracker" moves a ticket
+  // into. Absent means the done status.
+  closedStatus?: string;
 }
 
 /** p0345b: a repo-discovery connection (p0281a) — org/project scope + a FK to

@@ -28,6 +28,14 @@ describe("ticketDot", () => {
     expect(cases.map(([t]) => ticketDot(t))).toEqual(cases.map(([, cls]) => cls));
   });
 
+  // 2026-10-15-114fd
+  it("ticketDot_ClosedFailedPrClosed_DrawClosedBadBad", () => {
+    expect(ticketDot(ticket({ bucket: "closed", kind: "by-hand" }))).toBe("closed");
+    expect(ticketDot(ticket({ bucket: "closed", kind: "tracker", lastOutcome: "failed" }))).toBe("closed");
+    expect(ticketDot(ticket({ bucket: "failed", lastOutcome: "failed" }))).toBe("bad");
+    expect(ticketDot(ticket({ bucket: "pr_closed", lastOutcome: "success", landing: "unmerged" }))).toBe("bad");
+  });
+
   it("every class it can return has a rule under .sd and .ticon", () => {
     for (const cls of TICKET_DOT_CLASSES) {
       expect(rule(`.mock-tickets .sd.${cls}`), `.sd.${cls}`).toBeDefined();

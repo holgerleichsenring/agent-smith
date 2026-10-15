@@ -51,16 +51,22 @@ public sealed class PrReviewRecordRepository(IUnitOfWork unitOfWork) : IPrReview
         if (records.Count == 0) return [];
         var keys = query.Select(r => r.PrKey);
         var entries = unitOfWork.Set<PrReviewEntry>().AsNoTracking().Where(e => keys.Contains(e.PrKey));
-        var newest = (await entries.GroupBy(e => e.PrKey).Select(g => new { g.Key, At = g.Max(e => e.AtTicks) }).ToListAsync(ct))
-            .ToDictionary(x => x.Key, x => x.At, StringComparer.Ordinal);
+        var newest = await NewestAsync(entries, ct);
+        var person = await NewestAsync(entries.Where(e => !e.IsOurs && !e.IsBot && (!e.IsSystem || e.Decision != null)), ct);
         var kept = await (standingOnly ? entries.Where(e => e.Standing) : entries).OrderBy(e => e.AtTicks).ThenBy(e => e.Id).ToListAsync(ct);
         var byKey = kept.ToLookup(e => e.PrKey, StringComparer.Ordinal);
-        return [.. records.Select(r => View(r, newest.TryGetValue(r.PrKey, out var at) ? at : null, byKey[r.PrKey]))];
+        return [.. records.Select(r => View(r, newest.TryGetValue(r.PrKey, out var at) ? at : null, byKey[r.PrKey])
+            with { LastPersonEntryAt = Time(person.TryGetValue(r.PrKey, out var by) ? by : null) })];
     }
+
+    private static async Task<Dictionary<string, long>> NewestAsync(IQueryable<PrReviewEntry> entries, CancellationToken ct) =>
+        (await entries.GroupBy(e => e.PrKey).Select(g => new { g.Key, At = g.Max(e => e.AtTicks) }).ToListAsync(ct))
+            .ToDictionary(x => x.Key, x => x.At, StringComparer.Ordinal);
 
     private static PrReviewRecordView View(PrReviewRecord r, long? newestEntry, IEnumerable<PrReviewEntry> entries) =>
         new(r.PrKey, r.Url, r.Repo, r.Number, r.Project, r.TicketId, r.RunId, r.State, Time(r.StateAtTicks),
-            Time(r.CheckedAtTicks)!.Value, Time(newestEntry), [.. entries.Select(Entry)]);
+            Time(r.CheckedAtTicks)!.Value, Time(newestEntry), [.. entries.Select(Entry)])
+        { HeadSha = r.HeadSha, HeadMovedAt = Time(r.HeadMovedAtTicks), ReopenedAt = Time(r.ReopenedAtTicks) };
 
     private static PrReviewEntryView Entry(PrReviewEntry e) =>
         new(e.HostId, e.Kind, e.Decision, e.Standing, e.AuthorLogin, e.Trusted, e.IsOurs, e.IsBot, e.IsSystem,

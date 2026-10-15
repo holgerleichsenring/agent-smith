@@ -17,7 +17,7 @@ public sealed class GitHubPrReviewStateReader(IGitHubClient client, string owner
 {
     private const string Query =
         "query($owner:String!,$repo:String!,$number:Int!){viewer{login} repository(owner:$owner,name:$repo){pullRequest(number:$number){"
-        + "number state createdAt mergedAt closedAt author{login} "
+        + "number state createdAt mergedAt closedAt headRefOid author{login} "
         + "latestReviews(first:100){nodes{id state body author{__typename login} authorAssociation submittedAt}}}}}";
 
     public async Task<PrReviewState> ReadAsync(string prUrl, CancellationToken cancellationToken)
@@ -39,7 +39,8 @@ public sealed class GitHubPrReviewStateReader(IGitHubClient client, string owner
             at is null ? DateTimeOffset.MinValue : DateTimeOffset.Parse(at, CultureInfo.InvariantCulture),
             [.. pr.GetProperty("latestReviews").GetProperty("nodes").EnumerateArray()
                 .Select(Decision).OfType<PrReviewDecision>()
-                .Where(d => !d.IsBot && d.Author!.AuthorId != author && !string.Equals(d.Author.AuthorId, viewer, StringComparison.OrdinalIgnoreCase))]);
+                .Where(d => !d.IsBot && d.Author!.AuthorId != author && !string.Equals(d.Author.AuthorId, viewer, StringComparison.OrdinalIgnoreCase))],
+            Str(pr, "headRefOid"));
     }
 
     private PrReviewDecision? Decision(JsonElement review)

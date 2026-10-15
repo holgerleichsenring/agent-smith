@@ -644,6 +644,7 @@
           "description": "What a ticket runs when no label matched. A project trigger overrides it."
         },
         "close_transition_name": { "type": "string", "description": "Jira only" },
+        "closed_status": { "type": "string", "description": "Jira and Azure DevOps: the status 'also close on the tracker' moves a ticket into; unset: the done status" },
         "extra_fields": { "type": "array", "items": {"type": "string"} },
         "zero_match_comment": {
           "type": "boolean",

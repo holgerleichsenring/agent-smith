@@ -187,14 +187,14 @@ public sealed class PrSweepPassTests : IDisposable
         states.Keys.Should().BeEquivalentTo(["4"], "the cut list pruned nothing; the complete one pruned the closed pull request");
     }
 
-    private async Task RecordAsync(string number, string state)
+    private async Task RecordAsync(string number, string state, string? head = null)
     {
         await using var ctx = _store.Context();
         var url = $"https://github.com/o/r/pull/{number}";
         ctx.Add(new PrReviewRecord
         {
             PrKey = PrKey.Of(url), Url = url, Repo = "r", RepoKey = RepoKey.Of(Repo.Url!), Number = number,
-            Project = "p", TicketId = "12", RunId = "run-1", State = state,
+            Project = "p", TicketId = "12", RunId = "run-1", State = state, HeadSha = head,
         });
         await ctx.SaveChangesAsync();
     }
@@ -202,7 +202,7 @@ public sealed class PrSweepPassTests : IDisposable
     [Fact]
     public async Task PrSweep_RecordOpenButNotListed_NudgesRefresh_NeverRecordedPrToo()
     {
-        await RecordAsync("4", PrReviewStates.Open);
+        await RecordAsync("4", PrReviewStates.Open, head: "h1");
         await RecordAsync("8", PrReviewStates.Open);
 
         // 8 was merged before any sweep listed it open: it has no sweep row, only its record.
