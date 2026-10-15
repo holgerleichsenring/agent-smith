@@ -1,5 +1,6 @@
 "use client";
 
+import { NoProjectReach } from "@/components/shell/NoProjectReach";
 import { RefusalSurface } from "@/components/shell/RefusalSurface";
 import { useTicketBucketFilter } from "@/lib/TicketBucketFilter";
 import { useTicketList } from "@/lib/tickets/TicketListProvider";
@@ -24,7 +25,7 @@ export function TicketList() {
   if (!list && shared.failed) return <div className="msub" data-testid="tickets-failed">The ticket list could not be read.</div>;
   if (!list) return <Loading />;
   if (totalTickets(list.counts) === 0) {
-    return <div className="msub" data-testid="tickets-empty">No ticket has been worked yet. A ticket appears here with its first code run.</div>;
+    return <NoProjectReach><div className="msub" data-testid="tickets-empty">No ticket has been worked yet. A ticket appears here with its first code run.</div></NoProjectReach>;
   }
   return (
     <div data-testid="ticket-list" data-bucket={filter}>

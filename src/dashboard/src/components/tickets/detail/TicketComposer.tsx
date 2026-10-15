@@ -92,7 +92,7 @@ export function TicketComposer({ conversation, project, ticketId, preview, newes
               onClick={() => composer.act({ kind: "decide", decision: "rejected" })}>Discard</button>
           </>
         )}
-        <RetryUnchanged attempt={newest} />
+        <RetryUnchanged attempt={newest} project={project} />
       </div>
       {dialog.failure && !refusal && engaged && (
         <div className="cp-note bad" data-testid="ticket-composer-failure">{dialog.failure.message}</div>

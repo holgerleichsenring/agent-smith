@@ -14,6 +14,9 @@ const hoisted = vi.hoisted(() => ({
   push: vi.fn(),
 }));
 
+// 2026-10-15-4a4de: whether this sign-in reaches a project is useProjectReach's question; here it is an answer.
+const reach = vi.hoisted(() => ({ value: "unknown" as "none" | "unknown" }));
+vi.mock("@/hooks/useProjectReach", () => ({ useProjectReach: () => reach.value }));
 vi.mock("next/navigation", () => ({
   usePathname: () => hoisted.pathname,
   useRouter: () => ({ push: hoisted.push }),
@@ -54,6 +57,7 @@ function renderTickets(search = "") {
 const ago = (minutes: number) => new Date(Date.now() - minutes * 60000).toISOString();
 
 beforeEach(() => {
+  reach.value = "unknown";
   hoisted.pathname = "/tickets";
   hoisted.fetch.mockReset();
   hoisted.apiFetch.mockReset().mockResolvedValue({ ok: true, status: 202 });
@@ -264,6 +268,21 @@ describe("TicketList", () => {
     hoisted.fetch.mockRejectedValue(new ApiRefusal("/api/tickets", 403, "permission", ["runs.read"]));
     renderTickets();
     expect(await screen.findByTestId("refusal-surface")).toHaveTextContent("runs.read");
+  });
+
+  it("EmptyAndNoProjectReached_SaysSo", async () => {
+    reach.value = "none";
+    serve({ tickets: [], nextCursor: null, counts: counts() });
+    renderTickets();
+    expect(await screen.findByTestId("no-project-reach")).toHaveTextContent("Your sign-in reaches no project on this installation");
+    expect(screen.queryByText(/No ticket has been worked yet/)).toBeNull();
+  });
+
+  it("EmptyForAGlobalReader_KeepsTodaysText", async () => {
+    serve({ tickets: [], nextCursor: null, counts: counts() });
+    renderTickets();
+    expect(await screen.findByTestId("tickets-empty")).toHaveTextContent(/No ticket has been worked yet/);
+    expect(screen.queryByTestId("no-project-reach")).toBeNull();
   });
 
   it("NoTicketYet_SaysSo", async () => {

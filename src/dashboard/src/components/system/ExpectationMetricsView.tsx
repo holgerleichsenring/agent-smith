@@ -8,6 +8,7 @@ import { ExpectationProjectCard } from "@/components/system/ExpectationProjectCa
 import { percentOrDash } from "@/lib/expectationTotals";
 import { refusalIn } from "@/lib/apiResponse";
 import { RefusalSurface } from "@/components/shell/RefusalSurface";
+import { NoProjectReach } from "@/components/shell/NoProjectReach";
 
 // The criteria finished coding runs were judged on, overall and per project, with the
 // operator's overrules applied. It takes the read rather than making it — the Criteria
@@ -35,7 +36,7 @@ export function ExpectationMetricsView({ data, error }: ExpectationRead) {
           Loading criteria outcomes…
         </div>
       ) : data.runs === 0 ? (
-        <EmptyCriteria />
+        <NoProjectReach><EmptyCriteria /></NoProjectReach>
       ) : (
         <PopulatedCriteria data={data} />
       )}

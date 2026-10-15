@@ -87,6 +87,7 @@ integrations:
 
 state:
   done:
+    2026-10-15-4a4de: "PROJECT GATING IN THE DASHBOARD (ticket acts, identity page, empty lists). Close, Reopen, Done by hand, Retry, verdicts and the answer card ask the ticket's project; Clear finished counts runs.delete in any project; the identity page lists per-project grants; an empty list says when a sign-in reaches no project. -> .agentsmith/specs/done/2026-10-15-4a4de-project-dashboard-gating.yaml"
     2026-10-15-4a4dd: "PROJECT-FILTERED LISTS (runs, PRs, tickets, graph, Criteria met, bulk delete, dialog lists, ticket search, findings). A project-bound caller reads only their projects, filtered in the query; GET /api/projects names them; one config load per request; enforce off is unchanged. -> .agentsmith/specs/done/2026-10-15-4a4dd-project-list-filtering.yaml"
     2026-10-15-4a4dc: "PROJECT-SCOPED LIVE HUB (hub route, hub filter, overview groups). A project-only reader connects; run- and dialog-keyed methods check the run or dialog's project, a foreign run reads as unknown; overview nudges go per project, the rollup to global readers; enforce off is unchanged. -> .agentsmith/specs/done/2026-10-15-4a4dc-project-hub-scoping.yaml"
     2026-10-15-4a4db: "PROJECT-SCOPED ROUTES (route table, scope middleware). Each run, ticket, project and dialog route declares its project source; a caller holding a permission only in other projects gets an empty 404, lists still refuse 403; a route guard fails an undeclared one; enforce off is unchanged. -> .agentsmith/specs/done/2026-10-15-4a4db-project-route-enforcement.yaml"

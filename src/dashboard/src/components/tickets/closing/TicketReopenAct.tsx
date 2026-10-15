@@ -11,7 +11,7 @@ import { RUNS_CONTROL } from "../detail/RetryUnchanged";
 // reopened first) is the server's sentence as is.
 
 export function TicketReopenAct({ ticket, onReopened, small }: { ticket: TicketSummary; onReopened: () => void; small?: boolean }) {
-  const lacks = useLacksPermission(RUNS_CONTROL);
+  const lacks = useLacksPermission(RUNS_CONTROL, ticket.project);
   const [sending, setSending] = useState(false);
   const [said, setSaid] = useState<string | null>(null);
   if (lacks || ticket.bucket !== "closed" || ticket.kind === TICKET_CLOSED_TRACKER) return null;

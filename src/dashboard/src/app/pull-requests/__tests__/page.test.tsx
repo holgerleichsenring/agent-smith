@@ -9,6 +9,9 @@ import type { PullRequest } from "@/types/hub-events";
 // .rrow rows with a green status pill + external link + a link back to the run);
 // no_changes/failed attempts are an honest MUTED section below, never hidden.
 
+// 2026-10-15-4a4de: whether this sign-in reaches a project is useProjectReach's question; here it is an answer.
+const reach = vi.hoisted(() => ({ value: "unknown" as "none" | "unknown" }));
+vi.mock("@/hooks/useProjectReach", () => ({ useProjectReach: () => reach.value }));
 vi.mock("@/lib/pullRequestsApi", () => ({ fetchPullRequests: vi.fn() }));
 const mockFetch = vi.mocked(fetchPullRequests);
 
@@ -30,10 +33,26 @@ function pr(over: Partial<PullRequest> = {}): PullRequest {
 }
 
 beforeEach(() => {
+  reach.value = "unknown";
   mockFetch.mockReset();
 });
 
 describe("PullRequestsPage", () => {
+  it("EmptyAndNoProjectReached_SaysSo", async () => {
+    reach.value = "none";
+    mockFetch.mockResolvedValue([]);
+    render(<PullRequestsPage />);
+    expect(await screen.findByTestId("no-project-reach")).toHaveTextContent("Your sign-in reaches no project on this installation");
+    expect(screen.queryByText(/No pull requests yet/)).toBeNull();
+  });
+
+  it("EmptyForAGlobalReader_KeepsTodaysText", async () => {
+    mockFetch.mockResolvedValue([]);
+    render(<PullRequestsPage />);
+    expect(await screen.findByTestId("pr-empty")).toHaveTextContent(/No pull requests yet/);
+    expect(screen.queryByTestId("no-project-reach")).toBeNull();
+  });
+
   it("PullRequestsPage_OpenedHeadline_AttemptsMutedBelow", async () => {
     mockFetch.mockResolvedValue([
       pr({ runId: "r1", repo: "server", status: "opened", url: "https://git/pr/1" }),

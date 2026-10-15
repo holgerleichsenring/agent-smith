@@ -14,7 +14,7 @@ import { TicketCloseDialog } from "./TicketCloseDialog";
 const NOT_CLOSABLE = new Set(["done", "working", "needs_you", "closed"]);
 
 export function TicketCloseAct({ ticket, onClosed, small }: { ticket: TicketSummary; onClosed: () => void; small?: boolean }) {
-  const lacks = useLacksPermission(RUNS_CONTROL);
+  const lacks = useLacksPermission(RUNS_CONTROL, ticket.project);
   const [open, setOpen] = useState(false);
   if (lacks || NOT_CLOSABLE.has(ticket.bucket)) return null;
   const openPullRequests = (ticket.pullRequests ?? []).filter((pr) => pr.state === "open").length;

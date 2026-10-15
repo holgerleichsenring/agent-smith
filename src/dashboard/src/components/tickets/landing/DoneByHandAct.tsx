@@ -18,7 +18,7 @@ interface Props {
 }
 
 export function DoneByHandAct({ project, ticketId, label, landed, onLanded, small }: Props) {
-  const lacks = useLacksPermission(RUNS_CONTROL);
+  const lacks = useLacksPermission(RUNS_CONTROL, project);
   const [open, setOpen] = useState(false);
   if (lacks || landed) return null;
   return (

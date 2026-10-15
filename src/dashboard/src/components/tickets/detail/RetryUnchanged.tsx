@@ -13,8 +13,8 @@ export const RUNS_CONTROL = "runs.control";
 
 type Outcome = { kind: "idle" } | { kind: "sending" } | { kind: "requested" } | { kind: "said"; text: string };
 
-export function RetryUnchanged({ attempt }: { attempt: TicketAttempt | null }) {
-  const lacks = useLacksPermission(RUNS_CONTROL);
+export function RetryUnchanged({ attempt, project }: { attempt: TicketAttempt | null; project: string }) {
+  const lacks = useLacksPermission(RUNS_CONTROL, project);
   const [outcome, setOutcome] = useState<Outcome>({ kind: "idle" });
   if (!attempt?.endedOnInfrastructure || lacks) return null;
 

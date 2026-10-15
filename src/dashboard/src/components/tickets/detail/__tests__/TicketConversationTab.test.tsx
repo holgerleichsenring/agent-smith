@@ -71,8 +71,12 @@ vi.mock("@/lib/ticketsApi", async (original) => ({
   retryAttempt: (...args: unknown[]) => ticketsApi.retry(...args),
 }));
 
-const identity = vi.hoisted(() => ({ lacks: [] as string[] }));
-vi.mock("@/hooks/useLacksPermission", () => ({ useLacksPermission: (p: string) => identity.lacks.includes(p) }));
+// 2026-10-15-4a4de: heldIn, when set, answers per project — a call site that drops the project holds nothing.
+const identity = vi.hoisted(() => ({ lacks: [] as string[], heldIn: null as Record<string, string[]> | null }));
+vi.mock("@/hooks/useLacksPermission", () => ({
+  useLacksPermission: (p: string, project?: string) =>
+    identity.heldIn ? !(identity.heldIn[project ?? ""] ?? []).includes(p) : identity.lacks.includes(p),
+}));
 
 const { TicketPageStore } = await import("@/lib/tickets/TicketPageStore");
 const { TicketPage } = await import("../TicketPage");
@@ -150,6 +154,7 @@ beforeEach(() => {
   vi.useFakeTimers();
   nav.search = "tab=conversation";
   identity.lacks = [];
+  identity.heldIn = null;
   world.detail = detail([attempt()]);
   world.conversation = conversation([]);
   world.sessions = {};
@@ -462,5 +467,23 @@ describe("Ticket conversation tab", () => {
     expect(screen.getByTestId("conv-question-text")).toHaveTextContent("answering needs runs.control");
     expect(screen.queryByTestId("pending-question-card")).toBeNull();
     expect(screen.getByTestId("ticket-tab-conversation").querySelector(".tc.hot")).not.toBeNull();
+  });
+
+  it("PendingQuestion_ProjectGrant_ShowsTheAnswerCard", async () => {
+    const question = { questionId: "q", type: "FreeText", text: "Keep the Postgres outbox?", context: null, choices: [], defaultAnswer: null, askedAt: "2026-09-04T14:10:00Z", answerDeadlineAt: "2026-09-05T14:10:00Z" };
+    world.detail = detail([attempt({ status: "waiting_for_input", finishedAt: null, pendingQuestion: question })]);
+    identity.heldIn = { shop: ["runs.control"] };
+    await open();
+    expect(screen.getByTestId("pending-question-card")).toBeInTheDocument();
+    cleanup();
+
+    world.detail = detail([attempt({ status: "failed", endedOnInfrastructure: true })]);
+    await open();
+    expect(screen.getByTestId("ticket-retry")).toBeInTheDocument();
+    cleanup();
+
+    identity.heldIn = { other: ["runs.control"] };
+    await open();
+    expect(screen.queryByTestId("ticket-retry")).toBeNull();
   });
 });

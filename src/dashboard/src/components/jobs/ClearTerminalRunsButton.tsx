@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { apiFetch } from "@/lib/apiResponse";
 import { useAccessToken } from "@/hooks/useAccessToken";
 import { useCallerIdentity } from "@/hooks/useCallerIdentity";
+import { holdsInAnyProject } from "@/lib/projectPermissions";
 
 // p0337: bulk "clear finished" — one click empties finished/failed/cancelled
 // runs, leaving running and queued untouched (the backend scopes it to terminal
@@ -11,7 +12,8 @@ import { useCallerIdentity } from "@/hooks/useCallerIdentity";
 // DeleteRunButton, and the armed state says what goes: the runs AND the verdicts
 // operators recorded on their criteria. The RunsChanged nudge refetches the list.
 // The endpoint needs runs.delete; a signed-in caller the server resolved without
-// it is not offered the button at all.
+// it is not offered the button at all. 2026-10-15-4a4de: held in any project counts — the
+// route names no project and the server clears only within the caller's projects.
 const RUNS_DELETE = "runs.delete";
 
 export function ClearTerminalRunsButton() {
@@ -37,7 +39,7 @@ export function ClearTerminalRunsButton() {
     }
   }, [armed, pending]);
 
-  if (identity && !identity.permissions.includes(RUNS_DELETE)) return null;
+  if (identity && !holdsInAnyProject(identity, RUNS_DELETE)) return null;
 
   const label = pending
     ? "clearing…"

@@ -5,13 +5,20 @@ import type { TicketGraph as Graph, TicketGraphNode } from "@/types/tickets";
 // 2026-10-14-dbcen: the Graph view on /tickets — nodes in their states, an edge from each dependent, a node with a
 // page opens it and a page-less node opens its requires panel with the act.
 
-const hoisted = vi.hoisted(() => ({ graph: vi.fn(), mark: vi.fn(), push: vi.fn(), lacks: false }));
+// 2026-10-15-4a4de: heldIn, when set, answers per project — a call site that drops the project holds nothing.
+const hoisted = vi.hoisted(() => ({ graph: vi.fn(), mark: vi.fn(), push: vi.fn(), lacks: false, heldIn: null as Record<string, string[]> | null }));
+// 2026-10-15-4a4de: whether this sign-in reaches a project is useProjectReach's question; here it is an answer.
+const reach = vi.hoisted(() => ({ value: "unknown" as "none" | "unknown" }));
+vi.mock("@/hooks/useProjectReach", () => ({ useProjectReach: () => reach.value }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: hoisted.push }) }));
 vi.mock("@/lib/ticketGraphApi", () => ({
   fetchTicketGraph: (...args: unknown[]) => hoisted.graph(...args),
   markLandedByHand: (...args: unknown[]) => hoisted.mark(...args),
 }));
-vi.mock("@/hooks/useLacksPermission", () => ({ useLacksPermission: () => hoisted.lacks }));
+vi.mock("@/hooks/useLacksPermission", () => ({
+  useLacksPermission: (permission: string, project?: string) =>
+    hoisted.heldIn ? !(hoisted.heldIn[project ?? ""] ?? []).includes(permission) : hoisted.lacks,
+}));
 
 const { TicketGraph } = await import("../TicketGraph");
 
@@ -30,6 +37,8 @@ beforeEach(() => {
   hoisted.mark.mockReset();
   hoisted.push.mockReset();
   hoisted.lacks = false;
+  hoisted.heldIn = null;
+  reach.value = "unknown";
 });
 
 async function open() {
@@ -84,6 +93,34 @@ describe("TicketGraph", () => {
     const legend = document.querySelector(".tg-legend") as HTMLElement;
     for (const cls of ["failed", "pr_closed", "closed"]) expect(legend.querySelector(`i.${cls}`), cls).not.toBeNull();
     expect(legend).toHaveTextContent("PR closed");
+  });
+
+  it("RequiresPanel_DoneByHand_GatedOnTheNodesProject", async () => {
+    hoisted.heldIn = { other: ["runs.control"] };
+    const { unmount } = render(<TicketGraph />);
+    fireEvent.keyDown(await screen.findByTestId("ticket-graph-node-41"), { key: "Enter" });
+    expect(within(screen.getByTestId("ticket-graph-panel-41")).queryByTestId("done-by-hand-41")).toBeNull();
+    unmount();
+
+    hoisted.heldIn = { shop: ["runs.control"] };
+    render(<TicketGraph />);
+    fireEvent.keyDown(await screen.findByTestId("ticket-graph-node-41"), { key: "Enter" });
+    expect(within(screen.getByTestId("ticket-graph-panel-41")).getByTestId("done-by-hand-41")).toBeInTheDocument();
+  });
+
+  it("EmptyAndNoProjectReached_SaysSo", async () => {
+    reach.value = "none";
+    hoisted.graph.mockResolvedValue({ nodes: [], edges: [] });
+    render(<TicketGraph />);
+    expect(await screen.findByTestId("no-project-reach")).toHaveTextContent("Your sign-in reaches no project on this installation");
+    expect(screen.queryByText(/No ticket requires another yet/)).toBeNull();
+  });
+
+  it("EmptyForAGlobalReader_KeepsTodaysText", async () => {
+    hoisted.graph.mockResolvedValue({ nodes: [], edges: [] });
+    render(<TicketGraph />);
+    expect(await screen.findByTestId("ticket-graph-empty")).toHaveTextContent(/No ticket requires another yet/);
+    expect(screen.queryByTestId("no-project-reach")).toBeNull();
   });
 
   it("TicketGraph_NoRequiresYet_SaysSo", async () => {

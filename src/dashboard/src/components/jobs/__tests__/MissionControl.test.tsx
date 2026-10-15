@@ -8,6 +8,9 @@ let mockConnection: HubConnectionState = HubConnectionState.Connected;
 // 2026-09-21-291b: why this caller is seeing nothing, when the server refused them.
 let mockRefusal: ApiRefusal | null = null;
 
+// 2026-10-15-4a4de: whether this sign-in reaches a project is useProjectReach's question; here it is an answer.
+const reach = vi.hoisted(() => ({ value: "unknown" as "none" | "unknown" }));
+vi.mock("@/hooks/useProjectReach", () => ({ useProjectReach: () => reach.value }));
 vi.mock("@/hooks/useJobsHub", () => ({
   useJobsHub: () => ({
     client: {},
@@ -67,6 +70,7 @@ describe("MissionControl", () => {
   beforeEach(() => {
     mockOverview = null;
     mockConnection = HubConnectionState.Connected;
+    reach.value = "unknown";
     mockRefusal = null;
     fetchRunsBeforeMock.mockReset();
   });
@@ -100,6 +104,21 @@ describe("MissionControl", () => {
     expect(screen.getByTestId("section-needs-you")).toHaveTextContent("No run is waiting for input.");
     // An empty Queued section is omitted entirely.
     expect(screen.queryByTestId("section-queued")).not.toBeInTheDocument();
+  });
+
+  it("EmptyAndNoProjectReached_SaysSo", async () => {
+    reach.value = "none";
+    mockOverview = { active: [], recent: [], systemActivity: null };
+    render(<MissionControl />);
+    expect(await screen.findByTestId("no-project-reach")).toHaveTextContent("Your sign-in reaches no project on this installation");
+    expect(screen.queryByText(/No runs yet/)).toBeNull();
+  });
+
+  it("EmptyForAGlobalReader_KeepsTodaysText", async () => {
+    mockOverview = { active: [], recent: [], systemActivity: null };
+    render(<MissionControl />);
+    expect(await screen.findByTestId("mission-empty")).toHaveTextContent(/No runs yet/);
+    expect(screen.queryByTestId("no-project-reach")).toBeNull();
   });
 
   it("MissionControl_NoRuns_ShowsEmptyState", () => {
