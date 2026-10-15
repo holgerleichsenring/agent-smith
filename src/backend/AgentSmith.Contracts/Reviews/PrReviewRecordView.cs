@@ -19,4 +19,9 @@ public sealed record PrReviewRecordView(
     DateTimeOffset? StateAt,
     DateTimeOffset CheckedAt,
     DateTimeOffset? LastEntryAt,
-    IReadOnlyList<PrReviewEntryView> Entries);
+    IReadOnlyList<PrReviewEntryView> Entries)
+{
+    /// <summary>2026-10-15-114fb: the newest entry that is not ours, not a bot's, and not a host system note unless
+    /// it carries a decision — a person's activity; derived on read, null when there is none.</summary>
+    public DateTimeOffset? LastPersonEntryAt { get; init; }
+}

@@ -11,6 +11,7 @@ namespace AgentSmith.Server.Models;
 /// <param name="Stuck">2026-10-13-9a59h: tickets in the stuck bucket.</param>
 /// <param name="Blocked">2026-10-14-dbcen: never-run tickets held by a ticket they require.</param>
 /// <param name="Filed">2026-10-14-dbcen: never-run tickets nothing holds.</param>
+/// <param name="Closed">2026-10-15-114fb: closed tickets; Failed and PrClosed split what Idle counted before.</param>
 public sealed record TicketCountsView(
     int NeedsYou,
     int Working,
@@ -27,4 +28,7 @@ public sealed record TicketCountsView(
     TicketLastDone? LastDone,
     int Stuck = 0,
     int Blocked = 0,
-    int Filed = 0);
+    int Filed = 0,
+    int Closed = 0,
+    int Failed = 0,
+    int PrClosed = 0);

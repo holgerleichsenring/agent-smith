@@ -25,7 +25,16 @@ public static class TicketBucket
     /// <summary>Every pull request ended and at least one merged, and no attempt started since.</summary>
     public const string Done = "done";
 
-    /// <summary>Everything else; the row carries the newest attempt's status as its last outcome.</summary>
+    /// <summary>2026-10-15-114fb: a person closed the ticket and nothing since brought it back.</summary>
+    public const string Closed = "closed";
+
+    /// <summary>2026-10-15-114fb: every pull request closed and none merged.</summary>
+    public const string PrClosed = "pr_closed";
+
+    /// <summary>2026-10-15-114fb: the newest attempt failed and no pull request is open or landed.</summary>
+    public const string Failed = "failed";
+
+    /// <summary>Everything else (cancelled, or ended without a pull request); the row carries the newest status.</summary>
     public const string Idle = "idle";
 
     /// <summary>2026-10-14-dbcen: filed, no run on record, and a ticket it requires has not landed.</summary>
@@ -37,6 +46,6 @@ public static class TicketBucket
     /// <summary>Every bucket the list accepts as a filter.</summary>
     public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
     {
-        NeedsYou, Working, WaitingOnReview, Stuck, Done, Idle, Blocked, Filed,
+        NeedsYou, Working, WaitingOnReview, Stuck, Done, Idle, Blocked, Filed, Closed, PrClosed, Failed,
     };
 }

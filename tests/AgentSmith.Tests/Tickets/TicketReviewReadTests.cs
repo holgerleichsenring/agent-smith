@@ -72,7 +72,7 @@ public sealed class TicketReviewReadTests : IDisposable
 
         var ticket = (await _h.List.ReadAsync(new TicketListRequest("alpha", null, null, null), default)).Tickets.Single();
 
-        ticket.Bucket.Should().Be(TicketBucket.Idle, "an attempt started after the merge is that attempt's ticket");
+        ticket.Bucket.Should().Be(TicketBucket.Failed, "an attempt started after the merge is that attempt's ticket");
     }
 
     [Fact]
