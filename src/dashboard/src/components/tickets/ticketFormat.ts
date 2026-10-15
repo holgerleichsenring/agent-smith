@@ -32,6 +32,13 @@ export function ticketLabel(t: TicketSummary): string {
   return t.ticketKey ?? `#${t.ticketId}`;
 }
 
+const PLATFORM_WORDS: Record<string, string> = { github: "GitHub", gitlab: "GitLab", jira: "Jira", azuredevops: "Azure DevOps" };
+
+/** The tracker's name as a person reads it — "GitHub", "Azure DevOps"; "the tracker" when none is recorded. */
+export function platformWords(platform: string | null): string {
+  return platform ? PLATFORM_WORDS[platform.toLowerCase()] ?? platform : "the tracker";
+}
+
 const CHANNEL_WORDS: Record<string, string> = {
   ticket_comment: "ticket comment",
   pull_request: "pull-request review",
