@@ -201,6 +201,68 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.ToTable("ChatRunBindings", (string)null);
                 });
 
+            modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.ClosedTicket", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("By")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTimeOffset>("ClosedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ClosedPullRequestsJson")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT")
+                        .HasDefaultValue("[]");
+
+                    b.Property<DateTimeOffset>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Note")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Project")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TicketId")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TicketKey")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Tracker")
+                        .IsRequired()
+                        .HasMaxLength(191)
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("TrackerClosed")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTimeOffset>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Project");
+
+                    b.HasIndex("Tracker", "TicketKey")
+                        .IsUnique();
+
+                    b.ToTable("ClosedTickets", (string)null);
+                });
+
             modelBuilder.Entity("AgentSmith.Infrastructure.Persistence.Entities.ConfigEntity", b =>
                 {
                     b.Property<long>("Id")
@@ -640,6 +702,13 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<long?>("HeadMovedAtTicks")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("HeadSha")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Number")
                         .IsRequired()
                         .HasMaxLength(191)
@@ -654,6 +723,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(191)
                         .HasColumnType("TEXT");
+
+                    b.Property<long?>("ReopenedAtTicks")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Repo")
                         .IsRequired()
@@ -2511,6 +2583,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTimeOffset>("CheckedAt")
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("ClosedForWork")
+                        .HasColumnType("INTEGER");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");

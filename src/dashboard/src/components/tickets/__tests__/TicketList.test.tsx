@@ -144,16 +144,16 @@ describe("TicketList", () => {
     expect(link).toHaveAttribute("href", "/tickets?bucket=working");
   });
 
-  it("CancelledAndUncheckedFailedTickets_AreListedUnderEnded_WithTheirLastOutcome", async () => {
+  it("CancelledAndPullRequestlessTickets_AreListedUnderEnded_WithTheirLastOutcome", async () => {
     const ended = (id: string, outcome: string) =>
       ticket({ ticketId: id, bucket: "idle", status: outcome, lastOutcome: outcome, attempts: [{ runId: `r-${id}`, status: outcome, endedOnInfrastructure: false, handedBack: false }] });
-    serve(list([ended("1", "cancelled"), ended("2", "failed")], { idle: 2 }));
+    serve(list([ended("1", "cancelled"), ended("2", "success")], { idle: 2 }));
     renderTickets();
 
     const section = await screen.findByTestId("ticket-section-ended");
     expect(within(section).getByTestId("ticket-row-shop-1")).toHaveTextContent("last attempt cancelled");
-    expect(within(section).getByTestId("ticket-row-shop-2")).toHaveTextContent("last attempt failed");
-    expect(section).toHaveTextContent("no next step is running or waiting");
+    expect(within(section).getByTestId("ticket-row-shop-2")).toHaveTextContent("last attempt succeeded");
+    expect(section).toHaveTextContent("cancelled, or finished without a pull request");
   });
 
   it("ASucceededTicketWithoutAPullRequest_IsNotDrawnInTheStoppedColour", async () => {

@@ -13,12 +13,16 @@ import { layoutTicketGraph, NODE_H, NODE_W } from "./ticketGraphLayout";
 // 2026-10-14-dbcen: /tickets?view=graph — every ticket that requires or is required, an arrow from each dependent
 // to what it requires, each node in its state (ticket-graph.html, graph-view). A node with a page opens it; a
 // page-less one opens its requires panel with the act. Hand-drawn SVG over a pure layout, like the flow graph.
+// 2026-10-15-114fd: failed, PR-closed and closed nodes carry their own words, style and legend entry.
 
 type Load = { kind: "loading" } | { kind: "failed"; refusal: ApiRefusal | null } | { kind: "read"; graph: Graph };
 
-const STATE_WORDS: Record<string, string> = { "done-by-hand": "done by hand", waiting_on_review: "waiting on review", needs_you: "needs you" };
+const STATE_WORDS: Record<string, string> = {
+  "done-by-hand": "done by hand", waiting_on_review: "waiting on review", needs_you: "needs you", pr_closed: "PR closed",
+};
 const LEGEND: ReadonlyArray<readonly [string, string]> = [
   ["merged", "merged or done by hand"], ["running", "running"], ["blocked", "blocked"], ["ready", "ready"], ["idle", "no run, no page"],
+  ["failed", "failed"], ["pr_closed", "PR closed"], ["closed", "closed"],
 ];
 
 export function TicketGraph({ project }: { project?: string | null }) {

@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Reviews;
 using AgentSmith.Infrastructure.Persistence.Entities;
 
 namespace AgentSmith.Infrastructure.Persistence.Repositories;
@@ -11,6 +12,7 @@ internal static class PrReviewRecordCopy
 {
     public static void Record(PrReviewRecord read, PrReviewRecord stored)
     {
+        Stamp(read, stored);
         stored.Url = read.Url;
         stored.Repo = read.Repo;
         stored.RepoKey = read.RepoKey;
@@ -20,6 +22,15 @@ internal static class PrReviewRecordCopy
         stored.RunId = read.RunId;
         stored.State = read.State;
         stored.StateAtTicks = read.StateAtTicks;
+        stored.HeadSha = read.HeadSha ?? stored.HeadSha;
+    }
+
+    // 2026-10-15-114fc: taken before the columns are overwritten; a read without a sha neither moves nor erases the head.
+    private static void Stamp(PrReviewRecord read, PrReviewRecord stored)
+    {
+        if (read.HeadSha is { } head && stored.HeadSha is { } was && head != was) stored.HeadMovedAtTicks = read.CheckedAtTicks;
+        if (PrReviewStates.IsEnded(stored.State) && read.State == PrReviewStates.Open)
+            stored.ReopenedAtTicks = read.CheckedAtTicks;
     }
 
     public static void Entry(PrReviewEntry read, PrReviewEntry stored)

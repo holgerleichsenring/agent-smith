@@ -80,7 +80,7 @@ internal sealed class PrReviewRefreshHarness : IDisposable
     {
         var requirements = new TicketRequirementRepository(store.ScopeFactory);
         var landings = new LandedTicketRepository(store.ScopeFactory);
-        return new(requirements, landings, new UnmetTicketRequirements(requirements, landings, approvals ?? new InMemorySpecApprovalStore()),
+        return new(requirements, landings, new ClosedTicketRepository(store.ScopeFactory), new UnmetTicketRequirements(requirements, landings, approvals ?? new InMemorySpecApprovalStore()),
             attempts ?? Mock.Of<IPreviousAttemptReader>(), leases ?? Mock.Of<IActiveRunLease>(), nudges, clock ?? TimeProvider.System,
             NullLogger<DependentsWake>.Instance);
     }

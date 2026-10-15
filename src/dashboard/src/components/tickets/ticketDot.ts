@@ -3,10 +3,11 @@ import type { TicketSummary } from "@/types/tickets";
 // The ticket's state dot, one function for the list row's .sd and the header's .ticon so the same
 // summary is drawn in the same colour on both. Palette: proven green, working amber, stopped red,
 // waits-for-a-person blue. 2026-10-14-dbcen: a never-run ticket is a hollow ring — blue while a ticket it
-// requires holds it, grey when nothing does.
+// requires holds it, grey when nothing does. 2026-10-15-114fd: a closed ticket is a grey dashed ring; a failed or
+// PR-closed one is stopped red.
 
 /** Every class the dot can carry; each has a rule under .sd and under .t-head .ticon. */
-export const TICKET_DOT_CLASSES = ["need", "run", "queued", "human", "ok", "bad", "idle", "blocked", "filed"] as const;
+export const TICKET_DOT_CLASSES = ["need", "run", "queued", "human", "ok", "bad", "idle", "blocked", "filed", "closed"] as const;
 export type TicketDotClass = (typeof TICKET_DOT_CLASSES)[number];
 
 /** An ended ticket is coloured by its pull requests when all closed unmerged, else by how its last
@@ -20,7 +21,11 @@ export function ticketDot(t: TicketSummary): TicketDotClass {
     case "waiting_on_review":
       return "human";
     case "stuck":
+    case "failed":
+    case "pr_closed":
       return "bad";
+    case "closed":
+      return "closed";
     case "done":
       return "ok";
     case "blocked":

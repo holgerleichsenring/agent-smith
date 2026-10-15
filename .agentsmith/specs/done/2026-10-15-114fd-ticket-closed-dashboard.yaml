@@ -1,0 +1,120 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-15-114fd
+goal: "The ticket list, rail, graph and page show Closed, Failed and PR closed, a Close dialog with the two host options, Reopen and who closed it, drawn in the mock first."
+
+applies_to: "dashboard (ticket-view.html list, rail and ticket page mock, types/tickets.ts buckets and counts, ticketSections, the work rail, ticketDot, the row activity line, the Close dialog and Reopen act on the list row and the ticket header, the closed line, the graph's states and legend, the requires words)"
+
+requires: [2026-10-15-114fa, 2026-10-15-114fb, 2026-10-15-114fc]
+
+facts:
+  - claim: "The list's sections are one record per URL bucket in display order, Ended maps to the server's idle, and the total adds every count."
+    evidence: "src/dashboard/src/components/tickets/ticketSections.ts:17-76, src/dashboard/src/types/tickets.ts:9-34"
+  - claim: "The work rail keys its icons by every URL bucket in a Record typed over TicketBucketFilter and draws one item per TICKET_BUCKETS entry, so a new bucket without an icon fails the build and a new bucket appears in the rail; the mock's rail draws five of them."
+    evidence: "src/dashboard/src/components/shell/WorkRailSection.tsx:14-24, src/dashboard/src/components/shell/WorkRailSection.tsx:49-63, src/dashboard/design/mockups/ticket-view.html:538-544"
+  - claim: "A row's activity line is chosen by bucket; a bucket without a case falls to the default, which reads 'last attempt <outcome>' and the pull requests."
+    evidence: "src/dashboard/src/components/tickets/TicketActivity.tsx:26-52"
+  - claim: "The counts type mirrors TicketCountsView with later fields optional, and the summary's later fields are optional so an older server draws nothing."
+    evidence: "src/dashboard/src/types/tickets.ts:4-6, src/dashboard/src/types/tickets.ts:136-153, src/dashboard/src/types/tickets.ts:119-121"
+  - claim: "The state dot is one function for the row and the header; an ended ticket is red when its pull requests closed unmerged, else by its last outcome; each class has a rule in mock-parity.css."
+    evidence: "src/dashboard/src/components/tickets/ticketDot.ts:3-38, src/dashboard/src/styles/mock-parity.css:297-300"
+  - claim: "A list row is a Next Link carrying the bucket as data-bucket, so a button cannot sit inside it."
+    evidence: "src/dashboard/src/components/tickets/TicketRow.tsx:22-55"
+  - claim: "Done is the one section drawn collapsed until chosen."
+    evidence: "src/dashboard/src/components/tickets/TicketSection.tsx:29-33"
+  - claim: "The closest sibling act is done-by-hand: a button hidden from a caller known to lack runs.control and on a landed ticket, a dialog that shows the server's sentence as is, an API helper that reads a sentence body for the refusal statuses; the header's act row holds it beside Continue and Cancel, hidden only on a done ticket."
+    evidence: "src/dashboard/src/components/tickets/landing/DoneByHandAct.tsx:8-34, src/dashboard/src/components/tickets/landing/DoneByHandDialog.tsx:6-58, src/dashboard/src/lib/ticketGraphApi.ts:24-33, src/dashboard/src/components/tickets/detail/TicketHeader.tsx:57-68"
+  - claim: "The list view is ticket-view.html's #view-list with one section-head per bucket; the dialog's anatomy (.dbh-back, .dbh) lives in ticket-graph.html and mock-parity.css; the parity test reads the mock and asserts its structural classes are drawn."
+    evidence: "src/dashboard/design/mockups/ticket-view.html:563, src/dashboard/design/mockups/ticket-view.html:577, src/dashboard/design/mockups/ticket-view.html:711, src/dashboard/design/mockups/ticket-view.html:727, src/dashboard/design/mockups/ticket-graph.html:396-410, src/dashboard/src/styles/mock-parity.css:592-594, src/dashboard/src/__tests__/mock-parity.test.tsx:396-412"
+  - claim: "Graph nodes and requires entries carry the list bucket as their state for any bucket the node-state map does not rename, so nodes that were idle become failed or pr_closed; the graph prints a state through STATE_WORDS else raw, and node and legend styles exist for merged, running, blocked, ready and idle only."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketNodeStates.cs:18-26, src/dashboard/src/types/tickets.ts:670-671, src/dashboard/src/components/tickets/graph/TicketGraph.tsx:19-22, src/dashboard/src/components/tickets/graph/TicketGraph.tsx:65, src/dashboard/src/styles/mock-parity.css:560-575"
+  - claim: "A waits-for entry's words are '(not merged)' for every unlanded requirement, whatever its state."
+    evidence: "src/dashboard/src/components/tickets/landing/requirementWords.ts:13-16"
+  - claim: "Sizes: ticketSections.ts 76, ticketDot.ts 39, TicketRow.tsx 76, TicketHeader.tsx 73, ticketGraphApi.ts 33 lines."
+    evidence: "observed: 2026-10-15, wc -l in this worktree"
+
+assumptions:
+  - "2026-10-15-114fa serves POST .../close (TicketCloseRequest note, closePullRequests, closeOnTracker; 200 TicketCloseAnswer with one outcome per named pull request) and POST .../reopen (404 when no mark); 2026-10-15-114fb serves the closed, failed and pr_closed buckets, counts closed / failed / prClosed, summary.closed (at, by, note, closedPullRequests, trackerClosed) whenever a mark is stored, bucket kind by-hand, waitsFor[].closed; 2026-10-15-114fc the tracker kind."
+
+scope:
+  in: >
+    MOCK FIRST: ticket-view.html's list view gains the sections PR closed, Failed and Closed with sample rows (a closed
+    by-hand row says "closed by <who> <when>: <note>" and offers Reopen; a tracker-closed row says "closed on the
+    tracker by a person" and offers none), a Close act per row placed OUTSIDE the row link, and the Close dialog
+    (optional note; two unchecked options "Also close its open pull requests (n)" and "Also close <key> on <tracker>";
+    after sending, one line per pull request and the tracker with closed, already closed or the reason class); the
+    mock's rail gains PR closed, Failed and Closed with their icons; the ticket page header gains "Close ticket" /
+    "Reopen" and the closed line; the graph legend gains failed, PR closed and closed. TYPES: TicketServerBucket gains
+    closed, failed, pr_closed; TICKET_BUCKETS and SERVER_BUCKET gain closed, failed, pr-closed; TicketCounts gains
+    optional closed, failed, prClosed; TicketSummary gains optional closed; TicketWaitsFor gains optional closed; the
+    pull-request view's personActivityAt, headMovedAt, reopenedAt stay untyped (nothing draws them). RAIL:
+    WorkRailSection's ICON gains "pr-closed" "⊘", failed "✕", closed "◌". SECTIONS: ticketSections gains pr-closed
+    ("PR closed", "every pull request was closed without a merge", red), failed ("Failed", "the last attempt failed",
+    red), closed ("Closed", "a person stopped work on it; later activity brings it back") in the order … stuck,
+    blocked, filed, pr-closed, failed, ended, done, closed; ended's sub becomes "cancelled, or finished without a pull
+    request"; totalTickets adds the three; TicketSection draws Closed collapsed until chosen, as Done. ACTIVITY:
+    TicketActivity gains a closed case — "closed by <by> <age>: <note>" for kind by-hand, "closed on the tracker by a
+    person" for kind tracker. DOT: closed -> a new class "closed" (grey, hollow), failed and pr_closed -> bad; the rule
+    lands in mock-parity.css under .sd and .t-head .ticon. ACTS: TicketCloseAct / TicketCloseDialog / ticketCloseApi
+    (lib) mirror the done-by-hand trio — Close hidden from a caller known to lack runs.control, on a done ticket, on a
+    live one (working or needs-you) and on a closed one; the dialog shows the server's sentence for 404 / 409 as is
+    and, on 200, each outcome line, then re-reads; Reopen shows only when bucket is closed and kind is by-hand, posts
+    reopen and re-reads, and shows the server's 404 sentence as is (another tab or replica reopened first). The row act
+    sits beside the Link in a wrapper, never inside it. HEADER: the closed line only when bucket is closed — "Closed by
+    <by> <age>: <note>" (by-hand) or "Closed on the tracker by a person" (tracker); summary.closed on any other bucket
+    draws nothing. WAITS-FOR, GRAPH: requirementWords.waitWords answers "(closed)" for an entry whose state is closed,
+    so the chip reads "<key> (closed)"; TicketGraph's STATE_WORDS gains pr_closed "PR closed", its LEGEND gains failed,
+    pr_closed and closed; mock-parity.css gains .tg-node and .tg-legend i rules for failed, pr_closed (both the bad
+    tone) and closed (grey, dashed).
+  out: >
+    The server side of every act and bucket — 2026-10-15-114fa / 114fb / 114fc. The closed status field in the Config
+    Studio tracker form — 2026-10-15-114fe. Reopening pull requests or the tracker ticket from Reopen — nobody (contract
+    default 9). A bulk close of several rows — nobody: the operator asked for a per-ticket act.
+
+decisions:
+  - key: "THE MOCK IS THE SPEC FOR THE SURFACE. The list's, rail's and dialog's anatomy is drawn in ticket-view.html first and the parity test asserts its classes, as dbcen did for the never-run buckets."
+  - key: "THE ROW ACT IS A SIBLING OF THE LINK. A button inside an anchor is invalid and would also open the page; the row gets a wrapper holding the Link and the act."
+  - key: "BOTH HOST OPTIONS START UNCHECKED (operator: default hide only). The pull-request option shows how many are open, read from the summary's pull requests; it is not offered when none is open."
+  - key: "THE CLOSED LINE FOLLOWS THE BUCKET, NOT THE STORED MARK. The server carries a mark that is no longer in force so the page could say when it was closed; drawing it on a ticket that came back would contradict its section, so only a closed bucket draws it, and only a by-hand close offers Reopen — a tracker close is the tracker's to undo."
+  - key: "CLOSED IS DRAWN LAST, GREY AND COLLAPSED. It is the one bucket nobody owes a move, below Done, so the sections above it read as the work that remains; collapsed like Done so many hidden tickets do not push the page long."
+  - key: "ON A CLOSED ROW, REOPEN REPLACES CLOSE. A second close of a ticket still closed adds nothing a person can see; a ticket that came back shows Close again (the server overwrites, contract default 5)."
+
+steps:
+  - id: mock
+    action: "ticket-view.html: the three sections with sample rows, the rail's three items with icons, the row's Close act outside the link, the Close dialog with both options and its outcome lines, the header's Close / Reopen and closed line, the graph legend's three states; mock-parity.css gains .sd.closed, .t-head .ticon.closed, the dialog's option rows and the .tg-node / .tg-legend i rules for failed, pr_closed and closed."
+  - id: types
+    action: "types/tickets.ts buckets, URL buckets, counts, summary.closed and waitsFor closed; WorkRailSection's three icons; ticketSections and totalTickets (76 -> at most 100); TicketSection collapses closed; ticketDot closed / failed / pr_closed; TicketActivity's closed case."
+  - id: acts
+    action: "lib/ticketCloseApi.ts (close, reopen), TicketCloseAct and TicketCloseDialog under components/tickets/closing, TicketReopenAct, the row wrapper in TicketRow, the header's act and closed line in TicketHeader, both gated on bucket and kind."
+  - id: graph
+    action: "TicketGraph STATE_WORDS pr_closed and LEGEND failed / pr_closed / closed; requirementWords.waitWords '(closed)'; TicketWaitsFor and the row's waits-for chips show it."
+  - id: tests
+    action: "Red first, then green, for every test below; pnpm test the tickets and shell components and mock-parity; pnpm build."
+
+tests:
+  - "ticketSections_ClosedFailedPrClosed_AreListedInOrderAndCounted"
+  - "WorkRailSection_ClosedFailedPrClosed_AreRailItemsWithTheirCounts"
+  - "ticketDot_ClosedFailedPrClosed_DrawClosedBadBad"
+  - "TicketActivity_ClosedByHand_SaysWhoWhenAndNote"
+  - "TicketActivity_ClosedOnTheTracker_SaysClosedOnTheTracker"
+  - "TicketList_ClosedBucket_ShowsWhoWhenAndNoteAndReopenAndIsCollapsed"
+  - "TicketCloseDialog_DefaultSend_PostsHideOnly"
+  - "TicketCloseDialog_BothOptionsChecked_PostsBothAndShowsEachOutcome"
+  - "TicketCloseDialog_409_ShowsTheServersSentence"
+  - "TicketCloseDialog_NoOpenPullRequest_DoesNotOfferThePullRequestOption"
+  - "TicketCloseAct_LackingRunsControlDoneLiveOrClosed_IsHidden"
+  - "TicketRow_CloseAct_IsNotInsideTheLink"
+  - "TicketReopen_Click_PostsReopenAndRereads"
+  - "TicketReopen_404_ShowsTheServersSentence"
+  - "TicketHeader_ClosedByHand_ShowsTheLineAndReopen"
+  - "TicketHeader_ClosedOnTheTracker_ShowsTheLineWithoutReopen"
+  - "TicketHeader_MarkStoredButBucketNotClosed_ShowsNoClosedLine"
+  - "TicketWaitsFor_ClosedRequiredTicket_SaysClosed"
+  - "TicketGraph_FailedPrClosedAndClosedNodes_ShowTheirWordsAndLegend"
+  - "MockParity_TicketClosedSurfaces_CarryTicketViewHtmlsStructuralClasses"
+
+done:
+  - "On /tickets and in the rail the operator sees PR closed, Failed, Ended (cancelled or finished without a pull request), Done and Closed as separate sections with their counts, Closed collapsed last."
+  - "From a list row or the ticket page the operator closes a ticket with an optional note and, if chosen, its open pull requests and the tracker ticket; the dialog reports what closed and what was refused, and the row moves to Closed."
+  - "A ticket closed by hand shows who closed it, when and why, and Reopen returns it to the section its state says; a ticket a person closed on the tracker says so without Reopen; a ticket that came back by later activity shows as that section with no closed line."
+  - "A ticket waiting for a closed ticket shows the required ticket as closed in its chip, on the graph and in its requires list; failed and PR-closed nodes read in words with their own style and legend entry."
+  - "Build green, full suite green, dashboard gen/test/build green."

@@ -63,6 +63,7 @@
   .nav .nc { margin-left:auto; font-size:11px; font-variant-numeric:tabular-nums; color:var(--ink-3); background:var(--panel-2); border-radius:20px; padding:1px 8px; min-width:22px; text-align:center; }
   .nav .nc.hot { background:var(--run-wash); color:var(--run); font-weight:700; }
   .nav .nc.new { background:var(--ink); color:var(--bg); font-size:9.5px; letter-spacing:.08em; font-weight:700; }
+  .nav .ni { width:20px; text-align:center; font-size:14px; margin-left:-24px; }
 
   .main { padding:24px 34px 60px; max-width:1480px; min-width:0; }
   @media (max-width:640px){ .main{ padding:18px 16px 40px; } }
@@ -165,6 +166,31 @@
   .done-row { display:flex; align-items:center; gap:10px; padding:12px 16px; border:1px dashed var(--line); border-radius:var(--r); font-size:12.5px; color:var(--ink-3); }
   .done-row b { color:var(--ink-2); }
   .done-row .btn { margin-left:auto; }
+  /* 2026-10-15-114fd: closed, failed and PR-closed tickets; the Close act beside the row link, its dialog, Reopen */
+  .sd.closed { background:var(--bg); border:2px dashed var(--ink-3); }
+  .t-head .ticon.closed { background:var(--bg); border:3px dashed var(--ink-3); animation:none; }
+  .t-head .ticon.bad { background:var(--bad); color:var(--bad); animation:none; }
+  .trow-wrap { display:flex; align-items:center; background:var(--panel); border:1px solid var(--line); border-top:0; }
+  .trow-wrap > .trow { flex:1 1 auto; min-width:0; border:0; background:transparent; border-radius:0; }
+  .rows > .trow-wrap:first-child { border-top:1px solid var(--line); border-radius:var(--r) var(--r) 0 0; }
+  .rows > .trow-wrap:last-child { border-radius:0 0 var(--r) var(--r); }
+  .rows > .trow-wrap:only-child { border-radius:var(--r); }
+  .trow-wrap:hover { background:var(--panel-2); }
+  .trow-wrap .trow-act { flex:none; padding-right:14px; display:flex; gap:8px; align-items:center; }
+  .t-head .closed-line { font-size:12.5px; color:var(--ink-2); margin-top:6px; }
+  .t-head .closed-line b { font-weight:600; }
+  .dbh-back { position:relative; background:color-mix(in srgb, var(--ink) 18%, transparent); border-radius:var(--r); padding:28px 16px; display:grid; place-items:center; margin-top:14px; }
+  .dbh { background:var(--bg); border:1px solid var(--line); border-radius:var(--r); padding:16px 18px; width:min(460px,100%); display:flex; flex-direction:column; gap:10px; box-shadow:0 8px 30px rgba(32,21,21,.12); }
+  .dbh h3 { margin:0; font-size:15px; font-weight:660; }
+  .dbh .dbh-sub { font-size:12.5px; color:var(--ink-3); }
+  .dbh textarea { font:inherit; font-size:13px; border:1px solid var(--line); border-radius:var(--r-s); padding:8px 10px; min-height:72px; resize:vertical; background:var(--panel); color:var(--ink); }
+  .dbh .dbh-said { border-left:3px solid var(--bad); background:var(--bad-wash); padding:6px 10px; font-size:12.5px; border-radius:0 var(--r-s) var(--r-s) 0; }
+  .dbh .dbh-acts { display:flex; gap:8px; justify-content:flex-end; }
+  .dbh .dbh-opt { display:flex; gap:8px; align-items:center; font-size:12.5px; color:var(--ink-2); cursor:pointer; }
+  .dbh .dbh-outs { display:flex; flex-direction:column; gap:4px; font-size:12.5px; }
+  .dbh .dbh-out { padding-left:10px; border-left:3px solid var(--line); color:var(--ink-2); }
+  .dbh .dbh-out.closed { border-left-color:var(--ok); }
+  .dbh .dbh-out.kept { border-left-color:var(--bad); }
 
   /* ===== ticket detail ===== */
   .t-head { display:flex; align-items:flex-start; gap:14px; margin-bottom:6px; flex-wrap:wrap; }
@@ -537,11 +563,15 @@
     <div class="brand"><div class="logo">a</div><div class="bn">agent-smith</div></div>
     <div class="nav-h">Work</div>
     <a class="nav on" data-show="list" href="#">Tickets<span class="nc new">NEW</span></a>
-    <a class="nav sub" data-show="list" href="#">Needs you<span class="nc hot">2</span></a>
-    <a class="nav sub" data-show="list" href="#">Working<span class="nc">3</span></a>
-    <a class="nav sub" data-show="list" href="#">Waiting on review<span class="nc">3</span></a>
-    <a class="nav sub" data-show="list" href="#">Stuck<span class="nc">1</span></a>
-    <a class="nav sub" data-show="list" href="#">Done<span class="nc">14</span></a>
+    <a class="nav sub" data-show="list" href="#"><span class="ni">?</span>Needs you<span class="nc hot">2</span></a>
+    <a class="nav sub" data-show="list" href="#"><span class="ni">▶</span>Working<span class="nc">3</span></a>
+    <a class="nav sub" data-show="list" href="#"><span class="ni">◔</span>Waiting on review<span class="nc">3</span></a>
+    <a class="nav sub" data-show="list" href="#"><span class="ni">!</span>Stuck<span class="nc">1</span></a>
+    <a class="nav sub" data-show="list" href="#"><span class="ni">⊘</span>PR closed<span class="nc">1</span></a>
+    <a class="nav sub" data-show="list" href="#"><span class="ni">✕</span>Failed<span class="nc">1</span></a>
+    <a class="nav sub" data-show="list" href="#"><span class="ni">■</span>Ended<span class="nc">1</span></a>
+    <a class="nav sub" data-show="list" href="#"><span class="ni">✓</span>Done<span class="nc">14</span></a>
+    <a class="nav sub" data-show="list" href="#"><span class="ni">◌</span>Closed<span class="nc">2</span></a>
     <div class="nav-h">Monitor</div>
     <a class="nav" href="#">All runs<span class="nc">22</span></a>
     <a class="nav sub" href="#">Waiting for input<span class="nc">2</span></a>
@@ -724,14 +754,143 @@
       </div>
     </div>
 
-    <div class="section-head"><h2>Done</h2><span class="cnt green">14</span><span class="sh-sub">merged or closed this month</span></div>
+    <!-- 2026-10-15-114fd: every row a person could still close carries Close BESIDE its link (.trow-wrap > a.trow + .trow-act), never inside it. -->
+    <div class="section-head"><h2>PR closed</h2><span class="cnt red">1</span><span class="sh-sub">every pull request was closed without a merge</span></div>
+    <div class="rows">
+      <div class="trow-wrap">
+        <a class="trow" href="#"><span class="sd bad"></span>
+          <div class="rmain"><div class="rt"><span class="tick">GH-296</span><span class="ttl">Drop the legacy CSV importer</span></div><div class="act">last attempt <b>succeeded</b> · PR #71 closed · 3d ago</div></div>
+          <div class="strip hidesm"><i class="d done"></i><i class="done"></i><i class="p pr"></i></div>
+          <div class="attempts hidesm"><i class="ok"></i><span class="al">1</span></div>
+          <div class="cost hidesm">$3.20<small>1 attempt</small></div>
+          <div class="when hidesm">3d</div><span class="chev">›</span></a>
+        <div class="trow-act"><button class="btn sm" type="button">Close</button></div>
+      </div>
+    </div>
+
+    <div class="section-head"><h2>Failed</h2><span class="cnt red">1</span><span class="sh-sub">the last attempt failed</span></div>
+    <div class="rows">
+      <div class="trow-wrap">
+        <a class="trow" href="#"><span class="sd bad"></span>
+          <div class="rmain"><div class="rt"><span class="tick">AZDO-4430</span><span class="ttl">Rename the tenant column in the billing views</span></div><div class="act">last attempt <b>failed</b> · 2 attempts failed</div></div>
+          <div class="strip hidesm"><i class="d done"></i><i class="bad"></i><i class="p"></i></div>
+          <div class="attempts hidesm"><i class="bad"></i><i class="bad"></i><span class="al">2</span></div>
+          <div class="cost hidesm">$6.05<small>2 attempts</small></div>
+          <div class="when hidesm">2d</div><span class="chev">›</span></a>
+        <div class="trow-act"><button class="btn sm" type="button">Close</button></div>
+      </div>
+    </div>
+
+    <div class="section-head"><h2>Ended</h2><span class="cnt">1</span><span class="sh-sub">cancelled, or finished without a pull request</span></div>
+    <div class="rows">
+      <div class="trow-wrap">
+        <a class="trow" href="#"><span class="sd bad"></span>
+          <div class="rmain"><div class="rt"><span class="tick">JIRA-2150</span><span class="ttl">Spike: evaluate the new PDF engine</span></div><div class="act">last attempt <b>cancelled</b></div></div>
+          <div class="strip hidesm"><i class="d done"></i><i class="p"></i></div>
+          <div class="attempts hidesm"><i class="stop"></i><span class="al">1</span></div>
+          <div class="cost hidesm">$0.80<small>1 attempt</small></div>
+          <div class="when hidesm">5d</div><span class="chev">›</span></a>
+        <div class="trow-act"><button class="btn sm" type="button">Close</button></div>
+      </div>
+    </div>
+
+    <div class="section-head"><h2>Done</h2><span class="cnt green">14</span><span class="sh-sub">a pull request merged, every one ended</span></div>
     <div class="done-row"><span>Collapsed by default. <b>14 tickets</b>, last merged 2h ago (GH-301).</span><button class="btn sm" type="button">Show done</button></div>
+
+    <!-- Closed: last, grey, collapsed until chosen like Done. Below the collapsed line, the section as "Show closed" opens it. -->
+    <div class="section-head"><h2>Closed</h2><span class="cnt">2</span><span class="sh-sub">a person stopped work on it; later activity brings it back</span></div>
+    <div class="done-row"><span><b>2 closed tickets</b> — nobody owes them a move.</span><button class="btn sm" type="button">Show closed</button></div>
+    <div class="rows" style="margin-top:10px">
+      <div class="trow-wrap">
+        <a class="trow" href="#"><span class="sd closed"></span>
+          <div class="rmain"><div class="rt"><span class="tick">GH-288</span><span class="ttl">Port the report scheduler to Quartz</span></div><div class="act">closed by <b>Hanna Operator</b> 2h ago: superseded by GH-301</div></div>
+          <div class="strip hidesm"><i class="d done"></i><i class="bad"></i><i class="p"></i></div>
+          <div class="attempts hidesm"><i class="bad"></i><span class="al">1</span></div>
+          <div class="cost hidesm">$2.40<small>1 attempt</small></div>
+          <div class="when hidesm">2h</div><span class="chev">›</span></a>
+        <div class="trow-act"><button class="btn sm" type="button">Reopen</button></div>
+      </div>
+      <div class="trow-wrap">
+        <a class="trow" href="#"><span class="sd closed"></span>
+          <div class="rmain"><div class="rt"><span class="tick">JIRA-2101</span><span class="ttl">Export audit log as Parquet</span></div><div class="act">closed on the tracker by a person</div></div>
+          <div class="strip hidesm"><i class="d done"></i><i class="bad"></i><i class="p"></i></div>
+          <div class="attempts hidesm"><i class="bad"></i><span class="al">1</span></div>
+          <div class="cost hidesm">$1.10<small>1 attempt</small></div>
+          <div class="when hidesm">1d</div><span class="chev">›</span></a>
+      </div>
+    </div>
+
+    <!-- The Close dialog (TicketCloseDialog), opened from a row's Close or the ticket page's Close ticket. Both options start unchecked;
+         the pull-request option is offered only while one is open. After sending: one line per pull request and the tracker. -->
+    <div class="dbh-back">
+      <div class="dbh" role="dialog" aria-modal="true" aria-labelledby="close-t">
+        <h3 id="close-t">Close GH-296</h3>
+        <div class="dbh-sub">It moves to Closed. A later attempt, a person's entry on its pull request, or a merge brings it back.</div>
+        <textarea placeholder="Why are you closing it? (optional)" aria-label="Note"></textarea>
+        <label class="dbh-opt"><input type="checkbox"> Also close its open pull requests (2)</label>
+        <label class="dbh-opt"><input type="checkbox"> Also close GH-296 on GitHub</label>
+        <div class="dbh-acts"><button class="btn" type="button">Cancel</button><button class="btn primary" type="button">Close ticket</button></div>
+      </div>
+    </div>
+    <div class="dbh-back">
+      <div class="dbh" role="dialog" aria-modal="true" aria-labelledby="close-t2">
+        <h3 id="close-t2">Close GH-296</h3>
+        <div class="dbh-sub">Closed. What happened on the hosts:</div>
+        <div class="dbh-outs">
+          <div class="dbh-out closed">PR #71 — closed</div>
+          <div class="dbh-out closed">PR #72 — already closed</div>
+          <div class="dbh-out kept">PR #73 — not closed: refused</div>
+          <div class="dbh-out closed">GitHub ticket — closed</div>
+        </div>
+        <div class="dbh-acts"><button class="btn primary" type="button">Done</button></div>
+      </div>
+    </div>
+    <div class="dbh-back">
+      <div class="dbh" role="dialog" aria-modal="true" aria-labelledby="close-t3">
+        <h3 id="close-t3">Close GH-301</h3>
+        <div class="dbh-sub">It moves to Closed. A later attempt, a person's entry on its pull request, or a merge brings it back.</div>
+        <textarea placeholder="Why are you closing it? (optional)" aria-label="Note"></textarea>
+        <label class="dbh-opt"><input type="checkbox"> Also close GH-301 on GitHub</label>
+        <div class="dbh-said">GH-301 already counts as landed (merged on 2026-10-13 10:00:00Z); a landed ticket is done, not closed.</div>
+        <div class="dbh-acts"><button class="btn" type="button">Cancel</button><button class="btn primary" type="button">Close ticket</button></div>
+      </div>
+    </div>
+
+    <!-- The ticket page's header for a failed ticket (Close ticket) and a ticket closed by hand (the closed line, Reopen). A ticket closed on
+         the tracker reads "Closed on the tracker by a person" and offers no Reopen; a ticket that came back draws no closed line. -->
+    <div class="t-head" style="margin-top:22px">
+      <span class="ticon bad" aria-hidden="true"></span>
+      <div class="tt">
+        <h1><span class="key">AZDO-4430</span>Rename the tenant column in the billing views</h1>
+        <div class="tsub"><a href="#">Azure DevOps ↗</a><span>·</span><span>attempt 2 failed</span></div>
+      </div>
+      <div class="t-act"><button class="btn primary" type="button">Continue in conversation</button><button class="btn" type="button">Mark done by hand</button><button class="btn" type="button">Close ticket</button></div>
+    </div>
+    <div class="t-head" style="margin-top:14px">
+      <span class="ticon closed" aria-hidden="true"></span>
+      <div class="tt">
+        <h1><span class="key">GH-288</span>Port the report scheduler to Quartz</h1>
+        <div class="tsub"><a href="#">GitHub ↗</a><span>·</span><span>attempt 1 failed</span></div>
+        <div class="closed-line">Closed by <b>Hanna Operator</b> 2h ago: superseded by GH-301</div>
+      </div>
+      <div class="t-act"><button class="btn primary" type="button">Continue in conversation</button><button class="btn" type="button">Mark done by hand</button><button class="btn" type="button">Reopen</button></div>
+    </div>
+    <div class="t-head" style="margin-top:14px">
+      <span class="ticon closed" aria-hidden="true"></span>
+      <div class="tt">
+        <h1><span class="key">JIRA-2101</span>Export audit log as Parquet</h1>
+        <div class="tsub"><a href="#">Jira ↗</a><span>·</span><span>attempt 1 failed</span></div>
+        <div class="closed-line">Closed on the tracker by a person</div>
+      </div>
+      <div class="t-act"><button class="btn primary" type="button">Continue in conversation</button><button class="btn" type="button">Mark done by hand</button></div>
+    </div>
 
     <div class="mockfoot">
       <h4>Mock only · what the list reads</h4>
       <ol>
         <li><b>Ticket = (project, ticket id).</b> A ticket belongs to exactly one project. Attempts are the <code>code</code>-pipeline runs of that pair, ordered by run id; scans and pr-review runs are not attempts. Extends <code>FiledWorkRunsReader</code>.</li>
         <li><b>Buckets, one owner each.</b> Needs you = a run waiting for an answer (same gate as <code>RunQueuePlace</code>) or a hand-back. Working = running or queued. Waiting on review = a PR open, approved or changes-requested without a started attempt (PR-keyed review record). Stuck = last attempt failed, same ticket fingerprint, and no person commented, moved or reviewed since. Done = merged or closed.</li>
+        <li><b>Closed, Failed, PR closed</b> (2026-10-15-114fd): <code>bucket</code> closed / failed / pr_closed with <code>kind</code> by-hand or tracker on a closed row; the closed line reads <code>summary.closed</code> (at, by, note) and is drawn only while the bucket is closed. Close posts <code>POST /api/tickets/{project}/{ticketId}/close</code> {note, closePullRequests, closeOnTracker}; Reopen posts <code>.../reopen</code>. A 404 or 409 is the server's sentence, shown as is.</li>
         <li><b>The strip</b> is the ticket's current series: derive, one cell per spec (executed earlier = dashed), PR. Not the five run beats.</li>
         <li><b>One inbox for tickets.</b> The answer box is <code>PendingQuestionCard</code>. Runs without a ticket (chat, CLI, scans) stay answerable in the run viewer only; the runs list keeps “Waiting for input” as a machine filter that links to the ticket when there is one.</li>
       </ol>

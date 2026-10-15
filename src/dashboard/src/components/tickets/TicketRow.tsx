@@ -2,10 +2,13 @@
 
 import Link from "next/link";
 import { ticketPath } from "@/lib/tickets/ticketAddress";
+import { useTicketList } from "@/lib/tickets/TicketListProvider";
 import type { TicketSummary } from "@/types/tickets";
 import { TicketActivity } from "./TicketActivity";
 import { TicketAttemptMarks } from "./TicketAttemptMarks";
 import { TicketStrip } from "./TicketStrip";
+import { TicketCloseAct } from "./closing/TicketCloseAct";
+import { TicketReopenAct } from "./closing/TicketReopenAct";
 import { ticketDot } from "./ticketDot";
 import { age, attempts, isNeverRun, money, ticketLabel } from "./ticketFormat";
 
@@ -13,13 +16,27 @@ import { age, attempts, isNeverRun, money, ticketLabel } from "./ticketFormat";
 // title over the activity line, series strip with its PR cells, attempt marks, summed cost, age,
 // chevron. The whole row opens the ticket's page (2026-10-13-9a59q); Enter does the same, being a link.
 // 2026-10-14-dbcen: a ticket with no run on record has no strip, marks or cost — what it waits for, by
-// tracker key, or "no run on record" stands in their place.
+// tracker key, or "no run on record" stands in their place. 2026-10-15-114fd: Close or Reopen sits BESIDE the link in
+// .trow-wrap — a button inside an anchor is invalid and would open the page.
 
 export function ticketHref(t: TicketSummary): string {
   return ticketPath(t.project, t.ticketId);
 }
 
 export function TicketRow({ ticket }: { ticket: TicketSummary }) {
+  const { reread } = useTicketList();
+  return (
+    <div className="trow-wrap">
+      <RowLink ticket={ticket} />
+      <div className="trow-act">
+        <TicketCloseAct ticket={ticket} onClosed={reread} small />
+        <TicketReopenAct ticket={ticket} onReopened={reread} small />
+      </div>
+    </div>
+  );
+}
+
+function RowLink({ ticket }: { ticket: TicketSummary }) {
   const when = age(ticket.since);
   return (
     <Link
@@ -65,6 +82,7 @@ function NoRun({ ticket }: { ticket: TicketSummary }) {
             <span key={w.ticketId}>
               {i > 0 && ", "}
               <b>{w.key}</b>
+              {w.closed && " (closed)"}
             </span>
           ))}
         </>

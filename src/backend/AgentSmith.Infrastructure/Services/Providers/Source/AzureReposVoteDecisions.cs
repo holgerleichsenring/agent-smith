@@ -29,7 +29,8 @@ public static class AzureReposVoteDecisions
             PullRequestStatus.Abandoned => (PrReviewStates.Closed, Utc(pr.ClosedDate)),
             _ => (PrReviewStates.Open, created),
         };
-        return new PrReviewState(pr.PullRequestId.ToString(CultureInfo.InvariantCulture), state, at, decisions);
+        return new PrReviewState(pr.PullRequestId.ToString(CultureInfo.InvariantCulture), state, at, decisions,
+            pr.LastMergeSourceCommit?.CommitId);
     }
 
     private static PrReviewDecision Decision(

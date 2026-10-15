@@ -120,6 +120,20 @@ public sealed class RequirementsMetStartTests : IDisposable
         Untouched();
     }
 
+    // 2026-10-15-114fa: a person closed the ticket here; its requirements landing does not start it.
+    [Fact]
+    public async Task RequirementsMetStart_ClosedTicket_IsNotStarted()
+    {
+        await HeldAsync(GitHub, "42", "41");
+        Land(GitHub, "41");
+        await _facts.SetAsync(new TicketClosedMark(GitHub.Tracker.Name, Key(GitHub, "42"), "42", "alpha", DateTimeOffset.UnixEpoch,
+            "Ada", "superseded", [], false), default);
+
+        (await StartAsync(GitHub, "42")).Should().Be(ReworkNudgeDisposition.Finish);
+
+        Untouched();
+    }
+
     [Fact]
     public async Task RequirementsMetStart_DependentClosedOnJira_IsNotMovedOrClaimed()
     {
@@ -216,7 +230,7 @@ public sealed class RequirementsMetStartTests : IDisposable
             PipelineTriggers = PipelineTriggerMap.Empty,
         };
         _scopes = new ServiceCollection().AddScoped(_ => FiledWorkDoubles.Move(config)).BuildServiceProvider();
-        return new RequirementsMetStart(_facts, _facts, TicketRequirementDoubles.Of(_facts, _approvals), _tracker,
+        return new RequirementsMetStart(_facts, _facts, _facts, TicketRequirementDoubles.Of(_facts, _approvals), _tracker,
             _scopes.GetRequiredService<IServiceScopeFactory>(), Fallback(config), NullLogger<RequirementsMetStart>.Instance);
     }
 

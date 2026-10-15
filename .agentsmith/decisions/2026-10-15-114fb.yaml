@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-15-114fb
+
+decisions:
+  - category: Architecture
+    chose: "The closed arm sits after working and before waiting on review, and yields to Done exactly where the Done arm answers (doneAt = merged records' newest end, else the stored landing; newest attempt started no later)"
+    over: "Closed above live work, or a mark that outranks Done"
+    reason: |
+      A running or parked attempt is the newest truth and started after the mark, so it shows as it is. A
+      hide-only close leaves the pull request open; ranking closed above waiting on review is what hides it. A
+      merge with no later attempt is a delivery and lists as Done; the close act refuses exactly those cases.
+  - category: Architecture
+    chose: "A person's pull-request activity is the newest entry not ours, not a bot's and not a host system note unless it carries a decision, read as a second grouped query beside the newest-entry one; it undoes the mark only when later than ClosedAt + PreviousAttempt.SkewMargin"
+    over: "Reusing LastEntryAt, or the record's check time"
+    reason: |
+      Contract defaults 10 and 11, pending operator ratification. Our own notes, bots and the host's system note
+      for the close itself would bring every closed ticket straight back. A record's check time also advances on a
+      failed read, so it can never show a reopen; that is 2026-10-15-114fc's stored time.
+  - category: Architecture
+    chose: "The arms after done live in one helper: stuck, then pr_closed (landing unmerged), then failed (newest failed), then idle"
+    over: "Failed above PR closed"
+    reason: |
+      A closed pull request is the decision that remains, as the dot already paints it. Cancelled attempts and a
+      success without a pull request stay idle until the operator answers contract question Q2.
+  - category: Architecture
+    chose: "TicketStandings reads landings and marks through one (tracker, key) projection of the configuration loaded once and one generic per-tracker read; the TicketStanding record moved to its own file"
+    over: "A second copy of the landings loop, keeping the record in TicketStandings.cs"
+    reason: |
+      Both reads key by the head's tracker connection and ticket key. With the record inside, the file reached 111
+      lines against the spec's budget of 104; one type per file is the principle, so the record moved out and
+      TicketStandings.cs is 83 lines, leaving 2026-10-15-114fc its room.
+  - category: Architecture
+    chose: "The waits-for flag is set by a static ClosedRequirements over TicketNodeStates.Summaries, keyed by (the entry's project's tracker connection, TicketKey.For(that tracker type, id))"
+    over: "Matching the entry by (project, ticket id)"
+    reason: |
+      The entry carries the dependent's project, so a (project, id) match misses a required ticket of another
+      project on the same connection; the requirement edge stores the dependent's connection and the required key.
+  - category: Architecture
+    chose: "The list offers a failed page row to the between-attempts check only when its kind is not by-hand closed"
+    over: "Offering every failed row, or skipping every closed row"
+    reason: |
+      Contract default 22, pending operator ratification. A hidden ticket would keep costing a tracker read every
+      five minutes while the page is open; a tracker-closed row (2026-10-15-114fc) stays offered, since the check
+      is how its reopen on the tracker is seen.
+  - category: Architecture
+    chose: "A never-run filing with a mark and no landing answers Closed (kind by-hand, since the close); the summary carries the mark's view whenever one is stored, in force or not"
+    over: "Showing the mark only while it is in force"
+    reason: |
+      The mark is a timestamped fact, not an end state: the page still says when it was closed after activity
+      brought the ticket back, and only Reopen or a new Close changes it.

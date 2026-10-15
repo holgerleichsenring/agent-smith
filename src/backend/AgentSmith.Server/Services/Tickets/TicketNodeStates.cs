@@ -47,4 +47,16 @@ internal static class TicketNodeStates
                 landed[(landing.Tracker, landing.TicketKey)] = landing;
         return landed;
     }
+
+    /// <summary>2026-10-15-114fb: the close marks of the named keys, grouped per tracker connection.</summary>
+    public static async Task<Dictionary<(string Tracker, string Key), TicketClosedMark>> ClosedAsync(
+        AgentSmith.Contracts.Services.ITicketClosedMarkStore marks,
+        IEnumerable<(string Tracker, string Key)> keys, CancellationToken ct)
+    {
+        var closed = new Dictionary<(string, string), TicketClosedMark>();
+        foreach (var tracker in keys.Distinct().GroupBy(k => k.Tracker))
+            foreach (var mark in await marks.OfAsync(tracker.Key, [.. tracker.Select(k => k.Key)], ct))
+                closed[(mark.Tracker, mark.TicketKey)] = mark;
+        return closed;
+    }
 }

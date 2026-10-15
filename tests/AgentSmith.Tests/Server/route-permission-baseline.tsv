@@ -118,8 +118,10 @@ POST	/api/spec-dialog/images	dialog.write
 POST	/api/spec-dialog/messages	dialog.write
 POST	/api/spec-dialog/references	dialog.write
 POST	/api/teams/messages	anonymous
+POST	/api/tickets/{project}/{ticketId}/close	runs.control
 POST	/api/tickets/{project}/{ticketId}/defaults/verdicts	runs.control
 POST	/api/tickets/{project}/{ticketId}/landed-by-hand	runs.control
+POST	/api/tickets/{project}/{ticketId}/reopen	runs.control
 POST	/slack/commands	anonymous
 POST	/slack/events	anonymous
 POST	/slack/interact	anonymous

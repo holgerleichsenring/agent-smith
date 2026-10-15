@@ -14,7 +14,8 @@ import { age } from "./ticketFormat";
 // 2026-10-13-9a59p: one bucket of the ticket list — the mock's slim .section-head with its count
 // from the server's counts, and the rows beneath. A section that holds more tickets than were
 // loaded ends with "Show all {n}" into its bucket view. Done is collapsed to this month's line
-// until "Show done" is pressed, except in its own bucket view, which was asked for.
+// until "Show done" is pressed, except in its own bucket view, which was asked for. 2026-10-15-114fd:
+// Closed collapses the same way, to its count and "Show closed".
 
 interface Props {
   bucket: TicketBucket;
@@ -29,8 +30,8 @@ interface Props {
 export function TicketSection({ bucket, counts, rows, first, chosen, footer }: Props) {
   const spec = TICKET_SECTIONS[bucket];
   const count = spec.count(counts);
-  const [doneOpen, setDoneOpen] = useState(chosen);
-  const collapsed = bucket === "done" && !doneOpen && !chosen;
+  const [open, setOpen] = useState(chosen);
+  const collapsed = (bucket === "done" || bucket === "closed") && !open && !chosen;
   return (
     <section data-testid={`ticket-section-${bucket}`}>
       <div className={cn("section-head", first && "first")}>
@@ -41,7 +42,7 @@ export function TicketSection({ bucket, counts, rows, first, chosen, footer }: P
         <span className="sh-sub">{spec.sub}</span>
       </div>
       {collapsed ? (
-        <DoneLine counts={counts} onShow={() => setDoneOpen(true)} />
+        bucket === "done" ? <DoneLine counts={counts} onShow={() => setOpen(true)} /> : <ClosedLine count={count} onShow={() => setOpen(true)} />
       ) : rows.length === 0 ? (
         <div className="msub">{spec.empty}</div>
       ) : (
@@ -94,6 +95,19 @@ function DoneLine({ counts, onShow }: { counts: TicketCounts; onShow: () => void
       </span>
       <button type="button" className="btn sm" onClick={onShow} data-testid="ticket-done-show">
         Show done
+      </button>
+    </div>
+  );
+}
+
+function ClosedLine({ count, onShow }: { count: number; onShow: () => void }) {
+  return (
+    <div className="done-row" data-testid="ticket-closed-line">
+      <span>
+        <b>{count === 1 ? "1 closed ticket" : `${count} closed tickets`}</b> — nobody owes them a move.
+      </span>
+      <button type="button" className="btn sm" onClick={onShow} data-testid="ticket-closed-show">
+        Show closed
       </button>
     </div>
   );

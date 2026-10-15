@@ -36,4 +36,13 @@ public sealed class PrReviewRecord : EntityBase
 
     public long? StateAtTicks { get; set; }
     public long CheckedAtTicks { get; set; }
+
+    /// <summary>2026-10-15-114fc: the head commit the newest successful read saw; null before a host reported one.</summary>
+    public string? HeadSha { get; set; }
+
+    /// <summary>The check time of the read that saw the stored head change; null until one did.</summary>
+    public long? HeadMovedAtTicks { get; set; }
+
+    /// <summary>The check time of the successful read that saw a merged or closed record open again.</summary>
+    public long? ReopenedAtTicks { get; set; }
 }

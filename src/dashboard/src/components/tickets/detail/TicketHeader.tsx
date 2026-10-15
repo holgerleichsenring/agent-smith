@@ -5,9 +5,11 @@ import { useLiveAttempt, useTicketRequires } from "@/lib/tickets/TicketPageStore
 import { EventType } from "@/types/hub-events";
 import type { TicketDetail } from "@/types/tickets";
 import { ticketDot } from "../ticketDot";
-import { filedWords } from "../TicketActivity";
-import { isNeverRun, pullRequestFate, ticketLabel } from "../ticketFormat";
+import { closedWords, filedWords } from "../TicketActivity";
+import { isNeverRun, platformWords, pullRequestFate, ticketLabel } from "../ticketFormat";
 import { DoneByHandAct } from "../landing/DoneByHandAct";
+import { TicketCloseAct } from "../closing/TicketCloseAct";
+import { TicketReopenAct } from "../closing/TicketReopenAct";
 import { statusWords } from "./flowWords";
 import { CAUSE_PARAM, useTicketTabGo } from "./useTicketTabGo";
 
@@ -16,8 +18,8 @@ import { CAUSE_PARAM, useTicketTabGo } from "./useTicketTabGo";
 // pull requests ended and the branch, each only when present. The dot is the list row's dot. Cancel ends the live attempt; its cancelling state comes from a
 // RunCancelRequested in that attempt's stream. 2026-10-14-dbcen: a ticket with no run says when it was filed and
 // offers no conversation tab to continue in; every ticket not yet landed can be marked done by hand.
-
-const PLATFORM_WORDS: Record<string, string> = { github: "GitHub", gitlab: "GitLab", jira: "Jira", azuredevops: "Azure DevOps" };
+// 2026-10-15-114fd: Close ticket, or Reopen on a ticket closed here; the closed line follows the BUCKET, so a ticket
+// that came back draws none though its mark is still stored.
 
 export function TicketHeader({ detail }: { detail: TicketDetail }) {
   const { summary, attempts, branch } = detail;
@@ -29,7 +31,7 @@ export function TicketHeader({ detail }: { detail: TicketDetail }) {
   const cancelling = live.events.some((e) => e.type === EventType.RunCancelRequested);
   const parts: React.ReactNode[] = [];
   if (summary.webUrl) {
-    const platform = summary.platform ? PLATFORM_WORDS[summary.platform.toLowerCase()] ?? summary.platform : "tracker";
+    const platform = summary.platform ? platformWords(summary.platform) : "tracker";
     parts.push(<a key="tracker" href={summary.webUrl} target="_blank" rel="noreferrer">{platform} ↗</a>);
   }
   if (summary.trackerState && newest) {
@@ -53,12 +55,15 @@ export function TicketHeader({ detail }: { detail: TicketDetail }) {
         <div className="tsub">
           {parts.flatMap((part, i) => (i === 0 ? [part] : [<span key={`dot-${i}`}>·</span>, part]))}
         </div>
+        {summary.bucket === "closed" && <div className="closed-line" data-testid="ticket-closed-line">{capitalized(closedWords(summary))}</div>}
       </div>
       <div className="t-act">
         {!neverRun && <button type="button" className="btn primary" data-testid="ticket-continue"
           onClick={() => address.go("conversation", { [CAUSE_PARAM]: null })}>Continue in conversation</button>}
         <DoneByHandAct project={summary.project} ticketId={summary.ticketId} label={ticketLabel(summary)}
           landed={summary.bucket === "done"} onLanded={requires.landed} />
+        <TicketCloseAct ticket={summary} onClosed={requires.landed} />
+        <TicketReopenAct ticket={summary} onReopened={requires.landed} />
         {live.attempt && (
           <CancelRunButton
             runId={live.attempt.runId}
@@ -71,3 +76,6 @@ export function TicketHeader({ detail }: { detail: TicketDetail }) {
   );
 }
 
+function capitalized(words: string): string {
+  return words.charAt(0).toUpperCase() + words.slice(1);
+}

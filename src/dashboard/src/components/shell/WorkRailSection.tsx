@@ -7,7 +7,7 @@ import { TICKET_SECTIONS, totalTickets } from "@/components/tickets/ticketSectio
 import { TICKET_BUCKETS } from "@/types/tickets";
 import { AppRailItem } from "./AppRailItem";
 
-// 2026-10-13-9a59p: the rail's WORK section — the ticket list and its six buckets, each with the
+// 2026-10-13-9a59p: the rail's WORK section — the ticket list and its buckets, each with the
 // count the server computed over every ticket, read from the same shared response the list
 // renders, so the rail and the sections cannot disagree. A bucket is marked only on /tickets.
 
@@ -19,8 +19,11 @@ const ICON: Record<TicketBucketFilter, string> = {
   stuck: "!",
   blocked: "⧗",
   filed: "○",
+  "pr-closed": "⊘",
+  failed: "✕",
   ended: "■",
   done: "✓",
+  closed: "◌",
 };
 
 export function WorkRailSection() {

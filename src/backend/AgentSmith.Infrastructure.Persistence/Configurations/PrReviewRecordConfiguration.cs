@@ -24,6 +24,7 @@ public sealed class PrReviewRecordConfiguration : IEntityTypeConfiguration<PrRev
         builder.Property(r => r.TicketId).HasMaxLength(PersistenceLimits.IndexedString);
         builder.Property(r => r.RunId).HasMaxLength(PersistenceLimits.IndexedString);
         builder.Property(r => r.State).HasMaxLength(32);
+        builder.Property(r => r.HeadSha).HasMaxLength(64);
         builder.HasIndex(r => r.PrKey).IsUnique();
         builder.HasIndex(r => new { r.Project, r.TicketId });
         builder.HasIndex(r => r.RunId);
