@@ -85,13 +85,13 @@ public sealed class TicketStuckTests : IDisposable
     public async Task TicketStuck_NoCheckOrTrackerDown_IsUnknownNotStuck()
     {
         await FailedAsync();
-        (await RowAsync()).Should().Match<TicketSummaryView>(r => r.Bucket == TicketBucket.Idle && r.UnchangedSinceLastAttempt == null);
+        (await RowAsync()).Should().Match<TicketSummaryView>(r => r.Bucket == TicketBucket.Failed && r.UnchangedSinceLastAttempt == null);
 
         _h.Tracker.Setup(t => t.GetTicketAsync(It.IsAny<TicketId>(), It.IsAny<CancellationToken>())).ThrowsAsync(new HttpRequestException("down"));
         await _h.Detail.ReadAsync("alpha", "42", default);
 
         (await ChecksAsync()).Should().Be(0, "a failed read writes nothing");
-        (await RowAsync()).Bucket.Should().Be(TicketBucket.Idle);
+        (await RowAsync()).Bucket.Should().Be(TicketBucket.Failed);
     }
 
     [Fact]
@@ -103,7 +103,7 @@ public sealed class TicketStuckTests : IDisposable
         var row = await RowAsync();
         var detail = await _h.Detail.ReadAsync("alpha", "42", default);
 
-        (row.Bucket, row.UnchangedSinceLastAttempt).Should().Be((TicketBucket.Idle, (bool?)false));
+        (row.Bucket, row.UnchangedSinceLastAttempt).Should().Be((TicketBucket.Failed, (bool?)false));
         detail!.ActedSince.Should().ContainSingle().Which.Should().Be(new TicketActedSinceView("pr-review", "bob", T.AddMinutes(40), PrUrl("7")));
     }
 
@@ -251,7 +251,7 @@ public sealed class TicketStuckTests : IDisposable
         await _h.Detail.ReadAsync("alpha", "42", default);
 
         var row = await RowAsync();
-        (row.Bucket, row.UnchangedSinceLastAttempt).Should().Be((TicketBucket.Idle, (bool?)false));
+        (row.Bucket, row.UnchangedSinceLastAttempt).Should().Be((TicketBucket.Failed, (bool?)false));
         (await _h.Detail.ReadAsync("alpha", "42", default))!.ActedSince.Should().ContainSingle()
             .Which.Should().Be(new TicketActedSinceView(TicketTrackerAct.Comment, "carol", T.AddMinutes(50)));
     }

@@ -122,6 +122,18 @@ describe("TrackerForm (2026-10-06-cea8)", () => {
     expect(screen.getByTestId("tracker-tab-routing")).toBeTruthy();
   });
 
+  it("TrackerForm_ClosedStatus_RendersOnTheOutcomesTab", () => {
+    const caps = {
+      ...CAPS,
+      trackerTypes: [{ type: "jira", fields: [...JIRA, f("closedStatus", "transition", { label: "Closed status (a close from agent-smith)" })] }],
+    } as ConfigCapabilities;
+    renderForm({ ...JIRA_TRACKER, closedStatus: "Won't Do" }, [], caps);
+    fireEvent.click(screen.getByTestId("tracker-tab-outcomes"));
+    const field = screen.getByTestId("tracker-panel-outcomes").querySelector('[data-testid="form-field-closedStatus"]');
+    expect(field).not.toBeNull();
+    expect(field!.querySelector("input")?.value ?? (field as HTMLInputElement).value).toBe("Won't Do");
+  });
+
   it("TrackerForm_MissingEmail_MarksConnectionTab", () => {
     renderForm(JIRA_TRACKER, [EMAIL_FINDING]);
     expect(screen.getByTestId("tracker-tab-connection").getAttribute("data-marked")).toBe("true");

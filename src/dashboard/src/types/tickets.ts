@@ -16,13 +16,21 @@ export type TicketServerBucket =
   /** 2026-10-14-dbcen: filed, no run on record, a ticket it requires has not landed */
   | "blocked"
   /** 2026-10-14-dbcen: filed, no run on record, nothing it requires is open */
-  | "filed";
+  | "filed"
+  /** 2026-10-15-114fd: a person closed it here (kind by-hand) or on its tracker (kind tracker) */
+  | "closed"
+  /** 2026-10-15-114fd: the last attempt failed */
+  | "failed"
+  /** 2026-10-15-114fd: every pull request was closed without a merge */
+  | "pr_closed";
 
 /** The buckets as the URL spells them (?bucket=), in the order the list shows them. */
-export const TICKET_BUCKETS = ["needs-you", "working", "waiting-on-review", "stuck", "blocked", "filed", "ended", "done"] as const;
+export const TICKET_BUCKETS = [
+  "needs-you", "working", "waiting-on-review", "stuck", "blocked", "filed", "pr-closed", "failed", "ended", "done", "closed",
+] as const;
 export type TicketBucket = (typeof TICKET_BUCKETS)[number];
 
-/** URL bucket -> the server's word. "ended" is the server's idle: no bucket owns the ticket. */
+/** URL bucket -> the server's word. "ended" is the server's idle: cancelled, or finished without a pull request. */
 export const SERVER_BUCKET: Readonly<Record<TicketBucket, TicketServerBucket>> = {
   "needs-you": "needs_you",
   working: "working",
@@ -30,8 +38,11 @@ export const SERVER_BUCKET: Readonly<Record<TicketBucket, TicketServerBucket>> =
   stuck: "stuck",
   blocked: "blocked",
   filed: "filed",
+  "pr-closed": "pr_closed",
+  failed: "failed",
   ended: "idle",
   done: "done",
+  closed: "closed",
 };
 
 /** One attempt as the row marks it, oldest first. */
@@ -94,7 +105,7 @@ export interface TicketSummary {
   platform: string | null;
   title: string | null;
   bucket: TicketServerBucket;
-  /** question | handback on a needs-you row */
+  /** question | handback on a needs-you row; by-hand | tracker on a closed row */
   kind: string | null;
   since: string | null;
   attemptCount: number;
@@ -121,7 +132,22 @@ export interface TicketSummary {
   waitsFor?: TicketWaitsFor[] | null;
   /** 2026-10-14-dbcen: a never-run ticket filed as a ticket text (its run derives its specs); null on a run-bearing row */
   ticketText?: boolean | null;
+  /** 2026-10-15-114fd: the stored close mark, in force or not — drawn only while the bucket is closed */
+  closed?: TicketClosed | null;
 }
+
+/** 2026-10-15-114fd: a person's close of a ticket as the server stored it (TicketClosedView). */
+export interface TicketClosed {
+  at: string;
+  by: string;
+  note: string | null;
+  closedPullRequests: string[];
+  trackerClosed: boolean;
+}
+
+/** 2026-10-15-114fd: why a closed row is closed (TicketClosedKinds). */
+export const TICKET_CLOSED_BY_HAND = "by-hand";
+export const TICKET_CLOSED_TRACKER = "tracker";
 
 /** 2026-10-14-dbcen: a ticket a never-run ticket waits for, named by its tracker key. */
 export interface TicketWaitsFor {
@@ -129,6 +155,8 @@ export interface TicketWaitsFor {
   project: string | null;
   key: string;
   title: string;
+  /** 2026-10-15-114fd: the required ticket is closed; this one still waits */
+  closed?: boolean;
 }
 
 export interface TicketCounts {
@@ -149,6 +177,10 @@ export interface TicketCounts {
   /** 2026-10-14-dbcen */
   blocked?: number;
   filed?: number;
+  /** 2026-10-15-114fd */
+  closed?: number;
+  failed?: number;
+  prClosed?: number;
 }
 
 export interface TicketListView {

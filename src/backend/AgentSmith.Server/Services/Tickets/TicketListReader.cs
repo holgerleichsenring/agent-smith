@@ -16,6 +16,7 @@ namespace AgentSmith.Server.Services.Tickets;
 /// tracker is never read here — the page's failed tickets are only offered to the check, unawaited.</para>
 /// <para>2026-10-14-dbcen: <see cref="AllAsync"/> is the one summary read the graph shares. Never-run rows take
 /// no cursor: blocked and filed ones lead the first page, a done one only under the done filter.</para>
+/// <para>2026-10-15-114fb: a waits-for entry says its required ticket is closed; a row closed by hand is not checked.</para>
 /// </summary>
 public sealed class TicketListReader(
     TicketListQuery query,
@@ -31,7 +32,8 @@ public sealed class TicketListReader(
     TicketStandings standings,
     Checks.TicketCheckKicks kicks,
     TicketLaunchEnds launchEnds,
-    FiledTicketRows filed)
+    FiledTicketRows filed,
+    TicketProjects projects)
 {
     private static readonly ILookup<string, string> NoSpecs =
         Array.Empty<string>().ToLookup(s => s, StringComparer.Ordinal);
@@ -48,14 +50,15 @@ public sealed class TicketListReader(
         var runs = tickets.Select(t => (Rows: t, Summary: composer.Compose(
                 t, state, NoSpecs, pullRequests.Views(prRecords[Key(t)]), null, standing)))
             .OrderByDescending(t => t.Summary.NewestRunId, StringComparer.Ordinal).ToList();
-        return new TicketListAll(runs, await filed.ListAsync(project, ct), state, prRecords, standing, read.Truncated);
+        return ClosedRequirements.Apply(
+            new TicketListAll(runs, await filed.ListAsync(project, ct), state, prRecords, standing, read.Truncated), projects.Of);
     }
 
     public async Task<TicketListView> ReadAsync(TicketListRequest request, CancellationToken ct)
     {
         var (all, neverRun, state, prRecords, standing, truncated) = await AllAsync(request.Project, ct);
         var page = Page(all, request);
-        kicks.Offer(page.Where(t => t.Summary.Status == RunStatuses.Failed)
+        kicks.Offer(page.Where(t => t.Summary.Status == RunStatuses.Failed && t.Summary.Kind != TicketClosedKinds.ByHand)
             .Select(t => new Checks.TicketCheckKick(t.Summary.Project, t.Summary.TicketId)));
         var pageAttempts = page.SelectMany(t => attempts.Of(t.Rows)).Select(a => a.Run.Id).ToList();
         var statuses = await specs.ForAsync(pageAttempts, ct);

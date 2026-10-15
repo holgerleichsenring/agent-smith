@@ -100,6 +100,9 @@ vi.mock("@/lib/ticketGraphApi", () => ({
   fetchTicketRequires: (...args: unknown[]) => graphApi.requires(...args),
   markLandedByHand: vi.fn(),
 }));
+// 2026-10-15-114fd: closing a ticket.
+const closeApi = vi.hoisted(() => ({ close: vi.fn() }));
+vi.mock("@/lib/ticketCloseApi", () => ({ closeTicket: (...args: unknown[]) => closeApi.close(...args), reopenTicket: vi.fn() }));
 vi.mock("@/hooks/useRunExecutionTree", () => ({
   useRunExecutionTree: () => ({ nodes: [] }),
 }));
@@ -456,6 +459,76 @@ describe("Mock parity", () => {
       [".t-head", ".ticon.blocked", ".tsub", ".t-act", ".waits", ".wf-h", ".wf-row", ".wk", ".ws", ".filed-line",
         ".dbh-back", ".dbh", ".dbh-sub", ".dbh-acts"]);
     expect(screen.getByTestId("ticket-page").querySelector(".tabs")).toBeNull();
+  });
+
+  // 2026-10-15-114fd: ticket-view.html's closed, failed and PR-closed rows, the Close dialog and the closed header;
+  // ticket-graph.html's three new node states and legend entries.
+  it("MockParity_TicketClosedSurfaces_CarryTicketViewHtmlsStructuralClasses", async () => {
+    const drawnIn = (file: string) => {
+      const mock = readFileSync(`design/mockups/${file}`, "utf8");
+      return (root: Element, surface: string, classes: string[]) => {
+        for (const cls of classes) {
+          expect(root.querySelector(cls), `${surface} missing ${cls}`).not.toBeNull();
+          for (const name of cls.split(/[ .]/).filter(Boolean)) expect(mock, `${file} lacks ${name}`).toContain(name);
+        }
+      };
+    };
+    const drawn = drawnIn("ticket-view.html");
+    const ended = (status: string) => [{ runId: "r-1", status, endedOnInfrastructure: false, handedBack: false }];
+    const closed = { at: "2026-10-15T08:00:00Z", by: "Ada", note: "superseded", closedPullRequests: [], trackerClosed: false };
+    const rows = [
+      ticket({ ticketId: "7", bucket: "failed", status: "failed", lastOutcome: "failed", attempts: ended("failed"), pullRequests: [pr()] }),
+      ticket({ ticketId: "8", bucket: "pr_closed", status: "success", lastOutcome: "success", attempts: ended("success"), pullRequests: [pr({ state: "closed" })] }),
+      ticket({ ticketId: "9", bucket: "closed", kind: "by-hand", status: "failed", lastOutcome: "failed", attempts: ended("failed"), closed }),
+    ];
+    tickets.fetch.mockResolvedValue(list(rows, { failed: 1, prClosed: 1, closed: 1 }));
+    closeApi.close.mockResolvedValue({ kind: "closed", answer: {
+      pullRequests: [{ url: "https://example.test/pr/809", closed: true, reason: null }, { url: "https://example.test/pr/810", closed: false, reason: "refused" }],
+      tracker: null,
+    } });
+    const listView = render(<TicketListProvider client={fakeHub().client}><TicketsPage /></TicketListProvider>);
+    await screen.findByTestId("ticket-list");
+    fireEvent.click(screen.getByTestId("ticket-closed-show"));
+    drawn(screen.getByTestId("tickets-home"), "closed buckets",
+      [".section-head", ".cnt.red", ".rows", ".trow-wrap", ".trow", ".trow-act", ".sd.bad", ".sd.closed", ".act", ".btn.sm"]);
+    fireEvent.click(screen.getByTestId("ticket-close-7"));
+    drawn(screen.getByTestId("tickets-home"), "close dialog", [".dbh-back", ".dbh", ".dbh-sub", ".dbh-opt", ".dbh-acts"]);
+    fireEvent.click(screen.getByTestId("ticket-close-send"));
+    await screen.findByTestId("ticket-close-outcomes");
+    drawn(screen.getByTestId("tickets-home"), "close outcomes", [".dbh-outs", ".dbh-out.closed", ".dbh-out.kept"]);
+    listView.unmount();
+
+    const ticketApi = {
+      detail: () => Promise.resolve(detail([], { summary: { ...rows[2], newestRunId: "", attemptCount: 0, attempts: [] } })),
+      series: () => Promise.resolve(series("", [], { runId: null, gate: null, recorded: false })),
+      conversation: () => Promise.resolve(conversation([])),
+      text: () => Promise.resolve(ticketText()),
+      passes: () => Promise.reject(new Error("unused")),
+      run: () => Promise.reject(new Error("unused")),
+      compute: () => Promise.reject(new Error("unused")),
+      reviews: () => Promise.resolve(reviews()),
+      defaults: () => Promise.resolve(defaults()),
+      requires: () => Promise.resolve({ requires: [], requiredBy: [] }),
+    };
+    const pageView = render(
+      <TicketPageStore project="shop" ticketId="9" client={fakeHub().client} api={ticketApi}>
+        <TicketPage />
+      </TicketPageStore>,
+    );
+    await screen.findByTestId("ticket-closed-line");
+    drawn(screen.getByTestId("ticket-page"), "closed header", [".t-head", ".ticon.closed", ".tt", ".tsub", ".closed-line", ".t-act"]);
+    pageView.unmount();
+
+    const node = (ticketId: string, state: string) =>
+      ({ id: ticketId, project: "shop", ticketId, key: `#${ticketId}`, title: "T", state, bucket: "idle" as const, hasPage: true });
+    graphApi.graph.mockResolvedValue({
+      nodes: [node("60", "blocked"), node("61", "failed"), node("62", "pr_closed"), node("63", "closed")],
+      edges: ["61", "62", "63"].map((to) => ({ from: "60", to })),
+    });
+    render(<div className="mock-shell mock-tickets" data-testid="graph-root"><TicketGraph /></div>);
+    await screen.findByTestId("ticket-graph");
+    drawnIn("ticket-graph.html")(screen.getByTestId("graph-root"), "graph states",
+      [".tg-node.failed", ".tg-node.pr_closed", ".tg-node.closed", ".tg-legend i.failed", ".tg-legend i.pr_closed", ".tg-legend i.closed"]);
   });
 
   it("TraceDrawer_HostsExistingMasterDetail", async () => {

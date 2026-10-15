@@ -6,11 +6,11 @@ namespace AgentSmith.Server.Models;
 /// </summary>
 /// <param name="TicketKey">The spelling a bound conversation stores; null when no run carries a
 /// platform and the project is no longer configured.</param>
-/// <param name="Kind">question or handback on a needs-you row; null otherwise.</param>
+/// <param name="Kind">question or handback on a needs-you row, by-hand or tracker on a closed row; null otherwise.</param>
 /// <param name="Since">When the current state began: the question's asked-at, the attempt's start,
 /// or its end. Null for a hand-back, whose park moment is not stored.</param>
 /// <param name="NewestRunId">The newest attempt, or the newest run when none counts as one.</param>
-/// <param name="LastOutcome">The newest attempt's status on an idle row; null otherwise.</param>
+/// <param name="LastOutcome">The newest attempt's status on a stuck, failed, PR-closed, closed or idle row; null otherwise.</param>
 /// <param name="Attempts">Every attempt, oldest first.</param>
 /// <param name="PullRequests">2026-10-13-9a59b: every pull request the ticket's runs named, from its record.</param>
 /// <param name="Cause">2026-10-13-9a59d: why the newest attempt with a record began.</param>
@@ -24,6 +24,7 @@ namespace AgentSmith.Server.Models;
 /// <param name="Landing">How the pull requests ended: merged, unmerged, or null while any is open or unread.</param>
 /// <param name="WaitsFor">2026-10-14-dbcen: a never-run ticket's unlanded requirements; null on a run-bearing row.</param>
 /// <param name="TicketText">2026-10-14-dbcen: a never-run ticket's filing was a ticket text; null on a run-bearing row.</param>
+/// <param name="Closed">2026-10-15-114fb: the stored close mark, in force or not; null when none is stored.</param>
 public sealed record TicketSummaryView(
     string Project,
     string TicketId,
@@ -53,4 +54,5 @@ public sealed record TicketSummaryView(
     TicketHandbackView? Handback = null,
     string? Landing = null,
     IReadOnlyList<TicketWaitsForView>? WaitsFor = null,
-    bool? TicketText = null);
+    bool? TicketText = null,
+    TicketClosedView? Closed = null);

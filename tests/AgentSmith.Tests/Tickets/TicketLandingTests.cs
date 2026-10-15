@@ -25,14 +25,14 @@ public sealed class TicketLandingTests : IDisposable
         (await _h.List.ReadAsync(new TicketListRequest("alpha", null, null, null), default)).Tickets.Single();
 
     [Fact]
-    public async Task TicketBuckets_AllPrsClosedUnmerged_IsIdleWithLandingUnmerged()
+    public async Task TicketBuckets_AllPrsClosedUnmerged_IsPrClosedWithLandingUnmerged()
     {
         await _h.AddAsync(Run("r-1"), Step("r-1"),
             Record("1", PrReviewStates.Closed), Record("2", PrReviewStates.Closed), Record("3", PrReviewStates.Closed));
 
         var row = await RowAsync();
 
-        (row.Bucket, row.Landing, row.LastOutcome).Should().Be((TicketBucket.Idle, TicketLanding.Unmerged, "success"));
+        (row.Bucket, row.Landing, row.LastOutcome).Should().Be((TicketBucket.PrClosed, TicketLanding.Unmerged, "success"));
     }
 
     [Fact]

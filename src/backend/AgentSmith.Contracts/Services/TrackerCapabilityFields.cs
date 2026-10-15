@@ -28,6 +28,7 @@ public static class TrackerCapabilityFields
             new CapabilityField("authSecret", "Auth secret", Required: true, CapabilityFieldKind.Secret, Group: TrackerFieldGroups.Connection),
             .. WorkflowFields,
             WorkItemKinds,
+            ClosedStatus,
         ],
         TrackerType.GitHub =>
         [
@@ -51,6 +52,7 @@ public static class TrackerCapabilityFields
             new CapabilityField("email", "Account email", Required: true, Group: TrackerFieldGroups.Connection),
             .. WorkflowFields,
             WorkItemKinds,
+            ClosedStatus,
             new CapabilityField("endpoints", "REST path overrides", Required: false, CapabilityFieldKind.Map, Group: TrackerFieldGroups.Connection),
         ],
         _ => throw new ConfigurationException(
@@ -91,4 +93,8 @@ public static class TrackerCapabilityFields
     // test unions the field keys across types, so two arms is enough to count as declared.
     private static readonly CapabilityField WorkItemKinds =
         new("workItemKinds", "Work item kind by filing role", Required: false, CapabilityFieldKind.Map, Group: TrackerFieldGroups.Filing);
+
+    // A named workflow state a board may tell apart from done; GitHub and GitLab close to one state.
+    private static readonly CapabilityField ClosedStatus =
+        new("closedStatus", "Closed status (a close from agent-smith)", Required: false, Group: TrackerFieldGroups.Transition);
 }

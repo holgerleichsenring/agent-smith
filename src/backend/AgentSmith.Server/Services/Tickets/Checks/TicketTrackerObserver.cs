@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Application.Services.Rework;
 using AgentSmith.Application.Services.Specs;
+using AgentSmith.Application.Services.Tickets;
 using AgentSmith.Application.Services.Triggers;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
@@ -17,9 +18,11 @@ namespace AgentSmith.Server.Services.Tickets.Checks;
 /// fingerprint against the one the attempt fetched), its comments (persons' comments after the attempt's
 /// cutoff) and its status history (a person's move into a trigger status after it). The cutoff is the
 /// previous-attempt rule's: acts read, else start, minus the skew margin. Null when any read fails.
+/// 2026-10-15-114fc: whether a person closed the ticket for work is <see cref="TicketClosure"/>'s answer on
+/// the ticket already read.
 /// </summary>
 public sealed class TicketTrackerObserver(
-    ITicketProviderFactory providers, TrackerIdentity identity, ILogger<TicketTrackerObserver> logger)
+    ITicketProviderFactory providers, TrackerIdentity identity, TicketClosure closure, ILogger<TicketTrackerObserver> logger)
 {
     public async Task<TicketObservation?> ObserveAsync(
         ResolvedProject project, Run attempt, string recordedFingerprint, CancellationToken ct)
@@ -35,7 +38,8 @@ public sealed class TicketTrackerObserver(
                 .Select(c => new TicketTrackerAct(TicketTrackerAct.Comment, c.Author, c.CreatedAt)).ToList();
             if (await StatusMoveAsync(project, provider, ticketId, ct) is { } move && cutoff.Precedes(move.At))
                 acts.Add(new TicketTrackerAct(TicketTrackerAct.StatusMove, move.Actor.Login ?? move.Actor.Id, move.At));
-            return new TicketObservation(TicketTextFingerprint.Of(ticket) == recordedFingerprint, acts);
+            return new TicketObservation(TicketTextFingerprint.Of(ticket) == recordedFingerprint, acts,
+                await closure.ClosedForWorkAsync(project, provider, ticket, ct));
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
@@ -56,4 +60,4 @@ public sealed class TicketTrackerObserver(
 }
 
 /// <summary>2026-10-13-9a59h: one observation of the tracker after an attempt.</summary>
-public sealed record TicketObservation(bool FingerprintUnchanged, IReadOnlyList<TicketTrackerAct> Acts);
+public sealed record TicketObservation(bool FingerprintUnchanged, IReadOnlyList<TicketTrackerAct> Acts, bool ClosedForWork = false);

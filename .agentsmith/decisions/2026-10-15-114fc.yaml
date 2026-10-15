@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-15-114fc
+
+decisions:
+  - category: Architecture
+    chose: "A head move is a sha change a successful refresh sees, stamped with that read's CheckedAtTicks; the first stored sha is no move, and a read without a sha keeps the stored one"
+    over: "Commit author dates, or a stamp on every first read"
+    reason: |
+      Author dates can be set by a person; the check time is when agent-smith learned of the push and errs late,
+      never early. Storing the first sha without a move keeps every existing record from reading as moved. The
+      stamps are taken in PrReviewRecordCopy.Stamp before the columns are overwritten; MarkUnreadAsync never reaches
+      the copy, so a failed read stamps nothing. A bot's push counts (a head move has no author).
+  - category: Architecture
+    chose: "ReopenedAt is stamped only when a successful read sees a stored merged or closed record open"
+    over: "Reading the reopen from StateAt or CheckedAt"
+    reason: |
+      An open pull request's StateAt is its creation time on every host and CheckedAt also advances on a failed
+      read, so neither can tell a reopen. A refresh that read before the close and wrote after it saw the record
+      open over an open stored row and stamps nothing.
+  - category: Architecture
+    chose: "The polling PR sweep nudges a late Refresh for an open record the list names with a different head, or with no stored head yet (its one backfill)"
+    over: "Re-reading closed tickets' records in the re-read service"
+    reason: |
+      The sweep already lists every open pull request with its head; one comparison per record costs no host read
+      and does not grow with the number of closed tickets. Webhook projects need no change: their open records are
+      re-read every fifteen minutes. The existing PrSweep_RecordOpenButNotListed test now gives its listed record
+      the listed head, since a record without a stored head is nudged once as its backfill.
+  - category: Architecture
+    chose: "TicketTrackerObserver asks TicketClosure.ClosedForWorkAsync on the ticket it already read; the check row stores ClosedForWork and TicketCheckStore compares it"
+    over: "A tracker read per listed row, or widening the check to PR-closed rows"
+    reason: |
+      Contract default 13 (pending operator ratification): a person's tracker close is read only where the
+      tracker is already read — failed last attempts. TicketParkStatuses.Own holds 114fe's closed_status, so a
+      ticket agent-smith closed into it never reads as a person's close. Widening is open question Q3.
+  - category: Architecture
+    chose: "The tracker arm lives in TicketBucketRule.Ended ahead of stuck: a failed newest attempt whose own check recorded ClosedForWork, with no merged landing (TicketLanding.Merged) and no stored landing (landedAt null)"
+    over: "A new arm inside Of"
+    reason: |
+      Of was exactly 20 lines after 114fb; the arm after done goes into the tail helper, and the stored-landing
+      condition is folded into the call argument so Of stays at 20. An open pull request answers Waiting on review
+      earlier (contract default 14), the by-hand mark outranks both. TicketStanding.ClosedForWorkOf reads only the
+      check keyed by the head's own RunId, so an older attempt's check never decides. Since is the attempt's end.
+  - category: Testing
+    chose: "TicketStoreHarness registers TicketClosure beside TrackerIdentity"
+    over: "Building the observer by hand in tests"
+    reason: |
+      The harness validates on build and TicketTrackerObserver now takes TicketClosure; production registers it in
+      AddPipelineHandlers, which TicketCheckCompositionTests proves through ServerCompositionBuilder.

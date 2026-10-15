@@ -189,6 +189,7 @@ Where tickets come from and how their workflow looks. The tracker owns the workf
 | `needs_clarification_status` | where a run parks a ticket it has questions about |
 | `not_implementable_status` | where a ticket goes that can't be implemented as written; falls back to `needs_clarification_status` |
 | `close_transition_name` | Jira: the transition that reaches `done_status` |
+| `closed_status` | Jira, Azure DevOps: the status "also close on the tracker" moves a ticket into. Unset: `done_status` |
 | `pipeline_from_label` | label → pipeline. Matched in order, first hit wins. With entries, a ticket matching none isn't routed |
 | `default_pipeline` | what a ticket runs when the label map is empty. Unset everywhere means `code`, with a startup finding |
 | `label_names` | renames the labels the framework writes. Keys: `pending`, `enqueued`, `in-progress`, `done`, `failed`, `waiting`, `shortfall`, `approved-set` |

@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import type { TicketPullRequest, TicketSummary } from "@/types/tickets";
+import { TICKET_CLOSED_TRACKER, type TicketPullRequest, type TicketSummary } from "@/types/tickets";
 import { age, causeWords, failedAttempts, outcomeWords } from "./ticketFormat";
 
 // 2026-10-13-9a59p: the mock's .act line — what the ticket is doing and why, written only from
@@ -41,6 +41,8 @@ function partsOf(t: TicketSummary): Array<ReactNode | null | false> {
     case "blocked":
     case "filed":
       return [filedWords(t.since)];
+    case "closed":
+      return [closedWords(t)];
     case "stuck":
       return [<span key="f" className="ab">{failed === 1 ? "1 attempt failed" : `${failed} attempts failed`}</span>, checked(t)];
     default:
@@ -56,6 +58,15 @@ function partsOf(t: TicketSummary): Array<ReactNode | null | false> {
 export function filedWords(since: string | null): string {
   const when = age(since);
   return when === null ? "filed" : when === "now" ? "filed just now" : `filed ${when} ago`;
+}
+
+/** 2026-10-15-114fd: why a closed ticket is closed — "closed by Ada 2h ago: superseded", or closed on the tracker. */
+export function closedWords(t: TicketSummary): string {
+  if (t.kind === TICKET_CLOSED_TRACKER) return "closed on the tracker by a person";
+  if (!t.closed) return "closed";
+  const when = age(t.closed.at);
+  const ago = when === null ? "" : when === "now" ? " just now" : ` ${when} ago`;
+  return `closed by ${t.closed.by}${ago}${t.closed.note ? `: ${t.closed.note}` : ""}`;
 }
 
 function queued(t: TicketSummary): ReactNode {

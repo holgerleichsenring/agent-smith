@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence.Entities;
+using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Services.Sweep;
 using AgentSmith.Tests.Rework.Records;
 using AgentSmith.Tests.TestSupport;
@@ -117,6 +118,21 @@ public sealed class DependentsRecoveryTests : IDisposable
         await CycleAsync();
 
         Woken.Should().BeEmpty();
+    }
+
+    // 2026-10-15-114fa: a person closed the dependent; "I won't continue" is never undone by a landing.
+    [Fact]
+    public async Task DependentsWake_RecoverAsync_ClosedDependent_IsNotWoken()
+    {
+        await DependentAsync("8", "7");
+        await DependentAsync("9", "7");
+        await LandAsync("7", TimeSpan.FromHours(1));
+        await new ClosedTicketRepository(_h.Store.ScopeFactory).SetAsync(
+            new TicketClosedMark("gh-tracker", "github-8", "8", "p", Now, "Ada", null, [], false), default);
+
+        (await _h.Wake().RecoverAsync(["p"], CancellationToken.None)).Should().Be(1);
+
+        Woken.Should().Equal("9");
     }
 
     [Fact]

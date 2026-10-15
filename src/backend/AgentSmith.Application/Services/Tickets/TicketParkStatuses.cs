@@ -8,9 +8,10 @@ namespace AgentSmith.Application.Services.Tickets;
 /// effective trigger, then its tracker — the ONE place that precedence lives. Done is the trigger's
 /// done_status; Failed its failed_status, else Done, as the spawn seeds it; Clarification and
 /// NotImplementable the trigger's, else the tracker's, NotImplementable falling back to Clarification
-/// like the hand-back park. A blank configured value is no status.
+/// like the hand-back park; Closed the tracker's closed_status. A blank configured value is no status.
 /// </summary>
-public sealed record TicketParkStatuses(string? Done, string? Failed, string? Clarification, string? NotImplementable)
+public sealed record TicketParkStatuses(
+    string? Done, string? Failed, string? Clarification, string? NotImplementable, string? Closed = null)
 {
     public static TicketParkStatuses Of(ResolvedProject project)
     {
@@ -21,11 +22,12 @@ public sealed record TicketParkStatuses(string? Done, string? Failed, string? Cl
             done,
             trigger is null ? null : Either(trigger.FailedStatus, done),
             clarification,
-            Either(Either(trigger?.NotImplementableStatus, project.Tracker.NotImplementableStatus), clarification));
+            Either(Either(trigger?.NotImplementableStatus, project.Tracker.NotImplementableStatus), clarification),
+            Either(project.Tracker.ClosedStatus, null));
     }
 
-    /// <summary>Whether <paramref name="status"/> is any status agent-smith sets.</summary>
-    public bool Own(string? status) => IsRunEnd(status) || IsHandbackPark(status);
+    /// <summary>Whether <paramref name="status"/> is any status agent-smith sets; Closed is one but not a run end.</summary>
+    public bool Own(string? status) => IsRunEnd(status) || IsHandbackPark(status) || Same(status, Closed);
 
     /// <summary>Whether <paramref name="status"/> is where a finished run leaves the ticket: done or failed.</summary>
     public bool IsRunEnd(string? status) => Same(status, Done) || Same(status, Failed);

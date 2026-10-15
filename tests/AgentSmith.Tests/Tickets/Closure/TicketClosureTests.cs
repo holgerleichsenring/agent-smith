@@ -66,6 +66,15 @@ public sealed class TicketClosureTests
         (await ClosedForWork(Project(), Closed(status))).Should().BeFalse();
 
     [Fact]
+    public async Task TicketClosure_TicketInTheClosedStatus_IsNotClosedForWork()
+    {
+        var project = Project() with { Tracker = Project().Tracker with { ClosedStatus = "Won't Fix" } };
+
+        (await ClosedForWork(project, Closed("won't fix"))).Should().BeFalse("agent-smith's closed_status is its own");
+        (await ClosedForWork(Project(), Closed("Won't Fix"))).Should().BeTrue("without it the same status is a person's");
+    }
+
+    [Fact]
     public async Task TicketClosure_PersonMovedToOtherClosedStatus_IsClosedForWork()
     {
         (await ClosedForWork(Project(), Closed("Won't Fix"))).Should().BeTrue();

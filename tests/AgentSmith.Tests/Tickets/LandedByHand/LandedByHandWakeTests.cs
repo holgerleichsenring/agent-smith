@@ -7,6 +7,7 @@ using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using AgentSmith.Infrastructure.Persistence.Models;
+using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Contracts;
 using AgentSmith.Server.Services.Rework;
 using AgentSmith.Tests.TestSupport;
@@ -94,7 +95,7 @@ public sealed class LandedByHandWakeTests : IDisposable
         var fallback = new ReworkFallbackSpawn(_f.Loader.Object, new ServerContext("c.yml"), _f.Tickets,
             new PolledTicketEnvelope(ApprovedRecordProbes.None()), FiledWorkDoubles.Resolver(), _spawn.Object,
             NullLogger<ReworkFallbackSpawn>.Instance);
-        return new RequirementsMetStart(_f.Requirements, _f.Landings, _f.Unmet, _f.Tickets,
+        return new RequirementsMetStart(_f.Requirements, _f.Landings, new ClosedTicketRepository(_f.Store.ScopeFactory), _f.Unmet, _f.Tickets,
             _scopes.GetRequiredService<IServiceScopeFactory>(), fallback, NullLogger<RequirementsMetStart>.Instance);
     }
 }

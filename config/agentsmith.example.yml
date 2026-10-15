@@ -452,6 +452,7 @@ trackers:
     done_status: "In Review"
     needs_clarification_status: "Blocked"    # p0318/p0391 — see acme-github above
     close_transition_name: "Done"
+    closed_status: "Won't Do"          # optional: where "also close on the tracker" moves a ticket; unset = done_status
     # Optional: override Jira REST paths when Atlassian changes an API (e.g.
     # CHANGE-2046 removed /rest/api/3/search → /rest/api/3/search/jql). Defaults
     # shown; set only what differs — a key left out keeps its default. '{id}' is

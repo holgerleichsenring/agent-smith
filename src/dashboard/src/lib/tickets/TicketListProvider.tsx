@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { usePathname } from "next/navigation";
 import { HubConnectionState } from "@microsoft/signalr";
 import { getJobsHubClient, type JobsHubClient } from "@/lib/JobsHubClient";
@@ -28,9 +28,11 @@ export interface TicketListState {
   failed: boolean;
   /** Bumped by every read that landed — a bucket view refetches its own page on it. */
   version: number;
+  /** 2026-10-15-114fd: read again now — after a person's act on a row changed its bucket. */
+  reread: () => void;
 }
 
-const EMPTY: TicketListState = { list: null, refusal: null, failed: false, version: 0 };
+const EMPTY: TicketListState = { list: null, refusal: null, failed: false, version: 0, reread: () => {} };
 const Ctx = createContext<TicketListState>(EMPTY);
 
 export function TicketListProvider({ children, client }: { children: ReactNode; client?: JobsHubClient }) {
@@ -38,7 +40,7 @@ export function TicketListProvider({ children, client }: { children: ReactNode; 
   const configMode = pathname.startsWith("/config");
   const onTickets = pathname === TICKETS_PATH || pathname.startsWith(`${TICKETS_PATH}/`);
   const hub = useMemo(() => client ?? getJobsHubClient(HUB_URL), [client]);
-  const [state, setState] = useState<TicketListState>(EMPTY);
+  const [state, setState] = useState<Omit<TicketListState, "reread">>(EMPTY);
   const onTicketsRef = useRef(onTickets);
   const refetchRef = useRef<CoalescedRefetch | null>(null);
   onTicketsRef.current = onTickets;
@@ -93,7 +95,9 @@ export function TicketListProvider({ children, client }: { children: ReactNode; 
     wasOnTickets.current = onTickets;
   }, [onTickets]);
 
-  return <Ctx.Provider value={state}>{children}</Ctx.Provider>;
+  const reread = useCallback(() => refetchRef.current?.within(0), []);
+  const value = useMemo(() => ({ ...state, reread }), [state, reread]);
+  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
 }
 
 /** The shared ticket list; without a provider, nothing has been read. */

@@ -35,7 +35,11 @@ public sealed class TicketCheckStore(IServiceScopeFactory scopes)
         var row = await FindAsync(uow, runId, ct);
         if (row is null)
         {
-            var entry = uow.Add(new TicketBetweenAttemptsCheck { RunId = runId, CheckedAt = at, FingerprintUnchanged = observation.FingerprintUnchanged, ActsJson = acts });
+            var entry = uow.Add(new TicketBetweenAttemptsCheck
+            {
+                RunId = runId, CheckedAt = at, FingerprintUnchanged = observation.FingerprintUnchanged, ActsJson = acts,
+                ClosedForWork = observation.ClosedForWork,
+            });
             try
             {
                 await uow.SaveChangesAsync(ct);
@@ -48,10 +52,9 @@ public sealed class TicketCheckStore(IServiceScopeFactory scopes)
                     $"The between-attempts check of run {runId} was claimed by another writer and is gone.");
             }
         }
-        var changed = row.FingerprintUnchanged != observation.FingerprintUnchanged || row.ActsJson != acts;
-        row.CheckedAt = at;
-        row.FingerprintUnchanged = observation.FingerprintUnchanged;
-        row.ActsJson = acts;
+        var changed = row.FingerprintUnchanged != observation.FingerprintUnchanged || row.ActsJson != acts
+            || row.ClosedForWork != observation.ClosedForWork;
+        (row.CheckedAt, row.FingerprintUnchanged, row.ActsJson, row.ClosedForWork) = (at, observation.FingerprintUnchanged, acts, observation.ClosedForWork);
         await uow.SaveChangesAsync(ct);
         return changed;
     }
@@ -61,5 +64,5 @@ public sealed class TicketCheckStore(IServiceScopeFactory scopes)
 
     private static TicketBetweenAttemptsState State(TicketBetweenAttemptsCheck row) =>
         new(row.RunId, row.CheckedAt, row.FingerprintUnchanged,
-            JsonSerializer.Deserialize<List<TicketTrackerAct>>(row.ActsJson, Json) ?? []);
+            JsonSerializer.Deserialize<List<TicketTrackerAct>>(row.ActsJson, Json) ?? [], row.ClosedForWork);
 }

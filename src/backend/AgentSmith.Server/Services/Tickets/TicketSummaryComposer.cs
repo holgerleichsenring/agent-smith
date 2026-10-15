@@ -30,7 +30,9 @@ public sealed class TicketSummaryComposer(
         var head = attempts.Head(codeRows).Run;
         var check = standing?.CheckOf(head.Id);
         var unchanged = stuck.Unchanged(head, check, standing?.PrRecordsOf(head) ?? []);
-        var state = buckets.Of(head, live, pullRequests, unchanged == true, standing?.LandedAt(head));
+        var closed = standing?.ClosedOf(head);
+        var state = buckets.Of(head, live, pullRequests, unchanged == true, standing?.LandedAt(head), closed,
+            standing?.ClosedForWorkOf(head) == true);
         var newestFirst = codeRows.Select(r => r.Run).OrderByDescending(r => r.Id, StringComparer.Ordinal).ToList();
         var platform = newestFirst.Select(r => r.Platform).FirstOrDefault(p => !string.IsNullOrEmpty(p));
         var headSpecs = specStatuses[head.Id].ToList();
@@ -43,7 +45,8 @@ public sealed class TicketSummaryComposer(
             headSpecs.Count(s => s == DoneSpec), headSpecs.Count,
             [.. ordered.Select(a => marker.Mark(a.Run, live, specStatuses, launches))], pullRequests,
             record?.Cause, record?.TrackerState, record?.WebUrl,
-            UnchangedSinceLastAttempt: unchanged, CheckedAt: check?.CheckedAt, Landing: state.Landing);
+            UnchangedSinceLastAttempt: unchanged, CheckedAt: check?.CheckedAt, Landing: state.Landing,
+            Closed: TicketClosedView.Of(closed));
         return standing?.Apply(summary) ?? summary;
     }
 

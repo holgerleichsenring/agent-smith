@@ -20,7 +20,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 public sealed class AzureReposSourceProvider(
     AzureReposSourceConnection connection,
     IAzDoClientFactory clientFactory,
-    ILogger<AzureReposSourceProvider> logger) : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IChangedPullRequestLister, IOpenPullRequestSource
+    ILogger<AzureReposSourceProvider> logger) : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestCloser
 {
     private readonly string _organizationUrl = connection.OrganizationUrl.TrimEnd('/');
     private readonly string _project = connection.Project;
@@ -310,6 +310,7 @@ public sealed class AzureReposSourceProvider(
     public Task<IReadOnlyList<PrReviewThread>> ListAsync(string prUrl, CancellationToken ct) => Reviews().ListAsync(prUrl, ct);
     public Task<IReadOnlyList<PrReviewNote>> ChangesRequestedAsync(string prUrl, CancellationToken ct) => Reviews().ChangesRequestedAsync(prUrl, ct);
     public Task<PrReviewState> ReadAsync(string prUrl, CancellationToken ct) => Reviews().ReadAsync(prUrl, ct);
+    public Task CloseAsync(string prUrl, CancellationToken ct) => new AzureReposPullRequestClose(_project, _repoName, clientFactory, _organizationUrl, _personalAccessToken).CloseAsync(prUrl, ct);
 
     private AzureReposReviewReads Reviews() => new(CreateConnectionAsync, SelfAsync, _project, _repoName, _cloneUrl);
 

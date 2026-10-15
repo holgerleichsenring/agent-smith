@@ -22,7 +22,7 @@ internal static class ReworkHandlers
     private static RequirementsMetStart NoStart(ReworkFallbackSpawn fallback)
     {
         var facts = new InMemoryTicketFacts();
-        return new(facts, facts, TicketRequirementDoubles.Of(facts), Mock.Of<ITicketProviderFactory>(), Mock.Of<IServiceScopeFactory>(),
+        return new(facts, facts, facts, TicketRequirementDoubles.Of(facts), Mock.Of<ITicketProviderFactory>(), Mock.Of<IServiceScopeFactory>(),
             fallback, NullLogger<RequirementsMetStart>.Instance);
     }
 }

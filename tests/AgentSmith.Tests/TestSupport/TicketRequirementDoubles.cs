@@ -6,11 +6,13 @@ using AgentSmith.Contracts.Tickets;
 
 namespace AgentSmith.Tests.TestSupport;
 
-/// <summary>2026-10-14-dbceh: the requirement and landing stores in memory, and the read over them.</summary>
-internal sealed class InMemoryTicketFacts : ITicketRequirementStore, ITicketLandingStore
+/// <summary>2026-10-14-dbceh: the requirement and landing stores in memory, and the read over them.
+/// 2026-10-15-114fa: and the close marks.</summary>
+internal sealed class InMemoryTicketFacts : ITicketRequirementStore, ITicketLandingStore, ITicketClosedMarkStore
 {
     public List<TicketRequirementEdge> Edges { get; } = [];
     public List<TicketLandingFact> Landed { get; } = [];
+    public List<TicketClosedMark> Closed { get; } = [];
 
     public Task<int> AddAsync(IReadOnlyList<TicketRequirementEdge> edges, CancellationToken cancellationToken)
     {
@@ -41,6 +43,20 @@ internal sealed class InMemoryTicketFacts : ITicketRequirementStore, ITicketLand
     public Task<IReadOnlyList<TicketRequirementEdge>> DependentsOfLandingsSinceAsync(
         DateTimeOffset since, IReadOnlyCollection<string> projects, int take, CancellationToken cancellationToken) =>
         Task.FromResult<IReadOnlyList<TicketRequirementEdge>>([]);
+
+    public Task SetAsync(TicketClosedMark mark, CancellationToken cancellationToken)
+    {
+        Closed.RemoveAll(c => c.Tracker == mark.Tracker && c.TicketKey == mark.TicketKey);
+        Closed.Add(mark);
+        return Task.CompletedTask;
+    }
+
+    public Task<bool> ClearAsync(string tracker, string ticketKey, CancellationToken cancellationToken) =>
+        Task.FromResult(Closed.RemoveAll(c => c.Tracker == tracker && c.TicketKey == ticketKey) > 0);
+
+    public Task<IReadOnlyList<TicketClosedMark>> OfAsync(
+        string tracker, IReadOnlyCollection<string> ticketKeys, CancellationToken cancellationToken) =>
+        Task.FromResult<IReadOnlyList<TicketClosedMark>>([.. Closed.Where(c => c.Tracker == tracker && ticketKeys.Contains(c.TicketKey))]);
 
     /// <summary>Lands the required ticket of the sample tracker connection, as <see cref="TicketRequirementEdges"/> keys it.</summary>
     public void Land(string required, string kind = TicketLandingKinds.Merged, string tracker = TicketRequirementEdges.Tracker) =>
