@@ -1,0 +1,47 @@
+---
+permalink: /llms.txt
+eleventyExcludeFromCollections: true
+---
+# {{ site.title }}
+
+> {{ site.description }}
+
+Agent Smith is MIT licensed and runs on your own infrastructure. It reads tickets from Azure DevOps, Jira, GitHub Issues and GitLab Issues, works in Azure Repos, GitHub and GitLab repositories, and calls the AI provider you configure. A run derives specs from the ticket, implements them in sandboxes, checks every acceptance criterion with cited evidence, and opens one pull request per repository.
+
+## Start here
+
+- [Website](https://agent-smith.org/): what Agent Smith does, from work item to pull request
+- [Agent Smith on Azure DevOps](https://agent-smith.org/azure-devops/): Azure Boards in, Azure Repos out, without a GitHub mirror
+- [Install]({{ site.docsUrl }}/get-it-running/install/): get the server and dashboard running
+- [First run]({{ site.docsUrl }}/get-it-running/first-run/): one ticket end to end
+- [Source code](https://github.com/{{ site.githubRepo }}): the repository, releases and issues
+
+## How it works
+
+- [Methodology]({{ site.docsUrl }}/how-it-works/methodology/): specification-first agentic development
+- [Lifecycle]({{ site.docsUrl }}/how-it-works/lifecycle/): a run step by step
+- [The delivery account]({{ site.docsUrl }}/how-it-works/delivery-account/): how each acceptance criterion is judged and cited
+- [Work it out]({{ site.docsUrl }}/how-it-works/work-it-out/): talk a change through with an agent that reads the code, then file it as tickets
+- [Ticket dependencies]({{ site.docsUrl }}/how-it-works/ticket-dependencies/): tickets that wait for others to land
+- [Multi-repo]({{ site.docsUrl }}/how-it-works/multi-repo/): one ticket, every repo, one pull request each
+- [Structure limits]({{ site.docsUrl }}/how-it-works/structure-limits/): measured shape rules a run must keep
+
+## Hosting and configuration
+
+- [Where configuration lives]({{ site.docsUrl }}/configure-it/): the config studio and agentsmith.yml
+- [Docker Compose]({{ site.docsUrl }}/host-it/docker-compose/): single-host deployment
+- [Kubernetes]({{ site.docsUrl }}/host-it/kubernetes/): cluster deployment
+- [AI providers]({{ site.docsUrl }}/connect-your-stuff/ai-providers/): which models and how to connect them
+- [Access control]({{ site.docsUrl }}/reference/security/access-control/): sign-in, roles and permissions
+
+## Reference
+
+- [agentsmith.yml reference]({{ site.docsUrl }}/reference/configuration/agentsmith-yml/): every configuration field
+- [Pipelines]({{ site.docsUrl }}/reference/pipelines/): fix and feature, PR review, security scan, API scan
+- [Concepts]({{ site.docsUrl }}/reference/concepts/): sandboxes, specs and runs, cost tracking, memory
+- [Dashboard]({{ site.docsUrl }}/reference/operations/dashboard/): the operator's view of tickets and runs
+
+## Optional
+
+- [Built by the method it teaches]({{ site.docsUrl }}/how-it-works/built-by-the-method/): how this repository itself was built
+- [Blog]({{ site.blogUrl }}): background and design essays
