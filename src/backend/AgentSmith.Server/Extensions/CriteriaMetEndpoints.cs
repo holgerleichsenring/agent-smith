@@ -14,7 +14,7 @@ internal static class CriteriaMetEndpoints
 {
     internal static WebApplication MapCriteriaMetEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/runs/expectations/metrics", GetMetricsAsync).Needs(Permissions.RunsRead);
+        app.MapGet("/api/runs/expectations/metrics", GetMetricsAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.AcrossProjects);
         return app;
     }
 

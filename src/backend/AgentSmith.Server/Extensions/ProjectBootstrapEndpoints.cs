@@ -12,7 +12,7 @@ internal static class ProjectBootstrapEndpoints
 {
     internal static WebApplication MapProjectBootstrapEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/projects/{name}/bootstrap", GetAsync).Needs(Permissions.RunsRead);
+        app.MapGet("/api/projects/{name}/bootstrap", GetAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.Route("name"));
         return app;
     }
 

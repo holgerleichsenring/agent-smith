@@ -13,8 +13,8 @@ internal static class TicketQueryEndpoints
 {
     internal static WebApplication MapTicketQueryEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/tickets", ListAsync).Needs(Permissions.RunsRead);
-        app.MapGet("/api/tickets/{project}/{ticketId}", DetailAsync).Needs(Permissions.RunsRead);
+        app.MapGet("/api/tickets", ListAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.AcrossProjects);
+        app.MapGet("/api/tickets/{project}/{ticketId}", DetailAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.Route("project"));
         app.MapTicketGraphEndpoints(); // 2026-10-14-dbcen
         return app.MapTicketSeriesEndpoints(); // 2026-10-13-9a59e
     }

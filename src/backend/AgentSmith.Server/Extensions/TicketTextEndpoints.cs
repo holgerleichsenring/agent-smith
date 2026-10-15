@@ -11,7 +11,7 @@ internal static class TicketTextEndpoints
 {
     internal static WebApplication MapTicketTextEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/tickets/{project}/{ticketId}/text", TextAsync).Needs(Permissions.RunsRead);
+        app.MapGet("/api/tickets/{project}/{ticketId}/text", TextAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.Route("project"));
         return app;
     }
 

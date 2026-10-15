@@ -19,6 +19,14 @@ internal static class RoutePermissionExtensions
         return builder;
     }
 
+    /// <summary>2026-10-15-4a4db: where this route's project comes from.</summary>
+    internal static TBuilder InProject<TBuilder>(this TBuilder builder, ProjectFrom source)
+        where TBuilder : IEndpointConventionBuilder
+    {
+        builder.WithMetadata(source);
+        return builder;
+    }
+
     internal static TBuilder Anonymous<TBuilder>(this TBuilder builder, string reason)
         where TBuilder : IEndpointConventionBuilder
     {

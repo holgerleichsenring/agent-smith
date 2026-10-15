@@ -36,7 +36,7 @@ internal static class SpecDialogResumeEndpoints
     internal static WebApplication MapSpecDialogResumeEndpoints(this WebApplication app)
     {
         app.MapPost("/api/spec-dialog/conversations/{sessionId}/resume", (Delegate)ResumeAsync)
-           .Needs(Security.Permissions.DialogWrite);
+           .Needs(Security.Permissions.DialogWrite).InProject(Security.ProjectFrom.Session);
         return app;
     }
 
@@ -51,10 +51,13 @@ internal static class SpecDialogResumeEndpoints
         ClaimsPrincipal user,
         SpecDialogOwnership ownership,
         SpecDialogResumer resumer,
+        Security.DialogMessageScope scope,
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(body.DialogId))
             return Results.BadRequest("dialogId is required");
+        // 2026-10-15-4a4db: the target thread's conversation, before the move closes it.
+        if (!await scope.MayEnterAsync(user, body.DialogId, cancellationToken)) return Results.NotFound();
 
         var owner = ownership.OwnerOf(user);
         if (!await ownership.MayWatchAsync(body.DialogId, owner, cancellationToken))

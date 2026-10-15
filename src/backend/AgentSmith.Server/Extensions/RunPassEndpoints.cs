@@ -11,7 +11,7 @@ internal static class RunPassEndpoints
 {
     internal static WebApplication MapRunPassEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/runs/{runId}/passes", PassesAsync).Needs(Permissions.RunsRead);
+        app.MapGet("/api/runs/{runId}/passes", PassesAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.Run);
         return app;
     }
 

@@ -1,0 +1,192 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-15-4a4db
+goal: "Every route needing a project-scopable permission declares where its project comes from; a caller who holds it only for other projects gets a plain 404, and a guard test fails an undeclared route."
+
+applies_to: "backend (ProjectFrom route metadata and InProject, ProjectAccess, ResourceProjectReader, ProjectScopeMiddleware after UseAuthorization, the coarse PermissionRequirementHandler check, the dialog message route's body check (DialogMessageScope) and the resume route's target check, the route-permission golden's scope column and its guard)"
+
+requires: [2026-10-15-4a4da]
+
+facts:
+  - claim: "Authorization is global only: the handler checks the route's RequiresPermission names against the resolver's flat Permissions list and never sees a project; a shortfall answers 403 with a body naming the missing permissions."
+    evidence: "src/backend/AgentSmith.Server/Security/PermissionRequirementHandler.cs:20-39, src/backend/AgentSmith.Server/Security/PermissionAuthorizationResultHandler.cs:20-29, src/backend/AgentSmith.Server/Security/CallerIdentityResolver.cs:44-53, src/backend/AgentSmith.Server/Models/CallerIdentity.cs:21-39, observed: 2026-10-15, wc -l PermissionRequirementHandler.cs 40"
+  - claim: "A route states its permission by chaining Needs onto the map call, a generic extension over IEndpointConventionBuilder that adds RequiresPermission metadata; Anonymous adds AnonymousRoute; the hub's map call takes the same declaration."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RoutePermissionExtensions.cs:13-27, src/backend/AgentSmith.Server/Security/RequiresPermission.cs:18-28, src/backend/AgentSmith.Server/Extensions/ServerEndpointExtensions.cs:41, observed: 2026-10-15, wc -l RoutePermissionExtensions.cs 28"
+  - claim: "Refusal hangs off the enforce switch through a fallback policy set at startup; authentication and authorization are put in the pipeline after the map calls, only for a usable authority; with no usable authority nothing is registered."
+    evidence: "src/backend/AgentSmith.Server/Extensions/ServerAuthenticationExtensions.cs:31-42, src/backend/AgentSmith.Server/Extensions/ServerAuthenticationExtensions.cs:68-75, src/backend/AgentSmith.Server/Services/Startup/ServerHostFactory.cs:39-43, observed: 2026-10-15, wc -l ServerAuthenticationExtensions.cs 86"
+  - claim: "The caller-identity services are registered unconditionally (the route-table guard boots without an authority), and the auth block is registered there as a TokenAuthorityConfig singleton whose Enforce the dialog route already reads per request."
+    evidence: "src/backend/AgentSmith.Server/Extensions/CallerIdentityExtensions.cs:19-45, src/backend/AgentSmith.Server/Extensions/SpecDialogEndpoints.cs:57-63, src/backend/AgentSmith.Contracts/Models/Configuration/TokenAuthorityConfig.cs:36, observed: 2026-10-15, wc -l CallerIdentityExtensions.cs 52"
+  - claim: "The catalog holds 20 permissions; the six the brief marks project-scopable are runs.read, runs.watch, runs.control, runs.delete, projects.init and dialog.write. runs.watch is on no HTTP route."
+    evidence: "src/backend/AgentSmith.Server/Security/Permissions.cs:18-28, src/backend/AgentSmith.Server/Security/Permissions.cs:68-76, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:1-142"
+  - claim: "The route golden pins verb, pattern and declaration per row (142 rows, no comment lines today, read sorted, comment lines skipped); the row is built by RouteFact from what ServerRouteTable reads off each endpoint's metadata; the guard runs pinned under the env-var collection, trait env-3, and regenerates with AGENTSMITH_WRITE_ROUTE_BASELINE=1."
+    evidence: "tests/AgentSmith.Tests/TestHelpers/RouteFact.cs:9-19, tests/AgentSmith.Tests/TestHelpers/ServerRouteTable.cs:36-56, tests/AgentSmith.Tests/Server/RoutePermissionGuardTests.cs:32-38, tests/AgentSmith.Tests/Server/RoutePermissionGuardTests.cs:56-70, tests/AgentSmith.Tests/Server/RoutePermissionGuardTests.cs:289-298, observed: 2026-10-15, wc -l route-permission-baseline.tsv 142, RoutePermissionGuardTests.cs 315, RouteFact.cs 20, ServerRouteTable.cs 57"
+  - claim: "66 rows carry a project-scopable permission: 29 runs.read (2 of them the hub and its negotiate), 9 runs.control, 2 runs.delete, 1 projects.init, 24 dialog.write and 1 dialog.write,runs.read."
+    evidence: "tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:1-2, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:12-18, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:49-91, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:110-119, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:121-124"
+  - claim: "Ticket routes name their project as the route value {project}, project routes as {name}; the run routes name {runId}; the run's project is the Run row's Project column, read by the scoped RunRepository (143 lines)."
+    evidence: "src/backend/AgentSmith.Server/Extensions/TicketQueryEndpoints.cs:16-17, src/backend/AgentSmith.Server/Extensions/ProjectInitEndpoints.cs:24-25, src/backend/AgentSmith.Server/Extensions/ProjectBootstrapEndpoints.cs:15, src/backend/AgentSmith.Server/Extensions/RunQueryEndpoints.cs:27-29, src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:8-11, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunRepository.cs:12, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunRepository.cs:75-77, src/backend/AgentSmith.Server/Extensions/RelationalPersistenceExtensions.cs:160"
+  - claim: "Dialog routes identify their conversation three ways: the dialog (thread) id as a ROUTE value on /api/spec-dialog/{dialogId}, as a QUERY parameter on the reference, hash, upload and upload-deletion routes (POST images and references also take an optional project query), and in the BODY on POST messages; the mock, resume and delete routes name {sessionId}; GET images/{imageId} names an image whose row carries SessionId."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogViewEndpoints.cs:21-28, src/backend/AgentSmith.Server/Extensions/SpecDialogReferenceEndpoints.cs:23-26, src/backend/AgentSmith.Server/Extensions/SpecDialogReferenceEndpoints.cs:31-33, src/backend/AgentSmith.Server/Extensions/SpecDialogReferenceFileEndpoints.cs:26-39, src/backend/AgentSmith.Server/Extensions/SpecDialogUploadDeletionEndpoints.cs:36-46, src/backend/AgentSmith.Server/Extensions/SpecDialogUploadDeletionEndpoints.cs:76, src/backend/AgentSmith.Server/Extensions/SpecDialogImageEndpoints.cs:35-50, src/backend/AgentSmith.Server/Extensions/SpecDialogImageEndpoints.cs:74-77, src/backend/AgentSmith.Server/Extensions/SpecDialogEndpoints.cs:19-28, src/backend/AgentSmith.Server/Extensions/SpecDialogMockEndpoints.cs:20-27, src/backend/AgentSmith.Server/Extensions/SpecDialogResumeEndpoints.cs:38, src/backend/AgentSmith.Server/Extensions/SpecDialogDeletionEndpoints.cs:30, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ReferenceFileRepository.cs:54-58, src/backend/AgentSmith.Infrastructure.Persistence/Models/StoredReferenceImage.cs:7, src/backend/AgentSmith.Infrastructure.Persistence/Entities/SpecDialogAttachment.cs:24"
+  - claim: "A dialog session carries the project it is grounded on (empty until one is chosen); the open dashboard session is found by thread id and a session by session id on the dashboard platform. SpecDialogSessionRepository is at 120 lines, RelationalPersistenceExtensions at its 223-line ratchet, ReferenceFileRepository at 101."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/SpecDialogSession.cs:13-20, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SpecDialogSessionRepository.cs:20-23, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SpecDialogSessionRepository.cs:75-78, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:36, observed: 2026-10-15, wc -l SpecDialogSessionRepository.cs 120, RelationalPersistenceExtensions.cs 223, ReferenceFileRepository.cs 101"
+  - claim: "A ticket-bound conversation is deliberately reachable by ANYONE who may reach the dialog surface; only an unbound one is its owner's. With project bindings that widening would cross projects."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOwnership.cs:55-73"
+  - claim: "Approving in a dialog starts runs, so the message route samples runs.control off the flat permission list when the turn starts; a non-enforcing installation holds everyone to true."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogEndpoints.cs:45-46, src/backend/AgentSmith.Server/Extensions/SpecDialogEndpoints.cs:50-63, observed: 2026-10-15, wc -l SpecDialogEndpoints.cs 119"
+  - claim: "A typed '/spec <word>' posted to the message route opens a session grounded on whatever project the word names, and a bare or unknown one is answered with the list of EVERY configured project; neither the session's project nor body.Project names it beforehand."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecCommandParser.cs:20-28, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogCommandHandler.cs:39-60, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogReplyComposer.cs:46-55, src/backend/AgentSmith.Server/Services/SpecDialog/DashboardDialogDispatcher.cs:52-55"
+  - claim: "The resume route takes its TARGET dialog id from the body and the move closes whatever session is open on that thread; the target is checked only with MayWatchAsync, which passes a ticket-bound session of anyone."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogResumeEndpoints.cs:13-19, src/backend/AgentSmith.Server/Extensions/SpecDialogResumeEndpoints.cs:48-66, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogResumer.cs:64, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOwnership.cs:48-53, observed: 2026-10-15, wc -l SpecDialogResumeEndpoints.cs 74"
+  - claim: "The ticket routes read their {project} through TicketQueryEndpoints.Decoded, which turns the %2F routing leaves in a segment back into a slash."
+    evidence: "src/backend/AgentSmith.Server/Extensions/TicketQueryEndpoints.cs:33-45, src/backend/AgentSmith.Server/Extensions/TicketLandedByHandEndpoints.cs:36"
+  - claim: "A truly missing resource does not answer one body: the run and ticket detail routes answer an empty 404, the by-hand landing answers the text 'No project <name> is configured.'; the owner checks of the dialog surface answer 403 or 404 depending on the route, and the conversation delete answers 204 for a session that is missing or not the caller's."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RunQueryEndpoints.cs:92, src/backend/AgentSmith.Server/Extensions/TicketQueryEndpoints.cs:37, src/backend/AgentSmith.Server/Extensions/TicketLandedByHandEndpoints.cs:37, src/backend/AgentSmith.Server/Extensions/SpecDialogViewEndpoints.cs:40-41, src/backend/AgentSmith.Server/Extensions/SpecDialogMockEndpoints.cs:35, src/backend/AgentSmith.Server/Extensions/SpecDialogDeletionEndpoints.cs:59-60"
+  - claim: "The project a configuration knows NOW is read through IConfigurationLoader.LoadConfig(ServerContext.ConfigPath).Projects, as TicketProjects does."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketProjects.cs:10-16"
+  - claim: "Map files that will chain a declaration: RunControlEndpoints is at its 151-line ratchet; the rest are below 120 (SpecDialogUploadDeletionEndpoints 103, RunQueryEndpoints 112)."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:48, tests/AgentSmith.Tests/Architecture/FileLengthRatchetTests.cs:19, tests/AgentSmith.Tests/Architecture/FileLengthRatchetTests.cs:38-52, src/backend/AgentSmith.Server/Extensions/RunControlEndpoints.cs:36-38, observed: 2026-10-15, wc -l RunControlEndpoints.cs 151, SpecDialogUploadDeletionEndpoints.cs 103, RunQueryEndpoints.cs 112"
+  - claim: "Booted enforcing tests run the real composition through BootedServer behind an AuthorityFixture subclass whose auth YAML carries the mapping, under the env-var collection with a TestProcess env trait."
+    evidence: "tests/AgentSmith.Tests/Server/Auth/BootedServer.cs:22-40, tests/AgentSmith.Tests/Server/Auth/RoleMappingAuthorityFixture.cs:10-32, tests/AgentSmith.Tests/Server/Auth/EnforceSwitchOffTests.cs:17-23"
+
+assumptions:
+  - "2026-10-15-4a4da is built: CallerIdentity carries ProjectPermissions (project name -> permissions under ConfigNames.Comparer, from bindings, global-only permissions already dropped) and PermissionsIn(string project) (global unioned with that project's), and the catalog's Permissions.ProjectScopable set answers whether a permission is project-scopable (asked as Permissions.ProjectScopable.Contains(name))."
+  - "A run's Runs row exists by the time a caller can name its id on the dashboard; a run without a row answers a project-only caller 404 and is unchanged for a global holder."
+
+scope:
+  in: >
+    DECLARATION: ProjectFrom (Server/Security, a record of kind and parameter, at most 50 lines) with Route(name),
+    Run (route value runId), Dialog (thread id from route value or query dialogId, plus the optional query project),
+    Session (route value sessionId, dashboard platform), Image (route value imageId), Body (the handler checks; only
+    POST /api/spec-dialog/messages) and AcrossProjects (a list or aggregate); Wire gives the golden spelling
+    (route:project, route:name, run, dialog, session, image, body, across). RoutePermissionExtensions.InProject<TBuilder>
+    adds it as metadata (28 -> at most 36). Every one of the 66 project-scopable rows chains InProject onto its EXISTING
+    map line, no line added: route:project — the 12 /api/tickets/{project}/{ticketId}[...] rows (detail, approval-preview,
+    conversation, defaults, requires, reviews, series, text, close, defaults/verdicts, landed-by-hand, reopen) and
+    GET /api/spec-dialog/tickets/{project}/{ticketId}; route:name — GET /api/projects/{name}/bootstrap, GET and POST
+    /api/projects/{name}/init; run — DELETE /api/runs/{runId}, DELETE and POST /api/runs/{runId}/judgements, POST answer,
+    cancel and retry, and GET /api/runs/{runId} plus its 12 read sub-routes (acceptance, compute, decisions, passes, specs,
+    specs/{specId}, statistics, steps, steps/{stepIndex}/events, trace, trace/{sequence}/{label}, trail); dialog — GET
+    /api/spec-dialog/{dialogId} and /filed-work, GET /references, /references/hashes, /references/{setId}/files, /content,
+    /preview, POST /images and /references, DELETE /images/{imageId}, /references/{setId}, /references/{setId}/files;
+    session — DELETE /conversations/{sessionId}, POST /conversations/{sessionId}/resume, the mock shot, html and ratify;
+    image — GET /api/spec-dialog/images/{imageId}; body — POST /api/spec-dialog/messages; across — GET /api/runs,
+    DELETE /api/runs, GET /api/pull-requests, GET /api/runs/expectations/metrics, GET /api/tickets, GET /api/tickets/graph,
+    GET /api/spec-dialog/conversations, /tickets/search, /tickets/resolve, /tickets/{ticketId}, and the hub /hub/jobs (its
+    negotiate row follows from the same map call). ACCESS: ProjectAccess (Server/Security, singleton, at most 80 lines):
+    bool Enforcing (TokenAuthorityConfig.Enforce); bool HoldsEverywhere(ClaimsPrincipal user, IReadOnlyList<string>
+    permissions) = every permission in the resolver's CallerIdentity.Permissions; bool HoldsAnywhere(ClaimsPrincipal user,
+    string permission) = in Permissions or in any ProjectPermissions entry; bool HoldsIn(ClaimsPrincipal user,
+    IReadOnlyList<string> permissions, string project) = every permission in CallerIdentity.PermissionsIn(project) when
+    the live configuration (TicketProjects.All(), ConfigNames.Comparer) names the project, else in Permissions — a
+    project no longer configured is reachable through global holds only. These four are the whole API; 4a4dc and 4a4dd
+    call them by these names and never re-derive the union. RESOLUTION: ResourceProjectReader
+    (Infrastructure.Persistence/Repositories, scoped, at most 70 lines, its own class so the two repositories at and near
+    their limit are untouched): RunAsync(runId), SessionAsync(platform, sessionId), OpenDialogAsync(platform, threadId),
+    ImageAsync(platform, imageId) (reference file else legacy attachment -> SessionId -> session), each projecting the
+    Project column only and answering null for no row and "" for a session without a project. ProjectSourceResolver
+    (Server/Security, scoped, at most 80 lines) turns a ProjectFrom and the HttpContext into Missing, Unscoped or the
+    project names to check (Route: the value read through TicketQueryEndpoints.Decoded, as the handlers read it;
+    Dialog: the open session's project when set, and the query project when given; no session and no query project is
+    Unscoped). ProjectScopeMiddleware (Server/Security, at most 60 lines; the scoped resolver arrives as an InvokeAsync
+    parameter, never through the constructor of a middleware built once): for an endpoint with a
+    ProjectFrom other than Body and AcrossProjects, and only when the caller does not hold all its RequiresPermission
+    names everywhere, resolves the project; Unscoped passes; Missing, an unconfigured project or a project the caller
+    lacks any of the route's permissions in answers an EMPTY 404 before the handler runs. Registered by
+    UseServerAuthentication straight after UseAuthorization only when auth.Enforce (86 -> at most 89). COARSE GATE:
+    PermissionRequirementHandler.Holds also succeeds when the permission is project-scopable, the endpoint's ProjectFrom
+    is a per-resource kind (route, run, dialog, session, image, body) and HoldsAnywhere (40 -> at most 55); an
+    AcrossProjects route — every list and /hub/jobs with its negotiate — keeps the global check, so a project-only
+    caller is refused 403 there exactly as today (4a4dc gives the hub its own kind and opens it; 4a4dd opens the
+    lists with their filters). BODY ROUTE: DialogMessageScope (Server/Security, scoped, at most 60
+    lines) decides POST /api/spec-dialog/messages for a caller who does not hold dialog.write everywhere: the dialog's
+    projects are the open session's, body.Project, and the project a text SpecCommandParser reads as '/spec <project>'
+    names; a '/spec' naming none (it would list every configured project) and any project not held for dialog.write
+    answer an empty 404 before anything is emitted or dispatched. MayStartRuns moves into it and asks ProjectAccess for
+    runs.control in those projects (global when unscoped); SpecDialogEndpoints.IngestAsync calls both (119 -> at most
+    120, the moved MayStartRuns pays for the call). RESUME TARGET: SpecDialogResumeEndpoints.ResumeAsync answers an empty
+    404 when the open session on the body's target dialog is in a project the caller lacks dialog.write in, before the
+    resumer closes it (74 -> at most 80); its source is the route's Session kind. REGISTRATION:
+    ProjectScopeExtensions.AddProjectScope (at most 25 lines) called from AddCallerIdentity (52 -> at most 54). GUARD:
+    RouteFact gains Scope and its Row a fourth column ('-' when none); ServerRouteTable reads ProjectFrom (57 -> at most
+    60); route-permission-baseline.tsv regenerated with the column; RouteProjectScopeGuardTests (new file, pinned like
+    RoutePermissionGuardTests: AGENTSMITH_UI_API_ENABLED set, EnvVarCollection, TestProcess env-3 — otherwise it passes
+    vacuously over the unconditional routes) pins the rules below.
+  out: >
+    CallerIdentity.ProjectPermissions, the scopability mark, bindings, findings and the store round-trip —
+    2026-10-15-4a4da. Hub methods (runs.watch, run-keyed subscriptions), the per-project overview groups and letting a
+    project-only holder connect to /hub/jobs — 2026-10-15-4a4dc. Filtering every AcrossProjects route by caller
+    (runs, pull requests, metrics, tickets, graph, conversations, ticket search/resolve/{ticketId}, and DELETE /api/runs
+    deleting, for a project-only holder, only the terminal runs of projects where they hold runs.delete), letting AcrossProjects pass the coarse gate on HoldsAnywhere once filtered,
+    and the new GET /api/projects — 2026-10-15-4a4dd. /api/identity's projectPermissions and the dashboard's gating —
+    2026-10-15-4a4de. The Access Studio's Projects pane — 2026-10-15-4a4df. Turning the dialog surface's existing OWNER
+    refusals (403 on the view, message, reference-list and resume routes) into 404 — nobody: they refuse a person in a
+    project they hold, which confirms nothing about another project. Webhooks, Slack, Teams and tracker polling — nobody
+    (anonymous server-side triggers, unchanged).
+
+decisions:
+  - key: "ONE MIDDLEWARE, NOT AN AUTHORIZATION FAILURE. Alternative: resolve in PermissionRequirementHandler. Why: a pending requirement becomes the 403 body naming the permission, which confirms the resource exists; a middleware after UseAuthorization sees the selected endpoint and its route values and can answer 404 before the handler."
+  - key: "EMPTY 404 FOR EVERY NON-GLOBAL MISS. Alternative: copy each route's own missing body. Why: the bodies differ per route (empty, 'No project <name> is configured.'); for a caller who is not a global holder the middleware answers missing and out-of-reach identically before any handler speaks, and a global holder still reads every text it read before."
+  - key: "GLOBAL HOLDERS NEVER PAY. The middleware returns before any lookup when the caller holds the route's permissions everywhere, so admins, operators and every installation without bindings run byte-identical paths; with enforce off the middleware is not in the pipeline at all."
+  - key: "LISTS STAY GLOBAL IN THIS SLICE. Alternative: admit project-only holders to AcrossProjects routes now. Why: until 4a4dd filters them, a project-only holder would read every project's runs; the across marker is declared here so the guard is complete, and 4a4dd flips its coarse rule with the filtering."
+  - key: "AN UNCONFIGURED PROJECT IS GLOBAL-ONLY. A binding to a project not configured is kept (4a4da), but reaching a run or ticket of that project needs a global hold — the brief's rule for orphaned runs, read at the one place that checks."
+  - key: "DIALOG ROUTES CHECK THE SESSION'S PROJECT. The ticket-bound widening in SpecDialogOwnership.MayReach stays, now bounded by the session's project at the route; a conversation with no project yet carries nothing project-specific and passes."
+  - key: "A BODY KIND, PINNED TO ONE ROUTE. POST messages carries the dialog id in its body, which a middleware cannot read without buffering it; the handler checks through the same resolver, and the guard allows Body on that route alone."
+  - key: "THE TYPED '/spec' IS A PROJECT SOURCE. Alternative: check only the session and body.Project. Why: a fresh dialog posting '/spec beta' opens a session on beta with neither set, and a bare '/spec' lists every project's name; the parser that routes the text is the one that names the project, so the check reads it the same way."
+  - key: "MISSING IS 404 FOR A PROJECT-ONLY CALLER, ALSO ON THE DELETE. Alternative: let a missing session through so the delete keeps its 204. Why: a foreign session would then answer 404 and a missing one 204 — exactly the existence signal the 404 rule removes; a global holder keeps the 204."
+  - key: "A TRACKER SHARED BY TWO PROJECTS IS A SHARED TRUST BOUNDARY. Alternative: partition a shared tracker's tickets by project. Why: two projects routed to one tracker connection see one ticket space; agent-smith scopes by the project the caller ADDRESSES (the {project} route value, the run's or session's stored project) and does not partition a shared tracker's tickets. Documented and accepted: an operator who needs the split gives each project its own tracker connection."
+  - key: "THE DECLARATION CHAINS ONTO THE EXISTING LINE. RunControlEndpoints sits at its 151-line ratchet; InProject goes on the Needs line, as Needs went on the map line."
+
+steps:
+  - id: declaration
+    action: "ProjectFrom (at most 50 lines) and InProject in RoutePermissionExtensions (28 -> at most 36)."
+  - id: access
+    action: "ProjectAccess (at most 80 lines), ResourceProjectReader (at most 70 lines, Project-column projections only), ProjectSourceResolver (at most 80 lines); ProjectScopeExtensions.AddProjectScope (at most 25 lines, registering these three and DialogMessageScope) from AddCallerIdentity (52 -> at most 54)."
+  - id: middleware
+    action: "ProjectScopeMiddleware (at most 60 lines); UseServerAuthentication adds it after UseAuthorization when auth.Enforce (86 -> at most 89)."
+  - id: coarse-gate
+    action: "PermissionRequirementHandler admits a project-scopable permission held in any project on a per-resource route (40 -> at most 55); AcrossProjects and undeclared routes keep the global check."
+  - id: declare-routes
+    action: "Chain InProject onto the 66 rows listed in scope, on their existing lines, in the map files TicketQueryEndpoints, TicketApprovalPreviewEndpoints, TicketConversationReadEndpoints, TicketDefaultsEndpoints, TicketGraphEndpoints, TicketReviewEndpoints, TicketSeriesEndpoints, TicketTextEndpoints, TicketCloseEndpoints, TicketLandedByHandEndpoints, TicketConversationEndpoints, TicketSearchEndpoints, ProjectBootstrapEndpoints, ProjectInitEndpoints, RunQueryEndpoints, RunStepQueryEndpoints, RunSpecQueryEndpoints, RunStoryEndpoints, RunPassEndpoints, RunComputeEndpoints, CriterionJudgementEndpoints, RunControlEndpoints, RetryEndpoints, RunDeletionEndpoints, PullRequestQueryEndpoints, CriteriaMetEndpoints, ServerEndpointExtensions (hub), and the nine SpecDialog*Endpoints files; no file grows."
+  - id: body-route
+    action: "DialogMessageScope (at most 60 lines: session, body.Project and '/spec <project>' text; MayStartRuns moved in, through ProjectAccess); SpecDialogEndpoints.IngestAsync calls it (119 -> at most 120); SpecDialogResumeEndpoints checks the target dialog's project (74 -> at most 80)."
+  - id: guard
+    action: "RouteFact.Scope and the fourth Row column; ServerRouteTable reads ProjectFrom (57 -> at most 60); regenerate route-permission-baseline.tsv with AGENTSMITH_WRITE_ROUTE_BASELINE=1 and read the diff: 66 rows gain a scope, the rest '-'."
+  - id: tests
+    action: "Red first, then green; the booted tests use a ProjectBindingAuthorityFixture (one group bound to operator in project alpha, beta configured too) with the env-var collection and a TestProcess env trait; run Server.Auth, Server route guard and SpecDialog classes with --filter."
+
+tests:
+  - "RouteProjectScopeGuard_EveryProjectScopableRoute_DeclaresWhereItsProjectComesFrom"
+  - "RouteProjectScopeGuard_ARouteWithOnlyGlobalPermissions_DeclaresNoProject"
+  - "RouteProjectScopeGuard_ARouteValueSource_NamesAParameterInItsPattern (route:project, route:name, run on {runId}, session on {sessionId}, image on {imageId})"
+  - "RouteProjectScopeGuard_Body_IsDeclaredOnTheMessageRouteAlone"
+  - "RouteProjectScopeGuard_AStowawayRunRouteWithoutAScope_Fails"
+  - "RouteGuard_TheRouteTable_MatchesTheGoldenMethodPathAndPermissionList (existing, golden with the scope column)"
+  - "ProjectAccess_HoldsIn_GlobalUnionTheProjectsPermissions"
+  - "ProjectAccess_HoldsIn_AProjectNoLongerConfigured_OnlyThroughGlobal"
+  - "ResourceProjectReader_RunSessionDialogAndImage_ReadTheProjectOrNull (legacy attachment image included)"
+  - "ProjectScope_TicketInAnotherProject_Is404WithAnEmptyBody"
+  - "ProjectScope_TicketInAnotherProjectAndAnUnknownProject_AnswerTheSameBytes"
+  - "ProjectScope_RunOfAnotherProject_IsNotCancelledAndIs404"
+  - "ProjectScope_RunOfTheBoundProject_IsReadAndCancelled"
+  - "ProjectScope_UnknownRunId_ForAProjectOnlyCaller_IsTheSame404"
+  - "ProjectScope_GlobalHolder_ReadsEveryProjectAndTheHandlersOwn404Text"
+  - "ProjectScope_DialogOfAnotherProject_TicketBound_Is404"
+  - "ProjectScope_DialogWithNoProjectYet_Passes"
+  - "ProjectScope_UploadNamingAnotherProjectInTheQuery_Is404"
+  - "ProjectScope_MockOfASessionInAnotherProject_Is404"
+  - "ProjectScope_ImageOfASessionInAnotherProject_Is404"
+  - "SpecDialogMessage_DialogInAnotherProject_Is404AndNothingIsDispatched"
+  - "SpecDialogMessage_RunsControlOnlyInAnotherProject_DoesNotStartRuns"
+  - "SpecDialogMessage_SpecCommandNamingAnotherProject_Is404AndOpensNoSession"
+  - "SpecDialogMessage_BareSpecCommand_ForAProjectOnlyCaller_Is404AndListsNoProject"
+  - "SpecDialogResume_OntoATicketBoundDialogOfAnotherProject_Is404AndClosesNothing"
+  - "ProjectScope_TicketRouteWithAnEncodedSlashInTheProject_ChecksTheDecodedName"
+  - "ProjectScope_AcrossProjectsRoute_ProjectOnlyCaller_Is403AsToday"
+  - "ProjectScope_EnforceOff_AnswersEveryRouteAsBeforeAndRegistersNoMiddleware"
+  - "ProjectScope_ServerComposition_ResolvesAccessReaderResolverAndMessageScope (integration, ServerCompositionBuilder; TestProcess env trait + EnvVarCollection)"
+
+done:
+  - "A person bound to project alpha only opens alpha's tickets, runs and conversations by their address and acts on them as their role allows; asking for a ticket, run, conversation, upload or mock of project beta, or for a project, run or conversation that does not exist, answers the same empty 404; the lists, the graph and the live hub still refuse them until 2026-10-15-4a4dd and 2026-10-15-4a4dc."
+  - "In a design conversation that person cannot open, continue or resume onto a conversation of project beta, and a typed '/spec' never shows them beta's name."
+  - "An admin, an operator granted globally, and every installation with no project bindings see and do exactly what they did before, including every 404 text."
+  - "With auth.enforce off nothing is refused and nothing is filtered, exactly as today."
+  - "A route added with a project-scopable permission and no project source fails the route guard, and the route table shows each route's project source as a visible diff."
+  - "Build green, full suite green, dashboard gen/test/build green."

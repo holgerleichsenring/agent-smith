@@ -24,11 +24,11 @@ internal static class TicketConversationEndpoints
     internal static WebApplication MapTicketConversationEndpoints(this WebApplication app)
     {
         app.MapGet("/api/spec-dialog/tickets/{project}/{ticketId}", (Delegate)ForTicketAsync)
-           .Needs(Security.Permissions.DialogWrite);
+           .Needs(Security.Permissions.DialogWrite).InProject(Security.ProjectFrom.Route("project"));
         // 2026-09-25-8e51a: the ticket alone. Every configured tracker is asked for it, and the
         // projects routed to the one that has it are matched from its own labels.
         app.MapGet("/api/spec-dialog/tickets/{ticketId}", (Delegate)ProjectForTicketAsync)
-           .Needs(Security.Permissions.DialogWrite);
+           .Needs(Security.Permissions.DialogWrite).InProject(Security.ProjectFrom.AcrossProjects);
         // 2026-09-27-5c1eb: typed text rather than an id in hand, in a file of its own.
         return app.MapTicketSearchEndpoints();
     }

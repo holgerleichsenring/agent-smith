@@ -11,8 +11,8 @@ internal static class TicketGraphEndpoints
 {
     internal static WebApplication MapTicketGraphEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/tickets/graph", GraphAsync).Needs(Permissions.RunsRead);
-        app.MapGet("/api/tickets/{project}/{ticketId}/requires", RequiresAsync).Needs(Permissions.RunsRead);
+        app.MapGet("/api/tickets/graph", GraphAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.AcrossProjects);
+        app.MapGet("/api/tickets/{project}/{ticketId}/requires", RequiresAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.Route("project"));
         return app;
     }
 

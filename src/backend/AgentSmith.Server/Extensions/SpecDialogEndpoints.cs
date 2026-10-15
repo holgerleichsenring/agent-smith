@@ -1,5 +1,4 @@
 using AgentSmith.Contracts.Events;
-using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Server.Services.SpecDialog;
 
 namespace AgentSmith.Server.Extensions;
@@ -17,7 +16,7 @@ internal static class SpecDialogEndpoints
     internal static WebApplication MapSpecDialogEndpoints(this WebApplication app)
     {
         app.MapPost("/api/spec-dialog/messages", (Delegate)IngestAsync)
-           .Needs(Security.Permissions.DialogWrite);
+           .Needs(Security.Permissions.DialogWrite).InProject(Security.ProjectFrom.Body);
         return app;
     }
 
@@ -33,6 +32,10 @@ internal static class SpecDialogEndpoints
         if (string.IsNullOrWhiteSpace(body.DialogId) || string.IsNullOrWhiteSpace(body.Text))
             return Results.BadRequest("dialogId and text are required");
 
+        // 2026-10-15-4a4db: a conversation of a project the caller holds no dialog.write in does not exist for them.
+        var admission = await ctx.RequestServices.GetRequiredService<Security.DialogMessageScope>()
+            .AdmitAsync(ctx.User, body.DialogId, body.Project, body.Text, ctx.RequestAborted);
+        if (!admission.Admitted) return Results.NotFound();
         var ownership = ctx.RequestServices.GetRequiredService<SpecDialogOwnership>();
         var owner = ownership.OwnerOf(ctx.User);
         if (!await ownership.MayWatchAsync(body.DialogId, owner, ctx.RequestAborted))
@@ -42,24 +45,9 @@ internal static class SpecDialogEndpoints
         }
 
         await EmitChatAsync(ctx, body.DialogId, actioned: true, skipReason: null);
-        Dispatch(ctx, body.DialogId, body.Text.Trim(), owner, MayStartRuns(ctx), body.Project, body.TicketId,
+        Dispatch(ctx, body.DialogId, body.Text.Trim(), owner, admission.MayStartRuns, body.Project, body.TicketId,
             Security.DisplayName.Of(ctx.User));
         return Results.Accepted();
-    }
-
-    /// <summary>
-    /// 2026-09-17-042eg: posting here needs dialog.write only, but approving MOVES the filed work
-    /// ticket into a trigger status, and that starts a run — which is runs.control everywhere else
-    /// in this server. It is sampled when the turn starts, on the principal that started it: the
-    /// dialog's owner is the only one who may post into it, so that principal is the approver.
-    /// A non-enforcing installation holds everyone to nothing, exactly as the hub filter reads it.
-    /// </summary>
-    internal static bool MayStartRuns(HttpContext ctx)
-    {
-        var auth = ctx.RequestServices.GetRequiredService<TokenAuthorityConfig>();
-        if (!auth.Enforce) return true;
-        return ctx.RequestServices.GetRequiredService<Security.CallerIdentityResolver>()
-            .Resolve(ctx.User).Permissions.Contains(Security.Permissions.RunsControl);
     }
 
     /// <summary>

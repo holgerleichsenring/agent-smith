@@ -13,7 +13,7 @@ internal static class TicketConversationReadEndpoints
 {
     internal static WebApplication MapTicketConversationReadEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/tickets/{project}/{ticketId}/conversation", ConversationAsync).Needs(Permissions.RunsRead);
+        app.MapGet("/api/tickets/{project}/{ticketId}/conversation", ConversationAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.Route("project"));
         return app.MapTicketTextEndpoints().MapTicketReviewEndpoints(); // 2026-10-13-8762l
     }
 

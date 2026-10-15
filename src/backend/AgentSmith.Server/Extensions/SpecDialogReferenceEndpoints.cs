@@ -21,9 +21,9 @@ internal static class SpecDialogReferenceEndpoints
     internal static WebApplication MapSpecDialogReferenceEndpoints(this WebApplication app)
     {
         app.MapPost("/api/spec-dialog/references", (Delegate)UploadAsync)
-           .Needs(Security.Permissions.DialogWrite);
+           .Needs(Security.Permissions.DialogWrite).InProject(Security.ProjectFrom.Dialog);
         app.MapGet("/api/spec-dialog/references", (Delegate)ListAsync)
-           .Needs(Security.Permissions.DialogWrite);
+           .Needs(Security.Permissions.DialogWrite).InProject(Security.ProjectFrom.Dialog);
         return app;
     }
 

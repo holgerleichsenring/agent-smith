@@ -23,9 +23,9 @@ internal static class CriterionJudgementEndpoints
 {
     internal static WebApplication MapCriterionJudgementEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/runs/{runId}/acceptance", GetAsync).Needs(Permissions.RunsRead);
-        app.MapPost("/api/runs/{runId}/judgements", RecordAsync).Needs(Permissions.RunsControl);
-        app.MapDelete("/api/runs/{runId}/judgements", WithdrawAsync).Needs(Permissions.RunsControl);
+        app.MapGet("/api/runs/{runId}/acceptance", GetAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.Run);
+        app.MapPost("/api/runs/{runId}/judgements", RecordAsync).Needs(Permissions.RunsControl).InProject(ProjectFrom.Run);
+        app.MapDelete("/api/runs/{runId}/judgements", WithdrawAsync).Needs(Permissions.RunsControl).InProject(ProjectFrom.Run);
         return app;
     }
 

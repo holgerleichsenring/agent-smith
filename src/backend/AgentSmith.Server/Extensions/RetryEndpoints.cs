@@ -13,7 +13,7 @@ internal static class RetryEndpoints
 {
     internal static WebApplication MapRetryEndpoints(this WebApplication app)
     {
-        app.MapPost("/api/runs/{runId}/retry", RetryAsync).Needs(Security.Permissions.RunsControl);
+        app.MapPost("/api/runs/{runId}/retry", RetryAsync).Needs(Security.Permissions.RunsControl).InProject(Security.ProjectFrom.Run);
         return app;
     }
 

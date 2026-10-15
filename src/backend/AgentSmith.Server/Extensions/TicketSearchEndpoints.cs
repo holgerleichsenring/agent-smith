@@ -20,12 +20,12 @@ internal static class TicketSearchEndpoints
         // so this cannot be read as a ticket id — and no tracker's id grammar produces the word
         // "search", so nothing real is shadowed either.
         app.MapGet("/api/spec-dialog/tickets/search", (Delegate)SearchTicketsAsync)
-           .Needs(Security.Permissions.DialogWrite);
+           .Needs(Security.Permissions.DialogWrite).InProject(Security.ProjectFrom.AcrossProjects);
         // 2026-09-27-481bb: the tracker is a QUERY parameter, not a segment. As a segment it would
         // sit where tickets/{project}/{ticketId} already has one, and two single-segment parameters
         // in the same position match ambiguously at request time rather than failing to compile.
         app.MapGet("/api/spec-dialog/tickets/resolve", (Delegate)ResolveTicketAsync)
-           .Needs(Security.Permissions.DialogWrite);
+           .Needs(Security.Permissions.DialogWrite).InProject(Security.ProjectFrom.AcrossProjects);
         return app;
     }
 

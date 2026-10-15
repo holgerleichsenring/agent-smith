@@ -1,142 +1,142 @@
-*	/hub/jobs	runs.read
-*	/hub/jobs/negotiate	runs.read
-DELETE	/api/access/people/{id}	access.write
-DELETE	/api/config/agents/{id}	config.write
-DELETE	/api/config/connections/{id}	config.write
-DELETE	/api/config/design-sources/{id}	config.write
-DELETE	/api/config/mcp-servers/{id}	config.write
-DELETE	/api/config/projects/{id}	config.write
-DELETE	/api/config/repos/{id}	config.write
-DELETE	/api/config/secrets/{id}	secrets.write
-DELETE	/api/config/trackers/{id}	config.write
-DELETE	/api/runs	runs.delete
-DELETE	/api/runs/{runId}	runs.delete
-DELETE	/api/runs/{runId}/judgements	runs.control
-DELETE	/api/spec-dialog/conversations/{sessionId}	dialog.write
-DELETE	/api/spec-dialog/images/{imageId:long}	dialog.write
-DELETE	/api/spec-dialog/references/{setId}	dialog.write
-DELETE	/api/spec-dialog/references/{setId}/files	dialog.write
-GET	/api/access	access.read
-GET	/api/archive/export	archive.export
-GET	/api/archive/preview	archive.export
-GET	/api/auth/requirements	anonymous
-GET	/api/catalog	catalog.read
-GET	/api/catalog/skills/{name}	catalog.read
-GET	/api/config	config.read
-GET	/api/config/agents	config.read
-GET	/api/config/capabilities	config.read
-GET	/api/config/changes	config.read,secrets.read
-GET	/api/config/connections	config.read
-GET	/api/config/connections/{id}/repos	config.read
-GET	/api/config/design-sources	config.read
-GET	/api/config/export.yml	config.export,secrets.read
-GET	/api/config/findings	anonymous
-GET	/api/config/inherited-sandbox	config.read
-GET	/api/config/installation	anonymous
-GET	/api/config/mcp-servers	config.read
-GET	/api/config/model-prices	config.read
-GET	/api/config/projects	config.read
-GET	/api/config/projects/{project}/contexts	diagnostics.probe
-GET	/api/config/repos	config.read
-GET	/api/config/sandbox/image-trust	config.read
-GET	/api/config/secrets	secrets.read
-GET	/api/config/settings	config.read
-GET	/api/config/settings/{type}	config.read
-GET	/api/config/trackers	config.read
-GET	/api/diagnostics/connections	diagnostics.read
-GET	/api/identity	identity.read
-GET	/api/openapi.json	anonymous
-GET	/api/projects/{name}/bootstrap	runs.read
-GET	/api/projects/{name}/init	runs.read
-GET	/api/pull-requests	runs.read
-GET	/api/runs	runs.read
-GET	/api/runs/expectations/metrics	runs.read
-GET	/api/runs/{runId}	runs.read
-GET	/api/runs/{runId}/acceptance	runs.read
-GET	/api/runs/{runId}/compute	runs.read
-GET	/api/runs/{runId}/decisions	runs.read
-GET	/api/runs/{runId}/passes	runs.read
-GET	/api/runs/{runId}/specs	runs.read
-GET	/api/runs/{runId}/specs/{specId}	runs.read
-GET	/api/runs/{runId}/statistics	runs.read
-GET	/api/runs/{runId}/steps	runs.read
-GET	/api/runs/{runId}/steps/{stepIndex:int}/events	runs.read
-GET	/api/runs/{runId}/trace	runs.read
-GET	/api/runs/{runId}/trace/{sequence:int}/{label}	runs.read
-GET	/api/runs/{runId}/trail	runs.read
-GET	/api/spec-dialog/conversations	dialog.write
-GET	/api/spec-dialog/conversations/{sessionId}/mocks/{specId}/{version:int}/html	dialog.write
-GET	/api/spec-dialog/conversations/{sessionId}/mocks/{specId}/{version:int}/shot	dialog.write
-GET	/api/spec-dialog/images/{imageId:long}	dialog.write
-GET	/api/spec-dialog/references	dialog.write
-GET	/api/spec-dialog/references/hashes	dialog.write
-GET	/api/spec-dialog/references/{setId}/files	dialog.write
-GET	/api/spec-dialog/references/{setId}/files/content	dialog.write
-GET	/api/spec-dialog/references/{setId}/files/preview	dialog.write
-GET	/api/spec-dialog/tickets/resolve	dialog.write
-GET	/api/spec-dialog/tickets/search	dialog.write
-GET	/api/spec-dialog/tickets/{project}/{ticketId}	dialog.write
-GET	/api/spec-dialog/tickets/{ticketId}	dialog.write
-GET	/api/spec-dialog/{dialogId}	dialog.write
-GET	/api/spec-dialog/{dialogId}/filed-work	dialog.write,runs.read
-GET	/api/tickets	runs.read
-GET	/api/tickets/graph	runs.read
-GET	/api/tickets/{project}/{ticketId}	runs.read
-GET	/api/tickets/{project}/{ticketId}/approval-preview	dialog.write
-GET	/api/tickets/{project}/{ticketId}/conversation	runs.read
-GET	/api/tickets/{project}/{ticketId}/defaults	runs.read
-GET	/api/tickets/{project}/{ticketId}/requires	runs.read
-GET	/api/tickets/{project}/{ticketId}/reviews	runs.read
-GET	/api/tickets/{project}/{ticketId}/series	runs.read
-GET	/api/tickets/{project}/{ticketId}/text	runs.read
-GET	/health	anonymous
-POST	/api/archive/import	archive.import
-POST	/api/config/agents	config.write
-POST	/api/config/changes/{id}/revert	config.write,secrets.write
-POST	/api/config/connections	config.write
-POST	/api/config/connections/check	config.write,diagnostics.probe
-POST	/api/config/connections/{id}/discovery/refresh	diagnostics.probe
-POST	/api/config/design-sources	config.write
-POST	/api/config/import	config.import,secrets.write
-POST	/api/config/mcp-servers	config.write
-POST	/api/config/projects	config.write
-POST	/api/config/projects/validate	config.write
-POST	/api/config/repos	config.write
-POST	/api/config/secrets	secrets.write
-POST	/api/config/trackers	config.write
-POST	/api/config/trackers/check	config.write,diagnostics.probe
-POST	/api/config/trackers/validate	config.write
-POST	/api/diagnostics/connections/{name}/probe	diagnostics.probe
-POST	/api/projects/{name}/init	projects.init
-POST	/api/runs/{runId}/answer	runs.control
-POST	/api/runs/{runId}/cancel	runs.control
-POST	/api/runs/{runId}/judgements	runs.control
-POST	/api/runs/{runId}/retry	runs.control
-POST	/api/spec-dialog/conversations/{sessionId}/mocks/{specId}/ratify	dialog.write
-POST	/api/spec-dialog/conversations/{sessionId}/resume	dialog.write
-POST	/api/spec-dialog/images	dialog.write
-POST	/api/spec-dialog/messages	dialog.write
-POST	/api/spec-dialog/references	dialog.write
-POST	/api/teams/messages	anonymous
-POST	/api/tickets/{project}/{ticketId}/close	runs.control
-POST	/api/tickets/{project}/{ticketId}/defaults/verdicts	runs.control
-POST	/api/tickets/{project}/{ticketId}/landed-by-hand	runs.control
-POST	/api/tickets/{project}/{ticketId}/reopen	runs.control
-POST	/slack/commands	anonymous
-POST	/slack/events	anonymous
-POST	/slack/interact	anonymous
-POST	/slack/options	anonymous
-POST	/webhook	anonymous
-POST	/webhook/github	anonymous
-POST	/webhook/gitlab	anonymous
-POST	/webhook/jira	anonymous
-PUT	/api/access	access.write
-PUT	/api/config/agents/{id}	config.write
-PUT	/api/config/connections/{id}	config.write
-PUT	/api/config/design-sources/{id}	config.write
-PUT	/api/config/mcp-servers/{id}	config.write
-PUT	/api/config/projects/{id}	config.write
-PUT	/api/config/repos/{id}	config.write
-PUT	/api/config/secrets/{id}	secrets.write
-PUT	/api/config/settings/{type}	config.write
-PUT	/api/config/trackers/{id}	config.write
+*	/hub/jobs	runs.read	across
+*	/hub/jobs/negotiate	runs.read	across
+DELETE	/api/access/people/{id}	access.write	-
+DELETE	/api/config/agents/{id}	config.write	-
+DELETE	/api/config/connections/{id}	config.write	-
+DELETE	/api/config/design-sources/{id}	config.write	-
+DELETE	/api/config/mcp-servers/{id}	config.write	-
+DELETE	/api/config/projects/{id}	config.write	-
+DELETE	/api/config/repos/{id}	config.write	-
+DELETE	/api/config/secrets/{id}	secrets.write	-
+DELETE	/api/config/trackers/{id}	config.write	-
+DELETE	/api/runs	runs.delete	across
+DELETE	/api/runs/{runId}	runs.delete	run
+DELETE	/api/runs/{runId}/judgements	runs.control	run
+DELETE	/api/spec-dialog/conversations/{sessionId}	dialog.write	session
+DELETE	/api/spec-dialog/images/{imageId:long}	dialog.write	dialog
+DELETE	/api/spec-dialog/references/{setId}	dialog.write	dialog
+DELETE	/api/spec-dialog/references/{setId}/files	dialog.write	dialog
+GET	/api/access	access.read	-
+GET	/api/archive/export	archive.export	-
+GET	/api/archive/preview	archive.export	-
+GET	/api/auth/requirements	anonymous	-
+GET	/api/catalog	catalog.read	-
+GET	/api/catalog/skills/{name}	catalog.read	-
+GET	/api/config	config.read	-
+GET	/api/config/agents	config.read	-
+GET	/api/config/capabilities	config.read	-
+GET	/api/config/changes	config.read,secrets.read	-
+GET	/api/config/connections	config.read	-
+GET	/api/config/connections/{id}/repos	config.read	-
+GET	/api/config/design-sources	config.read	-
+GET	/api/config/export.yml	config.export,secrets.read	-
+GET	/api/config/findings	anonymous	-
+GET	/api/config/inherited-sandbox	config.read	-
+GET	/api/config/installation	anonymous	-
+GET	/api/config/mcp-servers	config.read	-
+GET	/api/config/model-prices	config.read	-
+GET	/api/config/projects	config.read	-
+GET	/api/config/projects/{project}/contexts	diagnostics.probe	-
+GET	/api/config/repos	config.read	-
+GET	/api/config/sandbox/image-trust	config.read	-
+GET	/api/config/secrets	secrets.read	-
+GET	/api/config/settings	config.read	-
+GET	/api/config/settings/{type}	config.read	-
+GET	/api/config/trackers	config.read	-
+GET	/api/diagnostics/connections	diagnostics.read	-
+GET	/api/identity	identity.read	-
+GET	/api/openapi.json	anonymous	-
+GET	/api/projects/{name}/bootstrap	runs.read	route:name
+GET	/api/projects/{name}/init	runs.read	route:name
+GET	/api/pull-requests	runs.read	across
+GET	/api/runs	runs.read	across
+GET	/api/runs/expectations/metrics	runs.read	across
+GET	/api/runs/{runId}	runs.read	run
+GET	/api/runs/{runId}/acceptance	runs.read	run
+GET	/api/runs/{runId}/compute	runs.read	run
+GET	/api/runs/{runId}/decisions	runs.read	run
+GET	/api/runs/{runId}/passes	runs.read	run
+GET	/api/runs/{runId}/specs	runs.read	run
+GET	/api/runs/{runId}/specs/{specId}	runs.read	run
+GET	/api/runs/{runId}/statistics	runs.read	run
+GET	/api/runs/{runId}/steps	runs.read	run
+GET	/api/runs/{runId}/steps/{stepIndex:int}/events	runs.read	run
+GET	/api/runs/{runId}/trace	runs.read	run
+GET	/api/runs/{runId}/trace/{sequence:int}/{label}	runs.read	run
+GET	/api/runs/{runId}/trail	runs.read	run
+GET	/api/spec-dialog/conversations	dialog.write	across
+GET	/api/spec-dialog/conversations/{sessionId}/mocks/{specId}/{version:int}/html	dialog.write	session
+GET	/api/spec-dialog/conversations/{sessionId}/mocks/{specId}/{version:int}/shot	dialog.write	session
+GET	/api/spec-dialog/images/{imageId:long}	dialog.write	image
+GET	/api/spec-dialog/references	dialog.write	dialog
+GET	/api/spec-dialog/references/hashes	dialog.write	dialog
+GET	/api/spec-dialog/references/{setId}/files	dialog.write	dialog
+GET	/api/spec-dialog/references/{setId}/files/content	dialog.write	dialog
+GET	/api/spec-dialog/references/{setId}/files/preview	dialog.write	dialog
+GET	/api/spec-dialog/tickets/resolve	dialog.write	across
+GET	/api/spec-dialog/tickets/search	dialog.write	across
+GET	/api/spec-dialog/tickets/{project}/{ticketId}	dialog.write	route:project
+GET	/api/spec-dialog/tickets/{ticketId}	dialog.write	across
+GET	/api/spec-dialog/{dialogId}	dialog.write	dialog
+GET	/api/spec-dialog/{dialogId}/filed-work	dialog.write,runs.read	dialog
+GET	/api/tickets	runs.read	across
+GET	/api/tickets/graph	runs.read	across
+GET	/api/tickets/{project}/{ticketId}	runs.read	route:project
+GET	/api/tickets/{project}/{ticketId}/approval-preview	dialog.write	route:project
+GET	/api/tickets/{project}/{ticketId}/conversation	runs.read	route:project
+GET	/api/tickets/{project}/{ticketId}/defaults	runs.read	route:project
+GET	/api/tickets/{project}/{ticketId}/requires	runs.read	route:project
+GET	/api/tickets/{project}/{ticketId}/reviews	runs.read	route:project
+GET	/api/tickets/{project}/{ticketId}/series	runs.read	route:project
+GET	/api/tickets/{project}/{ticketId}/text	runs.read	route:project
+GET	/health	anonymous	-
+POST	/api/archive/import	archive.import	-
+POST	/api/config/agents	config.write	-
+POST	/api/config/changes/{id}/revert	config.write,secrets.write	-
+POST	/api/config/connections	config.write	-
+POST	/api/config/connections/check	config.write,diagnostics.probe	-
+POST	/api/config/connections/{id}/discovery/refresh	diagnostics.probe	-
+POST	/api/config/design-sources	config.write	-
+POST	/api/config/import	config.import,secrets.write	-
+POST	/api/config/mcp-servers	config.write	-
+POST	/api/config/projects	config.write	-
+POST	/api/config/projects/validate	config.write	-
+POST	/api/config/repos	config.write	-
+POST	/api/config/secrets	secrets.write	-
+POST	/api/config/trackers	config.write	-
+POST	/api/config/trackers/check	config.write,diagnostics.probe	-
+POST	/api/config/trackers/validate	config.write	-
+POST	/api/diagnostics/connections/{name}/probe	diagnostics.probe	-
+POST	/api/projects/{name}/init	projects.init	route:name
+POST	/api/runs/{runId}/answer	runs.control	run
+POST	/api/runs/{runId}/cancel	runs.control	run
+POST	/api/runs/{runId}/judgements	runs.control	run
+POST	/api/runs/{runId}/retry	runs.control	run
+POST	/api/spec-dialog/conversations/{sessionId}/mocks/{specId}/ratify	dialog.write	session
+POST	/api/spec-dialog/conversations/{sessionId}/resume	dialog.write	session
+POST	/api/spec-dialog/images	dialog.write	dialog
+POST	/api/spec-dialog/messages	dialog.write	body
+POST	/api/spec-dialog/references	dialog.write	dialog
+POST	/api/teams/messages	anonymous	-
+POST	/api/tickets/{project}/{ticketId}/close	runs.control	route:project
+POST	/api/tickets/{project}/{ticketId}/defaults/verdicts	runs.control	route:project
+POST	/api/tickets/{project}/{ticketId}/landed-by-hand	runs.control	route:project
+POST	/api/tickets/{project}/{ticketId}/reopen	runs.control	route:project
+POST	/slack/commands	anonymous	-
+POST	/slack/events	anonymous	-
+POST	/slack/interact	anonymous	-
+POST	/slack/options	anonymous	-
+POST	/webhook	anonymous	-
+POST	/webhook/github	anonymous	-
+POST	/webhook/gitlab	anonymous	-
+POST	/webhook/jira	anonymous	-
+PUT	/api/access	access.write	-
+PUT	/api/config/agents/{id}	config.write	-
+PUT	/api/config/connections/{id}	config.write	-
+PUT	/api/config/design-sources/{id}	config.write	-
+PUT	/api/config/mcp-servers/{id}	config.write	-
+PUT	/api/config/projects/{id}	config.write	-
+PUT	/api/config/repos/{id}	config.write	-
+PUT	/api/config/secrets/{id}	secrets.write	-
+PUT	/api/config/settings/{type}	config.write	-
+PUT	/api/config/trackers/{id}	config.write	-

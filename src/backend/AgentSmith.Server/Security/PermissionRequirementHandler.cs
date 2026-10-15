@@ -17,7 +17,7 @@ namespace AgentSmith.Server.Security;
 /// <c>permission</c> claims stay part of that union.
 /// </para>
 /// </summary>
-internal sealed class PermissionRequirementHandler(CallerIdentityResolver identities)
+internal sealed class PermissionRequirementHandler(ProjectAccess access)
     : AuthorizationHandler<PermissionRequirement>
 {
     protected override Task HandleRequirementAsync(
@@ -34,7 +34,17 @@ internal sealed class PermissionRequirementHandler(CallerIdentityResolver identi
         (context.Resource as HttpContext)?.GetEndpoint()?.Metadata.GetMetadata<RequiresPermission>()
             ?.Names.Contains(requirement.Permission, StringComparer.Ordinal) == true;
 
+    /// <summary>
+    /// 2026-10-15-4a4db: a project-scopable permission held in ANY project admits a caller to a
+    /// per-resource route; <see cref="ProjectScopeMiddleware"/> then decides the resource's project
+    /// and answers 404 out of it. A list keeps the global check until it filters by caller.
+    /// </summary>
     private bool Holds(AuthorizationHandlerContext context, PermissionRequirement requirement) =>
-        identities.Resolve(context.User).Permissions
-            .Contains(requirement.Permission, StringComparer.Ordinal);
+        access.HoldsEverywhere(context.User, [requirement.Permission])
+        || (Permissions.ProjectScopable.Contains(requirement.Permission)
+            && SourceOf(context) is { IsPerResource: true }
+            && access.HoldsAnywhere(context.User, requirement.Permission));
+
+    private static ProjectFrom? SourceOf(AuthorizationHandlerContext context) =>
+        (context.Resource as HttpContext)?.GetEndpoint()?.Metadata.GetMetadata<ProjectFrom>();
 }

@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-15-4a4db
+
+decisions:
+  - category: Architecture
+    chose: "ProjectScopeMiddleware after UseAuthorization answers an empty 404; the coarse PermissionRequirementHandler admits a project-scopable permission held in any project on a per-resource route"
+    over: "Resolving the resource's project inside PermissionRequirementHandler"
+    reason: |
+      A pending requirement becomes the 403 body naming the permission, which confirms the resource exists. The
+      middleware sees the selected endpoint and its route values and answers before the handler speaks. It is put
+      in the pipeline only when auth.enforce is on, so enforce off is the old pipeline.
+  - category: Architecture
+    chose: "One empty 404 for missing, out-of-project and unconfigured-project resources, for a caller who is not a global holder"
+    over: "Copying each route's own missing body"
+    reason: |
+      The bodies differ per route ('No project <name> is configured.', empty, 204 on the delete). A global holder
+      returns before any lookup and keeps every text it read before; a project-only caller learns nothing about
+      which resources exist elsewhere.
+  - category: Architecture
+    chose: "ProjectAccess (Enforcing, HoldsEverywhere, HoldsAnywhere, HoldsIn) as the whole API, HoldsIn global-first and the configured-project lookup only after it"
+    over: "Each enforcement site deriving global-plus-project itself"
+    reason: |
+      4a4dc and 4a4dd call the same four members. Checking the global hold first keeps global holders off the
+      configuration loader, which assembles the whole configuration per call; a project no longer configured is
+      reachable through global holds alone.
+  - category: Architecture
+    chose: "ResourceProjectReader as its own scoped repository projecting the Project column"
+    over: "Adding reads to RunRepository and SpecDialogSessionRepository"
+    reason: |
+      SpecDialogSessionRepository is at 120 lines and RelationalPersistenceExtensions at its ratchet; the reader is
+      registered by AddProjectScope with the rest of the scope.
+  - category: Architecture
+    chose: "DialogMessageScope decides the body route (session project, body.Project, the '/spec <project>' word) and owns MayStartRuns; the approval preview asks MayStartRuns for its route project"
+    over: "Leaving MayStartRuns on SpecDialogEndpoints reading the flat permission list"
+    reason: |
+      Approving starts runs, so runs.control is asked in the conversation's projects (global when it names none),
+      which is the same answer as before for every global holder and every installation without bindings. A bare
+      '/spec' would list every configured project, so only a global dialog.write holder may type it.
+  - category: Architecture
+    chose: "A run row whose Project is empty is checked as the project '' (global holds only); a conversation with an empty Project is unscoped"
+    over: "Treating an empty run project as unscoped"
+    reason: |
+      A conversation is grounded on a project only once one is chosen, and carries nothing project-specific until
+      then; a run always has a project, so one naming none is an orphan only global holders may reach.
+  - category: Testing
+    chose: "ProjectScopeAuthorityFixture boots the real composition over a migrated store copy (AuthorityFixture.MigratesStore) and a fixed configuration loader naming alpha, beta and team/alpha"
+    over: "Unit-testing the middleware over a hand-built HttpContext"
+    reason: |
+      The refusal is a property of the pipeline order (authorization, then scope, then handler) and of the JwtBearer
+      claims; only a booted server proves a 404 reaches the wire before the handler. Each booted case was checked red
+      with the middleware or the message scope removed.

@@ -11,7 +11,7 @@ internal static class RunComputeEndpoints
 {
     internal static WebApplication MapRunComputeEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/runs/{runId}/compute", ComputeAsync).Needs(Permissions.RunsRead);
+        app.MapGet("/api/runs/{runId}/compute", ComputeAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.Run);
         return app;
     }
 

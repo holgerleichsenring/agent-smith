@@ -19,13 +19,13 @@ internal static class SpecDialogViewEndpoints
     internal static WebApplication MapSpecDialogViewEndpoints(this WebApplication app)
     {
         app.MapGet("/api/spec-dialog/conversations", (Delegate)ListAsync)
-           .Needs(Security.Permissions.DialogWrite);
+           .Needs(Security.Permissions.DialogWrite).InProject(Security.ProjectFrom.AcrossProjects);
         app.MapGet("/api/spec-dialog/{dialogId}", (Delegate)ReadAsync)
-           .Needs(Security.Permissions.DialogWrite);
+           .Needs(Security.Permissions.DialogWrite).InProject(Security.ProjectFrom.Dialog);
         // 2026-09-17-042ej: the rows are RUN STATE, so the caller holds runs.read as well as the
         // dialog permission, and the owner check below still decides WHICH conversation.
         app.MapGet("/api/spec-dialog/{dialogId}/filed-work", (Delegate)ReadFiledWorkAsync)
-           .Needs(Security.Permissions.DialogWrite, Security.Permissions.RunsRead);
+           .Needs(Security.Permissions.DialogWrite, Security.Permissions.RunsRead).InProject(Security.ProjectFrom.Dialog);
         return app;
     }
 

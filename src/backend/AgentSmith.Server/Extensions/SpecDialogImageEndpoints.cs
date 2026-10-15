@@ -33,9 +33,9 @@ internal static class SpecDialogImageEndpoints
     internal static WebApplication MapSpecDialogImageEndpoints(this WebApplication app)
     {
         app.MapPost("/api/spec-dialog/images", (Delegate)UploadAsync)
-           .Needs(Security.Permissions.DialogWrite);
+           .Needs(Security.Permissions.DialogWrite).InProject(Security.ProjectFrom.Dialog);
         app.MapGet("/api/spec-dialog/images/{imageId:long}", (Delegate)ServeAsync)
-           .Needs(Security.Permissions.DialogWrite);
+           .Needs(Security.Permissions.DialogWrite).InProject(Security.ProjectFrom.Image);
         return app;
     }
 

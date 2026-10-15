@@ -21,8 +21,8 @@ internal static class ProjectInitEndpoints
 {
     internal static WebApplication MapProjectInitEndpoints(this WebApplication app)
     {
-        app.MapPost("/api/projects/{name}/init", InitAsync).Needs(Permissions.ProjectsInit);
-        app.MapGet("/api/projects/{name}/init", GetStateAsync).Needs(Permissions.RunsRead);
+        app.MapPost("/api/projects/{name}/init", InitAsync).Needs(Permissions.ProjectsInit).InProject(ProjectFrom.Route("name"));
+        app.MapGet("/api/projects/{name}/init", GetStateAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.Route("name"));
         return app;
     }
 

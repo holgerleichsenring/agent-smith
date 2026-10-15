@@ -17,8 +17,8 @@ internal static class RunDeletionEndpoints
 {
     internal static WebApplication MapRunDeletionEndpoints(this WebApplication app)
     {
-        app.MapDelete("/api/runs/{runId}", DeleteRunAsync).Needs(Permissions.RunsDelete);
-        app.MapDelete("/api/runs", ClearTerminalAsync).Needs(Permissions.RunsDelete);
+        app.MapDelete("/api/runs/{runId}", DeleteRunAsync).Needs(Permissions.RunsDelete).InProject(ProjectFrom.Run);
+        app.MapDelete("/api/runs", ClearTerminalAsync).Needs(Permissions.RunsDelete).InProject(ProjectFrom.AcrossProjects);
         return app;
     }
 

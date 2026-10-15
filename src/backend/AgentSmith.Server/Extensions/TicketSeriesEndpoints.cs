@@ -11,7 +11,7 @@ internal static class TicketSeriesEndpoints
 {
     internal static WebApplication MapTicketSeriesEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/tickets/{project}/{ticketId}/series", SeriesAsync).Needs(Permissions.RunsRead);
+        app.MapGet("/api/tickets/{project}/{ticketId}/series", SeriesAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.Route("project"));
         return app.MapTicketConversationReadEndpoints(); // 2026-10-13-9a59h
     }
 

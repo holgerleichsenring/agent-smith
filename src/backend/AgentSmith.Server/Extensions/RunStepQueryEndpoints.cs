@@ -19,10 +19,10 @@ internal static class RunStepQueryEndpoints
 
     internal static WebApplication MapRunStepQueryEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/runs/{runId}/steps", GetRunStepsAsync).Needs(Permissions.RunsRead);
+        app.MapGet("/api/runs/{runId}/steps", GetRunStepsAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.Run);
         app.MapGet("/api/runs/{runId}/steps/{stepIndex:int}/events", GetRunStepEventsAsync)
-           .Needs(Permissions.RunsRead);
-        app.MapGet("/api/runs/{runId}/decisions", GetRunDecisionsAsync).Needs(Permissions.RunsRead);
+           .Needs(Permissions.RunsRead).InProject(ProjectFrom.Run);
+        app.MapGet("/api/runs/{runId}/decisions", GetRunDecisionsAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.Run);
         return app;
     }
 

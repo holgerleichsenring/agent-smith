@@ -24,9 +24,9 @@ internal static class RunQueryEndpoints
 {
     internal static WebApplication MapRunQueryEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/runs", GetRunsAsync).Needs(Permissions.RunsRead);
-        app.MapGet("/api/runs/{runId}", GetRunAsync).Needs(Permissions.RunsRead);
-        app.MapGet("/api/runs/{runId}/trail", GetRunTrailAsync).Needs(Permissions.RunsRead);
+        app.MapGet("/api/runs", GetRunsAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.AcrossProjects);
+        app.MapGet("/api/runs/{runId}", GetRunAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.Run);
+        app.MapGet("/api/runs/{runId}/trail", GetRunTrailAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.Run);
         // p0388b: the full-pipeline read surface (rail, per-step page, decisions)
         // is its own endpoint class — same READ surface, separate responsibility.
         app.MapRunStepQueryEndpoints();

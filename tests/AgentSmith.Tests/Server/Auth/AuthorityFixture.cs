@@ -24,12 +24,21 @@ public abstract class AuthorityFixture : IAsyncLifetime
     /// <summary>2026-10-15-4a4da: what this configuration substitutes in the composition, if anything.</summary>
     protected virtual Action<IServiceCollection>? Services => null;
 
+    /// <summary>2026-10-15-4a4db: whether the boot's store carries the migrated schema, for a case that reads rows.</summary>
+    protected virtual bool MigratesStore => false;
+
+    /// <summary>2026-10-15-4a4db: what this configuration does once its server is up.</summary>
+    protected virtual void Booted()
+    {
+    }
+
     public async Task InitializeAsync()
     {
         Issuer = await LocalTokenIssuer.StartAsync();
         var dbPath = Temp("db");
         _tempFiles.Add(dbPath + "-wal");
         _tempFiles.Add(dbPath + "-shm");
+        if (MigratesStore) TestSupport.MigratedStoreTemplate.CopyToFile(dbPath);
         var configPath = Temp("yml");
         await File.WriteAllTextAsync(configPath, $"""
             persistence:
@@ -38,6 +47,7 @@ public abstract class AuthorityFixture : IAsyncLifetime
 
             """ + AuthYaml(Issuer.Authority));
         Server = await BootedServer.StartAsync(new BootPlan(configPath) { Services = Services });
+        Booted();
     }
 
     public async Task DisposeAsync()

@@ -24,7 +24,7 @@ internal static class PullRequestQueryEndpoints
 
     internal static WebApplication MapPullRequestQueryEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/pull-requests", GetPullRequestsAsync).Needs(Permissions.RunsRead);
+        app.MapGet("/api/pull-requests", GetPullRequestsAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.AcrossProjects);
         return app;
     }
 
