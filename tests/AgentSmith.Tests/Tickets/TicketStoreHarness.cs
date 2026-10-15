@@ -62,12 +62,14 @@ internal sealed class TicketStoreHarness : IDisposable
         services.AddSingleton<AgentSmith.Application.Services.Specs.ISeriesSettingsReader,
             AgentSmith.Application.Services.Specs.LoaderSeriesSettingsReader>(); // 2026-10-13-8762u
         services.AddSingleton(Trackers.Object).AddSingleton(Activity.Object);
+        services.AddSingleton(Sources.Object); // 2026-10-15-114fa: the close act's pull-request hosts
         services.AddSingleton<TrackerIdentity>();
         services.AddScoped<IPrReviewRecordReader>(sp => sp.GetRequiredService<PrReviewRecordRepository>());
         services.AddScoped<SpecDialogSessionRepository>();
         services.AddSingleton<IUniqueViolationTranslator, SqliteUniqueViolationTranslator>();
         services.AddSingleton<AgentSmith.Contracts.Specs.ISpecApprovalStore>(Approvals); // 2026-10-13-8762l
         services.AddSingleton<ITicketLandingStore, LandedTicketRepository>(); // 2026-10-14-dbcei: the rows read landings
+        services.AddSingleton<ITicketClosedMarkStore, ClosedTicketRepository>(); // 2026-10-15-114fa: the close marks
         services.AddSingleton<ITicketRequirementStore, TicketRequirementRepository>() // 2026-10-14-dbcen: never-run rows and the graph
             .AddSingleton<AgentSmith.Application.Services.Claim.UnmetTicketRequirements>();
         services.AddTicketReaders();
@@ -82,6 +84,7 @@ internal sealed class TicketStoreHarness : IDisposable
     public Mock<IConfigurationLoader> Loader { get; } = new();
     public Mock<ITicketProviderFactory> Trackers { get; } = new();
     public Mock<ITicketProvider> Tracker { get; } = new();
+    public Mock<ISourceProviderFactory> Sources { get; } = new();
     public Mock<ITicketActivityNudge> Activity { get; } = new();
     public Dictionary<string, int> Positions { get; } = new(StringComparer.Ordinal);
     public AgentSmith.Application.Services.Persistence.InMemorySpecApprovalStore Approvals { get; } = new();

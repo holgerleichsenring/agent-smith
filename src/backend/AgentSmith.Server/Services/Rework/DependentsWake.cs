@@ -17,6 +17,7 @@ namespace AgentSmith.Server.Services.Rework;
 public sealed class DependentsWake(
     ITicketRequirementStore requirements,
     ITicketLandingStore landings,
+    ITicketClosedMarkStore closed, // 2026-10-15-114fa: a closed dependent is not woken
     UnmetTicketRequirements unmet,
     IPreviousAttemptReader attempts,
     IActiveRunLease leases,
@@ -50,7 +51,7 @@ public sealed class DependentsWake(
 
     /// <summary>
     /// Nudges each dependent freed by a landing written within <see cref="Window"/> that is ready to start: every
-    /// edge StartsWhenMet, every requirement landed, filed completely, never attempted, not queued, not leased.
+    /// edge StartsWhenMet, every requirement landed, filed completely, not closed, never attempted, not queued, not leased.
     /// </summary>
     public async Task<int> RecoverAsync(IReadOnlyCollection<string> projects, CancellationToken ct)
     {
@@ -69,6 +70,7 @@ public sealed class DependentsWake(
     private async Task<bool> ReadyAsync(TicketRequirementEdge edge, CancellationToken ct)
     {
         if (!(await requirements.RequiredOfAsync(edge.Tracker, edge.TicketKey, ct)).All(e => e.StartsWhenMet)) return false;
+        if ((await closed.OfAsync(edge.Tracker, [edge.TicketKey], ct)).Count > 0) return false;
         if ((await unmet.OfAsync(edge.Tracker, edge.TicketKey, ct)).Unmet.Count > 0) return false;
         return await unmet.FiledCompletelyAsync(edge.Tracker, edge.TicketKey, ct)
             && await attempts.LatestAsync(edge.Project, edge.TicketId, null, ct) is null

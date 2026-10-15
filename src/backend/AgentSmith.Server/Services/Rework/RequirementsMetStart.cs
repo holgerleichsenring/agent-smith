@@ -21,6 +21,7 @@ namespace AgentSmith.Server.Services.Rework;
 public sealed class RequirementsMetStart(
     ITicketRequirementStore requirements,
     ITicketLandingStore landings,
+    ITicketClosedMarkStore closed, // 2026-10-15-114fa: a ticket a person closed is never started by itself
     UnmetTicketRequirements unmet,
     ITicketProviderFactory trackers,
     IServiceScopeFactory scopes,
@@ -53,6 +54,11 @@ public sealed class RequirementsMetStart(
         if ((await landings.LandedAsync(tracker, [key], ct)).Count > 0)
         {
             logger.LogInformation("Ticket {Project}/{Ticket} was marked done by hand; not started", project.Name, ticketId);
+            return true;
+        }
+        if ((await closed.OfAsync(tracker, [key], ct)).FirstOrDefault() is { } mark)
+        {
+            logger.LogInformation("Ticket {Project}/{Ticket} was closed by {By}; not started", project.Name, ticketId, mark.By);
             return true;
         }
         if ((await unmet.OfAsync(tracker, key, ct)).Unmet.Count > 0) return true;

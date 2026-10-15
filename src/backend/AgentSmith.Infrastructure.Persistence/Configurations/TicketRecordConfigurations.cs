@@ -22,5 +22,6 @@ public sealed class TicketRecordConfigurations
         modelBuilder.ApplyConfiguration(new RunRetryRequestConfiguration()); // 2026-10-13-9a59n
         modelBuilder.ApplyConfiguration(new TicketRequirementConfiguration()); // 2026-10-14-dbcef
         modelBuilder.ApplyConfiguration(new LandedTicketConfiguration()); // 2026-10-14-dbceg
+        modelBuilder.ApplyConfiguration(new ClosedTicketConfiguration()); // 2026-10-15-114fa
     }
 }

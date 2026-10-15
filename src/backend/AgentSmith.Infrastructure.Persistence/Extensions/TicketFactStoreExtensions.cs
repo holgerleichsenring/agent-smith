@@ -24,6 +24,7 @@ public static class TicketFactStoreExtensions
             // 2026-10-14-dbcef: the requirements between tickets; the repository is itself the singleton port
             .AddSingleton<ITicketRequirementStore, TicketRequirementRepository>()
             // 2026-10-14-dbceg: the landed tickets; the repository is itself the singleton port
-            .AddSingleton<ITicketLandingStore, LandedTicketRepository>();
+            .AddSingleton<ITicketLandingStore, LandedTicketRepository>()
+            .AddSingleton<ITicketClosedMarkStore, ClosedTicketRepository>(); // 2026-10-15-114fa: the close marks
     }
 }
