@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using AgentSmith.Server.Hubs;
 using AgentSmith.Server.Security;
 using AgentSmith.Server.Services.Events;
@@ -45,12 +46,15 @@ internal static class RunDeletionEndpoints
         OverviewAudience audience,
         IHubContext<JobsHub> hub,
         string? state,
+        ClaimsPrincipal user,
+        CallerProjectScope scopes,
         CancellationToken cancellationToken)
     {
         // Bulk delete is scoped to terminal runs only — the single supported filter.
         if (!string.Equals(state, "terminal", StringComparison.OrdinalIgnoreCase))
             return Results.BadRequest("only state=terminal is supported for bulk delete");
-        var deleted = await deleter.DeleteTerminalAsync(cancellationToken);
+        // 2026-10-15-4a4dd: a project-bound holder of runs.delete clears only their projects' finished runs.
+        var deleted = await deleter.DeleteTerminalAsync(scopes.For(user, Permissions.RunsDelete), cancellationToken);
         await NudgeAsync(hub, audience.Everyone(), "bulk", cancellationToken);
         return Results.Ok(new { deleted });
     }

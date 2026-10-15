@@ -22,6 +22,12 @@ internal static class ProjectScopeUnderTest
     public static DialogMessageScope Scope(ProjectAccess access, IUnitOfWork? store = null) =>
         new(access, new ResourceProjectReader(store!), new SpecCommandParser());
 
+    /// <summary>2026-10-15-4a4dd: the list scope of an installation that enforces nothing — every project.</summary>
+    public static CallerProjectScope Unenforced() => new(Access(new TokenAuthorityConfig()));
+
+    /// <summary>A caller with no token, as a list route sees it when nothing is enforced.</summary>
+    public static System.Security.Claims.ClaimsPrincipal Nobody() => new();
+
     public static TicketProjects Projects(params string[] names) =>
         new(new FixedLoader(Configured(names)), new ServerContext("agentsmith.yml"));
 

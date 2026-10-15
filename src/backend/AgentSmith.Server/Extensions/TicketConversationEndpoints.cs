@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Server.Services.SpecDialog;
@@ -39,9 +40,10 @@ internal static class TicketConversationEndpoints
         ServerContext serverContext,
         TicketProjectChoice choice,
         TicketConversationBinder binder,
+        ClaimsPrincipal user, ProjectScopedCatalog catalog,
         CancellationToken cancellationToken)
     {
-        var config = configLoader.LoadConfig(serverContext.ConfigPath);
+        var config = catalog.Narrow(configLoader.LoadConfig(serverContext.ConfigPath), user);
         var answer = await choice.ForAsync(config, ticketId, cancellationToken);
         if (answer is null)
             return Results.NotFound(

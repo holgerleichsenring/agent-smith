@@ -5,7 +5,7 @@ namespace AgentSmith.Server.Security;
 /// permission. A route needing a project-scopable permission states one, so a caller holding it only
 /// in other projects is answered as if the resource did not exist. <see cref="Body"/> is checked by
 /// the handler (the dialog id rides in the body); <see cref="AcrossProjects"/> marks a list or an
-/// aggregate, which keeps the global check until it filters by caller.
+/// aggregate, which filters its rows by caller (2026-10-15-4a4dd).
 /// </summary>
 internal sealed record ProjectFrom(ProjectSourceKind Kind, string Parameter)
 {
@@ -27,14 +27,11 @@ internal sealed record ProjectFrom(ProjectSourceKind Kind, string Parameter)
     /// <summary>The handler reads the project from the body — POST /api/spec-dialog/messages alone.</summary>
     internal static ProjectFrom Body { get; } = new(ProjectSourceKind.Body, string.Empty);
 
-    /// <summary>A list or aggregate across projects.</summary>
+    /// <summary>A list or aggregate across projects, filtered by the caller's projects (2026-10-15-4a4dd).</summary>
     internal static ProjectFrom AcrossProjects { get; } = new(ProjectSourceKind.AcrossProjects, string.Empty);
 
     /// <summary>2026-10-15-4a4dc: /hub/jobs alone — admitted on any project, its filter scopes each invocation.</summary>
     internal static ProjectFrom Hub { get; } = new(ProjectSourceKind.Hub, string.Empty);
-
-    /// <summary>Whether this source names ONE resource's project, which the coarse gate may admit on.</summary>
-    internal bool IsPerResource => Kind != ProjectSourceKind.AcrossProjects;
 
     /// <summary>Whether the route itself is checked before the handler runs.</summary>
     internal bool IsCheckedAtTheRoute => Kind is not (ProjectSourceKind.Body or ProjectSourceKind.AcrossProjects or ProjectSourceKind.Hub);

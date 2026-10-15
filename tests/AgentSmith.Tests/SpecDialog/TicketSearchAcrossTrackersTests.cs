@@ -116,6 +116,8 @@ public sealed class TicketSearchAcrossTrackersTests
 
         var answered = await TicketSearchEndpoints.SearchTicketsAsync(
             "ab", new ThrowingLoader(), new ServerContext("unused"), Sut(trackers),
+            AgentSmith.Tests.Server.Auth.ProjectScopeUnderTest.Nobody(),
+            new AgentSmith.Server.Services.SpecDialog.ProjectScopedCatalog(AgentSmith.Tests.Server.Auth.ProjectScopeUnderTest.Unenforced()),
             CancellationToken.None);
 
         answered.Should().BeAssignableTo<IStatusCodeHttpResult>().Which.StatusCode.Should().Be(200);
@@ -138,6 +140,8 @@ public sealed class TicketSearchAcrossTrackersTests
 
         var answered = await TicketSearchEndpoints.SearchTicketsAsync(
             "412", new FixedLoader(Config()), new ServerContext("unused"), Sut(trackers),
+            AgentSmith.Tests.Server.Auth.ProjectScopeUnderTest.Nobody(),
+            new AgentSmith.Server.Services.SpecDialog.ProjectScopedCatalog(AgentSmith.Tests.Server.Auth.ProjectScopeUnderTest.Unenforced()),
             CancellationToken.None);
 
         var body = System.Text.Json.JsonSerializer.Serialize(

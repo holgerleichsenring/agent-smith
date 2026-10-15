@@ -1,5 +1,6 @@
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Security;
+using AgentSmith.Server.Services.SpecDialog;
 using AgentSmith.Server.Services.Tickets;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -16,6 +17,7 @@ internal static class ProjectScopeExtensions
     {
         services.TryAddTransient<TicketProjects>();
         services.AddSingleton<ProjectAccess>();
+        services.AddSingleton<CallerProjectScope>().AddSingleton<ProjectScopedCatalog>(); // 2026-10-15-4a4dd
         services.AddScoped<ResourceProjectReader>();
         services.AddScoped<ProjectSourceResolver>();
         services.AddScoped<DialogMessageScope>();

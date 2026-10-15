@@ -207,12 +207,15 @@ public sealed class NoStaticStateRuleTests
 
     // An interface that carries DATA is a parameter; an interface that DOES something
     // is a dependency. Collection contracts and the logger are the two ends of that line.
+    // 2026-10-15-4a4dd: System.Linq's IQueryable/ILookup/IGrouping are the query side of the
+    // collection contracts — a filter extension over one holds no service.
     private static bool IsCollaborator(Type t) =>
         !CompositionRoots.Contains(t.Name)
         && ((t.IsInterface && !IsDataContract(t)) || t.Name is "ILogger" or "ILoggerFactory");
 
     private static bool IsDataContract(Type t) =>
         t.Namespace?.StartsWith("System.Collections", StringComparison.Ordinal) == true
+        || t.Namespace == "System.Linq"
         || t.Namespace?.StartsWith("System.Threading", StringComparison.Ordinal) == true
         || t.Name is "IComparable" or "IFormattable" or "IConvertible" or "ISpanFormattable";
 

@@ -46,6 +46,7 @@ GET	/api/config/trackers	config.read	-
 GET	/api/diagnostics/connections	diagnostics.read	-
 GET	/api/identity	identity.read	-
 GET	/api/openapi.json	anonymous	-
+GET	/api/projects	runs.read	across
 GET	/api/projects/{name}/bootstrap	runs.read	route:name
 GET	/api/projects/{name}/init	runs.read	route:name
 GET	/api/pull-requests	runs.read	across

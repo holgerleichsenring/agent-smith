@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using AgentSmith.Server.Security;
 using AgentSmith.Server.Services.Tickets;
 
@@ -17,8 +18,9 @@ internal static class TicketGraphEndpoints
     }
 
     // Internal so the endpoint tests drive the real readers without a host.
-    internal static async Task<IResult> GraphAsync(string? project, TicketGraphReader reader, CancellationToken cancellationToken) =>
-        Results.Ok(await reader.ReadAsync(project, cancellationToken));
+    internal static async Task<IResult> GraphAsync(
+        string? project, TicketGraphReader reader, ClaimsPrincipal user, CallerProjectScope scopes, CancellationToken cancellationToken) =>
+        Results.Ok(await reader.ReadAsync(scopes.For(user, Permissions.RunsRead).Narrowed(project), cancellationToken));
 
     internal static async Task<IResult> RequiresAsync(
         string project, string ticketId, TicketRequiresReader reader, CancellationToken cancellationToken)

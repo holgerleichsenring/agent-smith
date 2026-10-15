@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Domain.Models;
 using AgentSmith.Server.Models;
@@ -172,5 +173,5 @@ public sealed class TicketListReaderTests : IDisposable
     }
 
     private Task<TicketListView> ListAsync(TicketListRequest? request = null) =>
-        _store.List.ReadAsync(request ?? new TicketListRequest(null, null, null, null), CancellationToken.None);
+        _store.List.ReadAsync(request ?? new TicketListRequest(ProjectScope.Everything, null, null, null), CancellationToken.None);
 }

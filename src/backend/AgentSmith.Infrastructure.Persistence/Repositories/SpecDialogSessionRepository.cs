@@ -50,9 +50,9 @@ public sealed class SpecDialogSessionRepository(IUnitOfWork unitOfWork)
     /// outside the cap.
     /// </summary>
     public async Task<IReadOnlyList<SpecDialogSession>> ListByOwnerAsync(
-        string platform, string userId, int limit, CancellationToken ct) =>
+        string platform, string userId, ProjectScope scope, int limit, CancellationToken ct) =>
         [.. (await unitOfWork.Set<SpecDialogSession>()
-                .Where(s => s.Platform == platform && s.UserId == userId)
+                .Where(s => s.Platform == platform && s.UserId == userId).Within(scope)
                 .OrderByDescending(s => s.Id)
                 .Take(limit)
                 .ToListAsync(ct))
@@ -63,8 +63,8 @@ public sealed class SpecDialogSessionRepository(IUnitOfWork unitOfWork)
     /// capped list served. A COUNT over the two columns the list already filters on — it opens no
     /// transcript, which is what makes it affordable beside a read that parses every one of them.
     /// </summary>
-    public Task<int> CountByOwnerAsync(string platform, string userId, CancellationToken ct) =>
-        unitOfWork.Set<SpecDialogSession>()
+    public Task<int> CountByOwnerAsync(string platform, string userId, ProjectScope scope, CancellationToken ct) =>
+        unitOfWork.Set<SpecDialogSession>().Within(scope)
             .CountAsync(s => s.Platform == platform && s.UserId == userId, ct);
 
     /// <summary>

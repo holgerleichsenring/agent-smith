@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Security;
 using AgentSmith.Server.Services;
@@ -19,9 +20,10 @@ internal static class CriteriaMetEndpoints
     }
 
     private static async Task<IResult> GetMetricsAsync(
-        CriteriaMetRepository criteria, CriteriaMetAggregator aggregator, CancellationToken cancellationToken)
+        CriteriaMetRepository criteria, CriteriaMetAggregator aggregator,
+        ClaimsPrincipal user, CallerProjectScope scopes, CancellationToken cancellationToken)
     {
-        var runs = await criteria.GetJudgedCodeRunsAsync(cancellationToken);
+        var runs = await criteria.GetJudgedCodeRunsAsync(scopes.For(user, Permissions.RunsRead), cancellationToken);
         return Results.Ok(aggregator.Aggregate(runs));
     }
 }

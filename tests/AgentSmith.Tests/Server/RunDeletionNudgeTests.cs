@@ -51,7 +51,8 @@ public sealed class RunDeletionNudgeTests : IDisposable
     {
         await using var scope = _store.Services.CreateAsyncScope();
 
-        await RunDeletionEndpoints.ClearTerminalAsync(Deleter(scope), Audience(), _hub.Hub, "terminal", CancellationToken.None);
+        await RunDeletionEndpoints.ClearTerminalAsync(Deleter(scope), Audience(), _hub.Hub, "terminal", ProjectScopeUnderTest.Nobody(),
+            new AgentSmith.Server.Security.CallerProjectScope(ProjectScopeUnderTest.Access(new TokenAuthorityConfig())), CancellationToken.None);
 
         _hub.Messages.Should().ContainSingle().Which.Should().BeEquivalentTo(new
         {

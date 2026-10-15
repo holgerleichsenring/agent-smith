@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Server.Models;
 using AgentSmith.Tests.TestSupport;
 using FluentAssertions;
@@ -30,7 +31,7 @@ public sealed class SeriesStripTests : IDisposable
             Run(R3, ticket: "43", status: "failed"), Step(R3), Cut(R3, 2, Entry(A, 1), Entry(B, 2)),
             SpecRow(R3, A, "done"), SpecRow(R3, B, "failed"));
 
-        var rows = (await _store.List.ReadAsync(new TicketListRequest(null, null, null, null), CancellationToken.None)).Tickets;
+        var rows = (await _store.List.ReadAsync(new TicketListRequest(ProjectScope.Everything, null, null, null), CancellationToken.None)).Tickets;
 
         Cells(rows.Single(r => r.TicketId == "42")).Should().Equal(("cut", A, "carried"), ("cut", B, "live"), ("cut", C, "not_started"));
         Cells(rows.Single(r => r.TicketId == "43")).Should().Equal(("cut", A, "done"), ("cut", B, "failed"));
@@ -42,7 +43,7 @@ public sealed class SeriesStripTests : IDisposable
         await _store.AddAsync(Run(R1, status: "waiting_for_input"), Step(R1), Checkpoint(R1),
             Cut(R1, 3, Entry(A, 1), Entry(B, 2)), SpecRow(R1, A, "in_progress"), SpecRow(R1, B, "not_started"));
 
-        var row = (await _store.List.ReadAsync(new TicketListRequest(null, null, null, null), CancellationToken.None)).Tickets.Single();
+        var row = (await _store.List.ReadAsync(new TicketListRequest(ProjectScope.Everything, null, null, null), CancellationToken.None)).Tickets.Single();
 
         Cells(row).Should().Equal(("cut", A, "asked"), ("cut", B, "not_started"));
     }
@@ -53,7 +54,7 @@ public sealed class SeriesStripTests : IDisposable
         await _store.AddAsync(Run(R1, status: "failed"), Step(R1), Cut(R1, 3, Entry(A, 1)), SpecRow(R1, A, "failed"),
             Run(R2, status: "failed"), Step(R2), Handback(R2, 5, "RequirementsContradictRepository"));
 
-        var strip = (await _store.List.ReadAsync(new TicketListRequest(null, null, null, null), CancellationToken.None))
+        var strip = (await _store.List.ReadAsync(new TicketListRequest(ProjectScope.Everything, null, null, null), CancellationToken.None))
             .Tickets.Single().SeriesStrip!;
 
         strip.Derive.Should().Be("handed_back");

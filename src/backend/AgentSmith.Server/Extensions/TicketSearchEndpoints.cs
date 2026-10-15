@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Services.SpecDialog;
@@ -41,9 +42,10 @@ internal static class TicketSearchEndpoints
         IConfigurationLoader configLoader,
         ServerContext serverContext,
         TicketProjectForTracker resolver,
+        ClaimsPrincipal user, ProjectScopedCatalog catalog,
         CancellationToken cancellationToken)
     {
-        var config = configLoader.LoadConfig(serverContext.ConfigPath);
+        var config = catalog.Narrow(configLoader.LoadConfig(serverContext.ConfigPath), user);
         var answer = await resolver.ForTrackerAsync(config, tracker, ticketId, cancellationToken);
         if (answer is null)
             return Results.NotFound(
@@ -72,6 +74,7 @@ internal static class TicketSearchEndpoints
         IConfigurationLoader configLoader,
         ServerContext serverContext,
         TicketSearchAcrossTrackers search,
+        ClaimsPrincipal user, ProjectScopedCatalog catalog,
         CancellationToken cancellationToken)
     {
         var typed = (q ?? string.Empty).Trim();
@@ -87,7 +90,7 @@ internal static class TicketSearchEndpoints
                 minimum = TicketSearchAcrossTrackers.MinimumText,
             });
 
-        var config = configLoader.LoadConfig(serverContext.ConfigPath);
+        var config = catalog.Narrow(configLoader.LoadConfig(serverContext.ConfigPath), user);
         var answer = await search.ForAsync(config, typed, cancellationToken);
         return Results.Ok(new
         {

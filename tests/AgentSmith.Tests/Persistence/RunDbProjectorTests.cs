@@ -214,14 +214,14 @@ public sealed class RunDbProjectorTests : IDisposable
             new RunStartedEvent("run-1", "ticket", "code", new[] { "primary" }, t, "claude", "42"),
             CancellationToken.None);
 
-        (await NewStore().GetActiveRunsAsync(CancellationToken.None))
+        (await NewStore().GetActiveRunsAsync(ProjectScope.Everything, CancellationToken.None))
             .Should().ContainSingle(r => r.Id == "run-1");
 
         await projector.ProjectAsync(
             new RunFinishedEvent("run-1", "success", null, "done", t, 0m), CancellationToken.None);
 
-        (await NewStore().GetActiveRunsAsync(CancellationToken.None)).Should().BeEmpty();
-        (await NewStore().GetRecentRunsAsync(10, CancellationToken.None))
+        (await NewStore().GetActiveRunsAsync(ProjectScope.Everything, CancellationToken.None)).Should().BeEmpty();
+        (await NewStore().GetRecentRunsAsync(ProjectScope.Everything, 10, CancellationToken.None))
             .Should().ContainSingle(r => r.Id == "run-1" && r.Status == "success");
     }
 

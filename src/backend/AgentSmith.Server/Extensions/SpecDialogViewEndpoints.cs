@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using AgentSmith.Server.Security;
 using AgentSmith.Server.Services.SpecDialog;
 
 namespace AgentSmith.Server.Extensions;
@@ -34,12 +35,16 @@ internal static class SpecDialogViewEndpoints
         ClaimsPrincipal user,
         SpecDialogOwnership ownership,
         SpecDialogViewReader reader,
+        CallerProjectScope scopes,
         CancellationToken cancellationToken)
     {
         var owner = ownership.OwnerOf(user);
         if (!await ownership.MayWatchAsync(dialogId, owner, cancellationToken))
             return Results.StatusCode(StatusCodes.Status403Forbidden);
-        return Results.Ok(await reader.ReadAsync(dialogId, cancellationToken));
+        var view = await reader.ReadAsync(dialogId, cancellationToken);
+        // 2026-10-15-4a4dd: a new conversation is offered only the projects where the caller holds dialog.write.
+        var scope = scopes.For(user, Security.Permissions.DialogWrite);
+        return Results.Ok(scope.Only is null ? view : view with { Projects = [.. view.Projects.Where(p => scope.Admits(p.Name))] });
     }
 
     /// <summary>
@@ -51,12 +56,13 @@ internal static class SpecDialogViewEndpoints
         ClaimsPrincipal user,
         SpecDialogOwnership ownership,
         FiledWorkReader filedWork,
+        CallerProjectScope scopes,
         CancellationToken cancellationToken)
     {
         var owner = ownership.OwnerOf(user);
         if (!await ownership.MayWatchAsync(dialogId, owner, cancellationToken))
             return Results.StatusCode(StatusCodes.Status403Forbidden);
-        return Results.Ok(await filedWork.ReadAsync(dialogId, cancellationToken));
+        return Results.Ok(await filedWork.ReadAsync(dialogId, scopes.For(user, Security.Permissions.RunsRead), cancellationToken));
     }
 
     /// <summary>
@@ -71,7 +77,8 @@ internal static class SpecDialogViewEndpoints
         ClaimsPrincipal user,
         SpecDialogOwnership ownership,
         SpecDialogConversationList conversations,
+        CallerProjectScope scopes,
         CancellationToken cancellationToken) =>
         Results.Ok(await conversations.ListAsync(
-            ownership.OwnerOf(user), limit, cancellationToken));
+            ownership.OwnerOf(user), scopes.For(user, Security.Permissions.DialogWrite), limit, cancellationToken));
 }

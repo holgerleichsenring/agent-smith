@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Contracts.Tickets;
@@ -43,5 +44,5 @@ internal static class NeverRunFixtures
             default);
 
     public static async Task<TicketListView> ListAsync(this TicketStoreHarness h, string? bucket = null, string? cursor = null, int? limit = null) =>
-        await h.List.ReadAsync(new TicketListRequest("alpha", bucket, cursor, limit), default);
+        await h.List.ReadAsync(new TicketListRequest(ProjectScope.Single("alpha"), bucket, cursor, limit), default);
 }

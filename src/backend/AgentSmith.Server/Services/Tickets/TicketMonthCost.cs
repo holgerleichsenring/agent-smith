@@ -13,13 +13,12 @@ namespace AgentSmith.Server.Services.Tickets;
 /// </summary>
 public sealed class TicketMonthCost(IServiceScopeFactory scopes, TimeProvider clock)
 {
-    public async Task<decimal> OfAsync(string? project, CancellationToken ct)
+    public async Task<decimal> OfAsync(ProjectScope project, CancellationToken ct)
     {
         var prefix = clock.GetUtcNow().UtcDateTime.ToString("yyyy-MM-", CultureInfo.InvariantCulture);
         using var scope = scopes.CreateScope();
         var runs = scope.ServiceProvider.GetRequiredService<IUnitOfWork>().Set<Run>().AsNoTracking()
-            .Where(r => r.Id.StartsWith(prefix));
-        if (!string.IsNullOrEmpty(project)) runs = runs.Where(r => r.Project == project);
+            .Where(r => r.Id.StartsWith(prefix)).Within(project);
         var costs = await runs.Select(r => r.CostTotalUsd).ToListAsync(ct);
         return costs.Sum();
     }

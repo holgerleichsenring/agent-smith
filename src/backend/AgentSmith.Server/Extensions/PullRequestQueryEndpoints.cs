@@ -1,4 +1,6 @@
+using System.Security.Claims;
 using AgentSmith.Contracts.Runs;
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Security;
@@ -28,17 +30,18 @@ internal static class PullRequestQueryEndpoints
         return app;
     }
 
-    private static async Task<IResult> GetPullRequestsAsync(RunRepository runs, CancellationToken cancellationToken) =>
-        Results.Ok(await BuildListAsync(runs, cancellationToken));
+    private static async Task<IResult> GetPullRequestsAsync(
+        RunRepository runs, ClaimsPrincipal user, CallerProjectScope scopes, CancellationToken cancellationToken) =>
+        Results.Ok(await BuildListAsync(runs, scopes.For(user, Permissions.RunsRead), cancellationToken));
 
     // Internal for the endpoint test: active (a PR can be opened mid-run on a
     // multi-repo run) + recent history, flattened newest-first. The two sets are
     // disjoint (FinishedAt null vs not-null) — no dedup needed.
     internal static async Task<List<PullRequestListItem>> BuildListAsync(
-        RunRepository runs, CancellationToken cancellationToken)
+        RunRepository runs, ProjectScope scope, CancellationToken cancellationToken)
     {
-        var active = await runs.GetActiveRunsAsync(cancellationToken);
-        var recent = await runs.GetRecentRunsAsync(RecentLimit, cancellationToken);
+        var active = await runs.GetActiveRunsAsync(scope, cancellationToken);
+        var recent = await runs.GetRecentRunsAsync(scope, RecentLimit, cancellationToken);
         return Flatten(active.Concat(recent));
     }
 

@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Security;
 using AgentSmith.Server.Services.Tickets;
@@ -22,12 +23,13 @@ internal static class TicketQueryEndpoints
     // Internal so the endpoint tests drive the real readers without a host.
     internal static async Task<IResult> ListAsync(
         string? project, string? bucket, string? cursor, int? limit,
-        TicketListReader reader, CancellationToken cancellationToken)
+        TicketListReader reader, ClaimsPrincipal user, CallerProjectScope scopes, CancellationToken cancellationToken)
     {
         if (!string.IsNullOrEmpty(bucket) && !TicketBucket.All.Contains(bucket))
             return Results.BadRequest(new { error = $"Unknown bucket '{bucket}'." });
-        return Results.Ok(await reader.ReadAsync(
-            new TicketListRequest(project, bucket, cursor, limit), cancellationToken));
+        // 2026-10-15-4a4dd: a project the caller may not read answers as an unknown one does — empty.
+        var projects = scopes.For(user, Permissions.RunsRead).Narrowed(project);
+        return Results.Ok(await reader.ReadAsync(new TicketListRequest(projects, bucket, cursor, limit), cancellationToken));
     }
 
     internal static async Task<IResult> DetailAsync(

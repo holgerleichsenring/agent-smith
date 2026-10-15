@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models;
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Infrastructure.Persistence.Repositories;
 using AgentSmith.Server.Models;
@@ -49,11 +50,12 @@ public sealed class SpecDialogConversationList(
     internal static int ClampLimit(int? limit) => Math.Clamp(limit ?? Cap, 1, MaxPageLimit);
 
     public async Task<SpecDialogConversationPage> ListAsync(
-        string owner, int? limit, CancellationToken cancellationToken)
+        string owner, ProjectScope scope, int? limit, CancellationToken cancellationToken)
     {
+        // 2026-10-15-4a4dd: a conversation bound to a project the owner can no longer read is neither listed nor counted.
         var rows = await repository.ListByOwnerAsync(
-            Platform, owner, ClampLimit(limit), cancellationToken);
-        var total = await repository.CountByOwnerAsync(Platform, owner, cancellationToken);
+            Platform, owner, scope, ClampLimit(limit), cancellationToken);
+        var total = await repository.CountByOwnerAsync(Platform, owner, scope, cancellationToken);
         // 2026-09-27-5c1eb: one read for the whole page, so a bound row can name its ticket the way
         // the tracker does without turning this list into one query per row.
         var tickets = await ticketText.TicketIdsForAsync(

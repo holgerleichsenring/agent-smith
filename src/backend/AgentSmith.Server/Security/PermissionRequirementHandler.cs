@@ -37,13 +37,14 @@ internal sealed class PermissionRequirementHandler(ProjectAccess access)
     /// <summary>
     /// 2026-10-15-4a4db: a project-scopable permission held in ANY project admits a caller to a
     /// per-resource route; <see cref="ProjectScopeMiddleware"/> then decides the resource's project
-    /// and answers 404 out of it. A list keeps the global check until it filters by caller. 2026-10-15-4a4dc:
-    /// the hub route is per-resource too — its filter scopes each invocation.
+    /// and answers 404 out of it. 2026-10-15-4a4dc: the hub route is per-resource too — its filter scopes each
+    /// invocation. 2026-10-15-4a4dd: a list filters its rows by <see cref="CallerProjectScope"/>, so it opens on
+    /// the same hold; a route that declares no project source keeps the global check.
     /// </summary>
     private bool Holds(AuthorizationHandlerContext context, PermissionRequirement requirement) =>
         access.HoldsEverywhere(context.User, [requirement.Permission])
         || (Permissions.ProjectScopable.Contains(requirement.Permission)
-            && SourceOf(context) is { IsPerResource: true }
+            && SourceOf(context) is not null
             && access.HoldsAnywhere(context.User, requirement.Permission));
 
     private static ProjectFrom? SourceOf(AuthorizationHandlerContext context) =>

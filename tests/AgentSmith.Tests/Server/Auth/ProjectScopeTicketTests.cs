@@ -70,11 +70,22 @@ public sealed class ProjectScopeTicketTests(ProjectScopeAuthorityFixture fixture
     [InlineData("/api/tickets")]
     [InlineData("/api/runs")]
     [InlineData("/api/tickets/graph")]
-    public async Task ProjectScope_AcrossProjectsRoute_ProjectOnlyCaller_Is403AsToday(string path)
+    public async Task ProjectScope_AcrossProjectsRoute_ProjectOnlyCaller_IsAdmittedAndFiltered(string path)
     {
         var response = await SendAsync(AlphaTeam, HttpMethod.Get, path);
 
-        response.StatusCode.Should().Be(HttpStatusCode.Forbidden, "a list stays global until it filters by caller");
+        response.StatusCode.Should().Be(HttpStatusCode.OK, "2026-10-15-4a4dd: every list filters by caller, so it opens");
+    }
+
+    [Theory]
+    [InlineData("/api/tickets")]
+    [InlineData("/api/runs")]
+    [InlineData("/api/projects")]
+    public async Task ProjectScope_AcrossProjectsRoute_CallerHoldingThePermissionNowhere_Is403(string path)
+    {
+        var response = await SendAsync("nobody", HttpMethod.Get, path);
+
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
     private Task<HttpResponseMessage> LandAsync(string group, string project) =>

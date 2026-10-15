@@ -1,0 +1,215 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-15-4a4dd
+goal: "Every list and aggregate a person reads holds only the projects they may read, filtered in the query, and GET /api/projects names those projects; with enforcement off nothing changes."
+
+applies_to: "backend (ProjectScope and its query filters, CallerProjectScope, the coarse gate for AcrossProjects routes, the run list and its cursor page, pull requests, Criteria met, the bulk terminal delete, the ticket list and graph, the conversation list, the filed-work reach, the dialog view's project choice, ticket search / resolve / pick, the project-naming startup findings, and the new GET /api/projects)"
+
+requires: [2026-10-15-4a4da, 2026-10-15-4a4db, 2026-10-15-4a4dc]
+
+facts:
+  - claim: "The coarse gate admits a global holder everywhere and a project-scopable permission held in any project only on a per-resource route; an AcrossProjects route is not per-resource, so a list keeps the global check. CallerIdentity carries ProjectPermissions beside Permissions, and PermissionsIn(project) is their union."
+    evidence: "src/backend/AgentSmith.Server/Security/PermissionRequirementHandler.cs:43-47, src/backend/AgentSmith.Server/Security/ProjectFrom.cs:37, src/backend/AgentSmith.Server/Models/CallerIdentity.cs:21-39"
+  - claim: "The existing in-handler check reads the enforce switch first and holds everyone to nothing when it is off, then asks the resolver for the flat set; this is the shape the scope copies."
+    evidence: "src/backend/AgentSmith.Server/Extensions/TicketConversationReadEndpoints.cs:29-34, src/backend/AgentSmith.Server/Extensions/SpecDialogEndpoints.cs:57-63"
+  - claim: "The live configured projects are read per call through TicketProjects, and a configured name is matched OrdinalIgnoreCase through ConfigNames."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketProjects.cs:10-16, src/backend/AgentSmith.Contracts/Models/Configuration/ConfigNames.cs:24-31"
+  - claim: "Every list-shaped route carrying a project-scopable permission and no project, run, dialog, session, set or image key, from the golden table: DELETE /api/runs, GET /api/pull-requests, /api/runs, /api/runs/expectations/metrics, /api/spec-dialog/conversations, /api/spec-dialog/tickets/resolve, /search, /{ticketId}, /api/tickets, /api/tickets/graph; filed-work is dialog-keyed but listed here for its reach. GET /api/spec-dialog/references and /references/hashes take the dialog id as a QUERY value and are dialog-sourced in 4a4db, not lists."
+    evidence: "tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:12, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:51-53, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:67, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:76-77, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:79, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:81-83, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:71-72, src/backend/AgentSmith.Server/Extensions/SpecDialogReferenceEndpoints.cs:25-26, src/backend/AgentSmith.Server/Extensions/SpecDialogReferenceEndpoints.cs:43-45"
+  - claim: "The run list reads every active run and the newest 50 finished runs of ALL projects, and the cursor page reads the finished runs older than a cursor; filtering after the Take would hand a scoped caller fewer than 50, or none, while other projects are busy."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RunQueryEndpoints.cs:27, src/backend/AgentSmith.Server/Extensions/RunQueryEndpoints.cs:59-83, src/backend/AgentSmith.Server/Services/Events/RunListComposer.cs:24, src/backend/AgentSmith.Server/Services/Events/RunListComposer.cs:37-47, src/backend/AgentSmith.Server/Services/Events/RunListComposer.cs:49-57, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunRepository.cs:14-50"
+  - claim: "RunRepository is over the class limit and ratcheted at 143 lines; a ratcheted file may only get shorter. It, SpecDialogSessionRepository (120), CriteriaMetRepository, RunDeletionRepository, PrReviewRecordRepository, TicketListQuery, FiledTicketRows and TicketMonthCost all already import AgentSmith.Infrastructure.Persistence.Contracts, so a type in that namespace costs them no using line; a type in Contracts/Models/Access plus an extension in Persistence/Extensions would cost RunRepository and SpecDialogSessionRepository two lines each."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:105, tests/AgentSmith.Tests/Architecture/FileLengthRatchetTests.cs:38-52, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunRepository.cs:1-3, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SpecDialogSessionRepository.cs:1-3, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/CriteriaMetRepository.cs:3, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunDeletionRepository.cs:2, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordRepository.cs:2, src/backend/AgentSmith.Server/Services/Tickets/TicketListQuery.cs:2, src/backend/AgentSmith.Server/Services/Tickets/FiledTicketRows.cs:7, src/backend/AgentSmith.Server/Services/Tickets/TicketMonthCost.cs:2, observed: 2026-10-15, wc -l RunRepository.cs 143, SpecDialogSessionRepository.cs 120"
+  - claim: "Today a ticket-list or graph request naming a project filters with an equality on Project (r.Project == project), not a collection Contains."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketListQuery.cs:28, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordRepository.cs:20, src/backend/AgentSmith.Server/Services/Tickets/FiledTicketRows.cs:31, src/backend/AgentSmith.Server/Services/Tickets/TicketMonthCost.cs:22, src/backend/AgentSmith.Server/Services/Tickets/TicketGraphReader.cs:23"
+  - claim: "ProjectAccess answers Enforcing, HoldsEverywhere, HoldsAnywhere and HoldsIn (global first, then a binding only of a configured project), and HoldsIn reads the configured projects through TicketProjects.All(), which loads the configuration on every call — once per project if a list asked it per project. It is a singleton registered by AddProjectScope. A booted test pins that a project-only caller is refused the AcrossProjects lists; /hub/jobs is declared hub, not across."
+    evidence: "src/backend/AgentSmith.Server/Security/ProjectAccess.cs:13-43, src/backend/AgentSmith.Server/Services/Tickets/TicketProjects.cs:15-16, src/backend/AgentSmith.Server/Extensions/ProjectScopeExtensions.cs:16-23, tests/AgentSmith.Tests/Server/Auth/ProjectScopeTicketTests.cs:70-78, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:1-2"
+  - claim: "The tests that call the list endpoints' internal methods directly pass a project string and the reader: the never-run list test and the graph test."
+    evidence: "tests/AgentSmith.Tests/Tickets/NeverRun/TicketNeverRunListTests.cs:144, tests/AgentSmith.Tests/Tickets/NeverRun/TicketGraphReadTests.cs:112"
+  - claim: "The pull-request list flattens the active runs and the newest 200 finished runs of all projects; Criteria met reads every finished code run of all projects and joins their judgements through the same query."
+    evidence: "src/backend/AgentSmith.Server/Extensions/PullRequestQueryEndpoints.cs:23, src/backend/AgentSmith.Server/Extensions/PullRequestQueryEndpoints.cs:31-43, src/backend/AgentSmith.Server/Extensions/CriteriaMetEndpoints.cs:21-26, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/CriteriaMetRepository.cs:17-34, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/CriteriaMetRepository.cs:38-50"
+  - claim: "The bulk delete removes every finished run of every project under runs.delete."
+    evidence: "src/backend/AgentSmith.Server/Extensions/RunDeletionEndpoints.cs:21, src/backend/AgentSmith.Server/Extensions/RunDeletionEndpoints.cs:37-49, src/backend/AgentSmith.Server/Services/Lifecycle/RunDeleter.cs:44, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunDeletionRepository.cs:23-28"
+  - claim: "The ticket list filters by an optional single project string threaded through five reads (run rows up to a 5000 ceiling, pull-request records, never-run filings, month cost) and the request record; the graph and the requires read share AllAsync."
+    evidence: "src/backend/AgentSmith.Server/Extensions/TicketQueryEndpoints.cs:23-31, src/backend/AgentSmith.Server/Models/TicketListRequest.cs:4, src/backend/AgentSmith.Server/Services/Tickets/TicketListReader.cs:42-55, src/backend/AgentSmith.Server/Services/Tickets/TicketListReader.cs:57-59, src/backend/AgentSmith.Server/Services/Tickets/TicketListReader.cs:75, src/backend/AgentSmith.Server/Services/Tickets/TicketListQuery.cs:18-29, src/backend/AgentSmith.Server/Services/Tickets/TicketPullRequestReader.cs:24-29, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordRepository.cs:18-20, src/backend/AgentSmith.Server/Services/Tickets/FiledTicketRows.cs:30-31, src/backend/AgentSmith.Server/Services/Tickets/TicketMonthCost.cs:16-22, src/backend/AgentSmith.Server/Services/Tickets/TicketRequiresReader.cs:28"
+  - claim: "Without a project the graph reads the requirement edges of every configured project; an edge carries one project for both its ends."
+    evidence: "src/backend/AgentSmith.Server/Extensions/TicketGraphEndpoints.cs:20-21, src/backend/AgentSmith.Server/Services/Tickets/TicketGraphReader.cs:20-33"
+  - claim: "A project-name collection already filters in SQL on every provider: the PR sweep's queries use projects.Contains(r.Project)."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/PrReviewRecordRepository.cs:28-32"
+  - claim: "Run, PrReviewRecord, ApprovedSeries and SpecDialogSession each carry a Project string column."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:11, src/backend/AgentSmith.Infrastructure.Persistence/Entities/PrReviewRecord.cs:28, src/backend/AgentSmith.Infrastructure.Persistence/Entities/ApprovedSeries.cs:49, src/backend/AgentSmith.Infrastructure.Persistence/Entities/SpecDialogSession.cs:20"
+  - claim: "The conversation list is already the caller's own (owner taken from the principal), capped and counted in two queries; the repository file sits exactly at the 120-line limit."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogViewEndpoints.cs:69-76, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogConversationList.cs:51-61, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/SpecDialogSessionRepository.cs:52-68, observed: 2026-10-15, wc -l SpecDialogSessionRepository.cs 120"
+  - claim: "Filed work is gated by the dialog owner, then reads runs and hand-backs across EVERY project sharing the ticket's tracker, not only the conversation's project."
+    evidence: "src/backend/AgentSmith.Server/Extensions/SpecDialogViewEndpoints.cs:49-60, src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkReader.cs:59-89, src/backend/AgentSmith.Server/Services/SpecDialog/FiledWorkTrackerProjects.cs:22-42"
+  - claim: "Ticket search, resolve and pick ask the trackers of the configuration they are handed and name the projects routed to each; narrowing the catalogue to a new AgentSmithConfig of Projects and Trackers is the established way to scope them."
+    evidence: "src/backend/AgentSmith.Server/Extensions/TicketSearchEndpoints.cs:38-47, src/backend/AgentSmith.Server/Extensions/TicketSearchEndpoints.cs:70-91, src/backend/AgentSmith.Server/Extensions/TicketConversationEndpoints.cs:37-47, src/backend/AgentSmith.Server/Services/SpecDialog/TicketSearchAcrossTrackers.cs:47-60, src/backend/AgentSmith.Server/Services/SpecDialog/TicketSearchAcrossTrackers.cs:76-86, src/backend/AgentSmith.Server/Services/SpecDialog/TicketProjectChoice.cs:52-69, src/backend/AgentSmith.Server/Services/SpecDialog/TicketProjectForTracker.cs:29-33, src/backend/AgentSmith.Application/Services/Triggers/TicketProjectMatch.cs:25"
+  - claim: "No GET /api/projects exists; project routes are /api/projects/{name}/init and /bootstrap, the bootstrap mapper returns app, and the resolver is registered in CallerIdentityExtensions."
+    evidence: "tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:49-50, src/backend/AgentSmith.Server/Extensions/ProjectBootstrapEndpoints.cs:13-17, src/backend/AgentSmith.Server/Extensions/ServerEndpointExtensions.cs:63-64, src/backend/AgentSmith.Server/Extensions/CallerIdentityExtensions.cs:45"
+  - claim: "The dialog view answers, beside the conversation, the project choice for a new conversation: SpecDialogViewReader puts SpecDialogProjectCatalog.All() — every configured project's name, repositories and templates — into SpecDialogView.Projects for every dialog.write holder; one test calls the endpoint's ReadAsync directly."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogViewReader.cs:37-54, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogProjectCatalog.cs:21-24, src/backend/AgentSmith.Server/Models/SpecDialogView.cs:21-26, src/backend/AgentSmith.Server/Models/SpecDialogProjectView.cs:9-12, src/backend/AgentSmith.Server/Extensions/SpecDialogViewEndpoints.cs:32-43, tests/AgentSmith.Tests/SpecDialog/DashboardDialogSurfaceTests.cs:178-179, observed: 2026-10-15, wc -l SpecDialogViewEndpoints.cs 77, SpecDialogViewReader.cs 107"
+  - claim: "GET /api/config/findings is anonymous and answers every recorded startup finding with its counts and Degraded flag; a finding carries an optional Project and its reason can name it — a project disabled for an undeclared default pipeline, a run parked on an unanswerable question with its project — so today it names projects to anyone."
+    evidence: "src/backend/AgentSmith.Server/Extensions/StartupFindingsEndpoints.cs:24-30, src/backend/AgentSmith.Contracts/Models/Configuration/StartupFinding.cs:10-16, src/backend/AgentSmith.Server/Models/StartupFindingsResponse.cs:15-21, src/backend/AgentSmith.Server/Models/StartupFindingView.cs:17-23, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ProjectConfigNormalizer.cs:90-95, src/backend/AgentSmith.Server/Services/Lifecycle/UnanswerableParkReporter.cs:59-64, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:33, observed: 2026-10-15, wc -l StartupFindingsEndpoints.cs 33"
+  - claim: "A composition test builds the real server provider under the environment collection with a TestProcess env trait."
+    evidence: "tests/AgentSmith.Tests/Persistence/TicketLandingCompositionTests.cs:16-29"
+
+assumptions:
+  - "Run.Project and the other Project columns hold the configured key's spelling; the scope emits configured spellings, so the SQL comparison needs no case folding."
+
+scope:
+  in: >
+    SCOPE: ProjectScope (Infrastructure.Persistence/Contracts, namespace AgentSmith.Infrastructure.Persistence.Contracts,
+    at most 45 lines) — Only: IReadOnlyList<string>? (null = every project); Everything; Single(name); Of(names);
+    Admits(name) under ConfigNames; Narrowed(requested): blank keeps the scope, Everything narrows to Single(requested)
+    with the requested spelling verbatim, a scoped one to Single(its own configured spelling of the name) when Admits(requested) else Of([]).
+    ProjectScopeQueries (same folder and namespace, at most 45 lines) — Within over IQueryable of Run, PrReviewRecord,
+    ApprovedSeries and SpecDialogSession: Everything returns the query UNCHANGED; a one-name scope emits
+    Where(Project == name), today's predicate; otherwise Where Only.Contains(Project); the SpecDialogSession overload
+    also keeps a session whose Project is empty. Placed there because every touched repository already imports that
+    namespace, so no using line is added (the only way RunRepository and SpecDialogSessionRepository hold their counts).
+    CallerProjectScope (Server/Security, singleton, at most 50 lines), For(ClaimsPrincipal, permission, configured keys?): built on
+    4a4db's ProjectAccess — not Enforcing -> Everything; else ProjectAccess.ProjectsHolding(user, permission, configured?)
+    (new; null when held globally -> Everything) -> Of(those names), in configured spelling. ProjectsHolding resolves
+    the caller once and reads the configured keys ONCE (or takes the keys a caller already loaded), never per project
+    (operator ruling: one configuration load per list request); HoldsIn keeps its semantics — a
+    bound project no longer configured is never a key, so its runs and records stay with global holders. Registered in
+    4a4db's ProjectScopeExtensions.AddProjectScope (at most 25 -> at most 26), not in CallerIdentityExtensions.
+    COARSE GATE: PermissionRequirementHandler.Holds also admits an AcrossProjects endpoint on HoldsAnywhere (4a4db's
+    at most 55 kept) — every AcrossProjects route is filtered by this spec (the hub is no longer one: 4a4dc's Hub kind);
+    undeclared routes keep the global check. 4a4db's ProjectScope_AcrossProjectsRoute_ProjectOnlyCaller_Is403AsToday becomes
+    ..._IsAdmittedAndFiltered, and a caller holding the permission in no project still gets 403.
+    RUNS: GET /api/runs (overview and cursor page) under For(runs.read); RunListComposer.BuildOverviewAsync and
+    BuildPageBeforeAsync take the scope (96 -> at most 98); RunRepository GetActiveRunsAsync, GetRecentRunsAsync and
+    GetRunsBeforeAsync take it in their existing signature line and apply Within on their existing Where line, no line
+    added (143 -> at most 143); RunQueryEndpoints
+    112 -> at most 116. GET /api/pull-requests under For(runs.read) through BuildListAsync (74 -> at most 77).
+    GET /api/runs/expectations/metrics under For(runs.read): CriteriaMetRepository.FinishedCodeRuns(scope) feeds both
+    the runs and the judgement join (51 -> at most 53). DELETE /api/runs?state=terminal under For(runs.delete):
+    RunDeleter.DeleteTerminalAsync and RunDeletionRepository.DeleteTerminalAsync take the scope (100 -> at most 101),
+    so a project-only holder deletes only the terminal runs of projects where they hold runs.delete; a global holder
+    and enforce off delete every terminal run as today; 4a4dc's data-free "bulk" nudge is unchanged. TICKETS: TicketListRequest's Project string
+    becomes ProjectScope Projects (first positional); GET /api/tickets builds For(runs.read).Narrowed(project);
+    TicketListReader.AllAsync(ProjectScope) and ReadAsync pass it to TicketListQuery.ReadAsync (filter before the
+    ceiling), TicketPullRequestReader.AllAsync -> PrReviewRecordRepository.ForListAsync, FiledTicketRows.ListAsync and
+    TicketMonthCost.OfAsync, each replacing its string filter with Within in place (TicketListReader 98 -> at most 100,
+    TicketListQuery 39 kept, TicketPullRequestReader 70 -> at most 71, PrReviewRecordRepository 76 kept, FiledTicketRows
+    98 kept, TicketMonthCost 26 kept). GET /api/tickets/graph builds For(runs.read).Narrowed(project);
+    TicketGraphReader.ReadAsync(ProjectScope) reads edges of Only ?? every configured key, replacing line 23 in place so
+    the 21-line method does not grow, and hands the same scope to AllAsync (50 -> at most 51); TicketRequiresReader
+    passes Single(project), the same equality SQL as today (41 -> at most 42).
+    DIALOG: GET /api/spec-dialog/conversations under For(dialog.write): ListByOwnerAsync and CountByOwnerAsync take the
+    scope on their existing lines (120 -> at most 120), SpecDialogConversationList.ListAsync passes it (90 -> at most 92). GET .../{dialogId}/filed-work:
+    FiledWorkReader.ReadAsync(dialogId, scope For(runs.read), ct) keeps only admitted projects in each reach (95 -> at
+    most 99); a filed row itself (the conversation's own content) stays, with no runs from an unreadable project.
+    GET /api/spec-dialog/{dialogId}: SpecDialogViewEndpoints.ReadAsync takes CallerProjectScope and narrows the
+    view's Projects (the new-conversation choice from SpecDialogProjectCatalog.All) to the names For(user, dialog.write)
+    admits — Everything returns the reader's view untouched; the reader and the catalog are unchanged, and the open
+    session's own project view is 4a4db's dialog-route check. GET /api/spec-dialog/tickets/search, /resolve and /{ticketId} under For(dialog.write): ProjectScopedCatalog.Narrow
+    (Server/Services/SpecDialog, at most 40 lines) hands them a configuration of the admitted projects and only the
+    trackers those projects name (Everything returns the loaded config itself). A tracker shared with an unreadable project is still asked,
+    because the admitted project routes to it; its hits are tracker tickets, not another project's records (decision
+    below). TicketSearchEndpoints 101 -> at most
+    105, TicketConversationEndpoints 92 -> at most 95. PROJECTS: ProjectListEndpoints (Server/Extensions, at most 40
+    lines) maps GET /api/projects under runs.read with InProject(ProjectFrom.AcrossProjects), answering a bare JSON
+    array of names (the shape 4a4de's client reads directly) — the configured keys For(runs.read) admits, ordered under
+    ConfigNames.Comparer; ProjectBootstrapEndpoints returns app.MapProjectListEndpoints() (25 -> at most 26).
+    route-permission-baseline.tsv gains "GET /api/projects runs.read across" just before the :49 row (regenerated, read
+    the diff) and RoutePermissionGuardTests pins it. FINDINGS: GET /api/config/findings stays anonymous;
+    StartupFindingsEndpoints (33 -> at most 45) takes ProjectAccess and the ClaimsPrincipal, and when Enforcing and the
+    caller fails HoldsEverywhere(user, [config.read]) (an anonymous caller included) drops every finding whose Project
+    is non-blank before StartupFindingsResponse.From, so the counts and Degraded describe what is shown; enforce off or
+    a config.read holder reads exactly today's answer.
+  out: >
+    The ProjectBinding model, ProjectPermissions on CallerIdentity, scopability and findings — 2026-10-15-4a4da. The
+    AcrossProjects declaration on the existing list routes, ProjectAccess, the route-scope guard, single-resource routes
+    (route value, run id, dialog, session, set, image, including the dialog-keyed reference lists) answering 404, and
+    project-carrying POST bodies (dialog messages, reference and image uploads) — 2026-10-15-4a4db. The hub's per-project groups, RunsChanged / TicketActivityChanged /
+    SystemActivityUpdated placement, the RunsChanged nudge of the bulk delete and the filed-work push (data-free, its
+    refetch is the filed-work route filtered here) — 2026-10-15-4a4dc. projectPermissions on
+    /api/identity, useLacksPermission(p, project), project pickers reading GET /api/projects, empty states —
+    2026-10-15-4a4de. The Access Studio Projects pane — 2026-10-15-4a4df. GET /api/config/projects and every other config.*,
+    secrets.*, access.*, archive.*, diagnostics.*, catalog.read route: global-only, unchanged. Webhooks, Slack, Teams and
+    tracker polling: anonymous server-side triggers, unchanged.
+
+decisions:
+  - key: "FILTER IN THE QUERY, NOT AFTER IT. The run list takes 50, the pull requests 200, the tickets 5000 rows; filtering the result would hand a scoped caller a short or empty page whenever other projects are busy. Every read takes the scope before its Take."
+  - key: "EVERYTHING IS THE QUERY UNCHANGED, ONE NAME IS TODAY'S EQUALITY. Within returns the same IQueryable for Everything and emits Project == name for one name, so enforcement off and every global holder run exactly today's SQL, ?project= included — the operator's byte-identical constraint holds by construction, and two tests pin it."
+  - key: "ONE ACCESS RULE. Alternative: CallerProjectScope unions ProjectPermissions itself. Why: 4a4db's ProjectAccess (over 4a4da's PermissionsIn) already answers enforcing, everywhere and in-project, unconfigured projects included; a second derivation could disagree with the 404 the single-resource routes answer."
+  - key: "THE SCOPE TYPES LIVE IN PERSISTENCE CONTRACTS. Alternative: Contracts/Models/Access plus Persistence/Extensions. Why: every touched repository already imports AgentSmith.Infrastructure.Persistence.Contracts; the other placement adds two using lines to RunRepository (ratcheted at 143) and SpecDialogSessionRepository (at 120)."
+  - key: "THE COARSE GATE FLIPS HERE, WITH THE FILTERS. 4a4db kept AcrossProjects global so no list was ever open unfiltered; this spec filters every one and opens them in the same commit. The hub left the marker in 4a4dc (its own Hub kind), so this flip opens lists only."
+  - key: "THE DIALOG'S PROJECT CHOICE IS A LIST. Alternative: leave SpecDialogProjectCatalog.All() unfiltered. Why: it hands every dialog.write holder every project's name, repositories and templates — operator ruling 1. The endpoint narrows the answer rather than the reader taking a scope, so the reader's dozen test callers stay as they are."
+  - key: "PROJECT-NAMING STARTUP FINDINGS NEED config.read. Alternative: put the route behind a permission. Why: the route must stay anonymous (it reports a broken authority); a finding with a Project names it, and diagnosing configuration is config.read business. Counts follow the shown list, so a hidden finding is not even counted; a project-only person loses a Degraded banner they could not act on — accepted."
+  - key: "ONE SCOPE TYPE REPLACES THE PROJECT STRING. The ticket reads already thread string? project; a ProjectScope in its place carries both the request's filter and the caller's reach, migrated at every caller rather than an overload beside it (no wrapper shims)."
+  - key: "AN UNREADABLE PROJECT READS AS EMPTY, NOT REFUSED. ?project=X that the caller may not read answers the empty list an unknown project already answers; a 403 or 404 there would confirm X exists."
+  - key: "SCOPE PER PERMISSION. A list reads the projects where the caller holds the route's own permission: runs.read for runs and tickets, runs.delete for the bulk delete, dialog.write for the dialog lists; filed-work's run reach uses runs.read."
+  - key: "UNCONFIGURED IS GLOBAL-ONLY. The scope is built from the configured keys a binding names, so a binding left behind by a removed project shows nothing, and runs of a removed project stay with global holders."
+  - key: "TRACKER READS ARE SCOPED BY NARROWING THE CATALOGUE (a shared tracker is a shared trust boundary, 4a4db's decision). Search, resolve and pick read trackers, not rows; handing them a configuration of the admitted projects and their trackers is how TicketProjectForTracker already scopes the choice, so no tracker a caller cannot reach is even asked. A tracker shared with an unreadable project is asked: the hits are the tracker's tickets, which the admitted project may file onto, not that project's runs or records."
+  - key: "A CONVERSATION WITHOUT A PROJECT STAYS ITS OWNER'S. The list is already owner-filtered; only a conversation bound to a project the owner can no longer read is hidden."
+  - key: "AS BUILT: the coarse gate admits any declared source on a hold anywhere, so ProjectFrom.IsPerResource lost its only reader and was removed; NoStaticStateRuleTests counts System.Linq interfaces as data contracts so the Within extensions over IQueryable pass; the one-name branch goes through a helper whose parameter is named project, because a list-pattern variable is captured under a generated name and changed the SQL parameter."
+  - key: "THE BULK DELETE IS A LIST TOO. It acts on every project's finished runs; a project-bound holder of runs.delete clears only theirs."
+
+steps:
+  - id: scope
+    action: "ProjectScope (at most 45 lines) and ProjectScopeQueries (at most 45 lines, four Within overloads) in Infrastructure.Persistence/Contracts; CallerProjectScope (at most 50 lines) over ProjectAccess, registered in ProjectScopeExtensions (at most 26)."
+  - id: coarse-gate
+    action: "PermissionRequirementHandler admits AcrossProjects on HoldsAnywhere (at most 55 kept); flip 4a4db's ..._Is403AsToday test to ..._IsAdmittedAndFiltered and add the no-hold 403 case."
+  - id: runs
+    action: "RunRepository list reads take the scope (143 -> at most 143, Within on the existing Where lines); RunListComposer (96 -> at most 98); RunQueryEndpoints (112 -> at most 116); PullRequestQueryEndpoints (74 -> at most 77); CriteriaMetRepository (51 -> at most 53) and CriteriaMetEndpoints (27 -> at most 30); RunDeletionRepository (100 -> at most 101), RunDeleter (65 -> at most 66), RunDeletionEndpoints (4a4dc's at most 62 -> at most 65)."
+  - id: tickets
+    action: "TicketListRequest.Projects (11 -> at most 12); TicketQueryEndpoints (46 -> at most 49); TicketListReader (98 -> at most 100), TicketListQuery (39 kept), TicketPullRequestReader (70 -> at most 71), PrReviewRecordRepository.ForListAsync (76 kept), FiledTicketRows.ListAsync (98 kept), TicketMonthCost (26 kept); TicketGraphEndpoints (30 -> at most 33), TicketGraphReader (50 -> at most 51), TicketRequiresReader (41 -> at most 42); migrate every test caller of TicketListRequest, AllAsync, TicketQueryEndpoints.ListAsync and TicketGraphEndpoints.GraphAsync (TicketNeverRunListTests:144, TicketGraphReadTests:112) to ProjectScope.Everything / Single."
+  - id: dialog
+    action: "SpecDialogSessionRepository ListByOwnerAsync / CountByOwnerAsync (120 -> at most 120); SpecDialogConversationList (90 -> at most 92); FiledWorkReader reach (95 -> at most 99); SpecDialogViewEndpoints (77 -> at most 86: filed-work scope and the dialog view's project narrowing; DashboardDialogSurfaceTests:178 passes the scope service); ProjectScopedCatalog.Narrow (at most 40 lines); TicketSearchEndpoints (101 -> at most 105), TicketConversationEndpoints (92 -> at most 95)."
+  - id: projects-route
+    action: "ProjectListEndpoints (at most 40 lines) chained from ProjectBootstrapEndpoints (25 -> at most 26); route-permission-baseline.tsv and RoutePermissionGuardTests gain GET /api/projects runs.read across."
+  - id: findings
+    action: "StartupFindingsEndpoints drops project-naming findings for an enforcing caller without config.read (33 -> at most 45)."
+  - id: tests
+    action: "Red first, then green, for every test below; existing callers (WaitingRunQueuePlaceTests, RunQueryPositionTests, RunDbProjectorTests, RunCostAndPaginationTests, CriteriaMetQueryTests, RunDeleteTests, PullRequestsServedTests, DialogConversationListTests, FiledWorkReadTests and the Tickets classes) pass Everything and stay green unchanged in assertion; run the touched classes with --filter."
+
+tests:
+  - "ProjectScope_Narrowed_EverythingToSingle_ScopedToSingleOrNone"
+  - "ProjectScope_Admits_ComparesUnderConfigNames"
+  - "ProjectScopeQueries_Everything_ReturnsTheSameQueryInstance"
+  - "ProjectScopeQueries_OneName_EmitsTodaysEqualityPredicate (ToQueryString equals the pre-change query's)"
+  - "ProjectScopeQueries_Scoped_SessionWithoutProjectStaysListed"
+  - "CallerProjectScope_EnforcementOff_IsEverything"
+  - "CallerProjectScope_GlobalPermission_IsEverything"
+  - "CallerProjectScope_ProjectBinding_IsThoseConfiguredProjectsInConfiguredSpelling"
+  - "CallerProjectScope_BindingToAnUnconfiguredProject_AdmitsNothingThere"
+  - "CallerProjectScope_BindingWithoutTheAskedPermission_AdmitsNothingThere"
+  - "CallerProjectScope_ManyConfiguredProjects_LoadsTheConfigurationOnce"
+  - "ProjectList_ScopedCaller_LoadsTheConfigurationOncePerRequest"
+  - "ProjectScope_AcrossProjectsRoute_ProjectOnlyCaller_IsAdmittedAndFiltered (booted, 4a4db's fixture; replaces ..._Is403AsToday)"
+  - "ProjectScope_AcrossProjectsRoute_CallerHoldingThePermissionNowhere_Is403"
+  - "RunList_ScopedCaller_SeesOnlyTheirProjectsActiveAndRecent"
+  - "RunList_ScopedCaller_GetsAFullRecentPageWhileAnotherProjectIsBusy"
+  - "RunList_CursorPage_ScopedCaller_SeesOnlyTheirProjects"
+  - "PullRequests_ScopedCaller_SeesOnlyTheirProjectsPullRequests"
+  - "CriteriaMet_ScopedCaller_AggregatesOnlyTheirProjects"
+  - "RunBulkDelete_ScopedCaller_DeletesOnlyTheirProjectsFinishedRuns"
+  - "TicketList_ScopedCaller_ListsAndCountsOnlyTheirProjects (rows, never-run filings, counts, month cost)"
+  - "TicketList_ScopedCallerAskingForAnotherProject_IsTheEmptyList"
+  - "TicketGraph_ScopedCaller_HoldsOnlyEdgesOfTheirProjects"
+  - "ConversationList_ProjectNoLongerReadable_IsHiddenAndNotCounted"
+  - "FiledWork_ReachSpansAnUnreadableProject_ShowsNoRunsFromIt"
+  - "DialogView_ScopedCaller_OffersOnlyProjectsWhereTheyHoldDialogWrite"
+  - "DialogView_GlobalHolder_OffersEveryConfiguredProject"
+  - "StartupFindings_EnforcingCallerWithoutConfigRead_SeesNoProjectNamingFindingAndCountsMatch"
+  - "StartupFindings_ConfigReader_SeesEveryFinding"
+  - "StartupFindings_EnforceOff_AnswersAsToday"
+  - "TicketSearch_ScopedCaller_AsksOnlyTrackersOfTheirProjects"
+  - "TicketPick_ScopedCaller_NamesOnlyTheirProjects"
+  - "ProjectList_ScopedCaller_NamesOnlyTheirProjects"
+  - "ProjectList_EnforcementOff_NamesEveryConfiguredProject"
+  - "RoutePermissionGuard_ProjectList_NeedsRunsRead"
+  - "ProjectScope_ServerComposition_ResolvesCallerProjectScopeAndTheListServices (integration, ServerCompositionBuilder; TestProcess env trait + EnvVarCollection)"
+
+done:
+  - "A person bound to project A only opens Runs, Pull requests, Tickets, the graph and Criteria met and sees A's work and nothing of project B — no row, no count, no cost."
+  - "Asking the ticket list for ?project=B answers the same empty list an unknown project answers."
+  - "Their conversation list and filed work name no project or run of B, and ticket search and pick ask no tracker that only B routes to and offer no project but A."
+  - "Clear terminal runs removes only the finished runs of the projects where they hold runs.delete; a global holder still clears all."
+  - "Opening a new design conversation offers only the projects where they hold dialog.write, with no repository or template of another project."
+  - "The installation's findings banner names no project to a caller without config.read while enforcement is on; an administrator sees every finding as today."
+  - "GET /api/projects answers the projects the caller may read; with enforcement off or a global role it names every configured project."
+  - "With enforcement off every list answers exactly as before."
+  - "Build green, full suite green, dashboard gen/test/build green."

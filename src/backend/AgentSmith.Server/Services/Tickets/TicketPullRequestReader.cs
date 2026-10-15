@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence.Models;
 using AgentSmith.Infrastructure.Persistence.Repositories;
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Server.Models;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -21,7 +22,7 @@ public sealed class TicketPullRequestReader(
     private static readonly TimeSpan StaleAfter = TimeSpan.FromMinutes(5);
     private static readonly IReadOnlyDictionary<string, DateTimeOffset> NotOpened = new Dictionary<string, DateTimeOffset>();
 
-    public async Task<ILookup<(string Project, string TicketId), PrReviewRecordView>> AllAsync(string? project, CancellationToken ct)
+    public async Task<ILookup<(string Project, string TicketId), PrReviewRecordView>> AllAsync(ProjectScope project, CancellationToken ct)
     {
         using var scope = scopes.CreateScope();
         var records = await scope.ServiceProvider.GetRequiredService<PrReviewRecordRepository>().ForListAsync(project, ct);

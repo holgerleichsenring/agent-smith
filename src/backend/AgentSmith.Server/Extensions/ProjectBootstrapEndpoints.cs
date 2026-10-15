@@ -13,7 +13,7 @@ internal static class ProjectBootstrapEndpoints
     internal static WebApplication MapProjectBootstrapEndpoints(this WebApplication app)
     {
         app.MapGet("/api/projects/{name}/bootstrap", GetAsync).Needs(Permissions.RunsRead).InProject(ProjectFrom.Route("name"));
-        return app;
+        return app.MapProjectListEndpoints(); // 2026-10-15-4a4dd
     }
 
     // Internal so the endpoint tests drive the real reader without a host.

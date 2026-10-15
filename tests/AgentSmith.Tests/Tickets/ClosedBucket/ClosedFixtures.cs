@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Contracts.Reviews;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Specs;
@@ -38,5 +39,5 @@ internal static class ClosedFixtures
     };
 
     public static async Task<TicketSummaryView> RowAsync(this TicketStoreHarness h, string ticket = "42") =>
-        (await h.List.ReadAsync(new TicketListRequest("alpha", null, null, null), default)).Tickets.Single(t => t.TicketId == ticket);
+        (await h.List.ReadAsync(new TicketListRequest(ProjectScope.Single("alpha"), null, null, null), default)).Tickets.Single(t => t.TicketId == ticket);
 }

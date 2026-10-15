@@ -27,8 +27,8 @@ public sealed class FiledTicketRows(
 {
     private sealed record Filing(string Tracker, string TicketKey, string TicketId, string Project, string ContentJson, DateTimeOffset ApprovedAt);
 
-    public Task<IReadOnlyList<TicketSummaryView>> ListAsync(string? project, CancellationToken ct) =>
-        ReadAsync(rows => string.IsNullOrEmpty(project) ? rows : rows.Where(a => a.Project == project), null, ct);
+    public Task<IReadOnlyList<TicketSummaryView>> ListAsync(ProjectScope project, CancellationToken ct) =>
+        ReadAsync(rows => rows.Within(project), null, ct);
 
     /// <summary>The pair's never-run row, or null when the pair has a code run or no filing record.</summary>
     public async Task<TicketSummaryView?> OneAsync(string project, string ticketId, CancellationToken ct)

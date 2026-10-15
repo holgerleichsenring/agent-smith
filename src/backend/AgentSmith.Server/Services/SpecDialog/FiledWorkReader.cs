@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Server.Models;
 
 namespace AgentSmith.Server.Services.SpecDialog;
@@ -23,12 +24,12 @@ public sealed class FiledWorkReader(
     FiledWorkHandbacks handbacks,
     ApprovedSetForConversation approved)
 {
-    public async Task<FiledWorkView> ReadAsync(string dialogId, CancellationToken ct)
+    public async Task<FiledWorkView> ReadAsync(string dialogId, ProjectScope scope, CancellationToken ct)
     {
         // 2026-09-25-8e51d: a conversation BOUND to a ticket has an approved set to show even
         // when it filed nothing itself, so this is read before the filing is looked for.
         var set = await approved.ForAsync(dialogId, ct);
-        var rows = await RowsAsync(dialogId, ct);
+        var rows = await RowsAsync(dialogId, scope, ct);
         return rows.Count == 0
             ? FiledWorkView.Empty(dialogId) with { Approved = set }
             : new FiledWorkView(dialogId, rows, set);
@@ -40,12 +41,12 @@ public sealed class FiledWorkReader(
     /// and a conversation that filed is already shown the tickets it filed.
     /// </summary>
     private async Task<IReadOnlyList<FiledWorkTicketView>> RowsAsync(
-        string dialogId, CancellationToken ct)
+        string dialogId, ProjectScope scope, CancellationToken ct)
     {
         var latest = await filing.OfAsync(dialogId, ct);
-        if (latest is null) return await BoundRowsAsync(dialogId, ct);
+        if (latest is null) return await BoundRowsAsync(dialogId, scope, ct);
         var rows = new List<FiledWorkTicketView>();
-        foreach (var ticket in latest.Filed) rows.Add(await RowAsync(ticket, ct));
+        foreach (var ticket in latest.Filed) rows.Add(await RowAsync(ticket, scope, ct));
         return rows;
     }
 
@@ -57,10 +58,10 @@ public sealed class FiledWorkReader(
     /// ticket number means different work on two trackers.
     /// </summary>
     private async Task<IReadOnlyList<FiledWorkTicketView>> BoundRowsAsync(
-        string dialogId, CancellationToken ct)
+        string dialogId, ProjectScope scope, CancellationToken ct)
     {
         if (await bound.OfAsync(dialogId, ct) is not { } ticket) return [];
-        var reach = trackerProjects.OnTracker(ticket.Tracker);
+        var reach = Readable(trackerProjects.OnTracker(ticket.Tracker), scope);
         return
         [
             new FiledWorkTicketView(
@@ -76,17 +77,20 @@ public sealed class FiledWorkReader(
     /// references only; a slice record (2026-09-17-0e79d, filed until 2026-09-22-b3d7 and never
     /// after it) is not work at all, so nothing looks for a run of it.
     /// </summary>
-    private async Task<FiledWorkTicketView> RowAsync(FiledTicket ticket, CancellationToken ct)
+    private async Task<FiledWorkTicketView> RowAsync(FiledTicket ticket, ProjectScope scope, CancellationToken ct)
     {
         if (ticket.TicketId is not { } id || ticket.Project is not { } project
             || ticket.Start?.State == FiledStartState.Record)
             return Row(ticket, [], null);
-        var reach = trackerProjects.SharingTrackerWith(project);
+        var reach = Readable(trackerProjects.SharingTrackerWith(project), scope);
         return Row(
             ticket,
             await runs.ForAsync(reach, id, ct),
             await handbacks.ForAsync(reach, id, ct));
     }
+
+    private static IReadOnlyList<FiledWorkProject> Readable(IReadOnlyList<FiledWorkProject> reach, ProjectScope scope) =>
+        [.. reach.Where(project => scope.Admits(project.Name))];
 
     private static FiledWorkTicketView Row(
         FiledTicket ticket, IReadOnlyList<FiledWorkRunView> runs, FiledWorkHandbackView? handback) =>

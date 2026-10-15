@@ -30,4 +30,20 @@ public sealed class ProjectScopeCompositionTests
         sp.GetRequiredService<ProjectSourceResolver>().Should().NotBeNull();
         sp.GetRequiredService<DialogMessageScope>().Should().NotBeNull();
     }
+
+    [Fact]
+    public void ProjectScope_ServerComposition_ResolvesCallerProjectScopeAndTheListServices()
+    {
+        var services = new ServiceCollection();
+        services.AddLogging(builder => builder.AddProvider(NullLoggerProvider.Instance));
+        ServerCompositionBuilder.ConfigureServices(services, "agentsmith.yml");
+        services.AddDashboardApi();
+
+        using var provider = services.BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true });
+        using var scope = provider.CreateScope();
+        var sp = scope.ServiceProvider;
+        sp.GetRequiredService<CallerProjectScope>().Should().NotBeNull();
+        sp.GetRequiredService<AgentSmith.Server.Services.SpecDialog.ProjectScopedCatalog>().Should().NotBeNull();
+        sp.GetRequiredService<AgentSmith.Server.Services.Tickets.TicketProjects>().Should().NotBeNull();
+    }
 }

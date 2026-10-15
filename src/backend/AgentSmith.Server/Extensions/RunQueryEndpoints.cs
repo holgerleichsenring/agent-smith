@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence.Repositories;
@@ -61,8 +62,11 @@ internal static class RunQueryEndpoints
         ICapacityBudget capacityBudget,
         IActiveRunLease activeRunLease, TimeProvider clock,
         string? before, int? limit,
+        ClaimsPrincipal user, CallerProjectScope scopes,
         CancellationToken cancellationToken)
     {
+        // 2026-10-15-4a4dd: the caller's projects are filtered in the query, before the page's Take.
+        var scope = scopes.For(user, Permissions.RunsRead);
         // p0355: the runs-list "load more" — finished runs OLDER than the `before`
         // ISO-timestamp cursor, newest-first, served from the durable store beyond
         // the retained live window. Returns { recent } only (active runs belong to
@@ -71,14 +75,14 @@ internal static class RunQueryEndpoints
         if (!string.IsNullOrEmpty(before) && RunListComposer.TryParseCursor(before, out var cursor))
         {
             var page = await RunListComposer.BuildPageBeforeAsync(
-                runs, capacityBudget, cursor,
+                runs, scope, capacityBudget, cursor,
                 Math.Clamp(limit ?? RunListComposer.RecentLimit, 1, RunListComposer.MaxPageLimit),
                 cancellationToken);
             return Results.Ok(new { recent = page });
         }
 
         var (active, recent) = await RunListComposer.BuildOverviewAsync(
-            runs, capacityQueue, cancellationToken, checkpoints, capacityBudget, activeRunLease, clock);
+            runs, scope, capacityQueue, cancellationToken, checkpoints, capacityBudget, activeRunLease, clock);
         return Results.Ok(new { active, recent });
     }
 

@@ -1,5 +1,8 @@
+using System.Security.Claims;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Models;
+using AgentSmith.Server.Security;
 using Microsoft.AspNetCore.Mvc;
 
 namespace AgentSmith.Server.Extensions;
@@ -21,13 +24,22 @@ internal static class StartupFindingsEndpoints
 {
     internal static WebApplication MapStartupFindingsEndpoints(this WebApplication app)
     {
-        app.MapGet("/api/config/findings",
-            ([FromServices] IStartupFindings findings,
-                [FromServices] IBuildMismatchDetector builds,
-                [FromQuery] string? build) =>
-                Results.Ok(StartupFindingsResponse.From(
-                    [.. findings.All, .. builds.Compare(build)]))).Anonymous(
+        app.MapGet("/api/config/findings", Read).Anonymous(
             "the channel that reports a broken authority cannot depend on that authority");
         return app;
+    }
+
+    /// <summary>
+    /// 2026-10-15-4a4dd: a finding naming a project is diagnosing configuration — config.read business. An enforcing
+    /// installation drops it for every other caller, anonymous included, before the counts are taken.
+    /// </summary>
+    internal static IResult Read(
+        [FromServices] IStartupFindings findings, [FromServices] IBuildMismatchDetector builds, [FromQuery] string? build,
+        ClaimsPrincipal user, [FromServices] ProjectAccess access)
+    {
+        IReadOnlyList<StartupFinding> all = [.. findings.All, .. builds.Compare(build)];
+        var hidesProjects = access.Enforcing && !access.HoldsEverywhere(user, [Permissions.ConfigRead]);
+        return Results.Ok(StartupFindingsResponse.From(
+            hidesProjects ? [.. all.Where(f => string.IsNullOrWhiteSpace(f.Project))] : all));
     }
 }

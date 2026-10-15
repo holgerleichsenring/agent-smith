@@ -135,7 +135,7 @@ public sealed class RunCostAndPaginationTests : IDisposable
         await ProjectRunAsync("run-c", t.AddMinutes(2), finishedCost: 0m);
 
         // Cursor between run-b and run-c → older runs are run-b, run-a, newest-first.
-        var page = await NewStore().GetRunsBeforeAsync(t.AddSeconds(90), limit: 10, CancellationToken.None);
+        var page = await NewStore().GetRunsBeforeAsync(ProjectScope.Everything, t.AddSeconds(90), limit: 10, CancellationToken.None);
 
         page.Select(r => r.Id).Should().Equal("run-b", "run-a");
     }
@@ -148,7 +148,7 @@ public sealed class RunCostAndPaginationTests : IDisposable
         await ProjectRunAsync("run-b", t.AddMinutes(1), finishedCost: 0m);
         await ProjectRunAsync("run-c", t.AddMinutes(2), finishedCost: 0m);
 
-        var page = await NewStore().GetRunsBeforeAsync(t.AddMinutes(5), limit: 1, CancellationToken.None);
+        var page = await NewStore().GetRunsBeforeAsync(ProjectScope.Everything, t.AddMinutes(5), limit: 1, CancellationToken.None);
 
         page.Select(r => r.Id).Should().Equal("run-c");
     }

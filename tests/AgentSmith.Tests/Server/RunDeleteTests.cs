@@ -203,11 +203,32 @@ public sealed class RunDeleteTests : IDisposable
             "2026-07-14T10-00-00-e5f6", "waiting", ["repo-a"],
             InitialContextJson: "{}", PlanAnswersJson: null), CancellationToken.None);
 
-        var deleted = await NewDeleter().DeleteTerminalAsync(CancellationToken.None);
+        var deleted = await NewDeleter().DeleteTerminalAsync(ProjectScope.Everything, CancellationToken.None);
 
         deleted.Should().Be(1);
         using var db = new AgentSmithDbContext(Options());
         db.Runs.Select(r => r.Id).Should().BeEquivalentTo(new[] { "run-running", queued });
+    }
+
+    [Fact]
+    public async Task RunBulkDelete_ScopedCaller_DeletesOnlyTheirProjectsFinishedRuns()
+    {
+        await SeedTerminalRunWithSatellitesAsync("run-p1");
+        using (var ctx = new AgentSmithDbContext(Options()))
+        {
+            ctx.Runs.Add(new Run
+            {
+                Id = "run-p2", Project = "p2", Pipeline = "code", TicketId = "8", Platform = "github", Status = "success",
+                StartedAt = DateTimeOffset.UtcNow.AddMinutes(-5), FinishedAt = DateTimeOffset.UtcNow,
+            });
+            await ctx.SaveChangesAsync();
+        }
+
+        var deleted = await NewDeleter().DeleteTerminalAsync(ProjectScope.Of(["p2"]), CancellationToken.None);
+
+        deleted.Should().Be(1);
+        using var db = new AgentSmithDbContext(Options());
+        db.Runs.Select(r => r.Id).Should().Equal("run-p1");
     }
 
     [Fact]
@@ -221,7 +242,7 @@ public sealed class RunDeleteTests : IDisposable
             await ctx.SaveChangesAsync();
         }
 
-        await NewDeleter().DeleteTerminalAsync(CancellationToken.None);
+        await NewDeleter().DeleteTerminalAsync(ProjectScope.Everything, CancellationToken.None);
 
         using var db = new AgentSmithDbContext(Options());
         db.RunCriterionJudgements.Select(j => j.RunId).Should().Equal("run-running");

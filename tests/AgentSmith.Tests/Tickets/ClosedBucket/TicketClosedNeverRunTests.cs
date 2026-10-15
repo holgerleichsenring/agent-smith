@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Services.Tickets;
@@ -54,7 +55,7 @@ public sealed class TicketClosedNeverRunTests : IDisposable
         await _h.RequiresAsync("59", "58");
         await _h.CloseAsync(T.AddHours(1), ticket: "58", project: "beta");
 
-        var rows = (await _h.List.ReadAsync(new TicketListRequest(null, null, null, null), default)).Tickets;
+        var rows = (await _h.List.ReadAsync(new TicketListRequest(ProjectScope.Everything, null, null, null), default)).Tickets;
 
         rows.Single(t => t.TicketId == "58").Bucket.Should().Be(TicketBucket.Closed);
         rows.Single(t => t.TicketId == "59").WaitsFor!.Single().Should().Match<TicketWaitsForView>(w => w.Project == "alpha" && w.Closed);
@@ -67,7 +68,7 @@ public sealed class TicketClosedNeverRunTests : IDisposable
         await _h.RequiresAsync("59", "58");
         await _h.CloseAsync(T.AddHours(1), ticket: "58");
 
-        var graph = await _h.Services.GetRequiredService<TicketGraphReader>().ReadAsync("alpha", default);
+        var graph = await _h.Services.GetRequiredService<TicketGraphReader>().ReadAsync(ProjectScope.Single("alpha"), default);
 
         graph.Nodes.Single(n => n.TicketId == "58").State.Should().Be(TicketBucket.Closed);
     }

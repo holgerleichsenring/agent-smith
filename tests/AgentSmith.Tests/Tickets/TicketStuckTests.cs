@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using System.Text.Json;
 using AgentSmith.Application.Services.SpecDialog;
 using AgentSmith.Application.Services.Specs;
@@ -46,7 +47,7 @@ public sealed class TicketStuckTests : IDisposable
         new() { RunId = runId, CheckedAt = at, FingerprintUnchanged = unchanged, ActsJson = acts };
 
     private async Task<TicketSummaryView> RowAsync() =>
-        (await _h.List.ReadAsync(new TicketListRequest("alpha", null, null, null), default)).Tickets.Single();
+        (await _h.List.ReadAsync(new TicketListRequest(ProjectScope.Single("alpha"), null, null, null), default)).Tickets.Single();
 
     private async Task<int> ChecksAsync()
     {
@@ -61,7 +62,7 @@ public sealed class TicketStuckTests : IDisposable
         await FailedAsync();
 
         await _h.Detail.ReadAsync("alpha", "42", default);
-        var list = await _h.List.ReadAsync(new TicketListRequest("alpha", null, null, null), default);
+        var list = await _h.List.ReadAsync(new TicketListRequest(ProjectScope.Single("alpha"), null, null, null), default);
 
         var row = list.Tickets.Single();
         (row.Bucket, row.UnchangedSinceLastAttempt, row.CheckedAt).Should().Be((TicketBucket.Stuck, (bool?)true, (DateTimeOffset?)Now));
@@ -181,7 +182,7 @@ public sealed class TicketStuckTests : IDisposable
         await _h.AddAsync(Run("r-1", status: "waiting_for_input"), Step("r-1"),
             Row("r-1", 4, RunConversationKinds.HandBack, 20, "## Agent Smith — refused"));
 
-        var list = await _h.List.ReadAsync(new TicketListRequest("alpha", null, null, null), default);
+        var list = await _h.List.ReadAsync(new TicketListRequest(ProjectScope.Single("alpha"), null, null, null), default);
 
         (list.Tickets.Single().Kind, list.Tickets.Single().Since).Should().Be((TicketNeedsYouKind.Handback, (DateTimeOffset?)T.AddMinutes(20)));
         list.Counts.OldestNeedsYouSince.Should().Be(T.AddMinutes(20));
@@ -213,7 +214,7 @@ public sealed class TicketStuckTests : IDisposable
             .Returns(new TaskCompletionSource<Ticket>().Task);
         for (var i = 10; i < 22; i++) await FailedAsync($"{i}", $"r-{i}");
 
-        var list = await _h.List.ReadAsync(new TicketListRequest("alpha", null, null, null), default);
+        var list = await _h.List.ReadAsync(new TicketListRequest(ProjectScope.Single("alpha"), null, null, null), default);
 
         list.Tickets.Should().HaveCount(12);
         _h.Kicks.Reader.Count.Should().Be(TicketCheckKicks.PerRead);

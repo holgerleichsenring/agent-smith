@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Server.Extensions;
@@ -99,7 +100,7 @@ public sealed class TicketDetailReaderTests : IDisposable
             new RunSandbox { RunId = R2, Key = "api", RepoName = "api", EventSeq = 5, EndReason = "vanished" });
 
         var attempts = (await ReadAsync()).Attempts;
-        var row = (await _store.List.ReadAsync(new TicketListRequest(null, null, null, null), CancellationToken.None)).Tickets.Single();
+        var row = (await _store.List.ReadAsync(new TicketListRequest(ProjectScope.Everything, null, null, null), CancellationToken.None)).Tickets.Single();
 
         attempts.Select(a => a.EndedOnInfrastructure).Should().Equal(true, false);
         row.Attempts.Select(a => a.EndedOnInfrastructure).Should().Equal(true, false);
