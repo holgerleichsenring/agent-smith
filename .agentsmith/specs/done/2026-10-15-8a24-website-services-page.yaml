@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-15-8a24
+goal: "The website has a /services/ page offering professional services and maintenance contracts through 45level GmbH with a Get in contact link, and the footer names 45level GmbH."
+
+applies_to: "website (a services page, the shared layout's nav and footer, llms.txt)"
+
+requires: [2026-10-15-9d0a]
+
+facts:
+  - claim: "Every page shares one layout whose nav lists the sections and whose footer reads '© 2026 Holger Leichsenring' beside a 45level link."
+    evidence: "website/src/_includes/layouts/base.njk:14-27, website/src/_includes/layouts/base.njk:31-42"
+  - claim: "site.json holds the 45level URL the footer already links."
+    evidence: "website/src/_data/site.json:9"
+  - claim: "The Azure DevOps page is the pattern for a content page: page-hero, prose sections with ch-head and prose-grid, and an end section with a call to action."
+    evidence: "website/src/azure-devops.njk:1-20, website/src/azure-devops.njk:22-42, website/src/azure-devops.njk:134-145"
+
+assumptions:
+  - "Get in contact points at the 45level site (site.partnerUrl); no address or phone number is published on this site."
+
+scope:
+  in: >
+    PAGE: website/src/services.njk at /services/ — hero 'Offered through 45level GmbH' with Get in contact, a Professional
+    services section (installation in your estate; trackers, repositories and projects), a Maintenance contracts section,
+    and an end section repeating Get in contact. NAV: a Services entry before Docs. FOOTER: '© 2026 Holger Leichsenring
+    (45level GmbH)' (the operator's wording, 2026-10-15). LLMS: llms.txt names the services page under Start here.
+  out: >
+    Prices, service levels or response times — not stated by the operator, so not published.
+
+decisions:
+  - key: "THE CONTACT IS THE 45LEVEL SITE. No address was given; the footer already links site.partnerUrl, so both calls to action point there rather than publishing a mailbox nobody named."
+
+steps:
+  - id: page
+    action: "website/src/services.njk (at most 70 lines) on the azure-devops.njk pattern, no new CSS."
+  - id: layout
+    action: "base.njk (46 -> 47): Services nav entry; footer copyright names 45level GmbH."
+  - id: llms
+    action: "llms.txt.njk gains the Services line."
+  - id: build
+    action: "npm run build in website; the link check passes."
+
+tests:
+  - "npm run build in website succeeds with the postbuild link check, writing _site/services/index.html."
+
+done:
+  - "agent-smith.org/services/ offers professional services and maintenance contracts through 45level GmbH, each with a Get in contact button to the 45level site."
+  - "Every page's nav has Services, and the footer reads '© 2026 Holger Leichsenring (45level GmbH)'."
+  - "Website build green; build green, full suite green, dashboard gen/test/build green."
