@@ -1642,6 +1642,19 @@
 .mock-access .dash { color: var(--idle); }
 .mock-access .warn { margin: 0 0 18px; padding: 11px 14px; border: 1px dashed var(--line-strong); border-radius: 10px; font-size: 12.5px; color: var(--ink-2); background: var(--panel); }
 
+/* 2026-10-15-4a4df: the Projects pane — binding cards under a project row */
+.mock-access .bindings { display: flex; flex-direction: column; gap: 10px; align-items: flex-start; }
+.mock-access .binding { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; background: var(--panel); display: flex; flex-direction: column; gap: 8px; }
+.mock-access .binding-head { display: flex; justify-content: space-between; align-items: center; font-size: 11px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); }
+.mock-access .member-label { font-size: 11px; color: var(--ink-3); font-family: var(--mono); min-width: 140px; }
+.mock-access .chip-member { background: var(--bg); color: var(--ink-mid); border-color: var(--line-strong); font-family: var(--mono); }
+.mock-access .member-field { font: inherit; font-size: 12px; font-family: var(--mono); padding: 3px 9px; border: 1px solid var(--line-strong); border-radius: 999px; background: var(--bg); color: var(--ink); min-width: 160px; }
+.mock-access .member-add { border: 1px solid var(--line-strong); background: var(--bg); border-radius: 999px; font: inherit; font-size: 12px; color: var(--ink-mid); padding: 3px 10px; cursor: pointer; }
+.mock-access .binding-effect { margin: 0; font-size: 12px; font-family: var(--mono); color: var(--ink-2); }
+.mock-access .binding-effect.ignored { color: var(--ink-3); }
+.mock-access .project-cell { vertical-align: top; }
+.mock-access .unconfigured { display: inline-block; margin-top: 4px; font-size: 11px; color: var(--bad); border: 1px dashed var(--bad); border-radius: 999px; padding: 1px 8px; }
+
 @media (max-width: 860px) { .mock-access .rolecards { grid-template-columns: 1fr; } }
 
 /* ===== overview surface (2026-08-27-559e) ================================= */

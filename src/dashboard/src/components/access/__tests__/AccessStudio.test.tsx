@@ -33,6 +33,7 @@ function document(overrides: Partial<AccessDocument> = {}): AccessDocument {
     groupRoles: { "platform-admins": ["admin"] },
     roles: { auditor: ["config.read"] },
     personGrants: [{ claim: NAME_CLAIM, value: "ada@example.com", roles: ["admin"] }],
+    projectBindings: [],
     observationRetentionDays: 90,
     ...overrides,
   };
@@ -74,6 +75,8 @@ function viewWith(doc: AccessDocument, overrides: Partial<AccessView> = {}): Acc
     ],
     permissions: ["access.write", "config.read", "config.write"],
     findings: [],
+    projects: ["billing", "web"],
+    projectScopable: ["dialog.write", "projects.init", "runs.control", "runs.delete", "runs.read", "runs.watch"],
     ...overrides,
   };
 }

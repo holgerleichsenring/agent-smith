@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-15-4a4df
+
+decisions:
+  - category: Architecture
+    chose: "AccessSurfaceReader reads the configured names through TicketProjects.All()"
+    over: "IConfigurationLoader + ServerContext injected directly, as the spec wrote it"
+    reason: |
+      TicketProjects is exactly LoadConfig(ConfigPath).Projects, is what ProjectAccess and GET /api/projects already
+      read, and AddProjectScope registers it — one reader of the configured names instead of a third copy.
+  - category: Architecture
+    chose: "ProjectBindingFindings is an instance class registered as a singleton and injected into AccessViewComposer"
+    over: "A static class, as the spec wrote it"
+    reason: |
+      The principles allow statics only for Map() or extension methods; the composer is already built by DI and by
+      hand in the harness, so one more constructor argument costs nothing.
+  - category: Architecture
+    chose: "The three binding findings are composed on the access view only; the save refuses only a blank project"
+    over: "Refusing an unknown project or a binding that grants nothing at save time"
+    reason: |
+      A project may be deleted and recreated under the same name and a role may be edited; both stay findings. The
+      not-configured finding needs the configured names, which only the access view reads, and /api/identity must
+      name no project.
+  - category: Architecture
+    chose: "A forget withdraws the person's refs from every binding and drops only a binding THIS withdrawal emptied"
+    over: "Keeping refs, or dropping every memberless binding"
+    reason: |
+      A ref left behind would hand a returning namesake project rights the administrator removed; a binding saved
+      memberless is an administrator's work in progress and is kept. The forget saves when a grant OR a ref went.
+  - category: Architecture
+    chose: "RoleRemovalGuard names '<group or claim:value> in <project> (project binding)' as holders"
+    over: "Counting bindings in the Roles pane's tallies"
+    reason: |
+      The guard is where a removal is refused with names; a binding without members holds nobody and does not block.
+  - category: Implementation
+    chose: "MemberChips.tsx carries the group and people chips of a binding card"
+    over: "Inlining both chip editors in BindingCard"
+    reason: |
+      Groups and people share one shape (chips, a pick list, a typed value); one component keeps BindingCard under its
+      line budget and the two editors identical.
+  - category: Testing
+    chose: "Pure ProjectBindingFindings tests in their own class ProjectBindingFindingsTests"
+    over: "All findings tests inside ProjectBindingSurfaceTests"
+    reason: |
+      Keeps each test class under 120 lines; the surface class covers the findings through the composed view.

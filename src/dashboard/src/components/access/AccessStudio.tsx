@@ -7,8 +7,10 @@ import { RefusalSurface } from "@/components/shell/RefusalSurface";
 import { ClaimsPane } from "./ClaimsPane";
 import { GroupsPane } from "./GroupsPane";
 import { PeoplePane } from "./PeoplePane";
+import { ProjectsPane } from "./ProjectsPane";
 import { RolesPane } from "./RolesPane";
 import { groupsOf, peopleOf } from "./derive";
+import { projectsOf } from "./projectBindings";
 import { useAccess } from "./useAccess";
 
 // 2026-08-26-7a51: who may do what — People, Groups, Roles and the claim names, four panes
@@ -16,7 +18,7 @@ import { useAccess } from "./useAccess";
 // idiom and also the only correct shape: the server binds a settings body onto a fresh
 // model, so anything the surface does not send reverts to a default.
 
-type Pane = "people" | "groups" | "roles" | "claims";
+type Pane = "people" | "groups" | "roles" | "projects" | "claims";
 
 export function AccessStudio() {
   const { view, loading, error, saving, saveError, save, forget } = useAccess();
@@ -36,6 +38,7 @@ export function AccessStudio() {
   const roles = view.roles.map((role) => role.name);
   const people = peopleOf(view, draft);
   const groups = groupsOf(view, draft);
+  const bound = projectsOf(view, draft).filter((row) => row.bindings.length > 0).length;
 
   return (
     <div className="mock-shell mock-config mock-access" data-testid="access-studio">
@@ -90,6 +93,7 @@ export function AccessStudio() {
           <Tab id="people" pane={pane} onSelect={setPane} label="People" count={people.length} />
           <Tab id="groups" pane={pane} onSelect={setPane} label="Groups" count={groups.length} />
           <Tab id="roles" pane={pane} onSelect={setPane} label="Roles" count={view.roles.length} />
+          <Tab id="projects" pane={pane} onSelect={setPane} label="Projects" count={bound} />
           <Tab id="claims" pane={pane} onSelect={setPane} label="Claim names" />
         </div>
 
@@ -114,6 +118,7 @@ export function AccessStudio() {
             onChange={setDraft}
           />
         )}
+        {pane === "projects" && <ProjectsPane view={view} draft={draft} onChange={setDraft} />}
         {pane === "claims" && (
           <ClaimsPane draft={draft} nameClaim={view.nameClaim} onChange={setDraft} />
         )}

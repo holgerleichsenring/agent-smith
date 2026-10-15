@@ -271,6 +271,53 @@ finding names the authority and the cause. The finding is blocking when enforcem
 on, which puts it in the dashboard's degraded banner, and advisory when it's off. It
 clears on its own once the authority answers again.
 
+## Project bindings
+
+The grants above are global: a role held through them holds in every project. A **project
+binding** grants roles in ONE project, to directory groups and named people, and sits beside
+the global grants rather than narrowing them — every mapping stored before bindings keeps its
+meaning. An administrator edits them under **Access → Projects**: one row per configured
+project, each with any number of bindings, because "team A operates, team B reads" is two.
+
+Only six permissions apply inside a project: `runs.read`, `runs.watch`, `runs.control`,
+`runs.delete`, `projects.init` and `dialog.write`. Everything else — `config.*`,
+`secrets.*`, `access.*`, `archive.*`, `diagnostics.*` — stays global: a project document
+references shared agents, trackers and secrets, so a project member must not configure or read
+the installation through one project. A role's global-only permissions are dropped from the
+binding; the pane lists them as "ignored here", and offers only roles that carry at least one
+of the six. Effective rights in a project are the global ones plus the project's bindings.
+Token `permission` claims and `AGENTSMITH_ADMIN_GRANT` stay global, and a binding is never a
+route to admin.
+
+Project names compare **case-insensitively**, as the configuration keys them: a binding for
+`Billing` applies to the configured `billing`. A person in a binding is stored `{claim,
+value}` and resolves only under the configured `name_claim`, like a grant. Forgetting a person
+removes them from every binding (a binding left with no member goes with them), and a custom
+role a binding still uses cannot be removed until the binding drops it. A save refuses a
+binding that names no project. The Access page — and only it, never `/api/identity` — reports
+three findings: a binding naming a project that is not configured (kept, and applied again if
+the project returns), a binding whose roles grant nothing in a project, and a person written
+against a claim that is no longer the name claim.
+
+With enforcement on, a caller holding a permission only through a binding sees only that
+project:
+
+* **A resource of another project answers like a missing one** — `404` with the same body,
+  never `403`, because a `403` would confirm it exists. A run whose project is no longer
+  configured is visible to global holders only.
+* **Lists hold only the caller's projects** — runs, tickets, the ticket graph, pull requests,
+  expectation metrics, ticket search, conversations and filed work. `GET /api/projects` answers
+  the project names the caller may read.
+* **Live updates are scoped the same way.** A run-keyed hub method checks the run's project;
+  overview nudges go to one group per project. Membership is decided when the connection
+  subscribes, so a withdrawn binding takes effect on reconnect — the data itself is re-checked
+  on every HTTP read.
+
+A tracker shared by two projects is **one trust boundary**: access is scoped by the project a
+caller addresses, not by partitioning a shared tracker's tickets. Give each project its own
+tracker connection when the two must stay apart. With enforcement off nothing changes:
+bindings are stored and shown, and every list is unfiltered.
+
 ## What resolves, and how it compares
 
 * **Role names fold case.** One directory emits an app-role value as the operator

@@ -2,6 +2,7 @@ using AgentSmith.Contracts.Models.Access;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Server.Models;
 using AgentSmith.Server.Security;
+using AgentSmith.Server.Services.Tickets;
 
 namespace AgentSmith.Server.Services.Access;
 
@@ -14,10 +15,11 @@ internal sealed class AccessSurfaceReader(
     RoleMappingSource mapping,
     IObservedCallerStore observed,
     AccessViewComposer composer,
+    TicketProjects projects,
     ILogger<AccessSurfaceReader> logger)
 {
     public async Task<AccessView> ViewAsync(CancellationToken ct) =>
-        composer.Compose(mapping.Current(), await ObservedAsync(ct));
+        composer.Compose(mapping.Current(), await ObservedAsync(ct), [.. projects.All().Keys]);
 
     private async Task<IReadOnlyList<ObservedCaller>> ObservedAsync(CancellationToken ct)
     {

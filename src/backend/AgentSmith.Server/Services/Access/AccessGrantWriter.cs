@@ -34,6 +34,10 @@ internal sealed class AccessGrantWriter(
     public async Task SaveAsync(JsonElement doc, ChangeAttribution by, CancellationToken cancellationToken)
     {
         var incoming = Bind(doc);
+        // 2026-10-15-4a4df: the one binding refusal. An unknown project and a binding that
+        // grants nothing stay findings — a project may be recreated, a role edited.
+        if (incoming.ProjectBindings.Any(binding => string.IsNullOrWhiteSpace(binding.Project)))
+            throw new ConfigurationException("A project binding names no project.");
         var inForce = mapping.Current().Mapping;
         customRoles.Against(inForce, incoming);
         await removals.AgainstAsync(inForce, incoming, cancellationToken);

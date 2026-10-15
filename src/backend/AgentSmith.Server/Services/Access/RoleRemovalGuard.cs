@@ -58,8 +58,18 @@ internal sealed class RoleRemovalGuard(IObservedCallerStore observed)
         holders.AddRange(seen
             .Where(c => Holds(c.RoleValues, role))
             .Select(c => $"{c.NameValue} (seen carrying it from the directory)"));
+        holders.AddRange(BindingHolders(incoming, role));
         return [.. holders.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal)];
     }
+
+    // 2026-10-15-4a4df: a project binding is a holder too — removing the role would strip
+    // that project's members as silently as it would strip a grant.
+    private static IEnumerable<string> BindingHolders(RoleMappingConfig incoming, string role) =>
+        incoming.ProjectBindings
+            .Where(binding => Holds(binding.Roles, role))
+            .SelectMany(binding => binding.Groups
+                .Concat(binding.People.Select(p => $"{p.Claim}:{p.Value}"))
+                .Select(member => $"{member} in {binding.Project} (project binding)"));
 
     private static string Refusal(string role, IReadOnlyList<string> holders) =>
         $"The role '{role}' is still held by {string.Join(", ", holders)}, and removing it would "
