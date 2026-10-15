@@ -45,8 +45,28 @@ public sealed class ChangedListRefreshTests
     {
         var items = await AzureAsync(Pr(9, ("b", 10), ("a", -5)), Pr(10, ("creator", 10)));
 
-        items.Select(i => (i.Dedupe, i.RefreshOnly)).Should().Equal(("9|a", false), ("refresh|9|a:-5,b:10", true));
-        items.Should().OnlyContain(i => i.PrUrl == $"{RepoUrl}/pullrequest/9");
+        items.Select(i => (i.Dedupe, i.RefreshOnly)).Should().Equal(
+            ("9|a", false), ("refresh|9|a:-5,b:10", true), ("refresh|10|creator:10", true));
+        items.Take(2).Should().OnlyContain(i => i.PrUrl == $"{RepoUrl}/pullrequest/9");
+    }
+
+    [Fact]
+    public async Task ChangedPullRequests_AzureDevOps_CreatorAtMinusFive_ListsTheVoteItem()
+    {
+        var items = await AzureAsync(Pr(9, ("creator", -5), ("b", 10)));
+
+        items.Select(i => (i.Dedupe, i.RefreshOnly)).Should().Equal(
+            ("9|creator", false), ("refresh|9|b:10,creator:-5", true));
+    }
+
+    [Fact]
+    public async Task ChangedPullRequests_AzureDevOps_SoleCreatorResetsMinusFive_ListsARefreshItem()
+    {
+        var waiting = await AzureAsync(Pr(9, ("creator", -5)));
+        var reset = (await AzureAsync(Pr(9, ("creator", 0)))).Single();
+
+        reset.RefreshOnly.Should().BeTrue();
+        reset.Dedupe.Should().Be("refresh|9|creator:0").And.NotBe(waiting.Single(i => i.RefreshOnly).Dedupe);
     }
 
     [Fact]

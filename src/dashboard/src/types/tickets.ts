@@ -12,10 +12,14 @@ export type TicketServerBucket =
   | "waiting_on_review"
   | "stuck"
   | "idle"
-  | "done";
+  | "done"
+  /** 2026-10-14-dbcen: filed, no run on record, a ticket it requires has not landed */
+  | "blocked"
+  /** 2026-10-14-dbcen: filed, no run on record, nothing it requires is open */
+  | "filed";
 
 /** The buckets as the URL spells them (?bucket=), in the order the list shows them. */
-export const TICKET_BUCKETS = ["needs-you", "working", "waiting-on-review", "stuck", "ended", "done"] as const;
+export const TICKET_BUCKETS = ["needs-you", "working", "waiting-on-review", "stuck", "blocked", "filed", "ended", "done"] as const;
 export type TicketBucket = (typeof TICKET_BUCKETS)[number];
 
 /** URL bucket -> the server's word. "ended" is the server's idle: no bucket owns the ticket. */
@@ -24,6 +28,8 @@ export const SERVER_BUCKET: Readonly<Record<TicketBucket, TicketServerBucket>> =
   working: "working",
   "waiting-on-review": "waiting_on_review",
   stuck: "stuck",
+  blocked: "blocked",
+  filed: "filed",
   ended: "idle",
   done: "done",
 };
@@ -111,6 +117,18 @@ export interface TicketSummary {
   handback?: { text: string; at: string } | null;
   /** merged | unmerged once every pull request ended; null while any is open or unread */
   landing?: string | null;
+  /** 2026-10-14-dbcen: a never-run ticket's unlanded requirements; null on a run-bearing row */
+  waitsFor?: TicketWaitsFor[] | null;
+  /** 2026-10-14-dbcen: a never-run ticket filed as a ticket text (its run derives its specs); null on a run-bearing row */
+  ticketText?: boolean | null;
+}
+
+/** 2026-10-14-dbcen: a ticket a never-run ticket waits for, named by its tracker key. */
+export interface TicketWaitsFor {
+  ticketId: string;
+  project: string | null;
+  key: string;
+  title: string;
 }
 
 export interface TicketCounts {
@@ -128,6 +146,9 @@ export interface TicketCounts {
   doneThisMonth: { tickets: number; attempts: number };
   lastDone: { project: string; ticketId: string; at: string } | null;
   stuck: number;
+  /** 2026-10-14-dbcen */
+  blocked?: number;
+  filed?: number;
 }
 
 export interface TicketListView {
@@ -641,4 +662,52 @@ export interface RunCompute {
   uncounted: Array<{ kind: string; label: string }>;
   segments: RunComputeSegment[];
   unattributedCalls: number;
+}
+
+// 2026-10-14-dbcen: the requires graph (GET /api/tickets/graph) and one ticket's requires
+// (GET /api/tickets/{project}/{ticketId}/requires).
+
+/** merged | done-by-hand | running | blocked | ready, else the list bucket (idle without a page). */
+export type TicketGraphState = string;
+
+export interface TicketGraphNode {
+  /** The tracker connection and the ticket key — what the edges name. */
+  id: string;
+  project: string;
+  ticketId: string;
+  key: string;
+  title: string;
+  state: TicketGraphState;
+  bucket: TicketServerBucket;
+  hasPage: boolean;
+}
+
+/** from (the dependent) requires to. */
+export interface TicketGraphEdge {
+  from: string;
+  to: string;
+}
+
+export interface TicketGraph {
+  nodes: TicketGraphNode[];
+  edges: TicketGraphEdge[];
+}
+
+export interface TicketRequirement {
+  ticketId: string;
+  key: string;
+  title: string;
+  state: TicketGraphState;
+  hasPage: boolean;
+  /** merged | by-hand */
+  landedKind?: string | null;
+  /** The person's name as stored at marking time. */
+  landedBy?: string | null;
+  landedAt?: string | null;
+  note?: string | null;
+}
+
+export interface TicketRequires {
+  requires: TicketRequirement[];
+  requiredBy: TicketRequirement[];
 }

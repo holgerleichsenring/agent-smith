@@ -59,4 +59,14 @@ public sealed class SpecAttackPromptTests
         SpecAttackPrompt.DecidabilityLens.Should().Contain("can the agent make it true by working")
             .And.Contain("can it see that it is true");
     }
+
+    [Fact]
+    public void AttackBrief_AbsenceCriterion_IsCutToOutsideTheMethodologyDirectory()
+    {
+        var prompt = SpecAttackPrompt.For(AttackReviewFixtures.Input(), null);
+
+        prompt.Should().Contain("no file outside .agentsmith/ contains X")
+            .And.Contain("because the spec committed under .agentsmith/ quotes X")
+            .And.Contain("your read of a file that holds X today");
+    }
 }

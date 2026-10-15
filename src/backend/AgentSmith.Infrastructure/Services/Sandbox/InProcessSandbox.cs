@@ -213,7 +213,7 @@ public sealed class InProcessSandbox(string jobId, string workDir, bool ownsWork
 
     private static string SliceLines(string content, int? startLine, int? lineCount, bool withLineNumbers)
     {
-        var lines = content.Split('\n');
+        var lines = !withLineNumbers ? content.Split('\n') : content.Length == 0 ? [] : (content.EndsWith('\n') ? content[..^1] : content).Split('\n');
         var start = Math.Max(1, startLine ?? 1);
         var count = lineCount ?? int.MaxValue;
         var endExclusive = (int)Math.Min((long)start - 1 + count, lines.Length);

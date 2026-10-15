@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-14-dbcea
+goal: "read_file numbers a file that ends in a newline with exactly its lines and an empty file with none, so a range the design partner cites never ends one line past the file."
+
+applies_to: "backend (the numbered slice in the sandbox agent's FileStepHandler and its deliberate copy in InProcessSandbox; the unnumbered read the edit tools rewrite from stays byte-exact)"
+
+requires: []
+
+facts:
+  - claim: "The sandbox agent's slicer splits the content on '\\n' and takes the element count as the file's line count, so a file ending in '\\n' yields one more element than it has lines; totalLines, the number width and endExclusive all follow from that split."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Services/FileStepHandler.cs:91-98"
+  - claim: "With numbers on, every element up to endExclusive is printed as '<n><TAB><line>', so the phantom last element of a newline-terminated file is shown as a numbered empty line N+1."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Services/FileStepHandler.cs:103-112"
+  - claim: "InProcessSandbox carries a deliberate copy of the same slicer with the same split, because Sandbox.Agent is an Exe project Infrastructure cannot reference."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Sandbox/InProcessSandbox.cs:202-206, src/backend/AgentSmith.Infrastructure/Services/Sandbox/InProcessSandbox.cs:214-223"
+  - claim: "The evidence probes count lines by a different rule: a trailing newline closes the last line rather than opening an empty one, and an empty file has none."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/EvidenceLineCount.cs:3-17"
+  - claim: "The review look's own numbered reader already strips the trailing newline for exactly this reason (042eh), so two readers in the system disagree on how many lines a file has."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/RepositoryFileReadTool.cs:79-86"
+  - claim: "read_file numbers lines by default, and the design partner's Work it out surface carries the filesystem tools."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:223-235, src/backend/AgentSmith.Application/Services/Tools/AgenticToolSurface.cs:78-82"
+  - claim: "edit_file and multi_edit read the WHOLE file unnumbered and write their result back, so the unnumbered whole read must keep returning the file's exact bytes, trailing newline included."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:339-345, src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:397"
+  - claim: "Today the unnumbered branch rejoins the split elements with '\\n', which reproduces a trailing newline exactly because the split kept the empty last element."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Services/FileStepHandler.cs:100-101, src/backend/AgentSmith.Infrastructure/Services/Sandbox/InProcessSandbox.cs:222"
+  - claim: "FileStepHandler is at its file-length baseline (234 of 234); InProcessSandbox has 409 of an allowed 417."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:33, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:13"
+  - claim: "The existing line-range tests write their fixture WITHOUT a trailing newline, so none of them sees the phantom line."
+    evidence: "tests/AgentSmith.Sandbox.Agent.Tests/Services/FileStepHandlerLineRangeTests.cs:14-20, tests/AgentSmith.Sandbox.Agent.Tests/Services/FileStepHandlerLineRangeTests.cs:36-46"
+  - claim: "Sandbox.Agent exposes its internals to its own test project and Infrastructure to AgentSmith.Tests; InProcessSandbox is public and constructed directly in test support."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/AgentSmith.Sandbox.Agent.csproj:24, src/backend/AgentSmith.Infrastructure/AgentSmith.Infrastructure.csproj:71, src/backend/AgentSmith.Infrastructure/Services/Sandbox/InProcessSandbox.cs:22, tests/AgentSmith.Tests/TestSupport/SandboxClones.cs:69"
+  - claim: "Work it out reads through SourceScopeSandboxFactory over the production ISandboxFactory, i.e. the container running the agent-smith-sandbox-agent image, whose tag is the server's own release version unless pinned; the FileStepHandler half therefore reaches the design partner only once a release publishes that image."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SourceScopeSandboxFactory.cs:7-11, src/backend/AgentSmith.Contracts/Constants/AgentImageDefaults.cs:13, src/backend/AgentSmith.Application/Services/Sandbox/AgentVersionResolver.cs:28-37"
+  - claim: "In the field the operator corrected cited ranges in about 15 of 17 tickets of one Work it out session, each ending one line after the real end of the file (AccessLink.cs 1-20 to 1-19, EmailNotification.cs 1-16 to 1-15)."
+    evidence: "observed: 2026-10-14, Work it out transcript t_7566d37c turns 6-117 (dbce defect research section 1)"
+
+assumptions:
+  - "Every file the partner cites reaches it through read_file's numbered output; the guessed citations of the first proposal (gaps of several lines) are not this defect and are not addressed here."
+
+scope:
+  in: >
+    NUMBERED READS ONLY: when with_line_numbers is true, the slicer splits the content with a trailing '\n' removed
+    first, and an empty content gives no lines at all, so totalLines, the width, endExclusive and the out-of-range
+    check follow the EvidenceLineCount rule. FileStepHandler.cs:91 is replaced by ONE line (net zero; the file is
+    at its 234 baseline) and InProcessSandbox.cs:216 by the same expression (409 stays 409, room to 417). The
+    InProcessSandbox comment at :202-205 keeps saying the two copies move together.
+    UNNUMBERED READS UNCHANGED: with_line_numbers false keeps today's split-and-rejoin, so a whole-file read returns
+    the file byte for byte and edit_file / multi_edit keep a file's trailing newline.
+  out: >
+    The review look's RepositoryFileReadTool.Numbered printing "1<TAB>" for an empty file — nobody: no field case,
+    and an empty file cannot carry a finding a reviewer would cite. The guessed citations with multi-line gaps —
+    nobody: they are the model's own error, which 2026-10-02-3f06c's evidence check and 2026-10-13-8762i's
+    design-turn review rounds exist to catch. The design partner's and coding master's skill text —
+    nobody: the tool output was the defect, the model cited what it was shown.
+
+decisions:
+  - key: "THE FIX IS IN THE SLICER, NOT IN THE MODEL'S INSTRUCTIONS. The partner cited exactly what read_file showed; a numbered line N+1 that does not exist is the tool's lie. EvidenceLineCount is the system's one rule for how many lines a file has, and read_file now agrees with it. Contract section 5 default 1 (default, pending operator ratification)."
+  - key: "ONLY THE NUMBERED PATH CHANGES. The contract asked both slicers to treat a trailing newline as closing the last line; applied to the unnumbered path too, a whole-file read of 'a\\nb\\n' would return 'a\\nb', and edit_file / multi_edit, which rewrite the file from that read (FilesystemToolHost.cs:339, :397), would strip every edited file's trailing newline. The numbered view is the citation view; the unnumbered view is the file's bytes. DEVIATION (narrowing): contract section 1 row a says 'both slicers treat a trailing \\n as closing the last line'; it now holds for numbered output only."
+  - key: "TWO COPIES STAY TWO. Sandbox.Agent is an Exe project that Infrastructure cannot reference (InProcessSandbox.cs:202-205), and Sandbox.Agent cannot reference Application's EvidenceLineCount either. Both copies get the same one-line expression and the same tests, and a test in AgentSmith.Tests pins the in-process copy's numbered count against EvidenceLineCount.Of."
+
+steps:
+  - id: sandbox-agent-slicer
+    action: "FileStepHandler.cs:91 becomes one line: for numbered reads an empty content gives an empty array and a content ending in '\\n' is split without its last character; unnumbered reads split as today. 234 lines stay 234 (baseline 234)."
+  - id: in-process-slicer
+    action: "InProcessSandbox.cs:216 becomes the same expression; :223's width follows from it. 409 lines stay 409 (baseline 417)."
+  - id: agent-tests
+    action: "FileStepHandlerLineRangeTests gains the four tests below that run through FileStepHandler.HandleAsync (fixture files written with and without a trailing newline, and empty)."
+  - id: in-process-tests
+    action: "New tests/AgentSmith.Tests/Sandbox/InProcessSandboxReadFileTests.cs runs the same four cases through InProcessSandbox.RunStepAsync with a ReadFile step, plus the agreement test against EvidenceLineCount.Of over '', 'a', 'a\\n', 'a\\nb', 'a\\nb\\n', 'a\\n\\n'."
+
+tests:
+  - "ReadFile_NumberedFileEndingInNewline_ShowsExactlyItsLines ('a\\nb\\n' reads '1<TAB>a\\n2<TAB>b', no line 3)"
+  - "ReadFile_NumberedEmptyFile_ShowsNoLine"
+  - "ReadFile_NumberedFileWithoutTrailingNewline_IsUnchanged"
+  - "ReadFile_UnnumberedWholeFile_KeepsTheTrailingNewline"
+  - "InProcessSandbox_ReadFile_SameFourCases (the four above, named InProcessSandbox_*)"
+  - "InProcessSandbox_NumberedLineCount_EqualsEvidenceLineCount"
+
+done:
+  - "At merge, the in-process sandbox's read_file on a file that ends in a newline shows exactly the file's lines and an empty file shows no numbered line."
+  - "Once the next release publishes the agent-smith-sandbox-agent image at the server's version (the release pipeline, not this commit), Work it out's read_file behaves the same, so the design partner's cited range ends at the file's last line."
+  - "edit_file and multi_edit on a file that ends in a newline leave that newline in place."
+  - "The sandbox container and the in-process sandbox number the same file identically."
+  - "Build green, full suite green, dashboard gen/test/build green."

@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-14-dbced
+goal: "A tier left out of a configured pipeline_cost_cap.per_tier keeps its code default instead of falling to the $5 Default, and the settings form shows an unset tier's own default ceiling, marked default."
+
+applies_to: "backend (PipelineCostCapConfig.ForTier and its code tier defaults, the config capabilities descriptor) and dashboard (the cost-cap settings form's per-tier fields)"
+
+requires: []
+
+facts:
+  - claim: "The code tier defaults are Trivial $1/200k, Small $2/400k, Medium $8/1.5M, Large $25/5M; PerTier is initialised to them, and Default is $5/500k."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/PipelineCostCapConfig.cs:16, src/backend/AgentSmith.Contracts/Models/Configuration/PipelineCostCapConfig.cs:32, src/backend/AgentSmith.Contracts/Models/Configuration/PipelineCostCapConfig.cs:47-55"
+  - claim: "ForTier returns the PerTier entry when present and Default otherwise; a configured per_tier REPLACES the initialised map, so every tier it omits resolves to Default."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/PipelineCostCapConfig.cs:34-45"
+  - claim: "A configured per_tier holding only Large round-trips as a map with only Large."
+    evidence: "tests/AgentSmith.Tests/ConfigStudio/SettingsRoundTripTests.cs:108-125"
+  - claim: "ForTier is read where scoping raises a run's cap to its tier and where a resumed run recomputes it; the tier only raises the resolved cap."
+    evidence: "src/backend/AgentSmith.Application/Services/Scope/ScopeEstimateRecorder.cs:49-53, src/backend/AgentSmith.Application/Services/Resume/ResumedCapRecompute.cs:49, src/backend/AgentSmith.Contracts/Models/Configuration/PipelineCostCapConfig.cs:90-96"
+  - claim: "A run's cap is the resolved cap (Default or the per-pipeline cap) raised per dimension to ForTier(tier), never lowered, so a tier ceiling below the resolved cap changes nothing and the effective cap depends on the pipeline."
+    evidence: "src/backend/AgentSmith.Application/Services/Scope/ScopeEstimateRecorder.cs:53, src/backend/AgentSmith.Application/Services/Scope/ScopeEstimateRecorder.cs:89-93, src/backend/AgentSmith.Contracts/Models/Configuration/PipelineCostCapConfig.cs:90-96"
+  - claim: "With no stored pipeline_cost_cap the settings read serves the bound default object, whose PerTier holds all four tiers, so the first save of a never-saved doc already writes all four back today."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigSettingsAccess.cs:23-24, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/RawAgentSmithConfig.cs:57, src/backend/AgentSmith.Contracts/Models/Configuration/PipelineCostCapConfig.cs:32"
+  - claim: "Unknown has no tier entry and must keep resolving to the very Default instance."
+    evidence: "tests/AgentSmith.Tests/Scope/RepoScopeTierTests.cs:63-69"
+  - claim: "The settings form shows a tier missing from perTier as the Default cap; after this change that is no longer the tier's own ceiling."
+    evidence: "src/dashboard/src/components/config/SettingsForm.tsx:326-346"
+  - claim: "The form already receives the config capabilities descriptor, which the server builds at /api/config/capabilities and extends with init properties."
+    evidence: "src/dashboard/src/components/config/SettingsForm.tsx:305-313, src/backend/AgentSmith.Server/Extensions/ConfigCapabilityEndpoints.cs:28-39, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:29, tests/AgentSmith.Tests/ConfigStudio/ConfigStudioApiSmokeTests.cs:121-123, src/backend/AgentSmith.Contracts/Models/ConfigStudio/ConfigCapabilities.cs:13-40, src/dashboard/src/lib/configApi.ts:278-294"
+  - claim: "The docs and the example config describe per_tier with the defaults but not what happens to an omitted tier."
+    evidence: "docs/reference/configuration/pipeline-cost-cap.md:37-48, config/agentsmith.example.yml:623-643, config/agentsmith.schema.json:174-178"
+  - claim: "In the field the stored per_tier held only Large for months, so every medium run got $5/500k instead of $8/1.5M, until the operator wrote Medium in by hand; Small is still unmapped."
+    evidence: "observed: 2026-10-14, read-only SELECT on the test database, pipeline_cost_cap versions 1-6 and runs 19282-19465 (dbce defect research section 5)"
+
+assumptions:
+  - "The tier names on the wire are the ComplexityTier member names, as perTier's keys already are (configApi.ts states it)."
+
+scope:
+  in: >
+    RULE: ForTier tries the configured PerTier entry, then the code tier default, then Default. The code defaults
+    become one public static read-only map PipelineCostCapConfig.TierDefaults; PerTier's initialiser copies it;
+    DefaultTierCaps() goes. PipelineCostCapConfig 97 -> at most 100. Nothing is written to the store: an
+    operator's stored per_tier stays exactly what he saved. FORM: ConfigCapabilities gains init property
+    TierCostCapDefaults (tier name -> CostCapValues; 110 -> at most 114), set from TierDefaults in
+    ConfigCapabilityEndpoints (84 -> 85); configApi.ts's ConfigCapabilities gains the optional field; the
+    per-tier field of an unset tier shows that tier's default (then Default, for an older server) and says
+    "default". DOCS: pipeline-cost-cap.md, the example config's comment and the schema's per_tier description say
+    an omitted tier keeps its default.
+  out: >
+    Sizing an attempt's cap by its number of specs — nobody in this series: series.budget_usd already bounds a
+    series between attempts, and no field case shows a chunk stopping on a correctly sized tier cap. A tier lower
+    than its code default is stated in per_tier (contract decision 20) — nobody needs to build anything for it.
+    The operator's deployed store, which already lists Medium since version 6 — nobody in this repo: the store is
+    the operator's.
+
+decisions:
+  - key: "MERGE AT READ, NOT AT LOAD. Merging the code defaults into a STORED per_tier when the config is bound would make the form save all four tiers back the next time the operator saves, pinning today's defaults into his store (a never-saved doc already writes all four on its first save, ConfigSettingsAccess.cs:23-24; that stays as it is). ForTier is the one reader, so the rule lives there. Contract section 5 default 4 (default, pending operator ratification)."
+  - key: "A TIER DEFAULT MAY RAISE A RUN ABOVE A CONFIGURED Default. The tier only raises (RaisedTo), so an operator with Default $3 and no Medium entry now gets $8 for a medium run. To keep a tier lower he states it. Contract decision 20."
+  - key: "THE FORM SHOWS THE TIER'S OWN CEILING. A run's cap is the max of this ceiling and the Default or per-pipeline cap (RaisedTo, PipelineCostCapConfig.cs:90-96), so a per-tier field can show only the tier's own ceiling, and its hint says a run never gets less than the Default cap. Without this the form would show Medium as the Default $5 while runs use $8. The defaults come from the server's descriptor, never a TypeScript copy, so the two cannot drift. DEVIATION (addition): contract section 1 row d is ForTier only; this adds ConfigCapabilities.TierCostCapDefaults, a name contract section 2.5 does not list, and the dashboard form fix."
+
+steps:
+  - id: defaults-map
+    action: "PipelineCostCapConfig: public static IReadOnlyDictionary<ComplexityTier, CostCapValues> TierDefaults (the four values of :51-54); PerTier's initialiser builds a new Dictionary from it; DefaultTierCaps() removed; ForTier = configured, else TierDefaults, else Default. 97 -> at most 100."
+  - id: descriptor
+    action: "ConfigCapabilities.TierCostCapDefaults (IReadOnlyDictionary<string, CostCapValues>, init, default empty; 110 -> at most 114); ConfigCapabilityEndpoints sets it from TierDefaults keyed by the tier name (84 -> 85)."
+  - id: form
+    action: "configApi.ts: ConfigCapabilities.tierCostCapDefaults?: Record<string, CostCapValues>. SettingsForm.tsx PipelineCostCapForm: an unset tier's fields show perTier[tier] ?? tierCostCapDefaults[tier] ?? default, with a hint while unset reading 'default — a run never gets less than the Default cap' (naming value.default's number); editing sets only that tier, as today."
+  - id: docs
+    action: "docs/reference/configuration/pipeline-cost-cap.md (Tier caps), config/agentsmith.example.yml (the per_tier comment) and config/agentsmith.schema.json (per_tier description): a tier left out of per_tier keeps its default."
+  - id: tests
+    action: "The tests below: RepoScopeTierTests (ForTier), ResumedCostCapTests (a partial PerTier on resume), ConfigStudioApiSmokeTests (added assertions in the existing capabilities block at :121-127, through the real host, no new Fact; ConfigStudioCapabilities.Build is at its 259 baseline and is not touched) and SettingsStudio.test.tsx (the form)."
+
+tests:
+  - "ForTier_PerTierWithOnlyLarge_MediumResolvesToCodeDefault ($8 / 1,500,000)"
+  - "ForTier_ConfiguredTier_WinsOverCodeDefault"
+  - "TierCostCap_UnmappedTier_FallsBackToStaticDefault (existing, still BeSameAs Default for Unknown)"
+  - "ResumedCap_PartialPerTier_RecomputesFromCodeTierDefault"
+  - "tierCostCapDefaults with the four code defaults, asserted in the existing capabilities block of ConfigStudioApiSmokeTests (:121-127)"
+  - "CostCapForm_UnsetTier_ShowsItsCodeDefaultMarkedDefault (SettingsStudio.test.tsx; the hint names the Default floor)"
+
+done:
+  - "With pipeline_cost_cap.per_tier listing only Large and Default $5 / 500k, a run estimated medium gets an $8 / 1.5M cap; small and trivial runs keep the $5 / 500k Default (a tier only raises); a listed tier keeps its configured ceiling."
+  - "The cost-cap settings form shows each tier missing from a stored per_tier with its code default, marked 'default — a run never gets less than the Default cap'; saving a stored per_tier adds only the tiers the operator edited."
+  - "The cost-cap docs and the example config say an omitted tier keeps its default."
+  - "Build green, full suite green, dashboard gen/test/build green."

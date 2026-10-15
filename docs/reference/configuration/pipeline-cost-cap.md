@@ -45,7 +45,7 @@ A run's cap is sized to the work. While scoping, the run estimates a complexity 
 | Medium | 8 | 1,500,000 |
 | Large | 25 | 5,000,000 |
 
-Those are the defaults; they're edited under **Per-tier caps** in the same settings form. A tier only ever raises the configured cap, never lowers it, and a run whose tier is unknown keeps the configured cap. The estimate sizes a ceiling and nothing else: whether the work is done is decided by verification.
+Those are the defaults; they're edited under **Per-tier caps** in the same settings form. A `per_tier` you configure only has to list the tiers you change: a tier left out keeps its default, and the form shows it with that default, marked as such. A tier only ever raises the configured cap, never lowers it, and a run whose tier is unknown keeps the configured cap. The estimate sizes a ceiling and nothing else: whether the work is done is decided by verification.
 
 The dashboard shows a run's cost against its cap and tier, with a budget bar that turns red at the cap.
 

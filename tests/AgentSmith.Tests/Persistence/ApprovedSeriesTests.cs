@@ -1,3 +1,4 @@
+using System.Text.Json.Nodes;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Specs;
@@ -67,6 +68,50 @@ public sealed class ApprovedSeriesTests : IDisposable
 
         view.Should().NotBeNull("the binding computes the key the filing stored under");
         view!.Specs.Should().ContainSingle().Which.SpecId.Should().Be($"{Series}a");
+    }
+
+    [Fact]
+    public async Task ApprovedSpecSetRecorder_Record_CarriesTheProjectName()
+    {
+        var record = await FileAsync();
+
+        record.Project.Should().Be("sample", "dbcef: the series records the project it was filed into");
+    }
+
+    [Fact]
+    public async Task ApprovedSeries_NewApproval_ProjectsTheFilingProject()
+    {
+        await FileAsync();
+
+        var row = await _context.Set<ApprovedSeries>().AsNoTracking().SingleAsync();
+        row.Project.Should().Be("sample");
+        (await new ApprovedSeriesRepository(_context).GetAsync(Tracker, row.TicketKey, default))!
+            .Project.Should().Be("sample", "the content of record carries it too");
+    }
+
+    [Fact]
+    public async Task ApprovedSeries_RowWrittenBeforeThisSpec_ReadsAnEmptyProject()
+    {
+        var key = TicketKey.For("azuredevops", TicketId).Value;
+        var json = JsonNode.Parse(SpecApprovalJson.Write(ApprovedSets.Record(key, ApprovedSets.Noon, tracker: Tracker)))!.AsObject();
+        json.Remove("project").Should().BeTrue("the record writes its project");
+        _context.Add(new ApprovedSeries { Tracker = Tracker, TicketKey = key, ContentJson = json.ToJsonString() });
+        await _context.SaveChangesAsync();
+
+        var back = await new ApprovedSeriesRepository(_context).GetAsync(Tracker, key, default);
+
+        back.Should().NotBeNull("an older row still reads");
+        back!.Project.Should().BeEmpty();
+        back.Approval!.At.Should().Be(ApprovedSets.Noon);
+        (await _context.Set<ApprovedSeries>().AsNoTracking().SingleAsync()).Project.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void SpecApprovalJson_RoundTrip_KeepsTheProject()
+    {
+        var record = ApprovedSets.Record("azdo-7", ApprovedSets.Noon) with { Project = "sample" };
+
+        SpecApprovalJson.Read(SpecApprovalJson.Write(record))!.Project.Should().Be("sample");
     }
 
     private Task<SpecApprovalRecord> FileAsync() =>

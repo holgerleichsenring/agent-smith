@@ -67,9 +67,8 @@ public sealed class ApprovedSetTicketFiler(
         ArgumentNullException.ThrowIfNull(notes);
         // 2026-09-18-d518: the note explains the labels this ticket is actually filed with.
         // 2026-09-25-3c7ac: under the name THIS board gave it.
-        var stamp = TicketLabelVocabulary.For(project.Tracker).ApprovedSetStamp;
-        string[] labels = [stamp];
-        var content = render(TicketLabelNote.For(labels, stamp));
+        var labels = Labels(project);
+        var content = render(TicketLabelNote.For(labels, labels[0]));
         var created = await provider.CreateAsync(
             content.Title, content.Body, labels, kinds.For(project, role), ct);
         filed.Add(FiledTicket.Of(created, content.Title, project));
@@ -77,6 +76,10 @@ public sealed class ApprovedSetTicketFiler(
         await branches.WriteAsync(provider, project, created, record, series.Sources, notes, ct);
         await starter.StampAsync(provider, project, created, labels, mayStartRuns, filed, ct);
     }
+
+    /// <summary>2026-10-14-dbcel: the labels a filing writes, the board's approved-set stamp — a spec's and a ticket text's.</summary>
+    public static IReadOnlyList<string> Labels(ResolvedProject project) =>
+        [TicketLabelVocabulary.For(project.Tracker).ApprovedSetStamp];
 
     /// <summary>
     /// The store failure names the ticket, for a spec as well as for a cut. Until the set is

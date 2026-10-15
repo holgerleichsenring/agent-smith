@@ -21,7 +21,8 @@ public sealed class TicketBucketRule
     private const string Running = "running";
 
     public TicketBucketState Of(
-        Run newest, TicketLiveState live, IReadOnlyList<TicketPullRequestView> pullRequests, bool stuck = false)
+        Run newest, TicketLiveState live, IReadOnlyList<TicketPullRequestView> pullRequests, bool stuck = false,
+        DateTimeOffset? landedAt = null)
     {
         ArgumentNullException.ThrowIfNull(newest);
         var landing = TicketLanding.Of(pullRequests);
@@ -32,7 +33,7 @@ public sealed class TicketBucketRule
             return new(TicketBucket.Working, null, newest.StartedAt, null, place, null, landing);
         if (pullRequests.Any(p => p.State == PrReviewStates.Open))
             return new(TicketBucket.WaitingOnReview, null, newest.FinishedAt, null, null, null, landing);
-        if (DoneAt(pullRequests, landing) is { } doneAt && newest.StartedAt <= doneAt)
+        if ((DoneAt(pullRequests, landing) ?? landedAt) is { } doneAt && newest.StartedAt <= doneAt)
             return new(TicketBucket.Done, null, doneAt, null, null, null, landing);
         if (stuck)
             return new(TicketBucket.Stuck, null, newest.FinishedAt, newest.Status, null, null, landing);
@@ -40,7 +41,7 @@ public sealed class TicketBucketRule
     }
 
     // Done: a pull request merged and every one ended; done at the newest end. An attempt started after
-    // it — a keyword comment after a merge — is that attempt's ticket, not a Done one.
+    // it — a keyword comment after a merge — is that attempt's ticket, not a Done one. Else a stored landing's time.
     private static DateTimeOffset? DoneAt(IReadOnlyList<TicketPullRequestView> pullRequests, string? landing) =>
         landing == TicketLanding.Merged ? pullRequests.Max(p => p.StateAt) : null;
 

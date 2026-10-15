@@ -61,6 +61,41 @@ beforeEach(() => {
 });
 
 describe("TicketList", () => {
+  // 2026-10-14-dbcen: filed tickets with no run on record.
+  const neverRun = (id: string, bucket: "blocked" | "filed", waits: Array<[string, string]> = []) => ticket({
+    ticketId: id, ticketKey: `github-${id}`, bucket, status: "", newestRunId: "", attemptCount: 0, cost: 0, attempts: [],
+    since: ago(12), waitsFor: waits.map(([ticketId, key]) => ({ ticketId, project: "shop", key, title: key })), ticketText: true,
+  });
+
+  it("TicketList_BlockedAndFiledSections_RenderWithTheirCountsDotsAndWaitsForByKey", async () => {
+    serve(list([neverRun("59", "blocked", [["58", "DPG-12"], ["41", "#41"]]), neverRun("61", "filed")], { blocked: 1, filed: 1 }));
+    renderTickets();
+
+    const blocked = await screen.findByTestId("ticket-section-blocked");
+    expect(blocked).toHaveTextContent("Waits for another ticket");
+    expect(screen.getByTestId("ticket-section-blocked-count")).toHaveTextContent("1");
+    expect(within(blocked).getByTestId("ticket-dot").className).toBe("sd blocked");
+    expect(within(blocked).getByTestId("ticket-norun")).toHaveTextContent("waits for DPG-12, #41");
+    const filed = screen.getByTestId("ticket-section-filed");
+    expect(filed).toHaveTextContent("Filed, no run on record");
+    expect(within(filed).getByTestId("ticket-dot").className).toBe("sd filed");
+    expect(within(screen.getByTestId("rail")).getByTestId("app-rail-count-Tickets")).toHaveTextContent("2");
+  });
+
+  it("TicketRow_NeverRunRow_ShowsWaitsForAndNoStripMarksAttemptsOrCost", async () => {
+    serve(list([neverRun("59", "blocked", [["58", "#58"]]), neverRun("61", "filed")], { blocked: 1, filed: 1 }));
+    renderTickets();
+
+    for (const id of ["59", "61"]) {
+      const row = await screen.findByTestId(`ticket-row-shop-${id}`);
+      for (const cls of [".strip", ".attempts", ".cost"]) expect(row.querySelector(cls), `${id} ${cls}`).toBeNull();
+      expect(row).not.toHaveTextContent(/attempts?|\$0\.00|0 specs/);
+      expect(row).toHaveTextContent("filed 12m ago");
+    }
+    expect(screen.getByTestId("ticket-row-shop-59")).toHaveTextContent("waits for #58");
+    expect(screen.getByTestId("ticket-row-shop-61")).toHaveTextContent("no run on record");
+  });
+
   it("RailAndSections_CountsComeFromOneResponse", async () => {
     serve(list([ticket()], { needsYou: 0, working: 3, running: 2, queued: 1, waitingOnReview: 2, stuck: 1, idle: 4, done: 14 }));
     renderTickets();

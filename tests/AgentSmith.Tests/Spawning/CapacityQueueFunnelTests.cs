@@ -331,7 +331,7 @@ public sealed class CapacityQueueFunnelTests : IDisposable
                 CapacityTestDoubles.NoNudge(),
                 CapacityTestDoubles.NoStandingRefusal(),
                 Moq.Mock.Of<AgentSmith.Contracts.Services.IActiveRunLease>(),
-                NullLogger<SpawnPipelineRunsUseCase>.Instance, new AgentSmith.Application.Services.Resume.NullPreviousAttemptReader());
+                NullLogger<SpawnPipelineRunsUseCase>.Instance, new AgentSmith.Application.Services.Resume.NullPreviousAttemptReader(), AgentSmith.Tests.TestSupport.TicketRequirementDoubles.None());
         }
 
         public void Admit() => _fits = true;

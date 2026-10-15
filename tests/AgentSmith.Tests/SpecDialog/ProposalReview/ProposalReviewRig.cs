@@ -144,7 +144,7 @@ internal sealed class ProposalReviewRig
 
     public SpecDialogProposalReview Review(ISpecReviewSettingsReader? reader = null) =>
         new(WholeSetReviewer(), DerivationTestLooks.Factory(), ProposalEvidenceTestReview.Create(),
-            reader ?? Reader(() => Settings), Loop(), TurnActivityRecorder.Silent(),
+            reader ?? Reader(() => Settings), Loop(), TicketPlanReviewRig.Default(), TurnActivityRecorder.Silent(),
             NullLogger<SpecDialogProposalReview>.Instance);
 
     public async Task<AgenticLoopResult> RunAsync(ISpecReviewSettingsReader? reader = null)

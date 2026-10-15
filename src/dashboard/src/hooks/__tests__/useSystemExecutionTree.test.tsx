@@ -108,4 +108,24 @@ describe("useSystemExecutionTree", () => {
     const webhook = result.current.nodes.find((n) => n.id === "sys-webhook");
     expect(webhook?.status).toBe("wait");
   });
+
+  // 2026-10-14-dbceg
+  it("systemTree_TicketLanded_AppearsInTheTrackerBucket", () => {
+    const events: SystemEvent[] = [
+      {
+        type: SystemEventType.TicketLanded,
+        source: "ticket-landing",
+        timestamp: recently(10),
+        project: "sample",
+        ticketKey: "jira-abc-7",
+        ticketId: "ABC-7",
+        kind: "merged",
+        by: null,
+      },
+    ];
+    const { result } = renderHook(() => useSystemExecutionTree(events));
+    const tracker = result.current.nodes.find((n) => n.id === "sys-tracker");
+    expect(tracker?.tail?.text).toBe("landed · sample/ABC-7 · merged");
+  });
 });
+

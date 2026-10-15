@@ -26,9 +26,9 @@ public sealed class SeriesSkillRulesTests
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_AppliesReviewCutsAndReproposes() =>
         DesignPartner().Should().Contain(
-            "A review may answer your spec or epic with cuts that quote your draft: apply exactly those cuts, "
-            + "change nothing else, and re-propose the whole outcome.",
-            Because("the review round's cuts rule"));
+            "A review may answer your spec, epic or tickets with cuts that quote your draft: apply exactly "
+            + "those cuts, change nothing else, and re-propose the whole outcome.",
+            $"the pin is {PackagedMaster.Pin} and the review round's cuts rule names tickets from v5.18.0");
 
     [Fact]
     public void EmbeddedSkills_DesignPartnerMaster_EmitsASeriesContract() =>

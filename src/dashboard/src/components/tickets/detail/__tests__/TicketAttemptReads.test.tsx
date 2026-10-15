@@ -29,6 +29,7 @@ const http = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/runsApi", () => ({ fetchRun: http.fetchRun }));
 vi.mock("@/lib/ticketsApi", () => http);
+vi.mock("@/lib/ticketGraphApi", () => ({ fetchTicketRequires: () => Promise.resolve({ requires: [], requiredBy: [] }) }));
 
 const { TicketPageStore } = await import("@/lib/tickets/TicketPageStore");
 const { TicketPage } = await import("../TicketPage");

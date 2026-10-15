@@ -14,12 +14,16 @@ public sealed class OutcomeProposalResolver(
     SpecDraftReader draftReader,
     BugOutcomeParser bugParser,
     EpicOutcomeParser epicParser,
+    TicketGraphOutcomeParser ticketsParser,
     DialogDraftRepos draftRepos) : IOutcomeProposalResolver
 {
     public OutcomeResolution Resolve(string reply, IReadOnlyList<string> scope)
     {
         ArgumentNullException.ThrowIfNull(scope);
         var text = reply ?? string.Empty;
+        if (SpecDialogDraftBlocks.HasUnclosedOutcome(text))
+            return new OutcomeInvalid("the ```outcome block is not closed — the reply was cut at the output limit; "
+                + "propose fewer tickets now and name them with ticket:<id> in the next approval");
         var blocks = SpecDialogDraftBlocks.OutcomeBlocks(text);
         if (blocks.Count == 0) return ResolveFromDraft(text, scope);
         if (blocks.Count > 1)
@@ -28,7 +32,7 @@ public sealed class OutcomeProposalResolver(
         if (draftValidator.Validate(text) is not SpecDraftAbsent)
             return new OutcomeInvalid(
                 "the reply mixes an ```outcome block with a bare ```yaml block — a spec "
-                + "draft is the bare ```yaml block alone; bug and epic payloads live "
+                + "draft is the bare ```yaml block alone; bug, epic and tickets payloads live "
                 + "inside the single ```outcome block");
         return ResolveOutcomeBlock(blocks[0].Groups[1].Value, scope);
     }
@@ -63,7 +67,7 @@ public sealed class OutcomeProposalResolver(
         }
         catch (YamlException ex)
         {
-            return new OutcomeInvalid($"the ```outcome block is not valid YAML: {ex.Message}");
+            return new OutcomeInvalid($"the ```outcome block is not valid YAML: {ex.Message} — quote every string that contains ': '");
         }
 
         var kind = OutcomeYamlReader.GetString(map, "kind");
@@ -71,12 +75,13 @@ public sealed class OutcomeProposalResolver(
         {
             "bug" => bugParser.Parse(map),
             "epic" => epicParser.Parse(map, scope),
+            "tickets" => ticketsParser.Parse(map, scope),
             "answer" => new OutcomeInvalid(
                 "kind 'answer' needs no ```outcome block — reply with plain prose"),
             "spec" => new OutcomeInvalid(
                 $"kind '{kind}' needs no ```outcome block — emit the spec as the bare ```yaml block"),
-            null => new OutcomeInvalid("the ```outcome block is missing 'kind' (bug | epic)"),
-            _ => new OutcomeInvalid($"unknown outcome kind '{kind}' — expected bug or epic"),
+            null => new OutcomeInvalid("the ```outcome block is missing 'kind' (bug | epic | tickets)"),
+            _ => new OutcomeInvalid($"unknown outcome kind '{kind}' — expected bug, epic or tickets"),
         };
     }
 }

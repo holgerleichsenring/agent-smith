@@ -57,7 +57,7 @@ internal static class SpecDialogExtensions
         services.AddScoped<ApprovedSetTicketFiler>();
         // 2026-09-22-b6ad: the approved set reaches the ticket branch as the ticket is filed.
         services.AddScoped<FiledSpecBranchWrite>();
-        services.AddScoped<OutcomeTicketFiler>().AddScoped<TicketAmendment>().AddTicketContinuation(); // 8e51e, 9a59l
+        services.AddScoped<OutcomeTicketFiler>().AddScoped<TicketAmendment>().AddTicketContinuation().AddTicketGraph(); // 8e51e, 9a59l, dbcek
         services.AddTransient<FiledSeriesFactory>(); // 2026-10-06-03c7c
         services.AddScoped<IOutcomeSink, TicketFilingOutcomeSink>();
         services.AddScoped<SpecDialogOutcomeFlow>().AddTransient<RatifiedMockStamp>();
@@ -65,7 +65,7 @@ internal static class SpecDialogExtensions
         // the same act that persists the first assistant turn. Scoped for the session
         // repository's unit of work, which is where it stores what it minted. The edit re-entry
         // shares that unit of work for the same reason.
-        services.AddScoped<SpecDialogSubjectMinter>();
+        services.AddScoped<SpecDialogSubjectMinter>().AddSpecDialogDigest(); // dbceo: keeper and digest writer
         services.AddScoped<SpecDialogEditReload>();
         services.AddScoped<SpecDialogRouter>();
         // 2026-09-15-9033: the dashboard channel — the ownership guard rides the session

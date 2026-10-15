@@ -68,7 +68,7 @@ public sealed class PrReviewHostIdTests
                     : """{ "iid": 3, "author": { "id": 2 } }"""), NullLogger.Instance)
             .ChangesRequestedAsync("https://gitlab.example/o/r/-/merge_requests/3", CancellationToken.None);
         var azure = AzureReposVoteActs.Standing([VoteThread(8, "v", -5, new DateTime(2026, 10, 8, 10, 0, 0, DateTimeKind.Utc))],
-            [new IdentityRefWithVote { Id = "v", Vote = -5 }], "creator", "u", "r", "p");
+            [new IdentityRefWithVote { Id = "v", Vote = -5 }], "u", "r", "p");
 
         github.Single().HostId.Should().Be("R9", "the act's id is the review's node id, the id its body note carries");
         gitlab.Single().HostId.Should().Be("44", "the act's id is the system note's id");

@@ -58,7 +58,7 @@ internal sealed class ContinuationHarness : IDisposable
         services.AddScoped<SpecDialogSessionRepository>().AddScoped<SpecDialogTicketTextRepository>();
         services.AddScoped<ActiveRunRepository>().AddSingleton<IUniqueViolationTranslator, SqliteUniqueViolationTranslator>();
         services.AddSingleton(TimeProvider.System).AddSingleton(Holds());
-        services.AddScoped(_ => ApprovedSetDoubles.Recorder(Approvals));
+        services.AddScoped(_ => ApprovedSetDoubles.Recorder(Approvals, References)); // 2026-10-14-dbcel: with the uploads
         services.AddSingleton(ApprovedSetDoubles.Branch(Sources, Pointers)).AddSingleton(ApprovedSetDoubles.SeriesFiling());
         services.AddTransient<SpecTicketRenderer>().AddTransient<BugTicketRenderer>().AddTransient<EpicChildOrderer>();
         services.AddScoped(sp => new OutcomeTicketFiler(Config, Tracker, new SpecTicketRenderer(), new BugTicketRenderer(),
@@ -70,7 +70,7 @@ internal sealed class ContinuationHarness : IDisposable
         services.AddTransient<SpecDialogOutcomeComposer>().AddTransient<SpecDialogProposalComposer>();
         services.AddSingleton(sp => new DashboardOutcomeChannel(
             sp.GetRequiredService<SpecDialogProposalComposer>(), NullLogger<DashboardOutcomeChannel>.Instance));
-        services.AddScoped<TicketFilingOutcomeSink>();
+        services.AddScoped(_ => new TicketGraph.TicketGraphRig().Filer()).AddScoped<TicketFilingOutcomeSink>(); // 2026-10-14-dbcel
         Loader.Setup(l => l.LoadConfig(It.IsAny<string>())).Returns(() => Config);
         services.AddSingleton(Loader.Object).AddSingleton(new ServerContext("config.yml"));
         services.AddSingleton<AgentSmith.Application.Services.Specs.ISeriesSettingsReader,
@@ -85,6 +85,7 @@ internal sealed class ContinuationHarness : IDisposable
         services.AddSingleton<IPreviousAttemptReader, DbPreviousAttemptReader>().AddSingleton<IReworkNudges, DbReworkNudges>()
             .AddSingleton<IDecidedDefaults, DecidedDefaults>(); // 2026-10-13-8762p
         services.AddSingleton(new TokenAuthorityConfig());
+        services.AddSingleton(TicketRequirementDoubles.Of(Facts, Approvals)); // 2026-10-14-dbceh
         // 2026-10-14-da5ee: the series tools' merge, reader and schema check, as the Application registers them.
         services.AddTransient<SpecDraftIdRewriter>().AddTransient<ContinuationMerge>().AddTransient<SpecDraftReader>()
             .AddSingleton<AgentSmith.Application.Services.Validation.SpecSchemaProvider>()
@@ -94,6 +95,8 @@ internal sealed class ContinuationHarness : IDisposable
 
     public FakeTicketTracker Tracker { get; } = new();
     public InMemorySpecApprovalStore Approvals { get; } = new();
+    public HeldReferenceMaterial References { get; } = new(); // 2026-10-14-dbcel: uploads by conversation
+    public InMemoryTicketFacts Facts { get; } = new(); // 2026-10-14-dbceh: the requirements a ticket waits for
     public InMemorySpecSetPointerStore Pointers { get; } = new();
     public RecordingBranchSources Sources { get; } = new();
     public Mock<ITicketActivityNudge> Activity { get; } = new();

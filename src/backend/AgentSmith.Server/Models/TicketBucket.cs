@@ -28,9 +28,15 @@ public static class TicketBucket
     /// <summary>Everything else; the row carries the newest attempt's status as its last outcome.</summary>
     public const string Idle = "idle";
 
+    /// <summary>2026-10-14-dbcen: filed, no run on record, and a ticket it requires has not landed.</summary>
+    public const string Blocked = "blocked";
+
+    /// <summary>2026-10-14-dbcen: filed, no run on record, and nothing it requires is open.</summary>
+    public const string Filed = "filed";
+
     /// <summary>Every bucket the list accepts as a filter.</summary>
     public static readonly IReadOnlySet<string> All = new HashSet<string>(StringComparer.Ordinal)
     {
-        NeedsYou, Working, WaitingOnReview, Stuck, Done, Idle,
+        NeedsYou, Working, WaitingOnReview, Stuck, Done, Idle, Blocked, Filed,
     };
 }

@@ -22,6 +22,11 @@ export function attempts(n: number): string {
   return n === 1 ? "1 attempt" : `${n} attempts`;
 }
 
+/** 2026-10-14-dbcen: a filed ticket with no run on record — no attempt and no newest run. */
+export function isNeverRun(t: TicketSummary): boolean {
+  return t.attemptCount === 0 && !t.newestRunId;
+}
+
 /** The ticket's name on the row: the tracker's key where one is known, else the raw id. */
 export function ticketLabel(t: TicketSummary): string {
   return t.ticketKey ?? `#${t.ticketId}`;

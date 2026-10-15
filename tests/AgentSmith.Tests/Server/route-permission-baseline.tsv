@@ -80,10 +80,12 @@ GET	/api/spec-dialog/tickets/{ticketId}	dialog.write
 GET	/api/spec-dialog/{dialogId}	dialog.write
 GET	/api/spec-dialog/{dialogId}/filed-work	dialog.write,runs.read
 GET	/api/tickets	runs.read
+GET	/api/tickets/graph	runs.read
 GET	/api/tickets/{project}/{ticketId}	runs.read
 GET	/api/tickets/{project}/{ticketId}/approval-preview	dialog.write
 GET	/api/tickets/{project}/{ticketId}/conversation	runs.read
 GET	/api/tickets/{project}/{ticketId}/defaults	runs.read
+GET	/api/tickets/{project}/{ticketId}/requires	runs.read
 GET	/api/tickets/{project}/{ticketId}/reviews	runs.read
 GET	/api/tickets/{project}/{ticketId}/series	runs.read
 GET	/api/tickets/{project}/{ticketId}/text	runs.read
@@ -117,6 +119,7 @@ POST	/api/spec-dialog/messages	dialog.write
 POST	/api/spec-dialog/references	dialog.write
 POST	/api/teams/messages	anonymous
 POST	/api/tickets/{project}/{ticketId}/defaults/verdicts	runs.control
+POST	/api/tickets/{project}/{ticketId}/landed-by-hand	runs.control
 POST	/slack/commands	anonymous
 POST	/slack/events	anonymous
 POST	/slack/interact	anonymous

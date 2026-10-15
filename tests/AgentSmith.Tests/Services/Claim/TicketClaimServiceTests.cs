@@ -185,7 +185,7 @@ public sealed class TicketClaimServiceTests
         var h = new Harness();
         var sut = new TicketClaimService(
             h.ClaimLock.Object, h.UnmovedTickets, new AgentSmith.Application.Services.Resume.NullPreviousAttemptReader(), h.Factory.Object, h.JobQueue.Object,
-            h.Lease.Object, h.TakenTickets, NullLogger<TicketClaimService>.Instance);
+            h.Lease.Object, h.TakenTickets, NullLogger<TicketClaimService>.Instance, AgentSmith.Tests.TestSupport.TicketRequirementDoubles.None());
         return (sut, h);
     }
 

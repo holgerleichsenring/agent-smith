@@ -78,6 +78,12 @@ vi.mock("@/lib/configApi", () => ({
     builtInRoles: [],
     pipelines: ["fix-bug", "feature"],
     roles: [],
+    tierCostCapDefaults: {
+      Trivial: { usd: 1, tokens: 200000 },
+      Small: { usd: 2, tokens: 400000 },
+      Medium: { usd: 8, tokens: 1500000 },
+      Large: { usd: 25, tokens: 5000000 },
+    },
   }),
 }));
 
@@ -139,6 +145,35 @@ describe("SettingsStudio", () => {
       "pipeline_cost_cap",
       expect.objectContaining({ perPipeline: expect.objectContaining({ "fix-bug": expect.anything() }) }),
     );
+  });
+
+  it("CostCapForm_UnsetTier_ShowsItsCodeDefaultMarkedDefault", async () => {
+    const stored = FIXTURES.pipeline_cost_cap;
+    FIXTURES.pipeline_cost_cap = {
+      default: { usd: 5, tokens: 500000 },
+      perPipeline: {},
+      perTier: { Large: { usd: 40, tokens: 8000000 } },
+    };
+    try {
+      render(<SettingsStudio settingKey="pipeline_cost_cap" />);
+      expect(await screen.findByTestId("setting-costcap-tier-Medium-usd")).toHaveValue(8);
+      expect(screen.getByTestId("setting-costcap-tier-Medium-tokens")).toHaveValue(1500000);
+      expect(screen.getByTestId("setting-costcap-tier-Medium-default")).toHaveTextContent(
+        "default — a run never gets less than the Default cap ($5 / 500000 tokens)",
+      );
+      expect(screen.getByTestId("setting-costcap-tier-Large-usd")).toHaveValue(40);
+      expect(screen.queryByTestId("setting-costcap-tier-Large-default")).toBeNull();
+      // Editing an unset tier stores only that tier; the others stay out of perTier.
+      fireEvent.change(screen.getByTestId("setting-costcap-tier-Small-usd"), { target: { value: "3" } });
+      expect(screen.queryByTestId("setting-costcap-tier-Small-default")).toBeNull();
+      fireEvent.click(screen.getByTestId("settings-save"));
+      await waitFor(() => expect(saveSetting).toHaveBeenCalledTimes(1));
+      const saved = saveSetting.mock.calls[0][1] as { perTier: Record<string, unknown> };
+      expect(Object.keys(saved.perTier).sort()).toEqual(["Large", "Small"]);
+      expect(saved.perTier.Small).toEqual({ usd: 3, tokens: 400000 });
+    } finally {
+      FIXTURES.pipeline_cost_cap = stored;
+    }
   });
 
   it("LimitsForm_GroupsFieldsIntoDomainSections", async () => {

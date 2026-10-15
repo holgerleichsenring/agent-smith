@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-14-dbcem
+
+decisions:
+  - category: Architecture
+    chose: "ITicketRequiresLink is its own capability port built by ITicketProviderFactory.CreateRequiresLink, with a DEFAULT body answering a RefusingRequiresLink that names the factory type"
+    over: "A member on ITicketProvider, or a default body that throws NotSupportedException"
+    reason: |
+      The four providers sit at or near their baselines and the capability ports beside the provider are where a
+      tracker act that is not ticket CRUD lives (TicketCapabilities). The port promises never to throw; a throwing
+      factory default would break that one level up. The thirteen hand-written factories compile unchanged and file
+      with one note per edge (ITicketProviderFactory.cs 36 -> 43).
+  - category: Architecture
+    chose: "Refusal reasons are classes from RequiresLinkRefusal.Of(Exception): 401/403 'not authorized', another status 'the tracker refused the link (HTTP <code>)', no status 'the tracker did not answer' (Unreached)"
+    over: "Passing the tracker's message (Jira errorMessages, a VSS message, an Octokit message) into the filing note"
+    reason: |
+      HttpResponseExtensions puts up to 500 body characters into the exception message and SDK messages carry
+      organisation URLs; TicketReadFailureReason's rule lets only the class leave the server. The raw exception is
+      logged at Warning by each link class. The spec's test name JiraRequiresLink_LinkTypeMissing_RefusedWithTrackerMessage
+      is kept for traceability but asserts the class, as the spec's scope requires.
+  - category: Implementation
+    chose: "Jira direction: inwardIssue = required, outwardIssue = dependent, in JiraRequiresLink.Body — CONFIRMED LIVE"
+    over: "The reverse mapping"
+    reason: |
+      Live check 2026-10-15 on a Jira Cloud test site: two Tasks created, POST /rest/api/3/issueLink with
+      {type Blocks, inwardIssue required, outwardIssue dependent} answered 201; GET issue?fields=issuelinks read back
+      "<required> blocks <dependent>" on the required issue and "<dependent> is blocked by <required>" on the dependent
+      — the wording the issue view shows. Both test issues were deleted afterwards. No Data Center was reachable, so
+      the /rest/api/2/issueLink path is pinned by a request test only.
+  - category: Implementation
+    chose: "GitHub: native POST repos/{owner}/{repo}/issues/{dependent}/dependencies/blocked_by {issue_id: the required issue's internal Id} first; any ApiException (or a non-2xx status) falls back to one comment 'Agent Smith — requires #A (must merge first)'; a successful comment is Done"
+    over: "Always a comment (contract section 8 answer 4), or reporting the comment fallback as a refusal"
+    reason: |
+      Default pending operator ratification (contract section 5 default 20 as amended). Live check 2026-10-15 on
+      github.com (a private repository of the operator): the POST answered 201 Created and
+      GET .../dependencies/blocked_by listed the required issue; issue_dependencies_summary read blocked_by 1. Both
+      test issues were deleted afterwards. The comment is the form an older GHES can show, so it counts as linked;
+      only when the comment itself fails is the result a refusal, reading "the dependency API is not available here,
+      and the comment: <class>" — the one place that phrase appears. A non-API failure of the dependency call is
+      Unreached and writes no comment.
+  - category: Architecture
+    chose: "TicketGraphLinks (Server/Services/SpecDialog, 54 lines): one CreateRequiresLink per pass, one LinkAsync per stored edge in filing order, under a 60-second Deadline on a token only the deadline cancels, each call bounded by WaitAsync on that token; stops at the first Unreached or cut call and names every unreached edge in one note"
+    over: "A client timeout per edge, the caller's token, or continuing past a silent tracker"
+    reason: |
+      Default pending operator ratification (contract section 5 default 35: the 60-second deadline). WaitAsync bounds a
+      link that ignores its token, so a hung client costs the filing at most the deadline. The deadline timer comes from
+      the injected TimeProvider so a test fires it by hand. A factory or link that throws despite the port's promise is
+      caught and treated like the tracker not answering, because a throwing pass would cost the filing's report.
+  - category: Implementation
+    chose: "TicketGraphStarts.SettleAsync returns the link notes (Task<IReadOnlyList<string>>) and calls the pass once after the start loop over every created ticket's stored edges; TicketGraphFiler appends them to the report's notes"
+    over: "Passing the notes list into SettleAsync, or calling the pass from the filer"
+    reason: |
+      The spec places the call in TicketGraphStarts after the start pass; returning the notes keeps the filer at one
+      changed line (95 lines unchanged). Incomplete tickets' stored edges are linked too; a ticket whose edge store
+      failed has no edges in CreatedGraphTicket and is never linked.
+  - category: Implementation
+    chose: "AzureDevOpsRequiresLink has an internal constructor taking the patch sender; the public one builds it from its own AzureDevOpsConnectionCache"
+    over: "Testing only the static patch builder"
+    reason: |
+      The SDK client is built internally, so the request-shape, unreachable and refusal tests drive the class through
+      the sender seam and still exercise its id checks and its classification.
+  - category: Implementation
+    chose: "GitHubLinkedWork.ParseRepoUrl made internal and reused by GitHubRequiresLink"
+    over: "A sixth private copy of the owner/repo parser"
+    reason: "The capability sibling already parses the same connection's URL."
+  - category: Defaults
+    chose: "Defaults pending operator ratification: contract section 5 defaults 6 and 20 (GitHub as amended), decision 19, and TicketGraphLinks.Deadline = 60 s"
+    over: "Waiting for ratification before building"
+    reason: "The operator said build; each default is a code constant or a single class to change."

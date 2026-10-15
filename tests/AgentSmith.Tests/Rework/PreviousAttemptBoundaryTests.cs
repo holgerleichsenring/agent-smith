@@ -61,7 +61,7 @@ public sealed class PreviousAttemptBoundaryTests : IDisposable
             },
         };
 
-        var refusal = await new ClaimRefusal(new InMemoryUnmovedTicketStore(), Reader())
+        var refusal = await new ClaimRefusal(new InMemoryUnmovedTicketStore(), Reader(), AgentSmith.Tests.TestSupport.TicketRequirementDoubles.None())
             .ForAsync(new ClaimRequest("GitHub", "p", new TicketId("42"), "code"), config, CancellationToken.None);
 
         refusal!.Rejection.Should().Be(ClaimRejectionReason.TicketStoppedAtBoundary);

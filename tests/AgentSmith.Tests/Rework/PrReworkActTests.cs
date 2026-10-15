@@ -75,19 +75,27 @@ public sealed class PrReworkActTests
     {
         var older = new DateTime(2026, 10, 8, 10, 0, 0, DateTimeKind.Utc);
         var standing = AzureReposVoteActs.Standing([VoteThread("v", older), VoteThread("v", older.AddHours(1))],
-            [new IdentityRefWithVote { Id = "v", Vote = -5 }], "creator", "u", "r", "p");
+            [new IdentityRefWithVote { Id = "v", Vote = -5 }], "u", "r", "p");
 
         standing.Single().At.Should().Be(new DateTimeOffset(older.AddHours(1)));
     }
 
     [Fact]
-    public void AzureVotes_VoteResetOrCreator_NoAct()
+    public void AzureVotes_VoteReset_NoAct()
     {
         var at = new DateTime(2026, 10, 8, 10, 0, 0, DateTimeKind.Utc);
 
-        AzureReposVoteActs.Standing([VoteThread("v", at)], [new IdentityRefWithVote { Id = "v", Vote = 10 }], "creator", "u", "r", "p")
+        AzureReposVoteActs.Standing([VoteThread("v", at)], [new IdentityRefWithVote { Id = "v", Vote = 10 }], "u", "r", "p")
             .Should().BeEmpty();
-        AzureReposVoteActs.Standing([VoteThread("creator", at)], [new IdentityRefWithVote { Id = "creator", Vote = -5 }], "creator", "u", "r", "p")
-            .Should().BeEmpty();
+    }
+
+    [Fact]
+    public void AzureVotes_CreatorAtMinusFive_IsAStandingAct()
+    {
+        var at = new DateTime(2026, 10, 8, 10, 0, 0, DateTimeKind.Utc);
+
+        AzureReposVoteActs.Standing([VoteThread("creator", at)], [new IdentityRefWithVote { Id = "creator", Vote = -5 }], "u", "r", "p")
+            .Should().ContainSingle("we never vote -5, so the creator identity's Wait for author is a person's")
+            .Which.Author!.AuthorId.Should().Be("creator");
     }
 }

@@ -1,8 +1,10 @@
+using AgentSmith.Application.Services;
 using AgentSmith.Application.Services.Prompts;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Reviews;
 using AgentSmith.Contracts.Webhooks;
 using AgentSmith.Domain.Entities;
+using AgentSmith.Domain.Models;
 using FluentAssertions;
 
 namespace AgentSmith.Tests.Prompts;
@@ -77,5 +79,47 @@ public sealed class OwnTicketCommentTests
                 [new PrReviewThread(null, null, null, [PrNote(1)]), new PrReviewThread("a.cs", 2, false, [PrNote(2), PrNote(3)])])]);
 
         OwnTicketComment.PrNotes(pipeline).Should().HaveCount(3);
+    }
+
+    private const string LegacyWorkingStatus = "Agent Smith is working on this issue...";
+
+    [Fact]
+    public void OwnTicketComment_WorkingStatus_IsOurs()
+    {
+        OwnTicketComment.IsOurs(OwnTicketComment.WorkingStatus).Should().BeTrue();
+        OwnTicketComment.IsOurs(new TicketComment("operator", T0, OwnTicketComment.WorkingStatus)).Should().BeTrue();
+    }
+
+    [Fact]
+    public void OwnTicketComment_LegacyWorkingStatus_IsOurs()
+    {
+        OwnTicketComment.IsOurs(LegacyWorkingStatus).Should().BeTrue(
+            "comments already posted on tickets carry the old text");
+        OwnTicketComment.IsOurs(new TicketComment("operator", T0, LegacyWorkingStatus)).Should().BeTrue();
+    }
+
+    [Fact]
+    public void OwnTicketComment_EveryCommentPipelineErrorHandlerPosts_IsOurs()
+    {
+        var failure = new FailureTicketComment();
+        string[] posted =
+        [
+            OwnTicketComment.WorkingStatus,
+            failure.ForStep(CommandResult.Fail("step broke"), new PipelineContext()),
+            failure.ForFatal(new InvalidOperationException("sandbox quota")),
+            failure.ForMessage("cancelled"),
+        ];
+
+        posted.Should().AllSatisfy(body => OwnTicketComment.IsOurs(body).Should().BeTrue(body));
+    }
+
+    [Fact]
+    public void OwnTicketComment_WorkingCommentAfterHandback_IsNotAnAnswer()
+    {
+        var working = new TicketComment("operator", T0.AddMinutes(10), OwnTicketComment.WorkingStatus);
+        var legacy = new TicketComment("operator", T0.AddMinutes(20), LegacyWorkingStatus);
+
+        OwnTicketComment.IsAnswered([Ours(0), working, legacy], Marker).Should().BeFalse(
+            "the next run's working comment is ours, not a person's reply");
     }
 }

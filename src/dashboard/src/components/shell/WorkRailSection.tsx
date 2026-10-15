@@ -17,6 +17,8 @@ const ICON: Record<TicketBucketFilter, string> = {
   working: "▶",
   "waiting-on-review": "◔",
   stuck: "!",
+  blocked: "⧗",
+  filed: "○",
   ended: "■",
   done: "✓",
 };

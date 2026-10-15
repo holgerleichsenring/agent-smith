@@ -83,6 +83,48 @@ public sealed class FileStepHandlerLineRangeTests : IDisposable
         files.First().GetProperty("size_bytes").GetInt64().Should().Be(1000);
     }
 
+    [Fact]
+    public async Task ReadFile_NumberedFileEndingInNewline_ShowsExactlyItsLines()
+    {
+        var result = await ReadFixtureAsync("a\nb\n", withLineNumbers: true);
+
+        result.OutputContent.Should().Be("1\ta\n2\tb");
+    }
+
+    [Fact]
+    public async Task ReadFile_NumberedEmptyFile_ShowsNoLine()
+    {
+        var result = await ReadFixtureAsync("", withLineNumbers: true);
+
+        result.ExitCode.Should().Be(0);
+        result.OutputContent.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task ReadFile_NumberedFileWithoutTrailingNewline_IsUnchanged()
+    {
+        var result = await ReadFixtureAsync("a\nb", withLineNumbers: true);
+
+        result.OutputContent.Should().Be("1\ta\n2\tb");
+    }
+
+    [Fact]
+    public async Task ReadFile_UnnumberedWholeFile_KeepsTheTrailingNewline()
+    {
+        var result = await ReadFixtureAsync("a\nb\n", withLineNumbers: false);
+
+        result.OutputContent.Should().Be("a\nb\n");
+    }
+
+    private async Task<StepResult> ReadFixtureAsync(string content, bool withLineNumbers)
+    {
+        var path = Path.Combine(_tempDir, "fixture.txt");
+        File.WriteAllText(path, content);
+        var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.ReadFile,
+            Path: path, WithLineNumbers: withLineNumbers);
+        return await NewHandler().HandleAsync(step, NoEvents, CancellationToken.None);
+    }
+
     private static FileStepHandler NewHandler() => new(NullLogger<FileStepHandler>.Instance);
     private static Task NoEvents(IReadOnlyList<StepEvent> _) => Task.CompletedTask;
 }

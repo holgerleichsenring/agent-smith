@@ -8,8 +8,7 @@ namespace AgentSmith.Infrastructure.Persistence.Repositories;
 /// <summary>
 /// 2026-10-13-9a59b: reads the pull-request records — a ticket's with every entry, every ticket's
 /// with only the standing decisions (the ticket list buckets on them), and one pull request by its
-/// key or a repository's by its RepoKey for the PR sweep. Writes go through
-/// <see cref="PrReviewRecordWriter"/>.
+/// key or a repository's by its RepoKey for the PR sweep, the stale ones for the re-read. Writes: <see cref="PrReviewRecordWriter"/>.
 /// </summary>
 public sealed class PrReviewRecordRepository(IUnitOfWork unitOfWork) : IPrReviewRecordReader
 {
@@ -26,10 +25,27 @@ public sealed class PrReviewRecordRepository(IUnitOfWork unitOfWork) : IPrReview
     public Task<IReadOnlyList<PrReviewRecordView>> ByRepoKeyAsync(string repoKey, CancellationToken ct) =>
         ReadAsync(Records().Where(r => r.RepoKey == repoKey), standingOnly: false, ct);
 
+    /// <summary>2026-10-14-dbceg: webhook projects' open and all named projects' unread records; oldest check first, no entries.</summary>
+    public Task<IReadOnlyList<PrReviewRecordView>> OpenUncheckedAsync(IReadOnlyCollection<string> webhookProjects,
+        IReadOnlyCollection<string> projects, long checkedBeforeTicks, int take, CancellationToken ct) =>
+        OldestAsync(Records().Where(r => r.CheckedAtTicks < checkedBeforeTicks
+            && ((r.State == PrReviewStates.Open && webhookProjects.Contains(r.Project))
+                || (r.State == PrReviewStates.Unread && projects.Contains(r.Project)))), take, ct);
+
+    /// <summary>2026-10-14-dbceg: merged records of an ended ticket the tracker never landed; oldest check first, no entries.</summary>
+    public Task<IReadOnlyList<PrReviewRecordView>> UnlandedMergedAsync(string tracker,
+        IReadOnlyCollection<string> projects, long checkedBeforeTicks, int take, CancellationToken ct) =>
+        OldestAsync(Records().Where(r => r.State == PrReviewStates.Merged && r.CheckedAtTicks < checkedBeforeTicks && projects.Contains(r.Project)
+            && !Records().Any(o => o.Project == r.Project && o.TicketId == r.TicketId
+                && o.State != PrReviewStates.Merged && o.State != PrReviewStates.Closed)
+            && !unitOfWork.Set<LandedTicket>().Any(l => l.Tracker == tracker && l.TicketId == r.TicketId)), take, ct);
+
+    private static async Task<IReadOnlyList<PrReviewRecordView>> OldestAsync(IQueryable<PrReviewRecord> query, int take, CancellationToken ct) =>
+        [.. (await query.OrderBy(r => r.CheckedAtTicks).ThenBy(r => r.Id).Take(take).ToListAsync(ct)).Select(r => View(r, null, []))];
+
     private IQueryable<PrReviewRecord> Records() => unitOfWork.Set<PrReviewRecord>().AsNoTracking();
 
-    private async Task<IReadOnlyList<PrReviewRecordView>> ReadAsync(
-        IQueryable<PrReviewRecord> query, bool standingOnly, CancellationToken ct)
+    private async Task<IReadOnlyList<PrReviewRecordView>> ReadAsync(IQueryable<PrReviewRecord> query, bool standingOnly, CancellationToken ct)
     {
         var records = await query.OrderBy(r => r.Id).ToListAsync(ct);
         if (records.Count == 0) return [];

@@ -36,6 +36,14 @@ public sealed partial class TicketStewardSkillTests
     }
 
     [Fact]
+    public void TicketStewardSkill_WaitingStart_SaysWhatItWaitsForAndThatNothingStarted() =>
+        Master().Should().Contain(
+            "When `start_next_attempt` answers that the ticket waits for other tickets, tell the person which "
+            + "tickets it waits for and that nothing was started: once those are merged or marked done by hand, "
+            + "they ask for the attempt again.",
+            $"the pin is {PackagedMaster.Pin} and the waiting-start sentence ships from v5.18.0");
+
+    [Fact]
     public async Task TicketStewardSkill_NamesOnlyToolsTheStewardOffers()
     {
         var steward = await BoundDialogTurn.MasterSurface(PipelinePresets.TicketStewardMaster);

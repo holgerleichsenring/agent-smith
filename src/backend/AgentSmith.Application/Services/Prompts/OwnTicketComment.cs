@@ -25,6 +25,7 @@ namespace AgentSmith.Application.Services.Prompts;
 /// </summary>
 public static class OwnTicketComment
 {
+    public const string WorkingStatus = "Agent Smith — working on this issue…";
     private static readonly string[] Ours =
     [
         "agent-smith:open-questions",
@@ -33,6 +34,7 @@ public static class OwnTicketComment
         "Agent Smith &#8212;",
         // 2026-10-08-e8b9b: the completed-run summary heads itself with a hyphen.
         "Agent Smith - ",
+        "Agent Smith is working on this issue",
     ];
 
     private static readonly string[] AwaitingAnswer =

@@ -1,4 +1,3 @@
-using System.Text;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
 
@@ -24,12 +23,6 @@ public static class DialogTranscriptSection
         return transcript;
     }
 
-    public static string Render(IReadOnlyList<SpecDialogTurn> transcript)
-    {
-        ArgumentNullException.ThrowIfNull(transcript);
-        var sb = new StringBuilder();
-        foreach (var turn in transcript)
-            sb.AppendLine(turn.Author is { } author ? $"[{turn.Role}: {author}] {turn.Text}" : $"[{turn.Role}] {turn.Text}");
-        return sb.ToString().TrimEnd();
-    }
+    /// <summary>The transcript as the prompt carries it: whole up to the bound, windowed past it.</summary>
+    public static string Render(IReadOnlyList<SpecDialogTurn> transcript) => TranscriptWindow.Render(transcript);
 }

@@ -84,4 +84,19 @@ public sealed class TicketLandingTests : IDisposable
 
         (row.UnchangedSinceLastAttempt, row.Bucket, row.Landing).Should().Be(((bool?)true, TicketBucket.Done, TicketLanding.Merged));
     }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("merged,closed")]
+    [InlineData("closed,closed")]
+    [InlineData("merged,open")]
+    [InlineData("merged,unread")]
+    [InlineData("merged,unsupported")]
+    public void TicketLanding_OfStates_AgreesWithOfOverViews(string joined)
+    {
+        var states = joined.Split(',', StringSplitOptions.RemoveEmptyEntries);
+        var views = states.Select((s, i) => new TicketPullRequestView($"{i}", Url($"{i}"), "api", s, "", null, null, null, null)).ToList();
+
+        TicketLanding.OfStates(states).Should().Be(TicketLanding.Of(views));
+    }
 }

@@ -26,7 +26,9 @@ public sealed class ApprovedSeriesConfiguration : IEntityTypeConfiguration<Appro
         builder.Property(a => a.CarryingRepo).HasMaxLength(PersistenceLimits.IndexedString);
         builder.Property(a => a.ApprovedInConversation).HasMaxLength(PersistenceLimits.IndexedString);
         builder.Property(a => a.ApprovedBy).HasMaxLength(PersistenceLimits.IndexedString);
+        builder.Property(a => a.Project).HasMaxLength(PersistenceLimits.IndexedString);
         builder.HasIndex(a => new { a.Tracker, a.TicketKey }).IsUnique();
+        builder.HasIndex(a => a.Project); // 2026-10-14-dbcef: a project's filings
         // 2026-09-25-c1f7: the discovery listing asks one tracker for its unsatisfied records
         // every poll cycle; it orders by the primary key, which needs no column of its own here.
         builder.HasIndex(a => new { a.Tracker, a.SatisfiedAt });

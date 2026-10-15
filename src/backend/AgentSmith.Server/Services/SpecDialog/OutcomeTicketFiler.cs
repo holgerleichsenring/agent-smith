@@ -35,7 +35,7 @@ public sealed class OutcomeTicketFiler(
         var notes = new List<string>();
         try
         {
-            var project = ResolveProject(state);
+            var project = ResolveProject(config, state);
             var provider = ticketFactory.Create(project.Tracker);
             await (proposal switch
             {
@@ -61,7 +61,7 @@ public sealed class OutcomeTicketFiler(
         }
     }
 
-    private ResolvedProject ResolveProject(ConversationState state)
+    internal static ResolvedProject ResolveProject(AgentSmithConfig config, ConversationState state)
     {
         var project = state.Scope?.Project ?? state.Project;
         if (string.IsNullOrWhiteSpace(project))

@@ -40,6 +40,7 @@ const api = {
   compute: vi.fn((runId: string) => Promise.resolve(world.compute[runId] ?? compute(runId))),
   reviews: vi.fn(() => Promise.resolve(reviews())),
   defaults: vi.fn(() => Promise.resolve(defaults())),
+  requires: vi.fn(() => Promise.resolve({ requires: [], requiredBy: [] })),
 };
 
 const settle = async () => {

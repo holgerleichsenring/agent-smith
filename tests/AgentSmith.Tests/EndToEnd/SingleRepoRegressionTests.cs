@@ -232,7 +232,7 @@ public sealed class SingleRepoRegressionTests
         var claimService = new TicketClaimService(
             claimLock.Object, new InMemoryUnmovedTicketStore(), new AgentSmith.Application.Services.Resume.NullPreviousAttemptReader(), factory.Object, queue.Object,
             new NoOpActiveRunLease(), new InMemoryTakenTicketStore(),
-            NullLogger<TicketClaimService>.Instance);
+            NullLogger<TicketClaimService>.Instance, AgentSmith.Tests.TestSupport.TicketRequirementDoubles.None());
         var spawn = new SpawnPipelineRunsUseCase(
             claimService,
             CapacityTestDoubles.StubCalculator(),
@@ -244,7 +244,7 @@ public sealed class SingleRepoRegressionTests
             CapacityTestDoubles.NoNudge(),
             CapacityTestDoubles.NoStandingRefusal(),
             Moq.Mock.Of<AgentSmith.Contracts.Services.IActiveRunLease>(),
-            NullLogger<SpawnPipelineRunsUseCase>.Instance, new AgentSmith.Application.Services.Resume.NullPreviousAttemptReader());
+            NullLogger<SpawnPipelineRunsUseCase>.Instance, new AgentSmith.Application.Services.Resume.NullPreviousAttemptReader(), AgentSmith.Tests.TestSupport.TicketRequirementDoubles.None());
 
         var providerFactory = new Mock<ITicketProviderFactory>();
         var dispatcher = new WebhookSpawnDispatcher(

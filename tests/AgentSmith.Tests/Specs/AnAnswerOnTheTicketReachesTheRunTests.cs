@@ -52,6 +52,33 @@ public sealed class AnAnswerOnTheTicketReachesTheRunTests
         inbox.Delivered.Should().BeEmpty("answering the question with itself is how a loop starts");
     }
 
+    [Theory]
+    [InlineData("Agent Smith — working on this issue…")]
+    [InlineData("Agent Smith is working on this issue...")]
+    public async Task OurWorkingComment_IsNeverReadAsTheAnswer(string working)
+    {
+        var inbox = new RecordingInbox();
+        var sut = Build(inbox, Reply("jane", Asked.AddMinutes(10), working));
+
+        (await sut.TryCollectAnswerAsync(Checkpoint(), CancellationToken.None)).Should().BeFalse();
+
+        inbox.Delivered.Should().BeEmpty("the next run's working comment is ours, not the operator's answer");
+    }
+
+    [Fact]
+    public async Task APersonsReplyAfterOurWorkingComment_IsTheAnswer()
+    {
+        var inbox = new RecordingInbox();
+        var sut = Build(inbox, [
+            Reply("jane", Asked.AddMinutes(10), "Agent Smith — working on this issue…"),
+            Reply("jane", Asked.AddMinutes(20), "Q1: option-a"),
+        ]);
+
+        (await sut.TryCollectAnswerAsync(Checkpoint(), CancellationToken.None)).Should().BeTrue();
+
+        inbox.Delivered.Should().ContainSingle().Which.Answer.Should().Be("Q1: option-a");
+    }
+
     [Fact]
     public async Task ACommentOlderThanTheQuestion_IsNotItsAnswer()
     {

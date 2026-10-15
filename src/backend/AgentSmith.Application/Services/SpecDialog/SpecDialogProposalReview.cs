@@ -23,7 +23,7 @@ public sealed class SpecDialogProposalReview(
     DerivationLookFactory looks,
     ProposalEvidenceReview evidence,
     ISpecReviewSettingsReader settings, // 2026-10-13-8762i: read per turn, live
-    ProposalReviewLoop rounds,
+    ProposalReviewLoop rounds, TicketPlanReview plans, // 2026-10-14-dbcek: a list is reviewed as a plan
     ITurnActivityObserverAccessor turnActivity, // 2026-09-17-042ee: the review is not dark
     ILogger<SpecDialogProposalReview> logger)
 {
@@ -33,8 +33,10 @@ public sealed class SpecDialogProposalReview(
         MasterConversation conversation, AgentConfig agent, PipelineCostTracker costTracker, CancellationToken ct)
     {
         ArgumentNullException.ThrowIfNull(pipeline);
-        if (!pipeline.TryGet<OutcomeProposal>(ContextKeys.SpecDialogOutcome, out var proposal)
-            || proposal is null || DraftsOf(proposal) is not { Count: > 0 } drafts) return loopResult;
+        if (!pipeline.TryGet<OutcomeProposal>(ContextKeys.SpecDialogOutcome, out var proposal) || proposal is null) return loopResult;
+        if (proposal is TicketGraphOutcome graph)
+            return await plans.ReviewAsync(new ProposalTurn(pipeline, request, userPrompt, conversation, agent, costTracker), graph, loopResult, ct);
+        if (ProposalSpecSet.Drafts(proposal) is not { Count: > 0 } drafts) return loopResult;
 
         await turnActivity.ReportAsync(new TurnActivity(TurnActivityKind.Reviewing), ct);
         if (Settings() is not { Review.Rounds: > 0 } current)
@@ -113,7 +115,4 @@ public sealed class SpecDialogProposalReview(
             return [];
         }
     }
-
-    /// <summary>The specs a proposal states; an answer and a bug state none.</summary>
-    private static IReadOnlyList<SpecDraft> DraftsOf(OutcomeProposal proposal) => ProposalSpecSet.Drafts(proposal);
 }

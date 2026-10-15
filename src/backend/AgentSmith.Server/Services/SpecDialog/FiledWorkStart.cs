@@ -46,6 +46,10 @@ public enum FiledStartState
     /// filing written before the states existed", which is a different fact.
     /// </summary>
     NotFiled,
+
+    /// <summary>2026-10-14-dbcel: filed from a list and waiting for the tickets it requires to be merged or marked done
+    /// by hand — neither tagged nor moved. History once the wake starts it: the run list says what happened after.</summary>
+    Held,
 }
 
 /// <summary>
@@ -94,6 +98,7 @@ public sealed record FiledWorkStart(FiledStartState? State, string Reason)
         FiledStartState.Record => "record",
         FiledStartState.Withdrawn => "withdrawn",
         FiledStartState.NotFiled => "not filed here",
+        FiledStartState.Held => "held",
         _ => "unknown",
     };
 }

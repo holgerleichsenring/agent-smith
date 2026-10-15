@@ -40,7 +40,7 @@ public sealed class ClosedTicketActFollowUp(
     {
         if (act.Act.Channel is not (ReworkChannel.Ticket or ReworkChannel.PullRequest or ReworkChannel.Overrule))
         {
-            await speech.SayOnceAsync(project, ticketId, act, runId, "closed", ReworkTexts.TicketRefusal(ReworkTexts.ClosedRefusal),
+            await speech.SayOnceAsync(project, ticketId, act, runId, "closed", ReworkTexts.TicketRefusal(ReworkTexts.ClosedRefusal, act.Act.Channel),
                 ReworkTexts.PrRefused(ticketId, ReworkTexts.ClosedRefusal), ct);
             return ReworkNudgeDisposition.Finish;
         }

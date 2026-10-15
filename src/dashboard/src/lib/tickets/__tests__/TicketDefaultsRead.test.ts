@@ -13,6 +13,7 @@ const api = {
   conversation: vi.fn(() => Promise.resolve(conversation([]))),
   reviews: vi.fn(() => Promise.resolve(reviews())),
   defaults: vi.fn(() => Promise.resolve(defaults([defaultEntry()]))),
+  requires: vi.fn(() => Promise.resolve({ requires: [], requiredBy: [] })),
   text: vi.fn(() => Promise.resolve(ticketText())),
   passes: vi.fn((runId: string) => Promise.resolve(passes(runId, {}))),
   run: vi.fn(() => Promise.reject(new Error("unused"))),

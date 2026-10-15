@@ -276,6 +276,21 @@ public sealed class ReworkNudgeHandlerTests : IDisposable
         _rework.VerifyNoOtherCalls();
     }
 
+    // 2026-10-14-dbcei: the refusal names where the act came from — here the ticket's conversation.
+    [Fact]
+    public async Task ReworkNudgeHandler_RefusedConversationApproval_PostsTheConversationSentence()
+    {
+        Attempt("success", finished: true);
+        Pending(OperatorApproval);
+        Outcome(ReworkOutcome.Refused("the capacity queue is full"));
+
+        (await Handle()).Should().Be(ReworkNudgeDisposition.Finish);
+
+        _ticket.Verify(t => t.UpdateStatusAsync(It.IsAny<TicketId>(),
+            "Agent Smith — the request in this ticket's conversation did not start a rework: the capacity queue is full.",
+            It.IsAny<CancellationToken>()), Times.Once);
+    }
+
     // 2026-10-13-9a59t: a waiting attempt's act asks whether the ticket was closed; an open one keeps waiting.
     private void AskedOnlyWhetherClosed() =>
         _rework.Verify(r => r.SupersedeIfClosedAsync(Project, "7", It.IsAny<PreviousAttempt>(), It.IsAny<CancellationToken>()), Times.Once);

@@ -92,8 +92,8 @@ internal static class SpecDialogTurnSeeds
         return seeds;
     }
 
-    private static IReadOnlyList<SpecDialogTurn> MapTranscript(IReadOnlyList<TranscriptTurn> transcript) =>
+    internal static IReadOnlyList<SpecDialogTurn> MapTranscript(IReadOnlyList<TranscriptTurn> transcript) =>
         [.. transcript.Select(t => new SpecDialogTurn(
             t.Role == TranscriptRole.Assistant ? SpecDialogTurn.AssistantRole : SpecDialogTurn.UserRole,
-            t.Text, t.Kind, t.Author))];
+            t.Text, t.Kind, t.Author, t.DigestThrough))];
 }

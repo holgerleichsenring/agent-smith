@@ -19,6 +19,7 @@ public static class ReferenceSetCarryServiceCollectionExtensions
         services.AddTransient<ReferenceImageCarrier>(); // 2026-10-08-e8b9k
         services.AddTransient<UploadImageAttachments>();
         services.TryAddTransient<ISandboxBinaryFileWriter, SandboxBinaryFileWriter>();
+        services.AddTransient<ReferenceMaterializer>(); // 2026-10-14-dbcel: the step's carry, and the derivation's
         services.AddTransient<ICommandHandler<MaterializeReferenceSetsContext>, MaterializeReferenceSetsHandler>();
         return services;
     }

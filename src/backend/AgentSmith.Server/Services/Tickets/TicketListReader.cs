@@ -14,6 +14,8 @@ namespace AgentSmith.Server.Services.Tickets;
 /// <para>2026-10-13-9a59e: only the page's rows carry their series strip.</para>
 /// <para>2026-10-13-9a59h: every ticket's stored check decides stuck and every hand-back row its since; the
 /// tracker is never read here — the page's failed tickets are only offered to the check, unawaited.</para>
+/// <para>2026-10-14-dbcen: <see cref="AllAsync"/> is the one summary read the graph shares. Never-run rows take
+/// no cursor: blocked and filed ones lead the first page, a done one only under the done filter.</para>
 /// </summary>
 public sealed class TicketListReader(
     TicketListQuery query,
@@ -28,22 +30,30 @@ public sealed class TicketListReader(
     SeriesStripReader strips,
     TicketStandings standings,
     Checks.TicketCheckKicks kicks,
-    TicketLaunchEnds launchEnds)
+    TicketLaunchEnds launchEnds,
+    FiledTicketRows filed)
 {
     private static readonly ILookup<string, string> NoSpecs =
         Array.Empty<string>().ToLookup(s => s, StringComparer.Ordinal);
 
-    public async Task<TicketListView> ReadAsync(TicketListRequest request, CancellationToken ct)
+    /// <summary>Every run-bearing ticket with its rows and summary, and every never-run ticket's summary.</summary>
+    public async Task<TicketListAll> AllAsync(string? project, CancellationToken ct)
     {
-        var read = await query.ReadAsync(request.Project, ct);
+        var read = await query.ReadAsync(project, ct);
         var tickets = read.Rows.GroupBy(r => (r.Run.Project, r.Run.TicketId)).Select(g => g.ToList()).ToList();
         var heads = tickets.Select(t => attempts.Head(t).Run).ToList();
         var state = await live.ReadAsync(heads, ct);
-        var prRecords = await pullRequests.AllAsync(request.Project, ct);
+        var prRecords = await pullRequests.AllAsync(project, ct);
         var standing = await standings.ReadAsync(heads, ct);
-        var all = tickets.Select(t => (Rows: t, Summary: composer.Compose(
+        var runs = tickets.Select(t => (Rows: t, Summary: composer.Compose(
                 t, state, NoSpecs, pullRequests.Views(prRecords[Key(t)]), null, standing)))
             .OrderByDescending(t => t.Summary.NewestRunId, StringComparer.Ordinal).ToList();
+        return new TicketListAll(runs, await filed.ListAsync(project, ct), state, prRecords, standing, read.Truncated);
+    }
+
+    public async Task<TicketListView> ReadAsync(TicketListRequest request, CancellationToken ct)
+    {
+        var (all, neverRun, state, prRecords, standing, truncated) = await AllAsync(request.Project, ct);
         var page = Page(all, request);
         kicks.Offer(page.Where(t => t.Summary.Status == RunStatuses.Failed)
             .Select(t => new Checks.TicketCheckKick(t.Summary.Project, t.Summary.TicketId)));
@@ -53,28 +63,33 @@ public sealed class TicketListReader(
         var launches = await launchEnds.ForAsync(pageAttempts, ct);
         var pagePrs = await pullRequests.PageAsync([.. page.SelectMany(t => t.Rows).Select(r => r.Run.Id)], prRecords, ct);
         var pageStrips = await strips.ForAsync([.. page.Select(t => (IReadOnlyList<Run>)[.. attempts.Of(t.Rows).Select(a => a.Run)])], ct);
+        var leading = string.IsNullOrEmpty(request.Cursor) ? neverRun.Where(s => Leads(s, request.Bucket)) : [];
         return new TicketListView(
-            [.. page.Select(t => composer.Compose(t.Rows, state, statuses, pagePrs.GetValueOrDefault(Key(t.Rows)) ?? [],
+            [.. leading, .. page.Select(t => composer.Compose(t.Rows, state, statuses, pagePrs.GetValueOrDefault(Key(t.Rows)) ?? [],
                     records, standing, launches))
                 .Select(s => s with { SeriesStrip = pageStrips.GetValueOrDefault(s.NewestRunId) })],
             NextCursor(all, page, request),
-            counts.Of([.. all.Select(t => t.Summary)], await monthCost.OfAsync(request.Project, ct), read.Truncated));
+            counts.Of([.. all.Select(t => t.Summary), .. neverRun], await monthCost.OfAsync(request.Project, ct), truncated));
     }
+
+    private static bool Leads(TicketSummaryView neverRun, string? bucket) => string.IsNullOrEmpty(bucket)
+        ? neverRun.Bucket is TicketBucket.Blocked or TicketBucket.Filed
+        : neverRun.Bucket == bucket;
 
     private static (string Project, string TicketId) Key(List<TicketRunRow> rows) => (rows[0].Run.Project, rows[0].Run.TicketId);
 
     private static List<(List<TicketRunRow> Rows, TicketSummaryView Summary)> Page(
-        List<(List<TicketRunRow> Rows, TicketSummaryView Summary)> all, TicketListRequest request) =>
+        IReadOnlyList<(List<TicketRunRow> Rows, TicketSummaryView Summary)> all, TicketListRequest request) =>
         [.. Filtered(all, request).Take(request.PageSize)];
 
     private static IEnumerable<(List<TicketRunRow> Rows, TicketSummaryView Summary)> Filtered(
-        List<(List<TicketRunRow> Rows, TicketSummaryView Summary)> all, TicketListRequest request) =>
+        IReadOnlyList<(List<TicketRunRow> Rows, TicketSummaryView Summary)> all, TicketListRequest request) =>
         all.Where(t => string.IsNullOrEmpty(request.Bucket) || t.Summary.Bucket == request.Bucket)
             .Where(t => string.IsNullOrEmpty(request.Cursor)
                 || string.CompareOrdinal(t.Summary.NewestRunId, request.Cursor) < 0);
 
     private static string? NextCursor(
-        List<(List<TicketRunRow> Rows, TicketSummaryView Summary)> all,
+        IReadOnlyList<(List<TicketRunRow> Rows, TicketSummaryView Summary)> all,
         List<(List<TicketRunRow> Rows, TicketSummaryView Summary)> page, TicketListRequest request) =>
         page.Count > 0 && Filtered(all, request).Count() > page.Count ? page[^1].Summary.NewestRunId : null;
 }

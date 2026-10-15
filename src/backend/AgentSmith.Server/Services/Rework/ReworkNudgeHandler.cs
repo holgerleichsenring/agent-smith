@@ -19,6 +19,7 @@ namespace AgentSmith.Server.Services.Rework;
 /// <para>2026-10-13-9a59t: on a ticket a person closed an act files a follow-up (<see cref="ClosedTicketActFollowUp"/>),
 /// superseding a waiting attempt; an act already followed up is served and never reworks the ticket.</para>
 /// <para>2026-10-13-8762v: the end of a finished attempt is <see cref="ReworkNoActTail"/>'s, the series' auto-start included.</para>
+/// <para>2026-10-14-dbceh: a never-run ticket whose requirements landed is started here, reversing 2026-09-22-766b's removal on a stored edge.</para>
 /// </summary>
 public sealed class ReworkNudgeHandler(
     IActiveRunLease leases,
@@ -30,12 +31,14 @@ public sealed class ReworkNudgeHandler(
     ReworkWithheld withheld,
     IRunCheckpointStore checkpoints,
     ClosedTicketActFollowUp followUps,
-    ReworkNoActTail tail)
+    ReworkNoActTail tail,
+    RequirementsMetStart start)
 {
     public async Task<ReworkNudgeDisposition> HandleAsync(ResolvedProject project, ClaimedReworkNudge nudge, CancellationToken ct)
     {
         var attempt = await attempts.LatestAsync(project.Name, nudge.TicketId, null, ct);
-        if (attempt is null) return ReworkNudgeDisposition.Finish;
+        if (attempt is null)
+            return nudge.Origin == ReworkNudgeOrigin.RequirementsMet ? await start.StartAsync(project, nudge, ct) : ReworkNudgeDisposition.Finish;
         var live = await leases.GetByTicketAsync(project.Name, new TicketId(nudge.TicketId), ct);
         if (live is null && await HandbackActAsync(project, nudge, attempt, ct) is { } answer)
             return await AnswerAsync(project, nudge, attempt, answer,
@@ -99,7 +102,7 @@ public sealed class ReworkNudgeHandler(
                 break;
             case ReworkOutcomeKind.Refused:
                 await speech.SayOnceAsync(project, nudge.TicketId, act, attempt.RunId, "refused",
-                    ReworkTexts.TicketRefusal(outcome.Reason!), ReworkTexts.PrRefused(nudge.TicketId, outcome.Reason!), ct);
+                    ReworkTexts.TicketRefusal(outcome.Reason!, act.Act.Channel), ReworkTexts.PrRefused(nudge.TicketId, outcome.Reason!), ct);
                 break;
             case ReworkOutcomeKind.ClosedForWork:
                 return await followUps.AnswerAsync(project, nudge.TicketId, act, attempt.RunId, ct);
@@ -108,7 +111,7 @@ public sealed class ReworkNudgeHandler(
                 break;
             case ReworkOutcomeKind.NotARework:
                 await speech.SayOnceAsync(project, nudge.TicketId, act, attempt.RunId, "not-a-rework",
-                    ReworkTexts.TicketRefusal(ReworkTexts.NotWaiting), ReworkTexts.PrRefused(nudge.TicketId, ReworkTexts.NotWaiting), ct);
+                    ReworkTexts.TicketRefusal(ReworkTexts.NotWaiting, act.Act.Channel), ReworkTexts.PrRefused(nudge.TicketId, ReworkTexts.NotWaiting), ct);
                 break;
         }
         return ReworkNudgeDisposition.Finish;

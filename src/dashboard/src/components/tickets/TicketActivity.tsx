@@ -38,6 +38,9 @@ function partsOf(t: TicketSummary): Array<ReactNode | null | false> {
     case "waiting_on_review":
     case "done":
       return pullRequests(t);
+    case "blocked":
+    case "filed":
+      return [filedWords(t.since)];
     case "stuck":
       return [<span key="f" className="ab">{failed === 1 ? "1 attempt failed" : `${failed} attempts failed`}</span>, checked(t)];
     default:
@@ -47,6 +50,12 @@ function partsOf(t: TicketSummary): Array<ReactNode | null | false> {
         ...pullRequests(t),
       ];
   }
+}
+
+/** 2026-10-14-dbcen: when a never-run ticket was filed — "filed 12m ago". */
+export function filedWords(since: string | null): string {
+  const when = age(since);
+  return when === null ? "filed" : when === "now" ? "filed just now" : `filed ${when} ago`;
 }
 
 function queued(t: TicketSummary): ReactNode {

@@ -91,6 +91,19 @@ public sealed class ResumedCostCapTests
             .Which.CapUsd.Should().Be(30m);
     }
 
+    [Fact]
+    public async Task ResumedCap_PartialPerTier_RecomputesFromCodeTierDefault()
+    {
+        var pipeline = Parked(ComplexityTier.Medium);
+
+        // TierTable lists only Large: a medium run keeps Medium's code default.
+        await Recompute(configured: new CostCapValues { Usd = 5m, Tokens = 500_000 })
+            .ApplyAsync(pipeline, Pipeline, TierTable(), CancellationToken.None);
+
+        Cap(pipeline).Usd.Should().Be(8m);
+        Cap(pipeline).Tokens.Should().Be(1_500_000);
+    }
+
     private static PipelineContext Parked(ComplexityTier? tier)
     {
         var pipeline = new PipelineContext();

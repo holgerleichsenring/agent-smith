@@ -1,6 +1,6 @@
 import { act, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fakeHub } from "@/components/tickets/__tests__/ticketFixtures";
+import { fakeHub, ticket } from "@/components/tickets/__tests__/ticketFixtures";
 import { attempt, conversation, defaults, detail, passes, reviews, series, ticketText } from "@/components/tickets/detail/__tests__/detailFixtures";
 import { EventType, type RunEvent } from "@/types/hub-events";
 import type { TicketDetail } from "@/types/tickets";
@@ -41,6 +41,7 @@ const api = {
   compute: vi.fn(() => Promise.reject(new Error("unused"))),
   reviews: vi.fn(() => Promise.resolve(reviews())),
   defaults: vi.fn(() => Promise.resolve(defaults())),
+  requires: vi.fn(() => Promise.resolve({ requires: [], requiredBy: [] })),
 };
 
 const reads = (fn: { mock: { calls: unknown[][] } }, runId?: string) =>
@@ -74,6 +75,19 @@ beforeEach(() => {
 afterEach(() => vi.useRealTimers());
 
 describe("TicketPageStore", () => {
+  it("NeverRunPage_ReReadsOnATicketActivityChangedNamingItsOwnProviderKey", async () => {
+    current = detail([], {
+      summary: ticket({ ticketKey: "github-101", bucket: "filed", attemptCount: 0, newestRunId: "", status: "", attempts: [] }),
+    });
+    const { hub } = await mount();
+    expect([reads(api.detail), reads(api.requires)]).toEqual([1, 1]);
+
+    act(() => hub.ticketActivityChanged.emit({ project: "shop", ticketKey: "github-101" }));
+    await settle(2000);
+
+    expect([reads(api.detail), reads(api.requires)]).toEqual([2, 2]);
+  });
+
   it("TerminalAttempt_FetchesItsSeriesAndPassesOnceAcrossRemounts_ARefetchRereadsOnlyTheLiveAttempts", async () => {
     const { hub, view } = await mount("r-1");
     view.rerender(<TicketPageStore project="shop" ticketId="101" client={fakeHubClient(hub)} api={api}>{null}</TicketPageStore>);

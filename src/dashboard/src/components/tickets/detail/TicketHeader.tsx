@@ -1,29 +1,29 @@
 "use client";
 
 import { CancelRunButton } from "@/components/jobs/CancelRunButton";
-import { useLiveAttempt } from "@/lib/tickets/TicketPageStore";
+import { useLiveAttempt, useTicketRequires } from "@/lib/tickets/TicketPageStore";
 import { EventType } from "@/types/hub-events";
 import type { TicketDetail } from "@/types/tickets";
 import { ticketDot } from "../ticketDot";
-import { pullRequestFate, ticketLabel } from "../ticketFormat";
+import { filedWords } from "../TicketActivity";
+import { isNeverRun, pullRequestFate, ticketLabel } from "../ticketFormat";
+import { DoneByHandAct } from "../landing/DoneByHandAct";
 import { statusWords } from "./flowWords";
 import { CAUSE_PARAM, useTicketTabGo } from "./useTicketTabGo";
 
 // 2026-10-13-9a59q: the mock's .t-head — key and title, then a subline of what is recorded: the
 // tracker link, the tracker status as the newest attempt read it, the live (or newest) attempt, how the
 // pull requests ended and the branch, each only when present. The dot is the list row's dot. Cancel ends the live attempt; its cancelling state comes from a
-// RunCancelRequested in that attempt's stream.
+// RunCancelRequested in that attempt's stream. 2026-10-14-dbcen: a ticket with no run says when it was filed and
+// offers no conversation tab to continue in; every ticket not yet landed can be marked done by hand.
 
-const PLATFORM_WORDS: Record<string, string> = {
-  github: "GitHub",
-  gitlab: "GitLab",
-  jira: "Jira",
-  azuredevops: "Azure DevOps",
-};
+const PLATFORM_WORDS: Record<string, string> = { github: "GitHub", gitlab: "GitLab", jira: "Jira", azuredevops: "Azure DevOps" };
 
 export function TicketHeader({ detail }: { detail: TicketDetail }) {
   const { summary, attempts, branch } = detail;
   const live = useLiveAttempt();
+  const requires = useTicketRequires();
+  const neverRun = attempts.length === 0 && isNeverRun(summary);
   const address = useTicketTabGo();
   const newest = attempts.length > 0 ? attempts[attempts.length - 1] : null;
   const cancelling = live.events.some((e) => e.type === EventType.RunCancelRequested);
@@ -35,11 +35,12 @@ export function TicketHeader({ detail }: { detail: TicketDetail }) {
   if (summary.trackerState && newest) {
     parts.push(<span key="state">tracker status <b>{summary.trackerState}</b> at attempt {newest.number}</span>);
   }
+  if (neverRun) parts.push(<span key="filed">{filedWords(summary.since)}</span>);
   if (live.attempt) parts.push(<span key="live">attempt {live.attempt.number} {statusWords(live.attempt.status)}</span>);
   else if (newest) parts.push(<span key="newest">attempt {newest.number} {statusWords(newest.status)}</span>);
   const fate = pullRequestFate(summary.pullRequests ?? []);
   if (fate) parts.push(<span key="prs" data-testid="ticket-pr-fate">{fate}</span>);
-  if (branch) parts.push(<span key="branch">branch <span className="mono">{branch}</span></span>);
+  if (branch && !neverRun) parts.push(<span key="branch">branch <span className="mono">{branch}</span></span>);
 
   return (
     <div className="t-head" data-testid="ticket-head">
@@ -54,8 +55,10 @@ export function TicketHeader({ detail }: { detail: TicketDetail }) {
         </div>
       </div>
       <div className="t-act">
-        <button type="button" className="btn primary" data-testid="ticket-continue"
-          onClick={() => address.go("conversation", { [CAUSE_PARAM]: null })}>Continue in conversation</button>
+        {!neverRun && <button type="button" className="btn primary" data-testid="ticket-continue"
+          onClick={() => address.go("conversation", { [CAUSE_PARAM]: null })}>Continue in conversation</button>}
+        <DoneByHandAct project={summary.project} ticketId={summary.ticketId} label={ticketLabel(summary)}
+          landed={summary.bucket === "done"} onLanded={requires.landed} />
         {live.attempt && (
           <CancelRunButton
             runId={live.attempt.runId}

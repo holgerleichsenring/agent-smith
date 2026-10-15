@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-14-dbceh
+
+decisions:
+  - category: Architecture
+    chose: "RequiresUnmetGate is the third gate in ClaimRefusal and is also asked by the spawn funnel right after ValidateForSpawn, before the footprint, the queue peek and ReserveAsync"
+    over: "Restoring 2026-09-22-766b's PredecessorGate, which only held a spawn and read labels; or checking only inside the claim"
+    reason: |
+      A stored edge (dbcef) met only by a landing (dbceg) refuses at every door, so a held ticket never becomes the
+      capacity queue's head; checked before the reservation, a held ticket on a triggering status costs one indexed
+      read per poll instead of a footprint, a capacity row, a quota probe and possibly an eviction.
+  - category: Architecture
+    chose: "STRICT: no start-by-name or series auto-start bypass (contract §5 default 10, pending operator ratification)"
+    over: "Admitting a person's start like BoundaryStopGate does"
+    reason: |
+      The rule is 'that one must be merged first'; marking the required ticket done by hand (dbcei) is the deliberate
+      override and lifts the gate everywhere at once.
+  - category: Architecture
+    chose: "UnmetTicketRequirements.OfAsync answers (HasRequirements, Unmet); FiledCompletelyAsync (the approval record) is asked only for a ticket with rows"
+    over: "An unmet list alone, or asking every ticket for an approval record"
+    reason: |
+      Without the flag, 'no rows' and 'every row landed' read alike, and the gate would either claim an incomplete
+      filing or refuse every ordinary ticket, which never has an approval record.
+  - category: Architecture
+    chose: "The wake runs in TicketLandingRecorder after a won insert, before the Redis publishes; DependentsWake.WakeAsync logs and swallows its own failure"
+    over: "Waking after the publishes, or letting a wake failure fail the refresh"
+    reason: |
+      Once the row exists no later insert wins, so a wake skipped by a Redis throw would be lost for good. A failed
+      enqueue is recovered by the re-read within five minutes, so it need not fail the pull-request refresh.
+  - category: Architecture
+    chose: "Recovery: PrRecordReReadHostedService resolves DependentsWake at call time and calls RecoverAsync after its two lists; the window is the landing row's CreatedAt (24 h), newest landing first, 50 dependents (contract §5 default 28, pending operator ratification)"
+    over: "A window on LandedAt, or oldest landing first"
+    reason: |
+      LandedAt is the host's merge time and a late or backfilled landing carries an old one exactly when its wake is
+      most likely lost; oldest first, dependents that already ran would hold every slot for a day.
+  - category: Implementation
+    chose: "DependentsOfLandingsSinceAsync streams the one join ordered by landing Id descending and stops at the first row written before the window"
+    over: "A server-side CreatedAt comparison"
+    reason: |
+      SQLite cannot translate a DateTimeOffset comparison (ObservedCallerConfiguration.cs:21); Id is insert order, so
+      the stream reads only the window's rows and stops once fifty distinct dependents are found.
+  - category: Implementation
+    chose: "DEVIATION: the landing port and repository grew by 8 + 18 lines, against the spec's 'at most +14 lines there'"
+    over: "Splitting the query into a separate class to stay inside the count"
+    reason: |
+      The streaming join (see above) needs the cut-off loop the spec did not foresee; LandedTicketRepository.cs is 76
+      lines, well inside the 120-line limit, and the edge mapping is reused from TicketRequirementRepository.Edge
+      (now internal) rather than copied.
+  - category: Architecture
+    chose: "RequirementsMetStart: requirements, own landing, unmet, filing complete, StartsWhenMet, the ticket's closed state; then StartExistingAsync in a scope and ReworkFallbackSpawn on Started (contract §5 default 11, pending operator ratification)"
+    over: "Starting through the move alone"
+    reason: |
+      A ticket already in a trigger status gets Started without a move, and in webhook mode nothing then delivers it;
+      the fallback spawn is the poller's own route and races end at the claim lock or the lease. A person's by-hand
+      mark or close is never undone by the wake.
+  - category: Architecture
+    chose: "OperatorStart's never-worked arm asks OfAsync only and answers RequiresUnmetGate.Sentence when anything is unmet"
+    over: "Also checking the filing there"
+    reason: |
+      The approval it answers is recorded first (TicketContinuationAct.cs:39-44), which completes an incomplete filing,
+      so a filing check there could never refuse.
+  - category: Implementation
+    chose: "The funnel logs its refusal at Information ('Spawn refused before any reservation') since the claim's own log is no longer reached for a held ticket"
+    over: "No log, relying on the Rejected TicketTriggered event alone"
+    reason: |
+      The spec expects a poll refusal at Information each cycle; the claim service's LogOne runs only when the funnel
+      reaches the claim. To stay inside the funnel's 148-line budget the class summary's 766b paragraph was shortened
+      to the two lines that say this spec redoes its job.

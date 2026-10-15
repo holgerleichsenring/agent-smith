@@ -1,0 +1,184 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-14-dbcem
+goal: "Each requires of a filed list of tickets also shows on the tracker — Dependency, Blocks, a related issue, GitHub's blocked-by or a comment — and a link the tracker refuses is a filing note."
+
+applies_to: "backend (the ITicketRequiresLink port with its refusing default, its four tracker classes, its construction beside the other ticket capabilities, and the TicketGraphLinks pass the graph filing runs over its created tickets)"
+
+requires: [2026-10-14-dbcel]
+
+facts:
+  - claim: "The ticket provider factory builds the capability ports beside the provider — the rewriter, the search, the linked work — one member each, each with a 4-6 line doc comment; the file has 36 lines."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ITicketProviderFactory.cs:8-36"
+  - claim: "Each capability is a four-armed switch over the tracker type in TicketCapabilities (84 lines), the linked-work member taking 19 lines (a 6-line doc, a 13-line switch); the factory delegates in one line per capability (91 lines)."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/TicketCapabilities.cs:64-83, src/backend/AgentSmith.Infrastructure/Services/Factories/TicketProviderFactory.cs:22-46"
+  - claim: "Thirteen classes implement ITicketProviderFactory by hand outside the one production factory — nine in AgentSmith.Tests and four in the pipeline harness — and the real-composition harness installs the stub factory, so every harness filing goes through it."
+    evidence: "tests/AgentSmith.Tests/TestHelpers/StubTicketProvider.cs:39, tests/AgentSmith.Tests/TestHelpers/ParkedTicketFixture.cs:61, tests/AgentSmith.Tests/SpecDialog/Continuation/FakeTicketTracker.cs:15, tests/AgentSmith.Tests/SpecDialog/ReadTicketToolTests.cs:81, tests/AgentSmith.Tests/SpecDialog/ReadTicketToolTests.cs:95, tests/AgentSmith.Tests/SpecDialog/TicketAmendmentTests.cs:442, tests/AgentSmith.Tests/SpecDialog/TicketProjectForTrackerTests.cs:97, tests/AgentSmith.Tests/SpecDialog/TicketSearchAcrossTrackersTests.cs:187, tests/AgentSmith.Tests/SpecDialog/TicketTrackerIdentityTests.cs:97, tests/AgentSmith.PipelineHarness/Presets/RecordingTicketProvider.cs:75, tests/AgentSmith.PipelineHarness/Presets/SpecDialogOutcomeTests.cs:628, tests/AgentSmith.PipelineHarness/Presets/SpecExecutionTests.cs:318, tests/AgentSmith.PipelineHarness/Presets/TicketConversationTests.cs:101, tests/AgentSmith.PipelineHarness/Composition/RealCompositionHarness.cs:204-205"
+  - claim: "Interface members with a default body on the ticket provider port are benign answers — true, an empty list — never a throw."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ITicketProvider.cs:17, src/backend/AgentSmith.Contracts/Providers/ITicketProvider.cs:115-117"
+  - claim: "ITicketProvider has no member that relates two tickets, and the follow-up link is therefore one comment on each ticket headed 'Agent Smith —'."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/FollowUpLink.cs:8-15"
+  - claim: "A comment headed 'Agent Smith —' is read as ours by every thread reader, and the GitHub issue-comment webhook drops it before anything else reads it."
+    evidence: "src/backend/AgentSmith.Application/Services/Prompts/OwnTicketComment.cs:26-36, src/backend/AgentSmith.Server/Services/Webhooks/GitHubIssueCommentWebhookHandler.cs:46-48"
+  - claim: "All four trackers once linked tickets: Azure DevOps by a /relations/- patch naming the target's REST url, GitHub by a sub_issues POST through the client's raw connection naming the child by its DATABASE id, Jira by an issueLink POST, GitLab by a relates_to link whose body carried the DECODED project path. The code lost its caller and was deleted."
+    evidence: "observed: 2026-10-14, git show 098a8d605 in this worktree: GitHubSubIssueRequest (repos/{owner}/{repo}/issues/{n}/sub_issues, body sub_issue_id = the child's database id, sent with _client.Connection.Post), GitLabTicketProvider.LinkToParentAsync (target_project_id = Uri.UnescapeDataString(_projectPath), link_type relates_to), JiraTicketProvider.LinkToParentAsync (_endpoints.IssueLink with type, inwardIssue, outwardIssue), AzureDevOpsTicketProvider.BuildParentLinkPatch all removed"
+  - claim: "GitHub documents a native issue dependency: POST /repos/{owner}/{repo}/issues/{issue_number}/dependencies/blocked_by with body issue_id = the blocking issue's id (not its number), answering 201, or 403, 404, 410 or 422; it is listed for github.com and GitHub Enterprise Server 3.20 and later."
+    evidence: "observed: 2026-10-14, https://docs.github.com/en/rest/issues/issue-dependencies (Add a dependency an issue is blocked by) and https://docs.github.com/en/enterprise-server@3.20/rest/issues/issue-dependencies"
+  - claim: "The Octokit client this tree uses (14.0.0) has no typed issue-dependency call; an Issue's Id is GitHub's internal id, not its number; and the tree already posts to REST paths Octokit does not type through client.Connection.Post."
+    evidence: "observed: 2026-10-14, ~/.nuget/packages/octokit/14.0.0/lib/netstandard2.0/Octokit.xml:45627-45630 (P:Octokit.Issue.Id 'The internal Id for this issue (not the issue number)'), no 'blocked_by' member in that file; src/backend/AgentSmith.Infrastructure/AgentSmith.Infrastructure.csproj:49, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubSourceProvider.cs:203-205"
+  - claim: "GitLab capability classes put the project path into the URL as configured (URL-encoded) and send through TicketProviderHttpClient; Azure DevOps ones open a client from their own connection cache; GitHub ones take the Octokit client and the connection."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitLabTicketRewriter.cs:18-28, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketRewriter.cs:29-50, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubLinkedWork.cs:17-28"
+  - claim: "TicketProviderHttpClient.SendAsync throws on non-2xx and reads no body, so Jira's empty 201 for an issue link is a success."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/TicketProviderHttpClient.cs:97-106"
+  - claim: "Jira endpoints are configurable paths with Cloud v3 defaults and no issue-link path; the issue collection path is /rest/api/3/issue, and every path is relative to the tracker base URL."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/JiraEndpoints.cs:10-23"
+  - claim: "A Jira connection's endpoints may be null and ResolvedEndpoints applies the defaults; the sibling capabilities build a URL as BaseUrl.TrimEnd('/') followed by a resolved path."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/JiraTicketConnection.cs:14, src/backend/AgentSmith.Contracts/Providers/JiraTicketConnection.cs:25, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/JiraTicketSearch.cs:49"
+  - claim: "A failed HTTP call through the ticket client throws an HttpRequestException whose message carries the status, the reason phrase and up to 500 characters of the response body, and whose StatusCode is set."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/HttpResponseExtensions.cs:17-26"
+  - claim: "The tree's rule for a failed tracker read is that SDK and HTTP messages carry organisation and host names, so only a CLASS leaves the server: not found, unauthorized (401/403) or unreachable, read from the exception type and status."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Text/TicketReadFailureReason.cs:9-34"
+  - claim: "Filing notes reach the person verbatim in the filed and the failure notice."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeComposer.cs:62-79"
+  - claim: "The parent link's configuration key is retired and stays retired."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/Retired/RetiredConfigKeys.cs:18"
+  - claim: "A person's name for a filed ticket is FiledTicketKey: the Jira id as it is, every other tracker's number behind a hash."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FiledTicketKey.cs:34-35"
+  - claim: "A filing report carries notes beside the created tickets, and both the filed and the failure notice render them."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/FilingReport.cs:45-64, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeComposer.cs:62-72"
+  - claim: "The four ticket providers are at or near their file-length baselines, so a link member cannot go on them."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:39, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:43, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:52"
+
+assumptions:
+  - "2026-10-14-dbcel (rewritten for the ticket-text graph: each ticket is a normal work ticket whose body is its text, no approved spec set) files through TicketGraphFiler and runs its post-creation pass in TicketGraphStarts: ONCE over the created prefix — after the last ticket and after a failure alike, without the caller's cancellation token — holding the ResolvedProject, the FilingReport and the TicketRequirementEdge rows stored for each created ticket. This member adds one call there, after the start pass, and appends the returned notes to the report. If l places that pass elsewhere, the call goes wherever the created prefix's stored edges are last in hand, with the same rules."
+  - "2026-10-14-dbcef lands TicketRequirementEdge carrying TicketId (the dependent's tracker id) and RequiredTicketId (a sibling's created id or an existing ticket's id)."
+  - "Azure DevOps' System.LinkTypes.Dependency-Reverse relation added on the dependent names its target as the predecessor (the review checked the link-type ends; the live check below confirms it)."
+  - "Jira's Blocks direction over the API is NOT settled: Atlassian's issue-linking-model page reads the inward issue as the blocker, a widely copied guide reads the opposite. The builder puts the required ticket on inwardIssue and the dependent on outwardIssue, in ONE method, and the live check in done confirms or flips that one method before merge."
+
+scope:
+  in: >
+    PORT (Contracts/Providers): ITicketRequiresLink.LinkAsync(TicketId dependent, TicketId required, CancellationToken)
+    -> RequiresLinkResult, NEVER throwing except for the token's cancellation: a tracker that refuses or cannot be
+    reached is a refused result. RequiresLinkResult(bool Linked, string? Reason, bool Unreachable) with Done,
+    Refused(reason) and Unreached(reason). REASONS ARE CLASSES, NEVER TRACKER TEXT (TicketReadFailureReason's rule):
+    RequiresLinkRefusal.Of(Exception) in Infrastructure/Services/Providers/Tickets maps 401/403 to "not authorized",
+    another HTTP status to "the tracker refused the link (HTTP <code>)" (HttpRequestException.StatusCode,
+    Octokit.ApiException.StatusCode, VssServiceResponseException.HttpStatusCode), and anything else — a socket, a timeout,
+    a VSS failure without a status — to Unreached("the tracker did not answer"); GitHub's fallback says "the dependency
+    API is not available here" only inside its own note. The raw exception is logged at Warning by the link class and
+    never enters the reason, so no organisation URL, host name or response body reaches a filing note. ITicketProviderFactory.CreateRequiresLink(TrackerConnection) with a doc comment and a DEFAULT BODY
+    that returns a RefusingRequiresLink naming the factory type ("<type> builds no tracker link") — an answer, like the
+    port's other defaults, never a NotSupportedException — so the thirteen hand-written factories compile unchanged and
+    a filing through one of them carries one note per edge (36 -> at most 44). TicketProviderFactory delegates to
+    TicketCapabilities.RequiresLink (91 -> at most 94; 84 -> at most 104: a 4-line doc, a blank line, the 15-line switch). CLASSES (Infrastructure/Services/Providers/
+    Tickets): AzureDevOpsRequiresLink — PATCH the dependent, op add /relations/- {rel System.LinkTypes.Dependency-Reverse,
+    url {organization}/_apis/wit/workItems/{required}}, both ids numeric or refused without a call; JiraRequiresLink —
+    POST {BaseUrl.TrimEnd('/')}{ResolvedEndpoints.Create.TrimEnd('/')}Link (base + /rest/api/3/issueLink, or
+    /rest/api/2/issueLink on a Data Center whose Create is /rest/api/2/issue) with {type {name Blocks}, inwardIssue {key
+    required}, outwardIssue {key dependent}} built in one method, a 4xx (link type missing, linking disabled) refused
+    with its class "the tracker refused the link (HTTP <code>)";
+    GitLabRequiresLink — POST {base}/api/v4/projects/{ProjectPath}/issues/{dependent}/links with {target_project_id:
+    Uri.UnescapeDataString(ProjectPath), target_issue_iid: required, link_type: relates_to}; GitHubRequiresLink — NATIVE
+    FIRST: read the required issue (Issue.Get) for its internal Id, then client.Connection.Post to
+    repos/{owner}/{repo}/issues/{dependent}/dependencies/blocked_by with {issue_id: that Id}; an ApiException from either
+    call (403, 404, 410, 422 — an older GHES, the feature off, a missing permission) FALLS BACK to one comment on the
+    dependent, "Agent Smith — requires #{required} (must merge first)"; the fallback comment failing is refused by its
+    class, a non-API failure is Unreached; non-numeric ids refused without a call. LINK PASS (TicketGraphLinks,
+    Server/Services/SpecDialog, at most 70 lines): LinkAsync(ResolvedProject, IReadOnlyList<TicketRequirementEdge>
+    stored) -> IReadOnlyList<string> notes; one CreateRequiresLink(project.Tracker) per pass, one LinkAsync per stored
+    edge of the created prefix, in filing order, under ONE OVERALL DEADLINE — TicketGraphLinks.Deadline = 60 seconds, a
+    code constant (default, pending operator ratification) — on a token that only the deadline cancels, never the
+    caller's (l's start pass runs on CancellationToken.None for the same reason). The pass STOPS at the first Unreached
+    result or when the deadline cancels a call, and the edges it never reached (that one included) become ONE note: "Not
+    linked on the tracker (the tracker did not answer): <dependent key> requires <required key>, …; the requirements are
+    stored and hold those tickets anyway." So a hung tracker costs the filing at most one minute, never a client timeout
+    per edge, and the stored filing, the push and the notice that 2026-10-14-dbcel's sink sends afterwards are reached.
+    A refused result is one note naming both tickets by FiledTicketKey: "The tracker does not show that <dependent key>
+    requires <required key> (<reason class>); the requirement is stored and holds <dependent key> anyway." The pass
+    links every stored edge of the created prefix, an INCOMPLETE ticket's (edges stored, approval record not) included:
+    harmless, because 2026-10-14-dbceh's gate refuses that ticket and 2026-10-14-dbcel reports it "do not trigger it;
+    close it". Called once from 2026-10-14-dbcel's TicketGraphStarts after the start pass, so a slow tracker never
+    delays a start; registered in TicketGraphExtensions (2026-10-14-dbcek creates it, l and m extend it). Nothing reads
+    a link back.
+  out: >
+    The requirement that holds a ticket (the stored edge) — 2026-10-14-dbcef; the gate — 2026-10-14-dbceh; the filing,
+    the created prefix and the start pass — 2026-10-14-dbcel. Reading tracker links back, or letting a person's link on
+    the board add or remove a requirement — nobody: contract section 2.3 makes the table the one home of a requirement
+    and the link a person's view, written once (default 6, pending operator ratification). GitLab's blocks link type —
+    nobody: it needs a paid tier, and relates_to works on every tier (contract decision 19). A configurable Jira link
+    type or issue-link path — nobody: contract section 2.7 adds no config key, parent_link_type stays retired, and the
+    path follows the configured issue collection. Removing a link when a ticket is closed or a requirement is marked
+    done by hand — nobody: the link records the order the approval filed, which stays true. A link from a bound
+    conversation's continuation or follow-up — nobody: those file one ticket, and FollowUpLink already comments on both.
+    Linking edges whose store failed — nobody: a ticket created without its edges is named "do not trigger it" by
+    2026-10-14-dbcel, and a link would claim a requirement nothing holds.
+
+decisions:
+  - key: "ITS OWN PORT, NOT A PROVIDER MEMBER. The four providers are at or near their baselines and ITicketProvider is untouched by this series (contract section 4); the capability ports beside the provider are the established place for a tracker act that is not ticket CRUD (TicketCapabilities)."
+  - key: "A DEFAULT BODY THAT REFUSES, NOT ONE THAT THROWS (round-1 cut, main-thread D3). The port promises never to throw; a factory member that throws would break that promise one level up and give the pass a second failure path. The defaults on ITicketProvider answer, so this one answers too: a RefusingRequiresLink whose reason names the factory type. Thirteen hand-written factories and the harness's stub compile unchanged and file with one note per edge."
+  - key: "THE PASS IS ITS OWN CLASS (round-1 cut). 2026-10-14-dbcel's filer and its start class have no line room to spare; a loop, a result switch and the note text in a class of their own cost l one call line."
+  - key: "THE CREATED PREFIX IS LINKED ON FAILURE TOO (round-1 cut, D3). A partial filing keeps its created tickets and their stored edges (2026-10-14-dbcel); those requirements hold on the tracker as on the board, so a person reading the tracker sees them. The pass runs without the caller's token for the same reason l's start pass does: once the first ticket exists, what the board says must match what the table holds."
+  - key: "LINKED AFTER THE START PASS. Starts are what moves work; links are a person's view. Placing the tracker round-trips after the starts means a slow or refusing tracker never delays one, and a link written after a ready ticket started tells the person nothing different."
+  - key: "GITHUB: NATIVE blocked_by FIRST, A COMMENT AS FALLBACK (main-thread D3; replaces contract section 8 answer 4's 'always a comment', pending operator ratification). The endpoint is documented for github.com and GHES 3.20 and later and is the only form GitHub itself shows as 'blocked by'. An older GHES, a disabled feature or a missing permission answers 403/404/410/422 and gets the comment, which is a MENTION, not a dependency: GitHub shows it in the timeline and never as blocked. Octokit 14 has no typed call, so the POST goes through client.Connection.Post as the deleted sub-issue code and GitHubSourceProvider already do."
+  - key: "JIRA'S DIRECTION IS PROVEN LIVE, NOT BY A BODY TEST (round-1 cut, D3). The request-body test pins only what the builder believes; a wrong direction tells the person that the dependent blocks the required ticket, worse than no link. One live link on Jira Cloud (and Data Center when one is reachable), read back with GET issue?fields=issuelinks and seen in the UI as '<required> blocks <dependent>', settles it; the observed mapping is recorded in decisions/2026-10-14-dbcem.yaml."
+  - key: "ONE DEADLINE, AND THE FIRST SILENCE ENDS THE PASS (round-2 cut). The pass sits between the starts and the stored filing; with a client timeout of 100 s per call, a tracker that stops answering mid-pass would hold the notice for tens of minutes and a rolling deploy could kill the process before the filing is stored, so the operator approves again and files twice. One 60-second deadline (contract section 5 default 35, pending operator ratification) and a stop at the first unanswered call bound that window; the unreached edges are named in one note, and their requirements hold anyway because the table, not the link, is what the gate reads. Moving the pass after the stored filing was the alternative; it needs a second push."
+  - key: "REFUSAL REASONS ARE CLASSES (round-2 cut). A response body or a VSS message carries organisation URLs and host names (HttpResponseExtensions puts up to 500 body characters into the message); the tree's rule for tracker reads (TicketReadFailureReason) lets only the class leave the server. TicketReadFailureReason lives in Server and classifies reads; the link classes live in Infrastructure, so RequiresLinkRefusal is their own small classifier with the same rule. Jira's errorMessages are not passed through either: one rule for four trackers, and the live check reads the tracker's own words where they matter."
+  - key: "AN INCOMPLETE TICKET'S EDGES ARE LINKED TOO (round-2 note). Its edges are stored and it exists on the tracker; skipping it would need the pass to read the approval records. The link is harmless: the gate refuses the ticket, and the filing notice tells the person to close it."
+  - key: "JIRA'S PATH FROM THE CONFIGURED ISSUE COLLECTION, SLASH TRIMMED, ON THE BASE URL. Adding an issue_link endpoint would be a new config key (contract section 2.7: none). Create.TrimEnd('/') + 'Link' turns an operator's trailing slash into the same path instead of /issue/Link."
+  - key: "GITLAB SENDS THE DECODED PROJECT PATH IN THE BODY (round-1 cut). The URL carries the path URL-encoded, as every GitLab capability builds it; the body's target_project_id takes the decoded path, as the deleted link code deliberately did."
+  - key: "NOTES NAME TICKETS BY THEIR TRACKER KEY (round-1 cut, D3). '#DPG-12' is wrong on Jira; FiledTicketKey is the display form every filing notice already uses."
+  - key: "Defaults pending operator ratification: contract section 5 defaults 6 and 20 (GitHub as amended here), decision 19, and the link pass's 60-second deadline."
+
+steps:
+  - id: port
+    action: "Contracts/Providers/ITicketRequiresLink.cs, RequiresLinkResult.cs (Done, Refused, Unreached) and RefusingRequiresLink.cs; ITicketProviderFactory.CreateRequiresLink with its doc and the refusing default (36 -> at most 44, wc -l); RequiresLinkRefusal.Of(Exception) in Infrastructure/Services/Providers/Tickets."
+  - id: azdo
+    action: "AzureDevOpsRequiresLink(AzureDevOpsTicketConnection, ILogger): the Dependency-Reverse relation patch through its own AzureDevOpsConnectionCache client; non-numeric ids refused without a call, a failed patch refused or unreached by RequiresLinkRefusal, the exception logged at Warning."
+  - id: jira
+    action: "JiraRequiresLink(JiraTicketConnection, HttpClient, ILogger): the Blocks issueLink POST on BaseUrl.TrimEnd('/') + ResolvedEndpoints.Create.TrimEnd('/') + \"Link\", the body built in one Body(required, dependent) method; a failure classified by RequiresLinkRefusal."
+  - id: gitlab
+    action: "GitLabRequiresLink(GitLabTicketConnection, HttpClient, ILogger): the relates_to link POST, target_project_id = Uri.UnescapeDataString(ProjectPath); a failure classified by RequiresLinkRefusal."
+  - id: github
+    action: "GitHubRequiresLink(IGitHubClient, GitHubTicketConnection, ILogger): Issue.Get for the required issue's Id, the blocked_by POST through Connection.Post; an ApiException falls back to the 'Agent Smith — requires #A (must merge first)' comment; the comment failing classified by RequiresLinkRefusal; a non-API failure Unreached."
+  - id: capabilities
+    action: "TicketCapabilities.RequiresLink(config), the four-armed switch with a doc of at most 4 lines (84 -> at most 104); TicketProviderFactory.CreateRequiresLink delegating in one line (91 -> at most 94); wc -l both."
+  - id: link-pass
+    action: "TicketGraphLinks (Server/Services/SpecDialog, at most 70 lines): LinkAsync(project, stored edges) -> notes by FiledTicketKey, under the 60-second Deadline constant on a deadline-only token, stopping at the first Unreached or cancelled call with one note naming every unreached edge; registered in TicketGraphExtensions; one call line in TicketGraphStarts after the start pass, notes appended to the report."
+  - id: tests
+    action: "Request-shape and refusal tests per tracker in tests/AgentSmith.Tests/Providers (HttpMessageHandler stubs, an Octokit IConnection substitute, the AzDO patch document), the pass tests in SpecDialog, and a DI test resolving ITicketProviderFactory and TicketGraphLinks from the real service collection."
+  - id: live-check
+    action: "One live Jira Cloud link (Data Center when reachable) and one live github.com blocked_by link, each read back on the tracker; the observed Jira mapping and the GitHub answer recorded in decisions/2026-10-14-dbcem.yaml; the Jira Body method flipped if the UI reads the other way."
+
+tests:
+  - "AzureDevOpsRequiresLink_Link_PatchesDependentWithDependencyReverseToRequiredRestUrl"
+  - "AzureDevOpsRequiresLink_NonNumericId_RefusedWithoutACall"
+  - "JiraRequiresLink_Link_PostsBlocksIssueLinkWithRequiredInwardAndDependentOutward"
+  - "JiraRequiresLink_DataCenterIssuePath_PostsToApiTwoIssueLink"
+  - "JiraRequiresLink_CreatePathWithTrailingSlash_PostsToIssueLink"
+  - "JiraRequiresLink_LinkTypeMissing_RefusedWithTrackerMessage"
+  - "GitLabRequiresLink_Link_PostsRelatesToWithDecodedProjectPathInBody"
+  - "GitHubRequiresLink_Link_PostsBlockedByWithRequiredIssueInternalId"
+  - "GitHubRequiresLink_BlockedByAnswers404_FallsBackToAgentSmithRequiresComment"
+  - "GitHubRequiresLink_BlockedByAnswers422_FallsBackToComment"
+  - "GitHubRequiresLink_FallbackCommentFails_Refused"
+  - "GitHubRequiresLink_Comment_IsOursForEveryThreadReader"
+  - "RequiresLink_TrackerUnreachable_UnreachedNeverThrows (one case per tracker)"
+  - "RequiresLink_Refused_ReasonCarriesNoHostOrSdkText (one case per tracker: a response body naming a host and an organisation URL never reaches the reason)"
+  - "TicketGraphLinks_TrackerHangs_StopsAtTheDeadlineAndNamesTheRest"
+  - "TicketGraphLinks_FirstUnreached_StopsAndNamesEveryUnreachedEdgeInOneNote"
+  - "TicketGraphLinks_IncompleteTicket_ItsStoredEdgesAreLinked"
+  - "TicketProviderFactory_DefaultCreateRequiresLink_RefusesNamingTheFactoryType"
+  - "TicketGraphLinks_Refused_OneNoteNamingBothTicketsByTrackerKey (a Jira key without a hash, a GitHub number with one)"
+  - "TicketGraphLinks_FactoryWithoutRequiresLink_FilingSucceedsWithOneNotePerEdge"
+  - "TicketGraphLinks_CallerCancelled_StillLinksEveryStoredEdge"
+  - "TicketGraphFiler_PartialFailure_LinksTheCreatedPrefix"
+  - "TicketGraphFiler_Links_AfterTheStartPass"
+  - "TicketProviderFactory_FromRealServiceCollection_BuildsRequiresLinkPerTrackerType (integration)"
+
+done:
+  - "After a list of tickets is filed, each ticket that requires another shows it on the tracker: a Dependency (predecessor) link on Azure DevOps, a Blocks link on Jira, a related issue on GitLab, GitHub's own 'blocked by' on github.com and GHES 3.20 or later, and an 'Agent Smith — requires #A (must merge first)' comment on an older GitHub."
+  - "When filing fails part-way, the tickets that were created show their requires on the tracker all the same."
+  - "A link the tracker refuses leaves the filing successful, and the filing notice names both tickets by the key the tracker shows (DPG-12 on Jira, #412 elsewhere), says why in a short class (not authorized, refused with its HTTP code) with no host or organisation in it, and says the requirement still holds the ticket."
+  - "When the tracker stops answering during linking, the filing notice still arrives within about a minute and names, in one note, every requirement that was not linked, saying they hold the tickets anyway."
+  - "On a live Jira site, a filed requirement reads '<required> blocks <dependent>' in the issue's links (checked by hand on Jira Cloud, and on Data Center when one is reachable; the result is recorded in decisions/2026-10-14-dbcem.yaml)."
+  - "Removing or adding a link on the tracker by hand changes nothing about when a ticket may start."
+  - "Build green, full suite green, dashboard gen/test/build green."

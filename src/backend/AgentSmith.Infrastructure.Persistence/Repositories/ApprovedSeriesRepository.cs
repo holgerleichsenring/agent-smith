@@ -101,6 +101,7 @@ public sealed class ApprovedSeriesRepository(IUnitOfWork unitOfWork)
         row.TicketId = record.TicketId;
         row.Repositories = string.Join(RepositorySeparator, record.Repositories);
         row.CarryingRepo = record.CarryingRepo;
+        row.Project = record.Project;
         row.ApprovedAt = record.Approval?.At ?? default;
         row.ApprovedInConversation = record.Approval?.Conversation ?? string.Empty;
         row.ApprovedBy = record.Approval?.Principal ?? string.Empty;

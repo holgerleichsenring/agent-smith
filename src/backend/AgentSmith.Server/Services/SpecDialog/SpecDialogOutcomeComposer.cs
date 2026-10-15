@@ -62,15 +62,15 @@ public sealed class SpecDialogOutcomeComposer
     public ComposedReply ComposeFiled(OutcomeProposal proposal, FilingReport report) =>
         new(m => $"Filed {Summarize(proposal)}:\n{FormatTickets(report.Filed, m)}{FormatNotes(report.Notes)}");
 
-    public ComposedReply ComposeFilingFailure(FilingReport report) => new(m =>
+    /// <param name="proposal">2026-10-14-dbcel: a list that created a ticket must not be approved whole again.</param>
+    public ComposedReply ComposeFilingFailure(FilingReport report, OutcomeProposal? proposal = null) => new(m =>
     {
         var head = report.Filed.Count == 0
             ? "Ticket filing failed — nothing was created."
             : $"Ticket filing failed part-way. Created before the failure:\n{FormatTickets(report.Filed, m)}";
-        return $"{head}{FormatNotes(report.Notes)}\nError: {report.Error}\n"
-            + "The confirmed outcome stays stored on this session — ask again "
-            + m.Wording("in this thread ", "below ")
-            + "to re-propose and retry.";
+        return $"{head}{FormatNotes(report.Notes)}\nError: {report.Error}\n" + (proposal is TicketGraphOutcome && report.Filed.Count > 0
+            ? "Approving again files the whole list again: close the created tickets, or propose the rest naming them with `ticket:<id>`."
+            : "The confirmed outcome stays stored on this session — ask again " + m.Wording("in this thread ", "below ") + "to re-propose and retry.");
     });
 
     private static string FormatTickets(IReadOnlyList<FiledTicket> filed, SpecDialogMarkup m) =>
@@ -85,23 +85,11 @@ public sealed class SpecDialogOutcomeComposer
             $"Proposed outcome: {m.Bold("bug ticket")} — {bug.Ticket.Title}\n{bug.Ticket.Description}",
         SpecOutcome spec =>
             $"Proposed outcome: {m.Bold("one spec")} — `{spec.Draft.SpecId}` {spec.Draft.Goal}",
-        EpicOutcome epic => DescribeEpic(epic, m),
+        EpicOutcome epic => EpicProposalText.Describe(epic, m),
+        TicketGraphOutcome graph => TicketGraphProposalText.Describe(graph, m),
         _ => throw new InvalidOperationException(
             $"Outcome kind '{proposal.GetType().Name}' has no confirmation shape."),
     };
-
-    private static string DescribeEpic(EpicOutcome epic, SpecDialogMarkup m)
-    {
-        var sb = new StringBuilder();
-        sb.AppendLine($"Proposed outcome: {m.Bold("epic")} `{epic.Parent.SpecId}` — {epic.Parent.Goal}");
-        sb.AppendLine("Slices, in order:");
-        foreach (var child in epic.Children)
-            sb.AppendLine($"- `{child.SpecId}` {child.Goal}{FormatRequires(child)}");
-        return sb.ToString().TrimEnd();
-    }
-
-    private static string FormatRequires(SpecDraft draft) =>
-        draft.Requires.Count == 0 ? string.Empty : $" (requires: {string.Join(", ", draft.Requires)})";
 
     private static string Summarize(OutcomeProposal proposal) => proposal switch
     {
@@ -113,6 +101,7 @@ public sealed class SpecDialogOutcomeComposer
         EpicOutcome epic =>
             $"an epic as one work ticket (`{epic.Parent.SpecId}`) "
             + $"carrying {epic.Children.Count} slice(s)",
+        TicketGraphOutcome graph => $"a list of {graph.Tickets.Count} tickets, in the order they must merge", // 2026-10-14-dbcel
         _ => throw new InvalidOperationException(
             $"Outcome kind '{proposal.GetType().Name}' has no summary shape."),
     };

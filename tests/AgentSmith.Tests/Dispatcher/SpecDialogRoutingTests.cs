@@ -84,10 +84,10 @@ new DashboardOutcomeChannel(
             new SpecDialogLatestOutcomeStore(repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance),
             AgentSmith.Tests.TestSupport.RatifiedMockStamps.Over(repository), NullLogger<SpecDialogOutcomeFlow>.Instance);
         _router = new SpecDialogRouter(
-            new SpecCommandParser(), _sessions, commandHandler,
+            new SpecCommandParser(), commandHandler,
             _turnRunner.Object, outcomeFlow, turnGate,
             new SpecDialogAnswerAdmission(_sessions, pendingQuestions, _dialogueTransport.Object),
-            SilentSubjectMinter.Over(repository),
+            SilentTurnKeeper.Over(repository, _sessions),
             new SpecDialogEditReload(_sessions, NullLogger<SpecDialogEditReload>.Instance),
             new SpecDialogReplyComposer(), messenger, NullLogger<SpecDialogRouter>.Instance);
     }

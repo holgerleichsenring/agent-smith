@@ -44,6 +44,10 @@ public sealed class ApprovedSeries : EntityBase
     /// <summary>The repository filing wrote the branch into; empty when the approval named none.</summary>
     public string CarryingRepo { get; set; } = string.Empty;
 
+    /// <summary>2026-10-14-dbcef: the project the series was filed into, projected from the record;
+    /// empty on a row approved earlier, whose content names no project.</summary>
+    public string Project { get; set; } = string.Empty;
+
     /// <summary>The whole approval — the series with its goal, the approval, the repositories, the
     /// carrier and the cited website sets — as <c>SpecApprovalJson</c> writes it.</summary>
     public string ContentJson { get; set; } = string.Empty;

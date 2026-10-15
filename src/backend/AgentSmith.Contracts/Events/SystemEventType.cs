@@ -34,4 +34,7 @@ public enum SystemEventType
     // 2026-10-13-9a59a — a ticket page refresh signal, routed to the overview group and
     // never into the System page's ring.
     TicketActivityChanged = 56,
+
+    // 2026-10-14-dbceg — a ticket landed: written once, announced by the winning replica.
+    TicketLanded = 57,
 }

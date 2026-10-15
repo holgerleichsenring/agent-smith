@@ -96,4 +96,45 @@ describe("describeSystemEvent", () => {
     };
     expect(describeSystemEvent(nudge)).toBe("");
   });
+
+  // 2026-10-14-dbceg
+  it("describeSystemEvent_TicketLanded_NamesTheTicketKindAndPerson", () => {
+    const landed = (ticketId: string, kind: string, by: string | null): SystemEvent => ({
+      source: "ticket-landing",
+      type: SystemEventType.TicketLanded,
+      timestamp: "2026-10-14T09:00:00Z",
+      project: "sample",
+      ticketKey: `github-${ticketId}`,
+      ticketId,
+      kind,
+      by,
+    });
+    expect(describeSystemEvent(landed("42", "merged", null))).toBe("landed · sample/#42 · merged");
+    expect(describeSystemEvent(landed("ABC-7", "by-hand", "alice"))).toBe("landed · sample/ABC-7 · by-hand by alice");
+  });
+});
+
+describe("useSubsystemActivity tracker", () => {
+  it("subsystemActivity_TicketLanded_IsTheTrackerTail", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-06-03T19:09:30.000Z"));
+    const events: SystemEvent[] = [
+      pollFinished("2026-06-03T19:09:00.000Z"),
+      {
+        source: "ticket-landing",
+        type: SystemEventType.TicketLanded,
+        timestamp: "2026-06-03T19:09:28.000Z",
+        project: "sample",
+        ticketKey: "github-42",
+        ticketId: "42",
+        kind: "merged",
+        by: null,
+      },
+    ];
+
+    const { result } = renderHook(() => useSubsystemActivity(events));
+
+    expect(result.current.tracker.events).toHaveLength(2);
+    expect(result.current.tracker.tail!.text).toBe("landed · sample/#42 · merged");
+  });
 });

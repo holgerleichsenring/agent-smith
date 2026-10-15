@@ -272,7 +272,7 @@ public sealed class ParkRecordsARefusedMoveTests
         return new TicketClaimService(
             claimLock.Object, _store, new AgentSmith.Application.Services.Resume.NullPreviousAttemptReader(), transitionerFactory.Object, Mock.Of<IRedisJobQueue>(),
             new NoOpActiveRunLease(), new InMemoryTakenTicketStore(),
-            NullLogger<TicketClaimService>.Instance);
+            NullLogger<TicketClaimService>.Instance, AgentSmith.Tests.TestSupport.TicketRequirementDoubles.None());
     }
 
     private static AgentSmithConfig Config() => new()

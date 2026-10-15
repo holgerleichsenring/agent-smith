@@ -80,8 +80,10 @@ internal static class ApprovedSetDoubles
     internal static ApprovedContinuation Continuation() =>
         new(new ContinuationMerge(new SpecDraftIdRewriter()), SeriesSettingsDoubles.Reader(), NullLogger<ApprovedContinuation>.Instance);
 
-    internal static ApprovedSpecSetRecorder Recorder(ISpecApprovalStore? store = null) =>
-        new(store ?? Store(), new NoReferenceSetReader(), new SeriesRepos(), TimeProvider.System, NullLogger<ApprovedSpecSetRecorder>.Instance);
+    /// <param name="references">2026-10-14-dbcel: the uploads the approval cites; none by default.</param>
+    internal static ApprovedSpecSetRecorder Recorder(
+        ISpecApprovalStore? store = null, AgentSmith.Contracts.Sandbox.IReferenceSetReader? references = null) =>
+        new(store ?? Store(), references ?? new NoReferenceSetReader(), new SeriesRepos(), TimeProvider.System, NullLogger<ApprovedSpecSetRecorder>.Instance);
 
     /// <summary>2026-09-18-b4f0: the real resolver — a tracker that configures no kinds
     /// resolves none, which is what every test that does not set one expects.</summary>

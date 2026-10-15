@@ -240,13 +240,13 @@ public sealed class DialogDraftSplitTests : IDisposable
                 NullLogger<DashboardOutcomeChannel>.Instance, _hub),
             new SpecDialogLatestOutcomeStore(repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance), AgentSmith.Tests.TestSupport.RatifiedMockStamps.Over(repository), NullLogger<SpecDialogOutcomeFlow>.Instance);
         return new SpecDialogRouter(
-            new SpecCommandParser(), _sessions,
+            new SpecCommandParser(),
             new SpecDialogCommandHandler(_sessions,
                 new SpecDialogScopeResolver(Mock.Of<IConfigurationLoader>()),
                 new SpecDialogReplyComposer(), _messenger),
             _turnRunner.Object, flow, gate,
             new SpecDialogAnswerAdmission(_sessions, pending, _transport.Object),
-            SilentSubjectMinter.Over(repository),
+            SilentTurnKeeper.Over(repository, _sessions),
             new SpecDialogEditReload(_sessions, NullLogger<SpecDialogEditReload>.Instance),
             new SpecDialogReplyComposer(), _messenger, NullLogger<SpecDialogRouter>.Instance);
     }

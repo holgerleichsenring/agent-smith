@@ -1,0 +1,193 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-14-dbcep
+goal: "One skills release teaches the design partner ticket lists in merge order and source-tree absence criteria, has the steward say what a waiting ticket waits for, and the pin moves to it."
+
+applies_to: "the agent-smith-skills release (design-partner-master, coding-agent-master, ticket-steward-master) + backend (embedded skills pin, pinned-master tests, version strings in the example config and the skills docs)"
+
+requires: [2026-10-14-dbcec, 2026-10-14-dbcei, 2026-10-14-dbcej, 2026-10-14-dbcek, 2026-10-14-dbcel]
+
+facts:
+  - claim: "The pin is SkillsCatalogVersion v5.17.0 with its SHA256 (moved by 2026-10-14-da5eh for ticket-steward-master); the tarball is checked in under Resources/."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:53-58, observed: 2026-10-14 after the merge of PR #740, listing the Resources folder of AgentSmith.Infrastructure.Core shows agentsmith-skills-v5.17.0.tar.gz"
+  - claim: "Tests read a master as the pinned catalog ships it; the series rules of 2026-10-13-8762 are asserted sentence by sentence from the pin, the review-cut rule among them, quoted as 'A review may answer your spec or epic with cuts that quote your draft'."
+    evidence: "tests/AgentSmith.Tests/Prompts/PackagedMaster.cs:22-31, tests/AgentSmith.Tests/Skills/SeriesSkillRulesTests.cs:14-34"
+  - claim: "The validator's accepted pins name v5.16.0 (2026-10-14-da5eh added no v5.17.0 row); the minimum stays v5.13.0."
+    evidence: "tests/AgentSmith.Tests/Configuration/SkillsConfigValidatorTests.cs:28-34, src/backend/AgentSmith.Application/Services/Configuration/SkillsConfigValidator.cs:14"
+  - claim: "The pinned version string v5.17.0 stands in the example config and the skills docs."
+    evidence: "config/agentsmith.example.yml:598, docs/how-it-works/skills-catalog.md:20, docs/how-it-works/skills-catalog.md:37, docs/how-it-works/skills-catalog.md:58-59, docs/how-it-works/skills-catalog.md:73, docs/how-it-works/skills-catalog.md:85, docs/reference/skills/airgap.md:18, docs/reference/skills/airgap.md:30, docs/reference/skills/airgap.md:45, docs/reference/skills/your-own-skills.md:15, docs/reference/skills/your-own-skills.md:71"
+  - claim: "A pin bump moves the release, the csproj, the tarball, the version strings and the pinned-rule tests in one spec, as 8762x did; the latest, 2026-10-14-da5eh, embedded the release carrying ticket-steward-master and a test holding its tool names to the steward surface."
+    evidence: ".agentsmith/specs/done/2026-10-13-8762x-skills-catalog-pin-series.yaml:2-3, .agentsmith/specs/done/2026-10-14-da5eh-skills-pin-steward.yaml:2-3"
+  - claim: "agent-smith-skills origin/main is release 5.17.0 (7d2ddaf, after 86e8330 added ticket-steward-master); its latest tag is v5.17.0; design-partner-master is 1.16.0, coding-agent-master 1.32.0 and ticket-steward-master 1.0.0, and the 5.16.0 -> 5.17.0 diff touches no master but the steward."
+    evidence: "observed: 2026-10-14, git fetch, git log origin/main --oneline -3, git tag --sort=-v:refname, git diff --stat 6430f13 origin/main and git show origin/main:skills/_masters/<name>/SKILL.md line 5 in /Users/da5id/develop/source/others/agent-smith/agent-smith-skills"
+  - claim: "ticket-steward-master's 'Start the next attempt' paragraph says start_next_attempt answers that the attempt was requested or why it was refused, to be passed on as it is; it says nothing about a ticket that waits for other tickets; its description is 188 characters and it contains no 'phase'."
+    evidence: "observed: 2026-10-14, git show origin/main:skills/_masters/ticket-steward-master/SKILL.md lines 3, 5 and 53-60 and grep -ci phase = 0, in agent-smith-skills"
+  - claim: "TicketStewardSkillTests reads the pinned steward and holds every backticked tool it names to the steward surface, so a new sentence naming start_next_attempt passes it."
+    evidence: "tests/AgentSmith.Tests/Skills/TicketStewardSkillTests.cs:14-51"
+  - claim: "The operator's skills checkout is on feat/design-partner-asks-at-the-threshold (cea5d3c, not on origin/main); earlier series worked in their own skills worktrees, e.g. agent-smith-skills-8762 on spec/2026-10-13-8762."
+    evidence: "observed: 2026-10-14, git branch --show-current and git worktree list in /Users/da5id/develop/source/others/agent-smith/agent-smith-skills"
+  - claim: "design-partner-master's outcomes are answer, document, bug, spec and epic; the review-cut sentence names 'your spec or epic'; 'When spec and epic both look right' opens with 'Apply the branch-state test first:'; the 'say which you chose' list explains spec and epic filing only; the epic section states the outcome block, sibling-only requires and that a child's facts describe the state its predecessors leave."
+    evidence: "observed: 2026-10-14, git show origin/main:skills/_masters/design-partner-master/SKILL.md lines 210-241, 243-266 and 438-498 in agent-smith-skills"
+  - claim: "design-partner-master's description value is 170 characters; the cap file says 200, a master description over it is silently dropped by the loader, and the build validates it."
+    evidence: "observed: 2026-10-14, git show origin/main:skills/_masters/design-partner-master/SKILL.md line 3 and git show origin/main:skills/description-cap.txt in agent-smith-skills, src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:50-51"
+  - claim: "Placeholder ids in a draft are 'unique within the draft', numbered 0000, 0001 … in an epic."
+    evidence: "observed: 2026-10-14, git show origin/main:skills/_masters/design-partner-master/SKILL.md lines 339-342 in agent-smith-skills"
+  - claim: "coding-agent-master's stop checklist walks each ratified criterion and either satisfies it or records it not applicable; it says nothing about where an absence criterion is searched."
+    evidence: "observed: 2026-10-14, git show origin/main:skills/_masters/coding-agent-master/SKILL.md lines 529-545 in agent-smith-skills"
+  - claim: "The whole-tree search tool takes a pattern, root, glob, head limit, context and output mode, with no exclude parameter; its skip list holds .git, node_modules, bin, obj and the like but not .agentsmith, which must stay readable; the committed spec quotes every criterion."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:470-479, src/backend/AgentSmith.Sandbox.Wire/GrepScope.cs:17-19, src/backend/AgentSmith.Contracts/Specs/SeriesPaths.cs:12"
+  - claim: "A coding run derives its ordered set of specs from the ticket at start (DeriveSpec after AnalyzeCode), reviews them, then gates them before the master."
+    evidence: "src/backend/AgentSmith.Contracts/Commands/PipelinePresets.Code.cs:52-58"
+  - claim: "A Work it out conversation can be opened bound to a ticket (its tracker and key are stored on the session)."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogSessionManager.cs:26-41"
+  - claim: "One attempt runs at most series.specs_per_attempt specs, 8 by default."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/SeriesConfig.cs:20-21"
+  - claim: "Field: a done item read 'No file contains SendManualNotificationContext or ManualNotificationResult', which the work branch can never satisfy because its own spec quotes both names; sub-phase tickets (15-28 min) worked, whole-phase tickets (65-79 min) failed or were reverted."
+    evidence: "observed: 2026-10-14, scratchpad dbce-research-defects.md section 3 (transcript t_7566d37c turn 96) and dbce-goal.md line 5"
+  - claim: "A master's placeholder drift test matches an upper-case brace token, so a lower-case flow mapping in a block is no placeholder."
+    evidence: "tests/AgentSmith.Tests/Prompts/MasterPromptTokenDriftTests.cs:29"
+  - claim: "The skills validator fails every file under skills/ that contains the word 'phase' (any case) and is not on the allowlist; design-partner-master has no such line today and is not listed."
+    evidence: "observed: 2026-10-14, git show origin/main:scripts/validate-skills.sh lines 367-420 (check_spec_word), git show origin/main:scripts/phase-word-allowlist.tsv, git show origin/main:skills/_masters/design-partner-master/SKILL.md | grep -ci phase = 0, in agent-smith-skills"
+  - claim: "design-partner-master's spec done rules allow a scenario mapping (given/when/then) as a done item, which a ticket text's string-only done list cannot carry."
+    evidence: "observed: 2026-10-14, git show origin/main:skills/_masters/design-partner-master/SKILL.md lines 324-326 and 404-409 in agent-smith-skills"
+  - claim: "design-partner-master asks for English in a filed bug and in a drafted spec whatever language the conversation is in."
+    evidence: "observed: 2026-10-14, git show origin/main:skills/_masters/design-partner-master/SKILL.md lines 371-376 and 432-436 in agent-smith-skills"
+  - claim: "The outcome block is read untyped: a list item comes back as a raw object, so an unquoted ': ' inside a done item reaches the checker as a mapping."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/OutcomeYamlReader.cs:30-32"
+  - claim: "An ```outcome block is matched lazily up to the first ``` after it, so a code fence inside a ticket text ends the outcome block early."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogDraftBlocks.cs:25"
+
+assumptions:
+  - "2026-10-14-dbcej lands the kind: tickets outcome as ticket texts (main-thread decision D1): a list of tickets each with key ([a-z][a-z0-9-]{1,40}), a one-line title of at most 120, a requirement of at most 1,200, done (1 to 8 one-line string items of at most 240), requires (sibling keys or ticket:<id>, one leading '#' after the prefix stripped) and optional repos, no spec inside; a non-string field or item is refused asking to quote it; its checker refuses duplicate keys, a cycle and an unknown requires, and its MaxTickets is the number S5 names."
+  - "2026-10-14-dbcek reviews a proposed ticket list as a whole and answers with cuts on ticket texts; 2026-10-14-dbcel refuses a list in a ticket-bound conversation, files each ticket as a work ticket whose body is its text, and carries a ticket-text record's cited material forward when the ticket's specs are settled in its own conversation; 2026-10-14-dbceh holds a ticket until its requires are merged. The master text describes these, it does not enforce them."
+  - "2026-10-14-dbcec puts the absence sentence into the attack lens; this spec adds the skill half only."
+  - "The operator merges the skills pull request and the release-please release pull request; this spec waits on both."
+
+scope:
+  in: >
+    SKILLS WORKTREE: git -C agent-smith-skills worktree add ../agent-smith-skills-dbce -b spec/2026-10-14-dbce
+    origin/main; every skills edit happens there and the operator's checkout is never switched.
+    DESIGN-PARTNER-MASTER: the Outcomes list gains S1; the review-cut sentence (origin/main line 241) becomes S11;
+    "When spec and epic both look right" gains S2 before its first paragraph, whose opening "Apply the branch-state test
+    first:" becomes "Then apply the branch-state test:"; its "say which you chose" list gains S10; a new section
+    "Proposing tickets" after "Proposing an epic" carries the ```outcome kind: tickets block and S3-S7; the drafting rules
+    gain S8. The block shows two tickets in merge order with key, title, requirement (a few lines of scope), done (one
+    item each), requires and, on the first, repos — the six fields 2026-10-14-dbcej reads: the second requires the first by key and one already-filed ticket as "ticket:1234"; EVERY
+    string double-quoted (key, title, requirement on one line, each done item, each requires and repos entry), no spec,
+    work, steps or facts key, and only lower-case flow mappings. Exact sentences (each quoted by a test and each on
+    ONE source line of SKILL.md, because Should().Contain does not match a wrapped sentence; a review reword changes text
+    and test together): S1 "- **tickets** (the work has MERGE boundaries: a piece must be merged before the next can be
+    built or reviewed) → propose a list of tickets in merge order as described in \"Proposing tickets\"." S2 "Ask the
+    merge test first: must one piece be MERGED before the next can be built or reviewed? Then each such piece is its own
+    ticket, and a later ticket requires the one it must wait for. Work that only needs an order stays one ticket, a spec
+    or an epic, and you say in one line which you chose and why." S3 "Each ticket is a ticket text, never a spec: a
+    `key` of lower-case letters, digits and dashes, starting with a letter, 2 to 41 characters, that no other ticket of
+    the proposal uses, a one-line `title` of at most 120 characters, a `requirement` of at most 1,200 characters, a
+    `done` list of one to eight one-line items of at most 240 characters each (a scenario written as the one line `WHEN
+    … THEN …`), and optionally `repos` naming the configured repositories it changes; quote every string, never put a code fence inside a ticket text, write it in
+    English whatever language the conversation is in, and the run that ticket starts derives its specs." S4 "List the
+    tickets in merge order: `requires` names only tickets that must be merged first, either one listed above it by its
+    key or an already-filed ticket of this project as `ticket:<tracker id>`, the id without `#` (`ticket:41` for #41,
+    `ticket:PROJ-41` for a Jira key), so no ticket ever waits on itself." S5 "A
+    proposal holds 2 to 20 tickets; for more, propose the first part and let the next proposal name its filed tickets
+    with `ticket:<id>`." S6 "Write each ticket's requirement against the code as it will stand once the tickets it
+    requires are merged, and keep each ticket small enough for one run to build, review and merge: a piece, never a
+    whole feature." S7 "Propose tickets only in a conversation that is not bound to a ticket; a bound conversation
+    continues its own ticket." S8 "Write an absence criterion over the source tree, \"no file outside .agentsmith/
+    contains X\", never \"no file contains X\": the committed spec under .agentsmith/ quotes X, so the whole-tree form
+    can never hold." S10 "- **Tickets** file one ticket per entry, each carrying its text; a ticket whose requires are
+    not yet merged waits and starts once they are, and its run drafts its specs when it starts. To settle a ticket's
+    specs earlier, open Work it out on that ticket." S11 "A review may answer your spec, epic or tickets with cuts that
+    quote your draft: apply exactly those cuts, change nothing else, and re-propose the whole outcome." DESCRIPTION
+    (172 characters, cap 200): "Master for the spec-dialog pipeline. A design partner: answers grounded questions and
+    emits a typed outcome - answer, fix-bug ticket, spec, epic, or tickets in merge order." CODING-AGENT-MASTER: the
+    stop checklist gains S9 "Judge an absence criterion (\"no file contains X\") over the source tree: a match under
+    .agentsmith/ does not count against it, because the committed spec there quotes X." TICKET-STEWARD-MASTER: its
+    "Start the next attempt" paragraph (origin/main lines 53-60) ends with S12 "When `start_next_attempt` answers that
+    the ticket waits for other tickets, tell the person which tickets it waits for and that nothing was started: once
+    those are merged or marked done by hand, they ask for the attempt again." (2026-10-14-dbcei's answer: a worked
+    ticket is never started by a landing, so the sentence does not promise it starts by itself.) VERSIONS: one bump per
+    touched master, one minor above its origin/main version at the rebase (expected 1.16.0 -> 1.17.0, 1.32.0 -> 1.33.0
+    and 1.0.0 -> 1.1.0, not fixed targets); scripts/validate-skills.sh green; ONE pull request with a conventional "feat:" title. PIN: after the
+    operator's merges, SkillsCatalogVersion and SkillsCatalogSha256 move to the tag release-please cuts (expected
+    v5.18.0); the v5.17.0 tarball is deleted and the new one checked in; the example config and the version strings in
+    skills-catalog.md, airgap.md and your-own-skills.md follow (your-own-skills.md:71 the version only, its example
+    counts kept as 8762x kept them); SkillsConfigValidatorTests names the new tag; SeriesSkillRulesTests' review-cut
+    quote becomes S11. TESTS: TicketGraphSkillRulesTests reads S1-S10 and the block from the pinned masters;
+    TicketStewardSkillTests reads S12 from the pinned steward.
+  out: >
+    The outcome parser and checker (unique keys, acyclic, requires known, MaxTickets) — 2026-10-14-dbcej. The review of
+    a proposed list — 2026-10-14-dbcek. Filing and the bound-conversation refusal — 2026-10-14-dbcel. Holding a ticket
+    until its requires are merged — 2026-10-14-dbceh. The attack lens's absence sentence — 2026-10-14-dbcec. GrepScope's
+    exclusions — nobody: the design partner must keep reading specs (contract letter c). spec-derivation-master —
+    nobody: a run derives one ticket's specs from that ticket's text, which it already does, and never a list of
+    tickets. Moving a deployed config's skills.version to the new tag — nobody in this repo: operator config, not
+    committed; the commit and the pull request name the tag to set. The local commit on
+    feat/design-partner-asks-at-the-threshold — nobody: it is not on origin/main and does not ride this release unless
+    the operator merges it first.
+
+decisions:
+  - key: "ONE RELEASE AT THE END. Contract section 5 default 26 (default, pending operator ratification): one release and one pin move for the series, after the outcome, the review and the filing exist, so no live master asks for a kind the server would refuse."
+  - key: "THE BLOCK TEACHES TICKET TEXTS, NOT SPECS (main-thread decision D1, default pending operator ratification). A design reply cannot carry 20 tickets of full specs under the design turn's output cap, and each ticket's run derives its specs against the code its requires leave merged, the reason child tickets carried no specs before. The block therefore has no spec, work, steps or facts key, and the earlier cuts that taught a nested spec shape and graph-wide spec-id uniqueness fall away with it."
+  - key: "MERGE TEST FIRST, BRANCH-STATE TEST SECOND. Contract decision 1 and section 5 default 25 (default, pending operator ratification): a ticket list only at merge boundaries; work that only needs order stays one ticket's series, which keeps 2026-09-17-0e79d's reasons for one ticket per cut. The existing 'Apply the branch-state test first:' becomes 'Then apply the branch-state test:' so the master does not name two tests first. The master says which it chose and why."
+  - key: "REQUIRES POINT UP THE LIST, SO THE PROSE NEVER READS AS A CYCLE. 'Tickets that require each other' reads as mutual, and the checker refuses a cycle. Teaching merge order with requires naming only a ticket listed above it is stricter than the checker (which orders any acyclic list) and makes a cycle impossible to write; the description says 'tickets in merge order' for the same reason."
+  - key: "NO NUMBER FOR A TICKET'S SIZE IN THE TEXT. A ticket's run is capped by series.specs_per_attempt, which is configurable; the text says 'small enough for one run to build, review and merge: a piece, never a whole feature', the size the field showed works. The field's word for the failed size is not used: the skills validator fails any unlisted file containing it (round-2 cut), and the noun in this repository is spec."
+  - key: "S3 STATES THE CHECKER'S BOUNDS, NOT THE SPEC DONE RULES (round-2 cut). The spec done rules allow a scenario mapping, which 2026-10-14-dbcej refuses in a ticket text; each violation costs the design turn's one re-prompt, and a second invalid list reaches the operator as a notice instead of the list. S3 therefore names the key shape, the one-line title, the 1,200-character requirement, one to eight one-line done items with a scenario as one WHEN … THEN … line, and asks to quote every string and never to put a code fence inside a ticket text; the block quotes every string so an unquoted ': ' never turns an item into a mapping, and an inner fence would end the outcome block early (SpecDialogDraftBlocks.cs:25 matches up to the first closing fence). Ticket texts are English, as bugs and specs already are."
+  - key: "ticket:41, NOT ticket:#41 (round-2 cut). The filing and proposal texts show numeric ids as #41; 2026-10-14-dbcej strips one leading '#' so a copied form still names the ticket, and S4 teaches the clean form so the master never relies on that leniency."
+  - key: "THE SETTLE-SPECS-FIRST SENTENCE STAYS (round-2 cut REJECTED in favour of the main-thread amendment R3). The review found that an approval in a ticket's own conversation re-cited only that conversation's material (ApprovedSpecSetRecorder.cs:72,82-83; ApprovalCitations.cs:16-21). 2026-10-14-dbcel now carries the previous ticket-text record's cited sets and images forward into the re-recorded approval, so the path S10 names keeps the uploads and the sentence is true."
+  - key: "THE REVIEW-CUT RULE NAMES TICKETS. 2026-10-14-dbcek answers a list with cuts; a master told only 'your spec or epic' may re-propose the cut ticket alone, one ticket, which the checker refuses. The rule and SeriesSkillRulesTests' quote change together in this commit."
+  - key: "ABSENCE CRITERIA SCOPED IN BOTH MASTERS. Contract section 5 default 3 (default, pending operator ratification): the design partner writes the scoped form, and the coding master judges an unscoped one over the source tree, because filed tickets written before this release still carry it. S9 is tool-neutral: grep_in_tree has no exclude parameter."
+  - key: "THE SKILLS WORK HAS ITS OWN WORKTREE. The operator's skills checkout carries an unmerged branch; cutting a branch there would switch it under him, so the work runs in agent-smith-skills-dbce from origin/main, as earlier series did."
+  - key: "THE STEWARD SAYS NOTHING STARTED, NOT THAT IT STARTS BY ITSELF (re-grounded after PR #740). The request asked for 'it starts by itself once those are merged or marked done by hand'. That holds for a ticket no attempt worked (2026-10-14-dbceh's wake), but start_next_attempt is offered only on a worked ticket, whose RequirementsMet nudge reworks only on a pending act (ReworkNudgeHandler.cs:39-53), and 2026-10-14-dbcei answers the waiting start without queueing one; a promise of a self-start would be false. S12 therefore says which tickets it waits for, that nothing was started, and that the person asks again once they landed. Reported to the operator."
+  - key: "MINIMUM VERSION STAYS v5.13.0. An older pulled pin still runs; its design partner only never proposes tickets."
+  - key: "BUMPS ARE RELATIVE, AS 8762x DID. origin/main may move before the rebase, so each master and the tag are 'one minor above origin/main at the rebase', never fixed in advance."
+  - key: "TESTS QUOTE THE TEXT AS WRITTEN. The sentences and the description live in this spec so the test and the master cannot be written from two paraphrases; a review that rewords one changes both in this commit."
+
+steps:
+  - id: skills-worktree
+    action: "git -C /Users/da5id/develop/source/others/agent-smith/agent-smith-skills fetch; worktree add ../agent-smith-skills-dbce -b spec/2026-10-14-dbce origin/main; all skills edits there."
+  - id: design-partner
+    action: "design-partner-master: S1 in Outcomes, S11 for line 241, S2 and 'Then apply the branch-state test:' in 'When spec and epic both look right', S10 in its 'say which you chose' list, the section 'Proposing tickets' (the block, S3-S7) after 'Proposing an epic', S8 in the drafting rules, the 172-character description; every quoted sentence on one source line."
+  - id: coding-agent
+    action: "coding-agent-master: S9 in the stop checklist beside the acceptance item; ticket-steward-master: S12 on one source line ending the 'Start the next attempt' paragraph."
+  - id: versions
+    action: "One frontmatter bump per touched master (three), one minor above origin/main at the rebase; scripts/validate-skills.sh green (description cap, inputs, references, the spec-word check that refuses 'phase'); grep S1-S12 on the branch and grep -ci phase over the three masters' changed text = 0."
+  - id: release
+    action: "One pull request titled 'feat: the design partner proposes ticket lists in merge order and scopes absence criteria to the source tree, and the steward says what a waiting ticket waits for'; after the operator merges it and the release-please pull request, confirm the release lists agentsmith-skills-<tag>.tar.gz and its .sha256."
+  - id: pin
+    action: "csproj SkillsCatalogVersion and SkillsCatalogSha256 to the new tag; delete Resources/agentsmith-skills-v5.17.0.tar.gz; the build downloads, verifies and validates the new tarball; check it in."
+  - id: version-strings
+    action: "config/agentsmith.example.yml:598, skills-catalog.md (20, 37, 58-59, 73, 85), airgap.md (18, 30, 45), your-own-skills.md (15, 71 version only); SkillsConfigValidatorTests' accepted pin names the new tag."
+  - id: rule-tests
+    action: "TicketGraphSkillRulesTests (tests/AgentSmith.Tests/Skills, at most 120 lines, through PackagedMaster): one test per sentence S1-S10, one for the block and one that the block's outcome passes 2026-10-14-dbcej's parser and checker; SeriesSkillRulesTests' review-cut quote becomes S11; TicketStewardSkillTests gains the S12 test (52 -> at most 62)."
+  - id: tests
+    action: "Run the Skills, Prompts and Configuration classes (MasterPromptTokenDriftTests and the composed-principles goldens against the new pin; a changed golden is regenerated and named in the commit)."
+  - id: verify
+    action: "Full suite, dashboard gen:hub-events / test / build."
+
+tests:
+  - "EmbeddedSkills_DesignPartnerMaster_OffersTicketsAtMergeBoundaries (S1)"
+  - "EmbeddedSkills_DesignPartnerMaster_AsksTheMergeTestThenTheBranchStateTest (S2 and 'Then apply the branch-state test:')"
+  - "EmbeddedSkills_DesignPartnerMaster_TicketIsABoundedQuotedEnglishTextWithAUniqueKey (S3)"
+  - "EmbeddedSkills_DesignPartnerMaster_RequiresNameOnlyTicketsMergedFirstWithIdsWithoutHash (S4)"
+  - "EmbeddedSkills_DesignPartnerMaster_SplitsMoreThanTwentyTicketsAcrossProposals (S5)"
+  - "EmbeddedSkills_DesignPartnerMaster_TicketIsWrittenAgainstItsMergedRequiresAndSizedForOneRun (S6)"
+  - "EmbeddedSkills_DesignPartnerMaster_ProposesTicketsOnlyUnbound (S7)"
+  - "EmbeddedSkills_DesignPartnerMaster_ScopesAbsenceCriteriaToTheSourceTree (S8)"
+  - "EmbeddedSkills_CodingAgentMaster_JudgesAbsenceOverTheSourceTree (S9)"
+  - "EmbeddedSkills_DesignPartnerMaster_SaysWhatATicketListFiles (S10)"
+  - "EmbeddedSkills_DesignPartnerMaster_ShowsATicketTextBlockWithoutSpecs (the kind: tickets block holds key, title, requirement, done, requires and repos, a ticket:<id>, every string double-quoted, and no spec, work, steps or facts key)"
+  - "EmbeddedSkills_DesignPartnerMaster_ShowsAnExampleTheCheckerAccepts (the block's outcome, parsed by 2026-10-14-dbcej's TicketGraphOutcomeParser and TicketGraphChecker, is valid)"
+  - "EmbeddedSkills_DesignPartnerMaster_AppliesReviewCutsAndReproposes (existing, quote becomes S11)"
+  - "TicketStewardSkill_WaitingStart_SaysWhatItWaitsForAndThatNothingStarted (S12)"
+  - "TicketStewardSkill_NamesOnlyToolsTheStewardOffers (existing, against the new pin)"
+  - "EveryPlaceholderUsedByAMaster_IsDeclaredInMasterPromptTokens (existing, against the new pin)"
+  - "SkillsConfigValidator_PinAtOrAbove5_13_OrNotAVersion_Passes (existing, new tag added)"
+
+done:
+  - "A server built from this commit runs the new skills release with no skills: block configured, and in Work it out the design partner proposes a list of tickets in merge order, each a title, a requirement and a done list with the tickets it waits for, when a piece must be merged before the next, and says why it chose a list or one ticket's series."
+  - "The design partner tells the operator that each ticket is filed, waits until the tickets it requires are merged, and has its specs drafted by its own run, and that Work it out on a ticket settles them earlier."
+  - "Specs and ticket done lists the design partner writes state absence as 'no file outside .agentsmith/ contains X', and a coding run judges an older unscoped one over the source tree instead of failing on its own spec."
+  - "When the ticket steward is asked to start a ticket that waits for other tickets, it tells the person which tickets those are, that nothing was started, and that they ask again once those are merged or marked done by hand."
+  - "A deployment whose config pins skills.version gets these masters only once that pin is moved to the new tag or removed; the commit and the pull request name the tag."
+  - "Every version string an operator copies from the docs or the example config names the new release."
+  - "Build green, full suite green, dashboard gen/test/build green."

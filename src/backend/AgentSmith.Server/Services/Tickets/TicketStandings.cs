@@ -1,5 +1,8 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Reviews;
 using AgentSmith.Contracts.Runs;
+using AgentSmith.Contracts.Services;
+using AgentSmith.Contracts.Specs;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
 using AgentSmith.Server.Models;
@@ -14,9 +17,11 @@ namespace AgentSmith.Server.Services.Tickets;
 /// failed last attempt, and the newest hand-back row of each handed-back one, whose words and time the row
 /// carries. A ticket the check saw unchanged and untouched also reads its pull requests' full records — the
 /// list reads only their standing decisions, and a person's later comment there takes it out of stuck. Read
-/// from the store only; the tracker is never asked here.
+/// from the store only; the tracker is never asked here. 2026-10-14-dbcei: landings, by the configuration loaded once.
 /// </summary>
-public sealed class TicketStandings(TicketCheckStore checks, IServiceScopeFactory scopes)
+public sealed class TicketStandings(
+    TicketCheckStore checks, IServiceScopeFactory scopes, ITicketLandingStore landings,
+    IConfigurationLoader configLoader, ServerContext serverContext)
 {
     public async Task<TicketStanding> ReadAsync(IReadOnlyList<Run> lastAttempts, CancellationToken ct)
     {
@@ -24,7 +29,19 @@ public sealed class TicketStandings(TicketCheckStore checks, IServiceScopeFactor
         var candidates = lastAttempts.Where(r => held.GetValueOrDefault(r.Id) is { FingerprintUnchanged: true, Acts.Count: 0 }).ToList();
         return new(held,
             await HandbacksAsync([.. lastAttempts.Where(r => r.Status == RunStatuses.WaitingForInput).Select(r => r.Id)], ct),
-            await PrRecordsAsync(candidates, ct));
+            await PrRecordsAsync(candidates, ct)) { Landed = await LandedAsync(lastAttempts, ct) };
+    }
+
+    private async Task<IReadOnlyDictionary<(string, string), DateTimeOffset>> LandedAsync(IReadOnlyList<Run> heads, CancellationToken ct)
+    {
+        var landed = new Dictionary<(string, string), DateTimeOffset>();
+        var projects = configLoader.LoadConfig(serverContext.ConfigPath).Projects;
+        var keyed = heads.Where(r => projects.ContainsKey(r.Project)).Select(r => (Run: r, Tracker: projects[r.Project].Tracker.Name,
+            Key: TicketKey.For(projects[r.Project].Tracker.Type.ToString().ToLowerInvariant(), r.TicketId).Value));
+        foreach (var tracker in keyed.GroupBy(h => h.Tracker, StringComparer.Ordinal))
+            foreach (var landing in await landings.LandedAsync(tracker.Key, [.. tracker.Select(h => h.Key).Distinct()], ct))
+                foreach (var head in tracker.Where(h => h.Key == landing.TicketKey)) landed[(head.Run.Project, head.Run.TicketId)] = landing.LandedAt;
+        return landed;
     }
 
     private async Task<IReadOnlyDictionary<(string, string), IReadOnlyList<PrReviewRecordView>>> PrRecordsAsync(
@@ -57,7 +74,12 @@ public sealed record TicketStanding(
     IReadOnlyDictionary<string, TicketHandbackView> Handbacks,
     IReadOnlyDictionary<(string Project, string TicketId), IReadOnlyList<PrReviewRecordView>> PrRecords)
 {
+    /// <summary>2026-10-14-dbcei: when each last attempt's ticket landed, merged or by hand; absent when it did not.</summary>
+    public IReadOnlyDictionary<(string Project, string TicketId), DateTimeOffset> Landed { get; init; } =
+        new Dictionary<(string, string), DateTimeOffset>();
+
     public TicketBetweenAttemptsState? CheckOf(string runId) => Checks.GetValueOrDefault(runId);
+    public DateTimeOffset? LandedAt(Run last) => Landed.TryGetValue((last.Project, last.TicketId), out var at) ? at : null;
 
     /// <summary>The full pull-request records of a ticket the check saw unchanged; empty otherwise.</summary>
     public IReadOnlyList<PrReviewRecordView> PrRecordsOf(Run last) => PrRecords.GetValueOrDefault((last.Project, last.TicketId)) ?? [];

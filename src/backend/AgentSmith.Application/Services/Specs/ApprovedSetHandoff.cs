@@ -24,7 +24,7 @@ public sealed class ApprovedSetHandoff(ILogger<ApprovedSetHandoff> logger)
     /// <summary>The set the record hands over, or null when there is no record to hand one.</summary>
     public SpecSourceResolver.Decision? Decide(SpecApprovalRecord? record, string key)
     {
-        if (record is null) return null;
+        if (record is null || record.TicketText) return null; // 2026-10-14-dbcel: a ticket text's run derives its specs
         // 2026-10-13-9a59l: a continuation's set is the proposal, not the series it continues.
         if (record.Continuation?.BasisRunId is { } basis)
             return new SpecSourceResolver.Decision(SpecSource.Approved, null, false, Failure:

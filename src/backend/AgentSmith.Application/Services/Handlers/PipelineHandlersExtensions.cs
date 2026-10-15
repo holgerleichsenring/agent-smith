@@ -166,10 +166,10 @@ public static class PipelineHandlersExtensions
         services.AddTransient<SpecDraftReader>();
         services.AddTransient<SpecDraftIdRewriter>().AddTransient<SeriesDraftIds>(); // 2026-10-06-03c7c
         services.AddTransient<BugOutcomeParser>();
-        services.AddTransient<EpicOutcomeParser>().AddTransient<DialogDraftRepos>().AddTransient<SpecDraftReposWriter>(); // 3a36e
-        services.AddTransient<RequiresEdgeChecker>();
+        services.AddTransient<EpicOutcomeParser>().AddTransient<DialogDraftRepos>().AddTransient<SpecDraftReposWriter>().AddTransient<TicketGraphOutcomeParser>(); // 3a36e, dbcej
+        services.AddTransient<RequiresEdgeChecker>().AddTransient<TicketGraphChecker>().AddTransient<TicketGraphOrderer>();
         services.AddTransient<IOutcomeProposalResolver, OutcomeProposalResolver>().AddTransient<SpecDialogProposalRefusal>().AddTransient<SpecDialogProposalReview>()
-            .AddTransient<SpecDialogOutcomeGate>().AddTransient<SpecDialogTurnFlow>();
+            .AddTransient<SpecDialogOutcomeGate>().AddTransient<SpecDialogTurnFlow>().AddTransient<TicketPlanReview>().AddTransient<TicketPlanReviewer>(); // dbcek
         // 2026-10-02-3f06c: the proposal's cited files, read before its model review.
         services.AddTransient<EvidenceReferences>().AddTransient<EvidenceCheck>().AddTransient<EpicChildOrderer>().AddTransient<ProposalEvidenceReview>();
         services.AddTransient<ICommandHandler<LoadCachedCodeMapContext>, LoadCachedCodeMapHandler>();

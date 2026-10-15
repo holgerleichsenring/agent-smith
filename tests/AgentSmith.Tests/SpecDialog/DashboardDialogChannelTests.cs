@@ -591,10 +591,10 @@ new DashboardOutcomeChannel(
             new SpecDialogLatestOutcomeStore(_repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), Microsoft.Extensions.Logging.Abstractions.NullLogger<AgentSmith.Server.Services.SpecDialog.SpecDialogLatestOutcomeStore>.Instance),
             AgentSmith.Tests.TestSupport.RatifiedMockStamps.Over(_repository), NullLogger<SpecDialogOutcomeFlow>.Instance);
         return new SpecDialogRouter(
-            new SpecCommandParser(), _sessions, Commands(messenger),
+            new SpecCommandParser(), Commands(messenger),
             _turnRunner.Object, outcomeFlow, _turnGate,
             new SpecDialogAnswerAdmission(_sessions, _pendingQuestions, _dialogueTransport.Object),
-            SilentSubjectMinter.Over(_repository),
+            SilentTurnKeeper.Over(_repository, _sessions),
             new SpecDialogEditReload(_sessions, NullLogger<SpecDialogEditReload>.Instance),
             composer, messenger,
             NullLogger<SpecDialogRouter>.Instance);

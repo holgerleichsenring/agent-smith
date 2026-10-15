@@ -8,8 +8,8 @@ import { useRunEvents } from "@/hooks/useRunEvents";
 import { isRunLive } from "@/lib/runLiveness";
 import { EventType, type RunEvent, type RunSnapshot } from "@/types/hub-events";
 import type {
-  RunCompute, RunPasses, TicketApprovalPreview, TicketAttempt, TicketConversation, TicketDefaults, TicketDetail, TicketReviews, TicketSeries,
-  TicketText,
+  RunCompute, RunPasses, TicketApprovalPreview, TicketAttempt, TicketConversation, TicketDefaults, TicketDetail, TicketRequires, TicketReviews,
+  TicketSeries, TicketText,
 } from "@/types/tickets";
 import {
   TicketPageReads, type PerRunRead, type Read, type TicketPageApi, type TicketPageSnapshot,
@@ -150,6 +150,13 @@ export function useTicketReviews(): Read<TicketReviews> {
 export function useTicketDefaults(): Read<TicketDefaults> & { changed: () => void } {
   const { snapshot, reads } = useStore();
   return { ...snapshot.defaults, changed: () => reads.defaultsChanged() };
+}
+
+/** 2026-10-14-dbcen: what the ticket waits for and what waits for it; landed() re-reads it and the detail at once
+ *  after a ticket was marked done by hand from this page. */
+export function useTicketRequires(): Read<TicketRequires> & { landed: () => void } {
+  const { snapshot, reads } = useStore();
+  return { ...snapshot.requires, landed: () => reads.landedHere() };
 }
 
 /** The ticket itself — description, criteria and fields — read on its own tick, never on a RunsChanged. */

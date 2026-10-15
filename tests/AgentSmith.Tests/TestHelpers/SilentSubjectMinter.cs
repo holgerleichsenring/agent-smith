@@ -22,7 +22,7 @@ internal static class SilentSubjectMinter
         new(new SilentChatClients(), Loader(project), new ServerContext("agentsmith.yml"),
             repository, NullLogger<SpecDialogSubjectMinter>.Instance);
 
-    private static IConfigurationLoader Loader(string project)
+    internal static IConfigurationLoader Loader(string project)
     {
         var loader = new Mock<IConfigurationLoader>();
         loader.Setup(l => l.LoadConfig(It.IsAny<string>())).Returns(new AgentSmithConfig
@@ -35,7 +35,7 @@ internal static class SilentSubjectMinter
         return loader.Object;
     }
 
-    private sealed class SilentChatClients : IChatClientFactory, IChatClient
+    internal sealed class SilentChatClients : IChatClientFactory, IChatClient
     {
         public IChatClient Create(
             AgentConfig agent, TaskType task, int? maxIterations = null,

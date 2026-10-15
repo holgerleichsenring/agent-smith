@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-14-dbced
+
+decisions:
+  - category: Architecture
+    chose: "Merge the code tier defaults at read time in PipelineCostCapConfig.ForTier (configured entry, then TierDefaults, then Default)"
+    over: "Merging the defaults into a stored per_tier when the config is bound"
+    reason: |
+      A load-time merge would make the settings form save all four tiers back on the operator's next save,
+      pinning today's defaults into his store. ForTier is the one reader (ScopeEstimateRecorder,
+      ResumedCapRecompute), so the rule lives there and the stored per_tier stays exactly what he saved.
+      Contract section 5 default 4 (default, pending operator ratification).
+  - category: Behaviour
+    chose: "A tier default may raise a run above a configured Default; a tier that must stay lower is stated in per_tier"
+    over: "Capping tier defaults at the configured Default"
+    reason: |
+      A tier only raises (CostCapValues.RaisedTo), so an operator with Default $3 and no Medium entry now gets $8
+      for a medium run; small and trivial runs never drop below Default. Contract decision 20.
+  - category: Architecture
+    chose: "The code defaults are one public static read-only map TierDefaults; PerTier's initialiser copies it and DefaultTierCaps() is removed"
+    over: "Keeping the private factory and calling it a second time from ForTier"
+    reason: |
+      One map is read by the initialiser, by ForTier and by the capabilities endpoint, so the three cannot drift.
+      PipelineCostCapConfig.cs is 98 lines (budget 100).
+  - category: UI
+    chose: "The capabilities descriptor carries TierCostCapDefaults (tier name -> CostCapValues); the per-tier field of an unset tier shows that value, marked 'default — a run never gets less than the Default cap ($usd / tokens)'"
+    over: "A TypeScript copy of the four defaults in the dashboard"
+    reason: |
+      Without this the form showed an unset Medium as the Default $5 while runs use $8. The values come from the
+      server so the two cannot drift; an older server sends none and Default stands in. DEVIATION (addition, as
+      the spec states): contract section 1 row d is ForTier only; ConfigCapabilities.TierCostCapDefaults and the
+      form fix are added. The field was extracted into its own TierCapField component so PipelineCostCapForm
+      stays small. ConfigCapabilities.cs 114 lines (budget 114), ConfigCapabilityEndpoints.cs 85 (budget 85).
+  - category: Testing
+    chose: "The descriptor's tier defaults are asserted inside the existing capabilities block of ConfigStudioApiSmokeTests through the real host"
+    over: "A new Fact or a change to ConfigStudioCapabilities.Build"
+    reason: |
+      Build is at its 259-line baseline and the value is set by the endpoint, not the builder, so only the real
+      host proves the wire shape (camelCase property, PascalCase tier keys).

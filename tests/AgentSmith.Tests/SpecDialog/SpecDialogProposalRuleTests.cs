@@ -30,6 +30,13 @@ public sealed class SpecDialogProposalRuleTests
         SpecDialogProposalRule.MayPropose([User(), Assistant(SpecDialogTurnKind.Answer)])
             .Should().BeFalse();
 
+    // 2026-10-14-dbceo: a digest is the system's summary of older turns, not an answer the operator replied to.
+    [Fact]
+    public void SpecDialogProposalRule_DigestTurn_UnlocksNothing() =>
+        SpecDialogProposalRule.MayPropose(
+            [User(), new SpecDialogTurn(SpecDialogTurn.AssistantRole, "digest", SpecDialogTurnKind.Digest, "agent-smith", 0), User()])
+            .Should().BeFalse();
+
     [Theory]
     [InlineData(SpecDialogTurnKind.Failure)]
     [InlineData(SpecDialogTurnKind.Notice)]

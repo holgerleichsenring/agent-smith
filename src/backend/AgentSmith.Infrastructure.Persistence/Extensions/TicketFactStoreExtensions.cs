@@ -20,6 +20,10 @@ public static class TicketFactStoreExtensions
         services.RemoveAll<IUnmovedTicketStore>().RemoveAll<ITakenTicketStore>();
         return services
             .AddSingleton<IUnmovedTicketStore, DbUnmovedTicketStore>()
-            .AddSingleton<ITakenTicketStore, DbTakenTicketStore>();
+            .AddSingleton<ITakenTicketStore, DbTakenTicketStore>()
+            // 2026-10-14-dbcef: the requirements between tickets; the repository is itself the singleton port
+            .AddSingleton<ITicketRequirementStore, TicketRequirementRepository>()
+            // 2026-10-14-dbceg: the landed tickets; the repository is itself the singleton port
+            .AddSingleton<ITicketLandingStore, LandedTicketRepository>();
     }
 }

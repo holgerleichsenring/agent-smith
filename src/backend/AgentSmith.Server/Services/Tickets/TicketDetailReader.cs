@@ -26,14 +26,18 @@ public sealed class TicketDetailReader(
     Checks.TicketBetweenAttemptsChecker checker,
     TicketStandings standings,
     Checks.TicketStuckRule stuck,
-    TicketLaunchEnds launchEnds)
+    TicketLaunchEnds launchEnds,
+    FiledTicketRows filed)
 {
-    /// <summary>Null when the pair has no code run — it is not a ticket.</summary>
+    /// <summary>2026-10-14-dbcen: with no code run, the pair's never-run row with no attempts; null when neither exists.</summary>
     public async Task<TicketDetailView?> ReadAsync(string project, string ticketId, CancellationToken ct)
     {
         var rows = await runQuery.ForTicketAsync(project, ticketId, ct);
         var code = rows.Where(r => r.Run.Pipeline == PipelinePresets.CodeName).ToList();
-        if (code.Count == 0) return null;
+        if (code.Count == 0)
+            return await filed.OneAsync(project, ticketId, ct) is { } neverRun
+                ? new TicketDetailView(neverRun, TicketBranchNamer.Compose(new TicketId(ticketId)).Value, [], [])
+                : null;
         var ordered = attempts.Of(code);
         await checker.CheckAsync(code, ct);
         var head = attempts.Head(code).Run;

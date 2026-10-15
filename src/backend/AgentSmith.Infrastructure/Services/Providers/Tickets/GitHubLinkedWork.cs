@@ -54,7 +54,7 @@ public sealed class GitHubLinkedWork : ITicketLinkedWork
         }
     }
 
-    private static (string owner, string repo) ParseRepoUrl(string url)
+    internal static (string owner, string repo) ParseRepoUrl(string url)
     {
         var segments = new Uri(url).AbsolutePath.Trim('/').Split('/');
         if (segments.Length < 2) throw new ConfigurationException($"Invalid GitHub URL: {url}");

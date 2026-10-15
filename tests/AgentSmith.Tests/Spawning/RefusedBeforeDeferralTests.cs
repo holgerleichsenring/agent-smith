@@ -172,7 +172,7 @@ public sealed class RefusedBeforeDeferralTests : IDisposable
         ApprovedSetDoubles.Carrier(),
         CapacityTestDoubles.NoNudge(),
         _store,
-        Moq.Mock.Of<AgentSmith.Contracts.Services.IActiveRunLease>(), NullLogger<SpawnPipelineRunsUseCase>.Instance, new AgentSmith.Application.Services.Resume.NullPreviousAttemptReader());
+        Moq.Mock.Of<AgentSmith.Contracts.Services.IActiveRunLease>(), NullLogger<SpawnPipelineRunsUseCase>.Instance, new AgentSmith.Application.Services.Resume.NullPreviousAttemptReader(), AgentSmith.Tests.TestSupport.TicketRequirementDoubles.None());
 
     private ITicketClaimService CountingClaimService()
     {
@@ -215,7 +215,7 @@ public sealed class RefusedBeforeDeferralTests : IDisposable
         return new TicketClaimService(
             claimLock.Object, _store, new AgentSmith.Application.Services.Resume.NullPreviousAttemptReader(), factory.Object, new Mock<IRedisJobQueue>().Object,
             new NoOpActiveRunLease(), new InMemoryTakenTicketStore(),
-            NullLogger<TicketClaimService>.Instance);
+            NullLogger<TicketClaimService>.Instance, AgentSmith.Tests.TestSupport.TicketRequirementDoubles.None());
     }
 
     private ICapacityQueue Queue() =>

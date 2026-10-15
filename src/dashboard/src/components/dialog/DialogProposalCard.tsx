@@ -1,12 +1,14 @@
 "use client";
 
 import type { SpecDialogProposalPush } from "@/types/spec-dialog";
+import { waitsFor } from "./graphTicketWaits";
 
 // 2026-09-17-c7aed: a turn that produced a proposal says so in the exchange — its kind, what it
 // is called and, for an epic, its slices — and the draft itself stays in the pane. The card
 // is a pointer, never a second rendering of the draft.
 // 2026-09-17-042ef: the pointer is a panel card with the kind as a mark and the goal as the
 // entity name beside it; the slices sit on a strip across its foot.
+// 2026-10-14-dbcek: a list of tickets is titled by its count, and its strip names each ticket with what it waits for.
 
 export function DialogProposalCard({
   proposal,
@@ -34,6 +36,16 @@ export function DialogProposalCard({
           Inspect →
         </button>
       </div>
+      {(proposal.tickets?.length ?? 0) > 0 && (
+        <div data-testid="dialog-card-tickets" className="d-strip flex flex-col gap-0.5 dsh-body">
+          {proposal.tickets!.map((ticket) => (
+            <div key={ticket.key}>
+              <b className="font-mono dsh-label font-medium text-ink">{ticket.key}</b>{" "}
+              <span className="text-body">{ticket.title} · {waitsFor(ticket)}</span>
+            </div>
+          ))}
+        </div>
+      )}
       {proposal.children.length > 0 && (
         <div className="d-strip flex flex-col gap-0.5 dsh-body">
           {proposal.children.map((child) => (
@@ -49,5 +61,6 @@ export function DialogProposalCard({
 }
 
 function titleOf(proposal: SpecDialogProposalPush): string {
+  if (proposal.kind === "tickets") return `${proposal.tickets?.length ?? 0} tickets`;
   return proposal.bug?.title ?? proposal.parent?.goal ?? proposal.spec?.goal ?? proposal.kind;
 }

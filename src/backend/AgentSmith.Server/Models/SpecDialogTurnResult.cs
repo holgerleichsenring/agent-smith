@@ -42,6 +42,7 @@ public sealed record SpecDialogTurnResult(
         BugOutcome => SpecDialogTurnKind.BugProposal,
         SpecOutcome => SpecDialogTurnKind.SpecProposal,
         EpicOutcome => SpecDialogTurnKind.EpicProposal,
+        TicketGraphOutcome => SpecDialogTurnKind.TicketGraphProposal,
         AnswerOutcome => SpecDialogTurnKind.Answer,
         _ => throw new ArgumentOutOfRangeException(
             nameof(outcome), outcome.GetType().Name, "An outcome with no turn kind would count as a discussion."),

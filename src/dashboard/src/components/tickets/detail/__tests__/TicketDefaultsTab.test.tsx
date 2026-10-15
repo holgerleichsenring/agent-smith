@@ -28,6 +28,7 @@ const api = {
   conversation: vi.fn(() => Promise.resolve(conversation([]))),
   reviews: vi.fn(() => Promise.resolve(reviews())),
   defaults: vi.fn(() => Promise.resolve(world.defaults)),
+  requires: vi.fn(() => Promise.resolve({ requires: [], requiredBy: [] })),
   text: vi.fn(() => Promise.resolve(ticketText())),
   passes: vi.fn(() => Promise.reject(new Error("unused"))),
   run: vi.fn(() => Promise.reject(new Error("unused"))),

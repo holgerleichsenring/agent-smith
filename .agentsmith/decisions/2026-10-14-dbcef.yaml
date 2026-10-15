@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-14-dbcef
+
+decisions:
+  - category: Architecture
+    chose: "Requirements live in a TicketRequirements table written only by the filer, never in labels (contract §5 default 6, pending operator ratification)"
+    over: "A predecessor label read from the poll envelope, as the deleted a72a gate did"
+    reason: |
+      A label is editable by anyone with tracker access; the requirement is the approver's decision. A tracker
+      link (dbcem) is a view of it for people and is never read back.
+  - category: Architecture
+    chose: "Registered in TicketRecordConfigurations with no DbSet; keyed by tracker connection name plus ticket key"
+    over: "RunChildConfiguration, a DbSet on AgentSmithDbContext, or the ticket key alone"
+    reason: |
+      The rows must outlive every run of both tickets; AgentSmithDbContext is at 120 lines and PrReviewRecords
+      already shows a table read through IUnitOfWork.Set. The ticket key carries only the tracker type, so two
+      instances numbering alike would collide on it alone (ApprovedSeries identity).
+  - category: Architecture
+    chose: "TicketRequirementRepository is itself the singleton port and opens a scope per operation"
+    over: "A scoped repository behind a third Db…Store facade class"
+    reason: |
+      The claim service and the wake are singletons; a facade would add a class whose only job is the scope.
+  - category: Persistence
+    chose: "AddAsync is insert only, idempotent, one dependent per call in one SaveChanges; a racing unique violation detaches, re-reads and inserts the still-missing edges once more, a second violation throws"
+    over: "Returning after the first violation, or retrying in a loop"
+    reason: |
+      A violation rolls the whole save back (PrReviewRecordWriter.cs:44-57), so a partly overlapping batch
+      would otherwise leave its own edges unwritten; a second violation is a real fault. One transaction per
+      dependent leaves a ticket with all of its edges or none.
+  - category: Persistence
+    chose: "StartsWhenMet stored on every row, one value per dependent; a batch whose rows disagree is refused"
+    over: "A per-ticket table or a value on ApprovedSeries"
+    reason: |
+      The wake runs long after the approver's request, so the approver's runs.control at filing is stored with
+      the edges it concerns. A retried filing under another principal adds only missing edges with its own
+      value; dbceh's 'every row' reading then holds the ticket, the stricter answer.
+  - category: Persistence
+    chose: "No FiledAt column: the edge's FiledAt is read from EntityBase.CreatedAt and ignored on write"
+    over: "A FiledAt column beside CreatedAt"
+    reason: |
+      CreatedAt is the insert instant stamped by SaveChanges (EntityBase.cs:4-10); a second column with the
+      same instant is one datum stored twice.
+  - category: Persistence
+    chose: "SpecApprovalRecord.Project is an init property riding in ContentJson, projected into an indexed ApprovedSeries.Project column at save"
+    over: "A positional parameter, or a column read back into the record"
+    reason: |
+      The positional constructor has one production call site whose string arguments would silently shift;
+      projected columns are never read back (ApprovedSeries.cs:12-17). The index is added in this migration so
+      dbcen's per-project listing needs no second migration of the table.
+  - category: Persistence
+    chose: "Series approved before this spec keep an empty Project (contract §5 default 7, pending operator ratification)"
+    over: "Backfilling it from the ticket's project match"
+    reason: |
+      An older row's ContentJson names no project, and a ticket matching two projects of one tracker has no
+      single answer to infer.

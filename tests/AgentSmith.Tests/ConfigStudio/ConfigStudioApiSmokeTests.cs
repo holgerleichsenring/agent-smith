@@ -125,7 +125,11 @@ public sealed class ConfigStudioApiSmokeTests
                 .And.Contain("\"connectionTypes\"").And.Contain("\"orgLabel\":\"owner\"")
                 .And.Contain("\"agentProviders\"").And.Contain("\"azure_openai\"")
                 .And.Contain("\"resolutionStrategies\"").And.Contain("\"area_path\"")
-                .And.Contain("\"pipelines\"").And.Contain("\"code\"");
+                .And.Contain("\"pipelines\"").And.Contain("\"code\"")
+                // 2026-10-14-dbced: the ceiling a tier left out of per_tier keeps, keyed by tier name.
+                .And.Contain("\"tierCostCapDefaults\":{\"Trivial\":{\"usd\":1.0,\"tokens\":200000},"
+                    + "\"Small\":{\"usd\":2.0,\"tokens\":400000},\"Medium\":{\"usd\":8.0,\"tokens\":1500000},"
+                    + "\"Large\":{\"usd\":25.0,\"tokens\":5000000}}");
             // p0393: the Studio OFFERS the current presets. A retired name still
             // validates in an existing configuration, but must never be presented
             // as a choice — that is the difference between IsAcceptedName and Names.

@@ -19,5 +19,9 @@ public enum ClaimRejectionReason
 
     /// <summary>2026-10-13-8762g: the ticket's last attempt stopped at a boundary with specs left; only a
     /// person's start picks it up again.</summary>
-    TicketStoppedAtBoundary
+    TicketStoppedAtBoundary,
+
+    /// <summary>2026-10-14-dbceh: a ticket it requires has not landed, or its filing did not finish. Unlike the
+    /// reasons above, this refusal lifts by itself once the required tickets land.</summary>
+    TicketRequiresUnmet
 }

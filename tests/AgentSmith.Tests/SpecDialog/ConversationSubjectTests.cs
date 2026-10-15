@@ -226,6 +226,38 @@ public sealed class ConversationSubjectTests : IDisposable
     public void ConversationSubject_OneLineOfProse_IsAdmittedAsWritten() =>
         SpecDialogSubjectAdmission.Of($"  {Minted}  ").Should().Be(Minted);
 
+    // 2026-10-14-dbceo: the router keeps the reply and the subject, and folds a conversation past its window only
+    // once the turn gate is released, so a message typed while the digest is written starts its own turn.
+    [Fact]
+    public async Task SpecDialogRouter_KeptReplyPastTheBound_WritesTheDigestAfterTheGateIsReleased()
+    {
+        var state = await OpenAsync();
+        await SetSubjectAsync(Minted);
+        var row = await Row();
+        row.TranscriptJson = SpecDialogSessionMapper.WriteTranscript([.. Enumerable.Range(0, 8).Select(i => new TranscriptTurn(
+            i % 2 == 0 ? TranscriptRole.User : TranscriptRole.Assistant, $"T{i} " + new string('x', 9_000), DateTimeOffset.UtcNow,
+            i % 2 == 0 ? null : SpecDialogTurnKind.Answer))]);
+        await _repository.SaveAsync(CancellationToken.None);
+        bool? gateFree = null;
+        _answer = "the digest of the start";
+        _chat.OnCall = () =>
+        {
+            gateFree = _turnGate.TryEnter(state.JobId);
+            if (gateFree == true) _turnGate.Exit(state.JobId);
+            _order.Add("digest");
+        };
+
+        await SendAsync("one more question");
+
+        gateFree.Should().BeTrue("the digest is written after the turn gate is released");
+        _order.Should().Equal(["reply", "digest"]);
+        var transcript = SpecDialogSessionMapper.ReadTranscript((await Row()).TranscriptJson);
+        transcript.Should().HaveCount(11);
+        transcript[^1].Kind.Should().Be(SpecDialogTurnKind.Digest);
+        transcript[^1].Text.Should().EndWith("the digest of the start");
+        _chat.Ceilings.Should().Equal(4000);
+    }
+
     [Fact]
     public async Task SpecDialogSessionView_ASessionWithASubject_ServesIt()
     {
@@ -247,7 +279,7 @@ public sealed class ConversationSubjectTests : IDisposable
         view.Session!.Subject.Should().BeNull();
     }
 
-    private Task OpenAsync() =>
+    private Task<ConversationState> OpenAsync() =>
         _sessions.OpenAsync(Platform, Channel, Thread, "U1",
             new ActiveScope { Project = "sample", Repos = ["repo-a"] }, CancellationToken.None);
 
@@ -297,16 +329,21 @@ public sealed class ConversationSubjectTests : IDisposable
                 _repository, AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), NullLogger<SpecDialogLatestOutcomeStore>.Instance),
             AgentSmith.Tests.TestSupport.RatifiedMockStamps.Over(_repository), NullLogger<SpecDialogOutcomeFlow>.Instance);
         return new SpecDialogRouter(
-            new SpecCommandParser(), _sessions,
+            new SpecCommandParser(),
             new SpecDialogCommandHandler(
                 _sessions, new SpecDialogScopeResolver(Loader()), composer, messenger),
             turnRunner.Object, outcomeFlow, _turnGate,
             new SpecDialogAnswerAdmission(
                 _sessions, pendingQuestions,
                 Mock.Of<AgentSmith.Contracts.Dialogue.IDialogueTransport>()),
-            new SpecDialogSubjectMinter(
-                _chat, Loader(), new ServerContext("agentsmith.yml"), _repository,
-                NullLogger<SpecDialogSubjectMinter>.Instance),
+            new SpecDialogTurnKeeper(_sessions,
+                new SpecDialogSubjectMinter(
+                    _chat, Loader(), new ServerContext("agentsmith.yml"), _repository,
+                    NullLogger<SpecDialogSubjectMinter>.Instance),
+                new SpecDialogDigestWriter(
+                    _chat, Loader(), new ServerContext("agentsmith.yml"), _repository,
+                    AgentSmith.Tests.TestSupport.BoundSessionNudges.Quiet(_repository), TimeProvider.System,
+                    NullLogger<SpecDialogDigestWriter>.Instance)),
             new SpecDialogEditReload(_sessions, NullLogger<SpecDialogEditReload>.Instance),
             composer, messenger, NullLogger<SpecDialogRouter>.Instance);
     }

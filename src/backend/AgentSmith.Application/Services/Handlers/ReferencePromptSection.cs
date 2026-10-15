@@ -42,12 +42,13 @@ internal static class ReferencePromptSection
     /// carrying repository (prefixed by its name when the master addresses several), outside the
     /// commit and outside a whole-repository search. Empty when the run carries none.
     /// </summary>
-    internal static string Carried(PipelineContext pipeline, bool prefixed) =>
-        CarriedSets(pipeline, prefixed) + CarriedImages(pipeline);
+    /// <param name="attached">2026-10-14-dbcel: false for the derivation, a text call that attaches no image.</param>
+    internal static string Carried(PipelineContext pipeline, bool prefixed, bool attached = true) =>
+        CarriedSets(pipeline, prefixed) + CarriedImages(pipeline, attached);
 
     // 2026-10-08-e8b9k: the images the approval cites — files beside the sets; the attachment note
     // says which of them ride the message as pictures.
-    private static string CarriedImages(PipelineContext pipeline)
+    private static string CarriedImages(PipelineContext pipeline, bool attached)
     {
         if (!pipeline.TryGet<IReadOnlyList<CarriedReferenceImage>>(ContextKeys.ReferenceImages, out var images)
             || images is null || images.Count == 0) return string.Empty;
@@ -56,7 +57,7 @@ internal static class ReferencePromptSection
             + "edit or move them; copy one into the repository when the work needs it as an asset.\n"
             + string.Join("\n", images.Select(i => i.Path is null
                 ? $"- image {i.SetId}: could not be read in this run"
-                : $"- `{i.Path}`{(i.Shown ? " — attached to this message" : string.Empty)}")) + "\n";
+                : $"- `{i.Path}`{(attached && i.Shown ? " — attached to this message" : string.Empty)}")) + "\n";
     }
 
     private static string CarriedSets(PipelineContext pipeline, bool prefixed)

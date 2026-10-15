@@ -22,6 +22,8 @@ namespace AgentSmith.Server.Models;
 /// <param name="CheckedAt">2026-10-13-9a59h: when that check ran; null when none did.</param>
 /// <param name="Handback">2026-10-13-9a59h: the posted hand-back's words and time on a hand-back row.</param>
 /// <param name="Landing">How the pull requests ended: merged, unmerged, or null while any is open or unread.</param>
+/// <param name="WaitsFor">2026-10-14-dbcen: a never-run ticket's unlanded requirements; null on a run-bearing row.</param>
+/// <param name="TicketText">2026-10-14-dbcen: a never-run ticket's filing was a ticket text; null on a run-bearing row.</param>
 public sealed record TicketSummaryView(
     string Project,
     string TicketId,
@@ -49,4 +51,6 @@ public sealed record TicketSummaryView(
     bool? UnchangedSinceLastAttempt = null,
     DateTimeOffset? CheckedAt = null,
     TicketHandbackView? Handback = null,
-    string? Landing = null);
+    string? Landing = null,
+    IReadOnlyList<TicketWaitsForView>? WaitsFor = null,
+    bool? TicketText = null);

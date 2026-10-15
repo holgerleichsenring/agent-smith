@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-14-dbcei
+
+decisions:
+  - category: Architecture
+    chose: "TicketLandingRecorder.RecordByHandAsync builds the by-hand fact and hands it to the same private RecordAsync as a merge; it answers the stored fact or null"
+    over: "A second write path for the by-hand landing"
+    reason: |
+      One RecordAsync inserts, logs, wakes the dependents, announces TicketLanded and nudges the pages, so a by-hand
+      landing and a merge cannot differ in what follows (contract §2.2). The key derivation became one internal static
+      KeyOf, which the endpoint's pre-check and ConversationAttemptStart reuse.
+  - category: API
+    chose: "POST /api/tickets/{project}/{ticketId}/landed-by-hand with runs.control; every non-200 answer is Results.Text(sentence, text/plain, status), the 400 included"
+    over: "Results.BadRequest(string) for the 400 as TicketDefaultsEndpoints does"
+    reason: |
+      Results.BadRequest(string) writes the sentence as a JSON string literal (quoted); Results.Text writes the plain
+      sentence for every status, so 2026-10-14-dbcen's dialog shows each refusal as written with one reading. The spec
+      allows either form.
+  - category: API
+    chose: "Order: unknown project 404, blank note 400, already landed 409, tracker read (404 not-found / 503 otherwise), then the write and the loser's re-read on CancellationToken.None"
+    over: "Reading the tracker before the landing pre-check"
+    reason: |
+      The pre-check is a local read and spares a seconds-long tracker call for the common double click; the insert's
+      unique key still decides a race past it, and the loser re-reads the winner for its 409 (contract §2.6).
+  - category: Behaviour
+    chose: "409 when already landed, never overwritten (contract §2.6, §5 default 8, pending operator ratification); any existing ticket of a configured project, runs or filing or not (contract decision 24, section 5 default 34, pending operator ratification); done under the same time rule (contract §5 default 21, pending operator ratification)"
+    over: "Overwriting a merged landing, requiring a run or record, or a by-hand landing outranking a later attempt"
+    reason: "Built as the spec states."
+  - category: Behaviour
+    chose: "By is DisplayName.Of(ctx.User), else SpecDialogOwnership.PrincipalOf(ctx.User); the 409 sentence prints LandedAt in the round-trip universal form ({LandedAt:u})"
+    over: "A ByName column, or a read-time name lookup"
+    reason: "The spec's re-grounded decision; the 'u' form is culture-invariant and reads the same on every replica."
+  - category: Architecture
+    chose: "TicketStandings loads the configuration once per ReadAsync (also for an empty head list) and reads one LandedAsync per tracker connection of the heads' live projects; TicketStanding.Landed is an init property"
+    over: "Skipping the load for an empty head list"
+    reason: |
+      The guard cost the one line the 92-line budget did not have (the ServerContext using took it); an empty page
+      loads the configuration once, which is what one read of the list already costs elsewhere.
+  - category: Architecture
+    chose: "ConversationAttemptStart asks UnmetTicketRequirements (resolved from its own scope) before the pending-edit read; with unmet edges it answers RequiresUnmetGate.Sentence + NothingQueued"
+    over: "Changing BoundAttemptStarts' construction to inject the read"
+    reason: |
+      The start already resolves its collaborators per ask from its scope; UnmetTicketRequirements is a registered
+      singleton there, so no constructor changed. The key reuses TicketLandingRecorder.KeyOf to stay inside the
+      52-line budget.
+  - category: Behaviour
+    chose: "ReworkTexts.TicketRefusal(reason, channel = Ticket) names the act by its channel; ReworkNudgeHandler's two refusals and ClosedTicketActFollowUp pass act.Act.Channel"
+    over: "One sentence for every channel"
+    reason: "The act already carries its channel; the comment wording is unchanged for a comment."
+  - category: Testing
+    chose: "RetryHarness exposes its InMemoryTicketFacts and registers TicketRequirementDoubles.Of(Facts, Approvals) instead of None()"
+    over: "A second harness for the conversation's start"
+    reason: "The conversation start tests need edges and landings over the same harness the attempt-start tests use."

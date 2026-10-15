@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-14-dbcen
+
+decisions:
+  - category: Scope
+    chose: "The mock's four sections (list-buckets, graph-view, never-run-page, done-by-hand) were appended to ticket-graph.html FIRST, before any code, each with a footer line naming the endpoint it reads; the code was then built per the mock without waiting (default, pending operator ratification)"
+    over: "Waiting for the operator to ratify the mock before the backend steps"
+    reason: |
+      The operator said build; the ratification is contract section 5 default 27, pending operator ratification.
+      The mock-parity test reads design/mockups/ticket-graph.html and fails when a class the product draws for these
+      surfaces is missing from it, so the commit ships the mock and the page that renders it together.
+  - category: Architecture
+    chose: "A graph node carries an id '<tracker connection>:<ticket key>' and the edges name nodes by it (DEVIATION: the spec's node shape lists no id)"
+    over: "Edges naming the display key or the raw ticket id"
+    reason: |
+      Without a project, the graph reads every configured project; '#59' or '59' can name two tickets on two GitHub
+      connections, while the filing identity (tracker connection, ticket key) cannot (ApprovedSeries.cs:22-28). The
+      node still carries project, ticketId, key, title, state, bucket and hasPage as the spec lists them.
+  - category: Architecture
+    chose: "FiledTicketRows anti-joins against every code run's resolved (tracker connection, ticket key) across ALL projects, read by itself, and loads the filing rows under the project filter"
+    over: "Anti-joining against the list's own project-filtered run rows"
+    reason: |
+      A ticket filed under alpha and run under beta must not reappear as a never-run row when the list is filtered to
+      alpha; the filtered run rows would not contain the beta run. The read is a DISTINCT over light columns.
+  - category: Implementation
+    chose: "A waited-on ticket's title is its filing record's goal when one was loaded in the same read, else its tracker key; run titles are not consulted"
+    over: "A second read of run titles or the tracker"
+    reason: |
+      The spec allows 'title (else the key)'; the list reads no tracker (TicketListReader's own rule) and the filing
+      records are already parsed once through SpecApprovalJson.Read.
+  - category: Implementation
+    chose: "Never-run rows lead page one ON TOP of the run page, so the first page can hold more rows than the page size; the cursor and NextCursor stay over the run rows (default, pending operator ratification)"
+    over: "Shrinking the run page by the number of never-run rows"
+    reason: |
+      Shrinking would make the run page depend on a second id space, the seam the spec's decision avoids; blocked and
+      filed tickets are bounded by what was filed and are what a person acts on next.
+  - category: Implementation
+    chose: "GET /api/tickets/{project}/{ticketId}/requires answers an unknown project as a plain-text 404 sentence 'No project <name> is configured.'"
+    over: "A bare 404"
+    reason: "The same sentence and shape 2026-10-14-dbcei's landed-by-hand route answers; the dashboard shows server sentences as is."
+  - category: Implementation
+    chose: "markLandedByHand reads the body as the sentence for 400, 404, 409 and 503 only; 401/403 and every other status go through the shared refusal path and throw"
+    over: "Treating every non-2xx text body as a sentence"
+    reason: "A sign-in or permission refusal is the page's refusal surface, not a landing answer; an answer without a sentence throws, as the spec says."
+  - category: Implementation
+    chose: "The done-by-hand dialog is a fixed overlay in the product; the mock draws it in place"
+    over: "Rendering the dialog inline below its button"
+    reason: "A mark can be opened from a waits-for row, the header or a graph panel; an overlay keeps the note field visible from each. The CSS marks the deviation."
+  - category: Implementation
+    chose: "A never-run page hides 'Continue in conversation' and the branch from its header, and the waits-for / required-by blocks also show on a run-bearing page whenever they hold entries"
+    over: "One header for both, and waits-for only on never-run pages"
+    reason: |
+      'Continue in conversation' opens a tab a never-run page does not have — its Work it out link is the filed line's;
+      no branch exists before a run. A run-bearing ticket can still be required by others, and the act on a waited-on
+      ticket belongs wherever the wait is shown.
+  - category: Implementation
+    chose: "Blocked and filed get rail entries and list sections after Stuck and before Ended; choosing a rail bucket while the Graph view is open returns to the list"
+    over: "Hiding the two buckets from the rail"
+    reason: "The rail mirrors TICKET_BUCKETS, and totalTickets sums all eight counts, so the rail total and the sections agree."
+  - category: Implementation
+    chose: "'Filed, no run on record' copy, the List | Graph switch as ?view=graph on /tickets, a never-run done row only under the done filter, and By shown as stored are BUILT as the spec states them (defaults, pending operator ratification)"
+    over: "A 'not started' wording, a /tickets/graph route, or a read-time name lookup"
+    reason: "Contract section 5 defaults 21, 22, 33 and the spec's decisions; recorded here so the ratification has one place to point at."
+  - category: TradeOff
+    chose: "TicketSummaryView 56 lines and TicketCountsView 30 (spec's informational 55 / 28); every 'at most' budget met: TicketListReader 95, TicketDetailReader 70, FiledTicketRows 91, TicketGraphReader 50, TicketRequiresReader 41, TicketQueryEndpoints 46, TicketReadExtensions 71, TicketHeader.tsx 73"
+    over: "Dropping the new fields' doc lines"
+    reason: "The two over-by-one/two counts are param doc lines for the new optional fields; the measured limits (120-line class limit, file-length ratchet) are met."

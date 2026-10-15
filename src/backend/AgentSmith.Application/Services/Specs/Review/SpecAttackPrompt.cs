@@ -1,5 +1,6 @@
 using System.Text;
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Services;
 
 namespace AgentSmith.Application.Services.Specs.Review;
 
@@ -26,7 +27,10 @@ public static class SpecAttackPrompt
     /// repository makes false before any work starts drives a run that cannot finish.</summary>
     public const string DecidabilityLens =
         "For every done criterion ask: can the agent make it true by working on this repository, and can it see "
-        + "that it is true? A criterion no change can satisfy, or none can observe, is a cut or a refusal.";
+        + "that it is true? A criterion no change can satisfy, or none can observe, is a cut or a refusal. "
+        + "A criterion that no file contains X (or that X is gone from the repository) can never hold over the "
+        + "whole tree, because the spec committed under " + ProjectMetaPaths.Root + "/ quotes X; cut it to 'no file "
+        + "outside " + ProjectMetaPaths.Root + "/ contains X', resting the cut on your read of a file that holds X today.";
 
     /// <summary>The fewest words a quote should carry: a shorter run also occurs elsewhere in its register.</summary>
     public const int QuoteWords = 4;

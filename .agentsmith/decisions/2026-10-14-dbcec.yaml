@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-14-dbcec
+
+decisions:
+  - category: Architecture
+    chose: "One sentence in SpecAttackPrompt.DecidabilityLens cuts a whole-tree 'no file contains X' criterion to 'no file outside .agentsmith/ contains X' (contract section 5 default 3; default, pending operator ratification)"
+    over: "Adding .agentsmith to GrepScope.ExcludedDirsText, or a mechanical absence checker"
+    reason: |
+      The grep scope is also the design partner's search scope, which must keep reading specs and run records.
+      The lens is read by every attack reviewer, at run time and in the design turn, so one sentence reaches
+      every round.
+  - category: Architecture
+    chose: "The sentence names the read the cut rests on: a file that holds X today"
+    over: "Letting the reviewer cite the spec itself"
+    reason: |
+      Admission discards a cut without an own read at a returned line (SpecAttackAdmission.cs:46-48), and the
+      design-turn look cannot read the draft spec (DerivationLookFactory.cs:100-107). A file holding X exists
+      because the criterion asks for its removal.
+  - category: Architecture
+    chose: "Scope the criterion to the whole methodology directory, spelled from ProjectMetaPaths.Root"
+    over: "SeriesPaths.SpecsRoot (.agentsmith/specs/), as contract section 1 row c named"
+    reason: |
+      DEVIATION (wider), as the spec states: decisions and run records under the same root quote X too, so a
+      specs-only scope would still be unsatisfiable.

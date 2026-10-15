@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-14-dbceo
+
+decisions:
+  - category: Architecture
+    chose: "Thresholds are code constants on TranscriptWindow: VerbatimChars 60,000, KeepRecentChars 30,000, MinRecentTurns 2, MaxFoldChars 200,000; the writer asks the summarization model for at most 4,000 output tokens (default, pending operator ratification)"
+    over: "Configuration keys for the thresholds"
+    reason: |
+      Contract section 2.7 and section 5 default 23. The fold-down-to-30,000 low-watermark is the spec's own deviation
+      from 'keep 12 turns' (hysteresis: a fold follows at least 30,000 characters of new conversation), and
+      MaxFoldChars is the spec's fifth constant; both are built as written, pending operator ratification.
+  - category: Architecture
+    chose: "The window sits behind DialogTranscriptSection.Render, whose per-turn line moved to TranscriptWindow.Line; SpecDialogPromptFactory and TicketStewardPromptFactory are untouched"
+    over: "A window in the design partner's factory alone"
+    reason: |
+      Both masters render the transcript through that one seam (SpecDialogPromptFactory.cs:43,
+      TicketStewardPromptFactory.cs:30), so one change bounds both prompts. Up to 60,000 rendered characters, or with
+      no digest at all, the output is byte-identical to the old rendering (tested against a copy of it).
+  - category: Architecture
+    chose: "Pinned turns are found by position: the first operator turn, Filing and MockRatified turns, the newest proposal-kind turn, and every operator turn whose nearest earlier non-digest assistant turn is a proposal kind"
+    over: "Pinning operator turns by their Decision field, which never crosses into the pipeline"
+    reason: "The spec's DEVIATION, built as written: a superset of the decision turns with no new member on SpecDialogTurn."
+  - category: Architecture
+    chose: "Fold returns a TranscriptFold record (From, Through, Turns, PreviousDigest) — From added beside the spec's (through, turns, previous digest)"
+    over: "Recomputing the first folded index in the writer"
+    reason: "SpecDialogDigestInstruction.Heading(from, through) needs the first folded turn, and only the fold knows it once digest turns are skipped."
+  - category: Implementation
+    chose: "A Digest-kind turn without DigestThrough is treated as an ordinary turn; only a digest with DigestThrough is skipped and read as the latest digest"
+    over: "Skipping every Digest-kind turn"
+    reason: "The spec's known effect (2): a digest re-serialised by an older replica loses DigestThrough and becomes an ordinary turn, and the next fold starts over."
+  - category: Implementation
+    chose: "MaxFoldChars counts the rendered width of the folded turns (the previous digest is not counted), and a fold always takes at least one turn even when that turn alone is wider than the cap"
+    over: "A fold that folds nothing when the oldest tail turn is wider than 200,000 characters"
+    reason: "A fold that takes nothing would leave the tail above the bound forever; the previous digest is bounded by the 4,000-token output ceiling."
+  - category: Implementation
+    chose: "The writer re-reads the open session before the fold and again right before the append, appending only while the row's SessionId equals state.JobId; it takes TimeProvider for the turn's time (beside the spec's listed dependencies) and leaves LastActivityAt alone"
+    over: "Appending through SpecDialogSessionManager.AppendTurnAsync"
+    reason: |
+      AppendTurnAsync has no session-id check, and a /spec new fork during the summarization call would put the old
+      conversation's digest into the new one. A digest is not the operator's activity, so it does not move the
+      conversation's last-activity time.
+  - category: Implementation
+    chose: "SpecDialogSubjectMinter's private Agent became internal static AgentOf(loader, serverContext, project), which the writer shares"
+    over: "A second copy of the project-agent lookup in the writer"
+    reason: "Both calls must run on the project's own agent; one lookup keeps the message and the behaviour in one place."
+  - category: Architecture
+    chose: "SpecDialogRouter swaps the minter for SpecDialogTurnKeeper AND drops its SpecDialogSessionManager parameter (DEVIATION: the spec names only the minter swap)"
+    over: "Keeping an unused session-manager parameter on the router"
+    reason: |
+      The append was the router's only use of the session manager (SpecDialogRouter.cs:99 before); after the move it
+      would be an unused primary-constructor parameter. The five direct constructions drop it too. Router 120 -> 115.
+  - category: Implementation
+    chose: "FoldAsync is awaited in TryContinueThreadAsync after the finally that exits the turn gate"
+    over: "Folding inside the gate, or fire-and-forget"
+    reason: "The spec's decision: a message typed during the summarization call starts its own turn; awaiting keeps the scoped unit of work alive for the write."
+  - category: TradeOff
+    chose: "The router test lives in ConversationSubjectTests, whose router rig has a recording chat client; its keeper is now built there from the real minter and a writer on that client. SilentTurnKeeper.Over(repository, sessions, project) serves the other four constructions"
+    over: "A sixth hand-built router rig"
+    reason: "The subject rig already records the order of chat calls and replies, which is what the after-the-gate test asserts."

@@ -132,9 +132,17 @@ public sealed class PrReworkAdmissionTests
     }
 
     [Fact]
-    public async Task AzureDevOpsPr_CreatorsOwnVote_OnlyRefreshes()
+    public async Task AzureDevOpsPr_CreatorsWaitForAuthorVote_NudgesTheTicket()
     {
         (await Azure().HandleAsync(Vote(-5, voter: "creator"), VoteHeader)).Handled.Should().BeTrue();
+
+        VerifyNudged("ado", "https://dev.azure.com/org/proj/_git/r/pullrequest/9");
+    }
+
+    [Fact]
+    public async Task AzureDevOpsPr_CreatorsApproval_OnlyRefreshes()
+    {
+        (await Azure().HandleAsync(Vote(10, voter: "creator"), VoteHeader)).Handled.Should().BeTrue();
 
         VerifyOnlyRefreshed();
     }

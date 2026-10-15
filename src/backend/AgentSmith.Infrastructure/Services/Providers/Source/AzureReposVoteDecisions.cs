@@ -10,7 +10,8 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// approved with suggestions, -5 changes requested (wait for author), -10 rejected; a reset vote (0)
 /// decides nothing. Each vote is timed and identified by its newest vote thread; one with no vote
 /// thread gets "vote:{reviewerId}" and the pull request's creation time. The creator — whose
-/// identity our auto-complete approves with — and the token's own identity are excluded.
+/// identity our auto-complete approves with — and the token's own identity are excluded, except at
+/// -5: we never vote -5, so their Wait for author is a person's and counts.
 /// </summary>
 public static class AzureReposVoteDecisions
 {
@@ -19,7 +20,7 @@ public static class AzureReposVoteDecisions
     {
         var created = Utc(pr.CreationDate);
         var decisions = (pr.Reviewers ?? []).Where(r => r.Id is not null && Word(r.Vote) is not null
-                && !Same(r.Id, pr.CreatedBy?.Id) && !Same(r.Id, selfId))
+                && (r.Vote == -5 || (!Same(r.Id, pr.CreatedBy?.Id) && !Same(r.Id, selfId))))
             .Select(r => Decision(r, threads, created, repoUrl, pr))
             .ToList();
         var (state, at) = pr.Status switch

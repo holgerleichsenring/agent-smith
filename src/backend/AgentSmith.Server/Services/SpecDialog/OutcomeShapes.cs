@@ -38,10 +38,14 @@ public static class OutcomeShapes
         new("Make it a spec", "bigger than a bug fix");
     private static readonly DialogChoice IntoABugTicket =
         new("Make it a bug ticket", "smaller than a spec");
+    private static readonly DialogChoice IntoSeveralTickets =
+        new("Cut into several tickets", "parts that merge on their own");
+    private static readonly DialogChoice IntoOneTicketsSeries =
+        new("Make it one ticket's series", "the pieces need no merge between them");
 
     /// <summary>Every shape the framework offers, so a bound is taken over all of them at once.</summary>
     public static IReadOnlyList<DialogChoice> All { get; } =
-        [IntoSeveralSpecs, IntoOneSpec, IntoASpec, IntoABugTicket];
+        [IntoSeveralSpecs, IntoOneSpec, IntoASpec, IntoABugTicket, IntoSeveralTickets, IntoOneTicketsSeries];
 
     static OutcomeShapes()
     {
@@ -63,14 +67,15 @@ public static class OutcomeShapes
 
     /// <summary>
     /// The shapes offered beside approve and reject for this proposal. 2026-10-13-9a59l: a ticket's
-    /// own conversation is offered the same ladder — approving there continues the ticket itself.
+    /// own conversation is offered the same ladder, but no list of tickets, which only an unbound one files (dbcek).
     /// </summary>
-    public static IReadOnlyList<DialogChoice> For(OutcomeProposal proposal) =>
+    public static IReadOnlyList<DialogChoice> For(OutcomeProposal proposal, bool bound = false) =>
         proposal switch
         {
             BugOutcome => [IntoASpec],
             SpecOutcome => [IntoSeveralSpecs, IntoABugTicket],
-            EpicOutcome => [IntoOneSpec],
+            EpicOutcome => bound ? [IntoOneSpec] : [IntoOneSpec, IntoSeveralTickets],
+            TicketGraphOutcome => [IntoOneTicketsSeries],
             // An answer never reaches a confirmation, and a kind added later offers nothing until
             // it says what its neighbours are.
             _ => [],

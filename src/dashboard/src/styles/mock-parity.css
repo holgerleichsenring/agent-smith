@@ -535,6 +535,69 @@
 .mock-tickets .node { outline: none; }
 
 /* =========================================================================
+   TICKET GRAPH — ticket-graph.html: list buckets, graph view, never-run page, done by hand (2026-10-14-dbcen)
+   ========================================================================= */
+.mock-tickets .sd.blocked { background: var(--bg); border: 2px solid var(--person); }
+.mock-tickets .sd.filed { background: var(--bg); border: 2px solid var(--idle); }
+.mock-tickets .t-head .ticon.blocked { background: var(--bg); border: 3px solid var(--person); animation: none; }
+.mock-tickets .t-head .ticon.filed { background: var(--bg); border: 3px solid var(--idle); animation: none; }
+.mock-tickets .cnt.person { background: var(--person-wash); color: var(--person); }
+.mock-tickets .trow .norun { grid-column: span 3; font-size: 11.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.mock-tickets .trow .norun b { font-family: var(--mono); font-weight: 500; color: var(--person); }
+.mock-tickets .viewsw { display: inline-flex; border: 1px solid var(--line); border-radius: 9px; overflow: hidden; margin-left: auto; }
+.mock-tickets .viewsw .vs { font: inherit; font-size: 12.5px; font-weight: 560; padding: 6px 14px; border: 0; background: var(--bg); color: var(--ink-2); cursor: pointer; }
+.mock-tickets .viewsw .vs[aria-pressed="true"] { background: var(--ink); color: var(--bg); }
+.mock-tickets .tgraph { border: 1px solid var(--line); border-radius: var(--r); background: var(--panel); padding: 14px; overflow-x: auto; }
+.mock-tickets .tg-canvas { display: block; }
+.mock-tickets .tg-edge { fill: none; stroke: var(--ink-3); stroke-width: 1.4; }
+.mock-tickets .tg-arrow { fill: var(--ink-3); }
+.mock-tickets .tg-node { cursor: pointer; outline: none; }
+.mock-tickets .tg-node rect { fill: var(--bg); stroke: var(--line); stroke-width: 1.2; }
+.mock-tickets .tg-node:focus-visible rect { stroke: var(--accent); stroke-width: 2; }
+.mock-tickets .tg-node .tg-key { font-family: var(--mono); font-size: 11px; fill: var(--ink-3); }
+.mock-tickets .tg-node .tg-title { font-size: 12px; font-weight: 600; fill: var(--ink); }
+.mock-tickets .tg-node .tg-state { font-size: 10.5px; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; fill: var(--ink-3); }
+.mock-tickets .tg-node.merged rect, .mock-tickets .tg-node.done-by-hand rect { stroke: var(--ok); fill: var(--ok-wash); }
+.mock-tickets .tg-node.merged .tg-state, .mock-tickets .tg-node.done-by-hand .tg-state { fill: var(--ok); }
+.mock-tickets .tg-node.running rect { stroke: var(--run); fill: var(--run-wash); }
+.mock-tickets .tg-node.running .tg-state { fill: var(--run); }
+.mock-tickets .tg-node.blocked rect { stroke: var(--person); stroke-dasharray: 4 3; }
+.mock-tickets .tg-node.blocked .tg-state { fill: var(--person); }
+.mock-tickets .tg-node.ready rect { stroke: var(--ink-3); }
+.mock-tickets .tg-node.ready .tg-state { fill: var(--ink-2); }
+.mock-tickets .tg-node.idle rect { stroke: var(--idle); stroke-dasharray: 2 3; }
+.mock-tickets .tg-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 11.5px; color: var(--ink-3); margin-top: 10px; }
+.mock-tickets .tg-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; border: 1.5px solid var(--line); }
+.mock-tickets .tg-legend i.merged { background: var(--ok-wash); border-color: var(--ok); }
+.mock-tickets .tg-legend i.running { background: var(--run-wash); border-color: var(--run); }
+.mock-tickets .tg-legend i.blocked { border: 1.5px dashed var(--person); }
+.mock-tickets .tg-legend i.ready { border-color: var(--ink-3); }
+.mock-tickets .tg-legend i.idle { border: 1.5px dashed var(--idle); }
+.mock-tickets .tg-panel { border: 1px solid var(--line); border-radius: var(--r); background: var(--bg); padding: 12px 14px; margin-top: 12px; display: flex; flex-direction: column; gap: 6px; max-width: 520px; }
+.mock-tickets .tg-panel .key { font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
+.mock-tickets .tg-panel .pt { font-size: 14px; font-weight: 640; }
+.mock-tickets .tg-panel .pr { font-size: 12px; color: var(--ink-2); }
+.mock-tickets .waits { border: 1px solid var(--line); border-radius: var(--r); background: var(--panel); margin-top: 14px; overflow: hidden; }
+.mock-tickets .waits .wf-h { font-size: 10px; letter-spacing: 0.12em; text-transform: uppercase; color: var(--ink-3); font-weight: 600; padding: 10px 14px 6px; }
+.mock-tickets .waits .wf-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 14px; border-top: 1px solid var(--line-2); font-size: 12.5px; }
+.mock-tickets .waits .wf-row a { color: inherit; text-decoration: none; }
+.mock-tickets .waits .wf-row .wk { font-family: var(--mono); font-size: 12px; color: var(--ink); margin-right: 6px; }
+.mock-tickets .waits .wf-row .ws { color: var(--ink-3); }
+.mock-tickets .waits .wf-row .ws.landed { color: var(--ok); font-weight: 600; }
+.mock-tickets .waits .wf-row .wb { display: block; font-size: 11.5px; color: var(--ink-3); }
+.mock-tickets .waits .wf-none { padding: 8px 14px 10px; font-size: 12.5px; color: var(--ink-3); }
+.mock-tickets .filed-line { margin-top: 14px; font-size: 13px; color: var(--ink-2); display: flex; gap: 14px; align-items: baseline; flex-wrap: wrap; }
+.mock-tickets .filed-line a { color: var(--ink); font-weight: 600; }
+/* deviation: the mock draws the dialog in place; the product lays it over the page */
+.mock-tickets .dbh-back { position: fixed; inset: 0; z-index: 60; background: color-mix(in srgb, var(--ink) 18%, transparent); display: grid; place-items: center; padding: 16px; }
+.mock-tickets .dbh { background: var(--bg); border: 1px solid var(--line); border-radius: var(--r); padding: 16px 18px; width: min(460px, 100%); display: flex; flex-direction: column; gap: 10px; box-shadow: 0 8px 30px rgba(32, 21, 21, 0.12); }
+.mock-tickets .dbh h3 { margin: 0; font-size: 15px; font-weight: 660; }
+.mock-tickets .dbh .dbh-sub { font-size: 12.5px; color: var(--ink-3); }
+.mock-tickets .dbh textarea { font: inherit; font-size: 13px; border: 1px solid var(--line); border-radius: var(--r-s); padding: 8px 10px; min-height: 72px; resize: vertical; background: var(--panel); color: var(--ink); }
+.mock-tickets .dbh .dbh-said { border-left: 3px solid var(--bad); background: var(--bad-wash); padding: 6px 10px; font-size: 12.5px; border-radius: 0 var(--r-s) var(--r-s) 0; }
+.mock-tickets .dbh .dbh-acts { display: flex; gap: 8px; justify-content: flex-end; }
+
+/* =========================================================================
    TICKET DETAIL — ticket-view.html, Conversation, Specs and Acceptance tabs (2026-10-13-9a59r)
    ========================================================================= */
 /* ===== conversation ===== */

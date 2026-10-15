@@ -1,0 +1,207 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-14-dbcej
+goal: "A design turn can propose 2 to 20 ticket texts joined by requires; an invalid or cut-off list is re-prompted with the reason named."
+
+applies_to: "backend (the outcome kind kind: tickets as ticket texts, its records, parser, checker and orderer, the unclosed-fence rule, the stored proposal JSON, the turn kind, and the bound ticket page's proposal view)"
+
+requires: []
+
+facts:
+  - claim: "The outcome union has four kinds today — answer, bug, one spec, and an epic of a parent plus children — and none of them names more than one ticket."
+    evidence: "src/backend/AgentSmith.Contracts/Models/OutcomeProposal.cs:38-51"
+  - claim: "The resolver dispatches an ```outcome block on its kind: bug and epic have parsers, anything else is refused with 'expected bug or epic'; the missing-kind text names bug and epic."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/OutcomeProposalResolver.cs:69-80"
+  - claim: "An ```outcome block is matched only with its closing fence; a reply with no matched block goes to the bare-draft path, where a reply without a ```yaml block resolves to an AnswerOutcome."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogDraftBlocks.cs:25-26, src/backend/AgentSmith.Application/Services/SpecDialog/OutcomeProposalResolver.cs:23-24, src/backend/AgentSmith.Application/Services/SpecDialog/OutcomeProposalResolver.cs:38-41"
+  - claim: "A model's output cap defaults to 8192 tokens and the example catalog's sonnet sets 8192; a done spec records that a design reply is capped there and can arrive with its fence unclosed."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/ModelAssignment.cs:18, config/agentsmith.example.yml:231, .agentsmith/specs/done/2026-10-01-aeb6b-dialog-document-outcome.yaml:22"
+  - claim: "An invalid outcome re-prompts the design partner once with the exact error, and a second failure replaces the reply with an honest notice."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogOutcomeGate.cs:10-15, src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogOutcomeGate.cs:42-65"
+  - claim: "Only a design-partner turn reaches the outcome gate: a turn led by the ticket steward publishes an AnswerOutcome without parsing its reply, so a list is only ever read from a design-partner reply."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogTurnFlow.cs:32-40"
+  - claim: "The outcome block's YAML is read through internal helpers for a map, a string, a nested map and a list."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/OutcomeYamlReader.cs:11-37"
+  - claim: "The block is deserialized untyped, so an unquoted ': ' inside an item makes a mapping; GetString answers null for any non-string value and GetList hands back raw objects whose items may be mappings."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/OutcomeYamlReader.cs:13-22, src/backend/AgentSmith.Application/Services/SpecDialog/OutcomeYamlReader.cs:30-32"
+  - claim: "GetList answers null for a value that is not a list, so a scalar written where a list belongs reads exactly like an absent field."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/OutcomeYamlReader.cs:30-32"
+  - claim: "An unquoted ': ' inside a mapping value such as a title or requirement is a YAML parse error, not a mapping; the resolver turns a YamlException into an OutcomeInvalid carrying the library's message, so it is re-prompted."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/OutcomeProposalResolver.cs:60-67, observed: 2026-10-14, PyYAML safe_load of 'title: Orders: schema slice' raised 'mapping values are not allowed here' while the same unquoted ': ' inside a done list item read as a mapping"
+  - claim: "The resolver is called outside any try in the design turn, so an exception from a parser fails the turn instead of re-prompting; only an OutcomeInvalid reaches the one re-prompt."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogOutcomeGate.cs:31-34, src/backend/AgentSmith.Application/Services/SpecDialog/SpecDialogOutcomeGate.cs:60-62"
+  - claim: "A GitHub or Azure DevOps ticket read of an id like '#41' answers not found, because both parse the id as a bare number first."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketProvider.cs:64, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/AzureDevOpsTicketProvider.cs:82"
+  - claim: "Four tests construct the resolver directly and one pins the unknown-kind text 'expected bug or epic'."
+    evidence: "tests/AgentSmith.Tests/SpecNaming/SpecNamedOutcomeKindTests.cs:22-30, tests/AgentSmith.Tests/SpecDialog/SpecDialogDocumentTests.cs:23, tests/AgentSmith.Tests/SpecDialog/DialogDraftReposTests.cs:157, tests/AgentSmith.Tests/Validation/OutcomeProposalResolverTests.cs:22"
+  - claim: "The test project copies a fixture folder to the output with one None Update entry per folder."
+    evidence: "tests/AgentSmith.Tests/AgentSmith.Tests.csproj:52-54"
+  - claim: "EpicChildOrderer is Kahn's algorithm with ties broken by the cut's own order, and refuses edges that cannot be ordered; it orders spec drafts, not tickets."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecDialog/EpicChildOrderer.cs:22-48"
+  - claim: "A filed title is cut at 255 characters, which every tracker accepts."
+    evidence: "src/backend/AgentSmith.Contracts/Tickets/TicketTitle.cs:17-28"
+  - claim: "The stored proposal JSON is a kind discriminator plus a per-kind payload, the review fields ride on the base record, and an unknown kind fails loudly in both directions."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeProposalJson.cs:31-54, src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeProposalJson.cs:68-77"
+  - claim: "The turn kind recorded for a kept turn follows the outcome, and an outcome with no turn kind throws."
+    evidence: "src/backend/AgentSmith.Server/Models/SpecDialogTurnResult.cs:40-48, src/backend/AgentSmith.Contracts/Models/SpecDialogTurnKind.cs:9-19"
+  - claim: "The bound ticket page's proposal view names a spec or an epic with their drafts and reads everything else as a bug."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Conversation/TicketTranscriptReader.cs:47-52"
+  - claim: "The parsers are registered on three lines of PipelineHandlersExtensions, which is at its 218-line baseline."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/PipelineHandlersExtensions.cs:168-170, tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:37"
+  - claim: "Until a later member teaches them, the confirmation composer and the filer throw on an outcome kind they do not know."
+    evidence: "src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOutcomeComposer.cs:82-91, src/backend/AgentSmith.Server/Services/SpecDialog/OutcomeTicketFiler.cs:40-51"
+  - claim: "A ticket's run derives its own specs at DeriveSpec when no approved set is handed to it, and the derived cut is reviewed before it is published."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSourceResolver.cs:114-117, src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:71-80, src/backend/AgentSmith.Application/Services/Specs/CutReviewStep.cs:29"
+  - claim: "A realistic ticket text (title, a five-sentence requirement, four done items, requires, one repository) is 1,025 characters; twenty of them in one outcome block are 20,288 characters, about 5,100 tokens at 4 characters per token and 6,800 at 3; a ticket at this spec's field maxima is 3,602 characters, so 6 to 8 such tickets fit one 8192-token reply."
+    evidence: "observed: 2026-10-14, a generated 20-ticket fixture measured with python (the fixture is committed by step tests as tests/AgentSmith.Tests/Validation/fixtures/ticket-graph-20-tickets.md and its size pinned there); the 4-characters-per-token estimate is the repository's own, src/backend/AgentSmith.Infrastructure/Services/Providers/Agent/ForwardedViewFit.cs:22"
+
+assumptions:
+  - "The design partner is taught to emit kind: tickets only by 2026-10-14-dbcep's skills release, which lands after 2026-10-14-dbcek and 2026-10-14-dbcel; until then no master writes the block."
+  - "The step that chains the new registrations onto existing lines of PipelineHandlersExtensions.cs re-measures it with wc -l before and after; nothing else lands in that file in this commit."
+
+scope:
+  in: >
+    SHAPE (main-thread decision D1, default pending operator ratification): a design reply can no longer carry a graph of
+    full specs (8192-token output cap), so a ticket graph carries TICKET TEXTS and no spec. The block is `kind: tickets`
+    with `tickets:` a list of mappings {key, title, requirement, done, requires, repos?}: key [a-z][a-z0-9-]{1,40};
+    title one line; requirement the scope in prose; done a list of one-line "done when" items; requires sibling keys or
+    "ticket:<tracker id>" of an already-filed ticket of the project; repos optional, configured names from the turn's
+    scope. Each ticket's specs are derived by its own run at start (DeriveSpec and the cut review) against the code merged
+    by then. RECORDS: Contracts/Models/OutcomeProposal.cs (51 -> at most 56) gains TicketGraphOutcome(IReadOnlyList<GraphTicket>
+    Tickets) : OutcomeProposal. Own files in Contracts/Models: GraphTicket(string Key, string Title, string Requirement,
+    IReadOnlyList<string> Done, IReadOnlyList<string> Requires, IReadOnlyList<string> Repos); GraphTicketRequire with
+    ExistingPrefix = "ticket:" and ExistingId(requirement) -> the id after the prefix with one leading '#' stripped
+    (ticket:#41 -> 41, the form the "waits for" text shows), or null; TicketGraphLimits:
+    MinTickets 2, MaxTickets 20, MaxTitle 120, MaxRequirement 1200, MaxDoneItems 8, MaxDoneItem 240 (code constants,
+    contract section 5 defaults 12 and 29, pending operator ratification). PARSER: TicketGraphOutcomeParser.Parse(map,
+    scope) -> OutcomeResolution reads the list through OutcomeYamlReader, trims every string, and refuses a ticket that is
+    not a mapping or carries a key outside the six, naming it by key or by position. key, title and requirement must be
+    strings and every done, requires and repos item a string: a mapping or list in their place (an unquoted ': ' in a
+    list item makes one, as does a title followed by an indented `a: b` line) is refused naming the ticket, the field and
+    "quote the item". tickets, done, requires and repos, when present and not null, must be YAML lists: a scalar or a
+    mapping there (`requires: order-api`) is refused naming the ticket and the field and saying "write it as a list:
+    [order-api]", never read as empty. Only an absent or null requires or repos reads as empty. An unquoted ': ' in a
+    title or requirement never reaches the parser: it is a YAML parse error, which the resolver's existing catch
+    re-prompts; that text (OutcomeProposalResolver.cs:66) gains " — quote every string that contains ': '" on that same line.
+    The parser never throws on the block's shape; every refusal is an OutcomeInvalid, so the turn is re-prompted, never
+    failed. It then runs the checker.
+    CHECKER: TicketGraphChecker.Check(graph, scope) -> reason or null, in this order: 2..20 tickets; key shape and
+    uniqueness; title present, one line, at most 120; requirement present, at most 1200; done 1..8 items, each one line
+    and at most 240; every requires a sibling key or ticket:<id> with a non-empty id after the '#' strip, never the ticket's own key, no
+    duplicate; every repos entry a name in the turn's scope; the ticket edges order (TicketGraphOrderer). Each reason
+    names the ticket key and the rule. ORDERER: TicketGraphOrderer.Order(tickets) -> (Tickets, Error), Kahn over sibling
+    keys, ties in the proposal's order, ticket:<id> requirements ignored for ordering; an unorderable set names every key
+    still waiting. CUT-OFF REPLY: SpecDialogDraftBlocks.HasUnclosedOutcome(reply) (87 -> at most 92) is true when an
+    ```outcome fence opens outside a document block and no closing fence follows; OutcomeProposalResolver.Resolve returns
+    OutcomeInvalid "the ```outcome block is not closed — the reply was cut at the output limit; propose fewer tickets
+    now and name them with ticket:<id> in the next approval" before the bare-draft path, so the existing one re-prompt
+    runs instead of keeping a half block as an answer. RESOLVER: "tickets" dispatched beside bug and epic; the
+    missing-kind and unknown-kind texts name tickets ("expected bug, epic or tickets"); one ctor line, the arm, the
+    unclosed check and its message (82 -> at most 88; the file is not baselined, 120 applies). JSON (OutcomeProposalJson, 78 -> at most 86): kind
+    "tickets" with Tickets as a list of the GraphTicket fields; the base record's templates, findings, rounds and
+    not-reviewed ride as for every kind. TURN KIND: SpecDialogTurnKind.TicketGraphProposal = 8 (19 -> 20);
+    SpecDialogTurnResult.KindOf maps it (49 -> at most 50). TICKET PAGE: TicketTranscriptReader.Of maps a graph to kind
+    "tickets" with no drafts (69 -> at most 70). REGISTRATION: parser, checker and orderer chained onto the existing lines
+    168-170, net zero.
+  out: >
+    Reviewing the list, the ticket:<id> existence check, the proposal text, the pane push, the offered shapes and the
+    dashboard proposal card — 2026-10-14-dbcek; until it lands a hand-typed kind: tickets block resolves and its
+    confirmation fails naming the kind (SpecDialogOutcomeComposer has no shape for it), and no master writes one before
+    2026-10-14-dbcep. Filing the list, the refusal in a ticket-bound conversation, the ticket body and the record that
+    carries the conversation's material — 2026-10-14-dbcel. The skill text that proposes kind: tickets and says when —
+    2026-10-14-dbcep. The requirement table and the gate that holds a dependent — 2026-10-14-dbcef and 2026-10-14-dbceh.
+    Specs inside a ticket of the list — nobody: decision D1, a run derives them against the code merged when it starts;
+    a person who wants to fix them first opens the ticket's own Work it out conversation (the existing continuation path,
+    2026-10-13-9a59l). A list nested in a list — nobody: refused here, a ticket is the unit of merge. A larger plan than
+    one reply carries — nobody: the operator raises the design model's max_tokens or approves the list in parts, the later
+    part naming the filed tickets with ticket:<id> (contract section 7 question 5, re-asked with the measured figure). A
+    configurable ticket cap or field bound — nobody: contract section 2.7 keeps every new threshold a code constant until
+    the operator ratifies it. A requires naming a ticket of another tracker or project — nobody: contract decision 5; the
+    checker reads the shape, and 2026-10-14-dbcek and 2026-10-14-dbcel read the id from the project's tracker.
+
+decisions:
+  - key: "TICKET TEXTS, NOT SPECS (main-thread decision D1, pending operator ratification). The design reply is capped at 8192 output tokens; a graph of twenty tickets each holding full spec mappings cannot fit, and a truncated reply resolved silently as an answer. A ticket text — key, title, requirement, done list, requires, repos — is the unit the field case worked with (sub-phase tickets of 15 to 28 minutes); each run derives its specs against the code merged by then, which is also the original reason child tickets carried no spec (2026-09-13-a72a, retired)."
+  - key: "MaxTickets STAYS 20, MEASURED. Twenty realistic ticket texts are about 5,100 to 6,800 tokens, inside the 8192 cap with room for the reply's prose; twenty tickets at the field maxima are not (6 to 8 fit). The unclosed-fence rule is what makes the difference visible: a list cut at the output limit is re-prompted with 'propose fewer tickets now', never kept as an answer."
+  - key: "THE UNCLOSED FENCE IS INVALID, NOT ABSENT. SpecDialogDraftBlocks needs the closing fence for every block; without the new rule a cut-off ```outcome block falls to the bare-draft path and becomes an AnswerOutcome. Only an opened ```outcome fence counts, outside a ````document block, so a document that quotes the fence (aeb6b) is untouched."
+  - key: "SCALARS ONLY, NEVER A THROWN TURN. The untyped YAML read turns an unquoted 'GET /orders returns: 200' into a mapping, and the resolver runs outside any try in the design turn (SpecDialogOutcomeGate.cs:31). A non-string field or item is therefore refused as an OutcomeInvalid naming the ticket, the field and 'quote the item', so the existing one re-prompt fixes it; 2026-10-14-dbcep's skill text quotes every string in its example. A field of the wrong SHAPE is refused the same way (round-3 cut): read as empty, `requires: order-api` would file the ticket as a root that starts at once, before what it needs has merged. An unquoted ': ' in a title or requirement is a YAML parse error, not a mapping, so it takes the resolver's YAML-error path, whose text now asks to quote every string that contains ': '."
+  - key: "ticket:#41 IS ticket:41. The proposal and filing texts show a numeric tracker id as #41; a model copying it into the next approval writes ticket:#41, which GitHub and Azure DevOps read as not found. ExistingId strips one leading '#', so both forms name the same ticket; the landing key was never affected (TicketKey slugs it)."
+  - key: "ABSENT LISTS ARE EMPTY. A root ticket that omits requires: or repos:, or writes them as null, is valid; refusing it would re-prompt a correct list."
+  - key: "THE MEASUREMENT LIVES IN THE REPO. The 20-ticket fixture is a committed test resource and its outcome block is pinned at or under 24,000 characters (about 6,000 tokens at the repository's 4 characters per token), so the reason the cap stays 20 is checked by the suite, not kept in a session scratchpad."
+  - key: "REPOS ARE OPTIONAL AND CHECKED AGAINST THE SCOPE. A ticket naming none is filed with the conversation's repositories (2026-10-14-dbcel); one naming a repository the turn's scope does not hold is refused here, the rule DialogDraftRepos applies to a lone spec."
+  - key: "DONE ITEMS ARE ONE LINE EACH. 2026-10-14-dbcel renders them under the acceptance-criteria heading, where only a list item is read back as a criterion; a multi-line item would be split or merged by that reader."
+  - key: "TicketGraphOrderer ORDERS TICKETS, EpicChildOrderer STAYS FOR DRAFTS. Both are Kahn with ties in the proposal's order; a generic orderer over two record types would be a wrapper for one loop. ticket:<id> requirements name tickets already filed, so they never constrain the order."
+  - key: "ROLLING DEPLOY. An older replica reads a stored kind 'tickets' as an unknown kind (OutcomeProposalJson throws, the ticket page shows the proposal as absent) and the turn kind 8 as null; nothing writes the block before 2026-10-14-dbcep ships, so the window is empty in practice."
+  - key: "Defaults pending operator ratification: contract section 5 defaults 12 (2..20, measured above), 13 (D1: a ticket text with no spec; a run's derivation is bounded by series.specs_per_attempt as today), 14 (requires by sibling key or ticket:<id>, same tracker only), 25 (a list only where the pieces must merge between them), 29 (the field bounds of TicketGraphLimits and the unclosed-fence rule)."
+
+steps:
+  - id: records
+    action: "TicketGraphOutcome in Contracts/Models/OutcomeProposal.cs (51 -> at most 56, wc -l); GraphTicket.cs, GraphTicketRequire.cs and TicketGraphLimits.cs in Contracts/Models, each its own file with a dated summary."
+  - id: orderer
+    action: "Application/Services/SpecDialog/TicketGraphOrderer.cs: Order(IReadOnlyList<GraphTicket>) -> (IReadOnlyList<GraphTicket> Tickets, string? Error), Kahn over sibling keys, ties in proposal order."
+  - id: checker
+    action: "Application/Services/SpecDialog/TicketGraphChecker.cs: Check(TicketGraphOutcome, IReadOnlyList<string> scope) -> reason or null in the order scoped; each reason names the ticket key and the rule."
+  - id: parser
+    action: "Application/Services/SpecDialog/TicketGraphOutcomeParser.cs: Parse(map, scope) reads the six fields of each ticket with OutcomeYamlReader, refuses unknown keys and non-mappings by key or position, builds the records and runs the checker; under 120 lines."
+  - id: unclosed-fence
+    action: "SpecDialogDraftBlocks.HasUnclosedOutcome (87 -> at most 92) and the OutcomeInvalid naming the output limit, checked in OutcomeProposalResolver.Resolve before the bare-draft path."
+  - id: resolver
+    action: "OutcomeProposalResolver: one ctor parameter, the \"tickets\" arm, the two kind texts name tickets, and the YAML-error text at :66 ends \" — quote every string that contains ': '\" on the same line (82 -> at most 88, wc -l)."
+  - id: json-turn-page
+    action: "OutcomeProposalJson: Dto gains Tickets, ToDto and FromDto the tickets arm (78 -> at most 86); SpecDialogTurnKind.TicketGraphProposal = 8; SpecDialogTurnResult.KindOf maps it; TicketTranscriptReader.Of maps a graph to kind \"tickets\" (69 -> at most 70)."
+  - id: registration
+    action: "PipelineHandlersExtensions.cs:168-170: chain TicketGraphOutcomeParser onto the epic parser's line and TicketGraphChecker, TicketGraphOrderer onto RequiresEdgeChecker's line; the file stays at 218 (wc -l)."
+  - id: existing-tests
+    action: "Pass the new parser to the four direct resolver constructions (SpecNamedOutcomeKindTests.cs:30, SpecDialogDocumentTests.cs:23, DialogDraftReposTests.cs:157, OutcomeProposalResolverTests.cs:22) and update the pinned text at SpecNamedOutcomeKindTests.cs:24 to 'expected bug, epic or tickets'."
+  - id: tests
+    action: "Tests below in tests/AgentSmith.Tests/Validation (parser, checker, orderer, resolver, draft blocks), SpecDialog (JSON, turn kind, ticket page) and a DI test resolving IOutcomeProposalResolver from the real service collection. The 20-ticket fixture is committed as tests/AgentSmith.Tests/Validation/fixtures/ticket-graph-20-tickets.md (every string quoted, as the skill example), copied by one None Update entry beside AgentSmith.Tests.csproj:52; OutcomeProposalResolver_TwentyRealisticTicketTexts_ResolveWhole also asserts its outcome block is at most 24,000 characters."
+
+tests:
+  - "OutcomeProposalResolver_TicketsBlock_ResolvesTicketGraphWithEveryField"
+  - "OutcomeProposalResolver_UnknownKind_NamesBugEpicAndTickets"
+  - "SpecNamedOutcomeKindTests.Resolve_AnOutcomeBlockOfTheOldKind_IsAnUnknownKind (updated text)"
+  - "OutcomeProposalResolver_UnclosedOutcomeFence_IsInvalidNamingTheOutputLimit"
+  - "OutcomeProposalResolver_ProseWithoutAnyFence_IsStillAnAnswer"
+  - "SpecDialogDraftBlocks_HasUnclosedOutcome_FalseForAClosedBlockAndForAFenceQuotedInADocument"
+  - "OutcomeProposalResolver_TwentyRealisticTicketTexts_ResolveWhole"
+  - "TicketGraphOutcomeParser_OneTicket_RefusedNamingTheMinimumOfTwo"
+  - "TicketGraphOutcomeParser_TwentyOneTickets_RefusedNamingTheMaximumOfTwenty"
+  - "TicketGraphOutcomeParser_UnknownTicketField_RefusedNamingTheTicket"
+  - "TicketGraphOutcomeParser_TicketNotAMapping_RefusedNamingItsPosition"
+  - "TicketGraphOutcomeParser_DoneItemWithUnquotedColon_RefusedNamingTheFieldAndQuoting"
+  - "OutcomeProposalResolver_TitleWithUnquotedColon_IsInvalidYamlAndAsksToQuote"
+  - "TicketGraphOutcomeParser_TitleAsANestedMapping_RefusedAsNotAString"
+  - "TicketGraphOutcomeParser_RequiresAsAScalar_RefusedNotDropped"
+  - "TicketGraphOutcomeParser_DoneAsAScalar_RefusedAsNotAList"
+  - "TicketGraphOutcomeParser_RootWithoutRequiresKey_Accepted"
+  - "TicketGraphOutcomeParser_NullRequiresAndRepos_ReadAsEmpty"
+  - "TicketGraphChecker_DuplicateKey_Refused"
+  - "TicketGraphChecker_KeyWithUpperCase_Refused"
+  - "TicketGraphChecker_MissingRequirement_RefusedNamingTheTicket"
+  - "TicketGraphChecker_NoDoneItem_RefusedNamingTheTicket"
+  - "TicketGraphChecker_FieldOverItsBound_RefusedNamingTheFieldAndTheBound"
+  - "TicketGraphChecker_MultiLineDoneItem_Refused"
+  - "TicketGraphChecker_RequiresUnknownSibling_RefusedNamingIt"
+  - "TicketGraphChecker_RequiresItself_Refused"
+  - "TicketGraphChecker_RequiresExistingTicket_Accepted"
+  - "TicketGraphChecker_EmptyExistingTicketId_Refused"
+  - "TicketGraphChecker_RepoOutsideTheScope_Refused"
+  - "TicketGraphChecker_Cycle_RefusedNamingTheWaitingKeys"
+  - "TicketGraphOrderer_ForwardEdge_OrdersRequiredFirst_TiesKeepProposalOrder"
+  - "TicketGraphOrderer_ExistingTicketRequirement_DoesNotConstrainOrder"
+  - "GraphTicketRequire_ExistingId_StripsThePrefixAndRejectsOthers"
+  - "GraphTicketRequire_ExistingId_HashPrefixedId_IsTheBareId"
+  - "TicketGraphChecker_ExistingTicketIdOnlyAHash_Refused"
+  - "TicketGraphChecker_MultiLineTitle_Refused"
+  - "TicketGraphChecker_DuplicateRequires_Refused"
+  - "TicketGraphChecker_KeyOverFortyOneCharacters_Refused"
+  - "OutcomeProposalJson_TicketGraph_RoundTripsEveryTicketFieldAndTheReviewFields"
+  - "SpecDialogTurnResult_TicketGraph_KeptAsTicketGraphProposal"
+  - "TicketTranscriptReader_TicketGraphProposal_ShownAsTickets"
+  - "OutcomeProposalResolver_FromRealServiceCollection_ParsesATicketsBlock"
+
+done:
+  - "A design turn whose reply carries a kind: tickets block with 2 to 20 ticket texts keeps that proposal as a list of tickets with their keys, titles, requirements, done items, requires and repositories, and the stored proposal reads back unchanged after a reload."
+  - "A list with one ticket or more than twenty, a repeated or malformed key, a ticket without a requirement or without a done item, a field over its bound, a requires naming no sibling, a repository outside the conversation's scope, or a cycle is refused, and the design partner is re-prompted with the ticket and the rule named."
+  - "A list whose done item, title or requirement carries an unquoted colon is re-prompted asking to quote it, never fails the turn; a requires or done written as one value instead of a list is re-prompted asking for a list, never read as empty; a requires written as ticket:#41 names ticket 41."
+  - "A reply whose list was cut off at the output limit is re-prompted with that cause named and the advice to propose fewer tickets, instead of being kept as an answer."
+  - "The conversation records a list-of-tickets proposal as its own turn kind, and a bound ticket's page shows it under the kind tickets."
+  - "Build green, full suite green, dashboard gen/test/build green."

@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-14-dbcep
+
+decisions:
+  - category: Tooling
+    chose: "One skills release (v5.18.0) and one pin move for the whole series, after the outcome, the review and the filing exist (default, pending operator ratification)"
+    over: "A release per series member"
+    reason: |
+      Contract section 5 default 26: no live master asks for a kind the server would refuse. Skills PR #234
+      (branch spec/2026-10-14-dbce in the worktree agent-smith-skills-dbce, cut from origin/main 7d2ddaf = v5.17.0, so
+      the operator's checkout on feat/design-partner-asks-at-the-threshold was never switched) and release PR #235 were
+      merged by the operator; release-please cut v5.18.0. Masters: design-partner-master 1.16.0 -> 1.17.0,
+      coding-agent-master 1.32.0 -> 1.33.0, ticket-steward-master 1.0.0 -> 1.1.0, one minor each as 8762x did.
+  - category: Tooling
+    chose: "SkillsCatalogVersion v5.18.0 with SkillsCatalogSha256 e779b50f…c7440, taken from the release's .sha256 asset and checked against shasum of the downloaded tarball (90765 bytes); the v5.17.0 tarball is deleted and the build-restored v5.18.0 one is byte-identical to the release asset"
+    over: "Taking the hash from a local build of the skills repo"
+    reason: |
+      The pin names what the release serves, so the hash comes from the release itself. The validator's MinimumVersion
+      stays v5.13.0: an older pulled pin still runs, its design partner only never proposes tickets.
+  - category: Implementation
+    chose: "Placement of the sentences in the skills: S1 last item of the Outcomes list (after epic, before 'Not yet converged'); S11 replaces the review-cut line; S2 opens 'When spec and epic both look right' and the next paragraph begins 'Then apply the branch-state test:'; S10 last item of the 'say which you chose' list; S8 a bullet in the 'Drafting a spec' rules right after the done-scenario rule; '## Proposing tickets' at the end of the file after 'Proposing an epic', the block then 'Rules:' with S3-S7; S9 an indented line ending item 1 of coding-agent-master's 'Definition of done'; S12 the last line of the steward's 'Start the next attempt' paragraph"
+    over: "Wrapping the sentences across source lines like the surrounding text"
+    reason: |
+      Each sentence sits on ONE source line because Should().Contain does not match a wrapped sentence. The
+      design-partner description is the spec's 172-character text (cap 200). validate-skills.sh was green and the added
+      lines contain no 'phase'.
+  - category: Implementation
+    chose: "The sentences S1-S10 live verbatim as constants in TicketGraphSkillSentences, and TicketGraphSkillRulesTests asserts each against the pinned master; the S11 quote changes in SeriesSkillRulesTests and S12 is quoted in TicketStewardSkillTests"
+    over: "Quoting every sentence inline in one test class"
+    reason: |
+      Inline the class would pass 120 lines (the ten sentences alone are 32 wrapped lines). The constants were generated
+      from the spec's sentences, so the test and the master cannot be written from two paraphrases.
+  - category: Implementation
+    chose: "ShowsAnExampleTheCheckerAccepts parses the block with the scope [\"backend\"]"
+    over: "The fixtures' repo scope [api, web]"
+    reason: |
+      TicketGraphChecker holds each ticket's repos to the turn's scope, and the block's first ticket names repos
+      ["backend"]; an empty scope would not exercise the repos check at all.
+  - category: Scope
+    chose: "No skill sentence about the transcript digest of 2026-10-14-dbceo"
+    over: "Telling the design partner and the steward that a '**Digest of turns 1 to N**' assistant turn by agent-smith and a '[Turns 1 to N are summarised …]' line may appear in the transcript"
+    reason: |
+      This spec does not name that sentence. If the masters should be told, it needs a spec amendment or its own spec
+      and a later skills release; reported to the operator.

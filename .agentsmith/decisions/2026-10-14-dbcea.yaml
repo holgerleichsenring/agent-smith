@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-14-dbcea
+
+decisions:
+  - category: Architecture
+    chose: "Fix the numbered slicer so a trailing newline closes the last line and an empty file has no lines, matching EvidenceLineCount (default, pending operator ratification)"
+    over: "Telling the design partner or coding master in skill text to subtract the phantom last line"
+    reason: |
+      The partner cited exactly what read_file showed; a numbered line N+1 that does not exist is the tool's
+      error. EvidenceLineCount is the system's one rule for how many lines a file has; read_file now agrees.
+  - category: Architecture
+    chose: "Change only the numbered path; the unnumbered read keeps split-and-rejoin and returns the file's exact bytes"
+    over: "Applying the trailing-newline rule to both paths as series contract section 1 row a states"
+    reason: |
+      DEVIATION (narrowing): edit_file and multi_edit rewrite a file from the unnumbered whole read
+      (FilesystemToolHost.cs:339, :397); stripping the trailing newline there would strip it from every edited
+      file. The numbered view is the citation view, the unnumbered view is the file's bytes.
+  - category: Architecture
+    chose: "Keep the two slicer copies (FileStepHandler, InProcessSandbox) with one identical expression and mirrored tests, plus an agreement test against EvidenceLineCount.Of"
+    over: "A shared helper"
+    reason: |
+      Sandbox.Agent is an Exe project Infrastructure cannot reference, and Sandbox.Agent cannot reference
+      Application. Both files stay at their line counts (234 of 234, 409 of 417).
+  - category: Testing
+    chose: "InProcessSandboxReadFileTests sits in ExternalProcessCollection with TestProcess serial"
+    over: "Leaving it in the fast lane"
+    reason: |
+      ExternalProcessIsolationRuleTests requires every test that constructs an InProcessSandbox to join the
+      isolated collection, even though a ReadFile step starts no process.

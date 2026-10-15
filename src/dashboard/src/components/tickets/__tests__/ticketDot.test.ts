@@ -22,6 +22,8 @@ describe("ticketDot", () => {
       [ticket({ bucket: "idle", lastOutcome: "failed" }), "bad"],
       [ticket({ bucket: "idle", lastOutcome: "cancelled" }), "bad"],
       [ticket({ bucket: "idle", lastOutcome: null }), "idle"],
+      [ticket({ bucket: "blocked" }), "blocked"],
+      [ticket({ bucket: "filed" }), "filed"],
     ];
     expect(cases.map(([t]) => ticketDot(t))).toEqual(cases.map(([, cls]) => cls));
   });

@@ -1,0 +1,196 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-14-dbcei
+goal: "A ticket marked done by hand with a note counts as landed, wakes its dependents and lists as done; a conversation's start of a waiting ticket names what it waits for and queues nothing."
+
+applies_to: "backend (POST /api/tickets/{project}/{ticketId}/landed-by-hand, TicketLandingRecorder.RecordByHandAsync, the ticket list and header reading a landing of either kind as done; the conversation's attempt start asking the requires gate first, and a rework refusal naming the act's source)"
+
+requires: [2026-10-14-dbceg, 2026-10-14-dbceh]
+
+facts:
+  - claim: "runs.control is the permission for acts that start work; the ticket surface already has a runs.control POST that decodes the route segments, takes the caller's principal and answers 404 for an unknown ticket and 400 for a refused body."
+    evidence: "src/backend/AgentSmith.Server/Security/Permissions.cs:26, src/backend/AgentSmith.Server/Extensions/TicketDefaultsEndpoints.cs:8-40, src/backend/AgentSmith.Server/Extensions/TicketQueryEndpoints.cs:43, src/backend/AgentSmith.Server/Services/SpecDialog/SpecDialogOwnership.cs:31"
+  - claim: "A person's display name is read off the token's name, else preferred_username, else upn claim, never the opaque sub, and the dialog endpoint records it on a person's turn at write time."
+    evidence: "src/backend/AgentSmith.Server/Security/DisplayName.cs:5-18, src/backend/AgentSmith.Server/Extensions/SpecDialogEndpoints.cs:45-46"
+  - claim: "The ticket steward's start_next_attempt asks ConversationAttemptStart, which approves a pending series edit or retries the latest attempt and answers 'requested' with no requirement read; a pending edit's start queues an Operator nudge through OperatorStart, whose requirement check covers only a ticket no attempt worked."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/StartNextAttemptToolHost.cs:21-30, src/backend/AgentSmith.Server/Services/SpecDialog/ConversationAttemptStart.cs:22-39, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/PendingEditStart.cs:27-35, src/backend/AgentSmith.Server/Services/SpecDialog/Continuation/OperatorStart.cs:27-48"
+  - claim: "The requires gate answers what a ticket waits for as one sentence, and UnmetTicketRequirements.OfAsync is the one read behind it."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/RequiresUnmetGate.cs:34-40, src/backend/AgentSmith.Application/Services/Claim/UnmetTicketRequirements.cs:21-29"
+  - claim: "A RequirementsMet nudge starts only a ticket no attempt worked; for a worked ticket it takes the ordinary path, which reworks only on a pending act, so a request answered without queueing never starts by itself later."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeHandler.cs:39-53, src/backend/AgentSmith.Server/Services/Rework/DependentsWake.cs:69-77"
+  - claim: "A refused rework is posted on the ticket as 'this comment did not start a rework' whatever channel the act came from, although every act carries its channel (comment, status, conversation approval, retry, overrule)."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkTexts.cs:9-10, src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeHandler.cs:103-115, src/backend/AgentSmith.Server/Services/Rework/ClosedTicketActFollowUp.cs:43, src/backend/AgentSmith.Contracts/Runs/ReworkAct.cs:10, src/backend/AgentSmith.Contracts/Runs/ReworkChannel.cs:5-17"
+  - claim: "ReworkNudgeHandler is at 119 lines, ConversationAttemptStart 47 and ReworkTexts 51; none is baselined."
+    evidence: "observed: 2026-10-14 after the merge of PR #740, wc -l of the three files and grep of tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv (no entry)"
+  - claim: "Ticket endpoint groups are chained one from the next: the reviews mapping returns the defaults mapping, which returns the app; TicketDefaultsEndpoints is 41 lines."
+    evidence: "src/backend/AgentSmith.Server/Extensions/TicketReviewEndpoints.cs:13-16, src/backend/AgentSmith.Server/Extensions/TicketDefaultsEndpoints.cs:15-20, observed: 2026-10-14, wc -l in this worktree: TicketDefaultsEndpoints.cs 41"
+  - claim: "Every route's verb, pattern and permission is pinned by a GOLDEN table that RoutePermissionGuardTests compares against, so a new route fails the suite until its row is added; the ticket routes sit together in it."
+    evidence: "tests/AgentSmith.Tests/Server/RoutePermissionGuardTests.cs:16-24, tests/AgentSmith.Tests/Server/RoutePermissionGuardTests.cs:135, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:82-89, tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:119"
+  - claim: "The server reads the live configuration per use through the loader and ServerContext, loading it once for the work at hand, and a project missing from it is passed over."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeWorker.cs:80-81"
+  - claim: "An existing ticket endpoint answers a refusal as a plain sentence in the response body (BadRequest(string)), not as an object."
+    evidence: "src/backend/AgentSmith.Server/Extensions/TicketDefaultsEndpoints.cs:38-39"
+  - claim: "TicketStandings reads its facts from the store only and takes two constructor parameters today; the ticket harness already registers the configuration loader and ServerContext."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketStandings.cs:12-28, tests/AgentSmith.Tests/Tickets/TicketStoreHarness.cs:59-61"
+  - claim: "GitHub's ticket read is Issue.Get, which also answers for a pull request's number."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketProvider.cs:68"
+  - claim: "A ticket's pull-request records die with their newest run, and a provider without a review reader records unsupported, so such a ticket never reads as merged."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunDeletionRepository.cs:92-95, src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:64-65, src/backend/AgentSmith.Server/Models/TicketLanding.cs:15-20"
+  - claim: "TicketBucketRule makes a ticket done only when its pull requests landed merged and the newest attempt started no later than the newest end; it takes the newest run, the live state, the pull requests and the stuck flag; it is 51 lines."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketBucketRule.cs:23-45, observed: 2026-10-14, wc -l in this worktree: TicketBucketRule.cs 51"
+  - claim: "The list and the detail compose every row through TicketSummaryComposer, which asks the bucket rule with what TicketStandings read for the ticket's last attempt; TicketStandings is 70 lines and TicketStanding is a positional record of three dictionaries."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketSummaryComposer.cs:24-33, src/backend/AgentSmith.Server/Services/Tickets/TicketStandings.cs:19-28, src/backend/AgentSmith.Server/Services/Tickets/TicketStandings.cs:55-63, src/backend/AgentSmith.Server/Services/Tickets/TicketListReader.cs:43-45, src/backend/AgentSmith.Server/Services/Tickets/TicketDetailReader.cs:41, observed: 2026-10-14, wc -l in this worktree: TicketStandings.cs 70, TicketSummaryComposer.cs 52"
+  - claim: "The composed AgentSmithConfig is a singleton loaded once at composition, while the configuration loader assembles the configuration on every call; TicketProjects.Of resolves a project from the live configuration and is registered among the ticket readers."
+    evidence: "src/backend/AgentSmith.Server/Services/ServerCompositionBuilder.cs:79-80, src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/DbConfigurationLoader.cs:39-46, src/backend/AgentSmith.Server/Services/Tickets/TicketProjects.cs:10-13, src/backend/AgentSmith.Server/Extensions/TicketReadExtensions.cs:52"
+  - claim: "The ticket test harness builds the ticket readers with ValidateOnBuild and registers its stores one by one, not through AddTicketFactStores."
+    evidence: "tests/AgentSmith.Tests/Tickets/TicketStoreHarness.cs:46-73"
+  - claim: "A ticket is read from its tracker with GetTicketAsync; a failed read is classed as not-found, unauthorized or unreachable by TicketReadFailureReason.Of, which never passes SDK text on; an unreadable tracker answers 503 and records nothing in the Retry act."
+    evidence: "src/backend/AgentSmith.Contracts/Providers/ITicketProvider.cs:27, src/backend/AgentSmith.Server/Services/Tickets/Text/TicketReadFailureReason.cs:13-34, tests/AgentSmith.Tests/Rework/Retry/RetryTests.cs:231-242"
+  - claim: "TicketKey.For slugs an id of punctuation only to <provider>-unknown, so an unchecked id could land a key no ticket has."
+    evidence: "src/backend/AgentSmith.Contracts/Specs/TicketKey.cs:13-25"
+  - claim: "The bucket rule answers needs-you for a parked head and waiting-on-review for an open pull request BEFORE it reaches done."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketBucketRule.cs:29-36"
+  - claim: "The dashboard paints a done ticket's dot as proven, and the summary's landing is merged or unmerged from the pull requests."
+    evidence: "src/dashboard/src/components/tickets/ticketDot.ts:23-24, src/dashboard/src/types/tickets.ts:112-113"
+  - claim: "A composition test builds the real server provider with ServerCompositionBuilder.ConfigureServices under the environment collection."
+    evidence: "tests/AgentSmith.Tests/SpecDialog/Ratification/MockRatificationCompositionTests.cs:13-24"
+
+assumptions:
+  - "2026-10-14-dbceg lands ITicketLandingStore (TryRecordAsync, LandedAsync), TicketLandingFact, TicketLandingKinds.ByHand and TicketLandingRecorder with a private RecordAsync that, on a won insert, publishes TicketLanded and the page nudge; 2026-10-14-dbceh adds the DependentsWake call there."
+  - "2026-10-14-dbceh's gate counts a landing of either kind through UnmetTicketRequirements."
+
+scope:
+  in: >
+    RECORDER: TicketLandingRecorder.RecordByHandAsync(ResolvedProject project, string ticketId, string by, string note,
+    ct) -> the stored TicketLandingFact, or null when the ticket had already landed; it builds the fact (Tracker =
+    project.Tracker.Name, TicketKey = TicketKey.For(tracker type lowercased, ticketId), TicketId, Project, Kind by-hand,
+    LandedAt now, By, Note trimmed, PrUrl null) and hands it to the recorder's one RecordAsync, so the TicketLanded event,
+    the page nudge and 2026-10-14-dbceh's wake follow exactly as for a merge (the recorder grows by at most 15 lines,
+    staying at most 100). ENDPOINT: TicketLandedByHandEndpoints (Server/Extensions, at most 70 lines) maps `POST
+    /api/tickets/{project}/{ticketId}/landed-by-hand` with Needs(Permissions.RunsControl); body LandedByHandRequest(string?
+    Note) (Server/Models). The handler decodes both segments, resolves the project from the live configuration
+    (TicketProjects.Of, one load per request). EVERY non-200 answer is a plain sentence in the body, as
+    TicketDefaultsEndpoints.cs:39 answers its refusal (Results.BadRequest(string) / Results.Text with the status), so
+    2026-10-14-dbcen's dialog shows it as written: 404 "No project <name> is configured." for an unknown project; 400
+    "A note is required: say why this ticket counts as landed." for a JSON body with a missing or blank note (a missing
+    body or a non-JSON content type is answered 400/415 by minimal-API binding before the handler); 409 when the ticket
+    had already landed, read through LandedAsync: "<id> already counts as landed: merged on <LandedAt>." or "<id> is
+    already marked done by <By> at <LandedAt>: <Note>."; then, BEFORE the irreversible write, it reads the ticket from
+    the project's tracker (ITicketProviderFactory.Create(project.Tracker).GetTicketAsync): a read classed not-found by
+    TicketReadFailureReason.Of answers 404 "No ticket <id> on <tracker>." and writes nothing, any other failure answers
+    503 "The tracker <tracker> could not be read (<class>); nothing was recorded." (unauthorized / unreachable, never
+    the SDK text). Once the existence read passed, RecordByHandAsync is called with CancellationToken.None: a dropped
+    request must not cut the wake between the insert and the publishes (contract decision 10's post-write rule). A
+    null from RecordByHandAsync (another writer, a second mark or a merge, won the insert) is answered 409 with the
+    same sentence after re-reading the winner with LandedAsync (also on CancellationToken.None). Only the 200 carries
+    JSON: the new landing. By is the person's display name at write time, DisplayName.Of(ctx.User) (name, else
+    preferred_username, else upn, never sub, as 2026-10-14-da5eb records a turn's author), else
+    SpecDialogOwnership.PrincipalOf(ctx.User) for a token with none of the three; the 409 sentence, TicketLanded.By and
+    2026-10-14-dbcen's page show it as stored, with no lookup. The ticket need not have a run, a pull-request record or a filing record (an ApprovedSeries row): a
+    required ticket whose runs were deleted, whose provider has no review reader, or a person's ticket that a list
+    names by ticket:<id> is exactly what the act is for; the handler reads neither runs nor filings before the write.
+    TicketDefaultsEndpoints returns `app.MapTicketLandedByHandEndpoints()` instead of `app` (41 -> 41).
+    route-permission-baseline.tsv gains the row `POST /api/tickets/{project}/{ticketId}/landed-by-hand runs.control`
+    (tab-separated, sorted among the POST rows beside :119), and RoutePermissionGuardTests pins it. LIST AND HEADER: TicketStanding gains `Landed`, an init
+    property (project, ticket id) -> LandedAt defaulting to empty, and `LandedAt(Run last)`; TicketStandings takes
+    ITicketLandingStore, IConfigurationLoader and ServerContext and loads the live configuration ONCE per ReadAsync (as
+    ReworkNudgeWorker.cs:80-81 does), resolving every head's project from that one load (so a project added in Config
+    Studio after boot reads its landings), and reads, per tracker connection, one LandedAsync over their keys (a
+    project not configured now reads none) (70 -> at most 92);
+    TicketStoreHarness registers ITicketLandingStore -> LandedTicketRepository over the harness database as a singleton,
+    as AddTicketFactStores does (the loader and ServerContext are already there, TicketStoreHarness.cs:59-61), so every harness consumer still builds under ValidateOnBuild; TicketBucketRule.Of gains
+    `DateTimeOffset? landedAt = null` and its done time is the pull requests' DoneAt, else landedAt, under the same
+    "newest attempt started no later" rule (51 -> at most 55); TicketSummaryComposer passes standing?.LandedAt(head) (52
+    kept). A by-hand landing therefore lists the ticket as done in the list and on its header, with the proven dot, once
+    none of its pull requests is open and its last attempt is not parked on a question: the rule's earlier arms
+    (needs-you, waiting-on-review, TicketBucketRule.cs:29-34) still come first, while the gate is lifted at once. The
+    summary's landing field is unchanged. CONVERSATION START (follow-up of 2026-10-14-dbceh after PR #740):
+    ConversationAttemptStart.StartNextAsync asks UnmetTicketRequirements.OfAsync for the ticket (key
+    TicketKey.For(tracker type lowercased, ticketId), tracker = project.Tracker.Name, the gate's own reading) BEFORE the
+    pending-edit read and the retry, and with any unmet edge answers RequiresUnmetGate.Sentence(unmet) followed by
+    ConversationAttemptStart.NothingQueued = " Nothing was requested; ask again once they have landed." — no approval
+    is recorded, no nudge or retry is queued (47 -> at most 52); PendingEditStart is reached only from there and is not
+    touched. REFUSAL SOURCE: ReworkTexts.TicketRefusal(reason, ReworkChannel channel = ReworkChannel.Ticket) names the act
+    by its channel — Ticket "this comment", Status "this status change", Operator "the request in this ticket's
+    conversation", Retry "this retry", Overrule "this overrule", PullRequest "this review" — in "Agent Smith — <source>
+    did not start a rework: <reason>." (51 -> at most 62); ReworkNudgeHandler's two refusal posts and
+    ClosedTicketActFollowUp's pass act.Act.Channel in place (119 and 101 kept).
+  out: >
+    The "Mark done by hand" button, its note dialog and showing who, when and why on the ticket page — 2026-10-14-dbcen.
+    The blocked and filed buckets and the graph's done-by-hand node state — 2026-10-14-dbcen. Undoing a by-hand landing —
+    nobody: contract decision 15; a dependent already started cannot be un-started, and a mistaken mark is answered by
+    closing the dependents. Moving the tracker ticket to Done or commenting there — nobody: the mark is agent-smith's fact
+    for its gate, and the tracker status stays the person's. A note length limit — nobody: the note is stored unbounded
+    (2026-10-14-dbceg) and is one person's sentence. Overwriting a merged landing with a by-hand one — nobody: a landing
+    is written once (contract §2.3), and the 409 shows which one stands.
+
+decisions:
+  - key: "AN EXPLICIT ACT WITH A REQUIRED NOTE. A by-hand landing lifts a gate the operator made strict (2026-10-14-dbceh), so it says who, when and why; a mark without a reason would be indistinguishable from a slip. The note is the only body field."
+  - key: "runs.control, NOT runs.read. The mark wakes and may start every ticket that requires this one, the effect of a Retry or a start, which runs.control already guards."
+  - key: "409 WHEN ALREADY LANDED, NEVER OVERWRITTEN (contract §2.6, §5 default 8, pending operator ratification). The landing row is written once; the first fact stands, and the answer carries it so the person sees why nothing changed."
+  - key: "ANY EXISTING TICKET OF A CONFIGURED PROJECT, RUNS OR FILING OR NOT (contract decision 24, section 5 default 34, pending operator ratification). Contract decision 5: a required ticket whose pull-request records are gone, or whose host has no review reader, can only land by hand; requiring a run or a record would make that case impossible. Requiring the ticket to EXIST on the tracker is what keeps the permanent write safe: a typo (12 for 21) would otherwise land a ticket for ever and admit its dependents before anything merged, and an id of punctuation only lands '<provider>-unknown' (TicketKey.cs:13-25). An unreadable tracker refuses rather than writes (503), as Retry does."
+  - key: "THROUGH THE SAME RECORDER AS A MERGE. One RecordAsync publishes TicketLanded, nudges the pages and wakes the dependents, so a by-hand landing and a merge cannot differ in what follows (contract §2.2)."
+  - key: "DONE, UNDER THE SAME TIME RULE (contract §5 default 21, pending operator ratification). A landing of either kind lists the ticket as done only when the newest attempt started no later than the landing, as a merge does today; a later attempt is that attempt's ticket."
+  - key: "THE LIST READS LANDINGS IN TicketStandings, NOT IN EACH READER. Both the list and the detail already read the standings for their heads and hand them to the one composer, so one read there serves both without touching TicketListReader, whose budget belongs to 2026-10-14-dbcen. Tracker connections come from the LIVE configuration through TicketProjects: the composed AgentSmithConfig is a boot snapshot (ServerCompositionBuilder.cs:79-80), and each replica's snapshot dates from its own boot."
+  - key: "DONE ONLY WHERE THE RULE ALREADY SAYS DONE. A by-hand landing lifts the gate at once, but the list keeps the rule's earlier arms: a ticket with an open pull request is still waiting on review and a parked head still needs the person. Bypassing them would hide live work behind a 'done' row."
+  - key: "EVERY REFUSAL IS A SENTENCE, THE WRITE OUTLIVES THE REQUEST. The dashboard's dialog (2026-10-14-dbcen) shows the server's words, so 404, 409 and 503 carry a sentence as TicketDefaultsEndpoints.cs:39 does, never a serialized object or an empty body. After the tracker said the ticket exists, the insert and its wake run on CancellationToken.None, so a closed dialog cannot leave a landing without its wake and a person with an error for a write that happened. The insert's loser (two marks, or a mark racing a merge, both past the pre-check during the seconds-long tracker read) is answered 409 naming the winner."
+  - key: "TWO EDGES, STATED. A GitHub pull request's number passes the existence read (Issue.Get answers for it, GitHubTicketProvider.cs:68); its landing is harmless because no requirement names it. A ticket that is itself held may be marked done by hand and then admits its dependents; that is the deliberate way on past the strict gate (contract decision 7), and the dialog may say so (2026-10-14-dbcen)."
+  - key: "ONE CONFIGURATION LOAD PER STANDINGS READ. The loader assembles the configuration from the document store on every call (DbConfigurationLoader.cs:39-46) and the list is re-read on every TicketActivityChanged, so TicketStandings loads it once per ReadAsync, not once per head's project."
+  - key: "BY IS THE DISPLAY NAME AT WRITE TIME, IN THE ONE COLUMN (re-grounded after PR #740). 2026-10-14-da5eb reads a person's display name off the token (DisplayName: name, preferred_username, upn, never sub) and records it on their turn. The landing does the same in By, falling back to the principal only for a token with no display claim. Rejected: a separate ByName column beside the sub (a migration on 2026-10-14-dbceg's built table for one field no reader needs apart), and 2026-10-14-dbcen's read-time lookup of the observed caller's name claim (the name claim defaults to sub and production configures none, 2026-10-14-da5eb's own finding, so that lookup finds no name where da5eb's display claims do). A display name can be re-issued; the landing records who it was at the time, as a turn does."
+  - key: "THE CONVERSATION START ASKS THE GATE FIRST, AND SAYS NOTHING WAS QUEUED (follow-up placed here: this member already serves the landing side of 2026-10-14-dbceh's gate and touches Server/Services/Rework; 2026-10-14-dbcek and 2026-10-14-dbcel are at their size). The steward's start_next_attempt answered 'requested' before the claim, and the claim's refusal then reached the ticket as a refused comment. Asking UnmetTicketRequirements before queueing answers in the conversation instead. It says 'ask again', not 'it starts by itself': a RequirementsMet nudge starts only a ticket no attempt worked (ReworkNudgeHandler.cs:40-41), and start_next_attempt is offered only on a worked ticket, so nothing queued would start later."
+  - key: "A REFUSAL NAMES WHERE THE ACT CAME FROM. ReworkTexts.TicketRefusal said 'this comment' for a conversation's approval, a retry and a status move alike; the act already carries its channel, so the sentence names it, the comment wording unchanged for a comment."
+  - key: "NAMES ADDED: TicketLandedByHandEndpoints and LandedByHandRequest are this member's endpoint class and body; contract §2.6 fixes the route and its answers but names neither. Reported for the contract."
+
+steps:
+  - id: recorder
+    action: "TicketLandingRecorder.RecordByHandAsync builds the by-hand fact and returns RecordAsync's stored fact or null (the recorder stays at most 100 lines)."
+  - id: endpoint
+    action: "LandedByHandRequest (Server/Models) and TicketLandedByHandEndpoints with the POST route, runs.control, live project resolution, the tracker existence read before the write, the write and the loser's re-read on CancellationToken.None, a plain sentence for every 404 / 400 / 409 / 503 and the landing JSON only for 200 (at most 70 lines); TicketDefaultsEndpoints chains it (41 kept)."
+  - id: route-guard
+    action: "route-permission-baseline.tsv gains `POST<TAB>/api/tickets/{project}/{ticketId}/landed-by-hand<TAB>runs.control` sorted among the POST rows beside :119, and RoutePermissionGuardTests pins the route to runs.control."
+  - id: standings
+    action: "TicketStanding.Landed and LandedAt(Run); TicketStandings takes ITicketLandingStore, IConfigurationLoader and ServerContext, loads the configuration once per ReadAsync and reads landings per tracker connection of the heads' live projects (70 -> at most 92); TicketStoreHarness.cs registers the landing store; run the Tickets test classes."
+  - id: bucket
+    action: "TicketBucketRule.Of(…, landedAt) done time DoneAt ?? landedAt under the existing start rule (51 -> at most 55); TicketSummaryComposer passes standing?.LandedAt(head) (52 kept)."
+  - id: conversation-start
+    action: "ConversationAttemptStart asks UnmetTicketRequirements first and answers RequiresUnmetGate.Sentence + NothingQueued without queueing (47 -> at most 52); ReworkTexts.TicketRefusal(reason, channel) (51 -> at most 62); ReworkNudgeHandler.cs:105,114 and ClosedTicketActFollowUp.cs:43 pass act.Act.Channel in place (119, 101 kept); run the Rework and SpecDialog classes."
+  - id: tests
+    action: "Red first, then green, for every test below; the composition test's class carries a TestProcess env trait with EnvVarCollection; run the Tickets, Rework, Claim and Server route classes touched with --filter."
+
+tests:
+  - "LandedByHand_WithANote_StoresAByHandLandingWithWhoWhenAndWhy"
+  - "LandedByHand_TokenWithADisplayName_StoresTheNameNotTheSub"
+  - "LandedByHand_TokenWithoutDisplayClaims_StoresThePrincipal"
+  - "LandedByHand_BlankNote_Is400WithTheSentence"
+  - "LandedByHand_UnknownProject_Is404WithTheSentence"
+  - "LandedByHand_TicketNotOnTheTracker_Is404AndWritesNothing"
+  - "LandedByHand_TrackerUnreachable_Is503AndWritesNothing"
+  - "LandedByHand_TicketAlreadyMerged_Is409WithTheMergedLanding (asserts the 409 sentence text)"
+  - "LandedByHand_RequestCancelledAfterTheTrackerRead_StillWakesTheDependent"
+  - "LandedByHand_TwoMarksRacing_OneLandingOne409NamingTheWinner (two concurrent calls over the harness database, contract §6 rule 11)"
+  - "LandedByHand_SecondMark_Is409AndKeepsTheFirstNote"
+  - "LandedByHand_TicketWithoutRunsPrRecordsOrFilingRecord_IsRecorded"
+  - "LandedByHand_PublishesTicketLandedWithKindByHandAndThePerson"
+  - "LandedByHand_HeldDependentWhoseApproverCouldStartRuns_IsWokenAndClaimed"
+  - "LandedByHand_GateThenAdmitsTheDependent"
+  - "RoutePermissionGuard_LandedByHand_NeedsRunsControl"
+  - "TicketBucketRule_LandedByHandAfterTheNewestAttemptStarted_IsDone"
+  - "TicketBucketRule_AttemptStartedAfterTheByHandLanding_IsNotDone"
+  - "TicketList_TicketMarkedDoneByHand_IsInTheDoneBucket (its pull requests closed)"
+  - "TicketBucketRule_LandedByHandWithAnOpenPullRequest_StaysWaitingOnReview"
+  - "TicketStandings_ProjectNoLongerConfigured_ReadsNoLanding"
+  - "TicketStandings_ProjectAddedAfterStartup_ReadsItsLanding"
+  - "TicketStandings_HeadsOfThreeProjects_LoadTheConfigurationOnce"
+  - "ConversationAttemptStart_TicketWaitsForAnUnlandedTicket_NamesItAndQueuesNothing"
+  - "ConversationAttemptStart_PendingEditOnAWaitingTicket_RecordsNoApproval"
+  - "ConversationAttemptStart_EveryRequirementLanded_RequestsAsBefore"
+  - "ReworkTexts_TicketRefusal_NamesTheActsSourcePerChannel"
+  - "ReworkNudgeHandler_RefusedConversationApproval_PostsTheConversationSentence"
+  - "LandedByHand_ServerComposition_ResolvesTheRecorderAndTheEndpointServices (integration, ServerCompositionBuilder; TestProcess env trait + EnvVarCollection)"
+
+done:
+  - "Calling the landed-by-hand route with a note, as a person holding runs.control, records who marked the ticket, when and why; the System page shows the landing."
+  - "Every ticket that required it is no longer held, and one whose approver could start runs starts by itself."
+  - "The marked ticket appears as done in the ticket list and on its page once none of its pull requests is open and its last attempt is not waiting for an answer; an open pull request keeps it waiting on review."
+  - "Marking an already landed ticket, or losing a race to another mark or a merge, answers 409 with a sentence naming the landing that stands; every refusal is a sentence the dialog can show; a blank note answers 400; an unknown project or a ticket the tracker does not have answers 404 and records nothing; an unreachable tracker answers 503 and records nothing; a person without runs.control is refused."
+  - "Asking the ticket steward for the next attempt of a ticket that waits for an unlanded ticket answers which tickets it waits for and that nothing was requested; a refused rework posted on a ticket says whether a comment, the conversation, a retry, a status move or an overrule asked for it."
+  - "Build green, full suite green, dashboard gen/test/build green."

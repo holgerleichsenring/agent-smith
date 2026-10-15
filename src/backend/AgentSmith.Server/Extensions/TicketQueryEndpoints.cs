@@ -15,6 +15,7 @@ internal static class TicketQueryEndpoints
     {
         app.MapGet("/api/tickets", ListAsync).Needs(Permissions.RunsRead);
         app.MapGet("/api/tickets/{project}/{ticketId}", DetailAsync).Needs(Permissions.RunsRead);
+        app.MapTicketGraphEndpoints(); // 2026-10-14-dbcen
         return app.MapTicketSeriesEndpoints(); // 2026-10-13-9a59e
     }
 
