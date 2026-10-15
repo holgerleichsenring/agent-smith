@@ -9,7 +9,8 @@ namespace AgentSmith.Server.Services.Tickets;
 /// 2026-10-15-114fb: whether a person's close mark still decides a ticket's bucket. The mark is never deleted
 /// here; it is inert while not in force. It yields to the Done arm exactly where that arm answers, to an attempt
 /// started after it, and to a person's pull-request entry later than the close plus
-/// <see cref="PreviousAttempt.SkewMargin"/> — so a comment typed just before the close does not undo it.
+/// <see cref="PreviousAttempt.SkewMargin"/> — so a comment typed just before the close does not undo it — and
+/// (2026-10-15-114fc) to a head move or a reopen a read saw after the close.
 /// </summary>
 public static class TicketClosedRule
 {
@@ -23,6 +24,6 @@ public static class TicketClosedRule
         if (doneAt is { } done && newest.StartedAt <= done) return false;
         if (newest.StartedAt > mark.ClosedAt) return false;
         var after = mark.ClosedAt + PreviousAttempt.SkewMargin;
-        return !pullRequests.Any(p => p.PersonActivityAt > after);
+        return !pullRequests.Any(p => p.PersonActivityAt > after || p.HeadMovedAt > mark.ClosedAt || p.ReopenedAt > mark.ClosedAt);
     }
 }

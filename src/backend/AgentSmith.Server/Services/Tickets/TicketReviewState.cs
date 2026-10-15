@@ -32,7 +32,7 @@ public sealed class TicketReviewState
         return new TicketPullRequestView(record.Number, record.Url, record.Repo, record.State, decision,
             shown.Entry?.AuthorLogin, record.LastEntryAt ?? openedAt ?? record.StateAt, record.StateAt,
             decision == TicketReviewDecisions.ChangesRequestedUntrusted ? TicketReviewDecisions.UntrustedNote : null,
-            record.LastPersonEntryAt);
+            record.LastPersonEntryAt, record.HeadMovedAt, record.ReopenedAt);
     }
 
     private static string Word(PrReviewEntryView entry) => entry.Decision switch

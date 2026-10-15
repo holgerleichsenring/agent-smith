@@ -729,6 +729,13 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");
 
+                    b.Property<long?>("HeadMovedAtTicks")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("HeadSha")
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
                     b.Property<string>("Number")
                         .IsRequired()
                         .HasMaxLength(191)
@@ -743,6 +750,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                         .IsRequired()
                         .HasMaxLength(191)
                         .HasColumnType("nvarchar(191)");
+
+                    b.Property<long?>("ReopenedAtTicks")
+                        .HasColumnType("bigint");
 
                     b.Property<string>("Repo")
                         .IsRequired()
@@ -2671,6 +2681,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
 
                     b.Property<DateTimeOffset>("CheckedAt")
                         .HasColumnType("datetimeoffset");
+
+                    b.Property<bool>("ClosedForWork")
+                        .HasColumnType("bit");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("datetimeoffset");

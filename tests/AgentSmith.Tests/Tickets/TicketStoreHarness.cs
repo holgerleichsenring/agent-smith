@@ -63,7 +63,7 @@ internal sealed class TicketStoreHarness : IDisposable
             AgentSmith.Application.Services.Specs.LoaderSeriesSettingsReader>(); // 2026-10-13-8762u
         services.AddSingleton(Trackers.Object).AddSingleton(Activity.Object);
         services.AddSingleton(Sources.Object); // 2026-10-15-114fa: the close act's pull-request hosts
-        services.AddSingleton<TrackerIdentity>();
+        services.AddSingleton<TrackerIdentity>().AddTransient<AgentSmith.Application.Services.Tickets.TicketClosure>(); // 2026-10-15-114fc: the check asks it
         services.AddScoped<IPrReviewRecordReader>(sp => sp.GetRequiredService<PrReviewRecordRepository>());
         services.AddScoped<SpecDialogSessionRepository>();
         services.AddSingleton<IUniqueViolationTranslator, SqliteUniqueViolationTranslator>();

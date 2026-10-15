@@ -702,6 +702,13 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");
 
+                    b.Property<long?>("HeadMovedAtTicks")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("HeadSha")
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
                     b.Property<string>("Number")
                         .IsRequired()
                         .HasMaxLength(191)
@@ -716,6 +723,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(191)
                         .HasColumnType("TEXT");
+
+                    b.Property<long?>("ReopenedAtTicks")
+                        .HasColumnType("INTEGER");
 
                     b.Property<string>("Repo")
                         .IsRequired()
@@ -2573,6 +2583,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
 
                     b.Property<DateTimeOffset>("CheckedAt")
                         .HasColumnType("TEXT");
+
+                    b.Property<bool>("ClosedForWork")
+                        .HasColumnType("INTEGER");
 
                     b.Property<DateTimeOffset>("CreatedAt")
                         .HasColumnType("TEXT");

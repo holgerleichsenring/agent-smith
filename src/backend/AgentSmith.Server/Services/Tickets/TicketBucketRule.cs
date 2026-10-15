@@ -12,11 +12,13 @@ namespace AgentSmith.Server.Services.Tickets;
 /// needs a person only when <see cref="RunQueuePlace"/> gives it no place — the gate the runs
 /// list and the run detail share — so the ticket list never says needs-you while the runs page
 /// says queued to resume.
-/// <para>Precedence is needs_you > working > closed > waiting_on_review > done > stuck > pr_closed > failed > idle;
+/// <para>Precedence is needs_you > working > closed > waiting_on_review > done > closed (tracker) > stuck > pr_closed > failed > idle;
 /// the pull requests' records decide waiting on review, done and the landing every arm carries.</para>
 /// <para>2026-10-13-9a59h: stuck is the stuck rule's observation, passed in — never assumed here. A landed
 /// merge outranks it: a person merged what the failed attempt opened.</para>
 /// <para>2026-10-15-114fb: a close mark answers closed while <see cref="TicketClosedRule"/> holds it in force.</para>
+/// <para>2026-10-15-114fc: a failed attempt whose own check saw a person's tracker close answers closed (tracker)
+/// after done and before stuck.</para>
 /// </summary>
 public sealed class TicketBucketRule
 {
@@ -24,7 +26,7 @@ public sealed class TicketBucketRule
 
     public TicketBucketState Of(
         Run newest, TicketLiveState live, IReadOnlyList<TicketPullRequestView> pullRequests, bool stuck = false,
-        DateTimeOffset? landedAt = null, TicketClosedMark? closed = null)
+        DateTimeOffset? landedAt = null, TicketClosedMark? closed = null, bool trackerClosed = false)
     {
         ArgumentNullException.ThrowIfNull(newest);
         var landing = TicketLanding.Of(pullRequests);
@@ -40,7 +42,7 @@ public sealed class TicketBucketRule
             return new(TicketBucket.WaitingOnReview, null, newest.FinishedAt, null, null, null, landing);
         if (doneAt is { } at && newest.StartedAt <= at)
             return new(TicketBucket.Done, null, at, null, null, null, landing);
-        return Ended(newest, landing, stuck);
+        return Ended(newest, landing, stuck, trackerClosed && landedAt is null);
     }
 
     // Done: a pull request merged and every one ended; done at the newest end. An attempt started after
@@ -48,9 +50,12 @@ public sealed class TicketBucketRule
     private static DateTimeOffset? DoneAt(IReadOnlyList<TicketPullRequestView> pullRequests, string? landing) =>
         landing == TicketLanding.Merged ? pullRequests.Max(p => p.StateAt) : null;
 
-    // The arms after done: stuck, then pull requests all closed unmerged, then a failed newest attempt, then the rest.
-    private static TicketBucketState Ended(Run newest, string? landing, bool stuck)
+    // The arms after done: a failed attempt a person closed on the tracker with nothing landed, stuck, then pull
+    // requests all closed unmerged, then a failed newest attempt, then the rest.
+    private static TicketBucketState Ended(Run newest, string? landing, bool stuck, bool trackerClosed)
     {
+        if (trackerClosed && newest.Status == RunStatuses.Failed && landing != TicketLanding.Merged)
+            return new(TicketBucket.Closed, TicketClosedKinds.Tracker, newest.FinishedAt, newest.Status, null, null, landing);
         var bucket = stuck ? TicketBucket.Stuck
             : landing == TicketLanding.Unmerged ? TicketBucket.PrClosed
             : newest.Status == RunStatuses.Failed ? TicketBucket.Failed

@@ -65,7 +65,8 @@ public sealed class PrReviewRecordRepository(IUnitOfWork unitOfWork) : IPrReview
 
     private static PrReviewRecordView View(PrReviewRecord r, long? newestEntry, IEnumerable<PrReviewEntry> entries) =>
         new(r.PrKey, r.Url, r.Repo, r.Number, r.Project, r.TicketId, r.RunId, r.State, Time(r.StateAtTicks),
-            Time(r.CheckedAtTicks)!.Value, Time(newestEntry), [.. entries.Select(Entry)]);
+            Time(r.CheckedAtTicks)!.Value, Time(newestEntry), [.. entries.Select(Entry)])
+        { HeadSha = r.HeadSha, HeadMovedAt = Time(r.HeadMovedAtTicks), ReopenedAt = Time(r.ReopenedAtTicks) };
 
     private static PrReviewEntryView Entry(PrReviewEntry e) =>
         new(e.HostId, e.Kind, e.Decision, e.Standing, e.AuthorLogin, e.Trusted, e.IsOurs, e.IsBot, e.IsSystem,

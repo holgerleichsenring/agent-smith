@@ -21,6 +21,9 @@ public sealed record TicketStanding(
         new Dictionary<(string, string), TicketClosedMark>();
 
     public TicketBetweenAttemptsState? CheckOf(string runId) => Checks.GetValueOrDefault(runId);
+
+    /// <summary>2026-10-15-114fc: the last attempt's own check saw a person close the ticket on the tracker.</summary>
+    public bool ClosedForWorkOf(Run last) => CheckOf(last.Id)?.ClosedForWork == true;
     public DateTimeOffset? LandedAt(Run last) => Landed.TryGetValue((last.Project, last.TicketId), out var at) ? at : null;
     public TicketClosedMark? ClosedOf(Run last) => Closed.GetValueOrDefault((last.Project, last.TicketId));
 

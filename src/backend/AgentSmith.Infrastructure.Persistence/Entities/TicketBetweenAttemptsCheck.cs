@@ -20,4 +20,7 @@ public sealed class TicketBetweenAttemptsCheck : EntityBase
 
     /// <summary>The persons' tracker acts since the cutoff, as a JSON array of {kind comment | status-move, who, at}.</summary>
     public string ActsJson { get; set; } = "[]";
+
+    /// <summary>2026-10-15-114fc: a person closed the ticket for work on the tracker (TicketClosure's answer).</summary>
+    public bool ClosedForWork { get; set; }
 }

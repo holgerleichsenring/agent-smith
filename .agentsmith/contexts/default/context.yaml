@@ -87,6 +87,7 @@ integrations:
 
 state:
   done:
+    2026-10-15-114fc: "CLOSED TICKET STORED FACTS (PR records, PR sweep, between-attempts check, ticket list). A head move or reopen read after a close brings the ticket back; a failed ticket a person closed on the tracker lists as Closed (tracker). -> .agentsmith/specs/done/2026-10-15-114fc-ticket-closed-stored-facts.yaml"
     2026-10-15-114fe: "TRACKER CLOSED STATUS (config, Config Studio, ticket close). A Jira or Azure DevOps tracker may set closed_status; 'also close on the tracker' moves the ticket there, else into the done status, and agent-smith reads it as its own status, never a person's close. -> .agentsmith/specs/done/2026-10-15-114fe-tracker-closed-status.yaml"
     2026-10-15-114fb: "TICKET CLOSED BUCKET (tickets list, counts, waits-for). A closed ticket lists under Closed until a later attempt, a person's PR entry or Done brings it back; Ended splits into Failed and PR closed; a waits-for entry flags a closed ticket. -> .agentsmith/specs/done/2026-10-15-114fb-ticket-closed-bucket.yaml"
     2026-10-15-114fa: "TICKET CLOSE ACT (ClosedTickets, POST close/reopen, PR close on three hosts). A person with runs.control closes a ticket with a note, optionally its pull requests and tracker ticket; refused where the rule says Done, live or merged; a closed ticket is never started by itself; Reopen clears it. -> .agentsmith/specs/done/2026-10-15-114fa-ticket-close-act.yaml"
@@ -1252,7 +1253,6 @@ state:
     2026-10-14-da5eh: "SKILLS PIN v5.17.0 (embedded skills catalog, steward skill test). The embedded catalog carries ticket-steward-master; TicketStewardSkillTests holds every tool the packaged master names to the composed steward surface and requires start_next_attempt, read_series, edit_series, verify_series, ticket_runs. -> .agentsmith/specs/done/2026-10-14-da5eh-skills-pin-steward.yaml"
   active: {}
   planned:
-    2026-10-15-114fc: "TICKET CLOSED STORED FACTS (series 2026-10-15-114f). A commit pushed to or a reopen of a closed ticket's pull request brings it back, and a failed ticket a person closed on the tracker lists as Closed, from reads the server already makes. -> .agentsmith/specs/planned/2026-10-15-114fc-ticket-closed-stored-facts.yaml"
     2026-10-15-114fd: "TICKET CLOSED DASHBOARD (series 2026-10-15-114f). The ticket list, rail, graph and page show Closed, Failed and PR closed, a Close dialog with the two host options, Reopen and who closed it, drawn in the mock first. -> .agentsmith/specs/planned/2026-10-15-114fd-ticket-closed-dashboard.yaml"
     2026-10-04-6807: "A TICKET CAN ASK AN INIT TO REFRESH PRINCIPLES (ticket routing, config). A configured refresh label on the init ticket sets the same flag as the chip. -> .agentsmith/specs/planned/2026-10-04-6807-init-refresh-ticket-label.yaml"
     2026-10-03-0fca: "OVERLAYS REACH SUBPROJECTS AND NOTEBOOKS (overlay detection, discovery). sbt and Gradle multi-project declarations scoped per subproject; notebook-only repositories become components. -> .agentsmith/specs/planned/2026-10-03-0fca-overlay-detection-gaps.yaml"

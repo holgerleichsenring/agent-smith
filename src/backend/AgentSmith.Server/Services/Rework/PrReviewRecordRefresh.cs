@@ -71,7 +71,7 @@ public sealed class PrReviewRecordRefresh(
             var state = await states.ReadAsync(pr.Url, ct);
             var notes = await threads.ListAsync(pr.Url, ct);
             var entries = await builder.BuildAsync(PrKey.Of(pr.Url), repo.Type, state, notes, once, ct);
-            return await writer.WriteAsync(Record(pr, repo, state.State, state.StateAt, state.Number), entries, start, ct);
+            return await writer.WriteAsync(Record(pr, repo, state.State, state.StateAt, state.Number, state.HeadSha), entries, start, ct);
         }
         catch (Exception ex) when (!ct.IsCancellationRequested)
         {
@@ -80,11 +80,11 @@ public sealed class PrReviewRecordRefresh(
         }
     }
 
-    private PrReviewRecord Record(NamedPullRequest pr, RepoConnection? repo, string state, DateTimeOffset? stateAt, string? number) => new()
+    private PrReviewRecord Record(NamedPullRequest pr, RepoConnection? repo, string state, DateTimeOffset? stateAt, string? number, string? headSha = null) => new()
     {
         PrKey = PrKey.Of(pr.Url), Url = pr.Url, Repo = pr.Repo, RepoKey = repo?.Url is { } url ? RepoKey.Of(url) : string.Empty,
         Number = number ?? pr.Url.TrimEnd('/').Split('/')[^1], Project = pr.Project, TicketId = pr.TicketId, RunId = pr.RunId,
         State = state, StateAtTicks = stateAt is { } at && at != DateTimeOffset.MinValue ? at.UtcTicks : null,
-        CheckedAtTicks = clock.GetUtcNow().UtcTicks,
+        CheckedAtTicks = clock.GetUtcNow().UtcTicks, HeadSha = headSha,
     };
 }

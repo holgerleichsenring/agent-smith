@@ -31,7 +31,8 @@ public sealed class TicketSummaryComposer(
         var check = standing?.CheckOf(head.Id);
         var unchanged = stuck.Unchanged(head, check, standing?.PrRecordsOf(head) ?? []);
         var closed = standing?.ClosedOf(head);
-        var state = buckets.Of(head, live, pullRequests, unchanged == true, standing?.LandedAt(head), closed);
+        var state = buckets.Of(head, live, pullRequests, unchanged == true, standing?.LandedAt(head), closed,
+            standing?.ClosedForWorkOf(head) == true);
         var newestFirst = codeRows.Select(r => r.Run).OrderByDescending(r => r.Id, StringComparer.Ordinal).ToList();
         var platform = newestFirst.Select(r => r.Platform).FirstOrDefault(p => !string.IsNullOrEmpty(p));
         var headSpecs = specStatuses[head.Id].ToList();

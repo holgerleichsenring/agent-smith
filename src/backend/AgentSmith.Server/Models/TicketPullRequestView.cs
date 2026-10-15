@@ -12,6 +12,8 @@ namespace AgentSmith.Server.Models;
 /// <param name="Note">What the decision means for the ticket where that is not obvious.</param>
 /// <param name="PersonActivityAt">2026-10-15-114fb: the newest entry of a person — not ours, not a bot's, not a
 /// system note unless it carries a decision; null when there is none.</param>
+/// <param name="HeadMovedAt">2026-10-15-114fc: when a read saw the head commit change.</param>
+/// <param name="ReopenedAt">2026-10-15-114fc: when a successful read saw the ended pull request open again.</param>
 public sealed record TicketPullRequestView(
     string Number,
     string Url,
@@ -22,4 +24,6 @@ public sealed record TicketPullRequestView(
     DateTimeOffset? LastActivityAt,
     DateTimeOffset? StateAt,
     string? Note,
-    DateTimeOffset? PersonActivityAt = null);
+    DateTimeOffset? PersonActivityAt = null,
+    DateTimeOffset? HeadMovedAt = null,
+    DateTimeOffset? ReopenedAt = null);
