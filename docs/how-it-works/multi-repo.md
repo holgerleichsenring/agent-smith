@@ -1,6 +1,6 @@
 # Multi-repo
 
-Most products I've worked on span two or three repos. A "fix the auth flow" ticket touches the API, the client, and probably the worker that handles refresh tokens. That's why Agent Smith does one ticket → one run → N pull requests instead of one ticket per repo.
+Most products we've worked on span two or three repos. A "fix the auth flow" ticket touches the API, the client, and probably the worker that handles refresh tokens. That's why Agent Smith does one ticket → one run → N pull requests instead of one ticket per repo.
 
 ![Lifecycle: ticket → orchestrator → sandboxes → pull requests → resolved](../assets/lifecycle.svg)
 

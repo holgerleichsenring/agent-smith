@@ -2,19 +2,23 @@
 permalink: /llms.txt
 eleventyExcludeFromCollections: true
 ---
-# {{ site.title }}
+# {{ site.title }}: {{ site.tagline }}
 
 > {{ site.description }}
+
+The chain is ticket → spec → verified pull request, with the spec and every decision recorded in the repository next to the code. Agent Smith is built and backed by {{ site.partner }} ({{ site.partnerUrl }}), which also offers professional services and maintenance contracts for it.
 
 Agent Smith is MIT licensed and runs on your own infrastructure. It reads tickets from Azure DevOps, Jira, GitHub Issues and GitLab Issues, works in Azure Repos, GitHub and GitLab repositories, and calls the AI provider you configure. A run derives specs from the ticket, implements them in sandboxes, checks every acceptance criterion with cited evidence, and opens one pull request per repository.
 
 ## Start here
 
-- [Website](https://agent-smith.org/): what Agent Smith does, from work item to pull request
-- [Agent Smith on Azure DevOps](https://agent-smith.org/azure-devops/): Azure Boards in, Azure Repos out, without a GitHub mirror
+- [Website]({{ site.url }}/): the agentic software factory, from work item to pull request
+- [Agent Smith on Azure DevOps]({{ site.url }}/azure-devops): Azure Boards in, Azure Repos out, without a GitHub mirror
+- [Documentation]({{ site.docsUrl }}/): orientation, install, configuration and reference
 - [Install]({{ site.docsUrl }}/get-it-running/install/): get the server and dashboard running
 - [First run]({{ site.docsUrl }}/get-it-running/first-run/): one ticket end to end
-- [Services](https://agent-smith.org/services/): professional services and maintenance contracts, offered through 45level GmbH
+- [Services]({{ site.url }}/services): professional services and maintenance contracts, offered through {{ site.partner }}
+- [{{ site.partner }}]({{ site.partnerUrl }}): the company behind Agent Smith
 - [Source code](https://github.com/{{ site.githubRepo }}): the repository, releases and issues
 
 ## How it works
@@ -44,5 +48,5 @@ Agent Smith is MIT licensed and runs on your own infrastructure. It reads ticket
 
 ## Optional
 
-- [Built by the method it teaches]({{ site.docsUrl }}/how-it-works/built-by-the-method/): how this repository itself was built
+- [Built by the method it teaches]({{ site.docsUrl }}/how-it-works/built-by-the-method/): how this repository itself was built, by one developer at {{ site.partner }} and one language model
 - [Blog]({{ site.blogUrl }}): background and design essays

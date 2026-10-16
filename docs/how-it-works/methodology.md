@@ -1,6 +1,6 @@
 # Methodology
 
-The first AI coding agents I tried would happily write code that referenced functions that didn't exist, or invent the third argument to a method when only two were defined. The fix everyone reached for was "give the LLM more context" — bigger window, RAG over the codebase, retrieval-augmented this and that. I got tired of that approach because the failure mode was the same: a confident wrong answer, dressed up better.
+The first AI coding agents we tried would happily write code that referenced functions that didn't exist, or invent the third argument to a method when only two were defined. The fix everyone reached for was "give the LLM more context" — bigger window, RAG over the codebase, retrieval-augmented this and that. We got tired of that approach because the failure mode was the same: a confident wrong answer, dressed up better.
 
 The way Agent Smith works is different. Every change has to come from evidence in the codebase, and every claim the agent makes can be challenged by a different role before any code lands. That's the methodology. The rest of this page is what it looks like in practice.
 

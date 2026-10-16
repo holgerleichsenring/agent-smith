@@ -2,7 +2,7 @@
 
 Every spec ends in a "done when" list. The delivery account is how a run decides whether the branch actually delivers it — one criterion at a time, against what the branch carries, by a reader that never saw how the work was done.
 
-I built it this way because "the tests are green" and "the ticket is done" are two different claims. A master that wrote the code and then reports its own work as finished is one party grading itself. The account is the second opinion, and it is the only thing the run's verdict listens to.
+We built it this way because "the tests are green" and "the ticket is done" are two different claims. A master that wrote the code and then reports its own work as finished is one party grading itself. The account is the second opinion, and it is the only thing the run's verdict listens to.
 
 ## When it is taken
 
@@ -30,7 +30,7 @@ A fourth status, `unproven`, shows up only on runs that had no account and fell 
 
 Sometimes the account can't be taken at all. The build is red, the delivery diff wouldn't run, the accounting call failed. Such an account judged no criterion, so it isn't drawn as one. The Verify card shows it under "Acceptance could not be measured", naming the repository and the reason verbatim, marked "not measured", and it is counted in neither the proven nor the failed side of "N of M". The run's verify beat then reads "not measured", or "N of M proven · not measured" when other repositories were measured.
 
-I keep this apart from `unmet` on purpose. A criterion nobody could measure and a criterion that failed are different facts, and you act on them differently: the first usually wants the build fixed, the second wants the work redone. (A run from before this distinction stored the red build as an `unproven` row named after the repository; such stored rows are read the new way too.)
+We keep this apart from `unmet` on purpose. A criterion nobody could measure and a criterion that failed are different facts, and you act on them differently: the first usually wants the build fixed, the second wants the work redone. (A run from before this distinction stored the red build as an `unproven` row named after the repository; such stored rows are read the new way too.)
 
 ## Evidence, and how it is checked
 

@@ -1,6 +1,6 @@
 # Project templates
 
-Most estates I've seen have one project that is built the way everybody wants the next one to be built. The naming, the layering, where the tests go, how a slice of work is cut. A new service should look like that one, and "look at `acme-orders` and do it like that" is exactly the sentence nobody writes into a ticket.
+Most estates we've seen have one project that is built the way everybody wants the next one to be built. The naming, the layering, where the tests go, how a slice of work is cut. A new service should look like that one, and "look at `acme-orders` and do it like that" is exactly the sentence nobody writes into a ticket.
 
 A template is how you say it once, in configuration. A project declares that one of its contexts is *built after* a context of another project's repository, at a revision. The runs that design and write code for that context can then open the template and read it, read only, next to the code they're changing.
 

@@ -1,6 +1,6 @@
 # Built by the method it teaches
 
-I built this thing because I got tired of AI that hands you a confident wrong
+We built this thing because we got tired of AI that hands you a confident wrong
 answer, dressed up better each time. The way out was a paper trail: every change
 tied to evidence, every choice recorded next to the one it beat. That is what
 [Methodology](methodology.md) describes.
@@ -8,12 +8,12 @@ tied to evidence, every choice recorded next to the one it beat. That is what
 This page is the other half. If the paper trail is any good, it should be able to
 account for the repository that produced it, so: what got built, over what time,
 with which machinery holding it together. Every number here comes out of the repo
-and the counting method is at the bottom, so you can check me.
+and the counting method is at the bottom, so you can check us.
 
 The short version is that Agent Smith bootstraps an `.agentsmith/` directory into
 your repo, with a context file, specs, a decision log and a memory of what
 it learned. That is the product. It is also how this repository got written, over
-seven months, by me and one model.
+seven months, by one developer at [45level](https://45level.com) and one model.
 
 ## The numbers
 
@@ -38,8 +38,8 @@ is where it pays off.
 ## The unit of work is the spec
 
 Work here arrives as a **spec**. It is a YAML file with a goal, some steps and a
-definition of done, and I write it before any code exists. It gets validated
-against `spec.schema.json`, and once it is complete I leave it alone. If
+definition of done, and we write it before any code exists. It gets validated
+against `spec.schema.json`, and once it is complete we leave it alone. If
 the scope moves, a successor shows up (`p0169b`, then `p0169c`) and the original
 stays exactly as it was.
 
@@ -62,7 +62,7 @@ gates do the heavy lifting.
 | `.agentsmith/contexts/*/principles.md` | 275 lines of quality rules: max 20 lines per method, max 120 per class, one type per file |
 | `.agentsmith/specs/{planned,active,done}/` | the backlog as a state machine, 1,345 schema validated specs |
 | `.agentsmith/decisions/p{NNNN}.yaml` | one file per spec, every entry naming what got chosen, what it beat, and why |
-| `.agentsmith/memory/` | 33 behavioural rules, each traceable to a real correction, all still marked as proposals because I haven't ratified one yet |
+| `.agentsmith/memory/` | 33 behavioural rules, each traceable to a real correction, all still marked as proposals because we haven't ratified one yet |
 | spec-first plugin | the workflow as callable skills — `create-spec`, `review-spec`, `apply-spec`, `deliver-spec` — so it gets invoked rather than interpreted |
 | `.claude/hooks/spec-gate.sh` | the blocking commit gate |
 | `hooks/pre-commit` | a gate that lives outside the agent entirely |
@@ -71,7 +71,7 @@ A hook intercepts every `git commit` whose message names a spec, and it lets the
 green: the gate's own tests, the dashboard's build and tests, the backend build,
 all 10,301 tests, four CLI dry runs, and every harness preset running crash free.
 
-CI would have told me about a break afterwards. The hook stops the commit from
+CI would have told us about a break afterwards. The hook stops the commit from
 existing. Whatever the model believes about its own work, that belief has to get
 past a build before it reaches the history.
 
@@ -127,7 +127,7 @@ reading it. A failing test does not.
 
 Ask a model whether it delivered and it has every incentive in the world to say
 yes. Faking green is the big failure mode of
-agentic systems, and my answer is to keep that question away from the model
+agentic systems, and our answer is to keep that question away from the model
 entirely.
 
 Exactly one method in the whole system returns a `DeliveryVerdict`. An
@@ -138,7 +138,7 @@ summary of what it did never enters into it. And the gate runs after the
 delivery, which sounds obvious until you find out it ran the other way round for
 months.
 
-All three of those came out of things breaking rather than me being clever up
+All three of those came out of things breaking rather than us being clever up
 front. One merge step promoted nine false findings to CRITICAL even though the
 master responsible had already dismissed them, because it read silence as
 absence of coverage. That kind of thing is where the rules come from.
@@ -158,7 +158,7 @@ weeks before anything removed them.
 
 The reason is worth more than the number. Earlier models needed tight direction,
 so writing one precise role per sub task was genuinely the right call back then.
-Stronger models flipped it. Narrow toolsets and fine grained roles gave me worse
+Stronger models flipped it. Narrow toolsets and fine grained roles gave us worse
 output than a model with `bash`, read access and a clear goal. Four reviewer
 skills collapsed into one master. Scaffolding around a model ages faster than the
 code it writes.
@@ -187,7 +187,7 @@ rather than letting scope disappear quietly.
 ## What was learned
 
 33 behavioural rules live in `.agentsmith/memory/`, each one traceable back to a
-correction I actually had to make. Ten of them travel beyond this repository.
+correction we actually had to make. Ten of them travel beyond this repository.
 
 1. Challenge the premise before building. At speed, the foundational assumptions
    in a spec go unexamined, and "is this actually deployed and working?" belongs
@@ -200,7 +200,7 @@ correction I actually had to make. Ten of them travel beyond this repository.
    the callers directly.
 4. Split, and finish each slice. Cutting a spec into pieces is healthy. Pushing
    load bearing wiring to "later" destroys testability for whoever has to look at
-   it next, which is usually me.
+   it next, which is usually us.
 5. Unit tests with mocks bypass the composition root. Composition bugs surface
    only through the real service provider and the real config loader.
 6. Verify it yourself. Reproduce in the test harness before reporting anything.
@@ -213,16 +213,16 @@ correction I actually had to make. Ten of them travel beyond this repository.
 9. Safety belongs in the type. Warning comments and careful operators hold up
    fine at human speed and fall apart at this one.
 10. What the model learns has to be ratified. A proposed rule stays a proposal
-    until I agree to it, otherwise the system quietly writes its own permissions.
+    until we agree to it, otherwise the system quietly writes its own permissions.
 
-## What stays with me
+## What stays with us
 
-I would avoid the word autonomous here. The model writes specs, code, tests and
-decision records, which is most of the volume. Four things stay on my side, and
+We would avoid the word autonomous here. The model writes specs, code, tests and
+decision records, which is most of the volume. Four things stay on our side, and
 they turn out to be the four where a mistake gets expensive.
 
 Ratification is the first. A new behavioural rule sits marked as a proposal until
-I agree to it, and all 33 memory entries carry that status. A system that
+we agree to it, and all 33 memory entries carry that status. A system that
 confirms its own rules has no rules.
 
 Premises are the second. A model checks whether it completed the task. Whether it
@@ -232,7 +232,7 @@ Then design, ahead of repair. Before any fix comes the question of whether the
 surrounding behaviour makes sense at all. A model will hand you a clean, tested
 fix for behaviour that should never have existed, and it looks great in review.
 
-And the running system stays mine. Containers and deployments never get touched
+And the running system stays ours. Containers and deployments never get touched
 unilaterally. The model diagnoses freely and proposes, and whoever carries
 operational responsibility types the command.
 
@@ -242,17 +242,17 @@ on your answer without burning tokens while it waits.
 
 ## The point
 
-The `principles.md` I built this project under is the same file Agent
+The `principles.md` we built this project under is the same file Agent
 Smith injects into its own agents at runtime, through
 `LoadCodingPrinciplesCommand`.
 
 Everything that grew here as steering machinery is the product. The spec before
 the code, the decisions recorded with the option they beat, the principles as
-tests, the gate I cannot open myself. `init-project` teaches a foreign repository
+tests, the gate we cannot open ourselves. `init-project` teaches a foreign repository
 the same structure this one was written under, so you get the setup rather than
 the story about it.
 
-Which makes my claim smaller and more useful than "AI writes code now". I stopped
+Which makes our claim smaller and more useful than "AI writes code now". We stopped
 trying to steer the model better and built an environment where bad work gets
 caught on the way out. That environment travels to any repository, with or
 without Agent Smith. Have a look at [Methodology](methodology.md) for how it runs
@@ -294,11 +294,11 @@ You should be able to reproduce all of this from a clone.
   commits. Commits less than 90 minutes apart count as one session, and each
   session gets 20 minutes of lead in. That gives 725 h across 366 sessions. A
   60/15 minute threshold gives 586 h and a 120/30 minute one gives 856 h. The
-  figure I quote above is 750 h, sitting at the upper middle of that band,
+  figure we quote above is 750 h, sitting at the upper middle of that band,
   because thinking time that produces no commit stays invisible to this method
   and there was plenty of it.
 
-Runtime and success rates for production runs are missing, because I have no
+Runtime and success rates for production runs are missing, because we have no
 reliable data on them yet. Token spend on the project's own development sits
 around €1,000 over the first six months, which is an order of magnitude rather than an
 audited figure.

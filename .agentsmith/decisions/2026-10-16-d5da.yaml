@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-16-d5da
+
+decisions:
+  - category: TradeOff
+    chose: "'We' names 45level; every sentence that counts people says one developer at 45level and one language model"
+    over: "A blanket I-to-we replacement, which turns 'by me and one language model' into a claim about a team"
+    reason: |
+      The figures on the website, in the README and in Built by the method are counted from 2,881 commits by a
+      single human author. The company voice must not make them false.
+  - category: TradeOff
+    chose: "The product's own first person stays: the agent in the Work it out example, the posted 'this is how I understood the ticket', FAQ questions in the reader's voice"
+    over: "Sweeping every 'I' in the docs"
+    reason: |
+      Those sentences quote what the software says or what a reader asks; changing them would misdescribe the product.
+  - category: TradeOff
+    chose: "Keep the landing h1 'Work item in. Pull request out.'; the eyebrow directly above it, the title, the meta description, the lede and the why-section intro carry 'agentic software factory'"
+    over: "Rewriting the h1 around the search phrase"
+    reason: |
+      The headline came out of nine operator iterations and main.js animates its three leaves. The phrase sits in
+      the elements a search engine weighs most besides it, without hidden text or repetition.
+  - category: Architecture
+    chose: "Canonical, sitemap and og:url without a trailing slash, through one Eleventy filter"
+    over: "page.url as Eleventy writes it (/services/)"
+    reason: |
+      vercel.json sets trailingSlash false, so /services/ redirects to /services. A canonical that redirects is
+      a signal search engines discard.
+  - category: TradeOff
+    chose: "No lastmod in sitemap.xml"
+    over: "Eleventy's page date"
+    reason: |
+      On a fresh build the page date is the file's creation time, so every lastmod would read as the deploy day,
+      which is false.
+  - category: TradeOff
+    chose: "Open Graph image points at the logo the docs site already serves"
+    over: "Copying a 2.3 MB PNG into the website, or drawing a new social card"
+    reason: |
+      No social card exists; the docs logo is published, near the 1.91:1 ratio, and adds nothing to the repository.
+      A dedicated card is an operator design call.
+  - category: TradeOff
+    chose: "No llms-full.txt"
+    over: "Concatenating the docs into the website build"
+    reason: |
+      The docs are a separate mkdocs site; a concatenated copy in the website build drifts from them on every docs
+      change, and llms.txt already links every page an LLM should read first.
+  - category: Architecture
+    chose: "robots.txt allows every crawler and names the AI crawlers explicitly; docs get their own robots.txt naming mkdocs' sitemap"
+    over: "A single wildcard rule"
+    reason: |
+      The wildcard already allows them; the named entries keep that visible if a disallow is ever added for '*'.
