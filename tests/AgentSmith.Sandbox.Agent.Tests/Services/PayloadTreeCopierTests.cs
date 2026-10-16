@@ -9,7 +9,7 @@ namespace AgentSmith.Sandbox.Agent.Tests.Services;
 /// agent binary — exec bits preserved, symlinks re-created as links (a byte-copied
 /// python3 -> python3.12 link would break the interpreter), absent payload a no-op.
 /// </summary>
-public sealed class PythonPayloadCopierTests : IDisposable
+public sealed class PayloadTreeCopierTests : IDisposable
 {
     private readonly string _root = Path.Combine(Path.GetTempPath(), $"pypayload-{Guid.NewGuid():N}");
 
@@ -35,7 +35,7 @@ public sealed class PythonPayloadCopierTests : IDisposable
         File.WriteAllText(Path.Combine(source, "lib", "libpython.so"), "lib");
 
         var target = Path.Combine(_root, "shared", "python");
-        new PythonPayloadCopier(NullLogger<PythonPayloadCopier>.Instance)
+        new PayloadTreeCopier(NullLogger<PayloadTreeCopier>.Instance)
             .CopyIfPresent(source, target);
 
         var copiedInterpreter = Path.Combine(target, "bin", "python3.12");
@@ -51,7 +51,7 @@ public sealed class PythonPayloadCopierTests : IDisposable
     {
         var target = Path.Combine(_root, "shared", "python");
 
-        new PythonPayloadCopier(NullLogger<PythonPayloadCopier>.Instance)
+        new PayloadTreeCopier(NullLogger<PayloadTreeCopier>.Instance)
             .CopyIfPresent(Path.Combine(_root, "missing"), target);
 
         Directory.Exists(target).Should().BeFalse("an absent payload must not create anything or throw");

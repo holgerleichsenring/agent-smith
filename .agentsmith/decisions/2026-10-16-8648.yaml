@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-16-8648
+
+decisions:
+  - category: Architecture
+    chose: "A statically linked C launcher at /shared/agent that picks the glibc or musl agent by the presence of the musl loader"
+    over: "The server choosing the build per image, or a shell script as the entry point"
+    reason: |
+      The init container runs in the carrier image and cannot see the toolchain's filesystem, and the server
+      knows an image only by name; only the toolchain container itself can tell its C library. A shell script
+      needs /bin/sh, which distroless images lack; a static musl binary runs on every Linux image.
+  - category: Architecture
+    chose: "Ship libstdc++ and libgcc_s from Alpine beside the musl agent, reached through LD_LIBRARY_PATH"
+    over: "A fully static NativeAOT agent, or patching an rpath into the single-file apphost"
+    reason: |
+      hashicorp/terraform carries neither library. NativeAOT would need the agent and its JSON wire to be
+      trimming-safe; rewriting the apphost's ELF risks the bundle offsets. The launcher names the directory in
+      AGENTSMITH_MUSL_LIB so the agent drops it from every step's environment.
+  - category: Scope
+    chose: "The python payload stays glibc-only"
+    over: "A second, musl python payload"
+    reason: |
+      Not needed to run the reported image; python3 is simply absent on a musl image, as the docs now say.

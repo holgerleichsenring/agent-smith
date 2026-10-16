@@ -34,6 +34,28 @@ RUN dotnet publish src/backend/AgentSmith.Sandbox.Agent/AgentSmith.Sandbox.Agent
 # Cost: a one-time disk write (~75 MB) per fresh container. Acceptable for our
 # pod lifetime model — the extraction stays around for the full pipeline.
 
+# Stage 1a (2026-10-16-8648): the same agent for musl, so a sandbox also runs on an Alpine
+# toolchain image (hashicorp/terraform, *-alpine). Alpine images often carry neither libstdc++
+# nor libgcc_s, which the .NET host needs; both are taken from Alpine and shipped beside the
+# musl agent, and the launcher puts that directory on LD_LIBRARY_PATH.
+FROM build AS build-musl
+ARG TARGETARCH
+RUN case "${TARGETARCH:-amd64}" in amd64|x64) rid=linux-musl-x64 ;; arm64) rid=linux-musl-arm64 ;; \
+      *) echo "unsupported TARGETARCH '${TARGETARCH}' for the musl agent" >&2; exit 1 ;; esac; \
+    dotnet publish src/backend/AgentSmith.Sandbox.Agent/AgentSmith.Sandbox.Agent.csproj \
+      -c Release -r "$rid" --self-contained true \
+      -p:PublishSingleFile=true -p:IncludeAllContentForSelfExtract=true -p:PublishTrimmed=false \
+      -o /publish-musl
+
+# Stage 1c (2026-10-16-8648): the launcher at /shared/agent, linked statically against musl so it
+# runs on any image, and the musl agent's C++ runtime.
+FROM alpine:3.20 AS launcher
+RUN apk add --no-cache build-base libstdc++ libgcc
+COPY src/backend/AgentSmith.Sandbox.Agent/launcher/launcher.c /src/launcher.c
+RUN gcc -static -Os -o /launcher /src/launcher.c && strip /launcher \
+    && mkdir -p /musl/lib \
+    && cp -L /usr/lib/libstdc++.so.6 /usr/lib/libgcc_s.so.1 /musl/lib/
+
 # Stage 1b (p0357): fetch the relocatable CPython payload. python-build-standalone
 # (astral) install_only builds need exactly the glibc floor the self-contained .NET
 # agent already requires — python3 therefore works wherever the agent itself runs,
@@ -82,5 +104,10 @@ ENV AGENTSMITH_RELEASE_VERSION=$AGENTSMITH_RELEASE_VERSION
 # p0357: the relocatable CPython payload — --inject copies it to /shared/python and
 # the agent's ProcessRunner prepends its bin/ to every step's PATH.
 COPY --from=python-fetch /python /python
+# 2026-10-16-8648: the launcher and the musl agent tree — --inject places the launcher at the
+# target path, this binary beside it as agent-gnu, and /musl as musl/.
+COPY --from=launcher --chmod=755 /launcher /launcher
+COPY --from=launcher /musl/lib /musl/lib
+COPY --from=build-musl --chmod=755 /publish-musl/AgentSmith.Sandbox.Agent /musl/agent
 ENTRYPOINT ["/agent"]
 CMD ["--inject", "/shared/agent"]

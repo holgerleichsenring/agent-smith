@@ -13,7 +13,7 @@ binary into any official toolchain image via the **init-container pattern**.
 
 - A worker process inside a sandbox pod
 - Driven by a Redis wire format (Step / StepEvent / StepResult)
-- Self-contained .NET 8 single-file binary, no runtime dependencies beyond glibc
+- Self-contained .NET single-file binary, built for glibc and for musl; a static launcher picks the build the toolchain image can run
 - One sandbox = one agent process (run-once, exit on Shutdown); a run gets one sandbox per repo and toolchain image
 
 ## What it isn't
@@ -66,6 +66,15 @@ image without modifying those images. The payload needs exactly the glibc floor
 the self-contained agent already requires: python works wherever the agent runs.
 The coding-master skill declares this guarantee; ship skill and carrier in the
 same release train.
+
+### glibc and musl images
+
+`/shared/agent` is a small statically linked launcher. When the toolchain image has
+the musl loader (`/lib/ld-musl-<arch>.so.1` — Alpine, `hashicorp/terraform`,
+`*-alpine`) it starts `/shared/musl/agent` with `/shared/musl/lib` (libstdc++ and
+libgcc_s, which Alpine images often lack) on `LD_LIBRARY_PATH`; otherwise it starts
+`/shared/agent-gnu`. A step's process does not inherit that library directory. The
+python payload is glibc-only, so `python3` is not provided on a musl image.
 
 A sample of the pod spec the server produces (trimmed: labels, resources and pull
 secrets left out):

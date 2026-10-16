@@ -35,6 +35,44 @@ public class AgentProcessEnvironmentTests
         info.Environment["REDIS_URL"].Should().Be("redis://tests:6379");
     }
 
+    // 2026-10-16-8648: the launcher's libstdc++ directory is the agent's, not the step's tools'.
+    [Fact]
+    public void AgentProcessEnvironment_Scrub_DropsTheLaunchersLibraryPath()
+    {
+        var info = new ProcessStartInfo("sh");
+        info.Environment["AGENTSMITH_MUSL_LIB"] = "/shared/musl/lib";
+        info.Environment["LD_LIBRARY_PATH"] = "/shared/musl/lib";
+
+        AgentProcessEnvironment.Scrub(info, null);
+
+        info.Environment.Keys.Should().NotContain(["AGENTSMITH_MUSL_LIB", "LD_LIBRARY_PATH"]);
+    }
+
+    [Fact]
+    public void AgentProcessEnvironment_Scrub_KeepsTheImagesOwnLibraryPath()
+    {
+        var info = new ProcessStartInfo("sh");
+        info.Environment["AGENTSMITH_MUSL_LIB"] = "/shared/musl/lib";
+        info.Environment["LD_LIBRARY_PATH"] = "/shared/musl/lib:/opt/tool/lib";
+
+        AgentProcessEnvironment.Scrub(info, null);
+
+        info.Environment["LD_LIBRARY_PATH"].Should().Be("/opt/tool/lib");
+    }
+
+    [Fact]
+    public void AgentProcessEnvironment_Scrub_AStepsOwnLibraryPathWins()
+    {
+        var info = new ProcessStartInfo("sh");
+        info.Environment["AGENTSMITH_MUSL_LIB"] = "/shared/musl/lib";
+        info.Environment["LD_LIBRARY_PATH"] = "/shared/musl/lib";
+
+        AgentProcessEnvironment.Scrub(info, new Dictionary<string, string> { ["LD_LIBRARY_PATH"] = "/shared/musl/lib" });
+
+        info.Environment["LD_LIBRARY_PATH"].Should().Be("/shared/musl/lib");
+        info.Environment.Keys.Should().NotContain("AGENTSMITH_MUSL_LIB");
+    }
+
     [Fact]
     public async Task ProcessRunner_Step_DoesNotSeeTheAgentsRedisUrl()
     {

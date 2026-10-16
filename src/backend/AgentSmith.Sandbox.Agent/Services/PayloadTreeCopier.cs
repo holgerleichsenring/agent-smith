@@ -3,32 +3,32 @@ using Microsoft.Extensions.Logging;
 namespace AgentSmith.Sandbox.Agent.Services;
 
 /// <summary>
-/// p0357: copies the carrier image's relocatable CPython payload (/python, from
-/// python-build-standalone) next to the injected agent binary so the toolchain
-/// container has python3 regardless of its image. Symlinks are re-created as
+/// p0357: copies a payload tree of the carrier image next to the injected agent binary — the
+/// relocatable CPython (/python, from python-build-standalone) so the toolchain container has
+/// python3 regardless of its image, and since 2026-10-16-8648 the musl agent (/musl). Symlinks are re-created as
 /// links (bin/python3 -> python3.12) and unix modes are preserved — a byte-copied
 /// symlink or a non-executable interpreter would break the payload silently.
 /// Absent payload is a no-op: the agent inject must never fail because a carrier
 /// build predates the payload.
 /// </summary>
-internal sealed class PythonPayloadCopier(ILogger logger)
+internal sealed class PayloadTreeCopier(ILogger logger)
 {
-    /// <summary>Where the carrier image stages the payload (Dockerfile stage python-fetch).</summary>
-    public const string CarrierPayloadPath = "/python";
+    /// <summary>Where the carrier image stages the python payload (Dockerfile stage python-fetch).</summary>
+    public const string CarrierPythonPath = "/python";
 
-    /// <summary>Directory name of the payload next to the injected agent binary.</summary>
-    public const string PayloadDirName = "python";
+    /// <summary>Directory name of the python payload next to the injected agent binary.</summary>
+    public const string PythonDirName = "python";
 
     public void CopyIfPresent(string sourceRoot, string targetRoot)
     {
         if (!Directory.Exists(sourceRoot))
         {
-            logger.LogDebug("No python payload at {Source} — skipping", sourceRoot);
+            logger.LogDebug("No payload at {Source} — skipping", sourceRoot);
             return;
         }
-        logger.LogInformation("Injecting python payload {Source} -> {Target}", sourceRoot, targetRoot);
+        logger.LogInformation("Injecting payload {Source} -> {Target}", sourceRoot, targetRoot);
         CopyTree(sourceRoot, targetRoot);
-        logger.LogInformation("Python payload inject complete");
+        logger.LogInformation("Payload inject complete");
     }
 
     private static void CopyTree(string source, string target)
