@@ -47,7 +47,7 @@ public sealed class TicketRunRecordVerdicts
             spec.Executed?.RunId, spec.Executed is null ? null : record.Numbers[spec.Executed.RunId],
             done, unmeasured, Worked: null,
             HasRecord: spec.Record is not null, RecordNote: spec.RecordNote,
-            VerdictRecorded: !(Terminal.Contains(spec.State) && done.All(c => c.Verdict is null)));
+            VerdictRecorded: !(Terminal.Contains(spec.State) && done.All(c => c.Verdict is null)), JudgedBy: acceptance?.RunId);
     }
 
     private static IReadOnlyList<TicketSeriesUnattributedView> Unattributed(

@@ -95,6 +95,15 @@ public sealed class TicketSeriesReadTests : IDisposable
     }
 
     [Fact]
+    public async Task TicketSeriesSpecComposer_EndedRow_IsServedAsJudgedBy()
+    {
+        await _store.AddAsync(Run(R1), Step(R1), Cut(R1, 3, Entry(A, 1, "the build exits 0")),
+            SpecRow(R1, A, "failed", Acceptance(("the build exits 0", "unmet"))));
+
+        (await ReadAsync()).Specs.Single().JudgedBy.Should().Be(R1); // 2026-10-16-86e6e
+    }
+
+    [Fact]
     public async Task TicketSeries_Read_GatePassedWithTheCutsSpecCount()
     {
         await _store.AddAsync(Run(R1), Step(R1), Cut(R1, 3, Entry(A, 1), Entry(B, 2)), Gate(R1, "success"));

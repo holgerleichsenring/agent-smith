@@ -5,6 +5,7 @@ import { isRunLive } from "@/lib/runLiveness";
 import { runPath } from "@/lib/runPath";
 import type { TicketAttempt, TicketSeriesSpec } from "@/types/tickets";
 import { BuildNote } from "./BuildNote";
+import { CriterionRejection } from "./CriterionRejection";
 import { ReviewRounds } from "./ReviewRounds";
 import { criterionRow, overruleWords, recordNoteWords, specStatePill } from "./specWords";
 
@@ -71,7 +72,10 @@ export function SpecDocument({ spec, attempts, runRecord = false, onDiscuss }: P
               return (
                 <div key={criterion.text} className="ci">
                   <span className={`m ${row.mark}`}>{row.glyph}</span>
-                  <span>{criterion.text}{overruled && <span className="dim-line"> · {overruled}</span>}</span>
+                  <span>
+                    {criterion.text}{overruled && <span className="dim-line"> · {overruled}</span>}
+                    <CriterionRejection criterion={criterion} judgedBy={spec.judgedBy} />
+                  </span>
                   <span className="cw">{row.who}</span>
                 </div>
               );

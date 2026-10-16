@@ -87,6 +87,7 @@ integrations:
 
 state:
   done:
+    2026-10-16-86e6e: "REJECTED CRITERION REASON (series read, Specs and Acceptance tabs). An unmet or unproven criterion shows the gate's reason under its text with Overrule in the run, linking the run whose acceptance gave the verdict (served as judgedBy). -> .agentsmith/specs/done/2026-10-16-86e6e-rejected-criterion-reason.yaml"
     2026-10-16-86e6d: "ATTEMPT RUN LINKS (state block, Specs tab, attempt card). Earlier attempts collapse to one line naming a superseded one, each opening its run; executed in A{n} and every cell of an attempt that ran a spec link the run viewer; one runPath helper. -> .agentsmith/specs/done/2026-10-16-86e6d-attempt-run-links.yaml"
     2026-10-16-86e6c: "TICKET STATE BLOCK (ticket page, header). Under the header on every tab: a pill and one sentence per state, Open run, one act fitting the cause (retry, trust registry, init-project, overrule, answer, continue) with other options and the verbatim Why folded; healthy states are one line. -> .agentsmith/specs/done/2026-10-16-86e6c-ticket-state-block.yaml"
     2026-10-16-86e6b: "SUPERSEDED PARKS ARE ENDED (resume sweep, parked runs, waiting-run closer, attempt pill). A waiting_for_input code run a newer attempt of its ticket started past is cancelled with end kind superseded, releasing its capacity and never resuming; the attempt card reads superseded. -> .agentsmith/specs/done/2026-10-16-86e6b-superseded-park-close.yaml"
@@ -1270,6 +1271,7 @@ state:
     2026-10-14-da5eh: "SKILLS PIN v5.17.0 (embedded skills catalog, steward skill test). The embedded catalog carries ticket-steward-master; TicketStewardSkillTests holds every tool the packaged master names to the composed steward surface and requires start_next_attempt, read_series, edit_series, verify_series, ticket_runs. -> .agentsmith/specs/done/2026-10-14-da5eh-skills-pin-steward.yaml"
   active: {}
   planned:
+    2026-10-16-d63d: "RUN VIEWER STATE RULES (run page banner). The run viewer says what ended a run in one sentence by its end kind, offers the act that fits, and keeps its verbatim summary one click away, as the ticket page does. -> .agentsmith/specs/planned/2026-10-16-d63d-run-viewer-state-rules.yaml"
     2026-10-15-5e9dc: "SCREENSHOTS FROM A COMMITTED DEMO SEEDER AND A REAL AZURE DEVOPS PROJECT (tools, docs). One anonymised story, retakeable headless; stale and unreferenced images replaced. -> .agentsmith/specs/planned/2026-10-15-5e9dc-screenshots-demo-data.yaml"
     2026-10-04-6807: "A TICKET CAN ASK AN INIT TO REFRESH PRINCIPLES (ticket routing, config). A configured refresh label on the init ticket sets the same flag as the chip. -> .agentsmith/specs/planned/2026-10-04-6807-init-refresh-ticket-label.yaml"
     2026-10-03-0fca: "OVERLAYS REACH SUBPROJECTS AND NOTEBOOKS (overlay detection, discovery). sbt and Gradle multi-project declarations scoped per subproject; notebook-only repositories become components. -> .agentsmith/specs/planned/2026-10-03-0fca-overlay-detection-gaps.yaml"

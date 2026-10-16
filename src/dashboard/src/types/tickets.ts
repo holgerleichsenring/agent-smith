@@ -321,6 +321,8 @@ export interface TicketSeriesSpec {
   recordNote?: string | null;
   /** False for a terminal spec none of whose criteria carries a verdict. */
   verdictRecorded?: boolean;
+  /** 2026-10-16-86e6e: the run whose acceptance gave the verdicts and whose judgements are read; null when none did. */
+  judgedBy?: string | null;
 }
 
 /** 2026-10-13-8762m: what a spec's master handed forward; `missing` when it left no note. */

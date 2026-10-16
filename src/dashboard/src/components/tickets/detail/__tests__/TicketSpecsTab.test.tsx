@@ -142,6 +142,32 @@ describe("Ticket specs and acceptance tabs", () => {
     expect(screen.getByTestId("spec-item-s1").querySelector("a")).toBeNull();
   });
 
+  // 2026-10-16-86e6e: the gate's reason, inline, with the run whose judgement the page reads.
+  const rejected = spec({
+    specId: "s9", ordinal: 1, goal: "Dead-letter every queue", state: "failed", executedBy: "r-3", executedByAttempt: 3,
+    judgedBy: "r-2",
+    done: [{ text: "Every listening queue has a dead-letter queue", verdict: "unmet",
+      note: "claimed satisfied by 'UseX', which is neither a file the evidence covers nor a command that ran", citation: null, overrule: null }],
+  });
+
+  it("SpecDocument_UnmetCriterion_ShowsTheReasonAndTheOverruleLink", async () => {
+    world.series.default = series("r-3", [rejected], { attempt: 3 });
+    nav.search = "tab=specs&spec=s9";
+    await open();
+    const doc = screen.getByTestId("spec-doc");
+    expect(within(doc).getByTestId("criterion-rejection")).toHaveTextContent("Not accepted: claimed satisfied by 'UseX'");
+    expect(within(doc).getByTestId("criterion-overrule")).toHaveAttribute("href", "/jobs/r-2");
+  });
+
+  it("TicketAcceptanceTab_UnmetCriterion_ShowsTheReason", async () => {
+    world.series.default = series("r-3", [rejected], { attempt: 3 });
+    nav.search = "tab=acceptance";
+    await open();
+    const block = screen.getByTestId("acceptance-spec-s9");
+    expect(within(block).getByTestId("criterion-rejection")).toHaveTextContent("neither a file the evidence covers");
+    expect(within(block).getByTestId("criterion-overrule")).toHaveAttribute("href", "/jobs/r-2");
+  });
+
   it("WithoutASelection_TheLiveSpecIsShownFirst", async () => {
     await open();
     expect(screen.getByTestId("spec-doc-goal")).toHaveTextContent("Retry with backoff");
