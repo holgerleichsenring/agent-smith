@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.166.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.165.1...v0.166.0) (2026-10-16)
+
+
+### Features
+
+* run the sandbox agent on musl toolchain images such as hashicorp/terraform (2026-10-16-8648) ([fb14fcf](https://github.com/holgerleichsenring/agent-smith/commit/fb14fcf721bee5df8f8f9283218d96aed2d7e05a))
+
 ## [0.165.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.165.0...v0.165.1) (2026-10-16)
 
 
