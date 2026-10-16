@@ -50,6 +50,7 @@ public sealed class WaitingRunCloserTests : IDisposable
         var run = check.Runs.Single(r => r.Id == "run-1");
         run.Status.Should().Be("cancelled");
         run.FinishedAt.Should().NotBeNull();
+        run.EndKind.Should().Be(AgentSmith.Contracts.Runs.RunEndKinds.Superseded); // 2026-10-16-86e6b
     }
 
     private DbContextOptions<AgentSmithDbContext> Options() =>

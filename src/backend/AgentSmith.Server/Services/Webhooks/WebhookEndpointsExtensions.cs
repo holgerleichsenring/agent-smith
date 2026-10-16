@@ -42,6 +42,7 @@ internal static class WebhookEndpointsExtensions
         services.AddSingleton<IReworkParkCheck, Services.Rework.ReworkParkCheck>();
         services.AddSingleton<IReworkLaunch, Services.Rework.ReworkLaunch>();
         services.AddSingleton<IWaitingRunCloser, Services.Rework.WaitingRunCloser>();
+        services.AddSingleton<Services.Lifecycle.SupersededParkCloser>(); // 2026-10-16-86e6b: the resume sweep's first step
         services.AddSingleton<IReworkEntry, Services.Rework.ReworkEntry>();
         services.AddSingleton<KeywordCommentRouter>();
         services.AddSingleton<PrReworkAdmission>(); // 2026-10-08-e8b9c

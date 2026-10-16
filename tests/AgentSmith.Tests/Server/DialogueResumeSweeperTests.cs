@@ -3,6 +3,7 @@ using AgentSmith.Application.Services.Resume;
 using AgentSmith.Contracts.Dialogue;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Persistence;
 using AgentSmith.Infrastructure.Persistence.Contracts;
@@ -11,6 +12,7 @@ using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Infrastructure.Persistence.Services.Translators;
 using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Server.Services.Lifecycle;
+using AgentSmith.Server.Services.Rework;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -67,6 +69,28 @@ public sealed class DialogueResumeSweeperTests : IDisposable
         // Idempotent: a second scan (or a duplicate answer) enqueues nothing new.
         (await BuildSweeper().ScanOnceAsync(CancellationToken.None)).Should().Be(0);
         ctx.QueuedTickets.Count().Should().Be(1);
+    }
+
+    [Fact]
+    public async Task DialogueResumeSweeper_SupersededCheckpointedPark_IsClosedAndNotResumed()
+    {
+        await ApplyAsync(Started("run-1"));
+        await ApplyAsync(Checkpointed("run-1", deadline: T.AddDays(3)));
+        await ApplyAsync(new RunFinishedEvent("run-1", "waiting_for_input", null, "Waiting", T));
+        await ApplyAsync(Started("run-2"));
+        await ApplyAsync(new StepStartedEvent("run-2", 1, "FetchTicketCommand", 10, T));
+        await BuildInbox().TryDeliverAsync("job-1",
+            new DialogAnswer("q1", "approve", null, DateTimeOffset.UtcNow, "@op"), CancellationToken.None);
+
+        var resumed = await BuildSweeper().ScanOnceAsync(CancellationToken.None);
+
+        resumed.Should().Be(0);
+        using var ctx = new AgentSmithDbContext(Options());
+        var park = ctx.Runs.Single(r => r.Id == "run-1");
+        park.Status.Should().Be("cancelled");
+        park.EndKind.Should().Be(RunEndKinds.Superseded);
+        park.Summary.Should().Contain("run-2");
+        ctx.QueuedTickets.Should().BeEmpty();
     }
 
     [Fact]
@@ -284,6 +308,7 @@ public sealed class DialogueResumeSweeperTests : IDisposable
             new UnanswerableParkReporter(
                 ScopeFactory(), checkpoints, _findings,
                 NullLogger<UnanswerableParkReporter>.Instance),
+            new SupersededParkCloser(ScopeFactory(), Closer(), new RecordingNudge(), NullLogger<SupersededParkCloser>.Instance),
             nudge ?? new RecordingNudge(),
             TimeProvider.System, NullLogger<DialogueResumeSweeper>.Instance);
     }
@@ -336,6 +361,16 @@ public sealed class DialogueResumeSweeperTests : IDisposable
 
         public Task MoveToInProgressAsync(RunCheckpointRecord checkpoint, CancellationToken ct) =>
             Task.CompletedTask;
+    }
+
+    // 2026-10-16-86e6b: the real closer over the same store, through the finalization projection.
+    private WaitingRunCloser Closer()
+    {
+        var services = new ServiceCollection();
+        services.AddScoped<IUnitOfWork>(_ => new AgentSmithDbContext(Options()));
+        services.AddSingleton<QueuedRunProjection>();
+        services.AddSingleton<RunFinalizationProjection>();
+        return new WaitingRunCloser(new CancelTerminalWriter(services.BuildServiceProvider()), TimeProvider.System);
     }
 
     private IDialogueAnswerInbox BuildInbox() => new DbDialogueAnswerInbox(ScopeFactory());

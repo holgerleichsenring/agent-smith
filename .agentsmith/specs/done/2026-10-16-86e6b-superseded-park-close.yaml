@@ -68,9 +68,8 @@ tests:
   - "ParkedRunRepository_NewerRowWithoutAStep_DoesNotListThePark"
   - "ParkedRunRepository_OtherTicketsNewerRun_DoesNotListThePark"
   - "ParkedRunRepository_ResumedCheckpointOrQueuedResume_DoesNotListThePark"
-  - "SupersededParkCloser_SupersededPark_IsCancelledWithEndKindSupersededAndReleased"
-  - "DialogueResumeSweeper_SupersededCheckpointedPark_IsClosedAndNotResumed"
-  - "WaitingRunCloser_ReworkClose_RecordsEndKindSuperseded"
+  - "DialogueResumeSweeper_SupersededCheckpointedPark_IsClosedAndNotResumed (the closer end to end: cancelled, EndKind superseded, newer run named, no resume queued)"
+  - "CloseSupersededAsync_WaitingRow_EndsCancelled (asserts EndKind superseded)"
   - "outcomePill_EndKindSuperseded_ReadsSuperseded"
 
 done:

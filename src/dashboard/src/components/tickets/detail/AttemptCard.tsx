@@ -6,7 +6,7 @@ import { isRunLive } from "@/lib/runLiveness";
 import type { Read } from "@/lib/tickets/TicketPageReads";
 import { useTicketSeries } from "@/lib/tickets/TicketPageStore";
 import type { RunSnapshot } from "@/types/hub-events";
-import type { RunCompute, RunPasses, TicketAttempt, TicketConversationEntry, TicketSeries } from "@/types/tickets";
+import { RUN_END_KINDS, type RunCompute, type RunPasses, type TicketAttempt, type TicketConversationEntry, type TicketSeries } from "@/types/tickets";
 import { money } from "../ticketFormat";
 import { attemptStory, causeLabel, causeWhere, liveSpec, questionWaits } from "./attemptStory";
 import { duration } from "./computeTotals";
@@ -34,6 +34,8 @@ const PILLS: Record<string, [string, string]> = {
 };
 
 export function outcomePill(attempt: TicketAttempt): [string, string] {
+  // 2026-10-16-86e6b: a park a newer attempt started past is closed as superseded, whatever it waited on.
+  if (attempt.endKind === RUN_END_KINDS.superseded) return ["q", "superseded"];
   if (attempt.handedBack) return ["person", "handed back"];
   if (attempt.endedOnInfrastructure) return ["bad", "ended on infrastructure"];
   return PILLS[attempt.status] ?? ["q", attempt.status.replace(/_/g, " ")];
