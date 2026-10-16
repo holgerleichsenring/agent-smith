@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.165.1](https://github.com/holgerleichsenring/agent-smith/compare/v0.165.0...v0.165.1) (2026-10-16)
+
+
+### Bug Fixes
+
+* retry an LLM call whose connection dropped before any response (2026-10-16-9641) ([62b08d2](https://github.com/holgerleichsenring/agent-smith/commit/62b08d271b079a55a7513fee034fafa3f2b16f02))
+* retry an LLM call whose connection dropped before any response (2026-10-16-9641) ([6ca1055](https://github.com/holgerleichsenring/agent-smith/commit/6ca105590b583e2b48c87b70e192fa8858501a3c))
+
 ## [0.165.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.164.0...v0.165.0) (2026-10-15)
 
 
