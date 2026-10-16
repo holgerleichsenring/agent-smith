@@ -12,8 +12,8 @@ and the counting method is at the bottom, so you can check us.
 
 The short version is that Agent Smith bootstraps an `.agentsmith/` directory into
 your repo, with a context file, specs, a decision log and a memory of what
-it learned. That is the product. It is also how this repository got written, over
-seven months, by one developer at [45level](https://45level.com) and one model.
+it learned. That is the product. It is also how this repository got written, by
+Holger Leichsenring and one model.
 
 ## The numbers
 
@@ -44,8 +44,8 @@ the scope moves, a successor shows up (`p0169b`, then `p0169c`) and the original
 stays exactly as it was.
 
 That last bit matters more than it looks. A spec you can edit afterwards tells
-you what you wish you had decided, which is a pretty useless thing to read six
-months later.
+you what you wish you had decided, which is a pretty useless thing to read
+later.
 
 Specs landed at about 5.1 a day and commits at 13.0. Alongside them 225
 releases, roughly seven a week, all automated.
@@ -136,7 +136,7 @@ so a new one fails the build the moment it exists. The outcome itself gets
 verified against the diff that actually landed in the branch, and the model's own
 summary of what it did never enters into it. And the gate runs after the
 delivery, which sounds obvious until you find out it ran the other way round for
-months.
+a long time.
 
 All three of those came out of things breaking rather than us being clever up
 front. One merge step promoted nine false findings to CRITICAL even though the
@@ -166,14 +166,14 @@ code it writes.
 **The plan generator** got retired after evaluations caught the model truncating
 every multi repository plan at its output limit. The spec is the plan now.
 
-**The context compactors** sat dead in the codebase for months and got deleted
+**The context compactors** sat dead in the codebase for a long time and got deleted
 outright once hysteresis based compaction arrived.
 
 **The verb whitelist in the verification gate** checked the plan instead of the
 contract and failed a perfectly good migration.
 
 **A metric that read zero.** The cached token counter on OpenAI was reading a key
-the SDK had stopped filling, across four call sites, for months. Nothing broke,
+the SDK had stopped filling, across four call sites, for a long stretch. Nothing broke,
 which is exactly why it lasted that long: the caching underneath worked the whole
 time and only the readout was wrong, so there was no failure to notice. It turned
 into a rule of its own. A stale declaration is a premise other decisions rest on,
@@ -271,7 +271,7 @@ happen.
 And keep a decision log that records the option you rejected, in `chose` / `over`
 / `reason` form. Writing down only what you picked is close to worthless. The
 decision becomes reconstructable through whatever was standing next to it, and
-that is the part you will want in six months.
+that is the part you will want later.
 
 ## How this was counted
 
@@ -300,5 +300,5 @@ You should be able to reproduce all of this from a clone.
 
 Runtime and success rates for production runs are missing, because we have no
 reliable data on them yet. Token spend on the project's own development sits
-around €1,000 over the first six months, which is an order of magnitude rather than an
+around €1,000 from 18 February to mid-August 2026, which is an order of magnitude rather than an
 audited figure.

@@ -3,6 +3,8 @@
   "tagline": "the agentic software factory",
   "description": "Agent Smith is the open source agentic software factory: a ticket goes in, becomes a spec, gets built in sandboxes on your infrastructure, has every acceptance criterion verified, and comes out as a pull request. Every run shows its cost.",
   "url": "https://agent-smith.org",
+  "author": "Holger Leichsenring",
+  "authorUrl": "https://github.com/holgerleichsenring",
   "image": "https://docs.agent-smith.org/agent-smith-logo-large-green.png",
   "githubRepo": "holgerleichsenring/agent-smith",
   "docsUrl": "https://docs.agent-smith.org",

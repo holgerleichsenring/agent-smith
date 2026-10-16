@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-16-d5da
-goal: "Website, docs and README speak as 45level ('we'), position Agent Smith as the agentic software factory, and carry sitemap, robots, canonical, Open Graph and JSON-LD."
+goal: "Website, docs and README name Holger Leichsenring as creator and maintainer, 45level as service provider, say we, and position Agent Smith as the agentic software factory with discovery tags."
 
 applies_to: "website (layout, landing, Azure DevOps page, site.json, llms.txt, new sitemap and robots templates), docs (index, how-it-works pages, mkdocs.yml, robots.txt), README.md"
 
@@ -32,21 +32,26 @@ facts:
 
 assumptions:
   - "The website's host is https://agent-smith.org, as llms.txt and README.md already link it."
-  - "One developer at 45level wrote this repository with one language model; 2,881 of the commits come from a single human author (built-by-the-method.md:282-283), so 'we' names the company, never a larger team."
+  - "Holger Leichsenring wrote this repository with one language model and holds the copyright (LICENSE:3); 2,881 of the commits come from a single human author (built-by-the-method.md:282-283). 45level GmbH offers services and maintenance contracts and neither built nor owns it (operator, 2026-10-16)."
 
 scope:
   in: >
     VOICE: every author-voice first person on the website (index.njk, azure-devops.njk), in the docs (index,
     built-by-the-method, delivery-account, methodology, multi-repo, repos-multi, templates) and README.md becomes
-    45level's 'we'; a sentence counting people says one developer at 45level and one language model. The product's own
+    'we' (the maintainer and the model, never a company); a sentence counting people says Holger Leichsenring and one
+    language model. AUTHORSHIP: Holger Leichsenring is named as creator, maintainer and copyright holder in the README,
+    the footer, the why section, the docs index and llms.txt; 45level appears only as the provider of professional
+    services and maintenance contracts. MONTHS: no statement of elapsed time in months ('over seven months', 'six
+    months later', 'for months'); dated ranges stay. The product's own
     first person (example dialogues, the posted 'this is how I understood the ticket', FAQ questions in the reader's
     voice) stays.
     POSITIONING: Agent Smith — the agentic software factory (ticket, spec, verified pull request) in the landing title,
     meta description, eyebrow, lede and one h2-adjacent intro; Open Graph and Twitter tags; site.json description;
     mkdocs site_description and the docs index heading and intro; README tagline.
-    DISCOVERY: canonical link per page, JSON-LD (SoftwareApplication offered by Organization 45level GmbH), /sitemap.xml
+    DISCOVERY: canonical link per page, JSON-LD (SoftwareApplication with a Person as author, creator, maintainer and
+    copyright holder; 45level only as a ProfessionalService on /services/), /sitemap.xml
     and /robots.txt rendered by Eleventy (robots names the sitemap and allows AI crawlers); docs/robots.txt naming the
-    mkdocs sitemap; cross-links website, docs and README; llms.txt carries the positioning and 45level.
+    mkdocs sitemap; cross-links website, docs and README; llms.txt carries the positioning, the maintainer and 45level's services.
   out: >
     The landing h1 'Work item in. Pull request out.' — the operator's iterated headline with its own animation; the
     eyebrow directly above it carries the phrase. llms-full.txt — the docs are a separate mkdocs site and
@@ -54,12 +59,13 @@ scope:
     (Search Console, GitHub repo description and topics, backlinks): listed in the report.
 
 decisions:
-  - key: "WE IS THE COMPANY, NOT A TEAM. Facts that count people stay exact: one developer at 45level, one language model."
+  - key: "WE IS THE MAINTAINER AND THE MODEL, NOT A COMPANY. Holger Leichsenring created, maintains and owns Agent Smith; 45level GmbH provides services and maintenance contracts. No sentence puts we next to 45level."
+  - key: "NO ELAPSED TIME IN MONTHS. A month count goes stale the day after it is written; a dated range (18 Feb to 15 Oct 2026) stays true."
   - key: "CANONICAL WITHOUT A TRAILING SLASH. vercel.json sets trailingSlash false, so /services/ redirects to /services; the canonical names the URL that answers."
 
 steps:
   - id: voice
-    action: "Rewrite the author-voice sentences on the website, in the docs and README.md to 45level's we."
+    action: "Rewrite the author-voice sentences on the website, in the docs and README.md to we; name Holger Leichsenring as creator and maintainer; remove month counts."
   - id: positioning
     action: "site.json description and url; landing title, eyebrow, lede; mkdocs site_description, social and copyright; docs index heading and intro; README tagline and website link."
   - id: discovery
@@ -72,6 +78,7 @@ tests:
 
 done:
   - "No author-voice I, me or my remains on the website, in the docs or in README.md; the product's own first person is untouched."
-  - "The landing title and meta description name Agent Smith as the agentic software factory; every page has a canonical link, Open Graph and Twitter tags and JSON-LD naming 45level GmbH."
-  - "/sitemap.xml lists every page, /robots.txt names it and allows AI crawlers, /llms.txt carries the positioning and 45level."
+  - "The landing title and meta description name Agent Smith as the agentic software factory; every page has a canonical link, Open Graph and Twitter tags and JSON-LD naming Holger Leichsenring as author, creator, maintainer and copyright holder; 45level is never publisher or owner."
+  - "/sitemap.xml lists every page, /robots.txt names it and allows AI crawlers, /llms.txt carries the positioning, the maintainer and 45level as service provider."
+  - "No statement of elapsed time in months remains on the website, in the docs, in README.md or in llms.txt."
   - "Website build green; build green, full suite green, dashboard gen/test/build green."

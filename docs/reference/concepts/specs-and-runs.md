@@ -258,4 +258,4 @@ The PR reviewer sees not just the code changes but also:
 - What the spec review still finds, and what the run declined
 - How much it cost, and what decisions it made and why
 
-This transparency is the point. When the agent's code breaks six months later, you'll know what it was thinking.
+This transparency is the point. When the agent's code breaks later, you'll know what it was thinking.

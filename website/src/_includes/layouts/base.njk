@@ -30,10 +30,11 @@
   "@context": "https://schema.org",
   "@graph": [
     {
-      "@type": "Organization",
-      "@id": "{{ site.partnerUrl }}/#organization",
-      "name": {{ site.partner | dump | safe }},
-      "url": "{{ site.partnerUrl }}"
+      "@type": "Person",
+      "@id": "{{ site.url }}/#author",
+      "name": {{ site.author | dump | safe }},
+      "url": "{{ site.authorUrl }}",
+      "sameAs": ["{{ site.authorUrl }}", "{{ site.blogUrl }}"]
     },
     {
       "@type": "SoftwareApplication",
@@ -50,15 +51,37 @@
       "codeRepository": "https://github.com/{{ site.githubRepo }}",
       "softwareHelp": "{{ site.docsUrl }}/",
       "image": "{{ site.image }}",
-      "publisher": { "@id": "{{ site.partnerUrl }}/#organization" }
+      "author": { "@id": "{{ site.url }}/#author" },
+      "creator": { "@id": "{{ site.url }}/#author" },
+      "maintainer": { "@id": "{{ site.url }}/#author" },
+      "copyrightHolder": { "@id": "{{ site.url }}/#author" },
+      "copyrightYear": 2026
     },
     {
       "@type": "WebSite",
       "@id": "{{ site.url }}/#website",
       "name": {{ site.title | dump | safe }},
       "url": "{{ site.url }}/",
-      "publisher": { "@id": "{{ site.partnerUrl }}/#organization" }
+      "author": { "@id": "{{ site.url }}/#author" }
     }
+    {%- if servicesProvider %},
+    {
+      "@type": "ProfessionalService",
+      "@id": "{{ site.partnerUrl }}/#services",
+      "name": {{ site.partner | dump | safe }},
+      "url": "{{ site.partnerUrl }}",
+      "description": "Professional services, support and maintenance contracts for Agent Smith.",
+      "areaServed": "Worldwide",
+      "makesOffer": {
+        "@type": "Offer",
+        "itemOffered": {
+          "@type": "Service",
+          "name": "Agent Smith professional services and maintenance contracts",
+          "about": { "@id": "{{ site.url }}/#software" }
+        }
+      }
+    }
+    {%- endif %}
   ]
 }
 </script>
@@ -85,13 +108,13 @@
 
 <footer class="footer">
   <div class="wrap">
-    <span>Agent Smith, the agentic software factory by <a href="{{ site.partnerUrl }}">45level GmbH</a> · MIT License · © 2026 Holger Leichsenring</span>
+    <span>Agent Smith, created and maintained by {{ site.author }} · © 2026 {{ site.author }} · MIT License</span>
     <span class="footer-links">
       <a href="{{ site.docsUrl }}">Docs</a>
       <a href="{{ site.sentinelUrl }}">Sentinel</a>
       <a href="https://github.com/{{ site.githubRepo }}">GitHub</a>
       <a href="{{ site.blogUrl }}">Blog</a>
-      <a href="{{ site.partnerUrl }}">45level</a>
+      <a href="{{ site.partnerUrl }}">Professional services by 45level</a>
     </span>
   </div>
 </footer>

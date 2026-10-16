@@ -2,12 +2,27 @@
 spec: 2026-10-16-d5da
 
 decisions:
+  - category: Scope
+    chose: "Holger Leichsenring is the author: creator, maintainer and copyright holder, named in the README, the footer, the why section, the docs index and llms.txt; 45level GmbH is the service provider only (professional services, support, maintenance contracts)"
+    over: "The first cut of this spec, which named 45level as the company that built and backed Agent Smith (we = 45level, 'by one developer at 45level', JSON-LD publisher Organization 45level)"
+    reason: |
+      Operator correction, 2026-10-16: 45level did not build Agent Smith, and the copyright and every right belong
+      to Holger Leichsenring (LICENSE:3). An author and a service provider are different roles; a page that lets
+      the second read as the first misstates ownership. JSON-LD carries the Person as author, creator, maintainer
+      and copyrightHolder with no publisher; 45level appears only as a ProfessionalService on /services/.
   - category: TradeOff
-    chose: "'We' names 45level; every sentence that counts people says one developer at 45level and one language model"
-    over: "A blanket I-to-we replacement, which turns 'by me and one language model' into a claim about a team"
+    chose: "'We' is the narrative voice of the maintainer and the model; every sentence that counts people says Holger Leichsenring and one language model, and no 'we' stands next to 45level"
+    over: "A blanket I-to-we replacement, which turns 'by me and one language model' into a claim about a team or a company"
     reason: |
       The figures on the website, in the README and in Built by the method are counted from 2,881 commits by a
-      single human author. The company voice must not make them false.
+      single human author. The voice must not make them false.
+  - category: Scope
+    chose: "No statement of elapsed time in months: 'over seven months', 'six months later', 'for months' and 'the first six months' are rewritten; dated ranges (18 Feb to 15 Oct 2026) and the point-in-time figures stay"
+    over: "Keeping 'written over seven months', which the first cut of this spec carried over from the existing copy"
+    reason: |
+      Operator correction, 2026-10-16: a month count goes stale the day after it is written. A dated range stays
+      true. The figures (1,229 specs, 10,301 tests, 750 h …) remain for the operator to decide; on the website and
+      in the README they no longer carry a date of their own, only Built by the method dates them.
   - category: TradeOff
     chose: "The product's own first person stays: the agent in the Work it out example, the posted 'this is how I understood the ticket', FAQ questions in the reader's voice"
     over: "Sweeping every 'I' in the docs"

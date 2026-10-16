@@ -1,13 +1,13 @@
 ---
 title: The agentic software factory
-description: Agent Smith is the open source agentic software factory by 45level. A ticket goes in, a spec is derived, sandboxes on your infrastructure build it, and a verified pull request comes out.
+description: Agent Smith is the open source agentic software factory. A ticket goes in, a spec is derived, sandboxes on your infrastructure build it, and a verified pull request comes out.
 ---
 
 <img src="agent-smith-logo-large-green.png" alt="Agent Smith" style="max-width: 600px;">
 
 # Agent Smith, the agentic software factory
 
-From ticket to PR: Agent Smith is an open source agentic software factory, built and backed by [45level](https://45level.com). You drop a ticket into your tracker; it becomes a spec, the spec gets built and verified, and a PR shows up on your repo, with the ticket already updated to point at it. Every run writes down what it cost in tokens and dollars, and every change it made comes with the reasoning the agent followed. That's the whole loop.
+From ticket to PR: Agent Smith is an open source agentic software factory, created and maintained by Holger Leichsenring. You drop a ticket into your tracker; it becomes a spec, the spec gets built and verified, and a PR shows up on your repo, with the ticket already updated to point at it. Every run writes down what it cost in tokens and dollars, and every change it made comes with the reasoning the agent followed. That's the whole loop.
 
 This page is the orientation of the documentation; the product overview is on [agent-smith.org](https://agent-smith.org) and the source on [GitHub](https://github.com/holgerleichsenring/agent-smith). There's a fast-path link list at the bottom — if you're here to ship today, skip the rest and jump straight in.
 
@@ -43,7 +43,7 @@ Every run gets a directory under `.agentsmith/runs/`, named by the run id: a UTC
 └── result.md     — what got done, the delivery account, cost in tokens and USD
 ```
 
-Next to it, the spec a run executed sits under `.agentsmith/specs/`, and the choices it made go into `.agentsmith/decisions/`, each naming what it picked and what it beat. That's the why-record. Six months later, when you've forgotten why the agent picked path A over path B, the answer is in there. That was the reason we built it this way: we got tired of code we couldn't reverse-engineer.
+Next to it, the spec a run executed sits under `.agentsmith/specs/`, and the choices it made go into `.agentsmith/decisions/`, each naming what it picked and what it beat. That's the why-record. Long after, when you've forgotten why the agent picked path A over path B, the answer is in there. That was the reason we built it this way: we got tired of code we couldn't reverse-engineer.
 
 ## What's supported
 
@@ -99,7 +99,7 @@ Everything else lives in Reference. That's where the per-pipeline pages, the ful
 
 ## Who is behind it
 
-Agent Smith is built and backed by [45level GmbH](https://45level.com), which also offers [professional services and maintenance contracts](https://agent-smith.org/services).
+Agent Smith is created and maintained by Holger Leichsenring. Professional services, support and maintenance contracts are available from [45level GmbH](https://45level.com); see [services](https://agent-smith.org/services).
 
 ## License
 

@@ -77,7 +77,7 @@ decisions:
 
 Most AI tools are black boxes. You don't know why they do what they do, how much it costs, or what they decided not to do.
 
-Agent Smith is an audit trail. Six months after a pipeline ran, you can answer:
+Agent Smith is an audit trail. Long after a pipeline ran, you can answer:
 
 - **What did it change?** `result.md` lists the changed files
 - **What did it cost?** Token usage and USD in the frontmatter

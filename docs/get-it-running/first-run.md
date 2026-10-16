@@ -132,7 +132,7 @@ The CLI exits with code zero if the PR opened and the ticket got updated. Non-ze
 
 The run record lands in the repository, under `.agentsmith/runs/<run>/`, and is committed on the run branch so it travels with the PR. `result.md` holds what got done, the PR URL, the cost, the decisions the run logged, and the account of every done criterion.
 
-Run directories accumulate over time. The [knowledge-base feature](../reference/concepts/knowledge-base.md) compiles them into a wiki you can grep when something feels familiar — "didn't we already debate this trade-off six months ago?" usually has an answer in there.
+Run directories accumulate over time. The [knowledge-base feature](../reference/concepts/knowledge-base.md) compiles them into a wiki you can grep when something feels familiar — "didn't we already debate this trade-off once?" usually has an answer in there.
 
 ### What ended up on the tracker
 

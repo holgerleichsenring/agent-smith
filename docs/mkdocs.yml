@@ -1,7 +1,7 @@
 site_name: Agent Smith
 site_url: https://docs.agent-smith.org
-site_description: Documentation for Agent Smith, the open source agentic software factory by 45level — ticket in, spec, verified pull request out, on your own infrastructure.
-site_author: 45level GmbH
+site_description: Documentation for Agent Smith, the open source agentic software factory — ticket in, spec, verified pull request out, on your own infrastructure.
+site_author: Holger Leichsenring
 repo_url: https://github.com/holgerleichsenring/agent-smith
 repo_name: holgerleichsenring/agent-smith
 docs_dir: .
@@ -45,9 +45,9 @@ extra:
     - icon: fontawesome/solid/globe
       link: https://agent-smith.org
       name: Agent Smith website
-    - icon: fontawesome/solid/building
-      link: https://45level.com
-      name: 45level GmbH
+    - icon: fontawesome/solid/handshake
+      link: https://agent-smith.org/services
+      name: Professional services by 45level
     - icon: fontawesome/brands/github
       link: https://github.com/holgerleichsenring/agent-smith
     - icon: fontawesome/solid/blog
@@ -61,8 +61,8 @@ extra:
       name: Community
 
 copyright: >
-  Agent Smith, the agentic software factory by <a href="https://45level.com">45level GmbH</a> ·
-  Copyright &copy; 2026 Holger Leichsenring —
+  Copyright &copy; 2026 Holger Leichsenring · MIT License —
+  <a href="https://45level.com">Professional services by 45level</a> ·
   <a href="https://agent-smith.org">Website</a> ·
   <a href="https://codingsoul.org">CodingSoul Blog</a> ·
   <a href="https://github.com/holgerleichsenring/agent-smith/issues">Community</a>

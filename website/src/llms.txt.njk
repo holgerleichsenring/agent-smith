@@ -6,7 +6,7 @@ eleventyExcludeFromCollections: true
 
 > {{ site.description }}
 
-The chain is ticket → spec → verified pull request, with the spec and every decision recorded in the repository next to the code. Agent Smith is built and backed by {{ site.partner }} ({{ site.partnerUrl }}), which also offers professional services and maintenance contracts for it.
+The chain is ticket → spec → verified pull request, with the spec and every decision recorded in the repository next to the code. Agent Smith is created and maintained by {{ site.author }}, who holds its copyright. Professional services, support and maintenance contracts are available from {{ site.partner }} ({{ site.partnerUrl }}).
 
 Agent Smith is MIT licensed and runs on your own infrastructure. It reads tickets from Azure DevOps, Jira, GitHub Issues and GitLab Issues, works in Azure Repos, GitHub and GitLab repositories, and calls the AI provider you configure. A run derives specs from the ticket, implements them in sandboxes, checks every acceptance criterion with cited evidence, and opens one pull request per repository.
 
@@ -18,7 +18,6 @@ Agent Smith is MIT licensed and runs on your own infrastructure. It reads ticket
 - [Install]({{ site.docsUrl }}/get-it-running/install/): get the server and dashboard running
 - [First run]({{ site.docsUrl }}/get-it-running/first-run/): one ticket end to end
 - [Services]({{ site.url }}/services): professional services and maintenance contracts, offered through {{ site.partner }}
-- [{{ site.partner }}]({{ site.partnerUrl }}): the company behind Agent Smith
 - [Source code](https://github.com/{{ site.githubRepo }}): the repository, releases and issues
 
 ## How it works
@@ -48,5 +47,5 @@ Agent Smith is MIT licensed and runs on your own infrastructure. It reads ticket
 
 ## Optional
 
-- [Built by the method it teaches]({{ site.docsUrl }}/how-it-works/built-by-the-method/): how this repository itself was built, by one developer at {{ site.partner }} and one language model
+- [Built by the method it teaches]({{ site.docsUrl }}/how-it-works/built-by-the-method/): how this repository itself was built, by {{ site.author }} and one language model
 - [Blog]({{ site.blogUrl }}): background and design essays

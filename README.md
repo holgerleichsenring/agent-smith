@@ -9,13 +9,13 @@
 [![.NET 8](https://img.shields.io/badge/.NET-8.0-blue.svg)](https://dotnet.microsoft.com)
 [![Docker](https://img.shields.io/badge/Docker-ready-blue.svg)](Dockerfile)
 
-**[Website](https://agent-smith.org)** · **[Docs](https://docs.agent-smith.org)** · **[Releases](https://github.com/holgerleichsenring/agent-smith/releases)** · **[Blog](https://codingsoul.org)** · **[45level](https://45level.com)**
+**[Website](https://agent-smith.org)** · **[Docs](https://docs.agent-smith.org)** · **[Releases](https://github.com/holgerleichsenring/agent-smith/releases)** · **[Blog](https://codingsoul.org)**
 
 ---
 
-Agent Smith is an open source agentic software factory, built and backed by [45level](https://45level.com). You drop a ticket into your tracker; it becomes a spec, the spec gets built in sandboxes and verified criterion by criterion, and a pull request shows up on your repo, with the ticket already updated to point at it. That's the whole loop.
+Agent Smith is an open source agentic software factory, created and maintained by Holger Leichsenring. You drop a ticket into your tracker; it becomes a spec, the spec gets built in sandboxes and verified criterion by criterion, and a pull request shows up on your repo, with the ticket already updated to point at it. That's the whole loop.
 
-We built it because most AI coding tools stop at a suggestion in your editor and call it a day. We wanted to close the loop — actual PR, in the actual repo, the ticket actually moved to resolved. Plus a paper trail so six months later we can answer "why did we pick path A over B in this fix" without guessing.
+We built it because most AI coding tools stop at a suggestion in your editor and call it a day. We wanted to close the loop — actual PR, in the actual repo, the ticket actually moved to resolved. Plus a paper trail so that long after the fact we can answer "why did we pick path A over B in this fix" without guessing.
 
 ![Lifecycle: ticket → orchestrator → sandboxes → pull requests → resolved](docs/assets/lifecycle.svg)
 
@@ -25,7 +25,7 @@ You drop a ticket into your tracker. Agent Smith reads it and derives a specific
 
 Tickets in Azure Boards and code in Azure Repos? That works end to end, no GitHub mirror needed — [the Azure DevOps page](https://agent-smith.org/azure-devops/) says why that matters.
 
-The reasoning lands on disk: the specification under `.agentsmith/specs/`, every choice with the alternative it beat under `.agentsmith/decisions/`, and per run a `result.md` with the delivery account, token usage and dollar cost. Read it six months later when you've forgotten why.
+The reasoning lands on disk: the specification under `.agentsmith/specs/`, every choice with the alternative it beat under `.agentsmith/decisions/`, and per run a `result.md` with the delivery account, token usage and dollar cost. Read it later, when you've forgotten why.
 
 ## What decides that a run delivered
 
@@ -62,7 +62,7 @@ The skills — the masters that drive each pipeline and the rules they follow �
 
 ## Built by the method it teaches
 
-Agent Smith bootstraps an `.agentsmith/` directory into your repo: context, specs, a decision log, a memory of what it learned. That is the product. It is also how this repository got written, over seven months, by one developer at [45level](https://45level.com) and one language model. The numbers below are the receipts.
+Agent Smith bootstraps an `.agentsmith/` directory into your repo: context, specs, a decision log, a memory of what it learned. That is the product. It is also how this repository got written, by Holger Leichsenring and one language model. The numbers below are the receipts.
 
 |  |  |
 |---|---|
@@ -76,7 +76,7 @@ Two things did the actual steering. Ten coding principles turned into [architect
 
 The `principles.md` we built this project under is the same file Agent Smith injects into its own agents at runtime. The methodology and the product turned out to be the same thing.
 
-**[The full account, including what didn't work](https://docs.agent-smith.org/how-it-works/built-by-the-method/)**: the skill catalog going from 95 down to 12, the plan generator we retired, the metric that quietly read zero for months, and how every figure above was counted.
+**[The full account, including what didn't work](https://docs.agent-smith.org/how-it-works/built-by-the-method/)**: the skill catalog going from 95 down to 12, the plan generator we retired, the metric that quietly read zero without anyone noticing, and how every figure above was counted.
 
 ## Install
 
@@ -178,6 +178,6 @@ And two things that took the longest to get right, so we'll name them here: a ru
 
 MIT. Copyright (c) 2026 Holger Leichsenring.
 
-Agent Smith is built and backed by [45level GmbH](https://45level.com), which also offers [professional services and maintenance contracts](https://agent-smith.org/services).
+Agent Smith is created and maintained by Holger Leichsenring. Professional services, support and maintenance contracts are available from [45level GmbH](https://45level.com); see [services](https://agent-smith.org/services).
 
 If you find Agent Smith useful, [say hi on the blog](https://codingsoul.org) or [drop an issue](https://github.com/holgerleichsenring/agent-smith/issues).
