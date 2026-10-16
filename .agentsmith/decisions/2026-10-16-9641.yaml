@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-16-9641
+
+decisions:
+  - category: Implementation
+    chose: "A ClientResultException with Status 0 gives no verdict; the walk continues into its inner exceptions"
+    over: "Treating Status 0 as retryable outright, or re-enabling the SDK's own retry policy"
+    reason: |
+      Status 0 only says no response arrived; the inner exception says why. Deferring keeps the existing
+      HttpRequestException/IOException rules as the one judge, so a status-0 wrapper around a permanent fault
+      stays unretried. The SDK policy stays at zero because p0493 measured it retrying unbounded and unlogged.
+  - category: Testing
+    chose: "One test through the real Azure builder over the test transport, beside the unit tests on the predicate"
+    over: "Unit tests with a hand-built ClientResultException only"
+    reason: |
+      The defect was an assumption about how the SDK wraps a send failure; only the real transport proves the shape.

@@ -3,6 +3,7 @@ using System.Net;
 using System.Text;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Infrastructure.Services.Factories.ChatClientBuilders;
+using AgentSmith.Infrastructure.Services.RateLimiting;
 using FluentAssertions;
 using Microsoft.Extensions.AI;
 
@@ -54,6 +55,36 @@ public sealed class SdkRetryPolicyTests : IDisposable
         await Refuses(client);
 
         handler.Attempts.Should().Be(1, "the live 429 came from an Azure deployment");
+    }
+
+    /// <summary>2026-10-16-9641: a connection dropped before any response must reach our layer
+    /// as something it retries — measured, the transport wraps it as ClientResultException
+    /// with Status 0 around the HttpRequestException.</summary>
+    [Fact]
+    public async Task Azure_ADroppedConnection_ArrivesAsAnExceptionOurLayerRetries()
+    {
+        var agent = new AgentConfig
+        {
+            Type = "azure_openai", ApiKeySecret = KeySecret,
+            Endpoint = "https://test.openai.azure.com", Deployment = "my-deploy",
+        };
+        var client = new OpenAiChatClientBuilder(new DroppingHandler())
+            .Build(agent, new ModelAssignment { Model = "gpt-4.1" });
+
+        var thrown = (await FluentActions
+            .Awaiting(() => client.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")]))
+            .Should().ThrowAsync<Exception>()).Which;
+
+        TransientRetryChatClient.IsTransientNetwork(thrown).Should().BeTrue(
+            "a live init-project run died on exactly this drop with five retries configured");
+    }
+
+    private sealed class DroppingHandler : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(
+            HttpRequestMessage request, CancellationToken cancellationToken) =>
+            throw new HttpRequestException(
+                "An error occurred while sending the request.", new IOException("connection reset by peer"));
     }
 
     /// <summary>The refusal must also arrive as the type our retry layer recognises — a 429

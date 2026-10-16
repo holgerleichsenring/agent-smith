@@ -188,6 +188,28 @@ public sealed class TransientRetryChatClientTests
             new HttpRequestException("gateway", null, System.Net.HttpStatusCode.BadGateway)).Should().BeTrue();
     }
 
+    // 2026-10-16-9641: the Azure transport wraps a send failure as ClientResultException with
+    // Status 0. A live init-project run died on one such drop after 298 s, never retried.
+    [Fact]
+    public async Task TransientRetry_ClientResultExceptionWithoutResponse_WrappingASendFailure_IsRetried()
+    {
+        var inner = new ScriptedChatClient(new ClientResultException(
+            "An error occurred while sending the request.", response: null,
+            new HttpRequestException("An error occurred while sending the request.", new IOException("reset"))));
+        var client = Wrap(inner, FastRetry());
+
+        var response = await client.GetResponseAsync([new ChatMessage(ChatRole.User, "hi")]);
+
+        response.Text.Should().Be("ok");
+        inner.Attempts.Should().Be(2, "a connection dropped before any answer is a network fault, not a verdict");
+    }
+
+    [Fact]
+    public void TransientRetry_ClientResultExceptionWithoutResponse_WrappingNothingTransient_IsNotRetried() =>
+        TransientRetryChatClient.IsTransientNetwork(
+            new ClientResultException("no response", response: null, new InvalidOperationException("bad shape")))
+            .Should().BeFalse("status 0 defers to the inner exception, and this one is permanent");
+
     // A fake inner client that throws the scripted exceptions in order, then returns "ok".
     private sealed class ScriptedChatClient(params Exception[] failures) : IChatClient
     {

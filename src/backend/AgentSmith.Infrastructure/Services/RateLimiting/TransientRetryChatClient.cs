@@ -91,7 +91,10 @@ internal sealed class TransientRetryChatClient(
             // HTTP 429 sixty-two minutes in with both pull requests already open. The rule
             // is the same whichever type carries the status: a 429 says the call arrived too
             // soon and will pass later, and every other 4xx says it can never pass.
-            if (e is ClientResultException client) return IsRetryableStatus(client.Status);
+            // Status 0 means no response arrived: the transport wraps the send failure it
+            // caught, so the verdict belongs to the inner exception. Answering on status 0
+            // left every dropped Azure connection unretried.
+            if (e is ClientResultException { Status: not 0 } client) return IsRetryableStatus(client.Status);
         }
         return false;
     }
