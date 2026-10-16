@@ -1,6 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { isRunLive } from "@/lib/runLiveness";
+import { runPath } from "@/lib/runPath";
 import type { TicketAttempt, TicketSeriesSpec } from "@/types/tickets";
 import { BuildNote } from "./BuildNote";
 import { ReviewRounds } from "./ReviewRounds";
@@ -9,7 +11,7 @@ import { criterionRow, overruleWords, recordNoteWords, specStatePill } from "./s
 // 2026-10-13-9a59r: one spec as a document — spec n, state, repository, the attempt that executed it, the
 // goal as heading (no separate title is served), the file stem, steps as worked (9a59f: the attempt and
 // pass that completed each), done when, the build note (8762m), the review rounds (8762l) and the read-only
-// note. A spec read from the run record has no file stem and nothing to discuss, and one without a readable
+// note. 2026-10-16-86e6d: "executed in A{n}" opens that attempt's run. A spec read from the run record has no file stem and nothing to discuss, and one without a readable
 // record says only its goal was kept.
 
 interface Props {
@@ -22,7 +24,6 @@ interface Props {
 
 export function SpecDocument({ spec, attempts, runRecord = false, onDiscuss }: Props) {
   const [pill, word] = specStatePill(spec.state);
-  const executing = spec.executedByAttempt != null ? `executed in A${spec.executedByAttempt}` : "not executed yet";
   const live = attempts.some((a) => a.runId === spec.executedBy && isRunLive(a.status));
   const recordNote = recordNoteWords(spec);
   return (
@@ -32,7 +33,9 @@ export function SpecDocument({ spec, attempts, runRecord = false, onDiscuss }: P
           <span className="mono">spec {spec.ordinal}</span>
           <span className={`pill ${pill}`}>{word}</span>
           {spec.repos.length > 0 && <span className="mono">{spec.repos.join(", ")}</span>}
-          <span>{executing}</span>
+          {spec.executedByAttempt != null && spec.executedBy
+            ? <Link href={runPath(spec.executedBy)} data-testid="spec-doc-executed">executed in A{spec.executedByAttempt}</Link>
+            : <span>not executed yet</span>}
         </div>
         <h3 data-testid="spec-doc-goal">{spec.goal}</h3>
         {spec.fileStem && <div className="meta" data-testid="spec-doc-stem"><span className="mono">{spec.fileStem}.yaml</span></div>}

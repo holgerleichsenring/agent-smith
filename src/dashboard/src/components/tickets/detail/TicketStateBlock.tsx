@@ -5,7 +5,8 @@ import { ProjectInitAction } from "@/components/system/ProjectInitAction";
 import { formatRunSummary } from "@/lib/formatRunSummary";
 import { runPath, runTracePath } from "@/lib/runPath";
 import { useLiveAttempt, useTicketSeries } from "@/lib/tickets/TicketPageStore";
-import type { TicketDetail } from "@/types/tickets";
+import type { TicketAttempt, TicketDetail } from "@/types/tickets";
+import { earlierAttempts } from "./earlierAttempts";
 import { RetryUnchanged } from "./RetryUnchanged";
 import { ticketState, type StateAct, type TicketStateView } from "./ticketState";
 import { CAUSE_PARAM, useTicketTabGo } from "./useTicketTabGo";
@@ -13,6 +14,7 @@ import { CAUSE_PARAM, useTicketTabGo } from "./useTicketTabGo";
 // 2026-10-16-86e6c: the state block under the header, on every tab. Visible by default: what is going on (pill and
 // one sentence), the way to the run it is about, and the one act that fits. One click away: other options, and Why —
 // the run's own end text verbatim with its run and trace. A healthy state is one quiet line.
+// 2026-10-16-86e6d: earlier attempts collapse to one line; Show lists each with its run.
 
 export function TicketStateBlock({ detail }: { detail: TicketDetail }) {
   const live = useLiveAttempt();
@@ -35,6 +37,7 @@ export function TicketStateBlock({ detail }: { detail: TicketDetail }) {
       </div>
       {!view.quiet && <Acts view={view} project={detail.summary.project} />}
       {!view.quiet && view.tone === "bad" && <Why view={view} />}
+      {!view.quiet && <Earlier attempts={detail.attempts} />}
     </section>
   );
 }
@@ -95,6 +98,24 @@ function Why({ view }: { view: TicketStateView }) {
           <Link className="btn sm" href={runTracePath(attempt.runId)} data-testid="ticket-state-trace">Trace</Link>
         </span>
       </div>
+    </details>
+  );
+}
+
+function Earlier({ attempts }: { attempts: TicketAttempt[] }) {
+  const earlier = earlierAttempts(attempts);
+  if (!earlier) return null;
+  return (
+    <details className="ts-earlier" data-testid="ticket-state-earlier">
+      <summary><span data-testid="ticket-state-earlier-line">{earlier.line}</span> · Show</summary>
+      <ul className="ts-earlier-rows">
+        {earlier.rows.map(({ attempt, words }) => (
+          <li key={attempt.runId} data-testid={`ticket-state-earlier-${attempt.number}`}>
+            <span className="mono">A{attempt.number}</span> · {words}
+            <Link className="btn sm" href={runPath(attempt.runId)}>Open run</Link>
+          </li>
+        ))}
+      </ul>
     </details>
   );
 }

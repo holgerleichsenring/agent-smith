@@ -1,18 +1,22 @@
 "use client";
 
+import Link from "next/link";
+import { runPath } from "@/lib/runPath";
+
 import { useAttemptReads, useTicketDetail, useTicketSeries } from "@/lib/tickets/TicketPageStore";
 import type { TicketAttempt, TicketSeriesSpec } from "@/types/tickets";
 import { clock } from "./flowWords";
 import { SeriesContractReview } from "./SeriesContractReview";
 import { SpecDocument } from "./SpecDocument";
-import { attemptCell, defaultSpec, isRunRecord, RUN_RECORD_LINE } from "./specWords";
+import { attemptCell, defaultSpec, isRunRecord, RUN_RECORD_LINE, type AttemptCell } from "./specWords";
 import { SPEC_PARAM, useTicketTabGo } from "./useTicketTabGo";
 
 // 2026-10-13-9a59r: the series as read-only documents — one list item per spec with a cell per attempt
 // (from that attempt's own cut and passes, read once per finished attempt through the page's store) beside
 // the selected spec's document; then the revisions the attempts recorded. Specs change only through the
 // conversation, so nothing here edits or fetches a spec file. Attempts that predate the cut show the specs
-// their runs recorded, and say so.
+// their runs recorded, and say so. 2026-10-16-86e6d: the cell row sits beside the item button (a link cannot sit in a
+// button), and the cell of an attempt that ran the spec opens its run.
 
 export function TicketSpecsTab() {
   const detail = useTicketDetail();
@@ -38,18 +42,19 @@ export function TicketSpecsTab() {
       <div className="sp-grid">
         <div className="sp-list" aria-label="Specs of this ticket" data-testid="specs-list">
           {specs.map((spec) => (
-            <button key={spec.specId} type="button" className="sp-item" aria-current={spec.specId === selected?.specId}
-              onClick={() => address.go("specs", { [SPEC_PARAM]: spec.specId })} data-testid={`spec-item-${spec.specId}`}>
-              <span className="si-top"><span className="si-n">{spec.ordinal}</span><span className="si-t">{spec.goal}</span></span>
+            <div key={spec.specId} className="sp-entry">
+              <button type="button" className="sp-item" aria-current={spec.specId === selected?.specId}
+                onClick={() => address.go("specs", { [SPEC_PARAM]: spec.specId })} data-testid={`spec-item-${spec.specId}`}>
+                <span className="si-top"><span className="si-n">{spec.ordinal}</span><span className="si-t">{spec.goal}</span></span>
+              </button>
               <span className="si-cells">
-                {attempts.map((attempt) => {
-                  const cell = attemptCell(spec.specId, attempt, reads.series[attempt.runId], reads.passes[attempt.runId]);
-                  return <span key={attempt.runId} className={`cell ${cell.kind}`} title={cell.title}
-                    data-testid={`spec-cell-${spec.specId}-${attempt.number}`} data-kind={cell.kind}>{cell.text}</span>;
-                })}
+                {attempts.map((attempt) => (
+                  <SpecCell key={attempt.runId} specId={spec.specId} attempt={attempt}
+                    cell={attemptCell(spec.specId, attempt, reads.series[attempt.runId], reads.passes[attempt.runId])} />
+                ))}
                 <span className="al mono">{spec.repos.join(", ")}</span>
               </span>
-            </button>
+            </div>
           ))}
         </div>
         {selected && <SpecDocument spec={selected} attempts={attempts} runRecord={runRecord}
@@ -59,6 +64,16 @@ export function TicketSpecsTab() {
       <Revisions attempts={attempts} />
     </>
   );
+}
+
+const RAN = new Set(["done", "carried", "fail", "live"]);
+
+/** 2026-10-16-86e6d: a cell of an attempt that ran the spec opens that attempt's run; none and not-started stay spans. */
+function SpecCell({ specId, attempt, cell }: { specId: string; attempt: TicketAttempt; cell: AttemptCell }) {
+  const props = { className: `cell ${cell.kind}`, title: cell.title, "data-testid": `spec-cell-${specId}-${attempt.number}`, "data-kind": cell.kind };
+  return RAN.has(cell.kind)
+    ? <Link href={runPath(attempt.runId)} {...props}>{cell.text}</Link>
+    : <span {...props}>{cell.text}</span>;
 }
 
 function SpecsHead({ specs }: { specs: TicketSeriesSpec[] }) {

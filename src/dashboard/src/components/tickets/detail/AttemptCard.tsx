@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { isRunLive } from "@/lib/runLiveness";
+import { runPath, runTracePath } from "@/lib/runPath";
 import type { Read } from "@/lib/tickets/TicketPageReads";
 import { useTicketSeries } from "@/lib/tickets/TicketPageStore";
 import type { RunSnapshot } from "@/types/hub-events";
@@ -86,8 +87,8 @@ export function AttemptCard({ attempt, passes, compute, run, cutEntries, series,
           )}
           <div className="kv"><span className="k">Machine</span>
             <div className="v links">
-              <Link className="btn sm" href={`/jobs/${encodeURIComponent(attempt.runId)}`} data-testid="attempt-viewer">Open run viewer ↗</Link>
-              <Link className="btn sm" href={`/jobs/${encodeURIComponent(attempt.runId)}/why`} data-testid="attempt-trace">
+              <Link className="btn sm" href={runPath(attempt.runId)} data-testid="attempt-viewer">Open run viewer ↗</Link>
+              <Link className="btn sm" href={runTracePath(attempt.runId)} data-testid="attempt-trace">
                 Trace{typeof llmCalls === "number" ? ` · ${llmCalls} LLM calls` : ""}
               </Link>
             </div>

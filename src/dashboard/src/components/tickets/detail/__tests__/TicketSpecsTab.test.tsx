@@ -125,6 +125,23 @@ describe("Ticket specs and acceptance tabs", () => {
     expect(screen.getByTestId("specs-revisions")).toHaveTextContent("rev 4");
   });
 
+  // 2026-10-16-86e6d: the way to the run from the Specs tab.
+  it("SpecDocument_ExecutedIn_LinksTheRun", async () => {
+    nav.search = "tab=specs&spec=s2";
+    await open();
+    expect(screen.getByTestId("spec-doc-executed")).toHaveAttribute("href", "/jobs/r-2");
+    expect(screen.getByTestId("spec-doc-executed")).toHaveTextContent("executed in A2");
+  });
+
+  it("TicketSpecsTab_AttemptCell_LinksTheRunAndNoneOrRecutCellDoesNot", async () => {
+    await open();
+    expect(screen.getByTestId("spec-cell-s1-1").tagName).toBe("A");
+    expect(screen.getByTestId("spec-cell-s1-1")).toHaveAttribute("href", "/jobs/r-1");
+    expect(screen.getByTestId("spec-cell-s3-3")).toHaveAttribute("href", "/jobs/r-3");
+    expect(screen.getByTestId("spec-cell-s3-1").tagName).toBe("SPAN");
+    expect(screen.getByTestId("spec-item-s1").querySelector("a")).toBeNull();
+  });
+
   it("WithoutASelection_TheLiveSpecIsShownFirst", async () => {
     await open();
     expect(screen.getByTestId("spec-doc-goal")).toHaveTextContent("Retry with backoff");

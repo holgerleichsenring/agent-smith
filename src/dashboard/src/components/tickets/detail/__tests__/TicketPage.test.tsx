@@ -150,6 +150,19 @@ describe("Ticket page", () => {
     }
   });
 
+  it("TicketStateBlock_ShowEarlier_ListsEachAttemptWithItsRunLink", async () => {
+    world.detail = detail([attempt({ status: "failed", endKind: "image-untrusted" }),
+      attempt({ number: 2, runId: "r-2", status: "cancelled", endKind: "superseded" }),
+      attempt({ number: 3, runId: "r-3", status: "failed" })]);
+    world.detail.summary = { ...world.detail.summary, bucket: "failed" };
+    await open();
+    expect(screen.getByTestId("ticket-state-earlier")).not.toHaveAttribute("open");
+    expect(screen.getByTestId("ticket-state-earlier-line")).toHaveTextContent("2 earlier attempts, all stopped before any work, A2 superseded");
+    const row = screen.getByTestId("ticket-state-earlier-1");
+    expect(row).toHaveTextContent("A1 · failed · image not trusted");
+    expect(within(row).getByRole("link")).toHaveAttribute("href", "/jobs/r-1");
+  });
+
   it("TicketHeader_NoLongerSaysTheAttemptStatusNorOffersContinue", async () => {
     world.detail = detail([attempt({ status: "failed" })]);
     world.detail.summary = { ...world.detail.summary, bucket: "failed" };
