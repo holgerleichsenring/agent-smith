@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-16-d63d
+goal: "The run viewer answers what is going on, what to do and why in the same three rules as the ticket page: one sentence and tone, one act fitting the run's end kind, the verbatim cause one click away."
+
+applies_to: "dashboard (app/jobs/[id]/page.tsx RunBanner, RunDetailHeader, the run detail snapshot's end kind) and default (the run detail read serving Run.EndKind)"
+
+requires: [2026-10-16-86e6a, 2026-10-16-86e6c]
+
+facts:
+  - claim: "The run page's banner shows a paused run's question with Answer & resume, a failed run's summary under 'Stopped — the run did not reach a green outcome', a cancelled run's summary, and nothing else; it offers no act for a failure."
+    evidence: "src/dashboard/src/app/jobs/[id]/page.tsx:318-387"
+  - claim: "The ticket page's state words choose one act from endedOnInfrastructure, the end kind, the bucket and its kind (2026-10-16-86e6c), and the run row stores its end kind (2026-10-16-86e6a)."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:29"
+
+scope:
+  in: >
+    Serve EndKind on the run detail snapshot; the failure banner says one sentence by end kind with the act the
+    ticket page's mapping picks (sharing its words, not copying them), keeps the summary verbatim behind a
+    disclosure, and stays quiet for a healthy run. The run's ticket is one link away from the banner.
+  out: >
+    The ticket page — 2026-10-16-86e6c.
+
+steps:
+  - id: plan
+    action: "Read RunBanner, RunDetailHeader and the run detail read; write the cut with file:line facts; review before building."
+
+done:
+  - "A failed run's viewer says what ended it in one sentence, offers the act that fits its end kind, and shows the run's own words one click away."

@@ -1,0 +1,98 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-16-86e6c
+goal: "A state block under the ticket header, on every tab, says in one sentence what is going on, offers one act that fits the cause, keeps the way to the run in sight and the verbatim cause one click away."
+
+applies_to: "dashboard (TicketPage, TicketHeader, a TicketStateBlock component and its pure ticketState words, mock-parity.css)"
+
+requires: [2026-10-16-86e6a]
+
+facts:
+  - claim: "The page draws the header, the series runway, waits-for, the tab bar and the selected pane; nothing between header and tabs says the state."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketPage.tsx:36-45"
+  - claim: "The header's subline says 'attempt n <status>' for the live or newest attempt and draws the closed line for a closed bucket; its act row holds Continue in conversation, Done by hand, Close, Reopen and Cancel."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketHeader.tsx:41-42, src/dashboard/src/components/tickets/detail/TicketHeader.tsx:58, src/dashboard/src/components/tickets/detail/TicketHeader.tsx:60-74"
+  - claim: "The run viewer link and the trace link exist only inside a collapsed attempt card on the Attempts tab."
+    evidence: "src/dashboard/src/components/tickets/detail/AttemptCard.tsx:77-92"
+  - claim: "The buckets are the server's eleven words; blocked and filed are never-run tickets drawn without tabs."
+    evidence: "src/dashboard/src/types/tickets.ts:9-26, src/dashboard/src/components/tickets/detail/TicketPage.tsx:30-35"
+  - claim: "Retry unchanged is a component that renders only for an attempt ended on infrastructure and hides from a caller known to lack runs.control; the server refuses any other end."
+    evidence: "src/dashboard/src/components/tickets/detail/RetryUnchanged.tsx:16-19, src/backend/AgentSmith.Server/Services/Rework/RunRetryGate.cs:42-43"
+  - claim: "Init-project is one component taking only the project, which starts the init and turns into a link to its run; the image-trust registries are edited on the sandbox settings form at /config/settings/sandbox."
+    evidence: "src/dashboard/src/components/system/ProjectInitAction.tsx:42-47, src/dashboard/src/components/config/SettingsForm.tsx:184, src/dashboard/src/app/config/[[...slug]]/page.tsx:15-16, src/dashboard/src/components/config/settings.ts:12-14"
+  - claim: "A criterion judgement is recorded only in the run viewer and is a label: it does not re-open the gate or move the run; the Acceptance tab deliberately records none."
+    evidence: "src/dashboard/src/components/jobs/story/CriterionJudgementControl.tsx:6-15, src/dashboard/src/components/tickets/detail/TicketAcceptanceTab.tsx:7-11"
+  - claim: "A pending question is answered on the Conversation tab; the tab's counter turns hot while one is pending."
+    evidence: "src/dashboard/src/components/tickets/detail/ticketTabTable.ts:41-46"
+  - claim: "The live attempt's spec, step and step count come from liveSpec over its own cut; the live attempt's events stream to the page store, and a StepStarted carries a display name."
+    evidence: "src/dashboard/src/components/tickets/detail/attemptStory.ts:34-48, src/dashboard/src/lib/tickets/TicketPageStore.tsx:89-90, src/dashboard/src/types/hub-events.ts:109-120"
+  - claim: "The pill set (ok, bad, amber, q, person) and the header dot's tones are mock-parity rules under .mock-tickets."
+    evidence: "src/dashboard/src/styles/mock-parity.css:512-524"
+
+scope:
+  in: >
+    WORDS (pure, ticketState.ts): from the detail, the live attempt, the series and the live events, one record
+    { tone ok|bad|amber|person|q, pill, sentence, attempt (the run the sentence is about), act, others[], cause }.
+    The head attempt is the newest. By bucket — failed / stuck: tone bad; the act by the head's cause, first match:
+    endedOnInfrastructure -> Retry unchanged; endKind image-untrusted -> link "Trust the registry in Settings"
+    (/config/settings/sandbox); bootstrap-missing -> the init-project act for the ticket's project; criteria-unmet ->
+    link "Overrule in the run" (/jobs/{runId}) whose line says a judgement does not re-run the gate, with Discuss in
+    conversation under other options; otherwise Continue in conversation. needs_you: tone person; kind question ->
+    the question text, act "Answer in the conversation"; kind handback -> the hand-back text, act Continue in
+    conversation. working: tone amber; running -> "Spec n of m, step k: <action>" (or "Deriving the series" while
+    liveSpec has no cut of this attempt) plus a live line (the newest StepStarted display name); queued -> "Waiting
+    in the queue" with its place; waiting_for_input with a queue place -> "Resuming" with its place; no act. waiting_on_review: tone
+    person; the open pull requests as links. pr_closed: tone bad, act Continue in conversation. done, closed, idle:
+    one quiet line (tone ok / q), no act and no disclosures; closed keeps the header's who/when/note words.
+    BLOCK (TicketStateBlock.tsx): the pill and sentence, "Open run A{n}" beside the sentence whenever an attempt
+    exists, the one act, "Other options" as a closed <details> when there are any, and "Why" as a closed <details>
+    holding the head attempt's summary verbatim (formatRunSummary), the run and the trace links. Drawn by TicketPage
+    under the header for every run-bearing ticket, on every tab. HEADER: the 'attempt n <status>' part and, for a
+    run-bearing ticket, the closed line move into the block (a never-run closed ticket draws no block and keeps the
+    header's closed line); the header's primary "Continue in conversation" button goes, so the block's act is the
+    page's one primary act; the tracker link, tracker status, pull-request fate, branch, Done by hand, Close, Reopen
+    and Cancel stay. Tests the move touches: TicketPage.test.tsx (the header's "attempt n failed", the runway as the
+    header's next sibling, ticket-continue), TicketHeaderClosed.test.tsx (closed line on a run-bearing ticket),
+    TicketSpecsTab.test.tsx TheCrossLinks_SetTheTab (clicks ticket-continue; it moves to the Conversation tab).
+    CSS: a .tstate block in mock-parity.css from the existing tokens (--bad-wash, --person-wash, --run-wash,
+    --ok-wash, --line) and the existing .pill and .btn classes.
+  out: >
+    Earlier attempts and the Specs tab's run links — 2026-10-16-86e6d. Rejected-criterion reasons inline —
+    2026-10-16-86e6e. An act that makes an overruled criterion count and re-runs the gate — no such act exists; the
+    series report names it. The run viewer — 2026-10-16-d63d.
+
+decisions:
+  - key: "THE STATE DECIDES THE TOP, THE TABS ARE DETAILS. The block reads the same on every tab, so the answer to 'what now' never depends on which tab is open."
+  - key: "ONE ACT, CHOSEN FROM RECORDED FIELDS. endedOnInfrastructure, endKind, the bucket and its kind; no text is matched. A cause with no field falls to Continue in conversation, with the verbatim cause one click away."
+  - key: "THE OVERRULE LINK SAYS WHAT IT DOES. A judgement is a label; the act's line says the gate is not re-run, so the operator is not told a spec will count as done."
+  - key: "ONE PRIMARY ACT ON THE PAGE. The header's always-on Continue button would be a second primary beside the block's act; the block offers Continue where it is the act and under other options otherwise, and the Conversation tab stays one click away."
+  - key: "HEALTHY IS QUIET. done, closed and idle draw one line without disclosures; working draws progress and no act."
+
+steps:
+  - id: words
+    action: "ticketState.ts: the record per bucket and cause; tests first."
+  - id: block
+    action: "TicketStateBlock.tsx and its CSS; TicketPage draws it under TicketHeader; TicketHeader drops the attempt-status part and the closed line."
+  - id: tests
+    action: "Red then green for the tests below; update the header and page tests the move touches; pnpm test the tickets folder; pnpm build."
+
+tests:
+  - "ticketState_FailedOnInfrastructure_OffersRetryUnchanged"
+  - "ticketState_ImageUntrusted_LinksTheSandboxSettings"
+  - "ticketState_BootstrapMissing_OffersInitProject"
+  - "ticketState_CriteriaUnmet_LinksTheOverruleAndOffersDiscussUnderOtherOptions"
+  - "ticketState_UnclassifiedFailure_OffersContinueInConversation"
+  - "ticketState_NeedsYouQuestion_ShowsTheQuestionAndAnswer"
+  - "ticketState_WorkingRunning_SaysSpecStepAndTheLiveLine"
+  - "ticketState_WaitingOnReview_LinksTheOpenPullRequests"
+  - "ticketState_DoneClosedIdle_AreOneQuietLineWithoutAct"
+  - "TicketStateBlock_Failed_ShowsSentenceRunLinkActAndClosedWhy"
+  - "TicketStateBlock_Why_HoldsTheVerbatimSummaryAndTheTraceLink"
+  - "TicketPage_EveryTab_DrawsTheStateBlockUnderTheHeader"
+  - "TicketHeader_NoLongerSaysTheAttemptStatusNorOffersContinue"
+  - "TicketHeader_NeverRunClosedTicket_KeepsTheClosedLine"
+  - "ticketState_WorkingResumingOrDeriving_SaysSo"
+
+done:
+  - "On a failed ticket the operator reads, above the tabs on every tab, what happened in one sentence, sees Open run beside it, one act that fits the cause and the run's own words behind Why."
+  - "A ticket waiting for an answer shows the question and the way to answer; a working ticket shows spec and step; a ticket in review shows its pull requests; done, closed and ended are one quiet line."
+  - "Build green, full suite green, dashboard gen/test/build green."
