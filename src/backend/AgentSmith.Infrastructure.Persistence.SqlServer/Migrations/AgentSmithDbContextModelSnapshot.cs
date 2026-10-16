@@ -1100,6 +1100,9 @@ namespace AgentSmith.Infrastructure.Persistence.SqlServer.Migrations
                     b.Property<double?>("DurationSeconds")
                         .HasColumnType("float");
 
+                    b.Property<string>("EndKind")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTimeOffset?>("FinishedAt")
                         .HasColumnType("datetimeoffset");
 

@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-16-86e6b
+goal: "A parked attempt that a newer attempt of the same ticket has started past is ended as superseded, so it stops holding capacity, can never resume, and the ticket page names it."
+
+applies_to: "default (ParkedRunRepository, a superseded-park closer run by the dialogue resume sweep, WaitingRunCloser) and dashboard (AttemptCard's pill)"
+
+requires: [2026-10-16-86e6a]
+
+facts:
+  - claim: "Ticket 19478's A7 parked waiting_for_input (a hand-back from the spec review, no checkpoint) at 15:00 and A8 started at 15:05 with cause retrigger; A7 still reads waiting_for_input with no FinishedAt."
+    evidence: "observed: 2026-10-16, SELECT on Runs, RunSteps and RunAttempts of the operator's database"
+  - claim: "A retrigger is the cause of a start that read no act while a previous attempt exists."
+    evidence: "src/backend/AgentSmith.Application/Services/Rework/AttemptCauseReader.cs:38-43"
+  - claim: "Only the rework entry closes a waiting attempt it supersedes: a hand-back answered on a pull request or by an approval, or a closed ticket."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/ReworkEntry.cs:52-83, src/backend/AgentSmith.Server/Services/Rework/ReworkNudgeHandler.cs:43-46"
+  - claim: "The tracker claim path starts a run without asking whether an earlier attempt waits; a parked run holds no lease."
+    evidence: "src/backend/AgentSmith.Application/Services/Claim/TicketClaimService.cs:27-59, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ParkedRunRepository.cs:9-12, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:223-231"
+  - claim: "The finding for a park without a checkpoint tells the operator to move the ticket back to a trigger status — the start that leaves the park behind."
+    evidence: "src/backend/AgentSmith.Server/Services/Lifecycle/UnanswerableParkReporter.cs:59-64"
+  - claim: "A waiting run keeps its capacity reservation; only a terminal finish releases it."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:40-42, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:50-58"
+  - claim: "A resume reuses the parked run's own id, so a newer run id is always a different attempt; the sweep resumes any answered checkpoint whose run is neither finished nor cancel-requested."
+    evidence: "src/backend/AgentSmith.Application/Services/Resume/RunResumer.cs:11-17, src/backend/AgentSmith.Server/Services/Lifecycle/DialogueResumeSweeper.cs:44-63, src/backend/AgentSmith.Server/Services/Lifecycle/DialogueResumeSweeper.cs:112-119"
+  - claim: "Parked runs are listed by status alone; an attempt is a code run that is not a cancelled row without a step."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ParkedRunRepository.cs:16-27, src/backend/AgentSmith.Server/Services/Tickets/TicketAttempts.cs:21-22"
+  - claim: "The closer writes a cancelled terminal through the finalization projection, set-once."
+    evidence: "src/backend/AgentSmith.Server/Services/Rework/WaitingRunCloser.cs:13-18, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:34-38"
+  - claim: "The attempt card's pill is chosen from hand-back, infrastructure end and status; a waiting attempt reads 'handed back' or 'waiting for an answer'."
+    evidence: "src/dashboard/src/components/tickets/detail/AttemptCard.tsx:30-40"
+
+scope:
+  in: >
+    END IT, AT ONE PLACE: ParkedRunRepository gains ListSupersededAsync — parked code runs (waiting_for_input, no
+    finish, no cancel request, a ticket) for which a code run of the same project and ticket with a greater id has a
+    RunStep row (it started work), excluding a park whose checkpoint is already marked resumed or that holds a
+    capacity-queue entry (a resume on its way). SupersededParkCloser (Server/Services/Lifecycle) closes each through
+    a NEW IWaitingRunCloser method CloseSupersededByAsync(runId, newerRunId, ct) with the summary "cancelled —
+    superseded by attempt <newerRunId>" and EndKind superseded, and nudges the run list once per close, best-effort. DialogueResumeSweeper.ScanOnceAsync runs it FIRST, so a superseded
+    checkpoint is consumed as abandoned, never resumed. The existing CloseSupersededAsync(runId, ct)
+    keeps its signature (Moq Verify expression trees in ReworkEntryTests, ClosedTicketFollowUpTests and
+    ReworkNudgeHandlerTests cannot omit an optional argument) and also records EndKind superseded.
+    DialogueResumeSweeperTests' positional construction gains the closer. The sweep runs every 15 s under the
+    housekeeping leader; an existing stale park (A7) is closed on its first scan after deploy. DASHBOARD:
+    outcomePill reads endKind superseded as ["q", "superseded"], checked before handedBack.
+  out: >
+    Refusing a claim while a park waits — the operator's retrigger is the decision to start over. Moving the tracker
+    status of the closed park — the newer attempt owns the ticket. The ticket state block — 2026-10-16-86e6c.
+
+decisions:
+  - key: "END IT, DO NOT ONLY SHOW IT. A superseded park keeps a capacity reservation and an answerable checkpoint that would resume an obsolete run beside the newer one; drawing it differently would leave both."
+  - key: "ONE SWEEP, NOT EVERY START PATH. The claim, the series start, the steward and the poller all start attempts; a start-time close would need each. The sweep reads the outcome they share — a newer run that started work — and also heals rows written before the fix."
+  - key: "THE CLOSE NUDGES LIKE ANY RUN END. The finalization projection writes a RunEnd rework nudge on every terminal row, and a run already writes two ends (lease and row, 2026-10-08-0781); the nudge re-reads the newest attempt, which has already been nudged on its own end, so no new start rule arises."
+  - key: "A RESUME ON ITS WAY IS NOT SUPERSEDED. A park whose answer was consumed into the capacity queue still reads waiting_for_input; closing it would race its relaunch."
+  - key: "A NEWER RUN COUNTS ONCE IT STARTED A STEP. A queued reservation that is cancelled from the queue never worked, and closing the park for it would leave the ticket with no live attempt."
+
+steps:
+  - id: query
+    action: "ParkedRunRepository.ListSupersededAsync with the newer run id (EXISTS over Runs and RunSteps)."
+  - id: closer
+    action: "IWaitingRunCloser newer-run argument + EndKind; SupersededParkCloser; DI registration; DialogueResumeSweeper calls it first."
+  - id: pill
+    action: "AttemptCard outcomePill superseded."
+  - id: tests
+    action: "Red then green for the tests below; build; affected classes and AttemptCard tests."
+
+tests:
+  - "ParkedRunRepository_NewerAttemptWithAStep_ListsTheParkAsSuperseded"
+  - "ParkedRunRepository_NewerRowWithoutAStep_DoesNotListThePark"
+  - "ParkedRunRepository_OtherTicketsNewerRun_DoesNotListThePark"
+  - "ParkedRunRepository_ResumedCheckpointOrQueuedResume_DoesNotListThePark"
+  - "DialogueResumeSweeper_SupersededCheckpointedPark_IsClosedAndNotResumed (the closer end to end: cancelled, EndKind superseded, newer run named, no resume queued)"
+  - "CloseSupersededAsync_WaitingRow_EndsCancelled (asserts EndKind superseded)"
+  - "outcomePill_EndKindSuperseded_ReadsSuperseded"
+
+done:
+  - "A ticket whose parked attempt was started past by a newer attempt shows the parked one as cancelled, superseded by the newer one, within one sweep; its capacity reservation is released and its question is never resumed."
+  - "Build green, full suite green, dashboard gen/test/build green."

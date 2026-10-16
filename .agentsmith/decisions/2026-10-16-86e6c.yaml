@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-16-86e6c
+
+decisions:
+  - category: Architecture
+    chose: "A pure ticketState(detail, liveEvents, series) record and a TicketStateBlock drawn by TicketPage under the header for every run-bearing ticket"
+    over: "Per-tab status parts, or the mock's always-open body with cause and acts side by side"
+    reason: |
+      The state, not the tab, decides the top of the page (operator rule 2), and the operator found the mock too dense:
+      the sentence, the run link and one act are visible; other options and Why are closed <details>.
+  - category: Architecture
+    chose: "The act is chosen from endedOnInfrastructure, endKind (86e6a), the bucket and its kind; an unclassified failure offers Continue in conversation"
+    over: "Classifying the summary text"
+    reason: "Operator rule: no heuristic for missing data. The verbatim summary is shown, never parsed."
+  - category: Architecture
+    chose: "criteria-unmet's primary act is 'Overrule in the run' (the run viewer's judgement control) with the line 'Records your verdict on the criterion; the gate is not re-run.' and Discuss in conversation under other options"
+    over: "Labelling it as making the spec count and opening the PR (the mock's wording); or making Continue the primary"
+    reason: |
+      The operator asked for the overrule act first. The only overrule path is CriterionJudgementControl, which is a
+      label by design (2026-08-25-e257): it does not re-open the gate. The act says so, and the series report asks the
+      operator to confirm a label as the primary act or to spec an act that makes an overruled criterion count.
+  - category: Architecture
+    chose: "The header loses its 'attempt n <status>' part, its primary Continue button and, for run-bearing tickets, the closed line"
+    over: "Keeping them beside the block"
+    reason: |
+      Each duplicated what the block says, and the Continue button was a second primary act beside the block's.
+      A never-run closed ticket draws no block, so it keeps the closed line in the header.
+  - category: Implementation
+    chose: "Why is drawn only for a bad tone; quiet states (working, queued, resuming, done, closed, ended) draw the top row alone"
+    over: "Why on every state"
+    reason: "A healthy run's summary is not a cause; healthy is quiet, broken is loud (rule 3)."
+  - category: Implementation
+    chose: "lib/runPath (runPath, runTracePath) added here; 86e6d moves the remaining inline /jobs/ links onto it"
+    over: "Inlining the path in the block"
+    reason: "The block is the first of several new links to a run; one spelling for all of them."
+  - category: Implementation
+    chose: "No change to design/mockups/ticket-view.html"
+    over: "Drawing the block in the repo mock first"
+    reason: |
+      The operator-approved reference is the artifact mock, which the three rules supersede in density; the block uses
+      only existing tokens and the existing .pill and .btn classes.

@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-16-86e6e
+
+decisions:
+  - category: Architecture
+    chose: "Serve JudgedBy on TicketSeriesSpecView — the run whose acceptance gave the verdicts (the composer's ended row, the run-record path's acceptance run) — and link 'Overrule in the run' to it"
+    over: "Linking executedBy"
+    reason: |
+      executedBy is the newest row that left not_started; the verdicts and the judgements the page reads come from the
+      newest row that ended with an acceptance. A newer attempt working the spec would otherwise get the link, and an
+      overrule recorded there would never show on the ticket page.
+  - category: Architecture
+    chose: "The reason is the criterion's note, drawn only for an unmet or unproven verdict"
+    over: "Drawing every note"
+    reason: "A met criterion's note is its proof, not a rejection; the reason was already served as note (TicketSeriesCriterionJoin)."
+  - category: Architecture
+    chose: "Recording a judgement stays in the run viewer; the ticket page links to it"
+    over: "Embedding CriterionJudgementControl on the Acceptance tab"
+    reason: "9a59r's decision: the Acceptance tab records none. The link names the run whose judgement the page reads back."

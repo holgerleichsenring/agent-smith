@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-16-86e6d
+
+decisions:
+  - category: Architecture
+    chose: "Earlier attempts are one closed <details> line in the state block ('<n> earlier attempts[, all stopped before any work][, A{k} superseded] · Show'), each row with its run link"
+    over: "The mock's chip row of every attempt, always visible"
+    reason: "Rule 3: the newest attempt is what the operator acts on; history is one click away, and a superseded park is named in the line."
+  - category: Architecture
+    chose: "The spec list item becomes an .sp-entry wrapper holding the item button and, beside it, the cell row; cells of kind done, carried, fail and live are links to their run"
+    over: "Links inside the button; or linking every cell"
+    reason: |
+      An anchor inside a button is invalid and would also select the spec. A none or not-started (recut) cell names a
+      run that never ran the spec, so it stays a span. The card's border and the selected ring move to the wrapper
+      (:has on the button's aria-current); .sp-item, .si-cells and .cell still render for the mock-parity test.
+  - category: Implementation
+    chose: "A row's words are the outcome pill, followed by the end-kind words only when they say something the pill does not"
+    over: "Pill plus end kind or status always"
+    reason: "Without an end kind, or with superseded, the third segment repeated the pill (\"failed · failed\")."

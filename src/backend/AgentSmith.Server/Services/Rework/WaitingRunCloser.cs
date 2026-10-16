@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Events;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Infrastructure.Persistence.Services;
 using AgentSmith.Server.Contracts;
 
@@ -15,5 +16,12 @@ public sealed class WaitingRunCloser(CancelTerminalWriter terminalWriter, TimePr
     public const string Summary = "cancelled — superseded by a newer act";
 
     public Task CloseSupersededAsync(string runId, CancellationToken cancellationToken) =>
-        terminalWriter.FinalizeAsync(new RunFinishedEvent(runId, "cancelled", null, Summary, clock.GetUtcNow()), cancellationToken);
+        CloseAsync(runId, Summary, cancellationToken);
+
+    public Task CloseSupersededByAsync(string runId, string newerRunId, CancellationToken cancellationToken) =>
+        CloseAsync(runId, $"cancelled — superseded by attempt {newerRunId}", cancellationToken);
+
+    private Task CloseAsync(string runId, string summary, CancellationToken cancellationToken) =>
+        terminalWriter.FinalizeAsync(new RunFinishedEvent(
+            runId, "cancelled", null, summary, clock.GetUtcNow(), EndKind: RunEndKinds.Superseded), cancellationToken);
 }

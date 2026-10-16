@@ -20,6 +20,7 @@ public sealed class DialogueResumeSweeper(
     IRunResumer runResumer,
     IParkedTicketDialogue ticket,
     UnanswerableParkReporter unanswerableParks,
+    SupersededParkCloser supersededParks,
     IRunListNudge runListNudge,
     TimeProvider timeProvider,
     ILogger<DialogueResumeSweeper> logger)
@@ -44,6 +45,7 @@ public sealed class DialogueResumeSweeper(
     public async Task<int> ScanOnceAsync(CancellationToken ct)
     {
         var resumed = 0;
+        await supersededParks.CloseAsync(ct); // 2026-10-16-86e6b: a superseded checkpoint is abandoned, never resumed
         foreach (var checkpoint in await checkpointStore.ListPendingAsync(ct))
         {
             ct.ThrowIfCancellationRequested();
@@ -56,8 +58,7 @@ public sealed class DialogueResumeSweeper(
             }
             if (await TryResumeAsync(checkpoint, ct)) resumed++;
         }
-        // a508: a park with no checkpoint is invisible to the loop above — it has nothing
-        // to wait ON, so it is reported rather than waited out.
+        // a508: a park with no checkpoint has nothing to wait ON, so it is reported rather than waited out.
         await unanswerableParks.ReportAsync(ct);
         return resumed;
     }
@@ -106,9 +107,8 @@ public sealed class DialogueResumeSweeper(
         return await inbox.GetAsync(checkpoint.DialogueJobId, checkpoint.QuestionId, ct);
     }
 
-    // Abandoned = terminal or cancel-requested. A run still 'running' is NOT abandoned: the
-    // checkpoint event lands while the executor is unwinding (sandbox teardown), before its
-    // RunFinished(waiting_for_input) — that gap must never consume the checkpoint.
+    // Abandoned = terminal or cancel-requested. A run still 'running' is NOT: the checkpoint lands while the
+    // executor unwinds, before its RunFinished(waiting_for_input) — that gap must never consume the checkpoint.
     private async Task<bool> IsRunAbandonedAsync(string runId, CancellationToken ct)
     {
         using var scope = services.CreateScope();

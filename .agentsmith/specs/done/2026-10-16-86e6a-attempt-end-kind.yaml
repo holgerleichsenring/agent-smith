@@ -1,0 +1,77 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-16-86e6a
+goal: "Every attempt on the ticket detail carries its run's verbatim end cause and an end kind recorded where the failure is produced, so the page can name the cause and the act that fits it."
+
+applies_to: "default (CommandResult, the preflight / bootstrap / spec-verdict failures, RunFinishedEvent, the run row and its projection, one migration per provider, TicketAttemptView and TicketDetailReader) and dashboard (types/tickets.ts TicketAttempt, hub-events.ts RunFinishedEvent)"
+
+facts:
+  - claim: "A failure carries only its message, a step position and a label; no kind exists on the result."
+    evidence: "src/backend/AgentSmith.Domain/Models/CommandResult.cs:6-46"
+  - claim: "The terminal event carries status, PR url, summary, time and cost, and the projection copies the summary onto Runs.Summary; the row has no kind column."
+    evidence: "src/backend/AgentSmith.Contracts/Events/L1RunEvents.cs:43-50, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunFinalizationProjection.cs:67-74, src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:29"
+  - claim: "The step-failure result reaches RunFinished through PublishRunFinishedAsync; the step runner only adds position fields with a with-expression, which keeps every other init property."
+    evidence: "src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:236-238, src/backend/AgentSmith.Application/Services/ExecutePipelineUseCase.cs:574-602, src/backend/AgentSmith.Application/Services/PipelineStepRunner.cs:132"
+  - claim: "Preflight fails with one message listing every failing check; each finding names its check, and the image-trust check is named context-image-trust."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/RunPreflightHandler.cs:64-72, src/backend/AgentSmith.Contracts/Models/Preflight/RunPreflightFinding.cs:10, src/backend/AgentSmith.Application/Services/Preflight/Run/ContextImageTrustCheck.cs:30"
+  - claim: "The bootstrap gate fails with 'Pipeline aborted: missing bootstrap in repos'; the only reader of that failure today matches the text."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/BootstrapGateHandler.cs:64-66, src/backend/AgentSmith.Application/Services/Handlers/PriorRunTrustGate.cs:14-19"
+  - claim: "The acceptance gate fails a spec whose accounts leave a criterion outstanding with '<n> criterion(s) of the ratified spec are not satisfied'."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecVerdict.cs:57-61"
+  - claim: "The attempt view carries status, the infrastructure and hand-back marks, PRs, specs, the pending question, cause and revision, and no end text; the reader builds it from the Run row."
+    evidence: "src/backend/AgentSmith.Server/Models/TicketAttemptView.cs:17-30, src/backend/AgentSmith.Server/Services/Tickets/TicketDetailReader.cs:61-65"
+  - claim: "The TS attempt has no end text, so the attempt story can only say 'Failed.' or 'spec n not done'; the runs list shows Runs.Summary."
+    evidence: "src/dashboard/src/types/tickets.ts:223-238, src/dashboard/src/components/tickets/detail/attemptStory.ts:104-114, src/dashboard/src/components/jobs/RunRow.tsx:102-104"
+  - claim: "The TS mirror of RunFinishedEvent is hand-written; the mirror check compares records, not fields."
+    evidence: "src/dashboard/src/types/hub-events.ts:79-87, tools/build-hub-event-types.mjs:10-17"
+  - claim: "Ticket 19478 (prod, read-only): A1/A2 failed at RunPreflightCommand, A5/A6 at BootstrapGateCommand, A8 at VerifySpecCommand with an unmet criterion; A3/A4 failed with no failed step (a thrown pod-start error)."
+    evidence: "observed: 2026-10-16, SELECT on Runs/RunSteps of the operator's database"
+
+scope:
+  in: >
+    CONTRACTS: Contracts/Runs/RunEndKinds — image-untrusted, preflight, bootstrap-missing, criteria-unmet, superseded
+    (the last is written by 2026-10-16-86e6b). CommandResult gains an init-only FailureKind (string?, null by default).
+    PRODUCERS: RunPreflightHandler.FailAsync sets image-untrusted when a failing finding's Check is the image-trust
+    check's name (a public const on ContextImageTrustCheck), else preflight; BootstrapGateHandler's missing-bootstrap
+    failure sets bootstrap-missing; SpecVerdict.From's outstanding branch sets criteria-unmet, and its unverified
+    branch (which re-wraps the inner verdict's message) carries the inner verdict's kind across. RECORDING:
+    RunFinishedEvent gains EndKind (string?, default null); PublishRunFinishedAsync passes result.FailureKind; every
+    other publisher passes nothing. RunFinalizationProjection writes Run.EndKind; one migration per provider
+    (Persistence, Persistence.SqlServer) adds the nullable column. SERVING: TicketAttemptView gains Summary (the run's
+    Summary verbatim) and EndKind; TicketDetailReader fills both from the Run row. DASHBOARD TYPES: TicketAttempt gains
+    optional summary and endKind; hub-events RunFinishedEvent gains optional endKind; gen:hub-events stays green.
+  out: >
+    Classifying a thrown pod-start failure (A3/A4) — it is thrown as a plain InvalidOperationException and stays
+    unclassified (verbatim cause, no kind); a typed sandbox-start exception is named in the series report as an open
+    item. Backfilling EndKind on rows written before this spec — no field was recorded, so they stay unclassified.
+    Any UI — 2026-10-16-86e6c. Two paths replace the failing result and drop the kind by design: the spec-review
+    revert (VerifySpecHandler's SpecReviewRevert) answers with its own result, and a delivered shortfall turns the
+    failure into a success (PipelineStepFailure).
+
+decisions:
+  - key: "THE KIND IS RECORDED WHERE THE FAILURE IS PRODUCED. The producer knows which check failed; a reader would have to parse the message. Free text is never classified."
+  - key: "SUMMARY IS SERVED VERBATIM. The page shows the run's own words behind a disclosure; the server does not shorten or rewrite them."
+
+steps:
+  - id: contracts
+    action: "RunEndKinds, CommandResult.FailureKind, RunFinishedEvent.EndKind, Run.EndKind, ContextImageTrustCheck.CheckName."
+  - id: producers
+    action: "Set the kind in RunPreflightHandler, BootstrapGateHandler, SpecVerdict; pass it in ExecutePipelineUseCase.PublishRunFinishedAsync; write it in RunFinalizationProjection."
+  - id: migration
+    action: "dotnet ef migrations add AddRunEndKind for both providers."
+  - id: serve
+    action: "TicketAttemptView Summary + EndKind; TicketDetailReader.Attempt fills them; TS types."
+  - id: tests
+    action: "Red then green for the tests below; build; affected classes."
+
+tests:
+  - "RunPreflightHandler_ImageTrustFails_ResultCarriesImageUntrusted"
+  - "RunPreflightHandler_OtherCheckFails_ResultCarriesPreflight"
+  - "BootstrapGateHandler_MissingBootstrap_ResultCarriesBootstrapMissing"
+  - "SpecVerdict_Outstanding_FailureCarriesCriteriaUnmet"
+  - "SpecVerdict_UnverifiedWithOutstanding_KeepsCriteriaUnmet"
+  - "RunFinalizationProjection_EndKind_IsWrittenOnTheRunRow"
+  - "TicketDetail_Attempt_CarriesSummaryAndEndKind"
+
+done:
+  - "A run that fails on an untrusted image, another preflight check, a missing bootstrap or an unmet criterion stores that kind on its row; GET /api/tickets/{project}/{ticketId} serves each attempt's verbatim summary and kind."
+  - "Build green, full suite green, dashboard gen/test/build green."

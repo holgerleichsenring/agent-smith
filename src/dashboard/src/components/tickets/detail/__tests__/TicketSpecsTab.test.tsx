@@ -125,6 +125,49 @@ describe("Ticket specs and acceptance tabs", () => {
     expect(screen.getByTestId("specs-revisions")).toHaveTextContent("rev 4");
   });
 
+  // 2026-10-16-86e6d: the way to the run from the Specs tab.
+  it("SpecDocument_ExecutedIn_LinksTheRun", async () => {
+    nav.search = "tab=specs&spec=s2";
+    await open();
+    expect(screen.getByTestId("spec-doc-executed")).toHaveAttribute("href", "/jobs/r-2");
+    expect(screen.getByTestId("spec-doc-executed")).toHaveTextContent("executed in A2");
+  });
+
+  it("TicketSpecsTab_AttemptCell_LinksTheRunAndNoneOrRecutCellDoesNot", async () => {
+    await open();
+    expect(screen.getByTestId("spec-cell-s1-1").tagName).toBe("A");
+    expect(screen.getByTestId("spec-cell-s1-1")).toHaveAttribute("href", "/jobs/r-1");
+    expect(screen.getByTestId("spec-cell-s3-3")).toHaveAttribute("href", "/jobs/r-3");
+    expect(screen.getByTestId("spec-cell-s3-1").tagName).toBe("SPAN");
+    expect(screen.getByTestId("spec-item-s1").querySelector("a")).toBeNull();
+  });
+
+  // 2026-10-16-86e6e: the gate's reason, inline, with the run whose judgement the page reads.
+  const rejected = spec({
+    specId: "s9", ordinal: 1, goal: "Dead-letter every queue", state: "failed", executedBy: "r-3", executedByAttempt: 3,
+    judgedBy: "r-2",
+    done: [{ text: "Every listening queue has a dead-letter queue", verdict: "unmet",
+      note: "claimed satisfied by 'UseX', which is neither a file the evidence covers nor a command that ran", citation: null, overrule: null }],
+  });
+
+  it("SpecDocument_UnmetCriterion_ShowsTheReasonAndTheOverruleLink", async () => {
+    world.series.default = series("r-3", [rejected], { attempt: 3 });
+    nav.search = "tab=specs&spec=s9";
+    await open();
+    const doc = screen.getByTestId("spec-doc");
+    expect(within(doc).getByTestId("criterion-rejection")).toHaveTextContent("Not accepted: claimed satisfied by 'UseX'");
+    expect(within(doc).getByTestId("criterion-overrule")).toHaveAttribute("href", "/jobs/r-2");
+  });
+
+  it("TicketAcceptanceTab_UnmetCriterion_ShowsTheReason", async () => {
+    world.series.default = series("r-3", [rejected], { attempt: 3 });
+    nav.search = "tab=acceptance";
+    await open();
+    const block = screen.getByTestId("acceptance-spec-s9");
+    expect(within(block).getByTestId("criterion-rejection")).toHaveTextContent("neither a file the evidence covers");
+    expect(within(block).getByTestId("criterion-overrule")).toHaveAttribute("href", "/jobs/r-2");
+  });
+
   it("WithoutASelection_TheLiveSpecIsShownFirst", async () => {
     await open();
     expect(screen.getByTestId("spec-doc-goal")).toHaveTextContent("Retry with backoff");
@@ -160,7 +203,7 @@ describe("Ticket specs and acceptance tabs", () => {
   it("TheCrossLinks_SetTheTab", async () => {
     nav.search = "";
     await open();
-    fireEvent.click(screen.getByTestId("ticket-continue"));
+    fireEvent.click(screen.getByTestId("ticket-tab-conversation")); // 2026-10-16-86e6c: the header's Continue moved into the state block
     expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?tab=conversation", { scroll: false });
     fireEvent.click(screen.getByTestId("ticket-open-specs"));
     expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?tab=specs", { scroll: false });

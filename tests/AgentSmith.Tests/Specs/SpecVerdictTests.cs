@@ -1,5 +1,6 @@
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
 
@@ -47,6 +48,29 @@ public sealed class SpecVerdictTests
         verdict.IsSuccess.Should().BeFalse();
         verdict.Message.Should().Contain("worker-repo: packages updated");
         verdict.Message.Should().Contain("nothing in the diff touches a manifest");
+    }
+
+    [Fact]
+    public void SpecVerdict_Outstanding_FailureCarriesCriteriaUnmet()
+    {
+        var verdict = SpecVerdict.From(Green, [Account(Unmet("packages updated"))]);
+
+        verdict.FailureKind.Should().Be(RunEndKinds.CriteriaUnmet);
+    }
+
+    [Fact]
+    public void SpecVerdict_UnverifiedWithOutstanding_KeepsCriteriaUnmet()
+    {
+        var verdict = SpecVerdict.From(Green, [Account(Unmet("packages updated"))], unverified: "the run cannot be called verified");
+
+        verdict.Message.Should().StartWith("the run cannot be called verified");
+        verdict.FailureKind.Should().Be(RunEndKinds.CriteriaUnmet);
+    }
+
+    [Fact]
+    public void SpecVerdict_EveryCriterionSatisfied_CarriesNoKind()
+    {
+        SpecVerdict.From(Green, [Account(Satisfied("packages updated", "src/Api/Api.csproj"))]).FailureKind.Should().BeNull();
     }
 
     [Fact]
@@ -123,6 +147,9 @@ public sealed class SpecVerdictTests
 
     private static SpecAccount Account(params CriterionAccount[] criteria) =>
         new("sample-repo", criteria);
+
+    private static CriterionAccount Unmet(string criterion) =>
+        new(criterion, AccountDisposition.NotSatisfied, Note: "nothing in the diff touches it");
 
     private static CriterionAccount Satisfied(string criterion, string citation) =>
         new(criterion, AccountDisposition.Satisfied, citation);

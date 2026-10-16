@@ -10,8 +10,6 @@ import { isNeverRun, platformWords, pullRequestFate, ticketLabel } from "../tick
 import { DoneByHandAct } from "../landing/DoneByHandAct";
 import { TicketCloseAct } from "../closing/TicketCloseAct";
 import { TicketReopenAct } from "../closing/TicketReopenAct";
-import { statusWords } from "./flowWords";
-import { CAUSE_PARAM, useTicketTabGo } from "./useTicketTabGo";
 
 // 2026-10-13-9a59q: the mock's .t-head — key and title, then a subline of what is recorded: the
 // tracker link, the tracker status as the newest attempt read it, the live (or newest) attempt, how the
@@ -20,13 +18,14 @@ import { CAUSE_PARAM, useTicketTabGo } from "./useTicketTabGo";
 // offers no conversation tab to continue in; every ticket not yet landed can be marked done by hand.
 // 2026-10-15-114fd: Close ticket, or Reopen on a ticket closed here; the closed line follows the BUCKET, so a ticket
 // that came back draws none though its mark is still stored.
+// 2026-10-16-86e6c: the attempt's state, a run-bearing ticket's closed line and the primary act moved into the state
+// block under the header; a never-run closed ticket draws no block and keeps its closed line here.
 
 export function TicketHeader({ detail }: { detail: TicketDetail }) {
   const { summary, attempts, branch } = detail;
   const live = useLiveAttempt();
   const requires = useTicketRequires();
   const neverRun = attempts.length === 0 && isNeverRun(summary);
-  const address = useTicketTabGo();
   const newest = attempts.length > 0 ? attempts[attempts.length - 1] : null;
   const cancelling = live.events.some((e) => e.type === EventType.RunCancelRequested);
   const parts: React.ReactNode[] = [];
@@ -38,8 +37,6 @@ export function TicketHeader({ detail }: { detail: TicketDetail }) {
     parts.push(<span key="state">tracker status <b>{summary.trackerState}</b> at attempt {newest.number}</span>);
   }
   if (neverRun) parts.push(<span key="filed">{filedWords(summary.since)}</span>);
-  if (live.attempt) parts.push(<span key="live">attempt {live.attempt.number} {statusWords(live.attempt.status)}</span>);
-  else if (newest) parts.push(<span key="newest">attempt {newest.number} {statusWords(newest.status)}</span>);
   const fate = pullRequestFate(summary.pullRequests ?? []);
   if (fate) parts.push(<span key="prs" data-testid="ticket-pr-fate">{fate}</span>);
   if (branch && !neverRun) parts.push(<span key="branch">branch <span className="mono">{branch}</span></span>);
@@ -55,11 +52,9 @@ export function TicketHeader({ detail }: { detail: TicketDetail }) {
         <div className="tsub">
           {parts.flatMap((part, i) => (i === 0 ? [part] : [<span key={`dot-${i}`}>·</span>, part]))}
         </div>
-        {summary.bucket === "closed" && <div className="closed-line" data-testid="ticket-closed-line">{capitalized(closedWords(summary))}</div>}
+        {neverRun && summary.bucket === "closed" && <div className="closed-line" data-testid="ticket-closed-line">{capitalized(closedWords(summary))}</div>}
       </div>
       <div className="t-act">
-        {!neverRun && <button type="button" className="btn primary" data-testid="ticket-continue"
-          onClick={() => address.go("conversation", { [CAUSE_PARAM]: null })}>Continue in conversation</button>}
         <DoneByHandAct project={summary.project} ticketId={summary.ticketId} label={ticketLabel(summary)}
           landed={summary.bucket === "done"} onLanded={requires.landed} />
         <TicketCloseAct ticket={summary} onClosed={requires.landed} />

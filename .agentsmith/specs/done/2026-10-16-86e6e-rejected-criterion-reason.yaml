@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-16-86e6e
+goal: "A criterion the acceptance gate did not accept shows the gate's reason inline on the Specs and Acceptance tabs, with the way to the run where it can be overruled."
+
+applies_to: "default (TicketSeriesSpecView, TicketSeriesSpecComposer and TicketRunRecordVerdicts: the run whose acceptance gave the verdicts) and dashboard (SpecDocument's done list, TicketAcceptanceTab's criterion line, specWords, types/tickets.ts)"
+
+requires: [2026-10-16-86e6d]
+
+facts:
+  - claim: "The series read already serves each criterion's verdict and the account's reason as note, joined by criterion key."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketSeriesCriterionJoin.cs:14-26, src/dashboard/src/types/tickets.ts:270-277"
+  - claim: "Ticket 19478's A8 stored the rejected criterion as status unmet with reason \"claimed satisfied by '<pattern>', which is neither a file the evidence covers nor a command that ran\"."
+    evidence: "observed: 2026-10-16, SELECT RunSpecs.AcceptanceJson of the operator's database"
+  - claim: "SpecDocument's done list and the Acceptance tab's criterion line draw the mark, the text, an overrule label and who verified it, and never the note."
+    evidence: "src/dashboard/src/components/tickets/detail/SpecDocument.tsx:62-77, src/dashboard/src/components/tickets/detail/TicketAcceptanceTab.tsx:69-81"
+  - claim: "A spec's verdicts and judgements come from the newest row that ENDED with an acceptance, while executedBy is the newest row that left not_started; the two can be different runs, and the view serves only the latter."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketSeriesSpecComposer.cs:23-29, src/backend/AgentSmith.Server/Models/TicketSeriesSpecView.cs:19-36"
+  - claim: "unmet and unproven verdicts draw the bad mark."
+    evidence: "src/dashboard/src/components/tickets/detail/specWords.ts:94-101"
+  - claim: "A criterion judgement is recorded in the run viewer only, as a label."
+    evidence: "src/dashboard/src/components/jobs/story/CriterionJudgementControl.tsx:6-15, src/dashboard/src/components/tickets/detail/TicketAcceptanceTab.tsx:7-11"
+
+scope:
+  in: >
+    SERVER: TicketSeriesSpecView gains JudgedBy (the run id of the row the verdicts came from, null without one);
+    the composer fills it from that row, and TicketRunRecordVerdicts (the run-record series) from its acceptance's
+    run. TS TicketSeriesSpec gains optional judgedBy.
+    specWords gains rejectionOf(criterion): the note when the verdict is unmet or unproven and a note exists, else
+    null. SpecDocument and TicketAcceptanceTab draw it under the criterion text as a .reject line ("Not accepted:
+    <note>") followed by "Overrule in the run" linking the judging run (judgedBy, via runPath from 2026-10-16-86e6d), when
+    one is served — the run whose judgement the page reads back. A criterion that carries an overrule keeps its overrule label and draws the reason too.
+    The Acceptance tab's run-criteria block uses the same line with that run's id. CSS: .reject from --bad-wash and
+    the existing type scale.
+  out: >
+    Recording a judgement on the ticket page — it stays in the run viewer (9a59r's decision); nothing here records
+    one.
+
+decisions:
+  - key: "THE REASON IS SERVED, THE JUDGING RUN IS NOT. The note is on the wire; the link must open the run whose judgements the page reads, so that run id is served beside executedBy."
+
+steps:
+  - id: serve
+    action: "TicketSeriesSpecView.JudgedBy, the composer and TicketRunRecordVerdicts; TS type."
+  - id: words
+    action: "rejectionOf in specWords; tests first."
+  - id: draw
+    action: "SpecDocument and TicketAcceptanceTab lines; CSS."
+  - id: tests
+    action: "Red then green; pnpm test the tickets folder; pnpm build."
+
+tests:
+  - "TicketSeriesSpecComposer_EndedRow_IsServedAsJudgedBy"
+  - "TicketRunRecordVerdicts_SpecAcceptance_IsServedAsJudgedBy"
+  - "rejectionOf_UnmetWithNote_IsTheNote"
+  - "rejectionOf_MetOrNoNote_IsNull"
+  - "SpecDocument_UnmetCriterion_ShowsTheReasonAndTheOverruleLink"
+  - "TicketAcceptanceTab_UnmetCriterion_ShowsTheReason"
+
+done:
+  - "On ticket 19478 the Specs and Acceptance tabs show, under the dead-letter criterion, why the gate did not accept it and a link to the run where it can be overruled."
+  - "Build green, full suite green, dashboard gen/test/build green."

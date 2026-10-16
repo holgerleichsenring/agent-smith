@@ -87,6 +87,21 @@ public sealed class TicketDetailReaderTests : IDisposable
         attempts[1].ExecutedSpecs.Should().ContainSingle().Which.SpecId.Should().Be("s1");
     }
 
+    [Fact]
+    public async Task TicketDetail_Attempt_CarriesSummaryAndEndKind()
+    {
+        var failed = Run(R1, status: "failed");
+        failed.Summary = "Pipeline aborted: missing bootstrap in repos: [api]";
+        failed.EndKind = RunEndKinds.BootstrapMissing;
+        await _store.AddAsync(failed, Step(R1), Run(R2), Step(R2));
+
+        var attempts = (await ReadAsync()).Attempts;
+
+        attempts[0].Summary.Should().Be("Pipeline aborted: missing bootstrap in repos: [api]");
+        attempts[0].EndKind.Should().Be(RunEndKinds.BootstrapMissing);
+        attempts[1].EndKind.Should().BeNull();
+    }
+
     // 2026-10-13-9a59n: the detail's and the list's marks read the sandbox arm from the attempt's last launch.
     [Fact]
     public async Task TicketDetailAndList_SandboxVanishedInLastLaunch_MarkInfrastructureEnd()

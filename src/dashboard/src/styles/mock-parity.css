@@ -676,15 +676,18 @@
 .mock-tickets .sp-grid { display:grid; grid-template-columns:300px minmax(0,1fr); gap:22px; align-items:start; }
 @media (max-width:980px){ .mock-tickets .sp-grid{ grid-template-columns:minmax(0,1fr); } }
 .mock-tickets .sp-list { display:flex; flex-direction:column; gap:6px; }
-.mock-tickets .sp-item { font:inherit; color:inherit; text-align:left; background:var(--panel); border:1px solid var(--line); border-radius:var(--r-s); padding:10px 12px; cursor:pointer; display:flex; flex-direction:column; gap:6px; }
-.mock-tickets .sp-item:hover { background:var(--panel-2); }
-.mock-tickets .sp-item[aria-current="true"] { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-wash); }
+/* 2026-10-16-86e6d: the card is the .sp-entry wrapper holding the item button and, beside it, the cell row whose cells
+   link to their runs (a link cannot sit inside the button); the selected button rings the wrapper. */
+.mock-tickets .sp-entry { background:var(--panel); border:1px solid var(--line); border-radius:var(--r-s); padding:10px 12px; display:flex; flex-direction:column; gap:6px; }
+.mock-tickets .sp-entry:hover { background:var(--panel-2); }
+.mock-tickets .sp-entry:has(> .sp-item[aria-current="true"]) { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-wash); }
+.mock-tickets .sp-item { font:inherit; color:inherit; text-align:left; background:none; border:0; padding:0; cursor:pointer; display:flex; flex-direction:column; gap:6px; }
 .mock-tickets .sp-item .si-top { display:flex; gap:8px; align-items:baseline; }
 .mock-tickets .sp-item .si-n { font-family:var(--mono); font-size:11px; color:var(--ink-3); }
 .mock-tickets .sp-item .si-t { font-size:13px; font-weight:600; min-width:0; }
-.mock-tickets .sp-item .si-cells { display:flex; gap:4px; align-items:center; }
-.mock-tickets .sp-item .si-cells .cell { min-width:18px; height:18px; font-size:9.5px; border-radius:4px; }
-.mock-tickets .sp-item .si-cells .al { font-size:10.5px; color:var(--ink-3); margin-left:auto; }
+.mock-tickets .sp-entry .si-cells { display:flex; gap:4px; align-items:center; }
+.mock-tickets .sp-entry .si-cells .cell { min-width:18px; height:18px; font-size:9.5px; border-radius:4px; text-decoration:none; }
+.mock-tickets .sp-entry .si-cells .al { font-size:10.5px; color:var(--ink-3); margin-left:auto; }
 .mock-tickets .spdoc { border:1px solid var(--line); border-radius:var(--r); background:var(--bg); overflow:hidden; }
 .mock-tickets .spdoc .sh { padding:14px 18px; border-bottom:1px solid var(--line-2); background:var(--panel); display:flex; flex-direction:column; gap:6px; }
 .mock-tickets .spdoc .sh .meta { display:flex; gap:10px; flex-wrap:wrap; font-size:11.5px; color:var(--ink-3); align-items:center; }
@@ -1943,3 +1946,31 @@
 .mock-dialog .d-held { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; }
 .mock-dialog .d-held-actions { display: flex; gap: 8px; }
 .mock-dialog .d-pick-held { display: block; font-size: 11.5px; color: var(--ink-3); }
+
+/* 2026-10-16-86e6c: the ticket state block under the header — the tone's wash and edge, the pill and one sentence,
+   the run beside it, one act, and two closed disclosures (other options, Why). Composed from the page's tokens and
+   its .pill / .btn classes; a quiet state is the top row alone. */
+.mock-tickets .tstate { --tone: var(--ink-3); --wash: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--tone); border-radius: var(--r-s); background: var(--wash); margin: 4px 0 14px; }
+.mock-tickets .tstate.bad { --tone: var(--bad); --wash: var(--bad-wash); }
+.mock-tickets .tstate.person { --tone: var(--person); --wash: var(--person-wash); }
+.mock-tickets .tstate.amber { --tone: var(--run); --wash: var(--run-wash); }
+.mock-tickets .tstate.ok { --tone: var(--ok); --wash: var(--bg); }
+.mock-tickets .tstate.q { --wash: var(--bg); }
+.mock-tickets .tstate .ts-top { display: flex; align-items: flex-start; gap: 12px; padding: 10px 14px; flex-wrap: wrap; }
+.mock-tickets .tstate .ts-say { flex: 1 1 320px; min-width: 0; }
+.mock-tickets .tstate .ts-sentence { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink); line-height: 1.4; }
+.mock-tickets .tstate .ts-detail { margin-top: 4px; font-size: 13px; color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+.mock-tickets .tstate .ts-acts { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 0 14px 10px; }
+.mock-tickets .tstate .ts-act { display: inline-flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.mock-tickets .tstate details > summary { cursor: pointer; font-size: 12px; color: var(--ink-2); }
+.mock-tickets .tstate .ts-more-body { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.mock-tickets .tstate .ts-why { border-top: 1px solid var(--line); padding: 8px 14px 10px; }
+.mock-tickets .tstate .ts-why-body { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.mock-tickets .tstate .ts-cause { margin: 0; font-family: var(--mono); font-size: 12px; color: var(--ink-2); background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-s); padding: 8px 10px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow: auto; }
+.mock-tickets .tstate .ts-links { display: flex; gap: 8px; flex-wrap: wrap; }
+/* 2026-10-16-86e6e: why the acceptance gate did not accept a criterion, under its text, with the way to the run. */
+.mock-tickets .crit .reject { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-top: 6px; font-size: 12px; color: var(--ink-2); background: var(--bad-wash); border-radius: var(--r-s); padding: 6px 8px; overflow-wrap: anywhere; }
+/* 2026-10-16-86e6d: earlier attempts as one line; Show lists each with its run. */
+.mock-tickets .tstate .ts-earlier { border-top: 1px solid var(--line); padding: 8px 14px 10px; }
+.mock-tickets .tstate .ts-earlier-rows { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; color: var(--ink-2); }
+.mock-tickets .tstate .ts-earlier-rows li { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }

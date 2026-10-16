@@ -234,7 +234,20 @@ export interface TicketAttempt {
   pendingQuestion: PendingQuestionInfo | null;
   cause?: AttemptCause | null;
   revision?: TicketAttemptRevision | null;
+  /** 2026-10-16-86e6a: the run's own end text, verbatim; null while it has none */
+  summary?: string | null;
+  /** 2026-10-16-86e6a: why it ended, as its producer recorded it (RUN_END_KINDS); null when unclassified */
+  endKind?: string | null;
 }
+
+/** 2026-10-16-86e6a: the server's RunEndKinds, as the attempt's endKind spells them. */
+export const RUN_END_KINDS = {
+  imageUntrusted: "image-untrusted",
+  preflight: "preflight",
+  bootstrapMissing: "bootstrap-missing",
+  criteriaUnmet: "criteria-unmet",
+  superseded: "superseded",
+} as const;
 
 export interface TicketOtherRun {
   runId: string;
@@ -308,6 +321,8 @@ export interface TicketSeriesSpec {
   recordNote?: string | null;
   /** False for a terminal spec none of whose criteria carries a verdict. */
   verdictRecorded?: boolean;
+  /** 2026-10-16-86e6e: the run whose acceptance gave the verdicts and whose judgements are read; null when none did. */
+  judgedBy?: string | null;
 }
 
 /** 2026-10-13-8762m: what a spec's master handed forward; `missing` when it left no note. */

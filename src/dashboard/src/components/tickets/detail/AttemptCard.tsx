@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useState } from "react";
 import { isRunLive } from "@/lib/runLiveness";
+import { runPath, runTracePath } from "@/lib/runPath";
 import type { Read } from "@/lib/tickets/TicketPageReads";
 import { useTicketSeries } from "@/lib/tickets/TicketPageStore";
 import type { RunSnapshot } from "@/types/hub-events";
-import type { RunCompute, RunPasses, TicketAttempt, TicketConversationEntry, TicketSeries } from "@/types/tickets";
+import { RUN_END_KINDS, type RunCompute, type RunPasses, type TicketAttempt, type TicketConversationEntry, type TicketSeries } from "@/types/tickets";
 import { money } from "../ticketFormat";
 import { attemptStory, causeLabel, causeWhere, liveSpec, questionWaits } from "./attemptStory";
 import { duration } from "./computeTotals";
@@ -34,6 +35,8 @@ const PILLS: Record<string, [string, string]> = {
 };
 
 export function outcomePill(attempt: TicketAttempt): [string, string] {
+  // 2026-10-16-86e6b: a park a newer attempt started past is closed as superseded, whatever it waited on.
+  if (attempt.endKind === RUN_END_KINDS.superseded) return ["q", "superseded"];
   if (attempt.handedBack) return ["person", "handed back"];
   if (attempt.endedOnInfrastructure) return ["bad", "ended on infrastructure"];
   return PILLS[attempt.status] ?? ["q", attempt.status.replace(/_/g, " ")];
@@ -84,8 +87,8 @@ export function AttemptCard({ attempt, passes, compute, run, cutEntries, series,
           )}
           <div className="kv"><span className="k">Machine</span>
             <div className="v links">
-              <Link className="btn sm" href={`/jobs/${encodeURIComponent(attempt.runId)}`} data-testid="attempt-viewer">Open run viewer ↗</Link>
-              <Link className="btn sm" href={`/jobs/${encodeURIComponent(attempt.runId)}/why`} data-testid="attempt-trace">
+              <Link className="btn sm" href={runPath(attempt.runId)} data-testid="attempt-viewer">Open run viewer ↗</Link>
+              <Link className="btn sm" href={runTracePath(attempt.runId)} data-testid="attempt-trace">
                 Trace{typeof llmCalls === "number" ? ` · ${llmCalls} LLM calls` : ""}
               </Link>
             </div>

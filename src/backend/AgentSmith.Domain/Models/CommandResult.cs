@@ -31,6 +31,12 @@ public sealed record CommandResult
     /// </summary>
     public IReadOnlyList<string>? DropAhead { get; init; }
 
+    /// <summary>
+    /// 2026-10-16-86e6a: why this failure happened, as the failing handler classifies it (a RunEndKinds
+    /// value); null when it does not. Carried onto the run's terminal event and its row.
+    /// </summary>
+    public string? FailureKind { get; init; }
+
     private CommandResult(bool success, string message, Exception? exception = null)
     {
         Message = message;

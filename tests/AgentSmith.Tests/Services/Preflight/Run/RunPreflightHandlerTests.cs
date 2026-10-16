@@ -1,5 +1,7 @@
 using AgentSmith.Application.Models;
 using AgentSmith.Application.Services.Handlers;
+using AgentSmith.Application.Services.Preflight.Run;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Preflight;
 using AgentSmith.Contracts.Services;
@@ -26,6 +28,30 @@ public sealed class RunPreflightHandlerTests
 
         result.IsSuccess.Should().BeFalse();
         result.Message.Should().Contain("no agents").And.Contain("pass --config");
+    }
+
+    [Fact]
+    public async Task RunPreflightHandler_ImageTrustFails_ResultCarriesImageUntrusted()
+    {
+        var handler = HandlerWith(
+            new StubCheck("config-loaded", RunPreflightFinding.Fail("config-loaded", "no agents", "pass --config")),
+            new StubCheck(ContextImageTrustCheck.CheckName,
+                RunPreflightFinding.Fail(ContextImageTrustCheck.CheckName, "image outside the boundary", "trust it")));
+
+        var result = await handler.ExecuteAsync(new RunPreflightContext(Pipeline()), CancellationToken.None);
+
+        result.FailureKind.Should().Be(RunEndKinds.ImageUntrusted);
+    }
+
+    [Fact]
+    public async Task RunPreflightHandler_OtherCheckFails_ResultCarriesPreflight()
+    {
+        var handler = HandlerWith(
+            new StubCheck("config-loaded", RunPreflightFinding.Fail("config-loaded", "no agents", "pass --config")));
+
+        var result = await handler.ExecuteAsync(new RunPreflightContext(Pipeline()), CancellationToken.None);
+
+        result.FailureKind.Should().Be(RunEndKinds.Preflight);
     }
 
     [Fact]

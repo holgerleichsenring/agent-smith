@@ -2,6 +2,7 @@
 
 import { useTicketSeries } from "@/lib/tickets/TicketPageStore";
 import type { TicketSeriesCriterion, TicketSeriesUnattributed } from "@/types/tickets";
+import { CriterionRejection } from "./CriterionRejection";
 import { acceptanceTally, criterionRow, isRunRecord, overruleWords, RUN_RECORD_LINE, verdictRow } from "./specWords";
 
 // 2026-10-13-9a59r: acceptance PER SPEC — each spec's done list (a run's acceptance contract is the current
@@ -9,6 +10,7 @@ import { acceptanceTally, criterionRow, isRunRecord, overruleWords, RUN_RECORD_L
 // an operator judgement shows as the overruled disposition beside the machine's. Overruling stays in the
 // run viewer: nothing here records one. A run-record series says a spec whose run judged nothing recorded no
 // verdict, and lists the run criteria it could not tie to one spec.
+// 2026-10-16-86e6e: a criterion the gate did not accept says why, with the run where it can be overruled.
 
 export function TicketAcceptanceTab() {
   const series = useTicketSeries();
@@ -33,7 +35,7 @@ export function TicketAcceptanceTab() {
               <h5>Spec {spec.ordinal}{spec.repos.length > 0 ? ` · ${spec.repos.join(", ")}` : ""}{standing}</h5>
               <div className="crit">
                 {spec.done.map((criterion) => (
-                  <CriterionLine key={criterion.text} criterion={criterion} row={criterionRow(criterion, spec)} />
+                  <CriterionLine key={criterion.text} criterion={criterion} row={criterionRow(criterion, spec)} judgedBy={spec.judgedBy} />
                 ))}
               </div>
             </div>
@@ -52,7 +54,7 @@ function RunCriteria({ run }: { run: TicketSeriesUnattributed }) {
       <h5>Run criteria, not tied to a spec · attempt {run.attempt}</h5>
       <div className="crit">
         {run.criteria.map((criterion) => (
-          <CriterionLine key={criterion.text} criterion={criterion} row={verdictRow(criterion, by, "no verdict recorded")} />
+          <CriterionLine key={criterion.text} criterion={criterion} row={verdictRow(criterion, by, "no verdict recorded")} judgedBy={run.runId} />
         ))}
         {run.unmeasured.map((account) => (
           <div key={account.repositories} className="ci" data-testid="acceptance-unmeasured">
@@ -66,7 +68,13 @@ function RunCriteria({ run }: { run: TicketSeriesUnattributed }) {
   );
 }
 
-function CriterionLine({ criterion, row }: { criterion: TicketSeriesCriterion; row: { mark: string; glyph: string; who: string } }) {
+interface LineProps {
+  criterion: TicketSeriesCriterion;
+  row: { mark: string; glyph: string; who: string };
+  judgedBy: string | null | undefined;
+}
+
+function CriterionLine({ criterion, row, judgedBy }: LineProps) {
   const overruled = overruleWords(criterion);
   return (
     <div className="ci" data-testid="acceptance-criterion">
@@ -74,6 +82,7 @@ function CriterionLine({ criterion, row }: { criterion: TicketSeriesCriterion; r
       <span>
         {criterion.text}
         {overruled && <span className="dim-line" data-testid="acceptance-overruled"> · {overruled}</span>}
+        <CriterionRejection criterion={criterion} judgedBy={judgedBy} />
       </span>
       <span className="cw">{row.who}</span>
     </div>

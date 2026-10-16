@@ -16,6 +16,8 @@ namespace AgentSmith.Server.Models;
 /// <param name="HasRecord">False when the content is the goal alone — no spec record, or one that could not be read.</param>
 /// <param name="RecordNote">Why only the goal is shown: <see cref="TicketSeriesRecordNotes"/>; null with a record.</param>
 /// <param name="VerdictRecorded">False for a terminal spec none of whose criteria carries a verdict.</param>
+/// <param name="JudgedBy">2026-10-16-86e6e: the run whose acceptance gave the verdicts and whose judgements are read;
+/// null when none did.</param>
 public sealed record TicketSeriesSpecView(
     string SpecId,
     int Ordinal,
@@ -33,4 +35,5 @@ public sealed record TicketSeriesSpecView(
     TicketSeriesBuildNoteView? BuildNote = null,
     bool HasRecord = true,
     string? RecordNote = null,
-    bool VerdictRecorded = true);
+    bool VerdictRecorded = true,
+    string? JudgedBy = null);

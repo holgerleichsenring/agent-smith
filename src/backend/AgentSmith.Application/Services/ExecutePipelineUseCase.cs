@@ -578,8 +578,7 @@ public sealed class ExecutePipelineUseCase(
             Contracts.Runs.RunTerminalStatus.Of(result, pipeline),
             result.Message ?? string.Empty,
             result.PrUrl,
-            costUsd,
-            ct);
+            costUsd, ct, result.IsSuccess ? null : result.FailureKind);
 
     // p0259: a cancel is its own terminal status, not a failure — so the dashboard
     // reads operator/watchdog intent instead of a crash. The one exception is the
@@ -591,7 +590,7 @@ public sealed class ExecutePipelineUseCase(
     // p0259: terminal publish with an EXPLICIT status so the cancel path can land
     // "cancelled" instead of the success/failed binary the CommandResult implies.
     private Task PublishRunFinishedWithStatusAsync(
-        string runId, string status, string summary, string? prUrl, decimal? costUsd, CancellationToken ct) =>
+        string runId, string status, string summary, string? prUrl, decimal? costUsd, CancellationToken ct, string? endKind = null) =>
         eventPublisher.PublishAsync(
             // p0387: a failed/cancelled summary may be a raw provider error body
             // (ex.Message travels here verbatim) — humanize it once, at persist
@@ -599,7 +598,7 @@ public sealed class ExecutePipelineUseCase(
             new RunFinishedEvent(
                 runId, status, prUrl,
                 status is "failed" or "cancelled" ? ErrorFormatter.HumanizeRunSummary(summary) : summary,
-                DateTimeOffset.UtcNow, costUsd),
+                DateTimeOffset.UtcNow, costUsd, endKind),
             ct);
 
     private void LogResult(CommandResult result, string projectName, PipelineContext pipeline)

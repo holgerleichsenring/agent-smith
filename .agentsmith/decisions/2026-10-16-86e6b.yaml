@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-16-86e6b
+
+decisions:
+  - category: Architecture
+    chose: "End a superseded park (cancelled, EndKind superseded, naming the newer attempt) in a sweep run first in DialogueResumeSweeper"
+    over: "Only drawing it differently on the ticket page; refusing a claim while a park waits; closing it at each start path"
+    reason: |
+      Root cause of ticket 19478's A7: it parked as a hand-back (no checkpoint); A8 was started by a tracker
+      re-trigger (cause retrigger), and only the rework entry closes a waiting attempt it supersedes — the claim path
+      never asks. The park kept its capacity reservation (RunFinalizationProjection releases only on a terminal row)
+      and, had it been checkpointed, an answer would have resumed it beside A8. Drawing it differently leaves both.
+      The operator's re-trigger is a decision to start over, so the claim is not refused; the sweep reads the
+      outcome every start path shares and also heals parks written before the fix.
+  - category: Architecture
+    chose: "A newer code run of the same project and ticket counts once it has a RunStep row; a park with a resumed checkpoint or a reserved queue entry is skipped"
+    over: "Any newer row"
+    reason: |
+      A reservation cancelled from the queue never worked, and closing the park for it would leave the ticket with no
+      live attempt. A resume reuses the park's own id and is on its way back, so closing it would race the relaunch.
+  - category: Implementation
+    chose: "A second IWaitingRunCloser method CloseSupersededByAsync(runId, newerRunId, ct); both closes record EndKind superseded"
+    over: "An optional newerRunId argument on CloseSupersededAsync"
+    reason: |
+      Moq Verify lambdas are expression trees and cannot omit an optional argument, which would break the rework
+      tests' compile; a separate method leaves them untouched.
+  - category: Implementation
+    chose: "SupersededParkCloser registered beside IWaitingRunCloser in WebhookEndpointsExtensions"
+    over: "Beside the sweeper in RelationalPersistenceExtensions"
+    reason: |
+      That file is over the line limit and may only shrink (FileLengthRatchetTests); the closer resolves the parked-run
+      repository through a scope at call time, so its registration does not depend on where the repository is added.
+  - category: Implementation
+    chose: "The close's RunEnd rework nudge is left as it is"
+    over: "Suppressing it for superseded closes"
+    reason: |
+      Every terminal row writes it and a run already writes two ends (lease and row, 2026-10-08-0781); the nudge
+      re-reads the newest attempt, which its own end already nudged, so no new start arises from it.

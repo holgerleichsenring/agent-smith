@@ -159,6 +159,15 @@ public sealed class TicketSeriesRunRecordReadTests : IDisposable
     }
 
     [Fact]
+    public async Task TicketRunRecordVerdicts_SpecAcceptance_IsServedAsJudgedBy()
+    {
+        await _store.AddAsync(WithAcceptance(Run(R1), Acceptance([], ("docs updated", "unmet"))),
+            Step(R1), RecordedRow(R1, A, 1, "failed"));
+
+        (await ReadAsync()).Specs.Single().JudgedBy.Should().Be(R1); // 2026-10-16-86e6e
+    }
+
+    [Fact]
     public async Task TicketSeries_Read_RunWithoutCut_MultiSpecRunNoAcceptance_VerdictRecordedFalse()
     {
         await _store.AddAsync(Run(R1), Step(R1), RecordedRow(R1, A, 1, "done"), RecordedRow(R1, B, 2, "done"),

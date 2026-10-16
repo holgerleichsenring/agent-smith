@@ -112,6 +112,12 @@ export function recordNoteWords(spec: TicketSeriesSpec): string | null {
   return RECORD_NOTES[spec.recordNote ?? ""] ?? RECORD_NOTES["no record"];
 }
 
+/** 2026-10-16-86e6e: why the acceptance gate did not accept a criterion — its note on an unmet or unproven verdict. */
+export function rejectionOf(criterion: TicketSeriesCriterion): string | null {
+  if (criterion.verdict !== "unmet" && criterion.verdict !== "unproven") return null;
+  return criterion.note && criterion.note.trim() !== "" ? criterion.note : null;
+}
+
 export function overruleWords(criterion: TicketSeriesCriterion): string | null {
   const o = criterion.overrule;
   return o ? `overruled: ${o.humanStatus.replace(/_/g, " ")} by ${o.author} — ${o.reason}` : null;

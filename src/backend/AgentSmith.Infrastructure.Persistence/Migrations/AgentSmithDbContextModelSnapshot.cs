@@ -1067,6 +1067,9 @@ namespace AgentSmith.Infrastructure.Persistence.Migrations
                     b.Property<double?>("DurationSeconds")
                         .HasColumnType("REAL");
 
+                    b.Property<string>("EndKind")
+                        .HasColumnType("TEXT");
+
                     b.Property<DateTimeOffset?>("FinishedAt")
                         .HasColumnType("TEXT");
 

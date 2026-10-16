@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fakeHub, pr } from "../../__tests__/ticketFixtures";
 import { attempt, budget, conversation, defaults, detail, entry, pass, passes, reviews, series, spec, ticketText } from "./detailFixtures";
@@ -107,8 +107,69 @@ describe("Ticket page", () => {
     await open();
     const head = screen.getByTestId("ticket-head");
     expect(head.querySelector(".ticon")?.className).toBe("ticon ok");
-    expect(head).toHaveTextContent("attempt 2 failed");
+    expect(head).not.toHaveTextContent("attempt 2"); // 2026-10-16-86e6c: the state block says the state
+    expect(screen.getByTestId("ticket-state-sentence")).toHaveTextContent("Done");
     expect(screen.getByTestId("ticket-pr-fate")).toHaveTextContent("2 PRs merged");
+  });
+
+  // 2026-10-16-86e6c: the state block under the header.
+  it("TicketStateBlock_Failed_ShowsSentenceRunLinkActAndClosedWhy", async () => {
+    world.detail = detail([attempt({ status: "failed" }), attempt({ number: 2, runId: "r-2", status: "failed",
+      endKind: "criteria-unmet", summary: "1 criterion(s) of the ratified spec are not satisfied by the branch" })]);
+    world.detail.summary = { ...world.detail.summary, bucket: "failed" };
+    await open();
+    const block = screen.getByTestId("ticket-state");
+    expect(block).toHaveAttribute("data-tone", "bad");
+    expect(screen.getByTestId("ticket-state-sentence")).toHaveTextContent("Attempt 2 failed: the acceptance gate did not accept a criterion.");
+    expect(screen.getByTestId("ticket-state-run")).toHaveAttribute("href", "/jobs/r-2");
+    expect(screen.getByTestId("ticket-state-act")).toHaveAttribute("href", "/jobs/r-2");
+    expect(screen.getByTestId("ticket-state-why")).not.toHaveAttribute("open");
+    expect(screen.getByTestId("ticket-state-others")).not.toHaveAttribute("open");
+    fireEvent.click(within(screen.getByTestId("ticket-state-others")).getByTestId("ticket-state-other"));
+    expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?tab=conversation", { scroll: false });
+  });
+
+  it("TicketStateBlock_Why_HoldsTheVerbatimSummaryAndTheTraceLink", async () => {
+    const cause = "Sandbox pod agentsmith-sandbox-1 could not start: ";
+    world.detail = detail([attempt({ status: "failed", summary: cause })]);
+    world.detail.summary = { ...world.detail.summary, bucket: "failed" };
+    await open();
+    expect(screen.getByTestId("ticket-state-cause").textContent).toBe(cause);
+    expect(screen.getByTestId("ticket-state-trace")).toHaveAttribute("href", "/jobs/r-1/why");
+    expect(screen.getByTestId("ticket-state-act")).toHaveTextContent("Continue in conversation");
+  });
+
+  it("TicketPage_EveryTab_DrawsTheStateBlockUnderTheHeader", async () => {
+    world.detail = detail([attempt({ status: "failed" })]);
+    world.detail.summary = { ...world.detail.summary, bucket: "failed" };
+    for (const tab of ["summary", "specs", "acceptance", "attempts", "cost"]) {
+      nav.search = `tab=${tab}`;
+      await open();
+      expect(screen.getByTestId("ticket-head").nextElementSibling).toBe(screen.getByTestId("ticket-state"));
+      cleanup();
+    }
+  });
+
+  it("TicketStateBlock_ShowEarlier_ListsEachAttemptWithItsRunLink", async () => {
+    world.detail = detail([attempt({ status: "failed", endKind: "image-untrusted" }),
+      attempt({ number: 2, runId: "r-2", status: "cancelled", endKind: "superseded" }),
+      attempt({ number: 3, runId: "r-3", status: "failed" })]);
+    world.detail.summary = { ...world.detail.summary, bucket: "failed" };
+    await open();
+    expect(screen.getByTestId("ticket-state-earlier")).not.toHaveAttribute("open");
+    expect(screen.getByTestId("ticket-state-earlier-line")).toHaveTextContent("2 earlier attempts, all stopped before any work, A2 superseded");
+    const row = screen.getByTestId("ticket-state-earlier-1");
+    expect(row).toHaveTextContent("A1 · failed · image not trusted");
+    expect(within(row).getByRole("link")).toHaveAttribute("href", "/jobs/r-1");
+  });
+
+  it("TicketHeader_NoLongerSaysTheAttemptStatusNorOffersContinue", async () => {
+    world.detail = detail([attempt({ status: "failed" })]);
+    world.detail.summary = { ...world.detail.summary, bucket: "failed" };
+    await open();
+    const head = screen.getByTestId("ticket-head");
+    expect(head).not.toHaveTextContent("attempt 1 failed");
+    expect(screen.queryByTestId("ticket-continue")).toBeNull();
   });
 
   it("Header_SucceededAttemptWithEveryPullRequestClosedUnmerged_IsBad", async () => {
@@ -288,7 +349,7 @@ describe("Ticket page", () => {
     world.series.default = defaultSeries({ next: "start" });
     const hub = await open();
     const strip = screen.getByTestId("series-runway");
-    expect(strip.previousElementSibling).toBe(screen.getByTestId("ticket-head"));
+    expect(strip.previousElementSibling).toBe(screen.getByTestId("ticket-state"));
     expect(strip.nextElementSibling).toHaveAttribute("role", "tablist");
     expect(screen.getByTestId("series-next")).toHaveTextContent("starts by itself");
 
