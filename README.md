@@ -1,6 +1,6 @@
-# Agent Smith
+# Agent Smith — the agentic software factory
 
-> **From ticket to PR.**
+> **From ticket to spec to verified PR.**
 > Every run shows its cost. Every change comes with the reasoning the agent followed.
 
 [![Agent Smith](docs/agent-smith-logo-large-green.png)](https://docs.agent-smith.org)
@@ -9,13 +9,13 @@
 [![.NET 8](https://img.shields.io/badge/.NET-8.0-blue.svg)](https://dotnet.microsoft.com)
 [![Docker](https://img.shields.io/badge/Docker-ready-blue.svg)](Dockerfile)
 
-**[Docs](https://docs.agent-smith.org)** · **[Releases](https://github.com/holgerleichsenring/agent-smith/releases)** · **[Blog](https://codingsoul.org)**
+**[Website](https://agent-smith.org)** · **[Docs](https://docs.agent-smith.org)** · **[Releases](https://github.com/holgerleichsenring/agent-smith/releases)** · **[Blog](https://codingsoul.org)**
 
 ---
 
-Agent Smith is an open source AI coding agent. You drop a ticket into your tracker, and a pull request shows up on your repo, with the ticket already updated to point at it. That's the whole loop.
+Agent Smith is an open source agentic software factory, a project led by its creator, Holger Leichsenring. You drop a ticket into your tracker; it becomes a spec, the spec gets built in sandboxes and verified criterion by criterion, and a pull request shows up on your repo, with the ticket already updated to point at it. That's the whole loop.
 
-I built it because most AI coding tools stop at a suggestion in your editor and call it a day. I wanted to close the loop — actual PR, in the actual repo, the ticket actually moved to resolved. Plus a paper trail so six months later I can answer "why did we pick path A over B in this fix" without guessing.
+We built it because most AI coding tools stop at a suggestion in your editor and call it a day. We wanted to close the loop — actual PR, in the actual repo, the ticket actually moved to resolved. Plus a paper trail so that long after the fact we can answer "why did we pick path A over B in this fix" without guessing.
 
 ![Lifecycle: ticket → orchestrator → sandboxes → pull requests → resolved](docs/assets/lifecycle.svg)
 
@@ -25,7 +25,7 @@ You drop a ticket into your tracker. Agent Smith reads it and derives a specific
 
 Tickets in Azure Boards and code in Azure Repos? That works end to end, no GitHub mirror needed — [the Azure DevOps page](https://agent-smith.org/azure-devops/) says why that matters.
 
-The reasoning lands on disk: the specification under `.agentsmith/specs/`, every choice with the alternative it beat under `.agentsmith/decisions/`, and per run a `result.md` with the delivery account, token usage and dollar cost. Read it six months later when you've forgotten why.
+The reasoning lands on disk: the specification under `.agentsmith/specs/`, every choice with the alternative it beat under `.agentsmith/decisions/`, and per run a `result.md` with the delivery account, token usage and dollar cost. Read it later, when you've forgotten why.
 
 ## What decides that a run delivered
 
@@ -62,7 +62,7 @@ The skills — the masters that drive each pipeline and the rules they follow �
 
 ## Built by the method it teaches
 
-Agent Smith bootstraps an `.agentsmith/` directory into your repo: context, specs, a decision log, a memory of what it learned. That is the product. It is also how this repository got written, over seven months, by me and one language model. The numbers below are the receipts.
+Agent Smith bootstraps an `.agentsmith/` directory into your repo: context, specs, a decision log, a memory of what it learned. That is the product. It is also how this repository got written, by Holger Leichsenring and one language model. The numbers below are the receipts.
 
 |  |  |
 |---|---|
@@ -72,11 +72,11 @@ Agent Smith bootstraps an `.agentsmith/` directory into your repo: context, spec
 | **10,301** | automated tests, gating every single commit |
 | **~750 h** | of human time, roughly 37 minutes per completed spec |
 
-Two things did the actual steering. Ten coding principles turned into [architecture tests](tests/AgentSmith.Tests/Architecture/) that fail a build, and every one of them has a concrete thing that went wrong behind it. Then a [blocking commit hook](.claude/hooks/spec-gate.sh) that lets a spec commit through once the dashboard's build and tests, the backend build, all 10,301 tests, four CLI dry runs and every harness preset come back green. CI would have told me about a break afterwards. The hook stops the commit from existing, and the model has no way to wave itself through.
+Two things did the actual steering. Ten coding principles turned into [architecture tests](tests/AgentSmith.Tests/Architecture/) that fail a build, and every one of them has a concrete thing that went wrong behind it. Then a [blocking commit hook](.claude/hooks/spec-gate.sh) that lets a spec commit through once the dashboard's build and tests, the backend build, all 10,301 tests, four CLI dry runs and every harness preset come back green. CI would have told us about a break afterwards. The hook stops the commit from existing, and the model has no way to wave itself through.
 
-The `principles.md` I built this project under is the same file Agent Smith injects into its own agents at runtime. The methodology and the product turned out to be the same thing.
+The `principles.md` we built this project under is the same file Agent Smith injects into its own agents at runtime. The methodology and the product turned out to be the same thing.
 
-**[The full account, including what didn't work](https://docs.agent-smith.org/how-it-works/built-by-the-method/)**: the skill catalog going from 95 down to 12, the plan generator I retired, the metric that quietly read zero for months, and how every figure above was counted.
+**[The full account, including what didn't work](https://docs.agent-smith.org/how-it-works/built-by-the-method/)**: the skill catalog going from 95 down to 12, the plan generator we retired, the metric that quietly read zero without anyone noticing, and how every figure above was counted.
 
 ## Install
 
@@ -163,7 +163,7 @@ agent-smith code --ticket 54 --project todolist
 
 Same orchestrator, different masters. The [pipeline reference](https://docs.agent-smith.org/reference/pipelines/) has each one.
 
-And two things that took the longest to get right, so I'll name them here: a run doesn't take its own word for being done — every acceptance criterion gets a verdict with evidence from a reader that never saw the work being done. And when a run has a question, it checkpoints and waits — days if needed — without holding a pod. A ticket too thin to work from gets asked, not guessed at. There's also a conversational side ([Work it out](https://docs.agent-smith.org/how-it-works/work-it-out/) in the dashboard, or [Slack and Teams](https://docs.agent-smith.org/how-it-works/spec-dialogue/)): talk the change through, approve the specification, and it files the ticket.
+And two things that took the longest to get right, so we'll name them here: a run doesn't take its own word for being done — every acceptance criterion gets a verdict with evidence from a reader that never saw the work being done. And when a run has a question, it checkpoints and waits — days if needed — without holding a pod. A ticket too thin to work from gets asked, not guessed at. There's also a conversational side ([Work it out](https://docs.agent-smith.org/how-it-works/work-it-out/) in the dashboard, or [Slack and Teams](https://docs.agent-smith.org/how-it-works/spec-dialogue/)): talk the change through, approve the specification, and it files the ticket.
 
 ## Where the docs are
 
@@ -173,6 +173,12 @@ And two things that took the longest to get right, so I'll name them here: a run
 - **[Host it](https://docs.agent-smith.org/host-it/docker-compose/)** — CLI, Docker Compose, Kubernetes with honest capacity quotas.
 - **[How it works](https://docs.agent-smith.org/how-it-works/methodology/)** — the spec-first methodology, the delivery account, Work it out.
 - **[Dashboard](https://docs.agent-smith.org/reference/operations/dashboard/)** — watch runs live: every step, every LLM call with its cost and cached share, a cancel button that means it.
+
+## Who is behind it
+
+Agent Smith is led by its creator, Holger Leichsenring, and shaped by the teams that use it in production. Contributions are welcome, see [CONTRIBUTING.md](CONTRIBUTING.md). Companies that need a contract, an SLA or onboarding work with [45level](https://45level.com), the project's professional-services partner.
+
+How the project is run and who decides what is in [GOVERNANCE.md](GOVERNANCE.md).
 
 ## License
 

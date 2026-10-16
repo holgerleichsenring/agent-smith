@@ -1,10 +1,15 @@
 {
   "title": "Agent Smith",
-  "tagline": "from ticket to PR",
-  "description": "Agent Smith is an open source AI coding agent. You drop a ticket into your tracker, it clones the repo into a sandbox, writes the code, runs the tests, opens the PR, and sets the ticket back to resolved. Every run shows its cost, and every change comes with the reasoning the agent followed.",
+  "tagline": "the agentic software factory",
+  "description": "Agent Smith is the open source agentic software factory: a ticket goes in, becomes a spec, gets built in sandboxes on your infrastructure, has every acceptance criterion verified, and comes out as a pull request. Every run shows its cost.",
+  "url": "https://agent-smith.org",
+  "author": "Holger Leichsenring",
+  "authorUrl": "https://github.com/holgerleichsenring",
+  "image": "https://docs.agent-smith.org/agent-smith-logo-large-green.png",
   "githubRepo": "holgerleichsenring/agent-smith",
   "docsUrl": "https://docs.agent-smith.org",
   "sentinelUrl": "https://sentinel.agent-smith.org",
   "blogUrl": "https://codingsoul.org",
+  "partner": "45level GmbH",
   "partnerUrl": "https://45level.com"
 }

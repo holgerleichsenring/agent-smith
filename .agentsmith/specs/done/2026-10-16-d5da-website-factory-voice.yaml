@@ -1,0 +1,92 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-16-d5da
+goal: "Website, docs and README present Agent Smith as the agentic software factory, a project led by Holger Leichsenring and shaped by its users, 45level as services partner, with discovery tags."
+
+applies_to: "website (layout, landing, Azure DevOps page, site.json, llms.txt, new sitemap and robots templates), docs (index, how-it-works pages, mkdocs.yml, robots.txt), README.md, GOVERNANCE.md, CONTRIBUTING.md"
+
+requires: []
+
+facts:
+  - claim: "The landing page's why-section heading reads 'Why I built it this way', and the built-by section says the repository was written over seven months by me and one language model, with about 750 hours of my time."
+    evidence: "website/src/index.njk:239, website/src/index.njk:275"
+  - claim: "The worked example in chapter 01 has the agent speaking in first person ('I would cut it into three tickets'); that is the product's voice, not the author's."
+    evidence: "website/src/index.njk:71"
+  - claim: "Built by the method is written in the author's first person throughout, including 'by me and one model' and 'One human, one model'."
+    evidence: "docs/how-it-works/built-by-the-method.md:3-16, docs/how-it-works/built-by-the-method.md:29-30, docs/how-it-works/built-by-the-method.md:218-257"
+  - claim: "docs/index.md, delivery-account.md, methodology.md, multi-repo.md, repos-multi.md and templates.md each open with an author's 'I'; README.md says 'I built it because' and 'by me and one language model'."
+    evidence: "docs/index.md:41, docs/how-it-works/delivery-account.md:5, docs/how-it-works/methodology.md:3, docs/how-it-works/multi-repo.md:3, docs/connect-your-stuff/repos-multi.md:3, docs/configure-it/templates.md:3, README.md:18, README.md:65"
+  - claim: "'this is how I understood the ticket' in expectations.md and lifecycle.md is the comment the run posts, the product's voice."
+    evidence: "docs/how-it-works/expectations.md:9, docs/how-it-works/lifecycle.md:15"
+  - claim: "site.json already names 45level's site as partnerUrl https://45level.com; the footer reads (c) 2026 Holger Leichsenring (45level GmbH)."
+    evidence: "website/src/_data/site.json:9, website/src/_includes/layouts/base.njk:34"
+  - claim: "The layout emits a title and a meta description only: no canonical link, no Open Graph or Twitter tags, no structured data."
+    evidence: "website/src/_includes/layouts/base.njk:1-12"
+  - claim: "The website has no sitemap.xml and no robots.txt; Eleventy renders only njk templates, and llms.txt.njk renders /llms.txt from site.json."
+    evidence: "website/eleventy.config.js:14, website/src/llms.txt.njk:1-4"
+  - claim: "vercel.json sets cleanUrls and trailingSlash false and has no rewrites, so a .txt or .xml output is served as written."
+    evidence: "website/vercel.json:1-6"
+  - claim: "mkdocs.yml sets site_url, so mkdocs-material writes sitemap.xml and canonical links; its site_description reads 'Open source AI coding agent — technical documentation' and docs_dir is the docs folder itself, so a docs/robots.txt is copied to the site root."
+    evidence: "docs/mkdocs.yml:1-6"
+  - claim: "CI builds the docs with mkdocs build --strict."
+    evidence: ".github/workflows/docs.yml:38"
+
+assumptions:
+  - "The website's host is https://agent-smith.org, as llms.txt and README.md already link it."
+  - "Holger Leichsenring wrote this repository with one language model and holds the copyright (LICENSE:3); 2,881 of the commits come from a single human author (built-by-the-method.md:282-283). 45level GmbH offers services and maintenance contracts and neither built nor owns it (operator, 2026-10-16)."
+
+scope:
+  in: >
+    VOICE: every author-voice first person on the website (index.njk, azure-devops.njk), in the docs (index,
+    built-by-the-method, delivery-account, methodology, multi-repo, repos-multi, templates) and README.md becomes
+    'we' (the maintainer and the model, never a company); a sentence counting people says Holger Leichsenring and one
+    language model on the Built by the method page and chapter. PROJECT: Agent Smith is a project; Holger Leichsenring
+    created it, leads it and owns its direction and copyright; the teams running it in production shape it and
+    engineers from them start to contribute; 'we' is the project. A 'Who builds Agent Smith' section on the landing
+    page, a 'Who is behind it' section in the README and the docs index, the footer and llms.txt say so; 45level
+    appears only as the professional-services partner. No customer or user organisation is named. GOVERNANCE.md
+    (lead, maintainers, decisions, services partner) and CONTRIBUTING.md (spec first, spec gate, spec/{id} branches,
+    English, Developer Certificate of Origin, MIT) are drafted at the root and linked. MONTHS: no statement of elapsed time in months ('over seven months', 'six
+    months later', 'for months'); dated ranges stay. The product's own
+    first person (example dialogues, the posted 'this is how I understood the ticket', FAQ questions in the reader's
+    voice) stays.
+    POSITIONING: Agent Smith — the agentic software factory (ticket, spec, verified pull request) in the landing title,
+    meta description, eyebrow, lede and one h2-adjacent intro; Open Graph and Twitter tags; site.json description;
+    mkdocs site_description and the docs index heading and intro; README tagline.
+    DISCOVERY: canonical link per page, JSON-LD (SoftwareApplication with a Person as author, creator, maintainer and
+    copyright holder; 45level only as a ProfessionalService on /services/), /sitemap.xml
+    and /robots.txt rendered by Eleventy (robots names the sitemap and allows AI crawlers); docs/robots.txt naming the
+    mkdocs sitemap; cross-links website, docs and README; llms.txt carries the positioning, the maintainer and 45level's services.
+  out: >
+    The landing h1 'Work item in. Pull request out.' — the operator's iterated headline with its own animation; the
+    eyebrow directly above it carries the phrase. llms-full.txt — the docs are a separate mkdocs site and
+    concatenating them into the website build would be a second copy that drifts. Anything outside the repository
+    (Search Console, GitHub repo description and topics, backlinks): listed in the report. A contributor license
+    agreement — the operator's separate decision; CONTRIBUTING.md asks for a DCO sign-off only. A JSON-LD contributor —
+    it cannot name anyone truthfully yet.
+
+decisions:
+  - key: "A PROJECT, NOT A SINGLE AUTHOR AND NOT A COMPANY. Holger Leichsenring created and leads it and owns its direction; production teams shape it; we is the project; 45level GmbH is the services partner and no sentence makes it the maker."
+  - key: "NO ELAPSED TIME IN MONTHS. A month count goes stale the day after it is written; a dated range (18 Feb to 15 Oct 2026) stays true."
+  - key: "CANONICAL WITHOUT A TRAILING SLASH. vercel.json sets trailingSlash false, so /services/ redirects to /services; the canonical names the URL that answers."
+
+steps:
+  - id: voice
+    action: "Rewrite the author-voice sentences on the website, in the docs and README.md to we; name Holger Leichsenring as creator and maintainer; remove month counts."
+  - id: positioning
+    action: "site.json description and url; landing title, eyebrow, lede; mkdocs site_description, social and copyright; docs index heading and intro; README tagline and website link."
+  - id: discovery
+    action: "base.njk: canonical, Open Graph, Twitter, JSON-LD; sitemap.xml.njk, robots.txt.njk; docs/robots.txt; llms.txt.njk."
+  - id: verify
+    action: "npm run build in website (tokens, eleventy, link check); read _site/llms.txt, sitemap.xml, robots.txt; mkdocs build --strict when mkdocs is available."
+
+tests:
+  - "npm run build in website succeeds, link check included, and writes _site/llms.txt, _site/sitemap.xml and _site/robots.txt."
+
+done:
+  - "No author-voice I, me or my remains on the website, in the docs or in README.md; the product's own first person is untouched."
+  - "The landing title and meta description name Agent Smith as the agentic software factory; every page has a canonical link, Open Graph and Twitter tags and JSON-LD naming Holger Leichsenring as author, creator, maintainer and copyright holder; 45level is never publisher or owner."
+  - "/sitemap.xml lists every page, /robots.txt names it and allows AI crawlers, /llms.txt carries the positioning, the maintainer and 45level as service provider."
+  - "No statement of elapsed time in months remains on the website, in the docs, in README.md or in llms.txt."
+  - "The landing page has a Who builds Agent Smith section, the footer reads Agent Smith · an open source project led by Holger Leichsenring · professional services by 45level · MIT License, and README and docs index carry Who is behind it."
+  - "GOVERNANCE.md and CONTRIBUTING.md exist at the root, linked from README, docs index and llms.txt; CONTRIBUTING.md requires a DCO Signed-off-by line and names the MIT license."
+  - "Website build green; build green, full suite green, dashboard gen/test/build green."

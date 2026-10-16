@@ -1,0 +1,86 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-16-d5da
+
+decisions:
+  - category: Scope
+    chose: "Holger Leichsenring is the author: creator, maintainer and copyright holder, named in the README, the footer, the why section, the docs index and llms.txt; 45level GmbH is the service provider only (professional services, support, maintenance contracts)"
+    over: "The first cut of this spec, which named 45level as the company that built and backed Agent Smith (we = 45level, 'by one developer at 45level', JSON-LD publisher Organization 45level)"
+    reason: |
+      Operator correction, 2026-10-16: 45level did not build Agent Smith, and the copyright and every right belong
+      to Holger Leichsenring (LICENSE:3). An author and a service provider are different roles; a page that lets
+      the second read as the first misstates ownership. JSON-LD carries the Person as author, creator, maintainer
+      and copyrightHolder with no publisher; 45level appears only as a ProfessionalService on /services/.
+  - category: Scope
+    chose: "Project framing: Agent Smith is a project Holger Leichsenring created, leads and owns the direction of; the teams running it in production shape it and engineers from them start to contribute; 'we' is the project; 45level is the professional-services partner"
+    over: "The single-author framing of the second cut ('created and maintained by Holger Leichsenring', we = maintainer plus model)"
+    reason: |
+      Operator-approved copy, 2026-10-16. A single-author page undersells what users already contribute (their
+      tickets, failed runs and review comments become the next specs) and invites no one in. Ownership does not
+      change: the JSON-LD Person stays author, creator, maintainer and copyrightHolder, and no JSON-LD contributor is
+      added because none can be named truthfully yet. No customer or user organisation is named anywhere.
+  - category: Scope
+    chose: "CONTRIBUTING.md asks for a Developer Certificate of Origin sign-off (git commit -s) and states that contributions are accepted under the MIT license"
+    over: "Drafting a contributor license agreement now"
+    reason: |
+      A DCO certifies origin with no paperwork and fits an MIT project. Whether contributions should also grant
+      rights beyond MIT, through a contributor license agreement, is the operator's separate decision and is not
+      taken here; that agreement, if wanted, is its own follow-up spec.
+  - category: TradeOff
+    chose: "The authorship sentence 'by Holger Leichsenring and one language model' stays only inside the Built by the method chapter and page; the landing page's why section loses it to a Who builds Agent Smith section"
+    over: "Keeping it next to the why heading, where it would compete with the project framing"
+    reason: |
+      It tells how the code got written, which is true and belongs to that chapter; who builds the project is a
+      different question with a different answer.
+  - category: TradeOff
+    chose: "'We' is the narrative voice of the maintainer and the model; every sentence that counts people says Holger Leichsenring and one language model, and no 'we' stands next to 45level"
+    over: "A blanket I-to-we replacement, which turns 'by me and one language model' into a claim about a team or a company"
+    reason: |
+      The figures on the website, in the README and in Built by the method are counted from 2,881 commits by a
+      single human author. The voice must not make them false.
+  - category: Scope
+    chose: "No statement of elapsed time in months: 'over seven months', 'six months later', 'for months' and 'the first six months' are rewritten; dated ranges (18 Feb to 15 Oct 2026) and the point-in-time figures stay"
+    over: "Keeping 'written over seven months', which the first cut of this spec carried over from the existing copy"
+    reason: |
+      Operator correction, 2026-10-16: a month count goes stale the day after it is written. A dated range stays
+      true. The figures (1,229 specs, 10,301 tests, 750 h …) remain for the operator to decide; on the website and
+      in the README they no longer carry a date of their own, only Built by the method dates them.
+  - category: TradeOff
+    chose: "The product's own first person stays: the agent in the Work it out example, the posted 'this is how I understood the ticket', FAQ questions in the reader's voice"
+    over: "Sweeping every 'I' in the docs"
+    reason: |
+      Those sentences quote what the software says or what a reader asks; changing them would misdescribe the product.
+  - category: TradeOff
+    chose: "Keep the landing h1 'Work item in. Pull request out.'; the eyebrow directly above it, the title, the meta description, the lede and the why-section intro carry 'agentic software factory'"
+    over: "Rewriting the h1 around the search phrase"
+    reason: |
+      The headline came out of nine operator iterations and main.js animates its three leaves. The phrase sits in
+      the elements a search engine weighs most besides it, without hidden text or repetition.
+  - category: Architecture
+    chose: "Canonical, sitemap and og:url without a trailing slash, through one Eleventy filter"
+    over: "page.url as Eleventy writes it (/services/)"
+    reason: |
+      vercel.json sets trailingSlash false, so /services/ redirects to /services. A canonical that redirects is
+      a signal search engines discard.
+  - category: TradeOff
+    chose: "No lastmod in sitemap.xml"
+    over: "Eleventy's page date"
+    reason: |
+      On a fresh build the page date is the file's creation time, so every lastmod would read as the deploy day,
+      which is false.
+  - category: TradeOff
+    chose: "Open Graph image points at the logo the docs site already serves"
+    over: "Copying a 2.3 MB PNG into the website, or drawing a new social card"
+    reason: |
+      No social card exists; the docs logo is published, near the 1.91:1 ratio, and adds nothing to the repository.
+      A dedicated card is an operator design call.
+  - category: TradeOff
+    chose: "No llms-full.txt"
+    over: "Concatenating the docs into the website build"
+    reason: |
+      The docs are a separate mkdocs site; a concatenated copy in the website build drifts from them on every docs
+      change, and llms.txt already links every page an LLM should read first.
+  - category: Architecture
+    chose: "robots.txt allows every crawler and names the AI crawlers explicitly; docs get their own robots.txt naming mkdocs' sitemap"
+    over: "A single wildcard rule"
+    reason: |
+      The wildcard already allows them; the named entries keep that visible if a disallow is ever added for '*'.

@@ -4,6 +4,9 @@ export default function (eleventyConfig) {
   // Add custom filter for pad
   eleventyConfig.addFilter("pad", (num, size) => String(num).padStart(size || 2, "0"));
 
+  // vercel.json sets trailingSlash false: /services/ answers at /services, so that is the canonical path.
+  eleventyConfig.addFilter("canonicalPath", (url) => (url === "/" ? "/" : String(url).replace(/\/$/, "")));
+
   return {
     dir: {
       input: "src",

@@ -1,16 +1,18 @@
 ---
 layout: layouts/base.njk
+title: "Agent Smith — the agentic software factory"
+description: "Agent Smith is the open source agentic software factory: ticket in, spec derived, built in sandboxes on your infrastructure, verified pull request out."
 ---
 <header class="hero" id="top">
   <canvas id="rain" class="rain" aria-hidden="true"></canvas>
   <div class="wrap">
-    <div class="eyebrow"><b aria-hidden="true">●</b> Software automation factory · Built for <b>your current dev stack</b></div>
+    <div class="eyebrow"><b aria-hidden="true">●</b> Agentic software factory · Built for <b>your current dev stack</b></div>
     <h1><span class="ln"><span class="w1">Work item in.</span></span><span class="ln"><span><span class="out">Pull request</span> <span class="w3">out.</span></span></span></h1>
     <p class="typed" id="typed" data-lines="Right inside Azure Boards and Azure Repos.|Also for GitHub, Jira and GitLab.|On your infrastructure, with your model."><span id="typed-text">Right inside Azure Boards and Azure Repos.</span><span class="caret" aria-hidden="true"></span></p>
 
     <div class="hero-row">
       <div>
-        <p class="lede">Talk a change through with an agent that reads your code. Approve it, and Agent Smith files the tickets, builds each one in sandboxes on <strong>your</strong> infrastructure, checks every acceptance criterion and opens the pull requests. It works with <strong>GitHub, Jira and GitLab</strong> too.</p>
+        <p class="lede">Agent Smith is an agentic software factory: ticket in, spec, verified pull request out. Talk a change through with an agent that reads your code. Approve it, and Agent Smith files the tickets, builds each one in sandboxes on <strong>your</strong> infrastructure, checks every acceptance criterion and opens the pull requests. It works with <strong>GitHub, Jira and GitLab</strong> too.</p>
         <div class="cta-row">
           <a class="btn btn-go" href="{{ site.docsUrl }}/get-it-running/install/">Get started</a>
           <a class="btn btn-ghost" href="/azure-devops/">See it on Azure DevOps</a>
@@ -95,7 +97,7 @@ layout: layouts/base.njk
       <div class="ch-head">
         <div class="num" aria-hidden="true">02</div>
         <h2>One ticket, <em>every</em> repo, one pull request each</h2>
-        <p>The approved ticket becomes a series of specs. Fresh reviewers check each spec before anything is built. Then every repository gets its own sandbox with its own toolchain, and every acceptance criterion is checked against evidence before a pull request is marked ready for review.</p>
+        <p>This is the factory floor. The approved ticket becomes a series of specs. Fresh reviewers check each spec before anything is built. Then every repository gets its own sandbox with its own toolchain, and every acceptance criterion is checked against evidence before a pull request is marked ready for review.</p>
       </div>
 
       {% include "partials/lifecycle-stage.njk" %}
@@ -236,7 +238,8 @@ layout: layouts/base.njk
     <div class="wrap">
       <div class="ch-head">
         <div class="num" aria-hidden="true">✶</div>
-        <h2>Why I built it <em>this way</em></h2>
+        <h2>Why we built it <em>this way</em></h2>
+        <p>These are the choices behind the software factory, and the reasons for each.</p>
       </div>
       <div class="prose-grid">
         <div>
@@ -249,7 +252,7 @@ layout: layouts/base.njk
         </div>
         <div>
           <h3>The why gets written down.</h3>
-          <p>Great developers write great code. They even write documentation. But I have never seen <a href="https://codingsoul.org/2026/04/11/the-why-never-gets-written-down/">the why being documented</a>. Agent Smith writes the specification it worked from next to the code and keeps a decision log in <code class="c">.agentsmith/decisions/</code>, each entry naming what it chose and why, so the reasoning stays available over the complete lifecycle of the program.</p>
+          <p>Great developers write great code. They even write documentation. But we have never seen <a href="https://codingsoul.org/2026/04/11/the-why-never-gets-written-down/">the why being documented</a>. Agent Smith writes the specification it worked from next to the code and keeps a decision log in <code class="c">.agentsmith/decisions/</code>, each entry naming what it chose and why, so the reasoning stays available over the complete lifecycle of the program.</p>
         </div>
         <div>
           <h3>You approve the spec, not a wall of diff.</h3>
@@ -267,12 +270,22 @@ layout: layouts/base.njk
     </div>
   </section>
 
+  <section class="prose" id="who">
+    <div class="wrap">
+      <div class="ch-head">
+        <div class="num" aria-hidden="true">✶</div>
+        <h2>Who builds <em>Agent Smith</em></h2>
+        <p>Agent Smith was created by {{ site.author }}, who leads the project and owns its direction. It is shaped by the teams that run it in production: their tickets, failed runs and review comments turn into the next specs, which is why most of what Agent Smith does today exists. Engineers from those teams are starting to contribute directly. Professional services, onboarding and maintenance contracts come from <a href="{{ site.partnerUrl }}">45level</a>, which works with the project.</p>
+      </div>
+    </div>
+  </section>
+
   <section class="prose" id="built">
     <div class="wrap">
       <div class="ch-head">
         <div class="num" aria-hidden="true">✶</div>
         <h2>Built by the method <em>it teaches</em></h2>
-        <p>Agent Smith bootstraps an <code class="c">.agentsmith/</code> directory into your repo: context, specs, a decision log, a memory of what it learned. That is the product, and it is also how this repository got written, over seven months, by me and one language model. About 750 hours of my time went in, roughly 37 minutes per completed spec.</p>
+        <p>Agent Smith bootstraps an <code class="c">.agentsmith/</code> directory into your repo: context, specs, a decision log, a memory of what it learned. That is the product, and it is also how this repository got written, by Holger Leichsenring and one language model. About 750 hours of human time went in, roughly 37 minutes per completed spec.</p>
       </div>
       <div class="figures">
         <div><b>1,229</b>completed specs</div>
@@ -287,11 +300,11 @@ layout: layouts/base.njk
         </div>
         <div>
           <h3>The model has no way to wave itself through</h3>
-          <p>A blocking commit hook lets a spec commit through once the dashboard's build and tests, the backend build, all 10,301 tests, four CLI dry runs and every pipeline harness preset come back green. CI would have told me about a break afterwards. The hook stops the commit from existing. And the <code class="c">principles.md</code> I built this project under is the same file Agent Smith injects into its own agents at runtime.</p>
+          <p>A blocking commit hook lets a spec commit through once the dashboard's build and tests, the backend build, all 10,301 tests, four CLI dry runs and every pipeline harness preset come back green. CI would have told us about a break afterwards. The hook stops the commit from existing. And the <code class="c">principles.md</code> we built this project under is the same file Agent Smith injects into its own agents at runtime.</p>
         </div>
         <div>
           <h3>Including what didn't work</h3>
-          <p>The skill catalog grew to 95 role definitions and then dropped to 12 in one breaking release, because stronger models did better with <code class="c">bash</code> and a clear goal than with narrow toolsets. The plan generator got retired after evaluations caught it truncating every multi repo plan. A cached token metric read zero for months while the caching underneath it worked fine. <a href="{{ site.docsUrl }}/how-it-works/built-by-the-method/">The full account is in the docs</a>, along with how every figure here was counted.</p>
+          <p>The skill catalog grew to 95 role definitions and then dropped to 12 in one breaking release, because stronger models did better with <code class="c">bash</code> and a clear goal than with narrow toolsets. The plan generator got retired after evaluations caught it truncating every multi repo plan. A cached token metric read zero for a long stretch while the caching underneath it worked fine. <a href="{{ site.docsUrl }}/how-it-works/built-by-the-method/">The full account is in the docs</a>, along with how every figure here was counted.</p>
         </div>
       </div>
     </div>
