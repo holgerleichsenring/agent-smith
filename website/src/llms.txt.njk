@@ -2,19 +2,22 @@
 permalink: /llms.txt
 eleventyExcludeFromCollections: true
 ---
-# {{ site.title }}
+# {{ site.title }}: {{ site.tagline }}
 
 > {{ site.description }}
+
+The chain is ticket → spec → verified pull request, with the spec and every decision recorded in the repository next to the code. Agent Smith is an open source project led by its creator, {{ site.author }}, who owns its direction and its copyright, and shaped by the teams that use it in production. Contributions are welcome (https://github.com/{{ site.githubRepo }}/blob/main/CONTRIBUTING.md). Companies that need a contract, an SLA or onboarding work with 45level ({{ site.partnerUrl }}), the project's professional-services partner.
 
 Agent Smith is MIT licensed and runs on your own infrastructure. It reads tickets from Azure DevOps, Jira, GitHub Issues and GitLab Issues, works in Azure Repos, GitHub and GitLab repositories, and calls the AI provider you configure. A run derives specs from the ticket, implements them in sandboxes, checks every acceptance criterion with cited evidence, and opens one pull request per repository.
 
 ## Start here
 
-- [Website](https://agent-smith.org/): what Agent Smith does, from work item to pull request
-- [Agent Smith on Azure DevOps](https://agent-smith.org/azure-devops/): Azure Boards in, Azure Repos out, without a GitHub mirror
+- [Website]({{ site.url }}/): the agentic software factory, from work item to pull request
+- [Agent Smith on Azure DevOps]({{ site.url }}/azure-devops): Azure Boards in, Azure Repos out, without a GitHub mirror
+- [Documentation]({{ site.docsUrl }}/): orientation, install, configuration and reference
 - [Install]({{ site.docsUrl }}/get-it-running/install/): get the server and dashboard running
 - [First run]({{ site.docsUrl }}/get-it-running/first-run/): one ticket end to end
-- [Services](https://agent-smith.org/services/): professional services and maintenance contracts, offered through 45level GmbH
+- [Services]({{ site.url }}/services): professional services and maintenance contracts, offered through {{ site.partner }}
 - [Source code](https://github.com/{{ site.githubRepo }}): the repository, releases and issues
 
 ## How it works
@@ -44,5 +47,7 @@ Agent Smith is MIT licensed and runs on your own infrastructure. It reads ticket
 
 ## Optional
 
-- [Built by the method it teaches]({{ site.docsUrl }}/how-it-works/built-by-the-method/): how this repository itself was built
+- [Built by the method it teaches]({{ site.docsUrl }}/how-it-works/built-by-the-method/): how this repository itself was built, by {{ site.author }} and one language model
+- [Governance](https://github.com/{{ site.githubRepo }}/blob/main/GOVERNANCE.md): who leads the project and how decisions are made
+- [Contributing](https://github.com/{{ site.githubRepo }}/blob/main/CONTRIBUTING.md): the spec-first workflow, the spec gate and the sign-off
 - [Blog]({{ site.blogUrl }}): background and design essays

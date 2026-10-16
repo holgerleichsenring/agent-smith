@@ -4,10 +4,87 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <meta name="color-scheme" content="dark">
-<title>{{ title or (site.title + " — " + site.tagline) }}</title>
-<meta name="description" content="{{ description or site.description }}">
+{%- set pageTitle = title or (site.title + " — " + site.tagline) -%}
+{%- set pageDescription = description or site.description -%}
+{%- set pageUrl = site.url + (page.url | canonicalPath) -%}
+<title>{{ pageTitle }}</title>
+<meta name="description" content="{{ pageDescription }}">
+<link rel="canonical" href="{{ pageUrl }}">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="/styles.css">
+<link rel="alternate" type="text/plain" href="/llms.txt" title="llms.txt">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="{{ site.title }}">
+<meta property="og:title" content="{{ pageTitle }}">
+<meta property="og:description" content="{{ pageDescription }}">
+<meta property="og:url" content="{{ pageUrl }}">
+<meta property="og:image" content="{{ site.image }}">
+<meta property="og:image:alt" content="Agent Smith, the agentic software factory">
+<meta property="og:locale" content="en_US">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="{{ pageTitle }}">
+<meta name="twitter:description" content="{{ pageDescription }}">
+<meta name="twitter:image" content="{{ site.image }}">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Person",
+      "@id": "{{ site.url }}/#author",
+      "name": {{ site.author | dump | safe }},
+      "url": "{{ site.authorUrl }}",
+      "sameAs": ["{{ site.authorUrl }}", "{{ site.blogUrl }}"]
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "{{ site.url }}/#software",
+      "name": {{ site.title | dump | safe }},
+      "alternateName": "Agent Smith agentic software factory",
+      "description": {{ site.description | dump | safe }},
+      "url": "{{ site.url }}/",
+      "applicationCategory": "DeveloperApplication",
+      "operatingSystem": "Cross-platform (.NET 8), Docker, Kubernetes",
+      "license": "https://opensource.org/licenses/MIT",
+      "isAccessibleForFree": true,
+      "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+      "codeRepository": "https://github.com/{{ site.githubRepo }}",
+      "softwareHelp": "{{ site.docsUrl }}/",
+      "image": "{{ site.image }}",
+      "author": { "@id": "{{ site.url }}/#author" },
+      "creator": { "@id": "{{ site.url }}/#author" },
+      "maintainer": { "@id": "{{ site.url }}/#author" },
+      "copyrightHolder": { "@id": "{{ site.url }}/#author" },
+      "copyrightYear": 2026
+    },
+    {
+      "@type": "WebSite",
+      "@id": "{{ site.url }}/#website",
+      "name": {{ site.title | dump | safe }},
+      "url": "{{ site.url }}/",
+      "author": { "@id": "{{ site.url }}/#author" }
+    }
+    {%- if servicesProvider %},
+    {
+      "@type": "ProfessionalService",
+      "@id": "{{ site.partnerUrl }}/#services",
+      "name": {{ site.partner | dump | safe }},
+      "url": "{{ site.partnerUrl }}",
+      "description": "Professional services, support and maintenance contracts for Agent Smith.",
+      "areaServed": "Worldwide",
+      "makesOffer": {
+        "@type": "Offer",
+        "itemOffered": {
+          "@type": "Service",
+          "name": "Agent Smith professional services and maintenance contracts",
+          "about": { "@id": "{{ site.url }}/#software" }
+        }
+      }
+    }
+    {%- endif %}
+  ]
+}
+</script>
 </head>
 <body>
 
@@ -31,14 +108,12 @@
 
 <footer class="footer">
   <div class="wrap">
-    <span>agent-smith · MIT License · © 2026 Holger Leichsenring (45level GmbH)</span>
+    <span>Agent Smith · an open source project led by {{ site.author }} · <a href="{{ site.partnerUrl }}">professional services by 45level</a> · MIT License · © 2026 {{ site.author }}</span>
     <span class="footer-links">
       <a href="{{ site.docsUrl }}">Docs</a>
       <a href="{{ site.sentinelUrl }}">Sentinel</a>
       <a href="https://github.com/{{ site.githubRepo }}">GitHub</a>
-      <a href="{{ site.blogUrl }}">Blog</a>
-      <a href="{{ site.partnerUrl }}">45level</a>
-    </span>
+      <a href="{{ site.blogUrl }}">Blog</a>    </span>
   </div>
 </footer>
 

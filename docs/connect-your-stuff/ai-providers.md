@@ -260,7 +260,7 @@ projects:
 
 ## Cost transparency
 
-Whichever provider you pick, every run records token usage and dollar cost (from the bundled price list or your `pricing` rows) into `.agentsmith/runs/{run-id}/result.md`. Six months later you can answer "what did the auth refactor actually cost?" without guessing. See [Cost tracking](../reference/concepts/cost-tracking.md) in Reference for the detail of what gets recorded.
+Whichever provider you pick, every run records token usage and dollar cost (from the bundled price list or your `pricing` rows) into `.agentsmith/runs/{run-id}/result.md`. Long after the run you can answer "what did the auth refactor actually cost?" without guessing. See [Cost tracking](../reference/concepts/cost-tracking.md) in Reference for the detail of what gets recorded.
 
 ## Recording what the model was told
 

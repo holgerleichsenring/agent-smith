@@ -1,6 +1,6 @@
 # Repos: multi-repo
 
-One product, multiple repos. One ticket, one run, multiple pull requests. This is what made me build Agent Smith the way it is — most real products I've worked on span two or three repos and a "fix the auth flow" ticket touches all of them.
+One product, multiple repos. One ticket, one run, multiple pull requests. This is what made us build Agent Smith the way it is — most real products we've worked on span two or three repos and a "fix the auth flow" ticket touches all of them.
 
 ## What multi-repo means here
 

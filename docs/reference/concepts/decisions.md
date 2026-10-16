@@ -57,7 +57,7 @@ The run's `result.md` includes a Decisions section grouped by category:
 
 ## Why this matters
 
-When the agent's code breaks six months later, you need to know what it was thinking. Was the decision a shortcut that should be revisited? Or a deliberate trade-off with good reasoning?
+When the agent's code breaks later, you need to know what it was thinking. Was the decision a shortcut that should be revisited? Or a deliberate trade-off with good reasoning?
 
 Decisions turn AI-generated code from a black box into something a team can maintain.
 

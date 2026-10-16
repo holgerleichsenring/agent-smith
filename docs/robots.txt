@@ -1,0 +1,5 @@
+# Every crawler is welcome, search engines and AI assistants alike.
+User-agent: *
+Allow: /
+
+Sitemap: https://docs.agent-smith.org/sitemap.xml
