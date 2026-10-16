@@ -10,6 +10,27 @@ decisions:
       to Holger Leichsenring (LICENSE:3). An author and a service provider are different roles; a page that lets
       the second read as the first misstates ownership. JSON-LD carries the Person as author, creator, maintainer
       and copyrightHolder with no publisher; 45level appears only as a ProfessionalService on /services/.
+  - category: Scope
+    chose: "Project framing: Agent Smith is a project Holger Leichsenring created, leads and owns the direction of; the teams running it in production shape it and engineers from them start to contribute; 'we' is the project; 45level is the professional-services partner"
+    over: "The single-author framing of the second cut ('created and maintained by Holger Leichsenring', we = maintainer plus model)"
+    reason: |
+      Operator-approved copy, 2026-10-16. A single-author page undersells what users already contribute (their
+      tickets, failed runs and review comments become the next specs) and invites no one in. Ownership does not
+      change: the JSON-LD Person stays author, creator, maintainer and copyrightHolder, and no JSON-LD contributor is
+      added because none can be named truthfully yet. No customer or user organisation is named anywhere.
+  - category: Scope
+    chose: "CONTRIBUTING.md asks for a Developer Certificate of Origin sign-off (git commit -s) and states that contributions are accepted under the MIT license"
+    over: "Drafting a contributor license agreement now"
+    reason: |
+      A DCO certifies origin with no paperwork and fits an MIT project. Whether contributions should also grant
+      rights beyond MIT, through a contributor license agreement, is the operator's separate decision and is not
+      taken here; that agreement, if wanted, is its own follow-up spec.
+  - category: TradeOff
+    chose: "The authorship sentence 'by Holger Leichsenring and one language model' stays only inside the Built by the method chapter and page; the landing page's why section loses it to a Who builds Agent Smith section"
+    over: "Keeping it next to the why heading, where it would compete with the project framing"
+    reason: |
+      It tells how the code got written, which is true and belongs to that chapter; who builds the project is a
+      different question with a different answer.
   - category: TradeOff
     chose: "'We' is the narrative voice of the maintainer and the model; every sentence that counts people says Holger Leichsenring and one language model, and no 'we' stands next to 45level"
     over: "A blanket I-to-we replacement, which turns 'by me and one language model' into a claim about a team or a company"

@@ -13,7 +13,7 @@
 
 ---
 
-Agent Smith is an open source agentic software factory, created and maintained by Holger Leichsenring. You drop a ticket into your tracker; it becomes a spec, the spec gets built in sandboxes and verified criterion by criterion, and a pull request shows up on your repo, with the ticket already updated to point at it. That's the whole loop.
+Agent Smith is an open source agentic software factory, a project led by its creator, Holger Leichsenring. You drop a ticket into your tracker; it becomes a spec, the spec gets built in sandboxes and verified criterion by criterion, and a pull request shows up on your repo, with the ticket already updated to point at it. That's the whole loop.
 
 We built it because most AI coding tools stop at a suggestion in your editor and call it a day. We wanted to close the loop — actual PR, in the actual repo, the ticket actually moved to resolved. Plus a paper trail so that long after the fact we can answer "why did we pick path A over B in this fix" without guessing.
 
@@ -174,10 +174,14 @@ And two things that took the longest to get right, so we'll name them here: a ru
 - **[How it works](https://docs.agent-smith.org/how-it-works/methodology/)** — the spec-first methodology, the delivery account, Work it out.
 - **[Dashboard](https://docs.agent-smith.org/reference/operations/dashboard/)** — watch runs live: every step, every LLM call with its cost and cached share, a cancel button that means it.
 
+## Who is behind it
+
+Agent Smith is led by its creator, Holger Leichsenring, and shaped by the teams that use it in production. Contributions are welcome, see [CONTRIBUTING.md](CONTRIBUTING.md). Companies that need a contract, an SLA or onboarding work with [45level](https://45level.com), the project's professional-services partner.
+
+How the project is run and who decides what is in [GOVERNANCE.md](GOVERNANCE.md).
+
 ## License
 
 MIT. Copyright (c) 2026 Holger Leichsenring.
-
-Agent Smith is created and maintained by Holger Leichsenring. Professional services, support and maintenance contracts are available from [45level GmbH](https://45level.com); see [services](https://agent-smith.org/services).
 
 If you find Agent Smith useful, [say hi on the blog](https://codingsoul.org) or [drop an issue](https://github.com/holgerleichsenring/agent-smith/issues).

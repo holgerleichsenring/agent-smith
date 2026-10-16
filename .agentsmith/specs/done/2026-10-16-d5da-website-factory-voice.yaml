@@ -1,8 +1,8 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-16-d5da
-goal: "Website, docs and README name Holger Leichsenring as creator and maintainer, 45level as service provider, say we, and position Agent Smith as the agentic software factory with discovery tags."
+goal: "Website, docs and README present Agent Smith as the agentic software factory, a project led by Holger Leichsenring and shaped by its users, 45level as services partner, with discovery tags."
 
-applies_to: "website (layout, landing, Azure DevOps page, site.json, llms.txt, new sitemap and robots templates), docs (index, how-it-works pages, mkdocs.yml, robots.txt), README.md"
+applies_to: "website (layout, landing, Azure DevOps page, site.json, llms.txt, new sitemap and robots templates), docs (index, how-it-works pages, mkdocs.yml, robots.txt), README.md, GOVERNANCE.md, CONTRIBUTING.md"
 
 requires: []
 
@@ -39,9 +39,13 @@ scope:
     VOICE: every author-voice first person on the website (index.njk, azure-devops.njk), in the docs (index,
     built-by-the-method, delivery-account, methodology, multi-repo, repos-multi, templates) and README.md becomes
     'we' (the maintainer and the model, never a company); a sentence counting people says Holger Leichsenring and one
-    language model. AUTHORSHIP: Holger Leichsenring is named as creator, maintainer and copyright holder in the README,
-    the footer, the why section, the docs index and llms.txt; 45level appears only as the provider of professional
-    services and maintenance contracts. MONTHS: no statement of elapsed time in months ('over seven months', 'six
+    language model on the Built by the method page and chapter. PROJECT: Agent Smith is a project; Holger Leichsenring
+    created it, leads it and owns its direction and copyright; the teams running it in production shape it and
+    engineers from them start to contribute; 'we' is the project. A 'Who builds Agent Smith' section on the landing
+    page, a 'Who is behind it' section in the README and the docs index, the footer and llms.txt say so; 45level
+    appears only as the professional-services partner. No customer or user organisation is named. GOVERNANCE.md
+    (lead, maintainers, decisions, services partner) and CONTRIBUTING.md (spec first, spec gate, spec/{id} branches,
+    English, Developer Certificate of Origin, MIT) are drafted at the root and linked. MONTHS: no statement of elapsed time in months ('over seven months', 'six
     months later', 'for months'); dated ranges stay. The product's own
     first person (example dialogues, the posted 'this is how I understood the ticket', FAQ questions in the reader's
     voice) stays.
@@ -56,10 +60,12 @@ scope:
     The landing h1 'Work item in. Pull request out.' — the operator's iterated headline with its own animation; the
     eyebrow directly above it carries the phrase. llms-full.txt — the docs are a separate mkdocs site and
     concatenating them into the website build would be a second copy that drifts. Anything outside the repository
-    (Search Console, GitHub repo description and topics, backlinks): listed in the report.
+    (Search Console, GitHub repo description and topics, backlinks): listed in the report. A contributor license
+    agreement — the operator's separate decision; CONTRIBUTING.md asks for a DCO sign-off only. A JSON-LD contributor —
+    it cannot name anyone truthfully yet.
 
 decisions:
-  - key: "WE IS THE MAINTAINER AND THE MODEL, NOT A COMPANY. Holger Leichsenring created, maintains and owns Agent Smith; 45level GmbH provides services and maintenance contracts. No sentence puts we next to 45level."
+  - key: "A PROJECT, NOT A SINGLE AUTHOR AND NOT A COMPANY. Holger Leichsenring created and leads it and owns its direction; production teams shape it; we is the project; 45level GmbH is the services partner and no sentence makes it the maker."
   - key: "NO ELAPSED TIME IN MONTHS. A month count goes stale the day after it is written; a dated range (18 Feb to 15 Oct 2026) stays true."
   - key: "CANONICAL WITHOUT A TRAILING SLASH. vercel.json sets trailingSlash false, so /services/ redirects to /services; the canonical names the URL that answers."
 
@@ -81,4 +87,6 @@ done:
   - "The landing title and meta description name Agent Smith as the agentic software factory; every page has a canonical link, Open Graph and Twitter tags and JSON-LD naming Holger Leichsenring as author, creator, maintainer and copyright holder; 45level is never publisher or owner."
   - "/sitemap.xml lists every page, /robots.txt names it and allows AI crawlers, /llms.txt carries the positioning, the maintainer and 45level as service provider."
   - "No statement of elapsed time in months remains on the website, in the docs, in README.md or in llms.txt."
+  - "The landing page has a Who builds Agent Smith section, the footer reads Agent Smith · an open source project led by Holger Leichsenring · professional services by 45level · MIT License, and README and docs index carry Who is behind it."
+  - "GOVERNANCE.md and CONTRIBUTING.md exist at the root, linked from README, docs index and llms.txt; CONTRIBUTING.md requires a DCO Signed-off-by line and names the MIT license."
   - "Website build green; build green, full suite green, dashboard gen/test/build green."

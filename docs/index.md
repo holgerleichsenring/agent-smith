@@ -7,7 +7,7 @@ description: Agent Smith is the open source agentic software factory. A ticket g
 
 # Agent Smith, the agentic software factory
 
-From ticket to PR: Agent Smith is an open source agentic software factory, created and maintained by Holger Leichsenring. You drop a ticket into your tracker; it becomes a spec, the spec gets built and verified, and a PR shows up on your repo, with the ticket already updated to point at it. Every run writes down what it cost in tokens and dollars, and every change it made comes with the reasoning the agent followed. That's the whole loop.
+From ticket to PR: Agent Smith is an open source agentic software factory, a project led by its creator, Holger Leichsenring. You drop a ticket into your tracker; it becomes a spec, the spec gets built and verified, and a PR shows up on your repo, with the ticket already updated to point at it. Every run writes down what it cost in tokens and dollars, and every change it made comes with the reasoning the agent followed. That's the whole loop.
 
 This page is the orientation of the documentation; the product overview is on [agent-smith.org](https://agent-smith.org) and the source on [GitHub](https://github.com/holgerleichsenring/agent-smith). There's a fast-path link list at the bottom — if you're here to ship today, skip the rest and jump straight in.
 
@@ -99,7 +99,9 @@ Everything else lives in Reference. That's where the per-pipeline pages, the ful
 
 ## Who is behind it
 
-Agent Smith is created and maintained by Holger Leichsenring. Professional services, support and maintenance contracts are available from [45level GmbH](https://45level.com); see [services](https://agent-smith.org/services).
+Agent Smith is led by its creator, Holger Leichsenring, and shaped by the teams that use it in production. Contributions are welcome, see [CONTRIBUTING.md](https://github.com/holgerleichsenring/agent-smith/blob/main/CONTRIBUTING.md). Companies that need a contract, an SLA or onboarding work with [45level](https://45level.com), the project's professional-services partner; see [services](https://agent-smith.org/services).
+
+How the project is run and who decides what is in [GOVERNANCE.md](https://github.com/holgerleichsenring/agent-smith/blob/main/GOVERNANCE.md).
 
 ## License
 
