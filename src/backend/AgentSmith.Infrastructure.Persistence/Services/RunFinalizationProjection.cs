@@ -72,6 +72,7 @@ public sealed class RunFinalizationProjection(
         // no lease, no sandbox, resumed onto this very row.
         run.FinishedAt = RunStatuses.IsWaiting(e.Status) ? null : e.Timestamp;
         run.Summary = e.Summary;
+        run.EndKind = e.EndKind;
         // p0355: cost must be TRUE on revisit. The run-end total (RunFinishedEvent.
         // CostUsd) is authoritative when present, but older/leaking producers emit
         // null — and the DB projector never accumulated per-call cost onto the row,

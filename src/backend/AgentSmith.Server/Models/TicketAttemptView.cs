@@ -14,6 +14,9 @@ namespace AgentSmith.Server.Models;
 /// <param name="Cause">2026-10-13-9a59d: why the attempt began; null before it fetched its ticket.</param>
 /// <param name="Revision">2026-10-13-9a59d: the series revision and approval it worked from; null when
 /// it published none.</param>
+/// <param name="Summary">2026-10-16-86e6a: the run's own end text, verbatim; null while it has none.</param>
+/// <param name="EndKind">2026-10-16-86e6a: why it ended, as its producer recorded it (RunEndKinds); null when
+/// no producer classified the end.</param>
 public sealed record TicketAttemptView(
     int Number,
     string RunId,
@@ -27,4 +30,6 @@ public sealed record TicketAttemptView(
     IReadOnlyList<FiledWorkSpecView> ExecutedSpecs,
     PendingQuestionInfo? PendingQuestion,
     AttemptCause? Cause = null,
-    TicketAttemptRevisionView? Revision = null);
+    TicketAttemptRevisionView? Revision = null,
+    string? Summary = null,
+    string? EndKind = null);

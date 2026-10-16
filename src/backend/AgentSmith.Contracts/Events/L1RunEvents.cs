@@ -46,5 +46,7 @@ public sealed record RunFinishedEvent(
     string? PrUrl,
     string Summary,
     DateTimeOffset FinishedAt,
-    decimal? CostUsd = null)
+    decimal? CostUsd = null,
+    // 2026-10-16-86e6a: the RunEndKinds value the producer recorded; null when it classified none.
+    string? EndKind = null)
     : RunEvent(RunId, EventType.RunFinished, FinishedAt);

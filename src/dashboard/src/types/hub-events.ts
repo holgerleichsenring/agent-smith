@@ -84,6 +84,8 @@ export interface RunFinishedEvent extends RunEventBase {
   finishedAt: string;
   /** p0176b: pipeline-aggregate cost from PipelineCostTracker at run end. */
   costUsd: number | null;
+  /** 2026-10-16-86e6a: why the run ended, as its producer recorded it; absent when unclassified. */
+  endKind?: string | null;
 }
 
 export interface SandboxCreatedEvent extends RunEventBase {

@@ -27,7 +27,10 @@ public sealed class ContextImageTrustCheck(
     private const string ContextLever =
         "or declare a stack.image inside the boundary that carries the context's whole toolchain";
 
-    public string Name => "context-image-trust";
+    /// <summary>2026-10-16-86e6a: the check's name, which the preflight gate classifies a refusal by.</summary>
+    public const string CheckName = "context-image-trust";
+
+    public string Name => CheckName;
 
     public Task<RunPreflightFinding> RunAsync(PipelineContext pipeline, CancellationToken cancellationToken)
     {

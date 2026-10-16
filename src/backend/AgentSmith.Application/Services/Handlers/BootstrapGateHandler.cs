@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
 
@@ -63,7 +64,7 @@ public sealed class BootstrapGateHandler(
         // while the file sat one branch away. The entries are sandbox keys, not repo names.
         return CommandResult.Fail(
             $"Pipeline aborted: missing bootstrap in repos: {missingList} (sandbox keys). " +
-            $"{Probed(context.Pipeline)}Run init-project first.");
+            $"{Probed(context.Pipeline)}Run init-project first.") with { FailureKind = RunEndKinds.BootstrapMissing };
     }
 
     private static string Probed(PipelineContext pipeline) =>

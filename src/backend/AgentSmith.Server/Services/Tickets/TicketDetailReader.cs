@@ -62,7 +62,7 @@ public sealed class TicketDetailReader(
         int number, Run run, FiledWorkRunView view, TicketAttemptMark mark, TicketAttemptRecord? record) =>
         new(number, run.Id, run.Status, run.StartedAt, run.FinishedAt, run.CostTotalUsd,
             mark.EndedOnInfrastructure, mark.HandedBack, view.PullRequests, view.Specs, view.PendingQuestion,
-            record?.Cause, record?.Revision);
+            record?.Cause, record?.Revision, run.Summary, run.EndKind);
 
     private static TicketOtherRunView Other(TicketRunRow row) =>
         new(row.Run.Id, row.Run.Pipeline, row.Run.Status, row.Run.StartedAt, row.Run.FinishedAt,

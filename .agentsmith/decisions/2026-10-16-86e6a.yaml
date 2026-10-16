@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-16-86e6a
+
+decisions:
+  - category: Architecture
+    chose: "An init-only CommandResult.FailureKind set by the failing handler, carried on RunFinishedEvent.EndKind and stored as Runs.EndKind"
+    over: "Classifying the end on read from the failed step's CommandName, the preflight GateChecked reason or the summary text"
+    reason: |
+      The producer knows which check failed; a reader would have to infer it. The failed step's command name cannot
+      tell a red build from an unmet criterion at VerifySpec, and a run that threw has no failed step at all. Rows
+      written before the column stay unclassified rather than guessed.
+  - category: Architecture
+    chose: "Kinds image-untrusted, preflight, bootstrap-missing, criteria-unmet and superseded only"
+    over: "A kind for every terminal path (aborted, timeout, cancelled, capacity)"
+    reason: |
+      These are the causes the ticket page maps to a distinct act. The infrastructure end already has its own rule
+      (InfrastructureEnd) and the other ends act the same way (Continue in conversation), so a kind for them would
+      be data nothing reads.
+  - category: Architecture
+    chose: "SpecVerdict's unverified branch carries the inner verdict's kind; the spec-review revert and a delivered shortfall drop it"
+    over: "Threading the kind through every result rewrap"
+    reason: |
+      The unverified branch re-wraps the same verdict and must not lose it. The revert answers with its own result
+      and a shortfall is not a failure, so neither has the gate's cause.
+  - category: Implementation
+    chose: "A thrown pod-start failure (InvalidOperationException from KubernetesPodWatcher) stays unclassified"
+    over: "Matching its message or widening the generic catch"
+    reason: |
+      Classification is by type, and the type is generic. A typed sandbox-start exception would let it be classified;
+      it is named as an open item in the series report.

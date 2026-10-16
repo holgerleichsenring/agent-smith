@@ -3,6 +3,7 @@ using AgentSmith.Application.Services.Handlers;
 using AgentSmith.Contracts.Activation;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -37,6 +38,17 @@ public sealed class BootstrapGateHandlerTests
 
         result.IsSuccess.Should().BeFalse();
         result.Message.Should().Contain("Run init-project first");
+    }
+
+    [Fact]
+    public async Task BootstrapGateHandler_MissingBootstrap_ResultCarriesBootstrapMissing()
+    {
+        var pipeline = PipelineFor("code",
+            contextYamlPresent: false, codingPrinciplesPresent: true);
+
+        var result = await _sut.ExecuteAsync(new BootstrapGateContext(pipeline), CancellationToken.None);
+
+        result.FailureKind.Should().Be(RunEndKinds.BootstrapMissing);
     }
 
     [Fact]

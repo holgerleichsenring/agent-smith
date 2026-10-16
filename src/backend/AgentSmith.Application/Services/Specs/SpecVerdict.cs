@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Application.Services.Specs;
@@ -50,7 +51,10 @@ public static class SpecVerdict
         // of the ordinary verdict instead of replacing it, and it is folded in HERE because
         // a resolution failure returns before the account has been taken at all.
         if (unverified is not null)
-            return CommandResult.Fail($"{unverified}\n{From(mechanical, accounts).Message}");
+        {
+            var inner = From(mechanical, accounts);
+            return CommandResult.Fail($"{unverified}\n{inner.Message}") with { FailureKind = inner.FailureKind };
+        }
         if (accounts.Count == 0) return mechanical;
         if (Unaccounted(accounts) is { } unaccounted) return CommandResult.Fail(unaccounted);
 
@@ -58,7 +62,7 @@ public static class SpecVerdict
         if (outstanding.Count > 0)
             return CommandResult.Fail(
                 $"{outstanding.Count} criterion(s) of the ratified spec are not satisfied by "
-                + $"the branch:\n- {string.Join("\n- ", outstanding)}");
+                + $"the branch:\n- {string.Join("\n- ", outstanding)}") with { FailureKind = RunEndKinds.CriteriaUnmet };
 
         // 2026-08-25-9749: nothing outstanding is not yet a delivery — a spec that satisfied
         // NOTHING has proven nothing, however much it declined to judge.
@@ -81,14 +85,9 @@ public static class SpecVerdict
     }
 
     /// <summary>
-    /// p0341g: the steps a repair pass repeats, stamped with the spec they repair.
-    /// <para>
-    /// The repair is a REPETITION of part of the spec block, so its steps belong to the
-    /// same spec as the block they repeat. p0438 spliced them bare: SpecSequence stamps
-    /// every step it splices with a <c>SpecId</c> and the repair did not, so on live run
-    /// a98c the three repair steps came back as <c>spec=None</c> — the rail drew a second
-    /// spec header, and the pass's cost and calls were rolled up under no spec at all.
-    /// </para>
+    /// p0341g: the steps a repair pass repeats, stamped with the spec they repair — a repair is a
+    /// repetition of part of the spec block, so its steps belong to that spec (unstamped, the rail
+    /// drew a second spec header and the pass's cost rolled up under no spec).
     /// </summary>
     public static IReadOnlyList<PipelineCommand> RepairSteps(string? specId) =>
     [

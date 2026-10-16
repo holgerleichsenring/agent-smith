@@ -2,6 +2,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Preflight;
+using AgentSmith.Contracts.Runs;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Models;
 using Microsoft.Extensions.Logging;
@@ -68,8 +69,14 @@ public sealed class RunPreflightHandler(
             + string.Join("\n", failures.Select(f => "  - " + f.Describe()));
         logger.LogError("{Message}", message);
         await PublishGateAsync(runId, passed: false, string.Join("; ", failures.Select(f => f.Check)), ct);
-        return CommandResult.Fail(message);
+        return CommandResult.Fail(message) with { FailureKind = KindOf(failures) };
     }
+
+    // 2026-10-16-86e6a: an untrusted image is named apart — its lever is a registry setting, not the run.
+    private static string KindOf(IReadOnlyList<RunPreflightFinding> failures) =>
+        failures.Any(f => f.Check == Preflight.Run.ContextImageTrustCheck.CheckName)
+            ? RunEndKinds.ImageUntrusted
+            : RunEndKinds.Preflight;
 
     private async Task<RunPreflightFinding> RunGuardedAsync(
         IRunPreflightCheck check, PipelineContext pipeline, CancellationToken ct)
