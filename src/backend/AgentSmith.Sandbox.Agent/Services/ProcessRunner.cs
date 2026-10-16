@@ -51,7 +51,7 @@ internal sealed class ProcessRunner : IProcessRunner
     }
 
     // p0357: the injected relocatable CPython lives next to the agent binary
-    // (/shared/python, see PythonPayloadCopier). Resolved once per process.
+    // (/shared/python, see PayloadTreeCopier). Resolved once per process.
     private static readonly string? PythonBinDir = ResolvePythonBinDir();
 
     private static ProcessStartInfo BuildStartInfo(Step step)
@@ -95,7 +95,7 @@ internal sealed class ProcessRunner : IProcessRunner
     {
         var agentDir = Path.GetDirectoryName(Environment.ProcessPath);
         if (string.IsNullOrEmpty(agentDir)) return null;
-        var bin = Path.Combine(agentDir, PythonPayloadCopier.PayloadDirName, "bin");
+        var bin = Path.Combine(agentDir, PayloadTreeCopier.PythonDirName, "bin");
         return Directory.Exists(bin) ? bin : null;
     }
 

@@ -57,8 +57,7 @@ public sealed class KubernetesPodWatcher(IKubernetes client, ILogger logger)
     private static void ThrowIfFailed(string podName, V1Pod pod, IReadOnlyList<string>? pullSecrets)
     {
         if (pod.Status?.Phase == "Failed")
-            throw new InvalidOperationException(
-                $"Sandbox pod {podName} entered Failed phase: {pod.Status.Reason ?? pod.Status.Message}");
+            throw new InvalidOperationException(PodStartFailure.Describe(podName, pod));
 
         // Both init and main container statuses can carry the failure reason.
         // The init agent-loader fails here when the carrier image isn't

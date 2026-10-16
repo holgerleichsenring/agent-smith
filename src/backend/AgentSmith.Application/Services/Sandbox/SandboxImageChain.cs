@@ -24,8 +24,8 @@ public sealed class SandboxImageChain(
 {
     private readonly IImageRegistryTrust _trust = trust ?? new ImageRegistryTrust();
 
-    // Generic fallback: glibc (the self-contained agent binary is glibc-linked; musl crashes
-    // exec with a misleading ENOENT) AND git on PATH (CheckoutSource). The Docker-official SCM
+    // Generic fallback: glibc (the agent runs on musl too since 2026-10-16-8648, but the python
+    // payload is glibc-only) AND git on PATH (CheckoutSource). The Docker-official SCM
     // toolbox: Debian bookworm + git + ca-certs + curl. Operators override it through
     // ResolvedProject.Sandbox.ToolchainImage.
     public const string GenericFallbackImage = "buildpack-deps:bookworm-scm";

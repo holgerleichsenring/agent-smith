@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-16-8648
+goal: "A sandbox runs on a musl (Alpine) toolchain image such as hashicorp/terraform, and a pod that dies at start says which container exited and why."
+
+applies_to: "backend (sandbox agent carrier image, BinaryInjector, AgentProcessEnvironment, KubernetesPodWatcher) and tests"
+
+facts:
+  - claim: "The carrier publishes the agent for linux-${TARGETARCH} only (glibc), self-contained single-file, and the injector copies that one binary to /shared/agent, which both spawners run as the toolchain container's command."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Dockerfile:15-24, src/backend/AgentSmith.Sandbox.Agent/Services/BinaryInjector.cs:7-36, src/backend/AgentSmith.Server/Services/Sandbox/PodSpecBuilder.cs:54, src/backend/AgentSmith.Server/Services/Sandbox/PodSpecBuilder.cs:82, src/backend/AgentSmith.Server/Services/Sandbox/DockerContainerSpecBuilder.cs:59-60"
+  - claim: "The fallback chain documents that the glibc agent cannot exec on musl."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxImageChain.cs:27-31"
+  - claim: "hashicorp/terraform:1.13.3 is Alpine with /lib/ld-musl-<arch>.so.1, git, libssl3 and zlib, and carries neither libstdc++ nor libgcc."
+    evidence: "observed: 2026-10-16, docker run --entrypoint sh hashicorp/terraform:1.13.3 (os-release, ls /lib /usr/lib, apk info)"
+  - claim: "A live code run on a project whose Terraform contexts declare that image failed with 'Sandbox pod … entered Failed phase: ' and an empty reason, because the Failed-phase message reads only pod.Status.Reason/Message."
+    evidence: "observed: 2026-10-16, server DB run 2026-10-16T11-18-05-88ef; src/backend/AgentSmith.Server/Services/Sandbox/KubernetesPodWatcher.cs:58-61"
+  - claim: "A step's process environment is built from the agent's own and scrubbed of agent-only variables in one place."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Services/ProcessRunner.cs:57-79, src/backend/AgentSmith.Sandbox.Agent/Services/AgentProcessEnvironment.cs:12-22"
+
+scope:
+  in: >
+    CARRIER: a static musl launcher (C, built with gcc -static on Alpine) at /launcher; the agent also published for
+    linux-musl-<arch> at /musl/agent with libstdc++ and libgcc_s from Alpine in /musl/lib. INJECT: with a launcher in the
+    carrier, the target path gets the launcher, the glibc agent goes beside it as agent-gnu and /musl as musl/; without
+    one it copies itself as before. LAUNCHER: when /lib/ld-musl-<arch>.so.1 exists it execs musl/agent with musl/lib
+    prepended to LD_LIBRARY_PATH and AGENTSMITH_MUSL_LIB naming that directory, else agent-gnu; argv passes through.
+    STEPS: AgentProcessEnvironment drops the launcher's directory from a step's LD_LIBRARY_PATH (and the variable when
+    nothing else is left) and drops AGENTSMITH_MUSL_LIB, unless the step sets LD_LIBRARY_PATH itself. WATCHER: the
+    Failed-phase message names each terminated container with exit code, reason and message.
+  out: "The relocatable python payload on musl (it is glibc; python3 stays unavailable there); a glibc check in preflight."
+
+tests:
+  - "BinaryInjector_WithALauncher_PlacesLauncherGnuAgentAndMuslTree"
+  - "BinaryInjector_WithoutALauncher_CopiesItselfAsBefore"
+  - "AgentProcessEnvironment_Scrub_DropsTheLaunchersLibraryPath / KeepsOtherEntries / StepValueWins"
+  - "KubernetesPodWatcher_FailedPod_NamesTheTerminatedContainer"
+  - "observed: carrier image built locally, a sandbox agent started in hashicorp/terraform:1.13.3 and in buildpack-deps:bookworm-scm"
+
+done:
+  - "The agent starts inside hashicorp/terraform:1.13.3 from the injected /shared tree, the gnu path is unchanged on Debian, the suites are green."
