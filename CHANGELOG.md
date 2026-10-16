@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.167.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.166.0...v0.167.0) (2026-10-16)
+
+
+### Features
+
+* a criterion the acceptance gate did not accept shows the gate's reason inline with the run where it can be overruled (2026-10-16-86e6e) ([606e332](https://github.com/holgerleichsenring/agent-smith/commit/606e332d4276e4fa029e6cc44f1fdf840a6ea173))
+* a state block under the ticket header says what is going on, offers the one act that fits the cause and keeps the run and its verbatim cause one click away (2026-10-16-86e6c) ([f487fc4](https://github.com/holgerleichsenring/agent-smith/commit/f487fc424751fad0886c8538eb577d895ebcf06a))
+* each ticket attempt serves its run's verbatim end cause and an end kind recorded where the failure is produced (2026-10-16-86e6a) ([e79f83a](https://github.com/holgerleichsenring/agent-smith/commit/e79f83af7f2d73e4132c8ad574b0a6cd3aa323f7))
+* earlier attempts collapse to one line in the state block and every attempt reference on the Specs tab opens its run (2026-10-16-86e6d) ([b83c257](https://github.com/holgerleichsenring/agent-smith/commit/b83c257fed1a36507a8cd6fccca0c031c8ed544f))
+* ticket page says its state, the one act that fits and why the run stopped (2026-10-16-86e6) ([96b002e](https://github.com/holgerleichsenring/agent-smith/commit/96b002e8185e8cb39ed64e4981614460dae03d1c))
+
+
+### Bug Fixes
+
+* a parked attempt a newer attempt of its ticket started past is ended as superseded, releasing its capacity and never resuming (2026-10-16-86e6b) ([b0e2b69](https://github.com/holgerleichsenring/agent-smith/commit/b0e2b69b61f2457c9b4c89bc652d31b6c1f96c28))
+
 ## [0.166.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.165.1...v0.166.0) (2026-10-16)
 
 
