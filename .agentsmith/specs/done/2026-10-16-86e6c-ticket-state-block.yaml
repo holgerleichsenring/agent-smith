@@ -89,7 +89,7 @@ tests:
   - "TicketStateBlock_Why_HoldsTheVerbatimSummaryAndTheTraceLink"
   - "TicketPage_EveryTab_DrawsTheStateBlockUnderTheHeader"
   - "TicketHeader_NoLongerSaysTheAttemptStatusNorOffersContinue"
-  - "TicketHeader_NeverRunClosedTicket_KeepsTheClosedLine"
+  - "TicketHeader_ClosedByHand_ShowsTheLineAndReopen / _ClosedOnTheTracker_ (existing, never-run closed tickets keep the header line)"
   - "ticketState_WorkingResumingOrDeriving_SaysSo"
 
 done:

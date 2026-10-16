@@ -160,7 +160,7 @@ describe("Ticket specs and acceptance tabs", () => {
   it("TheCrossLinks_SetTheTab", async () => {
     nav.search = "";
     await open();
-    fireEvent.click(screen.getByTestId("ticket-continue"));
+    fireEvent.click(screen.getByTestId("ticket-tab-conversation")); // 2026-10-16-86e6c: the header's Continue moved into the state block
     expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?tab=conversation", { scroll: false });
     fireEvent.click(screen.getByTestId("ticket-open-specs"));
     expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?tab=specs", { scroll: false });

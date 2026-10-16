@@ -7,6 +7,7 @@ import { SeriesRunway } from "./SeriesRunway";
 import { isNeverRun } from "../ticketFormat";
 import { TicketHeader } from "./TicketHeader";
 import { TicketNeverRun } from "./TicketNeverRun";
+import { TicketStateBlock } from "./TicketStateBlock";
 import { TicketTabs } from "./TicketTabs";
 import { TicketWaitsFor } from "./TicketWaitsFor";
 import { TAB_PARAM, ticketTab } from "./ticketTabTable";
@@ -16,6 +17,7 @@ import { CAUSE_PARAM, useTicketTabGo } from "./useTicketTabGo";
 // .mock-shell.mock-tickets like the list. ?tab= is read here, under the route's Suspense boundary.
 // 2026-10-14-dbcen: a ticket with no run on record has nothing derived, attempted or spent — no runway and no tabs:
 // its header, what it waits for, what waits for it and the filed line (ticket-graph.html, never-run-page).
+// 2026-10-16-86e6c: a ticket with a run gets the state block under its header, on every tab.
 
 export function TicketPage() {
   const detail = useTicketDetail();
@@ -36,6 +38,7 @@ export function TicketPage() {
         ) : detail.data ? (
           <>
             <TicketHeader detail={detail.data} />
+            <TicketStateBlock detail={detail.data} />
             <SeriesRunway budget={budget} attempts={detail.data.attempts} onDefaults={() => select("defaults")} />
             <TicketWaitsFor project={detail.project} />
             <TicketTabs detail={detail.data} selected={tab} onSelect={select} />

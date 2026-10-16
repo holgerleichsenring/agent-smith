@@ -87,6 +87,7 @@ integrations:
 
 state:
   done:
+    2026-10-16-86e6c: "TICKET STATE BLOCK (ticket page, header). Under the header on every tab: a pill and one sentence per state, Open run, one act fitting the cause (retry, trust registry, init-project, overrule, answer, continue) with other options and the verbatim Why folded; healthy states are one line. -> .agentsmith/specs/done/2026-10-16-86e6c-ticket-state-block.yaml"
     2026-10-16-86e6b: "SUPERSEDED PARKS ARE ENDED (resume sweep, parked runs, waiting-run closer, attempt pill). A waiting_for_input code run a newer attempt of its ticket started past is cancelled with end kind superseded, releasing its capacity and never resuming; the attempt card reads superseded. -> .agentsmith/specs/done/2026-10-16-86e6b-superseded-park-close.yaml"
     2026-10-16-86e6a: "ATTEMPT END KIND AND CAUSE (preflight, bootstrap and spec-verdict failures, RunFinished, Runs.EndKind, ticket detail). The failing handler records image-untrusted, preflight, bootstrap-missing or criteria-unmet; each ticket attempt serves its run's verbatim summary and end kind. -> .agentsmith/specs/done/2026-10-16-86e6a-attempt-end-kind.yaml"
     2026-10-16-8648: "SANDBOX ON MUSL IMAGES (carrier, launcher, injector, pod watcher). A static launcher at /shared/agent starts a musl agent (with its libstdc++/libgcc_s) on Alpine images such as hashicorp/terraform and the glibc agent elsewhere; a pod failing at start names the exited container. -> .agentsmith/specs/done/2026-10-16-8648-sandbox-agent-musl-images.yaml"
