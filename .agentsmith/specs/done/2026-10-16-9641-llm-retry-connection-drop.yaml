@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-16-9641
+goal: "A connection the Azure or OpenAI endpoint drops before answering is retried like any other transient network fault instead of failing the run on the first attempt."
+
+applies_to: "backend (TransientRetryChatClient's transient predicate) and tests"
+
+facts:
+  - claim: "The Azure and OpenAI SDK policy makes zero retries; TransientRetryChatClient is the only retry layer on that path, bounded by RetryConfig.MaxRetries (default 5)."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientBuilders/OpenAiChatClientBuilder.cs:80, src/backend/AgentSmith.Infrastructure/Services/Factories/ChatClientFactory.cs:132-134, src/backend/AgentSmith.Contracts/Models/Configuration/RetryConfig.cs:8"
+  - claim: "IsTransientNetwork walks the chain outside-in and answers on the first ClientResultException by its status alone, so a ClientResultException never lets the walk reach an inner HttpRequestException or IOException."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/TransientRetryChatClient.cs:67-96, src/backend/AgentSmith.Infrastructure/Services/RateLimiting/TransientRetryChatClient.cs:101-102"
+  - claim: "System.ClientModel 1.6.1's HttpClientPipelineTransport turns a send failure into ClientResultException(Status 0) wrapping the HttpRequestException, which wraps the socket's IOException; IsRetryableStatus(0) is false, so such a drop is never retried."
+    evidence: "observed: 2026-10-16, probe program over HttpClientPipelineTransport with a handler throwing HttpRequestException(inner IOException): outer ClientResultException status=0, message 'An error occurred while sending the request.'"
+  - claim: "A live init-project run failed at its second bootstrap round on one producer call that ended after 298 s with zero tokens and 'An error occurred while sending the request.'; the step failed 5 ms later, with no retry."
+    evidence: "observed: 2026-10-16, server DB RunEvents seq 644-646 and RunSteps step 11 of run 2026-10-16T10-39-03-4003"
+  - claim: "RetryWait classifies a ClientResultException as a rate limit only on status 429, so a status-0 drop waits on the configured network ladder."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/RateLimiting/RetryWait.cs:39, src/backend/AgentSmith.Infrastructure/Services/RateLimiting/RetryWait.cs:61"
+
+scope:
+  in: >
+    IsTransientNetwork: a ClientResultException with Status 0 (no response was received) carries no verdict of its
+    own; the walk continues into its inner exceptions, where the existing HttpRequestException and IOException rules
+    decide. A ClientResultException with a status keeps today's IsRetryableStatus rule.
+  out: "The 300 s NetworkTimeout and its cancellation path; streaming calls; the Anthropic path."
+
+tests:
+  - "TransientRetry_ClientResultExceptionWithoutResponse_WrappingASendFailure_IsRetried"
+  - "TransientRetry_ClientResultExceptionWithoutResponse_WrappingNothingTransient_IsNotRetried"
+  - "Azure_ADroppedConnection_ArrivesAsAnExceptionOurLayerRetries (real builder over the test transport)"
+
+done:
+  - "A send failure through the real Azure client builder is classified transient, and the retry suite is green."
