@@ -87,6 +87,7 @@ integrations:
 
 state:
   done:
+    2026-10-17-293bb: "AUDIT VERDICT PER ECOSYSTEM (AuditCommands, DependencyAuditTool). The .NET advisory audit exits 0 with or without advisories, so its exit 1 (an unrestored project) is minted as a look that could not run; npm audit and pip-audit keep 0 or 1. -> .agentsmith/specs/done/2026-10-17-293bb-audit-verdict-per-ecosystem.yaml"
     2026-10-17-1170: "SKILLS PIN v5.19.0, CITATIONS REQUIRED (embedded skills catalog, AcceptanceClaimCheck). coding-agent-master 1.34.0 cites its met claims; a verdict with no citations key is no longer exempt, each met claim citing nothing re-engages the master once. -> .agentsmith/specs/done/2026-10-17-1170-acceptance-citations-required.yaml"
     2026-10-16-7ed3e: "FLOW GRAPH VERDICT COLOURS AND END CAUSE (attempt flow graph, node detail). A re-engaged verify is amber, an accepted red verdict red; a stopped attempt's end node shows its run's end text in one line, its detail the whole text, and the no-graph note says the cause. -> .agentsmith/specs/done/2026-10-16-7ed3e-flow-graph-verdict-cause.yaml"
     2026-10-16-7ed3d: "FLOW GRAPH LABELS AND LOOPS (attempt flow graph). Labels and metrics fit their column with the full words as tooltip, aria-label and detail sub-line, a spec names its repository's short name; a re-engage loop runs outside the pass boxes with its reason once. -> .agentsmith/specs/done/2026-10-16-7ed3d-flow-graph-labels-loops.yaml"

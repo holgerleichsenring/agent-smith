@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-17-293bb
+goal: "A .NET advisory audit that exits non-zero is recorded as a look that could not run, because that tool exits 0 whether or not it finds advisories."
+
+applies_to: "default (AuditCommands, DependencyAuditTool)"
+
+facts:
+  - claim: "Every ecosystem's audit counts exit 0 and exit 1 as a verdict."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/AuditCommands.cs:39-42; src/backend/AgentSmith.Application/Services/Specs/DependencyAuditTool.cs:67"
+  - claim: "The tool's description tells the model exit 1 means findings for all three commands."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DependencyAuditTool.cs:35-37"
+  - claim: "'dotnet list package --vulnerable --format json' exits 0 on a project with a High advisory (Newtonsoft.Json 12.0.1, SDK 10.0.100)."
+    evidence: "observed: 2026-10-17 local probe in a scratch project: exit 0, JSON lists GHSA-5crp-9r3c-p9vr"
+  - claim: "In live run 2026-10-17T16-36-20-cc4c the derivation's audit of the worker repository exited 1 with 'No assets file was found … Please run restore', and was minted as a look that ran."
+    evidence: "observed: 2026-10-17 prod RunEvents of run 2026-10-17T16-36-20-cc4c seq 733 (SandboxResult, ExitCode 1); premise hand-back at step 32"
+  - claim: "A look whose Ran is false is minted with 'could not run, so it proves nothing' and is never admitted as a premise checker's proof."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivationEvidence.cs:43-50; src/backend/AgentSmith.Application/Services/Specs/PremiseCheckAdmission.cs:73-75"
+
+scope:
+  in: >
+    The verdict exits become per ecosystem: .NET 0 only, npm and pip-audit 0 or 1. The tool description says so.
+  out: >
+    npm's exit 1 on a missing lockfile (same code as findings) — not observed, and telling the two apart needs the output.
+
+steps:
+  - id: verdict
+    action: "AuditCommands.ReachedAVerdict takes the ecosystem kind; DependencyAuditTool passes it and states the per-ecosystem exits."
+  - id: tests
+    action: "A .NET audit exiting 1 mints a look that could not run; an npm audit exiting 1 still reached a verdict."
+
+tests:
+  - "DerivationLookTests.Look_ADotNetAuditExitingOne_ProvesNothing"
+  - "DerivationLookTests.Look_AnNpmAuditExitingOne_ReachedAVerdict"
+
+done:
+  - "A .NET audit exiting 1 is minted with Ran false and the words 'could not run'."
+  - "An npm or pip-audit exit 1 is still a verdict."
+  - "Build green, full suite green, dashboard gen/test/build green."

@@ -33,8 +33,9 @@ public sealed class DependencyAuditTool(
         + "not listed), 'npm audit --json', or 'pip-audit --format=json' — and returns its JSON. "
         + "Use it before stating anything about vulnerable, outdated or direct packages. Read-only. "
         + $"The result starts with an evidence id such as [{look.Terms.EvidencePrefix}1]; a fact that rests "
-        + "on this audit cites that id. Exit 0 means nothing found, 1 means findings; any other "
-        + "exit means the tool could not run and the result proves nothing.";
+        + "on this audit cites that id. The .NET audit exits 0 whether or not it lists advisories "
+        + "(read its JSON); npm audit and pip-audit exit 0 for nothing found and 1 for findings. Any "
+        + "other exit means the tool could not run and the result proves nothing.";
 
     public async Task<string> AuditDependencies(
         [Description("The repository to audit. Use one of the names listed as in scope.")]
@@ -64,7 +65,7 @@ public sealed class DependencyAuditTool(
                    + $"{(ecosystem is null ? string.Empty : $" ({ecosystem.Kind})")}. This proves nothing.";
 
         var result = await sandbox.RunStepAsync(step, progress: null, ct);
-        var ran = AuditCommands.ReachedAVerdict(result.ExitCode) && !result.TimedOut;
+        var ran = AuditCommands.ReachedAVerdict(ecosystem!.Kind, result.ExitCode) && !result.TimedOut;
         var id = look.Evidence.Remember(new EvidenceRecord(
             repository, EvidenceRecord.Audit, AuditCommands.Describe(step), result.ExitCode, ran));
         logger.LogInformation(

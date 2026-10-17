@@ -133,4 +133,34 @@ public sealed class DerivationLookTests
         look.Evidence.Lines.Single().Should().Contain("could not run, so it proves nothing");
         sandbox.Ran.Single().Command.Should().Be("dotnet");
     }
+
+    // 2026-10-17-293bb: the .NET audit exits 0 with or without advisories; its exit 1 is an
+    // unrestored project ("No assets file was found"), which once became a fact about the code.
+    [Fact]
+    public async Task Look_ADotNetAuditExitingOne_ProvesNothing()
+    {
+        var look = await AuditWith(exitCode: 1, "/work/src/Api/Api.csproj", "<Project />");
+
+        look.Evidence.Looks.Single().Ran.Should().BeFalse();
+        look.Evidence.Lines.Single().Should().Contain("exited 1 and could not run");
+    }
+
+    [Fact]
+    public async Task Look_AnNpmAuditExitingOne_ReachedAVerdict()
+    {
+        var look = await AuditWith(exitCode: 1, "/work/package.json", "{}");
+
+        look.Evidence.Looks.Single().Ran.Should().BeTrue("npm audit exits 1 when it finds advisories");
+    }
+
+    private static async Task<DerivationLook> AuditWith(int exitCode, string path, string content)
+    {
+        var files = new InMemorySandboxFileReader();
+        files.Files[path] = content;
+        var look = Over(new CountingSandbox(exitCode: exitCode, output: "{}"), files);
+        await new DependencyAuditTool(
+            look, new FixedReaderFactory(files), new AgentSmith.Application.Services.Sandbox.PackageEcosystemDetector(),
+            Microsoft.Extensions.Logging.Abstractions.NullLogger.Instance).AuditDependencies(Repo);
+        return look;
+    }
 }
