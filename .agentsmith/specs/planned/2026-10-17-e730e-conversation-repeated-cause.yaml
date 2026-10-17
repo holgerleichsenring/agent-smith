@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-17-e730e
+goal: "A failed attempt whose served end kind and end summary equal the previous attempt's reads 'Same cause as A5' on its folded line, naming and opening the first attempt of that run."
+
+applies_to: "dashboard (conversationGroups, ConversationList)"
+
+requires: [2026-10-17-e730c]
+
+facts:
+  - claim: "Each detail attempt carries summary (the run's end text verbatim) and endKind (recorded by the producer, null when unclassified), served by the ticket detail read."
+    evidence: "src/dashboard/src/types/tickets.ts:238-240, src/backend/AgentSmith.Server/Models/TicketAttemptView.cs:17-35"
+  - claim: "No conversation entry is marked as an attempt's failure: run entries are questions, answers, ticket-text edits and spec-cut records, and the failure comment posted to the tracker comes back as an ordinary ticket comment whose only tie to an end cause would be its text. The end cause lives on the attempt, which the group line (e730c) reads."
+    evidence: "src/dashboard/src/types/tickets.ts:474-494, src/backend/AgentSmith.Server/Services/Tickets/Conversation/ConversationRunEntries.cs:53, src/backend/AgentSmith.Server/Services/Tickets/Conversation/ConversationRunEntries.cs:77, src/backend/AgentSmith.Server/Services/Tickets/Conversation/ConversationAssembly.cs:32, src/dashboard/src/components/tickets/detail/ConversationList.tsx:30-37"
+  - claim: "failed and error are the failure statuses the attempt words know."
+    evidence: "src/dashboard/src/components/tickets/detail/flowWords.ts:89-98"
+
+scope:
+  in: >
+    Two attempts match when both have status failed or error, both summaries are non-empty and equal as strings, and
+    their endKinds are equal (an absent kind read as null). conversationGroups gives an attempt group sameAs when it
+    matches the attempt numbered one lower: the number of the FIRST attempt of that unbroken run of matches, the one
+    that keeps its cause line, so A6 and A7 after A5 both read "Same cause as A5". Such a group's folded line drops its
+    cause line, and its .c-att head gains, beside the toggle button (never inside it), a .c-same button "Same cause as
+    A5" (data-testid conv-same-{key}) that opens A5's group and scrolls its head into view, smooth unless
+    window.matchMedia?.("(prefers-reduced-motion: reduce)") matches. An open group's head shows no .c-same, as it
+    shows no cause line.
+  out: >
+    Fuzzy or normalised text comparison: a summary that differs by one character is a different cause. Folding the
+    failure ticket comment inside an open group: nothing but its text ties it to the end cause, so it stays a full
+    (clamped, e730d) entry.
+
+decisions:
+  - key: "THE ATTEMPT CARRIES THE CAUSE, NOT AN ENTRY. No conversation entry is an attempt's failure; the served summary and endKind on the attempt are what the folded line already shows, so the comparison is made there, exactly."
+
+steps:
+  - id: words
+    action: "sameAs in conversationGroups with its tests."
+  - id: render
+    action: "ConversationList draws the .c-same button, opens the group and scrolls to it; CSS .c-same from .tt-more."
+  - id: tests
+    action: "Red then green; pnpm test the tickets folder; pnpm build."
+
+tests:
+  - "conversationGroups_SameKindAndSummaryAsThePrevious_IsSameAsTheFirstOfTheRun"
+  - "conversationGroups_DifferentSummaryOrKind_OrNotFailed_IsNotSameAs"
+  - "ConversationList_SameCause_ReadsSameCauseAsA1_AndTheLinkOpensA1_SmoothOrInstantUnderReducedMotion"
+
+done:
+  - "Six attempts failing on one preflight cause read as one cause line and five 'Same cause as' links."
+  - "Dashboard test and build green; full gate green."
