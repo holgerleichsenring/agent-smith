@@ -401,6 +401,7 @@ describe("Ticket conversation tab", () => {
       attempts: [{ runId: "r-1", number: 1, cause: null, revision: null }, { runId: "r-2", number: 2, cause: prCause, revision: null }],
     };
     await open();
+    fireEvent.click(screen.getByTestId("conv-toggle-r-1"));
     const footers = screen.getAllByTestId("conv-started");
     expect(footers).toHaveLength(1);
     expect(footers[0]).toHaveTextContent("started attempt 2");
@@ -546,5 +547,51 @@ describe("Ticket conversation reading", () => {
     await open();
     expect(within(screen.getByTestId("conv-dock")).getByTestId("conv-hidden")).toBeInTheDocument();
     expect(screen.queryByTestId("ticket-composer")).toBeNull();
+  });
+
+  it("ConversationList_ClosedAttempt_ReadsOneLineWithPillCauseAndCount_AndAClickOpensIt", async () => {
+    world.detail = detail([
+      attempt({ status: "failed", summary: "Preflight failed: context-image-trust\nthe registry is not trusted" }),
+      attempt({ number: 2, runId: "r-2", status: "failed" }),
+    ]);
+    world.conversation = {
+      ...conversation([entry({ id: "a", attemptRunId: "r-1", text: "first words" }), entry({ id: "b", attemptRunId: "r-2", text: "second words" })]),
+      attempts: [{ runId: "r-1", number: 1, cause: null, revision: null }, { runId: "r-2", number: 2, cause: null, revision: null }],
+    };
+    await open();
+    const toggle = screen.getByTestId("conv-toggle-r-1");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).toHaveTextContent("Attempt 1failed· Preflight failed: context-image-trust· 1 entry");
+    expect(within(screen.getByTestId("conv-group-r-1")).queryAllByTestId("conv-entry")).toHaveLength(0);
+    expect(within(screen.getByTestId("conv-group-r-2")).getAllByTestId("conv-entry")).toHaveLength(1);
+    expect(screen.getByTestId("conv-toggle-r-2")).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(toggle).not.toHaveTextContent("1 entry");
+    expect(within(screen.getByTestId("conv-group-r-1")).getByTestId("conv-entry")).toHaveTextContent("first words");
+  });
+
+  it("ConversationList_FilterChange_ClearsTheReadersToggles", async () => {
+    world.detail = detail([attempt({ status: "failed" }), attempt({ number: 2, runId: "r-2", status: "failed" })]);
+    world.conversation = {
+      ...conversation([
+        entry({ id: "a", attemptRunId: "r-1" }),
+        entry({ id: "t", source: "ticket", kind: "comment", role: "person", attemptRunId: "r-1", text: "A comment" }),
+        entry({ id: "b", attemptRunId: "r-2" }),
+      ]),
+      attempts: [{ runId: "r-1", number: 1, cause: null, revision: null }, { runId: "r-2", number: 2, cause: null, revision: null }],
+    };
+    await open();
+    fireEvent.click(screen.getByTestId("conv-toggle-r-2"));
+    expect(within(screen.getByTestId("conv-group-r-2")).queryAllByTestId("conv-entry")).toHaveLength(0);
+
+    fireEvent.click(screen.getByTestId("conv-filter-ticket"));
+    expect(screen.getAllByTestId("conv-entry").map((e) => e.getAttribute("data-entry-id"))).toEqual(["t"]);
+    expect(screen.getByTestId("conv-line-r-2")).toHaveTextContent("no entries");
+
+    fireEvent.click(screen.getByTestId("conv-filter-all"));
+    expect(within(screen.getByTestId("conv-group-r-2")).getAllByTestId("conv-entry")).toHaveLength(1);
+    expect(within(screen.getByTestId("conv-group-r-1")).queryAllByTestId("conv-entry")).toHaveLength(0);
   });
 });

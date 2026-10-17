@@ -87,6 +87,7 @@ integrations:
 
 state:
   done:
+    2026-10-17-e730c: "CONVERSATION ATTEMPTS FOLD (ticket Conversation tab). Finished attempts read as one line (outcome pill, end cause, entry count) and open in place; the current attempt, now, a waiting question's and a causeOf target's group stay open; a narrowing filter opens every group it matched. -> .agentsmith/specs/done/2026-10-17-e730c-conversation-attempt-collapse.yaml"
     2026-10-17-e730b: "CONVERSATION OPENS AT THE NEWEST (ticket Conversation tab). Each switch to the tab scrolls to the end of the thread and the composer, or to a waiting question's card; a ?causeOf= link lands on its entry and marks it, an unmatched one opens at the end. -> .agentsmith/specs/done/2026-10-17-e730b-conversation-open-newest.yaml"
     2026-10-17-e730a: "CONVERSATION COMPOSER DOCK (ticket Conversation tab). The composer sits in a sticky dock at the bottom of the scroll box, its inner layer capped at half the screen, the thread scrolling under it; safe-area padding in place. -> .agentsmith/specs/done/2026-10-17-e730a-conversation-composer-sticky.yaml"
     2026-10-17-1170: "SKILLS PIN v5.19.0, CITATIONS REQUIRED (embedded skills catalog, AcceptanceClaimCheck). coding-agent-master 1.34.0 cites its met claims; a verdict with no citations key is no longer exempt, each met claim citing nothing re-engages the master once. -> .agentsmith/specs/done/2026-10-17-1170-acceptance-citations-required.yaml"
