@@ -51,6 +51,7 @@ public sealed class VerifySpecHandler(
     ContextVerifyStagesResolver declaredStages,
     VerifyDerivationDrift derivationDrift,
     SandboxTargets sandboxTargets,
+    SpecSandboxes specSandboxes,
     SandboxTreeSync treeSync,
     StageRelevance relevance,
     VerifyCommandRunner commandRunner,
@@ -72,15 +73,23 @@ public sealed class VerifySpecHandler(
         // saw it; that verdict and its account stand, as the review's do.
         if (context.Pipeline.TryGet<string>(ContextKeys.SpecReviewReverted, out var reverted) && reverted is not null)
             return CommandResult.Ok($"The fix pass was reverted, so the verified state stands ({reverted}).");
-        if (!sandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out _))
+        if (!sandboxTargets.TryResolve(context.Pipeline, out var all, out _))
             return await RecordAsync(
                 context, CommandResult.Ok("No sandboxes in pipeline context; nothing to verify."),
                 cancellationToken);
         // Every sandbox of one repository holds the union of their work before a stage runs.
         if (await treeSync.SyncAsync(context.Pipeline, cancellationToken) is { Message: { } unsynced })
         {
-            RunAccountLedger.RecordProblem(context.Pipeline, sandboxes.Keys, unsynced);
+            RunAccountLedger.RecordProblem(context.Pipeline, all.Keys, unsynced);
             return await RecordAsync(context, CommandResult.Fail(unsynced), cancellationToken);
+        }
+        // 2026-10-17-a196a: the stages, the account and the repair run over the repositories THIS spec
+        // names; a three-repository account of a one-repository spec handed its repair another spec's work.
+        specSandboxes.TryResolve(context.Pipeline, out var sandboxes, out var unresolved);
+        if (unresolved is not null)
+        {
+            RunAccountLedger.RecordProblem(context.Pipeline, all.Keys, unresolved);
+            return await RecordAsync(context, CommandResult.Fail(unresolved), cancellationToken);
         }
 
         // p0422: whether the mechanical gates have anything to say is read from the
@@ -162,8 +171,9 @@ public sealed class VerifySpecHandler(
         // p0439: a spec that is through names the state it verified — the commit each
         // sandbox stands at — so a run that stops later can deliver exactly that state. A
         // repair pass is not through yet; its verdict comes from the verification after it.
+        // 2026-10-17-a196a: over EVERY sandbox — the review's fix pass and its revert need a head for each.
         if (verdict.IsSuccess)
-            await verifiedHeads.RecordAsync(context.Pipeline, sandboxes, cancellationToken);
+            await verifiedHeads.RecordAsync(context.Pipeline, all, cancellationToken);
         return await RecordAsync(
             context, verdict.IsSuccess ? verdict : Repairable(context, accounts, verdict),
             cancellationToken);

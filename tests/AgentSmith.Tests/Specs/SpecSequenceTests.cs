@@ -155,7 +155,7 @@ public sealed class SpecSequenceTests
                 AgentSmith.Tests.TestHelpers.TestGit.Delivery,
                 null!, new SandboxTargets(),
                 NullLogger<Application.Services.Specs.SpecDeliveryAccounting>.Instance),
-            new SandboxTargets(),
+            new SandboxTargets(), new SpecSandboxes(new SandboxTargets()),
             NullLogger<Application.Services.Specs.SpecEntryAccount>.Instance);
 
     private static SpecSet TwoSpecSet() => Set(["p0001a", "p0001b"]);

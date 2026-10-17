@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-17-a196a
+
+decisions:
+  - category: Architecture
+    chose: "A file-tool write into a repository the current spec does not name is refused before it runs, as an 'Error: …' result, and named in the master step's result"
+    over: "Keeping 2026-10-13-8762d's annotation on a write that already landed"
+    reason: |
+      Once the keystone runs over the spec's own repositories, no gate of that spec reads the other repository: the
+      write rides this spec's commit unverified, and the spec that owns the repository enters over it (its entry
+      account may even find it satisfied). A placed spec is written into exactly one repository (SeriesRepos), so a
+      write elsewhere contradicts the contract the derivation already enforces. The refusal fires only on an explicit
+      repository prefix, never on a bare path in a multi-repository run, and never under .agentsmith/ (the skill lets
+      the master keep its run record in any repository). Safety in the API: the operator's rule.
+  - category: Architecture
+    chose: "Verified heads and the tree sync stay over every sandbox; the stages, the account, the entry account and the repair run over the spec's"
+    over: "Scoping everything VerifySpecHandler touches"
+    reason: |
+      The review's fix pass and its revert require a verified head for every sandbox they read and restore
+      (SpecReviewFixPass.Decide, SpecReviewRevert.UndoAsync); scoping the heads would turn a routine fix pass into a
+      revert failure. run_command can still move another repository; 2026-10-17-59b6 fails the keystone on that.
+  - category: Architecture
+    chose: "A spec naming repositories no sandbox serves fails its keystone with that sentence, recorded on the run's account ledger"
+    over: "Falling back to every sandbox"
+    reason: "Checking another repository in place of the named one is the defect this spec closes; the fallback would reopen it silently."
+  - category: Implementation
+    chose: "MasterToolComposition opens a fresh RefusedWriteLog per master step; the log is a locked list"
+    over: "Draining at every return of AgenticMasterHandler"
+    reason: "Compose runs once per master step, before any tool; children write concurrently; AgenticMasterHandler sits at its 681-line ratchet, so its closing line is replaced by MasterStepResult and nothing is added."
+  - category: Scope
+    chose: "No derivation wording change for shared setup (the optional slice d)"
+    over: "Making 'a segment needed by every unit is carried by every spec that touches the concern' explicit in spec-derivation-master"
+    reason: "The derivation already permits carrying one segment in several specs, and in run f381 the shared messaging setup WAS carried by both specs. The worker code went wrong because spec 1's repair worked in the worker repository with spec 1's segments — the cause this spec removes."

@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-17-a196b
+
+decisions:
+  - category: Architecture
+    chose: "The correction pass opens its own search allowance, as the full-reach pass already does"
+    over: "Raising the per-pass allowance, or sharing one larger pool"
+    reason: |
+      In run f381 the windowed pass ran exactly twelve searches; the correction call asked for tools and none ran
+      (no sandbox command between its two model calls), because BranchSearch refuses a search past the allowance
+      before it runs and records nothing. A correction asked to repair a search citation could therefore only cite
+      the pattern again, and the resolver correctly refused it. 2026-08-25-6f12 already made the allowance per pass for
+      this reason; the correction was the one pass it missed.
+  - category: Scope
+    chose: "Not showing the account's earlier searches to later calls"
+    over: "Appending the recorded search lines to the COMMANDS list of the correction and full-reach calls"
+    reason: |
+      The adversarial review showed it is not what failed (any search that ran is already in the resolver), and under
+      the heading 'COMMANDS THAT RAN AGAINST THIS BRANCH' a base-search line would read as a branch result that
+      CitationResolver accepts. Visibility needs its own heading and its own spec if it is wanted.
+  - category: Scope
+    chose: "The spec does not claim this decided f381's verdict"
+    over: "Naming the correction pass as the whole cause"
+    reason: "The full-reach pass ran twelve fresh searches and still left the criterion refused; what it answered is only in the log. 2026-10-17-a196a removes the three-repository spread those searches were split across."

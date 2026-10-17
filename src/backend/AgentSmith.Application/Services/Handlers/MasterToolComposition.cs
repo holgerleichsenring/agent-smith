@@ -48,6 +48,7 @@ public sealed class MasterToolComposition(
         TicketWorkToolHost? ticketWork, TicketRunsToolHost? ticketRuns,
         AgenticMasterContext context)
     {
+        Loop.Sanity.RefusedWriteLog.OpenFresh(context.Pipeline); // 2026-10-17-a196a: this step's refusals only
         // p0380: recall (read) + remember (memory-only proposal) join EVERY
         // master surface, including the read-only Review/scan surface.
         // 2026-09-22-9519: the withdrawal joins the design surface HERE rather than inside
@@ -96,7 +97,6 @@ public sealed class MasterToolComposition(
                 .Concat(gateStage.Tools(context.Pipeline))
                 .Concat(records.HandForward?.GetTools(null, null) ?? []) // 8762m: a spec's master only, never a child
                 .ToList();
-
         // A design turn gates on ITS OWN count, so it fans out with the run-wide number at 0.
         var fanOut = isSpecDialog ? loopLimits.MaxSubAgentsPerDialogTurn : loopLimits.MaxSubAgentsPerRun;
         if (fanOut <= 0) return sanity.Wrap(master, context.Pipeline);

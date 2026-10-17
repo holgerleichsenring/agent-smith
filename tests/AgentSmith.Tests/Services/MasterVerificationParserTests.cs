@@ -78,6 +78,34 @@ public sealed class MasterVerificationParserTests
         v.AcceptanceDispositions![1].Evidence.Should().Contain("no MassTransit");
     }
 
+    /// <summary>2026-10-17-a196c: a met claim names what it rests on; a bare string is a list of one.</summary>
+    [Fact]
+    public void MasterVerificationParser_AcceptanceCitations_AreRead()
+    {
+        var text = """
+            { "status": "green", "build_ran": true, "build_passed": true, "tests_ran": true, "tests_passed": true,
+              "acceptance": [
+                { "criterion": "A", "status": "met", "evidence": "e", "citations": ["src/A.cs", "grep -rn 'Bus' src"] },
+                { "criterion": "B", "status": "met", "evidence": "e", "citations": "dotnet build" } ] }
+            """;
+
+        var v = MasterVerificationParser.TryParse(text)!;
+
+        v.AcceptanceDispositions![0].Citations.Should().Equal("src/A.cs", "grep -rn 'Bus' src");
+        v.AcceptanceDispositions![1].Citations.Should().Equal("dotnet build");
+    }
+
+    [Fact]
+    public void MasterVerificationParser_NoCitationsKey_IsNull()
+    {
+        var text = """
+            { "status": "green", "build_ran": true, "build_passed": true, "tests_ran": true, "tests_passed": true,
+              "acceptance": [ { "criterion": "A", "status": "met", "evidence": "e" } ] }
+            """;
+
+        MasterVerificationParser.TryParse(text)!.AcceptanceDispositions![0].Citations.Should().BeNull();
+    }
+
     [Fact]
     public void Verdict_UnknownAcceptanceStatus_DefaultsToUnmet()
     {

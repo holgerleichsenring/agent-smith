@@ -22,7 +22,8 @@ public sealed class SandboxWorkingTreeReader(ILogger<SandboxWorkingTreeReader> l
     public async Task<IReadOnlyList<string>> ChangedPathsAsync(
         IReadOnlyDictionary<string, ISandbox> sandboxes,
         IReadOnlyDictionary<string, string>? keyToRepo,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        bool everyUntrackedFile = false)
     {
         var repoNames = keyToRepo?.Values.Distinct(StringComparer.Ordinal).ToList() ?? [];
         var prefixed = repoNames.Count > 1;
@@ -31,18 +32,20 @@ public sealed class SandboxWorkingTreeReader(ILogger<SandboxWorkingTreeReader> l
         {
             var repo = keyToRepo is not null && keyToRepo.TryGetValue(key, out var name) ? name : key;
             var prefix = prefixed && !string.IsNullOrEmpty(repo) ? repo + "/" : string.Empty;
-            foreach (var path in await ReadOneAsync(sandbox, cancellationToken))
+            foreach (var path in await ReadOneAsync(sandbox, everyUntrackedFile, cancellationToken))
                 paths.Add(prefix + path);
         }
         return [.. paths.Distinct(StringComparer.Ordinal).OrderBy(p => p, StringComparer.Ordinal)];
     }
 
-    private async Task<IReadOnlyList<string>> ReadOneAsync(ISandbox sandbox, CancellationToken ct)
+    private async Task<IReadOnlyList<string>> ReadOneAsync(ISandbox sandbox, bool everyUntrackedFile, CancellationToken ct)
     {
         try
         {
             var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
-                Command: "git", Args: ["status", "--porcelain"], TimeoutSeconds: TimeoutSeconds);
+                Command: "git", TimeoutSeconds: TimeoutSeconds,
+                // 2026-10-17-a196c: a new directory reads as "dir/" unless every untracked file is listed.
+                Args: everyUntrackedFile ? ["status", "--porcelain", "--untracked-files=all"] : ["status", "--porcelain"]);
             var result = await sandbox.RunStepAsync(step, null, ct);
             if (result.ExitCode != 0) return [];
             return ParsePorcelain(result.OutputContent ?? string.Empty);

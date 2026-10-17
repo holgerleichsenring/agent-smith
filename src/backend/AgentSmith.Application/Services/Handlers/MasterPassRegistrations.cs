@@ -10,5 +10,6 @@ public static class MasterPassRegistrations
         services.AddTransient<MasterPassRecorder>()
             .AddTransient<ReengageStopLog>()
             .AddTransient<ReengagePass>()
-            .AddTransient<MasterReengagementLoop>();
+            .AddTransient<MasterReengagementLoop>()
+            .AddTransient<AcceptanceClaimEvidence>().AddTransient<AcceptanceClaimCheck>().AddTransient<AcceptanceClaimObjection>(); // a196c
 }

@@ -1,0 +1,98 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-17-a196a
+goal: "A spec's keystone, entry account and repair hand-back run over the repositories its repos: names, and its master's writes into any other repository are refused and named in the step result."
+
+applies_to: "default (VerifySpecHandler, SpecEntryAccount, a new SpecSandboxes, SpecExecutionPromptBlocks.OutstandingCriteria, the master's write tools via ToolResultSanityWrapper, AgenticMasterHandler's step result)"
+
+requires: []
+
+facts:
+  - claim: "VerifySpecHandler resolves EVERY run sandbox and runs the stages, the delivery account and the repair splice over all of them; nothing reads the current spec's repos."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:75-78, src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:96-101, src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:149-152, src/backend/AgentSmith.Application/Services/Handlers/SandboxTargets.cs:15-31"
+  - claim: "The delivery account takes ONE account over the sandboxes it is handed, keyed by their joined keys; that key is the prefix every outstanding line carries into the repair hand-back."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecDeliveryAccounting.cs:45-65, src/backend/AgentSmith.Application/Services/Specs/SpecVerdict.cs:23-28, src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:195-208"
+  - claim: "The entry account resolves every run sandbox too, through the same accounting."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecEntryAccount.cs:34-49"
+  - claim: "A placed series spec names exactly one repository; a spec naming several or one the run does not hold is refused at placement."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesRepos.cs:23-29, src/backend/AgentSmith.Application/Services/Specs/SeriesRepos.cs:45-57"
+  - claim: "SelectSpec publishes the spec's draft as CurrentSpec; the draft carries Repos, empty on a spec written before specs named them."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SelectSpecHandler.cs:51, src/backend/AgentSmith.Contracts/Models/SpecDraft.cs:61-66"
+  - claim: "SandboxTargets.SandboxesForRepo returns the (key, sandbox) pairs of one repository from the authoritative key-to-repo map."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SandboxTargets.cs:46-59"
+  - claim: "The repair prompt block quotes the outstanding lines and names no repository scope of its own."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecutionPromptBlocks.cs:45-58"
+  - claim: "A write into a repository the spec does not name is only annotated after it landed; the sanity wrapper never changes a call's effect."
+    evidence: "observed: 2026-10-17, UnnamedRepositoryWriteRule.cs lines 12-25 at 177b6c4a9 (renamed by this spec), src/backend/AgentSmith.Application/Services/Loop/Sanity/SanityAnnotatedTool.cs:6-25"
+  - claim: "Every function of the master's and the children's surfaces passes through ToolResultSanityWrapper.Wrap, which reads its scope from the pipeline per call."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:102, src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:112, src/backend/AgentSmith.Application/Services/Handlers/MasterToolComposition.cs:118, src/backend/AgentSmith.Application/Services/Loop/Sanity/ToolResultSanityWrapper.cs:10-16"
+  - claim: "The master step's result is the one line 'Master '<skill>' completed: N files changed'."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:630"
+  - claim: "Verified heads are recorded per sandbox at a spec's verification, and the review fix pass and its revert need a head for every sandbox they touch."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/VerifySpecHandler.cs:165-166, src/backend/AgentSmith.Application/Services/Specs/SpecReviewFixPass.cs:55-65, src/backend/AgentSmith.Application/Services/Specs/SpecReviewRevert.cs:69-87"
+  - claim: "Run f381 on 2026-10-16: spec 0f63a's final verification accounted over all three repositories and its repair pass changed files in the worker repository."
+    evidence: "observed: 2026-10-17, RunSteps 28-32 and RunEvents of run 2026-10-16T15-05-05-f381 (LlmCallStarted RepoName lists the three repositories)"
+
+scope:
+  in: >
+    SpecSandboxes (Application/Services/Handlers): TryResolve(pipeline, out sandboxes, out unresolved). False when the run
+    has no sandboxes. When CurrentSpec names repositories, the sandboxes are those SandboxTargets.SandboxesForRepo returns
+    for each named repository (the run's RepoConnection by case-insensitive name, else one built from the name); none
+    found sets unresolved to a sentence naming the spec and its repositories. A spec naming none, and no current spec,
+    keep every sandbox. VerifySpecHandler runs the delivery diff, stage relevance, the stages, the account and the
+    repair over the spec's sandboxes, and keeps the tree sync and the verified heads over every sandbox. Unresolved
+    fails the step with that sentence and records it through RunAccountLedger.RecordProblem over every sandbox key, so
+    the run's gate names the cause. SpecEntryAccount takes the entry account over the spec's sandboxes, none when
+    unresolved. OutstandingCriteria names the repositories the spec is written into when it names any. WRITE REFUSAL:
+    UnnamedRepositoryWriteRule becomes UnnamedRepositoryWrite, a pre-call check with the same routing that exempts a
+    path for which RunRecordPaths.IsRunRecordPath holds after the repository prefix is stripped (the skill lets the
+    master write plan.md and decisions.md into any repository's run record). RepositoryScopedWriteTool (a
+    DelegatingAIFunction around write_file, edit and multi_edit) returns that sentence as an "Error: …" result without
+    invoking the tool and records it in the pipeline's RefusedWriteLog (a locked list; master and children write it
+    concurrently). MasterToolComposition.Compose opens a fresh log per master step before it wraps; ToolResultSanityWrapper
+    wraps with the refusal inside the sanity annotation. The rule leaves the sanity rule list (LoopRuntimeExtensions)
+    and the test helpers (TestSanity), and its tests move to UnnamedRepositoryWrite. MasterStepResult replaces the
+    master step's closing line in AgenticMasterHandler (no net lines; the file sits at its ratchet) and appends the
+    refused writes.
+  out: >
+    ReviewSpecDiff keeps reading every sandbox's spec diff (its fix pass needs a head per sandbox it reads). The verified
+    heads stay over every sandbox. run_command is not refused — a shell write into another repository is not routed by
+    a path argument; the keystone noticing any movement outside the spec's repositories is 2026-10-17-59b6. The
+    exemption is everything IsRunRecordPath matches — all of .agentsmith/, including another repository's context.yaml
+    and specs, which the master writes through write_context_yaml and the framework anyway. The
+    run-level TakeOrReuseAsync account (no spec ran) keeps every sandbox.
+
+decisions:
+  - key: "A WRITE OUTSIDE THE SPEC'S REPOSITORIES IS REFUSED, NOT ANNOTATED. After the keystone is scoped, no gate of that spec reads the other repository, so the write rides this spec's commit unverified and the owning spec enters over it."
+  - key: "VERIFIED HEADS STAY OVER EVERY SANDBOX. The review's fix pass and its revert need a head for every sandbox. The refusal covers the file tools only; a run_command write elsewhere is still recorded as verified, which 2026-10-17-59b6 closes at the keystone."
+  - key: "A PLACED SPEC ALWAYS NAMES ONE REPOSITORY. SeriesRepos stamps the legacy repository into a spec that named none, so an older multi-repository spec resumed from a branch is narrowed to its carrier — the repository placement already says it is written into. The keep-every-sandbox arm serves contexts with no placed spec."
+
+steps:
+  - id: resolve
+    action: "SpecSandboxes and its DI registration; tests first."
+  - id: keystone
+    action: "VerifySpecHandler and SpecEntryAccount over the spec's sandboxes; the repair block names the spec's repositories; the test constructors gain SpecSandboxes."
+  - id: refuse
+    action: "UnnamedRepositoryWrite, RepositoryScopedWriteTool, RefusedWriteLog, the wrapper and Compose, MasterStepResult; LoopRuntimeExtensions and TestSanity drop the rule; its tests and SanitySurfaceTests move."
+  - id: tests
+    action: "Unit tests per type; one harness test through the real container for the keystone and one for the refusal; build; run the affected classes."
+
+tests:
+  - "SpecSandboxes_SpecNamingOneRepository_ResolvesOnlyItsSandboxes"
+  - "SpecSandboxes_SpecNamingNone_KeepsEverySandbox"
+  - "SpecSandboxes_NamedRepositoryWithoutSandbox_IsUnresolved"
+  - "VerifySpec_ServerSpecInTwoRepoRun_AccountsAndBuildsServerOnly"
+  - "VerifySpec_NamedRepositoryWithoutSandbox_Fails"
+  - "SpecEntryAccount_ServerSpec_AccountsServerOnly"
+  - "OutstandingCriteria_SpecNamingRepos_NamesThem"
+  - "RepositoryScopedWriteTool_WriteIntoUnnamedRepository_IsRefusedAndRecorded"
+  - "RepositoryScopedWriteTool_WriteIntoNamedRepositoryOrRunRecord_Runs"
+  - "MasterStepResult_RefusedWrites_AreNamed"
+  - "RefusedWriteLog_ConcurrentRecords_AreAllKept"
+  - "Harness_VerifySpec_ServerSpec_AccountNamesServerOnly"
+  - "Harness_WrappedWriteTool_RefusesTheUnnamedRepository"
+
+done:
+  - "On a two-repository run, the server spec's keystone builds, accounts and hands back only the server repository; the account's repository key and every outstanding line name server alone."
+  - "A server spec's master that calls write_file on a worker path gets an Error result, the file is not written, and the master step's result names the refused path."
+  - "SpecSandboxes keeps every sandbox for a pipeline whose current spec names no repository."
+  - "Build green, full suite green, dashboard gen/test/build green."

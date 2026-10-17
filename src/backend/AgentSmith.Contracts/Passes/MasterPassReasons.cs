@@ -26,6 +26,8 @@ public static class MasterPassReasons
     public const string RedWithOpenSteps = "red-with-open-steps";
     public const string UnbackedDone = "unbacked-done";
     public const string GateUnsatisfied = "gate-unsatisfied";
+    /// <summary>2026-10-17-a196c: met claims whose citations resolve against nothing that changed or ran.</summary>
+    public const string UnresolvedClaims = "unresolved-claims";
     public const string Challenged = "challenged";
 
     // Opened because, for a pass that is not a re-engagement.

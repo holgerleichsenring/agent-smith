@@ -21,7 +21,8 @@ namespace AgentSmith.Application.Services.Handlers;
 /// (<see cref="MasterSurrenderChallenge"/>), recorded as a pass opened because it was challenged.
 /// </para>
 /// </summary>
-public sealed class MasterReengagementLoop(ReengagePass passes, MasterPassRecorder recorder, ReengageStopLog stopLog)
+public sealed class MasterReengagementLoop(
+    ReengagePass passes, MasterPassRecorder recorder, ReengageStopLog stopLog, AcceptanceClaimObjection objection)
 {
     // An absolute anti-hang net for the fail-open case (no cost cap configured). It is NOT the control —
     // money and forward progress are.
@@ -33,17 +34,21 @@ public sealed class MasterReengagementLoop(ReengagePass passes, MasterPassRecord
         var criteria = MasterReengagementPolicy.RatifiedCriteria(s.Context.Pipeline);
         var surrender = new MasterSurrenderChallenge();
         var challenge = false;
+        var objected = false; // 2026-10-17-a196c: one objection to unresolved met claims per step
         for (var n = 0; n < HardSafetyCap; n++)
         {
             // p0374a: pass 0 is the first loop, so a re-engagement pass is 1-based — every ledger
             // transition recorded from here carries the pass it happened in.
             s.SetPass(n + 1);
             string? reason = MasterPassReasons.Challenged;
+            IReadOnlyList<string> claims = [];
             if (!challenge)
             {
+                claims = await objection.LinesAsync(s, state, criteria, objected, ct);
                 var decision = ReengageReasonPolicy.Decide(
                     s.PipelineName, s.Progress.GetLedger(), state.Verification, s.CostTracker.IsBudgetExhausted,
-                    criteria, state.Changes, n + 1, s.VerdictOwed.Demanded);
+                    criteria, state.Changes, n + 1, s.VerdictOwed.Demanded, claims);
+                objected |= decision.Reason == MasterPassReasons.UnresolvedClaims;
                 reason = decision.Reason;
                 if (!decision.Reengage)
                 {
@@ -67,7 +72,8 @@ public sealed class MasterReengagementLoop(ReengagePass passes, MasterPassRecord
             ReengagePassResult result;
             try
             {
-                result = await passes.RunAsync(s, state, criteria, ct, nudge);
+                result = await passes.RunAsync(s, state, criteria, ct, nudge,
+                    reason == MasterPassReasons.UnresolvedClaims ? claims : null);
             }
             finally
             {
