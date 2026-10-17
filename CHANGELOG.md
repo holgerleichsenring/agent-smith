@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.169.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.168.0...v0.169.0) (2026-10-17)
+
+
+### Features
+
+* pin skills v5.19.0 so a master's met claims must cite what they rest on (2026-10-17-1170) ([fe5ca93](https://github.com/holgerleichsenring/agent-smith/commit/fe5ca93addd1c8843d8a077847cbe7b4ab14796d))
+* pin skills v5.19.0 so a master's met claims must cite what they rest on (2026-10-17-1170) ([3e1b117](https://github.com/holgerleichsenring/agent-smith/commit/3e1b117cfa8b70ab50534dcb4ac627bd47008bd9))
+
 ## [0.168.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.167.0...v0.168.0) (2026-10-17)
 
 
