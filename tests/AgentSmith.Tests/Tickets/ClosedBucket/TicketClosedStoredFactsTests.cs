@@ -76,9 +76,9 @@ public sealed class TicketClosedStoredFactsTests : IDisposable
     }
 
     [Fact]
-    public void TicketBucketRule_FailedHeadClosedForWorkWithAnOpenPullRequest_StaysWaitingOnReview() =>
+    public void TicketBucketRule_FailedHeadClosedForWorkWithAnOpenPullRequest_IsFailed() =>
         new TicketBucketRule().Of(Run("r-1", status: "failed"), Live, [Pr(PrReviewStates.Open)], trackerClosed: true)
-            .Bucket.Should().Be(TicketBucket.WaitingOnReview);
+            .Bucket.Should().Be(TicketBucket.Failed);
 
     [Fact]
     public async Task TicketBucketRule_CheckOfAnOlderAttemptSaysClosed_IsNotClosed()

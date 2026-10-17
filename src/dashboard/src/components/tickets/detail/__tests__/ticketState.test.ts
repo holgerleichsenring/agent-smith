@@ -96,6 +96,15 @@ describe("ticketState", () => {
     expect(view.act).toMatchObject({ kind: "link", href: "https://github.com/o/api/pull/810" });
   });
 
+  it("ticketState_FailedWithOpenPullRequests_LeadsWithTheFailureAndCarriesThePullRequests", () => {
+    const d = failedTicket({ endKind: "criteria-unmet" });
+    d.summary = { ...d.summary, pullRequests: [pr({ number: "810", state: "open" })] };
+    const view = state(d);
+    expect(view.pill).toBe("Failed");
+    expect(view.sentence).toBe("Attempt 2 failed: the acceptance gate did not accept a criterion.");
+    expect(view.pullRequests.map((p) => p.number)).toEqual(["810"]);
+  });
+
   it("ticketState_DoneClosedIdle_AreOneQuietLineWithoutAct", () => {
     for (const bucket of ["done", "closed", "idle"] as const) {
       const d = detail([attempt({ status: "cancelled" })]);

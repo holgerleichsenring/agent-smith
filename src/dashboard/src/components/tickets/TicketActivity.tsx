@@ -44,7 +44,7 @@ function partsOf(t: TicketSummary): Array<ReactNode | null | false> {
     case "closed":
       return [closedWords(t)];
     case "stuck":
-      return [<span key="f" className="ab">{failed === 1 ? "1 attempt failed" : `${failed} attempts failed`}</span>, checked(t)];
+      return [<span key="f" className="ab">{failed === 1 ? "1 attempt failed" : `${failed} attempts failed`}</span>, checked(t), ...pullRequests(t)];
     default:
       return [
         t.lastOutcome ? <>last attempt <b>{outcomeWords(t.lastOutcome)}</b></> : null,

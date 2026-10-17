@@ -87,6 +87,7 @@ integrations:
 
 state:
   done:
+    2026-10-16-7ed3a: "FAILED HEAD OUTRANKS OPEN PRS (TicketBucketRule, ticket list, state view). A ticket whose newest attempt failed reads failed or stuck while its pull requests stay open, and a tracker close does not hide them; the stuck activity line and the state view carry the pull requests. -> .agentsmith/specs/done/2026-10-16-7ed3a-ticket-bucket-failed-prs.yaml"
     2026-10-16-86e6e: "REJECTED CRITERION REASON (series read, Specs and Acceptance tabs). An unmet or unproven criterion shows the gate's reason under its text with Overrule in the run, linking the run whose acceptance gave the verdict (served as judgedBy). -> .agentsmith/specs/done/2026-10-16-86e6e-rejected-criterion-reason.yaml"
     2026-10-16-86e6d: "ATTEMPT RUN LINKS (state block, Specs tab, attempt card). Earlier attempts collapse to one line naming a superseded one, each opening its run; executed in A{n} and every cell of an attempt that ran a spec link the run viewer; one runPath helper. -> .agentsmith/specs/done/2026-10-16-86e6d-attempt-run-links.yaml"
     2026-10-16-86e6c: "TICKET STATE BLOCK (ticket page, header). Under the header on every tab: a pill and one sentence per state, Open run, one act fitting the cause (retry, trust registry, init-project, overrule, answer, continue) with other options and the verbatim Why folded; healthy states are one line. -> .agentsmith/specs/done/2026-10-16-86e6c-ticket-state-block.yaml"

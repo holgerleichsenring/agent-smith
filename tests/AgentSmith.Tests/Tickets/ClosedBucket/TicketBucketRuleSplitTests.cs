@@ -50,6 +50,18 @@ public sealed class TicketBucketRuleSplitTests
         Bucket("failed", []).Should().Be(TicketBucket.Failed);
 
     [Fact]
+    public void TicketBucketRule_FailedHeadWithAnOpenPullRequest_IsFailed() =>
+        Bucket("failed", [Pr(PrReviewStates.Open)]).Should().Be(TicketBucket.Failed);
+
+    [Fact]
+    public void TicketBucketRule_SucceededHeadWithAnOpenPullRequest_StaysWaitingOnReview() =>
+        Bucket("success", [Pr(PrReviewStates.Open)]).Should().Be(TicketBucket.WaitingOnReview);
+
+    [Fact]
+    public void TicketBucketRule_FailedHeadOpenPullRequestStuck_IsStuck() =>
+        Bucket("failed", [Pr(PrReviewStates.Open)], stuck: true).Should().Be(TicketBucket.Stuck);
+
+    [Fact]
     public void TicketBucketRule_CancelledAttempt_IsIdle() =>
         Bucket("cancelled", []).Should().Be(TicketBucket.Idle);
 

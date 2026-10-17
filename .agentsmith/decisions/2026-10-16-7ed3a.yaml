@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-16-7ed3a
+
+decisions:
+  - category: Architecture
+    chose: "A failed newest attempt reads failed (or stuck) and carries its open pull requests; no new bucket"
+    over: "A new bucket such as failed_with_prs; or keeping waiting_on_review (contract default 14, 114fc)"
+    reason: |
+      The pull requests already ride on every summary, the list's failed/stuck activity lines list them and the dot is
+      the stopped red. A new bucket would need its own dot, filter, count and section for a state whose act is the
+      failure's. The operator overrules default 14: a failed head means a person acts on the failure first.
+  - category: Architecture
+    chose: "The rule reads only the head's status, not which run opened each pull request"
+    over: "Serving a run id on TicketPullRequestView (NamedPullRequestReader knows the newest run naming a URL) and comparing it"
+    reason: |
+      The head is the newest attempt, so every open pull request was opened by it or by an attempt it followed; in both
+      readings the operator gave ('come from a failed newest attempt, or the newest attempt failed after them') the
+      answer is failed. A newer attempt that fails in its prologue beside an older PR in review also reads failed.
+  - category: Implementation
+    chose: "The tracker-closed arm does not apply while a pull request is open"
+    over: "Letting a person's tracker close answer closed (tracker) over an open pull request"
+    reason: "Closed would hide a still-open pull request; failed keeps it visible and loud."
+  - category: Testing
+    chose: "TicketBucket_FailedWithOpenReview now expects Stuck"
+    over: "Expecting Failed"
+    reason: "Its fixture records an unchanged between-attempts check, and stuck outranks failed in Ended; the list starts that check for every failed head, so a live ticket often reads stuck — the stuck activity line therefore also lists the pull requests."

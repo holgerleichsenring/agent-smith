@@ -19,6 +19,8 @@ namespace AgentSmith.Server.Services.Tickets;
 /// <para>2026-10-15-114fb: a close mark answers closed while <see cref="TicketClosedRule"/> holds it in force.</para>
 /// <para>2026-10-15-114fc: a failed attempt whose own check saw a person's tracker close answers closed (tracker)
 /// after done and before stuck.</para>
+/// <para>2026-10-16-7ed3a: an open pull request answers waiting on review only while the newest attempt did not fail;
+/// a failed head carries its open pull requests into stuck or failed, and a tracker close does not hide them.</para>
 /// </summary>
 public sealed class TicketBucketRule
 {
@@ -38,12 +40,15 @@ public sealed class TicketBucketRule
         var doneAt = DoneAt(pullRequests, landing) ?? landedAt;
         if (closed is not null && TicketClosedRule.InForce(closed, newest, pullRequests, doneAt))
             return new(TicketBucket.Closed, TicketClosedKinds.ByHand, closed.ClosedAt, newest.Status, null, null, landing);
-        if (pullRequests.Any(p => p.State == PrReviewStates.Open))
+        if (AnyOpen(pullRequests) && newest.Status != RunStatuses.Failed)
             return new(TicketBucket.WaitingOnReview, null, newest.FinishedAt, null, null, null, landing);
         if (doneAt is { } at && newest.StartedAt <= at)
             return new(TicketBucket.Done, null, at, null, null, null, landing);
-        return Ended(newest, landing, stuck, trackerClosed && landedAt is null);
+        return Ended(newest, landing, stuck, trackerClosed && landedAt is null && !AnyOpen(pullRequests));
     }
+
+    private static bool AnyOpen(IReadOnlyList<TicketPullRequestView> pullRequests) =>
+        pullRequests.Any(p => p.State == PrReviewStates.Open);
 
     // Done: a pull request merged and every one ended; done at the newest end. An attempt started after
     // it — a keyword comment after a merge — is that attempt's ticket, not a Done one. Else a stored landing's time.

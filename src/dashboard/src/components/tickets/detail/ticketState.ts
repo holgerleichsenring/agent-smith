@@ -1,6 +1,6 @@
 import { runPath } from "@/lib/runPath";
 import { EventType, type RunEvent, type StepStartedEvent } from "@/types/hub-events";
-import { RUN_END_KINDS, type TicketAttempt, type TicketDetail, type TicketSeries } from "@/types/tickets";
+import { RUN_END_KINDS, type TicketAttempt, type TicketDetail, type TicketPullRequest, type TicketSeries } from "@/types/tickets";
 import { closedWords } from "../TicketActivity";
 import { liveSpec } from "./attemptStory";
 import { prNumber } from "./conversationWords";
@@ -30,6 +30,8 @@ export interface TicketStateView {
   others: StateAct[];
   /** Healthy: one line, no disclosures. */
   quiet: boolean;
+  /** 2026-10-16-7ed3a: every pull request of the ticket while the state is not quiet — a failed head keeps them. */
+  pullRequests: TicketPullRequest[];
 }
 
 export interface TicketStateInput {
@@ -44,9 +46,14 @@ const DISCUSS: StateAct = { kind: "tab", label: "Discuss in conversation", tab: 
 export const SANDBOX_SETTINGS_PATH = "/config/settings/sandbox";
 
 const base = (attempt: TicketAttempt | null): Omit<TicketStateView, "tone" | "pill" | "sentence"> =>
-  ({ detail: null, attempt, act: null, others: [], quiet: false });
+  ({ detail: null, attempt, act: null, others: [], quiet: false, pullRequests: [] });
 
-export function ticketState({ detail, liveEvents, series }: TicketStateInput): TicketStateView | null {
+export function ticketState(input: TicketStateInput): TicketStateView | null {
+  const view = stateOf(input);
+  return view && !view.quiet ? { ...view, pullRequests: input.detail.summary.pullRequests ?? [] } : view;
+}
+
+function stateOf({ detail, liveEvents, series }: TicketStateInput): TicketStateView | null {
   const head = detail.attempts.at(-1) ?? null;
   if (!head) return null;
   const { summary } = detail;
