@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-16-7ed3a
+goal: "A ticket whose newest attempt failed reads failed even while pull requests are open, so the list and the state block lead with the failure and still carry the pull requests."
+
+applies_to: "default (TicketBucketRule and its tests) and dashboard (the state view's pull requests in ticketState, the stuck activity line)"
+
+facts:
+  - claim: "The rule answers waiting_on_review for any open pull request before it looks at how the newest attempt ended; failed is the second-to-last arm."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketBucketRule.cs:41-45, src/backend/AgentSmith.Server/Services/Tickets/TicketBucketRule.cs:55-63"
+  - claim: "A ticket's pull-request view carries no run id; which run named a URL is known only to the named-pull-request read, which keeps the newest run naming it."
+    evidence: "src/backend/AgentSmith.Server/Models/TicketPullRequestView.cs:17-29, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/NamedPullRequestReader.cs:27-37"
+  - claim: "The rule is handed the head attempt, the newest, so every pull request on the ticket was opened by it or by an attempt before it."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketSummaryComposer.cs:30-35"
+  - claim: "The old precedence is contract default 14 (114fc) and is pinned by two tests: a failed head with an open record, and a tracker-closed failed head with an open pull request, both read waiting_on_review."
+    evidence: ".agentsmith/decisions/2026-10-15-114fc.yaml:36-42, tests/AgentSmith.Tests/Tickets/TicketStuckTests.cs:201-208, tests/AgentSmith.Tests/Tickets/ClosedBucket/TicketClosedStoredFactsTests.cs:78-81"
+  - claim: "The list's dot, activity line and bucket filter read the server's bucket: failed is the stopped-red dot and its activity line (the default arm) already lists the pull requests."
+    evidence: "src/dashboard/src/components/tickets/ticketDot.ts:21-26, src/dashboard/src/components/tickets/TicketActivity.tsx:49-54, src/dashboard/src/lib/TicketBucketFilter.tsx:30-33"
+  - claim: "The list starts a between-attempts check for every row whose head failed, so a failed head nobody acted on reads stuck after one list read; the stuck activity line lists no pull requests."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketListReader.cs:62, src/backend/AgentSmith.Server/Services/Tickets/Checks/TicketStuckRule.cs:18-20, src/dashboard/src/components/tickets/TicketActivity.tsx:46-47"
+  - claim: "A launch that failed in its prologue counts as an attempt, so it becomes the head."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/TicketAttempts.cs:9-12"
+  - claim: "The state block's failed words come from failureAct only; pull requests are read only in the waiting-on-review arm."
+    evidence: "src/dashboard/src/components/tickets/detail/ticketState.ts:53-58, src/dashboard/src/components/tickets/detail/ticketState.ts:139-147"
+
+scope:
+  in: >
+    RULE: the open-pull-request arm answers waiting_on_review only when the newest attempt did not fail. A failed
+    newest attempt with open pull requests falls through to done (a stored landing) and the ended arms (stuck, then
+    failed); the tracker-closed arm does not apply while a pull request is open, so a person's tracker close does not
+    hide an open pull request either — it reads failed. No new bucket: failed carries the pull requests every summary
+    already serves. Of stays within 20 lines. TESTS: the two pinning tests flip; new rule tests below. DASHBOARD:
+    TicketStateView gains pullRequests — every pull request of the ticket for a state that is not quiet — for
+    2026-10-16-7ed3b to draw. The stuck activity line on the list appends the pull requests as the failed (default)
+    arm does.
+  out: >
+    Drawing the pull requests and removing Other options — 2026-10-16-7ed3b. A run id on TicketPullRequestView — the
+    rule does not need it, because the head is the newest attempt.
+
+decisions:
+  - key: "FAILED CARRIES THE PULL REQUESTS, NO NEW BUCKET. They already ride on every summary; a new bucket would need a dot, a filter, a count and a section for a state whose act is the failure's."
+  - key: "THE NEWEST ATTEMPT DECIDES, WHOEVER OPENED THE PR. An open pull request is the failed head's partial work or older work it failed to rework; either way a person acts on the failure first. That includes a newer attempt that failed in its prologue (preflight, untrusted image) beside an older attempt's PR in review."
+
+steps:
+  - id: rule
+    action: "TicketBucketRule.Of: the open arm requires a head that did not fail; the tracker-closed argument also requires no open pull request."
+  - id: view
+    action: "ticketState: pullRequests on the view; TicketActivity's stuck arm appends the pull requests."
+  - id: tests
+    action: "Red then green; flip the two pinning tests; dotnet test the Tickets classes; pnpm test ticketState."
+
+tests:
+  - "TicketBucketRule_FailedHeadWithAnOpenPullRequest_IsFailed"
+  - "TicketBucketRule_SucceededHeadWithAnOpenPullRequest_StaysWaitingOnReview"
+  - "TicketBucketRule_FailedHeadOpenPullRequestStuck_IsStuck"
+  - "TicketBucketRule_FailedHeadClosedForWorkWithAnOpenPullRequest_IsFailed (was _StaysWaitingOnReview)"
+  - "TicketBucket_FailedWithOpenReview_IsStuckNotWaitingOnReview (was _IsWaitingOnReviewNotStuck; an unchanged check makes it stuck)"
+  - "TicketActivity_StuckWithPullRequests_ListsThem"
+  - "ticketState_FailedWithOpenPullRequests_LeadsWithTheFailureAndCarriesThePullRequests"
+
+done:
+  - "A ticket whose newest attempt failed after opening pull requests reads failed or stuck on the list (red dot, that filter, its pull requests in the activity line) and its state block leads with the failure."
+  - "Build green, full suite green, dashboard gen/test/build green."

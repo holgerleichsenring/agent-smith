@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-16-7ed3b
+goal: "The ticket state block shows its pull requests as plain rows and every attempt as one line of chips linking its run, with one act and one Open run and no Other options or earlier-attempts list."
+
+applies_to: "dashboard (ticketState, TicketStateBlock, earlierAttempts becoming attemptChips, a shortRepo helper, mock-parity.css .tstate rules)"
+
+requires: [2026-10-16-7ed3a]
+
+facts:
+  - claim: "The block draws the one act and folds every other act into a closed 'Other options' disclosure; the failure acts put Continue or Discuss there."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketStateBlock.tsx:45-60, src/dashboard/src/components/tickets/detail/ticketState.ts:69-94"
+  - claim: "Waiting on review turns the first open pull request into the act and the rest into other options."
+    evidence: "src/dashboard/src/components/tickets/detail/ticketState.ts:139-147"
+  - claim: "Earlier attempts are a closed disclosure with a summary line and one row per attempt with an Open run button; the head's run is linked beside the sentence."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketStateBlock.tsx:32-36, src/dashboard/src/components/tickets/detail/TicketStateBlock.tsx:105-121, src/dashboard/src/components/tickets/detail/earlierAttempts.ts:21-36"
+  - claim: "An attempt's pill tone and words come from outcomePill; a superseded attempt reads q superseded."
+    evidence: "src/dashboard/src/components/tickets/detail/AttemptCard.tsx:37-43"
+  - claim: "A ticket pull request carries number, url, repo, state and decision; the review words read the number off the url first."
+    evidence: "src/dashboard/src/types/tickets.ts:57-69, src/dashboard/src/components/tickets/detail/ticketState.ts:142"
+  - claim: "A summary recorded before the humanizer can be a raw provider error payload; formatRunSummary extracts its message."
+    evidence: "src/dashboard/src/lib/formatRunSummary.ts:1-10"
+  - claim: "The page test pins the Other options click and the earlier-attempts line."
+    evidence: "src/dashboard/src/components/tickets/detail/__tests__/TicketPage.test.tsx:127-129, src/dashboard/src/components/tickets/detail/__tests__/TicketPage.test.tsx:152-164"
+
+scope:
+  in: >
+    WORDS: TicketStateView loses others; each failure keeps its one act (retry, trust, init, overrule, continue);
+    waiting on review has no act — its pull-request rows are the way on. PULL REQUESTS (the view's pullRequests from
+    7ed3a): one row each — shortRepo(repo) (after the last '/', then the last '.' segment; the full name as title),
+    #number (prNumber(url) first, as today), the state word plus the decision when it is not none, the row a link to its url. CHIPS: attemptChips
+    replaces earlierAttempts — one chip per attempt, oldest first: "A{n}" in its outcomePill tone, a link to
+    runPath(runId), title "A{n} · <attemptWords>" plus " — <first non-empty line of formatRunSummary(summary)>" when there is one; the head
+    chip has aria-current and the .head emphasis. Drawn as one line whenever the ticket has two or more attempts, on
+    every state; the view's quiet comment says quiet means no act and no disclosure. "Open run A{n}" beside the sentence stays the one obvious way to the attempt the block talks about.
+    CSS: .ts-prs and .ts-chips from the existing tokens and pill tones; the .ts-more and .ts-earlier rules go.
+  out: >
+    The bucket — 2026-10-16-7ed3a. The Attempts tab and the flow graph's attempt switcher stay as they are.
+
+decisions:
+  - key: "SHORT NAMES MAY REPEAT. Two repositories ending in the same segment read alike; the full name is the row's title."
+  - key: "THE OPERATOR OVERRULES 86e6c AND 86e6d. Other options and the earlier-attempts disclosure go; the Conversation tab stays one click away in the tab bar."
+  - key: "CHIPS ON EVERY STATE WITH TWO OR MORE ATTEMPTS. One line of small links is not a disclosure, so healthy stays quiet, and a working ticket's earlier runs stay reachable."
+
+steps:
+  - id: words
+    action: "ticketState without others; attemptChips and shortRepo; tests first."
+  - id: block
+    action: "TicketStateBlock: pull-request rows, chip line, no Other options, no Earlier; CSS."
+  - id: tests
+    action: "Red then green; earlierAttempts.test.ts becomes attemptChips.test.ts (attemptWords stays exported); update the TicketPage and ticketState tests; pnpm test the tickets folder; pnpm build."
+
+tests:
+  - "attemptChips_EveryAttempt_OldestFirstHeadMarkedWithToneAndCauseTitle"
+  - "shortRepo_DottedAndSlashedNames_KeepTheLastSegment"
+  - "ticketState_FailureActs_HaveNoOtherOptions"
+  - "ticketState_WaitingOnReview_HasNoActAndCarriesThePullRequests"
+  - "TicketStateBlock_PullRequests_AreRowsWithShortRepoNumberStateAndLink"
+  - "TicketStateBlock_Chips_LinkEachRunAndMarkTheHead"
+
+done:
+  - "A failed ticket with open pull requests shows the failure sentence, one act, Open run, its pull requests as rows and A1…An as one line of chips, each opening its run."
+  - "Build green, full suite green, dashboard gen/test/build green."

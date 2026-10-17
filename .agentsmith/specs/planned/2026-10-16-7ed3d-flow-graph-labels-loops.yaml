@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-16-7ed3d
+goal: "The attempt flow graph's labels stay inside their column with the full text in a tooltip, and a re-engage loop runs outside the pass boxes with its reason written once."
+
+applies_to: "dashboard (attemptFlowLayout, FlowCanvas, mock-parity.css flow rules)"
+
+requires: [2026-10-16-7ed3b]
+
+facts:
+  - claim: "Columns are 120 to 170 px apart (gate 310, spec 440, build 600, verify 770); labels are centred under their node at 11.5 px mono."
+    evidence: "src/dashboard/src/components/tickets/detail/attemptFlowLayout.ts:66-68, src/dashboard/src/components/tickets/detail/FlowCanvas.tsx:71-72, src/dashboard/src/styles/mock-parity.css:455-456"
+  - claim: "A spec label is 'SPEC n · ' plus the whole first repository name upper-cased, so a long dotted name runs into GATE on the same row; no node carries a tooltip."
+    evidence: "src/dashboard/src/components/tickets/detail/attemptFlowLayout.ts:270-272, src/dashboard/src/components/tickets/detail/attemptFlowLayout.ts:111, src/dashboard/src/components/tickets/detail/FlowCanvas.tsx:57-73"
+  - claim: "A pass box spans 112 px from ly-50, rows are 150 px apart, so 38 px separate two boxes; the return edge is a cubic from the verify node's right to the next build's left, crossing both boxes."
+    evidence: "src/dashboard/src/components/tickets/detail/attemptFlowLayout.ts:169-171, src/dashboard/src/components/tickets/detail/attemptFlowLayout.ts:196-199"
+  - claim: "The loop writes its reason twice: the ended pass's reason with ↺ and the next pass's 'opened:' reason, which for a re-engagement is the same word."
+    evidence: "src/dashboard/src/components/tickets/detail/attemptFlowLayout.ts:200-201, src/backend/AgentSmith.Contracts/Passes/MasterPassReasons.cs:25-29"
+  - claim: "A verify metric without a tally is the pass's end word, as long as 'ended without a verdict' (23 characters)."
+    evidence: "src/dashboard/src/components/tickets/detail/attemptFlowLayout.ts:263-268, src/dashboard/src/components/tickets/detail/flowWords.ts:13"
+  - claim: "A question node sits 70 px above its lane, centred between build and verify, which for a pass after the first lands in the gap between two boxes; the node detail's sub-line and the node's aria-label read node.metric."
+    evidence: "src/dashboard/src/components/tickets/detail/attemptFlowLayout.ts:188-194, src/dashboard/src/components/tickets/detail/NodeDetail.tsx:68, src/dashboard/src/components/tickets/detail/FlowCanvas.tsx:61"
+
+scope:
+  in: >
+    LABELS: a spec label names the repository by shortRepo (2026-10-16-7ed3b) — 'SPEC n · SERVER'; every node label
+    and metric is cut to the column (LABEL_MAX 24 characters, the cut ending in '…'), and the node keeps the full
+    label and metric as `full`, which FlowCanvas draws as the node's SVG <title> (the browser tooltip) and uses in the
+    aria-label; the node detail's sub-line reads the full metric. LOOP: the return edge is an orthogonal path — right from the verify
+    node to 12 px outside the pass box, down to 19 px below the box (the middle of the 38 px gap), left along the gap to 12
+    px outside the box's left edge, down to the next lane, right into the next build node. ONE REASON: one text in the
+    gap above the line, '↺ ' plus the ended pass's reengageReason, else the next pass's openedBecause, else the ended
+    pass's endedBecause, cut to the box width with its full words as a <title>. ROOM FOR A QUESTION: a pass after the
+    first whose lane holds a question node starts ASK_ROOM lower, as the first pass of a later spec already does, so
+    the question sits below the loop's run; specRow accumulates that offset, every later lane shifts with it, and the
+    row height it returns includes it, so the next spec row and the graph height follow.
+  out: >
+    Node colours and the end cause — 2026-10-16-7ed3e. The folded mode, which draws no loop.
+
+decisions:
+  - key: "CUT, DO NOT WRAP, IN THE SVG. SVG text does not wrap; a cut label with its full text as a tooltip and in the node detail keeps every row one line and every column its own."
+
+steps:
+  - id: layout
+    action: "fit() for labels and metrics, full text on FlowNode and FlowText; specLabel via shortRepo; orthogonal returnEdge with one reason."
+  - id: canvas
+    action: "FlowCanvas draws <title> for a node and a text that carry full text."
+  - id: tests
+    action: "Red then green in attemptFlowLayout.test.ts; pnpm test the tickets folder; pnpm build."
+
+tests:
+  - "attemptFlowLayout_LongDottedRepo_LabelIsShortAndFullTextIsKept"
+  - "attemptFlowLayout_LongMetric_IsCutToTheColumn"
+  - "attemptFlowLayout_ReturnEdge_StaysOutsideBothPassBoxes"
+  - "attemptFlowLayout_ReturnEdge_WritesItsReasonOnce"
+  - "attemptFlowLayout_QuestionInASecondPass_SitsBelowTheLoopAndTheNextSpecShifts"
+  - "NodeDetail_CutMetric_SubLineReadsTheFullMetric"
+  - "FlowCanvas_NodeWithFullText_HasATitle"
+
+done:
+  - "A spec on a long dotted repository reads 'SPEC 1 · SERVER' beside GATE without touching it, hovering shows the full name, and a re-engaged pass loops down the outside of the boxes with one reason."
+  - "Build green, full suite green, dashboard gen/test/build green."
