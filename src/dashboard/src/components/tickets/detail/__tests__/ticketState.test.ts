@@ -23,7 +23,6 @@ describe("ticketState", () => {
     expect(view.sentence).toBe("Attempt 2 ended on infrastructure: the sandbox or host was lost, not the work.");
     expect(view.act).toMatchObject({ kind: "retry" });
     expect(view.attempt?.runId).toBe("r-2");
-    expect(view.others).toEqual([CONTINUE]);
   });
 
   it("ticketState_ImageUntrusted_LinksTheSandboxSettings", () => {
@@ -38,11 +37,10 @@ describe("ticketState", () => {
     expect(view.act).toEqual({ kind: "init", project: "shop" });
   });
 
-  it("ticketState_CriteriaUnmet_LinksTheOverruleAndOffersDiscussUnderOtherOptions", () => {
+  it("ticketState_CriteriaUnmet_LinksTheOverrule", () => {
     const view = state(failedTicket({ endKind: "criteria-unmet" }));
     expect(view.act).toMatchObject({ kind: "link", label: "Overrule in the run", href: "/jobs/r-2" });
     expect(view.act && "note" in view.act ? view.act.note : "").toContain("not re-run");
-    expect(view.others).toEqual([{ kind: "tab", label: "Discuss in conversation", tab: "conversation" }]);
   });
 
   it("ticketState_UnclassifiedFailure_OffersContinueInConversation", () => {
@@ -88,12 +86,13 @@ describe("ticketState", () => {
     expect(state(running).sentence).toBe("Attempt 1 is deriving the series.");
   });
 
-  it("ticketState_WaitingOnReview_LinksTheOpenPullRequests", () => {
+  it("ticketState_WaitingOnReview_HasNoActAndCarriesThePullRequests", () => {
     const d = detail([attempt()]);
     d.summary = { ...d.summary, bucket: "waiting_on_review", pullRequests: [pr({ state: "merged" }), pr({ number: "810", state: "open", url: "https://github.com/o/api/pull/810" })] };
     const view = state(d);
     expect(view.sentence).toBe("Waiting on review: 1 pull request is open.");
-    expect(view.act).toMatchObject({ kind: "link", href: "https://github.com/o/api/pull/810" });
+    expect(view.act).toBeNull();
+    expect(view.pullRequests.map((p) => p.number)).toEqual(["809", "810"]);
   });
 
   it("ticketState_FailedWithOpenPullRequests_LeadsWithTheFailureAndCarriesThePullRequests", () => {
@@ -103,6 +102,12 @@ describe("ticketState", () => {
     expect(view.pill).toBe("Failed");
     expect(view.sentence).toBe("Attempt 2 failed: the acceptance gate did not accept a criterion.");
     expect(view.pullRequests.map((p) => p.number)).toEqual(["810"]);
+  });
+
+  it("ticketState_FailureActs_HaveNoOtherOptions", () => {
+    for (const over of [{ endedOnInfrastructure: true }, { endKind: "image-untrusted" }, { endKind: "criteria-unmet" }, {}]) {
+      expect(Object.keys(state(failedTicket(over)))).not.toContain("others");
+    }
   });
 
   it("ticketState_DoneClosedIdle_AreOneQuietLineWithoutAct", () => {

@@ -124,9 +124,7 @@ describe("Ticket page", () => {
     expect(screen.getByTestId("ticket-state-run")).toHaveAttribute("href", "/jobs/r-2");
     expect(screen.getByTestId("ticket-state-act")).toHaveAttribute("href", "/jobs/r-2");
     expect(screen.getByTestId("ticket-state-why")).not.toHaveAttribute("open");
-    expect(screen.getByTestId("ticket-state-others")).not.toHaveAttribute("open");
-    fireEvent.click(within(screen.getByTestId("ticket-state-others")).getByTestId("ticket-state-other"));
-    expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?tab=conversation", { scroll: false });
+    expect(screen.queryByText("Other options")).toBeNull();
   });
 
   it("TicketStateBlock_Why_HoldsTheVerbatimSummaryAndTheTraceLink", async () => {
@@ -150,17 +148,33 @@ describe("Ticket page", () => {
     }
   });
 
-  it("TicketStateBlock_ShowEarlier_ListsEachAttemptWithItsRunLink", async () => {
+  it("TicketStateBlock_Chips_LinkEachRunAndMarkTheHead", async () => {
     world.detail = detail([attempt({ status: "failed", endKind: "image-untrusted" }),
       attempt({ number: 2, runId: "r-2", status: "cancelled", endKind: "superseded" }),
       attempt({ number: 3, runId: "r-3", status: "failed" })]);
     world.detail.summary = { ...world.detail.summary, bucket: "failed" };
     await open();
-    expect(screen.getByTestId("ticket-state-earlier")).not.toHaveAttribute("open");
-    expect(screen.getByTestId("ticket-state-earlier-line")).toHaveTextContent("2 earlier attempts, all stopped before any work, A2 superseded");
-    const row = screen.getByTestId("ticket-state-earlier-1");
-    expect(row).toHaveTextContent("A1 · failed · image not trusted");
-    expect(within(row).getByRole("link")).toHaveAttribute("href", "/jobs/r-1");
+    expect(screen.queryByTestId("ticket-state-earlier")).toBeNull();
+    const first = screen.getByTestId("ticket-state-chip-1");
+    expect(first).toHaveAttribute("href", "/jobs/r-1");
+    expect(first).toHaveAttribute("title", "A1 · failed · image not trusted");
+    expect(screen.getByTestId("ticket-state-chip-2")).toHaveClass("q");
+    expect(screen.getByTestId("ticket-state-chip-3")).toHaveAttribute("aria-current", "true");
+    expect(screen.getAllByTestId("ticket-state-run")).toHaveLength(1);
+  });
+
+  it("TicketStateBlock_PullRequests_AreRowsWithShortRepoNumberStateAndLink", async () => {
+    world.detail = detail([attempt({ status: "failed" })]);
+    world.detail.summary = { ...world.detail.summary, bucket: "failed", pullRequests: [
+      pr({ number: "12", url: "https://dev.example/org/_git/Sample.App.Server/pullrequest/12", repo: "Sample.App.Server", state: "open" }),
+      pr({ number: "13", url: "https://dev.example/org/_git/Sample.App.Client/pullrequest/13", repo: "Sample.App.Client", state: "merged", decision: "approved" })] };
+    await open();
+    const rows = within(screen.getByTestId("ticket-state-prs")).getAllByRole("listitem");
+    expect(rows[0]).toHaveTextContent("Server #12open");
+    expect(rows[1]).toHaveTextContent("Client #13merged · approved");
+    expect(within(rows[0]).getByRole("link")).toHaveAttribute("href", "https://dev.example/org/_git/Sample.App.Server/pullrequest/12");
+    expect(within(rows[0]).getByRole("link")).toHaveAttribute("title", "Sample.App.Server");
+    expect(screen.getAllByTestId("ticket-state-act")).toHaveLength(1);
   });
 
   it("TicketHeader_NoLongerSaysTheAttemptStatusNorOffersContinue", async () => {
