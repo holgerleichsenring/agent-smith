@@ -487,3 +487,21 @@ describe("Ticket conversation tab", () => {
     expect(screen.queryByTestId("ticket-retry")).toBeNull();
   });
 });
+
+// 2026-10-17-e730a..f: reading a long conversation — the docked composer, opening at the newest, folded attempts,
+// clamped entries, the repeated cause and the jump to the newest.
+describe("Ticket conversation reading", () => {
+  it("ConversationDock_HoldsTheComposer_AsTheTabsLastBlock", async () => {
+    await open();
+    const dock = screen.getByTestId("conv-dock");
+    expect(within(dock).getByTestId("ticket-composer")).toBeInTheDocument();
+    expect(dock.parentElement?.lastElementChild).toBe(dock);
+  });
+
+  it("ConversationDock_HoldsTheHiddenNote_WhenTheTranscriptIsHidden", async () => {
+    world.conversation = { ...conversation([]), transcriptHidden: true };
+    await open();
+    expect(within(screen.getByTestId("conv-dock")).getByTestId("conv-hidden")).toBeInTheDocument();
+    expect(screen.queryByTestId("ticket-composer")).toBeNull();
+  });
+});

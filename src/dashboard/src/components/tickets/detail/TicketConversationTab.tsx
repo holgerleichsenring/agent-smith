@@ -15,6 +15,7 @@ import { CAUSE_PARAM, useTicketTabGo } from "./useTicketTabGo";
 // questions and answers, PR reviews, the spec cut and the ticket's Work it out conversation), the open
 // proposal, and the composer. Reads come from the page's store only; the approval preview is the one read
 // this tab adds. A pending run question heads the tab.
+// 2026-10-17-e730a: the composer sits in a sticky dock at the bottom of the scroll box, so the thread scrolls under it.
 
 export function TicketConversationTab() {
   const detail = useTicketDetail();
@@ -47,18 +48,22 @@ export function TicketConversationTab() {
           )}
           <ConversationList conversation={data} detail={detail.data} causeOf={address.param(CAUSE_PARAM)} />
           {data.proposal && !data.transcriptHidden && <ProposalBlock proposal={data.proposal} preview={preview.data} />}
-          {data.transcriptHidden ? (
-            <div className="composer hidden-note" data-testid="conv-hidden">
-              <div className="cp-head">
-                <h3>Continue on this ticket</h3>
-                <span className="sh-sub">The ticket conversation needs dialog.write: its turns and proposal are not shown.</span>
-              </div>
-              <div className="cp-actions"><RetryUnchanged attempt={newest} project={detail.project} /></div>
+          <div className="conv-dock" data-testid="conv-dock">
+            <div className="conv-dock-body">
+              {data.transcriptHidden ? (
+                <div className="composer hidden-note" data-testid="conv-hidden">
+                  <div className="cp-head">
+                    <h3>Continue on this ticket</h3>
+                    <span className="sh-sub">The ticket conversation needs dialog.write: its turns and proposal are not shown.</span>
+                  </div>
+                  <div className="cp-actions"><RetryUnchanged attempt={newest} project={detail.project} /></div>
+                </div>
+              ) : (
+                <TicketComposer conversation={data} project={detail.project} ticketId={detail.ticketId}
+                  preview={preview} newest={newest} />
+              )}
             </div>
-          ) : (
-            <TicketComposer conversation={data} project={detail.project} ticketId={detail.ticketId}
-              preview={preview} newest={newest} />
-          )}
+          </div>
         </>
       )}
     </>

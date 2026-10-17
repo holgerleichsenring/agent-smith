@@ -746,6 +746,12 @@
 .mock-tickets .q-head { max-width:880px; margin-bottom:16px; display:flex; flex-direction:column; gap:10px; }
 .mock-tickets .acc-list { display:flex; flex-direction:column; gap:18px; max-width:820px; }
 .mock-tickets .composer.hidden-note { border-color:var(--line); }
+/* 2026-10-17-e730a: the composer's sticky dock. The outer layer sticks and clips nothing (a button placed above it
+   stays whole); the inner layer scrolls a tall composer so it never fills a short screen. The safe-area padding
+   takes effect once the shell exports viewport-fit cover. */
+.mock-tickets .conv-dock { position:sticky; bottom:0; z-index:5; max-width:880px; margin-top:22px; background:var(--bg); padding-bottom:env(safe-area-inset-bottom, 0px); }
+.mock-tickets .conv-dock-body { max-height:50vh; overflow-y:auto; }
+.mock-tickets .conv-dock .composer { margin-top:0; }
 .mock-tickets .open-spec { margin:10px 0 0; }
 .mock-tickets .banner .btn { white-space:nowrap; }
 
