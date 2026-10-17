@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.168.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.167.0...v0.168.0) (2026-10-17)
+
+
+### Features
+
+* a master's met claim cites a changed path or a command it ran, and the open loop resolves those citations once per step before it ends, re-engaging the master with every one that resolves against nothing (2026-10-17-a196c) ([fda8b0f](https://github.com/holgerleichsenring/agent-smith/commit/fda8b0f56671532ee3e06048be23bd2c1bb58a1f))
+* a spec is verified, repaired and written only in the repositories it names (2026-10-17-a196) ([b1861d3](https://github.com/holgerleichsenring/agent-smith/commit/b1861d30de12f400a8b0db394a3aeb51bc177fa3))
+* a spec's keystone, entry account and repair run over the repositories its repos: names, and its master's file writes into any other repository are refused and named in the step result (2026-10-17-a196a) ([2b21b68](https://github.com/holgerleichsenring/agent-smith/commit/2b21b6878392ab88d72f151722c6592490a88036))
+* the ticket state block shows its pull requests as rows and every attempt as a chip line opening its run, with one act (2026-10-16-7ed3b) ([45dae84](https://github.com/holgerleichsenring/agent-smith/commit/45dae84100330d2ff93b1450a7fe562856b4a230))
+
+
+### Bug Fixes
+
+* a ticket whose newest attempt failed reads failed or stuck while its pull requests stay open (2026-10-16-7ed3a) ([5bdebec](https://github.com/holgerleichsenring/agent-smith/commit/5bdebec14d6a1d88f42664fb1a682162fbf0685f))
+* flow graph labels fit their column with the full words as tooltip, and re-engage loops run outside the pass boxes with one reason (2026-10-16-7ed3d) ([4cfdded](https://github.com/holgerleichsenring/agent-smith/commit/4cfddedebb67ebd3db46aab73a54a697ae49e64d))
+* in the flow graph green means passed, a re-engaged verify reads amber, an accepted red verdict red, and a stopped attempt's end node shows its cause (2026-10-16-7ed3e) ([81fef9f](https://github.com/holgerleichsenring/agent-smith/commit/81fef9f2fedd02c129c259407bd5b82fe9281d11))
+* long text wraps in the ticket page's panes and posted ticket text renders as markdown with mentions as @Name (2026-10-16-7ed3c) ([34aeb0d](https://github.com/holgerleichsenring/agent-smith/commit/34aeb0db631b1c6f48bf0972dc48edade3c69947))
+* the delivery account's correction pass opens its own search allowance, so a search citation it is asked to repair can be backed by a search that really runs (2026-10-17-a196b) ([82c26af](https://github.com/holgerleichsenring/agent-smith/commit/82c26afa907b8c0f931c4f9d369e5373247b31cc))
+* ticket page reads failed over open PRs, shows PRs and attempts compactly, wraps long text, cleans the flow graph (2026-10-16-7ed3) ([5f37799](https://github.com/holgerleichsenring/agent-smith/commit/5f37799ef27d0661ef4ffb37d65eba8a254d5b0f))
+
 ## [0.167.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.166.0...v0.167.0) (2026-10-16)
 
 
