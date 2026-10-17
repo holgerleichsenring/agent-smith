@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-17-e730b
+
+decisions:
+  - category: Implementation
+    chose: "Scroll an empty end anchor placed after the dock, block end, once per mount on the first render with the conversation"
+    over: "Scrolling the dock itself (first draft)"
+    reason: |
+      Review: the dock is sticky at bottom 0, so whenever content lies below the viewport it is already drawn at the
+      bottom of the scroll box and scrollIntoView moves 0px. The anchor sits in flow after it and carries the real end.
+  - category: Architecture
+    chose: "A pending run question scrolls its card into view (block start) instead of the newest"
+    over: "Opening at the newest regardless, or doing nothing while a question waits"
+    reason: |
+      The card heads the tab and is the one thing that needs an answer. Doing nothing would not show it: tab switches
+      replace the address with scroll false and the scroller is shared by every tab.
+  - category: Architecture
+    chose: "A resolved ?causeOf= keeps the list's own scroll and marks the entry (.msg.target on --person-wash); an unmatched one falls back to the newest"
+    over: "Staying at the top on an unmatched causeOf (the old behaviour, pinned by the CauseOf test)"
+    reason: "With no entry to land on, the top of the thread is no more useful than the end; the test's no-match half now asserts the end anchor."
+  - category: Implementation
+    chose: "Instant scroll, no reduced-motion branch"
+    over: "Smooth scroll"
+    reason: "Opening a tab is not an animation; the jump button (e730f) is the smooth one."
+  - category: Testing
+    chose: "The causeOf-marks and unmatched-fallback cases are asserted inside the existing CauseOf test"
+    over: "Two separate tests duplicating its fixture"
+    reason: "The fixture and the two halves are the same scenario; the test was renamed to say what it now proves."

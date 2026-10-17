@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-17-e730f
+goal: "A reader scrolled up from the end of the conversation gets a '↓ Newest' button above the composer, counting the entries that arrived since they were last at the end; it scrolls to the newest."
+
+applies_to: "dashboard (TicketConversationTab, ConversationList, mock-parity.css)"
+
+requires: [2026-10-17-e730a, 2026-10-17-e730b]
+
+facts:
+  - claim: "New entries arrive by re-reading the whole conversation: a TicketActivityChanged, a changed attempt status or a SpecCutReviewed re-reads it, and the read replaces the store's conversation data."
+    evidence: "src/dashboard/src/lib/tickets/TicketPageReads.ts:162-170, src/dashboard/src/lib/tickets/TicketPageReads.ts:184-187, src/dashboard/src/lib/tickets/TicketPageReads.ts:233-240, src/dashboard/src/lib/tickets/TicketPageReads.ts:280-288"
+  - claim: "Every entry has a composite id; a ticket comment without a tracker id carries its list index in it, so a comment inserted before it re-numbers it and is counted once more."
+    evidence: "src/dashboard/src/types/tickets.ts:474-475, src/dashboard/src/components/tickets/detail/ConversationEntry.tsx:33, src/backend/AgentSmith.Server/Services/Tickets/Conversation/ConversationAssembly.cs:32-37"
+  - claim: "The page scrolls inside the layout's main element, not the window."
+    evidence: "src/dashboard/src/app/globals.css:44-48"
+  - claim: "Motion in the mock shell is switched off under prefers-reduced-motion."
+    evidence: "src/dashboard/src/styles/mock-parity.css:108-110"
+
+scope:
+  in: >
+    A sentinel after the list's last group. "At the end" is the sentinel's top at or above the dock's top plus 48px,
+    checked on any scroll (a capturing scroll listener on the document, so the layout's scroll box is covered without
+    naming it), on resize and on every conversation change. The tab records the ids of every entry on the first render
+    that has the conversation (the moment e730b opens the tab; the read may land after mount), and again of every entry while the reader is at the end; the count is the entries (all of them, whatever
+    the filter) whose id it has not recorded. Away from the end, the outer sticky dock layer (e730a, no overflow)
+    shows a .conv-newest button absolutely placed above it (data-testid conv-newest) reading "↓ Newest", with " · n
+    new" when n > 0; clicking scrolls the end anchor (e730b; the stuck dock itself cannot be scrolled to) into view,
+    block end, smooth unless window.matchMedia?.("(prefers-reduced-motion: reduce)") matches. Tests mock
+    getBoundingClientRect, which jsdom answers with zeros.
+  out: "Following new entries automatically while at the end: a reader at the end sees \"· 1 new\" after an arrival pushed the end below the dock."
+
+decisions:
+  - key: "COUNTED BY ID, CHEAPLY. Arrivals already come as whole re-reads; a set of ids seen at the end and one filter over the entries counts them with no new subscription."
+  - key: "THE DOCK, NOT THE WINDOW. The composer covers the bottom of the scroll box, so 'at the end' compares the list's end to the dock's top, not to the viewport."
+
+steps:
+  - id: watch
+    action: "A useNewestJump hook (refs to the sentinel and the dock, the entries) returning away, count and jump."
+  - id: render
+    action: "Sentinel in ConversationList; the button in the outer dock layer; CSS .conv-newest from .chip."
+  - id: tests
+    action: "Red then green; pnpm test the tickets folder; pnpm build."
+
+tests:
+  - "NewestButton_HiddenAtTheEnd_ShownWhenScrolledUp"
+  - "NewestButton_CountsEntriesThatArrivedSinceTheEnd_NotThoseThereAtMount"
+  - "NewestButton_ConversationReadAfterMount_WhileAwayFromTheEnd_CountsNothing"
+  - "NewestButton_Click_ScrollsTheEndAnchor_SmoothOrInstantUnderReducedMotion"
+
+done:
+  - "Scrolled up while the ticket works, the reader sees how many entries arrived and gets back to the newest in one click."
+  - "Dashboard test and build green; full gate green."
