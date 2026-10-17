@@ -87,6 +87,7 @@ integrations:
 
 state:
   done:
+    2026-10-17-293ba: "SEGMENT AUDIENCE (spec derivation, accounting, series manifest, PR body; skills spec-derivation-master 1.9.0). A reply states the segments every spec needs once as shared; each new spec carries shared plus its own carries; coverage stays from carried pairs. -> .agentsmith/specs/done/2026-10-17-293ba-derivation-segment-audience.yaml"
     2026-10-17-293bb: "AUDIT VERDICT PER ECOSYSTEM (AuditCommands, DependencyAuditTool). The .NET advisory audit exits 0 with or without advisories, so its exit 1 (an unrestored project) is minted as a look that could not run; npm audit and pip-audit keep 0 or 1. -> .agentsmith/specs/done/2026-10-17-293bb-audit-verdict-per-ecosystem.yaml"
     2026-10-17-1170: "SKILLS PIN v5.19.0, CITATIONS REQUIRED (embedded skills catalog, AcceptanceClaimCheck). coding-agent-master 1.34.0 cites its met claims; a verdict with no citations key is no longer exempt, each met claim citing nothing re-engages the master once. -> .agentsmith/specs/done/2026-10-17-1170-acceptance-citations-required.yaml"
     2026-10-16-7ed3e: "FLOW GRAPH VERDICT COLOURS AND END CAUSE (attempt flow graph, node detail). A re-engaged verify is amber, an accepted red verdict red; a stopped attempt's end node shows its run's end text in one line, its detail the whole text, and the no-graph note says the cause. -> .agentsmith/specs/done/2026-10-16-7ed3e-flow-graph-verdict-cause.yaml"
@@ -1282,6 +1283,7 @@ state:
     2026-10-14-da5eh: "SKILLS PIN v5.17.0 (embedded skills catalog, steward skill test). The embedded catalog carries ticket-steward-master; TicketStewardSkillTests holds every tool the packaged master names to the composed steward surface and requires start_next_attempt, read_series, edit_series, verify_series, ticket_runs. -> .agentsmith/specs/done/2026-10-14-da5eh-skills-pin-steward.yaml"
   active: {}
   planned:
+    2026-10-17-ef61: "CARRY OVERLAP NAMED BACK (spec derivation). Specs of different repositories carrying the same non-shared segments are re-asked or reported, decided from measured live cuts. -> .agentsmith/specs/planned/2026-10-17-ef61-derivation-carry-overlap.yaml"
     2026-10-17-59b6: "FOREIGN MOVEMENT FAILS THE KEYSTONE (keystone). A repository the spec does not name that moved since the spec started, outside the run record, fails the spec, whatever tool moved it. -> .agentsmith/specs/planned/2026-10-17-59b6-keystone-foreign-movement.yaml"
     2026-10-16-d63d: "RUN VIEWER STATE RULES (run page banner). The run viewer says what ended a run in one sentence by its end kind, offers the act that fits, and keeps its verbatim summary one click away, as the ticket page does. -> .agentsmith/specs/planned/2026-10-16-d63d-run-viewer-state-rules.yaml"
     2026-10-15-5e9dc: "SCREENSHOTS FROM A COMMITTED DEMO SEEDER AND A REAL AZURE DEVOPS PROJECT (tools, docs). One anonymised story, retakeable headless; stale and unreferenced images replaced. -> .agentsmith/specs/planned/2026-10-15-5e9dc-screenshots-demo-data.yaml"

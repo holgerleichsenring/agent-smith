@@ -18,10 +18,12 @@ public sealed class DerivedSpecSequence(DerivedSpecBuilder specBuilder, DerivedS
     /// <param name="scope">The scope's repository names; empty when none is known.</param>
     /// <param name="taken">2026-10-12-f5f7d: ids (or done/ spec file names) a new spec must not take;
     /// a taken position's letter skips to the next free one.</param>
+    /// <param name="shared">2026-10-17-293ba: segments every spec built here carries beside its own;
+    /// the executed head is kept as it ran.</param>
     public (IReadOnlyList<DerivedSpec>? Phases, string? Error) Build(
         IReadOnlyList<JsonElement> specElements, IReadOnlyList<DerivedSpec> executedHead, string series,
         string ticketId, IReadOnlyList<TicketSegment> segments, IReadOnlyList<string>? evidence,
-        IReadOnlyList<string> scope, IReadOnlyCollection<string>? taken = null)
+        IReadOnlyList<string> scope, IReadOnlyCollection<string>? taken = null, IReadOnlyList<int>? shared = null)
     {
         ArgumentNullException.ThrowIfNull(specElements);
         ArgumentNullException.ThrowIfNull(executedHead);
@@ -36,7 +38,7 @@ public sealed class DerivedSpecSequence(DerivedSpecBuilder specBuilder, DerivedS
             letter = at + 1;
             var (spec, error) = specBuilder.Build(
                 specElements[i], i, specId, ticketId, segments, built, evidence,
-                repos.Repos[i - executedHead.Count]);
+                repos.Repos[i - executedHead.Count], shared);
             if (spec is null) return (null, error);
             built.Add(spec);
         }

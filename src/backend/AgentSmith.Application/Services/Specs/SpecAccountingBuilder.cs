@@ -17,7 +17,8 @@ public static class SpecAccountingBuilder
         IReadOnlyList<DerivedSpec> specs,
         IReadOnlyList<DiscardedSegment> discarded,
         IReadOnlyList<TicketSegment> segments,
-        IReadOnlyList<DiscardedContext>? discardedContexts = null)
+        IReadOnlyList<DiscardedContext>? discardedContexts = null,
+        IReadOnlyList<int>? shared = null)
     {
         var carried = specs
             .SelectMany(p => p.CarriedSegments.Select(id => new CarriedSegment(id, p.SpecId)))
@@ -37,7 +38,10 @@ public static class SpecAccountingBuilder
             [.. discarded.Where(d => d.Reason.Length > 0 && segments.Any(s => s.Id == d.SegmentId))
                 .OrderBy(d => d.SegmentId)],
             unaccounted,
-            discardedContexts);
+            discardedContexts)
+        {
+            Shared = [.. (shared ?? []).Where(id => segments.Any(s => s.Id == id)).Distinct().Order()],
+        };
     }
 
     /// <summary>The discarded list, short enough to sit in a pull-request body.</summary>
@@ -48,6 +52,13 @@ public static class SpecAccountingBuilder
         return string.Join("\n", accounting.Discarded
             .Select(d => $"- segment {d.SegmentId}: {d.Reason}"));
     }
+
+    /// <summary>2026-10-17-293ba: the segments every spec carries, under their own heading so a
+    /// reader never takes them for discarded ones; empty when the cut declared none.</summary>
+    public static string RenderSharedForPullRequest(SpecAccounting accounting) =>
+        accounting.Shared.Count == 0
+            ? string.Empty
+            : "## Carried by every spec\n\nsegment(s) " + string.Join(", ", accounting.Shared) + "\n";
 
     /// <summary>2026-09-08-1830: the named contexts the cut left out, with their reasons.</summary>
     public static string RenderDiscardedContexts(SpecAccounting accounting) =>

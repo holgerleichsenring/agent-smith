@@ -28,10 +28,11 @@ public sealed class DerivedSpecBuilder(
 
     /// <param name="specId">2026-10-12-f5f7d: the id the sequence chose — the position's letter, or
     /// the next free one when that id is taken (<see cref="SeriesIdFactory.NextFree"/>).</param>
+    /// <param name="shared">2026-10-17-293ba: the reply's shared segments, carried beside this spec's own.</param>
     public (DerivedSpec? Phase, string? Error) Build(
         JsonElement element, int index, string specId, string ticketId,
         IReadOnlyList<TicketSegment> segments, IReadOnlyList<DerivedSpec> previous,
-        IReadOnlyList<string>? evidence, IReadOnlyList<string>? repos = null)
+        IReadOnlyList<string>? evidence, IReadOnlyList<string>? repos = null, IReadOnlyList<int>? shared = null)
     {
         var goal = SpecJsonReader.ReadString(element, "goal");
         if (goal.Length == 0) return (null, $"spec {index + 1} has no goal");
@@ -40,7 +41,7 @@ public sealed class DerivedSpecBuilder(
 
         var slug = SpecJsonReader.ReadString(element, "slug") is { Length: > 0 } s
             ? SpecIdFactory.Slug(s) : SpecIdFactory.Slug(goal);
-        var carried = CarriedBy(element, segments);
+        var carried = CarriedBy(element, segments, shared ?? []);
         var yaml = Render(element, specId, slug, goal, done, carried, ticketId, previous, evidence, repos ?? []);
         if (validator.ValidateYaml(yaml) is SpecDraftInvalid invalid)
             return (null, $"spec {index + 1} ({specId}) is not a valid spec: {invalid.Error}");
@@ -62,8 +63,11 @@ public sealed class DerivedSpecBuilder(
             ReadSteps(element), done, $"{specId}-{slug}.md", carried, ticketId,
             factResolver.Resolve(envelope.Facts(element), evidence), envelope.Contexts(element), repos);
 
-    private static List<int> CarriedBy(JsonElement element, IReadOnlyList<TicketSegment> segments) =>
-        SpecJsonReader.ReadInts(element, "carries")
+    // 2026-10-17-293ba: what every unit needs, then this spec's own unit — one list, so the yaml
+    // scope line, the companion and the accounting cannot disagree about what the spec carries.
+    private static List<int> CarriedBy(
+        JsonElement element, IReadOnlyList<TicketSegment> segments, IReadOnlyList<int> shared) =>
+        shared.Concat(SpecJsonReader.ReadInts(element, "carries"))
             .Where(id => segments.Any(seg => seg.Id == id))
             .Distinct()
             .OrderBy(id => id)

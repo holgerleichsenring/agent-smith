@@ -53,6 +53,7 @@ public static class SpecPrBody
     /// <summary>
     /// What the derivation deliberately left out. A human checks this in seconds;
     /// a coverage percentage would be optimised against the moment it is measured.
+    /// 2026-10-17-293ba: followed by what every spec carries, when the cut declared it.
     /// </summary>
     public static string RenderDiscarded(SpecSet set)
     {
@@ -67,6 +68,8 @@ public static class SpecPrBody
             return sb.ToString();
         }
         sb.AppendLine(SpecAccountingBuilder.RenderDiscardedForPullRequest(set.Accounting));
+        if (SpecAccountingBuilder.RenderSharedForPullRequest(set.Accounting) is { Length: > 0 } shared)
+            sb.AppendLine().Append(shared);
         return sb.ToString();
     }
 }

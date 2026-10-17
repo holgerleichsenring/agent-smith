@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-17-293ba
+
+decisions:
+  - category: Architecture
+    chose: "A root-level 'shared' id list beside the existing per-spec 'carries' (= the spec's own unit's segments); code gives every newly built spec shared ∪ carries"
+    over: "(1) each carries entry an object {segment, audience}; (2) one set-level segment -> audience map replacing carries; (3) audience named by repository instead of spec"
+    reason: "Smallest change that makes the distribution mechanical: carries keeps its type, so an older catalog's reply parses byte for byte as before and an older parser would at worst see the shared ids unaccounted, not misread objects. Marking a segment for a unit IS listing it in that unit's carries, so 'a spec carries a segment marked for another unit' cannot be expressed rather than needing a refusal. A repository-named audience fails a one-repository ticket with two variants; spec positions already name members in the series contract."
+  - category: Architecture
+    chose: "Coverage stays computed from the carried (segment, spec) pairs; the declared shared list is a record only"
+    over: "Counting declared shared ids as covered"
+    reason: "On a re-cut that adds no new spec, the executed head never receives the shared ids; counting the declaration would pass a cut in which no spec carries them. A unit-specific segment named for no spec stays unaccounted and falls into the existing refusal (SpecCoverageRefusal)."
+  - category: Implementation
+    chose: "The declared shared list is written to the series manifest and listed in the pull-request body and the spec-set ticket comment under 'Carried by every spec'"
+    over: "No record (the carried pairs already show the distribution); or listing it under the discarded heading; or in the dashboard's spec markdown"
+    reason: "Auditable where a reviewer already reads the accounting; its own heading so shared segments are never read as dropped. SpecMarkdown sits at the 120-line ratchet and the PR body already carries the accounting."
+  - category: Architecture
+    chose: "Nothing mechanical stops a cut from copying every segment into every spec; the skill rule names the audience and the follow-up 2026-10-17-ef61 measures carry overlap"
+    over: "Refusing a cut whose every spec carries the same segment"
+    reason: "An older catalog has no way to state the audience, so such a refusal would break the one-release compatibility the server owes it (the live run ran catalog v5.18.0 under a v5.19.0 pin). Once the catalog that writes 'shared' is pinned, ef61 decides from live cuts whether to re-ask or report."
+  - category: Implementation
+    chose: "Release order: the binary carrying this change deploys before a catalog that writes 'shared' is loaded"
+    over: "Making the skill emit 'shared' conditionally"
+    reason: "An older parser ignores the key and finds the shared ids unaccounted, which refuses the cut into the whole-ticket fallback. The embedded pin bump follows this merge; a configured skills pin must not move ahead of the deployed binary."

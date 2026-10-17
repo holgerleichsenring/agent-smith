@@ -70,7 +70,7 @@ public sealed class SeriesManifest
         [.. doc.Carried.Select(c => new CarriedSegment(c.Segment, c.Spec))],
         [.. doc.Discarded.Select(d => new DiscardedSegment(d.Segment, d.Reason))],
         [.. doc.Unaccounted],
-        [.. doc.DiscardedContexts.Select(d => new DiscardedContext(d.Context, d.Reason))]);
+        [.. doc.DiscardedContexts.Select(d => new DiscardedContext(d.Context, d.Reason))]) { Shared = [.. doc.Shared] };
 
     public IReadOnlyList<SpecRevision> RevisionsOf(SeriesManifestDocument doc) =>
         doc.Revisions.Count == 0
@@ -101,7 +101,7 @@ public sealed class SeriesManifest
             c => new SeriesCarriedEntry { Segment = c.SegmentId, Spec = c.SpecId })];
         doc.Discarded = [.. accounting.Discarded.Select(
             d => new SeriesDiscardedEntry { Segment = d.SegmentId, Reason = d.Reason })];
-        doc.Unaccounted = [.. accounting.Unaccounted];
+        (doc.Unaccounted, doc.Shared) = ([.. accounting.Unaccounted], [.. accounting.Shared]); // 2026-10-17-293ba
         doc.DiscardedContexts = [.. accounting.DiscardedContexts.Select(
             d => new SeriesDiscardedContextEntry { Context = d.Context, Reason = d.Reason })];
     }

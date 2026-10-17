@@ -92,12 +92,13 @@ public sealed class SpecDerivationParser(
         if (specElements.Count < executedHead.Count)
             return new Parsed(null,
                 $"the reply has {specElements.Count} spec(s) but {executedHead.Count} already ran — repeat them first");
+        var shared = SpecJsonReader.ReadInts(root, "shared"); // 2026-10-17-293ba: what every spec carries; [] from an older catalog
         var (built, error) = specs.Build(
-            specElements, executedHead, owner.Series, ticketId, segments, inputs.Evidence, inputs.Scope, inputs.Taken);
+            specElements, executedHead, owner.Series, ticketId, segments, inputs.Evidence, inputs.Scope, inputs.Taken, shared);
         if (built is null) return new Parsed(null, error);
 
         var accounting = SpecAccountingBuilder.Build(
-            built, envelope.Discarded(root), segments, envelope.DiscardedContexts(root));
+            built, envelope.Discarded(root), segments, envelope.DiscardedContexts(root), shared);
         var contract = contracts.FromReply(root, built, executedHead);
         return new Parsed(
             new SpecDerivation(
