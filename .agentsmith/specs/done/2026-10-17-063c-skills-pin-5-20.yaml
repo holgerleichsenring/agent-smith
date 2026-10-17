@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-17-063c
+goal: "Pin the embedded skills catalog to v5.20.0, so derivation runs on spec-derivation-master 1.9.0 with shared segments and facts that describe code and ticket."
+
+applies_to: "default (the embedded skills pin in AgentSmith.Infrastructure.Core.csproj)"
+
+requires: [2026-10-17-293ba]
+
+facts:
+  - claim: "The server pins skills v5.19.0, whose spec-derivation-master predates the shared segment-audience list."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54"
+
+assumptions:
+  - "Release v5.20.0 of agent-smith-skills carries spec-derivation-master 1.9.0 and a .sha256 asset."
+
+scope:
+  in: >
+    Bump SkillsCatalogVersion and SkillsCatalogSha256, replace the checked-in tarball, update the version string in the
+    example config and the three skills docs, add the v5.20.0 validator case.
+  out: >
+    Any code change; 293ba already reads the shared list.
+
+steps:
+  - id: pin
+    action: "Pin bump, tarball and hash from the release, docs and validator case; build; run the embedded-catalog, validator and segment-audience classes."
+
+tests:
+  - "SkillsConfigValidator_PinAtOrAbove5_13_OrNotAVersion_Passes(v5.20.0)"
+
+done:
+  - "The built Infrastructure.Core embeds v5.20.0, whose spec-derivation-master is 1.9.0."
+  - "Build green, full suite green, dashboard gen/test/build green."

@@ -15,7 +15,7 @@ it via env var:
 # agentsmith.yml — production config
 skills:
   source: default
-  version: v5.19.0
+  version: v5.20.0
   sha256: 3f1a8b…    # pin against tampering
   cache_dir: /var/lib/agentsmith/skills
 ```
@@ -27,7 +27,7 @@ AGENTSMITH_SKILLS_REPOSITORY_URL=https://internal-mirror.example.com/agentsmith-
 
 The server constructs the URL as:
 ```
-https://internal-mirror.example.com/agentsmith-skills/releases/download/v5.19.0/agentsmith-skills-v5.19.0.tar.gz
+https://internal-mirror.example.com/agentsmith-skills/releases/download/v5.20.0/agentsmith-skills-v5.20.0.tar.gz
 ```
 
 Your mirror needs to expose that exact path layout. Copying the release
@@ -42,7 +42,7 @@ boundary, mount as `path`:
 
 ```bash
 # Connected side
-agentsmith skills pull --version v5.19.0 --output ./skills-bundle
+agentsmith skills pull --version v5.20.0 --output ./skills-bundle
 
 # Transfer (rsync, USB, S3 with offline upload, etc.)
 # Disconnected side

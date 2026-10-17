@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-17-063c
+
+decisions:
+  - category: Implementation
+    chose: "Pin v5.20.0 with its tarball checked in and SkillsCatalogSha256 taken from the release's .sha256 asset, verified against the downloaded file"
+    over: "Letting the build download the tarball"
+    reason: "Offline, CI and docker builds need no network; the build re-verifies the hash and the master descriptions, as earlier pin bumps did."
