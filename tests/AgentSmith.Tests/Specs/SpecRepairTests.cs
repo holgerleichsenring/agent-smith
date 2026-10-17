@@ -91,6 +91,19 @@ public sealed class SpecRepairTests
                 "widening the repair into the rest of the spec is scope it was not given");
     }
 
+    /// <summary>2026-10-17-a196a: the repair is told which repositories are its own.</summary>
+    [Fact]
+    public void OutstandingCriteria_SpecNamingRepos_NamesThem()
+    {
+        var pipeline = new AgentSmith.Contracts.Commands.PipelineContext();
+        pipeline.Set(AgentSmith.Contracts.Commands.ContextKeys.OutstandingCriteria, new List<string> { "server: c" });
+        pipeline.Set(AgentSmith.Contracts.Commands.ContextKeys.CurrentSpec,
+            new AgentSmith.Contracts.Models.SpecDraft("p1", "g", "spec: p1", []) { Repos = ["server"] });
+
+        AgentSmith.Application.Services.SpecExecutionPromptBlocks.OutstandingCriteria(pipeline)
+            .Should().Contain("This spec is written into server alone");
+    }
+
     [Fact]
     public void WithNothingOutstanding_TheRepairBlockIsAbsent()
         => AgentSmith.Application.Services.SpecExecutionPromptBlocks

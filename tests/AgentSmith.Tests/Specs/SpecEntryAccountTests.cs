@@ -158,6 +158,25 @@ public sealed class SpecEntryAccountTests
         result.DropAhead.Should().BeNull();
     }
 
+    /// <summary>2026-10-17-a196a: the entry account of a server spec asks the server's branch alone.</summary>
+    [Fact]
+    public async Task SpecEntryAccount_ServerSpec_AccountsServerOnly()
+    {
+        var pipeline = Pipeline(SourceDiff);
+        pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(ContextKeys.Sandboxes, new Dictionary<string, ISandbox>
+        {
+            ["server"] = new DiffSandbox(SourceDiff, 0), ["worker"] = new DiffSandbox(SourceDiff, 0),
+        });
+        pipeline.Set<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxRepos,
+            new Dictionary<string, string> { ["server"] = "server", ["worker"] = "worker" });
+        pipeline.Set(ContextKeys.CurrentSpec,
+            new SpecDraft("p1", "Migrate the handler", "spec: p1", []) { Done = [Criterion], Repos = ["server"] });
+
+        var accounts = await Entry(new CountingAccountant(AccountDisposition.Satisfied)).TakeAsync(pipeline, CancellationToken.None);
+
+        accounts.Should().ContainSingle().Which.RepoKey.Should().Be("server");
+    }
+
     private static Task<CommandResult> Select(ISpecAccountant accountant, PipelineContext pipeline) =>
         new SelectSpecHandler(
                 Entry(accountant), StartHeads(), new SpecProgressRecorder(new NoOpEventPublisher()), new AgentSmith.Tests.TestHelpers.PassThroughEntryGrounding(),
@@ -169,7 +188,7 @@ public sealed class SpecEntryAccountTests
             new SpecDeliveryAccounting(
                 AgentSmith.Tests.TestHelpers.TestGit.Delivery, accountant,
                 new SandboxTargets(), NullLogger<SpecDeliveryAccounting>.Instance),
-            new SandboxTargets(), NullLogger<SpecEntryAccount>.Instance);
+            new SandboxTargets(), new SpecSandboxes(new SandboxTargets()), NullLogger<SpecEntryAccount>.Instance);
 
     private static PipelineContext Pipeline(
         string diff, int diffExitCode = 0, IReadOnlyList<string>? done = null)

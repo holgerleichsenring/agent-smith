@@ -627,7 +627,7 @@ public sealed class AgenticMasterHandler(
             "Master skill '{Skill}' completed: {Count} files changed, {Decisions} decisions",
             context.MasterSkillName, changes.Count, decisions.Count);
 
-        return CommandResult.Ok($"Master '{context.MasterSkillName}' completed: {changes.Count} files changed");
+        return MasterStepResult.Completed(context.Pipeline, context.MasterSkillName, changes.Count); // a196a
     }
 
     // p0356: the scaling signal — flat tokens-per-done-item is healthy on an

@@ -25,6 +25,7 @@ public sealed class SpecEntryAccount(
     DeliveryDiff deliveryDiff,
     SpecDeliveryAccounting accounting,
     SandboxTargets sandboxTargets,
+    SpecSandboxes specSandboxes,
     ILogger<SpecEntryAccount> logger)
 {
     /// <summary>
@@ -37,7 +38,9 @@ public sealed class SpecEntryAccount(
         ArgumentNullException.ThrowIfNull(pipeline);
         var criteria = AcceptanceCriteria.For(pipeline);
         if (criteria.Count == 0) return [];
-        if (!sandboxTargets.TryResolve(pipeline, out var sandboxes, out _)) return [];
+        // 2026-10-17-a196a: the branch is asked about the repositories this spec names, nothing wider.
+        if (!specSandboxes.TryResolve(pipeline, out var sandboxes, out var unresolved) || unresolved is not null)
+            return [];
         if (!await CarriesDeliveryAsync(sandboxes, DeliveryBasis.For(pipeline), cancellationToken)) return [];
 
         // The branch is the ONLY evidence at entry. No command of THIS spec has run, and

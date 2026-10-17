@@ -158,6 +158,7 @@ public sealed class VerifySpecStageRepairTests
         new VerifyDerivationDrift(
             new VerifyDerivationDigest(new SandboxFileReaderFactory()), NullLogger<VerifyDerivationDrift>.Instance),
         new SandboxTargets(),
+        new SpecSandboxes(new SandboxTargets()),
         TestTreeSync.Create(),
         TestTreeSync.Relevance(),
         new VerifyCommandRunner(NullLogger<VerifyCommandRunner>.Instance),

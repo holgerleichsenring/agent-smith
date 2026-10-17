@@ -4,14 +4,14 @@ using Microsoft.Extensions.Logging.Abstractions;
 
 namespace AgentSmith.Tests.TestHelpers;
 
-/// <summary>The real tool-result sanity collaborators, the four rules in their registered order.</summary>
+/// <summary>The real tool-result sanity collaborators, the three rules in their registered order.</summary>
 internal static class TestSanity
 {
     public static ToolResultSanity Sanity() =>
-        new([new EmptySubAgentAnswerRule(), new UncitedZeroHitRule(), new UnnamedRepositoryWriteRule(), new OutsideWorkCommandRule()],
+        new([new EmptySubAgentAnswerRule(), new UncitedZeroHitRule(), new OutsideWorkCommandRule()],
             NullLogger<ToolResultSanity>.Instance);
 
     public static ToolResultSanityScopeReader Reader() => new(new EvidenceReferences());
 
-    public static ToolResultSanityWrapper Wrapper() => new(Sanity(), Reader());
+    public static ToolResultSanityWrapper Wrapper() => new(Sanity(), Reader(), new UnnamedRepositoryWrite());
 }

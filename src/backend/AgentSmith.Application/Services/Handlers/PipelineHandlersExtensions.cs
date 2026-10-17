@@ -102,7 +102,7 @@ public static class PipelineHandlersExtensions
         services.AddTransient<ObservationRecoveryHelper>();
         services.AddTransient<Lifecycle.TicketLifecycle>();
         services.AddTransient<ProjectMapCacheKey>();
-        services.AddSingleton<SandboxTargets>().AddTransient<Repositories.RunRepositoriesFactory>(); // f5f7c
+        services.AddSingleton<SandboxTargets>().AddTransient<SpecSandboxes>().AddTransient<Repositories.RunRepositoriesFactory>(); // f5f7c, a196a
         services.AddSingleton<Tools.AgenticToolSurface>().AddTransient<MasterToolComposition>()
             .AddTransient<Tools.DesignReadToolHostFactory>().AddTransient<Tools.MasterRecordToolHosts>().AddTransient<Memory.MemoryIndexReader>() // 7f7ab, 8762m
             .AddTransient<Tools.TicketActToolsFactory>().AddTransient<SpecDialog.SeriesVerification>();
