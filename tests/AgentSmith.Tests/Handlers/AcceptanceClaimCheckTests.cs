@@ -39,11 +39,12 @@ public sealed class AcceptanceClaimCheckTests
             .Should().ContainSingle().Which.Should().StartWith(Absent + ": claimed satisfied by 'UsingSampleBus|UseSampleBus'");
 
     [Fact]
-    public void AcceptanceClaimCheck_VerdictWithoutAnyCitations_IsNotChecked() =>
+    public void AcceptanceClaimCheck_VerdictWithoutAnyCitations_IsNamed() =>
         new AcceptanceClaimCheck().Unresolved(
                 Verdict(new AcceptanceDisposition(Absent, AcceptanceStatus.Met, "Final source scan found nothing"),
                     new AcceptanceDisposition(Built, AcceptanceStatus.Met, "built")), Criteria, Resolver())
-            .Should().BeEmpty("a skill before citations is not refused for a format it was never told");
+            .Should().HaveCount(2).And.OnlyContain(line => line.Contains("cited nothing"),
+                "the pinned master is told to cite, so the old verdict shape is refused claim by claim");
 
     [Fact]
     public void AcceptanceClaimCheck_OneMetWithoutCitationsInACitingVerdict_IsNamed() =>

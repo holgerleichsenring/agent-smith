@@ -24,7 +24,7 @@ namespace AgentSmith.PipelineHarness.Presets;
 public sealed class ShortfallDeliveryTests
 {
     private const string GreenVerdict =
-        """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled"},{"criterion":"criterion 2","status":"met","evidence":"preserved"}]}""";
+        """Done. {"status":"green","build_ran":true,"build_passed":true,"tests_ran":true,"tests_passed":true,"summary":"fixed","acceptance":[{"criterion":"criterion 1","status":"met","evidence":"handled","citations":["src/Guard.cs"]},{"criterion":"criterion 2","status":"met","evidence":"preserved","citations":["src/Guard.cs"]}]}""";
 
     private const string BudgetReason =
         "per-pipeline cost budget exhausted: 8.02 USD of 8.00 USD spent";
