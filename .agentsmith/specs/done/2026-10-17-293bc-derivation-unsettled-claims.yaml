@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-17-293bc
+goal: "A derivation claim citing a look that could not run is recorded as unsettled, never as a fact or premise, so a later successful run of that tool cannot fail the spec."
+
+applies_to: "default (FactResolver, SpecFacts, DerivedSpecYamlRenderer, SpecDerivationParser; skills spec-derivation-master)"
+
+requires: [2026-10-17-293bb]
+
+facts:
+  - claim: "A fact line becomes a FACT whenever its cite resolves to a minted line, whether or not that look reached a verdict."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/FactResolver.cs:26-36"
+  - claim: "The resolver is handed the evidence LINES only; the structured looks, with Ran, exist beside them."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecSetDeriver.cs:83; src/backend/AgentSmith.Application/Services/Specs/DerivationEvidence.cs:25-35"
+  - claim: "Facts and assumptions are the premise corpus the premise check is put to."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecPremisesReader.cs:23-31"
+  - claim: "A checker finding naming a claim outside that corpus is recorded unproven and stops nothing."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/PremiseCheckAdmission.cs:49-50,85-91"
+  - claim: "The admission compares only the checker's own citation (a look of its own that ran) against the verdict; it never reads the evidence behind the premise."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/PremiseCheckAdmission.cs:69-79"
+  - claim: "The skill tells the model to state findings under 'facts' citing the look, with nothing on what a fact may be about."
+    evidence: "observed: 2026-10-17 agent-smith-skills v5.19.0 skills/_masters/spec-derivation-master/SKILL.md lines 46-56"
+  - claim: "Spec 2 of live run 2026-10-17T16-36-20-cc4c was refused on the premise 'Dependency advisory audit could not run because project assets have not been restored.' after the checker's audit exited 0."
+    evidence: "observed: 2026-10-17 prod RunSteps of run 2026-10-17T16-36-20-cc4c step 32 and its DecisionLogged payload"
+
+scope:
+  in: >
+    FactResolver takes the structured looks and resolves EACH id the cite names (DerivationEvidence.CitationsIn): at least
+    one cited look that ran makes a fact (evidence: that look's line); cited ids that all resolve to looks that could not
+    run make the claim UNSETTLED (claim + the first such line); nothing resolving makes an assumption. Unsettled claims render under their own yaml key, which no
+    premise reader reads. The parser's evidence input becomes the looks. The skill says facts are about the code and the
+    ticket, replaces "state what you could not settle as a fact with no citation" (SKILL.md 54-56): a claim about what a
+    look returned cites that look, also when it could not run, and a tool's failure to run is never an uncited line.
+    Residual: an UNCITED environment claim is still an assumption and still a premise — the admission has no structured
+    link from an assumption to a look, and classifying its text is ruled out; that path rests on the skill rule. A fact
+    line citing several ids ('L1, L2') resolved to nothing before and now resolves per id — an intended change. Release
+    order as in 2026-10-17-293ba: the configured skills pin must not move ahead of the deployed binary, or an older
+    resolver turns a cite of a failed look into a fact. Declaring 'unsettled' in spec.schema.json is left to the
+    methodology plugin, which owns that schema; the top level is open, so the key validates.
+  out: >
+    Re-reading the minted line's words to classify old specs; an admission rule over premise text.
+
+steps:
+  - id: resolver
+    action: "FactResolver resolves per cited id and SpecFacts gains Unsettled (defaulted, so existing constructions compile). Looks replace lines at SpecSetDeriver.cs:83, SpecDerivationParser.Parse/Build, DerivedSpecSequence.Build, DerivedSpecBuilder.Build/Render; ContradictionCitations.Resolve gets the looks' lines; DerivationTestParsers, RatifiedMockStampTests, DerivationFactsTests and ContradictionCitationsTests follow."
+  - id: render
+    action: "DerivedSpecYamlRenderer writes 'unsettled' [{claim, evidence}] when present."
+  - id: tests
+    action: "Resolver/parser tests for the three buckets and a premise test showing an unsettled claim is not a premise and a finding against it is unproven."
+  - id: skill
+    action: "spec-derivation-master: what a fact is about; what to do with a look that could not run."
+
+tests:
+  - "DerivationFactsTests.Facts_ALineCitingALookThatCouldNotRun_IsUnsettled"
+  - "DerivationFactsTests.Facts_ALineCitingAFailedAndARanLook_IsAFact"
+  - "PremiseCheckTests.Admit_AFindingAgainstAnUnsettledClaim_IsUnproven"
+
+done:
+  - "A claim citing a look minted with Ran false appears under 'unsettled' in the spec yaml, not under facts or assumptions."
+  - "SpecPremises.For over such a spec has no claim for it, and a no-longer-holds finding against it, citing a look that ran, is recorded unproven."
+  - "A reply whose fact lines each cite one id and none cites a look that could not run renders the same yaml as before this spec."
+  - "A claim citing 'L1, L2' where L2 ran is a fact; where neither ran it is unsettled."
+  - "The skills branch states that facts are about the code and the ticket, that a claim about a look that could not run cites that look, and no longer tells the model to write what it could not settle as an uncited line; validate-skills.sh passes."
+  - "Build green, full suite green, dashboard gen/test/build green."

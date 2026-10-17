@@ -153,7 +153,7 @@ public sealed class SpecSetTicketCommenterTests
              "handback": {"case": "none", "reason": ""}}
             """;
         var parsed = DerivationTestParsers.Real().Parse(
-            reply, "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived, null, [Evidence]);
+            reply, "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived, null, MintedLooks.Ran(Evidence));
         parsed.Error.Should().BeNull();
         return parsed.Derivation!.Set;
     }

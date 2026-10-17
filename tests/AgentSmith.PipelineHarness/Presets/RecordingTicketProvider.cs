@@ -15,8 +15,9 @@ namespace AgentSmith.PipelineHarness.Presets;
 /// </para>
 /// <param name="comments">The thread the ticket already carries — what an operator said
 /// on it before this run; empty when nobody has.</param>
+/// <param name="body">2026-10-17-293ba: the ticket text served; null serves the default one-liner.</param>
 /// </summary>
-internal sealed class RecordingTicketProvider(IReadOnlyList<TicketComment>? comments = null)
+internal sealed class RecordingTicketProvider(IReadOnlyList<TicketComment>? comments = null, string? body = null)
     : ITicketProvider
 {
     private readonly List<(TicketId Id, string Comment, string? Status)> _finalized = [];
@@ -42,7 +43,7 @@ internal sealed class RecordingTicketProvider(IReadOnlyList<TicketComment>? comm
     public Task<Ticket> GetTicketAsync(TicketId ticketId, CancellationToken cancellationToken) =>
         Task.FromResult(new Ticket(
             ticketId, "Token refresh drops the session",
-            "Users are signed out mid-session. Expected: the session survives a refresh.",
+            body ?? "Users are signed out mid-session. Expected: the session survives a refresh.",
             null, "Open", "recording"));
 
     // Distinct ids, so a test can tell the tickets it created apart.

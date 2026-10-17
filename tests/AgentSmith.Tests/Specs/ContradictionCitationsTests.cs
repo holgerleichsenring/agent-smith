@@ -59,6 +59,6 @@ public sealed class ContradictionCitationsTests
         var reply = "{\"specs\": [], \"handback\": {\"case\": \"requirements_contradict_repository\", "
             + "\"reason\": \"the request has no such field\"" + (cites is null ? string.Empty : ", " + cites) + "}}";
         return _parser.Parse(reply, "azdo-1", "2026-10-12-0a0a", "1", segments, SpecSource.Derived,
-            evidence: Evidence);
+            evidence: MintedLooks.Ran([.. Evidence]));
     }
 }

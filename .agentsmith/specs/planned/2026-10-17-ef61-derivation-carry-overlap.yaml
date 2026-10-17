@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-17-ef61
+goal: "A cut whose specs for different repositories carry the same non-shared segments is named back to the derivation, so copying the whole ticket into every spec stops passing silently."
+
+applies_to: "default (SpecDerivationParser, SpecAccountingBuilder)"
+
+requires: [2026-10-17-293ba]
+
+facts:
+  - claim: "The accounting only finds segments nobody carries; a segment carried by several specs is never questioned."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecAccountingBuilder.cs:27-33"
+
+assumptions:
+  - "Once the skills release carrying 'shared' is pinned, a cut whose specs carry identical non-shared sets is the live failure of run 2026-10-17T16-36-20-cc4c, not a legitimate cut."
+
+scope:
+  in: >
+    Follows 2026-10-17-293ba, which made 'shared' declarable but left 'only its own unit's segments' a skill rule. Measure
+    the overlap of non-shared carries between specs of different repositories and decide, from that measurement on live
+    cuts, whether to re-ask or only report it in the pull request.
+  out: >
+    Anything before the pinned catalog writes 'shared': an older catalog has no way to state the audience.
+
+steps:
+  - id: measure
+    action: "Measure non-shared carry overlap across the specs of recent multi-repository cuts."
+  - id: rule
+    action: "Re-ask or report, as the measurement decides; tests over a sample manual."
+
+done:
+  - "A cut whose two repository specs carry the same unit-specific segments is named back or reported, as decided."
+  - "Build green, full suite green, dashboard gen/test/build green."

@@ -68,6 +68,12 @@ public sealed class DerivedSpecYamlRenderer
                 .ToList();
         if (facts is { Assumptions.Count: > 0 })
             document["assumptions"] = facts.Assumptions;
+        // 2026-10-17-293bc: what rests on a look that could not run — shown, and under a key no
+        // premise reader reads, because a tool that runs later does not contradict the code.
+        if (facts is { Unsettled.Count: > 0 })
+            document["unsettled"] = facts.Unsettled
+                .Select(f => new Dictionary<string, object?> { ["claim"] = f.Claim, ["evidence"] = f.Evidence })
+                .ToList();
         // 2026-09-08-1830: the contexts this spec changes, declared from the list the
         // scope call named. Absent when the model named none, so an old catalog's cut
         // renders as it did.
