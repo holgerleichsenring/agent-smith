@@ -34,6 +34,7 @@ public sealed class VerifySpecHandlerTests
             new VerifyDerivationDigest(new SandboxFileReaderFactory()),
             NullLogger<VerifyDerivationDrift>.Instance),
         new SandboxTargets(),
+        new SpecSandboxes(new SandboxTargets()),
         AgentSmith.Tests.TestHelpers.TestTreeSync.Create(),
         AgentSmith.Tests.TestHelpers.TestTreeSync.Relevance(),
         new VerifyCommandRunner(NullLogger<VerifyCommandRunner>.Instance),
@@ -343,6 +344,47 @@ public sealed class VerifySpecHandlerTests
         var recorded = events.Events.OfType<AgentSmith.Contracts.Events.SpecStateChangedEvent>().Single();
         recorded.State.Should().Be(AgentSmith.Contracts.Specs.SpecRunState.InProgress);
         recorded.AcceptanceJson.Should().Contain("the handler is migrated").And.Contain("unmet");
+    }
+
+    /// <summary>2026-10-17-a196a: a server spec in a two-repository run is built, accounted and handed
+    /// back over the server alone — the worker belongs to the spec that names it.</summary>
+    [Fact]
+    public async Task VerifySpec_ServerSpecInTwoRepoRun_AccountsAndBuildsServerOnly()
+    {
+        var (context, sandboxes) = SetupTwo(
+            ("server", Map("csharp", new CiConfig(true, "dotnet build", null, null))),
+            ("worker", Map("csharp", new CiConfig(true, "dotnet build", null, null))));
+        context.Pipeline.Set<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxRepos,
+            new Dictionary<string, string> { ["server"] = "server", ["worker"] = "worker" });
+        context.Pipeline.Set(ContextKeys.CurrentSpec,
+            new SpecDraft("p1", "goal", "spec: p1", []) { Done = ["the handler is migrated"], Repos = ["server"] });
+        context.Pipeline.Set(ContextKeys.ResolvedPipeline,
+            new ResolvedPipelineConfig("code", new AgentConfig(), "skills", null));
+
+        var result = await Handler(new OutstandingAccountant()).ExecuteAsync(context, CancellationToken.None);
+
+        sandboxes["server"].RanSteps.Should().Contain(s => IsDotnet(s));
+        sandboxes["worker"].RanSteps.Should().NotContain(s => IsDotnet(s), "the worker is not this spec's repository");
+        context.Pipeline.Get<IReadOnlyList<SpecAccount>>(ContextKeys.SpecAccounts)
+            .Should().ContainSingle().Which.RepoKey.Should().Be("server");
+        result.InsertNext.Should().NotBeNullOrEmpty("the repair pass is spliced");
+        context.Pipeline.Get<List<string>>(ContextKeys.OutstandingCriteria)
+            .Should().OnlyContain(line => line.StartsWith("server: ", StringComparison.Ordinal));
+    }
+
+    [Fact]
+    public async Task VerifySpec_NamedRepositoryWithoutSandbox_Fails()
+    {
+        var (context, sandbox) = Setup(Map("csharp", new CiConfig(true, "dotnet build", null, null)),
+            new SpecDraft("p1", "goal", "spec: p1", []) { Done = ["c"], Repos = ["billing"] });
+        context.Pipeline.Set<IReadOnlyDictionary<string, string>>(ContextKeys.SandboxRepos,
+            new Dictionary<string, string> { ["server"] = "server" });
+
+        var result = await Handler(new SatisfiedAccountant()).ExecuteAsync(context, CancellationToken.None);
+
+        result.IsSuccess.Should().BeFalse();
+        result.Message.Should().Contain("Spec p1 names billing").And.Contain("no sandbox of this run serves it");
+        sandbox.RanSteps.Should().NotContain(s => IsDotnet(s), "nothing is verified in place of the named repository");
     }
 
     private sealed class OutstandingAccountant : ISpecAccountant

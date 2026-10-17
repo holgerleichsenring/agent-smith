@@ -99,6 +99,9 @@ public sealed class SpecAccountant(
         logger.LogInformation(
             "{Repo}: {Count} criterion(s) cited something that resolves against nothing — asking once more",
             repoKey, unresolved.Count);
+        // 2026-10-17-a196b: a pass of its own. Run f381's windowed pass spent all twelve, and the correction
+        // asked to repair a search citation could run none — it could only cite the pattern again.
+        branchSearch?.Budget.OpenNextPass();
         var second = await calls.AskCorrectionAsync(
             chat, repoKey, [.. unresolved.Select(u => u.Criterion)],
             split.Count > 0 ? split[0] : string.Empty, evidence,

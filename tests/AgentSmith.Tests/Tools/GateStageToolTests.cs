@@ -35,6 +35,20 @@ public sealed class GateStageToolTests
         _ran.Should().Contain((clones.Secondary, NodeTest)).And.NotContain(r => r.Key == clones.Primary && r.Command == NodeTest);
     }
 
+    /// <summary>2026-10-17-a196c: a stage the master ran is a command of the spec, citable with its exit code.</summary>
+    [Fact]
+    public async Task GateStageToolHost_RunStage_IsLoggedForTheSpecWithItsExitCode()
+    {
+        await using var clones = await Clones(dashboardTest: NodeTest);
+        if (clones is null) return;
+        await clones.WriteAsync(clones.Primary, "web/app.ts", "export const app = 2;\n");
+
+        await Run(clones, "shop", "test");
+
+        AgentSmith.Application.Services.Specs.SpecRunCommandScope.Open(clones.Pipeline).Evidence()
+            .Should().ContainSingle().Which.Should().Be($"shop: the agent ran '{NodeTest}' exited 0 — no output");
+    }
+
     [Fact]
     public async Task GateStageTool_SyncRed_RunsNothingAndReturnsTheSyncMessage()
     {

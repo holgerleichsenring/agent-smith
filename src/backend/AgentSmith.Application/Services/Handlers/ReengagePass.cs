@@ -19,7 +19,7 @@ public sealed class ReengagePass(
 {
     internal async Task<ReengagePassResult> RunAsync(
         ReengageSession s, ReengageState state, IReadOnlyList<string> criteria, CancellationToken ct,
-        string? challengeNudge = null)
+        string? challengeNudge = null, IReadOnlyList<string>? unresolvedClaims = null)
     {
         var skill = s.Context.MasterSkillName;
         var (loopResult, changes, verification) = state;
@@ -39,7 +39,9 @@ public sealed class ReengagePass(
         try
         {
             // p0411: the working tree, read once per pass, so the nudge opens with the changed paths.
-            var nudge = challengeNudge ?? MasterNudges.BuildReengageNudge(
+            // 2026-10-17-a196c: a pass opened for unresolved met claims leads with them.
+            var claimHead = unresolvedClaims is { Count: > 0 } ? AcceptanceClaimNudge.Build(unresolvedClaims, s.Context.Pipeline) : string.Empty;
+            var nudge = challengeNudge ?? claimHead + MasterNudges.BuildReengageNudge(
                 s.UserPrompt, s.Progress.GetLedger(), s.Log.GetDecisions(), verification,
                 await ReadChangedPathsAsync(s.Context.Pipeline, ct), MasterPipelineFacts.StagedRegistries(s.Context.Pipeline));
             var reengaged = await loopRunner.RunAsync(

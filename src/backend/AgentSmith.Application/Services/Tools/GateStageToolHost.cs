@@ -71,7 +71,7 @@ public sealed class GateStageToolHost(
         if (matches.Count > 1)
             return $"Error: '{label}' is declared by several contexts of {repository}; name one as context. "
                    + Listing(pairs) + " Nothing was run.";
-        return await RunOneAsync(repository, matches[0].Key, sandboxes[matches[0].Key], matches[0].Context, ct);
+        return await RunOneAsync(pipeline, repository, matches[0].Key, sandboxes[matches[0].Key], matches[0].Context, ct);
     }
 
     private (List<string> Pairs, List<(string Key, ContextVerifyStages Context)> Matches) Match(
@@ -92,7 +92,8 @@ public sealed class GateStageToolHost(
     }
 
     private async Task<string> RunOneAsync(
-        string repository, string key, ISandbox sandbox, ContextVerifyStages context, CancellationToken ct)
+        PipelineContext pipeline, string repository, string key, ISandbox sandbox, ContextVerifyStages context,
+        CancellationToken ct)
     {
         var notes = new VerifyResolutionNotes();
         var runnable = await resolver.ResolveAsync(key, map: null, sandbox, [context], notes, ct);
@@ -105,6 +106,8 @@ public sealed class GateStageToolHost(
         var stage = runnable[0];
         var outcome = await runner.RunAsync(key, stage.Stage, sandbox, stage.Cwd, stage.Command, ct);
         var output = VerifyCommandRunner.Tail(outcome.Output, VerifyCommandRunner.OutputTailChars);
+        // 2026-10-17-a196c: a stage the master ran is a command of this spec, citable for a build or test claim.
+        Specs.SpecRunCommandScope.Open(pipeline).Record(repository, stage.Command, output, outcome.ExitCode);
         return $"{pair} '{stage.Command}' in {repository} exited {outcome.ExitCode}:\n{output}";
     }
 

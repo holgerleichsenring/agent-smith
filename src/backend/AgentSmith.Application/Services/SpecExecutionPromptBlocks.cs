@@ -54,8 +54,15 @@ public static class SpecExecutionPromptBlocks
             + "\nClose exactly these. " + (outstanding.Any(c => c.StartsWith(StageRepair.ItemPrefix, StringComparison.Ordinal))
                 ? "No criterion has been accounted for yet; the verification after this pass takes the account. "
                 : "The rest of the spec is already accounted for — adding more is scope you were not given. ")
-            + "If one of them cannot be satisfied, say which and why rather than working around it.";
+            + "If one of them cannot be satisfied, say which and why rather than working around it."
+            + WrittenInto(pipeline);
     }
+
+    /// <summary>2026-10-17-a196a: the repositories the repair is confined to — the spec's own.</summary>
+    private static string WrittenInto(PipelineContext pipeline) =>
+        pipeline.TryGet<SpecDraft>(ContextKeys.CurrentSpec, out var spec) && spec is { Repos.Count: > 0 }
+            ? $"\nThis spec is written into {string.Join(", ", spec.Repos)} alone; another repository belongs to another spec."
+            : string.Empty;
 
     /// <summary>Every declared stage and the tool that runs it, read through the tool's own
     /// predicate: empty exactly when run_gate_stage is not offered.</summary>

@@ -21,6 +21,7 @@ const PASS_WORDS: Record<string, string> = {
   "red-with-open-steps": "verdict red with open steps",
   "unbacked-done": "steps marked done that the diff does not back",
   "gate-unsatisfied": "acceptance gate unsatisfied",
+  "unresolved-claims": "met claims cite nothing that changed or ran", // 2026-10-17-a196c
   challenged: "challenged on its own stop",
   first: "first pass",
   "after-answer": "after the answer",

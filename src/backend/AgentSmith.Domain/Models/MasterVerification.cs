@@ -46,7 +46,12 @@ public sealed record MasterVerification(
 /// every criterion is met or justified-N/A. An unmet criterion is the honest RED
 /// the master must report rather than stopping short and self-declaring green.
 /// </summary>
-public sealed record AcceptanceDisposition(string Criterion, AcceptanceStatus Status, string Evidence);
+public sealed record AcceptanceDisposition(string Criterion, AcceptanceStatus Status, string Evidence)
+{
+    /// <summary>2026-10-17-a196c: the changed paths and the commands this claim rests on, each one whole
+    /// thing; null when the master's entry carried no citations key (a skill before citations).</summary>
+    public IReadOnlyList<string>? Citations { get; init; }
+}
 
 /// <summary>p0340: how the master disposed of a ratified acceptance criterion.</summary>
 public enum AcceptanceStatus

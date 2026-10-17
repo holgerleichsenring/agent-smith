@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-17-a196b
+goal: "The account's correction pass opens its own search allowance, so a citation it is asked to repair can be backed by a search that really runs."
+
+applies_to: "default (SpecAccountant.CorrectAsync)"
+
+requires: [2026-10-17-a196a]
+
+facts:
+  - claim: "A citation resolves against a recorded search when it names the quoted pattern verbatim or as a prefix of at least 60 percent; the search line is 'repo: the account searched '<pattern>' exited N'."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SearchEvidence.cs:56-60, src/backend/AgentSmith.Application/Services/Specs/CitationMatch.cs:34-80, src/backend/AgentSmith.Application/Services/Specs/EvidenceCommand.cs:28-37"
+  - claim: "The resolver is built after each call over the listed commands plus every search the BranchSearch recorded so far."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/AccountTools.cs:27-31, src/backend/AgentSmith.Application/Services/Specs/SpecAccountant.cs:71-76"
+  - claim: "Every accounting call is one fresh user message; its COMMANDS list is the evidence's CommandResults, which never carry the account's own searches."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecAccountCall.cs:32-44, src/backend/AgentSmith.Application/Services/Specs/AccountEvidence.cs:31-34, src/backend/AgentSmith.Application/Services/Specs/AccountCalls.cs:63-72"
+  - claim: "A search past the allowance is refused before it runs and is not recorded."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/BranchSearch.cs:72, src/backend/AgentSmith.Application/Services/Specs/BranchSearch.cs:80, src/backend/AgentSmith.Application/Services/Specs/AccountSearchBudget.cs:25-41"
+  - claim: "The full-reach pass opens a fresh allowance; the correction pass opens none, so it draws on what the windowed pass left."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/AccountFullReachPass.cs:47-49, src/backend/AgentSmith.Application/Services/Specs/SpecAccountant.cs:91-109"
+  - claim: "The correction asks the account to cite 'the PATTERN you searched for, copied exactly as you wrote it' — of a search made in an earlier call it cannot see."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/AccountReAsk.cs:45-46"
+  - claim: "In run f381's final verification the windowed pass ran exactly 12 searches, the correction call asked for tools and no search ran, and the full-reach pass ran 12 more."
+    evidence: "observed: 2026-10-17, RunEvents seq 2050-2115 of run 2026-10-16T15-05-05-f381 (SandboxCommand grep events between the spec-accountant LlmCall events)"
+
+scope:
+  in: >
+    SpecAccountant.CorrectAsync opens the next allowance (branchSearch?.Budget.OpenNextPass()) before it asks the
+    correction, as the full-reach pass already does before its own call.
+  out: >
+    Showing the account's earlier searches to later calls: under the COMMANDS heading a base-search line would read as a
+    branch result and the resolver would accept it (CitationResolver does not tell base from branch); visibility needs
+    its own heading and its own spec if wanted. The per-pass allowance of 12 and its sharing across the windows of one
+    pass. Recording a search the allowance refused. Any prompt wording.
+
+decisions:
+  - key: "THE CORRECTION COULD NOT SEARCH. In f381 the windowed pass spent all 12 searches and the correction's tool calls ran none, so a pattern it was asked to repair could only be re-cited, never run. What the full-reach pass answered for that criterion is not recorded (only its log line), so this spec does not claim it decided the run; 2026-10-17-a196a removes the three-repository spread of the allowance."
+
+steps:
+  - id: allowance
+    action: "CorrectAsync opens its own allowance; red test first."
+  - id: tests
+    action: "Build; run the Specs account test classes."
+
+tests:
+  - "SpecAccountant_WindowedPassSpentItsAllowance_CorrectionCanStillSearch"
+
+done:
+  - "An account whose windowed pass spent all twelve searches runs a search in its correction pass, and the pattern the correction cites from that search resolves."
+  - "Build green, full suite green, dashboard gen/test/build green."

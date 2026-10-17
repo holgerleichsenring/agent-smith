@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-17-a196c
+
+decisions:
+  - category: Architecture
+    chose: "The open loop resolves a met claim's citations through the keystone's own CitationResolver, over paths and commands the framework read itself"
+    over: "A second account (model call) per pass, or judging free-text evidence"
+    reason: |
+      Run f381's master reported 7 of 7 met three passes running on sentences such as "Final source scan found no
+      MassTransit references" and "This publisher-only API has no listening queues" — no command named. Resolution is
+      mechanical and costs a few git calls per pass; whether a cited file MEANS the criterion stays the keystone's
+      question. Reading free text for a path or a command would be the heuristic the operator rules out; the missing
+      field (citations) is the fix.
+  - category: Architecture
+    chose: "One objection per master step, only when the acceptance gate is otherwise satisfied"
+    over: "Re-engaging while any citation stays unresolved"
+    reason: "A citation that cannot resolve — a command shortened in the log, a search tool that leaves no record — would drive passes until the budget or the hard cap of 50; after one objection the keystone judges what follows."
+  - category: Architecture
+    chose: "Unchecked only when NO disposition carries a citations key; once one does, a met claim without the key cites nothing"
+    over: "Skipping each disposition that lacks the key"
+    reason: "Per disposition, a master could drop the key from exactly the claim it cannot back. The whole-verdict rule keeps the pinned v5.18.0 master working until 2026-10-17-1170 bumps the pin and removes the unchecked path."
+  - category: Architecture
+    chose: "run_gate_stage records each stage it runs in the spec's command log with its exit code"
+    over: "Telling the master only run_command commands are citable"
+    reason: "run_gate_stage is how a declared build runs in a repository's other sandboxes; a build claim must be able to cite it, and the keystone's account seeing it is the truth. SpecRunCommandLog gained a Record overload because the stage's output has no exit_code header."
+  - category: Implementation
+    chose: "A delivery diff that cannot be taken skips the check for the pass"
+    over: "Resolving against the paths that could be read"
+    reason: "A partial index refuses true path citations and re-engages the master over a framework failure — the false-negative shape 2026-08-28-5f71 removed from the keystone."
+  - category: Implementation
+    chose: "ShouldReengage stays the claims-free predicate and passes none"
+    over: "Threading the claim lines through it and its fifteen test callers"
+    reason: "Only tests call it; the loop calls ReengageReasonPolicy.Decide directly, which takes the lines as a required parameter."
+  - category: Tooling
+    chose: "The skill change is on skills branch spec/2026-10-17-a196 (coding-agent-master 1.34.0), unreleased; the server does not depend on it"
+    over: "Releasing and pinning in this series"
+    reason: "The operator releases skills; until the pin moves the server sees verdicts without citations and leaves them unchecked."

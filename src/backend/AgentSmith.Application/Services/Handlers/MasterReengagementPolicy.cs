@@ -48,12 +48,13 @@ internal static class MasterReengagementPolicy
     // drained ledger is respected; budget exhaustion always stops; a silent master gets one re-drive.
     // p0406: reengagePass and verdictDemandedInPass are REQUIRED, never defaulted.
     // 2026-10-13-9a59f: the branches and the reason each gives live in ReengageReasonPolicy.
+    // 2026-10-17-a196c: the claims-free reading; the loop alone resolves met claims (AcceptanceClaimObjection).
     internal static bool ShouldReengage(
         string? pipelineName, ProgressLedger ledger, MasterVerification? verification,
         bool budgetExhausted, IReadOnlyList<string> ratifiedCriteria, IReadOnlyList<CodeChange> changes,
         int reengagePass, bool verdictDemandedInPass) =>
         ReengageReasonPolicy.Decide(pipelineName, ledger, verification, budgetExhausted, ratifiedCriteria,
-            changes, reengagePass, verdictDemandedInPass).Reengage;
+            changes, reengagePass, verdictDemandedInPass, unresolvedClaims: []).Reengage;
 
     // p0341e: the ratified acceptance criteria for this run (empty when nothing was negotiated —
     // fix-bug self-planning, ticketless runs). Same source the keystone reads.

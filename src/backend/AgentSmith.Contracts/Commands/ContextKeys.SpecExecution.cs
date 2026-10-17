@@ -20,4 +20,8 @@ public static partial class ContextKeys
     /// <summary>2026-10-13-8762n: the entered spec's citations whose lines changed and whose text was found
     /// nowhere (IReadOnlyList&lt;string&gt;, one line each) — replaced at every spec entry, read by the master prompt.</summary>
     public const string StaleCitations = "StaleCitations";
+
+    /// <summary>2026-10-17-a196a: the file-tool writes one master step was refused because they would land in a
+    /// repository the current spec does not name (RefusedWriteLog) — opened per step, read by its step result.</summary>
+    public const string RefusedWrites = "RefusedWrites";
 }
