@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { ProjectInitAction } from "@/components/system/ProjectInitAction";
+import { TrackerText } from "@/components/ui/TrackerText";
 import { formatRunSummary } from "@/lib/formatRunSummary";
 import { runPath, runTracePath } from "@/lib/runPath";
 import { shortRepo } from "@/lib/shortRepo";
@@ -29,7 +30,11 @@ export function TicketStateBlock({ detail }: { detail: TicketDetail }) {
         <span className={`pill ${view.tone}`} data-testid="ticket-state-pill">{view.pill}</span>
         <div className="ts-say">
           <p className="ts-sentence" data-testid="ticket-state-sentence">{view.sentence}</p>
-          {view.detail && <div className="ts-detail" data-testid="ticket-state-detail">{view.detail}</div>}
+          {view.detail && (
+            <div className={view.detailFormat ? "ts-detail md" : "ts-detail"} data-testid="ticket-state-detail">
+              {view.detailFormat ? <TrackerText text={view.detail} format={view.detailFormat} /> : view.detail}
+            </div>
+          )}
         </div>
         {view.attempt && (
           <Link className="btn sm" href={runPath(view.attempt.runId)} data-testid="ticket-state-run">

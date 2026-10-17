@@ -62,6 +62,12 @@
     font-size: 14px;
     line-height: 1.5;
   }
+  /* 2026-10-16-7ed3c: a token wider than its line (a URL, a file path) breaks instead of running out of its pane.
+     break-word leaves min-content sizes alone, so no layout shrinks because of it; the ticket page's text panes add
+     overflow-wrap:anywhere with min-width:0 in mock-parity.css. */
+  p, li, dd, blockquote, td, h1, h2, h3, h4, h5, h6 {
+    overflow-wrap: break-word;
+  }
   /* p0174: dashboard surface stays light in dark-mode UA too — operator
      surface is content-bright by design (DESIGN.md ships dark variants
      for marketing surfaces, not the dashboard). Code/terminal panels

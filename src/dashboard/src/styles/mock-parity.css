@@ -1960,6 +1960,9 @@
 .mock-tickets .tstate .ts-say { flex: 1 1 320px; min-width: 0; }
 .mock-tickets .tstate .ts-sentence { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink); line-height: 1.4; }
 .mock-tickets .tstate .ts-detail { margin-top: 4px; font-size: 13px; color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+.mock-tickets .tstate .ts-detail.md { white-space: normal; }
+.mock-tickets .tstate .ts-detail.md :is(h1, h2, h3) { font-size: inherit; font-weight: 650; margin: 4px 0 2px; }
+.mock-tickets .tstate .ts-detail.md p { margin: 4px 0; }
 .mock-tickets .tstate .ts-acts { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 0 14px 10px; }
 .mock-tickets .tstate .ts-act { display: inline-flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .mock-tickets .tstate details > summary { cursor: pointer; font-size: 12px; color: var(--ink-2); }
@@ -1983,3 +1986,7 @@
 .mock-tickets .tstate .ts-chip.person { --chip: var(--person); }
 .mock-tickets .tstate .ts-chip.head { font-weight: 700; border-width: 2px; background: color-mix(in srgb, var(--chip) 12%, var(--bg)); }
 .mock-tickets .tstate .ts-chip:hover { border-color: var(--chip); }
+/* 2026-10-16-7ed3c: the ticket page's text panes wrap a long token anywhere and may shrink inside their flex or grid
+   track; a code block inside one scrolls on its own. */
+.mock-tickets :is(.why, .doc, .msg .mb, .spdoc .sb, .sd-b > div, .ts-say, .crit .ci > span) { overflow-wrap: anywhere; min-width: 0; }
+.mock-tickets :is(.why, .doc, .msg .mb, .spdoc .sb, .ts-say) pre { overflow-x: auto; max-width: 100%; }

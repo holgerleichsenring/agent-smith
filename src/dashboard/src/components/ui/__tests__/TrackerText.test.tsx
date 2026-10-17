@@ -11,6 +11,19 @@ function body() {
 }
 
 describe("TrackerText", () => {
+  it.each(["markdown", "html"] as const)("TrackerText_MentionAnchor_ReadsAtNameAndIsNoLink (%s)", (format) => {
+    render(<TrackerText format={format} text={'Ask <a href="#" data-vss-mention="version:2.0,abc">@Ada Example</a> first.'} />);
+
+    expect(body().textContent).toBe("Ask @Ada Example first.");
+    expect(screen.queryByRole("link")).toBeNull();
+  });
+
+  it("TrackerText_RealLink_StaysALink", () => {
+    render(<TrackerText format="markdown" text={"See [the PR](https://example.com/pr/1)."} />);
+
+    expect(screen.getByRole("link", { name: "the PR" }).getAttribute("href")).toBe("https://example.com/pr/1");
+  });
+
   it("TrackerText_HtmlBody_RendersHeadingListAndLinkWithoutTagSource", () => {
     render(<TrackerText format="html" text={'<h2 id="done">Agent Smith - Completed</h2><ul><li><a href="https://example.com/pr/1">PR 1</a></li></ul>'} />);
 

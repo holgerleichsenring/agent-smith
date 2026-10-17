@@ -1,3 +1,4 @@
+import { TrackerText } from "@/components/ui/TrackerText";
 import { EventType, type RunEvent, type ToolCallEvent } from "@/types/hub-events";
 import type { RunPass, TicketSeriesSpec } from "@/types/tickets";
 import { money } from "../ticketFormat";
@@ -100,11 +101,19 @@ export function questionDetail(context: NodeContext): NodeExplained | null {
   return {
     title: passTitle("Question", specOf(context), pass, context.node.passCount),
     left: (
-      <Why lines={[
-        <><b>Question:</b> {question.text}</>,
-        answer ? <><b>Answer</b> by {who}{answer.at ? ` at ${clock(answer.at)}` : ""}: {answer.text}</> : "Not answered yet.",
-        parkedMs != null ? `Parked ${duration(parkedMs)}; the same attempt resumed.` : null,
-      ].filter(Boolean)} />
+      <>
+        <Doc heading="question">
+          <div data-testid="question-text"><TrackerText text={question.text ?? ""} format={question.format} /></div>
+        </Doc>
+        {answer
+          ? (
+            <Doc heading={`answer by ${who}${answer.at ? ` at ${clock(answer.at)}` : ""}`}>
+              <div data-testid="answer-text"><TrackerText text={answer.text ?? ""} format={answer.format} /></div>
+            </Doc>
+          )
+          : <Why lines={["Not answered yet."]} />}
+        {parkedMs != null && <Why lines={[`Parked ${duration(parkedMs)}; the same attempt resumed.`]} />}
+      </>
     ),
   };
 }

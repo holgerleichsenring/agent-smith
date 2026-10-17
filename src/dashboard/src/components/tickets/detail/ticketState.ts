@@ -21,8 +21,10 @@ export interface TicketStateView {
   tone: StateTone;
   pill: string;
   sentence: string;
-  /** The question, the hand-back, the live step or the pull requests — drawn under the sentence. */
+  /** The question, the hand-back or the live step — drawn under the sentence. */
   detail: string | null;
+  /** 2026-10-16-7ed3c: a hand-back is markdown as posted on the ticket; every other detail is plain text. */
+  detailFormat?: "markdown";
   /** The attempt the sentence is about: its run is linked beside the sentence. */
   attempt: TicketAttempt | null;
   act: StateAct | null;
@@ -108,7 +110,8 @@ function needsYou(detail: TicketDetail, head: TicketAttempt): TicketStateView {
       act: { kind: "tab", label: "Answer in the conversation", tab: "conversation" } };
   }
   return { ...base(head), tone: "person", pill: "Handed back",
-    sentence: `Attempt ${head.number} handed the ticket back.`, detail: detail.summary.handback?.text ?? null, act: CONTINUE };
+    sentence: `Attempt ${head.number} handed the ticket back.`, detail: detail.summary.handback?.text ?? null,
+    detailFormat: "markdown", act: CONTINUE };
 }
 
 function working(detail: TicketDetail, head: TicketAttempt, events: RunEvent[], series: TicketSeries | null): TicketStateView {

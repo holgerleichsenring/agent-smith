@@ -293,6 +293,33 @@ describe("Ticket page", () => {
     expect(detailText()).not.toContain("a later one");
   });
 
+  // 2026-10-16-7ed3c: posted ticket text renders as the conversation renders it — markdown, a mention as @Name.
+  it("NodeDetail_Handback_RendersMarkdownLineBreaksAndMentionAsText", async () => {
+    world.detail = detail([attempt({ runId: "r-1", handedBack: true, revision: null })]);
+    world.series["r-1"] = series("r-1", [], { handback: { case: "Question", runId: "r-1", attempt: 1, at: "x" }, gate: { status: "skipped", specCount: 0, runId: "r-1" } });
+    world.conversation = conversation([entry({ id: "h1", source: "spec-cut", kind: "hand-back", attemptRunId: "r-1", format: "markdown",
+      text: "## Agent Smith — handed back\n\n<a href=\"#\" data-vss-mention=\"version:2.0,abc\">@Ada Example</a> which header?\n\nSee https://example.test/a/very/long/path/to/src/Sample.App.Server/File.cs" })]);
+    await open();
+    fireEvent.click(node("handback"));
+    const text = screen.getByTestId("handback-text");
+    expect(text.querySelectorAll("p").length).toBeGreaterThanOrEqual(2);
+    expect(text).toHaveTextContent("@Ada Example which header?");
+    expect(text.innerHTML).not.toContain("data-vss-mention");
+    expect(text.textContent).not.toContain("<a");
+    expect(within(text).queryByRole("link", { name: "@Ada Example" })).toBeNull();
+  });
+
+  it("TicketStateBlock_Handback_RendersMarkdownWithMentionAsText", async () => {
+    world.detail = detail([attempt({ status: "waiting_for_input", handedBack: true, finishedAt: null })]);
+    world.detail.summary = { ...world.detail.summary, bucket: "needs_you", kind: "handback",
+      handback: { text: "## Handed back\n\n<a href=\"#\" data-vss-mention=\"version:2.0,abc\">@Ada Example</a> please decide.", at: "2026-09-04T14:30:00Z" } };
+    await open();
+    const shown = screen.getByTestId("ticket-state-detail");
+    expect(shown).toHaveTextContent("@Ada Example please decide.");
+    expect(shown.textContent).not.toContain("##");
+    expect(shown.innerHTML).not.toContain("data-vss-mention");
+  });
+
   it("ATerminalAttemptWithNoRevisionAndNoCut_LinksToItsRunViewer", async () => {
     world.detail = detail([attempt({ revision: null, status: "failed" })]);
     delete world.series["r-1"];

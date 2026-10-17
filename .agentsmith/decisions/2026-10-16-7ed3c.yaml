@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-16-7ed3c
+
+decisions:
+  - category: Architecture
+    chose: "One base rule (overflow-wrap: break-word on p, li, dd, blockquote, td, headings in globals.css) plus one pane rule (overflow-wrap: anywhere and min-width: 0 on the ticket page's text panes)"
+    over: "overflow-wrap: anywhere globally; or patching each pane where an overflow was seen"
+    reason: |
+      break-word breaks an over-long token without changing min-content sizes, so it is safe on every paragraph of the
+      dashboard. anywhere also lets a flex or grid child shrink, which is the point in a text pane but would squeeze
+      tables and nav rows elsewhere, so it is scoped to the named panes. A code block in a pane scrolls on its own.
+  - category: Architecture
+    chose: "Posted ticket text (hand-back text, question, answer, the state block's and the needs-you card's hand-back) renders through TrackerText"
+    over: "A second renderer or a plain paragraph"
+    reason: "TrackerText is the conversation tab's renderer: markdown and inline HTML sanitized by rehype-sanitize, never dangerouslySetInnerHTML."
+  - category: Implementation
+    chose: "TrackerText draws an anchor with no href or href '#' as a span of its text"
+    over: "Stripping data-vss-mention anchors with a regex before rendering"
+    reason: |
+      The sanitizer already drops the data attribute and keeps href '#'; an anchor that goes nowhere is a mention or
+      dead link, and as text it reads '@Name' without a link that would only open the dashboard itself in a new tab.
+  - category: Implementation
+    chose: "The question node's question and answer move from Why lines into Doc blocks"
+    over: "Keeping them as Why lines"
+    reason: "Why wraps each line in a <p>; TrackerText renders block elements, and a div inside a p is invalid HTML."
+  - category: Implementation
+    chose: "The hand-back's quote renders as plain text with its line breaks"
+    over: "Rendering the quote as markdown"
+    reason: "The quote's source format is not recorded on the entry detail; plain text never shows markup it should not."
