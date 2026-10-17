@@ -20,9 +20,11 @@ interface Props {
   attemptNumber: (runId: string | null) => number | null;
   /** The attempt this entry started — set only where causeEntryMatch joined it. */
   started: number | null;
+  /** 2026-10-17-e730b: the entry ?causeOf= scrolled to, drawn marked. */
+  target?: boolean;
 }
 
-export function ConversationEntry({ entry, attemptNumber, started }: Props) {
+export function ConversationEntry({ entry, attemptNumber, started, target = false }: Props) {
   const avatar = avatarOf(entry);
   const internal = entry.source === "spec-cut";
   const pill = decisionPill(entry);
@@ -30,7 +32,8 @@ export function ConversationEntry({ entry, attemptNumber, started }: Props) {
     && (entry.detail as { startedNothing?: unknown } | null | undefined)?.startedNothing === true;
   const footer = pill || started !== null || startedNothing;
   return (
-    <div className={internal ? "msg internal" : "msg"} data-entry-id={entry.id} data-testid="conv-entry" data-source={entry.source}>
+    <div className={["msg", internal && "internal", target && "target"].filter(Boolean).join(" ")} data-entry-id={entry.id}
+      data-testid="conv-entry" data-source={entry.source} data-target={target || undefined}>
       <span className={`av ${avatar.className}`} aria-hidden="true">{avatar.text}</span>
       <div>
         <div className="mh">

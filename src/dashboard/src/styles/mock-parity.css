@@ -652,6 +652,8 @@
 .mock-tickets .msg .mf .eff { color:var(--person); font-weight:600; }
 .mock-tickets .msg .mf .eff.run { color:var(--run); }
 .mock-tickets .msg.internal .mb { font-size:12.5px; color:var(--ink-2); }
+/* 2026-10-17-e730b: the entry a ?causeOf= link landed on. */
+.mock-tickets .msg.target { background:var(--person-wash); border-radius:var(--r-s); padding:8px 10px; margin:0 -10px; }
 /* An entry body never outranks the page's own headings, and its blocks read at the body's size and colour. */
 .mock-tickets .msg .mb h1, .mock-tickets .msg .mb h2, .mock-tickets .msg .mb h3 { font-size:inherit; line-height:1.4; font-weight:650; color:inherit; margin:6px 0 2px; letter-spacing:normal; }
 .mock-tickets .msg .mb p, .mock-tickets .msg .mb li, .mock-tickets .msg .mb ul, .mock-tickets .msg .mb ol { font-size:inherit; color:inherit; }

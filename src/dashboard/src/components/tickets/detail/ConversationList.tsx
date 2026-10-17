@@ -8,7 +8,7 @@ import { CONVERSATION_FILTERS, attemptPill } from "./conversationWords";
 
 // 2026-10-13-9a59r: the thread, grouped as 9a59h placed it — "before" the first attempt, under each attempt
 // marker in turn, and "now" (after the last attempt's worked approval). The page does not regroup by time.
-// One chip per 9a59h source filters it. ?causeOf={runId} scrolls once to that attempt's cause entry.
+// One chip per 9a59h source filters it. ?causeOf={runId} scrolls once to that attempt's cause entry and marks it (e730b).
 
 interface Props {
   conversation: TicketConversation;
@@ -36,6 +36,9 @@ export function ConversationList({ conversation, detail, causeOf }: Props) {
     { key: "now", head: "Now", pill: ["q", "in the ticket conversation"] as [string, string], runId: null },
   ];
 
+  const target = causeOf
+    ? causeEntryOf(conversation.entries, conversation.attempts.find((a) => a.runId === causeOf)?.cause, ticketUrl)?.id ?? null
+    : null;
   const list = useRef<HTMLDivElement>(null);
   const scrolled = useRef<string | null>(null);
   useEffect(() => {
@@ -66,7 +69,7 @@ export function ConversationList({ conversation, detail, causeOf }: Props) {
             <div key={group.key} className="c-group" data-testid={`conv-group-${group.key}`}>
               <div className="c-att">{group.head}{group.pill && <span className={`pill ${group.pill[0]}`}>{group.pill[1]}</span>}</div>
               {entries.map((e) => (
-                <ConversationEntry key={e.id} entry={e} attemptNumber={number} started={startedBy(e.id)} />
+                <ConversationEntry key={e.id} entry={e} attemptNumber={number} started={startedBy(e.id)} target={e.id === target} />
               ))}
             </div>
           );

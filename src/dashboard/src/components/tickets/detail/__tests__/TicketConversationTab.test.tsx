@@ -321,7 +321,7 @@ describe("Ticket conversation tab", () => {
     expect(screen.getByTestId("conv-group-now")).toHaveTextContent("in the ticket conversation");
   });
 
-  it("CauseOf_ScrollsToTheEntryThatIsThatAttemptsCause_WithNoMatchItStaysAtTheTop", async () => {
+  it("CauseOf_ScrollsToTheEntryThatIsThatAttemptsCause_WithNoMatchItOpensAtTheNewest", async () => {
     const scrolled = vi.fn();
     Element.prototype.scrollIntoView = scrolled;
     world.detail = detail([attempt(), attempt({ number: 2, runId: "r-2", cause: prCause })]);
@@ -336,12 +336,17 @@ describe("Ticket conversation tab", () => {
     await open();
     expect(scrolled).toHaveBeenCalledTimes(1);
     expect((scrolled.mock.instances[0] as unknown as HTMLElement).getAttribute("data-entry-id")).toBe("pr-review:k:c-77");
+    expect(screen.getAllByTestId("conv-entry").filter((e) => e.getAttribute("data-target") === "true")
+      .map((e) => e.getAttribute("data-entry-id"))).toEqual(["pr-review:k:c-77"]);
+    expect(screen.getAllByTestId("conv-entry").find((e) => e.getAttribute("data-entry-id") === "pr-review:k:c-77")).toHaveClass("target");
 
     cleanup();
     scrolled.mockClear();
     nav.search = "tab=conversation&causeOf=r-1";
     await open();
-    expect(scrolled).not.toHaveBeenCalled();
+    expect(scrolled).toHaveBeenCalledTimes(1);
+    expect(scrolled.mock.instances[0]).toBe(screen.getByTestId("conv-end"));
+    expect(screen.queryAllByTestId("conv-entry").some((e) => e.getAttribute("data-target") === "true")).toBe(false);
   });
 
   it("AWorkersLaterAnswerComment_ShowsUnderTheTicketChip_AsAnAgentEntry", async () => {
@@ -491,11 +496,49 @@ describe("Ticket conversation tab", () => {
 // 2026-10-17-e730a..f: reading a long conversation — the docked composer, opening at the newest, folded attempts,
 // clamped entries, the repeated cause and the jump to the newest.
 describe("Ticket conversation reading", () => {
-  it("ConversationDock_HoldsTheComposer_AsTheTabsLastBlock", async () => {
+  it("ConversationDock_HoldsTheComposer_AsTheTabsLastBlockBeforeTheEndAnchor", async () => {
     await open();
     const dock = screen.getByTestId("conv-dock");
     expect(within(dock).getByTestId("ticket-composer")).toBeInTheDocument();
-    expect(dock.parentElement?.lastElementChild).toBe(dock);
+    expect(dock.nextElementSibling).toBe(screen.getByTestId("conv-end"));
+    expect(dock.parentElement?.lastElementChild).toBe(screen.getByTestId("conv-end"));
+  });
+
+  it("OpeningTheTab_ScrollsTheEndAnchorIntoView_OnceTheConversationIsRead", async () => {
+    const scrolled = vi.spyOn(Element.prototype, "scrollIntoView");
+    world.conversation = conversation([entry({ id: "a" }), entry({ id: "b", text: "Newest words" })]);
+    await open();
+    expect(scrolled).toHaveBeenCalledTimes(1);
+    expect(scrolled.mock.instances[0]).toBe(screen.getByTestId("conv-end"));
+    expect(scrolled.mock.calls[0][0]).toEqual({ block: "end" });
+    scrolled.mockRestore();
+  });
+
+  it("OpeningTheTab_WithAPendingQuestion_ScrollsTheQuestionCardIntoView", async () => {
+    const scrolled = vi.spyOn(Element.prototype, "scrollIntoView");
+    const question = { questionId: "q", type: "FreeText", text: "Keep the Postgres outbox?", context: null, choices: [], defaultAnswer: null, askedAt: "2026-09-04T14:10:00Z", answerDeadlineAt: "2026-09-05T14:10:00Z" };
+    world.detail = detail([attempt({ status: "waiting_for_input", finishedAt: null, pendingQuestion: question })]);
+    identity.lacks = ["runs.control"];
+    world.conversation = conversation([entry({ id: "a" })]);
+    await open();
+    expect(scrolled).toHaveBeenCalledTimes(1);
+    expect((scrolled.mock.instances[0] as unknown as HTMLElement).contains(screen.getByTestId("conv-question-text"))).toBe(true);
+    expect(scrolled.mock.calls[0][0]).toEqual({ block: "start" });
+    scrolled.mockRestore();
+  });
+
+  it("AConversationReRead_DoesNotScrollAgain", async () => {
+    const scrolled = vi.spyOn(Element.prototype, "scrollIntoView");
+    const one = [{ runId: "r-1", number: 1, cause: null, revision: null }];
+    world.conversation = { ...conversation([entry({ id: "a" })]), attempts: one };
+    const hub = await open();
+    expect(scrolled).toHaveBeenCalledTimes(1);
+    world.conversation = { ...conversation([entry({ id: "a" }), entry({ id: "b" })]), attempts: one };
+    hub.ticketActivityChanged.emit({ project: "shop", ticketKey: "GH-101" });
+    await settle(5000);
+    expect(screen.getAllByTestId("conv-entry")).toHaveLength(2);
+    expect(scrolled).toHaveBeenCalledTimes(1);
+    scrolled.mockRestore();
   });
 
   it("ConversationDock_HoldsTheHiddenNote_WhenTheTranscriptIsHidden", async () => {
