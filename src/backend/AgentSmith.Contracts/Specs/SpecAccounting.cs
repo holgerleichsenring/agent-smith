@@ -23,6 +23,11 @@ public sealed record SpecAccounting(
     /// left out, each with its reason. Empty on a cut from a catalog that names none.</summary>
     public IReadOnlyList<DiscardedContext> DiscardedContexts { get; init; } = DiscardedContexts ?? [];
 
+    /// <summary>2026-10-17-293ba: the segments the derivation declared every spec needs. A record of
+    /// the declared audience only — coverage comes from <see cref="Carried"/>, which already holds
+    /// each shared segment once per spec that received it. Empty on a cut that declared none.</summary>
+    public IReadOnlyList<int> Shared { get; init; } = [];
+
     /// <summary>
     /// True when every segment of the ticket is spoken for. A false here does NOT
     /// split at all: the run falls back to one spec with the full ticket pinned,

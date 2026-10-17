@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-17-293ba
+goal: "A derivation answer may name the segments every spec needs once, as shared; each spec then gets those plus its own carries, and the pull request lists the shared ones."
+
+applies_to: "default (SpecDerivationParser, DerivedSpecBuilder, SpecAccountingBuilder, SeriesManifest, SpecPrBody; skills spec-derivation-master)"
+
+facts:
+  - claim: "A spec's carried segments are exactly the ids its own 'carries' array lists, filtered to the ticket's segments; nothing else feeds them."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivedSpecBuilder.cs:43,65-70"
+  - claim: "The markdown companion is cut from that list alone."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivedSpecBuilder.cs:49; src/backend/AgentSmith.Application/Services/Specs/SegmentExtractor.cs:15-38"
+  - claim: "The accounting is the union over the specs' carried lists plus the reasoned discards; anything else is unaccounted and refuses the cut into the fallback."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecAccountingBuilder.cs:16-41; src/backend/AgentSmith.Application/Services/Specs/SpecCoverageRefusal.cs:30-37; src/backend/AgentSmith.Application/Services/Handlers/DeriveSpecHandler.cs:121"
+  - claim: "The skill demands coverage and allows a segment in several specs, and says nothing about what one spec should carry."
+    evidence: "observed: 2026-10-17 agent-smith-skills v5.19.0 skills/_masters/spec-derivation-master/SKILL.md lines 58-67"
+  - claim: "Live run 2026-10-17T16-36-20-cc4c ran catalog v5.18.0 while the embedded pin was v5.19.0, so the server and the skill can differ by a release."
+    evidence: "observed: 2026-10-17 prod RunSteps of run 2026-10-17T16-36-20-cc4c step 1: 'catalog v5.18.0 … (older than the embedded pin v5.19.0)'"
+  - claim: "The series manifest records carried (segment, spec) pairs, discards and unaccounted ids, and round-trips them through AccountingOf."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SeriesManifest.cs:69-73,98-107; src/backend/AgentSmith.Application/Services/Specs/SeriesManifestDocument.cs:28-31"
+  - claim: "The executed head is re-used verbatim; only specs after it are built from the reply."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/DerivedSpecSequence.cs:30-42"
+
+scope:
+  in: >
+    The reply may carry a root-level "shared" array of segment ids. Every spec built from the reply (not the executed head)
+    carries shared ∪ its own "carries", both filtered to the ticket's segments and deduped. The accounting records the
+    declared shared ids for the record only — coverage still comes from the carried pairs, so a shared id no newly built
+    spec carries stays unaccounted. The series manifest writes and reads them, and the pull-request body and the ticket's
+    spec-set comment list them under their own heading, "Carried by every spec". A reply without "shared" (an older catalog) parses exactly as today. The skill states
+    what a spec carries and how to mark a segment shared, with a publisher/consumer example. Release order: a binary
+    carrying this change is deployed before any catalog that writes "shared" is loaded — an older binary ignores the key
+    and finds the shared ids unaccounted. The embedded pin bump follows this merge, and a configured skills pin must not
+    move ahead of the deployed binary.
+  out: >
+    Per-segment audience objects, repository-named units. Detecting a cut whose specs carry the same unit-specific
+    segments (the live failure copied all 168 into both) is NOT mechanical here — "only its own unit's segments" is a
+    skill rule; detection is the named follow-up 2026-10-17-ef61 (derivation-carry-overlap). The pin bump to the skills
+    release is the operator's.
+
+steps:
+  - id: envelope
+    action: "SpecDerivationParser reads the root 'shared' ids and hands them to the sequence, the builder and the accounting."
+  - id: distribute
+    action: "DerivedSpecBuilder carries shared ∪ own, deduped and ordered, into the yaml scope line and the companion."
+  - id: account
+    action: "SpecAccounting gains Shared (declared ids present in the ticket); SeriesManifest writes and reads 'shared'; SpecPrBody.RenderDiscarded lists it under its own heading."
+  - id: tests
+    action: "Parser unit tests (old shape unchanged, shared distributed, head untouched, manifest round-trip) and a harness run over a sample manual cut into a publisher and a consumer spec."
+  - id: skill
+    action: "spec-derivation-master: 'shared' in the reply shape, a rule saying a spec carries the shared segments plus its own unit's, with a worked publisher/consumer example; version bump."
+
+tests:
+  - "SpecDerivationAudienceTests"
+  - "SegmentAudienceHarnessTests"
+
+done:
+  - "A reply with shared [1,2] and specs carrying [3] and [4] yields companions with segments 1,2,3 and 1,2,4."
+  - "A reply without 'shared' yields the same specs, markdown and accounting as before this spec."
+  - "An executed head spec's carried segments are unchanged by a shared list."
+  - "The series manifest of a cut with shared segments lists them under 'shared' and reads them back; the pull-request body names them under 'Carried by every spec', not under the discarded heading."
+  - "Coverage comes from carried pairs only: a shared id that no newly built spec carries is unaccounted."
+  - "A harness run over a sample manual with shared setup, a publisher variant and a consumer variant gives each of two specs the shared segments plus its own variant and not the other."
+  - "The skills branch states the reply's 'shared' field and what a spec carries, with a worked example in which a publisher spec's carries exclude the consumer variant and vice versa; validate-skills.sh passes."
+  - "The follow-up 2026-10-17-ef61 is a planned spec indexed in context.yaml."
+  - "Build green, full suite green, dashboard gen/test/build green."

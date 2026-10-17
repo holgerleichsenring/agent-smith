@@ -36,10 +36,13 @@ internal static class AuditCommands
     public static string Describe(Step step) =>
         $"{step.Command} {string.Join(' ', step.Args ?? [])}";
 
-    /// <summary>Whether an exit code means the tool reached a verdict. Every one of the
-    /// three exits 0 for "nothing found" and 1 for "findings"; anything else is the tool
-    /// failing to run, which proves nothing about the dependencies.</summary>
-    public static bool ReachedAVerdict(int exitCode) => exitCode is 0 or 1;
+    /// <summary>Whether an exit code means the tool reached a verdict. npm audit and pip-audit
+    /// exit 0 for "nothing found" and 1 for "findings". 2026-10-17-293bb: the .NET audit lists
+    /// its advisories in the JSON and exits 0 either way, so its exit 1 is the tool failing —
+    /// an unrestored project answers "No assets file was found" with exactly that. Any other
+    /// exit is the tool failing to run, which proves nothing about the dependencies.</summary>
+    public static bool ReachedAVerdict(PackageEcosystemKind ecosystem, int exitCode) =>
+        ecosystem == PackageEcosystemKind.DotNet ? exitCode == 0 : exitCode is 0 or 1;
 
     private static Step Run(string command, string[] args) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,

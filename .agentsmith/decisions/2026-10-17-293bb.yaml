@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-17-293bb
+
+decisions:
+  - category: Implementation
+    chose: "The verdict exits are per ecosystem: the .NET audit reaches a verdict on exit 0 only; npm audit and pip-audit on 0 or 1"
+    over: "Keeping 0-or-1 for all three; or reading the .NET JSON's problems array to tell an error from a listing"
+    reason: "A local probe (SDK 10.0.100, Newtonsoft.Json 12.0.1) showed 'dotnet list package --vulnerable --format json' exits 0 while listing a High advisory, and live run 2026-10-17T16-36-20-cc4c's unrestored worker repository exited 1 with 'No assets file was found'. The exit code alone separates the two for .NET, so no output needs reading."
+  - category: Implementation
+    chose: "Leave npm's exit 1 ambiguous (findings, or a missing lockfile)"
+    over: "Classifying npm's output"
+    reason: "Not observed in a run, and telling the two apart needs the output, which this spec does not read."

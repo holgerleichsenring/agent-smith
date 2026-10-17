@@ -28,6 +28,10 @@ public sealed class SeriesManifestDocument
     public List<SeriesCarriedEntry> Carried { get; set; } = [];
     public List<SeriesDiscardedEntry> Discarded { get; set; } = [];
     public List<int> Unaccounted { get; set; } = [];
+
+    /// <summary>2026-10-17-293ba: the segments the cut declared every spec needs; empty on a manifest
+    /// that predates the key.</summary>
+    public List<int> Shared { get; set; } = [];
     public List<SeriesDiscardedContextEntry> DiscardedContexts { get; set; } = [];
     public string? HandbackCase { get; set; }
     public string? HandbackReason { get; set; }
