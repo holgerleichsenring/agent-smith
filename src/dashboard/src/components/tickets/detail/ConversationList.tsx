@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type RefObject } from "react";
 import { scrollBehavior } from "@/lib/scrollBehavior";
 import type { TicketConversation, TicketDetail } from "@/types/tickets";
 import { causeEntryMatch, causeEntryOf } from "./causeEntryMatch";
@@ -16,9 +16,11 @@ interface Props {
   conversation: TicketConversation;
   detail: TicketDetail;
   causeOf: string | null;
+  /** 2026-10-17-e730f: marks the end of the thread, for the jump to the newest. */
+  sentinel?: RefObject<HTMLDivElement | null>;
 }
 
-export function ConversationList({ conversation, detail, causeOf }: Props) {
+export function ConversationList({ conversation, detail, causeOf, sentinel }: Props) {
   const [filter, setFilter] = useState("all");
   // 2026-10-17-e730c: the reader's own folds, cleared whenever the filter changes.
   const [toggles, setToggles] = useState<Record<string, boolean>>({});
@@ -86,6 +88,7 @@ export function ConversationList({ conversation, detail, causeOf }: Props) {
           );
         })}
       </div>
+      <div ref={sentinel} data-testid="conv-sentinel" />
     </>
   );
 }

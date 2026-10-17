@@ -767,6 +767,8 @@
 .mock-tickets .conv-dock { position:sticky; bottom:0; z-index:5; max-width:880px; margin-top:22px; background:var(--bg); padding-bottom:env(safe-area-inset-bottom, 0px); }
 .mock-tickets .conv-dock-body { max-height:50vh; overflow-y:auto; }
 .mock-tickets .conv-dock .composer { margin-top:0; }
+/* 2026-10-17-e730f: "↓ Newest" floats above the dock's top edge, a raised .chip. */
+.mock-tickets .conv-newest { position:absolute; right:12px; bottom:calc(100% + 8px); box-shadow:0 2px 8px rgba(32, 21, 21, 0.10); }
 .mock-tickets .open-spec { margin:10px 0 0; }
 .mock-tickets .banner .btn { white-space:nowrap; }
 

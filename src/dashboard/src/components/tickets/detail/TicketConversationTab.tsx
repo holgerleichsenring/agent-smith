@@ -10,6 +10,7 @@ import { ConversationList } from "./ConversationList";
 import { ProposalBlock } from "./ProposalBlock";
 import { RetryUnchanged, RUNS_CONTROL } from "./RetryUnchanged";
 import { TicketComposer } from "./TicketComposer";
+import { useNewestJump } from "./useNewestJump";
 import { CAUSE_PARAM, useTicketTabGo } from "./useTicketTabGo";
 
 // 2026-10-13-9a59r: the Conversation tab — every exchange of the ticket in order (ticket comments and edits,
@@ -20,6 +21,7 @@ import { CAUSE_PARAM, useTicketTabGo } from "./useTicketTabGo";
 // 2026-10-17-e730b: once per mount, when the conversation is there, the tab opens at its end — unless a run question
 // waits (its card is shown) or ?causeOf= names an entry (the list scrolls to that). The end anchor after the dock is
 // what is scrolled: the stuck dock is already drawn at the bottom, so scrolling to it would move nothing.
+// 2026-10-17-e730f: scrolled up from the end, the dock offers "↓ Newest" with the count of entries since (useNewestJump).
 
 export function TicketConversationTab() {
   const detail = useTicketDetail();
@@ -36,6 +38,9 @@ export function TicketConversationTab() {
   const question = useRef<HTMLDivElement>(null);
   const end = useRef<HTMLDivElement>(null);
   const opened = useRef(false);
+  const sentinel = useRef<HTMLDivElement>(null);
+  const dock = useRef<HTMLDivElement>(null);
+  const newestJump = useNewestJump(data?.entries ?? null, sentinel, dock, end);
   useEffect(() => {
     if (!data || !detail.data || opened.current) return;
     opened.current = true;
@@ -65,9 +70,14 @@ export function TicketConversationTab() {
           {data.threadUnavailable && (
             <div className="msub note" data-testid="conv-thread-unavailable">The ticket&apos;s own comments could not be read from its tracker.</div>
           )}
-          <ConversationList conversation={data} detail={detail.data} causeOf={causeOf} />
+          <ConversationList conversation={data} detail={detail.data} causeOf={causeOf} sentinel={sentinel} />
           {data.proposal && !data.transcriptHidden && <ProposalBlock proposal={data.proposal} preview={preview.data} />}
-          <div className="conv-dock" data-testid="conv-dock">
+          <div className="conv-dock" ref={dock} data-testid="conv-dock">
+            {newestJump.away && (
+              <button type="button" className="chip conv-newest" onClick={newestJump.jump} data-testid="conv-newest">
+                ↓ Newest{newestJump.count > 0 ? ` · ${newestJump.count} new` : ""}
+              </button>
+            )}
             <div className="conv-dock-body">
               {data.transcriptHidden ? (
                 <div className="composer hidden-note" data-testid="conv-hidden">

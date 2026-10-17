@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-17-e730f
+
+decisions:
+  - category: Architecture
+    chose: "Count arrivals as entries whose id was not on the page on the first render with the conversation or the last time the reader was at the end"
+    over: "A new hub subscription for conversation arrivals; or a jump without a count"
+    reason: |
+      New entries already arrive as whole re-reads of the conversation into the page store, so a set of ids and one
+      filter count them at no cost. Seeding the set on the first render that has the conversation (not at mount,
+      where the read may still be pending) keeps a tab opened at a question or a causeOf entry from calling every
+      entry new. The count covers every entry, whatever the filter.
+  - category: Implementation
+    chose: "'At the end' = the sentinel after the list at or above the dock's top plus 48px, checked by a capturing scroll listener on the document, on resize and on every conversation change"
+    over: "An IntersectionObserver on the sentinel against the viewport"
+    reason: |
+      The sticky dock covers the bottom of the scroll box, and an observer ignores occlusion: the end would read as
+      visible while hidden behind the composer. A capturing document listener hears the layout's scroll box without
+      naming it.
+  - category: Implementation
+    chose: "The button sits in the outer sticky dock layer, absolutely above it, and scrolls the end anchor, smooth unless prefers-reduced-motion"
+    over: "Scrolling the dock; placing the button in the scrolling inner layer"
+    reason: "The stuck dock is already drawn at the bottom, so scrolling to it moves nothing; the inner layer's overflow would clip the button."
+  - category: Scope
+    chose: "No auto-follow: a reader at the end sees '· 1 new' after an arrival pushed the end below the dock"
+    over: "Scrolling to each arrival while at the end"
+    reason: "Not asked for; the jump is one click, and following would move the page under a reader typing in the composer."

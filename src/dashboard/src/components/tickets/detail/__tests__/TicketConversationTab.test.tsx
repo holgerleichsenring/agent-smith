@@ -628,4 +628,71 @@ describe("Ticket conversation reading", () => {
     scrolled.mockRestore();
     delete (window as { matchMedia?: unknown }).matchMedia;
   });
+
+  describe("newest button", () => {
+    // jsdom lays nothing out: the list's end sits at `listEnd`, the dock's top at 600.
+    const layout = { listEnd: 500 };
+    const scrollUp = () => act(() => { layout.listEnd = 1400; document.dispatchEvent(new Event("scroll")); });
+    const scrollToEnd = () => act(() => { layout.listEnd = 500; document.dispatchEvent(new Event("scroll")); });
+    const one = [{ runId: "r-1", number: 1, cause: null, revision: null }];
+    const withEntries = (...ids: string[]) => ({ ...conversation(ids.map((id) => entry({ id }))), attempts: one });
+
+    beforeEach(() => {
+      layout.listEnd = 500;
+      vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+        const id = this.getAttribute("data-testid");
+        const top = id === "conv-sentinel" ? layout.listEnd : id === "conv-dock" ? 600 : 0;
+        return { top, bottom: top, left: 0, right: 0, width: 0, height: 0, x: 0, y: top, toJSON: () => ({}) } as DOMRect;
+      });
+    });
+    afterEach(() => vi.restoreAllMocks());
+
+    it("NewestButton_HiddenAtTheEnd_ShownWhenScrolledUp", async () => {
+      world.conversation = withEntries("a", "b");
+      await open();
+      expect(screen.queryByTestId("conv-newest")).toBeNull();
+      scrollUp();
+      expect(screen.getByTestId("conv-newest")).toHaveTextContent(/^↓ Newest$/);
+      expect(screen.getByTestId("conv-dock")).toContainElement(screen.getByTestId("conv-newest"));
+      scrollToEnd();
+      expect(screen.queryByTestId("conv-newest")).toBeNull();
+    });
+
+    it("NewestButton_CountsEntriesThatArrivedSinceTheEnd_NotThoseThereAtMount", async () => {
+      world.conversation = withEntries("a");
+      const hub = await open();
+      scrollUp();
+      world.conversation = withEntries("a", "b", "c");
+      hub.ticketActivityChanged.emit({ project: "shop", ticketKey: "GH-101" });
+      await settle(5000);
+      expect(screen.getByTestId("conv-newest")).toHaveTextContent("↓ Newest · 2 new");
+
+      scrollToEnd();
+      scrollUp();
+      expect(screen.getByTestId("conv-newest")).toHaveTextContent(/^↓ Newest$/);
+    });
+
+    it("NewestButton_ConversationReadAfterMount_WhileAwayFromTheEnd_CountsNothing", async () => {
+      layout.listEnd = 1400;
+      world.conversation = withEntries("a", "b", "c");
+      await open();
+      expect(screen.getByTestId("conv-newest")).toHaveTextContent(/^↓ Newest$/);
+    });
+
+    it("NewestButton_Click_ScrollsTheEndAnchor_SmoothOrInstantUnderReducedMotion", async () => {
+      let reduced = false;
+      window.matchMedia = vi.fn(() => ({ matches: reduced }) as MediaQueryList);
+      world.conversation = withEntries("a");
+      await open();
+      scrollUp();
+      const scrolled = vi.spyOn(Element.prototype, "scrollIntoView");
+      fireEvent.click(screen.getByTestId("conv-newest"));
+      expect(scrolled.mock.instances.at(-1)).toBe(screen.getByTestId("conv-end"));
+      expect(scrolled.mock.calls.at(-1)?.[0]).toEqual({ block: "end", behavior: "smooth" });
+      reduced = true;
+      fireEvent.click(screen.getByTestId("conv-newest"));
+      expect(scrolled.mock.calls.at(-1)?.[0]).toEqual({ block: "end", behavior: "auto" });
+      delete (window as { matchMedia?: unknown }).matchMedia;
+    });
+  });
 });

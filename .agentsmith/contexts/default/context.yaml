@@ -87,6 +87,7 @@ integrations:
 
 state:
   done:
+    2026-10-17-e730f: "CONVERSATION JUMP TO NEWEST (ticket Conversation tab). Scrolled up from the end, a '↓ Newest' button above the docked composer counts the entries that arrived since the reader was last at the end and scrolls back to it. -> .agentsmith/specs/done/2026-10-17-e730f-conversation-newest-button.yaml"
     2026-10-17-e730e: "CONVERSATION REPEATED CAUSE (ticket Conversation tab). A failed attempt whose served end kind and summary equal the one before reads 'Same cause as A{n}' on its folded line, naming the first of that run and opening it. -> .agentsmith/specs/done/2026-10-17-e730e-conversation-repeated-cause.yaml"
     2026-10-17-e730d: "CONVERSATION ENTRIES CLAMP (ticket Conversation tab). An entry's body and detail show about six lines with a fade and Show more / Show less, offered only when the drawn box overflows; code blocks scroll sideways inside the clamp. -> .agentsmith/specs/done/2026-10-17-e730d-conversation-entry-clamp.yaml"
     2026-10-17-e730c: "CONVERSATION ATTEMPTS FOLD (ticket Conversation tab). Finished attempts read as one line (outcome pill, end cause, entry count) and open in place; the current attempt, now, a waiting question's and a causeOf target's group stay open; a narrowing filter opens every group it matched. -> .agentsmith/specs/done/2026-10-17-e730c-conversation-attempt-collapse.yaml"
