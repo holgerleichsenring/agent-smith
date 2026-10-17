@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-17-1170
+
+decisions:
+  - category: Architecture
+    chose: "Drop the whole-verdict exemption: every met claim without a citations key resolves as citing nothing"
+    over: "Keeping the exemption for verdicts in the old shape"
+    reason: "The pinned coding-agent-master 1.34.0 (skills v5.19.0) is told to cite; an old-shape verdict is now a master ignoring its contract, and exempting it would let a master drop the key from every claim to escape the check. The loop still objects only once per step, so the cost is one re-engage."
+  - category: Implementation
+    chose: "Pin v5.19.0 with its tarball checked in and SHA256 updated, as earlier pin bumps did"
+    over: "Letting the build download the tarball"
+    reason: "Offline, CI and docker builds need no network; the build re-verifies the hash and the master descriptions."
+  - category: Implementation
+    chose: "ShortfallDeliveryTests' scripted green verdict cites the file its master wrote"
+    over: "Scripting an extra re-engage turn for the old verdict shape"
+    reason: "The fixture stands in for the pinned master, which now cites; without citations the check re-engaged spec 1's master and spent the budget throw scripted for spec 2."
