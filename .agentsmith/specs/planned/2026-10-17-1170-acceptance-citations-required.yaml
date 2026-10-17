@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-17-1170
+goal: "Once the skills release carrying acceptance citations is pinned, a met claim without citations is refused in the open loop like any other unresolved claim."
+
+applies_to: "default (AcceptanceClaimCheck, the embedded skills pin in AgentSmith.Infrastructure.Core.csproj)"
+
+requires: [2026-10-17-a196c]
+
+facts:
+  - claim: "The server pins skills v5.18.0, whose coding-agent-master verdict carries free-text evidence and no citations."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/AgentSmith.Infrastructure.Core.csproj:54"
+
+assumptions:
+  - "2026-10-17-a196c leaves a verdict in which no disposition carries citations unchecked, for the pinned skill."
+
+scope:
+  in: >
+    Sliced out of 2026-10-17-a196c. Bump the pin to the release that carries the coding-agent-master citations; drop the
+    unchecked arm, so a verdict without any citations key has every met claim refused as citing nothing.
+  out: >
+    Anything else in the release.
+
+steps:
+  - id: pin
+    action: "Pin bump and the embedded-catalog tests; drop the unchecked arm and its test; build; run the affected classes."
+
+tests:
+  - "AcceptanceClaimCheck_VerdictWithoutAnyCitations_IsNamed"
+
+done:
+  - "A master answering in the old verdict shape is re-engaged once to cite its met claims."
+  - "Build green, full suite green, dashboard gen/test/build green."

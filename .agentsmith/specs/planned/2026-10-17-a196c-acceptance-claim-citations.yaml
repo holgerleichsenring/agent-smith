@@ -1,0 +1,107 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-17-a196c
+goal: "A master's met claim cites a diff path or a command it ran, and the open loop resolves those citations before it ends, re-engaging the master once with every one that resolves against nothing."
+
+applies_to: "default (AcceptanceDisposition, MasterVerificationParser, ReengageReasonPolicy, MasterReengagementLoop, ReengagePass, GateStageToolHost, a claim check, its evidence and its nudge) and dashboard (flowWords pass words); skills coding-agent-master verdict format"
+
+requires: [2026-10-17-a196a, 2026-10-17-a196b]
+
+facts:
+  - claim: "A disposition carries criterion, status and one free-text evidence string; the parser reads evidence, reason, why or note into it."
+    evidence: "src/backend/AgentSmith.Domain/Models/MasterVerification.cs:49, src/backend/AgentSmith.Application/Services/MasterVerificationParser.cs:124-141"
+  - claim: "The open loop's acceptance gate counts a met disposition as satisfied without looking at its evidence."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AcceptanceJudgement.cs:21-26, src/backend/AgentSmith.Application/Services/Handlers/MasterAcceptanceGate.cs:29-43"
+  - claim: "The loop's only other diff check compares done ledger steps' target paths with the master's changes."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ReengageReasonPolicy.cs:36-37, src/backend/AgentSmith.Application/Services/Tools/ProgressLedgerCoverage.cs:18-37"
+  - claim: "The loop decides per pass through ReengageReasonPolicy.Decide and runs each re-engagement through ReengagePass, whose nudge is built from the ledger, the decisions, the verdict and the changed paths."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterReengagementLoop.cs:41-70, src/backend/AgentSmith.Application/Services/Handlers/ReengagePass.cs:41-46"
+  - claim: "ReengageReasonPolicy.Decide is also called by MasterReengagementPolicy.ShouldReengage, which tests call."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/MasterReengagementPolicy.cs:51-56"
+  - claim: "Between passes the loop stops only on no tool call, a self-refilled ledger, the budget, or the hard cap of 50."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/ReengageProgressPolicy.cs:49-53, src/backend/AgentSmith.Application/Services/Handlers/MasterReengagementLoop.cs:28"
+  - claim: "CitationResolver resolves a satisfied row against a file index and a list of commands, refusing an element that is neither, with the note 'claimed satisfied by …'; an empty list is 'cited nothing'."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/CitationResolver.cs:22-59, src/backend/AgentSmith.Application/Services/Specs/AccountRow.cs:21-35"
+  - claim: "The commands the master runs with run_command accumulate in the pipeline's SpecRunCommandLog, rendered as 'the agent ran '<command>' exited N'; run_gate_stage returns its exit code to the master and logs nothing."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRunCommandScope.cs:20-29, src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:518, src/backend/AgentSmith.Application/Services/Specs/SpecEvidence.cs:18-31, src/backend/AgentSmith.Application/Services/Tools/GateStageToolHost.cs:93-109"
+  - claim: "A command is logged shortened past its cap, and a shortened command resolves only when cited at its exact logged length."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/SpecRunCommandLog.cs:44-55, src/backend/AgentSmith.Application/Services/Specs/CitationMatch.cs:66-79"
+  - claim: "The branch's committed delivery is read by DeliveryDiff.ForBranchAsync; the working-tree reader runs git status --porcelain without --untracked-files=all, so a new directory reads as 'dir/'."
+    evidence: "src/backend/AgentSmith.Application/Services/DeliveryDiff.cs:51-79, src/backend/AgentSmith.Application/Services/Sandbox/SandboxWorkingTreeReader.cs:40-67"
+  - claim: "The skill's verdict asks for evidence as free text: 'met = you made the edit that satisfies it (name it in evidence)'."
+    evidence: "observed: 2026-10-17, the skills repository at v5.18.0, coding-agent-master SKILL.md lines 467 and 492-495"
+  - claim: "MasterVerificationParser.cs sits at its file-length baseline of 182; MasterNudges.cs is 119 lines."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv, observed: 2026-10-17, wc -l: MasterVerificationParser.cs 182, MasterNudges.cs 119"
+  - claim: "Run f381's spec 0f63a ran three master passes that reported 7 of 7 met; the dead-letter criterion the keystone refused was met by the bare negative 'This publisher-only API has no listening queues or Azure Service Bus consumers', and the absence criteria by 'Final source scan found no … references' — none naming a command."
+    evidence: "observed: 2026-10-17, RunEvents MasterPassEnded seq 1382-1410 of run 2026-10-16T15-05-05-f381"
+
+assumptions:
+  - "A verdict in which NO disposition carries a citations key was written by a skill before this spec; it is not checked, so the pinned v5.18.0 master keeps working until the pin moves (2026-10-17-1170 removes that path)."
+
+scope:
+  in: >
+    MODEL: AcceptanceDisposition gains Citations (null when the entry carries no citations key). The acceptance reading
+    moves into a MasterVerificationParser partial and reads "citations" as a list of strings (a single string is a
+    one-element list). EVIDENCE: AcceptanceClaimEvidence (Handlers) gathers, over SpecSandboxes (2026-10-17-a196a; an
+    unresolved spec skips the check), the paths of each sandbox's branch delivery diff and of its working tree read with
+    --untracked-files=all (SandboxWorkingTreeReader gains that variant; the nudge's reading is unchanged), and the
+    commands SpecEvidence.From([], pipeline) renders, into a CitationResolver; a sandbox whose delivery diff failed
+    makes the evidence incomplete and the check is skipped for the pass (logged), never resolved against a partial
+    index. GateStageToolHost records each stage it runs into the spec's command log through a new
+    SpecRunCommandLog.Record overload that takes the exit code, so a build or test claim can cite it. CHECK:
+    AcceptanceClaimCheck (Handlers) skips a verdict in which no disposition carries citations; otherwise every met
+    disposition is resolved as an AccountRow (a missing key is "cited nothing") and one line per refusal is returned:
+    criterion and the resolver's note. LOOP: one collaborator, AcceptanceClaimObjection, owns the gate-satisfied
+    pre-check, the evidence read and the objected-once flag, so MasterReengagementLoop (108 lines, limit 120) gains a
+    call; it yields lines only when the acceptance gate is satisfied and only until it has objected once in this step.
+    ReengageReasonPolicy.Decide takes the lines as a required
+    parameter and re-engages with MasterPassReasons.UnresolvedClaims when there are any (ShouldReengage passes them
+    through; its test callers pass none). ReengagePass.RunAsync takes the lines and leads that pass's nudge with them, the
+    accepted form, and the last 30 command lines the master may cite exactly as SpecRunCommandLog.Evidence renders them (an
+    AcceptanceClaimNudge type; MasterNudges is untouched). flowWords names the new reason. SKILLS (branch
+    spec/2026-10-17-a196, unreleased): coding-agent-master's verdict entry gains "citations" — changed paths, or commands
+    copied verbatim from run_command or run_gate_stage; an absence or negative criterion cites the run_command search it
+    ran (grep_in_tree is not citable). Version bump.
+  out: >
+    A second account (model call) per pass. Not-applicable dispositions. Whether a cited command's exit code or output
+    proves the claim — the keystone's question. Branch-wide evidence includes earlier specs' paths, as the keystone's
+    does; path matching is by suffix, as the keystone's is; a command the log's budget dropped on a long spec cannot be
+    cited, as the keystone cannot see it either. Refusing a verdict with no citations key at all — 2026-10-17-1170,
+    after the skills release and the pin.
+
+decisions:
+  - key: "THE LOOP RESOLVES, IT DOES NOT JUDGE. The same CitationResolver as the keystone, over paths and commands the framework read itself; whether a cited file MEANS the criterion stays the keystone's question."
+  - key: "ONE OBJECTION PER STEP. A citation that cannot resolve would otherwise drive passes until the budget; the objection is made once and the keystone judges what follows."
+  - key: "UNCHECKED ONLY WHEN THE WHOLE VERDICT PREDATES CITATIONS. Per disposition, a master could drop the key from the one claim it cannot back."
+  - key: "GATE STAGES ARE LOGGED COMMANDS. run_gate_stage is how a declared build runs, and a build claim must be able to cite it; the keystone's account sees it too, which is what happened."
+
+steps:
+  - id: model
+    action: "AcceptanceDisposition.Citations and the parser partial; tests first."
+  - id: evidence
+    action: "SandboxWorkingTreeReader untracked variant, SpecRunCommandLog.Record with an exit code, GateStageToolHost logging, AcceptanceClaimEvidence; tests first."
+  - id: check
+    action: "AcceptanceClaimCheck, AcceptanceClaimObjection, AcceptanceClaimNudge, DI; tests first."
+  - id: loop
+    action: "MasterPassReasons.UnresolvedClaims, ReengageReasonPolicy and ShouldReengage, MasterReengagementLoop, ReengagePass; flowWords."
+  - id: skill
+    action: "coding-agent-master verdict format and evidence instructions on the skills branch; commit there."
+  - id: tests
+    action: "Build; run the affected classes; pnpm test the tickets folder."
+
+tests:
+  - "MasterVerificationParser_AcceptanceCitations_AreRead"
+  - "MasterVerificationParser_NoCitationsKey_IsNull"
+  - "AcceptanceClaimCheck_MetCitingARanCommandOrDiffPath_Resolves"
+  - "AcceptanceClaimCheck_MetCitingNothingThatRan_IsNamed"
+  - "AcceptanceClaimCheck_VerdictWithoutAnyCitations_IsNotChecked"
+  - "AcceptanceClaimCheck_OneMetWithoutCitationsInACitingVerdict_IsNamed"
+  - "GateStageToolHost_RunStage_IsLoggedForTheSpecWithItsExitCode"
+  - "AcceptanceClaimEvidence_DeliveryDiffFailed_SkipsTheCheck"
+  - "ReengageReasonPolicy_GateSatisfiedWithUnresolvedClaims_ReengagesForThem"
+  - "Harness_MetClaimCitingAnUnrunSearch_ReengagesOnceWithTheCitation"
+  - "passEndWords_UnresolvedClaims_IsNamed"
+
+done:
+  - "A master that reports every criterion met, one citing a search it never ran, is re-engaged once in the same step with that citation and the commands it may cite named, before the commit and the keystone."
+  - "A verdict carrying no citations at all runs exactly as before."
+  - "Build green, full suite green, dashboard gen/test/build green."

@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-17-59b6
+goal: "A spec's keystone fails when a repository its repos: does not name moved since the spec started, outside the run record, whatever tool moved it."
+
+applies_to: "default (VerifySpecHandler, SpecStartHeads)"
+
+requires: [2026-10-17-a196a]
+
+facts:
+  - claim: "SelectSpec records every sandbox's head when a spec starts."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SelectSpecHandler.cs:57-58, src/backend/AgentSmith.Application/Services/Specs/SpecStartHeads.cs:26"
+  - claim: "run_command runs in any sandbox the master names, so a shell write is not routed by a path argument and the file-tool refusal of 2026-10-17-a196a does not see it."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/FilesystemToolHost.cs:503-519"
+  - claim: "Verified heads are recorded over every sandbox at a spec's verification and a shortfall delivers them."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/VerifiedHeads.cs:23-37, src/backend/AgentSmith.Application/Services/UnverifiedWorkReverter.cs:29-38"
+
+scope:
+  in: >
+    Sliced out of 2026-10-17-a196a, whose refusal covers the file tools only. At the keystone, every sandbox outside the
+    spec's sandboxes is compared with its start head (committed and working tree, run-record paths excluded); a source
+    path that moved fails the spec naming the repository and the paths, before its verified heads are recorded.
+  out: >
+    Reverting the movement. Refusing run_command.
+
+steps:
+  - id: build
+    action: "Read the start heads, compare, fail; tests first; build; run the affected classes."
+
+tests:
+  - "VerifySpec_ServerSpecWithMovedWorkerTree_FailsNamingWorker"
+  - "VerifySpec_ServerSpecWithOnlyRunRecordMovedElsewhere_Passes"
+
+done:
+  - "A server spec whose run_command edited a worker file fails at its keystone naming the worker repository and the file."
+  - "Build green, full suite green, dashboard gen/test/build green."
