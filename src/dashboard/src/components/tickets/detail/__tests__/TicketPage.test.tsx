@@ -320,6 +320,19 @@ describe("Ticket page", () => {
     expect(shown.innerHTML).not.toContain("data-vss-mention");
   });
 
+  // 2026-10-16-7ed3d: a metric cut to its column reads whole in the tooltip and the node detail.
+  it("NodeDetail_CutMetric_SubLineReadsTheFullMetric (FlowCanvas_NodeWithFullText_HasATitle)", async () => {
+    world.detail = detail([attempt({ runId: "r-1", handedBack: true, revision: null })]);
+    world.series["r-1"] = series("r-1", [], { handback: { case: "SpecificationMissingFromBranch", runId: "r-1", attempt: 1, at: "x" }, gate: { status: "skipped", specCount: 0, runId: "r-1" } });
+    await open();
+    const mark = node("handback");
+    expect(mark.querySelector("text.met")?.textContent).toBe("spec missing from the b…");
+    expect(mark.querySelector("title")?.textContent).toBe("HAND-BACK · spec missing from the branch");
+    expect(mark.getAttribute("aria-label")).toBe("HAND-BACK, spec missing from the branch");
+    fireEvent.click(mark);
+    expect(screen.getByTestId("node-detail").querySelector(".sh-sub")?.textContent).toBe("A1 · spec missing from the branch");
+  });
+
   it("ATerminalAttemptWithNoRevisionAndNoCut_LinksToItsRunViewer", async () => {
     world.detail = detail([attempt({ revision: null, status: "failed" })]);
     delete world.series["r-1"];

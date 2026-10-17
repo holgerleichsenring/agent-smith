@@ -4,7 +4,8 @@ import type { KeyboardEvent } from "react";
 import { FLOW_WIDTH, type AttemptFlowLayout, type FlowIcon, type FlowNode } from "./attemptFlowLayout";
 
 // 2026-10-13-9a59q: paints a layout — the mock's SVG on card-terminal-panel. Nodes are focusable
-// buttons (Enter, Space); the live dash and halo stop under reduced motion (CSS).
+// buttons (Enter, Space); the live dash and halo stop under reduced motion (CSS). 2026-10-16-7ed3d: every node and every
+// cut text carries its full words as an SVG <title>, the browser's tooltip.
 
 const ICON: Record<FlowIcon, string> = {
   ticket: "M-5-6 L6 0 L-5 6 Z",
@@ -35,6 +36,7 @@ export function FlowCanvas({ layout, selected, onSelect }: Props) {
         {layout.edges.map((edge, i) => <path key={`edge-${i}`} className={`edge ${edge.cls}`} d={edge.d} data-edge={edge.cls} />)}
         {layout.texts.map((text, i) => (
           <text key={`text-${i}`} className={text.cls} x={text.x} y={text.y} textAnchor={text.middle ? "middle" : undefined}>
+            {text.title && <title>{text.title}</title>}
             {text.text}
           </text>
         ))}
@@ -58,12 +60,13 @@ function FlowNodeMark({ node, selected, onSelect }: { node: FlowNode; selected: 
       className={`node ${node.state}${selected ? " sel" : ""}`}
       tabIndex={0}
       role="button"
-      aria-label={[node.label, node.metric].filter(Boolean).join(", ")}
+      aria-label={[node.fullLabel, node.fullMetric].filter(Boolean).join(", ")}
       aria-pressed={selected}
       data-node={node.id}
       onClick={() => onSelect(node.id)}
       onKeyDown={onKeyDown}
     >
+      <title>{[node.fullLabel, node.fullMetric].filter(Boolean).join(" · ")}</title>
       <circle className="halo" cx={x} cy={y} r={r + 7} />
       <circle className="disc" cx={x} cy={y} r={r} />
       <path className="ic" transform={`translate(${x},${y})${r < 22 ? " scale(.75)" : ""}`} d={ICON[node.icon]} />

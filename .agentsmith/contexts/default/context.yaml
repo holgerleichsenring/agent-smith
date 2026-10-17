@@ -87,6 +87,7 @@ integrations:
 
 state:
   done:
+    2026-10-16-7ed3d: "FLOW GRAPH LABELS AND LOOPS (attempt flow graph). Labels and metrics fit their column with the full words as tooltip, aria-label and detail sub-line, a spec names its repository's short name; a re-engage loop runs outside the pass boxes with its reason once. -> .agentsmith/specs/done/2026-10-16-7ed3d-flow-graph-labels-loops.yaml"
     2026-10-16-7ed3c: "TEXT WRAP AND POSTED TEXT (dashboard base CSS, ticket text panes, TrackerText, node detail, state block, needs-you card). Long tokens wrap in every paragraph and ticket pane; hand-back, question and answer text render as markdown through TrackerText, a tracker mention as @Name. -> .agentsmith/specs/done/2026-10-16-7ed3c-text-wrap-posted-text.yaml"
     2026-10-16-7ed3b: "STATE BLOCK PULL REQUESTS AND ATTEMPT CHIPS (ticket state block). One act and no Other options; the ticket's pull requests as rows (short repo, number, state, link); every attempt as one chip line A1…An opening its run with its cause as title, replacing the earlier-attempts list. -> .agentsmith/specs/done/2026-10-16-7ed3b-ticket-state-prs-chips.yaml"
     2026-10-16-7ed3a: "FAILED HEAD OUTRANKS OPEN PRS (TicketBucketRule, ticket list, state view). A ticket whose newest attempt failed reads failed or stuck while its pull requests stay open, and a tracker close does not hide them; the stuck activity line and the state view carry the pull requests. -> .agentsmith/specs/done/2026-10-16-7ed3a-ticket-bucket-failed-prs.yaml"

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { layoutAttemptFlow, type AttemptFlowInput } from "../attemptFlowLayout";
+import { fit, LABEL_MAX, layoutAttemptFlow, type AttemptFlowInput } from "../attemptFlowLayout";
 import { questionJoin } from "../questionJoin";
 import { attempt, entry, pass, passes, series, spec } from "./detailFixtures";
 
@@ -58,6 +58,63 @@ describe("layoutAttemptFlow", () => {
     expect(layout.edges.filter((e) => e.cls === "back")).toHaveLength(1);
     expect(layout.texts.find((t) => t.cls === "elab")?.text).toBe("↺ verdict red with open steps");
     expect(layout.nodes.filter((n) => n.kind === "verify").map((n) => n.state)).toEqual(["bad", "done"]);
+  });
+
+  // 2026-10-16-7ed3d: labels fit their column, loops stay outside the boxes and say why once.
+  const twoPasses = (second: Partial<Parameters<typeof pass>[0]> = {}) => passes("r-1", { s1: [
+    pass({ ordinal: 4, passInSpec: 1, endedBecause: "re-engaged", reengageReason: "unbacked-done", criteriaMet: 7, criteriaTotal: 7 }),
+    pass({ ordinal: 7, passInSpec: 2, openedBecause: "unbacked-done", ...second }),
+  ] });
+
+  it("attemptFlowLayout_LongDottedRepo_LabelIsShortAndFullTextIsKept", () => {
+    const layout = layoutAttemptFlow(input({ series: series("r-1", [spec({ repos: ["Sample.Platform.Messaging.App.Server"] })]) }), "unrolled");
+    const node = layout.nodes.find((n) => n.kind === "spec")!;
+    expect(node.label).toBe("SPEC 1 · SERVER");
+    expect(node.fullLabel).toBe("SPEC 1 · SERVER");
+    const long = layoutAttemptFlow(input({ series: series("r-1", [spec({ repos: ["Sample.AVeryLongRepositoryNameWithoutDots"] })]) }), "unrolled");
+    const cut = long.nodes.find((n) => n.kind === "spec")!;
+    expect(cut.label.length).toBeLessThanOrEqual(LABEL_MAX);
+    expect(cut.label.endsWith("…")).toBe(true);
+    expect(cut.fullLabel).toBe("SPEC 1 · AVERYLONGREPOSITORYNAMEWITHOUTDOTS");
+  });
+
+  it("attemptFlowLayout_LongMetric_IsCutToTheColumn", () => {
+    expect(fit("ended without a verdict and more", LABEL_MAX)).toHaveLength(LABEL_MAX);
+    expect(fit("ended without a verdict", LABEL_MAX)).toBe("ended without a verdict");
+  });
+
+  it("attemptFlowLayout_ReturnEdge_StaysOutsideBothPassBoxes", () => {
+    const layout = layoutAttemptFlow(input({ passes: twoPasses() }), "unrolled");
+    const [first, second] = layout.lanes;
+    const d = layout.edges.find((e) => e.cls === "back")!.d;
+    const [, right, run, left, yn] = /^M[\d.]+ [\d.]+ H([\d.]+) V([\d.]+) H([\d.]+) V([\d.]+) H[\d.]+$/.exec(d)!.map(Number);
+    expect(right).toBeGreaterThan(first.x + first.width);
+    expect(left).toBeLessThan(first.x);
+    expect(run).toBeGreaterThan(first.y + first.height);
+    expect(run).toBeLessThan(second.y);
+    expect(yn).toBe(second.y + 50);
+  });
+
+  it("attemptFlowLayout_ReturnEdge_WritesItsReasonOnce", () => {
+    const layout = layoutAttemptFlow(input({ passes: twoPasses() }), "unrolled");
+    const reasons = layout.texts.filter((t) => t.text.startsWith("↺") || t.text.startsWith("opened"));
+    expect(reasons).toHaveLength(1);
+    expect(reasons[0].title).toBe("↺ steps marked done that the diff does not back");
+  });
+
+  it("attemptFlowLayout_QuestionInASecondPass_SitsBelowTheLoopAndTheNextSpecShifts", () => {
+    const plain = layoutAttemptFlow(input({ series: series("r-1", [spec(), spec({ specId: "s2", ordinal: 2 })]), passes: twoPasses() }), "unrolled");
+    const asked = layoutAttemptFlow(input({
+      series: series("r-1", [spec(), spec({ specId: "s2", ordinal: 2 })]),
+      passes: twoPasses({ endedBecause: "question", verdictEmitted: null, criteriaMet: null, criteriaTotal: null }),
+    }), "unrolled");
+    const run = Number(/V([\d.]+) H/.exec(asked.edges.find((e) => e.cls === "back")!.d)![1]);
+    const ask = asked.nodes.find((n) => n.kind === "question")!;
+    expect(ask.y - ask.r).toBeGreaterThan(run);
+    expect(ask.y + ask.r).toBeLessThan(asked.lanes[1].y);
+    const s2 = (l: typeof plain) => l.nodes.find((n) => n.specId === "s2" && n.kind === "spec")!.y;
+    expect(s2(asked) - s2(plain)).toBe(44);
+    expect(asked.height - plain.height).toBe(44);
   });
 
   it("Folded_DrawsTheLastPassOnly_WithACountBadgeOnBuildAndVerify", () => {
