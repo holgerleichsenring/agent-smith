@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-17-293bc
+
+decisions:
+  - category: Architecture
+    chose: "Decide the premise question at the fact's source: a claim whose cited looks all could not run (EvidenceLook.Ran false) is recorded under 'unsettled', outside the premise corpus; a checker finding against it falls into the existing not-stated path, recorded unproven, and the spec runs"
+    over: "(1) An admission rule in PremiseCheckAdmission comparing the premise to the checker's look; (2) reclassifying the premise text or the minted line's words; (3) recording such claims as assumptions"
+    reason: "The admission compares only the checker's own citation (a look of its own that ran) with the verdict; it never sees what the premise rested on, so it cannot tell 'contradicted by the code' from 'a failed command now succeeds'. The field that can is the derivation look's Ran, which existed structured (EvidenceLook) but never reached FactResolver — it got lines only. Passing the looks IS the field. An assumption is still a premise, so (3) would refuse the live spec again; (2) is text classification."
+  - category: Implementation
+    chose: "Resolve each cited id on its own: any cited look that ran makes a fact (its line is the evidence), cited looks that all could not run make the claim unsettled, nothing resolving makes an assumption"
+    over: "Normalizing the whole cites field as one id"
+    reason: "'L1, L2' matched nothing before and fell to assumptions; resolving per id stops a claim escaping into either bucket by citing two ids. An intended change for multi-id lines."
+  - category: Implementation
+    chose: "Leave the uncited environment claim to the skill rule"
+    over: "A mechanical check on uncited assumptions"
+    reason: "An assumption carries no link to a look, and classifying its text is ruled out. The skill now states that facts and assumptions describe the code and the ticket and that a result which could not run is cited, so it lands in 'unsettled'."
+  - category: Implementation
+    chose: "'unsettled' is an undeclared top-level key of the spec yaml"
+    over: "Declaring it in spec.schema.json"
+    reason: "The schema belongs to the methodology plugin and its top level is open; the key validates. Declaring it belongs in the plugin."
+  - category: Implementation
+    chose: "Specs already on a branch whose facts cite a failed look stay as they are"
+    over: "Re-reading their minted lines to reclassify them"
+    reason: "Text classification of old lines; an unexecuted spec is re-cut by the next derivation of its ticket, which applies this rule. Release order as in 2026-10-17-293ba: the configured skills pin must not move ahead of the deployed binary."

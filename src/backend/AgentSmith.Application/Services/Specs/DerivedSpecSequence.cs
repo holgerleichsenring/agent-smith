@@ -14,7 +14,7 @@ public sealed class DerivedSpecSequence(DerivedSpecBuilder specBuilder, DerivedS
 {
     /// <param name="specElements">Every spec element of the reply, the head's positions included.</param>
     /// <param name="executedHead">Specs that already ran; never more than <paramref name="specElements"/>.</param>
-    /// <param name="evidence">The evidence lines a fact line may cite; see <see cref="FactResolver"/>.</param>
+    /// <param name="evidence">The looks a fact line may cite; see <see cref="FactResolver"/>.</param>
     /// <param name="scope">The scope's repository names; empty when none is known.</param>
     /// <param name="taken">2026-10-12-f5f7d: ids (or done/ spec file names) a new spec must not take;
     /// a taken position's letter skips to the next free one.</param>
@@ -22,7 +22,7 @@ public sealed class DerivedSpecSequence(DerivedSpecBuilder specBuilder, DerivedS
     /// the executed head is kept as it ran.</param>
     public (IReadOnlyList<DerivedSpec>? Phases, string? Error) Build(
         IReadOnlyList<JsonElement> specElements, IReadOnlyList<DerivedSpec> executedHead, string series,
-        string ticketId, IReadOnlyList<TicketSegment> segments, IReadOnlyList<string>? evidence,
+        string ticketId, IReadOnlyList<TicketSegment> segments, IReadOnlyList<EvidenceLook>? evidence,
         IReadOnlyList<string> scope, IReadOnlyCollection<string>? taken = null, IReadOnlyList<int>? shared = null)
     {
         ArgumentNullException.ThrowIfNull(specElements);

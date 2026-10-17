@@ -32,7 +32,7 @@ public sealed class DerivedSpecBuilder(
     public (DerivedSpec? Phase, string? Error) Build(
         JsonElement element, int index, string specId, string ticketId,
         IReadOnlyList<TicketSegment> segments, IReadOnlyList<DerivedSpec> previous,
-        IReadOnlyList<string>? evidence, IReadOnlyList<string>? repos = null, IReadOnlyList<int>? shared = null)
+        IReadOnlyList<EvidenceLook>? evidence, IReadOnlyList<string>? repos = null, IReadOnlyList<int>? shared = null)
     {
         var goal = SpecJsonReader.ReadString(element, "goal");
         if (goal.Length == 0) return (null, $"spec {index + 1} has no goal");
@@ -54,7 +54,7 @@ public sealed class DerivedSpecBuilder(
     private string Render(
         JsonElement element, string specId, string slug, string goal, IReadOnlyList<string> done,
         IReadOnlyList<int> carried, string ticketId, IReadOnlyList<DerivedSpec> previous,
-        IReadOnlyList<string>? evidence, IReadOnlyList<string> repos) =>
+        IReadOnlyList<EvidenceLook>? evidence, IReadOnlyList<string> repos) =>
         yamlRenderer.Render(
             specId, goal,
             // The sequence IS the requires-chain: each spec depends on the one before
