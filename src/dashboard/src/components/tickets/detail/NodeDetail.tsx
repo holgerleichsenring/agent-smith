@@ -39,6 +39,7 @@ const PILL: Record<FlowState, [string, string]> = {
   bad: ["bad", "stopped here"],
   idle: ["q", "not started"],
   person: ["person", "waits for a person"],
+  back: ["amber", "re-engaged"],
 };
 
 interface Props {
@@ -65,7 +66,7 @@ export function NodeDetail({ layout, nodeId, ...reads }: Props) {
       <div className="sd-h">
         <h3>{explained?.title ?? titleOf(node)}</h3>
         <span className={`pill ${pill}`}>{word}</span>
-        <span className="sh-sub">A{reads.attempt.number}{node.metric ? ` · ${node.metric}` : ""}</span>
+        <span className="sh-sub">A{reads.attempt.number}{node.fullMetric ? ` · ${node.fullMetric}` : ""}</span>
       </div>
       <div className={explained?.right ? "sd-b" : "sd-b one"}>
         <div>{explained ? explained.left : <div className="why"><p>{EMPTY_RECORD}</p></div>}</div>

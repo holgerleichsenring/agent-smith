@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-16-7ed3c
+goal: "Long text wraps inside its pane everywhere on the ticket page, and text posted on the ticket renders with its line breaks and markdown, a tracker mention reading @Name and never raw HTML."
+
+applies_to: "dashboard (globals.css base layer, mock-parity.css text panes, TrackerText's anchor, nodeDetailHead's hand-back, nodeDetailBody's question, the state block's and the needs-you card's hand-back)"
+
+facts:
+  - claim: "The base layer sets only the root's background, colour, font and line height; no rule breaks a long token."
+    evidence: "src/dashboard/src/app/globals.css:51-66"
+  - claim: "The node detail's grid columns are minmax(0, …), but .why, .doc and a conversation body (.msg .mb) set no wrap, so a URL or path runs past the pane; the state block's detail and cause already wrap."
+    evidence: "src/dashboard/src/styles/mock-parity.css:481-490, src/dashboard/src/styles/mock-parity.css:648, src/dashboard/src/styles/mock-parity.css:1962, src/dashboard/src/styles/mock-parity.css:1969"
+  - claim: "The hand-back node shows the posted text as a bare paragraph, so markdown and inline HTML show as source; the question node writes question and answer text the same way."
+    evidence: "src/dashboard/src/components/tickets/detail/nodeDetailHead.tsx:84-90, src/dashboard/src/components/tickets/detail/nodeDetailBody.tsx:102-107"
+  - claim: "The conversation renders an entry body through TrackerText in the format the entry names; hand-backs are served as markdown."
+    evidence: "src/dashboard/src/components/tickets/detail/ConversationEntry.tsx:66, src/dashboard/src/components/ui/TrackerText.tsx:46-58, src/backend/AgentSmith.Server/Services/Tickets/Conversation/ConversationRunEntries.cs:116-119"
+  - claim: "A hand-back mentions a person as an anchor with href '#' and a data-vss-mention attribute; TrackerText's anchor opens any href in a new tab."
+    evidence: "src/backend/AgentSmith.Contracts/Tickets/TicketMention.cs:46, src/dashboard/src/components/ui/Markdown.tsx:34-35, src/dashboard/src/components/ui/TrackerText.tsx:19-37"
+  - claim: "The state block draws the hand-back text as its plain pre-wrap detail, and the list's needs-you card draws it as plain text, so both show the markdown and the mention anchor as source."
+    evidence: "src/dashboard/src/components/tickets/detail/ticketState.ts:108-109, src/dashboard/src/components/tickets/detail/TicketStateBlock.tsx:30, src/dashboard/src/components/tickets/TicketNeedsYou.tsx:72"
+  - claim: "Why wraps every line in a paragraph, so a block renderer cannot sit in a Why line."
+    evidence: "src/dashboard/src/components/tickets/detail/NodeDetail.tsx:101-103"
+
+scope:
+  in: >
+    BASE RULE (globals.css @layer base): p, li, dd, blockquote, h1-h6 and td get overflow-wrap: break-word, which
+    breaks a token wider than its line without changing min-content sizes. TEXT PANES (mock-parity.css, under
+    .mock-tickets): one rule giving .why, .doc, .msg .mb, .spdoc .sb, .sd-b > div, .ts-say and .crit .ci > span
+    overflow-wrap: anywhere and min-width: 0; a pre inside those panes scrolls on its own (overflow-x: auto,
+    max-width: 100%). POSTED TEXT: the hand-back's text and quote render through TrackerText with the entry's format; the
+    question node's question and answer move out of the Why lines into a Doc and render through TrackerText. The
+    state block's hand-back detail (the view marks it markdown) and the list's needs-you hand-back render through
+    TrackerText as markdown; .ts-detail keeps pre-wrap only for plain text. MENTION: TrackerText's anchor renders an href that is missing or
+    '#' as a plain span of its text, so a mention reads "@Name" and does not link anywhere; everything still goes
+    through rehype-sanitize — no dangerouslySetInnerHTML.
+  out: >
+    The flow graph's SVG labels — 2026-10-16-7ed3d. The run viewer's panes — outside the ticket page.
+
+decisions:
+  - key: "ONE BASE RULE PLUS ONE PANE RULE. break-word in the base layer is safe for every paragraph; anywhere (which also lets a flex or grid child shrink) is scoped to the named text panes, where a squeezed column is the point."
+  - key: "REUSE TrackerText. The conversation already renders the same entries safely; the node detail renders them the same way instead of a second renderer."
+
+steps:
+  - id: css
+    action: "Base rule in globals.css; pane rule in mock-parity.css."
+  - id: text
+    action: "TrackerText anchor; hand-back and question node details, the state block's hand-back detail and TicketNeedsYou's hand-back through TrackerText (TicketStateView gains detailFormat)."
+  - id: tests
+    action: "Red then green; pnpm test components/ui and the tickets folder; pnpm build."
+
+tests:
+  - "TrackerText_MentionAnchor_ReadsAtNameAndIsNoLink"
+  - "TrackerText_RealLink_StaysALink"
+  - "NodeDetail_Handback_RendersMarkdownLineBreaksAndMentionAsText"
+  - "TicketStateBlock_Handback_RendersMarkdownWithMentionAsText"
+  - "TicketNeedsYou_Handback_RendersMarkdown"
+  - "textWrap_PaneRule_CoversTheTicketTextPanes (reads mock-parity.css and globals.css)"
+
+done:
+  - "In the node detail a long hand-back with URLs and file paths wraps inside the panel, keeps its line breaks and shows a mention as @Name; conversation entries, the state block and spec documents wrap the same way; the state block and the list's needs-you card show the hand-back as rendered markdown with @Name, never source."
+  - "Build green, full suite green, dashboard gen/test/build green."

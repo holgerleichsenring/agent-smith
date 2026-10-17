@@ -1,4 +1,6 @@
+import { summaryLine } from "@/lib/formatRunSummary";
 import { isRunLive } from "@/lib/runLiveness";
+import { shortRepo } from "@/lib/shortRepo";
 import type {
   RunPass,
   RunPasses,
@@ -16,9 +18,13 @@ import { isRunRecord } from "./specWords";
 // ticket-view.html's. Head: TICKET -> DERIVE -> GATE, or -> HAND-BACK. Body: one row per spec of the
 // attempt's cut; a carried spec is one small dashed node; a spec that ran or will run is SPEC -> BUILD ->
 // VERIFY, one lane per pass, numbered by passInSpec. Tail: SHIP or ENDS.
+// 2026-10-16-7ed3d: labels and metrics are cut to their column (the full words stay on the node for the tooltip and
+// the detail); a re-engage loop runs outside the pass boxes and writes its reason once.
+// 2026-10-16-7ed3e: green means the pass passed — a re-engaged verify is "back" (amber), an accepted red verdict is
+// bad; a stopped attempt's end node carries its run's end text in one line.
 
 export type FlowMode = "unrolled" | "folded";
-export type FlowState = "done" | "carried" | "live" | "bad" | "idle" | "person";
+export type FlowState = "done" | "carried" | "live" | "bad" | "idle" | "person" | "back";
 export type FlowKind = "ticket" | "derive" | "gate" | "handback" | "spec" | "build" | "verify" | "question" | "tail";
 export type FlowIcon = "ticket" | "derive" | "gate" | "hand" | "spec" | "build" | "verify" | "ask" | "pr" | "stop";
 
@@ -29,8 +35,11 @@ export interface FlowNode {
   y: number;
   r: number;
   state: FlowState;
+  /** Cut to the column; fullLabel / fullMetric keep the words. */
   label: string;
   metric: string;
+  fullLabel: string;
+  fullMetric: string;
   icon: FlowIcon;
   badge?: string;
   specId?: string;
@@ -40,7 +49,7 @@ export interface FlowNode {
 }
 
 export interface FlowEdge { cls: string; d: string }
-export interface FlowText { cls: string; x: number; y: number; text: string; middle?: boolean }
+export interface FlowText { cls: string; x: number; y: number; text: string; middle?: boolean; end?: boolean; title?: string }
 export interface FlowLane { x: number; y: number; width: number; height: number }
 
 export interface AttemptFlowLayout {
@@ -66,6 +75,12 @@ export interface AttemptFlowInput {
 export const FLOW_X = { ticket: 70, derive: 190, gate: 310, spec: 440, build: 600, verify: 770, ship: 1020 };
 export const FLOW_WIDTH = 1130;
 const R = 26, RS = 18, HEAD_Y = 80, ROW = 150, CARRY = 72, ASK_ROOM = 44;
+/** Characters a node's label or metric may take before it reaches the next column's. */
+export const LABEL_MAX = 24;
+/** A pass box: from 50 above its lane to 62 below, 58 beyond build and verify. */
+/** Characters of the end cause: from right of the verify column to the canvas edge. */
+const CAUSE_MAX = 44;
+const BOX_TOP = 50, BOX_BOTTOM = 62, BOX_SIDE = 58, LOOP_OUT = 12, LOOP_DROP = 19, REASON_MAX = 42;
 
 interface Builder { nodes: FlowNode[]; edges: FlowEdge[]; texts: FlowText[]; lanes: FlowLane[] }
 interface Cursor { x: number; y: number; state: FlowState; small: boolean; specY?: number }
@@ -129,7 +144,7 @@ function body(b: Builder, input: AttemptFlowInput, cut: TicketSeries | null, liv
     }
     const end = specRow(b, spec, lanes, state, y, mode, asks.pairs);
     last = { ...end, specY: y };
-    y += end.lanes * ROW + 6;
+    y += end.height + 6;
   });
   return last;
 }
@@ -156,18 +171,19 @@ function stubPass(stub: FlowState): LaneOrStub {
 function specRow(
   b: Builder, spec: TicketSeriesSpec, lanes: LaneOrStub[], state: FlowState, y: number, mode: FlowMode,
   asks: ReadonlyMap<number, QuestionPair>,
-): Cursor & { lanes: number } {
+): Cursor & { height: number } {
   const folded = mode === "folded" && lanes.length > 1;
   const shown = folded ? [lanes[lanes.length - 1]] : lanes;
   const count = lanes.length;
   b.nodes.push({ ...node(spec.specId, "spec", FLOW_X.spec, y, R, state, specLabel(spec), specMetric(spec, lanes), "spec"), specId: spec.specId });
   let cursor: Cursor = { x: FLOW_X.spec, y, state, small: false };
+  const ys = laneYs(shown, y);
   shown.forEach((pass, i) => {
-    const ly = y + i * ROW;
+    const ly = ys[i];
     const number = pass.passInSpec;
     const suffix = `${spec.specId}-${number}`;
     if (count > 1 && !folded) {
-      b.lanes.push({ x: FLOW_X.build - 58, y: ly - 50, width: FLOW_X.verify - FLOW_X.build + 116, height: 112 });
+      b.lanes.push({ x: FLOW_X.build - BOX_SIDE, y: ly - BOX_TOP, width: FLOW_X.verify - FLOW_X.build + 2 * BOX_SIDE, height: BOX_TOP + BOX_BOTTOM });
       b.texts.push({ cls: "passlab", x: FLOW_X.build - 46, y: ly - 32, text: `PASS ${number} OF ${count}` });
     }
     const [buildState, verifyState] = passStates(pass, spec, lanes);
@@ -179,10 +195,21 @@ function specRow(
     b.nodes.push({ ...node(`v-${suffix}`, "verify", FLOW_X.verify, ly, R, verifyState, "VERIFY", verifyMetric(pass, spec), "verify"), badge, specId: spec.specId, pass: real, passCount: count });
     if (real && real.endedBecause === "question") askNode(b, spec, real, ly, suffix, asks);
     const next = shown[i + 1];
-    if (next && !folded) returnEdge(b, pass, next, ly);
+    if (next && !folded) returnEdge(b, pass, next, ly, ys[i + 1]);
     cursor = { x: FLOW_X.verify, y: ly, state: verifyState, small: false };
   });
-  return { ...cursor, lanes: shown.length };
+  return { ...cursor, height: ys[ys.length - 1] - y + ROW };
+}
+
+/** Each lane's y: one ROW apart, and a later lane whose pass parked on a question starts ASK_ROOM lower, so its
+ *  question sits below the loop that enters it; every lane after it shifts too. */
+function laneYs(shown: LaneOrStub[], y: number): number[] {
+  const ys: number[] = [];
+  shown.forEach((pass, i) => {
+    const room = i > 0 && !pass.stub && pass.endedBecause === "question" ? ASK_ROOM : 0;
+    ys.push(i === 0 ? y : ys[i - 1] + ROW + room);
+  });
+  return ys;
 }
 
 function askNode(b: Builder, spec: TicketSeriesSpec, pass: RunPass, ly: number, suffix: string, asks: ReadonlyMap<number, QuestionPair>) {
@@ -193,12 +220,13 @@ function askNode(b: Builder, spec: TicketSeriesSpec, pass: RunPass, ly: number, 
   b.nodes.push({ ...node(`ask-${suffix}`, "question", ax, ay, RS, "person", "QUESTION", metric, "ask"), specId: spec.specId, pass });
 }
 
-function returnEdge(b: Builder, ended: RunPass, next: RunPass, ly: number) {
-  const yn = ly + ROW;
-  const mid = (FLOW_X.build + FLOW_X.verify) / 2;
-  b.edges.push({ cls: "back", d: `M${FLOW_X.verify + R} ${ly} C${FLOW_X.verify + 90} ${ly} ${FLOW_X.build - 120} ${yn} ${FLOW_X.build - R} ${yn}` });
-  b.texts.push({ cls: "elab", x: mid, y: ly + 82, text: `↺ ${passEndWords(ended.reengageReason ?? ended.endedBecause)}`, middle: true });
-  if (next.openedBecause) b.texts.push({ cls: "elab dim", x: mid, y: ly + 96, text: `opened: ${passEndWords(next.openedBecause)}`, middle: true });
+/** Right out of the verify node to beside the box, down into the gap under it, left along the gap, down beside the
+ *  next box and into its build node — never through a box. One reason, above the run. */
+function returnEdge(b: Builder, ended: RunPass, next: RunPass, ly: number, yn: number) {
+  const right = FLOW_X.verify + BOX_SIDE + LOOP_OUT, left = FLOW_X.build - BOX_SIDE - LOOP_OUT, run = ly + BOX_BOTTOM + LOOP_DROP;
+  b.edges.push({ cls: "back", d: `M${FLOW_X.verify + R} ${ly} H${right} V${run} H${left} V${yn} H${FLOW_X.build - R}` });
+  const words = `↺ ${passEndWords(ended.reengageReason ?? next.openedBecause ?? ended.endedBecause)}`;
+  b.texts.push({ cls: "elab", x: (FLOW_X.build + FLOW_X.verify) / 2, y: run - 5, text: fit(words, REASON_MAX), middle: true, title: words });
 }
 
 function carriedRow(b: Builder, spec: TicketSeriesSpec, y: number) {
@@ -219,6 +247,8 @@ function tail(b: Builder, input: AttemptFlowInput, live: boolean, handedBack: bo
   if (last.small) b.edges.push({ cls: "carried", d: `M${FLOW_X.spec + RS + 8} ${ty} L${FLOW_X.ship - R} ${ty}` });
   else b.edges.push({ cls: state === "done" || state === "bad" || state === "person" ? state : "idle", d: seg(last.x, ty, FLOW_X.ship, ty, R, R) });
   b.nodes.push(node("tail", "tail", FLOW_X.ship, ty, R, state, ship ? "SHIP" : "ENDS", metric, ship ? "pr" : "stop"));
+  const cause = state === "bad" ? summaryLine(attempt.summary) : null;
+  if (cause) b.texts.push({ cls: "cause", x: FLOW_WIDTH - 12, y: ty + R + 48, text: fit(cause, CAUSE_MAX), end: true, title: cause });
   if (nextAttempt && !live) {
     b.edges.push({ cls: "next", d: `M${FLOW_X.ship + R + 10} ${ty} l40 0` });
     b.texts.push({ cls: "elab next", x: FLOW_X.ship + R + 14, y: ty - 10, text: `→ attempt ${nextAttempt.number}` });
@@ -230,7 +260,12 @@ function finish(b: Builder, lastY: number): AttemptFlowLayout {
 }
 
 function node(id: string, kind: FlowKind, x: number, y: number, r: number, state: FlowState, label: string, metric: string, icon: FlowIcon): FlowNode {
-  return { id, kind, x, y, r, state, label, metric, icon };
+  return { id, kind, x, y, r, state, label: fit(label, LABEL_MAX), metric: fit(metric, LABEL_MAX), fullLabel: label, fullMetric: metric, icon };
+}
+
+/** The text cut to max characters, the cut marked with an ellipsis. */
+export function fit(text: string, max: number): string {
+  return text.length <= max ? text : `${text.slice(0, max - 1).trimEnd()}…`;
 }
 
 export function specState(spec: TicketSeriesSpec, live: boolean): FlowState {
@@ -249,6 +284,8 @@ function passStates(pass: LaneOrStub, spec: TicketSeriesSpec, lanes: LaneOrStub[
   const open = pass.endedBecause === "unknown" && pass === lanes[lanes.length - 1] && spec.state === "in_progress";
   if (open) return ["live", "idle"];
   const build: FlowState = pass.endedBecause === "failed" ? "bad" : "done";
+  if (pass.endedBecause === "re-engaged" || pass.reengageReason) return [build, "back"];
+  if (pass.endedBecause === "red-accepted") return [build, "bad"];
   if (pass.criteriaTotal == null || pass.criteriaMet == null || pass.verdictEmitted === false) return [build, "idle"];
   return [build, pass.criteriaMet >= pass.criteriaTotal ? "done" : "bad"];
 }
@@ -268,7 +305,7 @@ function verifyMetric(pass: LaneOrStub, spec: TicketSeriesSpec): string {
 }
 
 function specLabel(spec: TicketSeriesSpec): string {
-  return spec.repos[0] ? `SPEC ${spec.ordinal} · ${spec.repos[0].toUpperCase()}` : `SPEC ${spec.ordinal}`;
+  return spec.repos[0] ? `SPEC ${spec.ordinal} · ${shortRepo(spec.repos[0]).toUpperCase()}` : `SPEC ${spec.ordinal}`;
 }
 
 function specMetric(spec: TicketSeriesSpec, lanes: LaneOrStub[]): string {

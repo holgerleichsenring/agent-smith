@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-16-7ed3d
+
+decisions:
+  - category: Architecture
+    chose: "Node labels and metrics are cut to 24 characters with an ellipsis; the node keeps fullLabel and fullMetric for its SVG <title>, its aria-label and the node detail's sub-line; a spec names its repository by shortRepo"
+    over: "Wrapping SVG text, or shrinking the font"
+    reason: |
+      SVG text does not wrap, and a smaller font would break the legend's visual language. 24 characters at 11.5 px
+      mono (about 188 px, half 94) clears the 130 px gate-to-spec spacing beside a short neighbour; at 10.5 px the
+      metric clears the 170 px build-to-verify spacing. The longest real end word, 'ended without a verdict', fits.
+  - category: Architecture
+    chose: "The re-engage loop is an orthogonal path: right of the verify node to 12 px outside the box, down 19 px under the box, left along the gap, down 12 px outside the next box's left edge, into the next build"
+    over: "The cubic from verify to the next build, which crossed both boxes and their labels"
+    reason: "Operator feedback: the loops were messy. The gap between two boxes is 38 px, enough for the run and its one reason above it."
+  - category: Implementation
+    chose: "One reason per loop: the ended pass's reengageReason, else the next pass's openedBecause, else the ended pass's endedBecause; cut to 42 characters with the full words as a <title>"
+    over: "The ↺ reason plus an 'opened:' line"
+    reason: "For a re-engagement both lines carried the same word (MasterPassReasons: a re-engage reason is also what the next pass opened because)."
+  - category: Implementation
+    chose: "A later lane whose pass parked on a question starts 44 px (ASK_ROOM) lower and every lane after it shifts; specRow returns the row height including it"
+    over: "Leaving lanes 150 px apart"
+    reason: "The question node hangs 70 px above its lane, which for a pass after the first is exactly where the loop now runs."
+  - category: Testing
+    chose: "The node <title> is asserted in the page test (NodeDetail_CutMetric_SubLineReadsTheFullMetric) instead of a separate FlowCanvas test"
+    over: "A FlowCanvas unit test"
+    reason: "One render proves the cut metric, the tooltip, the aria-label and the detail's sub-line together."

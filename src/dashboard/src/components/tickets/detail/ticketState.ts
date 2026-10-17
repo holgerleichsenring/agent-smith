@@ -1,12 +1,11 @@
 import { runPath } from "@/lib/runPath";
 import { EventType, type RunEvent, type StepStartedEvent } from "@/types/hub-events";
-import { RUN_END_KINDS, type TicketAttempt, type TicketDetail, type TicketSeries } from "@/types/tickets";
+import { RUN_END_KINDS, type TicketAttempt, type TicketDetail, type TicketPullRequest, type TicketSeries } from "@/types/tickets";
 import { closedWords } from "../TicketActivity";
 import { liveSpec } from "./attemptStory";
-import { prNumber } from "./conversationWords";
 
 // 2026-10-16-86e6c: the ticket state block's words — what is going on (one sentence and a tone), what to do (ONE act,
-// other options behind a disclosure) and which run the sentence is about, so the way to it and to its verbatim cause
+// 2026-10-16-7ed3b: no other options — the Conversation tab is one click away) and which run the sentence is about, so the way to it and to its verbatim cause
 // stays in sight. The act is chosen from recorded fields only: the bucket and its kind, endedOnInfrastructure and the
 // attempt's endKind. No summary text is matched; a cause without a field falls to Continue in conversation.
 
@@ -22,14 +21,17 @@ export interface TicketStateView {
   tone: StateTone;
   pill: string;
   sentence: string;
-  /** The question, the hand-back, the live step or the pull requests — drawn under the sentence. */
+  /** The question, the hand-back or the live step — drawn under the sentence. */
   detail: string | null;
+  /** 2026-10-16-7ed3c: a hand-back is markdown as posted on the ticket; every other detail is plain text. */
+  detailFormat?: "markdown";
   /** The attempt the sentence is about: its run is linked beside the sentence. */
   attempt: TicketAttempt | null;
   act: StateAct | null;
-  others: StateAct[];
-  /** Healthy: one line, no disclosures. */
+  /** Healthy: no act and no disclosure (the attempt chips still draw). */
   quiet: boolean;
+  /** 2026-10-16-7ed3a: every pull request of the ticket while the state is not quiet — a failed head keeps them. */
+  pullRequests: TicketPullRequest[];
 }
 
 export interface TicketStateInput {
@@ -40,13 +42,17 @@ export interface TicketStateInput {
 }
 
 export const CONTINUE: StateAct = { kind: "tab", label: "Continue in conversation", tab: "conversation" };
-const DISCUSS: StateAct = { kind: "tab", label: "Discuss in conversation", tab: "conversation" };
 export const SANDBOX_SETTINGS_PATH = "/config/settings/sandbox";
 
 const base = (attempt: TicketAttempt | null): Omit<TicketStateView, "tone" | "pill" | "sentence"> =>
-  ({ detail: null, attempt, act: null, others: [], quiet: false });
+  ({ detail: null, attempt, act: null, quiet: false, pullRequests: [] });
 
-export function ticketState({ detail, liveEvents, series }: TicketStateInput): TicketStateView | null {
+export function ticketState(input: TicketStateInput): TicketStateView | null {
+  const view = stateOf(input);
+  return view && !view.quiet ? { ...view, pullRequests: input.detail.summary.pullRequests ?? [] } : view;
+}
+
+function stateOf({ detail, liveEvents, series }: TicketStateInput): TicketStateView | null {
   const head = detail.attempts.at(-1) ?? null;
   if (!head) return null;
   const { summary } = detail;
@@ -66,30 +72,28 @@ export function ticketState({ detail, liveEvents, series }: TicketStateInput): T
 }
 
 /** The act that fits why the head attempt failed, first match wins. */
-export function failureAct(head: TicketAttempt, project: string): { sentence: string; act: StateAct; others: StateAct[] } {
+export function failureAct(head: TicketAttempt, project: string): { sentence: string; act: StateAct } {
   const n = head.number;
   if (head.endedOnInfrastructure) {
     return { sentence: `Attempt ${n} ended on infrastructure: the sandbox or host was lost, not the work.`,
-      act: { kind: "retry", attempt: head }, others: [CONTINUE] };
+      act: { kind: "retry", attempt: head } };
   }
   switch (head.endKind) {
     case RUN_END_KINDS.imageUntrusted:
       return { sentence: `Attempt ${n} stopped before any work: a context names a container image outside the trusted registries.`,
         act: { kind: "link", label: "Trust the registry in Settings", href: SANDBOX_SETTINGS_PATH,
-          note: "Add the image's registry to the sandbox's trusted registries, then start the next attempt." },
-        others: [CONTINUE] };
+          note: "Add the image's registry to the sandbox's trusted registries, then start the next attempt." } };
     case RUN_END_KINDS.bootstrapMissing:
       return { sentence: `Attempt ${n} stopped before any work: a repository has no agent-smith bootstrap.`,
-        act: { kind: "init", project }, others: [CONTINUE] };
+        act: { kind: "init", project } };
     case RUN_END_KINDS.criteriaUnmet:
       return { sentence: `Attempt ${n} failed: the acceptance gate did not accept a criterion.`,
         act: { kind: "link", label: "Overrule in the run", href: runPath(head.runId),
-          note: "Records your verdict on the criterion; the gate is not re-run." },
-        others: [DISCUSS] };
+          note: "Records your verdict on the criterion; the gate is not re-run." } };
     case RUN_END_KINDS.preflight:
-      return { sentence: `Attempt ${n} stopped before any work: a precondition did not hold.`, act: CONTINUE, others: [] };
+      return { sentence: `Attempt ${n} stopped before any work: a precondition did not hold.`, act: CONTINUE };
     default:
-      return { sentence: `Attempt ${n} failed.`, act: CONTINUE, others: [] };
+      return { sentence: `Attempt ${n} failed.`, act: CONTINUE };
   }
 }
 
@@ -106,7 +110,8 @@ function needsYou(detail: TicketDetail, head: TicketAttempt): TicketStateView {
       act: { kind: "tab", label: "Answer in the conversation", tab: "conversation" } };
   }
   return { ...base(head), tone: "person", pill: "Handed back",
-    sentence: `Attempt ${head.number} handed the ticket back.`, detail: detail.summary.handback?.text ?? null, act: CONTINUE };
+    sentence: `Attempt ${head.number} handed the ticket back.`, detail: detail.summary.handback?.text ?? null,
+    detailFormat: "markdown", act: CONTINUE };
 }
 
 function working(detail: TicketDetail, head: TicketAttempt, events: RunEvent[], series: TicketSeries | null): TicketStateView {
@@ -136,14 +141,11 @@ export function liveLine(events: RunEvent[]): string | null {
   return started ? `Now: ${started.displayName ?? started.stepName}` : null;
 }
 
+/** The pull requests themselves are the way on: the block draws one row each. */
 function review(detail: TicketDetail, head: TicketAttempt): TicketStateView {
-  const open = (detail.summary.pullRequests ?? []).filter((pr) => pr.state === "open");
-  const links: StateAct[] = open.map((pr) => ({
-    kind: "link", label: `Open pull request #${prNumber(pr.url) ?? pr.number} (${pr.repo})`, href: pr.url,
-  }));
-  const count = open.length === 1 ? "1 pull request is" : `${open.length} pull requests are`;
-  return { ...base(head), tone: "person", pill: "In review", sentence: `Waiting on review: ${count} open.`,
-    act: links[0] ?? null, others: links.slice(1) };
+  const open = (detail.summary.pullRequests ?? []).filter((pr) => pr.state === "open").length;
+  const count = open === 1 ? "1 pull request is" : `${open} pull requests are`;
+  return { ...base(head), tone: "person", pill: "In review", sentence: `Waiting on review: ${count} open.` };
 }
 
 function endedSentence(head: TicketAttempt): string {

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { TrackerText } from "@/components/ui/TrackerText";
 import { PendingQuestionCard } from "@/components/jobs/PendingQuestionCard";
 import { useParkedQuestion } from "@/hooks/useParkedQuestion";
 import { PROJECT_PARAM, TICKET_PARAM } from "@/lib/specDialogAddress";
@@ -69,7 +70,11 @@ function HandbackReply({ ticket }: { ticket: TicketSummary }) {
   return (
     <>
       <div className="q-item" data-testid="ticket-handback">
-        <div className="qt">{ticket.handback?.text ?? "The hand-back's words were not recorded."}</div>
+        <div className="qt">
+          {ticket.handback?.text
+            ? <TrackerText text={ticket.handback.text} format="markdown" />
+            : "The hand-back's words were not recorded."}
+        </div>
         <div className="qm">
           {posted ? `Posted on the ticket ${posted} ago. ` : ""}
           A hand-back has no paused run to resume: the reply goes into the ticket&apos;s conversation.

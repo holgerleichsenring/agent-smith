@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-16-7ed3e
+
+decisions:
+  - category: Architecture
+    chose: "A new node state 'back' for a verify whose pass ended re-engaged (or carries a reengage reason), drawn in the legend's re-engage colour (amber string, dashed, no halo); red-accepted verifies are bad"
+    over: "Colouring a verify by its criteria tally alone"
+    reason: |
+      Operator feedback: a green '7 of 7' in a pass the master re-engaged reads as passed, and 'red verdict accepted'
+      looked neutral. Green now means the pass passed; the tally stays as the metric. The pass end reason is recorded by
+      the master's loop (MasterPassReasons), so no inference is needed.
+  - category: Architecture
+    chose: "The cause goes once, on the end node: one line of the run's end text under ENDS, the whole text in the tail's node detail"
+    over: "Also painting the cause on the node where the attempt stopped"
+    reason: |
+      The run records one end text and no failing node; the end node is where the attempt stopped. A pass's own
+      failure is already its red node with its verdicts in the detail.
+  - category: Implementation
+    chose: "summaryLine(summary) in lib/formatRunSummary — the first non-empty line of the formatted end text — shared by the graph, its no-graph note and the state block's attempt chips"
+    over: "A helper in attemptChips, which imports the AttemptCard component"
+    reason: "The pure layout module must not import a component file; one spelling of 'the cause in one line'."
+  - category: Implementation
+    chose: "The no-graph note reads 'Attempt n recorded no cut, so it has no graph.' plus 'It ended: <cause>'"
+    over: "'ran before attempts recorded their cut'"
+    reason: "Since 86e6a an attempt that stopped at preflight or bootstrap also has no cut; the old words were false for it."

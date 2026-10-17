@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-16-7ed3b
+
+decisions:
+  - category: Architecture
+    chose: "The state block keeps one act and no Other options; waiting on review has no act button, its pull-request rows are the way on"
+    over: "86e6c's closed 'Other options' disclosure and the first open pull request as the primary act"
+    reason: |
+      Operator feedback: the folded options made no sense. Continue/Discuss stay one click away in the tab bar. For a
+      review the act happens on the host, so the rows (short repo, number, state, link) are the act; a primary button
+      would duplicate one row.
+  - category: Architecture
+    chose: "Every attempt as a chip A1…An (oldest first, outcome tone, newest bold with aria-current), each a link to its run, its cause as the title; drawn on every state with two or more attempts"
+    over: "86e6d's closed earlier-attempts line with one row and one Open run button per attempt"
+    reason: |
+      Operator feedback: the run must be reachable, but compactly. One line of chips replaces the list; 'Open run A{n}'
+      beside the sentence stays the one obvious way to the attempt the block talks about. A chip line is not a
+      disclosure, so quiet states keep it.
+  - category: Implementation
+    chose: "lib/shortRepo — the last '/' then the last '.' segment, the full name as the row's title"
+    over: "Truncating the repository name in the middle"
+    reason: "The operator's naming (dotted repository names) ends in the distinguishing part; 7ed3d reuses it for the flow graph's labels."
+  - category: Implementation
+    chose: "The chip title reads the first non-empty line of formatRunSummary(summary)"
+    over: "The raw summary's first line"
+    reason: "Summaries stored before the humanizer can be raw provider JSON; formatRunSummary extracts the message."

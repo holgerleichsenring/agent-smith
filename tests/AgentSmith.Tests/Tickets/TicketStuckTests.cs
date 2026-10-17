@@ -199,12 +199,12 @@ public sealed class TicketStuckTests : IDisposable
     }
 
     [Fact]
-    public async Task TicketBucket_FailedWithOpenReview_IsWaitingOnReviewNotStuck()
+    public async Task TicketBucket_FailedWithOpenReview_IsStuckNotWaitingOnReview()
     {
         await FailedAsync();
         await _h.AddAsync(Check(Now), Record("7", PrReviewStates.Open));
 
-        (await RowAsync()).Bucket.Should().Be(TicketBucket.WaitingOnReview);
+        (await RowAsync()).Bucket.Should().Be(TicketBucket.Stuck, "an unchanged check of a failed head is stuck, open pull requests or not");
     }
 
     [Fact]

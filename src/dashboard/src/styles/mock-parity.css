@@ -1948,7 +1948,7 @@
 .mock-dialog .d-pick-held { display: block; font-size: 11.5px; color: var(--ink-3); }
 
 /* 2026-10-16-86e6c: the ticket state block under the header — the tone's wash and edge, the pill and one sentence,
-   the run beside it, one act, and two closed disclosures (other options, Why). Composed from the page's tokens and
+   the run beside it, one act, and the closed Why disclosure. Composed from the page's tokens and
    its .pill / .btn classes; a quiet state is the top row alone. */
 .mock-tickets .tstate { --tone: var(--ink-3); --wash: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--tone); border-radius: var(--r-s); background: var(--wash); margin: 4px 0 14px; }
 .mock-tickets .tstate.bad { --tone: var(--bad); --wash: var(--bad-wash); }
@@ -1960,17 +1960,40 @@
 .mock-tickets .tstate .ts-say { flex: 1 1 320px; min-width: 0; }
 .mock-tickets .tstate .ts-sentence { margin: 0; font-size: 14px; font-weight: 600; color: var(--ink); line-height: 1.4; }
 .mock-tickets .tstate .ts-detail { margin-top: 4px; font-size: 13px; color: var(--ink-2); white-space: pre-wrap; overflow-wrap: anywhere; }
+.mock-tickets .tstate .ts-detail.md { white-space: normal; }
+.mock-tickets .tstate .ts-detail.md :is(h1, h2, h3) { font-size: inherit; font-weight: 650; margin: 4px 0 2px; }
+.mock-tickets .tstate .ts-detail.md p { margin: 4px 0; }
 .mock-tickets .tstate .ts-acts { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: center; padding: 0 14px 10px; }
 .mock-tickets .tstate .ts-act { display: inline-flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .mock-tickets .tstate details > summary { cursor: pointer; font-size: 12px; color: var(--ink-2); }
-.mock-tickets .tstate .ts-more-body { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .mock-tickets .tstate .ts-why { border-top: 1px solid var(--line); padding: 8px 14px 10px; }
 .mock-tickets .tstate .ts-why-body { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
 .mock-tickets .tstate .ts-cause { margin: 0; font-family: var(--mono); font-size: 12px; color: var(--ink-2); background: var(--bg); border: 1px solid var(--line); border-radius: var(--r-s); padding: 8px 10px; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow: auto; }
 .mock-tickets .tstate .ts-links { display: flex; gap: 8px; flex-wrap: wrap; }
 /* 2026-10-16-86e6e: why the acceptance gate did not accept a criterion, under its text, with the way to the run. */
 .mock-tickets .crit .reject { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; margin-top: 6px; font-size: 12px; color: var(--ink-2); background: var(--bad-wash); border-radius: var(--r-s); padding: 6px 8px; overflow-wrap: anywhere; }
-/* 2026-10-16-86e6d: earlier attempts as one line; Show lists each with its run. */
-.mock-tickets .tstate .ts-earlier { border-top: 1px solid var(--line); padding: 8px 14px 10px; }
-.mock-tickets .tstate .ts-earlier-rows { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; color: var(--ink-2); }
-.mock-tickets .tstate .ts-earlier-rows li { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+/* 2026-10-16-7ed3b: the ticket's pull requests as plain rows, and every attempt as one chip opening its run — the
+   newest emphasised. Tones are the pill tones. */
+.mock-tickets .tstate .ts-prs { list-style: none; margin: 0; padding: 0 14px 10px; display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; }
+.mock-tickets .tstate .ts-prs li { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; min-width: 0; }
+.mock-tickets .tstate .ts-prs a { color: var(--ink); text-decoration: underline; text-decoration-color: var(--line); }
+.mock-tickets .tstate .ts-pr-state { color: var(--ink-3); font-size: 11.5px; }
+.mock-tickets .tstate .ts-chips { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; padding: 0 14px 10px; }
+.mock-tickets .tstate .ts-chip { --chip: var(--ink-3); font-family: var(--mono); font-size: 10.5px; line-height: 1; padding: 3px 6px; border-radius: 20px; border: 1px solid color-mix(in srgb, var(--chip) 45%, transparent); color: var(--chip); background: var(--bg); text-decoration: none; }
+.mock-tickets .tstate .ts-chip.bad { --chip: var(--bad); }
+.mock-tickets .tstate .ts-chip.ok { --chip: var(--ok); }
+.mock-tickets .tstate .ts-chip.amber { --chip: var(--run); }
+.mock-tickets .tstate .ts-chip.person { --chip: var(--person); }
+.mock-tickets .tstate .ts-chip.head { font-weight: 700; border-width: 2px; background: color-mix(in srgb, var(--chip) 12%, var(--bg)); }
+.mock-tickets .tstate .ts-chip:hover { border-color: var(--chip); }
+/* 2026-10-16-7ed3c: the ticket page's text panes wrap a long token anywhere and may shrink inside their flex or grid
+   track; a code block inside one scrolls on its own. */
+.mock-tickets :is(.why, .doc, .msg .mb, .spdoc .sb, .sd-b > div, .ts-say, .crit .ci > span) { overflow-wrap: anywhere; min-width: 0; }
+.mock-tickets :is(.why, .doc, .msg .mb, .spdoc .sb, .ts-say) pre { overflow-x: auto; max-width: 100%; }
+/* 2026-10-16-7ed3e: a verify the master re-engaged reads in the legend's re-engage colour — the amber string, dashed
+   like its marker, no halo; a stopped attempt's end text sits under its end node; the tail detail keeps it whole. */
+.mock-tickets .node.back .disc { stroke:var(--t-string); stroke-dasharray:4 3; fill:color-mix(in srgb, var(--t-string) 8%, var(--t-bg)); }
+.mock-tickets .node.back .ic { stroke:var(--t-string); } .mock-tickets .node.back .lab { fill:var(--t-text); } .mock-tickets .node.back .met { fill:var(--t-string); }
+.mock-tickets .cause { font-family:var(--mono); font-size:10.5px; fill:color-mix(in srgb, var(--t-bad) 80%, var(--t-bg)); }
+.mock-tickets .doc pre.end-text { margin:0; font-family:var(--mono); font-size:12px; white-space:pre-wrap; overflow-wrap:anywhere; max-height:260px; overflow:auto; }
+.mock-tickets .g-note .g-cause { color:var(--t-bad); overflow-wrap:anywhere; }

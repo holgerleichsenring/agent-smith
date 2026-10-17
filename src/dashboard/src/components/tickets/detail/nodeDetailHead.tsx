@@ -1,3 +1,4 @@
+import { TrackerText } from "@/components/ui/TrackerText";
 import type { TicketConversationEntry } from "@/types/tickets";
 import { causeWords, money } from "../ticketFormat";
 import { clock, cutReviews, handbackCaseWords } from "./flowWords";
@@ -83,8 +84,8 @@ export function handbackDetail({ series, entries, nextAttempt }: NodeContext): N
     left: <Why lines={lines} />,
     right: entry ? (
       <Doc heading="posted on the ticket">
-        <p data-testid="handback-text">{entry.text}</p>
-        {quote && <p><i>“{quote}”</i></p>}
+        {entry.text && <div data-testid="handback-text"><TrackerText text={entry.text} format={entry.format} /></div>}
+        {quote && <blockquote className="quote"><TrackerText text={quote} format="text" /></blockquote>}
         {answer?.actor && <p className="dim-line">Answered by {answer.actor}{answer.at ? ` at ${clock(answer.at)}` : ""}.</p>}
       </Doc>
     ) : undefined,

@@ -124,9 +124,7 @@ describe("Ticket page", () => {
     expect(screen.getByTestId("ticket-state-run")).toHaveAttribute("href", "/jobs/r-2");
     expect(screen.getByTestId("ticket-state-act")).toHaveAttribute("href", "/jobs/r-2");
     expect(screen.getByTestId("ticket-state-why")).not.toHaveAttribute("open");
-    expect(screen.getByTestId("ticket-state-others")).not.toHaveAttribute("open");
-    fireEvent.click(within(screen.getByTestId("ticket-state-others")).getByTestId("ticket-state-other"));
-    expect(nav.replace).toHaveBeenLastCalledWith("/tickets/shop/101?tab=conversation", { scroll: false });
+    expect(screen.queryByText("Other options")).toBeNull();
   });
 
   it("TicketStateBlock_Why_HoldsTheVerbatimSummaryAndTheTraceLink", async () => {
@@ -150,17 +148,33 @@ describe("Ticket page", () => {
     }
   });
 
-  it("TicketStateBlock_ShowEarlier_ListsEachAttemptWithItsRunLink", async () => {
+  it("TicketStateBlock_Chips_LinkEachRunAndMarkTheHead", async () => {
     world.detail = detail([attempt({ status: "failed", endKind: "image-untrusted" }),
       attempt({ number: 2, runId: "r-2", status: "cancelled", endKind: "superseded" }),
       attempt({ number: 3, runId: "r-3", status: "failed" })]);
     world.detail.summary = { ...world.detail.summary, bucket: "failed" };
     await open();
-    expect(screen.getByTestId("ticket-state-earlier")).not.toHaveAttribute("open");
-    expect(screen.getByTestId("ticket-state-earlier-line")).toHaveTextContent("2 earlier attempts, all stopped before any work, A2 superseded");
-    const row = screen.getByTestId("ticket-state-earlier-1");
-    expect(row).toHaveTextContent("A1 · failed · image not trusted");
-    expect(within(row).getByRole("link")).toHaveAttribute("href", "/jobs/r-1");
+    expect(screen.queryByTestId("ticket-state-earlier")).toBeNull();
+    const first = screen.getByTestId("ticket-state-chip-1");
+    expect(first).toHaveAttribute("href", "/jobs/r-1");
+    expect(first).toHaveAttribute("title", "A1 · failed · image not trusted");
+    expect(screen.getByTestId("ticket-state-chip-2")).toHaveClass("q");
+    expect(screen.getByTestId("ticket-state-chip-3")).toHaveAttribute("aria-current", "true");
+    expect(screen.getAllByTestId("ticket-state-run")).toHaveLength(1);
+  });
+
+  it("TicketStateBlock_PullRequests_AreRowsWithShortRepoNumberStateAndLink", async () => {
+    world.detail = detail([attempt({ status: "failed" })]);
+    world.detail.summary = { ...world.detail.summary, bucket: "failed", pullRequests: [
+      pr({ number: "12", url: "https://dev.example/org/_git/Sample.App.Server/pullrequest/12", repo: "Sample.App.Server", state: "open" }),
+      pr({ number: "13", url: "https://dev.example/org/_git/Sample.App.Client/pullrequest/13", repo: "Sample.App.Client", state: "merged", decision: "approved" })] };
+    await open();
+    const rows = within(screen.getByTestId("ticket-state-prs")).getAllByRole("listitem");
+    expect(rows[0]).toHaveTextContent("Server #12open");
+    expect(rows[1]).toHaveTextContent("Client #13merged · approved");
+    expect(within(rows[0]).getByRole("link")).toHaveAttribute("href", "https://dev.example/org/_git/Sample.App.Server/pullrequest/12");
+    expect(within(rows[0]).getByRole("link")).toHaveAttribute("title", "Sample.App.Server");
+    expect(screen.getAllByTestId("ticket-state-act")).toHaveLength(1);
   });
 
   it("TicketHeader_NoLongerSaysTheAttemptStatusNorOffersContinue", async () => {
@@ -277,6 +291,62 @@ describe("Ticket page", () => {
     expect(detailText()).toContain("contradiction");
     expect(detailText()).toContain("Answered by h.operator");
     expect(detailText()).not.toContain("a later one");
+  });
+
+  // 2026-10-16-7ed3c: posted ticket text renders as the conversation renders it — markdown, a mention as @Name.
+  it("NodeDetail_Handback_RendersMarkdownLineBreaksAndMentionAsText", async () => {
+    world.detail = detail([attempt({ runId: "r-1", handedBack: true, revision: null })]);
+    world.series["r-1"] = series("r-1", [], { handback: { case: "Question", runId: "r-1", attempt: 1, at: "x" }, gate: { status: "skipped", specCount: 0, runId: "r-1" } });
+    world.conversation = conversation([entry({ id: "h1", source: "spec-cut", kind: "hand-back", attemptRunId: "r-1", format: "markdown",
+      text: "## Agent Smith — handed back\n\n<a href=\"#\" data-vss-mention=\"version:2.0,abc\">@Ada Example</a> which header?\n\nSee https://example.test/a/very/long/path/to/src/Sample.App.Server/File.cs" })]);
+    await open();
+    fireEvent.click(node("handback"));
+    const text = screen.getByTestId("handback-text");
+    expect(text.querySelectorAll("p").length).toBeGreaterThanOrEqual(2);
+    expect(text).toHaveTextContent("@Ada Example which header?");
+    expect(text.innerHTML).not.toContain("data-vss-mention");
+    expect(text.textContent).not.toContain("<a");
+    expect(within(text).queryByRole("link", { name: "@Ada Example" })).toBeNull();
+  });
+
+  it("TicketStateBlock_Handback_RendersMarkdownWithMentionAsText", async () => {
+    world.detail = detail([attempt({ status: "waiting_for_input", handedBack: true, finishedAt: null })]);
+    world.detail.summary = { ...world.detail.summary, bucket: "needs_you", kind: "handback",
+      handback: { text: "## Handed back\n\n<a href=\"#\" data-vss-mention=\"version:2.0,abc\">@Ada Example</a> please decide.", at: "2026-09-04T14:30:00Z" } };
+    await open();
+    const shown = screen.getByTestId("ticket-state-detail");
+    expect(shown).toHaveTextContent("@Ada Example please decide.");
+    expect(shown.textContent).not.toContain("##");
+    expect(shown.innerHTML).not.toContain("data-vss-mention");
+  });
+
+  // 2026-10-16-7ed3d: a metric cut to its column reads whole in the tooltip and the node detail.
+  it("NodeDetail_CutMetric_SubLineReadsTheFullMetric (FlowCanvas_NodeWithFullText_HasATitle)", async () => {
+    world.detail = detail([attempt({ runId: "r-1", handedBack: true, revision: null })]);
+    world.series["r-1"] = series("r-1", [], { handback: { case: "SpecificationMissingFromBranch", runId: "r-1", attempt: 1, at: "x" }, gate: { status: "skipped", specCount: 0, runId: "r-1" } });
+    await open();
+    const mark = node("handback");
+    expect(mark.querySelector("text.met")?.textContent).toBe("spec missing from the b…");
+    expect(mark.querySelector("title")?.textContent).toBe("HAND-BACK · spec missing from the branch");
+    expect(mark.getAttribute("aria-label")).toBe("HAND-BACK, spec missing from the branch");
+    fireEvent.click(mark);
+    expect(screen.getByTestId("node-detail").querySelector(".sh-sub")?.textContent).toBe("A1 · spec missing from the branch");
+  });
+
+  it("NodeDetail_FailedTail_ShowsTheWholeSummary", async () => {
+    const summary = "Pipeline aborted: missing bootstrap in repos\nSample.App.Server\nSample.App.Client";
+    world.detail = detail([attempt({ status: "failed", summary })]);
+    await open();
+    fireEvent.click(node("tail"));
+    expect(screen.getByTestId("tail-summary").textContent).toBe(summary);
+  });
+
+  it("AttemptFlowGraph_NoCutWithSummary_NoteSaysTheCause", async () => {
+    world.detail = detail([attempt({ revision: null, status: "failed", summary: "Preflight failed: context-image-trust\nmore" })]);
+    delete world.series["r-1"];
+    await open();
+    expect(screen.getByTestId("attempt-flow-fallback")).toHaveTextContent("Attempt 1 recorded no cut, so it has no graph.");
+    expect(screen.getByTestId("attempt-flow-cause")).toHaveTextContent("It ended: Preflight failed: context-image-trust");
   });
 
   it("ATerminalAttemptWithNoRevisionAndNoCut_LinksToItsRunViewer", async () => {

@@ -196,6 +196,17 @@ describe("TicketList", () => {
     expect(hoisted.fetchRun).not.toHaveBeenCalled();
   });
 
+  it("TicketNeedsYou_Handback_RendersMarkdown", async () => {
+    serve(list([ticket({ bucket: "needs_you", kind: "handback", status: "waiting_for_input",
+      handback: { text: "## Handed back\n\n<a href=\"#\" data-vss-mention=\"version:2.0,abc\">@Ada Example</a> decide.", at: ago(5) } })], { needsYou: 1 }));
+    renderTickets();
+
+    const card = await screen.findByTestId("ticket-handback");
+    expect(card).toHaveTextContent("@Ada Example decide.");
+    expect(card.textContent).not.toContain("##");
+    expect(card.innerHTML).not.toContain("data-vss-mention");
+  });
+
   it("AHandedBackTicket_ShowsTheRowsWords_WithoutAConversationFetch_AndLinksIntoTheConversation", async () => {
     const network = vi.spyOn(globalThis, "fetch");
     serve(list([ticket({ ticketId: "45/1", bucket: "needs_you", kind: "handback", status: "waiting_for_input", handback: { text: "No such table exists.", at: ago(180) } })], { needsYou: 1 }));

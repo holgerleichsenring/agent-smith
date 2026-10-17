@@ -2,11 +2,14 @@
 
 import Link from "next/link";
 import { ProjectInitAction } from "@/components/system/ProjectInitAction";
+import { TrackerText } from "@/components/ui/TrackerText";
 import { formatRunSummary } from "@/lib/formatRunSummary";
 import { runPath, runTracePath } from "@/lib/runPath";
+import { shortRepo } from "@/lib/shortRepo";
 import { useLiveAttempt, useTicketSeries } from "@/lib/tickets/TicketPageStore";
-import type { TicketAttempt, TicketDetail } from "@/types/tickets";
-import { earlierAttempts } from "./earlierAttempts";
+import type { TicketAttempt, TicketDetail, TicketPullRequest } from "@/types/tickets";
+import { attemptChips } from "./attemptChips";
+import { prNumber } from "./conversationWords";
 import { RetryUnchanged } from "./RetryUnchanged";
 import { ticketState, type StateAct, type TicketStateView } from "./ticketState";
 import { CAUSE_PARAM, useTicketTabGo } from "./useTicketTabGo";
@@ -14,7 +17,7 @@ import { CAUSE_PARAM, useTicketTabGo } from "./useTicketTabGo";
 // 2026-10-16-86e6c: the state block under the header, on every tab. Visible by default: what is going on (pill and
 // one sentence), the way to the run it is about, and the one act that fits. One click away: other options, and Why —
 // the run's own end text verbatim with its run and trace. A healthy state is one quiet line.
-// 2026-10-16-86e6d: earlier attempts collapse to one line; Show lists each with its run.
+// 2026-10-16-7ed3b: no other options; the pull requests are plain rows and every attempt is one chip opening its run.
 
 export function TicketStateBlock({ detail }: { detail: TicketDetail }) {
   const live = useLiveAttempt();
@@ -27,7 +30,11 @@ export function TicketStateBlock({ detail }: { detail: TicketDetail }) {
         <span className={`pill ${view.tone}`} data-testid="ticket-state-pill">{view.pill}</span>
         <div className="ts-say">
           <p className="ts-sentence" data-testid="ticket-state-sentence">{view.sentence}</p>
-          {view.detail && <div className="ts-detail" data-testid="ticket-state-detail">{view.detail}</div>}
+          {view.detail && (
+            <div className={view.detailFormat ? "ts-detail md" : "ts-detail"} data-testid="ticket-state-detail">
+              {view.detailFormat ? <TrackerText text={view.detail} format={view.detailFormat} /> : view.detail}
+            </div>
+          )}
         </div>
         {view.attempt && (
           <Link className="btn sm" href={runPath(view.attempt.runId)} data-testid="ticket-state-run">
@@ -35,33 +42,17 @@ export function TicketStateBlock({ detail }: { detail: TicketDetail }) {
           </Link>
         )}
       </div>
-      {!view.quiet && <Acts view={view} project={detail.summary.project} />}
+      {view.act && <div className="ts-acts" data-testid="ticket-state-acts"><Act act={view.act} project={detail.summary.project} /></div>}
+      {view.pullRequests.length > 0 && <PullRequests prs={view.pullRequests} />}
+      <Chips attempts={detail.attempts} />
       {!view.quiet && view.tone === "bad" && <Why view={view} />}
-      {!view.quiet && <Earlier attempts={detail.attempts} />}
     </section>
   );
 }
 
-function Acts({ view, project }: { view: TicketStateView; project: string }) {
-  if (!view.act && view.others.length === 0) return null;
-  return (
-    <div className="ts-acts" data-testid="ticket-state-acts">
-      {view.act && <Act act={view.act} project={project} primary />}
-      {view.others.length > 0 && (
-        <details className="ts-more" data-testid="ticket-state-others">
-          <summary>Other options</summary>
-          <div className="ts-more-body">
-            {view.others.map((act, i) => <Act key={i} act={act} project={project} primary={false} />)}
-          </div>
-        </details>
-      )}
-    </div>
-  );
-}
-
-function Act({ act, project, primary }: { act: StateAct; project: string; primary: boolean }) {
+function Act({ act, project }: { act: StateAct; project: string }) {
   const address = useTicketTabGo();
-  const cls = primary ? "btn primary" : "btn sm";
+  const cls = "btn primary";
   switch (act.kind) {
     case "retry": return <RetryUnchanged attempt={act.attempt} project={project} />;
     case "init": return <span className="ts-act" data-testid="ticket-state-init"><ProjectInitAction project={act.project} /></span>;
@@ -75,7 +66,7 @@ function Act({ act, project, primary }: { act: StateAct; project: string; primar
     case "tab":
       return (
         <span className="ts-act">
-          <button type="button" className={cls} data-testid={primary ? "ticket-state-act" : "ticket-state-other"}
+          <button type="button" className={cls} data-testid="ticket-state-act"
             onClick={() => address.go(act.tab, { [CAUSE_PARAM]: null })}>{act.label}</button>
           {act.note && <span className="cp-note">{act.note}</span>}
         </span>
@@ -102,20 +93,32 @@ function Why({ view }: { view: TicketStateView }) {
   );
 }
 
-function Earlier({ attempts }: { attempts: TicketAttempt[] }) {
-  const earlier = earlierAttempts(attempts);
-  if (!earlier) return null;
+function PullRequests({ prs }: { prs: TicketPullRequest[] }) {
   return (
-    <details className="ts-earlier" data-testid="ticket-state-earlier">
-      <summary><span data-testid="ticket-state-earlier-line">{earlier.line}</span> · Show</summary>
-      <ul className="ts-earlier-rows">
-        {earlier.rows.map(({ attempt, words }) => (
-          <li key={attempt.runId} data-testid={`ticket-state-earlier-${attempt.number}`}>
-            <span className="mono">A{attempt.number}</span> · {words}
-            <Link className="btn sm" href={runPath(attempt.runId)}>Open run</Link>
-          </li>
-        ))}
-      </ul>
-    </details>
+    <ul className="ts-prs" data-testid="ticket-state-prs">
+      {prs.map((pr) => (
+        <li key={pr.url}>
+          <a href={pr.url} target="_blank" rel="noreferrer" title={pr.repo} data-testid="ticket-state-pr">
+            <span className="mono">{shortRepo(pr.repo)}</span> #{prNumber(pr.url) ?? pr.number}
+          </a>
+          <span className="ts-pr-state">{pr.state}{pr.decision !== "none" ? ` · ${pr.decision.replace(/-/g, " ")}` : ""}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function Chips({ attempts }: { attempts: TicketAttempt[] }) {
+  const chips = attemptChips(attempts);
+  if (chips.length === 0) return null;
+  return (
+    <nav className="ts-chips" aria-label="Attempts" data-testid="ticket-state-chips">
+      {chips.map((chip) => (
+        <Link key={chip.attempt.runId} href={chip.href} title={chip.title} className={`ts-chip ${chip.tone}${chip.head ? " head" : ""}`}
+          aria-current={chip.head ? "true" : undefined} data-testid={`ticket-state-chip-${chip.attempt.number}`}>
+          A{chip.attempt.number}
+        </Link>
+      ))}
+    </nav>
   );
 }

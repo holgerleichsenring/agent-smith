@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-16-7ed3e
+goal: "In the attempt flow graph green means a pass passed, a re-engaged verify reads amber, a rejected or accepted-red verdict reads red, and the attempt's end node shows its cause."
+
+applies_to: "dashboard (attemptFlowLayout passStates and tail, FlowCanvas, NodeDetail's pill, nodeDetailBody's tail, AttemptFlowGraph's fallback note, mock-parity.css node rules)"
+
+requires: [2026-10-16-7ed3d]
+
+facts:
+  - claim: "A verify node is done (green) whenever every criterion was met, bad when not, and idle (grey) without a verdict or when verdictEmitted is false; the pass's end reason is not consulted."
+    evidence: "src/dashboard/src/components/tickets/detail/attemptFlowLayout.ts:247-254"
+  - claim: "The pass vocabulary ends a pass re-engaged (with a reengage reason) or red-accepted among others; the legend calls the re-engage marker '↺ re-engaged by the master' in the amber string colour."
+    evidence: "src/backend/AgentSmith.Contracts/Passes/MasterPassReasons.cs:10-29, src/dashboard/src/components/tickets/detail/AttemptFlowGraph.tsx:105-116, src/dashboard/src/styles/mock-parity.css:531"
+  - claim: "Node states are done, carried, live, bad, idle and person, each with its CSS and its node-detail pill."
+    evidence: "src/dashboard/src/components/tickets/detail/attemptFlowLayout.ts:21, src/dashboard/src/styles/mock-parity.css:461-472, src/dashboard/src/components/tickets/detail/NodeDetail.tsx:35-42"
+  - claim: "The end node's metric for a failed attempt is its status word; its detail says 'Attempt n failed' and the last pass's reason, never the run's end text."
+    evidence: "src/dashboard/src/components/tickets/detail/attemptFlowLayout.ts:211-221, src/dashboard/src/components/tickets/detail/attemptFlowLayout.ts:293-295, src/dashboard/src/components/tickets/detail/nodeDetailBody.tsx:112-129"
+  - claim: "Each attempt is served with its run's verbatim end text (summary) since 86e6a."
+    evidence: "src/dashboard/src/types/tickets.ts:234-237"
+  - claim: "An attempt with no cut and no revision draws no graph and says it ran before attempts recorded their cut — also for a new attempt that stopped before deriving."
+    evidence: "src/dashboard/src/components/tickets/detail/attemptFlowLayout.ts:78, src/dashboard/src/components/tickets/detail/AttemptFlowGraph.tsx:82-88"
+
+scope:
+  in: >
+    COLOURS: FlowState gains "back". A recorded pass that ended re-engaged (endedBecause re-engaged, or a reengage
+    reason) has a back verify node whatever its tally; a pass that ended red-accepted has a bad verify node; else as
+    today (all met done, fewer bad, no verdict idle). CSS .node.back: the amber string stroke dashed like the legend's
+    marker, no halo; NodeDetail's pill reads ["amber", "re-engaged"]. An edge into a back node stays done. CAUSE: the
+    end node of a failed or cancelled attempt with a summary carries one more text line under its metric — the first
+    non-empty line of formatRunSummary(summary), cut to the space right of the verify column, with the whole line as a
+    <title>; the tail's node detail shows the whole summary verbatim in a .doc 'end of the run' (pre-wrap). FALLBACK:
+    the no-graph note reads 'Attempt n recorded no cut, so it has no graph.' and, when the attempt has a summary, its
+    first line, before the run-viewer link.
+  out: >
+    Labels and loops — 2026-10-16-7ed3d. Painting the node where the attempt stopped other than the end node — the
+    graph's nodes carry no run-level failure position, and the end node is where the attempt stopped.
+
+decisions:
+  - key: "THE CAUSE GOES ON THE END NODE, ONCE. The run records one end text, not a failing node; the end node is the attempt's stop, so the text sits there and its detail holds it whole."
+  - key: "GREEN MEANS PASSED. A tally of met criteria in a pass the master re-engaged did not pass; it reads in the re-engage colour of the legend."
+
+steps:
+  - id: states
+    action: "passStates with back and red-accepted; FlowState back; NodeDetail pill; CSS."
+  - id: cause
+    action: "tail cause line; tailDetail summary doc; fallback note."
+  - id: tests
+    action: "Red then green in attemptFlowLayout.test.ts and the graph tests; pnpm test the tickets folder; pnpm build."
+
+tests:
+  - "attemptFlowLayout_ReengagedPassAllMet_VerifyIsBack"
+  - "attemptFlowLayout_RedAccepted_VerifyIsBad"
+  - "attemptFlowLayout_FailedAttemptWithSummary_EndNodeCarriesTheCauseLine"
+  - "NodeDetail_FailedTail_ShowsTheWholeSummary"
+  - "AttemptFlowGraph_NoCutWithSummary_NoteSaysTheCause"
+
+done:
+  - "A re-engaged verify is amber, a rejected or accepted-red verify is red, and the red end node of a failed attempt reads its cause in one line with the whole text in its detail."
+  - "Build green, full suite green, dashboard gen/test/build green."

@@ -18,6 +18,11 @@ import { markdownComponents } from "./Markdown";
 
 const trackerComponents = {
   ...markdownComponents,
+  // 2026-10-16-7ed3c: an anchor that goes nowhere — a tracker mention (<a href="#" data-vss-mention>@Name</a>) — reads
+  // as its text: "@Name", no link.
+  a: (p: { href?: string; children?: ReactNode }) => (
+    !p.href || p.href === "#" ? <span>{p.children}</span> : markdownComponents.a(p)
+  ),
   li: (p: { className?: string; children?: ReactNode }) => (
     <li className={p.className === "task-list-item" ? "list-none -ml-5" : undefined}>{p.children}</li>
   ),
