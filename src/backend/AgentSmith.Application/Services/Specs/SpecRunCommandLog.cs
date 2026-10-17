@@ -41,7 +41,12 @@ public sealed class SpecRunCommandLog
         return output;
     }
 
-    public void Record(string? repo, string command, string? output)
+    public void Record(string? repo, string command, string? output) =>
+        Record(repo, command, output, ExitCode(output));
+
+    /// <summary>2026-10-17-a196c: a command whose exit code is known apart from its output — a declared gate
+    /// stage, whose output carries no exit_code header.</summary>
+    public void Record(string? repo, string command, string? output, int? exitCode)
     {
         if (string.IsNullOrWhiteSpace(command)) return;
         lock (_sync)
@@ -49,7 +54,7 @@ public sealed class SpecRunCommandLog
             _ran++;
             Entries.Add(new SpecRunCommandEntry(repo ?? string.Empty,
                 SpecRunCommandBudget.Capped(command.Trim()),
-                SpecRunCommandBudget.Tail(output), ExitCode(output)));
+                SpecRunCommandBudget.Tail(output), exitCode));
             SpecRunCommandBudget.Fit(Entries);
         }
     }

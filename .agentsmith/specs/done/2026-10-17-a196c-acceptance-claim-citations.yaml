@@ -54,8 +54,8 @@ scope:
     pre-check, the evidence read and the objected-once flag, so MasterReengagementLoop (108 lines, limit 120) gains a
     call; it yields lines only when the acceptance gate is satisfied and only until it has objected once in this step.
     ReengageReasonPolicy.Decide takes the lines as a required
-    parameter and re-engages with MasterPassReasons.UnresolvedClaims when there are any (ShouldReengage passes them
-    through; its test callers pass none). ReengagePass.RunAsync takes the lines and leads that pass's nudge with them, the
+    parameter and re-engages with MasterPassReasons.UnresolvedClaims when there are any (ShouldReengage, a test-only
+    reading, passes none and stays the claims-free predicate). ReengagePass.RunAsync takes the lines and leads that pass's nudge with them, the
     accepted form, and the last 30 command lines the master may cite exactly as SpecRunCommandLog.Evidence renders them (an
     AcceptanceClaimNudge type; MasterNudges is untouched). flowWords names the new reason. SKILLS (branch
     spec/2026-10-17-a196, unreleased): coding-agent-master's verdict entry gains "citations" — changed paths, or commands
@@ -82,7 +82,7 @@ steps:
   - id: check
     action: "AcceptanceClaimCheck, AcceptanceClaimObjection, AcceptanceClaimNudge, DI; tests first."
   - id: loop
-    action: "MasterPassReasons.UnresolvedClaims, ReengageReasonPolicy and ShouldReengage, MasterReengagementLoop, ReengagePass; flowWords."
+    action: "MasterPassReasons.UnresolvedClaims, ReengageReasonPolicy, MasterReengagementLoop, ReengagePass; flowWords."
   - id: skill
     action: "coding-agent-master verdict format and evidence instructions on the skills branch; commit there."
   - id: tests

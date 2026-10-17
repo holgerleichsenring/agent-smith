@@ -128,7 +128,14 @@ internal static class MasterHandlerFixture
         IAgenticLoopRunner loop, AgentSmith.Application.Services.Passes.MasterPassRecorder recorder) =>
         new(new ReengagePass(loop, new SandboxWorkingTreeReader(NullLogger<SandboxWorkingTreeReader>.Instance),
                 new ReengageStopLog(NullLogger<ReengageStopLog>.Instance), NullLogger<ReengagePass>.Instance),
-            recorder, new ReengageStopLog(NullLogger<ReengageStopLog>.Instance));
+            recorder, new ReengageStopLog(NullLogger<ReengageStopLog>.Instance), Objection());
+
+    /// <summary>2026-10-17-a196c: the real claim objection over the real collaborators.</summary>
+    internal static AcceptanceClaimObjection Objection() =>
+        new(new AcceptanceClaimEvidence(new SpecSandboxes(new SandboxTargets()), AgentSmith.Tests.TestHelpers.TestGit.Delivery,
+                new SandboxWorkingTreeReader(NullLogger<SandboxWorkingTreeReader>.Instance),
+                NullLogger<AcceptanceClaimEvidence>.Instance),
+            new AcceptanceClaimCheck());
 
     /// <summary>2026-10-13-9a59f: no spec frame by default, so a handler test records no pass.</summary>
     internal static AgentSmith.Application.Services.Passes.MasterPassRecorder Recorder(

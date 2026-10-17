@@ -24,9 +24,9 @@ public sealed class ReengageReasonPolicyTests
 
     private static ReengageDecision Decide(
         ProgressLedger ledger, MasterVerification? verdict, IReadOnlyList<string> criteria,
-        IReadOnlyList<CodeChange> changes, int pass = 1) =>
+        IReadOnlyList<CodeChange> changes, int pass = 1, IReadOnlyList<string>? claims = null) =>
         ReengageReasonPolicy.Decide(PipelinePresets.CodeName, ledger, verdict, budgetExhausted: false, criteria, changes,
-            pass, verdictDemandedInPass: false);
+            pass, verdictDemandedInPass: false, claims ?? []);
 
     [Fact]
     public void Reengage_RedWithOpenSteps_NamesThatReason() =>
@@ -42,6 +42,21 @@ public sealed class ReengageReasonPolicyTests
     public void Reengage_GateUnsatisfied_NamesThatReason() =>
         Decide(Ledger(ProgressStatus.Done), Verdict(VerificationStatus.Green), Criteria, Changed)
             .Should().Be(new ReengageDecision(true, MasterPassReasons.GateUnsatisfied));
+
+    /// <summary>2026-10-17-a196c: a satisfied gate whose met claims cite nothing that ran is driven once more.</summary>
+    [Fact]
+    public void ReengageReasonPolicy_GateSatisfiedWithUnresolvedClaims_ReengagesForThem()
+    {
+        var met = Verdict(VerificationStatus.Green) with
+        {
+            AcceptanceDispositions = [new AcceptanceDisposition("it builds", AcceptanceStatus.Met, "built")],
+        };
+
+        Decide(Ledger(ProgressStatus.Done), met, Criteria, Changed, claims: ["it builds: claimed satisfied by 'x'"])
+            .Should().Be(new ReengageDecision(true, MasterPassReasons.UnresolvedClaims));
+        Decide(Ledger(ProgressStatus.Done), met, Criteria, Changed)
+            .Should().Be(new ReengageDecision(false, MasterPassReasons.NothingLeft));
+    }
 
     [Fact]
     public void Reengage_RedDrainedLedger_StopsRedAccepted() =>
@@ -61,7 +76,7 @@ public sealed class ReengageReasonPolicyTests
     public void Reengage_BudgetAndNothingLeft_AreNamedStops()
     {
         ReengageReasonPolicy.Decide(PipelinePresets.CodeName, Ledger(ProgressStatus.Pending), Verdict(VerificationStatus.Failed),
-            budgetExhausted: true, [], [], 1, false).Should().Be(new ReengageDecision(false, MasterPassReasons.Budget));
+            budgetExhausted: true, [], [], 1, false, []).Should().Be(new ReengageDecision(false, MasterPassReasons.Budget));
         Decide(Ledger(ProgressStatus.Done), Verdict(VerificationStatus.Green), [], [])
             .Should().Be(new ReengageDecision(false, MasterPassReasons.NothingLeft));
     }
