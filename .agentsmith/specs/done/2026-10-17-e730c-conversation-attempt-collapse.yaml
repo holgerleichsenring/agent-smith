@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-17-e730c
+goal: "On the Conversation tab every finished attempt folds to one line naming its outcome, cause and entry count; only the current attempt stays open, and a click opens any other in place."
+
+applies_to: "dashboard (ConversationList, a pure conversationGroups helper, conversationWords, mock-parity.css)"
+
+requires: [2026-10-17-e730b]
+
+facts:
+  - claim: "The list builds groups before / one per conversation attempt / now, renders each with a .c-att head (Attempt n and the attemptPill) and its entries; before and now are dropped when empty, an attempt group is drawn even with no entry."
+    evidence: "src/dashboard/src/components/tickets/detail/ConversationList.tsx:30-37, src/dashboard/src/components/tickets/detail/ConversationList.tsx:62-73"
+  - claim: "attemptPill gives the attempt's tone and status words (handed back, ended on infrastructure, failed, ...)."
+    evidence: "src/dashboard/src/components/tickets/detail/conversationWords.ts:95-105"
+  - claim: "Each detail attempt carries its run's verbatim summary and endKind (86e6a) and its pending question; summaryLine is the first non-empty line of the formatted summary, the form the flow graph and the attempt chips show."
+    evidence: "src/dashboard/src/types/tickets.ts:223-240, src/dashboard/src/lib/formatRunSummary.ts:30-34, src/dashboard/src/components/tickets/detail/attemptChips.ts:39"
+  - claim: "A run is live while its status is not terminal."
+    evidence: "src/dashboard/src/lib/runLiveness.ts:17-20"
+  - claim: "One chip per source filters the entries; the filter is component state."
+    evidence: "src/dashboard/src/components/tickets/detail/conversationWords.ts:15-22, src/dashboard/src/components/tickets/detail/ConversationList.tsx:20-24"
+  - claim: "conversation.attempts and detail.attempts come from one attempt numbering; the conversation is re-read only after a landed detail shows a moved status."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Conversation/TicketConversationReader.cs:33, src/backend/AgentSmith.Server/Services/Tickets/TicketDetailReader.cs:41, src/dashboard/src/lib/tickets/TicketPageReads.ts:233-240"
+  - claim: "The started-attempt footer test puts its entries under attempt 1 while attempt 2 is the newest."
+    evidence: "src/dashboard/src/components/tickets/detail/__tests__/TicketConversationTab.test.tsx:389-404"
+
+scope:
+  in: >
+    WORDS (conversationGroups.ts, pure): from the conversation, the detail, the filter source and the causeOf target
+    entry, each group's key, head, pill, entries (filtered), count (of the filtered entries), cause line (summaryLine
+    of the detail attempt's summary), and whether it is open by default. CURRENT is the newest live detail attempt
+    that has a conversation attempt (the conversation is re-read after the detail, so a just-started attempt may
+    have no group yet), else the newest conversation attempt. Default open, with filter All: the current attempt's group, the now group, the before group when no
+    attempt group exists, a group holding the causeOf target, and the group of an attempt with a pending question.
+    With any other filter: every group with a matching entry. The reader's own toggles override the default and are
+    cleared when the filter changes. RENDER: an attempt or before group's .c-att head holds one toggle button
+    (.c-toggle, aria-expanded, data-testid conv-toggle-{key}) spanning the line and reading "▸ Attempt 3 · <pill> · <cause line> · 1 entry" closed and
+    "▾ Attempt 3 · <pill>" open, "Attempt 3" in its own span; the cause span sets text-transform none and
+    letter-spacing normal and ellipsizes on one line; the button inherits font, case, letter-spacing and colour from .c-att and has min-width 0; a group with no entry
+    draws the line without a button ("no entries"). A closed group draws no entries. The now group keeps its plain head.
+  out: "Repeated-cause wording (e730e). The Attempts tab's collapse (86e6d) is unchanged."
+
+decisions:
+  - key: "A NARROWING FILTER OPENS WHAT IT FOUND. A reader who picks Questions asked to see the questions; folding them away would answer the filter with nothing. With All the default fold applies again."
+  - key: "TOGGLES BELONG TO ONE FILTER. A fold the reader chose under All is cleared on a filter change, so a narrowing filter never hides its matches behind an earlier click."
+  - key: "OPEN BY RECORDED FIELDS. Current = live status else newest; a pending question is the attempt's pendingQuestion; the cause target is causeEntryOf. No text is read."
+
+steps:
+  - id: words
+    action: "conversationGroups.ts with its tests."
+  - id: list
+    action: "ConversationList renders from it, holds the toggles, clears them on filter change; CSS .c-toggle and .c-cause from the .c-att rule."
+  - id: tests
+    action: "Red then green; update AStartedAttemptFooter to open attempt 1 first (Entries_Group's getByText('Attempt 2') holds through the span); pnpm test the tickets folder; pnpm build."
+
+tests:
+  - "conversationGroups_All_OpensOnlyTheCurrentAttemptAndNow"
+  - "conversationGroups_LiveAttempt_IsCurrentOverTheNewest_OnlyOnceItHasAGroup"
+  - "conversationGroups_OnlyBefore_IsOpen"
+  - "conversationGroups_PendingQuestionOrCauseTarget_OpensItsGroup"
+  - "conversationGroups_NarrowingFilter_OpensEveryGroupWithAMatch"
+  - "ConversationList_ClosedAttempt_ReadsOneLineWithPillCauseAndCount_AndAClickOpensIt"
+  - "ConversationList_FilterChange_ClearsTheReadersToggles"
+
+done:
+  - "A ticket with many attempts shows earlier attempts as one line each with outcome, cause and count; the current attempt's entries are open; any line opens in place."
+  - "Dashboard test and build green; full gate green."

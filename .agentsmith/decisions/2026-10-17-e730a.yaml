@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-17-e730a
+
+decisions:
+  - category: Architecture
+    chose: "position:sticky; bottom:0 on a dock that wraps the composer, inside the tab pane"
+    over: "position:fixed with a list padding equal to the composer's height"
+    reason: |
+      The page scrolls in the layout's main element and nothing between it and the tab pane sets overflow, so sticky
+      holds. Sticky keeps the dock in the pane's flow: at the end of the thread the last entry sits above it with no
+      padding to keep in step with a composer whose height changes (working lines, question cards).
+  - category: Implementation
+    chose: "Two layers: a sticky outer .conv-dock with no overflow, an inner .conv-dock-body capped at 50vh that scrolls"
+    over: "One sticky layer with max-height and overflow (first draft, 70vh)"
+    reason: |
+      Review: overflow on the sticky layer would clip the jump button e730f places above it; 70vh left about 190px
+      of thread on a laptop screen.
+  - category: Scope
+    chose: "Keep env(safe-area-inset-bottom) padding, change nothing in the shell"
+    over: "Exporting viewport-fit cover and a phone layout for the rail"
+    reason: |
+      The shell keeps a fixed 230px rail at every width and exports no viewport-fit cover, so the inset is 0 today.
+      Both are app-wide changes affecting every page; the dock has no min-width and works in any pane width, and the
+      padding takes effect once the shell opts in.

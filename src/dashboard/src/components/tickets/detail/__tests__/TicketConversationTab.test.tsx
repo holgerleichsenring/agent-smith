@@ -321,7 +321,7 @@ describe("Ticket conversation tab", () => {
     expect(screen.getByTestId("conv-group-now")).toHaveTextContent("in the ticket conversation");
   });
 
-  it("CauseOf_ScrollsToTheEntryThatIsThatAttemptsCause_WithNoMatchItStaysAtTheTop", async () => {
+  it("CauseOf_ScrollsToTheEntryThatIsThatAttemptsCause_WithNoMatchItOpensAtTheNewest", async () => {
     const scrolled = vi.fn();
     Element.prototype.scrollIntoView = scrolled;
     world.detail = detail([attempt(), attempt({ number: 2, runId: "r-2", cause: prCause })]);
@@ -336,12 +336,17 @@ describe("Ticket conversation tab", () => {
     await open();
     expect(scrolled).toHaveBeenCalledTimes(1);
     expect((scrolled.mock.instances[0] as unknown as HTMLElement).getAttribute("data-entry-id")).toBe("pr-review:k:c-77");
+    expect(screen.getAllByTestId("conv-entry").filter((e) => e.getAttribute("data-target") === "true")
+      .map((e) => e.getAttribute("data-entry-id"))).toEqual(["pr-review:k:c-77"]);
+    expect(screen.getAllByTestId("conv-entry").find((e) => e.getAttribute("data-entry-id") === "pr-review:k:c-77")).toHaveClass("target");
 
     cleanup();
     scrolled.mockClear();
     nav.search = "tab=conversation&causeOf=r-1";
     await open();
-    expect(scrolled).not.toHaveBeenCalled();
+    expect(scrolled).toHaveBeenCalledTimes(1);
+    expect(scrolled.mock.instances[0]).toBe(screen.getByTestId("conv-end"));
+    expect(screen.queryAllByTestId("conv-entry").some((e) => e.getAttribute("data-target") === "true")).toBe(false);
   });
 
   it("AWorkersLaterAnswerComment_ShowsUnderTheTicketChip_AsAnAgentEntry", async () => {
@@ -396,6 +401,7 @@ describe("Ticket conversation tab", () => {
       attempts: [{ runId: "r-1", number: 1, cause: null, revision: null }, { runId: "r-2", number: 2, cause: prCause, revision: null }],
     };
     await open();
+    fireEvent.click(screen.getByTestId("conv-toggle-r-1"));
     const footers = screen.getAllByTestId("conv-started");
     expect(footers).toHaveLength(1);
     expect(footers[0]).toHaveTextContent("started attempt 2");
@@ -485,5 +491,208 @@ describe("Ticket conversation tab", () => {
     identity.heldIn = { other: ["runs.control"] };
     await open();
     expect(screen.queryByTestId("ticket-retry")).toBeNull();
+  });
+});
+
+// 2026-10-17-e730a..f: reading a long conversation — the docked composer, opening at the newest, folded attempts,
+// clamped entries, the repeated cause and the jump to the newest.
+describe("Ticket conversation reading", () => {
+  it("ConversationDock_HoldsTheComposer_AsTheTabsLastBlockBeforeTheEndAnchor", async () => {
+    await open();
+    const dock = screen.getByTestId("conv-dock");
+    expect(within(dock).getByTestId("ticket-composer")).toBeInTheDocument();
+    expect(dock.nextElementSibling).toBe(screen.getByTestId("conv-end"));
+    expect(dock.parentElement?.lastElementChild).toBe(screen.getByTestId("conv-end"));
+  });
+
+  it("OpeningTheTab_ScrollsTheEndAnchorIntoView_OnceTheConversationIsRead", async () => {
+    const scrolled = vi.spyOn(Element.prototype, "scrollIntoView");
+    world.conversation = conversation([entry({ id: "a" }), entry({ id: "b", text: "Newest words" })]);
+    await open();
+    expect(scrolled).toHaveBeenCalledTimes(1);
+    expect(scrolled.mock.instances[0]).toBe(screen.getByTestId("conv-end"));
+    expect(scrolled.mock.calls[0][0]).toEqual({ block: "end" });
+    scrolled.mockRestore();
+  });
+
+  it("OpeningTheTab_WithAPendingQuestion_ScrollsTheQuestionCardIntoView", async () => {
+    const scrolled = vi.spyOn(Element.prototype, "scrollIntoView");
+    const question = { questionId: "q", type: "FreeText", text: "Keep the Postgres outbox?", context: null, choices: [], defaultAnswer: null, askedAt: "2026-09-04T14:10:00Z", answerDeadlineAt: "2026-09-05T14:10:00Z" };
+    world.detail = detail([attempt({ status: "waiting_for_input", finishedAt: null, pendingQuestion: question })]);
+    identity.lacks = ["runs.control"];
+    world.conversation = conversation([entry({ id: "a" })]);
+    await open();
+    expect(scrolled).toHaveBeenCalledTimes(1);
+    expect((scrolled.mock.instances[0] as unknown as HTMLElement).contains(screen.getByTestId("conv-question-text"))).toBe(true);
+    expect(scrolled.mock.calls[0][0]).toEqual({ block: "start" });
+    scrolled.mockRestore();
+  });
+
+  it("AConversationReRead_DoesNotScrollAgain", async () => {
+    const scrolled = vi.spyOn(Element.prototype, "scrollIntoView");
+    const one = [{ runId: "r-1", number: 1, cause: null, revision: null }];
+    world.conversation = { ...conversation([entry({ id: "a" })]), attempts: one };
+    const hub = await open();
+    expect(scrolled).toHaveBeenCalledTimes(1);
+    world.conversation = { ...conversation([entry({ id: "a" }), entry({ id: "b" })]), attempts: one };
+    hub.ticketActivityChanged.emit({ project: "shop", ticketKey: "GH-101" });
+    await settle(5000);
+    expect(screen.getAllByTestId("conv-entry")).toHaveLength(2);
+    expect(scrolled).toHaveBeenCalledTimes(1);
+    scrolled.mockRestore();
+  });
+
+  it("ConversationDock_HoldsTheHiddenNote_WhenTheTranscriptIsHidden", async () => {
+    world.conversation = { ...conversation([]), transcriptHidden: true };
+    await open();
+    expect(within(screen.getByTestId("conv-dock")).getByTestId("conv-hidden")).toBeInTheDocument();
+    expect(screen.queryByTestId("ticket-composer")).toBeNull();
+  });
+
+  it("ConversationList_ClosedAttempt_ReadsOneLineWithPillCauseAndCount_AndAClickOpensIt", async () => {
+    world.detail = detail([
+      attempt({ status: "failed", summary: "Preflight failed: context-image-trust\nthe registry is not trusted" }),
+      attempt({ number: 2, runId: "r-2", status: "failed" }),
+    ]);
+    world.conversation = {
+      ...conversation([entry({ id: "a", attemptRunId: "r-1", text: "first words" }), entry({ id: "b", attemptRunId: "r-2", text: "second words" })]),
+      attempts: [{ runId: "r-1", number: 1, cause: null, revision: null }, { runId: "r-2", number: 2, cause: null, revision: null }],
+    };
+    await open();
+    const toggle = screen.getByTestId("conv-toggle-r-1");
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(toggle).toHaveTextContent("Attempt 1failed· Preflight failed: context-image-trust· 1 entry");
+    expect(within(screen.getByTestId("conv-group-r-1")).queryAllByTestId("conv-entry")).toHaveLength(0);
+    expect(within(screen.getByTestId("conv-group-r-2")).getAllByTestId("conv-entry")).toHaveLength(1);
+    expect(screen.getByTestId("conv-toggle-r-2")).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.click(toggle);
+    expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(toggle).not.toHaveTextContent("1 entry");
+    expect(within(screen.getByTestId("conv-group-r-1")).getByTestId("conv-entry")).toHaveTextContent("first words");
+  });
+
+  it("ConversationList_FilterChange_ClearsTheReadersToggles", async () => {
+    world.detail = detail([attempt({ status: "failed" }), attempt({ number: 2, runId: "r-2", status: "failed" })]);
+    world.conversation = {
+      ...conversation([
+        entry({ id: "a", attemptRunId: "r-1" }),
+        entry({ id: "t", source: "ticket", kind: "comment", role: "person", attemptRunId: "r-1", text: "A comment" }),
+        entry({ id: "b", attemptRunId: "r-2" }),
+      ]),
+      attempts: [{ runId: "r-1", number: 1, cause: null, revision: null }, { runId: "r-2", number: 2, cause: null, revision: null }],
+    };
+    await open();
+    fireEvent.click(screen.getByTestId("conv-toggle-r-2"));
+    expect(within(screen.getByTestId("conv-group-r-2")).queryAllByTestId("conv-entry")).toHaveLength(0);
+
+    fireEvent.click(screen.getByTestId("conv-filter-ticket"));
+    expect(screen.getAllByTestId("conv-entry").map((e) => e.getAttribute("data-entry-id"))).toEqual(["t"]);
+    expect(screen.getByTestId("conv-line-r-2")).toHaveTextContent("no entries");
+
+    fireEvent.click(screen.getByTestId("conv-filter-all"));
+    expect(within(screen.getByTestId("conv-group-r-2")).getAllByTestId("conv-entry")).toHaveLength(1);
+    expect(within(screen.getByTestId("conv-group-r-1")).queryAllByTestId("conv-entry")).toHaveLength(0);
+  });
+
+  it("ConversationList_SameCause_ReadsSameCauseAsA1_AndTheLinkOpensA1_SmoothOrInstantUnderReducedMotion", async () => {
+    const cause = { status: "failed", summary: "Preflight failed: context-image-trust", endKind: "image-untrusted" };
+    world.detail = detail([
+      attempt({ ...cause }), attempt({ number: 2, runId: "r-2", ...cause }), attempt({ number: 3, runId: "r-3", ...cause }),
+    ]);
+    world.conversation = {
+      ...conversation([entry({ id: "a", attemptRunId: "r-1", text: "first words" }), entry({ id: "b", attemptRunId: "r-2" }), entry({ id: "c", attemptRunId: "r-3" })]),
+      attempts: [1, 2, 3].map((n) => ({ runId: `r-${n}`, number: n, cause: null, revision: null })),
+    };
+    let reduced = false;
+    window.matchMedia = vi.fn((query: string) => ({ matches: reduced && query.includes("reduce") }) as MediaQueryList);
+    await open();
+    expect(screen.getByTestId("conv-toggle-r-1")).toHaveTextContent("Preflight failed: context-image-trust");
+    expect(screen.getByTestId("conv-toggle-r-2")).not.toHaveTextContent("Preflight failed");
+    expect(screen.getByTestId("conv-same-r-2")).toHaveTextContent("Same cause as A1");
+    expect(screen.queryByTestId("conv-same-r-3")).toBeNull();
+
+    const scrolled = vi.spyOn(Element.prototype, "scrollIntoView");
+    fireEvent.click(screen.getByTestId("conv-same-r-2"));
+    await settle();
+    expect(screen.getByTestId("conv-toggle-r-1")).toHaveAttribute("aria-expanded", "true");
+    expect(within(screen.getByTestId("conv-group-r-1")).getByTestId("conv-entry")).toHaveTextContent("first words");
+    expect(scrolled.mock.instances.at(-1)).toBe(screen.getByTestId("conv-group-r-1"));
+    expect(scrolled.mock.calls.at(-1)?.[0]).toEqual({ block: "start", behavior: "smooth" });
+
+    reduced = true;
+    fireEvent.click(screen.getByTestId("conv-toggle-r-1"));
+    fireEvent.click(screen.getByTestId("conv-same-r-2"));
+    await settle();
+    expect(scrolled.mock.calls.at(-1)?.[0]).toEqual({ block: "start", behavior: "auto" });
+    scrolled.mockRestore();
+    delete (window as { matchMedia?: unknown }).matchMedia;
+  });
+
+  describe("newest button", () => {
+    // jsdom lays nothing out: the list's end sits at `listEnd`, the dock's top at 600.
+    const layout = { listEnd: 500 };
+    const scrollUp = () => act(() => { layout.listEnd = 1400; document.dispatchEvent(new Event("scroll")); });
+    const scrollToEnd = () => act(() => { layout.listEnd = 500; document.dispatchEvent(new Event("scroll")); });
+    const one = [{ runId: "r-1", number: 1, cause: null, revision: null }];
+    const withEntries = (...ids: string[]) => ({ ...conversation(ids.map((id) => entry({ id }))), attempts: one });
+
+    beforeEach(() => {
+      layout.listEnd = 500;
+      vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(function (this: Element) {
+        const id = this.getAttribute("data-testid");
+        const top = id === "conv-sentinel" ? layout.listEnd : id === "conv-dock" ? 600 : 0;
+        return { top, bottom: top, left: 0, right: 0, width: 0, height: 0, x: 0, y: top, toJSON: () => ({}) } as DOMRect;
+      });
+    });
+    afterEach(() => vi.restoreAllMocks());
+
+    it("NewestButton_HiddenAtTheEnd_ShownWhenScrolledUp", async () => {
+      world.conversation = withEntries("a", "b");
+      await open();
+      expect(screen.queryByTestId("conv-newest")).toBeNull();
+      scrollUp();
+      expect(screen.getByTestId("conv-newest")).toHaveTextContent(/^↓ Newest$/);
+      expect(screen.getByTestId("conv-dock")).toContainElement(screen.getByTestId("conv-newest"));
+      scrollToEnd();
+      expect(screen.queryByTestId("conv-newest")).toBeNull();
+    });
+
+    it("NewestButton_CountsEntriesThatArrivedSinceTheEnd_NotThoseThereAtMount", async () => {
+      world.conversation = withEntries("a");
+      const hub = await open();
+      scrollUp();
+      world.conversation = withEntries("a", "b", "c");
+      hub.ticketActivityChanged.emit({ project: "shop", ticketKey: "GH-101" });
+      await settle(5000);
+      expect(screen.getByTestId("conv-newest")).toHaveTextContent("↓ Newest · 2 new");
+
+      scrollToEnd();
+      scrollUp();
+      expect(screen.getByTestId("conv-newest")).toHaveTextContent(/^↓ Newest$/);
+    });
+
+    it("NewestButton_ConversationReadAfterMount_WhileAwayFromTheEnd_CountsNothing", async () => {
+      layout.listEnd = 1400;
+      world.conversation = withEntries("a", "b", "c");
+      await open();
+      expect(screen.getByTestId("conv-newest")).toHaveTextContent(/^↓ Newest$/);
+    });
+
+    it("NewestButton_Click_ScrollsTheEndAnchor_SmoothOrInstantUnderReducedMotion", async () => {
+      let reduced = false;
+      window.matchMedia = vi.fn(() => ({ matches: reduced }) as MediaQueryList);
+      world.conversation = withEntries("a");
+      await open();
+      scrollUp();
+      const scrolled = vi.spyOn(Element.prototype, "scrollIntoView");
+      fireEvent.click(screen.getByTestId("conv-newest"));
+      expect(scrolled.mock.instances.at(-1)).toBe(screen.getByTestId("conv-end"));
+      expect(scrolled.mock.calls.at(-1)?.[0]).toEqual({ block: "end", behavior: "smooth" });
+      reduced = true;
+      fireEvent.click(screen.getByTestId("conv-newest"));
+      expect(scrolled.mock.calls.at(-1)?.[0]).toEqual({ block: "end", behavior: "auto" });
+      delete (window as { matchMedia?: unknown }).matchMedia;
+    });
   });
 });
