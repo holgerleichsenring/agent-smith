@@ -80,7 +80,7 @@ public sealed class SpecSetDeriver(
             var parsed = parser.Parse(
                 response.Text, key, series, ticket.Id.Value, segments,
                 previous is null ? SpecSource.Derived : SpecSource.BranchArtifact,
-                previous?.ExecutedHead, look?.Evidence.Lines, repositories,
+                previous?.ExecutedHead, look?.Evidence.Looks, repositories,
                 pipeline.TryGet<IReadOnlyList<string>>(ContextKeys.SpecTakenIds, out var taken) ? taken : null);
             if (parsed.Derivation is null)
             {

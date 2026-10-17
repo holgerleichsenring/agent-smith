@@ -81,7 +81,7 @@ public sealed class DerivationFactsTests
         var reply = Reply(facts: null);
 
         var before = _parser.Parse(reply, "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived);
-        var after = _parser.Parse(reply, "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived, null, [Minted]);
+        var after = _parser.Parse(reply, "azdo-19106", "2026-10-06-9106", "19106", segments, SpecSource.Derived, null, MintedLooks.Ran(Minted));
 
         after.Error.Should().BeNull();
         after.Derivation!.Set.Specs[0].Draft.Yaml.Should().Be(before.Derivation!.Set.Specs[0].Draft.Yaml,
@@ -105,10 +105,44 @@ public sealed class DerivationFactsTests
         reread.Done.Should().Equal("The manifests carry versions the audit no longer flags.");
     }
 
-    private SpecSet Parse(string reply, IReadOnlyList<string> evidence)
+    // 2026-10-17-293bc: an unrestored project's .NET audit — the look the live refusal rested on.
+    private const string CouldNotRun =
+        "[L2] worker: the derivation ran 'dotnet list package --vulnerable --format json' exited 1 and could not run, so it proves nothing";
+
+    [Fact]
+    public void Facts_ALineCitingALookThatCouldNotRun_IsUnsettled()
+    {
+        var set = Parse(Reply("""{"claim": "the advisory audit could not run because the assets are not restored", "cites": "L2"}"""),
+            [MintedLooks.Of(Minted, ran: true), MintedLooks.Of(CouldNotRun, ran: false)]);
+
+        var draft = set.Specs[0].Draft;
+        draft.Facts.Should().BeEmpty();
+        draft.Assumptions.Should().BeEmpty();
+        draft.Yaml.Should().Contain("unsettled:").And.Contain(CouldNotRun).And.NotContain("facts:");
+        SpecPremises.For(draft).Claims.Should().NotContain(c => c.Contains("could not run"),
+            "a tool that runs later is not the code contradicting the spec");
+    }
+
+    [Theory]
+    [InlineData("L1, L2", true)]
+    [InlineData("L2", false)]
+    public void Facts_ALineCitingAFailedAndARanLook_IsAFact(string cites, bool isFact)
+    {
+        var set = Parse(Reply($$"""{"claim": "one direct package is affected", "cites": "{{cites}}"}"""),
+            [MintedLooks.Of(Minted, ran: true), MintedLooks.Of(CouldNotRun, ran: false)]);
+
+        var draft = set.Specs[0].Draft;
+        draft.Facts.Should().HaveCount(isFact ? 1 : 0);
+        if (isFact) draft.Facts[0].Evidence.Should().Be(Minted, "the look that ran is what the fact rests on");
+        draft.Yaml.Contains("unsettled:").Should().Be(!isFact);
+    }
+
+    private SpecSet Parse(string reply, IReadOnlyList<string> evidence) => Parse(reply, MintedLooks.Ran([.. evidence]));
+
+    private SpecSet Parse(string reply, IReadOnlyList<EvidenceLook> looks)
     {
         var parsed = _parser.Parse(
-            reply, "azdo-19106", "2026-10-06-9106", "19106", TicketSegmenter.Segment(Ticket), SpecSource.Derived, null, evidence);
+            reply, "azdo-19106", "2026-10-06-9106", "19106", TicketSegmenter.Segment(Ticket), SpecSource.Derived, null, looks);
         parsed.Error.Should().BeNull();
         return parsed.Derivation!.Set;
     }

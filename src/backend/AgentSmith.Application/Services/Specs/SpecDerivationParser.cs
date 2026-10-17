@@ -27,9 +27,9 @@ public sealed class SpecDerivationParser(
     /// are assigned by position, so the head keeps its identity by construction.
     /// </param>
     /// <param name="evidence">
-    /// 2026-09-07-b7e2: the evidence lines the framework minted for the looks this
-    /// derivation took. A fact line citing one of their ids is a fact; any other is an
-    /// assumption. Null or empty — a reply from a catalog that never looked — resolves
+    /// 2026-09-07-b7e2: the looks this derivation took, as the framework minted them (2026-10-17-293bc:
+    /// structured, so <see cref="FactResolver"/> can tell a look that ran from one that could not).
+    /// A fact line citing none of their ids is an assumption. Null or empty — a reply from a catalog that never looked — resolves
     /// every fact line to an assumption and nothing else changes.
     /// </param>
     /// <param name="scope">2026-10-12-3a36e: the scope's repository names; see <see cref="SpecReposRule"/>.</param>
@@ -37,7 +37,7 @@ public sealed class SpecDerivationParser(
     public Parsed Parse(
         string? reply, string key, string series, string ticketId, IReadOnlyList<TicketSegment> segments,
         SpecSource source, IReadOnlyList<DerivedSpec>? executedHead = null,
-        IReadOnlyList<string>? evidence = null, IReadOnlyList<string>? scope = null,
+        IReadOnlyList<EvidenceLook>? evidence = null, IReadOnlyList<string>? scope = null,
         IReadOnlyList<string>? taken = null)
     {
         if (string.IsNullOrWhiteSpace(reply))
@@ -70,7 +70,7 @@ public sealed class SpecDerivationParser(
         var handback = envelope.Handback(root);
         if (handback is not null)
         {
-            var cited = ContradictionCitations.Resolve(handback, envelope.HandbackCites(root), inputs.Evidence);
+            var cited = ContradictionCitations.Resolve(handback, envelope.HandbackCites(root), inputs.Evidence?.Select(l => l.Line).ToList());
             return new Parsed(
                 new SpecDerivation(
                     new SpecSet(owner.Key, [], SpecAccounting.Empty, [Initial()], source,
@@ -92,12 +92,13 @@ public sealed class SpecDerivationParser(
         if (specElements.Count < executedHead.Count)
             return new Parsed(null,
                 $"the reply has {specElements.Count} spec(s) but {executedHead.Count} already ran — repeat them first");
+        var shared = SpecJsonReader.ReadInts(root, "shared"); // 2026-10-17-293ba: what every spec carries; [] from an older catalog
         var (built, error) = specs.Build(
-            specElements, executedHead, owner.Series, ticketId, segments, inputs.Evidence, inputs.Scope, inputs.Taken);
+            specElements, executedHead, owner.Series, ticketId, segments, inputs.Evidence, inputs.Scope, inputs.Taken, shared);
         if (built is null) return new Parsed(null, error);
 
         var accounting = SpecAccountingBuilder.Build(
-            built, envelope.Discarded(root), segments, envelope.DiscardedContexts(root));
+            built, envelope.Discarded(root), segments, envelope.DiscardedContexts(root), shared);
         var contract = contracts.FromReply(root, built, executedHead);
         return new Parsed(
             new SpecDerivation(
@@ -112,7 +113,7 @@ public sealed class SpecDerivationParser(
     /// <summary>The ticket key and the series' base id the parsed set belongs to.</summary>
     private sealed record SeriesOf(string Key, string Series);
 
-    private sealed record SpecInputs(IReadOnlyList<string>? Evidence, IReadOnlyList<string> Scope, IReadOnlyList<string> Taken);
+    private sealed record SpecInputs(IReadOnlyList<EvidenceLook>? Evidence, IReadOnlyList<string> Scope, IReadOnlyList<string> Taken);
 
     private static SpecRevision Initial() =>
         new(1, SpecRevisionCause.Initial, DateTimeOffset.UtcNow);

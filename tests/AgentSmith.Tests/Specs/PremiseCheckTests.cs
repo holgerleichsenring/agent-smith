@@ -147,6 +147,36 @@ public sealed class PremiseCheckTests
     }
 
     [Fact]
+    public async Task Admit_AFindingAgainstAnUnsettledClaim_IsUnproven()
+    {
+        // 2026-10-17-293bc, the live refusal: the derivation's audit could not run, the claim it
+        // wrote about that rests under 'unsettled', and the checker's own audit now runs clean.
+        const string Unsettled = "the advisory audit could not run because the assets are not restored";
+        var draft = new AgentSmith.Application.Services.SpecDialog.SpecDraftReader().Read($"""
+            spec: {SpecId}
+            goal: "move the dispatch out of the handler"
+            done: ["the dispatch no longer runs inside the handler"]
+            facts:
+              - claim: "OrderHandler validates the payload before dispatch"
+                evidence: "[L1] Sample.Server: the derivation ran 'grep Validate' exited 0"
+            unsettled:
+              - claim: "{Unsettled}"
+                evidence: "[L2] Sample.Server: the derivation ran 'dotnet list package' exited 1 and could not run, so it proves nothing"
+            """);
+        var answer = $$"""
+            [{"premise": "{{Unsettled}}", "verdict": "no-longer-holds",
+              "why": "the audit now exits 0", "cites": "M1"}]
+            """;
+        var h = For(draft, answer, searches: (DerivationTestLooks.Repo, "Validate"));
+
+        var result = await h.RunAsync();
+
+        SpecPremises.For(draft).Claims.Should().NotContain(Unsettled);
+        result.IsSuccess.Should().BeTrue("a tool that runs now is not the code contradicting the spec");
+        result.Message.Should().Contain("could not be proven either way");
+    }
+
+    [Fact]
     public async Task PremiseCheck_FindingCitingTheDeriversEvidenceId_IsNotAdmitted()
     {
         // L is the derivation's letter and the spec's own facts carry L-ids. An answer that
