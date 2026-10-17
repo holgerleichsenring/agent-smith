@@ -641,6 +641,8 @@
 .mock-tickets button.c-toggle:hover { color:var(--ink); }
 .mock-tickets .c-toggle .c-cause { text-transform:none; letter-spacing:normal; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0; }
 .mock-tickets .c-toggle .c-count { white-space:nowrap; }
+/* 2026-10-17-e730e: "Same cause as A5" beside a folded attempt's line, in the .tt-more text-button style. */
+.mock-tickets .c-same { font:inherit; font-size:12px; font-weight:600; text-transform:none; letter-spacing:normal; color:var(--ink-2); background:none; border:0; padding:0; cursor:pointer; text-decoration:underline; white-space:nowrap; }
 .mock-tickets .msg { display:grid; grid-template-columns:30px minmax(0,1fr); gap:12px; padding:8px 0; }
 .mock-tickets .msg .av { width:30px; height:30px; border-radius:50%; display:grid; place-items:center; font-size:11px; font-weight:700; background:var(--panel-2); color:var(--ink-2); }
 .mock-tickets .msg .av.agent { background:var(--ink); color:var(--bg); font-family:var(--mono); }

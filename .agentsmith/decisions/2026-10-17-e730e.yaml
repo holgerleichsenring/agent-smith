@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-17-e730e
+
+decisions:
+  - category: Architecture
+    chose: "Compare on the attempt: both failed or error, summaries non-empty and equal as strings, endKinds equal (absent as null)"
+    over: "Folding the failure ticket comment entry inside a group by matching its text"
+    reason: |
+      No conversation entry is marked as an attempt's failure; the failure comment comes back as an ordinary ticket
+      comment tied to the cause only by its words. The served summary and endKind on the attempt allow an exact
+      comparison, which is the only one the operator allowed.
+  - category: Architecture
+    chose: "sameAs names the first attempt of the unbroken run of equal causes"
+    over: "Naming the immediately previous attempt (first draft)"
+    reason: "Review: A6 -> A5 -> A4 would chain links whose targets also hide their cause; the first of the run is the one that keeps the cause line."
+  - category: Implementation
+    chose: "Two unclassified attempts (both endKind null) with the same verbatim summary count as the same cause"
+    over: "Requiring a recorded endKind"
+    reason: "null equals null is still an exact comparison of the served fields; a thrown pod-start failure repeated verbatim is the same cause."
+  - category: Implementation
+    chose: "The link sits beside the toggle button in the .c-att marker, only on a folded line; it opens the first attempt and scrolls its marker into view, smooth unless prefers-reduced-motion"
+    over: "Inside the toggle, or on open heads too"
+    reason: "A button cannot hold a button; an open head shows no cause line, so it shows no stand-in for one either."

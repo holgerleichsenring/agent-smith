@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { scrollBehavior } from "@/lib/scrollBehavior";
 import type { TicketConversation, TicketDetail } from "@/types/tickets";
 import { causeEntryMatch, causeEntryOf } from "./causeEntryMatch";
 import { ConversationEntry } from "./ConversationEntry";
@@ -37,6 +38,17 @@ export function ConversationList({ conversation, detail, causeOf }: Props) {
     setFilter(id);
     setToggles({});
   };
+  // 2026-10-17-e730e: "Same cause as A5" opens A5 and brings its marker into view once it is drawn open.
+  const [reveal, setReveal] = useState<{ key: string } | null>(null);
+  const show = (key: string) => {
+    setToggles((t) => ({ ...t, [key]: true }));
+    setReveal({ key });
+  };
+  useEffect(() => {
+    if (!reveal) return;
+    const node = list.current?.querySelector(`[data-testid="conv-group-${cssEscape(reveal.key)}"]`);
+    if (node instanceof HTMLElement) node.scrollIntoView?.({ block: "start", behavior: scrollBehavior() });
+  }, [reveal]);
 
   const list = useRef<HTMLDivElement>(null);
   const scrolled = useRef<string | null>(null);
@@ -66,7 +78,7 @@ export function ConversationList({ conversation, detail, causeOf }: Props) {
           return (
             <div key={group.key} className="c-group" data-testid={`conv-group-${group.key}`}>
               <GroupHead group={group} open={open}
-                onToggle={() => setToggles((t) => ({ ...t, [group.key]: !open }))} />
+                onToggle={() => setToggles((t) => ({ ...t, [group.key]: !open }))} onShow={show} />
               {open && group.entries.map((e) => (
                 <ConversationEntry key={e.id} entry={e} attemptNumber={number} started={startedBy(e.id)} target={e.id === target} />
               ))}
@@ -79,19 +91,27 @@ export function ConversationList({ conversation, detail, causeOf }: Props) {
 }
 
 /** An attempt's marker: open, its name and outcome; folded, one line adding the end cause and the entry count. */
-function GroupHead({ group, open, onToggle }: { group: ConversationGroup; open: boolean; onToggle: () => void }) {
+function GroupHead({ group, open, onToggle, onShow }: {
+  group: ConversationGroup; open: boolean; onToggle: () => void; onShow: (key: string) => void;
+}) {
   const pill = group.pill && <span className={`pill ${group.pill[0]}`}>{group.pill[1]}</span>;
   if (!group.collapsible) return <div className="c-att">{group.head}{pill}</div>;
+  const same = !open ? group.sameAs : null;
   const line = (
     <>
       <span>{group.head}</span>
       {pill}
-      {!open && group.cause && <span className="c-cause" title={group.cause}>· {group.cause}</span>}
+      {!open && !same && group.cause && <span className="c-cause" title={group.cause}>· {group.cause}</span>}
       {!open && <span className="c-count">· {entryCount(group.entries.length)}</span>}
     </>
   );
+  const sameLink = same && (
+    <button type="button" className="c-same" onClick={() => onShow(same.key)} data-testid={`conv-same-${group.key}`}>
+      Same cause as A{same.number}
+    </button>
+  );
   if (group.entries.length === 0) {
-    return <div className="c-att"><span className="c-toggle" data-testid={`conv-line-${group.key}`}>{line}</span></div>;
+    return <div className="c-att"><span className="c-toggle" data-testid={`conv-line-${group.key}`}>{line}</span>{sameLink}</div>;
   }
   return (
     <div className="c-att">
@@ -99,6 +119,7 @@ function GroupHead({ group, open, onToggle }: { group: ConversationGroup; open: 
         <span aria-hidden="true">{open ? "\u25BE" : "\u25B8"}</span>
         {line}
       </button>
+      {sameLink}
     </div>
   );
 }

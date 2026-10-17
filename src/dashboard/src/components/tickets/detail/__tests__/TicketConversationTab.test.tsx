@@ -594,4 +594,38 @@ describe("Ticket conversation reading", () => {
     expect(within(screen.getByTestId("conv-group-r-2")).getAllByTestId("conv-entry")).toHaveLength(1);
     expect(within(screen.getByTestId("conv-group-r-1")).queryAllByTestId("conv-entry")).toHaveLength(0);
   });
+
+  it("ConversationList_SameCause_ReadsSameCauseAsA1_AndTheLinkOpensA1_SmoothOrInstantUnderReducedMotion", async () => {
+    const cause = { status: "failed", summary: "Preflight failed: context-image-trust", endKind: "image-untrusted" };
+    world.detail = detail([
+      attempt({ ...cause }), attempt({ number: 2, runId: "r-2", ...cause }), attempt({ number: 3, runId: "r-3", ...cause }),
+    ]);
+    world.conversation = {
+      ...conversation([entry({ id: "a", attemptRunId: "r-1", text: "first words" }), entry({ id: "b", attemptRunId: "r-2" }), entry({ id: "c", attemptRunId: "r-3" })]),
+      attempts: [1, 2, 3].map((n) => ({ runId: `r-${n}`, number: n, cause: null, revision: null })),
+    };
+    let reduced = false;
+    window.matchMedia = vi.fn((query: string) => ({ matches: reduced && query.includes("reduce") }) as MediaQueryList);
+    await open();
+    expect(screen.getByTestId("conv-toggle-r-1")).toHaveTextContent("Preflight failed: context-image-trust");
+    expect(screen.getByTestId("conv-toggle-r-2")).not.toHaveTextContent("Preflight failed");
+    expect(screen.getByTestId("conv-same-r-2")).toHaveTextContent("Same cause as A1");
+    expect(screen.queryByTestId("conv-same-r-3")).toBeNull();
+
+    const scrolled = vi.spyOn(Element.prototype, "scrollIntoView");
+    fireEvent.click(screen.getByTestId("conv-same-r-2"));
+    await settle();
+    expect(screen.getByTestId("conv-toggle-r-1")).toHaveAttribute("aria-expanded", "true");
+    expect(within(screen.getByTestId("conv-group-r-1")).getByTestId("conv-entry")).toHaveTextContent("first words");
+    expect(scrolled.mock.instances.at(-1)).toBe(screen.getByTestId("conv-group-r-1"));
+    expect(scrolled.mock.calls.at(-1)?.[0]).toEqual({ block: "start", behavior: "smooth" });
+
+    reduced = true;
+    fireEvent.click(screen.getByTestId("conv-toggle-r-1"));
+    fireEvent.click(screen.getByTestId("conv-same-r-2"));
+    await settle();
+    expect(scrolled.mock.calls.at(-1)?.[0]).toEqual({ block: "start", behavior: "auto" });
+    scrolled.mockRestore();
+    delete (window as { matchMedia?: unknown }).matchMedia;
+  });
 });
