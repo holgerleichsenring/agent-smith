@@ -1,4 +1,5 @@
 import { TrackerText } from "@/components/ui/TrackerText";
+import { formatRunSummary } from "@/lib/formatRunSummary";
 import { EventType, type RunEvent, type ToolCallEvent } from "@/types/hub-events";
 import type { RunPass, TicketSeriesSpec } from "@/types/tickets";
 import { money } from "../ticketFormat";
@@ -130,10 +131,18 @@ export function tailDetail({ attempt, detail, passes }: NodeContext): NodeExplai
     <>Attempt {attempt.number} <b>{attempt.handedBack ? "was handed back" : statusWords(attempt.status)}</b>{attempt.endedOnInfrastructure ? ", ended on infrastructure" : ""}.</>,
     last ? `Its last pass ended: ${passEndWords(last.endedBecause)}.` : null,
   ].filter(Boolean);
+  const succeeded = ["success", "shortfall"].includes(attempt.status);
+  // 2026-10-16-7ed3e: a stopped attempt's own end text, whole.
+  const end = !succeeded && !attempt.handedBack && attempt.summary ? (
+    <Doc heading="end of the run">
+      <pre className="end-text" data-testid="tail-summary">{formatRunSummary(attempt.summary)}</pre>
+    </Doc>
+  ) : null;
+  const why = <Why lines={lines} />;
   return {
-    title: attempt.handedBack || !["success", "shortfall"].includes(attempt.status) ? "End of attempt" : "Ship",
-    left: rows.length > 0 ? <Jobs rows={rows} /> : <Why lines={lines} />,
-    right: rows.length > 0 ? <Why lines={lines} /> : undefined,
+    title: attempt.handedBack || !succeeded ? "End of attempt" : "Ship",
+    left: rows.length > 0 ? <Jobs rows={rows} /> : <>{why}{end}</>,
+    right: rows.length > 0 ? <>{why}{end}</> : undefined,
   };
 }
 

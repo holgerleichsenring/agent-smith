@@ -1990,3 +1990,10 @@
    track; a code block inside one scrolls on its own. */
 .mock-tickets :is(.why, .doc, .msg .mb, .spdoc .sb, .sd-b > div, .ts-say, .crit .ci > span) { overflow-wrap: anywhere; min-width: 0; }
 .mock-tickets :is(.why, .doc, .msg .mb, .spdoc .sb, .ts-say) pre { overflow-x: auto; max-width: 100%; }
+/* 2026-10-16-7ed3e: a verify the master re-engaged reads in the legend's re-engage colour — the amber string, dashed
+   like its marker, no halo; a stopped attempt's end text sits under its end node; the tail detail keeps it whole. */
+.mock-tickets .node.back .disc { stroke:var(--t-string); stroke-dasharray:4 3; fill:color-mix(in srgb, var(--t-string) 8%, var(--t-bg)); }
+.mock-tickets .node.back .ic { stroke:var(--t-string); } .mock-tickets .node.back .lab { fill:var(--t-text); } .mock-tickets .node.back .met { fill:var(--t-string); }
+.mock-tickets .cause { font-family:var(--mono); font-size:10.5px; fill:color-mix(in srgb, var(--t-bad) 80%, var(--t-bg)); }
+.mock-tickets .doc pre.end-text { margin:0; font-family:var(--mono); font-size:12px; white-space:pre-wrap; overflow-wrap:anywhere; max-height:260px; overflow:auto; }
+.mock-tickets .g-note .g-cause { color:var(--t-bad); overflow-wrap:anywhere; }

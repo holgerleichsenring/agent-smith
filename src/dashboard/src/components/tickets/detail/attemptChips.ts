@@ -1,4 +1,4 @@
-import { formatRunSummary } from "@/lib/formatRunSummary";
+import { summaryLine } from "@/lib/formatRunSummary";
 import { runPath } from "@/lib/runPath";
 import { RUN_END_KINDS, type TicketAttempt } from "@/types/tickets";
 import { outcomePill } from "./AttemptCard";
@@ -36,13 +36,8 @@ export function attemptChips(attempts: TicketAttempt[]): AttemptChip[] {
 }
 
 function chipTitle(attempt: TicketAttempt): string {
-  const cause = attempt.summary ? firstLine(formatRunSummary(attempt.summary)) : null;
+  const cause = summaryLine(attempt.summary);
   return `A${attempt.number} · ${attemptWords(attempt)}${cause ? ` — ${cause}` : ""}`;
-}
-
-/** The first non-empty line of a text, trimmed; null when there is none. */
-export function firstLine(text: string): string | null {
-  return text.split(/\r?\n/).map((l) => l.trim()).find((l) => l.length > 0) ?? null;
 }
 
 /** "<pill words>", then " · <end-kind words>" only when an end kind adds something the pill does not say. */

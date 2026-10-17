@@ -1,3 +1,4 @@
+import { summaryLine } from "@/lib/formatRunSummary";
 import { isRunLive } from "@/lib/runLiveness";
 import { shortRepo } from "@/lib/shortRepo";
 import type {
@@ -19,9 +20,11 @@ import { isRunRecord } from "./specWords";
 // VERIFY, one lane per pass, numbered by passInSpec. Tail: SHIP or ENDS.
 // 2026-10-16-7ed3d: labels and metrics are cut to their column (the full words stay on the node for the tooltip and
 // the detail); a re-engage loop runs outside the pass boxes and writes its reason once.
+// 2026-10-16-7ed3e: green means the pass passed — a re-engaged verify is "back" (amber), an accepted red verdict is
+// bad; a stopped attempt's end node carries its run's end text in one line.
 
 export type FlowMode = "unrolled" | "folded";
-export type FlowState = "done" | "carried" | "live" | "bad" | "idle" | "person";
+export type FlowState = "done" | "carried" | "live" | "bad" | "idle" | "person" | "back";
 export type FlowKind = "ticket" | "derive" | "gate" | "handback" | "spec" | "build" | "verify" | "question" | "tail";
 export type FlowIcon = "ticket" | "derive" | "gate" | "hand" | "spec" | "build" | "verify" | "ask" | "pr" | "stop";
 
@@ -46,7 +49,7 @@ export interface FlowNode {
 }
 
 export interface FlowEdge { cls: string; d: string }
-export interface FlowText { cls: string; x: number; y: number; text: string; middle?: boolean; title?: string }
+export interface FlowText { cls: string; x: number; y: number; text: string; middle?: boolean; end?: boolean; title?: string }
 export interface FlowLane { x: number; y: number; width: number; height: number }
 
 export interface AttemptFlowLayout {
@@ -75,6 +78,8 @@ const R = 26, RS = 18, HEAD_Y = 80, ROW = 150, CARRY = 72, ASK_ROOM = 44;
 /** Characters a node's label or metric may take before it reaches the next column's. */
 export const LABEL_MAX = 24;
 /** A pass box: from 50 above its lane to 62 below, 58 beyond build and verify. */
+/** Characters of the end cause: from right of the verify column to the canvas edge. */
+const CAUSE_MAX = 44;
 const BOX_TOP = 50, BOX_BOTTOM = 62, BOX_SIDE = 58, LOOP_OUT = 12, LOOP_DROP = 19, REASON_MAX = 42;
 
 interface Builder { nodes: FlowNode[]; edges: FlowEdge[]; texts: FlowText[]; lanes: FlowLane[] }
@@ -242,6 +247,8 @@ function tail(b: Builder, input: AttemptFlowInput, live: boolean, handedBack: bo
   if (last.small) b.edges.push({ cls: "carried", d: `M${FLOW_X.spec + RS + 8} ${ty} L${FLOW_X.ship - R} ${ty}` });
   else b.edges.push({ cls: state === "done" || state === "bad" || state === "person" ? state : "idle", d: seg(last.x, ty, FLOW_X.ship, ty, R, R) });
   b.nodes.push(node("tail", "tail", FLOW_X.ship, ty, R, state, ship ? "SHIP" : "ENDS", metric, ship ? "pr" : "stop"));
+  const cause = state === "bad" ? summaryLine(attempt.summary) : null;
+  if (cause) b.texts.push({ cls: "cause", x: FLOW_WIDTH - 12, y: ty + R + 48, text: fit(cause, CAUSE_MAX), end: true, title: cause });
   if (nextAttempt && !live) {
     b.edges.push({ cls: "next", d: `M${FLOW_X.ship + R + 10} ${ty} l40 0` });
     b.texts.push({ cls: "elab next", x: FLOW_X.ship + R + 14, y: ty - 10, text: `→ attempt ${nextAttempt.number}` });
@@ -277,6 +284,8 @@ function passStates(pass: LaneOrStub, spec: TicketSeriesSpec, lanes: LaneOrStub[
   const open = pass.endedBecause === "unknown" && pass === lanes[lanes.length - 1] && spec.state === "in_progress";
   if (open) return ["live", "idle"];
   const build: FlowState = pass.endedBecause === "failed" ? "bad" : "done";
+  if (pass.endedBecause === "re-engaged" || pass.reengageReason) return [build, "back"];
+  if (pass.endedBecause === "red-accepted") return [build, "bad"];
   if (pass.criteriaTotal == null || pass.criteriaMet == null || pass.verdictEmitted === false) return [build, "idle"];
   return [build, pass.criteriaMet >= pass.criteriaTotal ? "done" : "bad"];
 }

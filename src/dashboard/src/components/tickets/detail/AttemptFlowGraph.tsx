@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { summaryLine } from "@/lib/formatRunSummary";
 import { isRunLive } from "@/lib/runLiveness";
 import { useAttemptPasses, useTicketConversation, useTicketSeries } from "@/lib/tickets/TicketPageStore";
 import type { TicketAttempt, TicketDetail } from "@/types/tickets";
@@ -80,9 +81,12 @@ function GraphBody({ layout, attempt, selected, onSelect }: {
 }) {
   if (!layout) return <div className="g-note" data-testid="attempt-flow-loading">Reading attempt {attempt.number}…</div>;
   if (layout.fallback) {
+    // 2026-10-16-7ed3e: true for an old attempt and for one that stopped before it cut a series; its end text says which.
+    const cause = summaryLine(attempt.summary);
     return (
       <div className="g-note" data-testid="attempt-flow-fallback">
-        Attempt {attempt.number} ran before attempts recorded their cut, so it has no graph.{" "}
+        Attempt {attempt.number} recorded no cut, so it has no graph.{" "}
+        {cause && <span className="g-cause" data-testid="attempt-flow-cause">It ended: {cause} </span>}
         <Link href={`/jobs/${encodeURIComponent(attempt.runId)}`}>Open its run viewer</Link>
       </div>
     );

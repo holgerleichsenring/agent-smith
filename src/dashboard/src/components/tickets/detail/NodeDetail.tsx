@@ -39,6 +39,7 @@ const PILL: Record<FlowState, [string, string]> = {
   bad: ["bad", "stopped here"],
   idle: ["q", "not started"],
   person: ["person", "waits for a person"],
+  back: ["amber", "re-engaged"],
 };
 
 interface Props {

@@ -35,7 +35,7 @@ export function FlowCanvas({ layout, selected, onSelect }: Props) {
         ))}
         {layout.edges.map((edge, i) => <path key={`edge-${i}`} className={`edge ${edge.cls}`} d={edge.d} data-edge={edge.cls} />)}
         {layout.texts.map((text, i) => (
-          <text key={`text-${i}`} className={text.cls} x={text.x} y={text.y} textAnchor={text.middle ? "middle" : undefined}>
+          <text key={`text-${i}`} className={text.cls} x={text.x} y={text.y} textAnchor={text.middle ? "middle" : text.end ? "end" : undefined}>
             {text.title && <title>{text.title}</title>}
             {text.text}
           </text>

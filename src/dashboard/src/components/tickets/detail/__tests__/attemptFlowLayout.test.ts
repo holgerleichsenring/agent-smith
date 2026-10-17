@@ -57,7 +57,7 @@ describe("layoutAttemptFlow", () => {
     expect(layout.texts.filter((t) => t.cls === "passlab").map((t) => t.text)).toEqual(["PASS 1 OF 2", "PASS 2 OF 2"]);
     expect(layout.edges.filter((e) => e.cls === "back")).toHaveLength(1);
     expect(layout.texts.find((t) => t.cls === "elab")?.text).toBe("↺ verdict red with open steps");
-    expect(layout.nodes.filter((n) => n.kind === "verify").map((n) => n.state)).toEqual(["bad", "done"]);
+    expect(layout.nodes.filter((n) => n.kind === "verify").map((n) => n.state)).toEqual(["back", "done"]);
   });
 
   // 2026-10-16-7ed3d: labels fit their column, loops stay outside the boxes and say why once.
@@ -115,6 +115,32 @@ describe("layoutAttemptFlow", () => {
     const s2 = (l: typeof plain) => l.nodes.find((n) => n.specId === "s2" && n.kind === "spec")!.y;
     expect(s2(asked) - s2(plain)).toBe(44);
     expect(asked.height - plain.height).toBe(44);
+  });
+
+  // 2026-10-16-7ed3e: green means passed; a stopped attempt's end node says why.
+  it("attemptFlowLayout_ReengagedPassAllMet_VerifyIsBack", () => {
+    const layout = layoutAttemptFlow(input({ passes: twoPasses() }), "unrolled");
+    const first = layout.nodes.find((n) => n.id === "v-s1-1")!;
+    expect(first).toMatchObject({ state: "back", metric: "7 of 7" });
+  });
+
+  it("attemptFlowLayout_RedAccepted_VerifyIsBad", () => {
+    const layout = layoutAttemptFlow(input({ passes: passes("r-1", { s1: [pass({ endedBecause: "red-accepted", verdictEmitted: false, criteriaMet: null, criteriaTotal: null })] }) }), "unrolled");
+    expect(layout.nodes.find((n) => n.kind === "verify")?.state).toBe("bad");
+  });
+
+  it("attemptFlowLayout_FailedAttemptWithSummary_EndNodeCarriesTheCauseLine", () => {
+    const summary = "\n1 criterion(s) of the ratified spec are not satisfied by the branch: the dead-letter queue is never declared\nmore";
+    const layout = layoutAttemptFlow(input({ attempt: attempt({ status: "failed", summary }) }), "unrolled");
+    const tail = layout.nodes.find((n) => n.kind === "tail")!;
+    const cause = layout.texts.find((t) => t.cls === "cause")!;
+    expect(tail.state).toBe("bad");
+    expect(cause.title).toBe("1 criterion(s) of the ratified spec are not satisfied by the branch: the dead-letter queue is never declared");
+    expect(cause.text.length).toBeLessThanOrEqual(44);
+    expect(cause.y).toBeGreaterThan(tail.y + tail.r);
+    expect(cause.y).toBeLessThan(layout.height);
+    const ok = layoutAttemptFlow(input({ attempt: attempt({ status: "success", summary: "Done." }) }), "unrolled");
+    expect(ok.texts.some((t) => t.cls === "cause")).toBe(false);
   });
 
   it("Folded_DrawsTheLastPassOnly_WithACountBadgeOnBuildAndVerify", () => {

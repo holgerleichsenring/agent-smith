@@ -26,3 +26,9 @@ function extractProviderErrorMessage(text: string): string | null {
     return null;
   }
 }
+
+/** 2026-10-16-7ed3e: a run's end text as one line — the first non-empty line of its formatted summary; null for none. */
+export function summaryLine(summary: string | null | undefined): string | null {
+  if (!summary) return null;
+  return formatRunSummary(summary).split(/\r?\n/).map((l) => l.trim()).find((l) => l.length > 0) ?? null;
+}

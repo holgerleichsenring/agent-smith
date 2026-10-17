@@ -333,6 +333,22 @@ describe("Ticket page", () => {
     expect(screen.getByTestId("node-detail").querySelector(".sh-sub")?.textContent).toBe("A1 · spec missing from the branch");
   });
 
+  it("NodeDetail_FailedTail_ShowsTheWholeSummary", async () => {
+    const summary = "Pipeline aborted: missing bootstrap in repos\nSample.App.Server\nSample.App.Client";
+    world.detail = detail([attempt({ status: "failed", summary })]);
+    await open();
+    fireEvent.click(node("tail"));
+    expect(screen.getByTestId("tail-summary").textContent).toBe(summary);
+  });
+
+  it("AttemptFlowGraph_NoCutWithSummary_NoteSaysTheCause", async () => {
+    world.detail = detail([attempt({ revision: null, status: "failed", summary: "Preflight failed: context-image-trust\nmore" })]);
+    delete world.series["r-1"];
+    await open();
+    expect(screen.getByTestId("attempt-flow-fallback")).toHaveTextContent("Attempt 1 recorded no cut, so it has no graph.");
+    expect(screen.getByTestId("attempt-flow-cause")).toHaveTextContent("It ended: Preflight failed: context-image-trust");
+  });
+
   it("ATerminalAttemptWithNoRevisionAndNoCut_LinksToItsRunViewer", async () => {
     world.detail = detail([attempt({ revision: null, status: "failed" })]);
     delete world.series["r-1"];
