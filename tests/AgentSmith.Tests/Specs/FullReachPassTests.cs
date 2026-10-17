@@ -80,6 +80,31 @@ public sealed class FullReachPassTests
             "the windows spend their own allowance and this pass opens a fresh one");
     }
 
+    /// <summary>2026-10-17-a196b: run f381's shape. The windowed pass spends its twelve and cites a
+    /// search it could no longer run; the correction asked to repair that citation opens its own
+    /// allowance, so the search runs and the pattern it cites resolves.</summary>
+    [Fact]
+    public async Task SpecAccountant_WindowedPassSpentItsAllowance_CorrectionCanStillSearch()
+    {
+        var corrected = string.Empty;
+        var run = await AccountAsync([Universal], async (prompt, search) =>
+        {
+            if (prompt.Contains("resolves against nothing", StringComparison.Ordinal))
+            {
+                corrected = await search!.SearchBranch(Server, "UsingSampleBus|UseSampleBus");
+                return Answer(Sat(Universal, "UsingSampleBus|UseSampleBus"));
+            }
+            if (prompt.Contains(FullReachMark, StringComparison.Ordinal)) return Answer(No(Universal));
+            for (var i = 0; i < AccountSearchBudget.PerPass; i++)
+                await search!.SearchBranch(Server, $"windowed{i}");
+            return Answer(Sat(Universal, "UsingSampleBus|UseSampleBus"));
+        });
+
+        corrected.Should().NotContain("No search left", "the correction is a pass of its own");
+        run.Account.Criteria.Should().ContainSingle()
+            .Which.Disposition.Should().Be(AccountDisposition.Satisfied, "the pattern it cites now ran");
+    }
+
     /// <summary>One BranchSearch, so one resolver: a citation naming the WINDOWED pass's
     /// search and one naming this pass's own both resolve against the same evidence.</summary>
     [Fact]

@@ -87,6 +87,7 @@ integrations:
 
 state:
   done:
+    2026-10-17-a196b: "THE ACCOUNT'S CORRECTION CAN SEARCH (delivery account). The correction pass opens its own search allowance, so a search citation it is asked to repair can be backed by a search that runs. -> .agentsmith/specs/done/2026-10-17-a196b-account-correction-searches.yaml"
     2026-10-17-a196a: "A SPEC IS CHECKED IN ITS OWN REPOSITORIES (keystone, entry account, repair, master write tools). SpecSandboxes scopes stages, account and hand-back to the spec's repos:; a file write into another repository is refused and named in the step result. -> .agentsmith/specs/done/2026-10-17-a196a-keystone-spec-repos.yaml"
     2026-10-16-86e6e: "REJECTED CRITERION REASON (series read, Specs and Acceptance tabs). An unmet or unproven criterion shows the gate's reason under its text with Overrule in the run, linking the run whose acceptance gave the verdict (served as judgedBy). -> .agentsmith/specs/done/2026-10-16-86e6e-rejected-criterion-reason.yaml"
     2026-10-16-86e6d: "ATTEMPT RUN LINKS (state block, Specs tab, attempt card). Earlier attempts collapse to one line naming a superseded one, each opening its run; executed in A{n} and every cell of an attempt that ran a spec link the run viewer; one runPath helper. -> .agentsmith/specs/done/2026-10-16-86e6d-attempt-run-links.yaml"
