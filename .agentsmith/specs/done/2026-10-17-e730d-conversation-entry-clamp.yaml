@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-17-e730d
+goal: "A conversation entry whose body and detail run past about six lines shows six with a fade and Show more / Show less; the toggle appears only when the drawn content overflows."
+
+applies_to: "dashboard (ConversationEntry, mock-parity.css conversation rules)"
+
+requires: [2026-10-17-e730c]
+
+facts:
+  - claim: "An entry draws its head, then Body (the text through TrackerText in a .mb) and DetailBlock (a .diff of an edit's fields, a hand-back's quote or a cut review's findings), then the footer."
+    evidence: "src/dashboard/src/components/tickets/detail/ConversationEntry.tsx:36-49, src/dashboard/src/components/tickets/detail/ConversationEntry.tsx:55-100"
+  - claim: "The ticket text pane already clamps by measuring scrollHeight against clientHeight in a layout effect and offers Show all only when it overflows; its test spies the two getters."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketTextSection.tsx:76-93, src/dashboard/src/components/tickets/detail/__tests__/TicketTextSection.test.tsx:43-44"
+  - claim: "The .tt-body.clamp rule caps at a line count times 1.5em with overflow hidden; .tt-more is the text-button style."
+    evidence: "src/dashboard/src/styles/mock-parity.css:398, src/dashboard/src/styles/mock-parity.css:402"
+  - claim: "A fenced markdown code block renders as a pre with overflow auto, an html body's pre bare; a .diff block scrolls horizontally; an entry body is 13px."
+    evidence: "src/dashboard/src/components/jobs/ResultCodeBlock.tsx:38-39, src/dashboard/src/components/ui/Markdown.tsx:49, src/dashboard/src/components/ui/TrackerText.tsx:65-70, src/dashboard/src/styles/mock-parity.css:660, src/dashboard/src/styles/mock-parity.css:648"
+
+scope:
+  in: >
+    ConversationEntry wraps Body and DetailBlock in a .m-clamp box. Closed, the box caps at calc(6 * 1.5 * 13px)
+    with overflow hidden and overflow-wrap anywhere (so a long token wraps instead of being cut sideways); the
+    mask-image fade over its last line applies only when the box overflows (.m-clamp.closed.over), so a short entry
+    is never faded; a pre inside gets overflow-x auto and max-width 100% (the html path renders a
+    bare pre), so it scrolls sideways and is clamped with the rest. While closed, a layout effect measures the box's
+    scrollHeight > clientHeight + 1 on the entry's text and detail, and again when a ResizeObserver (where one exists)
+    sees the inner content element change size; once it overflowed the toggle stays, so opening never hides "Show
+    less". The "Show more" button (.tt-more, aria-expanded, data-testid conv-more) follows the box, reading "Show
+    less" open. Opening removes the cap and the fade.
+  out: "The pending question card, the proposal and the composer are not entries and are not clamped."
+
+decisions:
+  - key: "MEASURED, NOT COUNTED. Characters say nothing about a rendered heading, a list or a narrow phone; the drawn box's own heights decide, as the ticket text pane already does."
+  - key: "BODY AND DETAIL CLAMP TOGETHER. A spec-cut review's findings are its long part; clamping only the text would leave the reviewer blocks at full height."
+
+steps:
+  - id: clamp
+    action: "A Clamped wrapper in ConversationEntry with the measure and the toggle; CSS .msg .m-clamp, .m-clamp.closed, .m-clamp.closed.over, .m-clamp pre."
+  - id: tests
+    action: "Red then green; pnpm test the tickets folder; pnpm build."
+
+tests:
+  - "ConversationEntry_Overflowing_ShowsShowMore_AndOpensAndClosesTheClamp"
+  - "ConversationEntry_Fitting_ShowsNoToggle_AndNoFade"
+  - "ConversationEntry_Opened_KeepsShowLess_ThoughTheOpenBoxNoLongerOverflows"
+  - "ConversationEntry_CutReviewFindings_AreInsideTheClamp"
+
+done:
+  - "A long preflight error, an understanding turn or a cut review reads as six lines and a fade with Show more; short entries show no toggle."
+  - "Dashboard test and build green; full gate green."

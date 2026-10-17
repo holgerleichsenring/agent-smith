@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-17-e730c
+
+decisions:
+  - category: Architecture
+    chose: "A non-All filter opens every group it found a match in; groups without a match stay as their folded line ('no entries'); the reader's own folds are cleared on every filter change"
+    over: "Keeping the All fold under a filter, or keeping the reader's folds across filters"
+    reason: |
+      A reader who picks Questions asked to see the questions; folding them behind attempt lines would answer the
+      filter with nothing. Folds chosen under one filter are about that view; carried into a narrowing filter they
+      could hide its matches behind an earlier click. Back on All, the default fold applies again.
+  - category: Architecture
+    chose: "Current = the newest live detail attempt that already has a conversation group, else the newest conversation attempt; also open: now, the ?causeOf= target's group, an attempt with a pendingQuestion, before when no attempt exists"
+    over: "The newest live detail attempt regardless of the conversation's attempts"
+    reason: |
+      The conversation is re-read only after a landed detail shows a moved status, so a just-started attempt can be
+      live in the detail with no group yet; nothing would be open in between. Every rule reads a recorded field.
+  - category: Implementation
+    chose: "The folded line counts the entries the filter shows, and the cause is summaryLine of the attempt's served summary"
+    over: "Counting all entries, or a new one-line cause formatter"
+    reason: "The count describes what opening the line would show; summaryLine is the form the flow graph and attempt chips already use."
+  - category: Implementation
+    chose: "The .c-att marker holds one toggle button inheriting its font, case and colour; 'Attempt n' stays in its own span; the cause span keeps the text's case and ellipsizes"
+    over: "Making the whole .c-att a button"
+    reason: "e730e places a second button beside the toggle on the same line, and a button cannot hold a button."

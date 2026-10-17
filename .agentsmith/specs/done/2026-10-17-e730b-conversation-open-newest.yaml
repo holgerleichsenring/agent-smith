@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-17-e730b
+goal: "Opening the Conversation tab shows the newest entry and the composer, unless a question waits (shown instead) or the address names an attempt's cause entry, which is scrolled to and marked."
+
+applies_to: "dashboard (TicketConversationTab, ConversationList, ConversationEntry)"
+
+requires: [2026-10-17-e730a]
+
+facts:
+  - claim: "Tab switches replace the address with scroll false, so the shared scroller keeps its position."
+    evidence: "src/dashboard/src/components/tickets/detail/useTicketTabGo.ts:33"
+  - claim: "Only the selected tab's pane is rendered, so the tab mounts on each switch to it; selecting a tab clears ?causeOf=."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketPage.tsx:27, src/dashboard/src/components/tickets/detail/TicketPage.tsx:45-47"
+  - claim: "?causeOf={runId} scrolls once to the entry causeEntryOf joins to that attempt's cause, block center; with no match nothing scrolls."
+    evidence: "src/dashboard/src/components/tickets/detail/ConversationList.tsx:39-49, src/dashboard/src/components/tickets/detail/causeEntryMatch.ts:26-31"
+  - claim: "The conversation is read by the page store and may still be pending when the tab mounts."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketConversationTab.tsx:38-43, src/dashboard/src/lib/tickets/TicketPageStore.tsx:140-142"
+  - claim: "A pending run question is drawn at the top of the tab."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketConversationTab.tsx:27, src/dashboard/src/components/tickets/detail/TicketConversationTab.tsx:37"
+  - claim: "Nothing marks the cause entry today beyond scrolling to it."
+    evidence: "src/dashboard/src/components/tickets/detail/ConversationEntry.tsx:33"
+  - claim: "jsdom has no layout; the test setup stubs scrollIntoView for every test."
+    evidence: "src/dashboard/vitest.setup.ts:3-10"
+
+scope:
+  in: >
+    The tab ends with an end anchor (data-testid conv-end) after the dock. Once per mount, on the first render that
+    has the conversation, the tab scrolls the anchor into view (block end, behavior auto) unless a run question is
+    pending, which scrolls the question card (.q-head) into view instead (block start, instant: tab switches keep the
+    shared scroller's position, so doing nothing would not show it), or the address carries a causeOf that
+    causeEntryOf resolves to an entry. A causeOf with no matching entry
+    falls back to the newest. With a resolved causeOf the existing scroll stays and the target entry gets the class
+    "msg target" (data-target="true") on --person-wash. The anchor, not the sticky dock, is scrolled: a stuck sticky
+    element is already drawn at the bottom, so scrolling to it moves nothing.
+  out: "Following new entries while at the end; the jump button is e730f."
+
+decisions:
+  - key: "ONCE PER MOUNT. The pane mounts on every switch to the tab, so mount is both the first show and the return; a later conversation re-read does not move the reader."
+  - key: "A WAITING QUESTION IS SHOWN. The pending question card is the one thing that needs an answer and sits at the top; the tab scrolls to it rather than to the newest."
+  - key: "INSTANT, NOT SMOOTH. Opening a tab is not an animation; reduced motion needs no branch here."
+
+steps:
+  - id: open
+    action: "TicketConversationTab: the end anchor, a once-ref, an effect on data presence that scrolls it under the rules above."
+  - id: mark
+    action: "ConversationList passes the causeOf target id to ConversationEntry; .msg.target CSS."
+  - id: tests
+    action: "Red then green; rewrite the CauseOf test's no-match half and rename e730a's dock test; pnpm test the tickets folder; pnpm build."
+
+tests:
+  - "OpeningTheTab_ScrollsTheEndAnchorIntoView_OnceTheConversationIsRead"
+  - "OpeningTheTab_WithCauseOf_ScrollsToTheCauseEntryOnly_AndMarksIt"
+  - "OpeningTheTab_WithAnUnmatchedCauseOf_FallsBackToTheNewest"
+  - "OpeningTheTab_WithAPendingQuestion_ScrollsTheQuestionCardIntoView"
+  - "CauseOf_ScrollsToTheEntryThatIsThatAttemptsCause_WithNoMatchItOpensAtTheNewest (the existing CauseOf test, its no-match half rewritten)"
+  - "ConversationDock_HoldsTheComposer_AsTheTabsLastBlockBeforeTheEndAnchor (e730a's test, renamed)"
+  - "AConversationReRead_DoesNotScrollAgain"
+
+done:
+  - "Switching to the Conversation tab shows its newest entries and the composer; a waiting question is scrolled into view; a ?causeOf= link still lands on its entry and marks it."
+  - "Dashboard test and build green; full gate green."

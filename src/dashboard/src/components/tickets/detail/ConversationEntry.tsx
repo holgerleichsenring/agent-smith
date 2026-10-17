@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { TicketConversationEntry } from "@/types/tickets";
 import { TrackerText } from "@/components/ui/TrackerText";
 import { avatarOf, decisionPill, isQuote, nameOf, whereOf } from "./conversationWords";
@@ -11,6 +11,7 @@ import { clock } from "./flowWords";
 // file and line, the detail block (a ticket-text diff, a hand-back's quote, a cut review's findings) and
 // the footer. Keyed and anchored on 9a59h's composite id. Spec-cut entries are drawn internal. The body renders
 // in the format its source named.
+// 2026-10-17-e730d: body and detail clamp together at about six lines, with Show more when the drawn box overflows.
 
 /** The cap the pull-request record cuts a note's body at. */
 const PR_BODY_CAP = 4000;
@@ -20,9 +21,11 @@ interface Props {
   attemptNumber: (runId: string | null) => number | null;
   /** The attempt this entry started — set only where causeEntryMatch joined it. */
   started: number | null;
+  /** 2026-10-17-e730b: the entry ?causeOf= scrolled to, drawn marked. */
+  target?: boolean;
 }
 
-export function ConversationEntry({ entry, attemptNumber, started }: Props) {
+export function ConversationEntry({ entry, attemptNumber, started, target = false }: Props) {
   const avatar = avatarOf(entry);
   const internal = entry.source === "spec-cut";
   const pill = decisionPill(entry);
@@ -30,7 +33,8 @@ export function ConversationEntry({ entry, attemptNumber, started }: Props) {
     && (entry.detail as { startedNothing?: unknown } | null | undefined)?.startedNothing === true;
   const footer = pill || started !== null || startedNothing;
   return (
-    <div className={internal ? "msg internal" : "msg"} data-entry-id={entry.id} data-testid="conv-entry" data-source={entry.source}>
+    <div className={["msg", internal && "internal", target && "target"].filter(Boolean).join(" ")} data-entry-id={entry.id}
+      data-testid="conv-entry" data-source={entry.source} data-target={target || undefined}>
       <span className={`av ${avatar.className}`} aria-hidden="true">{avatar.text}</span>
       <div>
         <div className="mh">
@@ -38,8 +42,10 @@ export function ConversationEntry({ entry, attemptNumber, started }: Props) {
           <span className="where">{whereOf(entry, attemptNumber)}</span>
           <span className="w">{clock(entry.at)}</span>
         </div>
-        <Body entry={entry} />
-        <DetailBlock entry={entry} />
+        <Clamped entry={entry}>
+          <Body entry={entry} />
+          <DetailBlock entry={entry} />
+        </Clamped>
         {footer && (
           <div className="mf">
             {pill && <span className={`pill ${pill[0]}`}>{pill[1]}</span>}
@@ -49,6 +55,36 @@ export function ConversationEntry({ entry, attemptNumber, started }: Props) {
         )}
       </div>
     </div>
+  );
+}
+
+/** Six lines and a fade while closed; the toggle shows only when the drawn content is taller than that. Measured
+ *  only while closed — open, nothing overflows — so Show less stays once it was offered. */
+function Clamped({ entry, children }: { entry: TicketConversationEntry; children: ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  const inner = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [over, setOver] = useState(false);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (open || !el) return;
+    const measure = () => setOver(el.scrollHeight > el.clientHeight + 1);
+    measure();
+    if (typeof ResizeObserver === "undefined" || !inner.current) return;
+    const watcher = new ResizeObserver(measure);
+    watcher.observe(inner.current);
+    return () => watcher.disconnect();
+  }, [open, entry.text, entry.detail]);
+  const className = ["m-clamp", !open && "closed", !open && over && "over"].filter(Boolean).join(" ");
+  return (
+    <>
+      <div ref={box} className={className} data-testid="conv-clamp"><div ref={inner}>{children}</div></div>
+      {over && (
+        <button type="button" className="tt-more" aria-expanded={open} onClick={() => setOpen(!open)} data-testid="conv-more">
+          {open ? "Show less" : "Show more"}
+        </button>
+      )}
+    </>
   );
 }
 

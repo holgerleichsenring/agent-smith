@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-17-e730a
+goal: "On the ticket Conversation tab the composer stays at the bottom of the scroll box while the thread scrolls under it, and fits any pane width."
+
+applies_to: "dashboard (TicketConversationTab, mock-parity.css conversation and composer rules)"
+
+facts:
+  - claim: "The tab draws the heading, the pending question, the list, the proposal and then the composer (or the hidden-conversation note) as the last thing in the pane."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketConversationTab.tsx:30-65"
+  - claim: "The page scrolls inside the layout's main element, a relative box of the viewport height minus the header with overflow-y auto; no ancestor between it and the tab pane sets overflow, so sticky holds and the pane section is the dock's containing block."
+    evidence: "src/dashboard/src/app/globals.css:44-48, src/dashboard/src/app/layout.tsx:72, src/dashboard/src/styles/mock-parity.css:52-99, src/dashboard/src/styles/mock-parity.css:260, src/dashboard/src/components/tickets/detail/TicketPage.tsx:45-47"
+  - claim: "The composer is a bordered panel 880px wide at most with a 22px top margin and overflow hidden; the list is a column 880px wide at most."
+    evidence: "src/dashboard/src/styles/mock-parity.css:633, src/dashboard/src/styles/mock-parity.css:712"
+  - claim: "The shell keeps a fixed 230px rail column at every width and the app exports no viewport with viewport-fit cover, so env(safe-area-inset-bottom) resolves to 0 today."
+    evidence: "src/dashboard/src/app/layout.tsx:64, src/dashboard/src/styles/mock-parity.css:114-126"
+  - claim: "A test already reads mock-parity.css to pin a rule."
+    evidence: "src/dashboard/src/components/tickets/__tests__/textWrap.test.ts:1"
+
+scope:
+  in: >
+    The tab wraps the composer (and the hidden-conversation note) in two layers. The outer .conv-dock (data-testid
+    conv-dock) is position sticky, bottom 0, z-index above the entries, a --bg background, max-width 880px, padding-bottom
+    env(safe-area-inset-bottom, 0px), the 22px top margin, and no overflow, so anything placed above it (e730f) is not
+    clipped. The inner .conv-dock-body caps at 50vh with overflow-y auto, so a working composer never fills a short
+    screen. The composer inside loses its own top margin. Sticky keeps the dock in the pane's flow, so at the end of
+    the thread the last entry sits above it and no list padding is needed. The dock has no min-width and its rows wrap.
+  out: >
+    The shell's phone layout (the fixed 230px rail) and a viewport-fit cover export: both are app-wide and change every
+    page; the safe-area padding is in place and takes effect once the shell exports viewport-fit cover. Opening at the
+    newest entry (e730b), collapsing (e730c), clamping (e730d), the jump button (e730f).
+
+decisions:
+  - key: "STICKY, NOT FIXED. A fixed composer would need the rail's width and a list padding equal to its changing height; sticky stays in the pane's flow and the last entry is never hidden."
+  - key: "TWO LAYERS. The sticky layer has no overflow so a button above it is not clipped; the inner layer scrolls a tall composer."
+
+steps:
+  - id: dock
+    action: "TicketConversationTab wraps the composer / hidden note in .conv-dock > .conv-dock-body; CSS .conv-dock, .conv-dock-body, .conv-dock .composer { margin-top:0 }."
+  - id: tests
+    action: "Red then green; pnpm test the tickets folder; pnpm build."
+
+tests:
+  - "ConversationDock_HoldsTheComposer_AsTheTabsLastBlock"
+  - "ConversationDock_HoldsTheHiddenNote_WhenTheTranscriptIsHidden"
+  - "ConversationDockCss_IsStickyAtTheBottom_WithTheSafeAreaInset_AndOnlyTheInnerLayerScrolls (reads mock-parity.css)"
+
+done:
+  - "Scrolling a long conversation keeps the composer visible at the bottom; at the end of the thread the last entry sits above it."
+  - "Dashboard test and build green; full gate green."

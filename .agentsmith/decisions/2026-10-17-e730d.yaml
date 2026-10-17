@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-17-e730d
+
+decisions:
+  - category: Architecture
+    chose: "Measure the drawn box (scrollHeight against clientHeight) and show the toggle only when it overflows"
+    over: "A character or line count of the entry's text"
+    reason: "A rendered heading, a list, a cut review's findings or a narrow pane decide the height; characters do not. The ticket text pane already measures the same way."
+  - category: Implementation
+    chose: "Body and detail in one .m-clamp box capped at six body lines (6 x 1.5 x 13px), measured only while closed, re-measured by a ResizeObserver on the inner content"
+    over: "Clamping the text alone; measuring while open; observing the capped box"
+    reason: |
+      A spec-cut review's findings are its long part. Open, nothing overflows, so a measure then would hide Show less.
+      The capped box never changes size when its content grows, so the observer watches the content inside it.
+  - category: Implementation
+    chose: "The fade (mask-image) only on .closed.over; overflow-wrap anywhere; pre blocks get overflow-x auto and max-width 100%"
+    over: "A fade on every closed box"
+    reason: |
+      Review: every box is closed by default, so a fade there would dim the last line of every short entry. The
+      closed box hides overflow in both directions, so long tokens wrap instead, and a pre scrolls sideways inside it
+      (the html path renders a bare pre that had no rule).
