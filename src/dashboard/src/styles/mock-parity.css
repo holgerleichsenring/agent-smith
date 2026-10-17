@@ -665,6 +665,11 @@
 .mock-tickets .msg .mb p, .mock-tickets .msg .mb li, .mock-tickets .msg .mb ul, .mock-tickets .msg .mb ol { font-size:inherit; color:inherit; }
 .mock-tickets .msg .mb p { margin:4px 0; }
 .mock-tickets .msg .mb .cut { display:block; font-size:11px; color:var(--ink-3); margin-top:3px; }
+/* 2026-10-17-e730d: an entry's body and detail clamp at six body lines; the fade only where the box overflows. */
+.mock-tickets .msg .m-clamp { overflow-wrap:anywhere; min-width:0; }
+.mock-tickets .msg .m-clamp.closed { max-height:calc(6 * 1.5 * 13px); overflow:hidden; }
+.mock-tickets .msg .m-clamp.closed.over { -webkit-mask-image:linear-gradient(to bottom, #000 calc(100% - 1.5em), transparent); mask-image:linear-gradient(to bottom, #000 calc(100% - 1.5em), transparent); }
+.mock-tickets .msg .m-clamp pre { overflow-x:auto; max-width:100%; }
 .mock-tickets .diff { font-family:var(--mono); font-size:11.5px; border:1px solid var(--line); border-radius:var(--r-s); background:var(--panel); padding:8px 10px; margin-top:6px; overflow-x:auto; }
 .mock-tickets .diff .rm { color:var(--bad); } .mock-tickets .diff .ad { color:#1a7f43; }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { TicketConversationEntry } from "@/types/tickets";
 import { TrackerText } from "@/components/ui/TrackerText";
 import { avatarOf, decisionPill, isQuote, nameOf, whereOf } from "./conversationWords";
@@ -11,6 +11,7 @@ import { clock } from "./flowWords";
 // file and line, the detail block (a ticket-text diff, a hand-back's quote, a cut review's findings) and
 // the footer. Keyed and anchored on 9a59h's composite id. Spec-cut entries are drawn internal. The body renders
 // in the format its source named.
+// 2026-10-17-e730d: body and detail clamp together at about six lines, with Show more when the drawn box overflows.
 
 /** The cap the pull-request record cuts a note's body at. */
 const PR_BODY_CAP = 4000;
@@ -41,8 +42,10 @@ export function ConversationEntry({ entry, attemptNumber, started, target = fals
           <span className="where">{whereOf(entry, attemptNumber)}</span>
           <span className="w">{clock(entry.at)}</span>
         </div>
-        <Body entry={entry} />
-        <DetailBlock entry={entry} />
+        <Clamped entry={entry}>
+          <Body entry={entry} />
+          <DetailBlock entry={entry} />
+        </Clamped>
         {footer && (
           <div className="mf">
             {pill && <span className={`pill ${pill[0]}`}>{pill[1]}</span>}
@@ -52,6 +55,36 @@ export function ConversationEntry({ entry, attemptNumber, started, target = fals
         )}
       </div>
     </div>
+  );
+}
+
+/** Six lines and a fade while closed; the toggle shows only when the drawn content is taller than that. Measured
+ *  only while closed — open, nothing overflows — so Show less stays once it was offered. */
+function Clamped({ entry, children }: { entry: TicketConversationEntry; children: ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  const inner = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [over, setOver] = useState(false);
+  useLayoutEffect(() => {
+    const el = box.current;
+    if (open || !el) return;
+    const measure = () => setOver(el.scrollHeight > el.clientHeight + 1);
+    measure();
+    if (typeof ResizeObserver === "undefined" || !inner.current) return;
+    const watcher = new ResizeObserver(measure);
+    watcher.observe(inner.current);
+    return () => watcher.disconnect();
+  }, [open, entry.text, entry.detail]);
+  const className = ["m-clamp", !open && "closed", !open && over && "over"].filter(Boolean).join(" ");
+  return (
+    <>
+      <div ref={box} className={className} data-testid="conv-clamp"><div ref={inner}>{children}</div></div>
+      {over && (
+        <button type="button" className="tt-more" aria-expanded={open} onClick={() => setOpen(!open)} data-testid="conv-more">
+          {open ? "Show less" : "Show more"}
+        </button>
+      )}
+    </>
   );
 }
 
