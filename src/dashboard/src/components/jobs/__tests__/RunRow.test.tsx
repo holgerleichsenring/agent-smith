@@ -1,7 +1,7 @@
 import { shortRunId } from "@/lib/runId";
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
-import { RunRow } from "../RunRow";
+import { RunRow, runRowHref, runRowTicketHref } from "../RunRow";
 import type { RunSnapshot } from "@/types/hub-events";
 
 // p0343c (pixel identity): RunRow emits the runs-list mock's .rrow DOM — the
@@ -132,24 +132,43 @@ describe("RunRow", () => {
 
   it("RunRow_RowLinksToRunDetail", () => {
     render(<RunRow snapshot={base} />);
-    const row = screen.getByTestId(`run-row-${base.runId}`);
-    expect(row.tagName).toBe("A");
-    expect(row).toHaveAttribute("href", `/jobs/${encodeURIComponent(base.runId)}`);
+    const open = screen.getByTestId(`run-row-${base.runId}-open`);
+    expect(open.tagName).toBe("A");
+    expect(open).toHaveAttribute("href", `/jobs/${encodeURIComponent(base.runId)}`);
+    expect(open).toHaveAccessibleName("Open run #18803 AuthController coverage");
   });
 
-  // 2026-10-13-9a59q: a code run of a ticket opens the ticket's page; anything else its run viewer.
-  it("RunRow_ACodeRunWithATicket_LinksToTheTicketPage", () => {
+  // 2026-10-18-509c: on the runs page a row opens its RUN, a code run of a ticket too
+  // (reversing 2026-10-13-9a59q for run lists); the ticket is one click away on its key.
+  it("RunRow_ACodeRunWithATicket_OpensItsRunViewer", () => {
     render(<RunRow snapshot={{ ...base, pipeline: "code", project: "shop", ticketId: "45/1" }} />);
-    expect(screen.getByTestId(`run-row-${base.runId}`)).toHaveAttribute("href", "/tickets/shop/45%2F1");
+    expect(screen.getByTestId(`run-row-${base.runId}-open`))
+      .toHaveAttribute("href", `/jobs/${encodeURIComponent(base.runId)}`);
   });
 
-  it("RunRow_ATicketlessOrNonCodeRun_LinksToItsRunViewer", () => {
-    const viewer = `/jobs/${encodeURIComponent(base.runId)}`;
-    const { unmount } = render(<RunRow snapshot={{ ...base, pipeline: "code", project: "shop", ticketId: null }} />);
-    expect(screen.getByTestId(`run-row-${base.runId}`)).toHaveAttribute("href", viewer);
+  it("RunRow_ARunWithATicketAndProject_LinksItsTicketKeyToTheTicketPage", () => {
+    render(<RunRow snapshot={{ ...base, pipeline: "code", project: "shop", ticketId: "45/1" }} />);
+    const ticket = screen.getByTestId(`run-row-${base.runId}-ticket`);
+    expect(ticket.tagName).toBe("A");
+    expect(ticket).toHaveTextContent("#45/1");
+    expect(ticket).toHaveAttribute("href", "/tickets/shop/45%2F1");
+  });
+
+  it("RunRow_ARunWithoutProjectOrTicket_HasNoTicketLink", () => {
+    const { unmount } = render(<RunRow snapshot={{ ...base, project: null }} />);
+    expect(screen.queryByTestId(`run-row-${base.runId}-ticket`)).toBeNull();
+    expect(screen.getByTestId(`run-row-${base.runId}`).querySelector(".tick")).toHaveTextContent("#18803");
     unmount();
-    render(<RunRow snapshot={{ ...base, pipeline: "security-scan", project: "shop" }} />);
-    expect(screen.getByTestId(`run-row-${base.runId}`)).toHaveAttribute("href", viewer);
+    render(<RunRow snapshot={{ ...base, project: "shop", ticketId: null }} />);
+    expect(screen.queryByTestId(`run-row-${base.runId}-ticket`)).toBeNull();
+  });
+
+  it("RunRow_NoAnchorNestsInsideAnother", () => {
+    render(<RunRow snapshot={{ ...base, pipeline: "code", project: "shop" }} />);
+    const row = screen.getByTestId(`run-row-${base.runId}`);
+    expect(row.tagName).not.toBe("A");
+    expect(row.querySelectorAll("a")).toHaveLength(2);
+    expect(row.querySelector("a a, a button, button a")).toBeNull();
   });
 
   it("RunRow_QueuedStatus_ShowsPositionAndReason", () => {
@@ -222,5 +241,19 @@ describe("RunRow", () => {
     expect(row.querySelector(".tick")).toHaveTextContent(`#${shortRunId(base.runId)}`);
     expect(row.querySelector(".ttl")).toHaveTextContent("fix-bug");
     expect(screen.queryByText("AuthController coverage")).not.toBeInTheDocument();
+  });
+});
+
+describe("runRowHref / runRowTicketHref (2026-10-18-509c)", () => {
+  it("RunRowHref_EveryPipeline_IsTheRunViewer", () => {
+    const viewer = `/jobs/${encodeURIComponent(base.runId)}`;
+    expect(runRowHref({ ...base, pipeline: "code", project: "shop" })).toBe(viewer);
+    expect(runRowHref({ ...base, pipeline: "security-scan", project: null })).toBe(viewer);
+  });
+
+  it("RunRowTicketHref_TicketAndProject_IsTheTicketPage_ElseNull", () => {
+    expect(runRowTicketHref({ ...base, project: "shop", ticketId: "45/1" })).toBe("/tickets/shop/45%2F1");
+    expect(runRowTicketHref({ ...base, project: null })).toBeNull();
+    expect(runRowTicketHref({ ...base, project: "shop", ticketId: null })).toBeNull();
   });
 });
