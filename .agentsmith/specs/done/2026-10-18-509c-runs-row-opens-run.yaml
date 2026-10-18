@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-18-509c
+goal: "A run row on the runs pages always opens its run viewer; a run with a ticket carries its ticket key as a separate link to the ticket page."
+
+applies_to: "dashboard (src/dashboard/src/components/jobs/RunRow.tsx, the runs list rows)"
+
+requires: [2026-10-13-9a59q]
+
+facts:
+  - claim: "runRowHref sends a code run with a ticket and project to ticketPath, anything else to /jobs/{runId}."
+    evidence: "src/dashboard/src/components/jobs/RunRow.tsx:54-59"
+  - claim: "The row is one next/link anchor holding the ticket ref, the title and the delete button."
+    evidence: "src/dashboard/src/components/jobs/RunRow.tsx:76-131"
+  - claim: "RunCard already links every run to /jobs/{runId}; MissionControl is RunRow's only caller."
+    evidence: "src/dashboard/src/components/jobs/RunCard.tsx:66, src/dashboard/src/components/jobs/MissionControl.tsx:206"
+
+scope:
+  in: >
+    RunRow: the row is a container; a stretched link covers it and opens /jobs/{runId}; the
+    ticket key (#ticketId) is a sibling link to ticketPath(project, ticketId) when the run has
+    both, plain text otherwise; delete stays above the stretched link. runRowHref returns the
+    run viewer for every run. CSS for the stretched link, its focus ring and the ticket link.
+    RunRow and MissionControl tests follow.
+  out: >
+    Ticket pages linking to runs; RunCard (already links to its run, renders no ticket link today).
+
+steps:
+  - id: row
+    action: "Restructure RunRow into a container with a stretched run link and a sibling ticket link; runRowHref always /jobs/{runId}; update the 9a59q comment; CSS."
+  - id: tests
+    action: "RunRow tests: row opens the run for a code run with a ticket; ticket key links to the ticket page; no ticket link without project or ticket; no anchor nested in an anchor. MissionControl href assertions read the run link."
+
+tests:
+  - "RunRow_ACodeRunWithATicket_OpensItsRunViewer"
+  - "RunRow_ARunWithATicketAndProject_LinksItsTicketKeyToTheTicketPage"
+  - "RunRow_ARunWithoutProjectOrTicket_HasNoTicketLink"
+  - "RunRow_NoAnchorNestsInsideAnother"
+  - "RunRowHref_EveryPipeline_IsTheRunViewer"
+  - "RunRowTicketHref_TicketAndProject_IsTheTicketPage_ElseNull"
+
+done:
+  - "Clicking a run row on the runs page opens /jobs/{runId}, for code runs with a ticket too."
+  - "The ticket key on such a row opens /tickets/{project}/{ticketId}."
+  - "Dashboard tests and build green; spec gate passed."

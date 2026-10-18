@@ -15,10 +15,13 @@ import { cn } from "@/lib/utils";
 // p0343c (pixel identity): one run row in the runs-list.html mock's .rrow DOM —
 // status dot · ticket ref + title + activity line · story spine (only when the
 // snapshot carries server-computed beats) · progress/cost/elapsed mono columns ·
-// always-visible delete · chevron. A code run of a ticket links to the ticket's page
-// (2026-10-13-9a59q); any other run to /jobs/{runId}. Everything
-// rendered is real snapshot data; fields the snapshot does not carry are
-// omitted, never synthesised.
+// always-visible delete · chevron. Every row opens its run viewer, /jobs/{runId}
+// (2026-10-18-509c, reversing 9a59q's ticket link for run lists); a run with a ticket
+// and project carries its ticket key as a separate link to the ticket's page. The row
+// is a container with a stretched run link beneath its content, so the ticket link and
+// the delete button are siblings of the run link, never nested inside it. Everything
+// rendered is real snapshot data; fields the snapshot does not carry are omitted,
+// never synthesised.
 
 interface Props {
   snapshot: RunSnapshot;
@@ -51,12 +54,14 @@ function finishedPill(status: NodeStatus): { cls: string; label: string } | null
   }
 }
 
-/** A code run with a ticket and project opens its ticket; a ticketless or non-code run its viewer. */
+/** A run row opens its run viewer, whatever pipeline the run belongs to. */
 export function runRowHref(snapshot: RunSnapshot): string {
-  if (snapshot.pipeline === "code" && snapshot.ticketId && snapshot.project) {
-    return ticketPath(snapshot.project, snapshot.ticketId);
-  }
   return `/jobs/${encodeURIComponent(snapshot.runId)}`;
+}
+
+/** The ticket page a run row's ticket key links to, or null when the run names no ticket and project. */
+export function runRowTicketHref(snapshot: RunSnapshot): string | null {
+  return snapshot.ticketId && snapshot.project ? ticketPath(snapshot.project, snapshot.ticketId) : null;
 }
 
 export function RunRow({ snapshot }: Props) {
@@ -71,18 +76,32 @@ export function RunRow({ snapshot }: Props) {
   const title = snapshot.ticketTitle ?? snapshot.pipeline;
   const pill = finishedPill(status);
   const queued = status === "queued";
+  const ticketHref = runRowTicketHref(snapshot);
 
   return (
-    <Link
-      href={runRowHref(snapshot)}
-      data-testid={`run-row-${snapshot.runId}`}
-      className={cn("rrow", ST_CLASS[status])}
-    >
+    <div data-testid={`run-row-${snapshot.runId}`} className={cn("rrow", ST_CLASS[status])}>
+      <Link
+        href={runRowHref(snapshot)}
+        className="rrow-open"
+        aria-label={`Open run ${tick} ${title}`}
+        data-testid={`run-row-${snapshot.runId}-open`}
+      />
       <span className="sd" />
 
       <div className="rmain">
         <div className="rt">
-          <span className="tick">{tick}</span>
+          {ticketHref ? (
+            <Link
+              href={ticketHref}
+              className="tick tick-link"
+              title={`Open ticket ${tick}`}
+              data-testid={`run-row-${snapshot.runId}-ticket`}
+            >
+              {tick}
+            </Link>
+          ) : (
+            <span className="tick">{tick}</span>
+          )}
           <span className="ttl">{title}</span>
           <CancelRequestedBadge
             status={snapshot.status}
@@ -128,11 +147,11 @@ export function RunRow({ snapshot }: Props) {
 
       {/* p0345b: per-row delete is ALWAYS visible — never hidden behind a hover
           reveal (the two-click confirm guards against a misclick on a live run). */}
-      <span data-testid={`run-row-${snapshot.runId}-actions`}>
+      <span className="rrow-above" data-testid={`run-row-${snapshot.runId}-actions`}>
         <DeleteRunButton runId={snapshot.runId} />
       </span>
       <span className="chev">›</span>
-    </Link>
+    </div>
   );
 }
 

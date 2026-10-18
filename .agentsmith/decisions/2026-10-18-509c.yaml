@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-18-509c
+
+decisions:
+  - category: Behavior
+    chose: "Every run row on the runs pages opens its run viewer /jobs/{runId}; the ticket key is a separate link to the ticket page"
+    over: "Keeping 2026-10-13-9a59q's rule that a code run of a ticket links to its ticket page"
+    reason: "The operator on the runs page wants the run, not a redirect to the ticket. This reverses 9a59q for run lists only; ticket pages still link to their runs, and the ticket stays one click away."
+  - category: Implementation
+    chose: "The row becomes a container with a stretched run link (absolute, inset 0) beneath the content; the ticket key and the delete button are raised siblings above it"
+    over: "Keeping the row one anchor with the ticket link inside it, or a click handler on a div that navigates"
+    reason: "An anchor inside an anchor is invalid HTML and browsers re-parent it; a click handler loses middle-click, open-in-new-tab and native link focus. The stretched link keeps the grid, the hover look and one tab stop for the row."
+  - category: Implementation
+    chose: "RunCard left unchanged"
+    over: "Adding a ticket link to RunCard too"
+    reason: "RunCard already links every run to its viewer and has no caller in the tree; consistency holds without touching it."
