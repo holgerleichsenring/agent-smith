@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.170.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.169.0...v0.170.0) (2026-10-17)
+
+
+### Features
+
+* a derivation names the segments every spec needs once as shared (2026-10-17-293ba) ([d23b2a6](https://github.com/holgerleichsenring/agent-smith/commit/d23b2a61ae853ab46d304ac0ba6ea48484f7ab93))
+* clamp long ticket conversation entries at six lines with Show more (2026-10-17-e730d) ([74059d7](https://github.com/holgerleichsenring/agent-smith/commit/74059d73ac9ec7eb50c3706b274f8637b0bace9c))
+* dock the ticket conversation composer at the bottom of the scroll box (2026-10-17-e730a) ([31de6e6](https://github.com/holgerleichsenring/agent-smith/commit/31de6e6fe2cbc7bf7a0c25b366097560c97a2229))
+* fold finished attempts on the ticket conversation to one line each (2026-10-17-e730c) ([68ef017](https://github.com/holgerleichsenring/agent-smith/commit/68ef017541f0b4676e66d673cad516527ea8bf42))
+* make the ticket conversation readable with a docked composer and folded attempts (2026-10-17-e730) ([de40e83](https://github.com/holgerleichsenring/agent-smith/commit/de40e83b83c81b4fd8aa2c0582cc6866ad8b5ade))
+* offer a jump to the newest ticket conversation entry with the count since (2026-10-17-e730f) ([d693cf3](https://github.com/holgerleichsenring/agent-smith/commit/d693cf37c723a1fc92e0c94b0186db21a0576483))
+* open the ticket conversation at its newest entry, marking a causeOf target (2026-10-17-e730b) ([4a37369](https://github.com/holgerleichsenring/agent-smith/commit/4a3736976a8d92130664a1658b6e68ef57b39864))
+* pin skills v5.20.0 so a derivation names shared segments and keeps environment state out of premises (2026-10-17-063c) ([d0b8b35](https://github.com/holgerleichsenring/agent-smith/commit/d0b8b3589ae8f94f672a70f3bf12165cdc8bb63f))
+* pin skills v5.20.0 so a derivation names shared segments and keeps environment state out of premises (2026-10-17-063c) ([869c7f7](https://github.com/holgerleichsenring/agent-smith/commit/869c7f765141d34a564e467e50f2597a2890d341))
+* say 'Same cause as A{n}' for a ticket attempt repeating the served end cause (2026-10-17-e730e) ([88b580b](https://github.com/holgerleichsenring/agent-smith/commit/88b580b615b0b6fbbd9f8c615a0f9594cdf1a7c3))
+
+
+### Bug Fixes
+
+* a .NET advisory audit exiting 1 is a look that could not run (2026-10-17-293bb) ([607a101](https://github.com/holgerleichsenring/agent-smith/commit/607a101332d0b098aa20e332278b05d3a78c85b1))
+* a claim resting on a look that could not run is unsettled, not a premise (2026-10-17-293bc) ([16106bc](https://github.com/holgerleichsenring/agent-smith/commit/16106bc4e4d093e460f25bb9debdc6432bcf2e09))
+* segments reach only their audience, an unrun look is no premise (2026-10-17-293b) ([180e401](https://github.com/holgerleichsenring/agent-smith/commit/180e401519f6aaf07f17e53f0ff8d1335a6b5166))
+
 ## [0.169.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.168.0...v0.169.0) (2026-10-17)
 
 
