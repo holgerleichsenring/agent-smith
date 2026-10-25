@@ -59,6 +59,9 @@ public sealed class MemoryRelianceTests
             .Should().Be((EventType.MemoryUseRecorded, "run-1", Spec, "sample", "A-1", (MemoryCitation?)null));
         used.Relied.Should().Equal(new MemoryCitation("api", "github.com/o/api", "build-order"),
             new MemoryCitation("api", "github.com/o/api", "no-shims"));
+        // 2026-10-25-9324c: kept on the pipeline for the run-end outcome.
+        pipeline.Get<IReadOnlyDictionary<string, IReadOnlyList<MemoryCitation>>>(ContextKeys.MemoryReliance)[Spec]
+            .Should().Equal(used.Relied);
     }
 
     [Fact]
@@ -94,6 +97,22 @@ public sealed class MemoryRelianceTests
         used.Relied.Should().BeEmpty();
         (await host.DisputeMemory("build-order", " ")).Should().StartWith("Error:");
         (await host.DisputeMemory("gone", "wrong")).Should().StartWith("Error: nothing was disputed");
+    }
+
+    [Fact]
+    public async Task MemoryReliance_SurvivesTheCheckpoint()
+    {
+        Repo("api", "build-order");
+        var pipeline = new PipelineContext();
+        await new HandForwardToolHost(pipeline, Spec, Memory(pipeline)).HandForward(relied_on: ["build-order"]);
+        var serializer = new AgentSmith.Application.Services.Resume.PipelineContextSerializer(
+            NullLogger<AgentSmith.Application.Services.Resume.PipelineContextSerializer>.Instance);
+
+        var restored = new PipelineContext();
+        serializer.Restore(serializer.Serialize(pipeline), restored);
+
+        restored.Get<IReadOnlyDictionary<string, IReadOnlyList<MemoryCitation>>>(ContextKeys.MemoryReliance)[Spec]
+            .Should().Equal(new MemoryCitation("api", "github.com/o/api", "build-order"));
     }
 
     [Fact]

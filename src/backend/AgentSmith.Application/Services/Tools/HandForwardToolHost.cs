@@ -60,7 +60,7 @@ public sealed class HandForwardToolHost(PipelineContext pipeline, string specId,
             : new Dictionary<string, SpecBuildNote>(StringComparer.Ordinal);
         var note = notes[specId] = new SpecBuildNote(specId, lists[0].Entries, lists[1].Entries, lists[2].Entries, lists[3].Entries);
         pipeline.Set<IReadOnlyDictionary<string, SpecBuildNote>>(ContextKeys.SpecBuildNotes, notes);
-        if (relied is not null) await memory!.RecordReliedAsync(relied.Citations, ct);
+        if (relied is not null) await memory!.RecordReliedAsync(specId, relied.Citations, ct);
         return $"Build note for {specId} recorded ({lists.Sum(l => l.Entries.Count)} entries"
             + (relied is null ? string.Empty : $", relied on {relied.Citations.Count} memories")
             + "); a later call replaces it." + Conflicts(note);

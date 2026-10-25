@@ -185,7 +185,7 @@ public sealed class WriteRunResultFromBranchTests
         return new WriteRunResultHandler(
             factory.Object, new InMemoryDialogueTrail(), new InMemoryRunArtifactStore(),
             new Events.RecordingEventPublisher(),
-            new RunNarrativeMemoryWriter(NullLogger<RunNarrativeMemoryWriter>.Instance),
+            new RunNarrativeMemoryWriter(NullLogger<RunNarrativeMemoryWriter>.Instance), AgentSmith.Tests.TestHelpers.MemoryOutcomes.None(),
             new SandboxTargets(), TestRunResultChanges.Create(), NullLogger<WriteRunResultHandler>.Instance);
     }
 }

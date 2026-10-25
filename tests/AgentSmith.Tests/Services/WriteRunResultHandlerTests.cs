@@ -45,7 +45,7 @@ public sealed class WriteRunResultHandlerTests
         factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(reader.Object);
 
         _sut = new WriteRunResultHandler(factory.Object, _dialogueTrail, new InMemoryRunArtifactStore(), new AgentSmith.Tests.Events.RecordingEventPublisher(),
-            new AgentSmith.Application.Services.Memory.RunNarrativeMemoryWriter(NullLogger<AgentSmith.Application.Services.Memory.RunNarrativeMemoryWriter>.Instance),
+            new AgentSmith.Application.Services.Memory.RunNarrativeMemoryWriter(NullLogger<AgentSmith.Application.Services.Memory.RunNarrativeMemoryWriter>.Instance), AgentSmith.Tests.TestHelpers.MemoryOutcomes.None(),
             new SandboxTargets(), AgentSmith.Tests.TestHelpers.TestRunResultChanges.Create(), NullLogger<WriteRunResultHandler>.Instance);
     }
 

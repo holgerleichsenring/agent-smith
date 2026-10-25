@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Runs;
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Entities;
+using AgentSmith.Infrastructure.Persistence.Services;
 using Microsoft.EntityFrameworkCore;
 
 namespace AgentSmith.Infrastructure.Persistence.Repositories;
@@ -13,8 +14,9 @@ namespace AgentSmith.Infrastructure.Persistence.Repositories;
 /// story applier assigns that payload wholesale on every publish, so a resume or a repair
 /// pass would silently destroy anything stored inside it.
 /// </para>
+/// <para>2026-10-25-9324c: a judgement is also evidence about the memories its spec relied on, staged in the same save.</para>
 /// </summary>
-public sealed class CriterionJudgementRepository(IUnitOfWork unitOfWork)
+public sealed class CriterionJudgementRepository(IUnitOfWork unitOfWork, JudgedMemoryEvidence memories)
 {
     /// <summary>
     /// The account and the judgements of it, together. Apart they are two fetches and two
@@ -74,6 +76,7 @@ public sealed class CriterionJudgementRepository(IUnitOfWork unitOfWork)
             existing.RecordedAt = recordedAt;
         }
 
+        await memories.RecordAsync(unitOfWork, runId, key, request.HumanStatus, request.Reason, recordedAt, ct);
         await unitOfWork.SaveChangesAsync(ct);
     }
 
@@ -86,6 +89,7 @@ public sealed class CriterionJudgementRepository(IUnitOfWork unitOfWork)
             .FirstOrDefaultAsync(j => j.RunId == runId && j.CriterionKey == key, ct);
         if (existing is null) return false;
         unitOfWork.Remove(existing);
+        await memories.RetractAsync(unitOfWork, runId, key, ct);
         await unitOfWork.SaveChangesAsync(ct);
         return true;
     }

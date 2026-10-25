@@ -38,7 +38,7 @@ public sealed class WriteRunResultHandler(
     IDialogueTrail dialogueTrail,
     IRunArtifactStore artifactStore,
     IEventPublisher events,
-    Memory.RunNarrativeMemoryWriter narrativeWriter, // p0380: green-run curated memory
+    Memory.RunNarrativeMemoryWriter narrativeWriter, Memory.MemoryOutcomeRecorder outcomes, // p0380, 9324c: run-end memory
     SandboxTargets sandboxTargets,
     RunResultChanges runResultChanges, // 2026-10-13-3890b: the branch is the record
     ILogger<WriteRunResultHandler> logger)
@@ -58,6 +58,7 @@ public sealed class WriteRunResultHandler(
         var runId = context.Pipeline.Get<string>(ContextKeys.RunId);
         await PublishIgnoredInstructionsAsync(context, runId, cancellationToken);
         await PublishRunStoryAsync(context, runId, cancellationToken);
+        await outcomes.RecordAsync(context.Pipeline, cancellationToken); // 2026-10-25-9324c: once, from final standing
         if (IsInitMode(context))
             return await WriteInitFanOutAsync(context, runId, cancellationToken);
         return await WriteSingleAsync(context, runId, cancellationToken);

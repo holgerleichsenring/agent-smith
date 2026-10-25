@@ -29,7 +29,7 @@ public sealed class CriterionJudgementTests
     {
         using var store = MigratedStoreTemplate.OpenCopy();
         using var ctx = MigratedStoreTemplate.Context(store);
-        var repository = new CriterionJudgementRepository(ctx);
+        var repository = new CriterionJudgementRepository(ctx, new());
 
         await repository.RecordAsync(Run, Overrule(), "holger", DateTimeOffset.UnixEpoch, default);
 
@@ -47,7 +47,7 @@ public sealed class CriterionJudgementTests
     {
         using var store = MigratedStoreTemplate.OpenCopy();
         using var ctx = MigratedStoreTemplate.Context(store);
-        var repository = new CriterionJudgementRepository(ctx);
+        var repository = new CriterionJudgementRepository(ctx, new());
 
         await repository.RecordAsync(Run, Overrule(), "holger", DateTimeOffset.UnixEpoch, default);
         await repository.RecordAsync(
@@ -70,7 +70,7 @@ public sealed class CriterionJudgementTests
     {
         using var store = MigratedStoreTemplate.OpenCopy();
         using var ctx = MigratedStoreTemplate.Context(store);
-        var repository = new CriterionJudgementRepository(ctx);
+        var repository = new CriterionJudgementRepository(ctx, new());
 
         await repository.RecordAsync(Run, Overrule("first criterion"), "holger", DateTimeOffset.UnixEpoch, default);
         await repository.RecordAsync(Run, Overrule("second criterion"), "holger", DateTimeOffset.UnixEpoch, default);
@@ -94,7 +94,7 @@ public sealed class CriterionJudgementTests
     {
         using var store = MigratedStoreTemplate.OpenCopy();
         using var ctx = MigratedStoreTemplate.Context(store);
-        var repository = new CriterionJudgementRepository(ctx);
+        var repository = new CriterionJudgementRepository(ctx, new());
         await repository.RecordAsync(Run, Overrule(), "holger", DateTimeOffset.UnixEpoch, default);
 
         (await repository.WithdrawAsync(Run, Criterion, default)).Should().BeTrue();
@@ -114,7 +114,7 @@ public sealed class CriterionJudgementTests
     {
         using var store = MigratedStoreTemplate.OpenCopy();
         using var ctx = MigratedStoreTemplate.Context(store);
-        var repository = new CriterionJudgementRepository(ctx);
+        var repository = new CriterionJudgementRepository(ctx, new());
         ctx.Runs.Add(new Run { Id = Run, AcceptanceJson = """{"criteria":[],"outcome":"verbatim","ratifiedBy":"x"}""" });
         await ctx.SaveChangesAsync();
         await repository.RecordAsync(Run, Overrule(), "holger", DateTimeOffset.UnixEpoch, default);
@@ -134,7 +134,7 @@ public sealed class CriterionJudgementTests
     {
         using var store = MigratedStoreTemplate.OpenCopy();
         using var ctx = MigratedStoreTemplate.Context(store);
-        var repository = new CriterionJudgementRepository(ctx);
+        var repository = new CriterionJudgementRepository(ctx, new());
         ctx.Runs.Add(new Run
         {
             Id = Run,
@@ -195,7 +195,7 @@ public sealed class CriterionJudgementTests
         using var store = MigratedStoreTemplate.OpenCopy();
         using var ctx = MigratedStoreTemplate.Context(store);
 
-        var served = await new CriterionJudgementRepository(ctx)
+        var served = await new CriterionJudgementRepository(ctx, new())
             .AcceptanceForRunAsync("no-such-run", default);
 
         served.Acceptance.Should().BeNull();

@@ -19,8 +19,16 @@ public sealed class MasterMemoryUse(
     public Task<MemoryCitationRead> ResolveAsync(IReadOnlyList<string> entries, CancellationToken ct) =>
         resolver.ResolveAsync(pipeline, repositories, repoRoot, entries, ct);
 
-    public Task<bool> RecordReliedAsync(IReadOnlyList<MemoryCitation> relied, CancellationToken ct) =>
-        recorder?.RecordReliedAsync(relied, ct) ?? Task.FromResult(false);
+    /// <summary>2026-10-25-9324c: kept on the pipeline for the run-end outcome, and published for the ledger.</summary>
+    public Task<bool> RecordReliedAsync(string specId, IReadOnlyList<MemoryCitation> relied, CancellationToken ct)
+    {
+        var held = pipeline.TryGet<IReadOnlyDictionary<string, IReadOnlyList<MemoryCitation>>>(ContextKeys.MemoryReliance, out var r)
+            && r is not null ? new Dictionary<string, IReadOnlyList<MemoryCitation>>(r, StringComparer.Ordinal)
+            : new Dictionary<string, IReadOnlyList<MemoryCitation>>(StringComparer.Ordinal);
+        held[specId] = relied;
+        pipeline.Set<IReadOnlyDictionary<string, IReadOnlyList<MemoryCitation>>>(ContextKeys.MemoryReliance, held);
+        return recorder?.RecordReliedAsync(relied, ct) ?? Task.FromResult(false);
+    }
 
     public Task<bool> RecordDisputeAsync(MemoryCitation disputed, string reason, CancellationToken ct) =>
         recorder?.RecordDisputeAsync(disputed, reason, ct) ?? Task.FromResult(false);
