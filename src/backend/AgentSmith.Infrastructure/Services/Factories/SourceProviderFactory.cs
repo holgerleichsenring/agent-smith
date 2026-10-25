@@ -2,6 +2,7 @@ using AgentSmith.Infrastructure.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Exceptions;
+using AgentSmith.Domain.Models;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services.Providers.Source;
 using Microsoft.Extensions.Logging;
@@ -77,7 +78,7 @@ public sealed class SourceProviderFactory(
     internal static (string BaseUrl, string ProjectPath, string CloneUrl) ResolveGitLabTarget(
         string repoUrl, string? gitlabUrlOverride)
     {
-        var uri = new Uri(repoUrl.Replace(".git", ""));
+        var uri = new Uri(RepoKey.WithoutGitSuffix(repoUrl));
         var baseUrl = string.IsNullOrWhiteSpace(gitlabUrlOverride)
             ? $"{uri.Scheme}://{uri.Authority}"
             : gitlabUrlOverride.TrimEnd('/');
@@ -85,10 +86,10 @@ public sealed class SourceProviderFactory(
         return (baseUrl, projectPath, $"{baseUrl}/{projectPath}.git");
     }
 
-    private static (string orgUrl, string project, string repoName) ParseAzureReposUrl(string url)
+    internal static (string orgUrl, string project, string repoName) ParseAzureReposUrl(string url)
     {
         // https://dev.azure.com/{org}/{project}/_git/{repo}
-        var uri = new Uri(url.Replace(".git", ""));
+        var uri = new Uri(RepoKey.WithoutGitSuffix(url));
         var segments = uri.AbsolutePath.Trim('/').Split('/');
         if (segments.Length < 4 || segments[2] != "_git")
             throw new ConfigurationException($"Invalid Azure Repos URL: {url}");

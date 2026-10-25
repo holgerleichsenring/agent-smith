@@ -1,4 +1,5 @@
 using AgentSmith.Domain.Exceptions;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Infrastructure.Models;
 
@@ -9,8 +10,6 @@ namespace AgentSmith.Infrastructure.Models;
 /// </summary>
 public sealed record GitHubRepoAddress(string Owner, string Repo, string RepoUrl, GitHubApiEndpoints Api)
 {
-    private const string GitSuffix = ".git";
-
     public string FullName => $"{Owner}/{Repo}";
 
     public static GitHubRepoAddress Parse(string url) =>
@@ -20,8 +19,7 @@ public sealed record GitHubRepoAddress(string Owner, string Repo, string RepoUrl
     {
         address = null;
         if (string.IsNullOrWhiteSpace(url)) return false;
-        var trimmed = url.Trim().TrimEnd('/');
-        if (trimmed.EndsWith(GitSuffix, StringComparison.OrdinalIgnoreCase)) trimmed = trimmed[..^GitSuffix.Length];
+        var trimmed = RepoKey.WithoutGitSuffix(url.Trim());
         if (!Uri.TryCreate(trimmed, UriKind.Absolute, out var uri)) return false;
         var segments = uri.AbsolutePath.Trim('/').Split('/');
         if (segments.Length < 2 || segments[0].Length == 0 || segments[1].Length == 0) return false;
