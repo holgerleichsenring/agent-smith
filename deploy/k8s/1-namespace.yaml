@@ -4,3 +4,14 @@ metadata:
   name: agentsmith
   labels:
     app.kubernetes.io/name: agentsmith
+---
+# 2026-10-25-c5a7c: sandbox pods run here, apart from the server, so a project's
+# sandbox.secrets reference can only name Secrets created for sandboxes. The server's own
+# Secret (agentsmith-secrets) stays in the namespace above, out of reach of a pod here.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: agentsmith-sandboxes
+  labels:
+    app.kubernetes.io/name: agentsmith
+    app.kubernetes.io/component: sandboxes

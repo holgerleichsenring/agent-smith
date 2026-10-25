@@ -141,5 +141,5 @@ curl http://localhost:8081/health                          # server + preflight 
 docker compose -f deploy/docker-compose.yml logs -f server  # watch a run start
 docker compose -f deploy/docker-compose.yml exec redis redis-cli ping   # PONG
 docker ps --filter label=agent-smith.job-id                # sandbox containers on this host
-kubectl -n agentsmith get pods -l app=agentsmith-sandbox    # sandbox pods
+kubectl -n agentsmith-sandboxes get pods -l app=agentsmith-sandbox    # sandbox pods (or -n agentsmith before the sandbox namespace)
 ```

@@ -178,6 +178,15 @@ spec:
               valueFrom:
                 fieldRef:
                   fieldPath: metadata.namespace
+            # 2026-10-25-c5a7c: sandbox pods run in their own namespace and reach Redis by its full name.
+            - name: K8S_SANDBOX_NAMESPACE
+              value: "agentsmith-sandboxes"
+            - name: SANDBOX_REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: agentsmith-secrets
+                  key: sandbox-redis-url
+                  optional: true
             - name: AGENTSMITH_SKILLS_DIR
               value: "/var/lib/agentsmith/skills"
             # 2026-09-04-102b: the database, mirroring the migrate init container above.

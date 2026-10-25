@@ -25,8 +25,8 @@ kubectl -n agentsmith rollout status deployment/agentsmith-server
 ## What this gets you
 
 - The server survives node failures because Kubernetes reschedules it, and the run history survives everything because it lives in a relational database (SQLite on a PVC by default; point `persistence:` at PostgreSQL, MySQL or SQL Server for anything shared, and the same init-container migrates it). To keep the database password out of the ConfigMap, set `AGENTSMITH_PERSISTENCE_PROVIDER` and `AGENTSMITH_PERSISTENCE_CONNECTION` as environment variables on both the server and the migrate init-container, for example from the Secret. Set together, they replace the `persistence:` block; one without the other is refused with a startup finding.
-- Sandbox pods created per repo and toolchain image per run, then deleted. The server's `ServiceAccount` has permission to create / delete pods in its own namespace — that's the whole RBAC story.
-- Real capacity control: a `ResourceQuota` on the namespace turns "too many runs" into a FIFO queue instead of failures (see the capacity section below).
+- Sandbox pods created per repo and toolchain image per run, then deleted. They run in a namespace of their own, `agentsmith-sandboxes`, so a pod there cannot reference the server's Secret. The server's `ServiceAccount` may create and delete pods and read the `ResourceQuota` in that namespace; a second Role grants the same in its own namespace for deployments that have not moved yet. That is the whole RBAC story.
+- Real capacity control: a `ResourceQuota` on the sandbox namespace turns "too many runs" into a FIFO queue instead of failures (see the capacity section below).
 - The dashboard as its own Deployment + Service, port 3000 behind the Service.
 
 ## The shape of the server pod
@@ -37,7 +37,7 @@ The load-bearing details from `8-deployment-server.yaml`, so you know what you'r
 - The server container listens on **8081** (`/health`, which answers for liveness and readiness alike and stays `200` while a subsystem is degraded, so the pod that reports the fault is never pulled out of the service). The body lists each background subsystem with its state and reason, and the startup preflight — the same checks as `agent-smith doctor` — runs warn-only in the background and reports there too; a degraded tracker shows up there instead of blocking startup.
 - The ConfigMap mounted at **`/app/config/agentsmith.yml`** carries the bootstrap slice only, meaning `persistence:` and `secrets:`. Everything else (agents, trackers, repos, projects, and the global settings) lives in the database and is edited in the dashboard's Config studio. Putting a full catalog into this ConfigMap does nothing, because the server reads those two blocks and ignores the rest. See [Where configuration lives](../configure-it/index.md).
 - Secrets come from the `agentsmith-secrets` Secret (`REDIS_URL`, provider keys, tracker tokens, webhook secrets, optional Slack/Teams tokens). The ConfigMap names them, the Secret holds the values.
-- Every run executes inside the server pod. In-cluster the sandbox backend is Kubernetes (`SANDBOX_TYPE` says so explicitly; left unset, the in-cluster service host decides): the server creates each run's sandbox pods in its own namespace and removes them when the run ends. That's why the quota math below counts a run's sandboxes, and why the Role grants pods and nothing else.
+- Every run executes inside the server pod. In-cluster the sandbox backend is Kubernetes (`SANDBOX_TYPE` says so explicitly; left unset, the in-cluster service host decides): the server creates each run's sandbox pods in the namespace `K8S_SANDBOX_NAMESPACE` names (the reference manifests set `agentsmith-sandboxes`; unset, the server's own namespace) and removes them when the run ends. A pod in another namespace cannot resolve the short name `redis`, so the server hands it `SANDBOX_REDIS_URL` (the secret key `sandbox-redis-url`, `redis.agentsmith.svc.cluster.local:6379`); with the namespaces apart and that variable unset, startup reports a blocking finding and no sandbox is spawned. That's why the quota math below counts a run's sandboxes, and why the Role grants pods and nothing else.
 - The images are one release: `holgerleichsenring/agent-smith-server`, `holgerleichsenring/agent-smith-cli` (the migrate init-container) and `holgerleichsenring/agentsmith-dashboard` carry the same tag in the manifests. The sandbox-agent image (`holgerleichsenring/agent-smith-sandbox-agent`) needs no pin: its tag is derived from the release the server is. Pin it through **Configuration → Deployment** (`deployment.version`) or `sandbox.agent_version` only to run a different tag on purpose; a pin is reported as an advisory finding, never refused.
 
 - Skills need no pin: every release embeds the catalog it was tested with. The `skills` volume is an `emptyDir` the embedded catalog materializes into at startup.
@@ -112,7 +112,7 @@ sandbox:
   image_pull_secrets: [acme-registry-pull]
 ```
 
-`image_pull_secrets` names Kubernetes image pull secrets you created in the namespace. They go on every sandbox pod, init container included, so the agent image and the toolchain image can come from different credentialed registries. The list is global; a project cannot name its own. Kubernetes only: the Docker backend pulls without credentials and says so when a pull fails.
+`image_pull_secrets` names Kubernetes image pull secrets you created in the sandbox namespace (`agentsmith-sandboxes` with the reference manifests). They go on every sandbox pod, init container included, so the agent image and the toolchain image can come from different credentialed registries. The list is global; a project cannot name its own. Kubernetes only: the Docker backend pulls without credentials and says so when a pull fails.
 
 ### Credentials inside the sandbox
 
@@ -131,9 +131,11 @@ projects:
             key: signing-key
 ```
 
-`env` entries become environment variables from a `secretKeyRef`; `files` entries are mounted read-only at `mount`. The command that uses them lives in the context's `prerequisites`. The run preflight checks the declaration without touching the cluster: a reference without a single `:`, a duplicate or a clashing mount is named before anything starts. Once the pod is up, a second check asserts by name that every declared variable and file arrived, and fails naming the missing one, never its value. On the Docker and in-process backends nothing is injected, and the preflight reports "NOT INJECTED" as a warning instead of failing.
+The Secret lives in the sandbox namespace (`agentsmith-sandboxes` with the reference manifests). A reference to a Secret that only exists in the server's namespace, `agentsmith-secrets` among them, does not resolve and the pod does not start. `env` entries become environment variables from a `secretKeyRef`; `files` entries are mounted read-only at `mount`. The command that uses them lives in the context's `prerequisites`. The run preflight checks the declaration without touching the cluster: a reference without a single `:`, a duplicate or a clashing mount is named before anything starts. Once the pod is up, a second check asserts by name that every declared variable and file arrived, and fails naming the missing one, never its value. On the Docker and in-process backends nothing is injected, and the preflight reports "NOT INJECTED" as a warning instead of failing.
 
 ## Updating
+
+Upgrading to the release with the sandbox namespace: before you apply, add the key `sandbox-redis-url` to `agentsmith-secrets` (`apply-k8s-secret.sh` writes it), and create the sandbox Secrets, image pull secrets and the `ResourceQuota` in `agentsmith-sandboxes`. Sandbox pods move there on the next run; a project secret left only in `agentsmith` stops resolving.
 
 Bump the tag in the manifests' images (server, the migrate init-container, the dashboard), then:
 
@@ -163,7 +165,7 @@ apiVersion: v1
 kind: ResourceQuota
 metadata:
   name: agentsmith-capacity
-  namespace: agentsmith
+  namespace: agentsmith-sandboxes
 spec:
   hard:
     requests.cpu: "6"        # ~75% of 8 CPUs — headroom for the platform pods

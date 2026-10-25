@@ -102,6 +102,8 @@ add_literal "admin-grant"      "${AGENTSMITH_ADMIN_GRANT:-}"
 # Redis URL the server and its sandbox pods reach: the in-cluster Redis service name.
 # Override via REDIS_URL in .env if your Redis runs elsewhere.
 add_literal "redis-url" "${REDIS_URL:-redis:6379}"
+# 2026-10-25-c5a7c: sandbox pods run in agentsmith-sandboxes and need the service's full name.
+add_literal "sandbox-redis-url" "${SANDBOX_REDIS_URL:-redis.agentsmith.svc.cluster.local:6379}"
 
 echo "🔐  Applying secret '$SECRET_NAME' in namespace '$NAMESPACE' ..."
 

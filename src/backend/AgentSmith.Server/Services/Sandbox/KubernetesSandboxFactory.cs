@@ -21,6 +21,8 @@ public sealed partial class KubernetesSandboxFactory(
 {
     public async Task<ISandbox> CreateAsync(SandboxSpec spec, CancellationToken cancellationToken)
     {
+        if (options.Misconfiguration is { } misconfiguration)
+            throw new InvalidOperationException(misconfiguration); // 2026-10-25-c5a7c
         var jobId = Guid.NewGuid().ToString("N");
         var podName = $"agentsmith-sandbox-{jobId[..12]}";
         var pod = podSpecBuilder.Build(podName, jobId, options.RedisUrl, spec, options.OwnerReference);

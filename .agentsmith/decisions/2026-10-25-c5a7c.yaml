@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-c5a7c
+
+decisions:
+  - category: Security
+    chose: "Sandbox pods in a namespace of their own (K8S_SANDBOX_NAMESPACE), not a deny list of the server's secret names"
+    over: "Refusing sandbox.secrets references that name agentsmith-secrets"
+    reason: "A list drifts with every manifest; a pod cannot reference a Secret outside its namespace at all."
+  - category: Architecture
+    chose: "Opt-in in code (both variables fall back to K8S_NAMESPACE and REDIS_URL), default in the reference manifests"
+    over: "Changing the code default"
+    reason: "An existing deployment keeps working until it applies the new manifests; a new one starts separated."
+  - category: Implementation
+    chose: "KubernetesSandboxOptionsReader reads the environment, with an injectable lookup; the spec's KubernetesSandboxRegistrations_* tests exercise the reader"
+    over: "Testing the static registrations through process environment variables"
+    reason: "Environment variables are process-wide and the suite runs in parallel; the registrations call the reader and nothing else reads the variables."
+  - category: Implementation
+    chose: "The owner identity stays derived from REDIS_URL (OwnerRedisUrl), not SANDBOX_REDIS_URL"
+    over: "Deriving it from the URL the sandbox is handed"
+    reason: "Existing pods' owner labels keep their value across the upgrade, so the corpse reaper still recognises them."
+  - category: Implementation
+    chose: "SANDBOX_REDIS_URL comes from the secret key sandbox-redis-url with optional: true"
+    over: "A required secretKeyRef"
+    reason: "A required key missing from an existing Secret stops the server pod with CreateContainerConfigError; optional lets the server start and its blocking startup finding name the missing variable."
+  - category: Implementation
+    chose: "The startup finding is a second IStartupProbe (SandboxNamespaceProbe) registered with the Kubernetes backend, and the factory refuses with the same text"
+    over: "Folding the check into SandboxBackendProbe"
+    reason: "SandboxBackendProbe asks the backend whether it is reachable; the namespace check is configuration and only exists for the Kubernetes backend."
+  - category: Scope
+    chose: "Manual acceptance outstanding: with the reference manifests a sandbox pod runs in agentsmith-sandboxes and a sandbox secret naming agentsmith-secrets fails to start the pod"
+    over: "Proving it against the operator's cluster from this session"
+    reason: "No kubectl apply from a build session; the manifests are pinned by SandboxNamespaceManifestTests."
