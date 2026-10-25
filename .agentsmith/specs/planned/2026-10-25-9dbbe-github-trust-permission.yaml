@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-25-9dbbe
+goal: "A GitHub comment or review starts work only when its author has write, maintain or admin permission on the repository, asked of GitHub, as GitLab and Azure DevOps already ask."
+
+applies_to: "default (IPrCommentAuthorTrust for github)"
+
+requires: [2026-10-25-9dbbb]
+
+facts:
+  - claim: "GitHub trust is read from the payload's author_association: OWNER, MEMBER or COLLABORATOR."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Webhooks/GitHubAuthorAssociationTrust.cs:10-21"
+  - claim: "GitLab asks the API for the member's access level with the repo's own secret and caches the verdict, keyed by host."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Webhooks/GitLabMemberAccessTrust.cs:11-44, src/backend/AgentSmith.Infrastructure/Services/Webhooks/GitLabMemberAccessReader.cs:14-37"
+  - claim: "The trusts are keyed per platform in one registration."
+    evidence: "src/backend/AgentSmith.Infrastructure/Extensions/PrCommentAuthorTrustExtensions.cs:17-31"
+  - claim: "PrCommentAuthor carries GitHub's full name as RepositoryId and the login as AuthorId."
+    evidence: "src/backend/AgentSmith.Contracts/Webhooks/PrCommentAuthor.cs:7-15"
+
+scope:
+  in: >
+    GitHubCollaboratorPermissionTrust: configured repo via IPrCommentRepoLookup, GET
+    /repos/{owner}/{repo}/collaborators/{login}/permission on the repo's API base with its secret, trusted when
+    role_name or permission is admin, maintain or write; cached through IPrCommentTrustVerdictCache keyed by
+    host, repo and login (the polling sweep's PrReviewAuthorTrust asks the same trust, so the cache bounds the
+    calls); an unconfigured repo, a 404 or a failed lookup is untrusted. Replaces GitHubAuthorAssociationTrust
+    and its tests; PrCommentAuthor.Association and its six producers are removed.
+  out: >
+    Team-based trust rules.
+
+steps:
+  - id: build
+    action: "Reader + trust, tests first, swap the registration, build, run affected classes."
+
+tests:
+  - "GitHubTrust_WritePermission_Trusted"
+  - "GitHubTrust_ReadOnlyCollaborator_Untrusted"
+  - "GitHubTrust_UnconfiguredRepository_Untrusted"
+  - "GitHubTrust_LookupFails_Untrusted"
+
+done:
+  - "A read-only collaborator's 'Request changes' starts no rework."
+  - "Build green, full suite green, dashboard gen/test/build green."

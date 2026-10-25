@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-25-9dbba
+goal: "A pull request references its ticket in the code host's own syntax only when the ticket lives on that host, never with a closing keyword, and otherwise by the ticket's web link."
+
+applies_to: "default (ISourceProvider.CreatePullRequestAsync, GitHub/GitLab/Azure Repos source providers)"
+
+requires: []
+
+facts:
+  - claim: "GitHub appends 'Closes #<ticket id>' whenever a ticket id is passed, whatever tracker the ticket came from."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubSourceProvider.cs:104-106"
+  - claim: "GitLab does the same."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabSourceProvider.cs:112-114"
+  - claim: "Azure Repos links a work item whenever the ticket id parses as an integer, so a GitHub issue #12 links Azure DevOps work item 12."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposSourceProvider.cs:125-129"
+  - claim: "The three callers pass only the ticket id; the code run and the spec PR hold the whole Ticket, the init run only a TicketId."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CommitAndPRHandler.cs:333-335, src/backend/AgentSmith.Application/Services/Specs/SpecPullRequestOpener.cs:83-86, src/backend/AgentSmith.Application/Services/Handlers/InitCommitHandler.cs:42,128-130"
+  - claim: "A ticket carries its Source tracker name and WebUrl."
+    evidence: "src/backend/AgentSmith.Domain/Entities/Ticket.cs:23,44"
+  - claim: "Closing a ticket is an operator act with an optional tracker close; a merge-time keyword close bypasses it."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Closing/TicketCloseHostActs.cs:60-80"
+  - claim: "The local provider takes the same parameter."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/LocalSourceProvider.cs:50"
+
+scope:
+  in: >
+    linkedTicketId becomes a PullRequestTicket (id, tracker type, web url). GitHub: same repository -> '#N',
+    other GitHub repository on the same host -> 'owner/repo#N'. GitLab: same project -> '#N', other project
+    on the same host -> 'group/project#N'. Azure Repos: native work-item link only for an Azure DevOps ticket.
+    Same repository/project is read from the ticket's WebUrl (…/o/r/issues/N, …/-/issues/N). Azure Repos: native
+    work-item link only for an Azure DevOps ticket of the same organization. Every other case: a 'Ticket: <web url>'
+    footer when a web url exists, nothing when it does not (an init run passes its tracker type and no url).
+    No closing keyword anywhere. ISourceProvider doc and docs/connect-your-stuff/tracker-github-issues.md:134
+    corrected. CommitAndPRHandler and InitCommitHandler are at their file-length baseline and do not grow.
+  out: >
+    Changing how agent-smith closes tickets.
+
+steps:
+  - id: build
+    action: "Contract type; migrate three callers, four providers, the test fakes (Stub/Scripted/RecordingBranchSources and the PipelineHarness providers) and the It.IsAny<TicketId?> setups; tests first; build; run affected classes."
+
+tests:
+  - "GitHubSourceProvider_JiraTicket_FootsWebLinkNoKeyword"
+  - "GitHubSourceProvider_SameRepoIssue_ReferencesHashNumberWithoutCloses"
+  - "GitHubSourceProvider_OtherRepoIssue_ReferencesOwnerRepoNumber"
+  - "GitLabSourceProvider_AzureDevOpsTicket_FootsWebLink"
+  - "AzureReposSourceProvider_GitHubIssue_LinksNoWorkItem"
+
+done:
+  - "An Azure DevOps work item 4711 coded into a GitHub repository produces a PR body without 'Closes #4711'."
+  - "Build green, full suite green, dashboard gen/test/build green."

@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-25-9dbbd
+goal: "Images and files on a GitHub issue reach the run in private repositories too, taken from the signed URLs of the issue's rendered body, and no credential ever leaves for a non-GitHub host."
+
+applies_to: "default (GitHubAttachmentLoader, GitHubTicketProvider.GetAttachmentRefsAsync)"
+
+requires: [2026-10-25-9dbbb]
+
+facts:
+  - claim: "Refs are parsed from the raw markdown body only, through Octokit's Issue, which exposes no body_html."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketProvider.cs:75-79"
+  - claim: "Downloads send no credential, on the premise that upload URLs are public; private-repo uploads are not."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubAttachmentLoader.cs:9-12,80-98"
+  - claim: "Only markdown ![](...) and [](...) are matched, so an <img src> upload is never seen; an extensionless user-attachments/assets URL is not an image."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubAttachmentLoader.cs:17-27,100-108"
+  - claim: "Any githubusercontent.com URL counts as an image, which in body_html includes camo proxies of external images."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubAttachmentLoader.cs:106-108"
+
+scope:
+  in: >
+    Read the issue through the raw connection with application/vnd.github.html+json and take <img src> and <a href>
+    of GitHub uploads from body_html — private-user-images.githubusercontent.com signed URLs (expire in minutes, carry
+    their own JWT, downloaded without a header right after the read) and user-attachments/files links; camo URLs are
+    skipped. No body_html: today's markdown parse. HTML parsing in its own class. Probe one private-repo issue first
+    and record the URL shapes and whether files links need the token in decisions; a token goes only to the
+    repository's own GitHub host if the probe shows it is needed.
+  out: >
+    Comment attachments.
+
+steps:
+  - id: probe
+    action: "Read a private-repository issue with an image and a file via html+json; record shapes in decisions."
+  - id: build
+    action: "Tests first from the recorded shape, html read and parse, build, run affected classes."
+
+tests:
+  - "GitHubIssueHtmlRefs_SignedPrivateImage_ReturnsSignedUrl"
+  - "GitHubIssueHtmlRefs_CamoImage_Skipped"
+  - "GitHubIssueHtmlRefs_UserAttachmentsFile_Returned"
+  - "GetAttachmentRefs_NoBodyHtml_FallsBackToMarkdown"
+
+done:
+  - "The recorded private-repository body_html yields its screenshot as a downloadable ref in a test."
+  - "Build green, full suite green, dashboard gen/test/build green."
