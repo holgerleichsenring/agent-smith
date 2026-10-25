@@ -1,0 +1,120 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-25-0099b
+goal: "GET /api/delivery answers, for the last day, week or month, the tickets worked with their attempts, outcomes and key figures, filtered to the caller's projects before anything is counted."
+
+applies_to: "default (Server/Services/Delivery, Server/Models/Delivery*, DeliveryEndpoints, three Persistence repositories, ProjectScope.NarrowedTo, RunIdGenerator.TimestampOf)"
+
+requires: [2026-10-15-4a4dd, 2026-10-25-0099a]
+
+facts:
+  - claim: "A run row carries project, pipeline, ticket id and title, status, start, finish, duration, EndKind and total cost."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/Run.cs:10-33"
+  - claim: "A run id starts with its UTC start as yyyy-MM-ddTHH-mm-ss, and the period reads already use that: the month cost filters on an id prefix, the parked-run reads compare ids with string.Compare inside the query, because SQLite can neither compare nor order a DateTimeOffset."
+    evidence: "src/backend/AgentSmith.Application/Services/RunIdGenerator.cs:14, src/backend/AgentSmith.Application/Services/RunIdGenerator.cs:21-26, src/backend/AgentSmith.Server/Services/Tickets/TicketMonthCost.cs:9-21, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/ParkedRunRepository.cs:48, src/backend/AgentSmith.Server/Services/Tickets/TicketListQuery.cs:10-28"
+  - claim: "The merge time is ALREADY recorded: each host's state reader returns the merge instant as StateAt for a merged pull request, the refresh stores it as PrReviewRecord.StateAtTicks, and the ticket's landing stores the newest merge as LandedAt. A new MergedAt column would be a second copy."
+    evidence: "src/backend/AgentSmith.Contracts/Reviews/PrReviewState.cs:6, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPrReviewStateReader.cs:34, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabMrStateReader.cs:54, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/AzureReposVoteDecisions.cs:28, src/backend/AgentSmith.Server/Services/Rework/PrReviewRecordRefresh.cs:84-90, src/backend/AgentSmith.Infrastructure.Persistence/Entities/PrReviewRecord.cs:31-37, src/backend/AgentSmith.Server/Services/Rework/TicketLandingRecorder.cs:37-42"
+  - claim: "A landing is written once per ticket and never updated, and a PR record dies with its newest run; a ticket merged twice keeps its first landing, so the merge for a later attempt has to come from the PR records."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/LandedTicket.cs:3-8, src/backend/AgentSmith.Infrastructure.Persistence/Entities/LandedTicket.cs:22-27, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/LandedTicketConfiguration.cs:25-26, src/backend/AgentSmith.Infrastructure.Persistence/Entities/PrReviewRecord.cs:31-32"
+  - claim: "Which act started an attempt is ALREADY linked to the run: one RunAttempt row per run (unique RunId) carries CauseChannel, set once when FetchTicket reads the acts; a rework act arrives as ticket_comment, pull_request or status_move. A RunId on the rework nudge would repeat it."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunAttempt.cs:10-17, src/backend/AgentSmith.Infrastructure.Persistence/Configurations/RunAttemptConfiguration.cs:20, src/backend/AgentSmith.Contracts/Runs/AttemptChannels.cs:6-8, src/backend/AgentSmith.Application/Services/Rework/AttemptCauseReader.cs:83-91, src/backend/AgentSmith.Infrastructure.Persistence/Services/RunAttemptProjection.cs:17-21"
+  - claim: "Why a run ended is EndKind (image-untrusted, preflight, bootstrap-missing, criteria-unmet, superseded), null where no producer classified it; the status says success, shortfall, failed or cancelled."
+    evidence: "src/backend/AgentSmith.Contracts/Runs/RunEndKinds.cs:7-23, src/backend/AgentSmith.Contracts/Runs/RunStatuses.cs:11-21, src/backend/AgentSmith.Server/Services/Rework/WaitingRunCloser.cs:18-26"
+  - claim: "A run's specs are RunSpec rows (goal as Title, status not_started/in_progress/done/failed, ordinal); its repositories are RunRepo rows with a change count."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunSpec.cs:21-28, src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunRepo.cs:4-12"
+  - claim: "The scoped aggregate pattern: the endpoint declares runs.read AcrossProjects and builds CallerProjectScope.For(user, runs.read); the repository applies Within(scope) to the runs and joins every child read to that scoped run query, so no list of ids reaches SQL."
+    evidence: "src/backend/AgentSmith.Server/Extensions/CriteriaMetEndpoints.cs:18-27, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/CriteriaMetRepository.cs:31-50, src/backend/AgentSmith.Server/Security/CallerProjectScope.cs:13-19"
+  - claim: "ProjectScope narrows to ONE requested project; GET /api/projects answers the scope's names, or every configured key for a global holder."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Contracts/ProjectScope.cs:24-36, src/backend/AgentSmith.Server/Extensions/ProjectListEndpoints.cs:22-26"
+  - claim: "RelationalPersistenceExtensions is ratcheted at 223 lines and registers the Criteria met repository on line 167; DashboardApiExtensions (96 lines) adds the ticket readers on line 52; ServerEndpointExtensions (75 lines) maps Criteria met on line 59."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:36, src/backend/AgentSmith.Server/Extensions/RelationalPersistenceExtensions.cs:167, src/backend/AgentSmith.Server/Extensions/DashboardApiExtensions.cs:52, src/backend/AgentSmith.Server/Extensions/ServerEndpointExtensions.cs:59, observed: 2026-10-25, wc -l DashboardApiExtensions.cs 96, ServerEndpointExtensions.cs 75"
+  - claim: "The route golden lists the run-read lists as runs.read across; a booted fixture with an alpha-only caller and admins exists for list scoping."
+    evidence: "tests/AgentSmith.Tests/Server/route-permission-baseline.tsv:49-54, tests/AgentSmith.Tests/Server/Auth/ProjectScopeListTests.cs:17-41"
+
+assumptions:
+  - "Every run row written since p0156 has a canonical id; older ids do not sort by time and fall outside every window."
+
+scope:
+  in: >
+    ENDPOINT: DeliveryEndpoints maps GET /api/delivery?period=day|week|month(&project=…)* under runs.read with
+    InProject(ProjectFrom.AcrossProjects); an unknown period is 400; no period is week. The handler takes
+    CallerProjectScope, TicketProjects, DeliveryWindowFactory and DeliveryReader. Scope =
+    For(user, runs.read).NarrowedTo(projects); ProjectScope.NarrowedTo(names) is the union of Narrowed(name) over the
+    names (empty keeps the scope, one name stays Single). Chips = the unnarrowed scope's Only, else every configured
+    key, in ConfigNames order. ServerEndpointExtensions maps it beside Criteria met (75 -> at most 76); the route
+    golden gains GET /api/delivery runs.read across.
+    WINDOW: rolling and UTC — day = the last 24 h in 24 one-hour slots, week = the last 7 days in 7 one-day slots,
+    month = the last 30 days in 30 one-day slots; the previous period is the same span before it.
+    RunIdGenerator.TimestampOf(DateTimeOffset) (used by Generate) gives the id key of an instant.
+    READS (Infrastructure.Persistence, IUnitOfWork, scoped, registered on RelationalPersistenceExtensions line 167 in
+    place): DeliveryRunWindow.InWindow(this IQueryable<Run>, scope, fromId, toId) — code pipeline, ticket set,
+    string.Compare on Id, Within(scope). DeliveryAttemptRepository reads the previous-plus-current window, newest
+    first, Take(ceiling + 1) with ceiling 5000, light columns plus RunAttempt.CauseChannel through a left join.
+    DeliveryWorkRepository reads RunSpec (title, status, ordinal) and RunRepo names with ChangeCount > 0, each joined
+    to the window. DeliveryMergeRepository reads merged landings and PR records (merged with StateAt, and open), each
+    joined to the window on (Project, TicketId).
+    COMPOSE (Server/Services/Delivery, transient, AddDeliveryReads called from DashboardApiExtensions, 96 -> at
+    most 97): an attempt's outcome is running (no finish), delivered (success), shortfall (shortfall or
+    criteria-unmet), cancelled (cancelled or superseded) or failed; its cause is EndKind, else the status word.
+    A rework attempt has CauseChannel ticket_comment, pull_request or status_move. A ticket = the attempts of one
+    (project, ticket) that started in the window; its merge = the earliest merge (landing or merged PR record) at or
+    after its first attempt; its outcome = running, merged, pr_open, then the newest attempt's outcome. Figures:
+    tickets worked, attempts, merged, merge rate, median time to merge (merge minus first start), rework rounds per
+    ticket, spend, cost per merged ticket, agent seconds (duration, else finish or now minus start); a ratio with a
+    zero denominator is null. The answer: period, from, to, projects (chips), current, previous, slots (figures per
+    slot), end causes (finished attempts of the period, most first), by project (tickets, merged, rate, cost per
+    merged, median attempt seconds), tickets (newest activity first: title, outcome, merged at, attempts with start,
+    finish, seconds, outcome, cause, rework, cost and specs done/total, the newest attempt's spec titles and changed
+    repos, agent and wall seconds, cost, last activity) and truncated. Every new file at most 120 lines, methods at
+    most 20.
+  out: >
+    The dashboard page — 2026-10-25-0099c. A PR merge time column, a RunId on the rework nudge and a stored ticket
+    outcome: each already exists (facts 3 to 5). Calendar periods and time zones other than UTC. Non-code pipelines
+    and ticketless runs. A cache: the read runs per request, as the ticket list does.
+
+decisions:
+  - key: "NO NEW COLUMN. The suggested MergedAt and nudge RunId exist as PrReviewRecord.StateAtTicks / LandedTicket.LandedAt and RunAttempt.CauseChannel; adding them would be two copies that can disagree, and a migration for nothing."
+  - key: "AN ATTEMPT BELONGS TO THE PERIOD IT STARTED IN. The start is the id prefix, comparable in SQL on every provider; a finish time is a DateTimeOffset SQLite cannot compare. A run that started before the window and finished inside it shows in the earlier period."
+  - key: "ROLLING WINDOWS ENDING NOW. The mock's axis ends at now and compares with the span before; calendar periods would show an almost empty day each morning."
+  - key: "MERGED MEANS A MERGE AFTER THE FIRST ATTEMPT IN THE PERIOD. Of the tickets worked in the period, how many got merged — so merge rate and cost per merged share one denominator. The earliest such merge from either source counts, because a landing is written only once per ticket."
+  - key: "REWORK IS THE THREE PERSON ACTS. ticket_comment, pull_request and status_move are the rework acts of 2026-10-08; retry repeats unchanged work, operator and overrule are approvals of a cut, so they are not rounds of rework."
+  - key: "SCOPE ON THE RUNS, JOIN THE REST. Specs, repos, landings and PR records are read by joining the scoped run window, so a child row of another project cannot be read even by key collision; this is how Criteria met joins its judgements."
+
+steps:
+  - id: tests
+    action: "Red first for every test below, over MigratedStoreTemplate copies for the repositories and the booted ProjectScopeAuthorityFixture for the endpoint."
+  - id: reads
+    action: "RunIdGenerator.TimestampOf; ProjectScope.NarrowedTo (37 -> at most 47); DeliveryRunWindow and the three repositories with their row records."
+  - id: compose
+    action: "Models, DeliveryWindowFactory, DeliveryAttemptOutcome, DeliveryTicketComposer, DeliveryFiguresCalculator, DeliveryProjectRows, DeliveryReader; AddDeliveryReads."
+  - id: endpoint
+    action: "DeliveryEndpoints; map it; regenerate route-permission-baseline.tsv and read the diff; RoutePermissionGuardTests pins it."
+  - id: verify
+    action: "dotnet build; run the Delivery, ProjectScope, RunIdGenerator, RoutePermissionGuard and FileLengthRatchet classes."
+
+tests:
+  - "RunIdGenerator_TimestampOf_IsTheIdPrefix"
+  - "ProjectScope_NarrowedTo_UnionOfAdmittedNames_UnknownReadsAsNone"
+  - "DeliveryWindowFactory_EachPeriod_HasItsSpanSlotsAndPrevious"
+  - "DeliveryWindowFactory_UnknownPeriod_IsNull"
+  - "DeliveryAttempts_Window_ReadsOnlyCodeTicketRunsStartedInIt"
+  - "DeliveryAttempts_ScopedCaller_SeesOnlyTheirProjectsBeforeTheCeiling"
+  - "DeliveryAttempts_CarryTheirCauseChannel"
+  - "DeliveryWork_SpecsAndChangedRepos_OfWindowRunsOnly"
+  - "DeliveryMerges_LandingAndMergedRecord_BothRead_OpenRecordsListed"
+  - "DeliveryAttemptOutcome_StatusAndEndKind_MapToOutcomeAndCause"
+  - "DeliveryTicketComposer_MergeIsTheEarliestAfterTheFirstAttempt"
+  - "DeliveryTicketComposer_Outcome_RunningThenMergedThenPrOpenThenNewestAttempt"
+  - "DeliveryFigures_RatesMedianReworkAndCost_NullOnEmptyDenominator"
+  - "DeliveryReader_PreviousPeriodAndSlots_AreComputedApart"
+  - "Delivery_BootedScopedCaller_SeesNoTicketCountOrProjectOfAnotherProject"
+  - "Delivery_BootedScopedCallerAskingForAnotherProject_AnswersAsAnUnknownProject"
+  - "Delivery_BootedGlobalHolder_SeesEveryProject"
+  - "Delivery_UnknownPeriod_Is400"
+  - "RoutePermissionGuard_Delivery_NeedsRunsRead"
+
+done:
+  - "A person bound to one project opens GET /api/delivery and sees only that project's tickets, figures, end causes and project row, and only that project as a chip."
+  - "Asking for a project they cannot read answers what an unknown project answers."
+  - "Day, week and month each answer current and previous figures and one figure set per slot."
+  - "Median time to merge and rework rounds per ticket come from data already stored; no migration ships."
+  - "Build green, full suite green, dashboard gen/test/build green."

@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-25-0099a
+goal: "Every route declared AcrossProjects takes the caller's project scope in its handler, and a route that declares it without taking the scope fails the route guard."
+
+applies_to: "default (the route guard: ServerRouteTable, RouteFact, RoutePermissionGuardTests)"
+
+requires: [2026-10-15-4a4dd]
+
+facts:
+  - claim: "The coarse gate admits an AcrossProjects route for a caller who holds the permission in ANY project; the filtering is left to the handler, so a handler that forgets the scope hands a project-bound caller every project."
+    evidence: "src/backend/AgentSmith.Server/Security/PermissionRequirementHandler.cs:44-48, .agentsmith/specs/done/2026-10-15-4a4dd-project-list-filtering.yaml:138"
+  - claim: "The only booted test over the AcrossProjects routes asserts the status code (200 for a project-only caller, 403 for none), not that the answer is filtered; the filter is pinned per route by hand-written cases."
+    evidence: "tests/AgentSmith.Tests/Server/Auth/ProjectScopeTicketTests.cs:69-89, tests/AgentSmith.Tests/Server/Auth/ProjectScopeListTests.cs:24-85"
+  - claim: "Eleven routes declare AcrossProjects today; eight handlers take CallerProjectScope, and the three spec-dialog ticket lookups take ProjectScopedCatalog, which narrows the configuration to the caller's projects."
+    evidence: "src/backend/AgentSmith.Server/Extensions/TicketGraphEndpoints.cs:15-22, src/backend/AgentSmith.Server/Extensions/PullRequestQueryEndpoints.cs:29-34, src/backend/AgentSmith.Server/Extensions/RunQueryEndpoints.cs:28, src/backend/AgentSmith.Server/Extensions/RunQueryEndpoints.cs:65, src/backend/AgentSmith.Server/Extensions/ProjectListEndpoints.cs:17-22, src/backend/AgentSmith.Server/Extensions/RunDeletionEndpoints.cs:23, src/backend/AgentSmith.Server/Extensions/RunDeletionEndpoints.cs:50, src/backend/AgentSmith.Server/Extensions/TicketQueryEndpoints.cs:17-26, src/backend/AgentSmith.Server/Extensions/SpecDialogViewEndpoints.cs:23, src/backend/AgentSmith.Server/Extensions/CriteriaMetEndpoints.cs:18-26, src/backend/AgentSmith.Server/Extensions/TicketSearchEndpoints.cs:23-29, src/backend/AgentSmith.Server/Extensions/TicketSearchEndpoints.cs:38-45, src/backend/AgentSmith.Server/Extensions/TicketConversationEndpoints.cs:31-47"
+  - claim: "The route table is enumerated over the real composition without resolving a service, and a RouteFact carries verb, pattern, permissions, anonymous reason and the ProjectFrom marker, read from the endpoint metadata."
+    evidence: "tests/AgentSmith.Tests/TestHelpers/ServerRouteTable.cs:36-57, tests/AgentSmith.Tests/TestHelpers/RouteFact.cs:11-23"
+  - claim: "The guard already proves itself with a stowaway route mapped beside the host's, and runs under the env-var collection because the dashboard API gate is read from the process environment."
+    evidence: "tests/AgentSmith.Tests/Server/RoutePermissionGuardTests.cs:32-34, tests/AgentSmith.Tests/Server/RoutePermissionGuardTests.cs:73-82, tests/AgentSmith.Tests/Server/RoutePermissionGuardTests.cs:265-276"
+
+assumptions:
+  - "A minimal-API endpoint carries its handler's MethodInfo in its metadata (RouteEndpointDataSource adds it; ApiExplorer reads it the same way), so the parameter types are readable without invoking the handler."
+
+scope:
+  in: >
+    RouteFact gains an optional Handler (MethodInfo?), read in ServerRouteTable.Read from
+    endpoint.Metadata.GetMetadata<MethodInfo>(). RoutePermissionGuardTests gains two facts: every route whose
+    Scope.Wire is "across" has a handler with a CallerProjectScope or ProjectScopedCatalog parameter; and a stowaway
+    route declared AcrossProjects whose handler takes neither is named by that check. The check is one private
+    method, so the stowaway case runs the same code as the whole table.
+  out: >
+    Proving the handler applies the scope before its Take: each list keeps its own booted case
+    (2026-10-15-4a4dd); the delivery endpoint gets its own in 2026-10-25-0099b. Routes keyed by run, dialog,
+    session, set, image or route value: the resolver answers 404 before the handler (2026-10-15-4a4db).
+
+decisions:
+  - key: "A PARAMETER CHECK, NOT A BEHAVIOUR CHECK. A booted case per route already pins the filtering; what was missing is that a NEW across route cannot ship without even taking the scope. The handler's parameter list is the one thing every across route shares."
+  - key: "TWO SCOPE TYPES ARE ACCEPTED. ProjectScopedCatalog narrows a configuration rather than a query and is the established scope for the tracker lookups; requiring CallerProjectScope there would force a rewrite of working code."
+
+steps:
+  - id: tests
+    action: "Red first: the stowaway fact fails while the check does not exist; add Handler to RouteFact and ServerRouteTable.Read, then the whole-table fact."
+  - id: verify
+    action: "dotnet build; run RoutePermissionGuardTests and ServerRouteTableTests."
+
+tests:
+  - "RouteGuard_EveryAcrossProjectsRoute_HandlerTakesTheCallerScope"
+  - "RouteGuard_AnAcrossProjectsRouteWithoutTheScope_IsNamed"
+
+done:
+  - "A route declared AcrossProjects whose handler takes no caller scope fails the route guard, naming the route."
+  - "Every AcrossProjects route mapped today passes it."
+  - "Build green, full suite green, dashboard gen/test/build green."
