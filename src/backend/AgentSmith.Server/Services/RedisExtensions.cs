@@ -77,9 +77,13 @@ internal static class RedisExtensions
         return ConnectionMultiplexer.Connect(options);
     }
 
-    private static ConfigurationOptions ParseOptions(IStartupFindings findings)
+    private static ConfigurationOptions ParseOptions(IStartupFindings findings) => ParseOptions(
+        Environment.GetEnvironmentVariable("REDIS_URL") ?? DispatcherDefaults.RedisUrl, findings);
+
+    // 2026-09-28-2ac3: the finding names what parsed, never the value or the parser's
+    // message, either of which can carry the password.
+    internal static ConfigurationOptions ParseOptions(string redisUrl, IStartupFindings findings)
     {
-        var redisUrl = Environment.GetEnvironmentVariable("REDIS_URL") ?? DispatcherDefaults.RedisUrl;
         try
         {
             var parsed = ConfigurationOptions.Parse(redisUrl);
@@ -88,7 +92,7 @@ internal static class RedisExtensions
         }
         catch (Exception ex)
         {
-            findings.Record(Unusable(redisUrl, ex.Message));
+            findings.Record(Unusable(redisUrl, $"it does not parse: {ex.GetType().Name}"));
         }
         return ConfigurationOptions.Parse(DispatcherDefaults.RedisUrl);
     }
@@ -96,8 +100,9 @@ internal static class RedisExtensions
     private static StartupFinding Unusable(string redisUrl, string reason) => new(
         StartupSubsystems.Redis,
         StartupFindingSeverity.Blocking,
-        $"REDIS_URL '{redisUrl}' cannot be used as a Redis endpoint ({reason}), so the queue, "
-        + $"the leader lease and the event stream stay down. Falling back to "
-        + $"'{DispatcherDefaults.RedisUrl}'. Expected form: host:port.",
+        $"REDIS_URL (endpoints: {RedisEndpointText.Of(redisUrl)}) cannot be used as a Redis "
+        + $"endpoint ({reason}), so the queue, the leader lease and the event stream stay down. "
+        + $"Falling back to '{DispatcherDefaults.RedisUrl}'. Expected form: host:port, "
+        + "optionally followed by ,password=….",
         Field: "REDIS_URL");
 }

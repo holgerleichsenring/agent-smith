@@ -87,6 +87,7 @@ integrations:
 
 state:
   done:
+    2026-09-28-2ac3: "REDIS URL NEVER ECHOED (Redis startup finding, Redis probe, diagnostics). Findings and probe results name parsed endpoints or '(value hidden)', never REDIS_URL or the client's error; secret template default redis:6379; deploy note for requiring a Redis password. -> .agentsmith/specs/done/2026-09-28-2ac3-redis-url-password-redacted.yaml"
     2026-10-18-509c: "RUN ROW OPENS ITS RUN (dashboard runs list). Every run row opens /jobs/{runId}, code runs of a ticket too, reversing 9a59q for run lists; the ticket key is a separate link to the ticket page. -> .agentsmith/specs/done/2026-10-18-509c-runs-row-opens-run.yaml"
     2026-10-17-063c: "SKILLS PIN v5.20.0 (embedded skills catalog). spec-derivation-master 1.9.0 names the segments every spec needs once as shared and keeps environment state out of premises; facts describe code and ticket. -> .agentsmith/specs/done/2026-10-17-063c-skills-pin-5-20.yaml"
     2026-10-17-e730f: "CONVERSATION JUMP TO NEWEST (ticket Conversation tab). Scrolled up from the end, a '↓ Newest' button above the docked composer counts the entries that arrived since the reader was last at the end and scrolls back to it. -> .agentsmith/specs/done/2026-10-17-e730f-conversation-newest-button.yaml"

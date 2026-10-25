@@ -13,6 +13,8 @@ It was not possible to connect to the redis server(s).
 ```
 
 `REDIS_URL` is `host:port`, not a URI. `redis:6379` works, `redis://redis:6379` does not.
+A password goes after the endpoint, `redis:6379,password=…`; see
+[Requiring a Redis password](redis-password.md).
 
 ## Runs never start on Docker: no socket
 
