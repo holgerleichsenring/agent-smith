@@ -44,7 +44,7 @@ public sealed class InitCommitHandlerLifecycleTests
 
         _sourceProviderMock.Setup(s => s.CreatePullRequestAsync(
                 It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<CancellationToken>(), It.IsAny<TicketId?>()))
+                It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>()))
             .ReturnsAsync("https://github.com/test/repo/pull/7");
 
         _sandboxMock.Setup(s => s.RunStepAsync(
@@ -220,7 +220,7 @@ public sealed class InitCommitHandlerLifecycleTests
         result.IsSuccess.Should().BeTrue();
         _sourceProviderMock.Verify(s => s.CreatePullRequestAsync(
             It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
-            It.IsAny<CancellationToken>(), It.IsAny<TicketId?>()), Times.Never);
+            It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>()), Times.Never);
         _ticketProviderMock.Verify(t => t.FinalizeAsync(
             It.Is<TicketId>(id => id.Value == "42"),
             It.IsAny<string>(),
@@ -302,7 +302,7 @@ public sealed class InitCommitHandlerLifecycleTests
             It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()), Times.Never);
         _sourceProviderMock.Verify(s => s.CreatePullRequestAsync(
             It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
-            It.IsAny<CancellationToken>(), It.IsAny<TicketId?>()), Times.Never);
+            It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>()), Times.Never);
         _ticketProviderMock.Verify(t => t.FinalizeAsync(
             It.Is<TicketId>(id => id.Value == "42"),
             It.Is<string>(s => s.Contains("No changes")),
@@ -328,7 +328,7 @@ public sealed class InitCommitHandlerLifecycleTests
             It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()), Times.Once);
         _sourceProviderMock.Verify(s => s.CreatePullRequestAsync(
             It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
-            It.IsAny<CancellationToken>(), It.IsAny<TicketId?>()), Times.Once);
+            It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>()), Times.Once);
     }
 
     // p0322c: a genuinely clean tree (nothing staged at all — git's canonical
@@ -355,7 +355,7 @@ public sealed class InitCommitHandlerLifecycleTests
             It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()), Times.Never);
         _sourceProviderMock.Verify(s => s.CreatePullRequestAsync(
             It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
-            It.IsAny<CancellationToken>(), It.IsAny<TicketId?>()), Times.Never);
+            It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>()), Times.Never);
     }
 
     // p0322c: a real commit failure (hook, perms, config) is a Failed outcome —
@@ -385,7 +385,7 @@ public sealed class InitCommitHandlerLifecycleTests
         opened[0].Reason.Should().Contain("pre-commit hook failed");
         _sourceProviderMock.Verify(s => s.CreatePullRequestAsync(
             It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
-            It.IsAny<CancellationToken>(), It.IsAny<TicketId?>()), Times.Never);
+            It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>()), Times.Never);
         _ticketProviderMock.Verify(t => t.FinalizeAsync(
             It.IsAny<TicketId>(), It.IsAny<string>(), It.IsAny<string?>(),
             It.IsAny<CancellationToken>()), Times.Never);

@@ -38,10 +38,11 @@ internal sealed class TrackerConnections(ICredentialResolver credentials)
 
     /// <summary>
     /// The Octokit client for a configured repository. The provider builds its own inside its
-    /// constructor; the search takes one so the request it composes can be asserted.
+    /// constructor; the search takes one so the request it composes can be asserted. It talks to
+    /// the API of the host the tracker url names (2026-10-25-9dbbb).
     /// </summary>
     public IGitHubClient GitHubClient(TrackerConnection config) =>
-        new GitHubClient(new ProductHeaderValue("AgentSmith"))
+        new GitHubClient(new ProductHeaderValue("AgentSmith"), GitHubApiEndpoints.For(config.Url).Rest)
         { Credentials = new Credentials(credentials.For(config)) };
 
     /// <summary>The states an operator calls open, or null when they left it to the default.</summary>

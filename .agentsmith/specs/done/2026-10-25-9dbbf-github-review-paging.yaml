@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-25-9dbbf
+goal: "A rework reads every review thread, review and comment on a GitHub pull request, however many there are, so the newest feedback is never the part cut off."
+
+applies_to: "default (GitHubPrReviewThreadReader)"
+
+requires: [2026-10-25-9dbbb]
+
+facts:
+  - claim: "One GraphQL query reads the first 100 threads, comments per thread, reviews and PR comments."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPrReviewThreadReader.cs:24-28"
+  - claim: "Only the thread connection warns when it has more; reviews and comments are cut silently."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPrReviewThreadReader.cs:45-51"
+  - claim: "GitLab pages through every note."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabNotesPager.cs"
+
+scope:
+  in: >
+    One cursor per connection: reviewThreads, reviews and comments each paged with after: until hasNextPage is
+    false, a thread's comments beyond 100 through node(id:){... on PullRequestReviewThread{comments(after:)}}.
+    The warning goes away; PrReviewReaderTests and PrReviewHostIdTests get sequenced responses.
+  out: >
+    The act and state readers' latestReviews (one per reviewer, bounded by reviewer count).
+
+steps:
+  - id: build
+    action: "Tests first with a scripted paged connection, build, run affected classes."
+
+tests:
+  - "ListAsync_150Comments_ReturnsAll150"
+  - "ListAsync_ThreadWith120Comments_ReturnsAll120"
+
+done:
+  - "A PR with 150 conversation comments yields all 150 to the rework."
+  - "Build green, full suite green, dashboard gen/test/build green."

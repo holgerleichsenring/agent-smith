@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Models;
 using AgentSmith.Contracts.Reviews;
 using AgentSmith.Infrastructure.Services.Providers.Source;
 using FluentAssertions;
@@ -23,7 +24,7 @@ public sealed class PrReviewStateReaderTests
         $$"""{ "id": "{{id}}", "state": "{{state}}", "body": "", "author": { "__typename": "{{type}}", "login": "{{login}}" }, "authorAssociation": "MEMBER", "submittedAt": "2026-10-08T10:00:00Z" }""";
 
     private static Task<PrReviewState> ReadGitHub(string reply) =>
-        new GitHubPrReviewStateReader(GitHubReplying(reply), "o", "r", "https://github.com/o/r").ReadAsync("https://github.com/o/r/pull/4", CancellationToken.None);
+        new GitHubPrReviewStateReader(GitHubReplying(reply), GitHubRepoAddress.Parse("https://github.com/o/r")).ReadAsync("https://github.com/o/r/pull/4", CancellationToken.None);
 
     private static Task<PrReviewState> ReadGitLab(string notes) =>
         new GitLabMrStateReader("https://gitlab.example", "o%2Fr", "t", "https://gitlab.example/o/r", GitLabAnswering(path =>

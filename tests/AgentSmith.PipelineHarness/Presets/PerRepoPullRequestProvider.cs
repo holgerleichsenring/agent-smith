@@ -31,7 +31,7 @@ internal sealed class PerRepoPullRequestProvider : ISourceProvider, ISourceProvi
 
     public Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
-        CancellationToken cancellationToken, TicketId? linkedTicketId = null, bool isDraft = false,
+        CancellationToken cancellationToken, PullRequestTicket? linkedTicket = null, bool isDraft = false,
         BranchName? targetBranch = null)
     {
         var url = $"{repository.RemoteUrl}/pull/1";

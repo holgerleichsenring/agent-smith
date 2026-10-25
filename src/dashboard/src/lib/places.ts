@@ -32,6 +32,8 @@ const FIXED_PLACES: Record<string, string> = {
   // criteria outcomes, where /system/cost, /system/today and /system/expectations
   // used to be three pages.
   "/overview": "Overview",
+  // 2026-10-25-0099c: the tickets of a day, week or month, beside the Overview.
+  "/delivery": "Delivery",
   "/identity": "Your identity",
   "/system": "System",
   "/system/tracker": "Tracker",

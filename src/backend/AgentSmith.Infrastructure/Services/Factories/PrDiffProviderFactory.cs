@@ -3,6 +3,8 @@ using System.Text;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Exceptions;
+using AgentSmith.Domain.Models;
+using AgentSmith.Infrastructure.Models;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Infrastructure.Services.Providers.Source;
 using Microsoft.Extensions.Logging;
@@ -34,7 +36,7 @@ public sealed class PrDiffProviderFactory(
     {
         var token = credentials.For(repo);
         return new GitHubPrDiffProvider(
-            gitHubClientFactory.Create(token),
+            gitHubClientFactory.Create(GitHubRepoAddress.Parse(repo.Url!), token),
             new GitHubTicketConnection(repo.Url!, token),
             loggerFactory.CreateLogger<GitHubPrDiffProvider>());
     }
@@ -64,10 +66,10 @@ public sealed class PrDiffProviderFactory(
     }
 
     // https://dev.azure.com/{org}/{project}/_git/{repo}
-    private static (string Host, string Organization, string Project, string Repo)
+    internal static (string Host, string Organization, string Project, string Repo)
         ParseAzureReposUrl(string url)
     {
-        var uri = new Uri(url.Replace(".git", ""));
+        var uri = new Uri(RepoKey.WithoutGitSuffix(url));
         var segments = uri.AbsolutePath.Trim('/').Split('/');
         if (segments.Length < 4 || segments[2] != "_git")
             throw new ConfigurationException($"Invalid Azure Repos URL: {url}");

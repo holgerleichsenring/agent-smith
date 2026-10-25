@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Models;
 using Octokit;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
@@ -7,8 +8,9 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// interface (not the concrete <see cref="GitHubClient"/>) so tests can pass a Moq
 /// stub through this seam — previously the provider hard-newed the client inside
 /// CreateGitHubClient() and `IGitHubClient` was inaccessible from tests.
+/// 2026-10-25-9dbbb: the client talks to the REST base of the host the address names.
 /// </summary>
 public interface IGitHubClientFactory
 {
-    IGitHubClient Create(string token);
+    IGitHubClient Create(GitHubRepoAddress address, string token);
 }

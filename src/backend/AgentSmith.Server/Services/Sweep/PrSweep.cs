@@ -1,3 +1,4 @@
+using AgentSmith.Domain.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Services;

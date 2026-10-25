@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-0099b
+
+decisions:
+  - category: Scope
+    chose: "No migration: merge times from PrReviewRecord.StateAtTicks, rework from RunAttempt.CauseChannel"
+    over: "A MergedAt column on the PR record and a RunId on the rework nudge, as first suggested"
+    reason: "Both facts are already stored per pull request and per attempt (the state readers return the merge instant; FetchTicket records the act that started each run). A second column would be a copy that can disagree."
+  - category: Architecture
+    chose: "The ticket outcome is the ticket list's bucket, read through TicketListReader.AllAsync(scope)"
+    over: "A delivery-only outcome rule over the newest attempt and the PR records"
+    reason: "The adversarial review found four cases where a second rule disagreed with TicketBucketRule (failed head with an open PR, one PR merged and one open, a by-hand landing, a close mark); the row links to the ticket page, so the two must say the same."
+  - category: Implementation
+    chose: "An attempt belongs to the span of its id time; spans end at the next whole second"
+    over: "Spans by StartedAt or FinishedAt"
+    reason: "The run id begins with a UTC instant and compares as text in SQL on every provider; SQLite cannot compare a DateTimeOffset. Ending at the next whole second keeps a run started this second inside the current period."
+  - category: Implementation
+    chose: "A merge counts for a span when it falls at or after the ticket's first attempt in the span and by the span's end"
+    over: "Any merge after the first attempt"
+    reason: "A closed week's figures then never move afterwards, and merge rate and cost per merged share one denominator."
+  - category: Implementation
+    chose: "Merge times only from merged PR records"
+    over: "LandedTicket.LandedAt as a fallback"
+    reason: "LandedAt is the newest StateAt over every record, closed ones included, and a by-hand landing carries one too; it is not a merge instant."
+  - category: Implementation
+    chose: "Rework = CauseChannel ticket_comment, pull_request or status_move"
+    over: "Every attempt after the first, or also operator, overrule and retry"
+    reason: "Those three are the acts a person asks for a change with (2026-10-08); a retry repeats unchanged work and an approval or overrule decides a cut."
+  - category: Implementation
+    chose: "Children (specs, repos) are read from the oldest kept attempt's id when the ceiling bit; the answer says truncated"
+    over: "Reading children for the whole window"
+    reason: "The ceiling drops the oldest attempts first, which are the previous period's; reading their children would cost rows nobody shows, and the page hides deltas on a truncated answer."
+  - category: Testing
+    chose: "SQL Server translation proven by ToQueryString over a UseSqlServer context"
+    over: "An opt-in RequiresSqlServerFact only"
+    reason: "The left join and the string.Compare window are new query shapes; translation needs no server, so the proof runs on every machine."

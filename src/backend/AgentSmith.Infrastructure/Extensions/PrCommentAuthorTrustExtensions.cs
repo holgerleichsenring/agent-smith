@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Webhooks;
+using AgentSmith.Infrastructure.Services.Providers.Source;
 using AgentSmith.Infrastructure.Services.Webhooks;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -21,7 +22,9 @@ public static class PrCommentAuthorTrustExtensions
         services.AddSingleton<IPrCommentTrustVerdictCache, PrCommentTrustVerdictCache>();
         services.AddSingleton<IGitLabMemberAccessReader, GitLabMemberAccessReader>();
         services.AddSingleton<IAzureDevOpsPermissionReader, AzureDevOpsPermissionReader>();
-        services.AddKeyedSingleton<IPrCommentAuthorTrust, GitHubAuthorAssociationTrust>("github");
+        services.TryAddSingleton<IGitHubClientFactory, DefaultGitHubClientFactory>();
+        services.AddSingleton<IGitHubCollaboratorPermissionReader, GitHubCollaboratorPermissionReader>();
+        services.AddKeyedSingleton<IPrCommentAuthorTrust, GitHubCollaboratorPermissionTrust>("github");
         services.AddKeyedSingleton<IPrCommentAuthorTrust, GitLabMemberAccessTrust>("gitlab");
         services.AddKeyedSingleton<IPrCommentAuthorTrust, AzureDevOpsRepoContributeTrust>("azuredevops");
         services.RemoveAll<AgentSmith.Contracts.Reviews.IPrReviewAuthorTrust>(); // 2026-10-08-e8b9d

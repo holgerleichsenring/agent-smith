@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
+using AgentSmith.Infrastructure.Models;
 using Microsoft.Extensions.Logging;
 using Octokit;
 
@@ -32,7 +33,8 @@ public sealed class GitHubTicketSearch : ITicketSearch
     public GitHubTicketSearch(IGitHubClient client, GitHubTicketConnection connection, ILogger logger)
     {
         _client = client;
-        (_owner, _repo) = ParseRepoUrl(connection.RepoUrl);
+        var address = GitHubRepoAddress.Parse(connection.RepoUrl);
+        (_owner, _repo) = (address.Owner, address.Repo);
         _logger = logger;
     }
 
@@ -77,12 +79,5 @@ public sealed class GitHubTicketSearch : ITicketSearch
         var words = new string(text.Select(c => c is ':' or '"' ? ' ' : c).ToArray())
             .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
         return words.Length == 0 ? null : string.Join(' ', words);
-    }
-
-    private static (string owner, string repo) ParseRepoUrl(string url)
-    {
-        var segments = new Uri(url).AbsolutePath.Trim('/').Split('/');
-        if (segments.Length < 2) throw new ConfigurationException($"Invalid GitHub URL: {url}");
-        return (segments[0], segments[1]);
     }
 }

@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Models;
 using Octokit;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
@@ -8,7 +9,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// these with the resolved default as the ref.
 /// </summary>
 public sealed class GitHubBranchRead(
-    string owner, string repo, IGitHubClientFactory clientFactory, string token)
+    GitHubRepoAddress address, IGitHubClientFactory clientFactory, string token)
 {
     /// <summary>False only on NotFound; any other failure throws, so it is not read as "absent".</summary>
     public async Task<bool> ExistsAsync(string branch, CancellationToken ct)
@@ -16,7 +17,7 @@ public sealed class GitHubBranchRead(
         _ = ct;
         try
         {
-            await Client().Git.Reference.Get(owner, repo, $"heads/{branch}");
+            await Client().Git.Reference.Get(address.Owner, address.Repo, $"heads/{branch}");
             return true;
         }
         catch (NotFoundException)
@@ -31,7 +32,7 @@ public sealed class GitHubBranchRead(
         _ = ct;
         try
         {
-            var contents = await Client().Repository.Content.GetAllContentsByRef(owner, repo, path, branch);
+            var contents = await Client().Repository.Content.GetAllContentsByRef(address.Owner, address.Repo, path, branch);
             return contents.Count == 0 ? null : contents[0].Content;
         }
         catch (NotFoundException)
@@ -46,7 +47,7 @@ public sealed class GitHubBranchRead(
         _ = ct;
         try
         {
-            var contents = await Client().Repository.Content.GetAllContentsByRef(owner, repo, path, branch);
+            var contents = await Client().Repository.Content.GetAllContentsByRef(address.Owner, address.Repo, path, branch);
             return contents.Select(c => c.Name).ToList();
         }
         catch (NotFoundException)
@@ -55,5 +56,5 @@ public sealed class GitHubBranchRead(
         }
     }
 
-    private IGitHubClient Client() => clientFactory.Create(token);
+    private IGitHubClient Client() => clientFactory.Create(address, token);
 }

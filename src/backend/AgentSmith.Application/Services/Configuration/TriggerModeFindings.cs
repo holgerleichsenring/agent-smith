@@ -1,4 +1,5 @@
 using AgentSmith.Contracts.Models.Configuration;
+using AgentSmith.Domain.Models;
 
 namespace AgentSmith.Application.Services.Configuration;
 
@@ -13,7 +14,7 @@ public static class TriggerModeFindings
     {
         ArgumentNullException.ThrowIfNull(config);
         return config.Projects.Values
-            .SelectMany(p => p.Repos.Where(r => r.Url is not null).Select(r => (Key: Key(r.Url!), Project: p)))
+            .SelectMany(p => p.Repos.Where(r => r.Url is not null).Select(r => (Key: RepoKey.Of(r.Url!), Project: p)))
             .GroupBy(x => x.Key)
             .Where(g => g.Select(x => Polls(config, x.Project)).Distinct().Count() > 1)
             .Select(g => new StartupFinding(StartupSubsystems.Configuration, StartupFindingSeverity.Advisory,
@@ -26,8 +27,4 @@ public static class TriggerModeFindings
 
     private static string Names(AgentSmithConfig config, IEnumerable<(string Key, ResolvedProject Project)> owners, bool polling) =>
         string.Join(", ", owners.Where(x => Polls(config, x.Project) == polling).Select(x => x.Project.Name).Distinct());
-
-    private static string Key(string url) =>
-        (Uri.TryCreate(url, UriKind.Absolute, out var uri) ? $"{uri.Host}{uri.AbsolutePath}" : url).TrimEnd('/')
-            .Replace(".git", string.Empty, StringComparison.OrdinalIgnoreCase).ToLowerInvariant();
 }

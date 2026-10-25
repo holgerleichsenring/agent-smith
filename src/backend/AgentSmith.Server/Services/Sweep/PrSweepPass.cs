@@ -1,3 +1,4 @@
+using AgentSmith.Domain.Models;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
 using AgentSmith.Contracts.Sweep;

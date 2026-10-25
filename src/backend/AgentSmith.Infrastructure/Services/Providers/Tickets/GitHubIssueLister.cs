@@ -3,6 +3,7 @@ using AgentSmith.Contracts.Services;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
+using AgentSmith.Infrastructure.Models;
 using Microsoft.Extensions.Logging;
 using Octokit;
 
@@ -34,7 +35,8 @@ internal sealed class GitHubIssueLister
         ITicketFieldMapper<Issue> mapper, ILogger logger)
     {
         _client = client;
-        (_owner, _repo) = ParseGitHubUrl(connection.RepoUrl);
+        var address = GitHubRepoAddress.Parse(connection.RepoUrl);
+        (_owner, _repo) = (address.Owner, address.Repo);
         _mapper = mapper;
         _logger = logger;
     }
@@ -103,12 +105,5 @@ internal sealed class GitHubIssueLister
             _logger.LogWarning(
                 "GitHub List: hit {Cap}-issue cap for {Descriptor} — results truncated; "
                 + "narrow trigger_statuses to shrink the candidate set", PageSize * MaxPages, descriptor);
-    }
-
-    private static (string owner, string repo) ParseGitHubUrl(string url)
-    {
-        var segments = new Uri(url).AbsolutePath.Trim('/').Split('/');
-        if (segments.Length < 2) throw new ConfigurationException($"Invalid GitHub URL: {url}");
-        return (segments[0], segments[1]);
     }
 }

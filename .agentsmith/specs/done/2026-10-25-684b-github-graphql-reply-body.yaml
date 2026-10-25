@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-25-684b
+goal: "Every GitHub GraphQL read parses the reply GitHub actually sent, so review threads, standing reviews, PR state and the changed-PR sweep work against a real Octokit connection."
+
+applies_to: "default (GitHubGraphQlQuery, GitHub PR review act/state readers, GitHubChangedPullRequests)"
+
+requires: [2026-10-25-9dbbf]
+
+facts:
+  - claim: "The GraphQL readers parse IApiResponse<string>.Body, which the real Octokit 14 connection leaves empty for an application/json reply (measured in 2026-10-25-9dbbd); the raw text is HttpResponse.Body."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubGraphQlQuery.cs:16, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPrReviewActReader.cs:26, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPrReviewStateReader.cs:30, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubChangedPullRequests.cs:30"
+  - claim: "The test fakes stub IApiResponse.Body, so no test ever met the real connection's behaviour."
+    evidence: "tests/AgentSmith.Tests/Rework/Records/PrReviewHostFakes.cs:16"
+
+scope:
+  in: >
+    GitHubGraphQlQuery reads the raw HTTP body; the act reader, the state reader and the changed-PR lister
+    post through it instead of their own copies of the post-and-check. The fakes answer with an HTTP
+    response body, and one test runs the query over the real Octokit connection.
+  out: >
+    The draft-ready mutation, which reads only the status code.
+
+steps:
+  - id: build
+    action: "Tests first over the real connection, route the three readers through the query, migrate the fakes, build, run affected classes."
+
+tests:
+  - "GitHubGraphQlQuery_RealOctokitConnection_ParsesReplyData"
+
+done:
+  - "A GraphQL reply over Octokit's real connection reaches the readers as data."
+  - "Build green, full suite green, dashboard gen/test/build green."

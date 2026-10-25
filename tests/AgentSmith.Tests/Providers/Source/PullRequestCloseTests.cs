@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Models;
 using System.Net;
 using System.Text;
 using AgentSmith.Contracts.Providers;
@@ -28,7 +29,7 @@ public sealed class PullRequestCloseTests
         var client = new Mock<IGitHubClient>();
         client.SetupGet(c => c.PullRequest).Returns(pullRequests.Object);
         var factory = new Mock<IGitHubClientFactory>();
-        factory.Setup(f => f.Create("ghp-test")).Returns(client.Object);
+        factory.Setup(f => f.Create(It.IsAny<GitHubRepoAddress>(), "ghp-test")).Returns(client.Object);
         var provider = new GitHubSourceProvider(new GitHubSourceConnection("https://github.com/example/sample-server", "ghp-test", "main"),
             factory.Object, NullLogger<GitHubSourceProvider>.Instance);
 

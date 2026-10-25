@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-9dbbb
+
+decisions:
+  - category: Architecture
+    chose: "Two value records in Infrastructure/Models: GitHubApiEndpoints (REST base + GraphQL endpoint of a host) and GitHubRepoAddress (owner, repo, web url, endpoints)"
+    over: "One GitHubRepoAddress that also accepts a bare web root with no owner/repo"
+    reason: "The draft checks and discovery hold only a Base URL; a repository address with empty owner and repo would be a value every other caller has to guard. Endpoints read only scheme and authority, so a repo url, a web root and an API base on one host agree."
+  - category: Implementation
+    chose: "github.com, www.github.com and api.github.com map to api.github.com; any other host to https://{host}/api/v3/ and /api/graphql"
+    over: "Trusting Octokit's own base-uri fix-up and deriving GraphQL from client.Connection.BaseAddress"
+    reason: "Octokit 14 keeps an /api/v3/ base as given (pinned by OctokitClient_EnterpriseRestBase_KeepsApiV3), but mocked clients carry no base address, and the GraphQL endpoint is not under /api/v3/ on GHES. An explicit endpoint makes the five posts testable and absolute."
+  - category: Implementation
+    chose: "IGitHubClientFactory.Create(address, token); the GraphQL readers and the source provider's collaborators take the address in place of owner/repo/repoUrl"
+    over: "Adding a GraphQL Uri parameter beside the existing owner and repo strings"
+    reason: "One value carries all three plus the endpoints; GitHubOpenPullRequests posts no GraphQL and keeps its strings."
+  - category: Scope
+    chose: "Also migrated the three ticket-side parsers the spec did not list (GitHubIssueLister, GitHubTicketSearch, GitHubLinkedWork/RequiresLink) and the GitHub ticket-count draft step"
+    over: "Leaving them on their own copies"
+    reason: "Each was the same five-line owner/repo split; leaving them would keep the '.git' inconsistency the spec set out to remove, and the count step used the pinned api.github.com the tracker check dropped."
+  - category: Implementation
+    chose: "GitHubPullRequestUpdater names the address type as Models.GitHubRepoAddress instead of a using"
+    over: "Splitting the updater in this spec"
+    reason: "The file is at the 120-line limit; spec 2026-10-25-9dbbc extracts the merge from it anyway."

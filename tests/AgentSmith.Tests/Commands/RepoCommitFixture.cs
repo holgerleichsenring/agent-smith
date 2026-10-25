@@ -39,8 +39,8 @@ internal sealed class RepoCommitFixture
     {
         Provider.Setup(p => p.CreatePullRequestAsync(
                 It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>(),
-                It.IsAny<TicketId?>(), It.IsAny<bool>(), It.IsAny<BranchName?>()))
-            .ReturnsAsync((Repository r, string _, string _, CancellationToken _, TicketId? _, bool _, BranchName? _)
+                It.IsAny<PullRequestTicket?>(), It.IsAny<bool>(), It.IsAny<BranchName?>()))
+            .ReturnsAsync((Repository r, string _, string _, CancellationToken _, PullRequestTicket? _, bool _, BranchName? _)
                 => $"{r.RemoteUrl}/pull/1");
         Provider.Setup(p => p.UpdatePullRequestBodyAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(true);

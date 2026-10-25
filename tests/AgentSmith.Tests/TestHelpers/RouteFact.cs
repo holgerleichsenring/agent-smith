@@ -1,3 +1,4 @@
+using System.Reflection;
 using AgentSmith.Server.Security;
 
 namespace AgentSmith.Tests.TestHelpers;
@@ -7,10 +8,12 @@ namespace AgentSmith.Tests.TestHelpers;
 /// the route DECLARES a caller needs. The declaration is a permission list (required
 /// together) or the literal "anonymous", so a route moving between permissions is a
 /// visible diff in the golden rather than a count that still adds up.
+/// 2026-10-25-0099a: the handler the route invokes, so a guard can read what it takes.
 /// </summary>
 internal sealed record RouteFact(
     string Method, string Pattern, IReadOnlyList<string> Permissions, string? AnonymousReason,
-    ProjectFrom? Scope = null)
+    ProjectFrom? Scope = null,
+    MethodInfo? Handler = null)
 {
     internal const string Anonymous = "anonymous";
 

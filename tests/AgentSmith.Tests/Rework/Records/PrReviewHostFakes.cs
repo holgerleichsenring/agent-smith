@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using System.Net;
 using System.Text;
 using Microsoft.TeamFoundation.SourceControl.WebApi;
@@ -10,17 +11,7 @@ namespace AgentSmith.Tests.Rework.Records;
 /// <summary>2026-10-13-9a59b: the three hosts' answers, scripted.</summary>
 internal static class PrReviewHostFakes
 {
-    public static IGitHubClient GitHubReplying(string reply)
-    {
-        var response = new Mock<IApiResponse<string>>();
-        response.SetupGet(r => r.Body).Returns(reply);
-        var connection = new Mock<IConnection>();
-        connection.Setup(c => c.Post<string>(It.IsAny<Uri>(), It.IsAny<object>(), It.IsAny<string>(), It.IsAny<string>()))
-            .ReturnsAsync(response.Object);
-        var client = new Mock<IGitHubClient>();
-        client.SetupGet(c => c.Connection).Returns(connection.Object);
-        return client.Object;
-    }
+    public static IGitHubClient GitHubReplying(string reply) => GitHubGraphQlHost.Replying(reply);
 
     public static HttpClient GitLabAnswering(Func<string, string> body) => new(new Routed(body));
 

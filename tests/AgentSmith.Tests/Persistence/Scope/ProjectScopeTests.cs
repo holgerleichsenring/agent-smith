@@ -29,6 +29,19 @@ public sealed class ProjectScopeTests : IDisposable
         scoped.Narrowed("beta").Only.Should().BeEmpty();
     }
 
+    // 2026-10-25-0099b: several chips — the union of each narrowed alone; one admitted name stays today's equality.
+    [Fact]
+    public void ProjectScope_NarrowedTo_UnionOfAdmittedNames_UnknownReadsAsNone()
+    {
+        var scoped = ProjectScope.Of(["alpha", "team/alpha"]);
+
+        scoped.NarrowedTo([]).Should().BeSameAs(scoped);
+        scoped.NarrowedTo(["ALPHA", "beta"]).Only.Should().Equal(["alpha"]);
+        scoped.NarrowedTo(["alpha", "team/alpha"]).Only.Should().Equal(["alpha", "team/alpha"]);
+        scoped.NarrowedTo(["beta"]).Only.Should().BeEmpty();
+        ProjectScope.Everything.NarrowedTo(["beta", "gamma"]).Only.Should().Equal(["beta", "gamma"]);
+    }
+
     [Fact]
     public void ProjectScope_Admits_ComparesUnderConfigNames()
     {

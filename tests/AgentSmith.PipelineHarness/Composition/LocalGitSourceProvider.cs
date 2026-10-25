@@ -30,11 +30,11 @@ internal sealed class LocalGitSourceProvider(DockerHarnessSession session) : ISo
 
     public Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
-        CancellationToken cancellationToken, TicketId? linkedTicketId = null, bool isDraft = false,
+        CancellationToken cancellationToken, PullRequestTicket? linkedTicket = null, bool isDraft = false,
         BranchName? targetBranch = null)
     {
         LastTarget = targetBranch;
-        return Task.FromResult($"https://fake.local/pulls/{linkedTicketId?.Value ?? "1"}");
+        return Task.FromResult($"https://fake.local/pulls/{linkedTicket?.Id.Value ?? "1"}");
     }
 
     // There is no pull request server behind the bare repo, so there is no base to read

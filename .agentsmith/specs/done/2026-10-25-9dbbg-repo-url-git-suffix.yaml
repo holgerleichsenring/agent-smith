@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-25-9dbbg
+goal: "Repository URLs drop only a trailing '.git', so a GitLab or Azure Repos name containing '.git' — my.gitops, app.github.io — resolves to itself."
+
+applies_to: "default (SourceProviderFactory, PrDiffProviderFactory, TriggerModeFindings)"
+
+requires: [2026-10-25-9dbbb]
+
+facts:
+  - claim: "Four sites strip '.git' anywhere in the URL."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Factories/SourceProviderFactory.cs:80,91, src/backend/AgentSmith.Infrastructure/Services/Factories/PrDiffProviderFactory.cs:70, src/backend/AgentSmith.Application/Services/Configuration/TriggerModeFindings.cs:32"
+
+scope:
+  in: >
+    RepoKey's suffix trim (Infrastructure/Services/Webhooks/RepoKey.cs) moves where Application can reach it and
+    serves the four sites; TriggerModeFindings' duplicate goes. GitHub's own parsing is GitHubRepoAddress (9dbbb).
+  out: >
+    Other URL normalisation.
+
+steps:
+  - id: build
+    action: "Tests first, replace the four sites, build, run affected classes."
+
+tests:
+  - "ResolveGitLabTarget_ProjectNamedGitops_KeepsName"
+  - "ParseAzureReposUrl_RepoNamedDotGitSomething_KeepsName"
+  - "TriggerModeFindings_RepoNamedGitops_KeyKeepsName"
+
+done:
+  - "https://gitlab.example/team/my.gitops resolves project path team/my.gitops."
+  - "Build green, full suite green, dashboard gen/test/build green."

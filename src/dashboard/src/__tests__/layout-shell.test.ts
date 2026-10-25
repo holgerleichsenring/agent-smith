@@ -21,6 +21,8 @@ const MOCK_SURFACES = [
   "components/system/SystemView.tsx",
   // 2026-08-27-7463: the Overview is a first-class page on the same shell.
   "components/overview/OverviewView.tsx",
+  // 2026-10-25-0099c: and Delivery beside it.
+  "components/delivery/DeliveryView.tsx",
   // 2026-09-17-042ef: Work it out is the sixth, on a .mock-dialog shell of its own.
   "components/dialog/SpecDialogSurface.tsx",
   // 2026-09-21-f237b: and its second view, on the same shell.

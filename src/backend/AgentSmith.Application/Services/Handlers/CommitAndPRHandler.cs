@@ -332,7 +332,7 @@ public sealed class CommitAndPRHandler(
                 return (await RefreshAsync(provider, repo.Name, existing, body, isDraft, target, ct), body);
             var prUrl = await provider.CreatePullRequestAsync(
                 branchRepo, context.Ticket.Title, body, ct,
-                linkedTicketId: context.Ticket.Id, isDraft: isDraft, targetBranch: target);
+                linkedTicket: PullRequestTicket.From(context.Ticket), isDraft: isDraft, targetBranch: target);
             logger.LogInformation("{Repo}: PR opened {Url}", repo.Name, prUrl);
             return (new OpenedPullRequest(repo.Name, prUrl, OpenStatus.Opened), body);
         }

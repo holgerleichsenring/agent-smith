@@ -1,6 +1,7 @@
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Tickets;
 using AgentSmith.Domain.Models;
+using AgentSmith.Infrastructure.Models;
 using Microsoft.Extensions.Logging;
 using Octokit;
 
@@ -30,11 +31,9 @@ public sealed class GitHubTicketRewriter : ITicketRewriter
     public GitHubTicketRewriter(GitHubTicketConnection connection, ILogger logger)
     {
         ArgumentNullException.ThrowIfNull(connection);
-        var segments = new Uri(connection.RepoUrl).AbsolutePath.Trim('/').Split('/');
-        if (segments.Length < 2)
-            throw new Domain.Exceptions.ConfigurationException($"Invalid GitHub URL: {connection.RepoUrl}");
-        (_owner, _repo) = (segments[0], segments[1]);
-        _client = new GitHubClient(new ProductHeaderValue("AgentSmith"))
+        var address = GitHubRepoAddress.Parse(connection.RepoUrl);
+        (_owner, _repo) = (address.Owner, address.Repo);
+        _client = new GitHubClient(new ProductHeaderValue("AgentSmith"), address.Api.Rest)
         { Credentials = new Credentials(connection.Token) };
         _logger = logger;
     }

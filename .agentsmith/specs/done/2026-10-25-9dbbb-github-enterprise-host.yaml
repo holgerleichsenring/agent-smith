@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-25-9dbbb
+goal: "Every GitHub REST and GraphQL call goes to the API of the host the repository URL names, so GitHub Enterprise Server works exactly like github.com."
+
+applies_to: "default (GitHub source/ticket providers, IGitHubClientFactory, TrackerConnections, GitHub draft checks and discovery)"
+
+requires: []
+
+facts:
+  - claim: "The Octokit factory builds a client with no base address, so it always talks to api.github.com; six production callers use it."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/DefaultGitHubClientFactory.cs:11-16, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubSourceProvider.cs:301"
+  - claim: "The ticket provider, the rewriter and the tracker search each new their own api.github.com client."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketProvider.cs:38, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketRewriter.cs:37, src/backend/AgentSmith.Infrastructure/Services/Factories/TrackerConnections.cs:43-45"
+  - claim: "The label transitioner hard-codes api.github.com."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketStatusTransitioner.cs:76,88"
+  - claim: "Five readers post GraphQL to the relative 'graphql', which on a GHES base of /api/v3/ would miss GHES's /api/graphql."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPrReviewThreadReader.cs:34"
+  - claim: "A GitHub connection's Host is the WEB root a repository URL is built on (Config Studio 'Base URL')."
+    evidence: "src/backend/AgentSmith.Infrastructure.Core/Services/Configuration/ConnectionRepoUrlBuilder.cs:48-52, src/backend/AgentSmith.Contracts/Services/ConfigStudioCapabilities.cs:119-126"
+  - claim: "The connection draft check and repo discovery read the same Host as an API base, so a GHES connection is probed at the web root."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/DraftChecks/GitHubConnectionDraftCheck.cs:19, src/backend/AgentSmith.Infrastructure/Services/Providers/Discovery/GitHubRepoDiscoveryProvider.cs:32"
+  - claim: "The tracker draft check pins api.github.com."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/DraftChecks/GitHubTrackerDraftCheck.cs:14"
+  - claim: "Five GitHub classes parse owner/repo on their own: the source provider strips '.git' anywhere (acme.github.io breaks), the others never trim it."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubSourceProvider.cs:322-330, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketProvider.cs:172-174, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketStatusTransitioner.cs:139-141, src/backend/AgentSmith.Infrastructure/Services/Providers/Tickets/GitHubTicketRewriter.cs:33, src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPrDiffProvider.cs:52-54"
+
+scope:
+  in: >
+    One GitHubRepoAddress parses owner, repo (only a trailing '.git' trimmed) and the endpoints from a repository
+    or web-root URL: github.com -> REST https://api.github.com/, GraphQL https://api.github.com/graphql; any other
+    host -> REST https://{host}/api/v3/, GraphQL https://{host}/api/graphql. IGitHubClientFactory.Create takes the
+    address; every Octokit client, the transitioner, the five GraphQL posts (absolute endpoint), discovery and both
+    draft checks use it. Webhooks are host-agnostic already. Classes at their file-length baseline do not grow.
+  out: >
+    GHE.com data-residency tenants (api.{tenant}.ghe.com). GitHub App authentication.
+
+steps:
+  - id: build
+    action: "Address type, migrate parsers, clients, GraphQL posts, discovery and checks, and the six test mocks of Create(token); tests first; build; run affected classes."
+
+tests:
+  - "GitHubRepoAddress_GitHubCom_ApiGitHubCom"
+  - "GitHubRepoAddress_EnterpriseHost_ApiV3AndApiGraphql"
+  - "GitHubRepoAddress_NameContainingDotGit_KeepsName"
+  - "GitHubTicketStatusTransitioner_EnterpriseUrl_PatchesEnterpriseApi"
+  - "GitHubConnectionDraftCheck_EnterpriseHost_ProbesApiV3"
+
+done:
+  - "A repository https://ghe.example/acme/app builds REST clients on https://ghe.example/api/v3/ and posts GraphQL to https://ghe.example/api/graphql."
+  - "Build green, full suite green, dashboard gen/test/build green."

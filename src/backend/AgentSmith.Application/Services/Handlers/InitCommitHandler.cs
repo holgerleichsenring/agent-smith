@@ -127,7 +127,7 @@ public sealed class InitCommitHandler(
             // exactly as before. A bootstrap filed under an epic gets the epic's branch.
             var prUrl = await provider.CreatePullRequestAsync(
                 new Repository(context.Repository.CurrentBranch, repo.Url ?? string.Empty),
-                "Initialize .agentsmith/ directory", body, ct, linkedTicketId: ticketId,
+                "Initialize .agentsmith/ directory", body, ct, PullRequestTicket.Of(ticketId, context.TrackerConnection.Type),
                 targetBranch: PullRequestTargets.For(context.Pipeline, repo.Name));
             logger.LogInformation("{Repo}: init PR opened {Url}", repo.Name, prUrl);
             return (new OpenedPullRequest(repo.Name, prUrl, OpenStatus.Opened), body);

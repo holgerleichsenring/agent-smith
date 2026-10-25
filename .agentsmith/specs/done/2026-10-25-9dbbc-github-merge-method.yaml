@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-25-9dbbc
+goal: "Completing a GitHub pull request merges with a method the repository allows, so a squash-only or rebase-only repository merges instead of refusing."
+
+applies_to: "default (GitHubPullRequestUpdater.CompleteAsync)"
+
+requires: [2026-10-25-9dbbb]
+
+facts:
+  - claim: "CompleteAsync merges with a default MergePullRequest, which is GitHub's merge-commit method."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitHubPullRequestUpdater.cs:62-75"
+  - claim: "GitLab merges in the project's own configured method."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Providers/Source/GitLabMergeRequestUpdater.cs:69-79"
+
+scope:
+  in: >
+    Read the repository's allow_merge_commit / allow_squash_merge / allow_rebase_merge and merge with the first
+    allowed in that order; fields the response leaves null count as unknown: try merge-commit, and on a 405 retry
+    squash then rebase. A repository allowing none is a refusal naming the settings. The choice lives in its own
+    class (GitHubPullRequestUpdater is at its file-length limit); the three CompleteAsync tests get the
+    Repository.Get setup.
+  out: >
+    A per-project configured merge method.
+
+steps:
+  - id: build
+    action: "Tests first, read the repository, choose, build, run affected classes."
+
+tests:
+  - "CompleteAsync_SquashOnlyRepository_MergesWithSquash"
+  - "CompleteAsync_MergeCommitAllowed_MergesWithMergeCommit"
+  - "CompleteAsync_RebaseOnlyRepository_MergesWithRebase"
+  - "CompleteAsync_SettingsUnknownAndMergeCommit405_RetriesSquash"
+
+done:
+  - "A squash-only repository's PR completes as Merged."
+  - "Build green, full suite green, dashboard gen/test/build green."

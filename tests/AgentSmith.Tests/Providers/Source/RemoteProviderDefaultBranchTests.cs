@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Models;
 using System.Net;
 using System.Text;
 using AgentSmith.Contracts.Providers;
@@ -83,7 +84,7 @@ public sealed class RemoteProviderDefaultBranchTests
         var clientMock = new Mock<IGitHubClient>();
         clientMock.SetupGet(c => c.Repository).Returns(repoMock.Object);
         var factoryMock = new Mock<IGitHubClientFactory>();
-        factoryMock.Setup(f => f.Create(It.IsAny<string>())).Returns(clientMock.Object);
+        factoryMock.Setup(f => f.Create(It.IsAny<GitHubRepoAddress>(), It.IsAny<string>())).Returns(clientMock.Object);
 
         return new GitHubSourceProvider(
             new GitHubSourceConnection("https://github.com/example/repo", Token, DefaultBranch: "develop"),

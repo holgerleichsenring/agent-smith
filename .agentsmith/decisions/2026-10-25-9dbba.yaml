@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-9dbba
+
+decisions:
+  - category: Behavior
+    chose: "No closing keyword in any pull request body; the ticket is referenced as '#N', 'owner/repo#N', 'group/project#N' or its web link"
+    over: "Keeping 'Closes #N' for a ticket that lives on the code host itself"
+    reason: "Closing a ticket is an operator act with an optional tracker close (TicketCloseHostActs); a merge-time keyword bypasses it. A ticket spanning several repositories would also close at the first merged PR, while the others are still open."
+  - category: Architecture
+    chose: "A contract record PullRequestTicket (Id, Tracker, WebUrl) replaces TicketId? on ISourceProvider.CreatePullRequestAsync"
+    over: "Passing the whole Ticket entity, or keeping TicketId and adding the tracker as a further optional parameter"
+    reason: "The init run holds only a TicketId and its tracker connection, so a Ticket cannot be built there; one record carries exactly what a host needs to decide, and the tracker is parsed once from Ticket.Source in From()."
+  - category: Implementation
+    chose: "Reference composition lives in GitHubTicketReference, GitLabTicketReference, AzureDevOpsWorkItemLink and TicketReferenceFooter; each provider calls one of them"
+    over: "Composing the body inline in each provider's CreatePullRequestAsync"
+    reason: "Keeps the provider diff to one line each (the GitHub client construction is being changed in parallel by 2026-10-25-9dbbb) and makes the rules testable without a host client."
+  - category: Behavior
+    chose: "Same repository / project / organization is read from the ticket's WebUrl against the provider's own clone, base and organization url"
+    over: "Comparing the tracker connection's configured repository with the source repository"
+    reason: "The WebUrl is the ticket's own statement of where it lives and travels with the fetched ticket; a provider has no tracker connection. dev.azure.com/{org} and {org}.visualstudio.com are treated as the same organization."
+  - category: Behavior
+    chose: "An Azure DevOps ticket without a web url (an init run) links its work item; with a web url the organization must match"
+    over: "Refusing the link whenever the organization cannot be proven"
+    reason: "The init run passes its tracker type and no url, and its usual shape is an Azure DevOps tracker beside Azure Repos; refusing would drop the native link in the common case. A GitHub or Jira ticket never links, which is the defect this spec fixes."
