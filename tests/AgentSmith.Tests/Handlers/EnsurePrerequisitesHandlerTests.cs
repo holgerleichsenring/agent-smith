@@ -20,8 +20,14 @@ namespace AgentSmith.Tests.Handlers;
 /// </summary>
 public sealed class EnsurePrerequisitesHandlerTests
 {
-    private readonly EnsurePrerequisitesHandler _handler =
-        new(new SandboxTargets(), NullLogger<EnsurePrerequisitesHandler>.Instance);
+    private readonly EnsurePrerequisitesHandler _handler = Handler(hardening: true);
+
+    // 2026-10-25-ff3b: hardening is an installation opt-in; these tests mostly run with it on.
+    private static EnsurePrerequisitesHandler Handler(bool hardening) => new(
+        new SandboxTargets(),
+        Microsoft.Extensions.Options.Options.Create(
+            new AgentSmith.Contracts.Models.Configuration.SandboxGlobalConfig { HardeningEnabled = hardening }),
+        NullLogger<EnsurePrerequisitesHandler>.Instance);
 
     [Fact]
     public async Task EnsurePrerequisitesHandler_EmptyPrerequisites_ReturnsOk_LogsSkip()
@@ -85,6 +91,20 @@ public sealed class EnsurePrerequisitesHandlerTests
         var result = await _handler.ExecuteAsync(new EnsurePrerequisitesContext(pipeline), CancellationToken.None);
 
         result.Message.Should().Contain("uid 1000").And.Contain("sandbox.run_as_root");
+    }
+
+    [Fact]
+    public async Task EnsurePrerequisitesHandler_HardeningOff_DoesNotNameRunAsRoot()
+    {
+        var pipeline = BuildPipeline(new()
+        {
+            ["api"] = new Ctx(Prerequisites: "apt-get install -y jq", Workdir: ".", Sandbox: BuildSandbox([], 100)),
+        });
+
+        var result = await Handler(hardening: false).ExecuteAsync(
+            new EnsurePrerequisitesContext(pipeline), CancellationToken.None);
+
+        result.Message.Should().NotContain("run_as_root");
     }
 
     [Fact]

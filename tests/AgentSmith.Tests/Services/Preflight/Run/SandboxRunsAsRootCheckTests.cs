@@ -14,7 +14,7 @@ public sealed class SandboxRunsAsRootCheckTests
     [Fact]
     public async Task SandboxRunsAsRootCheck_RootProject_WarnsNamingIt()
     {
-        var finding = await new SandboxRunsAsRootCheck().RunAsync(Pipeline(runAsRoot: true), CancellationToken.None);
+        var finding = await Check(hardening: true).RunAsync(Pipeline(runAsRoot: true), CancellationToken.None);
 
         finding.Verdict.Should().Be(RunPreflightVerdict.Warn);
         finding.Message.Should().Contain("billing").And.Contain("sandbox.run_as_root");
@@ -23,10 +23,22 @@ public sealed class SandboxRunsAsRootCheckTests
     [Fact]
     public async Task SandboxRunsAsRootCheck_HardenedProject_Passes()
     {
-        var finding = await new SandboxRunsAsRootCheck().RunAsync(Pipeline(runAsRoot: null), CancellationToken.None);
+        var finding = await Check(hardening: true).RunAsync(Pipeline(runAsRoot: null), CancellationToken.None);
 
         finding.Verdict.Should().Be(RunPreflightVerdict.Pass);
     }
+
+    // 2026-10-25-ff3b: with hardening off every sandbox is root, and nobody chose it per project.
+    [Fact]
+    public async Task SandboxRunsAsRootCheck_HardeningOff_Passes()
+    {
+        var finding = await Check(hardening: false).RunAsync(Pipeline(runAsRoot: true), CancellationToken.None);
+
+        finding.Verdict.Should().Be(RunPreflightVerdict.Pass);
+    }
+
+    private static SandboxRunsAsRootCheck Check(bool hardening) =>
+        new(Microsoft.Extensions.Options.Options.Create(new SandboxGlobalConfig { HardeningEnabled = hardening }));
 
     private static PipelineContext Pipeline(bool? runAsRoot)
     {

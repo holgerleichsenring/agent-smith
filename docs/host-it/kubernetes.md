@@ -70,11 +70,17 @@ Pods are labelled with the deployment that owns them. The owner identity is deri
 
 ### What a sandbox pod runs as
 
-A sandbox pod runs as uid and gid 1000, with every Linux capability dropped, the `RuntimeDefault` seccomp profile, no privilege escalation and no service-account token. Both containers, the agent loader and the toolchain, get the same settings. `/root` is a writable `emptyDir` and `HOME` points at it, so feed configs and git identity are staged where they always were. Git is told that the root-owned `/work` is a safe directory.
+By default a sandbox pod runs as the toolchain image's own user, which is root for every built-in image, with the runtime's default capabilities.
 
-Most toolchain images have no user entry for uid 1000. Tools that look the user up, such as ssh, fail; clone and push go over https and are not affected. Anything an image ships under `/root` is hidden by the mount.
+Hardening is a setting for the whole installation: `sandbox.hardening_enabled: true` in `agentsmith.yml`, or **Harden sandboxes** under **Configuration → Settings → Sandbox**. It applies after a server restart. With it on, a sandbox pod runs as uid and gid 1000, with every Linux capability dropped, the `RuntimeDefault` seccomp profile, no privilege escalation and no service-account token. Both containers, the agent loader and the toolchain, get the same settings. `/root` is a writable `emptyDir` and `HOME` points at it, so feed configs and git identity are staged where they always were. Git is told that the root-owned `/work` is a safe directory.
 
-A prerequisite that needs root, such as `apt-get install` or `npm install -g`, fails under this profile, and the failure says so. For such a project, set:
+Check before you turn it on:
+
+- Which projects install system packages in their context's `prerequisites` (`apt-get install`, `npm install -g`, `corepack enable`). Those fail as uid 1000, and the failure says so. Set `run_as_root` for them first, or move the install into their toolchain image.
+- Whether a toolchain image ships files under `/root`. The mount hides them; such a project needs `run_as_root` too.
+- Most images have no user entry for uid 1000. Tools that look the user up, such as ssh, fail; clone and push go over https and are not affected.
+
+A project opts back to root like this:
 
 ```yaml
 projects:
@@ -83,9 +89,7 @@ projects:
       run_as_root: true
 ```
 
-or turn on **run sandboxes as root** in the project's Sandbox tab. Its pods then run as the image's own user (root for every built-in image) with the runtime's default capabilities. Seccomp, no escalation and no token stay. Every run of that project shows a `sandbox-runs-as-root` warning in its preflight, so the choice stays visible.
-
-Upgrading changes the default: a project whose prerequisites install system packages fails until it sets `run_as_root` or moves the install into its toolchain image.
+or with **run sandboxes as root** in the project's Sandbox tab. Its pods then run as the image's own user with the runtime's default capabilities. Seccomp, no escalation and no token stay. While hardening is on, every run of that project shows a `sandbox-runs-as-root` warning in its preflight, so the choice stays visible. While hardening is off, `run_as_root` changes nothing.
 
 ### Which registries a toolchain image may come from
 

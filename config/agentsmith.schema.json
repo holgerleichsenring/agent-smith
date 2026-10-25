@@ -207,6 +207,10 @@
           "description": "Docker backend only: sandbox containers admitted at once on one host. Unset falls back to SANDBOX_MAX_CONCURRENT; 0 is unbounded.",
           "minimum": 0
         },
+        "hardening_enabled": {
+          "type": "boolean",
+          "description": "2026-10-25-ff3b: true runs Docker and Kubernetes sandboxes as uid 1000 with every capability dropped, RuntimeDefault seccomp and no privilege escalation; a project may opt back with projects.<name>.sandbox.run_as_root. Default false: sandboxes run as the image's user, root for every built-in image."
+        },
         "hold_seconds": {
           "type": "integer",
           "minimum": 0,
@@ -795,7 +799,7 @@
             },
             "run_as_root": {
               "type": "boolean",
-              "description": "2026-10-25-c5a7a: true runs this project's Docker and Kubernetes sandboxes as root with the runtime's default capabilities, for prerequisites that need root (apt-get, npm -g). Default false: uid 1000 with every capability dropped. Every run of a root project carries a preflight warning."
+              "description": "2026-10-25-c5a7a: with sandbox.hardening_enabled on, true runs this project's Docker and Kubernetes sandboxes as root with the runtime's default capabilities, for prerequisites that need root (apt-get, npm -g), and every run carries a preflight warning. With hardening off it changes nothing."
             },
             "hold_seconds": {
               "type": "integer",

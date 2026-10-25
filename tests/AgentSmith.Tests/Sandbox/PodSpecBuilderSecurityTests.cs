@@ -35,10 +35,21 @@ public sealed class PodSpecBuilderSecurityTests
         Toolchain(pod).SecurityContext.Capabilities.Drop.Should().Equal("ALL");
     }
 
-    [Fact]
-    public void PodSpecBuilder_NoProfileOnTheSpec_IsHardened()
+    // 2026-10-25-ff3b: hardening off (and a spec with no profile) is the pod from before hardening.
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void PodSpecBuilder_HardeningOff_PodIsUnchangedFromBeforeHardening(bool explicitProfile)
     {
-        Build(profile: null).Spec.SecurityContext.RunAsUser.Should().Be(1000);
+        var pod = Build(explicitProfile ? SandboxSecurityContext.Unconfined : null);
+
+        pod.Spec.SecurityContext.FsGroup.Should().Be(1000);
+        pod.Spec.SecurityContext.RunAsUser.Should().BeNull();
+        pod.Spec.SecurityContext.SeccompProfile.Should().BeNull();
+        pod.Spec.AutomountServiceAccountToken.Should().BeNull();
+        pod.Spec.InitContainers.Concat(pod.Spec.Containers).Should().OnlyContain(c => c.SecurityContext == null);
+        pod.Spec.Volumes.Should().HaveCount(2);
+        Toolchain(pod).Env.Select(e => e.Name).Should().Equal("JOB_ID", "REDIS_URL");
     }
 
     [Fact]

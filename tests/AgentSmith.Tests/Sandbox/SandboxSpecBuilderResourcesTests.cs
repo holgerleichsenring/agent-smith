@@ -18,15 +18,24 @@ public sealed class SandboxSpecBuilderResourcesTests
         spec.Resources.Should().BeSameAs(resolverResult);
     }
 
-    // 2026-10-25-c5a7a
-    [Fact]
-    public void SandboxSpecBuilder_ProjectRunAsRoot_ReachesTheSpec()
+    // 2026-10-25-c5a7a, 2026-10-25-ff3b: the installation switch decides, the project may opt back.
+    [Theory]
+    [InlineData(false, false, "unconfined")]
+    [InlineData(false, true, "unconfined")]
+    [InlineData(true, false, "hardened")]
+    [InlineData(true, true, "root")]
+    public void SandboxSpecBuilder_HardeningAndRunAsRoot_ResolveTheProfile(bool hardening, bool runAsRoot, string expected)
     {
-        var sut = new SandboxSpecBuilder(new StubSandboxResourceResolver(), new StubAgentImageResolver());
-        var root = new ResolvedProject { Sandbox = new SandboxConfig { RunAsRoot = true } };
+        var sut = new SandboxSpecBuilder(new StubSandboxResourceResolver(), new StubAgentImageResolver(),
+            Microsoft.Extensions.Options.Options.Create(new SandboxGlobalConfig { HardeningEnabled = hardening }));
+        var project = new ResolvedProject { Sandbox = new SandboxConfig { RunAsRoot = runAsRoot } };
 
-        sut.Build(root, "csharp", "code").SecurityContext.Should().Be(SandboxSecurityContext.Root);
-        sut.Build(new ResolvedProject(), "csharp", "code").SecurityContext.Should().Be(SandboxSecurityContext.Hardened);
+        sut.Build(project, "csharp", "code").SecurityContext.Should().Be(expected switch
+        {
+            "hardened" => SandboxSecurityContext.Hardened,
+            "root" => SandboxSecurityContext.Root,
+            _ => SandboxSecurityContext.Unconfined,
+        });
     }
 
     [Fact]

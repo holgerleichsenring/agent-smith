@@ -17,7 +17,7 @@ public sealed class PodSpecBuilder(SandboxPodLabels labels, PodSecurity podSecur
 
     public V1Pod Build(string podName, string jobId, string redisUrl, SandboxSpec spec, V1OwnerReference? owner)
     {
-        var profile = spec.SecurityContext ?? SandboxSecurityContext.Hardened;
+        var profile = spec.SecurityContext ?? SandboxSecurityContext.Unconfined;
         return new V1Pod
         {
             Metadata = BuildMetadata(podName, jobId, spec, owner),
@@ -25,7 +25,7 @@ public sealed class PodSpecBuilder(SandboxPodLabels labels, PodSecurity podSecur
             {
                 RestartPolicy = "Never",
                 SecurityContext = podSecurity.Pod(profile),
-                AutomountServiceAccountToken = false,
+                AutomountServiceAccountToken = podSecurity.AutomountToken(profile),
                 ImagePullSecrets = PullSecrets(spec.ImagePullSecrets),
                 InitContainers = [BuildInitContainer(spec.AgentImage, profile)],
                 Containers = [BuildToolchainContainer(spec, profile, jobId, redisUrl)],

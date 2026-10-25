@@ -7,32 +7,29 @@ using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using AgentSmith.Sandbox.Wire;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// p0202e: prepares each context's environment before tests by running its
-/// prerequisite command (npm install, pip install, go mod download, …) in the
-/// sandbox. The command is the analyzer-DERIVED, repo-state-aware
-/// ProjectMap.Prerequisites by default; an operator context.yaml
-/// `prerequisites` (RemoteContextDiscovery.Prerequisites) overrides it — needed
-/// for analyzer-less presets (e.g. legal-analysis' markitdown). A context with
-/// no command logs a skip (docs-only / no-deps / .NET must not fail). Per-repo
-/// non-zero exits aggregate into a single failure naming the offenders, with
-/// the failing command's output captured for diagnosis.
+/// p0202e: prepares each context's environment before tests by running its context.yaml
+/// `prerequisites` command (npm install, pip install, …) in the sandbox. A context with no
+/// command logs a skip (docs-only / no-deps / .NET must not fail). Per-repo non-zero exits
+/// aggregate into a single failure naming the offenders, with the failing command's output.
 /// </summary>
 public sealed class EnsurePrerequisitesHandler(
     SandboxTargets sandboxTargets,
+    IOptions<SandboxGlobalConfig> sandboxConfig,
     ILogger<EnsurePrerequisitesHandler> logger)
     : ICommandHandler<EnsurePrerequisitesContext>
 {
     // The backend applies sandbox.step_timeout_seconds (p0200), the single knob that changes this.
     private const int InstallTimeoutSeconds = 900;
 
-    // 2026-10-25-c5a7a: a prerequisite that apt-installs fails under the hardened default; say why.
+    // 2026-10-25-c5a7a/ff3b: a prerequisite that apt-installs fails in a hardened sandbox; say why.
     private const string HardenedHint =
-        "\nOn Docker and Kubernetes the sandbox runs as uid 1000, not root. A prerequisite that needs "
-        + "root (apt-get, a global npm install) runs once the project sets sandbox.run_as_root: true.";
+        "\nThis installation runs sandboxes as uid 1000, not root (sandbox.hardening_enabled). A prerequisite "
+        + "that needs root (apt-get, a global npm install) runs once the project sets sandbox.run_as_root: true.";
 
     public async Task<CommandResult> ExecuteAsync(
         EnsurePrerequisitesContext context, CancellationToken cancellationToken)
@@ -63,9 +60,10 @@ public sealed class EnsurePrerequisitesHandler(
         return BuildAggregateResult(outcomes, RunsHardened(context.Pipeline));
     }
 
-    private static bool RunsHardened(PipelineContext pipeline) =>
-        !(pipeline.TryGet<ResolvedProject>(ContextKeys.ProjectConfig, out var project)
-          && project?.Sandbox?.RunAsRoot == true);
+    private bool RunsHardened(PipelineContext pipeline) => SandboxSecurityContext.For(
+        sandboxConfig.Value.HardeningEnabled,
+        pipeline.TryGet<ResolvedProject>(ContextKeys.ProjectConfig, out var project)
+        && project?.Sandbox?.RunAsRoot == true) == SandboxSecurityContext.Hardened;
 
     private async Task<InstallOutcome> RunOneAsync(
         string key, ISandbox sandbox, string workingDirectory, string rawCommand, CancellationToken ct)

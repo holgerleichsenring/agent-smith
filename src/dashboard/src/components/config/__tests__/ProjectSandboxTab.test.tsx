@@ -316,7 +316,7 @@ describe("ProjectForm sandbox tab", () => {
     expect(saved[1].sandbox?.browserEnabled).toBeUndefined();
   });
 
-  // 2026-10-25-c5a7a: hardened is the default, so the root toggle sends true or nothing.
+  // 2026-10-25-c5a7a: off and absent are one state, so the root toggle sends true or nothing.
   it("ProjectSandboxSection_TheRootToggle_SendsTrueOrNothing", () => {
     const saved: StudioProject[] = [];
     render(<Harness onSave={(p) => saved.push(p)} />);

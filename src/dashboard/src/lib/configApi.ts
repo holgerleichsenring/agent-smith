@@ -927,6 +927,9 @@ export interface SandboxSetting {
   /** Whether a Docker Hub official library image (`node:20`) is trusted. NULL follows the
    *  list: trusted while it is empty, refused once a registry is named. */
   allowDockerHubLibrary?: boolean | null;
+  /** 2026-10-25-ff3b: run sandboxes as uid 1000 with no capabilities. Off (the default) keeps
+   *  the image's user. Older reads may omit it. */
+  hardeningEnabled?: boolean;
 }
 
 /** 2026-10-12-6bfab: the sandbox image boundary in force — what the next stack.image

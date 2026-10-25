@@ -261,7 +261,7 @@ Refused: an unknown project, a repo that project doesn't carry, a wildcard repo,
 | `step_timeout_seconds`, `run_command_timeout_seconds` | override the global timeouts |
 | `agent_registry`, `agent_version` | override the sandbox agent image |
 | `hold_seconds` | how long this project's design conversations hold their sandboxes between turns |
-| `run_as_root` | `true` runs this project's sandboxes as root with default capabilities, for prerequisites that need root; every run then carries a warning. Default: uid 1000, no capabilities |
+| `run_as_root` | with `sandbox.hardening_enabled` on, `true` runs this project's sandboxes as root with default capabilities, for prerequisites that need root; every run then carries a warning |
 | `secrets` | `env` (`VAR: "secretName:key"`) and `files` (`mount`, `secret`, `key`): Kubernetes Secrets mounted into the sandbox |
 
 Empty means inherit. [Sandbox architecture](../concepts/sandbox-architecture.md) has what each one does at runtime.
@@ -299,7 +299,7 @@ These blocks apply to every project unless a project overrides them. On a server
 |-------|--------------|
 | `deployment` | `registry`, `version`: an optional image pin for the sandbox agent |
 | `orchestrator` | `max_run_wall_time_seconds` (1800) |
-| `sandbox` | agent image, `step_timeout_seconds` (900), `run_command_timeout_seconds` (300), `max_concurrent_sandboxes`, `hold_seconds` (180), registry trust and pull secrets |
+| `sandbox` | agent image, `step_timeout_seconds` (900), `run_command_timeout_seconds` (300), `max_concurrent_sandboxes`, `hold_seconds` (180), registry trust, pull secrets and `hardening_enabled` (false: sandboxes run as uid 1000 with no capabilities when true) |
 | `registries` | private package feeds the agent authenticates against in the sandbox |
 | `primary_provider` | the agent used when a project names none |
 | `limits` | per-skill ceilings of the agentic loop |

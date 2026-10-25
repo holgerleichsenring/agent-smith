@@ -8,7 +8,8 @@ namespace AgentSmith.Server.Services.Sandbox;
 /// uid and gid 1000, every capability dropped, a writable emptyDir at /root as HOME, and git told
 /// that the root-owned /work is safe. Root (sandbox.run_as_root): the image's own user and the
 /// runtime's default capabilities. Both run under RuntimeDefault seccomp with no privilege
-/// escalation.
+/// escalation, without the service-account token. Unconfined (2026-10-25-ff3b, hardening off):
+/// the pod as it was before any of this, fsGroup only.
 /// </summary>
 public sealed class PodSecurity
 {
@@ -16,7 +17,7 @@ public sealed class PodSecurity
     private const string RuntimeDefault = "RuntimeDefault";
 
     public V1PodSecurityContext Pod(SandboxSecurityContext profile) => profile.RunAsRoot
-        ? new V1PodSecurityContext { FsGroup = profile.Gid, SeccompProfile = Seccomp() }
+        ? new V1PodSecurityContext { FsGroup = profile.Gid, SeccompProfile = profile.Confined ? Seccomp() : null }
         : new V1PodSecurityContext
         {
             RunAsNonRoot = true,
@@ -26,11 +27,14 @@ public sealed class PodSecurity
             SeccompProfile = Seccomp()
         };
 
-    public V1SecurityContext Container(SandboxSecurityContext profile) => new()
+    public V1SecurityContext? Container(SandboxSecurityContext profile) => !profile.Confined ? null : new()
     {
         AllowPrivilegeEscalation = false,
         Capabilities = profile.RunAsRoot ? null : new V1Capabilities { Drop = ["ALL"] }
     };
+
+    /// <summary>False for a confined pod; null leaves the cluster's default, as an unconfined pod always had.</summary>
+    public bool? AutomountToken(SandboxSecurityContext profile) => profile.Confined ? false : null;
 
     public IEnumerable<V1VolumeMount> HomeMounts(SandboxSecurityContext profile) => profile.RunAsRoot
         ? []

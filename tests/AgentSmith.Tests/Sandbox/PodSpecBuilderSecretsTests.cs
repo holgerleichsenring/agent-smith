@@ -96,11 +96,9 @@ public sealed class PodSpecBuilderSecretsTests
         var pod = Builder.Build("p", "j", "redis:6379", SpecWith(secrets: null), owner: null);
 
         var toolchain = pod.Spec.Containers.Single(c => c.Name == "toolchain");
-        // shared, work and (2026-10-25-c5a7a) the hardened profile's /root home.
-        toolchain.VolumeMounts.Should().HaveCount(3);
-        pod.Spec.Volumes.Should().HaveCount(3);
-        toolchain.Env.Select(e => e.Name).Should().BeEquivalentTo(
-            "JOB_ID", "REDIS_URL", "HOME", "GIT_CONFIG_COUNT", "GIT_CONFIG_KEY_0", "GIT_CONFIG_VALUE_0");
+        toolchain.VolumeMounts.Should().HaveCount(2);
+        pod.Spec.Volumes.Should().HaveCount(2);
+        toolchain.Env.Select(e => e.Name).Should().BeEquivalentTo("JOB_ID", "REDIS_URL");
     }
 
     // 2026-10-02-5f89g: no pod-wide token — each git step carries its own repo's credential.

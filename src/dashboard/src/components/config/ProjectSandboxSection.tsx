@@ -187,7 +187,7 @@ export function ProjectSandboxSection({
         at the process-wide browser profile; {NEXT_RUN}.
       </p>
 
-      {/* 2026-10-25-c5a7a: hardened is the default; root is a per-project choice that warns on every run. */}
+      {/* 2026-10-25-c5a7a/ff3b: with installation hardening on, root is a per-project choice that warns on every run. */}
       <CheckField
         label="run sandboxes as root"
         value={block.runAsRoot === true}
@@ -195,8 +195,9 @@ export function ProjectSandboxSection({
         onChange={(v) => set({ runAsRoot: v ? true : undefined })}
       />
       <p className="help" data-testid="form-sandbox-root-note">
-        Off, sandboxes run as uid 1000 with no Linux capabilities. Turn it on only when a
-        prerequisite needs root, such as apt-get or a global npm install. Every run of this project
+        Matters only when the installation hardens sandboxes (Settings, Sandbox). Then sandboxes run
+        as uid 1000 with no Linux capabilities, and this turns root back on for this project when a
+        prerequisite needs it, such as apt-get or a global npm install. Every run of this project
         then shows a warning; {NEXT_RUN}.
       </p>
 
