@@ -1,9 +1,11 @@
 # Requiring a Redis password
 
-The reference Redis (`deploy/k8s/6-deployment-redis.yaml`, the `redis` service in
-`deploy/docker-compose.example.yml`) requires a password and does not start without one.
-Without it, anything that can reach port 6379 can read the queue, the event streams and
-the steps the server sends to its sandboxes. The server and the sandbox agent both parse
+The Kubernetes reference Redis (`deploy/k8s/6-deployment-redis.yaml`) uses a password when the
+Secret has one and starts without one otherwise, so updating never takes Redis down. The
+`redis` service in `deploy/docker-compose.example.yml`, the starting point for new installs,
+requires one. Without a password, anything that can reach port 6379 can read the queue, the
+event streams and the steps the server sends to its sandboxes, and the per-job sandbox users
+protect nothing. The server shows a startup notice while that is the case. The server and the sandbox agent both parse
 `REDIS_URL` with the same library, which honours `host:port,password=…`. The steps below
 are what the reference files do; an older copy of them needs the same changes.
 
@@ -15,7 +17,7 @@ REDIS_URL=redis:6379,password=<the password>
 
 ## Kubernetes
 
-1. Add the password to the Secret under its own key, next to `redis-url`:
+1. Put the password into the Secret under its own key, and the same value into `redis-url`:
 
    ```yaml
    stringData:
@@ -23,35 +25,18 @@ REDIS_URL=redis:6379,password=<the password>
      redis-url: "redis:6379,password=<the same value>"
    ```
 
-2. Give the Redis container the password from that key with `optional: false`, and start
-   it through a guard that refuses an empty value:
+   With `deploy/apply-k8s-secret.sh`, set `REDIS_PASSWORD` in `.env` instead; the script
+   writes both keys.
 
-   ```yaml
-   env:
-     - name: REDIS_PASSWORD
-       valueFrom:
-         secretKeyRef:
-           name: agentsmith-secrets
-           key: redis-password
-           optional: false
-   command: ["sh", "-c"]
-   args:
-     - test -n "$REDIS_PASSWORD" && exec redis-server --requirepass "$REDIS_PASSWORD"
-       --maxmemory 256mb --maxmemory-policy allkeys-lru --save ""
+2. Apply the Secret, then restart Redis and the server:
+
+   ```bash
+   kubectl -n agentsmith rollout restart deployment/redis deployment/agentsmith-server
    ```
 
-3. Let the liveness and readiness probes authenticate. `redis-cli` reads the password
-   from `REDISCLI_AUTH`, so the probe command itself stays the same and the container's
-   environment carries the variable:
-
-   ```yaml
-   - name: REDISCLI_AUTH
-     valueFrom:
-       secretKeyRef:
-         name: agentsmith-secrets
-         key: redis-password
-         optional: false
-   ```
+`6-deployment-redis.yaml` already reads `redis-password`: Redis starts with `--requirepass`
+when the key is set, and its probes authenticate with the same value. An empty or missing
+key starts Redis without a password, as before.
 
 ## Docker Compose
 

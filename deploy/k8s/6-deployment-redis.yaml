@@ -20,14 +20,14 @@ spec:
       containers:
         - name: redis
           image: redis:7-alpine
-          # 2026-10-25-c5a7e: a password is required. Each sandbox reaches Redis as its own
-          # ACL user, which protects nothing while the default user needs no password. The
-          # guard refuses an empty value, which would otherwise start Redis open.
+          # 2026-10-25-c1bf: a password is used when the Secret has one, and Redis starts as
+          # before when it does not, so applying this file never takes Redis down. Without a
+          # password the per-job sandbox users protect nothing; the server says so at startup.
           command: ["sh", "-c"]
           args:
             - >-
-              test -n "$REDIS_PASSWORD" &&
-              exec redis-server --requirepass "$REDIS_PASSWORD"
+              if [ -n "$REDIS_PASSWORD" ]; then set -- --requirepass "$REDIS_PASSWORD"; fi;
+              exec redis-server "$@"
               --maxmemory 256mb --maxmemory-policy allkeys-lru --save ""
           env:
             - name: REDIS_PASSWORD
@@ -35,14 +35,7 @@ spec:
                 secretKeyRef:
                   name: agentsmith-secrets
                   key: redis-password
-                  optional: false
-            # redis-cli reads its password from here, so the probes below authenticate.
-            - name: REDISCLI_AUTH
-              valueFrom:
-                secretKeyRef:
-                  name: agentsmith-secrets
-                  key: redis-password
-                  optional: false
+                  optional: true
           ports:
             - name: redis
               containerPort: 6379
@@ -56,13 +49,15 @@ spec:
               memory: "384Mi"
           livenessProbe:
             exec:
-              command: ["redis-cli", "ping"]
+              # redis-cli authenticates only when a password is set.
+              command: ["sh", "-c", 'if [ -n "$REDIS_PASSWORD" ]; then REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli ping; else redis-cli ping; fi']
             initialDelaySeconds: 10
             periodSeconds: 15
             timeoutSeconds: 3
           readinessProbe:
             exec:
-              command: ["redis-cli", "ping"]
+              # redis-cli authenticates only when a password is set.
+              command: ["sh", "-c", 'if [ -n "$REDIS_PASSWORD" ]; then REDISCLI_AUTH="$REDIS_PASSWORD" redis-cli ping; else redis-cli ping; fi']
             initialDelaySeconds: 5
             periodSeconds: 10
             timeoutSeconds: 3
