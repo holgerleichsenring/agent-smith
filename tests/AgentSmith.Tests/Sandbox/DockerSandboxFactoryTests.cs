@@ -20,7 +20,7 @@ public sealed class DockerSandboxFactoryTests
     private static DockerSandboxFactory BuildFactory(
         Mock<IDockerClient> docker, DockerSandboxOptions options) =>
         new(docker.Object, BuildRedisMock(),
-            new DockerContainerSpecBuilder(new SandboxOwnerIdentity("store-test"), new DockerHardening()), options,
+            new DockerContainerSpecBuilder(new SandboxOwnerIdentity("store-test"), new DockerHardening(options)), options,
             new DockerPackageCaches(docker.Object, options, NullLogger<DockerPackageCaches>.Instance),
             new DockerImagePresence(docker.Object, NullLogger<DockerImagePresence>.Instance),
             new DockerSandboxVolumes(docker.Object, OneShot(docker)), OneShot(docker),

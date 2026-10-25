@@ -21,6 +21,9 @@ public sealed class KubernetesSandboxOptions
 
     public V1OwnerReference? OwnerReference { get; set; }
 
+    /// <summary>2026-10-25-c5a7g: the proxy sandbox traffic goes through (SANDBOX_EGRESS_PROXY), or null.</summary>
+    public SandboxEgressProxy? EgressProxy { get; set; }
+
     /// <summary>
     /// 2026-10-25-c5a7c: why sandboxes cannot be spawned with these options, or null. Pods in another
     /// namespace cannot resolve the short Redis service name, so they need SANDBOX_REDIS_URL.

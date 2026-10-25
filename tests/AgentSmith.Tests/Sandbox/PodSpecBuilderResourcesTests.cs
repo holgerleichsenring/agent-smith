@@ -14,7 +14,7 @@ namespace AgentSmith.Tests.Sandbox;
 public sealed class PodSpecBuilderResourcesTests
 {
     private static readonly PodSpecBuilder Builder =
-        new(new SandboxPodLabels(new SandboxOwnerIdentity("store-test")), new PodSecurity());
+        new(new SandboxPodLabels(new SandboxOwnerIdentity("store-test")), new PodSecurity(new KubernetesSandboxOptions()));
 
     private static readonly SandboxSpec MinimalSpec = new(
         ToolchainImage: "debian:bookworm",

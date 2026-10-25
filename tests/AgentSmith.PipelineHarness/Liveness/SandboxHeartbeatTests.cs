@@ -220,7 +220,7 @@ public sealed class SandboxHeartbeatTests(ITestOutputHelper output)
         var sandboxConfig = Options.Create(new SandboxGlobalConfig { StepTimeoutSeconds = 60 });
         var factory = new DockerSandboxFactory(
             docker, multiplexer,
-            new DockerContainerSpecBuilder(new SandboxOwnerIdentity("store-harness"), new DockerHardening()),
+            new DockerContainerSpecBuilder(new SandboxOwnerIdentity("store-harness"), new DockerHardening(options)),
             options,
             new DockerPackageCaches(docker, options, loggerFactory.CreateLogger<DockerPackageCaches>()),
             new DockerImagePresence(docker, loggerFactory.CreateLogger<DockerImagePresence>()),

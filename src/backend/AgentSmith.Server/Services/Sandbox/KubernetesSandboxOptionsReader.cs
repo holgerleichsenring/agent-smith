@@ -25,7 +25,8 @@ public sealed class KubernetesSandboxOptionsReader(Func<string, string?> environ
             Namespace = Value("K8S_SANDBOX_NAMESPACE") ?? serverNamespace,
             OwnerRedisUrl = redisUrl,
             RedisUrl = sandboxRedisUrl ?? redisUrl,
-            HasSandboxRedisUrl = sandboxRedisUrl is not null
+            HasSandboxRedisUrl = sandboxRedisUrl is not null,
+            EgressProxy = SandboxEgressProxy.From(Value("SANDBOX_EGRESS_PROXY"))
         };
     }
 

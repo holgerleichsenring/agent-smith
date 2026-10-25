@@ -11,7 +11,7 @@ namespace AgentSmith.Server.Services.Sandbox;
 /// included, runs with no-new-privileges; the loader also drops every capability, it writes only
 /// to a volume it owns. Unconfined (2026-10-25-ff3b, hardening off): the containers as they were.
 /// </summary>
-public sealed class DockerHardening
+public sealed class DockerHardening(DockerSandboxOptions options)
 {
     private const string NoNewPrivileges = "no-new-privileges";
     private const string NoCopy = ":nocopy";
@@ -19,8 +19,9 @@ public sealed class DockerHardening
     public string? User(SandboxSecurityContext profile) =>
         profile.RunAsRoot ? null : $"{profile.Uid}:{profile.Gid}";
 
+    /// <summary>The profile's toolchain env, plus the egress proxy variables when one is set (2026-10-25-c5a7g).</summary>
     public IEnumerable<string> ToolchainEnv(SandboxSecurityContext profile) =>
-        profile.ToolchainEnv().Select(kv => $"{kv.Key}={kv.Value}");
+        profile.ToolchainEnv().Concat(options.EgressProxy?.Env() ?? []).Select(kv => $"{kv.Key}={kv.Value}");
 
     /// <summary>
     /// The work bind, and the home bind when the set has one. Both carry nocopy in the hardened

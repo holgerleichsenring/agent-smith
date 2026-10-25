@@ -68,7 +68,7 @@ public sealed class KubernetesSandboxNamespaceTests
         var options = Read(new() { ["K8S_NAMESPACE"] = "agentsmith", ["K8S_SANDBOX_NAMESPACE"] = "agentsmith-sandboxes" });
         var client = new Mock<IKubernetes>(MockBehavior.Strict);
         var factory = new KubernetesSandboxFactory(client.Object, Mock.Of<IConnectionMultiplexer>(),
-            new PodSpecBuilder(new SandboxPodLabels(new SandboxOwnerIdentity("store-test")), new PodSecurity()),
+            new PodSpecBuilder(new SandboxPodLabels(new SandboxOwnerIdentity("store-test")), new PodSecurity(options)),
             options, Options.Create(new SandboxGlobalConfig()), Mock.Of<IWireProtocolWatcher>(), NullLoggerFactory.Instance);
 
         var act = () => factory.CreateAsync(new SandboxSpec("node:20", ResourceLimits.Default), CancellationToken.None);

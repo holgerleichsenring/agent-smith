@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-c5a7g
+
+decisions:
+  - category: Architecture
+    chose: "A squid proxy plus an IP policy to it"
+    over: "FQDN network policies"
+    reason: "FQDN policies exist only in some CNIs; a proxy and a policy that only reaches it works the same on every cluster and on compose."
+  - category: Architecture
+    chose: "Off by default; an example manifest and a compose override, not the base manifests"
+    over: "Shipping the allowlist in deploy/k8s"
+    reason: "Operator decision: the egress proxy is opt-in. An allowlist is estate-specific, and as the base it would break every private feed on apply."
+  - category: Implementation
+    chose: "The example NetworkPolicy has 13-networkpolicy-sandbox.yaml's name and namespace, so applying it replaces that object"
+    over: "A second policy beside it"
+    reason: "Policies are additive; a second object would leave 80 and 443 open beside the proxy."
+  - category: Implementation
+    chose: "SandboxEgressProxy is read by both options readers; PodSecurity and DockerHardening take the backend options and add its variables to the toolchain env"
+    over: "Adding the env in the two spec builders"
+    reason: "The builders stay at their size, as the spec asked; the loader and the ownership container get no proxy, they make no outbound call."
+  - category: Implementation
+    chose: "ubuntu/squid:6.6-24.04_edge pinned by its Docker Hub index digest, looked up on 2026-10-25; the tag was last pushed 2026-05-07"
+    over: "An unpinned tag"
+    reason: "The spec asks for version and digest; the digest was read from the registry, not invented."
+  - category: Implementation
+    chose: "One allowlist and squid.conf under deploy/egress-proxy for compose, the same text inlined in the Kubernetes example's ConfigMap"
+    over: "A ConfigMap generated from the files"
+    reason: "kubectl apply -f needs a self-contained manifest; the two copies are short and both carry the overlap rule."
+  - category: Scope
+    chose: "Manual proof outstanding: with the example applied a sandbox clones from github.com and restores from nuget.org, curl to an unlisted host fails with squid's 403; squid parses the shipped squid.conf"
+    over: "Running squid and a sandbox from this session"
+    reason: "No cluster apply and no compose restart from a build session; the manifests and env are pinned by tests."

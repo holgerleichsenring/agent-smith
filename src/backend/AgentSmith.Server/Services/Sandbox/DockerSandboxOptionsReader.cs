@@ -18,6 +18,7 @@ public sealed class DockerSandboxOptionsReader(Func<string, string?> environment
         Network = environment("DOCKER_NETWORK") ?? "",
         // p0407: warm package caches are what every run wants; the switch exists for
         // the operator who wants a provably cold restore or is short on disk.
-        PackageCacheEnabled = !bool.TryParse(environment("SANDBOX_PACKAGE_CACHE"), out var cache) || cache
+        PackageCacheEnabled = !bool.TryParse(environment("SANDBOX_PACKAGE_CACHE"), out var cache) || cache,
+        EgressProxy = SandboxEgressProxy.From(environment("SANDBOX_EGRESS_PROXY"))
     };
 }

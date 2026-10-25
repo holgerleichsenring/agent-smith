@@ -43,7 +43,7 @@ internal sealed record DockerBackend(DockerSandboxFactory Factory)
         var multiplexer = await ConnectionMultiplexer.ConnectAsync(redis);
         var logs = LoggerFactory.Create(b => b.SetMinimumLevel(LogLevel.Warning));
         return new DockerBackend(new DockerSandboxFactory(docker, multiplexer,
-            new DockerContainerSpecBuilder(new SandboxOwnerIdentity("browser-harness"), new DockerHardening()), options,
+            new DockerContainerSpecBuilder(new SandboxOwnerIdentity("browser-harness"), new DockerHardening(options)), options,
             new DockerPackageCaches(docker, options, logs.CreateLogger<DockerPackageCaches>()),
             new DockerImagePresence(docker, logs.CreateLogger<DockerImagePresence>()),
             new DockerSandboxVolumes(docker, new DockerOneShotRunner(docker, logs.CreateLogger<DockerOneShotRunner>())), new DockerOneShotRunner(docker, logs.CreateLogger<DockerOneShotRunner>()),

@@ -202,6 +202,18 @@ The server, dashboard and ollama ports are still published on the host, so a san
 
 Upgrading an existing compose file: add the `agentsmith-sandbox` network, put `redis` on it beside `default`, and set `DOCKER_NETWORK=agentsmith-sandbox` on the server, as `docker-compose.example.yml` does.
 
+## Sending sandbox traffic through an egress proxy
+
+Off by default. `deploy/docker-compose.egress-proxy.yml` makes the `agentsmith-sandbox` network internal, adds a squid proxy on it and on the default network, and sets `SANDBOX_EGRESS_PROXY=http://egress-proxy:3128` on the server. A sandbox then reaches Redis and the proxy, and through the proxy only the domains in `deploy/egress-proxy/allowlist.txt`. Since the network is internal, the published host ports are out of reach too.
+
+Edit the allowlist first: it ships with the public git hosts and the public package feeds, and your private git host and feeds have to be added or runs fail at clone and restore. Then start with both files:
+
+```bash
+docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.egress-proxy.yml up -d
+```
+
+A refused host shows up in the step output as a 403 from the proxy. Browser renders, JVM builds and Node's built-in `fetch` do not use the proxy and fail under it; [Kubernetes](kubernetes.md#sending-sandbox-traffic-through-an-egress-proxy) has the details.
+
 ## Two deployments on one host
 
 Sandbox containers are labelled with the deployment that owns them, and the orphan reaper and the capacity count only ever look at their own. The owner identity is derived from the Redis endpoint the server hands its sandboxes: two servers that share a Redis are one owner and clean up after each other, two that don't never see each other's containers. Set `SANDBOX_OWNER_ID` to name the owner yourself.

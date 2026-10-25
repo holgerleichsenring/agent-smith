@@ -7,7 +7,7 @@ namespace AgentSmith.Tests.Sandbox;
 public sealed class DockerContainerSpecBuilderTests
 {
     private static readonly SandboxOwnerIdentity Owner = new("store-0123456789abcdef");
-    private readonly DockerContainerSpecBuilder _builder = new(Owner, new DockerHardening());
+    private readonly DockerContainerSpecBuilder _builder = new(Owner, new DockerHardening(new DockerSandboxOptions()));
 
     // The set a root sandbox gets: shared and work, no home volume.
     private static DockerSandboxVolumeSet Vols(string shared, string work) => new(shared, work, null);

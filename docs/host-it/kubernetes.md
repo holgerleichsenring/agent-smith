@@ -101,6 +101,20 @@ Fill in the allowance section at the top of the file before you apply it. A proj
 
 The policy does nothing unless the cluster's network plugin enforces NetworkPolicy. After applying, check from a sandbox that a run still clones and restores, and that the server service and `169.254.169.254` are not reachable. Domain allowlists need an egress proxy; [the egress proxy example](#sending-sandbox-traffic-through-an-egress-proxy) sets one up.
 
+### Sending sandbox traffic through an egress proxy
+
+Off by default. `deploy/k8s/examples/sandbox-egress-proxy.yaml` runs a squid proxy in `agentsmith` with a domain allowlist, and replaces the sandbox NetworkPolicy with one that lets a sandbox reach only DNS, Redis and the proxy on 3128. It has the same name and namespace as the policy in `13-networkpolicy-sandbox.yaml` on purpose: policies add up, so a second object would leave 80 and 443 open beside the proxy.
+
+To turn it on:
+
+1. Edit the allowlist in the example's ConfigMap. It ships with the public git hosts, nuget.org, npm, PyPI, the Go module proxy and crates.io. Add your private git host, feeds and registries. The allowlist is yours; nothing else adds to it.
+2. Set `SANDBOX_EGRESS_PROXY` on the server, for example `http://agentsmith-egress-proxy.agentsmith.svc.cluster.local:3128`. The server then gives every sandbox toolchain `HTTP_PROXY`, `HTTPS_PROXY`, their lower-case forms and a `NO_PROXY` for loopback and in-cluster names.
+3. Apply the example after `deploy/k8s/`, and again after each later apply of `deploy/k8s/`, which puts the public web rule back.
+
+A host that is not on the list shows up in the step output as the tool's own proxy error, a 403 from squid. Squid's access log is the record of what was refused. HTTPS is tunnelled, not intercepted: the allowlist judges the host name of each connection.
+
+What does not go through the proxy: `render_reference`, whose browser guard dials targets directly, so renders fail under this policy and a deployment that needs them keeps the public rule. JVM builds (they read `JAVA_TOOL_OPTIONS` or `settings.xml`) and Node's built-in `fetch` ignore the proxy variables and fail closed.
+
 ### Which registries a toolchain image may come from
 
 The context's `stack.image` is written by a model, so it is held to a registry boundary before it is used:

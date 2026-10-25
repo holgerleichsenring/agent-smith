@@ -11,7 +11,7 @@ namespace AgentSmith.Server.Services.Sandbox;
 /// escalation, without the service-account token. Unconfined (2026-10-25-ff3b, hardening off):
 /// the pod as it was before any of this, fsGroup only.
 /// </summary>
-public sealed class PodSecurity
+public sealed class PodSecurity(KubernetesSandboxOptions options)
 {
     public const string HomeVolume = "agent-home";
     private const string RuntimeDefault = "RuntimeDefault";
@@ -44,8 +44,10 @@ public sealed class PodSecurity
         ? []
         : [new V1Volume { Name = HomeVolume, EmptyDir = new V1EmptyDirVolumeSource() }];
 
+    /// <summary>The profile's toolchain env, plus the egress proxy variables when one is set (2026-10-25-c5a7g).</summary>
     public IEnumerable<V1EnvVar> Env(SandboxSecurityContext profile) =>
-        profile.ToolchainEnv().Select(kv => new V1EnvVar { Name = kv.Key, Value = kv.Value });
+        profile.ToolchainEnv().Concat(options.EgressProxy?.Env() ?? [])
+            .Select(kv => new V1EnvVar { Name = kv.Key, Value = kv.Value });
 
     private static V1SeccompProfile Seccomp() => new() { Type = RuntimeDefault };
 }

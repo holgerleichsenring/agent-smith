@@ -12,7 +12,7 @@ namespace AgentSmith.Tests.Sandbox;
 public sealed class PodSpecBuilderSecurityTests
 {
     private static readonly PodSpecBuilder Builder =
-        new(new SandboxPodLabels(new SandboxOwnerIdentity("store-test")), new PodSecurity());
+        new(new SandboxPodLabels(new SandboxOwnerIdentity("store-test")), new PodSecurity(new KubernetesSandboxOptions()));
 
     private static V1Pod Build(SandboxSecurityContext? profile) => Builder.Build(
         "p", "j", "redis:6379",
