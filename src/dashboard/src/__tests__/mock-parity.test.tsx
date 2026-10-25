@@ -15,6 +15,8 @@ import { fakeHub, list, pr, ticket } from "@/components/tickets/__tests__/ticket
 import { TicketPage } from "@/components/tickets/detail/TicketPage";
 import { TicketPageStore } from "@/lib/tickets/TicketPageStore";
 import { TicketGraph } from "@/components/tickets/graph/TicketGraph";
+import { DeliveryView } from "@/components/delivery/DeliveryView";
+import { delivery } from "@/components/delivery/__tests__/deliveryFixtures";
 import {
   attempt, compute, conversation, defaults, detail, entry, pass, passes, reviewRound, reviews, runDetail, segment, series, spec,
   ticketText,
@@ -103,6 +105,9 @@ vi.mock("@/lib/ticketGraphApi", () => ({
 // 2026-10-15-114fd: closing a ticket.
 const closeApi = vi.hoisted(() => ({ close: vi.fn() }));
 vi.mock("@/lib/ticketCloseApi", () => ({ closeTicket: (...args: unknown[]) => closeApi.close(...args), reopenTicket: vi.fn() }));
+// 2026-10-25-0099c: the Delivery page's one read.
+const deliveryApi = vi.hoisted(() => ({ fetch: vi.fn() }));
+vi.mock("@/lib/deliveryApi", () => ({ fetchDelivery: (...args: unknown[]) => deliveryApi.fetch(...args) }));
 vi.mock("@/hooks/useRunExecutionTree", () => ({
   useRunExecutionTree: () => ({ nodes: [] }),
 }));
@@ -529,6 +534,22 @@ describe("Mock parity", () => {
     await screen.findByTestId("ticket-graph");
     drawnIn("ticket-graph.html")(screen.getByTestId("graph-root"), "graph states",
       [".tg-node.failed", ".tg-node.pr_closed", ".tg-node.closed", ".tg-legend i.failed", ".tg-legend i.pr_closed", ".tg-legend i.closed"]);
+  });
+
+  // 2026-10-25-0099c: delivery-overview.html's scope bar, tiles, timeline, breakdowns and tables.
+  it("MockParity_DeliverySurface_CarriesDeliveryOverviewHtmlsStructuralClasses", async () => {
+    const mock = readFileSync("design/mockups/delivery-overview.html", "utf8");
+    deliveryApi.fetch.mockResolvedValue(delivery());
+    render(<DeliveryView client={fakeHub().client} />);
+    await screen.findByTestId("delivery-kpis");
+    const root = screen.getByTestId("delivery-page");
+    expect(root.className).toContain("mock-delivery");
+    for (const cls of [".seg", ".chips", ".chip", ".kpis", ".kpi", ".panel", ".panel-head", ".legend", ".tl", ".axis", ".ticks",
+      ".trow", ".tlabel", ".lane", ".bar.failed", ".bar.running", ".bar.rework", ".mergemark", ".grid2", ".hbar", ".track", ".fill",
+      ".tbl-scroll", ".pill", ".did"]) {
+      expect(root.querySelector(cls), `delivery missing ${cls}`).not.toBeNull();
+      for (const name of cls.split(/[ .]/).filter(Boolean)) expect(mock, `delivery-overview.html lacks ${name}`).toContain(name);
+    }
   });
 
   it("TraceDrawer_HostsExistingMasterDetail", async () => {

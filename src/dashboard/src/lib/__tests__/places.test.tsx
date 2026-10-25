@@ -78,6 +78,12 @@ describe("Places", () => {
       .toEqual([]);
   });
 
+  // 2026-10-25-0099c: the Delivery page is a place of its own, linked from the rail's Insight section.
+  it("Places_Delivery_IsDelivery", () => {
+    expect(railHrefs("/")).toContain("/delivery");
+    expect(placeForPath("/delivery")).toBe("Delivery");
+  });
+
   // 2026-10-13-9a59p: the Work section links the ticket list and its six buckets; a bucket is a
   // query of one place, and a ticket's own page is matched like a run's.
   it("Places_TicketList_AndItsBuckets_AreOnePlace_AndATicketIsAPlace", () => {

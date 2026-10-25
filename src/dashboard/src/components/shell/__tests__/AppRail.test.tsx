@@ -121,12 +121,14 @@ describe("AppRail", () => {
     expect(screen.queryByTestId("rail-release")).toBeNull();
   });
 
-  it("Rail_HasOneInsightEntry_AndNoRollupSection", () => {
+  it("Rail_InsightListsOverviewAndDelivery_AndNoRollupSection", () => {
     renderRail();
     // 2026-08-27-7463: three rollup entries became one Insight → Overview entry.
+    // 2026-10-25-0099c: Delivery sits beside it.
     expect(screen.queryByTestId("app-rail-section-Rollups")).toBeNull();
     expect(screen.getByTestId("app-rail-section-Insight")).toBeInTheDocument();
     expect(screen.getByTestId("app-rail-item-Overview")).toHaveAttribute("href", "/overview");
+    expect(screen.getByTestId("app-rail-item-Delivery")).toHaveAttribute("href", "/delivery");
     for (const gone of ["Cost", "Today's activity", "Expectations"]) {
       expect(screen.queryByTestId(`app-rail-item-${gone}`)).toBeNull();
     }
@@ -136,6 +138,13 @@ describe("AppRail", () => {
     usePathname.mockReturnValue("/overview");
     renderRail();
     expect(screen.getByTestId("app-rail-item-Overview")).toHaveAttribute("data-active", "true");
+  });
+
+  it("Rail_TheDeliveryEntry_IsActiveOnDelivery", () => {
+    usePathname.mockReturnValue("/delivery");
+    renderRail();
+    expect(screen.getByTestId("app-rail-item-Delivery")).toHaveAttribute("data-active", "true");
+    expect(screen.getByTestId("app-rail-item-Overview")).toHaveAttribute("data-active", "false");
   });
 
   it("AppRail_ActiveItem_DerivesFromCurrentRoute", () => {

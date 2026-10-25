@@ -58,12 +58,11 @@ const SUBSYSTEM_ITEMS: Array<RailItem & { id: SubsystemId }> = [
 // 2026-08-27-7463: one INSIGHT entry replaces the three rollup entries. "Rollup"
 // named how a number is computed; the operator reading it wants to know what it
 // tells them, and all three readings are on one page now.
-const INSIGHT: RailItem & { icon: string } = {
-  id: "overview",
-  label: "Overview",
-  href: "/overview",
-  icon: "◍",
-};
+// 2026-10-25-0099c: Delivery beside it — the tickets of a day, week or month.
+const INSIGHT: ReadonlyArray<RailItem & { icon: string }> = [
+  { id: "overview", label: "Overview", href: "/overview", icon: "◍" },
+  { id: "delivery", label: "Delivery", href: "/delivery", icon: "▤" },
+];
 
 // The catalog entities the config rail lists, with the mock's icons.
 const CATALOG_KINDS: Array<{ kind: ConfigEntityKind; icon: string }> = [
@@ -232,12 +231,15 @@ export function AppRail() {
           ))}
 
           <Section label="Insight" style={{ marginTop: 10 }} />
-          <AppRailItem
-            label={INSIGHT.label}
-            href={INSIGHT.href}
-            icon={INSIGHT.icon}
-            active={isActive(INSIGHT.href)}
-          />
+          {INSIGHT.map((item) => (
+            <AppRailItem
+              key={item.id}
+              label={item.label}
+              href={item.href}
+              icon={item.icon}
+              active={isActive(item.href)}
+            />
+          ))}
         </>
       )}
     </nav>
