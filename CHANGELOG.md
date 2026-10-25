@@ -1,5 +1,54 @@
 # Changelog
 
+## [0.171.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.170.0...v0.171.0) (2026-10-25)
+
+
+### Features
+
+* a GitHub pull request merges with a method its repository allows (2026-10-25-9dbbc) ([f4ae475](https://github.com/holgerleichsenring/agent-smith/commit/f4ae475a753b24f1449e425633a0cab4ae2be1c6))
+* a GitHub rework reads every page of the review (2026-10-25-9dbbf) ([14d9fa2](https://github.com/holgerleichsenring/agent-smith/commit/14d9fa288309a57bd7d99a11cb8ab36e11add679))
+* a master cites the memories a spec relied on and disputes one that led it wrong (2026-10-25-9324b) ([8c621fc](https://github.com/holgerleichsenring/agent-smith/commit/8c621fc16738300993abce00531b6c0debb040b0))
+* a memory evidence ledger kept per repository and slug (2026-10-25-9324a) ([52c23e4](https://github.com/holgerleichsenring/agent-smith/commit/52c23e4dfe1df00b5fef73c919749457ebe8bfc1))
+* a spec's final standing and a person's not-met judgement become memory evidence (2026-10-25-9324c) ([f17c046](https://github.com/holgerleichsenring/agent-smith/commit/f17c046738d5298ba3927b821d476fe66263fd65))
+* an across-projects route must take the caller's scope (2026-10-25-0099a) ([1171604](https://github.com/holgerleichsenring/agent-smith/commit/1171604e68145bb3f38f81748aed5bb09e240904))
+* Docker sandboxes honour installation hardening (2026-10-25-c5a7b) ([bcf4de1](https://github.com/holgerleichsenring/agent-smith/commit/bcf4de189149efd9b2c479021e1997f220c83779))
+* each sandbox reaches Redis as its own per-job ACL user (2026-10-25-c5a7e) ([f3efaec](https://github.com/holgerleichsenring/agent-smith/commit/f3efaec9a516b5bed55613faa5aeed68992fdde2))
+* GET /api/delivery answers a period of ticket work in the caller's projects (2026-10-25-0099b) ([0dcc9bf](https://github.com/holgerleichsenring/agent-smith/commit/0dcc9bfc79f0fe65ace54a2848e0de3957d3cdb7))
+* GitHub comment and review authors are trusted by their repository permission (2026-10-25-9dbbe) ([a650fa3](https://github.com/holgerleichsenring/agent-smith/commit/a650fa3be36550a0320f6c3c830446f1f39961d0))
+* GitHub Enterprise hosts get the API of their own host (2026-10-25-9dbbb) ([ccd9732](https://github.com/holgerleichsenring/agent-smith/commit/ccd9732d96da528f31938c6d42c431413dd47ce6))
+* GitHub issue uploads reach the run from private repositories (2026-10-25-9dbbd) ([7e3383f](https://github.com/holgerleichsenring/agent-smith/commit/7e3383f55f36aa52901bb7f127b0215506693836))
+* in-process steps no longer inherit the host's secrets (2026-10-25-c5a7h) ([e3bbcf7](https://github.com/holgerleichsenring/agent-smith/commit/e3bbcf7568e35cdba421754ef292532d68caddf5))
+* Kubernetes sandbox pods can run in a namespace of their own (2026-10-25-c5a7c) ([05f5279](https://github.com/holgerleichsenring/agent-smith/commit/05f527968cec1066ddcf77cbd017e1272d23723d))
+* memory standing from runs, template advice, delivery page, opt-in sandbox hardening ([b2e6410](https://github.com/holgerleichsenring/agent-smith/commit/b2e6410d40294ce41874d06b96712e10958d5303))
+* no known secret value reaches a model provider (2026-10-25-c5a7i) ([1cdf17b](https://github.com/holgerleichsenring/agent-smith/commit/1cdf17b6cb48f5ee0e98e387b0d0ecfab7fdf77f))
+* pin skills v5.21.0, memories are hints the runs judge (2026-10-25-9324e) ([210af15](https://github.com/holgerleichsenring/agent-smith/commit/210af1552e4eb25dab562f69deb93f2cad77adcc))
+* recall shows a memory's track record (2026-10-25-6c1f) ([19a2040](https://github.com/holgerleichsenring/agent-smith/commit/19a204084148e9bc4542b5ee652b4623e0e0058d))
+* Redis findings and probe results never echo REDIS_URL or its password (2026-09-28-2ac3) ([66295c7](https://github.com/holgerleichsenring/agent-smith/commit/66295c75777c9dcf97d09c1df64dd90f74509267))
+* reference the ticket in a PR without closing it (2026-10-25-9dbba) ([b30142c](https://github.com/holgerleichsenring/agent-smith/commit/b30142c7d6e9f8ea9a4400de2a73f30cc2380c31))
+* remember records a hint whose standing the runs decide, never a proposal to ratify (2026-10-25-9324e) ([229a6b5](https://github.com/holgerleichsenring/agent-smith/commit/229a6b56953f6480e3d38b4e9e1126a1bad8da3f))
+* repository URLs drop only a trailing .git (2026-10-25-9dbbg) ([f475461](https://github.com/holgerleichsenring/agent-smith/commit/f475461b45451fdab3a2f874415ee65c2f7517aa))
+* sandbox hardening is an installation opt-in (2026-10-25-ff3b) ([d1db7a5](https://github.com/holgerleichsenring/agent-smith/commit/d1db7a5b81ab5d2ee805a5950b71139eccdb1341))
+* sandbox isolation manifests are opt-in (2026-10-25-e41d) ([338ba70](https://github.com/holgerleichsenring/agent-smith/commit/338ba70f44f9f25eb0dd17c6b8daae51d66feba7))
+* sandbox pods run as uid 1000 with no capabilities unless a project opts into root (2026-10-25-c5a7a) ([1f1c0aa](https://github.com/holgerleichsenring/agent-smith/commit/1f1c0aa4bca2f9f5dbf612f66db3fb43645eb3c7))
+* sandboxes can be pointed at an egress proxy with a domain allowlist (2026-10-25-c5a7g) ([bf1d0a4](https://github.com/holgerleichsenring/agent-smith/commit/bf1d0a422f4069911045105d13d24f6c74dcdb98))
+* sandboxes reach only DNS, Redis and public web ports (2026-10-25-c5a7d) ([245a30f](https://github.com/holgerleichsenring/agent-smith/commit/245a30f30d717c08691ade2aa093d8aeecd1a87f))
+* the coding master reads its template context's principles as advice (2026-10-25-54bea) ([64358ba](https://github.com/holgerleichsenring/agent-smith/commit/64358ba0e08b151e4849cdb110e29da2bd26418a))
+* the Delivery page shows a day, week or month of ticket work (2026-10-25-0099c) ([2730980](https://github.com/holgerleichsenring/agent-smith/commit/27309800e91aec25616520ddbec24d3c8a93a2a1))
+* the diff reviewer reads the run's templates and records deviations as advice (2026-10-25-54beb) ([8d00011](https://github.com/holgerleichsenring/agent-smith/commit/8d000110b5f1c51e355e1d1b02e1f8c5ac294419))
+* the memory index shows each entry's track record and hides what the evidence turned against (2026-10-25-9324d) ([ba16949](https://github.com/holgerleichsenring/agent-smith/commit/ba169498269ba9b44da48e5d1ca6b1a5ee0adfba))
+* web_fetch dials only public addresses and marks fetched pages untrusted (2026-10-25-c5a7f) ([6cfc8ee](https://github.com/holgerleichsenring/agent-smith/commit/6cfc8eeefbd2c4435925b946e35ff16c4dd8ce86))
+
+
+### Bug Fixes
+
+* a Redis password is opt-in on the Kubernetes reference manifests (2026-10-25-c1bf) ([2b69edf](https://github.com/holgerleichsenring/agent-smith/commit/2b69edf8d874def704272eda2f6b59cd5cf7a51c))
+* a run row opens its run, with its ticket as a separate link (2026-10-18-509c) ([821eac8](https://github.com/holgerleichsenring/agent-smith/commit/821eac804952cd978a324baf7b16f34d97f0c221))
+* a run row opens its run, with its ticket as a separate link (2026-10-18-509c) ([1509ac5](https://github.com/holgerleichsenring/agent-smith/commit/1509ac5ed40c98b47a12855e6e3a2053335f4998))
+* build note entries render in the text column (2026-10-25-2a99) ([5a352df](https://github.com/holgerleichsenring/agent-smith/commit/5a352df85df417849fe2f14551fab0f168d6d2b2))
+* GitHub GraphQL reads parse the reply GitHub sent (2026-10-25-684b) ([3931523](https://github.com/holgerleichsenring/agent-smith/commit/3931523f904c0a5cbc010b26dd2736e1f6f5736a))
+* GitHub parity with GitLab and Azure DevOps ([9237b89](https://github.com/holgerleichsenring/agent-smith/commit/9237b8921759a60b19cb8aa4e8634f9eba469f3f))
+* ship the compose egress override the deploy ignore rule swallowed ([4f4a53c](https://github.com/holgerleichsenring/agent-smith/commit/4f4a53cdd803b9900d4f29aef8cf4ffc525ae4e8))
+
 ## [0.170.0](https://github.com/holgerleichsenring/agent-smith/compare/v0.169.0...v0.170.0) (2026-10-17)
 
 
