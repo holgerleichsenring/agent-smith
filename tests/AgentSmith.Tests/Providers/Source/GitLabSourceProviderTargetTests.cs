@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -46,6 +47,32 @@ public sealed class GitLabSourceProviderTargetTests
         await sut.CreatePullRequestAsync(Repo("agent-smith/19107"), "t", "d", CancellationToken.None);
 
         handler.LastBody.Should().Contain($"\"target_branch\":\"{DefaultBranch}\"");
+    }
+
+    [Fact]
+    public async Task GitLabSourceProvider_AzureDevOpsTicket_FootsWebLink()
+    {
+        // 2026-10-25-9dbba: a work item is not a GitLab issue, so '#4711' would name the wrong thing.
+        var handler = new CapturingHandler(_ => Json(HttpStatusCode.Created, $$"""{"web_url":"{{MrUrl}}"}"""));
+        const string workItem = "https://dev.azure.com/example/demo/_workitems/edit/4711";
+
+        await CreateSut(handler).CreatePullRequestAsync(
+            Repo("agent-smith/4711"), "t", "d", CancellationToken.None,
+            new PullRequestTicket(new TicketId("4711"), TrackerType.AzureDevOps, workItem));
+
+        handler.LastBody.Should().Contain($"Ticket: {workItem}").And.NotContain("Closes").And.NotContain("#4711");
+    }
+
+    [Fact]
+    public async Task GitLabSourceProvider_SameProjectIssue_ReferencesHashNumber()
+    {
+        var handler = new CapturingHandler(_ => Json(HttpStatusCode.Created, $$"""{"web_url":"{{MrUrl}}"}"""));
+
+        await CreateSut(handler).CreatePullRequestAsync(
+            Repo("agent-smith/5"), "t", "d", CancellationToken.None,
+            new PullRequestTicket(new TicketId("5"), TrackerType.GitLab, "https://gitlab.example.com/group/repo/-/issues/5"));
+
+        handler.LastBody.Should().Contain("Ticket: #5").And.NotContain("Closes");
     }
 
     [Fact]

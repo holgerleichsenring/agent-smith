@@ -40,7 +40,7 @@ public partial class CommitAndPRHandlerTests
 
         _sourceProviderMock.Setup(s => s.CreatePullRequestAsync(
                 It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<CancellationToken>(), It.IsAny<TicketId?>()))
+                It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>()))
             .ReturnsAsync("https://github.com/test/repo/pull/42");
 
         // p0228: the staged-diff probe (git diff --staged) must return a
@@ -229,7 +229,7 @@ public partial class CommitAndPRHandlerTests
         result.IsSuccess.Should().BeTrue(result.Message);
         _sourceProviderMock.Verify(s => s.CreatePullRequestAsync(
             It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
-            It.IsAny<CancellationToken>(), It.IsAny<TicketId?>()), Times.Exactly(3));
+            It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>()), Times.Exactly(3));
         postedSummary.Should().NotBeNull();
         postedSummary.Should().Contain("Pull requests");
         postedSummary.Should().Contain("**server**:");
@@ -283,7 +283,7 @@ public partial class CommitAndPRHandlerTests
             It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()), Times.Never);
         _sourceProviderMock.Verify(s => s.CreatePullRequestAsync(
             It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
-            It.IsAny<CancellationToken>(), It.IsAny<TicketId?>()), Times.Never);
+            It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>()), Times.Never);
     }
 
     [Fact]
@@ -313,7 +313,7 @@ public partial class CommitAndPRHandlerTests
             It.IsAny<IProgress<StepEvent>?>(), It.IsAny<CancellationToken>()), Times.Never);
         _sourceProviderMock.Verify(s => s.CreatePullRequestAsync(
             It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
-            It.IsAny<CancellationToken>(), It.IsAny<TicketId?>()), Times.Never);
+            It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>()), Times.Never);
 
         // and the per-repo outcome is the neutral "no changes", not a failure
         var outcome = _events.Events.OfType<PullRequestOutcomeEvent>().Single();
@@ -383,7 +383,7 @@ public partial class CommitAndPRHandlerTests
             It.IsAny<Repository>(), It.IsAny<string>(),
             It.Is<string>(body => body.Contains("What this run accounted for")
                 && body.Contains("- [x] the endpoint rejects an anonymous call")),
-            It.IsAny<CancellationToken>(), It.IsAny<TicketId?>()), Times.Once);
+            It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>()), Times.Once);
     }
 
     /// <summary>
@@ -409,7 +409,7 @@ public partial class CommitAndPRHandlerTests
             It.IsAny<Repository>(), It.IsAny<string>(),
             It.Is<string>(body => body.Contains(DeclinedCriteriaSection.Heading)
                 && body.Contains("**`npm run lint` exits 0** — the lint config is a shared package this repository cannot change")),
-            It.IsAny<CancellationToken>(), It.IsAny<TicketId?>()), Times.Once);
+            It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>()), Times.Once);
         _ticketProviderMock.Verify(t => t.FinalizeAsync(
             It.IsAny<TicketId>(),
             It.Is<string>(s => s.Contains(DeclinedCriteriaSection.Heading)
@@ -475,9 +475,9 @@ public partial class CommitAndPRHandlerTests
         var capturedDraft = false;
         _sourceProviderMock.Setup(s => s.CreatePullRequestAsync(
                 It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(), It.IsAny<bool>(),
+                It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>(), It.IsAny<bool>(),
                 It.IsAny<BranchName?>()))
-            .Callback<Repository, string, string, CancellationToken, TicketId?, bool, BranchName?>(
+            .Callback<Repository, string, string, CancellationToken, PullRequestTicket?, bool, BranchName?>(
                 (_, _, body, _, _, draft, _) => { capturedBody = body; capturedDraft = draft; })
             .ReturnsAsync("https://github.com/test/repo/pull/42");
         var pipeline = NewPipelineWithSandbox();
@@ -513,8 +513,8 @@ public partial class CommitAndPRHandlerTests
         var capturedDraft = true;
         _sourceProviderMock.Setup(s => s.CreatePullRequestAsync(
                 It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(), It.IsAny<bool>()))
-            .Callback<Repository, string, string, CancellationToken, TicketId?, bool, BranchName?>(
+                It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>(), It.IsAny<bool>()))
+            .Callback<Repository, string, string, CancellationToken, PullRequestTicket?, bool, BranchName?>(
                 (_, _, body, _, _, draft, _) => { capturedBody = body; capturedDraft = draft; })
             .ReturnsAsync("https://github.com/test/repo/pull/42");
         var pipeline = ShortfallPipeline(withVerifiedHead: true);
@@ -542,8 +542,8 @@ public partial class CommitAndPRHandlerTests
         var capturedDraft = false;
         _sourceProviderMock.Setup(s => s.CreatePullRequestAsync(
                 It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(), It.IsAny<bool>()))
-            .Callback<Repository, string, string, CancellationToken, TicketId?, bool, BranchName?>(
+                It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>(), It.IsAny<bool>()))
+            .Callback<Repository, string, string, CancellationToken, PullRequestTicket?, bool, BranchName?>(
                 (_, _, _, _, _, draft, _) => capturedDraft = draft)
             .ReturnsAsync("https://github.com/test/repo/pull/42");
         var pipeline = ShortfallPipeline(withVerifiedHead: false);
@@ -607,9 +607,9 @@ public partial class CommitAndPRHandlerTests
         var capturedDraft = false;
         _sourceProviderMock.Setup(s => s.CreatePullRequestAsync(
                 It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(), It.IsAny<bool>(),
+                It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>(), It.IsAny<bool>(),
                 It.IsAny<BranchName?>()))
-            .Callback<Repository, string, string, CancellationToken, TicketId?, bool, BranchName?>(
+            .Callback<Repository, string, string, CancellationToken, PullRequestTicket?, bool, BranchName?>(
                 (_, _, body, _, _, draft, _) => { capturedBody = body; capturedDraft = draft; })
             .ReturnsAsync("https://github.com/test/repo/pull/42");
 
@@ -702,7 +702,7 @@ public partial class CommitAndPRHandlerTests
         template.Ran.Should().BeEmpty("the template checkout is never committed, pushed or diffed");
         _sourceProviderMock.Verify(s => s.CreatePullRequestAsync(
             It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
-            It.IsAny<CancellationToken>(), It.IsAny<TicketId?>()), Times.Once);
+            It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>()), Times.Once);
     }
 
     [Fact]
@@ -713,9 +713,9 @@ public partial class CommitAndPRHandlerTests
         string? capturedBody = null;
         _sourceProviderMock.Setup(s => s.CreatePullRequestAsync(
                 It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(), It.IsAny<bool>(),
+                It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>(), It.IsAny<bool>(),
                 It.IsAny<BranchName?>()))
-            .Callback<Repository, string, string, CancellationToken, TicketId?, bool, BranchName?>(
+            .Callback<Repository, string, string, CancellationToken, PullRequestTicket?, bool, BranchName?>(
                 (_, _, body, _, _, _, _) => capturedBody = body)
             .ReturnsAsync("https://github.com/test/repo/pull/42");
         var context = CreateContext(

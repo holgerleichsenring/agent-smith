@@ -131,7 +131,7 @@ When a run finishes:
 
 When a run fails, the issue moves to `failed_status` if configured (with GitHub's binary open/closed model that usually means it stays `open`), the `agent-smith:failed` label gets added, and a comment carries the error. The run lifecycle (pending / enqueued / in-progress / done / failed, plus waiting and shortfall) is carried as `agent-smith:*` labels, the same as on every tracker. A `label_names:` map on the tracker renames them if your repo already uses its own words.
 
-When the PR opens, Agent Smith uses the `Closes #54` linkage so GitHub auto-closes the issue if the PR merges. That's belt-and-suspenders — the framework also closes the issue explicitly via the API in the `WriteRunResult` step.
+When the PR opens, its body ends with a `Ticket:` reference: `#54` when the issue lives in the PR's own repository, `owner/repo#54` when it lives in another repository on the same GitHub host, and the issue's web link otherwise. GitHub links the two either way. There is no `Closes #54` keyword, so merging the PR never closes the issue on its own — one issue can span several repositories, and its first merged PR would close it for all of them.
 
 When an issue is too thin to act on (title-only, or the run needs a decision), Agent Smith doesn't guess: it posts its open questions as an issue comment and parks the issue in `needs_clarification_status` (settable on the tracker or the project). Answering resumes the run — see [Spec dialogue](../how-it-works/spec-dialogue.md).
 

@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Contracts.Specs;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
@@ -116,8 +117,8 @@ public partial class CommitAndPRHandlerTests
         var draft = false;
         _sourceProviderMock.Setup(s => s.CreatePullRequestAsync(
                 It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(), It.IsAny<bool>(), It.IsAny<BranchName?>()))
-            .Callback<Repository, string, string, CancellationToken, TicketId?, bool, BranchName?>(
+                It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>(), It.IsAny<bool>(), It.IsAny<BranchName?>()))
+            .Callback<Repository, string, string, CancellationToken, PullRequestTicket?, bool, BranchName?>(
                 (_, _, b, _, _, d, _) => { body = b; draft = d; })
             .ReturnsAsync("https://github.com/test/repo/pull/42");
         return (() => body, () => draft);

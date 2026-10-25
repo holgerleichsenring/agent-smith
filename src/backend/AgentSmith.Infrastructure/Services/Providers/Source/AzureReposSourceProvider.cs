@@ -99,16 +99,18 @@ public sealed class AzureReposSourceProvider(
     public async Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
         CancellationToken cancellationToken,
-        TicketId? linkedTicketId = null, bool isDraft = false, BranchName? targetBranch = null)
+        PullRequestTicket? linkedTicket = null, bool isDraft = false, BranchName? targetBranch = null)
     {
         var client = CreateGitClient();
+        var workItemId = AzureDevOpsWorkItemLink.WorkItemIdFor(linkedTicket, _organizationUrl);
         var src = $"refs/heads/{repository.CurrentBranch.Value}";
         // 2026-09-13-a284: the base the caller resolved WINS; a null target falls through
         // to the default-branch resolver, which honours the configured override.
         var tgt = $"refs/heads/{targetBranch?.Value ?? await GetDefaultBranchAsync(cancellationToken)}";
         var pr = new GitPullRequest
         {
-            Title = title, Description = TruncateDescription(description),
+            Title = title, Description = TruncateDescription(workItemId is null
+                ? TicketReferenceFooter.AppendWebLink(description, linkedTicket) : description),
             SourceRefName = src, TargetRefName = tgt,
             IsDraft = isDraft
         };
@@ -122,11 +124,8 @@ public sealed class AzureReposSourceProvider(
             // Native AzDO work-item-to-PR link via WorkItem relations. Done after
             // create so a relation failure does not block PR creation — operators
             // can manually link later, the PR is the load-bearing artifact.
-            if (linkedTicketId is not null
-                && int.TryParse(linkedTicketId.Value, out var workItemId))
-            {
-                await LinkWorkItemToPrAsync(workItemId, created.PullRequestId, cancellationToken);
-            }
+            if (workItemId is { } linked)
+                await LinkWorkItemToPrAsync(linked, created.PullRequestId, cancellationToken);
 
             return BuildPrUrl(created.PullRequestId);
         }
