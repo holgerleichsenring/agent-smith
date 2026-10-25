@@ -4,8 +4,8 @@ For shared use and production. The server as a Deployment, Redis alongside, sand
 
 ```
 deploy/k8s/
-├── 1-namespace.yaml
-├── 2-rbac.yaml                  # ServiceAccount + Role + RoleBinding (pod create/delete)
+├── 1-namespace.yaml             # agentsmith + agentsmith-sandboxes
+├── 2-rbac.yaml                  # ServiceAccount + Role + RoleBinding (pod create/delete), in both namespaces
 ├── 3-configmap.yaml             # the bootstrap agentsmith.yml (persistence + secret names)
 ├── 4-secret-template.yaml       # keys, tokens, REDIS_URL — fill in, never commit real values
 ├── 5-service-redis.yaml
@@ -14,7 +14,9 @@ deploy/k8s/
 ├── 8-deployment-server.yaml     # init-container migrate + the server
 ├── 9-ingress.yaml
 ├── 10-deployment-dashboard.yaml
-└── 11-service-dashboard.yaml
+├── 11-service-dashboard.yaml
+├── 12-pvc-persistence.yaml
+└── 13-networkpolicy-sandbox.yaml  # what a sandbox may reach; fill in its allowances first
 ```
 
 ```bash
@@ -90,6 +92,14 @@ projects:
 ```
 
 or with **run sandboxes as root** in the project's Sandbox tab. Its pods then run as the image's own user with the runtime's default capabilities. Seccomp, no escalation and no token stay. While hardening is on, every run of that project shows a `sandbox-runs-as-root` warning in its preflight, so the choice stays visible. While hardening is off, `run_as_root` changes nothing.
+
+### What a sandbox may reach on the network
+
+`13-networkpolicy-sandbox.yaml` selects every pod in `agentsmith-sandboxes`. A sandbox accepts no inbound connection, and reaches only cluster DNS, Redis on 6379, and ports 80 and 443 on public addresses. Private ranges (`10/8`, `172.16/12`, `192.168/16`), shared address space (`100.64/10`), link-local including the metadata service (`169.254/16`), loopback and Azure's `168.63.129.16` are excepted, so a sandbox cannot reach the server, the dashboard, another sandbox or cloud metadata.
+
+Fill in the allowance section at the top of the file before you apply it. A project that clones from a private git host, restores from a private feed, scans a private target or needs another port fails at clone or restore until its address is allowed there. The air-gapped example reaches nothing until it is filled. The same section covers NodeLocal DNS, OpenShift's DNS and how to keep sandboxes off the server's public ingress.
+
+The policy does nothing unless the cluster's network plugin enforces NetworkPolicy. After applying, check from a sandbox that a run still clones and restores, and that the server service and `169.254.169.254` are not reachable. Domain allowlists need an egress proxy; [the egress proxy example](#sending-sandbox-traffic-through-an-egress-proxy) sets one up.
 
 ### Which registries a toolchain image may come from
 

@@ -1,0 +1,111 @@
+# Agent Smith - sandbox network policy (2026-10-25-c5a7d)
+#
+# Every pod in agentsmith-sandboxes is a sandbox. This policy lets a sandbox reach DNS,
+# Redis and public web ports (80 and 443 outside private, link-local, shared, loopback and
+# the cloud metadata ranges), and accepts no inbound connection at all.
+#
+# ---------------------------------------------------------------------------------------
+# ALLOWANCES: FILL THESE IN BEFORE YOU APPLY
+#
+# Mandatory if a project clones from a private git host, restores from a private package
+# feed, scans a private target, or needs any port other than 80 and 443. Without an
+# allowance such a run fails at clone or restore. The air-gapped example
+# (examples/airgap-deployment.yaml) reaches nothing until this is filled.
+#
+# Policies are additive: add a second NetworkPolicy in agentsmith-sandboxes with the
+# same podSelector and only the egress you need. Uncomment and adjust:
+#
+# apiVersion: networking.k8s.io/v1
+# kind: NetworkPolicy
+# metadata:
+#   name: agentsmith-sandbox-allowances
+#   namespace: agentsmith-sandboxes
+# spec:
+#   podSelector: {}
+#   policyTypes: [Egress]
+#   egress:
+#     # A private git host or feed on an internal address:
+#     - to:
+#         - ipBlock:
+#             cidr: 10.20.30.40/32
+#       ports:
+#         - { protocol: TCP, port: 443 }
+#     # A service inside the cluster, by namespace:
+#     - to:
+#         - namespaceSelector:
+#             matchLabels:
+#               kubernetes.io/metadata.name: internal-feeds
+#       ports:
+#         - { protocol: TCP, port: 8081 }
+#     # SSH to a git host (non-standard for this policy):
+#     - to:
+#         - ipBlock:
+#             cidr: 203.0.113.10/32
+#       ports:
+#         - { protocol: TCP, port: 22 }
+#
+# DNS variants. The rule below allows kube-system pods labelled k8s-app=kube-dns:
+#   - NodeLocal DNSCache: pods resolve through a link-local address on the node,
+#     usually 169.254.20.10; add an ipBlock 169.254.20.10/32 on 53 UDP and TCP.
+#   - OpenShift: DNS runs in namespace openshift-dns with label
+#     dns.operator.openshift.io/daemonset-dns: default, on port 5353 as well as 53.
+#
+# The server's public ingress: if the ingress address is public, sandboxes reach it on
+# 443 through the public rule. To stop that, add the ingress address to the except list
+# of the public rule below.
+#
+# A managed cluster's API server may sit on a public address on 443 and is then
+# reachable. Sandbox pods mount no service-account token when hardening is on
+# (sandbox.hardening_enabled), so such a request is anonymous.
+#
+# IPv6: the rules below are IPv4 only. A dual-stack cluster adds an ipBlock ::/0 with
+# its own private and link-local excepts (fc00::/7, fe80::/10, ::1/128).
+# ---------------------------------------------------------------------------------------
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: agentsmith-sandbox
+  namespace: agentsmith-sandboxes
+  labels:
+    app.kubernetes.io/name: agentsmith
+    app.kubernetes.io/component: sandbox-network
+spec:
+  # Every pod in the namespace: a renamed label cannot switch the policy off.
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+  # No ingress rule: nothing may connect to a sandbox.
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: agentsmith
+          podSelector:
+            matchLabels:
+              app: redis
+      ports:
+        - { protocol: TCP, port: 6379 }
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+              - 100.64.0.0/10
+              - 169.254.0.0/16
+              - 127.0.0.0/8
+              - 168.63.129.16/32
+      ports:
+        - { protocol: TCP, port: 80 }
+        - { protocol: TCP, port: 443 }

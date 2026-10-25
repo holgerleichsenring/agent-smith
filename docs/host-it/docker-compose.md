@@ -194,6 +194,14 @@ Turning on `sandbox.hardening_enabled` (**Harden sandboxes** in **Configuration 
 
 Check first which projects install system packages in their prerequisites (`apt-get`, `npm install -g`); they fail as uid 1000 until they set `projects.<name>.sandbox.run_as_root: true`. Such a project runs as root with `no-new-privileges`, and every one of its runs shows a warning. [Kubernetes](kubernetes.md#what-a-sandbox-pod-runs-as) has the full list of what to check.
 
+## What a sandbox may reach
+
+A sandbox container joins the network `agentsmith-sandbox` (the server's `DOCKER_NETWORK`), which only `redis` shares with it. The server, the dashboard and ollama are not on it, so a sandbox cannot resolve or reach them by service name. Redis's port is published on `127.0.0.1` only.
+
+The server, dashboard and ollama ports are still published on the host, so a sandbox can reach them through the host's gateway address. Sandboxes also reach the internet freely. Both close only with the egress proxy override, see [Sending sandbox traffic through an egress proxy](#sending-sandbox-traffic-through-an-egress-proxy).
+
+Upgrading an existing compose file: add the `agentsmith-sandbox` network, put `redis` on it beside `default`, and set `DOCKER_NETWORK=agentsmith-sandbox` on the server, as `docker-compose.example.yml` does.
+
 ## Two deployments on one host
 
 Sandbox containers are labelled with the deployment that owns them, and the orphan reaper and the capacity count only ever look at their own. The owner identity is derived from the Redis endpoint the server hands its sandboxes: two servers that share a Redis are one owner and clean up after each other, two that don't never see each other's containers. Set `SANDBOX_OWNER_ID` to name the owner yourself.

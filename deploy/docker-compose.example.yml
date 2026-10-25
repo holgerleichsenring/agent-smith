@@ -98,8 +98,11 @@ services:
     command: ["--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru", "--save", "", "--appendonly", "yes"]
     volumes:
       - agentsmith-redis-data:/data
+    # 2026-10-25-c5a7d: Redis is the one service sandboxes share a network with.
+    networks: [default, agentsmith-sandbox]
+    # Bound to the host's loopback only: nothing outside this host needs Redis.
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -158,6 +161,10 @@ services:
       - REDIS_URL=redis:6379
       # The backend every run creates its sandboxes through: docker, kubernetes or inprocess.
       - SANDBOX_TYPE=${SANDBOX_TYPE:-docker}
+      # 2026-10-25-c5a7d: sandboxes join this network, which only redis shares with them, so
+      # they cannot reach the server, the dashboard or ollama by service name. The server itself
+      # stays off it.
+      - DOCKER_NETWORK=agentsmith-sandbox
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
       # p0407: sandboxes share persistent package-cache volumes (agentsmith-pkgcache-*)
       # so a restore reads from disk instead of the network. Set to false to force a
@@ -251,6 +258,12 @@ services:
         reservations:
           devices:
             - capabilities: [gpu]
+
+networks:
+  # 2026-10-25-c5a7d: the sandboxes' network. Fixed name, because the server hands it to the
+  # Docker daemon as DOCKER_NETWORK; compose would otherwise prefix it with the project name.
+  agentsmith-sandbox:
+    name: agentsmith-sandbox
 
 volumes:
   ollama-data:
