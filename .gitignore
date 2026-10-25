@@ -52,6 +52,7 @@ config/*.jira/
 # a public repository. The same shape as the config rule above.
 deploy/docker-compose*.yml
 !deploy/docker-compose.example.yml
+!deploy/docker-compose.egress-proxy.yml
 
 ## Claude Code
 .claude/

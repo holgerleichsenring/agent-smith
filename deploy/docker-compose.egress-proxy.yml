@@ -1,0 +1,32 @@
+# Agent Smith - egress proxy override for docker-compose (2026-10-25-c5a7g)
+#
+# Opt-in. With this override the sandbox network becomes internal: a sandbox reaches Redis
+# and the proxy, and through the proxy only the domains in egress-proxy/allowlist.txt.
+#
+#   docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.egress-proxy.yml up -d
+#
+# Requires the separate sandbox network the example compose file ships (redis on
+# agentsmith-sandbox, DOCKER_NETWORK=agentsmith-sandbox on the server); without it sandboxes
+# stay on the server's network and this override does not reach them.
+#
+# Edit egress-proxy/allowlist.txt first: add your private git host and feeds, or runs fail
+# at clone and restore. A denied host shows up as a 403 from the proxy in the step output.
+
+services:
+  egress-proxy:
+    image: ubuntu/squid:6.6-24.04_edge@sha256:8a3baed477e2c282ab8aa5edad442f69873246964f225c5c2ae8364b6610963c
+    restart: unless-stopped
+    volumes:
+      - ./egress-proxy/squid.conf:/etc/squid/squid.conf:ro
+      - ./egress-proxy/allowlist.txt:/etc/squid/allowlist.txt:ro
+    # default reaches the internet; agentsmith-sandbox is where the sandboxes are.
+    networks: [default, agentsmith-sandbox]
+
+  server:
+    environment:
+      - SANDBOX_EGRESS_PROXY=http://egress-proxy:3128
+
+networks:
+  agentsmith-sandbox:
+    name: agentsmith-sandbox
+    internal: true
