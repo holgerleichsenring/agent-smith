@@ -129,7 +129,7 @@ public sealed class MaterialBinaryVisionTests : IDisposable
         SourceScopeRefusal.Unless(new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.WriteBytes, Path: "x", Content: "AA=="),
             new SourceScopeWritePolicy([])).Should().NotBeNull();
 
-    private InProcessSandbox InProcess() => new("e8b9j", _dir, ownsWorkDir: false, NullLogger.Instance);
+    private InProcessSandbox InProcess() => new("e8b9j", _dir, ownsWorkDir: false, InProcessStepEnvironment.Inherit, NullLogger.Instance);
 
     private static ReferenceSetMaterialiser Materialiser() =>
         new(new NoReferenceSetReader(), new SandboxFileReaderFactory(), new SandboxBinaryFileWriter());

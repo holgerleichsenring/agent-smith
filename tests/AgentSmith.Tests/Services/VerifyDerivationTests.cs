@@ -157,7 +157,7 @@ public sealed class VerifyDerivationTests : IDisposable
     private static VerifyDerivationDigest NewDigest() => new(new SandboxFileReaderFactory());
 
     private InProcessSandbox NewSandbox() =>
-        new("job", _workDir, ownsWorkDir: false, NullLogger.Instance);
+        new("job", _workDir, ownsWorkDir: false, InProcessStepEnvironment.Inherit, NullLogger.Instance);
 
     private async Task<string> Write(string document)
     {

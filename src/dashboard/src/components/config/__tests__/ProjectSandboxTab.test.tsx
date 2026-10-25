@@ -315,4 +315,22 @@ describe("ProjectForm sandbox tab", () => {
     fireEvent.click(screen.getByTestId("save"));
     expect(saved[1].sandbox?.browserEnabled).toBeUndefined();
   });
+
+  // 2026-10-25-c5a7a: off and absent are one state, so the root toggle sends true or nothing.
+  it("ProjectSandboxSection_TheRootToggle_SendsTrueOrNothing", () => {
+    const saved: StudioProject[] = [];
+    render(<Harness onSave={(p) => saved.push(p)} />);
+    openSandbox();
+
+    const toggle = screen.getByTestId("form-field-sandbox-runAsRoot");
+    expect(toggle).toHaveAttribute("data-selected", "false");
+    fireEvent.click(toggle);
+    fireEvent.click(screen.getByTestId("save"));
+    expect(saved[0].sandbox?.runAsRoot).toBe(true);
+    expect(screen.getByTestId("form-sandbox-root-note")).toHaveTextContent("uid 1000");
+
+    fireEvent.click(screen.getByTestId("form-field-sandbox-runAsRoot"));
+    fireEvent.click(screen.getByTestId("save"));
+    expect(saved[1].sandbox?.runAsRoot).toBeUndefined();
+  });
 });

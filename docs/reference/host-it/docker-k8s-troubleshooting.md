@@ -13,6 +13,8 @@ It was not possible to connect to the redis server(s).
 ```
 
 `REDIS_URL` is `host:port`, not a URI. `redis:6379` works, `redis://redis:6379` does not.
+A password goes after the endpoint, `redis:6379,password=…`; see
+[Requiring a Redis password](redis-password.md).
 
 ## Runs never start on Docker: no socket
 
@@ -141,5 +143,5 @@ curl http://localhost:8081/health                          # server + preflight 
 docker compose -f deploy/docker-compose.yml logs -f server  # watch a run start
 docker compose -f deploy/docker-compose.yml exec redis redis-cli ping   # PONG
 docker ps --filter label=agent-smith.job-id                # sandbox containers on this host
-kubectl -n agentsmith get pods -l app=agentsmith-sandbox    # sandbox pods
+kubectl -n agentsmith get pods -l app=agentsmith-sandbox    # sandbox pods (-n agentsmith-sandboxes with sandbox-isolation)
 ```

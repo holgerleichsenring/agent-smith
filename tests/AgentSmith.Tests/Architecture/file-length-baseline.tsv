@@ -61,7 +61,6 @@
 182	AgentSmith.Server/Services/Lifecycle/CancelEnforcer.cs
 181	AgentSmith.Application/Services/Sandbox/SandboxLanguageResolver.cs
 181	AgentSmith.Infrastructure.Core/Services/Configuration/Studio/ConfigCatalogMapper.cs
-144	AgentSmith.Server/Services/Sandbox/DockerSandboxFactory.cs
 177	AgentSmith.Application/Services/Configuration/AgentSmithConfigValidator.cs
 177	AgentSmith.Cli/Services/ConsoleDialogueTransport.cs
 177	AgentSmith.Infrastructure.Core/Services/ConceptVocabularyLoader.cs

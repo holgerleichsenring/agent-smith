@@ -22,13 +22,22 @@ public sealed class SecretMasker(ISecretValues secrets)
     private const string Mask = "***";
     private const int TooShortToBeWorthMasking = 6;
 
+    /// <summary>
+    /// 2026-10-25-c5a7i: what a model provider sees in place of a secret. Named, unlike the
+    /// trace's "***", so a write that carries it back can be recognised and refused.
+    /// </summary>
+    public const string ProviderPlaceholder = "[masked-secret]";
+
     private Snapshot _snapshot = new([], []);
 
-    public string Apply(string text)
+    public string Apply(string text) => Apply(text, Mask);
+
+    /// <summary>2026-10-25-c5a7i: replaces every known value with <paramref name="placeholder"/>.</summary>
+    public string Apply(string text, string placeholder)
     {
         if (string.IsNullOrEmpty(text)) return text;
         foreach (var value in Maskable())
-            text = text.Replace(value, Mask, StringComparison.Ordinal);
+            text = text.Replace(value, placeholder, StringComparison.Ordinal);
         return text;
     }
 

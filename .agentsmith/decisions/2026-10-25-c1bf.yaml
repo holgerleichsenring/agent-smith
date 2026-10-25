@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-c1bf
+
+decisions:
+  - category: Deployment
+    chose: "A Redis password is opt-in on the Kubernetes reference manifests"
+    over: "c5a7e's required password with a guard that refuses to start"
+    reason: "The operator's rule for this release: updating must not force an infrastructure change. A required key makes a routine kubectl apply take Redis down on every existing install. The advisory startup finding keeps the risk visible."
+  - category: Deployment
+    chose: "Probes run redis-cli through sh and set REDISCLI_AUTH only when a password exists"
+    over: "REDISCLI_AUTH from the optional key in the container environment"
+    reason: "An empty REDISCLI_AUTH makes redis-cli send AUTH with no password to a Redis that has none, which can fail the probe."

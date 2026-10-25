@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-c5a7i
+
+decisions:
+  - category: Implementation
+    chose: "SecretValueMaskingChatClient sits directly below SensitiveToolHistoryScrubChatClient and above the trace recorder"
+    over: "Above the scrub"
+    reason: "The scrub replaces prior sensitive results first; the masker then skips only the current turn's sensitive result (no assistant message after it), the scrub's own rule. Below the masker the trace records what the provider received."
+  - category: Implementation
+    chose: "A message with nothing to mask is passed as the same instance; a masked one is a new ChatMessage keeping role, author, id, additional and raw properties, and masked contents keep their AdditionalProperties"
+    over: "Copying every message"
+    reason: "The tool loop's own list keeps the raw text either way, and leaving unchanged messages untouched keeps the prompt-cache anchors on them stable."
+  - category: Implementation
+    chose: "A non-string tool result is masked through its JSON serialisation and sent as the masked string only when a value was found"
+    over: "Masking string results only"
+    reason: "A tool returning a structured object would otherwise carry a token past the boundary; unchanged results keep their original object."
+  - category: Implementation
+    chose: "The placeholder is SecretMasker.ProviderPlaceholder; Apply(text) keeps '***' for traces and Apply(text, placeholder) serves the provider"
+    over: "A second masker type"
+    reason: "One ordered list of known values, read live from ISecretValues, serves both."
+  - category: Implementation
+    chose: "MaskedPlaceholderWrite wraps the raw function inside RepositoryScopedWriteTool, so a write is judged for the placeholder after the repository rule"
+    over: "A separate wrapper layer in each master composition"
+    reason: "ToolResultSanityWrapper is where master and sub-agent tools already pass; one line there covers both."

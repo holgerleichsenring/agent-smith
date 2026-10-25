@@ -93,8 +93,8 @@ public sealed class SandboxConversationLabelTests
     }
 
     private static Docker.DotNet.Models.CreateContainerParameters Toolchain(string? conversationId) =>
-        new DockerContainerSpecBuilder(new SandboxOwnerIdentity("store-test")).BuildToolchain(
-            "container-1", "shared", "work", "job-1", "redis:6379",
+        new DockerContainerSpecBuilder(new SandboxOwnerIdentity("store-test"), new DockerHardening(new DockerSandboxOptions())).BuildToolchain(
+            "container-1", new DockerSandboxVolumeSet("shared", "work", null), "job-1", "redis:6379",
             new SandboxSpec("node:20", ResourceLimits.Default, "agent:1")
             {
                 RunId = "run-1", ConversationId = conversationId

@@ -1,0 +1,22 @@
+# Agent Smith - egress proxy allowlist (2026-10-25-c5a7g)
+#
+# One domain per line. A leading dot matches the domain and every subdomain. Do not list
+# a domain twice or a subdomain of a listed domain: squid refuses overlapping entries.
+# Add your private git host, feed and registry here; anything not listed is refused
+# with a 403 from the proxy.
+
+# Public git hosts
+.github.com
+.githubusercontent.com
+.gitlab.com
+.dev.azure.com
+.visualstudio.com
+.bitbucket.org
+
+# Package feeds
+.nuget.org
+.npmjs.org
+.pypi.org
+.pythonhosted.org
+.golang.org
+.crates.io

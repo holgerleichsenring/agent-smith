@@ -51,7 +51,11 @@ Tools are methods on small tool hosts under `AgentSmith.Application/Services/Too
 | `Review` | scans and reviews | read-only filesystem, `http_request`, `log_decision`, `web_fetch`, `recall` / `remember`. No write and no `run_command`. |
 | `SpecDialog` | design conversations | read-only filesystem, human, optional web, memory. No write and no `run_command`. |
 
-Filesystem calls run through the sandbox (see [Sandbox architecture](../concepts/sandbox-architecture.md)). Change a tool method on its host, and every provider sees the new schema without touching anything else.
+Filesystem calls run through the sandbox (see [Sandbox architecture](../concepts/sandbox-architecture.md)).
+
+`web_fetch` runs in the server process and reaches only public addresses: the first URL, every redirect hop (at most five) and, when the server has no `HTTP_PROXY`/`HTTPS_PROXY`/`ALL_PROXY`, the address it dials are checked against the same rule the browser sandbox uses. Loopback, private, link-local (including 169.254.169.254), the Azure WireServer 168.63.129.16 and 6to4 addresses wrapping any of them are refused with an `Error:` line naming the range. Behind a proxy the proxy is kept and resolves the name itself. An internal page is read with `http_request` in the sandbox instead. The fetched page reaches the model between untrusted-data markers.
+
+No secret value the server knows reaches a model provider. Every request passes one masking step in the chat chain: each configured secret and registry token in a message's text or a tool result is replaced by `[masked-secret]`, so a model that reads a staged `.npmrc` sees the placeholder, whichever surface (master, sub-agent, scout, bootstrap) read it. The current turn's result of `get_artifact_credentials`, which hands the model a token on purpose, passes unmasked. A `write_file`, `edit` or `multi_edit` from the master or a sub-agent that carries `[masked-secret]` is refused, because it would replace the real value; the model changes such bytes with `run_command` instead. Values only the cluster knows (Kubernetes-projected sandbox secrets) are not masked here. Change a tool method on its host, and every provider sees the new schema without touching anything else.
 
 ## Adding a new provider
 

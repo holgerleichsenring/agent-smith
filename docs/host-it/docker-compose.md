@@ -32,7 +32,7 @@ It defines seven services:
 The env vars that matter on the server:
 
 ```bash
-REDIS_URL=redis:6379          # host:port — no scheme prefix
+REDIS_PASSWORD=…              # required; the server's REDIS_URL is redis:6379,password=${REDIS_PASSWORD}
 SANDBOX_TYPE=docker           # create each run's sandboxes as Docker containers on this host
 SERVER_PORT=8081              # published webhook/API port
 AGENTSMITH_VERSION=0.108.0    # image tag pin for all agent-smith images
@@ -181,6 +181,40 @@ To run a [Copilot agent](../connect-your-stuff/ai-providers.md#github-copilot), 
 Every Docker sandbox mounts persistent package caches under `/pkgcache` (NuGet, npm, pip, Go, Cargo), and the matching environment variables (`NUGET_PACKAGES`, `NPM_CONFIG_CACHE`, `PIP_CACHE_DIR`, `GOMODCACHE`, `CARGO_HOME` and friends) point the tooling there. The volumes are named `agentsmith-pkgcache-<ecosystem>`, carry no run identity, and survive every sandbox, so the second restore of a solution reads from disk instead of the network.
 
 It is on by default. `SANDBOX_PACKAGE_CACHE=false` on the server turns it off, for example to prove a cold restore. `docker volume rm agentsmith-pkgcache-npm` clears one ecosystem.
+
+## What a sandbox runs as
+
+By default a sandbox container runs as the toolchain image's own user, root for every built-in image. The server container runs as root too, because it talks to the Docker socket; the Kubernetes deployment is the one to choose when that matters.
+
+Turning on `sandbox.hardening_enabled` (**Harden sandboxes** in **Configuration → Settings → Sandbox**, applies after a restart) changes three things for Docker sandboxes:
+
+- The toolchain runs as `1000:1000` with every capability dropped and `no-new-privileges`. `/root` is a volume of its own and `HOME` points at it, so feed configs and git identity are staged where they always were.
+- Before the toolchain starts, a short container from the agent image gives `/work`, `/root` and the cache directories to uid 1000. It holds the `CHOWN` capability and nothing else, and has no network.
+- The package caches get new names, `agentsmith-pkgcache-<ecosystem>-1000`, so the caches root sandboxes wrote are never touched. The first run per host after turning it on restores cold once.
+
+Check first which projects install system packages in their prerequisites (`apt-get`, `npm install -g`); they fail as uid 1000 until they set `projects.<name>.sandbox.run_as_root: true`. Such a project runs as root with `no-new-privileges`, and every one of its runs shows a warning. [Kubernetes](kubernetes.md#what-a-sandbox-pod-runs-as) has the full list of what to check.
+
+## What a sandbox may reach
+
+Without `DOCKER_NETWORK` on the server, a sandbox container joins the server's own network, found by inspecting the server container, as it always has. It can then reach the server, the dashboard and ollama by service name. An existing compose file keeps working this way after an update; nothing has to change.
+
+A separate sandbox network is optional. `docker-compose.example.yml` ships with one: sandboxes join `agentsmith-sandbox` (the server's `DOCKER_NETWORK`), which only `redis` shares with them. The server, the dashboard and ollama are not on it, so a sandbox cannot resolve or reach them by service name. Redis's port is published on `127.0.0.1` only. To use it in your own compose file, add the `agentsmith-sandbox` network with that fixed `name:`, put `redis` on it beside `default`, and set `DOCKER_NETWORK=agentsmith-sandbox` on the server. To keep the old behaviour with the example, remove that one variable.
+
+Either way, the server, dashboard and ollama ports are still published on the host, so a sandbox can reach them through the host's gateway address. Sandboxes also reach the internet freely. Both close only with the egress proxy override, see [Sending sandbox traffic through an egress proxy](#sending-sandbox-traffic-through-an-egress-proxy).
+
+Hardening (`sandbox.hardening_enabled`, above) is a separate switch; either works without the other.
+
+## Sending sandbox traffic through an egress proxy
+
+Off by default, and it needs the separate sandbox network above. `deploy/docker-compose.egress-proxy.yml` makes the `agentsmith-sandbox` network internal, adds a squid proxy on it and on the default network, and sets `SANDBOX_EGRESS_PROXY=http://egress-proxy:3128` on the server. A sandbox then reaches Redis and the proxy, and through the proxy only the domains in `deploy/egress-proxy/allowlist.txt`. Since the network is internal, the published host ports are out of reach too.
+
+Edit the allowlist first: it ships with the public git hosts and the public package feeds, and your private git host and feeds have to be added or runs fail at clone and restore. Then start with both files:
+
+```bash
+docker compose -f deploy/docker-compose.yml -f deploy/docker-compose.egress-proxy.yml up -d
+```
+
+A refused host shows up in the step output as a 403 from the proxy. Browser renders, JVM builds and Node's built-in `fetch` do not use the proxy and fail under it; [Kubernetes](kubernetes.md#sending-sandbox-traffic-through-an-egress-proxy) has the details.
 
 ## Two deployments on one host
 

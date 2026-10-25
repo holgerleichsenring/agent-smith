@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-c5a7f
+
+decisions:
+  - category: Security
+    chose: "Behind a proxy, a name the server cannot resolve passes the per-hop check (RenderUrlGuard gains allowUnresolved, default false); a name resolving to a non-public address is still refused"
+    over: "Running RenderUrlGuard unchanged in proxy mode"
+    reason: "In a proxy-only estate the server often cannot resolve public names itself, so the unchanged guard would refuse every fetch with 'resolves to no address', the regression the spec's keep-the-proxy decision exists to avoid. The proxy's own resolution was already the named residual."
+  - category: Implementation
+    chose: "WebToolHostHandler is a sealed singleton reading the proxy variables (upper and lower case) from the process environment; the test runs in the env-2 TestProcess collection"
+    over: "A static builder taking the connect callback"
+    reason: "NoStaticStateRuleTests refuses a static class in Application that holds a field or takes a collaborator."
+  - category: Implementation
+    chose: "A refusal is an HttpRequestException with 'refused: …', which WebToolHost's existing catch reports as 'Error: web_fetch failed for <url>: refused: <host> is not a public address: <range>'"
+    over: "A new exception type or a new branch in WebToolHost"
+    reason: "WebToolHost sits at its 125-line baseline; the existing catch already turns the exception into the tool's Error line. The marker wrap reaches Prompts.WebContentDelimiters by its namespace-relative name, so no using line is added."
+  - category: Implementation
+    chose: "GuardedConnectCallback connects one dual-mode socket to every address it checked"
+    over: "Connecting to the first address only"
+    reason: "All of them were judged public, and trying each keeps a host with a dead first record reachable."
+  - category: Tooling
+    chose: "egress.mjs gains the same two ranges, checked locally with node against its refusalFor (168.63.129.16, 2002:a00:1::, 2002:7f00:1::1, 2002:a9fe:a9fe:: refused; 2002:5db8:d70e::1 allowed); the image fixture adds a 168.63.129.16 subresource"
+    over: "Relying on the image run alone"
+    reason: "The fixture runs in docker-publish.yml, not in the spec gate; the local node check proves the mirror before CI does."
+  - category: Scope
+    chose: "Ticket attachment loaders that fetch tracker-named URLs server-side are not audited here; raised to the operator with the series report"
+    over: "Extending the guard to them"
+    reason: "As the spec's out-of-scope names."

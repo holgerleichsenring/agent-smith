@@ -1,0 +1,12 @@
+# Agent Smith - sandbox namespace (2026-10-25-c5a7c, opt-in since 2026-10-25-e41d)
+#
+# Sandbox pods run here, apart from the server, so a project's sandbox.secrets reference can
+# only name Secrets created for sandboxes. The server's own Secret (agentsmith-secrets) stays in
+# the agentsmith namespace, out of reach of a pod here. Read README.md before applying.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: agentsmith-sandboxes
+  labels:
+    app.kubernetes.io/name: agentsmith
+    app.kubernetes.io/component: sandboxes

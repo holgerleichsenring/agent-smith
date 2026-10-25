@@ -46,7 +46,8 @@ internal static class ProjectEntityMapping
                 sandbox.AgentVersion,
                 sandbox.HoldSeconds,
                 ToStructured(sandbox),
-                sandbox.Browser?.Enabled == true ? true : null); // 2026-10-01-283df: off reads as absent
+                sandbox.Browser?.Enabled == true ? true : null, // 2026-10-01-283df: off reads as absent
+                sandbox.RunAsRoot == true ? true : null); // 2026-10-25-c5a7a
 
     /// <summary>
     /// 2026-09-22-6c46: the structured three, always PRESENT on the way out — the studio is

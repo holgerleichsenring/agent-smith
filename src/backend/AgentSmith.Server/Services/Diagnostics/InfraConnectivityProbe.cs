@@ -5,6 +5,7 @@ using AgentSmith.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using AgentSmith.Server.Services;
 using StackExchange.Redis;
 
 namespace AgentSmith.Server.Services.Diagnostics;
@@ -38,7 +39,8 @@ internal sealed class InfraConnectivityProbe(
         catch (Exception ex)
         {
             logger.LogDebug(ex, "Redis probe failed");
-            return ConnectionProbeResult.Unreachable(stopwatch.ElapsedMilliseconds, ex.Message);
+            return ConnectionProbeResult.Unreachable(stopwatch.ElapsedMilliseconds,
+                $"no answer from {RedisEndpointText.Of(redis.Configuration)} ({ex.GetType().Name})");
         }
     }
 

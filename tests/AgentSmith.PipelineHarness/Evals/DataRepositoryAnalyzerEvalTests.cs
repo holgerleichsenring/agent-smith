@@ -74,7 +74,7 @@ public sealed class DataRepositoryAnalyzerEvalTests(ITestOutputHelper output)
             new EvalRunContext(), new AgenticToolSurface(),
             NullLogger<ProjectAnalyzer>.Instance);
         var sandbox = new InProcessSandbox(
-            "p0505-analyzer-eval", repository, ownsWorkDir: false, NullLogger.Instance);
+            "p0505-analyzer-eval", repository, ownsWorkDir: false, InProcessStepEnvironment.Inherit, NullLogger.Instance);
         return analyzer.AnalyzeAsync(
             repository, new AgentConfig { Type = "openai" }, sandbox,
             CancellationToken.None, repoName: "sample-dbt");

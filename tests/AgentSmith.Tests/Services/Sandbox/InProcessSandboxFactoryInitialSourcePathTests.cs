@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Infrastructure.Services.Sandbox;
 using AgentSmith.Sandbox.Wire;
@@ -28,7 +29,7 @@ public sealed class InProcessSandboxFactoryInitialSourcePathTests
             "from-cloned-source");
         try
         {
-            var factory = new InProcessSandboxFactory(NullLoggerFactory.Instance);
+            var factory = new InProcessSandboxFactory(InProcessStepEnvironmentReaders.Empty(), NullLoggerFactory.Instance);
             var spec = new SandboxSpec(
                 ToolchainImage: "irrelevant",
                 Resources: Resources,
@@ -64,7 +65,7 @@ public sealed class InProcessSandboxFactoryInitialSourcePathTests
     [Fact]
     public async Task CreateAsync_InitialSourcePathNull_FallsBackToFreshTempDir()
     {
-        var factory = new InProcessSandboxFactory(NullLoggerFactory.Instance);
+        var factory = new InProcessSandboxFactory(InProcessStepEnvironmentReaders.Empty(), NullLoggerFactory.Instance);
         var spec = new SandboxSpec(
             ToolchainImage: "irrelevant",
             Resources: Resources);
@@ -92,7 +93,7 @@ public sealed class InProcessSandboxFactoryInitialSourcePathTests
         var bogus = Path.Combine(Path.GetTempPath(), $"agentsmith-src-bogus-{Guid.NewGuid():N}");
         // Note: NOT created — InitialSourcePath references a non-existent path.
 
-        var factory = new InProcessSandboxFactory(NullLoggerFactory.Instance);
+        var factory = new InProcessSandboxFactory(InProcessStepEnvironmentReaders.Empty(), NullLoggerFactory.Instance);
         var spec = new SandboxSpec(
             ToolchainImage: "irrelevant",
             Resources: Resources,

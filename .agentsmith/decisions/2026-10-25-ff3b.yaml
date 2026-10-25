@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-ff3b
+
+decisions:
+  - category: Architecture
+    chose: "Sandbox hardening is an installation opt-in, sandbox.hardening_enabled (SandboxGlobalConfig), default off"
+    over: "2026-10-25-c5a7a's hardened-by-default"
+    reason: "Operator decision of 2026-10-25, after c5a7a was committed. c5a7a's spec stays as written; this spec changes the default."
+  - category: Architecture
+    chose: "Three profiles: Unconfined (hardening off, the pod from before c5a7a), Hardened, Root (c5a7a's confined root for a run_as_root project)"
+    over: "Hardening off meaning c5a7a's Root profile with seccomp, no escalation and no token"
+    reason: "The operator asked for today's behaviour by default; the confinement fields come with the switch, so an installation that sets nothing gets exactly the pod it had."
+  - category: Implementation
+    chose: "A spec carrying no profile (the round-trip probe) is Unconfined"
+    over: "Defaulting a null profile to Hardened"
+    reason: "Only the spec builder knows the installation setting; a builder-less spec must not be stricter than the installation chose."
+  - category: Implementation
+    chose: "The setting lives in the sandbox Settings group beside the other installation-wide sandbox fields, read through IOptions at startup, so it applies after a restart; no environment-variable fallback"
+    over: "An env var such as SANDBOX_HARDENING"
+    reason: "The comparable boolean sandbox setting (allow_docker_hub_library) has no env fallback; the spec builder already reads the global block through IOptions."
+  - category: Implementation
+    chose: "The run_as_root warning and the prerequisite hint fire only while hardening is on"
+    over: "Warning on run_as_root regardless of the installation"
+    reason: "With hardening off every sandbox is root, so the per-project flag selects nothing and a warning would be noise."
+  - category: Implementation
+    chose: "Two doc comments condensed (EnsurePrerequisitesHandler, SandboxGlobalConfig) to keep both files within 120 lines"
+    over: "Splitting the files"
+    reason: "Each grew by one setting or one constructor parameter; the removed text was history, not behaviour."

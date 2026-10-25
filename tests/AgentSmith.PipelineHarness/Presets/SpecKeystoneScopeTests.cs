@@ -72,7 +72,7 @@ public sealed class SpecKeystoneScopeTests : IAsyncLifetime
         Git(path, "add", ".");
         Git(path, "commit", "-q", "-m", "base");
         await File.WriteAllTextAsync(file, "Console.WriteLine(\"Hallo\");\n");
-        return new InProcessSandbox("harness", path, ownsWorkDir: false, NullLogger<InProcessSandbox>.Instance);
+        return new InProcessSandbox("harness", path, ownsWorkDir: false, InProcessStepEnvironment.Inherit, NullLogger<InProcessSandbox>.Instance);
     }
 
     private static void Git(string cwd, params string[] args)

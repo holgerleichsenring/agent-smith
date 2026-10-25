@@ -49,7 +49,7 @@ public sealed class SandboxPodOwnershipTests
     [Fact]
     public void PodSpecBuilder_StampsTheOwnerOnEveryPodItBuilds()
     {
-        var pod = new PodSpecBuilder(_labels).Build(
+        var pod = new PodSpecBuilder(_labels, new PodSecurity(new KubernetesSandboxOptions())).Build(
             "agentsmith-sandbox-abc", "job-1", "redis:6379",
             new SandboxSpec("node:20", ResourceLimits.Default, "agent:1", RunId: "run-1"), owner: null);
 

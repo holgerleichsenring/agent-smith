@@ -1,34 +1,35 @@
 using CommandLineStringSplitter = System.CommandLine.Parsing.CommandLineStringSplitter;
 using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using AgentSmith.Sandbox.Wire;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace AgentSmith.Application.Services.Handlers;
 
 /// <summary>
-/// p0202e: prepares each context's environment before tests by running its
-/// prerequisite command (npm install, pip install, go mod download, …) in the
-/// sandbox. The command is the analyzer-DERIVED, repo-state-aware
-/// ProjectMap.Prerequisites by default; an operator context.yaml
-/// `prerequisites` (RemoteContextDiscovery.Prerequisites) overrides it — needed
-/// for analyzer-less presets (e.g. legal-analysis' markitdown). A context with
-/// no command logs a skip (docs-only / no-deps / .NET must not fail). Per-repo
-/// non-zero exits aggregate into a single failure naming the offenders, with
-/// the failing command's output captured for diagnosis.
+/// p0202e: prepares each context's environment before tests by running its context.yaml
+/// `prerequisites` command (npm install, pip install, …) in the sandbox. A context with no
+/// command logs a skip (docs-only / no-deps / .NET must not fail). Per-repo non-zero exits
+/// aggregate into a single failure naming the offenders, with the failing command's output.
 /// </summary>
 public sealed class EnsurePrerequisitesHandler(
     SandboxTargets sandboxTargets,
+    IOptions<SandboxGlobalConfig> sandboxConfig,
     ILogger<EnsurePrerequisitesHandler> logger)
     : ICommandHandler<EnsurePrerequisitesContext>
 {
-    // The SandboxGlobalConfig.StepTimeoutSeconds cap (p0200) is applied by the
-    // sandbox backend; passing the cap value keeps the operator's agentsmith.yml
-    // `sandbox.step_timeout_seconds` the single knob that changes behaviour.
+    // The backend applies sandbox.step_timeout_seconds (p0200), the single knob that changes this.
     private const int InstallTimeoutSeconds = 900;
+
+    // 2026-10-25-c5a7a/ff3b: a prerequisite that apt-installs fails in a hardened sandbox; say why.
+    private const string HardenedHint =
+        "\nThis installation runs sandboxes as uid 1000, not root (sandbox.hardening_enabled). A prerequisite "
+        + "that needs root (apt-get, a global npm install) runs once the project sets sandbox.run_as_root: true.";
 
     public async Task<CommandResult> ExecuteAsync(
         EnsurePrerequisitesContext context, CancellationToken cancellationToken)
@@ -36,20 +37,10 @@ public sealed class EnsurePrerequisitesHandler(
         if (!sandboxTargets.TryResolve(context.Pipeline, out var sandboxes, out var discoveries))
             return CommandResult.Ok("No sandboxes/discoveries in pipeline context; skipping install.");
 
-        // p0224: run ONLY the operator-declared prerequisite from context.yaml
-        // (discovery.Prerequisites). The analyzer-DERIVED auto-install (p0202e)
-        // plus its module-path workdir derivation (p0212) proved fragile across
-        // real repo layouts — it guessed both the command and the subtree and
-        // produced wrong/doubled paths (e.g. .../Client/Client/package.json) that
-        // hard-failed the run. Dependency install for code projects is now the
-        // coding-agent-master's job (run_command, prompt-instructed), the same way
-        // p0216 handed it build+test. An explicit context.yaml prerequisite is the
-        // one deterministic command we DO run — the operator gave it, no guessing.
-        // 2026-09-03-7bac: it runs at the REPOSITORY ROOT. meta.workdir says where a
-        // context's source lives, not where its dependency manifest is; a package.json
-        // one directory below the executable is as ordinary as one beside it, and the
-        // framework cannot know which without looking. The operator who wrote the command
-        // looked, so a command needing another directory carries its own cd.
+        // Only the operator-declared context.yaml prerequisite runs: a derived install guessed
+        // command and subtree and failed on real layouts, so dependency installs are the coding
+        // master's job. It runs at the REPOSITORY ROOT; a command needing another directory
+        // carries its own cd, because meta.workdir says where source lives, not the manifest.
         var outcomes = new List<InstallOutcome>(sandboxes.Count);
         foreach (var (key, sandbox) in sandboxes)
         {
@@ -66,8 +57,13 @@ public sealed class EnsurePrerequisitesHandler(
                 key, sandbox, Repository.SandboxWorkPath, command!, cancellationToken));
         }
 
-        return BuildAggregateResult(outcomes);
+        return BuildAggregateResult(outcomes, RunsHardened(context.Pipeline));
     }
+
+    private bool RunsHardened(PipelineContext pipeline) => SandboxSecurityContext.For(
+        sandboxConfig.Value.HardeningEnabled,
+        pipeline.TryGet<ResolvedProject>(ContextKeys.ProjectConfig, out var project)
+        && project?.Sandbox?.RunAsRoot == true) == SandboxSecurityContext.Hardened;
 
     private async Task<InstallOutcome> RunOneAsync(
         string key, ISandbox sandbox, string workingDirectory, string rawCommand, CancellationToken ct)
@@ -94,7 +90,7 @@ public sealed class EnsurePrerequisitesHandler(
         return new InstallOutcome(key, result.ExitCode, Skipped: false, Output: output);
     }
 
-    private CommandResult BuildAggregateResult(IReadOnlyList<InstallOutcome> outcomes)
+    private CommandResult BuildAggregateResult(IReadOnlyList<InstallOutcome> outcomes, bool hardened)
     {
         var ran = outcomes.Where(o => !o.Skipped).ToList();
         if (ran.Count == 0) return CommandResult.Ok("No contexts had an initialize command; skipped all.");
@@ -107,7 +103,8 @@ public sealed class EnsurePrerequisitesHandler(
         var detail = Tail(failed[0].Output, 800);
         var reason = string.IsNullOrWhiteSpace(detail) ? "" : $"\n{failed[0].Key}: {detail}";
         return CommandResult.Fail(
-            $"Dependency install failed in {failed.Count}/{ran.Count} repo(s): {names}{reason}");
+            $"Dependency install failed in {failed.Count}/{ran.Count} repo(s): {names}{reason}"
+            + (hardened ? HardenedHint : ""));
     }
 
     private static string Combine(string? stdout, string? stderr) =>

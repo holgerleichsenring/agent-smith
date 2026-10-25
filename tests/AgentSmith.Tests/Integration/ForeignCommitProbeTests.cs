@@ -111,7 +111,7 @@ public sealed class ForeignCommitProbeTests : IAsyncDisposable
 
     private async Task<bool> ProbeAsync(string? stored)
     {
-        await using var sandbox = new InProcessSandbox("probe", Work, ownsWorkDir: false,
+        await using var sandbox = new InProcessSandbox("probe", Work, ownsWorkDir: false, InProcessStepEnvironment.Inherit,
             NullLogger<InProcessSandbox>.Instance);
         return await HandbackTestDoubles.Probe().ForeignSinceAsync(sandbox, Repo, stored, null, CancellationToken.None);
     }

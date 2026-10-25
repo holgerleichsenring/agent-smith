@@ -19,3 +19,24 @@ decisions:
   - category: Security
     chose: "Both fail-open cases are named: optional false for a missing key, a guarded start for an empty one"
     reason: "Review corrected the earlier reasoning: a missing optional key leaves the literal, readable variable reference as the password; an empty value disables requirepass, and optional false does not catch it."
+
+  - category: Implementation
+    chose: "RedisEndpointText extracts endpoints itself (comma tokens matching host[:port], or the host and port of a URI token) and returns '(value hidden)' when none match"
+    over: "Reparsing through ConfigurationOptions.Parse, or masking the password element"
+    reason: "Parse throws on exactly the values the unusable finding is about, and masking a password key misses the URI form, where the password sits in the host part. A pure extraction cannot echo anything but an endpoint."
+  - category: Implementation
+    chose: "The unusable finding names the parser's exception type, not its message; RedisProbe names the endpoints of the multiplexer's configuration and drops the probe's error text"
+    over: "Keeping ex.Message and result.Error in the findings"
+    reason: "Both texts come from the client and can carry the configured string. RedisProbe now takes IConnectionMultiplexer, which InfraConnectivityProbe already depends on, so no new registration."
+  - category: Scope
+    chose: "InfraConnectivityProbe also returns 'no answer from <endpoints> (<exception type>)' instead of ex.Message"
+    over: "Fixing only the startup finding"
+    reason: "The same probe result reaches the diagnostics and preflight responses, which the done criterion covers ('no startup finding or API response')."
+  - category: Scope
+    chose: "The interim password step is documented in docs/reference/host-it/redis-password.md; the reference manifests stay unchanged"
+    over: "Switching 6-deployment-redis.yaml and compose to requirepass here"
+    reason: "The spec scopes the step as documentation needing no code change; 2026-10-25-c5a7e makes the reference files require the password."
+  - category: Implementation
+    chose: "Spec citation drift accepted as written: the finding sits at RedisExtensions.cs:96-102 and the probe error at InfraConnectivityProbe.cs:41"
+    over: "Rewriting the spec"
+    reason: "Two lines of drift; the cited code is unambiguous."

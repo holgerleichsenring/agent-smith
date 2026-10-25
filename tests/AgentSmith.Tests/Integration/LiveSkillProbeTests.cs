@@ -187,7 +187,7 @@ public sealed class LiveSkillProbeTests
 
         var fixtureRoot = ResolveFixtureRoot();
         var sandbox = new InProcessSandbox(jobId: "probe-prodwiring-" + Guid.NewGuid().ToString("N")[..8],
-            workDir: fixtureRoot, ownsWorkDir: false, logger: NullLogger.Instance);
+            workDir: fixtureRoot, ownsWorkDir: false, InProcessStepEnvironment.Inherit, logger: NullLogger.Instance);
         var fsHost = new FilesystemToolHost(sandbox, repoPath: fixtureRoot,
             logger: NullLogger<FilesystemToolHost>.Instance);
         var bareTools = fsHost.GetTools(SkillExecutionPhase.Review, null).Cast<AITool>().ToList();
@@ -320,7 +320,7 @@ public sealed class LiveSkillProbeTests
         string userPrompt)
     {
         var fixtureRoot = ResolveFixtureRoot();
-        var sandbox = new InProcessSandbox(jobId: "probe-" + Guid.NewGuid().ToString("N")[..8], workDir: fixtureRoot, ownsWorkDir: false, logger: NullLogger.Instance);
+        var sandbox = new InProcessSandbox(jobId: "probe-" + Guid.NewGuid().ToString("N")[..8], workDir: fixtureRoot, ownsWorkDir: false, InProcessStepEnvironment.Inherit, logger: NullLogger.Instance);
         var fsHost = new FilesystemToolHost(sandbox, repoPath: fixtureRoot, logger: NullLogger<FilesystemToolHost>.Instance);
         var tools = fsHost.GetTools(phase, investigatorMode).Cast<AITool>().ToList();
 

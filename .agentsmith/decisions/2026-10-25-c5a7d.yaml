@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-c5a7d
+
+decisions:
+  - category: Security
+    chose: "podSelector {} in agentsmith-sandboxes"
+    over: "Selecting sandbox pods by label"
+    reason: "Every pod in the sandbox namespace is a sandbox; a label selector would let a renamed label switch the policy off."
+  - category: Security
+    chose: "Public 80 and 443 with private, shared, link-local, loopback and wire-server excepts at this tier"
+    over: "A domain allowlist"
+    reason: "NetworkPolicy is IP-only and feeds and git hosts sit behind CDNs; the domain allowlist needs a proxy and is 2026-10-25-c5a7g."
+  - category: Implementation
+    chose: "The allowance section is a commented second NetworkPolicy at the top of the file, with DNS, ingress, API server and IPv6 notes"
+    over: "Allowance rules folded into the main policy"
+    reason: "Policies are additive, so an operator's allowances live in their own object and survive a re-apply of the shipped one."
+  - category: Implementation
+    chose: "Compose: network agentsmith-sandbox with a fixed name, redis on default and it, DOCKER_NETWORK on the server, the server not attached; redis port bound to 127.0.0.1"
+    over: "An internal network"
+    reason: "Without a proxy an internal network cannot clone; leaving the server's network is what compose can do without one."
+  - category: Implementation
+    chose: "DeployManifests (added in 2026-10-25-c5a7c), a small YamlDotNet reader for deploy/, shared by the manifest tests"
+    over: "One parser per test class"
+    reason: "c5a7c, c5a7d and c5a7g all pin manifests; one reader keeps each test about its assertion."
+  - category: Scope
+    chose: "Manual acceptance outstanding: on an enforcing CNI a run clones, restores, builds and pushes, and a sandbox cannot reach the server service, the dashboard, 169.254.169.254 or another sandbox; on compose a sandbox cannot resolve server:8081 or dashboard:3000 and a run completes"
+    over: "Proving it from this session"
+    reason: "No kubectl apply and no restart of the operator's compose stack from a build session; the manifests are pinned by tests."

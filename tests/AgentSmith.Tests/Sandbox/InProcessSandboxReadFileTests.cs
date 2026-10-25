@@ -59,7 +59,7 @@ public sealed class InProcessSandboxReadFileTests : IDisposable
     private async Task<string> ReadAsync(string content, bool withLineNumbers)
     {
         await File.WriteAllTextAsync(Path.Combine(_workDir, "fixture.txt"), content);
-        await using var sandbox = new InProcessSandbox("read", _workDir, ownsWorkDir: false, NullLogger.Instance);
+        await using var sandbox = new InProcessSandbox("read", _workDir, ownsWorkDir: false, InProcessStepEnvironment.Inherit, NullLogger.Instance);
         var result = await sandbox.RunStepAsync(new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.ReadFile,
             Path: "fixture.txt", WithLineNumbers: withLineNumbers), progress: null, CancellationToken.None);
         result.ExitCode.Should().Be(0);

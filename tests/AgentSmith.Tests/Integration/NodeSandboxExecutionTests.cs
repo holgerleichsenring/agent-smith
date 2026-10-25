@@ -90,7 +90,7 @@ public sealed class NodeSandboxExecutionTests(ITestOutputHelper output)
     }
 
     private static InProcessSandbox NewSandbox(string workdir) =>
-        new(jobId: "test", workDir: workdir, ownsWorkDir: false, NullLogger.Instance);
+        new(jobId: "test", workDir: workdir, ownsWorkDir: false, InProcessStepEnvironment.Inherit, NullLogger.Instance);
 
     private static Step BuildRunStep(string cwd, string cmd, string[] args, int timeoutSec) =>
         new(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,

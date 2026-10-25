@@ -265,8 +265,8 @@ describe("SettingsStudio", () => {
     await screen.findByTestId("setting-sandbox-maxconcurrent");
 
     const restartHelp = screen.getAllByText(/applies after a server restart/);
-    // The agent registry, the agent version and the two timeouts.
-    expect(restartHelp).toHaveLength(4);
+    // The agent registry, the agent version, the two timeouts and (2026-10-25-ff3b) hardening.
+    expect(restartHelp).toHaveLength(5);
     // 2026-09-22-2d11a: the concurrent-sandbox bound and the sandbox hold window —
     // both resolved through the configuration loader at the moment they are used.
     expect(
@@ -276,6 +276,20 @@ describe("SettingsStudio", () => {
 
   // 2026-09-22-2d11a: the hold window is an operator setting, and an empty field stays
   // empty — the absent marker that keeps the environment-variable fallback reachable.
+  // 2026-10-25-ff3b: hardening is an installation opt-in, off until turned on.
+  it("SandboxSettings_TheHardeningToggle_SendsHardeningEnabled", async () => {
+    render(<SettingsStudio settingKey="sandbox" />);
+    const toggle = await screen.findByTestId("setting-sandbox-hardening");
+    expect(toggle).toHaveAttribute("data-selected", "false");
+    expect(screen.getByTestId("setting-sandbox-hardening-note")).toHaveTextContent(/run sandboxes as root/);
+
+    fireEvent.click(toggle);
+    fireEvent.click(screen.getByTestId("settings-save"));
+
+    await waitFor(() => expect(saveSetting).toHaveBeenCalledTimes(1));
+    expect(saveSetting).toHaveBeenCalledWith("sandbox", expect.objectContaining({ hardeningEnabled: true }));
+  });
+
   it("SandboxSettings_TheHoldWindow_IsEditedAndSent", async () => {
     render(<SettingsStudio settingKey="sandbox" />);
     const field = await screen.findByTestId("setting-sandbox-hold");

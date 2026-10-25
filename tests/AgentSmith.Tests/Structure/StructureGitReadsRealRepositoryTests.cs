@@ -26,7 +26,7 @@ public sealed class StructureGitReadsRealRepositoryTests : IAsyncLifetime
         if (!SandboxToolAvailability.IsAvailable("git")) return;
         var dir = Path.Combine(Path.GetTempPath(), "as-2d0c-git-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
-        _sandbox = new InProcessSandbox("test", dir, ownsWorkDir: true, NullLogger.Instance);
+        _sandbox = new InProcessSandbox("test", dir, ownsWorkDir: true, InProcessStepEnvironment.Inherit, NullLogger.Instance);
         await GitAsync("init", "-q", "-b", "main");
         await GitAsync("config", "user.email", "test@example.test");
         await GitAsync("config", "user.name", "test");

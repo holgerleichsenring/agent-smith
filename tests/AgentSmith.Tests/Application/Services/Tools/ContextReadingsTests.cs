@@ -108,7 +108,7 @@ public sealed class ContextReadingsTests : IDisposable
     private async Task<string> Write(string document)
     {
         await using var sandbox = new InProcessSandbox(
-            "job", _workDir, ownsWorkDir: false, NullLogger.Instance);
+            "job", _workDir, ownsWorkDir: false, InProcessStepEnvironment.Inherit, NullLogger.Instance);
         var host = new WriteContextYamlToolHost(
             new Dictionary<string, ISandbox>(StringComparer.Ordinal) { ["repo"] = sandbox },
             defaultRepo: "repo",

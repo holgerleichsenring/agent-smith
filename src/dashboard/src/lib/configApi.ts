@@ -637,6 +637,9 @@ export interface ProjectSandbox {
   /** 2026-10-01-283df: whether this project's runs may render in a browser sandbox. It
    *  inherits nothing — off and absent are the same — and on, admission reserves a browser pod. */
   browserEnabled?: boolean;
+  /** 2026-10-25-c5a7a: run this project's sandboxes as root. Off and absent are the same:
+   *  uid 1000 with every capability dropped. */
+  runAsRoot?: boolean;
   /** 2026-09-22-6c46: the structured three. ABSENT means "I do not render these", and the
    *  stored resources, image pins and secret references are left alone; a SENT block means
    *  every one of its three fields is written as given, so an undefined field inside it is
@@ -924,6 +927,9 @@ export interface SandboxSetting {
   /** Whether a Docker Hub official library image (`node:20`) is trusted. NULL follows the
    *  list: trusted while it is empty, refused once a registry is named. */
   allowDockerHubLibrary?: boolean | null;
+  /** 2026-10-25-ff3b: run sandboxes as uid 1000 with no capabilities. Off (the default) keeps
+   *  the image's user. Older reads may omit it. */
+  hardeningEnabled?: boolean;
 }
 
 /** 2026-10-12-6bfab: the sandbox image boundary in force — what the next stack.image

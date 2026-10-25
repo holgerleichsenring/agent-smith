@@ -58,6 +58,9 @@ internal static class DockerHarnessRegistrations
         services.AddSingleton<DockerSandboxQuery>();
         services.AddSingleton<IDockerClient>(
             new DockerClientConfiguration(new Uri(options.DockerSocketUri)).CreateClient());
+        services.AddSingleton<DockerHardening>();
+        services.AddSingleton<DockerOneShotRunner>();
+        services.AddSingleton<DockerSandboxVolumes>();
         services.AddSingleton<DockerContainerSpecBuilder>();
         // p0407: the harness exercises the production cache path too — same volumes,
         // so a harness run warms what the next run reuses.
@@ -65,6 +68,11 @@ internal static class DockerHarnessRegistrations
         services.RemoveAll<DockerImagePresence>();
         services.AddSingleton<DockerPackageCaches>();
         services.AddSingleton<DockerImagePresence>();
+        // 2026-10-25-c5a7e: the harness runs its sandboxes under per-job users, as production does.
+        services.RemoveAll<SandboxBusCredentialSetting>();
+        services.RemoveAll<SandboxBusCredentials>();
+        services.AddSingleton(new SandboxBusCredentialSetting(SandboxBusCredentialMode.PerJob));
+        services.AddSingleton<SandboxBusCredentials>();
 
         services.AddSingleton<ISandboxFactory>(sp =>
         {
@@ -75,8 +83,11 @@ internal static class DockerHarnessRegistrations
                 sp.GetRequiredService<DockerSandboxOptions>(),
                 sp.GetRequiredService<DockerPackageCaches>(),
                 sp.GetRequiredService<DockerImagePresence>(),
+                sp.GetRequiredService<DockerSandboxVolumes>(),
+                sp.GetRequiredService<DockerOneShotRunner>(),
                 sp.GetRequiredService<IOptions<SandboxGlobalConfig>>(),
                 sp.GetRequiredService<IWireProtocolWatcher>(),
+                sp.GetRequiredService<SandboxBusCredentials>(),
                 sp.GetRequiredService<ILoggerFactory>());
             return new ExtraBindsSandboxFactory(inner, session);
         });

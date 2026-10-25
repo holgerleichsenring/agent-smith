@@ -19,7 +19,8 @@ namespace AgentSmith.Infrastructure.Services.Sandbox;
 /// such as a CLI <c>--source-path</c> argument or a previously host-cloned source —
 /// disposing must not <c>rm -rf</c> the operator's working tree.
 /// </summary>
-public sealed class InProcessSandbox(string jobId, string workDir, bool ownsWorkDir, ILogger logger) : ISandbox
+public sealed class InProcessSandbox(
+    string jobId, string workDir, bool ownsWorkDir, InProcessStepEnvironment environment, ILogger logger) : ISandbox
 {
     public string JobId => jobId;
     public string WorkDir => workDir;
@@ -166,6 +167,7 @@ public sealed class InProcessSandbox(string jobId, string workDir, bool ownsWork
         };
         if (step.Args is not null)
             foreach (var arg in step.Args) psi.ArgumentList.Add(arg);
+        environment.Scrub(psi.Environment); // 2026-10-25-c5a7h: before the step's own Env
         // p0419: point the toolchain at this sandbox's home, so a credential staged at
         // the canonical /root is the one the build reads. A private home would move every
         // package cache with it, so the caches come from the catalog — the same rows the

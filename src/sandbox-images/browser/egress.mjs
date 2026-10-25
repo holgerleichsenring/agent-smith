@@ -11,7 +11,8 @@ import net from 'node:net';
 const ranges = [
   ['0.0.0.0', 8, 'ipv4', 'unspecified'], ['10.0.0.0', 8, 'ipv4', 'private'],
   ['100.64.0.0', 10, 'ipv4', 'carrier-grade NAT'], ['127.0.0.0', 8, 'ipv4', 'loopback'],
-  ['169.254.0.0', 16, 'ipv4', 'link-local'], ['172.16.0.0', 12, 'ipv4', 'private'],
+  ['169.254.0.0', 16, 'ipv4', 'link-local'], ['168.63.129.16', 32, 'ipv4', 'Azure WireServer'],
+  ['172.16.0.0', 12, 'ipv4', 'private'],
   ['192.0.0.0', 24, 'ipv4', 'IETF protocol assignment'], ['192.168.0.0', 16, 'ipv4', 'private'],
   ['198.18.0.0', 15, 'ipv4', 'benchmarking'], ['224.0.0.0', 4, 'ipv4', 'multicast'],
   ['240.0.0.0', 4, 'ipv4', 'reserved or broadcast'],
@@ -35,12 +36,28 @@ export function unwrapMapped(address) {
   return [high >> 8, high & 255, low >> 8, low & 255].join('.');
 }
 
+// 2026-10-25-c5a7f: a 6to4 address (2002::/16) carries an IPv4 address in its second and third
+// groups, and is judged by it, as PublicAddressRule does.
+const sixToFour = new net.BlockList();
+sixToFour.addSubnet('2002::', 16, 'ipv6');
+
+export function unwrapSixToFour(address) {
+  if (!net.isIPv6(address) || !sixToFour.check(address, 'ipv6')) return null;
+  const [head, tail = ''] = address.split('::');
+  const left = head.split(':').filter(Boolean), right = tail.split(':').filter(Boolean);
+  const groups = [...left, ...Array(8 - left.length - right.length).fill('0'), ...right].map(g => parseInt(g, 16));
+  return [groups[1] >> 8, groups[1] & 255, groups[2] >> 8, groups[2] & 255].join('.');
+}
+
 export function refusalFor(rawAddress) {
   const address = unwrapMapped(rawAddress.replace(/^\[|\]$/g, '').split('%')[0]);
   const family = net.isIPv4(address) ? 'ipv4' : net.isIPv6(address) ? 'ipv6' : null;
   if (!family) return `${rawAddress} is not an IP address`;
   const block = blocks.find(b => b.family === family && b.list.check(address, family));
-  return block ? `${address} is ${block.label}` : null;
+  if (block) return `${address} is ${block.label}`;
+  const wrapped = unwrapSixToFour(address);
+  const inner = wrapped && refusalFor(wrapped);
+  return inner ? `${address} is 6to4 (2002::/16) for ${inner}` : null;
 }
 
 export class EgressGuard {

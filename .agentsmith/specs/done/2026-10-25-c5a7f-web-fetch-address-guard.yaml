@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-25-c5a7f
+goal: "web_fetch dials only public addresses, checked on every connection including redirects and rebinding, and hands the model fetched content inside untrusted-data markers."
+
+applies_to: "default (WebToolHost HttpClient registration, PublicAddressRule, prompt delimiters)"
+
+requires: []
+
+facts:
+  - claim: "web_fetch runs in the server process and checks only the scheme before GetAsync."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/WebToolHost.cs:16-18, src/backend/AgentSmith.Application/Services/Tools/WebToolHost.cs:55-57, src/backend/AgentSmith.Application/Services/Tools/WebToolHost.cs:68"
+  - claim: "Its HttpClient is a default typed client: redirects followed, environment proxy honoured."
+    evidence: "src/backend/AgentSmith.Application/Services/Loop/LoopRuntimeExtensions.cs:26-27"
+  - claim: "PublicAddressRule already exists for the browser render guard, unwraps IPv4-mapped addresses, and is registered as a singleton."
+    evidence: "src/backend/AgentSmith.Application/Services/Browser/PublicAddressRule.cs:12-46, src/backend/AgentSmith.Application/Services/Browser/BrowserRenderExtensions.cs:18-19"
+  - claim: "Its ranges lack the Azure WireServer 168.63.129.16 and 6to4 2002::/16; the browser image's proxy mirrors the same list."
+    evidence: "src/backend/AgentSmith.Application/Services/Browser/PublicAddressRule.cs:14-33, src/sandbox-images/browser/egress.mjs:6-21"
+  - claim: "Ticket data already travels inside untrusted markers of the same shape this spec gives web content."
+    evidence: "src/backend/AgentSmith.Application/Services/Prompts/TicketPromptDelimiters.cs:15-26"
+  - claim: "WebToolHost is at its 125-line baseline; the page slice is cut and composed into the result in Paginate."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:124, src/backend/AgentSmith.Application/Services/Tools/WebToolHost.cs:118-123"
+  - claim: "RenderUrlGuard already refuses a URL when any address its host resolves to is not public, through an injectable resolver."
+    evidence: "src/backend/AgentSmith.Application/Services/Browser/RenderUrlGuard.cs:13-34"
+
+scope:
+  in: >
+    Follows 2026-09-28-530b, whose rule class has since been built for the browser. The web_fetch client's
+    primary SocketsHttpHandler has AllowAutoRedirect false; a GuardedRedirectHandler (DelegatingHandler) follows
+    up to five redirects itself and checks the first URL and every hop with RenderUrlGuard before sending. When
+    the server process has no proxy configured (HTTP_PROXY/HTTPS_PROXY/ALL_PROXY unset), the primary handler also
+    gets UseProxy false and a ConnectCallback that resolves the host, refuses when any candidate is not public
+    under PublicAddressRule and connects to the address it checked (closes rebinding). With a proxy configured,
+    the proxy is kept and the per-hop check is the guard; the proxy's own resolution is the documented residual.
+    A refusal becomes the tool's "Error: …" naming host and range. PublicAddressRule gains 168.63.129.16/32 and
+    2002::/16 when the embedded IPv4 is refused; egress.mjs gains the same two so the mirror holds. The page
+    slice is wrapped in WebContentDelimiters (begin/end markers and a one-line rule, an end marker inside the page
+    neutralised); the header and resume hint stay outside. The wrap goes into the composition at line 123 in place, so WebToolHost does not grow.
+  out: >
+    An operator allowance for internal hosts: an internal page is read with http_request in the sandbox, where the
+    network policy decides (2026-10-25-c5a7d). http_request itself (sandbox-side). Ticket attachment loaders fetch
+    tracker-named URLs server-side (Infrastructure/Services/Providers/Tickets); whether they need this rule is
+    not audited here and is raised to the operator with this series.
+
+decisions:
+  - key: "CHECK EVERY HOP, AND THE DIAL WHERE WE DIAL. The per-hop check covers redirects in both modes; the connect callback adds rebinding protection when the server dials directly. Dropping the proxy unconditionally would break web_fetch in estates whose egress is proxy-only."
+  - key: "ONE RULE, TWO USERS. The browser guard and web_fetch share PublicAddressRule; the mirror in egress.mjs is pinned by its existing comment and gets the same two ranges."
+  - key: "NO ALLOWANCE (cut from 530b). The handler is built once per client; a live-reloaded CIDR list would need config plumbing into a singleton for a case the sandbox already serves."
+
+steps:
+  - id: rule
+    action: "PublicAddressRule: WireServer and 6to4; egress.mjs the same."
+  - id: connect
+    action: "GuardedRedirectHandler, GuardedConnectCallback (taking IHostAddressResolver and PublicAddressRule) and the handler registration on AddHttpClient<WebToolHost>."
+  - id: markers
+    action: "WebContentDelimiters; WebToolHost wraps the slice."
+
+tests:
+  - "PublicAddressRule_WireServer_IsRefused"
+  - "PublicAddressRule_6to4WrappingPrivate_IsRefused"
+  - "GuardedConnectCallback_HostResolvingToPrivate_IsRefused"
+  - "GuardedRedirectHandler_RedirectToPrivateAddress_IsRefusedAtTheHop (stub inner handler answering 302)"
+  - "GuardedRedirectHandler_SixthRedirect_IsRefused"
+  - "WebToolHostHandler_ProxyEnvironmentSet_KeepsProxyAndSkipsConnectCallback (env-mutating TestProcess collection)"
+  - "WebContentDelimiters_Wrap_NeutralisesAnEndMarkerInThePage"
+  - "WebFetch_Result_SliceWrappedHeaderOutside"
+  - "fixture/check.mjs (run in the image by docker-publish.yml): a subresource to 168.63.129.16 is refused"
+
+done:
+  - "web_fetch of 169.254.169.254, localhost, a cluster service or a redirect into them returns a refusal naming the range; public docs still fetch"
+  - "fetched content reaches the model inside the markers"
+  - "build green, full suite green"

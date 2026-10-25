@@ -15,7 +15,7 @@ public sealed class StructureBatchedReaderScriptTests
     public async Task StructureBatchedReader_InProcessSandbox_RunsTheRealScript()
     {
         var dir = Directory.CreateTempSubdirectory("ee83-").FullName;
-        await using var inner = new InProcessSandbox("ee83", dir, ownsWorkDir: true, NullLogger.Instance);
+        await using var inner = new InProcessSandbox("ee83", dir, ownsWorkDir: true, InProcessStepEnvironment.Inherit, NullLogger.Instance);
         var written = Write(dir);
         var sandbox = new BatchProbeSandbox(inner);
 
