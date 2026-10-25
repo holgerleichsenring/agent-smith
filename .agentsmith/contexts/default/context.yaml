@@ -87,6 +87,7 @@ integrations:
 
 state:
   done:
+    2026-10-25-c5a7i: "SECRETS MASKED AT THE PROVIDER BOUNDARY (ChatClientFactory chain, SecretMasker, master write tools). Every known secret value in outbound text and tool results becomes [masked-secret], except a fresh sensitive-tool result; a write carrying the placeholder is refused. -> .agentsmith/specs/done/2026-10-25-c5a7i-secret-masking-provider-boundary.yaml"
     2026-10-25-c5a7h: "IN-PROCESS STEPS INHERIT NO SECRETS (InProcessSandbox, factory, CLI commands). Declared names (agent bindings, api_key_secret, ServerSecretEnvNames) and variables holding a known secret value are stripped; a test pins the list to the server manifest. -> .agentsmith/specs/done/2026-10-25-c5a7h-sandbox-inprocess-secret-env.yaml"
     2026-10-25-c5a7f: "WEB_FETCH PUBLIC ADDRESSES ONLY (WebToolHost, PublicAddressRule, egress proxy). Every hop checked by RenderUrlGuard, at most five redirects, direct dials connect to the checked address; WireServer and 6to4 refused; the page reaches the model in untrusted markers. -> .agentsmith/specs/done/2026-10-25-c5a7f-web-fetch-address-guard.yaml"
     2026-10-25-c5a7e: "SANDBOX REDIS USER PER JOB (sandbox factories, reapers, startup probe, deploy). ACL user sbx-{job} limited to its keys, deleted on teardown and reap, re-issued on reconnect; refused ACL falls back to shared with a finding; SANDBOX_BUS_CREDENTIAL; reference Redis requires a password. -> .agentsmith/specs/done/2026-10-25-c5a7e-sandbox-bus-credential-per-job.yaml"
