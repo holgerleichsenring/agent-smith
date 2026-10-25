@@ -68,6 +68,25 @@ You don't pre-create anything. Sizing is pipeline-aware: code-changing pipelines
 
 Pods are labelled with the deployment that owns them. The owner identity is derived from the Redis endpoint; `SANDBOX_OWNER_ID` names it explicitly. A corpse reaper deletes this deployment's pods whose run is no longer live, on a timer and again at admission, so a crashed server doesn't leave pods holding quota. Two deployments in one namespace never touch each other's pods.
 
+### What a sandbox pod runs as
+
+A sandbox pod runs as uid and gid 1000, with every Linux capability dropped, the `RuntimeDefault` seccomp profile, no privilege escalation and no service-account token. Both containers, the agent loader and the toolchain, get the same settings. `/root` is a writable `emptyDir` and `HOME` points at it, so feed configs and git identity are staged where they always were. Git is told that the root-owned `/work` is a safe directory.
+
+Most toolchain images have no user entry for uid 1000. Tools that look the user up, such as ssh, fail; clone and push go over https and are not affected. Anything an image ships under `/root` is hidden by the mount.
+
+A prerequisite that needs root, such as `apt-get install` or `npm install -g`, fails under this profile, and the failure says so. For such a project, set:
+
+```yaml
+projects:
+  legacy-app:
+    sandbox:
+      run_as_root: true
+```
+
+or turn on **run sandboxes as root** in the project's Sandbox tab. Its pods then run as the image's own user (root for every built-in image) with the runtime's default capabilities. Seccomp, no escalation and no token stay. Every run of that project shows a `sandbox-runs-as-root` warning in its preflight, so the choice stays visible.
+
+Upgrading changes the default: a project whose prerequisites install system packages fails until it sets `run_as_root` or moves the install into its toolchain image.
+
 ### Which registries a toolchain image may come from
 
 The context's `stack.image` is written by a model, so it is held to a registry boundary before it is used:

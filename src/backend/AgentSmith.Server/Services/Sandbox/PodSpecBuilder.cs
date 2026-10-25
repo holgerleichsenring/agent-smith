@@ -6,9 +6,9 @@ namespace AgentSmith.Server.Services.Sandbox;
 /// <summary>
 /// Builds the V1Pod spec for the sandbox: agent-loader initContainer + toolchain
 /// main container, sharing /shared (binary) and /work (working dir) emptyDir volumes.
-/// Pod-level fsGroup makes /shared/agent group-readable+executable from non-root toolchains.
+/// The security profile (who it runs as, capabilities, the /root home) is <see cref="PodSecurity"/>'s.
 /// </summary>
-public sealed class PodSpecBuilder(SandboxPodLabels labels)
+public sealed class PodSpecBuilder(SandboxPodLabels labels, PodSecurity podSecurity)
 {
     private const string SharedVolume = "agent-shared";
     private const string WorkVolume = "agent-work";
@@ -17,18 +17,19 @@ public sealed class PodSpecBuilder(SandboxPodLabels labels)
 
     public V1Pod Build(string podName, string jobId, string redisUrl, SandboxSpec spec, V1OwnerReference? owner)
     {
-        var security = spec.SecurityContext ?? new SandboxSecurityContext();
+        var profile = spec.SecurityContext ?? SandboxSecurityContext.Hardened;
         return new V1Pod
         {
             Metadata = BuildMetadata(podName, jobId, spec, owner),
             Spec = new V1PodSpec
             {
                 RestartPolicy = "Never",
-                SecurityContext = new V1PodSecurityContext { FsGroup = security.FsGroup },
+                SecurityContext = podSecurity.Pod(profile),
+                AutomountServiceAccountToken = false,
                 ImagePullSecrets = PullSecrets(spec.ImagePullSecrets),
-                InitContainers = [BuildInitContainer(spec.AgentImage)],
-                Containers = [BuildToolchainContainer(spec, jobId, redisUrl)],
-                Volumes = BuildVolumes(spec.Secrets?.Files)
+                InitContainers = [BuildInitContainer(spec.AgentImage, profile)],
+                Containers = [BuildToolchainContainer(spec, profile, jobId, redisUrl)],
+                Volumes = [.. BuildVolumes(spec.Secrets?.Files), .. podSecurity.HomeVolumes(profile)]
             }
         };
     }
@@ -47,10 +48,11 @@ public sealed class PodSpecBuilder(SandboxPodLabels labels)
     private static List<V1LocalObjectReference>? PullSecrets(IReadOnlyList<string>? names) =>
         names is null or [] ? null : [.. names.Select(name => new V1LocalObjectReference(name))];
 
-    private static V1Container BuildInitContainer(string agentImage) => new()
+    private V1Container BuildInitContainer(string agentImage, SandboxSecurityContext profile) => new()
     {
         Name = "agent-loader",
         Image = agentImage,
+        SecurityContext = podSecurity.Container(profile),
         Args = ["--inject", $"{SharedMount}/agent"],
         VolumeMounts = [new V1VolumeMount { Name = SharedVolume, MountPath = SharedMount }],
         // Fixed limits — loader only extracts the bundled .NET single-file agent
@@ -75,10 +77,12 @@ public sealed class PodSpecBuilder(SandboxPodLabels labels)
         }
     };
 
-    private static V1Container BuildToolchainContainer(SandboxSpec spec, string jobId, string redisUrl) => new()
+    private V1Container BuildToolchainContainer(
+        SandboxSpec spec, SandboxSecurityContext profile, string jobId, string redisUrl) => new()
     {
         Name = "toolchain",
         Image = spec.ToolchainImage,
+        SecurityContext = podSecurity.Container(profile),
         Command = [$"{SharedMount}/agent"],
         // p0360b: --run-id arms the agent's run-alive idle guard — an idle sandbox
         // of a live run keeps waiting instead of self-terminating. Omitted for
@@ -87,12 +91,13 @@ public sealed class PodSpecBuilder(SandboxPodLabels labels)
         Args = string.IsNullOrEmpty(spec.RunId)
             ? ["--job-id", jobId]
             : ["--job-id", jobId, "--run-id", spec.RunId],
-        Env = BuildEnv(jobId, redisUrl, spec.Secrets?.Env),
+        Env = [.. BuildEnv(jobId, redisUrl, spec.Secrets?.Env), .. podSecurity.Env(profile)],
         VolumeMounts =
         [
             new V1VolumeMount { Name = SharedVolume, MountPath = SharedMount, ReadOnlyProperty = true },
             new V1VolumeMount { Name = WorkVolume, MountPath = WorkMount },
-            .. SandboxSecretProjection.FileMounts(spec.Secrets?.Files)
+            .. SandboxSecretProjection.FileMounts(spec.Secrets?.Files),
+            .. podSecurity.HomeMounts(profile)
         ],
         WorkingDir = WorkMount,
         Resources = BuildToolchainResources(spec.Resources)

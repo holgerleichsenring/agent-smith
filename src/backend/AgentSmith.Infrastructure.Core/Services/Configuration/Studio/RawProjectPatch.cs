@@ -55,6 +55,7 @@ public static class RawProjectPatch
         block.AgentVersion = sandbox.AgentVersion;
         block.HoldSeconds = sandbox.HoldSeconds;
         block.Browser = sandbox.BrowserEnabled == true ? new ProjectBrowserConfig { Enabled = true } : null; // 283df
+        block.RunAsRoot = sandbox.RunAsRoot == true ? true : null; // 2026-10-25-c5a7a
         if (sandbox.Structured is { } structured) ApplyStructured(structured, block);
     }
 

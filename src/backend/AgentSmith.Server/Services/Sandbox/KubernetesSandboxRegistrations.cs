@@ -32,6 +32,7 @@ internal static class KubernetesSandboxRegistrations
         services.AddSingleton(new SandboxOwnerIdentityResolver().Resolve(options.RedisUrl));
         services.AddSingleton<SandboxPodLabels>();
         services.AddSingleton<LiveRunSetReader>();
+        services.AddSingleton<PodSecurity>();
         services.AddSingleton<PodSpecBuilder>();
         services.AddSingleton<ISandboxFactory>(sp => new KubernetesSandboxFactory(
             sp.GetRequiredService<IKubernetes>(),

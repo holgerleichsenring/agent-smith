@@ -73,6 +73,37 @@ public sealed class EnsurePrerequisitesHandlerTests
         result.Message.Should().Contain("1/1");
     }
 
+    // 2026-10-25-c5a7a: under the hardened default an apt-get prerequisite fails; the line says why.
+    [Fact]
+    public async Task EnsurePrerequisitesHandler_HardenedFailure_NamesRunAsRoot()
+    {
+        var pipeline = BuildPipeline(new()
+        {
+            ["api"] = new Ctx(Prerequisites: "apt-get install -y jq", Workdir: ".", Sandbox: BuildSandbox([], 100)),
+        });
+
+        var result = await _handler.ExecuteAsync(new EnsurePrerequisitesContext(pipeline), CancellationToken.None);
+
+        result.Message.Should().Contain("uid 1000").And.Contain("sandbox.run_as_root");
+    }
+
+    [Fact]
+    public async Task EnsurePrerequisitesHandler_RootProjectFailure_DoesNotNameRunAsRoot()
+    {
+        var pipeline = BuildPipeline(new()
+        {
+            ["api"] = new Ctx(Prerequisites: "npm ci", Workdir: ".", Sandbox: BuildSandbox([], 1)),
+        });
+        pipeline.Set(ContextKeys.ProjectConfig, new AgentSmith.Contracts.Models.Configuration.ResolvedProject
+        {
+            Sandbox = new AgentSmith.Contracts.Models.Configuration.SandboxConfig { RunAsRoot = true },
+        });
+
+        var result = await _handler.ExecuteAsync(new EnsurePrerequisitesContext(pipeline), CancellationToken.None);
+
+        result.Message.Should().NotContain("run_as_root");
+    }
+
     [Fact]
     public async Task EnsurePrerequisitesHandler_MultipleRepos_AggregatesPerRepoOutcomes()
     {

@@ -23,6 +23,10 @@ namespace AgentSmith.Contracts.Models.ConfigStudio;
 /// record is positional. It inherits nothing — there is no process-wide switch — so null and false
 /// both mean off, and the patch stores no block for either.
 /// </para>
+/// <para>
+/// 2026-10-25-c5a7a: <see cref="RunAsRoot"/> follows the same rule: null and false both mean the
+/// hardened default, and only true is stored.
+/// </para>
 /// </summary>
 public sealed record ProjectSandbox(
     string? ToolchainImage = null,
@@ -32,4 +36,5 @@ public sealed record ProjectSandbox(
     string? AgentVersion = null,
     int? HoldSeconds = null,
     ProjectSandboxStructured? Structured = null,
-    bool? BrowserEnabled = null);
+    bool? BrowserEnabled = null,
+    bool? RunAsRoot = null);

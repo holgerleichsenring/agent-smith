@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-c5a7a
+
+decisions:
+  - category: Architecture
+    chose: "Hardened is the default, root is a per-project sandbox.run_as_root that warns on every run (sandbox-runs-as-root, Warn)"
+    over: "Root by default with an opt-in hardening flag; or hardening coupled to another toggle"
+    reason: "Operator decision. A root pod is a named project choice, visible on every run, never silent; the operator owns that risk per project."
+  - category: Architecture
+    chose: "/root stays the home: an emptyDir at /root on the toolchain container, HOME=/root, and safe.directory=* via GIT_CONFIG_COUNT"
+    over: "Moving the canonical home to a uid-1000 directory"
+    reason: "The registry guard, the staging handler, the home-writable preflight and SandboxPathMap all name /root; one volume keeps every path. The emptyDir is root-owned, so git needs to be told /work is safe."
+  - category: Architecture
+    chose: "No readOnlyRootFilesystem"
+    over: "A read-only root with writable mounts for known tool directories"
+    reason: "Arbitrary toolchain images are the product and write under /usr, /var and their own dirs at run time; non-root, no capabilities and seccomp already remove the escalation paths."
+  - category: Implementation
+    chose: "Seccomp RuntimeDefault, allowPrivilegeEscalation false and no service-account token apply to root pods too; root pods keep fsGroup 1000"
+    over: "Root pods exactly as before"
+    reason: "Kubernetes runs a pod Unconfined unless told; apt and builds work under RuntimeDefault. fsGroup stays so the root pod is what it was apart from the three hardening fields."
+  - category: Implementation
+    chose: "The toolchain env of a profile is SandboxSecurityContext.ToolchainEnv() in Contracts; PodSecurity maps it to V1EnvVar"
+    over: "A separate env helper in the Server project"
+    reason: "2026-10-25-c5a7b needs the same variables on Docker; the profile record is the one place both backends read."
+  - category: Implementation
+    chose: "The prerequisite failure and the root warning read the project's run_as_root, not the sandbox backend"
+    over: "Detecting the in-process backend and staying quiet there"
+    reason: "Nothing on the pipeline names the backend. The failure line says 'on Docker and Kubernetes', which stays true for the in-process backend; the warning fires only when sandboxes exist."
+  - category: Implementation
+    chose: "EnsurePrerequisitesHandler's two long history comments were condensed to keep the file at 119 lines"
+    over: "Extracting the hint into its own type"
+    reason: "The handler was at the 120-line limit and is not in the baseline; the hint is one constant and one condition."
+  - category: Scope
+    chose: "Manual cluster acceptance outstanding: a dotnet and a node run clone, build, test, commit and push under the hardened pod, and the agent starts on hashicorp/terraform (musl) as uid 1000"
+    over: "Running it against the operator's cluster from this session"
+    reason: "The operator's cluster is not touched from a build session; the pod shape is pinned by PodSpecBuilderSecurityTests."

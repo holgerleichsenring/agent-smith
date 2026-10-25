@@ -261,6 +261,7 @@ Refused: an unknown project, a repo that project doesn't carry, a wildcard repo,
 | `step_timeout_seconds`, `run_command_timeout_seconds` | override the global timeouts |
 | `agent_registry`, `agent_version` | override the sandbox agent image |
 | `hold_seconds` | how long this project's design conversations hold their sandboxes between turns |
+| `run_as_root` | `true` runs this project's sandboxes as root with default capabilities, for prerequisites that need root; every run then carries a warning. Default: uid 1000, no capabilities |
 | `secrets` | `env` (`VAR: "secretName:key"`) and `files` (`mount`, `secret`, `key`): Kubernetes Secrets mounted into the sandbox |
 
 Empty means inherit. [Sandbox architecture](../concepts/sandbox-architecture.md) has what each one does at runtime.

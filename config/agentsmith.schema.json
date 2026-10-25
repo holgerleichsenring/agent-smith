@@ -793,6 +793,10 @@
                 "enabled": { "type": "boolean" }
               }
             },
+            "run_as_root": {
+              "type": "boolean",
+              "description": "2026-10-25-c5a7a: true runs this project's Docker and Kubernetes sandboxes as root with the runtime's default capabilities, for prerequisites that need root (apt-get, npm -g). Default false: uid 1000 with every capability dropped. Every run of a root project carries a preflight warning."
+            },
             "hold_seconds": {
               "type": "integer",
               "minimum": 0,

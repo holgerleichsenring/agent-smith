@@ -18,6 +18,17 @@ public sealed class SandboxSpecBuilderResourcesTests
         spec.Resources.Should().BeSameAs(resolverResult);
     }
 
+    // 2026-10-25-c5a7a
+    [Fact]
+    public void SandboxSpecBuilder_ProjectRunAsRoot_ReachesTheSpec()
+    {
+        var sut = new SandboxSpecBuilder(new StubSandboxResourceResolver(), new StubAgentImageResolver());
+        var root = new ResolvedProject { Sandbox = new SandboxConfig { RunAsRoot = true } };
+
+        sut.Build(root, "csharp", "code").SecurityContext.Should().Be(SandboxSecurityContext.Root);
+        sut.Build(new ResolvedProject(), "csharp", "code").SecurityContext.Should().Be(SandboxSecurityContext.Hardened);
+    }
+
     [Fact]
     public void Build_WithoutLanguage_StillPopulatesResources()
     {

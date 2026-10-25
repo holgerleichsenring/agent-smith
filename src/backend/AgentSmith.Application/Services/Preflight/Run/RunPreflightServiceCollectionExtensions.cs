@@ -25,6 +25,7 @@ public static class RunPreflightServiceCollectionExtensions
         // 2026-10-12-6bfac: decidable from the run's own context discoveries, before any probe.
         services.AddTransient<IRunPreflightCheck, ContextImageTrustCheck>();
         services.AddTransient<IRunPreflightCheck, SandboxHomeWritableCheck>();
+        services.AddTransient<IRunPreflightCheck, SandboxRunsAsRootCheck>(); // 2026-10-25-c5a7a
         services.AddSingleton<Sandbox.ISandboxSecretPresenceProbe, Sandbox.SandboxSecretPresenceProbe>();
         services.AddTransient<IRunPreflightCheck, InjectedSecretCheck>();
         services.AddTransient<IRunPreflightCheck, BranchStateCheck>();
