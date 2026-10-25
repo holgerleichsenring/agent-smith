@@ -1,7 +1,9 @@
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Infrastructure.Services.Webhooks;
 using AgentSmith.Server.Services.Webhooks;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using Moq;
 
 namespace AgentSmith.Tests.Webhooks;
 
@@ -11,10 +13,18 @@ public sealed class GitHubPrCommentWebhookHandlerTests
         new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
     private readonly PrCommentHandlerFixture _fixture = new();
+    // 2026-10-25-9dbbe: GitHub is asked for the author's permission; writers by default.
+    private string[] _permission = ["write"];
 
-    private GitHubPrCommentWebhookHandler CreateSut() =>
-        new(_fixture.Admission(), new GitHubAuthorAssociationTrust(), _fixture.Heads(),
-            NullLogger<GitHubPrCommentWebhookHandler>.Instance);
+    private GitHubPrCommentWebhookHandler CreateSut()
+    {
+        var permissions = new Mock<IGitHubCollaboratorPermissionReader>();
+        permissions.Setup(p => p.ReadAsync(It.IsAny<RepoConnection>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => _permission);
+        var trust = new GitHubCollaboratorPermissionTrust(PrCommentHandlerFixture.Repos("https://github.com/org/my-api"),
+            permissions.Object, PrCommentHandlerFixture.NewCache(), NullLogger<GitHubCollaboratorPermissionTrust>.Instance);
+        return new(_fixture.Admission(), trust, _fixture.Heads(), NullLogger<GitHubPrCommentWebhookHandler>.Instance);
+    }
 
     private static string IssueComment(
         string body, string association = "MEMBER", string action = "created", bool onPr = true) => $$"""
@@ -41,25 +51,28 @@ public sealed class GitHubPrCommentWebhookHandlerTests
     }
 
     [Theory]
-    [InlineData("OWNER")]
-    [InlineData("MEMBER")]
-    [InlineData("COLLABORATOR")]
-    public async Task GitHubPrComment_FromWriter_StartsPipeline(string association)
+    [InlineData("admin")]
+    [InlineData("maintain")]
+    [InlineData("write")]
+    public async Task GitHubPrComment_FromWriter_StartsPipeline(string permission)
     {
+        _permission = [permission];
         var result = await CreateSut().HandleAsync(
-            IssueComment("/agent-smith fix #99 in my-api", association), EmptyHeaders);
+            IssueComment("/agent-smith fix #99 in my-api"), EmptyHeaders);
 
         result.Handled.Should().BeTrue();
         _fixture.LaunchedAs().Should().Be("code #99 pr:org/my-api#42");
     }
 
+    // The payload's author_association no longer decides: a read-only COLLABORATOR is not a writer.
     [Theory]
-    [InlineData("CONTRIBUTOR")]
-    [InlineData("FIRST_TIME_CONTRIBUTOR")]
-    [InlineData("NONE")]
-    public async Task GitHubPrComment_ContributorAssociation_IsNotHandled(string association)
+    [InlineData("read")]
+    [InlineData("triage")]
+    [InlineData("none")]
+    public async Task GitHubPrComment_WithoutWritePermission_IsNotHandled(string permission)
     {
-        var result = await CreateSut().HandleAsync(IssueComment("/agent-smith fix", association), EmptyHeaders);
+        _permission = [permission];
+        var result = await CreateSut().HandleAsync(IssueComment("/agent-smith fix", "COLLABORATOR"), EmptyHeaders);
 
         result.Handled.Should().BeFalse();
         _fixture.VerifyModelNeverAsked();

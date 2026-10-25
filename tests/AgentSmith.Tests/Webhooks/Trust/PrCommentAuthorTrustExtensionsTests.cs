@@ -13,7 +13,7 @@ namespace AgentSmith.Tests.Webhooks.Trust;
 public sealed class PrCommentAuthorTrustExtensionsTests
 {
     [Theory]
-    [InlineData("github", typeof(GitHubAuthorAssociationTrust))]
+    [InlineData("github", typeof(GitHubCollaboratorPermissionTrust))]
     [InlineData("gitlab", typeof(GitLabMemberAccessTrust))]
     [InlineData("azuredevops", typeof(AzureDevOpsRepoContributeTrust))]
     public void AddPrCommentAuthorTrust_ResolvesOneTrustPerHost(string platform, Type expected)

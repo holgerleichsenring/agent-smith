@@ -19,7 +19,7 @@ public sealed class GitHubPrReviewStateReader(IGitHubClient client, GitHubRepoAd
     private const string Query =
         "query($owner:String!,$repo:String!,$number:Int!){viewer{login} repository(owner:$owner,name:$repo){pullRequest(number:$number){"
         + "number state createdAt mergedAt closedAt headRefOid author{login} "
-        + "latestReviews(first:100){nodes{id state body author{__typename login} authorAssociation submittedAt}}}}}";
+        + "latestReviews(first:100){nodes{id state body author{__typename login} submittedAt}}}}}";
 
     public async Task<PrReviewState> ReadAsync(string prUrl, CancellationToken cancellationToken)
     {
@@ -56,7 +56,7 @@ public sealed class GitHubPrReviewStateReader(IGitHubClient client, GitHubRepoAd
         if (!review.TryGetProperty("author", out var author) || author.ValueKind != JsonValueKind.Object) return null;
         if (Str(author, "login") is not { } login) return null;
         return new PrReviewDecision(Str(review, "id") ?? string.Empty,
-            new PrCommentAuthor(address.RepoUrl, address.FullName, login, login) { Association = Str(review, "authorAssociation") },
+            new PrCommentAuthor(address.RepoUrl, address.FullName, login, login),
             Str(author, "__typename") == "Bot", decision, DateTimeOffset.Parse(at, CultureInfo.InvariantCulture), Str(review, "body") ?? string.Empty);
     }
 

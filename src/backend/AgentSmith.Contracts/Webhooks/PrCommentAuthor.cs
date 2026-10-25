@@ -16,7 +16,4 @@ public sealed record PrCommentAuthor(
 {
     /// <summary>The Azure DevOps project id the repository belongs to; unused elsewhere.</summary>
     public string? ProjectId { get; init; }
-
-    /// <summary>GitHub's <c>author_association</c> as the payload states it; unused elsewhere.</summary>
-    public string? Association { get; init; }
 }

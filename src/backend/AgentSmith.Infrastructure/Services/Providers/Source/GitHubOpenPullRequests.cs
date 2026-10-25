@@ -39,15 +39,15 @@ public sealed class GitHubOpenPullRequests(IGitHubClient client, string owner, s
             new IssueCommentRequest { Since = since, Sort = IssueCommentSort.Created, Direction = SortDirection.Ascending });
         var review = await client.PullRequest.ReviewComment.GetAllForRepository(owner, repo,
             new PullRequestReviewCommentRequest { Since = since, Sort = PullRequestReviewCommentSort.Created, Direction = SortDirection.Ascending });
-        return [.. issue.Select(c => Comment(Number(c.HtmlUrl), c.Id, c.CreatedAt, c.Body, c.User?.Login, c.AuthorAssociation.StringValue))
-            .Concat(review.Select(c => Comment(Number(c.PullRequestUrl), c.Id, c.CreatedAt, c.Body, c.User?.Login, c.AuthorAssociation.StringValue)))
+        return [.. issue.Select(c => Comment(Number(c.HtmlUrl), c.Id, c.CreatedAt, c.Body, c.User?.Login))
+            .Concat(review.Select(c => Comment(Number(c.PullRequestUrl), c.Id, c.CreatedAt, c.Body, c.User?.Login)))
             .OfType<PrSweepComment>().Where(c => open.Contains(c.PrNumber) && c.CreatedAt > since).OrderBy(c => c.CreatedAt)];
     }
 
-    private PrSweepComment? Comment(string? number, long id, DateTimeOffset at, string? body, string? login, string? association) =>
+    private PrSweepComment? Comment(string? number, long id, DateTimeOffset at, string? body, string? login) =>
         number is null || login is null ? null
             : new PrSweepComment(number, id.ToString("D20"), at, body ?? string.Empty,
-                new PrCommentAuthor(repoUrl, $"{owner}/{repo}", login, login) { Association = association });
+                new PrCommentAuthor(repoUrl, $"{owner}/{repo}", login, login));
 
     // .../pull/4#issuecomment-1, .../issues/4#..., or the API's .../pulls/4.
     private static string? Number(string? url) =>

@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-9dbbe
+
+decisions:
+  - category: Security
+    chose: "GitHub trust asks GET /repos/{o}/{r}/collaborators/{login}/permission (Octokit ReviewPermission) and trusts admin, maintain or write in role_name or the legacy permission"
+    over: "Keeping the payload's author_association (OWNER/MEMBER/COLLABORATOR)"
+    reason: "MEMBER holds for any organisation member and COLLABORATOR for a read-only collaborator, so the payload over-trusts; GitLab and Azure DevOps already ask the host. Checking the legacy permission too keeps a custom role built on write trusted, since role_name then names the custom role."
+  - category: Implementation
+    chose: "Octokit's IRepoCollaboratorsClient.ReviewPermission over IGitHubClientFactory, so the call goes to the repository's own host (2026-10-25-9dbbb)"
+    over: "A raw HttpClient call like the GitLab reader"
+    reason: "Octokit 14's CollaboratorPermissionResponse exposes RoleName and Permission; the factory already carries the GHES base and credentials, and the reader stays testable through the same seam as every GitHub provider."
+  - category: Implementation
+    chose: "The verdict is cached through IPrCommentTrustVerdictCache keyed github:{host}:{full name}:{login}; a 404 is an empty answer and untrusted, any other failure is logged and untrusted, and not cached"
+    over: "Caching negative lookups that failed"
+    reason: "The same rule GitLab's trust follows; the polling sweep's PrReviewAuthorTrust asks the same keyed trust, so the cache bounds the API calls per author and repository."
+  - category: Scope
+    chose: "PrCommentAuthor.Association and its six producers (two webhook handlers, thread/act/state readers, open pull requests) are removed, and the GraphQL queries no longer ask authorAssociation"
+    over: "Leaving the field for diagnostics"
+    reason: "Nothing reads it once the trust asks GitHub; a field nobody reads invites the old rule back."
+  - category: Tooling
+    chose: "Docs name the token need as 'able to read the repository (fine-grained Metadata: Read)'"
+    over: "Claiming a measured scope"
+    reason: "Taken from GitHub's REST documentation for the endpoint; not exercised against a live fine-grained token in this spec."

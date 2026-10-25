@@ -15,7 +15,7 @@ public sealed class GitHubPrReviewActReader(IGitHubClient client, GitHubRepoAddr
 {
     private const string Query =
         "query($owner:String!,$repo:String!,$number:Int!){repository(owner:$owner,name:$repo){pullRequest(number:$number){"
-        + "author{login} latestReviews(first:100){nodes{id state author{__typename login} authorAssociation submittedAt}}}}}";
+        + "author{login} latestReviews(first:100){nodes{id state author{__typename login} submittedAt}}}}}";
 
     public async Task<IReadOnlyList<PrReviewNote>> ChangesRequestedAsync(string prUrl, CancellationToken cancellationToken)
     {
@@ -39,7 +39,7 @@ public sealed class GitHubPrReviewActReader(IGitHubClient client, GitHubRepoAddr
         var login = Str(author, "login");
         if (login is null) return null;
         return new PrReviewNote(
-            new PrCommentAuthor(address.RepoUrl, address.FullName, login, login) { Association = Str(review, "authorAssociation") },
+            new PrCommentAuthor(address.RepoUrl, address.FullName, login, login),
             Str(author, "__typename") == "Bot", false, DateTimeOffset.Parse(Str(review, "submittedAt")!), string.Empty)
             { HostId = Str(review, "id") ?? string.Empty };
     }

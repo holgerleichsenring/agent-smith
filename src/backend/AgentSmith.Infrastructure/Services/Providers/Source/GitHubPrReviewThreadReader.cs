@@ -24,9 +24,9 @@ public sealed class GitHubPrReviewThreadReader(
     private const string Query =
         "query($owner:String!,$repo:String!,$number:Int!){viewer{login} repository(owner:$owner,name:$repo){pullRequest(number:$number){"
         + "reviewThreads(first:100){pageInfo{hasNextPage} nodes{id isResolved path line originalLine "
-        + "comments(first:100){nodes{id author{__typename login} authorAssociation body createdAt publishedAt}}}}"
-        + "reviews(first:100){nodes{id author{__typename login} authorAssociation body submittedAt}}"
-        + "comments(first:100){nodes{id author{__typename login} authorAssociation body createdAt}}}}}";
+        + "comments(first:100){nodes{id author{__typename login} body createdAt publishedAt}}}}"
+        + "reviews(first:100){nodes{id author{__typename login} body submittedAt}}"
+        + "comments(first:100){nodes{id author{__typename login} body createdAt}}}}}";
 
     public async Task<IReadOnlyList<PrReviewThread>> ListAsync(string prUrl, CancellationToken cancellationToken)
     {
@@ -73,7 +73,7 @@ public sealed class GitHubPrReviewThreadReader(
         if (at is null) return null;
         var author = node.TryGetProperty("author", out var a) && a.ValueKind == JsonValueKind.Object ? a : (JsonElement?)null;
         var login = author is { } l ? Str(l, "login") : null;
-        return new PrReviewNote(Author(author, Str(node, "authorAssociation")),
+        return new PrReviewNote(Author(author),
             author is { } x && Str(x, "__typename") == "Bot", false, DateTimeOffset.Parse(at), body)
         {
             IsOurs = OwnPrNoteMarker.IsOurs(body, login is not null && string.Equals(login, _viewer, StringComparison.OrdinalIgnoreCase)),
@@ -81,9 +81,9 @@ public sealed class GitHubPrReviewThreadReader(
         };
     }
 
-    private PrCommentAuthor? Author(JsonElement? author, string? association) =>
+    private PrCommentAuthor? Author(JsonElement? author) =>
         author is { } a && Str(a, "login") is { } login
-            ? new PrCommentAuthor(address.RepoUrl, address.FullName, login, login) { Association = association }
+            ? new PrCommentAuthor(address.RepoUrl, address.FullName, login, login)
             : null;
 
     private static IEnumerable<JsonElement> Nodes(JsonElement connection) =>
