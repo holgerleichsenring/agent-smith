@@ -10,7 +10,7 @@ facts:
   - claim: "remember writes feedback as status proposed and answers that it becomes policy only after operator ratification."
     evidence: "src/backend/AgentSmith.Application/Services/Tools/MemoryWriteToolHost.cs:62-68"
   - claim: "{MemoryIndexSection} is bound for every master, but no master at the pinned tag carries the placeholder or input."
-    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:211, src/backend/AgentSmith.Application/Services/MasterPromptTokens.cs:24"
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:211, src/backend/AgentSmith.Application/Prompts/MasterPromptTokens.cs:24"
   - claim: "A memory proposal is published as a default to ratify, and the dashboard offers Ratify for it."
     evidence: "src/backend/AgentSmith.Application/Services/Tools/DefaultDecisionRecorder.cs:22-24, src/dashboard/src/components/tickets/detail/TicketDefaultsTab.tsx:35"
   - claim: "At the pinned skills tag, memory-discipline.md and the coding master's memory section require ratification for feedback."

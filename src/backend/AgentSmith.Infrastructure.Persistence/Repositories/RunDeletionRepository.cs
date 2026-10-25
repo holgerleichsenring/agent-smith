@@ -71,6 +71,7 @@ public sealed class RunDeletionRepository(IUnitOfWork unitOfWork, IUniqueViolati
         await DeleteByRunIdAsync<RunRetryRequest>(ids, ct); // 2026-10-13-9a59n
         await DeleteByRunIdAsync<RunSpecReviewRound>(ids, ct); // 2026-10-13-8762e
         await DeleteByRunIdAsync<RunDefaultDecision>(ids, ct); // 2026-10-13-8762o
+        // 2026-10-25-9324a: MemoryEvidence stays — a memory's track record outlives the runs that made it.
     }
 
     private async Task DeleteSatellitesAsync(IReadOnlyCollection<string> ids, CancellationToken ct)

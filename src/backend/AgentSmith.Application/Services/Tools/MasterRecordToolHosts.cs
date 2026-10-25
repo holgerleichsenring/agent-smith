@@ -1,3 +1,4 @@
+using AgentSmith.Application.Services.Memory;
 using AgentSmith.Application.Services.Repositories;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Decisions;
@@ -12,12 +13,14 @@ namespace AgentSmith.Application.Services.Tools;
 /// 2026-10-13-8762m: the record tools of one master start — log_decision, recall and remember, backed per
 /// REPOSITORY and resolved on every call so a repository ensure_repo_sandbox adds mid-run counts, and
 /// hand_forward when the master executes a spec. 2026-10-13-8762o: and decide_by_default where the pipeline
-/// holds a run id, whose recorder also carries remember's pointer rows.
+/// holds a run id, whose recorder also carries remember's pointer rows. 2026-10-25-9324b: and dispute_memory
+/// beside them, with hand_forward's relied_on resolved the same way.
 /// </summary>
 public sealed class MasterRecordToolHosts(
     IDecisionLogger decisionLogger,
     RunRepositoriesFactory runRepositories,
     IEventPublisher events,
+    MemoryCitationResolver citations,
     ILogger<MasterRecordToolHosts> logger)
 {
     public MasterRecordTools Create(PipelineContext pipeline, string repoRoot)
@@ -26,13 +29,23 @@ public sealed class MasterRecordToolHosts(
         var repositories = runRepositories.For(pipeline);
         var spec = pipeline.TryGet<SpecDraft>(ContextKeys.CurrentSpec, out var draft) ? draft : null;
         var defaults = Recorder(pipeline, spec?.SpecId);
+        var memory = new MasterMemoryUse(pipeline, repositories, repoRoot, citations, MemoryUse(pipeline, spec?.SpecId));
         return new MasterRecordTools(
             new LogDecisionToolHost(decisionLogger, repositories),
             new MemoryRecallToolHost(repositories, repoRoot, logger),
             new MemoryWriteToolHost(repositories, repoRoot, logger, defaults),
-            spec is null ? null : new HandForwardToolHost(pipeline, spec.SpecId),
+            spec is null ? null : new HandForwardToolHost(pipeline, spec.SpecId, memory),
             decisionLogger,
-            defaults is null ? null : new DefaultDecisionToolHost(defaults));
+            defaults is null ? null : new DefaultDecisionToolHost(defaults),
+            memory.CanRecord ? new MemoryDisputeToolHost(memory) : null);
+    }
+
+    private MemoryUseRecorder? MemoryUse(PipelineContext pipeline, string? specId)
+    {
+        if (!pipeline.TryGet<string>(ContextKeys.RunId, out var runId) || string.IsNullOrEmpty(runId)) return null;
+        var project = pipeline.TryGet<string>(ContextKeys.ProjectName, out var name) ? name ?? string.Empty : string.Empty;
+        var ticket = pipeline.TryGet<TicketId>(ContextKeys.TicketId, out var id) ? id?.Value ?? string.Empty : string.Empty;
+        return new MemoryUseRecorder(events, runId, specId, project, ticket, logger);
     }
 
     private DefaultDecisionRecorder? Recorder(PipelineContext pipeline, string? specId)
@@ -47,7 +60,7 @@ public sealed class MasterRecordToolHosts(
 /// <summary>
 /// 2026-10-13-8762m: what <see cref="MasterRecordToolHosts"/> builds for one master start. HandForward is
 /// null unless the master executes a spec; Decisions is the logger the open loop records its stop with;
-/// DefaultDecision is null where the pipeline holds no run id.
+/// DefaultDecision and Dispute are null where the pipeline holds no run id.
 /// </summary>
 public sealed record MasterRecordTools(
     LogDecisionToolHost Log,
@@ -55,4 +68,5 @@ public sealed record MasterRecordTools(
     MemoryWriteToolHost Remember,
     HandForwardToolHost? HandForward,
     IDecisionLogger Decisions,
-    DefaultDecisionToolHost? DefaultDecision);
+    DefaultDecisionToolHost? DefaultDecision,
+    MemoryDisputeToolHost? Dispute = null);

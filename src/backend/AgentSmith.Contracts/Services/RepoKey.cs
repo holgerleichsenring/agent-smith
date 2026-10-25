@@ -1,9 +1,10 @@
-namespace AgentSmith.Infrastructure.Services.Webhooks;
+namespace AgentSmith.Contracts.Services;
 
 /// <summary>
 /// 2026-10-08-10b0: a repository named the way every caller compares it — host and path, lowercased,
 /// no scheme, user info or .git suffix — so a payload's clone URL and the configured web URL are one
-/// key. Extracted from <see cref="ConfiguredRepoFinder"/> for the PR sweep's rows.
+/// key. Extracted from ConfiguredRepoFinder for the PR sweep's rows; 2026-10-25-9324a moved it here,
+/// because the memory ledger keys a repository's evidence by it on both sides of the event stream.
 /// </summary>
 public static class RepoKey
 {

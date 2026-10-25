@@ -50,6 +50,7 @@ export enum EventType {
   SpecCutReviewed = 86,
   SpecReviewRound = 87,
   DefaultDecisionTaken = 88,
+  MemoryUseRecorded = 89,
 }
 
 interface RunEventBase {
@@ -700,6 +701,27 @@ export interface DefaultDecisionTakenEvent extends RunEventBase {
   conversation?: string | null;
 }
 
+/** 2026-10-25-9324b: one memory a master named — the run's repository, its ledger key, and the slug. */
+export interface MemoryCitation {
+  repository: string;
+  repoKey: string;
+  slug: string;
+}
+
+/**
+ * 2026-10-25-9324b: the memories a spec relied on (its whole list, replacing the one before), or one memory a
+ * master disputed with its reason. A dispute outside a spec carries no spec id.
+ */
+export interface MemoryUseRecordedEvent extends RunEventBase {
+  type: EventType.MemoryUseRecorded;
+  specId?: string | null;
+  project: string;
+  ticketId: string;
+  relied: MemoryCitation[];
+  disputed?: MemoryCitation | null;
+  reason?: string | null;
+}
+
 /** 2026-10-13-8762e: one cut a reviewer named; evidence is "repo/path:line [Aid]". Mirrors C# SpecReviewCut. */
 export interface SpecReviewCut {
   register: string;
@@ -786,7 +808,8 @@ export type RunEvent =
   | SpecHandedBackEvent
   | SpecCutReviewedEvent
   | SpecReviewRoundEvent
-  | DefaultDecisionTakenEvent;
+  | DefaultDecisionTakenEvent
+  | MemoryUseRecordedEvent;
 
 /** p0327: the pending question of a status="waiting_for_input" run, joined
  *  from its checkpoint row at query time (REST detail only). */

@@ -1,3 +1,4 @@
+using AgentSmith.Contracts.Memory;
 using AgentSmith.Contracts.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -30,6 +31,9 @@ public static class ResumeRegistrations
         services.TryAddSingleton<IPriorRunLedgerReader, NullPriorRunLedgerReader>();
         services.TryAddSingleton<IPreviousAttemptReader, NullPreviousAttemptReader>(); // 2026-10-08-7c0e
         services.TryAddSingleton<IDecidedDefaults, NullDecidedDefaults>(); // 2026-10-13-8762p
+        services.TryAddSingleton<IMemoryEvidenceStore, Memory.NullMemoryEvidenceStore>(); // 2026-10-25-9324a
+        services.TryAddSingleton<Memory.MemoryRepositoryKey>();
+        services.TryAddSingleton<Memory.MemoryCitationResolver>(); // 2026-10-25-9324b
         services.TryAddSingleton<IReworkNudges, AgentSmith.Application.Services.Rework.NullReworkNudges>(); // 2026-10-08-0781
         services.TryAddSingleton<IReworkWatermark, AgentSmith.Application.Services.Rework.NullReworkNudges>();
         return services;

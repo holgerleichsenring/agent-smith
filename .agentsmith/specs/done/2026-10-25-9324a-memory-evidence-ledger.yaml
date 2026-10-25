@@ -21,7 +21,7 @@ facts:
 scope:
   in: >
     RepoKey moves to Contracts. Entity MemoryEvidence (Id, RepoKey, Slug, Kind relied|confirmed|strained|contradicted,
-    Weight, Project, TicketId, RunId and SpecId as plain values, EventSeq nullable for replay dedupe, Reason, At),
+    Weight, Project, TicketId, RunId and SpecId as plain values, EventSeq nullable for replay dedupe, Reason, CriterionKey nullable for 9324c's retraction, At),
     indexed on (RepoKey, Slug), registered through an aggregate configuration (AgentSmithDbContext is at 120 lines).
     A port in Contracts to replace a run-spec's rows of one kind, upsert one outcome row per (run, spec, slug), append,
     and read a repository's evidence; a null implementation by default, the DB one registered with persistence. A run's

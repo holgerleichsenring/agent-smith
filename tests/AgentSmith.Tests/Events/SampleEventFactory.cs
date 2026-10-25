@@ -54,6 +54,10 @@ internal static class SampleEventFactory
             return new[] { new SpecEvidenceProblem("it exists", "not a file (missing, or a directory): src/A.cs") };
         if (declared == typeof(IReadOnlyList<SpecReviewResidue>))
             return new[] { new SpecReviewResidue("done", "the four word run") };
+        if (declared == typeof(IReadOnlyList<AgentSmith.Contracts.Memory.MemoryCitation>)) // 2026-10-25-9324b
+            return new[] { new AgentSmith.Contracts.Memory.MemoryCitation("api", "github.com/o/api", "build-order") };
+        if (type == typeof(AgentSmith.Contracts.Memory.MemoryCitation))
+            return new AgentSmith.Contracts.Memory.MemoryCitation("api", "github.com/o/api", "no-shims");
         if (type == typeof(AgentSmith.Contracts.Runs.AttemptCause)) // 2026-10-13-9a59d
             return new AgentSmith.Contracts.Runs.AttemptCause("pull_request", "alice", Timestamp,
                 new AgentSmith.Contracts.Runs.AttemptSource("review", "https://example.test/pull/4", "PRR_1", "detail"));

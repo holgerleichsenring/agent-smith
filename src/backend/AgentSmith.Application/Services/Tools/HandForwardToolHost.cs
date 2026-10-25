@@ -11,8 +11,10 @@ namespace AgentSmith.Application.Services.Tools;
 /// 2026-10-13-8762m: hand_forward — the build note the master leaves for the next spec of its series:
 /// what it renamed, moved, persisted and deviated from. A call replaces the current spec's note (the
 /// last call wins). The record step writes it into the spec's record, the only place it is kept.
+/// 2026-10-25-9324b: and which memories the spec acted on, each checked against its store and published, so a
+/// memory's standing can be traced to the work that used it.
 /// </summary>
-public sealed class HandForwardToolHost(PipelineContext pipeline, string specId) : IToolHost
+public sealed class HandForwardToolHost(PipelineContext pipeline, string specId, MasterMemoryUse? memory = null) : IToolHost
 {
     public const string Name = "hand_forward";
     public const int MaxEntries = 20;
@@ -31,12 +33,16 @@ public sealed class HandForwardToolHost(PipelineContext pipeline, string specId)
                  "the arrow '->', a space, the new one), what it PERSISTED (tables, columns, files, keys a later " +
                  "spec reads) and where it DEVIATED from the spec text and why. At most 20 entries per list and " +
                  "300 characters per entry; an empty list is fine. A second call replaces the first. The note is " +
-                 "written into this spec's record and shown to the next spec's master.")]
-    public string HandForward(
+                 "written into this spec's record and shown to the next spec's master. In RELIED_ON name the stored " +
+                 "memories this spec acted on ('slug', or 'repository/slug' when several repositories store it): a " +
+                 "memory is a hint with a track record, never a rule, and what becomes of this spec becomes its record.")]
+    public async Task<string> HandForward(
         [Description("Renamed names, each '<old> -> <new>'.")] string[]? renamed = null,
         [Description("Moved files or members, each '<old> -> <new>'.")] string[]? moved = null,
         [Description("What this spec persisted that a later spec reads.")] string[]? persisted = null,
-        [Description("Where this spec deviated from its text, and why.")] string[]? deviations = null)
+        [Description("Where this spec deviated from its text, and why.")] string[]? deviations = null,
+        [Description("The stored memories this spec acted on, each 'slug' or 'repository/slug'.")] string[]? relied_on = null,
+        CancellationToken ct = default)
     {
         var lists = new (string Name, IReadOnlyList<string> Entries, bool Arrowed)[]
         {
@@ -44,6 +50,8 @@ public sealed class HandForwardToolHost(PipelineContext pipeline, string specId)
             ("persisted", Clean(persisted), false), ("deviations", Clean(deviations), false),
         };
         var refusals = lists.SelectMany(Refusals).ToList();
+        var relied = memory is null ? null : await memory.ResolveAsync(Clean(relied_on), ct);
+        refusals.AddRange(relied?.Problems.Select(p => $"relied_on {p}") ?? []);
         if (refusals.Count > 0)
             return $"Error: hand_forward refused, nothing was recorded: {string.Join("; ", refusals)}.";
 
@@ -52,8 +60,10 @@ public sealed class HandForwardToolHost(PipelineContext pipeline, string specId)
             : new Dictionary<string, SpecBuildNote>(StringComparer.Ordinal);
         var note = notes[specId] = new SpecBuildNote(specId, lists[0].Entries, lists[1].Entries, lists[2].Entries, lists[3].Entries);
         pipeline.Set<IReadOnlyDictionary<string, SpecBuildNote>>(ContextKeys.SpecBuildNotes, notes);
-        return $"Build note for {specId} recorded ({lists.Sum(l => l.Entries.Count)} entries); a later call replaces it."
-            + Conflicts(note);
+        if (relied is not null) await memory!.RecordReliedAsync(relied.Citations, ct);
+        return $"Build note for {specId} recorded ({lists.Sum(l => l.Entries.Count)} entries"
+            + (relied is null ? string.Empty : $", relied on {relied.Citations.Count} memories")
+            + "); a later call replaces it." + Conflicts(note);
     }
 
     // 2026-10-13-8762n: what the note does against the series contract — shown, never refused.

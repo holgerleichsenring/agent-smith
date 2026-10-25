@@ -117,6 +117,7 @@ internal static class MasterHandlerFixture
     internal static AgentSmith.Application.Services.Tools.MasterRecordToolHosts RecordHosts(
         IDecisionLogger decisions, AgentSmith.Contracts.Events.IEventPublisher? events = null) =>
         new(decisions, Repositories(), events ?? new AgentSmith.Application.Services.Events.NoOpEventPublisher(),
+            new AgentSmith.Application.Services.Memory.MemoryCitationResolver(new()),
             NullLogger<AgentSmith.Application.Services.Tools.MasterRecordToolHosts>.Instance);
 
     private static AgentSmith.Application.Services.Repositories.RunRepositoriesFactory Repositories() =>

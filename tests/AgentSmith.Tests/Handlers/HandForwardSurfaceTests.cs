@@ -51,6 +51,33 @@ public sealed class HandForwardSurfaceTests
     }
 
     [Fact]
+    public async Task MasterToolComposition_EveryMasterWithARun_CarriesDisputeMemory_NoChild()
+    {
+        var coding = new CapturingLoop(spawn: true);
+        var children = new MasterHandlerFixture.StubSubAgentRunner();
+        await Run(coding, CodingMaster, WithRun(WithSpec(MasterHandlerFixture.BuildContext(CodingMaster))), children, maxSubAgents: 20);
+        var scan = new CapturingLoop();
+        await Run(scan, "security-master", WithRun(MasterHandlerFixture.BuildContext("security-master")), schema: "observation");
+        var design = new CapturingLoop();
+        await Run(design, DesignMaster, WithRun(DesignContext()), limits: new LoopLimitsConfig());
+        var noRun = new CapturingLoop();
+        await Run(noRun, CodingMaster, MasterHandlerFixture.BuildContext(CodingMaster));
+
+        // 2026-10-25-9324b: a dispute needs a run to publish on; a child acts for its master and disputes nothing.
+        coding.MasterTools.Should().Contain(MemoryDisputeToolHost.Name);
+        scan.MasterTools.Should().Contain(MemoryDisputeToolHost.Name);
+        design.MasterTools.Should().Contain(MemoryDisputeToolHost.Name);
+        children.SeenContexts.Single().ChildTools.Select(t => t.Name).Should().NotContain(MemoryDisputeToolHost.Name);
+        noRun.MasterTools.Should().NotContain(MemoryDisputeToolHost.Name);
+    }
+
+    private static AgenticMasterContext WithRun(AgenticMasterContext context)
+    {
+        context.Pipeline.Set(ContextKeys.RunId, "2026-10-25T1000-dispute");
+        return context;
+    }
+
+    [Fact]
     public async Task AgenticMaster_DesignTurnAndScan_DoNotRereadTheMemoryIndex()
     {
         var scan = MasterHandlerFixture.BuildContext("security-master");

@@ -1,6 +1,7 @@
 using AgentSmith.Infrastructure.Persistence.Contracts;
 using AgentSmith.Infrastructure.Persistence.Services;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace AgentSmith.Infrastructure.Persistence.Extensions;
 
@@ -52,6 +53,8 @@ public static class RunProjectionsExtensions
         services.AddSingleton<IRunEventFamily, RunSegmentProjection>(); // 2026-10-13-9a59j
         services.AddSingleton<IRunEventFamily, RunSpecReviewRoundProjection>(); // 2026-10-13-8762e
         services.AddSingleton<IRunEventFamily, RunDefaultDecisionProjection>(); // 2026-10-13-8762o
+        services.TryAddSingleton<MemoryEvidenceWriter>();
+        services.AddSingleton<IRunEventFamily, MemoryEvidenceProjection>(); // 2026-10-25-9324b
         return services;
     }
 }

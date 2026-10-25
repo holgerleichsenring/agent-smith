@@ -49,8 +49,7 @@ public sealed class MasterToolComposition(
         AgenticMasterContext context)
     {
         Loop.Sanity.RefusedWriteLog.OpenFresh(context.Pipeline); // 2026-10-17-a196a: this step's refusals only
-        // p0380: recall (read) + remember (memory-only proposal) join EVERY
-        // master surface, including the read-only Review/scan surface.
+        // p0380: recall (read) + remember (memory-only proposal) join EVERY master surface, including Review/scan.
         // 2026-09-22-9519: the withdrawal joins the design surface HERE rather than inside
         // AgenticToolSurface — only a design turn with a dialogue identity has one, and that is
         // what this method decides.
@@ -71,6 +70,7 @@ public sealed class MasterToolComposition(
         var master = BaseSurface();
         // 2026-10-13-8762o: decide_by_default — coding master and design partner, outside BaseSurface: no child.
         if (!isScanMaster) master = [.. master, .. records.DefaultDecision?.GetTools(null, null) ?? []];
+        master = [.. master, .. records.Dispute?.GetTools(null, null) ?? []]; // 2026-10-25-9324b: every master, no child
         // 2026-10-01-7f7ab: design_read joins design and coding masters of a project with a figma
         // source — the MASTER only, outside BaseSurface: children fanning out over one file would
         // multiply calls against one rate limit, so no child surface derived from it carries it.

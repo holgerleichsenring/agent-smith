@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-9324a
+
+decisions:
+  - category: Architecture
+    chose: "MemoryEvidence carries a nullable CriterionKey beside the columns the scope listed"
+    over: "Telling a person's contradiction from a master's dispute by Reason text or by a null EventSeq"
+    reason: |
+      9324c retracts the contradiction a withdrawn judgement made, and only that one. A dispute is also kind
+      contradicted, and EventSeq is null wherever a write happens outside the drain, so neither tells them apart.
+      The judged criterion's key is the one identity both the record and the withdrawal already hold. The spec
+      scope names the column (edited in place, one clause).
+  - category: Architecture
+    chose: "The configuration joins ServerStateConfigurations, the aggregate of tables a server must not lose"
+    over: "A new aggregate class, or TicketRecordConfigurations"
+    reason: |
+      AgentSmithDbContext is at 120 lines, so a new aggregate would need a line there. The ledger is keyed by
+      repository, not by ticket, and it is state the server keeps beyond every run, which is what the server-state
+      aggregate already groups (rework nudges, sweep cursors).
+  - category: Architecture
+    chose: "One MemoryEvidenceWriter works on a unit of work the caller owns; the repository opens a scope per call and delegates"
+    over: "A repository the event projection resolves through its own scope"
+    reason: |
+      9324b's projection writes inside the applier's unit of work, as every projection does; the port's singleton
+      callers need their own scope. One writer for both keeps a single meaning of replace and upsert.
+  - category: Implementation
+    chose: "RepoKey moves to AgentSmith.Contracts.Services; a repository with no URL is keyed by its name"
+    over: "Keying the ledger by repository name, or refusing a path-only repository"
+    reason: |
+      The URL key is what makes two projects that name one repository differently share its record, and both
+      sides of the event stream (Application publishing, Persistence projecting) need the same function. A
+      repository configured by path has nothing else stable to key by; its name is the honest fallback.
+  - category: Implementation
+    chose: "The evidence weights and the half-life live in MemoryStandingWeights in Contracts"
+    over: "Constants scattered in the tool host, the projection and the standing calculator"
+    reason: |
+      Application (outcomes, standing) and Persistence (dispute projection, judgement hook) both need them; one
+      class is what 9324d's 'constants in one class' asks for. Their values are argued in 9324d's decisions.

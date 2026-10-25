@@ -87,6 +87,8 @@ integrations:
 
 state:
   done:
+    2026-10-25-9324b: "MEMORY RELIANCE CITATION (hand_forward, dispute_memory, event 89). hand_forward takes relied_on checked against each repository's store; dispute_memory names a memory that led a master wrong; MemoryUseRecorded projects as replaced relied rows or an appended contradiction (-2). -> .agentsmith/specs/done/2026-10-25-9324b-memory-reliance-citation.yaml"
+    2026-10-25-9324a: "MEMORY EVIDENCE LEDGER (persistence, memory). A MemoryEvidence table keeps every relied/confirmed/strained/contradicted fact per repository key and slug, behind IMemoryEvidenceStore (null by default); RepoKey moved to Contracts; run deletion leaves the rows. -> .agentsmith/specs/done/2026-10-25-9324a-memory-evidence-ledger.yaml"
     2026-10-18-509c: "RUN ROW OPENS ITS RUN (dashboard runs list). Every run row opens /jobs/{runId}, code runs of a ticket too, reversing 9a59q for run lists; the ticket key is a separate link to the ticket page. -> .agentsmith/specs/done/2026-10-18-509c-runs-row-opens-run.yaml"
     2026-10-17-063c: "SKILLS PIN v5.20.0 (embedded skills catalog). spec-derivation-master 1.9.0 names the segments every spec needs once as shared and keeps environment state out of premises; facts describe code and ticket. -> .agentsmith/specs/done/2026-10-17-063c-skills-pin-5-20.yaml"
     2026-10-17-e730f: "CONVERSATION JUMP TO NEWEST (ticket Conversation tab). Scrolled up from the end, a '↓ Newest' button above the docked composer counts the entries that arrived since the reader was last at the end and scrolls back to it. -> .agentsmith/specs/done/2026-10-17-e730f-conversation-newest-button.yaml"
