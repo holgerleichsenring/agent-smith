@@ -88,20 +88,15 @@ public sealed class TicketDefaultsReadTests : IDisposable
     }
 
     [Fact]
-    public async Task TicketDefaults_Read_MemoryProposalOfAFinishedRunWithoutPullRequest_IsNotLanded()
+    public async Task TicketDefaults_Read_MemoryProposals_AreNotServed()
     {
-        var landed = Run(R2);
-        landed.PullRequestsJson = RunStoryJson.Serialize(new List<RunPullRequestView>
-        {
-            new("shop", PullRequestStatuses.Opened, "https://github.com/o/shop/pull/1", null, T),
-        });
-        await _store.AddAsync(Run(R1, status: "failed"), Step(R1), landed, Step(R2), Run("2026-10-13T12-00-00-0004", status: "running"),
-            Default(1, R1, 1, kind: DefaultDecisionKinds.MemoryProposal), Default(2, R2, 2, kind: DefaultDecisionKinds.MemoryProposal),
-            Default(3, "2026-10-13T12-00-00-0004", 3, kind: DefaultDecisionKinds.MemoryProposal), Default(4, R1, 4));
+        await _store.AddAsync(Run(R1), Step(R1),
+            Default(1, R1, 1, kind: DefaultDecisionKinds.MemoryProposal), Default(2, R1, 2));
 
         var view = await ReadAsync(_store);
 
-        view.Entries.ToDictionary(e => e.Id, e => e.Landed).Should().Equal(
-            new Dictionary<long, bool?> { [1] = false, [2] = true, [3] = null, [4] = null });
+        // 2026-10-25-9324e: no memory waits for a person; a proposal row of an older run is history, not a default.
+        view.Entries.Select(e => e.Id).Should().Equal(2);
+        view.Pending.Should().Be(1);
     }
 }

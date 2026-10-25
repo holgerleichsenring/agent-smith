@@ -73,6 +73,19 @@ public sealed class ProjectSandboxOverrideTests
         (projected.Sandbox! with { Structured = null }).Should().Be(new ProjectSandbox());
     }
 
+    // 2026-10-25-c5a7a: only true is stored; false reads back as absent, like the browser toggle.
+    [Fact]
+    public void ProjectSandbox_RunAsRoot_RoundTripsThroughTheStudioPatch()
+    {
+        var on = RawProjectPatch.Apply(Entity(new ProjectSandbox(RunAsRoot: true)), Stored());
+        on.Sandbox!.RunAsRoot.Should().BeTrue();
+        ProjectEntityMapping.ToProject("proj", on).Sandbox!.RunAsRoot.Should().BeTrue();
+
+        var off = RawProjectPatch.Apply(Entity(new ProjectSandbox(RunAsRoot: false)), on);
+        off.Sandbox!.RunAsRoot.Should().BeNull();
+        ProjectEntityMapping.ToProject("proj", off).Sandbox!.RunAsRoot.Should().BeNull();
+    }
+
     [Fact]
     public void ProjectPatch_AnEntityWithNoSandboxBlock_LeavesTheStoredBlockUntouched()
     {

@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-25-c5a7c
+goal: "Kubernetes sandbox pods can run in a namespace of their own, so a project's secret reference cannot project the server's secrets and the reference manifests ship that way."
+
+applies_to: "default (KubernetesSandboxRegistrations, KubernetesSandboxOptions) and deploy/k8s"
+
+requires: []
+
+facts:
+  - claim: "Sandbox pods are created in the server's own namespace, read from K8S_NAMESPACE, which the deployment fills from the pod's namespace."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/KubernetesSandboxRegistrations.cs:23-27, src/backend/AgentSmith.Server/Services/Sandbox/KubernetesSandboxFactory.cs:30, deploy/k8s/8-deployment-server.yaml:177-180"
+  - claim: "A project's sandbox.secrets reference is 'secretName:key' with no restriction on the name, and becomes a secretKeyRef the kubelet resolves in the pod's namespace."
+    evidence: "src/backend/AgentSmith.Application/Services/Sandbox/SandboxSecretsResolver.cs:19-23, src/backend/AgentSmith.Server/Services/Sandbox/SandboxSecretProjection.cs:16-23"
+  - claim: "The server's own credentials — Redis URL, database connection, webhook and chat secrets — live in agentsmith-secrets in that same namespace."
+    evidence: "deploy/k8s/8-deployment-server.yaml:55, deploy/k8s/8-deployment-server.yaml:80-99, deploy/k8s/8-deployment-server.yaml:121"
+  - claim: "Two example server Deployments and the secret script live beside the reference manifests."
+    evidence: "deploy/k8s/examples/airgap-deployment.yaml:43-46, deploy/k8s/examples/path-mode-deployment.yaml:49-52, deploy/apply-k8s-secret.sh:104"
+  - claim: "A startup probe reports a blocking sandbox-backend finding in this shape."
+    evidence: "src/backend/AgentSmith.Server/Services/Startup/SandboxBackendProbe.cs:11-21"
+  - claim: "Every Kubernetes call of the sandbox backend goes through one options.Namespace; the owner reference is never set."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/KubernetesSandboxFactory.cs:26-51, src/backend/AgentSmith.Server/Services/Sandbox/KubernetesCapacityProbe.cs:29, src/backend/AgentSmith.Server/Services/Sandbox/KubernetesSandboxCorpseReaper.cs:73, src/backend/AgentSmith.Server/Services/Sandbox/KubernetesSandboxOptions.cs:9"
+  - claim: "The sandbox owner identity is derived from the same Redis URL the sandbox is handed."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/KubernetesSandboxRegistrations.cs:30-32"
+  - claim: "The Role granting pods and resourcequotas lives in the server namespace; the docs call that the whole RBAC story."
+    evidence: "deploy/k8s/2-rbac.yaml:10-36, docs/host-it/kubernetes.md:28"
+  - claim: "Pull secrets are documented as created in the namespace."
+    evidence: "docs/host-it/kubernetes.md:92"
+
+scope:
+  in: >
+    No older spec covers this; it serves the credential-scoping goal 2026-09-03-b83e names, for the credentials
+    that exist today. Server: K8S_SANDBOX_NAMESPACE names where sandbox pods live (unset = K8S_NAMESPACE, today's behaviour);
+    SANDBOX_REDIS_URL is the URL a sandbox is handed (unset = REDIS_URL). The owner identity stays derived from
+    the server's REDIS_URL, so existing labels keep their value. When the two namespaces differ and
+    SANDBOX_REDIS_URL is unset, a new startup probe SandboxNamespaceProbe (SandboxBackendProbe's shape) records a
+    blocking finding naming SANDBOX_REDIS_URL, and the factory refuses to spawn with the same text (the short
+    service name does not resolve across namespaces). Reference manifests: namespace agentsmith-sandboxes in
+    1-namespace.yaml; a Role there, bound to the agentsmith ServiceAccount; the server-namespace Role stays, so
+    the two example Deployments, which this spec also gives the two variables, and any older deployment keep
+    working; the server deployment sets K8S_SANDBOX_NAMESPACE and SANDBOX_REDIS_URL from a new secret key
+    sandbox-redis-url (template and apply-k8s-secret.sh value redis.agentsmith.svc.cluster.local:6379).
+    Docker reads neither variable: a Docker sandbox reaches Redis by the compose service name. Docs: sandbox secrets, pull secrets and the ResourceQuota are
+    created in the sandbox namespace; the upgrade note says so before the apply command.
+  out: >
+    Network policy for that namespace: 2026-10-25-c5a7d. Restricting which secret names a project may name inside
+    the sandbox namespace: every secret there exists for sandboxes, which is the point. Docker: has no namespace;
+    its secrets are not projected at all.
+
+decisions:
+  - key: "A NAMESPACE, NOT A DENY LIST. A list of the server's secret names drifts with every manifest; a pod cannot reference a secret outside its namespace at all."
+  - key: "OPT-IN IN CODE, DEFAULT IN THE MANIFESTS. An existing deployment keeps working until it applies the new manifests; a new one starts separated."
+
+steps:
+  - id: options
+    action: "KubernetesSandboxRegistrations reads K8S_SANDBOX_NAMESPACE and SANDBOX_REDIS_URL into KubernetesSandboxOptions; the factory hands the sandbox URL; the startup finding."
+  - id: manifests
+    action: "1-namespace.yaml, 2-rbac.yaml, 4-secret-template.yaml, 8-deployment-server.yaml, both examples and apply-k8s-secret.sh as in scope."
+  - id: docs
+    action: "docs/host-it/kubernetes.md RBAC, pull-secret, sandbox-secret and quota paragraphs; upgrade note."
+
+tests:
+  - "KubernetesSandboxRegistrations_SandboxNamespaceSet_PodsGoThere"
+  - "KubernetesSandboxRegistrations_Unset_FallsBackToServerNamespaceAndRedisUrl"
+  - "KubernetesSandboxRegistrations_SandboxRedisUrl_OwnerIdentityStillFromRedisUrl"
+  - "SandboxNamespaceProbe_OtherNamespaceWithoutSandboxRedisUrl_IsBlocking"
+  - "KubernetesSandboxFactory_OtherNamespaceWithoutSandboxRedisUrl_RefusesToSpawn"
+  - "ReferenceManifests_EveryServerDeploymentNamesTheSandboxNamespaceAndARoleGrantsPodsThere (reads deploy/k8s and examples)"
+
+done:
+  - "with the reference manifests a sandbox pod runs in agentsmith-sandboxes and a sandbox secret naming agentsmith-secrets fails to start the pod"
+  - "a deployment that sets neither variable behaves as today"
+  - "build green, full suite green"

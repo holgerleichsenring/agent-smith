@@ -32,6 +32,7 @@ public sealed class ReviewSpecDiffHandler(
     SpecDiffReviewer reviewer,
     SpecReviewPublisher publisher,
     RatifiedMockReview ratifiedMocks,
+    DiffReviewTemplates templates, // 2026-10-25-54beb: borrowed from the run, never disposed here
     ILogger<ReviewSpecDiffHandler> logger)
     : ICommandHandler<ReviewSpecDiffContext>
 {
@@ -62,11 +63,12 @@ public sealed class ReviewSpecDiffHandler(
         var diffs = await specDiffs.TakeAsync(
             pipeline, sandboxes.Where(s => !sandboxTargets.IsSecondary(pipeline, s.Key)).ToDictionary(), cancellationToken);
         var mock = ratifiedMocks.Offer(pipeline, draft, diffs);
-        await using var look = looks.OnTerms(pipeline, mock.Terms);
+        var (borrowed, advice) = await templates.BorrowAsync(pipeline, draft.Contexts, cancellationToken);
+        await using var look = looks.OnTerms(pipeline, mock.Terms, borrowed: borrowed);
         var principles = pipeline.TryGet<string>(ContextKeys.CodingPrinciples, out var p) ? p : null;
         var contract = pipeline.TryGet<SpecSet>(ContextKeys.SpecSet, out var set) ? set?.Contract : null;
         var report = await reviewer.ReviewAsync(
-            draft, principles, diffs, look, context.AgentConfig, tracker, cancellationToken, contract, mock);
+            draft, principles, diffs, look, context.AgentConfig, tracker, cancellationToken, contract, mock, advice);
 
         return await RecordAsync(
             pipeline, draft, report, Summary(report, diffs) + mock.After(pipeline), sandboxes, cancellationToken);

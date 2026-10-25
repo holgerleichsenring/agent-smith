@@ -49,22 +49,32 @@ public sealed class PackageCacheTests
     {
         var caches = BuildCaches(Mock.Of<IDockerClient>(), enabled: true);
 
-        caches.Volumes.Should().HaveCount(PackageCacheCatalog.All.Count);
-        caches.Volumes.Should().AllSatisfy(v => v.VolumeName.Should().Be($"agentsmith-pkgcache-{v.Cache.Ecosystem}"));
-        caches.Volumes.Single(v => v.Cache.Ecosystem == "nuget").Bind
+        caches.Volumes(SandboxSecurityContext.Root).Should().HaveCount(PackageCacheCatalog.All.Count);
+        caches.Volumes(SandboxSecurityContext.Root).Should().AllSatisfy(v => v.VolumeName.Should().Be($"agentsmith-pkgcache-{v.Cache.Ecosystem}"));
+        caches.Volumes(SandboxSecurityContext.Root).Single(v => v.Cache.Ecosystem == "nuget").Bind
             .Should().Be($"agentsmith-pkgcache-nuget:{PackageCacheCatalog.Root}/nuget");
+    }
+
+    // 2026-10-25-c5a7b: caches root sandboxes wrote are never handed to uid 1000.
+    [Fact]
+    public void DockerPackageCaches_Hardened_NamesCachesWithTheUid()
+    {
+        var caches = BuildCaches(Mock.Of<IDockerClient>(), enabled: true);
+
+        caches.Volumes(SandboxSecurityContext.Hardened)
+            .Should().AllSatisfy(v => v.VolumeName.Should().Be($"agentsmith-pkgcache-{v.Cache.Ecosystem}-1000"));
     }
 
     [Fact]
     public void Volumes_CacheDisabled_IsEmpty()
     {
-        BuildCaches(Mock.Of<IDockerClient>(), enabled: false).Volumes.Should().BeEmpty();
+        BuildCaches(Mock.Of<IDockerClient>(), enabled: false).Volumes(SandboxSecurityContext.Root).Should().BeEmpty();
     }
 
     [Fact]
     public void EnvAssignments_RenderEachEnvVarInDockerForm()
     {
-        var volume = BuildCaches(Mock.Of<IDockerClient>(), enabled: true).Volumes
+        var volume = BuildCaches(Mock.Of<IDockerClient>(), enabled: true).Volumes(SandboxSecurityContext.Root)
             .Single(v => v.Cache.Ecosystem == "nuget");
 
         volume.EnvAssignments.Should().Contain($"NUGET_PACKAGES={PackageCacheCatalog.Root}/nuget/packages");
@@ -75,7 +85,7 @@ public sealed class PackageCacheTests
     {
         var (docker, created) = BuildDockerMock();
 
-        var volumes = await BuildCaches(docker, enabled: true).EnsureAsync(CancellationToken.None);
+        var volumes = await BuildCaches(docker, enabled: true).EnsureAsync(SandboxSecurityContext.Root, CancellationToken.None);
 
         created.Should().BeEquivalentTo(volumes.Select(v => v.VolumeName));
     }
@@ -85,7 +95,7 @@ public sealed class PackageCacheTests
     {
         var (docker, created) = BuildDockerMock();
 
-        var volumes = await BuildCaches(docker, enabled: false).EnsureAsync(CancellationToken.None);
+        var volumes = await BuildCaches(docker, enabled: false).EnsureAsync(SandboxSecurityContext.Root, CancellationToken.None);
 
         volumes.Should().BeEmpty();
         created.Should().BeEmpty();

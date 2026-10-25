@@ -85,14 +85,12 @@ public enum EventType
     // the trail can, and a record of what happened staying a record is the one job
     // p0393 left the ledger.
     LedgerTransitionsRecorded = 76,
-    // p0405: the executor's live command list from a given step onwards —
-    // published when the list is established and again on every splice, so the
-    // run detail can say what is still COMING instead of only how many are left.
+    // p0405: the executor's live command list from a given step onwards — published when the list is
+    // established and again on every splice, so the run detail can say what is still COMING, not how many are left.
     PipelineStepsPlanned = 77,
-    // p0413: the SHAPE of the work as the scope classifier stated it
-    // (deterministic transformation / judgement / mixed) plus its one-line
-    // reason — the signal that decides how the ticket is cut, persisted on the
-    // run row so the run view can show why it got the process it got.
+    // p0413: the SHAPE of the work as the scope classifier stated it (deterministic transformation / judgement /
+    // mixed) plus its one-line reason — the signal that decides how the ticket is cut, persisted on the run row so
+    // the run view can show why it got the process it got.
     RunWorkShapeResolved = 78,
     // p0466: a spec of the derived sequence changed standing (selected /
     // through / stopped). Projected into the RunSpec row so a finished spec
@@ -117,4 +115,6 @@ public enum EventType
     SpecCutReviewed = 86,
     SpecReviewRound = 87,
     DefaultDecisionTaken = 88,
+    // 2026-10-25-9324b: the memories a spec relied on, or one a master disputed.
+    MemoryUseRecorded = 89,
 }

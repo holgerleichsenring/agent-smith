@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-25-ff3b
+goal: "Sandbox hardening is an installation opt-in: off, sandboxes run as before 2026-10-25-c5a7a; on, as uid 1000 with no capabilities, and a project may opt back to root with a warning."
+
+applies_to: "default (SandboxGlobalConfig, SandboxSecurityContext, SandboxSpecBuilder, PodSecurity, run preflight, Settings studio)"
+
+requires: ["2026-10-25-c5a7a"]
+
+facts:
+  - claim: "2026-10-25-c5a7a made the hardened profile the default of the record, and a spec without a profile is hardened."
+    evidence: "src/backend/AgentSmith.Contracts/Sandbox/SandboxSecurityContext.cs:8, src/backend/AgentSmith.Contracts/Sandbox/SandboxSecurityContext.cs:13, src/backend/AgentSmith.Server/Services/Sandbox/PodSpecBuilder.cs:20"
+  - claim: "The spec builder resolves the profile from the project's run_as_root alone."
+    evidence: "src/backend/AgentSmith.Application/Services/Builders/SandboxSpecBuilder.cs:64-65"
+  - claim: "The root warning and the prerequisite hint read only the project's run_as_root."
+    evidence: "src/backend/AgentSmith.Application/Services/Preflight/Run/SandboxRunsAsRootCheck.cs:27, src/backend/AgentSmith.Application/Services/Handlers/EnsurePrerequisitesHandler.cs:68"
+  - claim: "Installation-wide sandbox settings live in SandboxGlobalConfig (agentsmith.yml top-level sandbox:), edited in the Settings studio's Sandbox form."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Configuration/SandboxGlobalConfig.cs:99, src/backend/AgentSmith.Contracts/Models/Configuration/SandboxGlobalConfig.cs:116, src/dashboard/src/components/config/SettingsForm.tsx:127, src/dashboard/src/components/config/SettingsForm.tsx:166-167"
+  - claim: "The round-trip probe builds its spec without the spec builder, so it carries no profile."
+    evidence: "src/backend/AgentSmith.Application/Services/Preflight/SandboxRoundTripProbe.cs:30"
+
+scope:
+  in: >
+    Operator decision of 2026-10-25, after 2026-10-25-c5a7a shipped hardened by default. sandbox.hardening_enabled
+    (SandboxGlobalConfig.HardeningEnabled, default false) in agentsmith.yml, the config schema and the Settings
+    studio's Sandbox form. SandboxSecurityContext gains Confined; Unconfined (root, not confined) is the profile
+    of a spec that carries none, and the pod is then exactly what it was before 2026-10-25-c5a7a: fsGroup only, no
+    container securityContext, no seccomp, the token default. SandboxSecurityContext.For(hardeningEnabled,
+    projectRunsAsRoot) resolves: off -> Unconfined; on -> Hardened, or Root (c5a7a's confined root) for a
+    run_as_root project. The spec builder, the sandbox-runs-as-root warning (only when hardening is on) and the
+    prerequisite hint (only when hardening is on and the project is not root) read it. Docs: kubernetes.md and
+    the settings and agentsmith-yml reference pages say how to turn it on and what to check first.
+  out: >
+    The Docker backend honours the same profile in 2026-10-25-c5a7b, not here. An environment-variable fallback:
+    no comparable boolean sandbox setting has one. Per-project opt-in to hardening: the operator decided the
+    switch is installation-wide.
+
+decisions:
+  - key: "OFF IS THE PRE-C5A7A POD, NOT C5A7A'S ROOT PROFILE. The operator asked for today's behaviour by default; seccomp, no escalation and no token come with the switch."
+  - key: "NO WARNING WHILE HARDENING IS OFF. Every sandbox runs as root then; a per-run warning for run_as_root would say nothing the installation did not choose."
+
+steps:
+  - id: config
+    action: "SandboxGlobalConfig.HardeningEnabled, schema entry, dashboard SandboxSetting and a toggle in the Sandbox settings form."
+  - id: profile
+    action: "SandboxSecurityContext.Confined, Unconfined and For; PodSecurity renders Unconfined as the old pod; PodSpecBuilder defaults to Unconfined."
+  - id: readers
+    action: "SandboxSpecBuilder, SandboxRunsAsRootCheck and EnsurePrerequisitesHandler resolve through For with the global setting."
+  - id: docs
+    action: "kubernetes.md, configure-it/settings.md, agentsmith-yml.md."
+
+tests:
+  - "PodSpecBuilder_HardeningOff_PodIsUnchangedFromBeforeHardening"
+  - "SandboxSpecBuilder_HardeningOff_ResolvesUnconfinedEvenForRunAsRoot"
+  - "SandboxSpecBuilder_HardeningOn_ResolvesHardened"
+  - "SandboxSpecBuilder_HardeningOnAndRunAsRoot_ResolvesRoot"
+  - "SandboxRunsAsRootCheck_HardeningOff_Passes"
+  - "EnsurePrerequisitesHandler_HardeningOff_DoesNotNameRunAsRoot"
+  - "SettingsForm: the hardening toggle sends hardeningEnabled (vitest)"
+
+done:
+  - "an installation that sets nothing gets the sandbox pod it had before 2026-10-25-c5a7a"
+  - "with sandbox.hardening_enabled true, a default project runs hardened and a run_as_root project runs as root with the warning"
+  - "build green, full suite green, dashboard gen/test/build green"

@@ -11,6 +11,7 @@ const SURFACE_BY_SEGMENT: Record<string, string> = {
   system: "system view",
   "pull-requests": "pull requests",
   tickets: "ticket list",
+  delivery: "delivery overview",
 };
 
 export function routeSurfaceName(pathname: string | null | undefined): string {

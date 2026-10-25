@@ -5,7 +5,8 @@ namespace AgentSmith.Infrastructure.Persistence.Configurations;
 /// <summary>
 /// 2026-10-02-5ab2a: the tables a server keeps ABOUT ITSELF — the callers it has seen and the
 /// state it must not lose when Redis is flushed. Grouped like TicketRecordConfigurations, so
-/// the context stays at its length limit as later state tables join.
+/// the context stays at its length limit as later state tables join. 2026-10-25-9324a: and what its runs
+/// taught it — the memory ledger, which outlives every run it came from.
 /// </summary>
 public sealed class ServerStateConfigurations
 {
@@ -21,5 +22,6 @@ public sealed class ServerStateConfigurations
         modelBuilder.ApplyConfiguration(new SweepCursorConfiguration()); // 2026-10-08-9e6e
         modelBuilder.ApplyConfiguration(new PrSweepRepositoryConfiguration()); // 2026-10-08-10b0
         modelBuilder.ApplyConfiguration(new PrSweepStateConfiguration());
+        modelBuilder.ApplyConfiguration(new MemoryEvidenceConfiguration()); // 2026-10-25-9324a
     }
 }

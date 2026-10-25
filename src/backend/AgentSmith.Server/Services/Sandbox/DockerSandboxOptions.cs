@@ -23,4 +23,7 @@ public sealed class DockerSandboxOptions
     /// exactly as it did before this spec.
     /// </summary>
     public bool PackageCacheEnabled { get; set; } = true;
+
+    /// <summary>2026-10-25-c5a7g: the proxy sandbox traffic goes through (SANDBOX_EGRESS_PROXY), or null.</summary>
+    public SandboxEgressProxy? EgressProxy { get; set; }
 }

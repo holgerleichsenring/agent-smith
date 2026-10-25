@@ -1,0 +1,178 @@
+# Agent Smith - sandbox egress proxy for Kubernetes (2026-10-25-c5a7g)
+#
+# Opt-in. Applying this file sends every sandbox's HTTP and HTTPS through a squid proxy
+# that allows only the domains in its allowlist, and REPLACES the NetworkPolicy of
+# deploy/k8s/sandbox-isolation/3-networkpolicy-sandbox.yaml (same name and namespace):
+# sandboxes may then reach only DNS, Redis and this proxy. Policies are additive, so a second
+# object would leave 80 and 443 open beside the proxy; this one takes the place of the first.
+#
+# Requires deploy/k8s/sandbox-isolation/ to be turned on first (see its README.md): the
+# policy lives in agentsmith-sandboxes, which only that folder creates, and it only applies
+# to sandboxes once the server runs them there.
+#
+# Before applying:
+#   1. Edit the allowlist below: add your private git host, feeds and registries.
+#   2. Set SANDBOX_EGRESS_PROXY on the server deployment:
+#        - name: SANDBOX_EGRESS_PROXY
+#          value: "http://agentsmith-egress-proxy.agentsmith.svc.cluster.local:3128"
+#   3. Apply this file after deploy/k8s/sandbox-isolation/, and again after every apply of
+#      that folder, which would put the public web rule back.
+#
+# Not covered: render_reference. The browser image's own guard dials targets directly,
+# so renders fail under this policy; a deployment that needs them keeps the public rule.
+# JVM builds (they read JAVA_TOOL_OPTIONS or settings.xml, not HTTP_PROXY) and Node's
+# built-in fetch ignore the proxy variables and fail closed.
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: agentsmith-egress-proxy
+  namespace: agentsmith
+  labels:
+    app: agentsmith-egress-proxy
+    app.kubernetes.io/name: agentsmith
+    app.kubernetes.io/component: egress-proxy
+data:
+  allowlist.txt: |
+    # Agent Smith - egress proxy allowlist (2026-10-25-c5a7g)
+    #
+    # One domain per line. A leading dot matches the domain and every subdomain. Do not list
+    # a domain twice or a subdomain of a listed domain: squid refuses overlapping entries.
+    # Add your private git host, feed and registry here; anything not listed is refused
+    # with a 403 from the proxy.
+
+    # Public git hosts
+    .github.com
+    .githubusercontent.com
+    .gitlab.com
+    .dev.azure.com
+    .visualstudio.com
+    .bitbucket.org
+
+    # Package feeds
+    .nuget.org
+    .npmjs.org
+    .pypi.org
+    .pythonhosted.org
+    .golang.org
+    .crates.io
+  squid.conf: |
+    # Agent Smith - egress proxy configuration (2026-10-25-c5a7g)
+    #
+    # Sandboxes send HTTP and HTTPS through this proxy. HTTPS is a CONNECT tunnel to port 443
+    # and is not intercepted; the host in the CONNECT request is what the allowlist judges.
+
+    http_port 3128
+
+    acl allowlist dstdomain "/etc/squid/allowlist.txt"
+    acl SSL_ports port 443
+    acl Safe_ports port 80 443
+    acl CONNECT method CONNECT
+
+    http_access deny !Safe_ports
+    http_access deny CONNECT !SSL_ports
+    http_access allow allowlist
+    http_access deny all
+
+    cache deny all
+    access_log stdio:/dev/stdout
+    cache_log /dev/stderr
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: agentsmith-egress-proxy
+  namespace: agentsmith
+  labels:
+    app: agentsmith-egress-proxy
+    app.kubernetes.io/name: agentsmith
+    app.kubernetes.io/component: egress-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: agentsmith-egress-proxy
+  template:
+    metadata:
+      labels:
+        app: agentsmith-egress-proxy
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: squid
+          image: ubuntu/squid:6.6-24.04_edge@sha256:8a3baed477e2c282ab8aa5edad442f69873246964f225c5c2ae8364b6610963c
+          ports:
+            - containerPort: 3128
+          volumeMounts:
+            - name: config
+              mountPath: /etc/squid/squid.conf
+              subPath: squid.conf
+            - name: config
+              mountPath: /etc/squid/allowlist.txt
+              subPath: allowlist.txt
+          resources:
+            requests: { cpu: 50m, memory: 64Mi }
+            limits: { cpu: 500m, memory: 256Mi }
+      volumes:
+        - name: config
+          configMap:
+            name: agentsmith-egress-proxy
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: agentsmith-egress-proxy
+  namespace: agentsmith
+  labels:
+    app: agentsmith-egress-proxy
+spec:
+  type: ClusterIP
+  selector:
+    app: agentsmith-egress-proxy
+  ports:
+    - name: proxy
+      port: 3128
+      targetPort: 3128
+      protocol: TCP
+---
+# Replaces the object of sandbox-isolation/3-networkpolicy-sandbox.yaml: DNS, Redis and the proxy only.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: agentsmith-sandbox
+  namespace: agentsmith-sandboxes
+  labels:
+    app.kubernetes.io/name: agentsmith
+    app.kubernetes.io/component: sandbox-network
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+          podSelector:
+            matchLabels:
+              k8s-app: kube-dns
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: agentsmith
+          podSelector:
+            matchLabels:
+              app: redis
+      ports:
+        - { protocol: TCP, port: 6379 }
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: agentsmith
+          podSelector:
+            matchLabels:
+              app: agentsmith-egress-proxy
+      ports:
+        - { protocol: TCP, port: 3128 }

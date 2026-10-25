@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-25-9324a
+goal: "Every fact about a memory's use — relied on, confirmed, strained, contradicted — is kept per repository and slug in a ledger that outlives the run it came from."
+
+applies_to: "default (persistence, memory)"
+
+requires: []
+
+facts:
+  - claim: "A memory file carries name, description, type and an optional status; no counters, no dates."
+    evidence: "src/backend/AgentSmith.Application/Services/Memory/MemoryEntrySerializer.cs:13-27"
+  - claim: "The only DB trace of a memory is a RunDefaultDecisions row of kind memory-proposal, with no repository column, deleted with its run."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Entities/RunDefaultDecision.cs:8-46, src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunDeletionRepository.cs:73"
+  - claim: "Every per-spec signal (RunSpec, RunCriterionJudgement, RunSpecReviewRound, RunEvent) is deleted with its run."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Repositories/RunDeletionRepository.cs:56-95"
+  - claim: "RepoKey.Of normalises a repository URL into a stable key."
+    evidence: "src/backend/AgentSmith.Infrastructure/Services/Webhooks/RepoKey.cs:8"
+  - claim: "Migrations are generated twice: the shared set and the SQL Server assembly."
+    evidence: "src/backend/AgentSmith.Infrastructure.Persistence/Extensions/PersistenceOptionsExtensions.cs:23-36"
+
+scope:
+  in: >
+    RepoKey moves to Contracts. Entity MemoryEvidence (Id, RepoKey, Slug, Kind relied|confirmed|strained|contradicted,
+    Weight, Project, TicketId, RunId and SpecId as plain values, EventSeq nullable for replay dedupe, Reason, CriterionKey nullable for 9324c's retraction, At),
+    indexed on (RepoKey, Slug), registered through an aggregate configuration (AgentSmithDbContext is at 120 lines).
+    A port in Contracts to replace a run-spec's rows of one kind, upsert one outcome row per (run, spec, slug), append,
+    and read a repository's evidence; a null implementation by default, the DB one registered with persistence. A run's
+    repository name becomes a key through the resolved project's repo URL and RepoKey.Of. Migrations of one name in
+    both sets; DataArchiveSchemaTests counts 43 tables. Run deletion leaves these rows alone by design.
+  out: >
+    Who writes evidence (9324b, 9324c) and what it is worth (9324d).
+
+steps:
+  - id: build
+    action: "Entity, configuration, repository port and implementation, both migrations; tests first; build; run affected classes."
+
+tests:
+  - "MemoryEvidenceRepository_Append_ReadsBackByRepository"
+  - "RunDeletion_LeavesMemoryEvidence"
+  - "MemoryEvidence_UpsertOutcome_ReplacesKindForSameRunSpecSlug"
+
+done:
+  - "Deleting a run whose spec confirmed a memory leaves that confirmation readable by repository and slug."
+  - "Build green, full suite green, dashboard gen/test/build green."

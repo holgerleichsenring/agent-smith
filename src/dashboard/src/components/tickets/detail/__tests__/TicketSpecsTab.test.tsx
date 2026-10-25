@@ -316,6 +316,16 @@ describe("Ticket specs tab build note", () => {
     await open();
     expect(screen.queryByTestId("spec-build-note")).toBeNull();
   });
+
+  it("BuildNote_Entry_SitsInTheTextColumnBehindAMark", async () => {
+    nav.search = "tab=specs&spec=s1";
+    const note = { missing: false, renamed: [], moved: [], persisted: ["Section:Key in Sample.Worker"], deviations: [] };
+    world.series = { ...world.series, default: series("r-3", [{ ...s1, buildNote: note }, s2, s3], { attempt: 3 }) };
+    await open();
+    const [mark, text] = Array.from(screen.getByTestId("build-note-entry").children);
+    expect(mark).toHaveClass("m");
+    expect(text).toHaveTextContent("Section:Key in Sample.Worker");
+  });
 });
 
 // 2026-10-14-9f80b: attempts that predate the cut — the series their runs recorded, served as source run-record.

@@ -67,6 +67,8 @@ internal sealed class ToolImageLoopFixture
             new CompactionSummaryRequest(),
             new WindowDerivedCompaction(),
             new ToolImageRelay(_frames, new ToolImageMessageComposer()),
+            new AgentSmith.Contracts.Runs.SecretMasker(new AgentSmith.Contracts.Services.LoadedSecretValues(
+                AgentSmith.Contracts.Models.Configuration.AgentSmithConfig.Empty())),
             NullLoggerFactory.Instance);
 
     private sealed class Builder(string type, IChatClient chat, bool acceptsImage) : IChatClientBuilder

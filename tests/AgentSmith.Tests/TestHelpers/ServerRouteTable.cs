@@ -1,3 +1,4 @@
+using System.Reflection;
 using AgentSmith.Server.Extensions;
 using AgentSmith.Server.Security;
 using AgentSmith.Server.Services;
@@ -54,5 +55,6 @@ internal static class ServerRouteTable
         endpoint.RoutePattern.RawText ?? string.Empty,
         endpoint.Metadata.GetMetadata<RequiresPermission>()?.Names ?? [],
         endpoint.Metadata.GetMetadata<AnonymousRoute>()?.Reason,
-        endpoint.Metadata.GetMetadata<ProjectFrom>());
+        endpoint.Metadata.GetMetadata<ProjectFrom>(),
+        endpoint.Metadata.GetMetadata<MethodInfo>());
 }

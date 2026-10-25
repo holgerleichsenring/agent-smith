@@ -60,6 +60,7 @@ public static class EventTypeResolver
         EventType.SpecCutReviewed => typeof(SpecCutReviewedEvent), // 2026-10-13-9a59g
         EventType.SpecReviewRound => typeof(SpecReviewRoundEvent), // 2026-10-13-8762e
         EventType.DefaultDecisionTaken => typeof(DefaultDecisionTakenEvent), // 2026-10-13-8762o
+        EventType.MemoryUseRecorded => typeof(MemoryUseRecordedEvent), // 2026-10-25-9324b
         _ => null
     };
 

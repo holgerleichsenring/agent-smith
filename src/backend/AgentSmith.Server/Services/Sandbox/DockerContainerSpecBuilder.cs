@@ -6,9 +6,10 @@ namespace AgentSmith.Server.Services.Sandbox;
 /// <summary>
 /// Builds the CreateContainerParameters pair for the sandbox: an agent-loader
 /// initContainer that copies /agent into a shared volume, and a toolchain main
-/// container that runs /shared/agent against a separate /work volume.
+/// container that runs /shared/agent against a separate /work volume. The security
+/// profile's fields are <see cref="DockerHardening"/>'s.
 /// </summary>
-public sealed class DockerContainerSpecBuilder(SandboxOwnerIdentity owner)
+public sealed class DockerContainerSpecBuilder(SandboxOwnerIdentity owner, DockerHardening hardening)
 {
     public const string SharedMount = "/shared";
     public const string WorkMount = "/work";
@@ -26,17 +27,13 @@ public sealed class DockerContainerSpecBuilder(SandboxOwnerIdentity owner)
     /// to. The orphan reaper reads it to tell a held sandbox from a corpse.</summary>
     public const string ConversationIdLabel = "agent-smith.conversation-id";
 
-    public CreateContainerParameters BuildLoader(string containerName, string sharedVolume, string agentImage) => new()
+    public CreateContainerParameters BuildLoader(
+        string containerName, string sharedVolume, string agentImage, SandboxSecurityContext profile)
     {
-        Name = containerName,
-        Image = agentImage,
-        Cmd = ["--inject", $"{SharedMount}/agent"],
-        HostConfig = new HostConfig
-        {
-            AutoRemove = false,
-            Binds = [$"{sharedVolume}:{SharedMount}"]
-        }
-    };
+        var host = new HostConfig { AutoRemove = false, Binds = [$"{sharedVolume}:{SharedMount}"] };
+        hardening.HardenLoader(host, profile);
+        return new() { Name = containerName, Image = agentImage, Cmd = ["--inject", $"{SharedMount}/agent"], HostConfig = host };
+    }
 
     /// <param name="packageCaches">
     /// p0407: persistent caches to mount and point the toolchain at. Empty (the default)
@@ -44,8 +41,7 @@ public sealed class DockerContainerSpecBuilder(SandboxOwnerIdentity owner)
     /// </param>
     public CreateContainerParameters BuildToolchain(
         string containerName,
-        string sharedVolume,
-        string workVolume,
+        DockerSandboxVolumeSet volumes,
         string jobId,
         string redisUrl,
         SandboxSpec spec,
@@ -53,16 +49,20 @@ public sealed class DockerContainerSpecBuilder(SandboxOwnerIdentity owner)
     {
         Name = containerName,
         Image = spec.ToolchainImage,
+        User = hardening.User(Profile(spec)),
         // p0360b: --run-id arms the agent's run-alive idle guard (see PodSpecBuilder).
         // 2026-10-02-35b2: the Redis URL travels in REDIS_URL only — a command line is readable by every process.
         Cmd = string.IsNullOrEmpty(spec.RunId)
             ? [$"{SharedMount}/agent", "--job-id", jobId]
             : [$"{SharedMount}/agent", "--job-id", jobId, "--run-id", spec.RunId],
         WorkingDir = WorkMount,
-        Env = BuildEnv(jobId, redisUrl, packageCaches),
+        Env = [.. BuildEnv(jobId, redisUrl, packageCaches), .. hardening.ToolchainEnv(Profile(spec))],
         Labels = BuildLabels(jobId, spec.RunId, spec.ConversationId),
-        HostConfig = BuildHostConfig(sharedVolume, workVolume, spec, packageCaches)
+        HostConfig = BuildHostConfig(volumes, spec, packageCaches)
     };
+
+    private static SandboxSecurityContext Profile(SandboxSpec spec) =>
+        spec.SecurityContext ?? SandboxSecurityContext.Unconfined;
 
     private Dictionary<string, string> BuildLabels(string jobId, string? runId, string? conversationId)
     {
@@ -86,20 +86,16 @@ public sealed class DockerContainerSpecBuilder(SandboxOwnerIdentity owner)
         .. (packageCaches ?? []).SelectMany(c => c.EnvAssignments)
     ];
 
-    private static HostConfig BuildHostConfig(
-        string sharedVolume, string workVolume, SandboxSpec spec,
-        IReadOnlyList<PackageCacheVolume>? packageCaches)
+    private HostConfig BuildHostConfig(
+        DockerSandboxVolumeSet volumes, SandboxSpec spec, IReadOnlyList<PackageCacheVolume>? packageCaches)
     {
         var r = spec.Resources;
-        var binds = new List<string>
-        {
-            $"{sharedVolume}:{SharedMount}:ro",
-            $"{workVolume}:{WorkMount}"
-        };
+        var binds = new List<string> { $"{volumes.Shared}:{SharedMount}:ro" };
+        binds.AddRange(hardening.VolumeBinds(volumes, WorkMount));
         binds.AddRange((packageCaches ?? []).Select(c => c.Bind));
         if (spec.ExtraBinds is { Count: > 0 })
             binds.AddRange(spec.ExtraBinds);
-        return new HostConfig
+        var host = new HostConfig
         {
             AutoRemove = false,
             Binds = binds,
@@ -107,5 +103,7 @@ public sealed class DockerContainerSpecBuilder(SandboxOwnerIdentity owner)
             Memory = r.MemoryLimitToBytes(),
             MemoryReservation = r.MemoryRequestToBytes()
         };
+        hardening.HardenToolchain(host, Profile(spec));
+        return host;
     }
 }

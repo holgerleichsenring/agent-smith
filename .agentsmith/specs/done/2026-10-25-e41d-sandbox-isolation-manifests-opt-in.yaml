@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-25-e41d
+goal: "Applying deploy/k8s/ keeps sandboxes where they run today; namespace separation and the sandbox network policy live in an opt-in folder with steps to turn them on."
+
+applies_to: "deploy (k8s manifests, examples), docs/host-it and tests reading deploy/"
+
+requires: ["2026-10-25-c5a7c", "2026-10-25-c5a7d", "2026-10-25-c5a7g", "2026-10-25-ff3b"]
+
+facts:
+  - claim: "The reference namespace file creates agentsmith-sandboxes as its second document."
+    evidence: "deploy/k8s/1-namespace.yaml:8-17"
+  - claim: "2-rbac.yaml grants pods in agentsmith-sandboxes through a second Role and RoleBinding, agentsmith-sandbox-manager; the agentsmith-job-manager Role in agentsmith stays for deployments that have not moved."
+    evidence: "deploy/k8s/2-rbac.yaml:55-101, deploy/k8s/2-rbac.yaml:10-53"
+  - claim: "The server Deployment sets K8S_SANDBOX_NAMESPACE=agentsmith-sandboxes and SANDBOX_REDIS_URL from the secret key sandbox-redis-url; the air-gapped and path-mode examples do the same."
+    evidence: "deploy/k8s/8-deployment-server.yaml:181-190, deploy/k8s/examples/airgap-deployment.yaml:85-93, deploy/k8s/examples/path-mode-deployment.yaml:90-98"
+  - claim: "Unset, K8S_SANDBOX_NAMESPACE falls back to the server's namespace and SANDBOX_REDIS_URL to REDIS_URL; the blocking finding fires only when the namespaces differ without SANDBOX_REDIS_URL."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/KubernetesSandboxOptionsReader.cs:19-28, src/backend/AgentSmith.Server/Services/Sandbox/KubernetesSandboxOptions.cs:31-36"
+  - claim: "The capacity probe reads the ResourceQuota of the sandbox namespace."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/KubernetesCapacityProbe.cs:28-29"
+  - claim: "13-networkpolicy-sandbox.yaml lives in deploy/k8s/ and targets agentsmith-sandboxes, so kubectl apply -f deploy/k8s/ applies it."
+    evidence: "deploy/k8s/13-networkpolicy-sandbox.yaml:65-76"
+  - claim: "The egress proxy example replaces the sandbox policy by name and namespace and tells the operator to apply it after deploy/k8s/."
+    evidence: "deploy/k8s/examples/sandbox-egress-proxy.yaml:1-15, deploy/k8s/examples/sandbox-egress-proxy.yaml:134-139"
+  - claim: "Subfolders are not applied by kubectl apply -f deploy/k8s/ (no -R); examples/ already relies on that and is documented as off by default."
+    evidence: "docs/host-it/kubernetes.md:106"
+  - claim: "The secret template and the secret script carry sandbox-redis-url; it is unused unless SANDBOX_REDIS_URL is wired."
+    evidence: "deploy/k8s/4-secret-template.yaml:75-77, deploy/apply-k8s-secret.sh:105-106"
+  - claim: "Docker: DOCKER_NETWORK unset reads as empty and the factory then auto-detects the server's own network, as before c5a7d; only the compose example sets it."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/DockerSandboxOptionsReader.cs:18, src/backend/AgentSmith.Server/Services/Sandbox/DockerSandboxFactory.cs:53-78, deploy/docker-compose.example.yml:164-167"
+
+scope:
+  in: >
+    Operator decision: updating agent-smith must not force an infrastructure change. New folder
+    deploy/k8s/sandbox-isolation/ with 1-namespace-sandboxes.yaml (the moved Namespace), 2-rbac-sandboxes.yaml
+    (the moved Role and RoleBinding), 3-networkpolicy-sandbox.yaml (the moved policy, unchanged content) and a
+    README.md: what it does, what to prepare (sandbox Secrets, image pull secrets, ResourceQuota, the policy's
+    allowances, the sandbox-redis-url key), the two env vars for the server Deployment, how to verify. The env
+    entries leave 8-deployment-server.yaml and both examples. 4-secret-template.yaml and apply-k8s-secret.sh keep
+    the key with a comment that only sandbox-isolation uses it. The egress proxy example says it requires the
+    folder. Docs: kubernetes.md, docker-compose.md (separate network optional), troubleshooting. Tests: the
+    default Deployment sets neither variable; the folder keeps the namespace, RBAC and policy guarantees.
+  out: >
+    Code changes: the fallbacks already keep today's behaviour. The compose example keeps its sandbox network
+    (a copied file, not applied by an update). Sandbox hardening stays sandbox.hardening_enabled (ff3b).
+
+steps:
+  - id: tests
+    action: "Manifest tests read deploy/k8s/sandbox-isolation/; the default Deployment and examples carry neither variable."
+  - id: move
+    action: "git mv the policy, split the Namespace and the Role/RoleBinding out, README.md."
+  - id: env
+    action: "Remove the env entries from the three Deployments; reword the secret comments and the egress proxy example."
+  - id: docs
+    action: "kubernetes.md, docker-compose.md, docker-k8s-troubleshooting.md."
+
+tests:
+  - "SandboxNamespaceManifest_DefaultServerDeployments_SetNeitherSandboxVariable"
+  - "SandboxNamespaceManifest_IsolationFolder_GrantsPodsInTheSandboxNamespace"
+  - "SandboxNamespaceManifest_DefaultManifests_CreateNothingInTheSandboxNamespace"
+  - "SandboxNamespaceManifest_IsolationReadme_NamesBothServerVariables"
+  - "SandboxNetworkPolicyManifest_* read deploy/k8s/sandbox-isolation/3-networkpolicy-sandbox.yaml"
+  - "EgressProxyExample_PolicyHasTheIsolationPolicyNameAndNamespace_AndAllowsOnlyProxyDnsAndRedis"
+  - "EgressProxyExample_SaysItRequiresTheSandboxIsolationFolder"
+
+done:
+  - "kubectl apply -f deploy/k8s/ creates no agentsmith-sandboxes namespace, Role or NetworkPolicy and leaves the server env as before c5a7c"
+  - "the opt-in folder holds namespace, RBAC and policy with the same pinned content"
+  - "build green, affected tests green, full suite green at the gate"

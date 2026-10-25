@@ -55,6 +55,7 @@ internal static class MasterHandlerFixture
                 new AgentSmith.Application.Services.Specs.ProjectTemplateScopes(
                     templateScopes ?? new NoTemplateScopes(),
                     NullLogger<AgentSmith.Application.Services.Specs.ProjectTemplateScopes>.Instance),
+                CodingMasterTemplateTests.Advice(),
                 NullLogger<AgentSmith.Application.Services.Handlers.MasterTemplateScopes>.Instance),
             WebTool,
             new AgentSmith.Application.Services.Events.NoOpEventPublisher(),
@@ -78,8 +79,7 @@ internal static class MasterHandlerFixture
                     new AgentSmith.Application.Services.Handlers.SandboxTargets(),
                     NullLogger<AgentSmith.Application.Services.RepoWorkPusher>.Instance),
                 NullLogger<AgentSmith.Application.Services.RunWorkCheckpointer>.Instance),
-            new AgentSmith.Application.Services.Memory.MemoryIndexReader(Repositories(),
-                NullLogger<AgentSmith.Application.Services.Memory.MemoryIndexReader>.Instance),
+            AgentSmith.Tests.TestHelpers.MemoryStandings.IndexReader(Repositories()),
             dialogueTransport: null,
             Composition(maxSubAgents, subAgents, limits, figma, render),
             AgentSmith.Tests.TestHelpers.TurnActivityRecorder.Tools(),
@@ -117,6 +117,8 @@ internal static class MasterHandlerFixture
     internal static AgentSmith.Application.Services.Tools.MasterRecordToolHosts RecordHosts(
         IDecisionLogger decisions, AgentSmith.Contracts.Events.IEventPublisher? events = null) =>
         new(decisions, Repositories(), events ?? new AgentSmith.Application.Services.Events.NoOpEventPublisher(),
+            new AgentSmith.Application.Services.Memory.MemoryCitationResolver(new()),
+            AgentSmith.Tests.TestHelpers.MemoryStandings.Reader(),
             NullLogger<AgentSmith.Application.Services.Tools.MasterRecordToolHosts>.Instance);
 
     private static AgentSmith.Application.Services.Repositories.RunRepositoriesFactory Repositories() =>

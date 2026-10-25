@@ -34,4 +34,13 @@ public sealed class ProjectScope
         var own = Only.FirstOrDefault(name => ConfigNames.AreSame(name, requested));
         return own is null ? Of([]) : Single(own);
     }
+
+    /// <summary>2026-10-25-0099b: a request naming several projects — the union of each name narrowed alone.</summary>
+    public ProjectScope NarrowedTo(IReadOnlyCollection<string> requested)
+    {
+        var names = requested.Where(name => !string.IsNullOrEmpty(name)).ToList();
+        if (names.Count == 0) return this;
+        var admitted = names.SelectMany(name => Narrowed(name).Only!).Distinct(ConfigNames.Comparer).ToList();
+        return admitted.Count == 1 ? Single(admitted[0]) : Of(admitted);
+    }
 }

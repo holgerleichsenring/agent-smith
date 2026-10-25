@@ -10,6 +10,10 @@ namespace AgentSmith.Server.Services.Sandbox;
 /// that outlives the sandbox. The volumes are deliberately not per-job: they carry no
 /// run identity, are never removed on sandbox dispose, and do not match the per-job
 /// names the orphan reaper deletes — that persistence IS the cache.
+/// <para>
+/// 2026-10-25-c5a7b: a hardened sandbox's caches carry its uid in their name, so caches root
+/// sandboxes wrote stay untouched and the first hardened run per host restores cold once.
+/// </para>
 /// </summary>
 public sealed class DockerPackageCaches(
     IDockerClient docker,
@@ -23,8 +27,8 @@ public sealed class DockerPackageCaches(
     /// (SANDBOX_PACKAGE_CACHE=false), which leaves the sandbox exactly as it was:
     /// no bind, no env, a cold restore every run.
     /// </summary>
-    public IReadOnlyList<PackageCacheVolume> Volumes => options.PackageCacheEnabled
-        ? [.. PackageCacheCatalog.All.Select(c => new PackageCacheVolume(VolumeName(c), c))]
+    public IReadOnlyList<PackageCacheVolume> Volumes(SandboxSecurityContext profile) => options.PackageCacheEnabled
+        ? [.. PackageCacheCatalog.All.Select(c => new PackageCacheVolume(VolumeName(c, profile), c))]
         : [];
 
     /// <summary>
@@ -32,9 +36,10 @@ public sealed class DockerPackageCaches(
     /// Docker's volume create is idempotent for an existing name, so a warm host simply
     /// gets its existing volumes back.
     /// </summary>
-    public async Task<IReadOnlyList<PackageCacheVolume>> EnsureAsync(CancellationToken cancellationToken)
+    public async Task<IReadOnlyList<PackageCacheVolume>> EnsureAsync(
+        SandboxSecurityContext profile, CancellationToken cancellationToken)
     {
-        var volumes = Volumes;
+        var volumes = Volumes(profile);
         foreach (var volume in volumes)
         {
             await docker.Volumes.CreateAsync(
@@ -48,5 +53,6 @@ public sealed class DockerPackageCaches(
         return volumes;
     }
 
-    private static string VolumeName(PackageCacheMount cache) => $"{VolumePrefix}-{cache.Ecosystem}";
+    private static string VolumeName(PackageCacheMount cache, SandboxSecurityContext profile) =>
+        profile.RunAsRoot ? $"{VolumePrefix}-{cache.Ecosystem}" : $"{VolumePrefix}-{cache.Ecosystem}-{profile.Uid}";
 }

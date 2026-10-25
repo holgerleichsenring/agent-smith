@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-25-6c1f
+goal: "recall shows each memory's track record and marks a disputed one as disputed, so a memory the runs turned against is never read as guidance."
+
+applies_to: "default (MemoryRecallToolHost, MasterRecordToolHosts) and dashboard (DefaultRow)"
+
+requires: [2026-10-25-9324e]
+
+facts:
+  - claim: "recall formats each match as '## name (type[, status])', the description and the full body, with no standing."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/MemoryRecallToolHost.cs:50-64"
+  - claim: "The index already shows '(type, label · record)' per line and leaves disputed entries out, read by MemoryStandingReader per repository."
+    evidence: "src/backend/AgentSmith.Application/Services/Memory/MemoryIndexComposer.cs:24-31, src/backend/AgentSmith.Application/Services/Memory/MemoryStandingReader.cs:16-29"
+  - claim: "recall is built per master start with the run's repositories and no pipeline or standing reader."
+    evidence: "src/backend/AgentSmith.Application/Services/Tools/MasterRecordToolHosts.cs:35"
+  - claim: "The ticket defaults read never serves a memory-proposal row, so DefaultRow's pointer branch cannot render."
+    evidence: "src/backend/AgentSmith.Server/Services/Tickets/Defaults/TicketDefaultsReader.cs:43, src/dashboard/src/components/tickets/detail/DefaultRow.tsx:36"
+
+scope:
+  in: >
+    recall reads each repository's standing through MemoryStandingReader and heads each match '## name (type, label ·
+    record)', the same label and record the index shows; an entry's legacy status is no longer shown. A disputed match
+    leads with a plain marker line saying the runs contradicted it and it must not be acted on, and keeps its body so
+    the master can see why. MasterRecordToolHosts injects the reader. Dashboard: DefaultRow's memory-proposal pointer,
+    its constant, its CSS rule and its two tests are removed.
+  out: >
+    Hiding disputed matches from recall. Changing the standing calculation or the index.
+
+steps:
+  - id: build
+    action: "Tests first, recall standing, wiring, dashboard dead-branch removal, build, run affected classes and dashboard tests."
+
+tests:
+  - "Recall_ShowsStandingAndRecordPerMatch"
+  - "Recall_DisputedMatch_LeadsWithMarkerAndKeepsBody"
+  - "Recall_NoLedger_ReadsUnconfirmed"
+
+done:
+  - "A recall of a disputed memory starts its entry with the DISPUTED marker and still carries the body; a holding one shows its record."
+  - "Build green, full suite green, dashboard gen/test/build green."

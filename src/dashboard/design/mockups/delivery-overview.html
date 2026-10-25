@@ -1,0 +1,308 @@
+<title>Agent Smith Delivery Overview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: dashboard shell — scope bar, KPI strip, ticket timeline, then the why/where breakdowns and the ticket table. */
+:root {
+  --canvas: #fffefb; --canvas-soft: #f8f4f0; --panel: #ffffff; --line: #e7e1d8; --line-2: #f0ebe3;
+  --ink: #201515; --ink-2: #605d52; --ink-3: #939084;
+  --accent: #16a34a; --accent-wash: #e8f6ec;
+  --ok: #16a34a; --ok-wash: #e3f4e8; --warn: #b7791f; --warn-wash: #fbf1dc;
+  --bad: #c2410c; --bad-wash: #fbe7dc; --idle: #a8a296; --idle-wash: #efebe4; --live: #2563eb; --live-wash: #e3ebfb;
+  --sans: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --canvas: #17161a; --canvas-soft: #1e1d22; --panel: #211f25; --line: #34313a; --line-2: #2a282f;
+  --ink: #f1ede6; --ink-2: #bdb7ac; --ink-3: #8b867c; --accent: #4ade80; --accent-wash: #1d3325;
+  --ok: #4ade80; --ok-wash: #1c3224; --warn: #f0b45a; --warn-wash: #3a2f1c; --bad: #fb8a5c; --bad-wash: #3d241b;
+  --idle: #7b766d; --idle-wash: #2c2a2f; --live: #7aa7ff; --live-wash: #1d2840; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --canvas: #17161a; --canvas-soft: #1e1d22; --panel: #211f25; --line: #34313a; --line-2: #2a282f;
+  --ink: #f1ede6; --ink-2: #bdb7ac; --ink-3: #8b867c; --accent: #4ade80; --accent-wash: #1d3325;
+  --ok: #4ade80; --ok-wash: #1c3224; --warn: #f0b45a; --warn-wash: #3a2f1c; --bad: #fb8a5c; --bad-wash: #3d241b;
+  --idle: #7b766d; --idle-wash: #2c2a2f; --live: #7aa7ff; --live-wash: #1d2840; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { background: var(--canvas); color: var(--ink); font-family: var(--sans); font-size: 14px; margin: 0; }
+.wrap { max-width: 1240px; margin: 0 auto; padding-inline: 20px; padding-block: 22px 48px; display: grid; gap: 22px; }
+h1 { font-size: 22px; font-weight: 650; letter-spacing: -0.015em; margin: 0; text-wrap: balance; }
+h2 { font-size: 13px; font-weight: 650; margin: 0; letter-spacing: 0.01em; }
+.sub { color: var(--ink-2); margin: 4px 0 0; max-width: 70ch; }
+.mono { font-family: var(--mono); }
+.eyebrow { font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-3); }
+.mockflag { font-family: var(--mono); font-size: 10.5px; color: var(--warn); background: var(--warn-wash); border-radius: 4px; padding: 2px 6px; }
+
+.head { display: flex; flex-wrap: wrap; gap: 14px 24px; align-items: end; justify-content: space-between; }
+.scope { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--panel); }
+.seg button { font: inherit; font-size: 12.5px; border: 0; background: none; color: var(--ink-2); padding: 6px 12px; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--canvas); }
+.seg button:focus-visible, .chip:focus-visible, .bar:focus-visible, .trow:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip { font: inherit; font-size: 12px; border: 1px solid var(--line); background: var(--panel); color: var(--ink-2); border-radius: 999px; padding: 4px 10px; cursor: pointer; }
+.chip[aria-pressed="true"] { border-color: var(--accent); color: var(--ink); background: var(--accent-wash); }
+.rights { font-size: 12px; color: var(--ink-3); }
+
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
+.kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px 10px; display: grid; gap: 4px; min-width: 0; }
+.kpi .v { font-size: 24px; font-weight: 650; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; }
+.kpi .d { font-family: var(--mono); font-size: 11px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.kpi .d .up { color: var(--ok); } .kpi .d .down { color: var(--bad); }
+.kpi svg { width: 100%; height: 26px; display: block; }
+.kpi .src { font-family: var(--mono); font-size: 10px; color: var(--ink-3); }
+.kpi .src.new { color: var(--warn); }
+
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; display: grid; gap: 12px; min-width: 0; }
+.panel-head { display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: space-between; align-items: baseline; }
+.legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 11.5px; color: var(--ink-2); }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+
+.tl-scroll { overflow-x: auto; }
+.tl { min-width: 720px; display: grid; }
+.axis, .trow { display: grid; grid-template-columns: 250px 1fr; align-items: center; }
+.axis .ticks { position: relative; height: 22px; border-bottom: 1px solid var(--line); }
+.axis .ticks span { position: absolute; transform: translateX(-50%); font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); top: 3px; white-space: nowrap; }
+.trow { border-bottom: 1px solid var(--line-2); min-height: 34px; cursor: pointer; }
+.trow:hover { background: var(--canvas-soft); }
+.tlabel { display: grid; gap: 1px; padding: 5px 10px 5px 2px; min-width: 0; }
+.tlabel b { font-weight: 550; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tlabel small { font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); }
+.lane { position: relative; height: 34px; background-image: linear-gradient(to right, var(--line-2) 1px, transparent 1px); background-size: var(--grid, 14.2857%) 100%; }
+.bar { position: absolute; top: 9px; height: 16px; border-radius: 4px; min-width: 5px; border: 0; padding: 0; cursor: pointer; }
+.bar.merged { background: var(--ok); } .bar.shortfall { background: var(--warn); } .bar.failed { background: var(--bad); }
+.bar.cancelled { background: var(--idle); } .bar.running { background: var(--live); background-image: repeating-linear-gradient(45deg, transparent 0 5px, rgba(255,255,255,.28) 5px 10px); }
+.bar.rework::after { content: ""; position: absolute; left: -4px; top: -4px; width: 7px; height: 7px; border-radius: 50%; background: var(--ink); border: 2px solid var(--panel); }
+.mergemark { position: absolute; top: 6px; width: 2px; height: 22px; background: var(--ok); }
+.mergemark::after { content: "◆"; position: absolute; top: -8px; left: -4px; font-size: 9px; color: var(--ok); }
+
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 16px; }
+.hbar { display: grid; grid-template-columns: minmax(120px, 170px) 1fr 70px; gap: 10px; align-items: center; font-size: 12.5px; }
+.hbar .track { height: 10px; background: var(--line-2); border-radius: 5px; overflow: hidden; }
+.hbar .fill { height: 100%; border-radius: 5px; }
+.hbar .n { font-family: var(--mono); font-size: 11.5px; color: var(--ink-2); text-align: right; font-variant-numeric: tabular-nums; }
+.hbar .why { color: var(--ink-2); }
+
+.tbl-scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 12.5px; min-width: 760px; }
+th { text-align: left; font-family: var(--mono); font-size: 10.5px; font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-3); padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 8px; border-bottom: 1px solid var(--line-2); font-variant-numeric: tabular-nums; vertical-align: top; }
+td.num, th.num { text-align: right; }
+.pill { display: inline-block; font-family: var(--mono); font-size: 10.5px; padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
+.pill.merged { background: var(--ok-wash); color: var(--ok); } .pill.shortfall { background: var(--warn-wash); color: var(--warn); }
+.pill.failed { background: var(--bad-wash); color: var(--bad); } .pill.cancelled { background: var(--idle-wash); color: var(--ink-2); }
+.pill.running { background: var(--live-wash); color: var(--live); } .pill.open { background: var(--canvas-soft); color: var(--ink-2); }
+.did { color: var(--ink-2); font-size: 12px; max-width: 44ch; }
+
+.tip { position: fixed; z-index: 10; pointer-events: none; background: var(--ink); color: var(--canvas); border-radius: 8px; padding: 9px 11px; font-size: 12px; line-height: 1.45; max-width: 300px; box-shadow: 0 6px 24px rgba(0,0,0,.18); }
+.tip b { font-weight: 600; } .tip .m { font-family: var(--mono); font-size: 11px; opacity: .8; }
+
+.notes { display: grid; gap: 8px; font-size: 12.5px; color: var(--ink-2); }
+.notes li { margin-left: 18px; }
+.notes code { font-family: var(--mono); font-size: 11.5px; color: var(--ink); }
+@media (max-width: 560px) { .wrap { padding-inline: 16px; } .axis, .trow { grid-template-columns: 170px 1fr; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="head">
+    <div>
+      <div class="eyebrow">Insight <span class="mockflag">mock · sample data</span></div>
+      <h1>Delivery</h1>
+      <p class="sub">The tickets the agent worked on in this period. Each row is a ticket and each bar is one attempt. Hover a bar for its duration, cost and why it ended.</p>
+    </div>
+    <div class="scope">
+      <div class="seg" role="group" aria-label="Period">
+        <button id="p-day" data-p="day" aria-pressed="false">Day</button>
+        <button id="p-week" data-p="week" aria-pressed="true">Week</button>
+        <button id="p-month" data-p="month" aria-pressed="false">Month</button>
+      </div>
+    </div>
+  </header>
+
+  <div class="scope">
+    <div class="chips" id="projects" role="group" aria-label="Projects"></div>
+    <span class="rights" id="rights"></span>
+  </div>
+
+  <section class="kpis" id="kpis" aria-label="Key figures"></section>
+
+  <section class="panel" aria-labelledby="tl-h">
+    <div class="panel-head">
+      <h2 id="tl-h">Timeline <span class="mono" style="color:var(--ink-3);font-weight:400" id="tl-range"></span></h2>
+      <div class="legend">
+        <span><i style="background:var(--ok)"></i>Delivered</span>
+        <span><i style="background:var(--warn)"></i>Criteria not met</span>
+        <span><i style="background:var(--bad)"></i>Failed</span>
+        <span><i style="background:var(--idle)"></i>Cancelled</span>
+        <span><i style="background:var(--live)"></i>Running</span>
+        <span>● Rework</span>
+        <span style="color:var(--ok)">◆ PR merged</span>
+      </div>
+    </div>
+    <div class="tl-scroll"><div class="tl" id="tl"></div></div>
+  </section>
+
+  <div class="grid2">
+    <section class="panel" aria-labelledby="why-h">
+      <div class="panel-head"><h2 id="why-h">Why attempts ended</h2></div>
+      <div id="why" style="display:grid;gap:8px"></div>
+    </section>
+    <section class="panel" aria-labelledby="proj-h">
+      <div class="panel-head"><h2 id="proj-h">By project</h2></div>
+      <div class="tbl-scroll"><table id="proj" style="min-width:420px"></table></div>
+    </section>
+  </div>
+
+  <section class="panel" aria-labelledby="tk-h">
+    <div class="panel-head"><h2 id="tk-h">Tickets</h2><span class="sub" style="margin:0;font-size:12px">Latest activity first. A row opens the ticket.</span></div>
+    <div class="tbl-scroll"><table id="tickets"></table></div>
+  </section>
+
+  <section class="panel" aria-labelledby="gap-h">
+    <h2 id="gap-h">Data behind this page</h2>
+    <ul class="notes">
+      <li>Each run already stores <code>StartedAt</code>, <code>DurationSeconds</code>, <code>EndKind</code>, <code>CostTotalUsd</code> and its PRs. Each spec stores its status and verdict. List queries and hub groups are already filtered by project.</li>
+      <li>The current Overview adds up whatever runs the browser has loaded. For day, week and month it needs a server endpoint that applies the project filter before it groups.</li>
+      <li>Time to merge reads the merge time each pull request record already stores. Rework rounds read why each attempt began, which each attempt row already stores. The ticket outcome is the bucket the Tickets page shows.</li>
+    </ul>
+  </section>
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<script>
+(() => {
+  const PROJECTS = ["billing-service", "web-shop", "data-platform"];
+  const TITLES = ["Retry invoice export on timeout", "Add VAT breakdown to order summary", "Paginate customer search", "Migrate cron jobs to the scheduler", "Validate IBAN on payout form", "Cache product images at the edge", "Split nightly import into batches", "Expose order status webhook", "Fix rounding in currency conversion", "Archive closed carts after 90 days", "Add audit trail to price changes", "Upgrade ORM to the current major", "Health endpoint for the import worker", "Bulk edit for shipping rules", "Rate-limit the public search API", "Dark mode for the checkout", "Late-payment reminder emails", "Stream report downloads", "Remove legacy coupon table", "Typed client for the stock service", "Localise date formats", "Retry dead-lettered events", "Unify error responses", "Index the orders table by customer"];
+  const DID = ["2 specs · 1 repo · config + handler + tests", "3 specs · 2 repos · API, client and migration", "1 spec · UI component and story", "4 specs · scheduler, worker, docs", "2 specs · validator and form wiring", "1 spec · cache headers + CDN rule", "3 specs · batching, checkpoint, metrics", "2 specs · event contract + endpoint"];
+  const CAUSES = [["delivered", "All criteria met", "ok"], ["criteria-unmet", "Criteria not met", "warn"], ["preflight", "Preflight failed (build, deps)", "bad"], ["bootstrap-missing", "Repository not initialised", "bad"], ["superseded", "Superseded by a newer attempt", "idle"], ["cancelled", "Cancelled by a person", "idle"], ["image-untrusted", "Sandbox image not trusted", "bad"]];
+
+  let seed = 7;
+  const rnd = () => { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; };
+  const pick = a => a[Math.floor(rnd() * a.length)];
+
+  const SPAN = { day: 24, week: 24 * 7, month: 24 * 30 }; // hours
+  const NOW = new Date("2026-10-25T18:00:00Z");
+
+  function build(period) {
+    seed = period === "day" ? 11 : period === "week" ? 7 : 23;
+    const span = SPAN[period];
+    const n = period === "day" ? 9 : period === "week" ? 18 : 24;
+    const tickets = [];
+    for (let i = 0; i < n; i++) {
+      const project = PROJECTS[i % 3 === 2 && rnd() > 0.4 ? 2 : Math.floor(rnd() * 3)];
+      const attempts = [];
+      let t = rnd() * span * 0.75;
+      const tries = rnd() < 0.55 ? 1 : rnd() < 0.7 ? 2 : 3;
+      for (let a = 0; a < tries; a++) {
+        const dur = (period === "day" ? 0.3 : 0.5) + rnd() * (period === "month" ? 3 : 2.2);
+        const last = a === tries - 1;
+        let end = last ? (rnd() < 0.68 ? "merged" : pick(["shortfall", "failed", "cancelled"])) : pick(["shortfall", "failed", "failed", "shortfall"]);
+        if (last && t + dur > span - 0.5 && rnd() < 0.6) end = "running";
+        const cause = end === "merged" ? "delivered" : end === "shortfall" ? "criteria-unmet" : end === "cancelled" ? pick(["cancelled", "superseded"]) : end === "failed" ? pick(["preflight", "preflight", "bootstrap-missing", "image-untrusted"]) : null;
+        attempts.push({ start: t, dur: Math.min(dur, span - t), end, cause, cost: +(1.2 + rnd() * 9).toFixed(2), specs: [0, 0], rework: a > 0 && rnd() < 0.6 });
+        const total = 1 + Math.floor(rnd() * 4);
+        attempts[a].specs = [end === "merged" ? total : end === "running" ? Math.floor(total / 2) : Math.max(0, total - 1 - Math.floor(rnd() * 2)), total];
+        t += dur + 1 + rnd() * (span * 0.08);
+        if (t > span - 0.4) break;
+      }
+      const last = attempts[attempts.length - 1];
+      const mergedAt = last.end === "merged" && rnd() < 0.85 ? Math.min(span - 0.1, last.start + last.dur + 0.3 + rnd() * (period === "day" ? 2 : 14)) : null;
+      tickets.push({ id: 4400 + Math.floor(rnd() * 600), title: pick(TITLES), project, attempts, mergedAt, did: pick(DID) });
+    }
+    return tickets.sort((a, b) => lastAt(b) - lastAt(a));
+  }
+  const lastAt = t => Math.max(...t.attempts.map(a => a.start + a.dur), t.mergedAt || 0);
+  const outcome = t => { const e = t.attempts[t.attempts.length - 1].end; return e === "merged" ? (t.mergedAt != null ? "merged" : "open") : e; };
+
+  const state = { period: "week", on: new Set(PROJECTS) };
+  const $ = id => document.getElementById(id);
+  const usd = v => "$" + v.toFixed(2);
+  const dur = h => h < 1 ? Math.round(h * 60) + " min" : h < 48 ? h.toFixed(1) + " h" : (h / 24).toFixed(1) + " d";
+  const at = h => { const d = new Date(NOW.getTime() - (SPAN[state.period] - h) * 3600e3); return d.toISOString().slice(5, 16).replace("T", " "); };
+
+  function stats(ts) {
+    const att = ts.flatMap(t => t.attempts);
+    const merged = ts.filter(t => outcome(t) === "merged");
+    const spend = att.reduce((s, a) => s + a.cost, 0);
+    const ttm = merged.map(t => t.mergedAt - t.attempts[0].start).sort((a, b) => a - b);
+    const med = ttm.length ? ttm[Math.floor(ttm.length / 2)] : 0;
+    const rework = ts.length ? att.filter(a => a.rework).length / ts.length : 0;
+    return { tickets: ts.length, attempts: att.length, merged: merged.length, rate: ts.length ? merged.length / ts.length : 0, spend, perMerged: merged.length ? spend / merged.length : 0, med, rework, busy: att.reduce((s, a) => s + a.dur, 0) };
+  }
+  function spark(seedv, up) {
+    seed = seedv; const pts = Array.from({ length: 12 }, (_, i) => 0.35 + rnd() * 0.45 + (up ? i * 0.02 : -i * 0.012));
+    const max = Math.max(...pts), min = Math.min(...pts);
+    const xy = pts.map((p, i) => [i * (100 / 11), 24 - ((p - min) / (max - min || 1)) * 20]);
+    const line = xy.map(([x, y]) => x.toFixed(1) + "," + y.toFixed(1)).join(" ");
+    const [ex, ey] = xy[xy.length - 1];
+    return `<svg viewBox="0 0 100 26" preserveAspectRatio="none" aria-hidden="true"><polygon points="0,26 ${line} 100,26" fill="var(--accent-wash)"/><polyline points="${line}" fill="none" stroke="var(--accent)" stroke-width="1.4" vector-effect="non-scaling-stroke"/><circle cx="${ex}" cy="${ey}" r="2.2" fill="var(--accent)"/></svg>`;
+  }
+
+  function render() {
+    const all = build(state.period);
+    const ts = all.filter(t => state.on.has(t.project));
+    const s = stats(ts);
+    const label = { day: "vs yesterday", week: "vs last week", month: "vs last month" }[state.period];
+    const K = [
+      ["Tickets worked", s.tickets, "+3", true, "runs", 1],
+      ["Merged", s.merged, "+2", true, "PR records", 2],
+      ["Merge rate", Math.round(s.rate * 100) + "%", "+6 pt", true, "PR records", 3],
+      ["Median time to merge", dur(s.med), "−4.2 h", true, "no data yet", 4, true],
+      ["Rework rounds per ticket", s.rework.toFixed(2), "+0.1", false, "no data yet", 5, true],
+      ["Cost per merged PR", usd(s.perMerged), "−$1.10", true, "runs, PR records", 6],
+      ["Spend", usd(s.spend), "+$12.40", false, "runs", 7],
+      ["Agent hours", dur(s.busy), "+5.1 h", false, "runs", 8],
+    ];
+    $("kpis").innerHTML = K.map(([l, v, d, good, src, sd, isNew]) => `<div class="kpi"><div class="eyebrow">${l}</div><div class="v">${v}</div><div class="d"><span class="${good ? "up" : "down"}">${d}</span> ${label}</div>${spark(sd * 31 + state.period.length, good)}<div class="src${isNew ? " new" : ""}">${src}</div></div>`).join("");
+
+    const span = SPAN[state.period];
+    const ticks = state.period === "day" ? [0, 4, 8, 12, 16, 20, 24] : state.period === "week" ? [0, 24, 48, 72, 96, 120, 144, 168] : [0, 120, 240, 360, 480, 600, 720];
+    $("tl-range").textContent = at(0) + " → " + at(span) + " UTC";
+    const grid = (100 / (ticks.length - 1)).toFixed(4) + "%";
+    let html = `<div class="axis"><div class="eyebrow" style="padding-left:2px">Ticket</div><div class="ticks">${ticks.map(h => `<span style="left:${(h / span) * 100}%">${state.period === "day" ? String(new Date(NOW.getTime() - (span - h) * 3600e3).getUTCHours()).padStart(2, "0") + ":00" : at(h).slice(0, 5)}</span>`).join("")}</div></div>`;
+    html += ts.map((t, ti) => `<div class="trow" tabindex="0" data-t="${ti}" aria-label="#${t.id} ${t.title}"><div class="tlabel"><b>#${t.id} ${t.title}</b><small>${t.project} · ${t.attempts.length} attempt${t.attempts.length > 1 ? "s" : ""}</small></div><div class="lane" style="--grid:${grid}">${t.attempts.map((a, ai) => `<button class="bar ${a.end}${a.rework ? " rework" : ""}" data-t="${ti}" data-a="${ai}" style="left:${(a.start / span) * 100}%;width:${Math.max(0.6, (a.dur / span) * 100)}%" aria-label="Attempt ${ai + 1}: ${a.end}"></button>`).join("")}${t.mergedAt != null ? `<span class="mergemark" style="left:${(t.mergedAt / span) * 100}%"></span>` : ""}</div></div>`).join("");
+    $("tl").innerHTML = html;
+
+    const counts = {};
+    ts.flatMap(t => t.attempts).forEach(a => { if (a.cause) counts[a.cause] = (counts[a.cause] || 0) + 1; });
+    const max = Math.max(1, ...Object.values(counts));
+    $("why").innerHTML = CAUSES.filter(([k]) => counts[k]).sort((a, b) => counts[b[0]] - counts[a[0]]).map(([k, txt, tone]) => `<div class="hbar"><span class="why">${txt}</span><span class="track"><span class="fill" style="display:block;width:${(counts[k] / max) * 100}%;background:var(--${tone})"></span></span><span class="n">${counts[k]}</span></div>`).join("") || `<p class="sub">No attempt ended in this period.</p>`;
+
+    $("proj").innerHTML = `<thead><tr><th>Project</th><th class="num">Tickets</th><th class="num">Merged</th><th class="num">Rate</th><th class="num">Cost / merged</th><th class="num">Median attempt</th></tr></thead><tbody>${PROJECTS.filter(p => state.on.has(p)).map(p => { const pt = ts.filter(t => t.project === p); const ps = stats(pt); const d = pt.flatMap(t => t.attempts.map(a => a.dur)).sort((a, b) => a - b); return `<tr><td class="mono">${p}</td><td class="num">${ps.tickets}</td><td class="num">${ps.merged}</td><td class="num">${Math.round(ps.rate * 100)}%</td><td class="num">${usd(ps.perMerged)}</td><td class="num">${d.length ? dur(d[Math.floor(d.length / 2)]) : "—"}</td></tr>`; }).join("")}</tbody>`;
+
+    $("tickets").innerHTML = `<thead><tr><th>Ticket</th><th>Project</th><th>Outcome</th><th>What was done</th><th class="num">Attempts</th><th class="num">Specs</th><th class="num">Agent time</th><th class="num">Wall time</th><th class="num">Cost</th><th>Last activity</th></tr></thead><tbody>${ts.map(t => { const o = outcome(t); const last = t.attempts[t.attempts.length - 1]; const busy = t.attempts.reduce((s, a) => s + a.dur, 0); const wall = (t.mergedAt ?? lastAt(t)) - t.attempts[0].start; const cost = t.attempts.reduce((s, a) => s + a.cost, 0); return `<tr><td><b>#${t.id}</b> ${t.title}</td><td class="mono">${t.project}</td><td><span class="pill ${o}">${o === "open" ? "PR open" : o === "merged" ? "merged" : o}</span></td><td class="did">${t.did}</td><td class="num">${t.attempts.length}</td><td class="num">${last.specs[0]}/${last.specs[1]}</td><td class="num">${dur(busy)}</td><td class="num">${dur(wall)}</td><td class="num">${usd(cost)}</td><td class="mono" style="white-space:nowrap">${at(lastAt(t))}</td></tr>`; }).join("")}</tbody>`;
+
+    $("rights").textContent = `Your projects`;
+    window.__ts = ts;
+  }
+
+  function chips() {
+    $("projects").innerHTML = PROJECTS.map(p => `<button class="chip" data-proj="${p}" aria-pressed="${state.on.has(p)}">${p}</button>`).join("");
+  }
+
+  document.addEventListener("click", e => {
+    const pb = e.target.closest("[data-p]");
+    if (pb) { state.period = pb.dataset.p; document.querySelectorAll("[data-p]").forEach(b => b.setAttribute("aria-pressed", b === pb)); render(); return; }
+    const cb = e.target.closest("[data-proj]");
+    if (cb) { const p = cb.dataset.proj; if (state.on.has(p) && state.on.size > 1) state.on.delete(p); else state.on.add(p); chips(); render(); }
+  });
+
+  const tip = $("tip");
+  function showTip(el, x, y) {
+    const t = window.__ts[+el.dataset.t]; if (!t) return;
+    if (el.dataset.a == null) { tip.hidden = true; return; }
+    const a = t.attempts[+el.dataset.a];
+    const cause = CAUSES.find(c => c[0] === a.cause);
+    tip.innerHTML = `<b>#${t.id} · attempt ${+el.dataset.a + 1}${a.rework ? " · rework" : ""}</b><br>${at(a.start)} → ${a.end === "running" ? "running" : at(a.start + a.dur)} <span class="m">(${dur(a.dur)})</span><br>${cause ? cause[1] : "Still running"}<br><span class="m">specs ${a.specs[0]}/${a.specs[1]} · ${usd(a.cost)}</span>`;
+    tip.hidden = false;
+    const r = tip.getBoundingClientRect();
+    tip.style.left = Math.min(window.innerWidth - r.width - 8, x + 12) + "px";
+    tip.style.top = Math.max(8, y - r.height - 10) + "px";
+  }
+  document.addEventListener("mousemove", e => { const b = e.target.closest(".bar"); if (b) showTip(b, e.clientX, e.clientY); else tip.hidden = true; });
+  document.addEventListener("focusin", e => { const b = e.target.closest(".bar"); if (b) { const r = b.getBoundingClientRect(); showTip(b, r.left, r.top); } });
+  document.addEventListener("focusout", () => { tip.hidden = true; });
+
+  chips(); render();
+})();
+</script>

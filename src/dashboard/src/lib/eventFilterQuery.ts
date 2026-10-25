@@ -72,6 +72,7 @@ const TYPE_KEYS: Record<string, EventType> = {
   SpecCutReviewed: EventType.SpecCutReviewed, // 2026-10-13-9a59g
   SpecReviewRound: EventType.SpecReviewRound, // 2026-10-13-8762e
   DefaultDecisionTaken: EventType.DefaultDecisionTaken, // 2026-10-13-8762o
+  MemoryUseRecorded: EventType.MemoryUseRecorded, // 2026-10-25-9324b
 };
 
 const KEY_BY_TYPE: Record<EventType, string> = Object.fromEntries(

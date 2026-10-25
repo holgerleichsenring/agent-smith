@@ -53,6 +53,7 @@ const LABELS: Record<EventType, string> = {
   [EventType.SpecCutReviewed]: "SpecCutReviewed", // 2026-10-13-9a59g
   [EventType.SpecReviewRound]: "SpecReviewRound", // 2026-10-13-8762e
   [EventType.DefaultDecisionTaken]: "DefaultDecisionTaken", // 2026-10-13-8762o
+  [EventType.MemoryUseRecorded]: "MemoryUseRecorded", // 2026-10-25-9324b
 };
 
 interface FilterRailProps {

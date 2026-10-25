@@ -48,7 +48,7 @@ agent-smith/
 │
 ├── deploy/
 │   ├── docker-compose.example.yml  # server, Redis, migrate job, dashboard
-│   ├── k8s/                        # numbered manifests (1-namespace.yaml … 12-pvc-persistence.yaml) + examples/
+│   ├── k8s/                        # numbered manifests (1-namespace.yaml … 12-pvc-persistence.yaml) + examples/ + sandbox-isolation/ (opt-in)
 │   ├── apply-k8s-secret.sh         # creates the Kubernetes secret
 │   └── DOCKERHUB_DESCRIPTION.md
 │

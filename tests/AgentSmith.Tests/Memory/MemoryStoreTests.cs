@@ -26,7 +26,7 @@ public sealed class MemoryStoreTests
 
         listed.Should().ContainSingle().Which.Should().Be(entry);
         var index = _reader.Files[IndexPath];
-        index.Should().Contain("- [no-wrapper-shims](no-wrapper-shims.md) (feedback, ratified) — "
+        index.Should().Contain("- [no-wrapper-shims](no-wrapper-shims.md) (feedback) — "
                                + "Migrate callers directly, never bridge via a shim");
         index.Should().NotContain("Never bridge an old interface",
             "content NEVER lives in the index — one line per memory");

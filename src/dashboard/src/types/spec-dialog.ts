@@ -481,6 +481,8 @@ export interface FiledWorkFinding {
   cites?: string | null;
   /** Set when the fix pass meant to close this was reverted — the branch still holds the code. */
   reverted?: string | null;
+  /** 2026-10-25-54beb: "template" for a deviation from a template — advice, never a fix pass. */
+  kind?: string | null;
 }
 
 /**

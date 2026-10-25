@@ -27,7 +27,7 @@ public sealed class MemorySurfaceTests
     public MemorySurfaceTests()
     {
         var repositories = TestRepositories.One(_reader);
-        _recall = new MemoryRecallToolHost(repositories, "/work");
+        _recall = new MemoryRecallToolHost(repositories, "/work", MemoryStandings.Reader(), new AgentSmith.Contracts.Commands.PipelineContext());
         _remember = new MemoryWriteToolHost(repositories, "/work");
     }
 

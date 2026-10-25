@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-c5a7b
+
+decisions:
+  - category: Scope
+    chose: "The spec text was adjusted before building: hardening applies only with sandbox.hardening_enabled (2026-10-25-ff3b); off, Docker containers and volumes are exactly as before"
+    over: "Building the spec as planned, hardened by default"
+    reason: "Operator decision of 2026-10-25 made hardening an installation opt-in after the spec was planned; the spec was not built yet, so its goal, scope and done criteria were changed minimally."
+  - category: Architecture
+    chose: "A separate ownership container from the agent carrier image (Entrypoint chown, User 0, CapDrop ALL, CapAdd CHOWN, no network)"
+    over: "A new agent flag that chowns"
+    reason: "An unknown argument stops an older pinned agent; chown from the Debian carrier needs no agent change and works with every pin."
+  - category: Architecture
+    chose: "Hardened caches are named agentsmith-pkgcache-{eco}-1000"
+    over: "A recursive chown of the existing caches on every spawn"
+    reason: "A recursive chown of a warm NuGet cache costs minutes; a uid-suffixed volume costs one cold restore per host, and root-written caches stay untouched."
+  - category: Implementation
+    chose: "DockerOneShotRunner runs the loader and the ownership container (create, start, wait, logs on failure, remove)"
+    over: "A second copy of the loader's run-and-wait code in DockerSandboxVolumes"
+    reason: "Both are the same one-shot shape; the extraction also takes DockerSandboxFactory from 143 lines to 107, out of the file-length baseline."
+  - category: Implementation
+    chose: "DockerSandbox takes the list of its volume names; the orphan remover removes all three possible names"
+    over: "A third volume parameter"
+    reason: "A root or unconfined sandbox has no home volume; removing an absent name is a logged no-op."
+  - category: Implementation
+    chose: "The loader is confined (CapDrop ALL, no-new-privileges, still root) in both confined profiles, and untouched when unconfined"
+    over: "Confining the loader always"
+    reason: "Hardening off must leave every container as it was; with hardening on the loader writes only a volume it owns and needs no capability."
+  - category: Implementation
+    chose: "The harness ExtraBindsSandboxFactory turns only a hardened spec into the root profile"
+    over: "Forcing every harness spec to root"
+    reason: "With hardening off the harness keeps the unconfined default and the existing presets run unchanged."
+  - category: Implementation
+    chose: "Planned facts of 2026-10-25-c5a7e and 2026-10-25-c5a7g re-grounded to DockerSandboxOptionsReader and the new factory lines"
+    over: "Leaving them for their builders"
+    reason: "SpecEvidenceRuleTests fails on a planned fact citing past the end of a file this spec shortened; the claims were reworded only where the move made them false."
+  - category: Scope
+    chose: "Docker-tier proof outstanding: a hardened sandbox on mcr.microsoft.com/dotnet/sdk:10.0 and on hashicorp/terraform clones over https, writes /root/.npmrc, commits, restores into the cache and reports id -u = 1000"
+    over: "Running it from this session"
+    reason: "It needs the docker-tier harness with Redis and a GITHUB_TOKEN on this host; the container shapes are pinned by unit tests."

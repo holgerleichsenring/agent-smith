@@ -34,7 +34,7 @@ public sealed class RunNarrativeMemoryTests
         _sut = new WriteRunResultHandler(
             factory.Object, new InMemoryDialogueTrail(), new InMemoryRunArtifactStore(),
             new Events.RecordingEventPublisher(),
-            new RunNarrativeMemoryWriter(NullLogger<RunNarrativeMemoryWriter>.Instance),
+            new RunNarrativeMemoryWriter(NullLogger<RunNarrativeMemoryWriter>.Instance), AgentSmith.Tests.TestHelpers.MemoryOutcomes.None(),
             new SandboxTargets(), AgentSmith.Tests.TestHelpers.TestRunResultChanges.Create(), NullLogger<WriteRunResultHandler>.Instance);
     }
 
@@ -92,7 +92,7 @@ public sealed class RunNarrativeMemoryTests
         var sut = new WriteRunResultHandler(
             factory.Object, new InMemoryDialogueTrail(), new InMemoryRunArtifactStore(),
             new Events.RecordingEventPublisher(),
-            new RunNarrativeMemoryWriter(NullLogger<RunNarrativeMemoryWriter>.Instance),
+            new RunNarrativeMemoryWriter(NullLogger<RunNarrativeMemoryWriter>.Instance), AgentSmith.Tests.TestHelpers.MemoryOutcomes.None(),
             new SandboxTargets(), AgentSmith.Tests.TestHelpers.TestRunResultChanges.Create(), NullLogger<WriteRunResultHandler>.Instance);
 
         var result = await sut.ExecuteAsync(CreateContext(), CancellationToken.None);

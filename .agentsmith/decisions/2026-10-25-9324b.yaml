@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-9324b
+
+decisions:
+  - category: Architecture
+    chose: "One MemoryUseRecorded event (89) carries either a spec's whole relied list or one dispute; its projection replaces or appends"
+    over: "Two events, or writing the ledger from the tool through the port"
+    reason: |
+      The event stream is the only DB channel a spawned orchestrator has, as DefaultDecisionRecorder already
+      assumes. A relied list REPLACES the spec's relied rows, so hand_forward's 'last call wins' holds in the
+      ledger too and a second call never doubles a reliance. A dispute appends once per trail position
+      (ProjectedEventRecords), weight -2.
+  - category: Architecture
+    chose: "Every hand_forward call publishes its relied list, an empty one included"
+    over: "Publishing only when relied_on is non-empty"
+    reason: |
+      A second call without relied_on means the spec relied on nothing after all; skipping the publish would
+      leave the first call's rows standing, which is exactly the doubling the replace exists to prevent.
+  - category: Implementation
+    chose: "A bare slug cites the one repository storing it; stored by several, or by none, the call is refused naming the entry"
+    over: "Defaulting to the first repository, or to the run's only repository without checking its store"
+    reason: |
+      A citation that names the wrong store would credit or blame a memory no master used. The refusal is the
+      same 'nothing was recorded' shape hand_forward already answers for an over-long list, so the master gets
+      one mechanism to correct.
+  - category: Implementation
+    chose: "dispute_memory joins every master surface — coding, scan, design — where the pipeline holds a run id; never a child's"
+    over: "Only the surfaces carrying remember"
+    reason: |
+      A dispute writes no file, only evidence, so the read-only scan surface can carry it as recall does. Without
+      a run id there is no stream to publish on. A child acts for its master, which disputes on what the child
+      reports, like decide_by_default. A dispute outside a spec stores an empty spec id.
+  - category: Implementation
+    chose: "EventType.cs and MasterToolComposition.cs stay at 120 lines by reflowing comments"
+    over: "Splitting either file"
+    reason: |
+      Both sit exactly at the limit; the new member and the new surface line cost two lines each, recovered by
+      joining comment lines with no change in wording. The hub-events check reads an enum member only when the
+      line holds nothing else, so the member's comment sits on the line above.

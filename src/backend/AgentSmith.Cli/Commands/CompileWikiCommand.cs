@@ -70,7 +70,8 @@ internal static class CompileWikiCommand
 
             var jobId = Guid.NewGuid().ToString("N");
             var sandboxLogger = provider.GetService<ILogger<InProcessSandbox>>() ?? NullLogger<InProcessSandbox>.Instance;
-            var sandbox = new InProcessSandbox(jobId, projectPath, ownsWorkDir: false, sandboxLogger);
+            var sandbox = new InProcessSandbox(jobId, projectPath, ownsWorkDir: false,
+                provider.GetRequiredService<InProcessStepEnvironmentReader>().Read(), sandboxLogger);
 
             var pipeline = new PipelineContext();
             pipeline.Set(ContextKeys.Sandbox, (ISandbox)sandbox);

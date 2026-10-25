@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-25-54bea
+goal: "The coding master learns which context inside each template to follow, at which revision, and reads that context's principles and limits as advice for new code."
+
+applies_to: "default (TemplatePromptSection, master template scopes)"
+
+requires: []
+
+facts:
+  - claim: "The template section lists only 'template:<context>' addresses with fixed advice text."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/TemplatePromptSection.cs:25-41, src/backend/AgentSmith.Application/Services/Specs/TemplateScopeName.cs:28-31"
+  - claim: "template_context is read only by the template proof read."
+    evidence: "src/backend/AgentSmith.Application/Services/Specs/TemplateProofRead.cs:38"
+  - claim: "Principles load from the run's own sandboxes before the master opens its templates."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/LoadCodingPrinciplesHandler.cs:36-52, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:174-180"
+  - claim: "StructureLimits.Read parses a Limits fence from principles text without touching the gate."
+    evidence: "src/backend/AgentSmith.Application/Services/Structure/StructureLimits.cs:21-29"
+
+scope:
+  in: >
+    The master's template attachment carries each template's declaration (project, repo, template_context, resolved
+    sha). Each bullet names them and the path .agentsmith/contexts/<template_context>/; the address-only form stays for
+    the spec-dialog path. AgenticMasterHandler is at its baseline: the call is swapped in place, zero net lines.
+    After the master opens its template scopes, it reads that context's principles.md (else the template's root
+    .agentsmith/principles.md) from the scope and adds it as a
+    labelled section: the template's rules, followed for NEW units, existing code and the spec win, never a gate. The
+    template's Limits fence, when present, is quoted there as the template's shape. The proof read's sentence (which
+    verify stages the template declares) is shown as how the template proves itself.
+  out: >
+    Running template stages. Any gate on conformance.
+
+steps:
+  - id: build
+    action: "Address detail, overlay read after scopes open, section, tests first, build, run affected classes."
+
+tests:
+  - "TemplatePromptSection_NamesContextPathAndRevision"
+  - "TemplateOverlay_PrinciplesOfTemplateContext_Rendered"
+  - "TemplateOverlay_NoPrinciplesFile_SectionSaysSo"
+
+done:
+  - "A run with a bound template shows the master the template context's principles under a label saying they advise new units."
+  - "Build green, full suite green, dashboard gen/test/build green."

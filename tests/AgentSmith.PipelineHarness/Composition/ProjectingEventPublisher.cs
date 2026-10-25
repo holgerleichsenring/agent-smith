@@ -36,6 +36,7 @@ public sealed class ProjectingEventPublisher(IServiceScopeFactory scopeFactory) 
         new RunSegmentProjection(new()), // 2026-10-13-9a59j
         new RunSpecReviewRoundProjection(new()), // 2026-10-13-8762e
         new RunDefaultDecisionProjection(new()), // 2026-10-13-8762o
+        new MemoryEvidenceProjection(new(), new()), // 2026-10-25-9324b
     ]);
 
     private readonly ConcurrentDictionary<string, long> _seqByRun = new();

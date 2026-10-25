@@ -25,6 +25,7 @@ public sealed class KubernetesSandboxCorpseReaper(
     SandboxPodLabels labels,
     LiveRunSetReader liveRuns,
     HeldConversationReader heldConversations,
+    SandboxBusCredentials busCredentials,
     ILogger<KubernetesSandboxCorpseReaper> logger) : ISandboxCorpseReaper
 {
     public static readonly TimeSpan MinPodAge = TimeSpan.FromSeconds(60);
@@ -44,7 +45,9 @@ public sealed class KubernetesSandboxCorpseReaper(
                      .Where(v => v.Outcome == SandboxReapOutcome.Orphan))
         {
             cancellationToken.ThrowIfCancellationRequested();
-            if (await DeleteAsync(corpse.SandboxId, corpse.RunId, cancellationToken)) reaped++;
+            if (!await DeleteAsync(corpse.SandboxId, corpse.RunId, cancellationToken)) continue;
+            await busCredentials.DeleteAsync(corpse.JobId); // 2026-10-25-c5a7e: the pipeline-id label
+            reaped++;
         }
         return reaped;
     }

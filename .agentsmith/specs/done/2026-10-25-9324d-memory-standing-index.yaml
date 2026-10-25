@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-25-9324d
+goal: "The memory index a master sees shows each entry's track record from its evidence, hides entries the evidence turned against, and the repo's MEMORY.md follows on the next code run."
+
+applies_to: "default (MemoryIndexReader, memory prompt section, MemoryIndexUpdater)"
+
+requires: [2026-10-25-9324c]
+
+facts:
+  - claim: "The index is the raw MEMORY.md text per repository, aggregated with headers, in file order, no cap or filter."
+    evidence: "src/backend/AgentSmith.Application/Services/Memory/MemoryIndexReader.cs:57"
+  - claim: "An index line is '- [name](name.md) (type[, status]) — description'; status is never re-derived."
+    evidence: "src/backend/AgentSmith.Application/Services/Memory/MemoryIndexUpdater.cs:13-16"
+  - claim: "The index is wrapped by BuildMemoryIndexSection and rendered in the spec-execution prompt, re-read before each spec."
+    evidence: "src/backend/AgentSmith.Application/Services/SpecExecutionPromptFactory.cs:67, src/backend/AgentSmith.Application/Services/Handlers/AgenticMasterHandler.cs:98"
+
+scope:
+  in: >
+    MemoryStanding computes per slug from the ledger's weights with a 90-day half-life: counts, last date, decayed sum.
+    Label precedence: disputed when any contradiction exists and the sum is below zero; holding when the sum is above
+    zero; unconfirmed otherwise — strains alone never dispute. Read through a Contracts port (null by default) and
+    composed per repository before the multi-repo aggregate. The master's index lists holding first, each line with
+    its record ('confirmed 3 · contradicted 0 · last 2026-10-20'); disputed entries are left out and counted in one
+    closing line; the header says entries are hints with a track record. MEMORY.md lines are rewritten with the label
+    in the carrier repository at spec record time (SpecDoneRecorder staging), the single writer of the label; remember
+    no longer writes a status onto the line. Constants in one class, named in decisions.
+  out: >
+    Deleting entry files. A dashboard view of standing.
+
+steps:
+  - id: build
+    action: "Standing calculator, index composition, file rewrite, tests first, build, run affected classes."
+
+tests:
+  - "MemoryStanding_TwoConfirmedOneStrained_Holding"
+  - "MemoryStanding_Contradicted_DisputedAndLeftOut"
+  - "MemoryStanding_OldEvidence_WeighsLess"
+  - "MemoryIndex_ShowsRecordPerLine_HoldingFirst"
+
+done:
+  - "Memory x with one confirmation and one not-met judgement and a dispute is left out of the next index and counted; y with two strains still shows as unconfirmed."
+  - "Build green, full suite green, dashboard gen/test/build green."

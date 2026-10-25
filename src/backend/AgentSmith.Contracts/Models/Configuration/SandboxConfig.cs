@@ -92,4 +92,12 @@ public sealed class SandboxConfig
 
     /// <summary>2026-10-01-283df: whether this project's runs may render in a browser sandbox. Null = off.</summary>
     public ProjectBrowserConfig? Browser { get; set; }
+
+    /// <summary>
+    /// 2026-10-25-c5a7a: with sandbox.hardening_enabled on (2026-10-25-ff3b), true runs this project's
+    /// Docker and Kubernetes sandboxes as root with the runtime's default capabilities, for
+    /// prerequisites that need root (apt-get, npm -g), and every run carries a preflight warning.
+    /// Null and false both mean uid 1000. With hardening off it changes nothing.
+    /// </summary>
+    public bool? RunAsRoot { get; set; }
 }

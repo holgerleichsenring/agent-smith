@@ -59,6 +59,7 @@ public sealed class PipelineExecutor(
             await errorHandler.PostWorkingStatusAsync(projectConfig, context, cancellationToken);
         await using var lifecycle = await lifecycleCoordinator.BeginAsync(projectConfig, context, cancellationToken);
         await using var sandbox = serviceProvider.GetRequiredService<IPipelineSandboxCoordinator>();
+        await using var templates = serviceProvider.GetRequiredService<Specs.RunTemplateScopes>().Own(context); // 2026-10-25-54beb: disposed at run end
         try { return await RunLoopAsync(commandList, projectConfig, context, lifecycle, sandbox, startExecutionCount, cancellationToken); }
         catch (Exception ex)
         {

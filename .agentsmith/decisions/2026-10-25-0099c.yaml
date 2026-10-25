@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-0099c
+
+decisions:
+  - category: Design
+    chose: "The dashboard's state palette over the mock's colours: running and queued --run amber striped, waiting --person blue, short delivery a pale --ok"
+    over: "The mock's blue for running and amber for criteria not met"
+    reason: "In this dashboard amber means working and blue waits for a person (DESIGN.md); the mock's colours would have said the opposite on this page than on every other."
+  - category: Architecture
+    chose: "The outcome pill is the ticket list's bucket, named by TICKET_SECTIONS through SERVER_BUCKET"
+    over: "The mock's own outcome words (merged, PR open, shortfall)"
+    reason: "0099b serves the bucket so a row and the ticket page it opens agree; a second vocabulary for the same state would split them again."
+  - category: Implementation
+    chose: "RunsChanged refetches within 15 s, TicketActivityChanged within 2 s, through CoalescedRefetch"
+    over: "2 s for both"
+    reason: "RunsChanged fires on every step and LLM call and each read scans up to 60 days of runs; a merge or landing arrives as TicketActivityChanged and is the change the figures care about most."
+  - category: Implementation
+    chose: "Chips come from the answer's projects and start all on; switching one off sends the rest as project filters; the last one on is disabled"
+    over: "Reading GET /api/projects separately"
+    reason: "The server already answers the caller's readable projects with the period, so no project the caller cannot read is named and one request suffices."
+  - category: Scope
+    chose: "The mock's data notes panel, sample-data flag and per-tile source lines are left out"
+    over: "Porting them"
+    reason: "They were notes for the review of the mock, not product; the committed mock's note was corrected to say the data is stored."
+  - category: Implementation
+    chose: "An empty value is '-', deltas use the minus sign U+2212 as the mock does, and no delta shows on a truncated answer"
+    over: "The mock's em dash for empty cells"
+    reason: "The operator asked for no em dashes in UI copy; a truncated answer misses previous-period attempts first, so a delta would be wrong."

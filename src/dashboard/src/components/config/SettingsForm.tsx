@@ -181,6 +181,17 @@ function SandboxForm({
         onChange={(v) => set({ holdSeconds: v ?? null })} testId="setting-sandbox-hold"
         placeholder="180"
         help={`how long a design conversation keeps its source sandboxes — ${NEXT_DECISION}`} />
+      {/* 2026-10-25-ff3b: hardening is the installation's choice; a project may opt back to root. */}
+      <p className="help" data-testid="setting-sandbox-hardening-note">
+        On, Docker and Kubernetes sandboxes run as uid 1000 with no Linux capabilities and no
+        privilege escalation. Check first which projects install system packages in their
+        prerequisites (apt-get, a global npm install): those fail until the project turns on
+        &quot;run sandboxes as root&quot; on its Sandbox tab. Off, sandboxes run as the image&apos;s
+        user, which is root for every built-in image.
+      </p>
+      <CheckField label="Harden sandboxes" value={value.hardeningEnabled === true}
+        onChange={(v) => set({ hardeningEnabled: v })} testId="setting-sandbox-hardening" />
+      <p className="help">{AFTER_RESTART}.</p>
       <SandboxImageTrustFields value={value} onChange={set} persisted={persisted} />
     </>
   );

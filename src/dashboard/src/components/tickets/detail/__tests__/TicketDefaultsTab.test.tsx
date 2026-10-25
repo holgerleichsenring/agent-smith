@@ -76,22 +76,6 @@ describe("TicketDefaultsTab", () => {
     expect(within(screen.getByTestId("default-2")).getByTestId("default-origin")).toHaveTextContent("attempt 1");
   });
 
-  it("TicketDefaultsTab_MemoryProposal_ShowsPointerNotBody", async () => {
-    await open(defaultEntry({
-      id: 4, kind: "memory-proposal", question: "Ratify this proposed feedback memory?", chosen: null, alternatives: [], why: null,
-      pointerPath: "shop-api/.agentsmith/memory/feedback-retry-caps.md",
-    }));
-    const row = screen.getByTestId("default-4");
-    expect(within(row).getByTestId("default-pointer")).toHaveTextContent("shop-api/.agentsmith/memory/feedback-retry-caps.md · feedback-retry-caps");
-    expect(within(row).queryByTestId("default-body")).toBeNull();
-    expect(within(row).queryByTestId("default-not-landed")).toBeNull();
-  });
-
-  it("TicketDefaultsTab_MemoryProposalNotLanded_SaysNotLanded", async () => {
-    await open(defaultEntry({ id: 4, kind: "memory-proposal", pointerPath: "a/.agentsmith/memory/x.md", landed: false }));
-    expect(within(screen.getByTestId("default-4")).getByTestId("default-not-landed")).toHaveTextContent("not landed");
-  });
-
   it("TicketDefaultsTab_ConversationDefault_SaysInTheDesignConversation", async () => {
     await open(defaultEntry({
       id: 5, attempt: null, conversation: "dlg-1", question: null, chosen: null, alternatives: null, why: null,

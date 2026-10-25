@@ -72,7 +72,7 @@ public sealed class AcquireSourceHandlerTests : IDisposable
         await File.WriteAllBytesAsync(sourceFile, bytes);
         var workDir = Path.Combine(_tempDir, "sandbox");
         Directory.CreateDirectory(workDir);
-        await using var sandbox = new InProcessSandbox("acquire", workDir, ownsWorkDir: false, NullLogger.Instance);
+        await using var sandbox = new InProcessSandbox("acquire", workDir, ownsWorkDir: false, InProcessStepEnvironment.Inherit, NullLogger.Instance);
 
         var pipeline = new PipelineContext();
         pipeline.Set(ContextKeys.SourceFilePath, sourceFile);

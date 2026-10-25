@@ -1,0 +1,102 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-25-c5a7a
+goal: "A Kubernetes sandbox pod runs as uid 1000 with every capability dropped, RuntimeDefault seccomp, no privilege escalation and no service-account token, unless its project opts into root."
+
+applies_to: "default (PodSpecBuilder, SandboxSecurityContext, SandboxSpecBuilder, SandboxConfig, project Sandbox tab, run preflight)"
+
+requires: []
+
+facts:
+  - claim: "The pod carries only fsGroup; neither container has a securityContext, so the toolchain runs as the image's user (root for every catalog image) with the runtime's default capabilities."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/PodSpecBuilder.cs:20-32, src/backend/AgentSmith.Server/Services/Sandbox/PodSpecBuilder.cs:50-55, src/backend/AgentSmith.Server/Services/Sandbox/PodSpecBuilder.cs:78-99, src/backend/AgentSmith.Application/Services/Sandbox/ToolchainImageCatalog.cs:35-63"
+  - claim: "The pod names no service account and does not turn the token mount off, so the namespace default SA token is mounted."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/PodSpecBuilder.cs:24-32"
+  - claim: "SandboxSecurityContext exists (FsGroup, RunAsUser) but nothing sets it: the spec builder never passes one."
+    evidence: "src/backend/AgentSmith.Contracts/Sandbox/SandboxSecurityContext.cs:3, src/backend/AgentSmith.Contracts/Sandbox/SandboxSpec.cs:25, src/backend/AgentSmith.Application/Services/Builders/SandboxSpecBuilder.cs:61-66"
+  - claim: "Every credential path assumes a writable /root: feed configs are staged there, the guard only allows /root/.<name>, and a run preflight proves /root writable."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/SetupRegistryAuthHandler.cs:36-37, src/backend/AgentSmith.Application/Services/Registry/RegistryAuthPathGuard.cs:15, src/backend/AgentSmith.Application/Services/Preflight/Run/SandboxHomeWritableCheck.cs:28-33"
+  - claim: "The injected agent is world-executable and extracts its bundle under /tmp; the carrier sets no USER on purpose."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Services/BinaryInjector.cs:59-62, src/backend/AgentSmith.Sandbox.Agent/Dockerfile:28-35, src/backend/AgentSmith.Sandbox.Agent/Dockerfile:82-91"
+  - claim: "The server pod already runs non-root; the sandbox pods it creates were never hardened."
+    evidence: "deploy/k8s/8-deployment-server.yaml:21-23"
+  - claim: "An operator prerequisite runs exactly as written, so a context that apt-installs needs root."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/EnsurePrerequisitesHandler.cs:58-66"
+  - claim: "The browser image already falls back to --no-sandbox when a non-root Chromium has no usable sandbox."
+    evidence: "src/sandbox-images/browser/render.mjs:35-41"
+  - claim: "A per-project bool toggle has a precedent on the Studio path: BrowserEnabled, null and false both off."
+    evidence: "src/backend/AgentSmith.Contracts/Models/ConfigStudio/ProjectSandbox.cs:21-35, src/dashboard/src/components/config/ProjectSandboxSection.tsx:180-182"
+  - claim: "A run preflight check can warn without failing."
+    evidence: "src/backend/AgentSmith.Contracts/Models/Preflight/RunPreflightFinding.cs:18, src/backend/AgentSmith.Application/Services/Preflight/Run/ToolchainImageFallbackCheck.cs:46-51"
+  - claim: "PodSpecBuilder is 139 lines under a 166 baseline; 2026-10-25-c5a7g adds env to the same file later."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:60, src/backend/AgentSmith.Server/Services/Sandbox/PodSpecBuilder.cs:119-131"
+  - claim: "An emptyDir is owned by root (fsGroup changes only its group), and git refuses a work tree owned by another user; nothing in src sets safe.directory."
+    evidence: "observed: grep -rn safe.directory src/ on 9237b8921 finds nothing, 2026-10-25"
+  - claim: "A failed prerequisite aggregates into one failure naming the offenders, with the command output."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/EnsurePrerequisitesHandler.cs:12-22, src/backend/AgentSmith.Application/Services/Handlers/EnsurePrerequisitesHandler.cs:69"
+
+scope:
+  in: >
+    Follows p0377 (sandbox securitycontext hardening), whose premise is right but whose design predates the
+    canonical /root home, the musl launcher and the browser image; p0377 stays as written.
+    Hardened pod (default): pod securityContext runAsNonRoot true, runAsUser 1000, runAsGroup 1000, fsGroup 1000,
+    seccompProfile RuntimeDefault; both containers allowPrivilegeEscalation false and capabilities drop [ALL];
+    automountServiceAccountToken false on the pod. A third emptyDir mounted at /root on the toolchain container
+    with HOME=/root in its env, so the canonical home stays what every credential path writes to; and
+    GIT_CONFIG_COUNT=1, GIT_CONFIG_KEY_0=safe.directory, GIT_CONFIG_VALUE_0=* so git accepts the root-owned /work.
+    The securityContexts, volume and env of a profile live in a new PodSecurity class PodSpecBuilder calls, so
+    the builder stays well under its baseline for 2026-10-25-c5a7g. In the hardened profile a failed
+    prerequisite's failure line adds that the sandbox runs as uid 1000 and names sandbox.run_as_root.
+    Root pod (project opts in with sandbox.run_as_root true): no runAsUser/runAsNonRoot, default capabilities,
+    no /root mount — today's container — but still RuntimeDefault seccomp, no privilege escalation and no token.
+    SandboxSecurityContext becomes (RunAsRoot, Uid, Gid) with 1000/1000; SandboxSpecBuilder sets it from
+    SandboxConfig.RunAsRoot. The Studio carries RunAsRoot as a positional scalar appended last (BrowserEnabled
+    precedent) and the project Sandbox tab shows a toggle. A run preflight check sandbox-runs-as-root warns,
+    naming the project, whenever the resolved spec is root.
+  out: >
+    readOnlyRootFilesystem: a toolchain image writes under /usr, /var and its own dirs at run time (pip, npm -g,
+    apt in the root pod); not planned, recorded in decisions. Docker parity: 2026-10-25-c5a7b. A per-image uid:
+    one fixed uid keeps fsGroup, cache ownership and the Docker chown identical. Contents an image ships under
+    /root are hidden by the mount in the hardened pod; such an image runs with run_as_root (decisions).
+    In-process backend: has no container (2026-10-25-c5a7h). A passwd entry for uid 1000: only node:20 has one;
+    ssh-based tools that look the user up fail, clone is https (named in the docs, not fixed).
+
+decisions:
+  - key: "HARDENED IS THE DEFAULT, ROOT IS A NAMED PROJECT CHOICE. A root pod is visible on every run through the preflight warning, never silent; the operator owns that risk per project, coupled to no other toggle."
+  - key: "/root STAYS THE HOME. Moving the canonical home would touch the guard, the staging handler, the preflight and SandboxPathMap; an emptyDir at /root keeps every path and is writable through fsGroup."
+  - key: "NO READ-ONLY ROOTFS. Arbitrary toolchain images are the product; a read-only root breaks them unpredictably while caps, seccomp and non-root already remove the escalation paths a review asks about."
+  - key: "SECCOMP AND NO-ESCALATION APPLY TO ROOT PODS TOO. Kubernetes runs a pod Unconfined unless told; apt and builds work under RuntimeDefault."
+  - key: "THE DEFAULT FLIP IS A BREAKING CHANGE, SAID SO. A project whose prerequisites apt-install, corepack enable or npm -g fails after upgrade; the release note and the prerequisite failure both name run_as_root. Operator decision recorded: hardened by default."
+
+steps:
+  - id: contract
+    action: "SandboxSecurityContext(RunAsRoot=false, Uid=1000, Gid=1000); SandboxConfig.RunAsRoot (yaml run_as_root) and the config schema entry; SandboxSpecBuilder sets it."
+  - id: pod
+    action: "PodSecurity builds the pod and container securityContexts per profile, the /root emptyDir, HOME and the safe.directory env; PodSpecBuilder calls it and sets automountServiceAccountToken false."
+  - id: prerequisite
+    action: "EnsurePrerequisitesHandler's failure line names run_as_root when the project is hardened."
+  - id: studio
+    action: "ProjectSandbox gains RunAsRoot (appended last), the projection reads and writes it, ProjectSandboxSection shows the toggle."
+  - id: visible
+    action: "SandboxRunsAsRootCheck (Warn) registered beside SandboxHomeWritableCheck."
+  - id: docs
+    action: "docs/host-it/kubernetes.md: what a sandbox pod runs as, the run_as_root lever and what it costs."
+
+tests:
+  - "PodSpecBuilder_Hardened_RunsAsUid1000DropsAllCapsRuntimeDefaultSeccomp"
+  - "PodSpecBuilder_Hardened_MountsWritableRootHomeAndSetsHome"
+  - "PodSpecBuilder_Hardened_DeclaresWorkASafeGitDirectory"
+  - "EnsurePrerequisitesHandler_HardenedFailure_NamesRunAsRoot"
+  - "PodSpecBuilder_AnyProfile_DoesNotMountTheServiceAccountToken"
+  - "PodSpecBuilder_AnyProfile_DisallowsPrivilegeEscalation"
+  - "PodSpecBuilder_RunAsRoot_KeepsDefaultCapabilitiesAndNoUser"
+  - "PodSpecBuilder_InitContainer_HardenedLikeTheToolchain"
+  - "SandboxSpecBuilder_ProjectRunAsRoot_ReachesTheSpec"
+  - "SandboxRunsAsRootCheck_RootProject_WarnsNamingIt"
+  - "ProjectSandbox_RunAsRoot_RoundTripsThroughTheStudioPatch"
+  - "ProjectSandboxSection: toggle sends runAsRoot true or nothing (vitest)"
+
+done:
+  - "a sandbox pod of a default project runs as 1000:1000 with no capabilities, RuntimeDefault seccomp and no token; staging a feed config and git identity under /root still works"
+  - "a project with run_as_root runs as before and its runs carry the warning"
+  - "manual acceptance on a cluster, recorded in the decisions file: a dotnet and a node run clone, build, test, commit and push green under the hardened pod, and the agent starts on hashicorp/terraform (musl) as uid 1000"
+  - "build green, full suite green, dashboard gen/test/build green"

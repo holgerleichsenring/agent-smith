@@ -41,6 +41,7 @@ public sealed class RunEventApplierFamiliesTests
         [typeof(SpecCutReviewedEvent)] = ["RunConversationProjection"],
         [typeof(SpecReviewRoundEvent)] = ["RunSpecReviewRoundProjection"],
         [typeof(DefaultDecisionTakenEvent)] = ["RunDefaultDecisionProjection"],
+        [typeof(MemoryUseRecordedEvent)] = ["MemoryEvidenceProjection"],
     };
 
     [Fact]

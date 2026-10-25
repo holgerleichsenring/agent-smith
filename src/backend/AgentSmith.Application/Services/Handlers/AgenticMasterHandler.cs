@@ -205,10 +205,10 @@ public sealed class AgenticMasterHandler(
             ["ProgressLedgerSection"] = progress.GetLedger().IsEmpty
                 ? string.Empty
                 : ProgressLedgerRenderer.Render(progress.GetLedger()),
-            // p0380: the experiential-memory INDEX (one line per memory) — the
-            // cheap plan-time pointer layer; bodies are pulled via recall().
-            // Masters without the placeholder simply never render it.
-            ["MemoryIndexSection"] = MasterPromptSections.BuildMemoryIndexSection(context.Pipeline),
+            // p0380: the experiential-memory INDEX — bodies are pulled via recall(); masters without the placeholder
+            // never render it. 2026-10-25-9324e: a spec's master reads it in the spec-execution prompt instead, once.
+            ["MemoryIndexSection"] = context.Pipeline.Has(ContextKeys.CurrentSpec) ? string.Empty
+                : MasterPromptSections.BuildMemoryIndexSection(context.Pipeline),
             // p0312c: the pull request under review. Empty on every pipeline that
             // has no PR, so binding it here is unconditional; pr-review-master is
             // the only master that carries the placeholder.
@@ -309,7 +309,7 @@ public sealed class AgenticMasterHandler(
         }
         // 2026-09-13-ed5a: over the ADDRESSES, so the spec dialog — which seeds its
         // templates into the sandbox map this list is read from — gets the same section.
-        masterBody += TemplatePromptSection.Build(allAddresses) + ReferencePromptSection.Build(allAddresses, sandboxes) // + 283dc, 075dd
+        masterBody += templates.Section(allAddresses) + ReferencePromptSection.Build(allAddresses, sandboxes) // + 283dc, 075dd
             + DesignSystemPromptSection.Render(context.Pipeline) // 2026-10-01-283dg
             + ReferencePromptSection.Carried(context.Pipeline, allAddresses.Count > 1); // 2026-10-01-283df
 

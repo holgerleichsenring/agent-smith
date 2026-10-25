@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-9324e
+
+decisions:
+  - category: Architecture
+    chose: "remember writes no status, publishes no memory-proposal default, and answers that the memory is a hint whose standing the runs decide"
+    over: "Keeping 'proposed' for feedback entries until a person ratifies"
+    reason: |
+      The operator never ratifies by hand, so a proposed flag was a state nothing ever left; standing now comes from
+      9324a-d's evidence. DefaultDecisionRecorder.ProposeMemoryAsync and its question constant are removed; the
+      memory-proposal kind stays so archived rows and trails still read.
+  - category: Architecture
+    chose: "The ticket defaults read stops serving memory-proposal rows, so the Defaults tab, its pending count and the tab badge drop them together"
+    over: "Filtering in TicketDefaultsTab.tsx only"
+    reason: |
+      The tab badge and the pending count are the server's numbers; a dashboard-only filter would show a count of
+      rows the list hides. The Landed flag only ever described a memory proposal, so it is now always null.
+  - category: Implementation
+    chose: "{MemoryIndexSection} renders empty for a master executing a spec"
+    over: "Rendering it in the coding master's body as well as in the spec-execution prompt"
+    reason: |
+      SpecExecutionPromptFactory already carries the index, re-read before each spec; with the placeholder now in
+      the coding master's body a spec's master would read it twice. A coding run without a spec (and every scan,
+      review and legal master) gets it through the placeholder only.
+  - category: Process
+    chose: "Skills change in agent-smith-skills PR #240 (feat/memory-standing-not-ratified); this spec stays active"
+    over: "Bumping the embedded skills pin now"
+    reason: |
+      The pin can move only after the operator merges the PR and release-please cuts the release. The product side
+      is committed and gated against the current pin (v5.20.0 masters lack the placeholder, so the bound token is a
+      no-op there). The pin bump to the release carrying #240, its state.done line and the move to done complete
+      this spec; until then the pinned master texts still mention ratification of feedback memories.
+  - category: Implementation
+    chose: "Pin v5.21.0 (carries skills PR #240) with its tarball checked in and SkillsCatalogSha256 taken from the release's .sha256 asset, verified against the downloaded file"
+    over: "Letting the build download the tarball"
+    reason: |
+      Same mechanics as 2026-10-17-063c. Packaged-master tests now pin that the five masters carry
+      {MemoryIndexSection}, that the packaged security master renders the index exactly once, that a spec's
+      packaged coding master body adds no second copy, and that memory-discipline.md asks for no ratification.

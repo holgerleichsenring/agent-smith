@@ -25,7 +25,7 @@ public sealed class MemoryToolHostTests
             "PipelineHarness Docker tier fails on macOS from cold-start timeouts.");
         await Seed("pricing-rules", MemoryEntryType.Feedback, "How pricing must be computed",
             "Always price cache reads separately.");
-        var sut = new MemoryRecallToolHost(TestRepositories.One(_reader), Root);
+        var sut = new MemoryRecallToolHost(TestRepositories.One(_reader), Root, MemoryStandings.Reader(), new AgentSmith.Contracts.Commands.PipelineContext());
 
         var byText = await sut.Recall("cold-start timeouts");
         var byFacet = await sut.Recall("type:feedback pricing");
@@ -43,18 +43,19 @@ public sealed class MemoryToolHostTests
         _reader.Files[$"{MemoryDirPrefix}no-wrapper-shims.md"] =
             "---\nname: no-wrapper-shims\ndescription: Migrate callers directly\nmetadata:\n"
             + "  type: feedback\nstatus: ratified\n---\n\nNever bridge old interface to new via a shim.\n";
-        var sut = new MemoryRecallToolHost(TestRepositories.One(_reader), Root);
+        var sut = new MemoryRecallToolHost(TestRepositories.One(_reader), Root, MemoryStandings.Reader(), new AgentSmith.Contracts.Commands.PipelineContext());
 
         var result = await sut.Recall("[[no-wrapper-shims]]");
 
         result.Should().Contain("Never bridge old interface to new via a shim");
-        result.Should().Contain("no-wrapper-shims (feedback, ratified)");
+        result.Should().Contain("no-wrapper-shims (feedback, unconfirmed · no record yet)",
+            "2026-10-25-6c1f: recall shows the standing the runs give, not a legacy status");
     }
 
     [Fact]
     public async Task Recall_NoMatch_SaysSoInsteadOfFailing()
     {
-        var sut = new MemoryRecallToolHost(TestRepositories.One(_reader), Root);
+        var sut = new MemoryRecallToolHost(TestRepositories.One(_reader), Root, MemoryStandings.Reader(), new AgentSmith.Contracts.Commands.PipelineContext());
 
         var result = await sut.Recall("nothing-here");
 
@@ -62,7 +63,7 @@ public sealed class MemoryToolHostTests
     }
 
     [Fact]
-    public async Task Remember_PolicyType_FlaggedPendingRatification_NonPolicyPersisted()
+    public async Task Remember_EveryType_PersistedWithoutStatus()
     {
         var sut = new MemoryWriteToolHost(TestRepositories.One(_reader), Root);
 
@@ -71,12 +72,12 @@ public sealed class MemoryToolHostTests
         var projectReply = await sut.Remember(
             "project", "build-order", "Contracts build first", "The fact body.");
 
-        feedbackReply.Should().Contain("PROPOSED").And.Contain("ratification");
-        _reader.Files[$"{MemoryDirPrefix}ask-before-guessing.md"]
-            .Should().Contain("status: proposed", "a feedback entry is never silently policy");
+        // 2026-10-25-9324e: a hint whose standing the runs decide — nothing waits for a ratification.
+        feedbackReply.Should().Contain("recorded").And.NotContain("PROPOSED").And.NotContain("ratification");
+        _reader.Files[$"{MemoryDirPrefix}ask-before-guessing.md"].Should().NotContain("status:");
         projectReply.Should().Contain("recorded");
         _reader.Files[$"{MemoryDirPrefix}build-order.md"]
-            .Should().NotContain("status:", "non-policy types carry no ratification flag");
+            .Should().NotContain("status:");
         _reader.Files[$"{MemoryDirPrefix}MEMORY.md"].Split('\n')
             .Count(l => l.StartsWith("- [", StringComparison.Ordinal)).Should().Be(2);
     }

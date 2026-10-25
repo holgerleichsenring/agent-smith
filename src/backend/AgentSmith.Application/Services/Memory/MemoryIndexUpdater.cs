@@ -10,10 +10,9 @@ public static class MemoryIndexUpdater
 {
     private const string Header = "# Memory index";
 
+    // 2026-10-25-9324d: a line carries the type only; its label is the record step's to write, from the evidence.
     public static string FormatLine(MemoryEntry entry) =>
-        $"- [{entry.Name}]({entry.Name}.md) ({MemoryEntryTypes.ToSlug(entry.Type)}"
-        + (entry.Status is null ? string.Empty : $", {entry.Status}")
-        + $") — {entry.Description}";
+        $"- [{entry.Name}]({entry.Name}.md) ({MemoryEntryTypes.ToSlug(entry.Type)}) — {entry.Description}";
 
     public static string Upsert(string? existingIndex, MemoryEntry entry)
     {
@@ -26,7 +25,8 @@ public static class MemoryIndexUpdater
         for (var i = 0; i < lines.Count; i++)
         {
             if (!lines[i].StartsWith(marker, StringComparison.Ordinal)) continue;
-            lines[i] = FormatLine(entry);
+            var label = MemoryIndexLine.TryParse(lines[i])?.Label; // an update keeps the label the evidence gave
+            lines[i] = label is null ? FormatLine(entry) : MemoryIndexLine.TryParse(FormatLine(entry))!.Format(label);
             replaced = true;
             break;
         }

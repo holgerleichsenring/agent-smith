@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-25-2a99
+goal: "A spec's build-note entries read as lines of text on the ticket page instead of a column two letters wide."
+
+applies_to: "dashboard (BuildNote)"
+
+requires: []
+
+facts:
+  - claim: ".ci is a three-column grid: an 18px mark, the text, the who."
+    evidence: "src/dashboard/src/styles/mock-parity.css:509"
+  - claim: "BuildNote renders each entry as a .ci holding one span, which the grid puts in the 18px mark column."
+    evidence: "src/dashboard/src/components/tickets/detail/BuildNote.tsx:27"
+  - claim: "Every other .ci row leads with a mark span; an unmarked line uses 'm q' with a dot."
+    evidence: "src/dashboard/src/components/tickets/detail/TicketAcceptanceTab.tsx:60-62"
+
+scope:
+  in: "Each build-note entry leads with a 'm q' dot mark so its text sits in the text column."
+  out: "The build note's wording and what the master writes into it."
+
+steps:
+  - id: build
+    action: "Test first, mark the row, run the specs-tab tests."
+
+tests:
+  - "BuildNote_Entry_SitsInTheTextColumnBehindAMark"
+
+done:
+  - "A persisted entry renders behind a mark, in the text column."
+  - "Build green, full suite green, dashboard gen/test/build green."

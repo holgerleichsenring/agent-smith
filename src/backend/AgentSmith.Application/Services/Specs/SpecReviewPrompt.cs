@@ -24,7 +24,8 @@ public static class SpecReviewPrompt
 
     public static string For(
         SpecDraft draft, string? principles, IReadOnlyList<SpecDiff> diffs, DerivationLook? look,
-        Contracts.Specs.SeriesContract? contract = null, RatifiedMockOffer? mock = null)
+        Contracts.Specs.SeriesContract? contract = null, RatifiedMockOffer? mock = null,
+        string? templateAdvice = null)
     {
         ArgumentNullException.ThrowIfNull(draft);
         ArgumentNullException.ThrowIfNull(diffs);
@@ -52,7 +53,7 @@ public static class SpecReviewPrompt
 
             ## The spec this diff was written to
             {{draft.Yaml.TrimEnd()}}
-            {{Principles(principles)}}{{SpecReviewContractSection.Render(contract, draft.SpecId, MaxContractChars)}}{{DerivationLookPromptSection.Render(look)}}{{mock?.PromptSection}}
+            {{Principles(principles)}}{{SpecReviewContractSection.Render(contract, draft.SpecId, MaxContractChars)}}{{DerivationLookPromptSection.Render(look)}}{{Templates(templateAdvice)}}{{mock?.PromptSection}}
             ## The diff
             {{Diffs(diffs)}}
             """;
@@ -68,6 +69,16 @@ public static class SpecReviewPrompt
             + (whole ? string.Empty : "\n(cut off here — quote no rule you were not shown)")
             + "\n";
     }
+
+    // 2026-10-25-54beb: a template deviation is reportable, and marked as advice the models weigh.
+    private static string Templates(string? advice) =>
+        string.IsNullOrWhiteSpace(advice) ? string.Empty
+            : "\n## What the templates advise\n"
+              + "Where a NEW unit in the diff is built differently from what a template advises — its "
+              + "naming, its layering, the shape a new file takes — you may report it with "
+              + "\"kind\": \"template\", citing your read of the CHANGED file as for any finding. It is "
+              + "advice: recorded and shown, never fixed by force; existing code and the spec win over it."
+              + advice.TrimEnd() + "\n";
 
     private static string Diffs(IReadOnlyList<SpecDiff> diffs)
     {

@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-9324c
+
+decisions:
+  - category: Architecture
+    chose: "The run-end outcome reads the pipeline — SpecSequenceProgress (the producer of every RunSpec status) and a MemoryReliance key hand_forward fills — and writes through IMemoryEvidenceStore"
+    over: "Reading the final RunSpec row and the relied rows back from the database at WriteRunResult"
+    reason: |
+      The relied rows reach the database through the event drain, which may lag the run's last step; reading them
+      at run end could miss the spec that just handed forward. SpecSequenceProgress is what SpecProgressRecorder
+      projects into RunSpec, so its final state is the final RunSpec status without a round trip. The key is plain
+      data and survives a park (checkpoint round trip tested). Writing through the port follows IDecidedDefaults:
+      a composition without a database records nothing.
+  - category: Architecture
+    chose: "Evaluated once per run, as an upsert per (run, spec, slug), so a repeated run end and a repair pass converge on one row"
+    over: "Recording strained on every failed verification"
+    reason: |
+      A failure the repair pass then fixed is not the memory's failure. Only the final standing counts, and the
+      upsert keeps a resumed run that reaches WriteRunResult again from doubling the outcome.
+  - category: Architecture
+    chose: "JudgedMemoryEvidence stages the contradiction inside CriterionJudgementRepository's own save, keyed by the criterion's key"
+    over: "A second save after the judgement, or contradicting every memory of the run"
+    reason: |
+      The judgement and its evidence commit together or not at all. The criterion finds its spec through the
+      spec's AcceptanceJson and CriterionKey.Of, as TicketSeriesCriterionJoin does; a memory of another spec of
+      the run is not touched. Recording any verdict first retracts what that criterion contradicted, so
+      re-judging not-met as met takes the contradiction back, and a withdrawal does the same.
+  - category: Implementation
+    chose: "Weights confirmed +1, strained -0.5, judged not-met -1"
+    over: "Symmetric +1/-1 for done and failed"
+    reason: |
+      A spec fails for many reasons a memory had no part in; half a confirmation keeps one unrelated failure from
+      sinking a memory that two runs confirmed. A person saying the work is wrong is stronger than a red build and
+      weaker than a master naming the memory itself (dispute, -2).
+  - category: Implementation
+    chose: "The memory ledger's application registrations moved into MemoryStandingRegistrations, called from AddResumeServices"
+    over: "Growing PipelineHandlersExtensions, which the file-length baseline holds"
+    reason: "One place names the null store, the key, the citation check and the outcome recorder."

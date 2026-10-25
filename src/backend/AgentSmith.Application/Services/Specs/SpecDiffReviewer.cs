@@ -36,7 +36,7 @@ public sealed class SpecDiffReviewer(
         SpecDraft draft, string? principles, IReadOnlyList<SpecDiff> diffs, DerivationLook? look,
         AgentConfig agent, PipelineCostTracker costTracker, CancellationToken cancellationToken,
         SeriesContract? contract = null, // 2026-10-13-8762k: the set's contract, a rule source of its own
-        RatifiedMockOffer? mock = null)
+        RatifiedMockOffer? mock = null, string? templateAdvice = null) // + 54beb
     {
         ArgumentNullException.ThrowIfNull(draft);
         ArgumentNullException.ThrowIfNull(diffs);
@@ -46,7 +46,7 @@ public sealed class SpecDiffReviewer(
             return SpecReviewReport.NotTaken("this spec changed no reviewable file");
 
         var answer = await AskAsync(
-            SpecReviewPrompt.For(draft, principles, diffs, look, contract, mock), draft.SpecId, look, agent,
+            SpecReviewPrompt.For(draft, principles, diffs, look, contract, mock, templateAdvice), draft.SpecId, look, agent,
             costTracker, cancellationToken, mock ?? RatifiedMockOffer.None);
         if (answer is null)
         {

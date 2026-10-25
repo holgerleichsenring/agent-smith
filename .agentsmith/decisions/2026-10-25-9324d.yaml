@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-9324d
+
+decisions:
+  - category: Architecture
+    chose: "Standing constants in MemoryStandingWeights (9324a): relied 0, confirmed +1, strained -0.5, judged not-met -1, disputed -2, half-life 90 days"
+    over: "Counting raw outcomes without decay, or a fixed window"
+    reason: |
+      A reliance is no evidence by itself. A done spec is the strongest ordinary signal; a failure has many causes,
+      so it is worth half. A person's not-met is stronger than a red build; a master naming the memory as wrong is
+      the most direct signal there is. The 90-day half-life lets recent runs dominate while no verdict is final:
+      the code moves on and a memory that held in spring may not in autumn, and the reverse.
+  - category: Architecture
+    chose: "Label precedence: disputed = any contradiction AND decayed sum < 0; holding = sum > 0; unconfirmed otherwise"
+    over: "Disputed on a negative sum alone"
+    reason: |
+      Strains alone are failures the memory may have had nothing to do with; they keep a memory unconfirmed, never
+      hide it. Only a contradiction — a person's not-met or a master's dispute — can take a memory out of the index.
+  - category: Architecture
+    chose: "The master's index is composed per repository before the aggregate: holding first, then unconfirmed, file order within each; disputed left out and counted in one closing line"
+    over: "Showing disputed entries with a warning"
+    reason: |
+      A wrong memory must never become guidance; a warning beside it still hands it out. The count tells the master
+      something was withheld without handing out its text.
+  - category: Implementation
+    chose: "The record renders 'confirmed N · strained N · contradicted N · last yyyy-MM-dd', or 'no record yet'"
+    over: "The spec's example without strains"
+    reason: "Strains move the sum; a master reading a line whose label disagrees with its counts would be misled."
+  - category: Architecture
+    chose: "MEMORY.md labels are rewritten by MemoryIndexLabelWriter in SpecDoneRecorder's staging, the only writer of a label; remember's line carries the type only and an update keeps the line's label"
+    over: "remember writing a status, or the index reader writing the file"
+    reason: |
+      The record commit is the one point a run writes the carrier repository, so the label lands in git with the
+      evidence that earned it. An update through remember keeping the existing label stops a reworded entry from
+      losing its standing until the next record.
+  - category: Implementation
+    chose: "A ledger read that fails reads as no record (all unconfirmed) and is logged"
+    over: "Failing the master start or the record"
+    reason: "Hiding nothing and confirming nothing is the honest default when the evidence cannot be read."

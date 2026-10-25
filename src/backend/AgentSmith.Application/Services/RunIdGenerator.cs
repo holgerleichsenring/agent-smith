@@ -20,10 +20,16 @@ public static class RunIdGenerator
 
     public static string Generate(DateTimeOffset startedAtUtc)
     {
-        var timestamp = startedAtUtc.UtcDateTime.ToString(TimestampFormat);
         var suffix = Random.Shared.Next(SuffixSpace).ToString("x4");
-        return $"{timestamp}-{suffix}";
+        return $"{TimestampOf(startedAtUtc)}-{suffix}";
     }
+
+    /// <summary>
+    /// 2026-10-25-0099b: the id prefix of an instant — every id minted at or after it compares at or above it
+    /// as text, so a time window is a range of ids, which SQL compares on every provider.
+    /// </summary>
+    public static string TimestampOf(DateTimeOffset at) =>
+        at.UtcDateTime.ToString(TimestampFormat, System.Globalization.CultureInfo.InvariantCulture);
 
     public static bool IsValid(string runId) => CanonicalRegex.IsMatch(runId);
 

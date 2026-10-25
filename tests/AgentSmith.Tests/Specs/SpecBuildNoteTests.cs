@@ -23,13 +23,13 @@ public sealed class SpecBuildNoteTests
     private const string Third = "2026-10-14-5678c";
 
     [Fact]
-    public void HandForward_SecondCall_ReplacesTheNote()
+    public async Task HandForward_SecondCall_ReplacesTheNote()
     {
         var pipeline = new PipelineContext();
         var host = new HandForwardToolHost(pipeline, First);
 
-        host.HandForward(renamed: ["Bus -> MessageBus"], persisted: ["table RunDefaults"]);
-        var answer = host.HandForward(moved: ["src/A.cs -> src/Bus/A.cs"]);
+        await host.HandForward(renamed: ["Bus -> MessageBus"], persisted: ["table RunDefaults"]);
+        var answer = await host.HandForward(moved: ["src/A.cs -> src/Bus/A.cs"]);
 
         answer.Should().StartWith("Build note for " + First + " recorded");
         var note = Notes(pipeline)[First];
@@ -39,13 +39,13 @@ public sealed class SpecBuildNoteTests
     }
 
     [Fact]
-    public void HandForward_OverBound_IsRefusedByName()
+    public async Task HandForward_OverBound_IsRefusedByName()
     {
         var pipeline = new PipelineContext();
         var host = new HandForwardToolHost(pipeline, First);
 
-        var tooMany = host.HandForward(persisted: [.. Enumerable.Range(1, 21).Select(i => $"table T{i}")]);
-        var tooLong = host.HandForward(deviations: [new string('x', 301)]);
+        var tooMany = await host.HandForward(persisted: [.. Enumerable.Range(1, 21).Select(i => $"table T{i}")]);
+        var tooLong = await host.HandForward(deviations: [new string('x', 301)]);
 
         tooMany.Should().StartWith("Error").And.Contain("'persisted' has 21 entries, at most 20");
         tooLong.Should().StartWith("Error").And.Contain("'deviations' entry 1 is 301 characters, at most 300");
@@ -53,11 +53,11 @@ public sealed class SpecBuildNoteTests
     }
 
     [Fact]
-    public void HandForward_RenamedEntryWithoutArrow_IsRefusedByName()
+    public async Task HandForward_RenamedEntryWithoutArrow_IsRefusedByName()
     {
         var pipeline = new PipelineContext();
 
-        var answer = new HandForwardToolHost(pipeline, First)
+        var answer = await new HandForwardToolHost(pipeline, First)
             .HandForward(renamed: ["Bus -> MessageBus", "Bus became MessageBus"], moved: ["a ->b"]);
 
         answer.Should().StartWith("Error")
@@ -104,10 +104,10 @@ public sealed class SpecBuildNoteTests
     }
 
     [Fact]
-    public void SpecBuildNoteReader_ExecutedSpecYaml_ReadsTheNote()
+    public async Task SpecBuildNoteReader_ExecutedSpecYaml_ReadsTheNote()
     {
         var pipeline = Pipeline(executed: []);
-        new HandForwardToolHost(pipeline, First).HandForward(renamed: ["Bus -> MessageBus"], deviations: ["no retry"]);
+        await new HandForwardToolHost(pipeline, First).HandForward(renamed: ["Bus -> MessageBus"], deviations: ["no retry"]);
 
         var read = SpecBuildNoteReader.Read(SpecRecordBody.For(Draft(First), pipeline), First);
 
@@ -119,7 +119,7 @@ public sealed class SpecBuildNoteTests
     }
 
     [Fact]
-    public void PrecedingSpecs_NotesOf_ContextFirstThenRecordThenNoNote()
+    public async Task PrecedingSpecs_NotesOf_ContextFirstThenRecordThenNoNote()
     {
         // First ran in an earlier attempt and carries its note in its record; Second ran in this run
         // with a note in the context key; Third is current. A context note wins over a record.
@@ -127,7 +127,7 @@ public sealed class SpecBuildNoteTests
         var pipeline = Pipeline(executed: [First], firstYaml: recorded, withThird: true);
         pipeline.Set(ContextKeys.SpecSequenceProgress, SpecSequenceProgress.ForSet(pipeline.Get<SpecSet>(ContextKeys.SpecSet))
             .With(Second, SpecRunState.Done));
-        new HandForwardToolHost(pipeline, Second).HandForward(persisted: ["column Runs.Note"]);
+        await new HandForwardToolHost(pipeline, Second).HandForward(persisted: ["column Runs.Note"]);
 
         var notes = PrecedingSpecs.NotesOf(pipeline, Third);
 
@@ -136,7 +136,7 @@ public sealed class SpecBuildNoteTests
         notes[0].DoneFile.Should().Be($"{SeriesPaths.Done}/{First}-first.yaml");
         notes[1].Note!.Persisted.Should().Equal("column Runs.Note");
 
-        new HandForwardToolHost(pipeline, First).HandForward(renamed: ["Context -> Wins"]);
+        await new HandForwardToolHost(pipeline, First).HandForward(renamed: ["Context -> Wins"]);
         PrecedingSpecs.NotesOf(pipeline, Third)[0].Note!.Renamed.Should().Equal("Context -> Wins");
 
         var bare = Pipeline(executed: [First], withThird: true);
@@ -160,12 +160,12 @@ public sealed class SpecBuildNoteTests
     }
 
     [Fact]
-    public void SpecExecutionPrompt_SecondSpec_ShowsFirstSpecsNote()
+    public async Task SpecExecutionPrompt_SecondSpec_ShowsFirstSpecsNote()
     {
         var pipeline = Pipeline(executed: []);
         pipeline.Set(ContextKeys.SpecSequenceProgress, SpecSequenceProgress.ForSet(pipeline.Get<SpecSet>(ContextKeys.SpecSet))
             .With(First, SpecRunState.Done));
-        new HandForwardToolHost(pipeline, First).HandForward(renamed: ["Bus -> MessageBus"]);
+        await new HandForwardToolHost(pipeline, First).HandForward(renamed: ["Bus -> MessageBus"]);
         pipeline.Set(ContextKeys.CurrentSpec, Draft(Second));
         pipeline.Set(ContextKeys.MemoryIndex, "- [bus-name](bus-name.md) — the bus is MessageBus now");
 

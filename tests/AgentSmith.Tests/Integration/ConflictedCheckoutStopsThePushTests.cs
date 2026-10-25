@@ -71,7 +71,7 @@ public sealed class ConflictedCheckoutStopsThePushTests
             new Dictionary<string, ISandbox>(StringComparer.Ordinal)
             {
                 ["server"] = new InProcessSandbox(
-                    jobId: "p0496", workDir: fixture.WorkPath, ownsWorkDir: false, NullLogger.Instance)
+                    jobId: "p0496", workDir: fixture.WorkPath, ownsWorkDir: false, InProcessStepEnvironment.Inherit, NullLogger.Instance)
             });
         pipeline.Set<IReadOnlyDictionary<string, RemoteContextDiscovery>>(
             ContextKeys.SandboxDiscoveries,

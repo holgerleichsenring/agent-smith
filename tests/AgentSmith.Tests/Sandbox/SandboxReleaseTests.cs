@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using System.Net;
 using AgentSmith.Application.Services.Events;
 using AgentSmith.Application.Services.Sandbox;
@@ -119,7 +120,7 @@ public sealed class SandboxReleaseTests
         else inspect.ReturnsAsync(new ContainerInspectResponse { State = state });
         var docker = new Mock<IDockerClient>();
         docker.SetupGet(d => d.Containers).Returns(containers.Object);
-        return new DockerSandbox(docker.Object, "toolchain-1", "shared", "work", "job-1", Channel(),
+        return new DockerSandbox(docker.Object, "toolchain-1", ["shared", "work"], "job-1", Channel(), SandboxBusDoubles.SharedCredential,
             stepTimeoutCapSeconds: 900, "node:20", NullLogger.Instance);
     }
 
@@ -137,7 +138,7 @@ public sealed class SandboxReleaseTests
         else read.ReturnsAsync(new HttpOperationResponse<V1Pod> { Body = pod });
         var client = new Mock<IKubernetes>();
         client.SetupGet(c => c.CoreV1).Returns(core.Object);
-        return new KubernetesSandbox(client.Object, "agentsmith", "pod-1", "job-1", Channel(),
+        return new KubernetesSandbox(client.Object, "agentsmith", "pod-1", "job-1", Channel(), SandboxBusDoubles.SharedCredential,
             stepTimeoutCapSeconds: 900, "node:20", ResolvedSandboxSecrets.Empty, NullLogger.Instance);
     }
 

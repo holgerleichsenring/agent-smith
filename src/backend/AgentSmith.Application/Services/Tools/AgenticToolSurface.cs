@@ -51,9 +51,9 @@ public sealed class AgenticToolSurface
     /// (which builds/executes the repo) is the thing that stays excluded.
     /// </summary>
     /// <para>p0380: recall joins this surface (a memory read mutates nothing) and
-    /// remember joins as a PROPOSAL tool — it writes ONLY run-record-class
-    /// .agentsmith/memory/ paths, so "a scan modifies no code" stands; ratified
-    /// FP-dismissals recalled here are the compounding scan payoff.</para>
+    /// remember joins too — it writes ONLY run-record-class
+    /// .agentsmith/memory/ paths, so "a scan modifies no code" stands; FP-dismissals
+    /// recalled here, with the standing the runs gave them, are the compounding scan payoff.</para>
     public IList<AITool> Review(
         FilesystemToolHost fs, LogDecisionToolHost log, WebToolHost? web = null,
         MemoryRecallToolHost? recall = null, MemoryWriteToolHost? remember = null) =>

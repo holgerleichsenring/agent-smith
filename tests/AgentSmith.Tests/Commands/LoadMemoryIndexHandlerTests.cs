@@ -41,7 +41,7 @@ public sealed class LoadMemoryIndexHandlerTests
 
         result.IsSuccess.Should().BeTrue();
         context.Pipeline.Get<string>(ContextKeys.MemoryIndex)
-            .Should().Contain("- [a](a.md) (project) — one line");
+            .Should().Contain("- [a](a.md) (project, unconfirmed · no record yet) — one line", "9324d: the line carries its standing");
     }
 
     [Fact]
@@ -76,12 +76,11 @@ public sealed class LoadMemoryIndexHandlerTests
     {
         var factory = new Mock<ISandboxFileReaderFactory>();
         factory.Setup(f => f.Create(It.IsAny<ISandbox>())).Returns(reader);
-        return new LoadMemoryIndexHandler(new AgentSmith.Application.Services.Memory.MemoryIndexReader(
+        return new LoadMemoryIndexHandler(AgentSmith.Tests.TestHelpers.MemoryStandings.IndexReader(
             new AgentSmith.Application.Services.Repositories.RunRepositoriesFactory(
                 new SandboxTargets(), factory.Object,
                 new AgentSmith.Application.Services.Sandbox.SandboxWorkingTreeReader(
-                    NullLogger<AgentSmith.Application.Services.Sandbox.SandboxWorkingTreeReader>.Instance)),
-            NullLogger<AgentSmith.Application.Services.Memory.MemoryIndexReader>.Instance));
+                    NullLogger<AgentSmith.Application.Services.Sandbox.SandboxWorkingTreeReader>.Instance))));
     }
 
     private static LoadMemoryIndexContext MakeContext()

@@ -19,7 +19,7 @@ internal static class DockerSandboxRegistrations
 {
     internal static void Register(IServiceCollection services)
     {
-        var options = BuildOptions();
+        var options = new DockerSandboxOptionsReader().Read();
         services.AddSingleton(options);
         // p0465: ownership is the identity of the liveness store, derived from the
         // Redis endpoint the sandbox container itself is handed (--redis-url).
@@ -34,6 +34,9 @@ internal static class DockerSandboxRegistrations
             var uri = sp.GetRequiredService<DockerSocketUriResolver>().Resolve(opts.DockerSocketUri);
             return new DockerClientConfiguration(uri).CreateClient();
         });
+        services.AddSingleton<DockerHardening>();
+        services.AddSingleton<DockerOneShotRunner>();
+        services.AddSingleton<DockerSandboxVolumes>();
         services.AddSingleton<DockerContainerSpecBuilder>();
         services.AddSingleton<DockerPackageCaches>();
         services.AddSingleton<DockerImagePresence>();
@@ -51,8 +54,11 @@ internal static class DockerSandboxRegistrations
             sp.GetRequiredService<DockerSandboxOptions>(),
             sp.GetRequiredService<DockerPackageCaches>(),
             sp.GetRequiredService<DockerImagePresence>(),
+            sp.GetRequiredService<DockerSandboxVolumes>(),
+            sp.GetRequiredService<DockerOneShotRunner>(),
             sp.GetRequiredService<IOptions<SandboxGlobalConfig>>(),
             sp.GetRequiredService<IWireProtocolWatcher>(),
+            sp.GetRequiredService<SandboxBusCredentials>(),
             sp.GetRequiredService<ILoggerFactory>()));
         // p0269a: Docker capacity is a configured concurrent-sandbox bound (no
         // create-time signal on a limitless daemon). Replaces the Unbounded default.
@@ -105,15 +111,4 @@ internal static class DockerSandboxRegistrations
 
     private static Type? LeaseType(ServiceDescriptor descriptor) =>
         descriptor.ImplementationType ?? descriptor.ImplementationInstance?.GetType();
-
-    private static DockerSandboxOptions BuildOptions() => new()
-    {
-        RedisUrl = Environment.GetEnvironmentVariable("REDIS_URL") ?? "redis:6379",
-        DockerSocketUri = Environment.GetEnvironmentVariable("DOCKER_HOST") ?? DockerSocketUriResolver.DefaultSocket,
-        Network = Environment.GetEnvironmentVariable("DOCKER_NETWORK") ?? "",
-        // p0407: warm package caches are what every run wants; the switch exists for
-        // the operator who wants a provably cold restore or is short on disk.
-        PackageCacheEnabled =
-            !bool.TryParse(Environment.GetEnvironmentVariable("SANDBOX_PACKAGE_CACHE"), out var cache) || cache
-    };
 }

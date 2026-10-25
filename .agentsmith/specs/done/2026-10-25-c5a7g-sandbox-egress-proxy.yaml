@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-25-c5a7g
+goal: "An operator can point sandboxes at an egress proxy with a domain allowlist, after which a sandbox reaches only allowlisted hosts and Redis, on Kubernetes and on docker-compose."
+
+applies_to: "default (PodSpecBuilder, DockerContainerSpecBuilder, sandbox options) and deploy (proxy example manifests, compose override)"
+
+requires: ["2026-10-25-c5a7b", "2026-10-25-c5a7d"]
+
+facts:
+  - claim: "No sandbox env carries a proxy today; the toolchain env is JOB_ID, REDIS_URL, projected secrets (k8s) and cache paths (Docker)."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/PodSpecBuilder.cs:119-131, src/backend/AgentSmith.Server/Services/Sandbox/DockerContainerSpecBuilder.cs:79-87"
+  - claim: "Deployment-topology settings are server env vars read into the backend options, next to DOCKER_NETWORK and K8S_NAMESPACE."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/DockerSandboxOptionsReader.cs:14-22, src/backend/AgentSmith.Server/Services/Sandbox/KubernetesSandboxRegistrations.cs:23-27"
+  - claim: "2026-10-25-c5a7b moved the Docker backend's env reading into DockerSandboxOptionsReader, which this spec extends."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/DockerSandboxOptionsReader.cs:14-22"
+  - claim: "Every process a step starts inherits the toolchain env, so git, curl and the package managers see a proxy variable set on the container."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Services/ProcessRunner.cs:57-78, src/backend/AgentSmith.Sandbox.Agent/Services/AgentProcessEnvironment.cs:16-27"
+  - claim: "The browser image runs its own guard proxy that dials targets directly."
+    evidence: "src/sandbox-images/browser/egress.mjs:1-6, src/sandbox-images/browser/render.mjs:31-37"
+
+scope:
+  in: >
+    Follows p0304's domain tier (its per-run modes stay refuted). SANDBOX_EGRESS_PROXY (server env, unset = off,
+    today's behaviour) puts HTTP_PROXY, HTTPS_PROXY, http_proxy, https_proxy and NO_PROXY/no_proxy (localhost, 127.0.0.1, .svc,
+    .cluster.local — Redis is not HTTP and needs no entry) on the toolchain container in both backends. Kubernetes example
+    deploy/k8s/examples/sandbox-egress-proxy.yaml: a squid Deployment and Service in namespace agentsmith, image
+    pinned by version and digest at build time, a ConfigMap allowlist (dstdomain) with the public git hosts,
+    nuget.org, registry.npmjs.org, pypi.org/files.pythonhosted.org, proxy.golang.org, crates.io commented in,
+    CONNECT only to 443, deny everything else; and a NetworkPolicy with the same metadata.name and namespace as
+    13-networkpolicy-sandbox.yaml, so applying the example replaces 13's object (policies are additive: a second
+    object would leave 80/443 open beside the proxy), allowing egress only to DNS, Redis and the proxy on 3128. Compose override deploy/docker-compose.egress-proxy.yml: the
+    agentsmith-sandbox network becomes internal, squid joins it and the default network, the server gets
+    SANDBOX_EGRESS_PROXY. Docs: the allowlist is the operator's; a denied host appears as the tool's own
+    proxy error (403 from squid) in the step output.
+  out: >
+    render_reference under proxy-only egress: the browser guard dials directly and its renders fail; a deployment
+    that needs renders keeps 13's public rule (stated in the example). Toolchains that ignore proxy env — JVM
+    builds (JAVA_TOOL_OPTIONS / settings.xml) and Node's built-in fetch (undici) — fail closed under the policy;
+    named in the docs, not wired. A blocked-egress risk event on the
+    run: squid's access log is the record. TLS interception: none; the allowlist is by CONNECT host.
+
+decisions:
+  - key: "A PROXY, NOT A CNI FEATURE. FQDN policies exist only in some CNIs; squid plus an IP policy to it is the same on every cluster and on compose."
+  - key: "OFF BY DEFAULT, EXAMPLE NOT BASE. An allowlist is estate-specific; shipping it as the base manifest would break every private feed on apply."
+  - key: "OPTIONS READER EXTRACTED. BuildOptions leaves DockerSandboxRegistrations for a reader of its own so the file stays under its limit."
+
+steps:
+  - id: env
+    action: "SandboxEgressProxy (value + NO_PROXY) read into KubernetesSandboxOptions and through DockerSandboxOptionsReader; PodSecurity's env (2026-10-25-c5a7a) and DockerHardening (2026-10-25-c5a7b) add the variables, so neither spec builder grows."
+  - id: deploy
+    action: "Kubernetes example, compose override, docs."
+  - id: pinned
+    action: "Manifest test: the example policy's only non-DNS, non-Redis egress is the proxy service port; compose override: the sandbox network is internal and squid is on it."
+
+tests:
+  - "PodSpecBuilder_EgressProxySet_AddsProxyVariablesAndNoProxyForRedis"
+  - "PodSpecBuilder_EgressProxyUnset_AddsNothing"
+  - "DockerContainerSpecBuilder_EgressProxySet_AddsProxyVariables"
+  - "SandboxEgressProxy_NoProxy_CoversLoopbackAndClusterSuffixes"
+  - "EgressProxyExample_PolicyHasThe13NameAndNamespace_AndAllowsOnlyProxyDnsAndRedis (reads deploy/k8s)"
+  - "ComposeEgressOverride_SandboxNetworkInternal_ProxyAttached"
+
+done:
+  - "with the example applied, a sandbox clones from github.com and restores from nuget.org; curl to an unlisted host fails with the proxy's refusal"
+  - "unset, nothing changes"
+  - "build green, full suite green"

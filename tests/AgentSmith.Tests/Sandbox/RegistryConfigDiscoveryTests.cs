@@ -36,7 +36,7 @@ public sealed class RegistryConfigDiscoveryTests(ITestOutputHelper output)
                 """);
 
             var sandbox = new InProcessSandbox(
-                jobId: "p0419", workDir, ownsWorkDir: false,
+                jobId: "p0419", workDir, ownsWorkDir: false, InProcessStepEnvironment.Inherit,
                 NullLogger<InProcessSandbox>.Instance);
             var reader = new SandboxFileReaderFactory().Create(sandbox);
 
@@ -72,7 +72,7 @@ public sealed class RegistryConfigDiscoveryTests(ITestOutputHelper output)
         try
         {
             var sandbox = new InProcessSandbox(
-                jobId: "p0419home", workDir, ownsWorkDir: false,
+                jobId: "p0419home", workDir, ownsWorkDir: false, InProcessStepEnvironment.Inherit,
                 NullLogger<InProcessSandbox>.Instance);
             var reader = new SandboxFileReaderFactory().Create(sandbox);
 

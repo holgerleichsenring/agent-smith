@@ -42,6 +42,8 @@ For GitHub Actions / Azure Pipelines / GitLab CI, set them as masked CI secrets.
 
 The CLI always runs its sandbox in-process: file operations and commands happen on your local filesystem, in the CLI process, with no container around them and no isolation between repos. No Docker daemon is needed, and `SANDBOX_TYPE` has no effect here. The commands a run executes need their toolchain (`dotnet`, `node`, `git`, …) installed on the machine itself.
 
+A command the run executes does not inherit the process's secrets: the model, git host and tracker keys, each agent's `api_key_secret`, `REDIS_URL`, the database connection, webhook secrets and chat tokens are removed from its environment, and so is any variable whose value is a configured secret or registry token (six characters or more). That keeps them out of what `env`, a build or a test prints; it is not isolation. The command still runs as your user and could read them another way, so the in-process sandbox is not for untrusted repositories. A private feed reached through a variable your own `nuget.config` or `.npmrc` reads loses that variable when its value is a configured secret; the project's registry credentials (staged auth files) are the supported way.
+
 That's fine for single-repo work on a machine you trust. For per-repo toolchain containers, sandbox isolation and the package cache, run the [server](docker-compose.md), which picks Docker or Kubernetes sandboxes.
 
 ## Where a run leaves its record

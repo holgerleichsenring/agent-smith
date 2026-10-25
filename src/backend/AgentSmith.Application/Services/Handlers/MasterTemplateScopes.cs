@@ -1,6 +1,7 @@
 using AgentSmith.Application.Services.Specs;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Models;
+using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using Microsoft.Extensions.Logging;
 
@@ -17,7 +18,7 @@ namespace AgentSmith.Application.Services.Handlers;
 /// </para>
 /// </summary>
 public sealed class MasterTemplateScopes(
-    ProjectTemplateScopes scopes, ILogger<MasterTemplateScopes> logger)
+    ProjectTemplateScopes scopes, MasterTemplateAdvice advice, ILogger<MasterTemplateScopes> logger)
 {
     /// <summary>
     /// Selects the templates declared for the contexts THIS SPEC changes, materialises each
@@ -41,10 +42,14 @@ public sealed class MasterTemplateScopes(
     {
         ArgumentNullException.ThrowIfNull(pipeline);
         if (readOnlySurface) return MasterTemplateAttachment.Empty;
-        var selected = scopes.For(pipeline, draft?.Contexts);
+        // 2026-10-25-54beb: borrowed from the run's owner when there is one, so the diff reviewer
+        // reads the same checkout and the run end — not the master's — tears it down.
+        var owner = RunTemplateScopes.Of(pipeline);
+        var selected = owner?.Borrow(pipeline, draft?.Contexts) ?? scopes.For(pipeline, draft?.Contexts);
         if (selected.Count == 0) return MasterTemplateAttachment.Empty;
 
-        var attachment = new MasterTemplateAttachment(selected);
+        var declared = TemplateDeclarations.For(pipeline, draft?.Contexts);
+        var attachment = new MasterTemplateAttachment(selected, declared, owns: owner is null);
         try
         {
             foreach (var (name, scope) in selected)
@@ -54,6 +59,7 @@ public sealed class MasterTemplateScopes(
                     "Template '{Name}' is open to the master at {Sha}",
                     name, string.IsNullOrEmpty(sha) ? "its own default" : sha);
             }
+            attachment.Advise(await AdviceAsync(selected, declared, cancellationToken));
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -63,6 +69,17 @@ public sealed class MasterTemplateScopes(
 
         pipeline.Set<IReadOnlyList<string>>(ContextKeys.TemplateAddresses, attachment.Names);
         return attachment;
+    }
+
+    private async Task<string> AdviceAsync(
+        IReadOnlyDictionary<string, ISourceScopeSandbox> selected,
+        IReadOnlyDictionary<string, ProjectTemplate> declared, CancellationToken cancellationToken)
+    {
+        var sections = new List<string>();
+        foreach (var (name, scope) in selected)
+            if (declared.TryGetValue(name, out var template))
+                sections.Add(await advice.ReadAsync(name, template, scope, cancellationToken));
+        return string.Concat(sections);
     }
 
     // The spec fails naming the template AND the revision it asked for: "the template is
