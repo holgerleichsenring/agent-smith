@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-9dbbd
+
+decisions:
+  - category: Scope
+    chose: "Step 'probe' not performed live: no private repository visible to the operator's gh login has an issue with an uploaded image or file; the parser and its tests follow GitHub's documented body_html shape"
+    over: "Creating a private repository and issue to record one, or inventing a 'recorded' fixture"
+    reason: "The session may read GitHub but not write to it, and a fixture presented as recorded would be a fabricated fact. Outstanding: read one private-repo issue with an image and a file via application/vnd.github.full+json and check the img src host, the jwt query and whether a user-attachments/files link downloads without a token."
+  - category: Security
+    chose: "No credential is sent to any upload URL; a signed private-user-images URL is downloaded as given, right after the read in Download*AttachmentsAsync"
+    over: "Sending the repository token to github.com file links"
+    reason: "The spec allows a token only to the repository's own GitHub host and only if the probe shows a files link needs it; without the probe nothing justifies it. A refs list stored and downloaded later may find the JWT expired (minutes)."
+  - category: Implementation
+    chose: "Read the issue with application/vnd.github.full+json through the raw Octokit connection"
+    over: "application/vnd.github.html+json as the spec named"
+    reason: "html+json returns body_html without the markdown body, so the 'no body_html: today's markdown parse' fallback would need a second read; full+json carries body, body_text and body_html in one."
+  - category: Implementation
+    chose: "The raw JSON is taken from response.HttpResponse.Body"
+    over: "IApiResponse<string>.Body"
+    reason: "Measured with the real Octokit 14 Connection over a scripted handler: for an application/json reply Octokit tries to deserialize into string and leaves Body empty; the raw text is only in the HTTP response. The same defect sits in the GraphQL readers and is fixed by its own spec, 2026-10-25-684b."
+  - category: Implementation
+    chose: "img src on private-user-images / user-images.githubusercontent.com and a href to github.com/.../files/... are uploads; camo.githubusercontent.com and every other host are skipped; one ref per URL"
+    over: "Treating any githubusercontent.com URL as an image (the markdown rule)"
+    reason: "In rendered HTML camo proxies external images, which are not attachments; the anchor wrapping a rendered image repeats its URL, hence the de-duplication. GitHub Enterprise upload hosts are not recognised (not in scope)."

@@ -47,7 +47,7 @@ public sealed class LocalSourceProvider(string basePath, string? defaultBranch =
     public Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
         CancellationToken cancellationToken,
-        TicketId? linkedTicketId = null, bool isDraft = false, BranchName? targetBranch = null)
+        PullRequestTicket? linkedTicket = null, bool isDraft = false, BranchName? targetBranch = null)
     {
         // p0326: honest wording — a Local repo without an origin remote is never
         // pushed (SandboxGitOperations skips the push); the local commit is the result.

@@ -1,18 +1,18 @@
-using AgentSmith.Contracts.Providers;
 using Microsoft.Extensions.Logging;
+using AgentSmith.Infrastructure.Models;
 using Octokit;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
 
 /// <summary>
 /// p0490: changes the state of an already-opened GitHub pull request, addressed by the
-/// web URL <c>CreatePullRequestAsync</c> handed back — its body, its draft flag, or
-/// whether it is merged. Opening one needs a repository, a branch and a default-branch
-/// lookup; changing one that exists needs only the number recovered from that URL,
-/// which is why the three edits share this type and its single parser.
+/// web URL <c>CreatePullRequestAsync</c> handed back — its body or its draft flag. Opening one
+/// needs a repository, a branch and a default-branch lookup; changing one that exists needs only
+/// the number recovered from that URL, which is why the edits share this type and its single
+/// parser. Merging is <see cref="GitHubPullRequestMerger"/>'s (2026-10-25-9dbbc).
 /// </summary>
 public sealed class GitHubPullRequestUpdater(
-    string owner, string repo, IGitHubClientFactory clientFactory, string token, ILogger logger)
+    GitHubRepoAddress address, IGitHubClientFactory clientFactory, string token, ILogger logger)
 {
     public async Task<bool> UpdateBodyAsync(
         string prUrl, string newBody, CancellationToken cancellationToken)
@@ -22,7 +22,7 @@ public sealed class GitHubPullRequestUpdater(
         try
         {
             await Client().PullRequest.Update(
-                owner, repo, prNumber, new PullRequestUpdate { Body = newBody });
+                address.Owner, address.Repo, prNumber, new PullRequestUpdate { Body = newBody });
             logger.LogInformation("Updated PR body for #{Pr}", prNumber);
             return true;
         }
@@ -43,7 +43,7 @@ public sealed class GitHubPullRequestUpdater(
         try
         {
             var client = Client();
-            var pr = await client.PullRequest.Get(owner, repo, prNumber);
+            var pr = await client.PullRequest.Get(address.Owner, address.Repo, prNumber);
             if (!pr.Draft) return true;
             return await MarkReadyViaGraphQlAsync(client, pr.NodeId, prNumber);
         }
@@ -51,35 +51,6 @@ public sealed class GitHubPullRequestUpdater(
         {
             logger.LogWarning(ex, "Failed to mark PR #{Pr} ready for review", prNumber);
             return false;
-        }
-    }
-
-    // p0490: branch protection answers a merge that may not happen with 405
-    // (PullRequestNotMergeableException) and a head that moved with 409
-    // (PullRequestMismatchException). Both are the platform declining, and both carry
-    // the sentence the operator needs, so every failure is reported as a refusal
-    // instead of thrown at a run that has already done its work.
-    public async Task<PullRequestCompletion> CompleteAsync(
-        string prUrl, CancellationToken cancellationToken)
-    {
-        if (!TryParsePullNumber(prUrl, out var prNumber))
-            return PullRequestCompletion.Refused($"'{prUrl}' is not a GitHub pull request URL.");
-        _ = cancellationToken;
-        try
-        {
-            var merge = await Client().PullRequest.Merge(owner, repo, prNumber, new MergePullRequest());
-            if (merge.Merged)
-            {
-                logger.LogInformation("PR #{Pr} merged", prNumber);
-                return PullRequestCompletion.Merged();
-            }
-            logger.LogInformation("PR #{Pr} was not merged: {Message}", prNumber, merge.Message);
-            return PullRequestCompletion.Refused(merge.Message ?? "GitHub declined the merge.");
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Merging PR #{Pr} was refused", prNumber);
-            return PullRequestCompletion.Refused(ex.Message);
         }
     }
 
@@ -96,7 +67,7 @@ public sealed class GitHubPullRequestUpdater(
             variables = new { id = nodeId },
         };
         var response = await client.Connection.Post<string>(
-            new Uri("graphql", UriKind.Relative), body, "application/json", "application/json");
+            address.Api.GraphQl, body, "application/json", "application/json");
         if ((int)response.HttpResponse.StatusCode >= 300)
         {
             logger.LogWarning(
@@ -108,7 +79,7 @@ public sealed class GitHubPullRequestUpdater(
         return true;
     }
 
-    private IGitHubClient Client() => clientFactory.Create(token);
+    private IGitHubClient Client() => clientFactory.Create(address, token);
 
     // 2026-09-13-a284: internal so the retarget type reads the SAME url shape, once.
     internal static bool TryParsePullNumber(string prUrl, out int prNumber)

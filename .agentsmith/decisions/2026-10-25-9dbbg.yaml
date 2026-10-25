@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-9dbbg
+
+decisions:
+  - category: Architecture
+    chose: "RepoKey moves whole to AgentSmith.Domain.Models and gains WithoutGitSuffix; TriggerModeFindings uses RepoKey.Of"
+    over: "Moving only the suffix trim to Domain and leaving RepoKey in Infrastructure.Webhooks"
+    reason: "TriggerModeFindings' Key was a second copy of RepoKey.Of (host + path, lowercased, suffix gone); Application can only share it if the key itself is reachable. Domain already holds pure shared rules (HtmlMarkup)."
+  - category: Implementation
+    chose: "GitHubRepoAddress (2026-10-25-9dbbb) trims through RepoKey.WithoutGitSuffix too"
+    over: "Keeping its own trailing-suffix trim"
+    reason: "One rule for what a .git suffix is; the address's behaviour is unchanged."
+  - category: Implementation
+    chose: "Both ParseAzureReposUrl copies become internal and are tested; their return shapes stay as they were"
+    over: "Merging the two Azure Repos parsers in this spec"
+    reason: "The spec is the suffix rule; the two parsers return different tuples to different factories, and merging them is a separate refactor."

@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Models;
+using AgentSmith.Infrastructure.Models;
 using Microsoft.Extensions.Logging;
 using Octokit;
 
@@ -24,7 +25,8 @@ public sealed class GitHubRequiresLink : ITicketRequiresLink
     public GitHubRequiresLink(IGitHubClient client, GitHubTicketConnection connection, ILogger logger)
     {
         _client = client;
-        (_owner, _repo) = GitHubLinkedWork.ParseRepoUrl(connection.RepoUrl);
+        var address = GitHubRepoAddress.Parse(connection.RepoUrl);
+        (_owner, _repo) = (address.Owner, address.Repo);
         _logger = logger;
     }
 

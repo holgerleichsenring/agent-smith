@@ -53,7 +53,7 @@ public sealed class PullRequestTargetTests
 
         provider.Verify(p => p.CreatePullRequestAsync(
             It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
-            It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(), true,
+            It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>(), true,
             It.Is<BranchName?>(b => b != null && b.Value == Rung)), Times.Once);
     }
 
@@ -96,7 +96,7 @@ public sealed class PullRequestTargetTests
 
         provider.Verify(p => p.CreatePullRequestAsync(
             It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
-            It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(), It.IsAny<bool>(), null), Times.Once);
+            It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>(), It.IsAny<bool>(), null), Times.Once);
     }
 
     [Fact]
@@ -123,11 +123,11 @@ public sealed class PullRequestTargetTests
 
         server.Verify(p => p.CreatePullRequestAsync(
             It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
-            It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(), It.IsAny<bool>(),
+            It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>(), It.IsAny<bool>(),
             It.Is<BranchName?>(b => b != null && b.Value == Rung)), Times.Once);
         client.Verify(p => p.CreatePullRequestAsync(
             It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
-            It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(), It.IsAny<bool>(), null), Times.Once);
+            It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>(), It.IsAny<bool>(), null), Times.Once);
     }
 
     [Fact]
@@ -149,7 +149,7 @@ public sealed class PullRequestTargetTests
 
         provider.Verify(p => p.CreatePullRequestAsync(
             It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
-            It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(), It.IsAny<bool>(), null), Times.Once);
+            It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>(), It.IsAny<bool>(), null), Times.Once);
     }
 
     private async Task RunCommitAndPrAsync(Mock<ISourceProvider> provider, string? rung)
@@ -167,7 +167,7 @@ public sealed class PullRequestTargetTests
         var provider = new Mock<ISourceProvider>();
         provider.Setup(p => p.CreatePullRequestAsync(
                 It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(), It.IsAny<bool>(),
+                It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>(), It.IsAny<bool>(),
                 It.IsAny<BranchName?>()))
             .ReturnsAsync(PrUrl);
         provider.Setup(p => p.UpdatePullRequestBodyAsync(

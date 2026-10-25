@@ -1,3 +1,4 @@
+using AgentSmith.Domain.Models;
 using AgentSmith.Application.Webhooks;
 using AgentSmith.Contracts.Models;
 using AgentSmith.Contracts.Models.Configuration;

@@ -19,11 +19,11 @@ public partial interface ISourceProvider : ITypedProvider
     Task<Repository> CheckoutAsync(BranchName? branch, CancellationToken cancellationToken);
 
     /// <summary>
-    /// Creates a pull request. When <paramref name="linkedTicketId"/> is set,
-    /// the provider also associates the ticket with the PR using the platform's
-    /// native mechanism — AzDO attaches it as a Work Item Ref, GitHub/GitLab
-    /// add a "Closes #N"-style auto-link to the description. Providers without
-    /// a sensible link mechanism ignore the parameter.
+    /// Creates a pull request. When <paramref name="linkedTicket"/> is set, the provider
+    /// references it in the host's own syntax only when the ticket lives on that host —
+    /// GitHub/GitLab write '#N' or 'owner/repo#N', Azure Repos links a work item of its own
+    /// organization — and otherwise appends a 'Ticket: &lt;web url&gt;' footer when the ticket
+    /// has a web url. It never writes a closing keyword: closing a ticket is an operator act.
     /// When <paramref name="isDraft"/> is set, the PR is opened as a draft /
     /// work-in-progress so it is visible for review but not mergeable — used for
     /// a verification-red run. Providers without a draft concept ignore it.
@@ -37,7 +37,7 @@ public partial interface ISourceProvider : ITypedProvider
         string title,
         string description,
         CancellationToken cancellationToken,
-        TicketId? linkedTicketId = null,
+        PullRequestTicket? linkedTicket = null,
         bool isDraft = false,
         BranchName? targetBranch = null);
 

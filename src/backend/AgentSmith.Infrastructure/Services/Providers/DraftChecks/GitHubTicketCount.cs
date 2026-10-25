@@ -2,6 +2,7 @@ using System.Text.Json;
 using AgentSmith.Contracts.Models.ConfigStudio;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Services;
+using AgentSmith.Infrastructure.Models;
 
 namespace AgentSmith.Infrastructure.Services.Providers.DraftChecks;
 
@@ -16,7 +17,8 @@ public sealed class GitHubTicketCount(IDraftCheckHttp http) : ITicketCountCapabi
     public async Task<DraftCheckStep> CountOpenAsync(
         TrackerConnection tracker, string token, CancellationToken cancellationToken)
     {
-        var url = $"{GitHubTrackerDraftCheck.Api}/repos/{GitHubTrackerDraftCheck.RepositoryOf(tracker)}"
+        GitHubRepoAddress.TryParse(tracker.Url, out var address);
+        var url = $"{GitHubApiEndpoints.For(tracker.Url).RestRoot}/repos/{address?.FullName}"
                   + $"/issues?state=open&per_page={DraftCheckJson.PageSize}";
         var answer = await http.GetAsync(url, DraftCheckAuth.GitHub(token), cancellationToken);
         return answer.CountStep(DraftCheckStep.Tickets, "open tickets", Issues);

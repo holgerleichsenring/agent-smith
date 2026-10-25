@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Models;
 using AgentSmith.Infrastructure.Services.Providers.Source;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -33,7 +34,7 @@ public sealed class PrReviewHostIdTests
     [Fact]
     public async Task PrReviewThreads_EveryHost_CarryHostIds()
     {
-        var github = await new GitHubPrReviewThreadReader(GitHubReplying(GitHubThreads), "o", "r", "https://github.com/o/r", NullLogger.Instance)
+        var github = await new GitHubPrReviewThreadReader(GitHubReplying(GitHubThreads), GitHubRepoAddress.Parse("https://github.com/o/r"), NullLogger.Instance)
             .ListAsync("https://github.com/o/r/pull/4", CancellationToken.None);
         var gitlab = await new GitLabPrReviewThreadReader("https://gitlab.example", "o%2Fr", "t", "https://gitlab.example/o/r",
                 GitLabAnswering(p => p.EndsWith("/api/v4/user") ? """{ "id": 1 }""" : p.Contains("/users/") ? """{ "bot": false }""" : GitLabDiscussions),
@@ -60,7 +61,7 @@ public sealed class PrReviewHostIdTests
                 { "data": { "repository": { "pullRequest": { "author": { "login": "agent" }, "latestReviews": { "nodes": [
                   { "id": "R9", "state": "CHANGES_REQUESTED", "author": { "__typename": "User", "login": "alice" },
                     "authorAssociation": "MEMBER", "submittedAt": "2026-10-08T10:00:00Z" } ] } } } } }
-                """), "o", "r", "https://github.com/o/r")
+                """), GitHubRepoAddress.Parse("https://github.com/o/r"))
             .ChangesRequestedAsync("https://github.com/o/r/pull/4", CancellationToken.None);
         var gitlab = await new GitLabMrActReader("https://gitlab.example", "o%2Fr", "t", "https://gitlab.example/o/r",
                 GitLabAnswering(p => p.EndsWith("/api/v4/user") ? """{ "id": 1 }""" : p.Contains("/users/") ? """{ "bot": false }"""

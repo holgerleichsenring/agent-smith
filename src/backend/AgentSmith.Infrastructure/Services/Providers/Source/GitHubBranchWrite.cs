@@ -1,5 +1,6 @@
 using AgentSmith.Contracts.Providers;
 using Microsoft.Extensions.Logging;
+using AgentSmith.Infrastructure.Models;
 using Octokit;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
@@ -16,7 +17,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// </para>
 /// </summary>
 public sealed class GitHubBranchWrite(
-    string owner, string repo, IGitHubClientFactory clientFactory, string token, ILogger logger)
+    GitHubRepoAddress address, IGitHubClientFactory clientFactory, string token, ILogger logger)
 {
     private const string FileMode = "100644";
 
@@ -25,30 +26,30 @@ public sealed class GitHubBranchWrite(
         CancellationToken cancellationToken)
     {
         if (files.Count == 0) return BranchWriteResult.Failed("no files to write");
-        var client = clientFactory.Create(token);
+        var client = clientFactory.Create(address, token);
         try
         {
             var reference = $"heads/{branch}";
             var existing = await TryGetAsync(client, reference);
             var parent = existing?.Object.Sha
-                ?? (await client.Git.Reference.Get(owner, repo, $"heads/{defaultBranch}")).Object.Sha;
+                ?? (await client.Git.Reference.Get(address.Owner, address.Repo, $"heads/{defaultBranch}")).Object.Sha;
             var tree = await CreateTreeAsync(client, parent, files);
             var commit = await client.Git.Commit.Create(
-                owner, repo, new NewCommit(message, tree.Sha, parent));
+                address.Owner, address.Repo, new NewCommit(message, tree.Sha, parent));
             if (existing is null)
                 await client.Git.Reference.Create(
-                    owner, repo, new NewReference($"refs/heads/{branch}", commit.Sha));
+                    address.Owner, address.Repo, new NewReference($"refs/heads/{branch}", commit.Sha));
             else
                 await client.Git.Reference.Update(
-                    owner, repo, reference, new ReferenceUpdate(commit.Sha, force: false));
+                    address.Owner, address.Repo, reference, new ReferenceUpdate(commit.Sha, force: false));
             logger.LogInformation(
                 "{Owner}/{Repo}: {Count} file(s) committed as {Sha} on {Branch}",
-                owner, repo, files.Count, commit.Sha, branch);
+                address.Owner, address.Repo, files.Count, commit.Sha, branch);
             return BranchWriteResult.Ok(commit.Sha);
         }
         catch (Exception ex) when (ex is not OperationCanceledException || !cancellationToken.IsCancellationRequested)
         {
-            logger.LogWarning(ex, "{Owner}/{Repo}: writing {Branch} failed", owner, repo, branch);
+            logger.LogWarning(ex, "{Owner}/{Repo}: writing {Branch} failed", address.Owner, address.Repo, branch);
             return BranchWriteResult.Failed(ex.Message.Split('\n', 2)[0].Trim());
         }
     }
@@ -66,12 +67,12 @@ public sealed class GitHubBranchWrite(
                 Type = TreeType.Blob,
                 Content = file.Content,
             });
-        return client.Git.Tree.Create(owner, repo, tree);
+        return client.Git.Tree.Create(address.Owner, address.Repo, tree);
     }
 
     private async Task<Reference?> TryGetAsync(IGitHubClient client, string reference)
     {
-        try { return await client.Git.Reference.Get(owner, repo, reference); }
+        try { return await client.Git.Reference.Get(address.Owner, address.Repo, reference); }
         catch (NotFoundException) { return null; }
     }
 }

@@ -68,10 +68,7 @@ public sealed class GitHubPrCommentWebhookHandler(
             RepositoryUrl: repository.TryGetProperty("html_url", out var url) ? url.GetString() ?? "" : "",
             RepositoryId: repoFullName,
             AuthorId: login,
-            AuthorLogin: login)
-        {
-            Association = comment.TryGetProperty("author_association", out var assoc) ? assoc.GetString() : null,
-        };
+            AuthorLogin: login);
         var command = new PrCommentCommand(
             comment.GetProperty("body").GetString() ?? "", author,
             $"{repoFullName}#{prNumber}", $"pr:{repoFullName}#{prNumber}", prNumber.ToString())

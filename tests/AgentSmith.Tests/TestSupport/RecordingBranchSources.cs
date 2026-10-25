@@ -64,7 +64,7 @@ internal sealed class RecordingBranchSources : ISourceProviderFactory
 
         public Task<string> CreatePullRequestAsync(
             Repository repository, string title, string description, CancellationToken cancellationToken,
-            TicketId? linkedTicketId = null, bool isDraft = false, BranchName? targetBranch = null) =>
+            PullRequestTicket? linkedTicket = null, bool isDraft = false, BranchName? targetBranch = null) =>
             throw new NotSupportedException(Inert);
 
         public Task<string?> FindOpenPullRequestAsync(

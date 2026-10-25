@@ -54,10 +54,7 @@ public sealed class GitHubPrReviewWebhookHandler(
         var repository = root.GetProperty("repository");
         var fullName = PayloadActTime.Text(repository, "full_name") ?? string.Empty;
         var login = PayloadActTime.Text(review, "user", "login") ?? string.Empty;
-        var reviewer = new PrCommentAuthor(PayloadActTime.Text(repository, "html_url") ?? string.Empty, fullName, login, login)
-        {
-            Association = PayloadActTime.Text(review, "author_association"),
-        };
+        var reviewer = new PrCommentAuthor(PayloadActTime.Text(repository, "html_url") ?? string.Empty, fullName, login, login);
         return new PrReviewRequest(RepoType.GitHub, PayloadActTime.Text(repository, "clone_url") ?? string.Empty,
             PayloadActTime.Text(pr, "head", "ref"),
             string.Equals(PayloadActTime.Text(pr, "head", "repo", "full_name"), fullName, StringComparison.OrdinalIgnoreCase),

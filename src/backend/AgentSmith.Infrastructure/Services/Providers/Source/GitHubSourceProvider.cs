@@ -5,6 +5,7 @@ using AgentSmith.Contracts.Sweep;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Exceptions;
 using AgentSmith.Domain.Models;
+using AgentSmith.Infrastructure.Models;
 using Microsoft.Extensions.Logging;
 using Octokit;
 using Repository = AgentSmith.Domain.Entities.Repository;
@@ -18,6 +19,7 @@ namespace AgentSmith.Infrastructure.Services.Providers.Source;
 /// </summary>
 public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, IPrReviewThreadReader, IPrReviewActReader, IPrReviewStateReader, IChangedPullRequestLister, IOpenPullRequestSource, IPullRequestHeadReader, IPullRequestCloser
 {
+    private readonly GitHubRepoAddress _address;
     private readonly string _owner;
     private readonly string _repo;
     private readonly string _cloneUrl;
@@ -25,6 +27,7 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, 
     private readonly IGitHubClientFactory _clientFactory;
     private readonly ILogger<GitHubSourceProvider> _logger;
     private readonly GitHubPullRequestUpdater _pullRequests;
+    private readonly GitHubPullRequestMerger _merger;
     // 2026-09-13-a284: where an open pull request POINTS, separate from what it says.
     private readonly GitHubPullRequestTarget _prTarget;
     // p0500: the repository's own default branch wins; connection.DefaultBranch is the fallback.
@@ -41,17 +44,19 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, 
         IGitHubClientFactory clientFactory,
         ILogger<GitHubSourceProvider> logger)
     {
-        (_owner, _repo) = ParseGitHubUrl(connection.RepoUrl);
+        _address = GitHubRepoAddress.Parse(connection.RepoUrl);
+        (_owner, _repo) = (_address.Owner, _address.Repo);
         _cloneUrl = connection.RepoUrl.EndsWith(".git") ? connection.RepoUrl : $"{connection.RepoUrl}.git";
         _token = connection.Token;
         _clientFactory = clientFactory;
         _logger = logger;
-        _pullRequests = new GitHubPullRequestUpdater(_owner, _repo, clientFactory, _token, logger);
-        _prTarget = new GitHubPullRequestTarget(_owner, _repo, clientFactory, _token, logger);
+        _pullRequests = new GitHubPullRequestUpdater(_address, clientFactory, _token, logger);
+        _merger = new GitHubPullRequestMerger(_address, clientFactory, _token, logger);
+        _prTarget = new GitHubPullRequestTarget(_address, clientFactory, _token, logger);
         _defaultBranch = new DefaultBranchResolver(
             connection.DefaultBranch, $"{_owner}/{_repo}", logger);
-        _branchWrite = new GitHubBranchWrite(_owner, _repo, clientFactory, _token, logger);
-        _branchRead = new GitHubBranchRead(_owner, _repo, clientFactory, _token);
+        _branchWrite = new GitHubBranchWrite(_address, clientFactory, _token, logger);
+        _branchRead = new GitHubBranchRead(_address, clientFactory, _token);
     }
 
     public async Task<BranchWriteResult> WriteFilesToBranchAsync(
@@ -91,19 +96,14 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, 
     public async Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
         CancellationToken cancellationToken,
-        TicketId? linkedTicketId = null, bool isDraft = false, BranchName? targetBranch = null)
+        PullRequestTicket? linkedTicket = null, bool isDraft = false, BranchName? targetBranch = null)
     {
         var client = CreateGitHubClient();
         // 2026-09-13-a284: the base the caller resolved WINS; a null target falls through
         // to the default-branch resolver, which honours the configured override.
         var target = targetBranch?.Value ?? await GetDefaultBranchAsync(client);
 
-        // GitHub auto-links + auto-closes when the PR body references the issue
-        // via "Closes #N" / "Fixes #N" syntax. Appended as a footer so the
-        // operator-facing body content stays at the top.
-        var body = linkedTicketId is null
-            ? description
-            : $"{description}\n\nCloses #{linkedTicketId.Value}";
+        var body = GitHubTicketReference.Compose(description, linkedTicket, _cloneUrl, _owner, _repo);
 
         try
         {
@@ -280,7 +280,7 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, 
     // GitHub recovers everything it needs from the URL.
     public Task<PullRequestCompletion> CompletePullRequestAsync(
         string prUrl, BranchName sourceBranch, CancellationToken cancellationToken) =>
-        _pullRequests.CompleteAsync(prUrl, cancellationToken);
+        _merger.CompleteAsync(prUrl, cancellationToken);
 
     public async Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken) =>
         await _branchRead.TryReadFileAsync(path, await GetDefaultBranchAsync(CreateGitHubClient()), cancellationToken);
@@ -298,17 +298,17 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, 
         string path, BranchName branch, CancellationToken cancellationToken) =>
         _branchRead.ListDirectoryAsync(path, branch.Value, cancellationToken);
 
-    private IGitHubClient CreateGitHubClient() => _clientFactory.Create(_token);
+    private IGitHubClient CreateGitHubClient() => _clientFactory.Create(_address, _token);
 
     // 2026-10-08-e8b9d: the review is read by a collaborator over this provider's own connection.
     public Task<IReadOnlyList<PrReviewThread>> ListAsync(string prUrl, CancellationToken cancellationToken) =>
-        new GitHubPrReviewThreadReader(CreateGitHubClient(), _owner, _repo, _cloneUrl[..^4], _logger).ListAsync(prUrl, cancellationToken);
+        new GitHubPrReviewThreadReader(CreateGitHubClient(), _address, _logger).ListAsync(prUrl, cancellationToken);
 
     public Task<IReadOnlyList<PrReviewNote>> ChangesRequestedAsync(string prUrl, CancellationToken cancellationToken) =>
-        new GitHubPrReviewActReader(CreateGitHubClient(), _owner, _repo, _cloneUrl[..^4]).ChangesRequestedAsync(prUrl, cancellationToken);
+        new GitHubPrReviewActReader(CreateGitHubClient(), _address).ChangesRequestedAsync(prUrl, cancellationToken);
 
     public Task<PrReviewState> ReadAsync(string prUrl, CancellationToken cancellationToken) =>
-        new GitHubPrReviewStateReader(CreateGitHubClient(), _owner, _repo, _cloneUrl[..^4]).ReadAsync(prUrl, cancellationToken);
+        new GitHubPrReviewStateReader(CreateGitHubClient(), _address).ReadAsync(prUrl, cancellationToken);
 
     public Task CloseAsync(string prUrl, CancellationToken cancellationToken) => new GitHubPullRequestClose(_owner, _repo, CreateGitHubClient()).CloseAsync(prUrl, cancellationToken);
 
@@ -319,17 +319,7 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, 
             string.Equals(pr.Head?.Repository?.FullName, $"{_owner}/{_repo}", StringComparison.OrdinalIgnoreCase), pr.HtmlUrl);
     }
 
-    private static (string owner, string repo) ParseGitHubUrl(string url)
-    {
-        var uri = new Uri(url.Replace(".git", ""));
-        var segments = uri.AbsolutePath.Trim('/').Split('/');
-        if (segments.Length < 2)
-            throw new ConfigurationException($"Invalid GitHub URL: {url}");
-
-        return (segments[0], segments[1]);
-    }
-
     // 2026-10-08-9e6e / 10b0: the open pull requests that may carry a rework act, and every open one with its comments.
-    public IOpenPullRequestLister OpenPullRequests() => new GitHubOpenPullRequests(CreateGitHubClient(), _owner, _repo, _cloneUrl[..^4]);
-    public Task<ChangedPage> ChangedSinceAsync(DateTimeOffset since, string? resume, int maxPages, CancellationToken ct) => new GitHubChangedPullRequests(CreateGitHubClient(), _owner, _repo).ChangedSinceAsync(since, resume, maxPages, ct);
+    public IOpenPullRequestLister OpenPullRequests() => new GitHubOpenPullRequests(CreateGitHubClient(), _owner, _repo, _address.RepoUrl);
+    public Task<ChangedPage> ChangedSinceAsync(DateTimeOffset since, string? resume, int maxPages, CancellationToken ct) => new GitHubChangedPullRequests(CreateGitHubClient(), _address).ChangedSinceAsync(since, resume, maxPages, ct);
 }
