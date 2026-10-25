@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-9dbbf
+
+decisions:
+  - category: Architecture
+    chose: "GitHubPrReviewPager fetches every page; GitHubPrReviewThreadReader only maps nodes; GitHubGraphQlQuery posts and checks errors; the query texts live in GitHubPrReviewQueries"
+    over: "Growing the reader with the paging loops"
+    reason: "Paging is a second reason for the reader to change, and one loop (PagesAsync over a next-page function) serves the three PR connections and each thread's comments."
+  - category: Implementation
+    chose: "The first query reads all three connections with pageInfo; a follow-up asks only the connection that has a next page, with its own cursor; a thread's further comments come through node(id:){... on PullRequestReviewThread}"
+    over: "Re-asking the whole query with three cursors per round"
+    reason: "Connections run out at different times; re-asking an exhausted connection returns its last page again or nothing, and a per-connection query keeps each cursor meaningful."
+  - category: Implementation
+    chose: "A connection without pageInfo, or with hasNextPage false or no endCursor, is read as complete"
+    over: "Requiring pageInfo on every connection"
+    reason: "A missing cursor cannot be followed, and it ends the loop instead of spinning; it is also why the existing PrReviewReaderTests and PrReviewHostIdTests replies stay valid unchanged — the sequenced responses the spec expected there were not needed."
+  - category: Scope
+    chose: "The 'more than 100 review threads' warning is gone; a debug line counts what was read"
+    over: "Keeping a warning"
+    reason: "Nothing is cut any more, so there is nothing to warn about."

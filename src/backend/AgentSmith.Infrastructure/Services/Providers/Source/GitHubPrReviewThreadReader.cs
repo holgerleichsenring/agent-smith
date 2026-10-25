@@ -8,54 +8,36 @@ using Octokit;
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
 
 /// <summary>
-/// 2026-10-08-e8b9d: a GitHub pull request's review, read in one GraphQL query over the provider's
-/// own Octokit connection — thread resolution exists only in GraphQL. Review threads, review bodies
-/// (an empty body, like the COMMENT review our pr-review posts, is no note) and top-level comments,
-/// 100 of each; a reply carrying an errors array throws, because GraphQL fails as HTTP 200.
+/// 2026-10-08-e8b9d: a GitHub pull request's review, read over GraphQL on the provider's own Octokit
+/// connection — thread resolution exists only in GraphQL. Review threads, review bodies (an empty
+/// body, like the COMMENT review our pr-review posts, is no note) and top-level comments.
 /// <para>2026-10-08-f147: the same query asks who the token is (viewer), so a marked note is ours
 /// only when the token's account wrote it.</para>
 /// <para>2026-10-13-9a59b: every note and thread carries its node id; a review body's thread is FromReview.</para>
+/// <para>2026-10-25-9dbbf: every page of every connection is read (<see cref="GitHubPrReviewPager"/>).</para>
 /// </summary>
 public sealed class GitHubPrReviewThreadReader(
     IGitHubClient client, GitHubRepoAddress address, ILogger logger) : IPrReviewThreadReader
 {
     private string? _viewer;
 
-    private const string Query =
-        "query($owner:String!,$repo:String!,$number:Int!){viewer{login} repository(owner:$owner,name:$repo){pullRequest(number:$number){"
-        + "reviewThreads(first:100){pageInfo{hasNextPage} nodes{id isResolved path line originalLine "
-        + "comments(first:100){nodes{id author{__typename login} body createdAt publishedAt}}}}"
-        + "reviews(first:100){nodes{id author{__typename login} body submittedAt}}"
-        + "comments(first:100){nodes{id author{__typename login} body createdAt}}}}}";
-
     public async Task<IReadOnlyList<PrReviewThread>> ListAsync(string prUrl, CancellationToken cancellationToken)
     {
         if (!GitHubPullRequestUpdater.TryParsePullNumber(prUrl, out var number))
             throw new ArgumentException($"Not a GitHub pull request URL: {prUrl}", nameof(prUrl));
-        var response = await client.Connection.Post<string>(address.Api.GraphQl,
-            new { query = Query, variables = new { owner = address.Owner, repo = address.Repo, number } }, "application/json", "application/json");
-        using var doc = JsonDocument.Parse(response.Body);
-        if (doc.RootElement.TryGetProperty("errors", out var errors) && errors.ValueKind == JsonValueKind.Array)
-            throw new InvalidOperationException($"GitHub GraphQL refused the review query: {errors.GetRawText()}");
-        var data = doc.RootElement.GetProperty("data");
-        _viewer = data.TryGetProperty("viewer", out var viewer) && viewer.ValueKind == JsonValueKind.Object ? Str(viewer, "login") : null;
-        return Read(data.GetProperty("repository").GetProperty("pullRequest"), number);
+        var nodes = await new GitHubPrReviewPager(new GitHubGraphQlQuery(client, address.Api.GraphQl), address).ReadAsync(number);
+        _viewer = nodes.Viewer;
+        logger.LogDebug("PR #{Pr}: {Threads} review thread(s), {Reviews} review(s), {Comments} comment(s) read",
+            number, nodes.Threads.Count, nodes.Reviews.Count, nodes.Comments.Count);
+        return [.. nodes.Threads.Select(t => InlineThread(t.Thread, t.Comments)),
+            .. nodes.Reviews.Select(n => Single(n, "submittedAt", fromReview: true)).OfType<PrReviewThread>(),
+            .. nodes.Comments.Select(n => Single(n, "createdAt", fromReview: false)).OfType<PrReviewThread>()];
     }
 
-    private IReadOnlyList<PrReviewThread> Read(JsonElement pr, int number)
-    {
-        var threads = pr.GetProperty("reviewThreads");
-        if (threads.GetProperty("pageInfo").GetProperty("hasNextPage").GetBoolean())
-            logger.LogWarning("PR #{Pr} has more than 100 review threads; the first 100 are read", number);
-        return [.. Nodes(threads).Select(InlineThread),
-            .. Nodes(pr.GetProperty("reviews")).Select(n => Single(n, "submittedAt", fromReview: true)).OfType<PrReviewThread>(),
-            .. Nodes(pr.GetProperty("comments")).Select(n => Single(n, "createdAt", fromReview: false)).OfType<PrReviewThread>()];
-    }
-
-    private PrReviewThread InlineThread(JsonElement node)
+    private PrReviewThread InlineThread(JsonElement node, IReadOnlyList<JsonElement> comments)
     {
         var line = Int(node, "line") ?? Int(node, "originalLine");
-        var notes = Nodes(node.GetProperty("comments")).Select(c => Note(c, "publishedAt", "createdAt")).OfType<PrReviewNote>();
+        var notes = comments.Select(c => Note(c, "publishedAt", "createdAt")).OfType<PrReviewNote>();
         return new PrReviewThread(Str(node, "path"), line, node.GetProperty("isResolved").GetBoolean(), [.. notes])
             { HostId = Str(node, "id") ?? string.Empty };
     }
@@ -85,9 +67,6 @@ public sealed class GitHubPrReviewThreadReader(
         author is { } a && Str(a, "login") is { } login
             ? new PrCommentAuthor(address.RepoUrl, address.FullName, login, login)
             : null;
-
-    private static IEnumerable<JsonElement> Nodes(JsonElement connection) =>
-        connection.TryGetProperty("nodes", out var nodes) && nodes.ValueKind == JsonValueKind.Array ? nodes.EnumerateArray() : [];
 
     private static string? Str(JsonElement e, string name) =>
         e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() : null;
