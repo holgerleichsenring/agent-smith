@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-2a99
+
+decisions:
+  - category: Implementation
+    chose: "Lead each entry with the 'm q' dot mark every unmarked .ci row already uses"
+    over: "A build-note-only CSS rule spanning the entry across the grid"
+    reason: "One row shape for every list on the spec document; a second shape would be a second thing to keep aligned."

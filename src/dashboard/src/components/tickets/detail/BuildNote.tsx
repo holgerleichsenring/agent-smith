@@ -24,7 +24,11 @@ export function BuildNote({ note }: { note: TicketSeriesBuildNote }) {
           <div key={key} className="crit">
             <span className="mono">{label}</span>
             {note[key].map((entry) => (
-              <div key={entry} className="ci"><span>{entry}</span></div>
+              // 2026-10-25-2a99: .ci is a mark | text | who grid; a lone span sat in the 18px mark column.
+              <div key={entry} className="ci" data-testid="build-note-entry">
+                <span className="m q">·</span>
+                <span>{entry}</span>
+              </div>
             ))}
           </div>
         ))
