@@ -26,8 +26,10 @@ scope:
     RouteFact gains an optional Handler (MethodInfo?), read in ServerRouteTable.Read from
     endpoint.Metadata.GetMetadata<MethodInfo>(). RoutePermissionGuardTests gains two facts: every route whose
     Scope.Wire is "across" has a handler with a CallerProjectScope or ProjectScopedCatalog parameter; and a stowaway
-    route declared AcrossProjects whose handler takes neither is named by that check. The check is one private
-    method, so the stowaway case runs the same code as the whole table.
+    route declared .Needs(runs.read).InProject(AcrossProjects) whose handler takes neither is named by that check
+    (declared, so the undeclared-route stowaway still finds exactly one route). The check is one private method, so
+    the stowaway case runs the same code as the whole table. It proves the handler TAKES the scope, not that it
+    applies it.
   out: >
     Proving the handler applies the scope before its Take: each list keeps its own booted case
     (2026-10-15-4a4dd); the delivery endpoint gets its own in 2026-10-25-0099b. Routes keyed by run, dialog,
@@ -48,6 +50,6 @@ tests:
   - "RouteGuard_AnAcrossProjectsRouteWithoutTheScope_IsNamed"
 
 done:
-  - "A route declared AcrossProjects whose handler takes no caller scope fails the route guard, naming the route."
+  - "A route declared AcrossProjects whose handler does not take a caller scope fails the route guard, naming the route."
   - "Every AcrossProjects route mapped today passes it."
   - "Build green, full suite green, dashboard gen/test/build green."

@@ -163,7 +163,7 @@ td.num, th.num { text-align: right; }
     <ul class="notes">
       <li>Each run already stores <code>StartedAt</code>, <code>DurationSeconds</code>, <code>EndKind</code>, <code>CostTotalUsd</code> and its PRs. Each spec stores its status and verdict. List queries and hub groups are already filtered by project.</li>
       <li>The current Overview adds up whatever runs the browser has loaded. For day, week and month it needs a server endpoint that applies the project filter before it groups.</li>
-      <li>Two figures have no data yet and are shown in <span style="color:var(--warn)">amber</span>. Time to merge needs the time a PR was merged. Rework rounds need rework requests linked to runs, because <code>ReworkNudge</code> has no run id. The ticket outcome across all attempts is also not stored yet.</li>
+      <li>Time to merge reads the merge time each pull request record already stores. Rework rounds read why each attempt began, which each attempt row already stores. The ticket outcome is the bucket the Tickets page shows.</li>
     </ul>
   </section>
 </div>

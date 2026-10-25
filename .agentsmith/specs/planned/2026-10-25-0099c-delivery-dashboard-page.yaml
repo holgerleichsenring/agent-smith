@@ -11,12 +11,14 @@ facts:
     evidence: "src/dashboard/design/mockups/delivery-overview.html:106-160, src/dashboard/design/mockups/delivery-overview.html:241-277, observed: 2026-10-25, approved by the operator in this session"
   - claim: "The Overview reads the hub's run overview and adds it up in the browser; it stays as it is."
     evidence: "src/dashboard/src/components/overview/OverviewView.tsx:35-66"
-  - claim: "The rail's Insight section holds one entry, Overview, pinned by two rail tests; the header names a path through the PLACES table, and a test fails for a rail href with no place."
+  - claim: "The rail's Insight section holds one entry, Overview (INSIGHT is one object, so it becomes a list), pinned by two rail tests; the header names a path through the PLACES table, and a test fails for a rail href with no place."
     evidence: "src/dashboard/src/components/shell/AppRail.tsx:58-66, src/dashboard/src/components/shell/AppRail.tsx:234-240, src/dashboard/src/components/shell/__tests__/AppRail.test.tsx:124-139, src/dashboard/src/lib/places.ts:31-34, src/dashboard/src/lib/__tests__/places.test.tsx:76"
   - claim: "A live list joins the overview group and refetches on RunsChanged and TicketActivityChanged through CoalescedRefetch, and again when the connection comes back; RunsChanged fires per run event."
     evidence: "src/dashboard/src/lib/tickets/TicketListProvider.tsx:15-23, src/dashboard/src/lib/tickets/TicketListProvider.tsx:62-86, src/dashboard/src/lib/tickets/CoalescedRefetch.ts:1-27"
-  - claim: "A ticket page lives at ticketPath(project, ticketId); every API read goes through getJson."
-    evidence: "src/dashboard/src/lib/tickets/ticketAddress.ts:5-7, src/dashboard/src/lib/readableProjectsApi.ts:1-8"
+  - claim: "A ticket page lives at ticketPath(project, ticketId); every API read goes through getJson; the ticket list names its buckets through SERVER_BUCKET and TICKET_SECTIONS."
+    evidence: "src/dashboard/src/lib/tickets/ticketAddress.ts:5-7, src/dashboard/src/lib/readableProjectsApi.ts:1-8, src/dashboard/src/types/tickets.ts:34-46, src/dashboard/src/components/tickets/ticketSections.ts:17-80"
+  - claim: "Redesigned surfaces are listed in layout-shell.test's MOCK_SURFACES and must carry mock-shell; mock-parity.test renders each surface's structural DOM."
+    evidence: "src/dashboard/src/__tests__/layout-shell.test.ts:17-40, src/dashboard/src/__tests__/mock-parity.test.tsx:23-25"
   - claim: "The dashboard's palette is the .mock-shell tokens; DESIGN.md gives amber to working, red to failed or cancelled, green to proven, blue to waits for a person; the Overview's layout rules are scoped to its own page class."
     evidence: "src/dashboard/src/styles/mock-parity.css:51-70, DESIGN.md:421-424, src/dashboard/src/styles/mock-parity.css:1694-1700"
   - claim: "Raw text-[Npx] sizes are banned in sources; a page root renders the mock's structural DOM."
@@ -27,20 +29,26 @@ scope:
     ROUTE /delivery (app/delivery/page.tsx renders DeliveryView). RAIL: Insight lists Overview and Delivery; PLACES
     gains "/delivery": "Delivery". READ: lib/deliveryApi.ts (the 0099b answer as types, fetchDelivery(period,
     projects, signal) through getJson); hooks/useDelivery.ts reads on mount and on a period or chip change, joins
-    the overview group, refetches through CoalescedRefetch within 2 s of a RunsChanged or TicketActivityChanged and
-    on reconnect, and keeps the last answer on a failed read. VIEW (components/delivery): DeliveryView (head and
+    the overview group, refetches through CoalescedRefetch within 2 s of a TicketActivityChanged (merges, landings),
+    within 15 s of a RunsChanged (it fires per step and LLM call, and each read scans up to 60 days of runs) and on
+    reconnect, and keeps the last answer on a failed read. VIEW (components/delivery): DeliveryView (head and
     sections); DeliveryScope (period switch, chips from the answer's projects, all on by default, the last one
     cannot be switched off, "Your projects" beside them); DeliveryKpis (Tickets worked, Merged, Merge rate, Median
     time to merge, Rework rounds per ticket, Cost per merged PR, Spend, Agent hours — each with its delta "vs
     yesterday / vs last week / vs last month", coloured by whether it got better, and an SVG sparkline of the
-    slots; a null figure reads "-"); DeliveryTimeline (axis ticks, one row per ticket linking to its ticket page,
-    one bar per attempt by outcome, a dot on a rework attempt, a mark at the merge, a tooltip on hover and focus
+    slots; a null figure reads "-"; no delta while the answer is truncated); DeliveryTimeline (axis ticks, one row per ticket linking to its ticket page,
+    one bar per attempt by its outcome, a dot on a rework attempt, a mark at the merge, a tooltip on hover and focus
     with attempt number, times, duration, cause, specs and cost); DeliveryEndCauses (bars, most first, "No attempt
     ended in this period." when empty); DeliveryProjects and DeliveryTickets tables (rows open the ticket page);
-    lib/delivery/deliveryFormat.ts for durations, money, deltas and the outcome and cause labels. COLOURS from the
-    dashboard tokens: delivered and merged --ok, criteria not met and delivered in part --ok-wash with an --ok edge,
-    failed --bad, cancelled --idle, running --run striped. CSS in a .mock-delivery section of mock-parity.css.
-    Copy from the mock (title Delivery, its one-line sub, its section names, legend and column heads), no em dash.
+    lib/delivery/deliveryFormat.ts for durations, money and deltas, and labels for every attempt outcome (running,
+    queued, waiting, delivered, shortfall, cancelled, failed) and every cause 0099b can send (the five EndKinds and
+    the status words); the ticket outcome is the ticket list's bucket, labelled by TICKET_SECTIONS' titles through
+    SERVER_BUCKET. COLOURS from the dashboard tokens: delivered --ok, shortfall --ok-wash with an --ok edge, failed
+    --bad, cancelled --idle, running and queued --run striped, waiting --person. CSS in a .mock-delivery section of mock-parity.css.
+    Copy from the mock (title Delivery, its one-line sub, its section names, legend and column heads); an empty
+    cell reads "-", never an em dash. GUARDS: layout-shell.test MOCK_SURFACES lists DeliveryView; a mock-parity
+    case renders it and finds its .mock-delivery structural classes. The committed mock's "Data behind this page"
+    note is corrected to say the merge times and rework causes are stored data.
   out: >
     The mock's "Data behind this page" panel, its "mock · sample data" flag and the per-tile source lines — notes
     for the review, not product. Any change to the Overview. A project-only rail. Server reads — 2026-10-25-0099b.
@@ -48,6 +56,7 @@ scope:
 decisions:
   - key: "THE DASHBOARD PALETTE OVER THE MOCK'S. The mock paints running blue and criteria not met amber; in this dashboard amber is working and blue waits for a person (DESIGN.md), so a running bar is amber and a short delivery a pale green."
   - key: "CHIPS COME FROM THE ANSWER. The server names the projects the caller may read, so a project the caller cannot see is never named, not even as a disabled chip."
+  - key: "RUNSCHANGED WAITS 15 S. The answer is a whole-window aggregate; a merge or landing arrives as TicketActivityChanged and is shown within 2 s, a finished attempt within 15 s."
   - key: "A FIGURE WITHOUT A DENOMINATOR IS A DASH. Merge rate over no tickets is not 0 %, and a delta against an empty previous period is not shown."
 
 steps:
@@ -60,17 +69,19 @@ steps:
 
 tests:
   - "deliveryFormat: durations under an hour in minutes, under two days in hours, else days; deltas signed with the better direction per figure"
+  - "deliveryFormat: every attempt outcome and every cause 0099b can send has a label"
   - "deliveryApi: fetchDelivery puts the period and each chosen project in the query"
-  - "useDelivery: a burst of RunsChanged costs one refetch; a period change reads again"
+  - "useDelivery: a burst of RunsChanged costs one refetch within 15 s, a TicketActivityChanged one within 2 s; a period change reads again"
   - "DeliveryView: renders the eight tiles, a timeline row per ticket with a bar per attempt, the end causes, the project rows and the ticket rows linking to the ticket page"
   - "DeliveryView: a null figure reads as a dash and an empty period shows the empty line"
   - "DeliveryScope: the chips are the answer's projects; switching one off reads again without it; the last cannot be switched off"
-  - "AppRail: Insight lists Overview and Delivery; Delivery is active on /delivery"
+  - "AppRail: Rail_HasOneInsightEntry_AndNoRollupSection becomes Rail_InsightListsOverviewAndDelivery_AndNoRollupSection; Delivery is active on /delivery"
+  - "layout-shell and mock-parity: DeliveryView carries mock-shell and its .mock-delivery structure"
   - "places: /delivery is Delivery"
 
 done:
   - "The rail's Insight section opens Delivery; Day, Week and Month switch the period."
   - "The page shows only the caller's projects as chips and reads again when one is switched off."
   - "The eight figures, the timeline, the end causes, the project table and the ticket table match the mock's layout and copy, with the dashboard's colours."
-  - "A finished attempt or a merge elsewhere shows on the open page within a few seconds."
+  - "A merge shows on the open page within a few seconds, a finished attempt within about fifteen."
   - "Build green, full suite green, dashboard gen/test/build green."
