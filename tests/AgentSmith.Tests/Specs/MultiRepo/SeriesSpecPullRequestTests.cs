@@ -25,8 +25,8 @@ public sealed class SeriesSpecPullRequestTests
 
     public SeriesSpecPullRequestTests() =>
         _provider.Setup(p => p.CreatePullRequestAsync(It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
-                It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(), It.IsAny<bool>(), It.IsAny<BranchName?>()))
-            .ReturnsAsync((Repository r, string _, string _, CancellationToken _, TicketId? _, bool _, BranchName? _) => $"{r.RemoteUrl}/pull/1");
+                It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>(), It.IsAny<bool>(), It.IsAny<BranchName?>()))
+            .ReturnsAsync((Repository r, string _, string _, CancellationToken _, PullRequestTicket? _, bool _, BranchName? _) => $"{r.RemoteUrl}/pull/1");
 
     [Fact]
     public async Task SpecPullRequestOpener_TwoSeriesRepos_OpensTwoDraftPrs()
@@ -42,7 +42,7 @@ public sealed class SeriesSpecPullRequestTests
         });
         _provider.Verify(p => p.CreatePullRequestAsync(It.IsAny<Repository>(), It.IsAny<string>(),
             It.Is<string>(body => body.Contains(SpecPrBody.SiblingMarker)), It.IsAny<CancellationToken>(),
-            It.IsAny<TicketId?>(), true, It.IsAny<BranchName?>()), Times.Exactly(2));
+            It.IsAny<PullRequestTicket?>(), true, It.IsAny<BranchName?>()), Times.Exactly(2));
     }
 
     [Fact]
@@ -58,7 +58,7 @@ public sealed class SeriesSpecPullRequestTests
 
         urls["Client"].Should().Be("https://x/client.git/pull/9", "the comment lists it as dropped");
         _provider.Verify(p => p.CreatePullRequestAsync(It.Is<Repository>(r => r.RemoteUrl == Client.Url),
-            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(),
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>(),
             It.IsAny<bool>(), It.IsAny<BranchName?>()), Times.Never);
     }
 

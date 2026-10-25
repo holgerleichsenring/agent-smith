@@ -33,12 +33,12 @@ internal sealed class StubSourceProvider(string? contextYaml = null) : ISourcePr
 
     public Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
-        CancellationToken cancellationToken, TicketId? linkedTicketId = null, bool isDraft = false,
+        CancellationToken cancellationToken, PullRequestTicket? linkedTicket = null, bool isDraft = false,
         BranchName? targetBranch = null)
     {
         LastTarget = targetBranch;
         LastDescription = description;
-        return Task.FromResult($"https://stub.test/pulls/{linkedTicketId?.Value ?? "1"}");
+        return Task.FromResult($"https://stub.test/pulls/{linkedTicket?.Id.Value ?? "1"}");
     }
 
     public Task<string?> ReadPullRequestBaseAsync(string prUrl, CancellationToken cancellationToken) =>

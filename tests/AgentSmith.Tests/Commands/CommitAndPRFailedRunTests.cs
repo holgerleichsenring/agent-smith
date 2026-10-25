@@ -2,6 +2,7 @@ using AgentSmith.Application.Models;
 using AgentSmith.Contracts.Commands;
 using AgentSmith.Contracts.Events;
 using AgentSmith.Contracts.Models.Lifecycle;
+using AgentSmith.Contracts.Providers;
 using AgentSmith.Domain.Entities;
 using AgentSmith.Domain.Models;
 using FluentAssertions;
@@ -98,7 +99,7 @@ public sealed class CommitAndPRFailedRunTests
         f.CommitMessagesIn("sample-client").Should().BeEmpty();
         f.Provider.Verify(p => p.CreatePullRequestAsync(
             It.Is<Repository>(r => r.RemoteUrl == "https://stub.test/sample-server"), It.IsAny<string>(), It.IsAny<string>(),
-            It.IsAny<CancellationToken>(), It.IsAny<TicketId?>(), It.IsAny<bool>(), It.IsAny<BranchName?>()), Times.Once);
+            It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>(), It.IsAny<bool>(), It.IsAny<BranchName?>()), Times.Once);
     }
 
     // 2026-10-12-f5f7e: 3a36c's keep, generalised — a green run keeps a spec-only repository's spec PR too.
@@ -130,5 +131,5 @@ public sealed class CommitAndPRFailedRunTests
     private static void VerifyNoPrCreated(RepoCommitFixture f) =>
         f.Provider.Verify(p => p.CreatePullRequestAsync(
             It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>(),
-            It.IsAny<TicketId?>(), It.IsAny<bool>(), It.IsAny<BranchName?>()), Times.Never);
+            It.IsAny<PullRequestTicket?>(), It.IsAny<bool>(), It.IsAny<BranchName?>()), Times.Never);
 }

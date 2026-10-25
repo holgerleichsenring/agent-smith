@@ -96,19 +96,14 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, 
     public async Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
         CancellationToken cancellationToken,
-        TicketId? linkedTicketId = null, bool isDraft = false, BranchName? targetBranch = null)
+        PullRequestTicket? linkedTicket = null, bool isDraft = false, BranchName? targetBranch = null)
     {
         var client = CreateGitHubClient();
         // 2026-09-13-a284: the base the caller resolved WINS; a null target falls through
         // to the default-branch resolver, which honours the configured override.
         var target = targetBranch?.Value ?? await GetDefaultBranchAsync(client);
 
-        // GitHub auto-links + auto-closes when the PR body references the issue
-        // via "Closes #N" / "Fixes #N" syntax. Appended as a footer so the
-        // operator-facing body content stays at the top.
-        var body = linkedTicketId is null
-            ? description
-            : $"{description}\n\nCloses #{linkedTicketId.Value}";
+        var body = GitHubTicketReference.Compose(description, linkedTicket, _cloneUrl, _owner, _repo);
 
         try
         {

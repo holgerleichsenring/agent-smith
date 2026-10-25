@@ -247,7 +247,7 @@ public sealed class MultiRepoHandlerTests
             var providerMock = new Mock<ISourceProvider>();
             providerMock.Setup(p => p.CreatePullRequestAsync(
                     It.IsAny<Repository>(), It.IsAny<string>(), It.IsAny<string>(),
-                    It.IsAny<CancellationToken>(), It.IsAny<TicketId?>()))
+                    It.IsAny<CancellationToken>(), It.IsAny<PullRequestTicket?>()))
                 .ReturnsAsync($"https://x/{name}/pull/1");
             _sourceFactoryMock.Setup(f => f.Create(It.Is<RepoConnection>(r => r.Name == name)))
                 .Returns(providerMock.Object);

@@ -135,11 +135,11 @@ public sealed class ShortfallDeliveryTests
 
         public async Task<string> CreatePullRequestAsync(
             Repository repository, string title, string description,
-            CancellationToken cancellationToken, TicketId? linkedTicketId = null, bool isDraft = false,
+            CancellationToken cancellationToken, PullRequestTicket? linkedTicket = null, bool isDraft = false,
             BranchName? targetBranch = null)
         {
             var url = await _inner.CreatePullRequestAsync(
-                repository, title, description, cancellationToken, linkedTicketId, isDraft, targetBranch);
+                repository, title, description, cancellationToken, linkedTicket, isDraft, targetBranch);
             lock (_drafts) { if (isDraft) _drafts.Add(url); else _drafts.Remove(url); }
             return url;
         }

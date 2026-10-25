@@ -100,18 +100,15 @@ public sealed class GitLabSourceProvider : ISourceProvider, IPrCommentProvider, 
     public async Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
         CancellationToken cancellationToken,
-        TicketId? linkedTicketId = null, bool isDraft = false, BranchName? targetBranch = null)
+        PullRequestTicket? linkedTicket = null, bool isDraft = false, BranchName? targetBranch = null)
     {
         // 2026-09-13-a284: the base the caller resolved WINS; a null target falls through
         // to the default-branch resolver, which honours the configured override.
         var target = targetBranch?.Value ?? await GetDefaultBranchAsync(cancellationToken);
         var url = $"{_baseUrl}/api/v4/projects/{_projectPath}/merge_requests";
 
-        // GitLab auto-closes referenced issues on MR merge when the description
-        // includes a "Closes #N" / "Closes !N" footer (same syntax as GitHub).
-        var body = linkedTicketId is null
-            ? description
-            : $"{description}\n\nCloses #{linkedTicketId.Value}";
+        var body = GitLabTicketReference.Compose(
+            description, linkedTicket, _baseUrl, Uri.UnescapeDataString(_projectPath));
 
         // GitLab has no draft flag on the API — a "Draft:" title prefix marks the
         // MR as work-in-progress and blocks merge until removed.

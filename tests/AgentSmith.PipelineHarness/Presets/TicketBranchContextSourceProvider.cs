@@ -50,10 +50,10 @@ internal sealed class TicketBranchContextSourceProvider(string ticketBranch, str
 
     public Task<string> CreatePullRequestAsync(
         Repository repository, string title, string description,
-        CancellationToken cancellationToken, TicketId? linkedTicketId = null, bool isDraft = false,
+        CancellationToken cancellationToken, PullRequestTicket? linkedTicket = null, bool isDraft = false,
         BranchName? targetBranch = null) =>
         _inner.CreatePullRequestAsync(
-            repository, title, description, cancellationToken, linkedTicketId, isDraft, targetBranch);
+            repository, title, description, cancellationToken, linkedTicket, isDraft, targetBranch);
 
     public Task<string?> ReadPullRequestBaseAsync(string prUrl, CancellationToken cancellationToken) =>
         _inner.ReadPullRequestBaseAsync(prUrl, cancellationToken);

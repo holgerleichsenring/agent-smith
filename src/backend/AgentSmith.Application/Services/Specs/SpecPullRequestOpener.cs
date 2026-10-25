@@ -82,7 +82,7 @@ public sealed class SpecPullRequestOpener(
         var ticket = pipeline.TryGet<Ticket>(ContextKeys.Ticket, out var t) ? t : null;
         var url = await provider.CreatePullRequestAsync(
             branchRepo, ticket?.Title ?? set.Key,
-            SpecPrBody.BuildInitial(set), ct, linkedTicketId: ticket?.Id, isDraft: true,
+            SpecPrBody.BuildInitial(set), ct, linkedTicket: PullRequestTicket.From(ticket), isDraft: true,
             targetBranch: target);
         logger.LogInformation("Draft PR opened at the spec commit: {Url}", url);
         return url;
