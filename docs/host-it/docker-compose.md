@@ -196,15 +196,17 @@ Check first which projects install system packages in their prerequisites (`apt-
 
 ## What a sandbox may reach
 
-A sandbox container joins the network `agentsmith-sandbox` (the server's `DOCKER_NETWORK`), which only `redis` shares with it. The server, the dashboard and ollama are not on it, so a sandbox cannot resolve or reach them by service name. Redis's port is published on `127.0.0.1` only.
+Without `DOCKER_NETWORK` on the server, a sandbox container joins the server's own network, found by inspecting the server container, as it always has. It can then reach the server, the dashboard and ollama by service name. An existing compose file keeps working this way after an update; nothing has to change.
 
-The server, dashboard and ollama ports are still published on the host, so a sandbox can reach them through the host's gateway address. Sandboxes also reach the internet freely. Both close only with the egress proxy override, see [Sending sandbox traffic through an egress proxy](#sending-sandbox-traffic-through-an-egress-proxy).
+A separate sandbox network is optional. `docker-compose.example.yml` ships with one: sandboxes join `agentsmith-sandbox` (the server's `DOCKER_NETWORK`), which only `redis` shares with them. The server, the dashboard and ollama are not on it, so a sandbox cannot resolve or reach them by service name. Redis's port is published on `127.0.0.1` only. To use it in your own compose file, add the `agentsmith-sandbox` network with that fixed `name:`, put `redis` on it beside `default`, and set `DOCKER_NETWORK=agentsmith-sandbox` on the server. To keep the old behaviour with the example, remove that one variable.
 
-Upgrading an existing compose file: add the `agentsmith-sandbox` network, put `redis` on it beside `default`, and set `DOCKER_NETWORK=agentsmith-sandbox` on the server, as `docker-compose.example.yml` does.
+Either way, the server, dashboard and ollama ports are still published on the host, so a sandbox can reach them through the host's gateway address. Sandboxes also reach the internet freely. Both close only with the egress proxy override, see [Sending sandbox traffic through an egress proxy](#sending-sandbox-traffic-through-an-egress-proxy).
+
+Hardening (`sandbox.hardening_enabled`, above) is a separate switch; either works without the other.
 
 ## Sending sandbox traffic through an egress proxy
 
-Off by default. `deploy/docker-compose.egress-proxy.yml` makes the `agentsmith-sandbox` network internal, adds a squid proxy on it and on the default network, and sets `SANDBOX_EGRESS_PROXY=http://egress-proxy:3128` on the server. A sandbox then reaches Redis and the proxy, and through the proxy only the domains in `deploy/egress-proxy/allowlist.txt`. Since the network is internal, the published host ports are out of reach too.
+Off by default, and it needs the separate sandbox network above. `deploy/docker-compose.egress-proxy.yml` makes the `agentsmith-sandbox` network internal, adds a squid proxy on it and on the default network, and sets `SANDBOX_EGRESS_PROXY=http://egress-proxy:3128` on the server. A sandbox then reaches Redis and the proxy, and through the proxy only the domains in `deploy/egress-proxy/allowlist.txt`. Since the network is internal, the published host ports are out of reach too.
 
 Edit the allowlist first: it ships with the public git hosts and the public package feeds, and your private git host and feeds have to be added or runs fail at clone and restore. Then start with both files:
 

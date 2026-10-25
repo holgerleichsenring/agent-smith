@@ -5,15 +5,16 @@ using static AgentSmith.Tests.Deploy.DeployManifests;
 namespace AgentSmith.Tests.Deploy;
 
 /// <summary>
-/// 2026-10-25-c5a7g: the opt-in egress proxy. Its policy must replace 13's object, not sit beside
-/// it, because policies are additive and a second one would leave 80 and 443 open.
+/// 2026-10-25-c5a7g: the opt-in egress proxy. Its policy must replace the sandbox-isolation policy
+/// (2026-10-25-e41d), not sit beside it, because policies are additive and a second one would leave
+/// 80 and 443 open.
 /// </summary>
 public sealed class EgressProxyManifestTests
 {
     [Fact]
-    public void EgressProxyExample_PolicyHasThe13NameAndNamespace_AndAllowsOnlyProxyDnsAndRedis()
+    public void EgressProxyExample_PolicyHasTheIsolationPolicyNameAndNamespace_AndAllowsOnlyProxyDnsAndRedis()
     {
-        var shipped = OfKind(Documents("k8s", "13-networkpolicy-sandbox.yaml"), "NetworkPolicy").Single();
+        var shipped = OfKind(Documents("k8s", "sandbox-isolation", "3-networkpolicy-sandbox.yaml"), "NetworkPolicy").Single();
         var example = Documents("k8s", "examples", "sandbox-egress-proxy.yaml");
         var policy = OfKind(example, "NetworkPolicy").Single();
 
@@ -32,6 +33,13 @@ public sealed class EgressProxyManifestTests
         var proxy = targets.Single(t => Scalar(t.To, "podSelector", "matchLabels", "app") == "agentsmith-egress-proxy");
         proxy.Ports.Should().Equal(Scalar(Items(Node(service, "spec", "ports")).Single(), "port"));
         Scalar(service, "spec", "selector", "app").Should().Be("agentsmith-egress-proxy");
+    }
+
+    [Fact]
+    public void EgressProxyExample_SaysItRequiresTheSandboxIsolationFolder()
+    {
+        File.ReadAllText(Path("k8s", "examples", "sandbox-egress-proxy.yaml"))
+            .Should().Contain("deploy/k8s/sandbox-isolation/");
     }
 
     [Fact]

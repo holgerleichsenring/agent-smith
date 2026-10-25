@@ -4,8 +4,8 @@ For shared use and production. The server as a Deployment, Redis alongside, sand
 
 ```
 deploy/k8s/
-├── 1-namespace.yaml             # agentsmith + agentsmith-sandboxes
-├── 2-rbac.yaml                  # ServiceAccount + Role + RoleBinding (pod create/delete), in both namespaces
+├── 1-namespace.yaml             # agentsmith
+├── 2-rbac.yaml                  # ServiceAccount + Role + RoleBinding (pod create/delete)
 ├── 3-configmap.yaml             # the bootstrap agentsmith.yml (persistence + secret names)
 ├── 4-secret-template.yaml       # keys, tokens, REDIS_URL — fill in, never commit real values
 ├── 5-service-redis.yaml
@@ -16,7 +16,8 @@ deploy/k8s/
 ├── 10-deployment-dashboard.yaml
 ├── 11-service-dashboard.yaml
 ├── 12-pvc-persistence.yaml
-└── 13-networkpolicy-sandbox.yaml  # what a sandbox may reach; fill in its allowances first
+├── examples/                    # air-gapped, path-mode, egress proxy; not applied by the command below
+└── sandbox-isolation/           # opt-in: sandbox namespace, its RBAC, the sandbox NetworkPolicy
 ```
 
 ```bash
@@ -27,8 +28,8 @@ kubectl -n agentsmith rollout status deployment/agentsmith-server
 ## What this gets you
 
 - The server survives node failures because Kubernetes reschedules it, and the run history survives everything because it lives in a relational database (SQLite on a PVC by default; point `persistence:` at PostgreSQL, MySQL or SQL Server for anything shared, and the same init-container migrates it). To keep the database password out of the ConfigMap, set `AGENTSMITH_PERSISTENCE_PROVIDER` and `AGENTSMITH_PERSISTENCE_CONNECTION` as environment variables on both the server and the migrate init-container, for example from the Secret. Set together, they replace the `persistence:` block; one without the other is refused with a startup finding.
-- Sandbox pods created per repo and toolchain image per run, then deleted. They run in a namespace of their own, `agentsmith-sandboxes`, so a pod there cannot reference the server's Secret. The server's `ServiceAccount` may create and delete pods and read the `ResourceQuota` in that namespace; a second Role grants the same in its own namespace for deployments that have not moved yet. That is the whole RBAC story.
-- Real capacity control: a `ResourceQuota` on the sandbox namespace turns "too many runs" into a FIFO queue instead of failures (see the capacity section below).
+- Sandbox pods created per repo and toolchain image per run, then deleted. They run in the `agentsmith` namespace beside the server. The server's `ServiceAccount` may create and delete pods and read the `ResourceQuota` there. That is the whole RBAC story. Moving sandboxes to a namespace of their own, with a network policy, is an opt-in step: see [Isolating sandboxes](#isolating-sandboxes-opt-in).
+- Real capacity control: a `ResourceQuota` on the namespace sandboxes run in turns "too many runs" into a FIFO queue instead of failures (see the capacity section below).
 - The dashboard as its own Deployment + Service, port 3000 behind the Service.
 
 ## The shape of the server pod
@@ -39,7 +40,7 @@ The load-bearing details from `8-deployment-server.yaml`, so you know what you'r
 - The server container listens on **8081** (`/health`, which answers for liveness and readiness alike and stays `200` while a subsystem is degraded, so the pod that reports the fault is never pulled out of the service). The body lists each background subsystem with its state and reason, and the startup preflight — the same checks as `agent-smith doctor` — runs warn-only in the background and reports there too; a degraded tracker shows up there instead of blocking startup.
 - The ConfigMap mounted at **`/app/config/agentsmith.yml`** carries the bootstrap slice only, meaning `persistence:` and `secrets:`. Everything else (agents, trackers, repos, projects, and the global settings) lives in the database and is edited in the dashboard's Config studio. Putting a full catalog into this ConfigMap does nothing, because the server reads those two blocks and ignores the rest. See [Where configuration lives](../configure-it/index.md).
 - Secrets come from the `agentsmith-secrets` Secret (`REDIS_URL`, provider keys, tracker tokens, webhook secrets, optional Slack/Teams tokens). The ConfigMap names them, the Secret holds the values.
-- Every run executes inside the server pod. In-cluster the sandbox backend is Kubernetes (`SANDBOX_TYPE` says so explicitly; left unset, the in-cluster service host decides): the server creates each run's sandbox pods in the namespace `K8S_SANDBOX_NAMESPACE` names (the reference manifests set `agentsmith-sandboxes`; unset, the server's own namespace) and removes them when the run ends. A pod in another namespace cannot resolve the short name `redis`, so the server hands it `SANDBOX_REDIS_URL` (the secret key `sandbox-redis-url`, `redis.agentsmith.svc.cluster.local:6379`); with the namespaces apart and that variable unset, startup reports a blocking finding and no sandbox is spawned. That's why the quota math below counts a run's sandboxes, and why the Role grants pods and nothing else.
+- Every run executes inside the server pod. In-cluster the sandbox backend is Kubernetes (`SANDBOX_TYPE` says so explicitly; left unset, the in-cluster service host decides): the server creates each run's sandbox pods in its own namespace and removes them when the run ends. With [sandbox isolation](#isolating-sandboxes-opt-in) turned on, `K8S_SANDBOX_NAMESPACE` names another namespace and `SANDBOX_REDIS_URL` gives those pods Redis's full name; the reference manifests set neither. That's why the quota math below counts a run's sandboxes, and why the Role grants pods and nothing else.
 - The images are one release: `holgerleichsenring/agent-smith-server`, `holgerleichsenring/agent-smith-cli` (the migrate init-container) and `holgerleichsenring/agentsmith-dashboard` carry the same tag in the manifests. The sandbox-agent image (`holgerleichsenring/agent-smith-sandbox-agent`) needs no pin: its tag is derived from the release the server is. Pin it through **Configuration → Deployment** (`deployment.version`) or `sandbox.agent_version` only to run a different tag on purpose; a pin is reported as an advisory finding, never refused.
 
 - Skills need no pin: every release embeds the catalog it was tested with. The `skills` volume is an `emptyDir` the embedded catalog materializes into at startup.
@@ -93,23 +94,47 @@ projects:
 
 or with **run sandboxes as root** in the project's Sandbox tab. Its pods then run as the image's own user with the runtime's default capabilities. Seccomp, no escalation and no token stay. While hardening is on, every run of that project shows a `sandbox-runs-as-root` warning in its preflight, so the choice stays visible. While hardening is off, `run_as_root` changes nothing.
 
-### What a sandbox may reach on the network
+### Isolating sandboxes (opt-in)
 
-`13-networkpolicy-sandbox.yaml` selects every pod in `agentsmith-sandboxes`. A sandbox accepts no inbound connection, and reaches only cluster DNS, Redis on 6379, and ports 80 and 443 on public addresses. Private ranges (`10/8`, `172.16/12`, `192.168/16`), shared address space (`100.64/10`), link-local including the metadata service (`169.254/16`), loopback and Azure's `168.63.129.16` are excepted, so a sandbox cannot reach the server, the dashboard, another sandbox or cloud metadata.
+Off by default. `kubectl apply -f deploy/k8s/` leaves sandbox pods in `agentsmith` and creates no network policy, so updating Agent Smith changes nothing here. Isolation is a separate step, and so is hardening (`sandbox.hardening_enabled`, above); either works without the other.
 
-Fill in the allowance section at the top of the file before you apply it. A project that clones from a private git host, restores from a private feed, scans a private target or needs another port fails at clone or restore until its address is allowed there. The air-gapped example reaches nothing until it is filled. The same section covers NodeLocal DNS, OpenShift's DNS and how to keep sandboxes off the server's public ingress.
+`deploy/k8s/sandbox-isolation/` holds three manifests and a README with the full steps:
+
+- `1-namespace-sandboxes.yaml`: the namespace `agentsmith-sandboxes`. A pod there cannot reference the server's Secret.
+- `2-rbac-sandboxes.yaml`: a Role and RoleBinding that give the server's `ServiceAccount` the same pod and `ResourceQuota` grants in that namespace.
+- `3-networkpolicy-sandbox.yaml`: selects every pod in `agentsmith-sandboxes`. A sandbox accepts no inbound connection, and reaches only cluster DNS, Redis on 6379, and ports 80 and 443 on public addresses. Private ranges (`10/8`, `172.16/12`, `192.168/16`), shared address space (`100.64/10`), link-local including the metadata service (`169.254/16`), loopback and Azure's `168.63.129.16` are excepted, so a sandbox cannot reach the server, the dashboard, another sandbox or cloud metadata.
+
+Before you apply the folder, create the sandbox Secrets, image pull secrets and the `ResourceQuota` in `agentsmith-sandboxes`, and add the key `sandbox-redis-url` to `agentsmith-secrets` (`apply-k8s-secret.sh` writes it). Fill in the allowance section at the top of the network policy: a project that clones from a private git host, restores from a private feed, scans a private target or needs another port fails at clone or restore until its address is allowed there. The air-gapped example reaches nothing until it is filled. The same section covers NodeLocal DNS, OpenShift's DNS and how to keep sandboxes off the server's public ingress.
+
+Then apply the folder and add two variables to the server container, as the README shows:
+
+```bash
+kubectl apply -f deploy/k8s/sandbox-isolation/
+```
+
+```yaml
+            - name: K8S_SANDBOX_NAMESPACE
+              value: "agentsmith-sandboxes"
+            - name: SANDBOX_REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: agentsmith-secrets
+                  key: sandbox-redis-url
+```
+
+A pod in another namespace cannot resolve the short name `redis`, so both are needed: with the namespace set and `SANDBOX_REDIS_URL` unset, startup reports a blocking finding and no sandbox is spawned. Sandbox pods move on the next run; a project secret left only in `agentsmith` stops resolving.
 
 The policy does nothing unless the cluster's network plugin enforces NetworkPolicy. After applying, check from a sandbox that a run still clones and restores, and that the server service and `169.254.169.254` are not reachable. Domain allowlists need an egress proxy; [the egress proxy example](#sending-sandbox-traffic-through-an-egress-proxy) sets one up.
 
 ### Sending sandbox traffic through an egress proxy
 
-Off by default. `deploy/k8s/examples/sandbox-egress-proxy.yaml` runs a squid proxy in `agentsmith` with a domain allowlist, and replaces the sandbox NetworkPolicy with one that lets a sandbox reach only DNS, Redis and the proxy on 3128. It has the same name and namespace as the policy in `13-networkpolicy-sandbox.yaml` on purpose: policies add up, so a second object would leave 80 and 443 open beside the proxy.
+Off by default, and it needs [sandbox isolation](#isolating-sandboxes-opt-in) turned on first. `deploy/k8s/examples/sandbox-egress-proxy.yaml` runs a squid proxy in `agentsmith` with a domain allowlist, and replaces the sandbox NetworkPolicy with one that lets a sandbox reach only DNS, Redis and the proxy on 3128. It has the same name and namespace as the policy in `sandbox-isolation/3-networkpolicy-sandbox.yaml` on purpose: policies add up, so a second object would leave 80 and 443 open beside the proxy.
 
 To turn it on:
 
 1. Edit the allowlist in the example's ConfigMap. It ships with the public git hosts, nuget.org, npm, PyPI, the Go module proxy and crates.io. Add your private git host, feeds and registries. The allowlist is yours; nothing else adds to it.
 2. Set `SANDBOX_EGRESS_PROXY` on the server, for example `http://agentsmith-egress-proxy.agentsmith.svc.cluster.local:3128`. The server then gives every sandbox toolchain `HTTP_PROXY`, `HTTPS_PROXY`, their lower-case forms and a `NO_PROXY` for loopback and in-cluster names.
-3. Apply the example after `deploy/k8s/`, and again after each later apply of `deploy/k8s/`, which puts the public web rule back.
+3. Apply the example after `deploy/k8s/sandbox-isolation/`, and again after each later apply of that folder, which puts the public web rule back.
 
 A host that is not on the list shows up in the step output as the tool's own proxy error, a 403 from squid. Squid's access log is the record of what was refused. HTTPS is tunnelled, not intercepted: the allowlist judges the host name of each connection.
 
@@ -136,7 +161,7 @@ sandbox:
   image_pull_secrets: [acme-registry-pull]
 ```
 
-`image_pull_secrets` names Kubernetes image pull secrets you created in the sandbox namespace (`agentsmith-sandboxes` with the reference manifests). They go on every sandbox pod, init container included, so the agent image and the toolchain image can come from different credentialed registries. The list is global; a project cannot name its own. Kubernetes only: the Docker backend pulls without credentials and says so when a pull fails.
+`image_pull_secrets` names Kubernetes image pull secrets you created in the namespace sandbox pods run in (`agentsmith` by default, `agentsmith-sandboxes` with sandbox isolation). They go on every sandbox pod, init container included, so the agent image and the toolchain image can come from different credentialed registries. The list is global; a project cannot name its own. Kubernetes only: the Docker backend pulls without credentials and says so when a pull fails.
 
 ### Credentials inside the sandbox
 
@@ -155,11 +180,11 @@ projects:
             key: signing-key
 ```
 
-The Secret lives in the sandbox namespace (`agentsmith-sandboxes` with the reference manifests). A reference to a Secret that only exists in the server's namespace, `agentsmith-secrets` among them, does not resolve and the pod does not start. `env` entries become environment variables from a `secretKeyRef`; `files` entries are mounted read-only at `mount`. The command that uses them lives in the context's `prerequisites`. The run preflight checks the declaration without touching the cluster: a reference without a single `:`, a duplicate or a clashing mount is named before anything starts. Once the pod is up, a second check asserts by name that every declared variable and file arrived, and fails naming the missing one, never its value. On the Docker and in-process backends nothing is injected, and the preflight reports "NOT INJECTED" as a warning instead of failing.
+The Secret lives in the namespace sandbox pods run in: `agentsmith` by default, `agentsmith-sandboxes` with sandbox isolation. With isolation on, a reference to a Secret that only exists in the server's namespace, `agentsmith-secrets` among them, does not resolve and the pod does not start. `env` entries become environment variables from a `secretKeyRef`; `files` entries are mounted read-only at `mount`. The command that uses them lives in the context's `prerequisites`. The run preflight checks the declaration without touching the cluster: a reference without a single `:`, a duplicate or a clashing mount is named before anything starts. Once the pod is up, a second check asserts by name that every declared variable and file arrived, and fails naming the missing one, never its value. On the Docker and in-process backends nothing is injected, and the preflight reports "NOT INJECTED" as a warning instead of failing.
 
 ## Updating
 
-Upgrading to the release with the sandbox namespace: before you apply, add the key `sandbox-redis-url` to `agentsmith-secrets` (`apply-k8s-secret.sh` writes it), and create the sandbox Secrets, image pull secrets and the `ResourceQuota` in `agentsmith-sandboxes`. Sandbox pods move there on the next run; a project secret left only in `agentsmith` stops resolving.
+An update changes no infrastructure: sandbox pods stay in the namespace they run in, and the sandbox namespace and network policy are only created when you apply `deploy/k8s/sandbox-isolation/` yourself. If you turned isolation on, keep the two server variables in your copy of the Deployment; the shipped `8-deployment-server.yaml` does not carry them.
 
 Bump the tag in the manifests' images (server, the migrate init-container, the dashboard), then:
 
@@ -189,7 +214,7 @@ apiVersion: v1
 kind: ResourceQuota
 metadata:
   name: agentsmith-capacity
-  namespace: agentsmith-sandboxes
+  namespace: agentsmith    # agentsmith-sandboxes with sandbox isolation
 spec:
   hard:
     requests.cpu: "6"        # ~75% of 8 CPUs — headroom for the platform pods

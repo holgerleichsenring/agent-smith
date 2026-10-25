@@ -163,7 +163,8 @@ services:
       - SANDBOX_TYPE=${SANDBOX_TYPE:-docker}
       # 2026-10-25-c5a7d: sandboxes join this network, which only redis shares with them, so
       # they cannot reach the server, the dashboard or ollama by service name. The server itself
-      # stays off it.
+      # stays off it. Optional: without this variable sandboxes join the server's own network,
+      # as before.
       - DOCKER_NETWORK=agentsmith-sandbox
       - ASPNETCORE_ENVIRONMENT=${ASPNETCORE_ENVIRONMENT:-Production}
       # p0407: sandboxes share persistent package-cache volumes (agentsmith-pkgcache-*)

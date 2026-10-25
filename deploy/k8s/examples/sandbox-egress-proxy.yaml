@@ -2,20 +2,24 @@
 #
 # Opt-in. Applying this file sends every sandbox's HTTP and HTTPS through a squid proxy
 # that allows only the domains in its allowlist, and REPLACES the NetworkPolicy of
-# 13-networkpolicy-sandbox.yaml (same name and namespace): sandboxes may then reach only
-# DNS, Redis and this proxy. Policies are additive, so a second object would leave 80 and
-# 443 open beside the proxy; this one takes the place of the first.
+# deploy/k8s/sandbox-isolation/3-networkpolicy-sandbox.yaml (same name and namespace):
+# sandboxes may then reach only DNS, Redis and this proxy. Policies are additive, so a second
+# object would leave 80 and 443 open beside the proxy; this one takes the place of the first.
+#
+# Requires deploy/k8s/sandbox-isolation/ to be turned on first (see its README.md): the
+# policy lives in agentsmith-sandboxes, which only that folder creates, and it only applies
+# to sandboxes once the server runs them there.
 #
 # Before applying:
 #   1. Edit the allowlist below: add your private git host, feeds and registries.
 #   2. Set SANDBOX_EGRESS_PROXY on the server deployment:
 #        - name: SANDBOX_EGRESS_PROXY
 #          value: "http://agentsmith-egress-proxy.agentsmith.svc.cluster.local:3128"
-#   3. Apply this file after deploy/k8s/, and again after every apply of deploy/k8s/,
-#      which would put the public web rule back.
+#   3. Apply this file after deploy/k8s/sandbox-isolation/, and again after every apply of
+#      that folder, which would put the public web rule back.
 #
 # Not covered: render_reference. The browser image's own guard dials targets directly,
-# so renders fail under this policy; a deployment that needs them keeps 13's public rule.
+# so renders fail under this policy; a deployment that needs them keeps the public rule.
 # JVM builds (they read JAVA_TOOL_OPTIONS or settings.xml, not HTTP_PROXY) and Node's
 # built-in fetch ignore the proxy variables and fail closed.
 
@@ -131,7 +135,7 @@ spec:
       targetPort: 3128
       protocol: TCP
 ---
-# Replaces 13-networkpolicy-sandbox.yaml's object: DNS, Redis and the proxy only.
+# Replaces the object of sandbox-isolation/3-networkpolicy-sandbox.yaml: DNS, Redis and the proxy only.
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:

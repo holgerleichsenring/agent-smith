@@ -1,4 +1,4 @@
-# Agent Smith - sandbox network policy (2026-10-25-c5a7d)
+# Agent Smith - sandbox network policy (2026-10-25-c5a7d, opt-in since 2026-10-25-e41d)
 #
 # Every pod in agentsmith-sandboxes is a sandbox. This policy lets a sandbox reach DNS,
 # Redis and public web ports (80 and 443 outside private, link-local, shared, loopback and
@@ -10,7 +10,7 @@
 # Mandatory if a project clones from a private git host, restores from a private package
 # feed, scans a private target, or needs any port other than 80 and 443. Without an
 # allowance such a run fails at clone or restore. The air-gapped example
-# (examples/airgap-deployment.yaml) reaches nothing until this is filled.
+# (../examples/airgap-deployment.yaml) reaches nothing until this is filled.
 #
 # Policies are additive: add a second NetworkPolicy in agentsmith-sandboxes with the
 # same podSelector and only the egress you need. Uncomment and adjust:

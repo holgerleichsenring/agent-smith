@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-e41d
+
+decisions:
+  - category: Architecture
+    chose: "Namespace, sandbox RBAC and the sandbox NetworkPolicy move to deploy/k8s/sandbox-isolation/, which kubectl apply -f deploy/k8s/ does not descend into"
+    over: "Keeping them in deploy/k8s/ behind a commented-out env block, or a kustomize overlay"
+    reason: "Operator decision: an update must not force an infrastructure change. A subfolder is the mechanism examples/ already uses; a kustomize overlay would add a tool the reference manifests do not need."
+  - category: Architecture
+    chose: "The server Deployment and both examples drop K8S_SANDBOX_NAMESPACE and SANDBOX_REDIS_URL; the README shows the snippet to add"
+    over: "Shipping the variables pointing at the server's own namespace"
+    reason: "The code already falls back to the server namespace and REDIS_URL when they are unset, so the pre-c5a7c env is the unchanged path; an entry with a default value would only invite a half-switch."
+  - category: Implementation
+    chose: "Keep sandbox-redis-url in 4-secret-template.yaml and apply-k8s-secret.sh, commented as used only with sandbox-isolation"
+    over: "Removing the key"
+    reason: "An unread Secret key changes nothing, and a deployment that opts in needs it already present."
+  - category: Implementation
+    chose: "Compose keeps the example's separate sandbox network; docs call it optional and say removing DOCKER_NETWORK restores the old behaviour"
+    over: "Removing the network from the example"
+    reason: "The compose file is copied, not applied by an update, and DOCKER_NETWORK unset still auto-detects the server's network (DockerSandboxOptionsReader, DockerSandboxFactory.ResolveNetworkAsync)."
+  - category: Testing
+    chose: "A test reads every top-level deploy/k8s/*.yaml and asserts nothing targets agentsmith-sandboxes and no NetworkPolicy ships there"
+    over: "Only checking the moved files exist"
+    reason: "The guarantee is about what a plain apply creates; a file moved back into the top level fails it."

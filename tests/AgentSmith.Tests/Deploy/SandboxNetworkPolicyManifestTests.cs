@@ -4,11 +4,14 @@ using static AgentSmith.Tests.Deploy.DeployManifests;
 
 namespace AgentSmith.Tests.Deploy;
 
-/// <summary>2026-10-25-c5a7d: the sandbox NetworkPolicy, pinned so a renamed label or a dropped except fails.</summary>
+/// <summary>
+/// 2026-10-25-c5a7d: the sandbox NetworkPolicy, pinned so a renamed label or a dropped except fails.
+/// 2026-10-25-e41d: it ships in the opt-in folder deploy/k8s/sandbox-isolation/.
+/// </summary>
 public sealed class SandboxNetworkPolicyManifestTests
 {
     private static YamlMappingNode Policy() =>
-        OfKind(Documents("k8s", "13-networkpolicy-sandbox.yaml"), "NetworkPolicy").Single();
+        OfKind(Documents("k8s", "sandbox-isolation", "3-networkpolicy-sandbox.yaml"), "NetworkPolicy").Single();
 
     private static IReadOnlyList<YamlMappingNode> Egress() => [.. Items(Node(Policy(), "spec", "egress"))];
 
