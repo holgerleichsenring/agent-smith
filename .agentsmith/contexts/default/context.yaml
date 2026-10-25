@@ -87,6 +87,7 @@ integrations:
 
 state:
   done:
+    2026-10-25-c5a7h: "IN-PROCESS STEPS INHERIT NO SECRETS (InProcessSandbox, factory, CLI commands). Declared names (agent bindings, api_key_secret, ServerSecretEnvNames) and variables holding a known secret value are stripped; a test pins the list to the server manifest. -> .agentsmith/specs/done/2026-10-25-c5a7h-sandbox-inprocess-secret-env.yaml"
     2026-10-25-c5a7f: "WEB_FETCH PUBLIC ADDRESSES ONLY (WebToolHost, PublicAddressRule, egress proxy). Every hop checked by RenderUrlGuard, at most five redirects, direct dials connect to the checked address; WireServer and 6to4 refused; the page reaches the model in untrusted markers. -> .agentsmith/specs/done/2026-10-25-c5a7f-web-fetch-address-guard.yaml"
     2026-10-25-c5a7e: "SANDBOX REDIS USER PER JOB (sandbox factories, reapers, startup probe, deploy). ACL user sbx-{job} limited to its keys, deleted on teardown and reap, re-issued on reconnect; refused ACL falls back to shared with a finding; SANDBOX_BUS_CREDENTIAL; reference Redis requires a password. -> .agentsmith/specs/done/2026-10-25-c5a7e-sandbox-bus-credential-per-job.yaml"
     2026-09-28-2ac3: "REDIS URL NEVER ECHOED (Redis startup finding, Redis probe, diagnostics). Findings and probe results name parsed endpoints or '(value hidden)', never REDIS_URL or the client's error; secret template default redis:6379; deploy note for requiring a Redis password. -> .agentsmith/specs/done/2026-09-28-2ac3-redis-url-password-redacted.yaml"

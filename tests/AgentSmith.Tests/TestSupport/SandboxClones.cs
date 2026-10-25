@@ -66,7 +66,7 @@ internal sealed class SandboxClones : IAsyncDisposable
                 await GitIn(root, root, "clone", "-q", "-b", Branch, Path.Combine(root, "origin.git"), dir);
                 await Configure(root, dir);
             }
-            ISandbox sandbox = new InProcessSandbox(Keys[i], dir, ownsWorkDir: false, NullLogger.Instance);
+            ISandbox sandbox = new InProcessSandbox(Keys[i], dir, ownsWorkDir: false, InProcessStepEnvironment.Inherit, NullLogger.Instance);
             clones._clones[Keys[i]] = (wrap?.Invoke(Keys[i], sandbox) ?? sandbox, dir);
         }
         clones.Seat();
@@ -121,7 +121,7 @@ internal sealed class SandboxClones : IAsyncDisposable
 
     private static async Task<string> GitIn(string root, string dir, params string[] args)
     {
-        await using var sandbox = new InProcessSandbox("git", root, ownsWorkDir: false, NullLogger.Instance);
+        await using var sandbox = new InProcessSandbox("git", root, ownsWorkDir: false, InProcessStepEnvironment.Inherit, NullLogger.Instance);
         var result = await sandbox.RunStepAsync(new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "git", Args: ["-C", dir, .. args], TimeoutSeconds: 60), null, CancellationToken.None);
         result.ExitCode.Should().Be(0, $"git {string.Join(' ', args)}: {result.ErrorMessage}");

@@ -88,6 +88,7 @@ internal static class ServerSandboxExtensions
 
     private static void AddInProcess(IServiceCollection services)
     {
+        services.TryAddSingleton<InProcessStepEnvironmentReader>(); // 2026-10-25-c5a7h
         services.AddSingleton<ISandboxFactory, InProcessSandboxFactory>();
         services.AddSingleton<IPreflightSandboxProbe, SandboxRoundTripProbe>();
     }

@@ -63,7 +63,7 @@ public sealed class AccountFixtureRepositories : IAsyncDisposable
             var path = Path.Combine(root, repo.Name);
             CopyTree(Path.Combine(template, repo.Name), path);
             var sandbox = new InProcessSandbox(
-                $"{fixture.Id}:{repo.Name}", path, ownsWorkDir: false,
+                $"{fixture.Id}:{repo.Name}", path, ownsWorkDir: false, InProcessStepEnvironment.Inherit,
                 loggerFactory.CreateLogger<InProcessSandbox>());
             built._sandboxes.Add(sandbox);
             sandboxes[repo.Name] = sandbox;

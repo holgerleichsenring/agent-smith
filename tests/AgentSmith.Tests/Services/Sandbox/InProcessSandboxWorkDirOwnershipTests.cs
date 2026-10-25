@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Infrastructure.Services.Sandbox;
 using FluentAssertions;
@@ -32,7 +33,7 @@ public sealed class InProcessSandboxWorkDirOwnershipTests
             var sandbox = new InProcessSandbox(
                 jobId: "ownership-test",
                 workDir: operatorPath,
-                ownsWorkDir: false,
+                ownsWorkDir: false, InProcessStepEnvironment.Inherit,
                 logger: NullLogger<InProcessSandbox>.Instance);
 
             await sandbox.DisposeAsync();
@@ -59,7 +60,7 @@ public sealed class InProcessSandboxWorkDirOwnershipTests
         var sandbox = new InProcessSandbox(
             jobId: "ownership-test",
             workDir: sandboxTemp,
-            ownsWorkDir: true,
+            ownsWorkDir: true, InProcessStepEnvironment.Inherit,
             logger: NullLogger<InProcessSandbox>.Instance);
 
         await sandbox.DisposeAsync();
@@ -77,7 +78,7 @@ public sealed class InProcessSandboxWorkDirOwnershipTests
         await File.WriteAllTextAsync(sentinel, "operator file");
         try
         {
-            var factory = new InProcessSandboxFactory(NullLoggerFactory.Instance);
+            var factory = new InProcessSandboxFactory(InProcessStepEnvironmentReaders.Empty(), NullLoggerFactory.Instance);
             var spec = new SandboxSpec(
                 ToolchainImage: "irrelevant",
                 Resources: ResourceLimits.Default,
@@ -100,7 +101,7 @@ public sealed class InProcessSandboxWorkDirOwnershipTests
     [Fact]
     public async Task Factory_FallbackTempDir_ProducesOwningSandbox()
     {
-        var factory = new InProcessSandboxFactory(NullLoggerFactory.Instance);
+        var factory = new InProcessSandboxFactory(InProcessStepEnvironmentReaders.Empty(), NullLoggerFactory.Instance);
         var spec = new SandboxSpec(
             ToolchainImage: "irrelevant",
             Resources: ResourceLimits.Default);

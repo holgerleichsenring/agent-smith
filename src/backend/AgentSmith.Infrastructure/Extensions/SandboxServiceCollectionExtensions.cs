@@ -21,6 +21,7 @@ public static class SandboxServiceCollectionExtensions
     /// </summary>
     public static IServiceCollection AddInProcessSandbox(this IServiceCollection services)
     {
+        services.TryAddSingleton<InProcessStepEnvironmentReader>(); // 2026-10-25-c5a7h
         services.AddSingleton<ISandboxFactory, InProcessSandboxFactory>();
         services.TryAddSingleton<IOptions<SandboxGlobalConfig>>(_ =>
             Options.Create(new SandboxGlobalConfig

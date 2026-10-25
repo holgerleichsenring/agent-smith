@@ -87,7 +87,7 @@ internal sealed class TwoRepoSeries : IAsyncDisposable
         var root = Path.Combine(Path.GetTempPath(), "as-f5f7f-" + Guid.NewGuid().ToString("N"));
         var work = Path.Combine(root, "work");
         Directory.CreateDirectory(work);
-        _repos[name] = (new InProcessSandbox("test", work, ownsWorkDir: true, NullLogger.Instance), Path.Combine(root, "origin.git"));
+        _repos[name] = (new InProcessSandbox("test", work, ownsWorkDir: true, InProcessStepEnvironment.Inherit, NullLogger.Instance), Path.Combine(root, "origin.git"));
         await GitAsync(name, "init", "-q", "--bare", _repos[name].Origin);
         await GitAsync(name, "init", "-q", "-b", Branch);
         await GitAsync(name, "config", "user.email", "test@example.test");

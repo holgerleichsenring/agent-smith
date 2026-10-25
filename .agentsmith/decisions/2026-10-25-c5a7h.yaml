@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-c5a7h
+
+decisions:
+  - category: Implementation
+    chose: "InProcessStepEnvironment.Scrub removes from ProcessStartInfo.Environment, after the arguments and before HOME, git settings, caches and the step's own Env"
+    over: "Building a fresh environment from an allowlist"
+    reason: "The spec keeps the host environment minus names and values; scrubbing in place is one line in InProcessSandbox (409 of 417), and Step.Env (the git token) is applied afterwards, so authenticated clone and push are unaffected."
+  - category: Implementation
+    chose: "InProcessStepEnvironmentReader takes ISecretValues and the composition's AgentSmithConfig"
+    over: "IConfigurationLoader plus ServerContext, as first built"
+    reason: "Measured: the CLI composition registers ServerContext only when a config path is given, so CliShapedDiTests failed to resolve every handler that reaches the sandbox factory. AgentSmithConfig is registered in every composition (Empty in the core chain, the loaded file in the CLI, the store on the server)."
+  - category: Implementation
+    chose: "SecurityTrendCommand, which loads no configuration, passes InProcessStepEnvironment.For(null, []); CompileWikiCommand resolves the reader from the provider it builds"
+    over: "Passing Inherit at either site"
+    reason: "As the spec says: names only when nothing is loaded."
+  - category: Tooling
+    chose: "InProcessSandbox_RunEnv_PrintsNoSecret sets process variables inside ExternalProcessCollection (serial)"
+    over: "The EnvVarCollection"
+    reason: "ExternalProcessIsolationRuleTests requires every test that constructs a real InProcessSandbox to sit in ExternalProcessCollection, which disables parallelisation, so nothing else in that process observes the variables."
+  - category: Implementation
+    chose: "ServerSecretEnvNames.All is a property returning a collection expression"
+    over: "A static readonly field"
+    reason: "NoStaticStateRuleTests refuses a static field in a static Infrastructure class."

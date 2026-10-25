@@ -152,7 +152,7 @@ public sealed class DeliveryAccountingTests : IAsyncLifetime
     }
 
     private static ISandbox Sandbox(string path) =>
-        new InProcessSandbox("harness", path, ownsWorkDir: false, NullLogger<InProcessSandbox>.Instance);
+        new InProcessSandbox("harness", path, ownsWorkDir: false, InProcessStepEnvironment.Inherit, NullLogger<InProcessSandbox>.Instance);
 
     /// <summary>A change large enough to push later files past the prompt's diff budget.</summary>
     private async Task GivenALargeChangeAsync()
