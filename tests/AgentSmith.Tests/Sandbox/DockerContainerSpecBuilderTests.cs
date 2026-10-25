@@ -7,23 +7,87 @@ namespace AgentSmith.Tests.Sandbox;
 public sealed class DockerContainerSpecBuilderTests
 {
     private static readonly SandboxOwnerIdentity Owner = new("store-0123456789abcdef");
-    private readonly DockerContainerSpecBuilder _builder = new(Owner);
+    private readonly DockerContainerSpecBuilder _builder = new(Owner, new DockerHardening());
+
+    // The set a root sandbox gets: shared and work, no home volume.
+    private static DockerSandboxVolumeSet Vols(string shared, string work) => new(shared, work, null);
 
     [Fact]
     public void BuildLoader_AlwaysProducesInjectCommand_AgainstSharedMount()
     {
-        var spec = _builder.BuildLoader("loader-c1", "shared-vol-1", "agent:1.2.3");
+        var spec = _builder.BuildLoader("loader-c1", "shared-vol-1", "agent:1.2.3", SandboxSecurityContext.Unconfined);
 
         spec.Image.Should().Be("agent:1.2.3");
         spec.Cmd.Should().BeEquivalentTo("--inject", "/shared/agent");
         spec.HostConfig.Binds.Should().ContainSingle().Which.Should().Be("shared-vol-1:/shared");
     }
 
+    // 2026-10-25-c5a7b: the loader stays root but holds no capability; it writes a volume it owns.
+    [Fact]
+    public void DockerContainerSpecBuilder_Loader_DropsAllCapabilities()
+    {
+        var spec = _builder.BuildLoader("loader-c1", "shared-vol-1", "agent:1.2.3", SandboxSecurityContext.Hardened);
+
+        spec.HostConfig.CapDrop.Should().Equal("ALL");
+        spec.HostConfig.SecurityOpt.Should().Equal("no-new-privileges");
+        spec.User.Should().BeNull();
+    }
+
+    [Fact]
+    public void DockerContainerSpecBuilder_Hardened_SetsUserCapDropNoNewPrivilegesAndHome()
+    {
+        var spec = _builder.BuildToolchain("tc-1", DockerSandboxVolumeSet.For("abc", SandboxSecurityContext.Hardened),
+            "job", "redis", new SandboxSpec("img", ResourceLimits.Default, "ai", SecurityContext: SandboxSecurityContext.Hardened));
+
+        spec.User.Should().Be("1000:1000");
+        spec.HostConfig.CapDrop.Should().Equal("ALL");
+        spec.HostConfig.SecurityOpt.Should().Equal("no-new-privileges");
+        spec.Env.Should().Contain("HOME=/root").And.Contain("GIT_CONFIG_KEY_0=safe.directory");
+    }
+
+    [Fact]
+    public void DockerContainerSpecBuilder_Hardened_HomeAndWorkBindsAreNoCopy()
+    {
+        var spec = _builder.BuildToolchain("tc-1", DockerSandboxVolumeSet.For("abc", SandboxSecurityContext.Hardened),
+            "job", "redis", new SandboxSpec("img", ResourceLimits.Default, "ai", SecurityContext: SandboxSecurityContext.Hardened));
+
+        spec.HostConfig.Binds.Should().Contain("agentsmith-sandbox-abc-work:/work:nocopy")
+            .And.Contain("agentsmith-sandbox-abc-home:/root:nocopy");
+    }
+
+    // 2026-10-25-ff3b: hardening off (or no profile on the spec) leaves both containers as they were.
+    [Fact]
+    public void DockerContainerSpecBuilder_HardeningOff_ContainersAreUnchanged()
+    {
+        var toolchain = _builder.BuildToolchain("tc-1", Vols("s", "w"), "job", "redis",
+            new SandboxSpec("img", ResourceLimits.Default, "ai"));
+        var loader = _builder.BuildLoader("loader-c1", "s", "agent:1", SandboxSecurityContext.Unconfined);
+
+        toolchain.User.Should().BeNull();
+        toolchain.HostConfig.CapDrop.Should().BeNull();
+        toolchain.HostConfig.SecurityOpt.Should().BeNull();
+        loader.HostConfig.CapDrop.Should().BeNull();
+        loader.HostConfig.SecurityOpt.Should().BeNull();
+    }
+
+    [Fact]
+    public void DockerContainerSpecBuilder_RunAsRoot_SetsOnlyNoNewPrivileges()
+    {
+        var spec = _builder.BuildToolchain("tc-1", DockerSandboxVolumeSet.For("abc", SandboxSecurityContext.Root),
+            "job", "redis", new SandboxSpec("img", ResourceLimits.Default, "ai", SecurityContext: SandboxSecurityContext.Root));
+
+        spec.User.Should().BeNull();
+        spec.HostConfig.CapDrop.Should().BeNull();
+        spec.HostConfig.SecurityOpt.Should().Equal("no-new-privileges");
+        spec.HostConfig.Binds.Should().NotContain(b => b.Contains("/root"));
+        spec.Env.Should().NotContain(e => e.StartsWith("HOME="));
+    }
+
     [Fact]
     public void BuildToolchain_BindsBothVolumes_SharedReadOnly_WorkReadWrite()
     {
         var spec = _builder.BuildToolchain(
-            "tc-1", "shared-vol-1", "work-vol-1", "job-abc",
+            "tc-1", Vols("shared-vol-1", "work-vol-1"), "job-abc",
             "redis:6379",
             new SandboxSpec(ToolchainImage: "node:20", Resources: ResourceLimits.Default, AgentImage: "agent:1"));
 
@@ -38,7 +102,7 @@ public sealed class DockerContainerSpecBuilderTests
     public void BuildToolchain_PassesJobIdAndRedisUrl_AsCmdArgsAndEnv()
     {
         var spec = _builder.BuildToolchain(
-            "tc-1", "s", "w", "job-abc", "redis:6379",
+            "tc-1", Vols("s", "w"), "job-abc", "redis:6379",
             new SandboxSpec("img", ResourceLimits.Default, "ai"));
 
         // 2026-10-02-35b2: the Redis URL travels in the env only, never on a command line.
@@ -55,7 +119,7 @@ public sealed class DockerContainerSpecBuilderTests
     public void BuildToolchain_ParsesMemoryLimit_ToBytes(string memoryString, long expectedBytes)
     {
         var spec = _builder.BuildToolchain(
-            "tc-1", "s", "w", "job", "redis",
+            "tc-1", Vols("s", "w"), "job", "redis",
             new SandboxSpec("img", new ResourceLimits("250m", "1000m", "256Mi", memoryString), "ai"));
 
         spec.HostConfig.Memory.Should().Be(expectedBytes);
@@ -68,7 +132,7 @@ public sealed class DockerContainerSpecBuilderTests
     public void BuildToolchain_ParsesCpuLimit_ToNanoCpus(string cpuString, long expectedNanoCpus)
     {
         var spec = _builder.BuildToolchain(
-            "tc-1", "s", "w", "job", "redis",
+            "tc-1", Vols("s", "w"), "job", "redis",
             new SandboxSpec("img", new ResourceLimits("100m", cpuString, "256Mi", "2Gi"), "ai"));
 
         spec.HostConfig.NanoCPUs.Should().Be(expectedNanoCpus);
@@ -78,7 +142,7 @@ public sealed class DockerContainerSpecBuilderTests
     public void BuildToolchain_MapsMemoryRequest_ToMemoryReservation()
     {
         var spec = _builder.BuildToolchain(
-            "tc-1", "s", "w", "job", "redis",
+            "tc-1", Vols("s", "w"), "job", "redis",
             new SandboxSpec("img", new ResourceLimits("250m", "1000m", "768Mi", "2Gi"), "ai"));
 
         spec.HostConfig.MemoryReservation.Should().Be(768L * 1024 * 1024);
@@ -91,7 +155,7 @@ public sealed class DockerContainerSpecBuilderTests
     public void BuildToolchain_TagsContainerWithJobIdAndRunIdLabels()
     {
         var spec = _builder.BuildToolchain(
-            "tc-1", "s", "w", "job-abc", "redis",
+            "tc-1", Vols("s", "w"), "job-abc", "redis",
             new SandboxSpec("img", ResourceLimits.Default, "ai", RunId: "run-xyz"));
 
         spec.Labels.Should().ContainKey(DockerContainerSpecBuilder.JobIdLabel)
@@ -110,7 +174,7 @@ public sealed class DockerContainerSpecBuilderTests
             new Dictionary<string, string> { ["NUGET_PACKAGES"] = "/pkgcache/nuget/packages" }));
 
         var spec = _builder.BuildToolchain(
-            "tc-1", "shared-vol-1", "work-vol-1", "job-abc", "redis:6379",
+            "tc-1", Vols("shared-vol-1", "work-vol-1"), "job-abc", "redis:6379",
             new SandboxSpec("img", ResourceLimits.Default, "ai"), [cache]);
 
         spec.HostConfig.Binds.Should().BeEquivalentTo(
@@ -122,8 +186,8 @@ public sealed class DockerContainerSpecBuilderTests
     public void BuildToolchain_WithoutPackageCache_KeepsTodaysBindsAndEnv()
     {
         var spec = _builder.BuildToolchain(
-            "tc-1", "shared-vol-1", "work-vol-1", "job-abc", "redis:6379",
-            new SandboxSpec("img", ResourceLimits.Default, "ai"), []);
+            "tc-1", Vols("shared-vol-1", "work-vol-1"), "job-abc", "redis:6379",
+            new SandboxSpec("img", ResourceLimits.Default, "ai", SecurityContext: SandboxSecurityContext.Root), []);
 
         spec.HostConfig.Binds.Should().BeEquivalentTo("shared-vol-1:/shared:ro", "work-vol-1:/work");
         spec.Env.Should().BeEquivalentTo("JOB_ID=job-abc", "REDIS_URL=redis:6379");
@@ -133,7 +197,7 @@ public sealed class DockerContainerSpecBuilderTests
     public void BuildToolchain_NullRunId_OmitsRunIdLabel_KeepsJobIdLabel()
     {
         var spec = _builder.BuildToolchain(
-            "tc-1", "s", "w", "job-abc", "redis",
+            "tc-1", Vols("s", "w"), "job-abc", "redis",
             new SandboxSpec("img", ResourceLimits.Default, "ai"));
 
         spec.Labels.Should().ContainKey(DockerContainerSpecBuilder.JobIdLabel);

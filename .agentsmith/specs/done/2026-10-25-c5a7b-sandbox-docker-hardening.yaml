@@ -1,10 +1,10 @@
 # yaml-language-server: $schema=../../spec.schema.json
 spec: 2026-10-25-c5a7b
-goal: "A Docker sandbox runs as uid 1000 with every capability dropped and no-new-privileges, on volumes it owns, unless its project opts into root, exactly as on Kubernetes."
+goal: "With installation hardening on, a Docker sandbox runs as uid 1000 with no capabilities and no-new-privileges on volumes it owns, unless its project opts into root, as on Kubernetes."
 
 applies_to: "default (DockerContainerSpecBuilder, DockerSandboxFactory, DockerSandbox, DockerSandboxRemover, DockerPackageCaches)"
 
-requires: ["2026-10-25-c5a7a"]
+requires: ["2026-10-25-c5a7a", "2026-10-25-ff3b"]
 
 facts:
   - claim: "The toolchain container sets no User, no CapDrop and no SecurityOpt; the loader neither."
@@ -24,15 +24,16 @@ facts:
 
 scope:
   in: >
-    Follows p0377's docker step with the facts above. Reads the SandboxSecurityContext 2026-10-25-c5a7a sets.
-    Hardened (default): toolchain User "1000:1000", CapDrop [ALL], SecurityOpt [no-new-privileges], HOME=/root,
+    Follows p0377's docker step with the facts above. Reads the SandboxSecurityContext 2026-10-25-c5a7a and
+    2026-10-25-ff3b resolve. Unconfined (hardening off, the default, and a spec with no profile): the containers
+    and volumes exactly as before. Hardened (hardening on): toolchain User "1000:1000", CapDrop [ALL], SecurityOpt [no-new-privileges], HOME=/root,
     and a third per-job volume agentsmith-sandbox-{slug}-home at /root. Before the toolchain starts, one short
     ownership container from the agent carrier image (Entrypoint chown, User 0, CapDrop ALL, CapAdd CHOWN,
     NetworkMode none) gives /work, /root and the top directory of each cache volume to 1000:1000. Cache
     volumes of a hardened sandbox carry the uid in their name (agentsmith-pkgcache-{eco}-1000), so root-written
     caches are never touched and the first hardened run per host restores cold once. The loader keeps running
     as root, with CapDrop [ALL] and no-new-privileges: it writes into a root-owned volume by ownership, needing
-    no capability. Root (run_as_root): today's container plus no-new-privileges. Docker applies its default
+    no capability. Root (hardening on, run_as_root): today's container plus no-new-privileges. Docker applies its default
     seccomp profile already; nothing is set for it. The home volume is removed with the other two, in the
     sandbox and in the remover. The volume handling moves out of DockerSandboxFactory into DockerSandboxVolumes;
     the hardening fields and the toolchain env (HOME, the safe.directory variables of 2026-10-25-c5a7a) go into
@@ -40,8 +41,8 @@ scope:
     home and work binds carry :nocopy, so Docker's copy-up of an image's /root cannot reset the ownership.
     Registering the new types would push DockerSandboxRegistrations over 120, so BuildOptions moves into a
     DockerSandboxOptionsReader here, which 2026-10-25-c5a7e and 2026-10-25-c5a7g extend.
-    The harness's ExtraBindsSandboxFactory sets RunAsRoot on the spec it decorates: its host-owned bare repo is
-    not writable by uid 1000; the hardened path gets its own docker-tier test.
+    The harness's ExtraBindsSandboxFactory turns a hardened spec into the root profile: its host-owned bare repo
+    is not writable by uid 1000; the hardened path gets its own docker-tier test.
   out: >
     The server container in docker-compose runs as root for the socket; that is the Docker backend's known
     property (docs say so, Kubernetes is the hardened deployment). Network isolation: 2026-10-25-c5a7d.
@@ -72,11 +73,12 @@ tests:
   - "DockerSandboxRemover_RemovesTheHomeVolume"
   - "DockerSandboxOptionsReader_ReadsTheExistingVariables"
   - "DockerContainerSpecBuilder_Hardened_HomeAndWorkBindsAreNoCopy"
+  - "DockerContainerSpecBuilder_HardeningOff_ContainersAreUnchanged"
   - "Docker tier (not in the spec gate; run by hand and recorded): a hardened sandbox on mcr.microsoft.com/dotnet/sdk:10.0 and on hashicorp/terraform clones over https, writes /root/.npmrc, commits, restores into the cache and reports `id -u` = 1000"
 
 done:
-  - "a Docker sandbox of a default project runs as 1000 with no capabilities; clone, feed staging and a cached restore succeed"
-  - "a run_as_root project runs as before"
+  - "with hardening on, a Docker sandbox of a default project runs as 1000 with no capabilities; clone, feed staging and a cached restore succeed"
+  - "with hardening on, a run_as_root project runs as before plus no-new-privileges; with hardening off every sandbox runs as before"
   - "no volume of a finished sandbox is left behind"
   - "the existing docker-tier presets still pass (root profile through the harness)"
   - "build green, full suite green"

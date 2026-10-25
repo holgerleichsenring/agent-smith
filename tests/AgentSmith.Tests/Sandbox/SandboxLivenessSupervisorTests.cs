@@ -29,7 +29,7 @@ public sealed class SandboxLivenessSupervisorTests
         var multiplexer = new Mock<IConnectionMultiplexer>();
         multiplexer.Setup(m => m.GetDatabase(It.IsAny<int>(), It.IsAny<object>())).Returns(database.Object);
         var docker = Mock.Of<IDockerClient>();
-        var backend = new DockerSandbox(docker, "toolchain-1", "shared", "work", "job-1",
+        var backend = new DockerSandbox(docker, "toolchain-1", ["shared", "work"], "job-1",
             new SandboxRedisChannel(multiplexer.Object, "job-1", NullLogger.Instance, Mock.Of<IWireProtocolWatcher>()),
             stepTimeoutCapSeconds: 900, "node:20", NullLogger.Instance);
         var wrapped = new SandboxEventProjector(backend, EventTestStubs.NoOp, EventTestStubs.RunContext, "api");

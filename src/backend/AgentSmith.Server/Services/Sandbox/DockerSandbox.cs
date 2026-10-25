@@ -13,8 +13,7 @@ namespace AgentSmith.Server.Services.Sandbox;
 public sealed class DockerSandbox(
     IDockerClient docker,
     string toolchainContainerId,
-    string sharedVolume,
-    string workVolume,
+    IReadOnlyList<string> volumes,
     string jobId,
     SandboxRedisChannel channel,
     int stepTimeoutCapSeconds,
@@ -68,8 +67,9 @@ public sealed class DockerSandbox(
         _ = cancellationToken;
         await channel.DisposeAsync();
         await TryRemoveContainerAsync();
-        await TryRemoveVolumeAsync(sharedVolume);
-        await TryRemoveVolumeAsync(workVolume);
+        // 2026-10-25-c5a7b: shared, work and, for a hardened sandbox, home.
+        foreach (var volume in volumes)
+            await TryRemoveVolumeAsync(volume);
     }
 
     private async Task TryRemoveContainerAsync()

@@ -182,6 +182,18 @@ Every Docker sandbox mounts persistent package caches under `/pkgcache` (NuGet, 
 
 It is on by default. `SANDBOX_PACKAGE_CACHE=false` on the server turns it off, for example to prove a cold restore. `docker volume rm agentsmith-pkgcache-npm` clears one ecosystem.
 
+## What a sandbox runs as
+
+By default a sandbox container runs as the toolchain image's own user, root for every built-in image. The server container runs as root too, because it talks to the Docker socket; the Kubernetes deployment is the one to choose when that matters.
+
+Turning on `sandbox.hardening_enabled` (**Harden sandboxes** in **Configuration → Settings → Sandbox**, applies after a restart) changes three things for Docker sandboxes:
+
+- The toolchain runs as `1000:1000` with every capability dropped and `no-new-privileges`. `/root` is a volume of its own and `HOME` points at it, so feed configs and git identity are staged where they always were.
+- Before the toolchain starts, a short container from the agent image gives `/work`, `/root` and the cache directories to uid 1000. It holds the `CHOWN` capability and nothing else, and has no network.
+- The package caches get new names, `agentsmith-pkgcache-<ecosystem>-1000`, so the caches root sandboxes wrote are never touched. The first run per host after turning it on restores cold once.
+
+Check first which projects install system packages in their prerequisites (`apt-get`, `npm install -g`); they fail as uid 1000 until they set `projects.<name>.sandbox.run_as_root: true`. Such a project runs as root with `no-new-privileges`, and every one of its runs shows a warning. [Kubernetes](kubernetes.md#what-a-sandbox-pod-runs-as) has the full list of what to check.
+
 ## Two deployments on one host
 
 Sandbox containers are labelled with the deployment that owns them, and the orphan reaper and the capacity count only ever look at their own. The owner identity is derived from the Redis endpoint the server hands its sandboxes: two servers that share a Redis are one owner and clean up after each other, two that don't never see each other's containers. Set `SANDBOX_OWNER_ID` to name the owner yourself.

@@ -27,7 +27,7 @@ public sealed class SandboxForceRemovalTests
         var docker = DockerThatRecordsRemovals(removed);
         var database = new Mock<IDatabase>();
         var sandbox = new DockerSandbox(
-            docker, "toolchain-1", "shared-vol", "work-vol", "job-1", Channel(database, "job-1"),
+            docker, "toolchain-1", ["shared-vol", "work-vol"], "job-1", Channel(database, "job-1"),
             stepTimeoutCapSeconds: 900, "node:20", NullLogger.Instance);
 
         await ((ISandboxForceRemoval)sandbox).ForceRemoveAsync(CancellationToken.None);

@@ -9,8 +9,8 @@ using StackExchange.Redis;
 namespace AgentSmith.Server.Services.Sandbox;
 
 /// <summary>
-/// Creates the agent-loader + toolchain container pair on Docker, sharing two
-/// named volumes (shared for the agent binary, work for the source tree).
+/// Creates the agent-loader + toolchain container pair on Docker. The per-job volumes and their
+/// ownership are <see cref="DockerSandboxVolumes"/>'s (2026-10-25-c5a7b).
 /// </summary>
 public sealed class DockerSandboxFactory(
     IDockerClient docker,
@@ -18,6 +18,7 @@ public sealed class DockerSandboxFactory(
     DockerContainerSpecBuilder specBuilder,
     DockerSandboxOptions options,
     DockerPackageCaches packageCaches, DockerImagePresence images,
+    DockerSandboxVolumes sandboxVolumes, DockerOneShotRunner oneShot,
     IOptions<SandboxGlobalConfig> sandboxConfig, IWireProtocolWatcher protocol,
     ILoggerFactory loggerFactory) : ISandboxFactory
 {
@@ -25,22 +26,21 @@ public sealed class DockerSandboxFactory(
     {
         var jobId = Guid.NewGuid().ToString("N");
         var slug = jobId[..12];
-        var sharedVolume = $"agentsmith-sandbox-{slug}-shared";
-        var workVolume = $"agentsmith-sandbox-{slug}-work";
-
+        var profile = spec.SecurityContext ?? SandboxSecurityContext.Unconfined;
         var network = await ResolveNetworkAsync(cancellationToken);
 
-        await CreateVolumesAsync(sharedVolume, workVolume, cancellationToken);
+        var volumes = await sandboxVolumes.CreateAsync(slug, profile, cancellationToken);
         // p0407: the package caches are host state that outlives this sandbox, so they
         // are ensured (not created per run) and never handed to the per-job cleanup.
-        var caches = await packageCaches.EnsureAsync(cancellationToken);
-        await RunLoaderAsync(slug, sharedVolume, spec.AgentImage, network, cancellationToken);
-        var toolchainId = await StartToolchainAsync(
-            slug, sharedVolume, workVolume, jobId, spec, network, caches, cancellationToken);
+        var caches = await packageCaches.EnsureAsync(profile, cancellationToken);
+        await images.EnsurePresentAsync(spec.AgentImage, isCarrier: true, cancellationToken);
+        await sandboxVolumes.GiveOwnershipAsync(slug, volumes, caches, spec.AgentImage, profile, cancellationToken);
+        await RunLoaderAsync(slug, volumes.Shared, spec.AgentImage, profile, network, cancellationToken);
+        var toolchainId = await StartToolchainAsync(slug, volumes, jobId, spec, network, caches, cancellationToken);
 
         var channel = new SandboxRedisChannel(
             redis, jobId, loggerFactory.CreateLogger<SandboxRedisChannel>(), protocol);
-        return new DockerSandbox(docker, toolchainId, sharedVolume, workVolume, jobId, channel,
+        return new DockerSandbox(docker, toolchainId, volumes.All, jobId, channel,
             // p0230: per-project resolved cap rides on the spec; fall back to global.
             spec.StepTimeoutSeconds ?? sandboxConfig.Value.StepTimeoutSeconds,
             spec.ToolchainImage, loggerFactory.CreateLogger<DockerSandbox>());
@@ -77,62 +77,27 @@ public sealed class DockerSandboxFactory(
         return "bridge";
     }
 
-    private async Task CreateVolumesAsync(string shared, string work, CancellationToken ct)
+    private async Task RunLoaderAsync(
+        string slug, string sharedVolume, string agentImage, SandboxSecurityContext profile, string network, CancellationToken ct)
     {
-        await docker.Volumes.CreateAsync(new VolumesCreateParameters { Name = shared }, ct);
-        await docker.Volumes.CreateAsync(new VolumesCreateParameters { Name = work }, ct);
-    }
-
-    private async Task RunLoaderAsync(string slug, string sharedVolume, string agentImage, string network, CancellationToken ct)
-    {
-        await images.EnsurePresentAsync(agentImage, isCarrier: true, ct);
-        var spec = specBuilder.BuildLoader($"agentsmith-sandbox-loader-{slug}", sharedVolume, agentImage);
+        var spec = specBuilder.BuildLoader($"agentsmith-sandbox-loader-{slug}", sharedVolume, agentImage, profile);
         if (spec.HostConfig is not null) spec.HostConfig.NetworkMode = network;
-        var created = await docker.Containers.CreateContainerAsync(spec, ct);
-        await docker.Containers.StartContainerAsync(created.ID, new ContainerStartParameters(), ct);
-        var wait = await docker.Containers.WaitContainerAsync(created.ID, ct);
-
-        if (wait.StatusCode != 0)
-        {
-            var logs = await ReadContainerLogsAsync(created.ID, ct);
-            await docker.Containers.RemoveContainerAsync(created.ID,
-                new ContainerRemoveParameters { Force = true }, ct);
+        var exit = await oneShot.RunAsync(spec, ct);
+        if (!exit.Succeeded)
             throw new InvalidOperationException(
-                $"Sandbox-agent loader exited with code {wait.StatusCode} — `{agentImage}` failed " +
+                $"Sandbox-agent loader exited with code {exit.StatusCode} — `{agentImage}` failed " +
                 $"to inject /shared/agent. Without the binary in place the toolchain crashes with " +
                 $"the misleading 'exec /shared/agent: no such file or directory'. Loader output: " +
-                $"{(string.IsNullOrWhiteSpace(logs) ? "<empty>" : logs.Trim())}");
-        }
-
-        await docker.Containers.RemoveContainerAsync(created.ID,
-            new ContainerRemoveParameters { Force = true }, ct);
-    }
-
-    private async Task<string> ReadContainerLogsAsync(string containerId, CancellationToken ct)
-    {
-        try
-        {
-            using var stream = await docker.Containers.GetContainerLogsAsync(
-                containerId,
-                tty: false,
-                new ContainerLogsParameters { ShowStdout = true, ShowStderr = true, Tail = "200" },
-                ct);
-            var (stdout, stderr) = await stream.ReadOutputToEndAsync(ct);
-            return string.Join("\n", new[] { stdout, stderr }.Where(s => !string.IsNullOrWhiteSpace(s)));
-        }
-        catch
-        {
-            return string.Empty;
-        }
+                exit.LogsOrEmpty);
     }
 
     private async Task<string> StartToolchainAsync(
-        string slug, string sharedVolume, string workVolume, string jobId,
+        string slug, DockerSandboxVolumeSet volumes, string jobId,
         SandboxSpec spec, string network, IReadOnlyList<PackageCacheVolume> caches, CancellationToken ct)
     {
         await images.EnsurePresentAsync(spec.ToolchainImage, isCarrier: false, ct);
         var containerSpec = specBuilder.BuildToolchain(
-            $"agentsmith-sandbox-{slug}", sharedVolume, workVolume, jobId, options.RedisUrl, spec, caches);
+            $"agentsmith-sandbox-{slug}", volumes, jobId, options.RedisUrl, spec, caches);
         if (containerSpec.HostConfig is not null) containerSpec.HostConfig.NetworkMode = network;
         var created = await docker.Containers.CreateContainerAsync(containerSpec, ct);
         await docker.Containers.StartContainerAsync(created.ID, new ContainerStartParameters(), ct);

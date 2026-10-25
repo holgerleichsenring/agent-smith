@@ -119,7 +119,7 @@ public sealed class SandboxReleaseTests
         else inspect.ReturnsAsync(new ContainerInspectResponse { State = state });
         var docker = new Mock<IDockerClient>();
         docker.SetupGet(d => d.Containers).Returns(containers.Object);
-        return new DockerSandbox(docker.Object, "toolchain-1", "shared", "work", "job-1", Channel(),
+        return new DockerSandbox(docker.Object, "toolchain-1", ["shared", "work"], "job-1", Channel(),
             stepTimeoutCapSeconds: 900, "node:20", NullLogger.Instance);
     }
 
