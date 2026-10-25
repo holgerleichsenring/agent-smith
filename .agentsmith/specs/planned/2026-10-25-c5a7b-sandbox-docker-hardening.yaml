@@ -1,0 +1,82 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-25-c5a7b
+goal: "A Docker sandbox runs as uid 1000 with every capability dropped and no-new-privileges, on volumes it owns, unless its project opts into root, exactly as on Kubernetes."
+
+applies_to: "default (DockerContainerSpecBuilder, DockerSandboxFactory, DockerSandbox, DockerSandboxRemover, DockerPackageCaches)"
+
+requires: ["2026-10-25-c5a7a"]
+
+facts:
+  - claim: "The toolchain container sets no User, no CapDrop and no SecurityOpt; the loader neither."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/DockerContainerSpecBuilder.cs:29-39, src/backend/AgentSmith.Server/Services/Sandbox/DockerContainerSpecBuilder.cs:45-65, src/backend/AgentSmith.Server/Services/Sandbox/DockerContainerSpecBuilder.cs:89-110"
+  - claim: "A sandbox gets two fresh named volumes, shared and work; a fresh volume is root-owned, so a non-root agent cannot clone into /work without a change of owner."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/DockerSandboxFactory.cs:28-29, src/backend/AgentSmith.Server/Services/Sandbox/DockerSandboxFactory.cs:80-84"
+  - claim: "The package caches are shared volumes named per ecosystem only, mounted at /pkgcache, and already written by root sandboxes on existing hosts."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/DockerPackageCaches.cs:35-51, src/backend/AgentSmith.Contracts/Sandbox/PackageCacheCatalog.cs:5"
+  - claim: "Teardown removes exactly the shared and work volumes, in the sandbox and in the reaper's remover."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/DockerSandbox.cs:66-73, src/backend/AgentSmith.Server/Services/Sandbox/DockerSandboxRemover.cs:29-41"
+  - claim: "The carrier image the loader runs is a Debian runtime-deps image, so chown exists in every agent version a project can pin."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Dockerfile:82-91"
+  - claim: "The docker-tier harness bind-mounts a host bare repository, owned by the host user, into every sandbox it spawns."
+    evidence: "tests/AgentSmith.PipelineHarness/Composition/ExtraBindsSandboxFactory.cs:13-25"
+  - claim: "DockerSandboxFactory is 143 lines under a 144 baseline; DockerContainerSpecBuilder is 111 and DockerSandboxRegistrations 119 of the 120 limit."
+    evidence: "tests/AgentSmith.Tests/Architecture/file-length-baseline.tsv:64, src/backend/AgentSmith.Server/Services/Sandbox/DockerContainerSpecBuilder.cs:111, src/backend/AgentSmith.Server/Services/Sandbox/DockerSandboxRegistrations.cs:109-119"
+
+scope:
+  in: >
+    Follows p0377's docker step with the facts above. Reads the SandboxSecurityContext 2026-10-25-c5a7a sets.
+    Hardened (default): toolchain User "1000:1000", CapDrop [ALL], SecurityOpt [no-new-privileges], HOME=/root,
+    and a third per-job volume agentsmith-sandbox-{slug}-home at /root. Before the toolchain starts, one short
+    ownership container from the agent carrier image (Entrypoint chown, User 0, CapDrop ALL, CapAdd CHOWN,
+    NetworkMode none) gives /work, /root and the top directory of each cache volume to 1000:1000. Cache
+    volumes of a hardened sandbox carry the uid in their name (agentsmith-pkgcache-{eco}-1000), so root-written
+    caches are never touched and the first hardened run per host restores cold once. The loader keeps running
+    as root, with CapDrop [ALL] and no-new-privileges: it writes into a root-owned volume by ownership, needing
+    no capability. Root (run_as_root): today's container plus no-new-privileges. Docker applies its default
+    seccomp profile already; nothing is set for it. The home volume is removed with the other two, in the
+    sandbox and in the remover. The volume handling moves out of DockerSandboxFactory into DockerSandboxVolumes;
+    the hardening fields and the toolchain env (HOME, the safe.directory variables of 2026-10-25-c5a7a) go into
+    DockerHardening, sized so the spec builder also absorbs 2026-10-25-c5a7g's proxy env under its limit. The
+    home and work binds carry :nocopy, so Docker's copy-up of an image's /root cannot reset the ownership.
+    Registering the new types would push DockerSandboxRegistrations over 120, so BuildOptions moves into a
+    DockerSandboxOptionsReader here, which 2026-10-25-c5a7e and 2026-10-25-c5a7g extend.
+    The harness's ExtraBindsSandboxFactory sets RunAsRoot on the spec it decorates: its host-owned bare repo is
+    not writable by uid 1000; the hardened path gets its own docker-tier test.
+  out: >
+    The server container in docker-compose runs as root for the socket; that is the Docker backend's known
+    property (docs say so, Kubernetes is the hardened deployment). Network isolation: 2026-10-25-c5a7d.
+    A rootless Docker or userns-remap daemon: works unchanged, not tested.
+
+decisions:
+  - key: "A SEPARATE CHOWN CONTAINER, NOT A NEW AGENT FLAG. An unknown argument stops an older pinned agent; chown from the carrier image needs no agent change and works with every pin."
+  - key: "NEW CACHE NAMES FOR THE HARDENED UID. A recursive chown of a warm NuGet cache on every spawn costs minutes; a uid-suffixed volume costs one cold restore per host."
+
+steps:
+  - id: volumes
+    action: "DockerSandboxVolumes: create shared, work and (hardened) home volumes, run the ownership container, report names for teardown."
+  - id: container
+    action: "DockerHardening applies User, CapDrop, SecurityOpt and the home bind to the toolchain and CapDrop and SecurityOpt to the loader; DockerPackageCaches names caches per uid."
+  - id: options
+    action: "DockerSandboxOptionsReader takes BuildOptions out of DockerSandboxRegistrations; the new types are registered."
+  - id: teardown
+    action: "DockerSandbox and DockerSandboxRemover remove the home volume."
+  - id: docs
+    action: "docs/host-it/docker-compose.md: what a sandbox runs as, the one cold restore after upgrade, run_as_root."
+
+tests:
+  - "DockerContainerSpecBuilder_Hardened_SetsUserCapDropNoNewPrivilegesAndHome"
+  - "DockerContainerSpecBuilder_RunAsRoot_SetsOnlyNoNewPrivileges"
+  - "DockerContainerSpecBuilder_Loader_DropsAllCapabilities"
+  - "DockerSandboxVolumes_Hardened_RunsOwnershipContainerWithChownOnly"
+  - "DockerPackageCaches_Hardened_NamesCachesWithTheUid"
+  - "DockerSandboxRemover_RemovesTheHomeVolume"
+  - "DockerSandboxOptionsReader_ReadsTheExistingVariables"
+  - "DockerContainerSpecBuilder_Hardened_HomeAndWorkBindsAreNoCopy"
+  - "Docker tier (not in the spec gate; run by hand and recorded): a hardened sandbox on mcr.microsoft.com/dotnet/sdk:10.0 and on hashicorp/terraform clones over https, writes /root/.npmrc, commits, restores into the cache and reports `id -u` = 1000"
+
+done:
+  - "a Docker sandbox of a default project runs as 1000 with no capabilities; clone, feed staging and a cached restore succeed"
+  - "a run_as_root project runs as before"
+  - "no volume of a finished sandbox is left behind"
+  - "the existing docker-tier presets still pass (root profile through the harness)"
+  - "build green, full suite green"

@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=../../spec.schema.json
+spec: 2026-10-25-c5a7d
+goal: "On Kubernetes a sandbox accepts no inbound connection and reaches only DNS, Redis and public web ports; on docker-compose it leaves the server's network and shares one only with Redis."
+
+applies_to: "deploy (k8s NetworkPolicy, docker-compose network) and tests reading deploy/"
+
+requires: ["2026-10-25-c5a7a", "2026-10-25-c5a7c"]
+
+facts:
+  - claim: "deploy/k8s ships no NetworkPolicy."
+    evidence: "observed: ls deploy/k8s on 9237b8921 lists namespace, rbac, configmap, secret, redis, server, dashboard, ingress, pvc only, 2026-10-25"
+  - claim: "The agent dials Redis; nothing dials the agent. Redis is selected by app=redis on 6379."
+    evidence: "src/backend/AgentSmith.Sandbox.Agent/Services/RedisJobBus.cs:29-34, deploy/k8s/5-service-redis.yaml:12-16, deploy/k8s/6-deployment-redis.yaml:18"
+  - claim: "Clone, fetch and push run inside the sandbox over https; http_request is curl in the sandbox."
+    evidence: "src/backend/AgentSmith.Application/Services/Handlers/CheckoutStepFactory.cs:38-40, src/backend/AgentSmith.Application/Services/Handlers/GitStepCredentials.cs:12-13, src/backend/AgentSmith.Application/Services/Tools/HttpRequestStep.cs:22"
+  - claim: "A Docker sandbox joins the server's own network (auto-detected) or DOCKER_NETWORK; compose defines no network, so sandboxes share the default one with server, dashboard, ollama and redis."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/DockerSandboxFactory.cs:53-78, src/backend/AgentSmith.Server/Services/Sandbox/DockerSandboxRegistrations.cs:113"
+  - claim: "Compose publishes server, redis, dashboard and ollama ports on every host interface, so a container on any bridge network still reaches them through the host gateway address."
+    evidence: "deploy/docker-compose.example.yml:101-102, deploy/docker-compose.example.yml:182-183, deploy/docker-compose.example.yml:231-232, deploy/docker-compose.example.yml:247"
+  - claim: "p0304's setup-only mode does not fit the code: the branch is pushed from the sandbox after the master, and dependency installs are the coding master's job, not a setup step's."
+    evidence: "src/backend/AgentSmith.Application/Services/GitBranchPusher.cs:50, src/backend/AgentSmith.Application/Services/Handlers/EnsurePrerequisitesHandler.cs:39-47"
+  - claim: "The HTTP transport 23a2d was cut for is not built: the sandbox still holds REDIS_URL and the agent still dials Redis."
+    evidence: "src/backend/AgentSmith.Server/Services/Sandbox/PodSpecBuilder.cs:119-126, src/backend/AgentSmith.Sandbox.Agent/Services/RedisJobBus.cs:29-34"
+
+scope:
+  in: >
+    Follows 2026-09-28-23a2d (re-cut for an HTTP transport not yet built) and p0304's CIDR tier, for today's
+    Redis transport. Kubernetes: deploy/k8s/13-networkpolicy-sandbox.yaml in agentsmith-sandboxes (from
+    2026-10-25-c5a7c), podSelector {} so no label can slip it, policyTypes Ingress and Egress:
+    - no ingress rule (deny all);
+    - egress to kube-system pods k8s-app=kube-dns on 53 UDP and TCP;
+    - egress to namespace agentsmith pods app=redis on 6379;
+    - egress to 0.0.0.0/0 on 80 and 443 except 10/8, 172.16/12, 192.168/16, 100.64/10, 169.254/16, 127/8 and
+      168.63.129.16/32.
+    An allowance section first in the file, headed mandatory for a private git host, feed or scan target or a
+    non-standard port, with commented examples, the NodeLocal DNS and OpenShift DNS variants, and how to except
+    the server's public ingress. docker-compose.example.yml: a network agentsmith-sandbox (name fixed) that only
+    redis joins besides the sandboxes; the server gets DOCKER_NETWORK=agentsmith-sandbox; the redis port mapping
+    binds 127.0.0.1 (nothing outside the host needs it). The compose docs say that the server, dashboard and ollama
+    ports stay published on the host and reachable through the gateway until 2026-10-25-c5a7g's internal network.
+    The allowance section also notes that a managed cluster's API server may sit on a public address and 443:
+    reachable, but with the token gone (2026-10-25-c5a7a) only anonymously. Rollout notes in
+    docs/host-it/kubernetes.md and docker-compose.md: fill the allowance before applying, or a private clone fails;
+    the air-gapped example blocks everything until filled.
+  out: >
+    Domain allowlists and Docker egress default-deny: 2026-10-25-c5a7g (egress proxy). IPv6: IPv4 rules only, a
+    dual-stack cluster adds ::/0 with its excepts (named in the manifest). Proving a CNI enforces policy: a manual
+    acceptance step. Sandbox access to other jobs' Redis keys: 2026-10-25-c5a7e.
+
+decisions:
+  - key: "NAMESPACE-WIDE SELECTOR. Every pod in the sandbox namespace is a sandbox; a label selector would let a renamed label switch the policy off."
+  - key: "PUBLIC WEB PORTS, NOT AN ALLOWLIST, AT THIS TIER. NetworkPolicy is IP-only; feeds and git hosts sit behind CDNs. The domain allowlist needs a proxy and is its own spec."
+  - key: "DOCKER GETS SEPARATION ONLY. Without a proxy an internal network cannot clone; leaving the server's network is what compose can do without one."
+
+steps:
+  - id: policy
+    action: "13-networkpolicy-sandbox.yaml with the allowance section first."
+  - id: compose
+    action: "agentsmith-sandbox network, redis on it, DOCKER_NETWORK on the server."
+  - id: pinned
+    action: "SandboxNetworkPolicyManifestTests and ComposeSandboxNetworkTests read deploy/ with YamlDotNet."
+  - id: docs
+    action: "Rollout notes in both host-it pages."
+
+tests:
+  - "SandboxNetworkPolicyManifest_SelectsEveryPodInTheSandboxNamespace"
+  - "SandboxNetworkPolicyManifest_HasNoIngressRule"
+  - "SandboxNetworkPolicyManifest_RedisRule_MatchesRedisLabelsPortAndNamespace"
+  - "SandboxNetworkPolicyManifest_PublicRule_ExceptsPrivateLinkLocalSharedLoopbackAndWireServer"
+  - "ComposeSandboxNetwork_OnlyRedisJoinsIt_AndTheServerNamesIt"
+
+done:
+  - "a renamed Redis label, a dropped except or a server attached to the sandbox network fails a test"
+  - "manual acceptance on an enforcing CNI: a run clones, restores, builds and pushes; a sandbox cannot reach the server service, the dashboard, 169.254.169.254 or another sandbox"
+  - "compose: a sandbox cannot resolve or reach server:8081 or dashboard:3000 by service name, and a run still completes"
+  - "build green, full suite green"
