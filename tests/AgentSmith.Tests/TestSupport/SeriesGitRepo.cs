@@ -47,7 +47,7 @@ internal sealed class SeriesGitRepo : IAsyncDisposable
         var dir = Path.Combine(Path.GetTempPath(), "as-03c7-git-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
         var repo = new SeriesGitRepo(
-            new InProcessSandbox("test", dir, ownsWorkDir: true, NullLogger.Instance), seriesBase, sandboxKey);
+            new InProcessSandbox("test", dir, ownsWorkDir: true, InProcessStepEnvironment.Inherit, NullLogger.Instance), seriesBase, sandboxKey);
         await repo.GitAsync("init", "-q", "-b", Branch);
         await repo.GitAsync("config", "user.email", "test@example.test");
         await repo.GitAsync("config", "user.name", "test");

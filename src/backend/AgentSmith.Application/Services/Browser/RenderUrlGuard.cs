@@ -12,15 +12,18 @@ namespace AgentSmith.Application.Services.Browser;
 /// </summary>
 public sealed class RenderUrlGuard(IHostAddressResolver resolver, PublicAddressRule rule)
 {
-    /// <summary>Null when the URL may be rendered; otherwise why not.</summary>
-    public async Task<string?> RefusalForAsync(Uri url, CancellationToken cancellationToken)
+    /// <summary>
+    /// Null when the URL may be rendered; otherwise why not. 2026-10-25-c5a7f: a caller behind a
+    /// proxy passes <paramref name="allowUnresolved"/>, so a name only the proxy can resolve passes.
+    /// </summary>
+    public async Task<string?> RefusalForAsync(Uri url, CancellationToken cancellationToken, bool allowUnresolved = false)
     {
         ArgumentNullException.ThrowIfNull(url);
         if (!url.IsAbsoluteUri || url.Scheme is not ("http" or "https"))
             return $"only http and https URLs are rendered, not '{url.Scheme}'";
         var host = url.IdnHost.Trim('[', ']');
         var addresses = IPAddress.TryParse(host, out var literal) ? [literal] : await ResolveAsync(host, cancellationToken);
-        if (addresses.Length == 0) return $"'{url.Host}' resolves to no address";
+        if (addresses.Length == 0) return allowUnresolved ? null : $"'{url.Host}' resolves to no address";
         foreach (var address in addresses)
             if (rule.RefusalFor(address) is { } refusal)
                 return $"'{url.Host}' is not a public address: {refusal}";

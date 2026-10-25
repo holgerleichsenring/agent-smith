@@ -28,7 +28,7 @@ public sealed class InProcessPackageCacheTests
         try
         {
             var sandbox = new InProcessSandbox(
-                jobId: "p0419cache", workDir, ownsWorkDir: false,
+                jobId: "p0419cache", workDir, ownsWorkDir: false, InProcessStepEnvironment.Inherit,
                 NullLogger<InProcessSandbox>.Instance);
 
             var seen = new List<string>();

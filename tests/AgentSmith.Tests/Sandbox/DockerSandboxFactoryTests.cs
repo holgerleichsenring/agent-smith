@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Contracts.Models.Configuration;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Server.Services.Sandbox;
@@ -24,7 +25,8 @@ public sealed class DockerSandboxFactoryTests
             new DockerPackageCaches(docker.Object, options, NullLogger<DockerPackageCaches>.Instance),
             new DockerImagePresence(docker.Object, NullLogger<DockerImagePresence>.Instance),
             new DockerSandboxVolumes(docker.Object, OneShot(docker)), OneShot(docker),
-            DefaultSandboxOptions(), Mock.Of<IWireProtocolWatcher>(), NullLoggerFactory.Instance);
+            DefaultSandboxOptions(), Mock.Of<IWireProtocolWatcher>(), SandboxBusDoubles.Credentials(),
+            NullLoggerFactory.Instance);
 
     [Fact]
     public async Task CreateAsync_CreatesTwoVolumes_RunsLoaderToCompletion_StartsToolchain()

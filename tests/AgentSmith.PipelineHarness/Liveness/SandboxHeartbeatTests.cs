@@ -228,6 +228,8 @@ public sealed class SandboxHeartbeatTests(ITestOutputHelper output)
             new DockerOneShotRunner(docker, loggerFactory.CreateLogger<DockerOneShotRunner>()),
             sandboxConfig,
             new WireProtocolWatcher(new StartupFindings(), loggerFactory.CreateLogger<WireProtocolWatcher>()),
+            new SandboxBusCredentials(multiplexer, new SandboxBusCredentialSetting(SandboxBusCredentialMode.PerJob),
+                new StartupFindings(), loggerFactory.CreateLogger<SandboxBusCredentials>()),
             loggerFactory);
         return (docker, multiplexer, factory, options);
     }

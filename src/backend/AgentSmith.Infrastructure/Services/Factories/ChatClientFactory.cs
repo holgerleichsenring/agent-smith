@@ -33,6 +33,7 @@ public sealed class ChatClientFactory(
     CompactionSummaryRequest summaryRequest,
     WindowDerivedCompaction windowCompaction,
     ToolImages.IToolImageRelay toolImages, // 2026-10-01-283dd
+    Contracts.Runs.SecretMasker masker, // 2026-10-25-c5a7i
     ILoggerFactory loggerFactory)
     : IChatClientFactory
 {
@@ -160,7 +161,8 @@ public sealed class ChatClientFactory(
         // from sensitive tools become "[set, applied earlier turn]" — the
         // agent gets the credentials on the first iteration, the provider
         // never re-receives them on subsequent iterations.
-        var scrubbed = new SensitiveToolHistoryScrubChatClient(recorded);
+        // 2026-10-25-c5a7i: below the scrub, every known secret value becomes [masked-secret].
+        var scrubbed = new SensitiveToolHistoryScrubChatClient(new SecretValueMaskingChatClient(recorded, masker));
 
         // 2026-08-27-3eb1: a context-length refusal names the role, the window it ran
         // against and the setting that would have prevented it — innermost, so nothing

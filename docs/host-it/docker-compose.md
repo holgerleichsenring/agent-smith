@@ -32,7 +32,7 @@ It defines seven services:
 The env vars that matter on the server:
 
 ```bash
-REDIS_URL=redis:6379          # host:port — no scheme prefix
+REDIS_PASSWORD=…              # required; the server's REDIS_URL is redis:6379,password=${REDIS_PASSWORD}
 SANDBOX_TYPE=docker           # create each run's sandboxes as Docker containers on this host
 SERVER_PORT=8081              # published webhook/API port
 AGENTSMITH_VERSION=0.108.0    # image tag pin for all agent-smith images

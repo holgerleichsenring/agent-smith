@@ -95,7 +95,19 @@ services:
     restart: unless-stopped
     # AOF persistence: Redis carries live run state (queues, ledger, config
     # epoch) — without it a redis restart wipes in-flight coordination.
-    command: ["--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru", "--save", "", "--appendonly", "yes"]
+    # 2026-10-25-c5a7e: a password is required (REDIS_PASSWORD in ../.env). Each sandbox
+    # reaches Redis as its own ACL user, which protects nothing while the default user
+    # needs no password; the guard refuses an empty value instead of starting open.
+    entrypoint: ["sh", "-c"]
+    command:
+      - >-
+        test -n "$$REDIS_PASSWORD" &&
+        exec redis-server --requirepass "$$REDIS_PASSWORD"
+        --maxmemory 256mb --maxmemory-policy allkeys-lru --save "" --appendonly yes
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      # redis-cli reads its password from here, so the healthcheck authenticates.
+      - REDISCLI_AUTH=${REDIS_PASSWORD:-}
     volumes:
       - agentsmith-redis-data:/data
     # 2026-10-25-c5a7d: Redis is the one service sandboxes share a network with.
@@ -158,7 +170,10 @@ services:
     env_file:
       - ../.env
     environment:
-      - REDIS_URL=redis:6379
+      - REDIS_URL=redis:6379,password=${REDIS_PASSWORD:?set REDIS_PASSWORD in ../.env}
+      # 2026-10-25-c5a7e: per-job (default) gives each sandbox its own Redis ACL user;
+      # shared hands sandboxes the URL above, as before.
+      - SANDBOX_BUS_CREDENTIAL=${SANDBOX_BUS_CREDENTIAL:-per-job}
       # The backend every run creates its sandboxes through: docker, kubernetes or inprocess.
       - SANDBOX_TYPE=${SANDBOX_TYPE:-docker}
       # 2026-10-25-c5a7d: sandboxes join this network, which only redis shares with them, so

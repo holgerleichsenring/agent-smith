@@ -18,6 +18,7 @@ public sealed class PublicAddressRule
         (IPNetwork.Parse("100.64.0.0/10"), "carrier-grade NAT"),
         (IPNetwork.Parse("127.0.0.0/8"), "loopback"),
         (IPNetwork.Parse("169.254.0.0/16"), "link-local"),
+        (IPNetwork.Parse("168.63.129.16/32"), "Azure WireServer"),
         (IPNetwork.Parse("172.16.0.0/12"), "private"),
         (IPNetwork.Parse("192.0.0.0/24"), "IETF protocol assignment"),
         (IPNetwork.Parse("192.168.0.0/16"), "private"),
@@ -32,6 +33,9 @@ public sealed class PublicAddressRule
         (IPNetwork.Parse("ff00::/8"), "multicast"),
     ];
 
+    // 2026-10-25-c5a7f: a 6to4 address carries an IPv4 address in bytes 2 to 5.
+    private static readonly IPNetwork SixToFour = IPNetwork.Parse("2002::/16");
+
     /// <summary>Null when the address is public; otherwise the range that refuses it.</summary>
     public string? RefusalFor(IPAddress address)
     {
@@ -42,6 +46,9 @@ public sealed class PublicAddressRule
         foreach (var (range, name) in Refused)
             if (range.BaseAddress.AddressFamily == judged.AddressFamily && range.Contains(judged))
                 return $"{judged} is {name} ({range})";
+        if (judged.AddressFamily == AddressFamily.InterNetworkV6 && SixToFour.Contains(judged)
+            && RefusalFor(new IPAddress(judged.GetAddressBytes()[2..6])) is { } wrapped)
+            return $"{judged} is 6to4 ({SixToFour}) for {wrapped}";
         return null;
     }
 }

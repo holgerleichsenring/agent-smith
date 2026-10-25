@@ -197,7 +197,7 @@ public sealed class SpecIndexLineTests : IDisposable
         foreach (var target in targets)
         {
             sandboxes[target.Name] = new InProcessSandbox(
-                target.Name, target.WorkDir, ownsWorkDir: false, NullLogger.Instance);
+                target.Name, target.WorkDir, ownsWorkDir: false, InProcessStepEnvironment.Inherit, NullLogger.Instance);
             discoveries[target.Name] = new RemoteContextDiscovery(target.ContextName, ".", "C#");
         }
 

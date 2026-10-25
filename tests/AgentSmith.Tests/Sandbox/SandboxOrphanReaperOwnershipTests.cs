@@ -102,7 +102,7 @@ public sealed class SandboxOrphanReaperOwnershipTests
                 InMemoryRedis.Connection(), new NoOpActiveRunLease(), new NoOpRunHeartbeat(),
                 NullLogger<LiveRunSetReader>.Instance),
             SandboxHoldRailDoubles.Reader(),
-            new DockerSandboxRemover(daemon.Client, NullLogger<DockerSandboxRemover>.Instance),
+            new DockerSandboxRemover(daemon.Client, SandboxBusDoubles.Credentials(), NullLogger<DockerSandboxRemover>.Instance),
             NullLogger<SandboxOrphanReaper>.Instance);
 
     private static ContainerListResponse Sandbox(

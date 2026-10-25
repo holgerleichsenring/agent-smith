@@ -211,7 +211,7 @@ public sealed class WorkBranchBaseMergeTests
         factory.Setup(f => f.Create(It.IsAny<RepoConnection>())).Returns(provider.Object);
 
         var sandbox = new RecordingSandbox(new InProcessSandbox(
-            jobId: "p0496", workDir: fixture.WorkPath, ownsWorkDir: false, NullLogger.Instance));
+            jobId: "p0496", workDir: fixture.WorkPath, ownsWorkDir: false, InProcessStepEnvironment.Inherit, NullLogger.Instance));
         var cloner = new SandboxRepoCloner(
             factory.Object, AgentSmith.Tests.TestSupport.TestGitCredentials.Resolver, TestGit.Identity, TestGit.WorkBranchCheckout,
             NullLogger<SandboxRepoCloner>.Instance);

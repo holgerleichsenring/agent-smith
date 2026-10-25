@@ -38,7 +38,8 @@ first, or runs fail once the server moves:
 5. **The `sandbox-redis-url` key** in `agentsmith-secrets`. A pod in another namespace cannot
    resolve the short name `redis`, so it needs the full name, normally
    `redis.agentsmith.svc.cluster.local:6379`. `deploy/apply-k8s-secret.sh` writes this key;
-   `4-secret-template.yaml` has it too.
+   `4-secret-template.yaml` has it too. When Redis has a `redis-password`, this URL carries
+   `,password=…` as `redis-url` does; the script adds it when `REDIS_PASSWORD` is set.
 
 The NetworkPolicy only has an effect if your cluster's network plugin enforces NetworkPolicy.
 

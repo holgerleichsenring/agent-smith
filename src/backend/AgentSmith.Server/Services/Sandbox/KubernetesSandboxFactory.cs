@@ -17,6 +17,7 @@ public sealed partial class KubernetesSandboxFactory(
     KubernetesSandboxOptions options,
     IOptions<SandboxGlobalConfig> sandboxConfig,
     IWireProtocolWatcher protocol,
+    SandboxBusCredentials busCredentials,
     ILoggerFactory loggerFactory) : ISandboxFactory
 {
     public async Task<ISandbox> CreateAsync(SandboxSpec spec, CancellationToken cancellationToken)
@@ -25,7 +26,9 @@ public sealed partial class KubernetesSandboxFactory(
             throw new InvalidOperationException(misconfiguration); // 2026-10-25-c5a7c
         var jobId = Guid.NewGuid().ToString("N");
         var podName = $"agentsmith-sandbox-{jobId[..12]}";
-        var pod = podSpecBuilder.Build(podName, jobId, options.RedisUrl, spec, options.OwnerReference);
+        // 2026-10-25-c5a7e: the sandbox reaches Redis as its own job's ACL user.
+        var bus = await busCredentials.IssueAsync(jobId, options.RedisUrl);
+        var pod = podSpecBuilder.Build(podName, jobId, bus.Url, spec, options.OwnerReference);
 
         try
         {
@@ -50,7 +53,7 @@ public sealed partial class KubernetesSandboxFactory(
 
         var channel = new SandboxRedisChannel(
             redis, jobId, loggerFactory.CreateLogger<SandboxRedisChannel>(), protocol);
-        return new KubernetesSandbox(client, options.Namespace, podName, jobId, channel,
+        return new KubernetesSandbox(client, options.Namespace, podName, jobId, channel, bus,
             // p0230: per-project resolved cap rides on the spec; fall back to global.
             spec.StepTimeoutSeconds ?? sandboxConfig.Value.StepTimeoutSeconds,
             spec.ToolchainImage,

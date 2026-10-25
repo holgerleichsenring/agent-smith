@@ -2,7 +2,7 @@
 //   docker run --rm --add-host internal.test:10.0.0.1 -v <this dir>:/fixture:ro <image> node /fixture/check.mjs
 // A module script and a root-relative stylesheet render from the local origin; a subresource to
 // 127.0.0.1:6379, one to a name resolving to 10.0.0.1, IPv6 / IPv4-mapped / 0.0.0.0 literals and a
-// loopback websocket are refused; service workers are blocked; the 6000 px page yields a JPEG under
+// loopback websocket and a subresource to 168.63.129.16 are refused; service workers are blocked; the 6000 px page yields a JPEG under
 // 700 KB whose long edge is 1568 px.
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -30,14 +30,16 @@ expect(result.refused.some(r => r.url.includes(':6380')), 'IPv6 loopback literal
 expect(result.refused.some(r => r.url.includes(':6381')), 'IPv4-mapped IPv6 loopback refused');
 expect(result.refused.some(r => r.url.includes(':6382')), '0.0.0.0 refused');
 expect(result.refused.some(r => r.url.includes(':6383')), 'loopback websocket refused');
+expect(result.refused.some(r => r.url.includes('168.63.129.16')), 'Azure WireServer subresource refused');
 expect(style('h2')?.values?.color === 'rgb(4, 5, 6)', `no service worker became active (${style('h2')?.values?.color})`);
 
 // The proxy's own range check, address by address — the same table PublicAddressRule holds.
 const { refusalFor } = await import('/opt/agentsmith/egress.mjs');
 for (const address of ['127.0.0.1', '::1', '::', '0.0.0.0', '10.0.0.1', '172.16.0.1', '192.168.0.1', '169.254.169.254',
-  'fe80::1', 'fd00::1', '100.64.0.1', '224.0.0.1', '255.255.255.255', '::ffff:10.0.0.1', '::ffff:a00:1', '::ffff:127.0.0.1'])
+  'fe80::1', 'fd00::1', '100.64.0.1', '224.0.0.1', '255.255.255.255', '::ffff:10.0.0.1', '::ffff:a00:1', '::ffff:127.0.0.1',
+  '168.63.129.16', '2002:a00:1::', '2002:7f00:1::1'])
   expect(refusalFor(address) !== null, `${address} refused by the proxy's rule`);
-for (const address of ['93.184.215.14', '2606:4700:4700::1111', '::ffff:93.184.215.14'])
+for (const address of ['93.184.215.14', '2606:4700:4700::1111', '::ffff:93.184.215.14', '2002:5db8:d70e::1'])
   expect(refusalFor(address) === null, `${address} allowed by the proxy's rule`);
 for (const viewport of ['desktop', 'mobile']) {
   const shot = result.shots.find(s => s.viewport === viewport);

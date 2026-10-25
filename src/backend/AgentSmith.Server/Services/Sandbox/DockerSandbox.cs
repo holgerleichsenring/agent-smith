@@ -16,6 +16,7 @@ public sealed class DockerSandbox(
     IReadOnlyList<string> volumes,
     string jobId,
     SandboxRedisChannel channel,
+    SandboxBusCredential bus,
     int stepTimeoutCapSeconds,
     string toolchainImage,
     ILogger logger) : IHoldableSandbox, ISandboxLivenessProbeTarget, ISandboxToolchainImage, ISandboxExitReader
@@ -66,6 +67,7 @@ public sealed class DockerSandbox(
     {
         _ = cancellationToken;
         await channel.DisposeAsync();
+        await bus.DisposeAsync(); // 2026-10-25-c5a7e: after the channel, which still used the user
         await TryRemoveContainerAsync();
         // 2026-10-25-c5a7b: shared, work and, for a hardened sandbox, home.
         foreach (var volume in volumes)

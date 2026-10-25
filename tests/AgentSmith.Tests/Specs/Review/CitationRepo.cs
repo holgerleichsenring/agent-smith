@@ -31,7 +31,7 @@ internal sealed class CitationRepo : IAsyncDisposable
         Name = name;
         _root = root;
         Work = Path.Combine(root, "work");
-        Sandbox = new InProcessSandbox(name, Work, ownsWorkDir: false, NullLogger.Instance);
+        Sandbox = new InProcessSandbox(name, Work, ownsWorkDir: false, InProcessStepEnvironment.Inherit, NullLogger.Instance);
     }
 
     internal string Name { get; }
@@ -120,7 +120,7 @@ internal sealed class CitationRepo : IAsyncDisposable
     {
         var date = at?.ToUniversalTime().ToString("yyyy-MM-dd HH:mm:ss +0000", CultureInfo.InvariantCulture);
         var env = date is null ? null : new Dictionary<string, string> { ["GIT_AUTHOR_DATE"] = date, ["GIT_COMMITTER_DATE"] = date };
-        await using var sandbox = new InProcessSandbox("git", _root, ownsWorkDir: false, NullLogger.Instance);
+        await using var sandbox = new InProcessSandbox("git", _root, ownsWorkDir: false, InProcessStepEnvironment.Inherit, NullLogger.Instance);
         var result = await sandbox.RunStepAsync(new Step(Step.CurrentSchemaVersion, Guid.NewGuid(), StepKind.Run,
             Command: "git", Args: ["-C", dir, .. args], Env: env, TimeoutSeconds: 60), null, CancellationToken.None);
         result.ExitCode.Should().Be(0, $"git {string.Join(' ', args)}: {result.ErrorMessage}");

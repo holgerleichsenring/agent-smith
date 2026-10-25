@@ -101,10 +101,19 @@ add_literal "admin-grant"      "${AGENTSMITH_ADMIN_GRANT:-}"
 
 # Redis URL the server and its sandbox pods reach: the in-cluster Redis service name.
 # Override via REDIS_URL in .env if your Redis runs elsewhere.
-add_literal "redis-url" "${REDIS_URL:-redis:6379}"
-# 2026-10-25-c5a7c: used only with k8s/sandbox-isolation/, where sandbox pods run in
-# agentsmith-sandboxes and need the service's full name. Harmless without it.
-add_literal "sandbox-redis-url" "${SANDBOX_REDIS_URL:-redis.agentsmith.svc.cluster.local:6379}"
+# 2026-10-25-c1bf: REDIS_PASSWORD is optional. When set, Redis requires it and the default
+# URLs carry it; when empty, Redis runs without a password as before.
+add_literal "redis-password" "${REDIS_PASSWORD:-}"
+# 2026-10-25-c5a7c: sandbox-redis-url is used only with k8s/sandbox-isolation/, where sandbox
+# pods run in agentsmith-sandboxes and need the service's full name. Harmless without it.
+SANDBOX_REDIS_HOST="redis.agentsmith.svc.cluster.local:6379"
+if [ -n "${REDIS_PASSWORD:-}" ]; then
+  add_literal "redis-url" "${REDIS_URL:-redis:6379,password=${REDIS_PASSWORD}}"
+  add_literal "sandbox-redis-url" "${SANDBOX_REDIS_URL:-${SANDBOX_REDIS_HOST},password=${REDIS_PASSWORD}}"
+else
+  add_literal "redis-url" "${REDIS_URL:-redis:6379}"
+  add_literal "sandbox-redis-url" "${SANDBOX_REDIS_URL:-${SANDBOX_REDIS_HOST}}"
+fi
 
 echo "🔐  Applying secret '$SECRET_NAME' in namespace '$NAMESPACE' ..."
 

@@ -28,7 +28,7 @@ public sealed class InProcessSandboxWorkingDirectoryTests : IAsyncDisposable
         _workDir = Path.Combine(Path.GetTempPath(), $"agentsmith-test-{Guid.NewGuid():N}");
         Directory.CreateDirectory(_workDir);
         _sandbox = new InProcessSandbox(
-            jobId: "test", workDir: _workDir, ownsWorkDir: true,
+            jobId: "test", workDir: _workDir, ownsWorkDir: true, InProcessStepEnvironment.Inherit,
             logger: NullLogger<InProcessSandbox>.Instance);
     }
 

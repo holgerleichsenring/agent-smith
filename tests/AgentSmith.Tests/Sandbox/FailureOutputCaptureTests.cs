@@ -85,7 +85,7 @@ public class FailureOutputCaptureTests
         try
         {
             var sandbox = new InProcessSandbox(
-                jobId: "p0419", workDir, ownsWorkDir: false,
+                jobId: "p0419", workDir, ownsWorkDir: false, InProcessStepEnvironment.Inherit,
                 NullLogger<InProcessSandbox>.Instance);
             var step = new Step(Step.CurrentSchemaVersion, Guid.NewGuid(),
                 StepKind.Run, Command: "/bin/sh",

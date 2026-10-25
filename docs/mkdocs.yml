@@ -195,6 +195,7 @@ nav:
     - Host-it deep dives:
       - Chat gateway: reference/host-it/chat-gateway.md
       - Docker + K8s troubleshooting: reference/host-it/docker-k8s-troubleshooting.md
+      - Redis password: reference/host-it/redis-password.md
     - Operations:
       - Dashboard:            reference/operations/dashboard.md
       - Capacity & queueing:  reference/operations/capacity.md

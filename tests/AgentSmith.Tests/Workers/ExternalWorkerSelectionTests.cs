@@ -78,6 +78,7 @@ public sealed class ExternalWorkerSelectionTests
             new CompactionSummaryRequest(),
             new WindowDerivedCompaction(),
             new AgentSmith.Infrastructure.Services.ToolImages.ToolImageRelay(new(), new()),
+            new AgentSmith.Contracts.Runs.SecretMasker(new AgentSmith.Contracts.Services.LoadedSecretValues(AgentSmith.Contracts.Models.Configuration.AgentSmithConfig.Empty())),
             NullLoggerFactory.Instance);
 
     private static ExternalWorkerChatClientBuilder NewWorkerBuilder()

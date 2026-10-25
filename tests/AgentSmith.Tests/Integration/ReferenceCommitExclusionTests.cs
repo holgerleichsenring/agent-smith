@@ -25,7 +25,7 @@ public sealed class ReferenceCommitExclusionTests
         if (!SandboxToolAvailability.IsAvailable("git")) return;
         var dir = Path.Combine(Path.GetTempPath(), "as-283df-git-" + Guid.NewGuid().ToString("N"));
         Directory.CreateDirectory(dir);
-        await using var sandbox = new InProcessSandbox("test", dir, ownsWorkDir: true, NullLogger.Instance);
+        await using var sandbox = new InProcessSandbox("test", dir, ownsWorkDir: true, InProcessStepEnvironment.Inherit, NullLogger.Instance);
         await GitAsync(sandbox, "init", "-q", "-b", "main");
         var files = new SandboxFileReaderFactory();
         await new ReferenceGitExclusion(files).EnsureAsync(sandbox, CancellationToken.None);

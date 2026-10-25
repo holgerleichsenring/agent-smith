@@ -3,7 +3,8 @@ using Microsoft.Extensions.Logging;
 
 namespace AgentSmith.Infrastructure.Services.Sandbox;
 
-public sealed class InProcessSandboxFactory(ILoggerFactory loggerFactory) : ISandboxFactory
+public sealed class InProcessSandboxFactory(
+    InProcessStepEnvironmentReader environment, ILoggerFactory loggerFactory) : ISandboxFactory
 {
     public Task<ISandbox> CreateAsync(SandboxSpec spec, CancellationToken cancellationToken)
     {
@@ -22,7 +23,7 @@ public sealed class InProcessSandboxFactory(ILoggerFactory loggerFactory) : ISan
             : Path.Combine(Path.GetTempPath(), $"agentsmith-{jobId[..12]}");
         Directory.CreateDirectory(workDir);
         var sandbox = new InProcessSandbox(jobId, workDir, ownsWorkDir: !reuseSource,
-            loggerFactory.CreateLogger<InProcessSandbox>());
+            environment.Read(), loggerFactory.CreateLogger<InProcessSandbox>());
         return Task.FromResult<ISandbox>(sandbox);
     }
 }

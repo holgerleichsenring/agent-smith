@@ -104,7 +104,7 @@ public sealed class RungPublicationTests
         await using var fixture = GitRemoteFixture.Create(workBranch: null);
         var config = Repo(fixture);
         var sandbox = new RecordingSandbox(new InProcessSandbox(
-            jobId: "35a4", workDir: fixture.WorkPath, ownsWorkDir: false, NullLogger.Instance));
+            jobId: "35a4", workDir: fixture.WorkPath, ownsWorkDir: false, InProcessStepEnvironment.Inherit, NullLogger.Instance));
 
         var checkout = await Cloner().CheckoutIntoSandboxesAsync(
             config, new RunBranch(new BranchName(TicketBranch), ComposedFromTicket: true, ParentTicket),
@@ -134,7 +134,7 @@ public sealed class RungPublicationTests
         await using var fixture = GitRemoteFixture.Create(workBranch: null);
         var config = Repo(fixture);
         await using var sandbox = new InProcessSandbox(
-            jobId: "a284", workDir: fixture.WorkPath, ownsWorkDir: false, NullLogger.Instance);
+            jobId: "a284", workDir: fixture.WorkPath, ownsWorkDir: false, InProcessStepEnvironment.Inherit, NullLogger.Instance);
         var pipeline = new PipelineContext();
         pipeline.Set<IReadOnlyList<RepoConnection>>(ContextKeys.Repos, [config]);
         pipeline.Set<IReadOnlyDictionary<string, ISandbox>>(
@@ -171,7 +171,7 @@ public sealed class RungPublicationTests
         sandbox.Steps.FindIndex(s => s.Command == "git" && s.Args?.Contains(arg) == true);
 
     private static InProcessSandbox Clone(GitRemoteFixture fixture, string name) =>
-        new(jobId: name, workDir: fixture.NewClone(name), ownsWorkDir: false, NullLogger.Instance);
+        new(jobId: name, workDir: fixture.NewClone(name), ownsWorkDir: false, InProcessStepEnvironment.Inherit, NullLogger.Instance);
 
     private static RepoConnection Repo(GitRemoteFixture fixture) =>
         new() { Name = "server", Type = RepoType.GitHub, Url = fixture.RemotePath };

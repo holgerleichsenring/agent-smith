@@ -4,6 +4,7 @@ using Docker.DotNet.Models;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using AgentSmith.Tests.TestSupport;
 
 namespace AgentSmith.Tests.Sandbox;
 
@@ -22,7 +23,7 @@ public sealed class DockerSandboxRemoverTests
         docker.SetupGet(d => d.Containers).Returns(Mock.Of<IContainerOperations>());
         docker.SetupGet(d => d.Volumes).Returns(volumes.Object);
 
-        await new DockerSandboxRemover(docker.Object, NullLogger<DockerSandboxRemover>.Instance)
+        await new DockerSandboxRemover(docker.Object, SandboxBusDoubles.Credentials(), NullLogger<DockerSandboxRemover>.Instance)
             .RemoveAsync("container-1", "0123456789abcdef", CancellationToken.None);
 
         removed.Should().BeEquivalentTo(
