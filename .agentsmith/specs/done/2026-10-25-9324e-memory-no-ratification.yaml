@@ -36,6 +36,10 @@ steps:
 tests:
   - "Remember_Feedback_WritesNoProposedStatus"
   - "SecurityScanMaster_RendersMemoryIndex"
+  - "PackagedMaster_CarriesMemoryIndexSection"
+  - "PackagedSecurityMaster_RendersMemoryIndexOnce"
+  - "PackagedCodingMasterOfASpec_BodyCarriesNoIndex"
+  - "PackagedMemoryDiscipline_AsksNoRatification"
 
 done:
   - "No prompt text the product sends mentions ratification of a memory."

@@ -30,3 +30,10 @@ decisions:
       is committed and gated against the current pin (v5.20.0 masters lack the placeholder, so the bound token is a
       no-op there). The pin bump to the release carrying #240, its state.done line and the move to done complete
       this spec; until then the pinned master texts still mention ratification of feedback memories.
+  - category: Implementation
+    chose: "Pin v5.21.0 (carries skills PR #240) with its tarball checked in and SkillsCatalogSha256 taken from the release's .sha256 asset, verified against the downloaded file"
+    over: "Letting the build download the tarball"
+    reason: |
+      Same mechanics as 2026-10-17-063c. Packaged-master tests now pin that the five masters carry
+      {MemoryIndexSection}, that the packaged security master renders the index exactly once, that a spec's
+      packaged coding master body adds no second copy, and that memory-discipline.md asks for no ratification.
