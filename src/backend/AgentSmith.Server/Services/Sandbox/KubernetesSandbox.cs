@@ -15,6 +15,7 @@ public sealed class KubernetesSandbox(
     string podName,
     string jobId,
     SandboxRedisChannel channel,
+    SandboxBusCredential bus,
     int stepTimeoutCapSeconds,
     string toolchainImage,
     ResolvedSandboxSecrets injectedSecrets,
@@ -71,6 +72,7 @@ public sealed class KubernetesSandbox(
         // teardown throws — a leaked channel is cheap, a leaked pod holds the quota.
         try { await channel.DisposeAsync(); }
         catch (Exception ex) { logger.LogWarning(ex, "Sandbox channel dispose failed for pod {Pod}", podName); }
+        await bus.DisposeAsync(); // 2026-10-25-c5a7e: after the channel, which still used the user
         await TryDeletePodAsync();
     }
 

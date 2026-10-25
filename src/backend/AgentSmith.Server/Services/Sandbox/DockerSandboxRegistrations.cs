@@ -53,6 +53,7 @@ internal static class DockerSandboxRegistrations
             sp.GetRequiredService<DockerImagePresence>(),
             sp.GetRequiredService<IOptions<SandboxGlobalConfig>>(),
             sp.GetRequiredService<IWireProtocolWatcher>(),
+            sp.GetRequiredService<SandboxBusCredentials>(),
             sp.GetRequiredService<ILoggerFactory>()));
         // p0269a: Docker capacity is a configured concurrent-sandbox bound (no
         // create-time signal on a limitless daemon). Replaces the Unbounded default.

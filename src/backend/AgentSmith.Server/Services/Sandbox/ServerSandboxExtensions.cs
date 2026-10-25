@@ -70,8 +70,14 @@ internal static class ServerSandboxExtensions
         services.AddSingleton<ISandboxHeartbeatProbe, RedisSandboxHeartbeatProbe>();
         switch (backend)
         {
-            case SandboxBackend.Kubernetes: KubernetesSandboxRegistrations.Register(services); break;
-            case SandboxBackend.Docker: DockerSandboxRegistrations.Register(services); break;
+            case SandboxBackend.Kubernetes:
+                SandboxBusCredentialRegistrations.Register(services);
+                KubernetesSandboxRegistrations.Register(services);
+                break;
+            case SandboxBackend.Docker:
+                SandboxBusCredentialRegistrations.Register(services);
+                DockerSandboxRegistrations.Register(services);
+                break;
             case SandboxBackend.InProcess: AddInProcess(services); break;
         }
         services.AddSingleton(new SandboxBackendInfo(backend));

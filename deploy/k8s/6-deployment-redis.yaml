@@ -20,13 +20,29 @@ spec:
       containers:
         - name: redis
           image: redis:7-alpine
+          # 2026-10-25-c5a7e: a password is required. Each sandbox reaches Redis as its own
+          # ACL user, which protects nothing while the default user needs no password. The
+          # guard refuses an empty value, which would otherwise start Redis open.
+          command: ["sh", "-c"]
           args:
-            - "--maxmemory"
-            - "256mb"
-            - "--maxmemory-policy"
-            - "allkeys-lru"
-            - "--save"
-            - ""
+            - >-
+              test -n "$REDIS_PASSWORD" &&
+              exec redis-server --requirepass "$REDIS_PASSWORD"
+              --maxmemory 256mb --maxmemory-policy allkeys-lru --save ""
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: agentsmith-secrets
+                  key: redis-password
+                  optional: false
+            # redis-cli reads its password from here, so the probes below authenticate.
+            - name: REDISCLI_AUTH
+              valueFrom:
+                secretKeyRef:
+                  name: agentsmith-secrets
+                  key: redis-password
+                  optional: false
           ports:
             - name: redis
               containerPort: 6379

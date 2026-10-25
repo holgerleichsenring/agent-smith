@@ -47,6 +47,8 @@ internal sealed record DockerBackend(DockerSandboxFactory Factory)
             new DockerPackageCaches(docker, options, logs.CreateLogger<DockerPackageCaches>()),
             new DockerImagePresence(docker, logs.CreateLogger<DockerImagePresence>()),
             Options.Create(new SandboxGlobalConfig { StepTimeoutSeconds = 300 }),
-            new WireProtocolWatcher(new StartupFindings(), logs.CreateLogger<WireProtocolWatcher>()), logs));
+            new WireProtocolWatcher(new StartupFindings(), logs.CreateLogger<WireProtocolWatcher>()),
+            new SandboxBusCredentials(multiplexer, new SandboxBusCredentialSetting(SandboxBusCredentialMode.PerJob),
+                new StartupFindings(), logs.CreateLogger<SandboxBusCredentials>()), logs));
     }
 }

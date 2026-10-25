@@ -1,11 +1,11 @@
 # Requiring a Redis password
 
 The reference Redis (`deploy/k8s/6-deployment-redis.yaml`, the `redis` service in
-`deploy/docker-compose.example.yml`) starts without a password. Anything that can reach
-port 6379 can read the queue, the event streams and the steps the server sends to its
-sandboxes. You can require a password today without a code change: the server and the
-sandbox agent both parse `REDIS_URL` with the same library, which honours
-`host:port,password=…`.
+`deploy/docker-compose.example.yml`) requires a password and does not start without one.
+Without it, anything that can reach port 6379 can read the queue, the event streams and
+the steps the server sends to its sandboxes. The server and the sandbox agent both parse
+`REDIS_URL` with the same library, which honours `host:port,password=…`. The steps below
+are what the reference files do; an older copy of them needs the same changes.
 
 `REDIS_URL` stays in the `host:port` form, not a URI:
 
@@ -78,9 +78,33 @@ Put the password in `../.env` as `REDIS_PASSWORD=…`, then in the compose file:
 ## What this protects, and what it does not
 
 It keeps other workloads in the cluster, and anything else that reaches port 6379,
-out of Redis. It does not keep repository scripts out: until the sandbox transport moves
-off Redis, every sandbox is handed `REDIS_URL`, password included, so a command running
-inside a sandbox can read it.
+out of Redis. On its own it does not keep repository scripts out: a sandbox has to reach
+Redis, so a command running inside it can read the credential the sandbox was handed.
+The per-job credential below limits what that credential reaches.
+
+## The per-job sandbox credential
+
+With `SANDBOX_BUS_CREDENTIAL=per-job` (the default) the server creates a Redis ACL user
+`sbx-<job>` for every sandbox it starts, with a random password, and hands the sandbox a
+URL for that user instead of its own. The user reaches only `sandbox:<job>:*`, may read
+the active-run set, and may run only the commands the sandbox agent and its Redis client
+need. A command in one sandbox can therefore not read another job's steps (which carry
+that job's repository token), push steps into another sandbox, or wait on its results.
+The user is deleted when the sandbox goes, and the reapers delete the user of a sandbox
+they remove. After a Redis restart the server re-issues the users of its live sandboxes
+when it reconnects.
+
+What the server's Redis user needs: the right to run `ACL SETUSER`, `ACL DELUSER` and
+`ACL GETUSER`. The reference Redis's default user has it.
+
+- **The default user must have a password.** A per-job user protects nothing while the
+  default user needs none, because a sandbox can connect as the default user. The server
+  says so with a startup finding at `GET /api/config/findings`.
+- **A Redis that refuses ACL commands** (some managed services manage users only through
+  their own API) makes the server hand sandboxes its shared credential instead, with a
+  startup finding naming `SANDBOX_BUS_CREDENTIAL`. Runs keep working; the isolation is
+  gone. Set `SANDBOX_BUS_CREDENTIAL=shared` to make that the explicit setting; the finding
+  then names the choice.
 
 The server never shows the URL: a startup finding or probe result about Redis names the
 endpoints it parsed, or `(value hidden)`.

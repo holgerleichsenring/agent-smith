@@ -1,3 +1,4 @@
+using AgentSmith.Infrastructure.Core.Services.Configuration;
 using AgentSmith.Application.Services.Claim;
 using AgentSmith.Application.Services.Lifecycle;
 using AgentSmith.Infrastructure.Services.Events;
@@ -146,7 +147,9 @@ public sealed class SandboxOrphanReaperTests(ITestOutputHelper output)
                     NullLogger<SandboxHoldWindowResolver>.Instance),
                 new NoConversationLivenessReader(), TimeProvider.System,
                 NullLogger<HeldConversationReader>.Instance),
-            new DockerSandboxRemover(docker, NullLogger<DockerSandboxRemover>.Instance),
+            new DockerSandboxRemover(docker, new SandboxBusCredentials(multiplexer,
+                new SandboxBusCredentialSetting(SandboxBusCredentialMode.PerJob), new StartupFindings(),
+                NullLogger<SandboxBusCredentials>.Instance), NullLogger<DockerSandboxRemover>.Instance),
             NullLogger<SandboxOrphanReaper>.Instance);
     }
 

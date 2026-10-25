@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-c5a7e
+
+decisions:
+  - category: Scope
+    chose: "Built now, before the HTTP transport (2026-09-28-2f8c)"
+    over: "Waiting for 2f8c, the open operator decision the spec carried"
+    reason: "Operator decision, 2026-10-25: the shared credential lets a sandbox forge steps into other projects' sandboxes and read their git tokens. The spec's open decision is replaced by the decided one."
+  - category: Security
+    chose: "A Redis that refuses ACL SETUSER (RedisServerException) hands that sandbox the shared URL and records an advisory finding naming SANDBOX_BUS_CREDENTIAL; a connection failure still fails the spawn"
+    over: "Failing the spawn, as the spec's 'FAIL THE SPAWN, DO NOT FALL BACK' decision said"
+    reason: "Operator decision, 2026-10-25: a managed Redis without ACL rights falls back to shared mode with a visible warning. The spec's objection was to a silent fallback; the finding at /api/config/findings and the warning log keep it visible. The spec's scope, decision and test name were updated to match."
+  - category: Implementation
+    chose: "SANDBOX_BUS_CREDENTIAL is read once in SandboxBusCredentialRegistrations, registered for the Docker and Kubernetes backends, and carried as SandboxBusCredentialSetting"
+    over: "Reading it in the DockerSandboxOptionsReader that 2026-10-25-c5a7b extracts, and again in the Kubernetes registration"
+    reason: "c5a7b is built in another worktree and its reader does not exist on this branch; DockerSandboxRegistrations is at 119 of 120 lines. One reader for both backends needs no option field on either and keeps the later merge to one added factory argument per registration. The test is SandboxBusCredentialModeReader_ReadsBusCredential instead of DockerSandboxOptionsReader_ReadsBusCredential."
+  - category: Implementation
+    chose: "The Kubernetes factory issues the credential from KubernetesSandboxOptions.RedisUrl"
+    over: "Reading SANDBOX_REDIS_URL here"
+    reason: "SANDBOX_REDIS_URL arrives with 2026-10-25-c5a7c in the other worktree. The merge changes the one IssueAsync argument to the sandbox URL; the owner identity stays derived from the server's URL either way."
+  - category: Implementation
+    chose: "The ACL rules and command list live in Sandbox.Wire (SandboxBusAcl), beside RedisKeys"
+    over: "Keeping them in the server's SandboxBusCredentials"
+    reason: "The docker-tier proof runs the real agent bus in AgentSmith.Sandbox.Agent.Tests, which references the wire assembly and not the server; the key layout and the commands change together."
+  - category: Implementation
+    chose: "SandboxBusUrl appends ',tiebreaker=,configChannel=' after ConfigurationOptions.ToString"
+    over: "Setting TieBreaker and ConfigurationChannel to empty and serialising"
+    reason: "Measured: ToString drops a blank value, and a parse then restores the default __Booksleeve_TieBreak, a key the ACL denies. A later key wins in a parse."
+  - category: Implementation
+    chose: "The credential is issued just before the toolchain container or pod is created, without a cleanup on a failed create"
+    over: "A try/catch around the rest of the spawn"
+    reason: "DockerSandboxFactory is at 143 of its 144-line baseline. A sandbox that was created is reaped with its user; a user leaked by a failed create reaches only keys of a job that never ran, which expire within a day (the spec's leaked-user residual)."
+  - category: Implementation
+    chose: "The startup probe also names SANDBOX_BUS_CREDENTIAL=shared as an advisory finding"
+    over: "Saying nothing when the operator chose shared"
+    reason: "The finding states the consequence of the choice; one finding per field identity, so it collapses with the refusal finding."
+  - category: Tooling
+    chose: "The command list is pinned by SandboxBusAcl_AgentUnderItsUser_RunsAStepAndCannotTouchAnotherJob (NeedsDocker, AgentSmith.Sandbox.Agent.Tests), which the spec gate ran against redis:7-alpine"
+    over: "Taking the spec's list as given"
+    reason: "Measured: the first gate run failed with NOPERM on 'setex', because the heartbeat's StringSetAsync with an expiry is SETEX, not SET. SETEX was added and the test passes: the real agent bus connects under the ACL (its handshake needs nothing beyond hello/auth, client setname/setinfo, ping, echo), pops a step, pushes a result, writes events, reads the active-run set, sets and deletes its heartbeat, and RPOP on another job's key returns NOPERM."

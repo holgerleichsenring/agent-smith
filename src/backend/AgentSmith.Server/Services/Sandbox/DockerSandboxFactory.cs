@@ -19,7 +19,7 @@ public sealed class DockerSandboxFactory(
     DockerSandboxOptions options,
     DockerPackageCaches packageCaches, DockerImagePresence images,
     IOptions<SandboxGlobalConfig> sandboxConfig, IWireProtocolWatcher protocol,
-    ILoggerFactory loggerFactory) : ISandboxFactory
+    SandboxBusCredentials busCredentials, ILoggerFactory loggerFactory) : ISandboxFactory
 {
     public async Task<ISandbox> CreateAsync(SandboxSpec spec, CancellationToken cancellationToken)
     {
@@ -35,12 +35,13 @@ public sealed class DockerSandboxFactory(
         // are ensured (not created per run) and never handed to the per-job cleanup.
         var caches = await packageCaches.EnsureAsync(cancellationToken);
         await RunLoaderAsync(slug, sharedVolume, spec.AgentImage, network, cancellationToken);
+        var bus = await busCredentials.IssueAsync(jobId, options.RedisUrl); // 2026-10-25-c5a7e
         var toolchainId = await StartToolchainAsync(
-            slug, sharedVolume, workVolume, jobId, spec, network, caches, cancellationToken);
+            slug, sharedVolume, workVolume, jobId, spec, network, caches, bus.Url, cancellationToken);
 
         var channel = new SandboxRedisChannel(
             redis, jobId, loggerFactory.CreateLogger<SandboxRedisChannel>(), protocol);
-        return new DockerSandbox(docker, toolchainId, sharedVolume, workVolume, jobId, channel,
+        return new DockerSandbox(docker, toolchainId, sharedVolume, workVolume, jobId, channel, bus,
             // p0230: per-project resolved cap rides on the spec; fall back to global.
             spec.StepTimeoutSeconds ?? sandboxConfig.Value.StepTimeoutSeconds,
             spec.ToolchainImage, loggerFactory.CreateLogger<DockerSandbox>());
@@ -128,11 +129,11 @@ public sealed class DockerSandboxFactory(
 
     private async Task<string> StartToolchainAsync(
         string slug, string sharedVolume, string workVolume, string jobId,
-        SandboxSpec spec, string network, IReadOnlyList<PackageCacheVolume> caches, CancellationToken ct)
+        SandboxSpec spec, string network, IReadOnlyList<PackageCacheVolume> caches, string redisUrl, CancellationToken ct)
     {
         await images.EnsurePresentAsync(spec.ToolchainImage, isCarrier: false, ct);
         var containerSpec = specBuilder.BuildToolchain(
-            $"agentsmith-sandbox-{slug}", sharedVolume, workVolume, jobId, options.RedisUrl, spec, caches);
+            $"agentsmith-sandbox-{slug}", sharedVolume, workVolume, jobId, redisUrl, spec, caches);
         if (containerSpec.HostConfig is not null) containerSpec.HostConfig.NetworkMode = network;
         var created = await docker.Containers.CreateContainerAsync(containerSpec, ct);
         await docker.Containers.StartContainerAsync(created.ID, new ContainerStartParameters(), ct);

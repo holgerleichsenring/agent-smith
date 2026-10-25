@@ -9,7 +9,8 @@ namespace AgentSmith.Server.Services.Sandbox;
 /// id. Extracted in p0465 so the orphan reaper decides and this removes — the reaper
 /// keeps one reason to change.
 /// </summary>
-public sealed class DockerSandboxRemover(IDockerClient docker, ILogger<DockerSandboxRemover> logger)
+public sealed class DockerSandboxRemover(
+    IDockerClient docker, SandboxBusCredentials busCredentials, ILogger<DockerSandboxRemover> logger)
 {
     public async Task RemoveAsync(string containerId, string jobId, CancellationToken cancellationToken)
     {
@@ -23,6 +24,7 @@ public sealed class DockerSandboxRemover(IDockerClient docker, ILogger<DockerSan
             logger.LogWarning(ex, "Failed to remove orphan sandbox container {Id}", containerId);
             return;
         }
+        await busCredentials.DeleteAsync(jobId); // 2026-10-25-c5a7e
         await RemoveLabelledVolumesAsync(jobId, cancellationToken);
     }
 

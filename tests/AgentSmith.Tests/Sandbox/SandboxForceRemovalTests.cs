@@ -1,3 +1,4 @@
+using AgentSmith.Tests.TestSupport;
 using AgentSmith.Contracts.Sandbox;
 using AgentSmith.Sandbox.Wire;
 using AgentSmith.Server.Services.Sandbox;
@@ -27,7 +28,7 @@ public sealed class SandboxForceRemovalTests
         var docker = DockerThatRecordsRemovals(removed);
         var database = new Mock<IDatabase>();
         var sandbox = new DockerSandbox(
-            docker, "toolchain-1", "shared-vol", "work-vol", "job-1", Channel(database, "job-1"),
+            docker, "toolchain-1", "shared-vol", "work-vol", "job-1", Channel(database, "job-1"), SandboxBusDoubles.SharedCredential,
             stepTimeoutCapSeconds: 900, "node:20", NullLogger.Instance);
 
         await ((ISandboxForceRemoval)sandbox).ForceRemoveAsync(CancellationToken.None);
@@ -46,7 +47,7 @@ public sealed class SandboxForceRemovalTests
         var database = new Mock<IDatabase>();
         var client = KubernetesThatAcceptsADelete(out var deleted);
         var sandbox = new KubernetesSandbox(
-            client, "agentsmith", "pod-1", "job-1", Channel(database, "job-1"),
+            client, "agentsmith", "pod-1", "job-1", Channel(database, "job-1"), SandboxBusDoubles.SharedCredential,
             stepTimeoutCapSeconds: 900, "node:20", ResolvedSandboxSecrets.Empty, NullLogger.Instance);
 
         await ((ISandboxForceRemoval)sandbox).ForceRemoveAsync(CancellationToken.None);
