@@ -120,6 +120,6 @@ public sealed class WebToolHost : IToolHost
         var tail = truncated
             ? $"\n\n(truncated at {offset + slice.Length}/{content.Length}; resume with start_index={offset + slice.Length})"
             : string.Empty;
-        return $"{header} | start_index={offset} | returned={slice.Length} chars{(truncated ? " (truncated)" : "")}\n\n{slice}{tail}";
+        return $"{header} | start_index={offset} | returned={slice.Length} chars{(truncated ? " (truncated)" : "")}\n\n{Prompts.WebContentDelimiters.Wrap(slice)}{tail}";
     }
 }

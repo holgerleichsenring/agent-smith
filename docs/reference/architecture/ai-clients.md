@@ -51,7 +51,9 @@ Tools are methods on small tool hosts under `AgentSmith.Application/Services/Too
 | `Review` | scans and reviews | read-only filesystem, `http_request`, `log_decision`, `web_fetch`, `recall` / `remember`. No write and no `run_command`. |
 | `SpecDialog` | design conversations | read-only filesystem, human, optional web, memory. No write and no `run_command`. |
 
-Filesystem calls run through the sandbox (see [Sandbox architecture](../concepts/sandbox-architecture.md)). Change a tool method on its host, and every provider sees the new schema without touching anything else.
+Filesystem calls run through the sandbox (see [Sandbox architecture](../concepts/sandbox-architecture.md)).
+
+`web_fetch` runs in the server process and reaches only public addresses: the first URL, every redirect hop (at most five) and, when the server has no `HTTP_PROXY`/`HTTPS_PROXY`/`ALL_PROXY`, the address it dials are checked against the same rule the browser sandbox uses. Loopback, private, link-local (including 169.254.169.254), the Azure WireServer 168.63.129.16 and 6to4 addresses wrapping any of them are refused with an `Error:` line naming the range. Behind a proxy the proxy is kept and resolves the name itself. An internal page is read with `http_request` in the sandbox instead. The fetched page reaches the model between untrusted-data markers. Change a tool method on its host, and every provider sees the new schema without touching anything else.
 
 ## Adding a new provider
 

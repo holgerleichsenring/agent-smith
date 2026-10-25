@@ -24,7 +24,14 @@ public static class LoopRuntimeExtensions
     {
         services.AddScoped<PipelineConcurrencyGate>();
         // p0353: web_fetch tool host as a typed HttpClient (DI, not a per-run `new`).
-        services.AddHttpClient<WebToolHost>();
+        // 2026-10-25-c5a7f: it dials only public addresses, checked at every hop and at the dial.
+        services.AddSingleton<GuardedConnectCallback>();
+        services.AddSingleton<WebToolHostHandler>();
+        services.AddTransient(sp => new GuardedRedirectHandler(sp.GetRequiredService<Browser.RenderUrlGuard>(),
+            allowUnresolved: sp.GetRequiredService<WebToolHostHandler>().IsProxied()));
+        services.AddHttpClient<WebToolHost>()
+            .ConfigurePrimaryHttpMessageHandler(sp => sp.GetRequiredService<WebToolHostHandler>().Build())
+            .AddHttpMessageHandler<GuardedRedirectHandler>();
         services.AddSingleton<OutcomeClassifier>();
         services.AddSingleton<NoOpSkillOutputValidator>();
         services.AddSingleton<ISkillOutputValidator>(sp => sp.GetRequiredService<NoOpSkillOutputValidator>());
