@@ -62,7 +62,7 @@ public sealed class MemoryToolHostTests
     }
 
     [Fact]
-    public async Task Remember_PolicyType_FlaggedPendingRatification_NonPolicyPersisted()
+    public async Task Remember_EveryType_PersistedWithoutStatus()
     {
         var sut = new MemoryWriteToolHost(TestRepositories.One(_reader), Root);
 
@@ -71,12 +71,12 @@ public sealed class MemoryToolHostTests
         var projectReply = await sut.Remember(
             "project", "build-order", "Contracts build first", "The fact body.");
 
-        feedbackReply.Should().Contain("PROPOSED").And.Contain("ratification");
-        _reader.Files[$"{MemoryDirPrefix}ask-before-guessing.md"]
-            .Should().Contain("status: proposed", "a feedback entry is never silently policy");
+        // 2026-10-25-9324e: a hint whose standing the runs decide — nothing waits for a ratification.
+        feedbackReply.Should().Contain("recorded").And.NotContain("PROPOSED").And.NotContain("ratification");
+        _reader.Files[$"{MemoryDirPrefix}ask-before-guessing.md"].Should().NotContain("status:");
         projectReply.Should().Contain("recorded");
         _reader.Files[$"{MemoryDirPrefix}build-order.md"]
-            .Should().NotContain("status:", "non-policy types carry no ratification flag");
+            .Should().NotContain("status:");
         _reader.Files[$"{MemoryDirPrefix}MEMORY.md"].Split('\n')
             .Count(l => l.StartsWith("- [", StringComparison.Ordinal)).Should().Be(2);
     }

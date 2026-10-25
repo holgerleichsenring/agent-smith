@@ -67,7 +67,7 @@ internal static class MasterPromptSections
                + "One line per stored memory, each a hint with a track record, never a rule: the record says how "
                + "often work that relied on it was confirmed, strained or contradicted. Holding entries come first. "
                + "Use the recall tool to load a memory's body before re-deriving a known fact; use remember to "
-               + "propose a new one.\n\n"
+               + "record a new one.\n\n"
                + index.Trim() + "\n";
     }
 

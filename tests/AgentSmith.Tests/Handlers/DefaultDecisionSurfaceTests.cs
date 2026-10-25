@@ -16,7 +16,7 @@ namespace AgentSmith.Tests.Handlers;
 
 /// <summary>
 /// 2026-10-13-8762o: decide_by_default joins the coding master and the design partner — never a scan master
-/// or a child — and a coding child's remember of a feedback entry publishes the pointer row like its master's.
+/// or a child — and (2026-10-25-9324e) a coding child's remember of a feedback entry publishes no pointer row.
 /// </summary>
 public sealed class DefaultDecisionSurfaceTests
 {
@@ -54,7 +54,7 @@ public sealed class DefaultDecisionSurfaceTests
     }
 
     [Fact]
-    public async Task Remember_FromACodingChild_PublishesPointerRow()
+    public async Task Remember_FromACodingChild_PublishesNothingAndWaitsForNoOne()
     {
         var events = new RecordingEventPublisher();
         var children = new MasterHandlerFixture.StubSubAgentRunner();
@@ -68,10 +68,9 @@ public sealed class DefaultDecisionSurfaceTests
             ["type"] = "feedback", ["name"] = "child-rule", ["description"] = "a rule", ["body"] = "the child's body",
         });
 
-        answer?.ToString().Should().Contain("PROPOSED");
-        var pointer = events.Events.OfType<DefaultDecisionTakenEvent>().Should().ContainSingle().Subject;
-        (pointer.Kind, pointer.Chosen, pointer.PointerPath)
-            .Should().Be((DefaultDecisionKinds.MemoryProposal, "child-rule", "default/.agentsmith/memory/child-rule.md"));
+        // 2026-10-25-9324e: no memory waits for a person's ratification.
+        answer?.ToString().Should().Contain("recorded in default").And.NotContain("PROPOSED").And.NotContain("ratif");
+        events.Events.OfType<DefaultDecisionTakenEvent>().Should().BeEmpty();
     }
 
     private static AgenticMasterContext WithRun(AgenticMasterContext context)

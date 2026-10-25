@@ -13,7 +13,7 @@ namespace AgentSmith.Application.Services.Tools;
 /// 2026-10-13-8762m: the record tools of one master start — log_decision, recall and remember, backed per
 /// REPOSITORY and resolved on every call so a repository ensure_repo_sandbox adds mid-run counts, and
 /// hand_forward when the master executes a spec. 2026-10-13-8762o: and decide_by_default where the pipeline
-/// holds a run id, whose recorder also carries remember's pointer rows. 2026-10-25-9324b: and dispute_memory
+/// holds a run id. 2026-10-25-9324b: and dispute_memory
 /// beside them, with hand_forward's relied_on resolved the same way.
 /// </summary>
 public sealed class MasterRecordToolHosts(
@@ -33,7 +33,7 @@ public sealed class MasterRecordToolHosts(
         return new MasterRecordTools(
             new LogDecisionToolHost(decisionLogger, repositories),
             new MemoryRecallToolHost(repositories, repoRoot, logger),
-            new MemoryWriteToolHost(repositories, repoRoot, logger, defaults),
+            new MemoryWriteToolHost(repositories, repoRoot, logger),
             spec is null ? null : new HandForwardToolHost(pipeline, spec.SpecId, memory),
             decisionLogger,
             defaults is null ? null : new DefaultDecisionToolHost(defaults),

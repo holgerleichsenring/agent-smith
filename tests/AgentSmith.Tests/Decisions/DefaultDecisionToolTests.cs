@@ -14,8 +14,9 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace AgentSmith.Tests.Decisions;
 
 /// <summary>
-/// 2026-10-13-8762o: decide_by_default answers in the same call and puts event 88 on the run; a feedback
-/// memory publishes a pointer row without its body; the spec-execution prompt names the tool.
+/// 2026-10-13-8762o: decide_by_default answers in the same call and puts event 88 on the run; the
+/// spec-execution prompt names the tool. 2026-10-25-9324e: remember publishes no pointer row any more
+/// (MemoryNoRatificationTests).
 /// </summary>
 public sealed class DefaultDecisionToolTests
 {
@@ -99,37 +100,6 @@ public sealed class DefaultDecisionToolTests
         (taken.RunId, taken.Conversation, taken.SpecId).Should().Be((RunId, "conversation-7", (string?)null));
         MasterHandlerFixture.RecordHosts(new MasterHandlerFixture.NoOpDecisionLogger(), events)
             .Create(new PipelineContext(), "/work").DefaultDecision.Should().BeNull("no run id, nothing to record on");
-    }
-
-    [Fact]
-    public async Task Remember_FeedbackEntry_PublishesPointerRowWithoutBody()
-    {
-        var events = new RecordingEventPublisher();
-        var reader = new InMemorySandboxFileReader();
-        var host = new MemoryWriteToolHost(TestRepositories.One(reader, "shop"), "/work", null, Recorder(events));
-
-        await host.Remember("feedback", "Ask Before Guessing", "Ask instead of guessing", "THE SECRET BODY");
-
-        var pointer = events.Events.OfType<DefaultDecisionTakenEvent>().Should().ContainSingle().Subject;
-        (pointer.Kind, pointer.Chosen, pointer.PointerPath, pointer.Why, pointer.HoldsSeries)
-            .Should().Be((DefaultDecisionKinds.MemoryProposal, "ask-before-guessing",
-                "shop/.agentsmith/memory/ask-before-guessing.md", string.Empty, false));
-        pointer.Alternatives.Should().BeEmpty();
-        pointer.Question.Should().Be(DefaultDecisionRecorder.MemoryProposalQuestion);
-        pointer.ToString().Should().NotContain("THE SECRET BODY").And.NotContain("Ask instead of guessing");
-    }
-
-    [Fact]
-    public async Task Remember_ProjectEntry_PublishesNothing()
-    {
-        var events = new RecordingEventPublisher();
-        var host = new MemoryWriteToolHost(
-            TestRepositories.One(new InMemorySandboxFileReader()), "/work", null, Recorder(events));
-
-        await host.Remember("project", "build-order", "Contracts build first", "The fact body.");
-        await host.Remember("reference", "api-docs", "Where the docs live", "https://example.test");
-
-        events.Events.Should().BeEmpty();
     }
 
     [Fact]

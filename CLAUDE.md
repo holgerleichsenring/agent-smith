@@ -21,10 +21,14 @@
 
 `.agentsmith/memory/` holds typed Markdown facts: one file per memory with
 frontmatter `name` (slug = filename), `description` (one line), and
-`metadata.type` (`feedback` = how the operator wants the agent to work,
-ratification required; `project` = goals/constraints/state not derivable from
-code or git; `reference` = external pointers). `MEMORY.md` is the index —
-one line per memory, content never in the index.
+`metadata.type` (`feedback` = how the operator wants the agent to work;
+`project` = goals/constraints/state not derivable from code or git;
+`reference` = external pointers). `MEMORY.md` is the index — one line per
+memory, content never in the index.
+
+A memory is a **hint with a track record, never a rule**. No entry waits for a
+person's ratification: its standing is decided by the runs that use it and
+changes over time.
 
 - **Recall before re-deriving**: when the index hints at a fact you are about
   to work out from scratch, read the entry file instead.
@@ -32,10 +36,18 @@ one line per memory, content never in the index.
   next agent — one fact per file; check the index for an existing entry and
   update rather than duplicate; delete a memory that turns out wrong; link
   related memories as `[[slug]]` (a cited slug requires its committed
-  definition). A new or changed `feedback` entry is a PROPOSAL until the
-  operator ratifies it.
+  definition). Write no `status:` — nothing ratifies a memory.
+- **Say what you relied on**: a spec's `hand_forward` names the memories it
+  acted on in `relied_on`; `dispute_memory` names one that led you wrong and
+  why. What became of the spec (done confirms, failed strains) and a person's
+  not-met judgement of its criteria become the memory's evidence.
+- **Standing**: evidence fades with a 90-day half-life. An entry is `holding`
+  while its evidence is positive, `unconfirmed` otherwise, and `disputed` once
+  a contradiction leaves it negative — strains alone never dispute. A master's
+  index lists each entry with its record, holding first, and leaves disputed
+  entries out; the spec record step rewrites the labels in `MEMORY.md`.
 - **Memory vs decision**: a decision records a CHOICE (`decisions/`); a
-  memory records a transferable FACT or RULE. Never duplicate one into the
+  memory records a transferable FACT, held as a hint. Never duplicate one into the
   other.
 
 ## Minting a Spec Id

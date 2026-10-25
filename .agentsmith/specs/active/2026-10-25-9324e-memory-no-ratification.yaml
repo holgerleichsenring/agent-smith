@@ -19,7 +19,7 @@ facts:
 scope:
   in: >
     remember writes no status, publishes no memory-proposal default, and answers with the hint wording; the Defaults
-    tab no longer lists memory proposals; MasterPromptSections and MemoryEntry docs follow. Skills: memory-discipline.md
+    tab no longer lists memory proposals (the defaults read stops serving them); MasterPromptSections and MemoryEntry docs follow. Skills: memory-discipline.md
     (types table, remember text), phase-discipline.md, coding-agent-master and project-bootstrap memory sections
     describe relied_on, dispute_memory and run-decided standing; design-partner and mad-discussion add the two tools;
     coding, pr-review, security, api-security and legal masters carry {MemoryIndexSection} in body and inputs. Skills PR;
