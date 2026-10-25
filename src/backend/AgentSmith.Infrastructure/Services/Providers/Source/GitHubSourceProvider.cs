@@ -27,6 +27,7 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, 
     private readonly IGitHubClientFactory _clientFactory;
     private readonly ILogger<GitHubSourceProvider> _logger;
     private readonly GitHubPullRequestUpdater _pullRequests;
+    private readonly GitHubPullRequestMerger _merger;
     // 2026-09-13-a284: where an open pull request POINTS, separate from what it says.
     private readonly GitHubPullRequestTarget _prTarget;
     // p0500: the repository's own default branch wins; connection.DefaultBranch is the fallback.
@@ -50,6 +51,7 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, 
         _clientFactory = clientFactory;
         _logger = logger;
         _pullRequests = new GitHubPullRequestUpdater(_address, clientFactory, _token, logger);
+        _merger = new GitHubPullRequestMerger(_address, clientFactory, _token, logger);
         _prTarget = new GitHubPullRequestTarget(_address, clientFactory, _token, logger);
         _defaultBranch = new DefaultBranchResolver(
             connection.DefaultBranch, $"{_owner}/{_repo}", logger);
@@ -283,7 +285,7 @@ public sealed class GitHubSourceProvider : ISourceProvider, IPrCommentProvider, 
     // GitHub recovers everything it needs from the URL.
     public Task<PullRequestCompletion> CompletePullRequestAsync(
         string prUrl, BranchName sourceBranch, CancellationToken cancellationToken) =>
-        _pullRequests.CompleteAsync(prUrl, cancellationToken);
+        _merger.CompleteAsync(prUrl, cancellationToken);
 
     public async Task<string?> TryReadFileAsync(string path, CancellationToken cancellationToken) =>
         await _branchRead.TryReadFileAsync(path, await GetDefaultBranchAsync(CreateGitHubClient()), cancellationToken);

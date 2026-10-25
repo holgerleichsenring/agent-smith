@@ -1,18 +1,18 @@
-using AgentSmith.Contracts.Providers;
 using Microsoft.Extensions.Logging;
+using AgentSmith.Infrastructure.Models;
 using Octokit;
 
 namespace AgentSmith.Infrastructure.Services.Providers.Source;
 
 /// <summary>
 /// p0490: changes the state of an already-opened GitHub pull request, addressed by the
-/// web URL <c>CreatePullRequestAsync</c> handed back — its body, its draft flag, or
-/// whether it is merged. Opening one needs a repository, a branch and a default-branch
-/// lookup; changing one that exists needs only the number recovered from that URL,
-/// which is why the three edits share this type and its single parser.
+/// web URL <c>CreatePullRequestAsync</c> handed back — its body or its draft flag. Opening one
+/// needs a repository, a branch and a default-branch lookup; changing one that exists needs only
+/// the number recovered from that URL, which is why the edits share this type and its single
+/// parser. Merging is <see cref="GitHubPullRequestMerger"/>'s (2026-10-25-9dbbc).
 /// </summary>
 public sealed class GitHubPullRequestUpdater(
-    Models.GitHubRepoAddress address, IGitHubClientFactory clientFactory, string token, ILogger logger)
+    GitHubRepoAddress address, IGitHubClientFactory clientFactory, string token, ILogger logger)
 {
     public async Task<bool> UpdateBodyAsync(
         string prUrl, string newBody, CancellationToken cancellationToken)
@@ -51,35 +51,6 @@ public sealed class GitHubPullRequestUpdater(
         {
             logger.LogWarning(ex, "Failed to mark PR #{Pr} ready for review", prNumber);
             return false;
-        }
-    }
-
-    // p0490: branch protection answers a merge that may not happen with 405
-    // (PullRequestNotMergeableException) and a head that moved with 409
-    // (PullRequestMismatchException). Both are the platform declining, and both carry
-    // the sentence the operator needs, so every failure is reported as a refusal
-    // instead of thrown at a run that has already done its work.
-    public async Task<PullRequestCompletion> CompleteAsync(
-        string prUrl, CancellationToken cancellationToken)
-    {
-        if (!TryParsePullNumber(prUrl, out var prNumber))
-            return PullRequestCompletion.Refused($"'{prUrl}' is not a GitHub pull request URL.");
-        _ = cancellationToken;
-        try
-        {
-            var merge = await Client().PullRequest.Merge(address.Owner, address.Repo, prNumber, new MergePullRequest());
-            if (merge.Merged)
-            {
-                logger.LogInformation("PR #{Pr} merged", prNumber);
-                return PullRequestCompletion.Merged();
-            }
-            logger.LogInformation("PR #{Pr} was not merged: {Message}", prNumber, merge.Message);
-            return PullRequestCompletion.Refused(merge.Message ?? "GitHub declined the merge.");
-        }
-        catch (Exception ex)
-        {
-            logger.LogWarning(ex, "Merging PR #{Pr} was refused", prNumber);
-            return PullRequestCompletion.Refused(ex.Message);
         }
     }
 

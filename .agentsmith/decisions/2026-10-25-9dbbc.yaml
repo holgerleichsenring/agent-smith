@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=../decision.schema.json
+spec: 2026-10-25-9dbbc
+
+decisions:
+  - category: Architecture
+    chose: "GitHubPullRequestMerger owns completion (repository read, method choice, merge); CompleteAsync leaves GitHubPullRequestUpdater"
+    over: "A method chooser class the updater calls"
+    reason: "The updater was at the 120-line limit, and merging is a different question from editing a pull request's body or draft flag; moving the whole act keeps one reason to change per type and shrinks the updater to 91 lines."
+  - category: Implementation
+    chose: "A 405 moves to the next method only when the method's setting was unknown (null); a 405 on a method the settings allow is refused at once"
+    over: "Retrying on every 405"
+    reason: "With the setting known, a 405 is branch protection declining (required reviews, checks) and a second method would 405 for the same reason; retrying only hides which call carried the reason."
+  - category: Implementation
+    chose: "A failed repository read is a refusal carrying its message, like every other completion failure"
+    over: "Treating a failed read as all settings unknown"
+    reason: "The repository read uses the same token and host as the merge; a read that fails says the merge would too, and p0490 reports a completion failure as a refusal rather than guessing."
